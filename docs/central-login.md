@@ -270,3 +270,26 @@ web tests, type checks, strict lint and production build passed. A Unix-only
 vault migration test now imports its filesystem trait explicitly; its Linux
 verification belongs to CI. These results do not claim a production rollout or
 an independent security audit.
+
+## Account-bound game recovery
+
+A replacement login invalidates the old Central session but preserves the
+gateway's game and account-bound chair. The fresh client discovers its own
+resumable seats through authenticated `/lobby/seats`, even if public lobby
+pagination hides the game. Claiming that chair rotates its capability; socket
+generations prevent delayed traffic or shutdown from an older connection from
+affecting its replacement. Ordinary window close, crash and updater restart
+disconnect without an explicit table departure.
+
+The active-game hold belongs to one gateway. Leaving a multiplayer table keeps
+the participation while other humans still play; confirmed concession releases
+it immediately. Explicit departure against only AI ends the game. The engine
+provides authoritative participation endings, and admission rechecks them under
+the same lock as starting another game. See the protocol's seat-discovery and
+leaving sections for wire details and bounds.
+
+The complete pre-recovery baseline at `b31289052` passed 20,158 nextest tests
+(23 skipped), the remaining feature gates and the isolated Windows UI smoke.
+At the owner's request, final recovery changes are verified only through the
+affected client, engine, protocol, gateway and real Central integration tests;
+the full workspace matrix is not repeated locally.

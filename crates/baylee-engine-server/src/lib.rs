@@ -118,6 +118,8 @@ pub struct EngineRunner {
     lost: Vec<u8>,
     /// Whether `GameEnded` has already been reported.
     ended: bool,
+    /// Terminal seats already reported to the gateway, independently of game end.
+    participation_reported: SeatSet,
     /// The next [`v1::GameRecordChunk::seq`] (#315).
     record_seq: u32,
     /// Since when (wall ms, as last told) the record bytes not yet sent have
@@ -157,6 +159,7 @@ impl Default for EngineRunner {
             spectators: 0,
             lost: Vec::new(),
             ended: false,
+            participation_reported: SeatSet::new(),
             record_seq: 0,
             record_waiting_since: None,
             record_sent_at: 0,
@@ -1184,6 +1187,53 @@ impl EngineRunner {
     /// on the same socket, so a gateway that has read `GameEnded` has read
     /// the whole record.
     fn ending(&mut self) -> Vec<Envelope> {
+        let mut out = self.participation_endings();
+        out.extend(self.game_ending());
+        out
+    }
+
+    /// Only the rules session can release a player's active-game hold.
+    /// Emit each terminal seat once, including when other players continue.
+    /// A house-held human chair is also released once no human is still playing.
+    fn participation_endings(&mut self) -> Vec<Envelope> {
+        let Some(session) = self.session.as_ref() else {
+            return Vec::new();
+        };
+        let humans_remain = (0..session.seat_count())
+            .filter_map(|seat| u8::try_from(seat).ok())
+            .map(PlayerId::new)
+            .any(|seat| {
+                !session.has_left(seat)
+                    && session
+                        .seat_kind(seat)
+                        .is_some_and(SeatKind::answers_over_socket)
+            });
+        let mut seats = Vec::new();
+        for seat in (0..session.seat_count())
+            .filter_map(|seat| u8::try_from(seat).ok())
+            .map(PlayerId::new)
+        {
+            let finished = session.has_left(seat)
+                || (!humans_remain
+                    && matches!(session.seat_kind(seat), Some(SeatKind::StandIn(_))));
+            if finished && !self.participation_reported.contains(seat) {
+                self.participation_reported.insert(seat);
+                seats.push(u32::from(seat.get()));
+            }
+        }
+        if seats.is_empty() {
+            Vec::new()
+        } else {
+            vec![Envelope {
+                msg: Some(v1::envelope::Msg::SeatParticipationEnded(
+                    v1::SeatParticipationEnded { seats },
+                )),
+            }]
+        }
+    }
+
+    /// Final record and game-end notification, after any participation endings.
+    fn game_ending(&mut self) -> Vec<Envelope> {
         if self.ended {
             return Vec::new();
         }

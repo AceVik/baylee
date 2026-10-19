@@ -31,7 +31,8 @@ pub mod tape;
 /// Version 33 adds the damage-clearing destruction replacement prompt.
 /// Version 34 adds battle defenders and defense counters to serialized choices.
 /// Version 35 adds resolution choices for mutate positions and dungeon paths.
-pub const PROTOCOL_VERSION: u32 = 35;
+/// Version 36 requires authoritative per-seat participation endings from engines.
+pub const PROTOCOL_VERSION: u32 = 36;
 
 /// Duration of the shared portal flight; clocks start after arrival.
 pub const TABLE_ENTRANCE_MS: u64 = 1_650;

@@ -18,6 +18,7 @@ pub mod gateway_use;
 pub mod hosted;
 pub mod library;
 pub mod play;
+pub mod resume;
 pub mod room;
 pub mod shelf;
 pub mod strips;
@@ -768,6 +769,9 @@ pub enum LobbyRequest {
     },
     /// `GET /lobby/games` — one page of it.
     ListGames(GameQuery),
+    /// `GET /lobby/seats` — this account's resumable chairs, regardless of
+    /// public lobby search and pagination.
+    ListSeats,
     /// `POST /lobby/games`.
     CreateGame {
         /// The deck to sit down with.
@@ -969,6 +973,8 @@ pub enum LobbyEvent {
     Left,
     /// The tables that are open — one page of them.
     Games(GameListing),
+    /// Only this account's resumable chairs, in stable preference order.
+    Seats(resume::Listing),
     /// A chair moved: somebody sat down, said they were ready, handed the
     /// room on. What changed is not carried, because the page being read is
     /// what has to be redrawn and only this client knows which page that is.
@@ -1187,6 +1193,10 @@ pub struct Lobby {
     /// remembering only the last would let two of them ask about each other
     /// for ever.
     reclaimed: Vec<String>,
+    /// The account's own chairs, discovered independently of the public list.
+    resume_candidates: Vec<resume::Seat>,
+    /// A fresh sign-in discovers surviving chairs once the deck list arrives.
+    discover_seats: bool,
     /// The chair a client restarted into an update goes back to
     /// ([`Lobby::resume_seat`]), asked for before any other, and whether
     /// its game was being played (a table) or not yet (a waiting room).
@@ -1732,6 +1742,9 @@ impl Lobby {
     /// far dropped, and the player told what a guest is.
     fn enter_as_guest(&mut self, kept: KeptGuest) {
         self.performer = Performer::Guest(kept.token.clone());
+        self.discover_seats = true;
+        self.reclaimed.clear();
+        self.resume_candidates.clear();
         self.kept_guest = Some(kept);
         self.password.clear();
         self.password_again.clear();
@@ -2446,16 +2459,10 @@ impl Lobby {
 
     /// Asks for the ticket to a chair this player is in and holds nothing for.
     ///
-    /// Three things have to be true at once and each is a different reason.
-    /// The chair is **theirs** — `you`, which the gateway answers per account,
-    /// so it survives a restart in a way nothing on this side does. The table
-    /// is not `over`, because a finished game has no seat to hand back. And
-    /// nothing is in flight for it already: `awaiting` is a ticket we hold,
-    /// `reclaimed` one we have asked for.
-    ///
-    /// A **rematch** room is left alone. Its chair is reserved rather than
-    /// taken and only `POST …/rematch` claims one, so asking here would mint
-    /// a ticket for a table the player has not yet said they want to play.
+    /// The authenticated seat discovery proves ownership and eligibility,
+    /// excluding finished participation and unclaimed rematch reservations.
+    /// It is independent of whichever public page or search is on screen.
+    /// `awaiting` is a ticket we hold, `reclaimed` one we already asked for.
     ///
     /// Only from [`Screen::Table`]: the lobby is where a player is looking
     /// for their table. Somebody in the deck builder did not ask to be moved,
@@ -2471,27 +2478,22 @@ impl Lobby {
         if !matches!(self.screen, Screen::Table) || self.awaiting.is_some() || self.offline() {
             return None;
         }
-        // A restart's own chair first, listed or not: the page the listing
-        // holds need not reach it, and the gateway answers for whether it
-        // is still this account's.
-        if let Some((game_id, _)) = &self.resuming
-            && !self.reclaimed.iter().any(|id| id == game_id)
-        {
-            let game_id = game_id.clone();
-            self.reclaimed.push(game_id.clone());
-            self.busy = true;
-            return Some(LobbyRequest::TakeSeat { game_id });
-        }
-        let game_id = self
-            .games
+        // A known update-restart chair wins only if the gateway still lists
+        // it as resumable. Public rows cannot prove that an individual player
+        // has not already conceded or lost a still-running multiplayer game.
+        let eligible = |seat: &&resume::Seat| !self.reclaimed.iter().any(|id| id == &seat.game_id);
+        let seat = self
+            .resume_candidates
             .iter()
-            .find(|g| {
-                g.seated()
-                    && !g.rematch
-                    && g.state != "over"
-                    && !self.reclaimed.iter().any(|id| id == &g.id)
+            .filter(eligible)
+            .find(|seat| {
+                self.resuming
+                    .as_ref()
+                    .is_some_and(|(id, _)| id == &seat.game_id)
             })
-            .map(|g| g.id.clone())?;
+            .or_else(|| self.resume_candidates.iter().find(eligible))?;
+        let game_id = seat.game_id.clone();
+        self.resuming = Some((game_id.clone(), seat.playing));
         self.reclaimed.push(game_id.clone());
         self.busy = true;
         Some(LobbyRequest::TakeSeat { game_id })
@@ -3231,6 +3233,10 @@ impl Lobby {
         self.performer = Performer::Nobody;
         self.decks.clear();
         self.games.clear();
+        self.reclaimed.clear();
+        self.resume_candidates.clear();
+        self.discover_seats = false;
+        self.resuming = None;
         self.deck = None;
         self.busy = false;
         self.refreshing = false;
@@ -3304,6 +3310,9 @@ impl Lobby {
             }
             LobbyEvent::LoggedIn { token, username } => {
                 self.performer = Performer::Gateway(token);
+                self.discover_seats = true;
+                self.reclaimed.clear();
+                self.resume_candidates.clear();
                 self.password_change = None;
                 self.password.clear();
                 self.password_again.clear();
@@ -3363,7 +3372,15 @@ impl Lobby {
                     self.busy = true;
                     return Some(LobbyRequest::LoadDeck { deck_id });
                 }
+                if std::mem::take(&mut self.discover_seats) {
+                    self.busy = true;
+                    return Some(LobbyRequest::ListSeats);
+                }
                 self.list()
+            }
+            LobbyEvent::Seats(listing) => {
+                self.resume_candidates = listing.seats;
+                self.reclaim_a_seat().or_else(|| self.list())
             }
             LobbyEvent::Pool { cards, has_text } => {
                 self.builder.set_pool(cards, has_text);
@@ -3460,12 +3477,9 @@ impl Lobby {
                     self.offset = 0;
                     return self.list();
                 }
-                // A chair this player is *in* with no ticket for it is a
-                // client that restarted: the seat token was issued once and
-                // died with the process, and `join` refuses a table you are
-                // already at. The listing is what notices, because it is the
-                // only thing holding both halves of the question — that chair
-                // is mine, and I have nothing for it.
+                // If discovery found multiple chairs, another may be tried
+                // after a stale one was refused. Public ownership alone is
+                // insufficient: an eliminated player still owns that chair.
                 // A host's room offers the gateway's models from the start
                 // (D5): the list is asked as the room opens, behind what a
                 // seat needs first.

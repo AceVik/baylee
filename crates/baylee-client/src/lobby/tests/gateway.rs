@@ -28,6 +28,7 @@ fn every_request_hits_the_route_the_gateway_serves() {
             "http://gw/auth/register",
         ),
         (LobbyRequest::ListDecks, "GET", "http://gw/decks"),
+        (LobbyRequest::ListSeats, "GET", "http://gw/lobby/seats"),
         (
             LobbyRequest::SaveDeck {
                 deck_id: None,
@@ -111,6 +112,37 @@ fn every_request_hits_the_route_the_gateway_serves() {
         let (built, _) = build("http://gw", None, "en", request.clone());
         assert_eq!(built.method.as_str(), method, "{request:?}");
         assert_eq!(built.url, url, "{request:?}");
+    }
+}
+
+#[test]
+fn own_seat_discovery_decodes_the_bounded_account_relative_shape() {
+    let id = "019e7e31-0000-7000-8000-000000000001";
+    assert_eq!(
+        decode(
+            Lang::En,
+            Expect::Seats,
+            &answer(
+                200,
+                &format!(r#"{{"seats":[{{"game_id":"{id}","seat":1,"playing":true}}]}}"#)
+            )
+        ),
+        LobbyEvent::Seats(client_core::lobby::resume::Listing {
+            seats: vec![client_core::lobby::resume::Seat {
+                game_id: id.into(),
+                seat: 1,
+                playing: true
+            }],
+        })
+    );
+    for body in [
+        r#"{"seats":[{"game_id":"../auth/logout","seat":0,"playing":true}]}"#,
+        r#"{"games":[]}"#,
+    ] {
+        assert!(matches!(
+            decode(Lang::En, Expect::Seats, &answer(200, body)),
+            LobbyEvent::Failed(_)
+        ));
     }
 }
 

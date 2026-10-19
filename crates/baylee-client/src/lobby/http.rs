@@ -191,6 +191,10 @@ pub(super) fn build(
         ),
         LobbyRequest::Library(request) => library_request(base, request),
         LobbyRequest::ListDecks => (ehttp::Request::get(format!("{base}/decks")), Expect::Decks),
+        LobbyRequest::ListSeats => (
+            ehttp::Request::get(format!("{base}/lobby/seats")),
+            Expect::Seats,
+        ),
         LobbyRequest::LoadPool => (
             // Signed with the session, as every catalog route is (#270). The
             // lang decides whether names and rules text come back
@@ -465,7 +469,9 @@ fn fetch(
         return;
     }
     let signs_in = matches!(expect, Expect::LoggedIn | Expect::Guest);
-    crate::transport::fetch(request, move |result| {
+    #[cfg(not(target_arch = "wasm32"))]
+    let seats = matches!(expect, Expect::Seats);
+    let receive = move |result: ehttp::Result<ehttp::Response>| {
         // A sign-in's `terms_stale` (WG-1) is read before its event, so the
         // terms sheet knows whether to ask by the time the session lands.
         let stale = match &result {
@@ -537,7 +543,15 @@ fn fetch(
             }
             box_.push(Reply::Remote(epoch, Box::new(reply)));
         }
-    });
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    if seats {
+        crate::transport::fetch_limited(request, client_core::lobby::resume::MAX_BYTES, receive);
+    } else {
+        crate::transport::fetch(request, receive);
+    }
+    #[cfg(target_arch = "wasm32")]
+    crate::transport::fetch(request, receive);
 }
 
 /// Turns a successful response into the event the lobby is waiting for.
@@ -640,6 +654,8 @@ pub(super) fn decode(lang: Lang, expect: Expect, response: &ehttp::Response) -> 
             .map_or_else(|_| unreadable(lang, Phrase::TheDeckList), LobbyEvent::Decks),
         Expect::Games => serde_json::from_str(body)
             .map_or_else(|_| unreadable(lang, Phrase::TheGameList), LobbyEvent::Games),
+        Expect::Seats => client_core::lobby::resume::Listing::parse(body)
+            .map_or_else(|| unreadable(lang, Phrase::TheGameList), LobbyEvent::Seats),
         // The body is the whole lobby, which is not what is being read.
         Expect::Moved => LobbyEvent::Moved,
         Expect::Seat => serde_json::from_str(body)

@@ -58,10 +58,11 @@ use routes::{
     archive_replay, auth_config, bearer_token, catalog_search, catalog_text, check_pictures,
     connect_catalog, create_game, deck_routes, display_name, expand, game_cosmetics, game_ws,
     get_settings, hand_over, health, house_deck, impressum_url, info, is_bidi_control, join_game,
-    leave_game, legacy_token, list_games, list_replays, listing, listing_page, lobby_stats,
-    lobby_ws, own_deck, parse_deck_lines, put_settings, rematch, replay_tape, seat_names,
-    seat_of_token, set_ready, set_seat, share_replay, source, source_url, spend_ticket, start_room,
-    table_prints, take_seat, try_start, validate_deck, validate_the_dev_board, watch_ws, ws_ticket,
+    leave_game, legacy_token, list_games, list_replays, list_seats, listing, listing_page,
+    lobby_stats, lobby_ws, own_deck, parse_deck_lines, put_settings, rematch, replay_tape,
+    seat_names, seat_of_token, set_ready, set_seat, share_replay, source, source_url, spend_ticket,
+    start_room, table_prints, take_seat, try_start, validate_deck, validate_the_dev_board,
+    watch_ws, ws_ticket,
 };
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -469,6 +470,7 @@ async fn main() {
         .merge(social::routes::routes())
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
+        .route("/lobby/seats", get(list_seats))
         .route("/lobby/stats", get(lobby_stats))
         // Replays (`docs/protocol.md` §"Replays"): the games an account sat
         // at, and one of them played again as a tape.

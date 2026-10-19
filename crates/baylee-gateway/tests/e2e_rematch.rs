@@ -202,6 +202,26 @@ async fn both_players_press_rematch_and_land_at_the_same_new_table() {
         "the finished table is still listed: {body}"
     );
 
+    // A reservation is not consent to the rematch. Discovery returns no
+    // chair, and neither the old finished game nor the reservation can be
+    // reclaimed through the restart route.
+    let (status, body) = http(port, "GET", "/lobby/seats", Some(&tokens[1]), "");
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&body).unwrap(),
+        serde_json::json!({"seats": []})
+    );
+    for game in [&first_game, &second_game] {
+        let (status, body) = http(
+            port,
+            "POST",
+            &format!("/lobby/games/{game}/seat"),
+            Some(&tokens[1]),
+            "{}",
+        );
+        assert_eq!(status, 409, "not resumable: {body}");
+    }
+
     // And pressing the button himself joins it rather than opening a second.
     let (status, body) = press_rematch(port, &tokens[1], &first_game);
     assert_eq!(status, 200, "Ben's rematch: {body}");

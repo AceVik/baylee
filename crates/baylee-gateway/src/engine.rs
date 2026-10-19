@@ -528,6 +528,19 @@ async fn pump_engine(
                             record.flushed(done);
                         }
                     }
+                    Incoming::Msg(v1::envelope::Msg::SeatParticipationEnded(ended)) => {
+                        // This socket proved the engine capability for this game.
+                        // Never consume this evidence from a player-facing socket.
+                        let changed = {
+                            let mut lobby = state.lobby.lock();
+                            lobby.games.get_mut(game_id).is_some_and(|game| {
+                                game.end_participation(&ended.seats)
+                            })
+                        };
+                        if changed {
+                            state.lobby_moved();
+                        }
+                    }
                     Incoming::Msg(v1::envelope::Msg::GameEnded(ended)) => {
                         tracing::info!(game_id, winners = ?ended.winners, reason = ended.reason, "game over");
                         record.ended(crate::record::Ending {

@@ -3700,7 +3700,8 @@ in**, and it is not a join. It names no deck, moves nobody, and changes
 nothing another player can see; it asks one question — is this account
 sitting here — and answers the same `{game_id, seat, seat_token}` a join
 does, so everything downstream of a seat ticket is untouched. It answers in
-`waiting` **and** in `playing`, refusing only a game that is `over`, because
+`waiting` **and** in `playing`, refusing a game that is `over`, a participant
+whose participation ended, and unclaimed rematch reservations, because
 a running game is when it matters: the gateway keeps only a seat token's
 hash, so a client that restarts has lost its ticket for good, `join` then
 refuses with "you are already at this table", and the player is left watching
@@ -3719,6 +3720,31 @@ is the right way round: the seat's ticket is whatever was issued last, so a
 copy kept by some older client cannot go on answering for a seat its owner
 has taken back. The cost is that a player with the table open in two places
 keeps only the newer one, which is the same rule a password reset follows.
+
+`GET /lobby/seats` discovers the authenticated account's claimed, resumable
+chairs independently of public lobby pagination or search. It answers
+`{seats: [{game_id, seat, playing}]}` with at most 32 rows: running games first,
+then creation time descending and game ID ascending. It contains no account
+names, decks or capabilities. The client accepts at most 16 KiB, canonical UUID
+game IDs, seats 0–7 and unique game IDs. After login and deck restoration it
+discovers its chairs before asking for a public lobby page. A replacement
+device therefore needs only its fresh account authentication; no previous
+session, game ID or seat token is needed.
+
+Protocol 36 requires `SeatParticipationEnded` from the authenticated engine
+link. The gateway never accepts a client's assertion that participation ended.
+An unfinished running participation blocks creating, joining, starting or
+rematching another game on that gateway with HTTP 409. A confirmed concession
+or elimination releases that player immediately; a house-held chair is also
+released when no human remains playing. Other gateways are independent.
+Both competing room starts recheck all seated accounts under the lobby lock
+immediately before becoming running games. Waiting rooms alone impose no hold.
+
+Each seat socket has its own generation. Ownership checks and engine enqueues
+are serialized under the lobby lock: a delayed old attach, action, resync or
+disconnect cannot replace or detach the current socket. Terminal participation
+cannot acquire or exercise a seat capability again; already queued final views
+may still be delivered to its existing connection.
 
 `/pool` is the deck builder's card list. It answers a signed-in session
 only (#270), as `/printings`, `/catalog/text` and `/art` do: its rows carry
@@ -3854,14 +3880,15 @@ not ask simply plays with generated backs.
 
 ### Leaving, and losing the connection
 
-The owner's report on beta.6 (10.10.2026): signed in, opened a room, closed
-the client — and the room stayed, with him in it. A waiting room has no
-engine to hold a chair, and nothing tied a room to its players' sockets.
-Two different things can happen to a player, and they are kept apart:
+Closing the application and explicitly leaving a table are different
+actions (owner, 19.10.2026). Window close, macOS Quit, an update restart,
+network loss and a crash all preserve the running game's reconnect path.
+A waiting room has no engine to hold a chair, so its separate grace period
+still applies. The gateway distinguishes these two cases:
 
-**Leaving on purpose.** A client that quits normally (window closed, ⌘Q,
-app exit; `crates/baylee-client/src/lobby/departure.rs`, natively) sends
-`POST /lobby/depart` with its session on the way out, waiting at most 2 s.
+**Leaving on purpose.** The explicit table-leave action sends
+`POST /lobby/depart` with its session. Application shutdown never sends
+this request, including a direct Bevy `World::clear_all` during macOS Quit.
 The gateway acts at once (`204` whether or not there was anything to
 leave): it stands the account up from every **waiting room** exactly as its
 own `POST …/leave` would (`LobbyGame::leave`: the room passes to whoever has
@@ -3869,11 +3896,10 @@ been there longest, or closes when nobody is left; every lobby feed is
 pushed the change), and tells the engine of every **running game** it sits
 in `SeatDetached { left: true }`. The engine hands the chair to the house at
 once if another player's chair is still answered by a player, and otherwise
-concedes for every chair the house holds, which ends the game. A restart into
-an update or a moved copy sends nothing: it is coming straight back.
+concedes for every chair the house holds, which ends the game.
 
-**Losing the connection** (a crash, the network, a lid closed). Nothing is
-said, so the gateway waits:
+**Losing the connection** (window or application close, a restart, a crash,
+the network, a lid closed). No departure request is sent, so the gateway waits:
 
 - *Presence* follows the sockets with no grace: `players_online` drops the
   moment the account's last socket — `/lobby/ws`, or its own chair's seat

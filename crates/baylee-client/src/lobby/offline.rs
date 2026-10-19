@@ -307,6 +307,11 @@ impl Offline {
                     .into_iter()
                     .collect(),
             )),
+            // An offline engine cannot survive this process. Only the online
+            // sign-in flow asks, but the performer still answers exhaustively.
+            LobbyRequest::ListSeats => {
+                LobbyEvent::Seats(client_core::lobby::resume::Listing::default())
+            }
             LobbyRequest::CreateGame {
                 deck_id,
                 mode,

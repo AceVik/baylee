@@ -9336,6 +9336,14 @@ first-start warning the downloaded archive gave. What the live check of
 
 ## Restarting into an update
 
+Closing the native window or application is a disconnect, including macOS
+Quit's direct `World::clear_all`: it never sends `POST /lobby/depart`.
+There is no shutdown resource retaining a second session-token copy and no
+global restart exception flag. The hosted game's reconnect policy applies
+to both ordinary shutdown and updater relaunch; explicit table actions
+remain separate. Native lobby tests exercise the real window-close systems
+and direct world teardown against a bounded loopback HTTP recorder.
+
 The owner, 09.10.2026 (beta.6): when an update is ready, the client
 suggests a restart, and after it the player goes on at exactly the same
 point, in a game too.

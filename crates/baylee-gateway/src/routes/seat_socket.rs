@@ -7,6 +7,9 @@ use crate::{
     lobby, seatrate, spend_ticket, v1, wsticket,
 };
 
+mod ownership;
+use ownership::{Connection, Ownership};
+
 pub(crate) async fn game_ws(
     State(state): State<Shared>,
     Path(id): Path<String>,
@@ -68,6 +71,15 @@ pub(crate) async fn game_ws(
     };
     let authorization = SeatAuthorization::read(&state, &id, seat, &hash)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
+    // Reserve before the first asynchronous check: an older upgrade may finish
+    // its Central request after a newer socket has already attached.
+    let ownership = state
+        .lobby
+        .lock()
+        .games
+        .get_mut(&id)
+        .and_then(|game| Ownership::reserve(game, seat, &hash))
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
     if !authorization.valid(&state, &id, seat).await {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     }
@@ -83,7 +95,9 @@ pub(crate) async fn game_ws(
         .max_message_size(MAX_SEAT_FRAME)
         .max_frame_size(MAX_SEAT_FRAME)
         .read_buffer_size(SEAT_READ_BUFFER)
-        .on_upgrade(move |socket| run_game_socket(state, id, seat, authorization, socket)))
+        .on_upgrade(move |socket| {
+            run_game_socket(state, id, seat, authorization, ownership, socket)
+        }))
 }
 
 /// Frozen authorization of the socket, never replaced by a later device reclaiming a seat.
@@ -272,15 +286,6 @@ pub(crate) fn holds_token(game: &lobby::LobbyGame, seat: usize) -> bool {
         .is_some_and(|chair| chair.seat_token_hash.is_some())
 }
 
-/// [`holds_token`] for a game named by id, which is gone once reaped.
-pub(crate) fn still_seated(state: &Shared, game_id: &str, seat: usize) -> bool {
-    let lobby = state.lobby.lock();
-    lobby
-        .games
-        .get(game_id)
-        .is_some_and(|game| holds_token(game, seat))
-}
-
 /// Closes a seat socket that sent more than its allowance (#284), with 1008
 /// and a line in the log.
 ///
@@ -337,8 +342,8 @@ pub(crate) struct Attached {
     rx: tokio::sync::broadcast::Receiver<bytes::Bytes>,
     /// The lobby's changes, for a chair that loses its seat token.
     changed: tokio::sync::broadcast::Receiver<()>,
-    /// The game's engine.
-    link: lobby::EngineLink,
+    /// Exclusive engine ownership, including cancellation-safe departure.
+    connection: Connection,
 }
 
 /// Subscribes seat `seat` of `game_id`, waits for its engine and tells it
@@ -348,6 +353,7 @@ async fn attach(
     game_id: &str,
     seat: usize,
     authorization: &SeatAuthorization,
+    ownership: Ownership,
 ) -> Option<Attached> {
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
     // own first view; every envelope addressed to this seat arrives here,
@@ -375,17 +381,19 @@ async fn attach(
     if !authorization.valid(state, game_id, seat).await {
         return None;
     }
-    let link = state
-        .lobby
-        .lock()
-        .games
-        .get(game_id)
-        .and_then(|game| game.engine.clone())?;
-    let attach = v1::envelope::Msg::SeatAttached(v1::SeatAttached {
-        seat: seat as u32,
-        resync: false,
-    });
-    to_engine(&link, attach).then_some(Attached { rx, changed, link })
+    let link = ownership.attach(state.lobby.lock().games.get_mut(game_id)?, seat)?;
+    let connection = Connection {
+        state: state.clone(),
+        game: game_id.into(),
+        seat,
+        ownership,
+        link,
+    };
+    Some(Attached {
+        rx,
+        changed,
+        connection,
+    })
 }
 
 /// Sends `first` and up to 64 immediately queued frames from `rx` in a single
@@ -424,14 +432,15 @@ pub(crate) async fn send_broadcast_batch(
 /// rules kernel, and the whole point of the engine plane is that it does not
 /// have to.
 ///
-/// Neither direction takes the lobby lock per frame: the socket holds the
-/// engine's link and its seat's channel from the moment it attaches, so a
-/// listing being rendered for the lobby never holds up a game.
-pub(crate) async fn run_game_socket(
+/// Ownership checks and synchronous engine enqueues share the lobby lock, so
+/// an old socket cannot act or detach after a replacement attaches. Network I/O
+/// and Central authorization always happen outside that critical section.
+async fn run_game_socket(
     state: Shared,
     game_id: String,
     seat: usize,
     authorization: SeatAuthorization,
+    ownership: Ownership,
     mut socket: WebSocket,
 ) {
     if !authorization.valid(&state, &game_id, seat).await {
@@ -440,8 +449,8 @@ pub(crate) async fn run_game_socket(
     let Some(Attached {
         mut rx,
         mut changed,
-        link,
-    }) = attach(&state, &game_id, seat, &authorization).await
+        connection,
+    }) = attach(&state, &game_id, seat, &authorization, ownership).await
     else {
         return;
     };
@@ -458,7 +467,7 @@ pub(crate) async fn run_game_socket(
     loop {
         tokio::select! {
             _ = recheck.tick() => {
-                if !authorization.valid(&state, &game_id, seat).await { break; }
+                if !connection.active() || !authorization.valid(&state, &game_id, seat).await { break; }
             }
             frame = socket.recv() => {
                 if let Some(Ok(_)) = &frame {
@@ -480,7 +489,7 @@ pub(crate) async fn run_game_socket(
                             seat: seat as u32,
                             envelope: data,
                         });
-                        if !to_engine(&link, tagged) {
+                        if !connection.send(tagged) {
                             break;
                         }
                     }
@@ -492,6 +501,7 @@ pub(crate) async fn run_game_socket(
             update = rx.recv() => {
                 let lagged = match update {
                     Ok(bytes) => {
+                        if !connection.active() { break; }
                         let Ok(lagged) = send_broadcast_batch(&mut socket, bytes, &mut rx).await
                         else {
                             break;
@@ -510,7 +520,7 @@ pub(crate) async fn run_game_socket(
                         seat: seat as u32,
                         resync: true,
                     });
-                    if !to_engine(&link, resync) {
+                    if !authorization.valid(&state, &game_id, seat).await || !connection.send(resync) {
                         break;
                     }
                 }
@@ -519,7 +529,7 @@ pub(crate) async fn run_game_socket(
             // house's once the engine hears the seat has gone, and the
             // socket goes now.
             news = changed.recv() => {
-                if matches!(news, Err(RecvError::Closed)) || !still_seated(&state, &game_id, seat) {
+                if matches!(news, Err(RecvError::Closed)) || !connection.active() {
                     break;
                 }
             }
@@ -533,20 +543,19 @@ pub(crate) async fn run_game_socket(
         largest_burst = meter.largest_burst(),
         "seat socket closed"
     );
-    let _ = socket.send(Message::Close(None)).await;
     // The engine runs a decision clock only for a seat that can answer, so it
-    // has to be told when one walks away.
-    to_engine(
-        &link,
-        v1::envelope::Msg::SeatDetached(v1::SeatDetached {
-            seat: seat as u32,
-            left: false,
-        }),
-    );
+    // hears departure before network closing can wait. A replaced socket's
+    // guard cannot detach its successor; cancellation drops the guard too.
+    drop(connection);
     drop(present);
     if let Some(account) = account {
         crate::departure::socket_closed(&state, &account);
     }
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        socket.send(Message::Close(None)),
+    )
+    .await;
 }
 
 /// Delegated bridge sockets do not count as a player's own online presence.

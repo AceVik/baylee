@@ -39,6 +39,10 @@ fn seated_lobby() -> Lobby {
             commanders: Vec::new(),
             ..Default::default()
         }])),
+        Some(LobbyRequest::ListSeats)
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Seats(resume::Listing::default())),
         Some(LobbyRequest::ListGames(lobby.query()))
     );
     lobby.apply(LobbyEvent::Games(GameListing::default()));

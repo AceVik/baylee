@@ -58,7 +58,12 @@ async fn while_the_hold_file_exists_no_game_starts_and_running_ones_go_on() {
     let one_tap = format!("{{\"deck_id\":\"{deck}\",\"mode\":\"ai\"}}");
 
     assert_eq!(health(port)["admission"], "open");
-    let (status, body) = http(port, "POST", "/lobby/games", Some(&host), &one_tap);
+    // The already-running player is independent of the player asking to
+    // start during deployment; account participation has its own admission gate.
+    let playing = login(port, "hold-playing", "Playing");
+    let playing_deck = make_deck(port, &playing);
+    let running = format!("{{\"deck_id\":\"{playing_deck}\",\"mode\":\"ai\"}}");
+    let (status, body) = http(port, "POST", "/lobby/games", Some(&playing), &running);
     assert_eq!(status, 200, "open: {body}");
     let waiting_room = room(port, &host, &deck);
     assert_eq!(health(port)["games"]["running"], 1);

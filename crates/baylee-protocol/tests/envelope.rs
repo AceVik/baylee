@@ -128,6 +128,17 @@ fn a_game_end_lists_its_winners_in_order() {
 }
 
 #[test]
+fn terminal_participation_lists_only_its_seats() {
+    let ended = v1::SeatParticipationEnded {
+        seats: vec![0, 2, 7],
+    };
+    assert_eq!(
+        trip(Msg::SeatParticipationEnded(ended.clone())),
+        Msg::SeatParticipationEnded(ended)
+    );
+}
+
+#[test]
 fn clock_probes_and_heartbeats_keep_their_64_bit_times() {
     let probe = v1::ClockProbe {
         client_time_ms: u64::MAX - 1,

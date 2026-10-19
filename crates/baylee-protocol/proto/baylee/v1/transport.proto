@@ -393,6 +393,14 @@ message GameEnded {
   uint32 turn = 4;
 }
 
+// Engine -> gateway only: these seats lost, conceded, or were left to the
+// house and no human remains playing. Monotonic, game-scoped evidence for
+// releasing admission holds, never a client claim. A disconnect alone does
+// not end participation.
+message SeatParticipationEnded {
+  repeated uint32 seats = 1;
+}
+
 // Gateway → engine, engine link only: instead of a `GameSetup`, play this
 // game record again and send back the tape one perspective of it is sent
 // (docs/protocol.md §"Replays"). The engine was started for a job, not a
@@ -572,6 +580,7 @@ message Envelope {
     // before them passes over either.
     ProjectRecord project_record = 40;
     TapeChunk tape_chunk = 41;
+    SeatParticipationEnded seat_participation_ended = 42;
   }
 
 }

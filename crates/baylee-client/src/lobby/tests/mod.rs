@@ -28,6 +28,8 @@ mod printings;
 mod report;
 mod settings;
 mod shortcuts;
+#[cfg(not(target_arch = "wasm32"))]
+mod shutdown;
 mod sign_in;
 mod tables;
 mod transfer;

@@ -242,7 +242,14 @@ fn check_revocation(
         .unwrap();
     let mut newer = sdk::login(http, identity, "a-very-fine-password".into()).unwrap();
     newer.confirm_restored(http).unwrap();
+    // Do not wait for the old socket's periodic check first: a replacement
+    // installation must attach while that old connection is still winding down.
+    let fresh = admit(gateway.port, &newer, http, origin, false);
+    let mut resumed = seat::ResumedSeat::claim(runtime, gateway, &fresh);
+    assert_eq!(resumed.game, game_id);
+    assert_ne!(resumed.token, seat_token);
     active.assert_revoked(runtime);
+    resumed.assert_continues(runtime, &active.opening);
     assert_eq!(
         common::http(gateway.port, "GET", "/me", Some(player), "").0,
         401
@@ -276,7 +283,6 @@ fn check_revocation(
         .expect("old idle lobby socket must close after central replacement");
     });
     assert!(owner.check_active(http).is_err());
-    let fresh = admit(gateway.port, &newer, http, origin, false);
     assert_eq!(
         gateway.scalar("SELECT count(*) FROM account WHERE central_only"),
         1,

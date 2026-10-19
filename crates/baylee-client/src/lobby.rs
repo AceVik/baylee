@@ -83,10 +83,8 @@ impl Plugin for LobbyPlugin {
         app.add_systems(Last, decks::flush_on_exit);
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, central::sync_gateways);
-        // Quitting tells the gateway, so the rooms and tables act at once.
-        #[cfg(not(target_arch = "wasm32"))]
-        app.init_resource::<departure::Departure>()
-            .add_systems(Last, departure::track);
+        // Closing the application only disconnects. Explicit table actions
+        // alone may depart; dropping the World must leave the seat resumable.
         crate::vista::install(app);
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
@@ -943,6 +941,8 @@ enum Expect {
     AccountDeleted,
     /// A game list.
     Games,
+    /// This account's resumable chairs, independent of public lobby pages.
+    Seats,
     /// Something at a table changed. The body says what the whole lobby
     /// looks like, which is not the page this client is reading — so it is
     /// the fact that is taken, and the page is asked for again.
@@ -959,8 +959,6 @@ mod build_press;
 mod clicks;
 mod confirm;
 mod decks;
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) mod departure;
 pub(crate) mod dock;
 mod editing;
 mod end_screen;

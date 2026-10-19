@@ -95,7 +95,9 @@ pub(crate) async fn create_game(
             let mut game = LobbyGame::playing(game_id.clone(), seats, preset, auth::now_secs());
             game.house_rules = house_rules;
             game.allow_spectators = body.allow_spectators.unwrap_or(true);
-            state.lobby.lock().games.insert(game_id.clone(), game);
+            let mut lobby = state.lobby.lock();
+            super::participation::account(&lobby, &account_id, None)?;
+            lobby.games.insert(game_id.clone(), game);
         }
         if let Err(reason) = engine::start_engine(&state, &game_id) {
             state.lobby.lock().games.remove(&game_id);
@@ -122,6 +124,7 @@ pub(crate) async fn create_game(
     }
     {
         let mut lobby = state.lobby.lock();
+        super::participation::account(&lobby, &account_id, None)?;
         let mut game = LobbyGame::blank(game_id.clone(), auth::now_secs());
         game.state = LobbyState::Waiting;
         game.host = Some(account_id.clone());
@@ -183,6 +186,7 @@ pub(crate) async fn join_game(
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
+        super::participation::account(&lobby, &account_id, None)?;
         let game = lobby
             .games
             .get_mut(&id)
@@ -300,10 +304,20 @@ pub(crate) async fn take_seat(
         if game.state == LobbyState::Over {
             return Err(err(StatusCode::CONFLICT, "that game is over"));
         }
+        if !game
+            .seats
+            .iter()
+            .any(|seat| seat.account_id.as_ref() == Some(&account_id))
+        {
+            return Err(err(StatusCode::FORBIDDEN, "you are not at this table"));
+        }
+        let seat = game
+            .resumable_seat(&account_id)
+            .ok_or_else(|| err(StatusCode::CONFLICT, "that chair cannot be resumed"))?;
         let chair = game
             .seats
             .iter_mut()
-            .find(|s| s.account_id.as_ref() == Some(&account_id))
+            .find(|s| s.seat == seat)
             .ok_or_else(|| err(StatusCode::FORBIDDEN, "you are not at this table"))?;
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
         chair.central_session = central_session;

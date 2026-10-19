@@ -373,6 +373,7 @@ pub(crate) async fn try_start(
         if game.state != LobbyState::Waiting || !game.all_ready() {
             return Ok(false);
         }
+        super::participation::room(&lobby, id)?;
         let mut preset = room_preset(&state.blocks, &game.seats, seed)?;
         preset.house_rules = game.house_rules.clone();
         baylee_cards::decks::apply_room_setup(&mut preset, &game.setup)
@@ -384,6 +385,9 @@ pub(crate) async fn try_start(
     let prints = table_prints(&preset);
     {
         let mut lobby = state.lobby.lock();
+        // A different waiting room can start during hydration. Recheck every
+        // account immediately before the same locked transition to Playing.
+        super::participation::room(&lobby, id)?;
         let Some(game) = lobby.games.get_mut(id) else {
             return Ok(false);
         };

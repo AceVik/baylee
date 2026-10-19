@@ -3,6 +3,7 @@ use super::*;
 mod clocks;
 mod curtain;
 mod moderation;
+mod participation;
 mod projection;
 mod record;
 mod spectators;

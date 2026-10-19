@@ -637,7 +637,6 @@ fn relocate_on_request(
                 match started {
                     Ok(()) => {
                         info!("updates: moved; the copy is starting, this one quits");
-                        crate::lobby::departure::restarting();
                         exit.write(AppExit::Success);
                     }
                     Err(why) => {

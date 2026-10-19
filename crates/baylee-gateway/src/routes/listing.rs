@@ -66,3 +66,15 @@ pub(crate) async fn list_games(
     let account_id = authed(&state, &headers).await?;
     Ok(Json(listing_page(&state, &account_id, &query).await))
 }
+
+/// The authenticated account's resumable chairs. No public query, names,
+/// decks, account IDs or credentials are accepted or returned.
+pub(crate) async fn list_seats(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    let account_id = authed(&state, &headers).await?;
+    Ok(Json(serde_json::json!({
+        "seats": state.lobby.lock().resumable_for(&account_id),
+    })))
+}

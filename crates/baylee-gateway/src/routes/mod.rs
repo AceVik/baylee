@@ -8,6 +8,7 @@ mod decks;
 mod info;
 mod listing;
 mod lobby_feed;
+mod participation;
 mod rematch;
 mod replays;
 mod rooms;

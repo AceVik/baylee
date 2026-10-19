@@ -55,6 +55,14 @@ pub struct LobbySeat {
     /// Central-backed session that authorized this capability. A newly authenticated
     /// device must reclaim the seat; an old capability never inherits the new session.
     pub central_session: Option<Vec<u8>>,
+    /// Latest socket admission attempt; a delayed older attempt cannot attach later.
+    pub(crate) socket_pending: Option<uuid::Uuid>,
+    /// Socket currently announced to the engine. Only this owner may detach it.
+    pub(crate) socket_owner: Option<uuid::Uuid>,
+    /// The authenticated engine confirmed this participation ended: loss,
+    /// concession, or a house-held chair after every human stopped playing.
+    /// A dropped connection alone never sets this.
+    pub(crate) participation_ended: bool,
     /// The deck the seat plays.
     pub deck_name: String,
     /// The seat's full deck. Present once the seat has one — a human's own
@@ -152,6 +160,9 @@ impl LobbySeat {
             account_id: None,
             seat_token_hash: None,
             central_session: None,
+            socket_pending: None,
+            socket_owner: None,
+            participation_ended: false,
             deck_name: String::new(),
             deck: None,
             said_ready: false,
@@ -222,9 +233,8 @@ impl LobbySeat {
     ///
     /// The mirror of [`LobbySeat::vacate`] and the same trap — a field
     /// forgotten here carries something of the finished game into the new
-    /// one. Exactly two must not travel. A seat token names one game for the
-    /// whole of its life, and `said_ready` is a statement about *this* table
-    /// that only the player pressing the button gets to make.
+    /// one. Capabilities, session/socket ownership and readiness name this game
+    /// alone; a player claims fresh authority at the next table.
     ///
     /// A host's delegate does not travel at all: its bridge plays one game
     /// and is gone, and nothing could claim the chair for it at the next
@@ -240,6 +250,9 @@ impl LobbySeat {
         Self {
             seat_token_hash: None,
             central_session: None,
+            socket_pending: None,
+            socket_owner: None,
+            participation_ended: false,
             said_ready: false,
             ..self.clone()
         }
@@ -371,6 +384,43 @@ pub struct LobbyGame {
 }
 
 impl LobbyGame {
+    /// Applies terminal-seat evidence from this game's authenticated engine.
+    /// Validate the entire bounded report before releasing any admission hold.
+    pub(crate) fn end_participation(&mut self, seats: &[u32]) -> bool {
+        if self.state != LobbyState::Playing
+            || seats.len() > self.seats.len()
+            || seats
+                .iter()
+                .any(|&seat| usize::try_from(seat).map_or(true, |seat| seat >= self.seats.len()))
+        {
+            return false;
+        }
+        let mut changed = false;
+        for &seat in seats {
+            let chair = &mut self.seats[seat as usize];
+            changed |= !chair.participation_ended;
+            chair.participation_ended = true;
+        }
+        changed
+    }
+
+    /// A claimed, unfinished chair belonging to this account. A rematch
+    /// reservation has no token yet and must be accepted through `/rematch`.
+    #[must_use]
+    pub fn resumable_seat(&self, account: &str) -> Option<usize> {
+        if self.state == LobbyState::Over {
+            return None;
+        }
+        self.seats
+            .iter()
+            .find(|seat| {
+                seat.account_id.as_deref() == Some(account)
+                    && seat.seat_token_hash.is_some()
+                    && !seat.participation_ended
+            })
+            .map(|seat| seat.seat)
+    }
+
     /// The host consents by pressing Start; other humans explicitly get ready.
     #[must_use]
     pub fn seat_ready(&self, seat: &LobbySeat) -> bool {
@@ -886,6 +936,44 @@ impl Lobby {
         (rows, total)
     }
 
+    /// At most 32 of this account's own resumable chairs, independent of any
+    /// public search or page. Running games precede waiting rooms, then newer
+    /// games first and IDs as a stable tie-breaker. The temporary collection
+    /// stays bounded even if a legacy account owns many rooms.
+    #[must_use]
+    pub fn resumable_for(&self, account: &str) -> Vec<serde_json::Value> {
+        const LIMIT: usize = 32;
+        let mut games: Vec<(&LobbyGame, usize)> = Vec::with_capacity(LIMIT + 1);
+        for game in self.games.values() {
+            let Some(seat) = game.resumable_seat(account) else {
+                continue;
+            };
+            let key = |g: &LobbyGame| {
+                (
+                    u8::from(g.state != LobbyState::Playing),
+                    std::cmp::Reverse(g.created_at),
+                )
+            };
+            let at = games.partition_point(|(old, _)| {
+                key(old).cmp(&key(game)).then(old.id.cmp(&game.id)).is_lt()
+            });
+            if at < LIMIT {
+                games.insert(at, (game, seat));
+                games.truncate(LIMIT);
+            }
+        }
+        games
+            .into_iter()
+            .map(|(game, seat)| {
+                serde_json::json!({
+                    "game_id": game.id,
+                    "seat": seat,
+                    "playing": game.state == LobbyState::Playing,
+                })
+            })
+            .collect()
+    }
+
     /// Every visible game, for a caller that wants no paging at all.
     #[must_use]
     pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
@@ -1028,6 +1116,9 @@ mod tests {
             account_id: Some(account.into()),
             seat_token_hash: Some("hash".into()),
             central_session: Some(vec![7; 32]),
+            socket_pending: Some(uuid::Uuid::now_v7()),
+            socket_owner: Some(uuid::Uuid::now_v7()),
+            participation_ended: false,
             deck_name: "Deck".into(),
             deck: Some(deck()),
             said_ready: true,
@@ -1069,6 +1160,65 @@ mod tests {
         rows.iter()
             .map(|r| r["id"].as_str().unwrap_or_default().to_string())
             .collect()
+    }
+
+    #[test]
+    fn own_seat_discovery_is_bounded_stable_private_and_excludes_reservations() {
+        let mut lobby = Lobby::default();
+        for index in 0..40 {
+            let id = format!("own-{index:02}");
+            room_in(
+                &mut lobby,
+                &id,
+                "private name",
+                "owner",
+                index,
+                LobbyState::Waiting,
+            );
+            lobby.games.get_mut(&id).unwrap().seats[0] = occupied(0, "owner", 0);
+        }
+        for (id, owner, state, token, ended) in [
+            ("live-a", "owner", LobbyState::Playing, true, false),
+            ("live-b", "owner", LobbyState::Playing, true, false),
+            ("finished", "owner", LobbyState::Over, true, false),
+            ("reserved", "owner", LobbyState::Waiting, false, false),
+            ("conceded", "owner", LobbyState::Playing, true, true),
+            ("stranger", "someone-else", LobbyState::Playing, true, false),
+        ] {
+            room_in(&mut lobby, id, "hidden deck and name", owner, 100, state);
+            let game = lobby.games.get_mut(id).unwrap();
+            game.seats[0] = occupied(0, owner, 0);
+            game.seats[0].participation_ended = ended;
+            if !token {
+                game.seats[0].seat_token_hash = None;
+            }
+            // A running, accepted rematch is resumable; an unclaimed one is not.
+            if id == "live-a" || id == "reserved" {
+                game.parent = Some("old".into());
+            }
+        }
+        let seats = lobby.resumable_for("owner");
+        assert_eq!(seats.len(), 32);
+        assert_eq!(
+            seats[0],
+            serde_json::json!({"game_id":"live-a", "seat":0, "playing":true})
+        );
+        assert_eq!(seats[1]["game_id"], "live-b");
+        assert_eq!(seats[2]["game_id"], "own-39");
+        assert_eq!(seats.last().unwrap()["game_id"], "own-10");
+        assert_eq!(
+            lobby.resumable_for("owner"),
+            seats,
+            "HashMap iteration never decides priority"
+        );
+        assert!(lobby.resumable_for("unknown").is_empty());
+        assert_eq!(lobby.resumable_for("someone-else").len(), 1);
+        for seat in seats {
+            assert_eq!(seat.as_object().unwrap().len(), 3);
+        }
+        for id in ["finished", "reserved", "conceded", "stranger"] {
+            assert_eq!(lobby.games[id].resumable_seat("owner"), None);
+        }
     }
 
     fn names_of(pairs: &[(&str, &str)]) -> HashMap<String, String> {
@@ -1322,6 +1472,8 @@ mod tests {
         assert_eq!(seat.account_id, None);
         assert_eq!(seat.seat_token_hash, None);
         assert_eq!(seat.central_session, None);
+        assert_eq!(seat.socket_pending, None);
+        assert_eq!(seat.socket_owner, None);
         assert_eq!(seat.deck_name, String::new());
         assert!(seat.deck.is_none());
         assert!(!seat.said_ready);
@@ -1349,11 +1501,15 @@ mod tests {
 
         assert_eq!(next.seat_token_hash, None);
         assert_eq!(next.central_session, None);
+        assert_eq!(next.socket_pending, None);
+        assert_eq!(next.socket_owner, None);
         assert!(!next.said_ready);
 
         let mut without = next;
         without.seat_token_hash = seat.seat_token_hash.clone();
         without.central_session.clone_from(&seat.central_session);
+        without.socket_pending = seat.socket_pending;
+        without.socket_owner = seat.socket_owner;
         without.said_ready = seat.said_ready;
         assert_eq!(
             format!("{without:?}"),

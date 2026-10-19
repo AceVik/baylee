@@ -1013,11 +1013,15 @@ async fn the_house_deck_is_checked_for_an_ai_chair_and_the_one_tap_game() {
     );
     assert_eq!(status, 200, "start: {body}");
 
+    // A different account tests the one-tap path: the room's host is now
+    // playing and may not open a second simultaneous game on this gateway.
+    let one_tap_player = login(port, "house-one-tap", "OneTap");
+    let one_tap_deck = save_deck(port, &one_tap_player, &lands("One Tap Lands"));
     let (status, body) = post(
         port,
-        &host,
+        &one_tap_player,
         "/lobby/games",
-        &json!({ "deck_id": deck, "mode": "ai" }),
+        &json!({ "deck_id": one_tap_deck, "mode": "ai" }),
     );
     assert_eq!(status, 200, "one tap, nothing blocked: {body}");
 }

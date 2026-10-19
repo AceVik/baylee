@@ -84,6 +84,7 @@ pub(crate) async fn rematch(
         .collect();
     let (room_id, seat) = {
         let mut lobby = state.lobby.lock();
+        super::participation::account(&lobby, &account_id, None)?;
         // `played` is `None` when the caller addressed the rematch room
         // itself, which is then the room and there is nothing to open.
         let room_id = if played.is_none() {

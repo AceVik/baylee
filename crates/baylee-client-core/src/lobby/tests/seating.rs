@@ -185,38 +185,24 @@ fn joining_a_room_waits_for_it_to_start_like_opening_one_does() {
 /// way into it: the seat token had died with the process, and `join`
 /// refuses a table you are already at.
 ///
-/// Nothing on this side remembers a seat across a restart, so the listing
-/// is what notices — it is the only thing holding both halves of the
-/// question, that the chair is theirs and that we have nothing for it.
+/// Nothing on this side remembers a seat across a restart. Account-bound
+/// discovery finds it even when the public page and search cannot.
 #[test]
 fn a_restarted_client_asks_for_the_chair_it_is_still_sitting_in() {
     let mut lobby = seated_lobby();
-    let mine = |state: &str| {
-        GameListing::of(vec![GameSummary {
-            id: "g1".to_string(),
-            state: state.to_string(),
-            seats: vec![
-                GameSeat {
-                    seat: 0,
-                    taken: true,
-                    ready: true,
-                    ..GameSeat::default()
-                },
-                GameSeat {
-                    seat: 1,
-                    taken: true,
-                    ready: true,
-                    you: true,
-                    ..GameSeat::default()
-                },
-            ],
-            ..GameSummary::default()
-        }])
+    lobby.set_field(Field::Search, "unrelated tables");
+    lobby.apply(LobbyEvent::Games(GameListing::of(a_page(PAGE))));
+    let discovered = resume::Listing {
+        seats: vec![resume::Seat {
+            game_id: "g1".into(),
+            seat: 1,
+            playing: true,
+        }],
     };
 
     // A fresh lobby, holding no ticket, reading a table it is sitting at.
     assert_eq!(
-        lobby.apply(LobbyEvent::Games(mine("playing"))),
+        lobby.apply(LobbyEvent::Seats(discovered)),
         Some(LobbyRequest::TakeSeat {
             game_id: "g1".to_string()
         })
@@ -259,7 +245,13 @@ fn a_chair_is_asked_for_once_however_often_the_lobby_is_read() {
     let listing = |g: &GameSummary| GameListing::of(vec![g.clone()]);
 
     assert_eq!(
-        lobby.apply(LobbyEvent::Games(listing(&mine))),
+        lobby.apply(LobbyEvent::Seats(resume::Listing {
+            seats: vec![resume::Seat {
+                game_id: "g1".into(),
+                seat: 0,
+                playing: false
+            }],
+        })),
         Some(LobbyRequest::TakeSeat {
             game_id: "g1".to_string()
         }),
@@ -484,20 +476,13 @@ fn signing_out_forgets_a_table_we_were_waiting_at() {
 /// A client restarted into an update knows which chair it left: it asks
 /// for that one first, even when the listing's page does not show it and
 /// another chair of the player's does, and goes to the table or the room
-/// as the restart says rather than as a listing without it would guess.
+/// as account-bound discovery confirms, rather than guessing from a page.
 #[test]
 fn a_restart_goes_back_to_the_chair_it_left_before_any_other() {
-    let other = |id: &str| GameSummary {
-        id: id.to_string(),
-        state: "playing".to_string(),
-        seats: vec![GameSeat {
-            seat: 0,
-            taken: true,
-            ready: true,
-            you: true,
-            ..GameSeat::default()
-        }],
-        ..GameSummary::default()
+    let discovered = |id: &str, playing| resume::Seat {
+        game_id: id.to_string(),
+        seat: 1,
+        playing,
     };
     let seat = |id: &str| SeatHandover {
         game_id: id.to_string(),
@@ -509,7 +494,9 @@ fn a_restart_goes_back_to_the_chair_it_left_before_any_other() {
     let mut lobby = seated_lobby();
     lobby.resume_seat("left", true);
     assert_eq!(
-        lobby.apply(LobbyEvent::Games(GameListing::of(vec![other("elsewhere")]))),
+        lobby.apply(LobbyEvent::Seats(resume::Listing {
+            seats: vec![discovered("elsewhere", true), discovered("left", true)],
+        })),
         Some(LobbyRequest::TakeSeat {
             game_id: "left".to_string()
         }),
@@ -526,7 +513,9 @@ fn a_restart_goes_back_to_the_chair_it_left_before_any_other() {
     let mut lobby = seated_lobby();
     lobby.resume_seat("room", false);
     assert_eq!(
-        lobby.apply(LobbyEvent::Games(GameListing::of(vec![]))),
+        lobby.apply(LobbyEvent::Seats(resume::Listing {
+            seats: vec![discovered("room", false)],
+        })),
         Some(LobbyRequest::TakeSeat {
             game_id: "room".to_string()
         })
@@ -534,6 +523,97 @@ fn a_restart_goes_back_to_the_chair_it_left_before_any_other() {
     lobby.apply(LobbyEvent::Seated(seat("room")));
     assert_eq!(*lobby.screen(), Screen::Table);
     assert_eq!(lobby.awaiting(), Some(&seat("room")));
+}
+
+#[test]
+fn a_new_login_discovers_its_chair_before_reading_any_public_page() {
+    let mut lobby = Lobby::new();
+    assert_eq!(
+        lobby.apply(LobbyEvent::LoggedIn {
+            token: "fresh-session".into(),
+            username: Some("alice".into()),
+        }),
+        Some(LobbyRequest::ListDecks)
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Decks(Vec::new())),
+        Some(LobbyRequest::ListSeats)
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Seats(resume::Listing {
+            seats: vec![resume::Seat {
+                game_id: "surviving".into(),
+                seat: 3,
+                playing: true
+            }],
+        })),
+        Some(LobbyRequest::TakeSeat {
+            game_id: "surviving".into()
+        })
+    );
+    let handover = SeatHandover {
+        game_id: "surviving".into(),
+        seat: 3,
+        seat_token: "new-seat-secret".into(),
+        local: false,
+    };
+    assert_eq!(lobby.apply(LobbyEvent::Seated(handover.clone())), None);
+    assert_eq!(lobby.screen(), &Screen::Seated(handover));
+}
+
+#[test]
+fn stale_restart_and_public_ownership_do_not_override_resume_eligibility() {
+    let mut lobby = seated_lobby();
+    lobby.resume_seat("finished-participation", true);
+    let owned = GameSummary {
+        id: "finished-participation".into(),
+        state: "playing".into(),
+        seats: vec![GameSeat {
+            you: true,
+            taken: true,
+            ..GameSeat::default()
+        }],
+        ..GameSummary::default()
+    };
+    assert_eq!(
+        lobby.apply(LobbyEvent::Seats(resume::Listing::default())),
+        Some(LobbyRequest::ListGames(lobby.query()))
+    );
+    assert_eq!(
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![owned]))),
+        None
+    );
+    assert_eq!(lobby.screen(), &Screen::Table);
+}
+
+#[test]
+fn a_fresh_login_forgets_the_previous_sessions_reclaim_attempts() {
+    let mut lobby = seated_lobby();
+    let listing = resume::Listing {
+        seats: vec![resume::Seat {
+            game_id: "same-chair".into(),
+            seat: 0,
+            playing: true,
+        }],
+    };
+    assert!(matches!(
+        lobby.apply(LobbyEvent::Seats(listing.clone())),
+        Some(LobbyRequest::TakeSeat { .. })
+    ));
+    lobby.apply(LobbyEvent::Failed("connection lost".into()));
+    lobby.sign_out();
+    lobby.apply(LobbyEvent::LoggedIn {
+        token: "replacement".into(),
+        username: None,
+    });
+    assert_eq!(
+        lobby.apply(LobbyEvent::Decks(Vec::new())),
+        Some(LobbyRequest::ListSeats)
+    );
+    assert!(matches!(
+        lobby.apply(LobbyEvent::Seats(listing)),
+        Some(LobbyRequest::TakeSeat { .. })
+    ));
 }
 
 /// The house's table rebuilt after a restart is an offline seat, so its end
