@@ -95,6 +95,7 @@ mod mirrorhall_mimic;
 mod moggcatcher;
 mod moorish_cavalry;
 mod mystic_snake;
+mod nalathni_dragon;
 mod nantuko_disciple;
 mod nettletooth_djinn;
 mod nightscape_master;

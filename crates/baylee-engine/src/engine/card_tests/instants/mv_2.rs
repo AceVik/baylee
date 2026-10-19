@@ -9,6 +9,7 @@ mod assassin_s_trophy;
 mod aura_blast;
 mod backdraft;
 mod beyeen_veil;
+mod blood_lust;
 mod boomerang;
 mod borne_upon_a_wind;
 mod cabal_ritual;

@@ -592,6 +592,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::TargetPower => target_chars(res, state)
             .and_then(|c| c.power)
             .map_or(0, |p| p.max(0) as u32),
+        Amount::TargetToughness => target_chars(res, state)
+            .and_then(|c| c.toughness)
+            .map_or(0, |t| t.max(0) as u32),
         // Deliberately *not* through `target_chars`: the one card that reads
         // this is Reanimate, whose target is a creature card in a graveyard
         // and whose mana value is the printed one. A card that never was a

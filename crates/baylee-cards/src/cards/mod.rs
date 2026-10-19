@@ -10163,6 +10163,8 @@ pub mod naga_eternal;
 pub mod naga_oracle;
 #[path = "enchantments/mv_2/nahiri_s_machinations.rs"]
 pub mod nahiri_s_machinations;
+#[path = "creatures/mv_4/nalathni_dragon.rs"]
+pub mod nalathni_dragon;
 #[path = "creatures/mv_4/nantuko_disciple.rs"]
 pub mod nantuko_disciple;
 #[path = "creatures/mv_3/nantuko_elder.rs"]

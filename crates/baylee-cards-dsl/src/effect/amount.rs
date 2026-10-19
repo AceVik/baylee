@@ -44,6 +44,8 @@ pub enum Amount {
     NegXFixed(u32),
     /// The power of the first target (last known characteristics).
     TargetPower,
+    /// The toughness of the first target (last known characteristics).
+    TargetToughness,
     /// The power of the ability's own source (Esper Sentinel's tax).
     ///
     /// Read off the *projected* characteristics, so an anthem or a counter

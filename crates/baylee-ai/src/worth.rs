@@ -572,6 +572,7 @@ impl HeuristicAgent {
             ),
             Amount::SourcePower => i64::from(origin.object?.power?),
             Amount::TargetPower => i64::from(target?.power?),
+            Amount::TargetToughness => i64::from(target?.toughness?),
             Amount::TargetCmc => i64::from(target?.mana_value),
             _ => return None,
         };

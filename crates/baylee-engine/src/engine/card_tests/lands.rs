@@ -47,6 +47,7 @@ mod horizon;
 mod koskun_keep;
 mod lake_of_the_dead;
 mod legendary;
+mod legends_banding;
 mod loci;
 mod lotus_vale;
 mod mana_confluence;

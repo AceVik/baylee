@@ -2292,7 +2292,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\n{B}{R}{G}, {T}: Target player draws a card."],
     // Zephyr Falcon
     &["Flying, vigilance"],
-    &[],
+    // Nalathni Dragon
+    &[
+        "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{R}: This creature gets +1/+0 until end of turn. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    ],
     &[],
     &[],
     // Apprentice Wizard

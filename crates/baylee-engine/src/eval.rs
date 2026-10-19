@@ -905,6 +905,7 @@ pub fn amount_with_context(
         // Resolved in resolve.rs, which has the stack object these read.
         Amount::DevotionToManaColor
         | Amount::TargetPower
+        | Amount::TargetToughness
         | Amount::TargetCmc
         | Amount::EventLastToughness
         | Amount::EventManaValue

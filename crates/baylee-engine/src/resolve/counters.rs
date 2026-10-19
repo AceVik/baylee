@@ -23,6 +23,11 @@ fn signed(a: &Amount, state: &GameState, you: PlayerId, res: &Resolution) -> i16
     if matches!(a, Amount::TargetPower) {
         return target_chars(res, state).and_then(|c| c.power).unwrap_or(0);
     }
+    if matches!(a, Amount::TargetToughness) {
+        return target_chars(res, state)
+            .and_then(|c| c.toughness)
+            .unwrap_or(0);
+    }
     let v = i16::try_from(amount2(a, state, you, res)).unwrap_or(i16::MAX);
     if a.is_negative() { -v } else { v }
 }
