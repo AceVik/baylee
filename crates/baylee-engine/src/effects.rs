@@ -271,6 +271,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::OneSpellManaAnyType
         | Modifier::NextDrawWish
         | Modifier::NextDrawFromTop { .. }
+        | Modifier::MayRedirectDamageToYou
+        | Modifier::CantAttackUnlessPayMana(_)
+        | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::DamageToItCantBePreventedOrRedirected
+        | Modifier::CantPlayLandsAndLandsCantEnter
         | Modifier::CreatureAbilityManaAnyColor => false,
     }
 }

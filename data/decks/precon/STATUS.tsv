@@ -468,7 +468,7 @@ ISD/eldritch-onslaught	ISD	Intro Pack	2011-09-30	Eldritch Onslaught	60	no
 ISD/hold-the-line	ISD	Event Deck	2011-10-28	Hold The Line	75	no
 ISD/repel-the-dark	ISD	Intro Pack	2011-09-30	Repel the Dark	60	no
 ISD/spectral-legions	ISD	Intro Pack	2011-09-30	Spectral Legions	60	no
-ITP/kazz-s-first-deck	ITP	Intro Pack	1996-12-31	Kazz's First Deck	30	no
+ITP/kazz-s-first-deck	ITP	Intro Pack	1996-12-31	Kazz's First Deck	30	yes
 ITP/kazz-s-second-deck	ITP	Intro Pack	1996-12-31	Kazz's Second Deck	30	yes
 ITP/zakk-s-first-deck	ITP	Intro Pack	1996-12-31	Zakk's First Deck	30	yes
 ITP/zakk-s-second-deck	ITP	Intro Pack	1996-12-31	Zakk's Second Deck	30	yes
@@ -811,7 +811,7 @@ PAST/alt-a-kesh	PAST	Shandalar Enemy Deck	1997-04-01	Alt-A-Kesh	62	no
 PAST/ape-lord	PAST	Shandalar Enemy Deck	1997-04-01	Ape Lord	60	yes
 PAST/arch-angel	PAST	Shandalar Enemy Deck	1997-04-01	Arch Angel	66	yes
 PAST/arzakon	PAST	Shandalar Enemy Deck	1997-04-01	Arzakon	138	no
-PAST/astral-visionary	PAST	Shandalar Enemy Deck	1997-04-01	Astral Visionary	66	no
+PAST/astral-visionary	PAST	Shandalar Enemy Deck	1997-04-01	Astral Visionary	66	yes
 PAST/azaar-lichlord	PAST	Shandalar Enemy Deck	1997-04-01	Azaar - Lichlord	61	yes
 PAST/beast-master	PAST	Shandalar Enemy Deck	1997-04-01	Beast Master	62	no
 PAST/centaur-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Centaur Shaman	64	yes
@@ -839,25 +839,25 @@ PAST/merfolk-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Merfolk Shaman	60	yes
 PAST/mind-stealer	PAST	Shandalar Enemy Deck	1997-04-01	Mind Stealer	66	no
 PAST/necromancer	PAST	Shandalar Enemy Deck	1997-04-01	Necromancer	63	no
 PAST/nether-fiend	PAST	Shandalar Enemy Deck	1997-04-01	Nether Fiend	64	yes
-PAST/paladin	PAST	Shandalar Enemy Deck	1997-04-01	Paladin	63	no
+PAST/paladin	PAST	Shandalar Enemy Deck	1997-04-01	Paladin	63	yes
 PAST/priestess	PAST	Shandalar Enemy Deck	1997-04-01	Priestess	68	yes
 PAST/prismat	PAST	Shandalar Enemy Deck	1997-04-01	Prismat	62	yes
-PAST/queltosh	PAST	Shandalar Enemy Deck	1997-04-01	Queltosh	74	no
+PAST/queltosh	PAST	Shandalar Enemy Deck	1997-04-01	Queltosh	74	yes
 PAST/sainted-one	PAST	Shandalar Enemy Deck	1997-04-01	Sainted One	75	no
 PAST/saltrem-tor	PAST	Shandalar Enemy Deck	1997-04-01	Saltrem Tor	60	yes
-PAST/sea-drake	PAST	Shandalar Enemy Deck	1997-04-01	Sea Drake	62	no
+PAST/sea-drake	PAST	Shandalar Enemy Deck	1997-04-01	Sea Drake	62	yes
 PAST/sedge-beast	PAST	Shandalar Enemy Deck	1997-04-01	Sedge Beast	62	yes
 PAST/seer	PAST	Shandalar Enemy Deck	1997-04-01	Seer	60	yes
 PAST/shapeshifter	PAST	Shandalar Enemy Deck	1997-04-01	Shapeshifter	62	no
 PAST/sorcerer	PAST	Shandalar Enemy Deck	1997-04-01	Sorcerer	65	yes
-PAST/sorceress	PAST	Shandalar Enemy Deck	1997-04-01	Sorceress	64	no
+PAST/sorceress	PAST	Shandalar Enemy Deck	1997-04-01	Sorceress	64	yes
 PAST/summoner	PAST	Shandalar Enemy Deck	1997-04-01	Summoner	63	yes
 PAST/thought-invoker	PAST	Shandalar Enemy Deck	1997-04-01	Thought Invoker	62	yes
 PAST/troll-shaman	PAST	Shandalar Enemy Deck	1997-04-01	Troll Shaman	67	yes
-PAST/undead-knight	PAST	Shandalar Enemy Deck	1997-04-01	Undead Knight	72	no
-PAST/vampire-lord	PAST	Shandalar Enemy Deck	1997-04-01	Vampire Lord	66	no
-PAST/war-mage	PAST	Shandalar Enemy Deck	1997-04-01	War Mage	62	no
-PAST/warlock	PAST	Shandalar Enemy Deck	1997-04-01	Warlock	66	no
+PAST/undead-knight	PAST	Shandalar Enemy Deck	1997-04-01	Undead Knight	72	yes
+PAST/vampire-lord	PAST	Shandalar Enemy Deck	1997-04-01	Vampire Lord	66	yes
+PAST/war-mage	PAST	Shandalar Enemy Deck	1997-04-01	War Mage	62	yes
+PAST/warlock	PAST	Shandalar Enemy Deck	1997-04-01	Warlock	66	yes
 PAST/whim	PAST	Shandalar Enemy Deck	1997-04-01	Whim	62	no
 PAST/winged-stallion	PAST	Shandalar Enemy Deck	1997-04-01	Winged Stallion	68	yes
 PAST/witch	PAST	Shandalar Enemy Deck	1997-04-01	Witch	63	yes
@@ -969,7 +969,7 @@ ROE/invading-spawn	ROE	Intro Pack	2010-04-23	Invading Spawn	41	no
 ROE/levelers-glory	ROE	Intro Pack	2010-04-23	Levelers' Glory	41	no
 ROE/levelers-scorn	ROE	Intro Pack	2010-04-23	Levelers Scorn	41	no
 ROE/totem-power	ROE	Intro Pack	2010-04-23	Totem Power	41	no
-RQS/kazz-s-first-deck	RQS	Intro Pack	1996-06-10	Kazz's First Deck	30	no
+RQS/kazz-s-first-deck	RQS	Intro Pack	1996-06-10	Kazz's First Deck	30	yes
 RQS/kazz-s-second-deck	RQS	Intro Pack	1996-06-10	Kazz's Second Deck	26	yes
 RQS/zakk-s-first-deck	RQS	Intro Pack	1996-06-10	Zakk's First Deck	30	yes
 RQS/zakk-s-second-deck	RQS	Intro Pack	1996-06-10	Zakk's Second Deck	26	yes

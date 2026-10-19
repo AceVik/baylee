@@ -1626,6 +1626,7 @@ fn alternative_parts_payable(
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::Discard(_)
         | CostPart::TapN { .. }
         | CostPart::TapOther(_)

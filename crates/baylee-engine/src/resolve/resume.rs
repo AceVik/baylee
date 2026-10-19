@@ -117,6 +117,7 @@ pub(super) fn resume_inner(
             options: _,
             count,
             effect,
+            on_payment,
         } => {
             if chosen.len() == usize::from(count)
                 && chosen.iter().all(|id| {
@@ -126,7 +127,10 @@ pub(super) fn resume_inner(
                 })
             {
                 sacrifice_together(state, chosen);
-            } else {
+                if on_payment {
+                    return run_fallback(state, res, std::slice::from_ref(effect));
+                }
+            } else if !on_payment {
                 return run_fallback(state, res, std::slice::from_ref(effect));
             }
         }
@@ -1281,6 +1285,41 @@ pub(super) fn resume_inner(
                 tokens::populate(state, res.controller, id);
             }
         }
+        AwaitingOp::MindBomb {
+            asked,
+            remaining,
+            mut discards,
+            mut damage,
+        } => {
+            let count = u32::try_from(chosen.len()).unwrap_or(0).min(3);
+            discards.extend(chosen.iter().take(3).map(|&c| (c, asked)));
+            damage.push((asked, 3 - count));
+            if let Some(pending) =
+                super::immediate::mind_bomb_advance(state, res, remaining, discards, damage)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::WormsOfTheEarth {
+            asked,
+            remaining,
+            step,
+        } => {
+            if step == 1
+                && chosen.len() == 2
+                && chosen[0] != chosen[1]
+                && chosen.iter().all(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield && o.controller == asked
+                    })
+                })
+            {
+                sacrifice_together(state, chosen);
+                sba::destroy(state, res.source);
+            } else if let Some(pending) = super::immediate::worms_advance(state, res, remaining) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::DamageShieldSource { .. }
         | AwaitingOp::ShieldFromChosenSource { .. }
         | AwaitingOp::RedirectFromChosenSource { .. } => {
@@ -1339,6 +1378,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::GraveyardToTopOrder { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }
+        | AwaitingOp::WandOfIth { .. }
+        | AwaitingOp::Cleansing { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

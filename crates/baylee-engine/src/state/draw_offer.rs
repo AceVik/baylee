@@ -120,7 +120,12 @@ impl GameState {
         }
         self.replacement_rules
             .iter()
-            .filter(|r| r.rule == ReplacementRule::MaySkipDrawStepDraw && r.controller == player)
+            .filter(|r| {
+                r.controller == player
+                    && (r.rule == ReplacementRule::MaySkipDrawStepDraw
+                        || (matches!(r.rule, ReplacementRule::MaySkipDrawStepGainLife(_))
+                            && self.next_draw_is_first_in_draw_step(player)))
+            })
             .map(|r| r.source)
             .filter(|s| !declined.contains(s))
             .find(|s| {
@@ -507,11 +512,31 @@ impl GameState {
             return self.next_draw_offer();
         }
         if skip {
-            #[cfg(test)]
-            crate::ability_log::replaced_by(source, ReplacementRule::MaySkipDrawStepDraw);
-            self.draws_replaced = self.draws_replaced.wrapping_add(1);
-            self.restrict_attacks_after_skipped_draw(player, source);
-            self.take_front_draw();
+            let gain = self.replacement_rules.iter().find_map(|r| {
+                if r.source == source
+                    && r.controller == player
+                    && let ReplacementRule::MaySkipDrawStepGainLife(n) = r.rule
+                {
+                    return Some(n);
+                }
+                None
+            });
+            if let Some(life) = gain {
+                #[cfg(test)]
+                crate::ability_log::replaced_by(
+                    source,
+                    ReplacementRule::MaySkipDrawStepGainLife(life),
+                );
+                self.draws_replaced = self.draws_replaced.wrapping_add(1);
+                self.change_life(player, i32::from(life), crate::event::Cause::Effect);
+                self.take_front_draw();
+            } else {
+                #[cfg(test)]
+                crate::ability_log::replaced_by(source, ReplacementRule::MaySkipDrawStepDraw);
+                self.draws_replaced = self.draws_replaced.wrapping_add(1);
+                self.restrict_attacks_after_skipped_draw(player, source);
+                self.take_front_draw();
+            }
         } else {
             self.draw_front.declined.push(source);
         }
@@ -652,7 +677,10 @@ impl GameState {
             let index = list.abilities.iter().position(|a| {
                 matches!(
                     a,
-                    AbilityDef::Replacement(ReplacementRule::MaySkipDrawStepDraw)
+                    AbilityDef::Replacement(
+                        ReplacementRule::MaySkipDrawStepDraw
+                            | ReplacementRule::MaySkipDrawStepGainLife(_)
+                    )
                 )
             })?;
             list.entry(index)?.provenance.ability_ref()

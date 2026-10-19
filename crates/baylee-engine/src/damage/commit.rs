@@ -125,15 +125,33 @@ impl Part {
         if types.contains(TypeSet::PLANESWALKER) {
             crate::replacement::remove_counters(state, target, CounterKind::Loyalty, counters);
         }
-        if types.contains(TypeSet::CREATURE)
-            && let Some(obj) = state.object_mut(target)
-        {
-            if !self.keywords.contains(KeywordSet::INFECT) {
-                obj.damage = obj.damage.saturating_add(counters);
+        if types.contains(TypeSet::CREATURE) {
+            if let Some(obj) = state.object_mut(target) {
+                if !self.keywords.contains(KeywordSet::INFECT) {
+                    obj.damage = obj.damage.saturating_add(counters);
+                }
+                // Infect counter amounts were replaced before any damage result
+                // committed, and are placed together after this damage pass.
+                obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
             }
-            // Infect counter amounts were replaced before any damage result
-            // committed, and are placed together after this damage pass.
-            obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
+            if let Some(src_ver) = self.source_version
+                && state
+                    .per_turn
+                    .runesword_attackers
+                    .contains(&(self.view.source, src_ver))
+                && let Some(target_ver) = state.object(target).map(|o| o.version)
+            {
+                if !state.per_turn.exile_if_dies.contains(&(target, target_ver)) {
+                    state.per_turn.exile_if_dies.push((target, target_ver));
+                }
+                if !state
+                    .per_turn
+                    .cant_regenerate
+                    .contains(&(target, target_ver))
+                {
+                    state.per_turn.cant_regenerate.push((target, target_ver));
+                }
+            }
         }
         state.record_permanent_damage(
             self.view.source,

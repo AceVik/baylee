@@ -143,6 +143,14 @@ enum Question {
     DiscardDestination {
         card: ObjectId,
     },
+    FrankensteinsExile {
+        options: Vec<ObjectId>,
+        count: u32,
+    },
+    FrankensteinsCounter {
+        remaining: u32,
+    },
+    PayLifeForPt,
     GraveyardOrder,
 }
 
@@ -264,6 +272,8 @@ fn needs_before_entry(modifier: &EnterModifier) -> bool {
                 | EnterModifier::SacrificeOrGraveyard { .. }
                 | EnterModifier::DiscardOrGraveyard(_)
                 | EnterModifier::SacrificeForPowerToughness(_)
+                | EnterModifier::FrankensteinsMonster
+                | EnterModifier::PayLifeForPtCapWhiteOpponents
                 | EnterModifier::SacrificeOthers(_)
         )
 }

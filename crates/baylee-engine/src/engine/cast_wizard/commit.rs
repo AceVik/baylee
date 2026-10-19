@@ -115,6 +115,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::ExertSelf
                     | CostPart::SacrificeSelf
                     | CostPart::Sacrifice(_)
+                    | CostPart::ExilePermanent(_)
                     | CostPart::Discard(_)
                     | CostPart::DiscardRandom
                     | CostPart::DiscardHand
@@ -188,7 +189,9 @@ impl<L: CardLookup> Engine<L> {
                 // mana value" is a question the spell asks as it resolves,
                 // when the card is already in a graveyard and a copy has
                 // stopped being one.
-                CostPart::Sacrifice(_) => {
+                CostPart::Sacrifice(_)
+                | CostPart::ExilePermanent(_)
+                | CostPart::ExileFromGraveyard(_) => {
                     let Some(&chosen) = sacrificed.next() else {
                         self.cast_wizard = None;
                         return Err(EngineError::IllegalAction(
@@ -246,7 +249,6 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::Crew(_)
                 | CostPart::Saddle(_)
                 | CostPart::ReturnToHand(_)
-                | CostPart::ExileFromGraveyard(_)
                 | CostPart::DiscardSelf
                 | CostPart::ExileSelf
                 | CostPart::ReturnSelfToHand

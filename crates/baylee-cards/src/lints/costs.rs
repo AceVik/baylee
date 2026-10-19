@@ -42,6 +42,7 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,
@@ -79,6 +80,7 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,

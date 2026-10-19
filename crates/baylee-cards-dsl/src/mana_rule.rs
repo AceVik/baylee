@@ -56,6 +56,8 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         | Effect::AtNextCleanup { .. }
         | Effect::WhenTargetDiesThisTurn { .. }
         | Effect::WhenSourceDiesThisTurn { .. }
+        | Effect::WhenTargetLeavesBattlefieldThisTurn { .. }
+        | Effect::WhenSourceLeavesBattlefieldThisTurn { .. }
         | Effect::WheneverTargetDealtDamageThisTurn { .. }
         | Effect::AtEndOfCombat { .. }
         | Effect::AtEndOfCombatThisTurn { .. }
@@ -89,6 +91,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
+        | CostPart::ExilePermanent(_)
         | CostPart::ReturnSelfToHand
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
@@ -110,6 +113,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DrawCardsFor { .. }
         | Effect::DrawRevealDiscardUnless { .. }
         | Effect::DiscardUpToThenDraw { .. }
+        | Effect::ExileAllControllerDrawsEach { .. }
         | Effect::Connive { .. }
         | Effect::Recruit { .. }
         | Effect::LookAtTopPick { .. }

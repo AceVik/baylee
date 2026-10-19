@@ -600,6 +600,8 @@ pub struct AttackRules<'a> {
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_sacrifice: Vec<&'a crate::effects::ContinuousEffect>,
     max_attackers: Option<usize>,
 }
 
@@ -614,6 +616,8 @@ impl<'a> AttackRules<'a> {
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
         let mut attack_tax_life = Vec::new();
+        let mut unless_pay_mana = Vec::new();
+        let mut unless_sacrifice = Vec::new();
         let mut max_attackers: Option<usize> = None;
         for fx in state.effects.iter() {
             match fx.modifier {
@@ -623,6 +627,8 @@ impl<'a> AttackRules<'a> {
                 Modifier::AttacksEachCombat => requirements.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
+                Modifier::CantAttackUnlessPayMana(_) => unless_pay_mana.push(fx),
+                Modifier::CantAttackUnlessYouSacrifice { .. } => unless_sacrifice.push(fx),
                 Modifier::MaxAttackersPerCombat(n)
                     if crate::effects::source_is_present(state, fx) =>
                 {
@@ -640,6 +646,8 @@ impl<'a> AttackRules<'a> {
             idle_defenders,
             cant_attack_you,
             attack_tax_life,
+            unless_pay_mana,
+            unless_sacrifice,
             max_attackers,
         }
     }
@@ -661,6 +669,58 @@ impl<'a> AttackRules<'a> {
                 .iter()
                 .any(|fx| crate::effects::applies_to(self.state, fx, obj))
         })
+    }
+
+    /// Total generic mana cost `creature`'s controller must pay to declare
+    /// `creature` attacking (CR 508.1g: Brainwash).
+    #[must_use]
+    pub fn mana_tax(&self, creature: ObjectId) -> u32 {
+        if self.unless_pay_mana.is_empty() {
+            return 0;
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return 0;
+        };
+        self.unless_pay_mana
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantAttackUnlessPayMana(n) = fx.modifier else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj).then_some(n)
+            })
+            .fold(0_u32, u32::saturating_add)
+    }
+
+    /// Sacrifice costs `creature`'s controller must pay to declare `creature`
+    /// attacking (CR 508.1g: Leviathan).
+    #[must_use]
+    pub fn sacrifice_tax(
+        &self,
+        creature: ObjectId,
+    ) -> Vec<(u8, &'static baylee_cards_dsl::Filter, PlayerId, ObjectId)> {
+        if self.unless_sacrifice.is_empty() {
+            return Vec::new();
+        }
+        let Some(obj) = self.state.object(creature) else {
+            return Vec::new();
+        };
+        self.unless_sacrifice
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantAttackUnlessYouSacrifice { count, filter } =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj).then_some((
+                    count,
+                    filter,
+                    fx.controller,
+                    fx.source.unwrap_or(creature),
+                ))
+            })
+            .collect()
     }
 
     /// Total life cost `creature`'s controller must pay to declare `creature`
@@ -692,6 +752,7 @@ impl<'a> AttackRules<'a> {
 
     /// Whether `creature` may attack `defender`, past the restrictions on
     /// the pair. Asked of a creature [`can_attack`] already allows.
+    #[allow(clippy::too_many_lines)]
     #[must_use]
     pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
         if self.unless_defender_controls.is_empty()
@@ -699,6 +760,8 @@ impl<'a> AttackRules<'a> {
             && self.idle_defenders.is_empty()
             && self.cant_attack_you.is_empty()
             && self.attack_tax_life.is_empty()
+            && self.unless_pay_mana.is_empty()
+            && self.unless_sacrifice.is_empty()
         {
             return true;
         }
@@ -706,6 +769,29 @@ impl<'a> AttackRules<'a> {
         let Some(obj) = state.object(creature) else {
             return false;
         };
+        let mana_tax = self.mana_tax(creature);
+        if mana_tax > 0
+            && !crate::mana_pay::can_pay(
+                &state.players[usize::from(obj.controller.get())].mana_pool,
+                &baylee_core::mana::ManaCost::ZERO.with_more_generic(mana_tax),
+            )
+        {
+            return false;
+        }
+        for (count, filter, you, source) in self.sacrifice_tax(creature) {
+            let have = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|p| {
+                        p.controller == obj.controller
+                            && crate::eval::matches(filter, state, p, you, source)
+                    })
+                })
+                .count();
+            if have < usize::from(count) {
+                return false;
+            }
+        }
         // Arboria: a player who neither cast a spell nor put a nontoken
         // permanent onto the battlefield during their last turn can't be
         // attacked; their planeswalkers can (ruling 2022-12-08).

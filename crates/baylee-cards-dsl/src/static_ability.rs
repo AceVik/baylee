@@ -881,11 +881,31 @@ pub enum Modifier {
         /// Life paid per attacking creature.
         life: u16,
     },
+    /// "If damage would be dealt to any creature, you may have that damage
+    /// dealt to you instead" (Blood of the Martyr).
+    MayRedirectDamageToYou,
+    /// "Can't attack unless its controller pays {N}" (Brainwash).
+    CantAttackUnlessPayMana(u32),
+    /// "Can't attack unless you sacrifice `count` [filter]" (Leviathan).
+    CantAttackUnlessYouSacrifice {
+        /// How many matching permanents must be sacrificed.
+        count: u8,
+        /// Which permanents qualify.
+        filter: &'static Filter,
+    },
+    /// "Damage that would be dealt to [affected permanent] can't be prevented
+    /// or dealt instead to another permanent or player" (Whippoorwill).
+    DamageToItCantBePreventedOrRedirected,
+    /// "Players can't play lands" and "Lands can't enter the battlefield"
+    /// (Worms of the Earth).
+    CantPlayLandsAndLandsCantEnter,
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PtCount {
+    /// A fixed constant (People of the Woods' power `1` in `1/*`).
+    Fixed(u16),
     /// Last number chosen for this permanent; zero if none was chosen.
     ChosenNumber,
     /// A constant minus another characteristic-defining count.
@@ -1099,6 +1119,7 @@ impl Modifier {
             | Self::PreventCombatDamageFrom(_)
             | Self::PreventDamageFrom(_)
             | Self::CombatDamageCantBePrevented
+            | Self::DamageToItCantBePreventedOrRedirected
             | Self::BlockableWithoutLandwalk(_)
             | Self::IgnoreOpponentsHexproof
             | Self::CounterMaximum { .. }
@@ -1109,6 +1130,8 @@ impl Modifier {
             | Self::CantAttack
             | Self::CantAttackYou
             | Self::AttackTaxLife { .. }
+            | Self::CantAttackUnlessPayMana(_)
+            | Self::CantAttackUnlessYouSacrifice { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::CantAttackPlayerIdleLastTurn
@@ -1121,6 +1144,7 @@ impl Modifier {
             | Self::AssignsNoCombatDamage
             | Self::BlocksEachAttackerIfAble
             | Self::RedirectDamageToYou(_)
+            | Self::MayRedirectDamageToYou
             | Self::CountersPreventDamage(_)
             | Self::OpponentsSearchTop(_)
             | Self::OpponentsCantSearch
@@ -1142,6 +1166,7 @@ impl Modifier {
             | Self::MaxAttackersPerCombat(_)
             | Self::MaxBlockersPerCombat(_)
             | Self::CantBeEnchanted
+            | Self::CantPlayLandsAndLandsCantEnter
             | Self::ExileInsteadOfYourGraveyard
             | Self::CastSpellsFromGraveyard => Layer::Text,
         }
@@ -1335,6 +1360,9 @@ pub enum ReplacementRule {
     /// and any an effect makes there, each card of a multiple draw on its
     /// own (CR 121.2, 614.10, 614.11a); the restriction outlives the source.
     MaySkipDrawStepDraw,
+    /// "If you would begin your draw step, you may skip that step instead.
+    /// If you do, you gain `N` life" (Fasting).
+    MaySkipDrawStepGainLife(u16),
     /// "If an effect causes you to discard a card, discard it, but you may
     /// put it on top of your library instead of into your graveyard"
     /// (Library of Leng). Asked of the discarding player, who controls the
@@ -1670,6 +1698,7 @@ mod tests {
             Modifier::PreventCombatDamageFrom(&Filter::ARTIFACT),
             Modifier::PreventDamageFrom(&Filter::ARTIFACT),
             Modifier::CombatDamageCantBePrevented,
+            Modifier::DamageToItCantBePreventedOrRedirected,
             Modifier::CantBlock(&Filter::CREATURE),
             Modifier::CantBeBlockedBy(&Filter::CREATURE),
             Modifier::CantBeBlockedByPlayer(baylee_core::ids::PlayerId::new(0)),
@@ -1677,12 +1706,18 @@ mod tests {
             Modifier::CantAttackPlayerIdleLastTurn,
             Modifier::CantAttackYou,
             Modifier::AttackTaxLife { life: 2 },
+            Modifier::CantAttackUnlessPayMana(3),
+            Modifier::CantAttackUnlessYouSacrifice {
+                count: 2,
+                filter: &Filter::LAND,
+            },
             Modifier::LandwalkMatching(&Filter::LAND),
             Modifier::AttackWithoutTappingWhileSourceUntapped { source_version: 0 },
             Modifier::AttacksEachCombat,
             Modifier::MaxAttackersPerCombat(2),
             Modifier::MaxBlockersPerCombat(2),
             Modifier::CantBeEnchanted,
+            Modifier::CantPlayLandsAndLandsCantEnter,
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
@@ -1690,6 +1725,7 @@ mod tests {
             Modifier::AssignsNoCombatDamage,
             Modifier::BlocksEachAttackerIfAble,
             Modifier::RedirectDamageToYou(&Filter::CREATURE),
+            Modifier::MayRedirectDamageToYou,
             Modifier::CountersPreventDamage(crate::CounterKind::P1P1),
             Modifier::OpponentsCantSearch,
             Modifier::OpponentsSearchTop(4),

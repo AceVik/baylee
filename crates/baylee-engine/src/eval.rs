@@ -328,6 +328,31 @@ pub fn matches_projected_with_context(
             })
         }),
         Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
+        Filter::BlockedByReference => context
+            .reference
+            .is_some_and(|r| state.combat.is_blocking(r, obj.id)),
+        Filter::DealtDamageThisTurn => state.per_turn.damage_log.iter().any(|e| {
+            e.to == crate::event::DamageTarget::Object(obj.id) && e.to_version == Some(obj.version)
+        }),
+        Filter::BlockedThisTurn => state
+            .per_turn
+            .blocks
+            .iter()
+            .any(|r| r.blocker.object == obj.id && r.blocker.version == obj.version),
+        Filter::AttackedDuringControllersLastTurn => state
+            .players
+            .get(usize::from(obj.controller.get()))
+            .is_some_and(|p| {
+                p.last_turn_attackers
+                    .contains(&baylee_core::ids::DamageSourceRef {
+                        object: obj.id,
+                        version: obj.version,
+                    })
+            }),
+        Filter::CouldHaveAttackedThisTurn => state
+            .per_turn
+            .could_have_attacked
+            .contains(&(obj.id, obj.version)),
         Filter::BlockedThisTurnBy(inner) => state.per_turn.blocks.iter().any(|record| {
             record.attacker.object == obj.id
                 && record.attacker.version == obj.version
@@ -413,6 +438,7 @@ pub fn matches_projected_with_context(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => chars.mana_value() <= announced_x(state, this),
         Filter::CmcExactlyX => chars.mana_value() == announced_x(state, this),
+        Filter::TwiceCmcExactlyX => chars.mana_value().saturating_mul(2) == announced_x(state, this),
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
         Filter::CmcAtMostColorsSpent => {
@@ -1094,6 +1120,13 @@ fn visit_zone(
         ZoneSel::GraveyardYou => ZoneLocation::Graveyard(you),
         ZoneSel::HandActivePlayer => ZoneLocation::Hand(state.turn.active),
         ZoneSel::HandYou => ZoneLocation::Hand(you),
+        ZoneSel::HandChosen => {
+            if let Some(chosen) = state.object(context.source).and_then(|o| o.chosen_player) {
+                ZoneLocation::Hand(chosen)
+            } else {
+                return;
+            }
+        }
     };
     for &id in state.zones.list(location) {
         visit(id);
@@ -2023,6 +2056,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         TargetSpec::AnyTarget
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
+            | TargetSpec::PlayerWhoAttackedThisTurn
             | TargetSpec::OpponentOrObject(_)
             | TargetSpec::PlayerOrObject(_)
     ) {
@@ -2032,6 +2066,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         spec,
         TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
     );
+    let attacked_only = matches!(spec, TargetSpec::PlayerWhoAttackedThisTurn);
     // Build the small seat set once instead of rescanning all effects for
     // each potential player target.
     let mut protected = baylee_core::ids::SeatSet::new();
@@ -2073,6 +2108,15 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
             // different kind of choice (CR 115.1) — and the set is the
             // opponents, so a teammate is out of it as surely as you are.
             if opponents_only && !state.is_opponent(p.id, you) {
+                return false;
+            }
+            if attacked_only
+                && !state
+                    .per_turn
+                    .attacked
+                    .iter()
+                    .any(|&(_, _, who)| who == p.id)
+            {
                 return false;
             }
             // Player hexproof also stops only opponents (CR 702.11c).
@@ -2207,7 +2251,7 @@ fn below_source_power(stat: Option<i16>, state: &GameState, this: ObjectId) -> b
 #[must_use]
 pub fn reads_announced_x(filter: &Filter) -> bool {
     match filter {
-        Filter::CmcAtMostX | Filter::CmcExactlyX => true,
+        Filter::CmcAtMostX | Filter::CmcExactlyX | Filter::TwiceCmcExactlyX => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(reads_announced_x),
         Filter::Not(f) => reads_announced_x(f),
         _ => false,
@@ -2248,6 +2292,9 @@ fn matches_for_x(
     match filter {
         Filter::CmcAtMostX => x.is_none_or(|x| obj.characteristics().mana_value() <= x),
         Filter::CmcExactlyX => x.is_none_or(|x| obj.characteristics().mana_value() == x),
+        Filter::TwiceCmcExactlyX => {
+            x.is_none_or(|x| obj.characteristics().mana_value().saturating_mul(2) == x)
+        }
         Filter::And(parts) => parts
             .iter()
             .all(|f| matches_for_x(f, state, obj, you, context, x)),
@@ -2544,7 +2591,8 @@ pub fn choice_options_with_context(
         TargetSpec::EventObject
         | TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
-        | TargetSpec::AnyOpponent => vec![],
+        | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn => vec![],
     }
 }
 
@@ -2566,6 +2614,7 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
         TargetSpec::AnyTarget
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
+            | TargetSpec::PlayerWhoAttackedThisTurn
             | TargetSpec::OpponentOrObject(_)
             | TargetSpec::PlayerOrObject(_)
     ) {

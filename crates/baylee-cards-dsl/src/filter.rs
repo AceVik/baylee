@@ -342,6 +342,26 @@ pub enum Filter {
     /// the battlefield, and is the same object that dealt it (Brine Hag:
     /// "all creatures that dealt damage to it this turn").
     DealtDamageToSourceThisTurn,
+    /// Currently blocked by the reference object (Sewers of Estark:
+    /// "if it's blocking, creatures blocked by it").
+    BlockedByReference,
+    /// Was dealt damage this turn as the permanent it is now (Giant Shark:
+    /// "a creature that has been dealt damage this turn").
+    DealtDamageThisTurn,
+    /// Blocked a creature earlier this turn as the permanent it is now (Lurker:
+    /// "unless it attacked or blocked this turn").
+    BlockedThisTurn,
+    /// Attacked during its controller's last turn as the permanent it is now
+    /// (Tangle Kelp: "if it attacked during its controller's last turn").
+    AttackedDuringControllersLastTurn,
+    /// Twice its mana value equals the announced X (Reflecting Mirror:
+    /// "paying twice {X}, where X is the mana value of that spell or ability").
+    TwiceCmcExactlyX,
+    /// Was a creature on the battlefield as attackers were declared this turn
+    /// that could legally have been declared as an attacker (Season of the Witch:
+    /// "each non-Wall creature that didn't attack this turn, except for
+    /// creatures that couldn't attack").
+    CouldHaveAttackedThisTurn,
 }
 
 /// Zone references for filters (engine zones, DSL view).

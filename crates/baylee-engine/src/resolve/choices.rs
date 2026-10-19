@@ -638,7 +638,13 @@ pub(super) fn exec_choice(
             filter,
             count,
             effect,
-        } => super::sacrifices::offer_payment(state, res, player, filter, count, effect),
+        } => super::sacrifices::offer_payment(state, res, player, filter, count, effect, false),
+        Effect::PlayerMaySacrificeNThen {
+            player,
+            filter,
+            count,
+            effect,
+        } => super::sacrifices::offer_payment(state, res, player, filter, count, effect, true),
         Effect::SacrificeAndIf {
             filter,
             check,

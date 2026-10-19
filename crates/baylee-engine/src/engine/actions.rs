@@ -211,17 +211,17 @@ impl<L: CardLookup> Engine<L> {
         if matches!(
             self.pending,
             Pending::ChooseDamageEffect { .. } | Pending::AllocatePrevention { .. }
-        ) || (matches!(
-            self.pending,
-            Pending::YesNo {
-                prompt: crate::choice::YesNoPrompt::ApplyAdditionalCountersNext { .. },
-                ..
-            }
-        ) && (self.combat_damage.is_some()
-            || self
-                .resolution
+        ) || (matches!(self.pending, Pending::YesNo { .. })
+            && (self
+                .combat_damage
                 .as_ref()
-                .is_some_and(|res| matches!(res.awaiting, Some(resolve::AwaitingOp::Damage(_))))))
+                .is_some_and(crate::damage::DamageWork::is_waiting_yes_no)
+                || self.resolution.as_ref().is_some_and(|res| {
+                    matches!(
+                        &res.awaiting,
+                        Some(resolve::AwaitingOp::Damage(work)) if work.is_waiting_yes_no()
+                    )
+                })))
         {
             if let Some(mut work) = self.combat_damage.take() {
                 if let Some(pending) = work.answer(&mut self.state, &action) {
@@ -2327,6 +2327,7 @@ impl<L: CardLookup> Engine<L> {
 
     /// The automatic progression machine: SBAs, stack resolution, and
     /// step/turn transitions until a decision is required.
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn declare_attackers(
         &mut self,
         player: PlayerId,
@@ -2373,6 +2374,8 @@ impl<L: CardLookup> Engine<L> {
             .battlefield_seen()
             .filter(|id| {
                 rules.must_attack(*id)
+                    && rules.mana_tax(*id) == 0
+                    && rules.sacrifice_tax(*id).is_empty()
                     && combat::can_attack(&self.state, player, *id)
                     && legal
                         .iter()
@@ -2395,9 +2398,61 @@ impl<L: CardLookup> Engine<L> {
                 "cannot pay life required to declare those attackers",
             ));
         }
+        let total_mana_tax = attackers
+            .iter()
+            .map(|&(creature, _)| rules.mana_tax(creature))
+            .fold(0_u32, u32::saturating_add);
+        if total_mana_tax > 0
+            && !crate::mana_pay::can_pay(
+                &self.state.players[usize::from(player.get())].mana_pool,
+                &baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax),
+            )
+        {
+            return Err(EngineError::IllegalAction(
+                "cannot pay mana required to declare those attackers",
+            ));
+        }
+        let mut sacrifice_costs = Vec::new();
+        for &(creature, _) in &attackers {
+            for (count, filter, you, source) in rules.sacrifice_tax(creature) {
+                let candidates: Vec<ObjectId> = self
+                    .state
+                    .battlefield_seen()
+                    .filter(|&id| {
+                        !sacrifice_costs.contains(&id)
+                            && self.state.object(id).is_some_and(|p| {
+                                p.controller == player
+                                    && crate::eval::matches(filter, &self.state, p, you, source)
+                            })
+                    })
+                    .take(usize::from(count))
+                    .collect();
+                if candidates.len() < usize::from(count) {
+                    return Err(EngineError::IllegalAction(
+                        "cannot pay sacrifice cost required to declare those attackers",
+                    ));
+                }
+                sacrifice_costs.extend(candidates);
+            }
+        }
+        drop(rules);
         if total_life_tax > 0 {
             self.state
                 .change_life(player, -total_life_tax, Cause::TurnBased);
+        }
+        if total_mana_tax > 0 {
+            let cost = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
+            let paid = crate::mana_pay::pay(
+                &mut self.state.players[usize::from(player.get())].mana_pool,
+                &cost,
+            );
+            debug_assert!(paid, "mana tax was validated");
+        }
+        for sac_id in sacrifice_costs {
+            if let Some(obj) = self.state.object_mut(sac_id) {
+                obj.kind = ObjectKind::Card;
+            }
+            let _ = self.state.sacrifice_object(sac_id, Cause::TurnBased);
         }
         for &(creature, defending) in &attackers {
             if combat::attack_taps(&self.state, creature) {

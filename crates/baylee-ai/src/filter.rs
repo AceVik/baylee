@@ -299,6 +299,12 @@ impl HeuristicAgent {
         // Pairwise target context is not available to this filter reader.
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::BlockedByReference
+        | Filter::DealtDamageThisTurn
+        | Filter::BlockedThisTurn
+        | Filter::AttackedDuringControllersLastTurn
+        | Filter::TwiceCmcExactlyX
+        | Filter::CouldHaveAttackedThisTurn
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.
         | Filter::OfSourceChosenColor

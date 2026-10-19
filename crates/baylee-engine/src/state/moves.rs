@@ -510,6 +510,26 @@ impl GameState {
         }
         if from_zone != Zone::Battlefield
             && to == ZoneLocation::Battlefield
+            && self.effects.may_change_cast_timing_or_lock()
+            && self.object(id).is_some_and(|o| {
+                o.characteristics()
+                    .types
+                    .contains(baylee_core::types::TypeSet::LAND)
+            })
+            && self.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::CantPlayLandsAndLandsCantEnter
+                )
+            })
+        {
+            if let Some(o) = self.object_mut(id) {
+                o.kind = ObjectKind::Card;
+            }
+            return Ok(id);
+        }
+        if from_zone != Zone::Battlefield
+            && to == ZoneLocation::Battlefield
             && crate::entry::defer(self, id, pos, cause)
         {
             return Ok(id);

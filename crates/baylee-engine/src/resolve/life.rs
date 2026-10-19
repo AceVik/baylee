@@ -26,7 +26,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::DealDamageToTargetController { .. }
-        | Effect::DealDamageEach { .. } => start(state, res, op),
+        | Effect::DealDamageEach { .. }
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
+            start(state, res, op)
+        }
         Effect::GainLife { amount } => {
             let n = amount2(&amount, state, you, res) as i32;
             gain_life(state, you, n);
@@ -363,6 +366,10 @@ impl DamageResolution {
     pub(crate) fn fingerprint(&self) -> u64 {
         crate::state::structural_fingerprint(self)
     }
+
+    pub(crate) fn is_waiting_yes_no(&self) -> bool {
+        self.work.is_waiting_yes_no()
+    }
 }
 
 pub(crate) fn refresh_damage(state: &mut GameState, res: &mut Resolution) -> Flow {
@@ -663,8 +670,107 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .map(|id| assignment(state, res, res.source, DamageTarget::Object(id), n))
                 .collect()
         }
+        Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount } => {
+            let n = u32::from(amount);
+            let entries = state.journal.entries();
+            let since_source = entries
+                .iter()
+                .rposition(|e| {
+                    matches!(e.event, GameEvent::ZoneChanged { object, .. } if object == res.source)
+                })
+                .map_or(0, |idx| idx + 1);
+            let mut out = Vec::new();
+            for seat in 0..state.players.len() {
+                let p = PlayerId::new(seat as u8);
+                if state.is_opponent(p, you)
+                    && !state.has_left(p)
+                    && entries[since_source..].iter().any(|e| {
+                        matches!(
+                            e.event,
+                            GameEvent::DamageDealt {
+                                source: Some(s),
+                                target: DamageTarget::Player(t),
+                                amount: dmg,
+                                ..
+                            } if s == res.source && t == p && dmg > 0
+                        )
+                    })
+                {
+                    out.push(assignment(
+                        state,
+                        res,
+                        res.source,
+                        DamageTarget::Player(p),
+                        n,
+                    ));
+                }
+            }
+            for id in state.battlefield_seen() {
+                if !state
+                    .object(id)
+                    .is_some_and(|o| o.characteristics().types.contains(TypeSet::PLANESWALKER))
+                {
+                    continue;
+                }
+                let since_pw = entries
+                    .iter()
+                    .rposition(
+                        |e| matches!(e.event, GameEvent::ZoneChanged { object, .. } if object == id),
+                    )
+                    .map_or(0, |idx| idx + 1);
+                let start = since_source.max(since_pw);
+                if entries[start..].iter().any(|e| {
+                    matches!(
+                        e.event,
+                        GameEvent::DamageDealt {
+                            source: Some(s),
+                            target: DamageTarget::Object(t),
+                            amount: dmg,
+                            ..
+                        } if s == res.source && t == id && dmg > 0
+                    )
+                }) {
+                    out.push(assignment(
+                        state,
+                        res,
+                        res.source,
+                        DamageTarget::Object(id),
+                        n,
+                    ));
+                }
+            }
+            out
+        }
         _ => unreachable!("damage collection"),
     }
+}
+
+pub(super) fn deal_to_players(
+    state: &mut GameState,
+    res: &mut Resolution,
+    shares: &[(PlayerId, u32)],
+) -> Option<Pending> {
+    let list: Vec<Assignment> = shares
+        .iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|&(p, n)| assignment(state, res, res.source, DamageTarget::Player(p), n))
+        .collect();
+    if list.is_empty() {
+        return None;
+    }
+    let cause = batch57::cause(state, res);
+    let mut work = DamageWork::new(state, list);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
+    finish_or_suspend(
+        state,
+        res,
+        DamageResolution {
+            work,
+            after: AfterDamage::Done,
+        },
+    )
 }
 
 /// Whom `target` names as this resolves: the objects and players an
@@ -720,7 +826,9 @@ fn recipients(
         // `Player(Chosen)` with the choice on the ability's
         // `TargetReq`, which is why the catch-all that used to be
         // here could hold this and stay green.
-        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => players(res.target_players).collect(),
+        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent | TargetSpec::PlayerWhoAttackedThisTurn => {
+            players(res.target_players).collect()
+        }
         // "This creature": the source, which nothing chose (#147, the rule
         // `zones::spec_object` keeps for the moving effects). Rock Hydra's
         // "prevent the next 1 damage that would be dealt to this creature"

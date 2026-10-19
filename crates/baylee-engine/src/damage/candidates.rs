@@ -9,6 +9,7 @@ use crate::zone::Zone;
 use baylee_cards_dsl::Modifier;
 
 impl DamageWork {
+    #[allow(clippy::too_many_lines)]
     pub(super) fn candidates(&mut self, state: &GameState) -> Vec<Candidate> {
         let mut out: Vec<Candidate> = Vec::new();
         for part in &self.parts {
@@ -50,7 +51,7 @@ impl DamageWork {
                         && state
                             .damage_source(part.view.source, part.source_version)
                             .is_some_and(|actual| source.deals_as(state, actual))
-                        && part.view.amount > all_but =>
+                        && (all_but == u32::from(u8::MAX) || part.view.amount > all_but) =>
                     {
                         Kind::PreventFromSource {
                             source: source.id,
@@ -74,6 +75,14 @@ impl DamageWork {
                         None => continue,
                     },
                 };
+                if matches!(kind, Kind::Redirect { .. } | Kind::RedirectNext { .. })
+                    && super::recipient_forbids_prevention_or_redirection(
+                        state,
+                        part.view.recipient,
+                    )
+                {
+                    continue;
+                }
                 add(
                     &mut out,
                     part,
@@ -113,6 +122,7 @@ impl DamageWork {
     #[allow(clippy::too_many_lines)] // One exhaustive table of supported continuous damage modifiers.
     fn continuous_candidates(&self, state: &GameState, part: &Part, out: &mut Vec<Candidate>) {
         for fx in state.effects.iter() {
+            let mut key = EffectKey::Continuous(fx.id);
             let kind = match fx.modifier {
                 Modifier::PlayerProtectionFromEverything { who } => {
                     let DamageTarget::Player(player) = part.view.recipient else {
@@ -269,12 +279,35 @@ impl DamageWork {
                     let applied = part
                         .counters_applied
                         .iter()
-                        .find(|(key, _)| *key == EffectKey::Continuous(fx.id))
+                        .find(|(k, _)| *k == EffectKey::Continuous(fx.id))
                         .map_or(0, |(_, n)| *n);
                     if remaining == 0 || applied >= part.view.amount {
                         continue;
                     }
                     Kind::RemoveCounter { kind, remaining }
+                }
+                Modifier::MayRedirectDamageToYou => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    if state.has_left(fx.controller)
+                        || super::recipient_forbids_prevention_or_redirection(
+                            state,
+                            part.view.recipient,
+                        )
+                        || !state.object(target).is_some_and(|o| {
+                            o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                                && crate::effects::applies_to(state, fx, o)
+                        })
+                    {
+                        continue;
+                    }
+                    key = EffectKey::MayRedirect(fx.id);
+                    Kind::Redirect {
+                        to: DamageTarget::Player(fx.controller),
+                    }
                 }
                 Modifier::RedirectDamageToYou(filter) => {
                     let DamageTarget::Player(player) = part.view.recipient else {
@@ -321,14 +354,7 @@ impl DamageWork {
                 source,
                 ability: None,
             });
-            add(
-                out,
-                part,
-                EffectKey::Continuous(fx.id),
-                kind,
-                origin,
-                fx.controller,
-            );
+            add(out, part, key, kind, origin, fx.controller);
         }
     }
 }

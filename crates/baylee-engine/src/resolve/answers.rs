@@ -523,6 +523,7 @@ fn resume_may_exile_graveyard(
     Some(Flow::Wait(pending))
 }
 
+#[allow(clippy::too_many_lines)]
 pub(super) fn resume_yes_no_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -614,6 +615,110 @@ pub(super) fn resume_yes_no_inner(
     }
     if matches!(res.awaiting, Some(AwaitingOp::SacrificePayment { .. })) {
         return super::sacrifices::answer_payment(state, res, answer);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::WandOfIth { .. })) {
+        let Some(AwaitingOp::WandOfIth { player, card, life }) = res.awaiting.take() else {
+            unreachable!("just matched")
+        };
+        let cost_life = i32::try_from(life).unwrap_or(i32::MAX);
+        if answer && state.can_pay_life(player, cost_life) {
+            state.change_life(player, -cost_life, Cause::Cost);
+        } else if let Some(pending) = super::discard_or_ask(state, res, &[(card, player)]) {
+            return Flow::Wait(pending);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::Cleansing { .. })) {
+        let Some(AwaitingOp::Cleansing {
+            asked,
+            permanents,
+            mut current_idx,
+            mut remaining_players,
+            to_destroy,
+            life,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("just matched")
+        };
+        if answer && state.can_pay_life(asked, i32::from(life)) {
+            state.change_life(asked, -i32::from(life), Cause::Effect);
+            current_idx += 1;
+            remaining_players =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+        }
+        if let Some(pending) = super::immediate::cleansing_advance(
+            state,
+            res,
+            permanents,
+            current_idx,
+            remaining_players,
+            to_destroy,
+            life,
+        ) {
+            return Flow::Wait(pending);
+        }
+        res.pc += 1;
+        return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::WormsOfTheEarth { .. })) {
+        let Some(AwaitingOp::WormsOfTheEarth {
+            asked,
+            remaining,
+            step,
+        }) = res.awaiting.take()
+        else {
+            unreachable!("just matched")
+        };
+        if step == 0 {
+            if answer {
+                let options = chosen::options(
+                    state,
+                    asked,
+                    &baylee_cards_dsl::Filter::LAND,
+                    asked,
+                    res.source,
+                );
+                if options.len() >= 2 {
+                    res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+                        asked,
+                        remaining,
+                        step: 1,
+                    });
+                    return Flow::Wait(Pending::ChooseCards {
+                        player: asked,
+                        options,
+                        min: 2,
+                        max: 2,
+                        prompt: ChoicePrompt::Generic,
+                        total: None,
+                    });
+                }
+            }
+            res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+                asked,
+                remaining,
+                step: 2,
+            });
+            return Flow::Wait(Pending::YesNo {
+                player: asked,
+                prompt: YesNoPrompt::Generic,
+                source: resolving_ability(state, res),
+            });
+        }
+        if answer {
+            sba::destroy(state, res.source);
+            if let Some(pending) = life::deal_to_players(state, res, &[(asked, 5)]) {
+                return Flow::Wait(pending);
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        if let Some(pending) = super::immediate::worms_advance(state, res, remaining) {
+            return Flow::Wait(pending);
+        }
+        res.pc += 1;
+        return run(state, res);
     }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")

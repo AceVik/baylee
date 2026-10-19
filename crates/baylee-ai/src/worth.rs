@@ -614,6 +614,7 @@ impl HeuristicAgent {
             }
             ZoneSel::HandYou
             | ZoneSel::HandActivePlayer
+            | ZoneSel::HandChosen
             | ZoneSel::LibraryYou
             | ZoneSel::LinkedExile => return None,
         };
@@ -1784,10 +1785,12 @@ impl HeuristicAgent {
                     };
                     self.spent(view, o, worth)
                 }
-                CostPart::Sacrifice(filter) => own(filter, &|_| true)
-                    .into_iter()
-                    .map(|o| self.given_up(view, o))
-                    .min()?,
+                CostPart::Sacrifice(filter) | CostPart::ExilePermanent(filter) => {
+                    own(filter, &|_| true)
+                        .into_iter()
+                        .map(|o| self.given_up(view, o))
+                        .min()?
+                }
                 CostPart::PayLife(n) => {
                     if !crate::activate::life_ok(view, cost) {
                         return None;

@@ -1027,6 +1027,12 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CastFromHand
         | Filter::HasWatermark
         | Filter::SharesWatermarkWithSource
+        | Filter::BlockedByReference
+        | Filter::DealtDamageThisTurn
+        | Filter::BlockedThisTurn
+        | Filter::AttackedDuringControllersLastTurn
+        | Filter::TwiceCmcExactlyX
+        | Filter::CouldHaveAttackedThisTurn
         | Filter::UnCard => false,
     }
 }
@@ -1138,6 +1144,7 @@ fn pt_count(
 ) -> i16 {
     *read_board = true;
     let n = match count {
+        baylee_cards_dsl::PtCount::Fixed(n) => usize::from(n),
         baylee_cards_dsl::PtCount::DistinctColorsAmong(filter) => {
             let mut colors = baylee_core::color::ColorSet::EMPTY;
             for id in state.battlefield_seen() {
@@ -1573,6 +1580,11 @@ fn apply(
         | Modifier::AttacksAsThoughHaste
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
+        | Modifier::MayRedirectDamageToYou
+        | Modifier::CantAttackUnlessPayMana(_)
+        | Modifier::CantAttackUnlessYouSacrifice { .. }
+        | Modifier::DamageToItCantBePreventedOrRedirected
+        | Modifier::CantPlayLandsAndLandsCantEnter
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard => {}

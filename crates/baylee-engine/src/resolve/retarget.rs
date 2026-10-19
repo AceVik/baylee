@@ -69,6 +69,8 @@ pub struct Retarget {
     /// them: nothing it holds has been journalled as its target yet, so
     /// every target it ends with becomes one, kept or new.
     copy: bool,
+    /// Only players may be chosen as the new target (Reflecting Mirror).
+    players_only: bool,
 }
 
 /// Starts a change of the first target's targets. `change_to` is `Some` for
@@ -80,7 +82,17 @@ pub(super) fn start(
     change_to: Option<&'static Filter>,
 ) -> Option<Pending> {
     let &spell = res.targets.first()?;
-    begin(state, res, spell, change_to, false)
+    begin(state, res, spell, change_to, false, false)
+}
+
+/// Reflecting Mirror: "Change the target of target spell with a single target
+/// to another player if that spell's target is you."
+pub(super) fn start_player_if_targets_you(
+    state: &mut GameState,
+    res: &mut Resolution,
+) -> Option<Pending> {
+    let &spell = res.targets.first()?;
+    begin(state, res, spell, Some(&Filter::Any), false, true)
 }
 
 /// "You may choose new targets for the copy" (CR 707.10c): the copy's
@@ -98,7 +110,7 @@ pub(super) fn start_copy(
         record_new_targets(state, copy, &[], &[]);
         return None;
     }
-    begin(state, res, copy, None, true)
+    begin(state, res, copy, None, true, false)
 }
 
 fn begin(
@@ -107,6 +119,7 @@ fn begin(
     spell: ObjectId,
     change_to: Option<&'static Filter>,
     copy: bool,
+    players_only: bool,
 ) -> Option<Pending> {
     state.capture_source_references();
     let obj = state.object(spell).filter(|o| o.zone == Zone::Stack)?;
@@ -157,6 +170,9 @@ fn begin(
     if change_to.is_some() && was.len() != 1 {
         return None;
     }
+    if players_only && was.first() != Some(&(0, Aim::Player(res.controller))) {
+        return None;
+    }
     ask(
         state,
         res,
@@ -166,6 +182,7 @@ fn begin(
             was,
             now: Vec::new(),
             copy,
+            players_only,
         },
     )
 }
@@ -260,6 +277,9 @@ fn options(
         if !matches!(to, Filter::Any) {
             players.clear();
         }
+    }
+    if retarget.players_only {
+        objects.clear();
     }
     Some((objects, players))
 }
@@ -585,6 +605,7 @@ mod tests {
                 was: vec![(0, Aim::Object(first_ref)), (0, Aim::Object(kept_ref))],
                 now: vec![Some(Aim::Player(caster)), None],
                 copy: false,
+                players_only: false,
             },
         );
         assert_eq!(state.object(spell).unwrap().targets.as_slice(), &[kept]);
@@ -721,6 +742,7 @@ mod tests {
             was: vec![(0, Aim::Object(reference)), (0, Aim::Player(opponent))],
             now: vec![Some(Aim::Player(opponent)), Some(Aim::Object(reference))],
             copy: true,
+            players_only: false,
         };
         write(&mut state, &choice);
         assert_eq!(
@@ -785,6 +807,7 @@ mod tests {
             was: vec![(0, Aim::Object(a_ref)), (0, Aim::Object(b_ref))],
             now: vec![],
             copy: true,
+            players_only: false,
         };
         assert!(
             can_finish(&state, &choice, Aim::Object(b_ref)),
@@ -864,6 +887,7 @@ mod tests {
                 was: vec![(0, Aim::Object(original))],
                 now: vec![None],
                 copy: true,
+                players_only: false,
             },
         );
         assert_eq!(
@@ -879,6 +903,7 @@ mod tests {
                 was: vec![(0, Aim::Object(original))],
                 now: vec![Some(Aim::Object(current))],
                 copy: false,
+                players_only: false,
             },
         );
         assert_eq!(state.journal.entries()[start..].iter().filter(|entry| matches!(entry.event, GameEvent::BecameTarget { target: id, .. } if id == target)).count(), 1);
@@ -894,6 +919,7 @@ mod tests {
                 was: vec![(0, Aim::Object(current))],
                 now: vec![Some(Aim::Player(player))],
                 copy: false,
+                players_only: false,
             },
         );
         assert_eq!(state.recorded_target_reference(spell, false, 0), None);

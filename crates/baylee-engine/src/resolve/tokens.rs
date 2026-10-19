@@ -33,14 +33,25 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::CreateTokenLinkedBidirectionalLtb { token } => {
+        Effect::CreateTokenLinkedBidirectionalLtb { .. }
+        | Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb => {
             static EXILE_EVENT_OBJECT: &[Effect] = &[Effect::Exile {
                 target: TargetSpec::EventObject,
             }];
             static SACRIFICE_EVENT_OBJECT: &[Effect] = &[Effect::SacrificeObject {
                 target: TargetSpec::EventObject,
             }];
-            let created = create_tokens_with_text(state, you, token, None, 1, res.text);
+            let created = match op {
+                Effect::CreateTokenLinkedBidirectionalLtb { token } => {
+                    create_tokens_with_text(state, you, token, None, 1, res.text)
+                }
+                Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb => {
+                    let &target_id = res.targets.first()?;
+                    let base = crate::layers::copiable_values(state, target_id)?;
+                    create_token_copies(state, you, target_id, &base, 1)
+                }
+                _ => unreachable!("bidirectional ltb token variant"),
+            };
             let source_version = super::source_version(state, res)
                 .or_else(|| state.object(res.source).map(|o| o.version))
                 .unwrap_or(0);

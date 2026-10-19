@@ -109,6 +109,7 @@ mod tests {
             was: vec![(0, aim(wolf)), (1, aim(other_wolf))],
             now: Vec::new(),
             copy: false,
+            players_only: false,
         };
         let object = state.object(spell).unwrap();
         assert!(

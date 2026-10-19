@@ -926,6 +926,7 @@ impl GameState {
             | DelayedWhen::DiesThisTurn { card, version, .. }
             | DelayedWhen::DealtDamageThisTurn { card, version, .. }
             | DelayedWhen::LeavesBattlefield { card, version, .. }
+            | DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
             | DelayedWhen::LeavesBattlefieldOrUntaps { card, version, .. } = delayed.when
             {
                 out.insert(DamageSourceRef {

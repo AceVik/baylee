@@ -29,6 +29,8 @@ pub enum ZoneSel {
     HandYou,
     /// The hand of the player whose turn it is.
     HandActivePlayer,
+    /// The hand of the first targeted player, or the chosen player (Inquisition).
+    HandChosen,
     /// Cards in exile that were exiled with the ability's source (CR 406.6,
     /// 607.2a).
     LinkedExile,
@@ -207,6 +209,8 @@ pub enum TargetSpec {
     Player(PlayerRel),
     /// Any player (choice via `Pending::ChoosePlayer`).
     AnyPlayer,
+    /// "Target player who has attacked this turn" (Fire and Brimstone).
+    PlayerWhoAttackedThisTurn,
     /// Any *opponent* — the same choice as [`Self::AnyPlayer`] over a
     /// smaller set.
     ///

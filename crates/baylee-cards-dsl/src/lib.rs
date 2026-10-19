@@ -704,6 +704,17 @@ pub enum EnterModifier {
         /// How many, before any replacement multiplies them.
         amount: Amount,
     },
+    /// "As Frankenstein's Monster enters, exile X creature cards from your
+    /// graveyard. If you can't, put Frankenstein's Monster into its owner's
+    /// graveyard instead of onto the battlefield. For each creature card
+    /// exiled this way, Frankenstein's Monster enters with a +2/+0, +1/+1,
+    /// or +0/+2 counter on it."
+    FrankensteinsMonster,
+    /// "As Nameless Race enters, pay any amount of life. The amount you pay
+    /// can't be more than the total number of white nontoken permanents your
+    /// opponents control plus the total number of white cards in their
+    /// graveyards" (sets the permanent's chosen number for `PtCount::ChosenNumber`).
+    PayLifeForPtCapWhiteOpponents,
 }
 
 /// Simple keyword abilities as a bitset.

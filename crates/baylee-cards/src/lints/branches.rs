@@ -213,6 +213,7 @@ pub(super) fn target_filter(spec: TargetSpec) -> Option<&'static Filter> {
         | TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn
         | TargetSpec::AnyTarget => None,
     }
 }
@@ -265,7 +266,10 @@ pub(super) fn can_target_an_object(spec: TargetSpec) -> bool {
         | TargetSpec::ThisObject
         | TargetSpec::EventObject
         | TargetSpec::AnyTarget => true,
-        TargetSpec::Player(_) | TargetSpec::AnyPlayer | TargetSpec::AnyOpponent => false,
+        TargetSpec::Player(_)
+        | TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn => false,
     }
 }
 

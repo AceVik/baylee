@@ -782,7 +782,21 @@ impl<L: CardLookup> Engine<L> {
                         .expect("declaring no attackers is always legal");
                     return false;
                 }
-                self.pending = self.attack_question(attacker);
+                let pending = self.attack_question(attacker);
+                if let Pending::ChooseAttackers { attackers, .. } = &pending {
+                    for &id in attackers {
+                        if let Some(version) = self.state.object(id).map(|o| o.version)
+                            && !self
+                                .state
+                                .per_turn
+                                .could_have_attacked
+                                .contains(&(id, version))
+                        {
+                            self.state.per_turn.could_have_attacked.push((id, version));
+                        }
+                    }
+                }
+                self.pending = pending;
                 self.awaiting_answer = true;
                 true
             }
@@ -931,7 +945,11 @@ impl<L: CardLookup> Engine<L> {
             if allowed.is_empty() {
                 continue;
             }
-            if rules.must_attack(id) && allowed.iter().any(|&d| rules.life_tax(id, d) == 0) {
+            if rules.must_attack(id)
+                && rules.mana_tax(id) == 0
+                && rules.sacrifice_tax(id).is_empty()
+                && allowed.iter().any(|&d| rules.life_tax(id, d) == 0)
+            {
                 required.push(id);
             }
             if allowed.len() < defenders.len() {

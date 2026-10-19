@@ -250,6 +250,8 @@ pub enum CostPart {
         /// Exact number to tap simultaneously.
         count: u32,
     },
+    /// Exile a matching permanent you control (City of Shadows).
+    ExilePermanent(&'static Filter),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

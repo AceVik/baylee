@@ -708,6 +708,21 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .len(),
         )
         .unwrap_or(u32::MAX),
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::HandChosen,
+        } => {
+            let context = res.rule_context();
+            players_of(PlayerRel::Chosen, state, you, res)
+                .into_iter()
+                .flat_map(|p| state.zones.list(ZoneLocation::Hand(p)).iter().copied())
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                })
+                .count() as u32
+        }
         other => eval::amount_with_context(other, state, you, res.rule_context(), res.x),
     }
 }
@@ -1314,6 +1329,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
+        | Effect::PlayerMaySacrificeNThen { .. }
         | Effect::SacrificeAndIf { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }

@@ -109,6 +109,7 @@ pub(super) fn spec_object(
         | TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn
         | TargetSpec::AnyTarget => res.targets.first().copied(),
     }
 }
@@ -1420,6 +1421,99 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 prompt: ChoicePrompt::Generic,
                 total: None,
             })
+        }
+        Effect::RevealHand { who } => {
+            for player in players_of(who, state, you, res) {
+                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                state.journal.record(GameEvent::Revealed {
+                    player,
+                    cards: hand,
+                });
+            }
+            None
+        }
+        Effect::RevealHandDiscardAll { filter } => {
+            let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
+            let context = res.rule_context();
+            for player in players_of(PlayerRel::Chosen, state, you, res) {
+                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                state.journal.record(GameEvent::Revealed {
+                    player,
+                    cards: hand.clone(),
+                });
+                for card in hand {
+                    if state.object(card).is_some_and(|obj| {
+                        eval::matches_with_context(filter, state, obj, you, context)
+                    }) {
+                        discards.push((card, player));
+                    }
+                }
+            }
+            super::discard_or_ask(state, res, &discards)
+        }
+        Effect::RevealHandDiscardRandom { filter } => {
+            let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
+            let context = res.rule_context();
+            for player in players_of(PlayerRel::Chosen, state, you, res) {
+                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+                state.journal.record(GameEvent::Revealed {
+                    player,
+                    cards: hand.clone(),
+                });
+                let matching: Vec<ObjectId> = hand
+                    .into_iter()
+                    .filter(|&card| {
+                        state.object(card).is_some_and(|obj| {
+                            eval::matches_with_context(filter, state, obj, you, context)
+                        })
+                    })
+                    .collect();
+                if !matching.is_empty() {
+                    let chosen = matching[state.rng.below(matching.len() as u64) as usize];
+                    discards.push((chosen, player));
+                }
+            }
+            super::discard_or_ask(state, res, &discards)
+        }
+        Effect::ExileAllControllerDrawsEach { filter } => {
+            let context = res.rule_context();
+            let victims: Vec<(ObjectId, PlayerId, PlayerId)> = state
+                .battlefield_seen()
+                .filter_map(|id| {
+                    let obj = state.object(id)?;
+                    eval::matches_with_context(filter, state, obj, you, context).then_some((
+                        id,
+                        obj.owner,
+                        obj.controller,
+                    ))
+                })
+                .collect();
+            let mut counts = [0usize; 8];
+            for (id, owner, controller) in victims {
+                if let Some(obj) = state.object_mut(id) {
+                    obj.kind = ObjectKind::Card;
+                }
+                let moved = state.move_object(
+                    id,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+                if moved.is_ok()
+                    && let Some(slot) = counts.get_mut(usize::from(controller.get()))
+                {
+                    *slot += 1;
+                }
+            }
+            for player in
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default()
+            {
+                let n = counts.get(usize::from(player.get())).copied().unwrap_or(0);
+                if n > 0 {
+                    state.draw_cards(player, n);
+                }
+            }
+            None
         }
         Effect::DiscardHand { who } => {
             let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();

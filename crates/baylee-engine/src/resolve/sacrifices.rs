@@ -14,19 +14,25 @@ pub(super) fn offer_payment(
     filter: &'static Filter,
     count: u8,
     effect: &'static Effect,
+    on_payment: bool,
 ) -> Option<Pending> {
     let player = players_of(who, state, res.controller, res)
         .first()
         .copied()?;
     let options = chosen::options(state, player, filter, res.controller, res.source);
     if options.len() < usize::from(count) {
-        return run_nested(state, res, std::slice::from_ref(effect));
+        return if on_payment {
+            None
+        } else {
+            run_nested(state, res, std::slice::from_ref(effect))
+        };
     }
     res.awaiting = Some(AwaitingOp::SacrificePayment {
         player,
         options,
         count,
         effect,
+        on_payment,
     });
     Some(Pending::YesNo {
         player,
@@ -41,14 +47,22 @@ pub(super) fn answer_payment(state: &mut GameState, res: &mut Resolution, answer
         options,
         count,
         effect,
+        on_payment,
     }) = res.awaiting.take()
     else {
         unreachable!("fixed-count sacrifice payment")
     };
     if !answer {
+        if on_payment {
+            res.pc += 1;
+            return run(state, res);
+        }
         return run_fallback(state, res, std::slice::from_ref(effect));
     }
     if count == 0 {
+        if on_payment {
+            return run_fallback(state, res, std::slice::from_ref(effect));
+        }
         res.pc += 1;
         return run(state, res);
     }
@@ -65,6 +79,7 @@ pub(super) fn answer_payment(state: &mut GameState, res: &mut Resolution, answer
         options,
         count,
         effect,
+        on_payment,
     });
     Flow::Wait(pending)
 }

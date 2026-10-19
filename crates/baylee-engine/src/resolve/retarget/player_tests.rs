@@ -39,6 +39,7 @@ fn mixed_target_replacement_updates_the_scalar_player_alias() {
                     was: vec![(0, Aim::Player(them))],
                     now: vec![Some(next)],
                     copy: false,
+                    players_only: false,
                 },
             );
             let obj = state.object(spell).unwrap();

@@ -62,6 +62,7 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
         part,
         CostPart::Sacrifice(_)
             | CostPart::SacrificeX(_)
+            | CostPart::ExilePermanent(_)
             | CostPart::Discard(_)
             | CostPart::TapN { .. }
             | CostPart::TapOther(_)
@@ -169,6 +170,7 @@ pub(crate) fn options_with_context(
         CostPart::Sacrifice(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::ReturnToHand(_) => (ZoneLocation::Battlefield, true, false),
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => {
             (ZoneLocation::Battlefield, true, true)
@@ -182,6 +184,7 @@ pub(crate) fn options_with_context(
     let (CostPart::Sacrifice(filter)
     | CostPart::SacrificeX(filter)
     | CostPart::SacrificeAll(filter)
+    | CostPart::ExilePermanent(filter)
     | CostPart::Discard(filter)
     | CostPart::TapN { filter, .. }
     | CostPart::TapOther(filter)
@@ -262,7 +265,10 @@ const fn spends_the_source_as(own: &CostPart, part: &CostPart) -> bool {
             CostPart::Sacrifice(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_)
         ) | (CostPart::ReturnSelfToHand, CostPart::ReturnToHand(_))
             | (CostPart::DiscardSelf, CostPart::Discard(_))
-            | (CostPart::ExileSelf, CostPart::ExileFromGraveyard(_))
+            | (
+                CostPart::ExileSelf,
+                CostPart::ExileFromGraveyard(_) | CostPart::ExilePermanent(_)
+            )
     )
 }
 
@@ -274,7 +280,9 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::Crew(power) => ChoicePrompt::CostCrew { power: *power },
         CostPart::Saddle(power) => ChoicePrompt::CostSaddle { power: *power },
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
-        CostPart::ExileFromHand(_) | CostPart::ExileFromGraveyard(_) => ChoicePrompt::CostExile,
+        CostPart::ExileFromHand(_)
+        | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -341,7 +349,9 @@ pub(crate) fn pay(
     // else's battlefield goes home rather than joining the borrower's hand.
     let to = match part {
         CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
-        CostPart::ExileFromHand(_) | CostPart::ExileFromGraveyard(_) => ZoneLocation::Exile(owner),
+        CostPart::ExileFromHand(_)
+        | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExilePermanent(_) => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };
     if matches!(part, CostPart::Discard(_)) {

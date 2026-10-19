@@ -44,6 +44,7 @@ fn accept_sacrifice(
 }
 
 /// Run entry work until all moves have completed or a player must decide.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
     // Co-arrivals are one instruction. Decisions and payments resume through
     // this entry point; committing each body needs no whole-board projection.
@@ -137,6 +138,112 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                         state.entries.pending.push_front(entry);
                         continue 'entries;
                     }
+                    EnterModifier::FrankensteinsMonster => {
+                        let x = state
+                            .object(entry.object)
+                            .filter(|o| o.zone == Zone::Stack || entry.copy == CopyStatus::Handled)
+                            .map_or(0, |o| o.x_value);
+                        if x == 0 {
+                            continue;
+                        }
+                        let unavailable = unavailable(state);
+                        let options: Vec<ObjectId> = state
+                            .zones
+                            .list(ZoneLocation::Graveyard(player))
+                            .iter()
+                            .copied()
+                            .filter(|id| {
+                                *id != entry.object
+                                    && !unavailable.contains(id)
+                                    && state.object(*id).is_some_and(|o| {
+                                        o.characteristics()
+                                            .types
+                                            .contains(baylee_core::types::TypeSet::CREATURE)
+                                    })
+                            })
+                            .collect();
+                        if options.len() < x as usize {
+                            entry.refusal = Some(Refusal::Graveyard);
+                            break;
+                        }
+                        let count = u8::try_from(x.min(255)).expect("bounded page");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::FrankensteinsExile {
+                                options: options.clone(),
+                                count: x,
+                            },
+                            Pending::ChooseCards {
+                                player,
+                                options,
+                                min: count,
+                                max: count,
+                                prompt: ChoicePrompt::CostExile,
+                                total: None,
+                            },
+                        ));
+                    }
+                    EnterModifier::PayLifeForPtCapWhiteOpponents => {
+                        let white_perms = state
+                            .battlefield_seen()
+                            .filter(|&id| {
+                                id != entry.object
+                                    && state.object(id).is_some_and(|o| {
+                                        state.is_opponent(o.controller, player)
+                                            && o.is_card()
+                                            && o.characteristics()
+                                                .colors
+                                                .contains(baylee_core::color::Color::White)
+                                    })
+                            })
+                            .count();
+                        let white_gy: usize = state
+                            .players
+                            .iter()
+                            .filter(|p| !p.has_lost() && state.is_opponent(p.id, player))
+                            .map(|p| {
+                                state
+                                    .zones
+                                    .list(ZoneLocation::Graveyard(p.id))
+                                    .iter()
+                                    .filter(|&&id| {
+                                        state.object(id).is_some_and(|o| {
+                                            o.characteristics()
+                                                .colors
+                                                .contains(baylee_core::color::Color::White)
+                                        })
+                                    })
+                                    .count()
+                            })
+                            .sum();
+                        let cap =
+                            u32::try_from(white_perms.saturating_add(white_gy)).unwrap_or(u32::MAX);
+                        let life = state
+                            .players
+                            .get(usize::from(player.get()))
+                            .map_or(0, |p| u32::try_from(p.life.max(0)).unwrap_or(0));
+                        let max = if state.can_pay_life(player, 1) {
+                            cap.min(life)
+                        } else {
+                            0
+                        };
+                        entry.sacrifices = Some(0);
+                        if max == 0 {
+                            continue;
+                        }
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::PayLifeForPt,
+                            Pending::ChooseNumber {
+                                player,
+                                min: 0,
+                                max,
+                                reason: crate::choice::NumberPrompt::Choice,
+                            },
+                        ));
+                    }
                     _ => {}
                 }
                 state.entries.pending.push_front(entry);
@@ -171,6 +278,7 @@ fn finish_or_suspend(state: &mut GameState, mut entry: Attempt) -> Option<Pendin
 }
 
 /// The engine validates the offered seat, cardinality and membership before entering here.
+#[allow(clippy::too_many_lines)]
 pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
     let question = state.entries.question.take().expect("entry question");
     if equilibrium::answer_special(state, &question, action) {
@@ -263,6 +371,53 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         (Question::DiscardDestination { card }, PlayerAction::Arrange { piles }) => {
             discard_to_destination(state, &entry, card, piles);
         }
+        (
+            Question::FrankensteinsExile { options: _, count },
+            PlayerAction::ChooseObjects { objects },
+        ) => {
+            for &card in objects {
+                let owner = state.object(card).map_or(entry.controller, |o| o.owner);
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+            if count > 0 {
+                state.entries.question = Some(Question::FrankensteinsCounter { remaining: count });
+                state.entries.pending.push_front(entry);
+                return;
+            }
+        }
+        (Question::FrankensteinsCounter { remaining }, PlayerAction::ChooseNumber(choice)) => {
+            let kind = match *choice {
+                0 => CounterKind::Plus {
+                    power: 2,
+                    toughness: 0,
+                },
+                1 => CounterKind::P1P1,
+                _ => CounterKind::Plus {
+                    power: 0,
+                    toughness: 2,
+                },
+            };
+            entry.counters.push((Some(entry.controller), kind, 1));
+            if remaining > 1 {
+                state.entries.question = Some(Question::FrankensteinsCounter {
+                    remaining: remaining - 1,
+                });
+                state.entries.pending.push_front(entry);
+                return;
+            }
+        }
+        (Question::PayLifeForPt, PlayerAction::ChooseNumber(amount)) => {
+            entry.sacrifices = Some(*amount);
+            if *amount > 0 {
+                let delta = -i32::try_from(*amount).unwrap_or(i32::MAX);
+                state.change_life(entry.controller, delta, Cause::Effect);
+            }
+        }
         _ => unreachable!("entry answer shape was validated"),
     }
     state.entries.pending.push_front(entry);
@@ -330,6 +485,12 @@ pub(crate) fn next_question(state: &GameState) -> Option<Pending> {
                 ArrangePile::up_to(ArrangePlace::LibraryTop, 1),
             ],
             prompt: ArrangePrompt::DiscardToLibrary,
+        }),
+        Question::FrankensteinsCounter { .. } => Some(Pending::ChooseNumber {
+            player,
+            min: 0,
+            max: 2,
+            reason: crate::choice::NumberPrompt::Choice,
         }),
         _ => None,
     }

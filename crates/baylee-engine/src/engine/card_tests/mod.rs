@@ -65,6 +65,7 @@ mod rules;
 mod sacrifice_outcomes;
 mod sorceries;
 mod stun_counters;
+mod the_dark_cards;
 
 use super::testkit::*;
 

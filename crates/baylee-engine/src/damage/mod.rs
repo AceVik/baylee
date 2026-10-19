@@ -40,6 +40,7 @@ enum EffectKey {
     ShieldCounter(baylee_core::ids::DamageSourceRef),
     Shield(u64),
     Continuous(EffectId),
+    MayRedirect(EffectId),
     Paid,
 }
 
@@ -91,9 +92,33 @@ pub(crate) struct DamageWork {
 enum PendingDamage {
     Effect(Vec<Candidate>),
     Allocation { candidate: Candidate, total: u32 },
+    OptionalRedirect { candidate: Candidate },
+}
+
+pub(super) fn recipient_forbids_prevention_or_redirection(
+    state: &GameState,
+    recipient: DamageTarget,
+) -> bool {
+    let DamageTarget::Object(id) = recipient else {
+        return false;
+    };
+    let Some(obj) = state.object(id) else {
+        return false;
+    };
+    state.effects.iter().any(|fx| {
+        matches!(
+            fx.modifier,
+            baylee_cards_dsl::Modifier::DamageToItCantBePreventedOrRedirected
+        ) && crate::effects::applies_to(state, fx, obj)
+    })
 }
 
 impl DamageWork {
+    pub(crate) fn is_waiting_yes_no(&self) -> bool {
+        self.result_question.is_some()
+            || matches!(self.question, Some(PendingDamage::OptionalRedirect { .. }))
+    }
+
     pub(crate) fn new(state: &mut GameState, assignments: Vec<Assignment>) -> Self {
         let id = state.next_damage_batch;
         state.next_damage_batch = id.checked_add(1).expect("damage identity exhausted");
@@ -112,7 +137,8 @@ impl DamageWork {
                         recipient: a.recipient,
                         amount: a.amount,
                         is_combat: a.is_combat,
-                        preventable: !crate::combat::unpreventable(state, a.source, a.is_combat),
+                        preventable: !crate::combat::unpreventable(state, a.source, a.is_combat)
+                            && !recipient_forbids_prevention_or_redirection(state, a.recipient),
                     },
                     source_version: a.source_version.or_else(|| object.map(|o| o.version)),
                     recipient_version: match a.recipient {
@@ -207,7 +233,8 @@ impl DamageWork {
             state.refresh_characteristics();
             for part in &mut self.parts {
                 part.view.preventable =
-                    !crate::combat::unpreventable(state, part.view.source, part.view.is_combat);
+                    !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
+                        && !recipient_forbids_prevention_or_redirection(state, part.view.recipient);
             }
             let mut options = self.candidates(state);
             if options.is_empty() {
@@ -276,6 +303,17 @@ impl DamageWork {
             ) => {
                 self.apply_allocated(state, &candidate, allocation);
             }
+            (PendingDamage::OptionalRedirect { candidate }, PlayerAction::YesNo(apply)) => {
+                if *apply {
+                    self.apply_effect(state, &candidate);
+                } else {
+                    for part in &mut self.parts {
+                        if candidate.option.parts.contains(&part.view.id) {
+                            part.applied.push(candidate.key);
+                        }
+                    }
+                }
+            }
             _ => unreachable!("validated damage answer"),
         }
         self.advance(state)
@@ -309,6 +347,16 @@ impl DamageWork {
         candidate: Candidate,
         forced: bool,
     ) -> Option<Pending> {
+        if matches!(candidate.key, EffectKey::MayRedirect(_)) && forced {
+            self.step += 1;
+            let player = candidate.option.controller;
+            self.question = Some(PendingDamage::OptionalRedirect { candidate });
+            return Some(Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::MayDo,
+                source: None,
+            });
+        }
         let budget = match candidate.option.kind {
             DamageEffectKind::PreventNext { remaining }
             | DamageEffectKind::PreventThisEvent { remaining }
@@ -464,7 +512,10 @@ impl DamageWork {
                     }
                 }
             }
-            EffectKey::Continuous(_) | EffectKey::FaceUp(_) | EffectKey::ShieldCounter(_) => {
+            EffectKey::Continuous(_)
+            | EffectKey::MayRedirect(_)
+            | EffectKey::FaceUp(_)
+            | EffectKey::ShieldCounter(_) => {
                 unreachable!("finite prevention")
             }
         }
@@ -554,7 +605,8 @@ impl DamageWork {
                 continue;
             }
             let preventable =
-                !crate::combat::unpreventable(state, part.view.source, part.view.is_combat);
+                !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
+                    && !recipient_forbids_prevention_or_redirection(state, part.view.recipient);
             match candidate.option.kind {
                 DamageEffectKind::Redirect { to } => {
                     part.view.recipient = to;
@@ -571,14 +623,16 @@ impl DamageWork {
                 | DamageEffectKind::RemoveShieldCounter => unreachable!("handled first"),
                 DamageEffectKind::RemoveCounter { .. } => unreachable!("allocated counters"),
                 DamageEffectKind::PreventFromSource { all_but, .. } => {
-                    let n = if preventable {
-                        part.view.amount.saturating_sub(all_but)
-                    } else {
+                    let n = if !preventable {
                         0
+                    } else if all_but == u32::from(u8::MAX) {
+                        part.view.amount / 2
+                    } else {
+                        part.view.amount.saturating_sub(all_but)
                     };
                     part.view.amount -= n;
                     prevented = prevented.saturating_add(n);
-                    used |= n > 0;
+                    used |= n > 0 || all_but == u32::from(u8::MAX);
                     part.applied.push(candidate.key);
                 }
                 DamageEffectKind::PreventCombat

@@ -241,6 +241,7 @@ pub(crate) fn check_player_targets_match_the_printing(
         "TargetSpec::AnyTarget",
         "TargetSpec::OpponentOrObject",
         "TargetSpec::PlayerOrObject",
+        "TargetSpec::PlayerWhoAttackedThisTurn",
     ]
     .iter()
     .any(|spec| content.contains(spec))
@@ -382,6 +383,8 @@ pub(crate) fn check_optional_clauses_are_offered(
         "PlayerMayPayThen",
         "PlayerMayPayManaOr",
         "PlayerMayPayManaThen",
+        "PlayerMayPayManaEachThenElse",
+        "MayRedirectDamageToYou",
         "PreventNextFromChosenSource",
         "CopyOnEnter",
         "CopyTargetSpell",
@@ -425,6 +428,7 @@ pub(crate) fn check_optional_clauses_are_offered(
         "ExileTopMayCast",
         "ExileTopToPlay",
         "MaySkipDrawStepDraw",
+        "MaySkipDrawStepGainLife",
         "SkipTurnToUntapSelf",
         "MayDiscardToLibraryTop",
         "MayRevealOpponentDiscardToLibraryTop",
@@ -838,6 +842,7 @@ pub(crate) fn check_scope_matches_the_text(
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("OpponentControlCountAtMost(")
+        || built.contains("PayLifeForPtCapWhiteOpponents")
         // These restrict the controller of the effect causing a discard,
         // rather than the controller of a permanent selected by a filter.
         || built.contains("DiscardedThisByOpponent")

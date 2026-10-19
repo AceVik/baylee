@@ -908,7 +908,7 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Northampton Farm, Hostile Hostel, Tetravus, Shelkin Brownie, Tolaria,
     // Master of the Hunt, Underdark Rift, Golgothian Sylex, Tawnos's Coffin,
     // Hanweir Battlements, Dungeon Descent).
-    assert_eq!((read, of), (2538, 3051), "activated/loyalty reader census");
+    assert_eq!((read, of), (2550, 3087), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

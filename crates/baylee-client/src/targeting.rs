@@ -493,6 +493,12 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // last battlefield characteristics. Leave the relation to the engine.
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::BlockedByReference
+        | Filter::DealtDamageThisTurn
+        | Filter::BlockedThisTurn
+        | Filter::AttackedDuringControllersLastTurn
+        | Filter::TwiceCmcExactlyX
+        | Filter::CouldHaveAttackedThisTurn
         | Filter::OfSourceChosenColor
         | Filter::SharesAColorWith(_) => return None,
     })
@@ -884,6 +890,7 @@ mod tests {
                         | TargetSpec::CardInPlayersGraveyard(f, _)
                         | TargetSpec::CardInGraveyardBelowEvent(f, _)
                         | TargetSpec::CardInGraveyardBelowValue(f, _, _) => *f,
+                        TargetSpec::PlayerWhoAttackedThisTurn => &Filter::Any,
                     };
                     let name = def.faces[0].name;
                     if legal_targets(&view, &req.spec).is_none() {

@@ -275,6 +275,7 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::UntapSelf
             | CostPart::SacrificeSelf
             | CostPart::Sacrifice(_)
+            | CostPart::ExilePermanent(_)
             | CostPart::Discard(_)
                     | CostPart::DiscardRandom
                     | CostPart::DiscardHand

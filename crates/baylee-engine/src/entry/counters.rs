@@ -3,17 +3,18 @@
 use super::*;
 use crate::object::Rider;
 
-pub(super) fn needs_entry(state: &GameState, _id: ObjectId) -> bool {
+pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
     // External instructions attach counters after requesting the move. Keep that
     // move open whenever replacement ordering could need a decision. Intrinsic
     // counters alone keep their synchronous path when arithmetic is unambiguous.
-    state.effects.iter().any(|effect| {
-        matches!(
-            effect.modifier,
-            baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
-                | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
-        )
-    })
+    super::modifiers(state, id).contains(&EnterModifier::FrankensteinsMonster)
+        || state.effects.iter().any(|effect| {
+            matches!(
+                effect.modifier,
+                baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n: 1.. }
+                    | baylee_cards_dsl::Modifier::DoubleCountersPlacedByYou
+            )
+        })
 }
 
 pub(super) fn question(state: &mut GameState, entry: &mut Attempt) -> Option<Pending> {

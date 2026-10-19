@@ -674,6 +674,8 @@ impl Effect {
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
+            | Effect::WhenTargetLeavesBattlefieldThisTurn { effects }
+            | Effect::WhenSourceLeavesBattlefieldThisTurn { effects }
             | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
             | Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter: _, effects }
             | Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { effects }
@@ -748,7 +750,18 @@ impl Effect {
                 cost: _,
                 effect,
             }
-            | Effect::PlayerMaySacrificeNOr { effect, .. }
+            | Effect::PlayerMaySacrificeNOr {
+                player: _,
+                filter: _,
+                count: _,
+                effect,
+            }
+            | Effect::PlayerMaySacrificeNThen {
+                player: _,
+                filter: _,
+                count: _,
+                effect,
+            }
             | Effect::SacrificeAndIf { effect, .. }
             | Effect::MayPayEnergyOr { effect, .. }
             | Effect::PlayerMayPayLifeOr { effect, .. }
@@ -1066,6 +1079,20 @@ impl Effect {
             | Effect::DungeonExileTwo
             | Effect::DungeonTax { .. }
             | Effect::VentureIntoTheDungeon
+            | Effect::RevealHand { .. }
+            | Effect::RevealHandDiscardAll { .. }
+            | Effect::RevealHandDiscardRandom { .. }
+            | Effect::WandOfIth
+            | Effect::DestroyEachUnlessAnyPlayerPaysLife { .. }
+            | Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb
+            | Effect::ManaClash
+            | Effect::ExileAllControllerDrawsEach { .. }
+            | Effect::MindBomb
+            | Effect::ChangeTargetToPlayerIfTargetsYou
+            | Effect::RuneswordTargetRider
+            | Effect::SorrowsPathSwapBlockers
+            | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
+            | Effect::WormsOfTheEarthUpkeep
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked

@@ -2577,6 +2577,18 @@ pub enum Effect {
         /// Consequence when the full payment is not made.
         effect: &'static Effect,
     },
+    /// Optional simultaneous sacrifice of exactly the printed number;
+    /// runs `effect` only when the full payment is made (Leviathan).
+    PlayerMaySacrificeNThen {
+        /// Who pays.
+        player: PlayerRel,
+        /// Eligible permanents controlled by that player.
+        filter: &'static Filter,
+        /// Exact number sacrificed together.
+        count: u8,
+        /// Consequence when the full payment is made.
+        effect: &'static Effect,
+    },
     /// Sacrifice one matching permanent you control, then run an effect if
     /// its characteristics immediately before the sacrifice match `check`.
     SacrificeAndIf {
@@ -3375,6 +3387,92 @@ pub enum Effect {
         /// Whether the optional payment is a discard.
         discard: bool,
     },
+    /// Reveal the hand of each player matching `who` (Inquisition).
+    RevealHand {
+        /// Whose hand is revealed.
+        who: PlayerRel,
+    },
+    /// Target player reveals their hand and discards all cards matching `filter`
+    /// (Amnesia).
+    RevealHandDiscardAll {
+        /// Which cards in the revealed hand are discarded.
+        filter: &'static Filter,
+    },
+    /// Target opponent reveals their hand and discards a card matching `filter`
+    /// at random (Rag Man).
+    RevealHandDiscardRandom {
+        /// Which cards in the revealed hand are eligible.
+        filter: &'static Filter,
+    },
+    /// Wand of Ith: target player reveals the first card they draw on their
+    /// turn; if it's a land card, unless they pay 1 life, they discard it; if
+    /// it isn't a land card, unless they pay life equal to its mana value, they
+    /// discard it.
+    WandOfIth,
+    /// "For each [filter], destroy it unless any player pays `life` life"
+    /// (Cleansing).
+    DestroyEachUnlessAnyPlayerPaysLife {
+        /// Which permanents are subject to destruction.
+        filter: &'static Filter,
+        /// Life paid by any player to save one permanent.
+        life: u16,
+    },
+    /// "Create a token that's a copy of target nontoken creature, except it's
+    /// an enchantment in addition to its other types. When Dance of Many leaves
+    /// the battlefield, exile that token. When that token leaves the
+    /// battlefield, sacrifice Dance of Many" (Dance of Many).
+    CreateTokenCopyOfTargetLinkedBidirectionalLtb,
+    /// "You and target opponent each flip a coin. This spell deals 1 damage to
+    /// each player whose coin comes up tails. Repeat this process until both
+    /// players' coins come up heads on the same flip" (Mana Clash).
+    ManaClash,
+    /// "Exile all [filter]. For each creature exiled this way, its controller
+    /// draws a card" (Martyr's Cry).
+    ExileAllControllerDrawsEach {
+        /// Which permanents are exiled.
+        filter: &'static Filter,
+    },
+    /// "Each player may discard up to three cards. Mind Bomb deals damage to
+    /// each player equal to 3 minus the number of cards they discarded this
+    /// way" (Mind Bomb).
+    MindBomb,
+    /// "Change the target of target spell or ability with a single target to
+    /// target player if it targets you" (Reflecting Mirror).
+    ChangeTargetToPlayerIfTargetsYou,
+    /// "When that creature leaves the battlefield this turn, [effects]"
+    /// (War Barge, Runesword): registers a delayed triggered ability for the
+    /// rest of the turn watching the first target's current battlefield
+    /// incarnation.
+    WhenTargetLeavesBattlefieldThisTurn {
+        /// What the delayed trigger does when the target leaves.
+        effects: &'static [Effect],
+    },
+    /// "When this permanent leaves the battlefield this turn, [effects]":
+    /// registers a delayed triggered ability for the rest of the turn watching
+    /// the resolving source's current battlefield incarnation.
+    WhenSourceLeavesBattlefieldThisTurn {
+        /// What the delayed trigger does when the source leaves.
+        effects: &'static [Effect],
+    },
+    /// Runesword's target rider: "Whenever that creature deals damage to a
+    /// creature this turn, destroy the other creature. A creature destroyed
+    /// this way can't be regenerated. If a creature dealt damage by the
+    /// targeted creature would die this turn, exile that creature instead."
+    RuneswordTargetRider,
+    /// "Exchange two target blocking creatures that an opponent controls. Each
+    /// of those creatures must be able to block all creatures the other was
+    /// blocking" (Sorrow's Path).
+    SorrowsPathSwapBlockers,
+    /// "This creature deals `amount` damage to each opponent and each
+    /// planeswalker it has dealt damage to this game" (The Fallen).
+    DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame {
+        /// Damage dealt to each qualifying recipient.
+        amount: u16,
+    },
+    /// "If a player sacrifices two lands or has 5 life paid for this ability,
+    /// destroy Worms of the Earth. Any player may activate this ability or pay
+    /// life for it" (Worms of the Earth upkeep trigger).
+    WormsOfTheEarthUpkeep,
 }
 
 #[cfg(test)]

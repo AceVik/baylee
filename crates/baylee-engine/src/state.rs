@@ -344,6 +344,16 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// `card`, as the object it was at `version`, leaves the battlefield for
+    /// any zone this turn.
+    LeavesBattlefieldThisTurn {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
     /// "When Tawnos's Coffin leaves the battlefield or becomes untapped":
     /// the next time `card`, as the object it was at `version`, leaves the
     /// battlefield or becomes untapped after `after` (CR 603.7a, 603.7b).
@@ -379,6 +389,7 @@ impl DelayedWhen {
             self,
             Self::NextSpellCastThisTurn { .. }
                 | Self::DiesThisTurn { .. }
+                | Self::LeavesBattlefieldThisTurn { .. }
                 | Self::DealtDamageThisTurn { .. }
                 | Self::EndOfCombatThisTurn
                 | Self::YouAttackThisTurn { .. }
@@ -693,6 +704,13 @@ pub struct PerTurn {
     /// with its source as it was when it dealt it (`Amount::DamageThisTurn`,
     /// `Filter::DealtDamageToSourceThisTurn`, Backdraft).
     pub damage_log: Vec<DamageLogEntry>,
+    /// Creatures that could have attacked during this turn's declare attackers
+    /// step (Season of the Witch).
+    pub could_have_attacked: Vec<(ObjectId, u32)>,
+    /// `(target_player, drawn_card)` pairs watched by Wand of Ith this turn.
+    pub wand_of_ith_targets: Vec<(PlayerId, ObjectId)>,
+    /// Attacking creatures enchanted or targeted by Runesword this turn.
+    pub runesword_attackers: Vec<(ObjectId, u32)>,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -856,6 +874,9 @@ impl PerTurn {
             attacked: Vec::new(),
             blocks: Vec::new(),
             damage_log: Vec::new(),
+            could_have_attacked: Vec::new(),
+            wand_of_ith_targets: Vec::new(),
+            runesword_attackers: Vec::new(),
         }
     }
 
@@ -939,6 +960,9 @@ impl PerTurn {
         self.attacked.clear();
         self.blocks.clear();
         self.damage_log.clear();
+        self.could_have_attacked.clear();
+        self.wand_of_ith_targets.clear();
+        self.runesword_attackers.clear();
     }
 }
 
@@ -2931,6 +2955,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::BlockingReference
+        | Filter::BlockedByReference
         | Filter::Unblocked
         | Filter::SharesAColorWith(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
@@ -2947,6 +2972,7 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
     match filter {
         Filter::Reference
         | Filter::BlockingReference
+        | Filter::BlockedByReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
         | Filter::SharesCreatureTypeWithOtherTarget
@@ -2993,7 +3019,8 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
         | PtCount::CardTypesInAllGraveyards
         | PtCount::ExiledWithThis
         | PtCount::EntrySacrifices
-        | PtCount::ChosenNumber => false,
+        | PtCount::ChosenNumber
+        | PtCount::Fixed(_) => false,
     }
 }
 

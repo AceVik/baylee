@@ -88,6 +88,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::ExertSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayLife(_)
@@ -135,6 +136,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::Sacrifice(_)
+        | CostPart::ExilePermanent(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::Discard(_)

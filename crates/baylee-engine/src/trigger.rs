@@ -871,7 +871,8 @@ fn watch_triggers(
             crate::state::DelayedWhen::DiesThisTurn { card, after, .. } => {
                 (card, after, true, false)
             }
-            crate::state::DelayedWhen::LeavesBattlefield { card, after, .. } => {
+            crate::state::DelayedWhen::LeavesBattlefield { card, after, .. }
+            | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, after, .. } => {
                 (card, after, false, true)
             }
             _ => continue,

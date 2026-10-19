@@ -2157,6 +2157,12 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.u8(131);
             h.u8(*expansion as u8);
         }
+        F::BlockedByReference => h.u8(133),
+        F::DealtDamageThisTurn => h.u8(134),
+        F::BlockedThisTurn => h.u8(135),
+        F::AttackedDuringControllersLastTurn => h.u8(136),
+        F::TwiceCmcExactlyX => h.u8(137),
+        F::CouldHaveAttackedThisTurn => h.u8(138),
     }
 }
 

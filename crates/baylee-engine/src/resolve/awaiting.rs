@@ -582,8 +582,10 @@ pub enum AwaitingOp {
         options: Vec<ObjectId>,
         /// Exact count to pay together.
         count: u8,
-        /// Consequence of not paying.
+        /// Consequence of paying (`on_payment: true`) or not paying (`false`).
         effect: &'static Effect,
+        /// Whether `effect` runs when paid (`true`) or when declined (`false`).
+        on_payment: bool,
     },
     /// A mandatory sacrifice followed by a test of its departing characteristics.
     SacrificeAndIf {
@@ -934,6 +936,51 @@ pub enum AwaitingOp {
         /// Owners still to be asked, with the commander each is asked
         /// about and whether the library is the destination in question.
         remaining: Vec<(PlayerId, ObjectId, bool)>,
+    },
+    /// Wand of Ith's life payment question for the revealed random card.
+    WandOfIth {
+        /// Target player whose hand card was revealed.
+        player: PlayerId,
+        /// Randomly chosen card in `player`'s hand.
+        card: ObjectId,
+        /// Life payment that prevents the discard.
+        life: u32,
+    },
+    /// Cleansing's per-permanent APNAP life-payment loop.
+    Cleansing {
+        /// Player currently asked to pay `life` life for `permanents[current_idx]`.
+        asked: PlayerId,
+        /// All matching permanents on the battlefield when Cleansing began.
+        permanents: Vec<ObjectId>,
+        /// Index of the permanent currently being offered for saving.
+        current_idx: usize,
+        /// Remaining players in APNAP order for `permanents[current_idx]`.
+        remaining_players: Vec<PlayerId>,
+        /// Permanents for which no player paid life.
+        to_destroy: Vec<ObjectId>,
+        /// Life payment per permanent.
+        life: u16,
+    },
+    /// Mind Bomb's APNAP up-to-three discard selection.
+    MindBomb {
+        /// Player currently choosing cards to discard.
+        asked: PlayerId,
+        /// Remaining players in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Accumulated `(card, player)` discards.
+        discards: Vec<(ObjectId, PlayerId)>,
+        /// Accumulated `(player, damage)` shares.
+        damage: Vec<(PlayerId, u32)>,
+    },
+    /// Worms of the Earth's upkeep APNAP sacrifice-or-damage loop.
+    WormsOfTheEarth {
+        /// Player currently answering.
+        asked: PlayerId,
+        /// Remaining players in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// Step for `asked`: `0` = ask whether to sacrifice 2 lands,
+        /// `1` = choosing 2 lands, `2` = ask whether to take 5 damage.
+        step: u8,
     },
 }
 

@@ -420,17 +420,16 @@ pub(crate) fn land_play_is_forbidden(state: &GameState, obj: &crate::object::Gam
         return true;
     }
     state.effects.may_change_cast_timing_or_lock()
-        && state.effects.iter().any(|fx| {
-            let baylee_cards_dsl::Modifier::PlayersCantPlay(filter) = fx.modifier else {
-                return false;
-            };
-            crate::eval::matches(
+        && state.effects.iter().any(|fx| match fx.modifier {
+            baylee_cards_dsl::Modifier::CantPlayLandsAndLandsCantEnter => true,
+            baylee_cards_dsl::Modifier::PlayersCantPlay(filter) => crate::eval::matches(
                 filter,
                 state,
                 obj,
                 fx.controller,
                 fx.source.unwrap_or(obj.id),
-            )
+            ),
+            _ => false,
         })
 }
 

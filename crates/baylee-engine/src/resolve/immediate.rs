@@ -273,7 +273,10 @@ pub(super) fn exec_immediate(
         | Effect::PreventAllCombatDamageThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::PreventNextFromChosenSource { .. }
-        | Effect::RedirectNextFromChosenSource { .. } => life::exec(state, res, op),
+        | Effect::RedirectNextFromChosenSource { .. }
+        | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
+            life::exec(state, res, op)
+        }
         Effect::Exile { .. }
         | Effect::Blink { .. }
         | Effect::ReturnToHand { .. }
@@ -329,7 +332,11 @@ pub(super) fn exec_immediate(
         | Effect::DiscardHand { .. }
         | Effect::ShuffleIntoLibrary { .. }
         | Effect::ShuffleLibrary { .. }
+        | Effect::RevealHand { .. }
         | Effect::RevealHandDiscard { .. }
+        | Effect::RevealHandDiscardAll { .. }
+        | Effect::RevealHandDiscardRandom { .. }
+        | Effect::ExileAllControllerDrawsEach { .. }
         | Effect::LookAtChosenHand
         | Effect::SacrificeFilter { .. }
         | Effect::SacrificeOneThen { .. }
@@ -381,6 +388,7 @@ pub(super) fn exec_immediate(
         | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),
         Effect::CreateTokenForTargetController { .. }
         | Effect::CreateTokenLinkedBidirectionalLtb { .. }
+        | Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }
         | Effect::Populate
@@ -2258,6 +2266,9 @@ pub(super) fn exec_immediate(
             for &target in &res.targets.clone() {
                 tap(state, target);
             }
+            for &target in &res.second_targets.clone() {
+                tap(state, target);
+            }
             None
         }
         Effect::LeftRightPilesRestrictBlocks => super::river::begin(state, res),
@@ -2538,6 +2549,223 @@ pub(super) fn exec_immediate(
             super::attachments::attach(state, res, target, false);
             None
         }
+        Effect::ChangeTargetToPlayerIfTargetsYou => {
+            retarget::start_player_if_targets_you(state, res)
+        }
+        Effect::WhenTargetLeavesBattlefieldThisTurn { effects } => {
+            let &card = res.targets.first()?;
+            let version = state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?
+                .version;
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::LeavesBattlefieldThisTurn {
+                    card,
+                    version,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::WhenSourceLeavesBattlefieldThisTurn { effects } => {
+            let source = subjects::source(state, res)
+                .filter(|source| subjects::on_battlefield(state, *source))?;
+            let after = state.journal.last_seq();
+            let action = match res
+                .targets
+                .first()
+                .and_then(|&t| state.object(t).map(|o| (t, o.version)))
+            {
+                Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
+                    source: res.source,
+                    source_version: source.version,
+                    effects,
+                    text: res.text,
+                    object,
+                    version,
+                    subject: None,
+                },
+                None => crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source.version,
+                    effects,
+                    text: res.text,
+                },
+            };
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::LeavesBattlefieldThisTurn {
+                    card: source.object,
+                    version: source.version,
+                    after,
+                },
+                action,
+            });
+            None
+        }
+        Effect::RuneswordTargetRider => {
+            let &target = res.targets.first()?;
+            if let Some(obj) = state
+                .object(target)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                let pair = (target, obj.version);
+                if !state.per_turn.runesword_attackers.contains(&pair) {
+                    state.per_turn.runesword_attackers.push(pair);
+                }
+            }
+            None
+        }
+        Effect::ManaClash => {
+            let opp = *players_of(PlayerRel::Chosen, state, you, res).first()?;
+            let you_heads = state.rng.below(2) == 0;
+            state.journal.record(GameEvent::CoinFlipped {
+                player: you,
+                won: you_heads,
+            });
+            let opp_heads = state.rng.below(2) == 0;
+            state.journal.record(GameEvent::CoinFlipped {
+                player: opp,
+                won: opp_heads,
+            });
+            if !(you_heads && opp_heads) && res.effects.len() < REPEAT_CAP as usize {
+                res.effects.insert(res.pc + 1, Effect::ManaClash);
+            }
+            let mut shares = Vec::new();
+            if !you_heads {
+                shares.push((you, 1));
+            }
+            if !opp_heads {
+                shares.push((opp, 1));
+            }
+            life::deal_to_players(state, res, &shares)
+        }
+        Effect::WandOfIth => {
+            let player = *players_of(PlayerRel::Chosen, state, you, res).first()?;
+            let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
+            if hand.is_empty() {
+                return None;
+            }
+            let card = hand[state.rng.below(hand.len() as u64) as usize];
+            state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![card],
+            });
+            let obj = state.object(card)?;
+            let life = if obj
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::LAND)
+            {
+                1
+            } else {
+                obj.characteristics().mana_value()
+            };
+            if !state.can_pay_life(player, i32::try_from(life).unwrap_or(i32::MAX)) {
+                return super::discard_or_ask(state, res, &[(card, player)]);
+            }
+            res.awaiting = Some(AwaitingOp::WandOfIth { player, card, life });
+            Some(Pending::YesNo {
+                player,
+                prompt: crate::choice::YesNoPrompt::PayLife { amount: life },
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::DestroyEachUnlessAnyPlayerPaysLife { filter, life } => {
+            let context = res.rule_context();
+            let permanents: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+                })
+                .collect();
+            let remaining_players =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+            cleansing_advance(
+                state,
+                res,
+                permanents,
+                0,
+                remaining_players,
+                Vec::new(),
+                life,
+            )
+        }
+        Effect::MindBomb => {
+            let remaining =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+            mind_bomb_advance(state, res, remaining, Vec::new(), Vec::new())
+        }
+        Effect::SorrowsPathSwapBlockers => {
+            let &b1 = res.targets.first()?;
+            let b2 = res
+                .targets
+                .get(1)
+                .or_else(|| res.second_targets.first())
+                .copied()?;
+            if b1 == b2 {
+                return None;
+            }
+            let (Some(o1), Some(o2)) = (
+                state
+                    .object(b1)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield),
+                state
+                    .object(b2)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield),
+            ) else {
+                return None;
+            };
+            let defending = o1.controller;
+            if o2.controller != defending || !state.is_opponent(defending, you) {
+                return None;
+            }
+            let a1 = state.combat.blocked_by(b1);
+            let a2 = state.combat.blocked_by(b2);
+            if a1.is_empty() || a2.is_empty() {
+                return None;
+            }
+            if !a2
+                .iter()
+                .all(|&a| crate::combat::can_block(state, defending, b1, a))
+                || !a1
+                    .iter()
+                    .all(|&a| crate::combat::can_block(state, defending, b2, a))
+            {
+                return None;
+            }
+            state
+                .combat
+                .blockers
+                .retain(|b| b.blocker != b1 && b.blocker != b2);
+            for a in a2 {
+                state.declare_block(b1, a);
+            }
+            for a in a1 {
+                state.declare_block(b2, a);
+            }
+            None
+        }
+        Effect::WormsOfTheEarthUpkeep => {
+            if !subjects::source(state, res).is_some_and(|s| subjects::on_battlefield(state, s)) {
+                return None;
+            }
+            let remaining =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+            worms_advance(state, res, remaining)
+        }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
         | Effect::SearchLibraryBeforeShuffle { .. }
@@ -2576,6 +2804,7 @@ pub(super) fn exec_immediate(
         | Effect::ExchangeGreatestManaValue { .. }
         | Effect::PlayerMayPayCostThen { .. }
         | Effect::PlayerMaySacrificeNOr { .. }
+        | Effect::PlayerMaySacrificeNThen { .. }
         | Effect::SacrificeAndIf { .. }
         | Effect::PlayerMayPayCostOr { .. }
         | Effect::PayManaToPreventDamage { .. }
@@ -2595,6 +2824,141 @@ pub(super) fn exec_immediate(
             unreachable!("choice ops dispatch to exec_choice")
         }
     }
+}
+
+pub(super) fn cleansing_advance(
+    state: &mut GameState,
+    res: &mut Resolution,
+    permanents: Vec<ObjectId>,
+    mut current_idx: usize,
+    mut remaining_players: Vec<PlayerId>,
+    mut to_destroy: Vec<ObjectId>,
+    life: u16,
+) -> Option<Pending> {
+    while current_idx < permanents.len() {
+        let perm = permanents[current_idx];
+        if !state
+            .object(perm)
+            .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+        {
+            current_idx += 1;
+            remaining_players =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+            continue;
+        }
+        while !remaining_players.is_empty() {
+            let asked = remaining_players.remove(0);
+            if state.can_pay_life(asked, i32::from(life)) {
+                res.awaiting = Some(AwaitingOp::Cleansing {
+                    asked,
+                    permanents,
+                    current_idx,
+                    remaining_players,
+                    to_destroy,
+                    life,
+                });
+                return Some(Pending::YesNo {
+                    player: asked,
+                    prompt: crate::choice::YesNoPrompt::PayLife {
+                        amount: u32::from(life),
+                    },
+                    source: resolving_ability(state, res),
+                });
+            }
+        }
+        to_destroy.push(perm);
+        current_idx += 1;
+        remaining_players =
+            eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+    }
+    if !to_destroy.is_empty() {
+        sba::destroy_all(state, &to_destroy, false);
+    }
+    None
+}
+
+pub(super) fn mind_bomb_advance(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut remaining: Vec<PlayerId>,
+    discards: Vec<(ObjectId, PlayerId)>,
+    mut damage: Vec<(PlayerId, u32)>,
+) -> Option<Pending> {
+    while !remaining.is_empty() {
+        let asked = remaining.remove(0);
+        if state.has_left(asked) {
+            continue;
+        }
+        let options = state.zones.list(ZoneLocation::Hand(asked)).clone();
+        if options.is_empty() {
+            damage.push((asked, 3));
+            continue;
+        }
+        let max = u8::try_from(options.len().min(3)).unwrap_or(3);
+        res.awaiting = Some(AwaitingOp::MindBomb {
+            asked,
+            remaining,
+            discards,
+            damage,
+        });
+        return Some(Pending::ChooseCards {
+            player: asked,
+            options,
+            min: 0,
+            max,
+            prompt: ChoicePrompt::Discard,
+            total: None,
+        });
+    }
+    for (card, player) in discards {
+        if state.zones.list(ZoneLocation::Hand(player)).contains(&card) {
+            state.discard_card(card, player, Cause::Effect, Some(res.controller));
+        }
+    }
+    life::deal_to_players(state, res, &damage)
+}
+
+pub(super) fn worms_advance(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut remaining: Vec<PlayerId>,
+) -> Option<Pending> {
+    while !remaining.is_empty() {
+        let asked = remaining.remove(0);
+        if state.has_left(asked) {
+            continue;
+        }
+        let lands = chosen::options(
+            state,
+            asked,
+            &baylee_cards_dsl::Filter::LAND,
+            asked,
+            res.source,
+        );
+        if lands.len() >= 2 {
+            res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+                asked,
+                remaining,
+                step: 0,
+            });
+            return Some(Pending::YesNo {
+                player: asked,
+                prompt: crate::choice::YesNoPrompt::SacrificeToEnter { count: 2 },
+                source: resolving_ability(state, res),
+            });
+        }
+        res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+            asked,
+            remaining,
+            step: 2,
+        });
+        return Some(Pending::YesNo {
+            player: asked,
+            prompt: crate::choice::YesNoPrompt::Generic,
+            source: resolving_ability(state, res),
+        });
+    }
+    None
 }
 
 // Resolution-only source-power tests use CR 608.2h's retained value after

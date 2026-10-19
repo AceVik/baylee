@@ -292,6 +292,7 @@ impl<L: CardLookup> Engine<L> {
                 // payment then finds nothing is the contradiction
                 // `offer_tests` exists to catch.
                 CostPart::Sacrifice(_)
+                | CostPart::ExilePermanent(_)
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
@@ -853,6 +854,7 @@ impl<L: CardLookup> Engine<L> {
                 // cannot come out as two different events, and neither can
                 // a tap.
                 CostPart::Sacrifice(_)
+                | CostPart::ExilePermanent(_)
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
@@ -865,7 +867,12 @@ impl<L: CardLookup> Engine<L> {
                     // "The sacrificed creature's mana value" (Birthing Pod)
                     // is read off the permanent as it last existed on the
                     // battlefield (CR 608.2h), so before it goes.
-                    if matches!(part, CostPart::Sacrifice(_)) {
+                    if matches!(
+                        part,
+                        CostPart::Sacrifice(_)
+                            | CostPart::ExilePermanent(_)
+                            | CostPart::ExileFromGraveyard(_)
+                    ) {
                         paid.sacrificed = self.state.object(card).map(|o| (card, o.version));
                         paid.sacrificed_lki = self
                             .state
