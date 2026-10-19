@@ -1,0 +1,41 @@
+name: central-native-integration
+on:
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/baylee-account/**'
+      - 'crates/baylee-db/**'
+      - 'crates/baylee-gateway/**'
+      - 'scripts/test-central-*.ps1'
+      - '.github/workflows/central-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/baylee-account/**'
+      - 'crates/baylee-db/**'
+      - 'crates/baylee-gateway/**'
+      - 'scripts/test-central-*.ps1'
+      - '.github/workflows/central-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  migration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Native account schema and real transport
+        run: cargo test --locked -p baylee-account --all-features
+      - name: Source cutover against owned PostgreSQL 18
+        shell: pwsh
+        run: ./scripts/test-central-db.ps1
+      - name: Gateway migration, restore and admission
+        shell: pwsh
+        run: ./scripts/test-central-integration.ps1

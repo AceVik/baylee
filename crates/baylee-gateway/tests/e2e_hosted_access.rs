@@ -14,6 +14,8 @@
 //! most, `%` and `_` literal; and each change is audited by id, never by name.
 
 #![allow(clippy::missing_docs_in_private_items)]
+// Every scenario needs a Unix-domain seat-host socket; its helpers share that scope.
+#![cfg(unix)]
 
 mod common;
 

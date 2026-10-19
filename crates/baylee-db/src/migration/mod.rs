@@ -30,6 +30,7 @@ mod m20261013_000017_social;
 mod m20261013_000018_replays;
 mod m20261013_000019_llm_access;
 mod m20261013_000019_replay_shares;
+mod m20261019_000020_central_accounts;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -62,6 +63,7 @@ impl MigratorTrait for Migrator {
             // the one they run in (as with the two 000016s).
             Box::new(m20261013_000019_llm_access::Migration),
             Box::new(m20261013_000019_replay_shares::Migration),
+            Box::new(m20261019_000020_central_accounts::Migration),
         ]
     }
 }

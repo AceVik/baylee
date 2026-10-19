@@ -167,6 +167,132 @@ async fn the_schema_applies_and_reapplies() {
     sandbox.close().await;
 }
 
+#[tokio::test]
+async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions() {
+    use baylee_db::central;
+    let sandbox = Sandbox::open("central_link").await;
+    let (alice_id, bob_id, deck_id) = central_seed(&sandbox.db).await;
+    let alice = alice_id.to_string();
+    let first = central::prepare(&sandbox.db, &alice).await.unwrap();
+    let text = first.document.to_string();
+    assert!(text.contains("ALICE_PRIVATE_DECK"));
+    assert!(!text.contains("BOB_PRIVATE_DECK"));
+    assert!(!text.contains("password_hash"));
+    assert!(!text.contains("token_hash"));
+    assert_eq!(
+        first.document["decks"][0]["history"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let central_id = *Uuid::now_v7().as_bytes();
+    assert!(!central::linked(&sandbox.db, &alice).await.unwrap());
+    assert!(
+        central::finish(&sandbox.db, &alice, central_id, [0; 32])
+            .await
+            .is_err()
+    );
+    ClientSettings::insert(client_settings::ActiveModel {
+        account_id: Set(alice_id),
+        doc: Set(serde_json::json!({"future":1})),
+        updated_at: Set(OffsetDateTime::now_utc()),
+    })
+    .exec(&sandbox.db)
+    .await
+    .unwrap();
+    assert!(
+        central::finish(&sandbox.db, &alice, central_id, first.digest)
+            .await
+            .is_err()
+    );
+    let second = central::prepare(&sandbox.db, &alice).await.unwrap();
+    assert_ne!(first.digest, second.digest);
+    assert!(
+        central::finish(&sandbox.db, &alice, central_id, first.digest)
+            .await
+            .is_err(),
+        "another export cannot authorize an older restored copy"
+    );
+    assert_eq!(SessionToken::find().count(&sandbox.db).await.unwrap(), 1);
+    central::finish(&sandbox.db, &alice, central_id, second.digest)
+        .await
+        .unwrap();
+    assert!(central::linked(&sandbox.db, &alice).await.unwrap());
+    assert!(
+        central::matches(&sandbox.db, &alice, central_id)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !central::matches(&sandbox.db, &bob_id.to_string(), central_id)
+            .await
+            .unwrap()
+    );
+    assert_eq!(SessionToken::find().count(&sandbox.db).await.unwrap(), 0);
+    central::finish(&sandbox.db, &alice, central_id, second.digest)
+        .await
+        .unwrap();
+    assert!(
+        central::finish(
+            &sandbox.db,
+            &alice,
+            *Uuid::now_v7().as_bytes(),
+            second.digest
+        )
+        .await
+        .is_err()
+    );
+    assert!(central::prepare(&sandbox.db, &alice).await.is_err());
+    assert!(
+        Deck::find_by_id(deck_id)
+            .one(&sandbox.db)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert_eq!(
+        ClientSettings::find_by_id(alice_id)
+            .one(&sandbox.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .doc,
+        serde_json::json!({"future":1})
+    );
+    sandbox.close().await;
+}
+
+async fn central_seed(db: &DatabaseConnection) -> (Uuid, Uuid, Uuid) {
+    let alice = an_account("central-a@example.invalid");
+    let Set(alice_id) = alice.id else {
+        unreachable!()
+    };
+    Account::insert(alice).exec(db).await.unwrap();
+    let bob = an_account("central-b@example.invalid");
+    let Set(bob_id) = bob.id else { unreachable!() };
+    Account::insert(bob).exec(db).await.unwrap();
+    let deck = a_deck(Some(alice_id), "ALICE_PRIVATE_DECK");
+    let deck_id = Deck::insert(deck).exec(db).await.unwrap().last_insert_id;
+    Deck::insert(a_deck(Some(bob_id), "BOB_PRIVATE_DECK"))
+        .exec(db)
+        .await
+        .unwrap();
+    DeckVersion::insert(a_version(deck_id, 1, &["1 Forest"]))
+        .exec(db)
+        .await
+        .unwrap();
+    SessionToken::insert(session_token::ActiveModel {
+        token_hash: Set(vec![42; 32]),
+        account_id: Set(alice_id),
+        expires_at: Set(OffsetDateTime::now_utc() + time::Duration::days(1)),
+    })
+    .exec(db)
+    .await
+    .unwrap();
+    (alice_id, bob_id, deck_id)
+}
+
 /// Whether `schema` holds a table called `table`, asked with both names
 /// spelled out so the search path has no say in the answer.
 async fn has_table(db: &DatabaseConnection, schema: &str, table: &str) -> bool {

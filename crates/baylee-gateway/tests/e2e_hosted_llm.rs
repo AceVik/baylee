@@ -13,6 +13,8 @@
 //! binary and the fake CLI) is `hosted_seat_processes`, ignored.
 
 #![allow(clippy::missing_docs_in_private_items)]
+// Every scenario needs a Unix-domain seat-host socket; its helpers share that scope.
+#![cfg(unix)]
 
 mod common;
 

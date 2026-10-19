@@ -5,16 +5,9 @@ members = ["crates/*", "xtask"]
 [workspace.package]
 version = "0.1.0-beta.7b"
 edition = "2024"
-# MSRV: not a preference but the floor the dependency graph sets. `bevy`
-# 0.20.0 and the `wesl` shader compiler it builds on (`wesl`, `wesl-core`,
-# `wgsl-parse`, `wgsl-types` 0.6) declare `rust-version = "1.97.1"`, the
-# maximum over the whole resolved graph (`sea-orm` 2.0.2, through sqlx 0.9.0,
-# declares 1.94.0), so nothing here can be built with less. It said 1.88 for
-# a long time, which was not merely stale: `cargo upgrade` is MSRV-aware, read
-# this number, and offered to **downgrade** bevy to 0.17 and sea-orm to 1.1
-# to honour a promise the code could not keep. CI builds against exactly this
-# version, and reads it from here rather than repeating it.
-rust-version = "1.97.1"
+# Central's reviewed native authentication SDK requires Rust 1.99.
+# CI reads this version rather than repeating a lower renderer-only floor.
+rust-version = "1.99"
 license = "AGPL-3.0-only"
 # The AGPL's own "How to Apply" appendix asks for a copyright holder and a
 # way to reach the source, and here both are obligations rather than
@@ -29,6 +22,9 @@ description = "An unofficial, non-commercial fan implementation of a trading car
 # Dependency policy: newest stable, pinned here once for the whole workspace.
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.
 [workspace.dependencies]
+baylee-account = { path = "crates/baylee-account" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "5bb53ba413251c76b83fa8651145d568d310d0c0" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "5bb53ba413251c76b83fa8651145d568d310d0c0" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }

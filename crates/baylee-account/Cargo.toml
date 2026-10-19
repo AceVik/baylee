@@ -1,0 +1,23 @@
+[package]
+name = "baylee-account"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Strict native Baylee Central transport and account data format"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+client = ["dep:central-client"]
+
+[dependencies]
+central-api.workspace = true
+central-client = { workspace = true, optional = true }
+serde.workspace = true
+serde_json.workspace = true
+ureq.workspace = true
+url = "=2.5.8"
+zeroize.workspace = true

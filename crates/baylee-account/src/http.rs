@@ -1,0 +1,103 @@
+use crate::{
+    Endpoint, Error, Token,
+    wire::{Request, Response},
+};
+use std::{io::Read, time::Duration};
+use zeroize::Zeroizing;
+
+/// Strict native credential transport, bound to one trusted Central endpoint.
+pub struct CentralHttp {
+    endpoint: Endpoint,
+    agent: ureq::Agent,
+}
+
+impl CentralHttp {
+    /// Construct without network activity. TLS verification is always enabled.
+    #[must_use]
+    pub fn new(endpoint: Endpoint) -> Self {
+        let agent = agent(endpoint.legacy_origin().is_some());
+        Self { endpoint, agent }
+    }
+
+    /// Trusted endpoint selected locally, never from a gateway response.
+    #[must_use]
+    pub const fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
+
+    /// Exchange a bounded native request. Remote errors are deliberately discarded.
+    ///
+    /// # Errors
+    /// Reports generic auth/transport/conflict/capacity failures; never follows a redirect.
+    pub fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
+        let bytes = Zeroizing::new(central_api::encode(request)?);
+        let mut asked = self
+            .agent
+            .post(self.endpoint.native_url())
+            .header("Content-Type", "application/json");
+        if let Some(token) = bearer {
+            asked = asked.header("Authorization", token.bearer().as_str());
+        }
+        let response = asked
+            .send(bytes.as_slice())
+            .map_err(|_| Error::Unavailable)?;
+        decode_response(response)
+    }
+}
+
+pub(crate) fn agent(https_only: bool) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .tls_config(
+            ureq::tls::TlsConfig::builder()
+                .root_certs(ureq::tls::RootCerts::WebPki)
+                .disable_verification(false)
+                .build(),
+        )
+        .https_only(https_only)
+        .proxy(None)
+        .max_redirects(0)
+        .http_status_as_error(false)
+        .timeout_global(Some(Duration::from_secs(10)))
+        .timeout_connect(Some(Duration::from_secs(3)))
+        .timeout_recv_body(Some(Duration::from_secs(5)))
+        .build()
+        .new_agent()
+}
+
+pub(crate) fn decode_response<T: serde::de::DeserializeOwned>(
+    mut response: ureq::http::Response<ureq::Body>,
+) -> Result<T, Error> {
+    match response.status().as_u16() {
+        200 => {}
+        409 => return Err(Error::Conflict),
+        429 => return Err(Error::Busy),
+        500..=599 => return Err(Error::Unavailable),
+        _ => return Err(Error::Rejected),
+    }
+    if response
+        .headers()
+        .get("Content-Type")
+        .and_then(|v| v.to_str().ok())
+        != Some("application/json")
+    {
+        return Err(Error::Rejected);
+    }
+    let mut bytes = Zeroizing::new(Vec::new());
+    response
+        .body_mut()
+        .as_reader()
+        .take((central_api::MAX_WIRE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::Unavailable)?;
+    central_api::decode(&bytes)
+}
+
+#[cfg(feature = "client")]
+impl central_client::Transport for CentralHttp {
+    fn endpoint(&self) -> &Endpoint {
+        &self.endpoint
+    }
+    fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
+        Self::exchange(self, request, bearer)
+    }
+}

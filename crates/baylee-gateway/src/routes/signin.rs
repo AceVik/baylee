@@ -322,8 +322,14 @@ pub(crate) async fn proven(
     // A guest has no hash, and no username or address to be found by
     // either; were one found, the dummy would refuse it like a stranger.
     let stored_hash = account.as_ref().and_then(|a| a.password_hash.clone());
-    let password = password.to_owned();
+    let permit = state
+        .auth_workers
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"))?;
+    let password = zeroize::Zeroizing::new(password.to_owned());
     let ok = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
         auth::verify_password(stored_hash.as_deref(), &password)
     })
     .await
@@ -333,6 +339,19 @@ pub(crate) async fn proven(
     };
     if !ok {
         return Err(err(StatusCode::UNAUTHORIZED, "invalid credentials"));
+    }
+    // A committed immutable link permanently disables all old password-based entry points.
+    // Storage failure is a refusal, never permission to fall back to legacy authentication.
+    if baylee_db::central::linked(&state.db, &account.id)
+        .await
+        .map_err(|_| {
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "account storage unavailable",
+            )
+        })?
+    {
+        return Err(err(StatusCode::UNAUTHORIZED, "use central sign-in"));
     }
     // Getting it right is what the window was counting towards. Leaving the
     // typos on the clock would refuse the next sign-in from a player who has

@@ -12,6 +12,7 @@ mod admission;
 mod art;
 mod auth;
 mod blocks;
+mod central;
 mod chair;
 mod clock;
 mod cosmetics;
@@ -72,6 +73,9 @@ use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
+    central: Option<Arc<central::Bridge>>,
+    central_barrier: tokio::sync::RwLock<()>,
+    auth_workers: Arc<tokio::sync::Semaphore>,
     /// Accounts, sessions, decks, links, preferences.
     ///
     /// `store.rs` is the only module that knows this is a database; every
@@ -371,6 +375,10 @@ async fn main() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
     let state = Arc::new(AppState {
+        central: central::Bridge::from_env()
+            .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
+        central_barrier: tokio::sync::RwLock::new(()),
+        auth_workers: Arc::new(tokio::sync::Semaphore::new(4)),
         db,
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
@@ -527,6 +535,11 @@ async fn main() {
             )),
         )
         .route("/images/{id}", get(cosmetics::serve))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            central::barrier,
+        ))
+        .merge(central::router())
         // Inside the CORS layer, so a preflight is not a request served.
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
@@ -595,7 +608,11 @@ type Listening = axum::serve::TapIo<tokio::net::TcpListener, fn(&mut tokio::net:
 /// for, or with `PORT=0` the one the kernel chose.
 async fn listen(port: u16) -> (Listening, u16) {
     use axum::serve::ListenerExt as _;
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+    let bind: IpAddr = std::env::var("BAYLEE_BIND")
+        .unwrap_or_else(|_| "0.0.0.0".into())
+        .parse()
+        .expect("BAYLEE_BIND must be a numeric IP address");
+    let listener = tokio::net::TcpListener::bind((bind, port))
         .await
         .expect("bind gateway port");
     let port = listener
