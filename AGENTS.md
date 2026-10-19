@@ -20,6 +20,14 @@
 
 ## Conventions
 
+- **Agent test cleanup (owner, 19.10.2026):** whenever an agent starts a client
+  for testing (including dev-control/passive clients), it must close that
+  client after the test, including on failure or interruption. Track the exact
+  process/session at launch, clean it up in a finally/trap block, and verify it
+  exited before handing back to the owner. Passive windows cannot be closed
+  by the owner normally. Stop only processes started for that test, including
+  its helper services; never terminate unrelated clients. Leave a test client
+  running only if the owner explicitly requests it.
 - `unsafe_code = "allow"` workspace-wide: `unsafe` code, intrinsics and
   assembler (`core::arch`, `asm!` for `x86_64`, `aarch64`/ARM, and modern Wasm
   when needed) are allowed and explicitly encouraged everywhere when they

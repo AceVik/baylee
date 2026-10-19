@@ -14,6 +14,14 @@ trainer under `tools/trainer` is a separate, intentionally Python workflow.
 
 ## Start an isolated, silent client
 
+Every agent-started test client must be closed after the test, including on
+failure or interruption (owner, 19.10.2026). Record its exact PID/session at
+launch and use finally/trap cleanup; verify the process exited and its harness
+port stopped listening before finishing. Close helper services started for
+the same test too. Never stop unrelated processes or leave cleanup to the
+owner: passive windows cannot normally be closed by clicking. Leave a client
+running only at the owner's explicit request.
+
 Never test against the owner's account, production gateway, feedback or crash
 reporting. Set separate `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and
 `XDG_DATA_HOME` directories for each client; keep the real HOME. Bind only
