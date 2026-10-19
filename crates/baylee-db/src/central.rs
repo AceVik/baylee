@@ -167,6 +167,13 @@ pub async fn finish(
     transaction
         .execute_raw(Statement::from_sql_and_values(
             DbBackend::Postgres,
+            "UPDATE account SET central_only = true, password_hash = NULL WHERE id = $1",
+            [account.into()],
+        ))
+        .await?;
+    transaction
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
             "DELETE FROM session_token WHERE account_id = $1",
             [account.into()],
         ))

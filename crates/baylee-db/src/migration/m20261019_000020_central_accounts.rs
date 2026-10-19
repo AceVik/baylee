@@ -23,4 +23,19 @@ impl MigrationTrait for Migration {
             .await?;
         Ok(())
     }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "DO $guard$ BEGIN
+                 IF EXISTS (SELECT 1 FROM central_account_link WHERE central_id IS NOT NULL) THEN
+                     RAISE EXCEPTION 'Linked accounts prevent mapping rollback';
+                 END IF;
+             END $guard$;
+             DROP TABLE central_account_link;",
+            )
+            .await?;
+        Ok(())
+    }
 }

@@ -230,6 +230,7 @@ async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_lega
             .unwrap()
     );
     assert_eq!(SessionToken::find().count(&sandbox.db).await.unwrap(), 0);
+    central_password_retired(&sandbox.db, alice_id, bob_id).await;
     central::finish(&sandbox.db, &alice, central_id, second.digest)
         .await
         .unwrap();
@@ -261,6 +262,91 @@ async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_lega
         serde_json::json!({"future":1})
     );
     sandbox.close().await;
+}
+
+#[tokio::test]
+async fn central_password_retirement_upgrades_existing_links_without_touching_legacy_accounts() {
+    let before = u32::try_from(
+        Migrator::migrations()
+            .iter()
+            .position(|migration| migration.name() == "m20261019_000021_retire_legacy_passwords")
+            .expect("password retirement migration registered"),
+    )
+    .expect("a handful");
+    let sandbox = Sandbox::open_at("central_retire_existing", Some(before)).await;
+    let db = &sandbox.db;
+    let (alice, bob, deck) = central_seed(db).await;
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO central_account_link (account_id, central_id, snapshot_digest, linked_at)
+         VALUES ($1, uuidv7(), $2, clock_timestamp())",
+        [alice.into(), vec![7_u8; 32].into()],
+    ))
+    .await
+    .unwrap();
+    assert!(
+        Account::find_by_id(alice)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+            .password_hash
+            .is_some()
+    );
+    Migrator::up(db, None).await.unwrap();
+    central_password_retired(db, alice, bob).await;
+    assert_eq!(
+        Deck::find_by_id(deck)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+            .account_id,
+        Some(alice)
+    );
+    Migrator::up(db, None).await.unwrap();
+    central_password_retired(db, alice, bob).await;
+    sandbox.close().await;
+}
+
+async fn central_password_retired(db: &DatabaseConnection, alice: Uuid, bob: Uuid) {
+    assert!(
+        Account::find_by_id(alice)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+            .password_hash
+            .is_none()
+    );
+    assert!(
+        Account::find_by_id(bob)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+            .password_hash
+            .is_some()
+    );
+    assert!(
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE account SET password_hash = 'synthetic-disabled-password' WHERE id = $1",
+            [alice.into()]
+        ))
+        .await
+        .is_err(),
+        "an old gateway reset must not restore password authentication"
+    );
+    assert!(
+        Migrator::down(db, Some(1)).await.is_err(),
+        "retired credentials cannot be rolled back"
+    );
+    assert!(
+        baylee_db::central::linked(db, &alice.to_string())
+            .await
+            .unwrap()
+    );
 }
 
 async fn central_seed(db: &DatabaseConnection) -> (Uuid, Uuid, Uuid) {
@@ -3354,7 +3440,13 @@ async fn the_cutoff_is_written_once_by_the_migration_that_adds_it() {
     use baylee_db::records::{self, Seat};
 
     // The schema as it was before the consent tables, holding a game.
-    let before = u32::try_from(Migrator::migrations().len() - 1).expect("a handful");
+    let before = u32::try_from(
+        Migrator::migrations()
+            .iter()
+            .position(|migration| migration.name() == "m20261013_000019_replay_shares")
+            .expect("replay consent migration registered"),
+    )
+    .expect("a handful");
     let sandbox = Sandbox::open_at("replay_cutoff_once", Some(before)).await;
     let db = &sandbox.db;
     let alice = an_account("a@example.com");
@@ -3371,7 +3463,9 @@ async fn the_cutoff_is_written_once_by_the_migration_that_adds_it() {
         "the consent tables are not there yet"
     );
 
-    Migrator::up(db, None).await.expect("the last migration");
+    Migrator::up(db, None)
+        .await
+        .expect("the remaining migrations");
     let cutoff = |db: &DatabaseConnection| {
         let db = db.clone();
         async move {

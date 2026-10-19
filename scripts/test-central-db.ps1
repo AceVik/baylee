@@ -66,7 +66,7 @@ try {
     [void]$start.Environment.Remove('POSTGRES_PASSWORD')
     [void]$start.Environment.Remove('PGPASSWORD')
     [void]$start.Environment.Remove('DATABASE_URL')
-    foreach ($argument in @('test', '--locked', '-p', 'baylee-db', '--test', 'schema', 'central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions', '--', '--exact', '--test-threads=1')) {
+    foreach ($argument in @('test', '--locked', '-p', 'baylee-db', '--test', 'schema', '--', '--test-threads=1')) {
         $start.ArgumentList.Add($argument)
     }
     $start.Environment['DATABASE_URL'] = "postgres://postgres:${adminSecret}@127.0.0.1:${port}/postgres"
@@ -78,7 +78,10 @@ try {
     $errorText = $testErrors.GetAwaiter().GetResult()
     Write-Output $resultText
     if ($testProcess.ExitCode -ne 0) { Write-Output $errorText; throw 'PostgreSQL integration tests failed' }
-    if ([regex]::Matches($resultText, 'test result: ok\. 1 passed; 0 failed').Count -ne 1) { throw 'Expected central cutover test did not run' }
+    if ($resultText -notmatch 'test central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions \.\.\. ok' -or
+        $resultText -notmatch 'test result: ok\. [1-9][0-9]* passed; 0 failed; 0 ignored;') {
+        throw 'Expected PostgreSQL schema suite and central cutover test did not run'
+    }
 } finally {
     $cleanupErrors = [Collections.Generic.List[string]]::new()
     try {
