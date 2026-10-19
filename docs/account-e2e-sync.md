@@ -142,6 +142,17 @@ password reset silently destroy the old ciphertext.
 
 ## Migration and release gate
 
+The owner confirmed that real accounts already exist. Preserve them and
+their data; this is not a test-account reset. Initiate enrollment from the
+next interactive login where possible, with resumable migration. The exact
+legacy authentication bridge remains a prerequisite to implementation:
+existing Argon2 verification accepts the original password, and merely adding
+client-side hashing would break it. Never silently send that password through
+the legacy endpoint in order to claim a transparent OPAQUE upgrade. A session
+token alone must not become permission to replace account credentials. A
+verified migration authorization or an appropriately reviewed legacy proof is
+needed, including for accounts without a current session or recovery address.
+
 Preserve legacy vaults and history until the new encrypted backup has been
 uploaded, authenticated and restored successfully. Re-encrypt historical
 content into account objects; do not reuse the old device's identity on other
@@ -155,6 +166,17 @@ password the old gateway already received. A new password chosen entirely
 through the new protocol provides that clean boundary. Define how existing
 accounts authorize enrollment without sending their password through a
 fallback endpoint, including logged-out accounts, before enabling the feature.
+
+An untrusted gateway must not be able to request a plaintext-password fallback,
+a different credential destination, weaker algorithm parameters, or executable
+login code from the official native client. A static client-side password hash
+sent as the login credential is replayable as that credential, even if the
+gateway hashes it again. It must never double as the vault wrapping key.
+OPAQUE is the selected replacement, with gateway/account identity binding and
+locally enforced protocol rules. This protects a trusted client talking to a
+modified gateway; it cannot protect a user who runs a modified client or a web
+client whose JavaScript is supplied by that hostile gateway. Client and update
+distribution therefore belong to a separate trusted origin/signing boundary.
 
 Before release, test real client/gateway/database round trips and at least:
 wrong passwords; cross-account/gateway substitution; modified ciphertext;
