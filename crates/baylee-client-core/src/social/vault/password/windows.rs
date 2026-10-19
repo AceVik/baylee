@@ -204,16 +204,29 @@ pub(super) fn check(path: &Path) -> Result<(), Error> {
         return Err(Error::Io);
     }
     let text = local_text(&Local(text.cast()));
-    let explicit = format!("D:P(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)");
-    // Windows may mark a protected descriptor auto-inherited after creation;
-    // that control flag does not change the exact allow-list of its ACEs.
-    let explicit_auto = format!("D:PAI(A;OICI;FA;;;{sid})(A;OICI;FA;;;SY)");
-    let inherited = format!("D:AI(A;ID;FA;;;{sid})(A;ID;FA;;;SY)");
-    let inherited_dir = format!("D:AI(A;OICIID;FA;;;{sid})(A;OICIID;FA;;;SY)");
-    if text != explicit && text != explicit_auto && text != inherited && text != inherited_dir {
+    if !private_dacl(&text, &sid) {
         return Err(Error::Io);
     }
     Ok(())
+}
+
+fn private_dacl(text: &str, sid: &str) -> bool {
+    // AI records automatic propagation, not whether an ACE is inherited (ID).
+    // Windows also returns inherited ACEs without AI. Both representations
+    // must still contain exactly our two full-access allows, in either order.
+    // See Microsoft's "Security Descriptor String Format" and "ACE Strings".
+    let Some((control, entries)) = text.split_once('(') else {
+        return false;
+    };
+    let flags: &[&str] = match control {
+        "D:P" | "D:PAI" => &["OICI"],
+        "D:" | "D:AI" => &["ID", "OICIID"],
+        _ => return false,
+    };
+    flags.iter().any(|flags| {
+        entries == format!("A;{flags};FA;;;{sid})(A;{flags};FA;;;SY)")
+            || entries == format!("A;{flags};FA;;;SY)(A;{flags};FA;;;{sid})")
+    })
 }
 
 pub(super) fn replace(from: &Path, to: &Path) -> Result<(), Error> {
@@ -241,6 +254,36 @@ mod tests {
         Authorization::SetNamedSecurityInfoW, GetSecurityDescriptorDacl,
         PROTECTED_DACL_SECURITY_INFORMATION,
     };
+    #[test]
+    fn inherited_flags_and_order_do_not_relax_the_private_allow_list() {
+        let sid = "S-1-5-21-1-2-3-1001";
+        for (control, flags) in [
+            ("P", "OICI"),
+            ("PAI", "OICI"),
+            ("", "ID"),
+            ("AI", "ID"),
+            ("", "OICIID"),
+            ("AI", "OICIID"),
+        ] {
+            let owner = format!("(A;{flags};FA;;;{sid})");
+            let system = format!("(A;{flags};FA;;;SY)");
+            for body in [format!("{owner}{system}"), format!("{system}{owner}")] {
+                let valid = format!("D:{control}{body}");
+                assert!(private_dacl(&valid, sid));
+                assert!(!private_dacl(&valid.replace(";;;SY", ";;;WD"), sid));
+                assert!(!private_dacl(&format!("{valid}(A;;FA;;;WD)"), sid));
+                assert!(!private_dacl(&valid.replace(";FA;", ";FR;"), sid));
+                assert!(!private_dacl(&valid.replace("(A;", "(D;"), sid));
+                assert!(!private_dacl(&valid, "S-1-5-21-4-5-6-1001"));
+            }
+            assert!(!private_dacl(&format!("D:{control}{owner}{owner}"), sid));
+            assert!(!private_dacl(&format!("D:{control}{owner}"), sid));
+        }
+        for invalid in ["", "D:", "D:NO_ACCESS_CONTROL", "D:(A;;FA;;;WD)"] {
+            assert!(!private_dacl(invalid, sid));
+        }
+    }
+
     #[test]
     fn private_descriptor_roundtrip_inheritance_and_public_acl_refusal() {
         let root = std::env::temp_dir().join(format!("baylee-acl-{}", uuid::Uuid::now_v7()));

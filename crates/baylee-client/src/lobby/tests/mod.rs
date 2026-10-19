@@ -118,6 +118,9 @@ fn headless() -> App {
     // can be built from keeps a headless test off the network entirely.
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
+        // This fixture exercises the reusable gateway/browser UI. Native
+        // account-first behavior has its own Central tests and real UI fixture.
+        *state = LobbyState::from_settings(crate::settings::ClientSettings::default());
         state.gateway.clear();
         state.gateway_selected = true;
         state.lobby.set_gateway_ready(true);

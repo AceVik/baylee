@@ -259,7 +259,7 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let _ = std::fs::remove_dir_all(&cwd);
     std::fs::create_dir_all(&cwd).expect("the gateway's working directory");
     let loud = std::env::var("GATEWAY_DEBUG").is_ok();
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
+    let child = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
         // Started from an empty directory of its own: a gateway reads nothing
         // from where it was started (the house deck once came from a
         // cwd-relative `data/`, and every gateway started elsewhere answered
@@ -267,10 +267,15 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         // rather than in the repository.
         .current_dir(&cwd)
         .env("PORT", "0")
+        .env("BAYLEE_BIND", "127.0.0.1")
         .env("BAYLEE_PORT_FILE", &port_file)
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
         .env("DATABASE_URL", &scoped)
+        // A developer's live bridge/mailer must not leak into synthetic tests.
+        // Explicit fixture overrides below may still select their own mocks.
+        .env_remove("BAYLEE_CENTRAL_CONFIG_FILE")
+        .env_remove("BAYLEE_SMTP_URL")
         // Two, not the default eight. What binds is the other end: a stock
         // PostgreSQL allows a hundred connections in total, and this suite
         // has three dozen gateways alive at once. At eight apiece it would
@@ -310,6 +315,17 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         })
         .spawn()
         .expect("spawn gateway");
+    // Own the process before polling readiness: any early exit/assertion must
+    // run the same cleanup as a completed test, not merely drop a Child handle.
+    let mut gateway = Gateway {
+        port: 0,
+        agent_token,
+        child,
+        store_path,
+        port_file,
+        schema,
+        log_path,
+    };
     // Thirty seconds, and the number is a measurement rather than a margin.
     // This loop waited five, which was enough alone and not enough beside
     // anything else: a full gate running in a neighbouring worktree on
@@ -340,14 +356,14 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     let mut port = None;
     let mut up = false;
     for _ in 0..300 {
-        if let Ok(Some(status)) = child.try_wait() {
+        if let Ok(Some(status)) = gateway.child.try_wait() {
             panic!(
                 "the gateway exited on the way up ({status}). Its own words:\n{}",
                 their_words()
             );
         }
         if port.is_none() {
-            port = std::fs::read_to_string(&port_file)
+            port = std::fs::read_to_string(&gateway.port_file)
                 .ok()
                 .and_then(|text| text.trim().parse::<u16>().ok());
         }
@@ -362,19 +378,11 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     assert!(
         up,
         "the gateway never answered GET /health (port file {}: {port:?}). Its own words:\n{}",
-        port_file.display(),
+        gateway.port_file.display(),
         their_words()
     );
-    let port = port.expect("a gateway that answered has a port");
-    Gateway {
-        port,
-        agent_token,
-        child,
-        store_path,
-        port_file,
-        schema,
-        log_path,
-    }
+    gateway.port = port.expect("a gateway that answered has a port");
+    gateway
 }
 
 /// One unauthenticated request that is allowed to fail.

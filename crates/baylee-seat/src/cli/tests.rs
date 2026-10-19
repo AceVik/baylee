@@ -974,6 +974,7 @@ fn a_command_is_a_file_that_runs() {
 }
 
 /// Whether `text` is exactly 32 lowercase hexadecimal characters.
+#[cfg(unix)]
 fn is_simple_uuid(text: &str) -> bool {
     text.len() == 32 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }

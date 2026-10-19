@@ -83,6 +83,7 @@ pub(super) fn enable(state: &mut LobbyState) {
     state.lobby.set_guests_enabled(false);
 }
 
+#[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
 fn endpoint() -> Result<Endpoint, Error> {
     // Development is explicit and loopback-only; a bad override never falls back to live.
     #[cfg(feature = "dev-control")]

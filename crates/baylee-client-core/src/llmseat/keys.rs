@@ -349,6 +349,7 @@ impl FileKeys {
     }
 
     #[cfg(not(unix))]
+    #[allow(clippy::unused_self)] // Same receiver as the Unix implementation; fail closed here.
     fn open(&self) -> Result<(), String> {
         Err("a key directory needs unix file modes".into())
     }
@@ -375,6 +376,7 @@ impl FileKeys {
     }
 
     #[cfg(not(unix))]
+    #[allow(clippy::unused_self)] // Same receiver as the Unix implementation; fail closed here.
     fn trusted(&self, _path: &std::path::Path) -> Result<bool, String> {
         Err("a key directory needs unix file modes".into())
     }

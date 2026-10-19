@@ -26,6 +26,11 @@ already-committed enrollment cannot be overwritten by another legacy login.
 
 Cutover is serialized against ordinary gateway requests, reconciles the source,
 fixes the legacy-to-central mapping and revokes legacy HTTP sessions atomically.
+The same transaction retires the gateway's password verifier. A database
+constraint prevents legacy reset code from restoring it. Migrations retain the
+immutable mapping and refuse a rollback once credentials have been retired;
+only unmigrated/test accounts can roll back normally. This cannot erase old
+backups, which still need the operator's documented retention policy.
 Linked accounts reject the old password routes even if the bridge is later
 disabled. Lobby and chat sockets are asked to reconnect. Original gameplay data
 and identifiers remain at the gateway; this first integration does not relocate
@@ -87,8 +92,9 @@ production launch procedure.
 Tests: `cargo test -p baylee-account --all-features` covers actual loopback
 transport boundaries, account schema and preference conflicts.
 `./scripts/test-central-db.ps1` owns an isolated PostgreSQL 18.6 container and
-tests source isolation, snapshot races, immutable linking, revocation and source
-retention. It kills only its owned process tree/container and verifies cleanup,
+runs the entire database schema suite, including source isolation, snapshot races,
+immutable linking, revocation, verifier retirement/backfill and source retention.
+It kills only its owned process tree/container and verifies cleanup,
 including with `-ExerciseFailure`. Client UI tests must follow the dev-control
 skill, use the extra left monitor, and close the exact owned client afterward.
 `./scripts/test-central-integration.ps1` additionally runs a real gateway and
@@ -113,3 +119,33 @@ background renewal; sign in again to resume synchronization. New account
 registration, password changes/recovery and arbitrary-gateway registration are
 not exposed by this first native integration. Never substitute the old gateway
 password form for these missing Central operations.
+
+## Follow-up review, 19 October 2026
+
+The full Windows client suite exposed a local vault permission-check bug:
+inherited private ACEs may be returned without the `AI` propagation flag. The
+check now accepts both Windows representations and either order of the same two
+allow entries, while rejecting other SIDs, extra/duplicate entries, changed
+rights and missing entries. Owner and reparse-point checks remain mandatory.
+The actual create/reopen/password-change flows and corruption refusal now pass.
+References: [Security Descriptor String Format](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-string-format),
+[ACE Strings](https://learn.microsoft.com/en-us/windows/win32/secauthz/ace-strings).
+
+Rust 1.99's alignment lint also flags existing SSE2 `loadu`/`storeu` pointer
+casts, whose documented contract explicitly permits unaligned addresses. The
+exception is scoped to those branches; no new unsafe or assembly was added.
+Other portability fixes keep Unix-only test helpers and intentional non-Unix
+error stubs correctly scoped. No cryptographic parameter was weakened.
+
+The shared gateway test helper now binds loopback, removes inherited live bridge
+and mailer configuration, and owns the process before readiness polling so a
+startup failure also tears it down. Central end-to-end cleanup requires an actual
+connection-refused result for both listeners; a timeout does not count. Its
+five-second probe allows Windows' observed roughly two-second refusal delay.
+
+The wider Baylee dependency scan is not green: the existing `ruzstd` and
+`ttf-parser` exceptions are recorded in `deny.toml`, and RustSec additionally
+reports the Linux keyring chain's `zbus_names`, `zvariant` and `zvariant_derive`
+as unmaintained (RUSTSEC-2026-0371/0370/0372). These reports are not suppressed by
+this change. A maintained, Linux-tested keyring dependency path remains a release
+gate; passing Central's separate dependency checks does not clear Baylee's graph.

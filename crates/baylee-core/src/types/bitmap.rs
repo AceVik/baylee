@@ -90,6 +90,7 @@ pub(crate) fn intersects(a: &[u64; 16], b: &[u64; 16]) -> bool {
         }
     }
     #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    #[allow(clippy::cast_ptr_alignment)] // loadu/storeu explicitly accept unaligned addresses.
     {
         use core::arch::x86_64::{
             __m128i, _mm_and_si128, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8,
@@ -213,6 +214,7 @@ pub(crate) fn is_empty(a: &[u64; 16]) -> bool {
         }
     }
     #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    #[allow(clippy::cast_ptr_alignment)] // loadu/storeu explicitly accept unaligned addresses.
     {
         use core::arch::x86_64::{
             __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_or_si128,
@@ -313,6 +315,7 @@ pub(crate) fn contains_all(a: &[u64; 16], b: &[u64; 16]) -> bool {
         }
     }
     #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    #[allow(clippy::cast_ptr_alignment)] // loadu/storeu explicitly accept unaligned addresses.
     {
         use core::arch::x86_64::{
             __m128i, _mm_andnot_si128, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8,
@@ -431,6 +434,7 @@ pub(crate) fn union_with(dst: &mut [u64; 16], src: &[u64; 16]) {
         }
     }
     #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    #[allow(clippy::cast_ptr_alignment)] // loadu/storeu explicitly accept unaligned addresses.
     {
         use core::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_or_si128, _mm_storeu_si128};
         // SAFETY: `dst` and `src` are disjoint valid 128-byte `[u64; 16]` arrays.

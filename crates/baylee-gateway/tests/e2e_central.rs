@@ -143,8 +143,13 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         store.close().await.unwrap();
         operator.close().await.unwrap();
     });
-    assert!(TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_err());
-    assert!(TcpStream::connect_timeout(&gateway_address, Duration::from_millis(200)).is_err());
+    for closed in [address, gateway_address] {
+        // Windows may report loopback refusal after about two seconds; a
+        // shorter timeout is not evidence that a listener remains or closed.
+        let error = TcpStream::connect_timeout(&closed, Duration::from_secs(5))
+            .expect_err("owned service listener must be closed");
+        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    }
     if let Err(failure) = result {
         std::panic::resume_unwind(failure);
     }

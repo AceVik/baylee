@@ -318,6 +318,7 @@ fn position_in_u32_slice(haystack: &[ObjectId], needle: ObjectId) -> Option<usiz
         None
     }
     #[cfg(all(target_arch = "x86_64", target_feature = "sse2"))]
+    #[allow(clippy::cast_ptr_alignment)] // loadu/storeu explicitly accept unaligned addresses.
     {
         use core::arch::x86_64::{
             __m128i, _mm_cmpeq_epi32, _mm_loadu_si128, _mm_movemask_epi8, _mm_set1_epi32,

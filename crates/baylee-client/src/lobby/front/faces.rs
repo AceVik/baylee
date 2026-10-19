@@ -859,6 +859,31 @@ pub(super) fn new_password(commands: &mut Commands, card: Entity, state: &LobbyS
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn central_sign_out(commands: &mut Commands, card: Entity, state: &LobbyState, kit: Kit) {
+    if !state.central_ready() {
+        return;
+    }
+    let text = if state.lobby.lang() == Lang::De {
+        "Vom Baylee-Konto abmelden"
+    } else {
+        "Sign out of Baylee account"
+    };
+    let logout = controls::button(
+        commands,
+        kit,
+        text,
+        Weight::Secondary,
+        Live::Yes,
+        None,
+        (
+            Press::Front(FrontPress::CentralSignOut),
+            keys::stop(state, "central-sign-out"),
+        ),
+    );
+    commands.entity(card).add_child(logout);
+}
+
 /// The gateway picker: the saved gateways, the address with Check / Save
 /// beside it, and the status line.
 pub(super) fn gateway(
@@ -889,26 +914,7 @@ pub(super) fn gateway(
     let hint = surfaces::prose(commands, kit, explanation, true);
     commands.entity(card).add_children(&[title, hint]);
     #[cfg(not(target_arch = "wasm32"))]
-    if state.central_ready() {
-        let text = if lang == Lang::De {
-            "Vom Baylee-Konto abmelden"
-        } else {
-            "Sign out of Baylee account"
-        };
-        let logout = controls::button(
-            commands,
-            kit,
-            text,
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (
-                Press::Front(FrontPress::CentralSignOut),
-                keys::stop(state, "central-sign-out"),
-            ),
-        );
-        commands.entity(card).add_child(logout);
-    }
+    central_sign_out(commands, card, state, kit);
     if !state.gateways.is_empty() {
         let list = super::super::gateway::list(
             commands,
