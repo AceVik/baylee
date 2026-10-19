@@ -4,6 +4,13 @@ Design decision, 19 October 2026. **Not implemented yet.** The existing
 implementation is described in `password-vault.md`; this document specifies
 its replacement, not security guarantees of the current release.
 
+**Architecture update (2026-10-19):** the follow-up central-service plan lives in
+the separate private `AceVik/baylee-central` repository (local sibling
+`../baylee-central`). Its architecture, threat model and implementation gates
+supersede this document's gateway-bound storage/identity proposal. No central
+service has been implemented. The owner subsequently approved the bounded
+one-time legacy migration login described below.
+
 The owner requires automatic client-side encryption and unlocking, encrypted
 account-bound gateway storage, restoration on another device, and password
 changes that preserve access. The password must not be transmitted to the
@@ -145,13 +152,15 @@ password reset silently destroy the old ciphertext.
 The owner confirmed that real accounts already exist. Preserve them and
 their data; this is not a test-account reset. Initiate enrollment from the
 next interactive login where possible, with resumable migration. The exact
-legacy authentication bridge remains a prerequisite to implementation:
-existing Argon2 verification accepts the original password, and merely adding
-client-side hashing would break it. Never silently send that password through
-the legacy endpoint in order to claim a transparent OPAQUE upgrade. A session
-token alone must not become permission to replace account credentials. A
-verified migration authorization or an appropriately reviewed legacy proof is
-needed, including for accounts without a current session or recovery address.
+legacy authentication bridge remains a prerequisite to implementation.
+The owner explicitly permits one final legacy password login over verified HTTPS
+as part of migration. Bind this exception to the known legacy account and original
+gateway; never allow arbitrary server-directed destinations or downgrade after
+cutover. Existing Argon2 verification cannot be replaced by client hashing.
+A session token alone must not become permission to replace account credentials.
+Use a reviewed, short-lived, single-use migration authorization, including for
+accounts without a recovery address. Do not log the password or claim that the
+legacy gateway never received it.
 
 Preserve legacy vaults and history until the new encrypted backup has been
 uploaded, authenticated and restored successfully. Re-encrypt historical
@@ -164,8 +173,8 @@ verifiers cannot simply be converted into OPAQUE records without the user's
 participation. Never claim that changing the protocol retroactively hides a
 password the old gateway already received. A new password chosen entirely
 through the new protocol provides that clean boundary. Define how existing
-accounts authorize enrollment without sending their password through a
-fallback endpoint, including logged-out accounts, before enabling the feature.
+accounts authorize enrollment through the bounded legacy migration exception,
+including logged-out accounts, before enabling the feature.
 
 An untrusted gateway must not be able to request a plaintext-password fallback,
 a different credential destination, weaker algorithm parameters, or executable
