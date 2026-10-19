@@ -165,7 +165,12 @@ fn promotable(root: &Path) -> Result<Vec<String>> {
                     |id| holds.accepts_tests(&id, tests.join(rel).is_file()),
                 );
                 if accepted && text.contains(GENERATED) {
-                    out.push(rel.to_string_lossy().into_owned());
+                    out.push(
+                        rel.components()
+                            .map(|part| part.as_os_str().to_string_lossy())
+                            .collect::<Vec<_>>()
+                            .join("/"),
+                    );
                 }
             }
         }

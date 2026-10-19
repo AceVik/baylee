@@ -149,3 +149,22 @@ reports the Linux keyring chain's `zbus_names`, `zvariant` and `zvariant_derive`
 as unmaintained (RUSTSEC-2026-0371/0370/0372). These reports are not suppressed by
 this change. A maintained, Linux-tested keyring dependency path remains a release
 gate; passing Central's separate dependency checks does not clear Baylee's graph.
+
+The broader workspace run completed in package groups after its first temporary
+PostgreSQL filesystem filled. Fourteen failures in three test targets were
+reproduced and fixed: Windows drive/verbatim prefixes in the private-output
+fence, platform-neutral generated-card paths, Node worker loading, isolated CLI
+temporary directories, and a seat socket dropping TCP before its closing
+handshake. The socket now drains only during a one-second deadline, with byte
+and message limits, without forwarding any further input to the engine. This
+follows the closing sequence in [RFC 6455, section 7.1.2](https://www.rfc-editor.org/rfc/rfc6455#section-7.1.2).
+The regression also withholds the peer's closing reply and verifies that the
+server still terminates the connection.
+
+Targeted reruns passed all 258 developer-tool tests, 34 CLI tests and both real
+gateway frame/rate tests; their temporary PostgreSQL container/listener was
+removed. The web admin's shadowed translation name was corrected, and all 276
+web tests, type checks, strict lint and production build passed. A Unix-only
+vault migration test now imports its filesystem trait explicitly; its Linux
+verification belongs to CI. These results do not claim a production rollout or
+a clean dependency audit.

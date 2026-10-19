@@ -14,6 +14,7 @@ fn node(script: &str, args: &[String]) -> Option<Value> {
         return None;
     }
     let mut child = Command::new("node")
+        .current_dir(repo())
         .args(["-e", script])
         .args(args)
         .stdout(Stdio::piped())
@@ -42,13 +43,7 @@ fn node(script: &str, args: &[String]) -> Option<Value> {
 }
 fn worker(script: &str) -> Option<Value> {
     let script = format!("const w=require(process.argv[1]);\n{script}");
-    node(
-        &script,
-        &[repo()
-            .join("web/site/impressum-worker.js")
-            .to_string_lossy()
-            .into_owned()],
-    )
+    node(&script, &["./web/site/impressum-worker.js".into()])
 }
 fn solves(part: usize, counter: u64, bits: u32) -> bool {
     let digest = Sha256::digest(format!("{NONCE}:{part}:{counter}"));

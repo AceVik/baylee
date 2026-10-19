@@ -240,8 +240,8 @@ pub(super) fn decode(blob: &str) -> Result<Fields> {
 }
 
 pub(super) fn default_out() -> Result<PathBuf> {
-    let home = std::env::var_os("HOME").ok_or_else(|| anyhow!("home directory unavailable"))?;
-    Ok(PathBuf::from(home).join(".local/share/baylee/impressum.bin"))
+    let home = std::env::home_dir().ok_or_else(|| anyhow!("home directory unavailable"))?;
+    Ok(home.join(".local/share/baylee/impressum.bin"))
 }
 
 // Resolve existing symlinks *before* processing '..'; a lexical cleanup first
@@ -259,6 +259,10 @@ pub(super) fn resolve(path: &Path) -> Result<PathBuf> {
                 resolved.pop();
             }
             Component::CurDir => {}
+            // A Windows drive/UNC prefix is not a rooted path until RootDir
+            // follows it. Probing `C:` or `\\?\C:` here resolves the wrong
+            // directory or fails before we reach the real filesystem root.
+            Component::Prefix(prefix) => resolved.push(prefix.as_os_str()),
             other => {
                 resolved.push(other.as_os_str());
                 match fs::symlink_metadata(&resolved) {

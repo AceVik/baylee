@@ -325,7 +325,7 @@ fn test_guard_finds_planted_files() {
     let found: BTreeSet<_> = checks::private_files(root)
         .unwrap()
         .iter()
-        .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().into_owned())
+        .map(|p| p.strip_prefix(root).unwrap().to_owned())
         .collect();
     assert_eq!(
         found,
@@ -455,6 +455,20 @@ fn malformed_and_truncated_blobs_are_rejected_without_panics_or_pii() {
         assert_no_leaks(&format!("{err:#}"), &fields(&fake()));
     }
 }
+#[test]
+fn canonical_output_fence_handles_rooted_and_canonical_paths() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("repo");
+    fs::create_dir(&root).unwrap();
+    // canonicalize returns a verbatim Windows prefix. Both that prefix and
+    // the ordinary rooted spelling must obey the same repository fence.
+    for base in [dir.path().to_owned(), fs::canonicalize(dir.path()).unwrap()] {
+        assert_eq!(resolve(&base).unwrap(), fs::canonicalize(&base).unwrap());
+        assert!(outside(&root, &base.join("repo/missing/../blob.bin")).is_err());
+        assert!(outside(&root, &base.join("sibling/blob.bin")).is_ok());
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn canonical_output_fence_rejects_symlink_and_dotdot_escapes() {

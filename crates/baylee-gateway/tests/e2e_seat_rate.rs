@@ -70,6 +70,22 @@ async fn a_seat_that_floods_its_socket_is_closed_with_policy() {
     });
     let closed = closed.expect("the socket closed without saying why");
     assert_eq!(closed.code, CloseCode::Policy, "{closed:?}");
+
+    // Deliberately withhold the reply that tungstenite queued on receipt.
+    // Reading TCP directly cannot flush it: the server must expire its own
+    // closing deadline instead of retaining a silent peer indefinitely.
+    let tokio_tungstenite::MaybeTlsStream::Plain(tcp) = ws.get_mut() else {
+        panic!("the fixture uses numeric loopback without TLS");
+    };
+    let mut byte = [0];
+    let ended = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        tokio::io::AsyncReadExt::read(tcp, &mut byte),
+    )
+    .await
+    .expect("a peer withholding its close reply must expire")
+    .expect("the drained flood must close cleanly");
+    assert_eq!(ended, 0, "the gateway sent data after its close frame");
 }
 
 /// The gateway's bound on one seat frame, `MAX_SEAT_FRAME`: 64 KiB.

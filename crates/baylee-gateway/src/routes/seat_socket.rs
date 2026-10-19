@@ -206,7 +206,31 @@ pub(crate) async fn close_over_allowance(
         code: axum::extract::ws::close_code::POLICY,
         reason: "too many frames".into(),
     };
-    let _ = socket.send(Message::Close(Some(over))).await;
+    // Finish the closing handshake instead of resetting TCP with unread flood
+    // data, which can erase the close reason on Windows. No drained message
+    // reaches the engine. Bound time, work and bytes even for an uncooperative
+    // peer, and yield so a buffered flood cannot starve the deadline.
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        if socket.send(Message::Close(Some(over))).await.is_err() {
+            return;
+        }
+        let mut bytes_left: usize = 1024 * 1024;
+        for _ in 0..16_384 {
+            let length = match socket.recv().await {
+                Some(Ok(Message::Binary(data) | Message::Ping(data) | Message::Pong(data))) => {
+                    data.len()
+                }
+                Some(Ok(Message::Text(text))) => text.len(),
+                Some(Ok(Message::Close(_)) | Err(_)) | None => break,
+            };
+            let Some(remaining) = bytes_left.checked_sub(length) else {
+                break;
+            };
+            bytes_left = remaining;
+            tokio::task::yield_now().await;
+        }
+    })
+    .await;
 }
 
 /// What a seat socket holds for its life, taken once as it attaches.

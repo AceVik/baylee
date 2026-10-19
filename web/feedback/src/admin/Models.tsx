@@ -440,7 +440,7 @@ function Editor({
   const currentEffort = typeof parsedProfile?.["effort"] === "string" ? parsedProfile["effort"] : "";
   const currentCliTool =
     currentProvider === "cli"
-      ? (CLI_TOOLS.find((t) => currentModel === t.id || currentModel.startsWith(`${t.id}:`))?.id ?? "claude")
+      ? (CLI_TOOLS.find((tool) => currentModel === tool.id || currentModel.startsWith(`${tool.id}:`))?.id ?? "claude")
       : null;
   const activePreset = findModelPreset(currentModel);
   const providerPresets = MODEL_PRESETS.filter((m) =>

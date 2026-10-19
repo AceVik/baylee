@@ -207,6 +207,8 @@ fn explicit_creation_reopen_reset_and_change_keep_the_same_device() {
 #[cfg(unix)]
 #[test]
 fn legacy_file_migration_preserves_source_history_and_is_idempotent() {
+    use baylee_client_core::social::ChatDisk as _;
+
     let (root, session) = fixture();
     let cancelled = AtomicBool::new(false);
     let slot = social::SecretSlot::new(&session.tag, &session.gateway);
