@@ -86,7 +86,7 @@ impl WsSender {
         };
         if self
             .bytes
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |used| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |used| {
                 used.checked_add(bytes)
                     .filter(|total| *total <= self.max_bytes)
             })
