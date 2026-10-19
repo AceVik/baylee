@@ -48,7 +48,7 @@ fn first_import_retains_verified_peer_keys_and_never_overlays_a_remote_root() {
         history: None,
     };
     let state = serde_json::json!({
-        "v":1,"device_id":keys.device_id(),"registered":true,
+        "v":1,"device_id":keys.device_id(),"registered":true,"convs":[],
         "keys":{"accounts":{"0012":{
             "handle":"Bob#0012","first_seen":1,
             "devices":[{"id":peer.device_id(),"ik":peer.ik(),"dk":peer.dk(),"label":"old verified device","added_at":1}],
