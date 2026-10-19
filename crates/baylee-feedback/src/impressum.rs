@@ -1918,9 +1918,28 @@ mod tests {
         let d = decoy(&[7; 32]);
         let (a, b) = (decoy_blob(&d), decoy_blob(&d));
         assert_ne!(a, b, "a fresh nonce and a fresh shuffle");
+        let decode = |blob: &str| {
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(blob)
+                .unwrap()
+        };
+        let nonce_start = MAGIC.len() + 1;
+        let body_start = nonce_start + NONCE_LEN;
+        assert_ne!(
+            decode(&a)[nonce_start..body_start],
+            decode(&b)[nonce_start..body_start],
+            "freshness must come from the nonce, not just the shuffle"
+        );
         for blob in [a, b] {
-            for word in [d.name.as_str(), d.city.as_str(), d.email.as_str()] {
-                assert!(!blob.contains(word));
+            // A random Base64 body can contain a short name such as "Ulm"
+            // by coincidence. Check the actual encoded payload, not substrings.
+            let plain = unblob(&blob);
+            assert_ne!(
+                decode(&blob)[body_start..],
+                serde_json::to_vec(&plain).unwrap()
+            );
+            for (name, value) in [("name", &d.name), ("city", &d.city), ("email", &d.email)] {
+                assert_eq!(field(&plain, name), *value);
             }
         }
     }
