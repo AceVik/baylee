@@ -9754,10 +9754,9 @@ layout under test is the one asked for (`/health` says what was granted), and
 and hit testing off, so the real pointer passes through to what lies beneath
 and a person watching an agent's run cannot hover or click into its checks
 (the injected input never came from the OS and is unaffected), and an
-injected move no longer warps the real mouse (bevy_winit warps the OS cursor to
-a changed `Window`'s cursor position; a passive window writes it without change
-detection). Agents start their dev-control clients with it. Covered by other
-windows, a passive window is not paced as hidden (`quality::note_hidden`):
+injected move never warps the real mouse. Agents start their dev-control
+clients with it. Covered by other windows, a passive window is not paced as
+hidden (`quality::note_hidden`):
 it is meant to stand behind, and at one frame a second a click was five
 seconds and a two-frame comparison a guess (12.10.2026).
 
@@ -9771,6 +9770,60 @@ client black where a 0.19 client started beside it, activated and in front,
 drew the table). Never the active app, it was also napped (priority 4,
 under a frame a second, once a hang of minutes), so it holds a process
 activity against App Nap for the run (`devctl::keep_a_passive_window_awake`).
+
+**Virtual pointer and dedicated display (Windows and native desktop).**
+`POST /pointer` keeps its coordinates inside the client, whether passive mode
+is enabled or not. `devctl/window.rs` restores the virtual position before
+`PreUpdate` and clears it after `PostUpdate`, before winit's `Last` window
+synchronisation. Merely bypassing change detection was insufficient: resizing
+or changing another `Window` field could still cause winit to warp the OS
+cursor to the injected coordinates. Picking and hit testing see the virtual
+position; winit never receives it. The position persists until another
+`/pointer` request or `POST /pointer/native {}`. The latter refuses pending
+clicks or held mouse buttons: finish the requests and send
+`/pointer {"release":true}` first, then move the physical mouse once after
+switching back. Passive mode remains click-through. Use it for isolated
+automation; physical input can still enter an interactive client.
+
+Set `BAYLEE_DEV_MONITOR=1` before starting the harness to centre its window
+on native monitor index 1, including when maximized. `primary` selects the
+primary display; leaving it unset preserves the platform default. With
+`BAYLEE_DEV_WINDOW=1280x800`, the requested non-maximized viewport is centred
+on the chosen screen. `GET /monitors` returns `{"monitors":[...]}`, with each
+entry's `index`, `name`, physical desktop `x`, `y`, `width`, `height`, and
+`scale`. Negative desktop coordinates are valid. Indices use winit's native
+ordering, not Windows Settings numbering or ECS entity order, and may change
+when displays are reconnected. Query the inventory again after such changes.
+Malformed selections are rejected before startup; an unavailable numeric
+index closes the running harness during startup while its window is hidden,
+instead of showing a fallback on the owner's working screen.
+
+For PowerShell, after setting the isolated XDG directories shown above:
+
+```powershell
+$env:BAYLEE_DEV_PASSIVE = '1'
+$env:BAYLEE_DEV_CONTROL = '28770'
+$env:BAYLEE_DEV_MONITOR = '1'
+$env:BAYLEE_DEV_WINDOW = '1280x800'
+cargo run -p baylee-client --features dev-control
+# From another terminal:
+Invoke-RestMethod http://127.0.0.1:28770/monitors
+```
+
+Screen selection does not itself suppress focus; keep passive mode enabled.
+These settings and routes exist only in builds with `dev-control`.
+
+Windows verification (19.10.2026, 150% scale): native index 0 was the owner's
+preferred left screen, `\\.\DISPLAY2`, physical rectangle
+`(-2560, 864, 2560, 1600)`. Both maximized startup and a 1280 × 800 logical
+startup selected that screen; after `/window` the native window remained
+wholly on it. Three virtual moves,
+resizes and an actual "Play offline" click left `GetCursorPos` at
+`(2260, 883)` and `GetForegroundWindow` unchanged, while the click opened
+the offline lobby. Index 999 logged a refusal and exited before showing a
+window. The dev-control tests cover pointer staging, held/released buttons,
+the winit boundary during unrelated window changes, native-pointer return,
+and monitor-selection parsing.
 
 Seven things about it are load-bearing.
 

@@ -213,6 +213,7 @@ fn headless() -> (App, PathBuf) {
         shell_jobs: Vec::new(),
         reveal_jobs: Vec::new(),
         frame: 0,
+        virtual_cursor: None,
     })
     .init_resource::<Time<Virtual>>()
     .insert_resource(running());

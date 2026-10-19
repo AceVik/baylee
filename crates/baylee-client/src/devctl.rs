@@ -35,10 +35,12 @@
 //!
 //! ```text
 //! GET  /health                     → {"ok":true,"frame":1234,"width":…}
+//! GET  /monitors                   → native monitor indices and physical rectangles
 //! GET  /state                      → the dump below
 //! POST /key      {"name":"Space","shift":false,"hold":false,"release":false}
 //! POST /text     {"text":"dev@baylee.local"}
 //! POST /pointer  {"x":100,"y":200,"button":"left","press":true,"hold":false,"release":false}
+//! POST /pointer/native {}          (after release: return to physical mouse movement)
 //! POST /scroll   {"y":-3}   (wheel lines, over wherever the pointer is; "x" turns it sideways)
 //! POST /screenshot {"path":"/tmp/table.png"}   (replies once written)
 //! POST /recording/start {"duration_ms":3000,"fps":15}
@@ -79,6 +81,9 @@ mod perf;
 mod recording;
 mod reveal;
 mod state;
+mod window;
+
+pub(crate) use window::{configure_monitor, monitor_selection};
 
 use state::{Believed, quoted, state_dump};
 
@@ -376,6 +381,7 @@ impl Plugin for DevControlPlugin {
             shell_jobs: Vec::new(),
             reveal_jobs: Vec::new(),
             frame: 0,
+            virtual_cursor: None,
         })
         // After `InputSystem`: bevy has already cleared last frame's
         // `just_pressed` by then, so a key pressed here is `just_pressed`
@@ -386,6 +392,7 @@ impl Plugin for DevControlPlugin {
                 .chain()
                 .after(bevy::input::InputSystems),
         );
+        window::install(app);
         perf::install(app);
         recording::install(app);
         app.init_resource::<changed::Tally>()
@@ -413,6 +420,8 @@ struct DevControl {
     /// `/reveal` requests, answered by `stage_reveals` (they write the duel).
     reveal_jobs: Vec<Job>,
     frame: u64,
+    /// Client-only pointer, hidden from winit before its window synchronisation.
+    virtual_cursor: Option<Vec2>,
 }
 
 impl DevControl {
@@ -897,6 +906,7 @@ fn pump(
     believed: Believed,
     mut clock: ResMut<Time<Virtual>>,
     mut measured: Measured,
+    monitors: Option<Res<bevy::winit::WinitMonitors>>,
 ) {
     control.frame += 1;
     catch_the_clock(&mut control, &mut clock);
@@ -920,6 +930,8 @@ fn pump(
 
     for job in waiting(&mut control) {
         let answer = match job.path.as_str() {
+            "/monitors" => window::monitors_json(monitors.as_deref()),
+            "/pointer/native" => window::native_pointer(&mut control, &buttons, &mut windows),
             "/health" => health(control.frame, windows.single().ok().map(|(_, w)| w), &clock),
             "/music" => music::preview(&job.body, &mut commands),
             "/state" => {
@@ -928,16 +940,13 @@ fn pump(
                     .map_or(Vec2::ZERO, |(_, w)| Vec2::new(w.width(), w.height()));
                 state_dump(&believed, size)
             }
-            "/key" => {
-                let pressed = press_chord(&job.body, &mut keys, &mut typing, window);
-                match pressed {
-                    Ok(down) => {
-                        control.held.extend_from_slice(&down);
-                        format!("{{\"ok\":true,\"pressed\":{}}}", down.len())
-                    }
-                    Err(err) => format!("{{\"error\":\"{err}\"}}"),
+            "/key" => match press_chord(&job.body, &mut keys, &mut typing, window) {
+                Ok(down) => {
+                    control.held.extend_from_slice(&down);
+                    format!("{{\"ok\":true,\"pressed\":{}}}", down.len())
                 }
-            }
+                Err(err) => format!("{{\"error\":\"{err}\"}}"),
+            },
             "/text" => match window {
                 Some(entity) => {
                     let typed = type_text(&job.body, entity, &mut typing);
@@ -954,6 +963,7 @@ fn pump(
                     // aims. The answer is owed after the last stage in
                     // either case, not now.
                     Ok((at, deed)) => {
+                        control.virtual_cursor = Some(at);
                         let answer = match &deed {
                             Some(deed) => format!(
                                 "{{\"ok\":true,\"{}\":true,\"x\":{},\"y\":{}}}",
@@ -1309,19 +1319,11 @@ fn aim_cursor(
     window_events: &mut MessageWriter<WindowEvent>,
 ) {
     let previous = window.cursor_position();
-    // `bevy_winit` warps the OS cursor to a changed `Window`'s cursor
-    // position, which moved the real mouse under a person watching an
-    // agent's run. A passive window (`BAYLEE_DEV_PASSIVE=1`) takes the
-    // position without change detection, so nothing is warped; the client's
-    // hit tests read it all the same, and the picking backend reads the
-    // `CursorMoved` written below.
-    if passive() {
-        window
-            .bypass_change_detection()
-            .set_cursor_position(Some(at));
-    } else {
-        window.set_cursor_position(Some(at));
-    }
+    // Avoid marking the window changed. The schedule boundary in `window`
+    // also hides this position from winit when unrelated window fields change.
+    window
+        .bypass_change_detection()
+        .set_cursor_position(Some(at));
     let moved = CursorMoved {
         window: entity,
         position: at,

@@ -28,6 +28,11 @@ use bevy::prelude::*;
 /// Builds the app and runs it. Returns when the window closes.
 #[allow(clippy::too_many_lines)] // the app's assembly, in start-up order
 pub fn run() {
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Err(reason) = crate::devctl::monitor_selection() {
+        baylee_client_core::say_err!("{reason}");
+        return;
+    }
     // First, before anything reads a setting: this is a player's client and
     // may use their files. A test never comes through here, so a test never
     // touches them (`settings::store_is_open`).
@@ -154,6 +159,8 @@ pub fn run() {
     if HIDDEN_UNTIL_DRAWN {
         app.add_systems(Update, show_the_window);
     }
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    app.add_systems(Startup, crate::devctl::configure_monitor);
     #[cfg(any(windows, target_os = "linux"))]
     app.add_systems(
         Update,
@@ -224,6 +231,12 @@ fn primary_window() -> Window {
     // §"Windows"). A browser's canvas and a phone's surface are
     // the page's and the system's to show.
     window.visible = !HIDDEN_UNTIL_DRAWN;
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    if let Ok(Some(_)) = crate::devctl::monitor_selection() {
+        // Startup centres it after winit has populated its monitor inventory,
+        // then maximizes it on that display before making it visible.
+        window.set_maximized(false);
+    }
     // Reproducible viewport captures without desktop automation.
     // Only a dev-control build reads this test-only override.
     // The scale first: the size is logical, and is turned into

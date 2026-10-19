@@ -292,7 +292,7 @@ fn a_tapped_card_reports_the_box_it_actually_covers() {
 }
 
 /// Builds an app carrying only what `pump` reads, plus the job channel.
-fn harness() -> (App, Sender<Job>) {
+pub(super) fn harness() -> (App, Sender<Job>) {
     let (tx, rx) = channel();
     let mut app = App::new();
     app.init_resource::<ButtonInput<KeyCode>>()
@@ -311,6 +311,7 @@ fn harness() -> (App, Sender<Job>) {
             shell_jobs: Vec::new(),
             reveal_jobs: Vec::new(),
             frame: 0,
+            virtual_cursor: None,
         })
         .init_resource::<perf::Probe>()
         .init_resource::<perf::Hidden>()
@@ -322,7 +323,7 @@ fn harness() -> (App, Sender<Job>) {
 
 /// Queues one request and hands back the channel its answer will arrive
 /// on — which is not always the same frame.
-fn ask(tx: &Sender<Job>, path: &str, body: &str) -> Receiver<String> {
+pub(super) fn ask(tx: &Sender<Job>, path: &str, body: &str) -> Receiver<String> {
     let (reply, answers) = channel();
     tx.send(Job {
         path: path.to_string(),
