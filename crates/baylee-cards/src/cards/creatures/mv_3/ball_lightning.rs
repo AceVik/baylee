@@ -21,12 +21,12 @@ card!(
         power = Some(6),
         toughness = Some(1),
         keywords = KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
-        abilities = &[triggered!(
-            Trigger::StepBegin {
-                step: StepKind::End,
-                whose: PlayerRel::EachPlayer,
-            },
-            &[Effect::SacrificeSelf],
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::StepBegin {
+            step: StepKind::End,
+            whose: PlayerRel::EachPlayer,
+        },
+        &[Effect::SacrificeSelf],
+    )],
 );

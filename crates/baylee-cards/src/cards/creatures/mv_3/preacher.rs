@@ -19,22 +19,21 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::CLERIC],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[
-            static_ability!(Filter::This, Modifier::MayChooseNotToUntap),
-            activated!(
-                Cost::TAP,
-                &[Effect::ModifyTargets {
-                    modifier: Modifier::GainControl,
-                    duration: Duration::WhileSourceTapped {
-                        control: false,
-                        power_limited: false,
-                    },
-                }],
-                targets = Some(
-                    TargetReq::one(TargetSpec::Object(&Filter::OPPONENT_CREATURE))
-                        .chosen_by_opponent()
-                ),
-            ),
-        ],
     ),],
+    abilities = &[
+        static_ability!(Filter::This, Modifier::MayChooseNotToUntap),
+        activated!(
+            Cost::TAP,
+            &[Effect::ModifyTargets {
+                modifier: Modifier::GainControl,
+                duration: Duration::WhileSourceTapped {
+                    control: false,
+                    power_limited: false,
+                },
+            }],
+            targets = Some(
+                TargetReq::one(TargetSpec::Object(&Filter::OPPONENT_CREATURE)).chosen_by_opponent()
+            ),
+        ),
+    ],
 );

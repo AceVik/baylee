@@ -5,6 +5,7 @@ use super::*;
 
 mod bottomless_vault;
 mod calciform_pools;
+mod city_of_shadows;
 mod crucible_of_the_spirit_dragon;
 mod dreadship_reef;
 mod dwarven_hold;

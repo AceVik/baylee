@@ -14,11 +14,11 @@ card!(
         name = "Morale",
         mana_cost = mana!("{1}{W}{W}"),
         types = TypeSet::INSTANT,
-        abilities = &[spell!(&[Effect::CreateContinuousEffect {
-            layer: Layer::PtModify,
-            filter: &Filter::ATTACKING_CREATURE,
-            modifier: Modifier::ModifyPT(1, 1),
-            duration: Duration::UntilEndOfTurn,
-        }])],
     ),],
+    abilities = &[spell!(&[Effect::CreateContinuousEffect {
+        layer: Layer::PtModify,
+        filter: &Filter::ATTACKING_CREATURE,
+        modifier: Modifier::ModifyPT(1, 1),
+        duration: Duration::UntilEndOfTurn,
+    }])],
 );

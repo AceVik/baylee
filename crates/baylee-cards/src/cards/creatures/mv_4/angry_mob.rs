@@ -25,16 +25,16 @@ card!(
         power = Some(2),
         toughness = Some(2),
         keywords = KeywordSet::TRAMPLE,
-        abilities = &[static_ability!(
-            Filter::This,
-            Modifier::CharacteristicPT {
-                count: PtCount::Plus {
-                    base: &PtCount::OnBattlefield(&OPPONENT_SWAMP),
-                    offset: 2,
-                },
-                toughness_plus: 0,
-            },
-            condition = Some(Condition::YourTurn),
-        )],
     ),],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::CharacteristicPT {
+            count: PtCount::Plus {
+                base: &PtCount::OnBattlefield(&OPPONENT_SWAMP),
+                offset: 2,
+            },
+            toughness_plus: 0,
+        },
+        condition = Some(Condition::YourTurn),
+    )],
 );

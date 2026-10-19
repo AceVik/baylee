@@ -953,49 +953,96 @@ impl PerTurn {
 
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
-        self.untapped_lands_at_start = 0;
-        self.main_phases_begun = 0;
-        self.descended.fill(false);
-        self.speed_triggered.fill(false);
-        self.sacrificed_subtypes.clear();
-        self.revolt.fill(false);
-        self.put_nontoken_permanent.fill(false);
-        self.improvise_next_spell.fill(false);
-        self.instant_or_sorcery_cast.fill(false);
-        self.player_damage.clear();
-        self.noncreature_spells.iter_mut().for_each(|v| *v = 0);
-        self.draws.iter_mut().for_each(|v| *v = 0);
-        self.drew_in_draw_step = false;
-        self.spells_cast.iter_mut().for_each(|v| *v = 0);
-        self.instants_cast.fill(0);
-        self.entered_subtypes
-            .fill(baylee_core::types::SubtypeSet::EMPTY);
-        self.creatures_entered.fill(0);
-        self.pending_entry_history.clear();
-        self.discarded_to_graveyard.clear();
-        self.no_more_spells.iter_mut().for_each(|v| *v = false);
-        self.life_lost.iter_mut().for_each(|v| *v = false);
-        self.life_lost_amount.fill(0);
-        self.damage_dealt_to.iter_mut().for_each(|v| *v = 0);
-        self.permanent_damage.clear();
-        self.creatures_died = 0;
-        self.counter_placements.clear();
-        self.entered_battlefield.clear();
-        self.drawn.clear();
-        self.resolved.clear();
-        self.graveyard_plays.clear();
-        self.graveyard_allowances_used.clear();
-        self.entered_graveyard.clear();
-        self.exile_if_dies.clear();
-        self.camouflage = false;
-        self.cant_regenerate.clear();
-        self.attacked.clear();
-        self.blocks.clear();
-        self.damage_log.clear();
-        self.could_have_attacked.clear();
-        self.wand_of_ith_targets.clear();
-        self.damage_cant_regenerate_sources.clear();
-        self.damage_exile_if_dies_sources.clear();
+        // Named without `..`, so a new field does not compile until it is
+        // reset here too.
+        let Self {
+            untapped_lands_at_start,
+            main_phases_begun,
+            descended,
+            speed_triggered,
+            sacrificed_subtypes,
+            revolt,
+            put_nontoken_permanent,
+            improvise_next_spell,
+            instant_or_sorcery_cast,
+            player_damage,
+            noncreature_spells,
+            draws,
+            drew_in_draw_step,
+            spells_cast,
+            instants_cast,
+            entered_subtypes,
+            creatures_entered,
+            discarded_to_graveyard,
+            no_more_spells,
+            life_lost,
+            life_lost_amount,
+            damage_dealt_to,
+            creatures_died,
+            counter_placements,
+            entered_battlefield,
+            drawn,
+            resolved,
+            graveyard_plays,
+            graveyard_allowances_used,
+            entered_graveyard,
+            exile_if_dies,
+            camouflage,
+            cant_regenerate,
+            attacked,
+            blocks,
+            damage_log,
+            could_have_attacked,
+            wand_of_ith_targets,
+            damage_cant_regenerate_sources,
+            damage_exile_if_dies_sources,
+            tapped_for_ability,
+            pending_entry_history,
+            permanent_damage,
+        } = self;
+        *untapped_lands_at_start = 0;
+        *main_phases_begun = 0;
+        descended.fill(false);
+        speed_triggered.fill(false);
+        sacrificed_subtypes.clear();
+        revolt.fill(false);
+        put_nontoken_permanent.fill(false);
+        improvise_next_spell.fill(false);
+        instant_or_sorcery_cast.fill(false);
+        player_damage.clear();
+        noncreature_spells.fill(0);
+        draws.fill(0);
+        *drew_in_draw_step = false;
+        spells_cast.fill(0);
+        instants_cast.fill(0);
+        entered_subtypes.fill(baylee_core::types::SubtypeSet::EMPTY);
+        creatures_entered.fill(0);
+        pending_entry_history.clear();
+        discarded_to_graveyard.clear();
+        no_more_spells.fill(false);
+        life_lost.fill(false);
+        life_lost_amount.fill(0);
+        damage_dealt_to.fill(0);
+        permanent_damage.clear();
+        *creatures_died = 0;
+        counter_placements.clear();
+        entered_battlefield.clear();
+        drawn.clear();
+        resolved.clear();
+        graveyard_plays.clear();
+        graveyard_allowances_used.clear();
+        entered_graveyard.clear();
+        exile_if_dies.clear();
+        *camouflage = false;
+        cant_regenerate.clear();
+        attacked.clear();
+        blocks.clear();
+        damage_log.clear();
+        could_have_attacked.clear();
+        wand_of_ith_targets.clear();
+        damage_cant_regenerate_sources.clear();
+        damage_exile_if_dies_sources.clear();
+        tapped_for_ability.clear();
     }
 }
 

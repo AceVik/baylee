@@ -13,9 +13,9 @@ card!(
         name = "Stone Calendar",
         mana_cost = mana!("{5}"),
         types = TypeSet::ARTIFACT,
-        abilities = &[static_ability!(
-            Filter::ControlledByYou,
-            Modifier::SpellsCostLess(1),
-        )],
     ),],
+    abilities = &[static_ability!(
+        Filter::ControlledByYou,
+        Modifier::SpellsCostLess(1),
+    )],
 );

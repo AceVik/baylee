@@ -19,11 +19,11 @@ card!(
         name = "Holy Light",
         mana_cost = mana!("{2}{W}"),
         types = TypeSet::INSTANT,
-        abilities = &[spell!(&[Effect::CreateContinuousEffect {
-            layer: Layer::PtModify,
-            filter: &NONWHITE_CREATURE,
-            modifier: Modifier::ModifyPT(-1, -1),
-            duration: Duration::UntilEndOfTurn,
-        }])],
     ),],
+    abilities = &[spell!(&[Effect::CreateContinuousEffect {
+        layer: Layer::PtModify,
+        filter: &NONWHITE_CREATURE,
+        modifier: Modifier::ModifyPT(-1, -1),
+        duration: Duration::UntilEndOfTurn,
+    }])],
 );

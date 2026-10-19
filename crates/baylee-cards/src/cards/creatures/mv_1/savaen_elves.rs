@@ -23,10 +23,10 @@ card!(
         subtypes = &[subtypes::creature::ELF],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[activated!(
-            cost!("{G}{G}", TapSelf),
-            &[Effect::destroy(TargetSpec::Object(&AURA_ON_LAND))],
-            target = Some(TargetSpec::Object(&AURA_ON_LAND)),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("{G}{G}", TapSelf),
+        &[Effect::destroy(TargetSpec::Object(&AURA_ON_LAND))],
+        target = Some(TargetSpec::Object(&AURA_ON_LAND)),
+    )],
 );

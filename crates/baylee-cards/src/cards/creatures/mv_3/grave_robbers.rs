@@ -18,20 +18,20 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::ROGUE],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[activated!(
-            cost!("{B}", TapSelf),
-            &[
-                Effect::Exile {
-                    target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT, PlayerRel::EachPlayer),
-                },
-                Effect::GainLife {
-                    amount: Amount::Fixed(2),
-                },
-            ],
-            target = Some(TargetSpec::CardInGraveyard(
-                &Filter::ARTIFACT,
-                PlayerRel::EachPlayer,
-            )),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("{B}", TapSelf),
+        &[
+            Effect::Exile {
+                target: TargetSpec::CardInGraveyard(&Filter::ARTIFACT, PlayerRel::EachPlayer),
+            },
+            Effect::GainLife {
+                amount: Amount::Fixed(2),
+            },
+        ],
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::ARTIFACT,
+            PlayerRel::EachPlayer,
+        )),
+    )],
 );

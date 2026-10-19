@@ -16,13 +16,13 @@ card!(
         name = "Tower of Coireall",
         mana_cost = mana!("{2}"),
         types = TypeSet::ARTIFACT,
-        abilities = &[activated!(
-            Cost::TAP,
-            &[Effect::ModifyTargets {
-                modifier: Modifier::CantBeBlockedBy(&WALL),
-                duration: Duration::UntilEndOfTurn,
-            }],
-            target = Some(TargetSpec::Object(&Filter::CREATURE)),
-        )],
     ),],
+    abilities = &[activated!(
+        Cost::TAP,
+        &[Effect::ModifyTargets {
+            modifier: Modifier::CantBeBlockedBy(&WALL),
+            duration: Duration::UntilEndOfTurn,
+        }],
+        target = Some(TargetSpec::Object(&Filter::CREATURE)),
+    )],
 );

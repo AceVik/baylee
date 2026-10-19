@@ -18,19 +18,19 @@ card!(
         subtypes = &[subtypes::creature::HUMAN],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[activated!(
-            cost!("{G}{G}", TapSelf),
-            &[
-                Effect::DamageEqualToPower {
-                    dealer: TargetSlot::This,
-                    to: TargetSlot::First,
-                },
-                Effect::DamageEqualToPower {
-                    dealer: TargetSlot::First,
-                    to: TargetSlot::This,
-                },
-            ],
-            target = Some(TargetSpec::Object(&Filter::CREATURE)),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("{G}{G}", TapSelf),
+        &[
+            Effect::DamageEqualToPower {
+                dealer: TargetSlot::This,
+                to: TargetSlot::First,
+            },
+            Effect::DamageEqualToPower {
+                dealer: TargetSlot::First,
+                to: TargetSlot::This,
+            },
+        ],
+        target = Some(TargetSpec::Object(&Filter::CREATURE)),
+    )],
 );

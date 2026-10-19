@@ -14,9 +14,9 @@ card!(
         name = "Word of Binding",
         mana_cost = mana!("{X}{B}{B}"),
         types = TypeSet::SORCERY,
-        abilities = &[spell!(
-            &[Effect::TapTarget],
-            targets = Some(TargetReq::x_targets(TargetSpec::Object(&Filter::CREATURE))),
-        )],
     ),],
+    abilities = &[spell!(
+        &[Effect::TapTarget],
+        targets = Some(TargetReq::x_targets(TargetSpec::Object(&Filter::CREATURE))),
+    )],
 );

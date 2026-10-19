@@ -10,6 +10,7 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 const MERFOLK: Filter = Filter::HasSubtype(subtypes::creature::MERFOLK);
+const YOUR_MERFOLK: Filter = Filter::And(&[Filter::ControlledByYou, MERFOLK]);
 const TAPPED_MERFOLK_FOR_THIS: Filter =
     Filter::And(&[MERFOLK, Filter::TappedToPayForSourceThisTurn]);
 
@@ -30,14 +31,14 @@ card!(
     ),],
     abilities = &[
         activated!(
-            cost!(TapOther(&MERFOLK)),
+            cost!(TapOther(&YOUR_MERFOLK)),
             &[Effect::ModifySource {
                 modifier: Modifier::AttacksDespiteDefender,
                 duration: Duration::UntilEndOfTurn,
             }],
         ),
         activated!(
-            cost!(TapOther(&MERFOLK)),
+            cost!(TapOther(&YOUR_MERFOLK)),
             &[Effect::ModifySource {
                 modifier: Modifier::ModifyPT(2, 1),
                 duration: Duration::UntilEndOfTurn,

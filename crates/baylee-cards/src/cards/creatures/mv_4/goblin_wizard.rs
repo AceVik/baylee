@@ -33,24 +33,24 @@ card!(
         subtypes = &[subtypes::creature::GOBLIN, subtypes::creature::WIZARD],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[
-            activated!(
-                Cost::TAP,
-                &[Effect::PutFromHandOntoBattlefield {
-                    tapped: false,
-                    filter: &GOBLIN_PERMANENT,
-                    mana_value: None,
-                    optional: true,
-                }],
-            ),
-            activated!(
-                cost!("{R}"),
-                &[Effect::ModifyTargets {
-                    modifier: Modifier::ProtectionFrom(&WHITE),
-                    duration: Duration::UntilEndOfTurn,
-                }],
-                target = Some(TargetSpec::Object(&GOBLIN)),
-            ),
-        ],
     ),],
+    abilities = &[
+        activated!(
+            Cost::TAP,
+            &[Effect::PutFromHandOntoBattlefield {
+                tapped: false,
+                filter: &GOBLIN_PERMANENT,
+                mana_value: None,
+                optional: true,
+            }],
+        ),
+        activated!(
+            cost!("{R}"),
+            &[Effect::ModifyTargets {
+                modifier: Modifier::ProtectionFrom(&WHITE),
+                duration: Duration::UntilEndOfTurn,
+            }],
+            target = Some(TargetSpec::Object(&GOBLIN)),
+        ),
+    ],
 );

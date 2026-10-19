@@ -23,16 +23,16 @@ card!(
         power = Some(3),
         toughness = Some(1),
         keywords = KeywordSet::TRAMPLE,
-        abilities = &[
-            static_ability!(
-                Filter::This,
-                Modifier::DoesNotUntap,
-                condition = Some(Condition::SourceAttackedDuringYourLastTurn),
-            ),
-            static_ability!(
-                Filter::This,
-                Modifier::CantAttackUnlessDefenderControls(&MOUNTAIN),
-            ),
-        ],
     ),],
+    abilities = &[
+        static_ability!(
+            Filter::This,
+            Modifier::DoesNotUntap,
+            condition = Some(Condition::SourceAttackedDuringYourLastTurn),
+        ),
+        static_ability!(
+            Filter::This,
+            Modifier::CantAttackUnlessDefenderControls(&MOUNTAIN),
+        ),
+    ],
 );

@@ -20,12 +20,12 @@ card!(
         subtypes = &[subtypes::creature::SCARECROW],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[activated!(
-            cost!("{6}", TapSelf),
-            &[Effect::ModifySource {
-                modifier: Modifier::PreventDamageToYouFrom(&CREATURE_WITH_FLYING),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("{6}", TapSelf),
+        &[Effect::ModifySource {
+            modifier: Modifier::PreventDamageToYouFrom(&CREATURE_WITH_FLYING),
+            duration: Duration::UntilEndOfTurn,
+        }],
+    )],
 );

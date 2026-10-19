@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod barl_s_cage;
 mod birthing_pod;
 mod bottle_of_suleiman;
 mod conduit_of_worlds;
@@ -21,6 +22,7 @@ mod jade_statue;
 mod jayemdae_tome;
 mod kormus_bell;
 mod life_chisel;
+mod living_armor;
 mod machine_god_s_effigy;
 mod mightstone;
 mod nevinyrral_s_disk;
@@ -29,6 +31,7 @@ mod panharmonicon;
 mod power_armor;
 mod power_matrix;
 mod primal_amulet;
+mod reflecting_mirror;
 mod rocket_launcher;
 mod rod_of_ruin;
 mod sandals_of_abdallah;
@@ -45,7 +48,9 @@ mod tower_of_fortunes;
 mod tower_of_murmurs;
 mod triassic_egg;
 mod ur_golem_s_eye;
+mod wand_of_ith;
 mod wand_of_the_elements;
+mod war_barge;
 mod weakstone;
 
 mod life_matrix;

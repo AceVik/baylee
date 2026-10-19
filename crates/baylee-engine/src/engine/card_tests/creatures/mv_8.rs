@@ -16,6 +16,7 @@ mod celestial_force;
 mod chromium;
 mod copper_host_crusher;
 mod crash_of_rhinos;
+mod deep_spawn;
 mod eldrazi_devastator;
 mod gigantomancer;
 mod godsire;

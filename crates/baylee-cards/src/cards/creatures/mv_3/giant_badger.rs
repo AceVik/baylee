@@ -18,12 +18,12 @@ card!(
         subtypes = &[subtypes::creature::BADGER],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[triggered!(
-            Trigger::Blocks(&Filter::This),
-            &[Effect::ModifySource {
-                modifier: Modifier::ModifyPT(2, 2),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::Blocks(&Filter::This),
+        &[Effect::ModifySource {
+            modifier: Modifier::ModifyPT(2, 2),
+            duration: Duration::UntilEndOfTurn,
+        }],
+    )],
 );

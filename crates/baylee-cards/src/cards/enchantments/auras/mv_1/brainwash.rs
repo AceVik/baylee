@@ -4,6 +4,9 @@
 //! Set: 5ED #13 — Fifth Edition | Scryfall ID: 0afcbd6d-2b83-4393-9fc8-fe91f86117fe | Oracle ID: 5a81755f-bc44-47ac-8039-8847a5e37922
 
 use baylee_cards_dsl::prelude::*;
+
+// NOT SUPPORTED: activating mana abilities while paying the attack cost
+// (CR 508.1i); the tax is taken from the mana pool as it stands.
 use baylee_core::generated::subtypes;
 
 card!(
@@ -11,7 +14,9 @@ card!(
     oracle_id = "5a81755f-bc44-47ac-8039-8847a5e37922",
     scryfall_id = "0afcbd6d-2b83-4393-9fc8-fe91f86117fe",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Implemented,
+    coverage = Coverage::Partial(
+        "the {3} is paid only from mana already floating: the declare-attackers question offers no mana abilities (CR 508.1i)",
+    ),
     faces = &[face!(
         name = "Brainwash",
         mana_cost = mana!("{W}"),

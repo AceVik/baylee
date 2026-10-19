@@ -15,19 +15,19 @@ card!(
         name = "Festival",
         mana_cost = mana!("{W}"),
         types = TypeSet::INSTANT,
-        abilities = &[AbilityDef::Spell {
-            effects: &[Effect::CreateContinuousEffect {
-                layer: Layer::Text,
-                filter: &Filter::CREATURE,
-                modifier: Modifier::CantAttack,
-                duration: Duration::UntilEndOfTurn,
-            }],
-            targets: None,
-            second_targets: None,
-            condition: Some(Condition::All(&[
-                Condition::OpponentsTurn,
-                Condition::DuringStep(StepKind::Upkeep),
-            ])),
-        }],
     ),],
+    abilities = &[AbilityDef::Spell {
+        effects: &[Effect::CreateContinuousEffect {
+            layer: Layer::Text,
+            filter: &Filter::CREATURE,
+            modifier: Modifier::CantAttack,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        targets: None,
+        second_targets: None,
+        condition: Some(Condition::All(&[
+            Condition::OpponentsTurn,
+            Condition::DuringStep(StepKind::Upkeep),
+        ])),
+    }],
 );

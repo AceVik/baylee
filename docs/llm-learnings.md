@@ -5074,3 +5074,36 @@ resolved battle-damage holds:
   verified and promoted to `Coverage::Implemented` (**9,051 / 9,051** finished
   pool cards tested, **0** `Coverage::Generated` remaining, **38** playable precon
   decks).
+
+## 2026-10-20 — The Dark, Fallen Empires, Legends: one test per card
+
+- The three set commits (8e79d546e, 616a39069, ee22239ca) had played 150 cards
+  in three bulk files, most of them only placed on the battlefield and naming the
+  card through `index::…`, which `require-card-tests` does not count. Each card
+  now has its own file at its own path. Its subject is named only through a
+  literal `card_index("<oracle id>")`. The hook reads literals and does not
+  count a `card_index(SOME_CONST)`.
+- A single-faced card writes its abilities at card level (`card!(…, abilities = …)`),
+  never inside `face!`. `abilities_for_face(0)` falls back either way, so the
+  engine played them. Everything that reads `def.abilities` saw an empty list:
+  the testkit's mana routes, pool walks and lints. 38 of the new cards were
+  moved.
+- A cost is paid after targets are chosen (CR 602.2b → 601.2c, 601.2h). Read
+  "sacrificed as the price" after the target answer, not straight after
+  `ActivateAbility`.
+- A printed mana ability is offered in `legal.abilities` and activated with
+  `ActivateAbility { ability_index }`. `ActivateManaAbility` is only the CR 305.6
+  intrinsic mana of a basic land type.
+- `bury` through `dev_state_mut` does not refresh a conditional static's
+  projection, so Water Wurm still read its Island. Remove the permanent with a
+  real spell when the test is about a condition.
+- A permanent placed on the dev board still asks its "as this enters" question
+  (Psychic Allergy's colour) before anything else. Answer it in the fixture.
+- Defects the tests found:
+  - `PerTurn::reset` never cleared `tapped_for_ability`. Vodalian War Machine
+    destroyed Merfolk tapped in earlier turns. The reset now names every field,
+    so a new field does not compile until it is reset.
+  - Derelor taxed every black spell, not only "black spells you cast".
+  - Brainwash's {3} can be paid only from mana already floating, because the
+    declare-attackers question offers no mana abilities (CR 508.1i). It is now
+    `Coverage::Partial`.

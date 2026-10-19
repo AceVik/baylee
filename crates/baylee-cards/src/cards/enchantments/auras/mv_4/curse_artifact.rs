@@ -17,27 +17,27 @@ card!(
         mana_cost = mana!("{2}{B}{B}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        abilities = &[
-            spell!(
-                &[Effect::AttachSelf {
-                    target: TargetSpec::Object(&Filter::ARTIFACT),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::ARTIFACT))),
-            ),
-            triggered!(
-                Trigger::StepBegin {
-                    step: StepKind::Upkeep,
-                    whose: PlayerRel::ControllerOfAttached,
-                },
-                &[Effect::PlayerMayPayCostOr {
-                    player: PlayerRel::ControllerOfAttached,
-                    cost: &CostPart::Sacrifice(&Filter::AttachedToBySource),
-                    effect: &Effect::DealDamage {
-                        amount: Amount::Fixed(2),
-                        target: TargetSpec::Player(PlayerRel::ControllerOfAttached),
-                    },
-                }],
-            ),
-        ],
     ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::ARTIFACT),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::ARTIFACT))),
+        ),
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::ControllerOfAttached,
+            },
+            &[Effect::PlayerMayPayCostOr {
+                player: PlayerRel::ControllerOfAttached,
+                cost: &CostPart::Sacrifice(&Filter::AttachedToBySource),
+                effect: &Effect::DealDamage {
+                    amount: Amount::Fixed(2),
+                    target: TargetSpec::Player(PlayerRel::ControllerOfAttached),
+                },
+            }],
+        ),
+    ],
 );

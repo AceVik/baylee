@@ -32,14 +32,14 @@ card!(
         subtypes = &[subtypes::creature::ORC, subtypes::creature::WARRIOR],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[activated!(
-            cost!("", TapSelf, Sacrifice(&ANOTHER_ORC_OR_GOBLIN)),
-            &[Effect::CreateContinuousEffect {
-                layer: Layer::PtModify,
-                filter: &OTHER_ORC_CREATURES,
-                modifier: Modifier::ModifyPT(1, 1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("", TapSelf, Sacrifice(&ANOTHER_ORC_OR_GOBLIN)),
+        &[Effect::CreateContinuousEffect {
+            layer: Layer::PtModify,
+            filter: &OTHER_ORC_CREATURES,
+            modifier: Modifier::ModifyPT(1, 1),
+            duration: Duration::UntilEndOfTurn,
+        }],
+    )],
 );

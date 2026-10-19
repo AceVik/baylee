@@ -14,11 +14,11 @@ card!(
         name = "Dust to Dust",
         mana_cost = mana!("{1}{W}{W}"),
         types = TypeSet::SORCERY,
-        abilities = &[spell!(
-            &[Effect::Exile {
-                target: TargetSpec::Object(&Filter::ARTIFACT),
-            }],
-            targets = Some(TargetReq::exactly(TargetSpec::Object(&Filter::ARTIFACT), 2)),
-        )],
     ),],
+    abilities = &[spell!(
+        &[Effect::Exile {
+            target: TargetSpec::Object(&Filter::ARTIFACT),
+        }],
+        targets = Some(TargetReq::exactly(TargetSpec::Object(&Filter::ARTIFACT), 2)),
+    )],
 );

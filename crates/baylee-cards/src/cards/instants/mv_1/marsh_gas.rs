@@ -14,11 +14,11 @@ card!(
         name = "Marsh Gas",
         mana_cost = mana!("{B}"),
         types = TypeSet::INSTANT,
-        abilities = &[spell!(&[Effect::CreateContinuousEffect {
-            layer: Layer::PtModify,
-            filter: &Filter::CREATURE,
-            modifier: Modifier::ModifyPT(-2, 0),
-            duration: Duration::UntilEndOfTurn,
-        }])],
     ),],
+    abilities = &[spell!(&[Effect::CreateContinuousEffect {
+        layer: Layer::PtModify,
+        filter: &Filter::CREATURE,
+        modifier: Modifier::ModifyPT(-2, 0),
+        duration: Duration::UntilEndOfTurn,
+    }])],
 );

@@ -21,12 +21,12 @@ card!(
         subtypes = &[subtypes::creature::MERFOLK, subtypes::creature::ASSASSIN],
         power = Some(1),
         toughness = Some(2),
-        abilities = &[activated!(
-            Cost::TAP,
-            &[Effect::destroy(TargetSpec::Object(
-                &CREATURE_WITH_ISLANDWALK,
-            ))],
-            target = Some(TargetSpec::Object(&CREATURE_WITH_ISLANDWALK)),
-        )],
     ),],
+    abilities = &[activated!(
+        Cost::TAP,
+        &[Effect::destroy(TargetSpec::Object(
+            &CREATURE_WITH_ISLANDWALK,
+        ))],
+        target = Some(TargetSpec::Object(&CREATURE_WITH_ISLANDWALK)),
+    )],
 );

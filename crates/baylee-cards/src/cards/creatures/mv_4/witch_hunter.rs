@@ -19,22 +19,22 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::CLERIC],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[
-            activated!(
-                Cost::TAP,
-                &[Effect::DealDamage {
-                    amount: Amount::Fixed(1),
-                    target: TargetSpec::PlayerOrObject(&Filter::PLANESWALKER),
-                }],
-                target = Some(TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)),
-            ),
-            activated!(
-                cost!("{1}{W}{W}", TapSelf),
-                &[Effect::ReturnToHand {
-                    target: TargetSpec::Object(&Filter::OPPONENT_CREATURE),
-                }],
-                target = Some(TargetSpec::Object(&Filter::OPPONENT_CREATURE)),
-            ),
-        ],
     ),],
+    abilities = &[
+        activated!(
+            Cost::TAP,
+            &[Effect::DealDamage {
+                amount: Amount::Fixed(1),
+                target: TargetSpec::PlayerOrObject(&Filter::PLANESWALKER),
+            }],
+            target = Some(TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)),
+        ),
+        activated!(
+            cost!("{1}{W}{W}", TapSelf),
+            &[Effect::ReturnToHand {
+                target: TargetSpec::Object(&Filter::OPPONENT_CREATURE),
+            }],
+            target = Some(TargetSpec::Object(&Filter::OPPONENT_CREATURE)),
+        ),
+    ],
 );

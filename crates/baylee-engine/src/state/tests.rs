@@ -1707,3 +1707,32 @@ fn transformation_turn_history_is_hashed_and_reset() {
         assert!(changed.per_turn.sacrificed_subtypes.is_empty());
     }
 }
+
+/// A permanent tapped to pay for an ability is remembered for that turn only
+/// ("Merfolk tapped this turn to pay for its abilities", Vodalian War
+/// Machine): the turn's reset forgets it, as it forgets every other count.
+#[test]
+fn the_turn_reset_forgets_what_was_tapped_to_pay_for_an_ability() {
+    use baylee_core::ids::DamageSourceRef;
+    let mut state = GameState::from_preset(&make_preset(9), &RegistryLookup).unwrap();
+    let p0 = PlayerId::new(0);
+    let name = state.names.intern("Tapped for an ability");
+    let source = state.create_bare(p0, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+    let tapped = state.create_bare(p0, ObjectKind::Permanent, name, ZoneLocation::Battlefield);
+    let pair = (
+        DamageSourceRef {
+            object: source,
+            version: state.object(source).unwrap().version,
+        },
+        DamageSourceRef {
+            object: tapped,
+            version: state.object(tapped).unwrap().version,
+        },
+    );
+    state.per_turn.tapped_for_ability.push(pair);
+    state.per_turn.reset();
+    assert!(
+        state.per_turn.tapped_for_ability.is_empty(),
+        "a permanent tapped last turn was not tapped this turn"
+    );
+}

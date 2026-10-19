@@ -28,36 +28,36 @@ card!(
         name = "Psychic Allergy",
         mana_cost = mana!("{3}{U}{U}"),
         types = TypeSet::ENCHANTMENT,
-        abilities = &[
-            triggered!(
-                Trigger::StepBegin {
-                    step: StepKind::Upkeep,
-                    whose: PlayerRel::Opponent,
-                },
-                &[Effect::DealDamage {
-                    amount: Amount::CountOf {
-                        filter: &ACTIVE_PLAYER_NONTOKEN_OF_CHOSEN_COLOR,
-                        zone: ZoneSel::Battlefield,
-                    },
-                    target: TargetSpec::Player(PlayerRel::ActivePlayer),
-                }],
-            ),
-            triggered!(
-                Trigger::StepBegin {
-                    step: StepKind::Upkeep,
-                    whose: PlayerRel::You,
-                },
-                &[Effect::PlayerMaySacrificeNOr {
-                    player: PlayerRel::You,
-                    filter: &YOUR_ISLAND,
-                    count: 2,
-                    effect: &Effect::Destroy {
-                        target: TargetSpec::ThisObject,
-                        no_regen: false,
-                    },
-                }],
-            ),
-        ],
         enter_modifiers = &[EnterModifier::ChooseColor],
     ),],
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::Opponent,
+            },
+            &[Effect::DealDamage {
+                amount: Amount::CountOf {
+                    filter: &ACTIVE_PLAYER_NONTOKEN_OF_CHOSEN_COLOR,
+                    zone: ZoneSel::Battlefield,
+                },
+                target: TargetSpec::Player(PlayerRel::ActivePlayer),
+            }],
+        ),
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            &[Effect::PlayerMaySacrificeNOr {
+                player: PlayerRel::You,
+                filter: &YOUR_ISLAND,
+                count: 2,
+                effect: &Effect::Destroy {
+                    target: TargetSpec::ThisObject,
+                    no_regen: false,
+                },
+            }],
+        ),
+    ],
 );

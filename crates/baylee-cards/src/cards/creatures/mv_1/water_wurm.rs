@@ -23,10 +23,10 @@ card!(
         subtypes = &[subtypes::creature::WURM],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[static_ability!(
-            Filter::This,
-            Modifier::ModifyPT(0, 1),
-            condition = Some(Condition::OpponentControlCount(&OPPONENT_ISLAND, 1)),
-        )],
     ),],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::ModifyPT(0, 1),
+        condition = Some(Condition::OpponentControlCount(&OPPONENT_ISLAND, 1)),
+    )],
 );

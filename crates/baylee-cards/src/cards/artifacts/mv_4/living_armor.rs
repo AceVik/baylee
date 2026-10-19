@@ -13,16 +13,16 @@ card!(
         name = "Living Armor",
         mana_cost = mana!("{4}"),
         types = TypeSet::ARTIFACT,
-        abilities = &[activated!(
-            cost!("", TapSelf, SacrificeSelf),
-            &[Effect::AddCounter {
-                kind: CounterKind::Plus {
-                    power: 0,
-                    toughness: 1,
-                },
-                amount: Amount::TargetCmc,
-            }],
-            target = Some(TargetSpec::Object(&Filter::CREATURE)),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("", TapSelf, SacrificeSelf),
+        &[Effect::AddCounter {
+            kind: CounterKind::Plus {
+                power: 0,
+                toughness: 1,
+            },
+            amount: Amount::TargetCmc,
+        }],
+        target = Some(TargetSpec::Object(&Filter::CREATURE)),
+    )],
 );

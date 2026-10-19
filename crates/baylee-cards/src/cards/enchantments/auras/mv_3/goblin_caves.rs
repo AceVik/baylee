@@ -27,18 +27,18 @@ card!(
         mana_cost = mana!("{1}{R}{R}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        abilities = &[
-            spell!(
-                &[Effect::AttachSelf {
-                    target: TargetSpec::Object(&Filter::LAND),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
-            ),
-            static_ability!(
-                GOBLIN_CREATURE,
-                Modifier::ModifyPT(0, 2),
-                condition = Some(Condition::AttachedMatches(&BASIC_MOUNTAIN)),
-            ),
-        ],
     ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::LAND),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
+        ),
+        static_ability!(
+            GOBLIN_CREATURE,
+            Modifier::ModifyPT(0, 2),
+            condition = Some(Condition::AttachedMatches(&BASIC_MOUNTAIN)),
+        ),
+    ],
 );

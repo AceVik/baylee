@@ -19,23 +19,23 @@ card!(
         subtypes = &[subtypes::creature::HAG],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[
-            activated!(
-                cost!("{G}{G}{G}{G}", TapSelf),
-                &[Effect::ModifyTargets {
-                    modifier: Modifier::AddKeyword(KeywordSet::FORESTWALK),
-                    duration: Duration::UntilEndOfTurn,
-                }],
-                target = Some(TargetSpec::Object(&Filter::CREATURE)),
-            ),
-            activated!(
-                Cost::TAP,
-                &[Effect::ModifyTargets {
-                    modifier: Modifier::RemoveKeyword(KeywordSet::FORESTWALK),
-                    duration: Duration::UntilEndOfTurn,
-                }],
-                target = Some(TargetSpec::Object(&Filter::CREATURE)),
-            ),
-        ],
     ),],
+    abilities = &[
+        activated!(
+            cost!("{G}{G}{G}{G}", TapSelf),
+            &[Effect::ModifyTargets {
+                modifier: Modifier::AddKeyword(KeywordSet::FORESTWALK),
+                duration: Duration::UntilEndOfTurn,
+            }],
+            target = Some(TargetSpec::Object(&Filter::CREATURE)),
+        ),
+        activated!(
+            Cost::TAP,
+            &[Effect::ModifyTargets {
+                modifier: Modifier::RemoveKeyword(KeywordSet::FORESTWALK),
+                duration: Duration::UntilEndOfTurn,
+            }],
+            target = Some(TargetSpec::Object(&Filter::CREATURE)),
+        ),
+    ],
 );

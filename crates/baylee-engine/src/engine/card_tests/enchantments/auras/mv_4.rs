@@ -5,12 +5,14 @@ use super::*;
 
 mod animate_artifact;
 mod control_magic;
+mod curse_artifact;
 mod cursed_land;
 mod dehydration;
 mod divine_transformation;
 mod feast_of_the_unicorn;
 mod flight_of_fancy;
 mod improvised_armor;
+mod merseine;
 mod serra_s_embrace;
 mod steal_artifact;
 mod takklemaggot;

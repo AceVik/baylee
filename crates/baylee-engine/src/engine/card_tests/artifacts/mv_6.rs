@@ -9,6 +9,7 @@ mod jandor_s_ring;
 mod planar_portal;
 mod pyramids;
 mod rakalite;
+mod runesword;
 mod sword_of_the_ages;
 
 mod planar_gate;

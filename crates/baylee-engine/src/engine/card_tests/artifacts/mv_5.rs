@@ -6,6 +6,7 @@ use super::*;
 mod forethought_amulet;
 mod gilded_lotus;
 mod myr_matrix;
+mod stone_calendar;
 mod the_hive;
 
 mod al_abara_s_carpet;

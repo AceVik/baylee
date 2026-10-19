@@ -22,20 +22,20 @@ card!(
         mana_cost = mana!("{1}{G}{G}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        abilities = &[
-            spell!(
-                &[Effect::AttachSelf {
-                    target: TargetSpec::Object(&Filter::CREATURE),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
-            ),
-            triggered!(
-                Trigger::AttachedBlocksOrBecomesBlockedBy(&NON_WALL_CREATURE),
-                &[Effect::AtEndOfCombat {
-                    about: TargetSpec::EventObject,
-                    effects: &[Effect::destroy(TargetSpec::EventObject)],
-                }],
-            ),
-        ],
     ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        ),
+        triggered!(
+            Trigger::AttachedBlocksOrBecomesBlockedBy(&NON_WALL_CREATURE),
+            &[Effect::AtEndOfCombat {
+                about: TargetSpec::EventObject,
+                effects: &[Effect::destroy(TargetSpec::EventObject)],
+            }],
+        ),
+    ],
 );

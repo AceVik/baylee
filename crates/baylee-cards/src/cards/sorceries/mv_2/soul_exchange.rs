@@ -19,7 +19,7 @@ card!(
         name = "Soul Exchange",
         mana_cost = mana!("{B}{B}"),
         types = TypeSet::SORCERY,
-        mandatory_additional_costs = &[CostPart::ExilePermanent(&Filter::CREATURE)],
+        mandatory_additional_costs = &[CostPart::ExilePermanent(&Filter::YOUR_CREATURE)],
     ),],
     abilities = &[spell!(
         &[

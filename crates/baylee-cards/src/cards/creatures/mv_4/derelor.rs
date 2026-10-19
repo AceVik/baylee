@@ -6,7 +6,10 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const BLACK_SPELL: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Black]));
+const BLACK_SPELL_YOU_CAST: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::HasColor(ColorSet::from_slice(&[Color::Black])),
+]);
 
 card!(
     index = index::DERELOR,
@@ -23,7 +26,7 @@ card!(
         toughness = Some(4),
     ),],
     abilities = &[static_ability!(
-        BLACK_SPELL,
+        BLACK_SPELL_YOU_CAST,
         Modifier::SpellsCostMoreMana(mana!("{B}")),
     ),],
 );

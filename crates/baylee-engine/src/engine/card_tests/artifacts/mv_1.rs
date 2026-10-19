@@ -12,6 +12,7 @@ mod candelabra_of_tawnos;
 mod chromatic_sphere;
 mod crystal_rod;
 mod darkwater_egg;
+mod delif_s_cube;
 mod despotic_scepter;
 mod feldon_s_cane;
 mod glasses_of_urza;

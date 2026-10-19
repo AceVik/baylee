@@ -18,9 +18,9 @@ card!(
         subtypes = &[subtypes::creature::HUMAN],
         power = Some(1),
         toughness = Some(3),
-        abilities = &[static_ability!(
-            Filter::This,
-            Modifier::PreventDamageFrom(&Filter::CREATURE),
-        )],
     ),],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::PreventDamageFrom(&Filter::CREATURE),
+    )],
 );

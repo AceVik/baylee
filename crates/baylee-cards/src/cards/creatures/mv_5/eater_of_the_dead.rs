@@ -18,25 +18,22 @@ card!(
         subtypes = &[subtypes::creature::HORROR],
         power = Some(3),
         toughness = Some(4),
-        abilities = &[activated!(
-            Cost::FREE,
-            &[Effect::IfCondition {
-                condition: Condition::SourceMatches(&Filter::Tapped),
-                then: &[
-                    Effect::Exile {
-                        target: TargetSpec::CardInGraveyard(
-                            &Filter::CREATURE,
-                            PlayerRel::EachPlayer,
-                        ),
-                    },
-                    Effect::UntapSelf,
-                ],
-                otherwise: &[],
-            }],
-            target = Some(TargetSpec::CardInGraveyard(
-                &Filter::CREATURE,
-                PlayerRel::EachPlayer,
-            )),
-        )],
     ),],
+    abilities = &[activated!(
+        Cost::FREE,
+        &[Effect::IfCondition {
+            condition: Condition::SourceMatches(&Filter::Tapped),
+            then: &[
+                Effect::Exile {
+                    target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::EachPlayer,),
+                },
+                Effect::UntapSelf,
+            ],
+            otherwise: &[],
+        }],
+        target = Some(TargetSpec::CardInGraveyard(
+            &Filter::CREATURE,
+            PlayerRel::EachPlayer,
+        )),
+    )],
 );

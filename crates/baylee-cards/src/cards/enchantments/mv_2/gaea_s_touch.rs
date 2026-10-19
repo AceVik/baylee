@@ -21,19 +21,19 @@ card!(
         name = "Gaea's Touch",
         mana_cost = mana!("{G}{G}"),
         types = TypeSet::ENCHANTMENT,
-        abilities = &[
-            activated!(
-                Cost::FREE,
-                &[Effect::PutFromHandOntoBattlefield {
-                    tapped: false,
-                    filter: &BASIC_FOREST,
-                    mana_value: None,
-                    optional: true,
-                }],
-                timing = ActivationTiming::SorcerySpeed,
-                limit = ActivationLimit::PerTurn(1),
-            ),
-            mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Green, 2)]),
-        ],
     ),],
+    abilities = &[
+        activated!(
+            Cost::FREE,
+            &[Effect::PutFromHandOntoBattlefield {
+                tapped: false,
+                filter: &BASIC_FOREST,
+                mana_value: None,
+                optional: true,
+            }],
+            timing = ActivationTiming::SorcerySpeed,
+            limit = ActivationLimit::PerTurn(1),
+        ),
+        mana_ability!(cost!(SacrificeSelf), &[Effect::mana(ManaColor::Green, 2)]),
+    ],
 );

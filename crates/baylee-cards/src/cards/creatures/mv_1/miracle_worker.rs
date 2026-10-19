@@ -23,10 +23,10 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::CLERIC],
         power = Some(1),
         toughness = Some(1),
-        abilities = &[activated!(
-            Cost::TAP,
-            &[Effect::destroy(TargetSpec::Object(&AURA_ON_YOUR_CREATURE))],
-            target = Some(TargetSpec::Object(&AURA_ON_YOUR_CREATURE)),
-        )],
     ),],
+    abilities = &[activated!(
+        Cost::TAP,
+        &[Effect::destroy(TargetSpec::Object(&AURA_ON_YOUR_CREATURE))],
+        target = Some(TargetSpec::Object(&AURA_ON_YOUR_CREATURE)),
+    )],
 );

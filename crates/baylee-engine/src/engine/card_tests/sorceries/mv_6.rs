@@ -4,6 +4,7 @@
 use super::*;
 
 mod akroma_s_vengeance;
+mod amnesia;
 mod assassin_s_strike;
 mod austere_command;
 mod bad_deal;

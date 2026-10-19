@@ -28,25 +28,25 @@ card!(
         mana_cost = mana!("{1}{R}{R}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        abilities = &[
-            spell!(
-                &[Effect::AttachSelf {
-                    target: TargetSpec::Object(&Filter::LAND),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
-            ),
-            static_ability!(
-                GOBLIN_CREATURE,
-                Modifier::ModifyPT(1, 0),
-                condition = Some(Condition::AttachedMatches(&BASIC_MOUNTAIN)),
-            ),
-            triggered!(
-                Trigger::LeavesBattlefield(&Filter::This),
-                &[Effect::DealDamageEach {
-                    amount: Amount::Fixed(1),
-                    filter: &GOBLIN_CREATURE,
-                }],
-            ),
-        ],
     ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::LAND),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
+        ),
+        static_ability!(
+            GOBLIN_CREATURE,
+            Modifier::ModifyPT(1, 0),
+            condition = Some(Condition::AttachedMatches(&BASIC_MOUNTAIN)),
+        ),
+        triggered!(
+            Trigger::LeavesBattlefield(&Filter::This),
+            &[Effect::DealDamageEach {
+                amount: Amount::Fixed(1),
+                filter: &GOBLIN_CREATURE,
+            }],
+        ),
+    ],
 );

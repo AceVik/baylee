@@ -13,12 +13,12 @@ card!(
         name = "Tormod's Crypt",
         mana_cost = mana!("{0}"),
         types = TypeSet::ARTIFACT,
-        abilities = &[activated!(
-            cost!("", TapSelf, SacrificeSelf),
-            &[Effect::ExileGraveyard {
-                player: PlayerRel::Chosen,
-            }],
-            target = Some(TargetSpec::AnyPlayer),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("", TapSelf, SacrificeSelf),
+        &[Effect::ExileGraveyard {
+            player: PlayerRel::Chosen,
+        }],
+        target = Some(TargetSpec::AnyPlayer),
+    )],
 );

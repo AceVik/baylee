@@ -14,21 +14,21 @@ card!(
         name = "Mana Crypt",
         mana_cost = mana!("{0}"),
         types = TypeSet::ARTIFACT,
-        abilities = &[
-            triggered!(
-                Trigger::StepBegin {
-                    step: StepKind::Upkeep,
-                    whose: PlayerRel::You,
-                },
-                &[Effect::FlipCoin {
-                    won: &[],
-                    lost: &[Effect::DealDamage {
-                        amount: Amount::Fixed(3),
-                        target: TargetSpec::Player(PlayerRel::You),
-                    }],
-                }],
-            ),
-            mana_ability!(&[Effect::mana(ManaColor::Colorless, 2)]),
-        ],
     ),],
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            &[Effect::FlipCoin {
+                won: &[],
+                lost: &[Effect::DealDamage {
+                    amount: Amount::Fixed(3),
+                    target: TargetSpec::Player(PlayerRel::You),
+                }],
+            }],
+        ),
+        mana_ability!(&[Effect::mana(ManaColor::Colorless, 2)]),
+    ],
 );

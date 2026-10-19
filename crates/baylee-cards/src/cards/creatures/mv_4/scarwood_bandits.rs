@@ -20,17 +20,17 @@ card!(
         power = Some(2),
         toughness = Some(2),
         keywords = KeywordSet::FORESTWALK,
-        abilities = &[activated!(
-            cost!("{2}{G}", TapSelf),
-            &[Effect::PlayerMayPayOr {
-                player: PlayerRel::Opponent,
-                mana: Amount::Fixed(2),
-                effect: &Effect::ModifyTargets {
-                    modifier: Modifier::GainControl,
-                    duration: Duration::WhileSourceOnBattlefield,
-                },
-            }],
-            target = Some(TargetSpec::Object(&Filter::ARTIFACT)),
-        )],
     ),],
+    abilities = &[activated!(
+        cost!("{2}{G}", TapSelf),
+        &[Effect::PlayerMayPayOr {
+            player: PlayerRel::Opponent,
+            mana: Amount::Fixed(2),
+            effect: &Effect::ModifyTargets {
+                modifier: Modifier::GainControl,
+                duration: Duration::WhileSourceOnBattlefield,
+            },
+        }],
+        target = Some(TargetSpec::Object(&Filter::ARTIFACT)),
+    )],
 );

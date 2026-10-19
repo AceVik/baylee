@@ -18,12 +18,12 @@ card!(
         subtypes = &[subtypes::creature::ZOMBIE],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[triggered!(
-            Trigger::AttacksAndIsntBlocked(&Filter::This),
-            &[Effect::ModifySource {
-                modifier: Modifier::ModifyPT(2, 0),
-                duration: Duration::UntilEndOfCombat,
-            }],
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::AttacksAndIsntBlocked(&Filter::This),
+        &[Effect::ModifySource {
+            modifier: Modifier::ModifyPT(2, 0),
+            duration: Duration::UntilEndOfCombat,
+        }],
+    )],
 );

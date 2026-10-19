@@ -17,6 +17,7 @@ mod fall_of_the_gavel;
 mod final_death;
 mod final_reward;
 mod finishing_blow;
+mod fire_and_brimstone;
 mod fissure;
 mod flesh_to_dust;
 mod get_the_point;

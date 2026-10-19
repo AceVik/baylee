@@ -50,7 +50,6 @@ mod creatures;
 mod draw_kit;
 mod enchantments;
 mod entry_replacements;
-mod fallen_empires_cards;
 mod hidden_exile;
 mod instants;
 mod land_equilibrium;
@@ -66,7 +65,6 @@ mod rules;
 mod sacrifice_outcomes;
 mod sorceries;
 mod stun_counters;
-mod the_dark_cards;
 
 use super::testkit::*;
 

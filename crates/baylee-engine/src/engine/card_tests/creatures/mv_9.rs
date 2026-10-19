@@ -5,6 +5,7 @@ use super::*;
 
 mod fire_dragon;
 mod kuro_pitlord;
+mod leviathan;
 mod reya_dawnbringer;
 mod spirit_of_the_night;
 mod the_unspeakable;

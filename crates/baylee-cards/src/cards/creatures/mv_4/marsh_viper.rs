@@ -18,15 +18,15 @@ card!(
         subtypes = &[subtypes::creature::SNAKE],
         power = Some(1),
         toughness = Some(2),
-        abilities = &[triggered!(
-            Trigger::DealsDamageToPlayer {
-                source: &Filter::This,
-                player: PlayerRel::EachPlayer,
-            },
-            &[Effect::Poison {
-                who: PlayerRel::EventPlayer,
-                amount: Amount::Fixed(2),
-            }],
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::DealsDamageToPlayer {
+            source: &Filter::This,
+            player: PlayerRel::EachPlayer,
+        },
+        &[Effect::Poison {
+            who: PlayerRel::EventPlayer,
+            amount: Amount::Fixed(2),
+        }],
+    )],
 );
