@@ -1216,3 +1216,14 @@ were checked: “Tell the Community it’s unofficial.” and “Don't mess with
 legal notices in our stuff.” The existing disclaimer/source links and card-image
 pipeline remain in place; existing Scryfall image and font licence checks above
 continue to apply.
+
+### 2026-10-19 — Tour visibility at fractional Windows scale
+
+The tour fix changes placement of our own UI bubble and adds development
+diagnostics. Existing fonts, artwork, card images and notices are unchanged;
+no recorded system audio is shipped. The
+[Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were reread: “Tell the Community it’s unofficial.” The existing notice remains.
+The [Scryfall API/image terms](https://scryfall.com/docs/api) returned HTTP 403
+in this check; no new image usage or distribution is introduced, and the
+existing decisions above continue to apply.

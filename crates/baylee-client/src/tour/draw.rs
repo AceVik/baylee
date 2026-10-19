@@ -85,11 +85,11 @@ pub(super) struct Ring;
 
 /// The bubble.
 #[derive(Component)]
-pub(super) struct Bubble;
+pub(crate) struct Bubble;
 
 /// The scrim's layer, kept across steps with one [`ScrimKey`].
 #[derive(Component)]
-pub(super) struct ScrimLayer;
+pub(crate) struct ScrimLayer;
 
 /// A bubble of the step before, standing until the new one is in place.
 #[derive(Component)]
@@ -925,7 +925,14 @@ pub(super) fn place(
         if spot.bubble != placed {
             spot.bubble = placed;
         }
-        if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
+        // At fractional DPI, layout can alternate the rounded width by a
+        // physical pixel as centring moves the two edges. Requiring exact
+        // equality keeps a new bubble Hidden forever while the scrim blocks
+        // the screen. Keep the already laid-out position within one pixel.
+        let placed = matches!((node.left, node.top), (Val::Px(x), Val::Px(y))
+            if (x - at.x).abs() <= computed.inverse_scale_factor
+                && (y - at.y).abs() <= computed.inverse_scale_factor);
+        if !placed {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
             // Not shown in a frame whose layout has not seen where it
@@ -1354,7 +1361,7 @@ mod tests {
                 .map(|r| r.step)
                 .unwrap();
             let (next, anchor) = anchored(step + 1);
-            app.world_mut().resource_mut::<TourDesk>().start(next);
+            app.world_mut().resource_mut::<TourDesk>().run = Some(next);
             let mut a = app.world_mut().query::<&mut TourAnchor>();
             for mut at in a.iter_mut(app.world_mut()) {
                 at.0 = anchor;
@@ -1380,6 +1387,50 @@ mod tests {
                 .insert(InheritedVisibility::HIDDEN);
             app.update();
             assert_eq!(app.world().resource::<Spotlight>().hole, hole);
+        }
+
+        #[test]
+        fn fractional_dpi_rounding_cannot_keep_a_bubble_hidden() {
+            let (mut app, _) = app();
+            let bubble = app
+                .world_mut()
+                .query_filtered::<Entity, With<Bubble>>()
+                .single(app.world())
+                .unwrap();
+            // Windows at 150%: the live L4 bubble alternated between 675
+            // and 676 physical pixels, moving its centred left edge by .5px.
+            for width in [676.0, 675.0, 676.0, 675.0] {
+                app.world_mut().entity_mut(bubble).insert(ComputedNode {
+                    size: Vec2::new(width, 626.0),
+                    inverse_scale_factor: 1.0 / 1.5,
+                    ..default()
+                });
+                app.update();
+            }
+            assert_eq!(
+                app.world().get::<Visibility>(bubble),
+                Some(&Visibility::Inherited)
+            );
+        }
+
+        #[test]
+        fn skipping_or_disabling_a_tour_removes_all_layers() {
+            for press in [TourPress::Skip, TourPress::NeverAgain] {
+                let (mut app, _) = app();
+                let mut tours = baylee_client_core::tour::Tours::default();
+                assert!(
+                    app.world_mut()
+                        .resource_mut::<TourDesk>()
+                        .act(press, &mut tours)
+                );
+                app.update();
+                assert!(app.world().resource::<TourDesk>().shown().is_none());
+                let mut layers = app.world_mut().query_filtered::<Entity, With<TourLayer>>();
+                assert_eq!(layers.iter(app.world()).count(), 0);
+                let spot = app.world().resource::<Spotlight>();
+                assert!(spot.hole.is_none());
+                assert!(spot.bubble.is_none());
+            }
         }
     }
 }

@@ -25,6 +25,8 @@ use bevy::picking::events::PointerClick;
 use bevy::prelude::*;
 
 pub use draw::Spotlight;
+#[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+pub(crate) use draw::{Bubble, ScrimLayer};
 
 /// Marks the node a tour step points at. Put by the node's spawner, never
 /// by the tour.

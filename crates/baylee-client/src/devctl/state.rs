@@ -90,6 +90,18 @@ pub(super) struct Believed<'w, 's> {
     /// The guided tour standing, and where its hole is (`/state.tour`).
     tour: Option<Res<'w, crate::tour::TourDesk>>,
     spotlight: Option<Res<'w, crate::tour::Spotlight>>,
+    tour_scrims: Query<'w, 's, (), With<crate::tour::ScrimLayer>>,
+    tour_bubbles: Query<
+        'w,
+        's,
+        (
+            &'static Node,
+            &'static ComputedNode,
+            &'static Visibility,
+            &'static InheritedVisibility,
+        ),
+        With<crate::tour::Bubble>,
+    >,
     /// The bubble's and the pill's buttons, where a pointer would press them
     /// (a try-it step's Next is not a key: the keys are the screen's).
     tour_controls: Query<
@@ -99,6 +111,7 @@ pub(super) struct Believed<'w, 's> {
             &'static crate::tour::TourPress,
             &'static ComputedNode,
             &'static UiGlobalTransform,
+            &'static InheritedVisibility,
         ),
     >,
     /// The report form's buttons, where a pointer would press them.
@@ -1189,6 +1202,25 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
 /// its anchor (`null` when none is placed), what was passed over, what this
 /// device has seen.
 fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
+    let scrims = believed.tour_scrims.iter().count();
+    let bubbles = believed
+        .tour_bubbles
+        .iter()
+        .map(|(node, computed, visibility, inherited)| {
+            format!(
+                "{{\"left\":{},\"top\":{},\"width\":{},\"height\":{},\
+                 \"visibility\":{},\"visible\":{}}}",
+                quoted(&format!("{:?}", node.left)),
+                quoted(&format!("{:?}", node.top)),
+                computed.size().x * computed.inverse_scale_factor,
+                computed.size().y * computed.inverse_scale_factor,
+                quoted(&format!("{visibility:?}")),
+                inherited.get()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let visuals = format!("\"scrims\":{scrims},\"bubbles\":[{bubbles}]");
     let seen = settings.map_or_else(String::new, |s| {
         s.tours
             .seen
@@ -1200,7 +1232,7 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
     let disabled = believed.tour.as_deref().is_some_and(|d| d.disabled);
     let Some(run) = believed.tour.as_deref().and_then(|d| d.run.as_ref()) else {
         return format!(
-            "{{\"tour\":null,\"mode\":\"idle\",\"disabled\":{disabled},\"seen\":[{seen}]}}"
+            "{{\"tour\":null,\"mode\":\"idle\",\"disabled\":{disabled},\"seen\":[{seen}],{visuals}}}"
         );
     };
     let parked = believed.tour.as_deref().is_some_and(|d| d.parked);
@@ -1232,13 +1264,14 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
     let controls = believed
         .tour_controls
         .iter()
-        .map(|(press, node, place)| {
+        .map(|(press, node, place, visible)| {
             let mid = place.translation * node.inverse_scale_factor * believed.ui();
             format!(
-                "{{\"press\":{},\"at_x\":{:.1},\"at_y\":{:.1}}}",
+                "{{\"press\":{},\"at_x\":{:.1},\"at_y\":{:.1},\"visible\":{}}}",
                 quoted(&format!("{press:?}")),
                 mid.x,
-                mid.y
+                mid.y,
+                visible.get()
             )
         })
         .collect::<Vec<_>>()
@@ -1253,7 +1286,7 @@ fn tour_json(believed: &Believed, settings: Option<&ClientSettings>) -> String {
     format!(
         "{{\"tour\":{},\"chapter\":{},\"step\":{},\"kind\":{},\"mode\":\"{mode}\",\
          \"wants\":{},\"anchor\":{anchor},\"skipped\":[{skipped}],\"predicate_held\":{},\"seen\":[{seen}],\
-         \"controls\":[{controls}]}}",
+         \"controls\":[{controls}],{visuals}}}",
         quoted(run.tour.key()),
         quoted(run.current_chapter().id),
         quoted(step.id),

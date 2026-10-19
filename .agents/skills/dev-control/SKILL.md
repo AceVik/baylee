@@ -100,6 +100,14 @@ and `focus`, not `selected`. An irreversible action may first appear in
 key as dead. `hovered` is a Debug string such as `"ObjectId(52#0)"`, not a
 nested JSON object.
 
+`/key` and `/text` bypass the native OS keyboard path. A Windows system-sound
+report needs native/physical input plus output-device loopback audio capture;
+validate the capture with an announced control tone. See `docs/client.md`
+for the Windows comparison. For tour checks, leave `BAYLEE_NO_TOURS` unset:
+`/state.tour` reports `scrims`, `bubbles` (layout and visibility), and each
+control's `visible` flag. A run's mode alone does not prove its bubble is
+visible or that its scrim was removed after Skip.
+
 ## Animation and flicker evidence
 
 ```bash

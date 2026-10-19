@@ -9690,6 +9690,35 @@ are silent unless `BAYLEE_DEV_SOUND=1` explicitly opts in. The native Rust
 helpers (`cargo run --profile tools -p baylee-tools -- shell …` and `recording …`) replace
 the Python drivers; see `docs/dev-tools.md` for the command mapping.
 
+`/key` and `/text` inject Bevy input, bypassing the Windows message queue.
+They cannot reproduce an OS keyboard beep on their own. For such a report,
+compare them with native input and the owner's physical keyboard in an
+isolated, silent client. Record the output device through WASAPI loopback
+(not the microphone), and validate that capture with one explicitly announced
+Windows control tone. Silence without that positive control is inconclusive.
+On 19.10.2026, a fresh `d33b0b51d` build at 150% Windows scale produced no
+audio for `/text`, posted Windows keys, `SendInput`, or 45 seconds of the
+owner's physical typing into the gateway field. A separate Windows control
+tone was captured (peak 0.346, RMS 0.0443 at 48 kHz). The reported historical
+beep was not reproduced; no global sound setting or keyboard handling was changed.
+
+For tours, `/state.tour.scrims` counts remaining scrim layers even when the
+run is idle; `bubbles` lists each current bubble's requested `left`/`top`
+(`Val` debug strings), laid-out logical `width`/`height`, local `visibility`
+and inherited `visible` flag. Each tour control also reports `visible`.
+Check these alongside the run's `mode`: a narrated step with a hidden bubble
+can still block input. To test tour controls, leave `BAYLEE_NO_TOURS` unset.
+At 150% scale, L4's rounded width alternated between 675 and 676 physical
+pixels. Exact position comparison kept the bubble hidden indefinitely;
+placement now accepts a difference of at most one physical pixel without
+rewriting the position. Skip must leave zero scrims and no bubbles when the
+chapter ends without another due chapter starting. Skip marks the current
+chapter seen; another chapter due on the same screen can open immediately.
+"Don't show tours again" ends all tours. The Windows check confirmed a
+visible L4 bubble, Skip marking `lobby/play` seen and opening L8 visibly,
+and disabling tours leaving `mode: idle`, `scrims: 0`, `bubbles: []`.
+All 22 client tour tests and the client library's strict Clippy check passed.
+
 When worktrees share a Cargo target directory, copy the finished client and
 helper into a directory for that test run: another build can replace the
 shared executable. Pass the matching checkout as the helper's `--root`.
