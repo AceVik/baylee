@@ -312,11 +312,14 @@ fn consumes(cost: &Cost) -> bool {
             | CostPart::ReturnToHand(_)
             // A card exiled out of the graveyard is gone for good, so the
             // pile that pays for the next activation is one card shorter.
-            | CostPart::ExileFromGraveyard(_) => true,
+            | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::PutCounterOnOther { .. } => true,
             CostPart::TapN { count, .. } => *count > 0,
             // Exerting again is legal and adds no further untap penalty.
             CostPart::ExertSelf | CostPart::PayLifeX | CostPart::PayCommanderColors
-            | CostPart::TapX(_) | CostPart::SacrificeX(_) | CostPart::SacrificeAll(_) => false,
+            | CostPart::PayAttachedManaCost | CostPart::TapX(_) | CostPart::SacrificeX(_)
+            | CostPart::SacrificeAll(_) => false,
         })
 }
 

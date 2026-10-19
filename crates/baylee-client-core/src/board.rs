@@ -1689,6 +1689,7 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
     // seat with a single commander has.
     let commanders = seat.map_or(&[][..], |s| s.commanders.as_slice());
     let second = commanders.get(1).map(|c| c.object);
+    let command_objects = view.command.get(i).map(Vec::as_slice).unwrap_or_default();
     PileKind::ALL
         .iter()
         .copied()
@@ -1697,9 +1698,10 @@ fn zone_piles(view: &PlayerView, player: PlayerId) -> Vec<ZonePile> {
             // place with nothing on it and is still drawn, because a place
             // that came and went as cards moved through it would make the
             // table rearrange itself mid-game. A seat playing no commander
-            // has no command zone to draw at all, and one playing a single
-            // commander has one slot rather than two.
-            PileKind::Command => !commanders.is_empty(),
+            // has no command zone to draw at all unless a dungeon or emblem
+            // occupies it, and one playing a single commander has one slot
+            // rather than two.
+            PileKind::Command => !commanders.is_empty() || !command_objects.is_empty(),
             PileKind::Command2 => second.is_some(),
             _ => true,
         })

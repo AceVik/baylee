@@ -508,36 +508,42 @@ impl GameState {
         if from_zone == Zone::Battlefield {
             self.capture_entry_history();
         }
-        if from_zone != Zone::Battlefield
+        let blocked_entry = from_zone != Zone::Battlefield
             && to == ZoneLocation::Battlefield
             && self.effects.may_change_cast_timing_or_lock()
             && self.object(id).is_some_and(|o| {
-                o.characteristics()
-                    .types
-                    .contains(baylee_core::types::TypeSet::LAND)
-            })
-            && self.effects.iter().any(|fx| {
-                matches!(
-                    fx.modifier,
-                    baylee_cards_dsl::Modifier::CantPlayLandsAndLandsCantEnter
-                )
-            })
-        {
+                self.effects.iter().any(|fx| match fx.modifier {
+                    baylee_cards_dsl::Modifier::CantEnterBattlefield(filter) => {
+                        crate::eval::matches(
+                            filter,
+                            self,
+                            o,
+                            fx.controller,
+                            fx.source.unwrap_or(id),
+                        )
+                    }
+                    _ => false,
+                })
+            });
+        if blocked_entry && from_zone != Zone::Stack {
             if let Some(o) = self.object_mut(id) {
                 o.kind = ObjectKind::Card;
             }
             return Ok(id);
         }
-        if from_zone != Zone::Battlefield
+        if !blocked_entry
+            && from_zone != Zone::Battlefield
             && to == ZoneLocation::Battlefield
             && crate::entry::defer(self, id, pos, cause)
         {
             return Ok(id);
         }
-        // CR 303.4i: an Aura forbidden from enchanting its intended host
-        // does not enter at all. A spell goes to its owner's graveyard;
-        // an Aura coming from another zone stays where it was.
-        let blocked_aura = from_zone != Zone::Battlefield
+        // CR 303.4i / CR 608.3e: an Aura forbidden from enchanting its intended
+        // host or a permanent forbidden from entering the battlefield does not
+        // enter at all. A spell goes to its owner's graveyard; an object coming
+        // from another zone stays where it was.
+        let blocked_aura = !blocked_entry
+            && from_zone != Zone::Battlefield
             && to == ZoneLocation::Battlefield
             && self.object(id).is_some_and(|o| {
                 o.characteristics()
@@ -548,7 +554,7 @@ impl GameState {
                             || !crate::permanent_guards::permits_new_enchantment(self, host, id)
                     })
             });
-        let to = if blocked_aura {
+        let to = if blocked_entry || blocked_aura {
             if let Some(o) = self.object_mut(id) {
                 o.attached_to = None;
                 o.kind = ObjectKind::Card;

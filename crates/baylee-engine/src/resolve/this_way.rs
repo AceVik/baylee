@@ -96,6 +96,15 @@ pub(super) fn count(
                 GameEvent::ZoneChanged {
                     object,
                     from: Zone::Battlefield,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::ExiledFromBattlefield(filter),
+            )
+            | (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
                     to: Zone::Hand,
                     ..
                 },
@@ -111,16 +120,7 @@ pub(super) fn count(
                     ..
                 },
                 ThisWay::Milled(filter),
-            ) => u32::from(state.object(*object).is_some_and(|card| {
-                mine(card.owner)
-                    && eval::matches_with_context(
-                        filter,
-                        state,
-                        card,
-                        res.controller,
-                        res.rule_context(),
-                    )
-            })),
+            ) => u32::from(milled(state, res, *object, filter, &mine)),
             (
                 GameEvent::ZoneChanged {
                     object,
@@ -130,6 +130,24 @@ pub(super) fn count(
                 },
                 ThisWay::PutIntoLibraryFromHand,
             ) => u32::from(state.object(*object).is_some_and(|o| mine(o.owner))),
+            (GameEvent::Revealed { player, cards }, ThisWay::Revealed(filter)) if mine(*player) => {
+                let ctx = res.rule_context();
+                let you = res.controller;
+                let matched = cards.iter().filter(|&&id| {
+                    state
+                        .object(id)
+                        .is_some_and(|c| eval::matches_with_context(filter, state, c, you, ctx))
+                });
+                u32::try_from(matched.count()).unwrap_or(0)
+            }
+            (GameEvent::Revealed { player, cards }, ThisWay::RevealedManaValue)
+                if mine(*player) =>
+            {
+                cards
+                    .iter()
+                    .filter_map(|&id| state.object(id).map(|c| c.characteristics().mana_value()))
+                    .sum()
+            }
             _ => 0,
         };
         total = total.saturating_add(n);
@@ -164,6 +182,19 @@ fn was(
         )
 }
 
+fn milled(
+    state: &GameState,
+    res: &Resolution,
+    object: ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+    mine: &impl Fn(PlayerId) -> bool,
+) -> bool {
+    state.object(object).is_some_and(|card| {
+        mine(card.owner)
+            && eval::matches_with_context(filter, state, card, res.controller, res.rule_context())
+    })
+}
+
 /// The permanents the resolving source has dealt damage to so far in this
 /// resolution (Spikefield Hazard's "a permanent dealt damage this way"), each
 /// once, as the objects they are now.
@@ -181,6 +212,51 @@ pub(super) fn damaged_permanents(state: &GameState, res: &Resolution) -> Vec<Obj
             && !out.contains(&object)
         {
             out.push(object);
+        }
+    }
+    out
+}
+
+/// The tokens created on the battlefield so far in this resolution, each once,
+/// as the objects they are now.
+pub(super) fn created_tokens(state: &GameState, res: &Resolution) -> Vec<ObjectId> {
+    let mut out: Vec<ObjectId> = Vec::new();
+    for entry in entries(state, res) {
+        if let GameEvent::ZoneChanged {
+            object,
+            from: Zone::OutsideGame,
+            to: Zone::Battlefield,
+            ..
+        } = entry.event
+            && state
+                .object(object)
+                .is_some_and(|o| !o.is_card() && o.zone == Zone::Battlefield)
+            && !out.contains(&object)
+        {
+            out.push(object);
+        }
+    }
+    out
+}
+
+/// The cards revealed from a hand so far in this resolution that are still in
+/// their owner's hand, paired with the player who revealed them.
+pub(super) fn revealed_hand_cards(
+    state: &GameState,
+    res: &Resolution,
+) -> Vec<(ObjectId, PlayerId)> {
+    let mut out: Vec<(ObjectId, PlayerId)> = Vec::new();
+    for entry in entries(state, res) {
+        if let GameEvent::Revealed { player, cards } = &entry.event {
+            for &card in cards {
+                if state
+                    .object(card)
+                    .is_some_and(|o| o.zone == Zone::Hand && o.owner == *player)
+                    && !out.iter().any(|(c, _)| *c == card)
+                {
+                    out.push((card, *player));
+                }
+            }
         }
     }
     out

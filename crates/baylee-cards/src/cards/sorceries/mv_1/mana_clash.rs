@@ -16,7 +16,9 @@ card!(
         types = TypeSet::SORCERY,
     ),],
     abilities = &[spell!(
-        &[Effect::ManaClash],
+        &[Effect::FlipCoinsDamageTailsRepeatUntilBothHeads {
+            damage: Amount::Fixed(1),
+        }],
         targets = Some(TargetReq::one(TargetSpec::AnyOpponent))
     )],
 );

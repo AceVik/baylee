@@ -376,6 +376,8 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
         CostPart::PayLifeX
             | CostPart::PayLife(_)
             | CostPart::Sacrifice(_)
+            | CostPart::ExilePermanent(_)
+            | CostPart::ExileFromGraveyard(_)
             | CostPart::Discard(_)
             | CostPart::DiscardHand
             | CostPart::DiscardLastDrawnThisTurn
@@ -387,9 +389,15 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
-    face.mandatory_additional_costs
-        .iter()
-        .filter(|p| matches!(p, CostPart::Sacrifice(_) | CostPart::Discard(_)))
+    face.mandatory_additional_costs.iter().filter(|p| {
+        matches!(
+            p,
+            CostPart::Sacrifice(_)
+                | CostPart::ExilePermanent(_)
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::Discard(_)
+        )
+    })
 }
 
 impl<L: CardLookup> Engine<L> {

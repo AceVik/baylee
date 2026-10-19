@@ -798,3 +798,60 @@ fn transform_history_operations_are_leaf_effects() {
         assert_eq!(effect.branches(), (&[][..], &[][..]));
     }
 }
+
+#[test]
+fn ltb_and_sacrifice_then_bodies_are_visited() {
+    static INNER: Effect = Effect::SacrificeSelf;
+    static EFFECTS: &[Effect] = &[
+        Effect::PlayerMaySacrificeNThen {
+            player: PlayerRel::You,
+            filter: &Filter::LAND,
+            count: 2,
+            effect: &INNER,
+        },
+        Effect::WhenSourceLeavesBattlefieldForCreatedTokens {
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::WhenCreatedTokenLeavesBattlefield {
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::WhenTargetLeavesBattlefieldThisTurn {
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::WhenSourceLeavesBattlefieldThisTurn {
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::AnyPlayerMaySacrificeOrTakeDamageThen {
+            filter: &Filter::LAND,
+            count: 2,
+            damage: 5,
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::WheneverTappedForManaThisTurn {
+            by: PlayerRel::EachPlayer,
+            filter: &Filter::LAND,
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::WhenTargetAttacksAndIsntBlockedThisTurn {
+            effects: &[Effect::SacrificeSelf],
+        },
+        Effect::PlayerMayMillOr {
+            player: PlayerRel::You,
+            count: 2,
+            effect: &INNER,
+        },
+        Effect::ForEachMatching {
+            filter: &Filter::CREATURE,
+            effects: &[Effect::SacrificeSelf],
+        },
+    ];
+    let mut seen = 0;
+    let mut inner_seen = 0;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        if matches!(effect, Effect::SacrificeSelf) {
+            inner_seen += 1;
+        }
+    });
+    assert_eq!(inner_seen, 10);
+    assert_eq!(seen, 20);
+}

@@ -343,6 +343,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "AtEndOfCombat { about: ThisObject",
         "PreventNextDamage { target: ThisObject",
         "RedirectNextDamage { target: ThisObject",
+        "SuppressUntap { target: ThisObject",
     ];
 
     // Shimian's destination is `DamageRedirectTo::ThisObject`, not a
@@ -439,6 +440,9 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // Stone Giant's delayed "destroy that creature": `Destroy` reads
         // its spec through `spec_objects`, which asks `spec_object`.
         "Destroy { target: EventObject",
+        // Stangg and Dance of Many's delayed "exile that token": `Exile`
+        // reads its spec through `spec_objects`, which asks `spec_object`.
+        "Exile { target: EventObject",
         // Puppet Master's "If that card is returned to its owner's hand this
         // way": the effect reads the triggering object through
         // `sources::event_readers` (`resolve/mod.rs`).
@@ -448,9 +452,11 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // Cockatrice's delayed trigger remembers the block's other creature:
         // `AtEndOfCombat` reads `about` through `spec_object`.
         "AtEndOfCombat { about: EventObject",
-        // Pyrogoyf's "that creature deals damage equal to its power": the
-        // variant names the event object itself and `resolve::life` reads
-        // `res.event_object`; its `target` is the damage's recipient.
+        // Pyrogoyf's "that creature deals damage equal to its power" and
+        // Farrel's Mantle's "have it deal damage equal to its power plus 2":
+        // both variants name the event object itself and `resolve::life`
+        // reads `res.event_object`; `target` is the damage's recipient.
+        "EventObjectDealsDamage {",
         "EventObjectDealsDamageEqualToPower",
         // Berserk's delayed "if it attacked this turn": the variant asks
         // `res.event_object` itself, and the destroy inside it is counted

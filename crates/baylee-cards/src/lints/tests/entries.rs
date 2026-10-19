@@ -322,10 +322,12 @@ fn every_custom_counter_in_the_pool_is_an_assigned_id() {
     // keeps a changed `Debug` spelling from reading as a clean pool; the
     // ceiling, twice that, is what keeps something that is not a counter
     // from being read as one, and is the number to raise when the pool
-    // honestly outgrows it. The full corpus (2026-10-14) measured 67, every
-    // id assigned (the assertion above); re-anchored around that.
+    // honestly outgrows it. The full corpus (2026-10-14) measured 67, and
+    // Fallen Empires (`fem`, 2026-10-19) brings it to 86 (spore, tide,
+    // storage, depletion, javelin, credit, cube, net, vitality, matrix,
+    // sleep), every id assigned (the assertion above).
     assert!(
-        (60..=80).contains(&carriers),
+        (60..=100).contains(&carriers),
         "{carriers} definitions carry a custom counter; the reader is not \
          reading the pool's counters"
     );
@@ -369,7 +371,7 @@ fn no_card_file_spells_a_counter_id_as_a_number() {
     // the sweep above has them: a stripper that took everything would
     // find nothing, and one that took nothing would count the comments.
     assert!(
-        (34..=80).contains(&naming),
+        (34..=100).contains(&naming),
         "{naming} card files say `counters::` outside a comment; the \
          reader is not reading the pool's cards"
     );

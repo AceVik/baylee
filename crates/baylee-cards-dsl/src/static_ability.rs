@@ -896,9 +896,16 @@ pub enum Modifier {
     /// "Damage that would be dealt to [affected permanent] can't be prevented
     /// or dealt instead to another permanent or player" (Whippoorwill).
     DamageToItCantBePreventedOrRedirected,
-    /// "Players can't play lands" and "Lands can't enter the battlefield"
-    /// (Worms of the Earth).
-    CantPlayLandsAndLandsCantEnter,
+    /// Matching objects can't enter the battlefield (Worms of the Earth:
+    /// "Lands can't enter the battlefield", CR 608.3e).
+    CantEnterBattlefield(&'static Filter),
+    /// Matching spells cost an additional `ManaCost` to cast (Derelor:
+    /// "Black spells you cast cost {B} more to cast").
+    SpellsCostMoreMana(baylee_core::mana::ManaCost),
+    /// Affected creature can't attack if the defending player controls a
+    /// permanent matching the filter (Orgg: "can't attack if defending player
+    /// controls an untapped creature with power 3 or greater").
+    CantAttackIfDefenderControls(&'static Filter),
 }
 
 /// What a [`Modifier::CharacteristicPT`] counts.
@@ -1166,7 +1173,9 @@ impl Modifier {
             | Self::MaxAttackersPerCombat(_)
             | Self::MaxBlockersPerCombat(_)
             | Self::CantBeEnchanted
-            | Self::CantPlayLandsAndLandsCantEnter
+            | Self::CantEnterBattlefield(_)
+            | Self::SpellsCostMoreMana(_)
+            | Self::CantAttackIfDefenderControls(_)
             | Self::ExileInsteadOfYourGraveyard
             | Self::CastSpellsFromGraveyard => Layer::Text,
         }
@@ -1717,7 +1726,7 @@ mod tests {
             Modifier::MaxAttackersPerCombat(2),
             Modifier::MaxBlockersPerCombat(2),
             Modifier::CantBeEnchanted,
-            Modifier::CantPlayLandsAndLandsCantEnter,
+            Modifier::CantEnterBattlefield(&Filter::LAND),
             Modifier::CanBlockAdditional(1),
             Modifier::CanBlockAnyNumber,
             Modifier::MustBeBlockedByAllAble,
@@ -1744,6 +1753,8 @@ mod tests {
             Modifier::SearchTakeover,
             Modifier::DoesNotUntap,
             Modifier::MayChooseNotToUntap,
+            Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
+            Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
             Modifier::ExileInsteadOfYourGraveyard,
             Modifier::CastSpellsFromGraveyard,
         ] {

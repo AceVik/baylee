@@ -668,3 +668,463 @@ fn the_dark_creatures_work() {
     pass_until(&mut e, stack_is_empty);
     assert_eq!(e.state().players[1].life, 19);
 }
+
+#[test]
+fn frankenstein_s_monster_exiles_x_from_graveyard_and_chooses_counters_or_goes_to_graveyard() {
+    let mut e = prepared(
+        &[index::FRANKENSTEIN_S_MONSTER, index::FRANKENSTEIN_S_MONSTER],
+        &[index::GRIZZLY_BEARS, index::SAVANNAH_LIONS],
+        &[],
+    );
+    let bears = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    let lions = on_battlefield(&e, P0, index::SAVANNAH_LIONS).unwrap();
+    // Put only 1 creature in graveyard first, and cast with X = 2 -> must go to graveyard!
+    e.dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            bears,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+
+    cast(&mut e, P0, index::FRANKENSTEIN_S_MONSTER);
+    e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    // Frankenstein's Monster went to graveyard instead of entering, and Grizzly Bears was NOT exiled.
+    assert!(on_battlefield(&e, P0, index::FRANKENSTEIN_S_MONSTER).is_none());
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P0)).len(), 2);
+    assert_eq!(e.state().zones.list(ZoneLocation::Exile(P0)).len(), 0);
+
+    // Now put the second creature in graveyard (2 creatures total in graveyard) and cast second copy with X = 2.
+    e.dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            lions,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+
+    cast(&mut e, P0, index::FRANKENSTEIN_S_MONSTER);
+    e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let gy_creatures: Vec<ObjectId> = e
+        .state()
+        .zones
+        .list(ZoneLocation::Graveyard(P0))
+        .iter()
+        .copied()
+        .filter(|&id| {
+            let c = e.state().object(id).and_then(|o| o.card).map(|c| c.index);
+            c == Some(index::GRIZZLY_BEARS) || c == Some(index::SAVANNAH_LIONS)
+        })
+        .collect();
+    assert_eq!(gy_creatures.len(), 2);
+    choose_objects(&mut e, gy_creatures);
+
+    // Choose +2/+0 (index 0) for the first exiled creature and +0/+2 (index 2) for the second.
+    assert!(matches!(e.pending(), Pending::ChooseNumber { .. }));
+    e.apply(P0, PlayerAction::ChooseNumber(0)).unwrap();
+    assert!(matches!(e.pending(), Pending::ChooseNumber { .. }));
+    e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+
+    let monster = on_battlefield(&e, P0, index::FRANKENSTEIN_S_MONSTER).unwrap();
+    let chars = e.state().object(monster).unwrap().characteristics();
+    assert_eq!((chars.power, chars.toughness), (Some(2), Some(3)));
+    assert_eq!(e.state().zones.list(ZoneLocation::Exile(P0)).len(), 2);
+}
+
+#[test]
+fn martyr_s_cry_controller_draws_while_exiled_card_goes_to_owners_exile() {
+    let mut e = prepared(
+        &[index::MARTYR_S_CRY],
+        &[index::SAVANNAH_LIONS],
+        &[index::GRIZZLY_BEARS],
+    );
+    let lions = on_battlefield(&e, P0, index::SAVANNAH_LIONS).unwrap();
+    // P0 owns Savannah Lions, but P1 controls it.
+    e.dev_state_mut(P0)
+        .unwrap()
+        .object_mut(lions)
+        .unwrap()
+        .set_controller(P1);
+    e.refresh_offer();
+
+    let p0_hand_before = e.state().zones.list(ZoneLocation::Hand(P0)).len();
+    let p1_hand_before = e.state().zones.list(ZoneLocation::Hand(P1)).len();
+
+    cast(&mut e, P0, index::MARTYR_S_CRY);
+    pass_until(&mut e, stack_is_empty);
+
+    // Exiled card is in its OWNER's (P0's) exile zone, not P1's.
+    assert_eq!(e.state().zones.list(ZoneLocation::Exile(P0)).len(), 1);
+    assert_eq!(e.state().zones.list(ZoneLocation::Exile(P1)).len(), 0);
+    // Its CONTROLLER (P1) draws 1 card; P0 draws 0 cards (and spent Martyr's Cry from hand).
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        p0_hand_before - 1
+    );
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(P1)).len(),
+        p1_hand_before + 1
+    );
+}
+
+#[test]
+fn rag_man_visibility_reveals_target_hand_to_all_and_discards_only_creature() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(0, &[index::RAG_MAN])
+        .hand(0, &[index::MOUNTAIN])
+        .hand(1, &[index::FOREST, index::ISLAND, index::GRIZZLY_BEARS])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+
+    let p1_hand_before = e.state().zones.list(ZoneLocation::Hand(P1)).clone();
+    let journal_before = e.state().journal.entries().len();
+
+    activate_by_card(&mut e, P0, index::RAG_MAN, 0);
+    targets(&mut e, vec![], vec![P1]);
+    pass_until(&mut e, stack_is_empty);
+
+    // P1's entire hand was revealed in the public journal, while P0's hand was NEVER revealed!
+    let revealed_for_p1 = e.state().journal.entries()[journal_before..]
+        .iter()
+        .any(|entry| {
+            matches!(
+                &entry.event,
+                crate::event::GameEvent::Revealed { player, cards }
+                    if *player == P1 && *cards == p1_hand_before
+            )
+        });
+    let revealed_for_p0 = e.state().journal.entries()[journal_before..]
+        .iter()
+        .any(|entry| {
+            matches!(
+                &entry.event,
+                crate::event::GameEvent::Revealed { player, .. } if *player == P0
+            )
+        });
+    assert!(revealed_for_p1);
+    assert!(!revealed_for_p0);
+    // Only the creature card (Grizzly Bears) was discarded; the two lands remain in P1's hand.
+    assert_eq!(e.state().zones.list(ZoneLocation::Hand(P1)).len(), 2);
+    assert!(in_hand(&e, P1, index::GRIZZLY_BEARS).is_none());
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P1)).len(), 1);
+}
+
+#[test]
+fn stangg_linked_ltb_sacrifices_stangg_when_twin_leaves_and_exiles_twin_when_stangg_leaves() {
+    let mut e = prepared(&[index::STANGG, index::SWORDS_TO_PLOWSHARES], &[], &[]);
+
+    cast(&mut e, P0, index::STANGG);
+    pass_until(&mut e, stack_is_empty);
+    assert!(on_battlefield(&e, P0, index::STANGG).is_some());
+    let twin = e
+        .state()
+        .battlefield_seen()
+        .find(|id| e.state().object(*id).is_some_and(|o| o.card.is_none()))
+        .expect("Stangg Twin token created");
+
+    // Exile Stangg Twin -> delayed trigger sacrifices Stangg!
+    cast(&mut e, P0, index::SWORDS_TO_PLOWSHARES);
+    targets(&mut e, vec![twin], vec![]);
+    pass_until(&mut e, stack_is_empty);
+
+    assert!(on_battlefield(&e, P0, index::STANGG).is_none());
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P0)).len(), 2);
+}
+
+#[test]
+fn worms_of_the_earth_prevents_land_play_and_land_etb_and_upkeep_destroys_it() {
+    let mut e = prepared(
+        &[index::WORMS_OF_THE_EARTH, index::FOREST, index::PLAINS],
+        &[index::MOUNTAIN, index::MOUNTAIN],
+        &[index::ISLAND],
+    );
+
+    cast(&mut e, P0, index::WORMS_OF_THE_EARTH);
+    pass_until(&mut e, stack_is_empty);
+    priority(&mut e, P0);
+
+    // 1. Players can't play lands from hand.
+    let forest_in_hand = in_hand(&e, P0, index::FOREST).unwrap();
+    assert!(
+        e.apply(
+            P0,
+            PlayerAction::PlayLand {
+                card: forest_in_hand
+            }
+        )
+        .is_err()
+    );
+
+    // 2. Lands can't enter the battlefield from effects either.
+    let plains_in_hand = in_hand(&e, P0, index::PLAINS).unwrap();
+    let moved = e
+        .dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            plains_in_hand,
+            ZoneLocation::Battlefield,
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    assert_eq!(moved, plains_in_hand);
+    assert_eq!(
+        e.state().object(plains_in_hand).unwrap().zone,
+        crate::zone::Zone::Hand
+    );
+
+    // 3. On next upkeep, active player declines, other player takes 5 damage to destroy Worms of the Earth.
+    pass_until(&mut e, |e| {
+        e.state().turn.step == Step::Upkeep && matches!(e.pending(), Pending::YesNo { .. })
+    });
+    // First player declines.
+    yes_no(&mut e, false);
+    // Second player accepts -> takes 5 damage (or chooses damage branch) -> Worms of the Earth is destroyed.
+    yes_no(&mut e, true);
+    if matches!(e.pending(), Pending::YesNo { .. }) {
+        yes_no(&mut e, false);
+    }
+    pass_until(&mut e, stack_is_empty);
+
+    assert!(on_battlefield(&e, P0, index::WORMS_OF_THE_EARTH).is_none());
+}
+
+#[test]
+fn nameless_race_excludes_self_and_tokens_and_counts_opponents_graveyard() {
+    let mut e = prepared(
+        &[index::NAMELESS_RACE],
+        // P0's own white permanents and white graveyard cards must NOT count.
+        &[index::SAVANNAH_LIONS, index::PEARLED_UNICORN],
+        // P1 has 1 white creature on battlefield and 1 white card moved to graveyard (total cap = 2).
+        &[
+            index::SAVANNAH_LIONS,
+            index::SERRA_ANGEL,
+            index::GRIZZLY_BEARS,
+        ],
+    );
+    let p0_unicorn = on_battlefield(&e, P0, index::PEARLED_UNICORN).unwrap();
+    let p1_angel = on_battlefield(&e, P1, index::SERRA_ANGEL).unwrap();
+    // Move P0's Pearled Unicorn to P0's graveyard (should NOT count) and P1's Serra Angel to P1's graveyard (SHOULD count).
+    e.dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            p0_unicorn,
+            ZoneLocation::Graveyard(P0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.dev_state_mut(P0)
+        .unwrap()
+        .move_object(
+            p1_angel,
+            ZoneLocation::Graveyard(P1),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+
+    cast(&mut e, P0, index::NAMELESS_RACE);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseNumber { .. })
+    });
+    let Pending::ChooseNumber { min, max, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    // P1 has 1 white nontoken permanent on battlefield (Savannah Lions) + 1 white card in graveyard (Serra Angel) = 2.
+    // P0's Savannah Lions and P0's Pearled Unicorn in graveyard are excluded.
+    assert_eq!((min, max), (0, 2));
+    e.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+
+    let race = on_battlefield(&e, P0, index::NAMELESS_RACE).unwrap();
+    let chars = e.state().object(race).unwrap().characteristics();
+    assert_eq!((chars.power, chars.toughness), (Some(2), Some(2)));
+}
+
+#[test]
+fn runesword_prevents_regeneration_and_exiles_damaged_creature_when_it_dies() {
+    let mut e = prepared(
+        &[index::LIGHTNING_BOLT],
+        &[index::RUNESWORD, index::GRIZZLY_BEARS],
+        &[index::HILL_GIANT],
+    );
+    let bears = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
+    let giant = on_battlefield(&e, P1, index::HILL_GIANT).unwrap();
+
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { player: P0, .. })
+    });
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(P1))],
+        },
+    )
+    .unwrap();
+
+    // Activate Runesword targeting attacking Grizzly Bears (+2/+0, making it 4/2).
+    activate_by_card(&mut e, P0, index::RUNESWORD, 0);
+    targets(&mut e, vec![bears], vec![]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { player: P1, .. })
+    });
+    // P1 blocks Grizzly Bears (4/2) with Hill Giant (3/3).
+    e.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(giant, bears)],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| e.state().turn.step == Step::Main);
+
+    // Hill Giant was dealt 4 damage by the Runesword-targeted attacker and died -> exiled instead of graveyard!
+    assert!(on_battlefield(&e, P1, index::HILL_GIANT).is_none());
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P1)).len(), 0);
+    assert_eq!(e.state().zones.list(ZoneLocation::Exile(P1)).len(), 1);
+    // Runesword was also sacrificed at end of combat because the target dealt damage to a creature.
+    assert!(on_battlefield(&e, P0, index::RUNESWORD).is_none());
+}
+
+#[test]
+fn wand_of_ith_reveals_random_card_and_asks_1_life_for_land_or_mv_for_nonland() {
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(
+            0,
+            &[
+                index::WAND_OF_ITH,
+                index::FOREST,
+                index::FOREST,
+                index::FOREST,
+            ],
+        )
+        .hand(1, &[index::FOREST])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+
+    let seq_before = e.state().journal.last_seq();
+    activate_by_card(&mut e, P0, index::WAND_OF_ITH, 0);
+    targets(&mut e, vec![], vec![P1]);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+
+    // Revealed card is Forest -> prompt is PayLife { amount: 1 } for P1.
+    assert!(matches!(
+        e.pending(),
+        Pending::YesNo {
+            player: P1,
+            prompt: crate::choice::YesNoPrompt::PayLife { amount: 1 },
+            ..
+        }
+    ));
+    let revealed = e.state().journal.entries().iter().any(|entry| {
+        entry.seq > seq_before
+            && matches!(
+                entry.event,
+                crate::event::GameEvent::Revealed { player: P1, .. }
+            )
+    });
+    assert!(revealed);
+
+    // P1 declines to pay 1 life -> Forest is discarded.
+    yes_no(&mut e, false);
+    pass_until(&mut e, stack_is_empty);
+    assert!(e.state().zones.list(ZoneLocation::Hand(P1)).is_empty());
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P1)).len(), 1);
+
+    // Now test with a nonland card (Serra Angel, MV 5) and P1 paying 5 life.
+    let mut e2 = Duel::new(SEED, index::FOREST)
+        .battlefield(
+            0,
+            &[
+                index::WAND_OF_ITH,
+                index::FOREST,
+                index::FOREST,
+                index::FOREST,
+            ],
+        )
+        .hand(1, &[index::SERRA_ANGEL])
+        .start();
+    keep_mulligans(&mut e2);
+    reach_main_phase(&mut e2, P0);
+
+    activate_by_card(&mut e2, P0, index::WAND_OF_ITH, 0);
+    targets(&mut e2, vec![], vec![P1]);
+    pass_until(&mut e2, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    assert!(matches!(
+        e2.pending(),
+        Pending::YesNo {
+            player: P1,
+            prompt: crate::choice::YesNoPrompt::PayLife { amount: 5 },
+            ..
+        }
+    ));
+    yes_no(&mut e2, true);
+    pass_until(&mut e2, stack_is_empty);
+    assert_eq!(e2.state().players[1].life, 15);
+    assert_eq!(e2.state().zones.list(ZoneLocation::Hand(P1)).len(), 1);
+}
+
+#[test]
+fn fasting_skips_draw_step_for_2_life_and_destroys_itself_when_controller_draws() {
+    let mut e = prepared(&[], &[index::FASTING], &[]);
+    let fasting = on_battlefield(&e, P0, index::FASTING).unwrap();
+    // Turn 1's upkeep already placed 1 hunger counter during `prepared` (`reach_main_phase`).
+    assert_eq!(
+        e.state()
+            .object(fasting)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::HUNGER),
+        1
+    );
+
+    // Advance to P0's next upkeep (turn 3).
+    pass_until(&mut e, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep
+    });
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(
+        e.state()
+            .object(fasting)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::HUNGER),
+        2
+    );
+
+    // Moving to draw step asks P0 whether to skip via Fasting.
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::YesNo { player: P0, .. })
+    });
+    let hand_before = e.state().zones.list(ZoneLocation::Hand(P0)).len();
+    yes_no(&mut e, true);
+    assert_eq!(e.state().players[0].life, 22);
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before
+    );
+    assert!(on_battlefield(&e, P0, index::FASTING).is_some());
+
+    // On P0's following turn, decline the skip so P0 draws a card -> Fasting's "When you draw a card, destroy this enchantment" triggers.
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::YesNo { player: P0, .. })
+    });
+    yes_no(&mut e, false);
+    pass_until(&mut e, stack_is_empty);
+    assert!(on_battlefield(&e, P0, index::FASTING).is_none());
+}

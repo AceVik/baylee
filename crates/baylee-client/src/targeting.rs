@@ -499,6 +499,8 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::AttackedDuringControllersLastTurn
         | Filter::TwiceCmcExactlyX
         | Filter::CouldHaveAttackedThisTurn
+        | Filter::ControllerControls(_)
+        | Filter::TappedToPayForSourceThisTurn
         | Filter::OfSourceChosenColor
         | Filter::SharesAColorWith(_) => return None,
     })

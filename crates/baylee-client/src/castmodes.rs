@@ -295,7 +295,10 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::PayCommanderColors
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
-        | CostPart::SacrificeAll(_) => false,
+        | CostPart::SacrificeAll(_)
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::PayAttachedManaCost => false,
     })
 }
 

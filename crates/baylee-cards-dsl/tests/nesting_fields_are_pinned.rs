@@ -86,9 +86,14 @@
 // Dalkovan Encampment), and PlayerMayPayManaEachThenElse's two branches
 // (Cyclone), and AtNextEndStepAboutSubject (Infinite Authority).
 // PlayerMayGetPoisonOr, WheneverOneOrMoreDealCombatDamageToPlayerThisTurn,
-// WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn, and
-// MayExileFromYourGraveyardThen add one each (tested in verb_tests).
-const NESTING_FIELDS: usize = 65;
+// WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn,
+// MayExileFromYourGraveyardThen, PlayerMaySacrificeNThen,
+// WhenSourceLeavesBattlefieldForCreatedTokens, WhenCreatedTokenLeavesBattlefield,
+// WhenTargetLeavesBattlefieldThisTurn, WhenSourceLeavesBattlefieldThisTurn,
+// AnyPlayerMaySacrificeOrTakeDamageThen, WheneverTappedForManaThisTurn,
+// WhenTargetAttacksAndIsntBlockedThisTurn, PlayerMayMillOr, and
+// ForEachMatching add one each (tested in verb_tests).
+const NESTING_FIELDS: usize = 75;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -142,7 +147,13 @@ const NESTING_FIELDS: usize = 65;
 /// `PlayerMayGetPoisonOr`, `WheneverOneOrMoreDealCombatDamageToPlayerThisTurn`,
 /// `WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn` and
 /// `MayExileFromYourGraveyardThen` are the fifty-fifth to fifty-eighth carriers.
-const CARRYING_VARIANTS: usize = 58;
+/// `PlayerMaySacrificeNThen`, `WhenSourceLeavesBattlefieldForCreatedTokens`,
+/// `WhenCreatedTokenLeavesBattlefield`, `WhenTargetLeavesBattlefieldThisTurn`,
+/// `WhenSourceLeavesBattlefieldThisTurn`,
+/// `AnyPlayerMaySacrificeOrTakeDamageThen`, `WheneverTappedForManaThisTurn`,
+/// `WhenTargetAttacksAndIsntBlockedThisTurn`, `PlayerMayMillOr` and
+/// `ForEachMatching` are the fifty-ninth to sixty-eighth carriers.
+const CARRYING_VARIANTS: usize = 68;
 
 /// The floor under the reader itself.
 ///

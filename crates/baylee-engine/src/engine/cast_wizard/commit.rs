@@ -138,6 +138,9 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::RemoveCounterSelf { .. }
                     | CostPart::RemoveCounterSelfX { .. }
                     | CostPart::PutCounterSelf { .. }
+                    | CostPart::PutCounterOnOther { .. }
+                    | CostPart::ExileFromSingleGraveyard { .. }
+                    | CostPart::PayAttachedManaCost
                     | CostPart::PayLifeX => {}
                 }
             }
@@ -255,6 +258,9 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::RemoveCounterSelf { .. }
                 | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PutCounterSelf { .. }
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::ExileFromSingleGraveyard { .. }
+                | CostPart::PayAttachedManaCost
                 | CostPart::ExileFromHand(_) => {}
             }
         }

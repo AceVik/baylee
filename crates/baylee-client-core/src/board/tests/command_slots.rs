@@ -146,3 +146,23 @@ fn commanders_remain_single_cards_when_hovered() {
         }
     }
 }
+
+#[test]
+fn a_dungeon_in_a_non_commander_game_shows_the_command_slot() {
+    let mut dungeon = token(9, 0, "Lost Mine of Phandelver — Cave Entrance", 0, 0);
+    dungeon.types = TypeSet::DUNGEON;
+    let view = ViewBuilder::new(2)
+        .with_command(0, vec![dungeon.clone()])
+        .build();
+    let piles = zone_piles(&view, PlayerId::new(0));
+    let command = piles
+        .iter()
+        .find(|p| p.kind == PileKind::Command)
+        .expect("command slot is shown when a dungeon is in the command zone");
+    assert_eq!(command.count, 1);
+    assert_eq!(command.top, Some(dungeon.id));
+    assert_eq!(
+        command.name.as_deref(),
+        Some("Lost Mine of Phandelver — Cave Entrance")
+    );
+}

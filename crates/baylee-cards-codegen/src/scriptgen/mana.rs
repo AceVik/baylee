@@ -524,6 +524,9 @@ impl Tx<'_> {
                 _ => return self.deny(format!("cost `{token}` naming itself")),
             });
         }
+        if variant == "Discard" && spec == "Random" {
+            return Some("DiscardRandom".to_string());
+        }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
             // `Or` and a clause glued to the end would narrow only the last

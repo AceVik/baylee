@@ -2033,6 +2033,35 @@ impl<L: CardLookup> Engine<L> {
                         remaining,
                         mut chosen,
                     }) => {
+                        let is_single_graveyard = matches!(
+                            &self.pending,
+                            Pending::ChooseCards {
+                                prompt: crate::choice::ChoicePrompt::CostExile,
+                                ..
+                            }
+                        ) && remaining.is_some();
+                        if is_single_graveyard {
+                            let first_owner = chosen
+                                .first()
+                                .or_else(|| objects.first())
+                                .and_then(|id| self.state.object(*id))
+                                .and_then(|o| o.zone_owner);
+                            if chosen.iter().chain(objects.iter()).any(|id| {
+                                self.state.object(*id).and_then(|o| o.zone_owner) != first_owner
+                            }) {
+                                self.pending_plan = Some(PlanKind::PayActivationCost {
+                                    source,
+                                    ability_index,
+                                    targets,
+                                    target_players,
+                                    remaining,
+                                    chosen,
+                                });
+                                return Err(EngineError::IllegalAction(
+                                    "cards must be exiled from a single graveyard",
+                                ));
+                            }
+                        }
                         let remaining =
                             remaining.map(|n| n - u32::try_from(objects.len()).unwrap_or(u32::MAX));
                         chosen.extend_from_slice(&objects);
@@ -2042,9 +2071,18 @@ impl<L: CardLookup> Engine<L> {
                                 options, min, max, ..
                             } = &mut next
                             {
+                                let first_owner = chosen
+                                    .first()
+                                    .and_then(|id| self.state.object(*id))
+                                    .and_then(|o| o.zone_owner);
                                 let mut used = objects;
                                 used.sort_unstable();
-                                options.retain(|id| used.binary_search(id).is_err());
+                                options.retain(|id| {
+                                    used.binary_search(id).is_err()
+                                        && (!is_single_graveyard
+                                            || self.state.object(*id).and_then(|o| o.zone_owner)
+                                                == first_owner)
+                                });
                                 *max = u8::try_from(remaining.unwrap_or(0)).unwrap_or(u8::MAX);
                                 *min = *max;
                             }

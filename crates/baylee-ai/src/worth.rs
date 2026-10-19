@@ -603,6 +603,17 @@ impl HeuristicAgent {
                 view.graveyards.iter().flatten().collect(),
                 ZoneRef::Graveyard,
             ),
+            ZoneSel::GraveyardOpponents => (
+                view.graveyards
+                    .iter()
+                    .enumerate()
+                    .filter(|&(i, _)| {
+                        u8::try_from(i).is_ok_and(|p| self.hostile(PlayerId::new(p), view.seat))
+                    })
+                    .flat_map(|(_, g)| g.iter())
+                    .collect(),
+                ZoneRef::Graveyard,
+            ),
             ZoneSel::HandActivePlayer if matches!(filter, Filter::Any) => {
                 return view.seat(view.active).map(|s| i64::from(s.hand_count));
             }
@@ -1818,7 +1829,11 @@ impl HeuristicAgent {
                     .object
                     .map_or(50, |o| i64::from(o.mana_value) * 60 + 50),
                 CostPart::RemoveCounterSelf { .. } | CostPart::RemoveCounterSelfX { .. } => 40,
-                CostPart::PutCounterSelf { .. } | CostPart::ExileFromGraveyard(_) => 20,
+                CostPart::PutCounterSelf { .. }
+                | CostPart::PutCounterOnOther { .. }
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::ExileFromSingleGraveyard { .. }
+                | CostPart::PayAttachedManaCost => 20,
                 CostPart::TapOther(filter) => own(filter, &|o| {
                     o.id != origin.id && !o.status.contains(ObjectStatus::TAPPED)
                 })

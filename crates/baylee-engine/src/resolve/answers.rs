@@ -486,6 +486,20 @@ fn resume_may_exile_graveyard(
         }
         return Some(run_fallback(state, res, std::slice::from_ref(effect)));
     }
+    if let Some(AwaitingOp::PlayerMayMill {
+        player,
+        count,
+        effect,
+    }) = res.awaiting
+    {
+        res.awaiting = None;
+        if answer && state.zones.list(ZoneLocation::Library(player)).len() >= usize::from(count) {
+            let _ = state.mill_top(player, usize::from(count));
+            res.pc += 1;
+            return Some(run(state, res));
+        }
+        return Some(run_fallback(state, res, std::slice::from_ref(effect)));
+    }
     if !matches!(
         res.awaiting,
         Some(AwaitingOp::MayExileFromGraveyardThen { .. })
@@ -616,19 +630,6 @@ pub(super) fn resume_yes_no_inner(
     if matches!(res.awaiting, Some(AwaitingOp::SacrificePayment { .. })) {
         return super::sacrifices::answer_payment(state, res, answer);
     }
-    if matches!(res.awaiting, Some(AwaitingOp::WandOfIth { .. })) {
-        let Some(AwaitingOp::WandOfIth { player, card, life }) = res.awaiting.take() else {
-            unreachable!("just matched")
-        };
-        let cost_life = i32::try_from(life).unwrap_or(i32::MAX);
-        if answer && state.can_pay_life(player, cost_life) {
-            state.change_life(player, -cost_life, Cause::Cost);
-        } else if let Some(pending) = super::discard_or_ask(state, res, &[(card, player)]) {
-            return Flow::Wait(pending);
-        }
-        res.pc += 1;
-        return run(state, res);
-    }
     if matches!(res.awaiting, Some(AwaitingOp::Cleansing { .. })) {
         let Some(AwaitingOp::Cleansing {
             asked,
@@ -661,44 +662,53 @@ pub(super) fn resume_yes_no_inner(
         res.pc += 1;
         return run(state, res);
     }
-    if matches!(res.awaiting, Some(AwaitingOp::WormsOfTheEarth { .. })) {
-        let Some(AwaitingOp::WormsOfTheEarth {
+    if matches!(
+        res.awaiting,
+        Some(AwaitingOp::AnyPlayerSacrificeOrDamage { .. })
+    ) {
+        let Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
             asked,
             remaining,
             step,
+            filter,
+            count,
+            damage,
+            effects,
         }) = res.awaiting.take()
         else {
             unreachable!("just matched")
         };
         if step == 0 {
             if answer {
-                let options = chosen::options(
-                    state,
-                    asked,
-                    &baylee_cards_dsl::Filter::LAND,
-                    asked,
-                    res.source,
-                );
-                if options.len() >= 2 {
-                    res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+                let options = chosen::options(state, asked, filter, asked, res.source);
+                if options.len() >= usize::from(count) {
+                    res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
                         asked,
                         remaining,
                         step: 1,
+                        filter,
+                        count,
+                        damage,
+                        effects,
                     });
                     return Flow::Wait(Pending::ChooseCards {
                         player: asked,
                         options,
-                        min: 2,
-                        max: 2,
+                        min: count,
+                        max: count,
                         prompt: ChoicePrompt::Generic,
                         total: None,
                     });
                 }
             }
-            res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+            res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
                 asked,
                 remaining,
                 step: 2,
+                filter,
+                count,
+                damage,
+                effects,
             });
             return Flow::Wait(Pending::YesNo {
                 player: asked,
@@ -707,14 +717,18 @@ pub(super) fn resume_yes_no_inner(
             });
         }
         if answer {
-            sba::destroy(state, res.source);
-            if let Some(pending) = life::deal_to_players(state, res, &[(asked, 5)]) {
+            let next = res.pc + 1;
+            res.effects.splice(next..next, effects.iter().copied());
+            if let Some(pending) = life::deal_to_players(state, res, &[(asked, u32::from(damage))])
+            {
                 return Flow::Wait(pending);
             }
             res.pc += 1;
             return run(state, res);
         }
-        if let Some(pending) = super::immediate::worms_advance(state, res, remaining) {
+        if let Some(pending) = super::immediate::any_player_sac_or_damage_advance(
+            state, res, remaining, filter, count, damage, effects,
+        ) {
             return Flow::Wait(pending);
         }
         res.pc += 1;

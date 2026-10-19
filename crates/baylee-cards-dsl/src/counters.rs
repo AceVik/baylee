@@ -141,6 +141,24 @@ pub const ICE: CounterKind = CounterKind::Custom(31);
 /// Hunger counters (Fasting).
 pub const HUNGER: CounterKind = CounterKind::Custom(32);
 
+/// Spore counters (Thallid, Elvish Farmer, Spore Flower, Fungal Bloom, …).
+pub const SPORE: CounterKind = CounterKind::Custom(33);
+
+/// Javelin counters (Icatian Javelineers).
+pub const JAVELIN: CounterKind = CounterKind::Custom(34);
+
+/// Credit counters (Icatian Moneychanger).
+pub const CREDIT: CounterKind = CounterKind::Custom(35);
+
+/// Tide counters (Homarid, Tidal Influence).
+pub const TIDE: CounterKind = CounterKind::Custom(36);
+
+/// Cube counters (Delif's Cube).
+pub const CUBE: CounterKind = CounterKind::Custom(37);
+
+/// Net counters (Merseine).
+pub const NET: CounterKind = CounterKind::Custom(38);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -179,6 +197,12 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("luck", LUCK),
     ("ice", ICE),
     ("hunger", HUNGER),
+    ("spore", SPORE),
+    ("javelin", JAVELIN),
+    ("credit", CREDIT),
+    ("tide", TIDE),
+    ("cube", CUBE),
+    ("net", NET),
 ];
 
 #[cfg(test)]

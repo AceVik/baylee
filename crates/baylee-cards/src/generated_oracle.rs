@@ -2660,7 +2660,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Armor Thrull
     &["{T}, Sacrifice this creature: Put a +1/+2 counter on target creature."],
-    &[],
+    // Balm of Restoration
+    &[
+        "{1}, {T}, Sacrifice this artifact: Choose one —\n• You gain 2 life.\n• Prevent the next 2 damage that would be dealt to any target this turn.",
+    ],
     // Basal Thrull
     &["{T}, Sacrifice this creature: Add {B}{B}."],
     // Bottomless Vault
@@ -2675,15 +2678,32 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Combat Medic
     &["{1}{W}: Prevent the next 1 damage that would be dealt to any target this turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Conch Horn
+    &[
+        "{1}, {T}, Sacrifice this artifact: Draw two cards, then put a card from your hand on top of your library.",
+    ],
+    // Deep Spawn
+    &[
+        "Trample\nAt the beginning of your upkeep, sacrifice this creature unless you mill two cards.\n{U}: This creature gains shroud until end of turn and doesn't untap during your next untap step. Tap this creature. (A creature with shroud can't be the target of spells or abilities.)",
+    ],
+    // Delif's Cone
+    &[
+        "{T}, Sacrifice this artifact: This turn, when target creature you control attacks and isn't blocked, you may gain life equal to its power. If you do, it assigns no combat damage this turn.",
+    ],
+    // Delif's Cube
+    &[
+        "{2}, {T}: This turn, when target creature you control attacks and isn't blocked, it assigns no combat damage this turn and you put a cube counter on this artifact.\n{2}, Remove a cube counter from this artifact: Regenerate target creature.",
+    ],
+    // Derelor
+    &["Black spells you cast cost {B} more to cast."],
+    // Draconian Cylix
+    &["{2}, {T}, Discard a card at random: Regenerate target creature."],
     // Dwarven Armorer
     &["{R}, {T}, Discard a card: Put a +0/+1 counter or a +1/+0 counter on target creature."],
-    &[],
+    // Dwarven Catapult
+    &[
+        "Dwarven Catapult deals X damage divided evenly, rounded down, among all creatures target opponent controls.",
+    ],
     // Dwarven Hold
     &[
         "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {R} for each storage counter removed this way.",
@@ -2692,56 +2712,114 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}{R}: Target Dwarf creature gets +1/+0 until end of turn."],
     // Dwarven Ruins
     &["This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add {R}{R}."],
-    &[],
-    &[],
+    // Dwarven Soldier
+    &[
+        "Whenever this creature blocks or becomes blocked by one or more Orcs, this creature gets +0/+2 until end of turn.",
+    ],
+    // Ebon Praetor
+    &[
+        "First strike, trample\nAt the beginning of your upkeep, put a -2/-2 counter on this creature.\nSacrifice a creature: Remove a -2/-2 counter from this creature. If the sacrificed creature was a Thrull, put a +1/+0 counter on this creature. Activate only during your upkeep and only once each turn.",
+    ],
     // Ebon Stronghold
     &["This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add {B}{B}."],
     // Elven Fortress
     &["{1}{G}: Target blocking creature gets +0/+1 until end of turn."],
     // Elven Lyre
     &["{1}, {T}, Sacrifice this artifact: Target creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Elvish Farmer
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: You gain 2 life.",
+    ],
+    // Elvish Hunter
+    &["{1}{G}, {T}: Target creature doesn't untap during its controller's next untap step."],
+    // Elvish Scout
+    &[
+        "{G}, {T}: Untap target attacking creature you control. Prevent all combat damage that would be dealt to and dealt by it this turn.",
+    ],
+    // Farrel's Mantle
+    &[
+        "Enchant creature\nWhenever enchanted creature attacks and isn't blocked, its controller may have it deal damage equal to its power plus 2 to another target creature. If that player does, the attacking creature assigns no combat damage this turn.",
+    ],
+    // Farrel's Zealot
+    &[
+        "Whenever this creature attacks and isn't blocked, you may have it deal 3 damage to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Farrelite Priest
+    &[
+        "{1}: Add {W}. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    ],
+    // Feral Thallid
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Regenerate this creature.",
+    ],
+    // Fungal Bloom
+    &["{G}{G}: Put a spore counter on target Fungus."],
     // Goblin Chirurgeon
     &["Sacrifice a Goblin: Regenerate target creature."],
-    &[],
-    &[],
-    &[],
+    // Goblin Flotilla
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nAt the beginning of each combat, unless you pay {R}, whenever this creature blocks or becomes blocked by a creature this combat, that creature gains first strike until end of turn.",
+    ],
+    // Goblin Grenade
+    &[
+        "As an additional cost to cast this spell, sacrifice a Goblin.\nGoblin Grenade deals 5 damage to any target.",
+    ],
+    // Goblin Kites
+    &[
+        "{R}: Target creature you control with toughness 2 or less gains flying until end of turn. Flip a coin at the beginning of the next end step. If you lose the flip, sacrifice that creature.",
+    ],
     // Goblin War Drums
     &[
         "Creatures you control have menace. (They can't be blocked except by two or more creatures.)",
     ],
-    &[],
-    &[],
+    // Goblin Warrens
+    &["{2}{R}, Sacrifice two Goblins: Create three 1/1 red Goblin creature tokens."],
+    // Hand of Justice
+    &["{T}, Tap three untapped white creatures you control: Destroy target creature."],
     // Havenwood Battleground
     &["This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add {G}{G}."],
-    &[],
-    &[],
+    // Heroism
+    &[
+        "Sacrifice a white creature: For each attacking red creature, prevent all combat damage that would be dealt by that creature this turn unless its controller pays {2}{R}.",
+    ],
+    // High Tide
+    &[
+        "Until end of turn, whenever a player taps an Island for mana, that player adds an additional {U}.",
+    ],
     // Hollow Trees
     &[
         "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {G} for each storage counter removed this way.",
     ],
-    &[],
+    // Homarid
+    &[
+        "This creature enters with a tide counter on it.\nAt the beginning of your upkeep, put a tide counter on this creature.\nAs long as there is exactly one tide counter on this creature, it gets -1/-1.\nAs long as there are exactly three tide counters on this creature, it gets +1/+1.\nWhenever there are four or more tide counters on this creature, remove all tide counters from it.",
+    ],
     // Homarid Shaman
     &["{U}: Tap target green creature."],
-    &[],
-    &[],
+    // Homarid Spawning Bed
+    &[
+        "{1}{U}{U}, Sacrifice a blue creature: Create X 1/1 blue Camarid creature tokens, where X is the sacrificed creature's mana value.",
+    ],
+    // Homarid Warrior
+    &[
+        "{U}: This creature gains shroud until end of turn and doesn't untap during your next untap step. Tap it. (A creature with shroud can't be the target of spells or abilities.)",
+    ],
     // Hymn to Tourach
     &["Target player discards two cards at random."],
     // Icatian Infantry
     &[
         "{1}: This creature gains first strike until end of turn.\n{1}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
+    // Icatian Javelineers
+    &[
+        "This creature enters with a javelin counter on it.\n{T}, Remove a javelin counter from this creature: It deals 1 damage to any target.",
+    ],
     // Icatian Lieutenant
     &["{1}{W}: Target Soldier creature gets +1/+0 until end of turn."],
-    &[],
+    // Icatian Moneychanger
+    &[
+        "This creature enters with three credit counters on it.\nWhen this creature enters, it deals 3 damage to you.\nAt the beginning of your upkeep, put a credit counter on this creature.\nSacrifice this creature: You gain 1 life for each credit counter on this creature. Activate only during your upkeep.",
+    ],
     // Icatian Phalanx
     &[
         "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
@@ -2750,7 +2828,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}{W}{W}: Target creature gets +1/+1 until end of turn."],
     // Icatian Scout
     &["{1}, {T}: Target creature gains first strike until end of turn."],
-    &[],
+    // Icatian Skirmishers
+    &[
+        "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nWhenever this creature attacks, all creatures banded with it gain first strike until end of turn.",
+    ],
     // Icatian Store
     &[
         "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {W} for each storage counter removed this way.",
@@ -2759,13 +2840,32 @@ pub static ORACLE: &[&[&str]] = &[
     &["Create four 1/1 white Citizen creature tokens."],
     // Implements of Sacrifice
     &["{1}, {T}, Sacrifice this artifact: Add two mana of any one color."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Initiates of the Ebon Hand
+    &[
+        "{1}: Add {B}. If this ability has been activated four or more times this turn, sacrifice this creature at the beginning of the next end step.",
+    ],
+    // Merseine
+    &[
+        "Enchant creature\nThis Aura enters with three net counters on it.\nEnchanted creature doesn't untap during its controller's untap step if this Aura has a net counter on it.\nPay enchanted creature's mana cost: Remove a net counter from this Aura. Only the controller of the enchanted creature may activate this ability.",
+    ],
+    // Mindstab Thrull
+    &[
+        "Whenever this creature attacks and isn't blocked, you may sacrifice it. If you do, defending player discards three cards.",
+    ],
+    // Necrite
+    &[
+        "Whenever this creature attacks and isn't blocked, you may sacrifice it. If you do, destroy target creature defending player controls. It can't be regenerated.",
+    ],
+    // Night Soil
+    &[
+        "{1}, Exile two creature cards from a single graveyard: Create a 1/1 green Saproling creature token.",
+    ],
+    // Orcish Captain
+    &[
+        "{1}: Flip a coin. If you win the flip, target Orc creature gets +2/+0 until end of turn. If you lose the flip, it gets -0/-2 until end of turn.",
+    ],
+    // Orcish Spy
+    &["{T}: Look at the top three cards of target player's library."],
     // Orcish Veteran
     &[
         "This creature can't block white creatures with power 2 or greater.\n{R}: This creature gains first strike until end of turn.",
@@ -2778,8 +2878,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Protection from white\n{B}: This creature gains first strike until end of turn.\n{B}{B}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
-    &[],
+    // Orgg
+    &[
+        "Trample\nThis creature can't attack if defending player controls an untapped creature with power 3 or greater.\nThis creature can't block creatures with power 3 or greater.",
+    ],
+    // Raiding Party
+    &[
+        "This enchantment can't be the target of white spells or abilities from white sources.\nSacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. Then destroy all Plains that weren't chosen this way by any player.",
+    ],
     // Rainbow Vale
     &[
         "{T}: Add one mana of any color. An opponent gains control of this land at the beginning of the next end step.",
@@ -2796,38 +2902,90 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {U} for each storage counter removed this way.",
     ],
-    &[],
+    // Seasinger
+    &[
+        "When you control no Islands, sacrifice this creature.\nYou may choose not to untap this creature during your untap step.\n{T}: Gain control of target creature whose controller controls an Island for as long as you control this creature and this creature remains tapped.",
+    ],
     // Sewers of Estark
     &[
         "Choose target creature. If it's attacking, it can't be blocked this turn. If it's blocking, prevent all combat damage that would be dealt this combat by it and each creature it's blocking.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Soul Exchange
+    &[
+        "As an additional cost to cast this spell, exile a creature you control.\nReturn target creature card from your graveyard to the battlefield. Put a +2/+2 counter on that creature if the exiled creature was a Thrull.",
+    ],
+    // Spirit Shield
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{2}, {T}: Target creature gets +0/+2 for as long as this artifact remains tapped.",
+    ],
+    // Spore Cloud
+    &[
+        "Tap all blocking creatures. Prevent all combat damage that would be dealt this turn. Each attacking creature and each blocking creature doesn't untap during its controller's next untap step.",
+    ],
+    // Spore Flower
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Prevent all combat damage that would be dealt this turn.",
+    ],
+    // Svyelunite Priest
+    &[
+        "{U}{U}, {T}: Target creature gains shroud until end of turn. Activate only during your upkeep. (It can't be the target of spells or abilities.)",
+    ],
     // Svyelunite Temple
     &["This land enters tapped.\n{T}: Add {U}.\n{T}, Sacrifice this land: Add {U}{U}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thallid
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.",
+    ],
+    // Thallid Devourer
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: This creature gets +1/+2 until end of turn.",
+    ],
+    // Thelon's Chant
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {G}.\nWhenever a player puts a Swamp onto the battlefield, this enchantment deals 3 damage to that player unless the player puts a -1/-1 counter on a creature they control.",
+    ],
+    // Thelon's Curse
+    &[
+        "Blue creatures don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player may choose any number of tapped blue creatures they control and pay {U} for each creature chosen this way. If the player does, untap those creatures.",
+    ],
+    // Thelonite Druid
+    &[
+        "{1}{G}, {T}, Sacrifice a creature: Forests you control become 2/3 creatures until end of turn. They're still lands.",
+    ],
     // Thelonite Monk
     &[
         "{T}, Sacrifice a green creature: Target land becomes a Forest. (This effect lasts indefinitely.)",
     ],
-    &[],
-    &[],
+    // Thorn Thallid
+    &[
+        "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: It deals 1 damage to any target.",
+    ],
+    // Thrull Champion
+    &[
+        "Thrull creatures get +1/+1.\n{T}: Gain control of target Thrull for as long as you control this creature.",
+    ],
     // Thrull Retainer
     &[
         "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice this Aura: Regenerate enchanted creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thrull Wizard
+    &["{1}{B}: Counter target black spell unless that spell's controller pays {B} or {3}."],
+    // Tidal Flats
+    &[
+        "{U}{U}: For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature gain first strike until end of turn.",
+    ],
+    // Tidal Influence
+    &[
+        "Cast this spell only if no permanents named Tidal Influence are on the battlefield.\nThis enchantment enters with a tide counter on it.\nAt the beginning of your upkeep, put a tide counter on this enchantment.\nAs long as there is exactly one tide counter on this enchantment, all blue creatures get -2/-0.\nAs long as there are exactly three tide counters on this enchantment, all blue creatures get +2/+0.\nWhenever there are four or more tide counters on this enchantment, remove all tide counters from it.",
+    ],
+    // Tourach's Chant
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {B}.\nWhenever a player puts a Forest onto the battlefield, this enchantment deals 3 damage to that player unless they put a -1/-1 counter on a creature they control.",
+    ],
+    // Tourach's Gate
+    &[
+        "Enchant land you control\nSacrifice a Thrull: Put three time counters on this Aura.\nAt the beginning of your upkeep, remove a time counter from this Aura. If there are no time counters on this Aura, sacrifice it.\nTap enchanted land: Attacking creatures you control get +2/-1 until end of turn. Activate only if enchanted land is untapped.",
+    ],
     // Vodalian Knights
     &[
         "First strike\nThis creature can't attack unless defending player controls an Island.\nWhen you control no Islands, sacrifice this creature.\n{U}: This creature gains flying until end of turn.",
@@ -2836,8 +2994,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["{U}, {T}: Counter target spell unless its controller pays {1}."],
     // Vodalian Soldiers
     &[""],
-    &[],
-    &[],
+    // Vodalian War Machine
+    &[
+        "Defender (This creature can't attack.)\nTap an untapped Merfolk you control: This creature can attack this turn as though it didn't have defender.\nTap an untapped Merfolk you control: This creature gets +2/+1 until end of turn.\nWhen this creature dies, destroy all Merfolk tapped this turn to pay for its abilities.",
+    ],
+    // Zelyon Sword
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Target creature gets +2/+0 for as long as this artifact remains tapped.",
+    ],
     // Windseeker Centaur
     &["Vigilance"],
     // Giant Badger

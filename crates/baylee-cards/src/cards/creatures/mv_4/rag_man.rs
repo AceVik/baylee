@@ -21,9 +21,16 @@ card!(
     ),],
     abilities = &[AbilityDef::ActivatedConditional {
         cost: cost!("{B}{B}{B}", TapSelf),
-        effects: &[Effect::RevealHandDiscardRandom {
-            filter: &Filter::CREATURE,
-        }],
+        effects: &[
+            Effect::RevealHand {
+                who: PlayerRel::Chosen,
+            },
+            Effect::DiscardRandomMatching {
+                who: PlayerRel::Chosen,
+                filter: &Filter::CREATURE,
+                count: Amount::Fixed(1),
+            },
+        ],
         targets: Some(TargetReq::one(TargetSpec::AnyOpponent)),
         second_targets: None,
         timing: ActivationTiming::InstantSpeed,

@@ -58,7 +58,11 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         | Effect::WhenSourceDiesThisTurn { .. }
         | Effect::WhenTargetLeavesBattlefieldThisTurn { .. }
         | Effect::WhenSourceLeavesBattlefieldThisTurn { .. }
+        | Effect::WhenSourceLeavesBattlefieldForCreatedTokens { .. }
+        | Effect::WhenCreatedTokenLeavesBattlefield { .. }
         | Effect::WheneverTargetDealtDamageThisTurn { .. }
+        | Effect::WheneverTappedForManaThisTurn { .. }
+        | Effect::WhenTargetAttacksAndIsntBlockedThisTurn { .. }
         | Effect::AtEndOfCombat { .. }
         | Effect::AtEndOfCombatThisTurn { .. }
         | Effect::WheneverYouAttackThisTurn { .. } => (&[], &[]),
@@ -92,6 +96,9 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::DiscardSelf
         | CostPart::ExileSelf
         | CostPart::ExilePermanent(_)
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::PayAttachedManaCost
         | CostPart::ReturnSelfToHand
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
@@ -113,7 +120,6 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::DrawCardsFor { .. }
         | Effect::DrawRevealDiscardUnless { .. }
         | Effect::DiscardUpToThenDraw { .. }
-        | Effect::ExileAllControllerDrawsEach { .. }
         | Effect::Connive { .. }
         | Effect::Recruit { .. }
         | Effect::LookAtTopPick { .. }
@@ -140,6 +146,7 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::Surveil { .. }
         | Effect::ExileLibraryAndShuffleHand { .. }
         | Effect::Mill { .. }
+        | Effect::PlayerMayMillOr { .. }
         | Effect::GraveyardToTop { .. }
         | Effect::PutSourceOnTopOfLibrary
         | Effect::BottomCardFromHand { .. }

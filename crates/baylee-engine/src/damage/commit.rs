@@ -135,19 +135,24 @@ impl Part {
                 obj.deathtouched |= self.keywords.contains(KeywordSet::DEATHTOUCH);
             }
             if let Some(src_ver) = self.source_version
-                && state
-                    .per_turn
-                    .runesword_attackers
-                    .contains(&(self.view.source, src_ver))
                 && let Some(target_ver) = state.object(target).map(|o| o.version)
             {
-                if !state.per_turn.exile_if_dies.contains(&(target, target_ver)) {
+                if state
+                    .per_turn
+                    .damage_exile_if_dies_sources
+                    .contains(&(self.view.source, src_ver))
+                    && !state.per_turn.exile_if_dies.contains(&(target, target_ver))
+                {
                     state.per_turn.exile_if_dies.push((target, target_ver));
                 }
-                if !state
+                if state
                     .per_turn
-                    .cant_regenerate
-                    .contains(&(target, target_ver))
+                    .damage_cant_regenerate_sources
+                    .contains(&(self.view.source, src_ver))
+                    && !state
+                        .per_turn
+                        .cant_regenerate
+                        .contains(&(target, target_ver))
                 {
                     state.per_turn.cant_regenerate.push((target, target_ver));
                 }

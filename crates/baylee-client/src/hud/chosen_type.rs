@@ -47,6 +47,23 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
         parts.push(Phrase::NoAbilities.text(lang).to_string());
     }
     parts.extend(choice_words(object, lang));
+    if object.types.contains(baylee_core::types::TypeSet::DUNGEON)
+        && let Some((dungeon, room_idx)) =
+            baylee_core::dungeon::Dungeon::from_public_name(&object.name)
+    {
+        let total = dungeon.rooms().len();
+        let room_name = dungeon.rooms()[room_idx];
+        parts.push(if detail {
+            format!(
+                "{}/{} {room_name} — {}",
+                room_idx + 1,
+                total,
+                dungeon.room_effects()[room_idx]
+            )
+        } else {
+            format!("{}/{} {room_name}", room_idx + 1, total)
+        });
+    }
     if object.types.contains(baylee_core::types::TypeSet::BATTLE) {
         parts.push(
             Phrase::BattleDefense.fill(
@@ -286,6 +303,12 @@ fn wanted_labels(duel: &Duel, lang: Lang, detail: bool) -> Vec<(ObjectId, String
     };
     view.battlefield
         .iter()
+        .chain(
+            view.command
+                .iter()
+                .flatten()
+                .filter(|o| o.types.contains(baylee_core::types::TypeSet::DUNGEON)),
+        )
         .filter_map(|object| {
             let icon = (!detail).then(|| counter_icon(object)).flatten();
             let mut parts: Vec<_> = words(object, lang, detail).into_iter().collect();
@@ -655,5 +678,24 @@ mod tests {
             .clear();
         app.update();
         assert!(app.world().get_entity(entity).is_err());
+    }
+
+    #[test]
+    fn a_dungeon_in_the_command_zone_carries_its_active_room_badge() {
+        use baylee_client_core::test_support::{ViewBuilder, token};
+        let mut dungeon = token(7, 0, "Tomb of Annihilation — Oubliette", 0, 0);
+        dungeon.types = baylee_core::types::TypeSet::DUNGEON;
+        dungeon.power = None;
+        dungeon.toughness = None;
+        let mut duel = Duel::default();
+        duel.receive_view(ViewBuilder::new(2).with_command(0, vec![dungeon]).build());
+        let short = wanted_labels(&duel, Lang::En, false);
+        assert_eq!(short.len(), 1);
+        assert_eq!(short[0].1, "4/5 Oubliette");
+        let detailed = wanted_labels(&duel, Lang::En, true);
+        assert_eq!(
+            detailed[0].1,
+            "4/5 Oubliette — Discard a card and sacrifice a creature, an artifact, and a land."
+        );
     }
 }

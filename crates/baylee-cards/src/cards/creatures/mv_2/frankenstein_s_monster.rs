@@ -18,6 +18,19 @@ card!(
         subtypes = &[subtypes::creature::ZOMBIE],
         power = Some(0),
         toughness = Some(1),
-        enter_modifiers = &[EnterModifier::FrankensteinsMonster],
+        enter_modifiers = &[
+            EnterModifier::ExileFromGraveyardXOrGraveyard(&Filter::CREATURE),
+            EnterModifier::ChooseCounterPerEntryCount(&[
+                CounterKind::Plus {
+                    power: 2,
+                    toughness: 0,
+                },
+                CounterKind::P1P1,
+                CounterKind::Plus {
+                    power: 0,
+                    toughness: 2,
+                },
+            ]),
+        ],
     ),],
 );

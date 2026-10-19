@@ -4,6 +4,8 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static DISCARD_REVEALED: Effect = Effect::DiscardRevealedThisWay;
+
 card!(
     index = index::WAND_OF_ITH,
     oracle_id = "3ec1ccd7-4970-4032-be7a-9e76ca6a139e",
@@ -16,7 +18,35 @@ card!(
     ),],
     abilities = &[AbilityDef::ActivatedConditional {
         cost: cost!("{3}", TapSelf),
-        effects: &[Effect::WandOfIth],
+        effects: &[
+            Effect::RevealRandomFromHand {
+                who: PlayerRel::Chosen,
+                count: Amount::Fixed(1),
+            },
+            Effect::IfCondition {
+                condition: Condition::AmountAtLeast(
+                    Amount::ThisWay(ThisWay::Revealed(&Filter::LAND)),
+                    1,
+                ),
+                then: &[Effect::PlayerMayPayLifeOr {
+                    player: PlayerRel::Chosen,
+                    life: Amount::Fixed(1),
+                    effect: &DISCARD_REVEALED,
+                }],
+                otherwise: &[Effect::IfCondition {
+                    condition: Condition::AmountAtLeast(
+                        Amount::ThisWay(ThisWay::Revealed(&Filter::Any)),
+                        1,
+                    ),
+                    then: &[Effect::PlayerMayPayLifeOr {
+                        player: PlayerRel::Chosen,
+                        life: Amount::ThisWay(ThisWay::RevealedManaValue),
+                        effect: &DISCARD_REVEALED,
+                    }],
+                    otherwise: &[],
+                }],
+            },
+        ],
         targets: Some(TargetReq::one(TargetSpec::AnyPlayer)),
         second_targets: None,
         timing: ActivationTiming::InstantSpeed,

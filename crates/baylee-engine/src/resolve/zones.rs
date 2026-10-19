@@ -957,19 +957,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::EachPlayerGraveyardCreaturesToBattlefield => {
+        Effect::EachPlayerGraveyardToBattlefield { filter } => {
             for seat in 0..state.players.len() {
                 let p = PlayerId::new(seat as u8);
                 if state.has_left(p) {
                     continue;
                 }
                 for &card in &state.zones.list(ZoneLocation::Graveyard(p)).clone() {
-                    let is_creature = state.object(card).is_some_and(|o| {
-                        o.characteristics()
-                            .types
-                            .contains(baylee_core::types::TypeSet::CREATURE)
+                    let matches = state.object(card).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, you, res.rule_context())
                     });
-                    if is_creature {
+                    if matches {
                         if let Some(obj) = state.object_mut(card) {
                             obj.kind = ObjectKind::Permanent;
                             obj.set_controller(p);
@@ -1432,16 +1430,11 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::RevealHandDiscardAll { filter } => {
+        Effect::DiscardMatching { who, filter } => {
             let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
             let context = res.rule_context();
-            for player in players_of(PlayerRel::Chosen, state, you, res) {
-                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
-                state.journal.record(GameEvent::Revealed {
-                    player,
-                    cards: hand.clone(),
-                });
-                for card in hand {
+            for player in players_of(who, state, you, res) {
+                for &card in state.zones.list(ZoneLocation::Hand(player)) {
                     if state.object(card).is_some_and(|obj| {
                         eval::matches_with_context(filter, state, obj, you, context)
                     }) {
@@ -1451,69 +1444,29 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             super::discard_or_ask(state, res, &discards)
         }
-        Effect::RevealHandDiscardRandom { filter } => {
+        Effect::DiscardRandomMatching { who, filter, count } => {
+            let count = amount2(&count, state, you, res) as usize;
+            if count == 0 {
+                return None;
+            }
             let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();
             let context = res.rule_context();
-            for player in players_of(PlayerRel::Chosen, state, you, res) {
-                let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
-                state.journal.record(GameEvent::Revealed {
-                    player,
-                    cards: hand.clone(),
-                });
-                let matching: Vec<ObjectId> = hand
-                    .into_iter()
+            for player in players_of(who, state, you, res) {
+                let mut matching: Vec<ObjectId> = state
+                    .zones
+                    .list(ZoneLocation::Hand(player))
+                    .iter()
+                    .copied()
                     .filter(|&card| {
                         state.object(card).is_some_and(|obj| {
                             eval::matches_with_context(filter, state, obj, you, context)
                         })
                     })
                     .collect();
-                if !matching.is_empty() {
-                    let chosen = matching[state.rng.below(matching.len() as u64) as usize];
-                    discards.push((chosen, player));
-                }
+                state.rng.shuffle(&mut matching);
+                discards.extend(matching.into_iter().take(count).map(|card| (card, player)));
             }
             super::discard_or_ask(state, res, &discards)
-        }
-        Effect::ExileAllControllerDrawsEach { filter } => {
-            let context = res.rule_context();
-            let victims: Vec<(ObjectId, PlayerId, PlayerId)> = state
-                .battlefield_seen()
-                .filter_map(|id| {
-                    let obj = state.object(id)?;
-                    eval::matches_with_context(filter, state, obj, you, context).then_some((
-                        id,
-                        obj.owner,
-                        obj.controller,
-                    ))
-                })
-                .collect();
-            let mut counts = [0usize; 8];
-            for (id, owner, controller) in victims {
-                if let Some(obj) = state.object_mut(id) {
-                    obj.kind = ObjectKind::Card;
-                }
-                let moved = state.move_object(
-                    id,
-                    ZoneLocation::Exile(owner),
-                    ZonePosition::Top,
-                    Cause::Effect,
-                );
-                if moved.is_ok()
-                    && let Some(slot) = counts.get_mut(usize::from(controller.get()))
-                {
-                    *slot += 1;
-                }
-            }
-            for player in
-                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default()
-            {
-                let n = counts.get(usize::from(player.get())).copied().unwrap_or(0);
-                if n > 0 {
-                    state.draw_cards(player, n);
-                }
-            }
-            None
         }
         Effect::DiscardHand { who } => {
             let mut discards: Vec<(ObjectId, PlayerId)> = Vec::new();

@@ -20,7 +20,7 @@ card!(
     abilities = &[
         activated!(
             Cost::TAP,
-            &[Effect::SorrowsPathSwapBlockers],
+            &[Effect::SwapBlockers],
             targets = Some(TargetReq::exactly(
                 TargetSpec::Object(&OPPONENT_BLOCKING_CREATURE),
                 2

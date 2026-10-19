@@ -6,6 +6,14 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static OPPONENT_WHITE_NONTOKEN_PERMANENT: Filter = Filter::And(&[
+    Filter::ControlledByOpponent,
+    Filter::HasColor(ColorSet::from_slice(&[Color::White])),
+    Filter::Not(&Filter::IsToken),
+]);
+
+static WHITE_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::White]));
+
 card!(
     index = index::NAMELESS_RACE,
     oracle_id = "35a717ea-bd32-4714-b402-de7f15398e52",
@@ -19,7 +27,16 @@ card!(
         types = TypeSet::CREATURE,
         power = Some(0),
         toughness = Some(0),
-        enter_modifiers = &[EnterModifier::PayLifeForPtCapWhiteOpponents],
+        enter_modifiers = &[EnterModifier::PayLifeUpTo(Amount::Sum {
+            left: &Amount::CountOf {
+                zone: ZoneSel::Battlefield,
+                filter: &OPPONENT_WHITE_NONTOKEN_PERMANENT,
+            },
+            right: &Amount::CountOf {
+                zone: ZoneSel::GraveyardOpponents,
+                filter: &WHITE_CARD,
+            },
+        })],
     ),],
     abilities = &[static_ability!(
         Filter::This,

@@ -12,9 +12,29 @@ pub(super) fn apply(state: &mut GameState, res: &Resolution, target: TargetSpec,
     if steps == 0 {
         return;
     }
-    for id in zones::spec_objects(state, res, target) {
+    let objects: smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]> = if !res.targeted
+        && res.targets.is_empty()
+        && let TargetSpec::Object(filter) = target
+    {
+        let context = res.rule_context();
+        state
+            .battlefield_seen()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    crate::eval::matches_with_context(filter, state, o, res.controller, context)
+                })
+            })
+            .collect()
+    } else {
+        zones::spec_objects(state, res, target)
+            .into_iter()
+            .collect()
+    };
+    for id in objects {
         let reference = if target == TargetSpec::EventObject {
             subjects::event(state, res)
+        } else if target == TargetSpec::ThisObject {
+            subjects::source(state, res)
         } else {
             subjects::target(state, res, id)
         };

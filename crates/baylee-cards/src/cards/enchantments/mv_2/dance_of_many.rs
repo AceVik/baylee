@@ -23,7 +23,20 @@ card!(
     abilities = &[
         triggered!(
             Trigger::ETB,
-            &[Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb],
+            &[
+                Effect::CreateTokenCopyOfTarget {
+                    mods: &[],
+                    sacrifice_at_next_end_step: false,
+                },
+                Effect::WhenSourceLeavesBattlefieldForCreatedTokens {
+                    effects: &[Effect::Exile {
+                        target: TargetSpec::EventObject,
+                    }],
+                },
+                Effect::WhenCreatedTokenLeavesBattlefield {
+                    effects: &[Effect::SacrificeSelf],
+                },
+            ],
             targets = Some(TargetReq::one(TargetSpec::Object(&NONTOKEN_CREATURE)))
         ),
         triggered!(

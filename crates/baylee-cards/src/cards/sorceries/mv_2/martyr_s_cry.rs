@@ -20,7 +20,16 @@ card!(
         mana_cost = mana!("{W}{W}"),
         types = TypeSet::SORCERY,
     ),],
-    abilities = &[spell!(&[Effect::ExileAllControllerDrawsEach {
-        filter: &WHITE_CREATURE,
-    }])],
+    abilities = &[spell!(&[
+        Effect::ExileAll {
+            filter: &WHITE_CREATURE,
+        },
+        Effect::DrawCardsFor {
+            who: PlayerRel::EachPlayer,
+            amount: Amount::ThisWayBy {
+                what: ThisWay::ExiledFromBattlefield(&WHITE_CREATURE),
+                who: PlayerRel::Recipient,
+            },
+        },
+    ])],
 );

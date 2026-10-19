@@ -24,6 +24,10 @@ card!(
             step: StepKind::Upkeep,
             whose: PlayerRel::You,
         },
-        &[Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount: 1 }]
+        &[
+            Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame {
+                amount: Amount::Fixed(1),
+            }
+        ]
     )],
 );

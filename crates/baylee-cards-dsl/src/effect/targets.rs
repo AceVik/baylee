@@ -23,6 +23,8 @@ pub enum ZoneSel {
     LibraryYou,
     /// Your graveyard.
     GraveyardYou,
+    /// All opponents' graveyards.
+    GraveyardOpponents,
     /// All graveyards.
     GraveyardAll,
     /// Your hand.

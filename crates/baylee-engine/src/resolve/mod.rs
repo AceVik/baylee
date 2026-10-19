@@ -578,6 +578,29 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
                 || eval::amount_with_context(amount, state, you, res.rule_context(), res.x),
                 |p| p.max(0) as u32,
             ),
+        Amount::EventPower => {
+            let Some(source) = res.event_object else {
+                return 0;
+            };
+            let identity = event_object_identity(state, res);
+            let power = state
+                .object(source)
+                .filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield
+                        && identity.is_none_or(|(v, _)| o.version == v)
+                })
+                .map(|o| o.characteristics().power.unwrap_or(0))
+                .or_else(|| identity.map(|(_, p)| p))
+                .or_else(|| {
+                    state
+                        .ltb_powers
+                        .iter()
+                        .find(|(id, _)| *id == source)
+                        .map(|(_, p)| *p)
+                })
+                .unwrap_or(0);
+            u32::try_from(power).unwrap_or(0)
+        }
         Amount::EventLastToughness => state
             .object(res.on_stack)
             .and_then(|o| {
@@ -972,12 +995,15 @@ pub(super) fn players_of(
         // event was about — who drew, who cast, the one it dealt damage to
         // — as `Amount::EventAmount` reads the amount. One seat, never each
         // opponent: an ability with no such event names nobody.
-        PlayerRel::EventPlayer | PlayerRel::DamagedPlayer => state
-            .object(res.on_stack)
-            .and_then(|o| {
-                o.riders.iter().find_map(|r| match r {
-                    crate::object::Rider::EventPlayer(seat) => Some(*seat),
-                    _ => None,
+        PlayerRel::EventPlayer | PlayerRel::DamagedPlayer => res
+            .subject
+            .event_player()
+            .or_else(|| {
+                state.object(res.on_stack).and_then(|o| {
+                    o.riders.iter().find_map(|r| match r {
+                        crate::object::Rider::EventPlayer(seat) => Some(*seat),
+                        _ => None,
+                    })
                 })
             })
             .filter(|seat| !state.has_left(*seat))
@@ -1320,7 +1346,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ReturnChosenLinkedToBattlefield { .. }
         | Effect::MayRemoveCountersSelfCreateTokens { .. }
         | Effect::MayExileTokensCreatedWithThisForCounters { .. }
-        | Effect::Eureka
+        | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
+        | Effect::PlayerMayMillOr { .. }
+        | Effect::RaidingParty
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }

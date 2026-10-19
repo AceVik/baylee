@@ -1048,6 +1048,7 @@ pub(super) fn resume_inner(
             player,
             remaining_in_round,
             mut any_put_this_round,
+            filter,
         } => {
             if let Some(&card) = chosen.first()
                 && state.object(card).is_some_and(|o| {
@@ -1055,6 +1056,7 @@ pub(super) fn resume_inner(
                         && o.zone_owner == Some(player)
                         && o.is_card()
                         && o.characteristics().types.is_permanent()
+                        && eval::matches_with_context(filter, state, o, player, res.rule_context())
                 })
                 && !state.has_left(player)
             {
@@ -1074,7 +1076,7 @@ pub(super) fn resume_inner(
                 any_put_this_round = true;
             }
             if let Some(pending) =
-                choices::advance_eureka(state, res, remaining_in_round, any_put_this_round)
+                choices::advance_eureka(state, res, remaining_in_round, any_put_this_round, filter)
             {
                 return next_choice(state, res, since, pending);
             }
@@ -1285,38 +1287,134 @@ pub(super) fn resume_inner(
                 tokens::populate(state, res.controller, id);
             }
         }
-        AwaitingOp::MindBomb {
+        AwaitingOp::DiscardUpToForPlayers {
             asked,
             remaining,
             mut discards,
-            mut damage,
+            max,
         } => {
-            let count = u32::try_from(chosen.len()).unwrap_or(0).min(3);
-            discards.extend(chosen.iter().take(3).map(|&c| (c, asked)));
-            damage.push((asked, 3 - count));
+            discards.extend(chosen.iter().take(usize::from(max)).map(|&c| (c, asked)));
             if let Some(pending) =
-                super::immediate::mind_bomb_advance(state, res, remaining, discards, damage)
+                super::immediate::discard_up_to_advance(state, res, remaining, discards, max)
             {
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::WormsOfTheEarth {
+        AwaitingOp::AnyPlayerSacrificeOrDamage {
             asked,
             remaining,
             step,
+            filter,
+            count,
+            damage,
+            effects,
         } => {
             if step == 1
-                && chosen.len() == 2
-                && chosen[0] != chosen[1]
+                && chosen.len() == usize::from(count)
+                && chosen
+                    .iter()
+                    .enumerate()
+                    .all(|(i, id)| !chosen[..i].contains(id))
                 && chosen.iter().all(|&id| {
                     state.object(id).is_some_and(|o| {
-                        o.zone == crate::zone::Zone::Battlefield && o.controller == asked
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == asked
+                            && eval::matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                asked,
+                                res.rule_context(),
+                            )
                     })
                 })
             {
                 sacrifice_together(state, chosen);
-                sba::destroy(state, res.source);
-            } else if let Some(pending) = super::immediate::worms_advance(state, res, remaining) {
+                return super::answers::run_fallback(state, res, effects);
+            }
+            if let Some(pending) = super::immediate::any_player_sac_or_damage_advance(
+                state, res, remaining, filter, count, damage, effects,
+            ) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::RaidingParty {
+            asked,
+            remaining,
+            step,
+            tap_count,
+            mut protected,
+        } => {
+            if step == 0 {
+                let mut tapped_count = 0u8;
+                for &id in chosen {
+                    if state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.controller == asked
+                            && !o.status.contains(crate::object::Status::TAPPED)
+                            && o.characteristics()
+                                .types
+                                .contains(baylee_core::types::TypeSet::CREATURE)
+                            && o.characteristics()
+                                .colors
+                                .contains(baylee_core::color::Color::White)
+                    }) {
+                        tap(state, id);
+                        tapped_count = tapped_count.saturating_add(1);
+                    }
+                }
+                if tapped_count > 0 {
+                    let plains: Vec<ObjectId> = state
+                        .battlefield_seen()
+                        .filter(|&id| {
+                            state.object(id).is_some_and(|o| {
+                                o.characteristics()
+                                    .subtypes
+                                    .contains(baylee_core::generated::subtypes::land::PLAINS)
+                            })
+                        })
+                        .collect();
+                    if !plains.is_empty() {
+                        let max = (tapped_count.saturating_mul(2))
+                            .min(u8::try_from(plains.len()).unwrap_or(u8::MAX));
+                        res.awaiting = Some(AwaitingOp::RaidingParty {
+                            asked,
+                            remaining,
+                            step: 1,
+                            tap_count: tapped_count,
+                            protected,
+                        });
+                        return next_choice(
+                            state,
+                            res,
+                            since,
+                            Pending::ChooseCards {
+                                player: asked,
+                                options: plains,
+                                min: 0,
+                                max,
+                                prompt: ChoicePrompt::KeepLands,
+                                total: None,
+                            },
+                        );
+                    }
+                }
+            } else {
+                let max_keep = usize::from(tap_count).saturating_mul(2);
+                for &id in chosen.iter().take(max_keep) {
+                    if state.object(id).is_some_and(|o| {
+                        o.zone == crate::zone::Zone::Battlefield
+                            && o.characteristics()
+                                .subtypes
+                                .contains(baylee_core::generated::subtypes::land::PLAINS)
+                    }) && !protected.contains(&id)
+                    {
+                        protected.push(id);
+                    }
+                }
+            }
+            if let Some(pending) = choices::advance_raiding_party(state, res, remaining, protected)
+            {
                 return next_choice(state, res, since, pending);
             }
         }
@@ -1369,6 +1467,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::PayLifeOrTapSelf { .. }
         | AwaitingOp::PlayerMayPayLife { .. }
         | AwaitingOp::PlayerMayGetPoison { .. }
+        | AwaitingOp::PlayerMayMill { .. }
         | AwaitingOp::PayEnergy { .. }
         | AwaitingOp::MaySearchBasicLand { .. }
         | AwaitingOp::MayDo { .. }
@@ -1378,7 +1477,6 @@ pub(super) fn resume_inner(
         | AwaitingOp::SelectedCommander { .. }
         | AwaitingOp::GraveyardToTopOrder { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }
-        | AwaitingOp::WandOfIth { .. }
         | AwaitingOp::Cleansing { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")

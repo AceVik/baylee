@@ -7,7 +7,9 @@ pub(super) fn needs_entry(state: &GameState, id: ObjectId) -> bool {
     // External instructions attach counters after requesting the move. Keep that
     // move open whenever replacement ordering could need a decision. Intrinsic
     // counters alone keep their synchronous path when arithmetic is unambiguous.
-    super::modifiers(state, id).contains(&EnterModifier::FrankensteinsMonster)
+    super::modifiers(state, id)
+        .iter()
+        .any(|m| matches!(m, EnterModifier::ChooseCounterPerEntryCount(_)))
         || state.effects.iter().any(|effect| {
             matches!(
                 effect.modifier,

@@ -24,7 +24,8 @@ card!(
             Effect::WhenTargetLeavesBattlefieldThisTurn {
                 effects: &[Effect::SacrificeSelf],
             },
-            Effect::RuneswordTargetRider,
+            Effect::TargetDamagedCreaturesCantRegenerateThisTurn,
+            Effect::ExileCreaturesDamagedByTargetIfTheyDieThisTurn,
         ],
         target = Some(TargetSpec::Object(&Filter::ATTACKING_CREATURE))
     )],

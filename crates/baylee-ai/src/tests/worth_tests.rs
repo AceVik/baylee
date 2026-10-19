@@ -908,7 +908,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Northampton Farm, Hostile Hostel, Tetravus, Shelkin Brownie, Tolaria,
     // Master of the Hunt, Underdark Rift, Golgothian Sylex, Tawnos's Coffin,
     // Hanweir Battlements, Dungeon Descent).
-    assert_eq!((read, of), (2550, 3087), "activated/loyalty reader census");
+    // The 67-card Fallen Empires (`fem`) completion batch adds 44 non-mana
+    // activated abilities across spore/thallid saproling generators, storage
+    // lands, pump/prevention/counter-manipulation artifacts and creatures, of
+    // which 20 are read by the evaluator.
+    assert_eq!((read, of), (2570, 3131), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

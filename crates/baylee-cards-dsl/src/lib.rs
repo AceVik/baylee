@@ -704,17 +704,22 @@ pub enum EnterModifier {
         /// How many, before any replacement multiplies them.
         amount: Amount,
     },
-    /// "As Frankenstein's Monster enters, exile X creature cards from your
-    /// graveyard. If you can't, put Frankenstein's Monster into its owner's
-    /// graveyard instead of onto the battlefield. For each creature card
-    /// exiled this way, Frankenstein's Monster enters with a +2/+0, +1/+1,
-    /// or +0/+2 counter on it."
-    FrankensteinsMonster,
-    /// "As Nameless Race enters, pay any amount of life. The amount you pay
-    /// can't be more than the total number of white nontoken permanents your
-    /// opponents control plus the total number of white cards in their
-    /// graveyards" (sets the permanent's chosen number for `PtCount::ChosenNumber`).
-    PayLifeForPtCapWhiteOpponents,
+    /// "As [this] enters, exile X [filter] cards from your graveyard. If you
+    /// can't, put [this] into its owner's graveyard instead of onto the
+    /// battlefield" (Frankenstein's Monster): exiles `X` matching cards from
+    /// your graveyard and records `X` as the entry count, or refuses entry to
+    /// the owner's graveyard if fewer than `X` matching cards exist.
+    ExileFromGraveyardXOrGraveyard(&'static Filter),
+    /// "For each card exiled/sacrificed this way, [this] enters with a [choice
+    /// of counter] on it" (Frankenstein's Monster): for each count recorded by
+    /// an earlier entry modifier, asks the controller to choose one counter
+    /// kind from the slice and places it on the entering permanent.
+    ChooseCounterPerEntryCount(&'static [crate::effect::CounterKind]),
+    /// "As [this] enters, pay any amount of life" up to the evaluated cap
+    /// (Nameless Race): asks the controller for `0..=cap` life, pays it, and
+    /// records the paid amount as the permanent's chosen number for
+    /// `PtCount::ChosenNumber`.
+    PayLifeUpTo(Amount),
 }
 
 /// Simple keyword abilities as a bitset.

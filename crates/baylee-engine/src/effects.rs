@@ -275,7 +275,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessPayMana(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
-        | Modifier::CantPlayLandsAndLandsCantEnter
+        | Modifier::CantEnterBattlefield(_)
+        | Modifier::SpellsCostMoreMana(_)
+        | Modifier::CantAttackIfDefenderControls(_)
         | Modifier::CreatureAbilityManaAnyColor => false,
     }
 }
@@ -601,7 +603,9 @@ impl EffectTable {
             RuleHints::SPELL_COST,
             matches!(
                 fx.modifier,
-                Modifier::SpellsCostMore(_) | Modifier::SpellsCostLess(_)
+                Modifier::SpellsCostMore(_)
+                    | Modifier::SpellsCostMoreMana(_)
+                    | Modifier::SpellsCostLess(_)
             ),
         );
         self.hints.insert_if(
@@ -1705,6 +1709,16 @@ mod tests {
             Modifier::MayChooseNotToUntap,
             Modifier::ExileInsteadOfYourGraveyard,
             Modifier::CastSpellsFromGraveyard,
+            Modifier::MayRedirectDamageToYou,
+            Modifier::CantAttackUnlessPayMana(1),
+            Modifier::CantAttackUnlessYouSacrifice {
+                count: 2,
+                filter: &Filter::LAND,
+            },
+            Modifier::DamageToItCantBePreventedOrRedirected,
+            Modifier::CantEnterBattlefield(&Filter::LAND),
+            Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
+            Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
         ]
     }
 
@@ -1743,7 +1757,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            150,
+            157,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1815,7 +1829,12 @@ mod tests {
         // `AdditionalCounterPlacement`) modify rules, not characteristics:
         // the rules-only count rises from 90 to 93; locking remains 45.
         // Pyramids' NextDestructionClearsDamage is another rules-only replacement.
-        assert_eq!((locking, all.len() - locking), (47, 103));
+        // Seven new rules-only modifiers from The Dark / Legends / Fallen Empires
+        // (`MayRedirectDamageToYou`, `CantAttackUnlessPayMana`,
+        // `CantAttackUnlessYouSacrifice`, `DamageToItCantBePreventedOrRedirected`,
+        // `CantEnterBattlefield`, `SpellsCostMoreMana`, and
+        // `CantAttackIfDefenderControls`) bring rules-only to 110.
+        assert_eq!((locking, all.len() - locking), (47, 110));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

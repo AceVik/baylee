@@ -21,6 +21,8 @@ pub struct SubjectContext {
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
     mana_tap_source: Option<DamageSourceRef>,
+    event_player: Option<baylee_core::ids::PlayerId>,
+    pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -47,6 +49,8 @@ impl SubjectContext {
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
             mana_tap_source: None,
+            event_player: None,
+            for_each_remaining: None,
             checkpoint: None,
         }
     }
@@ -75,6 +79,17 @@ impl SubjectContext {
         self.mana_tap_source
     }
 
+    pub(crate) fn with_event_player(mut self, player: Option<baylee_core::ids::PlayerId>) -> Self {
+        self.event_player = player;
+        self
+    }
+    pub(super) fn set_event_player(&mut self, player: Option<baylee_core::ids::PlayerId>) {
+        self.event_player = player;
+    }
+    pub(super) const fn event_player(&self) -> Option<baylee_core::ids::PlayerId> {
+        self.event_player
+    }
+
     pub(crate) fn fingerprint(&self) -> u64 {
         let links = crate::state::structural_fingerprint(&(
             &self.reanimation_links,
@@ -92,6 +107,14 @@ impl SubjectContext {
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.mana_tap_source));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.event_player));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(
+                &self.for_each_remaining,
+            ));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h

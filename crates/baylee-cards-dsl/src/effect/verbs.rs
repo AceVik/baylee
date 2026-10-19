@@ -676,9 +676,18 @@ impl Effect {
             | Effect::WhenSourceDiesThisTurn { effects }
             | Effect::WhenTargetLeavesBattlefieldThisTurn { effects }
             | Effect::WhenSourceLeavesBattlefieldThisTurn { effects }
+            | Effect::WhenSourceLeavesBattlefieldForCreatedTokens { effects }
+            | Effect::WhenCreatedTokenLeavesBattlefield { effects }
             | Effect::WheneverTargetDealtDamageThisTurn { by: _, effects }
             | Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter: _, effects }
             | Effect::WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn { effects }
+            | Effect::WheneverTappedForManaThisTurn {
+                by: _,
+                filter: _,
+                effects,
+            }
+            | Effect::WhenTargetAttacksAndIsntBlockedThisTurn { effects }
+            | Effect::ForEachMatching { filter: _, effects }
             | Effect::AtEndOfCombat { about: _, effects }
             | Effect::AtEndOfCombatThisTurn { about: _, effects }
             | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
@@ -687,6 +696,12 @@ impl Effect {
                 count: _,
                 filter: _,
                 then,
+            }
+            | Effect::AnyPlayerMaySacrificeOrTakeDamageThen {
+                filter: _,
+                count: _,
+                damage: _,
+                effects: then,
             }
             | Effect::SacrificeOneThen {
                 filter: _,
@@ -762,6 +777,11 @@ impl Effect {
                 count: _,
                 effect,
             }
+            | Effect::PlayerMayMillOr {
+                player: _,
+                count: _,
+                effect,
+            }
             | Effect::SacrificeAndIf { effect, .. }
             | Effect::MayPayEnergyOr { effect, .. }
             | Effect::PlayerMayPayLifeOr { effect, .. }
@@ -817,6 +837,7 @@ impl Effect {
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
+            | Effect::EventObjectDealsDamage { .. }
             | Effect::DealDamageToTargetController { .. }
             | Effect::DealDamageToAttached { .. }
             | Effect::DealDamageEach { .. }
@@ -983,6 +1004,7 @@ impl Effect {
             | Effect::AddCounter { .. }
             | Effect::DealDamageWithCappedLifeGain { .. }
             | Effect::DealDamageEvenly { .. }
+            | Effect::DealDamageEvenlyToFilter { .. }
             | Effect::PayManaToPreventDamage { .. }
             | Effect::SacrificeChosenByOpponent { .. }
             | Effect::TapSelf
@@ -1062,13 +1084,12 @@ impl Effect {
             | Effect::ReturnLinkedToBattlefield
             | Effect::ReturnChosenLinkedToBattlefield { .. }
             | Effect::CreateTokenFromLinked { .. }
-            | Effect::CreateTokenLinkedBidirectionalLtb { .. }
             | Effect::MayRemoveCountersSelfCreateTokens { .. }
             | Effect::MayExileTokensCreatedWithThisForCounters { .. }
             | Effect::ExileSourceWithCounters { .. }
             | Effect::MoveSourceToOwnerGraveyard
-            | Effect::EachPlayerGraveyardCreaturesToBattlefield
-            | Effect::Eureka
+            | Effect::EachPlayerGraveyardToBattlefield { .. }
+            | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
             | Effect::TawnossCoffinExile
             | Effect::ReturnTawnossCoffinExile
             | Effect::TakklemaggotDeath
@@ -1080,19 +1101,19 @@ impl Effect {
             | Effect::DungeonTax { .. }
             | Effect::VentureIntoTheDungeon
             | Effect::RevealHand { .. }
-            | Effect::RevealHandDiscardAll { .. }
-            | Effect::RevealHandDiscardRandom { .. }
-            | Effect::WandOfIth
+            | Effect::RevealRandomFromHand { .. }
+            | Effect::DiscardRevealedThisWay
+            | Effect::DiscardMatching { .. }
+            | Effect::DiscardRandomMatching { .. }
             | Effect::DestroyEachUnlessAnyPlayerPaysLife { .. }
-            | Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb
-            | Effect::ManaClash
-            | Effect::ExileAllControllerDrawsEach { .. }
-            | Effect::MindBomb
+            | Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { .. }
+            | Effect::DiscardUpToForPlayers { .. }
             | Effect::ChangeTargetToPlayerIfTargetsYou
-            | Effect::RuneswordTargetRider
-            | Effect::SorrowsPathSwapBlockers
+            | Effect::TargetDamagedCreaturesCantRegenerateThisTurn
+            | Effect::ExileCreaturesDamagedByTargetIfTheyDieThisTurn
+            | Effect::SwapBlockers
             | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
-            | Effect::WormsOfTheEarthUpkeep
+            | Effect::RaidingParty
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked

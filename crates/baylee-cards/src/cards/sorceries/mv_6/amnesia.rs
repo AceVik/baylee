@@ -16,9 +16,15 @@ card!(
         types = TypeSet::SORCERY,
     ),],
     abilities = &[spell!(
-        &[Effect::RevealHandDiscardAll {
-            filter: &Filter::NONLAND,
-        }],
+        &[
+            Effect::RevealHand {
+                who: PlayerRel::Chosen,
+            },
+            Effect::DiscardMatching {
+                who: PlayerRel::Chosen,
+                filter: &Filter::NONLAND,
+            },
+        ],
         targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
     )],
 );

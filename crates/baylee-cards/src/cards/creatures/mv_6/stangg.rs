@@ -24,8 +24,18 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::ETB,
-        &[Effect::CreateTokenLinkedBidirectionalLtb {
-            token: &generated_tokens::STANGG_TWIN_LEGENDARY_3_4_RED_GREEN,
-        }]
+        &[
+            Effect::CreateToken {
+                token: &generated_tokens::STANGG_TWIN_LEGENDARY_3_4_RED_GREEN,
+            },
+            Effect::WhenSourceLeavesBattlefieldForCreatedTokens {
+                effects: &[Effect::Exile {
+                    target: TargetSpec::EventObject,
+                }],
+            },
+            Effect::WhenCreatedTokenLeavesBattlefield {
+                effects: &[Effect::SacrificeSelf],
+            },
+        ]
     )],
 );

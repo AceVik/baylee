@@ -1157,6 +1157,56 @@ fn attack_watch_triggers(
                     }
                 }
             }
+            crate::state::DelayedWhen::TappedForManaThisTurn { by, filter, after } => {
+                let context = crate::text_changes::RuleContext {
+                    source: base.source,
+                    text: base.text,
+                    reference: None,
+                };
+                for entry in events.iter().filter(|entry| entry.seq > after) {
+                    let GameEvent::ManaProduced {
+                        player,
+                        source: Some(tapped),
+                        ..
+                    } = entry.event
+                    else {
+                        continue;
+                    };
+                    if eval::players(by, state, watch.controller)
+                        .is_some_and(|seats| seats.contains(&player))
+                        && first_mana_of_a_tap(&entry.event, state.journal.entries(), tapped)
+                        && state.object(tapped).is_some_and(|o| {
+                            eval::matches_with_context(filter, state, o, watch.controller, context)
+                        })
+                    {
+                        triggers.push(PendingTrigger {
+                            event_player: Some(player),
+                            event_object: Some(tapped),
+                            event_mana: produced_mana(&entry.event, events),
+                            ..base.clone()
+                        });
+                    }
+                }
+            }
+            crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn {
+                card,
+                version,
+                after,
+            } => {
+                if state.object(card).is_none_or(|o| o.version != version) {
+                    continue;
+                }
+                for entry in events.iter().filter(|entry| entry.seq > after) {
+                    if matches!(entry.event, GameEvent::AttackerUnblocked { object } if object == card)
+                    {
+                        triggers.push(PendingTrigger {
+                            event_object_identity: state.event_object_identity(card, entry.seq),
+                            event_object: Some(card),
+                            ..base.clone()
+                        });
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -1604,7 +1654,7 @@ fn event_object_for(
         ) => *damage_source,
         (Trigger::BlocksCreature(_), GameEvent::BecameBlocker { attacker, .. }) => Some(*attacker),
         (
-            Trigger::BlocksOrBecomesBlockedBy(_),
+            Trigger::BlocksOrBecomesBlockedBy(_) | Trigger::BlocksOrBecomesBlockedByOneOrMore(_),
             GameEvent::BecameBlocker {
                 object: blocker,
                 attacker,
@@ -3191,6 +3241,39 @@ fn matches(
             state
                 .object(other)
                 .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
+        (
+            Trigger::BlocksOrBecomesBlockedByOneOrMore(filter),
+            GameEvent::BecameBlocker {
+                object: blocker,
+                attacker,
+            },
+        ) => {
+            let hit = |b: ObjectId, a: ObjectId| -> bool {
+                let other = if b == source {
+                    a
+                } else if a == source {
+                    b
+                } else {
+                    return false;
+                };
+                state
+                    .object(other)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+            };
+            let Some(at) = event_groups::index_of_event(event, batch) else {
+                return false;
+            };
+            hit(*blocker, *attacker)
+                && !batch[..at].iter().any(|entry| {
+                    matches!(
+                        entry.event,
+                        GameEvent::BecameBlocker {
+                            object: b,
+                            attacker: a,
+                        } if (b == source) == (*blocker == source) && hit(b, a)
+                    )
+                })
         }
         // The same pair, seen from the creature this source is attached to
         // (Infinite Authority's "enchanted creature"): the source's own

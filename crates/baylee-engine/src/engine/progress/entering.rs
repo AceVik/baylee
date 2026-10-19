@@ -275,8 +275,9 @@ impl<L: CardLookup> Engine<L> {
                     | EnterModifier::SacrificeOrGraveyard { .. }
                     | EnterModifier::DiscardOrGraveyard(_)
                     | EnterModifier::SacrificeForPowerToughness(_)
-                    | EnterModifier::FrankensteinsMonster
-                    | EnterModifier::PayLifeForPtCapWhiteOpponents
+                    | EnterModifier::ExileFromGraveyardXOrGraveyard(_)
+                    | EnterModifier::ChooseCounterPerEntryCount(_)
+                    | EnterModifier::PayLifeUpTo(_)
                     | EnterModifier::SacrificeOthers(_) => {}
                     EnterModifier::TappedUnlessCondition(condition) => {
                         if !eval::condition_holds(&self.state, controller, id, *condition) {

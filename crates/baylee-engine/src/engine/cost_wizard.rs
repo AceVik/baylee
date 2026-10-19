@@ -71,6 +71,8 @@ pub(crate) const fn needs_an_answer(part: &CostPart) -> bool {
             | CostPart::Saddle(_)
             | CostPart::ReturnToHand(_)
             | CostPart::ExileFromGraveyard(_)
+            | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::PutCounterOnOther { .. }
     )
 }
 
@@ -149,6 +151,27 @@ pub(crate) fn options_with_context(
     part: &CostPart,
 ) -> Vec<ObjectId> {
     let source = context.source;
+    if let CostPart::ExileFromSingleGraveyard { filter, count } = part {
+        let mut out = Vec::new();
+        for seat in 0..state.players.len() {
+            let owner = PlayerId::new(seat as u8);
+            let matching: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Graveyard(owner))
+                .iter()
+                .copied()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        eval::matches_with_context(filter, state, o, player, context)
+                    })
+                })
+                .collect();
+            if matching.len() >= usize::from(*count) {
+                out.extend(matching);
+            }
+        }
+        return out;
+    }
     // Crew (CR 702.122a): "other untapped creatures you control". Every
     // word is the rule's, so none of them is a filter the card carries.
     if matches!(part, CostPart::Crew(_) | CostPart::Saddle(_)) {
@@ -171,7 +194,8 @@ pub(crate) fn options_with_context(
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::ExilePermanent(_)
-        | CostPart::ReturnToHand(_) => (ZoneLocation::Battlefield, true, false),
+        | CostPart::ReturnToHand(_)
+        | CostPart::PutCounterOnOther { .. } => (ZoneLocation::Battlefield, true, false),
         CostPart::TapN { .. } | CostPart::TapOther(_) | CostPart::TapX(_) => {
             (ZoneLocation::Battlefield, true, true)
         }
@@ -191,7 +215,8 @@ pub(crate) fn options_with_context(
     | CostPart::TapX(filter)
     | CostPart::ReturnToHand(filter)
     | CostPart::ExileFromHand(filter)
-    | CostPart::ExileFromGraveyard(filter)) = part
+    | CostPart::ExileFromGraveyard(filter)
+    | CostPart::PutCounterOnOther { filter, .. }) = part
     else {
         return Vec::new();
     };
@@ -282,7 +307,9 @@ pub(crate) const fn prompt(part: &CostPart) -> ChoicePrompt {
         CostPart::ReturnToHand(_) => ChoicePrompt::CostReturn,
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_) => ChoicePrompt::CostExile,
+        CostPart::PutCounterOnOther { .. } => ChoicePrompt::Generic,
         _ => ChoicePrompt::CostSacrifice,
     }
 }
@@ -321,6 +348,13 @@ pub(crate) fn pay(
     part: &CostPart,
     chosen: ObjectId,
 ) -> Result<(), EngineError> {
+    if let CostPart::PutCounterOnOther { kind, n, .. } = part {
+        crate::replacement::record_counters_by(state, player, chosen, *kind, *n);
+        if !crate::replacement::counter_order::has_pending(state) {
+            state.refresh_characteristics();
+        }
+        return Ok(());
+    }
     if matches!(
         part,
         CostPart::TapN { .. }
@@ -351,6 +385,7 @@ pub(crate) fn pay(
         CostPart::ReturnToHand(_) => ZoneLocation::Hand(owner),
         CostPart::ExileFromHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_) => ZoneLocation::Exile(owner),
         _ => ZoneLocation::Graveyard(owner),
     };

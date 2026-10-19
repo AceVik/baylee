@@ -138,11 +138,12 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                         state.entries.pending.push_front(entry);
                         continue 'entries;
                     }
-                    EnterModifier::FrankensteinsMonster => {
+                    EnterModifier::ExileFromGraveyardXOrGraveyard(filter) => {
                         let x = state
                             .object(entry.object)
                             .filter(|o| o.zone == Zone::Stack || entry.copy == CopyStatus::Handled)
                             .map_or(0, |o| o.x_value);
+                        entry.sacrifices = Some(0);
                         if x == 0 {
                             continue;
                         }
@@ -156,9 +157,7 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                                 *id != entry.object
                                     && !unavailable.contains(id)
                                     && state.object(*id).is_some_and(|o| {
-                                        o.characteristics()
-                                            .types
-                                            .contains(baylee_core::types::TypeSet::CREATURE)
+                                        crate::eval::matches(filter, state, o, player, entry.object)
                                     })
                             })
                             .collect();
@@ -170,10 +169,7 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                         return Some(ask(
                             state,
                             entry,
-                            Question::FrankensteinsExile {
-                                options: options.clone(),
-                                count: x,
-                            },
+                            Question::ExileFromGraveyard { count: x },
                             Pending::ChooseCards {
                                 player,
                                 options,
@@ -184,41 +180,33 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                             },
                         ));
                     }
-                    EnterModifier::PayLifeForPtCapWhiteOpponents => {
-                        let white_perms = state
-                            .battlefield_seen()
-                            .filter(|&id| {
-                                id != entry.object
-                                    && state.object(id).is_some_and(|o| {
-                                        state.is_opponent(o.controller, player)
-                                            && o.is_card()
-                                            && o.characteristics()
-                                                .colors
-                                                .contains(baylee_core::color::Color::White)
-                                    })
-                            })
-                            .count();
-                        let white_gy: usize = state
-                            .players
-                            .iter()
-                            .filter(|p| !p.has_lost() && state.is_opponent(p.id, player))
-                            .map(|p| {
-                                state
-                                    .zones
-                                    .list(ZoneLocation::Graveyard(p.id))
-                                    .iter()
-                                    .filter(|&&id| {
-                                        state.object(id).is_some_and(|o| {
-                                            o.characteristics()
-                                                .colors
-                                                .contains(baylee_core::color::Color::White)
-                                        })
-                                    })
-                                    .count()
-                            })
-                            .sum();
-                        let cap =
-                            u32::try_from(white_perms.saturating_add(white_gy)).unwrap_or(u32::MAX);
+                    EnterModifier::ChooseCounterPerEntryCount(kinds) => {
+                        let count = entry.sacrifices.unwrap_or(0);
+                        if count == 0 || kinds.is_empty() {
+                            continue;
+                        }
+                        let max = u32::try_from(kinds.len() - 1).expect("bounded slice");
+                        return Some(ask(
+                            state,
+                            entry,
+                            Question::ChooseCounter {
+                                kinds,
+                                remaining: count,
+                            },
+                            Pending::ChooseNumber {
+                                player,
+                                min: 0,
+                                max,
+                                reason: crate::choice::NumberPrompt::Choice,
+                            },
+                        ));
+                    }
+                    EnterModifier::PayLifeUpTo(amount) => {
+                        let x = state
+                            .object(entry.object)
+                            .filter(|o| o.zone == Zone::Stack || entry.copy == CopyStatus::Handled)
+                            .map(|o| o.x_value);
+                        let cap = crate::eval::amount(&amount, state, player, entry.object, x);
                         let life = state
                             .players
                             .get(usize::from(player.get()))
@@ -235,7 +223,7 @@ pub(crate) fn advance(state: &mut GameState) -> Option<Pending> {
                         return Some(ask(
                             state,
                             entry,
-                            Question::PayLifeForPt,
+                            Question::PayLifeUpTo,
                             Pending::ChooseNumber {
                                 player,
                                 min: 0,
@@ -371,10 +359,7 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
         (Question::DiscardDestination { card }, PlayerAction::Arrange { piles }) => {
             discard_to_destination(state, &entry, card, piles);
         }
-        (
-            Question::FrankensteinsExile { options: _, count },
-            PlayerAction::ChooseObjects { objects },
-        ) => {
+        (Question::ExileFromGraveyard { count }, PlayerAction::ChooseObjects { objects }) => {
             for &card in objects {
                 let owner = state.object(card).map_or(entry.controller, |o| o.owner);
                 let _ = state.move_object(
@@ -384,34 +369,24 @@ pub(crate) fn answer(state: &mut GameState, action: &PlayerAction) {
                     Cause::Effect,
                 );
             }
-            if count > 0 {
-                state.entries.question = Some(Question::FrankensteinsCounter { remaining: count });
-                state.entries.pending.push_front(entry);
-                return;
-            }
+            entry.sacrifices = Some(count);
         }
-        (Question::FrankensteinsCounter { remaining }, PlayerAction::ChooseNumber(choice)) => {
-            let kind = match *choice {
-                0 => CounterKind::Plus {
-                    power: 2,
-                    toughness: 0,
-                },
-                1 => CounterKind::P1P1,
-                _ => CounterKind::Plus {
-                    power: 0,
-                    toughness: 2,
-                },
-            };
+        (Question::ChooseCounter { kinds, remaining }, PlayerAction::ChooseNumber(choice)) => {
+            let kind = kinds
+                .get(*choice as usize)
+                .copied()
+                .unwrap_or_else(|| kinds[kinds.len() - 1]);
             entry.counters.push((Some(entry.controller), kind, 1));
             if remaining > 1 {
-                state.entries.question = Some(Question::FrankensteinsCounter {
+                state.entries.question = Some(Question::ChooseCounter {
+                    kinds,
                     remaining: remaining - 1,
                 });
                 state.entries.pending.push_front(entry);
                 return;
             }
         }
-        (Question::PayLifeForPt, PlayerAction::ChooseNumber(amount)) => {
+        (Question::PayLifeUpTo, PlayerAction::ChooseNumber(amount)) => {
             entry.sacrifices = Some(*amount);
             if *amount > 0 {
                 let delta = -i32::try_from(*amount).unwrap_or(i32::MAX);
@@ -486,10 +461,10 @@ pub(crate) fn next_question(state: &GameState) -> Option<Pending> {
             ],
             prompt: ArrangePrompt::DiscardToLibrary,
         }),
-        Question::FrankensteinsCounter { .. } => Some(Pending::ChooseNumber {
+        Question::ChooseCounter { kinds, .. } => Some(Pending::ChooseNumber {
             player,
             min: 0,
-            max: 2,
+            max: u32::try_from(kinds.len().saturating_sub(1)).expect("bounded slice"),
             reason: crate::choice::NumberPrompt::Choice,
         }),
         _ => None,

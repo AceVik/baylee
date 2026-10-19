@@ -595,6 +595,7 @@ pub fn blocking_player(state: &GameState, defender: Defender) -> Option<PlayerId
 pub struct AttackRules<'a> {
     state: &'a GameState,
     unless_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
+    if_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
@@ -611,6 +612,7 @@ impl<'a> AttackRules<'a> {
     pub fn new(state: &'a GameState) -> Self {
         use baylee_cards_dsl::Modifier;
         let mut unless_defender_controls = Vec::new();
+        let mut if_defender_controls = Vec::new();
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
         let mut idle_defenders = Vec::new();
@@ -622,6 +624,7 @@ impl<'a> AttackRules<'a> {
         for fx in state.effects.iter() {
             match fx.modifier {
                 Modifier::CantAttackUnlessDefenderControls(_) => unless_defender_controls.push(fx),
+                Modifier::CantAttackIfDefenderControls(_) => if_defender_controls.push(fx),
                 Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
@@ -641,6 +644,7 @@ impl<'a> AttackRules<'a> {
         Self {
             state,
             unless_defender_controls,
+            if_defender_controls,
             except_by,
             requirements,
             idle_defenders,
@@ -756,6 +760,7 @@ impl<'a> AttackRules<'a> {
     #[must_use]
     pub fn allows(&self, creature: ObjectId, defender: Defender) -> bool {
         if self.unless_defender_controls.is_empty()
+            && self.if_defender_controls.is_empty()
             && self.except_by.is_empty()
             && self.idle_defenders.is_empty()
             && self.cant_attack_you.is_empty()
@@ -840,19 +845,40 @@ impl<'a> AttackRules<'a> {
         {
             return false;
         }
-        if self.unless_defender_controls.is_empty() {
+        if self.unless_defender_controls.is_empty() && self.if_defender_controls.is_empty() {
             return true;
         }
         let Some(defending) = defending_player(state, defender) else {
             return false;
         };
-        self.unless_defender_controls.iter().all(|fx| {
+        if !self.unless_defender_controls.iter().all(|fx| {
             let baylee_cards_dsl::Modifier::CantAttackUnlessDefenderControls(filter) = fx.modifier
             else {
                 return true;
             };
             !crate::effects::applies_to(state, fx, obj)
                 || state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|p| {
+                        p.controller == defending
+                            && crate::eval::matches(
+                                filter,
+                                state,
+                                p,
+                                fx.controller,
+                                fx.source.unwrap_or(creature),
+                            )
+                    })
+                })
+        }) {
+            return false;
+        }
+        self.if_defender_controls.iter().all(|fx| {
+            let baylee_cards_dsl::Modifier::CantAttackIfDefenderControls(filter) = fx.modifier
+            else {
+                return true;
+            };
+            !crate::effects::applies_to(state, fx, obj)
+                || !state.battlefield_seen().any(|id| {
                     state.object(id).is_some_and(|p| {
                         p.controller == defending
                             && crate::eval::matches(

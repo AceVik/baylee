@@ -262,6 +262,8 @@ pub(super) fn exec_immediate(
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
+        | Effect::EventObjectDealsDamage { .. }
+        | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageToAttached { .. }
         | Effect::DealDamageDivided { .. }
@@ -334,16 +336,15 @@ pub(super) fn exec_immediate(
         | Effect::ShuffleLibrary { .. }
         | Effect::RevealHand { .. }
         | Effect::RevealHandDiscard { .. }
-        | Effect::RevealHandDiscardAll { .. }
-        | Effect::RevealHandDiscardRandom { .. }
-        | Effect::ExileAllControllerDrawsEach { .. }
+        | Effect::DiscardMatching { .. }
+        | Effect::DiscardRandomMatching { .. }
         | Effect::LookAtChosenHand
         | Effect::SacrificeFilter { .. }
         | Effect::SacrificeOneThen { .. }
         | Effect::ReturnChosenToHand { .. }
         | Effect::UntapChosen { .. }
         | Effect::AllGraveyardCreaturesToBattlefield
-        | Effect::EachPlayerGraveyardCreaturesToBattlefield
+        | Effect::EachPlayerGraveyardToBattlefield { .. }
         | Effect::YourGraveyardToBattlefield { .. }
         | Effect::ReturnToBattlefieldTapped { .. }
         | Effect::TransformSource
@@ -387,8 +388,6 @@ pub(super) fn exec_immediate(
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::CleanLinkedCounters { .. } => linked_counters::exec(state, res, op),
         Effect::CreateTokenForTargetController { .. }
-        | Effect::CreateTokenLinkedBidirectionalLtb { .. }
-        | Effect::CreateTokenCopyOfTargetLinkedBidirectionalLtb
         | Effect::Amass { .. }
         | Effect::CreateTokenCopyOf { .. }
         | Effect::Populate
@@ -623,6 +622,9 @@ pub(super) fn exec_immediate(
             // activation in `engine/abilities.rs`), this one included, in
             // the turn's tally of that ability of that object — which a
             // source retains even after leaving (CR 608.2h–i).
+            let version = source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version))
+                .unwrap_or(0);
             let activated = state
                 .object(res.on_stack)
                 .and_then(|o| o.ability)
@@ -639,6 +641,19 @@ pub(super) fn exec_immediate(
                             loc.index,
                         ))
                         .copied()
+                })
+                .or_else(|| {
+                    (res.on_stack == res.source).then(|| {
+                        state
+                            .ability_fires
+                            .iter()
+                            .filter_map(|((src, _), &count)| {
+                                (src.object == res.source && src.version == version)
+                                    .then_some(count)
+                            })
+                            .max()
+                            .unwrap_or(0)
+                    })
                 })
                 .unwrap_or(0);
             if activated >= u32::from(n) {
@@ -1017,6 +1032,89 @@ pub(super) fn exec_immediate(
                     text: res.text,
                 },
             });
+            None
+        }
+        Effect::WheneverTappedForManaThisTurn {
+            by,
+            filter,
+            effects,
+        } => {
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::TappedForManaThisTurn { by, filter, after },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::WhenTargetAttacksAndIsntBlockedThisTurn { effects } => {
+            let &card = res.targets.first()?;
+            let version = state
+                .object(card)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)?
+                .version;
+            let after = state.journal.last_seq();
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn {
+                    card,
+                    version,
+                    after,
+                },
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
+        Effect::ForEachMatching { filter, effects } => {
+            let mut remaining = res.subject.for_each_remaining.take().unwrap_or_else(|| {
+                let context = res.rule_context();
+                let mut matched: Vec<baylee_core::ids::DamageSourceRef> = state
+                    .battlefield_seen()
+                    .filter_map(|id| {
+                        let o = state.object(id)?;
+                        eval::matches_with_context(filter, state, o, you, context).then_some(
+                            baylee_core::ids::DamageSourceRef {
+                                object: id,
+                                version: o.version,
+                            },
+                        )
+                    })
+                    .collect();
+                matched.reverse();
+                matched
+            });
+            while let Some(next_ref) = remaining.pop() {
+                let Some(obj) = state.object(next_ref.object).filter(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == next_ref.version
+                }) else {
+                    continue;
+                };
+                let controller = obj.controller;
+                res.event_object = Some(next_ref.object);
+                res.subject.set_event_player(Some(controller));
+                let mut spliced = flatten(effects);
+                if !remaining.is_empty() {
+                    res.subject.for_each_remaining = Some(remaining);
+                    spliced.push(op);
+                }
+                let at = res.pc + 1;
+                res.effects.splice(at..at, spliced);
+                return None;
+            }
             None
         }
         Effect::WheneverOneOrMoreDealCombatDamageToPlayerThisTurn { filter, effects } => {
@@ -2613,21 +2711,159 @@ pub(super) fn exec_immediate(
             });
             None
         }
-        Effect::RuneswordTargetRider => {
-            let &target = res.targets.first()?;
-            if let Some(obj) = state
-                .object(target)
-                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+        Effect::WhenSourceLeavesBattlefieldForCreatedTokens { effects } => {
+            if let Some(source) =
+                subjects::source(state, res).filter(|s| subjects::on_battlefield(state, *s))
             {
-                let pair = (target, obj.version);
-                if !state.per_turn.runesword_attackers.contains(&pair) {
-                    state.per_turn.runesword_attackers.push(pair);
+                let after = state.journal.last_seq();
+                for token in super::this_way::created_tokens(state, res) {
+                    if let Some(tv) = state
+                        .object(token)
+                        .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                        .map(|o| o.version)
+                    {
+                        state.delayed.push(crate::state::DelayedTrigger {
+                            controller: you,
+                            when: crate::state::DelayedWhen::LeavesBattlefield {
+                                card: source.object,
+                                version: source.version,
+                                after,
+                            },
+                            action: crate::state::DelayedAction::TriggerAbout {
+                                source: res.source,
+                                source_version: source.version,
+                                effects,
+                                text: res.text,
+                                object: token,
+                                version: tv,
+                                subject: None,
+                            },
+                        });
+                    }
                 }
             }
             None
         }
-        Effect::ManaClash => {
+        Effect::WhenCreatedTokenLeavesBattlefield { effects } => {
+            let source_ver = source_version(state, res)
+                .or_else(|| state.object(res.source).map(|o| o.version))
+                .unwrap_or(0);
+            let after = state.journal.last_seq();
+            for token in super::this_way::created_tokens(state, res) {
+                if let Some(tv) = state
+                    .object(token)
+                    .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                    .map(|o| o.version)
+                {
+                    state.delayed.push(crate::state::DelayedTrigger {
+                        controller: you,
+                        when: crate::state::DelayedWhen::LeavesBattlefield {
+                            card: token,
+                            version: tv,
+                            after,
+                        },
+                        action: crate::state::DelayedAction::Trigger {
+                            source: res.source,
+                            source_version: source_ver,
+                            effects,
+                            text: res.text,
+                        },
+                    });
+                }
+            }
+            None
+        }
+        Effect::TargetDamagedCreaturesCantRegenerateThisTurn => {
+            let &target = res.targets.first()?;
+            if let Some(obj_ver) = state
+                .object(target)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .map(|o| o.version)
+            {
+                let pair = (target, obj_ver);
+                if !state
+                    .per_turn
+                    .damage_cant_regenerate_sources
+                    .contains(&pair)
+                {
+                    state.per_turn.damage_cant_regenerate_sources.push(pair);
+                }
+                let damaged: Vec<_> = state
+                    .per_turn
+                    .damage_log
+                    .iter()
+                    .filter_map(|entry| {
+                        if entry.source.object == target
+                            && entry.source.version == obj_ver
+                            && let crate::event::DamageTarget::Object(rec) = entry.to
+                            && let Some(rec_ver) = entry.to_version
+                            && state.object(rec).is_some_and(|o| {
+                                o.zone == crate::zone::Zone::Battlefield
+                                    && o.version == rec_ver
+                                    && o.characteristics()
+                                        .types
+                                        .contains(baylee_core::types::TypeSet::CREATURE)
+                            })
+                        {
+                            Some((rec, rec_ver))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                for pair in damaged {
+                    if !state.per_turn.cant_regenerate.contains(&pair) {
+                        state.per_turn.cant_regenerate.push(pair);
+                    }
+                }
+            }
+            None
+        }
+        Effect::ExileCreaturesDamagedByTargetIfTheyDieThisTurn => {
+            let &target = res.targets.first()?;
+            if let Some(obj_ver) = state
+                .object(target)
+                .filter(|o| o.zone == crate::zone::Zone::Battlefield)
+                .map(|o| o.version)
+            {
+                let pair = (target, obj_ver);
+                if !state.per_turn.damage_exile_if_dies_sources.contains(&pair) {
+                    state.per_turn.damage_exile_if_dies_sources.push(pair);
+                }
+                let damaged: Vec<_> = state
+                    .per_turn
+                    .damage_log
+                    .iter()
+                    .filter_map(|entry| {
+                        if entry.source.object == target
+                            && entry.source.version == obj_ver
+                            && let crate::event::DamageTarget::Object(rec) = entry.to
+                            && let Some(rec_ver) = entry.to_version
+                            && state.object(rec).is_some_and(|o| {
+                                o.zone == crate::zone::Zone::Battlefield
+                                    && o.version == rec_ver
+                                    && o.characteristics()
+                                        .types
+                                        .contains(baylee_core::types::TypeSet::CREATURE)
+                            })
+                        {
+                            Some((rec, rec_ver))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                for pair in damaged {
+                    if !state.per_turn.exile_if_dies.contains(&pair) {
+                        state.per_turn.exile_if_dies.push(pair);
+                    }
+                }
+            }
+            None
+        }
+        Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage } => {
             let opp = *players_of(PlayerRel::Chosen, state, you, res).first()?;
+            let dmg = amount2(&damage, state, you, res);
             let you_heads = state.rng.below(2) == 0;
             state.journal.record(GameEvent::CoinFlipped {
                 player: you,
@@ -2639,47 +2875,43 @@ pub(super) fn exec_immediate(
                 won: opp_heads,
             });
             if !(you_heads && opp_heads) && res.effects.len() < REPEAT_CAP as usize {
-                res.effects.insert(res.pc + 1, Effect::ManaClash);
+                res.effects.insert(
+                    res.pc + 1,
+                    Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { damage },
+                );
             }
             let mut shares = Vec::new();
             if !you_heads {
-                shares.push((you, 1));
+                shares.push((you, dmg));
             }
             if !opp_heads {
-                shares.push((opp, 1));
+                shares.push((opp, dmg));
             }
             life::deal_to_players(state, res, &shares)
         }
-        Effect::WandOfIth => {
-            let player = *players_of(PlayerRel::Chosen, state, you, res).first()?;
-            let hand = state.zones.list(ZoneLocation::Hand(player)).clone();
-            if hand.is_empty() {
+        Effect::RevealRandomFromHand { who, count } => {
+            let n = amount2(&count, state, you, res) as usize;
+            if n == 0 {
                 return None;
             }
-            let card = hand[state.rng.below(hand.len() as u64) as usize];
-            state.journal.record(GameEvent::Revealed {
-                player,
-                cards: vec![card],
-            });
-            let obj = state.object(card)?;
-            let life = if obj
-                .characteristics()
-                .types
-                .contains(baylee_core::types::TypeSet::LAND)
-            {
-                1
-            } else {
-                obj.characteristics().mana_value()
-            };
-            if !state.can_pay_life(player, i32::try_from(life).unwrap_or(i32::MAX)) {
-                return super::discard_or_ask(state, res, &[(card, player)]);
+            for player in players_of(who, state, you, res) {
+                let mut pool = state.zones.list(ZoneLocation::Hand(player)).clone();
+                if pool.is_empty() {
+                    continue;
+                }
+                let take = n.min(pool.len());
+                let mut cards = Vec::with_capacity(take);
+                for _ in 0..take {
+                    let idx = state.rng.below(pool.len() as u64) as usize;
+                    cards.push(pool.remove(idx));
+                }
+                state.journal.record(GameEvent::Revealed { player, cards });
             }
-            res.awaiting = Some(AwaitingOp::WandOfIth { player, card, life });
-            Some(Pending::YesNo {
-                player,
-                prompt: crate::choice::YesNoPrompt::PayLife { amount: life },
-                source: resolving_ability(state, res),
-            })
+            None
+        }
+        Effect::DiscardRevealedThisWay => {
+            let pairs = super::this_way::revealed_hand_cards(state, res);
+            super::discard_or_ask(state, res, &pairs)
         }
         Effect::DestroyEachUnlessAnyPlayerPaysLife { filter, life } => {
             let context = res.rule_context();
@@ -2703,12 +2935,11 @@ pub(super) fn exec_immediate(
                 life,
             )
         }
-        Effect::MindBomb => {
-            let remaining =
-                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
-            mind_bomb_advance(state, res, remaining, Vec::new(), Vec::new())
+        Effect::DiscardUpToForPlayers { who, max } => {
+            let remaining = players_of(who, state, you, res);
+            discard_up_to_advance(state, res, remaining, Vec::new(), max)
         }
-        Effect::SorrowsPathSwapBlockers => {
+        Effect::SwapBlockers => {
             let &b1 = res.targets.first()?;
             let b2 = res
                 .targets
@@ -2729,7 +2960,7 @@ pub(super) fn exec_immediate(
                 return None;
             };
             let defending = o1.controller;
-            if o2.controller != defending || !state.is_opponent(defending, you) {
+            if o2.controller != defending {
                 return None;
             }
             let a1 = state.combat.blocked_by(b1);
@@ -2758,13 +2989,15 @@ pub(super) fn exec_immediate(
             }
             None
         }
-        Effect::WormsOfTheEarthUpkeep => {
-            if !subjects::source(state, res).is_some_and(|s| subjects::on_battlefield(state, s)) {
-                return None;
-            }
+        Effect::AnyPlayerMaySacrificeOrTakeDamageThen {
+            filter,
+            count,
+            damage,
+            effects,
+        } => {
             let remaining =
                 eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
-            worms_advance(state, res, remaining)
+            any_player_sac_or_damage_advance(state, res, remaining, filter, count, damage, effects)
         }
         Effect::GrantSubtype { .. } => None, // M2 (continuous effects)
         Effect::SearchLibrary { .. }
@@ -2819,7 +3052,9 @@ pub(super) fn exec_immediate(
         | Effect::OwnerPutsOnTopOrBottom { .. }
         | Effect::MayRemoveCountersSelfCreateTokens { .. }
         | Effect::MayExileTokensCreatedWithThisForCounters { .. }
-        | Effect::Eureka
+        | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
+        | Effect::PlayerMayMillOr { .. }
+        | Effect::RaidingParty
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
@@ -2877,12 +3112,12 @@ pub(super) fn cleansing_advance(
     None
 }
 
-pub(super) fn mind_bomb_advance(
+pub(super) fn discard_up_to_advance(
     state: &mut GameState,
     res: &mut Resolution,
     mut remaining: Vec<PlayerId>,
     discards: Vec<(ObjectId, PlayerId)>,
-    mut damage: Vec<(PlayerId, u32)>,
+    max_cards: u8,
 ) -> Option<Pending> {
     while !remaining.is_empty() {
         let asked = remaining.remove(0);
@@ -2890,16 +3125,15 @@ pub(super) fn mind_bomb_advance(
             continue;
         }
         let options = state.zones.list(ZoneLocation::Hand(asked)).clone();
-        if options.is_empty() {
-            damage.push((asked, 3));
+        if options.is_empty() || max_cards == 0 {
             continue;
         }
-        let max = u8::try_from(options.len().min(3)).unwrap_or(3);
-        res.awaiting = Some(AwaitingOp::MindBomb {
+        let max = u8::try_from(options.len().min(usize::from(max_cards))).unwrap_or(max_cards);
+        res.awaiting = Some(AwaitingOp::DiscardUpToForPlayers {
             asked,
             remaining,
             discards,
-            damage,
+            max: max_cards,
         });
         return Some(Pending::ChooseCards {
             player: asked,
@@ -2910,47 +3144,48 @@ pub(super) fn mind_bomb_advance(
             total: None,
         });
     }
-    for (card, player) in discards {
-        if state.zones.list(ZoneLocation::Hand(player)).contains(&card) {
-            state.discard_card(card, player, Cause::Effect, Some(res.controller));
-        }
-    }
-    life::deal_to_players(state, res, &damage)
+    super::discard_or_ask(state, res, &discards)
 }
 
-pub(super) fn worms_advance(
+pub(super) fn any_player_sac_or_damage_advance(
     state: &mut GameState,
     res: &mut Resolution,
     mut remaining: Vec<PlayerId>,
+    filter: &'static baylee_cards_dsl::Filter,
+    count: u8,
+    damage: u16,
+    effects: &'static [Effect],
 ) -> Option<Pending> {
     while !remaining.is_empty() {
         let asked = remaining.remove(0);
         if state.has_left(asked) {
             continue;
         }
-        let lands = chosen::options(
-            state,
-            asked,
-            &baylee_cards_dsl::Filter::LAND,
-            asked,
-            res.source,
-        );
-        if lands.len() >= 2 {
-            res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+        let matches = chosen::options(state, asked, filter, asked, res.source);
+        if matches.len() >= usize::from(count) {
+            res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
                 asked,
                 remaining,
                 step: 0,
+                filter,
+                count,
+                damage,
+                effects,
             });
             return Some(Pending::YesNo {
                 player: asked,
-                prompt: crate::choice::YesNoPrompt::SacrificeToEnter { count: 2 },
+                prompt: crate::choice::YesNoPrompt::SacrificeToEnter { count },
                 source: resolving_ability(state, res),
             });
         }
-        res.awaiting = Some(AwaitingOp::WormsOfTheEarth {
+        res.awaiting = Some(AwaitingOp::AnyPlayerSacrificeOrDamage {
             asked,
             remaining,
             step: 2,
+            filter,
+            count,
+            damage,
+            effects,
         });
         return Some(Pending::YesNo {
             player: asked,
@@ -2988,6 +3223,24 @@ fn resolution_condition(
                             res.rule_context(),
                         )
                     })
+                })
+            }),
+        Condition::SacrificedForCost(filter) => state
+            .object(res.on_stack)
+            .and_then(|object| object.paid.as_ref())
+            .is_some_and(|paid| {
+                paid.sacrificed.is_some_and(|(object, version)| {
+                    state
+                        .source_object(baylee_core::ids::DamageSourceRef { object, version })
+                        .is_some_and(|object| {
+                            eval::matches_with_context(
+                                filter,
+                                state,
+                                object,
+                                res.controller,
+                                res.rule_context(),
+                            )
+                        })
                 })
             }),
         Condition::SourceMatches(Filter::PowerAtLeast(n)) => {

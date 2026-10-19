@@ -377,6 +377,24 @@ pub enum DelayedWhen {
         /// The journal sequence number the watch was created at.
         after: u64,
     },
+    /// "Until end of turn, whenever a player taps a [filter] for mana" (High Tide).
+    TappedForManaThisTurn {
+        /// Whose mana-tapping counts.
+        by: baylee_cards_dsl::PlayerRel,
+        /// Which permanents count.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
+    /// "Until end of turn, if target creature attacks and isn't blocked" (Delif's Cone, Delif's Cube).
+    AttacksAndIsntBlockedThisTurn {
+        /// The permanent watched.
+        card: ObjectId,
+        /// Its identity when the watch was created.
+        version: u32,
+        /// The journal sequence number the watch was created at.
+        after: u64,
+    },
 }
 
 impl DelayedWhen {
@@ -394,6 +412,8 @@ impl DelayedWhen {
                 | Self::EndOfCombatThisTurn
                 | Self::YouAttackThisTurn { .. }
                 | Self::OneOrMoreDealCombatDamageToPlayerThisTurn { .. }
+                | Self::TappedForManaThisTurn { .. }
+                | Self::AttacksAndIsntBlockedThisTurn { .. }
         )
     }
 }
@@ -709,8 +729,18 @@ pub struct PerTurn {
     pub could_have_attacked: Vec<(ObjectId, u32)>,
     /// `(target_player, drawn_card)` pairs watched by Wand of Ith this turn.
     pub wand_of_ith_targets: Vec<(PlayerId, ObjectId)>,
-    /// Attacking creatures enchanted or targeted by Runesword this turn.
-    pub runesword_attackers: Vec<(ObjectId, u32)>,
+    /// `(source, version)` pairs whose damage to creatures prevents them from
+    /// regenerating this turn.
+    pub damage_cant_regenerate_sources: Vec<(ObjectId, u32)>,
+    /// `(source, version)` pairs whose damage to creatures causes them to be
+    /// exiled instead if they die this turn.
+    pub damage_exile_if_dies_sources: Vec<(ObjectId, u32)>,
+    /// `(ability_source, tapped_object)` pairs recording permanents tapped this
+    /// turn to pay an activation cost of `ability_source` (Vodalian War Machine).
+    pub tapped_for_ability: Vec<(
+        baylee_core::ids::DamageSourceRef,
+        baylee_core::ids::DamageSourceRef,
+    )>,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -876,7 +906,9 @@ impl PerTurn {
             damage_log: Vec::new(),
             could_have_attacked: Vec::new(),
             wand_of_ith_targets: Vec::new(),
-            runesword_attackers: Vec::new(),
+            damage_cant_regenerate_sources: Vec::new(),
+            damage_exile_if_dies_sources: Vec::new(),
+            tapped_for_ability: Vec::new(),
         }
     }
 
@@ -962,7 +994,8 @@ impl PerTurn {
         self.damage_log.clear();
         self.could_have_attacked.clear();
         self.wand_of_ith_targets.clear();
-        self.runesword_attackers.clear();
+        self.damage_cant_regenerate_sources.clear();
+        self.damage_exile_if_dies_sources.clear();
     }
 }
 
@@ -2959,7 +2992,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Unblocked
         | Filter::SharesAColorWith(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
-        Filter::Not(f) => filter_reads_board_state(f),
+        Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,
     }
 }
@@ -2981,7 +3014,8 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         Filter::Not(f)
         | Filter::AttachedTo(f)
         | Filter::BlockedThisTurnBy(f)
-        | Filter::SharesAColorWith(f) => filter_reads_reference(f),
+        | Filter::SharesAColorWith(f)
+        | Filter::ControllerControls(f) => filter_reads_reference(f),
         _ => false,
     }
 }

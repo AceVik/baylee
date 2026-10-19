@@ -14,5 +14,9 @@ card!(
         types = TypeSet::SORCERY,
     ),],
     coverage = Coverage::Implemented,
-    abilities = &[spell!(&[Effect::Eureka])],
+    abilities = &[spell!(&[
+        Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone {
+            filter: &Filter::Any,
+        }
+    ])],
 );

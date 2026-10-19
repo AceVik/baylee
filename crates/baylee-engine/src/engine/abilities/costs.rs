@@ -43,7 +43,17 @@ impl<L: CardLookup> Engine<L> {
     ) -> ActivationPrice {
         let (eligible, ordinary) = casting::activation_increases(&self.state, source);
         let increase = eligible.saturating_add(ordinary);
-        let full = cost.mana.with_more_generic(increase);
+        let mut base_mana = cost.mana;
+        if cost.parts.contains(&CostPart::PayAttachedManaCost)
+            && let Some(attached) = self
+                .state
+                .object(source)
+                .and_then(|o| o.attached_to)
+                .and_then(|id| self.state.object(id))
+        {
+            base_mana = base_mana.combine(&attached.characteristics().mana_cost.with_x(0));
+        }
+        let full = base_mana.with_more_generic(increase);
         let mut mana = full;
         let off = if full.generic_total() > 0 {
             casting::reduction_amount(&self.state, reduction, player, source)
@@ -206,6 +216,12 @@ impl<L: CardLookup> Engine<L> {
                 .state
                 .object(source)
                 .is_some_and(|obj| obj.counters.get(*kind) >= *n),
+            CostPart::PayAttachedManaCost => self
+                .state
+                .object(source)
+                .and_then(|o| o.attached_to)
+                .and_then(|id| self.state.object(id))
+                .is_some(),
             _ => true,
         })
     }
@@ -247,11 +263,14 @@ impl<L: CardLookup> Engine<L> {
                         return false;
                     }
                 }
-                CostPart::SacrificeX(_) | CostPart::TapX(_) | CostPart::TapN { .. } => {
-                    let count = if let CostPart::TapN { count, .. } = part {
-                        *count
-                    } else {
-                        self.activation_x.unwrap_or(0)
+                CostPart::SacrificeX(_)
+                | CostPart::TapX(_)
+                | CostPart::TapN { .. }
+                | CostPart::ExileFromSingleGraveyard { .. } => {
+                    let count = match part {
+                        CostPart::TapN { count, .. } => *count,
+                        CostPart::ExileFromSingleGraveyard { count, .. } => u32::from(*count),
+                        _ => self.activation_x.unwrap_or(0),
                     };
                     let count = usize::try_from(count).unwrap_or(usize::MAX);
                     if cost_wizard::menu(&self.state, player, source, cost, part).len() < count {
@@ -296,7 +315,8 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
-                | CostPart::ExileFromGraveyard(_) => {
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::PutCounterOnOther { .. } => {
                     // **As many candidates as the cost asks questions.** A
                     // cost may print the same one more than once — Time
                     // Sieve's "Sacrifice five artifacts" is five
@@ -358,7 +378,8 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::RemoveCounterSelfX { .. }
                 | CostPart::PutCounterSelf { .. }
                 | CostPart::PayLifeX
-                | CostPart::PayEnergyX => {}
+                | CostPart::PayEnergyX
+                | CostPart::PayAttachedManaCost => {}
             }
         }
         true
@@ -570,6 +591,14 @@ impl<L: CardLookup> Engine<L> {
             }
             match part {
                 CostPart::TapSelf => {
+                    if let (Some(src_ref), Some(tapped_ref)) =
+                        (subject_before, self.state.source_identity(source))
+                    {
+                        self.state
+                            .per_turn
+                            .tapped_for_ability
+                            .push((src_ref, tapped_ref));
+                    }
                     self.state.set_tapped(source, true);
                     self.state.journal.record(GameEvent::ObjectTapped {
                         object: source,
@@ -704,6 +733,15 @@ impl<L: CardLookup> Engine<L> {
                         ));
                     }
                     for &card in cards {
+                        if matches!(part, CostPart::TapX(_))
+                            && let (Some(src_ref), Some(tapped_ref)) =
+                                (subject_before, self.state.source_identity(card))
+                        {
+                            self.state
+                                .per_turn
+                                .tapped_for_ability
+                                .push((src_ref, tapped_ref));
+                        }
                         let power = self
                             .state
                             .object(card)
@@ -734,7 +772,8 @@ impl<L: CardLookup> Engine<L> {
                 // wizard to pay them anywhere else. Named here rather than
                 // swept into a `_` so that a new `CostPart` is still a
                 // compile error in this match.
-                CostPart::ExileFromHand(_) | CostPart::PayLifeX => {}
+                CostPart::ExileFromHand(_) | CostPart::PayLifeX | CostPart::PayAttachedManaCost => {
+                }
                 // Through the removal door rather than off the object by
                 // hand, because the journal entry and the projection
                 // invalidation live there: a +1/+1 counter spent on Walking
@@ -825,6 +864,14 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction("invalid tap group"));
                     }
                     for &id in selected {
+                        if let (Some(src_ref), Some(tapped_ref)) =
+                            (subject_before, self.state.source_identity(id))
+                        {
+                            self.state
+                                .per_turn
+                                .tapped_for_ability
+                                .push((src_ref, tapped_ref));
+                        }
                         self.state.set_tapped(id, true);
                     }
                     for &id in selected {
@@ -832,6 +879,28 @@ impl<L: CardLookup> Engine<L> {
                             object: id,
                             cause: Cause::Cost,
                         });
+                    }
+                }
+                CostPart::ExileFromSingleGraveyard { count, .. } => {
+                    let selected = answers.next().ok_or(EngineError::IllegalAction(
+                        "unanswered graveyard exile group",
+                    ))?;
+                    let options = cost_wizard::menu(&self.state, player, source, &cost, part);
+                    let first_owner = selected
+                        .first()
+                        .and_then(|id| self.state.object(*id))
+                        .and_then(|o| o.zone_owner);
+                    if selected.len() != usize::from(*count)
+                        || selected.iter().enumerate().any(|(i, id)| {
+                            selected[..i].contains(id)
+                                || !options.contains(id)
+                                || self.state.object(*id).and_then(|o| o.zone_owner) != first_owner
+                        })
+                    {
+                        return Err(EngineError::IllegalAction("invalid graveyard exile group"));
+                    }
+                    for &id in selected {
+                        cost_wizard::pay(&mut self.state, player, part, id)?;
                     }
                 }
                 CostPart::Crew(power) | CostPart::Saddle(power) => {
@@ -844,6 +913,14 @@ impl<L: CardLookup> Engine<L> {
                         return Err(EngineError::IllegalAction("insufficient power for cost"));
                     }
                     for &creature in crew {
+                        if let (Some(src_ref), Some(tapped_ref)) =
+                            (subject_before, self.state.source_identity(creature))
+                        {
+                            self.state
+                                .per_turn
+                                .tapped_for_ability
+                                .push((src_ref, tapped_ref));
+                        }
                         cost_wizard::pay(&mut self.state, player, part, creature)?;
                     }
                 }
@@ -858,7 +935,8 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::Discard(_)
                 | CostPart::TapOther(_)
                 | CostPart::ReturnToHand(_)
-                | CostPart::ExileFromGraveyard(_) => {
+                | CostPart::ExileFromGraveyard(_)
+                | CostPart::PutCounterOnOther { .. } => {
                     let Some(&[card]) = answers.next().map(Vec::as_slice) else {
                         return Err(EngineError::IllegalAction(
                             "a cost that has to ask reached the payer unanswered",
@@ -884,6 +962,14 @@ impl<L: CardLookup> Engine<L> {
                     // (CR 608.2h).
                     if matches!(part, CostPart::TapOther(_)) {
                         paid.tapped = self.state.object(card).map(|o| (card, o.version));
+                        if let (Some(src_ref), Some(tapped_ref)) =
+                            (subject_before, self.state.source_identity(card))
+                        {
+                            self.state
+                                .per_turn
+                                .tapped_for_ability
+                                .push((src_ref, tapped_ref));
+                        }
                     }
                     if matches!(part, CostPart::Discard(_))
                         && let Some(reference) = self.state.source_identity(card)

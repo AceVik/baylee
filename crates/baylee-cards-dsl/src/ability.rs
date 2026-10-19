@@ -63,6 +63,10 @@ pub enum ActivationZone {
     BattlefieldAnyPlayer,
     /// Only opponents of this permanent's controller may activate it.
     BattlefieldOpponent,
+    /// On the battlefield, activated only by the controller of the permanent
+    /// this Aura/Equipment is attached to (Merseine: "Enchanted creature's
+    /// controller may pay").
+    BattlefieldAttachedController,
     /// From the owner's command zone.
     Command,
     /// From your hand (cycling).
@@ -461,6 +465,11 @@ pub enum Condition {
     DescendedThisTurn,
     /// Total counters of all kinds on the source is even (0 is even; Sab-Sunen, Luxa Embodied).
     EvenCountersOnSelf,
+    /// The permanent sacrificed or exiled as a cost to cast this spell or
+    /// activate this ability matched the filter as it last existed on the
+    /// battlefield (Ebon Praetor, Soul Exchange: "if the sacrificed/exiled
+    /// creature was a Thrull").
+    SacrificedForCost(&'static Filter),
 }
 
 /// Trigger conditions for triggered abilities.
@@ -725,6 +734,11 @@ pub enum Trigger {
     /// — Cockatrice's "whenever this creature blocks or becomes blocked by a
     /// non-Wall creature, destroy that creature at end of combat".
     BlocksOrBecomesBlockedBy(&'static Filter),
+    /// This creature blocks or becomes blocked by one or more creatures
+    /// matching the filter: triggers at most once per declare-blockers step
+    /// even when multiple matching blockers are declared (Dwarven Soldier:
+    /// "Whenever this creature blocks or becomes blocked by one or more Orcs").
+    BlocksOrBecomesBlockedByOneOrMore(&'static Filter),
     /// The creature this source is attached to (enchanted or equipped
     /// creature) blocks a creature matching the filter or becomes blocked by
     /// one: the Aura's own trigger, not one granted to the creature, so its

@@ -362,6 +362,12 @@ pub enum Filter {
     /// "each non-Wall creature that didn't attack this turn, except for
     /// creatures that couldn't attack").
     CouldHaveAttackedThisTurn,
+    /// Its controller controls a permanent matching the inner filter
+    /// (Seasinger: "target creature whose controller controls an Island").
+    ControllerControls(&'static Filter),
+    /// Was tapped this turn to pay an activation cost of the source permanent
+    /// (Vodalian War Machine: "each Merfolk tapped this turn to pay its cost").
+    TappedToPayForSourceThisTurn,
 }
 
 /// Zone references for filters (engine zones, DSL view).

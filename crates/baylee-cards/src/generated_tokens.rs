@@ -2344,6 +2344,17 @@ pub static HUMAN_1_1_RED: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 blue Camarid.
+pub static CAMARID_1_1_BLUE: TokenDef = TokenDef {
+    name: "Camarid",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAMARID],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2578,6 +2589,7 @@ pub static ALL: &[&TokenDef] = &[
     &tokens::WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
     &tokens::HANWEIR_THE_WRITHING_TOWNSHIP,
     &HUMAN_1_1_RED,
+    &CAMARID_1_1_BLUE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2780,4 +2792,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &INKLING_2_1_WHITE_BLACK_FLYING,
     &ILLUSION_1_1_BLUE,
     &HUMAN_1_1_RED,
+    &CAMARID_1_1_BLUE,
 ];

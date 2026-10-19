@@ -21,7 +21,8 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::ReturnSelfToHand
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
-        | CostPart::PutCounterSelf { .. } => true,
+        | CostPart::PutCounterSelf { .. }
+        | CostPart::PayAttachedManaCost => true,
         // These ask a *player* something, or ask about another permanent.
         // None of them looks the source up, so none of them cares whether it
         // is still there.
@@ -42,7 +43,9 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)
+        | CostPart::PutCounterOnOther { .. }
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,
@@ -80,7 +83,10 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::Saddle(_)
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
+        | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::ExilePermanent(_)
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::PayAttachedManaCost
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
         | CostPart::ExileFromHand(_) => false,

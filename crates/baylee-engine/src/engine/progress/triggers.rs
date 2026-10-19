@@ -291,7 +291,24 @@ impl<L: CardLookup> Engine<L> {
         while i < self.trigger_queue.len() {
             let t = &self.trigger_queue[i];
             let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
-                None
+                if t.event_mana.is_some()
+                    && t.synthetic_target.is_none()
+                    && t.synthetic_effects.is_some_and(|fx| {
+                        fx.iter().any(|effect| {
+                            matches!(
+                                effect,
+                                baylee_cards_dsl::Effect::AddMana { .. }
+                                    | baylee_cards_dsl::Effect::AddManaFor { .. }
+                                    | baylee_cards_dsl::Effect::AddManaLikeEvent { .. }
+                                    | baylee_cards_dsl::Effect::ManaForColorsAmong(_)
+                            )
+                        })
+                    })
+                {
+                    t.synthetic_effects
+                } else {
+                    None
+                }
             } else {
                 match self.trigger_abilities(t).get(t.ability_index as usize) {
                     Some(ability @ AbilityDef::Triggered { effects, .. })
@@ -334,7 +351,8 @@ impl<L: CardLookup> Engine<L> {
                 mana_ability: true,
                 countered_source: None,
                 target_lki: None,
-                subject: crate::resolve::SubjectContext::default(),
+                subject: crate::resolve::SubjectContext::default()
+                    .with_event_player(t.event_player),
                 text: crate::text_changes::TextChangeMap::IDENTITY,
                 this_way_from: None,
             };
@@ -416,9 +434,12 @@ impl<L: CardLookup> Engine<L> {
             | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
             | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
             | crate::state::DelayedWhen::LeavesBattlefield { card, version, .. }
-            | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. } => arena
-                .get(card)
-                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield && o.version == version),
+            | crate::state::DelayedWhen::LeavesBattlefieldThisTurn { card, version, .. }
+            | crate::state::DelayedWhen::AttacksAndIsntBlockedThisTurn { card, version, .. } => {
+                arena.get(card).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == version
+                })
+            }
             crate::state::DelayedWhen::LeavesBattlefieldOrUntaps {
                 card,
                 version,

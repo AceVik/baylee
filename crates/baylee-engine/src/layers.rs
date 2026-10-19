@@ -1033,6 +1033,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::AttackedDuringControllersLastTurn
         | Filter::TwiceCmcExactlyX
         | Filter::CouldHaveAttackedThisTurn
+        | Filter::ControllerControls(_)
+        | Filter::TappedToPayForSourceThisTurn
         | Filter::UnCard => false,
     }
 }
@@ -1584,7 +1586,9 @@ fn apply(
         | Modifier::CantAttackUnlessPayMana(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
-        | Modifier::CantPlayLandsAndLandsCantEnter
+        | Modifier::CantEnterBattlefield(_)
+        | Modifier::SpellsCostMoreMana(_)
+        | Modifier::CantAttackIfDefenderControls(_)
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
         | Modifier::ExileInsteadOfYourGraveyard => {}

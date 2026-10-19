@@ -3308,13 +3308,21 @@ pub enum Effect {
         /// What happens if `count` cards are exiled this way.
         then: &'static [Effect],
     },
-    /// Create a token linked in both directions to the source's presence on
-    /// the battlefield (Stangg): exile that token when the source leaves the
-    /// battlefield, and sacrifice the source when that token leaves the
-    /// battlefield.
-    CreateTokenLinkedBidirectionalLtb {
-        /// Token definition to create.
-        token: &'static TokenDef,
+    /// For each token created earlier in this resolution, register a delayed
+    /// triggered ability that triggers when the resolving source leaves the
+    /// battlefield and runs `effects` with `TargetSpec::EventObject` bound to
+    /// that token (Stangg, Dance of Many).
+    WhenSourceLeavesBattlefieldForCreatedTokens {
+        /// What the delayed trigger does for each created token.
+        effects: &'static [Effect],
+    },
+    /// For each token created earlier in this resolution, register a delayed
+    /// triggered ability that triggers when that token leaves the battlefield
+    /// and runs `effects` with the resolving source as its source (Stangg,
+    /// Dance of Many).
+    WhenCreatedTokenLeavesBattlefield {
+        /// What the delayed trigger does when the created token leaves.
+        effects: &'static [Effect],
     },
     /// "You may remove any number of `kind` counters from this creature. If
     /// you do, create that many `token` tokens" (Tetravus): stamps each
@@ -3340,13 +3348,19 @@ pub enum Effect {
     },
     /// Move the source card from exile to its owner's graveyard (All Hallow's Eve).
     MoveSourceToOwnerGraveyard,
-    /// "Each player returns all creature cards from their graveyard to the
+    /// "Each player returns all [filter] cards from their graveyard to the
     /// battlefield" under their own control (All Hallow's Eve).
-    EachPlayerGraveyardCreaturesToBattlefield,
-    /// "Starting with you, each player may put a permanent card from their
+    EachPlayerGraveyardToBattlefield {
+        /// Which cards in each player's graveyard are returned.
+        filter: &'static Filter,
+    },
+    /// "Starting with you, each player may put a [filter] card from their
     /// hand onto the battlefield. Repeat this process until no one puts a
     /// card onto the battlefield" (Eureka).
-    Eureka,
+    EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone {
+        /// Which cards in hand may be put onto the battlefield.
+        filter: &'static Filter,
+    },
     /// Tawnos's Coffin: exile target creature and all Auras attached to it,
     /// note the counters on that creature, and schedule the delayed return
     /// when the source leaves the battlefield or becomes untapped.
@@ -3387,28 +3401,40 @@ pub enum Effect {
         /// Whether the optional payment is a discard.
         discard: bool,
     },
-    /// Reveal the hand of each player matching `who` (Inquisition).
+    /// Reveal the hand of each player matching `who` (Inquisition, Amnesia, Rag Man).
     RevealHand {
         /// Whose hand is revealed.
         who: PlayerRel,
     },
-    /// Target player reveals their hand and discards all cards matching `filter`
-    /// (Amnesia).
-    RevealHandDiscardAll {
-        /// Which cards in the revealed hand are discarded.
+    /// Each player matching `who` reveals `count` cards at random from their
+    /// hand (Wand of Ith).
+    RevealRandomFromHand {
+        /// Whose hand is revealed from at random.
+        who: PlayerRel,
+        /// How many cards are revealed at random.
+        count: Amount,
+    },
+    /// Each player discards any cards in their hand that were revealed earlier
+    /// in this resolution (Wand of Ith).
+    DiscardRevealedThisWay,
+    /// Each player matching `who` discards all cards in their hand matching
+    /// `filter` (Amnesia).
+    DiscardMatching {
+        /// Whose hand is filtered and discarded from.
+        who: PlayerRel,
+        /// Which cards in hand are discarded.
         filter: &'static Filter,
     },
-    /// Target opponent reveals their hand and discards a card matching `filter`
-    /// at random (Rag Man).
-    RevealHandDiscardRandom {
-        /// Which cards in the revealed hand are eligible.
+    /// Each player matching `who` discards `count` cards matching `filter` at
+    /// random from their hand (Rag Man).
+    DiscardRandomMatching {
+        /// Whose hand is discarded from at random.
+        who: PlayerRel,
+        /// Which cards in hand are eligible.
         filter: &'static Filter,
+        /// How many matching cards are discarded at random.
+        count: Amount,
     },
-    /// Wand of Ith: target player reveals the first card they draw on their
-    /// turn; if it's a land card, unless they pay 1 life, they discard it; if
-    /// it isn't a land card, unless they pay life equal to its mana value, they
-    /// discard it.
-    WandOfIth,
     /// "For each [filter], destroy it unless any player pays `life` life"
     /// (Cleansing).
     DestroyEachUnlessAnyPlayerPaysLife {
@@ -3417,25 +3443,21 @@ pub enum Effect {
         /// Life paid by any player to save one permanent.
         life: u16,
     },
-    /// "Create a token that's a copy of target nontoken creature, except it's
-    /// an enchantment in addition to its other types. When Dance of Many leaves
-    /// the battlefield, exile that token. When that token leaves the
-    /// battlefield, sacrifice Dance of Many" (Dance of Many).
-    CreateTokenCopyOfTargetLinkedBidirectionalLtb,
-    /// "You and target opponent each flip a coin. This spell deals 1 damage to
-    /// each player whose coin comes up tails. Repeat this process until both
-    /// players' coins come up heads on the same flip" (Mana Clash).
-    ManaClash,
-    /// "Exile all [filter]. For each creature exiled this way, its controller
-    /// draws a card" (Martyr's Cry).
-    ExileAllControllerDrawsEach {
-        /// Which permanents are exiled.
-        filter: &'static Filter,
+    /// "You and target player each flip a coin. This source deals `damage`
+    /// damage to each player whose coin comes up tails. Repeat this process
+    /// until both players' coins come up heads on the same flip" (Mana Clash).
+    FlipCoinsDamageTailsRepeatUntilBothHeads {
+        /// Damage dealt to each player whose flip is tails.
+        damage: Amount,
     },
-    /// "Each player may discard up to three cards. Mind Bomb deals damage to
-    /// each player equal to 3 minus the number of cards they discarded this
-    /// way" (Mind Bomb).
-    MindBomb,
+    /// Each player matching `who` may discard up to `max` cards from their hand
+    /// (Mind Bomb).
+    DiscardUpToForPlayers {
+        /// Which players may discard (in APNAP order).
+        who: PlayerRel,
+        /// Maximum number of cards each player may discard.
+        max: u8,
+    },
     /// "Change the target of target spell or ability with a single target to
     /// target player if it targets you" (Reflecting Mirror).
     ChangeTargetToPlayerIfTargetsYou,
@@ -3454,25 +3476,96 @@ pub enum Effect {
         /// What the delayed trigger does when the source leaves.
         effects: &'static [Effect],
     },
-    /// Runesword's target rider: "Whenever that creature deals damage to a
-    /// creature this turn, destroy the other creature. A creature destroyed
-    /// this way can't be regenerated. If a creature dealt damage by the
-    /// targeted creature would die this turn, exile that creature instead."
-    RuneswordTargetRider,
-    /// "Exchange two target blocking creatures that an opponent controls. Each
-    /// of those creatures must be able to block all creatures the other was
-    /// blocking" (Sorrow's Path).
-    SorrowsPathSwapBlockers,
+    /// "A creature dealt damage by the targeted creature this turn can't be
+    /// regenerated" (Runesword).
+    TargetDamagedCreaturesCantRegenerateThisTurn,
+    /// "If a creature dealt damage by the targeted creature would die this
+    /// turn, exile that creature instead" (Runesword).
+    ExileCreaturesDamagedByTargetIfTheyDieThisTurn,
+    /// "Choose two target blocking creatures controlled by the same player. If
+    /// each of those creatures could block all creatures that the other is
+    /// blocking, remove both of them from combat. Each one then blocks all
+    /// creatures the other was blocking" (Sorrow's Path).
+    SwapBlockers,
     /// "This creature deals `amount` damage to each opponent and each
     /// planeswalker it has dealt damage to this game" (The Fallen).
     DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame {
         /// Damage dealt to each qualifying recipient.
-        amount: u16,
+        amount: Amount,
     },
-    /// "If a player sacrifices two lands or has 5 life paid for this ability,
-    /// destroy Worms of the Earth. Any player may activate this ability or pay
-    /// life for it" (Worms of the Earth upkeep trigger).
-    WormsOfTheEarthUpkeep,
+    /// In APNAP order, any player may sacrifice `count` matching permanents or
+    /// have the source deal `damage` damage to them; if a player does, run
+    /// `effects` (Worms of the Earth).
+    AnyPlayerMaySacrificeOrTakeDamageThen {
+        /// What permanents a player may sacrifice.
+        filter: &'static Filter,
+        /// How many matching permanents must be sacrificed.
+        count: u8,
+        /// Damage the source deals to the player if they choose damage instead.
+        damage: u16,
+        /// Effects that run if a player sacrifices or takes the damage.
+        effects: &'static [Effect],
+    },
+    /// Until end of turn, whenever a player matching `by` taps a permanent
+    /// matching `filter` for mana, run `effects` with that player as
+    /// `EventPlayer` and that permanent as `EventObject` (High Tide).
+    WheneverTappedForManaThisTurn {
+        /// Whose mana-tapping triggers this delayed ability.
+        by: PlayerRel,
+        /// Which permanents qualify when tapped for mana.
+        filter: &'static Filter,
+        /// Effects to run when triggered.
+        effects: &'static [Effect],
+    },
+    /// Until end of turn, when the targeted creature attacks and isn't
+    /// blocked, run `effects` with that creature as `EventObject`
+    /// (Delif's Cone, Delif's Cube).
+    WhenTargetAttacksAndIsntBlockedThisTurn {
+        /// Effects to run when the target attacks and isn't blocked this turn.
+        effects: &'static [Effect],
+    },
+    /// The event object deals `amount` damage to `target` (Farrel's Mantle:
+    /// "enchanted creature deals damage equal to its power + 2 to another
+    /// target creature").
+    EventObjectDealsDamage {
+        /// How much damage the event object deals.
+        amount: Amount,
+        /// Who or what receives the damage.
+        target: TargetSpec,
+    },
+    /// The source deals `amount` damage divided evenly, rounded down, among
+    /// all permanents on the battlefield matching `filter` (Dwarven Catapult:
+    /// "deals X damage divided evenly, rounded down, among all creatures
+    /// target opponent controls").
+    DealDamageEvenlyToFilter {
+        /// Total damage before division.
+        amount: Amount,
+        /// Which permanents share the damage evenly.
+        filter: &'static Filter,
+    },
+    /// `player` may mill `count` cards; if they don't, run `effect`
+    /// (Deep Spawn: "sacrifice it unless you mill two cards").
+    PlayerMayMillOr {
+        /// Who decides whether to mill.
+        player: PlayerRel,
+        /// How many cards must be milled (library must have at least `count`).
+        count: u8,
+        /// Effect to run if `player` declines or cannot mill `count` cards.
+        effect: &'static Effect,
+    },
+    /// For each permanent on the battlefield matching `filter`, run `effects`
+    /// with that permanent as `EventObject` and its controller as `EventPlayer`
+    /// (Heroism: "For each attacking red creature, its controller may pay…").
+    ForEachMatching {
+        /// Which permanents are iterated in battlefield order.
+        filter: &'static Filter,
+        /// Effects to run per matching permanent.
+        effects: &'static [Effect],
+    },
+    /// Each player may tap any number of untapped white creatures they control,
+    /// chooses up to two Plains for each creature tapped this way, then
+    /// destroys all Plains not chosen this way by any player (Raiding Party).
+    RaidingParty,
 }
 
 #[cfg(test)]

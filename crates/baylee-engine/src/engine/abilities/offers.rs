@@ -34,11 +34,13 @@ impl<L: CardLookup> Engine<L> {
     ) -> Vec<(ObjectId, crate::choice::CastModeKind, u32)> {
         use crate::choice::CastModeKind;
         if !self.state.effects.may_change_spell_costs()
-            || !self
-                .state
-                .effects
-                .iter()
-                .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::SpellsCostMore(_)))
+            || !self.state.effects.iter().any(|fx| {
+                matches!(
+                    fx.modifier,
+                    baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
+                )
+            })
         {
             return Vec::new();
         }
@@ -385,6 +387,9 @@ impl<L: CardLookup> Engine<L> {
                             ActivationZone::BattlefieldOpponent => {
                                 self.state.is_opponent(player, obj.controller)
                             }
+                            ActivationZone::BattlefieldAttachedController => {
+                                crate::eval::controller_of_attached(&self.state, id) == Some(player)
+                            }
                             _ => false,
                         } {
                             continue; // hand-zone abilities are scanned below
@@ -434,6 +439,9 @@ impl<L: CardLookup> Engine<L> {
                             ActivationZone::BattlefieldAnyPlayer => true,
                             ActivationZone::BattlefieldOpponent => {
                                 self.state.is_opponent(player, obj.controller)
+                            }
+                            ActivationZone::BattlefieldAttachedController => {
+                                crate::eval::controller_of_attached(&self.state, id) == Some(player)
                             }
                             _ => false,
                         } {

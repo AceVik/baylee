@@ -505,7 +505,8 @@ express at all yet.
   hand card, activation costs only), `PayLife(n)`, `PayLifeX`,
   `PayCommanderColors` (one life per distinct color among all commanders;
   a colorless commander costs zero, but no commander makes it unpayable),
-  `ExileSelf`, `ExileFromHand(filter)`, `ReturnSelfToHand`,
+  `ExileSelf`, `ExileFromHand(filter)`, `ExilePermanent(filter)` (City of
+  Shadows' "Exile a creature you control"), `ReturnSelfToHand`,
   `TapOther(filter)` (the convoke lands, Earthcraft),
   `TapX(filter)` (X untapped matching permanents you control),
   `TapN { filter, count }` (exactly N distinct untapped matching permanents you control, simultaneously),
@@ -520,6 +521,9 @@ express at all yet.
   of **your own** graveyard, the zone saying whose, so the filter says only
   what kind of card; Mines of Moria's "three cards" is the part written three
   times, one question each, the way Time Sieve writes five sacrifices),
+  `ExileFromSingleGraveyard { filter, count }` (Night Soil's "Exile two
+  creature cards from a single graveyard": `count` distinct matching cards
+  chosen from one graveyard),
   `RemoveCounterSelf { kind, n }` (the Vivid lands, Tendo Ice Bridge,
   Scavenging Ghoul's `counters::CORPSE`; the reader writes it for
   `SubCounter<n/KIND>` with a fixed `n`, never for a loyalty cost or one
@@ -530,7 +534,13 @@ express at all yet.
   `PutCounterSelf { kind, n }` (Devoted Druid: a counter put *on* the source,
   never refused — a permanent can always take one — and never doubled,
   because CR 614.16 gives a counter-doubling replacement the effects of
-  resolving spells and abilities and not costs).
+  resolving spells and abilities and not costs),
+  `PutCounterOnOther { filter, kind, n }` (Ebon Praetor's "put a -2/-1 counter
+  on a creature you control": `n` counters of `kind` put onto one chosen
+  matching permanent as an activation cost),
+  `PayAttachedManaCost` ( Merseine's "Pay enchanted creature's mana cost":
+  adds the attached permanent's printed mana cost to the activation's mana
+  cost).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;

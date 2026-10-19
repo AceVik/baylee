@@ -1072,7 +1072,10 @@ pub(crate) fn can_cast_form_paying(
             state,
             player,
             pool,
-            &cost.with_more_generic(tax).with_less_generic(reduction),
+            &cost
+                .combine(&adjustment.mana_increase)
+                .with_more_generic(tax)
+                .with_less_generic(reduction),
             SpendFor::Spell(card),
             allowance,
         )
@@ -1085,7 +1088,10 @@ pub(crate) fn can_cast_form_paying(
                     player,
                     SpendFor::Spell(card),
                     pool,
-                    &cost.with_more_generic(tax).with_less_generic(reduction),
+                    &cost
+                        .combine(&adjustment.mana_increase)
+                        .with_more_generic(tax)
+                        .with_less_generic(reduction),
                     &c.mana_cost,
                     allowance,
                 )
@@ -1149,6 +1155,7 @@ pub(crate) fn can_cast_form_paying(
         let cost = face
             .mana_cost
             .with_x(0)
+            .combine(&adjustment.mana_increase)
             .with_more_generic(tax)
             .with_less_generic(reduction);
         affordable(
@@ -1237,15 +1244,17 @@ pub(crate) fn can_cast_form_paying(
             || face_has_a_legal_target(state, lookup, player, card, 0),
             |req| kicked_targets_reachable(state, def, player, card, req),
         );
+        let kicked_cost = kicked_mana_cost(face)
+            .with_x(0)
+            .combine(&adjustment.mana_increase)
+            .with_more_generic(tax)
+            .with_less_generic(reduction);
         if reachable
             && (affordable(
                 state,
                 player,
                 kicked_pool,
-                &kicked_mana_cost(face)
-                    .with_x(0)
-                    .with_more_generic(tax)
-                    .with_less_generic(reduction),
+                &kicked_cost,
                 SpendFor::KickedSpell(card, 0, form),
                 allowance,
             ) || north_star_face_allowed(state, player, card, 0)
@@ -1254,10 +1263,7 @@ pub(crate) fn can_cast_form_paying(
                     player,
                     SpendFor::KickedSpell(card, 0, form),
                     kicked_pool,
-                    &kicked_mana_cost(face)
-                        .with_x(0)
-                        .with_more_generic(tax)
-                        .with_less_generic(reduction),
+                    &kicked_cost,
                     &face.mana_cost,
                     allowance,
                 ))
@@ -1620,13 +1626,16 @@ fn alternative_parts_payable(
         | CostPart::TapX(_)
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
-        | CostPart::PayCommanderColors => false,
+        | CostPart::PayCommanderColors
+        | CostPart::PayAttachedManaCost => false,
         CostPart::DiscardHand
         | CostPart::TapSelf
         | CostPart::UntapSelf
         | CostPart::SacrificeSelf
         | CostPart::Sacrifice(_)
         | CostPart::ExilePermanent(_)
+        | CostPart::PutCounterOnOther { .. }
+        | CostPart::ExileFromSingleGraveyard { .. }
         | CostPart::Discard(_)
         | CostPart::TapN { .. }
         | CostPart::TapOther(_)

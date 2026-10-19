@@ -305,6 +305,8 @@ impl HeuristicAgent {
         | Filter::AttackedDuringControllersLastTurn
         | Filter::TwiceCmcExactlyX
         | Filter::CouldHaveAttackedThisTurn
+        | Filter::ControllerControls(_)
+        | Filter::TappedToPayForSourceThisTurn
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.
         | Filter::OfSourceChosenColor

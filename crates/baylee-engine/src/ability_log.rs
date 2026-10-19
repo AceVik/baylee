@@ -401,7 +401,10 @@ fn mana_resolved(
     kind: Kind,
     produced: bool,
 ) {
-    if !enabled() {
+    if !enabled()
+        || !baylee_core::ids::AbilityRef::new(baylee_core::ids::CardIndex::new(0), index)
+            .is_listed_ability()
+    {
         return;
     }
     let Some(object) = state.object(source) else {

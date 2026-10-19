@@ -18,13 +18,19 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[
-        static_ability!(Filter::This, Modifier::CantPlayLandsAndLandsCantEnter),
+        static_ability!(Filter::This, Modifier::PlayersCantPlay(&Filter::LAND)),
+        static_ability!(Filter::This, Modifier::CantEnterBattlefield(&Filter::LAND)),
         triggered!(
             Trigger::StepBegin {
                 step: StepKind::Upkeep,
                 whose: PlayerRel::EachPlayer,
             },
-            &[Effect::WormsOfTheEarthUpkeep]
+            &[Effect::AnyPlayerMaySacrificeOrTakeDamageThen {
+                filter: &Filter::LAND,
+                count: 2,
+                damage: 5,
+                effects: &[Effect::destroy(TargetSpec::ThisObject)],
+            }]
         ),
     ],
 );

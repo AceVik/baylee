@@ -379,18 +379,27 @@ impl CardFace {
             _ => projected_type_line(object),
         };
 
+        let (body, text_pending) = if let Some(t) = text {
+            (split_blocks(&t.oracle_text), false)
+        } else if object.types.contains(TypeSet::DUNGEON)
+            && let Some((dungeon, active_room)) =
+                baylee_core::dungeon::Dungeon::from_public_name(&object.name)
+        {
+            (dungeon_blocks(dungeon, active_room), false)
+        } else {
+            (Vec::new(), true)
+        };
+
         Self {
             name,
             cost,
             type_line,
-            body: text
-                .map(|t| split_blocks(&t.oracle_text))
-                .unwrap_or_default(),
+            body,
             stats: stats(object),
             colors: object.colors,
             types: object.types,
             subtypes: object.subtypes,
-            text_pending: text.is_none(),
+            text_pending,
             credit: None,
         }
     }
@@ -415,6 +424,46 @@ fn stats(object: &Characteristics) -> Option<Stats> {
         });
     }
     object.loyalty.map(Stats::Loyalty)
+}
+
+/// Formats all rooms of a [`baylee_core::dungeon::Dungeon`], highlighting
+/// `active_room` as a [`TextBlock::Rules`] block (`▶ [N/M] ...`) and placing
+/// other rooms in [`TextBlock::Reminder`] blocks so the active room stands out
+/// in full previews and is selected by [`CardFace::rules`] on compact plates.
+fn dungeon_blocks(dungeon: baylee_core::dungeon::Dungeon, active_room: usize) -> Vec<TextBlock> {
+    let rooms = dungeon.rooms();
+    let effects = dungeon.room_effects();
+    let total = rooms.len();
+    rooms
+        .iter()
+        .zip(effects.iter())
+        .enumerate()
+        .map(|(idx, (&room_name, &effect_text))| {
+            let next = dungeon.next(u8::try_from(idx).unwrap_or(u8::MAX));
+            let arrows = if next.is_empty() {
+                String::new()
+            } else {
+                let targets: Vec<&str> = next
+                    .iter()
+                    .filter_map(|&n| rooms.get(usize::from(n)).copied())
+                    .collect();
+                format!(" (→ {})", targets.join(" / "))
+            };
+            if idx == active_room {
+                TextBlock::Rules(format!(
+                    "▶ [{}/{}] {room_name} — {effect_text}{arrows}",
+                    idx + 1,
+                    total
+                ))
+            } else {
+                TextBlock::Reminder(format!(
+                    "[{}/{}] {room_name} — {effect_text}{arrows}",
+                    idx + 1,
+                    total
+                ))
+            }
+        })
+        .collect()
 }
 
 /// Builds a type line out of an object's projected characteristics.
@@ -978,6 +1027,34 @@ mod tests {
         assert_eq!(
             shown_name("Snapcaster Mage", Some(&german)),
             "Snapcaster Mage"
+        );
+    }
+
+    #[test]
+    fn a_dungeon_face_lists_every_room_and_highlights_the_active_one() {
+        let mut obj = token(20, 0, "Lost Mine of Phandelver — Goblin Lair", 0, 0);
+        obj.types = TypeSet::DUNGEON;
+        obj.power = None;
+        obj.toughness = None;
+        let face = CardFace::from_object(&obj, None, None, None);
+
+        assert!(!face.text_pending);
+        assert_eq!(face.type_line, "Dungeon");
+        assert_eq!(face.body.len(), 7);
+        // Active room (room 1, Goblin Lair) is the sole Rules block and prefixed with ▶.
+        let rules: Vec<&str> = face.rules().collect();
+        assert_eq!(
+            rules,
+            vec![
+                "▶ [2/7] Goblin Lair — Create a 1/1 red Goblin creature token. (→ Storeroom / Dark Pool)"
+            ]
+        );
+        // Other rooms are Reminder blocks so they render dimmed/italic in full preview.
+        assert_eq!(
+            face.body[0],
+            TextBlock::Reminder(
+                "[1/7] Cave Entrance — Scry 1. (→ Goblin Lair / Mine Tunnels)".to_string()
+            )
         );
     }
 }

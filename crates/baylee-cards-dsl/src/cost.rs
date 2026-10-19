@@ -252,6 +252,28 @@ pub enum CostPart {
     },
     /// Exile a matching permanent you control (City of Shadows).
     ExilePermanent(&'static Filter),
+    /// Put `n` counters of `kind` on a matching permanent you control
+    /// (Tourach's Gate: "Put a -0/-1 counter on a creature you control").
+    PutCounterOnOther {
+        /// Which permanents you control are eligible.
+        filter: &'static Filter,
+        /// Which counter.
+        kind: crate::effect::CounterKind,
+        /// How many.
+        n: u16,
+    },
+    /// Exile `count` matching cards from a single graveyard (Night Soil:
+    /// "Exile two creature cards from a single graveyard").
+    ExileFromSingleGraveyard {
+        /// Eligible cards in that graveyard.
+        filter: &'static Filter,
+        /// Exact number of cards to exile from the same graveyard.
+        count: u8,
+    },
+    /// Pay the mana cost of the permanent this Aura/Equipment is attached to
+    /// (Merseine: "Enchanted creature's controller may pay enchanted
+    /// creature's mana cost").
+    PayAttachedManaCost,
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

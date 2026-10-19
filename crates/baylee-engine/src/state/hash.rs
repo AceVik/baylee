@@ -2163,6 +2163,11 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::AttackedDuringControllersLastTurn => h.u8(136),
         F::TwiceCmcExactlyX => h.u8(137),
         F::CouldHaveAttackedThisTurn => h.u8(138),
+        F::ControllerControls(inner) => {
+            h.u8(139);
+            filter_hash(h, inner);
+        }
+        F::TappedToPayForSourceThisTurn => h.u8(140),
     }
 }
 

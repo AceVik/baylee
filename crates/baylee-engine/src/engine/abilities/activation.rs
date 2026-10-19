@@ -300,6 +300,12 @@ impl<L: CardLookup> Engine<L> {
             ActivationZone::BattlefieldOpponent => self.state.object(source).is_some_and(|o| {
                 o.zone == Zone::Battlefield && self.state.is_opponent(player, o.controller)
             }),
+            ActivationZone::BattlefieldAttachedController => {
+                self.state
+                    .object(source)
+                    .is_some_and(|o| o.zone == Zone::Battlefield)
+                    && crate::eval::controller_of_attached(&self.state, source) == Some(player)
+            }
             ActivationZone::Command => self.state.object(source).is_some_and(|o| {
                 o.zone == Zone::Command && o.owner == player && !o.is_merged_component()
             }),
@@ -655,6 +661,7 @@ impl<L: CardLookup> Engine<L> {
                 target_players: chosen_players,
                 remaining: match part {
                     CostPart::TapN { count, .. } => Some(*count),
+                    CostPart::ExileFromSingleGraveyard { count, .. } => Some(u32::from(*count)),
                     CostPart::SacrificeX(_) | CostPart::TapX(_) => {
                         Some(self.activation_x.unwrap_or(0))
                     }
@@ -682,6 +689,8 @@ impl<L: CardLookup> Engine<L> {
                 )
             } else if let CostPart::TapN { count, .. } = part {
                 (u8::try_from(*count).unwrap_or(u8::MAX), None)
+            } else if let CostPart::ExileFromSingleGraveyard { count, .. } = part {
+                (*count, None)
             } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
                 (
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),
@@ -695,7 +704,10 @@ impl<L: CardLookup> Engine<L> {
                 options,
                 min: if matches!(
                     part,
-                    CostPart::SacrificeX(_) | CostPart::TapX(_) | CostPart::TapN { .. }
+                    CostPart::SacrificeX(_)
+                        | CostPart::TapX(_)
+                        | CostPart::TapN { .. }
+                        | CostPart::ExileFromSingleGraveyard { .. }
                 ) {
                     max
                 } else {

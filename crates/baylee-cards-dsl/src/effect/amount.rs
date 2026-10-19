@@ -80,6 +80,9 @@ pub enum Amount {
     /// Last battlefield toughness of the event permanent, captured on its
     /// triggered ability. Negative values count as zero.
     EventLastToughness,
+    /// Power of the event permanent (or its last battlefield power if it left,
+    /// CR 608.2h). Negative values count as zero.
+    EventPower,
     /// "The sacrificed creature's mana value": the mana value, as it last
     /// existed on the battlefield (CR 608.2h), of the permanent sacrificed
     /// to pay the cost of the spell or ability that is resolving (Eldritch
@@ -313,6 +316,10 @@ pub enum ThisWay {
     /// (CR 608.2h): Hellfire's "creatures that died this way". A creature
     /// that was regenerated, or went to exile instead, did not die.
     Died(&'static Filter),
+    /// Permanents exiled from the battlefield that matched the filter as they
+    /// last existed there (CR 608.2h): Martyr's Cry's "for each creature
+    /// exiled this way, its controller draws a card".
+    ExiledFromBattlefield(&'static Filter),
     /// Permanents returned from the battlefield to a hand that matched the
     /// filter as they last existed there: Arid Archway's "if another Desert
     /// was returned this way" (`Filter::Another` excludes the source).
@@ -333,6 +340,12 @@ pub enum ThisWay {
     /// Permanents whose controller changed (Gauntlets of Chaos: "if those
     /// permanents are exchanged this way" is two).
     ControlChanged,
+    /// Cards revealed (CR 701.20) that match the filter: Wand of Ith's
+    /// "if it's a land card".
+    Revealed(&'static Filter),
+    /// Total mana value of cards revealed this way: Wand of Ith's
+    /// "unless they pay life equal to its mana value".
+    RevealedManaValue,
 }
 
 impl Amount {

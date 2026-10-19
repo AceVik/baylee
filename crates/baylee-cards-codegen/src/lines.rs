@@ -704,6 +704,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         // stays out of `whose_trigger_fits`, where a filter is the subject.
         T::Rampage => &["rampage"],
         T::BlocksOrBecomesBlockedBy(_)
+        | T::BlocksOrBecomesBlockedByOneOrMore(_)
         | T::AttachedBlocksOrBecomesBlockedBy(_)
         | T::BecomesBlockedBy(_)
         | T::BecomesBlocked

@@ -22,7 +22,7 @@ fn reads_target(value: TargetSpec) -> bool {
 }
 fn reads_amount(value: Amount) -> bool {
     match value {
-        Amount::EventLastToughness => true,
+        Amount::EventLastToughness | Amount::EventPower => true,
         Amount::Sum { left, right } | Amount::Difference { left, right } => {
             reads_amount(*left) || reads_amount(*right)
         }
@@ -41,6 +41,7 @@ fn reads_event(effect: &Effect) -> bool {
     match effect {
         Effect::TapEventObject
         | Effect::EventObjectDealsDamageEqualToPower { .. }
+        | Effect::EventObjectDealsDamage { .. }
         | Effect::CopyEventSpellOrAbility
         | Effect::TargetsCopyEventSpellUntilEndOfTurn
         | Effect::IfEventObjectMatches { .. }

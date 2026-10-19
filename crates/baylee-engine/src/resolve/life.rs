@@ -25,6 +25,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
         | Effect::EventObjectDealsDamageEqualToPower { .. }
+        | Effect::EventObjectDealsDamage { .. }
+        | Effect::DealDamageEvenlyToFilter { .. }
         | Effect::DealDamageToTargetController { .. }
         | Effect::DealDamageEach { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
@@ -628,6 +630,38 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
             }
             assignments
         }
+        Effect::EventObjectDealsDamage { amount, target } => {
+            let Some(source) = res.event_object else {
+                return Vec::new();
+            };
+            let identity = event_object_identity(state, res);
+            let n = amount2(&amount, state, you, res);
+            let mut assignments = for_spec(source, n, target);
+            for assignment in &mut assignments {
+                assignment.source_version = identity.map(|(version, _)| version);
+            }
+            assignments
+        }
+        Effect::DealDamageEvenlyToFilter { amount, filter } => {
+            let targets: Vec<DamageTarget> = state
+                .battlefield_seen()
+                .filter(|id| {
+                    state.object(*id).is_some_and(|o| {
+                        res.chosen_player.is_none_or(|p| o.controller == p)
+                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
+                    })
+                })
+                .map(DamageTarget::Object)
+                .collect();
+            let count = u32::try_from(targets.len()).unwrap_or(u32::MAX);
+            let share = amount2(&amount, state, you, res)
+                .checked_div(count)
+                .unwrap_or(0);
+            targets
+                .into_iter()
+                .map(|to| assignment(state, res, res.source, to, share))
+                .collect()
+        }
         Effect::DealDamageToTargetController { amount } => res
             .targets
             .first()
@@ -671,7 +705,7 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                 .collect()
         }
         Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { amount } => {
-            let n = u32::from(amount);
+            let n = amount2(&amount, state, you, res);
             let entries = state.journal.entries();
             let since_source = entries
                 .iter()

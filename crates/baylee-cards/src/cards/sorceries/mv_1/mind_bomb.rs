@@ -15,5 +15,20 @@ card!(
         mana_cost = mana!("{U}"),
         types = TypeSet::SORCERY,
     ),],
-    abilities = &[spell!(&[Effect::MindBomb])],
+    abilities = &[spell!(&[
+        Effect::DiscardUpToForPlayers {
+            who: PlayerRel::EachPlayer,
+            max: 3,
+        },
+        Effect::DealDamage {
+            amount: Amount::ConstantMinus {
+                constant: 3,
+                subtract: &Amount::ThisWayBy {
+                    what: ThisWay::Discarded,
+                    who: PlayerRel::Recipient,
+                },
+            },
+            target: TargetSpec::Player(PlayerRel::EachPlayer),
+        },
+    ])],
 );

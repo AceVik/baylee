@@ -927,16 +927,103 @@ pub(super) fn exec_choice(
                 total: None,
             })
         }
-        Effect::Eureka => {
+        Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { filter } => {
             let seats = state.players.len();
             let initial_round: Vec<PlayerId> = (0..seats)
                 .map(|offset| PlayerId::new(((usize::from(you.get()) + offset) % seats) as u8))
                 .filter(|&p| !state.has_left(p))
                 .collect();
-            advance_eureka(state, res, initial_round, false)
+            advance_eureka(state, res, initial_round, false, filter)
+        }
+        Effect::PlayerMayMillOr {
+            player,
+            count,
+            effect,
+        } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            if state.zones.list(ZoneLocation::Library(player)).len() < usize::from(count) {
+                return run_nested(state, res, std::slice::from_ref(effect));
+            }
+            res.awaiting = Some(AwaitingOp::PlayerMayMill {
+                player,
+                count,
+                effect,
+            });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::RaidingParty => {
+            let remaining =
+                eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
+            advance_raiding_party(state, res, remaining, Vec::new())
         }
         _ => unreachable!("not a choice op"),
     }
+}
+
+pub(super) fn advance_raiding_party(
+    state: &mut GameState,
+    res: &mut Resolution,
+    mut remaining: Vec<PlayerId>,
+    protected: Vec<ObjectId>,
+) -> Option<Pending> {
+    while !remaining.is_empty() {
+        let asked = remaining.remove(0);
+        if state.has_left(asked) {
+            continue;
+        }
+        let options: Vec<ObjectId> = state
+            .battlefield_seen()
+            .filter(|&id| {
+                state.object(id).is_some_and(|o| {
+                    o.controller == asked
+                        && !o.status.contains(crate::object::Status::TAPPED)
+                        && o.characteristics()
+                            .types
+                            .contains(baylee_core::types::TypeSet::CREATURE)
+                        && o.characteristics()
+                            .colors
+                            .contains(baylee_core::color::Color::White)
+                })
+            })
+            .collect();
+        if !options.is_empty() {
+            let max = u8::try_from(options.len()).unwrap_or(u8::MAX);
+            res.awaiting = Some(AwaitingOp::RaidingParty {
+                asked,
+                remaining,
+                step: 0,
+                tap_count: 0,
+                protected,
+            });
+            return Some(Pending::ChooseCards {
+                player: asked,
+                options,
+                min: 0,
+                max,
+                prompt: ChoicePrompt::CostTap,
+                total: None,
+            });
+        }
+    }
+    let to_destroy: Vec<ObjectId> = state
+        .battlefield_seen()
+        .filter(|&id| {
+            !protected.contains(&id)
+                && state.object(id).is_some_and(|o| {
+                    o.characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::land::PLAINS)
+                })
+        })
+        .collect();
+    if !to_destroy.is_empty() {
+        crate::sba::destroy_all(state, &to_destroy, false);
+    }
+    None
 }
 
 pub(super) fn advance_eureka(
@@ -944,6 +1031,7 @@ pub(super) fn advance_eureka(
     res: &mut Resolution,
     mut remaining_in_round: Vec<PlayerId>,
     mut any_put_this_round: bool,
+    filter: &'static baylee_cards_dsl::Filter,
 ) -> Option<Pending> {
     loop {
         while let Some(player) = remaining_in_round.first().copied() {
@@ -957,9 +1045,17 @@ pub(super) fn advance_eureka(
                 .iter()
                 .copied()
                 .filter(|&id| {
-                    state
-                        .object(id)
-                        .is_some_and(|o| o.is_card() && o.characteristics().types.is_permanent())
+                    state.object(id).is_some_and(|o| {
+                        o.is_card()
+                            && o.characteristics().types.is_permanent()
+                            && eval::matches_with_context(
+                                filter,
+                                state,
+                                o,
+                                player,
+                                res.rule_context(),
+                            )
+                    })
                 })
                 .collect();
             if !options.is_empty() {
@@ -967,6 +1063,7 @@ pub(super) fn advance_eureka(
                     player,
                     remaining_in_round,
                     any_put_this_round,
+                    filter,
                 });
                 return Some(Pending::ChooseCards {
                     player,

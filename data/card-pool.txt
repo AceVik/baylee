@@ -9085,3 +9085,63 @@ Worms of the Earth
 Sewers of Estark
 Giant Badger
 Mana Crypt
+Balm of Restoration
+Conch Horn
+Deep Spawn
+Delif's Cone
+Delif's Cube
+Derelor
+Draconian Cylix
+Dwarven Catapult
+Dwarven Soldier
+Ebon Praetor
+Elvish Farmer
+Elvish Hunter
+Elvish Scout
+Farrel's Mantle
+Farrel's Zealot
+Farrelite Priest
+Feral Thallid
+Fungal Bloom
+Goblin Flotilla
+Goblin Grenade
+Goblin Kites
+Goblin Warrens
+Hand of Justice
+Heroism
+High Tide
+Homarid
+Homarid Spawning Bed
+Homarid Warrior
+Icatian Javelineers
+Icatian Moneychanger
+Icatian Skirmishers
+Initiates of the Ebon Hand
+Merseine
+Mindstab Thrull
+Necrite
+Night Soil
+Orcish Captain
+Orcish Spy
+Orgg
+Raiding Party
+Seasinger
+Soul Exchange
+Spirit Shield
+Spore Cloud
+Spore Flower
+Svyelunite Priest
+Thallid
+Thallid Devourer
+Thelon's Chant
+Thelon's Curse
+Thelonite Druid
+Thorn Thallid
+Thrull Champion
+Thrull Wizard
+Tidal Flats
+Tidal Influence
+Tourach's Chant
+Tourach's Gate
+Vodalian War Machine
+Zelyon Sword

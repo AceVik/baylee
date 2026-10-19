@@ -34,7 +34,9 @@ card!(
                     kind: counters::SCREAM,
                     then: &[
                         Effect::MoveSourceToOwnerGraveyard,
-                        Effect::EachPlayerGraveyardCreaturesToBattlefield,
+                        Effect::EachPlayerGraveyardToBattlefield {
+                            filter: &Filter::CREATURE,
+                        },
                     ],
                 },
             ],

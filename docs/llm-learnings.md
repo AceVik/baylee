@@ -6,6 +6,25 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-19 — *Fallen Empires* (`fem`, 102/102) and retroactive DSL decomposition (*The Dark* / *Legends*)
+
+Completing all 67 remaining cards of *Fallen Empires* (`16 Coverage::Generated` via `scriptgen` + `51 Coverage::Implemented`) alongside retroactively decomposing single-card variants from *The Dark* and *Legends* surfaced five durable rules:
+
+1. **Break single-card variants into orthogonal primitives ("klein bröseln").**
+   - `CostPart::SacrificeChosenToAddCounters` was replaced by `CostPart::SacrificeChosenRemembering` + `Effect::PutCountersOnSource` with `CountExpr::RememberedCostCount`, allowing any cost-to-effect count handoff to reuse the same stack/cost-wizard remembrance slot (`chosen_cost_count`).
+   - `TriggerEvent::CreatureDealtDamageBySourceDiesThisTurn` became `PermanentFilter::DamagedBySourceThisTurn` on standard `ChangesZone` triggers.
+   - `Modifier::PreventAllDamageToAndByAttached` split into `Modifier::PreventAllDamageTo` and `Modifier::PreventAllDamageBy`.
+   - `Effect::DanceOfManyToken` became `TokenSpec::CopyOfTarget` with composable `TokenLink` (`ExileWhenSourceLeaves`) and `SacrificeAtUpkeepUnlessCost`.
+   - Modular mode selection based on counters (*Homarid*'s tide cycle) uses `CountExpr::SourceCounter` + `Condition::CountModulusEq` rather than custom trigger/effect variants.
+2. **Keep `can_cast` and `SpellAdjustment::price` in lockstep for colored spell taxes.**
+   `Modifier::SpellsCostMoreMana` (*Derelor*) increases `adjustment.mana_increase`. Both `SpellAdjustment::price` (used during `cast_wizard`) and `can_cast` (`probe`, `probe_normal`, `probe_back`, and `kicked` affordability checks in `crates/baylee-engine/src/casting.rs`) must `.combine(&adjustment.mana_increase)`, otherwise `every_implemented_card_survives_a_game` will offer a cast in `legal.castable` whose wizard subsequently has no payable mana combination.
+3. **Pool-wide census and vocabulary tables in `baylee-engine`, `baylee-cards`, `baylee-cards-dsl`, and `baylee-ai`.**
+   Adding new DSL variants (`CostPart`, `Effect`, `Modifier`, `CountExpr`, `TokenSpec`, `PermanentFilter`) or promoting hand-owned cards requires updating:
+   - `docs/card-dsl.md` (checked against `baylee-cards-dsl` source AST by `docs_sync` tests),
+   - `crates/baylee-cards/src/lints/tests/entries.rs` (custom counter carrier ceiling),
+   - `crates/baylee-engine/src/effects.rs` (`THE_CENSUS`), `land_mana_tests.rs`, `this_object_tests.rs`, and `vocabulary_tests.rs`,
+   - `crates/baylee-ai/src/tests/worth_tests.rs` (implemented pool count `(readers, total)`).
+
 ## 2026-10-19 — Generated baseline verification (Packages 1–6: all 4,969 cards promoted)
 
 Verifying the entire frozen `Coverage::Generated` baseline in six mechanical

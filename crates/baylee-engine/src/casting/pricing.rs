@@ -319,6 +319,7 @@ pub(crate) struct SpellAdjustment {
     pub increase: u32,
     pub eligible_increase: u32,
     pub reduction: u32,
+    pub mana_increase: ManaCost,
 }
 impl SpellAdjustment {
     pub(crate) fn allowance(
@@ -335,7 +336,8 @@ impl SpellAdjustment {
     }
 
     pub(crate) fn price(self, raw: ManaCost, printed_reduction: u32) -> ManaCost {
-        raw.with_more_generic(self.increase)
+        raw.combine(&self.mana_increase)
+            .with_more_generic(self.increase)
             .with_less_generic(self.reduction.saturating_add(printed_reduction))
     }
 }
@@ -346,6 +348,7 @@ fn has_spell_adjustments(state: &GameState) -> bool {
             matches!(
                 fx.modifier,
                 baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                    | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                     | baylee_cards_dsl::Modifier::SpellsCostLess(_)
             )
         })
@@ -361,6 +364,7 @@ pub(crate) fn spell_adjustment(
         increase: commander_tax(state, player, object.id),
         eligible_increase: 0,
         reduction: 0,
+        mana_increase: ManaCost::ZERO,
     };
     if !has_spell_adjustments(state) {
         return adjustment;
@@ -373,24 +377,27 @@ pub(crate) fn spell_adjustment(
     let projected = crate::layers::recompute(state, &spell);
     spell.base = std::sync::Arc::new(projected.characteristics);
     for effect in state.effects.iter() {
-        let slot = match effect.modifier {
+        match effect.modifier {
             baylee_cards_dsl::Modifier::SpellsCostMore(amount) => {
-                (&mut adjustment.increase, amount)
+                if crate::effects::applies_to(state, effect, &spell) {
+                    adjustment.increase = adjustment.increase.saturating_add(amount);
+                    if super::effect_is_un(state, effect.source) {
+                        adjustment.eligible_increase =
+                            adjustment.eligible_increase.saturating_add(amount);
+                    }
+                }
             }
-            baylee_cards_dsl::Modifier::SpellsCostLess(amount) => {
-                (&mut adjustment.reduction, amount)
-            }
-            _ => continue,
-        };
-        if crate::effects::applies_to(state, effect, &spell) {
-            *slot.0 = slot.0.saturating_add(slot.1);
-            if matches!(
-                effect.modifier,
-                baylee_cards_dsl::Modifier::SpellsCostMore(_)
-            ) && super::effect_is_un(state, effect.source)
+            baylee_cards_dsl::Modifier::SpellsCostMoreMana(extra)
+                if crate::effects::applies_to(state, effect, &spell) =>
             {
-                adjustment.eligible_increase = adjustment.eligible_increase.saturating_add(slot.1);
+                adjustment.mana_increase = adjustment.mana_increase.combine(&extra);
             }
+            baylee_cards_dsl::Modifier::SpellsCostLess(amount)
+                if crate::effects::applies_to(state, effect, &spell) =>
+            {
+                adjustment.reduction = adjustment.reduction.saturating_add(amount);
+            }
+            _ => {}
         }
     }
     adjustment
@@ -409,6 +416,7 @@ pub(crate) fn face_adjustment(
             increase: commander_tax(state, player, card),
             eligible_increase: 0,
             reduction: 0,
+            mana_increase: ManaCost::ZERO,
         };
     }
     let Some(object) = state.object(card) else {
@@ -435,7 +443,8 @@ pub(crate) fn spell_increase(
     player: PlayerId,
     object: &crate::object::GameObject,
 ) -> u32 {
-    spell_adjustment(state, player, object).increase
+    let adj = spell_adjustment(state, player, object);
+    adj.increase.saturating_add(adj.mana_increase.cmc())
 }
 pub(crate) fn face_increase(
     state: &GameState,
@@ -445,7 +454,8 @@ pub(crate) fn face_increase(
     face: usize,
     form: Option<SpellForm>,
 ) -> u32 {
-    face_adjustment(state, player, card, def, face, form).increase
+    let adj = face_adjustment(state, player, card, def, face, form);
+    adj.increase.saturating_add(adj.mana_increase.cmc())
 }
 
 /// Additional generic mana for activating an ability of this object. The
@@ -576,6 +586,7 @@ mod tests {
                     let adjusted = SpellAdjustment {
                         increase,
                         eligible_increase: 0,
+                        mana_increase: ManaCost::ZERO,
                         reduction,
                     }
                     .price(cost, 0);

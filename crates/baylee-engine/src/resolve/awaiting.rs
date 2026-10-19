@@ -242,6 +242,8 @@ pub enum AwaitingOp {
         remaining_in_round: Vec<PlayerId>,
         /// Whether any player has put a permanent onto the battlefield in the current round.
         any_put_this_round: bool,
+        /// Which cards in hand may be put onto the battlefield.
+        filter: &'static baylee_cards_dsl::Filter,
     },
     /// A non-targeted, optional behold from hand or battlefield.
     Behold {
@@ -937,15 +939,6 @@ pub enum AwaitingOp {
         /// about and whether the library is the destination in question.
         remaining: Vec<(PlayerId, ObjectId, bool)>,
     },
-    /// Wand of Ith's life payment question for the revealed random card.
-    WandOfIth {
-        /// Target player whose hand card was revealed.
-        player: PlayerId,
-        /// Randomly chosen card in `player`'s hand.
-        card: ObjectId,
-        /// Life payment that prevents the discard.
-        life: u32,
-    },
     /// Cleansing's per-permanent APNAP life-payment loop.
     Cleansing {
         /// Player currently asked to pay `life` life for `permanents[current_idx]`.
@@ -961,26 +954,56 @@ pub enum AwaitingOp {
         /// Life payment per permanent.
         life: u16,
     },
-    /// Mind Bomb's APNAP up-to-three discard selection.
-    MindBomb {
+    /// Per-player up-to-`max` discard selection (`Effect::DiscardUpToForPlayers`).
+    DiscardUpToForPlayers {
         /// Player currently choosing cards to discard.
         asked: PlayerId,
-        /// Remaining players in APNAP order.
+        /// Remaining players in order.
         remaining: Vec<PlayerId>,
         /// Accumulated `(card, player)` discards.
         discards: Vec<(ObjectId, PlayerId)>,
-        /// Accumulated `(player, damage)` shares.
-        damage: Vec<(PlayerId, u32)>,
+        /// Maximum cards each player may discard.
+        max: u8,
     },
-    /// Worms of the Earth's upkeep APNAP sacrifice-or-damage loop.
-    WormsOfTheEarth {
+    /// APNAP sacrifice-or-damage loop (`Effect::AnyPlayerMaySacrificeOrTakeDamageThen`).
+    AnyPlayerSacrificeOrDamage {
         /// Player currently answering.
         asked: PlayerId,
         /// Remaining players in APNAP order.
         remaining: Vec<PlayerId>,
-        /// Step for `asked`: `0` = ask whether to sacrifice 2 lands,
-        /// `1` = choosing 2 lands, `2` = ask whether to take 5 damage.
+        /// Step for `asked`: `0` = ask whether to sacrifice `count` permanents,
+        /// `1` = choosing `count` permanents, `2` = ask whether to take `damage`.
         step: u8,
+        /// Filter for permanents that may be sacrificed.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Number of permanents to sacrifice.
+        count: u8,
+        /// Damage to take as the alternative.
+        damage: u16,
+        /// Effects to run if a player does either.
+        effects: &'static [Effect],
+    },
+    /// Player may mill `count` cards; otherwise `effect` runs (`Effect::PlayerMayMillOr`).
+    PlayerMayMill {
+        /// Player offered the mill option.
+        player: PlayerId,
+        /// Number of cards to mill if accepted.
+        count: u8,
+        /// Fallback effect if declined.
+        effect: &'static Effect,
+    },
+    /// Raiding Party APNAP tap-and-protect loop (`Effect::RaidingParty`).
+    RaidingParty {
+        /// Player currently choosing.
+        asked: PlayerId,
+        /// Remaining players in APNAP order.
+        remaining: Vec<PlayerId>,
+        /// `0` = choosing untapped white creatures to tap, `1` = choosing Plains to keep.
+        step: u8,
+        /// Number of white creatures tapped in step 0 by `asked`.
+        tap_count: u8,
+        /// Plains protected from destruction so far.
+        protected: Vec<ObjectId>,
     },
 }
 
@@ -1038,11 +1061,13 @@ impl AwaitingOp {
                 player,
                 remaining_in_round,
                 any_put_this_round,
+                filter,
             } => crate::state::structural_fingerprint(&(
                 24_u8,
                 player,
                 remaining_in_round,
                 any_put_this_round,
+                filter,
             )),
             Self::BattleDefeatCast { card } => crate::state::structural_fingerprint(&(23_u8, card)),
             Self::DamageShieldSource { kind } => {

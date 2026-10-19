@@ -320,3 +320,143 @@ fn mindcensor_search_exposes_only_the_top_four_to_the_searcher_including_nonmatc
         .unwrap();
     assert!(seen_by(&engine, me).looking_at.is_empty());
 }
+
+#[test]
+fn amnesia_reveals_target_hand_to_every_seat_and_keeps_remaining_hand_and_bystander_hand_hidden() {
+    let caster = PlayerId::new(0);
+    let target = PlayerId::new(1);
+    let bystander = PlayerId::new(2);
+    let mut preset = mixed_print_preset();
+    preset.seats.push(preset.seats[1].clone());
+    preset.seats[0].starting_hand = Some(vec![entry("Amnesia")]);
+    preset.seats[0].starting_battlefield = vec![entry("Island"); 6];
+    preset.seats[1].starting_hand = Some(vec![
+        entry("Forest"),
+        entry("Lightning Bolt"),
+        entry("Sol Ring"),
+    ]);
+    preset.seats[2].starting_hand = Some(vec![entry("Counterspell")]);
+    let mut engine = Engine::new(&preset, Registry).unwrap();
+    let view = settle(&mut engine, None);
+    let target_hand = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Hand(target))
+        .clone();
+    assert_eq!(target_hand.len(), 3);
+    let target_forest = seen_by(&engine, target)
+        .hand
+        .iter()
+        .find(|o| o.name == "Forest")
+        .unwrap()
+        .id;
+    let bystander_card = engine.state().zones.list(ZoneLocation::Hand(bystander))[0];
+
+    let mut log = GameLog::new(engine.state());
+    let from = log.len();
+    for land in view.battlefield.iter().filter(|o| o.controller == caster) {
+        engine
+            .apply(
+                caster,
+                PlayerAction::ActivateManaAbility { source: land.id },
+            )
+            .unwrap();
+    }
+    let amnesia = view.hand.iter().find(|o| o.name == "Amnesia").unwrap().id;
+    cast_and_resolve_on_player(&mut engine, caster, amnesia, target);
+    log.consume(engine.state());
+
+    // Every seat is told the entire revealed hand of `target` (Forest, Lightning Bolt, Sol Ring),
+    // and never `bystander_card`.
+    for seat in [caster, target, bystander] {
+        let told: Vec<LogEvent> = log
+            .told(seat, from, log.len())
+            .into_iter()
+            .map(|line| line.event)
+            .collect();
+        let revealed_ids: Vec<ObjectId> = told
+            .iter()
+            .filter_map(|event| match event {
+                LogEvent::Revealed { cards, .. } => Some(cards.iter()),
+                _ => None,
+            })
+            .flatten()
+            .filter_map(|obj| match obj {
+                LogObject::Known {
+                    id, card: Some(_), ..
+                } => Some(*id),
+                _ => None,
+            })
+            .collect();
+        for &hand_id in &target_hand {
+            assert!(
+                revealed_ids.contains(&hand_id),
+                "{seat:?} must see {hand_id:?} in LogEvent::Revealed: {told:?}"
+            );
+        }
+        assert!(
+            !revealed_ids.contains(&bystander_card),
+            "{seat:?} must not see bystander's hand card in LogEvent::Revealed"
+        );
+    }
+
+    // After resolution, Forest remains in `target`'s hand and is hidden from `caster` and `bystander`
+    // in their current PlayerViews, while `bystander_card` is hidden from `caster` and `target`.
+    for observer in [caster, bystander] {
+        let obs_view = seen_by(&engine, observer);
+        assert!(obs_view.looking_at.is_empty());
+        let wire = serde_json::to_string(&obs_view).unwrap();
+        assert!(
+            !wire.contains("Forest"),
+            "{observer:?}'s view must not name target's remaining Forest in hand"
+        );
+        assert!(
+            !obs_view.hand.iter().any(|o| o.id == target_forest),
+            "{observer:?} must not have target's Forest in view.hand"
+        );
+    }
+    for observer in [caster, target] {
+        let obs_view = seen_by(&engine, observer);
+        let wire = serde_json::to_string(&obs_view).unwrap();
+        assert!(
+            !wire.contains("Counterspell"),
+            "{observer:?}'s view must not name bystander's Counterspell in hand"
+        );
+    }
+}
+
+fn cast_and_resolve_on_player(
+    engine: &mut Engine<Registry>,
+    caster: PlayerId,
+    spell: ObjectId,
+    target: PlayerId,
+) {
+    engine
+        .apply(caster, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChoosePlayer { player, .. } => {
+                engine
+                    .apply(player, PlayerAction::ChoosePlayer(target))
+                    .unwrap();
+            }
+            Pending::ChooseTargets { player, .. } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![target],
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::Priority { player, .. } if !engine.state().zones.stack_is_empty() => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            _ => break,
+        }
+    }
+    assert!(engine.state().zones.stack_is_empty(), "spell resolved");
+}

@@ -465,6 +465,35 @@ pub fn matches_projected_with_context(
         Filter::PowerLessThanSourcePower => below_source_power(chars.power, state, this),
         Filter::ToughnessLessThanSourcePower => below_source_power(chars.toughness, state, this),
         Filter::InZone(z) => obj.zone.matches_ref(*z),
+        Filter::ControllerControls(inner) => state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|other| {
+                other.controller == obj.controller
+                    && matches_with_context(
+                        inner,
+                        state,
+                        other,
+                        obj.controller,
+                        RuleContext {
+                            source: id,
+                            ..context
+                        },
+                    )
+            })
+        }),
+        Filter::TappedToPayForSourceThisTurn => {
+            last_battlefield_version(state, this).is_some_and(|src_ver| {
+                state.per_turn.tapped_for_ability.contains(&(
+                    baylee_core::ids::DamageSourceRef {
+                        object: this,
+                        version: src_ver,
+                    },
+                    baylee_core::ids::DamageSourceRef {
+                        object: obj.id,
+                        version: obj.version,
+                    },
+                ))
+            })
+        }
     }
 }
 
@@ -934,6 +963,7 @@ pub fn amount_with_context(
         | Amount::TargetToughness
         | Amount::TargetCmc
         | Amount::EventLastToughness
+        | Amount::EventPower
         | Amount::EventManaValue
         | Amount::EventAmount
         | Amount::TargetsPutIntoGraveyard
@@ -1102,6 +1132,16 @@ fn visit_zone(
             state.battlefield_seen().for_each(visit);
             return;
         }
+        ZoneSel::GraveyardOpponents => {
+            for player in &state.players {
+                if !player.has_lost() && state.is_opponent(player.id, you) {
+                    for &id in state.zones.list(ZoneLocation::Graveyard(player.id)) {
+                        visit(id);
+                    }
+                }
+            }
+            return;
+        }
         ZoneSel::GraveyardAll => {
             for player in &state.players {
                 for &id in state.zones.list(ZoneLocation::Graveyard(player.id)) {
@@ -1251,6 +1291,14 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
+        Condition::SacrificedForCost(filter) => state
+            .object(source)
+            .and_then(|object| object.paid.as_ref())
+            .and_then(|paid| paid.sacrificed)
+            .and_then(|(object, version)| {
+                state.source_object(baylee_core::ids::DamageSourceRef { object, version })
+            })
+            .is_some_and(|object| matches_with_context(filter, state, object, you, context)),
         // These need the triggering incarnation, supplied separately, or a
         // resolution (`resolve::immediate::resolution_condition`).
         Condition::ControlCountExceptEvent(_, _)
