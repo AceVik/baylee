@@ -40,7 +40,11 @@ pub(crate) enum SheetPress {
     Close,
     GotIt,
     Safety(String),
-    Verify(String, bool),
+    Verify {
+        tag: String,
+        expected: Vec<([u8; 32], [u8; 32])>,
+    },
+    Unverify(String),
     WhispersFrom(WhispersFrom),
     Requests,
     ShareTable,
@@ -105,11 +109,8 @@ fn presses(
                 ui.sheet = None;
             }
             SheetPress::Safety(tag) => ui.sheet = Some(Sheet::Safety(tag)),
-            SheetPress::Verify(tag, on) => host.act(if on {
-                Intent::Verify { tag }
-            } else {
-                Intent::Unverify { tag }
-            }),
+            SheetPress::Verify { tag, expected } => host.act(Intent::Verify { tag, expected }),
+            SheetPress::Unverify(tag) => host.act(Intent::Unverify { tag }),
             SheetPress::WhispersFrom(from) => host.act(Intent::SetSettings(SocialSettings {
                 whispers_from: from,
                 ..settings
@@ -356,7 +357,7 @@ fn safety_block(
             commands,
             fonts,
             ChatPhrase::ClearVerified.text(lang),
-            SheetPress::Verify(tag.to_string(), false),
+            SheetPress::Unverify(tag.to_string()),
             false,
         )
     } else {
@@ -364,7 +365,10 @@ fn safety_block(
             commands,
             fonts,
             ChatPhrase::MarkVerified.text(lang),
-            SheetPress::Verify(tag.to_string(), true),
+            SheetPress::Verify {
+                tag: tag.to_string(),
+                expected: safety.expected,
+            },
             true,
         )
     };
@@ -391,7 +395,15 @@ fn sync(
         *drawn = None;
         return;
     };
-    let key = (machine.revision(), format!("{sheet:?}"), ui.forget_armed);
+    let backup = host.vault.sync_status();
+    let key = (
+        machine.revision(),
+        format!(
+            "{sheet:?}-{}",
+            backup.map_or("", |status| status.phrase().text(Lang::En))
+        ),
+        ui.forget_armed,
+    );
     if drawn.as_ref() == Some(&key) && !roots.is_empty() {
         return;
     }
@@ -482,9 +494,19 @@ fn sync(
         .id();
     commands.entity(head).add_children(&[name, close]);
     let mut kids = vec![head];
+    if let Some(backup) = backup {
+        kids.push(words(
+            &mut commands,
+            &fonts,
+            backup.phrase().text(lang).to_string(),
+            tokens::MUTED,
+            11.5,
+        ));
+    }
     let note = machine.encryption_note();
     let home = match note.home {
         KeyHome::Password => ChatPhrase::KeysInPasswordVault,
+        KeyHome::Central => ChatPhrase::KeysInCentralVault,
         KeyHome::Keychain => ChatPhrase::KeysInKeychain,
         KeyHome::File => ChatPhrase::KeysInFile,
         KeyHome::Memory | KeyHome::Unknown => ChatPhrase::KeysInMemory,
@@ -713,7 +735,7 @@ fn sync(
                     ..default()
                 });
                 commands.entity(row).add_child(text);
-                if !device.this {
+                if !device.this && note.home != KeyHome::Central {
                     let b = button(
                         &mut commands,
                         &fonts,
@@ -725,22 +747,39 @@ fn sync(
                 }
                 kids.push(row);
             }
-            let forget = button(
-                &mut commands,
-                &fonts,
-                ChatPhrase::ForgetDevice.text(lang),
-                SheetPress::Forget,
-                ui.forget_armed,
-            );
-            kids.push(forget);
-            if ui.forget_armed {
+            if machine.encryption_note().home == KeyHome::Central {
                 kids.push(words(
                     &mut commands,
                     &fonts,
-                    ChatPhrase::ForgetConfirm.text(lang).to_string(),
-                    palette::DANGER,
-                    12.0,
+                    ChatPhrase::CentralDeviceSignOut.text(lang).to_string(),
+                    tokens::MUTED,
+                    11.5,
                 ));
+            } else {
+                kids.push(button(
+                    &mut commands,
+                    &fonts,
+                    ChatPhrase::SafetyButton.text(lang),
+                    SheetPress::Safety(machine.me().tag.clone()),
+                    false,
+                ));
+                let forget = button(
+                    &mut commands,
+                    &fonts,
+                    ChatPhrase::ForgetDevice.text(lang),
+                    SheetPress::Forget,
+                    ui.forget_armed,
+                );
+                kids.push(forget);
+                if ui.forget_armed {
+                    kids.push(words(
+                        &mut commands,
+                        &fonts,
+                        ChatPhrase::ForgetConfirm.text(lang).to_string(),
+                        palette::DANGER,
+                        12.0,
+                    ));
+                }
             }
             let blocked = &machine.contacts().blocked;
             if !blocked.is_empty() {

@@ -81,6 +81,7 @@ fn completed_unlock_uses_preferences_changed_after_worker_started() {
     let (sender, receiver) = mpsc::channel();
     sender
         .send(Ok(Ready {
+            sync: None,
             machine,
             effects: vec![],
             disk: Box::new(social::disk::MemoryDisk::new()),

@@ -149,7 +149,7 @@ Version: $debversion
 Architecture: $debarch
 Maintainer: Baylee (AceVik) <AceVik@users.noreply.github.com>
 Installed-Size: $size
-Depends: libc6 (>= 2.35), libasound2 | libasound2t64, libudev1, libxkbcommon-x11-0, libwayland-client0, libvulkan1
+Depends: libc6 (>= 2.35), libasound2 | libasound2t64, libudev1, libxkbcommon-x11-0, libwayland-client0, libvulkan1, libsecret-1-0
 Section: games
 Priority: optional
 Homepage: https://github.com/AceVik/baylee

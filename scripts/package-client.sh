@@ -64,9 +64,9 @@ EOF
         ;;
     *-linux-*) cat <<'EOF'
 
-Linux: needs a Vulkan driver plus the ALSA, udev, X11/Wayland and xkbcommon
+Linux: needs a Vulkan driver plus the ALSA, udev, X11/Wayland, xkbcommon and libsecret
 runtime libraries (on Debian/Ubuntu: libasound2 libudev1 libxkbcommon-x11-0
-libwayland-client0).
+libwayland-client0 libsecret-1-0).
 EOF
         ;;
     esac

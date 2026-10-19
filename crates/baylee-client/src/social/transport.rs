@@ -160,7 +160,7 @@ pub(crate) enum LinkNews {
 #[derive(Default)]
 pub(crate) struct Socket {
     /// The live socket. Behind a `Mutex` only to be `Sync`.
-    link: Mutex<Option<(crate::net::SocketSender, ewebsock::WsReceiver)>>,
+    link: Mutex<Option<(crate::net::SocketSender, crate::transport::WsReceiver)>>,
     /// Where the dial stands.
     dial: Option<TicketDial>,
     /// Whether the machine wants the socket at all.
@@ -321,7 +321,7 @@ impl Socket {
             let Some((_, receiver)) = link.as_mut() else {
                 return;
             };
-            while let Some(event) = receiver.try_recv() {
+            for event in crate::transport::drain_socket(receiver) {
                 match event {
                     ewebsock::WsEvent::Opened => {
                         if let Some(dial) = self.dial.as_mut() {

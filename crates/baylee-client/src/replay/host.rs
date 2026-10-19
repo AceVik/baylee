@@ -25,7 +25,7 @@ use super::{Loading, Origin, ReplayAsk, ReplayStatus, SharedTimeline};
 use crate::host::{DuelHost, HostMessage};
 
 /// Where a hosted tape is asked for.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct HostedAccess {
     /// The gateway's address.
     pub gateway: String,
@@ -37,8 +37,17 @@ pub struct HostedAccess {
     pub game: String,
 }
 
+impl std::fmt::Debug for HostedAccess {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostedAccess")
+            .field("game", &self.game)
+            .field("token", &"<redacted>")
+            .finish_non_exhaustive()
+    }
+}
+
 /// Where a replay's tape comes from.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ReplaySource {
     /// A kept record (or a `BAYLEE_REPLAY` record file), played again here
     /// on a worker. `bytes` is the record's JSON Lines, inflated.
@@ -60,6 +69,23 @@ pub enum ReplaySource {
     },
     /// A hosted game, re-run by the gateway.
     Hosted(HostedAccess),
+}
+
+impl std::fmt::Debug for ReplaySource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Replay bytes and player names can contain private account/game data.
+        match self {
+            Self::Record { bytes, .. } => f
+                .debug_struct("Record")
+                .field("bytes", &bytes.len())
+                .finish_non_exhaustive(),
+            Self::Tape { gzip } => f
+                .debug_struct("Tape")
+                .field("compressed_bytes", &gzip.len())
+                .finish_non_exhaustive(),
+            Self::Hosted(access) => f.debug_tuple("Hosted").field(access).finish(),
+        }
+    }
 }
 
 /// The place a new tape opens at: the record input of the step shown
@@ -617,7 +643,9 @@ fn ask(
         .insert("Authorization", format!("Bearer {}", access.token));
     // A projection takes seconds; the gateway gives a job sixty.
     request.timeout = Some(std::time::Duration::from_secs(75));
-    crate::transport::fetch(request, move |answer| match answer {
+    // The gateway's MAX_TAPE_BYTES is 32 MiB. Enforce it while receiving,
+    // before a hostile gateway can allocate an unbounded response here.
+    crate::transport::fetch_limited(request, 32 * 1024 * 1024, move |answer| match answer {
         Ok(response) if response.ok => {
             // Gzip as the route sends it; JSON Lines if something on the
             // way inflated it (a `Content-Encoding` honoured in transit).
@@ -626,13 +654,20 @@ fn ask(
             } else {
                 response.bytes
             });
+            let tape = match Tape::read(&gzip) {
+                Ok(tape) => tape,
+                Err(error) => {
+                    let _ = tx.send(Err(error.to_string()));
+                    return;
+                }
+            };
             if let Ok(mut tapes) = TAPES.lock() {
                 tapes.retain(|(k, _)| *k != key);
                 tapes.push((key, Arc::clone(&gzip)));
                 let over = tapes.len().saturating_sub(KEPT_TAPES);
                 tapes.drain(..over);
             }
-            let _ = tx.send(Tape::read(&gzip).map_err(|e| e.to_string()));
+            let _ = tx.send(Ok(tape));
         }
         Ok(response) if response.status == 502 && again => {
             ask(access, perspective, verify, key, tx, false);

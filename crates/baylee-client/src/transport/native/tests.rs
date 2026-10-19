@@ -8,6 +8,87 @@ use tungstenite::{Message, WebSocket};
 
 const WAIT: Duration = Duration::from_secs(5);
 
+// An owned, finite HTTP peer tests limits after transfer/content decoding,
+// not just a Vec length check on already-buffered response bytes.
+fn http_reply(wire: Vec<u8>, limit: usize) -> ehttp::Result<ehttp::Response> {
+    use std::io::{Read as _, Write as _};
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback HTTP");
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}/bounded", listener.local_addr().unwrap());
+    let peer = std::thread::spawn(move || {
+        let deadline = Instant::now() + WAIT;
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline, "HTTP client did not connect");
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("HTTP accept: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream.set_read_timeout(Some(WAIT)).unwrap();
+        stream.set_write_timeout(Some(WAIT)).unwrap();
+        let mut request = Vec::new();
+        while !request.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            request.push(byte[0]);
+            assert!(request.len() < 16_384, "request header limit");
+        }
+        stream.write_all(&wire).unwrap();
+    });
+    let response =
+        super::fetch_blocking_limited(&ehttp::Request::get(url).with_timeout(Some(WAIT)), limit);
+    peer.join().expect("owned HTTP fixture exited");
+    response
+}
+
+#[test]
+fn http_limits_cover_declared_chunked_close_delimited_and_inflated_bodies() {
+    use std::io::Write as _;
+    for bytes in [b"12345678".as_slice(), b"123456789".as_slice()] {
+        let mut declared = format!(
+            "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+            bytes.len()
+        )
+        .into_bytes();
+        declared.extend_from_slice(bytes);
+        let mut close = b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n".to_vec();
+        close.extend_from_slice(bytes);
+        let chunked = format!(
+            "HTTP/1.1 200 OK\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{}\r\n0\r\n\r\n",
+            bytes.len(),
+            std::str::from_utf8(bytes).unwrap()
+        )
+        .into_bytes();
+        let mut zipper = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        zipper.write_all(bytes).unwrap();
+        let gzip = zipper.finish().unwrap();
+        let mut encoded = format!(
+            "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Encoding: gzip\r\nContent-Length: {}\r\n\r\n",
+            gzip.len()
+        )
+        .into_bytes();
+        encoded.extend(gzip);
+        for wire in [declared, close, chunked, encoded] {
+            let answer = http_reply(wire, 8);
+            if bytes.len() == 8 {
+                assert_eq!(answer.unwrap().bytes, bytes);
+            } else {
+                assert!(answer.unwrap_err().contains("size limit"));
+            }
+        }
+    }
+}
+
+#[test]
+fn http_truncated_declared_body_is_not_a_successful_prefix() {
+    let wire = b"HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 10\r\n\r\nshort";
+    assert!(http_reply(wire.to_vec(), 16).is_err());
+}
+
 // Accept, handshake, peer I/O and event waits are all bounded. No gateway or GPU.
 fn loopback(options: ewebsock::Options) -> (WsSender, WsReceiver, WebSocket<TcpStream>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");

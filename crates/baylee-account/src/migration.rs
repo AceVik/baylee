@@ -70,6 +70,32 @@ pub struct Link {
     pub digest: [u8; 32],
 }
 
+/// Explicit upgrade response; only this closed response permits another fresh legacy proof.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FreshProofRequired {
+    /// Must be true; transport errors and ordinary conflicts never imply this response.
+    pub fresh_proof_required: bool,
+}
+
+/// Fresh source proof bound to a current Central Link capability and its immutable legacy ID.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Preparation {
+    /// One-use Link capability; never a Central session bearer.
+    pub ticket: Token,
+    /// Last legacy password proof, wiped when the request is dropped.
+    pub credentials: Credentials,
+}
+
+/// A successful cutover, or the narrowly scoped upgrade prerequisite.
+pub enum LinkState {
+    /// Source reconciliation and credential retirement completed.
+    Complete,
+    /// The gateway has no source proof from before the migration-generation upgrade.
+    FreshProofRequired,
+}
+
 /// Strict transport to the fixed migration source. Redirects and unverified TLS are forbidden.
 pub struct LegacyHttp {
     pub(crate) origin: String,
@@ -119,16 +145,46 @@ impl LegacyHttp {
     /// # Errors
     /// Rejects a changed source, conflicting mapping or invalid capability.
     pub fn link(&self, ticket: Token, digest: [u8; 32]) -> Result<(), Error> {
-        self.post::<Done>("link", &Link { ticket, digest })
-            .map(|_| ())
+        match self.link_state(ticket, digest)? {
+            LinkState::Complete => Ok(()),
+            LinkState::FreshProofRequired => Err(Error::Rejected),
+        }
     }
 
-    /// Exchange an admission ticket for an ordinary gateway session.
+    /// Inspect the explicit upgrade prerequisite without treating generic failures as permission
+    /// to send a password. A caller must separately restrict this to incomplete legacy migration.
     ///
     /// # Errors
-    /// Rejects unlinked accounts, bans, invalid tickets and unavailable transport.
-    pub fn admit(&self, ticket: Token) -> Result<serde_json::Value, Error> {
-        self.post("login", &Capability { ticket })
+    /// Rejects malformed prerequisites, changed sources, invalid capabilities and transport errors.
+    pub fn link_state(&self, ticket: Token, digest: [u8; 32]) -> Result<LinkState, Error> {
+        let mut response = self.request("link", &Link { ticket, digest })?;
+        if response.status().as_u16() == 428 {
+            // The body remains subject to the same content-type, size and schema checks.
+            // Normalize only this explicitly defined protocol status for the common decoder.
+            *response.status_mut() = ureq::http::StatusCode::OK;
+            let answer: FreshProofRequired = crate::http::decode_response(response)?;
+            return if answer.fresh_proof_required {
+                Ok(LinkState::FreshProofRequired)
+            } else {
+                Err(Error::Rejected)
+            };
+        }
+        crate::http::decode_response::<Done>(response).map(|_| LinkState::Complete)
+    }
+
+    /// Reestablish the source-generation proof after an explicit upgrade prerequisite.
+    /// This never enrolls or replaces a Central credential.
+    ///
+    /// # Errors
+    /// Rejects mismatched source identity, invalid password/capability and unavailable storage.
+    pub fn prepare(&self, ticket: Token, credentials: Credentials) -> Result<Snapshot, Error> {
+        self.post(
+            "prepare",
+            &Preparation {
+                ticket,
+                credentials,
+            },
+        )
     }
 
     fn post<T: serde::de::DeserializeOwned>(
@@ -136,13 +192,19 @@ impl LegacyHttp {
         action: &str,
         body: &impl Serialize,
     ) -> Result<T, Error> {
+        crate::http::decode_response(self.request(action, body)?)
+    }
+
+    fn request(
+        &self,
+        action: &str,
+        body: &impl Serialize,
+    ) -> Result<ureq::http::Response<ureq::Body>, Error> {
         let bytes = zeroize::Zeroizing::new(central_api::encode(body)?);
-        let response = self
-            .agent
+        self.agent
             .post(format!("{}/auth/central/{action}", self.origin))
             .header("Content-Type", "application/json")
             .send(bytes.as_slice())
-            .map_err(|_| Error::Unavailable)?;
-        crate::http::decode_response(response)
+            .map_err(|_| Error::Unavailable)
     }
 }

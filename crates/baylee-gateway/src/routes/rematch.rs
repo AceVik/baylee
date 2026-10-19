@@ -31,6 +31,7 @@ pub(crate) async fn rematch(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers).await?;
     let seat_token = auth::new_token();
     // Lobby, then store, then lobby again — never both at once, which is the
     // rule `seat_names` states and every path here keeps. Nothing in this
@@ -138,6 +139,7 @@ pub(crate) async fn rematch(
             .find(|s| s.account_id.as_ref() == Some(&account_id))
             .ok_or_else(|| err(StatusCode::FORBIDDEN, "you were not at that table"))?;
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.central_session = central_session;
         chair.said_ready = true;
         (room_id, chair.seat)
     };

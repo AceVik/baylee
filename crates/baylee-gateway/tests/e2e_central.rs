@@ -1,6 +1,12 @@
 //! Synthetic real gateway + Central + PostgreSQL migration, never production services.
 #![forbid(unsafe_code)]
+#[path = "e2e_central/chat.rs"]
+mod chat;
 mod common;
+#[path = "central/registered.rs"]
+mod registered;
+#[path = "central/upgrade.rs"]
+mod upgrade;
 
 use baylee_account::{
     Account, CentralHttp, Endpoint, Token,
@@ -25,6 +31,10 @@ impl Drop for BridgeFile {
 }
 
 fn bridge_file(endpoint: &Endpoint, bridge: &Token) -> BridgeFile {
+    config_file(&serde_json::json!({"endpoint":endpoint.origin(),"bridge":bridge}))
+}
+
+fn config_file(settings: &serde_json::Value) -> BridgeFile {
     let path = std::env::temp_dir().join(format!(
         "baylee-central-bridge-{}.json",
         uuid::Uuid::now_v7()
@@ -38,10 +48,7 @@ fn bridge_file(endpoint: &Endpoint, bridge: &Token) -> BridgeFile {
     }
     let mut file = options.open(&path).unwrap();
     let guard = BridgeFile(path);
-    let bytes = zeroize::Zeroizing::new(
-        serde_json::to_vec(&serde_json::json!({"endpoint":endpoint.origin(),"bridge":bridge}))
-            .unwrap(),
-    );
+    let bytes = zeroize::Zeroizing::new(serde_json::to_vec(settings).unwrap());
     file.write_all(&bytes).unwrap();
     guard
 }
@@ -74,7 +81,12 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         central_migration::apply(&operator).await.unwrap();
         operator.execute_unprepared("GRANT USAGE ON SCHEMA central_identity TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.pending_accounts TO central_runtime;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions, central_identity.gateway_tickets TO central_runtime").await.unwrap();
+            GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions,
+                central_identity.gateway_tickets, central_identity.private_objects TO central_runtime;
+            GRANT SELECT, INSERT ON central_identity.migration_archives TO central_runtime;
+            GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
+            GRANT SELECT ON central_identity.gateway_approvals TO central_runtime;
+            GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime").await.unwrap();
     });
     let store = runtime
         .block_on(AccountStore::connect_dev(database(
@@ -86,7 +98,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         .block_on(DevelopmentServer::bind(
             central_policy::config::Config::from_pairs([
                 ("BAYLEE_CENTRAL_LISTEN", "127.0.0.1:0"),
-                ("BAYLEE_CENTRAL_REQUEST_BYTES", "1048576"),
+                ("BAYLEE_CENTRAL_REQUEST_BYTES", "1056768"),
             ])
             .unwrap(),
         ))
@@ -130,6 +142,13 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     });
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         run(&gateway, &endpoint, &gateway_origin);
+        changed_legacy_password_invalidates_pending_enrollment(
+            &gateway,
+            &endpoint,
+            &gateway_origin,
+        );
+        upgrade::run(&gateway, &endpoint, &gateway_origin);
+        registered::run(&runtime, &operator, &endpoint);
         ui_fixture(&endpoint, &gateway_origin);
     }));
     drop(gateway);
@@ -202,6 +221,7 @@ fn run(gateway: &common::Gateway, endpoint: &Endpoint, origin: &str) {
         version: 1,
         gateways: vec![origin.into()],
         preferences: enrollment.snapshot.preferences,
+        chat: baylee_account::chat::ChatArchive::default(),
         legacy: Some(LegacyData {
             digest: enrollment.snapshot.digest,
             complete: false,
@@ -329,6 +349,16 @@ fn restored_account(endpoint: &Endpoint, origin: &str, port: u16, expected: &Acc
         vec!["https://unused.invalid".into()],
     )
     .unwrap();
+    first
+        .save(Some(serde_json::json!({"device_one":1})), None)
+        .unwrap();
+    let chat = chat::first_device(&mut first, origin);
+    let admitted = first.admit(origin).unwrap();
+    let old_gateway_token = admitted.token.clone();
+    assert_eq!(
+        common::http(port, "GET", "/me", Some(&old_gateway_token), "").0,
+        200
+    );
     let mut second = Account::login(
         endpoint.clone(),
         "synthetic".into(),
@@ -337,36 +367,120 @@ fn restored_account(endpoint: &Endpoint, origin: &str, port: u16, expected: &Acc
     )
     .unwrap();
     assert_eq!(second.data().gateways, expected.gateways);
-    assert_eq!(second.data().preferences, expected.preferences);
-    first
-        .save(Some(serde_json::json!({"device_one":1})), None)
-        .unwrap();
+    assert_eq!(second.data().preferences["device_one"], 1);
+    assert_eq!(
+        second.data().preferences["future"],
+        expected.preferences["future"]
+    );
+    assert!(
+        first
+            .save(Some(serde_json::json!({"revoked":true})), None)
+            .is_err()
+    );
+    assert_eq!(
+        common::http(port, "GET", "/me", Some(&old_gateway_token), "").0,
+        401,
+        "a successful new Central login immediately revokes the previous gateway lease"
+    );
     second
         .save(Some(serde_json::json!({"device_two":2})), None)
         .unwrap();
     assert_eq!(second.data().preferences["device_one"], 1);
     assert_eq!(second.data().preferences["device_two"], 2);
-    // A form still showing an old remote value must not revert it on its next edit.
-    first
-        .save(Some(serde_json::json!({"future":{"a":3}})), None)
-        .unwrap();
-    second
-        .save(
-            Some(serde_json::json!({"future":{"a":2},"device_two":3})),
-            None,
-        )
-        .unwrap();
-    assert_eq!(second.data().preferences["future"]["a"], 3);
-    second
-        .save(
-            Some(serde_json::json!({"future":{"a":2},"device_two":4})),
-            None,
-        )
-        .unwrap();
-    assert_eq!(second.data().preferences["future"]["a"], 3);
-    let admitted = first.admit(origin).unwrap();
-    let token = admitted["token"].as_str().unwrap();
+    chat::second_device(&mut first, &mut second, chat);
+    let admitted = second.admit(origin).unwrap();
+    let token = admitted.token.as_str();
     assert_eq!(common::http(port, "GET", "/me", Some(token), "").0, 200);
-    first.logout().unwrap();
+    let _ = first.logout();
     second.logout().unwrap();
+    assert_eq!(
+        common::http(port, "GET", "/me", Some(token), "").0,
+        401,
+        "central logout cannot leave a sliding gateway session authorized"
+    );
+}
+
+fn changed_legacy_password_invalidates_pending_enrollment(
+    gateway: &common::Gateway,
+    endpoint: &Endpoint,
+    origin: &str,
+) {
+    common::login(gateway.port, "password-race", "PasswordRace");
+    let legacy = LegacyHttp::development(origin).unwrap();
+    let old = Credentials {
+        username: "password-race".into(),
+        password: "a-very-fine-password".into(),
+    };
+    let enrollment = legacy.enroll(&old).unwrap();
+    let http = CentralHttp::new(endpoint.clone());
+    let data = AccountData {
+        version: 1,
+        gateways: vec![origin.into()],
+        preferences: enrollment.snapshot.preferences,
+        legacy: Some(LegacyData {
+            digest: enrollment.snapshot.digest,
+            complete: false,
+            gateway: origin.into(),
+            account_id: enrollment.snapshot.account_id,
+            username: enrollment.snapshot.username,
+            decks: enrollment.snapshot.decks,
+        }),
+        chat: baylee_account::chat::ChatArchive::default(),
+    };
+    sdk::enroll(
+        &http,
+        enrollment.identity,
+        enrollment.ticket,
+        old.password.clone(),
+        &data.write().unwrap(),
+    )
+    .unwrap();
+    let mut session = sdk::login(&http, enrollment.identity, old.password.clone()).unwrap();
+    session.confirm_restored(&http).unwrap();
+    let stale_link = session
+        .gateway_capability(&http, origin.into(), TicketPurpose::Link)
+        .unwrap();
+    assert_eq!(common::http(gateway.port, "POST", "/auth/password", None,
+        r#"{"username":"password-race","password":"a-very-fine-password","new_password":"new-synthetic-password"}"#).0, 200);
+    assert!(session.refresh(&http).is_err());
+    assert!(
+        legacy
+            .link(stale_link, data.legacy.as_ref().unwrap().digest)
+            .is_err()
+    );
+    let fresh = legacy
+        .enroll(&Credentials {
+            username: old.username.clone(),
+            password: "new-synthetic-password".into(),
+        })
+        .unwrap();
+    assert_eq!(fresh.identity.account, enrollment.identity.account);
+    assert!(fresh.identity.epoch > enrollment.identity.epoch);
+    sdk::enroll(
+        &http,
+        fresh.identity,
+        fresh.ticket,
+        "new-synthetic-password".into(),
+        &data.write().unwrap(),
+    )
+    .unwrap();
+    let mut restored = sdk::login(&http, fresh.identity, "new-synthetic-password".into()).unwrap();
+    restored.confirm_restored(&http).unwrap();
+    legacy
+        .link(
+            restored
+                .gateway_capability(&http, origin.into(), TicketPurpose::Link)
+                .unwrap(),
+            fresh.snapshot.digest,
+        )
+        .unwrap();
+    let admitted = baylee_account::GatewayHttp::development(origin)
+        .unwrap()
+        .admit(restored.gateway_ticket(&http, origin.into()).unwrap())
+        .unwrap();
+    assert_eq!(
+        common::http(gateway.port, "GET", "/me", Some(&admitted.token), "").0,
+        200
+    );
+    restored.logout(&http).unwrap();
 }

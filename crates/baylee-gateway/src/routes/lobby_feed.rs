@@ -2,8 +2,8 @@
 
 use crate::{
     ErrorBody, Json, LobbyWsParams, Message, Query, RecvError, Shared, State, StatusCode,
-    TICKET_REFUSED, WebSocket, WebSocketUpgrade, auth, db_down, err, legacy_token, listing_page,
-    lobby, spend_ticket, store, wsticket,
+    TICKET_REFUSED, WebSocket, WebSocketUpgrade, auth, err, legacy_token, listing_page, lobby,
+    spend_ticket, store, wsticket,
 };
 
 /// The lobby's push channel.
@@ -17,7 +17,7 @@ pub(crate) async fn lobby_ws(
     Query(params): Query<LobbyWsParams>,
     ws: WebSocketUpgrade,
 ) -> Result<axum::response::Response, (StatusCode, Json<ErrorBody>)> {
-    let account_id = if let Some(ticket) = params.ticket.as_deref() {
+    let (account_id, session_digest) = if let Some(ticket) = params.ticket.as_deref() {
         let wsticket::Grant::Lobby {
             account_id,
             session,
@@ -27,15 +27,15 @@ pub(crate) async fn lobby_ws(
         };
         // The session that asked must still stand: signed out, lapsed, or
         // its account deleted since, the ticket opens nothing.
-        match store::resolve_digest(&state.db, session, auth::now_secs())
+        match crate::central::resolve_digest(&state, session.clone())
             .await
-            .map_err(|e| db_down(&e))?
+            .map_err(|status| err(status, TICKET_REFUSED))?
         {
-            Some(session)
-                if session.account_id == account_id
-                    && crate::moderation::admit(&session).is_ok() =>
+            Some(resolved)
+                if resolved.account_id == account_id
+                    && crate::moderation::admit(&resolved).is_ok() =>
             {
-                account_id
+                (account_id, session)
             }
             _ => {
                 tracing::debug!("a lobby ticket outlived its session");
@@ -44,14 +44,17 @@ pub(crate) async fn lobby_ws(
         }
     } else {
         let token = legacy_token(&state, params.token.as_deref(), "/lobby/ws")?;
-        let session = store::resolve_token(&state.db, token, auth::now_secs())
+        let digest = auth::token_digest(token);
+        let session = crate::central::resolve_digest(&state, digest.clone())
             .await
-            .map_err(|e| db_down(&e))?
+            .map_err(|status| err(status, TICKET_REFUSED))?
             .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
         crate::moderation::admit(&session)?;
-        session.account_id
+        (session.account_id, digest)
     };
-    Ok(ws.on_upgrade(move |socket| run_lobby_socket(state, account_id, params.query, socket)))
+    Ok(ws.on_upgrade(move |socket| {
+        run_lobby_socket(state, account_id, session_digest, params.query, socket)
+    }))
 }
 
 /// How often a quiet lobby socket is pinged.
@@ -65,6 +68,7 @@ const QUIET: std::time::Duration = std::time::Duration::from_secs(50);
 pub(crate) async fn run_lobby_socket(
     state: Shared,
     account_id: String,
+    session_digest: Vec<u8>,
     query: lobby::LobbyQuery,
     mut socket: WebSocket,
 ) {
@@ -85,6 +89,7 @@ pub(crate) async fn run_lobby_socket(
     serve_listing(
         &state,
         &account_id,
+        &session_digest,
         &query,
         &mut socket,
         &mut changed,
@@ -99,6 +104,7 @@ pub(crate) async fn run_lobby_socket(
 async fn serve_listing(
     state: &Shared,
     account_id: &str,
+    session_digest: &[u8],
     query: &lobby::LobbyQuery,
     socket: &mut WebSocket,
     changed: &mut tokio::sync::broadcast::Receiver<()>,
@@ -111,6 +117,7 @@ async fn serve_listing(
     let mut ping = tokio::time::interval(PING_EVERY);
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
+    let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         let payload = listing_page(state, account_id, query).await.to_string();
         if socket.send(Message::Text(payload.into())).await.is_err() {
@@ -118,6 +125,13 @@ async fn serve_listing(
         }
         loop {
             tokio::select! {
+                _ = authorization.tick() => {
+                    if !matches!(crate::central::resolve_digest(state, session_digest.to_vec()).await,
+                        Ok(Some(session)) if session.account_id == account_id && crate::moderation::admit(&session).is_ok()) {
+                        let _ = socket.send(Message::Close(None)).await;
+                        return;
+                    }
+                }
                 // A reader that fell behind is sent the state of the world,
                 // not the history it missed: the payload is the whole
                 // listing every time, so one late send says everything the

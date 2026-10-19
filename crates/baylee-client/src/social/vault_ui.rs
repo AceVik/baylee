@@ -92,6 +92,11 @@ fn act(press: Press, form: &mut Form, host: &mut SocialHost, ui: &mut ChatUi) {
             form.focus = at;
         }
         Press::Lock => {
+            if host.vault.is_central() {
+                // A still-authenticated account worker can restore these keys. Account
+                // sign-out is the supported boundary; do not present a false local lock.
+                return;
+            }
             host.flush_save();
             host.socket.hang();
             host.socket = super::Socket::default();
@@ -342,7 +347,7 @@ fn draw(
     for root in &roots {
         commands.entity(root).despawn();
     }
-    if !visible {
+    if !visible || (host.active() && host.vault.is_central()) {
         return;
     }
     if !ui.vault_open {

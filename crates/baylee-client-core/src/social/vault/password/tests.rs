@@ -1,5 +1,69 @@
 use super::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn central_context_keeps_legacy_ciphertext_and_refuses_replaced_installation_ids() {
+    use crate::social::vault::SecretSlot;
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let root =
+        std::env::temp_dir().join(format!("baylee-central-context-{}", uuid::Uuid::now_v7()));
+    let _cleanup = Cleanup(root.clone());
+    let slot = SecretSlot::new("AB12", "https://example.test/gateway");
+    drop(
+        PasswordStore::open(
+            &root,
+            scope(),
+            slot.clone(),
+            "synthetic password",
+            Some(&[19; 96]),
+        )
+        .unwrap(),
+    );
+    let path = root.join(scope().folder()).join(FILE_NAME);
+    let ciphertext = std::fs::read(&path).unwrap();
+    let context = ContextGuard::open(&root, scope()).unwrap();
+    assert!(matches!(
+        PasswordStore::open(&root, scope(), slot, "synthetic password", None),
+        Err(Error::Busy)
+    ));
+    let installation = context.installation().unwrap();
+    assert_eq!(context.installation().unwrap(), installation);
+    assert!(matches!(
+        context.legacy_keys(None),
+        Err(Error::Authentication)
+    ));
+    assert!(matches!(
+        context.legacy_keys(Some("wrong")),
+        Err(Error::Authentication)
+    ));
+    assert_eq!(
+        context
+            .legacy_keys(Some("synthetic password"))
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96]
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        ciphertext,
+        "import must preserve the original encrypted recovery source"
+    );
+    std::fs::write(
+        context.directory().join("central-installation.id"),
+        b"damaged",
+    )
+    .unwrap();
+    assert!(matches!(context.installation(), Err(Error::Format)));
+    context.retire().unwrap();
+    assert!(matches!(context.installation(), Err(Error::Authentication)));
+}
+
 fn scope() -> Scope {
     Scope::new("AB12", "https://example.test/gateway").unwrap()
 }

@@ -50,7 +50,7 @@ const MAX_FRAME_BYTES: usize = 4 << 20;
 /// and the gateway compares it in constant time against a stored hash. A
 /// client cannot act for another seat by editing this, because the seat comes
 /// from the token rather than from anything the client says afterwards.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SeatTicket {
     /// Gateway base URL, e.g. `http://127.0.0.1:28766`.
     pub gateway: String,
@@ -67,6 +67,17 @@ pub struct SeatTicket {
     /// Whether this ticket watches rather than sits (`docs/protocol.md`
     /// §"Spectators"): `/games/{id}/watch`, bought with the session.
     pub watch: bool,
+}
+
+impl std::fmt::Debug for SeatTicket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SeatTicket")
+            .field("game_id", &self.game_id)
+            .field("seat", &self.seat)
+            .field("seat_token", &"<redacted>")
+            .field("watch", &self.watch)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A gateway base URL as a websocket URL of the same host.
@@ -244,7 +255,7 @@ struct Link {
     /// Outgoing frames.
     sender: SocketSender,
     /// Incoming events, drained without blocking.
-    receiver: ewebsock::WsReceiver,
+    receiver: crate::transport::WsReceiver,
 }
 
 /// Opens a seat's socket at `url`.
@@ -590,7 +601,7 @@ impl DuelHost for NetworkHost {
             .unwrap_or_else(PoisonError::into_inner)
             .as_mut()
         {
-            Some(link) => std::iter::from_fn(|| link.receiver.try_recv()).collect(),
+            Some(link) => crate::transport::drain_socket(&link.receiver),
             None => Vec::new(),
         };
         for event in events {
@@ -774,6 +785,16 @@ mod tests {
             seat: PlayerId::new(1),
             seat_token: "deadbeef".to_string(),
             watch: false,
+        }
+    }
+
+    #[test]
+    fn seat_ticket_diagnostics_redact_the_bearer() {
+        let mut access = ticket("https://gateway.example");
+        access.seat_token = "private-seat-bearer-must-never-appear".into();
+        for debug in [format!("{access:?}"), format!("{access:#?}")] {
+            assert!(!debug.contains(&access.seat_token));
+            assert!(debug.contains("<redacted>"));
         }
     }
 

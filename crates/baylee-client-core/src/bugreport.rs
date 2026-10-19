@@ -89,8 +89,8 @@ pub use form::{
     Outcome, Part, ReportForm, Status, Suggestion, Suggestions, Via, outcome, outcome_via,
 };
 pub use localrecord::{
-    KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_RECORD_BYTES, ReadBack, gzip, inflate,
-    is_record_file_name, read_back, record_file_name, retention,
+    KEEP_RECORD_BYTES, KEEP_RECORDS, LocalRecord, MAX_INFLATED_BYTES, MAX_RECORD_BYTES, ReadBack,
+    gzip, inflate, is_record_file_name, read_back, record_file_name, retention,
 };
 pub use refs::{Candidates, CardRef, PlayerRef, Refs};
 pub use route::{

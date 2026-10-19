@@ -20,12 +20,13 @@
 //! 3. past [`MAX_FAILURES`] wrong tokens in [`FAILURE_WINDOW`] every request
 //!    is `429`, the right token included, until the window passes; past
 //!    [`MAX_REQUESTS`] a minute, too;
-//! 4. the bearer token is compared with `BAYLEE_ADMIN_TOKEN` in constant
-//!    time, as SHA-256 digests, so neither its length nor where a guess
-//!    first differs shows in the time an answer takes; missing and wrong
-//!    get the same `401`;
-//! 5. a request that changes something names its admin in
-//!    [`ACTOR_HEADER`] (`400` without), which goes into the audit line.
+//! 4. the bearer is either the constant-time checked `BAYLEE_ADMIN_TOKEN`
+//!    bootstrap credential or a gateway-local token with a live, purpose-bound
+//!    Central admin lease. Central rechecks explicit gateway membership on
+//!    every request; the gateway owner has no implicit backend access;
+//! 5. bootstrap mutations name their admin in [`ACTOR_HEADER`] (`400` without).
+//!    SSO mutations instead use the lease's immutable Central account UUID and
+//!    ignore caller-supplied actor headers. That identity goes into the audit line.
 //!
 //! Every change is logged on the target `baylee_gateway::audit`: who, what,
 //! which key ids, when (the log's own time). Never a key, a token or a
@@ -320,16 +321,37 @@ async fn guard(State(console): State<Admin>, mut request: Request, next: Next) -
         );
         return refusal;
     }
-    if !token_matches(&console.token, headers) {
-        console.failures.allow(EVERYONE);
-        tracing::warn!("admin console: a request with a wrong or no token");
-        return err(StatusCode::UNAUTHORIZED, "the admin token is needed").into_response();
-    }
-    let actor = headers
-        .get(ACTOR_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .filter(|name| valid_actor(name))
-        .map(|name| Actor(name.to_owned()));
+    let central_actor = if token_matches(&console.token, headers) {
+        None
+    } else {
+        match crate::central::admin_actor(
+            &console.app,
+            crate::bearer_token(headers).unwrap_or_default(),
+        )
+        .await
+        {
+            Ok(Some(actor)) => Some(Actor(actor)),
+            Ok(None) => {
+                console.failures.allow(EVERYONE);
+                return err(
+                    StatusCode::UNAUTHORIZED,
+                    "gateway administrator authorization required",
+                )
+                .into_response();
+            }
+            Err(status) => {
+                return err(status, "gateway administrator authorization unavailable")
+                    .into_response();
+            }
+        }
+    };
+    let actor = central_actor.or_else(|| {
+        headers
+            .get(ACTOR_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .filter(|name| valid_actor(name))
+            .map(|name| Actor(name.to_owned()))
+    });
     let changes = !matches!(*request.method(), Method::GET | Method::HEAD);
     match actor {
         Some(actor) => {

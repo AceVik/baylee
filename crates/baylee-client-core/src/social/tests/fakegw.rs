@@ -327,7 +327,12 @@ impl Gateway {
                     .filter(|d| members.contains(&d.tag) && d.id != dev)
                     .map(|d| d.id.clone())
                     .collect();
-                let got: BTreeSet<String> = sealed.wraps.iter().map(|w| w.d.clone()).collect();
+                let got: BTreeSet<String> = sealed
+                    .wraps
+                    .iter()
+                    .filter(|w| w.d != dev)
+                    .map(|w| w.d.clone())
+                    .collect();
                 if want != got {
                     return refuse(
                         Why::Devices,

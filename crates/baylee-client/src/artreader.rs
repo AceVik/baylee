@@ -256,8 +256,8 @@ const fn android_cache() -> Option<PathBuf> {
 
 /// The one client every picture is fetched with.
 static AGENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
-    // The system's trust store in a release, any certificate in a debug
-    // build, like every other request (`crate::transport`).
+    // The system's trust store, with verification enabled in every build
+    // profile (`crate::transport`).
     ureq::Agent::config_builder()
         .tls_config(crate::transport::tls(true))
         .user_agent(crate::cardtext::scryfall::AGENT)

@@ -147,5 +147,9 @@ Client/core regression tests also cover idle-tree retention, focus, account
 switch cancellation, migration, password reset and preferences changed during
 an unlock job. Windows ACL code and tests were cross-compiled, but Windows
 runtime verification remains unavailable on this Mac. Dependency license, ban
-and source checks passed; advisory checking reports pre-existing unmaintained
-`zbus_names`, `zvariant` and `zvariant_derive` advisories (2026-0370/0371/0372).
+and source checks passed. The subsequent Windows/Linux integration review
+replaced the unmaintained Linux `zbus_names`, `zvariant` and `zvariant_derive`
+chain (2026-0370/0371/0372) with the shared
+[native credential adapter](native-credential-store.md). Its isolated real
+Secret Service fixture verifies legacy lookup, read/write/delete and refusal
+of ambiguous entries; those advisories are no longer present in the graph.

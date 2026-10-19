@@ -65,6 +65,8 @@ pub enum KeyHome {
     Keychain,
     /// Authenticated ciphertext protected by the account password.
     Password,
+    /// Client-encrypted central account archive; each installation has its own active identity.
+    Central,
     /// A file only the user's account can read: no store opened.
     File,
     /// Memory only (tests, or a platform with neither).
@@ -312,14 +314,14 @@ impl OsSecrets {
     }
 
     fn entry(slot: &SecretSlot) -> Result<keyring::Entry, String> {
-        keyring::Entry::new(slot.service, &slot.account).map_err(|e| said(&e))
+        keyring::Entry::new(slot.service, &slot.account).map_err(said)
     }
 }
 
 /// A store's error as a sentence: its messages name the entry at most,
 /// never a secret.
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
-fn said(error: &keyring::Error) -> String {
+fn said(error: keyring::Error) -> String {
     match error {
         keyring::Error::NoDefaultStore => {
             "this machine's credential store could not be opened".into()
@@ -341,18 +343,18 @@ impl SecretStore for OsSecrets {
         match Self::entry(slot)?.get_password() {
             Ok(value) => Ok(Some(value)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(said(&e)),
+            Err(e) => Err(said(e)),
         }
     }
 
     fn store(&self, slot: &SecretSlot, value: &str) -> Result<(), String> {
-        Self::entry(slot)?.set_password(value).map_err(|e| said(&e))
+        Self::entry(slot)?.set_password(value).map_err(said)
     }
 
     fn forget(&self, slot: &SecretSlot) -> Result<(), String> {
         match Self::entry(slot)?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(said(&e)),
+            Err(e) => Err(said(e)),
         }
     }
 }

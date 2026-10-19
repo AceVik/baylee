@@ -155,6 +155,9 @@ pub(crate) async fn change_password(
     let hash = tokio::task::spawn_blocking(move || auth::hash_password(&new_password))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
+    crate::central::invalidate_password(&state, &account.id)
+        .await
+        .map_err(|status| err(status, "account credential change unavailable"))?;
     store::set_password(&state.db, &account.id, &hash)
         .await
         .map_err(|e| db_down(&e))?;
@@ -225,6 +228,17 @@ async fn reset_password(
 ) -> Result<Json<serde_json::Value>, Refusal> {
     let id = account_id(&id)?;
     let app = &console.app;
+    let _migration_guard = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        app.central_barrier.write(),
+    )
+    .await
+    .map_err(|_| {
+        err(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "account credential change unavailable",
+        )
+    })?;
     let account = store::account(&app.db, &id)
         .await
         .map_err(|e| db_down(&e))?
@@ -240,6 +254,9 @@ async fn reset_password(
     let hash = tokio::task::spawn_blocking(move || auth::hash_password(&plain))
         .await
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
+    crate::central::invalidate_password(app, &id)
+        .await
+        .map_err(|status| err(status, "account credential change unavailable"))?;
     if !store::reset_password(&app.db, &id, &hash)
         .await
         .map_err(|e| db_down(&e))?

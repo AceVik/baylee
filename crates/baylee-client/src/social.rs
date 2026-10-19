@@ -157,6 +157,12 @@ impl SocialHost {
 
     /// Hands the machine an intent and carries out what it answers.
     pub(crate) fn act(&mut self, intent: Intent) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.vault.is_central() && matches!(&intent, Intent::RemoveDevice { .. }) {
+            // Gateway-only removal cannot revoke Central's archived identity or
+            // recipient whitelist. This needs one account-wide retirement flow.
+            return;
+        }
         // This cache survives a manual lock and seeds the next unlock job.
         // Preference changes must reach it even while no machine is present.
         match &intent {
@@ -180,6 +186,10 @@ impl SocialHost {
 
     /// Carries out the machine's effects.
     pub(crate) fn carry_out(&mut self, effects: Vec<Effect>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let snapshot = self.vault.snapshot_owner();
+        #[cfg(not(target_arch = "wasm32"))]
+        let _batch = snapshot.as_ref().and_then(|sync| sync.begin_batch());
         for effect in effects {
             self.carry_out_one(effect);
         }
@@ -205,6 +215,12 @@ impl SocialHost {
                 body.as_ref(),
             ),
             Effect::Up(up) => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if let baylee_protocol::social::Up::Ack { upto } = &up
+                    && self.vault.defer_ack(*upto)
+                {
+                    return;
+                }
                 if let Ok(text) = serde_json::to_string(&up)
                     && !self.socket.send(text)
                     && let Some(machine) = self.machine.as_mut()
@@ -234,7 +250,21 @@ impl SocialHost {
                     let _ = store.forget(&slot);
                 }
             }
-            Effect::SaveState(bytes) => self.save = Some((SAVE_DEBOUNCE, bytes)),
+            Effect::SaveState(bytes) => {
+                #[cfg(not(target_arch = "wasm32"))]
+                if self.vault.is_central() {
+                    // Central's shutdown drain must see the latest conversation map even
+                    // when macOS quits by dropping the World without an AppExit message.
+                    if let Some(disk) = self.disk.as_mut() {
+                        if disk.write(social::disk::STATE_FILE, &bytes).is_err() {
+                            self.vault.error = Some(vault_access::Error::Io);
+                        }
+                        self.save = None;
+                    }
+                    return;
+                }
+                self.save = Some((SAVE_DEBOUNCE, bytes));
+            }
             effect @ (Effect::AppendHistory { .. }
             | Effect::RewriteHistory { .. }
             | Effect::DeleteAllLocal) => {
@@ -887,6 +917,13 @@ fn drive(
         if *left <= 0.0 {
             host.flush_save();
         }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(upto) = host.vault.ready_ack()
+        && let Ok(text) = serde_json::to_string(&baylee_protocol::social::Up::Ack { upto })
+        && host.socket.send(text)
+    {
+        host.vault.sent_ack(upto);
     }
 }
 

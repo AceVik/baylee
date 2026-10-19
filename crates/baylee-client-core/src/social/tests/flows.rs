@@ -74,6 +74,17 @@ fn last_state(client: &Client, conv: &str) -> LineState {
     client.message_lines(conv).pop().expect("a line").state
 }
 
+fn verify(client: &mut Client, gw: &mut Gateway, tag: &str) {
+    let expected = client.social.safety(tag).unwrap().expected;
+    client.act(
+        gw,
+        Intent::Verify {
+            tag: tag.into(),
+            expected,
+        },
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The two-party conversation, more devices, a new device.
 // ---------------------------------------------------------------------------
@@ -102,7 +113,7 @@ fn a_whisper_reaches_the_friend_once_with_the_gateways_handle_and_the_acks_clear
     assert_eq!(lines[0].state, LineState::Final);
     assert_eq!(bob.acks(), [seq], "one ack, for the slot's number");
     assert!(
-        gw.slots.values().all(Vec::is_empty),
+        gw.waiting(&bob_dev).is_empty(),
         "the ack removed Bob's slot"
     );
     // Alice's own line is final with the gateway's receipt time.
@@ -132,14 +143,26 @@ fn a_second_device_of_the_friend_gets_the_whisper_and_my_own_second_device_draws
     for client in [&bob1, &bob2, &alice2] {
         assert_eq!(gw.waiting(&client.device()).len(), 1);
     }
-    assert!(
-        gw.waiting(&alice1.device()).is_empty(),
-        "never to the sender"
+    assert_eq!(
+        gw.waiting(&alice1.device()).len(),
+        1,
+        "the sender keeps an encrypted recovery copy"
     );
 
     bob1.deliver(&mut gw);
     bob2.deliver(&mut gw);
     alice2.deliver(&mut gw);
+    assert!(
+        alice2.message_lines(DM_AB).is_empty(),
+        "the older own device must confirm the newly added sender"
+    );
+    verify(&mut alice2, &mut gw, ALICE);
+    alice1.deliver(&mut gw);
+    assert_eq!(
+        alice1.message_lines(DM_AB).len(),
+        1,
+        "self replay cannot duplicate the sent line"
+    );
     for bob in [&bob1, &bob2] {
         let lines = bob.message_lines(DM_AB);
         assert_eq!(lines.len(), 1);
@@ -166,7 +189,7 @@ fn bob_adds_a_device_and_alice_writes(verified: bool) -> (Gateway, Client, Clien
     alice.say(&mut gw, "/w Bob first");
     bob.deliver(&mut gw);
     if verified {
-        alice.act(&mut gw, Intent::Verify { tag: BOB.into() });
+        verify(&mut alice, &mut gw, BOB);
         assert!(alice.social.safety(BOB).unwrap().verified);
     }
     let bob2 = Client::new(&mut gw, BOB, "Bob#0012", 3);
@@ -175,19 +198,43 @@ fn bob_adds_a_device_and_alice_writes(verified: bool) -> (Gateway, Client, Clien
 }
 
 #[test]
-fn a_send_refused_for_a_new_device_is_sealed_again_and_reaches_both_devices() {
+fn a_send_refused_for_a_new_device_waits_for_exact_confirmation_before_resealing() {
     let (mut gw, mut alice, mut bob) = pair();
     alice.say(&mut gw, "/w Bob first");
     bob.deliver(&mut gw);
+    let old_expected = alice.social.safety(BOB).unwrap().expected;
     let mut bob2 = Client::new(&mut gw, BOB, "Bob#0012", 3);
     let sends = gw.sends_from(&alice.device());
     alice.say(&mut gw, "/w Bob second");
 
     assert_eq!(
         gw.sends_from(&alice.device()) - sends,
-        2,
-        "refused once with Devices, then sealed again"
+        1,
+        "refused once with Devices; no plaintext reaches the unconfirmed new device"
     );
+    assert!(gw.waiting(&bob2.device()).is_empty());
+    assert_eq!(last_state(&alice, DM_AB), LineState::Pending);
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    alice.tick(&mut gw, 10);
+    assert_eq!(
+        gw.sends_from(&alice.device()) - sends,
+        1,
+        "refetch/tick cannot release a send"
+    );
+    alice.act(
+        &mut gw,
+        Intent::Verify {
+            tag: BOB.into(),
+            expected: old_expected,
+        },
+    );
+    assert_eq!(
+        gw.sends_from(&alice.device()) - sends,
+        1,
+        "a stale sheet cannot release a send"
+    );
+    verify(&mut alice, &mut gw, BOB);
+    assert_eq!(gw.sends_from(&alice.device()) - sends, 2);
     let line = alice.message_lines(DM_AB).pop().unwrap();
     assert_eq!(message(line).2.text, "second");
     assert_eq!(line.state, LineState::Final, "the second try went through");
@@ -200,6 +247,196 @@ fn a_send_refused_for_a_new_device_is_sealed_again_and_reaches_both_devices() {
         "the new device gets what came after it"
     );
     assert_eq!(alice.social.safety(BOB).unwrap().devices.len(), 2);
+}
+
+#[test]
+fn a_directory_refusal_and_restart_cannot_turn_known_peers_into_first_use() {
+    let (mut gw, mut alice, mut bob) = pair();
+    alice.say(&mut gw, "/w Bob first");
+    bob.deliver(&mut gw);
+    let original = alice.social.contact_keys(BOB).unwrap().public_keys();
+    let effects = alice.social.on_http(
+        HttpTag::Keys(vec![BOB.into()]),
+        200,
+        br#"{"keys":[]}"#,
+        alice.now,
+        &mut alice.rng,
+    );
+    alice.run(&mut gw, effects);
+    assert_eq!(
+        alice.social.contact_keys(BOB).unwrap().public_keys(),
+        original
+    );
+    let bob2 = Client::new(&mut gw, BOB, "Bob#0012", 3);
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    alice.restart(&mut gw);
+    let sends = gw.sends_from(&alice.device());
+    alice.say(&mut gw, "/w Bob after restart");
+    assert_eq!(gw.sends_from(&alice.device()), sends);
+    assert!(gw.waiting(&bob2.device()).is_empty());
+    verify(&mut alice, &mut gw, BOB);
+    assert_eq!(gw.sends_from(&alice.device()), sends + 1);
+}
+
+#[test]
+fn an_old_rate_limited_send_cannot_reseal_to_a_new_unconfirmed_device() {
+    let (mut gw, mut alice, mut bob) = pair();
+    alice.say(&mut gw, "/w Bob first");
+    bob.deliver(&mut gw);
+    gw.refuse_sends.push_back(Why::Rate);
+    alice.say(&mut gw, "/w Bob waiting");
+    let bob2 = Client::new(&mut gw, BOB, "Bob#0012", 3);
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    let sends = gw.sends_from(&alice.device());
+    alice.tick(&mut gw, 3_000);
+    assert_eq!(gw.sends_from(&alice.device()), sends);
+    assert!(gw.waiting(&bob2.device()).is_empty());
+    verify(&mut alice, &mut gw, BOB);
+    assert_eq!(gw.sends_from(&alice.device()), sends + 1);
+}
+
+#[test]
+fn central_own_key_whitelist_blocks_gateway_injection_even_on_first_fetch() {
+    let mut gw = world();
+    gw.befriend(ALICE, BOB);
+    let extra = Client::new(&mut gw, ALICE, "Alice#af03", 3);
+    let _bob = Client::new(&mut gw, BOB, "Bob#0012", 2);
+    let mut alice = Client::new(&mut gw, ALICE, "Alice#af03", 1);
+    let own = vault::decode_secrets(alice.secrets.as_deref().unwrap()).unwrap();
+    alice.social.trust_own_devices(vec![(own.ik(), own.dk())]);
+    alice.say(&mut gw, "/w Bob private");
+    assert_eq!(gw.sends_from(&alice.device()), 0);
+    assert!(gw.waiting(&extra.device()).is_empty());
+    verify(&mut alice, &mut gw, ALICE);
+    assert!(!alice.social.safety(ALICE).unwrap().verified);
+    assert_eq!(
+        gw.sends_from(&alice.device()),
+        0,
+        "a gateway key cannot extend Central's whitelist"
+    );
+    // A legitimately archived own device remains compatible with gateway completeness.
+    let archived = vault::decode_secrets(extra.secrets.as_deref().unwrap()).unwrap();
+    alice
+        .social
+        .trust_own_devices(vec![(own.ik(), own.dk()), (archived.ik(), archived.dk())]);
+    verify(&mut alice, &mut gw, ALICE);
+    assert_eq!(gw.sends_from(&alice.device()), 1);
+    assert!(alice.social.safety(ALICE).unwrap().verified);
+}
+
+#[test]
+fn a_self_wrap_does_not_turn_an_empty_peer_directory_into_successful_delivery() {
+    let (mut gw, mut alice, bob) = pair();
+    gw.devices.retain(|device| device.tag != BOB);
+    alice.say(&mut gw, "/w Bob no recipient device");
+    assert_eq!(gw.sends_from(&alice.device()), 0);
+    assert_eq!(last_state(&alice, DM_AB), LineState::Pending);
+    assert!(gw.waiting(&bob.device()).is_empty());
+    assert!(gw.waiting(&alice.device()).is_empty());
+}
+
+#[test]
+fn incoming_new_identities_wait_unacked_while_original_pinned_inbox_messages_still_open() {
+    let (mut gw, mut alice, mut bob) = pair();
+    bob.say(&mut gw, "/w Alice original");
+    alice.deliver(&mut gw);
+    let old_expected = alice.social.safety(BOB).unwrap().expected;
+    bob.say(&mut gw, "/w Alice old pending");
+    let mut replacement = Client::new(&mut gw, BOB, "Bob#0012", 3);
+    replacement.say(&mut gw, "/w Alice unconfirmed identity");
+    // The gateway even removes the old directory record. Its already-pinned
+    // signature remains usable while the replacement is not yet confirmed.
+    gw.devices.retain(|device| device.id != bob.device());
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    alice.deliver(&mut gw);
+    assert_eq!(alice.texts(DM_AB), ["original", "old pending"]);
+    assert_eq!(
+        gw.waiting(&alice.device()).len(),
+        1,
+        "candidate remains unacknowledged"
+    );
+    alice.restart(&mut gw);
+    alice.restore(&mut gw);
+    alice.deliver(&mut gw);
+    assert_eq!(alice.texts(DM_AB), ["original", "old pending"]);
+    alice.act(
+        &mut gw,
+        Intent::Verify {
+            tag: BOB.into(),
+            expected: old_expected,
+        },
+    );
+    assert_eq!(gw.waiting(&alice.device()).len(), 1);
+    verify(&mut alice, &mut gw, BOB);
+    assert_eq!(
+        alice.texts(DM_AB),
+        ["original", "old pending", "unconfirmed identity"]
+    );
+    assert!(gw.waiting(&alice.device()).is_empty());
+}
+
+#[test]
+fn unconfirmed_inbox_is_bounded_duplicates_do_not_fill_it_and_confirmation_redials_safely() {
+    let (mut gw, mut alice, mut bob) = pair();
+    bob.say(&mut gw, "/w Alice pinned");
+    alice.deliver(&mut gw);
+    let mut candidate = Client::new(&mut gw, BOB, "Bob#0012", 3);
+    candidate.say(&mut gw, "/w Alice held");
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    let frame = gw.waiting(&alice.device()).pop().unwrap();
+    for _ in 0..300 {
+        alice.feed(&mut gw, frame.clone());
+    }
+    assert!(
+        !alice.social.stopped(),
+        "duplicate sequence retains one slot"
+    );
+    for seq in 10_000..10_256 {
+        let mut different = frame.clone();
+        let Down::Msg { seq: position, .. } = &mut different else {
+            panic!("delivery")
+        };
+        *position = seq;
+        alice.feed(&mut gw, different);
+    }
+    assert!(alice.social.stopped());
+    assert_eq!(alice.texts(DM_AB), ["pinned"]);
+    assert!(alice.acks().iter().all(|seq| *seq < 10_000));
+    alice.feed(&mut gw, frame.clone());
+    assert!(alice.social.stopped());
+    assert_eq!(gw.waiting(&alice.device()).len(), 1, "not discarded by ACK");
+    verify(&mut alice, &mut gw, BOB);
+    assert!(
+        !alice.social.stopped(),
+        "exact confirmation redials the paused inbox"
+    );
+    alice.deliver(&mut gw);
+    assert_eq!(alice.texts(DM_AB), ["pinned", "held"]);
+    assert!(gw.waiting(&alice.device()).is_empty());
+    assert!(alice.acks().iter().all(|seq| *seq < 10_000));
+}
+
+#[test]
+fn oversized_ciphertext_is_rejected_before_waiting_for_an_unconfirmed_identity() {
+    let (mut gw, mut alice, mut bob) = pair();
+    bob.say(&mut gw, "/w Alice pinned");
+    alice.deliver(&mut gw);
+    let mut candidate = Client::new(&mut gw, BOB, "Bob#0012", 3);
+    candidate.say(&mut gw, "/w Alice bounded");
+    alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
+    let frame = gw.waiting(&alice.device()).pop().unwrap();
+    let Down::Msg {
+        conv, from, sealed, ..
+    } = frame
+    else {
+        panic!("delivery")
+    };
+    let mut too_large = sealed.clone();
+    too_large.ct = url::encode(&vec![0; baylee_protocol::social::MAX_BODY_BYTES + 17]);
+    assert!(sealing::Decoded::read(&conv, &from, &too_large).is_err());
+    let mut wrong_nonce = sealed;
+    wrong_nonce.n = url::encode(&[0; 25]);
+    assert!(sealing::Decoded::read(&conv, &from, &wrong_nonce).is_err());
 }
 
 #[test]
@@ -229,7 +466,7 @@ fn a_devices_refusal_that_changes_no_device_keeps_the_verified_mark() {
     let (mut gw, mut alice, mut bob) = pair();
     alice.say(&mut gw, "/w Bob first");
     bob.deliver(&mut gw);
-    alice.act(&mut gw, Intent::Verify { tag: BOB.into() });
+    verify(&mut alice, &mut gw, BOB);
     // The gateway refuses once although nothing changed (a stale view on
     // its side); the devices Alice then fetches are the ones she verified.
     gw.refuse_sends.push_back(Why::Devices);
@@ -261,7 +498,7 @@ fn a_keys_changed_frame_for_a_new_device_puts_the_notice_in_the_dm_and_drops_ver
     let (mut gw, mut alice, mut bob) = pair();
     alice.say(&mut gw, "/w Bob first");
     bob.deliver(&mut gw);
-    alice.act(&mut gw, Intent::Verify { tag: BOB.into() });
+    verify(&mut alice, &mut gw, BOB);
     assert!(alice.social.safety(BOB).unwrap().verified);
     assert_eq!(alice.social.safety(BOB).unwrap().devices.len(), 1);
 
@@ -289,9 +526,11 @@ fn a_keys_changed_frame_for_a_new_device_puts_the_notice_in_the_dm_and_drops_ver
     );
     assert_eq!(safety.devices.len(), 2);
 
-    // The cache is current: the next send needs no second try.
+    // A current cache is not permission to send to a changed device.
     let sends = gw.sends_from(&alice.device());
     alice.say(&mut gw, "/w Bob second");
+    assert_eq!(gw.sends_from(&alice.device()) - sends, 0);
+    verify(&mut alice, &mut gw, BOB);
     assert_eq!(gw.sends_from(&alice.device()) - sends, 1);
     bob2.deliver(&mut gw);
     assert_eq!(bob2.texts(DM_AB), ["second"]);
@@ -302,7 +541,7 @@ fn a_keys_changed_frame_that_changes_nothing_leaves_the_conversation_and_the_mar
     let (mut gw, mut alice, mut bob) = pair();
     alice.say(&mut gw, "/w Bob first");
     bob.deliver(&mut gw);
-    alice.act(&mut gw, Intent::Verify { tag: BOB.into() });
+    verify(&mut alice, &mut gw, BOB);
     let before = alice.lines(DM_AB).len();
     alice.feed(&mut gw, Down::KeysChanged { tag: BOB.into() });
     assert_eq!(alice.lines(DM_AB).len(), before, "no notice");
@@ -623,7 +862,9 @@ fn a_member_the_roster_does_not_show_is_not_wrapped_for_and_the_line_says_so() {
         {
             sends += 1;
             let wrapped: Vec<&str> = sealed.wraps.iter().map(|w| w.d.as_str()).collect();
-            assert_eq!(wrapped, [bob_dev.as_str()], "Bob only");
+            assert_eq!(wrapped.len(), 2, "Bob and the sender's recovery copy only");
+            assert!(wrapped.contains(&bob_dev.as_str()));
+            assert!(wrapped.contains(&alice.device().as_str()));
             assert!(!wrapped.contains(&carol_dev.as_str()));
         }
     }
@@ -979,6 +1220,34 @@ fn a_send_whose_answer_was_lost_with_the_link_goes_again_and_the_duplicate_answe
 }
 
 #[test]
+fn a_crashed_sender_recovers_an_unacknowledged_send_from_its_own_encrypted_inbox() {
+    let (mut gw, mut alice, mut bob) = pair();
+    alice.drop_answers = true;
+    alice.say(&mut gw, "/w Bob recover after lost Sent");
+    assert_eq!(last_state(&alice, DM_AB), LineState::Pending);
+    assert_eq!(gw.waiting(&alice.device()).len(), 1);
+    alice.drop_answers = false;
+    alice.restart(&mut gw);
+    alice.deliver(&mut gw);
+    alice.restore(&mut gw);
+    assert_eq!(alice.texts(DM_AB), ["recover after lost Sent"]);
+    assert_eq!(last_state(&alice, DM_AB), LineState::Final);
+    assert!(
+        gw.waiting(&alice.device()).is_empty(),
+        "persisted own inbox replay is acknowledged"
+    );
+    alice.deliver(&mut gw);
+    alice.restore(&mut gw);
+    assert_eq!(
+        alice.texts(DM_AB),
+        ["recover after lost Sent"],
+        "replay remains idempotent"
+    );
+    bob.deliver(&mut gw);
+    assert_eq!(bob.texts(DM_AB), ["recover after lost Sent"]);
+}
+
+#[test]
 fn a_line_typed_while_the_link_is_down_waits_and_goes_after_the_welcome() {
     let (mut gw, mut alice, mut bob) = pair();
     alice.say(&mut gw, "/w Bob before");
@@ -1058,6 +1327,22 @@ fn a_delivery_from_an_unknown_device_is_held_keys_are_fetched_once_and_it_opens_
         bob.now,
         &mut bob.rng,
     );
+    let ack_at = after
+        .iter()
+        .position(is_ack)
+        .expect("ack after replay state is sealed");
+    let state_at = after
+        .iter()
+        .rposition(|effect| matches!(effect, Effect::SaveState(_)))
+        .expect("persisted replay suppression");
+    let history_at = after
+        .iter()
+        .rposition(|effect| matches!(effect, Effect::AppendHistory { .. }))
+        .expect("persisted received messages");
+    assert!(
+        history_at < state_at && state_at < ack_at,
+        "persist history and state before acknowledging delivery"
+    );
     bob.run(&mut gw, after.clone());
     assert_eq!(bob.texts(DM_AB), ["one", "two"]);
     let acks: Vec<u64> = after
@@ -1072,7 +1357,7 @@ fn a_delivery_from_an_unknown_device_is_held_keys_are_fetched_once_and_it_opens_
         Some(&last_seq(&frames)),
         "acked up to the last line once the lines are in"
     );
-    assert!(gw.slots.values().all(Vec::is_empty));
+    assert!(gw.waiting(&bob_dev).is_empty());
     assert!(phrases(&bob, DM_AB).is_empty(), "no notice: it opened");
 }
 
@@ -1089,7 +1374,7 @@ fn a_device_still_unknown_after_the_fetch_leaves_a_notice_and_the_delivery_is_ac
     assert_eq!(notices.len(), 1);
     assert_eq!(notices[0].0, ChatPhrase::UnknownDevice);
     assert_eq!(notices[0].1, ["Alice#af03"]);
-    assert!(gw.slots.values().all(Vec::is_empty), "acked, not stuck");
+    assert!(gw.waiting(&bob.device()).is_empty(), "acked, not stuck");
     let fetches = bob
         .log
         .iter()
@@ -1122,7 +1407,7 @@ fn a_blocked_senders_line_is_dropped_without_a_trace_but_acked() {
     bob.deliver(&mut gw);
     assert_eq!(bob.message_count(), 0, "no line");
     assert!(bob.conv(DM_AB).is_none(), "no tab either");
-    assert!(gw.slots.values().all(Vec::is_empty), "but acked");
+    assert!(gw.waiting(&bob.device()).is_empty(), "but acked");
     assert_eq!(bob.seen.len(), noise, "no toast, no sound");
 }
 
@@ -1140,7 +1425,7 @@ fn an_ignored_senders_line_is_kept_hidden_without_noise_or_unread_and_shows_agai
     assert!(lines[0].hidden);
     assert_eq!(bob.conv(DM_AB).unwrap().unread, 0, "not counted");
     assert_eq!(bob.seen.len(), noise, "no toast, no sound");
-    assert!(gw.slots.values().all(Vec::is_empty));
+    assert!(gw.waiting(&bob.device()).is_empty());
 
     bob.act(&mut gw, Intent::Unignore { tag: ALICE.into() });
     assert!(!bob.message_lines(DM_AB)[0].hidden);

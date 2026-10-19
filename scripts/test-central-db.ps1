@@ -1,4 +1,14 @@
-param([switch]$ExerciseFailure)
+param(
+    [switch]$ExerciseFailure,
+    [string]$CargoConfig,
+    [ValidateSet('e2e_account', 'e2e_admin', 'e2e_admission', 'e2e_chair_tickets',
+        'e2e_departure', 'e2e_lobby_feed', 'e2e_moderation', 'e2e_rematch',
+        'e2e_rooms', 'e2e_seat_rate', 'e2e_social_depart', 'e2e_social_friends',
+        'e2e_social_groups', 'e2e_social_invites', 'e2e_social_keys',
+        'e2e_social_messages', 'e2e_social_presence', 'e2e_social_reports',
+        'e2e_social_table', 'e2e_spectate', 'e2e_ws_tickets')]
+    [string[]]$GatewayTests = @()
+)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Push-Location (Split-Path $PSScriptRoot)
@@ -26,6 +36,11 @@ function Restore-FixturePassword {
 }
 
 try {
+    $cargoOptions = @('--locked')
+    if ($CargoConfig) {
+        if (-not (Test-Path -LiteralPath $CargoConfig -PathType Leaf)) { throw 'Cargo config must be an existing file' }
+        $cargoOptions = @('--config', (Resolve-Path -LiteralPath $CargoConfig).ProviderPath)
+    }
     Write-Output "Owned PostgreSQL fixture: $name"
     & docker image inspect $image *> $null
     if ($LASTEXITCODE -ne 0) {
@@ -34,7 +49,13 @@ try {
     }
     # Only this child shell gets the synthetic admin credential; no value in argv.
     [Environment]::SetEnvironmentVariable('POSTGRES_PASSWORD', $adminSecret)
-    $created = & docker create --name $name --label baylee.central.test=owned --memory 512m --cpus 2 --pids-limit 128 --read-only --tmpfs /var/lib/postgresql:rw,nosuid,nodev,size=268435456 --tmpfs /var/run/postgresql:rw,nosuid,nodev --tmpfs /tmp:rw,nosuid,nodev --publish 127.0.0.1::5432 --env POSTGRES_PASSWORD --env PGDATA=/var/lib/postgresql/test $image 2>&1
+    # Repeated gateway schema creation also generates WAL; keep the optional suite
+    # bounded without exhausting the smaller database-only fixture's filesystem.
+    $memory = if ($GatewayTests.Count -gt 0) { '2g' } else { '512m' }
+    $dataMount = if ($GatewayTests.Count -gt 0) {
+        '/var/lib/postgresql:rw,nosuid,nodev,size=1073741824'
+    } else { '/var/lib/postgresql:rw,nosuid,nodev,size=268435456' }
+    $created = & docker create --name $name --label baylee.central.test=owned --memory $memory --cpus 2 --pids-limit 128 --read-only --tmpfs $dataMount --tmpfs /var/run/postgresql:rw,nosuid,nodev --tmpfs /tmp:rw,nosuid,nodev --publish 127.0.0.1::5432 --env POSTGRES_PASSWORD --env PGDATA=/var/lib/postgresql/test $image 2>&1
     if ($LASTEXITCODE -ne 0) { throw 'Creating isolated PostgreSQL fixture failed' }
     Restore-FixturePassword
     $candidateId = ($created | Out-String).Trim()
@@ -57,30 +78,45 @@ try {
     if ($ExerciseFailure) { throw 'Synthetic fixture failure' }
     $version = (& docker exec $containerId psql -X -At -U postgres -c 'SHOW server_version' | Out-String).Trim()
     Write-Output "Testing real PostgreSQL $version in an isolated synthetic Baylee database."
-    $start = [Diagnostics.ProcessStartInfo]::new()
-    $start.FileName = 'cargo'
-    $start.UseShellExecute = $false
-    $start.CreateNoWindow = $true
-    $start.RedirectStandardOutput = $true
-    $start.RedirectStandardError = $true
-    [void]$start.Environment.Remove('POSTGRES_PASSWORD')
-    [void]$start.Environment.Remove('PGPASSWORD')
-    [void]$start.Environment.Remove('DATABASE_URL')
-    foreach ($argument in @('test', '--locked', '-p', 'baylee-db', '--test', 'schema', '--', '--test-threads=1')) {
-        $start.ArgumentList.Add($argument)
+    $suites = @(@{ Package = 'baylee-db'; Target = 'schema' })
+    foreach ($target in ($GatewayTests | Select-Object -Unique)) {
+        $suites += @{ Package = 'baylee-gateway'; Target = $target }
     }
-    $start.Environment['DATABASE_URL'] = "postgres://postgres:${adminSecret}@127.0.0.1:${port}/postgres"
-    $testProcess = [Diagnostics.Process]::Start($start)
-    $testOutput = $testProcess.StandardOutput.ReadToEndAsync()
-    $testErrors = $testProcess.StandardError.ReadToEndAsync()
-    if (-not $testProcess.WaitForExit(300000)) { throw 'PostgreSQL integration tests timed out' }
-    $resultText = $testOutput.GetAwaiter().GetResult()
-    $errorText = $testErrors.GetAwaiter().GetResult()
-    Write-Output $resultText
-    if ($testProcess.ExitCode -ne 0) { Write-Output $errorText; throw 'PostgreSQL integration tests failed' }
-    if ($resultText -notmatch 'test central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions \.\.\. ok' -or
-        $resultText -notmatch 'test result: ok\. [1-9][0-9]* passed; 0 failed; 0 ignored;') {
-        throw 'Expected PostgreSQL schema suite and central cutover test did not run'
+    foreach ($suite in $suites) {
+        Write-Output "Testing $($suite.Package)/$($suite.Target)"
+        $start = [Diagnostics.ProcessStartInfo]::new()
+        $start.FileName = 'cargo'
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        $start.RedirectStandardOutput = $true
+        $start.RedirectStandardError = $true
+        [void]$start.Environment.Remove('POSTGRES_PASSWORD')
+        [void]$start.Environment.Remove('PGPASSWORD')
+        [void]$start.Environment.Remove('DATABASE_URL')
+        foreach ($argument in (@('test') + $cargoOptions + @('-p', $suite.Package, '--test', $suite.Target, '--', '--test-threads=1'))) {
+            $start.ArgumentList.Add($argument)
+        }
+        $start.Environment['DATABASE_URL'] = "postgres://postgres:${adminSecret}@127.0.0.1:${port}/postgres"
+        $testProcess = [Diagnostics.Process]::Start($start)
+        $testOutput = $testProcess.StandardOutput.ReadToEndAsync()
+        $testErrors = $testProcess.StandardError.ReadToEndAsync()
+        if (-not $testProcess.WaitForExit(300000)) { throw 'PostgreSQL integration tests timed out' }
+        $resultText = $testOutput.GetAwaiter().GetResult()
+        $errorText = $testErrors.GetAwaiter().GetResult()
+        Write-Output $resultText
+        if ($testProcess.ExitCode -ne 0) { Write-Output $errorText; throw 'PostgreSQL integration tests failed' }
+        if ($resultText -notmatch 'test result: ok\. [1-9][0-9]* passed; 0 failed; 0 ignored;') {
+            throw 'Expected PostgreSQL test suite did not run completely'
+        }
+        if ($suite.Target -eq 'schema' -and
+            $resultText -notmatch 'test central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions \.\.\. ok') {
+            throw 'Expected central cutover test did not run'
+        }
+        $testProcess.Dispose()
+        $testProcess = $null
+        # Reclaim generated fixture WAL between suites, never while a child is active.
+        & docker exec $containerId psql -X -q -U postgres -c 'CHECKPOINT' *> $null
+        if ($LASTEXITCODE -ne 0) { throw 'Fixture checkpoint failed' }
     }
 } finally {
     $cleanupErrors = [Collections.Generic.List[string]]::new()

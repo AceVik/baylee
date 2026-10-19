@@ -4,6 +4,7 @@ mod fakegw;
 mod smoke;
 
 // Flows through the fake gateway (one writer).
+mod archive;
 mod flows;
 mod history_disk;
 

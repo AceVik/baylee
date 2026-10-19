@@ -25,7 +25,7 @@ pub(crate) async fn game_ws(
         )?),
         None => None,
     };
-    let seat = {
+    let (seat, hash) = {
         let lobby = state.lobby.lock();
         let game = lobby
             .games
@@ -48,7 +48,7 @@ pub(crate) async fn game_ws(
                             .as_ref()
                             .is_some_and(|h| auth::ct_eq(h, &seat_token_hash))
                 })
-                .map(|s| s.seat)
+                .map(|s| (s.seat, seat_token_hash.clone()))
                 .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?,
             Some(
                 wsticket::Grant::Lobby { .. }
@@ -61,10 +61,16 @@ pub(crate) async fn game_ws(
             None => {
                 let token = legacy_token(&state, params.token.as_deref(), "/games/{id}/ws")?;
                 seat_of_token(game, token)
+                    .map(|seat| (seat, auth::token_hash(token)))
                     .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid seat token"))?
             }
         }
     };
+    let authorization = SeatAuthorization::read(&state, &id, seat, &hash)
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
+    if !authorization.valid(&state, &id, seat).await {
+        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+    }
     // After the seat token, as at the agent's door, and before the engine
     // hears of the socket: a table this client cannot read is not joined at
     // all. Said on the socket rather than as an HTTP status, because a
@@ -77,7 +83,99 @@ pub(crate) async fn game_ws(
         .max_message_size(MAX_SEAT_FRAME)
         .max_frame_size(MAX_SEAT_FRAME)
         .read_buffer_size(SEAT_READ_BUFFER)
-        .on_upgrade(move |socket| run_game_socket(state, id, seat, socket)))
+        .on_upgrade(move |socket| run_game_socket(state, id, seat, authorization, socket)))
+}
+
+/// Frozen authorization of the socket, never replaced by a later device reclaiming a seat.
+pub(crate) struct SeatAuthorization {
+    hash: String,
+    account: Option<String>,
+    session: Option<Vec<u8>>,
+}
+
+impl SeatAuthorization {
+    pub(crate) fn read(state: &Shared, game: &str, seat: usize, hash: &str) -> Option<Self> {
+        let lobby = state.lobby.lock();
+        let chair = lobby.games.get(game)?.seats.get(seat)?;
+        if chair.seat_token_hash.as_deref() != Some(hash) {
+            return None;
+        }
+        Some(Self {
+            hash: hash.into(),
+            account: chair
+                .account_id
+                .clone()
+                .or_else(|| chair.delegate.as_ref().map(|d| d.by.clone())),
+            session: chair.central_session.clone(),
+        })
+    }
+
+    pub(crate) async fn valid(&self, state: &Shared, game: &str, seat: usize) -> bool {
+        let same = state
+            .lobby
+            .lock()
+            .games
+            .get(game)
+            .and_then(|g| g.seats.get(seat))
+            .is_some_and(|chair| chair.seat_token_hash.as_deref() == Some(self.hash.as_str()));
+        if !same {
+            return false;
+        }
+        match &self.account {
+            Some(account) => {
+                account_capability_valid(state, account, self.session.as_deref()).await
+            }
+            None => false,
+        }
+    }
+}
+
+/// A capability minted before migration cannot silently gain Central authorization.
+pub(crate) async fn account_capability_valid(
+    state: &Shared,
+    account: &str,
+    session: Option<&[u8]>,
+) -> bool {
+    if let Some(digest) = session {
+        return matches!(crate::central::resolve_digest(state, digest.to_vec()).await,
+            Ok(Some(session)) if session.account_id == account && crate::moderation::admit(&session).is_ok());
+    }
+    matches!(
+        baylee_db::central::linked(&state.db, account).await,
+        Ok(false)
+    )
+}
+
+/// Apply the same frozen seat/session checks to HTTP routes using a seat bearer.
+pub(crate) async fn authorize_seat_bearer(
+    state: &Shared,
+    game_id: &str,
+    headers: &axum::http::HeaderMap,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    let token = crate::bearer_token(headers)
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing seat token"))?;
+    authorize_seat_token(state, game_id, token).await
+}
+
+pub(crate) async fn authorize_seat_token(
+    state: &Shared,
+    game_id: &str,
+    token: &str,
+) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    let seat = {
+        let lobby = state.lobby.lock();
+        let game = lobby
+            .games
+            .get(game_id)
+            .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such game"))?;
+        seat_of_token(game, token).ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?
+    };
+    let grant = SeatAuthorization::read(state, game_id, seat, &auth::token_hash(token))
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
+    if !grant.valid(state, game_id, seat).await {
+        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+    }
+    Ok(())
 }
 
 /// The one frame a seat socket of another protocol is sent before it closes
@@ -245,7 +343,12 @@ pub(crate) struct Attached {
 
 /// Subscribes seat `seat` of `game_id`, waits for its engine and tells it
 /// the seat is here. `None` when there is no such seat or no engine.
-async fn attach(state: &Shared, game_id: &str, seat: usize) -> Option<Attached> {
+async fn attach(
+    state: &Shared,
+    game_id: &str,
+    seat: usize,
+    authorization: &SeatAuthorization,
+) -> Option<Attached> {
     // Subscribe BEFORE announcing the seat, so this socket cannot miss its
     // own first view; every envelope addressed to this seat arrives here,
     // including the ones produced by the opponent's actions.
@@ -267,6 +370,9 @@ async fn attach(state: &Shared, game_id: &str, seat: usize) -> Option<Attached> 
     };
     if !engine_ready(&mut ready).await {
         tracing::warn!(game_id, seat, "no engine attached; seat socket closing");
+        return None;
+    }
+    if !authorization.valid(state, game_id, seat).await {
         return None;
     }
     let link = state
@@ -325,13 +431,17 @@ pub(crate) async fn run_game_socket(
     state: Shared,
     game_id: String,
     seat: usize,
+    authorization: SeatAuthorization,
     mut socket: WebSocket,
 ) {
+    if !authorization.valid(&state, &game_id, seat).await {
+        return;
+    }
     let Some(Attached {
         mut rx,
         mut changed,
         link,
-    }) = attach(&state, &game_id, seat).await
+    }) = attach(&state, &game_id, seat, &authorization).await
     else {
         return;
     };
@@ -339,19 +449,17 @@ pub(crate) async fn run_game_socket(
     // it may (#284).
     // The player's own chair counts them as here (`presence.rs`); a seat
     // bridge's does not, its host is counted by `Lobby::bridging_accounts`.
-    let account = state
-        .lobby
-        .lock()
-        .games
-        .get(&game_id)
-        .and_then(|game| game.seats.get(seat))
-        .and_then(|chair| chair.account_id.clone());
+    let account = player_account(&state, &game_id, seat);
     let present = account.as_deref().map(|id| state.presence.enter(id));
     let opened = std::time::Instant::now();
     let mut meter = seatrate::Meter::new(opened);
     let mut allowance = seatrate::Allowance::new(opened, seatrate::RATE, seatrate::BURST);
+    let mut recheck = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         tokio::select! {
+            _ = recheck.tick() => {
+                if !authorization.valid(&state, &game_id, seat).await { break; }
+            }
             frame = socket.recv() => {
                 if let Some(Ok(_)) = &frame {
                     let now = std::time::Instant::now();
@@ -365,6 +473,9 @@ pub(crate) async fn run_game_socket(
                     // At most `MAX_SEAT_FRAME`: the socket refuses a bigger
                     // message before it is read (`game_ws`).
                     Some(Ok(Message::Binary(data))) => {
+                        // Every action is authorized after reception. Periodic checks
+                        // also close idle sockets, while no stale action reaches an engine.
+                        if !authorization.valid(&state, &game_id, seat).await { break; }
                         let tagged = v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                             seat: seat as u32,
                             envelope: data,
@@ -422,6 +533,7 @@ pub(crate) async fn run_game_socket(
         largest_burst = meter.largest_burst(),
         "seat socket closed"
     );
+    let _ = socket.send(Message::Close(None)).await;
     // The engine runs a decision clock only for a seat that can answer, so it
     // has to be told when one walks away.
     to_engine(
@@ -435,4 +547,17 @@ pub(crate) async fn run_game_socket(
     if let Some(account) = account {
         crate::departure::socket_closed(&state, &account);
     }
+}
+
+/// Delegated bridge sockets do not count as a player's own online presence.
+fn player_account(state: &Shared, game: &str, seat: usize) -> Option<String> {
+    state
+        .lobby
+        .lock()
+        .games
+        .get(game)?
+        .seats
+        .get(seat)?
+        .account_id
+        .clone()
 }

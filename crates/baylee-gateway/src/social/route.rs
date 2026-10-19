@@ -3,7 +3,8 @@
 //! The checks run in the design's order: the shapes and sizes, the header
 //! (sender, device, conversation, id, clock), membership, the send
 //! allowance, then completeness (the wraps name exactly the current devices
-//! of every member but the sending one, blocked recipients included), the
+//! of every member but the sending one, plus an optional sender wrap for
+//! crash-safe inbox recovery, blocked recipients included), the
 //! per-device cap, a duplicate id, and storage. The gateway never opens
 //! anything it carries: `hdr` is the only part it parses, and only for the
 //! fields it checks.
@@ -205,7 +206,11 @@ async fn try_send(
         .map(|d| d.id.as_str())
         .filter(|d| *d != from.device)
         .collect();
-    let named: BTreeSet<&str> = wraps.iter().map(|(d, _)| d.as_str()).collect();
+    let named: BTreeSet<&str> = wraps
+        .iter()
+        .map(|(d, _)| d.as_str())
+        .filter(|d| *d != from.device)
+        .collect();
     if expected != named {
         tracing::debug!(
             missing = expected.difference(&named).count(),

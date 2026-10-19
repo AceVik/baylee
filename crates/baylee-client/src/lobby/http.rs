@@ -51,6 +51,15 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
                 super::central::login(state, mailbox, username, password);
                 return;
             }
+            LobbyRequest::DeleteAccount { mut password } => {
+                use zeroize::Zeroize as _;
+                password.zeroize();
+                state.lobby.apply(LobbyEvent::Failed(
+                    "Account deletion requires Central verification and is not available yet."
+                        .into(),
+                ));
+                return;
+            }
             LobbyRequest::Register { .. }
             | LobbyRequest::ChangePassword { .. }
             | LobbyRequest::PlayAsGuest { .. } => {

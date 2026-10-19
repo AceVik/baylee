@@ -31,18 +31,38 @@ impl CentralHttp {
     /// Reports generic auth/transport/conflict/capacity failures; never follows a redirect.
     pub fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
         let bytes = Zeroizing::new(central_api::encode(request)?);
-        let mut asked = self
-            .agent
-            .post(self.endpoint.native_url())
-            .header("Content-Type", "application/json");
-        if let Some(token) = bearer {
-            asked = asked.header("Authorization", token.bearer().as_str());
-        }
-        let response = asked
-            .send(bytes.as_slice())
-            .map_err(|_| Error::Unavailable)?;
-        decode_response(response)
+        retry_busy(
+            || {
+                let mut asked = self
+                    .agent
+                    .post(self.endpoint.native_url())
+                    .header("Content-Type", "application/json");
+                if let Some(token) = bearer {
+                    asked = asked.header("Authorization", token.bearer().as_str());
+                }
+                let response = asked
+                    .send(bytes.as_slice())
+                    .map_err(|_| Error::Unavailable)?;
+                decode_response(response)
+            },
+            std::thread::sleep,
+        )
     }
+}
+
+// 429 means rejection before execution. No other error, including an ambiguous
+// connection loss after a mutating operation, permits a blind transport retry.
+fn retry_busy<T>(
+    mut operation: impl FnMut() -> Result<T, Error>,
+    mut wait: impl FnMut(Duration),
+) -> Result<T, Error> {
+    for millis in [100, 250, 700] {
+        match operation() {
+            Err(Error::Busy) => wait(Duration::from_millis(millis)),
+            result => return result,
+        }
+    }
+    operation()
 }
 
 pub(crate) fn agent(https_only: bool) -> ureq::Agent {
@@ -99,5 +119,61 @@ impl central_client::Transport for CentralHttp {
     }
     fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
         Self::exchange(self, request, bearer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_explicit_preexecution_capacity_rejections_are_retried() {
+        let mut attempts = 0;
+        let mut waits = Vec::new();
+        let result = retry_busy(
+            || {
+                attempts += 1;
+                if attempts < 3 {
+                    Err(Error::Busy)
+                } else {
+                    Ok(())
+                }
+            },
+            |delay| waits.push(delay),
+        );
+        assert!(result.is_ok());
+        assert_eq!(attempts, 3);
+        assert_eq!(
+            waits,
+            [Duration::from_millis(100), Duration::from_millis(250)]
+        );
+        attempts = 0;
+        assert!(matches!(
+            retry_busy::<()>(
+                || {
+                    attempts += 1;
+                    Err(Error::Unavailable)
+                },
+                |_| panic!("ambiguous writes must not retry")
+            ),
+            Err(Error::Unavailable)
+        ));
+        assert_eq!(attempts, 1);
+        attempts = 0;
+        let mut waited = Duration::ZERO;
+        assert!(matches!(
+            retry_busy::<()>(
+                || {
+                    attempts += 1;
+                    Err(Error::Busy)
+                },
+                |delay| waited += delay
+            ),
+            Err(Error::Busy)
+        ));
+        assert_eq!(attempts, 4);
+        assert!(
+            waited > Duration::from_secs(1),
+            "the last attempt crosses the server's one-second rate window"
+        );
     }
 }

@@ -611,6 +611,11 @@ pub(crate) enum Hub {
 }
 
 impl LobbyState {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn central_handle(&self) -> Option<central::Handle> {
+        self.central.as_ref().and_then(|state| state.handle.clone())
+    }
+
     /// Whether the settings screen is up.
     #[must_use]
     pub(crate) fn settings_open(&self) -> bool {
@@ -869,7 +874,7 @@ fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbo
 /// What a finished HTTP call hands back.
 enum Reply {
     #[cfg(not(target_arch = "wasm32"))]
-    Central(Result<central::Restored, baylee_account::Error>),
+    Central(Result<Box<central::Restored>, baylee_account::Error>),
     /// Ignore replies from a gateway selection that has since changed.
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].

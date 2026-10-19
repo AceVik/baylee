@@ -65,14 +65,14 @@ pub struct OsKeys;
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
 impl OsKeys {
     fn entry(entry: &KeyEntry) -> Result<keyring::Entry, String> {
-        keyring::Entry::new(SERVICE, &entry.account()).map_err(|e| said(&e))
+        keyring::Entry::new(SERVICE, &entry.account()).map_err(said)
     }
 }
 
 /// A store's error as a sentence. Its messages name the entry at most,
 /// never a secret; a key-shaped run is blanked all the same.
 #[cfg(any(windows, target_os = "macos", target_os = "linux"))]
-fn said(error: &keyring::Error) -> String {
+fn said(error: keyring::Error) -> String {
     let text = match error {
         keyring::Error::NoDefaultStore => {
             "this machine's credential store could not be opened".to_string()
@@ -97,10 +97,10 @@ impl KeyStore for OsKeys {
     fn has(&self, entry: &KeyEntry) -> Result<bool, String> {
         // The credential itself, not its secret: the store need not hand
         // the key over to say one is kept.
-        match Self::entry(entry)?.inner.get_credential() {
-            Ok(_) => Ok(true),
+        match Self::entry(entry)?.get_credential() {
+            Ok(()) => Ok(true),
             Err(keyring::Error::NoEntry) => Ok(false),
-            Err(e) => Err(said(&e)),
+            Err(e) => Err(said(e)),
         }
     }
 
@@ -108,7 +108,7 @@ impl KeyStore for OsKeys {
         match Self::entry(entry)?.get_password() {
             Ok(key) => Ok(Some(key)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(said(&e)),
+            Err(e) => Err(said(e)),
         }
     }
 
@@ -116,13 +116,13 @@ impl KeyStore for OsKeys {
         if let Some(why) = baylee_client_core::llmseat::keys::key_fault(key) {
             return Err(why.into());
         }
-        Self::entry(entry)?.set_password(key).map_err(|e| said(&e))
+        Self::entry(entry)?.set_password(key).map_err(said)
     }
 
     fn delete(&self, entry: &KeyEntry) -> Result<(), String> {
         match Self::entry(entry)?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(said(&e)),
+            Err(e) => Err(said(e)),
         }
     }
 }

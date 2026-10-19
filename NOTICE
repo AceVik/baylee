@@ -78,6 +78,14 @@ are used under its MIT License:
 The card lists are Wizards of the Coast's products; the card names in them
 are Wizards' material on the footing of the first paragraph.
 
+Linux builds dynamically link the system's GNOME libsecret library
+(https://gitlab.gnome.org/GNOME/libsecret), licensed under LGPL-2.1-or-later.
+Its copyright notices include Collabora Ltd. (2011) and Red Hat Inc. (2012).
+The operating-system package supplies this library and its licensing material;
+Baylee does not statically bundle it. The Rust libsecret bindings and GLib
+bindings are MIT licensed. See docs/native-credential-store.md for the native
+credential-provider dependency inventory.
+
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature
 will ever be placed behind payment.

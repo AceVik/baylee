@@ -165,8 +165,11 @@ file. A profile names the variable its key is read from (`key_env`); the
 bridge reads that variable first, and where it is unset, the key kept in
 the operating system's credential store under the same name for the
 profile's address: the macOS Keychain, the Windows Credential Manager, the
-Secret Service on Linux (the `keyring` crate, Apache-2.0 or MIT; only
-`baylee-seat` links it).
+Secret Service on Linux. The shared `baylee-keyring` adapter retains the native
+Windows/macOS providers and uses MIT-licensed libsecret Rust bindings with the
+dynamically linked LGPL-2.1-or-later system library on Linux; entry names remain
+compatible. See [native credential storage](native-credential-store.md) for the
+dependency inventory, session checks and isolated Linux tests.
 
 - **The entry.** Service `baylee-seat`, account `{key_env}@{host}` (with
   the port where the address names one, `llmseat::keys::KeyEntry`): the

@@ -49,6 +49,7 @@ pub(crate) async fn create_game(
     Json(body): Json<CreateGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers).await?;
     let chosen = if body.deck_id.is_empty() {
         None
     } else {
@@ -85,6 +86,7 @@ pub(crate) async fn create_game(
             let mut seats = vec![lobby::LobbySeat::open(0), lobby::LobbySeat::open(1)];
             seats[0].account_id = Some(account_id.clone());
             seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+            seats[0].central_session.clone_from(&central_session);
             seats[0].deck_name = deck_name;
             seats[0].deck = Some(deck);
             seats[1].kind = lobby::SeatKind::Ai;
@@ -133,6 +135,7 @@ pub(crate) async fn create_game(
             game.seats[0].deck = Some(deck);
         }
         game.seats[0].seat_token_hash = Some(auth::token_hash(&seat_token));
+        game.seats[0].central_session = central_session;
         game.house_rules = house_rules;
         game.allow_spectators = body.allow_spectators.unwrap_or(true);
         if !body.password.is_empty() {
@@ -171,6 +174,7 @@ pub(crate) async fn join_game(
     Json(body): Json<JoinGameBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers).await?;
     let chosen = if body.deck_id.is_empty() {
         None
     } else {
@@ -226,6 +230,7 @@ pub(crate) async fn join_game(
         };
         chair.account_id = Some(account_id);
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.central_session = central_session;
         if let Some((name, deck)) = chosen {
             chair.deck_name = name;
             chair.deck = Some(deck);
@@ -281,6 +286,7 @@ pub(crate) async fn take_seat(
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
+    let central_session = crate::central::seat_binding(&state, &headers).await?;
     let seat_token = auth::new_token();
     let seat = {
         let mut lobby = state.lobby.lock();
@@ -300,6 +306,7 @@ pub(crate) async fn take_seat(
             .find(|s| s.account_id.as_ref() == Some(&account_id))
             .ok_or_else(|| err(StatusCode::FORBIDDEN, "you are not at this table"))?;
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.central_session = central_session;
         chair.seat
     };
     // No `lobby_moved()`: the arrangement of the table is exactly as it was.

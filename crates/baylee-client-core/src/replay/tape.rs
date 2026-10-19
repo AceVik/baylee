@@ -36,6 +36,8 @@ impl Raw {
 pub enum TapeRefusal {
     /// Not a tape at all (no header line).
     NotATape,
+    /// The decoded JSON Lines exceed the shared replay/record memory budget.
+    TooLarge,
     /// A tape of another format version.
     OtherTape(u32),
     /// A tape whose payloads are another view version than this client
@@ -59,6 +61,7 @@ impl std::fmt::Display for TapeRefusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NotATape => f.write_str("this file is not a replay"),
+            Self::TooLarge => f.write_str("this replay exceeds the size limit"),
             Self::OtherTape(v) => write!(
                 f,
                 "this replay is format {v}, this client reads {}",
@@ -256,6 +259,9 @@ impl Tape {
     /// # Errors
     /// As [`Tape::read`].
     pub fn read_lines(text: &[u8]) -> Result<Self, TapeRefusal> {
+        if text.len() > crate::bugreport::MAX_INFLATED_BYTES {
+            return Err(TapeRefusal::TooLarge);
+        }
         let mut lines = text
             .split(|b| *b == b'\n')
             .filter(|line| !line.iter().all(u8::is_ascii_whitespace));

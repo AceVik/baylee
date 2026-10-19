@@ -158,8 +158,7 @@ image.workspace = true
 # trusts it, as bevy's reader did.
 ureq = { workspace = true, features = ["platform-verifier"] }
 # Natively the gateway's HTTP and sockets go through `src/transport.rs`,
-# which sets the certificate policy itself (strict in a release, none in a
-# debug build) — something neither `ehttp` nor `ewebsock` lets a caller do.
+# which verifies certificates in every build profile and refuses HTTP redirects.
 # Native sockets use tungstenite directly; `ewebsock` 0.8 keeps its own 0.24.
 # Both use the same rustls, ring only.
 tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }

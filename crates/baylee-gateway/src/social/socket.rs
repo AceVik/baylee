@@ -11,7 +11,7 @@ use super::route::{self, Sending, Window};
 use super::{OUT_QUEUE, Out, millis, person, presence, uid};
 use crate::{
     ErrorBody, Json, Message, Query, RecvError, Shared, State, StatusCode, TICKET_REFUSED,
-    WebSocket, WebSocketUpgrade, auth, db_down, err, spend_ticket, store, wsticket,
+    WebSocket, WebSocketUpgrade, err, spend_ticket, store, wsticket,
 };
 use axum::extract::ws::{CloseFrame, close_code};
 use baylee_protocol::social::{
@@ -69,11 +69,12 @@ pub(crate) async fn social_ws(
     else {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     };
-    match store::resolve_digest(&state.db, session, auth::now_secs())
+    match crate::central::resolve_digest(&state, session.clone())
         .await
-        .map_err(|e| db_down(&e))?
+        .map_err(|status| err(status, TICKET_REFUSED))?
     {
-        Some(session) if session.account_id == account_id => {}
+        Some(session)
+            if session.account_id == account_id && crate::moderation::admit(&session).is_ok() => {}
         _ => return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)),
     }
     let why = baylee_protocol::version_refusal("This client", params.protocol)
@@ -84,7 +85,7 @@ pub(crate) async fn social_ws(
     Ok(ws
         .max_message_size(TRANSPORT_LIMIT)
         .max_frame_size(TRANSPORT_LIMIT)
-        .on_upgrade(move |socket| run(state, account_id, socket)))
+        .on_upgrade(move |socket| run(state, account_id, session, socket)))
 }
 
 /// The one frame a socket of another version is sent before it closes.
@@ -226,7 +227,7 @@ pub(crate) fn group_info(group: &baylee_db::social::Group) -> GroupInfo {
 }
 
 /// One device's socket, from `hello` until it goes.
-async fn run(state: Shared, account: String, mut socket: WebSocket) {
+async fn run(state: Shared, account: String, session_digest: Vec<u8>, mut socket: WebSocket) {
     let mut departed = state.departed.subscribe();
     let Ok(Some(row)) = store::account(&state.db, &account).await else {
         let _ = socket.send(Message::Close(None)).await;
@@ -236,6 +237,12 @@ async fn run(state: Shared, account: String, mut socket: WebSocket) {
         close(&mut socket, close_code::POLICY, "hello first").await;
         return;
     };
+    if !matches!(crate::central::resolve_digest(&state, session_digest.clone()).await,
+        Ok(Some(session)) if session.account_id == account && crate::moderation::admit(&session).is_ok())
+    {
+        close(&mut socket, close_code::POLICY, "session expired").await;
+        return;
+    }
     let mine = match baylee_db::social::device_by_id(&state.db, &device).await {
         Ok(found) => found.is_some_and(|d| Some(d.account_id) == uid(&account)),
         Err(e) => {
@@ -290,6 +297,7 @@ async fn run(state: Shared, account: String, mut socket: WebSocket) {
     serve(
         &state,
         &account,
+        &session_digest,
         &device,
         &me,
         guest,
@@ -310,6 +318,7 @@ async fn run(state: Shared, account: String, mut socket: WebSocket) {
 async fn serve(
     state: &Shared,
     account: &str,
+    session_digest: &[u8],
     device: &str,
     me: &Person,
     guest: bool,
@@ -354,8 +363,16 @@ async fn serve(
     let mut ping = tokio::time::interval(PING_EVERY);
     ping.tick().await;
     let mut heard = tokio::time::Instant::now();
+    let mut authorization = tokio::time::interval(Duration::from_secs(5));
     loop {
         tokio::select! {
+            _ = authorization.tick() => {
+                if !matches!(crate::central::resolve_digest(state, session_digest.to_vec()).await,
+                    Ok(Some(session)) if session.account_id == account && crate::moderation::admit(&session).is_ok()) {
+                    close(socket, close_code::POLICY, "session expired").await;
+                    return;
+                }
+            }
             frame = socket.recv() => {
                 let Some(Ok(frame)) = frame else { return };
                 heard = tokio::time::Instant::now();

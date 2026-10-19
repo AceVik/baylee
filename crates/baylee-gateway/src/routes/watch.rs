@@ -62,14 +62,15 @@ pub(crate) async fn watch_ws(
     }
     // Whose socket it is, for the friends list's "watching" (`social/`):
     // the session that bought the ticket, if it still stands.
-    let watcher = crate::store::resolve_digest(&state.db, session, crate::auth::now_secs())
+    let watcher = crate::central::resolve_digest(&state, session.clone())
         .await
-        .ok()
-        .flatten()
-        .map(|session| session.account_id);
+        .map_err(|status| err(status, TICKET_REFUSED))?
+        .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
+    crate::moderation::admit(&watcher)?;
+    let watcher = watcher.account_id;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)
-        .on_upgrade(move |socket| run_watch_socket(state, id, watcher, socket)))
+        .on_upgrade(move |socket| run_watch_socket(state, id, Some(watcher), session, socket)))
 }
 
 /// Moves the game's spectator count by `by` and tells its engine; `joined`
@@ -102,6 +103,7 @@ pub(crate) async fn run_watch_socket(
     state: Shared,
     game_id: String,
     watcher: Option<String>,
+    session_digest: Vec<u8>,
     mut socket: WebSocket,
 ) {
     let (mut rx, mut ready) = {
@@ -123,8 +125,15 @@ pub(crate) async fn run_watch_socket(
         state.social.watch_start(account, &game_id);
     }
     tracing::info!(game_id, "spectator socket opened");
+    let mut authorization = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         tokio::select! {
+            _ = authorization.tick() => {
+                if !matches!(crate::central::resolve_digest(&state, session_digest.clone()).await,
+                    Ok(Some(session)) if watcher.as_deref() == Some(session.account_id.as_str()) && crate::moderation::admit(&session).is_ok()) {
+                    break;
+                }
+            }
             frame = socket.recv() => match frame {
                 // A spectator answers nothing: whatever it sends is dropped.
                 Some(Ok(_)) => {}

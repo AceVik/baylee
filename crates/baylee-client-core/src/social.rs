@@ -45,7 +45,7 @@ pub use convs::{
     LineKind, LineState,
 };
 pub use disk::{ChatDisk, MemoryDisk};
-pub use machine::Social;
+pub use machine::{ArchiveError, Social};
 pub use notify::{ChatCue, Notify, NotifyContext};
 pub use select::{DrawnLine, Pos, Selection, copy_text};
 pub use table::{RosterSeat, TableContext, tag_of};
@@ -476,6 +476,8 @@ pub enum Intent {
     Verify {
         /// Whom.
         tag: String,
+        /// The exact sorted identity/agreement-key snapshot displayed for confirmation.
+        expected: Vec<([u8; 32], [u8; 32])>,
     },
     /// Drop the verified mark.
     Unverify {
@@ -522,6 +524,8 @@ pub enum Intent {
 /// A contact's safety number and devices (§4.4, §11.8).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SafetyView {
+    /// The exact displayed key snapshot to include in a verification intent.
+    pub expected: Vec<([u8; 32], [u8; 32])>,
     /// The 60 digits, as 12 groups of 5.
     pub groups: Vec<String>,
     /// Whether the player verified exactly these devices.

@@ -11,6 +11,7 @@
 //! the wire should know the field names, and the shell that encodes the
 //! request is not it.
 
+mod debug;
 pub mod gateway_info;
 pub mod gateway_list;
 pub mod gateway_use;
@@ -617,7 +618,7 @@ pub const PAGE: usize = 8;
 
 /// What the gateway hands back when a seat is granted: everything a client
 /// needs to open the duel socket, and nothing else.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SeatHandover {
     /// The game to connect to.
     pub game_id: String,
@@ -672,7 +673,7 @@ impl GameMode {
 }
 
 /// A call the shell should make on the lobby's behalf.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum LobbyRequest {
     /// Account library operation.
     Library(library::Request),
@@ -899,7 +900,7 @@ pub enum LobbyRequest {
 }
 
 /// The outcome of a [`LobbyRequest`], handed back by the shell.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum LobbyEvent {
     /// Account library response.
     Library(library::Reply),
@@ -1005,7 +1006,7 @@ pub enum LobbyEvent {
 /// those are one question. Offline they are not, and reading the first as
 /// the second left the deck list as the last screen offline — the builder,
 /// the room, ready and start one dead button each.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 enum Performer {
     /// Nobody yet: the sign-in screen.
     #[default]
@@ -1074,7 +1075,7 @@ enum GatewaySelection {
 ///
 /// One request is in flight at a time ([`Lobby::busy`]): every intent method
 /// returns `None` while one is, so a double click cannot open two tables.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "independent facts about the session and the request in flight"

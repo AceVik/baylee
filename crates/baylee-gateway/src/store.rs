@@ -34,8 +34,8 @@ use baylee_db::entity::upload::Entity as Uploads;
 use baylee_db::entity::{account, confirmation, deck, deck_version, session_token, upload};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, Statement, TransactionTrait,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, Statement, TransactionTrait,
     sea_query::{Expr, ExprTrait, Func, OnConflict},
 };
 use std::collections::{BTreeSet, HashMap};
@@ -868,15 +868,7 @@ pub async fn put_token(db: &DatabaseConnection, token: StoredToken) -> Result<()
 /// # Errors
 ///
 /// If the database refuses.
-pub async fn resolve_token(
-    db: &DatabaseConnection,
-    token: &str,
-    now: u64,
-) -> Result<Option<Session>> {
-    resolve_digest(db, auth::token_digest(token), now).await
-}
-
-/// [`resolve_token`] for a session known only by its digest: what a lobby
+/// Resolve a session known only by its digest: what a lobby
 /// socket's ticket remembers of the session that asked for it (#294), so
 /// the upgrade can ask whether it still stands without the token itself
 /// having been kept anywhere.
@@ -1391,6 +1383,12 @@ pub async fn reset_password(
         .rows_affected
         > 0;
     if changed {
+        tx.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "DELETE FROM central_account_link WHERE account_id = $1 AND central_id IS NULL",
+            [id.into()],
+        ))
+        .await?;
         drop_sessions_of(&tx, id).await?;
     }
     tx.commit().await?;
@@ -1420,6 +1418,12 @@ pub async fn set_password(
         .filter(account::Column::Guest.eq(false))
         .exec(&tx)
         .await?;
+    tx.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "DELETE FROM central_account_link WHERE account_id = $1 AND central_id IS NULL",
+        [id.into()],
+    ))
+    .await?;
     drop_sessions_of(&tx, id).await?;
     tx.commit().await?;
     Ok(())

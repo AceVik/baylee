@@ -29,6 +29,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 const FOLDER: &str = "records";
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod file;
+
 /// The record of the game being played, on disk as it is played.
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) struct LiveRecord {
@@ -198,7 +201,7 @@ pub(crate) fn read_kept_in(folder: &std::path::Path, name: &str) -> Option<Vec<u
     if !baylee_client_core::bugreport::is_record_file_name(name) {
         return None;
     }
-    let bytes = std::fs::read(folder.join(name)).ok()?;
+    let bytes = file::read(&folder.join(name)).ok()?;
     baylee_client_core::bugreport::inflate(&bytes)
 }
 
@@ -216,7 +219,6 @@ pub(crate) fn recover() {
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn recover_in(folder: &std::path::Path) {
     use baylee_client_core::bugreport::{ReadBack, gzip, is_record_file_name, read_back};
-    use std::io::Read as _;
     for (name, _) in records_in(folder) {
         if !is_record_file_name(&name) {
             continue;
@@ -228,13 +230,12 @@ pub(crate) fn recover_in(folder: &std::path::Path) {
         if let Err(std::fs::TryLockError::WouldBlock) = file.try_lock() {
             continue;
         }
-        let mut bytes = Vec::new();
-        if file.read_to_end(&mut bytes).is_err() {
+        let Ok(bytes) = self::file::read_open(&mut file) else {
             continue;
-        }
+        };
         drop(file);
         match read_back(&bytes) {
-            ReadBack::Whole => {}
+            ReadBack::Whole | ReadBack::TooLarge => {}
             ReadBack::Torn(lines) => crate::settings::store::write_at(&path, gzip(&lines)),
             ReadBack::Empty => {
                 let _ = std::fs::remove_file(&path);
@@ -299,6 +300,32 @@ mod tests {
             .read_to_string(&mut text)
             .expect("one gzip stream");
         text
+    }
+
+    #[test]
+    fn oversized_local_record_is_refused_without_recovery_rewriting_or_deleting_it() {
+        use std::io::Read as _;
+        let scratch = Scratch::new("oversized");
+        let name = record_file_name(1_759_000_000_001, 8);
+        let path = scratch.0.join(&name);
+        std::fs::write(&path, b"keep original").unwrap();
+        let size = file::MAX_FILE_BYTES as u64 + 1;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(size)
+            .unwrap();
+        // Metadata rejects the oversized fixture before allocating/reading it.
+        assert!(file::read(&path).is_err());
+        assert!(read_kept_in(&scratch.0, &name).is_none());
+        assert!(crate::replay::local::open_file(&path).is_err());
+        recover_in(&scratch.0);
+        let mut kept = std::fs::File::open(&path).unwrap();
+        assert_eq!(kept.metadata().unwrap().len(), size);
+        let mut prefix = [0; 13];
+        kept.read_exact(&mut prefix).unwrap();
+        assert_eq!(&prefix, b"keep original");
     }
 
     /// The file is on disk from the first step and holds every step as it

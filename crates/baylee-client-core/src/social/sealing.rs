@@ -110,8 +110,8 @@ impl Outgoing {
     }
 }
 
-/// Seals `body` under `hdr` for `devices` (every device of every member but
-/// this one), signed by `me`.
+/// Seals `body` under `hdr` for every member device and this sending device,
+/// signed by `me`. Its own inbox can recover a send whose acknowledgement was lost.
 ///
 /// # Errors
 ///
@@ -128,7 +128,7 @@ pub fn seal_for(
     if hdr.len() > MAX_HEADER_BYTES || plain.len() > MAX_BODY_BYTES {
         return Err(SealFault::TooLarge);
     }
-    let recipients: Vec<Recipient<'_>> = devices
+    let mut recipients: Vec<Recipient<'_>> = devices
         .iter()
         .filter(|d| d.id != me.device_id())
         .map(|d| Recipient {
@@ -136,6 +136,11 @@ pub fn seal_for(
             dk: d.dk,
         })
         .collect();
+    // Use the sender's actual key, never a cached replacement of its own device row.
+    recipients.push(Recipient {
+        device: me.device_id(),
+        dk: me.dk(),
+    });
     let sealed =
         baylee_seal::seal(me, hdr, &plain, &recipients, rng).map_err(|_| SealFault::Key)?;
     Ok(Outgoing {
@@ -194,11 +199,17 @@ impl Decoded {
     ///
     /// [`OpenFault::Header`] or [`OpenFault::Mismatch`].
     pub fn read(conv: &str, from: &Sender, delivered: &Delivered) -> Result<Self, OpenFault> {
-        let field = |text: &str| url::decode(text).map_err(|_| OpenFault::Header);
-        let hdr = field(&delivered.hdr)?;
-        if hdr.len() > MAX_HEADER_BYTES {
-            return Err(OpenFault::Header);
-        }
+        let field = |text: &str, size: usize, exact: bool| {
+            if text.len() > size.div_ceil(3) * 4 {
+                return Err(OpenFault::Header);
+            }
+            let bytes = url::decode(text).map_err(|_| OpenFault::Header)?;
+            if bytes.len() > size || (exact && bytes.len() != size) {
+                return Err(OpenFault::Header);
+            }
+            Ok(bytes)
+        };
+        let hdr = field(&delivered.hdr, MAX_HEADER_BYTES, false)?;
         let header: Header = serde_json::from_slice(&hdr).map_err(|_| OpenFault::Header)?;
         if header.v != HEADER_VERSION || header.kind != KIND_TEXT {
             return Err(OpenFault::Header);
@@ -207,11 +218,11 @@ impl Decoded {
             return Err(OpenFault::Mismatch);
         }
         Ok(Self {
-            n: field(&delivered.n)?,
-            ct: field(&delivered.ct)?,
-            epk: field(&delivered.epk)?,
-            sig: field(&delivered.sig)?,
-            k: field(&delivered.k)?,
+            n: field(&delivered.n, 24, true)?,
+            ct: field(&delivered.ct, MAX_BODY_BYTES + 16, false)?,
+            epk: field(&delivered.epk, 32, true)?,
+            sig: field(&delivered.sig, 64, true)?,
+            k: field(&delivered.k, baylee_protocol::social::WRAP_BYTES, true)?,
             hdr,
             header,
         })

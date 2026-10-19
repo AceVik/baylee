@@ -834,6 +834,7 @@ fn sync_table_window(
         &fonts,
         lang,
         machine,
+        host.vault.sync_status(),
         &ui,
         Some(&duel),
         texts.as_deref(),
@@ -985,6 +986,7 @@ fn sync_lobby_window(
         &fonts,
         lang,
         machine,
+        host.vault.sync_status(),
         &ui,
         None,
         None,
@@ -1269,6 +1271,7 @@ fn fill(
     fonts: &UiFonts,
     lang: Lang,
     machine: &Social,
+    backup: Option<super::vault_access::SyncStatus>,
     ui: &ChatUi,
     duel: Option<&Duel>,
     texts: Option<&crate::cardtext::CardTexts>,
@@ -1366,19 +1369,20 @@ fn fill(
             conv.as_ref().map(ToString::to_string),
             to,
             verified,
+            backup,
             lang as u8,
         ));
         if key != drawn.note_key {
             drawn.note_key = key;
             commands.entity(note).despawn_children();
-            if conv.as_ref().is_some_and(|c| !matches!(c, Conv::Global)) {
+            if backup.is_some() || conv.as_ref().is_some_and(|c| !matches!(c, Conv::Global)) {
                 // "End-to-end encrypted · Bob#0002 · 2 devices": a whisper
                 // names its partner, a group or table counts its people.
                 let partner = conv
                     .as_ref()
                     .and_then(|c| c.partner(&machine.me().tag))
                     .map(|t| machine.person(t).handle);
-                let words = match to {
+                let mut words = match to {
                     Some((people, devices)) if people > 0 => {
                         let who = partner.unwrap_or_else(|| {
                             if people == 1 {
@@ -1399,6 +1403,17 @@ fn fill(
                     }
                     _ => ChatPhrase::EncryptionTitle.text(lang).to_string(),
                 };
+                if let Some(backup) = backup {
+                    if conv
+                        .as_ref()
+                        .is_none_or(|conv| matches!(conv, Conv::Global))
+                    {
+                        words = backup.phrase().text(lang).to_string();
+                    } else {
+                        words.push_str(" · ");
+                        words.push_str(backup.phrase().text(lang));
+                    }
+                }
                 let ink = if verified { inks.accent } else { inks.soft };
                 let lock = commands
                     .spawn((

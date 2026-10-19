@@ -23,6 +23,23 @@ use distinct one-use 30-second capabilities. Linking also checks the exact sourc
 digest held in the restored document. Concurrent edits or another export cannot
 silently authorize an older copy. Interrupted enrollment resumes centrally;
 already-committed enrollment cannot be overwritten by another legacy login.
+The preparation also binds the current gateway password verifier internally;
+the verifier never leaves the gateway. Changing or administratively resetting a
+legacy password first invalidates pending Central enrollment under the same
+exclusive migration barrier. Central archives the encrypted previous envelope,
+revokes its sessions and requires a new password proof. If Central is unavailable,
+the password mutation fails closed. A source/hash check precedes `LegacyClose`;
+only then does the local transaction retire the verifier. If that transaction
+fails, a valid OPAQUE login can retry the idempotent link. A closed migration is
+never reopened. Completed older migrations repeat this link without exporting
+or rewriting their restored data, to establish the closure marker after upgrade.
+Older pending preparations retain a marker with an unknown password generation.
+Only a typed `428` response from the pinned migration gateway permits one fresh
+password proof, bound to the current Central Link capability and immutable legacy
+account ID. This reestablishes the source proof without replacing Central credentials.
+Network errors, ordinary conflicts, revoked sessions and completed migrations do
+not trigger that fallback. Once Central confirms migration closure, future logins
+do not contact the legacy gateway.
 
 Cutover is serialized against ordinary gateway requests, reconciles the source,
 fixes the legacy-to-central mapping and revokes legacy HTTP sessions atomically.
@@ -33,11 +50,15 @@ only unmigrated/test accounts can roll back normally. This cannot erase old
 backups, which still need the operator's documented retention policy.
 Linked accounts reject the old password routes even if the bridge is later
 disabled. Lobby and chat sockets are asked to reconnect. Original gameplay data
-and identifiers remain at the gateway; this first integration does not relocate
-replay blobs, uploaded images, social history or device-local chat keys. A
-short-lived, zeroized in-process password handoff can still unlock the existing
-local chat vault after official gateway admission; it is never sent to that
-gateway. This preserves local access, not cross-device chat key recovery.
+and identifiers remain at the gateway; this integration does not relocate
+replay blobs or uploaded images. Native chat keys and complete retained private
+history are backed up in the client-encrypted Central account archive and
+restored without the source device. The sole active account session resumes one
+logical chat identity per gateway. A short-lived, zeroized password handoff imports an existing
+local vault without modifying its source; it is never sent to a gateway.
+Synchronization is asynchronous; delivery acknowledgements wait for a confirmed
+backup, so a new installation can replay outstanding messages. See [encrypted chat synchronization](central-chat-sync.md) for
+the manifest protocol, recovery checks and remaining limits.
 
 The first snapshot format is deliberately bounded: at most 192 KiB and 2,048
 source rows. Larger accounts fail before enrollment and keep their old account
@@ -60,9 +81,37 @@ earlier remote merge.
 
 Central credentials and master keys live on a bounded serial worker. Account
 sign-out drops the handles and asks the worker to revoke its central session.
-The user may also leave a gateway while retaining central sign-in. Gateways must
-be registered with Central before SSO admission; the initial live service
-supports the official migration gateway only.
+The user may also leave a gateway while retaining central sign-in. There is one
+active Central session per account. A successful replacement login atomically
+revokes previous Central sessions, tickets and gateway leases; failed login
+does not sign out the current device. Every authenticated gateway HTTP request
+checks its server-only lease with Central, without an authorization cache. Local
+activity cannot extend that lease's Central expiration. Idle lobby, chat, watch
+and game sockets recheck every five seconds and close when authorization fails;
+every received binary game frame is checked before forwarding to the engine.
+Already-authorized operations can finish concurrently with revocation. A seat
+capability is bound to the session that minted it and cannot inherit the new
+device's authorization when that device reclaims the seat.
+
+Registered gateways use distinct redemption and heartbeat credentials. Operator
+approval of the claimed origin is a separate database privilege; an ordinary
+service or gateway owner cannot approve itself. The gateway publishes its
+compiled version and configured website every 30 seconds. Directory metadata
+is display data and never a destination for passwords. Foreign Central users
+receive a gateway-local projection identified only by their immutable Central
+UUID. A matching local username/e-mail never links accounts. New gameplay
+projections follow `BAYLEE_REGISTRATION`; existing users and explicitly named
+gateway admins remain subject to local bans and forced-reset policy.
+
+Gateway admin SSO exchanges a purpose-bound Admin ticket at
+`/auth/central/admin` for a separate local bearer. That bearer works only on the
+existing loopback admin listener, whose browser/header restrictions still apply.
+Every admin request checks both the active Central session and current gateway
+admin membership. Removing a member invalidates existing admin bearers. The
+audit actor is the Central UUID, not an asserted header. The operator bootstrap
+token remains a separate administrative route; neither mode receives a Central
+account session token. The gateway-owning account must also be explicitly listed
+as an admin if it needs SSO administration.
 
 ## Development and rollout
 
@@ -79,6 +128,14 @@ JSON has `endpoint` (`"live"` or a numeric-loopback development origin) and
 it outside the repository, readable only by the service identity. Never put
 the value in arguments, logs or client configuration. Unknown settings fail
 startup. Without this file the migration routes reject requests.
+Registered gateways instead use `endpoint`, canonical `origin`, `credential`,
+`heartbeat` and `metadata` (`name`, `version`, `website`). Both credentials are
+independent random 32-byte JSON arrays returned once by registration. Their
+purpose is enforced centrally; `version` is replaced with the running binary's
+version. Never combine these settings with `bridge`: the official legacy bridge
+alone may reserve/export/close old account migrations. The reusable Central SDK
+offers registration, directory paging and versioned admin-list management; no
+registration or admin-management UI is implied by these server APIs.
 Use `BAYLEE_BIND=127.0.0.1` for local gateway fixtures; the existing default
 remains `0.0.0.0`. All test services must bind only loopback.
 
@@ -94,16 +151,33 @@ transport boundaries, account schema and preference conflicts.
 `./scripts/test-central-db.ps1` owns an isolated PostgreSQL 18.6 container and
 runs the entire database schema suite, including source isolation, snapshot races,
 immutable linking, revocation, verifier retirement/backfill and source retention.
+Its optional `-GatewayTests @('e2e_account', 'e2e_admin', 'e2e_social_messages')`
+adds only named, allowlisted gateway regression targets after the schema suite.
+Each target runs serially and must report executed tests; this mode reserves a
+bounded 1 GiB PostgreSQL filesystem for repeated schema/WAL work and checkpoints
+between targets. No production database URL is inherited by either mode.
 It kills only its owned process tree/container and verifies cleanup,
 including with `-ExerciseFailure`. Client UI tests must follow the dev-control
 skill, use the extra left monitor, and close the exact owned client afterward.
 `./scripts/test-central-integration.ps1` additionally runs a real gateway and
 Central against that isolated database: source edits during enrollment,
-operation-bound capabilities, cutover, old-login revocation, fresh-device restore,
-repeated concurrent preference merges and gateway admission. Its optional
+operation-bound capabilities, cutover, upgrade-era source-proof recovery,
+old-login and game-seat revocation, fresh-device restore, preference reconciliation
+and registered-gateway admission. Its optional
 `BAYLEE_CENTRAL_UI_READY` path exposes only synthetic fixture addresses for at
 most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.
+
+For coordinated local development of the sibling repositories, both database
+scripts accept `-CargoConfig target/central-patch.toml`, pointing to a Cargo
+patch configuration for the sibling Central crates. This explicit mode permits
+lockfile resolution of local paths; the default still uses `--locked` with the
+pinned Git revision. Keep the patch file local and restore final dependency pins
+before commit. For Clippy, pass the option after the subcommand:
+`cargo clippy --config target/central-patch.toml ...`; Cargo's external Clippy
+subcommand does not preserve this global option in the same way as built-in
+`check`/`test`. Both test scripts own their temporary PostgreSQL fixture and
+verify cleanup on success, failure and cancellation.
 
 `./scripts/test-central-client.ps1` exercises the actual native client against
 that fixture. The 19 October 2026 Windows run passed: no saved gateways before
@@ -116,9 +190,34 @@ owned client PIDs, HTTP listeners and backend containers were closed/verified.
 
 Current operational limits: Central sessions expire after 30 minutes without
 background renewal; sign in again to resume synchronization. New account
-registration, password changes/recovery and arbitrary-gateway registration are
-not exposed by this first native integration. Never substitute the old gateway
+registration and password changes/recovery are not exposed by this native UI.
+Gateway registration/admin APIs are available in the reusable Central SDK, with
+operator approval still required. Never substitute the old gateway
 password form for these missing Central operations.
+
+### Deployment handoff to the owner's MacBook
+
+The owner chose on 19 October 2026 to continue production provisioning from the
+MacBook, where the SSH identity for `viktor@acevik.de` is configured. This Windows
+review performs no production deployment or live-user migration. Central's
+reviewed integration is on public `main` at
+`43d89eed8cc89cd6ebc992e6de0f5e5610d54c0f`; Baylee pins that exact revision.
+
+Before publishing a client release, implement and review the production account
+launcher and database connector. Central currently exposes the isolated
+`--dev-accounts-stdin` launcher; putting that development process behind a public
+reverse proxy is not a production setup. Preserve live issuer/audience checks,
+verified database TLS, least-privilege runtime grants, persisted OPAQUE/bridge
+secrets, backup/restore evidence and bounded login/discovery abuse controls.
+Provision `https://central.baylee.app`, then deploy the compatible gateway bridge
+and perform staging migration/restore checks before any real-account cutover.
+See Central's `docs/status.md`, `docs/native-login.md`, `docs/postgresql.md` and
+`docs/gateway-registry.md` for the existing boundaries and exact grants.
+
+The private deck/replay library is a separate unfinished requirement; the
+encrypted legacy deck snapshot is not a replacement for its operational CRUD.
+The next implementation contract and source-size migration gap are recorded in
+[the private library plan](central-private-library-plan.md).
 
 ## Follow-up review, 19 October 2026
 
@@ -143,12 +242,15 @@ startup failure also tears it down. Central end-to-end cleanup requires an actua
 connection-refused result for both listeners; a timeout does not count. Its
 five-second probe allows Windows' observed roughly two-second refusal delay.
 
-The wider Baylee dependency scan is not green: the existing `ruzstd` and
-`ttf-parser` exceptions are recorded in `deny.toml`, and RustSec additionally
-reports the Linux keyring chain's `zbus_names`, `zvariant` and `zvariant_derive`
-as unmaintained (RUSTSEC-2026-0371/0370/0372). These reports are not suppressed by
-this change. A maintained, Linux-tested keyring dependency path remains a release
-gate; passing Central's separate dependency checks does not clear Baylee's graph.
+The Linux keyring chain initially blocked the dependency check because
+`zbus_names`, `zvariant` and `zvariant_derive` were unmaintained
+(RUSTSEC-2026-0371/0370/0372). The shared `baylee-keyring` adapter now removes that
+chain and uses the system libsecret provider through safe Rust APIs. Its isolated
+Linux fixture verifies compatibility with old entries, round trips and refusal
+of ambiguous matches; see [native credential storage](native-credential-store.md).
+The final graph passes the advisory check with the existing, separately recorded
+`ruzstd` and `ttf-parser` exceptions in `deny.toml`; no new advisory suppression
+was added. Central's separate graph is checked independently.
 
 The broader workspace run completed in package groups after its first temporary
 PostgreSQL filesystem filled. Fourteen failures in three test targets were
@@ -167,4 +269,4 @@ removed. The web admin's shadowed translation name was corrected, and all 276
 web tests, type checks, strict lint and production build passed. A Unix-only
 vault migration test now imports its filesystem trait explicitly; its Linux
 verification belongs to CI. These results do not claim a production rollout or
-a clean dependency audit.
+an independent security audit.

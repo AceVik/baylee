@@ -1,4 +1,4 @@
-param([switch]$ExerciseFailure, [string]$CancelFile)
+param([switch]$ExerciseFailure, [string]$CancelFile, [string]$CargoConfig)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Push-Location (Split-Path $PSScriptRoot)
@@ -34,13 +34,19 @@ function Wait-FixtureProcess([Diagnostics.Process]$Process) {
 }
 
 try {
+    $cargoOptions = @('--locked')
+    if ($CargoConfig) {
+        if (-not (Test-Path -LiteralPath $CargoConfig -PathType Leaf)) { throw 'Cargo config must be an existing file' }
+        # A development patch selects local sibling crates and necessarily updates the lockfile.
+        $cargoOptions = @('--config', (Resolve-Path -LiteralPath $CargoConfig).ProviderPath)
+    }
     $build = [Diagnostics.ProcessStartInfo]::new()
     $build.FileName = 'cargo'
     $build.UseShellExecute = $false
     $build.CreateNoWindow = $true
     $build.RedirectStandardOutput = $true
     $build.RedirectStandardError = $true
-    foreach ($argument in @('test', '--locked', '-p', 'baylee-gateway', '--test', 'e2e_central', '--no-run')) { $build.ArgumentList.Add($argument) }
+    foreach ($argument in (@('test') + $cargoOptions + @('-p', 'baylee-gateway', '--test', 'e2e_central', '--no-run'))) { $build.ArgumentList.Add($argument) }
     $testProcess = [Diagnostics.Process]::Start($build)
     $buildOutput = $testProcess.StandardOutput.ReadToEndAsync()
     $buildErrors = $testProcess.StandardError.ReadToEndAsync()
@@ -108,7 +114,7 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
     [void]$start.Environment.Remove('POSTGRES_PASSWORD')
     [void]$start.Environment.Remove('PGPASSWORD')
     [void]$start.Environment.Remove('DATABASE_URL')
-    foreach ($argument in @('test', '--locked', '-p', 'baylee-gateway', '--test', 'e2e_central', '--', '--ignored', '--test-threads=1')) {
+    foreach ($argument in (@('test') + $cargoOptions + @('-p', 'baylee-gateway', '--test', 'e2e_central', '--', '--ignored', '--test-threads=1'))) {
         $start.ArgumentList.Add($argument)
     }
     $start.Environment['CENTRAL_TEST_FIXTURE'] = 'isolated-v1'

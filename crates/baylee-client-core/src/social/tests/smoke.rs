@@ -16,5 +16,14 @@ fn alice_whispers_bob_and_bob_reads_it() {
     assert_eq!(alice.texts("dm:0012:af03"), ["hello [@Bob#0012]"]);
     bob.deliver(&mut gw);
     assert_eq!(bob.texts("dm:0012:af03"), ["hello [@Bob#0012]"]);
-    assert!(gw.slots.values().all(Vec::is_empty), "acked");
+    assert!(
+        gw.waiting(&bob.device()).is_empty(),
+        "Bob acknowledged his inbox"
+    );
+    alice.deliver(&mut gw);
+    assert_eq!(alice.texts("dm:0012:af03"), ["hello [@Bob#0012]"]);
+    assert!(
+        gw.slots.values().all(Vec::is_empty),
+        "both inboxes acknowledged"
+    );
 }

@@ -56,7 +56,7 @@ struct Link {
     /// Held only to keep the socket open — the lobby feed never sends.
     _sender: crate::net::SocketSender,
     /// Incoming frames, drained without blocking.
-    receiver: ewebsock::WsReceiver,
+    receiver: crate::transport::WsReceiver,
     /// Whether a listing has arrived on it. Until one has, this socket has
     /// not replaced the polling it exists to make unnecessary.
     delivered: bool,
@@ -162,7 +162,7 @@ pub(super) fn feed(
         let Some(link) = held.as_mut() else {
             return;
         };
-        while let Some(event) = link.receiver.try_recv() {
+        for event in crate::transport::drain_socket(&link.receiver) {
             match event {
                 ewebsock::WsEvent::Message(ewebsock::WsMessage::Text(text)) => {
                     // A frame we cannot read is not worth a red line across

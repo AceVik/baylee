@@ -40,6 +40,7 @@ pub(crate) async fn game_cosmetics(
         (None, Some(old)) => legacy_token(&state, Some(old), "/games/{id}/cosmetics")?,
         (None, None) => return Err(err(StatusCode::UNAUTHORIZED, "missing bearer token")),
     };
+    super::seat_socket::authorize_seat_token(&state, &id, token).await?;
     let lobby = state.lobby.lock();
     let game = lobby
         .games

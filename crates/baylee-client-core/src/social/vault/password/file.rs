@@ -19,6 +19,99 @@ pub struct PasswordStore {
     _lock: File,
 }
 
+/// Exclusive private local context for account-encrypted chat keys.
+/// Only a nonsecret installation identifier is persisted by this adapter.
+pub struct ContextGuard {
+    dir: PathBuf,
+    scope: Scope,
+    _lock: File,
+}
+
+impl ContextGuard {
+    /// Lock the same context as the legacy vault without decrypting or modifying it.
+    ///
+    /// # Errors
+    /// Unsafe filesystem context or an existing owner of the vault lock.
+    pub fn open(root: &Path, scope: Scope) -> Result<Self, Error> {
+        let (dir, lock) = lock_directory(root, &scope)?;
+        Ok(Self {
+            dir,
+            scope,
+            _lock: lock,
+        })
+    }
+
+    /// Get or durably create this installation's public `UUIDv7`.
+    ///
+    /// # Errors
+    /// Damaged existing identifiers are never replaced with a new identity.
+    pub fn installation(&self) -> Result<String, Error> {
+        if check_file(&self.dir.join("central-retired"))? {
+            return Err(Error::Authentication);
+        }
+        let path = self.dir.join("central-installation.id");
+        if check_file(&path)? {
+            let mut bytes = Vec::with_capacity(37);
+            options()
+                .read(true)
+                .open(&path)
+                .map_err(|_| Error::Io)?
+                .take(37)
+                .read_to_end(&mut bytes)
+                .map_err(|_| Error::Io)?;
+            let value = String::from_utf8(bytes).map_err(|_| Error::Format)?;
+            let id = uuid::Uuid::parse_str(&value).map_err(|_| Error::Format)?;
+            if id.get_version_num() != 7 || id.to_string() != value {
+                return Err(Error::Format);
+            }
+            return Ok(value);
+        }
+        let value = uuid::Uuid::now_v7().to_string();
+        write_record(&path, value.as_bytes())?;
+        Ok(value)
+    }
+
+    /// Import existing password-encrypted keys without changing or removing their source.
+    ///
+    /// # Errors
+    /// Missing credentials, wrong passwords and damaged source files fail closed.
+    pub fn legacy_keys(
+        &self,
+        password: Option<&str>,
+    ) -> Result<Option<zeroize::Zeroizing<[u8; 96]>>, Error> {
+        let path = self.dir.join(FILE_NAME);
+        if !check_file(&path)? {
+            return Ok(None);
+        }
+        let vault = Vault::unlock(
+            self.scope.clone(),
+            password.ok_or(Error::Authentication)?,
+            &read_record(&path)?,
+        )?;
+        let bytes = vault.secrets()?;
+        let mut keys = zeroize::Zeroizing::new([0; 96]);
+        if bytes.len() != keys.len() {
+            return Err(Error::Format);
+        }
+        keys.copy_from_slice(&bytes);
+        Ok(Some(keys))
+    }
+
+    /// Private account directory; the guard must outlive every active disk/store adapter.
+    #[must_use]
+    pub fn directory(&self) -> &Path {
+        &self.dir
+    }
+
+    /// Record local revocation even if the remote archive is temporarily unavailable.
+    ///
+    /// # Errors
+    /// Failure to durably write the tombstone; callers must keep the device stopped.
+    pub fn retire(&self) -> Result<(), Error> {
+        write_record(&self.dir.join("central-retired"), b"retired\n")
+    }
+}
+
 impl PasswordStore {
     /// Unlocks an existing vault or explicitly creates one from `initial` secrets.
     /// An existing file is never overwritten by a creation request.
@@ -32,40 +125,7 @@ impl PasswordStore {
         password: &str,
         initial: Option<&[u8; 96]>,
     ) -> Result<Self, Error> {
-        // The configured root is trusted, and macOS commonly spells it through
-        // /tmp or /var aliases. Resolve only that root; every vault component
-        // below it is still checked and must never be a symlink.
-        std::fs::create_dir_all(root).map_err(|_| Error::Io)?;
-        let root = root.canonicalize().map_err(|_| Error::Io)?;
-        let dir = root.join(scope.folder());
-        for component in [root.join("vault"), dir.clone()] {
-            if let Ok(meta) = std::fs::symlink_metadata(&component) {
-                if meta.file_type().is_symlink() {
-                    return Err(Error::Io);
-                }
-                #[cfg(windows)]
-                {
-                    use std::os::windows::fs::MetadataExt as _;
-                    if meta.file_attributes() & 0x400 != 0 {
-                        return Err(Error::Io);
-                    }
-                }
-            }
-        }
-        // The namespace parent must also be private: a writable parent would
-        // let another OS user replace an otherwise private account directory.
-        prepare_dir(&root.join("vault"))?;
-        prepare_dir(&dir)?;
-        let lock_path = dir.join("vault.lock");
-        check_file(&lock_path)?;
-        let lock = options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&lock_path)
-            .map_err(|_| Error::Io)?;
-        lock.try_lock().map_err(|_| Error::Busy)?;
+        let (dir, lock) = lock_directory(root, &scope)?;
         let path = dir.join(FILE_NAME);
         let exists = check_file(&path)?;
         let vault = match (exists, initial) {
@@ -281,4 +341,42 @@ fn write_record(path: &Path, bytes: &[u8]) -> Result<(), Error> {
         let _ = std::fs::remove_file(&temp);
     }
     result
+}
+
+fn lock_directory(root: &Path, scope: &Scope) -> Result<(PathBuf, File), Error> {
+    // The configured root is trusted, and macOS commonly spells it through
+    // /tmp or /var aliases. Resolve only that root; every vault component
+    // below it is still checked and must never be a symlink.
+    std::fs::create_dir_all(root).map_err(|_| Error::Io)?;
+    let root = root.canonicalize().map_err(|_| Error::Io)?;
+    let dir = root.join(scope.folder());
+    for component in [root.join("vault"), dir.clone()] {
+        if let Ok(meta) = std::fs::symlink_metadata(&component) {
+            if meta.file_type().is_symlink() {
+                return Err(Error::Io);
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::MetadataExt as _;
+                if meta.file_attributes() & 0x400 != 0 {
+                    return Err(Error::Io);
+                }
+            }
+        }
+    }
+    // The namespace parent must also be private: a writable parent would
+    // let another OS user replace an otherwise private account directory.
+    prepare_dir(&root.join("vault"))?;
+    prepare_dir(&dir)?;
+    let lock_path = dir.join("vault.lock");
+    check_file(&lock_path)?;
+    let lock = options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock_path)
+        .map_err(|_| Error::Io)?;
+    lock.try_lock().map_err(|_| Error::Busy)?;
+    Ok((dir, lock))
 }

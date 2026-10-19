@@ -32,6 +32,8 @@ mod m20261013_000019_llm_access;
 mod m20261013_000019_replay_shares;
 mod m20261019_000020_central_accounts;
 mod m20261019_000021_retire_legacy_passwords;
+mod m20261019_000022_central_gateway_sessions;
+mod m20261019_000023_bind_migration_credentials;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -66,6 +68,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20261013_000019_replay_shares::Migration),
             Box::new(m20261019_000020_central_accounts::Migration),
             Box::new(m20261019_000021_retire_legacy_passwords::Migration),
+            Box::new(m20261019_000022_central_gateway_sessions::Migration),
+            Box::new(m20261019_000023_bind_migration_credentials::Migration),
         ]
     }
 }

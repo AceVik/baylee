@@ -17,6 +17,8 @@
 //! accounts in PostgreSQL now, so a green suite with no server would be
 //! saying that a schema works when nothing had asked it to do anything.
 
+#![forbid(unsafe_code)]
+
 use baylee_db::entity::prelude::*;
 use baylee_db::entity::{
     account, client_settings, confirmation, deck, deck_version, session_token, upload,
@@ -261,6 +263,182 @@ async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_lega
             .doc,
         serde_json::json!({"future":1})
     );
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn central_cutover_refuses_a_password_changed_after_its_fresh_proof() {
+    use baylee_db::central;
+    let sandbox = Sandbox::open("central_password_race").await;
+    let (alice, _, _) = central_seed(&sandbox.db).await;
+    let source = central::prepare(&sandbox.db, &alice.to_string())
+        .await
+        .unwrap();
+    sandbox
+        .db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE account SET password_hash = 'new-synthetic-verifier' WHERE id = $1",
+            [alice.into()],
+        ))
+        .await
+        .unwrap();
+    let central_id = *Uuid::now_v7().as_bytes();
+    assert!(
+        central::validate_cutover(&sandbox.db, &alice.to_string(), central_id, source.digest)
+            .await
+            .is_err()
+    );
+    assert!(
+        central::finish(&sandbox.db, &alice.to_string(), central_id, source.digest)
+            .await
+            .is_err()
+    );
+    assert!(
+        central::refresh(&sandbox.db, &alice.to_string())
+            .await
+            .is_err(),
+        "an old Central proof cannot refresh authorization to the changed credential"
+    );
+    assert!(
+        !central::linked(&sandbox.db, &alice.to_string())
+            .await
+            .unwrap()
+    );
+    let current = Account::find_by_id(alice)
+        .one(&sandbox.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        current.password_hash.as_deref(),
+        Some("new-synthetic-verifier")
+    );
+    // A caller that has independently verified the new legacy proof may restart.
+    let restarted = central::prepare(&sandbox.db, &alice.to_string())
+        .await
+        .unwrap();
+    central::validate_cutover(
+        &sandbox.db,
+        &alice.to_string(),
+        central_id,
+        restarted.digest,
+    )
+    .await
+    .unwrap();
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn central_generation_upgrade_keeps_pending_markers_without_inventing_a_proof() {
+    use baylee_db::central;
+    let before = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == "m20261019_000023_bind_migration_credentials")
+        .unwrap();
+    let sandbox = Sandbox::open_at(
+        "central_generation_upgrade",
+        Some(u32::try_from(before).unwrap()),
+    )
+    .await;
+    let (alice, _, _) = central_seed(&sandbox.db).await;
+    sandbox
+        .db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO central_account_link (account_id,snapshot_digest) VALUES ($1,$2)",
+            [alice.into(), vec![0_u8; 32].into()],
+        ))
+        .await
+        .unwrap();
+    Migrator::up(&sandbox.db, None).await.unwrap();
+    let alice = alice.to_string();
+    assert!(central::pending(&sandbox.db, &alice).await.unwrap());
+    assert!(!central::prepared(&sandbox.db, &alice).await.unwrap());
+    assert!(central::refresh(&sandbox.db, &alice).await.is_err());
+    assert!(
+        central::validate_cutover(&sandbox.db, &alice, *Uuid::now_v7().as_bytes(), [0; 32])
+            .await
+            .is_err()
+    );
+    central::prepare(&sandbox.db, &alice).await.unwrap();
+    assert!(central::prepared(&sandbox.db, &alice).await.unwrap());
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn central_gateway_projection_is_immutable_and_sessions_require_a_bound_live_lease() {
+    use baylee_db::central::{self, SessionBinding};
+    let sandbox = Sandbox::open("central_projection").await;
+    let central = *Uuid::now_v7().as_bytes();
+    assert!(
+        central::projection(&sandbox.db, [0; 16], true)
+            .await
+            .is_err()
+    );
+    assert!(
+        central::projection(&sandbox.db, central, false)
+            .await
+            .is_err()
+    );
+    let account = central::projection(&sandbox.db, central, true)
+        .await
+        .unwrap();
+    assert_eq!(
+        central::projection(&sandbox.db, central, false)
+            .await
+            .unwrap(),
+        account
+    );
+    let other = central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    assert_ne!(account, other);
+    let row = Account::find_by_id(Uuid::parse_str(&account).unwrap())
+        .one(&sandbox.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row.username.is_none() && row.email.is_none() && row.password_hash.is_none());
+    let expiry = OffsetDateTime::now_utc().unix_timestamp() + 60;
+    central::issue_session(&sandbox.db, &account, vec![8; 32], [9; 32], expiry, "admit")
+        .await
+        .unwrap();
+    match central::session_binding(&sandbox.db, vec![8; 32])
+        .await
+        .unwrap()
+    {
+        SessionBinding::Central(lease) => {
+            assert_eq!(lease.central, central);
+            assert_eq!(lease.lease, [9; 32]);
+            assert_eq!(lease.expires_at, expiry);
+        }
+        _ => panic!("a Central session needs its matching lease"),
+    }
+    assert!(
+        central::issue_session(&sandbox.db, &account, vec![10; 32], [11; 32], 1, "admit")
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        SessionToken::find().count(&sandbox.db).await.unwrap(),
+        1,
+        "expired issuance leaves no ordinary bearer behind"
+    );
+    sandbox
+        .db
+        .execute_unprepared("DELETE FROM central_gateway_session")
+        .await
+        .unwrap();
+    assert!(matches!(
+        central::session_binding(&sandbox.db, vec![8; 32])
+            .await
+            .unwrap(),
+        SessionBinding::Rejected
+    ));
+    assert!(sandbox.db.execute_raw(Statement::from_sql_and_values(DbBackend::Postgres,
+        "UPDATE central_account_link SET central_id = '00000000-0000-0000-0000-000000000000' WHERE account_id = $1",
+        [Uuid::parse_str(&account).unwrap().into()])).await.is_err(), "SQL NULL from uuid_extract_version must not pass the CHECK");
     sandbox.close().await;
 }
 

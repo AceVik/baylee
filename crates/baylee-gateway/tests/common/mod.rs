@@ -536,6 +536,8 @@ pub async fn attach_agent_seeded(gateway: &Gateway, seed: u64) -> tokio::task::J
 /// every engine this agent starts reports to one probe, so it is for tests
 /// with one game (#323).
 pub struct EngineProbe {
+    /// Seat frames actually received by the engine, for authorization boundary tests.
+    pub seat_frames: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     /// The game's `snapshot_hash` after the last frame its engine handled;
     /// `None` until the game is built.
     pub hash: tokio::sync::watch::Receiver<Option<u64>>,
@@ -562,6 +564,7 @@ impl EngineProbe {
 /// The engine's half of an [`EngineProbe`].
 #[derive(Clone)]
 struct ProbeEnd {
+    seat_frames: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     hash: std::sync::Arc<tokio::sync::watch::Sender<Option<u64>>>,
     flushes: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     mute: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -573,14 +576,17 @@ impl EngineProbe {
     fn new() -> (Self, ProbeEnd) {
         let (hash, seen) = tokio::sync::watch::channel(None);
         let flushes = std::sync::Arc::default();
+        let seat_frames = std::sync::Arc::default();
         let mute = std::sync::Arc::default();
         (
             Self {
+                seat_frames: std::sync::Arc::clone(&seat_frames),
                 hash: seen,
                 flushes: std::sync::Arc::clone(&flushes),
                 mute: std::sync::Arc::clone(&mute),
             },
             ProbeEnd {
+                seat_frames,
                 hash: std::sync::Arc::new(hash),
                 flushes,
                 mute,
@@ -733,6 +739,9 @@ async fn run_engine(
             }
             msg = next_msg(&mut ws) => {
                 let Some(mut msg) = msg else { break };
+                if matches!(&msg, v1::envelope::Msg::SeatFrame(_)) {
+                    probe.seat_frames.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }
                 // A replay job, as `baylee-engine-server` runs one: the
                 // tape's pieces, then the socket closes.
                 if let v1::envelope::Msg::ProjectRecord(order) = msg {

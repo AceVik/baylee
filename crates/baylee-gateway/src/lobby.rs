@@ -52,6 +52,9 @@ pub struct LobbySeat {
     pub account_id: Option<String>,
     /// SHA-256 of the seat token (empty until issued).
     pub seat_token_hash: Option<String>,
+    /// Central-backed session that authorized this capability. A newly authenticated
+    /// device must reclaim the seat; an old capability never inherits the new session.
+    pub central_session: Option<Vec<u8>>,
     /// The deck the seat plays.
     pub deck_name: String,
     /// The seat's full deck. Present once the seat has one — a human's own
@@ -148,6 +151,7 @@ impl LobbySeat {
             ai: None,
             account_id: None,
             seat_token_hash: None,
+            central_session: None,
             deck_name: String::new(),
             deck: None,
             said_ready: false,
@@ -235,6 +239,7 @@ impl LobbySeat {
         }
         Self {
             seat_token_hash: None,
+            central_session: None,
             said_ready: false,
             ..self.clone()
         }
@@ -1022,6 +1027,7 @@ mod tests {
             ai: None,
             account_id: Some(account.into()),
             seat_token_hash: Some("hash".into()),
+            central_session: Some(vec![7; 32]),
             deck_name: "Deck".into(),
             deck: Some(deck()),
             said_ready: true,
@@ -1315,6 +1321,7 @@ mod tests {
         assert_eq!(seat.team, Some(1), "the side is the table's, not theirs");
         assert_eq!(seat.account_id, None);
         assert_eq!(seat.seat_token_hash, None);
+        assert_eq!(seat.central_session, None);
         assert_eq!(seat.deck_name, String::new());
         assert!(seat.deck.is_none());
         assert!(!seat.said_ready);
@@ -1341,10 +1348,12 @@ mod tests {
         let next = seat.again();
 
         assert_eq!(next.seat_token_hash, None);
+        assert_eq!(next.central_session, None);
         assert!(!next.said_ready);
 
         let mut without = next;
         without.seat_token_hash = seat.seat_token_hash.clone();
+        without.central_session.clone_from(&seat.central_session);
         without.said_ready = seat.said_ready;
         assert_eq!(
             format!("{without:?}"),

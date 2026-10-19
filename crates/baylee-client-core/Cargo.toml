@@ -48,9 +48,9 @@ url = "2.5.8"
 
 # The chat's device secrets in the OS credential store (`social::vault`): the
 # Keychain, the Credential Manager, the Secret Service. Desktop only; the
-# same crate and version `baylee-seat` already links.
+# shared `baylee-keyring` adapter also used by `baylee-seat`.
 [target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
-keyring = "4.2"
+keyring = { package = "baylee-keyring", path = "../baylee-keyring" }
 
 [features]
 # The view builders in `test_support`, for tests in crates above this one.

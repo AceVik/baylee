@@ -16,11 +16,14 @@ use baylee_client_core::social::vault::{
 
 static WORKER_BUSY: AtomicBool = AtomicBool::new(false);
 
+pub(crate) mod central;
+
 pub(crate) struct Ready {
     machine: Social,
     effects: Vec<social::Effect>,
     disk: ChatHome,
     store: Box<dyn SecretStore>,
+    sync: Option<Arc<central::SyncState>>,
 }
 
 pub(crate) struct Job {
@@ -50,9 +53,30 @@ impl Access {
 }
 
 pub(crate) fn follow(host: &mut SocialHost, lobby: &mut LobbyState) {
+    if let Some(sync) = &host.vault.sync {
+        sync.queue(false);
+    }
+    host.vault.central = lobby.central_handle();
+    let central_start = host.vault.central.is_some()
+        && !host.vault.attempted
+        && host.machine.is_none()
+        && host.session.as_ref().is_some_and(|session| !session.guest)
+        && matches!(
+            host.info,
+            InfoState::Known(Some((baylee_protocol::social::SOCIAL_VERSION, _)))
+        );
     follow_with(host, lobby, |host, login| {
         begin(host, Choice::Unlock, login.password, login.previous, None);
     });
+    if central_start && !host.vault.busy() && host.machine.is_none() && host.vault.error.is_none() {
+        begin(
+            host,
+            Choice::Unlock,
+            Zeroizing::new(String::new()),
+            None,
+            None,
+        );
+    }
 }
 
 // Inject the I/O boundary so lifecycle tests cannot accidentally use the real
@@ -78,6 +102,7 @@ fn follow_with(
         host.machine = None;
         host.store = None;
         host.disk = None;
+        host.vault.clear_sync();
         host.table = None;
         host.vault.attempted = false;
     }
@@ -103,6 +128,7 @@ fn follow_with(
                     host.machine = Some(ready.machine);
                     host.store = Some(ready.store);
                     host.disk = Some(ready.disk);
+                    host.vault.sync = ready.sync;
                     host.vault.error = None;
                     host.carry_out(ready.effects);
                 }
@@ -147,6 +173,10 @@ pub(crate) fn begin(
     previous: Option<Zeroizing<String>>,
     rewrap: Option<Zeroizing<String>>,
 ) {
+    if let Some(handle) = host.vault.central.clone() {
+        central::begin(host, handle, choice, password);
+        return;
+    }
     if host.vault.busy() || host.machine.is_some() {
         return;
     }
@@ -214,6 +244,7 @@ pub(crate) fn begin(
                 effects,
                 disk,
                 store: Box::new(store),
+                sync: None,
             })
         });
         let _ = sender.send(result);
@@ -367,13 +398,7 @@ fn validate_state(
     secrets: &baylee_seal::DeviceSecrets,
 ) -> Result<(), Error> {
     let bytes = bounded_read(&folder.join(social::disk::STATE_FILE))?;
-    baylee_seal::at_rest_open(
-        secrets.vault_key(),
-        baylee_seal::RestKind::State,
-        social::disk::STATE_FILE,
-        &bytes,
-    )
-    .map_err(|_| Error::Authentication)?;
+    Social::validate_stored_state(secrets, &bytes).map_err(|_| Error::Authentication)?;
     Ok(())
 }
 

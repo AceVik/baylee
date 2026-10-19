@@ -14,6 +14,9 @@ pub struct AccountData {
     pub preferences: serde_json::Value,
     /// Provenance and retained content from the explicitly authorized legacy migration.
     pub legacy: Option<LegacyData>,
+    /// Account-encrypted logical chat identities and known installations; old documents start empty.
+    #[serde(default)]
+    pub chat: crate::chat::ChatArchive,
 }
 
 /// Source-preserving legacy backup. Password hashes and session credentials are excluded.
@@ -55,6 +58,7 @@ impl AccountData {
     }
 
     fn validate(&self) -> Result<(), Error> {
+        self.chat.validate()?;
         if self.version != 1 || self.gateways.len() > 128 || !self.preferences.is_object() {
             return Err(Error::Rejected);
         }
@@ -102,6 +106,7 @@ mod tests {
             gateways: vec!["https://baylee.acevik.de".into()],
             preferences: serde_json::json!({"future_setting": {"value": 3}}),
             legacy: None,
+            chat: crate::chat::ChatArchive::default(),
         };
         let restored = AccountData::read(&original.write().unwrap()).unwrap();
         assert_eq!(restored.gateways, original.gateways);

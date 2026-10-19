@@ -22,6 +22,10 @@ use serde::ser::SerializeStruct as _;
 /// the gateway and the feedback service both hold a client's record to.
 pub const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 
+/// Maximum decoded JSON Lines for a record or replay tape. This is independent
+/// of the compressed/download size: a small gzip must not exhaust client RAM.
+pub const MAX_INFLATED_BYTES: usize = 256 * 1024 * 1024;
+
 /// How many records this device keeps.
 pub const KEEP_RECORDS: usize = 20;
 
@@ -183,14 +187,22 @@ pub enum ReadBack {
     /// Nothing past the header survived, or nothing at all: not a record
     /// worth keeping.
     Empty,
+    /// The decoded record exceeds the parser budget. Keep the original file:
+    /// this is neither an empty record nor a tail safe to repair.
+    TooLarge,
 }
 
 /// A kept record's file as the record it holds: every member inflated, and
 /// only the lines that end (a member cut short gives what it inflated up to
-/// its last newline). `None` when not even one line is there.
+/// its last newline). `None` when not even one line is there or the decoded
+/// data exceeds [`MAX_INFLATED_BYTES`]. An oversized prefix is never returned.
 #[must_use]
 pub fn inflate(gzip: &[u8]) -> Option<Vec<u8>> {
-    let (mut lines, _) = inflated(gzip);
+    inflate_limit(gzip, MAX_INFLATED_BYTES)
+}
+
+fn inflate_limit(gzip: &[u8], limit: usize) -> Option<Vec<u8>> {
+    let (mut lines, _) = inflated(gzip, limit)?;
     let kept = lines.iter().rposition(|b| *b == b'\n')? + 1;
     lines.truncate(kept);
     Some(lines)
@@ -198,19 +210,27 @@ pub fn inflate(gzip: &[u8]) -> Option<Vec<u8>> {
 
 /// Every member of `gzip` inflated as far as it goes, and whether all of
 /// it did.
-fn inflated(gzip: &[u8]) -> (Vec<u8>, bool) {
+fn inflated(gzip: &[u8], limit: usize) -> Option<(Vec<u8>, bool)> {
     use std::io::Read as _;
+    let probe = u64::try_from(limit).ok()?.checked_add(1)?;
     let mut lines = Vec::new();
     let whole = flate2::read::MultiGzDecoder::new(gzip)
+        .take(probe)
         .read_to_end(&mut lines)
         .is_ok();
-    (lines, whole)
+    (lines.len() <= limit).then_some((lines, whole))
 }
 
 /// Reads a kept record's file back ([`ReadBack`]).
 #[must_use]
 pub fn read_back(gzip: &[u8]) -> ReadBack {
-    let (mut lines, whole) = inflated(gzip);
+    read_back_limit(gzip, MAX_INFLATED_BYTES)
+}
+
+fn read_back_limit(gzip: &[u8], limit: usize) -> ReadBack {
+    let Some((mut lines, whole)) = inflated(gzip, limit) else {
+        return ReadBack::TooLarge;
+    };
     // A cut member may already have inflated part of a line: only the
     // lines that end are the record.
     let kept = lines
@@ -234,6 +254,54 @@ mod tests {
     use std::io::Read as _;
 
     use super::*;
+
+    #[test]
+    fn inflated_limit_applies_to_all_members_and_never_recovers_an_oversized_prefix() {
+        let limit = 8192;
+        let body = vec![b'\n'; limit];
+        let encoded = gzip(&body);
+        assert_eq!(inflate_limit(&encoded, limit).unwrap(), body);
+        assert_eq!(read_back_limit(&encoded, limit), ReadBack::Whole);
+        assert!(inflate_limit(&encoded, limit - 1).is_none());
+        assert_eq!(read_back_limit(&encoded, limit - 1), ReadBack::TooLarge);
+
+        let mut members = gzip(&body[..limit / 2]);
+        members.extend(gzip(&body[limit / 2..]));
+        assert_eq!(inflate_limit(&members, limit).unwrap(), body);
+        members.extend(gzip(b"\n"));
+        assert!(inflate_limit(&members, limit).is_none());
+        assert_eq!(read_back_limit(&members, limit), ReadBack::TooLarge);
+        // Even a valid prefix followed by a damaged oversized member must
+        // not turn the size refusal into the ordinary crash-tail recovery.
+        members.truncate(members.len() - 4);
+        assert!(inflate_limit(&members, limit).is_none());
+        assert_eq!(read_back_limit(&members, limit), ReadBack::TooLarge);
+    }
+
+    #[test]
+    fn bounded_inflation_keeps_large_valid_records_and_existing_tail_recovery() {
+        let body = RECORD.repeat(16_384);
+        assert!(body.len() > 2 * 1024 * 1024);
+        let encoded = gzip(body.as_bytes());
+        assert_eq!(inflate(&encoded).unwrap(), body.as_bytes());
+        assert_eq!(read_back(&encoded), ReadBack::Whole);
+        assert_eq!(inflate_limit(&gzip(b""), 0), None);
+        assert_eq!(inflate(b"not gzip"), None);
+
+        let mut trailing = gzip(RECORD.as_bytes());
+        trailing.extend_from_slice(b"invalid trailing member");
+        assert_eq!(
+            read_back(&trailing),
+            ReadBack::Torn(RECORD.as_bytes().to_vec())
+        );
+        let mut corrupt = gzip(RECORD.as_bytes());
+        let crc = corrupt.len() - 8;
+        corrupt[crc] ^= 1;
+        assert_eq!(
+            read_back(&corrupt),
+            ReadBack::Torn(RECORD.as_bytes().to_vec())
+        );
+    }
 
     /// A record written a member per step reads back whole as one stream;
     /// cut anywhere inside its last member it reads back as the whole lines

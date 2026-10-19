@@ -201,7 +201,10 @@ fn a_missing_and_a_wrong_token_get_one_answer() {
     for (status, body) in &answers {
         assert_eq!(
             (*status, body.as_str()),
-            (401, r#"{"error":"the admin token is needed"}"#)
+            (
+                401,
+                r#"{"error":"gateway administrator authorization required"}"#
+            )
         );
     }
     let (status, body) = admin(&c, "GET", "/admin/stats", "");

@@ -32,6 +32,118 @@ fn ids(devices: &[crate::social::keys::CachedDevice]) -> Vec<String> {
     devices.iter().map(|d| d.id.clone()).collect()
 }
 
+fn verify(cache: &mut KeyCache, tag: &str) -> bool {
+    let expected = cache
+        .get(tag)
+        .map(crate::social::keys::ContactKeys::public_keys)
+        .unwrap_or_default();
+    cache.verify(tag, &expected)
+}
+
+#[test]
+fn signed_agreement_key_rotation_requires_exact_confirmation() {
+    let mut cache = KeyCache::default();
+    let original = row("0012", 1);
+    cache.take(&account("0012", vec![original.clone()]), 1);
+    let old = cache.get("0012").unwrap().public_keys();
+    let (secret, _) = registered("0012", 1);
+    let mut bytes = secret.to_bytes();
+    bytes[40] ^= 1;
+    let rotated = baylee_seal::DeviceSecrets::from_bytes(&bytes)
+        .public("0012")
+        .unwrap();
+    assert_eq!(rotated.ik, secret.ik());
+    assert_ne!(rotated.dk, secret.dk());
+    let changed = DeviceKey {
+        dk: url::encode(&rotated.dk),
+        dsig: url::encode(&rotated.dsig),
+        ..original
+    };
+    let diff = cache.take(&account("0012", vec![changed]), 2);
+    assert!(diff.changed());
+    assert!(cache.get("0012").unwrap().requires_confirmation);
+    assert!(
+        !cache.verify("0012", &old),
+        "an old safety-sheet click cannot approve changed DK"
+    );
+    assert!(verify(&mut cache, "0012"));
+    assert!(cache.get("0012").unwrap().verified());
+}
+
+#[test]
+fn ambiguous_directories_preserve_pins_and_the_barrier_survives_refetch_and_reload() {
+    let original = row("0012", 1);
+    for devices in [
+        vec![original.clone(), original.clone()],
+        vec![original.clone(), row("0099", 2)],
+        (1..=6).map(|seed| row("0012", seed)).collect(),
+    ] {
+        let mut cache = KeyCache::default();
+        cache.take(&account("0012", vec![original.clone()]), 1);
+        let before = cache.get("0012").unwrap().devices.clone();
+        let refused = cache.take(&account("0012", devices), 2);
+        assert!(refused.refused > 0);
+        assert_eq!(cache.get("0012").unwrap().devices, before);
+        cache.take(&account("0012", vec![original.clone()]), 3);
+        let json = serde_json::to_vec(&cache).unwrap();
+        let mut cache: KeyCache = serde_json::from_slice(&json).unwrap();
+        cache.unverify("0012");
+        assert!(cache.get("0012").unwrap().requires_confirmation);
+        assert!(verify(&mut cache, "0012"));
+        assert!(!cache.get("0012").unwrap().requires_confirmation);
+    }
+}
+
+#[test]
+fn older_states_without_continuity_history_require_confirmation_once() {
+    let mut cache = KeyCache::default();
+    cache.take(&account("0012", vec![row("0012", 1)]), 1);
+    let mut old = serde_json::to_value(&cache).unwrap();
+    old["accounts"]["0012"]
+        .as_object_mut()
+        .unwrap()
+        .remove("requires_confirmation");
+    old["accounts"]["0012"]
+        .as_object_mut()
+        .unwrap()
+        .remove("pinned_devices");
+    let mut restored: KeyCache = serde_json::from_value(old).unwrap();
+    assert!(restored.get("0012").unwrap().requires_confirmation);
+    let original = row("0012", 1);
+    let replacement = row("0012", 2);
+    restored.take(&account("0012", vec![replacement.clone()]), 2);
+    assert!(
+        restored
+            .get("0012")
+            .unwrap()
+            .pinned_device(&original.id)
+            .is_some()
+    );
+    assert!(
+        restored
+            .get("0012")
+            .unwrap()
+            .pinned_device(&replacement.id)
+            .is_none()
+    );
+    assert!(verify(&mut restored, "0012"));
+    assert!(!restored.get("0012").unwrap().requires_confirmation);
+    assert!(
+        restored
+            .get("0012")
+            .unwrap()
+            .pinned_device(&replacement.id)
+            .is_some()
+    );
+    assert!(
+        restored
+            .get("0012")
+            .unwrap()
+            .pinned_device(&original.id)
+            .is_none()
+    );
+}
+
 /// Flips one bit of a base64url-encoded value.
 fn corrupt(value: &str) -> String {
     let mut bytes: Vec<u8> = url::decode_array::<32>(value).map_or_else(
@@ -121,7 +233,7 @@ fn a_statement_made_for_another_tag_is_refused_and_counted() {
     let diff = cache.take(&account("0012", vec![stolen]), 1);
     assert_eq!(diff.refused, 1);
     assert!(diff.added.is_empty());
-    assert!(cache.get("0012").unwrap().devices.is_empty());
+    assert!(cache.get("0012").is_none());
 }
 
 #[test]
@@ -132,7 +244,7 @@ fn an_id_that_is_not_the_identity_keys_is_refused() {
     assert_ne!(forged.id, row("0012", 1).id);
     let diff = cache.take(&account("0012", vec![forged]), 1);
     assert_eq!(diff.refused, 1);
-    assert!(cache.get("0012").unwrap().devices.is_empty());
+    assert!(cache.get("0012").is_none());
 }
 
 #[test]
@@ -164,19 +276,19 @@ fn a_damaged_signature_or_key_is_refused() {
         let mut cache = KeyCache::default();
         let diff = cache.take(&account("0012", vec![device]), 1);
         assert_eq!(diff.refused, 1, "case {case}");
-        assert!(cache.get("0012").unwrap().devices.is_empty(), "case {case}");
+        assert!(cache.get("0012").is_none(), "case {case}");
     }
 }
 
 #[test]
-fn one_bad_device_does_not_keep_the_good_ones_out() {
+fn one_bad_device_refuses_the_complete_directory() {
     let mut cache = KeyCache::default();
     let good = row("0012", 1);
     let stolen = row("0099", 2);
     let diff = cache.take(&account("0012", vec![stolen, good.clone()]), 1);
     assert_eq!(diff.refused, 1);
-    assert_eq!(ids(&diff.added), std::slice::from_ref(&good.id));
-    assert_eq!(ids(&cache.get("0012").unwrap().devices), [good.id]);
+    assert!(diff.added.is_empty());
+    assert!(cache.get("0012").is_none());
 }
 
 #[test]
@@ -194,7 +306,7 @@ fn verifying_marks_the_current_devices_and_a_new_device_drops_the_mark() {
     let (a, b) = (row("0012", 1), row("0012", 2));
     cache.take(&account("0012", vec![a.clone()]), 1);
     assert!(!cache.get("0012").unwrap().verified());
-    assert!(cache.verify("0012"));
+    assert!(verify(&mut cache, "0012"));
     assert!(cache.get("0012").unwrap().verified());
 
     let diff = cache.take(&account("0012", vec![a, b]), 2);
@@ -208,7 +320,7 @@ fn a_removed_device_also_drops_the_verified_mark() {
     let mut cache = KeyCache::default();
     let (a, b) = (row("0012", 1), row("0012", 2));
     cache.take(&account("0012", vec![a.clone(), b]), 1);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     cache.take(&account("0012", vec![a]), 2);
     assert!(!cache.get("0012").unwrap().verified());
 }
@@ -218,7 +330,7 @@ fn a_refetch_of_the_same_devices_in_another_order_stays_verified() {
     let mut cache = KeyCache::default();
     let (a, b) = (row("0012", 1), row("0012", 2));
     cache.take(&account("0012", vec![a.clone(), b.clone()]), 1);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     let diff = cache.take(&account("0012", vec![b, a]), 2);
     assert!(!diff.changed());
     assert!(diff.was_verified);
@@ -230,17 +342,17 @@ fn verifying_again_after_a_change_marks_the_new_set() {
     let mut cache = KeyCache::default();
     let (a, b) = (row("0012", 1), row("0012", 2));
     cache.take(&account("0012", vec![a.clone()]), 1);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     cache.take(&account("0012", vec![a, b]), 2);
     assert!(!cache.get("0012").unwrap().verified());
-    assert!(cache.verify("0012"));
+    assert!(verify(&mut cache, "0012"));
     assert!(cache.get("0012").unwrap().verified());
 }
 
 #[test]
 fn verifying_an_account_that_was_never_fetched_does_nothing() {
     let mut cache = KeyCache::default();
-    assert!(!cache.verify("0012"));
+    assert!(!verify(&mut cache, "0012"));
     assert!(!cache.has("0012"));
 }
 
@@ -248,20 +360,20 @@ fn verifying_an_account_that_was_never_fetched_does_nothing() {
 fn unverify_drops_the_mark() {
     let mut cache = KeyCache::default();
     cache.take(&account("0012", vec![row("0012", 1)]), 1);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     cache.unverify("0012");
     assert!(!cache.get("0012").unwrap().verified());
     cache.unverify("0777"); // an unknown tag is no error
 }
 
 #[test]
-fn a_verified_account_with_no_devices_loses_the_mark_with_its_first_device() {
+fn an_empty_directory_cannot_be_verified_or_autoapprove_a_later_device() {
     let mut cache = KeyCache::default();
     cache.take(&account("0012", Vec::new()), 1);
-    cache.verify("0012");
-    // Verified over the empty set: the first device to appear drops it.
+    assert!(!verify(&mut cache, "0012"));
     cache.take(&account("0012", vec![row("0012", 1)]), 2);
     assert!(!cache.get("0012").unwrap().verified());
+    assert!(cache.get("0012").unwrap().requires_confirmation);
 }
 
 #[test]
@@ -269,7 +381,7 @@ fn forgetting_an_account_makes_the_next_fetch_a_first_one() {
     let mut cache = KeyCache::default();
     let acc = account("0012", vec![row("0012", 1)]);
     cache.take(&acc, 1);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     cache.forget("0012");
     assert!(!cache.has("0012"));
     let diff = cache.take(&acc, 2);
@@ -284,7 +396,7 @@ fn accounts_are_cached_apart_and_listed_by_tag() {
     cache.take(&account("0013", vec![row("0013", 1)]), 1);
     cache.take(&account("0012", vec![row("0012", 2)]), 1);
     assert_eq!(cache.tags().collect::<Vec<_>>(), ["0012", "0013"]);
-    cache.verify("0012");
+    verify(&mut cache, "0012");
     assert!(!cache.get("0013").unwrap().verified());
 }
 

@@ -102,8 +102,8 @@ pub fn read(file: &str) -> Option<Vec<u8>> {
         return None;
     }
     let (folder, archive) = folders()?;
-    let gzip = std::fs::read(folder.join(file))
-        .or_else(|_| std::fs::read(archive.join(file)))
+    let gzip = crate::records::file::read(&folder.join(file))
+        .or_else(|_| crate::records::file::read(&archive.join(file)))
         .ok()?;
     baylee_client_core::bugreport::inflate(&gzip)
 }
@@ -216,7 +216,7 @@ pub fn entries(build: &str, you: &str) -> Vec<Entry> {
 /// # Errors
 /// The file cannot be read, or is neither.
 pub fn open_file(path: &std::path::Path) -> Result<(super::ReplaySource, Perspectives), String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{e:?}"))?;
+    let bytes = crate::records::file::read(path).map_err(|e| format!("{e:?}"))?;
     let text = baylee_client_core::bugreport::inflate(&bytes)
         .or_else(|| (bytes.first() == Some(&b'{')).then(|| bytes.clone()))
         .ok_or("not a gzip of JSON Lines")?;

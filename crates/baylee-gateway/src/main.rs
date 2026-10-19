@@ -446,6 +446,7 @@ async fn main() {
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
+    let _central_heartbeat = central::Heartbeat::start(state.central.as_ref());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());
     if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
@@ -1006,9 +1007,9 @@ async fn authed_session(
 ) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
     let token = bearer_token(headers)
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "missing bearer token"))?;
-    let session = store::resolve_token(&state.db, token, auth::now_secs())
+    let session = central::resolve_digest(state, auth::token_digest(token))
         .await
-        .map_err(|e| db_down(&e))?
+        .map_err(|status| err(status, "account authorization unavailable"))?
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
     moderation::admit(&session)?;
     Ok(session)

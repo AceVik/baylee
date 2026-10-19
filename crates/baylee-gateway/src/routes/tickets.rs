@@ -136,6 +136,19 @@ pub(crate) async fn ws_ticket(
             }
         }
     };
+    if let wsticket::Grant::Seat {
+        game_id,
+        seat,
+        seat_token_hash,
+    } = &grant
+    {
+        let authorization =
+            super::seat_socket::SeatAuthorization::read(&state, game_id, *seat, seat_token_hash)
+                .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
+        if !authorization.valid(&state, game_id, *seat).await {
+            return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
+        }
+    }
     let ticket = state
         .tickets
         .issue(grant, std::time::Instant::now())

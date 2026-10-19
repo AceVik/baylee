@@ -19,7 +19,7 @@ mod file;
 #[cfg(windows)]
 mod windows;
 #[cfg(not(target_arch = "wasm32"))]
-pub use file::PasswordStore;
+pub use file::{ContextGuard, PasswordStore};
 
 const MAGIC: &[u8; 8] = b"BAYVAU01";
 const HEADER: usize = 24;

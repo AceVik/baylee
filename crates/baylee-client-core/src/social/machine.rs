@@ -43,8 +43,15 @@ pub const MAX_RESEALS: u8 = 2;
 pub const RECENT_KEPT: usize = 30;
 /// The wait before a refused registration or key fetch is tried again.
 pub const BACKOFF_MS: u64 = 60 * 1000;
+/// Bound ciphertext retained while a player has not confirmed a changed identity.
+pub const MAX_HELD_DELIVERIES: usize = 256;
+/// Aggregate retained encoded ciphertext/metadata budget, independent of count.
+pub const MAX_HELD_BYTES: usize = 4 * 1024 * 1024;
 
 const STATE_VERSION: u32 = 1;
+
+mod archive;
+pub use archive::ArchiveError;
 
 /// What the state file holds (§10.2): no secret, only public keys, ids,
 /// tags and preferences. Sealed under the vault key before it leaves.
@@ -103,6 +110,8 @@ struct Pending {
 enum Wait {
     /// For a member's keys, or to be sealed.
     Keys,
+    /// A known peer's changed public keys require explicit safety confirmation.
+    Verification,
     /// For the socket.
     Link,
     /// For `Sent` or `Refused`.
@@ -119,6 +128,25 @@ struct Held {
     conv: String,
     from: Sender,
     sealed: Delivered,
+}
+
+impl Held {
+    fn bytes(&self) -> usize {
+        [
+            &self.conv,
+            &self.from.tag,
+            &self.from.handle,
+            &self.from.device,
+            &self.sealed.hdr,
+            &self.sealed.n,
+            &self.sealed.ct,
+            &self.sealed.epk,
+            &self.sealed.sig,
+            &self.sealed.k,
+        ]
+        .iter()
+        .fold(0_usize, |total, field| total.saturating_add(field.len()))
+    }
 }
 
 /// The link's state.
@@ -150,6 +178,8 @@ pub struct Social {
     next_req: u32,
     next_local: u64,
     held: Vec<Held>,
+    /// Inbox backpressure: resume only after explicit key confirmation, without acknowledging gaps.
+    held_paused: bool,
     /// Tags whose keys are being fetched.
     fetching: BTreeSet<String>,
     /// Tags fetched once for a held delivery: a second miss drops it.
@@ -180,6 +210,9 @@ pub struct Social {
     evidence: BTreeMap<LineKey, Option<Evidence>>,
     dirty: bool,
     removed: bool,
+    /// Own-account recipients authenticated by Central, never by the gateway's
+    /// directory. Absence retains the legacy TOFU/device-confirmation policy.
+    trusted_own_devices: Option<Vec<([u8; 32], [u8; 32])>>,
 }
 
 impl Social {
@@ -241,6 +274,7 @@ impl Social {
             next_req: 1,
             next_local: 0,
             held: Vec::new(),
+            held_paused: false,
             fetching: BTreeSet::new(),
             refetched: BTreeSet::new(),
             acked: 0,
@@ -264,6 +298,7 @@ impl Social {
             evidence: BTreeMap::new(),
             dirty: true,
             removed: false,
+            trusted_own_devices: None,
         };
         for conv in social.state.convs.clone() {
             if let Ok(id) = conv.id.parse::<Conv>() {
@@ -398,6 +433,7 @@ impl Social {
         let mut out = std::mem::take(&mut self.queued);
         self.pump(now_ms, rng, &mut out);
         self.flush_into(&mut out, rng);
+        self.ack(&mut out);
         out
     }
 
@@ -455,21 +491,35 @@ impl Social {
                 if ok {
                     let answer = serde_json::from_slice::<KeysAnswer>(body)
                         .unwrap_or(KeysAnswer { keys: Vec::new() });
+                    let mut invalid = Vec::new();
+                    let mut counts = BTreeMap::new();
+                    for account in &answer.keys {
+                        *counts.entry(&account.tag).or_insert(0_usize) += 1;
+                    }
                     for account in &answer.keys {
                         if !tags.contains(&account.tag) {
                             continue;
                         }
+                        if counts.get(&account.tag) != Some(&1) {
+                            invalid.push(account.tag.clone());
+                            continue;
+                        }
                         let diff = self.state.keys.take(account, now_ms);
-                        self.stale.remove(&account.tag);
+                        if diff.refused == 0 {
+                            self.stale.remove(&account.tag);
+                        } else {
+                            invalid.push(account.tag.clone());
+                        }
                         self.dirty = true;
                         self.keys_diff(&diff, now_ms, &mut out);
                     }
                     let answered: BTreeSet<&String> = answer.keys.iter().map(|k| &k.tag).collect();
-                    let refused: Vec<String> = tags
+                    let mut refused: Vec<String> = tags
                         .iter()
                         .filter(|t| !answered.contains(t))
                         .cloned()
                         .collect();
+                    refused.extend(invalid);
                     self.keys_refused(&refused, now_ms);
                 } else {
                     // A refused fetch (429 and the like): the sends waiting
@@ -538,6 +588,9 @@ impl Social {
     #[allow(clippy::too_many_lines)] // one arm per frame, read top to bottom
     pub fn on_frame(&mut self, frame: Down, now_ms: u64, rng: &mut dyn Entropy) -> Vec<Effect> {
         let mut out = Vec::new();
+        if self.held_paused {
+            return out;
+        }
         self.last_now = self.last_now.max(now_ms);
         match frame {
             Down::Welcome {
@@ -595,9 +648,10 @@ impl Social {
                 seq,
                 at,
                 conv,
-                from,
+                mut from,
                 sealed,
             } => {
+                from.handle = super::text::clean_name(&from.handle);
                 self.receive(
                     Held {
                         seq,
@@ -1172,12 +1226,13 @@ impl Social {
         let mine = self.state.keys.get(&self.me.tag)?;
         let digits = baylee_seal::safety_number((&self.me.tag, &mine.iks()), (tag, &theirs.iks()));
         Some(SafetyView {
+            expected: theirs.public_keys(),
             groups: digits
                 .as_bytes()
                 .chunks(5)
                 .map(|c| String::from_utf8_lossy(c).into_owned())
                 .collect(),
-            verified: theirs.verified(),
+            verified: theirs.verified() && self.keys_confirmed(tag),
             devices: theirs
                 .devices
                 .iter()
@@ -1190,6 +1245,16 @@ impl Social {
     #[must_use]
     pub fn contact_keys(&self, tag: &str) -> Option<&ContactKeys> {
         self.state.keys.get(tag)
+    }
+
+    /// Restrict own-account encryption recipients to public keys authenticated by
+    /// the Central archive. Call before publishing startup/network effects; never
+    /// construct this whitelist from a gateway directory. Missing current keys or
+    /// any unlisted own device block sends, including after a verification click.
+    pub fn trust_own_devices(&mut self, mut keys: Vec<([u8; 32], [u8; 32])>) {
+        keys.sort_unstable();
+        keys.dedup();
+        self.trusted_own_devices = Some(keys);
     }
 
     /// This account's devices (Settings → Chat & privacy).
@@ -1303,6 +1368,7 @@ impl Social {
         out.append(&mut self.queued);
         self.pump(self.last_now, rng, out);
         self.flush_into(out, rng);
+        self.ack(out);
         self.bump();
     }
 
@@ -1310,7 +1376,6 @@ impl Social {
         if !self.dirty || self.removed {
             return;
         }
-        self.dirty = false;
         let Ok(json) = serde_json::to_vec(&self.state).map(Zeroizing::new) else {
             return;
         };
@@ -1322,6 +1387,7 @@ impl Social {
             rng,
         ) {
             out.push(Effect::SaveState(sealed));
+            self.dirty = false;
         }
     }
 
@@ -1631,9 +1697,7 @@ impl Social {
             if !diff.removed.is_empty() {
                 self.notice(&conv, ChatPhrase::DeviceRemoved, vec![name.clone()], now_ms);
             }
-            if diff.was_verified {
-                self.notice(&conv, ChatPhrase::VerifyAgain, vec![name.clone()], now_ms);
-            }
+            self.notice(&conv, ChatPhrase::VerifyAgain, vec![name.clone()], now_ms);
         }
     }
 
@@ -1642,19 +1706,40 @@ impl Social {
         self.state.keys.has(tag) && !self.stale.contains(tag)
     }
 
+    fn keys_confirmed(&self, tag: &str) -> bool {
+        let Some(contact) = self.state.keys.get(tag) else {
+            return false;
+        };
+        if tag == self.me.tag
+            && let Some(trusted) = &self.trusted_own_devices
+        {
+            let current = (self.device.ik(), self.device.dk());
+            return trusted.contains(&current)
+                && contact
+                    .devices
+                    .iter()
+                    .any(|device| (device.ik, device.dk) == current)
+                && contact
+                    .devices
+                    .iter()
+                    .all(|device| trusted.contains(&(device.ik, device.dk)));
+        }
+        !contact.devices.is_empty() && !contact.requires_confirmation
+    }
+
     /// Tags the gateway left out of a key answer: this account may not
     /// write to them; sends waiting on them fail.
     fn keys_refused(&mut self, tags: &[String], now_ms: u64) {
         if tags.is_empty() {
             return;
         }
-        // The gateway no longer lets this account write to them: what was
-        // cached is no reason to keep sealing for them.
+        // A refusal must block sending without erasing the previously seen keys:
+        // otherwise an untrusted gateway can turn a replacement into first use.
         for tag in tags {
-            if self.stale.remove(tag) {
-                self.state.keys.forget(tag);
-            }
+            self.stale.insert(tag.clone());
+            self.state.keys.reject(tag);
         }
+        self.dirty = true;
         let failing: Vec<usize> = self
             .outbox
             .iter()
@@ -1846,6 +1931,10 @@ impl Social {
             if !lacking.is_empty() {
                 missing.extend(lacking.into_iter().cloned());
                 self.outbox[i].wait = Wait::Keys;
+                continue;
+            }
+            if tags.iter().any(|tag| !self.keys_confirmed(tag)) {
+                self.outbox[i].wait = Wait::Verification;
                 continue;
             }
             if self.link != Link::Welcomed {
@@ -2101,6 +2190,15 @@ impl Social {
         match verdict {
             Verdict::Hold => {
                 if !self.held.iter().any(|h| h.seq == seq) {
+                    let bytes = self.held.iter().fold(msg.bytes(), |total, entry| {
+                        total.saturating_add(entry.bytes())
+                    });
+                    if self.held.len() >= MAX_HELD_DELIVERIES || bytes > MAX_HELD_BYTES {
+                        self.held_paused = true;
+                        self.link = Link::Stopped;
+                        out.push(Effect::Hang);
+                        return;
+                    }
                     self.held.push(msg);
                 }
                 return;
@@ -2109,10 +2207,15 @@ impl Social {
         }
         self.held.retain(|h| h.seq != seq);
         self.high = self.high.max(seq);
-        self.ack(out);
     }
 
     fn ack(&mut self, out: &mut Vec<Effect>) {
+        // Hosts must persist history and this device's replay-suppression state
+        // before allowing the gateway to discard a delivery. Central hosts also
+        // await the encrypted archive's CAS before executing this final effect.
+        if self.dirty || self.removed || self.held_paused {
+            return;
+        }
         let safe = match self.held.iter().map(|h| h.seq).min() {
             Some(lowest) => lowest.saturating_sub(1).min(self.high),
             None => self.high,
@@ -2133,7 +2236,6 @@ impl Social {
                 self.receive(msg, true, now_ms, rng, out);
             }
         }
-        self.ack(out);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -2166,14 +2268,33 @@ impl Social {
                 return Verdict::Done;
             }
         };
-        // The sender's device must be one the key cache knows; fetch once.
+        if !member || self.contacts.is_blocked(&msg.from.tag) {
+            return Verdict::Done;
+        }
+        // Known directory changes cannot authenticate a new incoming identity.
+        // Retain the previous pins while confirmation is pending, so legitimate
+        // old inbox deliveries still open without accepting injected candidates.
+        let contact = self.state.keys.get(&msg.from.tag);
         let device = self
             .state
             .keys
             .get(&msg.from.tag)
-            .and_then(|k| k.device(&msg.from.device))
+            .and_then(|k| k.pinned_device(&msg.from.device))
+            .filter(|device| {
+                msg.from.tag != self.me.tag
+                    || self
+                        .trusted_own_devices
+                        .as_ref()
+                        .is_none_or(|keys| keys.contains(&(device.ik, device.dk)))
+            })
             .cloned();
         let Some(device) = device else {
+            if contact.is_some_and(|keys| {
+                keys.device(&msg.from.device).is_some()
+                    || keys.pinned_device(&msg.from.device).is_some()
+            }) {
+                return Verdict::Hold;
+            }
             if !retried && !self.refetched.contains(&msg.from.tag) {
                 self.refetched.insert(msg.from.tag.clone());
                 self.request_keys(std::slice::from_ref(&msg.from.tag), out);

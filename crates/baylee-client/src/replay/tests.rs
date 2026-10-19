@@ -31,6 +31,37 @@ const FILE: &str = "game-0000000000001-0000000000000003.jsonl.gz";
 /// How long a test waits for a worker before it calls the replay stuck.
 const PATIENCE: Duration = Duration::from_secs(60);
 
+#[test]
+fn hosted_replay_debug_never_exposes_the_session() {
+    let token = "private-replay-bearer-must-not-appear";
+    let source = ReplaySource::Hosted(HostedAccess {
+        gateway: "https://gateway.example".into(),
+        name: "Gateway".into(),
+        token: token.into(),
+        game: "game".into(),
+    });
+    for debug in [format!("{source:?}"), format!("{source:#?}")] {
+        assert!(!debug.contains(token));
+        assert!(debug.contains("<redacted>"));
+    }
+    let private_record = b"secret account-bound replay content".to_vec();
+    for source in [
+        ReplaySource::Record {
+            bytes: Arc::new(private_record.clone()),
+            names: vec![token.into()],
+            file: "record".into(),
+            by_hand: false,
+        },
+        ReplaySource::Tape {
+            gzip: Arc::new(private_record.clone()),
+        },
+    ] {
+        let debug = format!("{source:?}");
+        assert!(!debug.contains(token));
+        assert!(!debug.contains(&format!("{private_record:?}")));
+    }
+}
+
 fn me() -> PlayerId {
     PlayerId::new(0)
 }

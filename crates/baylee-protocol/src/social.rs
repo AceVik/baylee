@@ -439,7 +439,7 @@ pub struct Sealed {
     pub epk: String,
     /// The sending device's Ed25519 signature, 64 bytes.
     pub sig: String,
-    /// One per recipient device, the sending device excepted.
+    /// One per recipient device, optionally including the sender for inbox recovery.
     pub wraps: Vec<Wrap>,
 }
 
@@ -1317,7 +1317,7 @@ mod tests {
 
     #[test]
     fn the_worst_case_send_fits_a_frame() {
-        // 50 members × 5 devices, less the sender's: 249 wraps of 48 bytes.
+        // 50 members × 5 devices, including optional sender recovery: 250 wraps of 48 bytes.
         let wrap = Wrap {
             d: "0123456789abcdef".into(),
             k: "A".repeat(64),
@@ -1328,7 +1328,7 @@ mod tests {
             ct: "A".repeat((MAX_BODY_BYTES + 16).div_ceil(3) * 4),
             epk: "A".repeat(43),
             sig: "A".repeat(86),
-            wraps: vec![wrap; MAX_GROUP_MEMBERS * MAX_DEVICES - 1],
+            wraps: vec![wrap; MAX_GROUP_MEMBERS * MAX_DEVICES],
         };
         let frame = Up::Send {
             req: u32::MAX,

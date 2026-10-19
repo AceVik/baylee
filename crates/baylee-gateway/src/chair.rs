@@ -164,6 +164,11 @@ pub(crate) fn hand_over(
     let grant = wsticket::Grant::Chair {
         game_id: id.to_string(),
         seat,
+        central_session: game
+            .seats
+            .iter()
+            .find(|chair| chair.account_id.as_ref() == Some(&host))
+            .and_then(|chair| chair.central_session.clone()),
         host,
         order,
     };
@@ -281,11 +286,26 @@ pub(crate) async fn redeem(
                 err(StatusCode::FORBIDDEN, SWITCHED_OFF)
             }
         })?;
-    let wsticket::Grant::Chair { host, order, .. } = grant else {
+    let wsticket::Grant::Chair {
+        host,
+        order,
+        central_session,
+        ..
+    } = grant
+    else {
         return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     };
     if order.is_none() && !state.chair_tickets_enabled {
         return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
+    }
+    if !crate::routes::seat_socket::account_capability_valid(
+        &state,
+        &host,
+        central_session.as_deref(),
+    )
+    .await
+    {
+        return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED));
     }
     let deck = delegated_deck(&host, body.deck);
     let seat_token = auth::new_token();
@@ -323,6 +343,7 @@ pub(crate) async fn redeem(
             chair.deck = Some(deck);
         }
         chair.seat_token_hash = Some(auth::token_hash(&seat_token));
+        chair.central_session = central_session;
         decide_secs
     };
     state.lobby_moved();
@@ -389,6 +410,7 @@ pub(crate) async fn status(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
     let mut lobby = state.lobby.lock();
     let (game, seat) = by_seat_token(&mut lobby, &id, &headers)?;
     Ok(Json(serde_json::json!({
@@ -435,6 +457,7 @@ pub(crate) async fn ready(
     Path(id): Path<String>,
     Json(body): Json<ReadyBody>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
+    crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
     {
         let mut lobby = state.lobby.lock();
         let (game, seat) = by_seat_token(&mut lobby, &id, &headers)?;
@@ -462,6 +485,7 @@ pub(crate) async fn leave(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
+    crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
     {
         let mut lobby = state.lobby.lock();
         let (game, seat) = by_seat_token(&mut lobby, &id, &headers)?;

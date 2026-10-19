@@ -45,7 +45,7 @@ pub trait ChatDisk {
     /// The whole file at `path`, if it is there.
     fn read(&self, path: &str) -> Option<Vec<u8>>;
 
-    /// The names of the files in the folder `dir`, sorted.
+    /// The names of the files in the folder `dir`, sorted; `""` selects the root.
     fn list(&self, dir: &str) -> Vec<String>;
 
     /// Replaces the file at `path` with `bytes` (temp file, then rename).
@@ -139,7 +139,11 @@ impl ChatDisk for MemoryDisk {
     }
 
     fn list(&self, dir: &str) -> Vec<String> {
-        let prefix = format!("{}/", dir.trim_end_matches('/'));
+        let prefix = if dir.is_empty() {
+            String::new()
+        } else {
+            format!("{}/", dir.trim_end_matches('/'))
+        };
         self.files
             .keys()
             .filter_map(|p| p.strip_prefix(&prefix))
@@ -223,8 +227,13 @@ impl ChatDisk for DirDisk {
     }
 
     fn list(&self, dir: &str) -> Vec<String> {
-        let Ok(path) = self.path(dir) else {
-            return Vec::new();
+        let path = if dir.is_empty() {
+            self.root.clone()
+        } else {
+            let Ok(path) = self.path(dir) else {
+                return Vec::new();
+            };
+            path
         };
         let mut names: Vec<String> = std::fs::read_dir(path)
             .into_iter()

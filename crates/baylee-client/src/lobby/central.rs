@@ -4,7 +4,11 @@
 use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
 use baylee_account::{Account, Endpoint, Error};
 use baylee_client_core::{i18n::Lang, prefs::Preferences};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+    mpsc,
+};
 
 type Job = Box<dyn FnOnce(&mut Account) + Send>;
 type SaveResult = Arc<Mutex<Option<Result<(), Error>>>>;
@@ -16,21 +20,117 @@ struct PendingSave {
 
 /// Handle to a serial worker; the UI cannot read or print its tokens or keys.
 #[derive(Clone)]
-pub(crate) struct Handle(mpsc::SyncSender<Job>);
+pub(crate) struct Handle {
+    send: mpsc::SyncSender<Job>,
+    active: Arc<AtomicBool>,
+}
 
 impl Handle {
+    #[cfg(test)]
+    pub(crate) fn unavailable_for_test() -> Self {
+        let (send, receive) = mpsc::sync_channel(1);
+        drop(receive);
+        Self {
+            send,
+            active: Arc::new(AtomicBool::new(true)),
+        }
+    }
+    pub(crate) fn is_active(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+    }
+    /// Enqueue bounded account work without exposing SDK keys or tokens to the UI.
+    pub(crate) fn submit(&self, operation: impl FnOnce(&mut Account) + Send + 'static) -> bool {
+        self.active.load(Ordering::Acquire) && self.send.try_send(Box::new(operation)).is_ok()
+    }
+
+    pub(crate) fn chat_history(
+        &self,
+        device: baylee_account::chat::ChatDevice,
+    ) -> Result<std::collections::BTreeMap<String, Vec<u8>>, Error> {
+        self.call(move |account| account.read_chat_history(&device))
+    }
+    /// Blocking adapter for an existing background job; never called by a render system.
+    pub(crate) fn chat_devices(
+        &self,
+        gateway: String,
+        tag: String,
+    ) -> Result<Vec<baylee_account::chat::ChatDevice>, Error> {
+        self.call(move |account| account.chat_devices(&gateway, &tag))
+    }
+
+    pub(crate) fn archive_chat_device(
+        &self,
+        device: baylee_account::chat::ChatDevice,
+    ) -> Result<(), Error> {
+        self.call(move |account| account.archive_chat_device(&device))
+    }
+
+    pub(crate) fn retire_chat_device(
+        &self,
+        device: baylee_account::chat::ChatDevice,
+    ) -> Result<(), Error> {
+        self.call(move |account| account.retire_chat_device(&device))
+    }
+
+    pub(crate) fn remember_chat_installation(
+        &self,
+        device: baylee_account::chat::ChatDevice,
+        installation: String,
+    ) -> Result<(), Error> {
+        self.call(move |account| account.remember_chat_installation(&device, installation))
+    }
+
+    pub(crate) fn upload_chat_history(
+        &self,
+        device: baylee_account::chat::ChatDevice,
+        files: std::collections::BTreeMap<String, Vec<u8>>,
+    ) -> Result<(), Error> {
+        self.call(move |account| account.upload_chat_history(&device, &files))
+    }
+
+    fn call<T: Send + 'static>(
+        &self,
+        operation: impl FnOnce(&mut Account) -> Result<T, Error> + Send + 'static,
+    ) -> Result<T, Error> {
+        let (send, receive) = mpsc::sync_channel(1);
+        if !self.active.load(Ordering::Acquire) {
+            return Err(Error::Rejected);
+        }
+        self.send
+            .try_send(Box::new(move |account| {
+                let _ = send.send(operation(account));
+            }))
+            .map_err(|_| Error::Busy)?;
+        receive.recv().map_err(|_| Error::Unavailable)?
+    }
+
     fn start(mut account: Account) -> Result<Self, Error> {
         let (send, receive) = mpsc::sync_channel::<Job>(4);
+        let active = Arc::new(AtomicBool::new(true));
+        let worker_active = active.clone();
         std::thread::Builder::new()
             .name("central-account".into())
             .spawn(move || {
-                while let Ok(job) = receive.recv() {
-                    job(&mut account);
+                let interval = std::time::Duration::from_secs(10);
+                let mut checked = std::time::Instant::now();
+                loop {
+                    if checked.elapsed() >= interval {
+                        if matches!(account.check_active(), Err(Error::Rejected)) {
+                            worker_active.store(false, Ordering::Release);
+                            break;
+                        }
+                        checked = std::time::Instant::now();
+                    }
+                    match receive.recv_timeout(interval.saturating_sub(checked.elapsed())) {
+                        Ok(job) => job(&mut account),
+                        Err(mpsc::RecvTimeoutError::Timeout) => {}
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    }
                 }
                 let _ = account.logout();
             })
             .map_err(|_| Error::Unavailable)?;
-        Ok(Self(send))
+        Ok(Self { send, active })
     }
 
     pub(crate) fn save(
@@ -39,7 +139,10 @@ impl Handle {
         gateways: Option<Vec<String>>,
         done: impl FnOnce(Result<(), Error>) + Send + 'static,
     ) -> bool {
-        self.0
+        if !self.active.load(Ordering::Acquire) {
+            return false;
+        }
+        self.send
             .try_send(Box::new(move |account| {
                 done(account.save(preferences, gateways));
             }))
@@ -54,7 +157,7 @@ pub(super) struct State {
     saved_gateways: Vec<String>,
     saving: Option<PendingSave>,
     sync_failed: bool,
-    chat_unlock: Option<crate::social::vault_access::Login>,
+    chat_unlock: Arc<Mutex<Option<crate::social::vault_access::Login>>>,
 }
 
 pub(super) struct Restored {
@@ -73,7 +176,7 @@ pub(super) fn enable(state: &mut LobbyState) {
         saved_gateways: Vec::new(),
         saving: None,
         sync_failed: false,
-        chat_unlock: None,
+        chat_unlock: Arc::new(Mutex::new(None)),
     });
     state.gateway_selected = false;
     state.gateway_cursor = None;
@@ -134,7 +237,10 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                 })
             })();
             if let Ok(mut messages) = target.0.lock() {
-                messages.push(Reply::Remote(epoch, Box::new(Reply::Central(result))));
+                messages.push(Reply::Remote(
+                    epoch,
+                    Box::new(Reply::Central(result.map(Box::new))),
+                ));
             }
         });
     if launched.is_err() {
@@ -148,16 +254,17 @@ pub(super) fn receive(
     state: &mut LobbyState,
     prefs: &mut crate::prefs::Prefs,
     mailbox: &Mailbox,
-    result: Result<Restored, Error>,
+    result: Result<Box<Restored>, Error>,
 ) {
     match result {
         Ok(restored) => {
+            let restored = *restored;
             let Some(central) = &mut state.central else {
                 return;
             };
             central.saved_gateways.clone_from(&restored.gateways);
             central.handle = Some(restored.handle.clone());
-            central.chat_unlock = restored.chat_unlock;
+            central.chat_unlock = Arc::new(Mutex::new(restored.chat_unlock));
             prefs.attach_central(restored.handle, restored.preferences);
             let lang = state.lobby.lang();
             let username = state.lobby.field(Field::Username).to_string();
@@ -185,11 +292,7 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
         return;
     };
     let gateway = state.gateway.clone();
-    let mut chat_unlock = state
-        .central
-        .as_mut()
-        .and_then(|s| s.chat_unlock.take())
-        .filter(|login| login.fresh_for(&gateway));
+    let chat_unlock = state.central.as_ref().map(|s| s.chat_unlock.clone());
     let epoch = state.gateway_epoch;
     let target = mailbox.clone();
     let lang = state.lobby.lang();
@@ -199,24 +302,14 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
         "Connecting to gateway …"
     });
     let accepted = handle
-        .0
+        .send
         .try_send(Box::new(move |account| {
             let admission = account.admit(&gateway);
-            let stale = admission
-                .as_ref()
-                .ok()
-                .and_then(|value| value.get("terms_stale"))
-                .and_then(serde_json::Value::as_bool);
+            let stale = admission.as_ref().ok().and_then(|value| value.terms_stale);
             let event = match admission {
-                Ok(value) => match (
-                    value.get("token").and_then(serde_json::Value::as_str),
-                    value.get("username").and_then(serde_json::Value::as_str),
-                ) {
-                    (Some(token), Some(username)) => LobbyEvent::LoggedIn {
-                        token: token.into(),
-                        username: Some(username.into()),
-                    },
-                    _ => LobbyEvent::Failed(message(lang).into()),
+                Ok(mut value) => LobbyEvent::LoggedIn {
+                    token: std::mem::take(&mut value.token),
+                    username: value.username.take(),
                 },
                 Err(_) => LobbyEvent::Failed(message(lang).into()),
             };
@@ -228,7 +321,10 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                     ));
                 }
                 if let LobbyEvent::LoggedIn { token, .. } = &event
-                    && let Some(mut login) = chat_unlock.take()
+                    && let Some(mut login) = chat_unlock
+                        .as_ref()
+                        .and_then(|slot| slot.lock().ok().and_then(|mut value| value.take()))
+                        .filter(|login| login.fresh_for(&gateway))
                 {
                     login.accept(token);
                     messages.push(Reply::Remote(epoch, Box::new(Reply::VaultLogin(login))));
@@ -244,20 +340,24 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
 
 pub(super) fn sync_gateways(
     mut state: bevy::prelude::ResMut<LobbyState>,
-    prefs: bevy::prelude::Res<crate::prefs::Prefs>,
+    mut prefs: bevy::prelude::ResMut<crate::prefs::Prefs>,
 ) {
+    if state
+        .central_handle()
+        .is_some_and(|handle| !handle.active.load(Ordering::Acquire))
+    {
+        logout(&mut state, &mut prefs);
+        return;
+    }
     let Some(central) = &state.central else {
         return;
     };
-    if central
-        .chat_unlock
-        .as_ref()
-        .is_some_and(|login| !login.fresh_for("https://baylee.acevik.de"))
+    if let Ok(mut login) = central.chat_unlock.lock()
+        && login
+            .as_ref()
+            .is_some_and(|login| !login.fresh_for("https://baylee.acevik.de"))
     {
-        if let Some(central) = &mut state.central {
-            central.chat_unlock = None;
-        }
-        return;
+        *login = None;
     }
     let Some(handle) = &central.handle else {
         return;
@@ -343,6 +443,29 @@ mod tests {
     use baylee_client_core::lobby::{LobbyRequest, gateway_info::Probe};
 
     #[test]
+    fn central_account_deletion_never_sends_a_password_to_the_gateway() {
+        let sink = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        sink.set_nonblocking(true).unwrap();
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        enable(&mut state);
+        state.gateway = format!("http://{}", sink.local_addr().unwrap());
+        let mailbox = Mailbox::default();
+        http::dispatch(
+            &mut state,
+            &mailbox,
+            Some(LobbyRequest::DeleteAccount {
+                password: Some("synthetic central-only password".into()),
+            }),
+        );
+        assert!(
+            matches!(sink.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        assert!(mailbox.0.lock().unwrap().is_empty());
+        assert!(state.central_pending());
+        assert!(state.lobby.status().contains("Central verification"));
+    }
+
+    #[test]
     fn central_login_hides_and_never_probes_device_gateways_before_restore() {
         let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
         state.gateways = vec!["https://private-device-gateway.invalid".into()];
@@ -374,12 +497,20 @@ mod tests {
         let (send, _receive) = mpsc::sync_channel::<Job>(4);
         let mut prefs = crate::prefs::Prefs::default();
         let restored = Restored {
-            handle: Handle(send),
+            handle: Handle {
+                send,
+                active: Arc::new(AtomicBool::new(true)),
+            },
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
             chat_unlock: None,
         };
-        receive(&mut state, &mut prefs, &Mailbox::default(), Ok(restored));
+        receive(
+            &mut state,
+            &mut prefs,
+            &Mailbox::default(),
+            Ok(Box::new(restored)),
+        );
         assert!(state.central_ready());
         assert!(!state.lobby.gateway_chosen());
         assert_eq!(state.gateways, vec![source]);

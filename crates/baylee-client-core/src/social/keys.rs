@@ -2,7 +2,7 @@
 //! trusted on first use, with each contact's verified set of identity keys
 //! and the differences a refetch finds.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +38,20 @@ pub struct ContactKeys {
     /// set equals this (§4.4).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_iks: Option<Vec<[u8; 32]>>,
+    /// A known key set changed or its directory became ambiguous. Only explicit
+    /// verification of the exact current set clears this persisted send barrier.
+    /// Older states lack this history and require one confirmation on upgrade.
+    #[serde(default = "upgrade_requires_confirmation")]
+    pub requires_confirmation: bool,
+    /// Last first-use or explicitly confirmed snapshot. An unconfirmed directory
+    /// cannot replace these signing keys. Missing in older states means their
+    /// already-stored devices, captured before the next directory replacement.
+    #[serde(default)]
+    pub pinned_devices: Option<Vec<CachedDevice>>,
+}
+
+const fn upgrade_requires_confirmation() -> bool {
+    true
 }
 
 impl ContactKeys {
@@ -52,13 +66,33 @@ impl ContactKeys {
     /// Whether the player verified exactly the devices there are now.
     #[must_use]
     pub fn verified(&self) -> bool {
-        self.verified_iks.as_ref().is_some_and(|v| *v == self.iks())
+        !self.requires_confirmation && self.verified_iks.as_ref().is_some_and(|v| *v == self.iks())
+    }
+
+    /// Identity and agreement keys in canonical order, binding a confirmation to
+    /// the exact snapshot shown by the safety sheet, including signed DK rotation.
+    #[must_use]
+    pub fn public_keys(&self) -> Vec<([u8; 32], [u8; 32])> {
+        let mut keys: Vec<_> = self.devices.iter().map(|d| (d.ik, d.dk)).collect();
+        keys.sort_unstable();
+        keys
     }
 
     /// The device named `id`.
     #[must_use]
     pub fn device(&self, id: &str) -> Option<&CachedDevice> {
         self.devices.iter().find(|d| d.id == id)
+    }
+
+    /// Previously accepted sender identity, retained while a new directory awaits
+    /// confirmation, including devices removed from that unconfirmed directory.
+    #[must_use]
+    pub fn pinned_device(&self, id: &str) -> Option<&CachedDevice> {
+        self.pinned_devices
+            .as_ref()
+            .unwrap_or(&self.devices)
+            .iter()
+            .find(|d| d.id == id)
     }
 }
 
@@ -84,7 +118,7 @@ impl KeyDiff {
     /// Whether anything changed that a conversation should be told of.
     #[must_use]
     pub fn changed(&self) -> bool {
-        !self.first && (!self.added.is_empty() || !self.removed.is_empty())
+        !self.first && (!self.added.is_empty() || !self.removed.is_empty() || self.refused != 0)
     }
 }
 
@@ -114,12 +148,16 @@ impl KeyCache {
 
     /// Takes one account's fetched keys: each device's statement is checked
     /// against `tag` and its id against its key ([`baylee_seal::verify_device`],
-    /// [`baylee_seal::device_id`]); a device that fails either is left out
-    /// and counted. Returns what changed.
+    /// [`baylee_seal::device_id`]). A malformed, duplicate or oversized directory
+    /// never partially replaces trusted keys. Returns what changed or was refused.
     pub fn take(&mut self, keys: &AccountKeys, now_ms: u64) -> KeyDiff {
-        let mut refused = 0;
-        let devices: Vec<CachedDevice> = keys
-            .devices
+        let mut refused = usize::from(keys.devices.len() > baylee_protocol::social::MAX_DEVICES);
+        let candidates = if refused == 0 {
+            keys.devices.as_slice()
+        } else {
+            &[]
+        };
+        let devices: Vec<CachedDevice> = candidates
             .iter()
             .filter_map(|d| {
                 let checked = check(&keys.tag, d);
@@ -129,6 +167,23 @@ impl KeyCache {
                 checked
             })
             .collect();
+        let unique: BTreeSet<_> = devices.iter().map(|device| &device.id).collect();
+        refused += devices.len() - unique.len();
+        if refused != 0 {
+            let contact = self.accounts.get_mut(&keys.tag);
+            let first = contact.is_none();
+            let was_verified = contact.as_ref().is_some_and(|contact| contact.verified());
+            if let Some(contact) = contact {
+                contact.requires_confirmation = true;
+            }
+            return KeyDiff {
+                tag: keys.tag.clone(),
+                first,
+                was_verified,
+                refused,
+                ..KeyDiff::default()
+            };
+        }
         let entry = self.accounts.entry(keys.tag.clone());
         let first = matches!(entry, std::collections::btree_map::Entry::Vacant(_));
         let contact = entry.or_insert_with(|| ContactKeys {
@@ -136,17 +191,31 @@ impl KeyCache {
             ..ContactKeys::default()
         });
         let was_verified = contact.verified();
-        let added = devices
+        if first {
+            contact.pinned_devices = Some(devices.clone());
+        } else if contact.pinned_devices.is_none() {
+            contact.pinned_devices = Some(contact.devices.clone());
+        }
+        let added: Vec<_> = devices
             .iter()
-            .filter(|d| contact.device(&d.id).is_none_or(|old| old.ik != d.ik))
+            .filter(|d| {
+                contact
+                    .device(&d.id)
+                    .is_none_or(|old| old.ik != d.ik || old.dk != d.dk)
+            })
             .cloned()
             .collect();
-        let removed = contact
+        let removed: Vec<_> = contact
             .devices
             .iter()
-            .filter(|old| !devices.iter().any(|d| d.id == old.id && d.ik == old.ik))
+            .filter(|old| {
+                !devices
+                    .iter()
+                    .any(|d| d.id == old.id && d.ik == old.ik && d.dk == old.dk)
+            })
             .cloned()
             .collect();
+        contact.requires_confirmation |= !first && (!added.is_empty() || !removed.is_empty());
         contact.handle = super::text::clean_name(&keys.handle);
         contact.devices = devices;
         KeyDiff {
@@ -159,15 +228,17 @@ impl KeyCache {
         }
     }
 
-    /// Marks `tag` verified as its devices are now; `false` when its keys
-    /// were never fetched.
-    pub fn verify(&mut self, tag: &str) -> bool {
+    /// Verifies exactly the displayed public keys; stale, empty and unknown sets
+    /// are refused. A later directory change cannot inherit this confirmation.
+    pub fn verify(&mut self, tag: &str, expected: &[([u8; 32], [u8; 32])]) -> bool {
         match self.accounts.get_mut(tag) {
-            Some(contact) => {
+            Some(contact) if !expected.is_empty() && contact.public_keys() == expected => {
                 contact.verified_iks = Some(contact.iks());
+                contact.requires_confirmation = false;
+                contact.pinned_devices = Some(contact.devices.clone());
                 true
             }
-            None => false,
+            _ => false,
         }
     }
 
@@ -178,7 +249,15 @@ impl KeyCache {
         }
     }
 
-    /// Forgets `tag`'s keys, so the next send fetches them again.
+    /// Preserve a known trust history while refusing an ambiguous directory response.
+    pub fn reject(&mut self, tag: &str) {
+        if let Some(contact) = self.accounts.get_mut(tag) {
+            contact.requires_confirmation = true;
+        }
+    }
+
+    /// Explicitly resets `tag`'s trust history. Only a deliberate user-requested
+    /// reset may call this; fetch/refusal/retry paths must preserve existing pins.
     pub fn forget(&mut self, tag: &str) {
         self.accounts.remove(tag);
     }

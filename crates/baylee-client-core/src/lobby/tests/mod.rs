@@ -1,5 +1,6 @@
 mod decks;
 mod deletion;
+mod diagnostics;
 mod fields;
 mod guests;
 mod hosted;

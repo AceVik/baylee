@@ -3266,7 +3266,9 @@ every value base64url without padding. The gateway checks, in this order:
    3 s (`rate`; retry after a second);
 5. **completeness**: the wraps name exactly the current devices of every
    member except the sending one, blocked recipients included (`devices`,
-   with `missing` and `extra` device ids; refetch the keys and seal again);
+   with `missing` and `extra` device ids; refetch the keys and seal again).
+   An additional wrap for the sending device is allowed; new clients include
+   it so a crash before `sent` can recover the message from their own inbox;
 6. the per-device cap of 5000 undelivered slots (`recipient_full`), a
    duplicate `id` (`duplicate`), then storage: the message once
    (`chat_message`, without its wraps) and one slot per recipient device
@@ -3274,7 +3276,20 @@ every value base64url without padding. The gateway checks, in this order:
 
 A recipient who **blocks the sender** is wrapped for like anyone else and
 given no slot, so the sender sees `sent` and learns nothing. The sending
-device gets no slot; the account's other devices do.
+device gets a slot only when its self-wrap is present; older clients without
+one remain compatible. The account's other devices receive their own slots.
+Self-delivery uses the ordinary durable-history, deduplication and acknowledgement
+rules, so a successfully sent line is not shown twice.
+
+Clients pin the first valid peer directory (TOFU). Any later change to its identity
+or agreement keys pauses sends and retries until the player explicitly verifies
+the exact displayed set. This barrier persists across refetches and restart;
+ambiguous, duplicated or partially invalid directories never replace trusted keys.
+Central-backed clients additionally restrict their own-account recipients to public
+keys restored from their authenticated Central archive, including the active device.
+A gateway cannot add an own-account recipient through first-use trust or a UI click.
+TOFU does not authenticate a peer's first directory against a malicious gateway;
+an independent safety-number comparison remains necessary for that guarantee.
 
 ### Delivering: `msg`, `ack`
 

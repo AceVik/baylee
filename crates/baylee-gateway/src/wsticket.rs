@@ -152,6 +152,8 @@ pub enum Grant {
         /// where hosts may hand no chair over (`BAYLEE_CHAIR_TICKETS=off`),
         /// and only while the chair still holds that order.
         order: Option<String>,
+        /// The Central session which authorized delegation, if this is a Central host.
+        central_session: Option<Vec<u8>>,
     },
 }
 
@@ -645,6 +647,7 @@ mod tests {
             seat: at,
             host: host.into(),
             order: None,
+            central_session: None,
         }
     }
 

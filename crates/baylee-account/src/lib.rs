@@ -4,12 +4,16 @@
 
 #[cfg(feature = "client")]
 mod account;
+pub mod chat;
 pub mod data;
 pub mod migration;
 #[cfg(feature = "client")]
 pub use account::Account;
+#[path = "gateway.rs"]
+mod admission;
 mod http;
-pub use central_api::{Endpoint, Error, Token, wire};
+pub use admission::{Admission, GatewayHttp};
+pub use central_api::{Endpoint, Error, Token, gateway, wire};
 #[cfg(feature = "client")]
 pub use central_client as sdk;
 pub use http::CentralHttp;

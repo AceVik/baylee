@@ -261,9 +261,26 @@ impl Social {
                     self.dirty = true;
                 }
             }
-            Intent::Verify { tag } => {
-                self.state.keys.verify(&tag);
-                self.dirty = true;
+            Intent::Verify { tag, expected } => {
+                if self.keys_fresh(&tag) && self.state.keys.verify(&tag, &expected) {
+                    for pending in &mut self.outbox {
+                        if pending.wait == super::Wait::Verification {
+                            pending.wait = super::Wait::Keys;
+                        }
+                    }
+                    self.dirty = true;
+                    if self.held_paused {
+                        // The bounded inbox was not acknowledged. Reconnect for a
+                        // complete replay rather than advancing across discarded frames.
+                        self.held_paused = false;
+                        self.held.clear();
+                        self.high = self.acked;
+                        self.link = super::Link::Down;
+                        out.push(Effect::Dial);
+                    } else {
+                        self.retry_held(now_ms, rng, out);
+                    }
+                }
             }
             Intent::Unverify { tag } => {
                 self.state.keys.unverify(&tag);

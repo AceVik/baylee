@@ -609,6 +609,44 @@ async fn a_friends_message_reaches_the_friend_and_the_senders_other_device_only(
 }
 
 #[tokio::test]
+async fn an_optional_sender_wrap_recovers_a_send_after_its_reply_was_lost() {
+    let gw = spawn_gateway("social-self-recovery");
+    let alice = account(gw.port, "alice-self", "Alice");
+    let bob = account(gw.port, "bob-self", "Bob");
+    befriend(&alice, &bob);
+    let (a1, b1) = (register(&alice), register(&bob));
+    let conv = dm(&alice, &bob);
+    let (mut original, _) = Chat::open(&a1).await;
+    let sent = text(&a1, 1, &conv, "recover my own send", &targets(&[&a1, &b1]));
+    original.up(&sent).await;
+    becomes(&gw, "SELECT count(*) FROM chat_delivery", 2).await;
+    // Do not read Sent or Msg and do not acknowledge either inbox slot.
+    drop(original);
+    let (mut restored, _) = Chat::open(&a1).await;
+    let own = restored.msg().await;
+    assert_eq!(own.from.device, a1.device);
+    assert_eq!(
+        &open(&a1, &a1, &own.sealed).body[..],
+        text_body("recover my own send")
+    );
+    restored.up(&Up::Ack { upto: own.seq }).await;
+    becomes(
+        &gw,
+        &format!(
+            "SELECT count(*) FROM chat_delivery WHERE device_id = '{}'",
+            a1.device
+        ),
+        0,
+    )
+    .await;
+    assert_eq!(
+        slots(&gw, &b1.device),
+        1,
+        "the sender cannot acknowledge the recipient's inbox"
+    );
+}
+
+#[tokio::test]
 async fn a_message_waits_for_a_device_that_is_away_until_it_acks() {
     let gw = spawn_gateway("social-offline");
     let port = gw.port;
@@ -720,24 +758,26 @@ async fn a_send_must_wrap_exactly_the_current_devices_of_the_conversation() {
         (Why::Devices, vec![], vec!["0000000000000001".to_owned()])
     );
 
-    // The sending device's own wrap is also not a recipient.
+    assert_eq!(stored(&gw), 0, "a refused send stores nothing");
+    assert_eq!(gw.scalar("SELECT count(*) FROM chat_delivery"), 0);
+
+    // The sending device may keep an encrypted inbox copy for lost-reply recovery.
     let mut with_self = targets(&[&b1, &b2]);
     with_self.push(a1.target());
     let answer = sock
         .send(3, &text(&a1, 3, &conv, "three", &with_self))
         .await;
-    let (why, _, extra) = refusal(&answer);
-    assert_eq!((why, extra), (Why::Devices, vec![a1.device.clone()]));
+    sent(&answer);
+    assert_eq!(slots(&gw, &a1.device), 1);
+    assert_eq!((slots(&gw, &b1.device), slots(&gw, &b2.device)), (1, 1));
 
-    assert_eq!(stored(&gw), 0, "a refused send stores nothing");
-    assert_eq!(gw.scalar("SELECT count(*) FROM chat_delivery"), 0);
-
-    // Right devices: it goes, to both of Bob's.
+    // Older clients without a sender wrap still reach both of Bob's devices.
     let answer = sock
         .send(4, &text(&a1, 4, &conv, "four", &targets(&[&b1, &b2])))
         .await;
     sent(&answer);
-    assert_eq!((slots(&gw, &b1.device), slots(&gw, &b2.device)), (1, 1));
+    assert_eq!((slots(&gw, &b1.device), slots(&gw, &b2.device)), (2, 2));
+    assert_eq!(slots(&gw, &a1.device), 1);
 }
 
 #[tokio::test]

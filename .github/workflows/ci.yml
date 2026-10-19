@@ -228,6 +228,13 @@ jobs:
       - run: >-
           cargo nextest run --locked --workspace --all-targets --no-fail-fast
           --partition count:${{ matrix.partition }}/2
+      - name: Isolated Linux credential-store round trip
+        if: matrix.partition == 1
+        shell: bash
+        run: |
+          sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
+          bash scripts/test-keyring-linux.sh
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
   # payment from every release build), so the suite also runs optimized with
