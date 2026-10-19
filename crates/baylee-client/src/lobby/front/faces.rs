@@ -305,6 +305,15 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
 /// right its version with the verdict, and this client's (A2, A3: the name
 /// at row size, the version whole and right-aligned).
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
+    if state.central_pending() {
+        return controls::label(
+            commands,
+            kit,
+            "Baylee Central · central.baylee.app",
+            kit.m.text,
+            tokens::INK,
+        );
+    }
     let lang = state.lobby.lang();
     let words =
         super::super::gateway::row_words(&state.gateway, state.probes.get(&state.gateway), lang);
@@ -537,7 +546,7 @@ fn submit(commands: &mut Commands, state: &LobbyState, kit: Kit, text: &str) -> 
     let lobby = &state.lobby;
     // A busy form says why in the status line under it already; a gateway
     // not chosen explicitly signs nothing in (#187).
-    let live = if lobby.busy() || !state.gateway_selected {
+    let live = if lobby.busy() || (!state.gateway_selected && !state.central_pending()) {
         Live::No("")
     } else {
         Live::Yes
@@ -567,6 +576,27 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
     let head = gateway_head(commands, state, kit);
     let line = rule(commands);
     commands.entity(card).add_children(&[head, line]);
+    if state.central_ready() {
+        if let Some(said) = status(commands, state, kit) {
+            commands.entity(card).add_child(said);
+        }
+        if let Some(index) = state.gateways.iter().position(|g| g == &state.gateway) {
+            let retry = controls::wide_button(
+                commands,
+                kit,
+                Phrase::SignIn.text(lang),
+                Weight::Primary,
+                Live::Yes,
+                None,
+                (
+                    Press::Front(FrontPress::SelectGateway(index)),
+                    keys::stop(state, "submit"),
+                ),
+            );
+            commands.entity(card).add_child(retry);
+        }
+        return;
+    }
     if let Some(gone) = unreachable_line(commands, state, kit) {
         commands.entity(card).add_child(gone);
     }
@@ -847,8 +877,38 @@ pub(super) fn gateway(
             Pickable::IGNORE,
         ))
         .id();
-    let hint = surfaces::prose(commands, kit, Phrase::GatewayHint.text(lang), true);
+    let explanation = if state.central_ready() {
+        if lang == Lang::De {
+            "Wähle ein Gateway für deine Spiele. Dein Konto wird zentral verwaltet."
+        } else {
+            "Choose a gateway for your games. Your account is managed centrally."
+        }
+    } else {
+        Phrase::GatewayHint.text(lang)
+    };
+    let hint = surfaces::prose(commands, kit, explanation, true);
     commands.entity(card).add_children(&[title, hint]);
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.central_ready() {
+        let text = if lang == Lang::De {
+            "Vom Baylee-Konto abmelden"
+        } else {
+            "Sign out of Baylee account"
+        };
+        let logout = controls::button(
+            commands,
+            kit,
+            text,
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (
+                Press::Front(FrontPress::CentralSignOut),
+                keys::stop(state, "central-sign-out"),
+            ),
+        );
+        commands.entity(card).add_child(logout);
+    }
     if !state.gateways.is_empty() {
         let list = super::super::gateway::list(
             commands,

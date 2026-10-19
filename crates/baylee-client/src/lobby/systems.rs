@@ -82,6 +82,10 @@ pub(super) fn poll(
             other => other,
         };
         match reply {
+            #[cfg(not(target_arch = "wasm32"))]
+            Reply::Central(result) => {
+                super::central::receive(&mut state, &mut prefs, &mailbox, result);
+            }
             Reply::Remote(_, _) | Reply::PrintingCatalog(_) | Reply::PoolLanguage(_, _) => {}
             Reply::VaultLogin(login) => state.vault_login = Some(login),
             Reply::Event(event) => {

@@ -4,6 +4,17 @@ Private, non-commercial fan project hosted as open source on GitHub.
 Not legal advice; for a public/commercial launch consult a Fachanwalt für
 Urheber- und Medienrecht.
 
+Central login review (19 October 2026): the [Wizards Fan Content Policy and
+FAQ](https://company.wizards.com/en/legal/fancontentpolicy) was checked for the
+new account-first native screen. Its access rule says: "You can’t require
+payments, surveys, downloads, subscriptions, or email registration to access
+your Fan Content;". The FAQ separately permits sign-in for private group play.
+The implementation asks for a username/password, no email or payment, and keeps
+offline access available. This is an account-service UI change, with no new
+card art, symbols, fonts, music or other third-party assets. Existing asset and
+Scryfall requirements below still apply; the API page returned HTTP 403 during
+this check, so no claim of newly verified Scryfall wording is made here.
+
 1. **Code license:** AGPL-3.0-only (`LICENSE`). `NOTICE` carries the fan
    content disclaimer.
 2. **WotC Fan Content Policy:** the service is and stays completely free

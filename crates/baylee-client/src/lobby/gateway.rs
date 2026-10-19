@@ -21,6 +21,9 @@ pub(super) fn normalize(value: &str) -> Option<String> {
 
 impl LobbyState {
     pub(super) fn select_gateway(&mut self, index: usize) -> bool {
+        if self.central_pending() {
+            return false;
+        }
         let Some(url) = self.gateways.get(index).cloned() else {
             return false;
         };
@@ -53,6 +56,9 @@ impl LobbyState {
     /// left behind still answers into the form. Choosing the same gateway
     /// again is one tap, and the address typed into the form survives it.
     pub(super) fn leave_gateway(&mut self) {
+        if self.central_pending() {
+            return;
+        }
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);
         self.gateway_selected = false;
         self.front_menu = false;
@@ -142,6 +148,9 @@ impl LobbyState {
 
     /// The saved addresses nobody has asked yet, marked as being asked.
     pub(super) fn unasked_gateways(&mut self) -> Vec<String> {
+        if self.central_pending() {
+            return Vec::new();
+        }
         let unasked: Vec<String> = self
             .gateways
             .iter()

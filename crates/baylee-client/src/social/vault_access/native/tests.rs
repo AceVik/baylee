@@ -1,5 +1,4 @@
 use super::*;
-use social::disk::ChatDisk as _;
 
 fn fixture() -> (std::path::PathBuf, Session) {
     let root = std::env::temp_dir()

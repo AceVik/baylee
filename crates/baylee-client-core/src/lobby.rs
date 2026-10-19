@@ -1441,6 +1441,15 @@ impl Lobby {
         self.busy
     }
 
+    /// Erase typed authentication secrets after transferring them to the native account worker.
+    pub fn clear_credentials(&mut self) {
+        self.password.clear();
+        self.password_again.clear();
+        if let Some(mut password) = self.password_change.take() {
+            zeroize::Zeroize::zeroize(&mut password);
+        }
+    }
+
     /// The line of text under the form.
     #[must_use]
     pub fn status(&self) -> &str {

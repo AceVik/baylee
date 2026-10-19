@@ -47,6 +47,9 @@ use crate::net::{NetworkHost, SeatTicket};
 use crate::softkeys::{SoftKey, SoftKeyboard};
 use crate::{DuelCommand, DuelPhase, InstalledHost};
 
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod central;
+
 /// The ground the lobby sits on — dark enough that the felt never flashes
 /// through on the way into a duel.
 const BACKDROP: Color = Color::srgb(0.018, 0.035, 0.09);
@@ -78,6 +81,8 @@ impl Plugin for LobbyPlugin {
         // A deletion waiting for its Undo goes out as the client closes.
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Last, decks::flush_on_exit);
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Update, central::sync_gateways);
         // Quitting tells the gateway, so the rooms and tables act at once.
         #[cfg(not(target_arch = "wasm32"))]
         app.init_resource::<departure::Departure>()
@@ -381,6 +386,8 @@ fn install_builder(app: &mut App) {
 #[derive(Resource)]
 #[allow(clippy::struct_excessive_bools)] // independent UI toggles and transport/selection state
 pub struct LobbyState {
+    #[cfg(not(target_arch = "wasm32"))]
+    central: Option<central::State>,
     /// The renderer-free state machine.
     pub lobby: Lobby,
     /// Explicitly selected gateway base URL for this session.
@@ -675,7 +682,14 @@ impl LobbyState {
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
     pub fn new() -> Self {
-        Self::from_settings(crate::settings::ClientSettings::load())
+        let state = Self::from_settings(crate::settings::ClientSettings::load());
+        #[cfg(not(target_arch = "wasm32"))]
+        let state = {
+            let mut state = state;
+            central::enable(&mut state);
+            state
+        };
+        state
     }
 
     /// The same, from settings a caller already has.
@@ -730,6 +744,8 @@ impl LobbyState {
         let gateway_cursor =
             gateway_list::starting_row(&gateways, !cfg!(debug_assertions), page.as_deref());
         Self {
+            #[cfg(not(target_arch = "wasm32"))]
+            central: None,
             gateways,
             uses: stored.gateway_uses,
             guests: stored.guests,
@@ -795,6 +811,34 @@ impl Default for LobbyState {
     }
 }
 
+impl LobbyState {
+    pub(crate) fn central_pending(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central
+                .as_ref()
+                .is_some_and(|state| state.handle.is_none())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn central_ready(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central
+                .as_ref()
+                .is_some_and(|state| state.handle.is_some())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+}
+
 /// Where a finished HTTP call leaves its answer for the next frame.
 ///
 /// Separate from [`LobbyState`] on purpose: touching it must not count as a
@@ -824,6 +868,8 @@ fn chat_joins(mut asks: ResMut<ChatJoins>, mut state: ResMut<LobbyState>, mailbo
 
 /// What a finished HTTP call hands back.
 enum Reply {
+    #[cfg(not(target_arch = "wasm32"))]
+    Central(Result<central::Restored, baylee_account::Error>),
     /// Ignore replies from a gateway selection that has since changed.
     Remote(u64, Box<Reply>),
     /// The outcome of a [`LobbyRequest`].

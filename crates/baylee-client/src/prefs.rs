@@ -41,10 +41,18 @@ const DEBOUNCE: f32 = 1.5;
 /// `Receiver` is not `Sync`, a Bevy resource must be, and there is only ever
 /// one answer in flight.
 type Slot = Arc<Mutex<Option<Preferences>>>;
+#[cfg(not(target_arch = "wasm32"))]
+type CentralSave = Arc<Mutex<Option<Result<(), baylee_account::Error>>>>;
 
 /// The account's preferences, as this client holds them.
 #[derive(Resource, Default)]
 pub struct Prefs {
+    #[cfg(not(target_arch = "wasm32"))]
+    central: Option<crate::lobby::central::Handle>,
+    #[cfg(not(target_arch = "wasm32"))]
+    central_saving: Option<CentralSave>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) central_save_failed: bool,
     /// The preferences themselves.
     value: Preferences,
     /// Gateway base URL and account bearer token, once signed in.
@@ -58,6 +66,28 @@ pub struct Prefs {
 }
 
 impl Prefs {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn detach_central(&mut self) {
+        self.central = None;
+        self.central_saving = None;
+        self.central_save_failed = false;
+        self.detach();
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn attach_central(
+        &mut self,
+        handle: crate::lobby::central::Handle,
+        preferences: Preferences,
+    ) {
+        self.central = Some(handle);
+        self.central_saving = None;
+        self.central_save_failed = false;
+        self.loading = None;
+        self.account = None;
+        self.value = preferences;
+        self.dirty = false;
+        self.store_locally();
+    }
     /// The preferences a client starts with: whatever this machine last saw.
     #[must_use]
     pub fn local() -> Self {
@@ -129,6 +159,10 @@ impl Prefs {
             return;
         }
         self.account = Some((gateway.to_string(), token.to_string()));
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.central.is_some() {
+            return;
+        }
         // Anything this machine had queued belongs to nobody now: the account
         // is about to say what the preferences are.
         self.dirty = false;
@@ -181,7 +215,32 @@ impl Prefs {
     }
 
     /// Sends the account's copy to the gateway.
-    fn store_remotely(&self) {
+    fn store_remotely(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(central) = &self.central {
+            if self.central_saving.is_some() {
+                self.dirty = true;
+                return;
+            }
+            let Ok(preferences) = serde_json::from_str(&self.value.to_json()) else {
+                self.central_save_failed = true;
+                self.dirty = true;
+                return;
+            };
+            let result = Arc::new(Mutex::new(None));
+            let reply = result.clone();
+            if central.save(Some(preferences), None, move |value| {
+                if let Ok(mut slot) = reply.lock() {
+                    *slot = Some(value);
+                }
+            }) {
+                self.central_saving = Some(result);
+            } else {
+                self.dirty = true;
+            }
+            self.save_in = DEBOUNCE;
+            return;
+        }
         let Some((gateway, token)) = self.account.as_ref() else {
             return;
         };
@@ -263,6 +322,23 @@ pub(crate) fn install(app: &mut App) {
 /// Takes delivery of the account's copy, and writes edits back once they
 /// have stopped arriving.
 pub fn sync(mut prefs: ResMut<Prefs>, time: Res<Time>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(pending) = &prefs.central_saving {
+        let completed = pending.lock().ok().and_then(|mut result| result.take());
+        if let Some(completed) = completed {
+            prefs.central_saving = None;
+            prefs.central_save_failed = completed.is_err();
+            if completed.is_err() {
+                // Keep a separate recovery copy: a later successful login may replace LOCAL.
+                crate::settings::store::write_named(
+                    "preferences-unsynced.json",
+                    &prefs.value.to_json(),
+                );
+                prefs.dirty = true;
+                prefs.save_in = 10.0;
+            }
+        }
+    }
     if let Some(slot) = prefs.loading.clone()
         && let Some(arrived) = slot.lock().ok().and_then(|mut s| s.take())
     {

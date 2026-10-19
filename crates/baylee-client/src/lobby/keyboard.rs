@@ -458,6 +458,10 @@ pub(super) fn choose_gateway(
         let url = state.gateway.clone();
         state.probes.insert(url.clone(), Probe::Asking);
         http::probe_gateway(url, mailbox);
+        #[cfg(not(target_arch = "wasm32"))]
+        if state.central_ready() {
+            super::central::admit(state, mailbox);
+        }
     }
 }
 

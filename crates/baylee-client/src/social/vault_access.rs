@@ -26,6 +26,22 @@ impl std::fmt::Debug for Login {
 }
 
 impl Login {
+    /// One local-only handoff after Central verified the password. Never used for gateway HTTP.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn central(gateway: &str, password: String) -> Self {
+        Self {
+            gateway: gateway.into(),
+            token: None,
+            password: Zeroizing::new(password),
+            previous: None,
+            created: web_time::Instant::now(),
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn fresh_for(&self, gateway: &str) -> bool {
+        self.created.elapsed().as_secs() <= 120 && self.gateway == gateway.trim_end_matches('/')
+    }
     #[cfg(target_arch = "wasm32")]
     pub(crate) fn from_request(_gateway: &str, _request: &LobbyRequest) -> Option<Self> {
         None

@@ -35,7 +35,16 @@ use super::super::{LobbyState, Mailbox, Press, Scrolled};
 // one-line colophon).
 
 const GATEWAY_STOPS: &[&str] = &[
-    "address", "save", "lang", "music", "settings", "offline", "about", "source", "discord",
+    "central-sign-out",
+    "address",
+    "save",
+    "lang",
+    "music",
+    "settings",
+    "offline",
+    "about",
+    "source",
+    "discord",
     "notice",
 ];
 const SIGN_IN_STOPS: &[&str] = &[

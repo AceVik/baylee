@@ -87,6 +87,7 @@ pub(super) struct Believed<'w, 's> {
     lists: Option<Res<'w, crate::buildui::virtual_rows::ListProbe>>,
     /// The lobby, for the builder's keyboard place.
     lobby: Option<Res<'w, crate::lobby::LobbyState>>,
+    front_motion: Option<Res<'w, crate::lobby::front::FrontMotion>>,
     /// The guided tour standing, and where its hole is (`/state.tour`).
     tour: Option<Res<'w, crate::tour::TourDesk>>,
     spotlight: Option<Res<'w, crate::tour::Spotlight>>,
@@ -905,6 +906,24 @@ fn lobby_controls_json(believed: &Believed) -> String {
     format!("[{}]", rows.join(","))
 }
 
+/// Authentication progress only: never credentials, tokens, identifiers or saved URLs.
+fn account_json(believed: &Believed) -> String {
+    believed.lobby.as_ref().map_or_else(
+        || "null".into(),
+        |state| {
+            serde_json::json!({
+                "central_pending": state.central_pending(),
+                "central_ready": state.central_ready(),
+                "gateway_authenticated": state.lobby.token().is_some(),
+                "saved_gateway_count": state.gateways.len(),
+            "front_moving": believed.front_motion.as_ref().is_some_and(|motion| motion.moving()),
+                "offline": state.offline.is_some()
+            })
+            .to_string()
+        },
+    )
+}
+
 /// The refusal in the prompt bar's one slot, as **who wrote it** and **what
 /// it says**.
 ///
@@ -1087,7 +1106,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
          \"ability_tap\":{tap},\"cast_menu\":{cast_menu},\"cast_answer\":{cast_answer},\
          \"last_cue\":{last_cue},\"last_count\":{last_count},\"cues_suppressed\":{cues_suppressed},\
          \"departing\":{departing},\"cards\":{cards},\"buttons\":{buttons},\"browser\":{browser},\"shelves\":{shelves},\
-         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
+         \"presentation\":{presentation},\"phase\":{phase},\"loading\":{loading},\"account\":{account},\"lobby_controls\":{lobby_controls},\"update_buttons\":{update_buttons},\"exits\":{exits},\"face_builds\":{face_builds},\
          \"ui_rebuilds\":{ui_rebuilds},\"shell_nodes\":{shell_nodes},\"desk_controls\":{desk_controls},\"report\":{report},\"chat\":{chat},\
          \"reveal\":{reveal},\"shell\":{shell},\"camera\":{camera},\"arrangement\":{arrangement},\"dial\":{dial},\"chips\":{chips},\"plates\":{plates},\"tour\":{tour},\"replay\":{replay}}}",
         tour = tour_json(believed, settings),
@@ -1117,6 +1136,7 @@ pub(super) fn state_dump(believed: &Believed, window: Vec2) -> String {
         loading = loading_json(believed),
         exits = exits_json(believed),
         lobby_controls = lobby_controls_json(believed),
+        account = account_json(believed),
         update_buttons = update_buttons_json(believed),
         cards = cards_json(believed, duel, window),
         buttons = buttons_json(believed),

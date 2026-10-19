@@ -44,6 +44,24 @@ pub(super) fn dispatch(state: &mut LobbyState, mailbox: &Mailbox, request: Optio
         }
         return;
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    if state.central.is_some() {
+        match request {
+            LobbyRequest::LogIn { username, password } => {
+                super::central::login(state, mailbox, username, password);
+                return;
+            }
+            LobbyRequest::Register { .. }
+            | LobbyRequest::ChangePassword { .. }
+            | LobbyRequest::PlayAsGuest { .. } => {
+                state.lobby.apply(LobbyEvent::Failed(
+                    "Please use Baylee Central sign-in.".into(),
+                ));
+                return;
+            }
+            _ => {}
+        }
+    }
     let login = crate::social::vault_access::Login::from_request(&state.gateway, &request);
     let token = state.lobby.token();
     // The builder marks the cards this gateway blocked (`GET

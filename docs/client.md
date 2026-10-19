@@ -9650,6 +9650,20 @@ pass yet.
 
 ## Driving the client without its window
 
+For native Central login tests, a `dev-control` build accepts
+`BAYLEE_CENTRAL_DEV_ENDPOINT=http://127.0.0.1:<port>`. The origin must be an
+explicit numeric loopback address; invalid overrides fail closed. This does not
+enable legacy login fallback or skip authentication. Use the synthetic fixture
+in `scripts/test-central-integration.ps1`; see `docs/central-login.md` for the
+protocol and deployment gates. Do not test with production accounts.
+The `account` field of `GET /state` reports Central pending/ready,
+gateway-authenticated, offline and front-panel-transition booleans plus
+the saved-gateway count. It contains no username, saved URL, password or token.
+`scripts/test-central-client.ps1` uses this state and live control rectangles to
+test login, restoration and admission, then verifies owned client/backend cleanup.
+Build `baylee-client --features dev-control` first; the script defaults to this
+workstation's left display (native index 0) and rejects a non-left monitor.
+
 `crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
 keys, moves and clicks the pointer, dumps what the client believes, and saves a
 screenshot — with input injected independently of OS focus. Agent runs use a passive,

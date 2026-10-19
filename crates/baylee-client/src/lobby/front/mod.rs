@@ -1278,6 +1278,8 @@ pub(super) fn front_door(
 /// guests, offline play and the source link.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum FrontPress {
+    #[cfg(not(target_arch = "wasm32"))]
+    CentralSignOut,
     AddGateway,
     SelectGateway(usize),
     /// Asks, in the confirm dialog, whether a saved gateway leaves the list.
@@ -1330,6 +1332,8 @@ impl FrontPress {
             settings,
         } = cx;
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
+            FrontPress::CentralSignOut => super::central::logout(state, prefs),
             FrontPress::AddGateway => {
                 if let Some(url) = state.check_gateway() {
                     http::probe_gateway(url, mailbox);

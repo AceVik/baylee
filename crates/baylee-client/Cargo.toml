@@ -149,6 +149,7 @@ name = "baylee-client"
 path = "src/main.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+baylee-account = { workspace = true, features = ["client"] }
 # The report form's screenshot (`src/report/shot.rs`, #309) and the
 # `dev-control` harness's: PNG only.
 image.workspace = true
