@@ -10,6 +10,8 @@ description = "Renderer-agnostic client brain: table layout, board model, intera
 workspace = true
 
 [dependencies]
+fluent-bundle.workspace = true
+unic-langid.workspace = true
 baylee-cardtext.workspace = true
 baylee-cards-dsl.workspace = true
 baylee-core.workspace = true
@@ -57,7 +59,11 @@ keyring = { package = "baylee-keyring", path = "../baylee-keyring" }
 # Enabled through a dev-dependency, so it is never in a shipped build.
 test-support = []
 
+[build-dependencies]
+fluent-syntax.workspace = true
+
 [dev-dependencies]
+fluent-syntax.workspace = true
 criterion.workspace = true
 
 # Per-call costs outside the renderer (`docs/perf-client.md`):

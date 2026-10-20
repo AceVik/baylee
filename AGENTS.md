@@ -66,6 +66,7 @@ unofficial, non-commercial fan project.
 | What is kept about people, and for how long | `docs/privacy.md` |
 | Licences, assets, the Fan Content Policy, Scryfall | `docs/legal.md`, `NOTICE`, `docs/gateway-legal/` |
 | The client (normative) and its standing rules | `docs/client.md`, `crates/baylee-client/CLAUDE.md` |
+| The interface's words, translations (Fluent files) | `crates/baylee-client-core/locales/`, `docs/client.md` §"The interface's own words" |
 | The client's lobby, keys, mobile | `docs/client-lobby.md`, `docs/keyboard-map.md`, `docs/mobile.md` |
 | Releases, CI, deploys | `docs/releasing.md`, `docs/deploy-hooks.md` |
 | Designs not built yet | `docs/proposals/` |

@@ -2,21 +2,6 @@ use super::Phrase;
 use super::lang::Lang;
 
 impl Phrase {
-    /// This phrase with its placeholders filled in, left to right.
-    ///
-    /// `{0}` is replaced by the first argument, `{1}` by the second, and a
-    /// placeholder with no argument is left standing rather than swallowed —
-    /// a visible `{2}` is a bug report; a silently missing number is a
-    /// sentence that means something else.
-    #[must_use]
-    pub fn fill(self, lang: Lang, args: &[&str]) -> String {
-        let mut text = self.text(lang).to_string();
-        for (index, arg) in args.iter().enumerate() {
-            text = text.replace(&format!("{{{index}}}"), arg);
-        }
-        text
-    }
-
     /// What to say about a username the rule refused, one sentence per
     /// fault, so the player is told the thing to fix.
     #[must_use]

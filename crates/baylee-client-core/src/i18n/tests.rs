@@ -266,3 +266,107 @@ fn the_report_attachments_are_a_choice_and_not_a_consent() {
         "{de}"
     );
 }
+
+/// Every table's files: each parses whole, holds every English id once and
+/// nothing else, and each message uses the same arguments as its English
+/// one, all of them among those its `# Arguments` line names. This is the
+/// guarantee the `messages!` macro gave as a compile error: a phrase with no
+/// German, or a German that drops a number. (A selector's variants count
+/// together: a `[one]` that says no number is fine while `*[other]` does.)
+#[test]
+fn every_language_says_every_phrase_with_the_same_arguments() {
+    use fluent_syntax::ast;
+    use std::collections::BTreeSet;
+
+    fn variables<'a>(pattern: &'a ast::Pattern<&'a str>, into: &mut BTreeSet<&'a str>) {
+        for element in &pattern.elements {
+            if let ast::PatternElement::Placeable { expression } = element {
+                expression_variables(expression, into);
+            }
+        }
+    }
+    fn expression_variables<'a>(
+        expression: &'a ast::Expression<&'a str>,
+        into: &mut BTreeSet<&'a str>,
+    ) {
+        match expression {
+            ast::Expression::Select { selector, variants } => {
+                inline_variables(selector, into);
+                for variant in variants {
+                    variables(&variant.value, into);
+                }
+            }
+            ast::Expression::Inline(inline) => inline_variables(inline, into),
+        }
+    }
+    fn inline_variables<'a>(
+        inline: &'a ast::InlineExpression<&'a str>,
+        into: &mut BTreeSet<&'a str>,
+    ) {
+        match inline {
+            ast::InlineExpression::VariableReference { id } => {
+                into.insert(id.name);
+            }
+            ast::InlineExpression::Placeable { expression } => {
+                expression_variables(expression, into);
+            }
+            ast::InlineExpression::FunctionReference { arguments, .. } => {
+                for argument in &arguments.positional {
+                    inline_variables(argument, into);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for table in [&INTERFACE_TABLE, &REPLAY_TABLE, &CHAT_TABLE] {
+        let ids = table.ids();
+        let mut by_language = Vec::new();
+        for (code, source) in table.sources() {
+            let resource = fluent_syntax::parser::parse(*source)
+                .unwrap_or_else(|(_, errors)| panic!("{code}: {errors:?}"));
+            let mut uses: Vec<Option<BTreeSet<String>>> = vec![None; ids.len()];
+            for entry in &resource.body {
+                let ast::Entry::Message(message) = entry else {
+                    continue;
+                };
+                let id = message.id.name;
+                let Some(index) = ids.iter().position(|e| *e == id) else {
+                    panic!("{code}: {id} is no English phrase");
+                };
+                assert!(uses[index].is_none(), "{code}: {id} twice");
+                let mut used = BTreeSet::new();
+                if let Some(value) = &message.value {
+                    variables(value, &mut used);
+                }
+                uses[index] = Some(used.into_iter().map(str::to_owned).collect());
+            }
+            by_language.push((*code, uses));
+        }
+        let (_, english) = by_language
+            .iter()
+            .find(|(code, _)| *code == "en")
+            .expect("an English file");
+        for (code, uses) in &by_language {
+            for (index, used) in uses.iter().enumerate() {
+                let id = ids[index];
+                let Some(used) = used else {
+                    panic!("{code} lacks {id}");
+                };
+                let named: BTreeSet<String> = table.args()[index]
+                    .iter()
+                    .map(|a| (*a).to_owned())
+                    .collect();
+                assert!(
+                    used.is_subset(&named),
+                    "{code}: {id} uses {used:?}, its `# Arguments` line names {named:?}"
+                );
+                assert_eq!(
+                    Some(used),
+                    english[index].as_ref(),
+                    "{code}: {id} says other arguments than English"
+                );
+            }
+        }
+    }
+}

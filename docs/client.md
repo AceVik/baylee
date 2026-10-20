@@ -8438,21 +8438,28 @@ per field rather than per card. The *interface* was English and only English,
 every button and status line a literal at the point it was drawn.
 `baylee-client-core/src/i18n.rs` is the other half.
 
-A `Phrase` is an enum variant, not a key into a table read at runtime, and the
-`messages!` macro writes one arm per language for each: **a phrase with no
-German fails the build**. A file of strings — RON, JSON, Fluent — answers a
-missing key with a fallback, and a fallback is a screen that is half English.
-The cost is that a third language is a sweep through one file rather than a new
-file beside it, which is the right way round: the sweep *is* the work, and a
-build that ships half of it is what makes it never get finished. `Phrase::fill`
-substitutes `{0}`, `{1}` … left to right and leaves an unfilled placeholder
-standing, because a visible `{2}` is a bug report and a silently dropped one is
-a sentence that means something else.
+The words live in Project Fluent files, one per table and language:
+`crates/baylee-client-core/locales/<lang>/interface.ftl` (`Phrase`),
+`replay.ftl` (`ReplayPhrase`) and `chat.ftl` (`ChatPhrase`), all embedded at
+build time. The English files decide what exists: `build.rs` makes each
+message a variant of its table's enum, named by its id, documented by its `#`
+comment, and its `# Arguments: a, b` line is the order a caller passes
+`fill`'s arguments in (`Phrase::Hello.fill(lang, &[name])` sets `$name`).
+Another language only translates; a new one is a new directory of three
+files beside `en` and `de`, and a line in `Lang`.
 
-Three rules are tests rather than conventions: every phrase answers in every
-language, a phrase's placeholder *set* is the same in all of them — `{0}`
-moving is what translation is, `{0}` vanishing is a bug — and **no phrase
-fakes a plural with a bracket**.
+A runtime table answers a missing key with a fallback, and a fallback is a
+screen that is half English, so the guarantee the old compiled tables gave
+is now a test, `every_language_says_every_phrase_with_the_same_arguments`:
+every file parses whole, says every English id once and nothing else, and
+uses the same arguments as English — `$count` moving is what translation is,
+`$count` vanishing is a bug. At runtime a missing message still reads in
+English rather than as an id. `fill` leaves an argument a caller did not pass
+standing as `{N}`, because a visible `{2}` is a bug report and a silently
+dropped one is a sentence that means something else, and `text` gives the
+phrase with every argument as `{0}`, `{1}`, ….
+
+**No phrase fakes a plural with a bracket** (a test as well).
 
 A sentence whose subject is counted is written **twice** — once for exactly
 one thing, once for everything else — and `Phrase::counted(n, one, many)`
