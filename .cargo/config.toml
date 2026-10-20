@@ -11,11 +11,14 @@
 # the renderer" cannot.
 #
 # Two aliases because a cargo alias is exactly one subcommand.
-# `scripts/gate-rules.sh` runs both and stops at the first failure.
+# `cargo dev gate rules` runs both and stops at the first failure.
 [alias]
 # The development tasks (crates/baylee-dev): gates, landing, deploys, mobile
 # builds and local fixtures, as `cargo dev <task>`; `cargo dev --help` lists them.
-dev = "run -q --locked -p baylee-dev --"
+# Under the tools profile its binary lives in target/tools, so the
+# `--workspace` builds a gate starts never replace the executable that is
+# running (Windows refuses to).
+dev = "run -q --locked --profile tools -p baylee-dev --"
 # The release, packaging and asset tools (crates/baylee-tools) under their own
 # profile: optimised, but without LTO, so they link in seconds.
 tools = "run -q --locked --profile tools -p baylee-tools --"

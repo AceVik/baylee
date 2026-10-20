@@ -2241,8 +2241,8 @@ land type"; both are convention tests that fire on a first try.
 
 - **After a hand edit to a card, run `xtask codegen --tables`, never full
   codegen.** It rewrites the four compiled-pool tables (`generated_lines.rs`
-  above all) and needs no corpus. `gate-rules.sh` stops early without
-  `DATABASE_URL`, so give it one while working.
+  above all) and needs no corpus. `cargo dev gate rules` stops early
+  without `DATABASE_URL`, so give it one while working.
 - **Clippy on client tests runs only in the full gate.** `gate-rules` leaves
   `baylee-client` out, and `duel_flow.rs` crossed `too_many_lines` there
   first. Run `gate.sh` before a push, not after.

@@ -111,7 +111,7 @@ before the value NaN below is understood.**
   - Datasets and checkpoints never go in git.
   - Tell d7 before pushing a change to shared code (engine, gamehost, view,
     workspace `Cargo.toml`) and before any merge to main. A merge needs
-    `scripts/gate.sh` and `scripts/gate-features.sh` green.
+    `cargo dev gate` and `cargo dev gate features` green.
   - Run both gates before every push.
   - Pause training and free the GPU when the owner asks.
   - No database credentials and no server access.
@@ -148,8 +148,8 @@ before the value NaN below is understood.**
    - `cargo install cargo-nextest cargo-llvm-cov`
    - `rustup component add llvm-tools`
    - `apt install build-essential pkg-config libasound2-dev libudev-dev libwayland-dev`
-     (and whatever `scripts/gate.sh` asks for).
-3. **PostgreSQL 18** natively, for `gate.sh`:
+     (and whatever `cargo dev gate` asks for).
+3. **PostgreSQL 18** natively, for `cargo dev gate`:
    - user and database `baylee`/`baylee`;
    - `DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee`.
 4. **Python.** Install `uv` (0.12), then `cd tools/trainer && uv sync`: torch

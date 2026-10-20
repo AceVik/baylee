@@ -125,7 +125,6 @@ Local checks for pipeline changes:
 cargo test -p baylee-tools release
 cargo test --locked -p baylee-update --test sign_script
 actionlint
-shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
 ```
 
 ## CI

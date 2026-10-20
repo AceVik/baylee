@@ -518,7 +518,7 @@ and two of them scale for nothing:
 - **`xtask validate` against the printing** — oracle text, type line, mana
   produced, cost, activation cost, player target, target count, optional
   clause, ability-defined P/T — for the whole pool in one run, from a
-  cached payload. It is in `scripts/gate-rules.sh` as of 0d46aaa3, which
+  cached payload. It is in the rules gate (`cargo dev gate rules`) as of 0d46aaa3, which
   is where it should have been all along — and running it locally still
   does **not** mean what CI means by it, because `fetch_named` answers from
   disk and never refetches: a developer validates against the day the cache
