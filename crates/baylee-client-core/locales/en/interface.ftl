@@ -26,7 +26,11 @@ ChooseDrawReplacement = Which replacement will you apply to this draw next?
 
 # Full sacrifice needed before the announced card can enter the battlefield.
 # Arguments: count
-SacrificeToEnter = Sacrifice { $count } eligible permanents so this card can enter?
+SacrificeToEnter =
+    { $count ->
+        [one] Sacrifice { $count } eligible permanent so this card can enter?
+       *[other] Sacrifice { $count } eligible permanents so this card can enter?
+    }
 
 # Number of permanents to sacrifice as an object enters.
 # Arguments: min, max
@@ -34,7 +38,11 @@ ChooseSacrificeCount = How many permanents will you sacrifice? ({ $min }–{ $ma
 
 # Number of energy counters to pay; choosing zero declines.
 # Arguments: min, max, count
-ChooseEnergyPayment = Pay energy ({ $min }–{ $max }); up to { $count } tapped permanents can receive counters
+ChooseEnergyPayment =
+    Pay energy ({ $min }–{ $max }); up to { $count } { $count ->
+        [one] tapped permanent
+       *[other] tapped permanents
+    } can receive counters
 
 # One of the permanents actually tapped by this instruction.
 # Arguments: count
@@ -589,11 +597,22 @@ NoChanges = No changes in this section.
 
 # Library and front-door interface.
 # Arguments: count, sideboard
-LibraryCounts = { $count } cards · { $sideboard } sideboard
+LibraryCounts =
+    { $count ->
+        [one] { $count } card · { $sideboard } sideboard
+       *[other] { $count } cards · { $sideboard } sideboard
+    }
 
 # Library and front-door interface.
 # Arguments: count, tables
-LobbyCounts = { $count } decks · { $tables } matching tables
+LobbyCounts =
+    { $count } { $count ->
+        [one] deck
+       *[other] decks
+    } · { $tables } { $tables ->
+        [one] matching table
+       *[other] matching tables
+    }
 
 # Library and front-door interface.
 Composition = Deck overview
@@ -1109,7 +1128,7 @@ Seated = { $count }/{ $total } seated
 # Arguments: count
 SeatCount = { $count } seats
 
-# What a waiting room is waiting for. `$player` is how many are not ready.
+# The line under the stack's title: whose answer the table is waiting for. `$player` is that player's name.
 # Arguments: player
 WaitingFor = waiting for { $player }
 
@@ -2235,7 +2254,17 @@ TabSide = Sideboard { $count }
 
 # $lands lands · $creatures creatures · $spells other spells
 # Arguments: lands, creatures, spells
-DeckMakeup = { $lands } lands · { $creatures } creatures · { $spells } other spells
+DeckMakeup =
+    { $lands } { $lands ->
+        [one] land
+       *[other] lands
+    } · { $creatures } { $creatures ->
+        [one] creature
+       *[other] creatures
+    } · { $spells } { $spells ->
+        [one] other spell
+       *[other] other spells
+    }
 
 # empty — tap a card on the left to add it
 DeckEmptyHint = empty — tap a card on the left to add it
@@ -2274,7 +2303,11 @@ CommanderNoLongerEligible = { $card } can no longer be a commander — this deck
 
 # $count cards — a constructed deck wants at least $min.
 # Arguments: count, min
-DeckTooSmall = { $count } cards — a constructed deck wants at least { $min }.
+DeckTooSmall =
+    { $count ->
+        [one] { $count } card — a constructed deck wants at least { $min }.
+       *[other] { $count } cards — a constructed deck wants at least { $min }.
+    }
 
 # A sideboard is usually at most $count cards.
 # Arguments: count
@@ -2282,7 +2315,11 @@ SideboardTooBig = A sideboard is usually at most { $count } cards.
 
 # $count lands in $total cards is thin for this curve.
 # Arguments: count, total
-ThinOnLands = { $count } lands in { $total } cards is thin for this curve.
+ThinOnLands =
+    { $count ->
+        [one] { $count } land in { $total } cards is thin for this curve.
+       *[other] { $count } lands in { $total } cards is thin for this curve.
+    }
 
 # $count card is not fully implemented yet and will not play as printed.
 # Arguments: count
@@ -2397,7 +2434,11 @@ AiSaidChose = Chose: { $choice }
 
 # What the answer cost.
 # Arguments: count, seconds
-AiSaidCost = { $count } tokens, { $seconds } s
+AiSaidCost =
+    { $count ->
+        [one] { $count } token, { $seconds } s
+       *[other] { $count } tokens, { $seconds } s
+    }
 
 # Private optional creature cast from a resolving Mask ability.
 # Arguments: x
@@ -2434,7 +2475,11 @@ ChooseRequiredMana = Choose a land mana ability
 
 # Mandatory instruction progress, separate from the compact headline.
 # Arguments: count
-RequiredManaProgress = Required — { $count } activations completed
+RequiredManaProgress =
+    { $count ->
+        [one] Required — { $count } activation completed
+       *[other] Required — { $count } activations completed
+    }
 
 # Decision controller differs from the resource owner.
 # Arguments: player
@@ -2563,11 +2608,19 @@ DamageUnpreventable = ; damage cannot be prevented
 
 # Counter removal allocation can still consume counters without preventing damage.
 # Arguments: count, remaining
-AllocateDamageCounters = Distribute { $count } counter removals — { $remaining } remaining. Select a source and enter its share.
+AllocateDamageCounters =
+    Distribute { $count } { $count ->
+        [one] counter removal
+       *[other] counter removals
+    } — { $remaining } remaining. Select a source and enter its share.
 
 # A counter-removal share, distinct from guaranteed prevention.
 # Arguments: part, count, max
-DamageCounterShare = { $part } — apply { $count } counter removals (maximum { $max })
+DamageCounterShare =
+    { $part } — apply { $count } { $count ->
+        [one] counter removal
+       *[other] counter removals
+    } (maximum { $max })
 
 # Choosing between damage replacement and prevention effects.
 ChooseDamageEffect = Choose which effect modifies the damage next
@@ -3056,7 +3109,11 @@ KeepRemainingTargets = Keep all remaining ({ $count })
 
 # Optional payment permits only zero or the entire tap group.
 # Arguments: count
-ChooseExactlyOrNoTaps = Choose exactly { $count } permanents to tap, or choose none
+ChooseExactlyOrNoTaps =
+    { $count ->
+        [one] Choose exactly { $count } permanent to tap, or choose none
+       *[other] Choose exactly { $count } permanents to tap, or choose none
+    }
 
 # Choose $count $noun
 # Arguments: count, noun
@@ -3280,7 +3337,11 @@ UseDamageClearingReplacement = Replace destruction by removing all marked damage
 
 # Order an additive counter replacement; declining applies another replacement first.
 # Arguments: count
-ApplyAdditionalCountersNext = Apply { $count } additional counters of each kind next? No applies another replacement first.
+ApplyAdditionalCountersNext =
+    Apply { $count } { $count ->
+        [one] additional counter
+       *[other] additional counters
+    } of each kind next? No applies another replacement first.
 
 # Use the optional part of this ability? ("you may …")
 UseTheOptionalAbility = This ability is optional. Use it?
@@ -3420,7 +3481,11 @@ SuspendedCards = Suspended cards
 
 # Card name, owner and remaining time counters.
 # Arguments: card, owner, count
-SuspendedCard = { $card } · { $owner }{"\u000A"}{ $count } time counters · inspect
+SuspendedCard =
+    { $card } · { $owner }{"\u000A"}{ $count } { $count ->
+        [one] time counter
+       *[other] time counters
+    } · inspect
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card
@@ -3446,7 +3511,6 @@ KeepHand = Keep
 # Mulligan
 TakeMulligan = Mulligan
 
-# OK
 # Target selection explanation or explicit shortcut.
 # Arguments: source
 TargetingFor = Targets for { $source }
@@ -3457,11 +3521,19 @@ TargetingSecond = Second target clause
 # Target selection explanation or explicit shortcut.
 # Exact target count, available choices and current selection.
 # Arguments: min, max, count, selected
-TargetingExactly = Selected: { $selected }/{ $min } • { $count } available targets
+TargetingExactly =
+    Selected: { $selected }/{ $min } • { $count } { $count ->
+        [one] available target
+       *[other] available targets
+    }
 
 # Permitted target range and current selection.
 # Arguments: min, max, count, selected
-TargetingChoices = Choose { $min }–{ $max } • { $count } legal choices • { $selected } selected
+TargetingChoices =
+    Choose { $min }–{ $max } • { $count } { $count ->
+        [one] legal choice
+       *[other] legal choices
+    } • { $selected } selected
 
 # Target selection explanation or explicit shortcut.
 # Arguments: count
@@ -3826,7 +3898,11 @@ PlateRad = { $count } radiation
 
 # Optional energy payment.
 # Arguments: count
-PayEnergy = Pay { $count } energy counters?
+PayEnergy =
+    { $count ->
+        [one] Pay { $count } energy counter?
+       *[other] Pay { $count } energy counters?
+    }
 
 # Proliferate adds every counter kind, including harmful ones.
 # Arguments: player
@@ -4243,11 +4319,11 @@ FilterAlsoChips = Chips are narrowing this list as well: { $chips }
 # Playable only
 FilterChipPlayable = playable only
 
-# mana value $mana_value
+# mana value `$mana_value`
 # Arguments: mana_value
 FilterChipCmc = mana value { $mana_value }
 
-# mana value $mana_value or more
+# mana value `$mana_value` or more
 # Arguments: mana_value
 FilterChipCmcUp = mana value { $mana_value } or more
 
@@ -5018,7 +5094,6 @@ LogControlYou = { $you_subject } gained control of { $object }
 # Arguments: player, object
 LogControl = { $player } gained control of { $object }
 
-# A permanent transformed. `$object` is it.
 # A face-down permanent becomes public.
 # Arguments: unused_0, object
 LogTurnedFaceUp = { $object } turned face up
@@ -5315,7 +5390,11 @@ ReportConfirmTo = To: { $url }
 
 # The words. `$count` is how many characters.
 # Arguments: count
-ReportConfirmText = Your text ({ $count } characters) and this build's version
+ReportConfirmText =
+    Your text ({ $count } { $count ->
+        [one] character
+       *[other] characters
+    }) and this build's version
 
 # A ticked box, before its label.
 # Arguments: label
@@ -6343,7 +6422,11 @@ DiscoveryLoading = Updating tables
 
 # Localized table-discovery interface text.
 # Arguments: count
-DiscoveryResults = { $count } tables shown
+DiscoveryResults =
+    { $count ->
+        [one] { $count } table shown
+       *[other] { $count } tables shown
+    }
 
 # Localized table-discovery interface text.
 DiscoveryProtected = Password protected
@@ -6449,7 +6532,11 @@ ShellLeave = Leave
 
 # The gateway pill's counts. `$count` tables waiting, `$online` players online.
 # Arguments: count, online
-ShellTablesOnline = { $count } tables · { $online } online
+ShellTablesOnline =
+    { $count ->
+        [one] { $count } table · { $online } online
+       *[other] { $count } tables · { $online } online
+    }
 
 # The gateway pill's count before `/lobby/stats` has answered. `$count`
 # tables waiting.
@@ -6925,10 +7012,10 @@ RoomInviteCopied = Invite copied
 # Arguments: format, count
 RoomRulesPlayers = { $format } · { $count } players
 
-# The rail: no sides.
+# The rail: sides.
 RoomTeamsOn = Teams: on
 
-# The rail: sides.
+# The rail: no sides.
 RoomTeamsOff = Teams: off
 
 # The rail: sides for each chair.
@@ -7725,7 +7812,7 @@ RowMusic = Music
 # Audio: the music's theme.
 RowMusicTheme = Music theme
 
-# Audio: five complete original suites and automatic rotation.
+# Audio: fifteen complete original suites and automatic rotation.
 HelpMusicTheme = Fifteen original suites: five in Bb Dorian and ten contrasting styles. Rotating picks a different suite each game. Transitions flow into the next musical pulse
 
 # Audio: suite one.
@@ -7803,7 +7890,6 @@ MusicThemeIronShort = Iron Pulse
 # Audio: suite five.
 MusicThemeStar = Starfall
 
-# Audio: a different suite each game.
 # Recorded instrument bank.
 RowMusicSamples = Instrument sound
 
@@ -8128,7 +8214,11 @@ GatewayServerVersion = Server version
 
 # Gateway pill compact inline stats: `$online` online, `$lobby` in lobby, `$playing` playing, `$tables` tables.
 # Arguments: online, lobby, playing, tables
-ShellGatewayInlineStats = { $online } online ({ $lobby } lobby · { $playing } playing) · { $tables } tables
+ShellGatewayInlineStats =
+    { $online } online ({ $lobby } lobby · { $playing } playing) · { $tables } { $tables ->
+        [one] table
+       *[other] tables
+    }
 
 # Quick settings dropdown heading.
 SettingsQuickTitle = Quick settings
@@ -8141,3 +8231,39 @@ SettingsDisplaySection = Display & Motion
 
 # Quick settings text size label.
 SettingsTextSize = Text size
+
+# The hand toolbar's order button: as drawn.
+HandOrderDraw = Draw order
+
+# The hand toolbar's order button: by card type.
+HandOrderType = Type
+
+# The hand toolbar's order button: by colour.
+HandOrderColor = Color
+
+# Central sign-in or a restored Central session failed.
+CentralSignInFailed = Sign-in or restore failed. Please check your credentials and connection.
+
+# Syncing the Central account's data failed; local changes stay.
+CentralSyncFailed = Account synchronization failed. Your local changes are retained; please sign in again.
+
+# The front door's button that signs out of the Baylee (Central) account.
+CentralSignOut = Sign out of Baylee account
+
+# The gateway list's hint while signed in to Central.
+GatewayHintCentral = Choose a gateway for your games. Your account is managed centrally.
+
+# The header menu's entry that quits the app.
+ShellQuit = Quit
+
+# The print picker's chip for printings in every language.
+PickerAllLanguages = All languages
+
+# The print picker's chip that keeps only foil or etched printings.
+PickerForceFinish = Enforce foil / etched
+
+# The print picker's key hint.
+PickerHint = Hold Shift: reverse side · ← → change artwork
+
+# The print picker's set search field.
+PickerSetSearch = Set · search code or name

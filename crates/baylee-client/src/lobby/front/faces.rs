@@ -864,11 +864,7 @@ fn central_sign_out(commands: &mut Commands, card: Entity, state: &LobbyState, k
     if !state.central_ready() {
         return;
     }
-    let text = if state.lobby.lang() == Lang::De {
-        "Vom Baylee-Konto abmelden"
-    } else {
-        "Sign out of Baylee account"
-    };
+    let text = Phrase::CentralSignOut.text(state.lobby.lang());
     let logout = controls::button(
         commands,
         kit,
@@ -903,11 +899,7 @@ pub(super) fn gateway(
         ))
         .id();
     let explanation = if state.central_ready() {
-        if lang == Lang::De {
-            "Wähle ein Gateway für deine Spiele. Dein Konto wird zentral verwaltet."
-        } else {
-            "Choose a gateway for your games. Your account is managed centrally."
-        }
+        Phrase::GatewayHintCentral.text(lang)
     } else {
         Phrase::GatewayHint.text(lang)
     };

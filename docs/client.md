@@ -4405,7 +4405,7 @@ been in view (scroll, `End`, `Space`/`PageDown`, or a text that fits); Enter
 in the text accepts once it may. **Escape never signs out or accepts**: it
 returns focus to the text, or to Retry after a failed fetch.
 **Decline and delete account** ("Ablehnen
-und Konto löschen"; for a Baylee account "Delete my data on this gateway"),
+und Account löschen"; for a Baylee account "Delete my data on this gateway"),
 drawn while the text is up (not on a sheet still loading or failed), opens
 the account deletion's own confirmation (#292, `confirm::draw_deletion`) over
 the sheet: the password again for a local account, nothing for a guest or a
@@ -8440,8 +8440,9 @@ every button and status line a literal at the point it was drawn.
 
 The words live in Project Fluent files, one per table and language:
 `crates/baylee-client-core/locales/<lang>/interface.ftl` (`Phrase`),
-`replay.ftl` (`ReplayPhrase`) and `chat.ftl` (`ChatPhrase`), all embedded at
-build time. The English files decide what exists: `build.rs` makes each
+`replay.ftl` (`ReplayPhrase`), `chat.ftl` (`ChatPhrase`) and `server.ftl`
+(`ServerPhrase`: the gateway's and engine's refusals, matched by their
+English text), all embedded at build time. The English files decide what exists: `build.rs` makes each
 message a variant of its table's enum, named by its id, documented by its `#`
 comment, and its `# Arguments: a, b` line is the order a caller passes
 `fill`'s arguments in (`Phrase::Hello.fill(lang, &[name])` sets `$name`).

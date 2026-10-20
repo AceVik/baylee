@@ -184,7 +184,11 @@ InviteDeclined = { $player } declined
 
 # `/who`: one member.
 # Arguments: player, count
-WhoLine = { $player } · { $count } devices
+WhoLine =
+    { $count ->
+        [one] { $player } · { $count } device
+       *[other] { $player } · { $count } devices
+    }
 
 # `/who` in a conversation with no member list.
 WhoNobody = Nobody else is in this conversation
@@ -223,7 +227,14 @@ HiddenLine = 1 hidden message
 
 # The encryption line under a conversation.
 # Arguments: count, devices
-EncryptedTo = Encrypted to { $count } players ({ $devices } devices)
+EncryptedTo =
+    Encrypted to { $count } { $count ->
+        [one] player
+       *[other] players
+    } ({ $devices } { $devices ->
+        [one] device
+       *[other] devices
+    })
 
 # The encryption line's count of devices: one.
 NoteOneDevice = 1 device
@@ -241,11 +252,19 @@ NotePeople = { $count } people
 
 # A whisper's lock hover.
 # Arguments: player, count
-EncryptedWith = End-to-end encrypted · { $player } ({ $count } devices)
+EncryptedWith =
+    End-to-end encrypted · { $player } ({ $count } { $count ->
+        [one] device
+       *[other] devices
+    })
 
 # The notice's first part (§11.8).
 # Arguments: count
-NoticeBody = Messages are end-to-end encrypted to the listed recipient devices. Compare safety numbers through a trusted channel: the gateway supplies first-contact keys and group/table membership, so a malicious operator can misrepresent recipients. Verified peer keys alone do not verify group membership. The server keeps encrypted messages for up to { $count } days until delivery and sees who writes to whom, group names and online status. Reporting sends that message to moderators. Anyone who can use your unlocked device can read its chat history.
+NoticeBody =
+    Messages are end-to-end encrypted to the listed recipient devices. Compare safety numbers through a trusted channel: the gateway supplies first-contact keys and group/table membership, so a malicious operator can misrepresent recipients. Verified peer keys alone do not verify group membership. The server keeps encrypted messages for up to { $count } { $count ->
+        [one] day
+       *[other] days
+    } until delivery and sees who writes to whom, group names and online status. Reporting sends that message to moderators. Anyone who can use your unlocked device can read its chat history.
 
 # Where the keys are: the keychain.
 KeysInKeychain = Your keys are kept in this computer's keychain.
@@ -746,7 +765,11 @@ HistoryOff = Off
 
 # History kept.
 # Arguments: count
-HistoryDays = { $count } days
+HistoryDays =
+    { $count ->
+        [one] { $count } day
+       *[other] { $count } days
+    }
 
 # A setting.
 SoundsLabel = Sounds

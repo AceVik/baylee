@@ -292,11 +292,7 @@ pub(crate) fn printing_picker(
             commands,
             fonts,
             metrics,
-            if lang == Lang::De {
-                "Alle Sprachen"
-            } else {
-                "All languages"
-            },
+            Phrase::PickerAllLanguages.text(lang),
             Press::Build(BuildPress::PickerLang(None)),
             picker.lang().is_none(),
         );
@@ -320,11 +316,7 @@ pub(crate) fn printing_picker(
         commands,
         fonts,
         metrics,
-        if lang == Lang::De {
-            "Foil / Etched erzwingen"
-        } else {
-            "Enforce foil / etched"
-        },
+        Phrase::PickerForceFinish.text(lang),
         Press::Build(BuildPress::PickerForceFinish),
         picker.force_finish(),
     );
@@ -480,16 +472,7 @@ pub(crate) fn printing_picker(
         commands.entity(foot).add_child(child);
     }
     commands.entity(panel).add_child(foot);
-    let hint = note(
-        commands,
-        fonts,
-        metrics,
-        if lang == Lang::De {
-            "Shift halten: Rückseite · ← → Artwork wechseln"
-        } else {
-            "Hold Shift: reverse side · ← → change artwork"
-        },
-    );
+    let hint = note(commands, fonts, metrics, Phrase::PickerHint.text(lang));
     commands.entity(panel).add_child(hint);
 
     shade
@@ -820,11 +803,7 @@ pub(super) fn set_search(
         commands,
         fonts,
         metrics,
-        if lang == Lang::De {
-            "Set · Kürzel oder Name suchen"
-        } else {
-            "Set · search code or name"
-        },
+        Phrase::PickerSetSearch.text(lang),
         &FieldLook {
             buffer: deck.buffer(BuildField::PickerSet),
             focused: picker.set_open(),

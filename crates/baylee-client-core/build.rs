@@ -15,10 +15,11 @@ use std::path::{Path, PathBuf};
 use fluent_syntax::ast::{self, Entry};
 
 /// The tables: file stem, enum name.
-const TABLES: [(&str, &str); 3] = [
+const TABLES: [(&str, &str); 4] = [
     ("interface", "Phrase"),
     ("replay", "ReplayPhrase"),
     ("chat", "ChatPhrase"),
+    ("server", "ServerPhrase"),
 ];
 
 fn main() {

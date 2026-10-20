@@ -1959,7 +1959,7 @@ mod tests {
         );
         assert_eq!(
             say(Lang::De, moved(BO)),
-            "Blitzschlag ist aus der Hand von Bo in den Friedhof von Bo gelangt"
+            "Blitzschlag ist aus der Hand von Bo auf den Friedhof von Bo gelangt"
         );
         let hit = |player, combat| LogEvent::Damage {
             source: Some(bolt(3)),

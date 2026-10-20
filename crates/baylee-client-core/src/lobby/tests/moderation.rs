@@ -105,11 +105,11 @@ fn a_ban_is_said_with_its_reason_and_its_end_when_it_has_one() {
     );
     assert_eq!(
         ban_sentence(Lang::De, "Betrug", Some("2026-10-20T18:00:00Z")),
-        "Dieses Konto ist bis 2026-10-20 18:00 UTC gesperrt. Grund: Betrug"
+        "Dieser Account ist bis 2026-10-20 18:00 UTC gesperrt. Grund: Betrug"
     );
     assert_eq!(
         ban_sentence(Lang::De, "Betrug", None),
-        "Dieses Konto ist gesperrt. Grund: Betrug"
+        "Dieser Account ist gesperrt. Grund: Betrug"
     );
 }
 

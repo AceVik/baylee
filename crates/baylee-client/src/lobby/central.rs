@@ -3,7 +3,7 @@
 
 use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
 use baylee_account::{Account, Endpoint, Error};
-use baylee_client_core::{i18n::Lang, prefs::Preferences};
+use baylee_client_core::{Phrase, i18n::Lang, prefs::Preferences};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -431,19 +431,11 @@ pub(super) fn sync_gateways(
 }
 
 fn message(lang: Lang) -> &'static str {
-    if lang == Lang::De {
-        "Anmeldung oder Wiederherstellung fehlgeschlagen. Bitte Zugangsdaten und Verbindung prüfen."
-    } else {
-        "Sign-in or restore failed. Please check your credentials and connection."
-    }
+    Phrase::CentralSignInFailed.text(lang)
 }
 
 fn sync_message(lang: Lang) -> &'static str {
-    if lang == Lang::De {
-        "Kontodaten konnten nicht synchronisiert werden. Deine lokalen Änderungen bleiben erhalten. Bitte melde dich erneut an."
-    } else {
-        "Account synchronization failed. Your local changes are retained; please sign in again."
-    }
+    Phrase::CentralSyncFailed.text(lang)
 }
 
 pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {

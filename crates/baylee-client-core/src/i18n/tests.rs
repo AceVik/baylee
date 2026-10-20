@@ -100,6 +100,42 @@ fn a_counted_phrase_takes_the_form_its_number_asks_for() {
     assert_eq!(Phrase::NounCards.text(Lang::En), "cards");
 }
 
+/// Most callers pass a count as text (`n.to_string()`); a whole number
+/// reaches Fluent as a number all the same, so every selector picks, and it
+/// reads back as the same digits. Text that only looks like a number stays
+/// text (`03` keeps its zero).
+#[test]
+fn a_count_passed_as_text_still_picks_its_form() {
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["1"]),
+        "Discard 1 card"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["12"]),
+        "Discard 12 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::De, &["1"]),
+        "Wirf 1 Karte ab"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["03"]),
+        "Discard 03 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["-0"]),
+        "Discard -0 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["-4"]),
+        "Discard -4 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["123456789012345"]),
+        "Discard 123456789012345 cards"
+    );
+}
+
 /// Two languages that say exactly the same thing everywhere would mean
 /// the second one was never written. A handful of phrases genuinely are
 /// the same word (`baylee`, `E-MAIL`), so this asks for most, not all.
@@ -241,7 +277,7 @@ fn every_language_says_every_phrase_with_the_same_arguments() {
         }
     }
 
-    for table in [&INTERFACE_TABLE, &REPLAY_TABLE, &CHAT_TABLE] {
+    for table in [&INTERFACE_TABLE, &REPLAY_TABLE, &CHAT_TABLE, &SERVER_TABLE] {
         let ids = table.ids();
         let mut by_language = Vec::new();
         for (code, source) in table.sources() {

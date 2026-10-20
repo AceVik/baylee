@@ -1686,7 +1686,7 @@ mod tests {
         );
         assert_eq!(
             options(Lang::De, &view, &i, id)[1].label,
-            "Forgotten Cellar aufschließen",
+            "Forgotten Cellar entsperren",
             "the door by its English name, as a named card is"
         );
     }

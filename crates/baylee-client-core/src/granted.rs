@@ -159,7 +159,7 @@ mod tests {
         );
         assert_eq!(
             cancellation_label(effect, crate::i18n::Lang::De).unwrap(),
-            "Diesen bevorstehenden Verlust von 1024 Leben vor deinem nächsten Ziehsegment aufheben"
+            "Diesen bevorstehenden Verlust von 1024 Lebenspunkten vor deinem nächsten Ziehsegment aufheben"
         );
         assert!(cancellation_label(offer(1).effect, crate::i18n::Lang::En).is_none());
     }

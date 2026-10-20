@@ -4,7 +4,8 @@
 //! The *interface* — every button, caption and status line — is here: one
 //! Project Fluent file per table and language under `locales/<lang>/`
 //! (`interface.ftl` for [`Phrase`], `replay.ftl` for [`ReplayPhrase`],
-//! `chat.ftl` for [`ChatPhrase`]), embedded at build time.
+//! `chat.ftl` for [`ChatPhrase`], `server.ftl` for [`ServerPhrase`], the
+//! servers' refusals matched by their English), embedded at build time.
 //!
 //! # English decides, the tests hold the rest
 //!

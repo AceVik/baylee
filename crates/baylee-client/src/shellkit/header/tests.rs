@@ -409,9 +409,3 @@ fn narrow_desktop_with_large_german_text_wraps_without_losing_actions() {
         }
     }
 }
-
-#[test]
-fn compact_replay_navigation_preserves_the_full_german_page_title() {
-    assert_eq!(ReplayPhrase::NavReplays.text(Lang::De), "Replays");
-    assert_eq!(ReplayPhrase::Replays.text(Lang::De), "Wiederholungen");
-}

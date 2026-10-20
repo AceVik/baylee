@@ -618,7 +618,7 @@ mod tests {
         );
         assert_eq!(
             words(&object, Lang::De, false).as_deref(),
-            Some("Verschlossen: Forgotten Cellar")
+            Some("Versperrt: Forgotten Cellar")
         );
         object.unlocked_doors = Some([false, false]);
         assert_eq!(

@@ -404,7 +404,7 @@ mod tests {
         );
         assert_eq!(
             note.text(Lang::De),
-            "Verbinde weiter — der Tisch wartet 3:00 auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist."
+            "Verbinde noch immer neu – der Tisch wartet 3:00 auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist."
         );
         let alone = others_here(Some(&ai), None, me);
         assert_eq!(link_note(&down(1.0), three, alone).phrase, Phrase::LinkLost);
@@ -412,7 +412,7 @@ mod tests {
         assert_eq!(paused, LinkNote::just(Phrase::LinkPaused));
         assert_eq!(
             paused.text(Lang::De),
-            "Verbinde weiter — das Spiel ist pausiert, bis du zurück bist."
+            "Verbinde noch immer neu – das Spiel ist pausiert, bis du zurück bist."
         );
         // A table that waits forever pauses too, when nobody else is here.
         assert_eq!(

@@ -753,11 +753,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     action: Press::Header(HeaderPress::SignOut),
                 },
                 MenuItem {
-                    text: if lang == Lang::De {
-                        "Schließen"
-                    } else {
-                        "Quit"
-                    },
+                    text: Phrase::ShellQuit.text(lang),
                     keys: None,
                     destructive: true,
                     action: Press::Header(HeaderPress::Quit),

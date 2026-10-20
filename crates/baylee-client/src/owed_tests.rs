@@ -46,7 +46,7 @@ fn optional_payment_offers_mana_without_arming_a_fixed_debt_plan() {
     );
     assert_eq!(
         duel.headline(Lang::De, &texts).unwrap(),
-        "Erzeuge bei Bedarf Mana gegen bis zu 2 Schaden. Passe zur Wahl des Betrags."
+        "Du kannst Mana erzeugen, um bis zu 2 Schaden zu verhindern. Passe, um den Betrag zu wählen."
     );
 }
 

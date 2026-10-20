@@ -136,10 +136,9 @@ impl Table {
         for (i, name) in names.iter().enumerate() {
             let value = match (count, *name) {
                 (Some(n), "count") => FluentValue::from(n),
-                _ => args.get(i).map_or_else(
-                    || FluentValue::from(format!("{{{i}}}")),
-                    |a| FluentValue::from(*a),
-                ),
+                _ => args
+                    .get(i)
+                    .map_or_else(|| FluentValue::from(format!("{{{i}}}")), |a| value(a)),
             };
             fluent.set(*name, value);
         }
@@ -156,6 +155,23 @@ impl Table {
         bundle
             .format_pattern(pattern, Some(&fluent), &mut errors)
             .into_owned()
+    }
+}
+
+/// An argument as Fluent should see it: a whole number written the way
+/// Rust writes one (`3`, `-2`, never `03` or `+3`) is a number, so a
+/// selector on it picks its plural form however the caller passed it, and
+/// it formats back to the same digits; anything else is text.
+fn value(arg: &str) -> FluentValue<'static> {
+    let digits = arg.strip_prefix('-').unwrap_or(arg);
+    let canonical = !digits.is_empty()
+        && digits.len() <= 15
+        && digits.bytes().all(|b| b.is_ascii_digit())
+        && (digits == "0" || !digits.starts_with('0'))
+        && arg != "-0";
+    match arg.parse::<i64>() {
+        Ok(n) if canonical => FluentValue::from(n),
+        _ => FluentValue::from(arg.to_owned()),
     }
 }
 

@@ -1,4 +1,5 @@
 //! Explicit presentation order. Never changes the engine's hand or its choices.
+use baylee_client_core::Phrase;
 use baylee_client_core::board::HandCard;
 use baylee_view::{HandObject, PlayerView};
 
@@ -33,16 +34,12 @@ impl HandOrder {
 
     /// Short localized button legend.
     pub fn label(self, lang: baylee_client_core::i18n::Lang) -> &'static str {
-        use baylee_client_core::i18n::Lang;
-        match (self, lang) {
-            (Self::Draw, Lang::De) => "Zugfolge",
-            (Self::Draw, Lang::En) => "Draw order",
-            (Self::Mana, _) => "Mana",
-            (Self::Name, _) => "A–Z",
-            (Self::Type, Lang::De) => "Typ",
-            (Self::Type, Lang::En) => "Type",
-            (Self::Color, Lang::De) => "Farbe",
-            (Self::Color, Lang::En) => "Color",
+        match self {
+            Self::Draw => Phrase::HandOrderDraw.text(lang),
+            Self::Mana => "Mana",
+            Self::Name => "A–Z",
+            Self::Type => Phrase::HandOrderType.text(lang),
+            Self::Color => Phrase::HandOrderColor.text(lang),
         }
     }
 
@@ -91,7 +88,6 @@ impl HandOrder {
 
     /// Localized heading for a category.
     pub fn group_label(self, key: u16, lang: baylee_client_core::i18n::Lang) -> String {
-        use baylee_client_core::i18n::Lang;
         match self {
             Self::Draw => self.label(lang).into(),
             Self::Mana => format!("Mana {key}{}", if key == 10 { "+" } else { "" }),
@@ -104,58 +100,30 @@ impl HandOrder {
                     "#".into()
                 }
             }
-            Self::Type => {
-                let names = if lang == Lang::De {
-                    [
-                        "Länder",
-                        "Kreaturen",
-                        "Planeswalker",
-                        "Artefakte",
-                        "Verzauberungen",
-                        "Spontanzauber",
-                        "Hexereien",
-                        "Schlachten",
-                        "Andere",
-                    ]
-                } else {
-                    [
-                        "Lands",
-                        "Creatures",
-                        "Planeswalkers",
-                        "Artifacts",
-                        "Enchantments",
-                        "Instants",
-                        "Sorceries",
-                        "Battles",
-                        "Other",
-                    ]
-                };
-                names[usize::from(key).min(8)].into()
-            }
-            Self::Color => {
-                let names = if lang == Lang::De {
-                    [
-                        "Farblos",
-                        "Weiß",
-                        "Blau",
-                        "Schwarz",
-                        "Rot",
-                        "Grün",
-                        "Mehrfarbig",
-                    ]
-                } else {
-                    [
-                        "Colorless",
-                        "White",
-                        "Blue",
-                        "Black",
-                        "Red",
-                        "Green",
-                        "Multicolor",
-                    ]
-                };
-                names[usize::from(key).min(6)].into()
-            }
+            Self::Type => [
+                Phrase::GroupLands,
+                Phrase::GroupCreatures,
+                Phrase::GroupPlaneswalkers,
+                Phrase::GroupArtifacts,
+                Phrase::GroupEnchantments,
+                Phrase::GroupInstants,
+                Phrase::GroupSorceries,
+                Phrase::GroupBattles,
+                Phrase::GroupOther,
+            ][usize::from(key).min(8)]
+            .text(lang)
+            .into(),
+            Self::Color => [
+                Phrase::ColorColourless,
+                Phrase::ColorWhite,
+                Phrase::ColorBlue,
+                Phrase::ColorBlack,
+                Phrase::ColorRed,
+                Phrase::ColorGreen,
+                Phrase::BuildMulticolour,
+            ][usize::from(key).min(6)]
+            .text(lang)
+            .into(),
         }
     }
 

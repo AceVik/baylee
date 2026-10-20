@@ -1,7 +1,7 @@
 # Translations
 
 The interface's words are Project Fluent files, one per table and language:
-`crates/baylee-client-core/locales/<lang>/{interface,replay,chat}.ftl` for the
+`crates/baylee-client-core/locales/<lang>/{interface,replay,chat,server}.ftl` for the
 client (`docs/client.md` §"The interface's own words") and
 `web/feedback/locales/<lang>/feedback.ftl` for the feedback service's UI
 (`docs/feedback.md`). English decides what exists; another language only
@@ -84,6 +84,14 @@ the printing's own language (`docs/protocol.md` §"Card text").
 | verify (a chat key) | verifizieren | as Signal and WhatsApp say; *bestätigen* is confirm |
 | safety number | Sicherheitsnummer | |
 | key names | Shift, Enter, Leertaste | as printed on German keyboards' help pages: Shift, not *Umschalt* |
+| banding | Bündnis | *ein Bündnis bilden*, as printed |
+| host (a person), game server | Gastgeber, Spielserver | |
+| computer | Rechner | |
+| button | Button | |
+| deck history | Historie | *Verlauf* is the chat's history |
+| report form | Berichtsformular | |
+| step (the phase rail's stops) | Schritt | the rail holds phases too; a rules step is still *-segment* |
+| a card named in a fixed message | its English name | the message cannot know the printing's language |
 | ability | Fähigkeit | *ausgelöste*, *aktivierte*, *Manafähigkeit* |
 | tap, untap | tappen, enttappen | |
 | scry, mill | Hellsicht, millen | |
