@@ -2501,7 +2501,17 @@ mod stacking {
             ("menu", include_str!("menu.rs")),
             ("sheet", include_str!("sheet.rs")),
             ("toasts", include_str!("toasts.rs")),
-            ("window", include_str!("window.rs")),
+            (
+                "window",
+                concat!(
+                    include_str!("window.rs"),
+                    include_str!("window/head.rs"),
+                    include_str!("window/list.rs"),
+                    include_str!("window/composer.rs"),
+                    include_str!("window/peek.rs"),
+                    include_str!("window/filter.rs"),
+                ),
+            ),
         ];
         let mut calls = 0;
         for (name, source) in files {
