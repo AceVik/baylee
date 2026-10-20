@@ -82,7 +82,7 @@ fn duel(board: BoardModel, interaction: Option<Interaction>) -> Duel {
     }
 }
 
-/// The defect `docs/design.md` §2.2 calls "unreadable": both combat
+/// The defect `docs/proposals/design.md` §2.2 calls "unreadable": both combat
 /// prompts were fully operable and drew nothing, because the sync loop
 /// asked `selected()` — a list that stays empty in the two combat modes,
 /// where the answer being built is a list of *pairs*.

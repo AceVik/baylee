@@ -217,7 +217,7 @@ See Central's `docs/status.md`, `docs/native-login.md`, `docs/postgresql.md` and
 The private deck/replay library is a separate unfinished requirement; the
 encrypted legacy deck snapshot is not a replacement for its operational CRUD.
 The next implementation contract and source-size migration gap are recorded in
-[the private library plan](central-private-library-plan.md).
+[the private library plan](proposals/central-private-library-plan.md).
 
 ## Follow-up review, 19 October 2026
 

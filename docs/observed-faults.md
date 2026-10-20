@@ -331,7 +331,7 @@ not by the order they were told, and nothing here is fixed yet.
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.
 
-    *Designed, not yet built.* `docs/redesign-proposal.md` §10 is the design
+    *Designed, not yet built.* `docs/proposals/redesign-proposal.md` §10 is the design
     and §10.7 the six commits it lands in. One model carries all of it: a
     pick is a pair — a thing, and what it is pointed at — so an attacker
     against a defender, a blocker against an attacker and a target against

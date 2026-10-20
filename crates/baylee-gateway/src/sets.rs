@@ -9,7 +9,7 @@
 //! pool row is a card nothing has been written for ("absent"); for the rest
 //! the pool says `implemented`, `generated`, `partial` or `unimplemented` (a stub). Sets
 //! come in the ledger's order, which is release order by first printing, the
-//! order the owner implements them in (CLAUDE.md §"Cards"), with promo sets
+//! order the owner implements them in (`docs/cards.md`), with promo sets
 //! where their first card falls. Nothing is written or committed to say
 //! any of this: the numbers are whatever this binary was built with.
 //!

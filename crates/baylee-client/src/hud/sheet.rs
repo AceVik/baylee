@@ -1274,7 +1274,7 @@ fn spawn_head(
             // row.
             //
             // Brass and not `palette::ACCENT`: the teal belongs to the panel
-            // register, and `docs/redesign-proposal.md` §1.3 is what splits
+            // register, and `docs/proposals/redesign-proposal.md` §1.3 is what splits
             // the two. On parchment the accent *is* brass — it is what the
             // armed keycap and the armed wash are already made of. At ink
             // weight, though: `BRASS` itself is a light and measures 1.6:1 as
@@ -2804,7 +2804,7 @@ mod running {
     /// is a rule about a whole surface rather than about one node.
     ///
     /// It used to live in `hud::tray` and scan that one file. The tray is a
-    /// dark panel now (`docs/redesign-proposal.md` §1.3: parchment is a sheet
+    /// dark panel now (`docs/proposals/redesign-proposal.md` §1.3: parchment is a sheet
     /// you read from, a panel is a place you work in), so the rule moved to
     /// where the parchment actually is — and it reads both surfaces, which is
     /// strictly more than it ever did.

@@ -683,7 +683,7 @@ eigenen Rechner. Ein Spiel läuft in drei Arten von Prozessen:
 
 Dieser Abschnitt ist eine Anleitung. Maßgeblich sind
 [docs/protocol.md](docs/protocol.md) und der Abschnitt *Environment* in
-[CLAUDE.md](CLAUDE.md#environment).
+[docs/dev/environment.md](docs/dev/environment.md).
 
 ### 1. Datenbank
 
@@ -895,9 +895,10 @@ Zum Weiterlesen (englisch):
 
 Issues und Pull Requests sind auf [GitHub](https://github.com/AceVik/baylee)
 willkommen, und auf [Discord](https://discord.gg/4pP3uAwgY) kannst du reden
-und Gegner finden. Bevor du mit Code anfängst, lies [AGENTS.md](AGENTS.md)
-und [CLAUDE.md](CLAUDE.md): Das sind die Arbeitsregeln des Projekts, für
-Menschen und Coding-Agenten gleichermaßen. Ein paar Punkte:
+und Gegner finden. Bevor du mit Code anfängst, lies [AGENTS.md](AGENTS.md):
+Es ist die Karte der Arbeitsregeln des Projekts, für Menschen und
+Coding-Agenten gleichermaßen, und nennt für jeden Bereich sein Dokument. Ein
+paar Punkte:
 
 - Lass das Gate laufen, bevor du pushst. Die CI baut außerdem für Windows,
   macOS, wasm32 und die minimale Rust-Version.

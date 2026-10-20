@@ -54,7 +54,7 @@
 //!   new timbre and never more loudness. All three peak below a life cue.
 //!   Life cues speak in thirds, which have a colour; endings speak in perfect
 //!   intervals, which have none: a fifth up, a fourth down, a unison. All
-//!   three come to rest on A and never on the tonic. `docs/design.md` retires
+//!   three come to rest on A and never on the tonic. `docs/proposals/design.md` retires
 //!   hues rather than handing out new ones, and this is the same restraint.
 //!
 //! [`Cue::Refused`] is the one exception and is honest about it: a knuckle on

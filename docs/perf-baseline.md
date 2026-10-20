@@ -1126,7 +1126,7 @@ wurden dort 2.127 bzw. 2.144 Samples zugeordnet; zusätzliche 5.115 bzw. 5.094
 entfallen auf Aufbau. Das stützt die COW-Zuordnung auch außerhalb des Aufbaus.
 Es sind statistische Stack-Samples, keine Allokationszählung und kein Nachweis,
 dass B insgesamt nicht mehr allokiert. Andere echte Arena-Schreibzugriffe
-bleiben sichtbar. [Profile und Auswertungsmethode](perf-data/p3-sba-reset-2026-10-14/profile-summary.json).
+bleiben sichtbar. Profile und Auswertungsmethode: `docs/perf-data/p3-sba-reset-2026-10-14/profile-summary.json` (seit 2df0b7fe8 nur noch in der Git-Geschichte: `git show 2df0b7fe8^:docs/perf-data/p3-sba-reset-2026-10-14/profile-summary.json`).
 
 Der neue Sharing-Test scheitert auf A tatsächlich an
 `untouched arena chunk 60 was copied`, während der Survivor-Test bereits dort
@@ -1152,10 +1152,10 @@ stehen im Abschnitt „Manafarben ohne kurzlebige Planner-Quellen“ in
 um die dort separat beschriebene Client-Optimierung; die Engine-Quelle
 des Guards blieb seit den Benchmarks unverändert.
 
-Rohdaten und Belege: [111 Einzelmessungen](perf-data/p3-sba-reset-2026-10-14/measurements.json),
-[A/B/A-Auswertung](perf-data/p3-sba-reset-2026-10-14/summary.json), [Build-/Pool-Provenienz](perf-data/p3-sba-reset-2026-10-14/provenance.json),
-[Validierungslogs](perf-data/p3-sba-reset-2026-10-14/validation/), [aufgezeichnete Driver-Skripte](perf-data/p3-sba-reset-2026-10-14/scripts/),
-[SHA-256-Dateiliste](perf-data/p3-sba-reset-2026-10-14/files.sha256.json). Die öffentlichen Exporte sind [redigierte Archivbelege](perf-data/p3-sba-reset-2026-10-14/REDACTION.md):
+Rohdaten und Belege, seit 2df0b7fe8 nur in der Git-Geschichte (`git show 2df0b7fe8^:docs/perf-data/p3-sba-reset-2026-10-14/<Datei>`): 111 Einzelmessungen (`measurements.json`),
+A/B/A-Auswertung (`summary.json`), Build-/Pool-Provenienz (`provenance.json`),
+Validierungslogs (`validation/`), aufgezeichnete Driver-Skripte (`scripts/`),
+SHA-256-Dateiliste (`files.sha256.json`). Die öffentlichen Exporte sind redigierte Archivbelege (`REDACTION.md`):
 Home-Pfade, temporäre Pfade, Sessionname und Image-UUIDs wurden neutralisiert.
 Die Skripte sind keine unmittelbar ausführbare Anleitung. Originale,
 versiegelte Programme, dSYMs und Dumps bleiben im privaten temporären Speicher.

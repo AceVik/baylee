@@ -275,7 +275,7 @@ impl Names<'_> {
 ///
 /// Every one of these reads a field the view already projects, so none of it
 /// is a rules decision — arithmetic on projected numbers, which is the line
-/// `docs/design.md` §6 draws around what the client may compute for itself.
+/// `docs/proposals/design.md` §6 draws around what the client may compute for itself.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 pub enum SortKey {
     /// The zone's own order, which is the order the cards are in.
@@ -507,7 +507,7 @@ impl Placement {
     ///
     /// It was 854, ten columns of a card grid, because the sheet used to draw
     /// cards and a search wanted forty of them at once. The dialog is a list
-    /// now (`docs/redesign-proposal.md` §6), and a list is read down rather
+    /// now (`docs/proposals/redesign-proposal.md` §6), and a list is read down rather
     /// than across: past a comfortable measure, width buys a longer blank
     /// stretch in the middle of every row and nothing else. Height is what
     /// buys rows, and it is the axis that grew.

@@ -410,7 +410,7 @@ pub(crate) fn chosen_cast_plan(
 ///
 /// # The one-click line
 ///
-/// `docs/design.md` §2.5 had this as "mana abilities only", on the grounds
+/// `docs/proposals/design.md` §2.5 had this as "mana abilities only", on the grounds
 /// that floating mana is the cheap mistake. Playing the client made the
 /// better statement of the same rule: an action is one click when **its whole
 /// cost comes out of the card itself and the next untap step undoes it**, and

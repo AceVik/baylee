@@ -15,6 +15,33 @@ card art, symbols, fonts, music or other third-party assets. Existing asset and
 Scryfall requirements below still apply; the API page returned HTTP 403 during
 this check, so no claim of newly verified Scryfall wording is made here.
 
+## Guardrails for every change
+
+- Unofficial non-commercial fan project. No WotC assets in the repo.
+- The card-script reference is an external, GPL-licensed corpus that codegen
+  may read as an automated lookup from a local checkout. No file of it is
+  ever copied into this repository or distributed with it. `NOTICE` names it
+  exactly and is the one place that does; everywhere else it is "the corpus".
+- Every change to cards, icons, symbols, card images, fonts, audio or
+  anything else shown to a player is checked against the rules we depend on:
+  the Wizards Fan Content Policy and its FAQ, Scryfall's API and image
+  terms, and the licences of what we ship (`docs/legal.md`, #270). Quote the
+  rule from its page, never from memory.
+- A grey area (the rule's wording is met loosely or not at all, but the
+  practice is tolerated) is allowed only with the owner's explicit okay,
+  recorded in `docs/legal.md` with the rule quoted beside it. The accepted
+  ones so far: the Mana font's mana and tap symbols (§2a), foil over a
+  card image, and a passing state over a card image while it lasts (dimmed
+  while a question leaves the card out, phased out, asleep; the owner,
+  13.10.2026, §3: the image rule is about lasting alteration).
+- Anything **clearly forbidden** is never built, merged or shipped quietly.
+  Stop and tell the owner in plain words, with the rule quoted verbatim and
+  the file and line that break it. A session tells the PM, and the PM tells
+  the owner. This applies even when the change was requested and even when
+  it looks small.
+
+## The rules we depend on
+
 1. **Code license:** AGPL-3.0-only (`LICENSE`). `NOTICE` carries the fan
    content disclaimer.
 2. **WotC Fan Content Policy:** the service is and stays completely free
@@ -758,7 +785,7 @@ with the project's claimed policy basis, not a conclusion about copyright law.
 
 A concrete existing example is the triggered land-tap/damage implementation in
 `crates/baylee-cards/src/cards/enchantments/mv_4/manabarbs.rs:25`; completing
-Power Surge would add another rules implementation. AGENTS.md's legal guardrail
+Power Surge would add another rules implementation. The legal guardrail (§"Guardrails for every change")
 requires stopping and telling the owner when a requested change conflicts with
 an explicit prohibition. Further card implementation is therefore held pending
 clarification of the applicable permission or a reviewed change to that project
@@ -959,7 +986,7 @@ that your Fan Content is not endorsed or sponsored by Wizards—i.e.,
 unofficial." Every face says "Unofficial Fan Content" at every size; the
 full notice the policy gives is in the client on every face, one press
 away where a phone's height has no room for its three sentences. This is
-the grey-area record AGENTS.md asks for: the policy's own notice is not on
+the grey-area record §"Guardrails for every change" asks for: the policy's own notice is not on
 every *screen* of a phone face, only one press from it. The owner approved
 the design that does this (06.10.2026, DESIGN-v5 Q12); the PM routes this
 entry to the owner for the explicit okay on the wording above. Scryfall's

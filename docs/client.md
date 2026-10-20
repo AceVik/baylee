@@ -6238,7 +6238,7 @@ their hand and their name, and it lives on the pod because three surfaces ask
 it: the bar, the mat's rim, and the seat sheet after them.
 
 **The role is said as a mark in the name cell, and that is arithmetic rather
-than taste.** `docs/game-log-design.md` §"The seat that stepped away" asked for
+than taste.** `docs/proposals/game-log-design.md` §"The seat that stepped away" asked for
 a `MUTED` role line under the name, written for a strip of seat tabs that no
 longer exists. The identity plaque that replaced it is `HEADER_H` = 60 logical
 pixels and its two rows already spend 56 of them, and the plaque's size is what
@@ -6785,7 +6785,7 @@ card's printed text and the button beside it the same voice, and a card's
 rules text is a **quotation**. `hud::UiFonts` carries seven files — five
 static Alegreya Sans cuts (Regular, Medium, Bold, and the italic of the first
 two) and Faustina upright and italic, variable on `wght` 300–800 — beside the
-icon and mana faces. This **overrides `docs/design.md` §1.2**, which shipped
+icon and mana faces. This **overrides `docs/proposals/design.md` §1.2**, which shipped
 three cuts of Inter and said there was no fourth; the override is recorded
 there.
 
@@ -6924,7 +6924,7 @@ way out, and never touched in between.
 **Won, lost and drawn are the same sheet.** Every hue in this palette already
 carries a claim — `INK_DANGER` is damage, `HEAL` is life gained, `BRASS` is a
 thing already taken, `CANDLE` is an offer — so a red loss would read as
-damage and a gold win as something taken, and `docs/redesign-proposal.md` §1
+damage and a gold win as something taken, and `docs/proposals/redesign-proposal.md` §1
 retires hues rather than handing out new ones. Only the sentence differs.
 Size carries the feeling instead: **forty pixels**, against the twenty this
 overlay had never gone above.
@@ -6955,7 +6955,7 @@ poison — is **not in that line**, because it is not about the table: it is
 one seat's, and the view carries it per seat (`SeatView::loss`, with
 `SeatView::house_answered` telling a loss to the clock from one played out;
 #83). Deriving it from the last view's life totals instead would be the
-client deciding a rules fact, which is the line `CLAUDE.md` draws.
+client deciding a rules fact, which is the line `docs/architecture.md` draws.
 
 ### Under both, why each seat went out (#83)
 
@@ -7160,7 +7160,7 @@ across the table means, so the mallet is the same and what changes is a dulled
 direct sound and a reflection that arrives almost with it. The three endings
 are the only sounds longer than a blink and all three peak **below** a life
 cue; all three come to rest on A and never on the tonic, because a cadence
-left open is what keeps a win from being a fanfare. `docs/design.md` retires
+left open is what keeps a win from being a fanfare. `docs/proposals/design.md` retires
 hues rather than handing out new ones and this is the same restraint.
 
 **Three of them count, and that is a change to the model.** The owner asked
@@ -7441,7 +7441,7 @@ composition/refinement record and listening workflow.
 
 ## The zone browser is a dialog, which is a different material
 
-`docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:
+`docs/proposals/redesign-proposal.md` §1.3 draws the line and §6 applies it:
 **parchment is a sheet you read from, a panel is a place you work in.** The
 browser was parchment, and a grid of ten card columns, on the argument that a
 graveyard is something a player *reads*. It is not — §6 puts a checkbox, a
@@ -10618,7 +10618,7 @@ Card interaction and image notices remain unobstructed.
 The empty offline play area provides the single direct house-AI start action
 and explains the alternative room setup; it does not ask for online invites.
 An empty table list no longer creates a scrollbar. UX evidence and follow-up
-observations live in `docs/ux-review-2026-10-02.md`.
+observations live in `docs/history/ux-review-2026-10-02.md`.
 
 ### Compact room preparation (2026-10-02)
 

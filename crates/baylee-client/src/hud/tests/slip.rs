@@ -43,7 +43,7 @@ fn the_question_stands_in_the_middle_and_on_the_shelf() {
 /// which is what "the background still looks strange" was.
 ///
 /// The browser is a dark panel now and carries no parchment at all
-/// (`docs/redesign-proposal.md` §1.3), and the prompt slip went with AX
+/// (`docs/proposals/redesign-proposal.md` §1.3), and the prompt slip went with AX
 /// §10.2 step 6 — the question is asked on the shelf and the drawer, both
 /// of them dialog rather than paper. What is still written on parchment is
 /// the hover preview's card text, the ability sheet and the end screen, so

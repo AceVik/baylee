@@ -11,7 +11,7 @@
 //!
 //! # Why it is a panel and not a sheet
 //!
-//! `docs/redesign-proposal.md` §1.3 draws the line: **parchment is a sheet
+//! `docs/proposals/redesign-proposal.md` §1.3 draws the line: **parchment is a sheet
 //! you read from, a panel is a place you work in.** This was parchment, and a
 //! grid of ten card columns, on the argument that a graveyard is something a
 //! player *reads*. It is not: §6 draws a checkbox, a tally and a Confirm, and

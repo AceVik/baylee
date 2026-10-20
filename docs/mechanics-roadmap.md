@@ -5,7 +5,7 @@ capabilities they need. Goal: **no more card-sized engine changes** —
 every future milestone is a family from this list, scheduled by value.
 
 How many cards wait behind each of these is measured rather than planned
-and lives in `docs/engine-gaps.md`, which ranks what the current pool runs
+and lives in `docs/history/engine-gaps.md`, which ranks what the current pool runs
 into by cards over depth; this file names the families and the hook each
 one needs, because a pool count kept here goes stale between batches —
 C2b's "no card in the pool needs it yet" already has, against the eight

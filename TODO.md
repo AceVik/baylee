@@ -165,7 +165,7 @@ stay green and the finding is exactly what §E8 predicts a batch surfaces):
   attackers. `" attacking "` joined the `CONDITIONS` list in
   `crates/baylee-engine/src/engine/claim_tests.rs`; the pool-wide sweep is
   green again. This is test-language only, no rules behaviour.
-- `docs/engine-gaps.md` was not re-derived; the list above is the raw
+- `docs/history/engine-gaps.md` was not re-derived; the list above is the raw
   material for its next measurement.
 
 ## Antiquities (2026-10-05) — engine gaps

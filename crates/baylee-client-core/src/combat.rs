@@ -22,7 +22,7 @@
 //! to remember which pairs meant "attack".
 //!
 //! [`Tally`] is the one piece of arithmetic this client is allowed to do:
-//! `docs/design.md` §6 refuses client-side rules inference *beyond arithmetic
+//! `docs/proposals/design.md` §6 refuses client-side rules inference *beyond arithmetic
 //! on projected public numbers*, and a sum of printed power is exactly that.
 //! Nothing here consults a rule — first strike, trample and damage
 //! prevention all belong to the engine, and a tally that pretended to know

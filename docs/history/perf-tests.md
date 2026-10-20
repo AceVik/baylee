@@ -36,8 +36,8 @@ global Cargo lock. A1 is the parent baseline on beta.7
 | Presence cap | 35.789 s | 0.046 s | 35.259 s |
 | Tearing dial | 25.199 s | 0.564 s | 25.281 s |
 
-All 14,344 test names match across the three runs. [Before data](perf-data/beta8-tests-before.json)
-and [after data](perf-data/beta8-tests-after.json) retain all three top-50 lists,
+All 14,344 test names match across the three runs. [Before data](../perf-data/beta8-tests-before.json)
+and [after data](../perf-data/beta8-tests-after.json) retain all three top-50 lists,
 source/log hashes, gate outcomes and raw fault-environment evidence.
 
 B and A2 use identical corrected V2 isolation, compiler, target and profile;
@@ -69,7 +69,7 @@ named test reached its assertion, never for compilation failure.
 
 **5/5 assertion faults detected; 4/4 controls green.** All source bytes restored.
 The expiry fault cannot hide behind `count()`'s sweep: the refused newcomer is
-still absent. [Fault data](perf-data/beta8-tests-faults.json) contains exact
+still absent. [Fault data](../perf-data/beta8-tests-faults.json) contains exact
 mutations, messages and checksums. Isolated control times were cap 0.03/0.03 s,
 dial 0.53/0.52 s; nine commands totaled 91.028 s including compilation. These
 isolated times are separate from the full-suite measurements.

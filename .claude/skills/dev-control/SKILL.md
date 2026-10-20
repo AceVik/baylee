@@ -14,12 +14,32 @@ trainer under `tools/trainer` is a separate, intentionally Python workflow.
 
 ## Start an isolated, silent client
 
+Every agent-started test client must be closed after the test, including on
+failure or interruption (owner, 19.10.2026). Record its exact PID/session at
+launch and use finally/trap cleanup; verify the process exited and its harness
+port stopped listening before finishing. Close helper services started for
+the same test too. Never stop unrelated processes or leave cleanup to the
+owner: passive windows cannot normally be closed by clicking. Leave a client
+running only at the owner's explicit request.
+
 Never test against the owner's account, production gateway, feedback or crash
 reporting. Set separate `XDG_CONFIG_HOME`, `XDG_CACHE_HOME` and
 `XDG_DATA_HOME` directories for each client; keep the real HOME. Bind only
 loopback, use a free port, and set `BAYLEE_DEV_PASSIVE=1` so OS input passes
 through. A dev-control run is silent by default; `BAYLEE_DEV_SOUND=1` is an
 explicit opt-in, not appropriate for normal agent tests.
+
+Choose a dedicated screen with `BAYLEE_DEV_MONITOR=1` (zero-based native
+index) or `BAYLEE_DEV_MONITOR=primary` before launch. `GET /monitors` lists
+indices, names, physical desktop rectangles and scale factors; these indices
+are not Windows Settings display numbers and can change after reconnecting a
+screen. An unavailable index closes the harness client before it is shown.
+Keep `BAYLEE_DEV_PASSIVE=1`: screen selection does not itself prevent focus.
+On the owner's Windows workstation, use the additional screen **left of the
+primary display** (owner preference, 19.10.2026). On that date `/monitors`
+reported index **0**, `\\.\DISPLAY2`, at physical `(-2560, 864)`, 2560 × 1600.
+Use `BAYLEE_DEV_MONITOR=0` there; reconfirm after display topology changes.
+Do not substitute the primary screen if the left screen is absent.
 
 ```bash
 XDG_CONFIG_HOME=/tmp/baylee-qa/config XDG_CACHE_HOME=/tmp/baylee-qa/cache \
@@ -47,6 +67,7 @@ of a shader defect: inspect the actual surface and window state first.
 
 ```text
 GET  /health                    frame, logical width/height, scale, clock
+GET  /monitors                  native display indices and physical geometry
 GET  /state                     live view, interaction, controls and geometry
 POST /window       {"width":1280,"height":800}
 POST /key          {"name":"Space","shift":false,"hold":false,"release":false}
@@ -54,6 +75,7 @@ POST /text         {"text":"a search"}
 POST /pointer      {"x":100,"y":200,"button":"left","press":true}
 POST /pointer      {"x":100,"y":200,"hold":true}
 POST /pointer      {"release":true}
+POST /pointer/native {}         return to physical mouse input after release
 POST /scroll       {"y":-3}
 POST /screenshot   {"path":"/tmp/table.png"}
 POST /timescale    {"speed":0.05}
@@ -88,6 +110,14 @@ bare move also waits for aim/settle. The wheel lands at the current pointer:
 aim at the intended scroll area first. A hold and a release are separate
 requests, suitable for drags and Shift face previews.
 
+`/pointer` uses a client-only virtual cursor in both passive and interactive
+runs. It never moves the desktop cursor, including when `/window` resizes the
+client. The position persists between requests. Use `/pointer/native` after
+all requests settle and held buttons are released to return to physical mouse
+movement (move the real mouse once). Passive mode still passes physical input
+through the window; returning to native input does not disable passive mode.
+Do not substitute OS mouse automation: it moves the owner's cursor.
+
 Keys are physical names (`KeyK`, `Digit1`, `ArrowLeft`, `Space`, `Enter`);
 letters/digits also have aliases. Read the result rather than assuming a key
 exists. WASD moves the card cursor. Enter acts on that card; Space confirms a
@@ -100,22 +130,29 @@ and `focus`, not `selected`. An irreversible action may first appear in
 key as dead. `hovered` is a Debug string such as `"ObjectId(52#0)"`, not a
 nested JSON object.
 
+`/key` and `/text` bypass the native OS keyboard path. A Windows system-sound
+report needs native/physical input plus output-device loopback audio capture;
+validate the capture with an announced control tone. See `docs/client.md`
+for the Windows comparison. For tour checks, leave `BAYLEE_NO_TOURS` unset:
+`/state.tour` reports `scrims`, `bubbles` (layout and visibility), and each
+control's `visible` flag. A run's mode alone does not prove its bubble is
+visible or that its scrim was removed after Skip.
+
 ## Animation and flicker evidence
 
 ```bash
-cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format both --diff
+cargo run --profile tools -p baylee-tools -- recording record --duration-ms 3000 --fps 15 --format all --diff
 ```
 
-For an interaction, start via `/recording/start`, perform input through the
-harness, poll status to completion, then encode the returned directory:
+For an interaction, start via `/recording/start` (optionally with `"video": true` so the client worker writes `recording.mp4` and `recording-step.mp4` directly), perform input through the harness, poll status to completion, then encode the returned directory:
 
 ```bash
-cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format both --diff
+cargo run --profile tools -p baylee-tools -- recording encode /tmp/baylee-recording-UUID --format all --diff
 ```
 
-The helper writes GIF/WebP previews, a contact sheet and pixel-difference
+The helper writes MP4 (`preview-CADENCE.mp4` and 1 FPS `preview-step.mp4` so 1 Hz video viewers inspect every captured frame), GIF/WebP previews, a contact sheet and pixel-difference
 CSV, preserving the original PNGs, `frames.jsonl` and `recording.json`.
-GIF/WebP are previews, not authoritative pixel evidence. Inspect selected raw
+MP4/GIF/WebP are previews, not authoritative pixel evidence. Inspect selected raw
 frames/contact sheets with an image viewer and correlate timestamps with the
 input. Do not claim to perceive the full animation from a single image.
 Adjacent differences are a heuristic; text carets, hover changes and normal

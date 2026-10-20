@@ -1087,7 +1087,7 @@ pub const HEARTH_OUTER: f32 = 0.60;
 ///
 /// Eight, at 45°, so it reads as a compass. It was twenty-four — one every
 /// fifteen degrees — which is a clock face, and a clock face in the middle of
-/// a card table is the single loudest thing in `docs/design.md` §1.1's
+/// a card table is the single loudest thing in `docs/proposals/design.md` §1.1's
 /// numeric read of the board.
 pub const HEARTH_TICKS: u16 = 8;
 

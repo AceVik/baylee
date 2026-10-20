@@ -2806,7 +2806,7 @@ fn westvale_abbey() -> CardIndex {
 /// That absence is the half a test is needed for. A dual whose ability went
 /// missing still has its two subtypes, still reads as a correct card from
 /// every other side, and simply makes no mana — which is the failure
-/// `CLAUDE.md` calls fatal for exactly these cards.
+/// `docs/cards.md` calls fatal for exactly these cards.
 const ORIGINAL_DUALS: &[(&str, ManaColor, ManaColor)] = &[
     (
         "02418479-9455-417f-a6a1-004356faff37",

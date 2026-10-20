@@ -4,7 +4,7 @@
 > never a complete set inventory. After Gloom, Cyclopean Tomb, Creature
 > Bond, Consecrate Land, Animate Artifact, Nether Shadow, Sunglasses of Urza
 > and Sengir Vampire, 26 Alpha cards remain Partial.
-> See [the complete inventory](set-progress.md);
+> See [the complete inventory](../set-progress.md);
 > earlier “last remaining” claims in this chronological log are superseded.
 
 Source: the live feedback service, read on 1 October 2026. A report is closed
@@ -586,14 +586,14 @@ licensing justify it. No parallel-agent authorization was added.
 
 The service confirmed login/music report 01a0f912 resolved after milestone
 fbe381ac: 24/25 original reports resolved. Windows renderer verification is
-still open. The requested UX pass has begun; see docs/ux-review-2026-10-02.md
+still open. The requested UX pass has begun; see docs/history/ux-review-2026-10-02.md
 for the native before/after screenshots, first implemented improvements and
 remaining iteration work.
 
 ## 2026-10-02 — requested UX follow-up, waiting room
 
 Continued the user-requested multi-iteration client audit in
-`docs/ux-review-2026-10-02.md`. At 1280×800 the room now groups seat identity,
+`docs/history/ux-review-2026-10-02.md`. At 1280×800 the room now groups seat identity,
 readiness and deck controls compactly, expands starting cards on demand and
 keeps Start/Leave visible above its scroller. Count, draft and focus behavior
 are tested; screenshots cover before, after, expanded and scrolled states.
@@ -607,7 +607,7 @@ behind its own hover preview. Annotation placement now avoids full preview
 rectangles, card prints and other annotations, uses measured text dimensions
 and respects window bounds. Four core geometry regressions, the full client
 suite and clippy pass. Native before/after screenshots and the room-driven
-three-counter fixture are recorded in `docs/ux-review-2026-10-02.md`.
+three-counter fixture are recorded in `docs/history/ux-review-2026-10-02.md`.
 Personal deck summaries now show copy totals rather than stored line counts;
 older gateway payloads retain a correctly labelled row-count fallback.
 
@@ -1001,7 +1001,7 @@ baylee-tomb-codegen-check.log. The native test client was stopped afterward.
 **The previous set-completion count was wrong.** A complete Oracle-id join
 against set_lea.rs finds 254 Implemented, 32 Partial and four explicit
 exclusions in data/unplayable.tsv. The former seven-card list was a cast-test
-backfill list, not the entire set. [docs/set-progress.md](set-progress.md)
+backfill list, not the entire set. [docs/set-progress.md](../set-progress.md)
 records all 32 remaining cards and their unsupported clauses. Alpha is still
 incomplete; Beta/Arabian Nights must not be called complete or begun on the
 basis of the old worklist. This correction supersedes every earlier "last

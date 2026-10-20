@@ -960,7 +960,7 @@ pub(crate) fn called(
 ///
 /// It is also the whole of where a seat's **role** is said, and the reason
 /// for that is arithmetic rather than taste. The design
-/// (`docs/game-log-design.md` §"The seat that stepped away") asked for a role
+/// (`docs/proposals/game-log-design.md` §"The seat that stepped away") asked for a role
 /// line under the name, written for a strip of seat tabs that no longer
 /// exists; the plaque that replaced it is `HEADER_H` = 60 logical pixels tall
 /// and its two rows already spend 56 of them, and the plaque's size is what
@@ -1034,7 +1034,7 @@ fn name(
                 icon_tf(fonts, fits(10.0, height)),
                 // The bar's own glyph ink, the life heart's, and deliberately
                 // not the seat's accent: the accent is identity, and this is
-                // not a fact about who the player is. `docs/game-log-design.md`
+                // not a fact about who the player is. `docs/proposals/game-log-design.md`
                 // says `MUTED`, which is the panel register and not this one.
                 TextColor(palette::PARCHMENT_EDGE),
                 // It does not give way. The name does — see above — and with

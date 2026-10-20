@@ -44,7 +44,7 @@ contact production or run a release.
 workspace dependency, so a gate compiles it in seconds. The cheap-model card
 lanes (`scripts/llm/`, `tools/cardbatch/`, `baylee-tools llm` and `cardbatch`)
 were removed on 20.10.2026; cards are written by the batch's author model and
-reviewed by another (CLAUDE.md). Python remains only in `tools/trainer`.
+reviewed by another (`docs/cards.md`). Python remains only in `tools/trainer`.
 Historical reports retain original command names as evidence of how their
 measurements were made; they are not current instructions.
 

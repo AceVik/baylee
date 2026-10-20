@@ -640,7 +640,7 @@ three kinds of process:
 
 This section is a guide. The normative references are
 [docs/protocol.md](docs/protocol.md) and the *Environment* section of
-[CLAUDE.md](CLAUDE.md#environment).
+[docs/dev/environment.md](docs/dev/environment.md).
 
 ### 1. Database
 
@@ -849,9 +849,9 @@ Where to read on:
 Issues and pull requests are welcome on
 [GitHub](https://github.com/AceVik/baylee), and the
 [Discord](https://discord.gg/4pP3uAwgY) is the place to talk and find
-opponents. Before you start on code, read [AGENTS.md](AGENTS.md) and
-[CLAUDE.md](CLAUDE.md): they are the project's working rules, for people and
-coding agents alike. A few points:
+opponents. Before you start on code, read [AGENTS.md](AGENTS.md): it is the
+map of the project's working rules, for people and coding agents alike, and
+names the document for each area. A few points:
 
 - Run the gate before you push. CI also builds for Windows, macOS, wasm32 and
   the minimum Rust version.

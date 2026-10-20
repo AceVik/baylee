@@ -1007,7 +1007,7 @@ sent, and draws the countdown on the button that sends that action.
 
 Two things this does not do. **A replay does not carry it**: a replay
 re-applies actions, and who produced an action is not in the journal. That
-comes with the game log (`docs/game-log-design.md`). **Nothing escalates**: the
+comes with the game log (`docs/proposals/game-log-design.md`). **Nothing escalates**: the
 clock answers one question at a time, as often as the seat keeps timing out,
 and a player who never answers is answered for until the game ends. Whether a
 run of clock answers should become a stand-in or a concession is a table

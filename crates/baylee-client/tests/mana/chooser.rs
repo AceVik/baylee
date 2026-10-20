@@ -147,7 +147,7 @@ fn clicking_a_permanent_with_one_ability_activates_it() {
         "the costly ability stays readable while armed"
     );
     // Sacrificing a land and paying a life is irreversible, so the first
-    // click arms and the second sends (`docs/design.md` §2.5). This is the
+    // click arms and the second sends (`docs/proposals/design.md` §2.5). This is the
     // ability the design names as the reason the rule exists.
     assert!(
         duel.outbox().is_empty(),

@@ -6,11 +6,10 @@ the defects earlier batches shipped. Read it whole before the first edit.
 
 ## 0. Read first, in this order
 
-1. `AGENTS.md`: the short contract and the legal guardrails.
-2. `CLAUDE.md`, all of it. Its "Cards" section (Layout, Readers and
-   ownership, Writing a card) is binding for card work, whatever its file
-   name suggests. Where it and this brief differ, `CLAUDE.md` wins; say so
-   in your report.
+1. `AGENTS.md`: the map of the repository and what always applies.
+2. `docs/cards.md`, all of it: codegen, layout, ownership and writing a
+   card. It binds card work; where it and this brief differ, it wins, and
+   you say so in your report.
 3. `docs/card-dsl.md` §"File standard", §"Where a card's file lives",
    §"Only state what the card prints", §"Coverage", §"Who owns a card
    file" and §"Worked examples". Read the rest of it as the vocabulary, and
@@ -21,6 +20,16 @@ the defects earlier batches shipped. Read it whole before the first edit.
 6. One finished card and its test as the model to copy:
    `crates/baylee-cards/src/cards/enchantments/auras/mv_1/brainwash.rs` and
    `crates/baylee-engine/src/engine/card_tests/enchantments/auras/mv_1/brainwash.rs`.
+   For a pattern the card needs, one of these: an activated ability with a
+   composite cost, `lands/fetch/polluted_delta.rs`; a trigger with filter
+   algebra, `creatures/mv_2/ondu_cleric.rs`; an alternative (pitch) cost,
+   `instants/mv_5/force_of_will.rs`; a modal spell (overload),
+   `instants/mv_2/cyclonic_rift.rs`; evoke, `creatures/mv_5/mulldrifter.rs`;
+   a static through the layers, `artifacts/mv_4/maskwood_nexus.rs`; trigger
+   multiplication, `creatures/mv_5/elesh_norn_mother_of_machines.rs`; a
+   clone, `creatures/mv_4/spark_double.rs`; a planeswalker,
+   `planeswalkers/mv_4/jace_the_mind_sculptor.rs` (all under
+   `crates/baylee-cards/src/cards/`).
 
 ## 1. The rules of a card batch
 
@@ -39,7 +48,7 @@ the defects earlier batches shipped. Read it whole before the first edit.
   hand-edited card, `codegen --tables` is enough. Codegen is two-phase: a
   full run is run twice.
 - **Never copy the corpus** into the repository, not even a line in a
-  comment (`AGENTS.md` §"Legal guardrails").
+  comment (`docs/legal.md` §"Guardrails for every change").
 
 ## 2. Writing a card
 

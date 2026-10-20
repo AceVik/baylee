@@ -3,7 +3,7 @@
 Five sessions and one owner work on this repository at the same time. This file
 exists so that a word means one thing to all of them.
 
-It is **not** a glossary of Magic, and not a summary of `CLAUDE.md`. An entry
+It is **not** a glossary of Magic, and not a summary of `AGENTS.md` or the documents it names. An entry
 earns its place by being **ambiguous**: a word this repo uses for two different
 things, or a word whose everyday meaning is not the meaning here. If a term is
 obvious from the code, it does not belong here.
@@ -268,7 +268,7 @@ paid for that. What stays the PM's is what belongs to no Revier: this file,
 the roadmap, and anything that describes how the team works.
 
 Card volume belongs to the engine session: a batch's author model writes the
-cards and their tests, another model reviews them (CLAUDE.md). The cheap LLM
+cards and their tests, another model reviews them (`docs/cards.md`). The cheap LLM
 lanes that once carried it (`scripts/llm/`, DeepSeek and Gemini) were removed on
 20.10.2026. No `xtask codegen` runs while a batch is in flight.
 
@@ -483,7 +483,7 @@ Short sentences this team uses as shorthand. Each one is a rule.
   precisely in the tree is still invisible work: it is on no board, in no
   sprint, and gets found by a player. CR 608.2b was written up in two
   places — `event.rs` on `StackObjectDidNotResolve` ("a check this engine
-  does not make yet") and `docs/engine-gaps.md`, with the line the fix
+  does not make yet") and `docs/history/engine-gaps.md`, with the line the fix
   belongs on — and the first person to notice was the owner, mid-game,
   when his Heroic Intervention did not save the creature. Good gap prose
   feels *more* finished than none, because the thing is understood,

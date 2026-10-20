@@ -1,135 +1,72 @@
 # AGENTS.md — baylee
 
-## Commands
+The map of this repository, for every agent and person working on it. It
+names what always applies and where each subject is written down; the rules
+themselves live in the documents it points to. Before you change an area,
+read its document. `CLAUDE.md` imports this file.
 
-- Build: `cargo build --workspace`
-- Test: `cargo test --workspace --all-targets`
-- Lint: `cargo clippy --workspace --all-targets -- -D warnings`
-- Format: `cargo fmt --all`
-- Codegen (regenerate subtypes, card stubs, registry, scripts index):
-  `cargo run -p xtask -- codegen`, **only with the card-script corpus**
-  (`BAYLEE_CARD_SCRIPTS` at a clean upstream Card-Forge `cardsfolder`, never
-  a fork). Without it, it rewrites every machine-owned card as a stub. It is
-  two-phase: run it twice. After a hand-edited card,
-  `cargo run -p xtask -- codegen --tables` is enough and needs no corpus.
-- Codegen reproducibility check (developer's machine, **not** CI — a runner has
-  no card-script reference): `cargo run -p xtask -- codegen --check`
-- Explain a card (Scryfall data + card-script reference script side by side):
-  `cargo run -p xtask -- explain --name "Force of Will"`
-- Run the Bevy duel client (vs AI): `cargo run -p baylee-client`
-  (design: `docs/client.md`; renderer-agnostic logic lives in
-  `baylee-client-core`, the wire view in `baylee-view`)
-- Run the client in a browser: `trunk serve index.html --release` from
-  `crates/baylee-client/` (always `--release` — a dev wasm is ~350 MB)
+Baylee plays Magic: The Gathering: a deterministic rules engine, the servers
+that host it (gateway, agent, one engine process per game, a feedback
+service) and a Bevy client for desktop, mobile and the browser. Accounts live
+in Baylee Central, a separate repository (`docs/central-login.md`). It is an
+unofficial, non-commercial fan project.
 
-## Conventions
+## Always
 
-- **Agent test cleanup (owner, 19.10.2026):** whenever an agent starts a client
-  for testing (including dev-control/passive clients), it must close that
-  client after the test, including on failure or interruption. Track the exact
-  process/session at launch, clean it up in a finally/trap block, and verify it
-  exited before handing back to the owner. Passive windows cannot be closed
-  by the owner normally. Stop only processes started for that test, including
-  its helper services; never terminate unrelated clients. Leave a test client
-  running only if the owner explicitly requests it.
-- `unsafe_code = "allow"` workspace-wide: `unsafe` code, intrinsics and
-  assembler (`core::arch`, `asm!` for `x86_64`, `aarch64`/ARM, and modern Wasm
-  when needed) are allowed and explicitly encouraged everywhere when they
-  deliver good performance or RAM gains, or replace markedly more complex code.
-  Every `unsafe` site must carry a `// SAFETY:` comment naming the invariant
-  that makes it sound, and must receive particularly thorough test coverage
-  that fails if that invariant is broken. Never reach for `unsafe` merely to
-  silence a borrow-check error. Clippy pedantic is enforced in CI.
-- Leave code better than you found it (owner, 06.10.2026): while doing a task,
-  make the existing code you touch more efficient and cleaner — that is part of
-  the task, not scope creep. Performance and RAM optimisations with `unsafe`,
-  intrinsics or assembler (`core::arch`, `asm!`; x86_64, aarch64, and wasm
-  `simd128` where it pays) are explicitly wanted. Each one keeps a portable safe
-  reference path, states its invariants in `// SAFETY:`, is measured (a bench
-  or a number in the commit), and is compensated by thorough tests: the fast
-  path checked against the reference on property/fuzz inputs on every target
-  CI builds. In the engine and core a fast path must stay bit-identical across
-  architectures (determinism). For wasm, target the newest standard (Wasm 3.0:
-  `simd128`, `relaxed-simd`, bulk memory, tail calls, …): the web client
-  supports only the latest Google Chrome, so whatever it ships may be used;
-  relaxed SIMD is nondeterministic by design, so never on a rules path.
-- Third-party crates may be added for performance where they are maintained
-  (active upstream, recent releases) and `cargo-deny`/`cargo-audit` stay green.
-- Cleaner includes splitting large files into a directory module of small,
-  single-purpose files (`example.rs` → `example/mod.rs` + `example/*.rs`, or
-  `example.rs` + `example/` where the crate already does that). Move code
-  without changing it in one commit, change it in the next, so the diff of the
-  move stays reviewable; card files are placed by codegen and never moved.
-- Generated files are **committed** and regenerated only via `cargo xtask codegen`;
-  never edit them by hand (marked `// GENERATED`).
-- No `String`/`HashMap` iteration in engine hot paths; determinism is sacred
-  (seeded RNG only, `baylee_core::ids` handles only). **Banned in
-  baylee-engine/baylee-core: the `algebraic_*` float methods (Rust 1.98+),
-  `std::time`, and `std::random` — all non-deterministic.**
-- The engine never interprets `PrintRef` — prints are presentation-only.
-- Card implementations carry a mandatory human-readable header (name, oracle
-  text, types, set, Scryfall id) — keep it in sync when editing a card.
-- Local LLM usage: at most ONE local model active at a time (M1 Max 64 GB).
-- **UUIDs: always v7** (`Uuid::now_v7()` — time-ordered, DB-friendly) for
-  every id we generate. v4 only when interoperating with external systems
-  that require it. Scryfall ids are external and stay as-is.
-- **Async policy:** the engine crate is strictly synchronous (determinism +
-  speed; no I/O, no async). Async lives only at the edges: `engine-server`,
-  `gateway` and `agent` use `tokio` (+ `tokio-tungstenite` for websockets),
-  and in all three it is transport, never rules. Do not
-  introduce async into `baylee-engine`/`baylee-core`.
-- Git: commits after every working milestone; `rebase` over merge on feature
-  branches. Remote: `git@github.com:AceVik/baylee.git`.
-- LLM delegation learnings are recorded in `docs/llm-learnings.md` — update
-  it after every card batch.
+- **Gate before you push.** `cargo dev gate`, `cargo dev gate features` and
+  `cargo dev gate wasm` (with `DATABASE_URL`); `cargo dev land` runs all
+  three and fast-forwards `main`. A change lands after the local gates, not
+  after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
+- **Determinism.** The engine and core use the seeded RNG only; no
+  `std::time`, `std::random`, `algebraic_*` floats or `HashMap` iteration in
+  hot paths; the engine is synchronous (`docs/dev/conventions.md`).
+- **Hidden information is unrepresentable** in a view, and the gateway runs
+  no rules (`docs/architecture.md`, `docs/protocol.md`).
+- **Legal guardrails** bind every change to what a player sees: never copy
+  the card-script corpus, no WotC assets, check the rules we depend on, and
+  stop and say so when something is clearly forbidden
+  (`docs/legal.md` §"Guardrails for every change").
+- **Never run full `codegen` without the corpus**: it rewrites every
+  machine-owned card as a stub (`docs/cards.md`).
+- **Card work** goes in release order, fixes the reader before a card, plays
+  every card in its own test, and marks a batch `Card-Author:` /
+  `Review: pending` for a review by another model (`docs/card-agent-brief.md`,
+  `docs/cards.md`).
+- **Secrets** never go into a file, an argument, a URL or a log; API keys
+  come from the owner (`docs/dev/environment.md`, `docs/llm-seat.md`).
+- **A client you start for a test, you close**, also on failure, and you
+  check that it exited (`docs/dev/conventions.md`).
+- **Leave code better than you found it.** Split a large file into a
+  directory module (a move-only commit, then a change commit); card files
+  are placed by codegen and never moved.
+- **UUIDs are v7.** Generated files (`// GENERATED`) change only through
+  `cargo run -p xtask -- codegen`.
 
-## Card work
+## Where things are
 
-Anyone implementing cards or writing card tests reads
-`docs/card-agent-brief.md` first, then `CLAUDE.md` whole: its "Cards"
-section binds every agent, whatever its file name says. The short form:
-
-- Sets go in release order. Fix the reader (`scriptgen`) before
-  hand-writing, and never fix generated output in the card.
-- A single-faced card writes `abilities` at card level, never inside
-  `face!`. Edit only `coverage`, `keywords`, `abilities`.
-- A sentence the DSL cannot say makes the card `Coverage::Partial("…")`
-  with a `// NOT SUPPORTED:` comment, never `Implemented`.
-- A new DSL or engine piece is named for the rule, never a card (no
-  `Effect::WandOfIth`). No card text in `baylee-core` or `baylee-engine`.
-  It gets a test beside the rule that fails on the old code, and its own
-  commit.
-- Every card is played in its own test file at its own path,
-  `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
-  naming it by a literal `card_index("<oracle id>")`.
-- The author of a batch writes its cards and tests, and marks each such
-  commit with the trailers `Card-Author: <model>` and `Review: pending`. A
-  different model reviews them afterwards and fixes in its own commits,
-  trailer `Reviewed: <sha>…` (brief §7).
-- Before done: `cargo dev gate rules`, `xtask validate`,
-  `cargo tools hooks require-card-tests`, then the full gate.
-
-## Legal guardrails
-
-- Unofficial non-commercial fan project. No WotC assets in the repo.
-- The card-script reference is an external, GPL-licensed corpus that codegen
-  may read as an automated lookup from a local checkout. No file of it is
-  ever copied into this repository or distributed with it. `NOTICE` names it
-  exactly and is the one place that does; everywhere else it is "the corpus".
-- Every change to cards, icons, symbols, card images, fonts, audio or
-  anything else shown to a player is checked against the rules we depend on:
-  the Wizards Fan Content Policy and its FAQ, Scryfall's API and image
-  terms, and the licences of what we ship (`docs/legal.md`, #270). Quote the
-  rule from its page, never from memory.
-- A grey area (the rule's wording is met loosely or not at all, but the
-  practice is tolerated) is allowed only with the owner's explicit okay,
-  recorded in `docs/legal.md` with the rule quoted beside it. The accepted
-  ones so far: the Mana font's mana and tap symbols (§2a), foil over a
-  card image, and a passing state over a card image while it lasts (dimmed
-  while a question leaves the card out, phased out, asleep; the owner,
-  13.10.2026, §3: the image rule is about lasting alteration).
-- Anything **clearly forbidden** is never built, merged or shipped quietly.
-  Stop and tell the owner in plain words, with the rule quoted verbatim and
-  the file and line that break it. A session tells the PM, and the PM tells
-  the owner. This applies even when the change was requested and even when
-  it looks small.
+| Subject | Read |
+| --- | --- |
+| Commands: build, test, gate, land, xtask, run | `docs/dev/commands.md` |
+| Every environment variable, by process | `docs/dev/environment.md` |
+| PostgreSQL, the gateway's store, the card catalog | `docs/dev/database.md` |
+| How code is written and committed here | `docs/dev/conventions.md` |
+| Development and release tools (`cargo dev`, `cargo tools`) | `docs/dev-tools.md` |
+| Crates, engine, hidden information and seats, the gateway | `docs/architecture.md` |
+| Words that mean one thing here | `docs/dictionary.md` |
+| The engine's internals (normative) | `docs/engine-internals.md`, `docs/mana-notation.md`, `docs/pending-constraints.md`, `docs/cost-model.md` |
+| Verification hooks, performance baselines | `docs/verification-hooks.md`, `docs/perf-baseline.md`, `docs/perf-client.md` |
+| Live faults and the mechanics still to build | `docs/observed-faults.md`, `docs/mechanics-roadmap.md` |
+| Cards: codegen, layout, ownership, writing one | `docs/cards.md`, `docs/card-agent-brief.md`, `docs/card-dsl.md`, `docs/card-identity.md` |
+| Card batches: progress, held back, learnings | `docs/set-progress.md`, `docs/generated-held-back.md`, `docs/llm-learnings.md` |
+| Decks, precons, formats | `docs/deck-format.md`, `docs/precons.md`, `docs/banlists-and-formats.md` |
+| The house AI, the trained AI, language-model seats | `docs/house-ai.md`, `docs/trained-ai.md`, `docs/ai-coverage-todo.md`, `docs/llm-seat.md`, `docs/llm-protocol.md` |
+| The wire protocol and every server route (normative) | `docs/protocol.md` |
+| Bug reports, the feedback service and its UI | `docs/feedback.md`, `web/feedback/README.md` |
+| Baylee Central: sign-in, chat sync, credentials | `docs/central-login.md`, `docs/central-chat-sync.md`, `docs/native-credential-store.md`, `docs/native-transport-security.md`, `docs/password-vault.md` |
+| What is kept about people, and for how long | `docs/privacy.md` |
+| Licences, assets, the Fan Content Policy, Scryfall | `docs/legal.md`, `NOTICE`, `docs/gateway-legal/` |
+| The client (normative) and its standing rules | `docs/client.md`, `crates/baylee-client/CLAUDE.md` |
+| The client's lobby, keys, mobile | `docs/client-lobby.md`, `docs/keyboard-map.md`, `docs/mobile.md` |
+| Releases, CI, deploys | `docs/releasing.md`, `docs/deploy-hooks.md` |
+| Designs not built yet | `docs/proposals/` |
+| Dated reports, handovers, measurements | `docs/history/` |

@@ -17,7 +17,7 @@
 //! Every hue in this palette already carries a claim — `INK_DANGER` is
 //! damage, `HEAL` is life gained, `BRASS` is a thing already taken, `CANDLE`
 //! is an offer — so a red "you lost" would read as damage and a gold "you
-//! won" as something taken. `docs/redesign-proposal.md` §1 retires hues; it
+//! won" as something taken. `docs/proposals/redesign-proposal.md` §1 retires hues; it
 //! does not hand out new ones. Size carries the feeling instead: forty
 //! pixels, against the twenty this overlay never used to go above.
 //!

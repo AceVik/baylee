@@ -1,6 +1,6 @@
 # Redesign proposal — a table you want to sit at
 
-Status: proposal, to be merged into `docs/design.md` by its owner. This
+Status: proposal, to be merged into `docs/proposals/design.md` by its owner. This
 document is opinionated on purpose. Every claim that rests on code names the
 file and line it was read from; anything not read or run is marked
 **unverified**. Nothing here is Rust.
@@ -75,9 +75,9 @@ claims, and each has one look:
 - **What this client offers to do for you** — tapping lands, floating mana,
   sorting a search. Candle light, dim.
 - **What a thing is** — keywords, counters, P/T. Steady sheaths, plates,
-  chips (`docs/design.md` §1.3-1.4, unchanged).
+  chips (`docs/proposals/design.md` §1.3-1.4, unchanged).
 
-`docs/design.md` §1.2 already decided "ACCENT teal goes; offers become candle
+`docs/proposals/design.md` §1.2 already decided "ACCENT teal goes; offers become candle
 at two energies". This document takes that decision as settled and applies it
 everywhere it was not yet applied. Two drifts show why it matters: the hand's
 offered glow is documented as gold and drawn teal
@@ -179,7 +179,7 @@ comment (`prefs.rs:496-500`) already calls this "the common case of a player
 pressing pass forty times a turn". **No reason for off-by-default is
 documented** — not in `prefs.rs`, not in `docs/client.md` or
 `docs/keyboard-map.md` §Automation (grepped for the field and the phrase);
-`docs/design.md:877` frames the rule as "nothing to do here when nothing is
+`docs/proposals/design.md:877` frames the rule as "nothing to do here when nothing is
 happening", which is the argument *for* on. For a first game the least
 surprising thing is a client that does not ask a question with one answer.
 
@@ -206,7 +206,7 @@ piles and pool are scattered to the edges. Changes, all renderer-side:
   the near rim of each seat's own mat (`tabletop.rs` already colours the rim
   by seat and mood). Mats do not move, so their screen position is projected
   when the camera changes, not per frame — this is not the per-card UI
-  projection `docs/design.md` §1.4 refuses. The top-left plaques go.
+  projection `docs/proposals/design.md` §1.4 refuses. The top-left plaques go.
 - **Piles inside the frame.** The photographed piles are clipped by the
   window edge. `CameraRig::home` fits `TableLayout::extent`
   (`layout.rs`, `extent`), and piles stand `PILE_REACH` beyond the mat
@@ -252,7 +252,7 @@ for `ARMED` (`card_ui.wgsl:229-234`) stays as the "accepted" state where
 arming survives (§4).
 
 **Order.** `board.rs:705-711` sorts the hand playable → reachable → mana value
-→ name, so the hand re-sorts at every priority. `docs/design.md` §2.3 keeps
+→ name, so the hand re-sorts at every priority. `docs/proposals/design.md` §2.3 keeps
 the re-sort and only pins the card being aimed at; **this proposal reverses
 §2.3**: the hand keeps the order `view.hand` arrives in (**unverified**
 whether that is draw order — `gamehost/view.rs` was not read for it; if it
@@ -267,7 +267,7 @@ planner can cover; nothing there knows whether it is your main phase. A
 sorcery in hand lights dim on the opponent's turn, and a run then aborts with
 `"the mana is up but the spell is not castable"` — an English literal
 (`lib.rs:831`), not a `Phrase`, which is a second finding. The client cannot
-gate this without rules inference (`docs/design.md` §6 refuses it). The
+gate this without rules inference (`docs/proposals/design.md` §6 refuses it). The
 honest fix is a list from the engine, the shape every other field of
 `LegalActions` has: `castable_if_paid: Vec<ObjectId>` — the cards that pass
 timing (sorcery speed, instant, flash, whatever the card's own rules say)
@@ -328,7 +328,7 @@ when `lands_played_this_turn > 0` is not projected — **unverified** whether
 the view carries it; if not, the hint is the generic "Not playable now".
 
 **Touch.** Every mitigation above is a hover fact, and a phone has no hover
-(`docs/design.md` §2.6). On phone metrics the first tap on a land does what
+(`docs/proposals/design.md` §2.6). On phone metrics the first tap on a land does what
 the hover does on a desktop — lifts and lights it — and the second tap plays
 it. That is not a confirmation dialog; it is the pointing step touch lacks,
 and it is the same two-tap grammar the hand's preview already needs there.
@@ -529,7 +529,7 @@ small-caps feel without a new face. Contrast: INK on PARCHMENT is well above
 node's `left/top` are reprojected each frame from the card's live
 `Transform`, exactly as `combatlines.rs` does for lines, because a card
 glides (`Motion`) and a sheet anchored to `Motion::target` arrives before the
-card does. This is stated as a decision: `docs/design.md` §1.4 refuses
+card does. This is stated as a decision: `docs/proposals/design.md` §1.4 refuses
 projecting UI onto every card per frame; one sheet is not that. The sheet
 stands above the card (toward the table centre for the local seat) and flips
 below when there is no room above; horizontally it is clamped to the canvas
@@ -575,7 +575,7 @@ position after a rebuild.
 
 The stack panel spawns `Pickable::IGNORE` at six places
 (`hud/stack.rs:61,150,178,247,322,393`), so no stack entry can be hovered or
-clicked. `docs/design.md` §2.2 names the same fact as why counterspells and
+clicked. `docs/proposals/design.md` §2.2 names the same fact as why counterspells and
 reanimation "cannot be aimed at all". Making stack entries pickable is one
 change that serves both: hover raises the preview, click is a target under
 `ChooseTargets`. They are the same fix seen from two sides and are scheduled
@@ -635,7 +635,7 @@ hovers, so the rebuild stays where it is.
 
 **Not doing:** a preview that follows the pointer (it would hide what you
 are reading), a delay before showing (the hover grace already exists), or a
-second card renderer for the preview (`docs/design.md` §6).
+second card renderer for the preview (`docs/proposals/design.md` §6).
 
 ---
 
@@ -761,7 +761,7 @@ are never lit at once. A counted stack lights when **any** member is offered,
 where `CardGroup::activatable` demands all — the click rule in §10.3 is what
 makes "any" honest. A stack stays a stack while it is picked from;
 `Individual::Targeted` is for spells already sent, and a group forking under
-the pointer mid-question is the fault `docs/design.md` §2.3 names.
+the pointer mid-question is the fault `docs/proposals/design.md` §2.3 names.
 
 A seat is offered in both its bodies: its tab wears the hand bar's offer
 treatment, and on the felt a still candle ring stands at its `seat_anchor` —
@@ -782,7 +782,7 @@ the way Lock B did.
 
 One thing this does not solve and must not hide: `Interaction` is rebuilt on
 every `HostMessage::Choice`, so a question re-sent unchanged wipes the picks
-so far. `Pending: PartialEq` from `docs/design.md` §4 is the fix, and it is a
+so far. `Pending: PartialEq` from `docs/proposals/design.md` §4 is the fix, and it is a
 protocol item, not something to route around here.
 
 ### 10.3 Aiming: pointer, keys, and forty tokens
@@ -803,7 +803,7 @@ A counted stack takes clicks like a card takes one. A click picks the next
 unchosen offered member; another picks another, up to `max`; when no unchosen
 member is left the click takes the last one back — on a single card, the
 toggle it always was. Which four of the forty is the engine's problem
-(`docs/design.md` §2.3). The badge over the stack, the one place UI text
+(`docs/proposals/design.md` §2.3). The badge over the stack, the one place UI text
 already stands over the felt, reads `StackPicked` — "2 of 4" — instead of
 "×4" while the stack holds picks. There is no count stepper: one click per
 pick is the currency everywhere.
@@ -830,8 +830,8 @@ at a time.
 
 Target lines exist **only while proposed**. Once sent, the stack panel names
 each target as its own small card and the permanent wears the shadow tint
-(C8, `Individual::Targeted`) that `docs/design.md` §1.5 reserves for it; a
-third copy is the fault `docs/design.md` §1.3 forbids. Combat is the
+(C8, `Individual::Targeted`) that `docs/proposals/design.md` §1.5 reserves for it; a
+third copy is the fault `docs/proposals/design.md` §1.3 forbids. Combat is the
 exception for a reason on the felt: a standing attack keeps deciding who
 takes damage until the step ends, so its line stays at `STANDING` weight. The
 focus ring stands at whatever is aimed at — a card, or a seat's anchor.
@@ -866,9 +866,9 @@ question is the honest gap. There is no `PlayerAction::Cancel`; the reversal
 fault 24 describes happens in the engine on a *refused* answer, and
 `Interaction` cannot build one — the door is closed by construction. For
 `min == 0` the answer is `NoTargets`, and the button says so. For `min ≥ 1`
-the way out is `docs/design.md` §4's `Cancel` before costs are paid, and
+the way out is `docs/proposals/design.md` §4's `Cancel` before costs are paid, and
 until it exists the slip carries no button that lies. The blocker's decision
-clock (`docs/design.md` §3 item 12) is still not on the slip; that is the
+clock (`docs/proposals/design.md` §3 item 12) is still not on the slip; that is the
 next fault, not this one.
 
 ### 10.6 Refused here
@@ -967,7 +967,7 @@ one review; each ends with the tests it names.
     form needs the engine item. Ships in the "pool holds exactly the cost"
     form first.
 
-**Protocol batch additions** (to `docs/design.md` §4):
+**Protocol batch additions** (to `docs/proposals/design.md` §4):
 - `LegalActions::castable_if_paid: Vec<ObjectId>` (§3).
 - `PlayerAction::CastSpell { card, pay: Option<PoolPlan> }` — per-pip
   assignment from the pool, validated by the engine; the M2 `PayMana` in
@@ -977,7 +977,7 @@ one review; each ends with the tests it names.
 
 ---
 
-## 12. Refused, in the spirit of `docs/design.md` §6
+## 12. Refused, in the spirit of `docs/proposals/design.md` §6
 
 - **Client-side legality of any kind** — "playable" is the offer, and where
   the offer lacks a bit (timing for `reachable`) the answer is a protocol

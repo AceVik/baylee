@@ -34,7 +34,7 @@ use std::{process::Command, time::Instant};
 /// failure. Raise it when `devctl.rs` grows; never lower it to what came out.
 const DEVCTL_TEST_FLOOR: usize = 15;
 
-/// `dev-control` and `dev-reload` in one build: the configuration CLAUDE.md
+/// `dev-control` and `dev-reload` in one build: the configuration docs/dev/commands.md
 /// documents for editing a shader in a running client, so a build somebody
 /// makes. `dev-reload` forwards a bevy feature, so every distinct client
 /// feature set is its own bevy compile; the union covers both `cfg` sites.

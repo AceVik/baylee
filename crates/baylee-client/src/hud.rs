@@ -50,7 +50,7 @@ use bevy::prelude::*;
 /// reason the stack sentence draws marks and not discs — and the only serif
 /// whose hairlines survived this client's 12 px 1× raster.
 ///
-/// This replaces Inter in every role, so it **overrides `docs/design.md`
+/// This replaces Inter in every role, so it **overrides `docs/proposals/design.md`
 /// §1.2**, which says three cuts are shipped, there is no fourth, and Inter
 /// carries all of them. Both families are OFL 1.1 with no Reserved Font
 /// Name; see `NOTICE` and `assets/fonts/licenses/`.
@@ -912,7 +912,7 @@ pub struct TrayView {
 /// is what it *sends*: Confirm sends the answer that is assembled and this
 /// one sends the **empty** answer, clearing the selection first so a player
 /// who ticked a card and then changed their mind does not have that card sent
-/// under it (`docs/redesign-proposal.md` §6).
+/// under it (`docs/proposals/redesign-proposal.md` §6).
 ///
 /// It was `TrayCancel`, under a button reading "Cancel", and both were wrong
 /// the same way: there is no cancel on the wire, so this button *answers the
@@ -1477,7 +1477,7 @@ pub(crate) mod palette {
 
     // ------------------------------------------------------ a dialog's own
     //
-    // `docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:
+    // `docs/proposals/redesign-proposal.md` §1.3 draws the line and §6 applies it:
     // **parchment is a sheet you read from, a panel is a place you work.**
     // The prompt slip and the ability sheet are read; the zone browser has a
     // checkbox, a tally and a Confirm in it, and that is work. So it is a
