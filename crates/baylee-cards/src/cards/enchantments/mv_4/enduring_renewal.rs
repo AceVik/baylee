@@ -26,7 +26,7 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::Dies(&YOUR_OWNED_CREATURE),
-        &[Effect::GraveyardToHand {
+        &[Effect::ReturnToHand {
             target: TargetSpec::EventObject,
         }],
     )],

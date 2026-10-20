@@ -414,13 +414,31 @@ fn offered(
             }
         }
         // Any card's name is an answer (CR 201.4); the one the asking
-        // permanent is printed with is always a card of the pool.
-        Pending::ChooseCardName { .. } => {
-            if let Some(PlanKind::ChooseCardName { object }) = engine.pending_plan
-                && let Some(card) = engine.state().object(object).and_then(|o| o.card)
+        // permanent or resolving spell is printed with is always a card of
+        // the pool, and a restricted `types` falls back to a matching card.
+        Pending::ChooseCardName { types, .. } => {
+            let source = match engine.pending_plan {
+                Some(PlanKind::ChooseCardName { object }) => Some(object),
+                _ => engine.resolution.as_ref().map(|res| res.source),
+            };
+            if let Some(card) = source
+                .and_then(|id| engine.state().object(id))
+                .and_then(|o| o.card)
             {
                 out.push(PlayerAction::ChooseCardName {
                     card: card.index,
+                    face: 0,
+                });
+            }
+            if !types.is_empty()
+                && let Some(def) = baylee_cards::all().find(|def| {
+                    def.faces
+                        .first()
+                        .is_some_and(|face| face.types.intersects(*types))
+                })
+            {
+                out.push(PlayerAction::ChooseCardName {
+                    card: def.index,
                     face: 0,
                 });
             }
