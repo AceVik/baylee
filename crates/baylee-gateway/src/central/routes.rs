@@ -307,7 +307,22 @@ async fn login_for(
         "token": token, "expires_at": expires_at, "username": account.username,
         "display_name": account.display_name,
     });
-    crate::routes::mark_stale(state, account.terms_version.as_deref(), &mut answer);
+    // Whether the account accepted the terms in force is Central's to say
+    // (`docs/protocol.md` §"Terms of use (WG-1)"); an admin session is
+    // checked only for its lease.
+    if matches!(purpose, TicketPurpose::Admit) {
+        let bridge = bridge(state)?;
+        let standing = crate::central::authorize(
+            state,
+            bridge,
+            *lease.to_secret_bytes(),
+            identity.account,
+            expires_at,
+        )
+        .await?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+        crate::routes::mark_standing(state, standing, &mut answer);
+    }
     Ok(Json(answer))
 }
 

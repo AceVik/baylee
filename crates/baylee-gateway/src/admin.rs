@@ -204,6 +204,7 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         .merge(crate::moderation::console_routes())
         // Who may seat which hosted model (beta.8): `llmaccess.rs`.
         .merge(crate::llmaccess::console_routes())
+        .merge(crate::termsadmin::console_routes())
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))
@@ -479,7 +480,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
             .saturating_sub(app.started_at)
             .into(),
     );
-    gateway.insert("terms".into(), app.terms.is_some().into());
+    gateway.insert("terms".into(), app.terms.current().is_some().into());
     let social = crate::social::console_counts(app).await;
     gateway.insert(
         "mail".into(),

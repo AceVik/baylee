@@ -2,8 +2,8 @@
 //! must ask (`terms.rs` reads the files, one or one per language).
 
 use crate::{
-    AppState, Deserialize, ErrorBody, HeaderMap, Json, Query, Shared, State, StatusCode, authed,
-    db_down, err, store,
+    AppState, Deserialize, ErrorBody, HeaderMap, Json, Query, Shared, State, StatusCode, db_down,
+    err, store,
 };
 use axum::http::{HeaderValue, header};
 use axum::response::{IntoResponse, Response};
@@ -38,11 +38,12 @@ pub(crate) async fn terms(
 ) -> Result<Response, (StatusCode, Json<ErrorBody>)> {
     let terms = state
         .terms
-        .as_ref()
+        .current()
         .ok_or_else(|| err(StatusCode::NOT_FOUND, NO_TERMS))?;
     let text = terms.text(query.lang.as_deref());
     let mut body = serde_json::json!({
         "version": terms.version,
+        "digest": crate::auth::hex_lower(&terms.digest),
         "markdown": text.markdown,
     });
     if let Some(updated) = &text.updated {
@@ -81,11 +82,18 @@ pub(crate) async fn accept_terms(
     headers: HeaderMap,
     Json(body): Json<AcceptTerms>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
-    let account_id = authed(&state, &headers).await?;
+    let session = crate::authed_session_any_terms(&state, &headers).await?;
     let terms = state
         .terms
-        .as_ref()
+        .current()
         .ok_or_else(|| err(StatusCode::NOT_FOUND, NO_TERMS))?;
+    if session.central {
+        return Err(err(
+            StatusCode::CONFLICT,
+            "a Baylee account accepts these terms at Baylee Central",
+        ));
+    }
+    let account_id = session.account_id;
     if body.version != terms.version {
         return Err(err(
             StatusCode::CONFLICT,
@@ -103,7 +111,23 @@ pub(crate) async fn accept_terms(
 /// none. A gateway without terms adds nothing, so its answers are what they
 /// were before terms existed.
 pub(crate) fn mark_stale(state: &AppState, accepted: Option<&str>, answer: &mut serde_json::Value) {
-    if let Some(terms) = &state.terms {
+    if let Some(terms) = state.terms.current() {
         answer["terms_stale"] = (accepted != Some(terms.version.as_str())).into();
+    }
+}
+
+/// The same for a Central-bound sign-in, from Central's own answer: whether
+/// the account accepted this gateway's terms in force (`terms_stale`) and
+/// Baylee Central's (`central_terms_stale`, only when it did not).
+pub(crate) fn mark_standing(
+    state: &AppState,
+    standing: crate::terms::Standing,
+    answer: &mut serde_json::Value,
+) {
+    if standing == crate::terms::Standing::Central {
+        answer["central_terms_stale"] = true.into();
+    }
+    if state.terms.current().is_some() {
+        answer["terms_stale"] = (standing != crate::terms::Standing::Accepted).into();
     }
 }

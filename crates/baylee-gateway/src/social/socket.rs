@@ -74,7 +74,9 @@ pub(crate) async fn social_ws(
         .map_err(|status| err(status, TICKET_REFUSED))?
     {
         Some(session)
-            if session.account_id == account_id && crate::moderation::admit(&session).is_ok() => {}
+            if session.account_id == account_id
+                && crate::moderation::admit(&session).is_ok()
+                && crate::terms_admit(&session).is_ok() => {}
         _ => return Err(err(StatusCode::UNAUTHORIZED, TICKET_REFUSED)),
     }
     let why = baylee_protocol::version_refusal("This client", params.protocol)

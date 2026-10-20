@@ -109,6 +109,9 @@ impl Bridge {
                     baylee_account::Error::Busy => StatusCode::TOO_MANY_REQUESTS,
                     baylee_account::Error::Rejected => StatusCode::UNAUTHORIZED,
                     baylee_account::Error::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+                    // A gateway's own credential is no account session; Central
+                    // never answers it so, and a 403 is the honest reading.
+                    baylee_account::Error::TermsRequired => StatusCode::FORBIDDEN,
                 })
         })
         .await
@@ -231,23 +234,119 @@ pub(crate) async fn resolve_digest(
                 .central
                 .as_ref()
                 .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
-            let response = bridge
-                .exchange(wire::Request::GatewaySession {
-                    lease: Token::from_secret_bytes(Zeroizing::new(binding.lease)),
-                    purpose: wire::TicketPurpose::Admit,
-                })
-                .await?;
-            if !matches!(response, wire::Response::GatewaySession { identity, expires_at }
-                if identity.account == binding.central && expires_at == binding.expires_at)
-            {
+            let Some(standing) = authorize(
+                state,
+                bridge,
+                binding.lease,
+                binding.central,
+                binding.expires_at,
+            )
+            .await?
+            else {
                 return Ok(None);
-            }
+            };
+            let session = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
+                .await
+                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+            return Ok(session.map(|session| crate::store::Session {
+                terms: standing,
+                central: true,
+                ..session
+            }));
         }
     }
     let session = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
     Ok(session)
+}
+
+/// Central's live check of an admission lease, with whether its account
+/// accepted Central's terms in force and the version of this gateway's
+/// terms Central confirmed (none confirmed: nothing to accept yet, so
+/// nothing is enforced). `None` when the lease is no longer good or no
+/// longer the one bound here.
+pub(crate) async fn authorize(
+    state: &Shared,
+    bridge: &Arc<Bridge>,
+    lease: [u8; 32],
+    account: [u8; 16],
+    expires: i64,
+) -> Result<Option<crate::terms::Standing>, StatusCode> {
+    let response = bridge
+        .exchange(wire::Request::GatewayAuthorize {
+            lease: Token::from_secret_bytes(Zeroizing::new(lease)),
+            purpose: wire::TicketPurpose::Admit,
+            terms: state.terms.confirmed(),
+        })
+        .await?;
+    Ok(match response {
+        wire::Response::GatewayAuthorization {
+            identity,
+            expires_at,
+            central_terms,
+            gateway_terms,
+        } if identity.account == account && expires_at == expires => {
+            Some(crate::terms::Standing::of(central_terms, gateway_terms))
+        }
+        _ => None,
+    })
+}
+
+/// Publish the terms in force to Central until it confirms them; only then
+/// can players accept them there, and only then does the gateway enforce
+/// them. Every minute, and at once after an admin published a version.
+pub(crate) fn spawn_terms_publisher(state: Shared) {
+    if state.central.is_none() {
+        return;
+    }
+    tokio::spawn(async move {
+        loop {
+            publish_terms(&state).await;
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
+    });
+}
+
+/// One attempt; `true` when Central holds the terms in force (or there are
+/// none, or no Central to hold them).
+pub(crate) async fn publish_terms(state: &Shared) -> bool {
+    let Some(terms) = state.terms.current() else {
+        return true;
+    };
+    if state.terms.confirmed().is_some() {
+        return true;
+    }
+    let Some(bridge) = state.central.as_ref() else {
+        return true;
+    };
+    let request = wire::Request::PublishGatewayTerms {
+        version: terms.version.clone(),
+        texts: terms.central_texts(),
+    };
+    match bridge.exchange(request).await {
+        Ok(wire::Response::TermsPublished { digest }) if digest == terms.digest => {
+            state.terms.confirm(&terms.central_version());
+            tracing::info!(version = %terms.version, "terms of use published to Baylee Central");
+            true
+        }
+        Err(StatusCode::CONFLICT) => {
+            tracing::error!(
+                version = %terms.version,
+                "Baylee Central holds another text under this terms version; publish the \
+                 changed terms under a new version"
+            );
+            false
+        }
+        Ok(_) => {
+            tracing::error!("Baylee Central answered publishing the terms with something else");
+            false
+        }
+        Err(status) => {
+            tracing::warn!(%status, "publishing the terms of use to Baylee Central failed; retrying");
+            false
+        }
+    }
 }
 
 /// Gateway administration accepts only a purpose-bound lease with current Central

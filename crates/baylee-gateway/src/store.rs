@@ -187,6 +187,12 @@ pub struct Session {
     /// sessions went when the password was reset, so this is only ever a
     /// session that slipped in between.
     pub must_change_password: bool,
+    /// Whether its account accepted the terms in force, as Baylee Central
+    /// said for a Central-bound session; a local session is always
+    /// [`crate::terms::Standing::Accepted`] (its acceptance is advisory).
+    pub terms: crate::terms::Standing,
+    /// Whether it is bound to a Baylee Central lease (`central.rs`).
+    pub central: bool,
 }
 
 /// An outstanding "confirm your address" link.
@@ -920,6 +926,8 @@ pub async fn resolve_digest(
         guest,
         ban,
         must_change_password,
+        terms: crate::terms::Standing::Accepted,
+        central: false,
     }))
 }
 

@@ -181,7 +181,7 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value>
         "terms".into(),
         state
             .terms
-            .as_ref()
+            .current()
             .map_or(serde_json::Value::Null, |terms| {
                 terms.version.clone().into()
             }),

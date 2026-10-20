@@ -40,6 +40,7 @@ mod sets;
 mod social;
 mod store;
 mod terms;
+mod termsadmin;
 mod texts;
 mod wsticket;
 
@@ -231,9 +232,10 @@ struct AppState {
     /// When this process started serving (unix seconds), for the admin
     /// console's uptime.
     started_at: u64,
-    /// The terms of use a player accepts (`BAYLEE_TERMS_PATH`, WG-1), read
-    /// once at start; `None` when the gateway has none.
-    terms: Option<terms::Terms>,
+    /// The terms of use a player accepts (WG-1): published in the console,
+    /// else `BAYLEE_TERMS_PATH`, else the default; and what Baylee Central
+    /// confirmed of them (`terms.rs`).
+    terms: terms::Book,
     /// The seat agents connected now, and their hosted profiles
     /// (`seathost.rs`); memory only.
     seathosts: Mutex<seathost::Registry>,
@@ -358,6 +360,15 @@ async fn main() {
     let store_path = std::env::var("STORE_PATH")
         .map_or_else(|_| PathBuf::from("gateway-store.json"), PathBuf::from);
     let db = open_database(&store_path).await;
+    // A version an admin published wins over the file and the default.
+    let terms = match baylee_db::terms::current(&db).await {
+        Ok(Some(published)) => Some(
+            terms::Terms::from_published(published)
+                .unwrap_or_else(|why| panic!("published terms of use: {why}")),
+        ),
+        Ok(None) => terms,
+        Err(e) => panic!("published terms of use: {e}"),
+    };
     let catalog = connect_catalog(db.clone()).await;
     // Bound after the database and the catalog, and before anything that has
     // to know the port: with `PORT=0` the kernel chooses it (#279), and the
@@ -422,7 +433,7 @@ async fn main() {
         reconnect_secs,
         room_grace,
         started_at: auth::now_secs(),
-        terms,
+        terms: terms::Book::new(terms),
         seathosts: Mutex::new(seathost::Registry::default()),
         seathost_token,
         seathost_bridge_url: std::env::var("BAYLEE_SEATHOST_BRIDGE_URL")
@@ -448,6 +459,7 @@ async fn main() {
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
     let _central_heartbeat = central::Heartbeat::start(state.central.as_ref());
+    central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());
     if let (Some(settings), Some((listener, admin_port))) = (&console, console_listener) {
@@ -857,6 +869,10 @@ struct ErrorBody {
     /// `403` a sign-in with an admin's reset password is answered.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     password_change: bool,
+    /// Whose terms of use the account has to accept first (`central` or
+    /// `gateway`): only on the `403` of a session that has not (`terms_admit`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terms_required: Option<&'static str>,
 }
 
 fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody>) {
@@ -866,6 +882,7 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
             error: std::borrow::Cow::Borrowed(message),
             ban: None,
             password_change: false,
+            terms_required: None,
         }),
     )
 }
@@ -881,6 +898,7 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
             error: std::borrow::Cow::Owned(message),
             ban: None,
             password_change: false,
+            terms_required: None,
         }),
     )
 }
@@ -1002,8 +1020,21 @@ async fn authed(
 }
 
 /// Resolves the bearer token to its session: the account, and whether it
-/// is a guest's, for the routes a guest may not use.
+/// is a guest's, for the routes a guest may not use. A session whose account
+/// has not accepted the terms in force is refused here (`terms_admit`).
 async fn authed_session(
+    state: &Shared,
+    headers: &HeaderMap,
+) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
+    let session = authed_session_any_terms(state, headers).await?;
+    terms_admit(&session)?;
+    Ok(session)
+}
+
+/// [`authed_session`] without the terms: for the few routes a session that
+/// has not accepted them still has (`POST /account/terms`, signing out,
+/// deleting the account here).
+async fn authed_session_any_terms(
     state: &Shared,
     headers: &HeaderMap,
 ) -> Result<store::Session, (StatusCode, Json<ErrorBody>)> {
@@ -1015,6 +1046,21 @@ async fn authed_session(
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
     moderation::admit(&session)?;
     Ok(session)
+}
+
+/// `403` with `terms_required` (`central` or `gateway`) for a session whose
+/// account has not accepted the terms in force: the client shows that
+/// sheet, and nothing goes on under an older version.
+pub(crate) fn terms_admit(session: &store::Session) -> Result<(), (StatusCode, Json<ErrorBody>)> {
+    let Some(document) = session.terms.document() else {
+        return Ok(());
+    };
+    let (status, Json(mut body)) = err(
+        StatusCode::FORBIDDEN,
+        "accept the terms of use in force to go on",
+    );
+    body.terms_required = Some(document);
+    Err((status, Json(body)))
 }
 
 /// A database that refused, as an answer a client can act on.

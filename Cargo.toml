@@ -23,8 +23,8 @@ description = "An unofficial, non-commercial fan implementation of a trading car
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.
 [workspace.dependencies]
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "43d89eed8cc89cd6ebc992e6de0f5e5610d54c0f" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "43d89eed8cc89cd6ebc992e6de0f5e5610d54c0f" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }

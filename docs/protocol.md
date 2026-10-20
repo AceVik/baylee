@@ -3383,63 +3383,108 @@ only. Never a frame, ticket, ciphertext, key, tag, handle or conversation id.
 
 ## Terms of use (WG-1)
 
-A gateway may ask its players to accept terms of use. The operator points
-`BAYLEE_TERMS_PATH` at either
+A gateway asks its players to accept terms of use. Where they come from,
+first answer wins (`terms.rs`):
 
-- **a file**: a UTF-8 Markdown file of at most 64 KiB, shown to every
-  player in whatever language their client speaks; or
-- **a directory** of `terms.<lang>.md` files, one per language, `<lang>` a
-  lowercase BCP-47 primary language tag (`terms.de.md`, `terms.en.md`). It
-  must hold `terms.en.md`, because English is what a player whose language
-  is not there is shown. Every file is held to what a single file is, and
-  **every file names the same version** on its first line (below): the
-  version is what an account accepts, and accepting the terms in one
-  language accepts them in all. A file not named `terms.*.md` is not read;
-  `terms.de-AT.md` or `terms.DE.md` is a mistake and refuses startup.
+1. **a version an admin published** in the console (`POST /admin/terms`,
+   below), kept in the gateway's database; the newest one is in force;
+2. **`BAYLEE_TERMS_PATH`**, naming either
+   - **a file**: a UTF-8 Markdown file of at most 64 KiB, shown to every
+     player in whatever language their client speaks (Central knows it as
+     English); or
+   - **a directory** of `terms.<lang>.md` files, one per language, `<lang>` a
+     lowercase BCP-47 primary language tag (`terms.de.md`, `terms.en.md`). It
+     must hold `terms.en.md`, because English is what a player whose language
+     is not there is shown. Every file is held to what a single file is, and
+     **every file names the same version** on its first line (below): the
+     version is what an account accepts, and accepting the terms in one
+     language accepts them in all. A file not named `terms.*.md` is not read;
+     `terms.de-AT.md` or `terms.DE.md` is a mistake and refuses startup;
+3. otherwise **the default terms every gateway ships**
+   (`docs/gateway-legal/gateway-terms.{de,en}.md`, German binding). They name
+   the operator only through the gateway's legal notice, so they fit any
+   gateway as they are.
 
-Unset, the gateway has none and **nothing below appears**: no
-`terms_stale`, `"terms": null` in `/info`, `404` on `/terms`. Set but
-unreadable, oversize, not UTF-8 or empty, a directory without
-`terms.en.md`, or a directory whose files name different versions, the
-gateway refuses to start, saying which. The files are read once, at start.
+`BAYLEE_TERMS_PATH=off` is a gateway without terms, and then **nothing below
+appears**: no `terms_stale`, `"terms": null` in `/info`, `404` on `/terms`.
+A path that is unreadable, oversize, not UTF-8 or empty, a directory without
+`terms.en.md`, a directory whose files name different versions or that holds
+more than four languages, a control character other than newline and tab
+(`\r\n` is read as `\n`), a version that is not printable ASCII, or the
+version `draft`: the gateway refuses to start, saying which. A published
+version whose stored texts no longer hash to its stored digest refuses
+startup too. The files are read once, at start.
 
-- `GET /terms?lang=de` (public) → `{"version", "updated"?, "markdown",
-  "lang"?}`. `lang` is read by its primary tag (`de-AT` is `de`); the text
-  is the one in that language, else the English one, else (a file) the one
-  file. `lang` in the answer, and a `Content-Language` header, say which
-  language the text is in; a gateway with one file names none, so its
-  answer is exactly what it was before there were languages. Only `?lang=`
-  decides, never `Accept-Language`: the interface's language is the
-  player's choice and need not be the browser's, and an answer that varies
-  by its address alone is never cached in the wrong language. Without
-  `?lang=` the answer is English. `version` is the first 16 hex digits of
-  the file's SHA-256, so any edit asks every player again — unless the
-  file's **first line** is `<!-- version: 2026-10 -->`, which names it (at
-  most 64 characters, no whitespace), so an editorial fix need not be
-  accepted twice. Two languages never hash alike, so the files of a
-  directory name theirs. `updated` is the date an `<!-- updated: 2026-10-06
-  -->` line among the leading comment lines names, per language; absent
-  without one. The leading comment lines are not part of `markdown`.
-- `/info` carries `"terms": "<version>"`, so a client can compare it with
-  what it last accepted before anyone signs in.
-- `POST /auth/login`, `/auth/register` and `/auth/guest` answer
-  `"terms_stale": true` when the account has not accepted the current
-  version (a new account or guest never has), `false` when it has. The
-  client then shows the terms and sends:
-- `POST /account/terms {"version"}` (signed in) → `{"version"}`, recording
-  the version and the time on the account. A version that is not the current
-  one is `409` (the file changed while the sheet was up; show it again), a
-  gateway without terms `404`.
+**Version and digest.** `version` is the first 16 hex digits of the file's
+SHA-256, so any edit asks every player again — unless the file's **first
+line** is `<!-- version: 2026-10 -->`, which names it (at most 64 printable
+ASCII characters, no whitespace). Two languages never hash alike, so the
+files of a directory name theirs. `updated` is the date an
+`<!-- updated: 2026-10-06 -->` line among the leading comment lines names,
+per language. The leading comment lines are not part of `markdown`. What an
+acceptance names is the version **and the digest** of every language's text
+(`central_api::terms::digest`): a text changed under an unchanged version is
+a new text nobody has accepted.
 
-Enforcement stops there, for the beta (Q5): **no route refuses a session
-that has not accepted.** Tickets, decks and seats work as before, so an edit
-to the terms never blinds a lobby or locks a seat out of its game; the
-client asks right after sign-in. A returning guest signs in with its kept
-session and so never sees `terms_stale`; the client compares `/info.terms`
-with its own copy of what it accepted. The repository's
-`docs/terms-placeholder.md` (a file) and `docs/terms-placeholder/` (a
-directory, `de` and `en`) are placeholders for testing the sheet and are
-not legal text; no deploy reads them.
+- `GET /terms?lang=de` (public) → `{"version", "digest", "updated"?,
+  "markdown", "lang"?}`, `digest` as 64 lowercase hex digits. `lang` is read
+  by its primary tag (`de-AT` is `de`); the text is the one in that language,
+  else the English one, else (a file) the one file. `lang` in the answer, and
+  a `Content-Language` header, say which language the text is in; a gateway
+  with one file names none. Only `?lang=` decides, never `Accept-Language`;
+  without it the answer is English.
+- `/info` carries `"terms": "<version>"`.
+
+**Accounts of Baylee Central.** Their acceptance lives on Central
+(`baylee-central` `docs/terms.md`), never here. The gateway publishes the
+terms in force to Central (`PublishGatewayTerms`, under its credential, or
+the bridge's for the official origin) at start, every minute until Central
+confirms them, and at once after an admin published a version. Only a
+version Central confirmed is enforced, since players can accept only what
+Central holds; until then the terms are shown and nothing is refused. Every
+request of a Central-bound session asks Central anyway (the lease check);
+`GatewayAuthorize` answers it together with whether the account accepted
+Central's terms in force and exactly the confirmed version and digest of
+this gateway's. A session that has not is answered **`403` with
+`"terms_required": "gateway"`** (or `"central"`, which comes first) on every
+route but these: `GET /terms`, `POST /auth/logout`, `DELETE /account`
+(one's data on this gateway; a Central-bound session names no password,
+having just been checked at Central) and `POST /account/terms` (which
+answers a Central-bound session `409`: it accepts at Central). The lobby,
+watch and social sockets refuse it when they open, as their tickets do; a
+socket already open, a seat socket above all, is ended only by the lease
+check, so a running game finishes. `POST /auth/central/login` answers
+`"terms_stale"` (and `"central_terms_stale": true` when Central's own are
+not accepted) from Central's answer. The client accepts at Central
+(`AcceptTerms { subject: Gateway { origin }, version, digest }`) and simply
+goes on: the next request finds it accepted.
+
+**Local accounts** (legacy, until the migration ends, M8): sign-in answers
+`"terms_stale"` from the account's own record, and `POST /account/terms
+{"version"}` (signed in) → `{"version"}` records the version and the time on
+the account; a version that is not the current one is `409`, a gateway
+without terms `404`. Enforcement stops there for them: no route refuses a
+local session that has not accepted.
+
+**The console** (behind its guard, `termsadmin.rs`): `GET /admin/terms` →
+`{"terms": {"version", "digest", "source": "published"|"file"|"default",
+"at_central", "texts": [{"lang", "updated", "markdown"}]}}` (`null` without
+terms); `POST /admin/terms {"version", "texts": [{"lang", "updated"?,
+"markdown"}]}` publishes a new version and puts it in force (`201` with the
+same answer; `400` with a sentence for texts out of bounds, `409` for a
+version published before: a published version never changes, so a changed
+text needs a new version); `GET /admin/terms/versions` → every published
+version, newest first, with when and by whom. Each publish writes an audit
+line naming the admin and the version, never the text.
+
+The repository's `docs/terms-placeholder.md` (a file) and
+`docs/terms-placeholder/` (a directory, `de` and `en`) are placeholders for
+testing the sheet and are not legal text; no deploy reads them.
+
+The client below is the local-account path. Accepting at Central for a
+Central-bound session, *later* (signed out of the gateway) and *delete my
+data here* are the client's next change; gateway and client ship in one
+release, never the gateway alone.
 
 The client (WP1, `baylee-client-core::terms`, `lobby::front::terms`): a
 sign-in's `terms_stale` is read off the answer before its event; `true`

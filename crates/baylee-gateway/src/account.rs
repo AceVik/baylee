@@ -43,8 +43,12 @@ pub async fn delete_account(
     headers: HeaderMap,
     Json(farewell): Json<Farewell>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
-    let session = crate::authed_session(&state, &headers).await?;
-    if !session.guest {
+    // Open to a session that has not accepted the terms in force: deleting
+    // one's data here is one of the three answers the terms sheet offers.
+    let session = crate::authed_session_any_terms(&state, &headers).await?;
+    // A Central-bound session was just checked live at Baylee Central, and
+    // its account has no password here to name again.
+    if !session.guest && !session.central {
         let account = store::account(&state.db, &session.account_id)
             .await
             .map_err(|e| db_down(&e))?

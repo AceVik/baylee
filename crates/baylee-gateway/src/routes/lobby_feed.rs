@@ -33,7 +33,8 @@ pub(crate) async fn lobby_ws(
         {
             Some(resolved)
                 if resolved.account_id == account_id
-                    && crate::moderation::admit(&resolved).is_ok() =>
+                    && crate::moderation::admit(&resolved).is_ok()
+                    && crate::terms_admit(&resolved).is_ok() =>
             {
                 (account_id, session)
             }
@@ -50,6 +51,7 @@ pub(crate) async fn lobby_ws(
             .map_err(|status| err(status, TICKET_REFUSED))?
             .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
         crate::moderation::admit(&session)?;
+        crate::terms_admit(&session)?;
         (session.account_id, digest)
     };
     Ok(ws.on_upgrade(move |socket| {

@@ -37,6 +37,6 @@ pub(crate) use signin::*;
 pub(crate) use stats::*;
 pub(crate) use table_view::*;
 pub(crate) use tables::*;
-pub(crate) use terms::mark_stale;
+pub(crate) use terms::mark_standing;
 pub(crate) use tickets::*;
 pub(crate) use watch::*;
