@@ -130,12 +130,7 @@ mod tests {
 
     #[test]
     fn scratch_directories_and_other_web_pages_set_nothing() {
-        let quiet = [
-            ".claude/x.md",
-            "web/site/index.html",
-            "",
-            "  ",
-        ];
+        let quiet = [".claude/x.md", "web/site/index.html", "", "  "];
         assert_eq!(of(&quiet), Classes::default());
     }
 

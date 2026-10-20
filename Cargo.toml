@@ -112,7 +112,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # baylee-update): compiles a one-line `.rc` with the SDK's `rc.exe` and links
 # it. Only ever a build-dependency for a Windows *target*; without `toml` it
 # adds only `version_check`, which the lockfile already has.
-winresource = { version = "0.1.31", default-features = false }
+winresource = { version = "0.1.34", default-features = false }
 # `winit::window::Icon` for the window icon (`baylee-client` `window_icon.rs`):
 # bevy_winit re-exports no icon type. The same 0.30 bevy resolves, no
 # features of its own, so it is the one copy bevy already builds.
@@ -167,7 +167,7 @@ flate2 = "1"
 # ONNX Runtime for the trained AI's own player (`baylee-train`, feature
 # `onnx`, trainer-only). Pinned exactly: 2.0 is still a release candidate.
 # Nothing builds it by default, so CI never downloads the runtime.
-ort = { version = "=2.0.0-rc.13", default-features = false }
+ort = { version = "=2.0.0-rc.15", default-features = false }
 base64 = "0.23"
 # The client's updater (`baylee-update`, #326). `semver` orders release tags,
 # pre-releases included, and was already in the tree. `ed25519-dalek` checks

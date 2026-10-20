@@ -147,7 +147,7 @@ fn open(path: &Path) -> anyhow::Result<Session> {
     fn err(e: impl std::fmt::Display) -> anyhow::Error {
         anyhow!("{e}")
     }
-    let builder = Session::builder().map_err(err)?;
+    let builder = Session::builder(crate::onnx::environment().map_err(err)?).map_err(err)?;
     #[cfg(feature = "onnx-cuda")]
     let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cpu") {
         builder

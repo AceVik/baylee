@@ -29,6 +29,8 @@ pub mod llmchair;
 pub mod netplay;
 #[cfg(feature = "onnx")]
 pub mod netplay3;
+#[cfg(feature = "onnx")]
+pub mod onnx;
 #[cfg(feature = "play")]
 pub mod policy;
 #[cfg(feature = "play")]

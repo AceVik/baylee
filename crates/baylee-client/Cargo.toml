@@ -216,7 +216,7 @@ winresource.workspace = true
 
 # Dock identity for direct/cargo launches as well as packaged .app launches.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.4"
+objc2 = "0.6.5"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSImage"] }
 # `NSProcessInfo`/`NSString`: a passive dev-control window's process
 # activity against App Nap (`devctl::keep_a_passive_window_awake`).
