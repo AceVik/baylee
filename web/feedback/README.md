@@ -64,11 +64,12 @@ holds the page to that.
 ## Dependencies and their licences
 
 Every version is exact, and `package-lock.json` is committed so `npm ci`
-installs the same tree. What ships to the browser is only React:
+installs the same tree. What ships to the browser is React and Fluent:
 
 | package | version | licence | why |
 | --- | --- | --- | --- |
-| react, react-dom | 19.3.0 | MIT | the UI (with `scheduler`, MIT) |
+| react, react-dom | 19.3.1 | MIT | the UI (with `scheduler`, MIT) |
+| @fluent/bundle | 0.19.1 | Apache-2.0 | the UI's words in each language (§"Its words"); no dependencies |
 
 Build and test only, never shipped:
 
@@ -80,8 +81,8 @@ Build and test only, never shipped:
 | jsdom | 29.1.1 | MIT | the DOM for those tests |
 | @testing-library/react | 16.3.3 | MIT | component tests |
 | @testing-library/user-event | 14.6.8 | MIT | typing and clicking in them |
-| oxlint | 1.88.0 | MIT | lint |
-| @playwright/test | 1.64.0 | Apache-2.0 | end-to-end tests |
+| oxlint | 1.89.0 | MIT | lint |
+| @playwright/test | 1.64.1 | Apache-2.0 | end-to-end tests |
 | postgres | 3.4.9 | Unlicense | the e2e harness's schema, nothing else |
 | @types/react, @types/react-dom | 19.3.0 | MIT | types |
 | @types/node | 24.19.2 | MIT | types for the e2e harness |
@@ -91,11 +92,11 @@ On the Node 22 line, jsdom 30 and some of its dependencies require at
 least 22.22.2. The complete lockfile, including optional platform packages,
 was checked against 22.22.1, and `npm ci --engine-strict` succeeds on it.
 
-The whole locked tree (14.10.2026): 116 MIT, 28 Apache-2.0, 12 MPL-2.0
+The whole locked tree (20.10.2026): 116 MIT, 29 Apache-2.0, 12 MPL-2.0
 (lightningcss and its platform builds), 2 each of ISC, BSD-2-Clause,
 BSD-3-Clause and MIT-0, and one each of BlueOak-1.0.0, CC0-1.0 and
-Unlicense. All are compatible with AGPL-3.0; none of the non-MIT ones
-reaches the built page.
+Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
+`@fluent/bundle` (Apache-2.0) reaches the built page.
 
 ## Using it
 
@@ -225,3 +226,27 @@ reaches the built page.
 
   The admin area and the reports (since beta.7) are in German when the
   browser asks for German, else English; the sign-in form is English only.
+
+## Its words
+
+The UI's words are Project Fluent files, `locales/<lang>/feedback.ftl`, one
+per language, held to the rules and the glossary of `docs/translations.md`.
+English decides which messages exist and which arguments each takes; another
+language only translates. `src/i18n.ts` parses each file once into a
+`FluentBundle` (without bidi isolation marks, which would reach the DOM) and
+keeps the call sites' API: `t(lang, "contact.summary", { open: 3 })` names
+the message `contact-summary`, because a Fluent id takes no dot, and a
+message a language lacks reads in English, a key English lacks as itself.
+`src/i18n-keys.ts` lists every id as call sites spell it, so a misspelt key
+does not compile. A number passed as an argument is written as the language
+writes it (1,234, 1.234) and picks the plural form by CLDR's rules
+(`{ $n -> [one] … *[other] … }`), so a count is passed as a number and an
+identifier (an issue number, a version) as a string.
+
+`src/i18n.test.ts` refuses a file the parser skipped a line of, an id written
+twice, a language without a file (or a file without a language), a message
+missing from a language or not in English, a message reading other arguments
+than its English one, a plural form the language does not have, and a
+message that fails to format; it also holds `src/i18n-keys.ts` to the English
+file. A language is added in `src/i18n.ts` (an import of its file and an
+entry in `LANGS` with its locale) and nowhere else in the code.

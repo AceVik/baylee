@@ -107,7 +107,7 @@ const SIZES = [
 ] as const;
 
 const WORDS = {
-  "de-DE": { section: "Modelle", title: "Sprachmodelle", key: "Schlüssel…", send: "Schlüssel senden", del: "Löschen", sent: "Schlüssel gesendet.", removed: "Profil entfernt.", on: "Eingeschaltet", edit: "Bearbeiten", fallback: "Ausweichprofil", tokens: "Tokens je Partie", save: "Speichern", saved: "Profil gespeichert." },
+  "de-DE": { section: "Modelle", title: "Sprachmodelle", key: "Schlüssel…", send: "Schlüssel senden", del: "Löschen", sent: "Schlüssel gesendet.", removed: "Profil entfernt.", on: "Eingeschaltet", edit: "Bearbeiten", fallback: "Ausweichprofil", tokens: "Tokens pro Partie", save: "Speichern", saved: "Profil gespeichert." },
   "en-GB": { section: "Models", title: "Language models", key: "Key…", send: "Send key", del: "Delete", sent: "Key sent.", removed: "Profile removed.", on: "Enabled", edit: "Edit", fallback: "Fallback profile", tokens: "Tokens per game", save: "Save", saved: "Profile saved." },
 } as const;
 

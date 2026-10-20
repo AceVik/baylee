@@ -205,7 +205,7 @@ function Headline({
         value={n(stats.games.running)}
         testId="running"
         to={adminPath("live")}
-        sub={t(lang, "kpi.gamesSub", { waiting: n(stats.games.waiting) })}
+        sub={t(lang, "kpi.gamesSub", { waiting: stats.games.waiting })}
       />
       {offline !== null && (
         <Kpi

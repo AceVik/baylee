@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { Refused } from "../api";
-import { t, type Lang } from "../i18n";
+import { localeOf, t, type Lang } from "../i18n";
 import { navigate } from "../router";
 
 /** How often the numbers are asked again while the page is visible. */
@@ -204,7 +204,7 @@ export function Freshness({ lang, at, shown }: { lang: Lang; at: string | null; 
         <>
           <span className="pulse" aria-hidden="true" />
           {t(lang, "admin.updated", {
-            time: new Intl.DateTimeFormat(lang === "de" ? "de-DE" : "en-GB", { timeStyle: "medium" }).format(
+            time: new Intl.DateTimeFormat(localeOf(lang), { timeStyle: "medium" }).format(
               new Date(at),
             ),
           })}

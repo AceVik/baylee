@@ -347,13 +347,13 @@ function AccessEditor({
             )}
             {plan.add.length > 0 && (
               <li>
-                {t(lang, "access.reviewAdd", { n: formatCount(lang, plan.add.length) })}{" "}
+                {t(lang, "access.reviewAdd", { n: plan.add.length })}{" "}
                 <span className="muted">{plan.add.map((p) => p.handle).join(", ")}</span>
               </li>
             )}
             {plan.remove.length > 0 && (
               <li>
-                {t(lang, "access.reviewRemove", { n: formatCount(lang, plan.remove.length) })}{" "}
+                {t(lang, "access.reviewRemove", { n: plan.remove.length })}{" "}
                 <span className="muted">{plan.remove.map((p) => p.handle).join(", ")}</span>
               </li>
             )}

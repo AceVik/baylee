@@ -154,7 +154,7 @@ export function AccountDetail({ lang, id }: { lang: Lang; id: string }) {
                       <strong>{deck.name}</strong>
                       <span className="muted small">
                         {deck.format} · {t(lang, "det.cards", { n: formatCount(lang, deck.cards) })} ·{" "}
-                        {t(lang, "det.version", { n: deck.version })} ·{" "}
+                        {t(lang, "det.version", { n: String(deck.version) })} ·{" "}
                         {t(lang, "det.updated", { when: formatAgo(lang, deck.updated_at, now) })}
                       </span>
                     </li>

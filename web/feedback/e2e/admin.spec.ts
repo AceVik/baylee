@@ -24,7 +24,7 @@ const SIZES: Size[] = [
 ];
 
 const WORDS = {
-  "de-DE": { tab: "Admin", registered: "Registrierte Konten", accounts: "Konten", live: "Live", sets: "Sets" },
+  "de-DE": { tab: "Admin", registered: "Registrierte Accounts", accounts: "Accounts", live: "Live", sets: "Sets" },
   "en-GB": { tab: "Admin", registered: "Registered accounts", accounts: "Accounts", live: "Live", sets: "Sets" },
 } as const;
 
@@ -184,7 +184,7 @@ test.describe("keys", () => {
     await page.getByLabel("Note (who it is for)").fill("for the e2e");
     await page.getByRole("button", { name: "Make keys" }).click();
 
-    const made = page.getByRole("region", { name: "2 new key(s): shown only now" });
+    const made = page.getByRole("region", { name: "2 new keys: shown only now" });
     await expect(made).toBeVisible();
     await expect(made.getByRole("heading")).toBeFocused();
     const keys = await made.locator("input.key").evaluateAll((inputs) =>

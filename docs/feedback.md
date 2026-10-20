@@ -559,6 +559,15 @@ its first four characters; `web/feedback/src/reports/alias.ts`), which is
 stable per reporter and per gateway and says nothing more than the hex
 does.
 
+**Its words** are Project Fluent files, one per language,
+`web/feedback/locales/<lang>/feedback.ftl` (English and German today). The
+page speaks the browser's language when it has a file for it, else English;
+the sign-in form is English only. English decides which messages exist and
+which arguments each takes, and the UI's tests refuse a language that lacks
+a message or reads other arguments; `docs/translations.md` has the rules and
+the German glossary, `web/feedback/README.md` §"Its words" how the UI reads
+the files.
+
 ### Admins: `baylee-feedback admin …`
 
 Admins are kept in the service's database and are made only on the server,

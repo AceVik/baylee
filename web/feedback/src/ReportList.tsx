@@ -38,7 +38,7 @@ import {
 } from "./api";
 import { firstLine } from "./github";
 import { formatBytes } from "./format";
-import { formatCount, kindLabel, sortLabel, statusLabel, t, type Key, type Lang } from "./i18n";
+import { formatCount, kindLabel, localeOf, sortLabel, statusLabel, t, type Key, type Lang } from "./i18n";
 import { BulkBar } from "./reports/BulkBar";
 import { CrashGroups } from "./reports/CrashGroups";
 import { Drawer } from "./reports/Drawer";
@@ -726,7 +726,7 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
           <span className="freshness muted small" aria-live="polite">
             {updatedAt !== null &&
               t(lang, "rep.updated", {
-                time: new Intl.DateTimeFormat(lang === "de" ? "de-DE" : "en-GB", { timeStyle: "short" }).format(
+                time: new Intl.DateTimeFormat(localeOf(lang), { timeStyle: "short" }).format(
                   new Date(updatedAt),
                 ),
               })}

@@ -255,7 +255,7 @@ export function Live({ lang }: { lang: Lang }) {
                     <strong>{agent.name}</strong>
                     {agent.local && <Badge tone="info">{t(lang, "live.local")}</Badge>}
                     <span className="muted small">
-                      {t(lang, "live.agentGames", { n: formatCount(lang, agent.games) })} ·{" "}
+                      {t(lang, "live.agentGames", { n: agent.games })} ·{" "}
                       {agent.capacity === 0
                         ? t(lang, "live.unlimited")
                         : t(lang, "live.capacity", { n: formatCount(lang, agent.capacity) })}

@@ -170,7 +170,7 @@ describe("the server on the live page", () => {
     });
     render(<Admin lang="de" section="live" />);
     const server = within(await screen.findByRole("region", { name: "Server" }));
-    expect(server.getByTestId("m-cpu").textContent).toBe("CPU—CPU, die letzte Stunde");
+    expect(server.getByTestId("m-cpu").textContent).toBe("CPU—CPU, letzte Stunde");
     expect(server.getByTestId("m-net").textContent).toContain("↓ —");
     expect(server.getByTestId("m-up").textContent).toContain("dieser Gateway-Prozess");
     expect(server.getByText(/Nur unter Linux/)).toBeTruthy();
