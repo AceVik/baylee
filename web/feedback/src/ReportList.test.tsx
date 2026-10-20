@@ -348,6 +348,28 @@ describe("the report list", () => {
     ]);
   });
 
+  test("a report trashed in the drawer leaves the list, and its Undo brings it back", async () => {
+    const calls = start(3, (call) =>
+      call.method === "DELETE" || call.url.endsWith("/restore") ? { status: 204 } : undefined,
+    );
+    render(<Page />);
+    await screen.findAllByRole("row");
+    await userEvent.keyboard("{Enter}");
+    const drawer = await screen.findByTestId("drawer");
+    await userEvent.click(await within(drawer).findByRole("button", { name: "Move to trash" }));
+    expect(await screen.findByText("Report moved to the trash.")).toBeTruthy();
+    expect(screen.queryByTestId("drawer")).toBeNull();
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    const asked = calls.filter((c) => c.url.startsWith("/ui/api/reports?")).length;
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(await screen.findByText("Report restored.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getAllByRole("row")).toHaveLength(4);
+    });
+    expect(calls.filter((c) => c.url.startsWith("/ui/api/reports?")).length).toBeGreaterThan(asked);
+    expect(calls.some((c) => c.url === "/ui/api/reports/id-1/restore" && c.method === "POST")).toBe(true);
+  });
+
   test("m assigns to me, and again to nobody", async () => {
     const calls = start();
     render(<Page />);

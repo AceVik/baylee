@@ -366,6 +366,16 @@ async fn a_duplicate_names_an_original_and_its_own_duplicates_follow_it() {
         service.trail(&cookie, &b).await.last().cloned(),
         Some(line(NAME, "duplicate", Some(&d)))
     );
+    // Unmarked, it is no duplicate and goes back to triaged.
+    let unmarked = service
+        .patch(&cookie, &c, json!({ "duplicate_of": null }))
+        .await
+        .json();
+    assert_eq!(
+        (&unmarked["status"], &unmarked["duplicate_of"]),
+        (&json!("triaged"), &Value::Null)
+    );
+    assert!(unmarked["done_at"].is_null());
     // Reopened, it is nobody's duplicate any more.
     let reopened = service
         .patch(&cookie, &b, json!({ "status": "new" }))

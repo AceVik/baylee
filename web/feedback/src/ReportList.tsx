@@ -1046,6 +1046,12 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
             setDrawer(null);
           }}
           onChanged={(updated) => {
+            // A report the list no longer has (restored from the trash by
+            // the drawer's undo) comes back by asking the list again.
+            if (current.current !== null && !current.current.reports.some((r) => r.id === updated.id)) {
+              load(false);
+              return;
+            }
             setListing((was) =>
               was === null ? was : { ...was, reports: was.reports.map((r) => (r.id === updated.id ? updated : r)) },
             );

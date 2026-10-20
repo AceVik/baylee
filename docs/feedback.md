@@ -495,8 +495,8 @@ What an admin decides about a report, beside its status
 - **Labels:** at most 16, each lowercase letters, digits and dashes, 1–32
   characters; kept sorted, once each.
 - **Duplicate of:** the report it duplicates. Marking one sets the status
-  `duplicate` (unless the change names another); leaving that status
-  clears it. The original is never a duplicate itself: one level only, and
+  `duplicate` and unmarking it `triaged` (unless the change names
+  another); leaving that status clears it. The original is never a duplicate itself: one level only, and
   a report that becomes a duplicate hands its own duplicates on to its
   original, so no chain or cycle forms.
 - **Revision:** every change moves it on. A change may name the revision

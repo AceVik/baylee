@@ -924,10 +924,13 @@ async fn plan(
             differs(&now.duplicate_of, Some(original))
         }
     };
-    let wanted = change
-        .status
-        .map(Status::name)
-        .or_else(|| matches!(duplicate_of, Some(Some(_))).then_some("duplicate"));
+    // Marked as a duplicate, it is one; no longer one of a report, and
+    // with no status named, it goes back to triaged.
+    let wanted = change.status.map(Status::name).or(match duplicate_of {
+        Some(Some(_)) => Some("duplicate"),
+        Some(None) if now.status == "duplicate" => Some("triaged"),
+        _ => None,
+    });
     let status = wanted.filter(|s| *s != now.status);
     let final_status = status.unwrap_or(now.status.as_str());
     if final_status != "duplicate" && duplicate_of.is_none() && now.duplicate_of.is_some() {
@@ -1050,9 +1053,10 @@ async fn write(
 
 /// Changes report `id` in `tx` as `actor`: only what differs is written,
 /// each part with its audit line. A report marked as another's duplicate
-/// gets the status `duplicate`; one that leaves that status is nobody's
-/// duplicate any more; the duplicates of a report that becomes a duplicate
-/// move on to its original, so no chain forms.
+/// gets the status `duplicate`, and one no longer marked goes back to
+/// `triaged`; one that leaves that status is nobody's duplicate any more;
+/// the duplicates of a report that becomes a duplicate move on to its
+/// original, so no chain forms.
 async fn change_one(
     tx: &impl ConnectionTrait,
     id: Uuid,
