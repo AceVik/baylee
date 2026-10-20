@@ -45,9 +45,13 @@ impl Gateway {
     }
 
     fn answer(mut stream: TcpStream, lines: &Mutex<Vec<String>>) {
-        if stream
-            .set_write_timeout(Some(Duration::from_millis(250)))
-            .is_err()
+        // An accepted socket inherits the listener's non-blocking mode on
+        // macOS and the BSDs: a read before the request arrived returned
+        // `WouldBlock`, and the connection was closed unanswered.
+        if stream.set_nonblocking(false).is_err()
+            || stream
+                .set_write_timeout(Some(Duration::from_millis(250)))
+                .is_err()
         {
             return;
         }
