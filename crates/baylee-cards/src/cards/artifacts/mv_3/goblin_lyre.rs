@@ -20,7 +20,7 @@ card!(
                 target: TargetSpec::OpponentOrObject(&Filter::PLANESWALKER),
                 amount: Amount::ControlledCount {
                     who: PlayerRel::You,
-                    filter: &Filter::CREATURE,
+                    filter: &Filter::YOUR_CREATURE,
                 },
             }],
             lost: &[Effect::DealDamage {

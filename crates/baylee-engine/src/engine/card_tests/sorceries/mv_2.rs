@@ -3,12 +3,14 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod altar_of_bone;
 mod balance;
 mod braingeyser;
 mod channel;
 mod damn;
 mod death_stroke;
 mod demonic_tutor;
+mod diabolic_vision;
 mod drain_life;
 mod drain_power;
 mod expressive_iteration;
@@ -17,6 +19,7 @@ mod farseek;
 mod finale_of_devastation;
 mod fire_ambush;
 mod fit_of_rage;
+mod gaze_of_pain;
 mod hunger_of_the_nim;
 mod martyr_s_cry;
 mod monstrous_growth;
@@ -29,6 +32,7 @@ mod regrowth;
 mod reshape;
 mod sacred_nectar;
 mod shatterskull_smashing;
+mod sign_in_blood;
 mod sinkhole;
 mod soul_exchange;
 mod stump_stomp;
@@ -39,10 +43,4 @@ mod time_walk;
 mod vicious_hunger;
 mod volcanic_hammer;
 mod wielding_the_green_dragon;
-
-mod sign_in_blood;
 mod word_of_binding;
-
-mod altar_of_bone;
-
-mod diabolic_vision;

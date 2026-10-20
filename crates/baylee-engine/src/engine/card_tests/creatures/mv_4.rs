@@ -3,7 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abyssal_specter;
 mod advanced_hoverguard;
+mod aeronaut_admiral;
+mod akroan_mastiff;
 mod akroma_s_devoted;
 mod alaborn_cavalier;
 mod aladdin;
@@ -19,16 +22,20 @@ mod archaeomancer;
 mod archivist;
 mod argothian_swine;
 mod armored_griffin;
+mod ashen_ghoul;
 mod aurochs;
 mod aven_cloudchaser;
 mod aven_fogbringer;
 mod aven_trooper;
+mod ayesha_tanaka;
 mod azure_drake;
 mod balshan_collaborator;
 mod banshee;
 mod benalish_heralds;
 mod blessed_orator;
+mod blinking_spirit;
 mod bog_wraith;
+mod bone_shaman;
 mod brine_hag;
 mod cackling_imp;
 mod carnivorous_plant;
@@ -47,6 +54,7 @@ mod dragon_whelp;
 mod dungeon_shade;
 mod ekundu_griffin;
 mod emeritus_of_woe;
+mod emiel_the_blessed;
 mod erhnam_djinn;
 mod ertai_resurrected;
 mod fetid_horror;
@@ -61,6 +69,7 @@ mod flowstone_giant;
 mod fungusaur;
 mod furnace_whelp;
 mod gemrazer;
+mod general_jarkeld;
 mod giant_mantis;
 mod giant_spider;
 mod glimmering_angel;
@@ -68,9 +77,12 @@ mod glowing_anemone;
 mod goblin_berserker;
 mod goblin_clearcutter;
 mod goblin_gardener;
+mod goblin_mutant;
 mod goblin_settler;
+mod goblin_snowman;
 mod goblin_wizard;
 mod halberdier;
+mod halfdane;
 mod harmattan_efreet;
 mod hawkeater_moth;
 mod herd_gnarr;
@@ -92,6 +104,7 @@ mod kongming_sleeping_dragon;
 mod krosan_archer;
 mod lava_hounds;
 mod leonin_abunas;
+mod lesser_werewolf;
 mod lightning_angel;
 mod lightning_elemental;
 mod lightning_hounds;
@@ -163,6 +176,7 @@ mod talruum_minotaur;
 mod teroh_s_faithful;
 mod the_fallen;
 mod thrun_the_last_troll;
+mod tidepool_turtle;
 mod tormented_angel;
 mod trench_wurm;
 mod trenching_steed;
@@ -181,40 +195,17 @@ mod volcano_imp;
 mod vulshok_berserker;
 mod vulshok_war_boar;
 mod wall_of_swords;
+mod wall_of_vapor;
 mod war_elephant;
 mod war_mammoth;
 mod wartime_protestors;
 mod waterspout_djinn;
 mod wild_elephant;
+mod willow_satyr;
 mod wirewood_channeler;
 mod witch_enchanter;
 mod witch_hunter;
+mod wolverine_pack;
 mod world_shaper;
 mod yawgmoth_thran_physician;
-
-mod wall_of_vapor;
-
-mod wolverine_pack;
-
-mod lesser_werewolf;
-
-mod willow_satyr;
-
-mod emiel_the_blessed;
-
-mod ayesha_tanaka;
-
-mod halfdane;
-
-mod akroan_mastiff;
-
 mod zarichi_tiger;
-
-mod aeronaut_admiral;
-
-mod tidepool_turtle;
-
-mod abyssal_specter;
-mod ashen_ghoul;
-mod blinking_spirit;
-mod bone_shaman;

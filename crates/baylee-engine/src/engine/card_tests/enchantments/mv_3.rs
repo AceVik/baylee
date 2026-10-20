@@ -37,6 +37,7 @@ mod gravity_sphere;
 mod growing_rites_of_itlimoc;
 mod hadana_s_climb;
 mod hanna_s_custody;
+mod hecatomb;
 mod heroism;
 mod infernal_tribute;
 mod insight;

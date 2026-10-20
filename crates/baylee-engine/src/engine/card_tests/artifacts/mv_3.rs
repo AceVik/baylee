@@ -3,6 +3,10 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abzan_banner;
+mod aegis_of_the_meek;
+mod arcane_encyclopedia;
+mod arcum_s_whistle;
 mod ashnod_s_altar;
 mod basalt_monolith;
 mod bloodstone_cameo;
@@ -14,25 +18,36 @@ mod celestial_prism;
 mod chromatic_lantern;
 mod commander_s_sphere;
 mod crucible_of_worlds;
+mod crystal_ball;
 mod darksteel_ingot;
 mod disrupting_scepter;
 mod draconian_cylix;
 mod dragon_blood;
 mod drake_skull_cameo;
 mod ebony_horse;
+mod elkin_bottle;
 mod eye_of_ramos;
 mod forcefield;
+mod goblin_lyre;
 mod heart_of_ramos;
 mod honor_worn_shaku;
 mod horn_of_ramos;
 mod inspirit_flagship_vessel;
 mod jalum_tome;
+mod mana_geode;
 mod mana_prism;
+mod manalith;
 mod matzalantli_the_great_door;
 mod nuisance_engine;
+mod obelisk_of_bant;
+mod obelisk_of_esper;
+mod obelisk_of_grixis;
+mod obelisk_of_jund;
+mod obelisk_of_naya;
 mod phyrexian_altar;
 mod phyrexian_lens;
 mod phyrexian_vault;
+mod scepter_of_insight;
 mod scrapheap;
 mod seashell_cameo;
 mod skull_of_ramos;
@@ -45,26 +60,8 @@ mod tigereye_cameo;
 mod tooth_of_ramos;
 mod troll_horn_cameo;
 mod war_chariot;
+mod war_horn;
 mod whetstone;
 mod worn_powerstone;
-
-mod arcane_encyclopedia;
-mod crystal_ball;
-mod manalith;
-mod obelisk_of_bant;
-mod obelisk_of_esper;
-mod obelisk_of_grixis;
-mod obelisk_of_jund;
-mod obelisk_of_naya;
-mod scepter_of_insight;
-mod war_horn;
 mod worry_beads;
-
-mod abzan_banner;
-mod mana_geode;
 mod zelyon_sword;
-
-mod aegis_of_the_meek;
-mod arcum_s_whistle;
-
-mod elkin_bottle;

@@ -10,7 +10,7 @@ card!(
     oracle_id = "f06fca68-593b-4fbd-a5a9-618060311172",
     scryfall_id = "be69ba4b-934f-4ee8-849a-0df5a61ee804",
     color_identity = ColorSet::from_slice(&[Color::Green, Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hymn of Rebirth",
         mana_cost = mana!("{3}{G}{W}"),

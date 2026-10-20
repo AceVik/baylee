@@ -5125,3 +5125,27 @@ resolved battle-damage holds:
 - Not modelled: CR 508.1f taps the attackers before the costs are paid. The
   window runs before they are tapped, so an attacker that taps itself for mana
   there makes the declaration illegal at settlement, and it is undone.
+
+## 2026-10-20 — Ice Age (`ice`) batches 1–4 (100 cards + 1 unplayable)
+
+- Added `Effect::AtNextTurnsUpkeep` (`DelayedWhen::NextTurnsUpkeep`),
+  `ManaUse::CumulativeUpkeep`, and `Filter::HasCumulativeUpkeep` to `baylee-cards-dsl`
+  and `baylee-engine`, and taught `scriptgen` to transcode *Ice Age* slowtrips
+  (*"Draw a card at the beginning of the next turn's upkeep"*), `K:Cumulative upkeep`,
+  `PumpAll`, and snow landwalk.
+- Implemented and played 100 *Ice Age* first-printing cards across 4 batches of 25
+  (`Abyssal Specter` to `Icy Prison`, 75 `Coverage::Implemented`, 25 `Coverage::Partial`)
+  and recorded `Amulet of Quoz` (ante) in `data/unplayable.tsv`.
+- Key card-authoring and testing lessons:
+  - When hand-implementing a card stub, always remove the `// GENERATED STUB` comment
+    line; otherwise two-phase `xtask codegen` treats the file as an un-adopted stub
+    and overwrites the hand-written implementation.
+  - Raised the custom-counter ceiling in `crates/baylee-cards/src/lints/tests/entries.rs`
+    from `100` to `130` as *Ice Age* adds `counters::AGE`, `counters::ICE`,
+    `counters::DRIFT`, and `counters::ECHO` carriers.
+  - `cast_with_floating` may spend colored mana from the pool to pay generic costs
+    if multiple colors are floated up front; float exact mana per spell when casting
+    multiple spells in sequence in a test.
+  - `lk::attack` advances out of `Phase::FirstMain`, which empties all players'
+    mana pools (CR 500.4); float mana for combat-step activations (`Grizzled Wolverine`,
+    `Giant Trap Door Spider`) after entering the combat step where the ability is used.

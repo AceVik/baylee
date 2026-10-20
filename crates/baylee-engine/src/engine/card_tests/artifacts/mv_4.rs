@@ -16,6 +16,7 @@ mod flying_carpet;
 mod fodder_cannon;
 mod gauntlet_of_might;
 mod goblin_cannon;
+mod ice_cauldron;
 mod icy_manipulator;
 mod jade_monolith;
 mod jade_statue;

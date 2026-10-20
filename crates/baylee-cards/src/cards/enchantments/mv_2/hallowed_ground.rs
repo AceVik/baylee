@@ -16,7 +16,7 @@ card!(
     oracle_id = "ee8fd844-4551-4e44-9740-00d2e76eb337",
     scryfall_id = "d9b65d56-7e8c-4864-8ccf-ee2e2190acda",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Hallowed Ground",
         mana_cost = mana!("{1}{W}"),

@@ -20,6 +20,7 @@ mod flaming_sword;
 mod giant_strength;
 mod greel_s_caress;
 mod hero_s_resolve;
+mod hot_springs;
 mod illuminated_wings;
 mod indomitable_will;
 mod inertia_bubble;

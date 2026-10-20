@@ -44,6 +44,7 @@ mod gemstone_mine;
 mod great_hall_of_the_citadel;
 mod grove_of_the_burnwillows;
 mod guildmages_forum;
+mod halls_of_mist;
 mod henge_of_ramos;
 mod horizon;
 mod koskun_keep;

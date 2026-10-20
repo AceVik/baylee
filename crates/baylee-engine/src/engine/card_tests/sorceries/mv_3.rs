@@ -26,6 +26,7 @@ mod grim_tutor;
 mod healing_hands;
 mod howling_fury;
 mod ice_storm;
+mod icequake;
 mod inquisition;
 mod jovial_evil;
 mod kodama_s_reach;

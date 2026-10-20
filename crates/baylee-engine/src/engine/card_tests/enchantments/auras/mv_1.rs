@@ -25,6 +25,7 @@ mod firebreathing;
 mod flight;
 mod frog_tongue;
 mod fylgja;
+mod green_scarab;
 mod green_ward;
 mod holy_armor;
 mod holy_strength;

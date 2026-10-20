@@ -7,22 +7,29 @@ mod an_offer_you_can_t_refuse;
 mod ancestral_recall;
 mod annul;
 mod artifact_blast;
+mod avoid_fate;
 mod battlegrowth;
 mod berserk;
 mod blaze_of_glory;
 mod blue_elemental_blast;
 mod brainstorm;
 mod brightstone_ritual;
+mod brute_force;
+mod burnt_offering;
 mod burst_of_energy;
 mod camouflage;
 mod chaoslace;
+mod clairvoyance;
 mod crop_rotation;
 mod crumble;
 mod dark_ritual;
 mod death_ward;
 mod deathlace;
+mod demonic_consultation;
 mod demystify;
+mod disfigure;
 mod dwarven_catapult;
+mod dwarven_song;
 mod enchantment_alteration;
 mod enlightened_tutor;
 mod enrage;
@@ -37,15 +44,21 @@ mod fog;
 mod gaea_s_might;
 mod giant_growth;
 mod glyph_of_delusion;
+mod glyph_of_destruction;
 mod glyph_of_doom;
 mod glyph_of_life;
 mod glyph_of_reincarnation;
+mod gravebind;
 mod great_defender;
 mod guardian_angel;
+mod heal;
 mod healing_salve;
 mod heat_ray;
+mod heaven_s_gate;
 mod high_tide;
 mod howl_from_beyond;
+mod hydroblast;
+mod indestructible_aura;
 mod iron_will;
 mod jump;
 mod leap;
@@ -64,6 +77,7 @@ mod oxidize;
 mod path_to_exile;
 mod power_sink;
 mod purelace;
+mod qilin_s_blessing;
 mod quiet_purity;
 mod reach_through_mists;
 mod red_elemental_blast;
@@ -71,8 +85,10 @@ mod remove_enchantments;
 mod rescue;
 mod revitalizing_repast;
 mod righteousness;
+mod rust;
 mod sacrifice;
 mod sandstorm;
+mod sea_kings_blessing;
 mod shock;
 mod shrink;
 mod silence;
@@ -86,8 +102,10 @@ mod sprout;
 mod stand_firm;
 mod swan_song;
 mod swords_to_plowshares;
+mod sylvan_paradise;
 mod thoughtlace;
 mod three_steps_ahead;
+mod touch_of_darkness;
 mod tunnel;
 mod turn_to_dust;
 mod twiddle;
@@ -95,31 +113,4 @@ mod unnatural_speed;
 mod unsummon;
 mod vastwood_fortification;
 mod wirewood_pride;
-
-mod dwarven_song;
-
-mod heaven_s_gate;
-
-mod sea_kings_blessing;
-
-mod sylvan_paradise;
-
-mod touch_of_darkness;
-
-mod indestructible_aura;
-
-mod glyph_of_destruction;
-
-mod rust;
-
-mod avoid_fate;
-
-mod brute_force;
-mod disfigure;
 mod wring_flesh;
-
-mod qilin_s_blessing;
-
-mod burnt_offering;
-mod clairvoyance;
-mod demonic_consultation;
