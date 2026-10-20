@@ -137,7 +137,7 @@ pub(crate) const NEW_PASSWORD: TabOrder = TabOrder {
 /// acceptance/deletion answers, or Retry if fetching failed.
 pub(crate) const TERMS: TabOrder = TabOrder {
     name: "terms",
-    stops: &["impressum", "text", "retry", "decline", "accept"],
+    stops: &["impressum", "text", "retry", "decline", "later", "accept"],
     modal: true,
 };
 /// The About sheet.

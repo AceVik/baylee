@@ -306,6 +306,11 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
         .try_send(Box::new(move |account| {
             let admission = account.admit(&gateway);
             let stale = admission.as_ref().ok().and_then(|value| value.terms_stale);
+            let central_stale = admission
+                .as_ref()
+                .ok()
+                .and_then(|value| value.central_terms_stale)
+                == Some(true);
             let event = match admission {
                 Ok(mut value) => LobbyEvent::LoggedIn {
                     token: std::mem::take(&mut value.token),
@@ -320,6 +325,14 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                         Box::new(Reply::Terms(super::front::terms::TermsReply::Stale(stale))),
                     ));
                 }
+                // Central's own terms come first: their sheet, then the
+                // gateway's after a fresh admission.
+                if central_stale {
+                    messages.push(Reply::Remote(
+                        epoch,
+                        Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
+                    ));
+                }
                 if let LobbyEvent::LoggedIn { token, .. } = &event
                     && let Some(mut login) = chat_unlock
                         .as_ref()
@@ -329,7 +342,14 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                     login.accept(token);
                     messages.push(Reply::Remote(epoch, Box::new(Reply::VaultLogin(login))));
                 }
+                let landed = matches!(event, LobbyEvent::LoggedIn { .. });
                 messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
+                if landed {
+                    messages.push(Reply::Remote(
+                        epoch,
+                        Box::new(Reply::Terms(super::front::terms::TermsReply::CentralBound)),
+                    ));
+                }
             }
         }))
         .is_ok();

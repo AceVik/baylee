@@ -1216,6 +1216,10 @@ pub struct Lobby {
     rematch_wanted: Option<String>,
     /// The account's deletion, while the player is confirming it (#292).
     deleting: Option<Deletion>,
+    /// The gateway session was opened through Baylee Central: its account
+    /// has no password here, so deleting its data here names none, and its
+    /// terms are accepted at Central (`docs/protocol.md` §"Terms of use").
+    central_bound: bool,
     /// The password typed to confirm it.
     account_password: TextBuffer,
     /// `GET /me`: the handle the account pill names (WP0b-3).
@@ -3049,6 +3053,27 @@ impl Lobby {
         self.focus_epoch += 1;
     }
 
+    /// Whether the session was opened through Baylee Central. Set by the
+    /// shell when it signs in there; any other sign-in clears it.
+    pub fn set_central_bound(&mut self, central: bool) {
+        self.central_bound = central;
+    }
+
+    /// Whether the gateway session was opened through Baylee Central.
+    #[must_use]
+    pub fn central_bound(&self) -> bool {
+        self.central_bound
+    }
+
+    /// Whether confirming the deletion names the password again: a gateway
+    /// account's does, a guest's and a Central-bound one's do not (their
+    /// session is all they have here, and a Central-bound one was just
+    /// checked at Central).
+    #[must_use]
+    pub fn deletion_needs_password(&self) -> bool {
+        matches!(self.performer, Performer::Gateway(_)) && !self.central_bound
+    }
+
     /// The deletion being confirmed, if one is.
     #[must_use]
     pub fn deleting_account(&self) -> Option<&Deletion> {
@@ -3085,8 +3110,10 @@ impl Lobby {
         if self.busy {
             return None;
         }
+        let needs_password = self.deletion_needs_password();
         let deletion = self.deleting.as_mut()?;
         let password = match self.performer {
+            Performer::Gateway(_) if !needs_password => None,
             Performer::Gateway(_) if self.account_password.is_empty() => {
                 deletion.refusal = Some(
                     Phrase::DeleteAccountNeedsPassword
@@ -3309,6 +3336,9 @@ impl Lobby {
                 })
             }
             LobbyEvent::LoggedIn { token, username } => {
+                // Whoever signed in, the shell says again whether it was
+                // through Central (`set_central_bound`), after this event.
+                self.central_bound = false;
                 self.performer = Performer::Gateway(token);
                 self.discover_seats = true;
                 self.reclaimed.clear();

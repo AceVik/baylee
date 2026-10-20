@@ -3481,34 +3481,39 @@ The repository's `docs/terms-placeholder.md` (a file) and
 `docs/terms-placeholder/` (a directory, `de` and `en`) are placeholders for
 testing the sheet and are not legal text; no deploy reads them.
 
-The client below is the local-account path. Accepting at Central for a
-Central-bound session, *later* (signed out of the gateway) and *delete my
-data here* are the client's next change; gateway and client ship in one
-release, never the gateway alone.
-
 The client (WP1, `baylee-client-core::terms`, `lobby::front::terms`): a
 sign-in's `terms_stale` is read off the answer before its event; `true`
 raises the sheet and `GET /terms?lang=` in the interface's language
-(`terms::url`); `false` with `/info.terms` named keeps
-that version as the device's copy (`ClientSettings.terms`, by gateway
-address). A kept guest, which signs in to nothing, is asked when
-`/info.terms` differs from that copy. The sheet renders the Markdown subset
-(`#`/`##`, paragraphs, `**bold**`, `*italic*`, `-`/`1.` lists, `---`, a
-link as its text and address; anything else is text, no HTML is
-interpreted), enables Accept only once the end of the text has been in
-view, posts the version it showed, and on `409` fetches and shows the new
-text. The desktop sheet offers no Not now or sign-out action. Esc keeps
-the session and returns focus to the reading text, or Retry after a failed
-fetch. Decline and delete account (shown with the text) is the
-account's deletion, §"Deleting an account (#292)", unchanged: a session that
-has not accepted the current version may delete its account like any other,
-since no route refuses it. A failed `GET /terms` says "Couldn't load the terms ·
+(`terms::url`); `false` with `/info.terms` named keeps that version as the
+device's copy (`ClientSettings.terms`, by gateway address). A kept guest,
+which signs in to nothing, is asked when `/info.terms` differs from that
+copy. A Central sign-in's `"central_terms_stale": true` shows Baylee
+Central's own terms first (fetched and accepted through the account worker,
+`Account::central_terms`, `accept_terms`), then admits again, which brings
+the gateway's own answer. The sheet renders the Markdown subset (`#`/`##`,
+paragraphs, `**bold**`, `*italic*`, `-`/`1.` lists, `---`, a link as its
+text and address; anything else is text, no HTML is interpreted); under a
+gateway's terms, inside the text that must be read to its end, it adds the
+client's own words on chat (end-to-end encrypted, what the gateway sees,
+what a report sends), true of every gateway since the client does the
+encrypting. Accept works only once the end has been in view. A local
+account posts the version it showed; a Central-bound session accepts at
+Central the version **and digest** it showed (`AcceptTerms`), and is then
+admitted again with the lobby feed redialled. `409`/`Conflict` fetches and
+shows the new text. **Later** (an account's; a guest has none, since a
+guest that signs out loses its decks) signs out, nothing accepted.
+**Decline** is the deletion of one's data here, §"Deleting an account
+(#292)": a local account's account, with its password; a Central-bound
+session's data on this gateway ("Delete my data on this gateway"), naming
+no password; Baylee Central's own terms offer no deletion until Central has
+one (M1). Esc keeps the session and returns focus to the reading text, or
+Retry after a failed fetch. A failed fetch says "Couldn't load the terms ·
 Retry", accepts nothing and keeps the session. Switching the interface's
 language while the sheet is up asks for the text again in the new one
 (`Terms::relang`): the text on the sheet stays until the new one comes, an
 answer to the language left behind is dropped, and the new text must be
-read to its end before Accept works again. The version it posts is the
-same in every language.
+read to its end before Accept works again. The version is the same in
+every language.
 
 ## Deleting an account (#292)
 

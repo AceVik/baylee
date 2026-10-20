@@ -256,6 +256,7 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
                     FrontPress::TermsAccept
                         | FrontPress::TermsRetry
                         | FrontPress::TermsDecline
+                        | FrontPress::TermsLater
                         | FrontPress::OpenImpressum
                 ) | Press::Shared(SharedPress::PickerNothing)
             )
