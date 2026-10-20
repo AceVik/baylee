@@ -17,7 +17,8 @@
 <p align="center">
   <a href="https://baylee.acevik.de/"><b>Website</b></a> ·
   <a href="https://github.com/AceVik/baylee/releases"><b>Download</b></a> ·
-  <a href="https://discord.gg/4pP3uAwgY"><b>Discord</b></a>
+  <a href="https://discord.gg/4pP3uAwgY"><b>Discord</b></a> ·
+  <a href="https://github.com/AceVik/baylee-central"><b>Accounts (Baylee Central)</b></a>
 </p>
 
 <p align="center">
@@ -868,6 +869,20 @@ Baylee's source code is licensed under the
 modified gateway for other people, you must offer them its source; the
 gateway's `GET /source` route does this. The project is free and
 non-commercial, and no feature will ever be sold.
+
+**Additional terms (AGPL section 7).** [NOTICE](NOTICE) adds three terms
+the licence allows: keep the notices, mark a modified version as modified
+and do not pass it off as the official Baylee, and no rights in the names
+"Baylee" and "Baylee Central" or the logo.
+
+**Accounts.** Sign-in goes through Baylee Central, the project's account
+service ([AceVik/baylee-central](https://github.com/AceVik/baylee-central)).
+Its source is public so that anyone can check how it handles their data;
+its server code is source-available, while the client libraries Baylee links
+(`central-api`, `central-client`, `central-crypto`) are AGPL like Baylee.
+Central's terms of use admit only the official clients. Default terms of use
+and a privacy notice template for anyone running a gateway are in
+[docs/gateway-legal](docs/gateway-legal/README.md).
 
 **Fan content.** Baylee is unofficial Fan Content permitted under the
 [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).

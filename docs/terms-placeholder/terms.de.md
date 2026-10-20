@@ -6,8 +6,9 @@
 **Diese Datei ist ein Platzhalter, mit dem sich das Nutzungsbedingungen-Blatt
 in mehr als einer Sprache prüfen lässt (WG-1). Sie ist kein Rechtstext
 und nicht die Bedingungen irgendeines Gateways, und kein Gateway sollte sie
-Spielern zeigen.** Die echten Bedingungen schreibt der Owner; sie liegen nur
-auf dem Server und nie in diesem Repository.
+Spielern zeigen.** Die Standardbedingungen, die jedes Gateway zeigen darf,
+liegen in `docs/gateway-legal/`; die eigenen Bedingungen eines Gateways
+liegen auf seinem Server, nie in diesem Repository.
 
 Nichts liest dieses Verzeichnis, solange kein Betreiber `BAYLEE_TERMS_PATH`
 darauf richtet. Kein Deploy-Skript tut das.

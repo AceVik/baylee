@@ -5662,7 +5662,7 @@ messages! {
     /// The About sheet's title.
     AboutTitle { en: "About Baylee", de: "\u{dc}ber Baylee" },
     /// The About sheet: the licence of this program.
-    AboutLicence { en: "Baylee is free software: you may run, study, share and change it under the GNU Affero General Public License, version 3. Whoever runs a changed gateway offers its players that version\u{2019}s source.", de: "Baylee ist freie Software: Du darfst sie unter der GNU Affero General Public License, Version 3, ausf\u{fc}hren, untersuchen, weitergeben und ver\u{e4}ndern. Wer ein ver\u{e4}ndertes Gateway betreibt, bietet seinen Spielern den Quellcode dieser Fassung an." },
+    AboutLicence { en: "Baylee is free software: you may run, study, share and change it under the GNU Affero General Public License, version 3. Whoever runs a changed gateway offers its players that version\u{2019}s source. A changed version says so and does not pass itself off as the official Baylee (NOTICE).", de: "Baylee ist freie Software: Du darfst sie unter der GNU Affero General Public License, Version 3, ausf\u{fc}hren, untersuchen, weitergeben und ver\u{e4}ndern. Wer ein ver\u{e4}ndertes Gateway betreibt, bietet seinen Spielern den Quellcode dieser Fassung an. Eine ver\u{e4}nderte Fassung sagt das und gibt sich nicht als das offizielle Baylee aus (NOTICE)." },
     /// The About sheet: the heading over the third-party licences.
     AboutThirdParty { en: "Third-party licences", de: "Lizenzen Dritter" },
     /// The About sheet: the interface's and the card text's typefaces.
