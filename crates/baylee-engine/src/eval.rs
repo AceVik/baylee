@@ -281,6 +281,49 @@ pub fn matches_projected_with_context(
                     ) && crate::effects::applies_to(state, fx, obj)
                 })
         }
+        Filter::HasCumulativeUpkeep => {
+            let is_cu = |trigger: &baylee_cards_dsl::Trigger,
+                         effects: &[baylee_cards_dsl::Effect]| {
+                matches!(
+                    trigger,
+                    baylee_cards_dsl::Trigger::StepBegin {
+                        step: baylee_cards_dsl::StepKind::Upkeep,
+                        whose: baylee_cards_dsl::PlayerRel::You,
+                    }
+                ) && matches!(
+                    effects.first(),
+                    Some(baylee_cards_dsl::Effect::AddCounter {
+                        kind: baylee_cards_dsl::counters::AGE,
+                        amount: baylee_cards_dsl::Amount::Fixed(1),
+                    })
+                )
+            };
+            let printed = chars.abilities_lost.is_none()
+                && !chars.rules_text_lost
+                && state.printed_ability_list(obj.id).is_some_and(|list| {
+                    list.abilities.iter().any(|a| {
+                        matches!(
+                            a,
+                            baylee_cards_dsl::AbilityDef::Triggered {
+                                trigger,
+                                effects,
+                                ..
+                            } if is_cu(trigger, effects)
+                        )
+                    })
+                });
+            printed
+                || state.effects.iter().any(|fx| {
+                    matches!(
+                        fx.modifier,
+                        baylee_cards_dsl::Modifier::GrantTriggered {
+                            ref trigger,
+                            effects,
+                            ..
+                        } if is_cu(trigger, effects)
+                    ) && crate::effects::applies_to(state, fx, obj)
+                })
+        }
         Filter::HasAnyCounter => obj.counters.iter().any(|(_, n)| n > 0),
         Filter::Enchanted => state.battlefield_seen().any(|id| {
             state.object(id).is_some_and(|aura| {

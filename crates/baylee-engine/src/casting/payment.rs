@@ -282,11 +282,16 @@ pub(crate) enum SpendFor {
     Other,
     /// A nonspell payment imposed by this exact card or ability source.
     OtherFrom(baylee_core::ids::DamageSourceRef),
+    /// A cumulative upkeep payment (CR 702.24a), optionally naming its source.
+    CumulativeUpkeep(Option<baylee_core::ids::DamageSourceRef>),
 }
 
 impl SpendFor {
     pub(crate) const fn is_other(self) -> bool {
-        matches!(self, Self::Other | Self::OtherFrom(_))
+        matches!(
+            self,
+            Self::Other | Self::OtherFrom(_) | Self::CumulativeUpkeep(_)
+        )
     }
 }
 
@@ -302,8 +307,10 @@ pub(super) fn spending_object(
         SpendFor::SpellAs(card, form) => (card, Some(form), None),
         SpendFor::SpellOnFace(card, face) => (card, None, Some(face)),
         SpendFor::KickedSpell(card, face, form) => (card, form, Some(face)),
-        SpendFor::Other => return None,
-        SpendFor::OtherFrom(source) => return state.source_object(source).map(Cow::Borrowed),
+        SpendFor::Other | SpendFor::CumulativeUpkeep(None) => return None,
+        SpendFor::OtherFrom(source) | SpendFor::CumulativeUpkeep(Some(source)) => {
+            return state.source_object(source).map(Cow::Borrowed);
+        }
     };
     let original = state.object(card)?;
     if let Some(form) = form {
@@ -371,6 +378,8 @@ pub(super) fn admitted_from_pool(
                     || spell
                         .as_ref()
                         .is_some_and(|source| provenance.admits_source_cost(state, source))
+                    || (matches!(what, SpendFor::CumulativeUpkeep(_))
+                        && provenance.admits_cumulative_upkeep(state, spell.as_deref()))
             } else {
                 spell
                     .as_ref()

@@ -330,3 +330,192 @@ fn the_sacrificed_creatures_total_power_is_dealt_then_they_are_exiled() {
         );
     }
 }
+
+const SLOWTRIP_ORB: u32 = 7606;
+const CU_SHRINE: u32 = 7607;
+const CU_FOUNT: u32 = 7608;
+const CU_SHAMAN: u32 = 7609;
+
+static SLOWTRIP_ABILITIES: &[AbilityDef] = &[free(
+    &[Effect::AtNextTurnsUpkeep {
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(3),
+        }],
+    }],
+    None,
+)];
+
+static CU_SHRINE_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+    baylee_cards_dsl::Trigger::StepBegin {
+        step: baylee_cards_dsl::StepKind::Upkeep,
+        whose: PlayerRel::You,
+    },
+    &[
+        Effect::AddCounter {
+            kind: baylee_cards_dsl::counters::AGE,
+            amount: Amount::Fixed(1),
+        },
+        Effect::PlayerMayPayOr {
+            player: PlayerRel::You,
+            mana: Amount::CountersOnSource(baylee_cards_dsl::counters::AGE),
+            effect: &Effect::SacrificeSelf,
+        },
+    ],
+    condition = Some(baylee_cards_dsl::Condition::SourceMatches(&Filter::InZone(
+        baylee_cards_dsl::ZoneRef::Battlefield
+    ))),
+)];
+
+static CU_FOUNT_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::mana_ability!(
+    baylee_cards_dsl::cost!(TapSelf),
+    &[
+        Effect::mana(baylee_core::mana::ManaColor::Blue, 1).restricted_for(
+            &Filter::Any,
+            baylee_cards_dsl::SpendRider::None,
+            baylee_cards_dsl::ManaUse::CumulativeUpkeep,
+        )
+    ],
+)];
+
+static NON_CU_ENCHANTMENT: Filter = Filter::And(&[
+    Filter::ENCHANTMENT,
+    Filter::ControlledByYou,
+    Filter::Not(&Filter::HasCumulativeUpkeep),
+]);
+
+static CU_SHAMAN_ABILITIES: &[AbilityDef] = &[paid(
+    Cost {
+        mana: baylee_core::mana::ManaCost::ZERO,
+        parts: &[],
+    },
+    &[Effect::destroy(TargetSpec::Object(&NON_CU_ENCHANTMENT))],
+    Some(baylee_cards_dsl::TargetReq::one(TargetSpec::Object(
+        &NON_CU_ENCHANTMENT,
+    ))),
+)];
+
+#[test]
+fn at_next_turns_upkeep_fires_on_opponents_upkeep_next_turn() {
+    let mut defs = cards();
+    defs.push(card(
+        SLOWTRIP_ORB,
+        face("Slowtrip Orb", "{0}", TypeSet::ARTIFACT),
+        KeywordSet::EMPTY,
+        SLOWTRIP_ABILITIES,
+    ));
+    let mut engine = bench(7606, defs, [Seat::with(&[SLOWTRIP_ORB]), Seat::default()]);
+    to_main(&mut engine, me());
+    let orb = the(&engine, ZoneLocation::Battlefield, SLOWTRIP_ORB);
+    let before = life(&engine, me());
+    activate(&mut engine, me(), orb, 0);
+    settle(&mut engine, me());
+    assert_eq!(
+        life(&engine, me()),
+        before,
+        "delayed trigger does not fire during the turn it was created"
+    );
+
+    to_main(&mut engine, them());
+    assert_eq!(
+        life(&engine, me()),
+        before + 3,
+        "delayed trigger fired at the beginning of the opponent's upkeep (the next turn's upkeep)"
+    );
+}
+
+#[test]
+fn cumulative_upkeep_mana_pays_cumulative_upkeep_and_refuses_ordinary_costs() {
+    let mut defs = cards();
+    defs.push(card(
+        CU_SHRINE,
+        face("CU Shrine", "{0}", TypeSet::ENCHANTMENT),
+        KeywordSet::EMPTY,
+        CU_SHRINE_ABILITIES,
+    ));
+    defs.push(card(
+        CU_FOUNT,
+        face("CU Fount", "{0}", TypeSet::ARTIFACT),
+        KeywordSet::EMPTY,
+        CU_FOUNT_ABILITIES,
+    ));
+    let mut engine = bench(
+        7607,
+        defs,
+        [Seat::with(&[CU_SHRINE, CU_FOUNT]), Seat::default()],
+    );
+    let shrine = the(&engine, ZoneLocation::Battlefield, CU_SHRINE);
+    let fount = the(&engine, ZoneLocation::Battlefield, CU_FOUNT);
+    let one = baylee_core::mana::ManaCost::parse("{1}");
+
+    walk_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayTax { mana: 1 },
+                ..
+            }
+        )
+    });
+    engine
+        .apply(me(), PlayerAction::YesNo(true))
+        .expect("accept paying cumulative upkeep to open CR 605.3a mana window");
+    activate(&mut engine, me(), fount, 0);
+    assert!(
+        !engine.can_pay_mana(me(), crate::casting::SpendFor::Other, &one),
+        "cumulative-upkeep-only mana cannot pay ordinary nonspell taxes"
+    );
+    assert!(
+        !engine.can_pay_mana(me(), crate::casting::SpendFor::Spell(shrine), &one),
+        "cumulative-upkeep-only mana cannot pay spells"
+    );
+    assert!(
+        engine.can_pay_mana(me(), crate::casting::SpendFor::CumulativeUpkeep(None), &one),
+        "cumulative-upkeep-only mana is admitted for cumulative upkeep payments"
+    );
+    engine
+        .apply(me(), PlayerAction::PassPriority)
+        .expect("pay cumulative upkeep with CU Fount mana");
+    settle(&mut engine, me());
+    assert_eq!(
+        zone_of(&engine, shrine),
+        Some(crate::zone::Zone::Battlefield),
+        "CU Shrine stays on the battlefield after paying its cumulative upkeep"
+    );
+}
+
+#[test]
+fn has_cumulative_upkeep_filter_distinguishes_permanent_with_and_without_cumulative_upkeep() {
+    let mut defs = cards();
+    defs.push(card(
+        CU_SHRINE,
+        face("CU Shrine", "{0}", TypeSet::ENCHANTMENT),
+        KeywordSet::EMPTY,
+        CU_SHRINE_ABILITIES,
+    ));
+    defs.push(card(
+        CU_SHAMAN,
+        face("CU Shaman", "{0}", TypeSet::ARTIFACT),
+        KeywordSet::EMPTY,
+        CU_SHAMAN_ABILITIES,
+    ));
+    let mut engine = bench(
+        7608,
+        defs,
+        [Seat::with(&[CU_SHRINE, GALE, CU_SHAMAN]), Seat::default()],
+    );
+    let shrine = the(&engine, ZoneLocation::Battlefield, CU_SHRINE);
+    let gale = the(&engine, ZoneLocation::Battlefield, GALE);
+    let shaman = the(&engine, ZoneLocation::Battlefield, CU_SHAMAN);
+    activate(&mut engine, me(), shaman, 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("expected target choice, got {:?}", engine.pending());
+    };
+    assert!(
+        options.contains(&gale),
+        "enchantment without cumulative upkeep is a legal target"
+    );
+    assert!(
+        !options.contains(&shrine),
+        "enchantment with cumulative upkeep is excluded by Filter::Not(&Filter::HasCumulativeUpkeep)"
+    );
+}

@@ -669,6 +669,7 @@ impl Effect {
             // What the delayed trigger will do.
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
+            | Effect::AtNextTurnsUpkeep { effects }
             | Effect::AtNextEndStep { effects }
             | Effect::AtNextEndStepAboutSubject { effects }
             | Effect::AtNextCleanup { effects }

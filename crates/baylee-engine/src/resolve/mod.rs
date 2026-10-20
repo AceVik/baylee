@@ -399,16 +399,25 @@ pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32>
 
 /// Identifies the card imposing a resolving mana payment, including last-known sources.
 pub(crate) fn payment_for(state: &GameState, res: &Resolution) -> crate::casting::SpendFor {
-    source_version(state, res)
+    let source = source_version(state, res)
         .map(|version| baylee_core::ids::DamageSourceRef {
             object: res.source,
             version,
         })
-        .or_else(|| state.source_identity(res.source))
-        .map_or(
-            crate::casting::SpendFor::Other,
-            crate::casting::SpendFor::OtherFrom,
-        )
+        .or_else(|| state.source_identity(res.source));
+    if matches!(
+        res.effects.first(),
+        Some(baylee_cards_dsl::Effect::AddCounter {
+            kind: baylee_cards_dsl::counters::AGE,
+            amount: baylee_cards_dsl::Amount::Fixed(1),
+        })
+    ) {
+        return crate::casting::SpendFor::CumulativeUpkeep(source);
+    }
+    source.map_or(
+        crate::casting::SpendFor::Other,
+        crate::casting::SpendFor::OtherFrom,
+    )
 }
 
 /// Attachment captured when a waiting ability's source left the battlefield.

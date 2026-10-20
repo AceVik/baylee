@@ -771,6 +771,21 @@ pub(super) fn exec_immediate(
             });
             None
         }
+        Effect::AtNextTurnsUpkeep { effects } => {
+            state.delayed.push(crate::state::DelayedTrigger {
+                controller: you,
+                when: crate::state::DelayedWhen::NextUpkeepOfAnyone,
+                action: crate::state::DelayedAction::Trigger {
+                    source: res.source,
+                    source_version: source_version(state, res)
+                        .or_else(|| state.object(res.source).map(|o| o.version))
+                        .unwrap_or(0),
+                    effects,
+                    text: res.text,
+                },
+            });
+            None
+        }
         Effect::ReturnSelfDuringNextUntap => {
             super::delayed_returns::schedule_untap(state, res);
             None

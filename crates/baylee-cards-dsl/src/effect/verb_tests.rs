@@ -530,16 +530,23 @@ fn both_target_match_branches_are_visited() {
 
 #[test]
 fn at_next_upkeep_body_is_visited() {
-    static EFFECTS: &[Effect] = &[Effect::AtNextUpkeep {
-        effects: &[Effect::destroy(TargetSpec::EventObject)],
-    }];
+    static EFFECTS: &[Effect] = &[
+        Effect::AtNextUpkeep {
+            effects: &[Effect::destroy(TargetSpec::EventObject)],
+        },
+        Effect::AtNextTurnsUpkeep {
+            effects: &[Effect::SacrificeSelf],
+        },
+    ];
     let mut seen = 0;
     let mut body_seen = false;
+    let mut next_turn_seen = false;
     Effect::walk(EFFECTS, &mut seen, &mut |effect| {
         body_seen |= matches!(effect, Effect::Destroy { .. });
+        next_turn_seen |= matches!(effect, Effect::SacrificeSelf);
     });
-    assert_eq!(seen, 2);
-    assert!(body_seen);
+    assert_eq!(seen, 4);
+    assert!(body_seen && next_turn_seen);
 }
 
 /// Wave 1's three carriers: a repeated list, a repeated pass and a watch on

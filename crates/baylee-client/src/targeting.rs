@@ -472,6 +472,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // so following the live source handle here would be unsound.
         | Filter::ActivatedAbilityFrom(_)
         | Filter::HasRampage
+        | Filter::HasCumulativeUpkeep
         | Filter::HasAnyCounter
         | Filter::Enchanted
         | Filter::BlockingSource

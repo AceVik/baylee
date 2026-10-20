@@ -155,6 +155,11 @@ pub enum Effect {
         /// Resolved at that upkeep, even if the original source has left.
         effects: &'static [Effect],
     },
+    /// Create a delayed triggered ability for the next turn's upkeep (CR 603.7b).
+    AtNextTurnsUpkeep {
+        /// Resolved at that upkeep, whoever's turn it is, even if the original source has left.
+        effects: &'static [Effect],
+    },
     /// Return this source's recorded graveyard incarnation (CR 400.7e/f).
     ReturnSourceFromGraveyard {
         /// A transforming card's face on arrival, or its front face normally.

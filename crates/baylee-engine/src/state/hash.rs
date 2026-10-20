@@ -2168,6 +2168,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             filter_hash(h, inner);
         }
         F::TappedToPayForSourceThisTurn => h.u8(140),
+        F::HasCumulativeUpkeep => h.u8(141),
     }
 }
 

@@ -4132,3 +4132,19 @@ Effects:
 - The drawing player orders several replacements of one draw (CR 616.1);
   the engine asks when the order matters.
 
+### Next-turn upkeep delayed triggers and cumulative upkeep (`AtNextTurnsUpkeep`, `ManaUse::CumulativeUpkeep`, `Filter::HasCumulativeUpkeep`)
+
+- `Effect::AtNextTurnsUpkeep { effects }` — "at the beginning of the next
+  turn's upkeep" (CR 603.7b): registers a one-shot delayed triggered ability
+  that triggers at the beginning of the next upkeep step regardless of whose
+  turn it is, unlike `Effect::AtNextUpkeep` ("at the beginning of your next
+  upkeep").
+- `ManaUse::CumulativeUpkeep` — "Spend this mana only to pay cumulative
+  upkeep costs" (CR 106.6, CR 702.24a; Adarkar Unicorn, Snowfall): restricted
+  mana admitted only when paying a cumulative upkeep trigger's mana cost (and
+  unavailable for spells, activated abilities, or other resolution taxes).
+- `Filter::HasCumulativeUpkeep` — matches a permanent with at least one active
+  printed or Layer 6 granted cumulative upkeep triggered ability (CR 702.24a;
+  Balduvian Shaman's "that doesn't have cumulative upkeep").
+
+

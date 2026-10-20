@@ -186,6 +186,8 @@ pub enum Filter {
     HasAnyCounter,
     /// Has at least one active instance of the rampage triggered ability.
     HasRampage,
+    /// Has at least one active instance of the cumulative upkeep triggered ability (CR 702.24a).
+    HasCumulativeUpkeep,
     /// Has an Aura attached to it. Equipment alone does not count.
     Enchanted,
     /// Is blocking the source creature.

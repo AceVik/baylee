@@ -282,6 +282,7 @@ impl HeuristicAgent {
         | Filter::ActivatedAbilityFrom(_)
         | Filter::TargetsPermanentYouControl
         | Filter::HasRampage
+        | Filter::HasCumulativeUpkeep
         | Filter::HasAnyCounter
         | Filter::Enchanted
         | Filter::BlockingSource

@@ -71,7 +71,7 @@ pub(crate) fn live_allowance(
         return base;
     };
     match what {
-        SpendFor::Other | SpendFor::OtherFrom(_) => base,
+        SpendFor::Other | SpendFor::OtherFrom(_) | SpendFor::CumulativeUpkeep(_) => base,
         SpendFor::Ability(source) => {
             let (eligible, ordinary) = activation_increases(state, source);
             base.adjusted(eligible, ordinary, 0)

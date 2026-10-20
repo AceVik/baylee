@@ -89,6 +89,8 @@ pub enum ManaUse {
     NonSpellPaymentsOrMatchingSpells,
     /// Any cost imposed by a matching spell, ability source, or other identified source.
     CostsFromMatchingSource,
+    /// Only paying cumulative upkeep costs (CR 702.24a).
+    CumulativeUpkeep,
 }
 
 /// What produced mana may be spent on (Cavern of Souls), or what spending

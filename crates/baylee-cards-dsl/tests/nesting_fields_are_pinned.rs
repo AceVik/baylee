@@ -91,9 +91,9 @@
 // WhenSourceLeavesBattlefieldForCreatedTokens, WhenCreatedTokenLeavesBattlefield,
 // WhenTargetLeavesBattlefieldThisTurn, WhenSourceLeavesBattlefieldThisTurn,
 // AnyPlayerMaySacrificeOrTakeDamageThen, WheneverTappedForManaThisTurn,
-// WhenTargetAttacksAndIsntBlockedThisTurn, PlayerMayMillOr, and
-// ForEachMatching add one each (tested in verb_tests).
-const NESTING_FIELDS: usize = 75;
+// WhenTargetAttacksAndIsntBlockedThisTurn, PlayerMayMillOr,
+// ForEachMatching, and AtNextTurnsUpkeep add one each (tested in verb_tests).
+const NESTING_FIELDS: usize = 76;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -151,9 +151,10 @@ const NESTING_FIELDS: usize = 75;
 /// `WhenCreatedTokenLeavesBattlefield`, `WhenTargetLeavesBattlefieldThisTurn`,
 /// `WhenSourceLeavesBattlefieldThisTurn`,
 /// `AnyPlayerMaySacrificeOrTakeDamageThen`, `WheneverTappedForManaThisTurn`,
-/// `WhenTargetAttacksAndIsntBlockedThisTurn`, `PlayerMayMillOr` and
-/// `ForEachMatching` are the fifty-ninth to sixty-eighth carriers.
-const CARRYING_VARIANTS: usize = 68;
+/// `WhenTargetAttacksAndIsntBlockedThisTurn`, `PlayerMayMillOr`,
+/// `ForEachMatching` and `AtNextTurnsUpkeep` are the fifty-ninth to
+/// sixty-ninth carriers.
+const CARRYING_VARIANTS: usize = 69;
 
 /// The floor under the reader itself.
 ///

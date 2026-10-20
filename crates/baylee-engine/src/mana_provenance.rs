@@ -52,6 +52,19 @@ impl ManaProvenance {
             && self.matches(self.restriction.filter, state, object, self.controller)
     }
 
+    pub(crate) fn admits_cumulative_upkeep(
+        &self,
+        state: &GameState,
+        object: Option<&GameObject>,
+    ) -> bool {
+        self.restriction.uses == ManaUse::CumulativeUpkeep
+            && match self.restriction.filter {
+                Filter::Any => true,
+                filter => object
+                    .is_some_and(|object| self.matches(filter, state, object, self.controller)),
+            }
+    }
+
     pub(crate) fn admits(&self, state: &GameState, object: &GameObject, ability: bool) -> bool {
         if ability && self.restriction.uses == ManaUse::NonSpellPaymentsOrMatchingSpells {
             return true;
@@ -60,6 +73,7 @@ impl ManaProvenance {
             ManaUse::Spells | ManaUse::NonSpellPaymentsOrMatchingSpells => !ability,
             ManaUse::Abilities => ability,
             ManaUse::SpellsOrAbilities | ManaUse::CostsFromMatchingSource => true,
+            ManaUse::CumulativeUpkeep => false,
         };
         let filter = if ability {
             self.restriction
