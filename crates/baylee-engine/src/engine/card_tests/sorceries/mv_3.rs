@@ -11,23 +11,33 @@ mod bargain;
 mod bridgeworks_battle;
 mod cleansing;
 mod deconstruct;
+mod divination;
 mod dust_to_dust;
 mod eerie_procession;
 mod eldritch_evolution;
 mod entreat_the_dead;
+mod essence_filter;
 mod fabricate;
+mod fiery_justice;
+mod game_of_chaos;
+mod ghostly_visit;
 mod goblin_offensive;
 mod grim_tutor;
+mod healing_hands;
 mod howling_fury;
 mod ice_storm;
 mod inquisition;
+mod jovial_evil;
 mod kodama_s_reach;
 mod last_caress;
 mod maelstrom_pulse;
 mod pelakka_predation;
 mod pillage;
+mod precision_bolt;
 mod rain_of_tears;
+mod recover;
 mod screaming_fury;
+mod sevinne_s_reclamation;
 mod spirit_water_revival;
 mod spoils_of_victory;
 mod stone_rain;
@@ -43,14 +53,3 @@ mod volcanic_eruption;
 mod wheel_of_fortune;
 mod winter_s_grasp;
 mod yawgmoth_s_will;
-
-mod jovial_evil;
-
-mod divination;
-mod healing_hands;
-
-mod ghostly_visit;
-mod precision_bolt;
-mod recover;
-
-mod sevinne_s_reclamation;

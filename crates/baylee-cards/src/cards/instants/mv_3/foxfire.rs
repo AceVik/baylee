@@ -2,8 +2,6 @@
 //! Oracle: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.
 //! Oracle: Draw a card at the beginning of the next turn's upkeep.
 //! Set: 5ED #295 — Fifth Edition | Scryfall ID: eb1638c4-effb-460b-af5d-aa17559dbd37 | Oracle ID: 6c270e6a-12a7-4323-87ba-6d770986fb48
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

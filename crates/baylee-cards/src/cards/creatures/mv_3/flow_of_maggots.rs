@@ -17,7 +17,7 @@ card!(
     oracle_id = "2d6a387f-7ad4-419e-951a-9dcd4c9ac823",
     scryfall_id = "6880a4d3-5cbc-4a01-9190-3565617efcc9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Flow of Maggots",
         mana_cost = mana!("{2}{B}"),

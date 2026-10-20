@@ -6,11 +6,14 @@ use super::*;
 mod blaze;
 mod bloodcurdling_scream;
 mod cateran_summons;
+mod chain_lightning;
 mod cloak_of_feathers;
 mod detonate;
+mod disentomb;
 mod disintegrate;
 mod earthquake;
 mod fireball;
+mod forgotten_lore;
 mod gamble;
 mod gitaxian_probe;
 mod goblin_grenade;
@@ -27,18 +30,13 @@ mod psychic_purge;
 mod raise_dead;
 mod recall;
 mod reconstruction;
+mod return_to_battle;
 mod rite_of_flame;
 mod scorching_spear;
 mod serum_visions;
 mod steelshaper_s_gift;
+mod stir_the_grave;
 mod stream_of_life;
 mod thoughtseize;
-
 mod winds_of_change;
 mod winter_blast;
-
-mod disentomb;
-mod return_to_battle;
-
-mod chain_lightning;
-mod stir_the_grave;

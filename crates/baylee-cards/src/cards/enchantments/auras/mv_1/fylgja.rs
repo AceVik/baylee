@@ -4,8 +4,6 @@
 //! Oracle: Remove a healing counter from this Aura: Prevent the next 1 damage that would be dealt to enchanted creature this turn.
 //! Oracle: {2}{W}: Put a healing counter on this Aura.
 //! Set: ICE #26 — Ice Age | Scryfall ID: 3c6358a1-37f0-4b40-93d4-4f1652c38404 | Oracle ID: df0e5dd8-65e0-474c-ac32-6e0f6f16b8e6
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 

@@ -2,8 +2,6 @@
 //! Oracle: As an additional cost to cast this spell, pay 3 life.
 //! Oracle: Destroy target creature and target land.
 //! Set: ME2 #194 — Masters Edition II | Scryfall ID: 66ce0f61-3c5b-4490-9e9b-8e30432a346a | Oracle ID: a9e33138-e1c0-4b69-b868-1ce8493c073d
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
 use baylee_cards_dsl::prelude::*;
 
 // NOT SUPPORTED: Destroy target creature and target land (destroys target creature).

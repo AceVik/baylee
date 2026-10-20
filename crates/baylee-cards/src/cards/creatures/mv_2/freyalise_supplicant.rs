@@ -1,7 +1,6 @@
 //! Freyalise Supplicant — {1}{G} — Creature — Human Cleric
 //! Oracle: {T}, Sacrifice a red or white creature: This creature deals damage to any target equal to half the sacrificed creature's power, rounded down.
 //! Set: ICE #239 — Ice Age | Scryfall ID: 5b1e718a-882a-4bdc-9d62-4dda88da0ba0 | Oracle ID: c28a7641-49e3-43b1-a366-8d6e9c8dab9c
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

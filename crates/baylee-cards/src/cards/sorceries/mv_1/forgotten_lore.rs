@@ -1,8 +1,6 @@
 //! Forgotten Lore — {G} — Sorcery
 //! Oracle: Target opponent chooses a card in your graveyard. You may pay {G}. If you do, repeat this process except that opponent can't choose a card already chosen for Forgotten Lore. Then put the last chosen card into your hand.
 //! Set: ME2 #164 — Masters Edition II | Scryfall ID: 4b45aad3-bc82-46f3-8032-8bfcbd6a007a | Oracle ID: ca9f538d-4191-448a-870d-f645b7c37c1b
-// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

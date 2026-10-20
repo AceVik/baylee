@@ -13,7 +13,7 @@ card!(
     oracle_id = "f763d95e-87af-473f-9b1f-cf16221e5792",
     scryfall_id = "9df15887-ead7-4218-a7aa-a149a04a4f64",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Enervate",
         mana_cost = mana!("{1}{U}"),

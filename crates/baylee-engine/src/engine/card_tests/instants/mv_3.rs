@@ -4,19 +4,28 @@
 use super::*;
 
 mod absorb;
+mod aerial_predation;
 mod afflict;
 mod archdruid_s_charm;
 mod army_of_allah;
+mod battle_cry;
+mod battle_frenzy;
 mod blood_of_the_martyr;
 mod chord_of_calling;
 mod daring_leap;
+mod dark_banishing;
 mod deflecting_swat;
 mod eerie_interlude;
+mod essence_vortex;
 mod exclude;
 mod feeding_frenzy;
 mod ferocious_charge;
 mod fierce_guardianship;
+mod fire_covenant;
+mod flare;
 mod flawless_maneuver;
+mod force_void;
+mod foxfire;
 mod hero_s_downfall;
 mod holy_light;
 mod inner_calm_outer_strength;
@@ -26,8 +35,10 @@ mod krosan_grip;
 mod mana_short;
 mod morale;
 mod mystic_denial;
+mod open_fire;
 mod piety;
 mod psionic_blast;
+mod quick_study;
 mod realms_uncharted;
 mod regress;
 mod reincarnation;
@@ -37,6 +48,7 @@ mod repulse;
 mod rescind;
 mod reverse_damage;
 mod reviving_dose;
+mod ritual_of_rejuvenation;
 mod rush_of_inspiration;
 mod scrap;
 mod seething_song;
@@ -50,16 +62,5 @@ mod valakut_awakening;
 mod verdigris;
 mod void_rend;
 mod whir_of_invention;
-mod zap;
-
-mod aerial_predation;
-
 mod wildsize;
-
-mod dark_banishing;
-mod open_fire;
-mod quick_study;
-mod ritual_of_rejuvenation;
-
-mod battle_cry;
-mod battle_frenzy;
+mod zap;

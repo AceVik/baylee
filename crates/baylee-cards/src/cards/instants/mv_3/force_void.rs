@@ -11,7 +11,7 @@ card!(
     oracle_id = "469bdca3-d373-4420-9266-921b6605f327",
     scryfall_id = "226555ba-22af-45f1-a3f4-d265f8685dd5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Force Void",
         mana_cost = mana!("{2}{U}"),

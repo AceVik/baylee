@@ -3,10 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod angelic_edict;
 mod bribery;
 mod brilliant_plan;
+mod demon_s_grasp;
 mod dosan_s_oldest_chant;
 mod essence_drain;
+mod fumarole;
 mod hellfire;
 mod implode;
 mod lava_flow;
@@ -18,7 +21,3 @@ mod soul_feast;
 mod spring_of_eternal_peace;
 mod suppression_ray;
 mod tidings;
-
-mod angelic_edict;
-
-mod demon_s_grasp;

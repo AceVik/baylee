@@ -12,7 +12,7 @@ card!(
     oracle_id = "2f18967d-c2cd-449d-a288-df6343672743",
     scryfall_id = "7b0278f9-19fb-4b6d-b765-5265f2cf0db2",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Fyndhorn Pollen",
         mana_cost = mana!("{2}{G}"),

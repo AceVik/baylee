@@ -5,20 +5,26 @@ use super::*;
 
 mod animate_wall;
 mod artifact_ward;
+mod backfire;
+mod black_scarab;
 mod black_ward;
+mod blue_scarab;
 mod blue_ward;
 mod brainwash;
 mod burrowing;
 mod capashen_standard;
 mod consecrate_land;
 mod crackling_club;
+mod dream_coat;
 mod earthbind;
 mod equinox;
+mod essence_flare;
 mod eternal_warrior;
 mod evil_presence;
 mod firebreathing;
 mod flight;
 mod frog_tongue;
+mod fylgja;
 mod green_ward;
 mod holy_armor;
 mod holy_strength;
@@ -34,6 +40,7 @@ mod red_ward;
 mod reflexes;
 mod robe_of_mirrors;
 mod sicken;
+mod spirit_link;
 mod swift_reconfiguration;
 mod tangle_kelp;
 mod unholy_strength;
@@ -43,12 +50,3 @@ mod weakness;
 mod web;
 mod white_ward;
 mod wild_growth;
-
-mod spirit_link;
-
-mod backfire;
-
-mod dream_coat;
-
-mod black_scarab;
-mod blue_scarab;
