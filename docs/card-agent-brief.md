@@ -103,8 +103,10 @@ Prefer extending the DSL to a `Partial`. A new piece is held to this:
 
 ## 4. The test of a card
 
-The model that wrote a card never writes its test (`CLAUDE.md`). If you are
-the author, stop at §2–3 and hand over. If you are the tester:
+The author writes the tests too, in a pass of their own after the cards
+of a batch are committed: decide what a test expects from the oracle text
+and this section, not by reopening the card file. A different model reviews
+both afterwards (§7).
 
 - **One file per card, at the card's own path:** `cards/<type>/<dir>/<slug>.rs`
   is tested in `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
@@ -170,6 +172,11 @@ not run is not evidence, and a filtered run is not the suite.
 - The commit message claims only what the diff does. A "visual UI" that
   is a placeholder is a placeholder.
 
+- Every commit of card work ends with the trailers
+  `Card-Author: <model>` and `Review: pending`, beside any
+  `Co-Authored-By:` line. A commit that touches only DSL or engine code
+  carries them too: the review reads it the same way.
+
 ## 6. The report
 
 End with a list a reviewer can check without asking:
@@ -181,3 +188,20 @@ End with a list a reviewer can check without asking:
 - Every reader (`scriptgen`) change, and how many cards it moved.
 - The gate commands you ran and their results, verbatim, including red
   ones you did not fix.
+
+## 7. The review
+
+A model other than the author reads every `Review: pending` commit after
+it lands on the author's branch, before it reaches `main`.
+
+- Find them: `git log --format='%h %s' --grep='^Review: pending'`, minus
+  those a later commit names in a `Reviewed:` trailer
+  (`git log --format=%B | grep '^Reviewed:'`).
+- Read each card sentence by sentence against its oracle text (§2's
+  list), each test against §4, each DSL or engine piece against §3.
+- Fix in commits of your own, never by amending the author's. Each fix
+  names its defect and gets a test that fails without it. A defect in a
+  rule rather than a card goes beside the rule (§3).
+- Close the review with the trailer `Reviewed: <sha> <sha> …` naming
+  every commit read, defects or not. Note in `docs/llm-learnings.md` what
+  the author got wrong, so the brief can learn it.

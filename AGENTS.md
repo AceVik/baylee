@@ -101,8 +101,11 @@ section binds every agent, whatever its file name says. The short form:
   commit.
 - Every card is played in its own test file at its own path,
   `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
-  naming it by a literal `card_index("<oracle id>")`. The model that wrote
-  a card never writes its test.
+  naming it by a literal `card_index("<oracle id>")`.
+- The author of a batch writes its cards and tests, and marks each such
+  commit with the trailers `Card-Author: <model>` and `Review: pending`. A
+  different model reviews them afterwards and fixes in its own commits,
+  trailer `Reviewed: <sha>…` (brief §7).
 - Before done: `./scripts/gate-rules.sh`, `xtask validate`,
   `./scripts/baylee-tools hooks require-card-tests`, then the full gate.
 
