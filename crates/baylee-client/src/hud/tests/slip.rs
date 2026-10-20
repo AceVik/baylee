@@ -103,6 +103,7 @@ fn the_parchment_covers_the_padding_it_lies_under() {
             include_str!("../sheet.rs"),
             include_str!("../sheet/tests.rs"),
             include_str!("../sheet/running.rs"),
+            include_str!("../sheet/spawn.rs"),
         )
         .contains("sheet_surface("),
         "the abilities use the table glass surface"

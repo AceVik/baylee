@@ -227,6 +227,7 @@ fn the_parchment_writes_no_letters_in_brass() {
                 include_str!("../sheet.rs"),
                 include_str!("tests.rs"),
                 include_str!("running.rs"),
+                include_str!("spawn.rs"),
             ),
         ),
         (
