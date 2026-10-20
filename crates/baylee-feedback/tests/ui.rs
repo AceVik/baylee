@@ -15,6 +15,9 @@ use sea_orm::{ConnectionTrait, Database, DatabaseConnection, DbBackend, Statemen
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
+#[path = "ui/triage.rs"]
+mod triage;
+
 const GATEWAY: &str = "gateway-token-eu-0001";
 const US: &str = "gateway-token-us-0002";
 const READ: &str = "read-token-000000001";
@@ -606,9 +609,34 @@ async fn a_change_without_the_header_or_from_another_origin_is_refused() {
             ],
         ),
     ] {
-        for (method, body) in [("PATCH", triage.clone()), ("DELETE", None)] {
+        for (method, path, body) in [
+            ("PATCH", path.clone(), triage.clone()),
+            ("DELETE", path.clone(), None),
+            ("POST", format!("{path}/restore"), None),
+            ("POST", format!("{path}/purge"), None),
+            (
+                "POST",
+                format!("{path}/notes"),
+                Some(r#"{"text":"a note"}"#.to_owned()),
+            ),
+            (
+                "POST",
+                "/ui/api/reports/bulk".to_owned(),
+                Some(format!(r#"{{"ids":["{id}"],"action":"trash"}}"#)),
+            ),
+            (
+                "POST",
+                "/ui/api/seen".to_owned(),
+                Some(format!(r#"{{"ids":["{id}"],"seen":true}}"#)),
+            ),
+            (
+                "POST",
+                "/ui/api/views".to_owned(),
+                Some(r#"{"name":"mine","query":"status=new"}"#.to_owned()),
+            ),
+        ] {
             let answer = service.call(method, &path, &headers, body).await;
-            assert_eq!(answer.status, 403, "{method} {why}");
+            assert_eq!(answer.status, 403, "{method} {path} {why}");
         }
         let out = service.call("POST", "/ui/api/logout", &headers, None).await;
         assert_eq!(out.status, 403, "logout {why}");
@@ -658,6 +686,39 @@ async fn every_ui_route_refuses_without_a_session() {
             Some(r#"{"status":"resolved"}"#.to_owned()),
         ),
         ("DELETE", format!("/ui/api/reports/{id}"), None),
+        ("POST", format!("/ui/api/reports/{id}/restore"), None),
+        ("POST", format!("/ui/api/reports/{id}/purge"), None),
+        ("GET", format!("/ui/api/reports/{id}/neighbours"), None),
+        (
+            "POST",
+            format!("/ui/api/reports/{id}/notes"),
+            Some(r#"{"text":"a note"}"#.to_owned()),
+        ),
+        (
+            "DELETE",
+            format!("/ui/api/reports/{id}/notes/{contact}"),
+            None,
+        ),
+        ("GET", "/ui/api/reports.csv".to_owned(), None),
+        (
+            "POST",
+            "/ui/api/reports/bulk".to_owned(),
+            Some(format!(r#"{{"ids":["{id}"],"action":"trash"}}"#)),
+        ),
+        (
+            "POST",
+            "/ui/api/seen".to_owned(),
+            Some(format!(r#"{{"ids":["{id}"],"seen":true}}"#)),
+        ),
+        ("GET", "/ui/api/crashes".to_owned(), None),
+        ("GET", "/ui/api/views".to_owned(), None),
+        (
+            "POST",
+            "/ui/api/views".to_owned(),
+            Some(r#"{"name":"mine","query":"status=new"}"#.to_owned()),
+        ),
+        ("DELETE", format!("/ui/api/views/{contact}"), None),
+        ("GET", "/ui/api/admins".to_owned(), None),
         ("GET", "/ui/api/contact".to_owned(), None),
         ("GET", format!("/ui/api/contact/{contact}"), None),
         (
@@ -975,10 +1036,25 @@ async fn status_issue_and_deletion_are_changed_and_audited() {
             .starts_with("attachment")
     );
 
-    let deleted = service
+    // Deleting in the UI moves it into the trash; only from there is it
+    // purged.
+    assert_eq!(
+        service
+            .call(
+                "POST",
+                &format!("{path}/purge"),
+                &service.signed_in(&cookie),
+                None
+            )
+            .await
+            .status,
+        404,
+        "nothing is purged that is not in the trash"
+    );
+    let trashed = service
         .call("DELETE", &path, &service.signed_in(&cookie), None)
         .await;
-    assert_eq!(deleted.status, 204);
+    assert_eq!(trashed.status, 204);
     assert_eq!(
         service
             .call("DELETE", &path, &service.signed_in(&cookie), None)
@@ -986,6 +1062,20 @@ async fn status_issue_and_deletion_are_changed_and_audited() {
             .status,
         404
     );
+    let in_trash = service
+        .call("GET", &path, &[("cookie", cookie.clone())], None)
+        .await
+        .json();
+    assert!(in_trash["deleted_at"].is_string(), "{in_trash}");
+    let purged = service
+        .call(
+            "POST",
+            &format!("{path}/purge"),
+            &service.signed_in(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(purged.status, 204);
     assert_eq!(
         service
             .call("GET", &path, &[("cookie", cookie.clone())], None)
@@ -1030,6 +1120,7 @@ async fn status_issue_and_deletion_are_changed_and_audited() {
             step(NAME, "issue", Some("#312")),
             step(NAME, "issue", None),
             step("token", "status", Some("resolved")),
+            step(NAME, "trash", None),
             step(NAME, "delete", None),
         ],
         "the audit outlives the report"

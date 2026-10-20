@@ -23,6 +23,7 @@ impl MigratorTrait for Migrator {
             Box::new(ConsoleAudit),
             Box::new(Contact),
             Box::new(ChatKind),
+            Box::new(Triage),
         ]
     }
 }
@@ -318,6 +319,110 @@ impl MigrationTrait for ChatKind {
             "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_kind_check",
             "ALTER TABLE feedback_report ADD CONSTRAINT feedback_report_kind_check \
              CHECK (kind IN ('bug', 'improvement', 'feedback', 'crash', 'other'))",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+}
+
+/// The seventh migration: triage (`docs/feedback.md` §"Triage").
+///
+/// On the report: who looks after it (`assignee`, an admin's name), how
+/// urgent it is (`priority`), free `labels`, the report it duplicates
+/// (`duplicate_of`), a `revision` that every change moves on (a change that
+/// names another revision is refused), when it was dealt with (`done_at`)
+/// and when it went into the trash (`deleted_at`; purged after
+/// [`crate::triage::TRASH_DAYS`]). Two columns Postgres keeps itself: a
+/// crash's `signature` (its message with numbers taken out and its file
+/// without line numbers, hashed with MD5: a grouping key, nothing secret),
+/// which groups the same crash, and `search`,
+/// the words of the text and of a crash's message.
+///
+/// Three tables: internal notes (their own rows, not audit lines), an admin's
+/// saved views, and which reports an admin has opened.
+struct Triage;
+
+impl MigrationName for Triage {
+    fn name(&self) -> &'static str {
+        "m0007_triage"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Triage {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "ALTER TABLE feedback_report \
+                 ADD COLUMN IF NOT EXISTS assignee text \
+                     CHECK (assignee IS NULL OR char_length(assignee) BETWEEN 1 AND 64), \
+                 ADD COLUMN IF NOT EXISTS priority text \
+                     CHECK (priority IN ('low', 'normal', 'high', 'critical')), \
+                 ADD COLUMN IF NOT EXISTS labels text[] NOT NULL DEFAULT '{}' \
+                     CHECK (cardinality(labels) <= 16), \
+                 ADD COLUMN IF NOT EXISTS duplicate_of uuid \
+                     REFERENCES feedback_report (id) ON DELETE SET NULL, \
+                 ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0), \
+                 ADD COLUMN IF NOT EXISTS done_at timestamptz, \
+                 ADD COLUMN IF NOT EXISTS deleted_at timestamptz, \
+                 ADD CONSTRAINT feedback_report_not_its_own_duplicate CHECK (duplicate_of <> id)",
+            "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS signature text \
+                 GENERATED ALWAYS AS (CASE WHEN kind = 'crash' THEN left(md5( \
+                     regexp_replace(coalesce(client -> 'crash' ->> 'message', ''), '[0-9]+', '#', 'g') \
+                     || '|' || \
+                     regexp_replace(coalesce(client -> 'crash' ->> 'location', ''), ':[0-9:]+$', '') \
+                     ), 16) END) STORED",
+            "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS search tsvector \
+                 GENERATED ALWAYS AS (to_tsvector('simple', text || ' ' || \
+                     coalesce(client -> 'crash' ->> 'message', ''))) STORED",
+            "UPDATE feedback_report SET done_at = updated_at \
+                 WHERE status IN ('resolved', 'wont_fix', 'duplicate') AND done_at IS NULL",
+            "CREATE INDEX IF NOT EXISTS feedback_report_by_signature ON feedback_report (signature) \
+                 WHERE signature IS NOT NULL",
+            "CREATE INDEX IF NOT EXISTS feedback_report_by_assignee ON feedback_report (assignee)",
+            "CREATE INDEX IF NOT EXISTS feedback_report_by_search ON feedback_report USING gin (search)",
+            "CREATE INDEX IF NOT EXISTS feedback_report_by_labels ON feedback_report USING gin (labels)",
+            "CREATE INDEX IF NOT EXISTS feedback_report_trashed ON feedback_report (deleted_at) \
+                 WHERE deleted_at IS NOT NULL",
+            "CREATE TABLE IF NOT EXISTS feedback_note ( \
+                 id uuid PRIMARY KEY, \
+                 report_id uuid NOT NULL REFERENCES feedback_report (id) ON DELETE CASCADE, \
+                 at timestamptz NOT NULL DEFAULT now(), \
+                 author text NOT NULL, \
+                 text text NOT NULL CHECK (char_length(text) BETWEEN 1 AND 4000))",
+            "CREATE INDEX IF NOT EXISTS feedback_note_by_report ON feedback_note (report_id, at)",
+            "CREATE TABLE IF NOT EXISTS feedback_view ( \
+                 id uuid PRIMARY KEY, \
+                 admin_id uuid NOT NULL REFERENCES feedback_admin (id) ON DELETE CASCADE, \
+                 name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60), \
+                 query text NOT NULL CHECK (char_length(query) <= 2000), \
+                 created_at timestamptz NOT NULL DEFAULT now(), \
+                 UNIQUE (admin_id, name))",
+            "CREATE TABLE IF NOT EXISTS feedback_seen ( \
+                 admin_id uuid NOT NULL REFERENCES feedback_admin (id) ON DELETE CASCADE, \
+                 report_id uuid NOT NULL REFERENCES feedback_report (id) ON DELETE CASCADE, \
+                 at timestamptz NOT NULL DEFAULT now(), \
+                 PRIMARY KEY (admin_id, report_id))",
+            "CREATE INDEX IF NOT EXISTS feedback_seen_by_report ON feedback_seen (report_id)",
+        ] {
+            db.execute_unprepared(statement).await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+        for statement in [
+            "DROP TABLE IF EXISTS feedback_seen",
+            "DROP TABLE IF EXISTS feedback_view",
+            "DROP TABLE IF EXISTS feedback_note",
+            "ALTER TABLE feedback_report DROP CONSTRAINT IF EXISTS feedback_report_not_its_own_duplicate, \
+                 DROP COLUMN IF EXISTS search, DROP COLUMN IF EXISTS signature, \
+                 DROP COLUMN IF EXISTS deleted_at, DROP COLUMN IF EXISTS done_at, \
+                 DROP COLUMN IF EXISTS revision, DROP COLUMN IF EXISTS duplicate_of, \
+                 DROP COLUMN IF EXISTS labels, DROP COLUMN IF EXISTS priority, \
+                 DROP COLUMN IF EXISTS assignee",
         ] {
             db.execute_unprepared(statement).await?;
         }
