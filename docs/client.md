@@ -4405,11 +4405,11 @@ been in view (scroll, `End`, `Space`/`PageDown`, or a text that fits); Enter
 in the text accepts once it may. **Escape never signs out or accepts**: it
 returns focus to the text, or to Retry after a failed fetch.
 **Decline and delete account** ("Ablehnen
-und Konto löschen", the words the terms name), drawn while the text is up
-(not on a sheet still loading or failed), opens the account deletion's own
-confirmation (#292, `confirm::draw_deletion`) over the sheet: the password
-again for an account, nothing for a guest, the same `DELETE /account`, the
-same limiter. That confirmation holds the keyboard (its box, Enter, Esc as
+und Konto löschen"; for a Baylee account "Delete my data on this gateway"),
+drawn while the text is up (not on a sheet still loading or failed), opens
+the account deletion's own confirmation (#292, `confirm::draw_deletion`) over
+the sheet: the password again for a local account, nothing for a guest or a
+Baylee account, the same `DELETE /account`, the same limiter. That confirmation holds the keyboard (its box, Enter, Esc as
 Cancel, Tab); no stop of the sheet keeps focus under it, and cancelled,
 focus is back on Decline. Deleted, the session ends and the front door
 shows. The text is asked for in the
