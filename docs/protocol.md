@@ -2746,8 +2746,8 @@ forwarded report only when the message's signature and key checked
 (`verified`), because an unverified report could name anyone, and the
 feedback UI's *Find sender's account* opens the accounts filtered by
 `GET /admin/accounts?tag=`, where the admin can ban. The reporter reaches
-the service as the keyed pseudonym only, and no route turns it back into an
-account. Every act is a change, so it names its admin
+the service as the keyed pseudonym only, and no route of the service turns
+it back into an account (the gateway's operator, who holds the key, can). Every act is a change, so it names its admin
 (`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
 `action=account.password.reset`, `account.ban` (with `until` and whether
 it is a guest), `account.unban`, `account.delete` or `game.close`, the
@@ -3372,8 +3372,8 @@ checks it is the account the header's `from` names, and runs
 `baylee_seal::verify_report` (the signature, then that `mk` opens `ct` to
 exactly `body`). It forwards to the feedback service as `kind: "chat"`, the
 text being the reporter's note and the message's text, with
-`client.chat = {verified, conversation, sender (a pseudonym), sent_at,
-message, note}`. A device removed since cannot be checked: the report goes
+`client.chat = {verified, conversation, sender_tag (the sender's public
+tag, only when `verified`), sent_at, message, note}`. A device removed since cannot be checked: the report goes
 on with `verified: false`. Revealing `mk` reveals that one message.
 
 ### What the gateway logs

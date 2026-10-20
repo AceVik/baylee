@@ -84,14 +84,21 @@ them), and only when the check held the sender's public tag
 (`sender_tag`), so that an admin can find the account that wrote it and
 act on it (ban it): a moderator must be able to act on reported content,
 and the tag is already public in every handle. An unverified report names
-no tag, so a forged one frames nobody. The reporter is never resolvable:
-only the pseudonym reaches the service, and no route turns it back into an
-account (owner's promise; `docs/feedback.md`). Who can resolve the sender:
+no tag, so a forged one frames nobody. The reporter reaches the service
+as the keyed pseudonym only, and no route of the service turns it back into
+an account. Reports stay tied to their reporter on purpose (owner,
+20.10.2026): a ticket system will let players follow their reports and be
+contacted about them. Whoever runs the gateway holds the key and can compute
+an account's pseudonym, and an admin with the gateway's console can match a
+report's game to a table and its seats (`docs/feedback.md`). Who can resolve the sender:
 an admin signed in to the feedback UI with the gateway's console
 configured, through `GET /admin/accounts?tag=`.
 
-**What is never chat.** The engine, game records (#315), record exports,
-the AI's view and bug reports never contain chat. AI and language-model
+**What is never chat.** The engine, game records (#315), record exports
+and the AI's view never contain chat. A bug report carries chat only as the
+player sends it: its screenshot of the window (ticked by default, used for
+bug fixing only, owner 20.10.2026) shows what the window showed, an open
+chat and the names at the table included. AI and language-model
 seats receive none: a table's members are the accounts in its chairs, and
 those seats have no account.
 
@@ -523,8 +530,12 @@ any of it to another.
   to whatever runs the process.
 - **What is personal in them:** game ids, seat numbers, an agent's operator
   label, counts (for example "idle guests deleted"), and the id of a picture
-  whose file could not be removed. No log line names
-  a username, e-mail, display name, account id, IP address or token.
+  whose file could not be removed. No routine log line names a username,
+  e-mail, display name, account id, IP address or token. The audit lines on
+  `baylee_gateway::audit` do name the account ids an admin acted on (a ban,
+  a password reset, model access; above), and a seat socket's lines name a
+  game id and a seat number, which the gateway's database joins to who sat
+  there.
   - The engine's development harness (`baylee-engine-server` without
     `--attach`) logs a connecting peer's address. It binds loopback by
     default and is not the hosted path.
@@ -718,11 +729,15 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
-  (`crates/baylee-gateway/src/recordexport.rs`), never the database. The
+  (`crates/baylee-gateway/src/recordexport.rs`), never the database; the
+  trainer refuses any record that still carries a host time or an account
+  number (`baylee_train::convert::anonymous`), and balancing has no code
+  yet. The
   export leaves out the game's id (the join to `game_record_seat` and to a
   feedback report, and a time, being a UUIDv7) and `game_record_seat`
   altogether; sets every line's host time (`at`) to 0; sets a `Human`
-  seat's account number to 0; names each file by a count
+  seat's account number to 0; writes a declared model id shaped like an
+  address as `unnamed`; names each file by a count over a random order
   (`000001.jsonl.gz`), with no index of ids or times beside it; refuses a
   record with a line of a kind it does not know; and refuses a record in
   which the id, email, username, display name or invite key of an account
@@ -734,11 +749,18 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   each seat's declared mind (the model a seat said it was) and the end.
   Names shorter than three characters are not searched for. A deck list or
   a rare printing can still be recognised by someone who knows the deck;
-  the export does not hide which cards were played. Opting a player out of
-  training is not built (`tools/trainer/HANDOVER.md`).
+  the export does not hide which cards were played. The export is anonymous
+  to anyone without the gateway's database; whoever holds the database
+  could still match an exported file to the stored record it came from by
+  its content (the seed, the hashes), and that record to who sat there
+  through `game_record_seat`, which replays keep (owner, 13.10.2026).
+  Opting a player out of training is not built
+  (`tools/trainer/HANDOVER.md`).
 - **What reaches the feedback service** is `docs/feedback.md`'s list: the
   gateway's name, public URL and build, the pseudonym (HMAC-SHA256 of the
-  account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold),
+  account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold;
+  unset, the key is derived from the intake token, which the service does
+  hold, so a gateway sets it),
   and what the player sent. Never a name, username, address, session or IP.
   The service has no column for an address or a name and logs no request's
   address. A report sent straight from a client carries no account at all:

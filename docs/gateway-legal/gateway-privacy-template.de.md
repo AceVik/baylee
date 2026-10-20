@@ -1,4 +1,4 @@
-<!-- version: 2026-10-1 -->
+<!-- version: 2026-10-2 -->
 <!-- updated: 2026-10-20 -->
 
 # Datenschutzhinweise dieses Gateways
@@ -40,15 +40,23 @@ des Gateways]**.
   Sperren. *Art. 6 Abs. 1 lit. c und f DSGVO*
 - **Fehlerberichte**, die du sendest, mit den Anhängen, die du angehakt
   lässt; das Gateway leitet sie an [den Dienst, an den der Betreiber
-  Fehlerberichte schickt] weiter. *Art. 6 Abs. 1 lit. f DSGVO* (ein Spiel
-  ohne Fehler)
+  Fehlerberichte schickt] weiter. Sie bleiben deinem Konto über ein
+  Pseudonym zugeordnet, damit der Betreiber nachfragen und dir antworten
+  kann; ein Bildschirmfoto zeigt, was dein Fenster zeigte, auch Namen und
+  Chat am Tisch. Sie dienen nur der Fehlersuche und der Antwort an dich.
+  *Art. 6 Abs. 1 lit. f DSGVO* (ein Spiel ohne Fehler)
+- **Betrieb und Moderation:** Administratoren sehen, wer gerade spielt, an
+  welchem Tisch und mit wem, und die letzten Partien eines Kontos. *Art. 6
+  Abs. 1 lit. f DSGVO* (ein sicherer und fairer Betrieb)
 - **Sicherheit:** IP-Adressen und eingegebene Anmeldenamen kurzzeitig im
   Arbeitsspeicher, um Missbrauch zu bremsen, und Server-Protokolle.
   *Art. 6 Abs. 1 lit. f DSGVO* (sicherer Betrieb)
 
-[Verwendest du Aufzeichnungen für weitere Zwecke, etwa um einen
-Computergegner zu trainieren, nenne hier Zweck, Rechtsgrundlage und wie man
-widerspricht.]
+- **Training der Spiel-KI und Balancing:** Aufzeichnungen, anonymisiert:
+  ohne Konto, Partie-ID und Zeitpunkt. [Streiche diesen Punkt, wenn du
+  Aufzeichnungen nicht dafür verwendest; nennst du weitere Zwecke, dann mit
+  Rechtsgrundlage und wie man widerspricht.] *Art. 6 Abs. 1 lit. f DSGVO*
+  (ein besserer Computergegner)
 
 [Nur wenn das Gateway Sprachmodell-Plätze anbietet: Sitzt ein Sprachmodell
 eines externen Anbieters am Tisch, erhält dieser Anbieter nur die Sicht

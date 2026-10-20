@@ -22,8 +22,10 @@
 //! - `/ui/api/admin/…`: the same admins, passed on to a gateway's admin
 //!   console (its numbers and closed-beta keys, [`console`]).
 //!
-//! Nothing it stores names a player: a report carries the gateway's
-//! pseudonym for its reporter, and no request's address is kept or logged.
+//! No column holds an address or a player's name: a report carries the
+//! gateway's pseudonym for its reporter, and no request's address is kept
+//! or logged. What a player sends may still name people as they sent it:
+//! the text, a screenshot of the window, a reported message's tag.
 
 #![warn(missing_docs)]
 

@@ -1,4 +1,4 @@
-<!-- version: 2026-10-1 -->
+<!-- version: 2026-10-2 -->
 <!-- updated: 2026-10-20 -->
 
 # Privacy notice of this gateway
@@ -36,12 +36,20 @@ legal notice]**.
   *Art. 6(1)(c) and (f) GDPR*
 - **Bug reports** you send, with the attachments you leave ticked; the
   gateway passes them on to [the service the operator sends bug reports
-  to]. *Art. 6(1)(f) GDPR* (a game without bugs)
+  to]. They stay linked to your account through a pseudonym so the operator
+  can follow up and answer you; a screenshot shows what your window showed,
+  names and chat at the table included. They serve only to find bugs and to
+  answer you. *Art. 6(1)(f) GDPR* (a game without bugs)
+- **Operation and moderation:** administrators see who is playing, at which
+  table and with whom, and an account's recent games. *Art. 6(1)(f) GDPR*
+  (secure and fair operation)
 - **Security:** IP addresses and entered sign-in names briefly in memory to
   slow down abuse, and server logs. *Art. 6(1)(f) GDPR* (secure operation)
 
-[If you use records for further purposes, such as training a computer
-opponent, state the purpose, the legal basis and how to object here.]
+- **Training the game's AI and balancing:** records, anonymised: without
+  account, game ID or time. [Delete this point if you do not use records
+  for it; name any further purpose with its legal basis and how to object.]
+  *Art. 6(1)(f) GDPR* (a better computer opponent)
 
 [Only if the gateway offers language-model seats: when a language model of
 an external provider sits at a table, that provider receives only that

@@ -1,4 +1,4 @@
-<!-- version: 2026-10-1 -->
+<!-- version: 2026-10-2 -->
 <!-- updated: 2026-10-20 -->
 
 # Terms of use of this gateway
@@ -64,16 +64,26 @@ all rights to them. Upload only what you may use.
    of the same game. Whether they see your hidden cards is your choice, per
    game, at the end of the game or later in your list of replays. For new
    games it is on until you switch it off.
+4. The operator may use records anonymised, that is without account, game
+   ID or time, to train the game's AI and to balance decks. It neither sells
+   them nor passes them on.
 
-## 6. Reports and moderation
+## 6. Bug reports, reports and moderation
 
-You can report breaches or unlawful content with the report function in the
-client or through the contact details in the gateway's legal notice. The
-operator reviews reports promptly. For breaches the operator may remove
-content, exclude you from tables or suspend your account on this gateway,
-temporarily or permanently, to an extent proportionate to the breach, and
-tells you why and how you can object. A suspension on this gateway does not
-affect your Baylee account on other gateways.
+1. You send a bug report with the client's report function. It stays
+   linked to your account (through a pseudonym) so the operator can follow
+   it up and later contact you about it. It carries what you send along:
+   your text and, if ticked, a screenshot of the client window (which can
+   show names and chat at the table), system details, your game log and
+   the game's record. The operator uses bug reports only to find and fix
+   bugs and to answer you, not for training and not to pass on.
+2. You can report breaches or unlawful content with the report function in the
+   client or through the contact details in the gateway's legal notice. The
+   operator reviews reports promptly. For breaches the operator may remove
+   content, exclude you from tables or suspend your account on this gateway,
+   temporarily or permanently, to an extent proportionate to the breach, and
+   tells you why and how you can object. A suspension on this gateway does
+   not affect your Baylee account on other gateways.
 
 ## 7. Fan content
 
@@ -92,7 +102,9 @@ health or under the Product Liability Act.
 
 Which data this gateway processes is described in the operator's privacy
 notice, which its legal notice names. You sign in with your Baylee account;
-the gateway receives your account ID and display name, not your password.
+the gateway receives your account ID and display name, not your password. To
+run and moderate the gateway, the operator and its administrators see who is
+playing, at which table and with whom, and an account's recent games.
 
 ## 10. Changes
 

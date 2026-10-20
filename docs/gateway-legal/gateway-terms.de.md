@@ -1,4 +1,4 @@
-<!-- version: 2026-10-1 -->
+<!-- version: 2026-10-2 -->
 <!-- updated: 2026-10-20 -->
 
 # Nutzungsbedingungen dieses Gateways
@@ -68,17 +68,29 @@ daran. Lade nur hoch, was du verwenden darfst.
    Karten sehen, entscheidest du je Partie, am Ende der Partie oder später
    in deiner Replay-Liste. Bei neuen Partien ist das eingeschaltet, bis du
    es ausschaltest.
+4. Der Betreiber darf Aufzeichnungen anonymisiert, also ohne Konto,
+   Partie-ID und Zeitpunkt, verwenden, um die Spiel-KI zu trainieren und
+   Decks auszubalancieren. Er verkauft sie nicht und gibt sie nicht weiter.
 
-## 6. Meldungen und Moderation
+## 6. Fehlerberichte, Meldungen und Moderation
 
-Hinweise auf Verstöße oder rechtswidrige Inhalte kannst du über die
-Meldefunktion im Client oder über die Kontaktdaten im Impressum des
-Gateways schicken. Der Betreiber prüft sie zeitnah. Bei Verstößen kann er
-Inhalte entfernen, dich von Tischen ausschließen oder dein Konto auf diesem
-Gateway vorübergehend oder dauerhaft sperren, in einem dem Verstoß
-angemessenen Umfang. Er teilt dir die Gründe mit und sagt dir, wie du
-widersprechen kannst. Eine Sperre auf diesem Gateway betrifft dein
-Baylee-Konto auf anderen Gateways nicht.
+1. Einen Fehlerbericht schickst du mit der Berichtsfunktion des Clients.
+   Er bleibt deinem Konto zugeordnet (über ein Pseudonym), damit der
+   Betreiber ihn nachverfolgen und dich später dazu kontaktieren kann. Er
+   enthält, was du mitschickst: deinen Text und, wenn angehakt, ein
+   Bildschirmfoto des Client-Fensters (darauf können Namen und Chat am
+   Tisch zu sehen sein), Systemangaben, dein Spielprotokoll und die
+   Aufzeichnung der Partie. Der Betreiber verwendet Fehlerberichte nur, um
+   Fehler zu finden und zu beheben und dir zu antworten, nicht zum Training
+   und nicht zur Weitergabe.
+2. Hinweise auf Verstöße oder rechtswidrige Inhalte kannst du über die
+   Meldefunktion im Client oder über die Kontaktdaten im Impressum des
+   Gateways schicken. Der Betreiber prüft sie zeitnah. Bei Verstößen kann er
+   Inhalte entfernen, dich von Tischen ausschließen oder dein Konto auf diesem
+   Gateway vorübergehend oder dauerhaft sperren, in einem dem Verstoß
+   angemessenen Umfang. Er teilt dir die Gründe mit und sagt dir, wie du
+   widersprechen kannst. Eine Sperre auf diesem Gateway betrifft dein
+   Baylee-Konto auf anderen Gateways nicht.
 
 ## 7. Fan-Inhalt
 
@@ -98,7 +110,10 @@ Leben, Körper und Gesundheit und nach dem Produkthaftungsgesetz.
 Welche Daten dieses Gateway verarbeitet, beschreiben die
 Datenschutzhinweise des Betreibers, die sein Impressum nennt. Mit deinem
 Baylee-Konto meldest du dich an; das Gateway erhält dabei deine Konto-ID
-und deinen Anzeigenamen, nicht dein Passwort.
+und deinen Anzeigenamen, nicht dein Passwort. Um das Gateway zu betreiben
+und zu moderieren, sehen der Betreiber und seine Administratoren, wer
+gerade spielt, an welchem Tisch und mit wem, und die letzten Partien eines
+Kontos.
 
 ## 10. Änderungen
 
