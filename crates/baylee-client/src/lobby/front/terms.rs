@@ -48,12 +48,17 @@ pub(crate) enum TermsReply {
     Stale(bool),
     /// A sign-in through Baylee Central landed: after its event, so the
     /// lobby knows the session is Central-bound.
+    // The browser client signs in to no Baylee Central: on wasm nothing
+    // sends this or the next two.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     CentralBound,
     /// The sign-in said Baylee Central's own terms wait for this account:
     /// the sheet shows those first.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     CentralStale,
     /// Accepted at Central: sign in to the gateway again, which then finds
     /// them accepted (and may ask for the gateway's own next).
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Readmit,
     /// `GET /terms`, to a question asked in `asked`.
     Doc {
