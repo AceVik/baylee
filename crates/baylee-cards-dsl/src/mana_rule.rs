@@ -53,6 +53,7 @@ fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect])
         Effect::Reflexive { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
+        | Effect::AtNextTurnsUpkeep { .. }
         | Effect::AtNextCleanup { .. }
         | Effect::WhenTargetDiesThisTurn { .. }
         | Effect::WhenSourceDiesThisTurn { .. }
@@ -230,6 +231,9 @@ mod tests {
                 who: PlayerRel::You,
             },
             Effect::AtNextEndStep {
+                effects: &[Effect::draw(1)],
+            },
+            Effect::AtNextTurnsUpkeep {
                 effects: &[Effect::draw(1)],
             },
         ];

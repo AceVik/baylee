@@ -3010,22 +3010,43 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, flip a coin. If you lose the flip, this artifact deals 3 damage to you.\n{T}: Add {C}{C}.",
     ],
-    &[],
+    // Abyssal Specter
+    &["Flying\nWhenever this creature deals damage to a player, that player discards a card."],
     // Adarkar Sentinel
     &["{1}: This creature gets +0/+1 until end of turn."],
-    &[],
+    // Adarkar Unicorn
+    &["{T}: Add {U} or {C}{U}. Spend this mana only to pay cumulative upkeep costs."],
     // Adarkar Wastes
     &["{T}: Add {C}.\n{T}: Add {W} or {U}. This land deals 1 damage to you."],
-    &[],
-    &[],
-    &[],
+    // Aegis of the Meek
+    &["{1}, {T}: Target 1/1 creature gets +1/+2 until end of turn."],
+    // Aggression
+    &[
+        "Enchant non-Wall creature\nEnchanted creature has first strike and trample.\nAt the beginning of the end step of enchanted creature's controller, destroy that creature if it didn't attack this turn.",
+    ],
+    // Altar of Bone
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a creature card, reveal it, put it into your hand, then shuffle.",
+    ],
     &[],
     // Anarchy
     &["Destroy all white permanents."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Arctic Foxes
+    &[
+        "This creature can't be blocked by creatures with power 2 or greater as long as defending player controls a snow land.",
+    ],
+    // Arcum's Sleigh
+    &[
+        "{2}, {T}: Target creature gains vigilance until end of turn. Activate only during combat and only if defending player controls a snow land.",
+    ],
+    // Arcum's Weathervane
+    &[
+        "{2}, {T}: Target snow land is no longer snow.\n{2}, {T}: Target nonsnow basic land becomes snow.",
+    ],
+    // Arcum's Whistle
+    &[
+        "{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is that creature's mana value. If they don't pay, the creature attacks this turn if able, and at the beginning of the next end step, destroy it if it didn't attack this turn. Activate only before attackers are declared.",
+    ],
     // Arenson's Aura
     &[
         "{W}, Sacrifice an enchantment: Destroy target enchantment.\n{3}{U}{U}: Counter target enchantment spell.",
@@ -3034,42 +3055,84 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature gets +1/+1.\n{W}: Enchanted creature gets +0/+1 until end of turn.",
     ],
-    &[],
-    &[],
+    // Arnjlot's Ascent
+    &[
+        "Cumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{1}: Target creature gains flying until end of turn.",
+    ],
+    // Ashen Ghoul
+    &[
+        "Haste\n{B}: Return this card from your graveyard to the battlefield. Activate only during your upkeep and only if three or more creature cards are above this card.",
+    ],
     // Aurochs
     &[
         "Trample\nWhenever this creature attacks, it gets +1/+0 until end of turn for each other attacking Aurochs.",
     ],
-    &[],
+    // Avalanche
+    &["Destroy X target snow lands."],
     // Balduvian Barbarians
     &[""],
     // Balduvian Bears
     &[""],
     // Balduvian Conjurer
     &["{T}: Target snow land becomes a 2/2 creature until end of turn. It's still a land."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Balduvian Hydra
+    &[
+        "This creature enters with X +1/+0 counters on it.\nRemove a +1/+0 counter from this creature: Prevent the next 1 damage that would be dealt to it this turn.\n{R}{R}{R}: Put a +1/+0 counter on this creature. Activate only during your upkeep.",
+    ],
+    // Balduvian Shaman
+    &[
+        "{T}: Change the text of target white enchantment you control that doesn't have cumulative upkeep by replacing all instances of one color word with another. (For example, you may change \"black creatures can't attack\" to \"blue creatures can't attack.\") That enchantment gains \"Cumulative upkeep {1}.\" (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)",
+    ],
+    // Barbarian Guides
+    &[
+        "{2}{R}, {T}: Choose a land type. Target creature you control gains snow landwalk of the chosen type until end of turn. Return that creature to its owner's hand at the beginning of the next end step. (It can't be blocked as long as defending player controls a snow land of that type.)",
+    ],
+    // Barbed Sextant
+    &[
+        "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card at the beginning of the next turn's upkeep.",
+    ],
     // Baton of Morale
     &[
         "{2}: Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
+    // Battle Cry
+    &[
+        "Untap all white creatures you control.\nWhenever a creature blocks this turn, it gets +0/+1 until end of turn.",
+    ],
+    // Battle Frenzy
+    &[
+        "Green creatures you control get +1/+1 until end of turn.\nNongreen creatures you control get +1/+0 until end of turn.",
+    ],
     // Binding Grasp
     &[
         "Enchant creature\nAt the beginning of your upkeep, sacrifice this Aura unless you pay {1}{U}.\nYou control enchanted creature.\nEnchanted creature gets +0/+1.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Black Scarab
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by black creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a black permanent.",
+    ],
+    // Blessed Wine
+    &["You gain 1 life.\nDraw a card at the beginning of the next turn's upkeep."],
+    // Blinking Spirit
+    &["{0}: Return this creature to its owner's hand."],
+    // Blizzard
+    &[
+        "Cast this spell only if you control a snow land.\nCumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nCreatures with flying don't untap during their controllers' untap steps.",
+    ],
+    // Blue Scarab
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by blue creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a blue permanent.",
+    ],
+    // Bone Shaman
+    &[
+        "{B}: Until end of turn, this creature gains \"Creatures dealt damage by this creature this turn can't be regenerated this turn.\"",
+    ],
     // Brainstorm
     &["Draw three cards, then put two cards from your hand on top of your library in any order."],
-    &[],
+    // Brand of Ill Omen
+    &[
+        "Enchant creature\nCumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nEnchanted creature's controller can't cast creature spells.",
+    ],
     &[],
     // Brine Shaman
     &[

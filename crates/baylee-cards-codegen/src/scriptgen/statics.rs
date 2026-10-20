@@ -570,9 +570,7 @@ impl Tx<'_> {
                             "Modifier::GrantTriggered {{ \
                              trigger: Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
                              effects: &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}], \
-                             target: None, \
-                             optional: false, \
-                             condition: Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))) }}"
+                             target: None }}"
                         ),
                     ));
                     continue;

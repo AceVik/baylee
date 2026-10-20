@@ -912,7 +912,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // activated abilities across spore/thallid saproling generators, storage
     // lands, pump/prevention/counter-manipulation artifacts and creatures, of
     // which 20 are read by the evaluator.
-    assert_eq!((read, of), (2570, 3131), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 1 adds 11 non-mana activated abilities across
+    // Aegis of the Meek, Arcum's Sleigh, Arcum's Whistle, Arnjlot's Ascent,
+    // Ashen Ghoul, Balduvian Hydra, Balduvian Shaman, Barbarian Guides,
+    // Blinking Spirit, and Bone Shaman, of which 8 are read by the evaluator.
+    assert_eq!((read, of), (2578, 3142), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
