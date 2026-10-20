@@ -8,7 +8,9 @@
 //! `game_record_seat` (who sat where) and to a feedback report, and which as
 //! a version-7 UUID is a time too; and the host's clock on every line (`at`). The
 //! export keeps neither. Each record is written as `NNNNNN.jsonl.gz`, by a
-//! count, with no id, no time and no index beside it. What stays is what
+//! count over the records in a random order (the order the database keeps
+//! them in is when they were played), with no id, no time and no index
+//! beside it. What stays is what
 //! training and balancing read: the build, the preset (format, seed, seats
 //! with their teams, decks and printings, the house's profiles), every input
 //! with its seat and who answered it, the chair changes, each seat's
@@ -67,12 +69,15 @@ pub(crate) fn anonymise(jsonl: &str, names: &[String]) -> Result<String, String>
         let kind = object
             .get("kind")
             .and_then(Value::as_str)
-            .ok_or_else(|| format!("line {}: no kind", n + 1))?;
-        if !KINDS.contains(&kind) {
+            .ok_or_else(|| format!("line {}: no kind", n + 1))?
+            .to_owned();
+        if !KINDS.contains(&kind.as_str()) {
             return Err(format!("line {}: a line of kind `{kind}`", n + 1));
         }
-        if kind == "header" {
-            forget_accounts(object);
+        match kind.as_str() {
+            "header" => forget_accounts(object),
+            "declared_mind" => forget_addresses(object),
+            _ => {}
         }
         // The host's clock: with the order of the lines, when it was played.
         if let Some(at) = object.get_mut("at") {
@@ -89,6 +94,34 @@ pub(crate) fn anonymise(jsonl: &str, names: &[String]) -> Result<String, String>
         return Err("an empty record".to_owned());
     }
     Ok(out)
+}
+
+/// A declared mind's model id that reads as an address (something `@` a
+/// domain) becomes `unnamed`: a model id is self-declared, and the shape
+/// it is held to lets `@` through for a model's version (`claude@20261001`).
+fn forget_addresses(line: &mut serde_json::Map<String, Value>) {
+    let Some(model) = line.get_mut("mind").and_then(|m| m.get_mut("model")) else {
+        return;
+    };
+    let address = model
+        .as_str()
+        .and_then(|m| m.split_once('@'))
+        .is_some_and(|(_, after)| after.contains('.'));
+    if address {
+        *model = Value::from("unnamed");
+    }
+}
+
+/// A random order of `count` items (Fisher–Yates over the OS's randomness).
+fn shuffled(count: usize) -> Result<Vec<usize>, String> {
+    let mut order: Vec<usize> = (0..count).collect();
+    for i in (1..count).rev() {
+        let mut bytes = [0u8; 8];
+        getrandom::fill(&mut bytes).map_err(|e| format!("no randomness: {e}"))?;
+        let j = usize::try_from(u64::from_le_bytes(bytes) % (i as u64 + 1)).unwrap_or(0);
+        order.swap(i, j);
+    }
+    Ok(order)
 }
 
 /// A header's seats: a `Human` controller's account number becomes 0.
@@ -207,6 +240,12 @@ async fn export(db: &sea_orm::DatabaseConnection, out: &Path) -> Result<(usize, 
     let ids = baylee_db::records::complete_ids(db)
         .await
         .map_err(|e| format!("the records: {e}"))?;
+    // The database lists them by when they were played; the numbers must
+    // not say that.
+    let ids: Vec<_> = shuffled(ids.len())?
+        .into_iter()
+        .map(|i| ids[i].clone())
+        .collect();
     let (mut written, mut refused) = (0usize, 0usize);
     for id in ids {
         let Some(record) = baylee_db::records::for_export(db, &id)
@@ -337,6 +376,40 @@ mod tests {
         assert!(named("rh").is_ok(), "two characters are searched nowhere");
         assert!(named("abc").is_ok(), "a header's hash is not searched");
         assert!(named("zoe").is_ok());
+    }
+
+    /// A model id shaped like an address is written as `unnamed`; a
+    /// model's version after `@` stays.
+    #[test]
+    fn a_model_id_like_an_address_is_not_kept() {
+        let mind = |model: &str| {
+            format!(
+                r#"{{"kind":"declared_mind","n":1,"at":0,"seat":0,"mind":{{"kind":"llm_cli","model":"{model}"}}}}"#
+            )
+        };
+        let model_of = |model: &str| {
+            let text = anonymise(&record(&[HEADER, &mind(model)]), &[]).unwrap();
+            lines(&text)[1]["mind"]["model"].clone()
+        };
+        assert_eq!(model_of("someone@example.org"), "unnamed");
+        assert_eq!(
+            model_of("claude-sonnet-5-5@20261001"),
+            "claude-sonnet-5-5@20261001"
+        );
+        assert_eq!(model_of("claude-sonnet-5-5"), "claude-sonnet-5-5");
+    }
+
+    #[test]
+    fn a_shuffle_keeps_every_record_once() {
+        let order = shuffled(1000).unwrap();
+        let mut sorted = order.clone();
+        sorted.sort_unstable();
+        assert_eq!(sorted, (0..1000).collect::<Vec<_>>());
+        assert_ne!(
+            order, sorted,
+            "a thousand in their own order by chance: never"
+        );
+        assert_eq!(shuffled(0).unwrap(), Vec::<usize>::new());
     }
 
     #[test]

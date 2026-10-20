@@ -151,6 +151,45 @@ pub enum Refused {
     Diverged(Option<u64>),
     /// The record has no end: the game was stopped, not finished.
     Unfinished,
+    /// The record still says when it was played or which account sat at
+    /// it: training reads only self-play and the gateway's anonymised
+    /// export (`baylee-gateway records export`, `docs/privacy.md`), never a
+    /// stored record as it is.
+    NotAnonymous(&'static str),
+}
+
+/// Whether `record` carries nothing that ties it to a person, as the
+/// gateway's export writes it: every host time is 0 and no `Human` seat
+/// keeps an account number.
+///
+/// # Errors
+///
+/// [`Refused::Unreadable`] for a line that is no JSON, and
+/// [`Refused::NotAnonymous`] for a time or an account number.
+pub fn anonymous(record: &[u8]) -> Result<(), Refused> {
+    for raw in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let line: serde_json::Value =
+            serde_json::from_slice(raw).map_err(|e| Refused::Unreadable(e.to_string()))?;
+        if line
+            .get("at")
+            .and_then(serde_json::Value::as_u64)
+            .is_some_and(|at| at != 0)
+        {
+            return Err(Refused::NotAnonymous("a host time"));
+        }
+        let seats = line
+            .pointer("/preset/seats")
+            .and_then(serde_json::Value::as_array);
+        for seat in seats.into_iter().flatten() {
+            let human = seat
+                .pointer("/controller/Human")
+                .and_then(serde_json::Value::as_object);
+            if human.is_some_and(|human| human.values().any(|n| n.as_u64() != Some(0))) {
+                return Err(Refused::NotAnonymous("an account number"));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Replays `record` and encodes the decisions `keep` keeps.
@@ -158,6 +197,7 @@ pub enum Refused {
 /// # Errors
 /// See [`Refused`]; a refused record contributes nothing.
 pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
+    anonymous(record)?;
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -244,6 +284,44 @@ pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
         inputs,
         unmatched,
     })
+}
+
+#[cfg(test)]
+mod anonymous_tests {
+    use super::*;
+
+    const HEADER: &str = r#"{"kind":"header","record":1,"build":"b","hash":"abc","preset":{"seats":[{"controller":{"Human":{"user_id":0}}},{"controller":{"Ai":"Sharp"}}]}}"#;
+
+    fn record(lines: &[&str]) -> Vec<u8> {
+        lines.join("\n").into_bytes()
+    }
+
+    #[test]
+    fn an_exported_or_self_played_record_is_anonymous() {
+        let input = r#"{"kind":"input","n":0,"at":0,"seat":0}"#;
+        assert_eq!(anonymous(&record(&[HEADER, input])), Ok(()));
+    }
+
+    #[test]
+    fn a_host_time_or_an_account_number_is_refused() {
+        let timed = r#"{"kind":"input","n":0,"at":1790000000000,"seat":0}"#;
+        assert_eq!(
+            anonymous(&record(&[HEADER, timed])),
+            Err(Refused::NotAnonymous("a host time"))
+        );
+        let named = HEADER.replace(r#""user_id":0"#, r#""user_id":42"#);
+        assert_eq!(
+            anonymous(&record(&[&named])),
+            Err(Refused::NotAnonymous("an account number"))
+        );
+        assert!(
+            matches!(
+                convert(&record(&[&named]), Keep::default()),
+                Err(Refused::NotAnonymous(_))
+            ),
+            "the converter asks before it replays"
+        );
+    }
 }
 
 #[cfg(test)]
