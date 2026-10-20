@@ -1,13 +1,11 @@
-//! `scripts/server/baylee-reboot` with every command that would touch a
-//! server stood in for (`date`, `stat`, `curl`, `systemctl`, `flock`,
-//! `logger`): a pending reboot happens only inside the night window and
+//! `baylee-reboot` with every command that would touch a server stood in for
+//! (`date` for the hour, `curl`, `systemctl`, `logger`), the pending file's
+//! age set on the file itself and a running deploy holding the real lock: a
+//! pending reboot happens only inside the night window and
 //! only while no game of this machine runs; after the drain delay the agent
 //! is stopped instead, and started again when the window closes first.
 
 #![cfg(unix)]
-
-#[path = "support/server_json.rs"]
-mod server_json;
 
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
@@ -40,9 +38,6 @@ struct Server {
     /// Whether a deploy holds its lock.
     deploying: bool,
 }
-
-/// The stand-in clock's now, in Unix seconds.
-const NOW: u64 = 1_800_000_000;
 
 const QUIET_NIGHT: Server = Server {
     pending: true,
@@ -90,7 +85,18 @@ fn run(server: Server) -> Run {
     )
     .unwrap();
     if server.pending {
-        std::fs::write(runtime.join("reboot-required"), "").unwrap();
+        let required = runtime.join("reboot-required");
+        std::fs::write(&required, "").unwrap();
+        // Asked for that many days ago, a few minutes more so a slow run
+        // cannot land on the boundary.
+        let since = std::time::SystemTime::now()
+            - std::time::Duration::from_secs(server.days_pending * 86_400 + 300);
+        std::fs::File::options()
+            .write(true)
+            .open(&required)
+            .unwrap()
+            .set_modified(since)
+            .unwrap();
         std::fs::write(runtime.join("reboot-required.pkgs"), "linux-image\n").unwrap();
     }
     if server.drained {
@@ -100,16 +106,14 @@ fn run(server: Server) -> Run {
     std::fs::write(&lock, "").unwrap();
     let calls: PathBuf = scratch.join("calls");
 
-    let since = NOW - server.days_pending * 86_400;
     stub(
         &stubs,
         "date",
         &format!(
-            r#"[ "$1" = +%H ] && printf '%02d\n' {}; [ "$1" = +%s ] && echo {NOW}; exit 0"#,
+            r#"[ "$1" = +%H ] && printf '%02d\n' {}; exit 0"#,
             server.hour
         ),
     );
-    stub(&stubs, "stat", &format!("echo {since}"));
     stub(
         &stubs,
         "curl",
@@ -123,20 +127,16 @@ fn run(server: Server) -> Run {
     );
     stub(&stubs, "systemctl", "exit 0");
     stub(&stubs, "logger", "exit 0");
-    stub(
-        &stubs,
-        "flock",
-        if server.deploying { "exit 1" } else { "exit 0" },
-    );
+    // A deploy holds its lock for its whole run: this test process holds it
+    // while the reboot command looks.
+    let held = std::fs::File::open(&lock).unwrap();
+    if server.deploying {
+        held.try_lock().unwrap();
+    }
 
-    stub(&stubs, "server-json", server_json::BODY);
-
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-reboot");
     let path = format!("{}:{}", stubs.display(), std::env::var("PATH").unwrap());
-    let output = std::process::Command::new("bash")
-        .arg(&script)
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-reboot"))
         .env("PATH", path)
-        .env("BAYLEE_SERVER_JSON", stubs.join("server-json"))
         .env("REBOOT_CALLS", &calls)
         .env("BAYLEE_REBOOT_RUN", &runtime)
         .env("BAYLEE_REBOOT_ETC", &etc)

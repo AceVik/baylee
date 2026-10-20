@@ -9,7 +9,10 @@
 //! ```
 //!
 //! The database URL comes from `DATABASE_URL`, so the CLI and the gateway
-//! always agree on which catalog they are talking to.
+//! always agree on which catalog they are talking to. `--settings FILE`
+//! (repeatable) reads it from the gateway's own settings files instead, the
+//! last file naming it winning, so a deploy running this as root never puts
+//! the URL on a command line.
 
 use anyhow::{Context, Result};
 use baylee_catalog::{Catalog, ingest, upgrade};
@@ -21,8 +24,12 @@ use tracing_subscriber::EnvFilter;
 #[command(about = "Card catalog: ingest and query Scryfall data")]
 struct Cli {
     /// Postgres connection URL.
-    #[arg(long, env = "DATABASE_URL")]
-    database_url: String,
+    #[arg(long, env = "DATABASE_URL", hide_env_values = true)]
+    database_url: Option<String>,
+    /// Read `DATABASE_URL` from these `KEY=value` files instead of the
+    /// environment (systemd `EnvironmentFile=` syntax; the last one wins).
+    #[arg(long = "settings", value_name = "FILE")]
+    settings: Vec<std::path::PathBuf>,
     #[command(subcommand)]
     command: Cmd,
 }
@@ -87,7 +94,16 @@ async fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let catalog = Catalog::connect(&cli.database_url)
+    let database_url = if cli.settings.is_empty() {
+        cli.database_url.clone()
+    } else {
+        settings_url(&cli.settings)?
+    }
+    .filter(|url| !url.is_empty())
+    .context(
+        "no DATABASE_URL: set it, pass --database-url, or name a --settings file holding it",
+    )?;
+    let catalog = Catalog::connect(&database_url)
         .await
         .context("connecting to the catalog")?;
 
@@ -169,4 +185,57 @@ fn read_keep_list(path: &str) -> anyhow::Result<Vec<String>> {
         ids.push(id.to_owned());
     }
     Ok(ids)
+}
+
+/// The last `DATABASE_URL=…` across these settings files, read in order. A
+/// file that is not there is skipped, as sourcing them did; none naming the
+/// URL is the caller's error.
+fn settings_url(files: &[std::path::PathBuf]) -> Result<Option<String>> {
+    let mut url = None;
+    for file in files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error).with_context(|| format!("reading {}", file.display())),
+        };
+        for line in text.lines() {
+            let line = line.trim_start();
+            if let Some(value) = line.strip_prefix("DATABASE_URL=") {
+                let value = value.trim_end();
+                let value = value
+                    .strip_prefix('"')
+                    .and_then(|v| v.strip_suffix('"'))
+                    .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
+                    .unwrap_or(value);
+                url = Some(value.to_owned());
+            }
+        }
+    }
+    Ok(url)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_last_settings_file_naming_the_url_wins() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b) = (
+            dir.path().join("secrets.env"),
+            dir.path().join("gateway.env"),
+        );
+        std::fs::write(&a, "DATABASE_URL=postgres://first\nOTHER=x\n").unwrap();
+        std::fs::write(&b, "# comment\nDATABASE_URL=\"postgres://second\"\n").unwrap();
+        assert_eq!(
+            super::settings_url(&[a.clone(), b]).unwrap().as_deref(),
+            Some("postgres://second")
+        );
+        assert_eq!(
+            super::settings_url(&[a]).unwrap().as_deref(),
+            Some("postgres://first")
+        );
+        assert_eq!(
+            super::settings_url(&[dir.path().join("absent")]).unwrap(),
+            None
+        );
+    }
 }

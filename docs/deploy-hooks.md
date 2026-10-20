@@ -1,6 +1,6 @@
 # Deploy hooks
 
-A server deploy (`scripts/server/baylee-deploy`, §"Server deploys" in
+A server deploy (`baylee-deploy`, crate baylee-ops, §"Server deploys" in
 `docs/releasing.md`) can run an operator's own programs at three fixed points,
 so that another local service is updated in lockstep with Baylee. The hooks
 are optional and generic: without any, a deploy does exactly what it did
@@ -34,7 +34,7 @@ PHASE = prepare | before-switch | after-switch
   `name.dpkg-new`, anything with a dot or a space.
 - **No hooks.** A missing `/etc/baylee/deploy-hooks.d`, or one with no name
   matching the pattern, means no hooks: the deploy is the one described in
-  `scripts/server/baylee-deploy` without this page.
+  `baylee-deploy` (crate baylee-ops) without this page.
 
 ### What a hook must be
 
@@ -255,11 +255,6 @@ stage <tag>` deploys it. With neither file, every tag is taken as before and
 the log says it was not verified. A commit id given to `stage` by hand is the
 operator's own choice and is not checked.
 
-The deployment/reboot scripts read gateway JSON through the native
-`baylee-server-json` binary (package `baylee-tools`), not a Python runtime.
-During stage, preflight uses the freshly built binary without installing it;
-installation follows successful preparation with the agent/engine binaries.
-Future timer and reboot invocations use `/opt/baylee/bin/baylee-server-json`
-(or `BAYLEE_SERVER_JSON` for a custom installation). Install this binary before
-updating a stand-alone reboot script. Malformed or missing counts are errors
-and continue to block switching/rebooting. See `docs/dev-tools.md`.
+`baylee-deploy` and `baylee-reboot` (crate baylee-ops) read the gateway's
+JSON themselves. Malformed or missing counts are "unknown" and continue to
+block switching and rebooting.

@@ -1,4 +1,4 @@
-//! A server for `scripts/server/baylee-deploy` to deploy to, kept between
+//! A server for `baylee-deploy` to deploy to, kept between
 //! runs: every command that would change a real one is a stand-in that
 //! notes its arguments, and the files under `ctl/` say what the machine
 //! answers (the dispatcher's status per phase, the games `/health` counts,
@@ -8,9 +8,6 @@
 //! admission hold was up and a stage was there when it was called.
 
 #![allow(dead_code)] // each test binary uses its own part
-
-#[path = "../support/server_json.rs"]
-mod server_json;
 
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
@@ -44,6 +41,11 @@ const NEXT: &str = r#"next() {
 }"#;
 
 /// What one run of the deployer did.
+/// The importer itself, not the `sudo` or `timeout` around it.
+fn is_catalog_upgrade(line: &str) -> bool {
+    line.starts_with("baylee-catalog --settings ") && line.ends_with(" upgrade")
+}
+
 pub struct Ran {
     pub ok: bool,
     pub code: Option<i32>,
@@ -64,6 +66,12 @@ impl Ran {
             .lines()
             .position(|l| l == wanted)
             .unwrap_or_else(|| panic!("no `{wanted}` in:\n{}\nsaid:\n{}", self.calls, self.said))
+    }
+
+    /// Where the importer's upgrade was run (`baylee-catalog --settings …
+    /// upgrade`, the URL read from the settings files and never on the line).
+    pub fn catalog(&self) -> Option<usize> {
+        self.calls.lines().position(is_catalog_upgrade)
     }
 
     /// Where the first call starting with `prefix` is.
@@ -186,7 +194,6 @@ exit 0"#,
         );
         self.write_catalog_stubs();
         stub(stubs, "cargo", "echo built");
-        stub(stubs, "server-json", server_json::BODY);
 
         stub(
             stubs,
@@ -257,17 +264,32 @@ exit "$(next "code-$1" 0)""#
     }
 
     fn write_catalog_stubs(&self) {
-        // Executes the real preparation wrapper without contacting a database.
+        // Stands in for the importer without contacting a database.
         // Deliberately echo the secret to both streams: deploy must redact both.
         stub(
             &self.root.join("src/target/release"),
             "baylee-catalog",
             &format!(
                 r#"{NEXT}
-[ "$1" = upgrade ] || exit 2
-[ "$DATABASE_URL" = "$(next catalog-url 'postgres://catalog-secret@localhost/test')" ] || exit 3
-echo "$DATABASE_URL"
-echo "$DATABASE_URL" >&2
+# As the real importer reads `--settings`: in order, the last URL wins,
+# a file that is not there is skipped; nothing may follow `upgrade`.
+url=''
+while [ $# -gt 0 ]; do
+    case $1 in
+        --settings)
+            if [ -r "$2" ]; then
+                v=$(sed -n 's/^DATABASE_URL=//p' "$2" | tail -1)
+                [ -n "$v" ] && url=$v
+            fi
+            shift 2 ;;
+        upgrade) shift; [ $# -eq 0 ] || exit 2; break ;;
+        *) exit 2 ;;
+    esac
+done
+url=${{url#\'}}; url=${{url%\'}}; url=${{url#\"}}; url=${{url%\"}}
+[ "$url" = "$(next catalog-url 'postgres://catalog-secret@localhost/test')" ] || exit 3
+echo "$url"
+echo "$url" >&2
 exit "$(next catalog-code 0)""#
             ),
         );
@@ -327,13 +349,9 @@ exec "$@""#,
     /// Runs `baylee-deploy <args>` once.
     pub fn run(&self, args: &[&str]) -> Ran {
         let _ = std::fs::remove_file(&self.calls);
-        let script =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
-        let out = std::process::Command::new("bash")
-            .arg(&script)
+        let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-deploy"))
             .args(args)
             .env("BAYLEE_DEPLOY_ROOT", &self.root)
-            .env("BAYLEE_SERVER_JSON", self.stubs.join("server-json"))
             .env("BAYLEE_DEPLOY_ETC", &self.etc)
             .env(
                 "BAYLEE_DEPLOY_HOOKS_BIN",
@@ -357,7 +375,7 @@ exec "$@""#,
                 ),
             )
             .output()
-            .expect("bash runs");
+            .expect("baylee-deploy runs");
         Ran {
             ok: out.status.success(),
             code: out.status.code(),

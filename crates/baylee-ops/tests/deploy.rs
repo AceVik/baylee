@@ -1,4 +1,4 @@
-//! `scripts/server/baylee-deploy stage` with every command it would change a
+//! `baylee-deploy stage` with every command it would change a
 //! server with stood in for (`git`, `cargo`, `npm`, `sudo`, `systemctl`,
 //! `curl`, `flock`, `logger`): it builds the feedback service with the rest,
 //! installs and restarts it exactly when its unit is installed, and builds
@@ -6,9 +6,6 @@
 //! (`docs/feedback.md` §"Running it").
 
 #![cfg(unix)]
-
-#[path = "support/server_json.rs"]
-mod server_json;
 
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
@@ -25,8 +22,13 @@ fn stub(dir: &Path, name: &str, body: &str) {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// What the stand-in `openssl rand -hex 32` makes.
-const CONSOLE_TOKEN: &str = "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00";
+/// Whether `text` carries something shaped like a console token (64 hex
+/// digits in a row), the check that a refused setup printed none.
+fn shows_a_token(text: &str) -> bool {
+    text.as_bytes()
+        .windows(64)
+        .any(|w| w.iter().all(u8::is_ascii_hexdigit))
+}
 
 /// What npm does on the server under test.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -232,7 +234,6 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     );
     sudo_stub(&stubs, etc.is_some());
     stub(&stubs, "logger", "exit 0");
-    stub(&stubs, "openssl", &format!("echo {CONSOLE_TOKEN}"));
     stub(&stubs, "flock", "exit 0");
     machine_stubs(&stubs, feedback_installed, game_running);
     browser_stubs(&stubs, trunk, wasm_target);
@@ -247,18 +248,14 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     } else {
         stubs.join("trunk")
     };
-    stub(&stubs, "server-json", server_json::BODY);
 
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-deploy");
-    let mut command = std::process::Command::new("bash");
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-deploy"));
     let no_etc = scratch.join("no-etc");
     command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
     command.env("SUDO_REFUSES", refused);
     let out = command
-        .arg(&script)
         .args(["stage", "0123456789abcdef0123"])
         .env("BAYLEE_DEPLOY_ROOT", &root)
-        .env("BAYLEE_SERVER_JSON", stubs.join("server-json"))
         .env("CARGO", stubs.join("cargo"))
         .env("NPM", &npm_path)
         .env("TRUNK", &trunk_path)
@@ -273,7 +270,7 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
             ),
         )
         .output()
-        .expect("bash runs");
+        .expect("baylee-deploy runs");
     assert_stage_success(&out);
     let ran = std::fs::read_to_string(&calls).unwrap_or_default();
     let _ = std::fs::remove_dir_all(&scratch);
@@ -476,7 +473,7 @@ fn stage_installs_the_invite_command() {
     let (_, ran) = stage(false, Npm::Absent);
     assert!(
         ran.lines().any(|l| l
-            == "sudo install -m755 scripts/server/baylee-invite /usr/local/sbin/baylee-invite"),
+            == "sudo install -m755 target/release/baylee-invite /usr/local/sbin/baylee-invite"),
         "{ran}"
     );
 }
@@ -498,17 +495,15 @@ fn the_invite_command_runs_the_gateway_with_its_settings() {
     )
     .unwrap();
     std::fs::set_permissions(&gateway, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/server/baylee-invite");
     let run = || {
-        std::process::Command::new("bash")
-            .arg(&script)
+        std::process::Command::new(env!("CARGO_BIN_EXE_baylee-invite"))
             .args(["create", "--note", "Max und Moritz"])
             .env("BAYLEE_INVITE_ETC", &etc)
             .env("BAYLEE_INVITE_BIN", &gateway)
             .env_remove("DATABASE_URL")
             .env_remove("BAYLEE_REGISTRATION")
             .output()
-            .expect("bash runs")
+            .expect("baylee-invite runs")
     };
 
     let out = run();
@@ -561,15 +556,25 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
     let (_, ran, said) = stage_in(server, Some(&etc));
     let gateway = std::fs::read_to_string(&gw).unwrap();
     let feedback = std::fs::read_to_string(&fb).unwrap();
+    // Made from the system's randomness: 32 bytes as hex.
+    let token = gateway
+        .lines()
+        .find_map(|l| l.strip_prefix("BAYLEE_ADMIN_TOKEN="))
+        .expect("a token was written")
+        .to_owned();
+    assert!(
+        token.len() == 64 && token.bytes().all(|b| b.is_ascii_hexdigit()),
+        "{token}"
+    );
     assert_eq!(
         gateway,
-        format!("BAYLEE_REGISTRATION=invite\nBAYLEE_ADMIN_TOKEN={CONSOLE_TOKEN}\n")
+        format!("BAYLEE_REGISTRATION=invite\nBAYLEE_ADMIN_TOKEN={token}\n")
     );
     assert_eq!(
         feedback,
         format!(
             "FEEDBACK_DATABASE_URL=postgres://f@127.0.0.1/f\n\
-             FEEDBACK_GATEWAY_ADMIN_TOKEN={CONSOLE_TOKEN}\n\
+             FEEDBACK_GATEWAY_ADMIN_TOKEN={token}\n\
              FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767\n"
         )
     );
@@ -577,8 +582,8 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
         let mode = std::fs::metadata(file).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "{}", file.display());
     }
-    assert!(!ran.contains(CONSOLE_TOKEN), "on a command line: {ran}");
-    assert!(!said.contains(CONSOLE_TOKEN), "printed: {said}");
+    assert!(!ran.contains(&token), "on a command line: {ran}");
+    assert!(!said.contains(&token), "printed: {said}");
     assert!(said.contains("admin console token made"), "{said}");
     // Before the service restarts, so it starts with its half.
     let wrote = ran.find("sudo tee -a").expect("written");
@@ -588,18 +593,16 @@ fn stage_sets_up_one_console_token_for_both_services_and_never_prints_it() {
     assert!(wrote < restart, "{ran}");
 
     // Again: nothing changes, nothing is made.
-    let (_, ran, said) = stage_in(server, Some(&etc));
+    let (_, _, said) = stage_in(server, Some(&etc));
     assert_eq!(std::fs::read_to_string(&gw).unwrap(), gateway);
     assert_eq!(std::fs::read_to_string(&fb).unwrap(), feedback);
-    assert!(!ran.contains("openssl"), "{ran}");
     assert!(!said.contains("token made"), "{said}");
 
     // A gateway that has one already lends it to the service.
     let chosen = "one-the-operator-chose-0123456789abcdef";
     std::fs::write(&gw, format!("BAYLEE_ADMIN_TOKEN={chosen}\n")).unwrap();
     std::fs::write(&fb, "FEEDBACK_DATABASE_URL=x\n").unwrap();
-    let (_, ran, _) = stage_in(server, Some(&etc));
-    assert!(!ran.contains("openssl"), "{ran}");
+    let _ = stage_in(server, Some(&etc));
     assert!(
         std::fs::read_to_string(&fb)
             .unwrap()
@@ -634,7 +637,7 @@ fn a_token_that_cannot_be_set_up_does_not_stop_the_deploy() {
             ran.contains("sudo systemctl restart baylee-feedback"),
             "{refused}: {ran}"
         );
-        assert!(!said.contains(CONSOLE_TOKEN), "{refused}: {said}");
+        assert!(!shows_a_token(&said), "{refused}: {said}");
         let _ = std::fs::remove_dir_all(&etc);
     }
 }

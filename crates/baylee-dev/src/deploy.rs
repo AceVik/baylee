@@ -3,9 +3,9 @@
 //!
 //! A release deploys itself: a timer on the server runs `baylee-deploy watch`
 //! every minute and stages the newest `v*` tag. What a deploy does while
-//! games are open is the server half's business (`baylee-deploy`): agent and
-//! engine are swapped at once, the gateway once the last game is over, and
-//! `--force` ends the games instead of waiting.
+//! games are open is the server half's business (`baylee-deploy`, crate
+//! baylee-ops): agent and engine are swapped at once, the gateway once the
+//! last game is over, and `--force` ends the games instead of waiting.
 //!
 //! The server builds for itself, so nothing here cross-compiles. The source
 //! travels as a `git bundle`, not a tarball: the build stamps its commit by
@@ -18,6 +18,9 @@ use std::process::Command;
 
 /// Where the server keeps its checkout (`baylee-deploy`'s `$root/src`).
 const SERVER_SOURCE: &str = "/opt/baylee/src";
+/// Where the deploy command for a hand deploy is built, apart from the
+/// checkout's own target directory.
+const DEPLOY_TARGET: &str = "/opt/baylee/state/deploy-target";
 
 pub fn run(force: bool) -> Result<i32> {
     let host = run::require_env(
@@ -41,10 +44,17 @@ pub fn run(force: bool) -> Result<i32> {
     }
 
     // The server half is taken from the commit being deployed, so a change to
-    // how deploys work ships with the first deploy that needs it.
+    // how deploys work ships with the first deploy that needs it. It is built
+    // from an archive of that commit in a directory of its own, never in the
+    // shared checkout, which the minute timer's `baylee-deploy watch` may be
+    // using; its own target directory keeps the rebuild incremental.
     let flag = if force { " --force" } else { "" };
     let stage = format!(
-        "bash <(git -C {SERVER_SOURCE} show {head}:scripts/server/baylee-deploy) stage {head}{flag}"
+        "set -e; d=$(mktemp -d /tmp/baylee-deploy.XXXXXX); trap 'rm -rf \"$d\"' EXIT; \
+         git -C {SERVER_SOURCE} archive {head} | tar -x -C \"$d\"; \
+         \"${{CARGO:-$HOME/.cargo/bin/cargo}}\" build -q --release --locked --manifest-path \"$d/Cargo.toml\" \
+         -p baylee-ops --target-dir {DEPLOY_TARGET}; \
+         {DEPLOY_TARGET}/release/baylee-deploy stage {head}{flag}"
     );
     Ok(run::code(
         Command::new("ssh").arg(&host).arg(stage).status().ok(),

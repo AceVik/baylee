@@ -1,0 +1,22 @@
+[package]
+name = "baylee-ops"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binaries: the server's deploy, closed-beta key and reboot commands (baylee-deploy, baylee-invite, baylee-reboot), installed by a deploy into /usr/local/sbin"
+publish = false
+
+[lints]
+workspace = true
+
+# Small on purpose: a deploy builds this first, from the commit it deploys,
+# before anything else. It drives the machine through the commands an
+# operator would type (git, cargo, sudo, systemctl, curl), so its tests stand
+# those in on PATH; it reads the gateway's JSON itself.
+[dependencies]
+getrandom.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -752,7 +752,7 @@ baylee-gateway invite revoke <id>
 
 Der Befehl braucht nur `DATABASE_URL`; das Gateway muss dafür nicht laufen.
 Jeder Schlüssel wird einmal ausgegeben, gespeichert wird nur sein Hash. Auf
-einem mit `scripts/server/baylee-deploy` eingerichteten Server liest der
+einem mit `baylee-deploy` (Crate baylee-ops) eingerichteten Server liest der
 Wrapper `sudo baylee-invite …` die Einstellungen des Gateways für dich. Die
 Admin-Konsole unten kann dasselbe im Browser.
 

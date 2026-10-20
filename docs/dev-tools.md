@@ -35,7 +35,7 @@ contact production or run a release.
 | `.claude/hooks/*.py` | `cargo tools hooks card-test-debt`, `require-card-tests` |
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
-| Server scripts' inline Python JSON readers | `baylee-server-json` (separate tiny native binary) |
+| `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-invite`, `baylee-reboot` (crate baylee-ops) |
 | `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|wasm]`, `land`, `ci-changes`, `deploy` |
 | `scripts/mobile/*.sh` | `cargo dev android [env]`, `ios-sim`, `serve-lan` |
 | `scripts/test-keyring-linux.sh`, `test-central-*.ps1` | `cargo dev keyring-linux`, `central db\|integration\|client` |
@@ -94,17 +94,15 @@ The public script/feedback decoder must retain the same blob version and
 constants. The public card catalog is read from a committed revision, keeps
 its ledger/coverage consistency checks and excludes disallowed images.
 
-## Server JSON helper
+## The server's commands
 
-`baylee-server-json` parses bounded health/info JSON from stdin. Counts must
-be nonnegative integers. Missing, malformed or oversized state returns an
-error, which deployment/reboot scripts treat as unknown and keep waiting.
-`local_running` falls back to `running` only when that field is absent.
-The deploy stage uses the freshly built helper for preflight and installs it
-at `/opt/baylee/bin/baylee-server-json` after preparation succeeds, with the
-agent/engine binaries. Custom installations set `BAYLEE_SERVER_JSON` in both
-scripts. Install the native helper before installing the new reboot script.
-No Cargo or Python is invoked by a health check.
+`baylee-deploy`, `baylee-invite` and `baylee-reboot` are the binaries of crate
+`baylee-ops`, installed into `/usr/local/sbin` by every stage. They read the
+gateway's health and info JSON themselves: counts must be nonnegative
+integers, and missing, malformed or oversized state counts as unknown, so the
+deploy and the reboot keep waiting. `local_running` falls back to `running`
+only when that field is absent. Their tests (`crates/baylee-ops/tests`) stand
+in the machine's commands on PATH and check what would run.
 
 ## Tests
 
@@ -125,12 +123,11 @@ must accompany any redistribution of those tools. The dependency allowlist
 records this tooling-only addition. The font rasteriser reuses `ab_glyph`
 already in the workspace graph and reads only the bundled OFL fonts.
 
-For the first rollout from a Python-based deploy script, the old running
-script may build only its old package list before installing the new script.
-After that rollout, run the updated `baylee-deploy stage <same deployed rev>`
-once, or build/install `baylee-server-json` before enabling the updated reboot
-timer. Until the helper is installed, missing health parsing fails closed;
-it cannot accidentally restart a gateway with an unknown game count.
+The server scripts became `baylee-ops` on 20.10.2026. A server still running
+the shell `baylee-deploy` must take its next deploy by hand
+(`BAYLEE_DEPLOY_HOST=… cargo dev deploy`): the shell script's `watch` would
+stage a newer release with its old package list and look for scripts that are
+gone. From then on the timer runs the installed binary.
 
 ## Migration checks (14 October 2026)
 

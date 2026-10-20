@@ -931,6 +931,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1247,6 +1248,15 @@ dependencies = [
  "libsecret",
  "windows-native-keyring-store",
  "zeroize",
+]
+
+[[package]]
+name = "baylee-ops"
+version = "0.1.0-beta.7b"
+dependencies = [
+ "getrandom 0.4.3",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -709,7 +709,7 @@ baylee-gateway invite revoke <id>
 
 The command only needs `DATABASE_URL`; the gateway does not have to be
 running. Each key is printed once and only its hash is stored. On a server
-set up with `scripts/server/baylee-deploy`, the wrapper
+set up with `baylee-deploy` (crate baylee-ops), the wrapper
 `sudo baylee-invite …` reads the gateway's settings for you. The admin
 console below does the same in the browser.
 

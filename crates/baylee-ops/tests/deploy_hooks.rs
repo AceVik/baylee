@@ -1,4 +1,4 @@
-//! `scripts/server/baylee-deploy` with deploy hooks (`docs/deploy-hooks.md`):
+//! `baylee-deploy` with deploy hooks (`docs/deploy-hooks.md`):
 //! when the dispatcher is called for which phase, what has and has not
 //! changed on the server by then, and what a hook's "not ready" or failure
 //! leaves behind, run after run, as the timer would.
@@ -480,7 +480,9 @@ fn catalog_upgrade_is_prepared_before_stopping_or_switching_in_both_modes() {
     for server in [Server::bare(), Server::with_hooks()] {
         let ran = server.run(&["stage", A]);
         assert!(ran.ok, "{}", ran.said);
-        let catalog = ran.at("baylee-catalog upgrade");
+        let catalog = ran
+            .catalog()
+            .unwrap_or_else(|| panic!("no catalog upgrade in:\n{}", ran.calls));
         let stop = ran.at("sudo systemctl stop baylee-agent");
         let switch = ran.at("sudo systemctl restart baylee-gateway");
         assert!(catalog < stop && stop < switch, "{}", ran.calls);
@@ -512,7 +514,7 @@ fn failed_catalog_upgrade_prevents_every_switch_with_or_without_hooks() {
         server.set("catalog-code", "1");
         let ran = server.run(&["stage", A, "--force"]);
         assert!(!ran.ok, "{}", ran.said);
-        ran.at("baylee-catalog upgrade");
+        assert!(ran.catalog().is_some(), "{}", ran.calls);
         changed_nothing(&ran, &server);
         assert!(server.deployed().is_none());
         assert!(ran.said.contains("catalog upgrade failed"));
@@ -525,7 +527,7 @@ fn failed_catalog_upgrade_prevents_every_switch_with_or_without_hooks() {
             assert_eq!(server.txn("failed").as_deref(), Some("prepare"));
             let retry = server.run(&["watch"]);
             assert!(retry.ok, "{}", retry.said);
-            assert!(!retry.has("baylee-catalog upgrade"));
+            assert!(retry.catalog().is_none());
             changed_nothing(&retry, &server);
         }
         server.set("catalog-code", "0");
@@ -552,7 +554,9 @@ fn catalog_upgrade_uses_gateway_settings_after_secrets_and_fails_without_a_url()
     let server = Server::bare();
     std::fs::remove_file(server.etc.join("secrets.env")).unwrap();
     let ran = server.run(&["stage", A]);
+    // The importer finds no URL in either file and refuses; the deploy stops
+    // before it changed anything.
     assert!(!ran.ok, "{}", ran.said);
-    assert!(!ran.has("baylee-catalog upgrade"));
+    assert!(ran.said.contains("catalog upgrade failed"), "{}", ran.said);
     changed_nothing(&ran, &server);
 }

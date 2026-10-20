@@ -1871,7 +1871,7 @@ are a second fence, not a replacement for `BAYLEE_AGENT_TOKEN`.
 An agent that came in on the socket is **local**, and so is every game it is
 ordered to run; the game keeps that mark after its agent has gone. `/health`
 counts them apart as `games.local_running`, because that is what a deploy of
-this machine waits for (`scripts/server/baylee-deploy`): replacing this
+this machine waits for (`baylee-deploy`, crate baylee-ops): replacing this
 machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
@@ -4339,7 +4339,7 @@ lets a client say so before a player presses anything. A full agent still
 counts, because it has room again as soon as a game ends. The feed pushes a
 fresh page when the first agent arrives and when the last one leaves, which is
 also what a deploy looks like from the lobby: it stops this machine's agent
-before it replaces the gateway (`scripts/server/baylee-deploy`). A listing
+before it replaces the gateway (`baylee-deploy`, crate baylee-ops). A listing
 without the field comes from an older gateway and means `true`. It is an
 added field, not a new message, so `PROTOCOL_VERSION` does not move.
 

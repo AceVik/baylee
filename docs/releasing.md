@@ -202,7 +202,7 @@ throwaway runner, checks it and removes it again: the dmg's app is copied to
 `/Applications` and started from there until it logs `assets from
 /Applications/Baylee.app/…`; the setup installs for the runner's user and
 uninstalls; the `.deb` goes in with `apt`, which proves its dependencies
-resolve. Without `--install` the script only mounts, extracts and lists,
+resolve. Without `--install` the check only mounts, extracts and lists,
 which also works on a Mac. The pictures (dmg background, `.ico`, Linux icon)
 are our own, drawn by `baylee-tools installers art` from the brand icon
 and Alegreya Sans, and committed.
@@ -319,7 +319,7 @@ unsigned. Only the build step sets `BAYLEE_RELEASE_BUILD=1`, which is what
 lets a client replace itself; a build made anywhere else only checks and
 links.
 
-`crates/baylee-update/tests/sign_script.rs` runs the script against a test
+`crates/baylee-update/tests/sign_script.rs` runs `release` against a test
 key and holds the workflow's wiring; `cargo run -p baylee-update --bin
 baylee-update-sign -- verify <archive>` checks a published archive by hand.
 
@@ -442,11 +442,14 @@ platform security dialogs, or the macOS bundle's runtime behavior.
 ## Server deploys
 
 The server deploys itself: a timer runs `baylee-deploy watch` every minute
-(`scripts/server/baylee-deploy`, `.service`, `.timer`), stages the newest
+(crate baylee-ops, run by `scripts/server/baylee-deploy.service` and `.timer`), stages the newest
 `v*` tag the first time it sees one, swaps agent and engine at once and the
 gateway once no game of this machine is running;
 `BAYLEE_DEPLOY_HOST=user@host cargo dev deploy [--force]` does the same for a
-commit by hand (the repository names no server; the host is the operator's). The script's header describes the two halves.
+commit by hand (the repository names no server; the host is the operator's).
+`crates/baylee-ops/src/deploy.rs` describes the two halves. A server still
+running the shell script from before 20.10.2026 takes its next deploy by hand
+(`docs/dev-tools.md` §"Tests").
 
 An operator can run local programs at three fixed points of that deploy
 (`prepare`, `before-switch`, `after-switch`) to keep another service on the

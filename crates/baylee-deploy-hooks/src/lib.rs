@@ -1,6 +1,6 @@
 //! The deploy-hook dispatcher (`docs/deploy-hooks.md`).
 //!
-//! `scripts/server/baylee-deploy` calls `sudo -n run-deploy-hooks PHASE
+//! `baylee-deploy` (crate baylee-ops) calls `sudo -n run-deploy-hooks PHASE
 //! COMMIT` at three points of a server deploy. This runs every hook in
 //! `/etc/baylee/deploy-hooks.d` for that phase, in byte order of the file
 //! names, as root, and answers with one exit code ([`exit`]). It refuses

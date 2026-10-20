@@ -203,10 +203,10 @@ fn the_snippet_keeps_no_access_log() {
 fn the_snippet_serves_what_the_deploy_installs_where_trunk_points() {
     let caddy = directives();
     let deploy =
-        std::fs::read_to_string(repo().join("scripts/server/baylee-deploy")).expect("deploy");
+        std::fs::read_to_string(repo().join("crates/baylee-ops/src/deploy.rs")).expect("deploy");
     assert!(
-        deploy.contains("play=$root/web/play")
-            && deploy.contains("root=${BAYLEE_DEPLOY_ROOT:-/opt/baylee}"),
+        deploy.contains(r#"play: root.join("web/play"),"#)
+            && deploy.contains(r#".unwrap_or_else(|| "/opt/baylee".into())"#),
         "the deploy's install directory moved"
     );
     assert!(caddy.contains("root * /opt/baylee/web/play"), "{caddy}");

@@ -830,7 +830,7 @@ served.
 ## Running it
 
 `scripts/server/baylee-feedback.service` is the unit, built and installed by
-`scripts/server/baylee-deploy` beside the gateway. It reads
+`baylee-deploy` (crate baylee-ops) beside the gateway. It reads
 `/etc/baylee/feedback.env`:
 
 ```sh
