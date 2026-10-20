@@ -149,9 +149,10 @@ Two independent things, both stored per account:
   row where *this* seat is the one declaring: red is `DeclareNoAttackers` /
   `DeclareNoBlockers` there, not a pass, and a preset that skipped a
   declaration step would be answering it.
-- **`AutoRules`** — four switches, all off by default: pass a window that
-  offers nothing at all; pass through opponents' turns (priority only, never a
-  block); answer "no attackers" when nothing can attack; the same for blocks.
+- **`AutoRules`** — four switches (`prefs::AutoRules`): pass a window that
+  offers nothing at all (on by default); pass through opponents' turns
+  (priority only, never a block; off by default); answer "no attackers" when
+  nothing can attack (on); the same for blocks (on).
 - **Priority holds** — `F6` and `F7`, and the only automation that lives in
   the *engine* rather than in the client. The rail and `AutoRules` answer for
   a player who is still being asked; a hold tells the engine not to ask, which

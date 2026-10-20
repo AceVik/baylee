@@ -1900,11 +1900,12 @@ not take (it is driven by replacement effects or SBAs, not triggers), and
 that falls back to `CompRulesDraw`: CR 104.4b, the game is a draw. Every
 detection is journalled as `LoopDetected { period, broken }`.
 
-## Custom modes (Rhai)
-`ScriptedModifier` implements `FormatModifier` via a sandboxed Rhai script
-(fuel-limited, engine RNG only, all mutations through the event pipeline).
-Hooks: triggers, replacements, delayed triggers; API: zones, dice,
-choices, free casts, emblems, player keywords, skip-step, library segments.
+## Custom modes
+
+Not built. An early plan had a sandboxed script (Rhai) describe a format's
+own rules; no script engine is linked, and none is planned. A format's rules
+are Rust in the engine, and a new mode starts as a design in
+`docs/proposals/` (#176).
 
 ## Determinism & performance
 Seeded ChaCha8; no HashMap iteration; journal = replay/resume/crash-
