@@ -11,7 +11,7 @@ card!(
     oracle_id = "8079007c-a07a-4d71-bb08-e1dd215297de",
     scryfall_id = "aee815d6-ce79-42ff-9d18-b2f92671d1c4",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blessed Wine",
         mana_cost = mana!("{1}{W}"),

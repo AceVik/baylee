@@ -213,3 +213,8 @@ mod zarichi_tiger;
 mod aeronaut_admiral;
 
 mod tidepool_turtle;
+
+mod abyssal_specter;
+mod ashen_ghoul;
+mod blinking_spirit;
+mod bone_shaman;

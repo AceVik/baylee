@@ -7411,8 +7411,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Barbed Sextant
     &[FaceLines {
         sentences: 1,
-        stackable: 1,
-        lines: &[Some(0)],
+        stackable: 0,
+        lines: &[None],
         modes: &[],
         alternatives: &[],
     }],

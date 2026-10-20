@@ -60,3 +60,6 @@ mod dark_banishing;
 mod open_fire;
 mod quick_study;
 mod ritual_of_rejuvenation;
+
+mod battle_cry;
+mod battle_frenzy;

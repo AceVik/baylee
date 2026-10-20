@@ -74,3 +74,5 @@ mod necrogen_mists;
 
 mod dark_prophecy;
 mod ferocity_of_the_wilds;
+
+mod arnjlot_s_ascent;

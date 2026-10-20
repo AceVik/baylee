@@ -24,3 +24,5 @@ mod wanderlust;
 mod anti_magic_aura;
 
 mod relic_bind;
+
+mod aggression;

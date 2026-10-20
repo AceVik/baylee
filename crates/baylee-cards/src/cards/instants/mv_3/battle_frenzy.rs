@@ -23,7 +23,7 @@ card!(
     oracle_id = "0fca46ec-ec1a-4e6c-bb0e-cdb834b38c92",
     scryfall_id = "a85ae675-56ca-4a00-83d2-ee035f33d6d1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Battle Frenzy",
         mana_cost = mana!("{2}{R}"),

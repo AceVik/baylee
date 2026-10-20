@@ -17,3 +17,5 @@ mod serra_s_embrace;
 mod steal_artifact;
 mod takklemaggot;
 mod zephid_s_embrace;
+
+mod brand_of_ill_omen;

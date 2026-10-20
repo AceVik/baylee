@@ -49,3 +49,6 @@ mod spirit_link;
 mod backfire;
 
 mod dream_coat;
+
+mod black_scarab;
+mod blue_scarab;

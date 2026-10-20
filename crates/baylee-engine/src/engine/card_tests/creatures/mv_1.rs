@@ -138,3 +138,5 @@ mod toxic_iguanar;
 mod forge_devil;
 mod greenseeker;
 mod sunshower_druid;
+
+mod balduvian_shaman;

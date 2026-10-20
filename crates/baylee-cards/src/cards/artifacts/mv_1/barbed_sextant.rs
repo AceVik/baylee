@@ -9,7 +9,7 @@ card!(
     index = index::BARBED_SEXTANT,
     oracle_id = "97ba11a1-16cd-47ee-a187-1e919c468e4e",
     scryfall_id = "55ec745d-8309-4afe-96d3-e87226661099",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Barbed Sextant",
         mana_cost = mana!("{1}"),

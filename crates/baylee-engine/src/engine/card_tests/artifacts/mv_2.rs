@@ -62,3 +62,5 @@ mod dragon_s_claw;
 mod golem_s_heart;
 mod kraken_s_eye;
 mod wurm_s_tooth;
+
+mod arcum_s_weathervane;

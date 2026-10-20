@@ -296,3 +296,6 @@ mod blur_sliver;
 mod foundry_screecher;
 mod hag_of_dark_duress;
 mod woolly_mammoths;
+
+mod adarkar_unicorn;
+mod barbarian_guides;

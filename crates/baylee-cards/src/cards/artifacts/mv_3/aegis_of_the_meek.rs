@@ -15,7 +15,7 @@ card!(
     index = index::AEGIS_OF_THE_MEEK,
     oracle_id = "0cf78877-bf08-413c-8ecb-8c3265ac1c4a",
     scryfall_id = "5d272051-f442-4f6e-8c64-df28b398d2e8",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Aegis of the Meek",
         mana_cost = mana!("{3}"),

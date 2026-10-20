@@ -42,3 +42,5 @@ mod wielding_the_green_dragon;
 
 mod sign_in_blood;
 mod word_of_binding;
+
+mod altar_of_bone;

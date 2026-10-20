@@ -242,3 +242,6 @@ mod sparkmage_apprentice;
 mod thought_courier;
 
 mod facet_reader;
+
+mod arctic_foxes;
+mod balduvian_hydra;

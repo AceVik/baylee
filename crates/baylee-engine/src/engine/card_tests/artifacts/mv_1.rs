@@ -56,3 +56,6 @@ mod wanderer_s_twig;
 
 mod bloodtallow_candle;
 mod goblin_firebomb;
+
+mod arcum_s_sleigh;
+mod barbed_sextant;

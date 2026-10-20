@@ -36,3 +36,5 @@ mod all_hallow_s_eve;
 
 mod ancestral_reminiscence;
 mod eureka;
+
+mod avalanche;

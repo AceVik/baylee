@@ -11,7 +11,7 @@ card!(
     oracle_id = "f2cedb38-12b0-4489-a62b-9b6a3776d695",
     scryfall_id = "2307fb16-8b77-45b5-8a02-51a13214791d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arnjlot's Ascent",
         mana_cost = mana!("{1}{U}{U}"),
