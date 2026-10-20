@@ -110,7 +110,13 @@ fn the_parchment_covers_the_padding_it_lies_under() {
     // And the browser stays a panel: a sheet put back on it is the
     // material decision of §1.3 being undone by accident.
     assert!(
-        !include_str!("../tray.rs").contains("sheet_surface("),
+        !concat!(
+            include_str!("../tray.rs"),
+            include_str!("../tray/spawn.rs"),
+            include_str!("../tray/footer.rs"),
+            include_str!("../tray/rows.rs"),
+        )
+        .contains("sheet_surface("),
         "the zone browser is parchment again, and it is a place you work"
     );
 }

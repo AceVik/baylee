@@ -72,7 +72,15 @@ fn a_text_span_never_takes_the_hover_from_the_control_it_is_in() {
         ("hud/stack/entry.rs", include_str!("../stack/entry.rs")),
         ("hud/stack/cards.rs", include_str!("../stack/cards.rs")),
         ("hud/seatbar.rs", include_str!("../seatbar.rs")),
-        ("hud/tray.rs", include_str!("../tray.rs")),
+        (
+            "hud/tray.rs",
+            concat!(
+                include_str!("../tray.rs"),
+                include_str!("../tray/spawn.rs"),
+                include_str!("../tray/footer.rs"),
+                include_str!("../tray/rows.rs"),
+            ),
+        ),
     ];
     for (name, source) in sources {
         assert_spans_ignore_pointer(name, source);

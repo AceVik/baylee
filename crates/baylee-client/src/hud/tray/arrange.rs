@@ -12,9 +12,10 @@
 //! is made there — which rows exist, what each is called, whether its end
 //! would take the card. This file draws what it says.
 
+use super::rows::spawn_rows;
 use super::{
     BrowseRow, CardTextures, FaceCtx, GridCtx, TRAY_GAP, TRAY_ROW_PAD, TRAY_SIDE, TRAY_TILE_GAP,
-    UiCards, UiFonts, ViewMode, dialog_label, dialog_text, spawn_rows,
+    UiCards, UiFonts, ViewMode, dialog_label, dialog_text,
 };
 use crate::ambience::Feel;
 use crate::hud::{ArrangeSlot, btn_radius, palette};
