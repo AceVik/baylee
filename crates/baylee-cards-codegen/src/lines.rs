@@ -234,7 +234,11 @@ pub fn line_shape(line: &str) -> LineShape {
     // A delayed trigger is a separate ability, just as in `mana_rule`.
     let moves_library = lower_body
         .split(". ")
-        .take_while(|clause| !clause.starts_with("when") && !clause.starts_with("at "))
+        .take_while(|clause| {
+            !clause.starts_with("when")
+                && !clause.starts_with("at ")
+                && !clause.contains(" at the beginning of ")
+        })
         .flat_map(|clause| clause.split(|c: char| !c.is_ascii_alphabetic()))
         .any(|word| matches!(word, "draw" | "draws" | "mill" | "mills"));
     if (adds_first || adds_later) && !moves_library {
@@ -602,7 +606,27 @@ fn mana_fits(effects: &[baylee_cards_dsl::Effect], line: &str) -> bool {
     if line.to_lowercase().contains(" instead") {
         return made.iter().all(|m| printed.contains(m));
     }
-    printed == made
+    if printed == made {
+        return true;
+    }
+    // "{T}: Add {U} or {C}{U}." prints two outputs of different symbol counts
+    // in one clause, which compiles to one mana ability per arm rather than a
+    // single `ManaSource::Choice` (whose arms all share one `Amount`).
+    let first_sentence = body.split('.').next().unwrap_or(body);
+    let arms: Vec<Vec<String>> = first_sentence
+        .split(',')
+        .flat_map(|part| part.split(" or "))
+        .map(braced)
+        .filter(|arm| !arm.is_empty())
+        .collect();
+    if arms.len() > 1 && arms.iter().any(|arm| arm.len() != arms[0].len()) {
+        return arms.into_iter().any(|mut arm| {
+            arm.sort();
+            arm.dedup();
+            arm == made
+        });
+    }
+    false
 }
 
 /// The letter a colour is printed as inside braces.

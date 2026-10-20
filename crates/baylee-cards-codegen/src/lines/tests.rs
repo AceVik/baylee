@@ -192,6 +192,12 @@ fn mana_without_library_movement_stays_mana_on_both_sides() {
             effects: &[Effect::draw(1)],
         },
     ];
+    const SLOWTRIP_DRAW: &[Effect] = &[
+        Effect::mana_of_any_color(),
+        Effect::AtNextTurnsUpkeep {
+            effects: &[Effect::draw(1)],
+        },
+    ];
     const SCRY_SHUFFLE: &[Effect] = &[
         Effect::mana(ManaColor::Colorless, 2),
         Effect::Scry {
@@ -207,6 +213,10 @@ fn mana_without_library_movement_stays_mana_on_both_sides() {
         (
             DELAYED_DRAW,
             "{T}: Add {C}{C}. At the beginning of the next end step, draw a card.",
+        ),
+        (
+            SLOWTRIP_DRAW,
+            "{T}: Add one mana of any color. Draw a card at the beginning of the next turn's upkeep.",
         ),
         (
             SCRY_SHUFFLE,
@@ -241,6 +251,18 @@ fn an_instead_sentence_fits_either_of_its_outputs() {
             "{T}: Add {U}. If you played a land this turn, add {B} instead."
         ),
         "\"instead\" widens the printed pair, not the whole wheel"
+    );
+    let colorless_blue = [
+        Effect::mana(ManaColor::Colorless, 1),
+        Effect::mana(ManaColor::Blue, 1),
+    ];
+    let unicorn = "{T}: Add {U} or {C}{U}. Spend this mana only to pay cumulative upkeep costs.";
+    assert!(mana_fits(&blue, unicorn));
+    assert!(mana_fits(&colorless_blue, unicorn));
+    assert!(!mana_fits(&red, unicorn));
+    assert!(
+        !mana_fits(&blue, "{1}, {T}: Add {U}, {B}, or {R}."),
+        "a three-colour choice is not an ability that makes one of them"
     );
 }
 
