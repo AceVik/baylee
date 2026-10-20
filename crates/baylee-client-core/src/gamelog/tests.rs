@@ -1501,6 +1501,8 @@ fn every_log_phrase_is_written_by_this_module() {
     let (code, _) = source
         .split_once("#[cfg(test)]")
         .expect("the tests follow the code");
+    // The sentences are written in `writer.rs`, beside the book.
+    let code = [code, include_str!("writer.rs")].concat();
     let unused: Vec<String> = Phrase::ALL
         .iter()
         .map(|phrase| format!("{phrase:?}"))
