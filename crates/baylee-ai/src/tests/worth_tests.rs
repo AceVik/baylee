@@ -916,7 +916,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Aegis of the Meek, Arcum's Sleigh, Arcum's Whistle, Arnjlot's Ascent,
     // Ashen Ghoul, Balduvian Hydra, Balduvian Shaman, Barbarian Guides,
     // Blinking Spirit, and Bone Shaman, of which 8 are read by the evaluator.
-    assert_eq!((read, of), (2578, 3142), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 2 adds 7 non-mana activated abilities across
+    // Brown Ouphe, Celestial Sword, Crown of the Ages, Dreams of the Dead,
+    // Dwarven Armory, Elkin Bottle, and Elvish Healer, of which 3 are read by
+    // the evaluator.
+    assert_eq!((read, of), (2581, 3149), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

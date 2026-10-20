@@ -3133,65 +3133,120 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nCumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nEnchanted creature's controller can't cast creature spells.",
     ],
-    &[],
+    // Breath of Dreams
+    &[
+        "Cumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nGreen creatures have \"Cumulative upkeep {1}.\"",
+    ],
     // Brine Shaman
     &[
         "{T}, Sacrifice a creature: Target creature gets +2/+2 until end of turn.\n{1}{U}{U}, Sacrifice a creature: Counter target creature spell.",
     ],
-    &[],
+    // Brown Ouphe
+    &[
+        "{1}{G}, {T}: Counter target activated ability from an artifact source. (Mana abilities can't be targeted.)",
+    ],
     // Brushland
     &["{T}: Add {C}.\n{T}: Add {G} or {W}. This land deals 1 damage to you."],
-    &[],
-    &[],
+    // Burnt Offering
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nAdd X mana in any combination of {B} and/or {R}, where X is the sacrificed creature's mana value.",
+    ],
+    // Call to Arms
+    &[
+        "As this enchantment enters, choose a color and an opponent.\nWhite creatures get +1/+1 as long as the chosen color is the most common color among nontoken permanents the chosen player controls but isn't tied for most common.\nWhen the chosen color isn't the most common color among nontoken permanents the chosen player controls or is tied for most common, sacrifice this enchantment.",
+    ],
     // Caribou Range
     &[
         "Enchant land you control\nEnchanted land has \"{W}{W}, {T}: Create a 0/1 white Caribou creature token.\"\nSacrifice a Caribou token: You gain 1 life.",
     ],
-    &[],
+    // Celestial Sword
+    &[
+        "{3}, {T}: Target creature you control gets +3/+3 until end of turn. Its controller sacrifices it at the beginning of the next end step.",
+    ],
     // Centaur Archer
     &["{T}: This creature deals 1 damage to target creature with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chaos Lord
+    &[
+        "First strike\nAt the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even.\nThis creature can attack as though it had haste unless it entered this turn.",
+    ],
+    // Chaos Moon
+    &[
+        "At the beginning of each upkeep, count the number of permanents. If the number is odd, until end of turn, red creatures get +1/+1 and whenever a player taps a Mountain for mana, that player adds an additional {R}. If the number is even, until end of turn, red creatures get -1/-1 and if a player taps a Mountain for mana, that Mountain produces colorless mana instead of any other type.",
+    ],
+    // Chromatic Armor
+    &[
+        "Enchant creature\nAs this Aura enters, choose a color.\nThis Aura enters with a sleight counter on it.\nPrevent all damage that would be dealt to enchanted creature by sources of the last chosen color.\n{X}: Put a sleight counter on this Aura and choose a color. X is the number of sleight counters on this Aura.",
+    ],
+    // Chub Toad
+    &["Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn."],
+    // Clairvoyance
+    &["Look at target player's hand.\nDraw a card at the beginning of the next turn's upkeep."],
+    // Cloak of Confusion
+    &[
+        "Enchant creature you control\nWhenever enchanted creature attacks and isn't blocked, you may have it assign no combat damage this turn. If you do, defending player discards a card at random.",
+    ],
+    // Cold Snap
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of each player's upkeep, this enchantment deals damage to that player equal to the number of snow lands they control.",
+    ],
     // Conquer
     &["Enchant land\nYou control enchanted land."],
     // Cooperation
     &[
         "Enchant creature\nEnchanted creature has banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
+    // Crown of the Ages
+    &["{4}, {T}: Attach target Aura attached to a creature to another creature."],
     // Curse of Marit Lage
     &[
         "When this enchantment enters, tap all Islands.\nIslands don't untap during their controllers' untap steps.",
     ],
-    &[],
+    // Dance of the Dead
+    &[
+        "Enchant creature card in a graveyard\nWhen this Aura enters, if it's on the battlefield, it loses \"enchant creature card in a graveyard\" and gains \"enchant creature put onto the battlefield with this Aura.\" Put enchanted creature card onto the battlefield tapped under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature's controller sacrifices it.\nEnchanted creature gets +1/+1 and doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {1}{B}. If the player does, untap that creature.",
+    ],
     // Dark Banishing
     &["Destroy target nonblack creature. It can't be regenerated."],
-    &[],
+    // Deflection
+    &["Change the target of target spell with a single target."],
     // Demonic Consultation
     &[
         "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards revealed this way.",
     ],
     // Despotic Scepter
     &["{T}: Destroy target permanent you own. It can't be regenerated."],
-    &[],
+    // Diabolic Vision
+    &[
+        "Look at the top five cards of your library. Put one of them into your hand and the rest on top of your library in any order.",
+    ],
     // Dire Wolves
     &[
         "This creature has banding as long as you control a Plains. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
+    // Dread Wight
+    &[
+        "At end of combat, put a paralyzation counter on each creature blocking or blocked by this creature and tap those creatures. Each of those creatures doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a paralyzation counter from this creature.\"",
+    ],
+    // Dreams of the Dead
+    &[
+        "{1}{U}: Return target white or black creature card from your graveyard to the battlefield. That creature gains \"Cumulative upkeep {2}.\" If the creature would leave the battlefield, exile it instead of putting it anywhere else. (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)",
+    ],
     // Drift of the Dead
     &[
         "Defender (This creature can't attack.)\nDrift of the Dead's power and toughness are each equal to the number of snow lands you control.",
     ],
-    &[],
-    &[],
-    &[],
+    // Drought
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{W}.\nSpells cost an additional \"Sacrifice a Swamp\" to cast for each black mana symbol in their mana costs.\nActivated abilities cost an additional \"Sacrifice a Swamp\" to activate for each black mana symbol in their activation costs.",
+    ],
+    // Dwarven Armory
+    &[
+        "{2}, Sacrifice a land: Put a +2/+2 counter on target creature. Activate only during any upkeep step.",
+    ],
+    // Earthlink
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {2}.\nWhenever a creature dies, that creature's controller sacrifices a land of their choice.",
+    ],
     // Earthlore
     &[
         "Enchant land you control\nTap enchanted land: Target blocking creature gets +1/+2 until end of turn. Activate only if enchanted land is untapped.",
@@ -3202,9 +3257,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}: Look at the top three cards of target player's library, then put them back in any order.",
     ],
-    &[],
-    &[],
-    &[],
+    // Elkin Bottle
+    &[
+        "{3}, {T}: Exile the top card of your library. Until the beginning of your next upkeep, you may play that card.",
+    ],
+    // Elvish Healer
+    &[
+        "{T}: Prevent the next 1 damage that would be dealt to any target this turn. If it's a green creature, prevent the next 2 damage instead.",
+    ],
+    // Enduring Renewal
+    &[
+        "Play with your hand revealed.\nIf you would draw a card, reveal the top card of your library instead. If it's a creature card, put it into your graveyard. Otherwise, draw a card.\nWhenever a creature is put into your graveyard from the battlefield, return it to your hand.",
+    ],
     &[],
     &[],
     &[],

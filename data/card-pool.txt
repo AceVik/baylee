@@ -9172,3 +9172,30 @@ Blizzard
 Blue Scarab
 Bone Shaman
 Brand of Ill Omen
+
+# Ice Age — Batch 2
+Breath of Dreams
+Brown Ouphe
+Burnt Offering
+Call to Arms
+Celestial Sword
+Chaos Lord
+Chaos Moon
+Chromatic Armor
+Chub Toad
+Clairvoyance
+Cloak of Confusion
+Cold Snap
+Crown of the Ages
+Dance of the Dead
+Deflection
+Demonic Consultation
+Diabolic Vision
+Dread Wight
+Dreams of the Dead
+Drought
+Dwarven Armory
+Earthlink
+Elkin Bottle
+Elvish Healer
+Enduring Renewal
