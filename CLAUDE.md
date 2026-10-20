@@ -208,6 +208,8 @@ RUST_LOG=baylee_catalog=info cargo run -p baylee-catalog -- ingest   # all langu
 
 #### Writing a card
 
+- An agent on card work, of any model, gets `docs/card-agent-brief.md`: this section plus the defects earlier batches shipped.
+
 - Open with `use baylee_cards_dsl::prelude::*;`; use the macros in `crates/baylee-cards-dsl/src/build.rs` (`card!`, `face!`, `activated!`, `triggered!`, `static_ability!`, `cost!`, …). Never restate a default. Parentheses and `field = value`, never braces or `field: value`. Fields without a rules default are positional.
 - Defaults are rules (CR 117.1b, 113.6, 605.1). Use `mana_ability!`, not a flag; `lints::mana_ability_fault` (`mana_ability_fault_of`, also for `Modifier::GrantActivated`) rejects mana abilities that make no mana or target.
 - Pool walks visit both grant doors, `AbilityDef::Static` and `Effect::CreateContinuousEffect`; population floors count doors, not instances.

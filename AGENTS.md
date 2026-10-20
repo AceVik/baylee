@@ -7,7 +7,11 @@
 - Lint: `cargo clippy --workspace --all-targets -- -D warnings`
 - Format: `cargo fmt --all`
 - Codegen (regenerate subtypes, card stubs, registry, scripts index):
-  `cargo run -p xtask -- codegen`
+  `cargo run -p xtask -- codegen`, **only with the card-script corpus**
+  (`BAYLEE_CARD_SCRIPTS` at a clean upstream Card-Forge `cardsfolder`, never
+  a fork). Without it, it rewrites every machine-owned card as a stub. It is
+  two-phase: run it twice. After a hand-edited card,
+  `cargo run -p xtask -- codegen --tables` is enough and needs no corpus.
 - Codegen reproducibility check (developer's machine, **not** CI — a runner has
   no card-script reference): `cargo run -p xtask -- codegen --check`
 - Explain a card (Scryfall data + card-script reference script side by side):
@@ -78,6 +82,29 @@
   branches. Remote: `git@github.com:AceVik/baylee.git`.
 - LLM delegation learnings are recorded in `docs/llm-learnings.md` — update
   it after every card batch.
+
+## Card work
+
+Anyone implementing cards or writing card tests reads
+`docs/card-agent-brief.md` first, then `CLAUDE.md` whole: its "Cards"
+section binds every agent, whatever its file name says. The short form:
+
+- Sets go in release order. Fix the reader (`scriptgen`) before
+  hand-writing, and never fix generated output in the card.
+- A single-faced card writes `abilities` at card level, never inside
+  `face!`. Edit only `coverage`, `keywords`, `abilities`.
+- A sentence the DSL cannot say makes the card `Coverage::Partial("…")`
+  with a `// NOT SUPPORTED:` comment, never `Implemented`.
+- A new DSL or engine piece is named for the rule, never a card (no
+  `Effect::WandOfIth`). No card text in `baylee-core` or `baylee-engine`.
+  It gets a test beside the rule that fails on the old code, and its own
+  commit.
+- Every card is played in its own test file at its own path,
+  `crates/baylee-engine/src/engine/card_tests/<type>/<dir>/<slug>.rs`,
+  naming it by a literal `card_index("<oracle id>")`. The model that wrote
+  a card never writes its test.
+- Before done: `./scripts/gate-rules.sh`, `xtask validate`,
+  `./scripts/baylee-tools hooks require-card-tests`, then the full gate.
 
 ## Legal guardrails
 
