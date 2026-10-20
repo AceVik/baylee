@@ -82,13 +82,9 @@ fn flier_and_walker_attack(use_scarecrow: bool) -> (i32, Engine<RegistryLookup>)
 /// Scarecrow (58616e15-531f-4680-8294-35ab7e962c96) — "{6}, {T}: Prevent all
 /// damage that would be dealt to you this turn by creatures with flying."
 #[test]
-fn scarecrow_without_the_ability_lets_the_flier_through() {
-    let (lost, _) = flier_and_walker_attack(false);
-    assert_eq!(lost, 6, "Angel 4 + Bears 2");
-}
-
-#[test]
 fn scarecrow_prevents_damage_from_fliers_only() {
+    let (lost, _) = flier_and_walker_attack(false);
+    assert_eq!(lost, 6, "without the ability: Angel 4 + Bears 2");
     let (lost, e) = flier_and_walker_attack(true);
     assert_eq!(lost, 2, "only the Bears' damage gets through");
     let angel = on_battlefield(&e, P1, serra_angel()).expect("the Angel is still out");

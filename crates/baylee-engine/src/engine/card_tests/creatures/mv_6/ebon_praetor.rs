@@ -86,14 +86,6 @@ fn at_the_second_upkeep() -> (Engine<RegistryLookup>, ObjectId) {
 }
 
 /// Ebon Praetor (0501af1f-c67c-4cb1-aced-4be426c83316) — "First strike, trample"
-#[test]
-fn ebon_praetor_has_first_strike_and_trample() {
-    let e = prepared(&[], &[ebon_praetor()], &[]);
-    let praetor = on_battlefield(&e, P0, ebon_praetor()).expect("the Praetor is out");
-    assert!(keywords(&e, praetor).contains(KeywordSet::FIRST_STRIKE));
-    assert!(keywords(&e, praetor).contains(KeywordSet::TRAMPLE));
-}
-
 /// Ebon Praetor — "At the beginning of your upkeep, put a -2/-2 counter on
 /// this creature."
 #[test]

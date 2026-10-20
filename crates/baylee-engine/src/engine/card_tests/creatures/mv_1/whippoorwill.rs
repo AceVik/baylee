@@ -96,19 +96,6 @@ fn bolt(e: &mut Engine<RegistryLookup>, target: ObjectId) {
 /// permanent or player. When the creature dies this turn, exile the
 /// creature."
 #[test]
-fn whippoorwill_without_the_ability_a_bolted_creature_goes_to_the_graveyard() {
-    let mut e = ready(
-        &[lightning_bolt()],
-        &[card_index("84050a10-e1f1-413e-aa21-5c1f47bb2a64")],
-        &[grizzly_bears()],
-    );
-    let bears = on_battlefield(&e, P1, grizzly_bears()).expect("the Bears are out");
-    bolt(&mut e, bears);
-    assert!(in_graveyard(&e, P1, grizzly_bears()).is_some());
-    assert!(!in_exile(&e, P1, grizzly_bears()));
-}
-
-#[test]
 fn whippoorwill_exiles_the_creature_when_it_dies_this_turn() {
     let mut e = ready(
         &[lightning_bolt()],

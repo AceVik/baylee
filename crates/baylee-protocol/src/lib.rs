@@ -263,7 +263,7 @@ mod tests {
     /// disagree on it do not talk. It is written down here so that raising
     /// it is a deliberate line in a diff rather than a number that drifted.
     #[test]
-    fn the_wire_version_is_thirty_five() {
+    fn the_wire_version_is_thirty_six() {
         // 2: `SeatReady` and `Curtain` (#256).
         // 3: `SeatSettingMsg` (#265). An engine built before it drops the
         // frame without a word, so a client that sent one would wait for a
@@ -313,7 +313,9 @@ mod tests {
         // 33: damage-clearing destruction replacement prompt.
         // 34: Battle defender and Defense counter variants.
         // 35: MutatePosition, Dungeon and DungeonRoom cast-mode choices.
-        assert_eq!(PROTOCOL_VERSION, 35);
+        // 36: engines report each seat's participation ending, which the
+        // gateway now requires to release an account-bound game.
+        assert_eq!(PROTOCOL_VERSION, 36);
     }
 
     #[test]

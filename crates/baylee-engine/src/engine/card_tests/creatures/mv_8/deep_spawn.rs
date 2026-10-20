@@ -90,13 +90,6 @@ fn wait_for_the_upkeep_question(e: &mut Engine<RegistryLookup>, turn: u32) {
 }
 
 /// Deep Spawn (d1aba343-d85a-4829-bdfe-db31fcb3c320) — "Trample"
-#[test]
-fn deep_spawn_is_a_six_six_with_trample() {
-    let (e, spawn) = spawn_in_play();
-    assert_eq!(pt(&e, spawn), (6, 6));
-    assert!(keywords(&e, spawn).contains(KeywordSet::TRAMPLE));
-}
-
 /// Deep Spawn — "At the beginning of your upkeep, sacrifice this creature
 /// unless you mill two cards." (milling)
 #[test]

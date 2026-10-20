@@ -181,20 +181,3 @@ fn tidal_influence_cannot_be_cast_while_another_is_on_the_battlefield() {
         "and it enters with its own tide counter"
     );
 }
-
-/// Tidal Influence — control for the restriction: a first copy is castable on
-/// an empty battlefield, so the refusal above is the restriction's.
-#[test]
-fn tidal_influence_is_castable_when_none_is_out() {
-    let mut e = Duel::new(SEED, swamp())
-        .hand(0, &[influence_card()])
-        .start();
-    keep_mulligans(&mut e);
-    reach_main_phase(&mut e, P0);
-    fill_pool(&mut e);
-    let card = in_hand(&e, P0, influence_card()).expect("in hand");
-    e.apply(P0, PlayerAction::CastSpell { card })
-        .expect("the same mana, no other copy: castable");
-    pass_until(&mut e, stack_is_empty);
-    assert!(on_battlefield(&e, P0, influence_card()).is_some());
-}

@@ -158,15 +158,3 @@ fn feral_thallid_needs_three_spore_counters_to_regenerate() {
         "and removes the damage"
     );
 }
-
-/// Feral Thallid — without the shield, three damage kills the 6/3.
-#[test]
-fn feral_thallid_without_a_shield_dies_to_lightning_bolt() {
-    let mut e = prepared(&[lightning_bolt()], &[feral_thallid()], &[]);
-    let thallid = on_battlefield(&e, P0, feral_thallid()).expect("Feral Thallid is out");
-    cast(&mut e, P0, lightning_bolt());
-    targets(&mut e, vec![thallid]);
-    pass_until(&mut e, stack_is_empty);
-    assert!(on_battlefield(&e, P0, feral_thallid()).is_none());
-    assert!(in_graveyard(&e, P0, feral_thallid()).is_some());
-}

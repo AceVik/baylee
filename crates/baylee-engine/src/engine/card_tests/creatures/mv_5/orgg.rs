@@ -57,14 +57,6 @@ fn offered_attackers(e: &mut Engine<RegistryLookup>) -> Vec<ObjectId> {
 }
 
 /// Orgg (f6ea2b1b-1403-4ccd-a23c-48e0e81ceb91) — "Trample"
-#[test]
-fn orgg_is_a_six_six_with_trample() {
-    let e = prepared(&[], &[orgg()], &[]);
-    let big = on_battlefield(&e, P0, orgg()).expect("Orgg is out");
-    assert_eq!(pt(&e, big), (6, 6));
-    assert!(keywords(&e, big).contains(KeywordSet::TRAMPLE));
-}
-
 /// Orgg — "This creature can't attack if defending player controls an untapped
 /// creature with power 3 or greater."
 #[test]

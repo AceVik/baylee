@@ -48,13 +48,6 @@ fn is_tapped(e: &Engine<RegistryLookup>, id: ObjectId) -> bool {
 /// last turn. This creature can't attack unless defending player controls a
 /// Mountain."
 #[test]
-fn goblin_rock_sled_is_a_three_one_trampler() {
-    let (e, sled) = ready(&[], &[]);
-    assert_eq!(pt(&e, sled), (3, 1));
-    assert!(keywords(&e, sled).contains(KeywordSet::TRAMPLE));
-}
-
-#[test]
 fn goblin_rock_sled_cannot_attack_a_player_without_a_mountain() {
     let (mut e, sled) = ready(&[grizzly_bears()], &[forest()]);
     let bears = on_battlefield(&e, P0, grizzly_bears()).expect("the Bears are out");

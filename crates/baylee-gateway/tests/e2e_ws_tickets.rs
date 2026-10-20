@@ -189,7 +189,9 @@ async fn a_ticket_opens_only_its_own_door() {
     let _agent = attach_agent(&gw).await;
     let session = login(port, "t-doors", "Doors");
     let (game_a, token_a) = game_against_the_house(port, &session);
-    let (game_b, _token_b) = game_against_the_house(port, &session);
+    // One account plays one game at a time, so game B is another player's.
+    let other = login(port, "t-doors-b", "DoorsB");
+    let (game_b, _token_b) = game_against_the_house(port, &other);
 
     let lobby_ticket = common::lobby_ticket(port, &session);
     refused_as_stale(

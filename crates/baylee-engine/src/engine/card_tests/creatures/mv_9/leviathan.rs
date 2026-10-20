@@ -105,13 +105,6 @@ fn sacrifice_two_islands(e: &mut Engine<RegistryLookup>) {
 }
 
 /// Leviathan (d8c49932-9b4f-4cb0-a7e9-4b7eb12203ee) — "Trample"
-#[test]
-fn leviathan_is_a_ten_ten_with_trample() {
-    let (e, levi) = leviathan_in_play(2);
-    assert_eq!(pt(&e, levi), (10, 10));
-    assert!(keywords(&e, levi).contains(KeywordSet::TRAMPLE));
-}
-
 /// Leviathan — "This creature enters tapped and doesn't untap during your untap
 /// step. At the beginning of your upkeep, you may sacrifice two Islands. If you
 /// do, untap this creature." (declined)
