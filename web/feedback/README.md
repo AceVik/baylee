@@ -99,26 +99,38 @@ reaches the built page.
 
 ## Using it
 
-- The list: newest first, 50 a page. Views along the top (Inbox = new,
-  Triaged, In progress, Resolved, All, each with its count), a search of
-  the text, and under "Filters" the kind, status, gateway, pseudonym, a
-  range of days (UTC) and whether a game record is attached. The filters
-  live in the URL, so a filtered view is a link. Times are local, as "5
-  minutes ago" with the exact time as the title. A report in `new` that was
-  never opened on this device is marked unread (kept in `localStorage`,
-  per device; the service keeps no such state). The list is asked again
-  every 30 seconds while the page is visible: changes to the rows shown are
-  applied, and new reports are announced ("3 new reports since you looked
-  · Show") rather than slid under the cursor; Refresh shows a spinner and
-  "Updated hh:mm", and a refresh that fails is a toast.
+- The list: newest first, 50 a page (25 to 200, with page numbers). Views
+  along the top (Inbox = new, Open, Mine, Unassigned, Done, All, Trash, the
+  first ones with their counts), saved views (kept on the service, per
+  admin), a search of the text, a crash's message and report ids, and
+  under "Filters" several statuses, kinds and priorities at once, the
+  assignee, a label, gateway, way in, pseudonym, a range of days (UTC),
+  whether a game record is attached, only unread, and the order. Each
+  filter shows its count under the rest, and each active one is a pill
+  that removes it. Column headers sort. The filters live in the URL, so a
+  filtered view is a link. Times are local, as "5 minutes ago" with the
+  exact time as the title. A report in `new` this admin never opened is
+  marked unread (kept by the service, per admin). Crash groups show the
+  crashes the filter matches by signature, with a way to their reports.
+  The list is asked again every 30 seconds while the page is visible:
+  changes to the rows shown are applied, and new reports are announced
+  ("3 new reports since you looked · Show") rather than slid under the
+  cursor; Refresh shows a spinner and "Updated hh:mm", and a refresh that
+  fails is a toast.
   `j`/`k` (or the arrows) move the cursor, `Enter` opens the report in a
   drawer beside the list (over it on a narrow screen), `o` opens its page,
   `x` selects, `a` selects the page, `1`–`6` set the status of the
-  selection (or of the report under the cursor), `r` refreshes, `c` copies
-  the link, `e` exports the page (or the selection) as CSV, `/` goes to
-  the search, `Esc` closes the drawer or clears the selection, `?` lists
-  them. A selection shows a bar: set a status on all of them (one audited
-  change each), copy their ids, export them, mark them read. A reporter is
+  selection (or of the report under the cursor), `m` assigns it to you
+  (or to nobody again), `u` marks it read or unread, `#` or `Del` moves it
+  to the trash, `[`/`]` turn the page, `r` refreshes, `c` copies the link,
+  `e` exports the selection (or the page) as CSV, `/` goes to the search,
+  `Esc` closes the drawer or clears the selection, `?` lists them. A
+  selection shows a bar that changes all of them in one request (all or
+  none): status, priority, assignee, a label added or removed, the others
+  marked as duplicates of one, the trash (with Undo in the toast; in the
+  Trash view: restore, or delete for good), read or unread, and copies or
+  exports them. "Export all n matching" is the service's CSV of the whole
+  filter (at most 5000). A reporter is
   shown as an alias derived from the pseudonym (`src/reports/alias.ts`:
   two words, a hue and the pseudonym's first four characters), the same in
   every row; clicking it filters by them. The alias is derived in the
@@ -132,7 +144,16 @@ reaches the built page.
   engine was asking, what the client held unsent, the last refusal), a
   crash, the screenshot, the player's game log, the table as they saw it,
   system and settings, the whole `client` object as a folding tree, the
-  game record's size and completeness and a download, and the history.
+  game record's size and completeness and a download, and the history in
+  words. Beside it: status, priority, assignee ("Assign to me"), labels,
+  the report it duplicates (by id or link), the GitHub issue, internal
+  notes (`Ctrl`+`Enter` adds one; only its author removes it), the reports
+  of the same game or crash and its duplicates, and "Move to trash" (with
+  Undo; a report in the trash says since when and offers Restore and
+  Delete for good). Every change names the revision it was made against: a
+  report someone else changed meanwhile is read again and says so. The
+  page steps to the previous and next report of the list it came from
+  (`j`, `k`), and the screenshot opens at full size.
   Copy the link, the id or a plain-text summary. `Escape` goes back to the
   list.
 - Triage: the status; the GitHub issue, linked by number or URL; a button
@@ -141,8 +162,9 @@ reaches the built page.
   data, no quotes from the report), a neutral category and the build, and
   nothing else: not the player's text, not the pseudonym, not the client's
   details, and no link back to the report (owner, 08.10.2026). The server
-  holds no GitHub token. Deleting asks once more. Every change is in the
-  report's history, under the admin's name.
+  holds no GitHub token. The trash needs no question (Undo is in its
+  toast); deleting for good, from the trash only, asks once more. Every
+  change is in the report's history, under the admin's name.
 - Admin (`/admin/…`, shown when the service has a gateway's console,
   `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
   a tab bar under the thumb on a phone:

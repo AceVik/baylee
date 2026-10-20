@@ -430,11 +430,14 @@ access log.
 
 The read token or the admin token.
 
-`GET /reports?status=&kind=&gateway=&reporter=&game_id=&channel=&q=&from=&to=&has_record=&limit=&offset=`
-lists newest first (`limit` 50, at most 200). `q` is words the text holds,
-case aside (`%` and `_` are literal); `from` and `to` are days,
-`YYYY-MM-DD` in UTC, both inclusive; `has_record` is `true` or `false`;
-`channel` is `gateway` or `direct`. A malformed filter is `400`.
+`GET /reports?…` lists newest first (`limit` 50, at most 200) under the
+filters of §"Triage" (`crate::triage::Filter`): `status`, `kind` and
+`priority` take several values, comma-separated; `q` finds the words of the
+text or of a crash's message, a piece of the text (`%` and `_` literal) or
+a piece of a report's id; `from` and `to` are days, `YYYY-MM-DD` in UTC,
+both inclusive; `has_record` is `true` or `false`; `channel` is `gateway`
+or `direct`. A report in the trash is listed only under `trash=true`. A
+malformed filter is `400`.
 
 `channel` says how a report came (`gateway`, or `direct`: unauthenticated,
 §"Straight from a client"); `record_origin` who wrote its record
@@ -453,10 +456,16 @@ both beside the report.
     "has_record": true, "record_complete": true, "record_bytes": 21606,
     "channel": "gateway", "record_origin": "gateway",
     "issue_number": 311,
-    "issue_url": "https://github.com/AceVik/baylee/issues/311"
+    "issue_url": "https://github.com/AceVik/baylee/issues/311",
+    "assignee": "viktor", "priority": "high", "labels": ["lands", "ui"],
+    "duplicate_of": null, "signature": null, "revision": 4,
+    "done_at": null, "deleted_at": null, "seen": false, "notes": 1
   }]
 }
 ```
+
+The triage fields are §"Triage"'s; over the token routes `seen` is always
+`false`, and no note is shown.
 
 `issue_url` is made from `issue_number` (an issue of `AceVik/baylee`), never
 stored as typed. Both are `null` for a report linked to no issue.
@@ -472,26 +481,73 @@ replays with `baylee_gamehost::record::replay` on the build its header names.
 The admin token. `PATCH` takes `{"status": "new" | "triaged" |
 "in_progress" | "resolved" | "wont_fix" | "duplicate"}` and answers the
 report; `DELETE` answers `204`, and `404` for a report that is not there.
-Deleting is how a report goes: the service keeps reports until they are
-deleted. Each change and each deletion is written to the audit
-(`feedback_audit`) under the actor `token`.
+The token's `DELETE` is final, wherever the report is: the UI's moves it
+into the trash (§"Triage"). Each change and each deletion is written to the
+audit (`feedback_audit`) under the actor `token`.
+
+## Triage
+
+What an admin decides about a report, beside its status
+(`crates/baylee-feedback/src/triage.rs`, migration `m0007_triage`):
+
+- **Assignee:** the admin who looks after it, by name, or nobody.
+- **Priority:** `critical`, `high`, `normal`, `low`, or none.
+- **Labels:** at most 16, each lowercase letters, digits and dashes, 1–32
+  characters; kept sorted, once each.
+- **Duplicate of:** the report it duplicates. Marking one sets the status
+  `duplicate` (unless the change names another); leaving that status
+  clears it. The original is never a duplicate itself: one level only, and
+  a report that becomes a duplicate hands its own duplicates on to its
+  original, so no chain or cycle forms.
+- **Revision:** every change moves it on. A change may name the revision
+  it was made against (`expected_revision`); another one is `409`, so two
+  admins never overwrite each other unseen. A change that changes nothing
+  writes nothing: no revision, no audit line.
+- **Done:** `done_at` is set when a report enters `resolved`, `wont_fix` or
+  `duplicate` and cleared when it leaves them.
+- **Signature:** a crash's message with its numbers taken out and its file
+  without line numbers, hashed (MD5, a grouping key, nothing secret), so the
+  same crash is one group (`GET /ui/api/crashes`).
+- **The trash:** deleting in the UI sets `deleted_at`; the report leaves
+  every list but the trash, can be restored, and is purged from there by an
+  admin or by itself after **30 days** (`triage::TRASH_DAYS`, swept before
+  the list is read; the audit names the actor `sweep`).
+- **Notes:** internal, admins only, 1–4000 characters, each with its author
+  and time; only its author removes one. They are rows of their own, not
+  audit lines, and go with the report when it is purged.
+- **Opened:** which reports each admin has opened (`feedback_seen`), for the
+  unread marker and `unseen=true`.
+- **Saved views:** an admin's named lists (at most 50), a name and the list's
+  query string, checked as the list would read it.
+
+The list's filters beyond §"Reading": `assignee` (a name, or `none`),
+`label`, `signature`, `duplicate_of`, `trash`, `unseen` (the UI only),
+`sort` (`received`, `changed`, `priority`, `status`, `kind`, `reporter`,
+`gateway`) and `dir` (`desc`, `asc`).
 
 ## The web UI (#311)
 
 `https://feedback.baylee.acevik.de/` is a page for admins to triage reports
-on: a filtered, paged list, one report with everything it carries, its
-status, its GitHub issue, and deletion. The page is built from `web/feedback`
+on: a filtered, paged list, one report with everything it carries, and
+§"Triage": status, priority, assignee, labels, duplicates, notes, its
+GitHub issue, and the trash. The page is built from `web/feedback`
 (React, TypeScript; `web/feedback/README.md`) into static files the service
 serves itself from `FEEDBACK_WEB_DIR`. Unset, the service serves no page and
 `/` stays `404`; a directory without an `index.html` refuses to start.
 
-What the list does (beta.7; the README has the keys): views by status,
-search and filters in the URL, a drawer that opens a report beside the
-list, a selection that sets a status on several reports (one `PATCH` and
-one audit row each; there is no bulk route), a quiet refresh every 30
-seconds that announces new reports instead of moving the rows, an export
-of what is shown as CSV made in the browser, and an unread marker kept in
-the browser's `localStorage` only (the service keeps no per-admin state).
+What the list does (the README and the `?` key have the keys): views
+(inbox, open, mine, unassigned, done, all, trash) with their counts;
+search, several statuses, kinds and priorities, assignee, label and the
+other filters in the URL, each counted under the rest and shown as a pill;
+sortable columns, page numbers and sizes; saved views kept on the service;
+crash groups; a drawer that opens a report beside the list; a selection
+changed in one request (`POST /ui/api/reports/bulk`: all of it or none of
+it, an audit row per report and part); the trash with an undo; a quiet
+refresh every 30 seconds that announces new reports instead of moving the
+rows; an export of the selection made in the browser, or of all that
+matches (at most 5000) by the service; and an unread marker per admin,
+kept by the service. One report's page steps to the previous and next of
+the list it was opened from (`j`, `k`).
 **A reporter is never resolved to an account** (the sender of a reported
 chat message is, above). The pseudonym is an HMAC
 the gateway makes so that this service cannot know who wrote a report
@@ -559,12 +615,21 @@ route below is `401`.
 | --- | --- |
 | `GET /ui/api/me` | `{"name", "gateway_admin"}`: the second says whether the admin console is configured (below) |
 | `GET /ui/api/reports?…` | the list, with the filters above |
-| `GET /ui/api/reports/{id}` | one report with `client` |
+| `GET /ui/api/reports.csv?…` | the list as CSV, at most 5000 rows, the `client` part left out but its build; a cell that would start a formula is prefixed with `'` |
+| `GET /ui/api/reports/{id}` | one report with `client` and `note_list` |
 | `GET /ui/api/reports/{id}/record` | the record, as a download |
-| `GET /ui/api/reports/{id}/audit` | `[{"at", "actor", "action", "detail"}]`, oldest first; kept after the report is deleted |
-| `PATCH /ui/api/reports/{id}` | `{"status"?, "issue"?}`: `issue` a positive number links, `null` unlinks, absent leaves it; answers the report |
-| `DELETE /ui/api/reports/{id}` | `204` |
-| `GET /ui/api/facets` | `{gateways, statuses, kinds, reporters}`, each `[{"value","count"}]`; the 50 busiest reporters |
+| `GET /ui/api/reports/{id}/audit` | `[{"at", "actor", "action", "detail"}]`, oldest first; kept after the report is purged |
+| `GET /ui/api/reports/{id}/neighbours?…` | `{"previous", "next", "position", "total"}` of the report in the list the filter makes; `position` `null` when it is not in it |
+| `PATCH /ui/api/reports/{id}` | `{"status"?, "issue"?, "assignee"?, "priority"?, "labels"?, "duplicate_of"?, "expected_revision"?}`: a part left out stays, `null` clears it, `labels` is the whole set; `409` on another revision; answers the report |
+| `DELETE /ui/api/reports/{id}` | into the trash, `204` |
+| `POST /ui/api/reports/{id}/restore`, `…/purge` | out of the trash, or deleted for good from it; `404` where it is not |
+| `POST /ui/api/reports/{id}/notes` `{"text"}`, `DELETE …/notes/{note}` | a note added, or removed by its author; both answer the notes |
+| `POST /ui/api/reports/bulk` | `{"ids": [≤ 200], "change": {…}}` (as `PATCH`, with `labels_add` and `labels_remove` for `labels`, no revision) or `{"ids", "action": "trash" \| "restore" \| "purge"}`; one transaction; `{"changed"}` |
+| `POST /ui/api/seen` | `{"ids": [≤ 500], "seen"}`: opened by this admin, or not; `204` |
+| `GET /ui/api/facets?…` | `{statuses, kinds, gateways, reporters, assignees, priorities, labels, channels, total}`, each `[{"value","count"}]` under the filter but its own dimension (`value` `null` for nobody assigned or no priority); the 50 busiest reporters |
+| `GET /ui/api/crashes?…` | the crashes the filter matches by signature: `[{"signature", "count", "open", "first", "last", "latest", "message", "location"}]`, at most 100 |
+| `GET /ui/api/views`, `POST` `{"name", "query"}`, `DELETE /ui/api/views/{id}` | this admin's saved views; a name saved again replaces its query |
+| `GET /ui/api/admins` | every admin's name, for assigning |
 | `GET /ui/api/stats` | `{"days": 30, "rows": [{"day", "kind", "count"}]}`: reports per UTC day and kind over the last 30 days, by day then kind, for the overview's chart of bugs and crashes; counts only |
 | `POST /ui/api/login`, `POST /ui/api/logout` | above |
 | `/ui/api/admin/…` | the admin console, below |
@@ -826,6 +891,13 @@ served.
   out. A change made through the admin console is an audit row without a
   report id (the admin, the time, key ids, uses, expiry), also without a
   limit; the gateway's numbers it shows are not stored here at all.
+- **For triage** it keeps on each report the assignee's name, a priority,
+  labels, the report it duplicates and when it was done or put into the
+  trash; internal notes (author, time, text) with the report until it is
+  purged; each admin's saved views and which reports they opened until the
+  admin is removed. A report in the trash is purged 30 days after it went
+  in. Notes are about the report: no personal data, no quotes from it, as
+  the UI says above the note field.
 
 ## Running it
 

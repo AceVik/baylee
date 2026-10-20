@@ -690,13 +690,16 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
-| Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
-| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
 | Triage audit (time, admin name or `token`, report id, action, its detail) | `feedback_audit` | indefinitely, also after the report is deleted (#311) | nothing yet |
+| Triage on a report: the assignee (an admin's name), priority, labels, the report it duplicates, when it was done or put into the trash | `feedback_report` | with the report | with the report |
+| Internal notes on a report (author, an admin's name; time; the admin's text, never a player's data by the UI's rule) | `feedback_note` | with the report | the author's removal; the report's purge |
+| An admin's saved views (a name and a list's query string) and which reports they opened | `feedback_view`, `feedback_seen` | until the admin is removed (or the report purged) | the admin's own removal of a view; `admin remove` |
 | Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
