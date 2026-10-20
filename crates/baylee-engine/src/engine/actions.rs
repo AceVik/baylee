@@ -2371,6 +2371,40 @@ impl<L: CardLookup> Engine<L> {
         player: PlayerId,
         attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
     ) -> Result<(), EngineError> {
+        self.declare_attackers_paying(player, attackers, true)
+    }
+
+    /// What a mana tax the attacking player's pool does not cover may still
+    /// be paid with (CR 508.1i): one unit from each source the payment
+    /// window would offer, which is what the gate counts. Zero once a window
+    /// for this step has closed short (`CombatDeclared::TaxDeclined`).
+    pub(super) fn attack_mana_reach(&self, player: PlayerId) -> u64 {
+        if self.combat_declared == CombatDeclared::TaxDeclined {
+            return 0;
+        }
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        let mut sources: Vec<ObjectId> = legal
+            .mana_abilities
+            .iter()
+            .copied()
+            .chain(legal.abilities.iter().map(|&(source, _)| source))
+            .collect();
+        sources.sort_unstable();
+        sources.dedup();
+        u64::try_from(sources.len() + legal.granted_actions.len()).unwrap_or(u64::MAX)
+    }
+
+    /// [`Self::declare_attackers`], where `window` says whether a mana tax
+    /// the pool does not cover opens a payment window (CR 508.1i) or is
+    /// refused: the window's own settlement asks with `false`.
+    #[allow(clippy::too_many_lines)]
+    fn declare_attackers_paying(
+        &mut self,
+        player: PlayerId,
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        window: bool,
+    ) -> Result<(), EngineError> {
         // Checked against the same list the request offered, so a client
         // can never name a defender the engine did not put on the table:
         // an opponent's planeswalker that has since left, a player who has
@@ -2381,6 +2415,12 @@ impl<L: CardLookup> Engine<L> {
         // attackers cost 190 ms in self-play, r001 game 431).
         let mut seen = std::collections::BTreeSet::new();
         let rules = combat::AttackRules::new(&self.state);
+        let reach = if window && rules.has_mana_tax() {
+            self.attack_mana_reach(player)
+        } else {
+            0
+        };
+        let rules = rules.reaching(reach);
         if let Some(max) = rules.max_attackers()
             && attackers.len() > max
         {
@@ -2436,20 +2476,6 @@ impl<L: CardLookup> Engine<L> {
                 "cannot pay life required to declare those attackers",
             ));
         }
-        let total_mana_tax = attackers
-            .iter()
-            .map(|&(creature, _)| rules.mana_tax(creature))
-            .fold(0_u32, u32::saturating_add);
-        if total_mana_tax > 0
-            && !crate::mana_pay::can_pay(
-                &self.state.players[usize::from(player.get())].mana_pool,
-                &baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax),
-            )
-        {
-            return Err(EngineError::IllegalAction(
-                "cannot pay mana required to declare those attackers",
-            ));
-        }
         let mut sacrifice_costs = Vec::new();
         for &(creature, _) in &attackers {
             for (count, filter, you, source) in rules.sacrifice_tax(creature) {
@@ -2473,16 +2499,33 @@ impl<L: CardLookup> Engine<L> {
                 sacrifice_costs.extend(candidates);
             }
         }
+        // CR 508.1h–i: every cost is now known and none is paid yet. A mana
+        // tax the pool does not cover is made in a payment window, and the
+        // declaration waits in it with nothing paid.
+        let total_mana_tax = attackers
+            .iter()
+            .map(|&(creature, _)| rules.mana_tax(creature))
+            .fold(0_u32, u32::saturating_add);
         drop(rules);
+        let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
+        let pool = &self.state.players[usize::from(player.get())].mana_pool;
+        if total_mana_tax > 0 && !crate::mana_pay::can_pay(pool, &tax) {
+            if pool.total().saturating_add(reach) < u64::from(total_mana_tax) {
+                return Err(EngineError::IllegalAction(
+                    "cannot pay mana required to declare those attackers",
+                ));
+            }
+            self.open_attack_tax_window(player, attackers, tax);
+            return Ok(());
+        }
         if total_life_tax > 0 {
             self.state
                 .change_life(player, -total_life_tax, Cause::TurnBased);
         }
         if total_mana_tax > 0 {
-            let cost = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
             let paid = crate::mana_pay::pay(
                 &mut self.state.players[usize::from(player.get())].mana_pool,
-                &cost,
+                &tax,
             );
             debug_assert!(paid, "mana tax was validated");
         }
@@ -2540,6 +2583,54 @@ impl<L: CardLookup> Engine<L> {
         // triggers on the attack.
         self.ask_band(player, None);
         Ok(())
+    }
+
+    /// Opens the CR 508.1i window for a declaration whose mana tax the pool
+    /// does not cover: the attacking player makes mana in it, and passing
+    /// settles the declaration ([`Self::settle_attack_tax`]).
+    fn open_attack_tax_window(
+        &mut self,
+        player: PlayerId,
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        cost: baylee_core::mana::ManaCost,
+    ) {
+        let mut legal = self.compute_legal(player);
+        self.narrow_to_mana(&mut legal);
+        self.mana_window = Some(super::PaymentWindow {
+            player,
+            suspended: super::PaymentContinuation::AttackTax {
+                attackers,
+                cost,
+                opened: Box::new(self.window_start(player)),
+            },
+        });
+        self.pending = Pending::Priority {
+            player,
+            legal: Box::new(legal),
+        };
+        self.awaiting_answer = true;
+    }
+
+    /// The window of [`Self::open_attack_tax_window`] closing: the
+    /// declaration is made out of the pool if it now pays, and otherwise it
+    /// was never made, and what the window made is given back (CR 508.1i,
+    /// CR 732.1). Returns whether it was made.
+    pub(super) fn settle_attack_tax(
+        &mut self,
+        player: PlayerId,
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        opened: &super::WindowStart,
+    ) -> bool {
+        self.awaiting_answer = false;
+        if self
+            .declare_attackers_paying(player, attackers, false)
+            .is_ok()
+        {
+            return true;
+        }
+        self.give_back_window(player, opened);
+        self.combat_declared = CombatDeclared::TaxDeclined;
+        false
     }
 
     pub(crate) fn declare_blockers(

@@ -5104,6 +5104,24 @@ resolved battle-damage holds:
     destroyed Merfolk tapped in earlier turns. The reset now names every field,
     so a new field does not compile until it is reset.
   - Derelor taxed every black spell, not only "black spells you cast".
-  - Brainwash's {3} can be paid only from mana already floating, because the
-    declare-attackers question offers no mana abilities (CR 508.1i). It is now
-    `Coverage::Partial`.
+  - Brainwash's {3} could be paid only from mana already floating, because the
+    declare-attackers question offered no mana abilities (CR 508.1i). Fixed the
+    same day, see below.
+
+## 2026-10-20 — Attack taxes open a payment window (CR 508.1h–j)
+
+- A declaration whose mana tax the pool does not cover now opens a payment
+  window (`PaymentContinuation::AttackTax`) with nothing paid yet. Passing
+  declares out of the pool. A window left short is undone the way a cast is
+  (CR 732.1, `give_back_window`), and the step asks again with
+  `CombatDeclared::TaxDeclined`.
+- The offer counts one unit per mana source the window would offer
+  (`Engine::attack_mana_reach`), an estimate and not a promise. That is why a
+  short window must not lead back into the same window: after one, the
+  question offers only what the pool pays, so the house AI cannot loop.
+- In a card test, a taxed attacker is declared and then
+  `Pending::Priority` is the window: tap the lands there, then
+  `PassPriority`. Brainwash is `Implemented` again.
+- Not modelled: CR 508.1f taps the attackers before the costs are paid. The
+  window runs before they are tapped, so an attacker that taps itself for mana
+  there makes the declaration illegal at settlement, and it is undone.

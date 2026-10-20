@@ -583,3 +583,191 @@ fn dauthi_shadow_is_enforced_in_the_offer_and_the_declaration_in_both_directions
             .unwrap();
     }
 }
+
+fn plains() -> CardIndex {
+    card_index("bc71ebf6-2056-41f7-be35-b2e5c34afa99")
+}
+/// Enchanted creature can't attack unless its controller pays {3}.
+fn brainwash() -> CardIndex {
+    card_index("5a81755f-bc44-47ac-8039-8847a5e37922")
+}
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+/// Player 0's Grizzly Bears under Brainwash, three untapped Plains, an
+/// empty pool and a Savannah Lions beside them, at the declare-attackers
+/// question. Returns the Bears, the Lions and the Plains.
+fn brainwashed_bears_with_three_plains(
+    engine: &mut Engine<super::testkit::RegistryLookup>,
+) -> (ObjectId, ObjectId, Vec<ObjectId>) {
+    let p0 = PlayerId::new(0);
+    keep_mulligans(engine);
+    reach_main_phase(engine, p0);
+    let bears = super::testkit::on_battlefield(engine, p0, grizzly_bears()).unwrap();
+    let lions = super::testkit::on_battlefield(engine, p0, savannah_lions()).unwrap();
+    engine.state.players[0]
+        .mana_pool
+        .add(baylee_core::mana::ManaColor::White, 1);
+    engine.refresh_offer();
+    super::testkit::cast_with_floating(engine, p0, brainwash());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(engine, super::testkit::stack_is_empty);
+    reach_attackers(engine);
+    let plains = engine
+        .state()
+        .battlefield_seen()
+        .filter(|&id| {
+            engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == plains()))
+        })
+        .collect();
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    (bears, lions, plains)
+}
+
+fn is_tapped(engine: &Engine<super::testkit::RegistryLookup>, id: ObjectId) -> bool {
+    engine
+        .state()
+        .object(id)
+        .is_some_and(|o| o.status.contains(Status::TAPPED))
+}
+
+/// A mana tax is paid as the declaration is made, and mana abilities may be
+/// activated for it then (CR 508.1h–i): a creature whose controller has the
+/// lands to pay is offered with nothing floating, declaring it opens a
+/// payment window that owes the tax, and the lands tapped in it pay.
+#[test]
+fn an_attack_tax_opens_a_payment_window_for_the_lands_to_pay() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(21, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                grizzly_bears(),
+                savannah_lions(),
+            ],
+        )
+        .hand(0, &[brainwash()])
+        .start();
+    let (bears, _, plains) = brainwashed_bears_with_three_plains(&mut engine);
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        unreachable!("reach_attackers stopped here")
+    };
+    assert!(attackers.contains(&bears), "three Plains pay the {{3}}");
+
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, baylee_core::ids::Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "a payment window: {:?}",
+        engine.pending()
+    );
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            p0,
+            baylee_core::mana::ManaPayment::Fixed(
+                baylee_core::mana::ManaCost::ZERO.with_more_generic(3)
+            )
+        )),
+        "the window owes the tax"
+    );
+    assert!(
+        !engine.state().combat.is_attacking(bears),
+        "not yet declared"
+    );
+
+    for &source in &plains {
+        engine
+            .apply(p0, PlayerAction::ActivateManaAbility { source })
+            .unwrap();
+    }
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    assert!(engine.state().combat.is_attacking(bears), "declared");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0, "paid");
+    assert!(plains.iter().all(|&id| is_tapped(&engine, id)));
+}
+
+/// A window left short undoes the declaration (CR 508.1i, CR 732.1): the
+/// land tapped in it untaps, the pool is what it was, and the question is
+/// asked again without the creature the pool cannot pay for, so a seat that
+/// will not pay is not walked round the same window twice.
+#[test]
+fn an_attack_tax_window_closed_short_undoes_the_declaration() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(21, plains())
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                grizzly_bears(),
+                savannah_lions(),
+            ],
+        )
+        .hand(0, &[brainwash()])
+        .start();
+    let (bears, lions, plains) = brainwashed_bears_with_three_plains(&mut engine);
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (bears, baylee_core::ids::Defender::Player(p1)),
+                    (lions, baylee_core::ids::Defender::Player(p1)),
+                ],
+            },
+        )
+        .unwrap();
+    engine
+        .apply(p0, PlayerAction::ActivateManaAbility { source: plains[0] })
+        .unwrap();
+    assert!(is_tapped(&engine, plains[0]));
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+
+    assert!(!engine.state().combat.is_attacking(bears));
+    assert!(
+        !engine.state().combat.is_attacking(lions),
+        "nothing declared"
+    );
+    assert!(!is_tapped(&engine, plains[0]), "the Plains is given back");
+    assert_eq!(engine.state().players[0].mana_pool.total(), 0);
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!("asked again: {:?}", engine.pending())
+    };
+    assert!(attackers.contains(&lions));
+    assert!(!attackers.contains(&bears), "not offered round again");
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(lions, baylee_core::ids::Defender::Player(p1))],
+            },
+        )
+        .unwrap();
+    assert!(engine.state().combat.is_attacking(lions));
+}

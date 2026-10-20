@@ -201,6 +201,12 @@ impl<L: CardLookup> Engine<L> {
                 }
                 return Ok(WindowClose::settled(paid));
             }
+            PaymentContinuation::AttackTax {
+                attackers, opened, ..
+            } => {
+                let paid = self.settle_attack_tax(window.player, attackers, &opened);
+                return Ok(WindowClose::settled(paid));
+            }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
             // reverses a casting that cannot be paid), and what the window

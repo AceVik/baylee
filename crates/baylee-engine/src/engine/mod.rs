@@ -66,6 +66,11 @@ impl From<crate::choice::AnswerFault> for EngineError {
 enum CombatDeclared {
     None,
     Attackers,
+    /// A declaration whose mana tax was left unpaid in its payment window
+    /// was undone (CR 508.1i, CR 732.1). The step asks again, offering only
+    /// the attacks the pool already pays, so a seat that will not pay is not
+    /// walked round the same window twice.
+    TaxDeclined,
     /// The blocks of every defending player up to and including this one,
     /// in APNAP order, are declared, and more defending players are still
     /// to declare (CR 802.4).
@@ -174,6 +179,17 @@ enum PaymentContinuation {
         /// What closing without the cast gives back (CR 732.1).
         opened: Box<WindowStart>,
     },
+    /// A declaration of attackers whose mana tax the pool did not cover
+    /// (CR 508.1h): its player makes the mana here (CR 508.1i), and passing
+    /// declares it, or undoes it if the pool still falls short.
+    AttackTax {
+        /// The declaration, as the seat made it.
+        attackers: Vec<(ObjectId, baylee_core::ids::Defender)>,
+        /// The total tax, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// What closing without the declaration gives back (CR 732.1).
+        opened: Box<WindowStart>,
+    },
 }
 
 /// The board a `Miracle` or `Cast` payment window was opened on, as far as
@@ -239,6 +255,15 @@ impl PaymentContinuation {
                 .get()
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost)),
+            Self::AttackTax {
+                attackers,
+                cost,
+                opened,
+            } => crate::state::structural_fingerprint(attackers)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
             Self::Miracle {
                 wizard,
                 version,
@@ -1083,7 +1108,8 @@ impl<L: CardLookup> Engine<L> {
             PaymentContinuation::Pact { cost, .. }
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
-            | PaymentContinuation::Miracle { cost, .. } => {
+            | PaymentContinuation::Miracle { cost, .. }
+            | PaymentContinuation::AttackTax { cost, .. } => {
                 Some((window.player, ManaPayment::Fixed(*cost)))
             }
             PaymentContinuation::Activation(payment) => {

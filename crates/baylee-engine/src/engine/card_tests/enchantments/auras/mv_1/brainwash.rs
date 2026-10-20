@@ -99,7 +99,8 @@ fn brainwash_makes_the_enchanted_creature_pay_three_to_attack() {
         "the Aura is out"
     );
 
-    // Nothing floating: the enchanted creature is not offered, the other is.
+    // No lands and nothing floating: the enchanted creature is not offered,
+    // the other is.
     let attackers = offered_attackers(&mut e, P0);
     assert!(attackers.contains(&lions), "the Lions attack for free");
     assert!(!attackers.contains(&bears), "the Bears cannot pay {{3}}");
@@ -114,10 +115,50 @@ fn brainwash_makes_the_enchanted_creature_pay_three_to_attack() {
         .is_err(),
         "no mana, no attack"
     );
+}
 
-    // Paying the {3} is the card's documented gap (`Coverage::Partial`):
-    // the question offers no mana abilities (CR 508.1i), and the pool has
-    // emptied by the time it is asked, so the Bears stay home.
+/// Brainwash — the {3} is paid as the attack is declared, with mana
+/// abilities activated then (CR 508.1i): three untapped Plains pay it with
+/// nothing floating.
+#[test]
+fn brainwash_is_paid_with_lands_tapped_as_the_attack_is_declared() {
+    let mut e = prepared(
+        &[brainwash()],
+        &[plains(), plains(), plains(), grizzly_bears()],
+        &[],
+    );
+    let bears = on_battlefield(&e, P0, grizzly_bears()).expect("Grizzly Bears is out");
+    cast(&mut e, P0, brainwash());
+    targets(&mut e, vec![bears]);
+    pass_until(&mut e, stack_is_empty);
+
+    let attackers = offered_attackers(&mut e, P0);
+    assert_eq!(e.state().players[0].mana_pool.total(), 0, "nothing floats");
+    assert!(attackers.contains(&bears), "the Plains can pay {{3}}");
+    e.apply(
+        P0,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(P1))],
+        },
+    )
+    .expect("the declaration waits for its {3}");
+    let Pending::Priority { legal, .. } = e.pending().clone() else {
+        panic!("a payment window, got {:?}", e.pending())
+    };
+    assert_eq!(legal.mana_abilities.len(), 3, "the three Plains");
+    for source in legal.mana_abilities {
+        e.apply(P0, PlayerAction::ActivateManaAbility { source })
+            .expect("a Plains taps for {W}");
+    }
+    e.apply(P0, PlayerAction::PassPriority)
+        .expect("the pool pays");
+    assert!(e.state().combat.is_attacking(bears), "the Bears attack");
+    assert_eq!(e.state().players[0].mana_pool.total(), 0, "{{3}} spent");
+
+    pass_until(&mut e, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(e.state().players[1].life, 18, "two damage through");
 }
 
 /// Brainwash — the controller of the enchanted creature pays, whoever cast the Aura.

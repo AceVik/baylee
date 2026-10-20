@@ -604,6 +604,9 @@ pub struct AttackRules<'a> {
     unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     unless_sacrifice: Vec<&'a crate::effects::ContinuousEffect>,
     max_attackers: Option<usize>,
+    /// Mana the attacking player could still make before paying a mana tax
+    /// ([`Self::reaching`]); zero, so the pool alone pays, unless set.
+    mana_reach: u64,
 }
 
 impl<'a> AttackRules<'a> {
@@ -653,7 +656,25 @@ impl<'a> AttackRules<'a> {
             unless_pay_mana,
             unless_sacrifice,
             max_attackers,
+            mana_reach: 0,
         }
+    }
+
+    /// Whether any creature's attack costs mana now (CR 508.1h: Brainwash),
+    /// so that asking what mana its controller could make is worth it.
+    #[must_use]
+    pub fn has_mana_tax(&self) -> bool {
+        !self.unless_pay_mana.is_empty()
+    }
+
+    /// The same rules for a declaration whose mana tax may also be paid with
+    /// up to `mana` more mana, made in the payment window the declaration
+    /// opens (CR 508.1i). An estimate from the sources on offer, never a
+    /// promise: a window that closes short undoes the declaration.
+    #[must_use]
+    pub const fn reaching(mut self, mana: u64) -> Self {
+        self.mana_reach = mana;
+        self
     }
 
     /// Maximum number of creatures that may attack this combat, if capped.
@@ -775,13 +796,15 @@ impl<'a> AttackRules<'a> {
             return false;
         };
         let mana_tax = self.mana_tax(creature);
-        if mana_tax > 0
-            && !crate::mana_pay::can_pay(
-                &state.players[usize::from(obj.controller.get())].mana_pool,
+        if mana_tax > 0 {
+            let pool = &state.players[usize::from(obj.controller.get())].mana_pool;
+            let pays = crate::mana_pay::can_pay(
+                pool,
                 &baylee_core::mana::ManaCost::ZERO.with_more_generic(mana_tax),
-            )
-        {
-            return false;
+            );
+            if !pays && pool.total().saturating_add(self.mana_reach) < u64::from(mana_tax) {
+                return false;
+            }
         }
         for (count, filter, you, source) in self.sacrifice_tax(creature) {
             let have = state

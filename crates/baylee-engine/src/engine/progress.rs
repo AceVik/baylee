@@ -931,6 +931,11 @@ impl<L: CardLookup> Engine<L> {
     fn attack_question(&self, attacker: PlayerId) -> Pending {
         let defenders = combat::defender_options(&self.state, attacker);
         let rules = combat::AttackRules::new(&self.state);
+        let rules = if rules.has_mana_tax() {
+            rules.reaching(self.attack_mana_reach(attacker))
+        } else {
+            rules
+        };
         let mut attackers = Vec::new();
         let mut required = Vec::new();
         let mut limits = Vec::new();
