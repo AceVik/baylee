@@ -66,3 +66,5 @@ mod zelyon_sword;
 
 mod aegis_of_the_meek;
 mod arcum_s_whistle;
+
+mod elkin_bottle;

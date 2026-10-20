@@ -32,3 +32,6 @@ mod twisted_experiment;
 mod warp_artifact;
 mod wings_of_aesthir;
 mod wings_of_hope;
+
+mod cloak_of_confusion;
+mod dance_of_the_dead;

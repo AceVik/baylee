@@ -111,3 +111,5 @@ fn ogre_may_block(p0_board: &[CardIndex], attacker: CardIndex, p1_land: CardInde
     let offer = blocks_offered(&mut engine);
     may_block(offer.as_ref(), blocker, attacker_id)
 }
+
+mod earthlink;

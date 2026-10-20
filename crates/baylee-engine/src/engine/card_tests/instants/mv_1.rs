@@ -119,3 +119,7 @@ mod disfigure;
 mod wring_flesh;
 
 mod qilin_s_blessing;
+
+mod burnt_offering;
+mod clairvoyance;
+mod demonic_consultation;

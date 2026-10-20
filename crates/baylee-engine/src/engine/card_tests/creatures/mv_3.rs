@@ -299,3 +299,6 @@ mod woolly_mammoths;
 
 mod adarkar_unicorn;
 mod barbarian_guides;
+
+mod chub_toad;
+mod elvish_healer;

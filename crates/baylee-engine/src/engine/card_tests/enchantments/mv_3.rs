@@ -76,3 +76,5 @@ mod dark_prophecy;
 mod ferocity_of_the_wilds;
 
 mod arnjlot_s_ascent;
+
+mod cold_snap;

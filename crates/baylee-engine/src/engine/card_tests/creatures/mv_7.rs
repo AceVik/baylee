@@ -484,3 +484,5 @@ fn bolt_menu(card: CardIndex, caster: usize) -> (Vec<ObjectId>, ObjectId, Object
 fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
 }
+
+mod chaos_lord;

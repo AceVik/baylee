@@ -44,3 +44,5 @@ mod sign_in_blood;
 mod word_of_binding;
 
 mod altar_of_bone;
+
+mod diabolic_vision;

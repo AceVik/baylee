@@ -17,7 +17,7 @@ card!(
     oracle_id = "3dcbcf5e-bdbe-46b3-881e-5ac4030c6e38",
     scryfall_id = "81b87a58-b20c-4f38-afa3-59d398195740",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cold Snap",
         mana_cost = mana!("{2}{W}"),

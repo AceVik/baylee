@@ -26,3 +26,5 @@ mod anti_magic_aura;
 mod relic_bind;
 
 mod aggression;
+
+mod chromatic_armor;

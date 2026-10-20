@@ -11,7 +11,7 @@ card!(
     oracle_id = "477f5011-aaeb-4a5f-8a65-5fb45cb06389",
     scryfall_id = "e40c9657-fab4-489d-8eb0-960ba2605add",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Breath of Dreams",
         mana_cost = mana!("{2}{U}{U}"),

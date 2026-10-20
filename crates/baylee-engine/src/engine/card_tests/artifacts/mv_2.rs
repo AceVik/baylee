@@ -64,3 +64,5 @@ mod kraken_s_eye;
 mod wurm_s_tooth;
 
 mod arcum_s_weathervane;
+
+mod crown_of_the_ages;

@@ -163,3 +163,10 @@ mod vance_s_blasting_cannons;
 mod vernal_bloom;
 mod vigilante_justice;
 mod whirlwind_of_thought;
+
+mod breath_of_dreams;
+mod chaos_moon;
+mod dreams_of_the_dead;
+mod drought;
+mod dwarven_armory;
+mod enduring_renewal;

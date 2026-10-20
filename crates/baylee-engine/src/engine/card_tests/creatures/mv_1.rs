@@ -140,3 +140,5 @@ mod greenseeker;
 mod sunshower_druid;
 
 mod balduvian_shaman;
+
+mod brown_ouphe;
