@@ -3269,35 +3269,96 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Play with your hand revealed.\nIf you would draw a card, reveal the top card of your library instead. If it's a creature card, put it into your graveyard. Otherwise, draw a card.\nWhenever a creature is put into your graveyard from the battlefield, return it to your hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Energy Storm
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPrevent all damage that would be dealt by instant and sorcery spells.\nCreatures with flying don't untap during their controllers' untap steps.",
+    ],
+    // Enervate
+    &[
+        "Tap target artifact, creature, or land.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Errant Minion
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way.",
+    ],
+    // Errantry
+    &["Enchant creature\nEnchanted creature gets +3/+0 and can only attack alone."],
+    // Essence Filter
+    &["Destroy all enchantments or all nonwhite enchantments."],
+    // Essence Flare
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+0.\nAt the beginning of the upkeep of enchanted creature's controller, put a -0/-1 counter on that creature.",
+    ],
+    // Essence Vortex
+    &[
+        "Destroy target creature unless its controller pays life equal to its toughness. A creature destroyed this way can't be regenerated.",
+    ],
     // Fanatical Fever
     &["Target creature gets +3/+0 and gains trample until end of turn."],
-    &[],
-    &[],
+    // Fiery Justice
+    &[
+        "Fiery Justice deals 5 damage divided as you choose among any number of targets. Target opponent gains 5 life.",
+    ],
+    // Fire Covenant
+    &[
+        "As an additional cost to cast this spell, pay X life.\nFire Covenant deals X damage divided as you choose among any number of target creatures.",
+    ],
     // Flame Spirit
     &["{R}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Flare
+    &[
+        "Flare deals 1 damage to any target.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Flooded Woodlands
+    &[
+        "Green creatures can't attack unless their controller sacrifices a land of their choice for each green creature they control that's attacking. (This cost is paid as attackers are declared.)",
+    ],
+    // Flow of Maggots
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nThis creature can't be blocked by non-Wall creatures.",
+    ],
     // Folk of the Pines
     &["{1}{G}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Forbidden Lore
+    &["Enchant land\nEnchanted land has \"{T}: Target creature gets +2/+1 until end of turn.\""],
+    // Force Void
+    &[
+        "Counter target spell unless its controller pays {1}.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Forgotten Lore
+    &[
+        "Target opponent chooses a card in your graveyard. You may pay {G}. If you do, repeat this process except that opponent can't choose a card already chosen for Forgotten Lore. Then put the last chosen card into your hand.",
+    ],
+    // Formation
+    &[
+        "Target creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Foul Familiar
+    &["This creature can't block.\n{B}, Pay 1 life: Return this creature to its owner's hand."],
+    // Foxfire
+    &[
+        "Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Freyalise Supplicant
+    &[
+        "{T}, Sacrifice a red or white creature: This creature deals damage to any target equal to half the sacrificed creature's power, rounded down.",
+    ],
+    // Freyalise's Charm
+    &[
+        "Whenever an opponent casts a black spell, you may pay {G}{G}. If you do, you draw a card.\n{G}{G}: Return this enchantment to its owner's hand.",
+    ],
+    // Freyalise's Winds
+    &[
+        "Whenever a permanent becomes tapped, put a wind counter on it.\nIf a permanent with a wind counter on it would untap during its controller's untap step, remove all wind counters from it instead.",
+    ],
+    // Fumarole
+    &[
+        "As an additional cost to cast this spell, pay 3 life.\nDestroy target creature and target land.",
+    ],
+    // Fylgja
+    &[
+        "Enchant creature\nThis Aura enters with four healing counters on it.\nRemove a healing counter from this Aura: Prevent the next 1 damage that would be dealt to enchanted creature this turn.\n{2}{W}: Put a healing counter on this Aura.",
+    ],
     // Fyndhorn Bow
     &["{3}, {T}: Target creature gains first strike until end of turn."],
     // Fyndhorn Brownie
@@ -3306,8 +3367,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {G}{G}."],
     // Fyndhorn Elves
     &["{T}: Add {G}."],
-    &[],
-    &[],
+    // Fyndhorn Pollen
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAll creatures get -1/-0.\n{1}{G}: All creatures get -1/-0 until end of turn.",
+    ],
+    // Game of Chaos
+    &[
+        "Flip a coin. If you win the flip, you gain 1 life and target opponent loses 1 life, and you decide whether to flip again. If you lose the flip, you lose 1 life and that opponent gains 1 life, and that player decides whether to flip again. Double the life stakes with each flip.",
+    ],
     &[],
     &[],
     &[],

@@ -920,7 +920,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Brown Ouphe, Celestial Sword, Crown of the Ages, Dreams of the Dead,
     // Dwarven Armory, Elkin Bottle, and Elvish Healer, of which 3 are read by
     // the evaluator.
-    assert_eq!((read, of), (2581, 3149), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 3 adds 6 non-mana activated abilities across
+    // Flow of Maggots, Foul Familiar, Freyalise Supplicant, Freyalise's Charm,
+    // and Fylgja, of which 4 are read by the evaluator.
+    assert_eq!((read, of), (2585, 3155), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
