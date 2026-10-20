@@ -64,27 +64,27 @@ VaultFailed = The vault could not be safely read or saved. Existing data was pre
 MessageDropped = A message failed its check and was dropped
 
 # A line from a device this client couldn't find.
-# Arguments: arg0
-UnknownDevice = A message from { $arg0 } came from a device that couldn't be checked and was dropped
+# Arguments: player
+UnknownDevice = A message from { $player } came from a device that couldn't be checked and was dropped
 
 # A line addressed somewhere it doesn't belong.
 MisaddressedDropped = A message that didn't belong in this conversation was dropped
 
 # A contact added a device.
-# Arguments: arg0, arg1, arg2
-DeviceAdded = { $arg0 } added a device ({ $arg1 } · { $arg2 })
+# Arguments: player, device, date
+DeviceAdded = { $player } added a device ({ $device } · { $date })
 
 # A contact removed a device.
-# Arguments: arg0
-DeviceRemoved = { $arg0 } removed a device
+# Arguments: player
+DeviceRemoved = { $player } removed a device
 
 # A verified contact's devices changed.
-# Arguments: arg0
-VerifyAgain = { $arg0 }'s devices changed · Verify again
+# Arguments: player
+VerifyAgain = { $player }'s devices changed · Verify again
 
 # This account gained a device.
-# Arguments: arg0, arg1
-OwnDeviceAdded = A new device was added to your account: { $arg0 } · { $arg1 }. Not you? Remove it under Settings → Chat & privacy → Your devices; the gateway's admin can reset your password.
+# Arguments: device, date
+OwnDeviceAdded = A new device was added to your account: { $device } · { $date }. Not you? Remove it under Settings → Chat & privacy → Your devices; the gateway's admin can reset your password.
 
 # The gateway listed someone the table doesn't show.
 RosterMismatch = The server listed someone who isn't at this table; your message wasn't sent to them
@@ -111,16 +111,16 @@ ChatOff = This server has no chat
 SendRefused = The server refused the message
 
 # An unknown command.
-# Arguments: arg0
-UnknownCommand = Unknown command /{ $arg0 } — /help lists them
+# Arguments: command
+UnknownCommand = Unknown command /{ $command } — /help lists them
 
 # A command that needs a name.
-# Arguments: arg0
-MissingName = /{ $arg0 } needs a name
+# Arguments: command
+MissingName = /{ $command } needs a name
 
 # A command that needs a message.
-# Arguments: arg0
-MissingText = /{ $arg0 } needs a message
+# Arguments: command
+MissingText = /{ $command } needs a message
 
 # /t away from a table.
 NoTable = You aren't seated at a table
@@ -132,19 +132,19 @@ NoTeam = This table has no teams
 NoGroup = There is no group to write to
 
 # /1–/9 past the groups there are.
-# Arguments: arg0
-NoGroupNumber = You have no group number { $arg0 }
+# Arguments: number
+NoGroupNumber = You have no group number { $number }
 
 # /r before anyone whispered.
 NoReply = Nobody has whispered you yet
 
 # A name that matches nobody.
-# Arguments: arg0
-NoSuchPlayer = Nobody called “{ $arg0 }” among your friends, recent whispers or this table
+# Arguments: name
+NoSuchPlayer = Nobody called “{ $name }” among your friends, recent whispers or this table
 
 # A name that matches several people.
-# Arguments: arg0, arg1
-AmbiguousName = “{ $arg0 }” could be: { $arg1 }
+# Arguments: name, candidates
+AmbiguousName = “{ $name }” could be: { $candidates }
 
 # A guest tried something only registered players have.
 GuestsCannot = Guests have no friends list or groups
@@ -159,32 +159,32 @@ OwnCardHint = You're naming a card only you can see
 NewTable = New table
 
 # The gateway: someone joined the group.
-# Arguments: arg0
-MemberJoined = { $arg0 } joined the group (server notice)
+# Arguments: player
+MemberJoined = { $player } joined the group (server notice)
 
 # The gateway: someone left the group.
-# Arguments: arg0
-MemberLeft = { $arg0 } left the group (server notice)
+# Arguments: player
+MemberLeft = { $player } left the group (server notice)
 
 # The gateway: the group was renamed.
-# Arguments: arg0
-GroupRenamed = The group is now called { $arg0 } (server notice)
+# Arguments: group
+GroupRenamed = The group is now called { $group } (server notice)
 
 # The gateway: the group has a new owner.
-# Arguments: arg0
-OwnerNow = { $arg0 } owns the group now (server notice)
+# Arguments: player
+OwnerNow = { $player } owns the group now (server notice)
 
 # A table invite was sent.
-# Arguments: arg0
-Invited = Invited { $arg0 }
+# Arguments: player
+Invited = Invited { $player }
 
 # A table invite was declined.
-# Arguments: arg0
-InviteDeclined = { $arg0 } declined
+# Arguments: player
+InviteDeclined = { $player } declined
 
 # `/who`: one member.
-# Arguments: arg0, arg1
-WhoLine = { $arg0 } · { $arg1 } devices
+# Arguments: player, count
+WhoLine = { $player } · { $count } devices
 
 # `/who` in a conversation with no member list.
 WhoNobody = Nobody else is in this conversation
@@ -199,53 +199,53 @@ Muted = This conversation is muted
 Unmuted = This conversation is no longer muted
 
 # `/ignore` done.
-# Arguments: arg0
-Ignoring = Hiding { $arg0 }'s lines on this device
+# Arguments: player
+Ignoring = Hiding { $player }'s lines on this device
 
 # `/unignore` done.
-# Arguments: arg0
-NotIgnoring = Showing { $arg0 }'s lines again
+# Arguments: player
+NotIgnoring = Showing { $player }'s lines again
 
 # `/nick` set.
-# Arguments: arg0, arg1
-NickSet = { $arg0 } is now shown as { $arg1 } on this device
+# Arguments: player, nick
+NickSet = { $player } is now shown as { $nick } on this device
 
 # `/nick` cleared.
-# Arguments: arg0
-NickCleared = { $arg0 } is shown by their own name again
+# Arguments: player
+NickCleared = { $player } is shown by their own name again
 
 # Several hidden lines from ignored players.
-# Arguments: arg0
-HiddenLines = { $arg0 } hidden messages
+# Arguments: count
+HiddenLines = { $count } hidden messages
 
 # One hidden line from an ignored player.
 HiddenLine = 1 hidden message
 
 # The encryption line under a conversation.
-# Arguments: arg0, arg1
-EncryptedTo = Encrypted to { $arg0 } players ({ $arg1 } devices)
+# Arguments: count, devices
+EncryptedTo = Encrypted to { $count } players ({ $devices } devices)
 
 # The encryption line's count of devices: one.
 NoteOneDevice = 1 device
 
 # The encryption line's count of devices.
-# Arguments: arg0
-NoteDevices = { $arg0 } devices
+# Arguments: count
+NoteDevices = { $count } devices
 
 # The encryption line's count of people: one.
 NoteOnePerson = 1 person
 
 # The encryption line's count of people.
-# Arguments: arg0
-NotePeople = { $arg0 } people
+# Arguments: count
+NotePeople = { $count } people
 
 # A whisper's lock hover.
-# Arguments: arg0, arg1
-EncryptedWith = End-to-end encrypted · { $arg0 } ({ $arg1 } devices)
+# Arguments: player, count
+EncryptedWith = End-to-end encrypted · { $player } ({ $count } devices)
 
 # The notice's first part (§11.8).
-# Arguments: arg0
-NoticeBody = Messages are end-to-end encrypted to the listed recipient devices. Compare safety numbers through a trusted channel: the gateway supplies first-contact keys and group/table membership, so a malicious operator can misrepresent recipients. Verified peer keys alone do not verify group membership. The server keeps encrypted messages for up to { $arg0 } days until delivery and sees who writes to whom, group names and online status. Reporting sends that message to moderators. Anyone who can use your unlocked device can read its chat history.
+# Arguments: count
+NoticeBody = Messages are end-to-end encrypted to the listed recipient devices. Compare safety numbers through a trusted channel: the gateway supplies first-contact keys and group/table membership, so a malicious operator can misrepresent recipients. Verified peer keys alone do not verify group membership. The server keeps encrypted messages for up to { $count } days until delivery and sees who writes to whom, group names and online status. Reporting sends that message to moderators. Anyone who can use your unlocked device can read its chat history.
 
 # Where the keys are: the keychain.
 KeysInKeychain = Your keys are kept in this computer's keychain.
@@ -275,8 +275,8 @@ KeysInFile = Your keys are kept in a file only your user account can read (the s
 KeysInMemory = Your keys are kept in memory only and are lost when Baylee closes.
 
 # The safety number's instructions.
-# Arguments: arg0
-SafetyCompare = Compare these numbers with { $arg0 }, in person or by voice. If they match, mark as verified.
+# Arguments: player
+SafetyCompare = Compare these numbers with { $player }, in person or by voice. If they match, mark as verified.
 
 # The safety number's state: verified.
 SafetyVerified = Verified
@@ -285,47 +285,47 @@ SafetyVerified = Verified
 SafetyNotVerified = Not verified
 
 # A friend request arrived.
-# Arguments: arg0
-ToastFriendRequest = { $arg0 } wants to be friends
+# Arguments: player
+ToastFriendRequest = { $player } wants to be friends
 
 # A friend request was accepted.
-# Arguments: arg0
-ToastFriendAccepted = { $arg0 } accepted your friend request
+# Arguments: player
+ToastFriendAccepted = { $player } accepted your friend request
 
 # An invite to join a table.
-# Arguments: arg0, arg1
-ToastJoinInvite = { $arg0 } invites you to { $arg1 }
+# Arguments: player, table
+ToastJoinInvite = { $player } invites you to { $table }
 
 # An invite to watch a table.
-# Arguments: arg0, arg1
-ToastWatchInvite = { $arg0 } invites you to watch { $arg1 }
+# Arguments: player, table
+ToastWatchInvite = { $player } invites you to watch { $table }
 
 # A group invite.
-# Arguments: arg0, arg1
-ToastGroupInvite = { $arg0 } invites you to the group { $arg1 }
+# Arguments: player, group
+ToastGroupInvite = { $player } invites you to the group { $group }
 
 # A group invite whose inviter the event doesn't name.
-# Arguments: arg0
-ToastGroupInvited = You're invited to the group { $arg0 }
+# Arguments: group
+ToastGroupInvited = You're invited to the group { $group }
 
 # A report was sent.
 ToastReported = Reported. Thank you.
 
 # A whisper arrived (with text).
-# Arguments: arg0, arg1
-ToastWhisper = { $arg0 } whispers: { $arg1 }
+# Arguments: player, message
+ToastWhisper = { $player } whispers: { $message }
 
 # A whisper arrived (toasts without text).
-# Arguments: arg0
-ToastWhisperQuiet = { $arg0 } whispered you
+# Arguments: player
+ToastWhisperQuiet = { $player } whispered you
 
 # A mention arrived.
-# Arguments: arg0
-ToastMention = { $arg0 } mentioned you
+# Arguments: player
+ToastMention = { $player } mentioned you
 
 # A friend came online.
-# Arguments: arg0
-ToastOnline = { $arg0 } is online
+# Arguments: player
+ToastOnline = { $player } is online
 
 # This account has as many devices as it may.
 ToastTooManyDevices = This account already has the most chat devices it may; remove one in Settings → Chat & privacy
@@ -340,8 +340,8 @@ ToastDeviceRemoved = This device was removed from your chat; its history was del
 ToastRefused = The server refused that
 
 # The player was not found.
-# Arguments: arg0
-ToastNoSuchPlayer = There is no player { $arg0 }
+# Arguments: handle
+ToastNoSuchPlayer = There is no player { $handle }
 
 # Too many requests.
 ToastSlowDown = Too many at once; try again later
@@ -368,16 +368,16 @@ PlaceOffline = Offline
 PlaceLobby = In the lobby
 
 # Presence: in a waiting room.
-# Arguments: arg0
-PlaceRoom = Waiting · { $arg0 }
+# Arguments: table
+PlaceRoom = Waiting · { $table }
 
 # Presence: playing.
-# Arguments: arg0
-PlacePlaying = Playing · { $arg0 }
+# Arguments: table
+PlacePlaying = Playing · { $table }
 
 # Presence: watching.
-# Arguments: arg0
-PlaceWatching = Watching · { $arg0 }
+# Arguments: table
+PlaceWatching = Watching · { $table }
 
 # Presence: in the deck builder.
 PlaceBuilding = Building a deck
@@ -473,27 +473,27 @@ HelpMute = /mute, /unmute — this conversation's notifications
 HelpHelp = /help [command] — this list (also /?, /commands)
 
 # /leave asks first.
-# Arguments: arg0
-LeaveConfirm = Leave { $arg0 }? Type /leave again to confirm
+# Arguments: group
+LeaveConfirm = Leave { $group }? Type /leave again to confirm
 
 # The composer's hint.
 ComposeHint = # card · @ player
 
 # The composer's placeholder.
-# Arguments: arg0
-WriteTo = Write to { $arg0 }…
+# Arguments: target
+WriteTo = Write to { $target }…
 
 # The target chip.
-# Arguments: arg0
-ToTarget = To { $arg0 }
+# Arguments: player
+ToTarget = To { $player }
 
 # The All tab's prefix for a whisper received.
-# Arguments: arg0
-WhisperFrom = From { $arg0 }:
+# Arguments: player
+WhisperFrom = From { $player }:
 
 # The All tab's prefix for a whisper sent.
-# Arguments: arg0
-WhisperTo = To { $arg0 }:
+# Arguments: player
+WhisperTo = To { $player }:
 
 # The Log tab.
 TabLog = Log
@@ -508,8 +508,8 @@ TabGroup = Group
 ChatTitle = Chat
 
 # The chat door's hint with its count.
-# Arguments: arg0
-ChatDoor = Chat · { $arg0 } unread
+# Arguments: count
+ChatDoor = Chat · { $count } unread
 
 # The friends drawer.
 FriendsTitle = Friends
@@ -518,8 +518,8 @@ FriendsTitle = Friends
 FindOrAdd = Name#tag — find or add
 
 # Add a typed handle.
-# Arguments: arg0
-AddHandle = Add { $arg0 }
+# Arguments: handle
+AddHandle = Add { $handle }
 
 # Accept a request.
 Accept = Accept
@@ -579,8 +579,8 @@ InviteToGroup = Invite a friend…
 DeleteGroup = Delete group
 
 # A group's members and how many are online.
-# Arguments: arg0, arg1
-GroupCount = { $arg0 } · { $arg1 } online
+# Arguments: count, online
+GroupCount = { $count } · { $online } online
 
 # The Group tab with no group.
 NoGroupYet = No group yet
@@ -589,8 +589,8 @@ NoGroupYet = No group yet
 GroupNameLabel = Group name
 
 # The nickname box.
-# Arguments: arg0
-NicknameLabel = Nickname for { $arg0 }
+# Arguments: player
+NicknameLabel = Nickname for { $player }
 
 # The group invite box.
 InviteLabel = Friend to invite (Name#tag)
@@ -608,8 +608,8 @@ CancelButton = Cancel
 OkButton = OK
 
 # The filter dialog's title.
-# Arguments: arg0
-FilterTitle = { $arg0 } · what this tab shows
+# Arguments: tab
+FilterTitle = { $tab } · what this tab shows
 
 # A filter kind.
 KindGlobal = Lobby chat
@@ -660,8 +660,8 @@ EmptyPrivate = No whispers yet. Type /w Name#tag, or click a name in the chat.
 EmptyGroupNone = You're in no group yet.
 
 # The Group tab, empty.
-# Arguments: arg0
-EmptyGroup = Nobody has written in { $arg0 } yet.
+# Arguments: group
+EmptyGroup = Nobody has written in { $group } yet.
 
 # The All tab, empty.
 EmptyAll = Quiet so far.
@@ -670,8 +670,8 @@ EmptyAll = Quiet so far.
 EmptyFiltered = This tab shows nothing. ⚙ picks what it shows.
 
 # The placeholder for a whisper.
-# Arguments: arg0
-WriteWhisper = Whisper { $arg0 }…
+# Arguments: player
+WriteWhisper = Whisper { $player }…
 
 # The placeholder with no whisper partner.
 TypeWhisper = Type /w Name#tag…
@@ -710,12 +710,12 @@ ClearVerified = Clear verification
 EncryptionTitle = End-to-end encrypted
 
 # The safety number's heading.
-# Arguments: arg0
-SafetyWith = Safety number with { $arg0 }
+# Arguments: player
+SafetyWith = Safety number with { $player }
 
 # A contact's devices.
-# Arguments: arg0, arg1
-DevicesOf = { $arg0 }'s devices: { $arg1 }
+# Arguments: player, devices
+DevicesOf = { $player }'s devices: { $devices }
 
 # A safety number not known yet.
 NoKeysYet = Their keys aren't known yet: write to them once.
@@ -745,8 +745,8 @@ KeepHistory = Keep chat history on this device
 HistoryOff = Off
 
 # History kept.
-# Arguments: arg0
-HistoryDays = { $arg0 } days
+# Arguments: count
+HistoryDays = { $count } days
 
 # A setting.
 SoundsLabel = Sounds
@@ -806,12 +806,12 @@ ChatOffline = Chat is reconnecting…
 RecentPlayers = Recent players
 
 # The drawer's status menu.
-# Arguments: arg0
-StatusLabel = Status: { $arg0 }
+# Arguments: status
+StatusLabel = Status: { $status }
 
 # A group invite in the drawer.
-# Arguments: arg0, arg1
-GroupInviteFrom = { $arg0 } · from { $arg1 }
+# Arguments: group, player
+GroupInviteFrom = { $group } · from { $player }
 
 # Online friends at a running table.
 SectionPlaying = Playing

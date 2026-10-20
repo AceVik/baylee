@@ -1536,8 +1536,7 @@ fn spent_line(
 ) -> String {
     let tokens = |n: u64| {
         let count = usize::try_from(n).unwrap_or(usize::MAX);
-        Phrase::counted(count, Phrase::SeatTokensOne, Phrase::SeatTokensMany)
-            .fill(lang, &[&grouped(n, lang)])
+        Phrase::SeatTokens.fill_count(lang, count, &[&grouped(n, lang)])
     };
     let dollars = match usd_cap {
         Some(cap) => Phrase::SeatOf.fill(lang, &[&usd(spent.usd, lang), &usd(cap, lang)]),

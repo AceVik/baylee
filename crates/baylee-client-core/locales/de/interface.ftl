@@ -1,22 +1,34 @@
 ### One thing the interface says.
 
-NounArmyToAmass = Armee zum Aufmarschieren
-NounArmiesToAmass = Armeen zum Aufmarschieren
-EnterTappedForCounters = Getappt ins Spiel kommen und { $arg0 } { $arg1 } erhalten?
+NounArmiesToAmass =
+    { $count ->
+        [one] Armee zum Aufmarschieren
+       *[other] Armeen zum Aufmarschieren
+    }
+EnterTappedForCounters = Getappt ins Spiel kommen und { $count } { $counter } erhalten?
 ChooseEntryOrder = Für welche bleibende Karte möchtest du die Eintrittseffekte zuerst anwenden?
 ChooseEntryReplacement = Welchen Ersatzeffekt möchtest du als Nächstes anwenden?
 ChooseDredge = Statt zu ziehen eine Karte ausgraben? Wähle sie aus deinem Friedhof oder bestätige ohne Auswahl, um normal zu ziehen.
 ChooseDrawReplacement = Welchen Ersatzeffekt möchtest du als Nächstes auf dieses Ziehen anwenden?
-SacrificeToEnter = { $arg0 } passende bleibende Karten opfern, damit diese Karte ins Spiel kommt?
-ChooseSacrificeCount = Wie viele bleibende Karten möchtest du opfern? ({ $arg0 }–{ $arg1 })
-ChooseEnergyPayment = Energie bezahlen ({ $arg0 }–{ $arg1 }); bis zu { $arg2 } getappte bleibende Karten können Marken erhalten
-NounTappedForCounter = getappte bleibende Karte für eine Marke
-NounTappedForCounters = getappte bleibende Karten für je eine Marke
+SacrificeToEnter = { $count } passende bleibende Karten opfern, damit diese Karte ins Spiel kommt?
+ChooseSacrificeCount = Wie viele bleibende Karten möchtest du opfern? ({ $min }–{ $max })
+ChooseEnergyPayment = Energie bezahlen ({ $min }–{ $max }); bis zu { $count } getappte bleibende Karten können Marken erhalten
+NounTappedForCounters =
+    { $count ->
+        [one] getappte bleibende Karte für eine Marke
+       *[other] getappte bleibende Karten für je eine Marke
+    }
 ChooseCounterKind = Wähle eine Markensorte
-LogCounterStun = Betäubungsmarke
-LogCountersStun = Betäubungsmarken
-LogCounterFinality = Endgültigkeitsmarke
-LogCountersFinality = Endgültigkeitsmarken
+LogCountersStun =
+    { $count ->
+        [one] Betäubungsmarke
+       *[other] Betäubungsmarken
+    }
+LogCountersFinality =
+    { $count ->
+        [one] Endgültigkeitsmarke
+       *[other] Endgültigkeitsmarken
+    }
 PreviewTurn = Drehen
 PreviewAlternate = Andere Ansicht
 PreviewTurnCompact = Drehen
@@ -45,53 +57,53 @@ ImportBoxEmpty = Noch nichts eingefügt
 FormatBaylee = Baylee-Text
 ImportedDeckName = Importiertes Deck
 ImportHowTo = Kopiere eine Deckliste, einen Baylee-, JSON- oder YAML-Export oder einen Moxfield-Export (More → Export → Copy for Moxfield) und füge ihn hier mit Einfügen oder Strg/Cmd+V ein. Das Format wird selbst erkannt.
-ImportReadAs = Gelesen als { $arg0 }. Zeilen: { $arg1 } · Karten: { $arg2 }
+ImportReadAs = Gelesen als { $format }. Zeilen: { $count } · Karten: { $copies }
 ImportReplaces = Der Import ersetzt das Deck im Editor durch ein neues, ungespeichertes Deck. Das gespeicherte Deck bleibt, wie es ist.
-ImportMoxfieldLink = Das ist ein Link zu einem Deck auf { $arg0 }, das Baylee nicht direkt lesen kann. Öffne das Deck auf { $arg0 } → More → Export → Copy for Moxfield und füge es dann hier ein.
-ImportNotFetched = Decks von { $arg0 } kann diese Version noch nicht abrufen. Exportiere das Deck dort als Text und füge ihn hier ein.
-ImportUnknownLink = Baylee kann keine Decks von { $arg0 } lesen. Exportiere das Deck dort als Textliste und füge die Liste hier ein.
-ImportTook = Aus { $arg2 } importiert. Zeilen: { $arg0 } · Karten: { $arg1 }
+ImportMoxfieldLink = Das ist ein Link zu einem Deck auf { $site }, das Baylee nicht direkt lesen kann. Öffne das Deck auf { $site } → More → Export → Copy for Moxfield und füge es dann hier ein.
+ImportNotFetched = Decks von { $site } kann diese Version noch nicht abrufen. Exportiere das Deck dort als Text und füge ihn hier ein.
+ImportUnknownLink = Baylee kann keine Decks von { $host } lesen. Exportiere das Deck dort als Textliste und füge die Liste hier ein.
+ImportTook = Aus { $format } importiert. Zeilen: { $count } · Karten: { $copies }
 ImportWaitingForPool = Warte auf den Kartenpool, um die Namen zu prüfen …
-ImportUnknownCards = Nicht im Kartenpool dieses Gateways: { $arg0 }. Vor dem Speichern entfernen:
-ImportSkipped = Zeilen, die keine Deckzeilen sind: { $arg0 }
-ImportSkippedLine = {"  "}Zeile { $arg0 }: { $arg1 }
-ImportMaybeNotKept = Vielleicht-Zeilen nicht übernommen, da Baylee keine speichert: { $arg0 }
-ImportNotALeader = { $arg0 } kann kein Deck anführen und ist deshalb nicht als Commander markiert.
-ImportNamedForYou = Die Datei nennt keinen Decknamen, daher heißt es „{ $arg0 }“.
-ImportDefaultPrinting = Zeilen ohne Druck spielen den Standarddruck: { $arg0 }
-ImportDefaultLanguage = Zeilen ohne Sprache sind englisch: { $arg0 }
+ImportUnknownCards = Nicht im Kartenpool dieses Gateways: { $count }. Vor dem Speichern entfernen:
+ImportSkipped = Zeilen, die keine Deckzeilen sind: { $count }
+ImportSkippedLine = {"  "}Zeile { $line }: { $text }
+ImportMaybeNotKept = Vielleicht-Zeilen nicht übernommen, da Baylee keine speichert: { $count }
+ImportNotALeader = { $card } kann kein Deck anführen und ist deshalb nicht als Commander markiert.
+ImportNamedForYou = Die Datei nennt keinen Decknamen, daher heißt es „{ $deck }“.
+ImportDefaultPrinting = Zeilen ohne Druck spielen den Standarddruck: { $count }
+ImportDefaultLanguage = Zeilen ohne Sprache sind englisch: { $count }
 ImportNoCommander = Die Datei nennt keinen Commander. Für ein Commander-Deck lege ihn im Kartenmenü der Deckliste fest.
-AndMore = {"  "}und { $arg0 } weitere
+AndMore = {"  "}und { $count } weitere
 ImportTooLarge = Der Text ist zu groß für ein Deck: höchstens 256 KiB.
-ImportTooManyRows = Eine Deckdatei hat höchstens 1000 Zeilen; diese hat { $arg0 }.
+ImportTooManyRows = Eine Deckdatei hat höchstens 1000 Zeilen; diese hat { $count }.
 ImportNothing = In dem Text steht kein Deck.
-ImportUnreadable = Keine Deckzeilen gefunden. Zeile { $arg0 } lautet: { $arg1 }
-ImportSyntax = Die Datei ließ sich nicht lesen: { $arg0 }
-ImportVersion = Das ist ein Deckdokument der Version { $arg0 }; diese Version liest Version 1. Aktualisiere Baylee, um es zu importieren.
+ImportUnreadable = Keine Deckzeilen gefunden. Zeile { $line } lautet: { $text }
+ImportSyntax = Die Datei ließ sich nicht lesen: { $error }
+ImportVersion = Das ist ein Deckdokument der Version { $version }; diese Version liest Version 1. Aktualisiere Baylee, um es zu importieren.
 ImportDeckName = Der Deckname ist zu lang oder enthält einen Zeilenumbruch.
-ImportCardRefused = Karte { $arg0 } lässt sich nicht importieren: { $arg1 }
+ImportCardRefused = Karte { $position } lässt sich nicht importieren: { $reason }
 ImportCardName = sie hat keinen Namen.
 ImportCardCount = ihre Anzahl muss zwischen 1 und 1000000 liegen.
 ImportCardNote = ihre Notiz ist länger als 500 Zeichen.
 ImportCardUnstorable = ihr Name oder Druck lässt sich so nicht speichern.
 ExportComplete = Dieses Format behält alles am Deck.
-ExportLeavesOut = { $arg0 } kann nicht alles ausdrücken; weggelassen:
+ExportLeavesOut = { $format } kann nicht alles ausdrücken; weggelassen:
 LossName = der Deckname
-LossLang = Sprachen, Zeilen: { $arg0 }
-LossScryfallId = genaue Druck-IDs, Zeilen: { $arg0 }
-LossNote = Notizen, Zeilen: { $arg0 }
-LossFinish = Holo-, Glitzer- und Galaxy-Veredelungen, als nicht-foil geschrieben, Zeilen: { $arg0 }
-LossCollectorNumber = Sammlernummern ohne Set, Zeilen: { $arg0 }
-LossMaybeboard = das Vielleicht-Board, Zeilen: { $arg0 }
+LossLang = Sprachen, Zeilen: { $count }
+LossScryfallId = genaue Druck-IDs, Zeilen: { $count }
+LossNote = Notizen, Zeilen: { $count }
+LossFinish = Holo-, Glitzer- und Galaxy-Veredelungen, als nicht-foil geschrieben, Zeilen: { $count }
+LossCollectorNumber = Sammlernummern ohne Set, Zeilen: { $count }
+LossMaybeboard = das Vielleicht-Board, Zeilen: { $count }
 ExportCopied = In die Zwischenablage kopiert.
 ExportCopyFailed = Die Zwischenablage ließ sich nicht beschreiben. Speichere es stattdessen als Datei.
-ExportSavedTo = Gespeichert als { $arg0 }
-ExportDownloaded = { $arg0 } wird heruntergeladen
-ExportSaveFailed = Die Datei ließ sich nicht speichern: { $arg0 }
+ExportSavedTo = Gespeichert als { $path }
+ExportDownloaded = { $file } wird heruntergeladen
+ExportSaveFailed = Die Datei ließ sich nicht speichern: { $error }
 ImportKeys = Strg/Cmd+V fügt ein · Enter importiert · Esc schließt
 ExportKeys = ← → Format · Strg/Cmd+C kopiert · Strg/Cmd+S speichert · Esc schließt
-DeleteDeckQuestion = „{ $arg0 }“ löschen?
-ClearDeckQuestion = „{ $arg0 }“ leeren?
+DeleteDeckQuestion = „{ $name }“ löschen?
+ClearDeckQuestion = „{ $name }“ leeren?
 DestructiveHint = Bitte bestätigen. Leeren entfernt Hauptdeck und Sideboard; Löschen entfernt das gespeicherte Deck.
 CommanderSection = Commander
 ChooseCommander = Auswählen / ersetzen
@@ -105,7 +117,7 @@ HubDecks = Meine Sammlung
 SelectedDeck = Dein nächstes Spiel
 ChooseDeck = Deck auswählen
 CreateTable = Tisch erstellen
-PlayerCount = { $arg0 } Spieler
+PlayerCount = { $count } Spieler
 NoOwnDecks = Starte mit einem Hausdeck oder baue dein eigenes.
 FirstDeck = Dein erstes Deck
 EmptyTablesTitle = Platz für dein nächstes Spiel
@@ -122,23 +134,23 @@ GatewayUrlInvalid = Gib eine http://- oder https://-Adresse ohne Zugangsdaten, A
 LanguageAndSettings = Sprache und Einstellungen
 AllSettings = Alle Einstellungen
 ForgetGateway = Aus dieser Liste entfernen
-ForgetGatewayQuestion = „{ $arg0 }“ aus dieser Liste entfernen?
+ForgetGatewayQuestion = „{ $name }“ aus dieser Liste entfernen?
 ForgetGatewayHint = Nur dieses Gerät vergisst ihn. Dein Konto und deine Decks bleiben auf dem Gateway.
 GatewayAnswering = antwortet
-SourceCode = Quellcode (AGPL-3.0): { $arg0 }
+SourceCode = Quellcode (AGPL-3.0): { $url }
 ImpressumAction = Impressum
-ImpressumLink = Impressum · { $arg0 }
+ImpressumLink = Impressum · { $host }
 TileSource = Quellcode (AGPL-3.0)
 TileDiscord = Community auf Discord
 ScryfallCredit = Kartendaten und -bilder bereitgestellt von Scryfall.
-GatewayChecking = Prüfe { $arg0 } …
-GatewaySaved = { $arg0 } gespeichert.
-GatewayNotFound = Unter { $arg0 } hat kein Baylee-Gateway geantwortet. Prüfe die Adresse oder versuche es erneut, sobald er läuft.
+GatewayChecking = Prüfe { $url } …
+GatewaySaved = { $url } gespeichert.
+GatewayNotFound = Unter { $url } hat kein Baylee-Gateway geantwortet. Prüfe die Adresse oder versuche es erneut, sobald er läuft.
 GatewayCheckingShort = wird geprüft …
 GatewayVersionUnknown = Version unbekannt
 GatewayNotAnswering = antwortet nicht
-GatewayProtocolMismatch = Dieser Gateway spricht Protokoll { $arg0 } und dieser Client { $arg1 }, deshalb öffnen sich seine Partien hier nicht.
-GatewayViewMismatch = Die Partien dieses Gateways senden Ansichtsversion { $arg0 } und dieser Client liest { $arg1 }, deshalb öffnen sie sich hier nicht.
+GatewayProtocolMismatch = Dieser Gateway spricht Protokoll { $gateway_version } und dieser Client { $client_version }, deshalb öffnen sich seine Partien hier nicht.
+GatewayViewMismatch = Die Partien dieses Gateways senden Ansichtsversion { $gateway_version } und dieser Client liest { $client_version }, deshalb öffnen sie sich hier nicht.
 GatewayOlder = Dieser Gateway ist älter als die Versionsprüfung. Ob sich seine Partien hier öffnen, zeigt erst eine Partie.
 GatewaySilent = Dieser Gateway antwortet gerade nicht.
 AccountNameHint = Andere sehen ihn als Name#Tag. 3–16 Zeichen: A–Z, 0–9, _ oder -, an beiden Enden ein Buchstabe oder eine Zahl.
@@ -153,9 +165,9 @@ DeckHistory = Historie
 HistoryHint = Jeder Stand bleibt erhalten. Wiederherstellen erzeugt eine neue Version; spätere Stände bleiben verfügbar.
 WorkingDiff = Änderungen gegenüber der zuletzt gespeicherten Version
 GrantedActions = Gewährte Aktionen
-GrantedLifeCost = { $arg0 } Leben bezahlen
-GrantedRecipient = Empfänger: { $arg0 }
-GrantedCancelLifeLoss = Diesen bevorstehenden Verlust von { $arg0 } Leben vor deinem nächsten Ziehsegment aufheben
+GrantedLifeCost = { $amount } Leben bezahlen
+GrantedRecipient = Empfänger: { $recipient }
+GrantedCancelLifeLoss = Diesen bevorstehenden Verlust von { $amount } Leben vor deinem nächsten Ziehsegment aufheben
 GrantedConfirm = Aktion ausführen
 RestoreVersion = Diesen Stand wiederherstellen
 ConfirmRestore = Wiederherstellen bestätigen
@@ -164,7 +176,7 @@ CurrentVersion = Aktuell
 ChoosePrintShort = Bild
 VersionSavedAt = Gespeichert
 VersionSupersededAt = Durch nächsten Stand ersetzt
-VersionLabel = Version { $arg0 }
+VersionLabel = Version { $version }
 LibraryEmpty = Noch keine Decks veröffentlicht. Du kannst ein eigenes erstellen.
 NoPastVersions = Mit dem nächsten Speichern beginnt deine Historie.
 LibraryLoading = Bibliothek wird geladen…
@@ -174,8 +186,8 @@ LibraryMain = Hauptdeck
 LibrarySide = Sideboard
 LibraryCommanders = Kommandeure
 NoChanges = Keine Änderungen in diesem Bereich.
-LibraryCounts = { $arg0 } Karten · { $arg1 } Sideboard
-LobbyCounts = { $arg0 } Decks · { $arg1 } passende Tische
+LibraryCounts = { $count } Karten · { $sideboard } Sideboard
+LobbyCounts = { $count } Decks · { $tables } passende Tische
 Composition = Deckübersicht
 UniqueCards = Verschiedene Karten
 AverageMana = Ø Mana · ohne Länder
@@ -217,24 +229,24 @@ Audio = Lautstärke
 MasterVolume = Gesamt
 EffectsVolume = Spielklänge
 MuteInBackground = Im Hintergrund stumm
-UpdateReady = Update { $arg0 } bereit – wird beim Beenden installiert
-UpdateAvailable = Update { $arg0 } verfügbar – hier herunterladen
-UpdatedTo = Aktualisiert auf { $arg0 }
+UpdateReady = Update { $version } bereit – wird beim Beenden installiert
+UpdateAvailable = Update { $version } verfügbar – hier herunterladen
+UpdatedTo = Aktualisiert auf { $version }
 UpdateWhyOff = Automatische Updates sind in den Einstellungen aus.
 UpdateWhyDev = Das ist ein Entwicklungs-Build: Er sucht, installiert aber nie selbst.
 UpdateWhyFolder = Baylee darf seinen eigenen Ordner nicht beschreiben und sich darum nicht ersetzen.
 UpdateWhyMoveApp = macOS startet Baylee aus einer schreibgeschützten Kopie. Verschiebe es nach „Programme“, dann kann es sich selbst aktualisieren.
-UpdateWhyReadOnly = Baylee installiert hier keine Updates: Es darf { $arg0 } nicht beschreiben ({ $arg1 }). Verschiebe es in deinen Programme-Ordner, dann kann es das.
+UpdateWhyReadOnly = Baylee installiert hier keine Updates: Es darf { $folder } nicht beschreiben ({ $error }). Verschiebe es in deinen Programme-Ordner, dann kann es das.
 UpdateTranslocated = macOS startet Baylee aus einer schreibgeschützten Kopie, weil es noch dort liegt, wo es entpackt wurde. Updates installieren sich trotzdem; nach „Programme“ verschoben, startet es ohne diesen Umweg.
 UpdateMoveHome = In meinen Programme-Ordner verschieben
 UpdateMoveSystem = Für alle nach „Programme“ verschieben
 UpdateMoveWhat = Kopiert Baylee dorthin, startet die Kopie und schließt diese. Die alte Kopie wird nur gelöscht, wenn du es sagst.
-UpdateMoveFailed = Baylee ließ sich nicht verschieben: { $arg0 }
-UpdateMoved = Baylee läuft jetzt aus { $arg0 }.
-UpdateOldCopy = Die alte Kopie liegt noch unter { $arg0 }.
+UpdateMoveFailed = Baylee ließ sich nicht verschieben: { $error }
+UpdateMoved = Baylee läuft jetzt aus { $path }.
+UpdateOldCopy = Die alte Kopie liegt noch unter { $path }.
 UpdateTrashOld = Alte Kopie in den Papierkorb
 UpdateKeepOld = Behalten
-UpdateTrashFailed = Sie ließ sich nicht in den Papierkorb legen ({ $arg0 }); zieh sie selbst hinein, wenn du magst.
+UpdateTrashFailed = Sie ließ sich nicht in den Papierkorb legen ({ $error }); zieh sie selbst hinein, wenn du magst.
 UpdateWhyNotVerified = Der Download ließ sich nicht als unserer bestätigen und wurde nicht installiert.
 UpdateWhyOther = Dieses Update lässt sich nicht automatisch installieren.
 ReleaseNotes = Versionshinweise
@@ -242,7 +254,7 @@ UpdateHide = Ausblenden
 UpdateRestartOffer = Update bereit – jetzt neu starten und genau hier weitermachen.
 UpdateRestartNow = Jetzt neu starten
 UpdateLater = Später
-UpdateRestartFailed = Neustart nicht möglich: { $arg0 }
+UpdateRestartFailed = Neustart nicht möglich: { $error }
 ResumeFailed = Konnte nicht dort weitermachen, wo du warst – normaler Start.
 ResumeGameDiffers = Die Partie ließ sich nicht genau so wiederherstellen und wurde nicht fortgesetzt.
 ResumeHousePlayed = Zurück am Tisch – das Haus hat während des Neustarts für dich gespielt.
@@ -257,7 +269,7 @@ UpdateUpToDate = Baylee ist aktuell.
 UpdateCheckFailed = Die Suche nach Updates hat nicht geklappt.
 SignOut = Abmelden
 DeleteAccount = Konto löschen
-DeleteAccountQuestion = Das Konto { $arg0 } löschen?
+DeleteAccountQuestion = Das Konto { $account } löschen?
 DeleteAccountHint = Das Konto, seine Decks und seine Einstellungen verschwinden endgültig von diesem Gateway, und jedes angemeldete Gerät wird abgemeldet. Gib zur Bestätigung dein Passwort ein.
 DeleteGuestHint = Der Gast, seine Decks und seine Einstellungen verschwinden endgültig von diesem Gateway.
 DeleteAccountConfirm = Endgültig löschen
@@ -284,7 +296,7 @@ OfflineReadyToPlay = Dein Deck ist bereit. Spiele direkt gegen die Haus-KI oder 
 GatewayUnreachable = Das Gateway antwortet nicht. Neuer Versuch läuft…
 GatewayBack = Das Gateway ist wieder da.
 NoNewGames = Gerade können keine neuen Spiele beginnen — vielleicht wird der Server aktualisiert. Laufende Spiele gehen weiter.
-NoTableMatches = kein Tisch passt zu „{ $arg0 }“
+NoTableMatches = kein Tisch passt zu „{ $query }“
 Join = Mitspielen
 Ready = Bereit
 NotReady = Nicht bereit
@@ -296,7 +308,7 @@ SitHere = hier sitzen
 SeatToAi = → KI
 SeatToOpen = → frei
 SeatToLlm = → Sprachmodell
-RoomLlmPlays = Sprachmodell: { $arg0 }, Aufwand { $arg1 }
+RoomLlmPlays = Sprachmodell: { $model }, Aufwand { $effort }
 RoomLlmEffortOwn = wie das Modell es vorgibt
 RoomLlmProfile = Profil (Einstellungsdatei)
 RoomLlmNoEfforts = Dieses Modell nimmt keinen Aufwand, den dieser Build benennen kann.
@@ -305,17 +317,17 @@ RoomLlmSave = Ins Profil übernehmen
 RoomLlmRemove = Modell entfernen
 RoomLlmStarting = Seine Brücke nimmt den Stuhl, sobald der Raum ihn als frei führt.
 HostedEntry = Gateway-Modell
-HostedTitle = Gateway-Modell für Platz { $arg0 }
+HostedTitle = Gateway-Modell für Platz { $seat }
 HostedIntro = Ein Modell, das das Gateway betreibt, spielt diesen Stuhl. Wähle eines:
 HostedAsking = Frage das Gateway…
 HostedNone = Dieses Gateway bietet gerade kein Modell an.
-HostedBackAt = wieder ab { $arg0 }
+HostedBackAt = wieder ab { $time }
 HostedNotNow = gerade nicht verfügbar
 HostedStarting = Startet…
 HostedReady = Bereit
-HostedFailed = Das Gateway-Modell ist ausgefallen: { $arg0 }
+HostedFailed = Das Gateway-Modell ist ausgefallen: { $reason }
 HostedNoReason = ohne Angabe
-HostedDataGoesTo = Spieldaten gehen an { $arg0 }
+HostedDataGoesTo = Spieldaten gehen an { $vendor }
 HostedTakeBack = Zurücknehmen
 GameLlmTitle = Sprachmodell-Stühle (Debug: ab der nächsten Entscheidung)
 GameLlmHouse = Haus-KI
@@ -326,21 +338,21 @@ AiSharp = Scharf
 AiExpert = Experte
 PageBack = ‹ Zurück
 PageMore = Mehr ›
-PageOf = { $arg0 }–{ $arg1 } von { $arg2 }
-SeatOpen = Platz { $arg0 } · frei
-SeatAi = Platz { $arg0 } · KI ({ $arg1 })
-SeatTaken = Platz { $arg0 } · { $arg1 }
-SeatYours = Platz { $arg0 } · { $arg1 } (du)
-Seated = { $arg0 }/{ $arg1 } besetzt
-SeatCount = { $arg0 } Plätze
-WaitingFor = wartet auf { $arg0 }
+PageOf = { $first }–{ $last } von { $total }
+SeatOpen = Platz { $seat } · frei
+SeatAi = Platz { $seat } · KI ({ $difficulty })
+SeatTaken = Platz { $seat } · { $player }
+SeatYours = Platz { $seat } · { $player } (du)
+Seated = { $count }/{ $total } besetzt
+SeatCount = { $count } Plätze
+WaitingFor = wartet auf { $player }
 WaitingForYou = wartet auf dich
 AllReady = alle bereit
 Locked = abgeschlossen
 StateWaiting = wartet
 StatePlaying = läuft
 StateOver = beendet
-TableOpenWaiting = dein Tisch { $arg0 } ist offen — warte auf Gegner
+TableOpenWaiting = dein Tisch { $table } ist offen — warte auf Gegner
 TableOpenHouseWaiting = dein Tisch ist offen — richte die Plätze ein und starte
 TakingYourSeat = nehme deinen Platz ein…
 BackToLobby = Zurück zur Lobby
@@ -353,9 +365,9 @@ UsernameCharacters = ein Benutzername besteht nur aus A–Z, Ziffern und _ - .
 UsernameLength = ein Benutzername hat 3 bis 24 Zeichen
 UsernameEdge = ein Benutzername beginnt und endet mit einem Buchstaben oder einer Ziffer
 UsernameDoubled = in einem Benutzernamen stehen _ - . nie zweimal hintereinander
-YourUsernameIs = angemeldet — dein Benutzername ist { $arg0 }; die Adresse geht noch bis Ende 2026
+YourUsernameIs = angemeldet — dein Benutzername ist { $username }; die Adresse geht noch bis Ende 2026
 PlayAsGuest = Als Gast spielen
-ContinueAsGuest = Weiter als { $arg0 }
+ContinueAsGuest = Weiter als { $handle }
 GuestName = GASTNAME
 GuestDefaultName = Guest
 JoiningAsGuest = trete als Gast bei …
@@ -369,12 +381,12 @@ InviteKeyHint = Dieses Gateway ist eine geschlossene Beta: Ein neues Konto oder 
 NeedInviteKey = bitte deinen Beta-Schlüssel
 InviteKeyInvalid = dieser Beta-Schlüssel ist nicht gültig — prüf ihn oder frag nach einem neuen
 InviteKeyNeeded = dieses Gateway ist eine geschlossene Beta: ein neues Konto oder ein neuer Gast braucht einen Beta-Schlüssel
-GuestSignOutQuestion = { $arg0 } abmelden?
+GuestSignOutQuestion = { $name } abmelden?
 GuestSignOutHint = Ein Gast kann sich nicht wieder anmelden. Abmelden löscht diesen Gast und seine Decks sofort.
 NeedDisplayName = bitte einen Anzeigenamen
 PasswordsDiffer = die beiden Passwörter sind verschieden
-BannedUntil = Dieses Konto ist bis { $arg0 } gesperrt. Grund: { $arg1 }
-BannedForGood = Dieses Konto ist gesperrt. Grund: { $arg0 }
+BannedUntil = Dieses Konto ist bis { $until } gesperrt. Grund: { $reason }
+BannedForGood = Dieses Konto ist gesperrt. Grund: { $reason }
 ChooseNewPassword = Neues Passwort wählen
 PasswordWasReset = Ein Admin hat dein Passwort zurückgesetzt. Wähle ein neues, um dich anzumelden.
 NewPassword = NEUES PASSWORT
@@ -407,7 +419,7 @@ OpponentSatDown = ein Gegner hat sich gesetzt
 YouAreSeated = du sitzt — geh auf Bereit, dann startet der Host
 TakingTheSeat = nehme den Platz ein…
 GameEnded = das Spiel ist vorbei
-Unreadable = konnte { $arg0 } vom Gateway nicht lesen
+Unreadable = konnte { $what } vom Gateway nicht lesen
 TheGameList = die Tischliste
 TheDeckList = die Deckliste
 TheSignIn = die Anmeldung
@@ -478,7 +490,7 @@ ActHoldForTurn = Nichts mehr in diesem Zug
 ActMulliganKeep = Diese Hand behalten
 ActMulliganTake = Mulligan
 ActAnswerYes = Ja
-AnswerYesBatch = Ja für alle { $arg0 } gleichen Fähigkeiten
+AnswerYesBatch = Ja für alle { $count } gleichen Fähigkeiten
 NoMaxHandSize = Kein Handkartenlimit
 AutoCombatDamage = Rest automatisch verteilen
 ActAnswerNo = Nein
@@ -510,7 +522,7 @@ ActNextArrangement = Nächste Anordnung
 ActHandDrawer = Hand auf- oder zuklappen (Telefon)
 TypesInDeck = Am häufigsten in deinem Deck
 TypesAll = Alle Typen
-CastFirstQuestion = { $arg0 } wirken: { $arg1 } — bezahlt wird danach
+CastFirstQuestion = { $spell } wirken: { $question } — bezahlt wird danach
 CancelCast = Abbrechen
 ActFoldDecision = Entscheidung ein- oder ausklappen
 ArrRing = Ring
@@ -528,25 +540,25 @@ ArrSpotlight = Rampenlicht
 ArrSpotlightBlurb = Ein Duell gegen einen Sitz, die anderen als Chips in der Leiste; mit „Tisch folgt dem Zug“ folgt es dem Spiel.
 ArrTurntableRows = Drehteller+
 ArrTurntableRowsBlurb = Drehteller bis vier Sitze, Rampenlicht ab fünf oder auf dem Handy.
-ArrResolvedTo = Hier: { $arg0 }
+ArrResolvedTo = Hier: { $arrangement }
 ArrFocusRing = Fokusring
 ArrFocusRingBlurb = Ein Duell in der Mitte, die anderen Sitze als Spalten an den Rändern.
 ArrNotInADuel = Im Duell gibt es nur eine Anordnung
-ArrComing = Kommt ({ $arg0 })
+ArrComing = Kommt ({ $package })
 ArrNotHereSeats = Nicht bei so vielen Sitzen in einem Fenster dieser Größe
 ArrNotHereWindow = Nicht in einem so kleinen Fenster
 ArrNotOnAPhone = Nicht auf dem Handy
 ArrExperimental = experimentell
-ArrRememberForSeats = Für { $arg0 } Sitze merken
+ArrRememberForSeats = Für { $count } Sitze merken
 ArrLettersNote = Die Buchstaben stehen für Bildzeichen, die noch gezeichnet werden.
-ArrGameMenuRow = Anordnung › { $arg0 }
+ArrGameMenuRow = Anordnung › { $arrangement }
 RowArrangement = Tischanordnung
 HelpArrangement = Wie die Sitze an einem Tisch mit drei oder mehr Plätzen stehen. P wählt am Tisch eine, Umschalt+P die nächste; dies ist der Standard.
 RowFollowTurn = Tisch folgt dem Zug
 HelpFollowTurn = Beginnt der Zug eines anderen Spielers, zeigt der Tisch dessen Sitz — eine Kamera-Anordnung besucht ihn, die anderen holen ihn herüber — und in deinem Zug kehrt er zu deinem zurück. Er wartet, während du eine Frage beantwortest; ein Sitz, den du selbst ansiehst, bleibt bis zum nächsten Zugbeginn.
 RowArrangementBySeats = Je Sitzzahl
 HelpArrangementBySeats = Eine für eine Sitzzahl gemerkte Anordnung gilt an einem Tisch dieser Größe statt des Standards.
-ArrSeats = { $arg0 } Sitze
+ArrSeats = { $count } Sitze
 ArrAsDefault = Standard
 ArrKeysHint = P wählt die Anordnung · Umschalt+P die nächste
 GroupAnswering = Antworten
@@ -612,8 +624,8 @@ GroupOther = Sonstiges
 SortName = A–Z
 SortCost = Kosten
 SortType = Typ
-SortBy = Sortierung: { $arg0 }
-PaneCards = Karten ({ $arg0 })
+SortBy = Sortierung: { $order }
+PaneCards = Karten ({ $count })
 RoomDraft = Ungespeicherte Einstellungen · übernimm deine Änderungen vor dem Start.
 RoomTitle = Dein Spielraum
 RoomName = Raumname
@@ -625,7 +637,7 @@ RoomPlayers = Spieler & Sitze
 RoomLife = Start-Lebenspunkte
 RoomMulligans = Freie Mulligans
 RoomBoard = Start-Permanents suchen
-RoomStartingCards = Startkarten · { $arg0 }
+RoomStartingCards = Startkarten · { $count }
 RoomApply = Einstellungen übernehmen
 RoomLockHelp = Leer lassen, um das bisherige Kennwort beizubehalten. Änderungen gelten nach dem Übernehmen.
 RoomUnlock = Kennwort entfernen
@@ -643,7 +655,7 @@ RoomSuccession = Verlässt der Host den Raum, übernimmt der am längsten anwese
 RoomPickDeck = Deck auswählen
 RoomDefault = Standard verwenden
 RoomNoDeck = Noch kein Deck gewählt
-PaneDeck = Deck ({ $arg0 } / { $arg1 })
+PaneDeck = Deck ({ $count } / { $sideboard })
 LeaveWithoutSaving = Ohne Speichern verlassen
 BackToDecks = ‹ Decks
 EditingADeck = Deck bearbeiten
@@ -654,12 +666,12 @@ HideFilters = Filter ausblenden
 ShowFilters = Filter
 ClearFilters = Zurücksetzen
 PlayableOnly = Nur spielbare
-PoolTally = { $arg0 } von { $arg1 } Karten{ $arg2 }
-PoolNarrow = {" "}— { $arg0 } gezeigt, tippe weiter zum Eingrenzen
+PoolTally = { $count } von { $total } Karten{ $suffix }
+PoolNarrow = {" "}— { $count } gezeigt, tippe weiter zum Eingrenzen
 NothingMatches = nichts gefunden — versuche weniger Filter
 NoPrintings = keine Drucke
 LookingForPrintings = suche weitere Drucke…
-PrintingAt = { $arg0 } von { $arg1 }
+PrintingAt = { $position } von { $total }
 NoCatalogOnlyThis = Weitere Drucke konnten nicht geladen werden. Referenzdruck wird angezeigt.
 ReferencePrinting = Referenzdruck
 AllSets = Alle
@@ -667,12 +679,12 @@ FinishPlain = Normal
 FinishFoil = Folie
 FinishEtched = Geätzt
 AddPrinting = Hinzufügen
-CountInZone = { $arg0 } { $arg1 }
+CountInZone = { $count } { $zone }
 ZoneDeck = im Deck
 ZoneSideboard = im Sideboard
 NoArtForPrinting = kein Bild für diesen Druck
 NoRulesText = kein Regeltext — dieses Gateway hat keinen Kartenkatalog
-NotAsPrinted = { $arg0 } — diese Karte spielt nicht wie gedruckt
+NotAsPrinted = { $coverage } — diese Karte spielt nicht wie gedruckt
 AddToDeck = + Deck
 AddToSideboard = + Sideboard
 MoveToSideboard = → Sideboard
@@ -680,64 +692,67 @@ MoveToDeck = → Deck
 RemoveCard = entfernen
 IsCommander = Kommandeur ✓
 SetCommander = als Kommandeur
-HeldInDeck = { $arg0 } im Deck
-HeldInSideboard = { $arg0 } im Sideboard
-HeldInBoth = { $arg0 } im Deck, { $arg1 } im Sideboard
+HeldInDeck = { $count } im Deck
+HeldInSideboard = { $count } im Sideboard
+HeldInBoth = { $count } im Deck, { $sideboard } im Sideboard
 CoverageGenerated = ungetestet
 CoveragePartial = teilweise
 CoverageStub = Rumpf
 DeckNameLabel = DECKNAME
-TabMain = Deck { $arg0 }
-TabSide = Sideboard { $arg0 }
-DeckMakeup = { $arg0 } Länder · { $arg1 } Kreaturen · { $arg2 } andere Zauber
+TabMain = Deck { $count }
+TabSide = Sideboard { $count }
+DeckMakeup = { $lands } Länder · { $creatures } Kreaturen · { $spells } andere Zauber
 DeckEmptyHint = leer — tippe links auf eine Karte, um sie hinzuzufügen
 EmptyTheDeck = Deck leeren
-DroppedCards = entfallen: { $arg0 }
+DroppedCards = entfallen: { $card }
 DeckNeedsName = Das Deck braucht einen Namen.
 DeckNameTooLong = Der Name ist zu lang (höchstens 64 Zeichen).
 DeckIsEmpty = Das Deck ist leer.
-TooManyLines = Höchstens { $arg0 } verschiedene Karten je Liste.
-TooManyCards = Höchstens { $arg0 } Karten je Liste.
-CardGoneFromPool = { $arg0 } ist nicht mehr im Kartenpool.
-CommanderNoLongerEligible = { $arg0 } kann kein Kommandeur mehr sein — dieses Deck wird ohne einen gespeichert.
-DeckTooSmall = { $arg0 } Karten — ein Constructed-Deck will mindestens { $arg1 }.
-SideboardTooBig = Ein Sideboard hat üblicherweise höchstens { $arg0 } Karten.
-ThinOnLands = { $arg0 } Länder auf { $arg1 } Karten sind dünn für diese Kurve.
-ShakyCard = { $arg0 } Karte ist noch nicht vollständig umgesetzt und spielt nicht wie gedruckt.
-ShakyCards = { $arg0 } Karten sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.
+TooManyLines = Höchstens { $count } verschiedene Karten je Liste.
+TooManyCards = Höchstens { $count } Karten je Liste.
+CardGoneFromPool = { $card } ist nicht mehr im Kartenpool.
+CommanderNoLongerEligible = { $card } kann kein Kommandeur mehr sein — dieses Deck wird ohne einen gespeichert.
+DeckTooSmall = { $count } Karten — ein Constructed-Deck will mindestens { $min }.
+SideboardTooBig = Ein Sideboard hat üblicherweise höchstens { $count } Karten.
+ThinOnLands = { $count } Länder auf { $total } Karten sind dünn für diese Kurve.
+ShakyCards =
+    { $count ->
+        [one] { $count } Karte ist noch nicht vollständig umgesetzt und spielt nicht wie gedruckt.
+       *[other] { $count } Karten sind noch nicht vollständig umgesetzt und spielen nicht wie gedruckt.
+    }
 CardUnderneath = DARUNTER
 CardAttached = ANGELEGT
-WaitingForPlayer = Warte auf { $arg0 }
-WaitingForPlayers = Warte auf { $arg0 } Spieler
-WaitingForHeldSeat = Warte auf das Haus — { $arg0 } ist abwesend
+WaitingForPlayer = Warte auf { $player }
+WaitingForPlayers = Warte auf { $count } Spieler
+WaitingForHeldSeat = Warte auf das Haus — { $player } ist abwesend
 PayOrPass = Du schuldest Mana. Klicke Länder zum Vormerken oder wähle „Jetzt zahlen“; getappt wird erst beim Bezahlen.
-PayStage = Jetzt zahlen ({ $arg0 } tappen)
+PayStage = Jetzt zahlen ({ $count } tappen)
 PayGo = Bezahlen
 UnstagePayment = Alle zurücknehmen
 DeclinePayment = Nicht zahlen
 DeclinePaymentCast = Nicht zahlen — der Zauber geht zurück
 DeclinePact = Nicht zahlen — du verlierst das Spiel
 PaymentShort = Nicht genug Mana zum Bezahlen. Merke weitere Länder vor oder wähle „Nicht zahlen“.
-AiSaidHead = { $arg0 } denkt
-AiSaidThinking = Überlegung: { $arg0 }
-AiSaidChose = Wahl: { $arg0 }
-AiSaidCost = { $arg0 } Tokens, { $arg1 } s
-MaskChoose = Wähle eine Kreatur zum verdeckten Wirken (X = { $arg0 }), oder lehne ab
-MaskReceipt = Tatsächliche Manazahlung: { $arg0 }; feste Aktivierungskosten: { $arg1 }
+AiSaidHead = { $player } denkt
+AiSaidThinking = Überlegung: { $thought }
+AiSaidChose = Wahl: { $choice }
+AiSaidCost = { $count } Tokens, { $seconds } s
+MaskChoose = Wähle eine Kreatur zum verdeckten Wirken (X = { $x }), oder lehne ab
+MaskReceipt = Tatsächliche Manazahlung: { $mana }; feste Aktivierungskosten: { $fixed_cost }
 CommandChoose = Wähle die Karte, die dieser Spieler nach Möglichkeit spielen muss
 ConfirmFaceDown = Verdeckt wirken
 DeclineCast = Nicht wirken
 ChooseTextReplacement = Wähle das bisherige und das neue Wort
-TextReplacementSummary = Wortänderung: { $arg0 } → { $arg1 }
+TextReplacementSummary = Wortänderung: { $from } → { $to }
 TextOldWord = Bisheriges Wort
 TextNewWord = Neues Wort
 ChooseRequiredMana = Wähle eine Manafähigkeit eines Landes
-RequiredManaProgress = Verpflichtend — { $arg0 } Aktivierungen ausgeführt
-DecidingFor = Du entscheidest für { $arg0 }
+RequiredManaProgress = Verpflichtend — { $count } Aktivierungen ausgeführt
+DecidingFor = Du entscheidest für { $player }
 DamageTurnFaceUp = Vor dem Schaden aufdecken
 GrantedPaymentHint = Mana erzeugen oder passen.
-PrepareManaPayment = Erzeuge bei Bedarf Mana gegen bis zu { $arg0 } Schaden. Passe zur Wahl des Betrags.
-ChooseManaPayment = Wie viel Mana zahlen? ({ $arg0 }–{ $arg1 }; bis zu { $arg2 } Schaden verhindern)
+PrepareManaPayment = Erzeuge bei Bedarf Mana gegen bis zu { $amount } Schaden. Passe zur Wahl des Betrags.
+ChooseManaPayment = Wie viel Mana zahlen? ({ $min }–{ $max }; bis zu { $amount } Schaden verhindern)
 ChooseDamageSource = Wähle eine Schadensquelle
 LogFromStack = vom Stapel
 LogIntoStack = auf den Stapel
@@ -745,177 +760,288 @@ SourceHand = Hand
 SourceLibrary = Bibliothek
 SourceCurrent = aktuell
 SourceHistorical = früheres Objekt
-SourceVersion = Objektversion { $arg0 }
-SourceReferences = { $arg0 } auf dem Stapel
+SourceVersion = Objektversion { $version }
+SourceReferences = { $count } auf dem Stapel
 SourceFaceDown = Verdeckte Quelle
 SourceUnknown = Unbekannte Quelle
 DamageCombat = Kampfschaden
 DamageNoncombat = Nichtkampfschaden
-DamagePart = { $arg0 } → { $arg1 }: { $arg2 } ({ $arg3 })
-DamageShield = Verhindere die nächsten Schadenspunkte; Schild übrig: { $arg0 }
-DamageReplaceAmount = Setze den Schaden jeder angegebenen Quelle an jedem Empfänger auf { $arg0 }; dies ist keine Schadensverhinderung
-DamageReflect = Die Quelle dieses Effekts fügt { $arg0 } zusätzlich den angegebenen Schaden zu
+DamagePart = { $source } → { $recipient }: { $amount } ({ $kind })
+DamageShield = Verhindere die nächsten Schadenspunkte; Schild übrig: { $remaining }
+DamageReplaceAmount = Setze den Schaden jeder angegebenen Quelle an jedem Empfänger auf { $amount }; dies ist keine Schadensverhinderung
+DamageReflect = Die Quelle dieses Effekts fügt { $player } zusätzlich den angegebenen Schaden zu
 DamageShieldCounter = Entferne eine Schildmarke und verhindere den Schaden dieses Ereignisses
-DamageEventShield = Verhindere Schaden dieses Ereignisses; übrig: { $arg0 }; Rest verfällt
+DamageEventShield = Verhindere Schaden dieses Ereignisses; übrig: { $remaining }; Rest verfällt
 DamagePreventAll = Verhindere den gesamten angegebenen Schaden
 DamagePreventCombat = Verhindere den gesamten angegebenen Kampfschaden
 DamageProtection = Schutz verhindert den angegebenen Schaden
-DamageRedirect = Leite den Schaden auf { $arg0 } um
-DamageRedirectNext = Schaden umleiten → { $arg0 }; noch { $arg1 }
-DamageCounter = Entferne eine { $arg0 }-Marke und versuche, 1 Schaden zu verhindern; Marken übrig: { $arg1 }
-DamageSourceShield = Nutze das Schild gegen { $arg0 }; { $arg1 } Schaden bleibt unverhindert
-DamageShieldLife = ; { $arg0 } erhält Lebenspunkte in Höhe des verhinderten Schadens
-PreventionShare = { $arg0 } — verhindere { $arg1 } von höchstens { $arg2 }
-RedirectionShare = { $arg0 } — leite { $arg1 } von höchstens { $arg2 } um
+DamageRedirect = Leite den Schaden auf { $recipient } um
+DamageRedirectNext = Schaden umleiten → { $recipient }; noch { $remaining }
+DamageCounter = Entferne eine { $counter }-Marke und versuche, 1 Schaden zu verhindern; Marken übrig: { $remaining }
+DamageSourceShield = Nutze das Schild gegen { $source }; { $amount } Schaden bleibt unverhindert
+DamageShieldLife = ; { $player } erhält Lebenspunkte in Höhe des verhinderten Schadens
+PreventionShare = { $part } — verhindere { $count } von höchstens { $max }
+RedirectionShare = { $part } — leite { $count } von höchstens { $max } um
 DamageRule = Regeleffekt
 DamageUnpreventable = ; Schaden kann nicht verhindert werden
-AllocateDamageCounters = Verteile { $arg0 } Markenentfernungen — { $arg1 } übrig. Wähle eine Quelle und gib ihren Anteil ein.
-DamageCounterShare = { $arg0 } — { $arg1 } Markenentfernungen anwenden (höchstens { $arg2 })
+AllocateDamageCounters = Verteile { $count } Markenentfernungen — { $remaining } übrig. Wähle eine Quelle und gib ihren Anteil ein.
+DamageCounterShare = { $part } — { $count } Markenentfernungen anwenden (höchstens { $max })
 ChooseDamageEffect = Wähle, welcher Effekt den Schaden als Nächstes verändert
-AllocatePrevention = Verteile { $arg0 } Schadensverhinderung — { $arg1 } übrig. Wähle eine Quelle und gib ihren Anteil ein.
-AllocateRedirection = { $arg0 } Schaden umleiten — { $arg1 } übrig. Wähle eine Quelle und gib ihren Anteil ein.
+AllocatePrevention = Verteile { $count } Schadensverhinderung — { $remaining } übrig. Wähle eine Quelle und gib ihren Anteil ein.
+AllocateRedirection = { $count } Schaden umleiten — { $remaining } übrig. Wähle eine Quelle und gib ihren Anteil ein.
 OptionalPayment = Freiwillige Zahlung
-SacrificeForPlayer = { $arg0 } opfert die gewählten bleibenden Karten. { $arg1 }
+SacrificeForPlayer = { $player } opfert die gewählten bleibenden Karten. { $selection }
 Owed = Geschuldet
 OwedLeft = offen
 JustWaiting = Warte
 MulliganFree = Diese Hand behalten? (der nächste Mulligan ist frei)
-MulliganTaken = Diese Hand behalten? ({ $arg0 } genommen)
-PutCardOnBottom = Lege { $arg0 } Karte nach unten
-PutOnBottom = Lege { $arg0 } Karten nach unten
+MulliganTaken = Diese Hand behalten? ({ $count } genommen)
+PutOnBottom =
+    { $count ->
+        [one] Lege { $count } Karte nach unten
+       *[other] Lege { $count } Karten nach unten
+    }
 DeclareAttackers = Angreifer deklarieren
-AttackAim = Angriffsziel: { $arg0 } · { $arg1 } zugewiesen
-AttackRemaining = Mit allen übrigen angreifen → { $arg0 }
+AttackAim = Angriffsziel: { $defender } · { $count } zugewiesen
+AttackRemaining = Mit allen übrigen angreifen → { $defender }
 AttackWithdrawAll = Alle Angreifer zurückziehen
 AttackListHide = Liste ausblenden ▾
-AttackListShow = Liste zeigen ({ $arg0 }) ▸
-AttackSend = Angreifen: { $arg0 } → { $arg1 }
-AttackWithdraw = Zurückziehen: { $arg0 } → { $arg1 }
+AttackListShow = Liste zeigen ({ $count }) ▸
+AttackSend = Angreifen: { $card } → { $defender }
+AttackWithdraw = Zurückziehen: { $card } → { $defender }
 AttackDraftHint = Angriffsziel wählen, dann Kreaturen. Zum Umverteilen hier zurückziehen. Zum Schluss bestätigen.
 DeclareBlockers = Blocker deklarieren
 BlockDraftHint = Angreifer wählen, dann die Kreaturen, die ihn blocken. Erneut wählen nimmt einen Blocker zurück. Zum Schluss bestätigen.
-BlockAim = Angreifer: { $arg0 } · { $arg1 } blocken
-BlockSend = Blocken: { $arg0 } → { $arg1 }
-BlockWithdraw = Zurücknehmen: { $arg0 } → { $arg1 }
-DiscardCard = Wirf { $arg0 } Karte ab
-DiscardCards = Wirf { $arg0 } Karten ab
+BlockAim = Angreifer: { $attacker } · { $count } blocken
+BlockSend = Blocken: { $blocker } → { $attacker }
+BlockWithdraw = Zurücknehmen: { $blocker } → { $attacker }
+DiscardCards =
+    { $count ->
+        [one] Wirf { $count } Karte ab
+       *[other] Wirf { $count } Karten ab
+    }
 LegendRule = Legendenregel: behalte eine
-NounCard = Karte
-NounCards = Karten
-NounTarget = Ziel
-NounTargets = Ziele
-NounCardFromLibrary = Karte aus deiner Bibliothek
-NounCardsFromLibrary = Karten aus deiner Bibliothek
-NounCardToTop = Karte, die oben auf deine Bibliothek kommt
-NounCardsToTop = Karten, die oben auf deine Bibliothek kommen
-NounCardToHand = Karte, die auf deine Hand kommt
-NounCardsToHand = Karten, die auf deine Hand kommen
-NounCardToBottom = Karte, die unter deine Bibliothek kommt
-NounCardsToBottom = Karten, die unter deine Bibliothek kommen
-NounCardToPlay = Karte, die du in diesem Zug spielen darfst
-NounCardsToPlay = Karten, die du in diesem Zug spielen darfst
-NounCardToBattlefield = Karte, die aufs Spielfeld kommt
-NounCardsToBattlefield = Karten, die aufs Spielfeld kommen
-NounCardToGraveyard = Karte, die in den Friedhof ihres Besitzers kommt
-NounCardsToGraveyard = Karten, die in den Friedhof ihres Besitzers kommen
+NounCards =
+    { $count ->
+        [one] Karte
+       *[other] Karten
+    }
+NounTargets =
+    { $count ->
+        [one] Ziel
+       *[other] Ziele
+    }
+NounCardsFromLibrary =
+    { $count ->
+        [one] Karte aus deiner Bibliothek
+       *[other] Karten aus deiner Bibliothek
+    }
+NounCardsToTop =
+    { $count ->
+        [one] Karte, die oben auf deine Bibliothek kommt
+       *[other] Karten, die oben auf deine Bibliothek kommen
+    }
+NounCardsToHand =
+    { $count ->
+        [one] Karte, die auf deine Hand kommt
+       *[other] Karten, die auf deine Hand kommen
+    }
+NounCardsToBottom =
+    { $count ->
+        [one] Karte, die unter deine Bibliothek kommt
+       *[other] Karten, die unter deine Bibliothek kommen
+    }
+NounCardsToPlay =
+    { $count ->
+        [one] Karte, die du in diesem Zug spielen darfst
+       *[other] Karten, die du in diesem Zug spielen darfst
+    }
+NounCardsToBattlefield =
+    { $count ->
+        [one] Karte, die aufs Spielfeld kommt
+       *[other] Karten, die aufs Spielfeld kommen
+    }
+NounCardsToGraveyard =
+    { $count ->
+        [one] Karte, die in den Friedhof ihres Besitzers kommt
+       *[other] Karten, die in den Friedhof ihres Besitzers kommen
+    }
 InspectLibrary = Sieh dir die Bibliothekskarten an und bestätige ohne Auswahl.
 BeholdInstructions = Wähle eine passende bleibende Karte unter deiner Kontrolle oder zeige eine passende Handkarte vor. Bestätige ohne Auswahl, um abzulehnen.
 InspectHand = Sieh dir die Hand an und bestätige, wenn du fertig bist
-NounCardForFirstPile = Karte für den ersten Stapel (der Rest ist der zweite)
-NounCardsForFirstPile = Karten für den ersten Stapel (der Rest ist der zweite)
-NounCardFromGraveyard = Karte aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen
-NounCardsFromGraveyard = Karten aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen
-NounCardOutside = Karte von außerhalb der Partie
-NounCardsOutside = Karten von außerhalb der Partie
-NounPermanentToSacrifice = bleibende Karte, die geopfert wird
-NounPermanentsToSacrifice = bleibende Karten, die geopfert werden
-NounLandToRemoveCounters = Land, von dem die Marken entfernt werden
-NounLandsToRemoveCounters = Länder, von denen die Marken entfernt werden
-NounLandToKeep = Land, das du behältst
-NounLandsToKeep = Länder, die du behältst
-NounCreatureToKeep = Kreatur, die du behältst
-NounCreaturesToKeep = Kreaturen, die du behältst
-NounPermanentToKeep = bleibende Karte, die du behältst
-NounPermanentsToKeep = bleibende Karten, die du behältst
-NounCardToKeep = Handkarte, die du behältst
-NounCardsToKeep = Handkarten, die du behältst
-NounCardToDiscard = Karte, die abgeworfen wird
-NounCardsToDiscard = Karten, die abgeworfen werden
-NounPermanentToTap = ungetappte bleibende Karte, die getappt wird
-NounPermanentsToTap = ungetappte bleibende Karten, die getappt werden
-NounPermanentToReturn = bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird
-NounPermanentsToReturn = bleibende Karten, die auf die Hand ihres Besitzers zurückgenommen werden
-NounCardToExile = Karte aus deinem Friedhof, die ins Exil geschickt wird
-NounCardsToExile = Karten aus deinem Friedhof, die ins Exil geschickt werden
-NounPermanentToLeaveTapped = bleibende Karte, die getappt bleibt
-NounPermanentsToLeaveTapped = bleibende Karten, die getappt bleiben
-NounNewHostFor = Objekt, das { $arg0 } verzaubert
-NounNewHostsFor = Objekte, die { $arg0 } verzaubert
+NounCardsForFirstPile =
+    { $count ->
+        [one] Karte für den ersten Stapel (der Rest ist der zweite)
+       *[other] Karten für den ersten Stapel (der Rest ist der zweite)
+    }
+NounCardsFromGraveyard =
+    { $count ->
+        [one] Karte aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen
+       *[other] Karten aus deinem Friedhof, oder keine, um deine Bibliothek zu durchsuchen
+    }
+NounCardsOutside =
+    { $count ->
+        [one] Karte von außerhalb der Partie
+       *[other] Karten von außerhalb der Partie
+    }
+NounPermanentsToSacrifice =
+    { $count ->
+        [one] bleibende Karte, die geopfert wird
+       *[other] bleibende Karten, die geopfert werden
+    }
+NounLandsToRemoveCounters =
+    { $count ->
+        [one] Land, von dem die Marken entfernt werden
+       *[other] Länder, von denen die Marken entfernt werden
+    }
+NounLandsToKeep =
+    { $count ->
+        [one] Land, das du behältst
+       *[other] Länder, die du behältst
+    }
+NounCreaturesToKeep =
+    { $count ->
+        [one] Kreatur, die du behältst
+       *[other] Kreaturen, die du behältst
+    }
+NounPermanentsToKeep =
+    { $count ->
+        [one] bleibende Karte, die du behältst
+       *[other] bleibende Karten, die du behältst
+    }
+NounCardsToKeep =
+    { $count ->
+        [one] Handkarte, die du behältst
+       *[other] Handkarten, die du behältst
+    }
+NounCardsToDiscard =
+    { $count ->
+        [one] Karte, die abgeworfen wird
+       *[other] Karten, die abgeworfen werden
+    }
+NounPermanentsToTap =
+    { $count ->
+        [one] ungetappte bleibende Karte, die getappt wird
+       *[other] ungetappte bleibende Karten, die getappt werden
+    }
+NounPermanentsToReturn =
+    { $count ->
+        [one] bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird
+       *[other] bleibende Karten, die auf die Hand ihres Besitzers zurückgenommen werden
+    }
+NounCardsToExile =
+    { $count ->
+        [one] Karte aus deinem Friedhof, die ins Exil geschickt wird
+       *[other] Karten aus deinem Friedhof, die ins Exil geschickt werden
+    }
+NounPermanentsToLeaveTapped =
+    { $count ->
+        [one] bleibende Karte, die getappt bleibt
+       *[other] bleibende Karten, die getappt bleiben
+    }
+NounNewHostsFor =
+    { $count ->
+        [one] Objekt, das { $aura } verzaubert
+       *[other] Objekte, die { $aura } verzaubert
+    }
 NounTheAura = die Aura
-NounPermanentToCopy = bleibende Karte, die kopiert wird
-NounPermanentsToCopy = bleibende Karten, die kopiert werden
-NounPermanentToUntap = bleibende Karte, die enttappt wird
-NounPermanentsToUntap = bleibende Karten, die enttappt werden
-NounDiscardToReveal = abgeworfene Karte, die Nephalia Academy aufdeckt (andere bleiben verdeckt)
-NounDiscardsToReveal = abgeworfene Karten, die Nephalia Academy aufdeckt (andere bleiben verdeckt)
-NounCardToReveal = Karte, die aufgedeckt wird
-NounCardsToReveal = Karten, die aufgedeckt werden
-NounAttackerToBand = Angreifer, der sich der Gruppe anschließt
-NounAttackersToBand = Angreifer, die sich der Gruppe anschließen
-NounCreatureForPile = Kreatur für diesen Stapel
-NounCreaturesForPile = Kreaturen für diesen Stapel
-NounCreatureForPileOf = Kreatur für Stapel { $arg0 } von { $arg1 } (jeder Stapel blockt einen zufälligen Angreifer)
-NounCreaturesForPileOf = Kreaturen für Stapel { $arg0 } von { $arg1 } (jeder Stapel blockt einen zufälligen Angreifer)
-NounCreatureForLeft = Kreatur für den "linken" Stapel (der Rest geht nach rechts)
-NounCreaturesForLeft = Kreaturen für den "linken" Stapel (der Rest geht nach rechts)
+NounPermanentsToCopy =
+    { $count ->
+        [one] bleibende Karte, die kopiert wird
+       *[other] bleibende Karten, die kopiert werden
+    }
+NounPermanentsToUntap =
+    { $count ->
+        [one] bleibende Karte, die enttappt wird
+       *[other] bleibende Karten, die enttappt werden
+    }
+NounDiscardsToReveal =
+    { $count ->
+        [one] abgeworfene Karte, die Nephalia Academy aufdeckt (andere bleiben verdeckt)
+       *[other] abgeworfene Karten, die Nephalia Academy aufdeckt (andere bleiben verdeckt)
+    }
+NounCardsToReveal =
+    { $count ->
+        [one] Karte, die aufgedeckt wird
+       *[other] Karten, die aufgedeckt werden
+    }
+NounAttackersToBand =
+    { $count ->
+        [one] Angreifer, der sich der Gruppe anschließt
+       *[other] Angreifer, die sich der Gruppe anschließen
+    }
+NounCreaturesForPile =
+    { $count ->
+        [one] Kreatur für diesen Stapel
+       *[other] Kreaturen für diesen Stapel
+    }
+NounCreaturesForPileOf =
+    { $count ->
+        [one] Kreatur für Stapel { $pile } von { $total } (jeder Stapel blockt einen zufälligen Angreifer)
+       *[other] Kreaturen für Stapel { $pile } von { $total } (jeder Stapel blockt einen zufälligen Angreifer)
+    }
+NounCreaturesForLeft =
+    { $count ->
+        [one] Kreatur für den "linken" Stapel (der Rest geht nach rechts)
+       *[other] Kreaturen für den "linken" Stapel (der Rest geht nach rechts)
+    }
 ChooseRiverLabel = Wähle "links" (zuerst) oder "rechts": nur dieser Stapel und Flieger dürfen blocken
-ChooseRiverLabelFor = { $arg0 }: wähle "links" oder "rechts"; nur dieser Stapel und Flieger dürfen blocken
-RiverLeftRow = Links: { $arg0 }
-RiverRightRow = Rechts: { $arg0 }
-NounAttackerToBlock = Angreifer, der geblockt wird
-NounAttackersToBlock = Angreifer, die geblockt werden
-NounAttackerForBlocker = Angreifer, den { $arg0 } blockt
-NounAttackersForBlocker = Angreifer, die { $arg0 } blockt
-NounAttackerToBandWith = Angreifer, der mit { $arg0 } eine Gruppe bildet
-NounAttackersToBandWith = Angreifer, die mit { $arg0 } eine Gruppe bilden
+ChooseRiverLabelFor = { $attacker }: wähle "links" oder "rechts"; nur dieser Stapel und Flieger dürfen blocken
+RiverLeftRow = Links: { $cards }
+RiverRightRow = Rechts: { $cards }
+NounAttackersToBlock =
+    { $count ->
+        [one] Angreifer, der geblockt wird
+       *[other] Angreifer, die geblockt werden
+    }
+NounAttackersForBlocker =
+    { $count ->
+        [one] Angreifer, den { $blocker } blockt
+       *[other] Angreifer, die { $blocker } blockt
+    }
+NounAttackersToBandWith =
+    { $count ->
+        [one] Angreifer, der mit { $leader } eine Gruppe bildet
+       *[other] Angreifer, die mit { $leader } eine Gruppe bilden
+    }
 TapToHelpPay = Tappe bleibende Karten, um mitzubezahlen — jede zahlt eins
 DelveToHelpPay = Schicke Karten aus deinem Friedhof ins Exil, um mitzubezahlen — jede zahlt eine
-CrewWithPower = Besatzung { $arg0 }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $arg0 } oder mehr
-SaddleWithPower = Satteln { $arg0 }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $arg0 } oder mehr
-ChooseUpTo = Wähle bis zu { $arg0 } { $arg1 }
+CrewWithPower = Besatzung { $power }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $power } oder mehr
+SaddleWithPower = Satteln { $power }: Tappe beliebig viele deiner anderen ungetappten Kreaturen mit einer Gesamtstärke von { $power } oder mehr
+ChooseUpTo = Wähle bis zu { $count } { $noun }
 ChooseNewTarget = Wähle ein neues Ziel
 ChooseNewTargetOrKeep = Neues Ziel wählen oder ohne Auswahl dieses Ziel behalten
-RetargetContext = Ziel { $arg0 } von { $arg1 }: { $arg2 }. { $arg3 }
+RetargetContext = Ziel { $position } von { $total }: { $target }. { $question }
 TargetBeforeZoneChange = vor dem Zonenwechsel
 TargetReturnedHint = Soll die zurückgekehrte Karte das Ziel sein, wähle sie unten erneut.
-RetargetOriginal = Bisheriges Ziel { $arg0 } von { $arg1 }: { $arg2 }
+RetargetOriginal = Bisheriges Ziel { $position } von { $total }: { $target }
 PreviousTarget = bisheriges Ziel
 KeepCurrentTarget = Bisheriges Ziel behalten
 ChangeTarget = Ziel ändern
-RetargetKeepOrChange = Ziel { $arg0 } von { $arg1 }: behalten oder ein neues wählen
-RetargetMustChange = Ziel { $arg0 } von { $arg1 }: wähle ein neues
-KeepRemainingTargets = Alle übrigen behalten ({ $arg0 })
-ChooseExactlyOrNoTaps = Wähle genau { $arg0 } bleibende Karten zum Tappen oder keine
-ChooseExactly = Wähle { $arg0 } { $arg1 }
-ChooseBetween = Wähle { $arg0 }–{ $arg1 } { $arg2 }
+RetargetKeepOrChange = Ziel { $position } von { $total }: behalten oder ein neues wählen
+RetargetMustChange = Ziel { $position } von { $total }: wähle ein neues
+KeepRemainingTargets = Alle übrigen behalten ({ $count })
+ChooseExactlyOrNoTaps = Wähle genau { $count } bleibende Karten zum Tappen oder keine
+ChooseExactly = Wähle { $count } { $noun }
+ChooseBetween = Wähle { $min }–{ $max } { $noun }
 ChooseCreatureType = Wähle einen Kreaturtyp
 ChooseBasicLandType = Wähle einen Standardlandtyp
 ChooseCardName = Wähle einen Kartennamen
 ChooseColour = Wähle eine Farbe
 ChooseColours = Wähle die Farbe oder Farben
-ChooseCounters = Wie viele { $arg0 }? ({ $arg1 }–{ $arg2 })
-ChooseCountersNamed = Wie viele { $arg0 } auf { $arg1 }? ({ $arg2 }–{ $arg3 })
-ChooseNumberIn = Wähle eine Zahl ({ $arg0 }–{ $arg1 })
-DamageShare = Schaden an Ziel { $arg0 } von { $arg1 }, noch { $arg2 } zu verteilen ({ $arg3 }–{ $arg4 })
-CombatDamageShare = Kampfschaden an Kreatur { $arg0 } von { $arg1 }, noch { $arg2 } zu verteilen ({ $arg3 }–{ $arg4 })
-CombatDamageShareNamed = Kampfschaden von { $arg0 } an { $arg1 } ({ $arg2 } von { $arg3 }), noch { $arg4 } zu verteilen ({ $arg5 }–{ $arg6 })
-ReplicateHowOften = Replikation { $arg0 }: wie oft zahlen? ({ $arg1 }–{ $arg2 })
+ChooseCounters = Wie viele { $counter }? ({ $min }–{ $max })
+ChooseCountersNamed = Wie viele { $counter } auf { $target }? ({ $min }–{ $max })
+ChooseNumberIn = Wähle eine Zahl ({ $min }–{ $max })
+DamageShare = Schaden an Ziel { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
+CombatDamageShare = Kampfschaden an Kreatur { $position } von { $total }, noch { $remaining } zu verteilen ({ $min }–{ $max })
+CombatDamageShareNamed = Kampfschaden von { $source } an { $recipient } ({ $position } von { $total }), noch { $remaining } zu verteilen ({ $min }–{ $max })
+ReplicateHowOften = Replikation { $cost }: wie oft zahlen? ({ $min }–{ $max })
 ChoosePlayer = Wähle einen Spieler
 ChooseHowToCast = Wähle, wie gewirkt wird
 ChoosePileForHand = Wähle einen Stapel für deine Hand; der andere kommt in deinen Friedhof
-PileRow = Stapel { $arg0 }: { $arg1 }
+PileRow = Stapel { $pile }: { $cards }
 EmptyPile = keine Karten
-CastModeNumber = Modus { $arg0 }
+CastModeNumber = Modus { $number }
 CastBackFace = Rückseite
 CastLandFace = Als Land spielen
 CastMiracle = Wunder
@@ -931,8 +1057,8 @@ HintClickHand = Klicke eine Karte auf deiner Hand an
 HintClickBoard = Klicke an, was du wählst
 HintTypeToFilter = Tippe, um die Liste einzugrenzen
 NoAbilities = Keine Fähigkeiten
-LevelShort = St. { $arg0 }
-LevelLong = Stufe { $arg0 }
+LevelShort = St. { $level }
+LevelLong = Stufe { $level }
 FilterPlaceholder = zum Suchen tippen…
 PutInOrder = Bringe diese in eine Reihenfolge
 OrderGraveyard = Friedhof ordnen: erste Karte oben
@@ -942,27 +1068,27 @@ ScryPrompt = Hellsicht: Karten oben lassen oder unter die Bibliothek legen
 SurveilPrompt = Karten oben lassen oder auf deinen Friedhof legen
 DiscardToLibraryPrompt = Abwerfen: auf deinen Friedhof oder stattdessen oben auf deine Bibliothek
 TheGameIsOver = Das Spiel ist vorbei
-PayLifeOrTapped = { $arg0 } Leben zahlen? Sonst kommt es getappt ins Spiel
+PayLifeOrTapped = { $amount } Leben zahlen? Sonst kommt es getappt ins Spiel
 UseManaAnyType = North Star nutzen, um die Manakosten dieses Spruchs mit beliebigen Manatypen zu zahlen? Zusätzliche Kosten gelten unverändert.
 PayAdditionalCost = Die zusätzlichen Kosten zahlen?
-PayLife = { $arg0 } Lebenspunkte bezahlen?
-PayTax = {"{"}{ $arg0 }{"}"} zahlen?
-PayMana = { $arg0 } zahlen?
-PayPact = Pakt: { $arg0 } bezahlen. Jetzt Mana erzeugen? Wenn du ablehnst oder ohne genug Mana abschließt, verlierst du das Spiel.
+PayLife = { $amount } Lebenspunkte bezahlen?
+PayTax = {"{"}{ $mana }{"}"} zahlen?
+PayMana = { $cost } zahlen?
+PayPact = Pakt: { $cost } bezahlen. Jetzt Mana erzeugen? Wenn du ablehnst oder ohne genug Mana abschließt, verlierst du das Spiel.
 CastForMiracle = Für die Wunderkosten wirken?
 CastWithoutPaying = Ohne Zahlung seiner Manakosten wirken?
 CastPaying = Jetzt wirken und seine Manakosten bezahlen? Du erzeugst zuerst das Mana.
-DrawOfferedBy = { $arg0 } bietet ein Remis an. Annehmen?
+DrawOfferedBy = { $player } bietet ein Remis an. Annehmen?
 CommanderToCommandZone = Deinen Kommandeur in die Kommandozone legen?
 CommanderInsteadOfHand = Dein Kommandeur käme auf die Hand. Stattdessen in die Kommandozone?
 CommanderInsteadOfLibrary = Dein Kommandeur käme in die Bibliothek. Stattdessen in die Kommandozone?
 UseRegenerationShield = Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild.
 UseShieldCounter = Eine Schildmarke statt Regeneration einsetzen?
 UseDamageClearingReplacement = Zerstörung durch Entfernen allen markierten Schadens ersetzen? Nein nutzt einen anderen anwendbaren Ersatzeffekt.
-ApplyAdditionalCountersNext = Als Nächstes { $arg0 } zusätzliche Marken jeder Art hinzufügen? Nein wendet zuerst einen anderen Ersatzeffekt an.
+ApplyAdditionalCountersNext = Als Nächstes { $count } zusätzliche Marken jeder Art hinzufügen? Nein wendet zuerst einen anderen Ersatzeffekt an.
 UseTheOptionalAbility = Diese Fähigkeit ist optional. Einsetzen?
 TopOfLibraryOrBottom = Deine Karte kommt in deine Bibliothek. Oben drauf? (Nein legt sie unter.)
-TakeOneOfType = Nimm bis zu eine Karte vom Typ { $arg0 } auf deine Hand
+TakeOneOfType = Nimm bis zu eine Karte vom Typ { $card_type } auf deine Hand
 CastDiscovered = Du hast diese Karte entdeckt. Ohne ihre Manakosten zu bezahlen wirken? (Nein nimmt sie auf deine Hand.)
 SkipTurnToUntap = Diesen Zug überspringen, um diese bleibende Karte zu enttappen?
 YesOrNo = Ja oder nein?
@@ -970,7 +1096,7 @@ OfferADraw = Remis anbieten
 Concede = Aufgeben
 Watch = Zuschauen
 StopWatching = Zuschauen beenden
-SpectatorCount = { $arg0 } Zuschauer
+SpectatorCount = { $count } Zuschauer
 AllowSpectators = Zuschauer erlauben
 StoppedWatching = Du schaust nicht mehr zu
 YouAreWatching = Du schaust zu
@@ -983,8 +1109,8 @@ GameLogTitle = Spielprotokoll
 GameLogEmpty = Noch ist nichts passiert
 GameLogNewBelow = Neue Zeilen unten
 GameLogLatest = Zurück zum Neuesten
-RevealedBy = { $arg0 } zeigt offen vor
-RevealedWaiting = { $arg0 } weitere folgen
+RevealedBy = { $player } zeigt offen vor
+RevealedWaiting = { $count } weitere folgen
 RevealedHint = Zeige auf eine Karte, um sie zu vergrößern
 RevealNext = Nächste
 RevealDone = Fertig
@@ -992,11 +1118,11 @@ HoldingPriority = Du wirst nicht gefragt
 HoldRelease = Wieder fragen
 ArmedPlay = Diese Karte spielen
 ArmedActivate = Fähigkeit aktivieren
-ArmedPayAndCast = { $arg0 } zahlen und zaubern
-ArmedPayAndActivate = { $arg0 } zahlen und aktivieren
-ArmedSuspend = { $arg0 } zahlen und aussetzen
+ArmedPayAndCast = { $cost } zahlen und zaubern
+ArmedPayAndActivate = { $cost } zahlen und aktivieren
+ArmedSuspend = { $cost } zahlen und aussetzen
 SuspendedCards = Ausgesetzte Karten
-SuspendedCard = { $arg0 } · { $arg1 }{"\u000A"}{ $arg2 } Zeitmarken · ansehen
+SuspendedCard = { $card } · { $owner }{"\u000A"}{ $count } Zeitmarken · ansehen
 ArmedSuspendNow = Diese Karte aussetzen
 ArmedCancel = Doch nicht
 AimNext = Nächstes Ziel
@@ -1005,19 +1131,19 @@ Block = Blocken
 DeclareNone = Keine
 KeepHand = Behalten
 TakeMulligan = Mulligan
-TargetingFor = Ziele für { $arg0 }
+TargetingFor = Ziele für { $source }
 TargetingSecond = Zweites Ziel des Effekts
-TargetingExactly = Ausgewählt: { $arg3 }/{ $arg0 } • { $arg2 } mögliche Ziele
-TargetingChoices = Wähle { $arg0 }–{ $arg1 } • { $arg2 } gültige Ziele • { $arg3 } ausgewählt
-TargetingBatch = Für alle { $arg0 } bestätigen
-TargetingBatchHint = { $arg0 } gleiche Auslöser warten. Einzeln bestätigen oder diese Auswahl für alle { $arg0 } übernehmen.
-TargetingSelected = Ausgewählt: { $arg0 }
+TargetingExactly = Ausgewählt: { $selected }/{ $min } • { $count } mögliche Ziele
+TargetingChoices = Wähle { $min }–{ $max } • { $count } gültige Ziele • { $selected } ausgewählt
+TargetingBatch = Für alle { $count } bestätigen
+TargetingBatchHint = { $count } gleiche Auslöser warten. Einzeln bestätigen oder diese Auswahl für alle { $count } übernehmen.
+TargetingSelected = Ausgewählt: { $targets }
 TargetingAllSeats = Alle Spieler
-TargetingPage = Ziele { $arg0 }–{ $arg1 } von { $arg2 }. Auswahl auch direkt am Tisch möglich.
+TargetingPage = Ziele { $first }–{ $last } von { $total }. Auswahl auch direkt am Tisch möglich.
 CastKicked = Mit Bonuskosten
-CastDisguise = Verkleidung — 2/2, Abwehr { $arg2 }
+CastDisguise = Verkleidung — 2/2, Abwehr {"{"}2{"}"}
 TurnFaceUp = Aufdecken
-UnlockDoor = { $arg0 } aufschließen
+UnlockDoor = { $door } aufschließen
 CastPrototype = Prototyp
 ConfirmOk = OK
 PassPriority = Passen
@@ -1044,21 +1170,21 @@ StackAlwaysNo = Immer Nein
 StackResetRules = Fähigkeitsautomatik zurücksetzen
 StackNoPolicy = Für diesen Eintrag ist keine dauerhafte Kartenfähigkeit verfügbar.
 StackPolicyHint = Ziele und Zahlungen entscheidest du weiterhin selbst.
-StackRuleName = { $arg0 } · Fähigkeit { $arg1 }
+StackRuleName = { $card } · Fähigkeit { $number }
 FinishHolographic = Holografisch
 FinishGlitter = Glitzer
 FinishGalaxy = Galaxie
 StackTitle = Stapel
 StackSpell = Zauber
 StackAbilityBare = Fähigkeit
-StackAbility = Fähigkeit · { $arg0 }
-StackMore = +{ $arg0 } weitere
-SeatNumbered = Platz { $arg0 }
-YouNamed = Du ({ $arg0 })
+StackAbility = Fähigkeit · { $source }
+StackMore = +{ $count } weitere
+SeatNumbered = Platz { $seat }
+YouNamed = Du ({ $player })
 You = Du
-AimedAt = Zielt auf { $arg0 } ({ $arg1 } von { $arg2 })
-DeclaredCount = { $arg0 } deklariert
-IncomingAt = { $arg0 }: { $arg1 } greifen an, { $arg2 } ungeblockt
+AimedAt = Zielt auf { $target } ({ $position } von { $total })
+DeclaredCount = { $count } deklariert
+IncomingAt = { $defender }: { $count } greifen an, { $unblocked } ungeblockt
 IncomingYou = dich
 ASeat = ein Platz
 APermanent = eine bleibende Karte
@@ -1066,11 +1192,11 @@ AimingAtNothing = nichts
 RailYou = DU
 RailOpponent = GEGNER
 LinkLost = Verbindung verloren — verbinde neu …
-LinkStandIn = Verbinde weiter — der Tisch wartet { $arg0 } auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist.
+LinkStandIn = Verbinde weiter — der Tisch wartet { $wait } auf dich, dann übernimmt das Haus deinen Platz, bis du zurück bist.
 LinkPaused = Verbinde weiter — das Spiel ist pausiert, bis du zurück bist.
-LostWaiting = { $arg0 } hat die Verbindung verloren – warte { $arg1 }
-LostPaused = { $arg0 } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist
-LostHousePlays = Die Haus-KI spielt für { $arg0 }
+LostWaiting = { $player } hat die Verbindung verloren – warte { $wait }
+LostPaused = { $player } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist
+LostHousePlays = Die Haus-KI spielt für { $player }
 LinkGaveUp = Der Tisch ist nicht erreichbar. Tritt aus der Lobby erneut bei.
 ClientOutdated = Dein Client ist veraltet: Aktualisiere ihn, um beizutreten.
 TableOlder = Dieser Tisch läuft mit einer älteren Version als dein Client.
@@ -1087,38 +1213,41 @@ PlanSuspendRefused = Das Mana steht bereit, aber die Karte lässt sich nicht aus
 PlanCardGone = Der Ablauf hat die Karte verloren, für die er bezahlt hat
 PlanQuestionChanged = Das Spiel hat etwas anderes gefragt
 ManaPool = Manavorrat
-PlateLife = { $arg0 } Leben
-PlateHand = { $arg0 } auf der Hand
-PlateLibrary = { $arg0 } in der Bibliothek
-PlateGraveyard = { $arg0 } im Friedhof
-PlateExile = { $arg0 } im Exil
-PlatePoison = { $arg0 } Gift
-PlateRad = { $arg0 } Strahlung
-PayEnergy = { $arg0 } Energiemarken bezahlen?
-ProliferatePlayer = { $arg0 } eine weitere Marke jeder bereits vorhandenen Sorte geben?
-NounProliferatePermanent = bleibende Karte, die eine weitere Marke jeder Sorte erhält
-NounProliferatePermanents = bleibende Karten, die eine weitere Marke jeder Sorte erhalten
-PlateSpeed = Tempo { $arg0 }/4
+PlateLife = { $amount } Leben
+PlateHand = { $count } auf der Hand
+PlateLibrary = { $count } in der Bibliothek
+PlateGraveyard = { $count } im Friedhof
+PlateExile = { $count } im Exil
+PlatePoison = { $count } Gift
+PlateRad = { $count } Strahlung
+PayEnergy = { $count } Energiemarken bezahlen?
+ProliferatePlayer = { $player } eine weitere Marke jeder bereits vorhandenen Sorte geben?
+NounProliferatePermanents =
+    { $count ->
+        [one] bleibende Karte, die eine weitere Marke jeder Sorte erhält
+       *[other] bleibende Karten, die eine weitere Marke jeder Sorte erhalten
+    }
+PlateSpeed = Tempo { $speed }/4
 PlateMaxSpeed = Maximaltempo (4/4)
-PlateEnergy = { $arg0 } Energie
-PlateCommander = { $arg0 } Kommandeurschaden
+PlateEnergy = { $count } Energie
+PlateCommander = { $amount } Kommandeurschaden
 PlateMonarch = Monarch
 PlateLost = Ausgeschieden
 PlateTurn = Am Zug
 PlateWaiting = Der Tisch wartet
 ActiveTurn = Am Zug
-ChosenType = Gewählt: { $arg0 }
-ChosenName = Genannt: { $arg0 }
-LockedDoors = Verschlossen: { $arg0 }
-TapForRestricted = Tappen für { $arg0 } (eingeschränkt)
-TapForVariable = Tappen für X Mana ({ $arg0 })
+ChosenType = Gewählt: { $subtype }
+ChosenName = Genannt: { $card }
+LockedDoors = Verschlossen: { $doors }
+TapForRestricted = Tappen für { $mana } (eingeschränkt)
+TapForVariable = Tappen für X Mana ({ $mana })
 SheetPressAgain = zum Bestätigen
 SheetDigitPicks = Eine Ziffer wählen
 SheetCloses = schließen
-SheetMorePage = Weitere — Seite { $arg0 } von { $arg1 }
-TapFor = Tappen für { $arg0 }
+SheetMorePage = Weitere — Seite { $page } von { $total }
+TapFor = Tappen für { $mana }
 AnyColor = beliebige Farbe
-OrLast = { $arg0 } oder { $arg1 }
+OrLast = { $list } oder { $last }
 GrantedAbility = Verliehene Fähigkeit
 GrantedAbilities = Verliehene Fähigkeiten
 NoRulesTextHere = Regeltext nicht verfügbar
@@ -1126,7 +1255,7 @@ ArrivalLogin = An der Schwelle
 ArrivalTable = Ein Tisch. Eine neue Geschichte.
 ArrivalHeld = Die Reise wartet
 ArrivalPortal = Das Portal öffnet sich
-ArrivalPlayers = Warte auf die Runde  ·  { $arg0 } / { $arg1 } bereit
+ArrivalPlayers = Warte auf die Runde  ·  { $count } / { $total } bereit
 ArrivalWorld = Die Welt erwacht
 ArrivalGateways = Gateways werden geprüft
 ArrivalCards = Karten und Tisch werden vorbereitet
@@ -1143,39 +1272,39 @@ VeilTakingSeat = Nehme deinen Platz ein
 VeilTalking = Spreche mit dem Gateway
 VeilWorking = Einen Moment
 SeatSideNone = kein Team
-SeatSide = Team { $arg0 }
+SeatSide = Team { $team }
 YouWon = Du hast gewonnen
 YouLost = Du hast verloren
-YourTeamWon = Team { $arg0 } gewinnt — deins
-TheirTeamWon = Team { $arg0 } gewinnt
+YourTeamWon = Team { $team } gewinnt — deins
+TheirTeamWon = Team { $team } gewinnt
 TheGameIsADraw = Das Spiel endet unentschieden
 GameClosedVerdict = Das Spiel wurde beendet
-GameClosedReason = Ein Admin hat es beendet: { $arg0 }
+GameClosedReason = Ein Admin hat es beendet: { $reason }
 EndedLastPlayer = Nur noch ein Spieler im Spiel
 EndedLastTeam = Nur noch ein Team im Spiel
 EndedByEffect = Ein Effekt hat entschieden
 LostLifeYou = Deine Lebenspunkte fielen auf 0 oder weniger
-LostLifeOther = Die Lebenspunkte von { $arg0 } fielen auf 0 oder weniger
+LostLifeOther = Die Lebenspunkte von { $player } fielen auf 0 oder weniger
 LostEmptyDrawYou = Du wolltest aus einer leeren Bibliothek ziehen
-LostEmptyDrawOther = { $arg0 } wollte aus einer leeren Bibliothek ziehen
+LostEmptyDrawOther = { $player } wollte aus einer leeren Bibliothek ziehen
 LostPoisonYou = Du hattest zehn oder mehr Giftmarken
-LostPoisonOther = { $arg0 } hatte zehn oder mehr Giftmarken
+LostPoisonOther = { $player } hatte zehn oder mehr Giftmarken
 LostCommanderDamageYou = Du hast 21 oder mehr Kampfschaden von einem Kommandeur erhalten
-LostCommanderDamageOther = { $arg0 } hat 21 oder mehr Kampfschaden von einem Kommandeur erhalten
+LostCommanderDamageOther = { $player } hat 21 oder mehr Kampfschaden von einem Kommandeur erhalten
 LostConcededYou = Du hast aufgegeben
-LostConcededOther = { $arg0 } hat aufgegeben
+LostConcededOther = { $player } hat aufgegeben
 LostEffectYou = Ein Effekt ließ dich verlieren
-LostEffectOther = Ein Effekt ließ { $arg0 } verlieren
+LostEffectOther = Ein Effekt ließ { $player } verlieren
 HouseClockYou = Deine Zeit lief ab, und das Haus traf deine letzte Entscheidung
-HouseClockOther = Die Zeit von { $arg0 } lief ab, und das Haus traf die letzte Entscheidung
+HouseClockOther = Die Zeit von { $player } lief ab, und das Haus traf die letzte Entscheidung
 HouseStandInYou = Du warst nicht verbunden, und das Haus traf deine letzte Entscheidung
-HouseStandInOther = { $arg0 } war nicht verbunden, und das Haus traf die letzte Entscheidung
-GatewayNoAnswer = das Gateway antwortete nicht: { $arg0 }
-GatewayAnswered = das Gateway antwortete mit { $arg0 }
+HouseStandInOther = { $player } war nicht verbunden, und das Haus traf die letzte Entscheidung
+GatewayNoAnswer = das Gateway antwortete nicht: { $error }
+GatewayAnswered = das Gateway antwortete mit { $status }
 NoOfflineDuel = Offline-Partie konnte nicht starten
 UnsavedChanges = ungespeicherte Änderungen — nochmal drücken zum Verlassen
 NoRoomForCopy = kein Platz für noch eine Kopie davon
-CouldNotReachTable = Tisch nicht erreichbar: { $arg0 }
+CouldNotReachTable = Tisch nicht erreichbar: { $error }
 BrowseLooking = Gezeigt
 BrowseHand = Hand
 BrowseBattlefield = Spielfeld
@@ -1185,8 +1314,8 @@ BrowseCommand = Kommandozone
 BrowseAll = Alle
 BrowseEmpty = nichts hier
 BrowseFilter = Name, Typ …
-BrowseTallyUpTo = { $arg0 } von bis zu { $arg1 } gewählt
-BrowseTallyExact = { $arg0 } von { $arg1 } gewählt
+BrowseTallyUpTo = { $count } von bis zu { $max } gewählt
+BrowseTallyExact = { $count } von { $max } gewählt
 BrowseConfirm = Bestätigen
 FilterBuild = Filter einstellen
 FilterAdd = Bedingung hinzufügen …
@@ -1194,10 +1323,10 @@ FilterDone = Fertig
 FilterClear = Leeren
 FilterAsTyped = wie getippt
 FilterUnanswerable = Eine Bedingung kann hier nicht geprüft werden — die Liste bleibt leer, solange sie steht.
-FilterAlsoChips = Zusätzlich grenzen Chips diese Liste ein: { $arg0 }
+FilterAlsoChips = Zusätzlich grenzen Chips diese Liste ein: { $chips }
 FilterChipPlayable = nur spielbare
-FilterChipCmc = Manawert { $arg0 }
-FilterChipCmcUp = Manawert { $arg0 } oder mehr
+FilterChipCmc = Manawert { $mana_value }
+FilterChipCmcUp = Manawert { $mana_value } oder mehr
 FilterKindText = Text
 FilterKindColor = Farbe
 FilterKindNumber = Zahl
@@ -1235,197 +1364,278 @@ ArrangeGraveyard = Auf den Friedhof
 ArrangeUnplaced = Noch nicht gelegt
 ArrangePutHere = Hierher legen
 ArrangeEmptyPile = Leer
-BrowseZoneOf = { $arg0 } · { $arg1 }
-BrowseTabCount = { $arg0 } ({ $arg1 })
+BrowseZoneOf = { $zone } · { $player }
+BrowseTabCount = { $label } ({ $count })
 LogACard = eine Karte
 LogAFaceDownCard = eine verdeckte Karte
 LogAPlaneswalker = einen Planeswalker
 LogABattle = eine Schlacht
-BattleProtectedBy = Beschützt von { $arg0 }
-BattleDefense = Verteidigung { $arg0 }
-LogAnd = { $arg0 } und { $arg1 }
+BattleProtectedBy = Beschützt von { $player }
+BattleDefense = Verteidigung { $defense }
+LogAnd = { $list } und { $last }
 LogYouInList = du
-LogRepeated = { $arg0 } (×{ $arg1 })
-LogTurnYou = Zug { $arg1 } · dein Zug
-LogTurn = Zug { $arg1 } · { $arg0 }
-LogMulliganYou = { $arg7 } hast einen Mulligan genommen
-LogMulligan = { $arg0 } hat einen Mulligan genommen
-LogKeptCardYou = { $arg7 } hast { $arg1 } Karte behalten
-LogKeptCardsYou = { $arg7 } hast { $arg1 } Karten behalten
-LogKeptCard = { $arg0 } hat { $arg1 } Karte behalten
-LogKeptCards = { $arg0 } hat { $arg1 } Karten behalten
-LogTimedPassedYou = { $arg7 } hattest keine Zeit mehr und hast gepasst
-LogTimedPassed = { $arg0 } hatte keine Zeit mehr und hat gepasst
-LogTimedKeptYou = { $arg7 } hattest keine Zeit mehr und hast deine Hand behalten
-LogTimedKept = { $arg0 } hatte keine Zeit mehr und hat die Hand behalten
-LogTimedNoAttackersYou = { $arg7 } hattest keine Zeit mehr und hast nicht angegriffen
-LogTimedNoAttackers = { $arg0 } hatte keine Zeit mehr und hat nicht angegriffen
-LogTimedNoBlockersYou = { $arg7 } hattest keine Zeit mehr und hast nicht geblockt
-LogTimedNoBlockers = { $arg0 } hatte keine Zeit mehr und hat nicht geblockt
-LogTimedDeclinedYou = { $arg7 } hattest keine Zeit mehr und hast abgelehnt
-LogTimedDeclined = { $arg0 } hatte keine Zeit mehr und hat abgelehnt
-LogTimedChosenYou = { $arg7 } hattest keine Zeit mehr, und das Haus hat für { $arg8 } gewählt
-LogTimedChosen = { $arg0 } hatte keine Zeit mehr, und das Haus hat gewählt
-LogStandInYou = { $arg7 } bist weggegangen, und das Haus hat deinen Platz übernommen
-LogStandIn = { $arg0 } ist weggegangen, und das Haus hat den Platz übernommen
-LogConnectionLostYou = { $arg7 } hast die Verbindung verloren – der Tisch wartete { $arg1 }, bevor das Haus übernommen hätte
-LogConnectionLost = { $arg0 } hat die Verbindung verloren – warte { $arg1 } auf die Rückkehr
-LogConnectionLostPausedYou = { $arg7 } hast die Verbindung verloren – das Spiel war pausiert, bis die Verbindung zurück war
-LogConnectionLostPaused = { $arg0 } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist
-LogReturnedYou = { $arg7 } bist zurückgekommen
-LogReturned = { $arg0 } ist zurückgekommen
-LogLandPlayedYou = { $arg7 } hast { $arg1 }{ $arg2 } gespielt
-LogLandPlayed = { $arg0 } hat { $arg1 }{ $arg2 } gespielt
-LogCastYou = { $arg7 } hast { $arg1 }{ $arg2 } gewirkt
-LogCast = { $arg0 } hat { $arg1 }{ $arg2 } gewirkt
-LogAbilityYou = { $arg7 } hast eine Fähigkeit auf den Stapel gelegt: { $arg1 }
-LogAbility = { $arg0 } hat eine Fähigkeit auf den Stapel gelegt: { $arg1 }
-LogActivatedYou = { $arg7 } hast { $arg1 } aktiviert
-LogActivated = { $arg0 } hat { $arg1 } aktiviert
-LogTriggeredYou = { $arg1 } hat für { $arg8 } ausgelöst
-LogTriggered = { $arg1 } hat für { $arg0 } ausgelöst
-LogLifeNowPoint = jetzt { $arg2 } Lebenspunkt (vorher { $arg1 })
-LogLifeNowPoints = jetzt { $arg2 } Lebenspunkte (vorher { $arg1 })
-LogCountered = { $arg1 } wurde neutralisiert
-LogDidNotResolve = { $arg1 } wurde nicht verrechnet
-LogDrewYou = { $arg7 } hast { $arg1 } gezogen
-LogDrew = { $arg0 } hat { $arg1 } gezogen
-LogDrewCardYou = { $arg7 } hast { $arg1 } Karte gezogen
-LogDrewCardsYou = { $arg7 } hast { $arg1 } Karten gezogen
-LogDrewCard = { $arg0 } hat { $arg1 } Karte gezogen
-LogDrewCards = { $arg0 } hat { $arg1 } Karten gezogen
-LogDiscardedYou = { $arg7 } hast { $arg1 } abgeworfen
-LogDiscarded = { $arg0 } hat { $arg1 } abgeworfen
-LogMovedShuffled = { $arg1 } wurde { $arg2 } { $arg3 } gemischt
+LogRepeated = { $line } (×{ $count })
+LogTurnYou = Zug { $turn } · dein Zug
+LogTurn = Zug { $turn } · { $player }
+LogMulliganYou = { $you_subject } hast einen Mulligan genommen
+LogMulligan = { $player } hat einen Mulligan genommen
+LogKeptCardsYou =
+    { $count ->
+        [one] { $you_subject } hast { $count } Karte behalten
+       *[other] { $you_subject } hast { $count } Karten behalten
+    }
+LogKeptCards =
+    { $count ->
+        [one] { $player } hat { $count } Karte behalten
+       *[other] { $player } hat { $count } Karten behalten
+    }
+LogTimedPassedYou = { $you_subject } hattest keine Zeit mehr und hast gepasst
+LogTimedPassed = { $player } hatte keine Zeit mehr und hat gepasst
+LogTimedKeptYou = { $you_subject } hattest keine Zeit mehr und hast deine Hand behalten
+LogTimedKept = { $player } hatte keine Zeit mehr und hat die Hand behalten
+LogTimedNoAttackersYou = { $you_subject } hattest keine Zeit mehr und hast nicht angegriffen
+LogTimedNoAttackers = { $player } hatte keine Zeit mehr und hat nicht angegriffen
+LogTimedNoBlockersYou = { $you_subject } hattest keine Zeit mehr und hast nicht geblockt
+LogTimedNoBlockers = { $player } hatte keine Zeit mehr und hat nicht geblockt
+LogTimedDeclinedYou = { $you_subject } hattest keine Zeit mehr und hast abgelehnt
+LogTimedDeclined = { $player } hatte keine Zeit mehr und hat abgelehnt
+LogTimedChosenYou = { $you_subject } hattest keine Zeit mehr, und das Haus hat für { $you_object } gewählt
+LogTimedChosen = { $player } hatte keine Zeit mehr, und das Haus hat gewählt
+LogStandInYou = { $you_subject } bist weggegangen, und das Haus hat deinen Platz übernommen
+LogStandIn = { $player } ist weggegangen, und das Haus hat den Platz übernommen
+LogConnectionLostYou = { $you_subject } hast die Verbindung verloren – der Tisch wartete { $wait }, bevor das Haus übernommen hätte
+LogConnectionLost = { $player } hat die Verbindung verloren – warte { $wait } auf die Rückkehr
+LogConnectionLostPausedYou = { $you_subject } hast die Verbindung verloren – das Spiel war pausiert, bis die Verbindung zurück war
+LogConnectionLostPaused = { $player } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung zurück ist
+LogReturnedYou = { $you_subject } bist zurückgekommen
+LogReturned = { $player } ist zurückgekommen
+LogLandPlayedYou = { $you_subject } hast { $land }{ $from } gespielt
+LogLandPlayed = { $player } hat { $land }{ $from } gespielt
+LogCastYou = { $you_subject } hast { $spell }{ $from } gewirkt
+LogCast = { $player } hat { $spell }{ $from } gewirkt
+LogAbilityYou = { $you_subject } hast eine Fähigkeit auf den Stapel gelegt: { $source }
+LogAbility = { $player } hat eine Fähigkeit auf den Stapel gelegt: { $source }
+LogActivatedYou = { $you_subject } hast { $source } aktiviert
+LogActivated = { $player } hat { $source } aktiviert
+LogTriggeredYou = { $source } hat für { $you_object } ausgelöst
+LogTriggered = { $source } hat für { $player } ausgelöst
+LogLifeNowPoints =
+    { $count ->
+        [one] jetzt { $life } Lebenspunkt (vorher { $before })
+       *[other] jetzt { $life } Lebenspunkte (vorher { $before })
+    }
+LogCountered = { $spell } wurde neutralisiert
+LogDidNotResolve = { $object } wurde nicht verrechnet
+LogDrewYou = { $you_subject } hast { $cards } gezogen
+LogDrew = { $player } hat { $cards } gezogen
+LogDrewCardsYou =
+    { $count ->
+        [one] { $you_subject } hast { $count } Karte gezogen
+       *[other] { $you_subject } hast { $count } Karten gezogen
+    }
+LogDrewCards =
+    { $count ->
+        [one] { $player } hat { $count } Karte gezogen
+       *[other] { $player } hat { $count } Karten gezogen
+    }
+LogDiscardedYou = { $you_subject } hast { $card } abgeworfen
+LogDiscarded = { $player } hat { $card } abgeworfen
+LogMovedShuffled = { $object } wurde { $from } { $to } gemischt
 LogOntoLibraryTopYou = oben auf deine Bibliothek
-LogOntoLibraryTop = oben auf die Bibliothek von { $arg0 }
+LogOntoLibraryTop = oben auf die Bibliothek von { $player }
 LogOntoLibraryBottomYou = unter deine Bibliothek
-LogOntoLibraryBottom = unter die Bibliothek von { $arg0 }
-LogIntoLibraryAtYou = als { $arg1 }. Karte von oben in deine Bibliothek
-LogIntoLibraryAt = als { $arg1 }. Karte von oben in die Bibliothek von { $arg0 }
+LogOntoLibraryBottom = unter die Bibliothek von { $player }
+LogIntoLibraryAtYou = als { $position }. Karte von oben in deine Bibliothek
+LogIntoLibraryAt = als { $position }. Karte von oben in die Bibliothek von { $player }
 LogFromOwnHand = aus der eigenen Hand
 LogFromOwnLibrary = aus der eigenen Bibliothek
 LogFromOwnGraveyard = aus dem eigenen Friedhof
 LogYouSubject = du
 LogYouObject = dich
 LogYouIndirect = dir
-LogLostEmptyDrawYou = { $arg7 } wolltest aus einer leeren Bibliothek ziehen
-LogLostPoisonYou = { $arg7 } hattest zehn oder mehr Giftmarken
-LogLostCommanderDamageYou = { $arg7 } hast 21 oder mehr Kampfschaden von einem Kommandeur erhalten
-LogLostConcededYou = { $arg7 } hast aufgegeben
-LogLostEffectYou = Ein Effekt ließ { $arg8 } verlieren
-LogMoved = { $arg1 } ist { $arg2 } { $arg3 } gelangt
+LogLostEmptyDrawYou = { $you_subject } wolltest aus einer leeren Bibliothek ziehen
+LogLostPoisonYou = { $you_subject } hattest zehn oder mehr Giftmarken
+LogLostCommanderDamageYou = { $you_subject } hast 21 oder mehr Kampfschaden von einem Kommandeur erhalten
+LogLostConcededYou = { $you_subject } hast aufgegeben
+LogLostEffectYou = Ein Effekt ließ { $you_object } verlieren
+LogMoved = { $object } ist { $from } { $to } gelangt
 LogFromLibraryYou = aus deiner Bibliothek
-LogFromLibrary = aus der Bibliothek von { $arg0 }
+LogFromLibrary = aus der Bibliothek von { $player }
 LogFromHandYou = aus deiner Hand
-LogFromHand = aus der Hand von { $arg0 }
+LogFromHand = aus der Hand von { $player }
 LogFromGraveyardYou = aus deinem Friedhof
-LogFromGraveyard = aus dem Friedhof von { $arg0 }
+LogFromGraveyard = aus dem Friedhof von { $player }
 LogFromBattlefield = vom Spielfeld
 LogFromExile = aus dem Exil
 LogFromCommand = aus der Kommandozone
 LogIntoLibraryYou = in deine Bibliothek
-LogIntoLibrary = in die Bibliothek von { $arg0 }
+LogIntoLibrary = in die Bibliothek von { $player }
 LogIntoHandYou = auf deine Hand
-LogIntoHand = auf die Hand von { $arg0 }
+LogIntoHand = auf die Hand von { $player }
 LogIntoGraveyardYou = in deinen Friedhof
-LogIntoGraveyard = in den Friedhof von { $arg0 }
+LogIntoGraveyard = in den Friedhof von { $player }
 LogIntoBattlefield = aufs Spielfeld
 LogIntoExile = ins Exil
 LogIntoCommand = in die Kommandozone
-LogCreatedYou = { $arg7 } hast { $arg1 } erschaffen
-LogCreated = { $arg0 } hat { $arg1 } erschaffen
-LogCombatDamageYou = { $arg2 } hat { $arg9 } { $arg1 } Kampfschaden zugefügt
-LogDamageYou = { $arg2 } hat { $arg9 } { $arg1 } Schaden zugefügt
-LogCombatDamage = { $arg0 } hat { $arg1 } Kampfschaden durch { $arg2 } erlitten
-LogDamage = { $arg0 } hat { $arg1 } Schaden durch { $arg2 } erlitten
-LogDamageUnsourcedYou = { $arg7 } hast { $arg1 } Schaden erlitten
-LogDamageUnsourced = { $arg0 } hat { $arg1 } Schaden erlitten
-LogLifePointYou = { $arg7 } hattest danach { $arg2 } Lebenspunkt (vorher { $arg1 })
-LogLifePointsYou = { $arg7 } hattest danach { $arg2 } Lebenspunkte (vorher { $arg1 })
-LogLifePoint = { $arg0 } hatte danach { $arg2 } Lebenspunkt (vorher { $arg1 })
-LogLifePoints = { $arg0 } hatte danach { $arg2 } Lebenspunkte (vorher { $arg1 })
-LogPlayerCountersYou = { $arg7 } hattest danach { $arg1 } { $arg2 } (vorher { $arg3 })
-LogPlayerCounters = { $arg0 } hatte danach { $arg1 } { $arg2 } (vorher { $arg3 })
-LogCountersGot = { $arg1 } hat { $arg2 } { $arg3 } bekommen
-LogCounters = { $arg1 } hatte danach { $arg2 } { $arg3 } (vorher { $arg4 })
-LogCounterPlus = +{ $arg0 }/+{ $arg1 }-Marke
-LogCountersPlus = +{ $arg0 }/+{ $arg1 }-Marken
-LogCounterMinus = -{ $arg0 }/-{ $arg1 }-Marke
-LogCountersMinus = -{ $arg0 }/-{ $arg1 }-Marken
-LogCounterLoyalty = Loyalitätsmarke
-LogCountersLoyalty = Loyalitätsmarken
-LogCounterBore = Bohrmarke
-LogCountersBore = Bohrmarken
-LogCounterShield = Schildmarke
-LogCountersShield = Schildmarken
-LogCounterDefense = Verteidigungsmarke
-LogCountersDefense = Verteidigungsmarken
-LogCounterLore = Kapitelmarke
-LogCountersLore = Kapitelmarken
-LogCounterTime = Zeitmarke
-LogCountersTime = Zeitmarken
-LogCounterAge = Altersmarke
-LogCountersAge = Altersmarken
-LogCounterCharge = Ladungsmarke
-LogCountersCharge = Ladungsmarken
-LogCounterPoison = Giftmarke
-LogCountersPoison = Giftmarken
-LogCounterEnergy = Energiemarke
-LogCountersEnergy = Energiemarken
-LogCounterRad = Strahlungsmarke
-LogCountersRad = Strahlungsmarken
-LogCounterFlying = Flugfähigkeitsmarke
-LogCountersFlying = Flugfähigkeitsmarken
-LogCounterShadow = Irrealitätsmarke
-LogCountersShadow = Irrealitätsmarken
-LogCounterIndestructible = Unzerstörbarkeitsmarke
-LogCountersIndestructible = Unzerstörbarkeitsmarken
-LogCounterHone = Schleifmarke
-LogCountersHone = Schleifmarken
-LogCounterLifelink = Lebensverknüpfungsmarke
-LogCountersLifelink = Lebensverknüpfungsmarken
-LogCounterLevel = Stufenmarke
-LogCountersLevel = Stufenmarken
-LogCounterOther = Marke
-LogCountersOther = Marken
-LogAttackedYou = { $arg1 } hat { $arg8 } angegriffen
-LogAttacked = { $arg1 } hat { $arg0 } angegriffen
-LogBlocked = { $arg1 } hat { $arg2 } geblockt
-LogBanded = { $arg1 } greift in einer Gruppe mit { $arg2 } an
-LogControlYou = { $arg7 } hast die Kontrolle über { $arg1 } übernommen
-LogControl = { $arg0 } hat die Kontrolle über { $arg1 } übernommen
-LogTurnedFaceUp = { $arg1 } wurde aufgedeckt
-LogTransformed = { $arg1 } hat sich verwandelt
-LogCardsKeptYou = { $arg7 } behältst { $arg1 }
-LogCardsKept = { $arg0 } behält { $arg1 }
-LogRevealedYou = { $arg7 } hast { $arg1 } offen vorgezeigt
-LogRevealed = { $arg0 } hat { $arg1 } offen vorgezeigt
-LogShuffledYou = { $arg7 } hast deine Bibliothek gemischt
-LogShuffled = { $arg0 } hat die eigene Bibliothek gemischt
-LogRolledYou = { $arg7 } hast mit einem W{ $arg1 } eine { $arg2 } gewürfelt
-LogRolled = { $arg0 } hat mit einem W{ $arg1 } eine { $arg2 } gewürfelt
-LogFlipWonYou = { $arg7 } hast eine Münze geworfen und den Wurf gewonnen
-LogFlipLostYou = { $arg7 } hast eine Münze geworfen und den Wurf verloren
-LogFlipWon = { $arg0 } hat eine Münze geworfen und den Wurf gewonnen
-LogFlipLost = { $arg0 } hat eine Münze geworfen und den Wurf verloren
-LogWonYou = { $arg7 } hast das Spiel gewonnen
-LogWonOne = { $arg0 } hat das Spiel gewonnen
-LogWonMany = { $arg0 } haben das Spiel gewonnen
+LogCreatedYou = { $you_subject } hast { $token } erschaffen
+LogCreated = { $player } hat { $token } erschaffen
+LogCombatDamageYou = { $source } hat { $you_indirect } { $amount } Kampfschaden zugefügt
+LogDamageYou = { $source } hat { $you_indirect } { $amount } Schaden zugefügt
+LogCombatDamage = { $recipient } hat { $amount } Kampfschaden durch { $source } erlitten
+LogDamage = { $recipient } hat { $amount } Schaden durch { $source } erlitten
+LogDamageUnsourcedYou = { $you_subject } hast { $amount } Schaden erlitten
+LogDamageUnsourced = { $recipient } hat { $amount } Schaden erlitten
+LogLifePointsYou =
+    { $count ->
+        [one] { $you_subject } hattest danach { $life } Lebenspunkt (vorher { $before })
+       *[other] { $you_subject } hattest danach { $life } Lebenspunkte (vorher { $before })
+    }
+LogLifePoints =
+    { $count ->
+        [one] { $player } hatte danach { $life } Lebenspunkt (vorher { $before })
+       *[other] { $player } hatte danach { $life } Lebenspunkte (vorher { $before })
+    }
+LogPlayerCountersYou = { $you_subject } hattest danach { $count } { $counter } (vorher { $before })
+LogPlayerCounters = { $player } hatte danach { $count } { $counter } (vorher { $before })
+LogCountersGot = { $object } hat { $count } { $counter } bekommen
+LogCounters = { $object } hatte danach { $count } { $counter } (vorher { $before })
+LogCountersPlus =
+    { $count ->
+        [one] +{ $power }/+{ $toughness }-Marke
+       *[other] +{ $power }/+{ $toughness }-Marken
+    }
+LogCountersMinus =
+    { $count ->
+        [one] -{ $power }/-{ $toughness }-Marke
+       *[other] -{ $power }/-{ $toughness }-Marken
+    }
+LogCountersLoyalty =
+    { $count ->
+        [one] Loyalitätsmarke
+       *[other] Loyalitätsmarken
+    }
+LogCountersBore =
+    { $count ->
+        [one] Bohrmarke
+       *[other] Bohrmarken
+    }
+LogCountersShield =
+    { $count ->
+        [one] Schildmarke
+       *[other] Schildmarken
+    }
+LogCountersDefense =
+    { $count ->
+        [one] Verteidigungsmarke
+       *[other] Verteidigungsmarken
+    }
+LogCountersLore =
+    { $count ->
+        [one] Kapitelmarke
+       *[other] Kapitelmarken
+    }
+LogCountersTime =
+    { $count ->
+        [one] Zeitmarke
+       *[other] Zeitmarken
+    }
+LogCountersAge =
+    { $count ->
+        [one] Altersmarke
+       *[other] Altersmarken
+    }
+LogCountersCharge =
+    { $count ->
+        [one] Ladungsmarke
+       *[other] Ladungsmarken
+    }
+LogCountersPoison =
+    { $count ->
+        [one] Giftmarke
+       *[other] Giftmarken
+    }
+LogCountersEnergy =
+    { $count ->
+        [one] Energiemarke
+       *[other] Energiemarken
+    }
+LogCountersRad =
+    { $count ->
+        [one] Strahlungsmarke
+       *[other] Strahlungsmarken
+    }
+LogCountersFlying =
+    { $count ->
+        [one] Flugfähigkeitsmarke
+       *[other] Flugfähigkeitsmarken
+    }
+LogCountersShadow =
+    { $count ->
+        [one] Irrealitätsmarke
+       *[other] Irrealitätsmarken
+    }
+LogCountersIndestructible =
+    { $count ->
+        [one] Unzerstörbarkeitsmarke
+       *[other] Unzerstörbarkeitsmarken
+    }
+LogCountersHone =
+    { $count ->
+        [one] Schleifmarke
+       *[other] Schleifmarken
+    }
+LogCountersLifelink =
+    { $count ->
+        [one] Lebensverknüpfungsmarke
+       *[other] Lebensverknüpfungsmarken
+    }
+LogCountersLevel =
+    { $count ->
+        [one] Stufenmarke
+       *[other] Stufenmarken
+    }
+LogCountersOther =
+    { $count ->
+        [one] Marke
+       *[other] Marken
+    }
+LogAttackedYou = { $attacker } hat { $you_object } angegriffen
+LogAttacked = { $attacker } hat { $defender } angegriffen
+LogBlocked = { $blocker } hat { $attacker } geblockt
+LogBanded = { $attacker } greift in einer Gruppe mit { $leader } an
+LogControlYou = { $you_subject } hast die Kontrolle über { $object } übernommen
+LogControl = { $player } hat die Kontrolle über { $object } übernommen
+LogTurnedFaceUp = { $object } wurde aufgedeckt
+LogTransformed = { $object } hat sich verwandelt
+LogCardsKeptYou = { $you_subject } behältst { $cards }
+LogCardsKept = { $player } behält { $cards }
+LogRevealedYou = { $you_subject } hast { $cards } offen vorgezeigt
+LogRevealed = { $player } hat { $cards } offen vorgezeigt
+LogShuffledYou = { $you_subject } hast deine Bibliothek gemischt
+LogShuffled = { $player } hat die eigene Bibliothek gemischt
+LogRolledYou = { $you_subject } hast mit einem W{ $sides } eine { $result } gewürfelt
+LogRolled = { $player } hat mit einem W{ $sides } eine { $result } gewürfelt
+LogFlipWonYou = { $you_subject } hast eine Münze geworfen und den Wurf gewonnen
+LogFlipLostYou = { $you_subject } hast eine Münze geworfen und den Wurf verloren
+LogFlipWon = { $player } hat eine Münze geworfen und den Wurf gewonnen
+LogFlipLost = { $player } hat eine Münze geworfen und den Wurf verloren
+LogWonYou = { $you_subject } hast das Spiel gewonnen
+LogWonOne = { $player } hat das Spiel gewonnen
+LogWonMany = { $players } haben das Spiel gewonnen
 LogDrawn = Das Spiel endete unentschieden
 LogLoopBroken = Eine Endlosschleife wurde erkannt und beendet
 LogLoop = Eine Endlosschleife wurde erkannt
 LogDay = Es wurde Tag
 LogNight = Es wurde Nacht
-LogMonarchYou = { $arg7 } bist der Monarch geworden
-LogMonarch = { $arg0 } ist der Monarch geworden
-LogAimedMode = Modus: { $arg1 }
-LogAimedModes = Modi: { $arg1 }
-LogAimedTarget = Ziel: { $arg1 }
-LogAimedTargets = Ziele: { $arg1 }
-LogAimedSpell = { $arg1 }: { $arg2 }
-LogAimedAbility = Fähigkeit von { $arg1 }: { $arg2 }
-LogQuoted = „{ $arg0 }“
+LogMonarchYou = { $you_subject } bist der Monarch geworden
+LogMonarch = { $player } ist der Monarch geworden
+LogAimedMode = Modus: { $modes }
+LogAimedModes = Modi: { $modes }
+LogAimedTarget = Ziel: { $targets }
+LogAimedTargets = Ziele: { $targets }
+LogAimedSpell = { $source }: { $details }
+LogAimedAbility = Fähigkeit von { $source }: { $details }
+LogQuoted = „{ $text }“
 LogPhaseBeginning = Beginn
 LogPhaseFirstMain = Hauptphase
 LogPhaseCombat = Kampf
@@ -1438,8 +1648,8 @@ ReportKindFeedback = Rückmeldung
 ReportKindCrash = Absturz
 ReportKindOther = Sonstiges
 ReportTextHint = Was ist passiert, und was hast du erwartet?
-ReportChars = { $arg0 } / { $arg1 } Zeichen
-ReportTextTooLong = Der Text ist länger als { $arg0 } Zeichen.
+ReportChars = { $count } / { $max } Zeichen
+ReportTextTooLong = Der Text ist länger als { $count } Zeichen.
 ReportIncludeHeading = Außerdem senden (auf diesem Gerät gemerkt):
 ReportAlways = Immer gesendet: dein Text, die Version dieses Clients und die Kennung der Partie. Das Gateway fügt seine eigene Aufzeichnung der Partie hinzu, die niemanden namentlich nennt.
 ReportAlwaysLocal = Immer gesendet: dein Text und die Version dieses Clients.
@@ -1456,14 +1666,14 @@ ReportCatScreenshotHint = Nur das Baylee-Fenster selbst, wie es beim Öffnen die
 ReportCatNothing = (hier gibt es nichts zu senden)
 ReportCatNoShotOnWeb = (die Browser-Version macht kein Bild)
 ReportCatScreenshotHintWeb = Die Browser-Version des Clients kann kein Bild ihres Fensters machen, ein Bericht von hier enthält also nie eines. Angekreuzt gilt das Kästchen, wenn du aus dem Desktop-Client meldest.
-ReportShotSize = { $arg0 } × { $arg1 }, { $arg2 } KB
+ReportShotSize = { $width } × { $height }, { $kilobytes } KB
 ReportCrashesBox = Absturzberichte automatisch senden
 ReportPreviewShow = Zeigen, was gesendet wird
 ReportPreviewHide = Vorschau schließen
 ReportSend = Senden
 ReportClose = Schließen
 ReportSending = Wird gesendet …
-ReportSent = Danke. Bericht { $arg0 } ist angekommen.
+ReportSent = Danke. Bericht { $id } ist angekommen.
 ReportsUnavailable = Dieses Gateway nimmt gerade keine Berichte an.
 ReportSignInAgain = Deine Sitzung ist abgelaufen. Melde dich erneut an und sende den Bericht dann.
 ReportTooLarge = Der Bericht ist zu groß. Lass das Fensterbild oder das Protokoll weg und versuch es erneut.
@@ -1472,22 +1682,22 @@ ReportUnreachable = Das Gateway war nicht erreichbar. Dein Bericht ist noch da.
 ReportNotPassedOn = Das Gateway konnte den Bericht nicht weitergeben. Dein Bericht ist noch da; versuch es später erneut.
 ReportFailed = Der Bericht konnte nicht gesendet werden. Versuch es später erneut.
 ReportNeedsSession = Melde dich bei einem Gateway an, um einen Bericht zu senden. Einen anderen Feedback-Dienst, an den er gehen könnte, kennt dieser Client nicht.
-ReportGoesDirect = Du bist nicht angemeldet, darum geht dieser Bericht direkt an den Baylee-Feedback-Dienst unter { $arg0 }.
+ReportGoesDirect = Du bist nicht angemeldet, darum geht dieser Bericht direkt an den Baylee-Feedback-Dienst unter { $url }.
 ReportsDirectUnavailable = Der Feedback-Dienst nimmt gerade keine Berichte direkt von einem Client an. Melde dich bei einem Gateway an, um ihn zu senden.
 ReportDirectUnreachable = Der Feedback-Dienst war nicht erreichbar. Dein Bericht ist noch da.
 ReportRecordBox = Die vollständige Aufzeichnung dieses Spiels anhängen
-ReportRecordHint = Jeder Zug des Spiels, das dieses Gerät ausgerichtet hat, ab dem Mischen ({ $arg0 } KB). Sie zeigt die Karten aller Plätze, auch die verdeckten: Hände, Bibliotheken, verdeckte Karten. Sie nennt niemanden. Wird bei jedem Bericht neu gefragt.
+ReportRecordHint = Jeder Zug des Spiels, das dieses Gerät ausgerichtet hat, ab dem Mischen ({ $kilobytes } KB). Sie zeigt die Karten aller Plätze, auch die verdeckten: Hände, Bibliotheken, verdeckte Karten. Sie nennt niemanden. Wird bei jedem Bericht neu gefragt.
 ReportRecordNever = Nie anbieten, die Aufzeichnung eines Spiels anzuhängen
 ReportConfirmTitle = Diesen Bericht senden?
-ReportConfirmTo = An: { $arg0 }
-ReportConfirmText = Dein Text ({ $arg0 } Zeichen) und die Version dieses Builds
-ReportConfirmPart = und: { $arg0 }
-ReportConfirmRecord = und die vollständige Aufzeichnung des Spiels, das dieses Gerät ausgerichtet hat ({ $arg0 } KB): die Karten aller Plätze, auch die verdeckten
+ReportConfirmTo = An: { $url }
+ReportConfirmText = Dein Text ({ $count } Zeichen) und die Version dieses Builds
+ReportConfirmPart = und: { $label }
+ReportConfirmRecord = und die vollständige Aufzeichnung des Spiels, das dieses Gerät ausgerichtet hat ({ $kilobytes } KB): die Karten aller Plätze, auch die verdeckten
 ReportConfirmDevice = und eine zufällige Kennung, die dieses Gerät für Berichte erzeugt hat, damit sich Berichte eines Geräts zuordnen lassen; nie dein Name, Konto oder deine Adresse
 ReportConfirmSend = Jetzt senden
 ReportConfirmBack = Zurück
 ReportRecordLeftOut = Die Aufzeichnung des Spiels war zu groß zum Anhängen und wurde weggelassen.
-ReportLeaked = Nicht gesendet: Der Bericht enthält „{ $arg0 }“. Entferne es und versuch es erneut.
+ReportLeaked = Nicht gesendet: Der Bericht enthält „{ $secret }“. Entferne es und versuch es erneut.
 ReportTrimmed = Um die Größengrenze einzuhalten, wurden das Fensterbild oder ältere Protokollzeilen weggelassen.
 CrashAskTitle = Baylee wurde beim letzten Mal unerwartet beendet.
 CrashAskBody = Darf der Client Absturzberichte an das Gateway senden, auf dem du spielst? Ein Absturzbericht enthält den Fehler, die Stelle im Programm, an der er auftrat (den Backtrace), und die Version dieses Clients, und Systemangaben, wenn du sie im Meldeformular erlaubst. Nichts über deine Partien oder dein Konto. Du kannst das jederzeit im Meldeformular ändern.
@@ -1495,18 +1705,18 @@ CrashAskSend = Absturzberichte senden
 CrashAskNever = Nicht senden
 SeatPanelTitle = Sprachmodell-Sitze
 SeatPanelAbout = Welches Modell die Sitz-Brücke (baylee-seat) am Tisch spielt und was sie ausgeben darf. Kein Schlüssel steht je in dieser Datei: Jedes Profil nennt die Umgebungsvariable, aus der sein Schlüssel gelesen wird, oder legt ihn im Schlüsselbund dieses Rechners ab.
-SeatFileAt = Datei: { $arg0 }
+SeatFileAt = Datei: { $path }
 SeatDesktopOnly = Sprachmodell-Sitze werden am Desktop eingerichtet, wo die Sitz-Brücke läuft.
 SeatNoConfigDir = Dieses System nennt kein Konfigurationsverzeichnis, daher gibt es keine Einstellungsdatei für die Sitz-Brücke.
 SeatEmpty = Noch keine Einstellungsdatei: Die Sitz-Brücke spielt mit ihren eingebauten Vorgaben, und nichts begrenzt ihre Ausgaben über Partien hinweg. Füge ein Profil hinzu, um eine anzulegen.
 SeatNoProfiles = Keine Profile: Ohne --mind oder --profile spielt die Brücke die Haus-KI.
-SeatFileRefused = Die Einstellungsdatei ist nicht verwendbar und bleibt, wie sie ist: { $arg0 }. Korrigiere sie von Hand; dieser Bereich liest sie neu, sobald sie sich ändert.
+SeatFileRefused = Die Einstellungsdatei ist nicht verwendbar und bleibt, wie sie ist: { $error }. Korrigiere sie von Hand; dieser Bereich liest sie neu, sobald sie sich ändert.
 SeatChangedOnDisk = Die Datei hat sich auf der Festplatte geändert, seit sie gelesen wurde. Speichern überschreibt sie; Änderungen verwerfen zeigt sie.
 SeatAdd = Profil hinzufügen
 SeatDuplicate = Duplizieren
 SeatRemove = Entfernen
 SeatDefault = Standard
-SeatChipDefault = { $arg0 } · Standard
+SeatChipDefault = { $profile } · Standard
 SeatDefaultAbout = Das Standardprofil spielt, wenn die Brücke weder --mind noch --profile bekommt.
 SeatDefaultNone = Kein Standardprofil: Ohne --mind und --profile spielt die Brücke die Haus-KI.
 SeatName = Name
@@ -1516,7 +1726,7 @@ SeatProviderOpenAi = OpenAI-kompatibel
 SeatProviderCli = Agent-CLI (Abo)
 SeatCliModel = Das Modell einer CLI ist ihr Werkzeug, dann, wenn du eins nennst, dessen eigenes Modell: claude oder claude:opus.
 SeatModel = Modell
-SeatPriced = { $arg0 }: { $arg1 } Eingabe, { $arg2 } Ausgabe
+SeatPriced = { $model }: { $input } Eingabe, { $output } Ausgabe
 SeatPricedAbout = Preise in US-Dollar je Million Tokens, wie dieser Build sie kennt.
 SeatEffort = Denkaufwand
 SeatAnswer = Antwortet mit
@@ -1532,14 +1742,14 @@ SeatAnswerJsonSchema = JSON-Schema
 SeatMaxTokens = Höchstens Ausgabe-Tokens
 SeatPriceIn = Preis Eingabe ($ je Million)
 SeatPriceOut = Preis Ausgabe ($ je Million)
-SeatBuildPrice = Preis dieses Builds: { $arg0 } Eingabe, { $arg1 } Ausgabe je Million Tokens. Ein hier angegebener Preis ersetzt ihn.
+SeatBuildPrice = Preis dieses Builds: { $input } Eingabe, { $output } Ausgabe je Million Tokens. Ein hier angegebener Preis ersetzt ihn.
 SeatNoBuildPrice = Dieser Build kennt keinen Preis für dieses Modell: Gib hier einen an oder begrenze seine Partien in Tokens.
 SeatGameUsd = Pro Partie ($)
 SeatGameTokens = Pro Partie (Tokens)
 SeatThinkSecs = Bedenkzeit (Sekunden)
 SeatKeyEnv = Schlüssel-Variable
-SeatKeySet = { $arg0 } ist in der Umgebung dieses Programms gesetzt.
-SeatKeyUnset = { $arg0 } ist in der Umgebung dieses Programms nicht gesetzt. Die Brücke liest sie aus ihrer eigenen.
+SeatKeySet = { $variable } ist in der Umgebung dieses Programms gesetzt.
+SeatKeyUnset = { $variable } ist in der Umgebung dieses Programms nicht gesetzt. Die Brücke liest sie aus ihrer eigenen.
 SeatPresets = Adapter hinzufügen (Protokoll und Adresse, danach änderbar):
 SeatKeyBox = Schlüssel
 SeatKeyHint = Schlüssel hier einfügen
@@ -1547,19 +1757,19 @@ SeatKeyReplaceHint = neuen Schlüssel einfügen, um ihn zu ersetzen
 SeatKeyKeep = Speichern
 SeatKeyForget = Vergessen
 SeatKeyAsking = Frage den Schlüsselbund dieses Rechners…
-SeatKeyKept = Im Schlüsselbund dieses Rechners liegt ein Schlüssel, nur für { $arg0 }. Er wird nie angezeigt; die Variable geht vor, wo sie gesetzt ist.
-SeatKeyNoneKept = Kein Schlüssel für { $arg0 } gespeichert. Ein hier eingefügter geht in den Schlüsselbund dieses Rechners, nie in die Datei.
-SeatKeyStoreUnavailable = Kein Schlüsselbund für einen Schlüssel ({ $arg0 }): Setze die Variable des Schlüssels in der Umgebung.
+SeatKeyKept = Im Schlüsselbund dieses Rechners liegt ein Schlüssel, nur für { $host }. Er wird nie angezeigt; die Variable geht vor, wo sie gesetzt ist.
+SeatKeyNoneKept = Kein Schlüssel für { $host } gespeichert. Ein hier eingefügter geht in den Schlüsselbund dieses Rechners, nie in die Datei.
+SeatKeyStoreUnavailable = Kein Schlüsselbund für einen Schlüssel ({ $reason }): Setze die Variable des Schlüssels in der Umgebung.
 SeatKeyNoEntry = Ein Schlüssel kann gespeichert werden, sobald Schlüssel-Variable und Adresse stimmen.
 SeatBaseUrl = Basis-URL
-SeatByDefault = standardmäßig { $arg0 }
-SeatBaseByDefault = { $arg0 }, sonst { $arg1 }
+SeatByDefault = standardmäßig { $value }
+SeatBaseByDefault = { $variable }, sonst { $url }
 SeatEffortEndpoint = wie der Endpunkt es vorgibt
 SeatEffortCli = wie die CLI es vorgibt
 SeatGameCalls = Pro Partie (Aufrufe)
 SeatNoCallLimit = keine Grenze
 SeatCommand = Programm
-SeatCommandByDefault = { $arg0 }, im PATH gesucht
+SeatCommandByDefault = { $tool }, im PATH gesucht
 SeatCliNoPrice = Eine CLI spielt mit deinem Abo, das keinen Preis hat: Ihre Partien sind in Tokens und Aufrufen begrenzt und zählen unter den Token-Obergrenzen.
 SeatCaps = Obergrenzen über alle Partien
 SeatCapsAbout = Dollar zählen die Partien von Modellen mit Preis, Tokens die von Modellen ohne. Ein leeres Feld ist keine Grenze.
@@ -1570,21 +1780,24 @@ SeatMonthTokens = Pro Monat (Tokens)
 SeatUnpricedDay = Die Obergrenzen zählen Dollar pro Tag, und dieses Modell hat keinen Preis: Die Brücke verweigert seine Partien, bis es einen Preis oder die Obergrenzen ein Tageslimit in Tokens haben.
 SeatUnpricedMonth = Die Obergrenzen zählen Dollar pro Monat, und dieses Modell hat keinen Preis: Die Brücke verweigert seine Partien, bis es einen Preis oder die Obergrenzen ein Monatslimit in Tokens haben.
 SeatSpent = Ausgegeben
-SeatZoneLocal = Gezählt in Ortszeit, { $arg0 }.
+SeatZoneLocal = Gezählt in Ortszeit, { $offset }.
 SeatZoneUtc = Gezählt in UTC.
-SeatSpentDay = Heute, { $arg0 }: { $arg1 }
-SeatSpentMonth = Diesen Monat, { $arg0 }: { $arg1 }
-SeatOf = { $arg0 } von { $arg1 }
-SeatTokensOne = { $arg0 } Token
-SeatTokensMany = { $arg0 } Tokens
-SeatGames = Partien: { $arg0 }, davon offen: { $arg1 }
-SeatBookUnreadable = Das Ausgabenbuch kann nicht gelesen werden: { $arg0 }
+SeatSpentDay = Heute, { $period }: { $spent }
+SeatSpentMonth = Diesen Monat, { $period }: { $spent }
+SeatOf = { $spent } von { $cap }
+SeatTokens =
+    { $count ->
+        [one] { $tokens } Token
+       *[other] { $tokens } Tokens
+    }
+SeatGames = Partien: { $count }, davon offen: { $open }
+SeatBookUnreadable = Das Ausgabenbuch kann nicht gelesen werden: { $error }
 SeatSave = Speichern
 SeatRevert = Änderungen verwerfen
 SeatUnsaved = Ungespeicherte Änderungen.
 SeatFixFirst = Korrigiere das Markierte, dann speichere.
 SeatSavedNote = Gespeichert.
-SeatNotSaved = Nicht gespeichert: { $arg0 }
+SeatNotSaved = Nicht gespeichert: { $error }
 SeatFaultWhole = Eine ganze Zahl, in Ziffern.
 SeatFaultDollars = Ein Betrag in US-Dollar, nicht unter null, etwa 2,5.
 SeatFaultHalfPrice = Gib beide Preise an, Eingabe und Ausgabe, oder keinen.
@@ -1606,7 +1819,7 @@ SeatFaultJson = JSON-Antworten sind für OpenAI-kompatible Endpunkte und CLIs; A
 SeatFaultMaxTokens = Das Höchste, was eine Antwort nehmen darf: mindestens 1.
 SeatFaultThinkSecs = Die längste Zeit für eine Antwort: mindestens 1 Sekunde.
 SeatFaultUnpriced = Dieser Build kennt keinen Preis für dieses Modell, daher lässt sich keine Dollar-Grenze halten: Gib ihm einen Preis oder mache die Tokens pro Partie zur Grenze.
-SeatFaultKeyEnv = Der Name einer Umgebungsvariable, etwa { $arg0 }: Großbuchstaben, Ziffern und _. Nie der Schlüssel selbst.
+SeatFaultKeyEnv = Der Name einer Umgebungsvariable, etwa { $example }: Großbuchstaben, Ziffern und _. Nie der Schlüssel selbst.
 SeatFaultAddress = Eine https://-Adresse; http:// nur auf diesem Rechner.
 SeatFaultFile = Diese Einstellungen lassen sich nicht schreiben.
 ShellPlay = Lobby
@@ -1615,7 +1828,7 @@ ShellThisDevice = Dieses Gerät
 ShellYourAccount = Dein Konto
 ShellRetry = Erneut versuchen
 ShellUndo = Rückgängig
-TourChapterLine = Kapitel { $arg0 } von { $arg1 } · { $arg2 }
+TourChapterLine = Kapitel { $position } von { $total } · { $chapter }
 TourNext = Weiter
 TourDone = Fertig
 TourBack = Zurück
@@ -1798,8 +2011,8 @@ ShellEdit = Bearbeiten
 ShellAddAndUse = Hinzufügen & nutzen
 ShellReturnToGame = Zurück zum Spiel
 ShellNeedsGateway = Braucht das Gateway
-ShellSeatedAt = Du sitzt an { $arg0 }
-ShellCouldNotReach = { $arg0 } ist nicht erreichbar
+ShellSeatedAt = Du sitzt an { $table }
+ShellCouldNotReach = { $gateway } ist nicht erreichbar
 ShellNoOneWaiting = Niemand wartet
 DiscoveryGateway = DEIN GATEWAY
 DiscoveryOnline = Online
@@ -1812,7 +2025,7 @@ DiscoveryDetails = Gateway-Details
 DiscoveryChoose = Finde deinen nächsten Tisch
 DiscoveryHelp = Tritt einem Tisch bei und wähle dort dein Deck. Der Gastgeber legt Format und Spieltempo fest.
 DiscoveryLoading = Tische werden aktualisiert
-DiscoveryResults = { $arg0 } Tische angezeigt
+DiscoveryResults = { $count } Tische angezeigt
 DiscoveryProtected = Mit Passwort
 DiscoveryOpen = Beitritt möglich
 ShellUpdatedJustNow = gerade aktualisiert
@@ -1842,12 +2055,12 @@ ShellOverlaySearch = Kürzel suchen
 ShellOverlayEditKeys = Tasten ändern …
 ShellClose = Schließen
 ShellOverlayNoMatch = Kein Kürzel passt
-ShellSeatedStrip = Am Tisch „{ $arg0 }“ · { $arg1 } von { $arg2 } sitzen · { $arg3 } bereit
-ShellPlayingStrip = Du spielst an „{ $arg0 }“
+ShellSeatedStrip = Am Tisch „{ $table }“ · { $count } von { $total } sitzen · { $ready } bereit
+ShellPlayingStrip = Du spielst an „{ $table }“
 ShellReturn = Zurück
 ShellLeave = Verlassen
-ShellTablesOnline = { $arg0 } Tische · { $arg1 } online
-ShellTablesWaiting = { $arg0 } warten
+ShellTablesOnline = { $count } Tische · { $online } online
+ShellTablesWaiting = { $count } warten
 ShellReconnecting = Verbinde neu …
 ShellRetryNow = Jetzt versuchen
 ShellSessionEnded = Abgemeldet — deine Sitzung ist abgelaufen · Melde dich neu an
@@ -1859,20 +2072,20 @@ ShellKeyChat = Chat öffnen
 ShellChat = Chat
 ShellChatPrivacy = Chat & Privatsphäre
 ShellBellEmpty = Nichts Neues
-ShellBellJoined = { $arg0 } hat sich an deinen Tisch gesetzt
-ShellBellLeft = { $arg0 } hat deinen Tisch verlassen
+ShellBellJoined = { $player } hat sich an deinen Tisch gesetzt
+ShellBellLeft = { $player } hat deinen Tisch verlassen
 ShellBellFilled = Dein Tisch ist voll
 ShellOfflinePill = Offline · lokale Decks
 ShellThisClient = Dieser Client
-ShellStatsLine = { $arg0 } online · { $arg1 } warten · { $arg2 } spielen
+ShellStatsLine = { $online } online · { $waiting } warten · { $playing } spielen
 ShellUpdateRequired = Update nötig — dieses Gateway läuft mit einer neueren Version
 FrontClosedBeta = geschlossene Beta
 FrontCompatible = kompatibel
-FrontThisClient = dieser Client { $arg0 }
+FrontThisClient = dieser Client { $version }
 FrontKeyHint = Dieses Gateway braucht einen Beta-Schlüssel — das Feld öffnet sich unter dem Knopf, den du wählst.
 FrontUsernameHint = Zum Anmelden; niemand sonst sieht ihn
 FrontCapsLock = Feststelltaste ist an
-FrontUnreachable = { $arg0 } ist nicht erreichbar
+FrontUnreachable = { $gateway } ist nicht erreichbar
 FrontRetry = Erneut
 FrontGuestTitle = Als Gast spielen
 FrontAbout = Über
@@ -1888,9 +2101,9 @@ AboutMana = Mana 1.18 (Andrew Gioia): SIL Open Font License 1.1. Die Symbole, di
 AboutCrates = Bevy und die anderen Rust-Crates dieses Builds: jede unter ihrer eigenen Lizenz (MIT, Apache-2.0 und ähnliche), von cargo-deny gegen eine Liste geprüft; NOTICE im Quellcode nennt den Rest.
 AboutPrecons = Vorgefertigte Decklisten von MTGJSON (Zach Halpern): MIT-Lizenz.
 SheetClose = Schließen
-TermsTitle = Bevor du bei { $arg0 } spielst
-TermsVersion = Bedingungen dieses Gateways · Version { $arg0 }
-TermsUpdated = aktualisiert { $arg0 }
+TermsTitle = Bevor du bei { $gateway } spielst
+TermsVersion = Bedingungen dieses Gateways · Version { $version }
+TermsUpdated = aktualisiert { $date }
 TermsLoading = Die Bedingungen werden geladen …
 TermsLoadFailed = Die Bedingungen konnten nicht geladen werden
 TermsRetry = Erneut
@@ -1909,12 +2122,12 @@ TermsStoredCentral = Lies bis zum Ende, um anzunehmen. Deine Zustimmung (Fassung
 TermsChatTitle = Chat
 TermsChatNote = Wo ein Gateway Chat anbietet, sind Nachrichten an Freunde und an deinen Tisch Ende-zu-Ende-verschlüsselt: Dein Gerät verschlüsselt sie, nur die Geräte der Empfänger entschlüsseln sie, und das Gateway leitet sie weiter, ohne sie lesen zu können. Es sieht nur, wer wem wann wie viel schreibt. Meldest du eine Nachricht, schickt dein Gerät ihren Text an die Moderation dieses Gateways. Computergegner und Zuschauer nehmen am Chat nicht teil.
 CentralTermsTitle = Nutzungsbedingungen von Baylee Central
-CentralTermsVersion = Dein Baylee-Konto · Version { $arg0 }
+CentralTermsVersion = Dein Baylee-Konto · Version { $version }
 DeleteGatewayDataHint = Deine Decks, Einstellungen und Freunde auf diesem Gateway werden endgültig gelöscht. Dein Baylee-Konto bleibt.
-ClockMinutes = { $arg0 } Min.
-RunningMinutes = { $arg0 } Min.
-RunningHours = { $arg0 } Std. { $arg1 } Min.
-ClockSeconds = { $arg0 } s
+ClockMinutes = { $count } Min.
+RunningMinutes = { $count } Min.
+RunningHours = { $count } Std. { $minutes } Min.
+ClockSeconds = { $count } s
 ClockClassic = klassisch
 ClockCasual = gemütlich
 ClockStandard = normal
@@ -1948,34 +2161,37 @@ PlayDuel = Duell
 PlaySortNewest = Neueste zuerst
 PlaySortOpenSeats = Freie Plätze
 PlaySortName = Name
-PlayFormatWarning = Dein Deck fürs nächste Spiel ist { $arg0 }; der Gastgeber spielt { $arg1 }. Im Raum kannst du ein anderes wählen.
+PlayFormatWarning = Dein Deck fürs nächste Spiel ist { $format }; der Gastgeber spielt { $host_format }. Im Raum kannst du ein anderes wählen.
 TemplateCommander = Commander
 TemplateDuel = Duell 20
 TemplateFiveLand = Fünf Länder
 TemplateMixed = Gemischt
-RulesLife = { $arg0 } Leben
-RulesMulliganOne = { $arg0 } freier Mulligan
-RulesMulliganMany = { $arg0 } freie Mulligans
+RulesLife = { $amount } Leben
+RulesMulligans =
+    { $count ->
+        [one] { $count } freier Mulligan
+       *[other] { $count } freie Mulligans
+    }
 RulesFiveLands = fünf Länder im Spiel
 RulesMixed = Decks jedes Formats
 PlayHintJoin = auf einer Zeile: mitspielen
-PlayPlayingAt = Du spielst an { $arg0 }
+PlayPlayingAt = Du spielst an { $table }
 PlayNoHost = Dieses Gateway hat gerade keinen Spielhost
 PlayPickToStart = Wähle ein Deck zum Start
 PlayYourNextGame = Dein nächstes Spiel
 PlayChangeDeck = Deck wechseln
 PlayRecentGames = Letzte Spiele · diese Sitzung
 PlayVsHouse = gegen das Haus
-PlayVs = gegen { $arg0 }
+PlayVs = gegen { $opponents }
 PlayWon = gewonnen
 PlayLost = verloren
 PlayDrawn = unentschieden
 PlayRematch = Revanche
 PlayEditAndRematch = Ändern & Revanche
-PlayJoinOff = Mitspielen ist aus, solange du an { $arg0 } sitzt
+PlayJoinOff = Mitspielen ist aus, solange du an { $table } sitzt
 PlayPlaying = läuft
-PlaySeats = { $arg0 }/{ $arg1 } Plätze
-PlayAiCount = KI ×{ $arg0 }
+PlaySeats = { $count }/{ $total } Plätze
+PlayAiCount = KI ×{ $count }
 PlayPassword = Passwort
 SheetName = Name
 SheetPlayers = Spieler
@@ -1988,16 +2204,16 @@ SheetCancel = Abbrechen
 SheetApply = Übernehmen
 SheetOpenTable = Tisch öffnen
 SheetEditRules = Regeln ändern
-SheetDefaultName = Tisch von { $arg0 }
+SheetDefaultName = Tisch von { $player }
 RoomPasswordSet = Passwort gesetzt
 RoomCopyInvite = Einladung kopieren
 RoomInviteCopied = Kopiert
-RoomRulesPlayers = { $arg0 } · { $arg1 } Spieler
+RoomRulesPlayers = { $format } · { $count } Spieler
 RoomTeamsOn = Teams: an
 RoomTeamsOff = Teams: aus
 RoomSetTeams = Teams festlegen
 RoomEmptySeat = — frei —
-RoomWaitingFor = wartet, bis { $arg0 } bereit ist
+RoomWaitingFor = wartet, bis { $players } bereit ist
 RoomNotStartable = noch ist nicht jeder Platz bereit
 RoomMakeHost = Zum Gastgeber machen
 RoomNextTeam = Nächstes Team
@@ -2007,21 +2223,24 @@ RoomMakeOpen = Zum freien Platz machen
 RoomHouseAi = Haus-KI
 RoomLanguageModel = Sprachmodell
 RoomHost = Gastgeber
-RoomFor = für { $arg0 }
+RoomFor = für { $player }
 RoomAi = KI
 RoomDeckWord = Deck
 RoomFits = passt
-RoomOtherFormat = { $arg0 }-Tisch
+RoomOtherFormat = { $format }-Tisch
 RoomForTesting = Für Tests und Rätsel
 RoomSeat = Setzen
 RoomNoModel = Auf diesem Rechner ist noch kein Sprachmodell eingerichtet. Lege unter Einstellungen › Sprachmodelle ein Profil an: Anbieter und Modell, die ein Platz spielt, und seinen Schlüssel, der im Schlüsselbund dieses Rechners bleibt.
 RoomNoBridge = Dieser Installation fehlt die Sitzbrücke (baylee-seat) neben dem Spiel; installiere das neueste Release erneut.
 RoomSetUpModel = Modell einrichten …
-RoomChairTitle = Platz { $arg0 } · Sprachmodell
-LeaveHostingQuestion = „{ $arg0 }“ verlassen?
+RoomChairTitle = Platz { $seat } · Sprachmodell
+LeaveHostingQuestion = „{ $name }“ verlassen?
 LeaveHostingHint = Du leitest diesen Tisch: Er geht an den, der am längsten sitzt, oder schließt, wenn sonst niemand sitzt.
-RoomOpenSeatOne = { $arg0 } Platz ist frei — ein Spieler, das Haus oder ein Modell nimmt ihn
-RoomOpenSeatMany = { $arg0 } Plätze sind frei — Spieler, das Haus oder Modelle nehmen sie
+RoomOpenSeats =
+    { $count ->
+        [one] { $count } Platz ist frei — ein Spieler, das Haus oder ein Modell nimmt ihn
+       *[other] { $count } Plätze sind frei — Spieler, das Haus oder Modelle nehmen sie
+    }
 DecksSortSaved = Speicherdatum
 DecksSortName = Name
 DecksSortFormat = Format
@@ -2030,23 +2249,26 @@ FormatCommander = Commander
 FormatFreeform = Frei
 FormatMixed = Gemischt
 SavedJustNow = gerade gespeichert
-SavedMinutesAgo = vor { $arg0 } Min. gespeichert
-SavedHoursAgo = vor { $arg0 } Std. gespeichert
+SavedMinutesAgo = vor { $count } Min. gespeichert
+SavedHoursAgo = vor { $count } Std. gespeichert
 SavedYesterday = gestern gespeichert
-SavedDaysAgo = vor { $arg0 } Tagen gespeichert
-DeckMeta = { $arg0 } · SB { $arg1 }
+SavedDaysAgo = vor { $count } Tagen gespeichert
+DeckMeta = { $count } · SB { $sideboard }
 DecksNextGame = nächstes Spiel
-DecksUnplayableOne = { $arg0 } Karte spielt nicht
-DecksUnplayableMany = { $arg0 } Karten spielen nicht
-DecksBlockedOne = { $arg0 } hier gesperrt
-DecksBlockedMany = { $arg0 } Karten hier gesperrt
-CardBlocked = { $arg0 } ist auf diesem Server gesperrt: { $arg1 }
-CardBlockedUntil = { $arg0 } ist auf diesem Server bis { $arg2 } gesperrt: { $arg1 }
+DecksUnplayable =
+    { $count ->
+        [one] { $count } Karte spielt nicht
+       *[other] { $count } Karten spielen nicht
+    }
+DecksBlockedOne = { $card } hier gesperrt
+DecksBlockedMany = { $count } Karten hier gesperrt
+CardBlocked = { $card } ist auf diesem Server gesperrt: { $reason }
+CardBlockedUntil = { $card } ist auf diesem Server bis { $until } gesperrt: { $reason }
 BuildBlocked = hier gesperrt
 DecksSearchHint = Decks suchen …
-PlaySortBy = { $arg0 }
-DecksSortBy = Nach { $arg0 }
-DecksNoMatch = Kein Deck passt zu „{ $arg0 }“
+PlaySortBy = { $order }
+DecksSortBy = Nach { $order }
+DecksNoMatch = Kein Deck passt zu „{ $query }“
 DecksDuplicate = Duplizieren
 DecksHistory = Verlauf …
 DecksFavourite = Favorit
@@ -2056,10 +2278,10 @@ DecksNewTileHint = oder eine Liste importieren — Strg/Cmd+V oder Datei ablegen
 DecksNewTileTouch = oder eine Liste importieren ›
 HouseAdd = Hinzufügen
 HousePreview = Ansehen
-ArtCredit = Illus. · { $arg0 }
-HistoryTitle = Verlauf · { $arg0 }
-HistoryRow = v{ $arg0 }
-HistoryCurrentRow = v{ $arg0 } · aktuell
+ArtCredit = Illus. · { $artist }
+HistoryTitle = Verlauf · { $deck }
+HistoryRow = v{ $version }
+HistoryCurrentRow = v{ $version } · aktuell
 HistoryAgainstCurrent = Gegenüber der aktuellen Version
 HistoryIsCurrent = So ist das Deck jetzt
 HistoryShowAll = Alle Karten
@@ -2073,11 +2295,11 @@ HistoryPicking = Wähle die andere Version in der Liste.
 HistoryFirstSave = erster Stand
 HistoryToday = heute
 HistoryYesterday = gestern
-HistoryDeltaCopies = +{ $arg0 } −{ $arg1 }
-HistoryDeltaPrinting = { $arg0 }× Druck
-HistoryDeltaFinish = { $arg0 } Foil
-HistoryDeltaLanguage = { $arg0 }× Sprache
-HistoryDeltaNote = { $arg0 }× Notiz
+HistoryDeltaCopies = +{ $added } −{ $removed }
+HistoryDeltaPrinting = { $count }× Druck
+HistoryDeltaFinish = { $count } Foil
+HistoryDeltaLanguage = { $count }× Sprache
+HistoryDeltaNote = { $count }× Notiz
 HistoryTagAdded = hinzugefügt
 HistoryTagRemoved = entfernt
 HistoryTagCount = Anzahl
@@ -2085,7 +2307,7 @@ HistoryTagPrinting = Druck
 HistoryTagFinish = Finish
 HistoryTagLanguage = Sprache
 HistoryTagNote = Notiz
-HistoryNoteChanged = { $arg0 } · Notiz geändert
+HistoryNoteChanged = { $card } · Notiz geändert
 HistoryHouseTag = Hausdeck · nur lesen
 HistoryExport = Exportieren …
 HistoryNeedsGateway = Der Verlauf braucht das Gateway
@@ -2093,10 +2315,10 @@ BuildUntitled = Neues Deck
 BuildSave = Speichern
 BuildNothingToSave = Nichts zu speichern
 BuildUnsavedOne = Ungespeichert · 1 Änderung
-BuildUnsavedMany = Ungespeichert · { $arg0 } Änderungen
+BuildUnsavedMany = Ungespeichert · { $count } Änderungen
 BuildSaving = Speichere …
 BuildSavedNow = Gespeichert · gerade eben
-BuildSavedAgo = Gespeichert · vor { $arg0 } Min.
+BuildSavedAgo = Gespeichert · vor { $count } Min.
 BuildSaved = Gespeichert
 BuildNotSaved = Noch nicht gespeichert
 BuildSaveFailed = Nicht gespeichert
@@ -2126,7 +2348,7 @@ BuildFilters = Filter
 BuildRailType = Kartentyp
 BuildRailMana = Manawert
 BuildRailShow = Zeigen
-BuildAlsoNarrowing = außerdem: { $arg0 }
+BuildAlsoNarrowing = außerdem: { $chips }
 BuildChoosePrinting = Druck wählen …
 BuildOpenCard = Karte öffnen
 CardAddToDeck = Ins Deck
@@ -2165,17 +2387,17 @@ BuildByManaValue = Nach Manawert
 BuildByColour = Nach Farbe
 BuildCollapseAll = Alle zuklappen
 BuildExpandAll = Alle aufklappen
-BuildManaValue = Manawert { $arg0 }
-BuildManaValueUp = Manawert { $arg0 }+
+BuildManaValue = Manawert { $mana_value }
+BuildManaValueUp = Manawert { $mana_value }+
 BuildMulticolour = Mehrfarbig
 BuildShakyOne = 1 Karte ist nicht vollständig umgesetzt
-BuildShakyMany = { $arg0 } Karten sind nicht vollständig umgesetzt
+BuildShakyMany = { $count } Karten sind nicht vollständig umgesetzt
 BuildManaCurve = Manakurve
 BuildCurveNote = Nichtland-Karten nach Manawert
-BuildCurveLit = { $arg0 } hervorgehoben
+BuildCurveLit = { $card_type } hervorgehoben
 BuildColourPips = Farbsymbole
 BuildPipsNote = Anteil der farbigen Symbole im Deck
-BuildLandShare = { $arg0 } von { $arg1 }
+BuildLandShare = { $count } von { $total }
 BuildDrawSeven = Sieben ziehen
 BuildDrawNote = jedes Mal neu gemischt · keine Karte verlässt das Deck
 BuildStatsEmpty = Füge Karten hinzu, um die Zahlen des Decks zu sehen
@@ -2209,13 +2431,13 @@ SettingsSaveLine = Sofort gespeichert · markierte Zeilen gehen mit deinem Konto
 SettingsSaveLineOffline = Auf diesem Gerät gespeichert · melde dich an, und die markierten Zeilen folgen deinem Konto
 RowPreset = Voreinstellung
 HelpPreset = Setzt die Gerätezeilen darunter; Eigene, sobald eine davon abweicht
-HelpPresetAuto = Gewählt für { $arg0 }
+HelpPresetAuto = Gewählt für { $gpu }
 RowDisplayMode = Anzeigemodus
 HelpDisplayMode = Eine Änderung fragt nach und wird nach 15 s zurückgenommen
 DisplayWindowed = Fenster
 DisplayBorderless = Randlos
 DisplayFullscreen = Vollbild
-KeepDisplayMode = Diese Einstellung behalten? Zurück in { $arg0 } s
+KeepDisplayMode = Diese Einstellung behalten? Zurück in { $count } s
 KeepIt = Behalten
 RevertIt = Zurück
 RowMonitor = Bildschirm
@@ -2310,8 +2532,8 @@ NetworkOffline = Offline · lokale Decks, kein Gateway
 RowProfiles = Profile
 ProfileOpen = Bearbeiten
 ReportAttachments = Anhänge
-ReportAttachmentsCount = { $arg0 } von { $arg1 }
-ReportSmallLine = { $arg0 } / { $arg1 } Zeichen · # eine Karte · @ ein Spieler
+ReportAttachmentsCount = { $count } von { $total }
+ReportSmallLine = { $count } / { $max } Zeichen · # eine Karte · @ ein Spieler
 ReportNowhere = Kein Ziel bekannt
 ReportWhatIsSent = Was gesendet wird
 ReportRefHand = Hand
@@ -2324,11 +2546,17 @@ ReportRefShown = Gezeigt
 ReportRefLibraryTop = Bibliothek oben
 ReportRefLogged = In dieser Partie gesehen
 ReportRefYours = deine
-ReportConfirmCardRef = { $arg0 } Kartenverweis
-ReportConfirmCardRefs = { $arg0 } Kartenverweise
-ReportConfirmPlayerName = { $arg0 } Spielername
-ReportConfirmPlayerNames = { $arg0 } Spielernamen
-ReportGoesGateway = Geht mit deiner Sitzung an { $arg0 }
+ReportConfirmCardRefs =
+    { $count ->
+        [one] { $count } Kartenverweis
+       *[other] { $count } Kartenverweise
+    }
+ReportConfirmPlayerNames =
+    { $count ->
+        [one] { $count } Spielername
+       *[other] { $count } Spielernamen
+    }
+ReportGoesGateway = Geht mit deiner Sitzung an { $gateway }
 RowCheckUpdates = Automatisch prüfen
 HelpCheckUpdates = Fragt GitHub beim Start und alle sechs Stunden; GitHub sieht deine IP-Adresse und diese Version. Aus: gar keine Anfrage
 RowInstallUpdates = Automatisch installieren
@@ -2351,7 +2579,7 @@ HelpChatPrivacy = Wer dir flüstern darf, Freundschaftsanfragen, Chatverlauf, T�
 ReportOpen = Problem melden
 LanguageModelsElsewhere = Sprachmodelle werden in einem Desktop-Client eingerichtet
 KeyFixed = Diese Taste ist fest und lässt sich nicht belegen
-KeyHeldBy = Schon { $arg0 } — drücke die Taste noch einmal oder nimm sie
+KeyHeldBy = Schon { $shortcut } — drücke die Taste noch einmal oder nimm sie
 KeyTake = Nehmen
 NoAbilityAnswers = Noch keine
 SliderOff = aus
@@ -2373,7 +2601,7 @@ GatewayInGames = Am Spielen
 GatewayWaitingTables = Offene Tische
 GatewayRunningGames = Laufende Spiele
 GatewayServerVersion = Server-Version
-ShellGatewayInlineStats = { $arg0 } online ({ $arg1 } Lobby · { $arg2 } spielen) · { $arg3 } Tische
+ShellGatewayInlineStats = { $online } online ({ $lobby } Lobby · { $playing } spielen) · { $tables } Tische
 SettingsQuickTitle = Schnelleinstellungen
 SettingsAudioSection = Audio
 SettingsDisplaySection = Anzeige & Bewegung

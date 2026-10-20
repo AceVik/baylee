@@ -1098,23 +1098,12 @@ pub(super) fn part_lines(
                 tokens::INK,
             ),
             Part::Refs { cards, players } => {
-                let counted = |n: usize, one: Phrase, many: Phrase| {
-                    (if n == 1 { one } else { many }).fill(lang, &[&n.to_string()])
-                };
                 let mut said = Vec::new();
                 if cards > 0 {
-                    said.push(counted(
-                        cards,
-                        Phrase::ReportConfirmCardRef,
-                        Phrase::ReportConfirmCardRefs,
-                    ));
+                    said.push(Phrase::ReportConfirmCardRefs.fill_count(lang, cards, &[]));
                 }
                 if players > 0 {
-                    said.push(counted(
-                        players,
-                        Phrase::ReportConfirmPlayerName,
-                        Phrase::ReportConfirmPlayerNames,
-                    ));
+                    said.push(Phrase::ReportConfirmPlayerNames.fill_count(lang, players, &[]));
                 }
                 (said.join(" \u{b7} "), tokens::INK)
             }

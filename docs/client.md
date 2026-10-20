@@ -8461,22 +8461,26 @@ phrase with every argument as `{0}`, `{1}`, ….
 
 **No phrase fakes a plural with a bracket** (a test as well).
 
-A sentence whose subject is counted is written **twice** — once for exactly
-one thing, once for everything else — and `Phrase::counted(n, one, many)`
-picks between them; both languages split in the same place, so the number
-decides and the language is never asked, and zero takes the plural in both.
-`card(s)` and `Karte(n)` are not plurals, and the sheet's own typography
-greys what a sentence says in brackets (`prose::bracketed`), so the broken
-form was drawn as an editorial aside, in grey, beside the number it
-disagreed with. A suffix would not have been enough either: German wants a
-relative clause here — "Karte, die nach unten geht" against "Karten, die
-nach unten gehen" — and the verb inside it agrees too, which only a whole
-second literal can say.
+A sentence whose subject is counted is **one message with a selector** on
+`$count`, and `Phrase::fill_count(lang, n, args)` passes the number, so each
+language picks its own forms by its CLDR plural rules — English and German
+split at exactly one, and zero takes the plural in both; Polish has three
+forms, Japanese one, and neither needs a line of code. A caller that fills the
+slots itself (the game log) asks `Phrase::text_count(lang, n)`, which writes
+the count and leaves every other argument a slot. Where the number shown is
+not the number that picks (life can be negative), the message has both: the
+shown one under its own name, `$count` only selecting. `card(s)` and
+`Karte(n)` are not plurals, and the sheet's own typography greys what a
+sentence says in brackets (`prose::bracketed`), so the broken form was drawn
+as an editorial aside, in grey, beside the number it disagreed with. A suffix
+would not have been enough either: German wants a relative clause here —
+"Karte, die nach unten geht" against "Karten, die nach unten gehen" — and the
+verb inside it agrees too, which only a whole variant can say.
 
 The noun is also where a card choice says what it is **for**. `ChoicePrompt`
 has six variants; the prompt bar read one, so a library search, a scry, a
 put-back and a wish were four copies of "Choose 1 card". `choice_noun` gives
-each its own counted pair, which fits inside the counting frame without a
+each its own counted noun, which fits inside the counting frame without a
 second sentence: "Wähle bis zu 2 Karten, die nach unten gehen". `Delve` is
 answered a line earlier (it is part of a cost, not a selection) and
 `Generic` stays the plain noun, which is honest — the engine did not say

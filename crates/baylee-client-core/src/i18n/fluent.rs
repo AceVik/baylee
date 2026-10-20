@@ -85,9 +85,7 @@ impl Table {
             for lang in Lang::ALL {
                 let texts = (0..self.ids.len())
                     .map(|index| {
-                        let slots: Vec<String> = (0..self.args[index].len())
-                            .map(|i| format!("{{{i}}}"))
-                            .collect();
+                        let slots = slots(self.args[index].len());
                         let slots: Vec<&str> = slots.iter().map(String::as_str).collect();
                         let text = self.render(&loaded, index, lang, &slots, None);
                         &*Box::leak(text.into_boxed_str())
@@ -114,6 +112,14 @@ impl Table {
     /// as a number, which is what picks a plural form.
     pub(crate) fn count(&self, index: usize, lang: Lang, count: usize, args: &[&str]) -> String {
         self.render(self.loaded(), index, lang, args, Some(count))
+    }
+
+    /// As [`Self::text`], with `$count` set to `count`: the form a counted
+    /// phrase takes for that number, its other arguments as `{0}`, `{1}`, …
+    pub(crate) fn count_text(&self, index: usize, lang: Lang, count: usize) -> String {
+        let slots = slots(self.args[index].len());
+        let slots: Vec<&str> = slots.iter().map(String::as_str).collect();
+        self.render(self.loaded(), index, lang, &slots, Some(count))
     }
 
     fn render(
@@ -151,6 +157,11 @@ impl Table {
             .format_pattern(pattern, Some(&fluent), &mut errors)
             .into_owned()
     }
+}
+
+/// `{0}`, `{1}`, … for `n` arguments.
+fn slots(n: usize) -> Vec<String> {
+    (0..n).map(|i| format!("{{{i}}}")).collect()
 }
 
 fn lang_index(lang: Lang) -> usize {

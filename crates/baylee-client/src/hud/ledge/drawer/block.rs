@@ -23,7 +23,7 @@ pub(super) fn reading(
     }
     let card = |id| {
         view.object(id).map_or_else(
-            || Phrase::NounCard.text(lang).to_string(),
+            || Phrase::NounCards.fill_count(lang, 1, &[]),
             |o| crate::face::name_of(o, view, texts),
         )
     };

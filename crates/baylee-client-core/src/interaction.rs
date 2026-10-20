@@ -451,12 +451,9 @@ impl Prompt {
                     Phrase::MulliganTaken.fill(lang, &[&taken.to_string()])
                 }
             }
-            Self::BottomCards { count } => Phrase::counted(
-                usize::from(*count),
-                Phrase::PutCardOnBottom,
-                Phrase::PutOnBottom,
-            )
-            .fill(lang, &[&count.to_string()]),
+            Self::BottomCards { count } => {
+                Phrase::PutOnBottom.fill_count(lang, usize::from(*count), &[])
+            }
             // Not "You have priority". A priority window is an invitation, and
             // stating the rules term for it — next to a button labelled OK —
             // read as a modal that had to be dismissed before play could go on.
@@ -481,12 +478,9 @@ impl Prompt {
             },
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
-            Self::Discard { count } => Phrase::counted(
-                usize::from(*count),
-                Phrase::DiscardCard,
-                Phrase::DiscardCards,
-            )
-            .fill(lang, &[&count.to_string()]),
+            Self::Discard { count } => {
+                Phrase::DiscardCards.fill_count(lang, usize::from(*count), &[])
+            }
             Self::LegendRule => Phrase::LegendRule.text(lang).to_string(),
             // Delve and convoke are not selections of cards or of targets:
             // both are "spend what you have to help pay", and a line saying
@@ -821,76 +815,45 @@ pub fn table_losses(
 /// sees "card to reveal" over their two Faeries already knows what the land
 /// wanted, and the price of naming nothing is on the land rather than on
 /// any of the cards listed.
-fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
+fn choice_noun(reason: ChoicePrompt) -> Phrase {
     match reason {
-        ChoicePrompt::RemoveLandCounters => (
-            Phrase::NounLandToRemoveCounters,
-            Phrase::NounLandsToRemoveCounters,
-        ),
-        ChoicePrompt::Keep => (Phrase::NounCardToKeep, Phrase::NounCardsToKeep),
-        ChoicePrompt::KeepLands => (Phrase::NounLandToKeep, Phrase::NounLandsToKeep),
-        ChoicePrompt::KeepCreatures => (Phrase::NounCreatureToKeep, Phrase::NounCreaturesToKeep),
-        ChoicePrompt::KeepPermanents => (Phrase::NounPermanentToKeep, Phrase::NounPermanentsToKeep),
-        ChoicePrompt::SearchLibrary => (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
-        ChoicePrompt::PutBackOnTop => (Phrase::NounCardToTop, Phrase::NounCardsToTop),
-        ChoicePrompt::Wish => (Phrase::NounCardOutside, Phrase::NounCardsOutside),
-        ChoicePrompt::CostSacrifice | ChoicePrompt::SacrificeFor { .. } => (
-            Phrase::NounPermanentToSacrifice,
-            Phrase::NounPermanentsToSacrifice,
-        ),
-        ChoicePrompt::CostDiscard | ChoicePrompt::Discard => {
-            (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard)
+        ChoicePrompt::RemoveLandCounters => Phrase::NounLandsToRemoveCounters,
+        ChoicePrompt::Keep => Phrase::NounCardsToKeep,
+        ChoicePrompt::KeepLands => Phrase::NounLandsToKeep,
+        ChoicePrompt::KeepCreatures => Phrase::NounCreaturesToKeep,
+        ChoicePrompt::KeepPermanents => Phrase::NounPermanentsToKeep,
+        ChoicePrompt::SearchLibrary => Phrase::NounCardsFromLibrary,
+        ChoicePrompt::PutBackOnTop => Phrase::NounCardsToTop,
+        ChoicePrompt::Wish => Phrase::NounCardsOutside,
+        ChoicePrompt::CostSacrifice | ChoicePrompt::SacrificeFor { .. } => {
+            Phrase::NounPermanentsToSacrifice
         }
+        ChoicePrompt::CostDiscard | ChoicePrompt::Discard => Phrase::NounCardsToDiscard,
         ChoicePrompt::CostTap
         | ChoicePrompt::CostTapExactlyOrNone { .. }
         | ChoicePrompt::CostCrew { .. }
-        | ChoicePrompt::CostSaddle { .. } => {
-            (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap)
-        }
-        ChoicePrompt::CostReturn => (
-            Phrase::NounPermanentToReturn,
-            Phrase::NounPermanentsToReturn,
-        ),
-        ChoicePrompt::CostExile => (Phrase::NounCardToExile, Phrase::NounCardsToExile),
-        ChoicePrompt::LeaveTapped => (
-            Phrase::NounPermanentToLeaveTapped,
-            Phrase::NounPermanentsToLeaveTapped,
-        ),
-        ChoicePrompt::Untap => (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
-        ChoicePrompt::Band { .. } => (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
-        ChoicePrompt::BlockWith { .. } => {
-            (Phrase::NounAttackerToBlock, Phrase::NounAttackersToBlock)
-        }
-        ChoicePrompt::LeftPile => (Phrase::NounCreatureForLeft, Phrase::NounCreaturesForLeft),
-        ChoicePrompt::CamouflagePile { .. } => {
-            (Phrase::NounCreatureForPile, Phrase::NounCreaturesForPile)
-        }
-        ChoicePrompt::TappedForCounters { .. } => {
-            (Phrase::NounTappedForCounter, Phrase::NounTappedForCounters)
-        }
-        ChoicePrompt::Amass => (Phrase::NounArmyToAmass, Phrase::NounArmiesToAmass),
-        ChoicePrompt::Proliferate => (
-            Phrase::NounProliferatePermanent,
-            Phrase::NounProliferatePermanents,
-        ),
-        ChoicePrompt::RevealDiscard => (Phrase::NounDiscardToReveal, Phrase::NounDiscardsToReveal),
-        ChoicePrompt::RevealOrEnterTapped => (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
-        ChoicePrompt::PutIntoHand => (Phrase::NounCardToHand, Phrase::NounCardsToHand),
-        ChoicePrompt::PutOnBottom => (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
-        ChoicePrompt::PlayFromExile => (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
-        ChoicePrompt::PutOntoBattlefield => (
-            Phrase::NounCardToBattlefield,
-            Phrase::NounCardsToBattlefield,
-        ),
-        ChoicePrompt::PutIntoGraveyard => {
-            (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard)
-        }
-        ChoicePrompt::FirstPile => (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
-        ChoicePrompt::FromGraveyard => (
-            Phrase::NounCardFromGraveyard,
-            Phrase::NounCardsFromGraveyard,
-        ),
-        ChoicePrompt::NewHost { .. } => (Phrase::NounNewHostFor, Phrase::NounNewHostsFor),
+        | ChoicePrompt::CostSaddle { .. } => Phrase::NounPermanentsToTap,
+        ChoicePrompt::CostReturn => Phrase::NounPermanentsToReturn,
+        ChoicePrompt::CostExile => Phrase::NounCardsToExile,
+        ChoicePrompt::LeaveTapped => Phrase::NounPermanentsToLeaveTapped,
+        ChoicePrompt::Untap => Phrase::NounPermanentsToUntap,
+        ChoicePrompt::Band { .. } => Phrase::NounAttackersToBand,
+        ChoicePrompt::BlockWith { .. } => Phrase::NounAttackersToBlock,
+        ChoicePrompt::LeftPile => Phrase::NounCreaturesForLeft,
+        ChoicePrompt::CamouflagePile { .. } => Phrase::NounCreaturesForPile,
+        ChoicePrompt::TappedForCounters { .. } => Phrase::NounTappedForCounters,
+        ChoicePrompt::Amass => Phrase::NounArmiesToAmass,
+        ChoicePrompt::Proliferate => Phrase::NounProliferatePermanents,
+        ChoicePrompt::RevealDiscard => Phrase::NounDiscardsToReveal,
+        ChoicePrompt::RevealOrEnterTapped => Phrase::NounCardsToReveal,
+        ChoicePrompt::PutIntoHand => Phrase::NounCardsToHand,
+        ChoicePrompt::PutOnBottom => Phrase::NounCardsToBottom,
+        ChoicePrompt::PlayFromExile => Phrase::NounCardsToPlay,
+        ChoicePrompt::PutOntoBattlefield => Phrase::NounCardsToBattlefield,
+        ChoicePrompt::PutIntoGraveyard => Phrase::NounCardsToGraveyard,
+        ChoicePrompt::FirstPile => Phrase::NounCardsForFirstPile,
+        ChoicePrompt::FromGraveyard => Phrase::NounCardsFromGraveyard,
+        ChoicePrompt::NewHost { .. } => Phrase::NounNewHostsFor,
         ChoicePrompt::Behold
         | ChoicePrompt::LookAtLibrary
         | ChoicePrompt::LookAtHand
@@ -902,7 +865,7 @@ fn choice_noun(reason: ChoicePrompt) -> (Phrase, Phrase) {
         | ChoicePrompt::EntryReplacement
         | ChoicePrompt::Dredge
         | ChoicePrompt::DrawReplacement
-        | ChoicePrompt::Generic => (Phrase::NounCard, Phrase::NounCards),
+        | ChoicePrompt::Generic => Phrase::NounCards,
     }
 }
 
@@ -946,48 +909,31 @@ fn cards_line(
     if let ChoicePrompt::Band { with } = reason
         && let Some(leader) = name(with)
     {
-        let noun = Phrase::counted(
-            usize::from(max),
-            Phrase::NounAttackerToBandWith,
-            Phrase::NounAttackersToBandWith,
-        )
-        .fill(lang, &[&leader]);
+        let noun = Phrase::NounAttackersToBandWith.fill_count(lang, usize::from(max), &[&leader]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     if let ChoicePrompt::CamouflagePile { pile, of } = reason {
-        let noun = Phrase::counted(
+        let noun = Phrase::NounCreaturesForPileOf.fill_count(
+            lang,
             usize::from(max),
-            Phrase::NounCreatureForPileOf,
-            Phrase::NounCreaturesForPileOf,
-        )
-        .fill(lang, &[&pile.to_string(), &of.to_string()]);
+            &[&pile.to_string(), &of.to_string()],
+        );
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     // An Aura's new host names the Aura (09.10.: Kudzu asked for "up to 1
     // card").
     if let ChoicePrompt::NewHost { aura } = reason {
         let aura = name(aura).unwrap_or_else(|| Phrase::NounTheAura.text(lang).to_owned());
-        let noun = Phrase::counted(
-            usize::from(max),
-            Phrase::NounNewHostFor,
-            Phrase::NounNewHostsFor,
-        )
-        .fill(lang, &[&aura]);
+        let noun = Phrase::NounNewHostsFor.fill_count(lang, usize::from(max), &[&aura]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
     if let ChoicePrompt::BlockWith { blocker } = reason
         && let Some(blocker) = name(blocker)
     {
-        let noun = Phrase::counted(
-            usize::from(max),
-            Phrase::NounAttackerForBlocker,
-            Phrase::NounAttackersForBlocker,
-        )
-        .fill(lang, &[&blocker]);
+        let noun = Phrase::NounAttackersForBlocker.fill_count(lang, usize::from(max), &[&blocker]);
         return choose_line_of(lang, &noun, u32::from(min), u32::from(max));
     }
-    let (one, many) = choice_noun(reason);
-    let selection = choose_line(lang, one, many, u32::from(min), u32::from(max));
+    let selection = choose_line(lang, choice_noun(reason), u32::from(min), u32::from(max));
     if let ChoicePrompt::SacrificeFor { player } = reason {
         Phrase::SacrificeForPlayer.fill(lang, &[&seat_name(lang, statics, player), &selection])
     } else {
@@ -1018,16 +964,8 @@ fn targets_line(
     match reason {
         TargetPrompt::Convoke => Phrase::TapToHelpPay.text(lang).to_string(),
         // Entering as a copy chooses; it does not target.
-        TargetPrompt::CopyOf => choose_line(
-            lang,
-            Phrase::NounPermanentToCopy,
-            Phrase::NounPermanentsToCopy,
-            min,
-            max,
-        ),
-        TargetPrompt::Targets => {
-            choose_line(lang, Phrase::NounTarget, Phrase::NounTargets, min, max)
-        }
+        TargetPrompt::CopyOf => choose_line(lang, Phrase::NounPermanentsToCopy, min, max),
+        TargetPrompt::Targets => choose_line(lang, Phrase::NounTargets, min, max),
         TargetPrompt::DistinctManaValues(_) => Phrase::DifferentManaValues.text(lang).to_string(),
         TargetPrompt::Retarget { current, index, of } => {
             let target = match current {
@@ -1142,34 +1080,59 @@ fn number_line(
 /// Localized plural name for counters offered by an engine choice.
 #[must_use]
 pub fn counter_label(kind: baylee_engine::object::CounterKind, lang: Lang) -> String {
+    counters_named(kind, lang, None)
+}
+
+/// As [`counter_label`], in the form `n` counters take ("1 +1/+1 counter").
+#[must_use]
+pub fn counter_label_counted(
+    kind: baylee_engine::object::CounterKind,
+    lang: Lang,
+    n: usize,
+) -> String {
+    counters_named(kind, lang, Some(n))
+}
+
+/// A counter kind's name; with no count, the plural.
+fn counters_named(
+    kind: baylee_engine::object::CounterKind,
+    lang: Lang,
+    n: Option<usize>,
+) -> String {
     use baylee_engine::object::CounterKind;
+    let say = |phrase: Phrase, args: &[&str]| match n {
+        Some(n) => phrase.fill_count(lang, n, args),
+        None => phrase.fill(lang, args),
+    };
     match kind {
-        CounterKind::Plus { power, toughness } => {
-            Phrase::LogCountersPlus.fill(lang, &[&power.to_string(), &toughness.to_string()])
-        }
-        CounterKind::Minus { power, toughness } => {
-            Phrase::LogCountersMinus.fill(lang, &[&power.to_string(), &toughness.to_string()])
-        }
-        CounterKind::Loyalty => Phrase::LogCountersLoyalty.text(lang).to_owned(),
-        CounterKind::Lore => Phrase::LogCountersLore.text(lang).to_owned(),
-        CounterKind::Bore => Phrase::LogCountersBore.text(lang).to_owned(),
-        CounterKind::Shield => Phrase::LogCountersShield.text(lang).to_owned(),
-        CounterKind::Defense => Phrase::LogCountersDefense.text(lang).to_owned(),
-        CounterKind::Time => Phrase::LogCountersTime.text(lang).to_owned(),
-        CounterKind::Charge => Phrase::LogCountersCharge.text(lang).to_owned(),
-        CounterKind::Poison => Phrase::LogCountersPoison.text(lang).to_owned(),
-        CounterKind::Energy => Phrase::LogCountersEnergy.text(lang).to_owned(),
-        CounterKind::Rad => Phrase::LogCountersRad.text(lang).to_owned(),
-        CounterKind::Lifelink => Phrase::LogCountersLifelink.text(lang).to_owned(),
-        CounterKind::Level => Phrase::LogCountersLevel.text(lang).to_owned(),
-        CounterKind::Hone => Phrase::LogCountersHone.text(lang).to_owned(),
-        CounterKind::Stun => Phrase::LogCountersStun.text(lang).to_owned(),
-        CounterKind::Finality => Phrase::LogCountersFinality.text(lang).to_owned(),
-        CounterKind::Flying => Phrase::LogCountersFlying.text(lang).to_owned(),
-        CounterKind::Shadow => Phrase::LogCountersShadow.text(lang).to_owned(),
-        CounterKind::Indestructible => Phrase::LogCountersIndestructible.text(lang).to_owned(),
+        CounterKind::Plus { power, toughness } => say(
+            Phrase::LogCountersPlus,
+            &[&power.to_string(), &toughness.to_string()],
+        ),
+        CounterKind::Minus { power, toughness } => say(
+            Phrase::LogCountersMinus,
+            &[&power.to_string(), &toughness.to_string()],
+        ),
+        CounterKind::Loyalty => say(Phrase::LogCountersLoyalty, &[]),
+        CounterKind::Lore => say(Phrase::LogCountersLore, &[]),
+        CounterKind::Bore => say(Phrase::LogCountersBore, &[]),
+        CounterKind::Shield => say(Phrase::LogCountersShield, &[]),
+        CounterKind::Defense => say(Phrase::LogCountersDefense, &[]),
+        CounterKind::Time => say(Phrase::LogCountersTime, &[]),
+        CounterKind::Charge => say(Phrase::LogCountersCharge, &[]),
+        CounterKind::Poison => say(Phrase::LogCountersPoison, &[]),
+        CounterKind::Energy => say(Phrase::LogCountersEnergy, &[]),
+        CounterKind::Rad => say(Phrase::LogCountersRad, &[]),
+        CounterKind::Lifelink => say(Phrase::LogCountersLifelink, &[]),
+        CounterKind::Level => say(Phrase::LogCountersLevel, &[]),
+        CounterKind::Hone => say(Phrase::LogCountersHone, &[]),
+        CounterKind::Stun => say(Phrase::LogCountersStun, &[]),
+        CounterKind::Finality => say(Phrase::LogCountersFinality, &[]),
+        CounterKind::Flying => say(Phrase::LogCountersFlying, &[]),
+        CounterKind::Shadow => say(Phrase::LogCountersShadow, &[]),
+        CounterKind::Indestructible => say(Phrase::LogCountersIndestructible, &[]),
         CounterKind::Custom(id) => {
-            let noun = Phrase::LogCountersOther.text(lang);
+            let noun = say(Phrase::LogCountersOther, &[]);
             baylee_cards_dsl::counters::ASSIGNED
                 .iter()
                 .find(|(_, assigned)| *assigned == kind)
@@ -1205,14 +1168,14 @@ fn card_type_name(card_type: baylee_core::types::TypeSet) -> Phrase {
 /// sentence has to be one phrase — pasting a translated noun onto a
 /// translated "choose up to" is how a translation ends up ungrammatical.
 ///
-/// The noun comes in both forms and **`max` picks between them**, because
+/// The noun is a counted phrase and **`max` picks its form**, because
 /// `max` is the number the noun stands next to in all three frames: "up to
 /// 2 cards", "1 card", "1–3 cards". A range whose top is more than one is
 /// plural however low it starts.
-fn choose_line(lang: Lang, one: Phrase, many: Phrase, min: u32, max: u32) -> String {
+fn choose_line(lang: Lang, noun: Phrase, min: u32, max: u32) -> String {
     choose_line_of(
         lang,
-        Phrase::counted(usize::try_from(max).unwrap_or(usize::MAX), one, many).text(lang),
+        &noun.fill_count(lang, usize::try_from(max).unwrap_or(usize::MAX), &[]),
         min,
         max,
     )
@@ -1234,7 +1197,13 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
             Phrase::SacrificeToEnter.fill(lang, &[&count.to_string()])
         }
         YesNoPrompt::EnterTappedForCounters { kind, amount } => Phrase::EnterTappedForCounters
-            .fill(lang, &[&amount.to_string(), &counter_label(kind, lang)]),
+            .fill(
+                lang,
+                &[
+                    &amount.to_string(),
+                    &counter_label_counted(kind, lang, usize::from(amount)),
+                ],
+            ),
         YesNoPrompt::PayLifeOrEnterTapped { amount } => {
             Phrase::PayLifeOrTapped.fill(lang, &[&amount.to_string()])
         }

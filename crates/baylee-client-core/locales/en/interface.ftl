@@ -1,14 +1,16 @@
 ### One thing the interface says.
 
 # Army selected without targeting for amass.
-NounArmyToAmass = Army to amass
-
-# Plural label for the amass choice.
-NounArmiesToAmass = Armies to amass
+# Arguments: count
+NounArmiesToAmass =
+    { $count ->
+        [one] Army to amass
+       *[other] Armies to amass
+    }
 
 # Optional replacement for entering, before any enters-the-battlefield triggers.
-# Arguments: arg0, arg1
-EnterTappedForCounters = Enter tapped and get { $arg0 } { $arg1 }?
+# Arguments: count, counter
+EnterTappedForCounters = Enter tapped and get { $count } { $counter }?
 
 # Order for interacting simultaneous entry replacements.
 ChooseEntryOrder = Which permanent’s entry replacements will you apply first?
@@ -23,37 +25,43 @@ ChooseDredge = Dredge a card instead of drawing? Choose one from your graveyard,
 ChooseDrawReplacement = Which replacement will you apply to this draw next?
 
 # Full sacrifice needed before the announced card can enter the battlefield.
-# Arguments: arg0
-SacrificeToEnter = Sacrifice { $arg0 } eligible permanents so this card can enter?
+# Arguments: count
+SacrificeToEnter = Sacrifice { $count } eligible permanents so this card can enter?
 
 # Number of permanents to sacrifice as an object enters.
-# Arguments: arg0, arg1
-ChooseSacrificeCount = How many permanents will you sacrifice? ({ $arg0 }–{ $arg1 })
+# Arguments: min, max
+ChooseSacrificeCount = How many permanents will you sacrifice? ({ $min }–{ $max })
 
 # Number of energy counters to pay; choosing zero declines.
-# Arguments: arg0, arg1, arg2
-ChooseEnergyPayment = Pay energy ({ $arg0 }–{ $arg1 }); up to { $arg2 } tapped permanents can receive counters
+# Arguments: min, max, count
+ChooseEnergyPayment = Pay energy ({ $min }–{ $max }); up to { $count } tapped permanents can receive counters
 
 # One of the permanents actually tapped by this instruction.
-NounTappedForCounter = tapped permanent to receive a counter
-
-# Multiple non-targeted counter recipients.
-NounTappedForCounters = tapped permanents to receive a counter
+# Arguments: count
+NounTappedForCounters =
+    { $count ->
+        [one] tapped permanent to receive a counter
+       *[other] tapped permanents to receive a counter
+    }
 
 # A resolving effect asks which kind of counter to move.
 ChooseCounterKind = Choose a counter kind
 
 # One stun counter.
-LogCounterStun = stun counter
-
-# Several stun counters.
-LogCountersStun = stun counters
+# Arguments: count
+LogCountersStun =
+    { $count ->
+        [one] stun counter
+       *[other] stun counters
+    }
 
 # One finality counter.
-LogCounterFinality = finality counter
-
-# Multiple finality counters.
-LogCountersFinality = finality counters
+# Arguments: count
+LogCountersFinality =
+    { $count ->
+        [one] finality counter
+       *[other] finality counters
+    }
 
 # Hold Shift to turn the preview.
 PreviewTurn = Turn over
@@ -139,99 +147,99 @@ ImportedDeckName = Imported deck
 # The import dialog's instructions before anything is pasted.
 ImportHowTo = Copy a deck list, a Baylee, JSON or YAML export, or a Moxfield export (More → Export → Copy for Moxfield), then paste it here with Paste or Ctrl/Cmd+V. The format is recognised by itself.
 
-# A paste read as a deck. `{0}` the format, `{1}` rows, `{2}` cards.
-# Arguments: arg0, arg1, arg2
-ImportReadAs = Read as { $arg0 }. Rows: { $arg1 } · Cards: { $arg2 }
+# A paste read as a deck. `$format` the format, `$count` rows, `$copies` cards.
+# Arguments: format, count, copies
+ImportReadAs = Read as { $format }. Rows: { $count } · Cards: { $copies }
 
 # Warns that importing replaces what is in the builder.
 ImportReplaces = Importing replaces the deck in the builder with a new, unsaved deck. The saved deck stays as it is.
 
-# A pasted Moxfield deck link. `{0}` is the site's name.
-# Arguments: arg0
-ImportMoxfieldLink = That is a link to a deck on { $arg0 }, which Baylee cannot read directly. Open the deck on { $arg0 } → More → Export → Copy for Moxfield, then paste it here.
+# A pasted Moxfield deck link. `$site` is the site's name.
+# Arguments: site
+ImportMoxfieldLink = That is a link to a deck on { $site }, which Baylee cannot read directly. Open the deck on { $site } → More → Export → Copy for Moxfield, then paste it here.
 
-# A link to a site with an API this build does not fetch yet. `{0}` the site.
-# Arguments: arg0
-ImportNotFetched = Decks linked from { $arg0 } cannot be fetched by this version yet. Export the deck there as text and paste it here.
+# A link to a site with an API this build does not fetch yet. `$site` the site.
+# Arguments: site
+ImportNotFetched = Decks linked from { $site } cannot be fetched by this version yet. Export the deck there as text and paste it here.
 
-# A link to a site no source knows. `{0}` the host.
-# Arguments: arg0
-ImportUnknownLink = Baylee cannot read decks from { $arg0 }. Export the deck there as a text list and paste the list here.
+# A link to a site no source knows. `$host` the host.
+# Arguments: host
+ImportUnknownLink = Baylee cannot read decks from { $host }. Export the deck there as a text list and paste the list here.
 
-# A deck taken. `{0}` rows, `{1}` cards, `{2}` the format.
-# Arguments: arg0, arg1, arg2
-ImportTook = Imported from { $arg2 }. Rows: { $arg0 } · Cards: { $arg1 }
+# A deck taken. `$count` rows, `$copies` cards, `$format` the format.
+# Arguments: count, copies, format
+ImportTook = Imported from { $format }. Rows: { $count } · Cards: { $copies }
 
 # The pool has not arrived, so names are not resolved yet.
 ImportWaitingForPool = Waiting for the card pool to check the names…
 
-# Cards the pool does not have. `{0}` how many.
-# Arguments: arg0
-ImportUnknownCards = Not in this gateway's card pool: { $arg0 }. Remove them before saving:
+# Cards the pool does not have. `$count` how many.
+# Arguments: count
+ImportUnknownCards = Not in this gateway's card pool: { $count }. Remove them before saving:
 
-# Lines that were not rows. `{0}` how many.
-# Arguments: arg0
-ImportSkipped = Lines that are not deck rows: { $arg0 }
+# Lines that were not rows. `$count` how many.
+# Arguments: count
+ImportSkipped = Lines that are not deck rows: { $count }
 
-# One such line. `{0}` its number, `{1}` its text.
-# Arguments: arg0, arg1
-ImportSkippedLine = {"  "}line { $arg0 }: { $arg1 }
+# One such line. `$line` its number, `$text` its text.
+# Arguments: line, text
+ImportSkippedLine = {"  "}line { $line }: { $text }
 
-# Maybeboard rows, not kept. `{0}` how many.
-# Arguments: arg0
-ImportMaybeNotKept = Maybeboard rows not kept, as Baylee stores no maybeboard: { $arg0 }
+# Maybeboard rows, not kept. `$count` how many.
+# Arguments: count
+ImportMaybeNotKept = Maybeboard rows not kept, as Baylee stores no maybeboard: { $count }
 
-# A commander the rules will not seat. `{0}` its name.
-# Arguments: arg0
-ImportNotALeader = { $arg0 } cannot lead a deck, so it is not marked as commander.
+# A commander the rules will not seat. `$card` its name.
+# Arguments: card
+ImportNotALeader = { $card } cannot lead a deck, so it is not marked as commander.
 
-# The file named no deck. `{0}` the name given.
-# Arguments: arg0
-ImportNamedForYou = The file names no deck, so it is called “{ $arg0 }”.
+# The file named no deck. `$deck` the name given.
+# Arguments: deck
+ImportNamedForYou = The file names no deck, so it is called “{ $deck }”.
 
-# Rows with no printing. `{0}` how many.
-# Arguments: arg0
-ImportDefaultPrinting = Rows without a printing play the default printing: { $arg0 }
+# Rows with no printing. `$count` how many.
+# Arguments: count
+ImportDefaultPrinting = Rows without a printing play the default printing: { $count }
 
-# Rows with no language. `{0}` how many.
-# Arguments: arg0
-ImportDefaultLanguage = Rows without a language are English: { $arg0 }
+# Rows with no language. `$count` how many.
+# Arguments: count
+ImportDefaultLanguage = Rows without a language are English: { $count }
 
 # A hundred-card main deck without a commander.
 ImportNoCommander = The file names no commander. For a Commander deck, set one in the deck list's card menu.
 
-# More entries than the list shows. `{0}` how many more.
-# Arguments: arg0
-AndMore = {"  "}and { $arg0 } more
+# More entries than the list shows. `$count` how many more.
+# Arguments: count
+AndMore = {"  "}and { $count } more
 
 # A paste over the document limit.
 ImportTooLarge = That text is too large for a deck: at most 256 KiB.
 
-# A document with too many rows. `{0}` how many.
-# Arguments: arg0
-ImportTooManyRows = A deck file holds at most 1000 rows; this one holds { $arg0 }.
+# A document with too many rows. `$count` how many.
+# Arguments: count
+ImportTooManyRows = A deck file holds at most 1000 rows; this one holds { $count }.
 
 # Nothing but blank lines and comments.
 ImportNothing = There is no deck in that text.
 
-# Not one line was a row. `{0}` the first line's number, `{1}` its text.
-# Arguments: arg0, arg1
-ImportUnreadable = No deck rows found. Line { $arg0 } reads: { $arg1 }
+# Not one line was a row. `$line` the first line's number, `$text` its text.
+# Arguments: line, text
+ImportUnreadable = No deck rows found. Line { $line } reads: { $text }
 
-# JSON or YAML that did not parse. `{0}` the parser's words.
-# Arguments: arg0
-ImportSyntax = The file could not be read: { $arg0 }
+# JSON or YAML that did not parse. `$error` the parser's words.
+# Arguments: error
+ImportSyntax = The file could not be read: { $error }
 
-# A document version this build does not read. `{0}` the version.
-# Arguments: arg0
-ImportVersion = This is a deck document of version { $arg0 }; this build reads version 1. Update Baylee to import it.
+# A document version this build does not read. `$version` the version.
+# Arguments: version
+ImportVersion = This is a deck document of version { $version }; this build reads version 1. Update Baylee to import it.
 
 # A deck name that is too long or holds a line break.
 ImportDeckName = The deck's name is too long or holds a line break.
 
-# One card refused. `{0}` its position, `{1}` why.
-# Arguments: arg0, arg1
-ImportCardRefused = Card { $arg0 } cannot be imported: { $arg1 }
+# One card refused. `$position` its position, `$reason` why.
+# Arguments: position, reason
+ImportCardRefused = Card { $position } cannot be imported: { $reason }
 
 # Why: no name.
 ImportCardName = it has no name.
@@ -248,36 +256,36 @@ ImportCardUnstorable = its name or printing cannot be stored as written.
 # The export says everything.
 ExportComplete = This format keeps everything about the deck.
 
-# The export leaves things out. `{0}` the format.
-# Arguments: arg0
-ExportLeavesOut = { $arg0 } cannot say everything; left out:
+# The export leaves things out. `$format` the format.
+# Arguments: format
+ExportLeavesOut = { $format } cannot say everything; left out:
 
 # Loss: the deck's name.
 LossName = the deck's name
 
-# Loss: languages. `{0}` rows.
-# Arguments: arg0
-LossLang = languages, rows: { $arg0 }
+# Loss: languages. `$count` rows.
+# Arguments: count
+LossLang = languages, rows: { $count }
 
-# Loss: printing ids. `{0}` rows.
-# Arguments: arg0
-LossScryfallId = exact printing ids, rows: { $arg0 }
+# Loss: printing ids. `$count` rows.
+# Arguments: count
+LossScryfallId = exact printing ids, rows: { $count }
 
-# Loss: notes. `{0}` rows.
-# Arguments: arg0
-LossNote = notes, rows: { $arg0 }
+# Loss: notes. `$count` rows.
+# Arguments: count
+LossNote = notes, rows: { $count }
 
-# Loss: a finish written as non-foil. `{0}` rows.
-# Arguments: arg0
-LossFinish = holographic, glitter and galaxy finishes, written as non-foil, rows: { $arg0 }
+# Loss: a finish written as non-foil. `$count` rows.
+# Arguments: count
+LossFinish = holographic, glitter and galaxy finishes, written as non-foil, rows: { $count }
 
-# Loss: collector numbers without a set. `{0}` rows.
-# Arguments: arg0
-LossCollectorNumber = collector numbers without a set, rows: { $arg0 }
+# Loss: collector numbers without a set. `$count` rows.
+# Arguments: count
+LossCollectorNumber = collector numbers without a set, rows: { $count }
 
-# Loss: the maybeboard. `{0}` rows.
-# Arguments: arg0
-LossMaybeboard = the maybeboard, rows: { $arg0 }
+# Loss: the maybeboard. `$count` rows.
+# Arguments: count
+LossMaybeboard = the maybeboard, rows: { $count }
 
 # The export is on the clipboard.
 ExportCopied = Copied to the clipboard.
@@ -285,17 +293,17 @@ ExportCopied = Copied to the clipboard.
 # The clipboard refused.
 ExportCopyFailed = The clipboard could not be written. Save it as a file instead.
 
-# Saved. `{0}` the path.
-# Arguments: arg0
-ExportSavedTo = Saved as { $arg0 }
+# Saved. `$path` the path.
+# Arguments: path
+ExportSavedTo = Saved as { $path }
 
-# Handed to the browser. `{0}` the file name.
-# Arguments: arg0
-ExportDownloaded = Downloading { $arg0 }
+# Handed to the browser. `$file` the file name.
+# Arguments: file
+ExportDownloaded = Downloading { $file }
 
-# Not saved. `{0}` the system's words.
-# Arguments: arg0
-ExportSaveFailed = Could not save the file: { $arg0 }
+# Not saved. `$error` the system's words.
+# Arguments: error
+ExportSaveFailed = Could not save the file: { $error }
 
 # The import dialog's keys.
 ImportKeys = Ctrl/Cmd+V pastes · Enter imports · Esc closes
@@ -303,12 +311,12 @@ ImportKeys = Ctrl/Cmd+V pastes · Enter imports · Esc closes
 # The export dialog's keys.
 ExportKeys = ← → format · Ctrl/Cmd+C copies · Ctrl/Cmd+S saves · Esc closes
 
-# Arguments: arg0
-DeleteDeckQuestion = Delete “{ $arg0 }”?
+# Arguments: name
+DeleteDeckQuestion = Delete “{ $name }”?
 
 # Destructive deck confirmation.
-# Arguments: arg0
-ClearDeckQuestion = Empty “{ $arg0 }”?
+# Arguments: name
+ClearDeckQuestion = Empty “{ $name }”?
 
 # Destructive deck confirmation.
 DestructiveHint = Please confirm. Clearing removes the main deck and sideboard; deleting removes the saved deck.
@@ -351,8 +359,8 @@ ChooseDeck = Choose a deck
 CreateTable = Create table
 
 # Hub navigation.
-# Arguments: arg0
-PlayerCount = { $arg0 } players
+# Arguments: count
+PlayerCount = { $count } players
 
 # Hub navigation.
 NoOwnDecks = Start with a house deck or build your own.
@@ -403,8 +411,8 @@ AllSettings = All settings
 ForgetGateway = Remove from this list
 
 # Asked before a saved gateway leaves the list.
-# Arguments: arg0
-ForgetGatewayQuestion = Remove “{ $arg0 }” from this list?
+# Arguments: name
+ForgetGatewayQuestion = Remove “{ $name }” from this list?
 
 # Under that question: what removing it does, and what it does not.
 ForgetGatewayHint = Only this device forgets it. Your account and decks stay on the gateway.
@@ -413,18 +421,18 @@ ForgetGatewayHint = Only this device forgets it. Your account and decks stay on 
 GatewayAnswering = answering
 
 # Under the Fan Content notice: where the source is, the AGPL's §13
-# offer (#270). `{0}` is the address, drawn as it came.
-# Arguments: arg0
-SourceCode = Source code (AGPL-3.0): { $arg0 }
+# offer (#270). `$url` is the address, drawn as it came.
+# Arguments: url
+SourceCode = Source code (AGPL-3.0): { $url }
 
 # Compact settings action; its destination host is shown alongside.
 ImpressumAction = Legal notice
 
 # The gateway's legal notice (`/info` `impressum`) as a link, on the
-# front door's About and the terms sheet. `{0}` is
+# front door's About and the terms sheet. `$host` is
 # the host it opens, so the player sees where it goes.
-# Arguments: arg0
-ImpressumLink = Legal notice (Impressum) · { $arg0 }
+# Arguments: host
+ImpressumLink = Legal notice (Impressum) · { $host }
 
 # The front door's source tile (Wide and Vast): its label, over the
 # address it opens.
@@ -441,16 +449,16 @@ TileDiscord = Community on Discord
 ScryfallCredit = Card data and images provided by Scryfall.
 
 # Gateway selection: an address is asked about itself before it is saved.
-# Arguments: arg0
-GatewayChecking = Checking { $arg0 }…
+# Arguments: url
+GatewayChecking = Checking { $url }…
 
 # Gateway selection: the address answered and is saved.
-# Arguments: arg0
-GatewaySaved = Saved { $arg0 }.
+# Arguments: url
+GatewaySaved = Saved { $url }.
 
 # Gateway selection: nothing at the address answered as a gateway.
-# Arguments: arg0
-GatewayNotFound = No Baylee gateway answered at { $arg0 }. Check the address, or try again once it is up.
+# Arguments: url
+GatewayNotFound = No Baylee gateway answered at { $url }. Check the address, or try again once it is up.
 
 # Gateway row, beside its address, while it is being asked.
 GatewayCheckingShort = checking…
@@ -461,13 +469,13 @@ GatewayVersionUnknown = version unknown
 # Gateway row: a saved gateway that is down.
 GatewayNotAnswering = not answering
 
-# Gateway warning. `{0}` is the gateway's protocol version, `{1}` this client's.
-# Arguments: arg0, arg1
-GatewayProtocolMismatch = This gateway speaks protocol { $arg0 } and this client speaks { $arg1 }, so its games will not open here.
+# Gateway warning. `$gateway_version` is the gateway's protocol version, `$client_version` this client's.
+# Arguments: gateway_version, client_version
+GatewayProtocolMismatch = This gateway speaks protocol { $gateway_version } and this client speaks { $client_version }, so its games will not open here.
 
-# Gateway warning. `{0}` is the gateway's view version, `{1}` this client's.
-# Arguments: arg0, arg1
-GatewayViewMismatch = This gateway's games send view version { $arg0 } and this client reads { $arg1 }, so they will not open here.
+# Gateway warning. `$gateway_version` is the gateway's view version, `$client_version` this client's.
+# Arguments: gateway_version, client_version
+GatewayViewMismatch = This gateway's games send view version { $gateway_version } and this client reads { $client_version }, so they will not open here.
 
 # Gateway warning: a gateway from before version checks.
 GatewayOlder = This gateway is older than version checks. Whether its games open here shows only when one starts.
@@ -513,16 +521,16 @@ WorkingDiff = Changes from the latest saved version
 GrantedActions = Granted actions
 
 # Explicit life payment for one temporary action.
-# Arguments: arg0
-GrantedLifeCost = Pay { $arg0 } life
+# Arguments: amount
+GrantedLifeCost = Pay { $amount } life
 
 # Bound recipient of an already granted prevention action.
-# Arguments: arg0
-GrantedRecipient = Recipient: { $arg0 }
+# Arguments: recipient
+GrantedRecipient = Recipient: { $recipient }
 
 # One specific delayed life-loss obligation and its payment deadline.
-# Arguments: arg0
-GrantedCancelLifeLoss = Cancel this pending { $arg0 } life loss before your next draw step
+# Arguments: amount
+GrantedCancelLifeLoss = Cancel this pending { $amount } life loss before your next draw step
 
 # Confirms one explicitly selected temporary action.
 GrantedConfirm = Perform action
@@ -549,8 +557,8 @@ VersionSavedAt = Saved
 VersionSupersededAt = Replaced by next save
 
 # Library and front-door interface.
-# Arguments: arg0
-VersionLabel = Version { $arg0 }
+# Arguments: version
+VersionLabel = Version { $version }
 
 # Library and front-door interface.
 LibraryEmpty = No decks published yet. You can still build your own.
@@ -580,12 +588,12 @@ LibraryCommanders = Commanders
 NoChanges = No changes in this section.
 
 # Library and front-door interface.
-# Arguments: arg0, arg1
-LibraryCounts = { $arg0 } cards · { $arg1 } sideboard
+# Arguments: count, sideboard
+LibraryCounts = { $count } cards · { $sideboard } sideboard
 
 # Library and front-door interface.
-# Arguments: arg0, arg1
-LobbyCounts = { $arg0 } decks · { $arg1 } matching tables
+# Arguments: count, tables
+LobbyCounts = { $count } decks · { $tables } matching tables
 
 # Library and front-door interface.
 Composition = Deck overview
@@ -714,17 +722,17 @@ EffectsVolume = Game sounds
 # Silence while another window has the focus.
 MuteInBackground = Silent in the background
 
-# A newer release is downloaded, verified and waiting. `{0}` its version.
-# Arguments: arg0
-UpdateReady = Update { $arg0 } ready – installs when you quit
+# A newer release is downloaded, verified and waiting. `$version` its version.
+# Arguments: version
+UpdateReady = Update { $version } ready – installs when you quit
 
-# A newer release exists and will not install itself. `{0}` its version.
-# Arguments: arg0
-UpdateAvailable = Update { $arg0 } available – download it here
+# A newer release exists and will not install itself. `$version` its version.
+# Arguments: version
+UpdateAvailable = Update { $version } available – download it here
 
-# Shown once, at the first start after an update. `{0}` the version.
-# Arguments: arg0
-UpdatedTo = Updated to { $arg0 }
+# Shown once, at the first start after an update. `$version` the version.
+# Arguments: version
+UpdatedTo = Updated to { $version }
 
 # Why an update is only a link: the player switched installing off.
 UpdateWhyOff = Automatic updates are off in the settings.
@@ -740,9 +748,9 @@ UpdateWhyFolder = Baylee cannot write to its own folder, so it cannot replace it
 UpdateWhyMoveApp = macOS runs Baylee from a read-only copy. Move it to Applications and it can update itself.
 
 # Why, exactly: the folder of the installation cannot be written by
-# this user. `{0}` the folder, `{1}` what the system answered.
-# Arguments: arg0, arg1
-UpdateWhyReadOnly = Baylee installs no updates here: it may not write to { $arg0 } ({ $arg1 }). Move it to your Applications folder and it can.
+# this user. `$folder` the folder, `$error` what the system answered.
+# Arguments: folder, error
+UpdateWhyReadOnly = Baylee installs no updates here: it may not write to { $folder } ({ $error }). Move it to your Applications folder and it can.
 
 # Settings: macOS runs the app from a read-only copy, and updates
 # install anyway.
@@ -757,17 +765,17 @@ UpdateMoveSystem = Move to Applications for all users
 # Under the buttons: what moving does.
 UpdateMoveWhat = Copies Baylee there, starts the copy and closes this one. The old copy is deleted only if you say so.
 
-# Moving failed. `{0}` why.
-# Arguments: arg0
-UpdateMoveFailed = Baylee could not be moved: { $arg0 }
+# Moving failed. `$error` why.
+# Arguments: error
+UpdateMoveFailed = Baylee could not be moved: { $error }
 
-# The first start after a move. `{0}` where it runs now.
-# Arguments: arg0
-UpdateMoved = Baylee now runs from { $arg0 }.
+# The first start after a move. `$path` where it runs now.
+# Arguments: path
+UpdateMoved = Baylee now runs from { $path }.
 
-# Under it. `{0}` the old copy.
-# Arguments: arg0
-UpdateOldCopy = The old copy is still at { $arg0 }.
+# Under it. `$path` the old copy.
+# Arguments: path
+UpdateOldCopy = The old copy is still at { $path }.
 
 # Moves the old copy to the Trash.
 UpdateTrashOld = Move old copy to Trash
@@ -775,9 +783,9 @@ UpdateTrashOld = Move old copy to Trash
 # Keeps the old copy, and stops asking.
 UpdateKeepOld = Keep it
 
-# The Trash refused. `{0}` why.
-# Arguments: arg0
-UpdateTrashFailed = It could not be moved to the Trash ({ $arg0 }); drag it there yourself if you like.
+# The Trash refused. `$error` why.
+# Arguments: error
+UpdateTrashFailed = It could not be moved to the Trash ({ $error }); drag it there yourself if you like.
 
 # Why: the download's signature or checksum did not verify.
 UpdateWhyNotVerified = The download could not be verified as ours, so it was not installed.
@@ -802,9 +810,9 @@ UpdateRestartNow = Restart now
 # The ready update's other button: not now, for this session.
 UpdateLater = Later
 
-# The restart could not be started. `{0}` what the system said.
-# Arguments: arg0
-UpdateRestartFailed = Could not restart: { $arg0 }
+# The restart could not be started. `$error` what the system said.
+# Arguments: error
+UpdateRestartFailed = Could not restart: { $error }
 
 # After a restart, the place could not be taken up again.
 ResumeFailed = Could not continue where you left off – started fresh.
@@ -851,9 +859,9 @@ SignOut = Sign out
 # settings screen.
 DeleteAccount = Delete account
 
-# Asked before an account is deleted. `{0}` is its name.
-# Arguments: arg0
-DeleteAccountQuestion = Delete the account { $arg0 }?
+# Asked before an account is deleted. `$account` is its name.
+# Arguments: account
+DeleteAccountQuestion = Delete the account { $account }?
 
 # Under that question, for an account with a password.
 DeleteAccountHint = The account, its decks and its settings leave this gateway for good, and every device signed in to it is signed out. Type your password to confirm.
@@ -941,9 +949,9 @@ GatewayBack = The gateway is back.
 # The listing said no agent is there: no room can open or start.
 NoNewGames = No new games can start right now — the server may be updating. Games already running go on.
 
-# Shown when a search matched nothing. `{0}` is what was searched for.
-# Arguments: arg0
-NoTableMatches = no table matches “{ $arg0 }”
+# Shown when a search matched nothing. `$query` is what was searched for.
+# Arguments: query
+NoTableMatches = no table matches “{ $query }”
 
 # Sits down at a table.
 Join = Join
@@ -978,9 +986,9 @@ SeatToOpen = → open
 # Seats a language model in an open chair (`docs/llm-seat.md`).
 SeatToLlm = → language model
 
-# What a language-model chair plays. `{0}` the model's label and id, `{1}` the effort.
-# Arguments: arg0, arg1
-RoomLlmPlays = Language model: { $arg0 }, effort { $arg1 }
+# What a language-model chair plays. `$model` the model's label and id, `$effort` the effort.
+# Arguments: model, effort
+RoomLlmPlays = Language model: { $model }, effort { $effort }
 
 # The effort a model picks itself.
 RoomLlmEffortOwn = the model's own
@@ -1007,8 +1015,8 @@ RoomLlmStarting = Its bridge takes the chair once the room lists it open.
 HostedEntry = Hosted model
 
 # The hosted-model sheet's title.
-# Arguments: arg0
-HostedTitle = Hosted model for chair { $arg0 }
+# Arguments: seat
+HostedTitle = Hosted model for chair { $seat }
 
 # Over the hosted-model list.
 HostedIntro = A model the gateway runs plays this chair. Pick one:
@@ -1020,8 +1028,8 @@ HostedAsking = Asking the gateway…
 HostedNone = This gateway offers no hosted model now.
 
 # Under an unavailable profile with a known return.
-# Arguments: arg0
-HostedBackAt = back from { $arg0 }
+# Arguments: time
+HostedBackAt = back from { $time }
 
 # Under an unavailable profile with no known return.
 HostedNotNow = not available now
@@ -1033,15 +1041,15 @@ HostedStarting = Starting…
 HostedReady = Ready
 
 # Under a chair whose order failed.
-# Arguments: arg0
-HostedFailed = The hosted model failed: { $arg0 }
+# Arguments: reason
+HostedFailed = The hosted model failed: { $reason }
 
 # A failure without a reason.
 HostedNoReason = no reason given
 
 # Where the game's data goes.
-# Arguments: arg0
-HostedDataGoesTo = Game data goes to { $arg0 }
+# Arguments: vendor
+HostedDataGoesTo = Game data goes to { $vendor }
 
 # Takes a hosted chair back.
 HostedTakeBack = Take back
@@ -1073,37 +1081,37 @@ PageBack = ‹ Back
 # One page on.
 PageMore = More ›
 
-# Which rows are shown. `{0}`–`{1}` of `{2}`.
-# Arguments: arg0, arg1, arg2
-PageOf = { $arg0 }–{ $arg1 } of { $arg2 }
+# Which rows are shown. `$first`–`$last` of `$total`.
+# Arguments: first, last, total
+PageOf = { $first }–{ $last } of { $total }
 
-# A chair nobody is in. `{0}` is the seat number.
-# Arguments: arg0
-SeatOpen = seat { $arg0 } · open
+# A chair nobody is in. `$seat` is the seat number.
+# Arguments: seat
+SeatOpen = seat { $seat } · open
 
-# A chair the AI plays. `{0}` is the seat, `{1}` the difficulty.
-# Arguments: arg0, arg1
-SeatAi = seat { $arg0 } · AI ({ $arg1 })
+# A chair the AI plays. `$seat` is the seat, `$difficulty` the difficulty.
+# Arguments: seat, difficulty
+SeatAi = seat { $seat } · AI ({ $difficulty })
 
-# Somebody else's chair. `{0}` is the seat, `{1}` their name.
-# Arguments: arg0, arg1
-SeatTaken = seat { $arg0 } · { $arg1 }
+# Somebody else's chair. `$seat` is the seat, `$player` their name.
+# Arguments: seat, player
+SeatTaken = seat { $seat } · { $player }
 
-# This player's own chair. `{0}` is the seat, `{1}` their name.
-# Arguments: arg0, arg1
-SeatYours = seat { $arg0 } · { $arg1 } (you)
+# This player's own chair. `$seat` is the seat, `$player` their name.
+# Arguments: seat, player
+SeatYours = seat { $seat } · { $player } (you)
 
-# How full a table is. `{0}` seated of `{1}` chairs.
-# Arguments: arg0, arg1
-Seated = { $arg0 }/{ $arg1 } seated
+# How full a table is. `$count` seated of `$total` chairs.
+# Arguments: count, total
+Seated = { $count }/{ $total } seated
 
-# How big a table that is already playing is. `{0}` chairs.
-# Arguments: arg0
-SeatCount = { $arg0 } seats
+# How big a table that is already playing is. `$count` chairs.
+# Arguments: count
+SeatCount = { $count } seats
 
-# What a waiting room is waiting for. `{0}` is how many are not ready.
-# Arguments: arg0
-WaitingFor = waiting for { $arg0 }
+# What a waiting room is waiting for. `$player` is how many are not ready.
+# Arguments: player
+WaitingFor = waiting for { $player }
 
 # The same, when the seat being waited for is the one reading it.
 #
@@ -1130,9 +1138,9 @@ StatePlaying = playing
 # The same, for one that is over.
 StateOver = over
 
-# The banner over a table of ours nobody has joined yet. `{0}` is its id.
-# Arguments: arg0
-TableOpenWaiting = your table { $arg0 } is open — waiting for an opponent
+# The banner over a table of ours nobody has joined yet. `$table` is its id.
+# Arguments: table
+TableOpenWaiting = your table { $table } is open — waiting for an opponent
 
 # The same banner offline, where the table carries no id worth reading
 # and nobody is on their way to it.
@@ -1175,17 +1183,17 @@ UsernameEdge = a username starts and ends with a letter or a digit
 UsernameDoubled = a username has no two of _ - . in a row
 
 # Signed in with an address: the name to sign in with from now on.
-# `{0}` is the username.
-# Arguments: arg0
-YourUsernameIs = signed in — your username is { $arg0 }; the address works until the end of 2026
+# `$username` is the username.
+# Arguments: username
+YourUsernameIs = signed in — your username is { $username }; the address works until the end of 2026
 
 # The button that plays as a new guest (#269).
 PlayAsGuest = Play as guest
 
-# The same button, for the guest this device already holds here. `{0}`
+# The same button, for the guest this device already holds here. `$handle`
 # is its handle.
-# Arguments: arg0
-ContinueAsGuest = Continue as { $arg0 }
+# Arguments: handle
+ContinueAsGuest = Continue as { $handle }
 
 # Caption of the box for a guest's name.
 GuestName = GUEST NAME
@@ -1229,9 +1237,9 @@ InviteKeyInvalid = this closed beta key is not valid — check it, or ask for a 
 # The gateway wanted a key and none reached it.
 InviteKeyNeeded = this gateway is a closed beta: a new account or guest needs a closed beta key
 
-# Asked before a guest signs out. `{0}` is its handle.
-# Arguments: arg0
-GuestSignOutQuestion = Sign out { $arg0 }?
+# Asked before a guest signs out. `$name` is its handle.
+# Arguments: name
+GuestSignOutQuestion = Sign out { $name }?
 
 # Under that question: what signing out does to a guest.
 GuestSignOutHint = A guest cannot sign in again. Signing out deletes this guest and its decks now.
@@ -1242,14 +1250,14 @@ NeedDisplayName = a display name, please
 # Registering, and the password was typed differently the second time.
 PasswordsDiffer = the two passwords differ
 
-# A sign-in refused for a ban with an end (beta.8): `{0}` the end,
-# `{1}` the admin's reason.
-# Arguments: arg0, arg1
-BannedUntil = This account is banned until { $arg0 }. Reason: { $arg1 }
+# A sign-in refused for a ban with an end (beta.8): `$until` the end,
+# `$reason` the admin's reason.
+# Arguments: until, reason
+BannedUntil = This account is banned until { $until }. Reason: { $reason }
 
-# A sign-in refused for a ban for good: `{0}` the admin's reason.
-# Arguments: arg0
-BannedForGood = This account is banned. Reason: { $arg0 }
+# A sign-in refused for a ban for good: `$reason` the admin's reason.
+# Arguments: reason
+BannedForGood = This account is banned. Reason: { $reason }
 
 # The face that asks for a new password after an admin reset it.
 ChooseNewPassword = Choose a new password
@@ -1352,9 +1360,9 @@ TakingTheSeat = taking the seat…
 # The game we were in ended and the lobby is back.
 GameEnded = the game ended
 
-# A body arrived that made no sense. `{0}` names what was being read.
-# Arguments: arg0
-Unreadable = could not read { $arg0 } the gateway sent
+# A body arrived that made no sense. `$what` names what was being read.
+# Arguments: what
+Unreadable = could not read { $what } the gateway sent
 
 # What `{0}` is, in that message: the table list.
 TheGameList = the game list
@@ -1570,8 +1578,8 @@ ActMulliganTake = Mulligan
 ActAnswerYes = Yes
 
 # Finite batch of already stacked identical may decisions.
-# Arguments: arg0
-AnswerYesBatch = Yes to all { $arg0 } identical abilities
+# Arguments: count
+AnswerYesBatch = Yes to all { $count } identical abilities
 
 # Public continuing effect on a player's hand limit.
 NoMaxHandSize = No maximum hand size
@@ -1668,8 +1676,8 @@ TypesAll = All types
 
 # A cast made before its mana, asking its own question first: the
 # spell, the question, and that the payment comes after (CR 601.2g).
-# Arguments: arg0, arg1
-CastFirstQuestion = Cast { $arg0 }: { $arg1 } — paid after
+# Arguments: spell, question
+CastFirstQuestion = Cast { $spell }: { $question } — paid after
 
 # The answer that takes back a spell being cast (CR 732), in its
 # questions and its payment window.
@@ -1724,8 +1732,8 @@ ArrTurntableRows = Turntable+
 ArrTurntableRowsBlurb = Turntable up to four seats, Spotlight from five or on a phone.
 
 # What the turntable with rows resolved to at this table
-# Arguments: arg0
-ArrResolvedTo = Here: { $arg0 }
+# Arguments: arrangement
+ArrResolvedTo = Here: { $arrangement }
 
 # The focus ring (arrangement 8)
 ArrFocusRing = Focus ring
@@ -1737,8 +1745,8 @@ ArrFocusRingBlurb = A duel in the middle, the other seats as peeks at the edges.
 ArrNotInADuel = A duel has only one arrangement
 
 # A greyed row: not built yet
-# Arguments: arg0
-ArrComing = Coming ({ $arg0 })
+# Arguments: package
+ArrComing = Coming ({ $package })
 
 # A greyed row: not at this many seats on this window
 ArrNotHereSeats = Not at this many seats on a window this size
@@ -1753,15 +1761,15 @@ ArrNotOnAPhone = Not on a phone
 ArrExperimental = experimental
 
 # The menu's last row: keep this choice for the seat count
-# Arguments: arg0
-ArrRememberForSeats = Remember for { $arg0 } seats
+# Arguments: count
+ArrRememberForSeats = Remember for { $count } seats
 
 # The placeholder note under the menu
 ArrLettersNote = The letters stand in for pictograms still to be drawn.
 
 # The game menu's row
-# Arguments: arg0
-ArrGameMenuRow = Arrangement › { $arg0 }
+# Arguments: arrangement
+ArrGameMenuRow = Arrangement › { $arrangement }
 
 # The arrangement settings row
 RowArrangement = Table arrangement
@@ -1782,8 +1790,8 @@ RowArrangementBySeats = Per seat count
 HelpArrangementBySeats = An arrangement remembered for one seat count wins over the default at a table of that size.
 
 # A seat count's label in the per-count rows
-# Arguments: arg0
-ArrSeats = { $arg0 } seats
+# Arguments: count
+ArrSeats = { $count } seats
 
 # The per-count choice that takes the default
 ArrAsDefault = Default
@@ -1980,13 +1988,13 @@ SortCost = Cost
 # Type
 SortType = Type
 
-# Sort: {0}
-# Arguments: arg0
-SortBy = Sort: { $arg0 }
+# Sort: $order
+# Arguments: order
+SortBy = Sort: { $order }
 
-# Cards ({0})
-# Arguments: arg0
-PaneCards = Cards ({ $arg0 })
+# Cards ($count)
+# Arguments: count
+PaneCards = Cards ({ $count })
 
 # Unapplied host edits.
 RoomDraft = Unsaved settings · apply your changes before starting.
@@ -2021,9 +2029,9 @@ RoomMulligans = Free mulligans
 # Permanent input label.
 RoomBoard = Find starting permanents
 
-# Expandable starting-position editor; {0} counts configured permanents.
-# Arguments: arg0
-RoomStartingCards = Starting cards · { $arg0 }
+# Expandable starting-position editor; $count counts configured permanents.
+# Arguments: count
+RoomStartingCards = Starting cards · { $count }
 
 # Draft submit.
 RoomApply = Apply settings
@@ -2076,9 +2084,9 @@ RoomDefault = Use default
 # Empty deck notice in room.
 RoomNoDeck = No deck selected
 
-# Deck ({0} / {1})
-# Arguments: arg0, arg1
-PaneDeck = Deck ({ $arg0 } / { $arg1 })
+# Deck ($count / $sideboard)
+# Arguments: count, sideboard
+PaneDeck = Deck ({ $count } / { $sideboard })
 
 # Leave without saving
 LeaveWithoutSaving = Leave without saving
@@ -2110,13 +2118,13 @@ ClearFilters = Clear
 # Playable only
 PlayableOnly = Playable only
 
-# {0} of {1} cards{2}
-# Arguments: arg0, arg1, arg2
-PoolTally = { $arg0 } of { $arg1 } cards{ $arg2 }
+# $count of $total cards$suffix
+# Arguments: count, total, suffix
+PoolTally = { $count } of { $total } cards{ $suffix }
 
-# — showing {0}, keep typing to narrow it
-# Arguments: arg0
-PoolNarrow = {" "}— showing { $arg0 }, keep typing to narrow it
+# — showing $count, keep typing to narrow it
+# Arguments: count
+PoolNarrow = {" "}— showing { $count }, keep typing to narrow it
 
 # nothing matches — try fewer filters
 NothingMatches = nothing matches — try fewer filters
@@ -2127,9 +2135,9 @@ NoPrintings = no printings
 # looking for other printings…
 LookingForPrintings = looking for other printings…
 
-# {0} of {1}
-# Arguments: arg0, arg1
-PrintingAt = { $arg0 } of { $arg1 }
+# $position of $total
+# Arguments: position, total
+PrintingAt = { $position } of { $total }
 
 # Other printings could not be loaded. Showing the reference printing.
 NoCatalogOnlyThis = Other printings could not be loaded. Showing the reference printing.
@@ -2152,9 +2160,9 @@ FinishEtched = Etched
 # Add
 AddPrinting = Add
 
-# {0} in the {1}
-# Arguments: arg0, arg1
-CountInZone = { $arg0 } in the { $arg1 }
+# $count in the $zone
+# Arguments: count, zone
+CountInZone = { $count } in the { $zone }
 
 # deck
 ZoneDeck = deck
@@ -2168,9 +2176,9 @@ NoArtForPrinting = no art for this printing
 # no rules text — this gateway has no card catalog
 NoRulesText = no rules text — this gateway has no card catalog
 
-# {0} — this card will not play as printed
-# Arguments: arg0
-NotAsPrinted = { $arg0 } — this card will not play as printed
+# $coverage — this card will not play as printed
+# Arguments: coverage
+NotAsPrinted = { $coverage } — this card will not play as printed
 
 # + deck
 AddToDeck = + deck
@@ -2193,17 +2201,17 @@ IsCommander = commander ✓
 # set as commander
 SetCommander = set as commander
 
-# {0} in the deck
-# Arguments: arg0
-HeldInDeck = { $arg0 } in the deck
+# $count in the deck
+# Arguments: count
+HeldInDeck = { $count } in the deck
 
-# {0} in the sideboard
-# Arguments: arg0
-HeldInSideboard = { $arg0 } in the sideboard
+# $count in the sideboard
+# Arguments: count
+HeldInSideboard = { $count } in the sideboard
 
-# {0} in the deck, {1} in the sideboard
-# Arguments: arg0, arg1
-HeldInBoth = { $arg0 } in the deck, { $arg1 } in the sideboard
+# $count in the deck, $sideboard in the sideboard
+# Arguments: count, sideboard
+HeldInBoth = { $count } in the deck, { $sideboard } in the sideboard
 
 # untested
 CoverageGenerated = untested
@@ -2217,17 +2225,17 @@ CoverageStub = stub
 # DECK NAME
 DeckNameLabel = DECK NAME
 
-# Main {0}
-# Arguments: arg0
-TabMain = Main { $arg0 }
+# Main $count
+# Arguments: count
+TabMain = Main { $count }
 
-# Sideboard {0}
-# Arguments: arg0
-TabSide = Sideboard { $arg0 }
+# Sideboard $count
+# Arguments: count
+TabSide = Sideboard { $count }
 
-# {0} lands · {1} creatures · {2} other spells
-# Arguments: arg0, arg1, arg2
-DeckMakeup = { $arg0 } lands · { $arg1 } creatures · { $arg2 } other spells
+# $lands lands · $creatures creatures · $spells other spells
+# Arguments: lands, creatures, spells
+DeckMakeup = { $lands } lands · { $creatures } creatures · { $spells } other spells
 
 # empty — tap a card on the left to add it
 DeckEmptyHint = empty — tap a card on the left to add it
@@ -2235,9 +2243,9 @@ DeckEmptyHint = empty — tap a card on the left to add it
 # Empty the deck
 EmptyTheDeck = Empty the deck
 
-# dropped: {0}
-# Arguments: arg0
-DroppedCards = dropped: { $arg0 }
+# dropped: $card
+# Arguments: card
+DroppedCards = dropped: { $card }
 
 # The deck needs a name.
 DeckNeedsName = The deck needs a name.
@@ -2248,41 +2256,41 @@ DeckNameTooLong = That name is too long (64 characters at most).
 # The deck is empty.
 DeckIsEmpty = The deck is empty.
 
-# At most {0} different cards per list.
-# Arguments: arg0
-TooManyLines = At most { $arg0 } different cards per list.
+# At most $count different cards per list.
+# Arguments: count
+TooManyLines = At most { $count } different cards per list.
 
-# At most {0} cards in each list.
-# Arguments: arg0
-TooManyCards = At most { $arg0 } cards in each list.
+# At most $count cards in each list.
+# Arguments: count
+TooManyCards = At most { $count } cards in each list.
 
-# {0} is no longer in the card pool.
-# Arguments: arg0
-CardGoneFromPool = { $arg0 } is no longer in the card pool.
+# $card is no longer in the card pool.
+# Arguments: card
+CardGoneFromPool = { $card } is no longer in the card pool.
 
-# {0} can no longer be a commander — this deck will save without one.
-# Arguments: arg0
-CommanderNoLongerEligible = { $arg0 } can no longer be a commander — this deck will save without one.
+# $card can no longer be a commander — this deck will save without one.
+# Arguments: card
+CommanderNoLongerEligible = { $card } can no longer be a commander — this deck will save without one.
 
-# {0} cards — a constructed deck wants at least {1}.
-# Arguments: arg0, arg1
-DeckTooSmall = { $arg0 } cards — a constructed deck wants at least { $arg1 }.
+# $count cards — a constructed deck wants at least $min.
+# Arguments: count, min
+DeckTooSmall = { $count } cards — a constructed deck wants at least { $min }.
 
-# A sideboard is usually at most {0} cards.
-# Arguments: arg0
-SideboardTooBig = A sideboard is usually at most { $arg0 } cards.
+# A sideboard is usually at most $count cards.
+# Arguments: count
+SideboardTooBig = A sideboard is usually at most { $count } cards.
 
-# {0} lands in {1} cards is thin for this curve.
-# Arguments: arg0, arg1
-ThinOnLands = { $arg0 } lands in { $arg1 } cards is thin for this curve.
+# $count lands in $total cards is thin for this curve.
+# Arguments: count, total
+ThinOnLands = { $count } lands in { $total } cards is thin for this curve.
 
-# {0} card is not fully implemented yet and will not play as printed.
-# Arguments: arg0
-ShakyCard = { $arg0 } card is not fully implemented yet and will not play as printed.
-
-# {0} cards are not fully implemented yet and will not play as printed.
-# Arguments: arg0
-ShakyCards = { $arg0 } cards are not fully implemented yet and will not play as printed.
+# $count card is not fully implemented yet and will not play as printed.
+# Arguments: count
+ShakyCards =
+    { $count ->
+        [one] { $count } card is not fully implemented yet and will not play as printed.
+       *[other] { $count } cards are not fully implemented yet and will not play as printed.
+    }
 
 # Caption over the small card beside a copy's preview.
 #
@@ -2297,9 +2305,9 @@ CardUnderneath = UNDERNEATH
 # may be folded out of sight, which its attachment mark says.
 CardAttached = ATTACHED
 
-# Waiting for {0}
+# Waiting for $player
 #
-# `{0}` is a seat's *name* and falls back to [`Phrase::SeatNumbered`],
+# `$player` is a seat's *name* and falls back to [`Phrase::SeatNumbered`],
 # so the old wording ("Waiting for seat 1") is what a table with no
 # roster still says — and a table that has one says who.
 #
@@ -2307,19 +2315,19 @@ CardAttached = ATTACHED
 # somebody ("wartet auf …") inside a stack entry or a lobby row. This
 # is the prompt bar speaking in its own voice, and German conjugates
 # the two differently.
-# Arguments: arg0
-WaitingForPlayer = Waiting for { $arg0 }
+# Arguments: player
+WaitingForPlayer = Waiting for { $player }
 
-# Waiting for {0} players
+# Waiting for $count players
 #
 # The bar's line to a seat that has kept while several others still
 # decide their opening hands (#257); one other is named, with
-# [`Phrase::WaitingForPlayer`]. `{0}` is always two or more, so there
+# [`Phrase::WaitingForPlayer`]. `$count` is always two or more, so there
 # is no singular to write (German "Spieler" is both anyway).
-# Arguments: arg0
-WaitingForPlayers = Waiting for { $arg0 } players
+# Arguments: count
+WaitingForPlayers = Waiting for { $count } players
 
-# Waiting for the house — {0} is away
+# Waiting for the house — $player is away
 #
 # The same fact as [`Phrase::WaitingForPlayer`] about a chair the house
 # is holding. Since #81 the client *draws* a held chair — a dashed rim
@@ -2332,8 +2340,8 @@ WaitingForPlayers = Waiting for { $arg0 } players
 # `SeatIdentity::away` is `SeatKind::StandIn`, so the roster is telling
 # this client that the house **is** answering. The banner guesses about
 # its own seat and may not say so; this reports another seat and may.
-# Arguments: arg0
-WaitingForHeldSeat = Waiting for the house — { $arg0 } is away
+# Arguments: player
+WaitingForHeldSeat = Waiting for the house — { $player } is away
 
 # You owe mana. Activate mana abilities to pay, or pass.
 #
@@ -2353,8 +2361,8 @@ PayOrPass = You owe mana. Click lands to stage them or choose "Pay now"; nothing
 
 # "Pay now" in a payment window: stages the client's plan for what is
 # still owed, visibly, and sends nothing — the next press pays.
-# Arguments: arg0
-PayStage = Pay now (tap { $arg0 })
+# Arguments: count
+PayStage = Pay now (tap { $count })
 
 # Go: sends the staged taps and pays the window in one action.
 PayGo = Pay
@@ -2376,28 +2384,28 @@ DeclinePact = Don't pay — you lose the game
 PaymentShort = Not enough mana to pay. Stage more lands, or choose "Don't pay".
 
 # The AI log's heading line for one entry: whose mind it is.
-# Arguments: arg0
-AiSaidHead = { $arg0 } thinks
+# Arguments: player
+AiSaidHead = { $player } thinks
 
 # What the model thought before it answered.
-# Arguments: arg0
-AiSaidThinking = Reasoning: { $arg0 }
+# Arguments: thought
+AiSaidThinking = Reasoning: { $thought }
 
 # The answer the model chose.
-# Arguments: arg0
-AiSaidChose = Chose: { $arg0 }
+# Arguments: choice
+AiSaidChose = Chose: { $choice }
 
 # What the answer cost.
-# Arguments: arg0, arg1
-AiSaidCost = { $arg0 } tokens, { $arg1 } s
+# Arguments: count, seconds
+AiSaidCost = { $count } tokens, { $seconds } s
 
 # Private optional creature cast from a resolving Mask ability.
-# Arguments: arg0
-MaskChoose = Choose a creature to cast face down (X = { $arg0 }), or decline
+# Arguments: x
+MaskChoose = Choose a creature to cast face down (X = { $x }), or decline
 
 # Actual receipt with fixed costs shown separately; no invented partition.
-# Arguments: arg0, arg1
-MaskReceipt = Actual mana payment: { $arg0 }; fixed activation costs: { $arg1 }
+# Arguments: mana, fixed_cost
+MaskReceipt = Actual mana payment: { $mana }; fixed activation costs: { $fixed_cost }
 
 # The controlled player's mandatory playable-card choice.
 CommandChoose = Choose the card this player must play if able
@@ -2412,8 +2420,8 @@ DeclineCast = Decline casting
 ChooseTextReplacement = Choose the old word and its replacement
 
 # Current explicit text-change draft, without rewriting Oracle.
-# Arguments: arg0, arg1
-TextReplacementSummary = Word change: { $arg0 } → { $arg1 }
+# Arguments: from, to
+TextReplacementSummary = Word change: { $from } → { $to }
 
 # First vocabulary column.
 TextOldWord = Old word
@@ -2425,12 +2433,12 @@ TextNewWord = New word
 ChooseRequiredMana = Choose a land mana ability
 
 # Mandatory instruction progress, separate from the compact headline.
-# Arguments: arg0
-RequiredManaProgress = Required — { $arg0 } activations completed
+# Arguments: count
+RequiredManaProgress = Required — { $count } activations completed
 
 # Decision controller differs from the resource owner.
-# Arguments: arg0
-DecidingFor = You decide for { $arg0 }
+# Arguments: player
+DecidingFor = You decide for { $player }
 
 # A replacement effect turns the affected face-down creature face up.
 DamageTurnFaceUp = Turn face up before damage
@@ -2439,12 +2447,12 @@ DamageTurnFaceUp = Turn face up before damage
 GrantedPaymentHint = Produce mana or pass.
 
 # Mana may be generated before choosing an optional amount to prevent damage.
-# Arguments: arg0
-PrepareManaPayment = You may generate mana to prevent up to { $arg0 } damage. Pass to choose the amount.
+# Arguments: amount
+PrepareManaPayment = You may generate mana to prevent up to { $amount } damage. Pass to choose the amount.
 
 # A variable payment can exceed the damage it could prevent.
-# Arguments: arg0, arg1, arg2
-ChooseManaPayment = How much mana will you pay? ({ $arg0 }–{ $arg1 }; prevent up to { $arg2 } damage)
+# Arguments: min, max, amount
+ChooseManaPayment = How much mana will you pay? ({ $min }–{ $max }; prevent up to { $amount } damage)
 
 # One non-targeted, exact source selection.
 ChooseDamageSource = Choose a damage source
@@ -2468,12 +2476,12 @@ SourceCurrent = current
 SourceHistorical = earlier incarnation
 
 # Secondary exact-incarnation label for otherwise similar rows.
-# Arguments: arg0
-SourceVersion = incarnation { $arg0 }
+# Arguments: version
+SourceVersion = incarnation { $version }
 
 # Publicly visible spell/ability reference count.
-# Arguments: arg0
-SourceReferences = { $arg0 } on the stack
+# Arguments: count
+SourceReferences = { $count } on the stack
 
 # Generic public label for a face-down source.
 SourceFaceDown = Face-down source
@@ -2488,27 +2496,27 @@ DamageCombat = combat damage
 DamageNoncombat = noncombat damage
 
 # Damage decision: `DamagePart`.
-# Arguments: arg0, arg1, arg2, arg3
-DamagePart = { $arg0 } → { $arg1 }: { $arg2 } ({ $arg3 })
+# Arguments: source, recipient, amount, kind
+DamagePart = { $source } → { $recipient }: { $amount } ({ $kind })
 
 # Damage decision: `DamageShield`.
-# Arguments: arg0
-DamageShield = Prevent the next damage; shield remaining: { $arg0 }
+# Arguments: remaining
+DamageShield = Prevent the next damage; shield remaining: { $remaining }
 
 # Damage replacement changes each indicated amount without prevention.
-# Arguments: arg0
-DamageReplaceAmount = Set each indicated source's damage to each recipient to { $arg0 }; this is not prevention
+# Arguments: amount
+DamageReplaceAmount = Set each indicated source's damage to each recipient to { $amount }; this is not prevention
 
 # Reflection adds damage from an exact source to a named player.
-# Arguments: arg0
-DamageReflect = This effect's source also deals the indicated damage to { $arg0 }
+# Arguments: player
+DamageReflect = This effect's source also deals the indicated damage to { $player }
 
 # A shield counter is spent to prevent this event's damage.
 DamageShieldCounter = Remove one shield counter and prevent this event's damage
 
 # Damage decision: `DamageEventShield`.
-# Arguments: arg0
-DamageEventShield = Prevent this event’s damage; remaining: { $arg0 }; excess expires
+# Arguments: remaining
+DamageEventShield = Prevent this event’s damage; remaining: { $remaining }; excess expires
 
 # Damage decision: `DamagePreventAll`.
 DamagePreventAll = Prevent all indicated damage
@@ -2520,32 +2528,32 @@ DamagePreventCombat = Prevent all indicated combat damage
 DamageProtection = Protection prevents the indicated damage
 
 # Damage decision: `DamageRedirect`.
-# Arguments: arg0
-DamageRedirect = Redirect the damage to { $arg0 }
+# Arguments: recipient
+DamageRedirect = Redirect the damage to { $recipient }
 
 # Finite redirection names its recipient and remaining capacity.
-# Arguments: arg0, arg1
-DamageRedirectNext = Redirect damage to { $arg0 }; remaining: { $arg1 }
+# Arguments: recipient, remaining
+DamageRedirectNext = Redirect damage to { $recipient }; remaining: { $remaining }
 
 # Damage decision: `DamageCounter`.
-# Arguments: arg0, arg1
-DamageCounter = Remove one { $arg0 } counter and try to prevent 1 damage; counters remaining: { $arg1 }
+# Arguments: counter, remaining
+DamageCounter = Remove one { $counter } counter and try to prevent 1 damage; counters remaining: { $remaining }
 
 # Damage decision: `DamageSourceShield`.
-# Arguments: arg0, arg1
-DamageSourceShield = Use the shield against { $arg0 }; leave { $arg1 } damage unprevented
+# Arguments: source, amount
+DamageSourceShield = Use the shield against { $source }; leave { $amount } damage unprevented
 
 # Damage decision: `DamageShieldLife`.
-# Arguments: arg0
-DamageShieldLife = ; { $arg0 } gains life equal to the damage prevented
+# Arguments: player
+DamageShieldLife = ; { $player } gains life equal to the damage prevented
 
 # Prevention assigned to one damage part.
-# Arguments: arg0, arg1, arg2
-PreventionShare = { $arg0 } — prevent { $arg1 } of at most { $arg2 }
+# Arguments: part, count, max
+PreventionShare = { $part } — prevent { $count } of at most { $max }
 
 # Damage assigned to redirection rather than prevention.
-# Arguments: arg0, arg1, arg2
-RedirectionShare = { $arg0 } — redirect { $arg1 } of at most { $arg2 }
+# Arguments: part, count, max
+RedirectionShare = { $part } — redirect { $count } of at most { $max }
 
 # Damage decision: `DamageRule`.
 DamageRule = Rule effect
@@ -2554,30 +2562,30 @@ DamageRule = Rule effect
 DamageUnpreventable = ; damage cannot be prevented
 
 # Counter removal allocation can still consume counters without preventing damage.
-# Arguments: arg0, arg1
-AllocateDamageCounters = Distribute { $arg0 } counter removals — { $arg1 } remaining. Select a source and enter its share.
+# Arguments: count, remaining
+AllocateDamageCounters = Distribute { $count } counter removals — { $remaining } remaining. Select a source and enter its share.
 
 # A counter-removal share, distinct from guaranteed prevention.
-# Arguments: arg0, arg1, arg2
-DamageCounterShare = { $arg0 } — apply { $arg1 } counter removals (maximum { $arg2 })
+# Arguments: part, count, max
+DamageCounterShare = { $part } — apply { $count } counter removals (maximum { $max })
 
 # Choosing between damage replacement and prevention effects.
 ChooseDamageEffect = Choose which effect modifies the damage next
 
 # Exact prevention budget and its still unassigned portion.
-# Arguments: arg0, arg1
-AllocatePrevention = Distribute { $arg0 } prevention — { $arg1 } remaining. Select a source and enter its share.
+# Arguments: count, remaining
+AllocatePrevention = Distribute { $count } prevention — { $remaining } remaining. Select a source and enter its share.
 
 # Exact redirection budget and its still unassigned portion.
-# Arguments: arg0, arg1
-AllocateRedirection = Redirect { $arg0 } damage — { $arg1 } remaining. Select a source and enter its share.
+# Arguments: count, remaining
+AllocateRedirection = Redirect { $count } damage — { $remaining } remaining. Select a source and enter its share.
 
 # A payment window with no fixed amount owed.
 OptionalPayment = Optional payment
 
-# {0} is the player who must sacrifice the chosen permanents.
-# Arguments: arg0, arg1
-SacrificeForPlayer = { $arg0 } sacrifices the chosen permanents. { $arg1 }
+# $player is the player who must sacrifice the chosen permanents.
+# Arguments: player, selection
+SacrificeForPlayer = { $player } sacrifices the chosen permanents. { $selection }
 
 # Owed
 #
@@ -2598,28 +2606,28 @@ JustWaiting = Waiting
 # Keep this hand? (the next mulligan is free)
 MulliganFree = Keep this hand? (the next mulligan is free)
 
-# Keep this hand? ({0} taken)
-# Arguments: arg0
-MulliganTaken = Keep this hand? ({ $arg0 } taken)
+# Keep this hand? ($count taken)
+# Arguments: count
+MulliganTaken = Keep this hand? ({ $count } taken)
 
-# Put {0} card on the bottom
-# Arguments: arg0
-PutCardOnBottom = Put { $arg0 } card on the bottom
-
-# Put {0} cards on the bottom
-# Arguments: arg0
-PutOnBottom = Put { $arg0 } cards on the bottom
+# Put $count card on the bottom
+# Arguments: count
+PutOnBottom =
+    { $count ->
+        [one] Put { $count } card on the bottom
+       *[other] Put { $count } cards on the bottom
+    }
 
 # Declare attackers
 DeclareAttackers = Declare attackers
 
 # Current attack aim and the number already assigned there.
-# Arguments: arg0, arg1
-AttackAim = Aim: { $arg0 } · { $arg1 } assigned
+# Arguments: defender, count
+AttackAim = Aim: { $defender } · { $count } assigned
 
 # Adds undeclared creatures only; other assignments are preserved.
-# Arguments: arg0
-AttackRemaining = Attack with all remaining → { $arg0 }
+# Arguments: defender
+AttackRemaining = Attack with all remaining → { $defender }
 
 # Clears the draft without submitting it.
 AttackWithdrawAll = Withdraw all attackers
@@ -2627,17 +2635,17 @@ AttackWithdrawAll = Withdraw all attackers
 # The attack chooser's fold row while its rows show (report 25).
 AttackListHide = Hide the list ▾
 
-# The fold row while folded. `{0}` is how many rows it holds.
-# Arguments: arg0
-AttackListShow = Show the list ({ $arg0 }) ▸
+# The fold row while folded. `$count` is how many rows it holds.
+# Arguments: count
+AttackListShow = Show the list ({ $count }) ▸
 
 # A single unassigned creature.
-# Arguments: arg0, arg1
-AttackSend = Attack: { $arg0 } → { $arg1 }
+# Arguments: card, defender
+AttackSend = Attack: { $card } → { $defender }
 
 # A single assigned creature, naming its existing defender.
-# Arguments: arg0, arg1
-AttackWithdraw = Withdraw: { $arg0 } → { $arg1 }
+# Arguments: card, defender
+AttackWithdraw = Withdraw: { $card } → { $defender }
 
 # Instructions for the reversible draft.
 AttackDraftHint = Choose a defender, then creatures. Withdraw an attacker here to reassign it. Confirm when ready.
@@ -2649,81 +2657,99 @@ DeclareBlockers = Declare blockers
 BlockDraftHint = Choose an attacker, then the creatures that block it. Choose a blocker again to take it back. Confirm when ready.
 
 # An attacker in the block list, and how many creatures block it so far.
-# Arguments: arg0, arg1
-BlockAim = Attacker: { $arg0 } · { $arg1 } blocking
+# Arguments: attacker, count
+BlockAim = Attacker: { $attacker } · { $count } blocking
 
 # A creature that may block the attacker in aim.
-# Arguments: arg0, arg1
-BlockSend = Block: { $arg0 } → { $arg1 }
+# Arguments: blocker, attacker
+BlockSend = Block: { $blocker } → { $attacker }
 
 # A creature already blocking, naming the attacker it blocks.
-# Arguments: arg0, arg1
-BlockWithdraw = Take back: { $arg0 } → { $arg1 }
+# Arguments: blocker, attacker
+BlockWithdraw = Take back: { $blocker } → { $attacker }
 
-# Discard {0} card
-# Arguments: arg0
-DiscardCard = Discard { $arg0 } card
-
-# Discard {0} cards
-# Arguments: arg0
-DiscardCards = Discard { $arg0 } cards
+# Discard $count card
+# Arguments: count
+DiscardCards =
+    { $count ->
+        [one] Discard { $count } card
+       *[other] Discard { $count } cards
+    }
 
 # Legend rule: keep one
 LegendRule = Legend rule: keep one
 
 # card
-NounCard = card
-
-# cards
-NounCards = cards
+# Arguments: count
+NounCards =
+    { $count ->
+        [one] card
+       *[other] cards
+    }
 
 # target
-NounTarget = target
-
-# targets
-NounTargets = targets
+# Arguments: count
+NounTargets =
+    { $count ->
+        [one] target
+       *[other] targets
+    }
 
 # card from your library
-NounCardFromLibrary = card from your library
-
-# cards from your library
-NounCardsFromLibrary = cards from your library
+# Arguments: count
+NounCardsFromLibrary =
+    { $count ->
+        [one] card from your library
+       *[other] cards from your library
+    }
 
 # card to put on top of your library
-NounCardToTop = card to put on top of your library
-
-# cards to put on top of your library
-NounCardsToTop = cards to put on top of your library
+# Arguments: count
+NounCardsToTop =
+    { $count ->
+        [one] card to put on top of your library
+       *[other] cards to put on top of your library
+    }
 
 # card to put into your hand
-NounCardToHand = card to put into your hand
-
-# cards to put into your hand
-NounCardsToHand = cards to put into your hand
+# Arguments: count
+NounCardsToHand =
+    { $count ->
+        [one] card to put into your hand
+       *[other] cards to put into your hand
+    }
 
 # card to put on the bottom of your library
-NounCardToBottom = card to put on the bottom of your library
-
-# cards to put on the bottom of your library
-NounCardsToBottom = cards to put on the bottom of your library
+# Arguments: count
+NounCardsToBottom =
+    { $count ->
+        [one] card to put on the bottom of your library
+       *[other] cards to put on the bottom of your library
+    }
 
 # card you may play this turn
-NounCardToPlay = card you may play this turn
-
-# cards you may play this turn
-NounCardsToPlay = cards you may play this turn
+# Arguments: count
+NounCardsToPlay =
+    { $count ->
+        [one] card you may play this turn
+       *[other] cards you may play this turn
+    }
 
 # card to put onto the battlefield
-NounCardToBattlefield = card to put onto the battlefield
-
-# cards to put onto the battlefield
-NounCardsToBattlefield = cards to put onto the battlefield
+# Arguments: count
+NounCardsToBattlefield =
+    { $count ->
+        [one] card to put onto the battlefield
+       *[other] cards to put onto the battlefield
+    }
 
 # card to put into its owner's graveyard
-NounCardToGraveyard = card to put into its owner's graveyard
-
-# cards to put into their owner's graveyard
-NounCardsToGraveyard = cards to put into their owner's graveyard
+# Arguments: count
+NounCardsToGraveyard =
+    { $count ->
+        [one] card to put into its owner's graveyard
+       *[other] cards to put into their owner's graveyard
+    }
 
 # A private library inspection is acknowledged without choosing a card.
 InspectLibrary = Inspect the library cards, then confirm without selecting any.
@@ -2735,186 +2761,230 @@ BeholdInstructions = Choose a matching permanent you control or reveal a matchin
 InspectHand = Look at the hand, then confirm when finished
 
 # card for the first pile — the rest are the second
-NounCardForFirstPile = card for the first pile (the rest are the second)
-
-# cards for the first pile — the rest are the second
-NounCardsForFirstPile = cards for the first pile (the rest are the second)
+# Arguments: count
+NounCardsForFirstPile =
+    { $count ->
+        [one] card for the first pile (the rest are the second)
+       *[other] cards for the first pile (the rest are the second)
+    }
 
 # card from your graveyard — none searches the library instead
-NounCardFromGraveyard = card from your graveyard, or none to search your library
-
-# cards from your graveyard — none searches the library instead
-NounCardsFromGraveyard = cards from your graveyard, or none to search your library
+# Arguments: count
+NounCardsFromGraveyard =
+    { $count ->
+        [one] card from your graveyard, or none to search your library
+       *[other] cards from your graveyard, or none to search your library
+    }
 
 # card from outside the game
-NounCardOutside = card from outside the game
-
-# cards from outside the game
-NounCardsOutside = cards from outside the game
+# Arguments: count
+NounCardsOutside =
+    { $count ->
+        [one] card from outside the game
+       *[other] cards from outside the game
+    }
 
 # permanent to sacrifice
-NounPermanentToSacrifice = permanent to sacrifice
-
-# permanents to sacrifice
-NounPermanentsToSacrifice = permanents to sacrifice
+# Arguments: count
+NounPermanentsToSacrifice =
+    { $count ->
+        [one] permanent to sacrifice
+       *[other] permanents to sacrifice
+    }
 
 # land from which to remove counters
-NounLandToRemoveCounters = land to remove counters from
-
-# lands from which to remove counters
-NounLandsToRemoveCounters = lands to remove counters from
+# Arguments: count
+NounLandsToRemoveCounters =
+    { $count ->
+        [one] land to remove counters from
+       *[other] lands to remove counters from
+    }
 
 # land to keep
-NounLandToKeep = land to keep
-
-# lands to keep
-NounLandsToKeep = lands to keep
+# Arguments: count
+NounLandsToKeep =
+    { $count ->
+        [one] land to keep
+       *[other] lands to keep
+    }
 
 # creature to keep
-NounCreatureToKeep = creature to keep
-
-# creatures to keep
-NounCreaturesToKeep = creatures to keep
+# Arguments: count
+NounCreaturesToKeep =
+    { $count ->
+        [one] creature to keep
+       *[other] creatures to keep
+    }
 
 # permanent to keep
-NounPermanentToKeep = permanent to keep
-
-# permanents to keep
-NounPermanentsToKeep = permanents to keep
+# Arguments: count
+NounPermanentsToKeep =
+    { $count ->
+        [one] permanent to keep
+       *[other] permanents to keep
+    }
 
 # hand card to keep
-NounCardToKeep = hand card to keep
-
-# cards to keep
-NounCardsToKeep = hand cards to keep
+# Arguments: count
+NounCardsToKeep =
+    { $count ->
+        [one] hand card to keep
+       *[other] hand cards to keep
+    }
 
 # card to discard
-NounCardToDiscard = card to discard
-
-# cards to discard
-NounCardsToDiscard = cards to discard
+# Arguments: count
+NounCardsToDiscard =
+    { $count ->
+        [one] card to discard
+       *[other] cards to discard
+    }
 
 # untapped permanent to tap
-NounPermanentToTap = untapped permanent to tap
-
-# untapped permanents to tap
-NounPermanentsToTap = untapped permanents to tap
+# Arguments: count
+NounPermanentsToTap =
+    { $count ->
+        [one] untapped permanent to tap
+       *[other] untapped permanents to tap
+    }
 
 # permanent to return to its owner's hand
-NounPermanentToReturn = permanent to return to its owner's hand
-
-# permanents to return to their owners' hands
-NounPermanentsToReturn = permanents to return to their owners' hands
+# Arguments: count
+NounPermanentsToReturn =
+    { $count ->
+        [one] permanent to return to its owner's hand
+       *[other] permanents to return to their owners' hands
+    }
 
 # card to exile from your graveyard
-NounCardToExile = card to exile from your graveyard
-
-# cards to exile from your graveyard
-NounCardsToExile = cards to exile from your graveyard
+# Arguments: count
+NounCardsToExile =
+    { $count ->
+        [one] card to exile from your graveyard
+       *[other] cards to exile from your graveyard
+    }
 
 # permanent to leave tapped
-NounPermanentToLeaveTapped = permanent to leave tapped
+# Arguments: count
+NounPermanentsToLeaveTapped =
+    { $count ->
+        [one] permanent to leave tapped
+       *[other] permanents to leave tapped
+    }
 
-# permanents to leave tapped
-NounPermanentsToLeaveTapped = permanents to leave tapped
-
-# object for {0} to enchant: card or token, not a target
-# Arguments: arg0
-NounNewHostFor = object for { $arg0 } to enchant
-
-# objects for {0} to enchant
-# Arguments: arg0
-NounNewHostsFor = objects for { $arg0 } to enchant
+# object for $aura to enchant: card or token, not a target
+# Arguments: aura, count
+NounNewHostsFor =
+    { $count ->
+        [one] object for { $aura } to enchant
+       *[other] objects for { $aura } to enchant
+    }
 
 # The Aura of a new-host question, where it cannot be named.
 NounTheAura = the Aura
 
 # permanent to copy (enter as a copy): a choice, not a target
-NounPermanentToCopy = permanent to copy
-
-# permanents to copy
-NounPermanentsToCopy = permanents to copy
+# Arguments: count
+NounPermanentsToCopy =
+    { $count ->
+        [one] permanent to copy
+       *[other] permanents to copy
+    }
 
 # permanent to untap
-NounPermanentToUntap = permanent to untap
-
-# permanents to untap
-NounPermanentsToUntap = permanents to untap
+# Arguments: count
+NounPermanentsToUntap =
+    { $count ->
+        [one] permanent to untap
+       *[other] permanents to untap
+    }
 
 # Optional disclosure of one already selected discard.
-NounDiscardToReveal = discard to reveal with Nephalia Academy (others stay hidden)
-
-# Optional disclosure of several already selected discards.
-NounDiscardsToReveal = discards to reveal with Nephalia Academy (others stay hidden)
+# Arguments: count
+NounDiscardsToReveal =
+    { $count ->
+        [one] discard to reveal with Nephalia Academy (others stay hidden)
+       *[other] discards to reveal with Nephalia Academy (others stay hidden)
+    }
 
 # Card to reveal.
-NounCardToReveal = card to reveal
-
-# cards to reveal
-NounCardsToReveal = cards to reveal
+# Arguments: count
+NounCardsToReveal =
+    { $count ->
+        [one] card to reveal
+       *[other] cards to reveal
+    }
 
 # attacker to join the band (banding, CR 702.22c)
-NounAttackerToBand = attacker to join the band
-
-# attackers to join the band
-NounAttackersToBand = attackers to join the band
+# Arguments: count
+NounAttackersToBand =
+    { $count ->
+        [one] attacker to join the band
+       *[other] attackers to join the band
+    }
 
 # creature for a pile (Camouflage, the pile unnamed)
-NounCreatureForPile = creature for this pile
+# Arguments: count
+NounCreaturesForPile =
+    { $count ->
+        [one] creature for this pile
+       *[other] creatures for this pile
+    }
 
-# creatures for a pile
-NounCreaturesForPile = creatures for this pile
-
-# creature for pile {0} of {1} (Camouflage: piles go to attackers at random)
-# Arguments: arg0, arg1
-NounCreatureForPileOf = creature for pile { $arg0 } of { $arg1 } (each pile blocks an attacker chosen at random)
-
-# creatures for pile {0} of {1}
-# Arguments: arg0, arg1
-NounCreaturesForPileOf = creatures for pile { $arg0 } of { $arg1 } (each pile blocks an attacker chosen at random)
+# creature for pile $pile of $total (Camouflage: piles go to attackers at random)
+# Arguments: pile, total, count
+NounCreaturesForPileOf =
+    { $count ->
+        [one] creature for pile { $pile } of { $total } (each pile blocks an attacker chosen at random)
+       *[other] creatures for pile { $pile } of { $total } (each pile blocks an attacker chosen at random)
+    }
 
 # creature for the "left" pile (Raging River; the rest go right)
-NounCreatureForLeft = creature for the "left" pile (the rest go right)
-
-# creatures for the "left" pile
-NounCreaturesForLeft = creatures for the "left" pile (the rest go right)
+# Arguments: count
+NounCreaturesForLeft =
+    { $count ->
+        [one] creature for the "left" pile (the rest go right)
+       *[other] creatures for the "left" pile (the rest go right)
+    }
 
 # Raging River: a label for an attacker, the pile that may block it
 ChooseRiverLabel = Choose "left" (first) or "right": only that pile and fliers may block it
 
-# Raging River: the label for the attacker named {0}
-# Arguments: arg0
-ChooseRiverLabelFor = { $arg0 }: choose "left" or "right"; only that pile and fliers may block it
+# Raging River: the label for the attacker named $attacker
+# Arguments: attacker
+ChooseRiverLabelFor = { $attacker }: choose "left" or "right"; only that pile and fliers may block it
 
-# Left: {0} — the "left" pile's row of a Raging River label
-# Arguments: arg0
-RiverLeftRow = Left: { $arg0 }
+# Left: $cards — the "left" pile's row of a Raging River label
+# Arguments: cards
+RiverLeftRow = Left: { $cards }
 
-# Right: {0} — the "right" pile's row of a Raging River label
-# Arguments: arg0
-RiverRightRow = Right: { $arg0 }
+# Right: $cards — the "right" pile's row of a Raging River label
+# Arguments: cards
+RiverRightRow = Right: { $cards }
 
 # attacker to block (False Orders' re-block, its blocker unnamed)
-NounAttackerToBlock = attacker to block
+# Arguments: count
+NounAttackersToBlock =
+    { $count ->
+        [one] attacker to block
+       *[other] attackers to block
+    }
 
-# attackers to block
-NounAttackersToBlock = attackers to block
+# attacker for $blocker to block
+# Arguments: blocker, count
+NounAttackersForBlocker =
+    { $count ->
+        [one] attacker for { $blocker } to block
+       *[other] attackers for { $blocker } to block
+    }
 
-# attacker for {0} to block
-# Arguments: arg0
-NounAttackerForBlocker = attacker for { $arg0 } to block
-
-# attackers for {0} to block
-# Arguments: arg0
-NounAttackersForBlocker = attackers for { $arg0 } to block
-
-# attacker to band with {0} (banding, CR 702.22c): the leader named
-# Arguments: arg0
-NounAttackerToBandWith = attacker to band with { $arg0 }
-
-# attackers to band with {0}
-# Arguments: arg0
-NounAttackersToBandWith = attackers to band with { $arg0 }
+# attacker to band with $leader (banding, CR 702.22c): the leader named
+# Arguments: leader, count
+NounAttackersToBandWith =
+    { $count ->
+        [one] attacker to band with { $leader }
+       *[other] attackers to band with { $leader }
+    }
 
 # Convoke or waterbend: tap permanents to help pay.
 #
@@ -2928,17 +2998,17 @@ TapToHelpPay = Tap permanents to help pay — each pays for one
 # Delve: exile cards from your graveyard to help pay
 DelveToHelpPay = Exile cards from your graveyard to help pay — each pays for one
 
-# Crew N: tap creatures with total power {0} or more
-# Arguments: arg0
-CrewWithPower = Crew { $arg0 }: tap any number of your other untapped creatures with total power { $arg0 } or more
+# Crew N: tap creatures with total power $power or more
+# Arguments: power
+CrewWithPower = Crew { $power }: tap any number of your other untapped creatures with total power { $power } or more
 
 # Saddle N: pay by tapping creatures with enough effective power.
-# Arguments: arg0
-SaddleWithPower = Saddle { $arg0 }: tap any number of your other untapped creatures with total power { $arg0 } or more
+# Arguments: power
+SaddleWithPower = Saddle { $power }: tap any number of your other untapped creatures with total power { $power } or more
 
-# Choose up to {0} {1}
-# Arguments: arg0, arg1
-ChooseUpTo = Choose up to { $arg0 } { $arg1 }
+# Choose up to $count $noun
+# Arguments: count, noun
+ChooseUpTo = Choose up to { $count } { $noun }
 
 # A resolving effect changes one target at a time.
 ChooseNewTarget = Choose a new target
@@ -2947,8 +3017,8 @@ ChooseNewTarget = Choose a new target
 ChooseNewTargetOrKeep = Choose a new target, or keep this target without selecting one
 
 # Identifies the current target before asking whether to change it.
-# Arguments: arg0, arg1, arg2, arg3
-RetargetContext = Target { $arg0 } of { $arg1 }: { $arg2 }. { $arg3 }
+# Arguments: position, total, target, question
+RetargetContext = Target { $position } of { $total }: { $target }. { $question }
 
 # An exact former target, without exposing its internal version number.
 TargetBeforeZoneChange = before it changed zones
@@ -2957,8 +3027,8 @@ TargetBeforeZoneChange = before it changed zones
 TargetReturnedHint = To target a returned card, select it again below.
 
 # Identifies the original target without repeating selection instructions.
-# Arguments: arg0, arg1, arg2
-RetargetOriginal = Previous target { $arg0 } of { $arg1 }: { $arg2 }
+# Arguments: position, total, target
+RetargetOriginal = Previous target { $position } of { $total }: { $target }
 
 # A former object target may no longer be visible in the current view.
 PreviousTarget = previous target
@@ -2970,31 +3040,31 @@ KeepCurrentTarget = Keep current target
 ChangeTarget = Change target
 
 # The shelf's question while a copy's targets are asked one by one and
-# this one may be kept. `{0}` of `{1}`.
-# Arguments: arg0, arg1
-RetargetKeepOrChange = Target { $arg0 } of { $arg1 }: keep it, or choose a new one
+# this one may be kept. `$position` of `$total`.
+# Arguments: position, total
+RetargetKeepOrChange = Target { $position } of { $total }: keep it, or choose a new one
 
 # The same, for a target that may not be kept (another target of the
 # copy already holds it, or the engine asks for a new one).
-# Arguments: arg0, arg1
-RetargetMustChange = Target { $arg0 } of { $arg1 }: choose a new one
+# Arguments: position, total
+RetargetMustChange = Target { $position } of { $total }: choose a new one
 
 # Keep this target and every later one of the copy that may be kept;
-# `{0}` is how many that is at most, this one included.
-# Arguments: arg0
-KeepRemainingTargets = Keep all remaining ({ $arg0 })
+# `$count` is how many that is at most, this one included.
+# Arguments: count
+KeepRemainingTargets = Keep all remaining ({ $count })
 
 # Optional payment permits only zero or the entire tap group.
-# Arguments: arg0
-ChooseExactlyOrNoTaps = Choose exactly { $arg0 } permanents to tap, or choose none
+# Arguments: count
+ChooseExactlyOrNoTaps = Choose exactly { $count } permanents to tap, or choose none
 
-# Choose {0} {1}
-# Arguments: arg0, arg1
-ChooseExactly = Choose { $arg0 } { $arg1 }
+# Choose $count $noun
+# Arguments: count, noun
+ChooseExactly = Choose { $count } { $noun }
 
-# Choose {0}–{1} {2}
-# Arguments: arg0, arg1, arg2
-ChooseBetween = Choose { $arg0 }–{ $arg1 } { $arg2 }
+# Choose $min–$max $noun
+# Arguments: min, max, noun
+ChooseBetween = Choose { $min }–{ $max } { $noun }
 
 # Choose a creature type
 ChooseCreatureType = Choose a creature type
@@ -3012,34 +3082,34 @@ ChooseColour = Choose a colour
 ChooseColours = Choose the colour or colours
 
 # Counter amount chosen while an effect resolves.
-# Arguments: arg0, arg1, arg2
-ChooseCounters = How many { $arg0 }? ({ $arg1 }–{ $arg2 })
+# Arguments: counter, min, max
+ChooseCounters = How many { $counter }? ({ $min }–{ $max })
 
 # Counter amount with the recipient named.
-# Arguments: arg0, arg1, arg2, arg3
-ChooseCountersNamed = How many { $arg0 } on { $arg1 }? ({ $arg2 }–{ $arg3 })
+# Arguments: counter, target, min, max
+ChooseCountersNamed = How many { $counter } on { $target }? ({ $min }–{ $max })
 
-# Choose a number ({0}–{1})
-# Arguments: arg0, arg1
-ChooseNumberIn = Choose a number ({ $arg0 }–{ $arg1 })
+# Choose a number ($min–$max)
+# Arguments: min, max
+ChooseNumberIn = Choose a number ({ $min }–{ $max })
 
 # One target's share of damage divided as the player chooses (Fury).
-# Arguments: arg0, arg1, arg2, arg3, arg4
-DamageShare = Damage to target { $arg0 } of { $arg1 }, { $arg2 } left to divide ({ $arg3 }–{ $arg4 })
+# Arguments: position, total, remaining, min, max
+DamageShare = Damage to target { $position } of { $total }, { $remaining } left to divide ({ $min }–{ $max })
 
 # One creature's share of combat damage this player divides
 # (CR 510.1c–d, 702.22j–k), when the creatures cannot be named.
-# Arguments: arg0, arg1, arg2, arg3, arg4
-CombatDamageShare = Combat damage to creature { $arg0 } of { $arg1 }, { $arg2 } left to divide ({ $arg3 }–{ $arg4 })
+# Arguments: position, total, remaining, min, max
+CombatDamageShare = Combat damage to creature { $position } of { $total }, { $remaining } left to divide ({ $min }–{ $max })
 
 # The same share, naming the creature dealing the damage and the one
 # the share goes to.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6
-CombatDamageShareNamed = Combat damage from { $arg0 } to { $arg1 } ({ $arg2 } of { $arg3 }), { $arg4 } left to divide ({ $arg5 }–{ $arg6 })
+# Arguments: source, recipient, position, total, remaining, min, max
+CombatDamageShareNamed = Combat damage from { $source } to { $recipient } ({ $position } of { $total }), { $remaining } left to divide ({ $min }–{ $max })
 
-# Replicate {0}: pay it how many times? ({1}–{2})
-# Arguments: arg0, arg1, arg2
-ReplicateHowOften = Replicate { $arg0 }: pay it how many times? ({ $arg1 }–{ $arg2 })
+# Replicate $cost: pay it how many times? ($min–$max)
+# Arguments: cost, min, max
+ReplicateHowOften = Replicate { $cost }: pay it how many times? ({ $min }–{ $max })
 
 # Choose a player
 ChoosePlayer = Choose a player
@@ -3050,19 +3120,19 @@ ChooseHowToCast = Choose how to cast
 # Choose a pile to put into your hand (Fact or Fiction)
 ChoosePileForHand = Choose a pile for your hand; the other goes to your graveyard
 
-# Pile {0}: {1} — one row of a pile choice
-# Arguments: arg0, arg1
-PileRow = Pile { $arg0 }: { $arg1 }
+# Pile $pile: $cards — one row of a pile choice
+# Arguments: pile, cards
+PileRow = Pile { $pile }: { $cards }
 
 # no cards — an empty pile's row
 EmptyPile = no cards
 
-# Mode {0}
+# Mode $number
 #
 # Only where a mode has no printed sentence: a modal trigger that states
 # its choice inside one sentence, or a mode that declines.
-# Arguments: arg0
-CastModeNumber = Mode { $arg0 }
+# Arguments: number
+CastModeNumber = Mode { $number }
 
 # Back face
 CastBackFace = Back face
@@ -3109,13 +3179,13 @@ HintTypeToFilter = Type to narrow the list
 # A permanent's label: it has lost all its abilities (report 21).
 NoAbilities = No abilities
 
-# A leveler's label, short (report 30). `{0}` is its level.
-# Arguments: arg0
-LevelShort = LV { $arg0 }
+# A leveler's label, short (report 30). `$level` is its level.
+# Arguments: level
+LevelShort = LV { $level }
 
 # The same label under the pointer, in full.
-# Arguments: arg0
-LevelLong = Level { $arg0 }
+# Arguments: level
+LevelLong = Level { $level }
 
 # What an empty search box in the question's sheet says (report 16).
 FilterPlaceholder = type to search…
@@ -3147,9 +3217,9 @@ DiscardToLibraryPrompt = Discard: into your graveyard, or on top of your library
 # The game is over
 TheGameIsOver = The game is over
 
-# Pay {0} life? Otherwise it enters tapped
-# Arguments: arg0
-PayLifeOrTapped = Pay { $arg0 } life? Otherwise it enters tapped
+# Pay $amount life? Otherwise it enters tapped
+# Arguments: amount
+PayLifeOrTapped = Pay { $amount } life? Otherwise it enters tapped
 
 # One-spell spending permission, restricted to the printed mana cost.
 UseManaAnyType = Use North Star to pay this spell’s mana cost with mana of any type? Additional costs still apply normally.
@@ -3158,20 +3228,20 @@ UseManaAnyType = Use North Star to pay this spell’s mana cost with mana of any
 PayAdditionalCost = Pay the additional cost?
 
 # Optional life payment for a resolving ability.
-# Arguments: arg0
-PayLife = Pay { $arg0 } life?
+# Arguments: amount
+PayLife = Pay { $amount } life?
 
-# Pay {{0}}?
-# Arguments: arg0
-PayTax = Pay {"{"}{ $arg0 }{"}"}?
+# Pay {$mana}?
+# Arguments: mana
+PayTax = Pay {"{"}{ $mana }{"}"}?
 
 # Pay a price with colour in it; the cost renders its own braces.
-# Arguments: arg0
-PayMana = Pay { $arg0 }?
+# Arguments: cost
+PayMana = Pay { $cost }?
 
 # The player may activate mana abilities before paying a pact.
-# Arguments: arg0
-PayPact = Pact: pay { $arg0 }. Make mana now? If you decline or finish without enough mana, you lose the game.
+# Arguments: cost
+PayPact = Pact: pay { $cost }. Make mana now? If you decline or finish without enough mana, you lose the game.
 
 # Cast it for its miracle cost?
 CastForMiracle = Cast it for its miracle cost?
@@ -3182,13 +3252,13 @@ CastWithoutPaying = Cast it without paying its mana cost?
 # Cast it now, paying its mana cost? (Conduit of Worlds)
 CastPaying = Cast it now, paying its mana cost? You make the mana first.
 
-# {0} offers a draw. Accept?
+# $player offers a draw. Accept?
 #
 # Named rather than passive, and the name is the whole of the repair:
 # at a duel "a draw was offered" is obvious, and at a table of four it
 # is a question nobody can answer.
-# Arguments: arg0
-DrawOfferedBy = { $arg0 } offers a draw. Accept?
+# Arguments: player
+DrawOfferedBy = { $player } offers a draw. Accept?
 
 # Put your commander into the command zone?
 CommanderToCommandZone = Put your commander into the command zone?
@@ -3209,8 +3279,8 @@ UseShieldCounter = Use a shield counter instead of regeneration?
 UseDamageClearingReplacement = Replace destruction by removing all marked damage? No uses another applicable replacement.
 
 # Order an additive counter replacement; declining applies another replacement first.
-# Arguments: arg0
-ApplyAdditionalCountersNext = Apply { $arg0 } additional counters of each kind next? No applies another replacement first.
+# Arguments: count
+ApplyAdditionalCountersNext = Apply { $count } additional counters of each kind next? No applies another replacement first.
 
 # Use the optional part of this ability? ("you may …")
 UseTheOptionalAbility = This ability is optional. Use it?
@@ -3219,8 +3289,8 @@ UseTheOptionalAbility = This ability is optional. Use it?
 TopOfLibraryOrBottom = Your card goes into your library. On top? (No puts it on the bottom.)
 
 # One card of a named card type into the hand, or none (Atraxa).
-# Arguments: arg0
-TakeOneOfType = Put up to one { $arg0 } card into your hand
+# Arguments: card_type
+TakeOneOfType = Put up to one { $card_type } card into your hand
 
 # Cast the discovered card for free, or take it into the hand?
 CastDiscovered = You discovered this card. Cast it without paying its mana cost? (No puts it into your hand.)
@@ -3244,9 +3314,9 @@ Watch = Watch
 # The game menu's way out for a spectator.
 StopWatching = Stop watching
 
-# How many watch a table. `{0}` the count.
-# Arguments: arg0
-SpectatorCount = { $arg0 } watching
+# How many watch a table. `$count` the count.
+# Arguments: count
+SpectatorCount = { $count } watching
 
 # A new room's option: whether players without a chair may watch.
 AllowSpectators = Allow spectators
@@ -3288,14 +3358,14 @@ GameLogNewBelow = New lines below
 GameLogLatest = Back to the latest
 
 # The head of the sheet that holds up cards another seat revealed.
-# `{0}` is the seat's name. Present tense, unlike the log's line: the
+# `$player` is the seat's name. Present tense, unlike the log's line: the
 # sheet stands while the cards are being shown (CR 701.20a).
-# Arguments: arg0
-RevealedBy = { $arg0 } reveals
+# Arguments: player
+RevealedBy = { $player } reveals
 
 # Under that head: how many more reveals wait behind this one.
-# Arguments: arg0
-RevealedWaiting = { $arg0 } more to come
+# Arguments: count
+RevealedWaiting = { $count } more to come
 
 # Under that head, while nothing waits: how to see a card larger.
 RevealedHint = Point at a card to enlarge it
@@ -3321,7 +3391,7 @@ ArmedActivate = Activate ability
 
 # The armed button for a spell whose mana still has to be tapped.
 #
-# `{0}` is the *price* — the spell's mana cost, tax and all — and it is
+# `$cost` is the *price* — the spell's mana cost, tax and all — and it is
 # one of the two placeholders here never filled with a string (the other
 # is [`Self::ArmedSuspend`], which prices the same way): the row
 # splits the phrase at it and draws the cost as mana pips, so a
@@ -3329,28 +3399,28 @@ ArmedActivate = Activate ability
 # still gets the discs in the right place. It used to read "Tap 3",
 # which counted the client's own lands instead of naming what the
 # spell costs.
-# Arguments: arg0
-ArmedPayAndCast = Pay { $arg0 } and cast
+# Arguments: cost
+ArmedPayAndCast = Pay { $cost } and cast
 
 # Confirm an ability and the automatic taps that pay its mana.
-# Arguments: arg0
-ArmedPayAndActivate = Pay { $arg0 } and activate
+# Arguments: cost
+ArmedPayAndActivate = Pay { $cost } and activate
 
 # The armed button for suspending a card whose cost still has to be tapped.
 #
-# `{0}` is the suspend cost, drawn as pips like [`Self::ArmedPayAndCast`]
+# `$cost` is the suspend cost, drawn as pips like [`Self::ArmedPayAndCast`]
 # — and it is the *suspend* cost, which is a different number from the
 # card's own: Ancestral Vision prints no mana cost and suspends for
 # `{U}`.
-# Arguments: arg0
-ArmedSuspend = Pay { $arg0 } and suspend
+# Arguments: cost
+ArmedSuspend = Pay { $cost } and suspend
 
 # Heading of the public suspend queue.
 SuspendedCards = Suspended cards
 
 # Card name, owner and remaining time counters.
-# Arguments: arg0, arg1, arg2
-SuspendedCard = { $arg0 } · { $arg1 }{"\u000A"}{ $arg2 } time counters · inspect
+# Arguments: card, owner, count
+SuspendedCard = { $card } · { $owner }{"\u000A"}{ $count } time counters · inspect
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card
@@ -3378,53 +3448,52 @@ TakeMulligan = Mulligan
 
 # OK
 # Target selection explanation or explicit shortcut.
-# Arguments: arg0
-TargetingFor = Targets for { $arg0 }
+# Arguments: source
+TargetingFor = Targets for { $source }
 
 # Target selection explanation or explicit shortcut.
 TargetingSecond = Second target clause
 
 # Target selection explanation or explicit shortcut.
 # Exact target count, available choices and current selection.
-# Arguments: arg0, arg1, arg2, arg3
-TargetingExactly = Selected: { $arg3 }/{ $arg0 } • { $arg2 } available targets
+# Arguments: min, max, count, selected
+TargetingExactly = Selected: { $selected }/{ $min } • { $count } available targets
 
 # Permitted target range and current selection.
-# Arguments: arg0, arg1, arg2, arg3
-TargetingChoices = Choose { $arg0 }–{ $arg1 } • { $arg2 } legal choices • { $arg3 } selected
+# Arguments: min, max, count, selected
+TargetingChoices = Choose { $min }–{ $max } • { $count } legal choices • { $selected } selected
 
 # Target selection explanation or explicit shortcut.
-# Arguments: arg0
-TargetingBatch = Confirm for all { $arg0 }
+# Arguments: count
+TargetingBatch = Confirm for all { $count }
 
 # Target selection explanation or explicit shortcut.
-# Arguments: arg0
-TargetingBatchHint = { $arg0 } identical triggers waiting. Confirm once, or use this selection for all { $arg0 }.
+# Arguments: count
+TargetingBatchHint = { $count } identical triggers waiting. Confirm once, or use this selection for all { $count }.
 
 # Target selection explanation or explicit shortcut.
-# Arguments: arg0
-TargetingSelected = Selected: { $arg0 }
+# Arguments: targets
+TargetingSelected = Selected: { $targets }
 
 # Clear the target list's controller filter.
 TargetingAllSeats = All players
 
 # Current page and total legal choices in the filtered list.
-# Arguments: arg0, arg1, arg2
-TargetingPage = Choices { $arg0 }–{ $arg1 } of { $arg2 }. You can also select on the table.
+# Arguments: first, last, total
+TargetingPage = Choices { $first }–{ $last } of { $total }. You can also select on the table.
 
 # Cast with its optional additional kicker cost paid.
 CastKicked = With kicker
 
 # Cast face down using disguise.
-# Arguments: arg0, arg1, arg2
-CastDisguise = Disguise — 2/2, ward { $arg2 }
+CastDisguise = Disguise — 2/2, ward {"{"}2{"}"}
 
 # Face-up special action.
 TurnFaceUp = Turn face up
 
-# Unlock {0}: a Room's special action, naming the door it opens.
-# Arguments: arg0
-UnlockDoor = Unlock { $arg0 }
+# Unlock $door: a Room's special action, naming the door it opens.
+# Arguments: door
+UnlockDoor = Unlock { $door }
 
 # Cast using prototype characteristics.
 CastPrototype = Prototype
@@ -3513,8 +3582,8 @@ StackNoPolicy = This entry has no reusable card ability.
 StackPolicyHint = Targets and payments still require your decision.
 
 # Stack panel title.
-# Arguments: arg0, arg1
-StackRuleName = { $arg0 } · Ability { $arg1 }
+# Arguments: card, number
+StackRuleName = { $card } · Ability { $number }
 
 # Holographic card finish.
 FinishHolographic = Holographic
@@ -3534,36 +3603,36 @@ StackSpell = Spell
 # Ability
 StackAbilityBare = Ability
 
-# Ability · {0}
-# Arguments: arg0
-StackAbility = Ability · { $arg0 }
+# Ability · $source
+# Arguments: source
+StackAbility = Ability · { $source }
 
-# +{0} more
-# Arguments: arg0
-StackMore = +{ $arg0 } more
+# +$count more
+# Arguments: count
+StackMore = +{ $count } more
 
-# Seat {0}
-# Arguments: arg0
-SeatNumbered = Seat { $arg0 }
+# Seat $seat
+# Arguments: seat
+SeatNumbered = Seat { $seat }
 
-# You ({0})
-# Arguments: arg0
-YouNamed = You ({ $arg0 })
+# You ($player)
+# Arguments: player
+YouNamed = You ({ $player })
 
 # You
 You = You
 
-# Aimed at {0} ({1} of {2})
-# Arguments: arg0, arg1, arg2
-AimedAt = Aimed at { $arg0 } ({ $arg1 } of { $arg2 })
+# Aimed at $target ($position of $total)
+# Arguments: target, position, total
+AimedAt = Aimed at { $target } ({ $position } of { $total })
 
-# {0} declared
-# Arguments: arg0
-DeclaredCount = { $arg0 } declared
+# $count declared
+# Arguments: count
+DeclaredCount = { $count } declared
 
-# {0}: {1} attacking, {2} unblocked
-# Arguments: arg0, arg1, arg2
-IncomingAt = { $arg0 }: { $arg1 } attacking, { $arg2 } unblocked
+# $defender: $count attacking, $unblocked unblocked
+# Arguments: defender, count, unblocked
+IncomingAt = { $defender }: { $count } attacking, { $unblocked } unblocked
 
 # you
 IncomingYou = you
@@ -3625,31 +3694,31 @@ LinkLost = Connection lost — reconnecting…
 # prediction where the English "will" reads as a rule.
 #
 # Since 10.10.2026 the house sits down only while another player is at
-# the table, after the table's wait (`{0}`, m:ss, counted from the
+# the table, after the table's wait (`$wait`, m:ss, counted from the
 # loss); alone with the house the game pauses instead
 # ([`Phrase::LinkPaused`]).
-# Arguments: arg0
-LinkStandIn = Still reconnecting — the table waits { $arg0 } for you, then the house plays your seat until you are back.
+# Arguments: wait
+LinkStandIn = Still reconnecting — the table waits { $wait } for you, then the house plays your seat until you are back.
 
 # Still reconnecting, at a table with no other player: nothing moves
 # until this seat is back.
 LinkPaused = Still reconnecting — the game is paused until you are back.
 
 # The banner over the table while another player's connection is lost:
-# `{0}` the player, `{1}` what is left of the table's wait (m:ss),
+# `$player` the player, `$wait` what is left of the table's wait (m:ss),
 # ticking once a second.
-# Arguments: arg0, arg1
-LostWaiting = { $arg0 } lost the connection – waiting { $arg1 }
+# Arguments: player, wait
+LostWaiting = { $player } lost the connection – waiting { $wait }
 
 # The banner while a lost player's game is paused (nobody else at the
 # table but this seat's own view, e.g. a teammate's spectator).
-# Arguments: arg0
-LostPaused = { $arg0 } lost the connection – the game is paused until they are back
+# Arguments: player
+LostPaused = { $player } lost the connection – the game is paused until they are back
 
 # The banner once the wait is out: the house plays the chair until its
 # player is back.
-# Arguments: arg0
-LostHousePlays = The house AI plays for { $arg0 }
+# Arguments: player
+LostHousePlays = The house AI plays for { $player }
 
 # The table cannot be reached. Rejoin from the lobby.
 #
@@ -3728,61 +3797,63 @@ PlanQuestionChanged = The game asked something else
 ManaPool = Mana pool
 
 # A seat's plate and chip, said in words (tooltip, accessible name).
-# Arguments: arg0
-PlateLife = { $arg0 } life
+# Arguments: amount
+PlateLife = { $amount } life
 
 # Cards in a seat's hand.
-# Arguments: arg0
-PlateHand = { $arg0 } in hand
+# Arguments: count
+PlateHand = { $count } in hand
 
 # Cards in a seat's library.
-# Arguments: arg0
-PlateLibrary = { $arg0 } in library
+# Arguments: count
+PlateLibrary = { $count } in library
 
 # Cards in a seat's graveyard.
-# Arguments: arg0
-PlateGraveyard = { $arg0 } in graveyard
+# Arguments: count
+PlateGraveyard = { $count } in graveyard
 
 # Cards in a seat's public exile.
-# Arguments: arg0
-PlateExile = { $arg0 } in exile
+# Arguments: count
+PlateExile = { $count } in exile
 
 # Poison counters on a seat.
-# Arguments: arg0
-PlatePoison = { $arg0 } poison
+# Arguments: count
+PlatePoison = { $count } poison
 
 # Public radiation counter total.
-# Arguments: arg0
-PlateRad = { $arg0 } radiation
+# Arguments: count
+PlateRad = { $count } radiation
 
 # Optional energy payment.
-# Arguments: arg0
-PayEnergy = Pay { $arg0 } energy counters?
+# Arguments: count
+PayEnergy = Pay { $count } energy counters?
 
 # Proliferate adds every counter kind, including harmful ones.
-# Arguments: arg0
-ProliferatePlayer = Give { $arg0 } one additional counter of each kind already present?
+# Arguments: player
+ProliferatePlayer = Give { $player } one additional counter of each kind already present?
 
 # Singular proliferate selection.
-NounProliferatePermanent = permanent to give one more counter of each kind
-
-# Plural proliferate selection.
-NounProliferatePermanents = permanents to give one more counter of each kind
+# Arguments: count
+NounProliferatePermanents =
+    { $count ->
+        [one] permanent to give one more counter of each kind
+       *[other] permanents to give one more counter of each kind
+    }
 
 # Public speed after starting engines.
-# Arguments: arg0
-PlateSpeed = Speed { $arg0 }/4
+# Arguments: speed
+PlateSpeed = Speed { $speed }/4
 
 # Four speed, enabling max-speed abilities.
 PlateMaxSpeed = Max speed (4/4)
 
 # Public energy counter total.
-# Arguments: arg0
-PlateEnergy = { $arg0 } energy
+# Arguments: count
+PlateEnergy = { $count } energy
 
 # The most combat damage one commander has dealt a seat.
-# Arguments: arg0
-PlateCommander = { $arg0 } commander damage
+# Arguments: amount
+PlateCommander = { $amount } commander damage
 
 # The monarch designation (CR 724), beside the crown.
 PlateMonarch = Monarch
@@ -3800,27 +3871,27 @@ PlateWaiting = The table waits for them
 ActiveTurn = Turn
 
 # The creature type publicly named for this permanent.
-# Arguments: arg0
-ChosenType = Chosen: { $arg0 }
+# Arguments: subtype
+ChosenType = Chosen: { $subtype }
 
 # The card name publicly chosen for this permanent (Pithing Needle).
-# Arguments: arg0
-ChosenName = Named: { $arg0 }
+# Arguments: card
+ChosenName = Named: { $card }
 
 # A Room's doors still locked, by name.
-# Arguments: arg0
-LockedDoors = Locked: { $arg0 }
+# Arguments: doors
+LockedDoors = Locked: { $doors }
 
-# Tap for {0}, spendable only on some spells
+# Tap for $mana, spendable only on some spells
 #
 # Cavern of Souls and its kin. The label has to say *both* halves: a
 # button reading only "Tap for WUBRG" beside another reading "Tap for
 # {C}" is two offers a player cannot tell apart, and the restricted one
 # is usually the reason the land is in the deck.
-# Arguments: arg0
-TapForRestricted = Tap for { $arg0 } (restricted)
+# Arguments: mana
+TapForRestricted = Tap for { $mana } (restricted)
 
-# Tap for X mana ({0})
+# Tap for X mana ($mana)
 #
 # Harabaz Druid: *"add X mana of any one color, where X is the number of
 # Allies you control"*. The `X` is the card's own letter and is left
@@ -3829,8 +3900,8 @@ TapForRestricted = Tap for { $arg0 } (restricted)
 # a count, and which colours it is a count of. Without it the ability
 # fell back to its cost and drew a row reading "{T}" beside a cost
 # column reading "{T}".
-# Arguments: arg0
-TapForVariable = Tap for X mana ({ $arg0 })
+# Arguments: mana
+TapForVariable = Tap for X mana ({ $mana })
 
 # to confirm
 #
@@ -3862,19 +3933,19 @@ SheetDigitPicks = A digit picks
 # draws every binding with.
 SheetCloses = close
 
-# More — page {0} of {1}
+# More — page $page of $total
 #
 # The tenth row, which exists only for a permanent with more than nine
 # things to do: a land under a Chromatic Lantern is granted a mana
 # ability on top of whatever it prints. It carries `0` rather than a
 # digit, being the one key on that row of the keyboard that names no
 # ability.
-# Arguments: arg0, arg1
-SheetMorePage = More — page { $arg0 } of { $arg1 }
+# Arguments: page, total
+SheetMorePage = More — page { $page } of { $total }
 
-# Tap for {0}
-# Arguments: arg0
-TapFor = Tap for { $arg0 }
+# Tap for $mana
+# Arguments: mana
+TapFor = Tap for { $mana }
 
 # any color
 #
@@ -3883,13 +3954,13 @@ TapFor = Tap for { $arg0 }
 # making one offer, not five.
 AnyColor = any color
 
-# {0} or {1}
+# $list or $last
 #
 # The tail of a list of colours a source may choose between. Two or
 # three symbols read at a glance where five do not, which is why this
 # exists beside [`Phrase::AnyColor`] rather than instead of it.
-# Arguments: arg0, arg1
-OrLast = { $arg0 } or { $arg1 }
+# Arguments: list, last
+OrLast = { $list } or { $last }
 
 # Granted ability
 #
@@ -3918,8 +3989,8 @@ ArrivalHeld = The journey is on hold
 ArrivalPortal = The portal opens
 
 # Counts human seats that have acknowledged render readiness.
-# Arguments: arg0, arg1
-ArrivalPlayers = Waiting for the table  ·  { $arg0 } / { $arg1 } ready
+# Arguments: count, total
+ArrivalPlayers = Waiting for the table  ·  { $count } / { $total } ready
 
 # Required fonts and local assets.
 ArrivalWorld = Awakening the world
@@ -3970,8 +4041,8 @@ VeilWorking = One moment
 SeatSideNone = no team
 
 # A chair's team, by number.
-# Arguments: arg0
-SeatSide = team { $arg0 }
+# Arguments: team
+SeatSide = team { $team }
 
 # The game is over and this seat won it.
 YouWon = You won
@@ -3980,12 +4051,12 @@ YouWon = You won
 YouLost = You lost
 
 # The game is over and this seat's team won it.
-# Arguments: arg0
-YourTeamWon = Team { $arg0 } wins — yours
+# Arguments: team
+YourTeamWon = Team { $team } wins — yours
 
 # The game is over and another team won it.
-# Arguments: arg0
-TheirTeamWon = Team { $arg0 } wins
+# Arguments: team
+TheirTeamWon = Team { $team } wins
 
 # Nobody won.
 TheGameIsADraw = The game is a draw
@@ -3994,9 +4065,9 @@ TheGameIsADraw = The game is a draw
 # won or lost.
 GameClosedVerdict = The game was ended
 
-# The line under it: `{0}` the admin's reason.
-# Arguments: arg0
-GameClosedReason = An admin ended it: { $arg0 }
+# The line under it: `$reason` the admin's reason.
+# Arguments: reason
+GameClosedReason = An admin ended it: { $reason }
 
 # Why a game ended: one seat outlived every other
 # (`EndReason::LastPlayerStanding`).
@@ -4018,48 +4089,48 @@ EndedByEffect = An effect decided it
 # it got there.
 LostLifeYou = Your life fell to 0 or less
 
-# Why another seat lost: its life total. `{0}` is the seat's name.
-# Arguments: arg0
-LostLifeOther = { $arg0 }'s life fell to 0 or less
+# Why another seat lost: its life total. `$player` is the seat's name.
+# Arguments: player
+LostLifeOther = { $player }'s life fell to 0 or less
 
 # Why the reading seat lost: a draw from an empty library
 # (`LossCause::EmptyDraw`, CR 104.3c).
 LostEmptyDrawYou = You tried to draw from an empty library
 
 # Why another seat lost: a draw from an empty library.
-# Arguments: arg0
-LostEmptyDrawOther = { $arg0 } tried to draw from an empty library
+# Arguments: player
+LostEmptyDrawOther = { $player } tried to draw from an empty library
 
 # Why the reading seat lost: poison (`LossCause::Poison`, CR 104.3d).
 LostPoisonYou = You had ten or more poison counters
 
 # Why another seat lost: poison.
-# Arguments: arg0
-LostPoisonOther = { $arg0 } had ten or more poison counters
+# Arguments: player
+LostPoisonOther = { $player } had ten or more poison counters
 
 # Why the reading seat lost: one commander's combat damage
 # (`LossCause::CommanderDamage`, CR 903.10a).
 LostCommanderDamageYou = You took 21 or more combat damage from one commander
 
 # Why another seat lost: one commander's combat damage.
-# Arguments: arg0
-LostCommanderDamageOther = { $arg0 } took 21 or more combat damage from one commander
+# Arguments: player
+LostCommanderDamageOther = { $player } took 21 or more combat damage from one commander
 
 # Why the reading seat lost: it conceded (`LossCause::Conceded`,
 # CR 104.3a).
 LostConcededYou = You conceded
 
 # Why another seat lost: it conceded.
-# Arguments: arg0
-LostConcededOther = { $arg0 } conceded
+# Arguments: player
+LostConcededOther = { $player } conceded
 
 # Why the reading seat lost: an effect said so (`LossCause::Effect`,
 # CR 104.3e), such as a pact left unpaid.
 LostEffectYou = An effect made you lose
 
 # Why another seat lost: an effect said so.
-# Arguments: arg0
-LostEffectOther = An effect made { $arg0 } lose
+# Arguments: player
+LostEffectOther = An effect made { $player } lose
 
 # The reading seat's clock answered its last decision
 # (`HouseAnswer::Clock`): the socket was there and the time ran out.
@@ -4067,8 +4138,8 @@ LostEffectOther = An effect made { $arg0 } lose
 HouseClockYou = Your time ran out, and the house answered your last decision
 
 # Another seat's clock answered its last decision.
-# Arguments: arg0
-HouseClockOther = { $arg0 }'s time ran out, and the house answered their last decision
+# Arguments: player
+HouseClockOther = { $player }'s time ran out, and the house answered their last decision
 
 # The house answered the reading seat's last decision while it had no
 # socket (`HouseAnswer::StandIn`).
@@ -4076,16 +4147,16 @@ HouseStandInYou = You were not connected, and the house answered your last decis
 
 # The house answered another seat's last decision while it had no
 # socket.
-# Arguments: arg0
-HouseStandInOther = { $arg0 } was not connected, and the house answered their last decision
+# Arguments: player
+HouseStandInOther = { $player } was not connected, and the house answered their last decision
 
-# The gateway did not answer at all. `{0}` is the transport's word.
-# Arguments: arg0
-GatewayNoAnswer = the gateway did not answer: { $arg0 }
+# The gateway did not answer at all. `$error` is the transport's word.
+# Arguments: error
+GatewayNoAnswer = the gateway did not answer: { $error }
 
-# It answered, but with a bare status. `{0}` is that status.
-# Arguments: arg0
-GatewayAnswered = the gateway answered { $arg0 }
+# It answered, but with a bare status. `$status` is that status.
+# Arguments: status
+GatewayAnswered = the gateway answered { $status }
 
 # The offline duel could not be opened.
 NoOfflineDuel = could not start the offline duel
@@ -4096,9 +4167,9 @@ UnsavedChanges = unsaved changes — press again to leave
 # The deck already holds as many of that card as it may.
 NoRoomForCopy = no room for another copy of that
 
-# The table could not be reached. `{0}` is what went wrong.
-# Arguments: arg0
-CouldNotReachTable = could not reach the table: { $arg0 }
+# The table could not be reached. `$error` is what went wrong.
+# Arguments: error
+CouldNotReachTable = could not reach the table: { $error }
 
 # Cards the engine is showing this seat — a search, a scry, a reveal.
 BrowseLooking = Shown
@@ -4134,13 +4205,13 @@ BrowseEmpty = nothing here
 BrowseFilter = Name, type…
 
 # How much of the answer is assembled, when the question takes a range.
-# `{0}` is how many are chosen, `{1}` the most it will take.
-# Arguments: arg0, arg1
-BrowseTallyUpTo = { $arg0 } of up to { $arg1 } chosen
+# `$count` is how many are chosen, `$max` the most it will take.
+# Arguments: count, max
+BrowseTallyUpTo = { $count } of up to { $max } chosen
 
-# The same, for a question that names one number. `{0}` of `{1}`.
-# Arguments: arg0, arg1
-BrowseTallyExact = { $arg0 } of { $arg1 } chosen
+# The same, for a question that names one number. `$count` of `$max`.
+# Arguments: count, max
+BrowseTallyExact = { $count } of { $max } chosen
 
 # Sends the answer the dialog has assembled.
 BrowseConfirm = Confirm
@@ -4165,20 +4236,20 @@ FilterAsTyped = as typed
 # cannot answer. One line and not one per row: it is the same fact.
 FilterUnanswerable = A condition cannot be checked here — the list stays empty while it stands.
 
-# Chips are narrowing this list as well: {0}
-# Arguments: arg0
-FilterAlsoChips = Chips are narrowing this list as well: { $arg0 }
+# Chips are narrowing this list as well: $chips
+# Arguments: chips
+FilterAlsoChips = Chips are narrowing this list as well: { $chips }
 
 # Playable only
 FilterChipPlayable = playable only
 
-# mana value {0}
-# Arguments: arg0
-FilterChipCmc = mana value { $arg0 }
+# mana value $mana_value
+# Arguments: mana_value
+FilterChipCmc = mana value { $mana_value }
 
-# mana value {0} or more
-# Arguments: arg0
-FilterChipCmcUp = mana value { $arg0 } or more
+# mana value $mana_value or more
+# Arguments: mana_value
+FilterChipCmcUp = mana value { $mana_value } or more
 
 # The five kinds of condition, which are the five kinds of control.
 FilterKindText = Text
@@ -4305,20 +4376,20 @@ ArrangePutHere = Put it here
 # A pile nothing has been put in yet, while no card is held.
 ArrangeEmptyPile = Empty
 
-# A zone belonging to a seat. `{0}` is the zone, `{1}` the seat.
-# Arguments: arg0, arg1
-BrowseZoneOf = { $arg0 } · { $arg1 }
+# A zone belonging to a seat. `$zone` is the zone, `$player` the seat.
+# Arguments: zone, player
+BrowseZoneOf = { $zone } · { $player }
 
-# A zone tab with how many cards are in it. `{0}` is the zone's name,
-# `{1}` the count.
+# A zone tab with how many cards are in it. `$label` is the zone's name,
+# `$count` the count.
 #
 # Bracketed on purpose: the sheet's own typography greys what a sentence
 # says in brackets, and a count is exactly that kind of aside — a fact
 # the pile itself already shows, riding along beside the name rather
 # than being part of it. It is also the one thing the deleted pile chips
 # said that nothing else on the sheet did.
-# Arguments: arg0, arg1
-BrowseTabCount = { $arg0 } ({ $arg1 })
+# Arguments: label, count
+BrowseTabCount = { $label } ({ $count })
 
 # A card a seat may not see.
 LogACard = a card
@@ -4333,261 +4404,261 @@ LogAPlaneswalker = a planeswalker
 LogABattle = a battle
 
 # Public designation, independent of a battle's controller.
-# Arguments: arg0
-BattleProtectedBy = Protected by { $arg0 }
+# Arguments: player
+BattleProtectedBy = Protected by { $player }
 
 # Current defense, including zero while its defeat trigger is pending.
-# Arguments: arg0
-BattleDefense = Defense { $arg0 }
+# Arguments: defense
+BattleDefense = Defense { $defense }
 
 # The last two names of a list, joined.
-# Arguments: arg0, arg1
-LogAnd = { $arg0 } and { $arg1 }
+# Arguments: list, last
+LogAnd = { $list } and { $last }
 
 # The reading seat inside a list of winners, never first.
 LogYouInList = you
 
-# A line that happened more than once in a row. `{0}` is the line, `{1}`
+# A line that happened more than once in a row. `$line` is the line, `$count`
 # how many times.
-# Arguments: arg0, arg1
-LogRepeated = { $arg0 } (×{ $arg1 })
+# Arguments: line, count
+LogRepeated = { $line } (×{ $count })
 
-# The heading of the reading seat's own turn. `{1}` is the turn number.
-# Arguments: arg0, arg1
-LogTurnYou = Turn { $arg1 } · your turn
+# The heading of the reading seat's own turn. `$turn` is the turn number.
+# Arguments: player, turn
+LogTurnYou = Turn { $turn } · your turn
 
 # The heading of another seat's turn.
-# Arguments: arg0, arg1
-LogTurn = Turn { $arg1 } · { $arg0 }
+# Arguments: player, turn
+LogTurn = Turn { $turn } · { $player }
 
 # The reading seat took a mulligan.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogMulliganYou = { $arg7 } took a mulligan
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogMulliganYou = { $you_subject } took a mulligan
 
 # Another seat took a mulligan.
-# Arguments: arg0
-LogMulligan = { $arg0 } took a mulligan
+# Arguments: player
+LogMulligan = { $player } took a mulligan
 
-# The reading seat kept one card. `{1}` is the count.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogKeptCardYou = { $arg7 } kept { $arg1 } card
-
-# The reading seat kept its hand. `{1}` is the count.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogKeptCardsYou = { $arg7 } kept { $arg1 } cards
+# The reading seat kept one card. `$count` is the count.
+# Arguments: player, count, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogKeptCardsYou =
+    { $count ->
+        [one] { $you_subject } kept { $count } card
+       *[other] { $you_subject } kept { $count } cards
+    }
 
 # Another seat kept one card.
-# Arguments: arg0, arg1
-LogKeptCard = { $arg0 } kept { $arg1 } card
-
-# Another seat kept its hand.
-# Arguments: arg0, arg1
-LogKeptCards = { $arg0 } kept { $arg1 } cards
+# Arguments: player, count
+LogKeptCards =
+    { $count ->
+        [one] { $player } kept { $count } card
+       *[other] { $player } kept { $count } cards
+    }
 
 # The decision clock passed priority for the reading seat.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogTimedPassedYou = { $arg7 } ran out of time and passed
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogTimedPassedYou = { $you_subject } ran out of time and passed
 
 # The decision clock passed priority for another seat.
-# Arguments: arg0
-LogTimedPassed = { $arg0 } ran out of time and passed
+# Arguments: player
+LogTimedPassed = { $player } ran out of time and passed
 
 # The decision clock kept the reading seat's opening hand.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogTimedKeptYou = { $arg7 } ran out of time and kept your hand
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogTimedKeptYou = { $you_subject } ran out of time and kept your hand
 
 # The decision clock kept another seat's opening hand.
-# Arguments: arg0
-LogTimedKept = { $arg0 } ran out of time and kept their hand
+# Arguments: player
+LogTimedKept = { $player } ran out of time and kept their hand
 
 # The decision clock declared no attackers for the reading seat.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogTimedNoAttackersYou = { $arg7 } ran out of time and did not attack
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogTimedNoAttackersYou = { $you_subject } ran out of time and did not attack
 
 # The decision clock declared no attackers for another seat.
-# Arguments: arg0
-LogTimedNoAttackers = { $arg0 } ran out of time and did not attack
+# Arguments: player
+LogTimedNoAttackers = { $player } ran out of time and did not attack
 
 # The decision clock declared no blockers for the reading seat.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogTimedNoBlockersYou = { $arg7 } ran out of time and did not block
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogTimedNoBlockersYou = { $you_subject } ran out of time and did not block
 
 # The decision clock declared no blockers for another seat.
-# Arguments: arg0
-LogTimedNoBlockers = { $arg0 } ran out of time and did not block
+# Arguments: player
+LogTimedNoBlockers = { $player } ran out of time and did not block
 
 # The decision clock said no for the reading seat.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogTimedDeclinedYou = { $arg7 } ran out of time and declined
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogTimedDeclinedYou = { $you_subject } ran out of time and declined
 
 # The decision clock said no for another seat.
-# Arguments: arg0
-LogTimedDeclined = { $arg0 } ran out of time and declined
+# Arguments: player
+LogTimedDeclined = { $player } ran out of time and declined
 
 # The house chose for the reading seat when its clock ran out.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
-LogTimedChosenYou = { $arg7 } ran out of time and the house chose for { $arg8 }
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject, you_object
+LogTimedChosenYou = { $you_subject } ran out of time and the house chose for { $you_object }
 
 # The house chose for another seat when its clock ran out.
-# Arguments: arg0
-LogTimedChosen = { $arg0 } ran out of time and the house chose for them
+# Arguments: player
+LogTimedChosen = { $player } ran out of time and the house chose for them
 
 # The house sat down at the reading seat's chair.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogStandInYou = { $arg7 } went away and the house took over your seat
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogStandInYou = { $you_subject } went away and the house took over your seat
 
 # The house sat down at another seat's chair.
-# Arguments: arg0
-LogStandIn = { $arg0 } went away and the house took over their seat
+# Arguments: player
+LogStandIn = { $player } went away and the house took over their seat
 
-# The reading seat lost its connection; `{1}` is how long the table
+# The reading seat lost its connection; `$wait` is how long the table
 # waits (m:ss) before the house takes the chair.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogConnectionLostYou = { $arg7 } lost the connection – the table waited { $arg1 } before the house would take over
+# Arguments: player, wait, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogConnectionLostYou = { $you_subject } lost the connection – the table waited { $wait } before the house would take over
 
-# Another seat lost its connection; `{1}` as above.
-# Arguments: arg0, arg1
-LogConnectionLost = { $arg0 } lost the connection – waiting { $arg1 } for them to reconnect
+# Another seat lost its connection; `$wait` as above.
+# Arguments: player, wait
+LogConnectionLost = { $player } lost the connection – waiting { $wait } for them to reconnect
 
 # The reading seat lost its connection, and nobody else is at the
 # table: the game is paused.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogConnectionLostPausedYou = { $arg7 } lost the connection – the game was paused until the connection was back
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogConnectionLostPausedYou = { $you_subject } lost the connection – the game was paused until the connection was back
 
 # Another seat lost its connection with nobody else at the table.
-# Arguments: arg0
-LogConnectionLostPaused = { $arg0 } lost the connection – the game is paused until they reconnect
+# Arguments: player
+LogConnectionLostPaused = { $player } lost the connection – the game is paused until they reconnect
 
 # The reading seat is back at its chair.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogReturnedYou = { $arg7 } came back
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogReturnedYou = { $you_subject } came back
 
 # Another seat is back at its chair.
-# Arguments: arg0
-LogReturned = { $arg0 } came back
+# Arguments: player
+LogReturned = { $player } came back
 
-# The reading seat played a land. `{1}` is the land.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLandPlayedYou = { $arg7 } played { $arg1 }{ $arg2 }
+# The reading seat played a land. `$land` is the land.
+# Arguments: player, land, from, unused_3, unused_4, unused_5, unused_6, you_subject
+LogLandPlayedYou = { $you_subject } played { $land }{ $from }
 
 # Another seat played a land.
-# Arguments: arg0, arg1, arg2
-LogLandPlayed = { $arg0 } played { $arg1 }{ $arg2 }
+# Arguments: player, land, from
+LogLandPlayed = { $player } played { $land }{ $from }
 
-# The reading seat cast a spell. `{1}` is the spell.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogCastYou = { $arg7 } cast { $arg1 }{ $arg2 }
+# The reading seat cast a spell. `$spell` is the spell.
+# Arguments: player, spell, from, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCastYou = { $you_subject } cast { $spell }{ $from }
 
 # Another seat cast a spell.
-# Arguments: arg0, arg1, arg2
-LogCast = { $arg0 } cast { $arg1 }{ $arg2 }
+# Arguments: player, spell, from
+LogCast = { $player } cast { $spell }{ $from }
 
-# An ability the reading seat controls went on the stack. `{1}` is its
+# An ability the reading seat controls went on the stack. `$source` is its
 # source. Activated or triggered, which the line cannot tell: its
 # controller puts either on the stack (CR 602.2a, CR 603.3).
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogAbilityYou = { $arg7 } put an ability of { $arg1 } on the stack
+# Arguments: player, source, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogAbilityYou = { $you_subject } put an ability of { $source } on the stack
 
 # An ability another seat controls went on the stack.
-# Arguments: arg0, arg1
-LogAbility = { $arg0 } put an ability of { $arg1 } on the stack
+# Arguments: player, source
+LogAbility = { $player } put an ability of { $source } on the stack
 
-# The reading seat activated an ability (CR 602). `{1}` is its source.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogActivatedYou = { $arg7 } activated { $arg1 }
+# The reading seat activated an ability (CR 602). `$source` is its source.
+# Arguments: player, source, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogActivatedYou = { $you_subject } activated { $source }
 
 # Another seat activated an ability.
-# Arguments: arg0, arg1
-LogActivated = { $arg0 } activated { $arg1 }
+# Arguments: player, source
+LogActivated = { $player } activated { $source }
 
-# An ability the reading seat controls triggered (CR 603). `{1}` is its
+# An ability the reading seat controls triggered (CR 603). `$source` is its
 # source.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
-LogTriggeredYou = { $arg1 } triggered for { $arg8 }
+# Arguments: player, source, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject, you_object
+LogTriggeredYou = { $source } triggered for { $you_object }
 
 # An ability another seat controls triggered.
-# Arguments: arg0, arg1
-LogTriggered = { $arg1 } triggered for { $arg0 }
+# Arguments: player, source
+LogTriggered = { $source } triggered for { $player }
 
 # Under a line dealing damage to a player: where it left their life,
-# 1. `{2}` is it, `{1}` what it was.
-# Arguments: arg0, arg1, arg2
-LogLifeNowPoint = now at { $arg2 } life (from { $arg1 })
+# 1. `$life` is it, `$before` what it was.
+# Arguments: unused_0, before, life, count
+LogLifeNowPoints =
+    { $count ->
+        [one] now at { $life } life (from { $before })
+       *[other] now at { $life } life (from { $before })
+    }
 
-# The same, at any other total.
-# Arguments: arg0, arg1, arg2
-LogLifeNowPoints = now at { $arg2 } life (from { $arg1 })
+# A spell was countered. `$spell` is the spell.
+# Arguments: unused_0, spell
+LogCountered = { $spell } was countered
 
-# A spell was countered. `{1}` is the spell.
-# Arguments: arg0, arg1
-LogCountered = { $arg1 } was countered
+# A spell or ability left the stack without resolving. `$object` is it.
+# Arguments: unused_0, object
+LogDidNotResolve = { $object } did not resolve
 
-# A spell or ability left the stack without resolving. `{1}` is it.
-# Arguments: arg0, arg1
-LogDidNotResolve = { $arg1 } did not resolve
-
-# The reading seat drew cards it may name. `{1}` is the list.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogDrewYou = { $arg7 } drew { $arg1 }
+# The reading seat drew cards it may name. `$cards` is the list.
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogDrewYou = { $you_subject } drew { $cards }
 
 # Another seat drew cards the reading seat may name.
-# Arguments: arg0, arg1
-LogDrew = { $arg0 } drew { $arg1 }
+# Arguments: player, cards
+LogDrew = { $player } drew { $cards }
 
-# The reading seat drew one card it may not name. `{1}` is the count.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogDrewCardYou = { $arg7 } drew { $arg1 } card
-
-# The reading seat drew cards it may not name.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogDrewCardsYou = { $arg7 } drew { $arg1 } cards
+# The reading seat drew one card it may not name. `$count` is the count.
+# Arguments: player, count, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogDrewCardsYou =
+    { $count ->
+        [one] { $you_subject } drew { $count } card
+       *[other] { $you_subject } drew { $count } cards
+    }
 
 # Another seat drew one card.
-# Arguments: arg0, arg1
-LogDrewCard = { $arg0 } drew { $arg1 } card
+# Arguments: player, count
+LogDrewCards =
+    { $count ->
+        [one] { $player } drew { $count } card
+       *[other] { $player } drew { $count } cards
+    }
 
-# Another seat drew cards.
-# Arguments: arg0, arg1
-LogDrewCards = { $arg0 } drew { $arg1 } cards
-
-# The reading seat discarded a card. `{1}` is the card.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogDiscardedYou = { $arg7 } discarded { $arg1 }
+# The reading seat discarded a card. `$card` is the card.
+# Arguments: player, card, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogDiscardedYou = { $you_subject } discarded { $card }
 
 # Another seat discarded a card.
-# Arguments: arg0, arg1
-LogDiscarded = { $arg0 } discarded { $arg1 }
+# Arguments: player, card
+LogDiscarded = { $player } discarded { $card }
 
 # A card went into a library, and the library was shuffled in the
-# same action (#300). `{1}` is the card, `{2}` where from, `{3}` which
+# same action (#300). `$object` is the card, `$from` where from, `$to` which
 # library ([`Phrase::LogIntoLibrary`]).
-# Arguments: arg0, arg1, arg2, arg3
-LogMovedShuffled = { $arg1 } was shuffled { $arg2 } { $arg3 }
+# Arguments: unused_0, object, from, to
+LogMovedShuffled = { $object } was shuffled { $from } { $to }
 
 # A card went on top of the reading seat's library.
 LogOntoLibraryTopYou = on top of your library
 
-# A card went on top of another seat's library. `{0}` is the seat.
-# Arguments: arg0
-LogOntoLibraryTop = on top of { $arg0 }'s library
+# A card went on top of another seat's library. `$player` is the seat.
+# Arguments: player
+LogOntoLibraryTop = on top of { $player }'s library
 
 # A card went on the bottom of the reading seat's library.
 LogOntoLibraryBottomYou = on the bottom of your library
 
 # A card went on the bottom of another seat's library.
-# Arguments: arg0
-LogOntoLibraryBottom = on the bottom of { $arg0 }'s library
+# Arguments: player
+LogOntoLibraryBottom = on the bottom of { $player }'s library
 
 # A card went into the reading seat's library at a place counted from
-# the top. `{1}` is the ordinal: "3rd" in English, "3" in German, whose
+# the top. `$position` is the ordinal: "3rd" in English, "3" in German, whose
 # sentence writes the full stop.
-# Arguments: arg0, arg1
-LogIntoLibraryAtYou = { $arg1 } from the top of your library
+# Arguments: player, position
+LogIntoLibraryAtYou = { $position } from the top of your library
 
 # A card went into another seat's library at a place counted from the
 # top.
-# Arguments: arg0, arg1
-LogIntoLibraryAt = { $arg1 } from the top of { $arg0 }'s library
+# Arguments: player, position
+LogIntoLibraryAt = { $position } from the top of { $player }'s library
 
 # Where another seat played a land or cast a spell from, when the zone
 # is its own (#300). The reading seat's own is [`Phrase::LogFromHandYou`].
@@ -4599,63 +4670,63 @@ LogFromOwnLibrary = from their library
 # The same, from its own graveyard.
 LogFromOwnGraveyard = from their graveyard
 
-# "You" as the subject of a log sentence (#300): `{7}` in every one, so
+# "You" as the subject of a log sentence (#300): `$you_subject` (`{7}`) in every one, so
 # a panel can set the reading seat in bold like any other seat.
 LogYouSubject = you
 
-# "You" as a direct object: `{8}`.
+# "You" as a direct object: `$you_object` (`{8}`).
 LogYouObject = you
 
-# "You" as an indirect object: `{9}`.
+# "You" as an indirect object: `$you_indirect` (`{9}`).
 LogYouIndirect = you
 
 # The reading seat lost by drawing from an empty library, as the log
 # says it; [`Phrase::LostEmptyDrawYou`] is the end screen's.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLostEmptyDrawYou = { $arg7 } tried to draw from an empty library
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogLostEmptyDrawYou = { $you_subject } tried to draw from an empty library
 
 # The reading seat lost to poison.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLostPoisonYou = { $arg7 } had ten or more poison counters
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogLostPoisonYou = { $you_subject } had ten or more poison counters
 
 # The reading seat lost to a commander's damage.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLostCommanderDamageYou = { $arg7 } took 21 or more combat damage from one commander
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogLostCommanderDamageYou = { $you_subject } took 21 or more combat damage from one commander
 
 # The reading seat conceded.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLostConcededYou = { $arg7 } conceded
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogLostConcededYou = { $you_subject } conceded
 
 # An effect made the reading seat lose.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
-LogLostEffectYou = An effect made { $arg8 } lose
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject, you_object
+LogLostEffectYou = An effect made { $you_object } lose
 
-# An object changed zones. `{1}` is the object, `{2}` where it came
-# from and `{3}` where it went, each one of the `LogFrom…`/`LogInto…`
+# An object changed zones. `$object` is the object, `$from` where it came
+# from and `$to` where it went, each one of the `LogFrom…`/`LogInto…`
 # phrases.
-# Arguments: arg0, arg1, arg2, arg3
-LogMoved = { $arg1 } moved { $arg2 } { $arg3 }
+# Arguments: unused_0, object, from, to
+LogMoved = { $object } moved { $from } { $to }
 
 # Out of the reading seat's library.
 LogFromLibraryYou = from your library
 
-# Out of another seat's library. `{0}` is the seat.
-# Arguments: arg0
-LogFromLibrary = from { $arg0 }'s library
+# Out of another seat's library. `$player` is the seat.
+# Arguments: player
+LogFromLibrary = from { $player }'s library
 
 # Out of the reading seat's hand.
 LogFromHandYou = from your hand
 
 # Out of another seat's hand.
-# Arguments: arg0
-LogFromHand = from { $arg0 }'s hand
+# Arguments: player
+LogFromHand = from { $player }'s hand
 
 # Out of the reading seat's graveyard.
 LogFromGraveyardYou = from your graveyard
 
 # Out of another seat's graveyard.
-# Arguments: arg0
-LogFromGraveyard = from { $arg0 }'s graveyard
+# Arguments: player
+LogFromGraveyard = from { $player }'s graveyard
 
 # Off the battlefield.
 LogFromBattlefield = from the battlefield
@@ -4670,22 +4741,22 @@ LogFromCommand = from the command zone
 LogIntoLibraryYou = into your library
 
 # Into another seat's library.
-# Arguments: arg0
-LogIntoLibrary = into { $arg0 }'s library
+# Arguments: player
+LogIntoLibrary = into { $player }'s library
 
 # Into the reading seat's hand.
 LogIntoHandYou = into your hand
 
 # Into another seat's hand.
-# Arguments: arg0
-LogIntoHand = into { $arg0 }'s hand
+# Arguments: player
+LogIntoHand = into { $player }'s hand
 
 # Into the reading seat's graveyard.
 LogIntoGraveyardYou = into your graveyard
 
 # Into another seat's graveyard.
-# Arguments: arg0
-LogIntoGraveyard = into { $arg0 }'s graveyard
+# Arguments: player
+LogIntoGraveyard = into { $player }'s graveyard
 
 # Onto the battlefield.
 LogIntoBattlefield = onto the battlefield
@@ -4696,289 +4767,325 @@ LogIntoExile = into exile
 # Into the command zone.
 LogIntoCommand = into the command zone
 
-# The reading seat created a token. `{1}` is the token.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogCreatedYou = { $arg7 } created { $arg1 }
+# The reading seat created a token. `$token` is the token.
+# Arguments: player, token, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCreatedYou = { $you_subject } created { $token }
 
 # Another seat created a token.
-# Arguments: arg0, arg1
-LogCreated = { $arg0 } created { $arg1 }
+# Arguments: player, token
+LogCreated = { $player } created { $token }
 
-# Combat damage to the reading seat. `{1}` is the amount, `{2}` the
+# Combat damage to the reading seat. `$amount` is the amount, `$source` the
 # source.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
-LogCombatDamageYou = { $arg2 } dealt { $arg1 } combat damage to { $arg9 }
+# Arguments: recipient, amount, source, unused_3, unused_4, unused_5, unused_6, you_subject, you_object, you_indirect
+LogCombatDamageYou = { $source } dealt { $amount } combat damage to { $you_indirect }
 
 # Damage to the reading seat.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
-LogDamageYou = { $arg2 } dealt { $arg1 } damage to { $arg9 }
+# Arguments: recipient, amount, source, unused_3, unused_4, unused_5, unused_6, you_subject, you_object, you_indirect
+LogDamageYou = { $source } dealt { $amount } damage to { $you_indirect }
 
-# Combat damage to another seat or a permanent, `{0}`.
-# Arguments: arg0, arg1, arg2
-LogCombatDamage = { $arg2 } dealt { $arg1 } combat damage to { $arg0 }
+# Combat damage to another seat or a permanent, `$recipient`.
+# Arguments: recipient, amount, source
+LogCombatDamage = { $source } dealt { $amount } combat damage to { $recipient }
 
-# Damage to another seat or a permanent, `{0}`.
-# Arguments: arg0, arg1, arg2
-LogDamage = { $arg2 } dealt { $arg1 } damage to { $arg0 }
+# Damage to another seat or a permanent, `$recipient`.
+# Arguments: recipient, amount, source
+LogDamage = { $source } dealt { $amount } damage to { $recipient }
 
 # Damage to the reading seat from a source the line cannot name.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogDamageUnsourcedYou = { $arg7 } were dealt { $arg1 } damage
+# Arguments: recipient, amount, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogDamageUnsourcedYou = { $you_subject } were dealt { $amount } damage
 
 # Damage to another seat or a permanent from a source the line cannot
 # name.
-# Arguments: arg0, arg1
-LogDamageUnsourced = { $arg0 } was dealt { $arg1 } damage
+# Arguments: recipient, amount
+LogDamageUnsourced = { $recipient } was dealt { $amount } damage
 
-# The reading seat's life total is 1. `{2}` is it, `{1}` what it was.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLifePointYou = { $arg7 } went to { $arg2 } life (from { $arg1 })
-
-# The reading seat's life total changed.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogLifePointsYou = { $arg7 } went to { $arg2 } life (from { $arg1 })
+# The reading seat's life total is 1. `$life` is it, `$before` what it was.
+# Arguments: player, before, life, unused_3, unused_4, unused_5, unused_6, you_subject, count
+LogLifePointsYou =
+    { $count ->
+        [one] { $you_subject } went to { $life } life (from { $before })
+       *[other] { $you_subject } went to { $life } life (from { $before })
+    }
 
 # Another seat's life total is 1.
-# Arguments: arg0, arg1, arg2
-LogLifePoint = { $arg0 } went to { $arg2 } life (from { $arg1 })
-
-# Another seat's life total changed.
-# Arguments: arg0, arg1, arg2
-LogLifePoints = { $arg0 } went to { $arg2 } life (from { $arg1 })
+# Arguments: player, before, life, count
+LogLifePoints =
+    { $count ->
+        [one] { $player } went to { $life } life (from { $before })
+       *[other] { $player } went to { $life } life (from { $before })
+    }
 
 # The reading player's public counter total changed.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogPlayerCountersYou = { $arg7 } went to { $arg1 } { $arg2 } (from { $arg3 })
+# Arguments: player, count, counter, before, unused_4, unused_5, unused_6, you_subject
+LogPlayerCountersYou = { $you_subject } went to { $count } { $counter } (from { $before })
 
 # Another player's public counter total changed.
-# Arguments: arg0, arg1, arg2, arg3
-LogPlayerCounters = { $arg0 } went to { $arg1 } { $arg2 } (from { $arg3 })
+# Arguments: player, count, counter, before
+LogPlayerCounters = { $player } went to { $count } { $counter } (from { $before })
 
 # A permanent that had no counters of a kind got some: object, count,
 # counter noun.
-# Arguments: arg0, arg1, arg2, arg3
-LogCountersGot = { $arg1 } got { $arg2 } { $arg3 }
+# Arguments: unused_0, object, count, counter
+LogCountersGot = { $object } got { $count } { $counter }
 
 # Counters on a permanent changed: object, new count, counter noun, old count.
-# Arguments: arg0, arg1, arg2, arg3, arg4
-LogCounters = { $arg1 } went to { $arg2 } { $arg3 } (from { $arg4 })
+# Arguments: unused_0, object, count, counter, before
+LogCounters = { $object } went to { $count } { $counter } (from { $before })
 
-# One +X/+Y counter. `{0}` is X and `{1}` is Y.
-# Arguments: arg0, arg1
-LogCounterPlus = +{ $arg0 }/+{ $arg1 } counter
-
-# +X/+Y counters.
-# Arguments: arg0, arg1
-LogCountersPlus = +{ $arg0 }/+{ $arg1 } counters
+# One +X/+Y counter. `$power` is X and `$toughness` is Y.
+# Arguments: power, toughness, count
+LogCountersPlus =
+    { $count ->
+        [one] +{ $power }/+{ $toughness } counter
+       *[other] +{ $power }/+{ $toughness } counters
+    }
 
 # One -X/-Y counter.
-# Arguments: arg0, arg1
-LogCounterMinus = -{ $arg0 }/-{ $arg1 } counter
-
-# -X/-Y counters.
-# Arguments: arg0, arg1
-LogCountersMinus = -{ $arg0 }/-{ $arg1 } counters
+# Arguments: power, toughness, count
+LogCountersMinus =
+    { $count ->
+        [one] -{ $power }/-{ $toughness } counter
+       *[other] -{ $power }/-{ $toughness } counters
+    }
 
 # One loyalty counter.
-LogCounterLoyalty = loyalty counter
-
-# Loyalty counters.
-LogCountersLoyalty = loyalty counters
+# Arguments: count
+LogCountersLoyalty =
+    { $count ->
+        [one] loyalty counter
+       *[other] loyalty counters
+    }
 
 # A bore counter.
-LogCounterBore = bore counter
-
-# Bore counters.
-LogCountersBore = bore counters
+# Arguments: count
+LogCountersBore =
+    { $count ->
+        [one] bore counter
+       *[other] bore counters
+    }
 
 # A shield counter.
-LogCounterShield = shield counter
-
-# Shield counters.
-LogCountersShield = shield counters
+# Arguments: count
+LogCountersShield =
+    { $count ->
+        [one] shield counter
+       *[other] shield counters
+    }
 
 # Defense counter, singular.
-LogCounterDefense = defense counter
-
-# Defense counters, plural.
-LogCountersDefense = defense counters
+# Arguments: count
+LogCountersDefense =
+    { $count ->
+        [one] defense counter
+       *[other] defense counters
+    }
 
 # One lore counter (CR 714.3).
-LogCounterLore = lore counter
-
-# Lore counters.
-LogCountersLore = lore counters
+# Arguments: count
+LogCountersLore =
+    { $count ->
+        [one] lore counter
+       *[other] lore counters
+    }
 
 # One time counter.
-LogCounterTime = time counter
-
-# Time counters.
-LogCountersTime = time counters
+# Arguments: count
+LogCountersTime =
+    { $count ->
+        [one] time counter
+       *[other] time counters
+    }
 
 # One age counter (CR 702.24a).
-LogCounterAge = age counter
-
-# Age counters (CR 702.24a).
-LogCountersAge = age counters
+# Arguments: count
+LogCountersAge =
+    { $count ->
+        [one] age counter
+       *[other] age counters
+    }
 
 # One charge counter.
-LogCounterCharge = charge counter
-
-# Charge counters.
-LogCountersCharge = charge counters
+# Arguments: count
+LogCountersCharge =
+    { $count ->
+        [one] charge counter
+       *[other] charge counters
+    }
 
 # One poison counter.
-LogCounterPoison = poison counter
-
-# Poison counters.
-LogCountersPoison = poison counters
+# Arguments: count
+LogCountersPoison =
+    { $count ->
+        [one] poison counter
+       *[other] poison counters
+    }
 
 # One energy counter.
-LogCounterEnergy = energy counter
-
-# Energy counters.
-LogCountersEnergy = energy counters
+# Arguments: count
+LogCountersEnergy =
+    { $count ->
+        [one] energy counter
+       *[other] energy counters
+    }
 
 # One rad counter.
-LogCounterRad = rad counter
-
-# Rad counters.
-LogCountersRad = rad counters
+# Arguments: count
+LogCountersRad =
+    { $count ->
+        [one] rad counter
+       *[other] rad counters
+    }
 
 # One flying counter.
-LogCounterFlying = flying counter
-
-# Flying counters.
-LogCountersFlying = flying counters
+# Arguments: count
+LogCountersFlying =
+    { $count ->
+        [one] flying counter
+       *[other] flying counters
+    }
 
 # One shadow counter.
-LogCounterShadow = shadow counter
-
-# Shadow counters.
-LogCountersShadow = shadow counters
+# Arguments: count
+LogCountersShadow =
+    { $count ->
+        [one] shadow counter
+       *[other] shadow counters
+    }
 
 # One indestructible counter.
-LogCounterIndestructible = indestructible counter
-
-# Indestructible counters.
-LogCountersIndestructible = indestructible counters
+# Arguments: count
+LogCountersIndestructible =
+    { $count ->
+        [one] indestructible counter
+       *[other] indestructible counters
+    }
 
 # One hone counter.
-LogCounterHone = hone counter
-
-# Hone counters.
-LogCountersHone = hone counters
+# Arguments: count
+LogCountersHone =
+    { $count ->
+        [one] hone counter
+       *[other] hone counters
+    }
 
 # One lifelink counter.
-LogCounterLifelink = lifelink counter
-
-# Lifelink counters.
-LogCountersLifelink = lifelink counters
+# Arguments: count
+LogCountersLifelink =
+    { $count ->
+        [one] lifelink counter
+       *[other] lifelink counters
+    }
 
 # One level counter.
-LogCounterLevel = level counter
-
-# Level counters.
-LogCountersLevel = level counters
+# Arguments: count
+LogCountersLevel =
+    { $count ->
+        [one] level counter
+       *[other] level counters
+    }
 
 # One counter of a kind this client has no name for.
-LogCounterOther = counter
+# Arguments: count
+LogCountersOther =
+    { $count ->
+        [one] counter
+       *[other] counters
+    }
 
-# Counters of a kind this client has no name for.
-LogCountersOther = counters
+# A creature attacks the reading seat. `$attacker` is the attacker.
+# Arguments: defender, attacker, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject, you_object
+LogAttackedYou = { $attacker } attacked { $you_object }
 
-# A creature attacks the reading seat. `{1}` is the attacker.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
-LogAttackedYou = { $arg1 } attacked { $arg8 }
+# A creature attacks another seat or a planeswalker, `$defender`.
+# Arguments: defender, attacker
+LogAttacked = { $attacker } attacked { $defender }
 
-# A creature attacks another seat or a planeswalker, `{0}`.
-# Arguments: arg0, arg1
-LogAttacked = { $arg1 } attacked { $arg0 }
+# A creature blocks. `$blocker` is the blocker, `$attacker` the attacker.
+# Arguments: unused_0, blocker, attacker
+LogBlocked = { $blocker } blocked { $attacker }
 
-# A creature blocks. `{1}` is the blocker, `{2}` the attacker.
-# Arguments: arg0, arg1, arg2
-LogBlocked = { $arg1 } blocked { $arg2 }
+# An attacker joined a band (banding). `$attacker` joined the band of `$leader`.
+# Arguments: unused_0, attacker, leader
+LogBanded = { $attacker } attacks in a band with { $leader }
 
-# An attacker joined a band (banding). `{1}` joined the band of `{2}`.
-# Arguments: arg0, arg1, arg2
-LogBanded = { $arg1 } attacks in a band with { $arg2 }
-
-# The reading seat gained control of a permanent. `{1}` is it.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogControlYou = { $arg7 } gained control of { $arg1 }
+# The reading seat gained control of a permanent. `$object` is it.
+# Arguments: player, object, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogControlYou = { $you_subject } gained control of { $object }
 
 # Another seat gained control of a permanent.
-# Arguments: arg0, arg1
-LogControl = { $arg0 } gained control of { $arg1 }
+# Arguments: player, object
+LogControl = { $player } gained control of { $object }
 
-# A permanent transformed. `{1}` is it.
+# A permanent transformed. `$object` is it.
 # A face-down permanent becomes public.
-# Arguments: arg0, arg1
-LogTurnedFaceUp = { $arg1 } turned face up
+# Arguments: unused_0, object
+LogTurnedFaceUp = { $object } turned face up
 
 # A permanent transforms.
-# Arguments: arg0, arg1
-LogTransformed = { $arg1 } transformed
+# Arguments: unused_0, object
+LogTransformed = { $object } transformed
 
-# The reading seat chose which permanents to keep. `{1}` is the list.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogCardsKeptYou = { $arg7 } chose to keep { $arg1 }
+# The reading seat chose which permanents to keep. `$cards` is the list.
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogCardsKeptYou = { $you_subject } chose to keep { $cards }
 
 # Another seat chose which permanents to keep.
-# Arguments: arg0, arg1
-LogCardsKept = { $arg0 } chose to keep { $arg1 }
+# Arguments: player, cards
+LogCardsKept = { $player } chose to keep { $cards }
 
-# The reading seat revealed cards. `{1}` is the list.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogRevealedYou = { $arg7 } revealed { $arg1 }
+# The reading seat revealed cards. `$cards` is the list.
+# Arguments: player, cards, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogRevealedYou = { $you_subject } revealed { $cards }
 
 # Another seat revealed cards.
-# Arguments: arg0, arg1
-LogRevealed = { $arg0 } revealed { $arg1 }
+# Arguments: player, cards
+LogRevealed = { $player } revealed { $cards }
 
 # The reading seat shuffled its library.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogShuffledYou = { $arg7 } shuffled your library
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogShuffledYou = { $you_subject } shuffled your library
 
 # Another seat shuffled its library.
-# Arguments: arg0
-LogShuffled = { $arg0 } shuffled their library
+# Arguments: player
+LogShuffled = { $player } shuffled their library
 
-# The reading seat rolled a die. `{1}` is its sides, `{2}` the result.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogRolledYou = { $arg7 } rolled a d{ $arg1 } and got { $arg2 }
+# The reading seat rolled a die. `$sides` is its sides, `$result` the result.
+# Arguments: player, sides, result, unused_3, unused_4, unused_5, unused_6, you_subject
+LogRolledYou = { $you_subject } rolled a d{ $sides } and got { $result }
 
 # Another seat rolled a die.
-# Arguments: arg0, arg1, arg2
-LogRolled = { $arg0 } rolled a d{ $arg1 } and got { $arg2 }
+# Arguments: player, sides, result
+LogRolled = { $player } rolled a d{ $sides } and got { $result }
 
 # The reading seat flipped a coin and won the flip.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogFlipWonYou = { $arg7 } flipped a coin and won the flip
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogFlipWonYou = { $you_subject } flipped a coin and won the flip
 
 # The reading seat flipped a coin and lost the flip.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogFlipLostYou = { $arg7 } flipped a coin and lost the flip
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogFlipLostYou = { $you_subject } flipped a coin and lost the flip
 
 # Another seat won a coin flip.
-# Arguments: arg0
-LogFlipWon = { $arg0 } flipped a coin and won the flip
+# Arguments: player
+LogFlipWon = { $player } flipped a coin and won the flip
 
 # Another seat lost a coin flip.
-# Arguments: arg0
-LogFlipLost = { $arg0 } flipped a coin and lost the flip
+# Arguments: player
+LogFlipLost = { $player } flipped a coin and lost the flip
 
 # The reading seat won.
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogWonYou = { $arg7 } won the game
+# Arguments: unused_0, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogWonYou = { $you_subject } won the game
 
-# One other seat won. `{0}` is it.
-# Arguments: arg0
-LogWonOne = { $arg0 } won the game
+# One other seat won. `$player` is it.
+# Arguments: player
+LogWonOne = { $player } won the game
 
-# A team won. `{0}` is the list of its seats.
-# Arguments: arg0
-LogWonMany = { $arg0 } won the game
+# A team won. `$players` is the list of its seats.
+# Arguments: players
+LogWonMany = { $players } won the game
 
 # Nobody won.
 LogDrawn = The game was a draw
@@ -4996,44 +5103,44 @@ LogDay = It became day
 LogNight = It became night
 
 # The reading seat became the monarch (CR 724.3).
-# Arguments: arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7
-LogMonarchYou = { $arg7 } became the monarch
+# Arguments: player, unused_1, unused_2, unused_3, unused_4, unused_5, unused_6, you_subject
+LogMonarchYou = { $you_subject } became the monarch
 
 # Another seat became the monarch.
-# Arguments: arg0
-LogMonarch = { $arg0 } became the monarch
+# Arguments: player
+LogMonarch = { $player } became the monarch
 
 # The one mode chosen for a spell or an ability (CR 601.2b, 603.3c).
-# `{1}` is it: the card's own words in quotes ([`Phrase::LogQuoted`]),
+# `$modes` is it: the card's own words in quotes ([`Phrase::LogQuoted`]),
 # or its number.
-# Arguments: arg0, arg1
-LogAimedMode = mode: { $arg1 }
+# Arguments: unused_0, modes
+LogAimedMode = mode: { $modes }
 
-# Several modes chosen at once. `{1}` is them, joined by " + ".
-# Arguments: arg0, arg1
-LogAimedModes = modes: { $arg1 }
+# Several modes chosen at once. `$modes` is them, joined by " + ".
+# Arguments: unused_0, modes
+LogAimedModes = modes: { $modes }
 
-# The one target of a spell or an ability (CR 601.2c). `{1}` is it.
-# Arguments: arg0, arg1
-LogAimedTarget = targeting { $arg1 }
+# The one target of a spell or an ability (CR 601.2c). `$targets` is it.
+# Arguments: unused_0, targets
+LogAimedTarget = targeting { $targets }
 
-# Several targets. `{1}` is the list.
-# Arguments: arg0, arg1
-LogAimedTargets = targeting { $arg1 }
+# Several targets. `$targets` is the list.
+# Arguments: unused_0, targets
+LogAimedTargets = targeting { $targets }
 
 # A spell's modes or targets, on a line of their own (changed while it
-# was on the stack). `{1}` is the spell, `{2}` what it was announced
+# was on the stack). `$source` is the spell, `$details` what it was announced
 # with: [`Phrase::LogAimedMode`] and [`Phrase::LogAimedTarget`] parts.
-# Arguments: arg0, arg1, arg2
-LogAimedSpell = { $arg1 }: { $arg2 }
+# Arguments: unused_0, source, details
+LogAimedSpell = { $source }: { $details }
 
-# The same for an ability. `{1}` is its source.
-# Arguments: arg0, arg1, arg2
-LogAimedAbility = Ability of { $arg1 }: { $arg2 }
+# The same for an ability. `$source` is its source.
+# Arguments: unused_0, source, details
+LogAimedAbility = Ability of { $source }: { $details }
 
-# A card's own words, quoted. `{0}` is them.
-# Arguments: arg0
-LogQuoted = “{ $arg0 }”
+# A card's own words, quoted. `$text` is them.
+# Arguments: text
+LogQuoted = “{ $text }”
 
 # A turn's phase, as the log groups a turn's lines under it.
 LogPhaseBeginning = Beginning
@@ -5071,13 +5178,13 @@ ReportKindOther = Other
 # The empty text box's prompt.
 ReportTextHint = What happened, and what did you expect?
 
-# Under the text box. `{0}` characters written of `{1}`.
-# Arguments: arg0, arg1
-ReportChars = { $arg0 } / { $arg1 } characters
+# Under the text box. `$count` characters written of `$max`.
+# Arguments: count, max
+ReportChars = { $count } / { $max } characters
 
-# The text is too long to send. `{0}` is the limit.
-# Arguments: arg0
-ReportTextTooLong = The text is longer than { $arg0 } characters.
+# The text is too long to send. `$count` is the limit.
+# Arguments: count
+ReportTextTooLong = The text is longer than { $count } characters.
 
 # Above the boxes.
 ReportIncludeHeading = Also send (remembered on this device):
@@ -5128,9 +5235,9 @@ ReportCatNoShotOnWeb = (the browser version takes no picture)
 # Under the screenshot box in a browser.
 ReportCatScreenshotHintWeb = The browser version of the client cannot take a picture of its window, so a report from here never carries one. Ticked, the box applies when you report from the desktop client.
 
-# The picture's size. `{0}` × `{1}` pixels, `{2}` kilobytes.
-# Arguments: arg0, arg1, arg2
-ReportShotSize = { $arg0 } × { $arg1 }, { $arg2 } KB
+# The picture's size. `$width` × `$height` pixels, `$kilobytes` kilobytes.
+# Arguments: width, height, kilobytes
+ReportShotSize = { $width } × { $height }, { $kilobytes } KB
 
 # The box for crash reports, which the client sends by itself.
 ReportCrashesBox = Send crash reports automatically
@@ -5150,9 +5257,9 @@ ReportClose = Close
 # While it goes.
 ReportSending = Sending …
 
-# Received. `{0}` is the report's id.
-# Arguments: arg0
-ReportSent = Thank you. Report { $arg0 } was received.
+# Received. `$id` is the report's id.
+# Arguments: id
+ReportSent = Thank you. Report { $id } was received.
 
 # 503.
 ReportsUnavailable = This gateway does not take reports right now.
@@ -5178,10 +5285,10 @@ ReportFailed = The report could not be sent. Try again later.
 # No session to send it with, and no feedback service to send it to.
 ReportNeedsSession = Sign in to a gateway to send a report. This client knows no feedback service to send it to otherwise.
 
-# Signed in nowhere, the report goes straight to the service. `{0}` is
+# Signed in nowhere, the report goes straight to the service. `$url` is
 # its address.
-# Arguments: arg0
-ReportGoesDirect = You are not signed in, so this report goes straight to the Baylee feedback service at { $arg0 }.
+# Arguments: url
+ReportGoesDirect = You are not signed in, so this report goes straight to the Baylee feedback service at { $url }.
 
 # 503 from the service itself.
 ReportsDirectUnavailable = The feedback service takes no reports straight from a client right now. Sign in to a gateway to send it.
@@ -5192,9 +5299,9 @@ ReportDirectUnreachable = The feedback service could not be reached. Your report
 # The box for a local game's record, ticked per report.
 ReportRecordBox = Attach the whole record of this game
 
-# Under it. `{0}` is its size in kilobytes.
-# Arguments: arg0
-ReportRecordHint = Every move of the game this device hosted, from the shuffle on ({ $arg0 } KB). It shows every seat's cards, the hidden ones too: hands, libraries, face-down cards. It names nobody. Asked again for each report.
+# Under it. `$kilobytes` is its size in kilobytes.
+# Arguments: kilobytes
+ReportRecordHint = Every move of the game this device hosted, from the shuffle on ({ $kilobytes } KB). It shows every seat's cards, the hidden ones too: hands, libraries, face-down cards. It names nobody. Asked again for each report.
 
 # The standing "never" for records.
 ReportRecordNever = Never offer to attach a game's record
@@ -5202,21 +5309,21 @@ ReportRecordNever = Never offer to attach a game's record
 # The confirmation's heading.
 ReportConfirmTitle = Send this report?
 
-# Where it goes. `{0}` is the address.
-# Arguments: arg0
-ReportConfirmTo = To: { $arg0 }
+# Where it goes. `$url` is the address.
+# Arguments: url
+ReportConfirmTo = To: { $url }
 
-# The words. `{0}` is how many characters.
-# Arguments: arg0
-ReportConfirmText = Your text ({ $arg0 } characters) and this build's version
+# The words. `$count` is how many characters.
+# Arguments: count
+ReportConfirmText = Your text ({ $count } characters) and this build's version
 
 # A ticked box, before its label.
-# Arguments: arg0
-ReportConfirmPart = and: { $arg0 }
+# Arguments: label
+ReportConfirmPart = and: { $label }
 
-# The record. `{0}` is its size in kilobytes.
-# Arguments: arg0
-ReportConfirmRecord = and the whole record of the game this device hosted ({ $arg0 } KB): every seat's cards, the hidden ones too
+# The record. `$kilobytes` is its size in kilobytes.
+# Arguments: kilobytes
+ReportConfirmRecord = and the whole record of the game this device hosted ({ $kilobytes } KB): every seat's cards, the hidden ones too
 
 # The device id, on a direct report.
 ReportConfirmDevice = and a random id this device made for reports, so that reports from one device can be told apart; never your name, account or address
@@ -5230,9 +5337,9 @@ ReportConfirmBack = Back
 # The record was too large and stayed home.
 ReportRecordLeftOut = The game's record was too large to attach and was left out.
 
-# `seal` found a secret. `{0}` names which, never its value.
-# Arguments: arg0
-ReportLeaked = Not sent: the report contains your { $arg0 }. Remove it and try again.
+# `seal` found a secret. `$secret` names which, never its value.
+# Arguments: secret
+ReportLeaked = Not sent: the report contains your { $secret }. Remove it and try again.
 
 # The report was cut to fit.
 ReportTrimmed = To fit the size limit, the window picture or older log lines were left out.
@@ -5255,9 +5362,9 @@ SeatPanelTitle = Language-model seats
 # Under its title.
 SeatPanelAbout = Which model the seat bridge (baylee-seat) plays at a table, and what it may spend. No key is ever in this file: each profile names the environment variable its key is read from, or keeps it in this machine's credential store.
 
-# Where the file is. `{0}` its path.
-# Arguments: arg0
-SeatFileAt = File: { $arg0 }
+# Where the file is. `$path` its path.
+# Arguments: path
+SeatFileAt = File: { $path }
 
 # A browser or a phone runs no bridge.
 SeatDesktopOnly = Language-model seats are set up on a desktop, where the seat bridge runs.
@@ -5271,9 +5378,9 @@ SeatEmpty = No settings file yet: the seat bridge plays with its built-in defaul
 # A file with no profiles.
 SeatNoProfiles = No profiles: without --mind or --profile, the bridge plays the house AI.
 
-# The file cannot be used. `{0}` why, in the file's own words.
-# Arguments: arg0
-SeatFileRefused = The settings file cannot be used and is left as it is: { $arg0 }. Mend it by hand; this panel reads it again when it changes.
+# The file cannot be used. `$error` why, in the file's own words.
+# Arguments: error
+SeatFileRefused = The settings file cannot be used and is left as it is: { $error }. Mend it by hand; this panel reads it again when it changes.
 
 # The file changed while there were edits here.
 SeatChangedOnDisk = The file changed on disk since it was read. Saving writes over it; Discard changes shows it.
@@ -5290,9 +5397,9 @@ SeatRemove = Remove
 # The switch that makes the shown profile the default.
 SeatDefault = Default
 
-# A profile's chip when it is the default. `{0}` its name.
-# Arguments: arg0
-SeatChipDefault = { $arg0 } · default
+# A profile's chip when it is the default. `$profile` its name.
+# Arguments: profile
+SeatChipDefault = { $profile } · default
 
 # What the default is.
 SeatDefaultAbout = The default profile plays when the bridge is given neither --mind nor --profile.
@@ -5321,9 +5428,9 @@ SeatCliModel = A CLI's model is its tool, then the tool's own model if you name 
 # A profile's model.
 SeatModel = Model
 
-# A priced model offered for the model box. `{0}` the model, `{1}` input and `{2}` output price.
-# Arguments: arg0, arg1, arg2
-SeatPriced = { $arg0 }: { $arg1 } in, { $arg2 } out
+# A priced model offered for the model box. `$model` the model, `$input` input and `$output` output price.
+# Arguments: model, input, output
+SeatPriced = { $model }: { $input } in, { $output } out
 
 # Under the suggestions.
 SeatPricedAbout = Prices in US dollars per million tokens, as this build knows them.
@@ -5370,9 +5477,9 @@ SeatPriceIn = Price in ($ per million)
 # Output price over the build's.
 SeatPriceOut = Price out ($ per million)
 
-# This build's price for the model. `{0}` input, `{1}` output.
-# Arguments: arg0, arg1
-SeatBuildPrice = This build's price: { $arg0 } in, { $arg1 } out per million tokens. A price given here replaces it.
+# This build's price for the model. `$input` input, `$output` output.
+# Arguments: input, output
+SeatBuildPrice = This build's price: { $input } in, { $output } out per million tokens. A price given here replaces it.
 
 # No price for the model.
 SeatNoBuildPrice = This build has no price for this model: give one here, or limit its games in tokens.
@@ -5389,13 +5496,13 @@ SeatThinkSecs = Think seconds
 # The variable the key is read from.
 SeatKeyEnv = Key variable
 
-# The variable is set. `{0}` its name.
-# Arguments: arg0
-SeatKeySet = { $arg0 } is set in this program's environment.
+# The variable is set. `$variable` its name.
+# Arguments: variable
+SeatKeySet = { $variable } is set in this program's environment.
 
-# The variable is not set. `{0}` its name.
-# Arguments: arg0
-SeatKeyUnset = { $arg0 } is not set in this program's environment. The bridge reads it from its own.
+# The variable is not set. `$variable` its name.
+# Arguments: variable
+SeatKeyUnset = { $variable } is not set in this program's environment. The bridge reads it from its own.
 
 # Over the ready-made adapters a profile can be added from.
 SeatPresets = Add an adapter (a protocol and its address, both editable afterwards):
@@ -5418,17 +5525,17 @@ SeatKeyForget = Forget
 # The store is being asked.
 SeatKeyAsking = Asking this machine's credential store…
 
-# A key is kept. `{0}` the host it goes to.
-# Arguments: arg0
-SeatKeyKept = A key is kept in this machine's credential store, for { $arg0 } only. It is never shown; the variable wins where it is set.
+# A key is kept. `$host` the host it goes to.
+# Arguments: host
+SeatKeyKept = A key is kept in this machine's credential store, for { $host } only. It is never shown; the variable wins where it is set.
 
-# No key is kept. `{0}` the host.
-# Arguments: arg0
-SeatKeyNoneKept = No key kept for { $arg0 }. One pasted here goes to this machine's credential store, never to the file.
+# No key is kept. `$host` the host.
+# Arguments: host
+SeatKeyNoneKept = No key kept for { $host }. One pasted here goes to this machine's credential store, never to the file.
 
-# No store to keep a key in. `{0}` why.
-# Arguments: arg0
-SeatKeyStoreUnavailable = No credential store to keep a key in ({ $arg0 }): set the key's variable in the environment.
+# No store to keep a key in. `$reason` why.
+# Arguments: reason
+SeatKeyStoreUnavailable = No credential store to keep a key in ({ $reason }): set the key's variable in the environment.
 
 # The key's variable or address is not one yet.
 SeatKeyNoEntry = A key can be kept once the key variable and the address read.
@@ -5436,13 +5543,13 @@ SeatKeyNoEntry = A key can be kept once the key variable and the address read.
 # Where the API is.
 SeatBaseUrl = Base URL
 
-# A box's value when left empty. `{0}` the value.
-# Arguments: arg0
-SeatByDefault = { $arg0 } by default
+# A box's value when left empty. `$value` the value.
+# Arguments: value
+SeatByDefault = { $value } by default
 
-# The base URL when left empty. `{0}` the variable, `{1}` the address.
-# Arguments: arg0, arg1
-SeatBaseByDefault = { $arg0 }, else { $arg1 }
+# The base URL when left empty. `$variable` the variable, `$url` the address.
+# Arguments: variable, url
+SeatBaseByDefault = { $variable }, else { $url }
 
 # An effort left to an OpenAI-compatible endpoint.
 SeatEffortEndpoint = the endpoint's own
@@ -5459,9 +5566,9 @@ SeatNoCallLimit = no limit
 # The program a CLI profile runs.
 SeatCommand = Program
 
-# The program when left empty. `{0}` the tool's name.
-# Arguments: arg0
-SeatCommandByDefault = { $arg0 }, found on PATH
+# The program when left empty. `$tool` the tool's name.
+# Arguments: tool
+SeatCommandByDefault = { $tool }, found on PATH
 
 # A CLI's games have no price.
 SeatCliNoPrice = A CLI plays on your subscription, which has no price: its games are limited in tokens and calls, and count under the token caps.
@@ -5493,40 +5600,40 @@ SeatUnpricedMonth = The caps count dollars per month, and this model has no pric
 # The spend's heading.
 SeatSpent = Spent
 
-# Periods on the local clock. `{0}` its offset, "UTC+02:00".
-# Arguments: arg0
-SeatZoneLocal = Counted in local time, { $arg0 }.
+# Periods on the local clock. `$offset` its offset, "UTC+02:00".
+# Arguments: offset
+SeatZoneLocal = Counted in local time, { $offset }.
 
 # Periods on UTC.
 SeatZoneUtc = Counted in UTC.
 
-# Today's spend. `{0}` the day, `{1}` what it counts.
-# Arguments: arg0, arg1
-SeatSpentDay = Today, { $arg0 }: { $arg1 }
+# Today's spend. `$period` the day, `$spent` what it counts.
+# Arguments: period, spent
+SeatSpentDay = Today, { $period }: { $spent }
 
-# This month's spend. `{0}` the month, `{1}` what it counts.
-# Arguments: arg0, arg1
-SeatSpentMonth = This month, { $arg0 }: { $arg1 }
+# This month's spend. `$period` the month, `$spent` what it counts.
+# Arguments: period, spent
+SeatSpentMonth = This month, { $period }: { $spent }
 
-# Spent against a cap. `{0}` spent, `{1}` the cap.
-# Arguments: arg0, arg1
-SeatOf = { $arg0 } of { $arg1 }
+# Spent against a cap. `$spent` spent, `$cap` the cap.
+# Arguments: spent, cap
+SeatOf = { $spent } of { $cap }
 
 # One token.
-# Arguments: arg0
-SeatTokensOne = { $arg0 } token
+# Arguments: tokens, count
+SeatTokens =
+    { $count ->
+        [one] { $tokens } token
+       *[other] { $tokens } tokens
+    }
 
-# Tokens.
-# Arguments: arg0
-SeatTokensMany = { $arg0 } tokens
+# How many games a sum is over. `$count` games, `$open` of them still open.
+# Arguments: count, open
+SeatGames = games: { $count }, still open: { $open }
 
-# How many games a sum is over. `{0}` games, `{1}` of them still open.
-# Arguments: arg0, arg1
-SeatGames = games: { $arg0 }, still open: { $arg1 }
-
-# The book cannot be read. `{0}` why.
-# Arguments: arg0
-SeatBookUnreadable = The spend book cannot be read: { $arg0 }
+# The book cannot be read. `$error` why.
+# Arguments: error
+SeatBookUnreadable = The spend book cannot be read: { $error }
 
 # Writes the file.
 SeatSave = Save
@@ -5543,9 +5650,9 @@ SeatFixFirst = Mend what is marked, then save.
 # Written.
 SeatSavedNote = Saved.
 
-# Not written. `{0}` why.
-# Arguments: arg0
-SeatNotSaved = Not saved: { $arg0 }
+# Not written. `$error` why.
+# Arguments: error
+SeatNotSaved = Not saved: { $error }
 
 # A box for a whole number holds something else.
 SeatFaultWhole = A whole number, in digits.
@@ -5610,9 +5717,9 @@ SeatFaultThinkSecs = The longest one answer may take: at least 1 second.
 # A dollar budget with no price.
 SeatFaultUnpriced = This build has no price for this model, so a dollar limit cannot be held: give it a price, or make its tokens per game the limit.
 
-# Not a variable's name. `{0}` an example.
-# Arguments: arg0
-SeatFaultKeyEnv = The name of an environment variable, such as { $arg0 }: capitals, digits and _. Never the key itself.
+# Not a variable's name. `$example` an example.
+# Arguments: example
+SeatFaultKeyEnv = The name of an environment variable, such as { $example }: capitals, digits and _. Never the key itself.
 
 # An address a key may not go to.
 SeatFaultAddress = An https:// address; http:// only on this machine.
@@ -5639,8 +5746,8 @@ ShellRetry = Retry
 ShellUndo = Undo
 
 # The tour bubble's chapter line: chapter number, how many, its name.
-# Arguments: arg0, arg1, arg2
-TourChapterLine = Chapter { $arg0 } of { $arg1 } · { $arg2 }
+# Arguments: position, total, chapter
+TourChapterLine = Chapter { $position } of { $total } · { $chapter }
 
 # The tour bubble's primary.
 TourNext = Next
@@ -6190,13 +6297,13 @@ ShellReturnToGame = Return to game
 # Why a control is off while there is no gateway.
 ShellNeedsGateway = Needs the gateway
 
-# Why the starts are off while the player holds a seat. `{0}` the table.
-# Arguments: arg0
-ShellSeatedAt = You are seated at { $arg0 }
+# Why the starts are off while the player holds a seat. `$table` the table.
+# Arguments: table
+ShellSeatedAt = You are seated at { $table }
 
-# An error line. `{0}` the gateway's name.
-# Arguments: arg0
-ShellCouldNotReach = Couldn't reach { $arg0 }
+# An error line. `$gateway` the gateway's name.
+# Arguments: gateway
+ShellCouldNotReach = Couldn't reach { $gateway }
 
 # Play's empty tables list.
 ShellNoOneWaiting = No one is waiting
@@ -6235,8 +6342,8 @@ DiscoveryHelp = Join a table, then choose your deck in the room. The host sets t
 DiscoveryLoading = Updating tables
 
 # Localized table-discovery interface text.
-# Arguments: arg0
-DiscoveryResults = { $arg0 } tables shown
+# Arguments: count
+DiscoveryResults = { $count } tables shown
 
 # Localized table-discovery interface text.
 DiscoveryProtected = Password protected
@@ -6325,14 +6432,14 @@ ShellClose = Close
 # The shortcuts overlay, when nothing matches the search.
 ShellOverlayNoMatch = No shortcut matches
 
-# The seated strip at a waiting table. `{0}` the table, `{1}` chairs
-# taken, `{2}` chairs, `{3}` ready.
-# Arguments: arg0, arg1, arg2, arg3
-ShellSeatedStrip = Seated at “{ $arg0 }” · { $arg1 } of { $arg2 } seated · { $arg3 } ready
+# The seated strip at a waiting table. `$table` the table, `$count` chairs
+# taken, `$total` chairs, `$ready` ready.
+# Arguments: table, count, total, ready
+ShellSeatedStrip = Seated at “{ $table }” · { $count } of { $total } seated · { $ready } ready
 
-# The seated strip while the game is played. `{0}` the table.
-# Arguments: arg0
-ShellPlayingStrip = Playing at “{ $arg0 }”
+# The seated strip while the game is played. `$table` the table.
+# Arguments: table
+ShellPlayingStrip = Playing at “{ $table }”
 
 # The strip's way back to the table.
 ShellReturn = Return
@@ -6340,14 +6447,14 @@ ShellReturn = Return
 # The strip's way to give the chair up (waiting tables only).
 ShellLeave = Leave
 
-# The gateway pill's counts. `{0}` tables waiting, `{1}` players online.
-# Arguments: arg0, arg1
-ShellTablesOnline = { $arg0 } tables · { $arg1 } online
+# The gateway pill's counts. `$count` tables waiting, `$online` players online.
+# Arguments: count, online
+ShellTablesOnline = { $count } tables · { $online } online
 
-# The gateway pill's count before `/lobby/stats` has answered. `{0}`
+# The gateway pill's count before `/lobby/stats` has answered. `$count`
 # tables waiting.
-# Arguments: arg0
-ShellTablesWaiting = { $arg0 } waiting
+# Arguments: count
+ShellTablesWaiting = { $count } waiting
 
 # The lobby feed is down and being dialled again.
 ShellReconnecting = Reconnecting…
@@ -6382,13 +6489,13 @@ ShellChatPrivacy = Chat & privacy
 # The bell, with nothing in it.
 ShellBellEmpty = Nothing new
 
-# A bell line: somebody sat down at the player's table. `{0}` who.
-# Arguments: arg0
-ShellBellJoined = { $arg0 } sat down at your table
+# A bell line: somebody sat down at the player's table. `$player` who.
+# Arguments: player
+ShellBellJoined = { $player } sat down at your table
 
-# A bell line: somebody left the player's table. `{0}` who.
-# Arguments: arg0
-ShellBellLeft = { $arg0 } left your table
+# A bell line: somebody left the player's table. `$player` who.
+# Arguments: player
+ShellBellLeft = { $player } left your table
 
 # A bell line: every chair at the player's table is taken.
 ShellBellFilled = Your table is full
@@ -6399,10 +6506,10 @@ ShellOfflinePill = Offline · local decks
 # The gateway popover: this client's version follows.
 ShellThisClient = This client
 
-# The gateway popover's counts. `{0}` players online, `{1}` tables
-# waiting, `{2}` games running.
-# Arguments: arg0, arg1, arg2
-ShellStatsLine = { $arg0 } online · { $arg1 } waiting · { $arg2 } playing
+# The gateway popover's counts. `$online` players online, `$waiting` tables
+# waiting, `$playing` games running.
+# Arguments: online, waiting, playing
+ShellStatsLine = { $online } online · { $waiting } waiting · { $playing } playing
 
 # The gateway now refuses this client's protocol: an update is needed.
 ShellUpdateRequired = Update required — this gateway runs a newer version
@@ -6413,9 +6520,9 @@ FrontClosedBeta = closed beta
 # The front door's version verdict when nothing is wrong.
 FrontCompatible = compatible
 
-# The front door's line naming this client's own version. `{0}`.
-# Arguments: arg0
-FrontThisClient = this client { $arg0 }
+# The front door's line naming this client's own version. `$version`.
+# Arguments: version
+FrontThisClient = this client { $version }
 
 # Under Create account and Play as guest on a closed beta.
 FrontKeyHint = This gateway needs a beta key — the key box opens under the button you choose.
@@ -6426,10 +6533,10 @@ FrontUsernameHint = Signs you in; nobody else sees it
 # Under a password while Caps Lock looks on.
 FrontCapsLock = Caps Lock is on
 
-# The gateway did not answer: the head of the sign-in face. `{0}` the
+# The gateway did not answer: the head of the sign-in face. `$gateway` the
 # gateway.
-# Arguments: arg0
-FrontUnreachable = Can’t reach { $arg0 }
+# Arguments: gateway
+FrontUnreachable = Can’t reach { $gateway }
 
 # Asks the gateway again.
 FrontRetry = Retry
@@ -6477,17 +6584,17 @@ AboutPrecons = Preconstructed deck lists from MTGJSON (Zach Halpern): MIT Licens
 # Closes a sheet.
 SheetClose = Close
 
-# The terms sheet's title. `{0}` the gateway.
-# Arguments: arg0
-TermsTitle = Before you play at { $arg0 }
+# The terms sheet's title. `$gateway` the gateway.
+# Arguments: gateway
+TermsTitle = Before you play at { $gateway }
 
-# The terms sheet's caption. `{0}` the version.
-# Arguments: arg0
-TermsVersion = Terms of this gateway · version { $arg0 }
+# The terms sheet's caption. `$version` the version.
+# Arguments: version
+TermsVersion = Terms of this gateway · version { $version }
 
-# After the version: when the operator last changed them. `{0}`.
-# Arguments: arg0
-TermsUpdated = updated { $arg0 }
+# After the version: when the operator last changed them. `$date`.
+# Arguments: date
+TermsUpdated = updated { $date }
 
 # While the text is asked for.
 TermsLoading = Loading the terms…
@@ -6548,29 +6655,29 @@ TermsChatNote = Where a gateway offers chat, messages to friends and to your tab
 # The sheet's title for Baylee Central's own terms.
 CentralTermsTitle = Terms of use of Baylee Central
 
-# The caption for Baylee Central's own terms. `{0}` version.
-# Arguments: arg0
-CentralTermsVersion = Your Baylee account · version { $arg0 }
+# The caption for Baylee Central's own terms. `$version` version.
+# Arguments: version
+CentralTermsVersion = Your Baylee account · version { $version }
 
 # The hint of the deletion's confirmation for a Baylee account on a
 # gateway: only its data here goes.
 DeleteGatewayDataHint = Your decks, settings and friends on this gateway go for good. Your Baylee account stays.
 
-# A clock's span in minutes. `{0}` minutes.
-# Arguments: arg0
-ClockMinutes = { $arg0 } min
+# A clock's span in minutes. `$count` minutes.
+# Arguments: count
+ClockMinutes = { $count } min
 
-# How long a running table has gone, under an hour. `{0}` minutes.
-# Arguments: arg0
-RunningMinutes = { $arg0 } min
+# How long a running table has gone, under an hour. `$count` minutes.
+# Arguments: count
+RunningMinutes = { $count } min
 
-# How long a running table has gone. `{0}` hours, `{1}` minutes.
-# Arguments: arg0, arg1
-RunningHours = { $arg0 } h { $arg1 } min
+# How long a running table has gone. `$count` hours, `$minutes` minutes.
+# Arguments: count, minutes
+RunningHours = { $count } h { $minutes } min
 
-# A clock's span in seconds. `{0}` seconds.
-# Arguments: arg0
-ClockSeconds = { $arg0 } s
+# A clock's span in seconds. `$count` seconds.
+# Arguments: count
+ClockSeconds = { $count } s
 
 # The `classic` clock's name: three minutes, the default.
 ClockClassic = classic
@@ -6672,9 +6779,9 @@ PlaySortOpenSeats = open seats
 PlaySortName = name
 
 # Before a Join: the next game's deck is of another format than the
-# host's. `{0}` mine, `{1}` the host's.
-# Arguments: arg0, arg1
-PlayFormatWarning = Your next-game deck is { $arg0 }; this table's host plays { $arg1 }. You can pick another deck in the room.
+# host's. `$format` mine, `$host_format` the host's.
+# Arguments: format, host_format
+PlayFormatWarning = Your next-game deck is { $format }; this table's host plays { $host_format }. You can pick another deck in the room.
 
 # A template card: Commander.
 TemplateCommander = Commander
@@ -6688,17 +6795,17 @@ TemplateFiveLand = Five-land start
 # A template card: decks of every format at one table.
 TemplateMixed = Mixed
 
-# The rules line: starting life. `{0}` life.
-# Arguments: arg0
-RulesLife = { $arg0 } life
+# The rules line: starting life. `$amount` life.
+# Arguments: amount
+RulesLife = { $amount } life
 
-# The rules line: one free mulligan. `{0}` the count.
-# Arguments: arg0
-RulesMulliganOne = { $arg0 } free mulligan
-
-# The rules line: free mulligans. `{0}` the count.
-# Arguments: arg0
-RulesMulliganMany = { $arg0 } free mulligans
+# The rules line: one free mulligan. `$count` the count.
+# Arguments: count
+RulesMulligans =
+    { $count ->
+        [one] { $count } free mulligan
+       *[other] { $count } free mulligans
+    }
 
 # The rules line: the five-land start.
 RulesFiveLands = five lands in play
@@ -6709,9 +6816,9 @@ RulesMixed = decks of any format
 # The footer hint: Enter on a table row.
 PlayHintJoin = on a row to join
 
-# Why the starts are off while the player's game runs. `{0}` the table.
-# Arguments: arg0
-PlayPlayingAt = You are playing at { $arg0 }
+# Why the starts are off while the player's game runs. `$table` the table.
+# Arguments: table
+PlayPlayingAt = You are playing at { $table }
 
 # Why the starts are off without a game host (`POST /lobby/games` 503).
 PlayNoHost = This gateway has no game host right now
@@ -6731,9 +6838,9 @@ PlayRecentGames = Recent games · this session
 # A recent game against the house alone.
 PlayVsHouse = vs the house
 
-# A recent game's opponents. `{0}` their names.
-# Arguments: arg0
-PlayVs = vs { $arg0 }
+# A recent game's opponents. `$opponents` their names.
+# Arguments: opponents
+PlayVs = vs { $opponents }
 
 # A recent game won.
 PlayWon = won
@@ -6750,20 +6857,20 @@ PlayRematch = Rematch
 # A recent game's settings in the Create-table sheet.
 PlayEditAndRematch = Edit and rematch
 
-# Over the tables while the player holds a chair. `{0}` the table.
-# Arguments: arg0
-PlayJoinOff = Join is off while you are seated at { $arg0 }
+# Over the tables while the player holds a chair. `$table` the table.
+# Arguments: table
+PlayJoinOff = Join is off while you are seated at { $table }
 
 # A table being played.
 PlayPlaying = playing
 
-# A table's chairs. `{0}` taken, `{1}` chairs.
-# Arguments: arg0, arg1
-PlaySeats = { $arg0 }/{ $arg1 } seats
+# A table's chairs. `$count` taken, `$total` chairs.
+# Arguments: count, total
+PlaySeats = { $count }/{ $total } seats
 
-# A table's house chairs. `{0}` the count.
-# Arguments: arg0
-PlayAiCount = AI ×{ $arg0 }
+# A table's house chairs. `$count` the count.
+# Arguments: count
+PlayAiCount = AI ×{ $count }
 
 # A locked table's inline password box, while empty.
 PlayPassword = Password
@@ -6801,9 +6908,9 @@ SheetOpenTable = Open table
 # The sheet's title over a room.
 SheetEditRules = Edit rules
 
-# A new table's name. `{0}` the host's name.
-# Arguments: arg0
-SheetDefaultName = { $arg0 }’s table
+# A new table's name. `$player` the host's name.
+# Arguments: player
+SheetDefaultName = { $player }’s table
 
 # The room's badge, and its rules line, for a locked room.
 RoomPasswordSet = password set
@@ -6814,9 +6921,9 @@ RoomCopyInvite = Copy invite
 # Copy invite, once copied.
 RoomInviteCopied = Invite copied
 
-# The rules rail's first line. `{0}` the format, `{1}` the chairs.
-# Arguments: arg0, arg1
-RoomRulesPlayers = { $arg0 } · { $arg1 } players
+# The rules rail's first line. `$format` the format, `$count` the chairs.
+# Arguments: format, count
+RoomRulesPlayers = { $format } · { $count } players
 
 # The rail: no sides.
 RoomTeamsOn = Teams: on
@@ -6830,9 +6937,9 @@ RoomSetTeams = Set teams
 # A chair nobody holds.
 RoomEmptySeat = — empty —
 
-# Why Start waits. `{0}` who.
-# Arguments: arg0
-RoomWaitingFor = waiting for { $arg0 } to be ready
+# Why Start waits. `$players` who.
+# Arguments: players
+RoomWaitingFor = waiting for { $players } to be ready
 
 # Why Start waits, said by the gateway's listing.
 RoomNotStartable = not every chair is settled yet
@@ -6861,9 +6968,9 @@ RoomLanguageModel = Language model
 # Under the host's name.
 RoomHost = Host
 
-# Under a delegated chair. `{0}` whose.
-# Arguments: arg0
-RoomFor = for { $arg0 }
+# Under a delegated chair. `$player` whose.
+# Arguments: player
+RoomFor = for { $player }
 
 # An open chair's AI menu button.
 RoomAi = AI
@@ -6874,9 +6981,9 @@ RoomDeckWord = deck
 # The seat's deck plays the host's format.
 RoomFits = fits
 
-# The seat's deck plays another format. `{0}` the host's.
-# Arguments: arg0
-RoomOtherFormat = { $arg0 } table
+# The seat's deck plays another format. `$format` the host's.
+# Arguments: format
+RoomOtherFormat = { $format } table
 
 # Over a seat's drawer.
 RoomForTesting = For testing and puzzles
@@ -6893,24 +7000,24 @@ RoomNoBridge = This install lacks the seat bridge (baylee-seat) beside the game;
 # The chair sheet's way to set one up.
 RoomSetUpModel = Set up a model…
 
-# The chair sheet's title. `{0}` the chair.
-# Arguments: arg0
-RoomChairTitle = Chair { $arg0 } · language model
+# The chair sheet's title. `$seat` the chair.
+# Arguments: seat
+RoomChairTitle = Chair { $seat } · language model
 
-# The host's Leave, asked (DESIGN-v5 §5). `{0}` the table's name.
-# Arguments: arg0
-LeaveHostingQuestion = Leave “{ $arg0 }”?
+# The host's Leave, asked (DESIGN-v5 §5). `$name` the table's name.
+# Arguments: name
+LeaveHostingQuestion = Leave “{ $name }”?
 
 # Under it: what leaving does to the table.
 LeaveHostingHint = You host this table: it passes to the player seated longest, or closes if nobody else is seated.
 
-# Why Start waits: one chair nobody holds. `{0}` the count.
-# Arguments: arg0
-RoomOpenSeatOne = { $arg0 } seat is open — a player, the house or a model takes it
-
-# Why Start waits: chairs nobody holds. `{0}` the count.
-# Arguments: arg0
-RoomOpenSeatMany = { $arg0 } seats are open — players, the house or models take them
+# Why Start waits: one chair nobody holds. `$count` the count.
+# Arguments: count
+RoomOpenSeats =
+    { $count ->
+        [one] { $count } seat is open — a player, the house or a model takes it
+       *[other] { $count } seats are open — players, the house or models take them
+    }
 
 # The decks' sort: newest save first.
 DecksSortSaved = last saved
@@ -6936,56 +7043,56 @@ FormatMixed = Mixed
 # A deck saved under a minute ago.
 SavedJustNow = saved just now
 
-# A deck saved minutes ago. `{0}` minutes.
-# Arguments: arg0
-SavedMinutesAgo = saved { $arg0 } min ago
+# A deck saved minutes ago. `$count` minutes.
+# Arguments: count
+SavedMinutesAgo = saved { $count } min ago
 
-# A deck saved hours ago. `{0}` hours.
-# Arguments: arg0
-SavedHoursAgo = saved { $arg0 } h ago
+# A deck saved hours ago. `$count` hours.
+# Arguments: count
+SavedHoursAgo = saved { $count } h ago
 
 # A deck saved yesterday.
 SavedYesterday = saved yesterday
 
-# A deck saved days ago. `{0}` days.
-# Arguments: arg0
-SavedDaysAgo = saved { $arg0 } days ago
+# A deck saved days ago. `$count` days.
+# Arguments: count
+SavedDaysAgo = saved { $count } days ago
 
-# A tile's meta line. `{0}` cards, `{1}` sideboard cards.
-# Arguments: arg0, arg1
-DeckMeta = { $arg0 } · SB { $arg1 }
+# A tile's meta line. `$count` cards, `$sideboard` sideboard cards.
+# Arguments: count, sideboard
+DeckMeta = { $count } · SB { $sideboard }
 
 # A tile's badge: the deck the next game is played with.
 DecksNextGame = next game
 
-# A tile's badge: one card will not play. `{0}` the count.
-# Arguments: arg0
-DecksUnplayableOne = { $arg0 } card won’t play
-
-# A tile's badge: cards that will not play. `{0}` the count.
-# Arguments: arg0
-DecksUnplayableMany = { $arg0 } cards won’t play
+# A tile's badge: one card will not play. `$count` the count.
+# Arguments: count
+DecksUnplayable =
+    { $count ->
+        [one] { $count } card won’t play
+       *[other] { $count } cards won’t play
+    }
 
 # A tile's badge: the deck holds a card blocked on this gateway.
-# `{0}` the card's name.
-# Arguments: arg0
-DecksBlockedOne = { $arg0 } blocked here
+# `$card` the card's name.
+# Arguments: card
+DecksBlockedOne = { $card } blocked here
 
 # A tile's badge: the deck holds several cards blocked on this
-# gateway. `{0}` the count.
-# Arguments: arg0
-DecksBlockedMany = { $arg0 } cards blocked here
+# gateway. `$count` the count.
+# Arguments: count
+DecksBlockedMany = { $count } cards blocked here
 
 # Why a deck cannot be played on this gateway, or a card is marked in
-# the builder: a block without an end. `{0}` the card, `{1}` the
+# the builder: a block without an end. `$card` the card, `$reason` the
 # operator's reason.
-# Arguments: arg0, arg1
-CardBlocked = { $arg0 } is blocked on this server: { $arg1 }
+# Arguments: card, reason
+CardBlocked = { $card } is blocked on this server: { $reason }
 
-# The same, for a block that ends. `{0}` the card, `{1}` the reason,
-# `{2}` when it ends (`2026-10-20 18:00 UTC`).
-# Arguments: arg0, arg1, arg2
-CardBlockedUntil = { $arg0 } is blocked on this server until { $arg2 }: { $arg1 }
+# The same, for a block that ends. `$card` the card, `$reason` the reason,
+# `$until` when it ends (`2026-10-20 18:00 UTC`).
+# Arguments: card, reason, until
+CardBlockedUntil = { $card } is blocked on this server until { $until }: { $reason }
 
 # The deck builder's mark on a card blocked on this gateway.
 BuildBlocked = blocked here
@@ -6993,18 +7100,18 @@ BuildBlocked = blocked here
 # The shelf's search box, while empty.
 DecksSearchHint = Search decks…
 
-# Play's table sort button. `{0}` the order (German: the order alone,
+# Play's table sort button. `$order` the order (German: the order alone,
 # which says it).
-# Arguments: arg0
-PlaySortBy = Sort: { $arg0 }
+# Arguments: order
+PlaySortBy = Sort: { $order }
 
-# The sort button. `{0}` the sort.
-# Arguments: arg0
-DecksSortBy = Sort: { $arg0 }
+# The sort button. `$order` the sort.
+# Arguments: order
+DecksSortBy = Sort: { $order }
 
-# The shelf, when the search matched nothing. `{0}` the search.
-# Arguments: arg0
-DecksNoMatch = No deck matches “{ $arg0 }”
+# The shelf, when the search matched nothing. `$query` the search.
+# Arguments: query
+DecksNoMatch = No deck matches “{ $query }”
 
 # A tile's menu: a copy of the deck.
 DecksDuplicate = Duplicate
@@ -7033,21 +7140,21 @@ HouseAdd = Add
 # A house deck: its cards, in a sheet.
 HousePreview = Preview
 
-# The artist's credit under a picture. `{0}` the artist.
-# Arguments: arg0
-ArtCredit = Art · { $arg0 }
+# The artist's credit under a picture. `$artist` the artist.
+# Arguments: artist
+ArtCredit = Art · { $artist }
 
-# The history sheet's title. `{0}` the deck.
-# Arguments: arg0
-HistoryTitle = History · { $arg0 }
+# The history sheet's title. `$deck` the deck.
+# Arguments: deck
+HistoryTitle = History · { $deck }
 
-# A past version. `{0}` the number.
-# Arguments: arg0
-HistoryRow = v{ $arg0 }
+# A past version. `$version` the number.
+# Arguments: version
+HistoryRow = v{ $version }
 
-# The current version. `{0}` the number.
-# Arguments: arg0
-HistoryCurrentRow = v{ $arg0 } · current
+# The current version. `$version` the number.
+# Arguments: version
+HistoryCurrentRow = v{ $version } · current
 
 # Over the changes: what this version holds against the deck now.
 HistoryAgainstCurrent = Against the current version
@@ -7088,25 +7195,25 @@ HistoryToday = today
 # A version's day: yesterday (its time follows).
 HistoryYesterday = yesterday
 
-# A version's change line: copies added and removed. `{0}` `{1}`.
-# Arguments: arg0, arg1
-HistoryDeltaCopies = +{ $arg0 } −{ $arg1 }
+# A version's change line: copies added and removed. `$added` `$removed`.
+# Arguments: added, removed
+HistoryDeltaCopies = +{ $added } −{ $removed }
 
-# A version's change line: printings changed. `{0}` how many.
-# Arguments: arg0
-HistoryDeltaPrinting = { $arg0 }× printing
+# A version's change line: printings changed. `$count` how many.
+# Arguments: count
+HistoryDeltaPrinting = { $count }× printing
 
-# A version's change line: finishes changed. `{0}` how many.
-# Arguments: arg0
-HistoryDeltaFinish = { $arg0 } foil
+# A version's change line: finishes changed. `$count` how many.
+# Arguments: count
+HistoryDeltaFinish = { $count } foil
 
-# A version's change line: languages changed. `{0}` how many.
-# Arguments: arg0
-HistoryDeltaLanguage = { $arg0 }× language
+# A version's change line: languages changed. `$count` how many.
+# Arguments: count
+HistoryDeltaLanguage = { $count }× language
 
-# A version's change line: notes changed. `{0}` how many.
-# Arguments: arg0
-HistoryDeltaNote = { $arg0 }× note
+# A version's change line: notes changed. `$count` how many.
+# Arguments: count
+HistoryDeltaNote = { $count }× note
 
 # A diff row's tag: only on the newer side.
 HistoryTagAdded = added
@@ -7129,9 +7236,9 @@ HistoryTagLanguage = language
 # A diff row's tag: another note.
 HistoryTagNote = note
 
-# A diff row: the note changed. `{0}` the card.
-# Arguments: arg0
-HistoryNoteChanged = { $arg0 } · note changed
+# A diff row: the note changed. `$card` the card.
+# Arguments: card
+HistoryNoteChanged = { $card } · note changed
 
 # The title's tag on a house deck's history.
 HistoryHouseTag = House deck · read-only
@@ -7155,9 +7262,9 @@ BuildNothingToSave = Nothing to save
 # The save state: one edit not saved yet.
 BuildUnsavedOne = Unsaved · 1 change
 
-# The save state: `{0}` edits not saved yet.
-# Arguments: arg0
-BuildUnsavedMany = Unsaved · { $arg0 } changes
+# The save state: `$count` edits not saved yet.
+# Arguments: count
+BuildUnsavedMany = Unsaved · { $count } changes
 
 # The save state while the request is out.
 BuildSaving = Saving…
@@ -7165,9 +7272,9 @@ BuildSaving = Saving…
 # The save state a moment after a save.
 BuildSavedNow = Saved · just now
 
-# The save state `{0}` minutes after a save.
-# Arguments: arg0
-BuildSavedAgo = Saved · { $arg0 } min ago
+# The save state `$count` minutes after a save.
+# Arguments: count
+BuildSavedAgo = Saved · { $count } min ago
 
 # The save state of a deck opened and not changed.
 BuildSaved = Saved
@@ -7256,9 +7363,9 @@ BuildRailMana = Mana value
 # The filter rail's switches.
 BuildRailShow = Show
 
-# The pool's count line, then what narrows it: `{0}`.
-# Arguments: arg0
-BuildAlsoNarrowing = also narrowing: { $arg0 }
+# The pool's count line, then what narrows it: `$chips`.
+# Arguments: chips
+BuildAlsoNarrowing = also narrowing: { $chips }
 
 # A pool row's menu: choose a printing.
 BuildChoosePrinting = Choose printing…
@@ -7374,13 +7481,13 @@ BuildCollapseAll = Collapse all
 # Open every section of the deck list.
 BuildExpandAll = Expand all
 
-# A mana-value section. `{0}` the value.
-# Arguments: arg0
-BuildManaValue = Mana value { $arg0 }
+# A mana-value section. `$mana_value` the value.
+# Arguments: mana_value
+BuildManaValue = Mana value { $mana_value }
 
-# The last mana-value section. `{0}` the value.
-# Arguments: arg0
-BuildManaValueUp = Mana value { $arg0 }+
+# The last mana-value section. `$mana_value` the value.
+# Arguments: mana_value
+BuildManaValueUp = Mana value { $mana_value }+
 
 # A colour section: two colours or more.
 BuildMulticolour = Multicoloured
@@ -7388,9 +7495,9 @@ BuildMulticolour = Multicoloured
 # The deck's footer: one card the engine does not fully play.
 BuildShakyOne = 1 card is not fully implemented
 
-# The deck's footer: `{0}` cards the engine does not fully play.
-# Arguments: arg0
-BuildShakyMany = { $arg0 } cards are not fully implemented
+# The deck's footer: `$count` cards the engine does not fully play.
+# Arguments: count
+BuildShakyMany = { $count } cards are not fully implemented
 
 # Stats: the curve's heading.
 BuildManaCurve = Mana curve
@@ -7398,9 +7505,9 @@ BuildManaCurve = Mana curve
 # Stats: what the curve counts.
 BuildCurveNote = nonland cards by mana value
 
-# Stats: which type the curve lights. `{0}` the type.
-# Arguments: arg0
-BuildCurveLit = { $arg0 } highlighted
+# Stats: which type the curve lights. `$card_type` the type.
+# Arguments: card_type
+BuildCurveLit = { $card_type } highlighted
 
 # Stats: the colour pips' heading.
 BuildColourPips = Colour pips
@@ -7408,9 +7515,9 @@ BuildColourPips = Colour pips
 # Stats: what the pips count.
 BuildPipsNote = share of coloured symbols in the deck
 
-# Stats: the land share. `{0}` lands, `{1}` cards.
-# Arguments: arg0, arg1
-BuildLandShare = { $arg0 } of { $arg1 }
+# Stats: the land share. `$count` lands, `$total` cards.
+# Arguments: count, total
+BuildLandShare = { $count } of { $total }
 
 # Stats: draw a sample hand.
 BuildDrawSeven = Draw seven
@@ -7511,9 +7618,9 @@ RowPreset = Preset
 # Graphics: what the preset does.
 HelpPreset = Writes this device's rows below; Custom once one of them differs
 
-# Graphics: the GPU the preset was picked for. {0} its name.
-# Arguments: arg0
-HelpPresetAuto = Picked for { $arg0 }
+# Graphics: the GPU the preset was picked for. $gpu its name.
+# Arguments: gpu
+HelpPresetAuto = Picked for { $gpu }
 
 # Graphics: windowed, borderless or fullscreen.
 RowDisplayMode = Display mode
@@ -7530,9 +7637,9 @@ DisplayBorderless = Borderless
 # A display mode.
 DisplayFullscreen = Fullscreen
 
-# The 15-s revert's question. {0} seconds left.
-# Arguments: arg0
-KeepDisplayMode = Keep these settings? Reverts in { $arg0 } s
+# The 15-s revert's question. $count seconds left.
+# Arguments: count
+KeepDisplayMode = Keep these settings? Reverts in { $count } s
 
 # Keeps a changed display mode.
 KeepIt = Keep
@@ -7818,13 +7925,13 @@ ProfileOpen = Edit
 ReportAttachments = Attachments
 
 # Beside it: how many are ticked of how many this report has.
-# Arguments: arg0, arg1
-ReportAttachmentsCount = { $arg0 } of { $arg1 }
+# Arguments: count, total
+ReportAttachmentsCount = { $count } of { $total }
 
-# Under the report's text: `{0}` characters of `{1}`, and how to name
+# Under the report's text: `$count` characters of `$max`, and how to name
 # a card or a player (window B).
-# Arguments: arg0, arg1
-ReportSmallLine = { $arg0 } / { $arg1 } characters · # a card · @ a player
+# Arguments: count, max
+ReportSmallLine = { $count } / { $max } characters · # a card · @ a player
 
 # Why the report's Send is off when no gateway or service is known: the
 # route line above it says the rest.
@@ -7865,24 +7972,24 @@ ReportRefLogged = Seen this game
 ReportRefYours = yours
 
 # The confirmation: how many cards the text names, one.
-# Arguments: arg0
-ReportConfirmCardRef = { $arg0 } card reference
-
-# The same, several.
-# Arguments: arg0
-ReportConfirmCardRefs = { $arg0 } card references
+# Arguments: count
+ReportConfirmCardRefs =
+    { $count ->
+        [one] { $count } card reference
+       *[other] { $count } card references
+    }
 
 # The confirmation: how many players the text names, one.
-# Arguments: arg0
-ReportConfirmPlayerName = { $arg0 } player name
-
-# The same, several.
-# Arguments: arg0
-ReportConfirmPlayerNames = { $arg0 } player names
+# Arguments: count
+ReportConfirmPlayerNames =
+    { $count ->
+        [one] { $count } player name
+       *[other] { $count } player names
+    }
 
 # Where a report goes, signed in: the gateway, by name or address.
-# Arguments: arg0
-ReportGoesGateway = Goes to { $arg0 } with your session
+# Arguments: gateway
+ReportGoesGateway = Goes to { $gateway } with your session
 
 # Updates: checking on its own.
 RowCheckUpdates = Check automatically
@@ -7951,9 +8058,9 @@ LanguageModelsElsewhere = Language models are set up on a desktop client
 # Controls: a key no shortcut may take.
 KeyFixed = This key is fixed and cannot be bound
 
-# Controls: a key another shortcut holds. `{0}` the holder.
-# Arguments: arg0
-KeyHeldBy = Already { $arg0 } — press the key again, or take it
+# Controls: a key another shortcut holds. `$shortcut` the holder.
+# Arguments: shortcut
+KeyHeldBy = Already { $shortcut } — press the key again, or take it
 
 # Controls: takes the refused key.
 KeyTake = Take it
@@ -8019,9 +8126,9 @@ GatewayRunningGames = Active games
 # Gateway popover: server version.
 GatewayServerVersion = Server version
 
-# Gateway pill compact inline stats: `{0}` online, `{1}` in lobby, `{2}` playing, `{3}` tables.
-# Arguments: arg0, arg1, arg2, arg3
-ShellGatewayInlineStats = { $arg0 } online ({ $arg1 } lobby · { $arg2 } playing) · { $arg3 } tables
+# Gateway pill compact inline stats: `$online` online, `$lobby` in lobby, `$playing` playing, `$tables` tables.
+# Arguments: online, lobby, playing, tables
+ShellGatewayInlineStats = { $online } online ({ $lobby } lobby · { $playing } playing) · { $tables } tables
 
 # Quick settings dropdown heading.
 SettingsQuickTitle = Quick settings

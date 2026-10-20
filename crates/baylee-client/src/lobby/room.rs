@@ -324,12 +324,7 @@ pub(super) fn draw(
         format!(
             "{} · {}",
             Phrase::RulesLife.fill(lang, &[&setup.starting_life.to_string()]),
-            Phrase::counted(
-                usize::from(setup.free_mulligans),
-                Phrase::RulesMulliganOne,
-                Phrase::RulesMulliganMany,
-            )
-            .fill(lang, &[&setup.free_mulligans.to_string()]),
+            Phrase::RulesMulligans.fill_count(lang, usize::from(setup.free_mulligans), &[]),
         ),
         {
             let clock = game.clock.map_or_else(
@@ -492,10 +487,7 @@ fn start_reason(state: &LobbyState, game: &GameSummary, lang: Lang) -> Option<St
     }
     let open = game.seats.iter().filter(|s| s.open()).count();
     if open > 0 {
-        return Some(
-            Phrase::counted(open, Phrase::RoomOpenSeatOne, Phrase::RoomOpenSeatMany)
-                .fill(lang, &[&open.to_string()]),
-        );
+        return Some(Phrase::RoomOpenSeats.fill_count(lang, open, &[]));
     }
     let waiting: Vec<String> = game
         .seats

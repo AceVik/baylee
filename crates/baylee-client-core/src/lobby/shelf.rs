@@ -218,15 +218,11 @@ pub fn badges(lang: Lang, deck: &DeckSummary, next: bool) -> Vec<String> {
         said.push(Phrase::DecksNextGame.text(lang).to_string());
     }
     if deck.unplayable > 0 {
-        let n = deck.unplayable.to_string();
-        said.push(
-            Phrase::counted(
-                usize::try_from(deck.unplayable).unwrap_or(usize::MAX),
-                Phrase::DecksUnplayableOne,
-                Phrase::DecksUnplayableMany,
-            )
-            .fill(lang, &[&n]),
-        );
+        said.push(Phrase::DecksUnplayable.fill_count(
+            lang,
+            usize::try_from(deck.unplayable).unwrap_or(usize::MAX),
+            &[],
+        ));
     }
     said.extend(blocked_badge(lang, &deck.blocked));
     said

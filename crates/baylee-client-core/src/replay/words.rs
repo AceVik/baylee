@@ -34,14 +34,12 @@ mod tests {
     use super::ReplayPhrase;
     use crate::i18n::Lang;
 
-    /// A translation keeps every placeholder: a dropped `{0}` is a turn or
-    /// a build the player never sees; and no phrase is empty.
+    /// No phrase is empty in any language (that every language keeps
+    /// every argument is `i18n::tests`' parity test).
     #[test]
-    fn a_translation_keeps_every_placeholder_it_was_given() {
+    fn no_phrase_is_empty() {
         for phrase in ReplayPhrase::ALL {
-            let english = phrase.slots(Lang::En);
             for lang in Lang::ALL {
-                assert_eq!(phrase.slots(lang), english, "{phrase:?} in {lang:?}");
                 assert!(!phrase.text(lang).is_empty(), "{phrase:?} in {lang:?}");
             }
         }

@@ -611,8 +611,9 @@ impl Writer<'_> {
                 let n = usize::try_from(new).unwrap_or(0);
                 Piece {
                     subject: Some(player),
-                    ..self.phrase(
-                        Phrase::counted(n, Phrase::LogLifeNowPoint, Phrase::LogLifeNowPoints),
+                    ..self.counted(
+                        Phrase::LogLifeNowPoints,
+                        n,
                         &[Piece::default(), Self::count(&old), Self::count(&new)],
                     )
                 }
@@ -625,6 +626,15 @@ impl Writer<'_> {
     /// as `{7}`, `{8}` and `{9}`: "you" as a subject, a direct object and an
     /// indirect object, which German says three ways.
     fn phrase(&self, phrase: Phrase, args: &[Piece]) -> Piece {
+        self.filled(phrase.text(self.wording.lang), args)
+    }
+
+    /// [`Self::phrase`] for a counted phrase: `n` picks its form.
+    fn counted(&self, phrase: Phrase, n: usize, args: &[Piece]) -> Piece {
+        self.filled(&phrase.text_count(self.wording.lang, n), args)
+    }
+
+    fn filled(&self, text: &str, args: &[Piece]) -> Piece {
         let mut all: Vec<Piece> = args.iter().map(Piece::copy).collect();
         all.resize_with(YOU_SLOT, Piece::default);
         all.extend(
@@ -635,7 +645,7 @@ impl Writer<'_> {
             ]
             .map(|you| self.you(you)),
         );
-        Piece::fill(phrase.text(self.wording.lang), &all)
+        Piece::fill(text, &all)
     }
 
     /// The reading seat as `you` says it, marked as that seat.
@@ -675,6 +685,29 @@ impl Writer<'_> {
     /// A sentence about `player`: `you` for the reading seat, `other` with
     /// its name as `{0}` for any other. `rest` fills `{1}` on.
     fn about(&self, player: PlayerId, you: Phrase, other: Phrase, rest: Vec<Piece>) -> Piece {
+        self.about_in(player, you, other, None, rest)
+    }
+
+    /// [`Self::about`] for a counted sentence: `n` picks its form.
+    fn about_counted(
+        &self,
+        player: PlayerId,
+        you: Phrase,
+        other: Phrase,
+        n: usize,
+        rest: Vec<Piece>,
+    ) -> Piece {
+        self.about_in(player, you, other, Some(n), rest)
+    }
+
+    fn about_in(
+        &self,
+        player: PlayerId,
+        you: Phrase,
+        other: Phrase,
+        n: Option<usize>,
+        rest: Vec<Piece>,
+    ) -> Piece {
         let phrase = if player == self.wording.seat {
             you
         } else {
@@ -682,9 +715,13 @@ impl Writer<'_> {
         };
         let mut args = vec![self.seat(player)];
         args.extend(rest);
+        let said = match n {
+            Some(n) => self.counted(phrase, n, &args),
+            None => self.phrase(phrase, &args),
+        };
         Piece {
             subject: Some(player),
-            ..self.phrase(phrase, &args)
+            ..said
         }
     }
 
@@ -849,54 +886,38 @@ impl Writer<'_> {
 
     fn counters(&self, kind: CounterKind, n: u16) -> Piece {
         let n = usize::from(n);
-        let (one, many, sizes) = match kind {
-            CounterKind::Plus { power, toughness } => (
-                Phrase::LogCounterPlus,
-                Phrase::LogCountersPlus,
-                Some((power, toughness)),
-            ),
-            CounterKind::Minus { power, toughness } => (
-                Phrase::LogCounterMinus,
-                Phrase::LogCountersMinus,
-                Some((power, toughness)),
-            ),
-            CounterKind::Loyalty => (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty, None),
-            CounterKind::Lore => (Phrase::LogCounterLore, Phrase::LogCountersLore, None),
-            CounterKind::Bore => (Phrase::LogCounterBore, Phrase::LogCountersBore, None),
-            CounterKind::Shield => (Phrase::LogCounterShield, Phrase::LogCountersShield, None),
-            CounterKind::Defense => (Phrase::LogCounterDefense, Phrase::LogCountersDefense, None),
-            CounterKind::Time => (Phrase::LogCounterTime, Phrase::LogCountersTime, None),
-            CounterKind::Charge => (Phrase::LogCounterCharge, Phrase::LogCountersCharge, None),
-            CounterKind::Poison => (Phrase::LogCounterPoison, Phrase::LogCountersPoison, None),
-            CounterKind::Energy => (Phrase::LogCounterEnergy, Phrase::LogCountersEnergy, None),
-            CounterKind::Rad => (Phrase::LogCounterRad, Phrase::LogCountersRad, None),
-            CounterKind::Lifelink => (
-                Phrase::LogCounterLifelink,
-                Phrase::LogCountersLifelink,
-                None,
-            ),
-            CounterKind::Level => (Phrase::LogCounterLevel, Phrase::LogCountersLevel, None),
-            CounterKind::Hone => (Phrase::LogCounterHone, Phrase::LogCountersHone, None),
-            CounterKind::Stun => (Phrase::LogCounterStun, Phrase::LogCountersStun, None),
-            CounterKind::Finality => (
-                Phrase::LogCounterFinality,
-                Phrase::LogCountersFinality,
-                None,
-            ),
-            CounterKind::Flying => (Phrase::LogCounterFlying, Phrase::LogCountersFlying, None),
-            CounterKind::Shadow => (Phrase::LogCounterShadow, Phrase::LogCountersShadow, None),
-            CounterKind::Indestructible => (
-                Phrase::LogCounterIndestructible,
-                Phrase::LogCountersIndestructible,
-                None,
-            ),
-            CounterKind::Custom(10) => (Phrase::LogCounterAge, Phrase::LogCountersAge, None),
-            CounterKind::Custom(_) => (Phrase::LogCounterOther, Phrase::LogCountersOther, None),
+        let (phrase, sizes) = match kind {
+            CounterKind::Plus { power, toughness } => {
+                (Phrase::LogCountersPlus, Some((power, toughness)))
+            }
+            CounterKind::Minus { power, toughness } => {
+                (Phrase::LogCountersMinus, Some((power, toughness)))
+            }
+            CounterKind::Loyalty => (Phrase::LogCountersLoyalty, None),
+            CounterKind::Lore => (Phrase::LogCountersLore, None),
+            CounterKind::Bore => (Phrase::LogCountersBore, None),
+            CounterKind::Shield => (Phrase::LogCountersShield, None),
+            CounterKind::Defense => (Phrase::LogCountersDefense, None),
+            CounterKind::Time => (Phrase::LogCountersTime, None),
+            CounterKind::Charge => (Phrase::LogCountersCharge, None),
+            CounterKind::Poison => (Phrase::LogCountersPoison, None),
+            CounterKind::Energy => (Phrase::LogCountersEnergy, None),
+            CounterKind::Rad => (Phrase::LogCountersRad, None),
+            CounterKind::Lifelink => (Phrase::LogCountersLifelink, None),
+            CounterKind::Level => (Phrase::LogCountersLevel, None),
+            CounterKind::Hone => (Phrase::LogCountersHone, None),
+            CounterKind::Stun => (Phrase::LogCountersStun, None),
+            CounterKind::Finality => (Phrase::LogCountersFinality, None),
+            CounterKind::Flying => (Phrase::LogCountersFlying, None),
+            CounterKind::Shadow => (Phrase::LogCountersShadow, None),
+            CounterKind::Indestructible => (Phrase::LogCountersIndestructible, None),
+            CounterKind::Custom(10) => (Phrase::LogCountersAge, None),
+            CounterKind::Custom(_) => (Phrase::LogCountersOther, None),
         };
         let sizes = sizes.map_or_else(Vec::new, |(power, toughness)| {
             vec![Self::count(&power), Self::count(&toughness)]
         });
-        self.phrase(Phrase::counted(n, one, many), &sizes)
+        self.counted(phrase, n, &sizes)
     }
 
     fn defender(&self, defending: Defender) -> (bool, Piece) {
@@ -936,11 +957,12 @@ impl Writer<'_> {
             ),
             LogEvent::Kept { player, cards } => {
                 let n = usize::from(*cards);
-                self.about(
+                self.about_counted(
                     *player,
-                    Phrase::counted(n, Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
-                    Phrase::counted(n, Phrase::LogKeptCard, Phrase::LogKeptCards),
-                    vec![Self::count(&n)],
+                    Phrase::LogKeptCardsYou,
+                    Phrase::LogKeptCards,
+                    n,
+                    Vec::new(),
                 )
             }
             LogEvent::TimedOut { player, answer } => {
@@ -1026,11 +1048,12 @@ impl Writer<'_> {
             LogEvent::Drew { player, cards } => {
                 if cards.iter().all(|card| *card == LogObject::Hidden) {
                     let n = cards.len();
-                    self.about(
+                    self.about_counted(
                         *player,
-                        Phrase::counted(n, Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),
-                        Phrase::counted(n, Phrase::LogDrewCard, Phrase::LogDrewCards),
-                        vec![Self::count(&n)],
+                        Phrase::LogDrewCardsYou,
+                        Phrase::LogDrewCards,
+                        n,
+                        Vec::new(),
                     )
                 } else {
                     self.about(
@@ -1112,10 +1135,11 @@ impl Writer<'_> {
             }
             LogEvent::Life { player, old, new } => {
                 let n = usize::try_from(*new).unwrap_or(0);
-                self.about(
+                self.about_counted(
                     *player,
-                    Phrase::counted(n, Phrase::LogLifePointYou, Phrase::LogLifePointsYou),
-                    Phrase::counted(n, Phrase::LogLifePoint, Phrase::LogLifePoints),
+                    Phrase::LogLifePointsYou,
+                    Phrase::LogLifePoints,
+                    n,
                     vec![Self::count(old), Self::count(new)],
                 )
             }

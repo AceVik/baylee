@@ -19,12 +19,15 @@
 //! moving is what translation *is*, `$count` vanishing is a bug). At runtime
 //! a message a language lacks still reads in English rather than as an id.
 //!
-//! # Plurals
+//! # Plurals are the language's
 //!
-//! A sentence whose subject is counted is written **twice**, once for one
-//! thing and once for the rest, and [`Phrase::counted`] picks between them
-//! by the number; `card(s)` and `Karte(n)` are not plurals, and **no phrase
-//! carries a bracketed plural** (a test).
+//! A sentence whose subject is counted is one message with a selector on
+//! `$count` (`{ $count -> [one] … *[other] … }`), and [`Phrase::fill_count`]
+//! (or [`Phrase::text_count`], for a caller that fills the slots itself)
+//! passes the number, so each language picks its own CLDR forms: English and
+//! German split at one, Polish has three forms, Japanese one. **Zero takes
+//! the plural** in both of ours. `card(s)` and `Karte(n)` are not plurals,
+//! and **no phrase carries a bracketed plural** (a test).
 //!
 //! Nothing here touches a renderer, so the whole of it is testable without a
 //! window. Known engine and gateway refusals are localized by

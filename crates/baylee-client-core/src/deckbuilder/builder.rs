@@ -1589,12 +1589,7 @@ impl DeckBuilder {
         if counts.shaky > 0 {
             out.push(Problem {
                 blocking: false,
-                message: Phrase::counted(
-                    counts.shaky as usize,
-                    Phrase::ShakyCard,
-                    Phrase::ShakyCards,
-                )
-                .fill(lang, &[&counts.shaky.to_string()]),
+                message: Phrase::ShakyCards.fill_count(lang, counts.shaky as usize, &[]),
             });
         }
         out

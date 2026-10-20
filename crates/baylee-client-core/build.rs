@@ -108,6 +108,14 @@ fn table(
         {table}.fill(self as usize, lang, args)
     }}
 
+    /// As [`Self::text`], with the argument named `count` set to `count`:
+    /// the form a counted phrase takes for that number, every other
+    /// argument as `{{0}}`, `{{1}}`, ….
+    #[must_use]
+    pub fn text_count(self, lang: Lang, count: usize) -> String {{
+        {table}.count_text(self as usize, lang, count)
+    }}
+
     /// As [`Self::fill`], with the argument named `count` set to `count`
     /// as a number: what picks the language's plural form.
     #[must_use]

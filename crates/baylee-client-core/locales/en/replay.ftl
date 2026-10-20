@@ -27,9 +27,9 @@ LeaveReplay = Leave replay
 # A perspective: the viewer's seat.
 YourSeat = Your seat
 
-# A perspective: another seat (a record opened by hand). `{0}` its name.
-# Arguments: arg0
-SeatOf = { $arg0 }’s seat
+# A perspective: another seat (a record opened by hand). `$player` its name.
+# Arguments: player
+SeatOf = { $player }’s seat
 
 # A perspective: the spectators' table.
 TheTable = The table, as a spectator
@@ -40,32 +40,32 @@ TheTableShort = The table
 # A perspective: every hand.
 AllHands = All hands
 
-# The top line. `{0}` where, `{1}` when, `{2}` the perspective.
-# Arguments: arg0, arg1, arg2
-TopLine = Replay · { $arg0 } · { $arg1 } · { $arg2 }
+# The top line. `$place` where, `$time` when, `$perspective` the perspective.
+# Arguments: place, time, perspective
+TopLine = Replay · { $place } · { $time } · { $perspective }
 
-# Where the step stands. `{0}` the turn, `{1}` whose, `{2}` the step.
-# Arguments: arg0, arg1, arg2
-WhereStep = Turn { $arg0 } · { $arg1 } · { $arg2 }
+# Where the step stands. `$turn` the turn, `$player` whose, `$step` the step.
+# Arguments: turn, player, step
+WhereStep = Turn { $turn } · { $player } · { $step }
 
-# The veil, a local projection. `{0}` percent.
-# Arguments: arg0
-RebuildingHere = Rebuilding the game… { $arg0 } %
+# The veil, a local projection. `$percent` percent.
+# Arguments: percent
+RebuildingHere = Rebuilding the game… { $percent } %
 
-# The veil, a hosted projection. `{0}` the gateway.
-# Arguments: arg0
-RebuildingThere = Rebuilding the game on { $arg0 }…
+# The veil, a hosted projection. `$gateway` the gateway.
+# Arguments: gateway
+RebuildingThere = Rebuilding the game on { $gateway }…
 
 # The veil's way out.
 EscCancels = Esc cancels
 
-# Stopped early (`Verify::Stop`). `{0}` the turn, `{1}` the recording build.
-# Arguments: arg0, arg1
-StoppedDiverged = This version plays this game the same up to turn { $arg0 }; it was recorded by { $arg1 } and from there it would differ.
+# Stopped early (`Verify::Stop`). `$turn` the turn, `$build` the recording build.
+# Arguments: turn, build
+StoppedDiverged = This version plays this game the same up to turn { $turn }; it was recorded by { $build } and from there it would differ.
 
-# Stopped: an answer refused. `{0}` the turn.
-# Arguments: arg0
-StoppedRefused = This version can’t play this game past turn { $arg0 }.
+# Stopped: an answer refused. `$turn` the turn.
+# Arguments: turn
+StoppedRefused = This version can’t play this game past turn { $turn }.
 
 # The same build, a different hash.
 StoppedMismatch = This replay doesn’t match the game it records. Please report it (F8).
@@ -79,9 +79,9 @@ PlayOnAnyway = Play on anyway
 # A list mark: checked on another build.
 Checked = Checked
 
-# Its hint. `{0}` the recording build.
-# Arguments: arg0
-CheckedHint = Recorded by { $arg0 }. This version plays it again and checks it against what the table showed.
+# Its hint. `$build` the recording build.
+# Arguments: build
+CheckedHint = Recorded by { $build }. This version plays it again and checks it against what the table showed.
 
 # A list mark: recorded before the checks.
 Unverified = Unverified
@@ -98,9 +98,9 @@ FormerPlayer = Former player
 # A seat bridge.
 LanguageModel = Language model
 
-# The house. `{0}` its level.
-# Arguments: arg0
-HouseLevel = House ({ $arg0 })
+# The house. `$level` its level.
+# Arguments: level
+HouseLevel = House ({ $level })
 
 # The house, level unknown.
 House = House
@@ -141,17 +141,17 @@ Ended = Ended
 # A row's place: this computer.
 ThisComputer = This computer
 
-# A row: against the house. `{0}` the level.
-# Arguments: arg0
-VsHouse = vs House ({ $arg0 })
+# A row: against the house. `$level` the level.
+# Arguments: level
+VsHouse = vs House ({ $level })
 
-# A row's turns. `{0}` the turn.
-# Arguments: arg0
-TurnShort = T{ $arg0 }
+# A row's turns. `$turn` the turn.
+# Arguments: turn
+TurnShort = T{ $turn }
 
-# A row's length. `{0}` minutes.
-# Arguments: arg0
-Minutes = { $arg0 } min
+# A row's length. `$count` minutes.
+# Arguments: count
+Minutes = { $count } min
 
 # A day heading.
 Today = Today
@@ -228,9 +228,9 @@ End = End
 # The transport bar: the speed.
 Speed = Speed
 
-# The timeline's hint over a turn. `{0}` the turn, `{1}` whose.
-# Arguments: arg0, arg1
-TurnHint = Turn { $arg0 } · { $arg1 }
+# The timeline's hint over a turn. `$turn` the turn, `$player` whose.
+# Arguments: turn, player
+TurnHint = Turn { $turn } · { $player }
 
 # A seat whose hidden cards stay hidden in this replay.
 NotShared = Hand not shared
@@ -244,6 +244,6 @@ FoldHand = Fold the hand away (I)
 # The hand chip: bring it back.
 ShowHand = Show the hand (I)
 
-# The replay could not be made. `{0}` why.
-# Arguments: arg0
-Failed = This replay can’t be shown: { $arg0 }
+# The replay could not be made. `$error` why.
+# Arguments: error
+Failed = This replay can’t be shown: { $error }
