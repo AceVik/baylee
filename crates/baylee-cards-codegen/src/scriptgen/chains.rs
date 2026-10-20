@@ -575,7 +575,7 @@ impl Tx<'_> {
                 }
             }
             "Mana" => self.mana_effect(p)?,
-            "DelayedTrigger" => vec![self.delayed_trigger(p, target)?],
+            "DelayedTrigger" => vec![self.delayed_trigger(p, target, targets_here)?],
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
                 // It was vacuous while this engine had no regeneration at
@@ -731,6 +731,7 @@ impl Tx<'_> {
             }
             "Phases" => self.phase_your_permanents(p)?,
             "Pump" => self.pump_effect(p, aimed, false)?,
+            "PumpAll" => self.pump_all_effect(p, target)?,
             "Effect" => self.static_effect(p, target)?,
             "ChangeZone" => self.change_zone(p, target, targets_here)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,

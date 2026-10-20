@@ -125,6 +125,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "PutCounter",
     "Sacrifice",
     "Pump",
+    "PumpAll",
     "Phases",
     "ChangeZone",
     "ChangeZoneAll",

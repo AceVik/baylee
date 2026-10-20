@@ -31,6 +31,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Enchant:") {
             return self.enchant(rest);
         }
+        if let Some(rest) = line.strip_prefix("Cumulative upkeep:") {
+            return self.cumulative_upkeep(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -50,6 +53,14 @@ impl Tx<'_> {
             self.body.abilities.push(Self::static_expr(
                 "Filter::This",
                 &format!("Modifier::ProtectionFrom(&{from})"),
+            ));
+            return Some(());
+        }
+        if let Some(land) = self.landwalk_filter(line) {
+            let name = self.body.filter_static("LANDWALK", &land);
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                &format!("Modifier::LandwalkMatching(&{name})"),
             ));
             return Some(());
         }
@@ -102,6 +113,97 @@ impl Tx<'_> {
             return self.deny("a protection keyword with a fifth field".to_string());
         }
         Some(filter)
+    }
+
+    /// `K:Landwalk:<valid>[:<prose>]` (CR 702.14a) for a non-basic landwalk
+    /// quality (snow swampwalk, snow forestwalk, legendary landwalk, nonbasic
+    /// landwalk). The five basic landwalks are [`KeywordSet`] bits and are
+    /// matched earlier by [`keyword_const`].
+    pub(super) fn landwalk_filter(&self, word: &str) -> Option<String> {
+        let rest = word.trim().strip_prefix("Landwalk:")?;
+        let mut fields = rest.split(':');
+        let quality = self.filter_expr(fields.next()?)?;
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny("a landwalk keyword with a fourth field".to_string());
+        }
+        Some(quality)
+    }
+
+    /// `K:Cumulative upkeep:<cost>[:<prose>]` (CR 702.24a): at the beginning of
+    /// your upkeep, if this permanent is on the battlefield, put an age counter
+    /// on it, then sacrifice it unless you pay `<cost>` for each age counter on
+    /// it.
+    pub(super) fn cumulative_upkeep(&mut self, rest: &str) -> Option<()> {
+        let payment = self.cumulative_upkeep_payment(rest)?;
+        self.body.abilities.push(format!(
+            "triggered!(Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
+             &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}], \
+             condition = Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))))"
+        ));
+        Some(())
+    }
+
+    /// The per-age-counter payment effect of [`Self::cumulative_upkeep`], also
+    /// used when a static ability grants cumulative upkeep (`AddKeyword$
+    /// Cumulative upkeep:<cost>`).
+    pub(super) fn cumulative_upkeep_payment(&mut self, rest: &str) -> Option<String> {
+        let mut fields = rest.split(':');
+        let raw = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("cumulative upkeep `{rest}`"));
+        }
+        if let Ok(n) = raw.parse::<u32>()
+            && n > 0
+        {
+            let mana = if n == 1 {
+                "Amount::CountersOnSource(counters::AGE)".to_string()
+            } else {
+                format!(
+                    "Amount::Times {{ base: &Amount::CountersOnSource(counters::AGE), factor: {n} }}"
+                )
+            };
+            return Some(format!(
+                "Effect::PlayerMayPayOr {{ player: PlayerRel::You, mana: {mana}, \
+                 effect: &Effect::SacrificeSelf }}"
+            ));
+        }
+        if let Some(life_str) = raw
+            .strip_prefix("PayLife<")
+            .and_then(|s| s.strip_suffix('>'))
+            && let Ok(n) = life_str.parse::<u32>()
+            && n > 0
+        {
+            let life = if n == 1 {
+                "Amount::CountersOnSource(counters::AGE)".to_string()
+            } else {
+                format!(
+                    "Amount::Times {{ base: &Amount::CountersOnSource(counters::AGE), factor: {n} }}"
+                )
+            };
+            return Some(format!(
+                "Effect::PlayerMayPayLifeOr {{ player: PlayerRel::You, life: {life}, \
+                 effect: &Effect::SacrificeSelf }}"
+            ));
+        }
+        let tokens: Vec<String> = super::cost_parts(raw);
+        if !tokens.is_empty()
+            && tokens.iter().all(|t| {
+                t.chars().all(|c| c.is_ascii_digit())
+                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+            })
+        {
+            let (mana, parts) = self.cost_pieces(raw)?;
+            if parts.is_empty() && !mana.is_empty() {
+                return Some(format!(
+                    "Effect::PlayerMayPayManaEachThenElse {{ player: PlayerRel::You, \
+                     each: mana!(\"{mana}\"), times: Amount::CountersOnSource(counters::AGE), \
+                     paid: &[], unpaid: &[Effect::SacrificeSelf] }}"
+                ));
+            }
+        }
+        self.deny(format!("cumulative upkeep `{raw}`"))
     }
 
     /// `K:Equip:<cost>` as the activated ability the keyword is.

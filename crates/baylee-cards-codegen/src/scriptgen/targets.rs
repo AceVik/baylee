@@ -271,6 +271,9 @@ impl Tx<'_> {
                         "Filter::Not(&Filter::HasSupertype(SupertypeSet::LEGENDARY))".to_string()
                     }
                     "Snow" => "Filter::HasSupertype(SupertypeSet::SNOW)".to_string(),
+                    "nonSnow" => {
+                        "Filter::Not(&Filter::HasSupertype(SupertypeSet::SNOW))".to_string()
+                    }
                     // The two card types a noun cannot say "not" to on its
                     // own ("nonartifact, nonblack creature").
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),

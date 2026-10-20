@@ -159,6 +159,18 @@ pub const CUBE: CounterKind = CounterKind::Custom(37);
 /// Net counters (Merseine).
 pub const NET: CounterKind = CounterKind::Custom(38);
 
+/// Healing counters (Fylgja).
+pub const HEALING: CounterKind = CounterKind::Custom(39);
+
+/// Sleight counters (Chromatic Armor).
+pub const SLEIGHT: CounterKind = CounterKind::Custom(40);
+
+/// Paralyzation counters (Dread Wight).
+pub const PARALYZATION: CounterKind = CounterKind::Custom(41);
+
+/// Music counters (Musician).
+pub const MUSIC: CounterKind = CounterKind::Custom(42);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -203,6 +215,10 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("tide", TIDE),
     ("cube", CUBE),
     ("net", NET),
+    ("healing", HEALING),
+    ("sleight", SLEIGHT),
+    ("paralyzation", PARALYZATION),
+    ("music", MUSIC),
 ];
 
 #[cfg(test)]

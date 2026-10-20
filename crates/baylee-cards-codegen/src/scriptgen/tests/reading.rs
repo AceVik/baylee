@@ -1326,3 +1326,91 @@ fn multiple_prowess_keywords_emit_separate_triggers() {
         ]
     );
 }
+
+#[test]
+fn next_turns_upkeep_delayed_trigger_reads_slowtrips() {
+    let clairvoyance = "A:SP$ RevealHand | ValidTgts$ Player | SubAbility$ DelTrig\n\
+                        SVar:DelTrig:DB$ DelayedTrigger | NextTurn$ True | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ DrawSlowtrip\n\
+                        SVar:DrawSlowtrip:DB$ Draw | Defined$ You";
+    let infuse = "A:SP$ Untap | ValidTgts$ Creature | SubAbility$ DelTrig\n\
+                  SVar:DelTrig:DB$ DelayedTrigger | NextTurn$ True | Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | Execute$ DrawSlowtrip\n\
+                  SVar:DrawSlowtrip:DB$ Draw | Defined$ You";
+    let body = read(infuse);
+    assert!(
+        body.abilities[0].contains("Effect::AtNextTurnsUpkeep { effects: &[Effect::draw(1)] }"),
+        "{}",
+        body.abilities[0]
+    );
+    assert!(refused(clairvoyance));
+    assert!(refused(&infuse.replace("NextTurn$ True | ", "")));
+    assert!(refused(
+        &infuse.replace("ValidPlayer$ Player", "ValidPlayer$ You")
+    ));
+}
+
+#[test]
+fn cumulative_upkeep_keyword_and_grant_read_generic_colored_and_life_costs() {
+    let generic = read("K:Cumulative upkeep:2");
+    assert_eq!(
+        generic.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, &[Effect::AddCounter { kind: counters::AGE, amount: Amount::Fixed(1) }, Effect::PlayerMayPayOr { player: PlayerRel::You, mana: Amount::Times { base: &Amount::CountersOnSource(counters::AGE), factor: 2 }, effect: &Effect::SacrificeSelf }], condition = Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))))"
+        ]
+    );
+
+    let colored = read("K:Cumulative upkeep:1 U");
+    assert_eq!(
+        colored.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, &[Effect::AddCounter { kind: counters::AGE, amount: Amount::Fixed(1) }, Effect::PlayerMayPayManaEachThenElse { player: PlayerRel::You, each: mana!(\"{1}{U}\"), times: Amount::CountersOnSource(counters::AGE), paid: &[], unpaid: &[Effect::SacrificeSelf] }], condition = Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))))"
+        ]
+    );
+
+    let life = read("K:Cumulative upkeep:PayLife<2>:Pay 2 life.");
+    assert_eq!(
+        life.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, &[Effect::AddCounter { kind: counters::AGE, amount: Amount::Fixed(1) }, Effect::PlayerMayPayLifeOr { player: PlayerRel::You, life: Amount::Times { base: &Amount::CountersOnSource(counters::AGE), factor: 2 }, effect: &Effect::SacrificeSelf }], condition = Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))))"
+        ]
+    );
+
+    let grant = read(
+        "S:Mode$ Continuous | Affected$ Creature.EnchantedBy | AddPower$ 3 | AddToughness$ 3 | AddKeyword$ Cumulative upkeep:R",
+    );
+    assert!(
+        grant.abilities[1].contains("Modifier::GrantTriggered")
+            && grant.abilities[1].contains("each: mana!(\"{R}\")"),
+        "{}",
+        grant.abilities[1]
+    );
+}
+
+#[test]
+fn pump_all_and_nonbasic_landwalk_and_graveyard_gain_control_read() {
+    let pump = read(
+        "A:AB$ PumpAll | Cost$ 1 W | ValidCards$ Creature.attacking | NumAtt$ +1 | NumDef$ +0 | KW$ First Strike",
+    );
+    assert_eq!(
+        pump.abilities,
+        [
+            "activated!(cost!(\"{1}{W}\"), &[Effect::PumpFilter { filter: &Filter::ATTACKING_CREATURE, controlled_by: None, power: Amount::Fixed(1), toughness: Amount::Fixed(0), keywords: KeywordSet::FIRST_STRIKE, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let snow_walk = read("K:Landwalk:Land.Snow:snow land");
+    assert!(
+        snow_walk.abilities[0].contains("Modifier::LandwalkMatching(&LANDWALK1)"),
+        "{}",
+        snow_walk.abilities[0]
+    );
+
+    let reanimate = read(
+        "A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature | GainControl$ True",
+    );
+    assert!(
+        reanimate.abilities[0].contains("Effect::GraveyardToBattlefield")
+            && reanimate.abilities[0].contains("owner_control: false"),
+        "{}",
+        reanimate.abilities[0]
+    );
+}

@@ -721,9 +721,50 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         target: Option<&str>,
+        targets_here: bool,
     ) -> Option<String> {
         let mode = p.take("Mode").unwrap_or_default();
         let phase = p.take("Phase").unwrap_or_default();
+        if mode == "Phase" && phase == "Upkeep" {
+            if p.take("NextTurn").as_deref() != Some("True") {
+                return self.deny(
+                    "a delayed trigger at `Phase Upkeep` without `NextTurn$ True`".to_string(),
+                );
+            }
+            match p.take("ValidPlayer").as_deref() {
+                None | Some("Player") => {}
+                Some(other) => {
+                    return self.deny(format!("a delayed trigger in `{other}`'s turn"));
+                }
+            }
+            if let Some(remembered) = p.take("RememberObjects") {
+                return self.deny(format!("a delayed trigger remembering `{remembered}`"));
+            }
+            if targets_here {
+                return self.deny("a delayed trigger on a line that targets".to_string());
+            }
+            let Some(execute) = p.take("Execute") else {
+                return self.deny("a delayed trigger with no `Execute$`".to_string());
+            };
+            let Some(body) = self.svars.get(&execute).cloned() else {
+                return self.deny(format!("`Execute$ {execute}` names no SVar"));
+            };
+            let mut inner = super::Chain::default();
+            let outer = std::mem::replace(&mut self.in_delayed, true);
+            let read = self.chain(&body, &mut inner);
+            self.in_delayed = outer;
+            read?;
+            if inner.target.is_some() {
+                return self.deny("a delayed trigger that targets".to_string());
+            }
+            if inner.effects.is_empty() {
+                return self.deny("a delayed trigger that reads as no effect".to_string());
+            }
+            return Some(format!(
+                "Effect::AtNextTurnsUpkeep {{ effects: &[{}] }}",
+                inner.effects.join(", ")
+            ));
+        }
         if mode != "Phase" || phase != "EndCombat" {
             return self.deny(format!("a delayed trigger at `{mode} {phase}`"));
         }

@@ -146,6 +146,14 @@ pub(super) fn keyword_atom(atom: &str) -> Option<String> {
         Some(rest) => (true, rest),
         None => (false, atom.strip_prefix("with")?),
     };
+    if matches!(name, "Cumulative upkeep" | "CumulativeUpkeep") {
+        let has = "Filter::HasCumulativeUpkeep";
+        return Some(if negated {
+            format!("Filter::Not(&{has})")
+        } else {
+            has.to_string()
+        });
+    }
     let printed = [
         "Flying",
         "First Strike",
@@ -220,6 +228,11 @@ pub(super) fn stat_atom(atom: &str) -> Option<String> {
         "lt" => ("AtMost", n.checked_sub(1)?),
         "ge" => ("AtLeast", n),
         "gt" => ("AtLeast", n.checked_add(1)?),
+        "eq" => {
+            return Some(format!(
+                "Filter::And(&[Filter::{stat}AtMost({n}), Filter::{stat}AtLeast({n})])"
+            ));
+        }
         _ => return None,
     };
     Some(format!("Filter::{stat}{bound}({n})"))

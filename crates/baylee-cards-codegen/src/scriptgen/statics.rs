@@ -532,7 +532,7 @@ impl Tx<'_> {
 
     /// `AddKeyword`/`RemoveKeyword` (layer 6) as static abilities.
     pub(super) fn keyword_modifiers(
-        &self,
+        &mut self,
         p: &mut Params,
         filter: &str,
         out: &mut Vec<String>,
@@ -557,6 +557,23 @@ impl Tx<'_> {
                     out.push(Self::static_expr(
                         filter,
                         &format!("Modifier::ProtectionFrom(&{from})"),
+                    ));
+                    continue;
+                }
+                if modifier == "AddKeyword"
+                    && let Some(rest) = word.trim().strip_prefix("Cumulative upkeep:")
+                {
+                    let payment = self.cumulative_upkeep_payment(rest)?;
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!(
+                            "Modifier::GrantTriggered {{ \
+                             trigger: Trigger::StepBegin {{ step: StepKind::Upkeep, whose: PlayerRel::You }}, \
+                             effects: &[Effect::AddCounter {{ kind: counters::AGE, amount: Amount::Fixed(1) }}, {payment}], \
+                             target: None, \
+                             optional: false, \
+                             condition: Some(Condition::SourceMatches(&Filter::InZone(ZoneRef::Battlefield))) }}"
+                        ),
                     ));
                     continue;
                 }

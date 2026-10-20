@@ -491,6 +491,46 @@ impl Tx<'_> {
         })
     }
 
+    /// `PumpAll`: `ValidCards$ Creature.blocking | NumAtt$ +1 | NumDef$ +1`,
+    /// pumping every permanent on the battlefield that matches `ValidCards$`.
+    pub(super) fn pump_all_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some() {
+            return None;
+        }
+        let valid = p.take("ValidCards")?;
+        let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
+        let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
+        let keywords = match p.take("KW") {
+            None => "KeywordSet::EMPTY".to_string(),
+            Some(kw) => {
+                let each: Option<Vec<&str>> =
+                    kw.split('&').map(|k| keyword_const(k.trim())).collect();
+                each?.join(".union(") + &")".repeat(kw.split('&').count().saturating_sub(1))
+            }
+        };
+        if p.take("Duration").is_some() {
+            return None;
+        }
+        p.take("IsCurse");
+        if power == "Amount::Fixed(0)"
+            && toughness == "Amount::Fixed(0)"
+            && keywords == "KeywordSet::EMPTY"
+        {
+            return None;
+        }
+        let expr = self.filter_expr(&valid)?;
+        let filter = self.body.filter_static("PUMP_ALL", &expr);
+        Some(vec![format!(
+            "Effect::PumpFilter {{ filter: &{filter}, controlled_by: None, \
+             power: {power}, toughness: {toughness}, keywords: {keywords}, \
+             duration: Duration::UntilEndOfTurn }}"
+        )])
+    }
+
     /// An `Effect` line: a static ability that lasts the turn, read by the
     /// one sentence its static says. Every other static stays refused.
     pub(super) fn static_effect(
@@ -741,6 +781,12 @@ impl Tx<'_> {
             ("Graveyard", "Battlefield", false)
                 if target.starts_with("TargetSpec::CardInGraveyard") =>
             {
+                if let Some(gain) = p.take("GainControl")
+                    && gain != "True"
+                {
+                    self.note(format!("`ChangeZone` with `GainControl$ {gain}`"));
+                    return None;
+                }
                 vec![format!(
                     "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
                      counters: None }}"
