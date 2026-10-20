@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, type MouseEvent } from "react";
 
-import { Admin } from "./Admin";
 import { ContactList, ContactPage } from "./Contact";
 import { api, onSignedOut } from "./api";
 import { browserLang, t } from "./i18n";
@@ -9,6 +8,10 @@ import { ReportDetail } from "./ReportDetail";
 import { ReportList } from "./ReportList";
 import { Toasts } from "./reports/pieces";
 import { listPath, navigate, useRoute } from "./router";
+
+// The admin console is most of the code and the fewest visits: it loads
+// when it is first opened, so the reports come up sooner.
+const Admin = lazy(async () => ({ default: (await import("./Admin")).Admin }));
 
 type Auth = { state: "checking" } | { state: "out" } | { state: "in"; name: string; console: boolean };
 
@@ -130,12 +133,20 @@ export function App() {
         </button>
       </header>
       {onAdmin ? (
-        <Admin
-          lang={lang}
-          section={route.page === "admin" ? route.section : "overview"}
-          id={route.page === "admin" ? route.id : undefined}
-          search={route.page === "admin" ? route.search : undefined}
-        />
+        <Suspense
+          fallback={
+            <main className="center" aria-busy="true">
+              <p className="muted">{t(lang, "admin.loading")}</p>
+            </main>
+          }
+        >
+          <Admin
+            lang={lang}
+            section={route.page === "admin" ? route.section : "overview"}
+            id={route.page === "admin" ? route.id : undefined}
+            search={route.page === "admin" ? route.search : undefined}
+          />
+        </Suspense>
       ) : route.page === "contact" ? (
         route.id === undefined ? (
           <ContactList lang={lang} search={route.search} />
@@ -143,9 +154,9 @@ export function App() {
           <ContactPage key={route.id} lang={lang} id={route.id} />
         )
       ) : route.page === "report" ? (
-        <ReportDetail id={route.id} key={route.id} lang={lang} />
+        <ReportDetail id={route.id} key={route.id} lang={lang} me={auth.name} />
       ) : (
-        <ReportList search={route.page === "list" ? route.search : ""} lang={lang} />
+        <ReportList search={route.page === "list" ? route.search : ""} lang={lang} me={auth.name} />
       )}
       <Toasts lang={lang} />
     </>

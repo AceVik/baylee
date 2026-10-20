@@ -1,8 +1,11 @@
 // One report, read: what the player wrote with its references as chips,
 // where in the game they were, the crash, the screenshot, the log, the
-// record, and the triage beside it. The page (`/r/{id}`) and the list's
-// drawer draw the same thing; the drawer in its compact form, with the
-// large parts folded.
+// record, and the triage beside it: status, priority, assignee, labels,
+// the report it duplicates, notes, the reports it belongs with, and the
+// trash. The page (`/r/{id}`) and the list's drawer draw the same thing;
+// the drawer in its compact form, with the large parts folded. Every
+// change names the revision it was made against, so two admins never
+// overwrite each other unseen.
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
@@ -13,10 +16,12 @@ import {
   Refused,
   SignedOut,
   STATUSES,
+  TRASH_DAYS,
   type AuditEntry,
+  type Change,
   type Kind,
+  type Note,
   type Report,
-  type Status,
 } from "../api";
 import { part, readBuild, readChatSender, readCrash, readLog, readRefs, readScreenshot, readSystem } from "../dump";
 import { formatBytes } from "../format";
@@ -24,8 +29,19 @@ import { CATEGORY_TITLES, newIssueUrl, parseIssue } from "../github";
 import { kindLabel, statusLabel, t, type Lang } from "../i18n";
 import { JsonTree } from "../JsonTree";
 import { pendingLabel, readGame, type GameSummary } from "./game";
-import { CardChip, PlayerChip, RefText, Reporter, Time, TimeBoth, toast } from "./pieces";
-import { adminPath, navigate } from "../router";
+import { CardChip, PlayerChip, PriorityTag, RefText, Reporter, Time, TimeBoth, toast } from "./pieces";
+import { adminPath, listPath, navigate } from "../router";
+import {
+  AssigneePicker,
+  auditText,
+  DuplicateEditor,
+  LabelEditor,
+  Lightbox,
+  Notes,
+  PriorityPicker,
+  Related,
+  TrashBanner,
+} from "./Triage";
 
 export function Section({
   title,
@@ -195,23 +211,28 @@ export function summaryText(report: Report, lang: Lang): string {
 export function ReportView({
   id,
   lang,
+  me = "",
   compact = false,
   onChanged,
   onDeleted,
 }: {
   id: string;
   lang: Lang;
+  /** The signed-in admin: "assign to me", and whose notes are theirs to remove. */
+  me?: string;
   compact?: boolean;
   onChanged?: (report: Report) => void;
+  /** It left the list it was opened from: into the trash, or gone. */
   onDeleted?: (id: string) => void;
 }) {
   const [report, setReport] = useState<Report | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [issueDraft, setIssueDraft] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [enlarged, setEnlarged] = useState(false);
 
   const refreshAudit = useCallback(() => {
     api
@@ -238,21 +259,52 @@ export function ReportView({
     };
   }, [id, refreshAudit, lang]);
 
-  const change = async (what: { status?: Status; issue?: number | null }, done: string) => {
+  useEffect(() => {
+    api
+      .admins()
+      .then(setAdmins)
+      .catch(() => {
+        // Assigning offers the signed-in admin alone.
+      });
+  }, []);
+
+  /** Reads the report again, as it is on the service now. */
+  const reload = useCallback(async () => {
+    try {
+      const fresh = await api.report(id);
+      setReport(fresh);
+      onChanged?.(fresh);
+      refreshAudit();
+    } catch (e: unknown) {
+      if (!(e instanceof SignedOut)) setError(describe(lang, e));
+    }
+  }, [id, lang, onChanged, refreshAudit]);
+
+  const change = async (what: Change, done: string) => {
+    if (report === null) return;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const updated = await api.change(id, what);
+      const updated = await api.change(id, { ...what, expected_revision: report.revision });
       setReport(updated);
       setNotice(done);
       onChanged?.(updated);
       refreshAudit();
     } catch (e: unknown) {
-      if (!(e instanceof SignedOut)) setError(describe(lang, e));
+      if (e instanceof Refused && e.status === 409) {
+        await reload();
+        setError(t(lang, "rep.conflict"));
+      } else if (!(e instanceof SignedOut)) {
+        setError(describe(lang, e));
+      }
     } finally {
       setBusy(false);
     }
+  };
+
+  const withNotes = (notes: Note[]) => {
+    setReport((was) => (was === null ? was : { ...was, note_list: notes, notes: notes.length }));
   };
 
   const link = (event: FormEvent<HTMLFormElement>) => {
@@ -266,13 +318,55 @@ export function ReportView({
     void change({ issue: number }, t(lang, "rep.linked", { n: number }));
   };
 
-  const remove = async () => {
+  /** Into the trash, with an undo; the page stays, showing it there. */
+  const trash = async () => {
     setBusy(true);
     try {
-      await api.remove(id);
+      await api.trash(id);
+      toast("ok", t(lang, "rep.trashedOne"), {
+        label: t(lang, "rep.undo"),
+        run: () => {
+          api
+            .restore(id)
+            .then(() => {
+              toast("ok", t(lang, "rep.restoredOne"));
+              void reload();
+            })
+            .catch((e: unknown) => {
+              if (!(e instanceof SignedOut)) toast("error", describe(lang, e));
+            });
+        },
+      });
+      if (onDeleted) onDeleted(id);
+      else await reload();
+    } catch (e: unknown) {
+      if (!(e instanceof SignedOut)) setError(describe(lang, e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restore = async () => {
+    setBusy(true);
+    try {
+      await api.restore(id);
+      toast("ok", t(lang, "rep.restoredOne"));
+      await reload();
+    } catch (e: unknown) {
+      if (!(e instanceof SignedOut)) setError(describe(lang, e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Gone for good, from the trash only. */
+  const purge = async () => {
+    setBusy(true);
+    try {
+      await api.purge(id);
       toast("ok", t(lang, "rep.deleted"));
       if (onDeleted) onDeleted(id);
-      else navigate("/", true);
+      else navigate(listPath(), true);
     } catch (e: unknown) {
       if (!(e instanceof SignedOut)) setError(describe(lang, e));
       setBusy(false);
@@ -346,6 +440,17 @@ export function ReportView({
           </button>
         ))}
       </fieldset>
+      <PriorityPicker lang={lang} report={report} busy={busy} apply={(c, done) => void change(c, done)} />
+      <AssigneePicker
+        lang={lang}
+        report={report}
+        me={me}
+        admins={admins}
+        busy={busy}
+        apply={(c, done) => void change(c, done)}
+      />
+      <LabelEditor lang={lang} report={report} busy={busy} apply={(c, done) => void change(c, done)} />
+      <DuplicateEditor lang={lang} report={report} busy={busy} apply={(c, done) => void change(c, done)} />
 
       <h3>{t(lang, "rep.issue")}</h3>
       {report.issue_number !== null && report.issue_url !== null ? (
@@ -456,6 +561,8 @@ export function ReportView({
           <dd>{system.find(([label]) => label === "Platform")?.[1] ?? "—"}</dd>
         </>
       )}
+      <dt>{t(lang, "rep.assignee")}</dt>
+      <dd>{report.assignee ?? <span className="muted">{t(lang, "rep.nobody")}</span>}</dd>
       <dt>{t(lang, "rep.reporter")}</dt>
       <dd>
         <Reporter
@@ -582,15 +689,34 @@ export function ReportView({
 
       <Section title={t(lang, "rep.screenshot")} id="s-shot">
         {screenshot ? (
-          <a href={screenshot.src} target="_blank" rel="noopener noreferrer">
-            <img
-              className="screenshot"
-              src={screenshot.src}
-              alt={t(lang, "rep.screenshotAlt")}
-              width={screenshot.width ?? undefined}
-              height={screenshot.height ?? undefined}
-            />
-          </a>
+          <>
+            <button
+              type="button"
+              className="screenshot-button"
+              aria-label={t(lang, "rep.enlarge")}
+              title={t(lang, "rep.enlarge")}
+              onClick={() => {
+                setEnlarged(true);
+              }}
+            >
+              <img
+                className="screenshot"
+                src={screenshot.src}
+                alt={t(lang, "rep.screenshotAlt")}
+                width={screenshot.width ?? undefined}
+                height={screenshot.height ?? undefined}
+              />
+            </button>
+            {enlarged && (
+              <Lightbox
+                lang={lang}
+                src={screenshot.src}
+                onClose={() => {
+                  setEnlarged(false);
+                }}
+              />
+            )}
+          </>
         ) : (
           <Missing lang={lang} what={t(lang, "rep.aScreenshot")} />
         )}
@@ -636,6 +762,26 @@ export function ReportView({
     </>
   );
 
+  const notes = (
+    <Section title={`${t(lang, "rep.notes")}${report.notes > 0 ? ` (${report.notes})` : ""}`} id="s-notes">
+      <Notes
+        lang={lang}
+        report={report}
+        me={me}
+        onNotes={withNotes}
+        onError={(e: unknown) => {
+          if (!(e instanceof SignedOut)) setError(describe(lang, e));
+        }}
+      />
+    </Section>
+  );
+
+  const related = (
+    <Section title={t(lang, "rep.related")} id="s-related">
+      <Related lang={lang} report={report} />
+    </Section>
+  );
+
   const rest = (
     <>
       <Section title={t(lang, "rep.system")} id="s-system" folded={compact}>
@@ -662,42 +808,20 @@ export function ReportView({
           <ol className="audit">
             {audit.map((entry, i) => (
               <li key={i}>
-                <Time lang={lang} iso={entry.at} /> {entry.actor}: {entry.action}
-                {entry.detail !== null ? ` ${entry.detail}` : entry.action === "issue" ? " unlinked" : ""}
+                <Time lang={lang} iso={entry.at} /> {entry.actor}: {auditText(lang, entry)}
               </li>
             ))}
           </ol>
         )}
       </Section>
-      <Section title={t(lang, "rep.delete").replace("…", "")} id="s-delete">
-        {confirmDelete ? (
-          <div className="confirm">
-            <p>{t(lang, "rep.deleteAsk")}</p>
-            <button type="button" className="danger" disabled={busy} onClick={() => void remove()}>
-              {t(lang, "rep.deleteYes")}
-            </button>{" "}
-            <button
-              type="button"
-              className="quiet"
-              onClick={() => {
-                setConfirmDelete(false);
-              }}
-            >
-              {t(lang, "rep.deleteNo")}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="danger-quiet"
-            onClick={() => {
-              setConfirmDelete(true);
-            }}
-          >
-            {t(lang, "rep.delete")}
+      {report.deleted_at === null && (
+        <Section title={t(lang, "rep.toTrash")} id="s-delete">
+          <p className="muted small">{t(lang, "rep.trashHint", { days: TRASH_DAYS })}</p>
+          <button type="button" className="danger-quiet" disabled={busy} onClick={() => void trash()}>
+            {t(lang, "rep.toTrash")}
           </button>
-        )}
-      </Section>
+        </Section>
+      )}
     </>
   );
 
@@ -707,14 +831,24 @@ export function ReportView({
         <h1>
           <span className={`tag kind-${report.kind}`}>{kindLabel(lang, report.kind)}</span>{" "}
           <span className={`tag status-${report.status}`}>{statusLabel(lang, report.status)}</span>{" "}
+          <PriorityTag lang={lang} priority={report.priority} />{" "}
           {!compact && <span className="mono small">{report.id}</span>}
         </h1>
+        <TrashBanner
+          lang={lang}
+          report={report}
+          busy={busy}
+          onRestore={() => void restore()}
+          onPurge={() => void purge()}
+        />
         {facts}
       </header>
       {compact ? (
         <div className="drawer-body">
           {triage}
+          {notes}
           {main}
+          {related}
           {record}
           {rest}
         </div>
@@ -723,6 +857,8 @@ export function ReportView({
           <div className="detail-main">{main}</div>
           <aside className="detail-side">
             {triage}
+            {notes}
+            {related}
             {record}
             {rest}
           </aside>

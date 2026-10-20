@@ -1,8 +1,9 @@
-// The list of reports (`/`): views and filters in the query string so a
-// view is a link, a cursor the keyboard moves, a drawer that opens a
-// report beside the list, a selection for changing several at once, a
-// quiet refresh that announces new arrivals instead of shifting the rows
-// under the cursor, and an export of what is shown.
+// The list of reports (`/`): views, filters, sort and page in the query
+// string so a list is a link, saved views kept on the service, a cursor
+// the keyboard moves, a drawer that opens a report beside the list, a
+// selection changed in one request, the trash with an undo, crash groups,
+// a quiet refresh that announces new arrivals instead of shifting the rows
+// under the cursor, and an export of what is shown or of all that matches.
 
 import {
   useCallback,
@@ -12,48 +13,77 @@ import {
   useState,
   type FormEvent,
   type MouseEvent,
-  type ReactNode,
 } from "react";
 
 import { useVisibleInterval } from "./admin/shared";
 import {
   api,
+  DONE_STATUSES,
   filterQuery,
-  KINDS,
+  OPEN_STATUSES,
   PAGE_SIZE,
+  PAGE_SIZES,
   parseFilter,
   Refused,
   SignedOut,
   STATUSES,
+  TRASH_DAYS,
+  type BulkAction,
+  type BulkChange,
   type Facets,
   type Filter,
   type Listing,
-  type Status,
+  type Sort,
   type Summary,
 } from "./api";
 import { firstLine } from "./github";
 import { formatBytes } from "./format";
-import { formatCount, kindLabel, statusLabel, t, type Key, type Lang } from "./i18n";
+import { formatCount, kindLabel, sortLabel, statusLabel, t, type Key, type Lang } from "./i18n";
+import { BulkBar } from "./reports/BulkBar";
+import { CrashGroups } from "./reports/CrashGroups";
 import { Drawer } from "./reports/Drawer";
 import { download, toCsv } from "./reports/csv";
-import { Reporter, Time, toast } from "./reports/pieces";
-import { isSeen, markAllSeen, markSeen } from "./reports/seen";
+import { FilterPanel, firstDir, Pills, pillsOf, type FilterChange } from "./reports/ListFilters";
+import { Labels, PriorityTag, Reporter, shortId, Time, toast } from "./reports/pieces";
+import { SavedViews } from "./reports/SavedViews";
 import { navigate } from "./router";
-
-/** A change to the filters; `undefined` clears one. */
-type FilterChange = { [K in keyof Filter]?: Filter[K] | undefined };
 
 /** How often the list is asked again, quietly, while the page is visible. */
 export const LIST_REFRESH_MS = 30_000;
 
-/** The views at the top: each is a status, or none for all. */
-const VIEWS: { id: string; status: Status | undefined; label: Key }[] = [
-  { id: "inbox", status: "new", label: "rep.view.inbox" },
-  { id: "triaged", status: "triaged", label: "rep.view.triaged" },
-  { id: "in_progress", status: "in_progress", label: "rep.view.in_progress" },
-  { id: "resolved", status: "resolved", label: "rep.view.resolved" },
-  { id: "all", status: undefined, label: "rep.view.all" },
+type ViewId = "inbox" | "open" | "mine" | "unassigned" | "done" | "all" | "trash";
+
+/** The views at the top: each sets the status, the assignee and the trash, and leaves the rest. */
+const VIEWS: { id: ViewId; label: Key; filter: (me: string) => Filter }[] = [
+  { id: "inbox", label: "rep.view.inbox", filter: () => ({ status: ["new"] }) },
+  { id: "open", label: "rep.view.open", filter: () => ({ status: [...OPEN_STATUSES] }) },
+  { id: "mine", label: "rep.view.mine", filter: (me) => ({ status: [...OPEN_STATUSES], assignee: me }) },
+  { id: "unassigned", label: "rep.view.unassigned", filter: () => ({ status: [...OPEN_STATUSES], assignee: "none" }) },
+  { id: "done", label: "rep.view.done", filter: () => ({ status: [...DONE_STATUSES] }) },
+  { id: "all", label: "rep.view.all", filter: () => ({}) },
+  { id: "trash", label: "rep.view.trash", filter: () => ({ trash: true }) },
 ];
+
+function sameSet(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  const x = new Set(a ?? []);
+  const y = new Set(b ?? []);
+  return x.size === y.size && [...x].every((v) => y.has(v));
+}
+
+/** The view `filter` is in, if any. */
+function viewOf(filter: Filter, me: string): ViewId | "custom" {
+  for (const view of VIEWS) {
+    const f = view.filter(me);
+    if (
+      sameSet(filter.status, f.status) &&
+      filter.assignee === f.assignee &&
+      (filter.trash === true) === (f.trash === true)
+    ) {
+      return view.id;
+    }
+  }
+  return "custom";
+}
 
 /** Whether a key press belongs to a field rather than to the list. */
 function typing(target: EventTarget | null): boolean {
@@ -65,13 +95,15 @@ function typing(target: EventTarget | null): boolean {
 
 /** `filter` with `change` applied, back on the first page. */
 export function applyChange(filter: Filter, change: FilterChange): Filter {
-  const params = new URLSearchParams(filterQuery(filter));
-  params.delete("offset");
-  for (const [key, value] of Object.entries(change)) {
-    if (value === undefined || value === "") params.delete(key);
-    else params.set(key, String(value));
+  const next: Filter = { ...filter, offset: undefined };
+  for (const [key, value] of Object.entries(change) as [keyof Filter, unknown][]) {
+    if (value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
+      delete next[key];
+    } else {
+      (next as Record<string, unknown>)[key] = value;
+    }
   }
-  return parseFilter(params.toString());
+  return parseFilter(filterQuery(next));
 }
 
 function go(filter: Filter) {
@@ -79,11 +111,25 @@ function go(filter: Filter) {
   navigate(query ? `/?${query}` : "/", true);
 }
 
-/** The filters beyond the view and the text, for the "Filters (n)" count. */
-function extraFilters(filter: Filter): number {
-  return [filter.kind, filter.gateway, filter.reporter, filter.from, filter.to, filter.has_record].filter(
-    (v) => v !== undefined,
-  ).length;
+/** The filters set in the panel, for the "Filters (n)" count. */
+function panelFilters(filter: Filter, view: ViewId | "custom"): number {
+  const owned = view === "custom" ? [] : Object.keys(VIEWS.find((v) => v.id === view)?.filter("") ?? {});
+  return (
+    [
+      owned.includes("status") ? undefined : filter.status,
+      filter.kind,
+      filter.priority,
+      owned.includes("assignee") ? undefined : filter.assignee,
+      filter.label,
+      filter.gateway,
+      filter.channel,
+      filter.reporter,
+      filter.from,
+      filter.to,
+      filter.has_record,
+      filter.unseen,
+    ] as unknown[]
+  ).filter((v) => v !== undefined).length;
 }
 
 /** Whether a wide screen shows the drawer beside the list, else over it. */
@@ -93,19 +139,10 @@ function wide(): boolean {
     : true;
 }
 
-function openPage(id: string): void {
-  markSeen(id);
-  navigate(`/r/${id}`);
-}
-
 const linkOf = (id: string) => `${window.location.origin}/r/${id}`;
 
-const field = (id: string, label: string, control: ReactNode) => (
-  <div className="field">
-    <label htmlFor={id}>{label}</label>
-    {control}
-  </div>
-);
+/** A report counts as unread while it is new and this admin has not opened it. */
+const unread = (r: Summary) => r.status === "new" && !r.seen;
 
 function Shortcuts({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   const rows: [string, Key][] = [
@@ -115,6 +152,10 @@ function Shortcuts({ lang, onClose }: { lang: Lang; onClose: () => void }) {
     ["x", "rep.key.select"],
     ["a", "rep.key.selectAll"],
     ["1 – 6", "rep.key.status"],
+    ["m", "rep.key.assign"],
+    ["u", "rep.key.read"],
+    ["#, Del", "rep.key.trash"],
+    ["[ / ]", "rep.key.pages"],
     ["/", "rep.key.search"],
     ["r", "rep.key.refresh"],
     ["c", "rep.key.copy"],
@@ -144,11 +185,107 @@ function Shortcuts({ lang, onClose }: { lang: Lang; onClose: () => void }) {
   );
 }
 
-export function ReportList({ search, lang = "en" }: { search: string; lang?: Lang }) {
+/** A column the list can be sorted by, as a header that sorts it. */
+function SortHeader({
+  lang,
+  sort,
+  filter,
+  label,
+  set,
+  className,
+}: {
+  lang: Lang;
+  sort: Sort;
+  filter: Filter;
+  label: string;
+  set: (change: FilterChange) => void;
+  className?: string;
+}) {
+  const current = (filter.sort ?? "received") === sort;
+  const dir = filter.dir ?? "desc";
+  return (
+    <th
+      scope="col"
+      className={className}
+      aria-sort={current ? (dir === "asc" ? "ascending" : "descending") : undefined}
+    >
+      <button
+        type="button"
+        className="sort-head"
+        title={t(lang, "rep.sortBy", { what: sortLabel(lang, sort) })}
+        onClick={() => {
+          if (current) set({ sort, dir: dir === "asc" ? "desc" : "asc" });
+          else set({ sort, dir: firstDir(sort) });
+        }}
+      >
+        {label}
+        <span className="sort-mark" aria-hidden="true">
+          {current ? (dir === "asc" ? "↑" : "↓") : ""}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+function Pager({
+  lang,
+  filter,
+  total,
+}: {
+  lang: Lang;
+  filter: Filter;
+  total: number;
+}) {
+  const size = filter.limit ?? PAGE_SIZE;
+  const offset = filter.offset ?? 0;
+  const page = Math.floor(offset / size) + 1;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const to = (p: number) => {
+    go({ ...filter, offset: (Math.min(Math.max(p, 1), pages) - 1) * size });
+  };
+  return (
+    <nav className="pager" aria-label={t(lang, "rep.pages")}>
+      <button type="button" disabled={page <= 1} onClick={() => { to(1); }}>
+        « {t(lang, "rep.first")}
+      </button>
+      <button type="button" disabled={page <= 1} onClick={() => { to(page - 1); }}>
+        ‹ {t(lang, "rep.prev")}
+      </button>
+      <span className="muted">{t(lang, "rep.page", { n: formatCount(lang, page), total: formatCount(lang, pages) })}</span>
+      <button type="button" disabled={page >= pages} onClick={() => { to(page + 1); }}>
+        {t(lang, "rep.next")} ›
+      </button>
+      <button type="button" disabled={page >= pages} onClick={() => { to(pages); }}>
+        {t(lang, "rep.last")} »
+      </button>
+      <label htmlFor="page-size" className="muted small">
+        {t(lang, "rep.pageSize")}
+      </label>
+      <select
+        id="page-size"
+        value={size}
+        onChange={(event) => {
+          const limit = Number(event.target.value);
+          go({ ...filter, limit: limit === PAGE_SIZE ? undefined : limit, offset: undefined });
+        }}
+      >
+        {PAGE_SIZES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+    </nav>
+  );
+}
+
+export function ReportList({ search, lang = "en", me = "" }: { search: string; lang?: Lang; me?: string }) {
   const filter = useMemo(() => parseFilter(search), [search]);
   const [listing, setListing] = useState<Listing | null>(null);
   const [arrived, setArrived] = useState<Listing | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
+  const [counts, setCounts] = useState<Partial<Record<ViewId, number>>>({});
+  const [admins, setAdmins] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
@@ -157,9 +294,8 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [help, setHelp] = useState(false);
-  const [seenTick, setSeenTick] = useState(0);
-  const [bulkStatus, setBulkStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [groups, setGroups] = useState(false);
   const searchBox = useRef<HTMLInputElement>(null);
   const rows = useRef<(HTMLTableRowElement | null)[]>([]);
   const current = useRef<Listing | null>(null);
@@ -183,6 +319,32 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     (e: unknown) => (e instanceof Refused ? e.message : t(lang, "admin.noAnswer")),
     [lang],
   );
+
+  /** The views' counts: each over its own filter alone. */
+  const loadCounts = useCallback(() => {
+    const total = (f: Filter) => api.facets(f).then((x) => x.total);
+    Promise.all([
+      api.facets({}),
+      me === "" ? Promise.resolve(undefined) : total({ status: [...OPEN_STATUSES], assignee: me }),
+      total({ status: [...OPEN_STATUSES], assignee: "none" }),
+      total({ trash: true }),
+    ])
+      .then(([all, mine, unassigned, trash]) => {
+        const of = (s: string) => all.statuses.find((c) => c.value === s)?.count ?? 0;
+        setCounts({
+          inbox: of("new"),
+          open: OPEN_STATUSES.reduce((sum, s) => sum + of(s), 0),
+          ...(mine === undefined ? {} : { mine }),
+          unassigned,
+          done: DONE_STATUSES.reduce((sum, s) => sum + of(s), 0),
+          all: all.total,
+          trash,
+        });
+      })
+      .catch(() => {
+        // The views work without their counts.
+      });
+  }, [me]);
 
   /**
    * Asks for the list. `quiet` keeps the rows where they are when new
@@ -221,8 +383,15 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
         .finally(() => {
           setRefreshing(false);
         });
+      api
+        .facets(filter)
+        .then(setFacets)
+        .catch(() => {
+          // The filters work without their counts.
+        });
+      loadCounts();
     },
-    [filter, describe],
+    [filter, describe, loadCounts],
   );
 
   // A new filter asks at once; the interval asks again quietly while there
@@ -239,10 +408,10 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
 
   useEffect(() => {
     api
-      .facets()
-      .then(setFacets)
+      .admins()
+      .then(setAdmins)
       .catch(() => {
-        // The filters work without their suggestions.
+        // Assigning offers the signed-in admin alone.
       });
   }, []);
 
@@ -254,6 +423,8 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
 
   const reports = useMemo(() => listing?.reports ?? [], [listing]);
   const under = reports[cursor];
+  const view = viewOf(filter, me);
+  const inTrash = filter.trash === true;
 
   const showArrived = () => {
     if (arrived === null) return;
@@ -262,11 +433,37 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     setCursor(0);
   };
 
-  const openDrawer = useCallback((id: string) => {
-    markSeen(id);
-    setSeenTick((n) => n + 1);
-    setDrawer(id);
+  /** Rows as this admin now has them opened or not. */
+  const markRows = useCallback((ids: readonly string[], seen: boolean) => {
+    const set = new Set(ids);
+    setListing((was) =>
+      was === null ? was : { ...was, reports: was.reports.map((r) => (set.has(r.id) ? { ...r, seen } : r)) },
+    );
   }, []);
+
+  const markSeen = useCallback(
+    (ids: readonly string[], seen: boolean) => {
+      if (ids.length === 0) return;
+      markRows(ids, seen);
+      api.seen(ids, seen).catch(() => {
+        // The marker is a convenience; the next refresh says how it is.
+      });
+    },
+    [markRows],
+  );
+
+  const openDrawer = useCallback(
+    (id: string) => {
+      markSeen([id], true);
+      setDrawer(id);
+    },
+    [markSeen],
+  );
+
+  const openPage = (id: string) => {
+    markSeen([id], true);
+    navigate(`/r/${id}`);
+  };
 
   /** Moves the cursor by `delta`; a drawer open beside the list follows it. */
   const move = (delta: number) => {
@@ -295,11 +492,11 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     }
   };
 
-  /** The reports a bulk action works on: the checked ones, else the one under the cursor. */
+  /** The reports an action works on: the checked ones, else the one under the cursor. */
   const targets = (): Summary[] =>
     checked.size > 0 ? reports.filter((r) => checked.has(r.id)) : under ? [under] : [];
 
-  const exportCsv = () => {
+  const exportSelected = () => {
     const chosen = targets().length > 1 ? targets() : reports;
     if (chosen.length === 0) return;
     const day = new Date().toISOString().slice(0, 10);
@@ -307,37 +504,63 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     toast("ok", t(lang, "rep.exported", { n: chosen.length }));
   };
 
-  /** Sets `status` on each of `chosen`, one request each, every one audited. */
-  const setStatusOn = async (chosen: Summary[], status: Status) => {
-    if (chosen.length === 0 || busy) return;
+  /** One change for `ids` (the targets), in one request: all or none. */
+  const bulkChange = async (change: BulkChange, ids: readonly string[] = targets().map((r) => r.id)) => {
+    if (ids.length === 0 || busy) return;
     setBusy(true);
-    let failed = 0;
-    let why = "";
-    const changed = new Map<string, Summary>();
-    for (const report of chosen) {
-      try {
-        const updated = await api.change(report.id, { status });
-        changed.set(updated.id, updated);
-      } catch (e: unknown) {
-        if (e instanceof SignedOut) {
-          setBusy(false);
-          return;
-        }
-        failed += 1;
-        why = describe(e);
-      }
-    }
-    setListing((was) =>
-      was === null ? was : { ...was, reports: was.reports.map((r) => changed.get(r.id) ?? r) },
-    );
-    setBusy(false);
-    setBulkStatus("");
-    if (failed > 0) {
-      toast("error", t(lang, "rep.bulkFailed", { failed, total: chosen.length, why }));
-    } else {
-      toast("ok", t(lang, "rep.bulkDone", { n: chosen.length, status: statusLabel(lang, status) }));
+    try {
+      const done = await api.bulk(ids, { change });
+      toast("ok", t(lang, "rep.changedN", { n: done.changed }));
+      load(false);
+    } catch (e: unknown) {
+      if (!(e instanceof SignedOut)) toast("error", t(lang, "rep.bulkRefused", { why: describe(e) }));
+    } finally {
+      setBusy(false);
     }
   };
+
+  /** Into the trash (with an undo), out of it, or gone for good. */
+  const bulkAction = async (action: BulkAction, ids: readonly string[] = targets().map((r) => r.id)) => {
+    if (ids.length === 0 || busy) return;
+    setBusy(true);
+    try {
+      const done = await api.bulk(ids, { action });
+      if (action === "trash") {
+        toast("ok", t(lang, "rep.trashed", { n: done.changed }), {
+          label: t(lang, "rep.undo"),
+          run: () => {
+            api
+              .bulk(ids, { action: "restore" })
+              .then((back) => {
+                toast("ok", t(lang, "rep.restored", { n: back.changed }));
+                load(false);
+              })
+              .catch((e: unknown) => {
+                if (!(e instanceof SignedOut)) toast("error", describe(e));
+              });
+          },
+        });
+      } else {
+        toast("ok", t(lang, action === "restore" ? "rep.restored" : "rep.purged", { n: done.changed }));
+      }
+      setChecked(new Set());
+      if (drawer !== null && ids.includes(drawer)) setDrawer(null);
+      load(false);
+    } catch (e: unknown) {
+      if (!(e instanceof SignedOut)) toast("error", t(lang, "rep.bulkRefused", { why: describe(e) }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Any change of filter starts again at the first page.
+  const set = (change: FilterChange) => {
+    go(applyChange(filter, change));
+  };
+
+  const offset = filter.offset ?? 0;
+  const size = filter.limit ?? PAGE_SIZE;
+  const total = listing?.total ?? 0;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -383,15 +606,31 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
         void copyText(linkOf(under.id));
       } else if (key === "e") {
         stop();
-        exportCsv();
+        exportSelected();
       } else if (key === "?") {
         stop();
         setHelp((h) => !h);
-      } else if (/^[1-6]$/.test(key)) {
+      } else if (key === "m" && !inTrash && targets().length > 0 && me !== "") {
+        stop();
+        const mine = targets().every((r) => r.assignee === me);
+        void bulkChange({ assignee: mine ? null : me });
+      } else if (key === "u" && under) {
+        stop();
+        markSeen([under.id], !under.seen);
+      } else if ((key === "#" || key === "Delete") && !inTrash && targets().length > 0) {
+        stop();
+        void bulkAction("trash");
+      } else if (key === "[" && offset > 0) {
+        stop();
+        go({ ...filter, offset: Math.max(offset - size, 0) });
+      } else if (key === "]" && offset + size < total) {
+        stop();
+        go({ ...filter, offset: offset + size });
+      } else if (/^[1-6]$/.test(key) && !inTrash) {
         const status = STATUSES[Number(key) - 1];
         if (status) {
           stop();
-          void setStatusOn(targets(), status);
+          void bulkChange({ status });
         }
       }
     };
@@ -405,11 +644,6 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     rows.current[cursor]?.scrollIntoView?.({ block: "nearest" });
   }, [cursor]);
 
-  // Any change of filter starts again at the first page.
-  const set = (change: FilterChange) => {
-    go(applyChange(filter, change));
-  };
-
   // The search box is applied on Enter or when it loses focus, not per key.
   const applySearch = () => {
     const q = searchBox.current?.value.trim() ?? "";
@@ -421,16 +655,16 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
     applySearch();
   };
 
-  const offset = filter.offset ?? 0;
-  const total = listing?.total ?? 0;
-  const anyFilter = filterQuery({ ...filter, offset: 0 }) !== "";
-  const extras = extraFilters(filter);
-  const view = VIEWS.find((v) => v.status === filter.status)?.id ?? "custom";
+  const owned = new Set<keyof Filter>(
+    view === "custom" ? [] : (Object.keys(VIEWS.find((v) => v.id === view)?.filter(me) ?? {}) as (keyof Filter)[]),
+  );
+  const pills = pillsOf(lang, filter, owned);
+  const extras = panelFilters(filter, view);
   const allChecked = reports.length > 0 && reports.every((r) => checked.has(r.id));
-  const unreadHere = reports.filter((r) => r.status === "new" && !isSeen(r.id)).length;
+  const unreadHere = reports.filter(unread).length;
   const n = (v: number) => formatCount(lang, v);
-  // `seenTick` only re-renders after a report was opened; its value is not read.
-  void seenTick;
+  const selected = reports.filter((r) => checked.has(r.id));
+  const labels = (facets?.labels ?? []).flatMap((c) => (c.value === null ? [] : [c.value]));
 
   const onRowClick = (event: MouseEvent<HTMLTableRowElement>, report: Summary, index: number) => {
     const target = event.target;
@@ -445,24 +679,24 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
         <div className="list-toolbar">
           <fieldset className="views segmented">
             <legend className="sr-only">{t(lang, "rep.views")}</legend>
-            {VIEWS.map((v) => (
+            {VIEWS.filter((v) => v.id !== "mine" || me !== "").map((v) => (
               <button
                 key={v.id}
                 type="button"
                 aria-pressed={view === v.id}
                 onClick={() => {
-                  set({ status: v.status });
+                  const f = v.filter(me);
+                  set({ status: f.status, assignee: f.assignee, trash: f.trash });
                 }}
               >
                 {t(lang, v.label)}
-                {v.status !== undefined && facets !== null && (
-                  <span className="seg-count">
-                    {n(facets.statuses.find((s) => s.value === v.status)?.count ?? 0)}
-                  </span>
+                {counts[v.id] !== undefined && v.id !== "all" && v.id !== "done" && (
+                  <span className="seg-count">{n(counts[v.id] ?? 0)}</span>
                 )}
               </button>
             ))}
           </fieldset>
+          <SavedViews lang={lang} query={filterQuery({ ...filter, offset: undefined })} />
           <form className="search-form" onSubmit={submitSearch}>
             <label htmlFor="f-q" className="sr-only">
               {t(lang, "rep.searchLabel")}
@@ -480,7 +714,7 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
           <button
             type="button"
             className={extras > 0 ? "accent-outline" : undefined}
-            aria-expanded={filtersOpen || extras > 0}
+            aria-expanded={filtersOpen}
             aria-controls="list-filters"
             onClick={() => {
               setFiltersOpen((o) => !o);
@@ -520,185 +754,34 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
           </button>
         </div>
 
-        <form
-          id="list-filters"
-          className="filters"
-          hidden={!filtersOpen && extras === 0}
-          onSubmit={submitSearch}
-          aria-label={t(lang, "rep.filters")}
-        >
-          {field(
-            "f-kind",
-            t(lang, "rep.kind"),
-            <select
-              id="f-kind"
-              value={filter.kind ?? ""}
-              onChange={(event) => {
-                set({ kind: KINDS.find((k) => k === event.target.value) });
-              }}
-            >
-              <option value="">{t(lang, "rep.any")}</option>
-              {KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {kindLabel(lang, kind)}
-                </option>
-              ))}
-            </select>,
-          )}
-          {field(
-            "f-status",
-            t(lang, "rep.status"),
-            <select
-              id="f-status"
-              value={filter.status ?? ""}
-              onChange={(event) => {
-                set({ status: STATUSES.find((s) => s === event.target.value) });
-              }}
-            >
-              <option value="">{t(lang, "rep.any")}</option>
-              {STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabel(lang, status)}
-                </option>
-              ))}
-            </select>,
-          )}
-          {field(
-            "f-gateway",
-            t(lang, "rep.gateway"),
-            <select
-              id="f-gateway"
-              value={filter.gateway ?? ""}
-              onChange={(event) => {
-                set({ gateway: event.target.value || undefined });
-              }}
-            >
-              <option value="">{t(lang, "rep.any")}</option>
-              {(facets?.gateways ?? []).map((g) => (
-                <option key={g.value} value={g.value}>
-                  {g.value} ({g.count})
-                </option>
-              ))}
-              {filter.gateway && !facets?.gateways.some((g) => g.value === filter.gateway) && (
-                <option value={filter.gateway}>{filter.gateway}</option>
-              )}
-            </select>,
-          )}
-          {field(
-            "f-reporter",
-            t(lang, "rep.reporter"),
-            <>
-              <input
-                id="f-reporter"
-                list="f-reporters"
-                spellCheck={false}
-                placeholder={t(lang, "rep.reporterHint")}
-                defaultValue={filter.reporter ?? ""}
-                key={filter.reporter ?? ""}
-                onBlur={(event) => {
-                  const value = event.target.value.trim();
-                  if (value !== (filter.reporter ?? "")) set({ reporter: value || undefined });
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    const value = event.currentTarget.value.trim();
-                    set({ reporter: value || undefined });
-                  }
-                }}
-              />
-              <datalist id="f-reporters">
-                {(facets?.reporters ?? []).map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {t(lang, "rep.reportsN", { n: r.count })}
-                  </option>
-                ))}
-              </datalist>
-            </>,
-          )}
-          {field(
-            "f-from",
-            t(lang, "rep.from"),
-            <input
-              id="f-from"
-              type="date"
-              value={filter.from ?? ""}
-              onChange={(event) => {
-                set({ from: event.target.value || undefined });
-              }}
-            />,
-          )}
-          {field(
-            "f-to",
-            t(lang, "rep.to"),
-            <input
-              id="f-to"
-              type="date"
-              value={filter.to ?? ""}
-              onChange={(event) => {
-                set({ to: event.target.value || undefined });
-              }}
-            />,
-          )}
-          {field(
-            "f-record",
-            t(lang, "rep.record"),
-            <select
-              id="f-record"
-              value={filter.has_record === undefined ? "" : String(filter.has_record)}
-              onChange={(event) => {
-                const v = event.target.value;
-                set({ has_record: v === "" ? undefined : v === "true" });
-              }}
-            >
-              <option value="">{t(lang, "rep.any")}</option>
-              <option value="true">{t(lang, "rep.withRecord")}</option>
-              <option value="false">{t(lang, "rep.withoutRecord")}</option>
-            </select>,
-          )}
-          <div className="field actions">
-            <button type="submit" className="primary">
-              {t(lang, "rep.apply")}
-            </button>
-            {anyFilter && (
-              <button
-                type="button"
-                className="quiet"
-                onClick={() => {
-                  go({});
-                }}
-              >
-                {t(lang, "rep.clear")}
-              </button>
-            )}
-          </div>
-        </form>
+        <FilterPanel
+          lang={lang}
+          filter={filter}
+          facets={facets}
+          admins={admins}
+          me={me}
+          set={set}
+          onSubmit={applySearch}
+          hidden={!filtersOpen}
+        />
 
-        {facets && facets.reporters.length > 1 && (
-          <details className="reporters">
-            <summary>{t(lang, "rep.reportersTop")}</summary>
-            <ul>
-              {facets.reporters.map((r) => (
-                <li key={r.value}>
-                  <Reporter
-                    lang={lang}
-                    pseudonym={r.value}
-                    onClick={() => {
-                      set({ reporter: r.value });
-                    }}
-                  />{" "}
-                  <span className="muted">{r.count}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
+        <Pills
+          lang={lang}
+          pills={pills}
+          set={set}
+          onClear={() => {
+            const f = view === "custom" ? {} : (VIEWS.find((v) => v.id === view)?.filter(me) ?? {});
+            go({ ...f, sort: filter.sort, dir: filter.dir, limit: filter.limit });
+          }}
+        />
 
         {error !== null && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
+
+        {inTrash && <p className="muted small trash-hint">{t(lang, "rep.trashHint", { days: TRASH_DAYS })}</p>}
 
         {arrived !== null && (
           <output className="arrived">
@@ -713,214 +796,244 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
           </output>
         )}
 
-        {checked.size > 0 ? (
-          <div className="bulk" role="toolbar" aria-label={t(lang, "rep.selected", { n: checked.size })}>
-            <strong>{t(lang, "rep.selected", { n: n(checked.size) })}</strong>
-            <label htmlFor="bulk-status" className="sr-only">
-              {t(lang, "rep.setStatus")}
-            </label>
-            <select
-              id="bulk-status"
-              value={bulkStatus}
-              disabled={busy}
-              onChange={(event) => {
-                const status = STATUSES.find((s) => s === event.target.value);
-                setBulkStatus(event.target.value);
-                if (status) void setStatusOn(targets(), status);
-              }}
-            >
-              <option value="">{t(lang, "rep.setStatus")}…</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {statusLabel(lang, s)}
-                </option>
-              ))}
-            </select>
-            <button type="button" onClick={() => void copyText([...checked].join("\n"))}>
-              {t(lang, "rep.copyIds")}
-            </button>
-            <button type="button" onClick={exportCsv}>
-              {t(lang, "rep.exportCsv")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                markAllSeen([...checked]);
-                setSeenTick((k) => k + 1);
-              }}
-            >
-              {t(lang, "rep.markRead")}
-            </button>
-            <button
-              type="button"
-              className="quiet"
-              onClick={() => {
-                setChecked(new Set());
-              }}
-            >
-              {t(lang, "rep.deselect")}
-            </button>
-          </div>
+        {checked.size > 0 && !groups ? (
+          <BulkBar
+            lang={lang}
+            selected={selected}
+            me={me}
+            admins={admins}
+            labels={labels}
+            inTrash={inTrash}
+            busy={busy}
+            onChange={(change, ids) => void bulkChange(change, ids)}
+            onAction={(action) => void bulkAction(action)}
+            onSeen={(seen) => {
+              markSeen([...checked], seen);
+            }}
+            onCopyIds={() => void copyText([...checked].join("\n"))}
+            onExport={exportSelected}
+            onDeselect={() => {
+              setChecked(new Set());
+            }}
+          />
         ) : (
-          <p className="count muted" aria-live="polite">
-            {listing === null
-              ? t(lang, "rep.loading")
-              : total === 0
-                ? t(lang, "rep.none")
-                : t(lang, "rep.range", { from: n(offset + 1), to: n(offset + reports.length), total: n(total) })}
-            {unreadHere > 0 && <span className="unread-count"> · {unreadHere} {t(lang, "rep.unread")}</span>}
-            {reports.length > 0 && (
-              <>
-                {" "}
-                <button type="button" className="link small" onClick={exportCsv}>
-                  {t(lang, "rep.exportCsv")}
+          <div className="count-line">
+            <p className="count muted" aria-live="polite">
+              {listing === null
+                ? t(lang, "rep.loading")
+                : total === 0
+                  ? t(lang, "rep.none")
+                  : t(lang, "rep.range", { from: n(offset + 1), to: n(offset + reports.length), total: n(total) })}
+              {unreadHere > 0 && (
+                <span className="unread-count">
+                  {" "}
+                  · {unreadHere} {t(lang, "rep.unread")}
+                </span>
+              )}
+              {total > 0 && (
+                <>
+                  {" "}
+                  <a className="link small" href={api.csvUrl(filter)} download>
+                    {t(lang, "rep.exportAll", { n: n(Math.min(total, 5000)) })}
+                  </a>
+                </>
+              )}
+            </p>
+            {!inTrash && (facets?.kinds.some((k) => k.value === "crash") ?? false) && (
+              <fieldset className="segmented small-seg">
+                <legend className="sr-only">{t(lang, "rep.shownAs")}</legend>
+                <button
+                  type="button"
+                  aria-pressed={!groups}
+                  onClick={() => {
+                    setGroups(false);
+                  }}
+                >
+                  {t(lang, "rep.listMode")}
                 </button>
-              </>
+                <button
+                  type="button"
+                  aria-pressed={groups}
+                  onClick={() => {
+                    setGroups(true);
+                  }}
+                >
+                  {t(lang, "rep.groups")}
+                </button>
+              </fieldset>
             )}
-          </p>
-        )}
-
-        {reports.length > 0 && (
-          <div className="table-wrap">
-            <table className="reports">
-              <thead>
-                <tr>
-                  <th scope="col" className="check">
-                    <input
-                      type="checkbox"
-                      aria-label={t(lang, "rep.selectAll")}
-                      checked={allChecked}
-                      onChange={() => {
-                        setChecked(allChecked ? new Set() : new Set(reports.map((r) => r.id)));
-                      }}
-                    />
-                  </th>
-                  <th scope="col">{t(lang, "rep.col.received")}</th>
-                  <th scope="col">{t(lang, "rep.col.kind")}</th>
-                  <th scope="col">{t(lang, "rep.col.status")}</th>
-                  <th scope="col" className="wide">
-                    {t(lang, "rep.col.text")}
-                  </th>
-                  <th scope="col">{t(lang, "rep.col.gateway")}</th>
-                  <th scope="col">{t(lang, "rep.col.reporter")}</th>
-                  <th scope="col">{t(lang, "rep.col.record")}</th>
-                  <th scope="col">{t(lang, "rep.col.issue")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((report, index) => {
-                  const unread = report.status === "new" && !isSeen(report.id);
-                  const classes = [
-                    index === cursor ? "selected" : "",
-                    unread ? "unread" : "",
-                    checked.has(report.id) ? "checked" : "",
-                    drawer === report.id ? "open" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  return (
-                    <tr
-                      key={report.id}
-                      ref={(el) => {
-                        rows.current[index] = el;
-                      }}
-                      className={classes || undefined}
-                      aria-selected={index === cursor}
-                      onClick={(event) => {
-                        onRowClick(event, report, index);
-                      }}
-                    >
-                      <td className="check">
-                        <input
-                          type="checkbox"
-                          aria-label={t(lang, "rep.select", { what: firstLine(report.text, 40) || report.id })}
-                          checked={checked.has(report.id)}
-                          onChange={() => {
-                            toggle(report.id);
-                          }}
-                        />
-                      </td>
-                      <td className="nowrap">
-                        {unread && <span className="unread-dot" title={t(lang, "rep.unread")} />}
-                        <Time lang={lang} iso={report.created_at} />
-                      </td>
-                      <td>
-                        <span className={`tag kind-${report.kind}`}>{kindLabel(lang, report.kind)}</span>
-                      </td>
-                      <td>
-                        <span className={`tag status-${report.status}`}>{statusLabel(lang, report.status)}</span>
-                      </td>
-                      <td className="wide">
-                        <a
-                          href={`/r/${report.id}`}
-                          onClick={(event) => {
-                            if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-                            event.preventDefault();
-                            openPage(report.id);
-                          }}
-                        >
-                          {firstLine(report.text, 120) || <span className="muted">{t(lang, "rep.noText")}</span>}
-                        </a>
-                      </td>
-                      <td>{report.channel === "direct" ? "direct" : report.gateway}</td>
-                      <td>
-                        <Reporter
-                          lang={lang}
-                          pseudonym={report.reporter}
-                          onClick={() => {
-                            set({ reporter: report.reporter });
-                          }}
-                        />
-                      </td>
-                      <td className="nowrap">
-                        {report.has_record ? (
-                          <>
-                            {formatBytes(report.record_bytes)}
-                            {report.record_origin === "client" && <span className="muted"> (client)</span>}
-                          </>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>
-                        {report.issue_number !== null && report.issue_url !== null ? (
-                          <a href={report.issue_url} target="_blank" rel="noopener noreferrer">
-                            #{report.issue_number}
-                          </a>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           </div>
         )}
 
-        {total > PAGE_SIZE && (
-          <nav className="pager" aria-label="Pages">
-            <button
-              type="button"
-              disabled={offset === 0}
-              onClick={() => {
-                go({ ...filter, offset: Math.max(offset - PAGE_SIZE, 0) });
-              }}
-            >
-              ← Newer
-            </button>
-            <button
-              type="button"
-              disabled={offset + PAGE_SIZE >= total}
-              onClick={() => {
-                go({ ...filter, offset: offset + PAGE_SIZE });
-              }}
-            >
-              Older →
-            </button>
-          </nav>
+        {groups ? (
+          <CrashGroups
+            lang={lang}
+            filter={filter}
+            onPick={(signature) => {
+              setGroups(false);
+              set({ signature });
+            }}
+          />
+        ) : (
+          reports.length > 0 && (
+            <div className="table-wrap">
+              <table className="reports">
+                <thead>
+                  <tr>
+                    <th scope="col" className="check">
+                      <input
+                        type="checkbox"
+                        aria-label={t(lang, "rep.selectAll")}
+                        checked={allChecked}
+                        onChange={() => {
+                          setChecked(allChecked ? new Set() : new Set(reports.map((r) => r.id)));
+                        }}
+                      />
+                    </th>
+                    <SortHeader lang={lang} sort="received" filter={filter} set={set} label={t(lang, "rep.col.received")} />
+                    <SortHeader lang={lang} sort="kind" filter={filter} set={set} label={t(lang, "rep.col.kind")} />
+                    <SortHeader lang={lang} sort="status" filter={filter} set={set} label={t(lang, "rep.col.status")} />
+                    <SortHeader lang={lang} sort="priority" filter={filter} set={set} label={t(lang, "rep.col.priority")} />
+                    <th scope="col" className="wide">
+                      {t(lang, "rep.col.text")}
+                    </th>
+                    <th scope="col">{t(lang, "rep.col.assignee")}</th>
+                    <SortHeader lang={lang} sort="gateway" filter={filter} set={set} label={t(lang, "rep.col.gateway")} />
+                    <SortHeader lang={lang} sort="reporter" filter={filter} set={set} label={t(lang, "rep.col.reporter")} />
+                    <th scope="col">{t(lang, "rep.col.record")}</th>
+                    <th scope="col">{t(lang, "rep.col.issue")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((report, index) => {
+                    const isUnread = unread(report);
+                    const classes = [
+                      index === cursor ? "selected" : "",
+                      isUnread ? "unread" : "",
+                      checked.has(report.id) ? "checked" : "",
+                      drawer === report.id ? "open" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    return (
+                      <tr
+                        key={report.id}
+                        ref={(el) => {
+                          rows.current[index] = el;
+                        }}
+                        className={classes || undefined}
+                        aria-selected={index === cursor}
+                        onClick={(event) => {
+                          onRowClick(event, report, index);
+                        }}
+                      >
+                        <td className="check">
+                          <input
+                            type="checkbox"
+                            aria-label={t(lang, "rep.select", { what: firstLine(report.text, 40) || report.id })}
+                            checked={checked.has(report.id)}
+                            onChange={() => {
+                              toggle(report.id);
+                            }}
+                          />
+                        </td>
+                        <td className="nowrap">
+                          {isUnread && <span className="unread-dot" title={t(lang, "rep.unread")} />}
+                          <Time lang={lang} iso={report.created_at} />
+                        </td>
+                        <td>
+                          <span className={`tag kind-${report.kind}`}>{kindLabel(lang, report.kind)}</span>
+                        </td>
+                        <td>
+                          <span className={`tag status-${report.status}`}>{statusLabel(lang, report.status)}</span>
+                        </td>
+                        <td>
+                          <PriorityTag lang={lang} priority={report.priority} />
+                        </td>
+                        <td className="wide">
+                          <a
+                            href={`/r/${report.id}`}
+                            onClick={(event) => {
+                              if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+                              event.preventDefault();
+                              openPage(report.id);
+                            }}
+                          >
+                            {firstLine(report.text, 120) || <span className="muted">{t(lang, "rep.noText")}</span>}
+                          </a>
+                          <span className="row-marks">
+                            <Labels
+                              labels={report.labels}
+                              onPick={(label) => {
+                                set({ label });
+                              }}
+                            />
+                            {report.notes > 0 && (
+                              <span className="note-count" title={t(lang, "rep.notesN", { n: report.notes })}>
+                                ✎ {report.notes}
+                              </span>
+                            )}
+                            {report.duplicate_of !== null && (
+                              <span className="muted small">
+                                {t(lang, "rep.dupBadge", { id: shortId(report.duplicate_of) })}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td>
+                          {report.assignee === null ? (
+                            <span className="muted">—</span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="link"
+                              onClick={() => {
+                                set({ assignee: report.assignee ?? undefined });
+                              }}
+                            >
+                              {report.assignee}
+                            </button>
+                          )}
+                        </td>
+                        <td>{report.channel === "direct" ? "direct" : report.gateway}</td>
+                        <td>
+                          <Reporter
+                            lang={lang}
+                            pseudonym={report.reporter}
+                            onClick={() => {
+                              set({ reporter: report.reporter });
+                            }}
+                          />
+                        </td>
+                        <td className="nowrap">
+                          {report.has_record ? (
+                            <>
+                              {formatBytes(report.record_bytes)}
+                              {report.record_origin === "client" && <span className="muted"> (client)</span>}
+                            </>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          {report.issue_number !== null && report.issue_url !== null ? (
+                            <a href={report.issue_url} target="_blank" rel="noopener noreferrer">
+                              #{report.issue_number}
+                            </a>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
+
+        {!groups && total > size && <Pager lang={lang} filter={filter} total={total} />}
       </div>
 
       {drawer !== null && (
@@ -928,6 +1041,7 @@ export function ReportList({ search, lang = "en" }: { search: string; lang?: Lan
           key={drawer}
           id={drawer}
           lang={lang}
+          me={me}
           onClose={() => {
             setDrawer(null);
           }}

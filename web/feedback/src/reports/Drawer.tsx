@@ -12,12 +12,14 @@ import { ReportView } from "./ReportView";
 export function Drawer({
   id,
   lang,
+  me,
   onClose,
   onChanged,
   onDeleted,
 }: {
   id: string;
   lang: Lang;
+  me: string;
   onClose: () => void;
   onChanged: (report: Report) => void;
   onDeleted: (id: string) => void;
@@ -46,7 +48,7 @@ export function Drawer({
           ×
         </button>
       </div>
-      <ReportView id={id} lang={lang} compact onChanged={onChanged} onDeleted={onDeleted} />
+      <ReportView id={id} lang={lang} me={me} compact onChanged={onChanged} onDeleted={onDeleted} />
     </aside>
   );
 }

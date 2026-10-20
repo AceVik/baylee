@@ -49,11 +49,16 @@ test("a wrong password is refused and the right one lets the admin in", async ({
 test("the list filters by kind, text, pseudonym and record", async ({ page }) => {
   const problems = watch(page);
   await signIn(page);
-  // The filters fold away until asked for (beta.7), and stay open after.
+  // The filters fold away until asked for (beta.7), and stay open after;
+  // each active one is also a pill, and Clear removes them all.
   await page.getByRole("button", { name: /^Filters/ }).click();
-  await page.getByLabel("Kind").selectOption("crash");
+  const kinds = page.getByRole("group", { name: "Kind" });
+  await kinds.getByRole("button", { name: /^crash/ }).click();
   await expect(page.getByRole("row")).toHaveCount(2);
   await expect(page).toHaveURL(/\?kind=crash$/);
+  await kinds.getByRole("button", { name: /^bug/ }).click();
+  await expect(page.getByRole("row")).toHaveCount(3);
+  await expect(page).toHaveURL(/\?kind=bug%2Ccrash$/);
   await page.getByRole("button", { name: "Clear" }).click();
   await expect(page.getByRole("row")).toHaveCount(5);
 
@@ -72,6 +77,8 @@ test("the list filters by kind, text, pseudonym and record", async ({ page }) =>
   // A filtered view is a link: reloading keeps it.
   await page.reload();
   await expect(page.getByRole("row")).toHaveCount(2);
+  await expect(page.getByRole("list", { name: "Filters" }).getByText("With record")).toBeVisible();
+  await page.getByRole("button", { name: /^Filters/ }).click();
   await expect(page.getByLabel("Game record")).toHaveValue("true");
   expect(problems).toEqual([]);
 });
@@ -114,7 +121,7 @@ test("a report opens from the keyboard and shows its dump", async ({ page }) => 
   expect(problems).toEqual([]);
 });
 
-test("status, issue link and deletion stick, and are in the history", async ({ page }) => {
+test("status, issue link and the trash stick, and are in the history", async ({ page }) => {
   const problems = watch(page);
   await signIn(page);
   await page.getByRole("link", { name: "Let me sort the deck list by colour." }).click();
@@ -151,8 +158,8 @@ test("status, issue link and deletion stick, and are in the history", async ({ p
   await page.reload();
   await expect(page.getByLabel("Status")).toHaveValue("triaged");
   await expect(page.getByRole("link", { name: "#311" })).toBeVisible();
-  await expect(page.getByText(`${ADMIN}: status triaged`)).toBeVisible();
-  await expect(page.getByText(`${ADMIN}: issue #311`)).toBeVisible();
+  await expect(page.getByText(`${ADMIN}: set the status to Triaged`)).toBeVisible();
+  await expect(page.getByText(`${ADMIN}: linked #311`)).toBeVisible();
 
   await page.goto("/?status=triaged");
   await expect(page.getByRole("row")).toHaveCount(2);
@@ -160,10 +167,48 @@ test("status, issue link and deletion stick, and are in the history", async ({ p
   await page.goto("/");
   await page.getByRole("link", { name: "Lovely music in the lobby." }).click();
   await expect(page.getByText("The player did not include a screenshot.")).toBeVisible();
-  await page.getByRole("button", { name: "Delete report…" }).click();
-  await page.getByRole("button", { name: "Delete for good" }).click();
-  await expect(page.getByRole("table")).toBeVisible();
+  // Into the trash: the page stays and says so, the list no longer has it,
+  // the trash does, and from there it is deleted for good.
+  await page.getByRole("button", { name: "Move to trash" }).click();
+  await expect(page.getByText(/In the trash since/)).toBeVisible();
+  await page.goto("/");
   await expect(page.getByText("Lovely music in the lobby.")).toHaveCount(0);
+  await page.getByRole("group", { name: "Views" }).getByRole("button", { name: /^Trash/ }).click();
+  await page.getByRole("link", { name: "Lovely music in the lobby." }).click();
+  await page.getByRole("button", { name: "Delete for good…" }).click();
+  await page.getByRole("button", { name: "Delete for good", exact: true }).click();
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByText("No reports match.")).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test("priority, assignee, labels and a note stick, and the list filters by them", async ({ page }) => {
+  const problems = watch(page);
+  await signIn(page);
+  await page.getByRole("link", { name: "The Swamp untapped by itself during my upkeep." }).click();
+  await page.getByRole("group", { name: "Priority" }).getByRole("button", { name: "Critical" }).click();
+  await expect(page.getByText("Priority: Critical.")).toBeVisible();
+  await page.getByRole("button", { name: "Assign to me" }).click();
+  await expect(page.getByText(`Assigned to ${ADMIN}.`)).toBeVisible();
+  await page.getByLabel("New label").fill("lands");
+  await page.getByLabel("New label").press("Enter");
+  await expect(page.getByRole("link", { name: "lands" })).toBeVisible();
+  await page.getByLabel(/New note/).fill("Untaps in the upkeep: a missing 'does not untap' check?");
+  await page.getByRole("button", { name: "Add note" }).click();
+  await expect(page.getByRole("region", { name: "Notes (1)" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("Assignee")).toHaveValue(ADMIN);
+  await expect(page.getByText("Untaps in the upkeep: a missing 'does not untap' check?")).toBeVisible();
+
+  await page.goto("/");
+  await page.getByRole("group", { name: "Views" }).getByRole("button", { name: /^Mine/ }).click();
+  await expect(page.getByRole("row")).toHaveCount(2);
+  await page.getByRole("row").nth(1).getByRole("button", { name: "lands" }).click();
+  await expect(page).toHaveURL(/label=lands/);
+  await expect(page.getByRole("row")).toHaveCount(2);
+  await page.getByRole("button", { name: /^Priority/ }).click();
+  await expect(page).toHaveURL(/sort=priority/);
   expect(problems).toEqual([]);
 });
 

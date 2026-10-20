@@ -2,27 +2,65 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
-import type { AuditEntry, Report } from "./api";
+import type { AuditEntry, Change, Neighbours, Note, Report } from "./api";
 import { ReportDetail } from "./ReportDetail";
 import { fullReport, serve, type Call } from "./test-utils";
 
-function start(report: Report, audit: AuditEntry[] = []): Call[] {
-  let current = report;
+/** The detail's routes, over one report that changes as the service would change it. */
+function start(report: Report, audit: AuditEntry[] = [], neighbours?: Neighbours): Call[] {
+  let current: Report = { ...report };
+  let notes: Note[] = report.note_list ?? [];
   return serve((call) => {
     if (call.url.endsWith("/audit")) return { body: audit };
+    if (call.url === "/ui/api/seen") return { status: 204 };
+    if (call.url === "/ui/api/admins") return { body: ["viktor", "astrid"] };
+    if (call.url.includes("/neighbours")) {
+      return { body: neighbours ?? { previous: null, next: null, position: null, total: 0 } };
+    }
+    if (call.url.endsWith("/notes") && call.method === "POST") {
+      notes = [...notes, { id: `n${notes.length + 1}`, at: "2026-09-27T12:10:00Z", author: "viktor", text: (call.body as { text: string }).text }];
+      return { body: notes };
+    }
+    const note = /\/notes\/([^/]+)$/.exec(call.url)?.[1];
+    if (note !== undefined && call.method === "DELETE") {
+      notes = notes.filter((n) => n.id !== note);
+      return { body: notes };
+    }
     if (call.method === "PATCH") {
-      const change = call.body as { status?: Report["status"]; issue?: number | null };
+      const change = call.body as Change;
       if (change.issue === 0) return { status: 400, body: { error: "not an issue number" } };
-      current = { ...current };
+      if (change.expected_revision !== undefined && change.expected_revision !== current.revision) {
+        return { status: 409, body: { error: "the report changed meanwhile; read it again" } };
+      }
+      current = { ...current, revision: current.revision + 1 };
       if (change.status) current.status = change.status;
       if (change.issue !== undefined) {
         current.issue_number = change.issue;
         current.issue_url = change.issue === null ? null : `https://github.com/AceVik/baylee/issues/${change.issue}`;
       }
-      return { body: current };
+      if (change.priority !== undefined) current.priority = change.priority;
+      if (change.assignee !== undefined) current.assignee = change.assignee;
+      if (change.labels !== undefined) current.labels = [...change.labels].sort();
+      if (change.duplicate_of !== undefined) {
+        current.duplicate_of = change.duplicate_of;
+        if (change.duplicate_of !== null) current.status = "duplicate";
+      }
+      return { body: { ...current, note_list: notes } };
     }
-    if (call.method === "DELETE") return { status: 204 };
-    if (call.url.startsWith("/ui/api/reports/")) return { body: current };
+    if (call.method === "DELETE") {
+      current = { ...current, deleted_at: "2026-09-27T13:00:00Z" };
+      return { status: 204 };
+    }
+    if (call.url.endsWith("/restore")) {
+      current = { ...current, deleted_at: null };
+      return { status: 204 };
+    }
+    if (call.url.endsWith("/purge")) return { status: 204 };
+    if (call.url.startsWith("/ui/api/reports?")) return { body: { total: 3, reports: [] } };
+    if (call.url.startsWith("/ui/api/facets")) {
+      return { body: { labels: [{ value: "ui", count: 2 }], statuses: [], kinds: [], gateways: [], reporters: [], assignees: [], priorities: [], channels: [], total: 2 } };
+    }
+    if (call.url.startsWith("/ui/api/reports/")) return { body: { ...current, note_list: notes } };
     return undefined;
   });
 }
@@ -131,7 +169,7 @@ describe("a full report", () => {
     // The whole client object, the screenshot's base64 not spelled out.
     const everything = section("Everything the client sent");
     expect(everything.getByText(/12 characters of base64/)).toBeTruthy();
-    expect(section("History").getByText(/viktor: status triaged/)).toBeTruthy();
+    expect(section("History").getByText(/viktor: set the status to Triaged/)).toBeTruthy();
     expect(screen.getByText("0.1.0-beta.1 (3f9a1c7e21)")).toBeTruthy();
     // The reporter is an alias derived from the pseudonym (`alias.ts`), the
     // pseudonym itself its accessible name; it filters the list by it.
@@ -230,7 +268,7 @@ describe("triage", () => {
     expect(await screen.findByText("Status: In progress.")).toBeTruthy();
     const patch = calls.find((c) => c.method === "PATCH");
     expect(patch?.url).toBe("/ui/api/reports/x");
-    expect(patch?.body).toEqual({ status: "in_progress" });
+    expect(patch?.body).toEqual({ status: "in_progress", expected_revision: 1 });
     expect(patch?.headers["x-baylee-csrf"]).toBe("1");
     expect(screen.getByLabelText("Status")).toHaveProperty("value", "in_progress");
     // The history is asked again after a change.
@@ -247,10 +285,10 @@ describe("triage", () => {
     );
     const link = await screen.findByRole("link", { name: "#311" });
     expect(link.getAttribute("href")).toBe("https://github.com/AceVik/baylee/issues/311");
-    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ issue: 311 });
+    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ issue: 311, expected_revision: 1 });
     await userEvent.click(screen.getByRole("button", { name: "Unlink" }));
     expect(await screen.findByText("Not linked.")).toBeTruthy();
-    expect(calls.findLast((c) => c.method === "PATCH")?.body).toEqual({ issue: null });
+    expect(calls.findLast((c) => c.method === "PATCH")?.body).toEqual({ issue: null, expected_revision: 2 });
   });
 
   test("an issue that is not one is not sent", async () => {
@@ -289,21 +327,157 @@ describe("triage", () => {
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
-  test("deleting asks once more, then goes back to the list", async () => {
+  test("the trash keeps it on the page with a way back, and only from there is it deleted for good", async () => {
     window.history.replaceState(null, "", "/r/x");
     const calls = start(fullReport());
     render(<ReportDetail id="x" />);
-    await userEvent.click(await screen.findByRole("button", { name: "Delete report…" }));
-    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await userEvent.click(await screen.findByRole("button", { name: "Move to trash" }));
+    expect(await screen.findByText(/In the trash since/)).toBeTruthy();
+    const del = calls.find((c) => c.method === "DELETE");
+    expect(del?.url).toBe("/ui/api/reports/x");
+    expect(del?.headers["x-baylee-csrf"]).toBe("1");
+    expect(screen.queryByRole("button", { name: "Move to trash" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByRole("button", { name: "Move to trash" })).toBeTruthy();
+    expect(calls.some((c) => c.url === "/ui/api/reports/x/restore" && c.method === "POST")).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Move to trash" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete for good…" }));
+    expect(calls.some((c) => c.url.endsWith("/purge"))).toBe(false);
     await userEvent.click(screen.getByRole("button", { name: "Keep it" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete report…" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete for good…" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete for good" }));
     await waitFor(() => {
       expect(window.location.pathname).toBe("/");
     });
-    const del = calls.find((c) => c.method === "DELETE");
-    expect(del?.url).toBe("/ui/api/reports/x");
-    expect(del?.headers["x-baylee-csrf"]).toBe("1");
+    expect(calls.find((c) => c.url.endsWith("/purge"))?.method).toBe("POST");
+  });
+
+  test("priority, assignee, labels and the duplicate are set and cleared", async () => {
+    const calls = start(fullReport());
+    render(<ReportDetail id="x" me="viktor" />);
+    await screen.findByText("The Swamp untapped by itself.");
+    const priority = within(screen.getByRole("group", { name: "Priority" }));
+    await userEvent.click(priority.getByRole("button", { name: "High" }));
+    expect(await screen.findByText("Priority: High.")).toBeTruthy();
+    expect(priority.getByRole("button", { name: "High" }).getAttribute("aria-pressed")).toBe("true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Assign to me" }));
+    expect(await screen.findByText("Assigned to viktor.")).toBeTruthy();
+    expect(screen.getByLabelText("Assignee")).toHaveProperty("value", "viktor");
+    expect(screen.queryByRole("button", { name: "Assign to me" })).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText("Assignee"), "");
+    expect(await screen.findByText("Assigned to nobody.")).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText("New label"), "Not A Label{Enter}");
+    expect(await screen.findByText(/A label is lowercase letters/)).toBeTruthy();
+    await userEvent.clear(screen.getByLabelText("New label"));
+    await userEvent.type(screen.getByLabelText("New label"), "lands{Enter}");
+    expect(await screen.findByRole("link", { name: "lands" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Remove the label lands" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "lands" })).toBeNull();
+    });
+
+    const original = "0199bbbb-0000-7000-8000-000000000002";
+    await userEvent.type(screen.getByLabelText("The original's id or link"), "bbbb{Enter}");
+    expect(await screen.findByText(/Give the original's whole id/)).toBeTruthy();
+    await userEvent.clear(screen.getByLabelText("The original's id or link"));
+    await userEvent.type(screen.getByLabelText("The original's id or link"), `https://reports.example/r/${original}{Enter}`);
+    expect(await screen.findByText("Marked as a duplicate.")).toBeTruthy();
+    expect(section("Triage").getByRole("link", { name: "00000002" }).getAttribute("href")).toBe(`/r/${original}`);
+    expect(section("Related").getByRole("link", { name: "00000002" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Not a duplicate" }));
+    expect(await screen.findByText("No longer a duplicate.")).toBeTruthy();
+
+    expect(calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([
+      { priority: "high", expected_revision: 1 },
+      { assignee: "viktor", expected_revision: 2 },
+      { assignee: null, expected_revision: 3 },
+      { labels: ["lands"], expected_revision: 4 },
+      { labels: [], expected_revision: 5 },
+      { duplicate_of: original, expected_revision: 6 },
+      { duplicate_of: null, expected_revision: 7 },
+    ]);
+  });
+
+  test("a change made against an old revision is refused, and the report is read again", async () => {
+    let revision = 1;
+    const calls = serve((call) => {
+      if (call.method === "PATCH") return { status: 409, body: { error: "the report changed meanwhile; read it again" } };
+      if (call.url === "/ui/api/reports/x") {
+        const r = fullReport({ revision, status: revision > 1 ? "triaged" : "new" });
+        revision += 1;
+        return { body: r };
+      }
+      if (call.url.endsWith("/audit")) return { body: [] };
+      return undefined;
+    });
+    render(<ReportDetail id="x" />);
+    await screen.findByText("The Swamp untapped by itself.");
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "resolved");
+    expect(await screen.findByText(/Someone changed this report meanwhile/)).toBeTruthy();
+    expect(screen.getByLabelText("Status")).toHaveProperty("value", "triaged");
+    expect(calls.filter((c) => c.url === "/ui/api/reports/x" && c.method === "GET")).toHaveLength(2);
+  });
+
+  test("a note is added, counted, and removed by its author", async () => {
+    const calls = start(fullReport());
+    render(<ReportDetail id="x" me="viktor" />);
+    await screen.findByText("The Swamp untapped by itself.");
+    expect(section("Notes").getByText("No notes yet.")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText(/New note/), "Seen on 0.9 too{Control>}{Enter}{/Control}");
+    expect(await section("Notes (1)").findByText("Seen on 0.9 too")).toBeTruthy();
+    expect(calls.find((c) => c.url.endsWith("/notes"))?.body).toEqual({ text: "Seen on 0.9 too" });
+    expect(screen.getByLabelText(/New note/)).toHaveProperty("value", "");
+    await userEvent.click(section("Notes (1)").getByRole("button", { name: "Remove the note" }));
+    expect(await section("Notes").findByText("No notes yet.")).toBeTruthy();
+  });
+
+  test("someone else's note has no way to remove it", async () => {
+    start(
+      fullReport({ notes: 1, note_list: [{ id: "n1", at: "2026-09-27T12:10:00Z", author: "astrid", text: "mine" }] }),
+    );
+    render(<ReportDetail id="x" me="viktor" />);
+    expect(await screen.findByText("mine")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Remove the note" })).toBeNull();
+  });
+
+  test("the reports above and below in the list are a key away", async () => {
+    window.history.replaceState(null, "", "/r/x");
+    start(fullReport(), [], { previous: "p-1", next: "n-1", position: 2, total: 9 });
+    render(<ReportDetail id="x" />);
+    expect(await screen.findByText("2 of 9")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Next ›" }).getAttribute("href")).toBe("/r/n-1");
+    await userEvent.keyboard("j");
+    expect(window.location.pathname).toBe("/r/n-1");
+    await userEvent.keyboard("k");
+    expect(window.location.pathname).toBe("/r/p-1");
+  });
+
+  test("the screenshot opens at full size, and Escape shuts it without leaving the page", async () => {
+    window.history.replaceState(null, "", "/r/x");
+    start(fullReport());
+    render(<ReportDetail id="x" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Enlarge the screenshot" }));
+    expect(screen.getByRole("dialog", { name: "Screenshot" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Screenshot" })).toBeNull();
+    expect(window.location.pathname).toBe("/r/x");
+  });
+
+  test("the reports it belongs with are linked, with how many", async () => {
+    start(fullReport({ signature: "0123456789abcdef" }));
+    render(<ReportDetail id="x" />);
+    const related = await screen.findByRole("region", { name: "Related" });
+    expect(await within(related).findByRole("link", { name: "Reports of this crash (2)" })).toBeTruthy();
+    expect(within(related).getByRole("link", { name: "Reports from this game (2)" }).getAttribute("href")).toBe(
+      "/?game_id=g1",
+    );
+    expect(within(related).getByRole("link", { name: "Its duplicates (3)" }).getAttribute("href")).toBe(
+      "/?duplicate_of=0199aaaa-0000-7000-8000-000000000001",
+    );
   });
 
   test("a report that is gone says so", async () => {

@@ -5,6 +5,7 @@
 import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { useNow } from "../admin/shared";
+import type { Priority } from "../api";
 import type { Refs } from "../dump";
 import { formatAgo, formatWhen, t, type Lang } from "../i18n";
 import { alias } from "./alias";
@@ -210,10 +211,17 @@ export function RefText({ text, refs, lang }: { text: string; refs: Refs | null;
 
 export type ToastTone = "ok" | "error" | "info";
 
+/** A button on a toast: "Undo" after a move to the trash. */
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
+
 export interface Toast {
   id: number;
   tone: ToastTone;
   text: string;
+  action?: ToastAction;
 }
 
 type Listener = (toasts: Toast[]) => void;
@@ -225,16 +233,19 @@ function emit(): void {
   for (const l of listeners) l(toasts);
 }
 
-/** Shows `text` for a few seconds; an error stays until dismissed. */
-export function toast(tone: ToastTone, text: string): void {
+/**
+ * Shows `text` for a few seconds (twice as long with an action, so there
+ * is time to take it); an error stays until dismissed.
+ */
+export function toast(tone: ToastTone, text: string, action?: ToastAction): void {
   const id = nextId;
   nextId += 1;
-  toasts = [...toasts, { id, tone, text }].slice(-4);
+  toasts = [...toasts, action === undefined ? { id, tone, text } : { id, tone, text, action }].slice(-4);
   emit();
   if (tone !== "error") {
     setTimeout(() => {
       dismiss(id);
-    }, 4000);
+    }, action === undefined ? 4000 : 8000);
   }
 }
 
@@ -267,6 +278,18 @@ export function Toasts({ lang }: { lang: Lang }) {
       {shown.map((item) => (
         <div key={item.id} className={`toast tone-${item.tone}`} role={item.tone === "error" ? "alert" : "status"}>
           <span>{item.text}</span>
+          {item.action !== undefined && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={() => {
+                dismiss(item.id);
+                item.action?.run();
+              }}
+            >
+              {item.action.label}
+            </button>
+          )}
           <button
             type="button"
             className="quiet"
@@ -280,5 +303,50 @@ export function Toasts({ lang }: { lang: Lang }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- triage marks
+
+/** A report's id as the UI shows it short: its last eight, the random part of a v7 id. */
+export function shortId(id: string): string {
+  return id.slice(-8);
+}
+
+/** A priority as a small tag; nothing without one. */
+export function PriorityTag({ lang, priority }: { lang: Lang; priority: Priority | null }) {
+  if (priority === null) return null;
+  return (
+    <span className={`tag prio prio-${priority}`} title={t(lang, "rep.priority")}>
+      {t(lang, `prio.${priority}`)}
+    </span>
+  );
+}
+
+/** A report's labels as chips; each a filter when `onPick` is given. */
+export function Labels({ labels, onPick }: { labels: readonly string[]; onPick?: (label: string) => void }) {
+  if (labels.length === 0) return null;
+  return (
+    <span className="labels">
+      {labels.map((label) =>
+        onPick ? (
+          <button
+            key={label}
+            type="button"
+            className="label-chip"
+            onClick={(event) => {
+              event.stopPropagation();
+              onPick(label);
+            }}
+          >
+            {label}
+          </button>
+        ) : (
+          <span key={label} className="label-chip">
+            {label}
+          </span>
+        ),
+      )}
+    </span>
   );
 }

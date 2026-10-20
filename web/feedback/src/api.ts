@@ -15,6 +15,24 @@ export const STATUSES = [
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
+/** The statuses still to be dealt with, and the ones that are done. */
+export const OPEN_STATUSES: readonly Status[] = ["new", "triaged", "in_progress"];
+export const DONE_STATUSES: readonly Status[] = ["resolved", "wont_fix", "duplicate"];
+
+/** How urgent a report is, most urgent first. */
+export const PRIORITIES = ["critical", "high", "normal", "low"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+/** What the list can be sorted by (`crate::triage`'s `Sort`). */
+export const SORTS = ["received", "changed", "priority", "status", "kind", "reporter", "gateway"] as const;
+export type Sort = (typeof SORTS)[number];
+
+/** The page sizes on offer; the service takes at most 200. */
+export const PAGE_SIZES = [25, 50, 100, 200] as const;
+
+/** How long a report stays in the trash (`crate::triage::TRASH_DAYS`). */
+export const TRASH_DAYS = 30;
+
 export const STATUS_LABELS: Record<Status, string> = {
   new: "New",
   triaged: "Triaged",
@@ -46,10 +64,90 @@ export interface Summary {
   record_origin: "gateway" | "client" | null;
   issue_number: number | null;
   issue_url: string | null;
+  /** The admin who looks after it. */
+  assignee: string | null;
+  priority: Priority | null;
+  labels: string[];
+  /** The report this one duplicates. */
+  duplicate_of: string | null;
+  /** A crash's signature: the same crash, numbers aside, has the same one. */
+  signature: string | null;
+  /** Moved on by every change; a change names the one it was made against. */
+  revision: number;
+  /** When it entered a done status. */
+  done_at: string | null;
+  /** When it went into the trash. */
+  deleted_at: string | null;
+  /** Whether the signed-in admin has opened it. */
+  seen: boolean;
+  /** How many internal notes it has. */
+  notes: number;
+}
+
+/** An internal note: an admin's, about a report, never shown to a player. */
+export interface Note {
+  id: string;
+  at: string;
+  author: string;
+  text: string;
 }
 
 export interface Report extends Summary {
   client: Record<string, unknown>;
+  /** Its notes, oldest first (the UI's routes only). */
+  note_list?: Note[];
+}
+
+/** What a change sets; a part left out stays, `null` clears it. */
+export interface Change {
+  status?: Status;
+  issue?: number | null;
+  assignee?: string | null;
+  priority?: Priority | null;
+  labels?: string[];
+  duplicate_of?: string | null;
+  /** The revision the change was made against; another one is refused (409). */
+  expected_revision?: number;
+}
+
+/** A change for many reports: labels are added and removed, not replaced. */
+export interface BulkChange {
+  status?: Status;
+  issue?: number | null;
+  assignee?: string | null;
+  priority?: Priority | null;
+  labels_add?: string[];
+  labels_remove?: string[];
+  duplicate_of?: string | null;
+}
+
+export type BulkAction = "trash" | "restore" | "purge";
+
+/** One crash, grouped by signature, under the list's filter. */
+export interface CrashGroup {
+  signature: string;
+  count: number;
+  open: number;
+  first: string;
+  last: string;
+  latest: string;
+  message: string | null;
+  location: string | null;
+}
+
+/** Where a report stands in the list a filter makes. */
+export interface Neighbours {
+  previous: string | null;
+  next: string | null;
+  position: number | null;
+  total: number;
+}
+
+/** A list an admin saved: a name and the list's query string. */
+export interface SavedView {
+  id: string;
+  name: string;
+  query: string;
 }
 
 /** A message from the landing page's contact form (`docs/feedback.md`). */
@@ -85,16 +183,23 @@ export interface Listing {
   reports: Summary[];
 }
 
+/** One value of a facet; `null` for nobody assigned or no priority. */
 export interface Count {
-  value: string;
+  value: string | null;
   count: number;
 }
 
+/** The counts beside the list, each under the filter but its own dimension. */
 export interface Facets {
   gateways: Count[];
   statuses: Count[];
   kinds: Count[];
   reporters: Count[];
+  assignees: Count[];
+  priorities: Count[];
+  labels: Count[];
+  channels: Count[];
+  total: number;
 }
 
 export interface AuditEntry {
@@ -697,15 +802,32 @@ export interface ConsoleChange {
 
 /** The list's filters, as the query string carries them. */
 export interface Filter {
-  kind?: Kind;
-  status?: Status;
+  kind?: Kind[];
+  status?: Status[];
+  /** `none` is a report without a priority. */
+  priority?: (Priority | "none")[];
   gateway?: string;
   reporter?: string;
+  game_id?: string;
   q?: string;
   from?: string;
   to?: string;
   has_record?: boolean;
-  offset?: number;
+  channel?: "gateway" | "direct";
+  /** An admin's name, or `none`. */
+  assignee?: string;
+  label?: string;
+  signature?: string;
+  duplicate_of?: string;
+  /** The trash instead of the reports. */
+  trash?: boolean;
+  /** Only what this admin has not opened. */
+  unseen?: boolean;
+  // Page, size and order may be named `undefined`, to drop them from a copy.
+  sort?: Sort | undefined;
+  dir?: "asc" | "desc" | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 export const PAGE_SIZE = 50;
@@ -788,45 +910,128 @@ export function filterQuery(filter: Filter): string {
   const put = (key: string, value: string | number | boolean | undefined) => {
     if (value !== undefined && value !== "") params.set(key, String(value));
   };
-  put("kind", filter.kind);
-  put("status", filter.status);
+  const list = (key: string, values: readonly string[] | undefined) => {
+    if (values !== undefined && values.length > 0) params.set(key, values.join(","));
+  };
+  if (filter.trash === true) put("trash", true);
+  list("status", filter.status);
+  list("kind", filter.kind);
+  list("priority", filter.priority);
+  put("assignee", filter.assignee);
+  put("label", filter.label);
   put("gateway", filter.gateway);
+  put("channel", filter.channel);
   put("reporter", filter.reporter);
+  put("game_id", filter.game_id);
+  put("signature", filter.signature);
+  put("duplicate_of", filter.duplicate_of);
   put("q", filter.q?.trim());
   put("from", filter.from);
   put("to", filter.to);
   put("has_record", filter.has_record);
+  if (filter.unseen === true) put("unseen", true);
+  if (filter.sort !== undefined && filter.sort !== "received") put("sort", filter.sort);
+  if (filter.dir === "asc") put("dir", "asc");
+  if (filter.limit !== undefined && filter.limit !== PAGE_SIZE) put("limit", filter.limit);
   if (filter.offset !== undefined && filter.offset > 0) put("offset", filter.offset);
   return params.toString();
+}
+
+/** `filter` without its page, size and order: what the facets and groups count over. */
+export function scopeOf(filter: Filter): Filter {
+  const { offset: _offset, limit: _limit, sort: _sort, dir: _dir, ...scope } = filter;
+  return scope;
 }
 
 function oneOf<T extends string>(list: readonly T[], value: string | null): T | undefined {
   return list.find((item) => item === value);
 }
 
+/** The members of a comma list that are in `list`, once each, in `list`'s order. */
+function someOf<T extends string>(list: readonly T[], value: string | null): T[] | undefined {
+  if (value === null) return undefined;
+  const wanted = new Set(value.split(","));
+  const found = list.filter((item) => wanted.has(item));
+  return found.length > 0 ? found : undefined;
+}
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const LABEL = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const SIGNATURE = /^[0-9a-f]{16}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Whether `text` is a report's id as the service writes one. */
+export function isReportId(text: string): boolean {
+  return UUID.test(text);
+}
 
 /** A filter read back from a query string; anything malformed is dropped. */
 export function parseFilter(search: string): Filter {
   const params = new URLSearchParams(search);
   const filter: Filter = {};
-  const kind = oneOf(KINDS, params.get("kind"));
+  const kind = someOf(KINDS, params.get("kind"));
   if (kind) filter.kind = kind;
-  const status = oneOf(STATUSES, params.get("status"));
+  const status = someOf(STATUSES, params.get("status"));
   if (status) filter.status = status;
-  for (const key of ["gateway", "reporter", "q"] as const) {
+  const priority = someOf([...PRIORITIES, "none"] as const, params.get("priority"));
+  if (priority) filter.priority = priority;
+  for (const key of ["gateway", "reporter", "q", "game_id", "assignee"] as const) {
     const value = params.get(key);
     if (value) filter[key] = value;
   }
+  const label = params.get("label");
+  if (label !== null && LABEL.test(label)) filter.label = label;
+  const signature = params.get("signature");
+  if (signature !== null && SIGNATURE.test(signature)) filter.signature = signature;
+  const original = params.get("duplicate_of");
+  if (original !== null && UUID.test(original)) filter.duplicate_of = original;
+  const channel = oneOf(["gateway", "direct"] as const, params.get("channel"));
+  if (channel) filter.channel = channel;
   for (const key of ["from", "to"] as const) {
     const value = params.get(key);
     if (value && DAY.test(value)) filter[key] = value;
   }
   const record = params.get("has_record");
   if (record === "true" || record === "false") filter.has_record = record === "true";
+  if (params.get("trash") === "true") filter.trash = true;
+  if (params.get("unseen") === "true") filter.unseen = true;
+  const sort = oneOf(SORTS, params.get("sort"));
+  if (sort && sort !== "received") filter.sort = sort;
+  if (params.get("dir") === "asc") filter.dir = "asc";
+  const limit = Number(params.get("limit"));
+  if (PAGE_SIZES.some((size) => size === limit) && limit !== PAGE_SIZE) filter.limit = limit;
   const offset = Number(params.get("offset"));
   if (Number.isInteger(offset) && offset > 0) filter.offset = offset;
   return filter;
+}
+
+/** `/ui/api/<route>` with `filter` as its query, an empty one left out. */
+function withFilter(route: string, filter: Filter): string {
+  const query = filterQuery(filter);
+  return query ? `${route}?${query}` : route;
+}
+
+const reportPath = (id: string) => `/ui/api/reports/${encodeURIComponent(id)}`;
+
+function listOf<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+/** Facets as the page reads them: a dimension the answer lacks (an older service's) counts nothing. */
+function facetsOf(raw: unknown): Facets {
+  const r = isRecord(raw) ? raw : {};
+  const counts = (key: string) => listOf<Count>(r[key]);
+  return {
+    gateways: counts("gateways"),
+    statuses: counts("statuses"),
+    kinds: counts("kinds"),
+    reporters: counts("reporters"),
+    assignees: counts("assignees"),
+    priorities: counts("priorities"),
+    labels: counts("labels"),
+    channels: counts("channels"),
+    total: typeof r["total"] === "number" ? r["total"] : 0,
+  };
 }
 
 function llmPath(host: string, id: string): string {
@@ -843,21 +1048,56 @@ export const api = {
   logout: async () => {
     await request("POST", "/ui/api/logout");
   },
-  facets: () => json<Facets>("GET", "/ui/api/facets"),
+  facets: async (filter: Filter = {}) =>
+    facetsOf(await json<unknown>("GET", withFilter("/ui/api/facets", scopeOf(filter)))),
   stats: () => json<ReportStats>("GET", "/ui/api/stats"),
   health: () => json<Health>("GET", "/health"),
   reports: (filter: Filter) => {
-    const query = filterQuery(filter);
-    return json<Listing>("GET", `/ui/api/reports?limit=${PAGE_SIZE}${query ? `&${query}` : ""}`);
+    const query = filterQuery({ ...filter, limit: undefined });
+    const limit = filter.limit ?? PAGE_SIZE;
+    return json<Listing>("GET", `/ui/api/reports?limit=${limit}${query ? `&${query}` : ""}`);
   },
-  report: (id: string) => json<Report>("GET", `/ui/api/reports/${encodeURIComponent(id)}`),
-  audit: (id: string) => json<AuditEntry[]>("GET", `/ui/api/reports/${encodeURIComponent(id)}/audit`),
-  change: (id: string, change: { status?: Status; issue?: number | null }) =>
-    json<Report>("PATCH", `/ui/api/reports/${encodeURIComponent(id)}`, change),
-  remove: async (id: string) => {
-    await request("DELETE", `/ui/api/reports/${encodeURIComponent(id)}`);
+  report: (id: string) => json<Report>("GET", reportPath(id)),
+  audit: (id: string) => json<AuditEntry[]>("GET", `${reportPath(id)}/audit`),
+  change: (id: string, change: Change) => json<Report>("PATCH", reportPath(id), change),
+  /** Into the trash; [`api.restore`] takes it out again. */
+  trash: async (id: string) => {
+    await request("DELETE", reportPath(id));
   },
-  recordUrl: (id: string) => `/ui/api/reports/${encodeURIComponent(id)}/record`,
+  restore: async (id: string) => {
+    await request("POST", `${reportPath(id)}/restore`);
+  },
+  /** Gone for good; only from the trash. */
+  purge: async (id: string) => {
+    await request("POST", `${reportPath(id)}/purge`);
+  },
+  bulk: (ids: readonly string[], what: { change: BulkChange } | { action: BulkAction }) =>
+    json<{ changed: number }>("POST", "/ui/api/reports/bulk", { ids, ...what }),
+  addNote: (id: string, text: string) => json<Note[]>("POST", `${reportPath(id)}/notes`, { text }),
+  removeNote: async (id: string, note: string) => {
+    const response = await request("DELETE", `${reportPath(id)}/notes/${encodeURIComponent(note)}`);
+    return (await response.json()) as Note[];
+  },
+  /** Marks `ids` as opened by this admin, or as not opened. */
+  seen: async (ids: readonly string[], seen = true) => {
+    await request("POST", "/ui/api/seen", { ids, seen });
+  },
+  crashes: (filter: Filter) => json<CrashGroup[]>("GET", withFilter("/ui/api/crashes", scopeOf(filter))),
+  neighbours: (id: string, filter: Filter) =>
+    json<Neighbours>("GET", withFilter(`${reportPath(id)}/neighbours`, { ...filter, limit: undefined, offset: undefined })),
+  // The saved views and the admins only add to the list: an answer that is
+  // no list is none, never a page that stops drawing.
+  views: async () => listOf<SavedView>(await json<unknown>("GET", "/ui/api/views")),
+  saveView: (name: string, query: string) => json<SavedView[]>("POST", "/ui/api/views", { name, query }),
+  removeView: async (id: string) => {
+    const response = await request("DELETE", `/ui/api/views/${encodeURIComponent(id)}`);
+    return (await response.json()) as SavedView[];
+  },
+  admins: async () =>
+    listOf<unknown>(await json<unknown>("GET", "/ui/api/admins")).filter((a): a is string => typeof a === "string"),
+  /** The filter's reports as CSV, at most 5000, made by the service. */
+  csvUrl: (filter: Filter) => withFilter("/ui/api/reports.csv", { ...filter, limit: undefined, offset: undefined }),
+  recordUrl: (id: string) => `${reportPath(id)}/record`,
   contact: {
     list: (status?: ContactStatus) =>
       json<ContactListing>("GET", status === undefined ? "/ui/api/contact" : `/ui/api/contact?status=${status}`),

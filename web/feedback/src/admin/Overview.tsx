@@ -21,6 +21,7 @@ import {
   formatBytes,
   formatCount,
   formatDuration,
+  statusLabel,
   t,
   type Lang,
 } from "../i18n";
@@ -459,7 +460,7 @@ function Details({
             <Facts
               rows={facets.statuses.map(
                 (c) =>
-                  [c.value.replace("_", " "), n(c.count)] as [string, string],
+                  [statusLabel(lang, c.value ?? ""), n(c.count)] as [string, string],
               )}
             />
           </>
