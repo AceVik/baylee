@@ -13,6 +13,20 @@ mod dmg;
 mod layout;
 mod tools;
 
+/// A path as a Windows program reads it: backslashes, and without the
+/// `\\?\` prefix `fs::canonicalize` gives on Windows, which installers such
+/// as Inno Setup's refuse (`\\?\UNC\host\share` becomes `\\host\share`).
+pub(crate) fn windows_path(path: &Path) -> String {
+    let text = path.display().to_string().replace('/', "\\");
+    if let Some(share) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{share}")
+    } else if let Some(local) = text.strip_prefix(r"\\?\") {
+        local.to_owned()
+    } else {
+        text
+    }
+}
+
 const HELP: &str = "Usage: baylee-tools installers <COMMAND>
 
 Commands:
@@ -64,5 +78,20 @@ mod tests {
         }
         assert!(!missing_root.exists());
         assert!(super::run(&missing_root, &["unknown-command".into()]).is_err());
+    }
+
+    #[test]
+    fn a_windows_path_has_no_verbatim_prefix() {
+        use super::windows_path;
+        use std::path::Path;
+
+        for (given, wanted) in [
+            (r"\\?\D:\a\_temp\inno", r"D:\a\_temp\inno"),
+            (r"\\?\UNC\host\share\inno", r"\\host\share\inno"),
+            ("D:/a/_temp/inno", r"D:\a\_temp\inno"),
+            (r"D:\plain", r"D:\plain"),
+        ] {
+            assert_eq!(windows_path(Path::new(given)), wanted, "{given}");
+        }
     }
 }
