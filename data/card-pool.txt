@@ -3086,6 +3086,7 @@ Game Trail
 Game of Chaos
 Game-Trail Changeling
 Gangly Stompling
+Gangrenous Zombies
 Gargoyle Castle
 Garna, the Bloodflame
 Garrison Griffin
@@ -3107,6 +3108,7 @@ Gavony Township
 Gavony Trapper
 Gavony Unhallowed
 Gaze of Granite
+Gaze of Pain
 Gearsmith Guardian
 Gearsmith Prodigy
 Geier Reach Sanitarium
@@ -3122,6 +3124,7 @@ Gemstone Array
 Gemstone Caverns
 Gemstone Mine
 Gene Pollinator
+General Jarkeld
 Generous Stray
 Generous Visitor
 Geosurge
@@ -3147,6 +3150,7 @@ Ghost Ship
 Ghost Town
 Ghost Warden
 Ghostly Changeling
+Ghostly Flame
 Ghostly Sentinel
 Ghostly Visit
 Ghosts of the Damned
@@ -3167,6 +3171,7 @@ Giant Spectacle
 Giant Spider
 Giant Strength
 Giant Tortoise
+Giant Trap Door Spider
 Giant Turtle
 Giant Warthog
 Giant's Boulder
@@ -3305,10 +3310,12 @@ Goblin King
 Goblin Kites
 Goblin Legionnaire
 Goblin Lore
+Goblin Lyre
 Goblin Masons
 Goblin Medics
 Goblin Motivator
 Goblin Mountaineer
+Goblin Mutant
 Goblin Offensive
 Goblin Oriflamme
 Goblin Outlander
@@ -3319,12 +3326,15 @@ Goblin Rally
 Goblin Replica
 Goblin Rock Sled
 Goblin Roughrider
+Goblin Sappers
 Goblin Scouts
 Goblin Settler
 Goblin Shrine
+Goblin Ski Patrol
 Goblin Sky Raider
 Goblin Sledder
 Goblin Smuggler
+Goblin Snowman
 Goblin Spelunkers
 Goblin Striker
 Goblin Tomb Raider
@@ -3416,6 +3426,7 @@ Grasslands
 Gravblade Heavy
 Grave Bramble
 Grave Robbers
+Gravebind
 Gravecrawler
 Gravedigger
 Gravel-Hide Goblin
@@ -3451,6 +3462,7 @@ Greed
 Greedy Freebooter
 Greel's Caress
 Green Mana Battery
+Green Scarab
 Green Sun's Zenith
 Green Ward
 Greenhilt Trainee
@@ -3485,6 +3497,7 @@ Gristle Grinner
 Grixis Panorama
 Grizzled Leotau
 Grizzled Outrider
+Grizzled Wolverine
 Grizzly Bears
 Grizzly Ghoul
 Grotesque Demise
@@ -3571,6 +3584,7 @@ Hall of Oracles
 Hall of Storm Giants
 Hall of Tagsin
 Hall of the Bandit Lord
+Hallowed Ground
 Halls of Mist
 Halt Order
 Hamato Guardian Stance
@@ -3642,6 +3656,7 @@ Head of the Homestead
 Headless Horseman
 Headless Rider
 Headwater Sentries
+Heal
 Healer of the Glade
 Healer of the Pride
 Healer's Flock
@@ -3663,6 +3678,7 @@ Heavenly Qilin
 Heavy Ballista
 Heavy Infantry
 Heavy Mattock
+Hecatomb
 Hecteyes
 Hedge Maze
 Hedge Troll
@@ -3739,6 +3755,7 @@ Hill Giant
 Hill Giant Herdgorger
 Hillcomber Giant
 Hinterland Harbor
+Hipparion
 Hippo-Cows
 Hired Blade
 Hired Poisoner
@@ -3813,6 +3830,7 @@ Horseshoe Crab
 Hostile Desert
 Hostile Hostel // Creeping Inn
 Hostile Minotaur
+Hot Springs
 Hotfoot Gnome
 Hour of Defeat
 Hover Barrier
@@ -3859,10 +3877,12 @@ Hushwood Verge
 Hussar Patrol
 Hyalopterous Lemure
 Hydro-Channeler
+Hydroblast
 Hydroelectric Specimen // Hydroelectric Laboratory
 Hydroform
 Hydrosurge
 Hyena Pack
+Hymn of Rebirth
 Hymn to Tourach
 Hyperion Blacksmith
 Hypnotic Specter
@@ -3880,17 +3900,21 @@ Icatian Scout
 Icatian Skirmishers
 Icatian Store
 Icatian Town
+Ice Cauldron
 Ice Floe
 Ice Over
 Ice Storm
 Ice Tunnel
+Iceberg
 Iceberg Cancrix
 Icecave Crasher
 Icehide Golem
+Icequake
 Iceridge Serpent
 Icewind Elemental
 Ichneumon Druid
 Icy Manipulator
+Icy Prison
 Idyllic Beachfront
 Idyllic Grange
 Idyllic Tutor

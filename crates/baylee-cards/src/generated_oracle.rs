@@ -3375,11 +3375,24 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flip a coin. If you win the flip, you gain 1 life and target opponent loses 1 life, and you decide whether to flip again. If you lose the flip, you lose 1 life and that opponent gains 1 life, and that player decides whether to flip again. Double the life stakes with each flip.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gangrenous Zombies
+    &[
+        "{T}, Sacrifice this creature: This creature deals 1 damage to each creature and each player. If you control a snow Swamp, this creature deals 2 damage to each creature and each player instead.",
+    ],
+    // Gaze of Pain
+    &[
+        "Until end of turn, whenever a creature you control attacks and isn't blocked, you may choose to have it deal damage equal to its power to a target creature. If you do, it assigns no combat damage this turn.",
+    ],
+    // General Jarkeld
+    &[
+        "{T}: Choose two target blocked attacking creatures. If each of those creatures could be blocked by all creatures that the other is blocked by, each creature that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step.",
+    ],
+    // Ghostly Flame
+    &["Black and/or red permanents and spells are colorless sources of damage."],
+    // Giant Trap Door Spider
+    &[
+        "{1}{R}{G}, {T}: Exile this creature and target creature without flying that's attacking you.",
+    ],
     // Glacial Chasm
     &[
         "Cumulative upkeep—Pay 2 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this land enters, sacrifice a land.\nCreatures you control can't attack.\nPrevent all damage that would be dealt to you.",
@@ -3392,43 +3405,92 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{U}.\nAll Mountains are Plains.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Goblin Lyre
+    &[
+        "Sacrifice this artifact: Flip a coin. If you win the flip, this artifact deals damage to target opponent or planeswalker equal to the number of creatures you control. If you lose the flip, this artifact deals damage to you equal to the number of creatures that opponent or that planeswalker's controller controls.",
+    ],
+    // Goblin Mutant
+    &[
+        "Trample\nThis creature can't attack if defending player controls an untapped creature with power 3 or greater.\nThis creature can't block creatures with power 3 or greater.",
+    ],
+    // Goblin Sappers
+    &[
+        "{R}{R}, {T}: Target creature you control can't be blocked this turn. Destroy it and this creature at end of combat.\n{R}{R}{R}{R}, {T}: Target creature you control can't be blocked this turn. Destroy it at end of combat.",
+    ],
+    // Goblin Ski Patrol
+    &[
+        "{1}{R}: This creature gets +2/+0 and gains flying. Its controller sacrifices it at the beginning of the next end step. Activate only once and only if you control a snow Mountain.",
+    ],
+    // Goblin Snowman
+    &[
+        "Whenever this creature blocks, prevent all combat damage that would be dealt to and dealt by it this turn.\n{T}: This creature deals 1 damage to target creature it's blocking.",
+    ],
     // Gorilla Pack
     &[
         "This creature can't attack unless defending player controls a Forest.\nWhen you control no Forests, sacrifice this creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gravebind
+    &[
+        "Target creature can't be regenerated this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Green Scarab
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by green creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a green permanent.",
+    ],
+    // Grizzled Wolverine
+    &[
+        "{R}: This creature gets +2/+0 until end of turn. Activate only during the declare blockers step, only if at least one creature is blocking this creature, and only once each turn.",
+    ],
+    // Hallowed Ground
+    &["{W}{W}: Return target nonsnow land you control to its owner's hand."],
     // Halls of Mist
     &[
         "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nCreatures that attacked during their controller's last turn can't attack.",
     ],
-    &[],
-    &[],
+    // Heal
+    &[
+        "Prevent the next 1 damage that would be dealt to any target this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Hecatomb
+    &[
+        "When this enchantment enters, sacrifice this enchantment unless you sacrifice four creatures.\nTap an untapped Swamp you control: This enchantment deals 1 damage to any target.",
+    ],
     // Hematite Talisman
     &["Whenever a player casts a red spell, you may pay {3}. If you do, untap target permanent."],
-    &[],
+    // Hipparion
+    &["This creature can't block creatures with power 3 or greater unless you pay {1}."],
     // Hoar Shade
     &["{B}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Hot Springs
+    &[
+        "Enchant land you control\nEnchanted land has \"{T}: Prevent the next 1 damage that would be dealt to any target this turn.\"",
+    ],
     // Hyalopterous Lemure
     &["{0}: This creature gets -1/-0 and gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Hydroblast
+    &["Choose one —\n• Counter target spell if it's red.\n• Destroy target permanent if it's red."],
+    // Hymn of Rebirth
+    &["Put target creature card from a graveyard onto the battlefield under your control."],
+    // Ice Cauldron
+    &[
+        "{X}, {T}: You may exile a nonland card from your hand. You may cast that card for as long as it remains exiled. Put a charge counter on this artifact and note the type and amount of mana spent to pay this activation cost. Activate only if there are no charge counters on this artifact.\n{T}, Remove a charge counter from this artifact: Add this artifact's last noted type and amount of mana. Spend this mana only to cast the last card exiled with this artifact.",
+    ],
     // Ice Floe
     &[
         "You may choose not to untap this land during your untap step.\n{T}: Tap target creature without flying that's attacking you. It doesn't untap during its controller's untap step for as long as this land remains tapped.",
     ],
-    &[],
-    &[],
-    &[],
+    // Iceberg
+    &[
+        "This enchantment enters with X ice counters on it.\n{3}: Put an ice counter on this enchantment.\nRemove an ice counter from this enchantment: Add {C}.",
+    ],
+    // Icequake
+    &[
+        "Destroy target land. If that land was a snow land, Icequake deals 1 damage to that land's controller.",
+    ],
+    // Icy Prison
+    &[
+        "When this enchantment enters, exile target creature.\nAt the beginning of your upkeep, sacrifice this enchantment unless any player pays {3}.\nWhen this enchantment leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
     &[],
     &[],
     &[],

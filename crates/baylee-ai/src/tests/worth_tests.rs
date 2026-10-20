@@ -923,7 +923,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Ice Age (`ice`) Batch 3 adds 6 non-mana activated abilities across
     // Flow of Maggots, Foul Familiar, Freyalise Supplicant, Freyalise's Charm,
     // and Fylgja, of which 4 are read by the evaluator.
-    assert_eq!((read, of), (2585, 3155), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 4 adds 13 non-mana activated abilities across
+    // Gangrenous Zombies, General Jarkeld, Giant Trap Door Spider, Goblin Lyre,
+    // Goblin Sappers, Goblin Ski Patrol, Goblin Snowman, Hallowed Ground,
+    // Hecatomb, Hot Springs, Ice Cauldron, and Iceberg, of which 7 are read by
+    // the evaluator.
+    assert_eq!((read, of), (2592, 3168), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
