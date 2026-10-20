@@ -1083,6 +1083,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-dev"
+version = "0.1.0-beta.7b"
+dependencies = [
+ "anyhow",
+ "clap",
+ "getrandom 0.4.3",
+ "serde_json",
+]
+
+[[package]]
 name = "baylee-engine"
 version = "0.1.0-beta.7b"
 dependencies = [

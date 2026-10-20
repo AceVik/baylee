@@ -2961,8 +2961,8 @@ This list is hand-kept, and it has a **measured counterpart**.
 `data/card-refusals.tsv` carries 121 rows from the card batch of 4.–5.09.2026,
 115 of them genuine refusals: each names the printed sentence, what the DSL
 cannot express *in the DSL's own vocabulary*, and the nearest variant that
-does exist. `tools/cardbatch/README.md` §"The refusal file" is why those two
-columns are shaped that way, and the shape of the answers is worth knowing
+does exist. The batch tooling that wrote it (removed 20.10.2026) asked for those
+two columns in that shape, and the shape of the answers is worth knowing
 before reading them — `Effect` and `Filter` account for most of it, which is
 the usual case rather than a surprise: what is missing is normally a variant
 that cannot be *said*, not a subsystem that is absent.

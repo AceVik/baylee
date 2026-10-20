@@ -1,5 +1,5 @@
 ; Inno Setup script for Baylee-Setup-<version>-<arch>.exe
-; (scripts/package-installers.sh passes the defines below).
+; (cargo tools package installers passes the defines below).
 ;
 ;   Source   the unpacked package tree (target/package/baylee-client-<version>-<target>)
 ;   Version  the workspace version, e.g. 0.1.0-beta.5

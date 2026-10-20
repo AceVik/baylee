@@ -151,13 +151,13 @@ Run, in this order, and read the output yourself:
 
 ```bash
 cargo fmt --all
-./scripts/gate-rules.sh
+cargo dev gate rules
 cargo run -p xtask -- codegen --tables
 cargo run -p xtask -- validate
-./scripts/baylee-tools hooks require-card-tests
+cargo tools hooks require-card-tests
 ```
 
-Then the full gate (`DATABASE_URL=… ./scripts/gate.sh`). A test you did
+Then the full gate (`DATABASE_URL=… cargo dev gate`). A test you did
 not run is not evidence, and a filtered run is not the suite.
 
 - `validate` prints the hand-owned / machine-owned / stub split. Report it

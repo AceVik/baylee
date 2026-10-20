@@ -183,7 +183,7 @@ intervals. This is still a limited signature check, not a legal originality clai
 Preparation needs native `ffmpeg`, `ffprobe` and `rustfmt`; all DSP, FFT,
 channel selection, source/SFZ verification, PCM quantization and table generation
 run in Rust. It needs neither Python nor NumPy. Paths use the launcher's repository
-root, so the command also works through `scripts/baylee-tools` from elsewhere.
+root, so the command also works through `cargo tools` from elsewhere.
 
 `cargo run --profile tools -p baylee-tools -- art prepare` is an **offline, read-only parity
 check** against all 133 source pins, manifest facts, shipped PCM bytes and the

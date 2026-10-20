@@ -106,8 +106,8 @@ section binds every agent, whatever its file name says. The short form:
   commit with the trailers `Card-Author: <model>` and `Review: pending`. A
   different model reviews them afterwards and fixes in its own commits,
   trailer `Reviewed: <sha>…` (brief §7).
-- Before done: `./scripts/gate-rules.sh`, `xtask validate`,
-  `./scripts/baylee-tools hooks require-card-tests`, then the full gate.
+- Before done: `cargo dev gate rules`, `xtask validate`,
+  `cargo tools hooks require-card-tests`, then the full gate.
 
 ## Legal guardrails
 

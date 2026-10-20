@@ -15,7 +15,7 @@ the real client (`baylee-runtime` / `baylee-runtime.exe`), the seat bridge
 (`baylee-seat` / `baylee-seat.exe`, which seats a language model in a room;
 without it, as in beta.6, the room's Language model is off), `assets/` (the fonts load from there at run time,
 together with their licences),
-`LICENSE`, `NOTICE` and a `README.txt`. `scripts/package-client.sh` builds the
+`LICENSE`, `NOTICE` and a `README.txt`. `cargo tools package client` builds the
 archive and also runs locally. Beside each archive stand its installers (a
 dmg, a setup `.exe`, an AppImage and a `.deb`, §"Installers"), made from the
 same tree in the same CI job.
@@ -132,8 +132,8 @@ shellcheck scripts/package-*.sh scripts/installers/*.sh scripts/release/*.sh
 
 `.github/workflows/ci.yml` runs on main pushes, pull requests, nightly and by
 hand. Since 08.10.2026 a change **lands on main after the local gates without
-waiting for CI**: `scripts/land.sh` runs `gate.sh`, `gate-features.sh` and
-`gate-wasm.sh` under the machine's cargo lock and then pushes the gated commit
+waiting for CI**: `cargo dev land` runs `cargo dev gate`, `cargo dev gate features` and
+`cargo dev gate wasm` under the machine's cargo lock and then pushes the gated commit
 to main, only as a fast-forward, never forced. Landing is serial: under the
 lock it fetches main again, merges it into the branch if it moved (a conflict
 stops the run), gates that commit and pushes it, so a second lander waits and
@@ -150,8 +150,8 @@ push run of the tagged commit green (§"Cutting one").
 | nightly | as a main push without packages, plus the five-platform `build` matrix |
 | `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
 
-`scripts/ci-changes.sh` decides what a diff touches (try it with
-`git diff --name-only origin/main | scripts/ci-changes.sh`). Every job has a
+`cargo dev ci-changes` decides what a diff touches (try it with
+`git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
 `timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
 nextest partitions (`--partition count:i/2`), each compiling for itself.
 
@@ -195,9 +195,9 @@ job writes a table of them into the release notes
 | x86_64 / aarch64 Linux | `baylee_<version>_{amd64,arm64}.deb` | the runner's `dpkg-deb` |
 
 In `client-packages.yml`, after `package-client.sh`,
-`scripts/installers/tools.sh` checks the macOS system tools or fetches the
-Windows/Linux tools (each download pinned by version and SHA-256), `scripts/package-installers.sh` wraps the staged tree, and
-`scripts/release/check-installers.sh --install` installs each one on the
+`cargo tools installers tools` checks the macOS system tools or fetches the
+Windows/Linux tools (each download pinned by version and SHA-256), `cargo tools package installers` wraps the staged tree, and
+`cargo tools release check-installers --install` installs each one on the
 throwaway runner, checks it and removes it again: the dmg's app is copied to
 `/Applications` and started from there until it logs `assets from
 /Applications/Baylee.app/…`; the setup installs for the runner's user and
@@ -309,7 +309,7 @@ published. The `.sha256` beside it only catches a broken download; anyone who
 can replace an archive can replace its checksum.
 
 In `release.yml` the `sign` job downloads the promoted archives and runs
-`scripts/release/sign-archives.sh`, which signs them with the seed in the
+`baylee-update-sign release`, which signs them with the seed in the
 repository secret `BAYLEE_UPDATE_SIGNING_KEY` and then verifies each
 signature against the compiled keys. A secret that is not the client's key
 therefore fails the release, not every player's updater. On a tag, a missing
@@ -444,8 +444,9 @@ platform security dialogs, or the macOS bundle's runtime behavior.
 The server deploys itself: a timer runs `baylee-deploy watch` every minute
 (`scripts/server/baylee-deploy`, `.service`, `.timer`), stages the newest
 `v*` tag the first time it sees one, swaps agent and engine at once and the
-gateway once no game of this machine is running; `scripts/deploy.sh` does the
-same for a commit by hand. The script's header describes the two halves.
+gateway once no game of this machine is running;
+`BAYLEE_DEPLOY_HOST=user@host cargo dev deploy [--force]` does the same for a
+commit by hand (the repository names no server; the host is the operator's). The script's header describes the two halves.
 
 An operator can run local programs at three fixed points of that deploy
 (`prepare`, `before-switch`, `after-switch`) to keep another service on the

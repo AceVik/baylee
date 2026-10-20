@@ -79,7 +79,7 @@ jobs:
             fi
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
-            run=$(scripts/baylee-tools release resolve)
+            run=$(cargo tools release resolve)
             echo "ci-run=$run" >> "$GITHUB_OUTPUT"
           else
             version="$version-dev.${GITHUB_SHA::10}"
@@ -126,7 +126,7 @@ jobs:
       - shell: bash
         env:
           BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}
-        run: scripts/release/sign-archives.sh out
+        run: cargo run --locked -q -p baylee-update --bin baylee-update-sign -- release out
       - uses: actions/upload-artifact@v4
         with:
           name: signatures
@@ -163,7 +163,7 @@ jobs:
           done
           # The installers are not signed for the updater (it never fetches
           # them); the notes list their SHA-256, and this fails if any is missing.
-          sums=$(scripts/baylee-tools release installer-sums out "$VERSION")
+          sums=$(cargo tools release installer-sums out "$VERSION")
           cat > notes.md <<EOF
           Unofficial fan content, not affiliated with Wizards of the Coast.
 

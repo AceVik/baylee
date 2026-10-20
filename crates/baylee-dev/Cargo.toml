@@ -1,0 +1,21 @@
+[package]
+name = "baylee-dev"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: the workspace's development tasks (gates, landing, CI path classes, deploys, mobile builds, local fixtures), run as `cargo dev <task>`"
+publish = false
+
+[lints]
+workspace = true
+
+# Small crates and nothing from the workspace: `cargo dev gate` compiles this
+# before every gate, so it has to build in seconds on a cold target.
+# `getrandom` makes the throwaway fixture secrets (`central`, `serve-lan`) and
+# `serde_json` reads the dev-control harness's replies (`central client`).
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+getrandom.workspace = true
+serde_json.workspace = true

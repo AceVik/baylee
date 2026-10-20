@@ -5,40 +5,46 @@ small workspace binary, independent of the engine, card pool and renderer.
 The `tools` profile optimises image/audio kernels and keeps panic unwinding
 for native mount cleanup. It does not change the game's build profiles.
 Python remains only in `tools/trainer`, whose PyTorch models and training
-pipeline are intentionally unchanged.
+pipeline are intentionally unchanged; the developer tasks that were shell
+scripts are `cargo dev` (below).
 
 ```bash
 cargo build --locked --profile tools -p baylee-tools
 ```
 
-Run `cargo run --profile tools -p baylee-tools -- <group> …`, or `scripts/baylee-tools <group> …`.
-The launcher passes its own checkout as `--root`, even with a shared prebuilt
-binary. Direct calls infer the nearest Baylee workspace from the working
-directory; `--root PATH` before the group selects it explicitly. Set `BAYLEE_TOOLS_BIN`
-to an already-built binary to avoid Cargo startup in repeated checks or CI.
+Run `cargo tools <group> …` (the alias in `.cargo/config.toml` for
+`cargo run --locked --profile tools -p baylee-tools --`). It infers the
+nearest Baylee workspace from the working directory; `--root PATH` before the
+group selects one explicitly.
 The helper's stdout belongs to its result (JSON, paths, checksums or TSV);
 diagnostics go to stderr. CLI arguments, especially account passwords, must
 not be copied into transcripts. No command is automatically authorised to
 contact production or run a release.
 
-| Former Python tools | Rust command group |
+| Former script | Rust command |
 | --- | --- |
-| `scripts/devctl/recording.py` | `recording record`, `encode`, `status`, `stop` |
-| `scripts/shell/*.py` | `shell` (client driving, screenshots, layouts and input checks) |
-| `scripts/release/ci_artifacts.py`, `pe_icon.py` | `release resolve`, `verify-run`, `write`, `verify`, `installer-sums`, `pe-icon` |
-| `scripts/installers/make-art.py`, DMG settings | `installers art`, `dmg`, `check-dmg-layout` |
-| `scripts/site/card_status.py`, `stamp.py`, `impressum_blob.py` | `site card-status`, `stamp`, `impressum-blob`, `check` |
-| `scripts/forge/*.py` | `forge read-adventure-save`, `parse-friend-list`, `resolve-printings`, `to-deck-rows` |
-| `scripts/llm/*.py` | `llm` (bounded card and test lanes) |
-| `.claude/hooks/*.py` | `hooks card-test-debt`, `require-card-tests` |
-| `tools/cardbatch/verdict.py` | `cardbatch <file> status` or `row <slug> <name>` |
-| `art/music/prepare.py`, `originality.py` | `art prepare`, `originality` |
-| `art/baylee/lantern.py` | `art lantern` (native glTF generation) |
+| `scripts/devctl/recording.py` | `cargo tools recording record`, `encode`, `status`, `stop` |
+| `scripts/shell/*.py` | `cargo tools shell` (client driving, screenshots, layouts and input checks) |
+| `scripts/release/ci_artifacts.py`, `pe_icon.py` | `cargo tools release resolve`, `verify-run`, `write`, `verify`, `installer-sums`, `pe-icon` |
+| `scripts/release/check-installers.sh` | `cargo tools release check-installers [--install] TARGET VERSION` |
+| `scripts/release/sign-archives.sh` | `baylee-update-sign release DIR` (crates/baylee-update) |
+| `scripts/package-client.sh`, `package-installers.sh` | `cargo tools package client`, `package installers` |
+| `scripts/installers/make-art.py`, `tools.sh`, DMG settings | `cargo tools installers art`, `tools`, `dmg`, `check-dmg-layout` |
+| `scripts/site/card_status.py`, `stamp.py`, `impressum_blob.py` | `cargo tools site card-status`, `stamp`, `impressum-blob`, `check` |
+| `scripts/forge/*.py` | `cargo tools forge read-adventure-save`, `parse-friend-list`, `resolve-printings`, `to-deck-rows` |
+| `.claude/hooks/*.py` | `cargo tools hooks card-test-debt`, `require-card-tests` |
+| `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
+| `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
 | Server scripts' inline Python JSON readers | `baylee-server-json` (separate tiny native binary) |
+| `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|wasm]`, `land`, `ci-changes`, `deploy` |
+| `scripts/mobile/*.sh` | `cargo dev android [env]`, `ios-sim`, `serve-lan` |
+| `scripts/test-keyring-linux.sh`, `test-central-*.ps1` | `cargo dev keyring-linux`, `central db\|integration\|client` |
 
-Use each group's `--help` for the exact options. The existing shell entry
-points for packaging, deployment and training remain shell scripts; they
-invoke the new Rust tools where Python previously parsed or generated data.
+`cargo dev` (crates/baylee-dev) is the developer tasks' binary: small, with no
+workspace dependency, so a gate compiles it in seconds. The cheap-model card
+lanes (`scripts/llm/`, `tools/cardbatch/`, `baylee-tools llm` and `cardbatch`)
+were removed on 20.10.2026; cards are written by the batch's author model and
+reviewed by another (CLAUDE.md). Python remains only in `tools/trainer`.
 Historical reports retain original command names as evidence of how their
 measurements were made; they are not current instructions.
 

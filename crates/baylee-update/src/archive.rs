@@ -15,7 +15,7 @@ use std::fs::{self, File};
 use std::io::{self, Read as _};
 use std::path::{Component, Path, PathBuf};
 
-/// The two formats `scripts/package-client.sh` writes.
+/// The two formats `cargo tools package client` writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
     /// Windows and macOS (`ditto`, `7z` or `Compress-Archive`).

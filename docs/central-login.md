@@ -148,7 +148,7 @@ production launch procedure.
 
 Tests: `cargo test -p baylee-account --all-features` covers actual loopback
 transport boundaries, account schema and preference conflicts.
-`./scripts/test-central-db.ps1` owns an isolated PostgreSQL 18.6 container and
+`cargo dev central db` owns an isolated PostgreSQL 18.6 container and
 runs the entire database schema suite, including source isolation, snapshot races,
 immutable linking, revocation, verifier retirement/backfill and source retention.
 Its optional `-GatewayTests @('e2e_account', 'e2e_admin', 'e2e_social_messages')`
@@ -157,9 +157,9 @@ Each target runs serially and must report executed tests; this mode reserves a
 bounded 1 GiB PostgreSQL filesystem for repeated schema/WAL work and checkpoints
 between targets. No production database URL is inherited by either mode.
 It kills only its owned process tree/container and verifies cleanup,
-including with `-ExerciseFailure`. Client UI tests must follow the dev-control
+including with `--exercise-failure`. Client UI tests must follow the dev-control
 skill, use the extra left monitor, and close the exact owned client afterward.
-`./scripts/test-central-integration.ps1` additionally runs a real gateway and
+`cargo dev central integration` additionally runs a real gateway and
 Central against that isolated database: source edits during enrollment,
 operation-bound capabilities, cutover, upgrade-era source-proof recovery,
 old-login and game-seat revocation, fresh-device restore, preference reconciliation
@@ -169,7 +169,7 @@ most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.
 
 For coordinated local development of the sibling repositories, both database
-scripts accept `-CargoConfig target/central-patch.toml`, pointing to a Cargo
+scripts accept `--cargo-config target/central-patch.toml`, pointing to a Cargo
 patch configuration for the sibling Central crates. This explicit mode permits
 lockfile resolution of local paths; the default still uses `--locked` with the
 pinned Git revision. Keep the patch file local and restore final dependency pins
@@ -179,7 +179,7 @@ subcommand does not preserve this global option in the same way as built-in
 `check`/`test`. Both test scripts own their temporary PostgreSQL fixture and
 verify cleanup on success, failure and cancellation.
 
-`./scripts/test-central-client.ps1` exercises the actual native client against
+`cargo dev central client` exercises the actual native client against
 that fixture. The 19 October 2026 Windows run passed: no saved gateways before
 login, exactly the restored list afterward, Central sign-out clears access,
 repeat login restores it again, and a one-use ticket obtains a gateway session.

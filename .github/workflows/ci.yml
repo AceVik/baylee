@@ -2,7 +2,7 @@ name: ci
 
 # Who waits for what (owner, 08.10.2026: "CI green only matters when we
 # release"). A change lands on main after the three local gates
-# (`scripts/land.sh`) without waiting for CI. CI then has two jobs:
+# (`cargo dev land`) without waiting for CI. CI then has two jobs:
 #
 # - **main push**: everything that protects a release. `release.yml` promotes
 #   only the packages of a *successful push run at the tagged commit*, and
@@ -54,8 +54,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
-  # What changed, so a job runs only when its inputs did (`scripts/ci-changes.sh`
-  # says which paths are which). Every push still gets a run: a workflow-level
+  # What changed, so a job runs only when its inputs did (`cargo dev ci-changes`,
+  # crates/baylee-dev/src/changes.rs, says which paths are which). Every push still gets a run: a workflow-level
   # `paths-ignore` would leave a commit with no run at all.
   changes:
     runs-on: ubuntu-latest
@@ -97,7 +97,9 @@ jobs:
           else
             while IFS='=' read -r key value; do
               case $key in code) code=$value ;; docs) docs=$value ;; web) web=$value ;; ci) ci=$value ;; esac
-            done < <(scripts/ci-changes.sh <<<"$files")
+            # The runner's own stable toolchain: the pinned one is not
+            # installed here, and this job sits in front of every other.
+            done < <(RUSTUP_TOOLCHAIN=stable cargo dev ci-changes <<<"$files")
           fi
           full=false
           case $EVENT in
@@ -234,7 +236,7 @@ jobs:
         run: |
           sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
             -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-          bash scripts/test-keyring-linux.sh
+          cargo dev keyring-linux
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
   # payment from every release build), so the suite also runs optimized with
@@ -389,7 +391,7 @@ jobs:
           path: data/scryfall-cache
           key: ${{ steps.scryfall.outputs.key }}
 
-  # The browser client's crates for wasm32; `scripts/gate-wasm.sh` says why
+  # The browser client's crates for wasm32; `cargo dev gate wasm` (crates/baylee-dev/src/gate.rs) says why
   # all eight are named.
   wasm:
     needs: changes
@@ -404,9 +406,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - run: scripts/gate-wasm.sh
+      - run: cargo dev gate wasm
 
-  # The eight features `--workspace` never builds (`scripts/gate-features.sh`
+  # The eight features `--workspace` never builds (`cargo dev gate features`, crates/baylee-dev/src/features.rs
   # holds the matrix and says per feature why it gets the check it gets;
   # `--all-features` is deliberately not the shortcut). The hole runs both
   # ways: `devctl.rs` broke with every job green (#121), and a feature makes
@@ -447,7 +449,7 @@ jobs:
         with:
           shared-key: tests-debug
           save-if: false
-      - run: ./scripts/gate-features.sh
+      - run: cargo dev gate features
 
   # Benches run so they never silently rot; the numbers land in the job log
   # for comparison against docs/perf-baseline.md (manual check — runner timing

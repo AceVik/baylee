@@ -610,7 +610,7 @@ cargo tree --workspace --target all -e features,normal,build | grep -cE 'feature
 cargo tree -p baylee-engine --target all -e features | grep 'baylee-cards feature "mutate"'          # the dev edge
 ```
 
-`scripts/gate-features.sh` runs both (`verification-hooks-shipped`), the
+`cargo dev gate features` runs both (`verification-hooks-shipped`), the
 second as the control that proves the first can match, and runs clippy on
 each library with its feature on and `cfg(test)` off (`fuzz`, `mutate`). Within one
 `cargo test --workspace`, feature unification also compiles `mutate` into

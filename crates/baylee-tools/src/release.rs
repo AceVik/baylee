@@ -10,6 +10,7 @@ use anyhow::{Result, bail};
 use std::{env, path::Path};
 
 mod artifacts;
+mod check;
 mod pe;
 mod policy;
 #[cfg(test)]
@@ -24,6 +25,8 @@ Commands:
   verify DIR VERSION TARGET RUN   Verify exact package contents and provenance
   installer-sums DIR VERSION      Print all eight verified installer checksums
   pe-icon FILE...                 Verify Windows executable icon resources
+  check-installers [--install] TARGET VERSION
+                                  Open the installers and check what a player gets
 
 CI identity uses GITHUB_REPOSITORY and GITHUB_SHA; write also uses GITHUB_RUN_ID.
 CI queries use the authenticated gh CLI. Relative paths use the repository root.";
@@ -61,6 +64,10 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             "{}",
             artifacts::installer_sums(&root.join(directory), version)?
         ),
+        ["check-installers", "--install", target, version] => {
+            check::run(root, true, target, version)?;
+        }
+        ["check-installers", target, version] => check::run(root, false, target, version)?,
         ["pe-icon", paths @ ..] if !paths.is_empty() => {
             for path in paths {
                 pe::check_file(&root.join(path))?;

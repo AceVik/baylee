@@ -46,7 +46,7 @@ fn program(text: String) -> Node {
     Node::File(text.into_bytes(), 0o755)
 }
 
-/// What `scripts/package-client.sh` packs for `os` at `version`, the
+/// What `cargo tools package client` packs for `os` at `version`, the
 /// versioned top folder left out.
 pub fn release_tree(os: Os, version: &str) -> Tree {
     let mut tree = Tree::new();

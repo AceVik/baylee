@@ -52,7 +52,7 @@ dynamically linked system library under LGPL-2.1-or-later; its Rust bindings are
 MIT licensed. The system package supplies the native library's notices/source
 offer; it is not statically copied into Baylee.
 
-`scripts/test-keyring-linux.sh` creates a separate D-Bus session, temporary HOME
+`cargo dev keyring-linux` creates a separate D-Bus session, temporary HOME
 and data/runtime directories, and an owned GNOME Keyring process. It checks
 legacy attribute discovery, Unicode/update/delete, no-secret presence lookup,
 and refusal to read/overwrite/delete ambiguous matches. It never accesses the

@@ -11,7 +11,7 @@ on:
       - 'crates/baylee-protocol/**'
       - 'crates/baylee-db/**'
       - 'crates/baylee-gateway/**'
-      - 'scripts/test-central-*.ps1'
+      - 'crates/baylee-dev/**'
       - '.github/workflows/central-integration.yml'
   push:
     branches: [main]
@@ -25,7 +25,7 @@ on:
       - 'crates/baylee-protocol/**'
       - 'crates/baylee-db/**'
       - 'crates/baylee-gateway/**'
-      - 'scripts/test-central-*.ps1'
+      - 'crates/baylee-dev/**'
       - '.github/workflows/central-integration.yml'
   workflow_dispatch:
 permissions:
@@ -46,16 +46,13 @@ jobs:
       - name: Native account schema and real transport
         run: cargo test --locked -p baylee-account --all-features
       - name: Source cutover against owned PostgreSQL 18
-        shell: pwsh
-        run: ./scripts/test-central-db.ps1
+        run: cargo dev central db
       - name: Gateway migration, restore and admission
-        shell: pwsh
         run: |
-          ./scripts/test-central-integration.ps1
-          try {
-            ./scripts/test-central-integration.ps1 -ExerciseFailure
-            throw 'Expected fixture failure did not occur'
-          } catch {
-            if ($_.Exception.Message -ne 'Synthetic fixture failure') { throw }
-          }
-          exit 0
+          cargo dev central integration
+          # The deliberate failure must fail, and only for its own reason,
+          # after its cleanup.
+          if cargo dev central integration --exercise-failure 2>failure.txt; then
+            echo "expected fixture failure did not occur"; exit 1
+          fi
+          grep -qx 'central integration: synthetic fixture failure' failure.txt

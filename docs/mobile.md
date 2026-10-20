@@ -14,13 +14,16 @@ network.
 
 ## What is installed, and where
 
-`scripts/mobile/android-env.sh` names everything an Android build needs —
-`JAVA_HOME` (Homebrew's JDK 17; `/usr/libexec/java_home` does not find it),
-`ANDROID_HOME`, `ANDROID_NDK_ROOT`, the NDK's `clang` as the C/C++ compiler and
-linker for `aarch64-linux-android`, and the SDK's own `cmake` on `PATH`.
-**Source it, never run it**, and never put it in a shell profile: an
-`ANDROID_NDK_ROOT` left set in every terminal is how a desktop build picks up a
-cross compiler by accident.
+`cargo dev android` sets everything an Android build needs for its own build
+only — `JAVA_HOME` (Homebrew's JDK 17 on macOS; `/usr/libexec/java_home` does
+not find it), `ANDROID_HOME`, `ANDROID_NDK_ROOT` (the NDK's toolchain for this
+host: macOS, Linux or Windows), the NDK's `clang` as the C/C++ compiler and
+linker for `aarch64-linux-android`, and the SDK's own `cmake` on `PATH`. A
+value already set in the environment wins. `cargo dev android env` prints the
+same as `export` lines (PowerShell assignments on Windows) for a shell that
+wants them by hand, `eval "$(cargo dev android env)"`. Never put it in a shell
+profile: an `ANDROID_NDK_ROOT` left set in every terminal is how a desktop
+build picks up a cross compiler by accident.
 
 Beyond the SDK that was already here, this needs two things:
 `rustup target add aarch64-linux-android aarch64-apple-ios-sim` and
@@ -29,8 +32,8 @@ Beyond the SDK that was already here, this needs two things:
 ## Android
 
 ```sh
-scripts/mobile/android-build.sh                          # LAN address, dev-control on
-scripts/mobile/android-build.sh --gateway http://10.0.2.2:28766 --run
+cargo dev android                          # LAN address, dev-control on
+cargo dev android --gateway http://10.0.2.2:28766 --run
 adb install -r target/debug/apk/baylee.apk
 adb shell am start -n local.baylee.client/android.app.NativeActivity
 ```
@@ -86,8 +89,8 @@ guessed wrong:
 | Android emulator | `http://10.0.2.2:28766` |
 | iOS simulator | `http://127.0.0.1:28766` |
 
-`scripts/mobile/serve-lan.sh` starts the gateway and one agent and prints all
-four; `cargo apk run` applies the `reverse_port_forward` table in the shim's
+`cargo dev serve-lan` starts the gateway (it needs `DATABASE_URL`, like any
+gateway) and one agent and prints all four; `cargo apk run` applies the `reverse_port_forward` table in the shim's
 manifest, so over a cable there is nothing to bake at all.
 
 ### dev-control over the cable
@@ -141,7 +144,7 @@ the manual one and leaves the mDNS one.
 ## iOS simulator
 
 ```sh
-scripts/mobile/ios-sim-run.sh --device "iPhone 15 Pro"
+cargo dev ios-sim --device "iPhone 15 Pro"
 ```
 
 No Xcode project, deliberately: a simulator app is a directory with a Mach-O

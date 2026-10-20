@@ -29,13 +29,13 @@ bevy = { workspace = true, features = ["android-native-activity"] }
 [features]
 # The harness, off by default for the reason `baylee-client` gives: a remote
 # control socket in a game binary is a cheat vector, and the guarantee worth
-# having is that the code is not in the build. `scripts/mobile/android-build.sh`
+# having is that the code is not in the build. `cargo dev android`
 # turns it on, because a client on a phone that cannot be driven or
 # photographed is a client nothing can check.
 dev-control = ["baylee-client/dev-control"]
 
 # The APK. `package` is the id adb and `run-as` address it by; keep it in step
-# with `scripts/mobile/android-build.sh`.
+# with `cargo dev android`.
 [package.metadata.android]
 package = "local.baylee.client"
 apk_name = "baylee"

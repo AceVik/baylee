@@ -13,6 +13,12 @@
 # Two aliases because a cargo alias is exactly one subcommand.
 # `scripts/gate-rules.sh` runs both and stops at the first failure.
 [alias]
+# The development tasks (crates/baylee-dev): gates, landing, deploys, mobile
+# builds and local fixtures, as `cargo dev <task>`; `cargo dev --help` lists them.
+dev = "run -q --locked -p baylee-dev --"
+# The release, packaging and asset tools (crates/baylee-tools) under their own
+# profile: optimised, but without LTO, so they link in seconds.
+tools = "run -q --locked --profile tools -p baylee-tools --"
 lint-rules = "clippy --workspace --all-targets --exclude baylee-client -- -D warnings"
 test-rules = "nextest run --workspace --all-targets --exclude baylee-client"
 

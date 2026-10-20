@@ -17,7 +17,7 @@
 //!
 //! Written deliberately by a session that did not write the walker: a test by
 //! the author of the thing it checks shares that author's blind spot, which
-//! is the same house rule `scripts/llm/README.md` states for card batches.
+//! is the house rule card batches followed when this was written.
 
 /// What `Effect`'s body declares today: seventeen `&'static [Effect]` and three
 /// `&'static Effect`.

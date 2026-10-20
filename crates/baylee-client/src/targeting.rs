@@ -342,7 +342,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // wearing a different shape.
         //
         // This arm was missing from the day `Filter::Named` was added
-        // (71417653) and nothing said so: `scripts/gate-rules.sh` excludes
+        // (71417653) and nothing said so: `cargo dev gate rules` excludes
         // `baylee-client`, so a new variant on a public enum breaks the one
         // crate the rules gate cannot see and leaves it green. The sibling
         // reader in `baylee-ai` was taught in the same commit; this one was

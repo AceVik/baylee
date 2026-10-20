@@ -1,10 +1,9 @@
 //! Native development tools, independent of the game engine and renderer.
 mod art;
-mod cardbatch;
 mod forge;
 mod hooks;
 mod installers;
-mod llm;
+mod package;
 mod recording;
 mod release;
 mod shell;
@@ -44,6 +43,12 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Pack a built client into its release archive and installers.
+    #[command(disable_help_flag = true)]
+    Package {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Build native installer artwork and disk images.
     #[command(disable_help_flag = true)]
     Installers {
@@ -62,12 +67,6 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// Run bounded card implementation and review lanes.
-    #[command(disable_help_flag = true)]
-    Llm {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
     /// Build original scene assets and the pinned orchestra sample bank.
     #[command(disable_help_flag = true)]
     Art {
@@ -77,12 +76,6 @@ enum Command {
     /// Claude's card-test debt bookkeeping hooks.
     #[command(disable_help_flag = true)]
     Hooks {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
-    /// Read a structured card-batch verdict.
-    #[command(disable_help_flag = true)]
-    Cardbatch {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -115,13 +108,12 @@ fn main() -> anyhow::Result<()> {
         Command::Recording { args } => recording::run(root, &args),
         Command::Shell { args } => shell::run(root, &args),
         Command::Release { args } => release::run(root, &args),
+        Command::Package { args } => package::run(root, &args),
         Command::Installers { args } => installers::run(root, &args),
         Command::Site { args } => site::run(root, &args),
         Command::Forge { args } => forge::run(root, &args),
-        Command::Llm { args } => llm::run(root, &args),
         Command::Art { args } => art::run(root, &args),
         Command::Hooks { args } => hooks::run(root, &args),
-        Command::Cardbatch { args } => cardbatch::run(root, &args),
     };
     if let Err(error) = &result
         && let Some(cli_error) = error.downcast_ref::<clap::Error>()

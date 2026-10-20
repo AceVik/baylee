@@ -5,9 +5,9 @@ use super::*;
 
 // ---------------------------------------------------------------------------
 // c11: eleven cards written by the DeepSeek lane, played here by the
-// coordinator. The cross rule (scripts/llm/README.md) puts the test in
+// coordinator. The cross rule of the time (retired 20.10.2026) put the test in
 // another hand than the card, and with the Gemini lane's quota spent for the
-// next three hours that hand is this one.
+// next three hours that hand was this one.
 // ---------------------------------------------------------------------------
 
 /// Oboro Envoy: the shrink is read **after** the land it charges has landed

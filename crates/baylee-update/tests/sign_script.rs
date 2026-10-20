@@ -1,11 +1,9 @@
-//! `scripts/release/sign-archives.sh`, the release workflow's signing step,
+//! `baylee-update-sign release`, the release workflow's signing step,
 //! run as the workflow runs it: with the real signer binary, a test key in
 //! the secret's place, and GitHub's `GITHUB_REF_TYPE`. It signs every
 //! archive and nothing else, fails a tag without the secret, and fails when
 //! the secret is not a key the client trusts. And `release.yml` runs it
 //! before it publishes.
-
-#![cfg(unix)]
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
@@ -64,15 +62,10 @@ fn public_text() -> String {
     sign::public_text(&SigningKey::from_bytes(&SEED).verifying_key())
 }
 
-/// Runs the script on `dir` with exactly the environment given.
+/// Runs `release` on `dir` with exactly the environment given.
 fn run(dir: &Path, env: &[(&str, &str)]) -> Output {
-    let mut command = std::process::Command::new("bash");
-    command
-        .arg(root().join("scripts/release/sign-archives.sh"))
-        .arg(dir)
-        .env_clear()
-        .env("PATH", std::env::var("PATH").unwrap_or_default())
-        .env("BAYLEE_SIGNER", env!("CARGO_BIN_EXE_baylee-update-sign"));
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-update-sign"));
+    command.arg("release").arg(dir).env_clear();
     for (k, v) in env {
         command.env(k, v);
     }
@@ -202,7 +195,7 @@ fn no_archive_at_all_fails() {
     assert!(!out.status.success(), "{}", text(&out));
 }
 
-/// The workflow runs the script on the tag with the secret, and publishes
+/// The workflow runs `release` on the tag with the secret, and publishes
 /// only after it, refusing an archive without its signature.
 #[test]
 fn the_release_workflow_signs_before_it_publishes() {
@@ -223,7 +216,10 @@ fn the_release_workflow_signs_before_it_publishes() {
         lines[start..end].join("\n")
     };
     let sign = job("sign");
-    assert!(sign.contains("scripts/release/sign-archives.sh"), "{sign}");
+    assert!(
+        sign.contains("--bin baylee-update-sign -- release out"),
+        "{sign}"
+    );
     assert!(
         sign.contains("BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}"),
         "{sign}"

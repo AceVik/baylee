@@ -79,7 +79,7 @@ Never write "the agent" in a commit message about a session.
 
 ### gate
 
-- **the rules gate** — `./scripts/gate-rules.sh`: fmt + `cargo lint-rules` +
+- **the rules gate** — `cargo dev gate rules`: fmt + `cargo lint-rules` +
   `cargo test-rules`, which is the workspace **minus `baylee-client`**. A filter
   for working, never a replacement.
 - **the full gate** — the same over the whole workspace, client included. The
@@ -218,7 +218,7 @@ in both directions.
 
 | Session | Tree | Branch | Owns |
 |---|---|---|---|
-| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/`, CI/CD (`.github/`, `scripts/gate*.sh`), releases and the workspace version |
+| PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/`, CI/CD (`.github/`, `crates/baylee-dev`), releases and the workspace version |
 | engine | `…/baylee-engine` | `engine` | `baylee-engine`, `baylee-core`, `baylee-cards`, `-cards-dsl`, `-cards-codegen`, `-cards-index`, `baylee-gamehost`, `baylee-engine-server`, `xtask` |
 | client | `…/baylee-client` | `client` | `baylee-client`, `baylee-client-core`, `baylee-client-android`, `scripts/mobile` |
 | gateway | `…/baylee-gateway` | `gateway` | `baylee-gateway`, `baylee-agent`, `baylee-protocol`, `baylee-db`, `baylee-catalog` |
@@ -267,9 +267,10 @@ in another drifts from the code between the two commits, and this repo has
 paid for that. What stays the PM's is what belongs to no Revier: this file,
 the roadmap, and anything that describes how the team works.
 
-`scripts/llm/` is card volume and belongs to the engine session, which plans it
-in cards (DeepSeek, billed per token) and in minutes (Gemini, a time quota).
-**No lane runs cargo**, and no `xtask codegen` runs while a batch is in flight.
+Card volume belongs to the engine session: a batch's author model writes the
+cards and their tests, another model reviews them (CLAUDE.md). The cheap LLM
+lanes that once carried it (`scripts/llm/`, DeepSeek and Gemini) were removed on
+20.10.2026. No `xtask codegen` runs while a batch is in flight.
 
 ---
 
@@ -284,8 +285,8 @@ are English. These are the pairs that are not a dictionary lookup.
 | Revier | territory | which crates a session owns |
 | Gate | gate | untranslated; say *rules* or *full* |
 | Karte | card | |
-| Kartenmasse | card volume | the cheap LLM lanes, not a session |
-| Spur | lane | `scripts/llm/`, one script per (model, job) |
+| Kartenmasse | card volume | a batch of cards, the engine session's |
+| Spur | lane | a model run as a batch worker (the cheap lanes were removed 20.10.2026) |
 | Briefkasten | mailbox | `/tmp/agentbus`, the Codex bridge |
 | Sitzung | session | |
 | Zug | turn | one agent turn, not a Magic turn |

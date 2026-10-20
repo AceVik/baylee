@@ -53,7 +53,7 @@ pub fn parse(body: &str) -> Result<Vec<Release>, serde_json::Error> {
 /// The archive the release workflow packs for `target`, by name.
 ///
 /// `.zip` for Windows and macOS, `.tar.gz` for everything else, as
-/// `scripts/package-client.sh` writes them.
+/// `cargo tools package client` writes them.
 #[must_use]
 pub fn archive_name(version: &str, target: &str) -> String {
     let ext = if target.contains("-windows-") || target.contains("-apple-") {

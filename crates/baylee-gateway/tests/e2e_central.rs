@@ -68,7 +68,7 @@ fn database(role: &str, password: &str) -> DevConfig {
 }
 
 #[test]
-#[ignore = "requires owned PostgreSQL fixture from scripts/test-central-integration.ps1"]
+#[ignore = "requires owned PostgreSQL fixture from cargo dev central integration"]
 fn central_login_migrates_then_restores_and_admits_without_the_legacy_password() {
     let runtime = Runtime::new().unwrap();
     let operator = runtime

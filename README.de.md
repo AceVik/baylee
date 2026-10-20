@@ -828,16 +828,16 @@ cargo run --release -p baylee-client          # das Spiel; offline braucht es ni
   `cargo run -p xtask -- dev-table --seats 4 --ai sharp --play`.
 - **Browser- und Handy-Versionen** lassen sich weiter bauen
   (`trunk serve index.html --release` in `crates/baylee-client/`;
-  `scripts/mobile/`), gehören aber nicht zu diesem Release
+  `cargo dev android`, `cargo dev ios-sim`), gehören aber nicht zu diesem Release
   ([docs/mobile.md](docs/mobile.md)).
 
 Für Mitwirkende die Prüfungen, die auch die CI ausführt:
 
 ```bash
 cargo fmt --all
-./scripts/gate-rules.sh                        # schnell: Regel-Crates ohne Client
-DATABASE_URL=… ./scripts/gate.sh               # das volle Gate: fmt, clippy, nextest, validate
-DATABASE_URL=… ./scripts/gate-features.sh      # die Builds mit Nicht-Standard-Features
+cargo dev gate rules                        # schnell: Regel-Crates ohne Client
+DATABASE_URL=… cargo dev gate               # das volle Gate: fmt, clippy, nextest, validate
+DATABASE_URL=… cargo dev gate features      # die Builds mit Nicht-Standard-Features
 ```
 
 ## Wie alles zusammenhängt

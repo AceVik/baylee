@@ -14,7 +14,7 @@ workspace = true
 # Every dependency here builds for wasm32-unknown-unknown without a backend
 # for `getrandom`, which none of them pulls in: randomness is handed in by the
 # caller (`Entropy`): `cargo tree -p baylee-seal --target wasm32-unknown-unknown`
-# names no `getrandom`, and `scripts/gate-wasm.sh` checks the crate builds.
+# names no `getrandom`, and `cargo dev gate wasm` checks the crate builds.
 [dependencies]
 chacha20poly1305.workspace = true
 ed25519-dalek.workspace = true

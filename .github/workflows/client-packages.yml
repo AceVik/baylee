@@ -80,7 +80,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ inputs.source-run }}
-        run: scripts/baylee-tools release verify-run "$SOURCE_RUN"
+        run: cargo tools release verify-run "$SOURCE_RUN"
       - if: inputs.source-run != ''
         uses: actions/download-artifact@v4
         with:
@@ -94,7 +94,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
           SOURCE_RUN: ${{ inputs.source-run }}
-        run: scripts/baylee-tools release verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
+        run: cargo tools release verify out "$PACKAGE_VERSION" "$PACKAGE_TARGET" "$SOURCE_RUN"
       - if: inputs.source-run == ''
         uses: ./.github/actions/linux-deps
       - if: inputs.source-run == ''
@@ -137,13 +137,13 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: |
-          archive=$(scripts/package-client.sh "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
+          archive=$(cargo tools package client "target/$PACKAGE_TARGET/dist" "$PACKAGE_TARGET" "$PACKAGE_VERSION")
           mkdir -p out
           cp "$archive" out/
-      # The installers wrap the tree package-client.sh just packed: a dmg, an
+      # The installers wrap the tree `package client` just packed: a dmg, an
       # Inno Setup installer, an AppImage and a .deb (docs/releasing.md
       # §"Installers"). They are promoted with the archive, never rebuilt.
-      # The x86_64 client starts in check-installers.sh on an arm runner:
+      # The x86_64 client starts in `release check-installers` on an arm runner:
       # that needs Rosetta 2, which an image may lack. `arch -x86_64` fails
       # without it.
       - if: inputs.source-run == '' && matrix.target == 'x86_64-apple-darwin'
@@ -157,17 +157,17 @@ jobs:
         shell: bash
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: scripts/installers/tools.sh "$RUNNER_TEMP/installer-tools" "$PACKAGE_TARGET" >> "$GITHUB_ENV"
+        run: cargo tools installers tools "$RUNNER_TEMP/installer-tools" "$PACKAGE_TARGET" >> "$GITHUB_ENV"
       - if: inputs.source-run == ''
         shell: bash
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: |
-          scripts/package-installers.sh "$PACKAGE_TARGET" "$PACKAGE_VERSION" | while read -r installer; do
+          cargo tools package installers "$PACKAGE_TARGET" "$PACKAGE_VERSION" | while read -r installer; do
             cp "$installer" out/
           done
-          scripts/baylee-tools release write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
+          cargo tools release write out "$PACKAGE_VERSION" "$PACKAGE_TARGET"
       # What a player gets: on this throwaway runner each installer is
       # installed (the dmg's app copied to /Applications and started from
       # there), checked and removed again.
@@ -176,7 +176,7 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: scripts/release/check-installers.sh --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
+        run: cargo tools release check-installers --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: client-${{ matrix.target }}

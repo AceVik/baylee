@@ -367,74 +367,17 @@ fn installer_table_requires_all_eight_verified_checksums() {
 }
 
 #[cfg(unix)]
+/// The packaging itself is `package`'s test; here, that every release build
+/// makes the seat bridge it then packs (beta.6 shipped without it).
 #[test]
-fn packaging_carries_the_seat_bridge_and_refuses_its_absence() {
-    use std::process::Command;
+fn every_release_build_makes_the_seat_bridge() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let tmp = tempfile::tempdir().unwrap();
-    let fixture = tmp.path();
-    fs::create_dir(fixture.join("scripts")).unwrap();
-    fs::create_dir(fixture.join("bins")).unwrap();
-    fs::create_dir_all(fixture.join("crates/baylee-client/assets/fonts")).unwrap();
-    fs::copy(
-        root.join("scripts/package-client.sh"),
-        fixture.join("scripts/package-client.sh"),
-    )
-    .unwrap();
-    for name in ["LICENSE", "NOTICE"] {
-        fs::write(fixture.join(name), name).unwrap();
-    }
-    for name in ["baylee-client", "baylee-launch", "baylee-seat"] {
-        fs::write(fixture.join("bins").join(name), name).unwrap();
-    }
-    let pack = || {
-        Command::new("bash")
-            .arg(fixture.join("scripts/package-client.sh"))
-            .arg(fixture.join("bins"))
-            .args([TARGETS[0].0, "0.0.0-test.1"])
-            .current_dir(fixture)
-            .output()
-            .unwrap()
-    };
-    let done = pack();
-    assert!(
-        done.status.success(),
-        "{}",
-        String::from_utf8_lossy(&done.stderr)
-    );
-    let output = String::from_utf8(done.stdout).unwrap();
-    let archive = output.lines().last().unwrap();
-    let list = Command::new("tar")
-        .arg("-tf")
-        .arg(fixture.join(archive))
-        .output()
-        .unwrap();
-    assert!(list.status.success());
-    let names = String::from_utf8(list.stdout).unwrap();
-    for name in ["baylee-client", "baylee-runtime", "baylee-seat"] {
-        assert!(names.lines().any(|n| n.ends_with(&format!("/{name}"))));
-    }
-    fs::remove_file(fixture.join("bins/baylee-seat")).unwrap();
-    let failed = pack();
-    assert!(!failed.status.success());
-    assert!(String::from_utf8_lossy(&failed.stderr).contains("baylee-seat"));
     let workflow = fs::read_to_string(root.join(".github/workflows/client-packages.yml")).unwrap();
     assert!(
         workflow
             .lines()
             .any(|l| l.contains("cargo build ") && l.contains("--bin baylee-seat"))
     );
-    let checks = fs::read_to_string(root.join("scripts/release/check-installers.sh")).unwrap();
-    for needed in [
-        "need \"$mnt/Baylee.app/Contents/MacOS/baylee-seat\"",
-        "baylee-seat.exe",
-        "./opt/baylee/baylee-seat$",
-        "need /opt/baylee/baylee-seat",
-    ] {
-        assert!(checks.replace("\\.", ".").contains(needed), "{needed}");
-    }
-    let package = fs::read_to_string(root.join("scripts/package-client.sh")).unwrap();
-    assert!(package.contains("codesign --force --sign - \"$app/MacOS/$seat\""));
 }
 
 #[test]

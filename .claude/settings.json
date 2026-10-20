@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/scripts/baylee-tools\" hooks card-test-debt"
+            "command": "cargo run -q --locked --profile tools --manifest-path \"$CLAUDE_PROJECT_DIR/Cargo.toml\" -p baylee-tools -- --root \"$CLAUDE_PROJECT_DIR\" hooks card-test-debt"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/scripts/baylee-tools\" hooks require-card-tests"
+            "command": "cargo run -q --locked --profile tools --manifest-path \"$CLAUDE_PROJECT_DIR/Cargo.toml\" -p baylee-tools -- --root \"$CLAUDE_PROJECT_DIR\" hooks require-card-tests"
           }
         ]
       }

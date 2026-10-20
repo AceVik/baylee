@@ -41,7 +41,7 @@ fn deadline_drops_pending_operation_without_detached_worker() {
 }
 
 #[test]
-#[ignore = "requires scripts/test-keyring-linux.sh and its isolated bus/home"]
+#[ignore = "requires cargo dev keyring-linux and its isolated bus/home"]
 fn isolated_secret_service() {
     let fixture = std::env::var("BAYLEE_KEYRING_FIXTURE").expect("isolated fixture only");
     assert_eq!(std::env::var("HOME").unwrap(), fixture);

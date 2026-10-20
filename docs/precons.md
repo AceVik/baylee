@@ -150,7 +150,7 @@ key order: `deck` (the key, `<set>/<slug>`), `set`, `type`, `released`,
 `name`, `cards` (commanders and sideboard included) and `playable`
 (`yes`/`no`). It also writes the gateway's embedded list of the playable
 decks. Both are a function of the lists, the pool and the engine's tests,
-and `the_precon_status_is_the_pools` (an xtask test, so `gate.sh` and CI's
+and `the_precon_status_is_the_pools` (an xtask test, so `cargo dev gate` and CI's
 test job run it) fails when either differs from what they say today, naming
 the file, the first line that differs and the command to run:
 

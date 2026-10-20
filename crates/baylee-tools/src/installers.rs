@@ -4,13 +4,14 @@
 //! `installers dmg APP BACKGROUND ICON OUT` replaces the Python dmgbuild
 //! runtime/settings, keeping HFS+, ULFO, `HiDPI` artwork and headless Finder
 //! layout. `installers check-dmg-layout MOUNT` verifies that layout offline.
-//! Installer packaging/download shell scripts keep their existing interfaces.
+//! `installers tools DIR TARGET` fetches the pinned installer tools.
 use anyhow::{Result, bail};
 use std::path::Path;
 
 mod art;
 mod dmg;
 mod layout;
+mod tools;
 
 const HELP: &str = "Usage: baylee-tools installers <COMMAND>
 
@@ -20,6 +21,8 @@ Commands:
   dmg APP BACKGROUND ICON OUT     Build an HFS+/ULFO disk image on macOS
                                  Includes the @2x background and Finder layout
   check-dmg-layout MOUNT          Verify a mounted image's Finder layout
+  tools DIR TARGET                Fetch this system's pinned installer tools
+                                 Prints NAME=value lines for GITHUB_ENV
 
 Relative paths use the repository root.";
 
@@ -43,8 +46,9 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             &root.join(output),
         ),
         ["check-dmg-layout", mount] => dmg::check_layout(&root.join(mount)),
+        ["tools", directory, target] => tools::fetch(&root.join(directory), target),
         _ => bail!(
-            "usage: installers art [--review DIR]|dmg APP BACKGROUND ICON OUT|check-dmg-layout MOUNT"
+            "usage: installers art [--review DIR]|dmg APP BACKGROUND ICON OUT|check-dmg-layout MOUNT|tools DIR TARGET"
         ),
     }
 }

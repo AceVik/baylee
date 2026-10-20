@@ -164,6 +164,6 @@ deletion, password reset/recovery UI, decks or replays part of this chat change.
   the bounded snapshot collector refuses incomplete or unexpected local namespaces;
   ACKs wait for the complete corresponding snapshot and survive failed socket sends.
 
-Run the ordinary account/client/core tests plus `scripts/test-central-integration.ps1`.
-For coordinated sibling development, use its `-CargoConfig target/central-patch.toml`
+Run the ordinary account/client/core tests plus `cargo dev central integration`.
+For coordinated sibling development, use its `--cargo-config target/central-patch.toml`
 option; use `cargo clippy --config ...` with the config after the subcommand.

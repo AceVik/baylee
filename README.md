@@ -782,16 +782,16 @@ cargo run --release -p baylee-client          # the game; offline play needs not
   run `cargo run -p xtask -- dev-table --seats 4 --ai sharp --play`.
 - **The browser and phone builds** still compile
   (`trunk serve index.html --release` in `crates/baylee-client/`;
-  `scripts/mobile/`), but they are not part of this release
+  `cargo dev android`, `cargo dev ios-sim`), but they are not part of this release
   ([docs/mobile.md](docs/mobile.md)).
 
 For contributors, the checks CI runs:
 
 ```bash
 cargo fmt --all
-./scripts/gate-rules.sh                        # quick: rules crates, without the client
-DATABASE_URL=… ./scripts/gate.sh               # the full gate: fmt, clippy, nextest, validate
-DATABASE_URL=… ./scripts/gate-features.sh      # the non-default feature builds
+cargo dev gate rules                        # quick: rules crates, without the client
+DATABASE_URL=… cargo dev gate               # the full gate: fmt, clippy, nextest, validate
+DATABASE_URL=… cargo dev gate features      # the non-default feature builds
 ```
 
 ## How it fits together
