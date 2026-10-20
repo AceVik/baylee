@@ -98,6 +98,23 @@ async fn publish(
             .collect(),
     )
     .map_err(|why| err_saying(StatusCode::BAD_REQUEST, why))?;
+    // The version in force, from the file or the default, is not in the
+    // database, but Central holds it already: another text under it would
+    // never be confirmed there, so it is refused here.
+    if console
+        .app
+        .terms
+        .current()
+        .is_some_and(|current| current.version == terms.version)
+    {
+        return Err(err_saying(
+            StatusCode::CONFLICT,
+            format!(
+                "version {} is in force already; publish the new text under a new version",
+                terms.version
+            ),
+        ));
+    }
     let texts: Vec<baylee_db::terms::TermsText> = terms
         .central_texts()
         .into_iter()

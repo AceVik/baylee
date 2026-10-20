@@ -5717,10 +5717,11 @@ messages! {
     TermsStoredCentral { en: "Read to the end to accept. Your acceptance (version, text and time) is kept with your Baylee account at Baylee Central, so another device does not ask again.", de: "Lies bis zum Ende, um anzunehmen. Deine Zustimmung (Fassung, Text und Zeit) wird mit deinem Baylee-Konto bei Baylee Central gespeichert, damit ein anderes Ger\u{e4}t nicht erneut fragt." },
     /// The heading of what the client itself says about chat, after a
     /// gateway's terms on the same sheet.
-    TermsChatTitle { en: "Chat on this gateway", de: "Chat auf diesem Gateway" },
-    /// What the client itself says about chat: true of every gateway, since
-    /// the client does the encrypting, so no gateway's text can weaken it.
-    TermsChatNote { en: "Messages to friends and to your table are end-to-end encrypted: your device encrypts them, only the recipients\u{2019} devices decrypt them, and the gateway passes them on without being able to read them. It sees only who writes to whom, when, and how much. If you report a message, your device sends its text to this gateway\u{2019}s moderators. Computer opponents and spectators take no part in chat.", de: "Nachrichten an Freunde und an deinen Tisch sind Ende-zu-Ende-verschl\u{fc}sselt: Dein Ger\u{e4}t verschl\u{fc}sselt sie, nur die Ger\u{e4}te der Empf\u{e4}nger entschl\u{fc}sseln sie, und das Gateway leitet sie weiter, ohne sie lesen zu k\u{f6}nnen. Es sieht nur, wer wem wann wie viel schreibt. Meldest du eine Nachricht, schickt dein Ger\u{e4}t ihren Text an die Moderation dieses Gateways. Computergegner und Zuschauer nehmen am Chat nicht teil." },
+    TermsChatTitle { en: "Chat", de: "Chat" },
+    /// What the client itself says about chat: true of every gateway that
+    /// offers chat, since the client does the encrypting, so no gateway's
+    /// text can weaken it.
+    TermsChatNote { en: "Where a gateway offers chat, messages to friends and to your table are end-to-end encrypted: your device encrypts them, only the recipients\u{2019} devices decrypt them, and the gateway passes them on without being able to read them. It sees only who writes to whom, when, and how much. If you report a message, your device sends its text to this gateway\u{2019}s moderators. Computer opponents and spectators take no part in chat.", de: "Wo ein Gateway Chat anbietet, sind Nachrichten an Freunde und an deinen Tisch Ende-zu-Ende-verschl\u{fc}sselt: Dein Ger\u{e4}t verschl\u{fc}sselt sie, nur die Ger\u{e4}te der Empf\u{e4}nger entschl\u{fc}sseln sie, und das Gateway leitet sie weiter, ohne sie lesen zu k\u{f6}nnen. Es sieht nur, wer wem wann wie viel schreibt. Meldest du eine Nachricht, schickt dein Ger\u{e4}t ihren Text an die Moderation dieses Gateways. Computergegner und Zuschauer nehmen am Chat nicht teil." },
     /// The sheet's title for Baylee Central's own terms.
     CentralTermsTitle { en: "Terms of use of Baylee Central", de: "Nutzungsbedingungen von Baylee Central" },
     /// The caption for Baylee Central's own terms. `{0}` version.

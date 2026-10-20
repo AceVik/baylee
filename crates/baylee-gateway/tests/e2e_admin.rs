@@ -958,6 +958,12 @@ fn the_console_publishes_terms_of_use() {
         {"lang": "en", "markdown": "# Terms\n\nBe kind.\n"},
         {"lang": "de", "updated": "2026-10-20", "markdown": "# Bedingungen\n\nSei nett.\n"},
     ]);
+    let default_version = current["terms"]["version"].as_str().unwrap().to_owned();
+    let (status, body) = publish(&default_version, texts.clone());
+    assert_eq!(
+        status, 409,
+        "the default's version is in force already: {body}"
+    );
     let (status, body) = publish("admin-1", texts.clone());
     assert_eq!(status, 201, "{body}");
     let published: serde_json::Value = serde_json::from_str(&body).unwrap();

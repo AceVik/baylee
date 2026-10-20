@@ -3472,8 +3472,9 @@ local session that has not accepted.
 terms); `POST /admin/terms {"version", "texts": [{"lang", "updated"?,
 "markdown"}]}` publishes a new version and puts it in force (`201` with the
 same answer; `400` with a sentence for texts out of bounds, `409` for a
-version published before: a published version never changes, so a changed
-text needs a new version); `GET /admin/terms/versions` → every published
+version published before or the version in force from the file or the
+default: a published version never changes, and Central holds the one in
+force already, so a changed text needs a new version); `GET /admin/terms/versions` → every published
 version, newest first, with when and by whom. Each publish writes an audit
 line naming the admin and the version, never the text.
 
