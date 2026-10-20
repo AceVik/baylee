@@ -99,7 +99,12 @@ fn the_parchment_covers_the_padding_it_lies_under() {
         );
     }
     assert!(
-        !include_str!("../sheet.rs").contains("sheet_surface("),
+        !concat!(
+            include_str!("../sheet.rs"),
+            include_str!("../sheet/tests.rs"),
+            include_str!("../sheet/running.rs"),
+        )
+        .contains("sheet_surface("),
         "the abilities use the table glass surface"
     );
     // And the browser stays a panel: a sheet put back on it is the
