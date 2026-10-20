@@ -12,7 +12,7 @@ their own gateway.
 The default terms describe the software as it ships: chat is end-to-end
 encrypted and the gateway cannot read it, every game is recorded in full and
 the software deletes no record by itself, players choose per game whether
-others see their hidden cards in replays, bug reports go to Baylee Central.
+others see their hidden cards in replays.
 An operator who adds a purpose (training a computer opponent, language-model
 seats) says so, with its legal basis and how to object.
 

@@ -38,8 +38,10 @@ des Gateways]**.
 - **Meldungen und Moderation:** gemeldete Inhalte (bei einer gemeldeten
   Chatnachricht deren Text, den dein Gerät mitschickt), Entscheidungen und
   Sperren. *Art. 6 Abs. 1 lit. c und f DSGVO*
-- **Fehlerberichte**, die du sendest, mit dem, was du ihnen beifügst; das
-  Gateway leitet sie an Baylee Central weiter. *Art. 6 Abs. 1 lit. b DSGVO*
+- **Fehlerberichte**, die du sendest, mit den Anhängen, die du angehakt
+  lässt; das Gateway leitet sie an [den Dienst, an den der Betreiber
+  Fehlerberichte schickt] weiter. *Art. 6 Abs. 1 lit. f DSGVO* (ein Spiel
+  ohne Fehler)
 - **Sicherheit:** IP-Adressen und eingegebene Anmeldenamen kurzzeitig im
   Arbeitsspeicher, um Missbrauch zu bremsen, und Server-Protokolle.
   *Art. 6 Abs. 1 lit. f DSGVO* (sicherer Betrieb)
@@ -58,7 +60,8 @@ Grundlage der Übermittlung.]
 ## 3. Empfänger
 
 - **Hosting:** [Anbieter und Ort; als Auftragsverarbeiter].
-- **Baylee Central** bestätigt deine Anmeldung und erhält Fehlerberichte.
+- **Baylee Central** bestätigt deine Anmeldung.
+- **[Der Dienst für Fehlerberichte]** erhält die Berichte, die du sendest.
 - **Andere Spieler** sehen, was das Spiel ihnen zeigt: deinen Anzeigenamen,
   deine öffentlich gespielten Karten, deine Kartenhüllen und Matten.
 

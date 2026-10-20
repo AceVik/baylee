@@ -34,8 +34,9 @@ legal notice]**.
 - **Reports and moderation:** reported content (for a reported chat message,
   its text, which your device sends along), decisions and suspensions.
   *Art. 6(1)(c) and (f) GDPR*
-- **Bug reports** you send, with what you attach to them; the gateway passes
-  them on to Baylee Central. *Art. 6(1)(b) GDPR*
+- **Bug reports** you send, with the attachments you leave ticked; the
+  gateway passes them on to [the service the operator sends bug reports
+  to]. *Art. 6(1)(f) GDPR* (a game without bugs)
 - **Security:** IP addresses and entered sign-in names briefly in memory to
   slow down abuse, and server logs. *Art. 6(1)(f) GDPR* (secure operation)
 
@@ -52,7 +53,8 @@ transfer.]
 ## 3. Recipients
 
 - **Hosting:** [provider and location; as a processor].
-- **Baylee Central** confirms your sign-in and receives bug reports.
+- **Baylee Central** confirms your sign-in.
+- **[The bug report service]** receives the reports you send.
 - **Other players** see what the game shows them: your display name, the
   cards you play openly, your sleeves and playmats.
 
