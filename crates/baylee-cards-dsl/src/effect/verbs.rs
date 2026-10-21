@@ -1156,3 +1156,34 @@ impl Effect {
         }
     }
 }
+
+impl Effect {
+    /// Whether `effects` is cumulative upkeep's body as cards and the readers
+    /// write it (CR 702.24a): an age counter, then a payment per age counter
+    /// or the source is sacrificed. `Filter::HasCumulativeUpkeep` and mana
+    /// spendable only on cumulative upkeep (`ManaUse::CumulativeUpkeep`)
+    /// both ask this, so the two never disagree about which abilities count.
+    #[must_use]
+    pub fn is_cumulative_upkeep(effects: &[Effect]) -> bool {
+        let sacrifice = |effects: &[Effect]| matches!(effects, [Effect::SacrificeSelf]);
+        matches!(
+            effects,
+            [
+                Effect::AddCounter {
+                    kind: crate::counters::AGE,
+                    amount: Amount::Fixed(1),
+                },
+                payment,
+            ] if match payment {
+                Effect::PlayerMayPayOr { effect, .. }
+                | Effect::PlayerMayPayLifeOr { effect, .. } => {
+                    matches!(effect, Effect::SacrificeSelf)
+                }
+                Effect::PlayerMayPayManaEachThenElse { paid, unpaid, .. } => {
+                    paid.is_empty() && sacrifice(unpaid)
+                }
+                _ => false,
+            }
+        )
+    }
+}

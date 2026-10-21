@@ -889,3 +889,51 @@ fn the_mana_lint_catches_both_halves_of_cr_605_1() {
         "a mana ability targeting through its second instance slipped through"
     );
 }
+
+/// Cumulative upkeep is said in one shape (`Effect::is_cumulative_upkeep`),
+/// and two readers depend on it: `Filter::HasCumulativeUpkeep` (Braidwood
+/// Cup, Drought) and mana spendable only on cumulative upkeep (Adarkar
+/// Unicorn). So every card printed with the keyword that the pool calls
+/// complete says it in that shape, and no card without the keyword does —
+/// an upkeep that merely adds an age counter is not cumulative upkeep.
+#[test]
+fn cumulative_upkeep_is_said_in_the_one_shape_its_readers_know() {
+    let mut missing = Vec::new();
+    let mut stray = Vec::new();
+    let mut carriers = 0_usize;
+    for def in crate::all() {
+        let printed = crate::oracle::face(def.index, 0)
+            .is_some_and(|text| text.lines().any(|l| l.starts_with("Cumulative upkeep")));
+        let faces = def.faces.iter().flat_map(|f| f.abilities.iter());
+        let says = def.abilities.iter().chain(faces).any(|ability| {
+            matches!(ability, AbilityDef::Triggered { effects, .. }
+                if crate::dsl::Effect::is_cumulative_upkeep(effects))
+        });
+        let name = def.faces.first().map_or("?", |f| f.name);
+        match (printed, says) {
+            (true, true) => carriers += 1,
+            (true, false)
+                if matches!(
+                    def.coverage,
+                    crate::dsl::Coverage::Implemented | crate::dsl::Coverage::Generated
+                ) =>
+            {
+                missing.push(name);
+            }
+            (false, true) => stray.push(name),
+            _ => {}
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "printed with cumulative upkeep, said otherwise: {missing:?}"
+    );
+    assert!(
+        stray.is_empty(),
+        "cumulative upkeep's shape without the keyword: {stray:?}"
+    );
+    assert!(
+        (10..=80).contains(&carriers),
+        "{carriers} cards carry cumulative upkeep"
+    );
+}

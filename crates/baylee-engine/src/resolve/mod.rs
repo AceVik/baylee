@@ -405,13 +405,9 @@ pub(crate) fn payment_for(state: &GameState, res: &Resolution) -> crate::casting
             version,
         })
         .or_else(|| state.source_identity(res.source));
-    if matches!(
-        res.effects.first(),
-        Some(baylee_cards_dsl::Effect::AddCounter {
-            kind: baylee_cards_dsl::counters::AGE,
-            amount: baylee_cards_dsl::Amount::Fixed(1),
-        })
-    ) {
+    // The same test `Filter::HasCumulativeUpkeep` asks, so mana spendable
+    // only on cumulative upkeep pays exactly the abilities that filter sees.
+    if baylee_cards_dsl::Effect::is_cumulative_upkeep(&res.effects) {
         return crate::casting::SpendFor::CumulativeUpkeep(source);
     }
     source.map_or(

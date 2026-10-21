@@ -290,13 +290,7 @@ pub fn matches_projected_with_context(
                         step: baylee_cards_dsl::StepKind::Upkeep,
                         whose: baylee_cards_dsl::PlayerRel::You,
                     }
-                ) && matches!(
-                    effects.first(),
-                    Some(baylee_cards_dsl::Effect::AddCounter {
-                        kind: baylee_cards_dsl::counters::AGE,
-                        amount: baylee_cards_dsl::Amount::Fixed(1),
-                    })
-                )
+                ) && baylee_cards_dsl::Effect::is_cumulative_upkeep(effects)
             };
             let printed = chars.abilities_lost.is_none()
                 && !chars.rules_text_lost
