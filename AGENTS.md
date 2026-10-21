@@ -61,6 +61,7 @@ unofficial, non-commercial fan project.
 | Decks, precons, formats | `docs/deck-format.md`, `docs/precons.md`, `docs/banlists-and-formats.md` |
 | The house AI, the trained AI, language-model seats | `docs/house-ai.md`, `docs/trained-ai.md`, `docs/ai-coverage-todo.md`, `docs/llm-seat.md`, `docs/llm-protocol.md` |
 | The wire protocol and every server route (normative) | `docs/protocol.md` |
+| The same routes and sockets as OpenAPI and AsyncAPI, generated (`cargo dev api`, `cargo dev api serve`) | `docs/api/`, `docs/dev/commands.md` |
 | Bug reports, the feedback service and its UI | `docs/feedback.md`, `web/feedback/README.md` |
 | Baylee Central: sign-in, chat sync, credentials | `docs/central-login.md`, `docs/central-chat-sync.md`, `docs/native-credential-store.md`, `docs/native-transport-security.md`, `docs/password-vault.md` |
 | What is kept about people, and for how long | `docs/privacy.md` |

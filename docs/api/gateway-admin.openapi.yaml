@@ -1,0 +1,5392 @@
+openapi: "3.1.0"
+info:
+  title: Baylee gateway admin console
+  version: 0.1.0-beta.7b
+  description: "A gateway's admin console: counts, accounts, beta keys, card blocks, hosted models and the terms. It listens on its own loopback address only, never on the public port or the unix socket, and refuses a browser's request before it reads the token (`docs/protocol.md` §\"The admin console\")."
+  license:
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
+servers:
+- url: http://127.0.0.1:28767
+  description: The admin listener (`BAYLEE_ADMIN_BIND`, loopback only).
+paths:
+  /admin/stats:
+    get:
+      summary: How busy this gateway is, in counts
+      description: |-
+        Counts and sums only, no field naming a person: accounts,
+        guests, who is online, games, engine agents, friends and chat, beta
+        keys, and the last 30 UTC days.
+      operationId: stats
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleStats"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/metrics:
+    get:
+      summary: The last hour of server samples
+      description: |-
+        What the machine is doing, sampled every 5 seconds into
+        a ring of the last hour (720 samples) in memory: the host's CPU, load,
+        memory, disk and network, this process's sockets and request rate, and
+        the CPU and memory of each engine process on this machine. The host's
+        fields are read off `/proc` and are `null` off Linux.
+      operationId: metrics
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsSnapshot"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/sets:
+    get:
+      summary: How far the pool is through each set
+      description: |-
+        How far this build is through each set, in release order
+        by first printing, from the ledger and the compiled pool; the numbers
+        are whatever this binary was built with.
+      operationId: sets
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleSets"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/sets/{code}":
+    get:
+      summary: One set's cards
+      description: |-
+        One set's row as `GET /admin/sets` lists it, and its
+        cards with how far each is. The gateway serves no card image here.
+      operationId: one_set
+      tags:
+      - Admin
+      parameters:
+      - name: code
+        in: path
+        required: true
+        description: Scryfall's set code, any case
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleSet"
+        "400":
+          description: "Not a set code: more than 8 characters, or not letters and digits"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such set in the ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/live:
+    get:
+      summary: Who is here now, and at which table
+      description: |-
+        Every account with a lobby socket open or a chair at a
+        table, by handle; the waiting rooms and then the running games, newest
+        first, with their chairs; and the engine agents connected.
+      operationId: live
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleLive"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/accounts:
+    get:
+      summary: A page of accounts
+      description: |-
+        A page of accounts, registered and guests, each with
+        whether it is online now, and how many match in all. Never a password
+        hash, a token or an e-mail address (only whether there is one).
+      operationId: list_accounts
+      tags:
+      - Admin
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: >-
+          Part of a username or display name, a `#tag` in hex, or an account's id; at
+          most 100 characters. Empty finds every account.
+        schema:
+          type: string
+      - name: tag
+        in: query
+        required: false
+        description: "Exactly one account by its tag: `af03`, `#af03` or a whole handle `Alice#af03` (the name is not checked); registered or guest. At most 100 characters."
+        schema:
+          type: string
+      - name: kind
+        in: query
+        required: false
+        description: "Which accounts: `all` (the default), `registered` or `guest`."
+        schema:
+          type: string
+          enum:
+          - all
+          - registered
+          - guest
+      - name: sort
+        in: query
+        required: false
+        description: "The order: `newest` (the default), `oldest`, `name`, `games` or `active`."
+        schema:
+          type: string
+          enum:
+          - newest
+          - oldest
+          - name
+          - games
+          - active
+      - name: online
+        in: query
+        required: false
+        description: Only accounts with a lobby socket open or a chair at a table.
+        schema:
+          type: boolean
+      - name: offset
+        in: query
+        required: false
+        description: How many accounts of the order to skip.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+      - name: limit
+        in: query
+        required: false
+        description: >-
+          How many to answer, 1 to 200 (a number outside is taken as the nearest bound);
+          50 when absent.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 200
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleAccounts"
+        "400":
+          description: >-
+            A `kind`, `sort` or `tag` it does not know, or a search over 100 characters (a
+            parameter of the wrong type is refused in plain text)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/accounts/{id}":
+    get:
+      summary: One account, its decks and latest games
+      description: |-
+        The account's row as `GET /admin/accounts` lists it, the
+        table it sits at, its decks (without their cards) and its latest 25
+        games.
+      operationId: one_account
+      tags:
+      - Admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The account's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleAccountDetail"
+        "400":
+          description: The id is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Delete an account
+      description: |-
+        Deletes an account, registered or guest, and everything
+        it owns, exactly as the player's own `DELETE /account` does: its decks,
+        sessions and settings, the pictures nobody else claims, its chairs and
+        sockets.
+      operationId: admin_delete_account
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The account's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/invites:
+    get:
+      summary: Every closed-beta key, never the keys
+      description: |-
+        Every key made, newest first, with what it can still do.
+        Never a key: only its hash is stored, so no route can show one again.
+      operationId: list_invites
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ListedInvite"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    post:
+      summary: Make closed-beta keys
+      description: |-
+        Makes keys as `baylee-gateway invite create` does, in one
+        transaction, and answers them: the one time they exist outside the hand
+        they are given to.
+      operationId: create_invites
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBody"
+        required: true
+      responses:
+        "201":
+          description: The keys, shown this once
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MadeInvites"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a request for keys (an unknown field included),
+            or a value `invite create` refuses, in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/invites/{id}":
+    delete:
+      summary: Revoke a closed-beta key
+      description: |-
+        Revokes a key as `baylee-gateway invite revoke` does; it
+        admits nobody from now on and stays listed, revoked.
+      operationId: revoke_invite
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The key's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Revoked
+        "400":
+          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No key by that id that is not revoked already
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/cards/search:
+    get:
+      summary: Find cards of the pool to block
+      description: |-
+        The pool's cards whose English name holds `q` (any case)
+        or whose index is `q`, those starting with it first, then by name, at
+        most 25; each with the block in force on it, if any.
+      operationId: search_cards
+      tags:
+      - Admin
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: >-
+          Part of a card's English name (any case), or its index; at most 100 characters.
+          Empty finds nothing.
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoundCards"
+        "400":
+          description: The search is over 100 characters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/cards/blocks:
+    get:
+      summary: Every card block made
+      description: |-
+        Every card block made, newest first, in force or not:
+        the list is also the history.
+      operationId: list_blocks
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ListedBlock"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    post:
+      summary: Block a card on this gateway
+      description: |-
+        Blocks a card of the pool, for good or until a moment: a
+        deck holding it does not sit down at a table here, and its players are
+        told the reason. A game already running is not touched.
+      operationId: block_card
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and the block's `created_by`;
+          ignored when the bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockBody"
+        required: true
+      responses:
+        "201":
+          description: The block, as listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListedBlock"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a block (an unknown field included), a reason
+            outside 1-200 characters or of two lines, or an `until` that is not RFC 3339, has
+            passed or is over ten years ahead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No card of this pool has that index
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The card has a block in force already; lift it first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/cards/blocks/{id}":
+    delete:
+      summary: Lift a card block
+      description: |-
+        Lifts a block in force; its decks may sit down again at
+        once. The block stays listed, lifted.
+      operationId: unblock_card
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and the block's `lifted_by`;
+          ignored when the bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The block's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Lifted
+        "400":
+          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No block by that id that is still in force
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/llm/seathosts:
+    get:
+      summary: Every seat agent connected
+      description: |-
+        Every seat agent connected, with the profiles it
+        reported, as it reported them: the gateway derives none of it.
+      operationId: llm_seathosts
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - seathosts
+                properties:
+                  seathosts:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - name
+                      - local
+                      - capacity
+                      - games
+                      - connected_secs
+                      - profiles
+                      properties:
+                        name:
+                          type: string
+                          description: The seat agent's name
+                        local:
+                          type: boolean
+                          description: Whether it came in on this machine's unix socket
+                        capacity:
+                          type: integer
+                          minimum: 0
+                          description: How many hosted games it may run at once
+                        games:
+                          type: integer
+                          minimum: 0
+                          description: How many it runs
+                        connected_secs:
+                          type: integer
+                          minimum: 0
+                          description: Seconds since it connected
+                        profiles:
+                          type: array
+                          description: Its profiles, as it reported them
+                          items:
+                            type: object
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/llm/profiles:
+    get:
+      summary: Every hosted profile, over every seat agent
+      description: |-
+        One row per profile id, ordered as the players' list,
+        with the state of each seat agent that holds it, as they reported it.
+      operationId: llm_profiles
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - profiles
+                properties:
+                  profiles:
+                    type: array
+                    items:
+                      allOf:
+                      - $ref: "#/components/schemas/HostedProfile"
+                      - type: object
+                        required:
+                        - hosts
+                        properties:
+                          hosts:
+                            type: array
+                            description: Each seat agent that holds the profile, and what it reported
+                            items:
+                              type: object
+                              properties:
+                                host:
+                                  type: string
+                                  description: The seat agent's name
+                                state:
+                                  type: string
+                                  enum:
+                                  - available
+                                  - busy
+                                  - probing
+                                  - exhausted
+                                  - needs_login
+                                  - failing
+                                  - disabled
+                                until_unix:
+                                  type:
+                                  - integer
+                                  - "null"
+                                  description: When that state is expected to end, Unix seconds
+                                games:
+                                  type: integer
+                                  minimum: 0
+                                max_games:
+                                  type:
+                                  - integer
+                                  - "null"
+                                  minimum: 0
+                                enabled:
+                                  type: boolean
+                                canary:
+                                  type: boolean
+                                caps:
+                                  description: The profile's spend caps, as reported
+                                spent:
+                                  description: What it spent, as reported
+                                key:
+                                  type: string
+                                  enum:
+                                  - kept
+                                  - absent
+                                  - none_needed
+                                  - unavailable
+                                  description: Whether a key is kept; never the key
+                                last_error:
+                                  type:
+                                  - string
+                                  - "null"
+                                last_ok_unix:
+                                  type:
+                                  - integer
+                                  - "null"
+                                fallback:
+                                  type:
+                                  - string
+                                  - "null"
+                                  description: The definition's fallback profile
+                                diverts:
+                                  type:
+                                  - string
+                                  - "null"
+                                  description: The fallback new games start on while the profile is not available
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/seathosts/{host}/profiles/{id}":
+    put:
+      summary: Write a hosted profile's definition
+      description: |-
+        Hands a profile's definition to the seat agent, which
+        checks and writes it; answered once it did. Nothing secret is in a
+        definition: a key goes to `…/key`.
+      operationId: llm_write
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: host
+        in: path
+        required: true
+        description: "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Definition"
+        required: true
+      responses:
+        "200":
+          description: The seat agent wrote it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileWritten"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a profile, a name or id outside 1-64 of A-Z a-z
+            0-9 . - _, or the seat agent's refusal in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such seat agent connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "504":
+          description: The seat agent did not answer within 10 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Forget a hosted profile
+      description: |-
+        The seat agent forgets the profile's definition; a key
+        kept for it stays in its store.
+      operationId: llm_delete
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: host
+        in: path
+        required: true
+        description: "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Forgotten
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or
+            the seat agent's refusal in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such seat agent connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "504":
+          description: The seat agent did not answer within 10 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/seathosts/{host}/profiles/{id}/enabled":
+    post:
+      summary: Switch a hosted profile on or off
+      description: Tells the seat agent to offer the profile, or not.
+      operationId: llm_enabled
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: host
+        in: path
+        required: true
+        description: "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnabledBody"
+        required: true
+      responses:
+        "204":
+          description: Done
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a body with one boolean `enabled`, a name or id
+            outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such seat agent connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "504":
+          description: The seat agent did not answer within 10 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/seathosts/{host}/profiles/{id}/probe":
+    post:
+      summary: Check a hosted profile now
+      description: |-
+        Asks the seat agent to run the profile's check now, and
+        its paid canary where the profile has one; the result shows in the
+        profile's state later. No body.
+      operationId: llm_probe
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: host
+        in: path
+        required: true
+        description: "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "202":
+          description: The seat agent took the order
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or
+            the seat agent's refusal in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such seat agent connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "504":
+          description: The seat agent did not answer within 10 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/seathosts/{host}/profiles/{id}/key":
+    post:
+      summary: Set or forget a hosted profile's key
+      description: |-
+        Write-only: the key goes to the seat agent, which keeps
+        it in its key store, and nowhere else; no route answers it, only
+        whether one is kept. Only for a seat agent on this machine's unix
+        socket.
+      operationId: llm_key
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: host
+        in: path
+        required: true
+        description: "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeyBody"
+        required: true
+      responses:
+        "204":
+          description: Set, or forgotten
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a body with one `key`, an empty key, a name or
+            id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such seat agent connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The seat agent is not on this machine's unix socket (keys travel only over it),
+            or Baylee Central or the database is unavailable while an admin lease is checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "504":
+          description: The seat agent did not answer within 10 seconds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/llm/access:
+    get:
+      summary: Who may seat each hosted profile
+      description: |-
+        Every profile a seat agent reports or a policy names, by
+        id, with its policy and whether a seat agent reports it now. A profile
+        without a policy is open to nobody.
+      operationId: list
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileAccessList"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/access/{id}":
+    get:
+      summary: Who may seat one hosted profile
+      description: |-
+        One profile's policy and the accounts on its list. A
+        profile no seat agent reports and no policy names reads as `listed`
+        with nobody on it.
+      operationId: one
+      tags:
+      - Admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileAccessDetail"
+        "400":
+          description: The id is not 1-64 of A-Z a-z 0-9 . - _
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    put:
+      summary: Set who may seat a hosted profile
+      description: |-
+        Sets the profile's policy, and whether it is the default
+        seat; answers as `GET`. A change stops nothing already ordered: it is
+        read at each listing and each order.
+      operationId: set_policy
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and `updated_by`; ignored when the
+          bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileAccessDetail"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a
+            policy (an unknown field included), another policy word, or the default mark with a
+            policy other than `registered`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/access/{id}/allow":
+    post:
+      summary: Put accounts on a hosted profile's list
+      description: |-
+        Puts registered accounts on the profile's list, all or
+        nothing; a profile without a policy gets `listed`. Answers as `GET`,
+        with how many were added.
+      operationId: allow
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and `added_by`; ignored when the
+          bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountsBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessAdded"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list
+            of accounts (an unknown field included), fewer than 1 or more than 200, or one
+            that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: An id no account has; nobody was added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: A guest's account, which cannot seat a hosted model; nobody was added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/llm/access/{id}/disallow":
+    post:
+      summary: Take accounts off a hosted profile's list
+      description: |-
+        Takes accounts off the profile's list; an id not on it is
+        no error. Answers as `GET`, with how many were removed.
+      operationId: disallow
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountsBody"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessRemoved"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list
+            of accounts (an unknown field included), fewer than 1 or more than 200, or one
+            that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/accounts/lookup:
+    get:
+      summary: Find registered accounts by the start of a name
+      description: |-
+        Registered accounts whose username or display name starts
+        with `q`, for a list editor's type-ahead: the username equal to `q`
+        first, then by username, at most 10.
+      operationId: lookup
+      tags:
+      - Admin
+      parameters:
+      - name: q
+        in: query
+        required: false
+        description: >-
+          The start of a username or display name, any case (`%` and `_` are themselves);
+          fewer than 2 characters find nothing, at most 100.
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LookupAnswer"
+        "400":
+          description: A query parameter other than `q`, or a search over 100 characters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/accounts/{id}/password":
+    post:
+      summary: Reset a registered account's password
+      description: |-
+        Gives a registered account a random password, answered
+        once for the admin to hand on. The account must choose its own at its
+        next sign-in (`POST /auth/password`); every session it had is signed
+        out and its lobby sockets close. A game it sits in plays on. No body.
+      operationId: reset_password
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The account's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetPassword"
+        "400":
+          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: A guest's account, which has no password, or one linked to Baylee Central
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "500":
+          description: The password could not be hashed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The gateway's database or Baylee Central is unavailable, or a move of accounts
+            to Central holds credential changes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/accounts/{id}/ban":
+    put:
+      summary: Ban an account
+      description: |-
+        Bans an account, registered or guest, for good or until a
+        moment, replacing any ban it had. It leaves every room and game, its
+        sockets close and its chair tickets are spent; a registered account's
+        sessions are signed out. A guest keeps its session, which is refused
+        while the ban holds. Its sign-in and requests are refused with the
+        reason.
+      operationId: ban
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and the ban's `by`; ignored when
+          the bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The account's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanOrder"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBanned"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, an id that is not a UUID, not a ban (an unknown
+            field included), no reason or one over 500 characters or of two lines, or an `until`
+            that is not RFC 3339 or has passed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Lift an account's ban
+      description: |-
+        Lifts the ban on an account; one whose end has passed
+        counts as none.
+      operationId: unban
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The account's id
+        schema:
+          type: string
+          format: uuid
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Lifted
+        "400":
+          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No banned account by that id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  "/admin/games/{id}/close":
+    post:
+      summary: End a running game
+      description: |-
+        Ends a running game the way games end, through its
+        engine: every seat is told why, nobody wins or loses, and the record
+        ends there. An engine that has not ended it after 10 seconds, or a game
+        with no engine attached, is ended by the gateway itself.
+      operationId: close_game
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      - name: id
+        in: path
+        required: true
+        description: The game's id
+        schema:
+          type: string
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseOrder"
+        required: true
+      responses:
+        "202":
+          description: The engine was told, or the game ended
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not a reason to close (an unknown field included),
+            or no reason, one over 200 characters or of two lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No such table
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The table is not being played
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/terms:
+    get:
+      summary: The terms of use in force
+      description: |-
+        The terms in force, where they came from, and whether
+        Baylee Central holds them (until it does, they are shown and not
+        enforced); `{"terms": null}` for a gateway without terms.
+      operationId: current
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermsInForce"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            Baylee Central or the gateway's database is unavailable while an admin lease is
+            checked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    post:
+      summary: Publish a new version of the terms of use
+      description: |-
+        Publishes a new version and puts it in force; it goes to
+        Baylee Central at once, and every player is asked to accept it. A
+        published version never changes: a changed text needs a new version.
+      operationId: publish
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and the version's `published_by`;
+          ignored when the bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishBody"
+        required: true
+      responses:
+        "201":
+          description: Published and in force, as `GET /admin/terms` answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermsInForce"
+        "400":
+          description: >-
+            No valid `X-Baylee-Admin`, not terms to publish (an unknown field included), or
+            texts or a version outside the bounds; the sentence says which
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The version was published before, or is the one in force
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/terms/versions:
+    get:
+      summary: Every version of the terms an admin published
+      description: |-
+        Every version an admin published, newest first, with when
+        and by whom; versions from a file or the default are not listed.
+      operationId: versions
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermsVersions"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+components:
+  securitySchemes:
+    adminToken:
+      type: http
+      scheme: bearer
+      description: "`BAYLEE_ADMIN_TOKEN`, on the admin listener only. A change also names its admin in `X-Baylee-Admin`."
+  schemas:
+    AccessAdded:
+      type: object
+      properties:
+        added:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many of the accounts were not on the list already.
+      required:
+      - added
+      allOf:
+      - $ref: "#/components/schemas/ProfileAccessDetail"
+      description: "`POST /admin/llm/access/{id}/allow`."
+    AccessRemoved:
+      type: object
+      properties:
+        removed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many of the accounts were on the list.
+      required:
+      - removed
+      allOf:
+      - $ref: "#/components/schemas/ProfileAccessDetail"
+      description: "`POST /admin/llm/access/{id}/disallow`."
+    AccountBanned:
+      type: object
+      properties:
+        ban:
+          $ref: "#/components/schemas/BanBody"
+          description: The ban now in force.
+      required:
+      - ban
+      description: "`PUT /admin/accounts/{id}/ban`."
+    AccountTable:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The game's id.
+        name:
+          type: string
+          description: The room's name.
+        state:
+          type: string
+          description: Whether it is waiting for players or being played.
+          enum:
+          - waiting
+          - playing
+      required:
+      - id
+      - name
+      - state
+      description: The table an account sits at.
+    AccountsBody:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Account ids, 1 to 200; an id named twice counts once.
+          minItems: 1
+          maxItems: 200
+      required:
+      - accounts
+      additionalProperties: false
+      description: What `…/allow` and `…/disallow` take.
+    AllowedAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The account's id.
+        username:
+          type:
+          - string
+          - "null"
+          description: Its username, or `null`.
+        display_name:
+          type: string
+          description: What other players see.
+        handle:
+          type: string
+          description: Its handle, `Name#tag`.
+        added_at:
+          type: string
+          description: When it was put on the list, RFC 3339 in UTC.
+          format: date-time
+        added_by:
+          type: string
+          description: The admin who put it there.
+      required:
+      - id
+      - username
+      - display_name
+      - handle
+      - added_at
+      - added_by
+      description: An account on a profile's list.
+    BanBody:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Why, in the moderator's words.
+        until:
+          type:
+          - string
+          - "null"
+          description: When it ends, an RFC 3339 moment in UTC; `null` for good.
+          format: date-time
+      required:
+      - reason
+      - until
+      description: "How a ban reads on a refusal: `{\"reason\", \"until\"}`, `until` an RFC 3339 moment in UTC or `null` for good."
+    BanOrder:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: "Why, in the admin's words, which the player is shown: 1 to 500 characters after trimming, one line."
+        until:
+          type:
+          - string
+          - "null"
+          description: When the ban ends, an RFC 3339 moment in the future; absent or `null` for good.
+          format: date-time
+      required:
+      - reason
+      additionalProperties: false
+      description: What `PUT /admin/accounts/{id}/ban` takes.
+    BlockBody:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card's `CardIndex`; a card of this build's pool.
+        reason:
+          type: string
+          description: "Why, which the players are told: 1 to 200 characters after trimming, one line."
+        until:
+          type:
+          - string
+          - "null"
+          description: >-
+            When the block ends, RFC 3339, in the future and at most ten years ahead;
+            absent or `null` for a block without an end.
+          format: date-time
+      required:
+      - index
+      - reason
+      additionalProperties: false
+      description: What `POST /admin/cards/blocks` reads.
+    BlockInForce:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card's `CardIndex`.
+        name:
+          type: string
+          description: The card's English name.
+        reason:
+          type: string
+          description: Why, in the admin's words, which the players are told.
+        until:
+          type:
+          - string
+          - "null"
+          description: When it ends by itself, RFC 3339 in UTC; `null` for never.
+          format: date-time
+      required:
+      - index
+      - name
+      - reason
+      - until
+      description: A block in force, as a player is told it.
+    Build:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The release, e.g. `0.1.0-beta.8a`.
+        commit:
+          type: string
+          description: The commit it was built from.
+        build:
+          type: string
+          description: The build's number.
+        built_at:
+          type: string
+          description: When it was built.
+        dirty:
+          type: boolean
+          description: Whether the tree it was built from had changes the commit does not hold.
+      required:
+      - version
+      - commit
+      - build
+      - built_at
+      - dirty
+      description: "Which binary answers: the same five fields in `/source`, `/info` and `/health`."
+    CloseOrder:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: "Why, in the admin's words, which the players are shown: 1 to 200 characters after trimming, one line."
+      required:
+      - reason
+      additionalProperties: false
+      description: What `POST /admin/games/{id}/close` takes.
+    ConsoleAccount:
+      type: object
+      properties:
+        handle:
+          type: string
+          description: Its handle, `Name#tag`.
+        in_lobby:
+          type: boolean
+          description: Whether a lobby socket of it is open.
+        playing:
+          type: boolean
+          description: Whether it sits in a running game.
+        online:
+          type: boolean
+          description: Whether it has a lobby socket open or a chair at a table.
+      required:
+      - handle
+      - in_lobby
+      - playing
+      - online
+      allOf:
+      - $ref: "#/components/schemas/ConsoleAccountRow"
+      description: One account as the console lists it.
+    ConsoleAccountCounts:
+      type: object
+      properties:
+        registered:
+          type: integer
+          format: int64
+          description: Accounts that are not guests.
+        with_email:
+          type: integer
+          format: int64
+          description: Of those, the ones with an e-mail address.
+        confirmed_email:
+          type: integer
+          format: int64
+          description: Of those, the ones whose address was confirmed.
+        admitted_by_key:
+          type: integer
+          format: int64
+          description: Registered accounts a closed-beta key let in, that still exist.
+        created:
+          $ref: "#/components/schemas/ConsoleSince"
+          description: Registered accounts made in each window that still exist.
+        decks:
+          type: integer
+          format: int64
+          description: Players' own decks.
+      required:
+      - registered
+      - with_email
+      - confirmed_email
+      - admitted_by_key
+      - created
+      - decks
+      description: "`GET /admin/stats`'s registered accounts."
+    ConsoleAccountDetail:
+      type: object
+      properties:
+        handle:
+          type: string
+          description: Its handle, `Name#tag`.
+        in_lobby:
+          type: boolean
+          description: Whether a lobby socket of it is open.
+        table:
+          anyOf:
+          - $ref: "#/components/schemas/AccountTable"
+          - type: "null"
+          description: The table it sits at, or `null`.
+        online:
+          type: boolean
+          description: Whether it has a lobby socket open or sits at a table.
+      required:
+      - handle
+      - in_lobby
+      - table
+      - online
+      allOf:
+      - $ref: "#/components/schemas/ConsoleDetail"
+      description: "`GET /admin/accounts/{id}`."
+    ConsoleAccountRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The account's id.
+        username:
+          type:
+          - string
+          - "null"
+          description: Its username, the name it signs in with; `null` for a guest, which has none.
+        display_name:
+          type: string
+          description: The name other players see.
+        tag:
+          type: integer
+          format: int32
+          description: >-
+            The number that tells two accounts of one name apart, shown in hex in its
+            handle (`Alice#af03`).
+        guest:
+          type: boolean
+          description: Whether it is a guest.
+        created_at:
+          type: string
+          description: When it was made, RFC 3339 in UTC.
+          format: date-time
+        has_email:
+          type: boolean
+          description: Whether it has an e-mail address (never the address).
+        confirmed:
+          type: boolean
+          description: Whether that address was confirmed.
+        lang:
+          type: string
+          description: The language code it registered in.
+        by_key:
+          type: boolean
+          description: Whether a closed-beta key admitted it.
+        key_note:
+          type:
+          - string
+          - "null"
+          description: >-
+            The note of the key that admitted it; `null` when no key did, or the key is
+            gone or has no note.
+        terms_version:
+          type:
+          - string
+          - "null"
+          description: The version of the terms it last accepted, `null` for none.
+        decks:
+          type: integer
+          format: int64
+          description: How many decks it has.
+        games:
+          type: integer
+          format: int64
+          description: How many recorded games it sat in.
+        sessions:
+          type: integer
+          format: int64
+          description: How many of its sessions have not lapsed.
+        active_at:
+          type:
+          - string
+          - "null"
+          description: "When its latest live session was last renewed, RFC 3339 in UTC: it was active then, or up to a renewal interval (6 hours, a guest's a day) later. `null` without a live session."
+          format: date-time
+        reset_pending:
+          type: boolean
+          description: Whether an admin reset its password and it has not chosen its own yet.
+        ban:
+          anyOf:
+          - $ref: "#/components/schemas/ConsoleBan"
+          - type: "null"
+          description: The ban in force on it, `null` when none is (a lapsed ban is none).
+      required:
+      - id
+      - username
+      - display_name
+      - tag
+      - guest
+      - created_at
+      - has_email
+      - confirmed
+      - lang
+      - by_key
+      - key_note
+      - terms_version
+      - decks
+      - games
+      - sessions
+      - active_at
+      - reset_pending
+      - ban
+      description: "One account as the admin console lists it: never a password, a token, an e-mail address or a deck's cards."
+    ConsoleAccounts:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: How many accounts match, over every page.
+        online:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many accounts are online now, matching or not.
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleAccount"
+          description: This page of them.
+      required:
+      - total
+      - online
+      - accounts
+      description: "`GET /admin/accounts`."
+    ConsoleAgentCounts:
+      type: object
+      properties:
+        connected:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Engine agents connected now.
+        local:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Of those, the ones on this machine's unix socket.
+        capacity:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: How many games they may run together; `null` when one of them has no bound.
+        games:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The games they were asked to run.
+      required:
+      - connected
+      - local
+      - capacity
+      - games
+      description: "`GET /admin/stats`'s engine agents."
+    ConsoleBan:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Why, in the admin's words, which its player is shown.
+        until:
+          type:
+          - string
+          - "null"
+          description: When it ends, RFC 3339 in UTC; `null` for a ban for good.
+          format: date-time
+        at:
+          type: string
+          description: Since when, RFC 3339 in UTC.
+          format: date-time
+        by:
+          type: string
+          description: The admin who banned it.
+      required:
+      - reason
+      - until
+      - at
+      - by
+      description: A ban in force on an account.
+    ConsoleChair:
+      type: object
+      properties:
+        seat:
+          type: integer
+          format: int32
+          description: The chair's seat number.
+        player:
+          type:
+          - string
+          - "null"
+          description: >-
+            Who sat there, by handle (`Alice#af03`); `null` for a chair no account held
+            (the house's) or whose account is gone.
+        guest:
+          type:
+          - boolean
+          - "null"
+          description: Whether that account is a guest; `null` when `player` is.
+      required:
+      - seat
+      description: One chair of a recorded game.
+    ConsoleDay:
+      type: object
+      properties:
+        day:
+          type: string
+          description: The day, `YYYY-MM-DD` in UTC.
+          format: date
+        registered:
+          type: integer
+          format: int64
+          description: Registered accounts made that day that still exist.
+        guests:
+          type: integer
+          format: int64
+          description: Guests made that day that still exist.
+        started:
+          type: integer
+          format: int64
+          description: Recorded games started that day.
+        finished:
+          type: integer
+          format: int64
+          description: Recorded games finished that day.
+        players:
+          type: integer
+          format: int64
+          description: Accounts that sat in a game started that day.
+      required:
+      - day
+      - registered
+      - guests
+      - started
+      - finished
+      - players
+      description: One UTC day of the admin console's statistics.
+    ConsoleDeck:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The deck's id.
+        name:
+          type: string
+          description: Its name.
+        format:
+          type: string
+          description: Its format (`commander`, `freeform`, …).
+        cards:
+          type: integer
+          format: int64
+          description: "How many cards its main deck holds: each line's count (`40 Forest`), a line without one counting once."
+        version:
+          type: integer
+          format: int32
+          description: "Its version: how many versions it has had."
+        updated_at:
+          type: string
+          description: When it last changed, RFC 3339 in UTC.
+          format: date-time
+      required:
+      - id
+      - name
+      - format
+      - cards
+      - version
+      - updated_at
+      description: One of an account's decks, without its cards.
+    ConsoleDetail:
+      type: object
+      properties:
+        terms_accepted_at:
+          type:
+          - string
+          - "null"
+          description: When it last accepted the terms, RFC 3339 in UTC; `null` if it never did.
+          format: date-time
+        confirmed_at:
+          type:
+          - string
+          - "null"
+          description: When its e-mail address was confirmed, RFC 3339 in UTC; `null` when it was not.
+          format: date-time
+        deck_list:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleDeck"
+          description: Its decks, the latest changed first.
+        recent_games:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleGame"
+          description: Its latest 25 recorded games, newest first.
+      required:
+      - terms_accepted_at
+      - confirmed_at
+      - deck_list
+      - recent_games
+      allOf:
+      - $ref: "#/components/schemas/ConsoleAccountRow"
+      description: "One account in full: its row as the console lists it, its decks and its latest games."
+    ConsoleGame:
+      type: object
+      properties:
+        game_id:
+          type: string
+          description: The game's id.
+        started_at:
+          type: string
+          description: When it started, RFC 3339 in UTC.
+          format: date-time
+        ended_at:
+          type:
+          - string
+          - "null"
+          description: When its record ended, RFC 3339 in UTC; `null` while it has not.
+          format: date-time
+        complete:
+          type: boolean
+          description: Whether its record is complete.
+        seat:
+          type: integer
+          format: int32
+          description: The seat number of the account's chair.
+        chairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleChair"
+          description: Every chair, in seat order.
+      required:
+      - game_id
+      - started_at
+      - ended_at
+      - complete
+      - seat
+      - chairs
+      description: One recorded game an account sat in.
+    ConsoleGameCounts:
+      type: object
+      properties:
+        running:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Games being played (as `/health` counts them).
+        local_running:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Of those, games whose engine runs on this machine.
+        waiting:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Rooms waiting for players.
+        seats_awaiting_engine:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Seats of running games whose engine has not dialled back yet.
+        recorded:
+          type: integer
+          format: int64
+          description: "Games with a record: every hosted game whose engine sent the first piece of it."
+        started:
+          $ref: "#/components/schemas/ConsoleSince"
+          description: Recorded games started in each window.
+        finished:
+          type: integer
+          format: int64
+          description: Recorded games whose record is complete.
+        finished_since:
+          $ref: "#/components/schemas/ConsoleSince"
+          description: Of those, the ones finished in each window.
+        record_bytes:
+          type: integer
+          format: int64
+          description: The bytes every record holds together.
+        avg_secs_30d:
+          type: integer
+          format: int64
+          description: >-
+            The mean length in seconds of the games finished in the last 30 days; `0` for
+            none.
+      required:
+      - running
+      - local_running
+      - waiting
+      - seats_awaiting_engine
+      - recorded
+      - started
+      - finished
+      - finished_since
+      - record_bytes
+      - avg_secs_30d
+      description: "`GET /admin/stats`'s games."
+    ConsoleGateway:
+      type: object
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          description: The name it shows (`BAYLEE_GATEWAY_NAME`), `null` for none.
+        registration:
+          $ref: "#/components/schemas/Registration"
+          description: Who may make an account.
+        uptime_secs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Seconds this process has served.
+        terms:
+          type: boolean
+          description: Whether it has terms of use.
+        mail:
+          type: boolean
+          description: Whether it sends mail (`BAYLEE_SMTP_URL`).
+      required:
+      - name
+      - registration
+      - uptime_secs
+      - terms
+      - mail
+      allOf:
+      - $ref: "#/components/schemas/Build"
+      description: "`GET /admin/stats`'s gateway."
+    ConsoleGuestCounts:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether guests are let in (`BAYLEE_GUESTS`).
+        live:
+          type: integer
+          format: int64
+          description: Guest accounts now, each one a live session leads to until the next sweep.
+        cap:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: How many guests may be live at once (`BAYLEE_GUEST_CAP`); `null` for no cap.
+        created:
+          $ref: "#/components/schemas/ConsoleSince"
+          description: Guests made in each window that still exist.
+      required:
+      - enabled
+      - live
+      - cap
+      - created
+      description: "`GET /admin/stats`'s guests."
+    ConsoleInviteCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+          format: int64
+          description: Keys ever made.
+        active:
+          type: integer
+          format: int64
+          description: "Keys that admit somebody now: not revoked, not expired, a use left."
+        used_up:
+          type: integer
+          format: int64
+          description: Keys not revoked and not expired, with no use left.
+        expired:
+          type: integer
+          format: int64
+          description: Keys not revoked whose expiry has passed.
+        revoked:
+          type: integer
+          format: int64
+          description: Keys revoked.
+        uses_left:
+          type: integer
+          format: int64
+          description: The uses the active keys have left, together.
+        admitted:
+          type: integer
+          format: int64
+          description: The existing accounts a key let in.
+      required:
+      - total
+      - active
+      - used_up
+      - expired
+      - revoked
+      - uses_left
+      - admitted
+      description: "`GET /admin/stats`'s closed-beta keys."
+    ConsoleLive:
+      type: object
+      properties:
+        at:
+          type: string
+          description: When it was read, RFC 3339 in UTC.
+          format: date-time
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/LivePlayer"
+          description: Every account with a lobby socket open or a chair at a waiting or running table.
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveTable"
+          description: The waiting rooms first, then the running games, newest first.
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveAgent"
+          description: The engine agents connected now, by id.
+      required:
+      - at
+      - players
+      - tables
+      - agents
+      description: "`GET /admin/live`."
+    ConsoleOnline:
+      type: object
+      properties:
+        players:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            Accounts with a lobby socket open or a chair at a running game (`GET
+            /lobby/stats`'s `players_online`).
+        in_lobby:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Accounts with a lobby socket open.
+        seated:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Accounts in a chair of a running game.
+        sessions_live:
+          type: integer
+          format: int64
+          description: "Sessions that have not lapsed, which is not presence: a guest's lasts 30 days."
+        accounts_signed_in:
+          type: integer
+          format: int64
+          description: Accounts with at least one such session.
+      required:
+      - players
+      - in_lobby
+      - seated
+      - sessions_live
+      - accounts_signed_in
+      description: "`GET /admin/stats`'s presence."
+    ConsoleSet:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/SetCard"
+          description: The set's cards, in ledger order.
+      required:
+      - cards
+      allOf:
+      - $ref: "#/components/schemas/SetProgress"
+      description: "`GET /admin/sets/{code}`."
+    ConsoleSets:
+      type: object
+      properties:
+        at:
+          type: string
+          description: When it was read, RFC 3339 in UTC.
+          format: date-time
+        version:
+          type: string
+          description: The release this build is.
+        corpus:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "The cards of the corpus: every row of the ledger."
+        pool:
+          $ref: "#/components/schemas/PoolTotals"
+          description: The pool this build plays, over every set.
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/SetProgress"
+          description: >-
+            Every set, in the ledger's order (release order by first printing); a set
+            counts the cards first printed in it.
+      required:
+      - at
+      - version
+      - corpus
+      - pool
+      - sets
+      description: "`GET /admin/sets`."
+    ConsoleSince:
+      type: object
+      properties:
+        today_utc:
+          type: integer
+          format: int64
+          description: Since midnight UTC today.
+        last_7d:
+          type: integer
+          format: int64
+          description: In the last 7 × 24 hours.
+        last_30d:
+          type: integer
+          format: int64
+          description: In the last 30 × 24 hours.
+      required:
+      - today_utc
+      - last_7d
+      - last_30d
+      description: How many of something there were since three moments.
+    ConsoleStats:
+      type: object
+      properties:
+        at:
+          type: string
+          description: When the counts were taken, RFC 3339 in UTC.
+          format: date-time
+        gateway:
+          $ref: "#/components/schemas/ConsoleGateway"
+          description: This gateway and its build.
+        accounts:
+          $ref: "#/components/schemas/ConsoleAccountCounts"
+          description: Registered accounts.
+        guests:
+          $ref: "#/components/schemas/ConsoleGuestCounts"
+          description: Guest accounts.
+        online:
+          $ref: "#/components/schemas/ConsoleOnline"
+          description: Who is online now.
+        games:
+          $ref: "#/components/schemas/ConsoleGameCounts"
+          description: Games, in the lobby now and as recorded.
+        agents:
+          $ref: "#/components/schemas/ConsoleAgentCounts"
+          description: The engine agents connected now.
+        social:
+          description: "Friends and chat: `devices`, `friendships`, `groups`, `pending_slots` and `sockets`, all counts; `null` when the gateway has none or its counts could not be read."
+          type:
+          - object
+          - "null"
+          properties:
+            devices:
+              type: integer
+            friendships:
+              type: integer
+            groups:
+              type: integer
+            pending_slots:
+              type: integer
+            sockets:
+              type: integer
+        invites:
+          $ref: "#/components/schemas/ConsoleInviteCounts"
+          description: The closed-beta keys.
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleDay"
+          description: The last 30 UTC days, oldest first, today last.
+      required:
+      - at
+      - gateway
+      - accounts
+      - guests
+      - online
+      - games
+      - agents
+      - social
+      - invites
+      - daily
+      description: "`GET /admin/stats`."
+    ConsoleTerms:
+      type: object
+      properties:
+        version:
+          type: string
+          description: What an account accepts.
+        digest:
+          type: string
+          description: "Baylee Central's digest of every text, in lowercase hex: what an acceptance names beside the version."
+        source:
+          type: string
+          description: "Where they came from: an admin published them, a file (`BAYLEE_TERMS_PATH`) named them, or they are the default every gateway ships."
+          enum:
+          - published
+          - file
+          - default
+        at_central:
+          type: boolean
+          description: >-
+            Whether Baylee Central holds them; until it does, they are shown and not
+            enforced.
+        texts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsoleTermsText"
+          description: One text per language (`en` for a single file).
+      required:
+      - version
+      - digest
+      - source
+      - at_central
+      - texts
+      description: The terms in force, as the console shows them.
+    ConsoleTermsText:
+      type: object
+      properties:
+        lang:
+          type: string
+          description: Its primary language tag, lowercase (`de`, `en`).
+        updated:
+          type:
+          - string
+          - "null"
+          description: The date it names as its last change, or `null`.
+        markdown:
+          type: string
+          description: The text, in Markdown.
+      required:
+      - lang
+      - updated
+      - markdown
+      description: The terms in one language.
+    CreateBody:
+      type: object
+      properties:
+        uses:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: How many accounts each key admits, 1 to 1000; 1 when absent.
+          minimum: 1
+          maximum: 1000
+        expires:
+          type:
+          - string
+          - "null"
+          description: "How long the keys admit anybody, in days or hours, 1 to 3650 of them: `30d`, `12h`; for ever when absent."
+          example: 30d
+        note:
+          type:
+          - string
+          - "null"
+          description: "Who the keys are for: one line, at most 100 characters."
+        count:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: How many keys, 1 to 100; 1 when absent.
+          minimum: 1
+          maximum: 100
+      additionalProperties: false
+      description: "`baylee-gateway invite create`'s flags as fields, read by the command's own parser: the same defaults, bounds and refusals. Every field may be left out."
+    Definition:
+      type: object
+      properties:
+        label:
+          type: string
+          description: What players see it called.
+        vendor:
+          type: string
+          description: Who the game data goes to.
+        enabled:
+          type: boolean
+          description: Whether it is offered at all; `true` when absent.
+        max_games:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: How many games it plays at once; no bound when absent.
+        caps:
+          description: >-
+            Its own spend caps, in the seat settings file's format (`docs/llm-seat.md`);
+            none when absent.
+        canary:
+          type: boolean
+          description: Whether each probe also makes a paid canary call.
+        fallback:
+          type:
+          - string
+          - "null"
+          description: >-
+            Another profile of the same seat agent and vendor that takes a game over when
+            this one's model is rate limited or busy, and that new games start on while this
+            one is not available; none when absent.
+        profile:
+          description: One profile of the seat settings file, in its own format (`docs/llm-seat.md`).
+      required:
+      - label
+      - vendor
+      - profile
+      additionalProperties: false
+      description: "A hosted profile's definition, as an admin writes it: nothing secret (a key is written apart). The seat agent checks it and answers its refusal in a sentence."
+    EnabledBody:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the profile is offered.
+      required:
+      - enabled
+      additionalProperties: false
+      description: What `…/enabled` takes.
+    ErrorBody:
+      type: object
+      properties:
+        error:
+          type: string
+          description: What went wrong, as one sentence for a person.
+        ban:
+          $ref: "#/components/schemas/BanBody"
+          description: "The ban an account is refused with (beta.8): only on a `403` from a sign-in or a session of a banned account (`moderation.rs`)."
+        password_change:
+          type: boolean
+          description: "The account must choose a new password first (beta.8): only on the `403` a sign-in with an admin's reset password is answered."
+        terms_required:
+          type: string
+          description: "Whose terms of use the account has to accept first (`central` or `gateway`): only on the `403` of a session that has not (`terms_admit`)."
+          enum:
+          - central
+          - gateway
+      required:
+      - error
+      description: "A refusal: one English sentence in `error`, and the parts a client words itself where a refusal has them."
+    FoundCard:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Its `CardIndex`, which a block takes.
+        name:
+          type: string
+          description: Its English name.
+        type_line:
+          type: string
+          description: Its printed type line.
+        mana_cost:
+          type: string
+          description: Its mana cost (`docs/mana-notation.md`), empty for a land.
+        coverage:
+          type: string
+          description: How far this build plays it.
+          enum:
+          - implemented
+          - generated
+          - partial
+          - unimplemented
+        scryfall_id:
+          type: string
+          description: The Scryfall id of its printing in the pool.
+        blocked:
+          anyOf:
+          - $ref: "#/components/schemas/BlockInForce"
+          - type: "null"
+          description: The block in force on it, or `null`.
+      required:
+      - index
+      - name
+      - type_line
+      - mana_cost
+      - coverage
+      - scryfall_id
+      - blocked
+      description: A card of the pool `GET /admin/cards/search` found.
+    FoundCards:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/FoundCard"
+          description: The cards found, at most 25.
+      required:
+      - cards
+      description: "`GET /admin/cards/search`."
+    GameColumns:
+      type: object
+      properties:
+        game_id:
+          type: string
+          description: The game it runs.
+        pid:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Its process id.
+        cpu:
+          type: array
+          items:
+            type:
+            - number
+            - "null"
+            format: double
+          description: Cores used, per sample; `null` where a sample did not have it.
+        rss:
+          type: array
+          items:
+            type:
+            - integer
+            - "null"
+            format: int64
+            minimum: 0
+          description: Resident memory in bytes, per sample; `null` where a sample did not have it.
+      required:
+      - game_id
+      - pid
+      - cpu
+      - rss
+      description: One engine process of the latest sample, over the whole ring.
+    GameShown:
+      type: object
+      properties:
+        game_id:
+          type: string
+          description: The game it runs.
+        pid:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Its process id.
+        cpu:
+          type:
+          - number
+          - "null"
+          format: double
+          description: Cores used over the interval (0.5 is half a core); `null` on its first sample.
+        rss:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Resident memory, in bytes.
+      required:
+      - game_id
+      - pid
+      - cpu
+      - rss
+      description: One engine process in a sample.
+    HostNow:
+      type: object
+      properties:
+        uptime_secs:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: Seconds since the host booted; `null` off Linux.
+        mem_total:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: The host's memory in bytes; `null` off Linux.
+        disk_total:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: The disk's size in bytes, as this process could fill it.
+        disk_path:
+          type: string
+          description: The filesystem whose space is reported (`/`).
+        load:
+          type:
+          - array
+          - "null"
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+          description: The 1-, 5- and 15-minute load averages; `null` off Linux.
+      required:
+      - uptime_secs
+      - mem_total
+      - disk_total
+      - disk_path
+      - load
+      description: "`GET /admin/metrics`'s host."
+    HostedProfile:
+      type: object
+      properties:
+        available:
+          type: boolean
+          description: Whether it may be ordered now (`state` is `available`).
+        games:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Games it plays now, over every seat agent.
+        id:
+          type: string
+          description: The profile's id, which an order names.
+        kind:
+          type: string
+          description: How its seat agent runs it (`api`, or a CLI).
+        label:
+          type: string
+          description: What players see it called.
+        max_games:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: >-
+            How many it may play at once over every seat agent; `null` when one of them
+            sets no bound.
+        model:
+          type: string
+          description: The model.
+        state:
+          type: string
+          description: The best state any seat agent holding it reports.
+          enum:
+          - available
+          - busy
+          - probing
+          - exhausted
+          - needs_login
+          - failing
+          - disabled
+        until_unix:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: >-
+            When that state is expected to end, in Unix seconds (the earliest any seat
+            agent reports); `null` when none says.
+        vendor:
+          type: string
+          description: Who the game data goes to.
+      required:
+      - available
+      - games
+      - id
+      - kind
+      - label
+      - max_games
+      - model
+      - state
+      - until_unix
+      - vendor
+      description: "A hosted model a player may seat: one row per profile id over every connected seat agent."
+    KeyBody:
+      type: object
+      properties:
+        key:
+          type:
+          - string
+          - "null"
+          description: The key, trimmed; `null` forgets it. Never empty.
+      additionalProperties: false
+      description: A provider's API key for a hosted profile, or `null` to forget the one kept.
+    ListedBlock:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The block's id, which lifting it takes.
+        index:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card's `CardIndex`.
+        name:
+          type: string
+          description: "The card's English name: this build's, else the one stored with the block."
+        reason:
+          type: string
+          description: Why, in the admin's words, which the players are told.
+        created_at:
+          type: string
+          description: When it was made, RFC 3339 in UTC.
+          format: date-time
+        created_by:
+          type: string
+          description: The admin who made it.
+        until:
+          type:
+          - string
+          - "null"
+          description: When it ends by itself, RFC 3339 in UTC; `null` for never.
+          format: date-time
+        lifted_at:
+          type:
+          - string
+          - "null"
+          description: When it was lifted, RFC 3339 in UTC, or `null`.
+          format: date-time
+        lifted_by:
+          type:
+          - string
+          - "null"
+          description: The admin who lifted it, or `null`.
+        state:
+          type: string
+          description: "`active`, `expired` (its `until` passed) or `lifted`."
+          enum:
+          - active
+          - expired
+          - lifted
+      required:
+      - id
+      - index
+      - name
+      - reason
+      - created_at
+      - created_by
+      - until
+      - lifted_at
+      - lifted_by
+      - state
+      description: One card block as the console lists it.
+    ListedInvite:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The key's id, which `DELETE /admin/invites/{id}` takes.
+        created_at:
+          type: string
+          description: When it was made, RFC 3339 in UTC.
+          format: date-time
+        note:
+          type:
+          - string
+          - "null"
+          description: Who it is for, or `null`.
+        uses_left:
+          type: integer
+          format: int32
+          description: How many more accounts it may admit.
+        expires_at:
+          type:
+          - string
+          - "null"
+          description: When it stops admitting anybody, RFC 3339 in UTC; `null` for never.
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - "null"
+          description: When it was revoked, RFC 3339 in UTC, or `null`.
+          format: date-time
+        admitted:
+          type: integer
+          format: int64
+          description: How many accounts that still exist it admitted.
+        state:
+          type: string
+          description: "What it can still do: `revoked`, `expired`, `used_up` (no use left) or `active`."
+          enum:
+          - active
+          - used_up
+          - expired
+          - revoked
+      required:
+      - id
+      - created_at
+      - note
+      - uses_left
+      - expires_at
+      - revoked_at
+      - admitted
+      - state
+      description: "One closed-beta key as the console lists it: never the key, which is not kept."
+    LiveAgent:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The agent's id.
+        name:
+          type: string
+          description: Its name (`BAYLEE_AGENT_NAME`).
+        local:
+          type: boolean
+          description: Whether it came in on this machine's unix socket.
+        capacity:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: How many games it may run at once; `0` for no bound.
+        games:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many it runs.
+      required:
+      - id
+      - name
+      - local
+      - capacity
+      - games
+      description: An engine agent in the live view.
+    LivePlayer:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The account's id.
+          format: uuid
+        handle:
+          type:
+          - string
+          - "null"
+          description: Its handle, `Name#tag`.
+        guest:
+          type:
+          - boolean
+          - "null"
+          description: Whether it is a guest.
+        in_lobby:
+          type: boolean
+          description: Whether a lobby socket of it is open.
+        playing:
+          type:
+          - string
+          - "null"
+          description: The id of the running game it sits in, or `null`.
+        waiting:
+          type:
+          - string
+          - "null"
+          description: The id of the waiting room it sits in, or `null`.
+      required:
+      - id
+      - handle
+      - guest
+      - in_lobby
+      - playing
+      - waiting
+      description: An account that is here now.
+    LiveSeat:
+      type: object
+      properties:
+        seat:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The chair's number.
+        kind:
+          $ref: "#/components/schemas/SeatKind"
+          description: Whether the chair is for a person or the house AI.
+        ai:
+          type:
+          - string
+          - "null"
+          description: The house AI's profile, `null` for a person's chair.
+        account_id:
+          type:
+          - string
+          - "null"
+          description: The account in it, or that handed it to a seat bridge; `null` for none.
+        player:
+          type:
+          - string
+          - "null"
+          description: The handle of the account in it, or `null`.
+        guest:
+          type:
+          - boolean
+          - "null"
+          description: Whether that account is a guest.
+        bridge:
+          type:
+          - string
+          - "null"
+          description: The name a seat bridge sits under (`LLM-…`), or `null`.
+        bridged_by:
+          type:
+          - string
+          - "null"
+          description: The handle of the account that handed the chair to the bridge, or `null`.
+        hosted:
+          description: The hosted model ordered for this chair, or `null`.
+          type:
+          - object
+          - "null"
+          properties:
+            profile:
+              type: string
+            label:
+              type: string
+            vendor:
+              type: string
+            model:
+              type: string
+            state:
+              type: string
+              enum:
+              - starting
+              - ready
+              - failed
+            note:
+              type:
+              - string
+              - "null"
+        deck:
+          type: string
+          description: The deck's name.
+        format:
+          type:
+          - string
+          - "null"
+          description: The deck's format, or `null`.
+        ready:
+          type: boolean
+          description: Whether the chair is ready.
+        team:
+          type:
+          - integer
+          - "null"
+          format: int32
+          minimum: 0
+          maximum: 255
+          description: The chair's team, `null` for none.
+      required:
+      - seat
+      - kind
+      - ai
+      - account_id
+      - player
+      - guest
+      - bridge
+      - bridged_by
+      - hosted
+      - deck
+      - format
+      - ready
+      - team
+      description: A chair of a table in the live view.
+    LiveTable:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The game's id.
+        name:
+          type: string
+          description: The room's name.
+        state:
+          type: string
+          description: Whether it is waiting for players or being played.
+          enum:
+          - waiting
+          - playing
+        host:
+          type:
+          - string
+          - "null"
+          description: The host's handle, or `null`.
+        host_id:
+          type:
+          - string
+          - "null"
+          description: The host's account id, or `null`.
+        created_at:
+          type: string
+          description: When the room was opened, RFC 3339 in UTC.
+          format: date-time
+        locked:
+          type: boolean
+          description: Whether the room has a password (never what).
+        rematch:
+          type: boolean
+          description: Whether it is a rematch of an earlier game.
+        decide_secs:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: Seconds a player has for each decision.
+        engine:
+          type: boolean
+          description: Whether its engine is attached.
+        engine_local:
+          type: boolean
+          description: Whether its engine runs on this machine.
+        agent:
+          type:
+          - string
+          - "null"
+          description: The engine agent running it, by name (its id when the agent is gone), or `null`.
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveSeat"
+          description: Its chairs.
+      required:
+      - id
+      - name
+      - state
+      - host
+      - host_id
+      - created_at
+      - locked
+      - rematch
+      - decide_secs
+      - engine
+      - engine_local
+      - agent
+      - seats
+      description: A table of the live view.
+    LookedUp:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The account's id.
+        username:
+          type:
+          - string
+          - "null"
+          description: Its username, or `null`.
+        display_name:
+          type: string
+          description: What other players see.
+        handle:
+          type: string
+          description: Its handle, `Name#tag`.
+      required:
+      - id
+      - username
+      - display_name
+      - handle
+      description: An account the type-ahead found.
+    LookupAnswer:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LookedUp"
+          description: >-
+            At most 10 registered accounts, the username equal to `q` first, then by
+            username.
+      required:
+      - accounts
+      description: "`GET /admin/accounts/lookup`."
+    MadeInvite:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Its id.
+        key:
+          type: string
+          description: "The key, to hand on: it is never shown again."
+      required:
+      - id
+      - key
+      description: One key made.
+    MadeInvites:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/MadeInvite"
+          description: Each key and its id.
+        uses:
+          type: integer
+          format: int32
+          description: How many accounts each key admits.
+        expires_at:
+          type:
+          - string
+          - "null"
+          description: When they stop admitting anybody, RFC 3339 in UTC; `null` for never.
+          format: date-time
+        note:
+          type:
+          - string
+          - "null"
+          description: Who they are for, `null` for nobody named.
+      required:
+      - keys
+      - uses
+      - expires_at
+      - note
+      description: "`POST /admin/invites`: the keys made, the one time they are shown."
+    MetricsHistory:
+      type: object
+      properties:
+        at:
+          type: array
+          items:
+            type: integer
+            format: int64
+            minimum: 0
+          description: When each was taken, in Unix seconds.
+        cpu:
+          type: array
+          items:
+            type:
+            - number
+            - "null"
+            format: double
+          description: The share of all cores busy, 0 to 1.
+        load1:
+          type: array
+          items:
+            type:
+            - number
+            - "null"
+            format: double
+          description: The 1-minute load average.
+        mem_used:
+          type: array
+          items:
+            type:
+            - integer
+            - "null"
+            format: int64
+            minimum: 0
+          description: Bytes of memory in use.
+        disk_used:
+          type: array
+          items:
+            type:
+            - integer
+            - "null"
+            format: int64
+            minimum: 0
+          description: Bytes in use on the disk.
+        net_in:
+          type: array
+          items:
+            type:
+            - number
+            - "null"
+            format: double
+          description: Bytes a second received.
+        net_out:
+          type: array
+          items:
+            type:
+            - number
+            - "null"
+            format: double
+          description: Bytes a second sent.
+        sockets:
+          type: array
+          items:
+            type:
+            - integer
+            - "null"
+            format: int64
+            minimum: 0
+            maximum: 4294967295
+          description: This process's open sockets.
+        requests:
+          type: array
+          items:
+            type: number
+            format: double
+          description: Requests a second on the public routes.
+      required:
+      - at
+      - cpu
+      - load1
+      - mem_used
+      - disk_used
+      - net_in
+      - net_out
+      - sockets
+      - requests
+      description: "`GET /admin/metrics`'s columns: one value per sample, oldest first."
+    MetricsSnapshot:
+      type: object
+      properties:
+        at:
+          type: string
+          description: When it was read, RFC 3339 in UTC.
+          format: date-time
+        interval_secs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Seconds between two samples (5).
+        keep:
+          type: integer
+          format: int64
+          minimum: 0
+          description: How many samples the ring keeps (720, an hour).
+        platform:
+          type: string
+          description: The operating system this gateway runs on (`linux`, `macos`, …).
+        cores:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The cores this process may use.
+        process_uptime_secs:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Seconds this process has served.
+        host:
+          $ref: "#/components/schemas/HostNow"
+          description: "The host now: what the ring does not keep."
+        now:
+          anyOf:
+          - $ref: "#/components/schemas/SampleShown"
+          - type: "null"
+          description: The latest sample, or `null` before the first.
+        history:
+          $ref: "#/components/schemas/MetricsHistory"
+          description: The ring's samples, oldest first, one column per field and one value per sample.
+        games:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameColumns"
+          description: >-
+            The engine processes of the latest sample, each with its column over the whole
+            ring.
+      required:
+      - at
+      - interval_secs
+      - keep
+      - platform
+      - cores
+      - process_uptime_secs
+      - host
+      - now
+      - history
+      - games
+      description: "`GET /admin/metrics`."
+    PolicyBody:
+      type: object
+      properties:
+        policy:
+          type: string
+          description: Who may seat the profile.
+          enum:
+          - registered
+          - listed
+          - nobody
+        default_for_registered:
+          type:
+          - boolean
+          - "null"
+          description: "`true` makes it the operator's default seat, taking the mark from any other profile (only with `registered`); `false` takes the mark away; absent leaves it, though another policy than `registered` takes it away too."
+      required:
+      - policy
+      additionalProperties: false
+      description: What `PUT /admin/llm/access/{id}` takes.
+    PoolTotals:
+      type: object
+      properties:
+        cards:
+          type: integer
+          format: int64
+          minimum: 0
+          description: "The pool's cards: implemented, generated, partial and unimplemented together."
+        implemented:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards rules-complete and played by a card test.
+        generated:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards read in full that no card test plays yet; playable.
+        partial:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards only partly there.
+        unimplemented:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards that compile as stubs.
+        absent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Ledger rows with no pool card at all.
+      required:
+      - cards
+      - implemented
+      - generated
+      - partial
+      - unimplemented
+      - absent
+      description: "`GET /admin/sets`'s pool."
+    ProfileAccess:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The profile's id, over every seat agent.
+        policy:
+          type: string
+          description: "Who may seat it: every registered account, only the accounts on its list, or nobody. A guest may seat none."
+          enum:
+          - registered
+          - listed
+          - nobody
+        stored:
+          type: boolean
+          description: >-
+            Whether a policy is kept for it; `false` reads as `listed` with nobody on the
+            list.
+        default_for_registered:
+          type: boolean
+          description: Whether it is the operator's default seat for every registered account.
+        listed:
+          type: integer
+          format: int64
+          description: How many accounts are on its list.
+        updated_at:
+          type:
+          - string
+          - "null"
+          description: When its policy last changed, RFC 3339 in UTC, or `null`.
+          format: date-time
+        updated_by:
+          type:
+          - string
+          - "null"
+          description: The admin who changed it, or `null`.
+        connected:
+          type: boolean
+          description: Whether a seat agent reports it now.
+        label:
+          type:
+          - string
+          - "null"
+          description: What a seat agent reports it called, or `null`.
+        vendor:
+          type:
+          - string
+          - "null"
+          description: Who a seat agent reports the game data goes to, or `null`.
+      required:
+      - id
+      - policy
+      - stored
+      - default_for_registered
+      - listed
+      - updated_at
+      - updated_by
+      - connected
+      - label
+      - vendor
+      description: Who may seat one hosted profile.
+    ProfileAccessDetail:
+      type: object
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllowedAccount"
+          description: The accounts on its list, by username.
+      required:
+      - accounts
+      allOf:
+      - $ref: "#/components/schemas/ProfileAccess"
+      description: One profile's access with the accounts on its list.
+    ProfileAccessList:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProfileAccess"
+          description: Every profile a seat agent reports or a policy names, by id.
+      required:
+      - profiles
+      description: "`GET /admin/llm/access`."
+    ProfileWritten:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          description: "Always `true`: the seat agent wrote the definition."
+      required:
+      - ok
+      description: "`PUT /admin/llm/seathosts/{host}/profiles/{id}`: written."
+    PublishBody:
+      type: object
+      properties:
+        version:
+          type: string
+          description: "A new version: printable ASCII without spaces, at most 64 characters, not `draft`, and never one published before or the one in force."
+        texts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TextBody"
+          description: One text per language, at most 4, `en` among them.
+      required:
+      - version
+      - texts
+      additionalProperties: false
+      description: What `POST /admin/terms` takes.
+    PublishedTerms:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The version.
+        published_at:
+          type: string
+          description: When it was published, RFC 3339 in UTC.
+          format: date-time
+        published_by:
+          type: string
+          description: The admin who published it.
+      required:
+      - version
+      - published_at
+      - published_by
+      description: A version of the terms an admin published.
+    Registration:
+      type: string
+      enum:
+      - open
+      - invite
+      - "off"
+      description: "Who may make an account: `open` (anybody), `invite` (somebody with a beta key; a new guest needs one too) or `off`."
+    ResetPassword:
+      type: object
+      properties:
+        password:
+          type: string
+          description: "The new password, `XXXX-XXXX-XXXX-XXXX` in Crockford's base 32, for the admin to hand on: shown this once, stored only as its hash."
+      required:
+      - password
+      description: "`POST /admin/accounts/{id}/password`."
+    SampleShown:
+      type: object
+      properties:
+        at:
+          type: integer
+          format: int64
+          minimum: 0
+          description: When it was taken, in Unix seconds.
+        cpu:
+          type:
+          - number
+          - "null"
+          format: double
+          description: >-
+            The share of all cores busy over the interval, 0 to 1; `null` on the first
+            sample and off Linux.
+        load1:
+          type:
+          - number
+          - "null"
+          format: double
+          description: The 1-minute load average; `null` off Linux.
+        mem_used:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: Bytes of memory in use; `null` off Linux.
+        disk_used:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          description: Bytes in use on the disk.
+        net_in:
+          type:
+          - number
+          - "null"
+          format: double
+          description: >-
+            Bytes a second received over every interface but loopback; `null` on the first
+            sample and off Linux.
+        net_out:
+          type:
+          - number
+          - "null"
+          format: double
+          description: Bytes a second sent, likewise.
+        sockets:
+          type:
+          - integer
+          - "null"
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: This process's open sockets; `null` off Linux.
+        requests:
+          type: number
+          format: double
+          description: Requests a second on the public routes (the console's own are not counted).
+        games:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameShown"
+          description: The engine processes on this machine.
+      required:
+      - at
+      - cpu
+      - load1
+      - mem_used
+      - disk_used
+      - net_in
+      - net_out
+      - sockets
+      - requests
+      - games
+      description: One sample, as `GET /admin/metrics` shows it.
+    SeatKind:
+      type: string
+      enum:
+      - human
+      - ai
+      description: "What a chair is for: a person (`human`), once one takes it, or the house AI (`ai`), which fills it the moment it is configured."
+    SetCard:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 4294967295
+          description: The card's `CardIndex`.
+        name:
+          type: string
+          description: Its English name.
+        coverage:
+          type: string
+          description: "How far this build plays it: `implemented`, `generated`, `partial`, `unimplemented`, or `absent` for a card it has nothing for."
+          enum:
+          - implemented
+          - generated
+          - partial
+          - unimplemented
+          - absent
+        note:
+          type:
+          - string
+          - "null"
+          description: >-
+            Why a partial card is only partly there, in its author's words; `null`
+            otherwise.
+        type_line:
+          type: string
+          description: Its printed type line; empty for an absent card.
+        scryfall_id:
+          type:
+          - string
+          - "null"
+          description: >-
+            The Scryfall id of the printing the pool card was built from, `null` for an
+            absent card.
+        oracle_id:
+          type: string
+          description: Its Scryfall oracle id.
+      required:
+      - index
+      - name
+      - coverage
+      - note
+      - type_line
+      - scryfall_id
+      - oracle_id
+      description: One card of a set, as the drill-down lists it.
+    SetProgress:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Scryfall's set code, lower case; empty for the pool as a whole.
+        position:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Where it falls in release order by first printing, from 0.
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards first printed in this set.
+        implemented:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Of those, cards this build plays in full and a card test plays.
+        generated:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards read in full from their scripts that no card test plays yet; playable.
+        partial:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards this build plays only in part.
+        unimplemented:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards this build holds only as stubs, which do not play.
+        absent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cards this build has nothing for.
+      required:
+      - code
+      - position
+      - total
+      - implemented
+      - generated
+      - partial
+      - unimplemented
+      - absent
+      description: >-
+        How far this build's pool is through one set, counted in the cards first
+        printed there (fewer than Scryfall's count for a set with reprints).
+    TermsInForce:
+      type: object
+      properties:
+        terms:
+          anyOf:
+          - $ref: "#/components/schemas/ConsoleTerms"
+          - type: "null"
+          description: The terms in force, or `null` for a gateway without terms.
+      required:
+      - terms
+      description: "`GET /admin/terms` and `POST /admin/terms`."
+    TermsVersions:
+      type: object
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublishedTerms"
+          description: Every version an admin published, newest first.
+      required:
+      - versions
+      description: "`GET /admin/terms/versions`."
+    TextBody:
+      type: object
+      properties:
+        lang:
+          type: string
+          description: A lowercase primary language tag (`de`, `en`); each at most once.
+        updated:
+          type:
+          - string
+          - "null"
+          description: The date the text names as its last change; absent, `null` or empty for none.
+        markdown:
+          type: string
+          description: "The text, in Markdown: at most 64 KiB, no control characters but newline and tab."
+      required:
+      - lang
+      - markdown
+      additionalProperties: false
+      description: One language of a version an admin publishes.
+tags:
+- name: Admin
+  description: The admin console

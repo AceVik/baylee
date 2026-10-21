@@ -2,6 +2,7 @@
 //! shell scripts: `cargo dev <task>` (the alias is in `.cargo/config.toml`).
 //! Each task keeps what its script learned; the comments say why a step has
 //! the shape it has. Every task runs from the checkout's root.
+mod api;
 mod central;
 mod changes;
 mod deploy;
@@ -93,10 +94,26 @@ enum Task {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Writes the API documents in `docs/api/` from the servers' sources.
+    Api {
+        #[command(subcommand)]
+        which: Option<Api>,
+    },
     /// Central's integration checks against an owned PostgreSQL container.
     Central {
         #[command(subcommand)]
         check: Central,
+    },
+}
+
+#[derive(Subcommand)]
+enum Api {
+    /// Writes nothing; fails on a stale document or an undocumented route.
+    Check,
+    /// Shows the documents in Swagger UI on 127.0.0.1 only.
+    Serve {
+        #[arg(long, default_value_t = 28768)]
+        port: u16,
     },
 }
 
@@ -173,6 +190,14 @@ fn main() -> ExitCode {
             } => ("gate wasm", Ok(gate::wasm())),
             Task::Land { check, locked } => ("land", land::run(check, locked)),
             Task::CiChanges => ("ci-changes", changes::run()),
+            Task::Api { which } => (
+                "api",
+                Ok(match which {
+                    None => api::run(&["write"]),
+                    Some(Api::Check) => api::run(&["check"]),
+                    Some(Api::Serve { port }) => api::run(&["serve", "--port", &port.to_string()]),
+                }),
+            ),
             Task::Deploy { force } => ("deploy", deploy::run(force)),
             Task::Android {
                 env: Some(AndroidEnv::Env),
