@@ -329,6 +329,23 @@
   }
 }
 
+/* A narrow phone: seven words do not fit under seven icons, so the icons
+   stand alone (each link keeps its word for a screen reader). */
+@media (max-width: 480px) {
+  .sections a span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .sections a svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 @media (max-width: 640px) {
   .admin-page,
   .list-page,
@@ -337,6 +354,10 @@
   }
   .page-head {
     margin-bottom: var(--sp-4);
+  }
+  /* The page's actions stay beside its title while they fit. */
+  .page-head > :first-child {
+    flex-basis: 10rem;
   }
   .page-head h1 {
     font-size: var(--fs-xl);

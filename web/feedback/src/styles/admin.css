@@ -604,6 +604,10 @@ table.accounts td {
   margin-bottom: var(--sp-2);
 }
 
+.legend-list + p {
+  margin-top: var(--sp-3);
+}
+
 .set-rows {
   list-style: none;
   margin: var(--sp-3) 0 0;
@@ -624,21 +628,35 @@ table.accounts td {
   letter-spacing: var(--tracking-caps);
 }
 
+/* Ten columns: the cells sit closer than elsewhere. */
+table.sets th,
+table.sets td {
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
 table.sets td {
   vertical-align: middle;
   white-space: nowrap;
 }
 
 table.sets .set-bar {
-  width: 14rem;
+  width: 12rem;
   min-width: 10rem;
 }
 
-table.sets td.set-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 3rem;
-  align-items: center;
-  gap: var(--sp-2);
+/* The bar and its share on one line, the cell still a cell. */
+table.sets td.set-bar .progress-wrap {
+  display: inline-block;
+  width: calc(100% - 3.25rem);
+  vertical-align: middle;
+}
+
+table.sets td.set-bar .progress-wrap + span {
+  display: inline-block;
+  width: 3rem;
+  text-align: right;
+  vertical-align: middle;
 }
 
 .set-cards {
@@ -751,7 +769,13 @@ table.sets td.set-bar {
 .made {
   display: grid;
   gap: var(--sp-4);
-  max-width: 48rem;
+}
+
+/* Three fields a row, the note under them across. */
+@media (min-width: 641px) {
+  .create-form .form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .create-form h3,
@@ -937,6 +961,9 @@ table.sets td.set-bar {
   }
   table.sets td.set-bar .progress-wrap {
     margin: var(--sp-1) 0;
+  }
+  table.sets td.set-bar .progress-wrap + span {
+    width: auto;
   }
   .game-item {
     grid-template-columns: minmax(0, 1fr);

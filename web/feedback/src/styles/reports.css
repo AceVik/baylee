@@ -137,7 +137,7 @@
   border: 0;
 }
 
-.chip-group legend {
+.chip-group legend:not(.sr-only) {
   float: left;
   margin-right: var(--sp-2);
   color: var(--text-muted);
@@ -149,6 +149,7 @@
 .chip-button {
   min-height: var(--control-h-sm);
   padding: 0 var(--sp-3);
+  white-space: nowrap;
   border-radius: var(--r-full);
   box-shadow: none;
   font-size: var(--fs-sm);
@@ -416,6 +417,13 @@ table.reports tr.checked td {
 
 table.reports tr.selected td {
   background: var(--accent-soft);
+}
+
+/* A pill on the cursor's row stands on the surface, not on the row's tint. */
+table.reports tr.selected .tag:not(.prio-critical),
+table.reports tr.checked .tag:not(.prio-critical) {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 table.reports tr.selected td:first-child,
@@ -980,7 +988,7 @@ details.card.folded[open] > summary {
 }
 
 /* A group of toggles is labelled as a field is. */
-.quick-status > legend {
+.quick-status > legend:not(.sr-only) {
   float: left;
   width: 100%;
   margin: 0 0 var(--sp-1);
@@ -1132,6 +1140,35 @@ details.card.folded[open] > summary {
 /* On a phone each report is a small card: its text first, the rest in a
    line below it. */
 @media (max-width: 600px) {
+  /* The views as one strip that scrolls sideways, the search across under
+     it, the rest in rows that fill. */
+  .list-toolbar > * {
+    flex: 1 1 auto;
+  }
+  .list-toolbar .views {
+    order: -2;
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .list-toolbar .views::-webkit-scrollbar {
+    display: none;
+  }
+  .list-toolbar .views button {
+    flex: none;
+  }
+  .list-toolbar .search-form {
+    order: -1;
+    flex: 1 1 100%;
+  }
+  .list-toolbar .spacer {
+    display: none;
+  }
+  .list-toolbar .freshness,
+  .list-toolbar .help-key {
+    flex: none;
+  }
   .filters .field {
     flex: 1 1 45%;
   }

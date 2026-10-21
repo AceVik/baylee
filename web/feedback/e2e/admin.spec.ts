@@ -83,6 +83,18 @@ async function fingerSized(page: Page) {
   expect(small).toEqual([]);
 }
 
+/** No visible text is set under 12 px, the type scale's floor. */
+async function readable(page: Page) {
+  const tiny = await page.evaluate(() =>
+    [...document.querySelectorAll("body *")]
+      .filter((el) => (el as HTMLElement).offsetParent !== null && el.getBoundingClientRect().width > 1)
+      .filter((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== ""))
+      .map((el) => ({ el: el.outerHTML.slice(0, 80), px: parseFloat(getComputedStyle(el).fontSize) }))
+      .filter(({ px }) => px < 11.95),
+  );
+  expect(tiny, "text under 12 px").toEqual([]);
+}
+
 test.describe.configure({ mode: "serial" });
 
 for (const size of SIZES) {
@@ -99,6 +111,15 @@ for (const size of SIZES) {
       const problems = watch(page);
       const words = WORDS[size.locale];
       await signIn(page);
+      // The reports list and one report fit the screen too.
+      await expect(page.getByRole("row").nth(1)).toBeVisible();
+      await noSideways(page);
+      await readable(page);
+      await page.getByRole("row").nth(1).getByRole("link").first().click();
+      await expect(page).toHaveURL(/\/r\/[^/]+$/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await noSideways(page);
+      await readable(page);
       await page.getByRole("link", { name: words.tab }).click();
       await expect(page).toHaveURL(/\/admin$/);
       await expect(page.getByTestId("registered")).toHaveText(new RegExp(`^2 ${words.registered}$`));
@@ -106,6 +127,7 @@ for (const size of SIZES) {
       await expect(page.getByRole("figure").first()).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
+      await readable(page);
       // A reload lands on the overview again: it is a page of its own.
       await page.reload();
       await expect(page.getByTestId("registered")).toBeVisible();
@@ -137,7 +159,7 @@ for (const size of SIZES) {
       await expect(server.getByTestId("m-req")).toBeVisible();
       await expect(server.getByTestId("m-up")).toBeVisible();
       // The pool: the sets being worked on, Alpha among them or done.
-      await expect(page.getByTestId("pool-implemented")).toBeVisible();
+      await expect(page.getByTestId("pool-playable")).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
       if (dir) await page.screenshot({ path: `${dir}/live-${size.name}.png`, fullPage: true });
