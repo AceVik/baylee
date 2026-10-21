@@ -2726,6 +2726,7 @@ SettingsTextSize = Textgröße
 HandOrderDraw = Zugfolge
 HandOrderType = Typ
 HandOrderColor = Farbe
+CentralRegister = Noch kein Account? Leg einen auf baylee.app an
 CentralSignInFailed = Anmeldung oder Wiederherstellung fehlgeschlagen. Bitte prüfe deine Zugangsdaten und die Verbindung.
 CentralSyncFailed = Account-Daten konnten nicht synchronisiert werden. Deine lokalen Änderungen bleiben erhalten. Bitte melde dich erneut an.
 CentralSignOut = Vom Baylee-Account abmelden

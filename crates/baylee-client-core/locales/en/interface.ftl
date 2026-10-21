@@ -8241,6 +8241,10 @@ HandOrderType = Type
 # The hand toolbar's order button: by colour.
 HandOrderColor = Color
 
+# The Central sign-in form's link to the website, where a Baylee account is
+# made (registration is not in the client yet).
+CentralRegister = No account yet? Create one at baylee.app
+
 # Central sign-in or a restored Central session failed.
 CentralSignInFailed = Sign-in or restore failed. Please check your credentials and connection.
 

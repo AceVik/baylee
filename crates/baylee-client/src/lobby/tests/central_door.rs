@@ -40,6 +40,10 @@ fn a_gateway_without_central_keeps_its_own_sign_up_and_guests() {
         found.contains(&Press::Front(FrontPress::GuestFace)),
         "{found:?}"
     );
+    assert!(
+        !found.contains(&Press::Front(FrontPress::OpenCentralRegister)),
+        "{found:?}"
+    );
 }
 
 #[test]
@@ -70,6 +74,19 @@ fn a_gateway_with_central_turns_the_form_into_centrals_and_back_returns() {
     assert!(
         found.contains(&Press::Front(FrontPress::LeaveGateway)),
         "{found:?}"
+    );
+    // No sign-up of its own: the account is made on the website.
+    assert!(
+        found.contains(&Press::Front(FrontPress::OpenCentralRegister)),
+        "{found:?}"
+    );
+    assert_eq!(
+        crate::lobby::source::address_of(
+            FrontPress::OpenCentralRegister,
+            app.world().resource::<LobbyState>()
+        )
+        .as_deref(),
+        Some("https://baylee.app/register")
     );
 
     app.world_mut().resource_mut::<LobbyState>().leave_gateway();

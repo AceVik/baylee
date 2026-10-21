@@ -705,7 +705,23 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             ),
         )
     });
-    let doors: Vec<Entity> = create.into_iter().chain(guest).collect();
+    // Central's sign-in has no sign-up of its own yet: an account is made on
+    // the website (baylee-central `docs/web-accounts.md`).
+    let register = state.central_pending().then(|| {
+        controls::wide_button(
+            commands,
+            kit,
+            Phrase::CentralRegister.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (
+                Press::Front(FrontPress::OpenCentralRegister),
+                keys::stop(state, "register"),
+            ),
+        )
+    });
+    let doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
     if !doors.is_empty() {
         let line = rule(commands);
         let row = pair_if(
