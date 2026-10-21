@@ -3877,22 +3877,40 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature can't be blocked by red creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a red permanent.",
     ],
-    &[],
-    &[],
+    // Rime Dryad
+    &[
+        "Snow forestwalk (This creature can't be blocked as long as defending player controls a snow Forest.)",
+    ],
+    // Ritual of Subdual
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nIf a land is tapped for mana, it produces colorless mana instead of any other type.",
+    ],
     // River Delta
     &[
         "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {U} or {B}. Put a depletion counter on this land.",
     ],
-    &[],
+    // Runed Arch
+    &[
+        "This artifact enters tapped.\n{X}, {T}, Sacrifice this artifact: X target creatures with power 2 or less can't be blocked this turn.",
+    ],
     // Sabretooth Tiger
     &["First strike"],
-    &[],
+    // Sacred Boon
+    &[
+        "Prevent the next 3 damage that would be dealt to target creature this turn. At the beginning of the next end step, put a +0/+1 counter on that creature for each 1 damage prevented this way.",
+    ],
     // Scaled Wurm
     &[""],
     // Sea Spirit
     &["{U}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
+    // Seizures
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes tapped, this Aura deals 3 damage to that creature's controller unless that player pays {3}.",
+    ],
+    // Seraph
+    &[
+        "Flying\nWhenever a creature dealt damage by this creature this turn dies, put that card onto the battlefield under your control at the beginning of the next end step. Sacrifice the creature when you lose control of this creature.",
+    ],
     // Shambling Strider
     &["{R}{G}: This creature gets +1/-1 until end of turn."],
     // Shield Bearer
@@ -3901,16 +3919,32 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Shield of the Ages
     &["{2}: Prevent the next 1 damage that would be dealt to you this turn."],
-    &[],
-    &[],
+    // Shyft
+    &[
+        "At the beginning of your upkeep, you may have this creature become the color or colors of your choice. (This effect lasts indefinitely.)",
+    ],
+    // Sibilant Spirit
+    &["Flying\nWhenever this creature attacks, defending player may draw a card."],
     // Silver Erne
     &["Flying, trample"],
-    &[],
+    // Skeleton Ship
+    &[
+        "When you control no Islands, sacrifice Skeleton Ship.\n{T}: Put a -1/-1 counter on target creature.",
+    ],
     // Skull Catapult
     &["{1}, {T}, Sacrifice a creature: This artifact deals 2 damage to any target."],
-    &[],
-    &[],
-    &[],
+    // Snow Devil
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nEnchanted creature has first strike as long as it's blocking and you control a snow land.",
+    ],
+    // Snow Fortress
+    &[
+        "Defender (This creature can't attack.)\n{1}: This creature gets +1/+0 until end of turn.\n{1}: This creature gets +0/+1 until end of turn.\n{3}: This creature deals 1 damage to target creature without flying that's attacking you.",
+    ],
+    // Snow Hound
+    &[
+        "{1}, {T}: Return this creature and target green or blue creature you control to their owner's hand.",
+    ],
     // Snow-Covered Forest
     &["({T}: Add {G}.)"],
     // Snow-Covered Island
@@ -3921,27 +3955,58 @@ pub static ORACLE: &[&[&str]] = &[
     &["({T}: Add {W}.)"],
     // Snow-Covered Swamp
     &["({T}: Add {B}.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Snowblind
+    &[
+        "Enchant creature\nEnchanted creature gets -X/-Y. If that creature is attacking, X is the number of snow lands defending player controls. Otherwise, X is the number of snow lands its controller controls. Y is equal to X or to enchanted creature's toughness minus 1, whichever is smaller.",
+    ],
+    // Snowfall
+    &[
+        "Cumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever an Island is tapped for mana, its controller may add an additional {U}. If that Island is snow, its controller may add an additional {U}{U} instead. Spend this mana only to pay cumulative upkeep costs.",
+    ],
+    // Soldevi Golem
+    &[
+        "This creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may untap target tapped creature an opponent controls. If you do, untap this creature.",
+    ],
+    // Soldevi Machinist
+    &["{T}: Add {C}{C}. Spend this mana only to activate abilities of artifacts."],
+    // Soldevi Simulacrum
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{1}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Songs of the Damned
+    &["Add {B} for each creature card in your graveyard."],
     // Soul Barrier
     &[
         "Whenever an opponent casts a creature spell, this enchantment deals 2 damage to that player unless they pay {2}.",
     ],
-    &[],
+    // Soul Burn
+    &[
+        "Spend only black and/or red mana on X.\nSoul Burn deals X damage to any target. You gain life equal to the damage dealt, but not more than the amount of {B} spent on X, the player's life total before the damage was dealt, the planeswalker's loyalty before the damage was dealt, or the creature's toughness.",
+    ],
     // Soul Kiss
     &[
         "Enchant creature\n{B}, Pay 1 life: Enchanted creature gets +2/+2 until end of turn. Activate no more than three times each turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spectral Shield
+    &["Enchant creature\nEnchanted creature gets +0/+2 and can't be the target of spells."],
+    // Spoils of Evil
+    &[
+        "For each artifact or creature card in target opponent's graveyard, add {C} and you gain 1 life.",
+    ],
+    // Spoils of War
+    &[
+        "X is the number of artifact and/or creature cards in an opponent's graveyard as you cast this spell.\nDistribute X +1/+1 counters among any number of target creatures.",
+    ],
+    // Staff of the Ages
+    &[
+        "Creatures with landwalk abilities can be blocked as though they didn't have those abilities.",
+    ],
+    // Stampede
+    &["Attacking creatures get +1/+0 and gain trample until end of turn."],
+    // Stench of Evil
+    &[
+        "Destroy all Plains. For each land destroyed this way, Stench of Evil deals 1 damage to that land's controller unless they pay {2}.",
+    ],
     // Stone Spirit
     &["This creature can't be blocked by creatures with flying."],
     // Stonehands

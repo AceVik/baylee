@@ -12907,6 +12907,8 @@ pub mod righteous_cause;
 pub mod righteous_war;
 #[path = "instants/mv_1/righteousness.rs"]
 pub mod righteousness;
+#[path = "creatures/mv_1/rime_dryad.rs"]
+pub mod rime_dryad;
 #[path = "creatures/mv_2/rime_tender.rs"]
 pub mod rime_tender;
 #[path = "creatures/mv_4/rimefur_reindeer.rs"]
@@ -13001,6 +13003,8 @@ pub mod ritual_of_rejuvenation;
 pub mod ritual_of_restoration;
 #[path = "sorceries/mv_4/ritual_of_soot.rs"]
 pub mod ritual_of_soot;
+#[path = "enchantments/mv_6/ritual_of_subdual.rs"]
+pub mod ritual_of_subdual;
 #[path = "creatures/mv_7/riven_turnbull.rs"]
 pub mod riven_turnbull;
 #[path = "lands/legendary/rivendell.rs"]
@@ -13253,6 +13257,8 @@ pub mod runeboggle;
 pub mod runebound_wolf;
 #[path = "creatures/mv_2/runeclaw_bear.rs"]
 pub mod runeclaw_bear;
+#[path = "artifacts/mv_3/runed_arch.rs"]
+pub mod runed_arch;
 #[path = "creatures/artifacts/mv_2/runed_servitor.rs"]
 pub mod runed_servitor;
 #[path = "enchantments/auras/mv_5/runes_of_the_deus.rs"]
@@ -13323,6 +13329,8 @@ pub mod sacellum_archers;
 pub mod sachi_daughter_of_seshiro;
 #[path = "artifacts/mv_2/sacred_armory.rs"]
 pub mod sacred_armory;
+#[path = "instants/mv_2/sacred_boon.rs"]
+pub mod sacred_boon;
 #[path = "lands/shock/sacred_foundry.rs"]
 pub mod sacred_foundry;
 #[path = "creatures/mv_4/sacred_knight.rs"]
@@ -13879,6 +13887,8 @@ pub mod seismic_strike;
 pub mod seizan_perverter_of_truth;
 #[path = "instants/mv_1/seize_the_initiative.rs"]
 pub mod seize_the_initiative;
+#[path = "enchantments/auras/mv_2/seizures.rs"]
+pub mod seizures;
 #[path = "creatures/mv_2/sejiri_merfolk.rs"]
 pub mod sejiri_merfolk;
 #[path = "lands/gain/sejiri_refuge.rs"]
@@ -13957,6 +13967,8 @@ pub mod sephiroth_s_intervention;
 pub mod sepulcher_ghoul;
 #[path = "lands/utility/sequestered_stash.rs"]
 pub mod sequestered_stash;
+#[path = "creatures/mv_7/seraph.rs"]
+pub mod seraph;
 #[path = "creatures/mv_4/seraph_of_dawn.rs"]
 pub mod seraph_of_dawn;
 #[path = "creatures/mv_7/seraph_of_the_suns.rs"]
@@ -14311,6 +14323,10 @@ pub mod shu_grain_caravan;
 pub mod shu_soldier_farmers;
 #[path = "artifacts/equipment/mv_1/shuko.rs"]
 pub mod shuko;
+#[path = "creatures/mv_5/shyft.rs"]
+pub mod shyft;
+#[path = "creatures/mv_6/sibilant_spirit.rs"]
+pub mod sibilant_spirit;
 #[path = "creatures/mv_5/sibsig_host.rs"]
 pub mod sibsig_host;
 #[path = "creatures/mv_3/sibsig_icebreakers.rs"]
@@ -14507,6 +14523,8 @@ pub mod skeletal_vampire;
 pub mod skeletal_wurm;
 #[path = "creatures/mv_4/skeleton_archer.rs"]
 pub mod skeleton_archer;
+#[path = "creatures/mv_5/skeleton_ship.rs"]
+pub mod skeleton_ship;
 #[path = "creatures/mv_2/skemfar_avenger.rs"]
 pub mod skemfar_avenger;
 #[path = "lands/utility/skemfar_elderhall.rs"]
@@ -14809,6 +14827,16 @@ pub mod snow_covered_plains;
 pub mod snow_covered_swamp;
 #[path = "lands/basic/snow_covered_wastes.rs"]
 pub mod snow_covered_wastes;
+#[path = "enchantments/auras/mv_2/snow_devil.rs"]
+pub mod snow_devil;
+#[path = "creatures/artifacts/mv_5/snow_fortress.rs"]
+pub mod snow_fortress;
+#[path = "creatures/mv_3/snow_hound.rs"]
+pub mod snow_hound;
+#[path = "enchantments/auras/mv_4/snowblind.rs"]
+pub mod snowblind;
+#[path = "enchantments/mv_3/snowfall.rs"]
+pub mod snowfall;
 #[path = "lands/tapland/snowfield_sinkhole.rs"]
 pub mod snowfield_sinkhole;
 #[path = "enchantments/auras/mv_3/so_shiny.rs"]
@@ -14845,6 +14873,12 @@ pub mod sol_ring;
 pub mod solarium_sentry;
 #[path = "lands/utility/soldevi_excavations.rs"]
 pub mod soldevi_excavations;
+#[path = "creatures/artifacts/mv_4/soldevi_golem.rs"]
+pub mod soldevi_golem;
+#[path = "creatures/mv_2/soldevi_machinist.rs"]
+pub mod soldevi_machinist;
+#[path = "creatures/artifacts/mv_4/soldevi_simulacrum.rs"]
+pub mod soldevi_simulacrum;
 #[path = "creatures/artifacts/mv_5/soldevi_steam_beast.rs"]
 pub mod soldevi_steam_beast;
 #[path = "creatures/mv_4/soldier_of_the_grey_host.rs"]
@@ -14885,6 +14919,8 @@ pub mod somnomancer;
 pub mod song_mad_treachery;
 #[path = "creatures/mv_2/songbird_sonic_screamer.rs"]
 pub mod songbird_sonic_screamer;
+#[path = "instants/mv_1/songs_of_the_damned.rs"]
+pub mod songs_of_the_damned;
 #[path = "artifacts/mv_3/sonic_screwdriver.rs"]
 pub mod sonic_screwdriver;
 #[path = "creatures/mv_3/soot_imp.rs"]
@@ -14919,6 +14955,8 @@ pub mod sorrow_s_path;
 pub mod soul_barrier;
 #[path = "enchantments/auras/mv_3/soul_bleed.rs"]
 pub mod soul_bleed;
+#[path = "sorceries/mv_3/soul_burn.rs"]
+pub mod soul_burn;
 #[path = "enchantments/auras/mv_3/soul_channeling.rs"]
 pub mod soul_channeling;
 #[path = "sorceries/mv_2/soul_exchange.rs"]
@@ -15043,6 +15081,8 @@ pub mod spectral_reserves;
 pub mod spectral_sailor;
 #[path = "creatures/mv_3/spectral_shepherd.rs"]
 pub mod spectral_shepherd;
+#[path = "enchantments/auras/mv_3/spectral_shield.rs"]
+pub mod spectral_shield;
 #[path = "creatures/mv_3/spectral_sliver.rs"]
 pub mod spectral_sliver;
 #[path = "instants/mv_1/spell_blast.rs"]
@@ -15223,8 +15263,12 @@ pub mod split_tail_miko;
 pub mod split_up;
 #[path = "creatures/mv_5/spock_logical_choice.rs"]
 pub mod spock_logical_choice;
+#[path = "instants/mv_3/spoils_of_evil.rs"]
+pub mod spoils_of_evil;
 #[path = "sorceries/mv_3/spoils_of_victory.rs"]
 pub mod spoils_of_victory;
+#[path = "sorceries/mv_1/spoils_of_war.rs"]
+pub mod spoils_of_war;
 #[path = "instants/mv_3/spore_cloud.rs"]
 pub mod spore_cloud;
 #[path = "creatures/mv_3/spore_crawler.rs"]
@@ -15301,6 +15345,8 @@ pub mod stab_wound;
 pub mod staff_of_domination;
 #[path = "artifacts/mv_6/staff_of_nin.rs"]
 pub mod staff_of_nin;
+#[path = "artifacts/mv_3/staff_of_the_ages.rs"]
+pub mod staff_of_the_ages;
 #[path = "artifacts/mv_4/staff_of_zegon.rs"]
 pub mod staff_of_zegon;
 #[path = "instants/mv_2/staggering_size.rs"]
@@ -15319,6 +15365,8 @@ pub mod stalking_stones;
 pub mod stalwart_shield_bearers;
 #[path = "enchantments/auras/mv_3/stamina.rs"]
 pub mod stamina;
+#[path = "instants/mv_3/stampede.rs"]
+pub mod stampede;
 #[path = "creatures/mv_3/stampede_rider.rs"]
 pub mod stampede_rider;
 #[path = "creatures/mv_5/stampeding_rhino.rs"]
@@ -15425,6 +15473,8 @@ pub mod steely_resolve;
 pub mod steeple_creeper;
 #[path = "creatures/mv_5/steeple_roc.rs"]
 pub mod steeple_roc;
+#[path = "sorceries/mv_4/stench_of_evil.rs"]
+pub mod stench_of_evil;
 #[path = "creatures/mv_4/stenchskipper.rs"]
 pub mod stenchskipper;
 #[path = "lands/utility/stensia_bloodhall.rs"]
