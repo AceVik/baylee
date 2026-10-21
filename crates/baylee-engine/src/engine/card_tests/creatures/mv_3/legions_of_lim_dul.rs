@@ -63,7 +63,11 @@ fn legions_of_lim_dul_can_be_blocked_without_a_snow_swamp_and_cannot_with_one() 
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
-    assert_eq!(engine.state().players[1].life, 20, "blocked attacker dealt no player damage");
+    assert_eq!(
+        engine.state().players[1].life,
+        20,
+        "blocked attacker dealt no player damage"
+    );
 
     // 2. Defending player controls a Snow-Covered Swamp and an untapped blocker:
     // snow swampwalk makes Legions of Lim-Dûl unblockable.

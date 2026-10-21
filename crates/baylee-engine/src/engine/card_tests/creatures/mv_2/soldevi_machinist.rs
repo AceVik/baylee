@@ -21,7 +21,7 @@ fn morphling() -> CardIndex {
 /// "{T}: Add {C}{C}. Spend this mana only to activate abilities of artifacts."
 #[test]
 fn soldevi_machinist_mana_activates_artifact_abilities_but_cannot_cast_spells_or_activate_nonartifacts()
-{
+ {
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[soldevi_machinist(), snow_fortress(), morphling()])
         .hand(0, &[sol_ring()])

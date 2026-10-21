@@ -29,9 +29,10 @@ fn monsoon_taps_active_players_untapped_islands_at_each_end_step_and_deals_that_
         .iter()
         .copied()
         .filter(|&id| {
-            engine.state().object(id).is_some_and(|o| {
-                o.controller == P0 && o.card.is_some_and(|c| c.index == island())
-            })
+            engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.controller == P0 && o.card.is_some_and(|c| c.index == island()))
         })
         .collect();
     assert_eq!(p0_islands.len(), 3);

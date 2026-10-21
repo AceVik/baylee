@@ -5273,3 +5273,20 @@ more than two it names nobody). What the author did more than once:
     (and included in `mana_pool.total()`, while `mana_pool.available(color)` reports
     unrestricted mana only). When floating in the pool, `priority_offer(&engine).abilities`
     includes affordable artifact abilities while excluding non-artifact abilities.
+
+## 2026-10-21 — Ice Age (`ice`) batch 9 (final 24 cards: `Stormbind` to `Zur's Weirding`, set complete)
+
+- Added the final 24 *Ice Age* first-printing cards (`Stormbind` through `Zur's Weirding`,
+  16 `Coverage::Implemented`, 8 `Coverage::Partial`), completing all 368 *Ice Age* (`ice`)
+  Oracle identities in `data/card-pool.txt`.
+- Key card-authoring and testing lessons:
+  - `Filter::AttachedTo(&Filter::Reference)` combined with `Filter::OwnedByYou` and
+    `Filter::HasColor` inside `Effect::ReturnAllToHand` cleanly implements `Word of Undoing`
+    (*"Return target creature and all white Auras you own attached to it to their owners'
+    hands"*), leaving non-white Auras you own and white Auras an opponent owns behind.
+  - On instant/sorcery cards with a secondary graveyard activated ability (`Whiteout`),
+    `abilities[0]` is the `spell!` definition, so the graveyard `activated!` ability is
+    offered at `ability_index: 1` on the graveyard `ObjectId` (`in_graveyard(...)`).
+  - `Effect::CantBeRegeneratedThisTurn { target: TargetSpec::EventObject }` (`Lim-Dûl's Cohort`)
+    must be listed in `this_object_tests.rs`'s `READ` slice so the pool-wide `EventObject`
+    census recognizes that `resolve/immediate.rs` reads `EventObject` through `spec_objects`.

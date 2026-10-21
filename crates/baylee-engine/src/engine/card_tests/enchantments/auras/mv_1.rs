@@ -51,5 +51,6 @@ mod unstable_mutation;
 mod vigilance;
 mod weakness;
 mod web;
+mod white_scarab;
 mod white_ward;
 mod wild_growth;

@@ -298,6 +298,7 @@ mod wirewood_savage;
 mod witty_roastmaster;
 mod wood_elves;
 mod woolly_mammoths;
+mod woolly_spider;
 mod xenic_poltergeist;
 mod xira_arien;
 mod ydwen_efreet;

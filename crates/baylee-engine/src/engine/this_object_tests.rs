@@ -433,6 +433,7 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         "RemoveEventObjectFromCombat",
         "SuppressUntap { target: EventObject",
         "CantAttackDuringNextControllerTurn { target: EventObject",
+        "CantBeRegeneratedThisTurn { target: EventObject",
         "ReturnToHand { target: EventObject",
         "GraveyardToBattlefield { target: EventObject",
         "AttachSelf { target: EventObject",

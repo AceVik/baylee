@@ -18,7 +18,13 @@ fn skeleton_ship_places_minus_one_minus_one_counters_and_sacrifices_when_you_con
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
             0,
-            &[skeleton_ship(), island(), mountain(), mountain(), mountain()],
+            &[
+                skeleton_ship(),
+                island(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
         )
         .battlefield(1, &[grizzly_bears()])
         .hand(0, &[stone_rain()])

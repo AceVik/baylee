@@ -22,10 +22,7 @@ fn grizzly_bears() -> CardIndex {
 #[test]
 fn minion_of_leshrac_upkeep_sacrifice_or_damage_and_tap_plus_tap_destroy_creature_or_land() {
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(
-            0,
-            &[minion_of_leshrac(), grizzly_bears(), grizzly_bears()],
-        )
+        .battlefield(0, &[minion_of_leshrac(), grizzly_bears(), grizzly_bears()])
         .battlefield(1, &[grizzly_bears(), forest(), sol_ring()])
         .start();
     keep_mulligans(&mut engine);

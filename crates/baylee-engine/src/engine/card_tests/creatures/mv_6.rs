@@ -58,6 +58,7 @@ mod tangle_spider;
 mod trumpeting_carnosaur;
 mod visara_the_dreadful;
 mod volcanic_dragon;
+mod wiitigo;
 mod yavimaya_wurm;
 mod yawgmoth_demon;
 mod zephid;

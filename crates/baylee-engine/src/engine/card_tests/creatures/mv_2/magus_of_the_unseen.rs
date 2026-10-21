@@ -27,7 +27,10 @@ fn magus_of_the_unseen_untaps_gains_control_of_and_grants_haste_to_an_opponents_
     let opp_stone = on_battlefield(&engine, P1, fellwar_stone()).expect("opponent Fellwar Stone");
 
     // Tap P1's Fellwar Stone before activating Magus of the Unseen so we can verify UntapTarget.
-    engine.dev_state_mut(P0).unwrap().set_tapped(opp_stone, true);
+    engine
+        .dev_state_mut(P0)
+        .unwrap()
+        .set_tapped(opp_stone, true);
     assert!(entered_tapped(&engine, opp_stone));
 
     tap_all_mana_but(&mut engine, P0, None);

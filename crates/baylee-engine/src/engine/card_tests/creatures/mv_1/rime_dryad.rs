@@ -56,10 +56,7 @@ fn rime_dryad_can_be_blocked_with_ordinary_forest_but_not_snow_forest() {
         .apply(
             P0,
             PlayerAction::DeclareAttackers {
-                attackers: vec![
-                    (dryad, Defender::Player(P1)),
-                    (ogre, Defender::Player(P1)),
-                ],
+                attackers: vec![(dryad, Defender::Player(P1)), (ogre, Defender::Player(P1))],
             },
         )
         .unwrap();

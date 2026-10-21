@@ -63,16 +63,14 @@ fn snow_fortress_pumps_and_pings_only_nonflying_creatures_attacking_you() {
         .apply(
             P1,
             PlayerAction::DeclareAttackers {
-                attackers: vec![
-                    (bears, Defender::Player(P0)),
-                    (drake, Defender::Player(P0)),
-                ],
+                attackers: vec![(bears, Defender::Player(P0)), (drake, Defender::Player(P0))],
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
+    );
 
     // P0 activates ability 2 ({3}: deal 1 damage to target creature without flying that's attacking you).
     tap_all_mana(&mut engine, P0);

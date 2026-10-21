@@ -118,9 +118,10 @@ fn soldevi_golem_does_not_untap_normally_and_may_untap_with_tapped_opponent_crea
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P0),
+    );
     engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.number == 3 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
@@ -163,9 +164,10 @@ fn soldevi_golem_does_not_untap_normally_and_may_untap_with_tapped_opponent_crea
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P0),
+    );
     engine.apply(P0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.number == 5 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)

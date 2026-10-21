@@ -34,7 +34,10 @@ fn mudslide_keeps_non_fliers_tapped_while_fliers_untap_and_offers_two_mana_upkee
                 mountain(),
             ],
         )
-        .battlefield(1, &[grizzly_bears(), zephyr_falcon(), mountain(), mountain()])
+        .battlefield(
+            1,
+            &[grizzly_bears(), zephyr_falcon(), mountain(), mountain()],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);

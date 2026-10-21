@@ -20,5 +20,6 @@ mod natural_spring;
 mod song_mad_treachery;
 mod soul_feast;
 mod spring_of_eternal_peace;
+mod stunted_growth;
 mod suppression_ray;
 mod tidings;

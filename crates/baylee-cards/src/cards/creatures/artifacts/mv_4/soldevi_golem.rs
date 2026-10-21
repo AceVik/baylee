@@ -6,10 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TAPPED_OPPONENT_CREATURE: Filter = Filter::And(&[
-    Filter::OPPONENT_CREATURE,
-    Filter::Tapped,
-]);
+static TAPPED_OPPONENT_CREATURE: Filter = Filter::And(&[Filter::OPPONENT_CREATURE, Filter::Tapped]);
 
 card!(
     index = index::SOLDEVI_GOLEM,

@@ -55,9 +55,10 @@ fn seizures_deals_three_damage_on_enchanted_creature_tap_unless_controller_pays_
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1),
+    );
     engine.apply(P1, PlayerAction::YesNo(true)).unwrap();
     tap_all_mana(&mut engine, P1);
     engine.apply(P1, PlayerAction::PassPriority).unwrap();
@@ -71,9 +72,7 @@ fn seizures_deals_three_damage_on_enchanted_creature_tap_unless_controller_pays_
     // 2. Advance to P1's next main phase (turn 4); P1 taps Prodigal Sorcerer again and declines to pay {3}
     // -> Seizures deals 3 damage to P1 (life 20 -> 17).
     pass_until(&mut engine, |e| {
-        e.state().turn.number == 4
-            && e.state().turn.phase == Phase::FirstMain
-            && stack_is_empty(e)
+        e.state().turn.number == 4 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
     });
     activate(&mut engine, P1, prodigal_sorcerer(), 0);
     engine
@@ -85,9 +84,10 @@ fn seizures_deals_three_damage_on_enchanted_creature_tap_unless_controller_pays_
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1),
+    );
     engine.apply(P1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(

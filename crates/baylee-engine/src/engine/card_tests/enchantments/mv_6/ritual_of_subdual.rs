@@ -41,23 +41,31 @@ fn ritual_of_subdual_replaces_colored_land_mana_with_colorless_and_scales_cumula
     let isl = on_battlefield(&engine, P0, island()).unwrap();
     tap_mana_where(&mut engine, P0, |id| id == pl);
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::White),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
         0,
         "Plains produces no {{W}} under Ritual of Subdual"
     );
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Colorless),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
         1,
         "Plains produces {{C}} under Ritual of Subdual"
     );
     tap_mana_where(&mut engine, P0, |id| id == isl);
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Blue),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
         0,
         "Island produces no {{U}} under Ritual of Subdual"
     );
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Colorless),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
         2,
         "Island produces {{C}} under Ritual of Subdual"
     );
@@ -130,7 +138,9 @@ fn ritual_of_subdual_replaces_colored_land_mana_with_colorless_and_scales_cumula
     reach_main_phase(&mut engine, P0);
     tap_mana_where(&mut engine, P0, |id| id == fst);
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Green),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
         1,
         "Forest produces {{G}} again after Ritual of Subdual leaves the battlefield"
     );

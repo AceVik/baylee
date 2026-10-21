@@ -21,7 +21,7 @@ fn grizzly_bears() -> CardIndex {
 /// - "At the beginning of the upkeep of enchanted creature's controller, this Aura deals 2 damage to that player."
 #[test]
 fn maddening_wind_deals_two_damage_on_enchanted_creature_controllers_upkeep_and_has_cumulative_upkeep()
-{
+ {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), forest()])
         .battlefield(1, &[grizzly_bears()])

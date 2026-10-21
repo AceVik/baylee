@@ -52,9 +52,7 @@ fn runed_arch_enters_tapped_and_makes_x_creatures_with_power_at_most_two_unblock
 
     // 2. Advance to P0's next turn (turn 3) so Runed Arch untaps.
     pass_until(&mut engine, |e| {
-        e.state().turn.number == 3
-            && e.state().turn.phase == Phase::FirstMain
-            && stack_is_empty(e)
+        e.state().turn.number == 3 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
     });
     assert!(!is_tapped(&engine, arch));
 

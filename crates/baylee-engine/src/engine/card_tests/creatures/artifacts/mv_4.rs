@@ -65,6 +65,7 @@ mod the_vision_and_scarlet_witch;
 mod tower_gargoyle;
 mod venomcrawler;
 mod wakandan_drone_flock;
+mod walking_wall;
 mod watchwing_scarecrow;
 
 mod sentinel;

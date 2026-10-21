@@ -113,6 +113,7 @@ mod thallid;
 mod thornscape_apprentice;
 mod thunderscape_apprentice;
 mod timber_wolves;
+mod tinder_wall;
 mod tireless_tribe;
 mod tree_monkey;
 mod tundra_wolves;

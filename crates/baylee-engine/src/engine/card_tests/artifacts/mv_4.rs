@@ -100,3 +100,5 @@ mod time_bomb;
 mod tower_of_calamities;
 mod trading_post;
 mod unbender_tine;
+mod vexing_arcanix;
+mod vibrating_sphere;

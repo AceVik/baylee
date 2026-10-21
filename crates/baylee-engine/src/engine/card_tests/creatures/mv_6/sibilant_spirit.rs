@@ -40,9 +40,10 @@ fn sibilant_spirit_lets_defending_player_accept_or_decline_drawing_a_card_on_att
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1),
+    );
     engine.apply(P1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
@@ -73,9 +74,10 @@ fn sibilant_spirit_lets_defending_player_accept_or_decline_drawing_a_card_on_att
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P1),
+    );
     engine.apply(P1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

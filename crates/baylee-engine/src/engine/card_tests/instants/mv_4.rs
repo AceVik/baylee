@@ -20,6 +20,7 @@ mod ray_of_command;
 mod reverberation;
 mod sewers_of_estark;
 mod sudden_strength;
+mod venomous_breath;
 mod waterlogged_teachings;
 
 mod rapid_fire;

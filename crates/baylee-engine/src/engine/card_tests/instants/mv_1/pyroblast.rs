@@ -90,15 +90,7 @@ fn pyroblast_counters_a_blue_spell_and_leaves_a_nonblue_spell_alone() {
     let growth_on_stack = on_stack(&engine2, index::GIANT_GROWTH).unwrap();
     lk::pass_once(&mut engine2);
     lk::float(&mut engine2, P0, &[(ManaColor::Red, 1)]);
-    lk::announce(
-        &mut engine2,
-        P0,
-        pyroblast(),
-        0,
-        0,
-        &[growth_on_stack],
-        &[],
-    );
+    lk::announce(&mut engine2, P0, pyroblast(), 0, 0, &[growth_on_stack], &[]);
     lk::settle(&mut engine2);
     assert_eq!(
         power_of(&engine2, bears2),

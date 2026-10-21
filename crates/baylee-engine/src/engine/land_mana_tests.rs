@@ -1618,12 +1618,13 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     routes: 213,
     promises: 212..=212,
     creature_promises: 90..=90,
-    unparsed: 56..=56,
-    fully_read: 372,
-    costly_lines: 135..=135,
+    unparsed: 57..=57,
+    fully_read: 373,
+    costly_lines: 136..=136,
+    triggered_lines: 21..=21,
     granted_lines: 41..=41,
     self_granted: 7..=7,
-    busy: 0,
+    busy: 1,
     not_implemented: 0,
     ..OTHER_PERMANENTS
 };
@@ -1657,7 +1658,7 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 372,
+        expected, 373,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -1675,8 +1676,8 @@ fn check_other_permanent_population(tally: &Tally) {
         ),
         (469, 213, 212, 1)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (230, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (20, 56));
+    assert_eq!((tally.creatures, tally.creature_promises), (232, 90));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (21, 57));
     assert_eq!(
         (
             tally.conditional,
@@ -1685,7 +1686,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 98, 79, 0, 0),
+        (4, 99, 80, 0, 0),
         "the measured skip categories changed"
     );
 }

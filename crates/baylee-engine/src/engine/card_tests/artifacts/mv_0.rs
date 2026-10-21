@@ -19,4 +19,5 @@ mod mox_pearl;
 mod mox_ruby;
 mod mox_sapphire;
 mod tormod_s_crypt;
+mod urza_s_bauble;
 mod zuran_orb;

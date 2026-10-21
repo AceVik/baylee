@@ -22,13 +22,7 @@ fn spectral_shield_gives_plus_zero_plus_two_and_prevents_spells_but_not_abilitie
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
             0,
-            &[
-                plains(),
-                island(),
-                mountain(),
-                grizzly_bears(),
-                gray_ogre(),
-            ],
+            &[plains(), island(), mountain(), grizzly_bears(), gray_ogre()],
         )
         .battlefield(1, &[mountain(), prodigal_sorcerer()])
         .hand(0, &[spectral_shield()])

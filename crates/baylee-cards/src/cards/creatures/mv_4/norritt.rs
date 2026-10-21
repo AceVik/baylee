@@ -5,8 +5,10 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static BLUE_CREATURE: Filter =
-    Filter::And(&[Filter::CREATURE, Filter::HasColor(ColorSet::of(Color::Blue))]);
+static BLUE_CREATURE: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::HasColor(ColorSet::of(Color::Blue)),
+]);
 
 static GOADABLE: Filter = Filter::And(&[
     Filter::CREATURE,
