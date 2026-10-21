@@ -37,6 +37,7 @@ pub mod direct;
 pub mod impressum;
 pub mod migration;
 pub mod moderation;
+mod openapi;
 pub mod triage;
 pub mod ui;
 pub mod web;
@@ -472,8 +473,13 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
 
 // ------------------------------------------------------------------ errors
 
+/// A refusal.
+///
+/// @description A refusal: one English sentence in `error`.
+/// @openapi
 #[derive(Serialize)]
 struct ErrorBody {
+    /// @description What went wrong, as one sentence for a person.
     error: &'static str,
 }
 
@@ -527,6 +533,11 @@ fn admin(state: &AppState, headers: &HeaderMap) -> Result<(), Refusal> {
 // ------------------------------------------------------------------ shapes
 
 /// What a report is about.
+///
+/// @description What a report is about: `bug`, `improvement`, `feedback`,
+/// `crash`, `other`, or `chat` (a reported chat message, only from a
+/// gateway).
+/// @openapi
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Kind {
@@ -560,6 +571,10 @@ impl Kind {
 }
 
 /// Where a report stands.
+///
+/// @description Where a report stands: `new`, `triaged`, `in_progress`,
+/// `resolved`, `wont_fix` or `duplicate`.
+/// @openapi
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
@@ -590,20 +605,36 @@ impl Status {
     }
 }
 
+/// The gateway a report came through, as it describes itself.
+/// @openapi
 #[derive(Deserialize)]
 struct GatewayIn {
+    /// @description The name the gateway shows (`BAYLEE_GATEWAY_NAME`), at
+    /// most 256 characters, no control character.
     name: Option<String>,
+    /// @description Where the gateway is, at most 256 characters, no control
+    /// character.
     url: Option<String>,
+    /// @description The gateway's build, at most 128 characters, no control
+    /// character.
     version: String,
 }
 
+/// A game record attached to a report.
+/// @openapi
 #[derive(Deserialize)]
 struct RecordIn {
+    /// @description Whether the record reaches the game's end.
     complete: bool,
+    /// @description The record: gzip of JSON Lines, in standard base64.
     gzip_base64: String,
 }
 
 /// Who wrote a report's record.
+///
+/// @description Who wrote a report's record: `gateway`, or `client`
+/// (unverified).
+/// @openapi
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Origin {
@@ -624,6 +655,10 @@ impl Origin {
 }
 
 /// How a report reached the service.
+///
+/// @description How a report reached the service: `gateway` (passed on by
+/// one) or `direct` (a client sent it itself, unauthenticated).
+/// @openapi
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Channel {
@@ -700,42 +735,100 @@ pub(crate) async fn store(db: &DatabaseConnection, report: NewReport) -> Result<
 }
 
 /// What a gateway sends (`docs/feedback.md` §"Intake").
+///
+/// @description A report a gateway passes on (`docs/feedback.md`
+/// §"The gateway").
+/// @openapi
 #[derive(Deserialize)]
 struct Intake {
+    /// @description The gateway, as it describes itself; the report is
+    /// filed under its token's name whatever it says here.
     gateway: GatewayIn,
+    /// @description The gateway's pseudonym for the player: 1–128 letters
+    /// and digits.
     reporter: String,
+    /// @description What the report is about.
     kind: Kind,
+    /// @description What the player wrote, at most 20000 characters.
     text: String,
+    /// @description The game the report was written at, at most 128
+    /// characters.
     #[serde(default)]
     game_id: Option<String>,
+    /// @description What the client says about itself: a JSON object of at
+    /// most 2 MiB serialized.
     client: serde_json::Value,
+    /// @description The game's record, if one is attached: at most 64 MiB
+    /// compressed from a gateway, 4 MiB (32 MiB unpacked) from a client.
     #[serde(default)]
     record: Option<RecordIn>,
+    /// @description Who wrote `record` (`gateway` when absent); a client's is
+    /// checked for a game record's shape.
+    /// @internal
     /// Who wrote `record`: a client's is checked ([`direct::check_record`])
     /// and held to a client's bounds, and kept marked as the client's.
     #[serde(default)]
     record_origin: Origin,
 }
 
+/// A report taken.
+/// @openapi
 #[derive(Serialize)]
 struct Created {
+    /// @description The new report's id, a `UUIDv7`.
+    /// @openapi format: uuid
     report_id: String,
+}
+
+/// `GET /health`.
+/// @openapi
+#[derive(Serialize)]
+struct Health {
+    /// @description Always `true`: the service answers.
+    ok: bool,
+    /// @description The release, e.g. `0.1.0-beta.8a`.
+    version: &'static str,
+    /// @description The repository this build's source is in.
+    source: &'static str,
 }
 
 // ------------------------------------------------------------------ routes
 
-async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "ok": true,
-        "version": baylee_build::short(),
-        "source": baylee_build::REPOSITORY,
-    }))
+/// @route GET /health
+/// @scope feedback
+/// @summary Whether the service answers
+/// @description Always `200` while the process runs, with its build and
+/// where its source is. It asks nothing of the database.
+/// @tag Service
+/// @security none
+async fn health() -> Json<Health> {
+    Json(Health {
+        ok: true,
+        version: baylee_build::short(),
+        source: baylee_build::REPOSITORY,
+    })
 }
 
 fn fits(value: Option<&str>, chars: usize) -> bool {
     value.is_none_or(|v| v.chars().count() <= chars && !v.chars().any(char::is_control))
 }
 
+/// @route POST /intake/reports
+/// @scope feedback
+/// @summary Take a report a gateway passes on
+/// @description A gateway passes on what one of its players reported. The
+/// report is filed under the name the intake token is configured with. A
+/// record a client wrote (`record_origin: client`) is held to a client's
+/// bounds and checked for the shape of a game record first.
+/// @tag Intake
+/// @security `gatewayToken`
+/// @body `$Intake`
+/// @return 201: `$Created` "Taken"
+/// @return 400: `$ErrorBody` "Not a report: malformed JSON, an unknown `kind`, `client` not an object, a malformed field, a record that is not base64, or a client's record that is not a game record"
+/// @return 401: `$ErrorBody` "Not a gateway's intake token"
+/// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, or the record over its bound"
+/// @return 413: String text/plain "The text, `client` or the record is over its bound (an `ErrorBody`), or the whole body is over the route's limit, which is refused in plain text before it is read"
+/// @return 503: `$ErrorBody` "The database is unavailable"
 async fn intake(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -850,6 +943,20 @@ fn contains_pattern(text: &str) -> String {
     pattern
 }
 
+/// @route GET /reports
+/// @scope feedback
+/// @summary List reports
+/// @description The reports the filter matches, newest first unless `sort`
+/// says otherwise, one page at a time, and how many match in all. The
+/// trash is swept first and listed only under `trash=true`. Over the
+/// tokens `seen` is always `false`.
+/// @tag Reports
+/// @operation-id `listReports`
+/// @security `readToken`
+/// @security `adminToken`
+/// @query-params `$Filter`
+/// @insert `ReadRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn list(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -865,6 +972,18 @@ fn report_id(id: &str) -> Result<Uuid, Refusal> {
     Uuid::parse_str(id).map_err(|_| refuse(StatusCode::NOT_FOUND, "no such report"))
 }
 
+/// @route GET /reports/{id}
+/// @scope feedback
+/// @summary One report
+/// @description One report, with its `client` object; no notes. A report
+/// in the trash is answered too.
+/// @tag Reports
+/// @operation-id `getReport`
+/// @security `readToken`
+/// @security `adminToken`
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `ReadRefusals`
+/// @return 404: `$ErrorBody` "No such report"
 async fn one(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -876,6 +995,23 @@ async fn one(
 }
 
 /// The game record, as the gzip stream the gateway stored.
+///
+/// @route GET /reports/{id}/record
+/// @scope feedback
+/// @summary A report's game record
+/// @description The record attached to a report, as stored: gzip of JSON
+/// Lines (`zcat` reads it), a download named `<id>.jsonl.gz`. Its writer is
+/// in `X-Record-Origin`; a client's is unverified.
+/// @tag Reports
+/// @operation-id `getReportRecord`
+/// @security `readToken`
+/// @security `adminToken`
+/// @path-param id: String format=uuid "The report's id"
+/// @return 200: { type: string, format: binary } application/gzip "The record"
+/// @return-header 200 X-Record-Origin: String "Who wrote the record: `gateway`, or `client` (unverified)"
+/// @return-header 200 Content-Disposition: String "An attachment named `<id>.jsonl.gz`"
+/// @insert `ReadRefusals`
+/// @return 404: `$ErrorBody` "No such report, or it has no record"
 async fn record(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -941,6 +1077,20 @@ async fn audit(
     .map(|_| ())
 }
 
+/// @route PATCH /reports/{id}
+/// @scope feedback
+/// @summary Change a report's status
+/// @description Sets a report's status and answers the report as it is
+/// now. A report in the trash is not changed (`404`). The change is
+/// written to the audit under the actor `token`.
+/// @tag Reports
+/// @operation-id `setReportStatus`
+/// @security `adminToken`
+/// @path-param id: String format=uuid "The report's id"
+/// @body `$StatusChange`
+/// @insert `AdminTokenRefusals`
+/// @return 400: `$ErrorBody` "Not a status"
+/// @return 404: `$ErrorBody` "No such report, or it is in the trash"
 async fn set_status(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -961,8 +1111,11 @@ async fn set_status(
     .await
 }
 
+/// `PATCH /reports/{id}`.
+/// @openapi
 #[derive(Deserialize)]
 struct StatusChange {
+    /// @description The status the report gets.
     status: Status,
 }
 
@@ -987,6 +1140,19 @@ async fn delete_report(db: &DatabaseConnection, id: Uuid, actor: &str) -> Result
     Ok(())
 }
 
+/// @route DELETE /reports/{id}
+/// @scope feedback
+/// @summary Delete a report for good
+/// @description Deletes a report and its record, wherever it is, the trash
+/// included; the UI's delete only moves it into the trash. The deletion is
+/// written to the audit under the actor `token`.
+/// @tag Reports
+/// @operation-id `deleteReport`
+/// @security `adminToken`
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `AdminTokenRefusals`
+/// @return 204: "Deleted"
+/// @return 404: `$ErrorBody` "No such report"
 async fn remove(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,

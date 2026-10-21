@@ -40,6 +40,10 @@ pub const MAX_NOTE_CHARS: usize = 4000;
 pub const MAX_VIEWS: i64 = 50;
 
 /// How urgent a report is.
+///
+/// @description How urgent a report is: `low`, `normal`, `high` or
+/// `critical`.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Priority {
@@ -151,37 +155,76 @@ impl Sort {
 /// same ones. `status`, `kind` and `priority` take several values,
 /// comma-separated (`priority=none` is a report without one); `assignee` is
 /// an admin's name or `none`.
+///
+/// @description The list's filters, all optional; a malformed one is
+/// `400`.
+/// @openapi
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct Filter {
+    /// @description Statuses, comma-separated: `new`, `triaged`,
+    /// `in_progress`, `resolved`, `wont_fix`, `duplicate`.
     status: Option<String>,
+    /// @description Kinds, comma-separated: `bug`, `improvement`, `feedback`,
+    /// `crash`, `other`, `chat`.
     kind: Option<String>,
+    /// @description The gateway's name the reports are filed under
+    /// (`(direct)` for direct reports).
     gateway: Option<String>,
+    /// @description One reporter's pseudonym.
     reporter: Option<String>,
+    /// @description One game's id.
     game_id: Option<String>,
+    /// @description Words of the text or of a crash's message, a piece of
+    /// the text (`%` and `_` literal), or a piece of a report's id (six hex
+    /// digits or more); at most 200 characters.
+    /// @internal
     /// Words of the text or of a crash's message, a substring of the text,
     /// or a piece of a report's id.
     q: Option<String>,
-    /// The first day, `YYYY-MM-DD` in UTC, inclusive.
+    /// @description The first day, `YYYY-MM-DD` in UTC, inclusive.
+    /// @openapi format: date
     from: Option<String>,
-    /// The last day, `YYYY-MM-DD` in UTC, inclusive.
+    /// @description The last day, `YYYY-MM-DD` in UTC, inclusive.
+    /// @openapi format: date
     to: Option<String>,
+    /// @description Only reports with a record (`true`) or without one
+    /// (`false`).
     has_record: Option<bool>,
+    /// @description How the reports came: `gateway` or `direct`.
+    /// @openapi enum: [gateway, direct]
     channel: Option<String>,
+    /// @description An admin's name, or `none` for reports nobody looks
+    /// after.
     assignee: Option<String>,
+    /// @description One label: lowercase letters, digits and dashes, 1–32.
     label: Option<String>,
+    /// @description Priorities, comma-separated: `critical`, `high`,
+    /// `normal`, `low`, or `none` for a report without one.
     priority: Option<String>,
+    /// @description One crash signature: 16 hex digits.
     signature: Option<String>,
+    /// @description The duplicates of this report (its id).
+    /// @openapi format: uuid
     duplicate_of: Option<String>,
-    /// The trash instead of the reports.
+    /// @description The trash instead of the reports.
     trash: Option<bool>,
+    /// @description Only what the signed-in admin has not opened yet (the
+    /// web UI's routes only; the token routes have no admin).
+    /// @internal
     /// Only what the signed-in admin has not opened (the UI only).
     unseen: Option<bool>,
-    /// `received` (the default), `changed`, `priority`, `status`, `kind`,
-    /// `reporter` or `gateway`.
+    /// @description What the list is sorted by: `received` (the default),
+    /// `changed`, `priority`, `status`, `kind`, `reporter` or `gateway`.
+    /// @openapi enum: [received, changed, priority, status, kind, reporter, gateway]
     sort: Option<String>,
-    /// `desc` (the default) or `asc`.
+    /// @description `desc` (the default) or `asc`.
+    /// @openapi enum: [desc, asc]
     dir: Option<String>,
+    /// @description How many reports a page holds: 50 by default; a value
+    /// below 1 or above 200 is taken as 1 or 200.
+    /// @openapi default: 50
     pub(crate) limit: Option<u64>,
+    /// @description How many reports of the list to skip.
     pub(crate) offset: Option<u64>,
 }
 
@@ -458,54 +501,124 @@ pub(crate) const SUMMARY: &str = "id::text AS id, \
     (SELECT count(*) FROM feedback_note n WHERE n.report_id = feedback_report.id) AS notes";
 
 /// A report as the read API shows it.
+///
+/// @description A report as a list shows it.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Summary {
+    /// @description Its id, a `UUIDv7`.
+    /// @openapi format: uuid
     id: String,
+    /// @description When it came, RFC 3339 in UTC.
+    /// @openapi format: date-time
     created_at: String,
+    /// @description When it last changed, RFC 3339 in UTC.
+    /// @openapi format: date-time
     updated_at: String,
+    /// @description The name of the gateway it came through, as this
+    /// service configures that gateway's token; `(direct)` for a direct
+    /// report.
     gateway: String,
+    /// @description The name the gateway gave itself, if it sent one.
     gateway_name: Option<String>,
+    /// @description Where the gateway said it is, if it sent that.
     gateway_url: Option<String>,
+    /// @description The gateway's build, or a direct report's client build.
     gateway_version: String,
+    /// @description The reporter's pseudonym: the gateway's HMAC, or for a
+    /// direct report this service's of the device's id. Never an account.
     reporter: String,
+    /// @description What it is about.
+    /// @openapi enum: [bug, improvement, feedback, crash, other, chat]
     kind: String,
+    /// @description Where it stands.
+    /// @openapi
+    /// ```yaml
+    /// enum: [new, triaged, in_progress, resolved, wont_fix, duplicate]
+    /// ```
     status: String,
+    /// @description What the player wrote.
     text: String,
+    /// @description The game it was written at, if any.
     game_id: Option<String>,
+    /// @description Whether a game record is attached.
     has_record: bool,
+    /// @description Whether the record reaches the game's end; `null`
+    /// without a record.
     record_complete: Option<bool>,
+    /// @description The record's size in bytes, compressed; 0 without one.
     record_bytes: i64,
+    /// @description How it came: `gateway` (passed on by one) or `direct` (a
+    /// client sent it itself, unauthenticated).
+    /// @internal
     /// How it came: `gateway` (passed on by one) or `direct` (a client
     /// sent it itself, unauthenticated).
+    /// @openapi enum: [gateway, direct]
     channel: String,
+    /// @description Who wrote the record: `gateway`, or `client`
+    /// (unverified); `null` without one.
+    /// @internal
     /// Who wrote the record: `gateway`, or `client` (unverified); `None`
     /// without one.
+    /// @openapi enum: [gateway, client, null]
     record_origin: Option<String>,
+    /// @description The GitHub issue it is linked to, by number.
+    /// @internal
     /// The GitHub issue it is linked to, in [`crate::ISSUE_REPOSITORY`].
     issue_number: Option<i32>,
+    /// @description That issue's page, made from the number; `null` without
+    /// one.
+    /// @internal
     /// That issue's page, made here from the number rather than stored, so
     /// no link the UI renders was ever typed by anyone.
     issue_url: Option<String>,
+    /// @description The admin who looks after it, by name.
+    /// @internal
     /// The admin who looks after it.
     assignee: Option<String>,
+    /// @description How urgent it is; `null` for none.
+    /// @openapi enum: [critical, high, normal, low, null]
     priority: Option<String>,
+    /// @description Its labels, sorted.
     labels: Vec<String>,
+    /// @description The report this one duplicates.
+    /// @internal
     /// The report this one duplicates.
+    /// @openapi format: uuid
     duplicate_of: Option<String>,
+    /// @description A crash's signature: the same crash has the same one.
+    /// @internal
     /// A crash's signature: the same crash has the same one.
     signature: Option<String>,
+    /// @description Moved on by every change; a change may name the one it
+    /// was made against.
+    /// @internal
     /// Moved on by every change; a change may name the one it was made
     /// against.
     revision: i64,
+    /// @description When it entered a done status (`resolved`, `wont_fix`,
+    /// `duplicate`), RFC 3339 in UTC.
+    /// @internal
     /// When it entered a done status (resolved, won't fix, duplicate).
+    /// @openapi format: date-time
     done_at: Option<String>,
+    /// @description When it went into the trash, RFC 3339 in UTC.
+    /// @internal
     /// When it went into the trash.
+    /// @openapi format: date-time
     deleted_at: Option<String>,
+    /// @description Whether the signed-in admin has opened it; always
+    /// `false` over the tokens.
+    /// @internal
     /// Whether the signed-in admin has opened it (always false for the
     /// token API).
     seen: bool,
+    /// @description How many internal notes it has.
+    /// @internal
     /// How many internal notes it has.
     notes: i64,
+    /// @description What the client said about itself; only on one report,
+    /// never in a list.
     #[serde(skip_serializing_if = "Option::is_none")]
     client: Option<serde_json::Value>,
 }
@@ -553,9 +666,13 @@ impl Summary {
     }
 }
 
+/// One page of the list.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Listing {
+    /// @description The page's reports.
     reports: Vec<Summary>,
+    /// @description How many reports the filter matches in all.
     total: i64,
 }
 
@@ -603,19 +720,31 @@ pub(crate) async fn listing(
 }
 
 /// One internal note.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Note {
+    /// @description Its id.
+    /// @openapi format: uuid
     id: String,
+    /// @description When it was written, RFC 3339 in UTC.
+    /// @openapi format: date-time
     at: String,
+    /// @description The admin who wrote it.
     author: String,
+    /// @description What it says.
     text: String,
 }
 
 /// A report with its `client` part and, for the UI, its notes.
+///
+/// @description One report, with its `client` object and, in the web UI,
+/// its notes.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Detail {
     #[serde(flatten)]
     summary: Summary,
+    /// @description Its internal notes, oldest first; only in the web UI.
     #[serde(skip_serializing_if = "Option::is_none")]
     note_list: Option<Vec<Note>>,
 }
@@ -691,22 +820,49 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Edit<T> {
 
 /// What an admin may change about a report. A part left out stays as it
 /// is; `null` clears an issue, an assignee, a priority or a duplicate.
+///
+/// @description What to change about a report. A part left out stays as
+/// it is; `null` clears an issue, an assignee, a priority or a duplicate.
+/// At least one part besides `expected_revision`.
+/// @openapi
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Change {
+    /// @description The status it gets. Marking it a duplicate sets
+    /// `duplicate`; unmarking one sets `triaged` unless a status is named.
     #[serde(default)]
     pub(crate) status: Option<Status>,
+    /// @description The GitHub issue it is linked to, by number (1 or more),
+    /// or `null` for none.
+    /// @openapi type: [integer, 'null']
+    /// @openapi minimum: 1
     #[serde(default)]
     pub(crate) issue: Edit<u32>,
+    /// @description The admin who looks after it, by name, or `null` for
+    /// nobody.
+    /// @openapi type: [string, 'null']
     #[serde(default)]
     assignee: Edit<String>,
+    /// @description How urgent it is, or `null` for none.
+    /// @openapi type: [string, 'null']
+    /// @openapi enum: [critical, high, normal, low, null]
     #[serde(default)]
     priority: Edit<Priority>,
+    /// @description Its labels, the whole set: at most 16, each lowercase
+    /// letters, digits and dashes, 1–32 characters.
+    /// @internal
     /// The whole set; for the bulk route, `labels_add` and `labels_remove`.
     #[serde(default)]
     labels: Option<Vec<String>>,
+    /// @description The report it duplicates (an original, not itself a
+    /// duplicate), or `null` for none.
+    /// @openapi type: [string, 'null']
+    /// @openapi format: uuid
     #[serde(default)]
     duplicate_of: Edit<Uuid>,
+    /// @description The revision the change was made against; another one
+    /// is `409`.
+    /// @internal
     /// The revision the change was made against; another one is `409`.
     #[serde(default)]
     expected_revision: Option<i64>,
@@ -1116,6 +1272,10 @@ pub(crate) async fn apply_change(
 }
 
 /// What the bulk route does besides a change.
+///
+/// @description `trash` (into the trash), `restore` (out of it) or `purge`
+/// (deleted for good, only from the trash).
+/// @openapi
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Action {
@@ -1128,39 +1288,73 @@ pub(crate) enum Action {
 }
 
 /// `POST /ui/api/reports/bulk`.
+///
+/// @description One change or one action for many reports: exactly one of
+/// `change` and `action`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Bulk {
+    /// @description The reports, 1 to 200 after duplicates are dropped.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 1
+    /// ```
     ids: Vec<Uuid>,
+    /// @description The change for each of them.
     #[serde(default)]
     change: Option<BulkChange>,
+    /// @description The action for each of them.
     #[serde(default)]
     action: Option<Action>,
 }
 
 /// A change for many reports: as [`Change`], with labels added and removed
 /// instead of a whole set, and no revision.
+///
+/// @description A change for many reports: as one report's, with labels
+/// added and removed instead of a whole set, and no revision.
+/// @openapi
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BulkChange {
+    /// @description The status each gets.
     #[serde(default)]
     status: Option<Status>,
+    /// @description The GitHub issue, by number, or `null` for none.
+    /// @openapi type: [integer, 'null']
+    /// @openapi minimum: 1
     #[serde(default)]
     issue: Edit<u32>,
+    /// @description The admin who looks after them, or `null` for nobody.
+    /// @openapi type: [string, 'null']
     #[serde(default)]
     assignee: Edit<String>,
+    /// @description How urgent they are, or `null` for none.
+    /// @openapi type: [string, 'null']
+    /// @openapi enum: [critical, high, normal, low, null]
     #[serde(default)]
     priority: Edit<Priority>,
+    /// @description Labels each gets.
     #[serde(default)]
     labels_add: Vec<String>,
+    /// @description Labels each loses.
     #[serde(default)]
     labels_remove: Vec<String>,
+    /// @description The report they duplicate, or `null` for none.
+    /// @openapi type: [string, 'null']
+    /// @openapi format: uuid
     #[serde(default)]
     duplicate_of: Edit<Uuid>,
 }
 
+/// What a bulk request did.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct BulkDone {
+    /// @description How many reports it changed; one already as asked, or
+    /// not where the action needs it, is not counted.
+    /// @internal
     /// How many reports it changed.
     changed: usize,
 }
@@ -1303,25 +1497,45 @@ pub(crate) async fn sweep(db: &DatabaseConnection) -> Result<(), Refusal> {
 
 /// One value of a facet and how many reports have it; `value` is `None`
 /// for an unassigned report or one without a priority.
+///
+/// @description One value and how many reports have it.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Count {
+    /// @description The value; `null` for nobody assigned or no priority.
     value: Option<String>,
+    /// @description How many reports have it.
     count: i64,
 }
 
 /// The counts beside the list, each over the active filter without its
 /// own dimension.
+///
+/// @description The counts beside the list, most first, each over the
+/// filter without its own dimension.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Facets {
+    /// @description Per status.
     statuses: Vec<Count>,
+    /// @description Per kind.
     kinds: Vec<Count>,
+    /// @description Per gateway.
     gateways: Vec<Count>,
+    /// @description The 50 reporters with the most reports.
+    /// @internal
     /// The reporters with the most reports, at most [`TOP_REPORTERS`].
     reporters: Vec<Count>,
+    /// @description Per assignee.
     assignees: Vec<Count>,
+    /// @description Per priority.
     priorities: Vec<Count>,
+    /// @description Per label.
     labels: Vec<Count>,
+    /// @description Per channel.
     channels: Vec<Count>,
+    /// @description What the whole filter matches.
+    /// @internal
     /// What the whole filter matches.
     total: i64,
 }
@@ -1399,18 +1613,33 @@ pub(crate) async fn facets(
 }
 
 /// One crash, by its signature, under the filter.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct CrashGroup {
+    /// @description The crash's signature.
     signature: String,
+    /// @description How many reports of it the filter matches.
     count: i64,
+    /// @description Of them, how many are not done.
+    /// @internal
     /// Of them, how many are not done.
     open: i64,
+    /// @description When the first came, RFC 3339 in UTC.
+    /// @openapi format: date-time
     first: String,
+    /// @description When the last came, RFC 3339 in UTC.
+    /// @openapi format: date-time
     last: String,
+    /// @description The newest report of it, by id.
+    /// @internal
     /// The newest report of it.
+    /// @openapi format: uuid
     latest: String,
+    /// @description Its message, as the newest report has it.
+    /// @internal
     /// Its message, as the newest report has it.
     message: Option<String>,
+    /// @description Where it happened, as the newest report has it.
     location: Option<String>,
 }
 
@@ -1464,14 +1693,26 @@ pub(crate) async fn crash_groups(
 }
 
 /// Where a report stands in the list the filter makes.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct Neighbours {
+    /// @description The report above it, by id, if any.
+    /// @internal
     /// The one above it, if any.
+    /// @openapi format: uuid
     previous: Option<String>,
+    /// @description The report below it, by id, if any.
+    /// @internal
     /// The one below it, if any.
+    /// @openapi format: uuid
     next: Option<String>,
+    /// @description Its place, from 1; `null` when the filter does not match
+    /// it.
+    /// @internal
     /// Its place, from 1; `None` when the filter does not match it.
     position: Option<i64>,
+    /// @description How many reports the filter matches; 0 when it does not
+    /// match this one.
     total: i64,
 }
 
@@ -1672,10 +1913,15 @@ pub(crate) async fn mark_seen(
 }
 
 /// One saved view: a name and the list's query string.
+/// @openapi
 #[derive(Serialize)]
 pub(crate) struct View {
+    /// @description Its id.
+    /// @openapi format: uuid
     id: String,
+    /// @description Its name.
     name: String,
+    /// @description The list's query string, without `?`.
     query: String,
 }
 

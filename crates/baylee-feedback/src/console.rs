@@ -180,15 +180,37 @@ pub(crate) fn routes() -> Router<Shared> {
         )
 }
 
+/// `GET /ui/api/admin/offline`'s answer.
+/// @openapi
+#[derive(Serialize)]
+struct Offline {
+    /// @description Offline games heard from within the window.
+    offline_now: usize,
+    /// @description How long a game counts after its last beat, in seconds:
+    /// 150.
+    window_secs: i64,
+}
+
 /// `GET /ui/api/admin/offline`: how many offline games are going now
 /// (`crate::alive`). This service's own number, so it wants the session
 /// alone, not a gateway's console.
+///
+/// @route GET /ui/api/admin/offline
+/// @scope feedback
+/// @summary Offline games going now
+/// @description How many games clients host themselves are going now, by
+/// their anonymous beats (`POST /client/alive`). This service's own count:
+/// it needs no gateway console.
+/// @tag Console
+/// @security session
+/// @return 200: `$Offline`
+/// @insert `SessionRefusals`
 async fn offline(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     session(&shared.state, &shared.ui, &headers).await?;
-    Ok(Json(serde_json::json!({
-        "offline_now": shared.ui.offline_now(),
-        "window_secs": crate::alive::TTL.whole_seconds(),
-    }))
+    Ok(Json(Offline {
+        offline_now: shared.ui.offline_now(),
+        window_secs: crate::alive::TTL.whole_seconds(),
+    })
     .into_response())
 }
 
@@ -341,6 +363,15 @@ pub(crate) async fn signed_in(
     Ok((admin.name, gateway))
 }
 
+/// @route GET /ui/api/admin/stats
+/// @scope feedback
+/// @summary The gateway's numbers
+/// @description The gateway's `GET /admin/stats`, passed on with its status: its counts.
+/// @tag Console
+/// @operation-id `consoleStats`
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/stats` answer, as it is"
 async fn stats(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     let (admin, gateway) = signed_in(&shared, &headers).await?;
     ask(&gateway, "GET", "/admin/stats".into(), &admin, None)
@@ -348,6 +379,14 @@ async fn stats(State(shared): State<Shared>, headers: HeaderMap) -> Result<Respo
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/live
+/// @scope feedback
+/// @summary Who is online and the tables open now
+/// @description The gateway's `GET /admin/live`, passed on with its status.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/live` answer, as it is"
 async fn live(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     let (admin, gateway) = signed_in(&shared, &headers).await?;
     ask(&gateway, "GET", "/admin/live".into(), &admin, None)
@@ -355,6 +394,14 @@ async fn live(State(shared): State<Shared>, headers: HeaderMap) -> Result<Respon
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/metrics
+/// @scope feedback
+/// @summary The server's last hour
+/// @description The gateway's `GET /admin/metrics`, passed on with its status: the last hour of the server's samples.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/metrics` answer, as it is"
 async fn metrics(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     let (admin, gateway) = signed_in(&shared, &headers).await?;
     ask(&gateway, "GET", "/admin/metrics".into(), &admin, None)
@@ -362,6 +409,14 @@ async fn metrics(State(shared): State<Shared>, headers: HeaderMap) -> Result<Res
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/sets
+/// @scope feedback
+/// @summary How far the pool is through each set
+/// @description The gateway's `GET /admin/sets`, passed on with its status.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/sets` answer, as it is"
 async fn sets(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     let (admin, gateway) = signed_in(&shared, &headers).await?;
     ask(&gateway, "GET", "/admin/sets".into(), &admin, None)
@@ -374,6 +429,17 @@ fn is_set_code(code: &str) -> bool {
     (1..=8).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_alphanumeric())
 }
 
+/// @route GET /ui/api/admin/sets/{code}
+/// @scope feedback
+/// @summary One set's cards
+/// @description The gateway's `GET /admin/sets/{code}`, the code lower-cased, passed on with its status.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/sets/{code}` answer, as it is"
+/// @path-param code: String "A set's code: one to eight letters and digits"
+/// @return 400: `$ErrorBody` "Not a set code"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway knows no such set"
 async fn one_set(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -395,16 +461,29 @@ async fn one_set(
 }
 
 /// What `GET /ui/api/admin/accounts` takes, and all it passes on.
+///
+/// @description The search for accounts, passed on to the gateway field by
+/// field; any other parameter is `400`.
+/// @openapi
 #[derive(Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 struct AccountsQuery {
+    /// @description What to search for in names.
     q: Option<String>,
+    /// @description One exact tag: a reported chat message's sender
+    /// (`client.chat.sender_tag`).
+    /// @internal
     /// One exact tag: a reported chat message's sender (`sender_tag`).
     tag: Option<String>,
+    /// @description `all`, `registered` or `guest`.
     kind: Option<String>,
+    /// @description The order, as the gateway takes it.
     sort: Option<String>,
+    /// @description Only accounts online now (`true`).
     online: Option<bool>,
+    /// @description How many accounts to skip.
     offset: Option<u32>,
+    /// @description How many accounts a page holds.
     limit: Option<u32>,
 }
 
@@ -453,6 +532,16 @@ impl AccountsQuery {
     }
 }
 
+/// @route GET /ui/api/admin/accounts
+/// @scope feedback
+/// @summary Search the gateway's accounts
+/// @description The gateway's `GET /admin/accounts`, passed on with its status. The query is read into its seven fields and written out again.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/accounts` answer, as it is"
+/// @query-params `$AccountsQuery`
+/// @return 400: `$ErrorBody` "Not a search for accounts: a parameter it does not take or a value of the wrong type, or the gateway's own refusal"
 async fn accounts(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -466,6 +555,17 @@ async fn accounts(
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/accounts/{id}
+/// @scope feedback
+/// @summary One account
+/// @description The gateway's `GET /admin/accounts/{id}`, passed on with its status: one account, its decks and latest games.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/accounts/{id}` answer, as it is"
+/// @path-param id: String format=uuid "The account's id"
+/// @return 400: `$ErrorBody` "Not an account's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account"
 async fn account(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -485,6 +585,14 @@ async fn account(
     .map(answer)
 }
 
+/// @route GET /ui/api/admin/invites
+/// @scope feedback
+/// @summary The gateway's beta keys
+/// @description The gateway's `GET /admin/invites`, passed on with its status: its keys, newest first, never a key itself.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/invites` answer, as it is"
 async fn invites(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
     let (admin, gateway) = signed_in(&shared, &headers).await?;
     ask(&gateway, "GET", "/admin/invites".into(), &admin, None)
@@ -493,15 +601,22 @@ async fn invites(State(shared): State<Shared>, headers: HeaderMap) -> Result<Res
 }
 
 /// What `POST /ui/api/admin/invites` takes, and all it passes on.
+///
+/// @description Keys to make, as `invite create` takes them.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Order {
+    /// @description How often each key may be used.
     #[serde(skip_serializing_if = "Option::is_none")]
     uses: Option<u32>,
+    /// @description When the keys expire, from now: `30d`, `12h`, ….
     #[serde(skip_serializing_if = "Option::is_none")]
     expires: Option<String>,
+    /// @description A note kept with the keys at the gateway.
     #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
+    /// @description How many keys to make.
     #[serde(skip_serializing_if = "Option::is_none")]
     count: Option<u32>,
 }
@@ -523,6 +638,17 @@ fn made_detail(made: &serde_json::Value) -> String {
     )
 }
 
+/// @route POST /ui/api/admin/invites
+/// @scope feedback
+/// @summary Make beta keys
+/// @description The gateway's `POST /admin/invites`, passed on with its status. Its `201` carries the keys, the only time they are shown; this service writes an audit row with their ids, uses and expiry, never a key or the note.
+/// @tag Console
+/// @operation-id `createInvites`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 201: {} "Made, as the gateway answers: `keys` (each an `id` and its `key`), `uses`, `expires_at` and `note`"
+/// @body `$Order`
+/// @return 400: `$ErrorBody` "Not a request for keys, or the gateway's own refusal"
 async fn create(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -554,6 +680,18 @@ async fn create(
     Ok(answer(made))
 }
 
+/// @route DELETE /ui/api/admin/invites/{id}
+/// @scope feedback
+/// @summary Revoke a beta key
+/// @description The gateway's `DELETE /admin/invites/{id}`, passed on with its status; a key revoked is an audit row.
+/// @tag Console
+/// @operation-id `revokeInvite`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Revoked"
+/// @path-param id: String format=uuid "The key's id"
+/// @return 400: `$ErrorBody` "Not a key's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such key, or it is revoked already"
 async fn revoke(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -583,12 +721,27 @@ async fn revoke(
 // ------------------------------------------------------------ blocked cards
 
 /// What `GET /ui/api/admin/cards/search` takes, and all it passes on.
+///
+/// @description The search for cards; any other parameter is `400`.
+/// @openapi
 #[derive(Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 struct CardSearch {
+    /// @description A piece of a card's name.
     q: String,
 }
 
+/// @route GET /ui/api/admin/cards/search
+/// @scope feedback
+/// @summary Find the pool's cards by name
+/// @description The gateway's `GET /admin/cards/search`, passed on with its status: each card says whether it is blocked.
+/// @tag Console
+/// @operation-id `searchCards`
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/cards/search` answer, as it is"
+/// @query-params `$CardSearch`
+/// @return 400: `$ErrorBody` "Not a search for cards, or the gateway's own refusal"
 async fn search_cards(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -608,6 +761,14 @@ async fn search_cards(
     .map(answer)
 }
 
+/// @route GET /ui/api/admin/cards/blocks
+/// @scope feedback
+/// @summary Every card block
+/// @description The gateway's `GET /admin/cards/blocks`, passed on with its status: every block, newest first.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/cards/blocks` answer, as it is"
 async fn card_blocks(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -619,11 +780,18 @@ async fn card_blocks(
 }
 
 /// What `POST /ui/api/admin/cards/blocks` takes, and all it passes on.
+///
+/// @description A card to block on the gateway.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct BlockOrder {
+    /// @description The card, by its index in the gateway's pool.
     index: u32,
+    /// @description Why, as the players are told it.
     reason: String,
+    /// @description When the block ends, RFC 3339; absent for no end.
+    /// @openapi format: date-time
     #[serde(default, skip_serializing_if = "Option::is_none")]
     until: Option<String>,
 }
@@ -642,6 +810,19 @@ fn block_detail(made: &serde_json::Value) -> String {
     )
 }
 
+/// @route POST /ui/api/admin/cards/blocks
+/// @scope feedback
+/// @summary Block a card
+/// @description The gateway's `POST /admin/cards/blocks`, passed on with its status; a block made is an audit row with the card, its end and the block's id, never the reason.
+/// @tag Console
+/// @operation-id `blockCard`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 201: {} "Blocked: the block, as the gateway answers it"
+/// @body `$BlockOrder`
+/// @return 400: `$ErrorBody` "Not a request to block a card, or the gateway's own refusal"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or no card of the gateway's pool has that index"
+/// @return 409: `$ErrorBody` "The card is blocked already (the gateway's)"
 async fn block_card(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -671,6 +852,18 @@ async fn block_card(
     Ok(answer(made))
 }
 
+/// @route DELETE /ui/api/admin/cards/blocks/{id}
+/// @scope feedback
+/// @summary Lift a card block
+/// @description The gateway's `DELETE /admin/cards/blocks/{id}`, passed on with its status; a block lifted is an audit row.
+/// @tag Console
+/// @operation-id `unblockCard`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Lifted"
+/// @path-param id: String format=uuid "The block's id"
+/// @return 400: `$ErrorBody` "Not a block's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such block still in force"
 async fn unblock_card(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -726,6 +919,14 @@ fn llm_path(host: &str, id: &str) -> Result<String, Refusal> {
     }
 }
 
+/// @route GET /ui/api/admin/llm/seathosts
+/// @scope feedback
+/// @summary The seat agents
+/// @description The gateway's `GET /admin/llm/seathosts`, passed on with its status: the seat agents connected and the profiles each runs.
+/// @tag Models
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/llm/seathosts` answer, as it is"
 async fn llm_seathosts(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -736,6 +937,14 @@ async fn llm_seathosts(
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/llm/profiles
+/// @scope feedback
+/// @summary The hosted profiles
+/// @description The gateway's `GET /admin/llm/profiles`, passed on with its status.
+/// @tag Models
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/llm/profiles` answer, as it is"
 async fn llm_profiles(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -749,23 +958,39 @@ async fn llm_profiles(
 /// A hosted profile's definition, all the gateway takes: read into these
 /// fields and written out again (`docs/protocol.md` §"Hosted
 /// language-model seats").
+///
+/// @description A hosted profile's definition, as the gateway takes it
+/// (its document's §"Hosted language-model seats").
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct LlmDefinition {
+    /// @description The name the profile is shown under.
     label: String,
+    /// @description Who makes the model.
     vendor: String,
+    /// @description Whether new games may seat it.
     #[serde(skip_serializing_if = "Option::is_none")]
     enabled: Option<bool>,
+    /// @description How many games may seat it at once.
     #[serde(skip_serializing_if = "Option::is_none")]
     max_games: Option<u32>,
+    /// @description The caps of the profile's spend book.
     #[serde(skip_serializing_if = "Option::is_none")]
     caps: Option<serde_json::Value>,
+    /// @description Whether it is a canary.
     #[serde(skip_serializing_if = "Option::is_none")]
     canary: Option<bool>,
+    /// @description Another profile of the same seat agent, by id (1–64 of
+    /// `A-Za-z0-9._-`), that new games start on past `max_games`; the seat
+    /// agent says whether it may be one.
+    /// @internal
     /// Another profile of the same seat agent, by id (`llm_name`): the seat
     /// agent says whether it may be one.
     #[serde(skip_serializing_if = "Option::is_none")]
     fallback: Option<String>,
+    /// @description The rest of the profile, in the seat settings file's
+    /// format.
     profile: serde_json::Value,
 }
 
@@ -779,6 +1004,21 @@ async fn llm_noted(shared: &Shared, admin: &str, action: &str, host: &str, id: &
     }
 }
 
+/// @route PUT /ui/api/admin/llm/seathosts/{host}/profiles/{id}
+/// @scope feedback
+/// @summary Write a hosted profile
+/// @description The gateway's `PUT /admin/llm/seathosts/{host}/profiles/{id}`, passed on with its status: the definition goes to that seat agent. A profile written is an audit row naming `<host>/<id>`, never the definition.
+/// @tag Models
+/// @operation-id `writeLlmProfile`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: {} "Written, as the gateway answers"
+/// @path-param host: String "The seat agent's name: 1–64 of `A-Za-z0-9._-`"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$LlmDefinition`
+/// @return 400: `$ErrorBody` "A name, an id or a fallback that is not 1–64 of `A-Za-z0-9._-`, not a profile's definition, or the seat agent's own refusal, passed back"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such seat agent"
+/// @return 504: `$ErrorBody` "The seat agent did not answer in time (the gateway's)"
 async fn llm_write(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -805,6 +1045,20 @@ async fn llm_write(
     Ok(answer(done))
 }
 
+/// @route DELETE /ui/api/admin/llm/seathosts/{host}/profiles/{id}
+/// @scope feedback
+/// @summary Delete a hosted profile
+/// @description The gateway's `DELETE /admin/llm/seathosts/{host}/profiles/{id}`, passed on with its status; a profile deleted is an audit row.
+/// @tag Models
+/// @operation-id `deleteLlmProfile`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Deleted"
+/// @path-param host: String "The seat agent's name: 1–64 of `A-Za-z0-9._-`"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @return 400: `$ErrorBody` "A name or an id that is not 1–64 of `A-Za-z0-9._-`, or the seat agent's own refusal"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such seat agent or profile"
+/// @return 504: `$ErrorBody` "The seat agent did not answer in time (the gateway's)"
 async fn llm_delete(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -820,12 +1074,30 @@ async fn llm_delete(
     Ok(answer(done))
 }
 
+/// `POST …/profiles/{id}/enabled`.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct LlmEnabled {
+    /// @description Whether new games may seat the profile.
     enabled: bool,
 }
 
+/// @route POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/enabled
+/// @scope feedback
+/// @summary Switch a hosted profile on or off
+/// @description The gateway's `POST …/profiles/{id}/enabled`, passed on with its status; a switch is an audit row.
+/// @tag Models
+/// @operation-id `switchLlmProfile`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Switched"
+/// @path-param host: String "The seat agent's name: 1–64 of `A-Za-z0-9._-`"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$LlmEnabled`
+/// @return 400: `$ErrorBody` "A name or an id that is not 1–64 of `A-Za-z0-9._-`, not an `enabled` boolean, or the seat agent's own refusal"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such seat agent or profile"
+/// @return 504: `$ErrorBody` "The seat agent did not answer in time (the gateway's)"
 async fn llm_enabled(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -858,6 +1130,20 @@ async fn llm_enabled(
     Ok(answer(done))
 }
 
+/// @route POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/probe
+/// @scope feedback
+/// @summary Probe a hosted profile
+/// @description The gateway's `POST …/profiles/{id}/probe`, passed on with its status: the seat agent tries the profile's model. A probe asked for is an audit row.
+/// @tag Models
+/// @operation-id `probeLlmProfile`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 202: "Asked for; the seat agent tries the model"
+/// @path-param host: String "The seat agent's name: 1–64 of `A-Za-z0-9._-`"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @return 400: `$ErrorBody` "A name or an id that is not 1–64 of `A-Za-z0-9._-`, or the seat agent's own refusal"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such seat agent or profile"
+/// @return 504: `$ErrorBody` "The seat agent did not answer in time (the gateway's)"
 async fn llm_probe(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -882,12 +1168,32 @@ async fn llm_probe(
 
 /// A key, or `null` to forget it. No `Debug`: nothing may print it; held
 /// for this request only.
+///
+/// @description A profile's API key, write-only.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct LlmKey {
+    /// @description The key, or `null` to forget the one kept.
+    /// @openapi format: password
     key: Option<String>,
 }
 
+/// @route POST /ui/api/admin/llm/seathosts/{host}/profiles/{id}/key
+/// @scope feedback
+/// @summary Set or forget a hosted profile's key
+/// @description The gateway's `POST …/profiles/{id}/key`, passed on with its status. The key is held in memory for this request only: it is in no row and no log line, and an error naming it is never passed back. A key set or forgotten is an audit row naming `<host>/<id>`.
+/// @tag Models
+/// @operation-id `setLlmKey`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Kept, or forgotten"
+/// @path-param host: String "The seat agent's name: 1–64 of `A-Za-z0-9._-`"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$LlmKey`
+/// @return 400: `$ErrorBody` "A name or an id that is not 1–64 of `A-Za-z0-9._-`, not a `key` string or `null`, or the seat agent's own refusal"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such seat agent or profile"
+/// @return 504: `$ErrorBody` "The seat agent did not answer in time (the gateway's)"
 async fn llm_key(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -922,12 +1228,28 @@ async fn llm_key(
 // ------------------------------------------------- who may seat which model
 
 /// What `GET /ui/api/admin/accounts/lookup` takes, and all it passes on.
+///
+/// @description The type-ahead's search; any other parameter is `400`.
+/// @openapi
 #[derive(Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 struct Lookup {
+    /// @description The start of a registered account's name, two characters
+    /// or more.
     q: String,
 }
 
+/// @route GET /ui/api/admin/accounts/lookup
+/// @scope feedback
+/// @summary Look up registered accounts
+/// @description The gateway's `GET /admin/accounts/lookup`, passed on with its status: at most ten registered accounts whose name starts so, for the access list's type-ahead.
+/// @tag Models
+/// @operation-id `lookupAccounts`
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/accounts/lookup` answer, as it is"
+/// @query-params `$Lookup`
+/// @return 400: `$ErrorBody` "Not a search for accounts, or the gateway's own refusal"
 async fn lookup(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -959,6 +1281,14 @@ fn access_path(id: &str) -> Result<String, Refusal> {
     }
 }
 
+/// @route GET /ui/api/admin/llm/access
+/// @scope feedback
+/// @summary Who may seat each hosted model
+/// @description The gateway's `GET /admin/llm/access`, passed on with its status: each profile's policy, default mark and list.
+/// @tag Models
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/llm/access` answer, as it is"
 async fn access_list(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -969,6 +1299,16 @@ async fn access_list(
         .map(answer)
 }
 
+/// @route GET /ui/api/admin/llm/access/{id}
+/// @scope feedback
+/// @summary Who may seat one hosted model
+/// @description The gateway's `GET /admin/llm/access/{id}`, passed on with its status.
+/// @tag Models
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/llm/access/{id}` answer, as it is"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @return 400: `$ErrorBody` "A profile's id that is not 1–64 of `A-Za-z0-9._-`"
 async fn access_one(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -980,10 +1320,18 @@ async fn access_one(
 }
 
 /// What `PUT /ui/api/admin/llm/access/{id}` takes, and all it passes on.
+///
+/// @description Who may seat a hosted model.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct AccessPolicy {
+    /// @description `registered` (every registered account), `listed` (the
+    /// accounts on its list) or `nobody`; the gateway refuses any other.
+    /// @openapi enum: [registered, listed, nobody]
     policy: String,
+    /// @description Whether it is the model a registered account is offered
+    /// first.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     default_for_registered: Option<bool>,
 }
@@ -1004,6 +1352,18 @@ fn policy_detail(id: &str, order: &AccessPolicy) -> String {
     }
 }
 
+/// @route PUT /ui/api/admin/llm/access/{id}
+/// @scope feedback
+/// @summary Set who may seat a hosted model
+/// @description The gateway's `PUT /admin/llm/access/{id}`, passed on with its status; a policy set is an audit row with the profile, the policy and the default mark.
+/// @tag Models
+/// @operation-id `setLlmAccessPolicy`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: {} "Set, as the gateway answers"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$AccessPolicy`
+/// @return 400: `$ErrorBody` "A profile's id that is not 1–64 of `A-Za-z0-9._-`, not a policy, or the gateway's own refusal"
 async fn access_policy(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -1030,9 +1390,21 @@ async fn access_policy(
 
 /// What `…/allow` and `…/disallow` take, and all they pass on: account
 /// ids, each a UUID, at most 200.
+///
+/// @description Accounts for a hosted model's list.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct AccessAccounts {
+    /// @description The accounts, by id, 1 to 200.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 1
+    /// ```
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 200
+    /// ```
     accounts: Vec<Uuid>,
 }
 
@@ -1090,6 +1462,18 @@ async fn access_change(
     Ok(answer(done))
 }
 
+/// @route POST /ui/api/admin/llm/access/{id}/allow
+/// @scope feedback
+/// @summary Put accounts on a hosted model's list
+/// @description The gateway's `POST /admin/llm/access/{id}/allow`, passed on with its status; a change is an audit row with the profile and the account ids.
+/// @tag Models
+/// @operation-id `allowLlmAccounts`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: {} "Added, as the gateway answers"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$AccessAccounts`
+/// @return 400: `$ErrorBody` "A profile's id that is not 1–64 of `A-Za-z0-9._-`, not a list of account ids, not 1 to 200 of them, or the gateway's own refusal"
 async fn access_allow(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -1099,6 +1483,18 @@ async fn access_allow(
     access_change(&shared, &headers, &id, &body, true).await
 }
 
+/// @route POST /ui/api/admin/llm/access/{id}/disallow
+/// @scope feedback
+/// @summary Take accounts off a hosted model's list
+/// @description The gateway's `POST /admin/llm/access/{id}/disallow`, passed on with its status; a change is an audit row with the profile and the account ids.
+/// @tag Models
+/// @operation-id `disallowLlmAccounts`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: {} "Taken off, as the gateway answers"
+/// @path-param id: String "The profile's id: 1–64 of `A-Za-z0-9._-`"
+/// @body `$AccessAccounts`
+/// @return 400: `$ErrorBody` "A profile's id that is not 1–64 of `A-Za-z0-9._-`, not a list of account ids, not 1 to 200 of them, or the gateway's own refusal"
 async fn access_disallow(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -1131,18 +1527,37 @@ pub(crate) async fn note(
     .map(|_| ())
 }
 
+/// One change made through the admin console.
+/// @openapi
 #[derive(Serialize)]
-struct Change {
+struct ConsoleChange {
+    /// @description When, RFC 3339 in UTC.
+    /// @openapi format: date-time
     at: String,
+    /// @description The admin who made it.
     actor: String,
+    /// @description What: `gateway.invite.create`, `gateway.card.block`,
+    /// `gateway.account.ban`, `gateway.llm.profile.write`, ….
     action: String,
+    /// @description Ids and ends; never a key, a password, a note or a
+    /// reason.
     detail: Option<String>,
 }
 
+/// @route GET /ui/api/admin/audit
+/// @scope feedback
+/// @summary The latest changes made through the console
+/// @description The 50 latest changes made through the admin console,
+/// newest first: this service's own audit rows, not the gateway's.
+/// @tag Console
+/// @operation-id `consoleAudit`
+/// @security session
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)"
 async fn audit(
     State(shared): State<Shared>,
     headers: HeaderMap,
-) -> Result<Json<Vec<Change>>, Refusal> {
+) -> Result<Json<Vec<ConsoleChange>>, Refusal> {
     signed_in(&shared, &headers).await?;
     let db = &shared.state.db;
     let rows = db
@@ -1158,7 +1573,7 @@ async fn audit(
         .map_err(|e| db_down(&e))?;
     rows.iter()
         .map(|row| {
-            Ok(Change {
+            Ok(ConsoleChange {
                 at: row.try_get("", "at")?,
                 actor: row.try_get("", "actor")?,
                 action: row.try_get("", "action")?,

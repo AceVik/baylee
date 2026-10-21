@@ -208,9 +208,16 @@ pub fn check_record(gzip: &[u8]) -> Result<(), NotARecord> {
 }
 
 /// A record as a client attaches it.
+///
+/// @description A game record a client attaches: at most 4 MiB of gzip
+/// that unpacks to at most 32 MiB of JSON Lines, a header of record version
+/// 1 first and nothing after it but input, chair and end lines.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct ClientRecord {
+    /// @description Whether the record reaches the game's end.
     pub(crate) complete: bool,
+    /// @description The record: gzip of JSON Lines, in standard base64.
     pub(crate) gzip_base64: String,
 }
 
@@ -241,22 +248,42 @@ impl ClientRecord {
 }
 
 /// The build a client says it is.
+/// @openapi
 #[derive(Deserialize)]
 struct BuildIn {
+    /// @description The client's release.
     version: String,
+    /// @description The commit it was built from, if it knows.
     #[serde(default)]
     commit: Option<String>,
 }
 
 /// What a client sends (`docs/feedback.md` §"Straight from a client").
+///
+/// @description A report from a client signed in to no gateway; every
+/// field named, no other taken.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Direct {
+    /// @description What the report is about; never `chat`, which goes
+    /// through the message's gateway.
     kind: Kind,
+    /// @description What the player wrote, at most 20000 characters; empty
+    /// only for a crash.
     text: String,
+    /// @description The client's build: its version and commit together at
+    /// most 128 characters, not empty.
     build: BuildIn,
+    /// @description A random id the client made for its reports: 32
+    /// lowercase hex digits. The report is filed under this service's HMAC of
+    /// it, never the id.
+    /// @openapi pattern: '^[0-9a-f]{32}$'
     device: String,
+    /// @description What the client says about itself: a JSON object of at
+    /// most 1 MiB serialized.
     client: serde_json::Value,
+    /// @description The game's record, if one is attached.
     #[serde(default)]
     record: Option<ClientRecord>,
 }
@@ -274,6 +301,19 @@ pub(crate) async fn any_origin(mut response: axum::response::Response) -> axum::
 }
 
 /// The browser's preflight for [`post`]: a JSON body is what makes one.
+///
+/// @route OPTIONS /client/reports
+/// @route OPTIONS /client/alive
+/// @scope feedback
+/// @summary A browser's preflight for a direct report or a beat
+/// @description Says yes to any origin: `POST`, `Content-Type`, for a day.
+/// @tag Clients
+/// @security none
+/// @return 204: "Allowed"
+/// @return-header 204 Access-Control-Allow-Origin: String "`*`"
+/// @return-header 204 Access-Control-Allow-Methods: String "`POST, OPTIONS`"
+/// @return-header 204 Access-Control-Allow-Headers: String "`content-type`"
+/// @return-header 204 Access-Control-Max-Age: String "`86400`"
 pub(crate) async fn preflight() -> axum::response::Response {
     use axum::http::{HeaderValue, header};
     let mut response = axum::response::Response::new(axum::body::Body::empty());
@@ -295,6 +335,26 @@ pub(crate) async fn preflight() -> axum::response::Response {
 }
 
 /// `POST /client/reports`.
+///
+/// @route POST /client/reports
+/// @scope feedback
+/// @summary Take a report straight from a client
+/// @description A report from a client signed in to no gateway. It asks
+/// for no credential and stands on its limits: a bounded body, a record that
+/// must read as a game record, and 10 reports per address and 600 from
+/// everyone per hour, every request counted, a refused one too. Off until
+/// `FEEDBACK_DIRECT_KEY` is set. Any origin may post (`Access-Control-Allow-Origin: *`,
+/// never with credentials).
+/// @tag Clients
+/// @operation-id `postDirectReport`
+/// @security none
+/// @body `$Direct`
+/// @return 201: `$Created` "Taken"
+/// @return 400: `$ErrorBody` "Not a report: malformed JSON, an unknown field or `kind`, a `chat` report, no text (but for a crash), `client` not an object, a malformed `device` or `build`, or a record that is not base64 or not a game record"
+/// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 1 MiB, or the record over 4 MiB (32 MiB unpacked)"
+/// @return 413: String text/plain "The text, `client` or the record is over its bound (an `ErrorBody`), or the whole body is over the route's limit, which is refused in plain text before anything else is checked"
+/// @return 429: `$ErrorBody` "Too many reports from this address or from everyone in the last hour"
+/// @return 503: `$ErrorBody` "Direct reports are not taken here (`FEEDBACK_DIRECT_KEY` is unset), or the database is unavailable"
 pub(crate) async fn post(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,

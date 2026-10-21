@@ -78,13 +78,38 @@ impl Presence {
 }
 
 /// What a client sends: the one field, nothing else.
+///
+/// @description An offline game's beat: the one field, nothing else.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Beat {
+    /// @description A random value the client made for this one game: 32
+    /// lowercase hex digits, forgotten when the game ends.
+    /// @openapi pattern: '^[0-9a-f]{32}$'
     game: String,
 }
 
 /// `POST /client/alive`: `204`, or why not.
+///
+/// @route POST /client/alive
+/// @scope feedback
+/// @summary Say an offline game is still going
+/// @description While a game a client hosts itself runs, and its player
+/// left the anonymous usage count on, the client beats once a minute. The
+/// game counts for 150 seconds after its last beat, in memory only; nothing
+/// is written down or logged per beat. 300 beats per address and 120000 from
+/// everyone per hour. Off until `FEEDBACK_DIRECT_KEY` is set. Any origin may
+/// post, as for direct reports.
+/// @tag Clients
+/// @operation-id `postAlive`
+/// @security none
+/// @body `$Beat`
+/// @return 204: "Counted"
+/// @return 400: `$ErrorBody` "Not a beat: malformed JSON, another field, or a `game` that is not 32 lowercase hex digits"
+/// @return 413: String text/plain "The body is over 256 bytes, refused in plain text before anything else is checked"
+/// @return 429: `$ErrorBody` "Too many beats from this address or from everyone in the last hour"
+/// @return 503: `$ErrorBody` "Usage counts are not taken here (`FEEDBACK_DIRECT_KEY` is unset)"
 pub(crate) async fn post(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,

@@ -104,15 +104,30 @@ pub fn origin(entry: &str) -> Option<String> {
 
 /// What the page sends. `website` is the honeypot: a field the page hides
 /// from people, which a form-filling robot fills.
+///
+/// @description A message from the landing page's contact form; every
+/// field named, no other taken. Blank `name` and `email` are none.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ContactIn {
+    /// @description The sender's name, if given: at most 100 characters, no
+    /// control character.
     #[serde(default)]
     name: Option<String>,
+    /// @description Where to answer, if given: at most 254 characters, one
+    /// `@` with something before it and a dot in the domain after it, no
+    /// whitespace.
     #[serde(default)]
     email: Option<String>,
+    /// @description What they wrote: 1 to 5000 characters after trimming;
+    /// line breaks and tabs are the only control characters taken.
     message: String,
+    /// @description The page's language when it was sent.
+    /// @openapi enum: [en, de]
     language: String,
+    /// @description The honeypot: the page hides it from people. Filled, the
+    /// message is answered as taken and dropped.
     #[serde(default)]
     website: Option<String>,
 }
@@ -229,6 +244,22 @@ fn with_cors(mut response: Response, origin: Option<&str>) -> Response {
 }
 
 /// The browser's preflight for [`post`]: yes to a configured origin only.
+///
+/// @route OPTIONS /site/contact
+/// @scope feedback
+/// @summary A browser's preflight for the contact form
+/// @description Says yes only to an `Origin` in `FEEDBACK_CONTACT_ORIGINS`:
+/// `POST`, `Content-Type`, for a day. Every answer says `Vary: Origin`.
+/// @tag Site
+/// @operation-id `preflightContact`
+/// @security none
+/// @header-param Origin: String required "The page's origin"
+/// @return 204: "Allowed"
+/// @return-header 204 Access-Control-Allow-Origin: String "The asking origin"
+/// @return-header 204 Access-Control-Allow-Methods: String "`POST, OPTIONS`"
+/// @return-header 204 Access-Control-Allow-Headers: String "`content-type`"
+/// @return-header 204 Access-Control-Max-Age: String "`86400`"
+/// @return 403: "The `Origin` is missing or not a configured one"
 pub(crate) async fn preflight(State(shared): State<Shared>, headers: HeaderMap) -> Response {
     let Some(origin) = allowed_origin(&shared, &headers) else {
         return with_cors(StatusCode::FORBIDDEN.into_response(), None);
@@ -250,12 +281,37 @@ pub(crate) async fn preflight(State(shared): State<Shared>, headers: HeaderMap) 
     with_cors(response, Some(origin))
 }
 
+/// A contact message taken.
+/// @openapi
 #[derive(Serialize)]
-struct Taken {
+struct ContactTaken {
+    /// @description Always `true`.
     ok: bool,
 }
 
 /// `POST /site/contact`.
+///
+/// @route POST /site/contact
+/// @scope feedback
+/// @summary Send a message from the landing page
+/// @description The landing page's contact form posts here across origins.
+/// Only a page served at one of `FEEDBACK_CONTACT_ORIGINS` may: every answer
+/// says `Vary: Origin` and names the asking origin in
+/// `Access-Control-Allow-Origin` only when it is a configured one, never with
+/// credentials. 5 messages per address and 100 from everyone per hour, every
+/// request past the origin check counted. A filled honeypot is answered
+/// `201` and nothing is stored. Off until `FEEDBACK_CONTACT_ORIGINS` is set.
+/// @tag Site
+/// @operation-id `postContact`
+/// @security none
+/// @header-param Origin: String required "The page's origin, one of `FEEDBACK_CONTACT_ORIGINS`"
+/// @body `$ContactIn`
+/// @return 201: `$ContactTaken` "Taken, or dropped for its honeypot"
+/// @return 400: `$ErrorBody` "Not a message: malformed JSON, an unknown field, an empty message, a malformed name or address, or another language"
+/// @return 403: `$ErrorBody` "The `Origin` is missing or not one of `FEEDBACK_CONTACT_ORIGINS`"
+/// @return 413: `$ErrorBody` "A field over its bound, or the body over 32 KiB"
+/// @return 429: `$ErrorBody` "Too many messages from this address or from everyone in the last hour"
+/// @return 503: `$ErrorBody` "Contact messages are not taken here (`FEEDBACK_CONTACT_ORIGINS` is unset), or the database is unavailable"
 pub(crate) async fn post(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,
@@ -276,7 +332,7 @@ async fn take(
     headers: &HeaderMap,
     origin_allowed: bool,
     body: Option<&[u8]>,
-) -> Result<(StatusCode, Json<Taken>), Refusal> {
+) -> Result<(StatusCode, Json<ContactTaken>), Refusal> {
     if !shared.state.config.takes_contact() {
         return Err(refuse(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -307,7 +363,7 @@ async fn take(
     {
         // Answered as if taken, so a robot learns nothing to adjust.
         tracing::info!("a contact message filled the honeypot and was dropped");
-        return Ok((StatusCode::CREATED, Json(Taken { ok: true })));
+        return Ok((StatusCode::CREATED, Json(ContactTaken { ok: true })));
     }
     let checked = check(
         input.name.as_deref(),
@@ -338,7 +394,7 @@ async fn take(
     .await
     .map_err(|e| db_down(&e))?;
     tracing::info!(contact = %id, "a contact message was taken");
-    Ok((StatusCode::CREATED, Json(Taken { ok: true })))
+    Ok((StatusCode::CREATED, Json(ContactTaken { ok: true })))
 }
 
 /// Deletes every message past its time: [`DONE_KEPT`] days after it was
@@ -378,16 +434,34 @@ pub(crate) fn routes() -> Router<Shared> {
 }
 
 /// A message as the UI shows it.
+///
+/// @description A contact message as the web UI shows it.
+/// @openapi
 #[derive(Serialize)]
-struct Shown {
+struct ContactMessage {
+    /// @description Its id.
+    /// @openapi format: uuid
     id: String,
+    /// @description When it came, RFC 3339 in UTC.
+    /// @openapi format: date-time
     created_at: String,
+    /// @description When it last changed, RFC 3339 in UTC.
+    /// @openapi format: date-time
     updated_at: String,
+    /// @description The sender's name, if given.
     name: Option<String>,
+    /// @description Where to answer, if given.
     email: Option<String>,
+    /// @description What they wrote.
     message: String,
+    /// @description The page's language when it was sent.
+    /// @openapi enum: [en, de]
     language: String,
+    /// @description Whether an admin has dealt with it.
+    /// @openapi enum: [new, done]
     status: String,
+    /// @description When it was marked done, RFC 3339 in UTC.
+    /// @openapi format: date-time
     done_at: Option<String>,
 }
 
@@ -397,7 +471,7 @@ const COLUMNS: &str = "id::text AS id, \
     name, email, message, language, status, \
     to_char(done_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS done_at";
 
-impl Shown {
+impl ContactMessage {
     fn of(row: &sea_orm::QueryResult) -> Result<Self, sea_orm::DbErr> {
         Ok(Self {
             id: row.try_get("", "id")?,
@@ -413,20 +487,33 @@ impl Shown {
     }
 }
 
+/// `GET /ui/api/contact`'s filter.
+/// @openapi
 #[derive(Deserialize)]
-struct ListQuery {
+struct ContactFilter {
+    /// @description `new` or `done`; absent, empty or `all` for every
+    /// message.
+    /// @openapi enum: [new, done, all, '']
     #[serde(default)]
     status: Option<String>,
 }
 
+/// The contact messages.
+/// @openapi
 #[derive(Serialize)]
-struct Listing {
+struct ContactListing {
+    /// @description Messages not yet marked done, all of them.
+    /// @internal
     /// Messages not yet marked done, all of them.
     open: i64,
+    /// @description Messages the filter matches, all of them.
+    /// @internal
     /// Messages the filter matches, all of them.
     total: i64,
+    /// @description The newest of those, at most 500.
+    /// @internal
     /// The newest of those, at most [`LIST_ROWS`].
-    messages: Vec<Shown>,
+    messages: Vec<ContactMessage>,
 }
 
 fn status_filter(status: Option<&str>) -> Result<Option<&'static str>, Refusal> {
@@ -438,11 +525,23 @@ fn status_filter(status: Option<&str>) -> Result<Option<&'static str>, Refusal> 
     }
 }
 
+/// @route GET /ui/api/contact
+/// @scope feedback
+/// @summary The contact messages
+/// @description The newest 500 messages the filter matches, how many it
+/// matches and how many are open. Messages past their time are deleted
+/// first.
+/// @tag Contact
+/// @operation-id `listContact`
+/// @security session
+/// @query-params `$ContactFilter`
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn list(
     State(shared): State<Shared>,
     headers: HeaderMap,
-    query: Result<Query<ListQuery>, axum::extract::rejection::QueryRejection>,
-) -> Result<Json<Listing>, Refusal> {
+    query: Result<Query<ContactFilter>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<ContactListing>, Refusal> {
     crate::ui::session(&shared.state, &shared.ui, &headers).await?;
     let Query(query) =
         query.map_err(|_| refuse(StatusCode::BAD_REQUEST, "a filter is malformed"))?;
@@ -473,37 +572,47 @@ async fn list(
         .await
         .map_err(down)?
         .ok_or_else(|| refuse(StatusCode::SERVICE_UNAVAILABLE, "no count"))?;
-    Ok(Json(Listing {
+    Ok(Json(ContactListing {
         open: counts.try_get("", "open").map_err(down)?,
         total: counts.try_get("", "total").map_err(down)?,
         messages: rows
             .iter()
-            .map(Shown::of)
+            .map(ContactMessage::of)
             .collect::<Result<_, _>>()
             .map_err(down)?,
     }))
 }
 
+/// One line of a contact message's audit.
+/// @openapi
 #[derive(Serialize)]
-struct AuditEntry {
+struct ContactAuditEntry {
+    /// @description When, RFC 3339 in UTC.
+    /// @openapi format: date-time
     at: String,
+    /// @description The admin.
     actor: String,
+    /// @description `status` or `delete`.
     action: String,
+    /// @description The new status, for `status`.
     detail: Option<String>,
 }
 
+/// One contact message with its audit.
+/// @openapi
 #[derive(Serialize)]
-struct One {
+struct ContactDetail {
     #[serde(flatten)]
-    message: Shown,
-    audit: Vec<AuditEntry>,
+    message: ContactMessage,
+    /// @description Who changed it and when, oldest first.
+    audit: Vec<ContactAuditEntry>,
 }
 
 fn contact_id(id: &str) -> Result<Uuid, Refusal> {
     Uuid::parse_str(id).map_err(|_| refuse(StatusCode::NOT_FOUND, "no such message"))
 }
 
-async fn fetch(db: &DatabaseConnection, id: Uuid) -> Result<Json<One>, Refusal> {
+async fn fetch(db: &DatabaseConnection, id: Uuid) -> Result<Json<ContactDetail>, Refusal> {
     let down = |e: sea_orm::DbErr| db_down(&e);
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
@@ -524,12 +633,12 @@ async fn fetch(db: &DatabaseConnection, id: Uuid) -> Result<Json<One>, Refusal> 
         ))
         .await
         .map_err(down)?;
-    Ok(Json(One {
-        message: Shown::of(&row).map_err(down)?,
+    Ok(Json(ContactDetail {
+        message: ContactMessage::of(&row).map_err(down)?,
         audit: audit
             .iter()
             .map(|row| {
-                Ok(AuditEntry {
+                Ok(ContactAuditEntry {
                     at: row.try_get("", "at")?,
                     actor: row.try_get("", "actor")?,
                     action: row.try_get("", "action")?,
@@ -541,11 +650,21 @@ async fn fetch(db: &DatabaseConnection, id: Uuid) -> Result<Json<One>, Refusal> 
     }))
 }
 
+/// @route GET /ui/api/contact/{id}
+/// @scope feedback
+/// @summary One contact message
+/// @description One message with its audit.
+/// @tag Contact
+/// @operation-id `getContact`
+/// @security session
+/// @path-param id: String format=uuid "The message's id"
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "No such message"
 async fn one(
     State(shared): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<One>, Refusal> {
+) -> Result<Json<ContactDetail>, Refusal> {
     crate::ui::session(&shared.state, &shared.ui, &headers).await?;
     fetch(&shared.state.db, contact_id(&id)?).await
 }
@@ -574,22 +693,40 @@ async fn audit(
     .map(|_| ())
 }
 
+/// `PATCH /ui/api/contact/{id}`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Change {
+struct ContactChange {
+    /// @description `new`, or `done` once an admin has dealt with it.
+    /// @openapi enum: [new, done]
     status: String,
 }
 
+/// @route PATCH /ui/api/contact/{id}
+/// @scope feedback
+/// @summary Mark a contact message new or done
+/// @description Sets a message's status and answers it with its audit. The
+/// change is an audit row with the admin, never the text or the address. A
+/// message is deleted 90 days after it was marked done.
+/// @tag Contact
+/// @operation-id `changeContact`
+/// @security session + csrf
+/// @path-param id: String format=uuid "The message's id"
+/// @body `$ContactChange`
+/// @insert `SessionChangeRefusals`
+/// @return 400: `$ErrorBody` "Not a change, or not a status"
+/// @return 404: `$ErrorBody` "No such message"
 async fn change(
     State(shared): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<One>, Refusal> {
+) -> Result<Json<ContactDetail>, Refusal> {
     crate::ui::same_origin(&headers)?;
     let signed_in = crate::ui::session(&shared.state, &shared.ui, &headers).await?;
     let id = contact_id(&id)?;
-    let change: Change = serde_json::from_slice(&body)
+    let change: ContactChange = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a change"))?;
     let status = match change.status.as_str() {
         "new" => "new",
@@ -619,6 +756,18 @@ async fn change(
     fetch(db, id).await
 }
 
+/// @route DELETE /ui/api/contact/{id}
+/// @scope feedback
+/// @summary Delete a contact message
+/// @description Deletes a message now. The deletion is an audit row that
+/// outlives it.
+/// @tag Contact
+/// @operation-id `deleteContact`
+/// @security session + csrf
+/// @path-param id: String format=uuid "The message's id"
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Deleted"
+/// @return 404: `$ErrorBody` "No such message"
 async fn remove(
     State(shared): State<Shared>,
     headers: HeaderMap,

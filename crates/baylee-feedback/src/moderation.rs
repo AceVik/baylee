@@ -49,6 +49,21 @@ async fn noted(shared: &Shared, admin: &str, action: &str, detail: &str) {
     }
 }
 
+/// @route POST /ui/api/admin/accounts/{id}/password
+/// @scope feedback
+/// @summary Reset a registered account's password
+/// @description The gateway's `POST /admin/accounts/{id}/password`, passed
+/// on with its status. Its `200` carries the new password, the one time it
+/// is shown; nothing here writes it down, and the audit row names only the
+/// account.
+/// @tag Moderation
+/// @security session + csrf
+/// @path-param id: String format=uuid "The account's id"
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: { type: object, properties: { password: { type: string, description: The new password } }, required: [password] } "Reset, as the gateway answers"
+/// @return 400: `$ErrorBody` "Not an account's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account"
+/// @return 409: `$ErrorBody` "A guest has no password to reset (the gateway's)"
 async fn reset_password(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -78,10 +93,16 @@ async fn reset_password(
 }
 
 /// What `PUT /ui/api/admin/accounts/{id}/ban` takes, and all it passes on.
+///
+/// @description A ban for an account.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct BanOrder {
+    /// @description Why, as the player is told it.
     reason: String,
+    /// @description When the ban ends, RFC 3339; absent for never.
+    /// @openapi format: date-time
     #[serde(default, skip_serializing_if = "Option::is_none")]
     until: Option<String>,
 }
@@ -91,6 +112,20 @@ fn ban_detail(id: Uuid, until: Option<&str>) -> String {
     format!("account {id}, until {}", until.unwrap_or("never"))
 }
 
+/// @route PUT /ui/api/admin/accounts/{id}/ban
+/// @scope feedback
+/// @summary Ban an account
+/// @description The gateway's `PUT /admin/accounts/{id}/ban`, passed on
+/// with its status. A ban made is an audit row with the account and the
+/// ban's end, never the reason.
+/// @tag Moderation
+/// @security session + csrf
+/// @path-param id: String format=uuid "The account's id"
+/// @body `$BanOrder`
+/// @insert `ConsoleChangeRefusals`
+/// @return 200: {} "Banned, as the gateway answers: the account's `ban` with its end"
+/// @return 400: `$ErrorBody` "Not an account's id, not a ban, or the gateway's own refusal of its reason or end"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account"
 async fn ban(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -125,6 +160,18 @@ async fn ban(
     Ok(answer(done))
 }
 
+/// @route DELETE /ui/api/admin/accounts/{id}/ban
+/// @scope feedback
+/// @summary Lift an account's ban
+/// @description The gateway's `DELETE /admin/accounts/{id}/ban`, passed on
+/// with its status; a ban lifted is an audit row.
+/// @tag Moderation
+/// @security session + csrf
+/// @path-param id: String format=uuid "The account's id"
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Lifted"
+/// @return 400: `$ErrorBody` "Not an account's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account or no ban on it"
 async fn unban(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -155,6 +202,20 @@ async fn unban(
 
 /// `DELETE /ui/api/admin/accounts/{id}` (routed in [`crate::console`],
 /// beside its `GET`).
+///
+/// @route DELETE /ui/api/admin/accounts/{id}
+/// @scope feedback
+/// @summary Delete an account
+/// @description The gateway's `DELETE /admin/accounts/{id}`, passed on with
+/// its status: the account is deleted as its player's own deletion does.
+/// An account deleted is an audit row.
+/// @tag Moderation
+/// @security session + csrf
+/// @path-param id: String format=uuid "The account's id"
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Deleted"
+/// @return 400: `$ErrorBody` "Not an account's id"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account"
 pub(crate) async fn delete_account(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -184,12 +245,31 @@ pub(crate) async fn delete_account(
 }
 
 /// What `POST /ui/api/admin/games/{id}/close` takes, and all it passes on.
+///
+/// @description Why a game is ended.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CloseOrder {
+    /// @description Why, as the players are told it.
     reason: String,
 }
 
+/// @route POST /ui/api/admin/games/{id}/close
+/// @scope feedback
+/// @summary End a running game
+/// @description The gateway's `POST /admin/games/{id}/close`, passed on
+/// with its status: the gateway ends the game through its engine. A game
+/// ended is an audit row, never with its reason.
+/// @tag Moderation
+/// @security session + csrf
+/// @path-param id: String format=uuid "The game's id"
+/// @body `$CloseOrder`
+/// @insert `ConsoleChangeRefusals`
+/// @return 202: "Asked; the engine ends the game"
+/// @return 400: `$ErrorBody` "Not a game's id, not a reason, or the gateway's own refusal of it"
+/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such table"
+/// @return 409: `$ErrorBody` "That table is not being played (the gateway's)"
 async fn close_game(
     State(shared): State<Shared>,
     headers: HeaderMap,
