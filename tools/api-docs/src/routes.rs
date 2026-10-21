@@ -82,7 +82,7 @@ pub fn documented(yaml: &str) -> BTreeSet<Operation> {
     found
 }
 
-/// Every channel address in an AsyncAPI document oas-forge wrote, as the
+/// Every channel address in a `*.asyncapi.yaml` oas-forge wrote, as the
 /// `GET` that opens its socket (`channels:` at the top, a channel at two
 /// spaces, its `address` at four).
 pub fn channels(yaml: &str) -> BTreeSet<Operation> {

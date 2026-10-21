@@ -59,7 +59,7 @@ fn answer(mut stream: TcpStream, port: u16) -> std::io::Result<()> {
         );
     }
     let mut parts = request.split_whitespace();
-    let (Some("GET"), Some(path)) = (parts.next(), parts.next()) else {
+    let (Some("GET"), Some(target)) = (parts.next(), parts.next()) else {
         return respond(
             &mut stream,
             "405 Method Not Allowed",
@@ -67,6 +67,8 @@ fn answer(mut stream: TcpStream, port: u16) -> std::io::Result<()> {
             b"GET only\n",
         );
     };
+    // Swagger UI keeps the chosen document in the query (`?urls.primaryName=`).
+    let path = target.split_once('?').map_or(target, |(path, _)| path);
     if path == "/" {
         return respond(
             &mut stream,
@@ -127,7 +129,9 @@ fn page() -> std::io::Result<String> {
             asyncapi.push(name);
         }
     }
-    openapi.sort();
+    // The gateway's public document first: the one a client author opens
+    // the page for.
+    openapi.sort_by_key(|name| (name != "gateway.openapi.yaml", name.clone()));
     asyncapi.sort();
     let urls = openapi
         .iter()
