@@ -214,7 +214,8 @@ The owner chose on 19 October 2026 to continue production provisioning from the
 MacBook, where the SSH identity for `viktor@acevik.de` is configured. This Windows
 review performs no production deployment or live-user migration. Central's
 reviewed integration is on public `main` at
-`b1f9292e4b6795600bf87e67c434a3832546fdb6`; Baylee pins that exact revision.
+`21d7e120120c1e5f5e4bdd2b487519384fabaac6` (registration with beta keys and the
+browser listener, 21.10.2026); Baylee pins that exact revision.
 
 Before publishing a client release, implement and review the production account
 launcher and database connector. Central currently exposes the isolated

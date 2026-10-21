@@ -3,6 +3,8 @@
 #[path = "e2e_central/chat.rs"]
 mod chat;
 mod common;
+#[path = "central/fresh.rs"]
+mod fresh;
 #[path = "central/registered.rs"]
 mod registered;
 #[path = "central/terms.rs"]
@@ -69,7 +71,8 @@ fn database(role: &str, password: &str) -> DevConfig {
     .unwrap()
 }
 
-/// What Central's runtime role may do, as `docs/operations.md` there grants it.
+/// What Central's runtime role may do: Central's `ops/grants.sql` at the pinned
+/// revision, statement for statement.
 const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.pending_accounts TO central_runtime;
             GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions,
@@ -79,7 +82,8 @@ const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_
             GRANT SELECT ON central_identity.gateway_approvals TO central_runtime;
             GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
-                central_identity.terms_acceptances TO central_runtime";
+                central_identity.terms_acceptances TO central_runtime;
+            GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime";
 
 /// `/auth/config` says whether the gateway takes Central sign-ins: a native
 /// client signs in through Central only where it does, and with the
@@ -162,6 +166,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         )
         .unwrap(),
     );
+    let website = Arc::clone(&service);
     let (stop, stopped) = oneshot::channel();
     let served_endpoint = endpoint.clone();
     let serving = runtime.spawn(async move {
@@ -180,6 +185,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             &gateway_origin,
         );
         upgrade::run(&gateway, &endpoint, &gateway_origin);
+        fresh::run(&runtime, &website, &operator, &endpoint, &gateway);
         registered::run(&runtime, &operator, &endpoint);
         terms::run(&runtime, &operator, &endpoint);
         ui_fixture(&endpoint, &gateway_origin);
