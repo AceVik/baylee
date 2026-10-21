@@ -2,12 +2,17 @@
 
 mod battle;
 mod history;
+use super::block::LANDWALKS;
+use super::damage::deal_combat_damage;
 use super::*;
+use crate::event::DamageTarget;
 use crate::object::ObjectKind;
 use crate::state::CardLookup;
 use crate::zone::ZoneLocation;
 use baylee_cards_dsl::KeywordSet;
-use baylee_core::ids::CardIndex;
+use baylee_core::color::Color;
+use baylee_core::generated::subtypes::land;
+use baylee_core::ids::{CardIndex, SubtypeId};
 use baylee_core::preset::{FormatId, GamePreset, HouseRules, SeatController, SeatSpec};
 
 /// A registry with nothing in it: these tests build creatures directly
