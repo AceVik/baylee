@@ -43,9 +43,12 @@ jobs:
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
             timeout: 60
+          # A lockfile change gives rust-cache a new key, and the dist build
+          # starts cold: 21.10.2026 (Central pin) aarch64 needed 87 of 105
+          # minutes and the x86_64 cross build ran past them.
           - os: macos-latest
             target: aarch64-apple-darwin
-            timeout: 105
+            timeout: 150
           # Intel Macs: cross-compiled on the arm runner (the macOS SDK
           # carries both slices; `rustup target add` is all it takes), and
           # the dmg's smoke start runs under Rosetta 2. GitHub's x86_64 macOS
@@ -54,7 +57,7 @@ jobs:
           # the arm runner is the faster machine of the two.
           - os: macos-latest
             target: x86_64-apple-darwin
-            timeout: 105
+            timeout: 150
     env:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
