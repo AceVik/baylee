@@ -52,3 +52,51 @@ fn flow_of_maggots_cant_be_blocked_by_non_wall_and_has_cumulative_upkeep() {
         "Wall of Wood can block Flow of Maggots"
     );
 }
+
+/// "Cumulative upkeep {1}" (CR 702.24a): the first upkeep is paid in the
+/// fixture; the next puts a second age counter on, asks {1} for each of the
+/// two, and declined, the Maggots are sacrificed.
+#[test]
+fn flow_of_maggots_cumulative_upkeep_grows_and_is_sacrificed_when_unpaid() {
+    let mut engine = lk::game_with(SEED, &[flow_of_maggots()], &[], &[], &[], |e| {
+        lk::float(e, P0, &[(ManaColor::Colorless, 1)]);
+        lk::yes_no(e, true);
+    });
+    let maggots = lk::obj(&engine, P0, flow_of_maggots());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, P0, "asked of the Maggots' controller");
+    assert_eq!(engine.state().turn.active, P0, "at its own upkeep");
+    assert_eq!(
+        engine
+            .state()
+            .object(maggots)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::AGE),
+        2,
+        "a second age counter went on first"
+    );
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayTax { mana: 2 },
+        "{{1}} for each of the two age counters"
+    );
+    engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
+    lk::settle(&mut engine);
+    assert!(
+        in_graveyard(&engine, P0, flow_of_maggots()).is_some(),
+        "unpaid, Flow of Maggots is sacrificed"
+    );
+}

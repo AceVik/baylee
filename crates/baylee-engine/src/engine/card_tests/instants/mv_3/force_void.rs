@@ -64,3 +64,56 @@ fn force_void_counters_spell_unless_paid_and_draws_at_next_turns_upkeep() {
         hand_before + 1
     );
 }
+
+/// "Unless its controller pays {1}": paid, the spell resolves. The question
+/// goes to the countered spell's controller, not to Force Void's.
+#[test]
+fn force_void_does_not_counter_a_spell_whose_controller_pays_one() {
+    let mut engine = lk::game(SEED, &[], &[], &[index::GRIZZLY_BEARS], &[force_void()]);
+
+    lk::float(&mut engine, P0, &[(ManaColor::Green, 2)]);
+    cast_with_floating(&mut engine, P0, index::GRIZZLY_BEARS);
+    let spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .first()
+        .unwrap();
+
+    lk::pass_once(&mut engine);
+    lk::float(
+        &mut engine,
+        P1,
+        &[(ManaColor::Colorless, 2), (ManaColor::Blue, 1)],
+    );
+    cast_with_floating(&mut engine, P1, force_void());
+    lk::aim(&mut engine, &[spell], &[]);
+    let mut asked = None;
+    for _ in 0..20 {
+        if stack_is_empty(&engine) && matches!(engine.pending(), Pending::Priority { .. }) {
+            break;
+        }
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::YesNo { player, prompt, .. } => {
+                asked = Some((player, prompt));
+                lk::float(&mut engine, P0, &[(ManaColor::Colorless, 1)]);
+                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+            }
+            other => panic!("unexpected pending {other:?}"),
+        }
+    }
+
+    assert_eq!(
+        asked,
+        Some((P0, YesNoPrompt::PayTax { mana: 1 })),
+        "the Bears' controller is asked for {{1}}"
+    );
+    assert!(
+        on_battlefield(&engine, P0, index::GRIZZLY_BEARS).is_some(),
+        "paid, the Bears resolve"
+    );
+    assert_eq!(lk::pool_total(&engine, P0), 0, "and the {{1}} was spent");
+}

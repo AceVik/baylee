@@ -7,14 +7,18 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: Prevent the next 1 damage that would be dealt to enchanted creature this turn without targeting (modeled as targeting enchanted creature).
+// NOT SUPPORTED: "Prevent the next 1 damage that would be dealt to enchanted
+// creature this turn" names no target, but no damage-shield effect can name the
+// enchanted creature without one, so the ability targets it: a creature that
+// gains shroud, hexproof or protection from white can no longer be shielded.
 card!(
     index = index::FYLGJA,
     oracle_id = "df0e5dd8-65e0-474c-ac32-6e0f6f16b8e6",
     scryfall_id = "3c6358a1-37f0-4b40-93d4-4f1652c38404",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage =
-        Coverage::Partial("untargeted prevent next 1 damage to enchanted creature not supported"),
+    coverage = Coverage::Partial(
+        "the healing-counter shield targets the enchanted creature, which the card does not: no untargeted damage shield names an Aura's host"
+    ),
     faces = &[face!(
         name = "Fylgja",
         mana_cost = mana!("{W}"),
@@ -33,15 +37,12 @@ card!(
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         ),
         activated!(
-            Cost {
-                mana: ManaCost::ZERO,
-                parts: &[CostPart::RemoveCounterSelf {
-                    kind: counters::HEALING,
-                    n: 1,
-                }],
-            },
+            cost!(RemoveCounterSelf {
+                kind: counters::HEALING,
+                n: 1
+            }),
             &[Effect::PreventNextDamage {
-                target: TargetSpec::Object(&Filter::CREATURE),
+                target: TargetSpec::Object(&Filter::AttachedToBySource),
                 amount: Amount::Fixed(1),
             }],
             target = Some(TargetSpec::Object(&Filter::AttachedToBySource)),

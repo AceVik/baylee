@@ -11,6 +11,7 @@ use crate::turn::Step;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 fn formation() -> CardIndex {
     card_index("ad5d27ea-cead-4c95-8561-283855ce952e")
@@ -45,5 +46,10 @@ fn formation_grants_banding_and_draws_at_next_turns_upkeep() {
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
         hand_before + 1
+    );
+    assert_eq!(
+        engine.state().turn.active,
+        P1,
+        "\"the next turn's upkeep\" is the opponent's, not the caster's next one"
     );
 }

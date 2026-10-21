@@ -38,10 +38,14 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::ControllerOfAttached,
             },
-            &[Effect::AddCounterFilter {
-                filter: &Filter::AttachedToBySource,
+            // "That creature": the one this Aura enchanted, even if the Aura
+            // has left the battlefield before the trigger resolves (its last
+            // attachment), which `AddCounterFilter(AttachedToBySource)` does
+            // not find.
+            &[Effect::ChangeAttachedCounters {
                 kind: M0M1,
                 amount: Amount::Fixed(1),
+                remove: false,
             }],
         ),
     ],

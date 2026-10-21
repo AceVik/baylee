@@ -38,4 +38,9 @@ fn enervate_taps_target_and_draws_at_next_turns_upkeep() {
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
         hand_before + 1
     );
+    assert_eq!(
+        engine.state().turn.active,
+        P1,
+        "\"the next turn's upkeep\" is the opponent's, not the caster's next one"
+    );
 }

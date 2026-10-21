@@ -65,3 +65,50 @@ fn energy_storm_stops_creatures_with_flying_from_untapping() {
         "Grizzly Bears without flying untaps normally"
     );
 }
+
+/// "Cumulative upkeep {1}" (CR 702.24a): paid at the first upkeep in the
+/// fixture, the second asks {1} for each of two age counters, and declined,
+/// Energy Storm is sacrificed.
+#[test]
+fn energy_storm_cumulative_upkeep_grows_and_is_sacrificed_when_unpaid() {
+    let mut engine = lk::game_with(SEED, &[energy_storm()], &[], &[], &[], |e| {
+        lk::float(e, P0, &[(ManaColor::Colorless, 1)]);
+        lk::yes_no(e, true);
+    });
+    let storm = lk::obj(&engine, P0, energy_storm());
+
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayTax { .. },
+                ..
+            }
+        )
+    });
+    let Pending::YesNo { player, prompt, .. } = engine.pending().clone() else {
+        unreachable!("the predicate just matched")
+    };
+    assert_eq!(player, P0, "asked of Energy Storm's controller");
+    assert_eq!(engine.state().turn.active, P0, "at its own upkeep");
+    assert_eq!(
+        engine
+            .state()
+            .object(storm)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::AGE),
+        2
+    );
+    assert_eq!(
+        prompt,
+        YesNoPrompt::PayTax { mana: 2 },
+        "{{1}} for each of the two age counters"
+    );
+    engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
+    lk::settle(&mut engine);
+    assert!(
+        in_graveyard(&engine, P0, energy_storm()).is_some(),
+        "unpaid, Energy Storm is sacrificed"
+    );
+}
