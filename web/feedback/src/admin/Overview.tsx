@@ -39,6 +39,7 @@ import {
   useVisibleInterval,
 } from "./shared";
 import { TableCard } from "./Live";
+import { releasesUrl } from "./releases";
 
 /** The kinds the error-rate chart counts as a defect. */
 const DEFECTS = new Set(["bug", "crash"]);
@@ -145,6 +146,13 @@ function Services({
           <p className="mono small build" data-testid="feedback-version">
             {health.version}
           </p>
+          {releasesUrl(health.source) !== null && (
+            <p className="small">
+              <a href={releasesUrl(health.source) ?? undefined} target="_blank" rel="noreferrer noopener">
+                {t(lang, "sets.latestClient")} ↗
+              </a>
+            </p>
+          )}
         </>
       )}
     </Panel>
