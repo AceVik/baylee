@@ -1,3 +1,6 @@
+use super::events::event_object_of;
+use super::matching::{hits, repeats};
+use super::watches::first_mana_of_a_tap;
 use super::*;
 mod speed;
 use crate::object::ObjectKind;
