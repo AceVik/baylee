@@ -18,6 +18,7 @@ mod krosan_groundshaker;
 mod lord_of_the_pit;
 mod luminous_angel;
 mod macetail_hystrodon;
+mod marjhan;
 mod omnath_locus_of_rage;
 mod oyobi_who_split_the_heavens;
 mod plated_slagwurm;

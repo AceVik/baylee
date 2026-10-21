@@ -24,7 +24,7 @@ card!(
             Effect::ShuffleLibrary {
                 who: PlayerRel::Chosen,
             },
-            Effect::AtNextUpkeep {
+            Effect::AtNextTurnsUpkeep {
                 effects: &[Effect::draw(1)],
             },
         ],

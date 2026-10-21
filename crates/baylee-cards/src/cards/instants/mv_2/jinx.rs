@@ -26,7 +26,7 @@ card!(
                 modifier: Modifier::SetLandType(subtypes::land::ISLAND),
                 duration: Duration::UntilEndOfTurn,
             },
-            Effect::AtNextUpkeep {
+            Effect::AtNextTurnsUpkeep {
                 effects: &[Effect::draw(1)],
             },
         ],

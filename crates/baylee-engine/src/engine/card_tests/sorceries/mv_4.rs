@@ -25,6 +25,7 @@ mod natural_order;
 mod past_in_flames;
 mod rejuvenate;
 mod resurrection;
+mod retribution;
 mod shatterstorm;
 mod stench_of_evil;
 mod sunder_from_within;

@@ -82,6 +82,7 @@ mod frankenstein_s_monster;
 mod freyalise_supplicant;
 mod gaea_s_skyfolk;
 mod geist_of_saint_thalia;
+mod giant_albatross;
 mod giant_slug;
 mod giant_tortoise;
 mod gilded_drake;

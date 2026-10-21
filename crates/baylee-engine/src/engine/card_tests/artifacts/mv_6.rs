@@ -7,6 +7,7 @@ mod book_of_rass;
 mod feroz_s_ban;
 mod hair_strung_koto;
 mod jandor_s_ring;
+mod joven_s_tools;
 mod planar_portal;
 mod pyramids;
 mod rakalite;

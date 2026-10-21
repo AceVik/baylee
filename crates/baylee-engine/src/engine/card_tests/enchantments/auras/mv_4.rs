@@ -12,6 +12,7 @@ mod divine_transformation;
 mod feast_of_the_unicorn;
 mod flight_of_fancy;
 mod improvised_armor;
+mod mammoth_harness;
 mod merseine;
 mod mind_whip;
 mod serra_s_embrace;

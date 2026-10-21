@@ -5314,3 +5314,20 @@ more than two it names nobody). What the author did more than once:
     combined with `CostItem::RemoveCounter { kind: CounterKind::Polyp, count: 1 }` (`Coral Reef`)
     prompts `Pending::ChooseCostObjects` for the untapped blue creature when activating the
     ability.
+
+## 2026-10-21 — Homelands (`hml`) batch 2 (25 cards: `Forget` to `Reveka, Wizard Savant`)
+
+- Added 25 *Homelands* first-printing cards (`Forget` through `Reveka, Wizard Savant`,
+  14 `Coverage::Implemented`, 11 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Slowtrips that read *"Draw a card at the beginning of the next turn's upkeep"* (`Headstone`,
+    `Jinx`, `Prophecy`, `Renewal`) must use `Effect::AtNextTurnsUpkeep`, not `Effect::AtNextUpkeep`
+    (which schedules the trigger for *your* next upkeep rather than the next turn's upkeep).
+    Writing played card tests that check the card draw on the opponent's turn 2 upkeep immediately
+    caught the distinction across all four cards.
+  - When testing a permanent with an upkeep sacrifice trigger (`Koskun Falls`'s *"At the beginning
+    of your upkeep, sacrifice this enchantment unless you tap an untapped creature you control"*),
+    seeding the enchantment on `battlefield(0, ...)` without a creature causes it to sacrifice
+    itself during P0's Turn 1 upkeep inside `reach_main_phase(&mut engine, p0)` before P1's turn
+    ever begins; cast the enchantment in P0's first main phase (or seed a creature on P0's
+    battlefield) when testing its static ability on P1's turn.

@@ -32,6 +32,7 @@ mod holy_strength;
 mod immolation;
 mod imposing_visage;
 mod instill_energy;
+mod ironclaw_curse;
 mod lance;
 mod living_artifact;
 mod mystic_might;

@@ -19,6 +19,7 @@ mod farseek;
 mod finale_of_devastation;
 mod fire_ambush;
 mod fit_of_rage;
+mod forget;
 mod gaze_of_pain;
 mod hunger_of_the_nim;
 mod martyr_s_cry;

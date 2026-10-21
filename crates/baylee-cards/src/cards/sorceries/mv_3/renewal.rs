@@ -25,7 +25,7 @@ card!(
             finds: &[Find::BATTLEFIELD],
             optional: false,
         },
-        Effect::AtNextUpkeep {
+        Effect::AtNextTurnsUpkeep {
             effects: &[Effect::draw(1)],
         },
     ])],

@@ -60,6 +60,7 @@ mod ignoble_hierarch;
 mod infantry_veteran;
 mod initiates_of_the_ebon_hand;
 mod ivy_elemental;
+mod joven_s_ferrets;
 mod kird_ape;
 mod kitsune_diviner;
 mod kjeldoran_dead;

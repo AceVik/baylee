@@ -951,7 +951,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Clockwork Gnomes, Clockwork Steed, Clockwork Swarm, Coral Reef (2), Dark
     // Maze, Daughter of Autumn, Didgeridoo, Dwarven Sea Clan, and Faerie Noble,
     // of which 12 are read by the evaluator.
-    assert_eq!((read, of), (2627, 3226), "activated/loyalty reader census");
+    // Homelands (`hml`) Batch 2 adds 7 non-mana activated abilities across
+    // Giant Oyster, Hazduhr the Abbot, Heart Wolf, Joven's Tools, Marjhan (2),
+    // and Reveka, Wizard Savant, of which 2 are read by the evaluator.
+    assert_eq!((read, of), (2629, 3233), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

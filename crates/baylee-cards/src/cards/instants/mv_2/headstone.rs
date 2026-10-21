@@ -22,7 +22,7 @@ card!(
             Effect::Exile {
                 target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer),
             },
-            Effect::AtNextUpkeep {
+            Effect::AtNextTurnsUpkeep {
                 effects: &[Effect::draw(1)],
             },
         ],
