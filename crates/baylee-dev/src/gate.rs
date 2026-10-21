@@ -12,7 +12,7 @@ use std::{collections::BTreeSet, fs, path::Path};
 const SCRYFALL_CACHE: &str = "data/scryfall-cache";
 
 /// fmt, clippy, every test through nextest, `validate` and the API
-/// documents (`api`, where the oas-forge checkout is), as CI runs them.
+/// documents (`api`), as CI runs them.
 /// Every phase runs even when an earlier one failed. Needs Postgres for the
 /// catalog and gateway tests (`DATABASE_URL`).
 pub fn full() -> Result<i32> {
@@ -52,9 +52,7 @@ pub fn full() -> Result<i32> {
     } else {
         println!("STEP validate SKIPPED - no {SCRYFALL_CACHE}");
     }
-    if let Some(mut api) = crate::api::command("gate") {
-        steps.run("api", &mut api);
-    }
+    steps.run("api", &mut crate::api::command("check"));
     Ok(steps.finish())
 }
 

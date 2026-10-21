@@ -25,6 +25,8 @@ description = "An unofficial, non-commercial fan implementation of a trading car
 # The interface's phrases (`crates/baylee-client-core/locales`): Project
 # Fluent, CLDR plural rules per language.
 fluent-bundle = "0.16"
+# The API documents (`crates/baylee-api-docs`, `cargo dev api`).
+oas-forge = "0.2.0"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
