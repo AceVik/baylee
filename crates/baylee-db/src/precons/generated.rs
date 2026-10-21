@@ -55,6 +55,7 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "PAST/warlock", text: include_str!("../../../../data/decks/precon/PAST/warlock.txt") },
     Precon { key: "PAST/winged-stallion", text: include_str!("../../../../data/decks/precon/PAST/winged-stallion.txt") },
     Precon { key: "PAST/witch", text: include_str!("../../../../data/decks/precon/PAST/witch.txt") },
+    Precon { key: "PTC/george-baxter-quarterfinalist", text: include_str!("../../../../data/decks/precon/PTC/george-baxter-quarterfinalist.txt") },
     Precon { key: "RQS/kazz-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-first-deck.txt") },
     Precon { key: "RQS/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/RQS/kazz-s-second-deck.txt") },
     Precon { key: "RQS/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/RQS/zakk-s-first-deck.txt") },

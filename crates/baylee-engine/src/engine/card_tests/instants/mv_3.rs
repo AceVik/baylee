@@ -62,6 +62,7 @@ mod stampede;
 mod sultai_charm;
 mod teferi_s_protection;
 mod touch_of_vitae;
+mod truce;
 mod valakut_awakening;
 mod verdigris;
 mod void_rend;

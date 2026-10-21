@@ -102,6 +102,7 @@ mod savage_gorilla;
 mod sengir_vampire;
 mod serpentine_kavu;
 mod serra_angel;
+mod serra_inquisitors;
 mod sheoldred;
 mod shimian_night_stalker;
 mod shu_soldier_farmers;

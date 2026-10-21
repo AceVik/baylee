@@ -5331,3 +5331,21 @@ more than two it names nobody). What the author did more than once:
     itself during P0's Turn 1 upkeep inside `reach_main_phase(&mut engine, p0)` before P1's turn
     ever begins; cast the enchantment in P0's first main phase (or seed a creature on P0's
     battlefield) when testing its static ability on P1's turn.
+
+## 2026-10-22 — Homelands (`hml`) batch 3 (final 15 cards: `Root Spider` to `Winter Sky`, set complete)
+
+- Added the final 15 *Homelands* first-printing cards (`Root Spider` through `Winter Sky`,
+  11 `Coverage::Implemented`, 4 `Coverage::Partial`, plus `Timmerian Fiends` in `data/unplayable.tsv`),
+  completing all playable *Homelands* (`hml`) cards (with `Drudge Spell` held back in
+  `docs/generated-held-back.md`).
+- Key card-authoring and testing lessons:
+  - `Filter::ControlledByDefendingPlayer` in `Condition::BattlefieldCountAtMost` resolves against
+    the attacking source (`this`) during combat, so `Spectral Bears`'s *"Whenever this creature
+    attacks, if defending player controls no black nontoken permanents, it doesn't untap during
+    your next untap step"* is 100% `Coverage::Implemented` via
+    `Condition::BattlefieldCountAtMost(&DEFENDERS_BLACK_NONTOKEN_PERMANENT, 0)` and
+    `Effect::SuppressUntap { target: TargetSpec::ThisObject, steps: 1 }`.
+  - `Trigger::DiesAfterDamageByThis` (`Sengir Bats`, `Sengir Vampire`) checks that the damage source
+    is still on the battlefield when `damage_death_snapshot` is taken (`object.zone == Zone::Battlefield`),
+    so when testing a 1/2 creature with `Trigger::DiesAfterDamageByThis`, block a 1/1 attacker rather
+    than a 2/2 attacker so the source survives combat to witness the death.

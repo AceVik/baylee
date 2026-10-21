@@ -47,6 +47,7 @@ mod sicken;
 mod spirit_link;
 mod swift_reconfiguration;
 mod tangle_kelp;
+mod torture;
 mod unholy_strength;
 mod unstable_mutation;
 mod vigilance;

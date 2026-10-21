@@ -117,6 +117,7 @@ mod thunderscape_apprentice;
 mod timber_wolves;
 mod tinder_wall;
 mod tireless_tribe;
+mod trade_caravan;
 mod tree_monkey;
 mod tundra_wolves;
 mod viridian_acolyte;

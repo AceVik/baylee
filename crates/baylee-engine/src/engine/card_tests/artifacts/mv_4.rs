@@ -38,6 +38,7 @@ mod reflecting_mirror;
 mod rocket_launcher;
 mod rod_of_ruin;
 mod sandals_of_abdallah;
+mod serrated_arrows;
 mod sisay_s_ring;
 mod skull_catapult;
 mod staff_of_zegon;

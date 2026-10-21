@@ -189,6 +189,7 @@ mod skyshroud_falcon;
 mod slobad_goblin_tinkerer;
 mod soldevi_machinist;
 mod sparkmage_apprentice;
+mod spectral_bears;
 mod spiteful_bully;
 mod spore_flower;
 mod starlight_invoker;

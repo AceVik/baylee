@@ -31,6 +31,7 @@ mod prismatic_ward;
 mod psychic_venom;
 mod regeneration;
 mod seizures;
+mod serra_bestiary;
 mod sinister_strength;
 mod snow_devil;
 mod spectral_cloak;
