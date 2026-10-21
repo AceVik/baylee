@@ -25,6 +25,7 @@ mod humble_the_brute;
 mod jace_s_ingenuity;
 mod lash_of_the_whip;
 mod live_or_die;
+mod melee;
 mod misdirection;
 mod muse_s_encouragement;
 mod narset_s_rebuke;

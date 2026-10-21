@@ -16,7 +16,7 @@ card!(
     oracle_id = "70b69803-1870-4441-954b-dba5b433fcb2",
     scryfall_id = "75b67eb2-b60e-46b4-9d48-11c284957bec",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Legions of Lim-Dûl",
         mana_cost = mana!("{1}{B}{B}"),

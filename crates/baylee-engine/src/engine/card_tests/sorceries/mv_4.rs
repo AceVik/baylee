@@ -18,6 +18,7 @@ mod eternal_flame;
 mod flashfires;
 mod juxtapose;
 mod lay_waste;
+mod mind_warp;
 mod mizzix_s_mastery;
 mod natural_order;
 mod past_in_flames;

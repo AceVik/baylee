@@ -5219,3 +5219,22 @@ more than two it names nobody). What the author did more than once:
     `Kjeldoran Guard`'s *"only if defending player controls no snow lands"* restriction,
     tested both when the controller owns a snow land (allowed) and when the defending
     player controls one (excluded).
+
+## 2026-10-21 — Ice Age (`ice`) batch 6 (25 cards: `Lava Burst` to `Mountain Titan`)
+
+- Added 25 *Ice Age* first-printing cards (`Lava Burst` through `Mountain Titan`,
+  13 `Coverage::Implemented`, 12 `Coverage::Partial`), bringing `5ED/deck-b` (`Deck B`)
+  to playable status (`50 -> 51` playable preconstructed decks).
+- Key card-authoring and testing lessons:
+  - `Minion of Leshrac`'s *"If this creature deals damage to you this way, tap it"*
+    on its upkeep sacrifice-or-damage choice is 100% expressible using
+    `Condition::AmountAtLeast(Amount::ThisWay(ThisWay::DamageDealtToYou), 1)` inside
+    `Effect::IfCondition { ..., then: &[Effect::TapSelf], otherwise: &[] }` (the same
+    pattern as `Mishra's War Machine`).
+  - `Meteor Shower`'s *"deals X plus 1 damage"* for a single target is expressible via
+    `Amount::Plus { base: &Amount::X, offset: 1 }`; only dividing `X + 1` damage across
+    multiple targets lacks a `DivisionAmount` variant.
+  - `EnterModifier::ChooseOpponent` stores the chosen opponent on
+    `GameObject::chosen_opponent()`, and `Modifier::MayChooseNotToUntap` prompts
+    `Pending::ChooseCards { prompt: ChoicePrompt::LeaveTapped, .. }` during the untap
+    step (`vec![permanent]` leaves it tapped; `vec![]` lets it untap).

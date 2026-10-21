@@ -53,6 +53,7 @@ mod jwari_disruption;
 mod kabira_takedown;
 mod last_gasp;
 mod legion_leadership;
+mod lightning_blow;
 mod lightning_strike;
 mod lose_focus;
 mod mage_s_guile;

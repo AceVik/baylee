@@ -48,6 +48,7 @@ mod magnetic_mountain;
 mod mana_flare;
 mod mana_vortex;
 mod mental_discipline;
+mod mesmeric_trance;
 mod mobilization;
 mod moonlit_wake;
 mod narcissism;

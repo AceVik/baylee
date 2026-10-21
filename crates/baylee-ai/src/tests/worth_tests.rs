@@ -933,7 +933,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Jeweled Amulet, Karplusan Yeti, Kjeldoran Dead, Kjeldoran Elite Guard,
     // Kjeldoran Guard, Kjeldoran Royal Guard, Krovikan Elementalist, and
     // Krovikan Sorcerer, of which 6 are read by the evaluator.
-    assert_eq!((read, of), (2598, 3182), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 6 adds 8 non-mana activated abilities across
+    // Legions of Lim-Dûl, Magus of the Unseen, Mercenaries, Merieke Ri Berit,
+    // Mesmeric Trance, Minion of Leshrac, Mistfolk, and Mole Worms, of which
+    // 4 are read by the evaluator.
+    assert_eq!((read, of), (2602, 3190), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

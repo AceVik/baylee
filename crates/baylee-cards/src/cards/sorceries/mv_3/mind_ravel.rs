@@ -11,7 +11,7 @@ card!(
     oracle_id = "8cd0fcac-800a-431c-aca9-804998704606",
     scryfall_id = "1a9a0296-3690-45c7-98af-d546296ad9fe",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mind Ravel",
         mana_cost = mana!("{2}{B}"),

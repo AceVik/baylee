@@ -18,6 +18,7 @@ fn infinite_hourglass() -> CardIndex {
 fn infinite_hourglass_adds_time_counter_on_upkeep_and_removes_one_only_during_an_upkeep_step() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[infinite_hourglass(), forest(), forest(), forest()])
+        .battlefield(1, &[forest(), forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
 
@@ -49,18 +50,18 @@ fn infinite_hourglass_adds_time_counter_on_upkeep_and_removes_one_only_during_an
         "{{3}} ability is not offered during a main phase"
     );
 
-    // Advance to P1's upkeep step: "during any upkeep step" allows activation during P1's upkeep too.
+    // Advance to P1's upkeep step: "Any player may activate this ability" lets the non-controller P1 activate it.
     pass_until(&mut engine, |e| {
         e.state().turn.active == P1
             && e.state().turn.step == Step::Upkeep
-            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
     });
     assert!(
         ability_offered(&engine, hourglass, 1),
-        "{{3}} ability is offered during P1's upkeep step"
+        "{{3}} ability is offered to P1 during P1's upkeep step"
     );
-    tap_all_mana_but(&mut engine, P0, None);
-    activate(&mut engine, P0, infinite_hourglass(), 1);
+    tap_all_mana_but(&mut engine, P1, None);
+    activate(&mut engine, P1, infinite_hourglass(), 1);
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

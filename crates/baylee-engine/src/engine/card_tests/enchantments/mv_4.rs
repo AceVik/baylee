@@ -145,6 +145,8 @@ mod living_lands;
 mod living_plane;
 mod manabarbs;
 mod martyrs_tomb;
+mod melting;
+mod monsoon;
 mod mystic_decree;
 mod natural_emergence;
 mod night_of_souls_betrayal;

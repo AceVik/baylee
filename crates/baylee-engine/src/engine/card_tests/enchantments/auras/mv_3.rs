@@ -19,6 +19,7 @@ mod journey_to_eternity;
 mod krovikan_fetish;
 mod kudzu;
 mod lure;
+mod maddening_wind;
 mod maggot_therapy;
 mod relic_bind;
 mod scavenged_weaponry;

@@ -11,7 +11,7 @@ card!(
     oracle_id = "d1cc6979-d786-4035-963b-768ac8cef116",
     scryfall_id = "91129aeb-eed5-4b98-896f-fb3bab48b25d",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mesmeric Trance",
         mana_cost = mana!("{1}{U}{U}"),

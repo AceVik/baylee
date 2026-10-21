@@ -78,6 +78,7 @@ mod kazarov_sengir_pureblood;
 mod loamdragger_giant;
 mod magma_giant;
 mod maul_splicer;
+mod minion_of_leshrac;
 mod minion_of_tevesh_szat;
 mod minotaur_aggressor;
 mod molimo_maro_sorcerer;
