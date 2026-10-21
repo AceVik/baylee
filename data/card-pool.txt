@@ -5224,6 +5224,7 @@ Muck Rats
 Mudbrawler Raiders
 Mudbutton Torchrunner
 Mudflat Village
+Mudslide
 Mugato
 Muldrotha, the Gravetide
 Multani's Harmony
@@ -5248,6 +5249,7 @@ Muscle Burst
 Muscle Sliver
 Muse Drake
 Muse's Encouragement
+Musician
 Mutagenic Growth
 Mutant Town
 Mutant Town Musicians
@@ -5265,6 +5267,7 @@ Mystic Archaeologist
 Mystic Decree
 Mystic Denial
 Mystic Forge
+Mystic Might
 Mystic Monastery
 Mystic Remora
 Mystic Restraints
@@ -5280,6 +5283,7 @@ Nafs Asp
 Naga Eternal
 Naga Oracle
 Nahiri's Machinations
+Naked Singularity
 Nalathni Dragon
 Nameless Race
 Nantuko Disciple
@@ -5440,6 +5444,7 @@ Nomadic Elf
 Noose Constrictor
 Nori, Teller of Tales
 Norn's Wellspring
+Norritt
 North Pole Gates
 North Star
 Northampton Farm
@@ -5485,6 +5490,7 @@ Oakhollow Village
 Oashra Cultivator
 Oasis
 Oasis Gardener
+Oath of Lim-Dûl
 Oath of the Ancient Wood
 Oathsworn Giant
 Ob Nixilis's Cruelty
@@ -5600,11 +5606,15 @@ Orcish Bloodpainter
 Orcish Cannonade
 Orcish Cannoneers
 Orcish Captain
+Orcish Conscripts
+Orcish Farmer
 Orcish Healer
+Orcish Librarian
 Orcish Lumberjack
 Orcish Mechanics
 Orcish Oriflamme
 Orcish Spy
+Orcish Squatters
 Orcish Vandal
 Orcish Veteran
 Order of Leitbur
@@ -5682,6 +5692,7 @@ Paleoloth
 Paliano, the High City
 Palladia-Mors
 Palladium Myr
+Panic
 Panicked Altisaur
 Panther Warriors
 Paradise Druid
@@ -5757,6 +5768,7 @@ Pestered Wellguard
 Pestermite
 Pestilence
 Pestilence Demon
+Pestilence Rats
 Pestilent Kathari
 Pestilent Wolf
 Petra Sphinx
@@ -5765,6 +5777,7 @@ Petrified Hamlet
 Pewter Golem
 Phalanx Vanguard
 Phantasmal Forces
+Phantasmal Mount
 Phantasmal Terrain
 Phantatog
 Phantom General
@@ -5877,6 +5890,7 @@ Poison the Blade
 Poison-Blade Mentor
 Poison-Tip Archer
 Poisonbelly Ogre
+Polar Kraken
 Polluted Bonds
 Polluted Dead
 Polluted Mire
@@ -5887,6 +5901,7 @@ Porcelain Legionnaire
 Port Town
 Port of Karfell
 Portcullis Vine
+Portent
 Potion of Healing
 Pouncing Cheetah
 Power Armor
@@ -5901,6 +5916,7 @@ Power Taint
 Power Word Kill
 Powerleech
 Powerstone Shard
+Pox
 Pradesh Gypsies
 Prahv, Spires of Order
 Prakhata Club Security
@@ -5951,6 +5967,7 @@ Prismari Campus
 Prismatic Ending
 Prismatic Lens
 Prismatic Vista
+Prismatic Ward
 Prismite
 Pristine Talisman
 Prized Elephant
@@ -6016,6 +6033,7 @@ Putrefy
 Putrid Leech
 Pygmy Allosaurus
 Pygmy Razorback
+Pyknite
 Pym Particles
 Pym Technologies
 Pyramids
@@ -6024,6 +6042,7 @@ Pyre Hound
 Pyre Spawn
 Pyretic Ritual
 Pyrite Spellbomb
+Pyroblast
 Pyroceratops
 Pyroclasm
 Pyroclastic Elemental
@@ -6121,6 +6140,7 @@ Rakka Mar
 Rakshasa Deathdealer
 Rakshasa's Secret
 Ral's Reinforcements
+Rally
 Rambunctious Mutt
 Ramirez DePietro
 Ramosian Captain
@@ -6177,7 +6197,9 @@ Ravenous Lindwurm
 Ravenous Rats
 Ravenous Skirge
 Ravine Raider
+Ray of Command
 Ray of Dissolution
+Ray of Erasure
 Ray of Ruin
 Razaketh's Rite
 Razaketh, the Foulblooded
@@ -6196,6 +6218,7 @@ Reach for the Sky
 Read the Bones
 Ready to Rumble
 Reality Hemorrhage
+Reality Twist
 Realm of Koh
 Realms Uncharted
 Reaper King
@@ -6218,6 +6241,7 @@ Reckless Ransacking
 Reckless Reveler
 Reckless Scholar
 Reclaiming Vines
+Reclamation
 Reclamation Sage
 Reclusive Artificer
 Reclusive Wight
@@ -6231,6 +6255,7 @@ Red Dragon
 Red Elemental Blast
 Red Herring
 Red Mana Battery
+Red Scarab
 Red Ward
 Redcap Thief
 Redrock Sentinel

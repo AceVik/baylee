@@ -3737,9 +3737,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{1}{R}{R}: Until end of turn, whenever you cast a black spell, put a +1/+1 counter on this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Mudslide
+    &[
+        "Creatures without flying don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player may choose any number of tapped creatures without flying they control and pay {2} for each creature chosen this way. If the player does, untap those creatures.",
+    ],
+    // Musician
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{T}: Put a music counter on target creature. If it doesn't have \"At the beginning of your upkeep, destroy this creature unless you pay {1} for each music counter on it,\" it gains that ability.",
+    ],
+    // Mystic Might
+    &[
+        "Enchant land you control\nCumulative upkeep {1}{U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nEnchanted land has \"{T}: Target creature gets +2/+2 until end of turn.\"",
+    ],
     // Mystic Remora
     &[
         "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.",
@@ -3750,29 +3759,48 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Nacre Talisman
     &["Whenever a player casts a white spell, you may pay {3}. If you do, untap target permanent."],
-    &[],
+    // Naked Singularity
+    &[
+        "Cumulative upkeep {3} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nIf tapped for mana, Plains produce {R}, Islands produce {G}, Swamps produce {W}, Mountains produce {U}, and Forests produce {B} instead of any other type.",
+    ],
     // Nature's Lore
     &["Search your library for a Forest card, put that card onto the battlefield, then shuffle."],
     // Necropotence
     &[
         "Skip your draw step.\nWhenever you discard a card, exile that card from your graveyard.\nPay 1 life: Exile the top card of your library face down. Put that card into your hand at the beginning of your next end step.",
     ],
-    &[],
-    &[],
+    // Norritt
+    &[
+        "{T}: Untap target blue creature.\n{T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That creature attacks this turn if able. Destroy it at the beginning of the next end step if it didn't attack this turn. Activate only before attackers are declared.",
+    ],
+    // Oath of Lim-Dûl
+    &[
+        "Whenever you lose life, for each 1 life you lost, sacrifice a permanent other than this enchantment unless you discard a card. (Damage dealt to you causes you to lose life.)\n{B}{B}: Draw a card.",
+    ],
     // Onyx Talisman
     &["Whenever a player casts a black spell, you may pay {3}. If you do, untap target permanent."],
     // Orcish Cannoneers
     &["{T}: This creature deals 2 damage to any target and 3 damage to you."],
-    &[],
-    &[],
+    // Orcish Conscripts
+    &[
+        "This creature can't attack unless at least two other creatures attack.\nThis creature can't block unless at least two other creatures block.",
+    ],
+    // Orcish Farmer
+    &["{T}: Target land becomes a Swamp until its controller's next untap step."],
     // Orcish Healer
     &[
         "{R}{R}, {T}: Target creature can't be regenerated this turn.\n{B}{B}{R}, {T}: Regenerate target black or green creature.\n{R}{G}{G}, {T}: Regenerate target black or green creature.",
     ],
-    &[],
+    // Orcish Librarian
+    &[
+        "{R}, {T}: Look at the top eight cards of your library. Exile four of them at random, then put the rest on top of your library in any order.",
+    ],
     // Orcish Lumberjack
     &["{T}, Sacrifice a Forest: Add three mana in any combination of {R} and/or {G}."],
-    &[],
+    // Orcish Squatters
+    &[
+        "Whenever this creature attacks and isn't blocked, you may gain control of target land defending player controls for as long as you control this creature. If you do, this creature assigns no combat damage this turn.",
+    ],
     // Order of the Sacred Torch
     &["{T}, Pay 1 life: Counter target black spell."],
     // Order of the White Shield
@@ -3783,33 +3811,72 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
     ],
-    &[],
+    // Panic
+    &[
+        "Cast this spell only during combat before blockers are declared.\nTarget creature can't block this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Pentagram of the Ages
     &[
         "{4}, {T}: The next time a source of your choice would deal damage to you this turn, prevent that damage.",
     ],
-    &[],
-    &[],
+    // Pestilence Rats
+    &[
+        "Pestilence Rats's power is equal to the number of other Rats on the battlefield. (For example, as long as there are two other Rats on the battlefield, Pestilence Rats's power and toughness are 2/3.)",
+    ],
+    // Phantasmal Mount
+    &[
+        "Flying\n{T}: Target creature you control with toughness 2 or less gets +1/+1 and gains flying until end of turn. When this creature leaves the battlefield this turn, sacrifice that creature. When the creature leaves the battlefield this turn, sacrifice this creature.",
+    ],
     // Pit Trap
     &[
         "{2}, {T}, Sacrifice this artifact: Destroy target attacking creature without flying. It can't be regenerated.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Polar Kraken
+    &[
+        "Trample\nThis creature enters tapped.\nCumulative upkeep—Sacrifice a land. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Portent
+    &[
+        "Look at the top three cards of target player's library, then put them back in any order. You may have that player shuffle.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Pox
+    &[
+        "Each player loses a third of their life, then discards a third of the cards in their hand, then sacrifices a third of the creatures they control of their choice, then sacrifices a third of the lands they control of their choice. Round up each time.",
+    ],
+    // Prismatic Ward
+    &[
+        "Enchant creature\nAs this Aura enters, choose a color.\nPrevent all damage that would be dealt to enchanted creature by sources of the chosen color.",
+    ],
     // Pygmy Allosaurus
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
-    &[],
-    &[],
+    // Pyknite
+    &["When this creature enters, draw a card at the beginning of the next turn's upkeep."],
+    // Pyroblast
+    &[
+        "Choose one —\n• Counter target spell if it's blue.\n• Destroy target permanent if it's blue.",
+    ],
     // Pyroclasm
     &["Pyroclasm deals 2 damage to each creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rally
+    &["Blocking creatures get +1/+1 until end of turn."],
+    // Ray of Command
+    &[
+        "Untap target creature an opponent controls and gain control of it until end of turn. That creature gains haste until end of turn. When you lose control of the creature, tap it.",
+    ],
+    // Ray of Erasure
+    &["Target player mills a card.\nDraw a card at the beginning of the next turn's upkeep."],
+    // Reality Twist
+    &[
+        "Cumulative upkeep {1}{U}{U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nIf tapped for mana, Plains produce {R}, Swamps produce {G}, Mountains produce {W}, and Forests produce {B} instead of any other type.",
+    ],
+    // Reclamation
+    &[
+        "Black creatures can't attack unless their controller sacrifices a land of their choice for each black creature they control that's attacking. (This cost is paid as attackers are declared.)",
+    ],
+    // Red Scarab
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by red creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a red permanent.",
+    ],
     &[],
     &[],
     // River Delta
