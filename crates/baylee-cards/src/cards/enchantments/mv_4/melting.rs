@@ -1,0 +1,21 @@
+//! Melting — {3}{R} — Enchantment
+//! Oracle: All lands are no longer snow.
+//! Set: ICE #201 — Ice Age | Scryfall ID: 8d90065e-2c7e-44e5-9f59-015d468214bf | Oracle ID: 599247f2-7f88-40ab-be08-e284e5f231d9
+// NOT SUPPORTED: removing the snow supertype from all lands is not supported; plays as an enchantment with no effect.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::MELTING,
+    oracle_id = "599247f2-7f88-40ab-be08-e284e5f231d9",
+    scryfall_id = "8d90065e-2c7e-44e5-9f59-015d468214bf",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    coverage = Coverage::Partial(
+        "removing the snow supertype from all lands is not supported; plays as an enchantment with no effect",
+    ),
+    faces = &[face!(
+        name = "Melting",
+        mana_cost = mana!("{3}{R}"),
+        types = TypeSet::ENCHANTMENT,
+    ),],
+);

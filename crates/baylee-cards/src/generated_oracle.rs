@@ -3631,50 +3631,112 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Lapis Lazuli Talisman
     &["Whenever a player casts a blue spell, you may pay {3}. If you do, untap target permanent."],
-    &[],
+    // Lava Burst
+    &[
+        "Lava Burst deals X damage to any target. If Lava Burst would deal damage to a creature, that damage can't be prevented or dealt instead to another permanent or player.",
+    ],
     // Lava Tubes
     &[
         "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {B} or {R}. Put a depletion counter on this land.",
     ],
-    &[],
+    // Legions of Lim-Dûl
+    &[
+        "Snow swampwalk (This creature can't be blocked as long as defending player controls a snow Swamp.)",
+    ],
     // Leshrac's Rite
     &[
         "Enchant creature\nEnchanted creature has swampwalk. (It can't be blocked as long as defending player controls a Swamp.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Leshrac's Sigil
+    &[
+        "Whenever an opponent casts a green spell, you may pay {B}{B}. If you do, look at that player's hand and choose a card from it. The player discards that card.\n{B}{B}: Return this enchantment to its owner's hand.",
+    ],
+    // Lhurgoyf
+    &[
+        "Lhurgoyf's power is equal to the number of creature cards in all graveyards and its toughness is equal to that number plus 1.",
+    ],
+    // Lightning Blow
+    &[
+        "Target creature gains first strike until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Lim-Dûl's Cohort
+    &[
+        "Whenever this creature blocks or becomes blocked by a creature, that creature can't be regenerated this turn.",
+    ],
+    // Lim-Dûl's Hex
+    &[
+        "At the beginning of your upkeep, for each player, this enchantment deals 1 damage to that player unless they pay {B} or {3}.",
+    ],
+    // Lost Order of Jarkeld
+    &[
+        "As this creature enters, choose an opponent.\nLost Order of Jarkeld's power and toughness are each equal to 1 plus the number of creatures the chosen player controls.",
+    ],
+    // Maddening Wind
+    &[
+        "Enchant creature\nCumulative upkeep {G} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals 2 damage to that player.",
+    ],
+    // Magus of the Unseen
+    &[
+        "{1}{U}, {T}: Untap target artifact an opponent controls and gain control of it until end of turn. It gains haste until end of turn. When you lose control of the artifact, tap it.",
+    ],
     // Malachite Talisman
     &["Whenever a player casts a green spell, you may pay {3}. If you do, untap target permanent."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Melee
+    &[
+        "Cast this spell only during combat on your turn before blockers are declared.\nYou choose which creatures block this combat and how those creatures block.\nWhenever a creature attacks and isn't blocked this combat, untap it and remove it from combat.",
+    ],
+    // Melting
+    &["All lands are no longer snow."],
+    // Mercenaries
+    &[
+        "{3}: The next time this creature would deal damage to you this turn, prevent that damage. Any player may activate this ability.",
+    ],
+    // Merieke Ri Berit
+    &[
+        "Merieke Ri Berit doesn't untap during your untap step.\n{T}: Gain control of target creature for as long as you control Merieke Ri Berit. When Merieke Ri Berit leaves the battlefield or becomes untapped, destroy that creature. It can't be regenerated.",
+    ],
+    // Mesmeric Trance
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{U}, Discard a card: Draw a card.",
+    ],
+    // Meteor Shower
+    &["Meteor Shower deals X plus 1 damage divided as you choose among any number of targets."],
+    // Mind Ravel
+    &["Target player discards a card.\nDraw a card at the beginning of the next turn's upkeep."],
+    // Mind Warp
+    &["Look at target player's hand and choose X cards from it. That player discards those cards."],
+    // Mind Whip
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature.",
+    ],
+    // Minion of Leshrac
+    &[
+        "Protection from black\nAt the beginning of your upkeep, this creature deals 5 damage to you unless you sacrifice a creature other than this creature. If this creature deals damage to you this way, tap it.\n{T}: Destroy target creature or land.",
+    ],
     // Minion of Tevesh Szat
     &[
         "At the beginning of your upkeep, this creature deals 2 damage to you unless you pay {B}{B}.\n{T}: Target creature gets +3/-2 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Mistfolk
+    &["{U}: Counter target spell that targets this creature."],
+    // Mole Worms
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: Tap target land. It doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
+    // Monsoon
+    &[
+        "At the beginning of each player's end step, tap all untapped Islands that player controls and this enchantment deals X damage to the player, where X is the number of Islands tapped this way.",
+    ],
     // Moor Fiend
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
     // Mountain Goat
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Mountain Titan
+    &[
+        "{1}{R}{R}: Until end of turn, whenever you cast a black spell, put a +1/+1 counter on this creature.",
+    ],
     &[],
     &[],
     &[],
@@ -3682,7 +3744,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.",
     ],
-    &[],
+    // Márton Stromgald
+    &[
+        "Whenever Márton Stromgald attacks, other attacking creatures get +1/+1 until end of turn for each attacking creature other than Márton Stromgald.\nWhenever Márton Stromgald blocks, other blocking creatures get +1/+1 until end of turn for each blocking creature other than Márton Stromgald.",
+    ],
     // Nacre Talisman
     &["Whenever a player casts a white spell, you may pay {3}. If you do, untap target permanent."],
     &[],
