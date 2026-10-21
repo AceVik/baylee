@@ -42,9 +42,11 @@ While the version is `0.x`:
 
 ## Cutting one
 
-1. On `main`, bump `version` in `[workspace.package]` and measure the card
-   status (`cargo tools site card-status`, which rewrites `web/site/data`),
-   both in one commit (`chore(release): 0.2.0`), and push it. The website
+1. On `main`, bump `version` in `[workspace.package]`, rewrite the API
+   documents (`cargo dev api`: they name the version, and the gate's `api`
+   step refuses stale ones) and measure the card status
+   (`cargo tools site card-status`, which rewrites `web/site/data`), all in
+   one commit (`chore(release): 0.2.0`), and push it. The website
    (Central's `web/`) reads the card status of the newest release from that
    release's tag, as it reads the downloads from its assets, so the numbers a
    visitor sees are always those of the client the release ships. The release
