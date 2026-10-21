@@ -4519,40 +4519,102 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Wizards' School
     &["{T}: Add {C}.\n{1}, {T}: Add {U}.\n{2}, {T}: Add {W} or {B}."],
-    &[],
+    // Aesthir Glider
+    &["Flying\nThis creature can't block."],
     // Agent of Stromgald
     &["{R}: Add {B}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Arcane Denial
+    &[
+        "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep.\nYou draw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Ashnod's Cylix
+    &[
+        "{3}, {T}: Target player looks at the top three cards of their library, puts one of them back on top of their library, then exiles the rest.",
+    ],
+    // Astrolabe
+    &[
+        "{1}, {T}, Sacrifice this artifact: Add two mana of any one color. Draw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Awesome Presence
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.",
+    ],
+    // Balduvian Dead
+    &[
+        "{2}{R}, Exile a creature card from your graveyard: Create a 3/1 black and red Graveborn creature token with haste. Sacrifice it at the beginning of the next end step.",
+    ],
+    // Balduvian Horde
+    &["When this creature enters, sacrifice it unless you discard a card at random."],
     // Balduvian Trading Post
     &[
         "If this land would enter, sacrifice an untapped Mountain instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{R}.\n{1}, {T}: This land deals 1 damage to target attacking creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Balduvian War-Makers
+    &[
+        "Haste\nRampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Benthic Explorers
+    &[
+        "{T}, Untap a tapped land an opponent controls: Add one mana of any type that land could produce.",
+    ],
+    // Bestial Fury
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nWhenever enchanted creature becomes blocked, it gets +4/+0 and gains trample until end of turn.",
+    ],
+    // Bounty of the Hunt
+    &[
+        "You may exile a green card from your hand rather than pay this spell's mana cost.\nDistribute three +1/+1 counters among one, two, or three target creatures. For each +1/+1 counter you put on a creature this way, remove a +1/+1 counter from that creature at the beginning of the next cleanup step.",
+    ],
+    // Browse
+    &[
+        "{2}{U}{U}: Look at the top five cards of your library, put one of them into your hand, and exile the rest.",
+    ],
+    // Burnout
+    &[
+        "Counter target instant spell if it's blue.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Carrier Pigeons
+    &["Flying\nWhen this creature enters, draw a card at the beginning of the next turn's upkeep."],
+    // Casting of Bones
+    &[
+        "Enchant creature\nWhen enchanted creature dies, draw three cards, then discard one of them.",
+    ],
+    // Chaos Harlequin
+    &[
+        "{R}: Exile the top card of your library. If that card is a land card, this creature gets -4/-0 until end of turn. Otherwise, this creature gets +2/+0 until end of turn.",
+    ],
+    // Contagion
+    &[
+        "You may pay 1 life and exile a black card from your hand rather than pay this spell's mana cost.\nDistribute two -2/-1 counters among one or two target creatures.",
+    ],
     // Deadly Insect
     &["Shroud (This creature can't be the target of spells or abilities.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Death Spark
+    &[
+        "Death Spark deals 1 damage to any target.\nAt the beginning of your upkeep, if this card is in your graveyard with a creature card directly above it, you may pay {1}. If you do, return this card to your hand.",
+    ],
+    // Diminishing Returns
+    &[
+        "Each player shuffles their hand and graveyard into their library. You exile the top ten cards of your library. Then each player draws up to seven cards.",
+    ],
+    // Diseased Vermin
+    &[
+        "Whenever this creature deals combat damage to a player, put an infection counter on it.\nAt the beginning of your upkeep, this creature deals X damage to target opponent previously dealt damage by it, where X is the number of infection counters on it.",
+    ],
+    // Dystopia
+    &[
+        "Cumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of each player's upkeep, that player sacrifices a green or white permanent of their choice.",
+    ],
+    // Elvish Bard
+    &["All creatures able to block this creature do so."],
     // Elvish Ranger
     &[""],
-    &[],
-    &[],
+    // Elvish Spirit Guide
+    &["Exile this card from your hand: Add {G}."],
+    // Energy Arc
+    &[
+        "Untap any number of target creatures. Prevent all combat damage that would be dealt to and dealt by those creatures this turn.",
+    ],
     // Enslaved Scout
     &[
         "{2}: This creature gains mountainwalk until end of turn. (It can't be blocked as long as defending player controls a Mountain.)",
@@ -4561,7 +4623,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Create a 1/1 white Knight creature token with banding. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
+    // Exile
+    &["Exile target nonwhite attacking creature. You gain life equal to its toughness."],
     &[],
     &[],
     // Feast or Famine

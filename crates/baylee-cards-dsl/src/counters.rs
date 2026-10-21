@@ -177,6 +177,9 @@ pub const ARROWHEAD: CounterKind = CounterKind::Custom(43);
 /// Currency counters (Trade Caravan).
 pub const CURRENCY: CounterKind = CounterKind::Custom(44);
 
+/// Infection counters (Diseased Vermin).
+pub const INFECTION: CounterKind = CounterKind::Custom(45);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -227,6 +230,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("music", MUSIC),
     ("arrowhead", ARROWHEAD),
     ("currency", CURRENCY),
+    ("infection", INFECTION),
 ];
 
 #[cfg(test)]
