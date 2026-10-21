@@ -195,6 +195,38 @@ impl Account {
         source.admit(self.session.gateway_ticket(&self.http, gateway.into())?)
     }
 
+    /// Baylee Central's terms in force and whether this account accepted them
+    /// (`docs/protocol.md` §"Terms of use (WG-1)").
+    ///
+    /// # Errors
+    /// Refuses a revoked session and failed network calls.
+    pub fn central_terms_status(&self) -> Result<central_client::TermsStatus, Error> {
+        self.session.terms_status(&self.http)
+    }
+
+    /// Baylee Central's terms in force, checked against their digest.
+    ///
+    /// # Errors
+    /// Refuses a document that does not match its digest and failed network calls.
+    pub fn central_terms(&self) -> Result<Option<crate::terms::TermsDocument>, Error> {
+        central_client::central_terms(&self.http)
+    }
+
+    /// Accept exactly the version and digest of the terms this client showed:
+    /// Baylee Central's, or a gateway's by its origin. Accepting it again is
+    /// no error.
+    ///
+    /// # Errors
+    /// `Conflict` when the terms changed since they were read (read and show
+    /// them again); refuses a revoked session and failed network calls.
+    pub fn accept_terms(
+        &self,
+        subject: crate::terms::TermsSubject,
+        version: &crate::terms::TermsVersion,
+    ) -> Result<(), Error> {
+        self.session.accept_terms(&self.http, subject, version)
+    }
+
     /// Save changed preferences and/or saved gateways with optimistic concurrency.
     /// Unknown preference fields are retained. A conflict requires explicit reconciliation.
     ///

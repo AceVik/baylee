@@ -925,3 +925,93 @@ fn a_console_that_could_be_misread_stops_the_start() {
         assert!(stderr.contains(why), "{env:?}: {stderr}");
     }
 }
+
+/// The terms of use in the console (`docs/protocol.md` §"Terms of use
+/// (WG-1)"): the default terms until an admin publishes a version; a
+/// published version is in force at once, never changes, and is listed with
+/// who published it. Without Baylee Central nothing confirms it there.
+#[test]
+fn the_console_publishes_terms_of_use() {
+    let c = console("terms", &[("BAYLEE_TERMS_PATH", String::new())]);
+    let (status, body) = admin(&c, "GET", "/admin/terms", "");
+    assert_eq!(status, 200, "{body}");
+    let current: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(current["terms"]["source"], "default", "{body}");
+    assert_eq!(current["terms"]["at_central"], false, "no Central here");
+    let langs: Vec<&str> = current["terms"]["texts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["lang"].as_str().unwrap())
+        .collect();
+    assert_eq!(langs, ["de", "en"]);
+
+    let publish = |version: &str, texts: serde_json::Value| {
+        admin(
+            &c,
+            "POST",
+            "/admin/terms",
+            &serde_json::json!({"version": version, "texts": texts}).to_string(),
+        )
+    };
+    let texts = serde_json::json!([
+        {"lang": "en", "markdown": "# Terms\n\nBe kind.\n"},
+        {"lang": "de", "updated": "2026-10-20", "markdown": "# Bedingungen\n\nSei nett.\n"},
+    ]);
+    let default_version = current["terms"]["version"].as_str().unwrap().to_owned();
+    let (status, body) = publish(&default_version, texts.clone());
+    assert_eq!(
+        status, 409,
+        "the default's version is in force already: {body}"
+    );
+    let (status, body) = publish("admin-1", texts.clone());
+    assert_eq!(status, 201, "{body}");
+    let published: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(published["terms"]["source"], "published");
+    assert_eq!(published["terms"]["version"], "admin-1");
+    let (_, served) = http(c.gw.port, "GET", "/terms?lang=de", None, "");
+    let served: serde_json::Value = serde_json::from_str(&served).unwrap();
+    assert_eq!(served["version"], "admin-1", "in force at once");
+    assert_eq!(served["markdown"], "# Bedingungen\n\nSei nett.\n");
+    assert_eq!(served["updated"], "2026-10-20");
+    assert_eq!(served["digest"], published["terms"]["digest"]);
+
+    let (status, body) = publish(
+        "admin-1",
+        serde_json::json!([{"lang": "en", "markdown": "# Changed\n"}]),
+    );
+    assert_eq!(status, 409, "a published version never changes: {body}");
+    for (version, texts, why) in [
+        (
+            "admin-2",
+            serde_json::json!([{"lang": "de", "markdown": "# T\n"}]),
+            "`en`",
+        ),
+        (
+            "draft",
+            serde_json::json!([{"lang": "en", "markdown": "# T\n"}]),
+            "draft",
+        ),
+        (
+            "two words",
+            serde_json::json!([{"lang": "en", "markdown": "# T\n"}]),
+            "version",
+        ),
+        (
+            "admin-2",
+            serde_json::json!([{"lang": "en", "markdown": "a\u{7}b"}]),
+            "control character",
+        ),
+    ] {
+        let (status, body) = publish(version, texts);
+        assert_eq!(status, 400, "{version}: {body}");
+        assert!(body.contains(why), "{version}: {body}");
+    }
+    let (status, body) = admin(&c, "GET", "/admin/terms/versions", "");
+    assert_eq!(status, 200);
+    let versions: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let versions = versions["versions"].as_array().unwrap();
+    assert_eq!(versions.len(), 1, "{body}");
+    assert_eq!(versions[0]["version"], "admin-1");
+    assert_eq!(versions[0]["published_by"], ADMIN);
+}

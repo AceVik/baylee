@@ -5,8 +5,9 @@
 
 **This file is a placeholder for testing the terms sheet in more than one
 language (WG-1). It is not legal text, it is not the terms of any gateway,
-and no gateway should serve it to players.** The owner writes the real
-terms; they live on the server only and never in this repository.
+and no gateway should serve it to players.** The default terms any gateway
+may serve are in `docs/gateway-legal/`; a gateway's own terms live on its
+server, never in this repository.
 
 Nothing reads this directory unless an operator points `BAYLEE_TERMS_PATH`
 at it. No deploy script does.

@@ -5,8 +5,8 @@
 
 **This file is a placeholder for testing the terms sheet (WG-1). It is not
 legal text, it is not the terms of any gateway, and no gateway should serve
-it to players.** The owner writes the real terms; legal pages stay private
-until launch (#316).
+it to players.** The default terms any gateway may serve, and a privacy
+notice template, are in `docs/gateway-legal/`.
 
 Nothing reads this file unless an operator points `BAYLEE_TERMS_PATH` at it.
 No deploy script does. `docs/terms-placeholder/` holds the same kind of

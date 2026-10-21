@@ -453,7 +453,32 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
             "issue_number",
             "channel",
             "record_origin",
+            // Triage: an admin's name, and what admins decided.
+            "assignee",
+            "priority",
+            "labels",
+            "duplicate_of",
+            "revision",
+            "done_at",
+            "deleted_at",
+            // Kept by Postgres from the text and the crash.
+            "signature",
+            "search",
         ]
+    );
+    // A note is an admin's, about a report; a view and an opened mark are
+    // an admin's own.
+    assert_eq!(
+        columns("feedback_note").await,
+        ["id", "report_id", "at", "author", "text"]
+    );
+    assert_eq!(
+        columns("feedback_view").await,
+        ["id", "admin_id", "name", "query", "created_at"]
+    );
+    assert_eq!(
+        columns("feedback_seen").await,
+        ["admin_id", "report_id", "at"]
     );
     assert_eq!(
         columns("feedback_admin").await,

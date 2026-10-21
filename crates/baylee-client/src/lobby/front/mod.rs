@@ -1319,6 +1319,8 @@ pub(crate) enum FrontPress {
     /// The terms sheet's Decline and delete account: the account deletion's
     /// own confirmation (#292), over the sheet.
     TermsDecline,
+    /// The terms sheet's Later: signs out, nothing accepted.
+    TermsLater,
 }
 
 impl FrontPress {
@@ -1385,6 +1387,11 @@ impl FrontPress {
             // The same confirmation, password and request as Settings'
             // Delete account: declining the terms deletes nothing else.
             FrontPress::TermsDecline => state.lobby.ask_to_delete_account(),
+            FrontPress::TermsLater => {
+                if let Some(ask) = state.terms.not_now(false) {
+                    terms::perform(ask, state, prefs, scrolled, mailbox, settings);
+                }
+            }
             FrontPress::TermsRetry => {
                 if let Some(ask) = state.terms.retry() {
                     terms::perform(ask, state, prefs, scrolled, mailbox, settings);

@@ -294,6 +294,10 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         // without any test mentioning it, and a suite that writes
         // files into the working directory leaves a mess.
         .env("BAYLEE_DECK_IMAGE_PATH", "off")
+        // Nor terms of use: unset is the default terms every gateway ships,
+        // and a Central-bound session that has not accepted them is refused.
+        // The terms tests name their own.
+        .env("BAYLEE_TERMS_PATH", "off")
         .env("RUST_LOG", if loud { "info" } else { "off" })
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdout(if loud {

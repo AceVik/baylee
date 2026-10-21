@@ -417,7 +417,7 @@ fn setup(root: &Path, stage: &Path, version: &str, arch: &str) -> Result<PathBuf
     let file = out.join(format!("{name}.exe"));
     let _ = fs::remove_file(&file);
     let iscc = std::env::var("ISCC").unwrap_or_else(|_| "ISCC.exe".into());
-    let windows = |p: &Path| p.display().to_string().replace('/', "\\");
+    let windows = |p: &Path| crate::installers::windows_path(p);
     exec(
         Command::new(iscc)
             .arg("/Q")

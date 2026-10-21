@@ -66,13 +66,15 @@ pub fn fetch(dir: &Path, target: &str) -> Result<()> {
                 "/SP-",
                 "/CURRENTUSER",
             ])
-            .arg(format!("/DIR={}", inno.display()))
+            // Not `inno.display()`: on Windows `canonicalize` gave the
+            // directory a `\\?\` prefix, and Inno Setup then installs nothing.
+            .arg(format!("/DIR={}", super::windows_path(&inno)))
             .status()?;
         ensure!(
             status.success() && inno.join("ISCC.exe").is_file(),
             "Inno Setup did not install ISCC.exe"
         );
-        println!("ISCC={}", inno.join("ISCC.exe").display());
+        println!("ISCC={}", super::windows_path(&inno.join("ISCC.exe")));
     } else if target.ends_with("-unknown-linux-gnu") {
         let arch = target.split('-').next().unwrap_or_default();
         let (tool, runtime) =

@@ -168,12 +168,14 @@ pub(super) fn draw_deletion(
     let title = heading(commands, fonts, metrics, &question);
     let said = if lobby.guest() {
         Phrase::DeleteGuestHint
+    } else if lobby.central_bound() {
+        Phrase::DeleteGatewayDataHint
     } else {
         Phrase::DeleteAccountHint
     };
     let hint = note(commands, fonts, metrics, said.text(lang));
     commands.entity(panel).add_children(&[title, hint]);
-    if !lobby.guest() {
+    if lobby.deletion_needs_password() {
         let field = Field::AccountPassword;
         let box_ = text_field(
             commands,

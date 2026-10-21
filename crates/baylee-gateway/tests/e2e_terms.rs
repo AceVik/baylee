@@ -12,6 +12,26 @@ use common::{http, http_headers, json_field, spawn_gateway, spawn_gateway_with};
 
 const PASSWORD: &str = "a-very-fine-password";
 
+/// A `/terms` answer without its `digest`, checked to be the digest's
+/// 64 lowercase hex digits: what it hashes is Central's to define, and
+/// `terms.rs` tests it.
+fn without_digest(answer: &str) -> serde_json::Value {
+    let mut answer = json(answer);
+    let digest = answer
+        .as_object_mut()
+        .and_then(|map| map.remove("digest"))
+        .expect("a digest");
+    let digest = digest.as_str().expect("hex");
+    assert!(
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
+        "{digest}"
+    );
+    answer
+}
+
 /// Registers, then signs in; both answers, raw.
 fn register_and_login(port: u16, username: &str) -> (String, String) {
     let register = format!(
@@ -111,7 +131,7 @@ fn a_sign_in_asks_until_the_shown_version_is_accepted() {
         let (status, terms) = http(port, "GET", path, None, "");
         assert_eq!(status, 200, "{path}");
         assert_eq!(
-            json(&terms),
+            without_digest(&terms),
             serde_json::json!({
                 "version": "2026-10",
                 "updated": "2026-10-07",
@@ -202,7 +222,7 @@ fn a_directory_shows_each_language_and_english_for_the_rest() {
     ] {
         let (status, terms) = http(port, "GET", path, None, "");
         assert_eq!(status, 200, "{path}: {terms}");
-        assert_eq!(&json(&terms), shown, "{path}");
+        assert_eq!(&without_digest(&terms), shown, "{path}");
     }
     // Only `?lang=` decides: a browser's own language does not.
     let (_, head) = http_headers(port, "GET", "/terms", &[("Accept-Language", "de")]);

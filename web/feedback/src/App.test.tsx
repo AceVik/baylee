@@ -1,10 +1,22 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import { App } from "./App";
 import { Login } from "./Login";
 import { serve, summary } from "./test-utils";
+
+const noFacets = {
+  gateways: [],
+  statuses: [],
+  kinds: [],
+  reporters: [],
+  assignees: [],
+  priorities: [],
+  labels: [],
+  channels: [],
+  total: 0,
+};
 
 describe("the sign-in form", () => {
   test("says a wrong password or unknown name in one sentence, and keeps the name", async () => {
@@ -64,7 +76,7 @@ describe("the app", () => {
       }
       if (!signedIn) return { status: 401 };
       if (call.url.startsWith("/ui/api/reports")) return { body: { total: 1, reports: [summary()] } };
-      if (call.url === "/ui/api/facets") return { body: { gateways: [], statuses: [], kinds: [], reporters: [] } };
+      if (call.url.startsWith("/ui/api/facets")) return { body: noFacets };
       return undefined;
     });
     render(<App />);
@@ -81,13 +93,14 @@ describe("the app", () => {
       if (lapsed) return { status: 401, body: { error: "not signed in" } };
       if (call.url === "/ui/api/me") return { body: { name: "viktor" } };
       if (call.url.startsWith("/ui/api/reports")) return { body: { total: 1, reports: [summary()] } };
-      if (call.url === "/ui/api/facets") return { body: { gateways: [], statuses: [], kinds: [], reporters: [] } };
+      if (call.url.startsWith("/ui/api/facets")) return { body: noFacets };
       return undefined;
     });
     render(<App />);
     expect(await screen.findByText("The Swamp untapped by itself.")).toBeTruthy();
     lapsed = true;
-    await userEvent.selectOptions(screen.getByLabelText("Kind"), "crash");
+    await userEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    await userEvent.click(within(screen.getByRole("group", { name: "Kind" })).getByRole("button", { name: /^crash/ }));
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
   });
 
@@ -96,7 +109,7 @@ describe("the app", () => {
       if (call.url === "/ui/api/me") return { body: { name: "viktor" } };
       if (call.url === "/ui/api/logout") return { status: 204 };
       if (call.url.startsWith("/ui/api/reports")) return { body: { total: 0, reports: [] } };
-      return { body: { gateways: [], statuses: [], kinds: [], reporters: [] } };
+      return { body: noFacets };
     });
     render(<App />);
     await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));

@@ -4395,17 +4395,21 @@ under 8 px) after its label. The settings search is a lobby field
 
 **The terms sheet** (WG-1; `client-core::terms`, `lobby/front/terms.rs`):
 modal over whatever the sign-in led to, its own `TabOrder` (text,
-Decline and delete account, Accept). There is no Not now or sign-out button
-on this sheet (owner, 14.10.2026). Accept waits until the end of the text has
+Decline, Later, Accept). **Later** signs an account out with nothing
+accepted (owner, 20.10.2026, replacing the 14.10 rule of no such button); a
+guest has none. A Baylee account's Decline deletes only its data on this
+gateway ("Delete my data on this gateway", no password), and Baylee Central's
+own terms offer accept and later only. Under a gateway's terms the sheet adds
+the client's own chat note inside the text to read. Accept waits until the end of the text has
 been in view (scroll, `End`, `Space`/`PageDown`, or a text that fits); Enter
 in the text accepts once it may. **Escape never signs out or accepts**: it
 returns focus to the text, or to Retry after a failed fetch.
 **Decline and delete account** ("Ablehnen
-und Konto löschen", the words the terms name), drawn while the text is up
-(not on a sheet still loading or failed), opens the account deletion's own
-confirmation (#292, `confirm::draw_deletion`) over the sheet: the password
-again for an account, nothing for a guest, the same `DELETE /account`, the
-same limiter. That confirmation holds the keyboard (its box, Enter, Esc as
+und Konto löschen"; for a Baylee account "Delete my data on this gateway"),
+drawn while the text is up (not on a sheet still loading or failed), opens
+the account deletion's own confirmation (#292, `confirm::draw_deletion`) over
+the sheet: the password again for a local account, nothing for a guest or a
+Baylee account, the same `DELETE /account`, the same limiter. That confirmation holds the keyboard (its box, Enter, Esc as
 Cancel, Tab); no stop of the sheet keeps focus under it, and cancelled,
 focus is back on Decline. Deleted, the session ends and the front door
 shows. The text is asked for in the

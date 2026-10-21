@@ -67,6 +67,7 @@ pub(crate) async fn watch_ws(
         .map_err(|status| err(status, TICKET_REFUSED))?
         .ok_or_else(|| err(StatusCode::UNAUTHORIZED, TICKET_REFUSED))?;
     crate::moderation::admit(&watcher)?;
+    crate::terms_admit(&watcher)?;
     let watcher = watcher.account_id;
     Ok(ws
         .max_message_size(MAX_SEAT_FRAME)

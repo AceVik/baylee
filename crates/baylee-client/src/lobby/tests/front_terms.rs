@@ -1,7 +1,7 @@
 //! The terms sheet as the shell runs it (WG-1; `DESIGN-v5` §11, §17 WP1;
 //! `KEYBOARD.md` §7.9, §9.6): a stale sign-in raises it, Esc ×10 leaves it
-//! up and the session signed in. No Not now/sign-out action is offered;
-//! Accept is enabled only at the end and records the device's copy.
+//! up and the session signed in. An account may decide later, which signs
+//! it out; Accept is enabled only at the end and records the device's copy.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -28,6 +28,7 @@ fn post(app: &mut App, reply: Reply) {
 fn doc(markdown: &str) -> TermsDoc {
     TermsDoc {
         version: "v1".into(),
+        digest: None,
         updated: Some("2026-10-07".into()),
         markdown: markdown.into(),
         lang: None,
@@ -166,13 +167,19 @@ fn escape_ten_times_on_the_terms_leaves_everything_as_it_was() {
     );
 }
 
-/// A guest and an account get the same explicit decision, with no
-/// postpone/sign-out control during reading, failure or fetching.
+/// An account may decide later (owner, 20.10.2026: later signs out,
+/// nothing accepted); a guest may not, since a guest that signs out loses
+/// its decks. Failing or fetching, the sheet offers only Retry or nothing.
 #[test]
-fn terms_offer_no_not_now_or_hidden_sign_out_action() {
+fn terms_offer_later_to_an_account_and_no_hidden_sign_out_action() {
     for guest in [false, true] {
         let mut app = signed_in_stale(guest, "# Terms\n\nPlay fair.");
-        for expected in [vec!["accept", "decline"], vec!["retry"], vec![]] {
+        let reading = if guest {
+            vec!["accept", "decline"]
+        } else {
+            vec!["accept", "decline", "later"]
+        };
+        for expected in [reading, vec!["retry"], vec![]] {
             let mut query = app
                 .world_mut()
                 .query::<(&Press, &crate::shellkit::focus::Stop)>();
@@ -379,4 +386,113 @@ fn a_guest_declines_and_is_deleted_without_a_password() {
     assert!(!signed_in(&app));
     assert!(state.lobby.kept_guest().is_none(), "the guest is kept");
     assert!(!state.terms.up());
+}
+
+/// Every text drawn now: `Text` roots with their spans, joined.
+fn drawn(app: &mut App) -> String {
+    let mut out = String::new();
+    let mut roots = app.world_mut().query::<&Text>();
+    for text in roots.iter(app.world()) {
+        out.push_str(&text.0);
+        out.push('\n');
+    }
+    let mut spans = app.world_mut().query::<&TextSpan>();
+    for span in spans.iter(app.world()) {
+        out.push_str(&span.0);
+        out.push('\n');
+    }
+    out
+}
+
+/// The stops the sheet offers now, but the legal notice's link.
+fn stops(app: &mut App) -> Vec<&'static str> {
+    let mut query = app
+        .world_mut()
+        .query::<(&Press, &crate::shellkit::focus::Stop)>();
+    let mut ids: Vec<_> = query
+        .iter(app.world())
+        .filter(|(_, stop)| stop.table == "terms")
+        .map(|(_, stop)| stop.id)
+        .filter(|id| *id != "impressum")
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
+/// Later signs an account out with nothing accepted or stored (owner,
+/// 20.10.2026: "später, dann wird er abgemeldet").
+#[test]
+fn later_signs_an_account_out_and_stores_nothing() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    click(&mut app, Press::Front(FrontPress::TermsLater));
+    app.update();
+    assert!(!signed_in(&app), "Later signs out");
+    assert!(!app.world().resource::<LobbyState>().terms.up());
+    assert!(
+        app.world()
+            .resource::<crate::settings::ClientSettings>()
+            .terms
+            .is_empty(),
+        "nothing stored"
+    );
+}
+
+/// A Baylee account's sheet: the client's own chat note is part of the text
+/// to read, the acceptance is kept at Central, declining deletes only its
+/// data on this gateway, and that names no password.
+#[test]
+fn a_baylee_account_reads_the_chat_note_and_deletes_only_its_data_here() {
+    let mut app = signed_in_stale(false, "# Terms\n\nPlay fair.");
+    post(&mut app, Reply::Terms(TermsReply::CentralBound));
+    let words = drawn(&mut app);
+    for phrase in [
+        Phrase::TermsChatTitle,
+        Phrase::TermsChatNote,
+        Phrase::TermsStoredCentral,
+        Phrase::TermsDeleteHere,
+        Phrase::TermsLater,
+    ] {
+        assert!(words.contains(phrase.text(Lang::En)), "{phrase:?}");
+    }
+    assert!(!words.contains(Phrase::TermsDecline.text(Lang::En)));
+    click(&mut app, Press::Front(FrontPress::TermsDecline));
+    app.update();
+    let lobby = &app.world().resource::<LobbyState>().lobby;
+    assert!(lobby.deleting_account().is_some());
+    assert!(
+        !lobby.deletion_needs_password(),
+        "a Baylee account names none here"
+    );
+    let words = drawn(&mut app);
+    assert!(words.contains(Phrase::DeleteGatewayDataHint.text(Lang::En)));
+}
+
+/// Baylee Central's own terms come first when the sign-in says they wait:
+/// the sheet names Central, carries no chat note, and offers accept and
+/// later only (Central deletes no account yet, M1).
+#[test]
+fn central_terms_come_first_and_offer_no_deletion() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    post(&mut app, Reply::Terms(TermsReply::CentralStale));
+    post(
+        &mut app,
+        Reply::Event(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: None,
+        }),
+    );
+    post(&mut app, Reply::Terms(TermsReply::CentralBound));
+    assert!(app.world().resource::<LobbyState>().terms.up());
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc("# Central terms\n\nBe kind."),
+        }),
+    );
+    let words = drawn(&mut app);
+    assert!(words.contains(Phrase::CentralTermsTitle.text(Lang::En)));
+    assert!(!words.contains(Phrase::TermsChatNote.text(Lang::En)));
+    assert_eq!(stops(&mut app), ["accept", "later"]);
 }

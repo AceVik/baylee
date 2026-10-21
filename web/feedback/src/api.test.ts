@@ -17,19 +17,44 @@ import { serve } from "./test-utils";
 describe("filters in the query string", () => {
   test("a filter goes out and comes back the same", () => {
     const filter: Filter = {
-      kind: "crash",
-      status: "in_progress",
+      kind: ["bug", "crash"],
+      status: ["new", "in_progress"],
+      priority: ["critical", "none"],
+      assignee: "viktor",
+      label: "ui-2",
       gateway: "eu",
+      channel: "direct",
       reporter: "5bdc",
+      game_id: "g1",
+      signature: "0123456789abcdef",
+      duplicate_of: "0199aaaa-0000-7000-8000-000000000001",
       q: "50% & more",
       from: "2026-09-01",
       to: "2026-09-27",
       has_record: false,
+      trash: true,
+      unseen: true,
+      sort: "priority",
+      dir: "asc",
+      limit: 100,
       offset: 50,
     };
     const query = filterQuery(filter);
     expect(query).toContain("q=50%25+%26+more");
+    expect(query).toContain("status=new%2Cin_progress");
     expect(parseFilter(`?${query}`)).toEqual(filter);
+  });
+
+  test("the defaults stay out of the URL: newest first, fifty a page", () => {
+    expect(filterQuery({ sort: "received", dir: "desc", limit: 50 })).toBe("");
+    expect(parseFilter("?sort=received&dir=desc&limit=50")).toEqual({});
+  });
+
+  test("several values come back in their own order, each once, the unknown ones dropped", () => {
+    expect(parseFilter("?status=resolved,new,lost,new&kind=chat,rant")).toEqual({
+      status: ["new", "resolved"],
+      kind: ["chat"],
+    });
   });
 
   test("an empty filter is an empty query, and blank text is no filter", () => {
@@ -39,7 +64,11 @@ describe("filters in the query string", () => {
 
   test("anything malformed in a hand-edited URL is dropped, not sent", () => {
     expect(
-      parseFilter("?kind=rant&status=lost&from=2026-9-1&to=yesterday&has_record=maybe&offset=-5&gateway="),
+      parseFilter(
+        "?kind=rant&status=lost&from=2026-9-1&to=yesterday&has_record=maybe&offset=-5&gateway=" +
+          "&label=Bad%20Label&signature=xyz&duplicate_of=nope&channel=pigeon&sort=size&dir=up&limit=7" +
+          "&priority=urgent&trash=yes",
+      ),
     ).toEqual({});
     expect(parseFilter("?has_record=true&offset=3.5")).toEqual({ has_record: true });
   });
@@ -84,9 +113,9 @@ describe("requests", () => {
     const calls = serve((call) =>
       call.method === "GET" ? { body: { total: 0, reports: [] } } : { body: { id: "x" } },
     );
-    await api.reports({ kind: "bug" });
+    await api.reports({ kind: ["bug"] });
     await api.change("x", { status: "triaged" });
-    await api.remove("x").catch(() => undefined);
+    await api.trash("x").catch(() => undefined);
     await api.logout().catch(() => undefined);
     const [list, patch, del, out] = calls;
     expect(list?.url).toBe("/ui/api/reports?limit=50&kind=bug");
@@ -131,6 +160,24 @@ describe("requests", () => {
     );
     await expect(api.change("x", { issue: 0 })).rejects.toThrow("not an issue number");
     await expect(api.audit("x")).rejects.toThrow(/^503/);
+  });
+
+  test("the page size is the limit, and the counts leave page and order out", async () => {
+    const calls = serve(() => ({ body: { total: 0, reports: [] } }));
+    await api.reports({ status: ["new"], limit: 200, offset: 400, sort: "kind" });
+    await api.facets({ status: ["new"], limit: 200, offset: 400, sort: "kind", dir: "asc" });
+    expect(calls[0]?.url).toBe("/ui/api/reports?limit=200&status=new&sort=kind&offset=400");
+    expect(calls[1]?.url).toBe("/ui/api/facets?status=new");
+    expect(api.csvUrl({ kind: ["crash"], offset: 50 })).toBe("/ui/api/reports.csv?kind=crash");
+  });
+
+  test("a bulk change and a bulk action go out as the service reads them", async () => {
+    const calls = serve(() => ({ body: { changed: 2 } }));
+    await api.bulk(["a", "b"], { change: { labels_add: ["ui"], assignee: null } });
+    await api.bulk(["a"], { action: "trash" });
+    expect(calls[0]?.body).toEqual({ ids: ["a", "b"], change: { labels_add: ["ui"], assignee: null } });
+    expect(calls[1]?.body).toEqual({ ids: ["a"], action: "trash" });
+    expect(calls.every((c) => c.headers["x-baylee-csrf"] === "1")).toBe(true);
   });
 
   test("an id is put into the path encoded", async () => {

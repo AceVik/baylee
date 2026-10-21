@@ -63,6 +63,16 @@ export function summary(over: Partial<Summary> = {}): Summary {
     record_origin: null,
     issue_number: null,
     issue_url: null,
+    assignee: null,
+    priority: null,
+    labels: [],
+    duplicate_of: null,
+    signature: null,
+    revision: 1,
+    done_at: null,
+    deleted_at: null,
+    seen: false,
+    notes: 0,
     ...over,
   };
 }
@@ -70,6 +80,7 @@ export function summary(over: Partial<Summary> = {}): Summary {
 export function fullReport(over: Partial<Report> = {}): Report {
   return {
     ...summary({ has_record: true, record_complete: true, record_bytes: 21_606 }),
+    note_list: [],
     client: {
       build: { version: "0.1.0-beta.1", commit: "3f9a1c7e21" },
       system: {

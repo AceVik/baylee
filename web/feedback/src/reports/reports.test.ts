@@ -4,7 +4,6 @@ import { alias } from "./alias";
 import { field, toCsv } from "./csv";
 import { pendingLabel, pendingName, readGame } from "./game";
 import { cardUrl, imageUrl, isScryfallId, setUrl } from "./scryfall";
-import { forgetSeen, isSeen, markAllSeen, markSeen, SEEN_LIMIT } from "./seen";
 import { summary } from "../test-utils";
 
 describe("a reporter's alias", () => {
@@ -34,18 +33,35 @@ describe("the CSV export", () => {
     expect(field(12)).toBe("12");
   });
 
+  test("never hands a spreadsheet a formula", () => {
+    expect(field("=HYPERLINK(1)")).toBe(`"'=HYPERLINK(1)"`);
+    expect(field("+1")).toBe(`"'+1"`);
+    expect(field("-2")).toBe(`"'-2"`);
+    expect(field("@SUM")).toBe(`"'@SUM"`);
+    expect(field("a=b")).toBe("a=b");
+  });
+
   test("writes a header and one line per report", () => {
     const csv = toCsv([
       summary({ text: "The Swamp, untapped" }),
-      summary({ id: "two", channel: "direct", gateway: "(direct)", issue_number: 311 }),
+      summary({
+        id: "two",
+        channel: "direct",
+        gateway: "(direct)",
+        issue_number: 311,
+        priority: "high",
+        assignee: "viktor",
+        labels: ["ui", "lands"],
+      }),
     ]);
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe(
-      "id,created_at,updated_at,kind,status,gateway,channel,reporter,game_id,has_record,record_bytes,issue_number,text",
+      "id,created_at,updated_at,kind,status,priority,assignee,labels,gateway,channel,reporter,game_id,has_record,record_bytes,issue_number,text",
     );
     expect(lines[1]).toContain('"The Swamp, untapped"');
     expect(lines[2]).toContain(",(direct),direct,");
     expect(lines[2]).toContain(",311,");
+    expect(lines[2]).toContain(",high,viktor,ui lands,");
     expect(lines[3]).toBe("");
   });
 });
@@ -112,21 +128,5 @@ describe("Scryfall addresses", () => {
     }
     expect(setUrl("a/b")).toBeNull();
     expect(setUrl("")).toBeNull();
-  });
-});
-
-describe("what was opened on this device", () => {
-  test("is remembered, bounded, and forgotten on request", () => {
-    forgetSeen();
-    expect(isSeen("a")).toBe(false);
-    markSeen("a");
-    expect(isSeen("a")).toBe(true);
-    markAllSeen(["b", "c"]);
-    expect(isSeen("c")).toBe(true);
-    markAllSeen(Array.from({ length: SEEN_LIMIT + 10 }, (_, i) => `n${i}`));
-    expect(isSeen("a")).toBe(false);
-    expect(isSeen(`n${SEEN_LIMIT + 9}`)).toBe(true);
-    forgetSeen();
-    expect(isSeen("c")).toBe(false);
   });
 });

@@ -4,8 +4,11 @@ import type { Summary } from "../api";
 
 /** `value` as one CSV field: quoted when it holds a comma, a quote or a line break. */
 export function field(value: string | number | boolean | null): string {
-  const text = value === null ? "" : String(value);
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  const raw = value === null ? "" : String(value);
+  // A leading `=`, `+`, `-`, `@`, tab or carriage return would be read as a
+  // formula by a spreadsheet: an apostrophe in front keeps it text.
+  const text = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return /[",\r\n']/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 export const COLUMNS = [
@@ -14,6 +17,9 @@ export const COLUMNS = [
   "updated_at",
   "kind",
   "status",
+  "priority",
+  "assignee",
+  "labels",
   "gateway",
   "channel",
   "reporter",
@@ -35,6 +41,9 @@ export function toCsv(reports: readonly Summary[]): string {
         r.updated_at,
         r.kind,
         r.status,
+        r.priority,
+        r.assignee,
+        r.labels.join(" "),
         r.channel === "direct" ? "(direct)" : r.gateway,
         r.channel,
         r.reporter,

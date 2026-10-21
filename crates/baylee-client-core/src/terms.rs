@@ -43,7 +43,9 @@ pub struct Span {
 }
 
 impl Span {
-    fn plain(text: &str) -> Self {
+    /// Words without emphasis.
+    #[must_use]
+    pub fn plain(text: &str) -> Self {
         Self {
             text: text.to_string(),
             bold: false,
@@ -285,6 +287,11 @@ fn link_at(chars: &[char], at: usize) -> Option<(String, String, usize)> {
 pub struct TermsDoc {
     /// The version the gateway asks to be accepted.
     pub version: String,
+    /// The digest of every language's text, as 64 hex digits: what a Baylee
+    /// account accepts at Central beside the version. Absent from a gateway
+    /// that predates it.
+    #[serde(default)]
+    pub digest: Option<String>,
     /// The date the operator wrote on it, if any.
     #[serde(default)]
     pub updated: Option<String>,
@@ -476,6 +483,15 @@ impl Terms {
         Some(Ask::Accept(reading.doc.version.clone()))
     }
 
+    /// The text on the sheet, while one is.
+    #[must_use]
+    pub fn shown(&self) -> Option<&TermsDoc> {
+        match &self.sheet {
+            Sheet::Reading(reading) => Some(&reading.doc),
+            _ => None,
+        }
+    }
+
     /// The gateway recorded it: the sheet closes. The version, for the
     /// device's own copy.
     pub fn accepted(&mut self) -> Option<String> {
@@ -544,6 +560,7 @@ mod tests {
     fn doc() -> TermsDoc {
         TermsDoc {
             version: "v1".into(),
+            digest: None,
             updated: Some("2026-10-07".into()),
             markdown: "# Terms\n\nPlay **fair**.".into(),
             lang: None,
@@ -717,6 +734,7 @@ mod tests {
         terms.loaded(
             TermsDoc {
                 version: "v2".into(),
+                digest: None,
                 ..doc()
             },
             Lang::En,

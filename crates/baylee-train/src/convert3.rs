@@ -153,6 +153,7 @@ fn decision(
 /// See [`Refused`]; a refused record contributes nothing.
 #[allow(clippy::too_many_lines)] // one replay loop, as v2's
 pub fn convert(record: &[u8], keep: Keep) -> Result<Converted, Refused> {
+    crate::convert::anonymous(record)?;
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())

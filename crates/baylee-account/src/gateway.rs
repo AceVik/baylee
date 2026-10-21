@@ -9,8 +9,13 @@ pub struct Admission {
     pub token: String,
     /// Legacy private username, absent for a projection on a different gateway.
     pub username: Option<String>,
-    /// Whether the local gateway terms need acknowledgement.
+    /// Whether the gateway's terms in force still need this account's
+    /// acceptance (at Central, for a Central account).
     pub terms_stale: Option<bool>,
+    /// Whether Baylee Central's own terms in force still need it; only ever
+    /// `Some(true)`, absent otherwise.
+    #[serde(default)]
+    pub central_terms_stale: Option<bool>,
 }
 
 impl Drop for Admission {

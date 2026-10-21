@@ -89,6 +89,7 @@ pub(crate) fn decode_response<T: serde::de::DeserializeOwned>(
 ) -> Result<T, Error> {
     match response.status().as_u16() {
         200 => {}
+        403 => return Err(Error::TermsRequired),
         409 => return Err(Error::Conflict),
         429 => return Err(Error::Busy),
         500..=599 => return Err(Error::Unavailable),

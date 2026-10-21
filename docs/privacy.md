@@ -20,7 +20,9 @@ the pointers, because line numbers move.
 | Confirmation link | Postgres `confirmation` (hash only) | 24 h valid | use, the next resend for that account, or the sweep once expired |
 | Deck and its history | Postgres `deck`, `deck_version` | indefinitely | `DELETE /decks/{id}`, or the account's deletion |
 | Settings | Postgres `client_settings` | indefinitely | the account's deletion |
-| Which terms of use an account accepted, and when | Postgres `account` (`terms_version`, `terms_accepted_at`) | until the next acceptance replaces it | the account's deletion |
+| Which terms of use an account accepted, and when: a local (legacy) account's | Postgres `account` (`terms_version`, `terms_accepted_at`) | until the next acceptance replaces it | the account's deletion |
+| The same for a Baylee Central account: which version and digest of this gateway's terms (and of Central's) it accepted, and when | Baylee Central (`terms_acceptances`), never the gateway; the gateway learns per request only whether it did | Central's privacy policy: as long as the account exists | the account's deletion at Central |
+| Terms of use an admin published: version, digest, texts, when and by whom (the console's actor: an admin name or a Central account id) | Postgres `gateway_terms`, `gateway_terms_text`; the texts also at Baylee Central (`gateway_terms`), public | indefinitely: a published version never changes and is what players agreed to | nothing |
 | Uploaded sleeve or mat | disk, `BAYLEE_DECK_IMAGE_PATH`; its owners in Postgres `upload` | while an account claims it or a deck shows it | the deletion of the last account that claims it, or the sweep at the gateway's next start |
 | Lobby tables | gateway memory | ≤ 2 h waiting, 1 h after a game ends | the lobby sweep, a restart |
 | Who has a lobby socket open (account ids, for a count) | gateway memory | while the socket is open | the socket closing, a restart |
@@ -82,14 +84,21 @@ them), and only when the check held the sender's public tag
 (`sender_tag`), so that an admin can find the account that wrote it and
 act on it (ban it): a moderator must be able to act on reported content,
 and the tag is already public in every handle. An unverified report names
-no tag, so a forged one frames nobody. The reporter is never resolvable:
-only the pseudonym reaches the service, and no route turns it back into an
-account (owner's promise; `docs/feedback.md`). Who can resolve the sender:
+no tag, so a forged one frames nobody. The reporter reaches the service
+as the keyed pseudonym only, and no route of the service turns it back into
+an account. Reports stay tied to their reporter on purpose (owner,
+20.10.2026): a ticket system will let players follow their reports and be
+contacted about them. Whoever runs the gateway holds the key and can compute
+an account's pseudonym, and an admin with the gateway's console can match a
+report's game to a table and its seats (`docs/feedback.md`). Who can resolve the sender:
 an admin signed in to the feedback UI with the gateway's console
 configured, through `GET /admin/accounts?tag=`.
 
-**What is never chat.** The engine, game records (#315), record exports,
-the AI's view and bug reports never contain chat. AI and language-model
+**What is never chat.** The engine, game records (#315), record exports
+and the AI's view never contain chat. A bug report carries chat only as the
+player sends it: its screenshot of the window (ticked by default, used for
+bug fixing only, owner 20.10.2026) shows what the window showed, an open
+chat and the names at the table included. AI and language-model
 seats receive none: a table's members are the accounts in its chairs, and
 those seats have no account.
 
@@ -183,12 +192,13 @@ account, only the accounts on the profile's list, or nobody.
     `guest`.
   - `invite_id`: on a closed beta (#317), which key let the account in
     (below); empty otherwise.
-  - `terms_version` and `terms_accepted_at`: on a gateway with terms of use
-    (`BAYLEE_TERMS_PATH`, WG-1), which version the account last accepted
-    and when (`POST /account/terms`); empty until it does, and on a gateway
-    without terms. Only the last acceptance is kept, and not the language
-    the terms were read in (the version is one for all of them). It goes
-    with the account.
+  - `terms_version` and `terms_accepted_at`: for a local (legacy) account
+    on a gateway with terms of use (WG-1), which version the account last
+    accepted and when (`POST /account/terms`); empty until it does, on a
+    gateway without terms, and always for a Baylee Central account, whose
+    acceptance Central keeps. Only the last acceptance is kept, and not the
+    language the terms were read in (the version is one for all of them). It
+    goes with the account.
   - `must_change_password`, and `banned_at`, `banned_until`, `ban_reason`,
     `banned_by` (beta.8, below): what an admin set on the account, gone
     with it.
@@ -520,8 +530,12 @@ any of it to another.
   to whatever runs the process.
 - **What is personal in them:** game ids, seat numbers, an agent's operator
   label, counts (for example "idle guests deleted"), and the id of a picture
-  whose file could not be removed. No log line names
-  a username, e-mail, display name, account id, IP address or token.
+  whose file could not be removed. No routine log line names a username,
+  e-mail, display name, account id, IP address or token. The audit lines on
+  `baylee_gateway::audit` do name the account ids an admin acted on (a ban,
+  a password reset, model access; above), and a seat socket's lines name a
+  game id and a seat number, which the gateway's database joins to who sat
+  there.
   - The engine's development harness (`baylee-engine-server` without
     `--attach`) logs a connecting peer's address. It binds loopback by
     default and is not the hosted path.
@@ -687,13 +701,16 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
-| Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
-| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it | `DELETE /reports/{id}` on the service |
+| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
 | Triage audit (time, admin name or `token`, report id, action, its detail) | `feedback_audit` | indefinitely, also after the report is deleted (#311) | nothing yet |
+| Triage on a report: the assignee (an admin's name), priority, labels, the report it duplicates, when it was done or put into the trash | `feedback_report` | with the report | with the report |
+| Internal notes on a report (author, an admin's name; time; the admin's text, never a player's data by the UI's rule) | `feedback_note` | with the report | the author's removal; the report's purge |
+| An admin's saved views (a name and a list's query string) and which reports they opened | `feedback_view`, `feedback_seen` | until the admin is removed (or the report purged) | the admin's own removal of a view; `admin remove` |
 | Failed feedback sign-ins per address and per name | the service's memory | 15 minutes, a restart forgets them | the limiter itself; never written down |
 
 - **The record names nobody.** Seats are numbers; the seat names the engine
@@ -712,11 +729,15 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 - **Training and balancing use only the anonymised export.** The house AI's
   training and the balancing of decks read game records only as
   `baylee-gateway records export --out <dir>` writes them
-  (`crates/baylee-gateway/src/recordexport.rs`), never the database. The
+  (`crates/baylee-gateway/src/recordexport.rs`), never the database; the
+  trainer refuses any record that still carries a host time or an account
+  number (`baylee_train::convert::anonymous`), and balancing has no code
+  yet. The
   export leaves out the game's id (the join to `game_record_seat` and to a
   feedback report, and a time, being a UUIDv7) and `game_record_seat`
   altogether; sets every line's host time (`at`) to 0; sets a `Human`
-  seat's account number to 0; names each file by a count
+  seat's account number to 0; writes a declared model id shaped like an
+  address as `unnamed`; names each file by a count over a random order
   (`000001.jsonl.gz`), with no index of ids or times beside it; refuses a
   record with a line of a kind it does not know; and refuses a record in
   which the id, email, username, display name or invite key of an account
@@ -728,11 +749,18 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   each seat's declared mind (the model a seat said it was) and the end.
   Names shorter than three characters are not searched for. A deck list or
   a rare printing can still be recognised by someone who knows the deck;
-  the export does not hide which cards were played. Opting a player out of
-  training is not built (`tools/trainer/HANDOVER.md`).
+  the export does not hide which cards were played. The export is anonymous
+  to anyone without the gateway's database; whoever holds the database
+  could still match an exported file to the stored record it came from by
+  its content (the seed, the hashes), and that record to who sat there
+  through `game_record_seat`, which replays keep (owner, 13.10.2026).
+  Opting a player out of training is not built
+  (`tools/trainer/HANDOVER.md`).
 - **What reaches the feedback service** is `docs/feedback.md`'s list: the
   gateway's name, public URL and build, the pseudonym (HMAC-SHA256 of the
-  account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold),
+  account id under `BAYLEE_FEEDBACK_KEY`, which the service does not hold;
+  unset, the key is derived from the intake token, which the service does
+  hold, so a gateway sets it),
   and what the player sent. Never a name, username, address, session or IP.
   The service has no column for an address or a name and logs no request's
   address. A report sent straight from a client carries no account at all:

@@ -78,6 +78,7 @@ pub mod precons;
 pub mod records;
 pub mod social;
 pub mod stats;
+pub mod terms;
 pub mod usernames;
 
 use anyhow::{Context, Result};

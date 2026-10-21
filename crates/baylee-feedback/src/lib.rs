@@ -22,8 +22,10 @@
 //! - `/ui/api/admin/…`: the same admins, passed on to a gateway's admin
 //!   console (its numbers and closed-beta keys, [`console`]).
 //!
-//! Nothing it stores names a player: a report carries the gateway's
-//! pseudonym for its reporter, and no request's address is kept or logged.
+//! No column holds an address or a player's name: a report carries the
+//! gateway's pseudonym for its reporter, and no request's address is kept
+//! or logged. What a player sends may still name people as they sent it:
+//! the text, a screenshot of the window, a reported message's tag.
 
 #![warn(missing_docs)]
 
@@ -35,6 +37,7 @@ pub mod direct;
 pub mod impressum;
 pub mod migration;
 pub mod moderation;
+pub mod triage;
 pub mod ui;
 pub mod web;
 
@@ -819,105 +822,8 @@ async fn intake(
     ))
 }
 
-/// The columns a summary shows, as the list and the detail select them.
-const SUMMARY: &str = "id::text AS id, \
-    to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS created_at, \
-    to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS updated_at, \
-    gateway, gateway_name, gateway_url, gateway_version, reporter, kind, status, text, game_id, \
-    record IS NOT NULL AS has_record, record_complete, \
-    coalesce(octet_length(record), 0)::bigint AS record_bytes, issue_number, \
-    channel, record_origin";
-
 /// The repository a report's issue lives in; the UI opens new issues there.
 pub const ISSUE_REPOSITORY: &str = "https://github.com/AceVik/baylee";
-
-/// A report as the read API shows it.
-#[derive(Serialize)]
-struct Summary {
-    id: String,
-    created_at: String,
-    updated_at: String,
-    gateway: String,
-    gateway_name: Option<String>,
-    gateway_url: Option<String>,
-    gateway_version: String,
-    reporter: String,
-    kind: String,
-    status: String,
-    text: String,
-    game_id: Option<String>,
-    has_record: bool,
-    record_complete: Option<bool>,
-    record_bytes: i64,
-    /// How it came: `gateway` (passed on by one) or `direct` (a client
-    /// sent it itself, unauthenticated).
-    channel: String,
-    /// Who wrote the record: `gateway`, or `client` (unverified); `None`
-    /// without one.
-    record_origin: Option<String>,
-    /// The GitHub issue it is linked to, in [`ISSUE_REPOSITORY`].
-    issue_number: Option<i32>,
-    /// That issue's page, made here from the number rather than stored, so
-    /// no link the UI renders was ever typed by anyone.
-    issue_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    client: Option<serde_json::Value>,
-}
-
-impl Summary {
-    fn of(row: &sea_orm::QueryResult, client: bool) -> Result<Self, sea_orm::DbErr> {
-        let issue_number: Option<i32> = row.try_get("", "issue_number")?;
-        Ok(Self {
-            id: row.try_get("", "id")?,
-            created_at: row.try_get("", "created_at")?,
-            updated_at: row.try_get("", "updated_at")?,
-            gateway: row.try_get("", "gateway")?,
-            gateway_name: row.try_get("", "gateway_name")?,
-            gateway_url: row.try_get("", "gateway_url")?,
-            gateway_version: row.try_get("", "gateway_version")?,
-            reporter: row.try_get("", "reporter")?,
-            kind: row.try_get("", "kind")?,
-            status: row.try_get("", "status")?,
-            text: row.try_get("", "text")?,
-            game_id: row.try_get("", "game_id")?,
-            has_record: row.try_get("", "has_record")?,
-            record_complete: row.try_get("", "record_complete")?,
-            record_bytes: row.try_get("", "record_bytes")?,
-            channel: row.try_get("", "channel")?,
-            record_origin: row.try_get("", "record_origin")?,
-            issue_number,
-            issue_url: issue_number.map(|n| format!("{ISSUE_REPOSITORY}/issues/{n}")),
-            client: if client {
-                Some(row.try_get("", "client")?)
-            } else {
-                None
-            },
-        })
-    }
-}
-
-/// The list's filters, all optional. The token API and the UI read the
-/// same ones.
-#[derive(Deserialize, Default)]
-struct Filter {
-    status: Option<Status>,
-    kind: Option<Kind>,
-    gateway: Option<String>,
-    reporter: Option<String>,
-    game_id: Option<String>,
-    /// Words the report's text holds, case aside.
-    q: Option<String>,
-    /// The first day, `YYYY-MM-DD` in UTC, inclusive.
-    from: Option<String>,
-    /// The last day, `YYYY-MM-DD` in UTC, inclusive.
-    to: Option<String>,
-    /// Whether it carries a game record.
-    has_record: Option<bool>,
-    /// How it came.
-    channel: Option<Channel>,
-    limit: Option<u64>,
-    offset: Option<u64>,
-}
 
 /// `YYYY-MM-DD`, a real day, or nothing.
 fn day(text: &str) -> Option<time::Date> {
@@ -944,113 +850,15 @@ fn contains_pattern(text: &str) -> String {
     pattern
 }
 
-#[derive(Serialize)]
-struct Listing {
-    reports: Vec<Summary>,
-    total: i64,
-}
-
-async fn listing(db: &DatabaseConnection, filter: Filter) -> Result<Listing, Refusal> {
-    let malformed = || refuse(StatusCode::BAD_REQUEST, "a filter is malformed");
-    let mut clauses: Vec<String> = Vec::new();
-    let mut values: Vec<Value> = Vec::new();
-    let mut add = |clause: &str, value: Value| {
-        values.push(value);
-        clauses.push(clause.replace('?', &format!("${}", values.len())));
-    };
-    if let Some(status) = filter.status {
-        add("status = ?", status.name().into());
-    }
-    if let Some(kind) = filter.kind {
-        add("kind = ?", kind.name().into());
-    }
-    if let Some(gateway) = filter.gateway {
-        add("gateway = ?", gateway.into());
-    }
-    if let Some(reporter) = filter.reporter {
-        add("reporter = ?", reporter.into());
-    }
-    if let Some(game) = filter.game_id {
-        add("game_id = ?", game.into());
-    }
-    if let Some(channel) = filter.channel {
-        add("channel = ?", channel.name().into());
-    }
-    if let Some(q) = filter.q.filter(|q| !q.trim().is_empty()) {
-        if q.chars().count() > 200 {
-            return Err(malformed());
-        }
-        add(
-            "text ILIKE ? ESCAPE '\\'",
-            contains_pattern(q.trim()).into(),
-        );
-    }
-    if let Some(from) = filter.from {
-        let from = day(&from).ok_or_else(malformed)?;
-        add(
-            "created_at >= (?::date)::timestamp AT TIME ZONE 'UTC'",
-            from.to_string().into(),
-        );
-    }
-    if let Some(to) = filter.to {
-        let to = day(&to).ok_or_else(malformed)?;
-        add(
-            "created_at < (?::date + 1)::timestamp AT TIME ZONE 'UTC'",
-            to.to_string().into(),
-        );
-    }
-    match filter.has_record {
-        Some(true) => clauses.push("record IS NOT NULL".to_owned()),
-        Some(false) => clauses.push("record IS NULL".to_owned()),
-        None => {}
-    }
-    let clause = if clauses.is_empty() {
-        String::new()
-    } else {
-        format!("WHERE {}", clauses.join(" AND "))
-    };
-    let limit = filter.limit.unwrap_or(50).clamp(1, 200);
-    // Past Postgres's `bigint` an offset is an error; far below it, nothing.
-    let offset = filter.offset.unwrap_or(0).min(1 << 40);
-    let backend = db.get_database_backend();
-    let rows = db
-        .query_all_raw(Statement::from_sql_and_values(
-            backend,
-            format!(
-                "SELECT {SUMMARY} FROM feedback_report {clause} \
-                 ORDER BY created_at DESC, id DESC LIMIT {limit} OFFSET {offset}"
-            ),
-            values.clone(),
-        ))
-        .await
-        .map_err(|e| db_down(&e))?;
-    let total = db
-        .query_one_raw(Statement::from_sql_and_values(
-            backend,
-            format!("SELECT count(*) AS n FROM feedback_report {clause}"),
-            values,
-        ))
-        .await
-        .map_err(|e| db_down(&e))?
-        .map_or(Ok(0), |row| row.try_get::<i64>("", "n"))
-        .map_err(|e| db_down(&e))?;
-    let reports = rows
-        .iter()
-        .map(|row| Summary::of(row, false))
-        .collect::<Result<_, _>>()
-        .map_err(|e| db_down(&e))?;
-    Ok(Listing { reports, total })
-}
-
 async fn list(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    filter: Result<Query<Filter>, axum::extract::rejection::QueryRejection>,
-) -> Result<Json<Listing>, Refusal> {
+    filter: Result<Query<triage::Filter>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<triage::Listing>, Refusal> {
     reader(&state, &headers)?;
     let Query(filter) =
         filter.map_err(|_| refuse(StatusCode::BAD_REQUEST, "a filter is malformed"))?;
-    listing(&state.db, filter).await.map(Json)
+    triage::listing(&state.db, &filter, None).await.map(Json)
 }
 
 fn report_id(id: &str) -> Result<Uuid, Refusal> {
@@ -1061,23 +869,10 @@ async fn one(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<Summary>, Refusal> {
+) -> Result<Json<triage::Detail>, Refusal> {
     reader(&state, &headers)?;
     let id = report_id(&id)?;
-    fetch(&state.db, id).await
-}
-
-async fn fetch(db: &DatabaseConnection, id: Uuid) -> Result<Json<Summary>, Refusal> {
-    let row = db
-        .query_one_raw(Statement::from_sql_and_values(
-            db.get_database_backend(),
-            format!("SELECT {SUMMARY}, client FROM feedback_report WHERE id = $1"),
-            [id.into()],
-        ))
-        .await
-        .map_err(|e| db_down(&e))?
-        .ok_or_else(|| refuse(StatusCode::NOT_FOUND, "no such report"))?;
-    Summary::of(&row, true).map(Json).map_err(|e| db_down(&e))
+    triage::fetch(&state.db, id, None, false).await
 }
 
 /// The game record, as the gzip stream the gateway stored.
@@ -1119,35 +914,6 @@ async fn record_of(db: &DatabaseConnection, id: Uuid) -> Result<Response, Refusa
     Ok(response)
 }
 
-/// What a change does to a report's issue.
-#[derive(Clone, Copy, Default)]
-enum IssueChange {
-    /// `issue` was left out: the link stays as it is.
-    #[default]
-    Keep,
-    /// `"issue": null`: no issue any more.
-    Unlink,
-    /// `"issue": n`.
-    Link(u32),
-}
-
-impl<'de> Deserialize<'de> for IssueChange {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        Ok(Option::<u32>::deserialize(d)?.map_or(Self::Unlink, Self::Link))
-    }
-}
-
-/// What an admin may change about a report: its status, its issue, or
-/// both. `issue: null` unlinks it; leaving `issue` out leaves it alone.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Change {
-    #[serde(default)]
-    status: Option<Status>,
-    #[serde(default)]
-    issue: IssueChange,
-}
-
 /// Who changed something, as the audit names them: an admin by name, or
 /// `token` for the admin token.
 pub(crate) const TOKEN_ACTOR: &str = "token";
@@ -1175,82 +941,22 @@ async fn audit(
     .map(|_| ())
 }
 
-/// Applies `change` to report `id` as `actor`, and notes each part of it in
-/// the audit, in one transaction.
-async fn apply_change(
-    db: &DatabaseConnection,
-    id: Uuid,
-    actor: &str,
-    change: Change,
-) -> Result<Json<Summary>, Refusal> {
-    let bad = |why| refuse(StatusCode::BAD_REQUEST, why);
-    let issue = match change.issue {
-        IssueChange::Keep => None,
-        IssueChange::Unlink => Some(None),
-        IssueChange::Link(n) => Some(Some(
-            i32::try_from(n)
-                .ok()
-                .filter(|n| *n > 0)
-                .ok_or_else(|| bad("not an issue number"))?,
-        )),
-    };
-    if change.status.is_none() && issue.is_none() {
-        return Err(bad("nothing to change"));
-    }
-    let down = |e: sea_orm::DbErr| db_down(&e);
-    let tx = db.begin().await.map_err(down)?;
-    let done = tx
-        .execute_raw(Statement::from_sql_and_values(
-            tx.get_database_backend(),
-            "UPDATE feedback_report SET \
-                 status = coalesce($2, status), \
-                 issue_number = CASE WHEN $3 THEN $4 ELSE issue_number END, \
-                 updated_at = now() \
-             WHERE id = $1",
-            [
-                id.into(),
-                change.status.map(Status::name).into(),
-                issue.is_some().into(),
-                issue.flatten().into(),
-            ],
-        ))
-        .await
-        .map_err(down)?;
-    if done.rows_affected() == 0 {
-        return Err(refuse(StatusCode::NOT_FOUND, "no such report"));
-    }
-    if let Some(status) = change.status {
-        audit(&tx, actor, id, "status", Some(status.name().to_owned()))
-            .await
-            .map_err(down)?;
-    }
-    if let Some(issue) = issue {
-        audit(&tx, actor, id, "issue", issue.map(|n| format!("#{n}")))
-            .await
-            .map_err(down)?;
-    }
-    tx.commit().await.map_err(down)?;
-    fetch(db, id).await
-}
-
 async fn set_status(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<Summary>, Refusal> {
+) -> Result<Json<triage::Detail>, Refusal> {
     admin(&state, &headers)?;
     let id = report_id(&id)?;
     let change: StatusChange = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a status"))?;
-    apply_change(
+    triage::apply_change(
         &state.db,
         id,
         TOKEN_ACTOR,
-        Change {
-            status: Some(change.status),
-            issue: IssueChange::Keep,
-        },
+        triage::Change::status(change.status),
+        None,
     )
     .await
 }
@@ -1260,6 +966,7 @@ struct StatusChange {
     status: Status,
 }
 
+/// Deletes report `id` for good, wherever it is (the token API's delete).
 async fn delete_report(db: &DatabaseConnection, id: Uuid, actor: &str) -> Result<(), Refusal> {
     let down = |e: sea_orm::DbErr| db_down(&e);
     let tx = db.begin().await.map_err(down)?;

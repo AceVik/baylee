@@ -3,11 +3,23 @@
 //! - `POST /ui/api/login` `{name, password}`: a session, as a cookie.
 //! - `POST /ui/api/logout`: ends it, here and in the database.
 //! - `GET /ui/api/me`: who is signed in.
-//! - `GET /ui/api/reports?…`: the list, with the token API's filters plus
-//!   `q`, `from`, `to`, `has_record` (`docs/feedback.md`).
-//! - `GET /ui/api/reports/{id}`, `…/record`, `…/audit`.
-//! - `PATCH /ui/api/reports/{id}` `{status?, issue?}`, `DELETE …`.
-//! - `GET /ui/api/facets`: the gateways, reporters and statuses there are.
+//! - `GET /ui/api/reports?…`: the list, with the token API's filters
+//!   (`crate::triage::Filter`, `docs/feedback.md` §"Triage"); `….csv` the
+//!   same as a spreadsheet.
+//! - `GET /ui/api/reports/{id}` (with its notes), `…/record`, `…/audit`,
+//!   `…/neighbours?…` (the reports above and below it in a list).
+//! - `PATCH /ui/api/reports/{id}` (`crate::triage::Change`); `DELETE …`
+//!   moves it into the trash, `POST …/restore` takes it out, `POST
+//!   …/purge` deletes it from there for good.
+//! - `POST /ui/api/reports/{id}/notes`, `DELETE …/notes/{note}`: internal
+//!   notes.
+//! - `POST /ui/api/reports/bulk`: one change or action for many reports.
+//! - `POST /ui/api/seen` `{ids, seen}`: what this admin has opened.
+//! - `GET /ui/api/facets?…`: counts beside the list, under its filter.
+//! - `GET /ui/api/crashes?…`: crash reports grouped by signature.
+//! - `GET/POST /ui/api/views`, `DELETE /ui/api/views/{id}`: this admin's
+//!   saved lists.
+//! - `GET /ui/api/admins`: whom a report can be assigned to.
 //! - `GET /ui/api/contact`, `GET/PATCH/DELETE /ui/api/contact/{id}`: the
 //!   landing page's contact messages (`crate::contact`).
 //!
@@ -27,19 +39,20 @@ use std::path::{Path as FsPath, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Json, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Router};
-use sea_orm::{ConnectionTrait as _, DatabaseConnection, Statement};
+use sea_orm::{ConnectionTrait as _, Statement};
 use serde::{Deserialize, Serialize};
 use time::{Duration, OffsetDateTime};
 
-use crate::{
-    AppState, Change, Filter, Listing, Refusal, Shared, Summary, admin, apply_change, db_down,
-    delete_report, fetch, hash, listing, record_of, refuse, report_id,
-};
+use uuid::Uuid;
+
+use crate::triage::{self, Action, Change, Filter};
+use crate::{AppState, Refusal, Shared, admin, db_down, hash, record_of, refuse, report_id};
 
 /// A session unused this long is over.
 pub const IDLE: Duration = Duration::hours(12);
@@ -353,6 +366,8 @@ fn name_key(name: &str) -> String {
 /// A signed-in admin.
 pub(crate) struct Session {
     token_hash: [u8; 32],
+    /// The admin's id.
+    pub(crate) id: Uuid,
     /// The admin's name.
     pub(crate) name: String,
 }
@@ -386,13 +401,14 @@ pub(crate) async fn session(
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
-            "SELECT a.name, s.created_at, s.last_seen_at FROM feedback_session s \
+            "SELECT a.id, a.name, s.created_at, s.last_seen_at FROM feedback_session s \
              JOIN feedback_admin a ON a.id = s.admin_id WHERE s.token_hash = $1",
             [token_hash.to_vec().into()],
         ))
         .await
         .map_err(|e| db_down(&e))?
         .ok_or_else(signed_out)?;
+    let id: Uuid = row.try_get("", "id").map_err(|e| db_down(&e))?;
     let name: String = row.try_get("", "name").map_err(|e| db_down(&e))?;
     let created: OffsetDateTime = row.try_get("", "created_at").map_err(|e| db_down(&e))?;
     let seen: OffsetDateTime = row.try_get("", "last_seen_at").map_err(|e| db_down(&e))?;
@@ -419,7 +435,11 @@ pub(crate) async fn session(
     if lapsed {
         return Err(signed_out());
     }
-    Ok(Session { token_hash, name })
+    Ok(Session {
+        token_hash,
+        id,
+        name,
+    })
 }
 
 /// A fresh session token: 256 bits from the OS, as hex.
@@ -489,12 +509,27 @@ pub(crate) fn routes() -> Router<Shared> {
         .route("/ui/api/facets", get(facets))
         .route("/ui/api/stats", get(stats))
         .route("/ui/api/reports", get(reports))
+        .route("/ui/api/reports.csv", get(reports_csv))
+        .route("/ui/api/reports/bulk", post(bulk))
         .route(
             "/ui/api/reports/{id}",
-            get(report).patch(change).delete(delete),
+            get(report).patch(change).delete(trash),
         )
+        .route("/ui/api/reports/{id}/restore", post(restore))
+        .route("/ui/api/reports/{id}/purge", post(purge))
         .route("/ui/api/reports/{id}/record", get(record))
         .route("/ui/api/reports/{id}/audit", get(audit_trail))
+        .route("/ui/api/reports/{id}/neighbours", get(neighbours))
+        .route("/ui/api/reports/{id}/notes", post(add_note))
+        .route(
+            "/ui/api/reports/{id}/notes/{note}",
+            axum::routing::delete(remove_note),
+        )
+        .route("/ui/api/seen", post(seen))
+        .route("/ui/api/crashes", get(crashes))
+        .route("/ui/api/views", get(views).post(save_view))
+        .route("/ui/api/views/{id}", axum::routing::delete(remove_view))
+        .route("/ui/api/admins", get(admins))
         .merge(crate::console::routes())
         .merge(crate::moderation::routes())
         .merge(crate::contact::routes())
@@ -647,24 +682,60 @@ async fn me(State(shared): State<Shared>, headers: HeaderMap) -> Result<Json<Me>
     }))
 }
 
+/// The list's filter, or `400`.
+fn filter_of(filter: Result<Query<Filter>, QueryRejection>) -> Result<Filter, Refusal> {
+    filter
+        .map(|Query(f)| f)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "a filter is malformed"))
+}
+
+/// A changing request's body, or `400`.
+fn body_of<T: serde::de::DeserializeOwned>(body: &Bytes, what: &'static str) -> Result<T, Refusal> {
+    serde_json::from_slice(body).map_err(|_| refuse(StatusCode::BAD_REQUEST, what))
+}
+
 async fn reports(
     State(shared): State<Shared>,
     headers: HeaderMap,
-    filter: Result<Query<Filter>, axum::extract::rejection::QueryRejection>,
-) -> Result<Json<Listing>, Refusal> {
-    session(&shared.state, &shared.ui, &headers).await?;
-    let Query(filter) =
-        filter.map_err(|_| refuse(StatusCode::BAD_REQUEST, "a filter is malformed"))?;
-    listing(&shared.state.db, filter).await.map(Json)
+    filter: Result<Query<Filter>, QueryRejection>,
+) -> Result<Json<triage::Listing>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let filter = filter_of(filter)?;
+    triage::listing(&shared.state.db, &filter, Some(signed_in.id))
+        .await
+        .map(Json)
+}
+
+async fn reports_csv(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    filter: Result<Query<Filter>, QueryRejection>,
+) -> Result<Response, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let filter = filter_of(filter)?;
+    let csv = triage::csv(&shared.state.db, &filter, Some(signed_in.id)).await?;
+    tracing::info!(admin = signed_in.name, "reports exported");
+    let mut response = csv.into_response();
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/csv; charset=utf-8"),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_static("attachment; filename=\"reports.csv\""),
+    );
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    Ok(response)
 }
 
 async fn report(
     State(shared): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<Summary>, Refusal> {
-    session(&shared.state, &shared.ui, &headers).await?;
-    fetch(&shared.state.db, report_id(&id)?).await
+) -> Result<Json<triage::Detail>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    triage::fetch(&shared.state.db, report_id(&id)?, Some(signed_in.id), true).await
 }
 
 async fn record(
@@ -681,24 +752,201 @@ async fn change(
     headers: HeaderMap,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<Summary>, Refusal> {
+) -> Result<Json<triage::Detail>, Refusal> {
     same_origin(&headers)?;
     let signed_in = session(&shared.state, &shared.ui, &headers).await?;
     let id = report_id(&id)?;
-    let change: Change = serde_json::from_slice(&body)
-        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a change"))?;
-    apply_change(&shared.state.db, id, &signed_in.name, change).await
+    let change: Change = body_of(&body, "not a change")?;
+    triage::apply_change(
+        &shared.state.db,
+        id,
+        &signed_in.name,
+        change,
+        Some(signed_in.id),
+    )
+    .await
 }
 
-async fn delete(
+async fn act(
+    shared: &Shared,
+    headers: &HeaderMap,
+    id: &str,
+    action: Action,
+) -> Result<StatusCode, Refusal> {
+    same_origin(headers)?;
+    let signed_in = session(&shared.state, &shared.ui, headers).await?;
+    triage::act_on(&shared.state.db, report_id(id)?, &signed_in.name, action).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn trash(
     State(shared): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, Refusal> {
+    act(&shared, &headers, &id, Action::Trash).await
+}
+
+async fn restore(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<StatusCode, Refusal> {
+    act(&shared, &headers, &id, Action::Restore).await
+}
+
+async fn purge(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<StatusCode, Refusal> {
+    act(&shared, &headers, &id, Action::Purge).await
+}
+
+async fn bulk(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<triage::BulkDone>, Refusal> {
     same_origin(&headers)?;
     let signed_in = session(&shared.state, &shared.ui, &headers).await?;
-    delete_report(&shared.state.db, report_id(&id)?, &signed_in.name).await?;
+    let bulk: triage::Bulk = body_of(&body, "not a bulk change")?;
+    triage::bulk(&shared.state.db, &signed_in.name, bulk).await
+}
+
+async fn neighbours(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    filter: Result<Query<Filter>, QueryRejection>,
+) -> Result<Json<triage::Neighbours>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let filter = filter_of(filter)?;
+    triage::neighbours(
+        &shared.state.db,
+        report_id(&id)?,
+        &filter,
+        Some(signed_in.id),
+    )
+    .await
+    .map(Json)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NoteIn {
+    text: String,
+}
+
+async fn add_note(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Json<Vec<triage::Note>>, Refusal> {
+    same_origin(&headers)?;
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let note: NoteIn = body_of(&body, "not a note")?;
+    triage::add_note(
+        &shared.state.db,
+        report_id(&id)?,
+        &signed_in.name,
+        &note.text,
+    )
+    .await
+}
+
+async fn remove_note(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path((id, note)): Path<(String, String)>,
+) -> Result<Json<Vec<triage::Note>>, Refusal> {
+    same_origin(&headers)?;
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let note = Uuid::parse_str(&note).map_err(|_| refuse(StatusCode::NOT_FOUND, "no such note"))?;
+    triage::remove_note(&shared.state.db, report_id(&id)?, note, &signed_in.name).await
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SeenIn {
+    ids: Vec<Uuid>,
+    seen: bool,
+}
+
+async fn seen(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<StatusCode, Refusal> {
+    same_origin(&headers)?;
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let seen: SeenIn = body_of(&body, "not a list of reports")?;
+    triage::mark_seen(&shared.state.db, signed_in.id, &seen.ids, seen.seen).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn crashes(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    filter: Result<Query<Filter>, QueryRejection>,
+) -> Result<Json<Vec<triage::CrashGroup>>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let filter = filter_of(filter)?;
+    triage::crash_groups(&shared.state.db, &filter, Some(signed_in.id))
+        .await
+        .map(Json)
+}
+
+async fn views(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<triage::View>>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    triage::views(&shared.state.db, signed_in.id)
+        .await
+        .map(Json)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ViewIn {
+    name: String,
+    query: String,
+}
+
+async fn save_view(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Json<Vec<triage::View>>, Refusal> {
+    same_origin(&headers)?;
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let view: ViewIn = body_of(&body, "not a view")?;
+    triage::save_view(&shared.state.db, signed_in.id, &view.name, &view.query)
+        .await
+        .map(Json)
+}
+
+async fn remove_view(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<triage::View>>, Refusal> {
+    same_origin(&headers)?;
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let view = Uuid::parse_str(&id).map_err(|_| refuse(StatusCode::NOT_FOUND, "no such view"))?;
+    triage::remove_view(&shared.state.db, signed_in.id, view)
+        .await
+        .map(Json)
+}
+
+async fn admins(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<String>>, Refusal> {
+    session(&shared.state, &shared.ui, &headers).await?;
+    triage::admins(&shared.state.db).await.map(Json)
 }
 
 #[derive(Serialize)]
@@ -741,55 +989,16 @@ async fn audit_trail(
         .map_err(|e| db_down(&e))
 }
 
-#[derive(Serialize)]
-struct Count {
-    value: String,
-    count: i64,
-}
-
-#[derive(Serialize)]
-struct Facets {
-    gateways: Vec<Count>,
-    statuses: Vec<Count>,
-    kinds: Vec<Count>,
-    /// The reporters with the most reports, at most [`TOP_REPORTERS`].
-    reporters: Vec<Count>,
-}
-
-/// How many reporters the facets name.
-const TOP_REPORTERS: u32 = 50;
-
-async fn counts(db: &DatabaseConnection, column: &str, limit: u32) -> Result<Vec<Count>, Refusal> {
-    let rows = db
-        .query_all_raw(Statement::from_string(
-            db.get_database_backend(),
-            format!(
-                "SELECT {column} AS value, count(*) AS count FROM feedback_report \
-                 GROUP BY {column} ORDER BY count(*) DESC, {column} LIMIT {limit}"
-            ),
-        ))
+async fn facets(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    filter: Result<Query<Filter>, QueryRejection>,
+) -> Result<Json<triage::Facets>, Refusal> {
+    let signed_in = session(&shared.state, &shared.ui, &headers).await?;
+    let filter = filter_of(filter)?;
+    triage::facets(&shared.state.db, &filter, Some(signed_in.id))
         .await
-        .map_err(|e| db_down(&e))?;
-    rows.iter()
-        .map(|row| {
-            Ok(Count {
-                value: row.try_get("", "value")?,
-                count: row.try_get("", "count")?,
-            })
-        })
-        .collect::<Result<_, sea_orm::DbErr>>()
-        .map_err(|e| db_down(&e))
-}
-
-async fn facets(State(shared): State<Shared>, headers: HeaderMap) -> Result<Json<Facets>, Refusal> {
-    session(&shared.state, &shared.ui, &headers).await?;
-    let db = &shared.state.db;
-    Ok(Json(Facets {
-        gateways: counts(db, "gateway", 1000).await?,
-        statuses: counts(db, "status", 100).await?,
-        kinds: counts(db, "kind", 100).await?,
-        reporters: counts(db, "reporter", TOP_REPORTERS).await?,
-    }))
+        .map(Json)
 }
 
 /// How many days back `GET /ui/api/stats` counts.

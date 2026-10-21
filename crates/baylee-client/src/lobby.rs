@@ -493,6 +493,9 @@ pub struct LobbyState {
     /// What the sign-in that is landing said: `terms_stale`, read off the
     /// answer before its event (`front::terms::follow_the_session`).
     pub(crate) terms_stale: Option<bool>,
+    /// Whose terms the sheet shows: the gateway's, or Baylee Central's own
+    /// first when the sign-in said they wait (`front::terms`).
+    pub(crate) terms_subject: front::terms::Subject,
     /// The About sheet is up (the front door's text row, WP1).
     pub(crate) about_open: bool,
     /// Caps Lock looks on: a letter arrived upper case with Shift up (the
@@ -789,6 +792,7 @@ impl LobbyState {
             vault_login: None,
             terms: client_core::terms::Terms::default(),
             terms_stale: None,
+            terms_subject: front::terms::Subject::Gateway,
             about_open: false,
             caps_lock: false,
             settings_view: SettingsView::default(),

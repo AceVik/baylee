@@ -516,6 +516,18 @@ async fn central_password_retired(db: &DatabaseConnection, alice: Uuid, bob: Uui
         .is_err(),
         "an old gateway reset must not restore password authentication"
     );
+    // Every later migration rolls back; the one that bound the migration
+    // credentials, and with it the retirement, does not.
+    let bound = Migrator::migrations()
+        .iter()
+        .position(|migration| migration.name() == "m20261019_000023_bind_migration_credentials")
+        .unwrap();
+    let later = Migrator::migrations().len() - 1 - bound;
+    if later > 0 {
+        Migrator::down(db, Some(u32::try_from(later).unwrap()))
+            .await
+            .unwrap();
+    }
     assert!(
         Migrator::down(db, Some(1)).await.is_err(),
         "retired credentials cannot be rolled back"

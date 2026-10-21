@@ -1,6 +1,37 @@
 baylee — an unofficial, non-commercial fan project
 ====================================================
 
+Additional terms under section 7 of the GNU AGPL v3
+---------------------------------------------------
+
+Baylee is licensed under the GNU Affero General Public License version 3
+only (LICENSE). As section 7 of that licence permits, its copyright holder
+adds these terms. They apply to every file of this repository the licence
+covers and to every work based on them.
+
+1. Notices (section 7(b)). Every copy and every modified version keeps this
+   NOTICE file and the fan content and attribution notices, and its About
+   sheet keeps naming the original project (Baylee,
+   https://github.com/AceVik/baylee).
+2. Modified versions are marked as such (section 7(c)). A modified version
+   says that it is modified, and by whom, in its About sheet and in the
+   version it reports (the client's version string, the gateway's GET /info
+   and GET /source). It does not present itself as the official Baylee
+   client, gateway or service, nor as made or endorsed by the Baylee
+   project.
+3. Names (section 7(e)). The licence grants no right to use the names
+   "Baylee" and "Baylee Central", the Baylee logo or the domain baylee.app,
+   except to say truthfully where a work comes from (for example "based on
+   Baylee").
+
+Using Baylee Central, the project's account service, is governed by its own
+terms of use, which admit only the official clients. That is a rule of the
+service, not a term of this licence: anyone may run a modified gateway or
+client under the AGPL, but not sign it in to Baylee Central.
+
+Fan content and third-party material
+------------------------------------
+
 baylee is unofficial fan content permitted under Wizards of the Coast's Fan
 Content Policy. It is not approved, endorsed, sponsored, or affiliated with
 Wizards of the Coast. Portions of the materials used (card names, rules text,
