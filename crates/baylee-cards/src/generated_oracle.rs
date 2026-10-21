@@ -4428,7 +4428,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Reveka, Wizard Savant
     &["{T}: Reveka deals 2 damage to any target and doesn't untap during your next untap step."],
-    &[],
+    // Root Spider
+    &["Whenever this creature blocks, it gets +1/+0 and gains first strike until end of turn."],
     // Roots
     &[
         "Enchant creature without flying\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.",
@@ -4437,33 +4438,67 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{2}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
     ],
-    &[],
-    &[],
+    // Rysorian Badger
+    &[
+        "Whenever this creature attacks and isn't blocked, you may exile up to two target creature cards from defending player's graveyard. If you do, you gain 1 life for each card exiled this way and this creature assigns no combat damage this turn.",
+    ],
+    // Samite Alchemist
+    &[
+        "{W}{W}, {T}: Prevent the next 4 damage that would be dealt this turn to target creature you control. Tap that creature. It doesn't untap during your next untap step.",
+    ],
     // Sea Sprite
     &["Flying, protection from red"],
-    &[],
-    &[],
-    &[],
+    // Sea Troll
+    &[
+        "{U}: Regenerate this creature. Activate only if this creature blocked or was blocked by a blue creature this turn.",
+    ],
+    // Sengir Autocrat
+    &[
+        "When this creature enters, create three 0/1 black Serf creature tokens.\nWhen this creature leaves the battlefield, exile all Serf tokens.",
+    ],
+    // Sengir Bats
+    &[
+        "Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.",
+    ],
     // Serra Aviary
     &["Creatures with flying get +1/+1."],
-    &[],
-    &[],
+    // Serra Bestiary
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, sacrifice this Aura unless you pay {W}{W}.\nEnchanted creature can't attack or block, and its activated abilities with {T} in their costs can't be activated.",
+    ],
+    // Serra Inquisitors
+    &[
+        "Whenever this creature blocks or becomes blocked by one or more black creatures, this creature gets +2/+0 until end of turn.",
+    ],
     // Serra Paladin
     &[
         "{T}: Prevent the next 1 damage that would be dealt to any target this turn.\n{1}{W}{W}, {T}: Target creature gains vigilance until end of turn.",
     ],
-    &[],
+    // Serrated Arrows
+    &[
+        "This artifact enters with three arrowhead counters on it.\nAt the beginning of your upkeep, if there are no arrowhead counters on this artifact, sacrifice it.\n{T}, Remove an arrowhead counter from this artifact: Put a -1/-1 counter on target creature.",
+    ],
     // Shrink
     &["Target creature gets -5/-0 until end of turn."],
     // Soraya the Falconer
     &[
         "Bird creatures get +1/+1.\n{1}{W}: Target Bird creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
+    // Spectral Bears
+    &[
+        "Whenever this creature attacks, if defending player controls no black nontoken permanents, it doesn't untap during your next untap step.",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Torture
+    &["Enchant creature\n{1}{B}: Put a -1/-1 counter on enchanted creature."],
+    // Trade Caravan
+    &[
+        "At the beginning of your upkeep, put a currency counter on this creature.\nRemove two currency counters from this creature: Untap target basic land. Activate only during an opponent's upkeep.",
+    ],
+    // Truce
+    &[
+        "Each player may draw up to two cards. For each card less than two a player draws this way, that player gains 2 life.",
+    ],
     // Veldrane of Sengir
     &[
         "{1}{B}{B}: Veldrane gets -3/-0 and gains forestwalk until end of turn. (It can't be blocked as long as defending player controls a Forest.)",
@@ -4474,8 +4509,14 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Willow Faerie
     &["Flying"],
-    &[],
-    &[],
+    // Willow Priestess
+    &[
+        "{T}: You may put a Faerie permanent card from your hand onto the battlefield.\n{2}{G}: Target green creature gains protection from black until end of turn.",
+    ],
+    // Winter Sky
+    &[
+        "Flip a coin. If you win the flip, Winter Sky deals 1 damage to each creature and each player. If you lose the flip, each player draws a card.",
+    ],
     // Wizards' School
     &["{T}: Add {C}.\n{1}, {T}: Add {U}.\n{2}, {T}: Add {W} or {B}."],
     &[],

@@ -171,6 +171,12 @@ pub const PARALYZATION: CounterKind = CounterKind::Custom(41);
 /// Music counters (Musician).
 pub const MUSIC: CounterKind = CounterKind::Custom(42);
 
+/// Arrowhead counters (Serrated Arrows).
+pub const ARROWHEAD: CounterKind = CounterKind::Custom(43);
+
+/// Currency counters (Trade Caravan).
+pub const CURRENCY: CounterKind = CounterKind::Custom(44);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -219,6 +225,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("sleight", SLEIGHT),
     ("paralyzation", PARALYZATION),
     ("music", MUSIC),
+    ("arrowhead", ARROWHEAD),
+    ("currency", CURRENCY),
 ];
 
 #[cfg(test)]

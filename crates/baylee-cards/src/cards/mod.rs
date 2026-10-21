@@ -13213,6 +13213,8 @@ pub mod root_cage;
 pub mod root_out;
 #[path = "instants/mv_2/root_snare.rs"]
 pub mod root_snare;
+#[path = "creatures/mv_4/root_spider.rs"]
+pub mod root_spider;
 #[path = "lands/check/rootbound_crag.rs"]
 pub mod rootbound_crag;
 #[path = "creatures/mv_7/rootbreaker_wurm.rs"]
@@ -13407,6 +13409,8 @@ pub mod rustvale_bridge;
 pub mod rustvine_cultivator;
 #[path = "creatures/mv_1/rustwing_falcon.rs"]
 pub mod rustwing_falcon;
+#[path = "creatures/mv_3/rysorian_badger.rs"]
+pub mod rysorian_badger;
 #[path = "creatures/mv_6/ryusei_the_falling_star.rs"]
 pub mod ryusei_the_falling_star;
 #[path = "creatures/artifacts/mv_3/s_h_i_e_l_d_deployment_drone.rs"]
@@ -13507,6 +13511,8 @@ pub mod salvage_scuttler;
 pub mod salvaged_manaworker;
 #[path = "creatures/mv_5/salvager_of_secrets.rs"]
 pub mod salvager_of_secrets;
+#[path = "creatures/mv_4/samite_alchemist.rs"]
+pub mod samite_alchemist;
 #[path = "creatures/mv_3/samite_archer.rs"]
 pub mod samite_archer;
 #[path = "creatures/mv_2/samite_healer.rs"]
@@ -13861,6 +13867,8 @@ pub mod sea_serpent;
 pub mod sea_spirit;
 #[path = "creatures/mv_2/sea_sprite.rs"]
 pub mod sea_sprite;
+#[path = "creatures/mv_3/sea_troll.rs"]
+pub mod sea_troll;
 #[path = "lands/fast/seachrome_coast.rs"]
 pub mod seachrome_coast;
 #[path = "creatures/mv_2/seacoast_drake.rs"]
@@ -14039,6 +14047,10 @@ pub mod senate_courier;
 pub mod senate_griffin;
 #[path = "creatures/mv_2/senate_guildmage.rs"]
 pub mod senate_guildmage;
+#[path = "creatures/mv_4/sengir_autocrat.rs"]
+pub mod sengir_autocrat;
+#[path = "creatures/mv_3/sengir_bats.rs"]
+pub mod sengir_bats;
 #[path = "creatures/mv_5/sengir_vampire.rs"]
 pub mod sengir_vampire;
 #[path = "artifacts/mv_1/sensei_s_divining_top.rs"]
@@ -14109,6 +14121,10 @@ pub mod serra_advocate;
 pub mod serra_angel;
 #[path = "enchantments/mv_4/serra_aviary.rs"]
 pub mod serra_aviary;
+#[path = "enchantments/auras/mv_2/serra_bestiary.rs"]
+pub mod serra_bestiary;
+#[path = "creatures/mv_5/serra_inquisitors.rs"]
+pub mod serra_inquisitors;
 #[path = "creatures/mv_4/serra_paladin.rs"]
 pub mod serra_paladin;
 #[path = "enchantments/mv_2/serra_s_blessing.rs"]
@@ -14125,6 +14141,8 @@ pub mod serra_s_sanctum;
 pub mod serra_sphinx;
 #[path = "creatures/mv_1/serra_zealot.rs"]
 pub mod serra_zealot;
+#[path = "artifacts/mv_4/serrated_arrows.rs"]
+pub mod serrated_arrows;
 #[path = "creatures/mv_1/serrated_scorpion.rs"]
 pub mod serrated_scorpion;
 #[path = "creatures/mv_4/serum_raker.rs"]
@@ -15163,6 +15181,8 @@ pub mod specter_of_the_fens;
 pub mod specter_s_shroud;
 #[path = "sorceries/mv_2/specter_s_wail.rs"]
 pub mod specter_s_wail;
+#[path = "creatures/mv_2/spectral_bears.rs"]
+pub mod spectral_bears;
 #[path = "enchantments/auras/mv_2/spectral_cloak.rs"]
 pub mod spectral_cloak;
 #[path = "enchantments/auras/mv_2/spectral_flight.rs"]
@@ -16959,6 +16979,8 @@ pub mod tormod_s_crypt;
 pub mod torpor_dust;
 #[path = "creatures/mv_6/torsten_von_ursus.rs"]
 pub mod torsten_von_ursus;
+#[path = "enchantments/auras/mv_1/torture.rs"]
+pub mod torture;
 #[path = "enchantments/mv_1/tortured_existence.rs"]
 pub mod tortured_existence;
 #[path = "enchantments/mv_4/total_war.rs"]
@@ -17023,6 +17045,8 @@ pub mod toxin_analysis;
 pub mod tracker;
 #[path = "enchantments/auras/mv_4/tractor_beam.rs"]
 pub mod tractor_beam;
+#[path = "creatures/mv_1/trade_caravan.rs"]
+pub mod trade_caravan;
 #[path = "enchantments/mv_2/trade_routes.rs"]
 pub mod trade_routes;
 #[path = "artifacts/mv_4/trading_post.rs"]
@@ -17197,6 +17221,8 @@ pub mod trostani_three_whispers;
 pub mod troubled_healer;
 #[path = "creatures/mv_4/troublesome_spirit.rs"]
 pub mod troublesome_spirit;
+#[path = "instants/mv_3/truce.rs"]
+pub mod truce;
 #[path = "enchantments/mv_6/true_conviction.rs"]
 pub mod true_conviction;
 #[path = "artifacts/equipment/mv_2/true_faith_censer.rs"]
@@ -18565,6 +18591,8 @@ pub mod willow_dryad;
 pub mod willow_elf;
 #[path = "creatures/mv_2/willow_faerie.rs"]
 pub mod willow_faerie;
+#[path = "creatures/mv_4/willow_priestess.rs"]
+pub mod willow_priestess;
 #[path = "creatures/mv_4/willow_satyr.rs"]
 pub mod willow_satyr;
 #[path = "creatures/mv_5/willow_wind.rs"]
@@ -18649,6 +18677,8 @@ pub mod winter_s_chill;
 pub mod winter_s_grasp;
 #[path = "instants/mv_2/winter_s_intervention.rs"]
 pub mod winter_s_intervention;
+#[path = "sorceries/mv_1/winter_sky.rs"]
+pub mod winter_sky;
 #[path = "creatures/mv_1/winter_soldier_bucky_barnes.rs"]
 pub mod winter_soldier_bucky_barnes;
 #[path = "lands/utility/wintermoon_mesa.rs"]
