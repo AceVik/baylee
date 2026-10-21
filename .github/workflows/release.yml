@@ -58,6 +58,10 @@ jobs:
       ci-run: ${{ steps.v.outputs.ci-run }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The card status check below compares the tag with the commit the
+          # status was measured at.
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
@@ -77,6 +81,10 @@ jobs:
               echo "::error::tag $GITHUB_REF_NAME does not match workspace version $version"
               exit 1
             fi
+            # The website reads the card status from the tagged commit, so its
+            # numbers are those of the client this release ships: the status
+            # must have been measured at this pool (docs/releasing.md).
+            cargo tools site card-status-fresh --rev "$GITHUB_SHA"
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
             run=$(cargo tools release resolve)
