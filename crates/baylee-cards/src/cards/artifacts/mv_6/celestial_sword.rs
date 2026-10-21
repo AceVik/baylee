@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-const CREATURE_YOU_CONTROL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByYou]);
-
 card!(
     index = index::CELESTIAL_SWORD,
     oracle_id = "8f64c3d4-8ed6-43be-9583-33de4b7761fa",
@@ -30,6 +28,6 @@ card!(
                 effects: &[Effect::SacrificeEvent],
             },
         ],
-        target = Some(TargetSpec::Object(&CREATURE_YOU_CONTROL)),
+        target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)),
     )],
 );

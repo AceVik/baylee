@@ -2,6 +2,11 @@
 //!
 //! Oracle:
 //! - "At the beginning of each upkeep, count the number of permanents. If the number is odd, until end of turn, red creatures get +1/+1 and whenever a player taps a Mountain for mana, that player adds an additional {R}. If the number is even, until end of turn, red creatures get -1/-1 and if a player taps a Mountain for mana, that Mountain produces colorless mana instead of any other type."
+//!
+//! The card is Partial: it always plays the odd branch's +1/+1. The board
+//! here holds three permanents at each upkeep (Hill Giant, Grizzly Bears,
+//! Chaos Moon; the libraries are not permanents), so the count is odd and
+//! the +1/+1 asserted is what the printed card does too.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -46,4 +51,11 @@ fn chaos_moon_upkeep_trigger_modifies_red_creatures_until_end_of_turn() {
         "red creature gets +1/+1 until end of turn after upkeep trigger"
     );
     assert_eq!(pt(&engine, bears), (2, 2), "non-red creature is unaffected");
+
+    // Until end of turn: at P0's next upkeep, before the new trigger
+    // resolves, the Giant is back to 3/3.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep && !stack_is_empty(e)
+    });
+    assert_eq!(pt(&engine, giant), (3, 3), "the +1/+1 ended with P1's turn");
 }

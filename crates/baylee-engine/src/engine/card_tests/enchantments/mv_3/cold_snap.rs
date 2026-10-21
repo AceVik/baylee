@@ -18,6 +18,15 @@ fn cold_snap() -> CardIndex {
     card_index("3dcbcf5e-bdbe-46b3-881e-5ac4030c6e38")
 }
 
+fn age(engine: &Engine<RegistryLookup>, id: ObjectId) -> u16 {
+    engine
+        .state()
+        .object(id)
+        .expect("object exists")
+        .counters
+        .get(counters::AGE)
+}
+
 #[test]
 fn cold_snap_deals_upkeep_damage_equal_to_snow_lands_controlled() {
     let mut engine = lk::game(
@@ -71,13 +80,36 @@ fn cold_snap_deals_upkeep_damage_equal_to_snow_lands_controlled() {
         "P0 controls no snow lands so Cold Snap deals 0 damage to P0"
     );
     let snap = on_battlefield(&engine, P0, cold_snap()).expect("Cold Snap remains on battlefield");
+    assert_eq!(age(&engine, snap), 1);
+
+    // The upkeep after: a second age counter, so {2} for each is {4}.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep && !stack_is_empty(e)
+    });
+    lk::float(&mut engine, P0, &[(ManaColor::Colorless, 4)]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    lk::yes_no(&mut engine, true);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(age(&engine, snap), 2);
     assert_eq!(
-        engine
-            .state()
-            .object(snap)
-            .unwrap()
-            .counters
-            .get(counters::AGE),
-        1
+        lk::pool_total(&engine, P0),
+        0,
+        "cumulative upkeep {{2}} with two age counters costs {{4}}"
+    );
+
+    // And the upkeep after that, unpaid: Cold Snap is sacrificed.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep && !stack_is_empty(e)
+    });
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    lk::yes_no(&mut engine, false);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, P0, cold_snap()).is_none(),
+        "sacrifice it unless you pay its upkeep cost for each age counter on it"
     );
 }

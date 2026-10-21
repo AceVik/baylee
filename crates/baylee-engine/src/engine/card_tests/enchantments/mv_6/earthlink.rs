@@ -70,3 +70,55 @@ fn earthlink_forces_dying_creatures_controller_to_sacrifice_a_land() {
         "P0's land is untouched"
     );
 }
+
+#[test]
+fn earthlink_is_sacrificed_at_your_upkeep_unless_you_pay_two() {
+    let mut engine = lk::game(SEED, &[], &[], &[earthlink()], &[]);
+    lk::float(
+        &mut engine,
+        P0,
+        &[
+            (ManaColor::Colorless, 3),
+            (ManaColor::Black, 1),
+            (ManaColor::Red, 1),
+            (ManaColor::Green, 1),
+        ],
+    );
+    cast_with_floating(&mut engine, P0, earthlink());
+    pass_until(&mut engine, stack_is_empty);
+
+    // P1's upkeep asks nothing: "your upkeep" is Earthlink's controller's.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1 && e.state().turn.phase == Phase::FirstMain
+    });
+
+    // Paid: it stays, and the {2} is spent.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep && !stack_is_empty(e)
+    });
+    lk::float(&mut engine, P0, &[(ManaColor::Colorless, 2)]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    lk::yes_no(&mut engine, true);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, P0, earthlink()).is_some(),
+        "paid: it stays"
+    );
+    assert_eq!(lk::pool_total(&engine, P0), 0, "the {{2}} was spent");
+
+    // Not paid: it is sacrificed.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep && !stack_is_empty(e)
+    });
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    lk::yes_no(&mut engine, false);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, P0, earthlink()).is_none(),
+        "sacrifice this enchantment unless you pay {{2}}"
+    );
+}

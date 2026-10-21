@@ -3,13 +3,13 @@
 //! Oracle: At the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even.
 //! Oracle: This creature can attack as though it had haste unless it entered this turn.
 //! Set: ICE #178 — Ice Age | Scryfall ID: ee245922-b380-4b2e-a43f-ab1ba8078943 | Oracle ID: 16d0aea2-4ca4-4a9d-8674-2863e085f514
-// PARTIAL: even-permanent-count upkeep control change and non-entry haste not supported.
+// PARTIAL: first strike only; the upkeep control change and the haste clause are not played.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: At the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even.
-// NOT SUPPORTED: This creature can attack as though it had haste unless it entered this turn.
+// NOT SUPPORTED: At the beginning of your upkeep, target opponent gains control of this creature if the number of permanents is even. No `Condition` reads the parity of a count, so the trigger is left out entirely.
+// NOT SUPPORTED: This creature can attack as though it had haste unless it entered this turn. It would be the pool's first static reading `Filter::EnteredThisTurn`, which `state::filter_reads_board_state` says needs its turn-boundary door first.
 card!(
     index = index::CHAOS_LORD,
     oracle_id = "16d0aea2-4ca4-4a9d-8674-2863e085f514",
@@ -17,7 +17,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FIRST_STRIKE,
     coverage = Coverage::Partial(
-        "even-permanent-count upkeep control change and non-entry haste not supported"
+        "no upkeep control change (no condition reads the parity of the permanent count) and no attacking as though it had haste (a static reading Filter::EnteredThisTurn needs the engine's turn-boundary door first)"
     ),
     faces = &[face!(
         name = "Chaos Lord",

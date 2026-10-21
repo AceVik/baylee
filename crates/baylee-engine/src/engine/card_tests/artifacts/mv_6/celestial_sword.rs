@@ -9,6 +9,7 @@ use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 // oracle_id = "8f64c3d4-8ed6-43be-9583-33de4b7761fa"
 fn celestial_sword() -> CardIndex {
@@ -25,10 +26,15 @@ fn celestial_sword_pumps_creature_you_control_then_sacrifices_it_at_end_step() {
         &[],
     );
     let bears = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+    let giant = lk::obj(&engine, P1, index::HILL_GIANT);
 
     lk::float(&mut engine, P0, &[(ManaColor::Colorless, 3)]);
     activate(&mut engine, P0, celestial_sword(), 0);
-    lk::aim(&mut engine, &[bears], &[]);
+    let options = aim_at(&mut engine, P0, bears);
+    assert!(
+        !options.contains(&giant),
+        "target creature you control: the opponent's Hill Giant is not offered"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

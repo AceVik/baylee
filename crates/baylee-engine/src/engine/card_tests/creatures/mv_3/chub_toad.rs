@@ -38,4 +38,34 @@ fn chub_toad_gets_plus_two_plus_two_when_it_becomes_blocked() {
     lk::through_combat(&mut engine);
     assert!(on_battlefield(&engine, P0, chub_toad()).is_some());
     assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_none());
+
+    pass_until(&mut engine, |e| e.state().turn.active == P1);
+    assert_eq!(pt(&engine, toad), (1, 1), "the +2/+2 ends with the turn");
+}
+
+#[test]
+fn chub_toad_gets_plus_two_plus_two_when_it_blocks() {
+    let mut engine = lk::game(SEED, &[chub_toad()], &[index::GRIZZLY_BEARS], &[], &[]);
+    let toad = lk::obj(&engine, P0, chub_toad());
+    let bears = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1),
+    );
+    let offer = lk::declare(&mut engine, &[bears]);
+    assert!(lk::may_block(&offer, toad, bears));
+    lk::block(&mut engine, &[(toad, bears)]);
+
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, toad),
+        (3, 3),
+        "Chub Toad gets +2/+2 until end of turn when it blocks"
+    );
+
+    // The 3/3 Toad kills the attacking 2/2 and survives it.
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert!(on_battlefield(&engine, P0, chub_toad()).is_some());
+    assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_none());
 }
