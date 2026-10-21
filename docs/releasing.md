@@ -42,8 +42,16 @@ While the version is `0.x`:
 
 ## Cutting one
 
-1. On `main`, bump `version` in `[workspace.package]` in its own commit
-   (`chore(release): 0.2.0`) and push it.
+1. On `main`, bump `version` in `[workspace.package]` and measure the card
+   status (`cargo tools site card-status`, which rewrites `web/site/data`),
+   both in one commit (`chore(release): 0.2.0`), and push it. The website
+   (Central's `web/`) reads the card status of the newest release from that
+   release's tag, as it reads the downloads from its assets, so the numbers a
+   visitor sees are always those of the client the release ships. The release
+   workflow refuses a tag whose status was measured at another pool
+   (`cargo tools site card-status-fresh`: the measured commit must be an
+   ancestor of the tag, and no card, ledger, core index or
+   `data/unplayable.tsv` may have changed since).
 2. Wait for `ci` to go green on that commit, including `packages`. The workflow
    refuses a tag without a successful **push to this repository's main** CI run
    at that exact SHA in which every job of `REQUIRED_JOBS`

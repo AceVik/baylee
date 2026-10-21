@@ -13,6 +13,10 @@ pub(super) const LEDGER: &str = "crates/baylee-cards-index/src/generated.rs";
 const CORE_INDEX: &str = "crates/baylee-core/src/generated/index";
 const CARDS: &str = "crates/baylee-cards/src/cards";
 const UNPLAYABLE: &str = "data/unplayable.tsv";
+
+/// Everything the card status is measured from: a commit that changes none
+/// of these has the status of its ancestor (`card_status::fresh`).
+pub(super) const INPUTS: [&str; 4] = [LEDGER, CORE_INDEX, CARDS, UNPLAYABLE];
 pub(super) const STATUSES: [&str; 6] = [
     "implemented",
     "generated",
