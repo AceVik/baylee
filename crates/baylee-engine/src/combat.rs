@@ -697,7 +697,7 @@ impl<'a> AttackRules<'a> {
     }
 
     /// Total generic mana cost `creature`'s controller must pay to declare
-    /// `creature` attacking (CR 508.1g: Brainwash).
+    /// `creature` attacking (CR 508.1h: Brainwash).
     #[must_use]
     pub fn mana_tax(&self, creature: ObjectId) -> u32 {
         if self.unless_pay_mana.is_empty() {
@@ -718,7 +718,7 @@ impl<'a> AttackRules<'a> {
     }
 
     /// Sacrifice costs `creature`'s controller must pay to declare `creature`
-    /// attacking (CR 508.1g: Leviathan).
+    /// attacking (CR 508.1h: Leviathan).
     #[must_use]
     pub fn sacrifice_tax(
         &self,
@@ -749,7 +749,7 @@ impl<'a> AttackRules<'a> {
     }
 
     /// Total life cost `creature`'s controller must pay to declare `creature`
-    /// attacking `defender` (CR 508.1g: Sivitri, Dragon Master's +1).
+    /// attacking `defender` (CR 508.1h: Sivitri, Dragon Master's +1).
     #[must_use]
     pub fn life_tax(&self, creature: ObjectId, defender: Defender) -> i32 {
         if self.attack_tax_life.is_empty()
