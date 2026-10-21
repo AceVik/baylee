@@ -3182,7 +3182,8 @@ as where the game data goes, and the fallback plays on in that chair.
 ## Friends and chat (beta.8)
 
 Friends, presence for friends, whispers, groups and table chat, every
-message body end-to-end encrypted. The types are
+message body end-to-end encrypted, and one public lobby chat that is not
+(below). The types are
 `baylee_protocol::social` (`crates/baylee-protocol/src/social.rs`), the
 gateway's side `crates/baylee-gateway/src/social/`, the crypto
 `crates/baylee-seal`.
@@ -3193,10 +3194,19 @@ gateway's side `crates/baylee-gateway/src/social/`, the crypto
   `social::SOCIAL_VERSION` (1) too.
 - **The public identifier is the tag** (`af03`). Account ids never leave the
   gateway.
-- **The gateway never sees plaintext.** It carries sealed bodies as opaque
-  base64url, checks only shapes, sizes, membership and that a send wraps the
-  message key for exactly the current devices of every recipient, and never
-  logs a frame, ticket, ciphertext, key, tag or handle.
+- **The gateway never sees plaintext** of a whisper, group or table
+  message. It carries sealed bodies as opaque base64url, checks only shapes,
+  sizes, membership and that a send wraps the message key for exactly the
+  current devices of every recipient, and never logs a frame, ticket,
+  ciphertext, key, tag or handle.
+- **The lobby chat is public and not encrypted** (`Up::Global` →
+  `Down::Global`, `Conv::Global`, `global` in a report). Its body is plain
+  text (at most `MAX_BODY_BYTES`, under the same send allowance as a
+  message); the gateway passes it to every other open social socket, keeps
+  the last 50 in memory (never on disk, gone with a restart) and sends them
+  after `snapshot` to a socket that opens. The default terms and the privacy
+  template say so (`docs/gateway-legal/`); the client says it where the lobby
+  chat is empty.
 - `GET /info` says `"social": {"version": 1, "keep_days": 14}`, or `null`
   when the gateway has `BAYLEE_SOCIAL=off`. An older gateway sends no key,
   which means no chat.

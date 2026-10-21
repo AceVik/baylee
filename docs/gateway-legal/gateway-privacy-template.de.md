@@ -1,5 +1,5 @@
-<!-- version: 2026-10-2 -->
-<!-- updated: 2026-10-20 -->
+<!-- version: 2026-10-21 -->
+<!-- updated: 2026-10-21 -->
 
 # Datenschutzhinweise dieses Gateways
 
@@ -25,8 +25,11 @@ des Gateways]**.
   Spielmatten. *Art. 6 Abs. 1 lit. b DSGVO*
 - **Freunde und Chat:** Freundschaften, Anfragen, Blockierungen, Gruppen, die
   öffentlichen Schlüssel deiner Geräte und deine Chat-Einstellungen.
-  Nachrichten sind Ende-zu-Ende-verschlüsselt; das Gateway hält noch nicht
-  zugestellte Nachrichten verschlüsselt bereit und kann sie nicht lesen.
+  Nachrichten an Freunde, Gruppen und Tische sind Ende-zu-Ende-verschlüsselt;
+  das Gateway hält noch nicht zugestellte Nachrichten verschlüsselt bereit
+  und kann sie nicht lesen. Der Lobby-Chat ist öffentlich und nicht
+  verschlüsselt: Das Gateway gibt ihn an alle Verbundenen weiter und hält die
+  letzten 50 Nachrichten im Arbeitsspeicher, bis es neu startet.
   *Art. 6 Abs. 1 lit. b DSGVO*
 - **Spielaufzeichnungen:** jede hier gespielte Partie mit allen Aktionen und
   Karten, daneben welches Konto auf welchem Platz saß und ob du deine

@@ -1,5 +1,5 @@
-<!-- version: 2026-10-2 -->
-<!-- updated: 2026-10-20 -->
+<!-- version: 2026-10-21 -->
+<!-- updated: 2026-10-21 -->
 
 # Nutzungsbedingungen dieses Gateways
 
@@ -43,6 +43,11 @@ Du verpflichtest dich,
 - **Meldest du eine Nachricht**, schickt dein Gerät deren Inhalt an die
   Moderation dieses Gateways, damit sie den Hinweis prüfen kann. Nur dann
   sieht jemand außer den Beteiligten den Inhalt einer Nachricht.
+- Der **Lobby-Chat** ist öffentlich und **nicht verschlüsselt**: Alle, die
+  gerade mit diesem Gateway verbunden sind, lesen ihn, und das Gateway kann
+  seinen Inhalt lesen. Es hält die letzten 50 Nachrichten im Arbeitsspeicher,
+  bis es neu startet, und speichert sie nicht dauerhaft. Schreib dort nichts,
+  was nicht alle lesen sollen.
 - Computergegner und Zuschauer nehmen am Chat nicht teil.
 
 ## 4. Deine Inhalte
