@@ -31,6 +31,28 @@ fn goblin_mutant_attack_and_block_restrictions_against_power_three_or_greater() 
         );
     }
 
+    // The other side of the attack restriction: the Hill Giant tapped and an
+    // untapped creature with power 2 beside it, so the defending player
+    // controls no *untapped* creature with power 3 or greater.
+    {
+        let mut engine = lk::game(
+            SEED,
+            &[goblin_mutant()],
+            &[index::HILL_GIANT, index::GRIZZLY_BEARS],
+            &[],
+            &[],
+        );
+        let mutant = lk::obj(&engine, P0, goblin_mutant());
+        let giant = lk::obj(&engine, P1, index::HILL_GIANT);
+        engine.dev_state_mut(P0).unwrap().set_tapped(giant, true);
+        engine.refresh_offer();
+        let offered = lk::attackers_offered(&mut engine);
+        assert!(
+            offered.contains(&mutant),
+            "a tapped power>=3 creature and an untapped power-2 one do not stop Goblin Mutant"
+        );
+    }
+
     // Block restriction: cannot block an attacking Hill Giant (3/3), can block Grizzly Bears (2/2).
     {
         let mut engine = lk::game(

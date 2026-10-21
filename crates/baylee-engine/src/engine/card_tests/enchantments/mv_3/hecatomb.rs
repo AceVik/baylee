@@ -73,8 +73,9 @@ fn hecatomb_etb_sacrifices_four_creatures_and_taps_swamp_to_deal_one_damage() {
         }
     }
     assert!(on_battlefield(&engine, P0, hecatomb()).is_some());
-    assert_eq!(lk::zone_of(&engine, c1), Zone::Graveyard);
-    assert_eq!(lk::zone_of(&engine, c4), Zone::Graveyard);
+    for creature in [c1, c2, c3, c4] {
+        assert_eq!(lk::zone_of(&engine, creature), Zone::Graveyard);
+    }
 
     // Activate Hecatomb by tapping the untapped Swamp to deal 1 damage to P1.
     activate(&mut engine, P0, hecatomb(), 1);
@@ -98,4 +99,56 @@ fn hecatomb_etb_sacrifices_four_creatures_and_taps_swamp_to_deal_one_damage() {
     lk::settle(&mut engine);
     assert!(lk::tapped(&engine, swamp_id));
     assert_eq!(lk::life(&engine, P1), 19);
+}
+
+/// "…unless you sacrifice four creatures", declined with four creatures on
+/// the battlefield: Hecatomb is sacrificed and the creatures stay.
+#[test]
+fn hecatomb_is_sacrificed_when_its_controller_keeps_the_creatures() {
+    let mut engine = lk::game(
+        SEED,
+        &[
+            index::GRIZZLY_BEARS,
+            index::LLANOWAR_ELVES,
+            index::WALL_OF_WOOD,
+            index::HILL_GIANT,
+        ],
+        &[],
+        &[hecatomb()],
+        &[],
+    );
+    let creatures = [
+        lk::obj(&engine, P0, index::GRIZZLY_BEARS),
+        lk::obj(&engine, P0, index::LLANOWAR_ELVES),
+        lk::obj(&engine, P0, index::WALL_OF_WOOD),
+        lk::obj(&engine, P0, index::HILL_GIANT),
+    ];
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Black, 2)],
+    );
+    cast_with_floating(&mut engine, P0, hecatomb());
+    let mut declined = false;
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                if declined && stack_is_empty(&engine) {
+                    break;
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::YesNo { player, .. } => {
+                declined = true;
+                engine.apply(player, PlayerAction::YesNo(false)).unwrap();
+            }
+            other => panic!("unexpected pending {other:?}"),
+        }
+    }
+    assert!(declined, "the sacrifice of four creatures was offered");
+    assert!(on_battlefield(&engine, P0, hecatomb()).is_none());
+    assert!(in_graveyard(&engine, P0, hecatomb()).is_some());
+    for creature in creatures {
+        assert_eq!(lk::zone_of(&engine, creature), Zone::Battlefield);
+    }
 }

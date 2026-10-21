@@ -9,6 +9,7 @@ use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 fn hallowed_ground() -> CardIndex {
     card_index("ee8fd844-4551-4e44-9740-00d2e76eb337")
@@ -23,12 +24,13 @@ fn hallowed_ground_returns_nonsnow_land_to_hand_and_rejects_snow_land() {
             index::FOREST,
             index::SNOW_COVERED_MOUNTAIN,
         ],
-        &[],
+        &[index::FOREST],
         &[],
         &[],
     );
     let nonsnow = lk::obj(&engine, P0, index::FOREST);
     let snow = lk::obj(&engine, P0, index::SNOW_COVERED_MOUNTAIN);
+    let theirs = lk::obj(&engine, P1, index::FOREST);
     lk::float(&mut engine, P0, &[(ManaColor::White, 2)]);
 
     activate(&mut engine, P0, hallowed_ground(), 0);
@@ -36,7 +38,11 @@ fn hallowed_ground_returns_nonsnow_land_to_hand_and_rejects_snow_land() {
         panic!("expected ChooseTargets");
     };
     assert!(options.contains(&nonsnow));
-    assert!(!options.contains(&snow));
+    assert!(!options.contains(&snow), "a snow land is no target");
+    assert!(
+        !options.contains(&theirs),
+        "a nonsnow land an opponent controls is no target: \"land you control\""
+    );
     lk::aim(&mut engine, &[nonsnow], &[]);
     lk::settle(&mut engine);
     assert_eq!(lk::zone_of(&engine, nonsnow), Zone::Hand);
