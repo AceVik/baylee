@@ -5,7 +5,7 @@
 // card's picture, on hover, comes from Scryfall into the admin's browser
 // (docs/legal.md §3), never through the service.
 
-import { useCallback, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
 import {
   api,
@@ -21,6 +21,7 @@ import { formatCount, t, type Key, type Lang } from "../i18n";
 import { CardChip } from "../reports/pieces";
 import { setUrl } from "../reports/scryfall";
 import { adminPath } from "../router";
+import { releasesUrl } from "./releases";
 import {
   Badge,
   describe,
@@ -52,6 +53,11 @@ const SETS_MS = 120_000;
 
 function share(part: number, total: number): number {
   return total === 0 ? 0 : part / total;
+}
+
+/** What a player can play: implemented and generated (owner, 21.10.2026). */
+export function playable(c: { implemented: number; generated: number }): number {
+  return c.implemented + c.generated;
 }
 
 /** A stacked bar of the four buckets, the same words as its legend. */
@@ -86,7 +92,7 @@ export function ProgressBar({
   );
 }
 
-/** The headline: implemented of total, as a number and a bar. */
+/** The headline: playable (implemented + generated) of total, then the parts. */
 export function PoolSummary({
   lang,
   overview,
@@ -103,17 +109,23 @@ export function PoolSummary({
     total: overview.corpus,
     ...overview.pool,
   };
-  const done = share(overview.pool.implemented, overview.corpus);
+  const done = share(playable(overview.pool), overview.corpus);
   return (
     <div className="pool-summary">
-      <p className="big" data-testid="pool-implemented">
-        <span className="big-number">{n(overview.pool.implemented)}</span>{" "}
+      <p className="big" data-testid="pool-playable">
+        <span className="big-number">{n(playable(overview.pool))}</span>{" "}
         <span className="big-label">
           {t(lang, "sets.ofCorpus", {
             total: n(overview.corpus),
             pct: (done * 100).toFixed(1),
           })}
         </span>
+      </p>
+      <p className="muted small" data-testid="pool-parts">
+        {t(lang, "sets.playableParts", {
+          implemented: n(overview.pool.implemented),
+          generated: n(overview.pool.generated),
+        })}
       </p>
       <ProgressBar
         lang={lang}
@@ -160,7 +172,7 @@ export function PoolPanel({ lang }: { lang: Lang }) {
   const n = (v: number) => formatCount(lang, v);
   // The first sets that are not complete: where the work is.
   const open = (overview?.sets ?? [])
-    .filter((s) => s.implemented < s.total)
+    .filter((s) => playable(s) < s.total)
     .slice(0, 5);
   return (
     <Panel
@@ -184,7 +196,7 @@ export function PoolPanel({ lang }: { lang: Lang }) {
                   {s.code.toUpperCase()}
                 </Link>
                 <span className="muted small">
-                  {n(s.implemented)} / {n(s.total)}
+                  {n(playable(s))} / {n(s.total)}
                 </span>
                 <ProgressBar
                   lang={lang}
@@ -210,13 +222,13 @@ function sorted(sets: SetProgress[], sort: Sort): SetProgress[] {
     case "done":
       return list.sort(
         (a, b) =>
-          share(b.implemented, b.total) - share(a.implemented, a.total) ||
+          share(playable(b), b.total) - share(playable(a), a.total) ||
           a.position - b.position,
       );
     case "open":
       return list.sort(
         (a, b) =>
-          b.total - b.implemented - (a.total - a.implemented) ||
+          b.total - playable(b) - (a.total - playable(a)) ||
           a.position - b.position,
       );
     default:
@@ -224,8 +236,29 @@ function sorted(sets: SetProgress[], sort: Sort): SetProgress[] {
   }
 }
 
+/** The releases page the newest client is on, once the service named its source. */
+function useReleases(): string | null {
+  const [url, setReleases] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api
+      .health()
+      .then((h) => {
+        if (live) setReleases(releasesUrl(h.source));
+      })
+      .catch(() => {
+        // Without the link the page reads as before.
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return url;
+}
+
 export function Sets({ lang }: { lang: Lang }) {
   const [overview, error, shown, load] = useSets(lang);
+  const releases = useReleases();
   const [needle, setNeedle] = useState("");
   const [sort, setSort] = useState<Sort>("release");
   const [onlyOpen, setOnlyOpen] = useState(false);
@@ -235,7 +268,7 @@ export function Sets({ lang }: { lang: Lang }) {
     (overview?.sets ?? []).filter(
       (s) =>
         (q === "" || s.code.includes(q)) &&
-        (!onlyOpen || s.implemented < s.total),
+        (!onlyOpen || playable(s) < s.total),
     ),
     sort,
   );
@@ -246,6 +279,11 @@ export function Sets({ lang }: { lang: Lang }) {
           <h1>{t(lang, "sets.title")}</h1>
           <Freshness lang={lang} at={overview?.at ?? null} shown={shown} />
         </div>
+        {releases !== null && (
+          <a className="button small-button" href={releases} target="_blank" rel="noreferrer noopener">
+            {t(lang, "sets.latestClient")} ↗
+          </a>
+        )}
         <button type="button" onClick={load}>
           {t(lang, "admin.refresh")}
         </button>
@@ -326,6 +364,9 @@ export function Sets({ lang }: { lang: Lang }) {
                     {t(lang, "sets.cards")}
                   </th>
                   <th scope="col" className="num">
+                    {t(lang, "sets.playable")}
+                  </th>
+                  <th scope="col" className="num">
                     {t(lang, "sets.implemented")}
                   </th>
                   <th scope="col" className="num">
@@ -359,6 +400,9 @@ export function Sets({ lang }: { lang: Lang }) {
                     <td className="num" data-label={t(lang, "sets.cards")}>
                       {n(s.total)}
                     </td>
+                    <td className="num" data-label={t(lang, "sets.playable")}>
+                      <b>{n(playable(s))}</b>
+                    </td>
                     <td className="num" data-label={t(lang, "sets.implemented")}>
                       {n(s.implemented)}
                     </td>
@@ -381,7 +425,7 @@ export function Sets({ lang }: { lang: Lang }) {
                         label={s.code.toUpperCase()}
                       />
                       <span className="muted small">
-                        {(share(s.implemented, s.total) * 100).toFixed(0)} %
+                        {(share(playable(s), s.total) * 100).toFixed(0)} %
                       </span>
                     </td>
                   </tr>
@@ -455,13 +499,19 @@ export function SetPage({ lang, code }: { lang: Lang; code: string }) {
           className="wide-panel"
         >
           <p className="big">
-            <span className="big-number">{n(set.implemented)}</span>{" "}
+            <span className="big-number">{n(playable(set))}</span>{" "}
             <span className="big-label">
               {t(lang, "sets.ofCorpus", {
                 total: n(set.total),
-                pct: (share(set.implemented, set.total) * 100).toFixed(1),
+                pct: (share(playable(set), set.total) * 100).toFixed(1),
               })}
             </span>
+          </p>
+          <p className="muted small">
+            {t(lang, "sets.playableParts", {
+              implemented: n(set.implemented),
+              generated: n(set.generated),
+            })}
           </p>
           <ProgressBar lang={lang} counts={set} label={code.toUpperCase()} />
           <fieldset className="segmented chips">
