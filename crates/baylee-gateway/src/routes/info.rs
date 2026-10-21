@@ -527,6 +527,7 @@ pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig>
         registration_enabled: state.registration.takes_sign_ups(),
         registration: state.registration,
         guests_enabled: state.guests_enabled,
+        central: state.central.is_some(),
         art_cache: state.art.enabled(),
         deck_images: state.deck_images.enabled(),
         clocks: clock::PRESETS
@@ -557,6 +558,14 @@ pub(crate) struct AuthConfig {
     registration: Registration,
     /// @description Whether "play as a guest" is offered.
     guests_enabled: bool,
+    /// @description Whether this gateway takes Baylee Central sign-ins
+    /// (`POST /auth/central/login`). A native client signs in through
+    /// Central only where this is true, and with the gateway's own routes
+    /// everywhere else.
+    /// @internal
+    /// True when `BAYLEE_CENTRAL_CONFIG_FILE` configured the bridge or a
+    /// registration (`central.rs`).
+    central: bool,
     /// @description Whether `GET /art/…` serves card images.
     /// @internal
     /// A client that pointed at a gateway with the mirror switched off would

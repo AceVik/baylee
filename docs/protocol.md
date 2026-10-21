@@ -2458,6 +2458,13 @@ so a guest is `Guest#1a2b` to the other players.
   guests`), read the way `BAYLEE_REGISTRATION` is; `GET /auth/config` says
   `guests_enabled`, so a client offers what the gateway takes. The two
   switches are independent.
+- **`central`** in `GET /auth/config` says whether the gateway takes Baylee
+  Central sign-ins (`POST /auth/central/login`, set up by
+  `BAYLEE_CENTRAL_CONFIG_FILE`, `docs/central-login.md`). A native client
+  turns its account form into Central's only where it is `true`; everywhere
+  else it signs in, signs up and seats guests with the gateway's own routes,
+  as the browser client does. A gateway older than the field sends none,
+  which reads as `false`.
 - The database holds a guest to all of this (migration
   `m20260925_000007_guests`): a guest has no username, address or password,
   and an account that is not a guest has a password and a username or,

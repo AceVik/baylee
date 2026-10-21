@@ -81,6 +81,31 @@ const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_
             GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
                 central_identity.terms_acceptances TO central_runtime";
 
+/// `/auth/config` says whether the gateway takes Central sign-ins: a native
+/// client signs in through Central only where it does, and with the
+/// gateway's own routes everywhere else. No Central answers here; the
+/// gateway is bound by its configuration alone.
+#[test]
+fn auth_config_says_whether_the_gateway_takes_central_sign_ins() {
+    let plain = common::spawn_gateway("central_unbound");
+    let (status, config) = common::http(plain.port, "GET", "/auth/config", None, "");
+    assert_eq!(status, 200, "{config}");
+    assert!(config.contains("\"central\":false"), "{config}");
+
+    let endpoint = Endpoint::development("http://127.0.0.1:9").unwrap();
+    let file = bridge_file(&endpoint, &Token::generate().unwrap());
+    let bound = common::spawn_gateway_with(
+        "central_bound",
+        &[(
+            "BAYLEE_CENTRAL_CONFIG_FILE",
+            file.0.to_string_lossy().into_owned(),
+        )],
+    );
+    let (status, config) = common::http(bound.port, "GET", "/auth/config", None, "");
+    assert_eq!(status, 200, "{config}");
+    assert!(config.contains("\"central\":true"), "{config}");
+}
+
 #[test]
 #[ignore = "requires owned PostgreSQL fixture from cargo dev central integration"]
 fn central_login_migrates_then_restores_and_admits_without_the_legacy_password() {

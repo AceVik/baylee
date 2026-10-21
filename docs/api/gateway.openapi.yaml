@@ -5524,6 +5524,12 @@ components:
         guests_enabled:
           type: boolean
           description: Whether "play as a guest" is offered.
+        central:
+          type: boolean
+          description: >-
+            Whether this gateway takes Baylee Central sign-ins (`POST
+            /auth/central/login`). A native client signs in through Central only where this is true, and with the
+            gateway's own routes everywhere else.
         art_cache:
           type: boolean
           description: Whether `GET /art/…` serves card images.
@@ -5539,6 +5545,7 @@ components:
       - registration_enabled
       - registration
       - guests_enabled
+      - central
       - art_cache
       - deck_images
       - clocks
