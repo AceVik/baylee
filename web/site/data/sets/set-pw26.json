@@ -1,1 +1,1 @@
-{"cards":[{"name":"Courier of Comestibles","oracle_id":"049d8b06-db90-4b9c-8195-d987b3ef1005","status":"absent"},{"img":"c4aeb45b-13ed-43ad-a366-7be10dec6222","name":"Spicy Oatmeal Pizza","oracle_id":"9665f940-c0a4-4d3e-b889-8049cf549a4f","status":"generated"}],"code":"pw26"}
+{"cards":[{"name":"Courier of Comestibles","oracle_id":"049d8b06-db90-4b9c-8195-d987b3ef1005","status":"absent"},{"img":"c4aeb45b-13ed-43ad-a366-7be10dec6222","name":"Spicy Oatmeal Pizza","oracle_id":"9665f940-c0a4-4d3e-b889-8049cf549a4f","status":"implemented"}],"code":"pw26"}
