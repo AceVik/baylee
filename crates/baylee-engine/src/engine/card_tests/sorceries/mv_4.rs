@@ -7,6 +7,7 @@ mod aftershock;
 mod ambition_s_cost;
 mod ancient_craving;
 mod armageddon;
+mod baki_s_curse;
 mod bee_sting;
 mod break_asunder;
 mod channel_the_suns;

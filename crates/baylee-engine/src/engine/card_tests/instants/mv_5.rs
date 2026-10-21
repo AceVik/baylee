@@ -7,6 +7,7 @@ mod annihilate;
 mod blessed_light;
 mod breath_of_malfegor;
 mod bright_reprisal;
+mod broken_visage;
 mod command_the_storm;
 mod confirm_suspicions;
 mod consume_the_meek;

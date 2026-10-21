@@ -5290,3 +5290,27 @@ more than two it names nobody). What the author did more than once:
   - `Effect::CantBeRegeneratedThisTurn { target: TargetSpec::EventObject }` (`Lim-Dûl's Cohort`)
     must be listed in `this_object_tests.rs`'s `READ` slice so the pool-wide `EventObject`
     census recognizes that `resolve/immediate.rs` reads `EventObject` through `spec_objects`.
+
+## 2026-10-21 — Homelands (`hml`) batch 1 (25 cards: `Aether Storm` to `Folk of An-Havva`)
+
+- Added 25 *Homelands* first-printing cards (`Aether Storm` through `Folk of An-Havva`,
+  17 `Coverage::Implemented`, 8 `Coverage::Partial`), and held back `Drudge Spell` in
+  `docs/generated-held-back.md` due to `b_1_1_skeleton_regenerate` vs `b_1_1_skeleton`
+  colliding on `SKELETON_1_1_BLACK`.
+- Key card-authoring and testing lessons:
+  - `this_object_tests::every_event_object_in_the_pool_is_one_the_engine_reads` and
+    `every_this_object_in_the_pool_is_one_the_resolver_reads` inspect `format!("{def:?}")`,
+    which includes the `Coverage::Partial(...)` string literal on the `CardDef`. Never write
+    the literal substring `EventObject` or `ThisObject` inside a `Coverage::Partial(...)`
+    reason string (`Dwarven Sea Clan`), or the `Debug`-text sweep will count it as an unread
+    `TargetSpec` occurrence.
+  - `Effect::PutFromHandOnTop` is specifically the self-tuck cantrip half of `Brainstorm`, so
+    the AI counter-gate (`tactics::only_replaces_itself`) classifies a spell whose only effect
+    is `PutFromHandOnTop` as a cantrip that replaces itself. Targeted hand-disruption spells
+    like `Stunted Growth` should use `Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 3 }`
+    in their `Coverage::Partial` approximation so they act on the targeted player rather than
+    the caster.
+  - `CostItem::TapMatching(Filter::And(&[Filter::ControlledByYou, Filter::CREATURE, Filter::HasColor(Color::Blue)]))`
+    combined with `CostItem::RemoveCounter { kind: CounterKind::Polyp, count: 1 }` (`Coral Reef`)
+    prompts `Pending::ChooseCostObjects` for the untapped blue creature when activating the
+    ability.

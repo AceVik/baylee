@@ -97,6 +97,8 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, attacker: ObjectId, defender
 }
 
 mod aether_sting;
+mod aether_storm;
+mod an_zerrin_ruins;
 mod aquatic_incursion;
 mod arboria;
 mod blood_mist;

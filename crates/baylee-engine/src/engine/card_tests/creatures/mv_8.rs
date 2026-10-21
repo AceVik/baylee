@@ -9,6 +9,7 @@ mod ashen_firebeast;
 mod avacyn_angel_of_hope;
 mod axelrod_gunnarson;
 mod baleful_force;
+mod baron_sengir;
 mod benthic_behemoth;
 mod bloodfire_colossus;
 mod brimstone_dragon;

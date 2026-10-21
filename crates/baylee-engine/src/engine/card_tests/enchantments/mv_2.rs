@@ -18,6 +18,7 @@ mod circle_of_protection_red;
 mod circle_of_protection_white;
 mod compulsion;
 mod copy_artifact;
+mod coral_reef;
 mod crusade;
 mod dance_of_many;
 mod dark_heart_of_the_wood;

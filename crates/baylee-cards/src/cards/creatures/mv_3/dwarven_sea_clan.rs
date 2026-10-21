@@ -1,7 +1,7 @@
 //! Dwarven Sea Clan — {2}{R} — Creature — Dwarf
 //! Oracle: {T}: Choose target attacking or blocking creature whose controller controls an Island. This creature deals 2 damage to that creature at end of combat. Activate only before the end of combat step.
 //! Set: HML #71 — Homelands | Scryfall ID: 4cb722d9-1998-4912-a6f2-4ffa8d21311a | Oracle ID: 55ae9711-65ac-4166-8a51-1deeb10a8904
-// IMPLEMENTED — {T} before the end of combat step to deal 2 damage at end of combat to target attacking or blocking creature whose controller controls an Island.
+// PARTIAL — delayed end-of-combat damage to the chosen creature is not yet wired in resolve::life; deals 2 damage on resolution to target attacking or blocking creature whose controller controls an Island.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -18,7 +18,9 @@ card!(
     oracle_id = "55ae9711-65ac-4166-8a51-1deeb10a8904",
     scryfall_id = "4cb722d9-1998-4912-a6f2-4ffa8d21311a",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Implemented,
+    coverage = Coverage::Partial(
+        "delayed end-of-combat damage to the chosen creature is not yet wired in resolve::life; deals 2 damage on resolution to target attacking or blocking creature whose controller controls an Island"
+    ),
     faces = &[face!(
         name = "Dwarven Sea Clan",
         mana_cost = mana!("{2}{R}"),
@@ -29,12 +31,9 @@ card!(
     ),],
     abilities = &[activated!(
         cost!(TapSelf),
-        &[Effect::AtEndOfCombat {
-            about: TargetSpec::Object(&TARGET_CREATURE),
-            effects: &[Effect::DealDamage {
-                amount: Amount::Fixed(2),
-                target: TargetSpec::EventObject,
-            }],
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(2),
+            target: TargetSpec::Object(&TARGET_CREATURE),
         }],
         targets = Some(TargetReq::one(TargetSpec::Object(&TARGET_CREATURE))),
         condition = Some(Condition::All(&[

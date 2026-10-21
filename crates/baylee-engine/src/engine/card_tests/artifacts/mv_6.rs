@@ -4,6 +4,7 @@
 use super::*;
 
 mod book_of_rass;
+mod feroz_s_ban;
 mod hair_strung_koto;
 mod jandor_s_ring;
 mod planar_portal;

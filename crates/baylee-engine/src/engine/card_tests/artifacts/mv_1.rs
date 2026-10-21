@@ -14,6 +14,7 @@ mod crystal_rod;
 mod darkwater_egg;
 mod delif_s_cube;
 mod despotic_scepter;
+mod didgeridoo;
 mod feldon_s_cane;
 mod glasses_of_urza;
 mod helm_of_chatzuk;

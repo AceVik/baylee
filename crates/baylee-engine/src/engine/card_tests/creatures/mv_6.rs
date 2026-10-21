@@ -6,6 +6,7 @@ use super::*;
 mod aang_and_katara;
 mod aesi_tyrant_of_gyre_strait;
 mod akoum_warrior;
+mod autumn_willow;
 mod carnage_tyrant;
 mod craw_wurm;
 mod deathcurse_ogre;

@@ -4,6 +4,7 @@
 use super::*;
 
 mod altar_s_light;
+mod ambush;
 mod clever_concealment;
 mod cryptic_command;
 mod dismiss;

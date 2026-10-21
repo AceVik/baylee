@@ -18,6 +18,7 @@ mod brute_force;
 mod burnt_offering;
 mod burst_of_energy;
 mod camouflage;
+mod chain_stasis;
 mod chaoslace;
 mod clairvoyance;
 mod crop_rotation;

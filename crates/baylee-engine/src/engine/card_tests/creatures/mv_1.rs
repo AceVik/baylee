@@ -40,6 +40,7 @@ mod elvish_scout;
 mod elvish_scrapper;
 mod flamekin_harbinger;
 mod flying_men;
+mod folk_of_an_havva;
 mod frostling;
 mod fyndhorn_elves;
 mod ghazban_ogre;

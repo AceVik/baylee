@@ -937,16 +937,21 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Legions of Lim-Dûl, Magus of the Unseen, Mercenaries, Merieke Ri Berit,
     // Mesmeric Trance, Minion of Leshrac, Mistfolk, and Mole Worms, of which
     // 4 are read by the evaluator.
-    // Ice Age (`ice`) Batch 7 adds 6 non-mana activated abilities across
-    // Musician, Norritt, Oath of Lim-Dûl, Orcish Farmer, and Phantasmal Mount,
-    // of which 2 are read by the evaluator.
+    // Ice Age (`ice`) Batch 7 adds 7 non-mana activated abilities across
+    // Musician, Norritt (2), Oath of Lim-Dûl, Orcish Farmer, and Phantasmal
+    // Mount, of which 3 are read by the evaluator.
     // Ice Age (`ice`) Batch 8 adds 7 non-mana activated abilities across
     // Runed Arch, Skeleton Ship, Snow Fortress (3), Snow Hound, and Soldevi
     // Simulacrum, all 7 of which are read by the evaluator.
     // Ice Age (`ice`) Batch 9 adds 7 non-mana activated abilities across
     // Stormbind, Tinder Wall, Urza's Bauble, Vexing Arcanix, Walking Wall,
     // Whiteout, and Withering Wisps, of which 3 are read by the evaluator.
-    assert_eq!((read, of), (2614, 3210), "activated/loyalty reader census");
+    // Homelands (`hml`) Batch 1 adds 15 non-mana activated abilities across
+    // Aether Storm, Apocalypse Chime, Autumn Willow, Baron Sengir, Chandler,
+    // Clockwork Gnomes, Clockwork Steed, Clockwork Swarm, Coral Reef (2), Dark
+    // Maze, Daughter of Autumn, Didgeridoo, Dwarven Sea Clan, and Faerie Noble,
+    // of which 12 are read by the evaluator.
+    assert_eq!((read, of), (2627, 3226), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
