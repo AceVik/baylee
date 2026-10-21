@@ -160,7 +160,7 @@ Two independent things, both stored per account:
   binding on a client that has been closed and reopened.
 
 Three things about holds are load-bearing. Every one of them **cancels
-itself** (`PriorityHold` in `crates/baylee-engine/src/choice.rs`): `F6` ends
+itself** (`PriorityHold` in `crates/baylee-engine/src/choice/automation.rs`): `F6` ends
 when the stack empties *or* when anything is added to it, because the moment
 somebody responds to what was being let through is exactly the moment a player
 wants the question back. There is deliberately no "never ask me again" — a
