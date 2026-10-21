@@ -1,4 +1,7 @@
-//! Native login precedes gateway selection. Account secrets live on one bounded worker.
+//! Baylee Central sign-in, for a gateway that takes it (`central` in its
+//! `GET /auth/config`): choosing one turns the account form into Central's,
+//! and the sign-in admits the player to that gateway. Every other gateway
+//! signs people in itself. Account secrets live on one bounded worker.
 #![forbid(unsafe_code)]
 
 use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
@@ -158,6 +161,9 @@ pub(super) struct State {
     saving: Option<PendingSave>,
     sync_failed: bool,
     chat_unlock: Arc<Mutex<Option<crate::social::vault_access::Login>>>,
+    /// The gateway that asked for Central sign-in, admitted to once it is
+    /// done; `None` when Central was turned on without one.
+    bound: Option<String>,
 }
 
 pub(super) struct Restored {
@@ -177,6 +183,7 @@ pub(super) fn enable(state: &mut LobbyState) {
         saving: None,
         sync_failed: false,
         chat_unlock: Arc::new(Mutex::new(None)),
+        bound: None,
     });
     state.gateway_selected = false;
     state.gateway_cursor = None;
@@ -184,6 +191,52 @@ pub(super) fn enable(state: &mut LobbyState) {
     state.lobby.set_gateway_ready(true);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);
+}
+
+impl State {
+    /// The gateway that asked for this sign-in, if one did.
+    pub(super) fn bound_gateway(&self) -> Option<&str> {
+        self.bound.as_deref()
+    }
+}
+
+/// The chosen gateway takes Central sign-ins: the account form becomes
+/// Central's, and the sign-in admits the player to that gateway. Nothing
+/// when Central is on already, or a session on the gateway is.
+pub(super) fn bound(state: &mut LobbyState) {
+    if state.central.is_some() || !state.gateway_selected || state.lobby.token().is_some() {
+        return;
+    }
+    let gateway = state.gateway.clone();
+    enable(state);
+    if let Some(central) = &mut state.central {
+        central.bound = Some(gateway);
+    }
+}
+
+/// Back from Central's sign-in that a gateway asked for: Central is off
+/// again and the device's own gateways are back. Central turned on without
+/// a gateway has no way back.
+pub(super) fn leave(state: &mut LobbyState) {
+    if state
+        .central
+        .as_ref()
+        .is_some_and(|central| central.bound.is_some())
+    {
+        close(state);
+    }
+}
+
+/// Central off, the device's own gateways back, the gateway form shown.
+fn close(state: &mut LobbyState) {
+    let Some(central) = state.central.take() else {
+        return;
+    };
+    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    state.gateways = central.local_gateways;
+    state.gateway_selected = false;
+    state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
+    state.lobby.set_gateway_ready(false);
 }
 
 #[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
@@ -277,6 +330,23 @@ pub(super) fn receive(
             state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
             for url in state.unasked_gateways() {
                 http::probe_gateway(url, mailbox);
+            }
+            // The gateway that asked for this sign-in is where the player
+            // was going: it joins the account's list and is entered.
+            let bound = state
+                .central
+                .as_ref()
+                .and_then(|central| central.bound.clone());
+            if let Some(gateway) = bound {
+                if !state.gateways.contains(&gateway) {
+                    state.gateways.push(gateway.clone());
+                }
+                if let Some(index) = state.gateways.iter().position(|g| g == &gateway)
+                    && state.select_gateway(index)
+                {
+                    http::probe_registration(state, mailbox);
+                    admit(state, mailbox);
+                }
             }
         }
         Err(_) => {
@@ -444,9 +514,8 @@ pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
     state.lobby = Lobby::new();
     state.lobby.set_lang(lang);
     state.offline = None;
-    state.gateway_selected = false;
     prefs.detach_central();
-    enable(state);
+    close(state);
 }
 
 #[cfg(test)]
@@ -502,6 +571,7 @@ mod tests {
     #[test]
     fn restored_gateways_replace_local_defaults_and_signout_closes_account_access() {
         let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        let device = state.gateways.clone();
         enable(&mut state);
         let source = "http://127.0.0.1:28766".to_string();
         // No real HTTP work: this synthetic public probe has already completed.
@@ -528,11 +598,62 @@ mod tests {
         assert_eq!(state.gateways, vec![source]);
         let previous = state.gateway_epoch;
         logout(&mut state, &mut prefs);
-        assert!(state.central_pending());
+        assert!(
+            state.central.is_none(),
+            "Central is off once its session ends"
+        );
+        assert!(!state.lobby.gateway_chosen());
         assert!(
             state.gateway_epoch > previous,
             "late gateway replies must be invalidated"
         );
-        assert_eq!(state.gateways, Vec::<String>::new());
+        assert_eq!(
+            state.gateways, device,
+            "the device's own gateways, not the account's"
+        );
+    }
+
+    #[test]
+    fn a_central_sign_in_a_gateway_asked_for_enters_that_gateway() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        // An address no request can be built from, as the lobby's headless
+        // tests use: entering the gateway asks its `/auth/config`.
+        state.gateway.clear();
+        state.gateway_selected = true;
+        bound(&mut state);
+        assert!(state.central_bound());
+        let (send, jobs) = mpsc::sync_channel::<Job>(4);
+        let mut prefs = crate::prefs::Prefs::default();
+        let other = "http://127.0.0.1:28766".to_string();
+        state.probes.insert(other.clone(), Probe::Older);
+        let restored = Restored {
+            handle: Handle {
+                send,
+                active: Arc::new(AtomicBool::new(true)),
+            },
+            gateways: vec![other.clone()],
+            preferences: Preferences::default(),
+            chat_unlock: None,
+        };
+        receive(
+            &mut state,
+            &mut prefs,
+            &Mailbox::default(),
+            Ok(Box::new(restored)),
+        );
+        assert!(state.central_ready());
+        assert!(state.lobby.gateway_chosen(), "the gateway is entered");
+        assert_eq!(state.gateway, "");
+        assert_eq!(state.gateways, vec![other, String::new()]);
+        assert!(jobs.try_recv().is_ok(), "and admitted to");
+    }
+
+    #[test]
+    fn central_turned_on_without_a_gateway_has_no_way_back() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        enable(&mut state);
+        assert!(!state.central_bound());
+        leave(&mut state);
+        assert!(state.central_pending());
     }
 }

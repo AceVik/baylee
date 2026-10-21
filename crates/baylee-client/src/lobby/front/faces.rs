@@ -306,13 +306,44 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
 /// at row size, the version whole and right-aligned).
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     if state.central_pending() {
-        return controls::label(
+        let label = controls::label(
             commands,
             kit,
             "Baylee Central · central.baylee.app",
             kit.m.text,
             tokens::INK,
         );
+        if !state.central_bound() {
+            return label;
+        }
+        // A gateway asked for Central: `‹` goes back to the device's own.
+        let back = glyph_button(
+            commands,
+            kit,
+            '\u{f053}',
+            Phrase::ChooseGateway.text(state.lobby.lang()),
+            (
+                Press::Front(if state.lobby.busy() {
+                    FrontPress::Nothing
+                } else {
+                    FrontPress::LeaveGateway
+                }),
+                keys::stop(state, "back"),
+            ),
+        );
+        let head = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    column_gap: kit.m.px(10.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(head).add_children(&[back, label]);
+        return head;
     }
     let lang = state.lobby.lang();
     let words =

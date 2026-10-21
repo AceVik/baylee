@@ -50,13 +50,39 @@ impl LobbyState {
         true
     }
 
+    /// What the chosen gateway's `GET /auth/config` said about who it lets
+    /// in. One that takes Baylee Central sign-ins turns a native client's
+    /// account form into Central's (`central::bound`); every other gateway
+    /// keeps its own, with the sign-up and guest doors it offers.
+    pub(super) fn auth_config(
+        &mut self,
+        registration: Registration,
+        art_cache: bool,
+        guests: bool,
+        central: bool,
+    ) {
+        self.lobby.set_registration(registration);
+        self.lobby.set_guests_enabled(guests);
+        self.art_cache = art_cache;
+        #[cfg(not(target_arch = "wasm32"))]
+        if central {
+            super::central::bound(self);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = central;
+    }
+
     /// Back from the account form to the gateway form.
     ///
     /// The epoch moves as it does on a new choice, so nothing the gateway
     /// left behind still answers into the form. Choosing the same gateway
     /// again is one tap, and the address typed into the form survives it.
+    /// From Central's sign-in, which a gateway asked for, it is the way back
+    /// to the device's own gateways (`central::leave`).
     pub(super) fn leave_gateway(&mut self) {
         if self.central_pending() {
+            #[cfg(not(target_arch = "wasm32"))]
+            super::central::leave(self);
             return;
         }
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);

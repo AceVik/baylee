@@ -12,6 +12,8 @@
 
 mod builder;
 mod builder_wp4;
+#[cfg(not(target_arch = "wasm32"))]
+mod central_door;
 mod decks_visit;
 mod end_screen;
 mod entrance;

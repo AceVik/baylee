@@ -687,15 +687,12 @@ impl LobbyState {
 
     /// A signed-out lobby pointed at the configured gateway.
     #[must_use]
+    ///
+    /// Central sign-in starts only once a chosen gateway says it takes it
+    /// (`central::bound`); every other gateway signs people in itself, with
+    /// registration and guests where it offers them.
     pub fn new() -> Self {
-        let state = Self::from_settings(crate::settings::ClientSettings::load());
-        #[cfg(not(target_arch = "wasm32"))]
-        let state = {
-            let mut state = state;
-            central::enable(&mut state);
-            state
-        };
-        state
+        Self::from_settings(crate::settings::ClientSettings::load())
     }
 
     /// The same, from settings a caller already has.
@@ -832,6 +829,21 @@ impl LobbyState {
         }
     }
 
+    /// Central's sign-in is shown because the chosen gateway asked for it,
+    /// so there is a way back to the device's own gateways.
+    pub(crate) fn central_bound(&self) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.central
+                .as_ref()
+                .is_some_and(|state| state.handle.is_none() && state.bound_gateway().is_some())
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            false
+        }
+    }
+
     pub(crate) fn central_ready(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -892,6 +904,9 @@ enum Reply {
         art_cache: bool,
         /// Whether it takes guests (#269).
         guests: bool,
+        /// Whether it takes Baylee Central sign-ins; a native client then
+        /// signs in there through Central (`central::bound`).
+        central: bool,
     },
     /// The gateway no longer honours the account token we hold.
     Expired,

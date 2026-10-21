@@ -1,7 +1,14 @@
 # Central native login integration
 
-The native client authenticates against `https://central.baylee.app` before it
-loads saved gateways. `baylee-account` wraps the pinned Central SDK using a
+The native client signs in at `https://central.baylee.app` for a gateway that
+takes Central sign-ins: `central: true` in its `GET /auth/config`, which a
+gateway with `BAYLEE_CENTRAL_CONFIG_FILE` answers. Choosing one turns the
+account form into Central's; the sign-in restores the account's gateways and
+admits the player to the one chosen. Every other gateway signs people in
+itself, with sign-up and guests where it offers them. `‹` on Central's form
+goes back to the device's own gateways, and so does the end of a Central
+session (owner, 21.10.2026: Central serves no registration yet, and the
+official gateway has no bridge). `baylee-account` wraps the pinned Central SDK using a
 transport that always verifies TLS, rejects redirects, bounds responses and
 discards remote diagnostics. Passwords and central sessions are never forwarded
 to arbitrary saved gateways. OPAQUE and authenticated client encryption are in
@@ -142,7 +149,8 @@ remains `0.0.0.0`. All test services must bind only loopback.
 Deploy in order: Central with persistent OPAQUE setup and PostgreSQL 18+; the
 official gateway bridge and schema; synthetic end-to-end validation; the native
 client. Do not release a mandatory Central login while its live endpoint is
-unavailable. Production TLS/provisioning, account recovery/reset and the large
+unavailable; a gateway turns Central sign-in on for itself by its
+configuration, so the official one turns it on only once the rest is ready. Production TLS/provisioning, account recovery/reset and the large
 object migration gates remain required; the development listener is not a
 production launch procedure.
 
