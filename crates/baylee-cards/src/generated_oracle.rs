@@ -4169,17 +4169,28 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying, protection from red"],
     // Abbey Matron
     &["{W}, {T}: This creature gets +0/+3 until end of turn."],
-    &[],
+    // Aether Storm
+    &[
+        "Creature spells can't be cast.\nPay 4 life: Destroy this enchantment. It can't be regenerated. Any player may activate this ability.",
+    ],
     // Aliban's Tower
     &["Target blocking creature gets +3/+1 until end of turn."],
-    &[],
+    // Ambush
+    &["Blocking creatures gain first strike until end of turn."],
     // Ambush Party
     &["First strike, haste"],
-    &[],
-    &[],
+    // An-Havva Constable
+    &[
+        "An-Havva Constable's toughness is equal to 1 plus the number of green creatures on the battlefield.",
+    ],
+    // An-Havva Inn
+    &["You gain X plus 1 life, where X is the number of green creatures on the battlefield."],
     // An-Havva Township
     &["{T}: Add {C}.\n{1}, {T}: Add {G}.\n{2}, {T}: Add {R} or {W}."],
-    &[],
+    // An-Zerrin Ruins
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures of the chosen type don't untap during their controllers' untap steps.",
+    ],
     // Anaba Ancestor
     &["{T}: Another target Minotaur creature gets +1/+1 until end of turn."],
     // Anaba Bodyguard
@@ -4188,25 +4199,44 @@ pub static ORACLE: &[&[&str]] = &[
     &["{R}, {T}: This creature deals 1 damage to any target."],
     // Anaba Spirit Crafter
     &["Minotaur creatures get +1/+0."],
-    &[],
-    &[],
+    // Apocalypse Chime
+    &[
+        "{2}, {T}, Sacrifice this artifact: Destroy all nontoken permanents with a name originally printed in the Homelands expansion. They can't be regenerated.",
+    ],
+    // Autumn Willow
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\n{G}: Until end of turn, Autumn Willow can be the target of spells and abilities controlled by target player as though it didn't have shroud.",
+    ],
     // Aysen Abbey
     &["{T}: Add {C}.\n{1}, {T}: Add {W}.\n{2}, {T}: Add {G} or {U}."],
     // Aysen Bureaucrats
     &["{T}: Tap target creature with power 2 or less."],
-    &[],
+    // Aysen Crusader
+    &[
+        "Aysen Crusader's power and toughness are each equal to 2 plus the number of Soldiers and Warriors you control.",
+    ],
     // Aysen Highway
     &[
         "White creatures have plainswalk. (They can't be blocked as long as defending player controls a Plains.)",
     ],
-    &[],
-    &[],
+    // Baki's Curse
+    &["Baki's Curse deals 2 damage to each creature for each Aura attached to that creature."],
+    // Baron Sengir
+    &[
+        "Flying\nWhenever a creature dealt damage by Baron Sengir this turn dies, put a +2/+2 counter on Baron Sengir.\n{T}: Regenerate another target Vampire.",
+    ],
     // Beast Walkers
     &[
         "{G}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
+    // Black Carriage
+    &[
+        "Trample\nThis creature doesn't untap during your untap step.\nSacrifice a creature: Untap this creature. Activate only during your upkeep.",
+    ],
+    // Broken Visage
+    &[
+        "Destroy target nonartifact attacking creature. It can't be regenerated. Create a black Spirit creature token. Its power is equal to that creature's power and its toughness is equal to that creature's toughness. Sacrifice the token at the beginning of the next end step.",
+    ],
     // Carapace
     &[
         "Enchant creature\nEnchanted creature gets +0/+2.\nSacrifice this Aura: Regenerate enchanted creature.",
@@ -4215,17 +4245,38 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {C}.\n{1}, {T}: Add {B}.\n{2}, {T}: Add {U} or {R}."],
     // Cemetery Gate
     &["Defender (This creature can't attack.)\nProtection from black"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chain Stasis
+    &[
+        "You may tap or untap target creature. Then that creature's controller may pay {2}{U}. If the player does, they may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chandler
+    &["{R}{R}{R}, {T}: Destroy target artifact creature."],
+    // Clockwork Gnomes
+    &["{3}, {T}: Regenerate target artifact creature."],
+    // Clockwork Steed
+    &[
+        "This creature enters with four +1/+0 counters on it.\nThis creature can't be blocked by artifact creatures.\nAt end of combat, if this creature attacked or blocked this combat, remove a +1/+0 counter from it.\n{X}, {T}: Put up to X +1/+0 counters on this creature. This ability can't cause the total number of +1/+0 counters on this creature to be greater than four. Activate only during your upkeep.",
+    ],
+    // Clockwork Swarm
+    &[
+        "This creature enters with four +1/+0 counters on it.\nThis creature can't be blocked by Walls.\nAt end of combat, if this creature attacked or blocked this combat, remove a +1/+0 counter from it.\n{X}, {T}: Put up to X +1/+0 counters on this creature. This ability can't cause the total number of +1/+0 counters on this creature to be greater than four. Activate only during your upkeep.",
+    ],
+    // Coral Reef
+    &[
+        "This enchantment enters with four polyp counters on it.\nSacrifice an Island: Put two polyp counters on this enchantment.\n{U}, Tap an untapped blue creature you control, Remove a polyp counter from this enchantment: Put a +0/+1 counter on target creature.",
+    ],
+    // Dark Maze
+    &[
+        "Defender (This creature can't attack.)\n{0}: This creature can attack this turn as though it didn't have defender. Exile it at the beginning of the next end step.",
+    ],
+    // Daughter of Autumn
+    &[
+        "{W}: The next 1 damage that would be dealt to target white creature this turn is dealt to Daughter of Autumn instead.",
+    ],
     // Death Speakers
     &["Protection from black"],
-    &[],
+    // Didgeridoo
+    &["{3}: You may put a Minotaur permanent card from your hand onto the battlefield."],
     &[],
     // Dry Spell
     &["Dry Spell deals 1 damage to each creature and each player."],
@@ -4233,7 +4284,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{1}{R}, {T}: Target Dwarf creature gains mountainwalk until end of turn. (It can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Dwarven Sea Clan
+    &[
+        "{T}: Choose target attacking or blocking creature whose controller controls an Island. This creature deals 2 damage to that creature at end of combat. Activate only before the end of combat step.",
+    ],
     // Dwarven Trader
     &[""],
     // Ebony Rhino
@@ -4242,11 +4296,16 @@ pub static ORACLE: &[&[&str]] = &[
     &["Haste\n{R}{R}{R}: Regenerate Eron."],
     // Evaporate
     &["Evaporate deals 1 damage to each white and/or blue creature."],
-    &[],
+    // Faerie Noble
+    &[
+        "Flying\nOther Faerie creatures you control get +0/+1.\n{T}: Other Faerie creatures you control get +1/+0 until end of turn.",
+    ],
     // Feast of the Unicorn
     &["Enchant creature\nEnchanted creature gets +4/+0."],
-    &[],
-    &[],
+    // Feroz's Ban
+    &["Creature spells cost {2} more to cast."],
+    // Folk of An-Havva
+    &["Whenever this creature blocks, it gets +2/+0 until end of turn."],
     &[],
     &[],
     // Ghost Hounds
