@@ -106,7 +106,7 @@ refuse with one string (`AnswerFault::reason`).
   (`card_tests/artifacts.rs`), `menace_states_its_blocker_bound_and_apply_refuses_only_what_it_states`
   (`combat_choice_tests.rs`), `no_mulligan_is_taken_past_a_hand_of_zero`
   (`house_rules_tests.rs`), the `answer_fault` unit tests in
-  `choice.rs` (`fit_to_options_tests`, requirements and limits among them),
+  `choice/fit_to_options_tests.rs` (requirements and limits among them),
   and the Juggernaut and Lure card tests, which hold the question's fault
   to the engine's refusal.
 - The sweep (`refusal_tests.rs`): every sampled answer is held to the
