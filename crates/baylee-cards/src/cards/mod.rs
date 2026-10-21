@@ -15597,6 +15597,8 @@ pub mod storm_strike;
 pub mod storm_the_vault;
 #[path = "enchantments/mv_1/storm_world.rs"]
 pub mod storm_world;
+#[path = "enchantments/mv_3/stormbind.rs"]
+pub mod stormbind;
 #[path = "creatures/mv_3/stormcaller_of_keranos.rs"]
 pub mod stormcaller_of_keranos;
 #[path = "lands/slow/stormcarved_coast.rs"]
@@ -15711,6 +15713,8 @@ pub mod stuffed_bear;
 pub mod stump_stomp;
 #[path = "creatures/mv_4/stunt_double.rs"]
 pub mod stunt_double;
+#[path = "sorceries/mv_5/stunted_growth.rs"]
+pub mod stunted_growth;
 #[path = "sorceries/mv_3/stupor.rs"]
 pub mod stupor;
 #[path = "instants/mv_2/stymied_hopes.rs"]
@@ -16481,6 +16485,8 @@ pub mod theorist_s_proxy;
 pub mod thermal_glider;
 #[path = "creatures/artifacts/mv_3/thermal_navigator.rs"]
 pub mod thermal_navigator;
+#[path = "sorceries/mv_3/thermokarst.rs"]
+pub mod thermokarst;
 #[path = "lands/utility/thespian_s_stage.rs"]
 pub mod thespian_s_stage;
 #[path = "sorceries/mv_3/they_went_this_way.rs"]
@@ -16755,6 +16761,8 @@ pub mod timetwister;
 pub mod tin_street_market;
 #[path = "lands/tapland/tinder_farm.rs"]
 pub mod tinder_farm;
+#[path = "creatures/mv_1/tinder_wall.rs"]
+pub mod tinder_wall;
 #[path = "artifacts/mv_3/tinker_s_tote.rs"]
 pub mod tinker_s_tote;
 #[path = "creatures/mv_1/tinybones_the_pickpocket.rs"]
@@ -16853,6 +16861,8 @@ pub mod torpor_dust;
 pub mod torsten_von_ursus;
 #[path = "enchantments/mv_1/tortured_existence.rs"]
 pub mod tortured_existence;
+#[path = "enchantments/mv_4/total_war.rs"]
+pub mod total_war;
 #[path = "creatures/mv_5/totem_speaker.rs"]
 pub mod totem_speaker;
 #[path = "creatures/mv_3/toucan_puffin.rs"]
@@ -16861,8 +16871,12 @@ pub mod toucan_puffin;
 pub mod touch_of_brilliance;
 #[path = "instants/mv_1/touch_of_darkness.rs"]
 pub mod touch_of_darkness;
+#[path = "sorceries/mv_3/touch_of_death.rs"]
+pub mod touch_of_death;
 #[path = "sorceries/mv_4/touch_of_invisibility.rs"]
 pub mod touch_of_invisibility;
+#[path = "instants/mv_3/touch_of_vitae.rs"]
+pub mod touch_of_vitae;
 #[path = "creatures/artifacts/mv_2/tough_cookie.rs"]
 pub mod tough_cookie;
 #[path = "enchantments/mv_3/tourach_s_chant.rs"]
@@ -17411,6 +17425,8 @@ pub mod unyaro_bees;
 pub mod unyaro_griffin;
 #[path = "creatures/mv_4/unyielding_krumar.rs"]
 pub mod unyielding_krumar;
+#[path = "instants/mv_2/updraft.rs"]
+pub mod updraft;
 #[path = "creatures/mv_3/updraft_elemental.rs"]
 pub mod updraft_elemental;
 #[path = "creatures/mv_7/ur_drago.rs"]
@@ -17445,6 +17461,8 @@ pub mod ursapine;
 pub mod urza_lord_high_artificer;
 #[path = "creatures/artifacts/mv_6/urza_s_avenger.rs"]
 pub mod urza_s_avenger;
+#[path = "artifacts/mv_0/urza_s_bauble.rs"]
+pub mod urza_s_bauble;
 #[path = "lands/caves/urza_s_cave.rs"]
 pub mod urza_s_cave;
 #[path = "artifacts/mv_1/urza_s_chalice.rs"]
@@ -17641,6 +17659,8 @@ pub mod venom;
 pub mod venom_sliver;
 #[path = "creatures/artifacts/mv_4/venomcrawler.rs"]
 pub mod venomcrawler;
+#[path = "instants/mv_4/venomous_breath.rs"]
+pub mod venomous_breath;
 #[path = "creatures/mv_3/venomous_changeling.rs"]
 pub mod venomous_changeling;
 #[path = "creatures/mv_4/venomous_dragonfly.rs"]
@@ -17675,6 +17695,8 @@ pub mod vernadi_shieldmate;
 pub mod vernal_bloom;
 #[path = "lands/battle/vernal_fen.rs"]
 pub mod vernal_fen;
+#[path = "instants/mv_1/vertigo.rs"]
+pub mod vertigo;
 #[path = "creatures/mv_3/vesper_ghoul.rs"]
 pub mod vesper_ghoul;
 #[path = "enchantments/mv_2/vessel_of_ephemera.rs"]
@@ -17705,6 +17727,8 @@ pub mod veteran_of_the_depths;
 pub mod veteran_s_sidearm;
 #[path = "creatures/mv_3/veteran_swordsmith.rs"]
 pub mod veteran_swordsmith;
+#[path = "artifacts/mv_4/vexing_arcanix.rs"]
+pub mod vexing_arcanix;
 #[path = "creatures/mv_3/vexing_gull.rs"]
 pub mod vexing_gull;
 #[path = "artifacts/mv_2/vial_of_dragonfire.rs"]
@@ -17737,6 +17761,8 @@ pub mod viashivan_dragon;
 pub mod vibranium_energy_daggers;
 #[path = "lands/fetch/vibrant_cityscape.rs"]
 pub mod vibrant_cityscape;
+#[path = "artifacts/mv_4/vibrating_sphere.rs"]
+pub mod vibrating_sphere;
 #[path = "creatures/mv_3/vicious_clown.rs"]
 pub mod vicious_clown;
 #[path = "creatures/mv_1/vicious_conquistador.rs"]
@@ -17991,6 +18017,8 @@ pub mod walking_ballista;
 pub mod walking_corpse;
 #[path = "creatures/mv_2/walking_dead.rs"]
 pub mod walking_dead;
+#[path = "creatures/artifacts/mv_4/walking_wall.rs"]
+pub mod walking_wall;
 #[path = "creatures/mv_3/wall_of_air.rs"]
 pub mod wall_of_air;
 #[path = "creatures/mv_3/wall_of_blood.rs"]
@@ -18145,6 +18173,8 @@ pub mod warlord_s_axe;
 pub mod warmonger_s_chariot;
 #[path = "enchantments/mv_2/warmth.rs"]
 pub mod warmth;
+#[path = "instants/mv_1/warning.rs"]
+pub mod warning;
 #[path = "enchantments/auras/mv_2/warp_artifact.rs"]
 pub mod warp_artifact;
 #[path = "creatures/mv_3/warpath_ghoul.rs"]
@@ -18361,12 +18391,16 @@ pub mod white_lotus_reinforcements;
 pub mod white_mana_battery;
 #[path = "creatures/mv_3/white_plume_adventurer.rs"]
 pub mod white_plume_adventurer;
+#[path = "enchantments/auras/mv_1/white_scarab.rs"]
+pub mod white_scarab;
 #[path = "creatures/mv_2/white_shield_crusader.rs"]
 pub mod white_shield_crusader;
 #[path = "enchantments/auras/mv_1/white_ward.rs"]
 pub mod white_ward;
 #[path = "creatures/mv_2/whitemane_lion.rs"]
 pub mod whitemane_lion;
+#[path = "instants/mv_2/whiteout.rs"]
+pub mod whiteout;
 #[path = "instants/mv_2/whitesun_s_passage.rs"]
 pub mod whitesun_s_passage;
 #[path = "creatures/enchantments/mv_5/whitewater_naiads.rs"]
@@ -18379,6 +18413,8 @@ pub mod wicker_witch;
 pub mod wickerbough_elder;
 #[path = "sorceries/mv_2/wielding_the_green_dragon.rs"]
 pub mod wielding_the_green_dragon;
+#[path = "creatures/mv_6/wiitigo.rs"]
+pub mod wiitigo;
 #[path = "creatures/mv_3/wild_aesthir.rs"]
 pub mod wild_aesthir;
 #[path = "creatures/mv_1/wild_cantor.rs"]
@@ -18507,6 +18543,8 @@ pub mod winter_blast;
 pub mod winter_moon;
 #[path = "artifacts/mv_2/winter_orb.rs"]
 pub mod winter_orb;
+#[path = "instants/mv_1/winter_s_chill.rs"]
+pub mod winter_s_chill;
 #[path = "sorceries/mv_3/winter_s_grasp.rs"]
 pub mod winter_s_grasp;
 #[path = "instants/mv_2/winter_s_intervention.rs"]
@@ -18561,6 +18599,8 @@ pub mod witching_well;
 pub mod witherbloom_campus;
 #[path = "instants/mv_3/withering_torment.rs"]
 pub mod withering_torment;
+#[path = "enchantments/mv_3/withering_wisps.rs"]
+pub mod withering_wisps;
 #[path = "instants/mv_2/without_weakness.rs"]
 pub mod without_weakness;
 #[path = "instants/mv_3/withstand.rs"]
@@ -18633,12 +18673,18 @@ pub mod woodwraith_corrupter;
 pub mod woodwraith_strangler;
 #[path = "creatures/mv_3/woolly_mammoths.rs"]
 pub mod woolly_mammoths;
+#[path = "creatures/mv_3/woolly_spider.rs"]
+pub mod woolly_spider;
 #[path = "creatures/mv_3/woolly_thoctar.rs"]
 pub mod woolly_thoctar;
 #[path = "sorceries/mv_2/word_of_binding.rs"]
 pub mod word_of_binding;
+#[path = "instants/mv_2/word_of_blasting.rs"]
+pub mod word_of_blasting;
 #[path = "instants/mv_2/word_of_command.rs"]
 pub mod word_of_command;
+#[path = "instants/mv_1/word_of_undoing.rs"]
+pub mod word_of_undoing;
 #[path = "creatures/mv_3/worf_chief_tactical_officer.rs"]
 pub mod worf_chief_tactical_officer;
 #[path = "creatures/artifacts/mv_6/workhorse.rs"]
@@ -18895,6 +18941,8 @@ pub mod zuko_s_offense;
 pub mod zulaport_chainmage;
 #[path = "creatures/mv_2/zulaport_cutthroat.rs"]
 pub mod zulaport_cutthroat;
+#[path = "enchantments/mv_4/zur_s_weirding.rs"]
+pub mod zur_s_weirding;
 #[path = "creatures/mv_2/zuran_enchanter.rs"]
 pub mod zuran_enchanter;
 #[path = "artifacts/mv_0/zuran_orb.rs"]

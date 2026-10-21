@@ -4015,17 +4015,22 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Storm Spirit
     &["Flying\n{T}: This creature deals 2 damage to target creature."],
-    &[],
+    // Stormbind
+    &["{2}, Discard a card at random: This enchantment deals 2 damage to any target."],
     // Stromgald Cabal
     &["{T}, Pay 1 life: Counter target white spell."],
-    &[],
+    // Stunted Growth
+    &[
+        "Target player chooses three cards from their hand and puts them on top of their library in any order.",
+    ],
     // Sulfurous Springs
     &["{T}: Add {C}.\n{T}: Add {B} or {R}. This land deals 1 damage to you."],
     // Sunstone
     &["{2}, Sacrifice a snow land: Prevent all combat damage that would be dealt this turn."],
     // Tarpan
     &["When this creature dies, you gain 1 life."],
-    &[],
+    // Thermokarst
+    &["Destroy target land. If that land was a snow land, you gain 1 life."],
     // Thoughtleech
     &["Whenever an Island an opponent controls becomes tapped, you may gain 1 life."],
     // Thunder Wall
@@ -4040,27 +4045,60 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, put a time counter on this artifact.\n{1}, {T}, Sacrifice this artifact: This artifact deals damage equal to the number of time counters on it to each creature and each player.",
     ],
-    &[],
+    // Tinder Wall
+    &[
+        "Defender (This creature can't attack.)\nSacrifice this creature: Add {R}{R}.\n{R}, Sacrifice this creature: It deals 2 damage to target creature it's blocking.",
+    ],
     // Tor Giant
     &[""],
-    &[],
-    &[],
-    &[],
+    // Total War
+    &[
+        "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.",
+    ],
+    // Touch of Death
+    &[
+        "Touch of Death deals 1 damage to target player or planeswalker. You gain 1 life.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Touch of Vitae
+    &[
+        "Until end of turn, target creature gains haste and \"{0}: Untap this creature. Activate only once.\"\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Trailblazer
     &["Target creature can't be blocked this turn."],
     // Underground River
     &["{T}: Add {C}.\n{T}: Add {U} or {B}. This land deals 1 damage to you."],
-    &[],
-    &[],
+    // Updraft
+    &[
+        "Target creature gains flying until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Urza's Bauble
+    &[
+        "{T}, Sacrifice this artifact: Look at a card at random in target player's hand. You draw a card at the beginning of the next turn's upkeep.",
+    ],
     // Veldt
     &[
         "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {G} or {W}. Put a depletion counter on this land.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Venomous Breath
+    &[
+        "Choose target creature. At this turn's next end of combat, destroy all creatures that blocked or were blocked by it this turn.",
+    ],
+    // Vertigo
+    &[
+        "Vertigo deals 2 damage to target creature with flying. That creature loses flying until end of turn.",
+    ],
+    // Vexing Arcanix
+    &[
+        "{3}, {T}: Target player chooses a card name, then reveals the top card of their library. If that card has the chosen name, that player puts it into their hand. Otherwise, they put it into their graveyard and this artifact deals 2 damage to them.",
+    ],
+    // Vibrating Sphere
+    &[
+        "During your turn, creatures you control get +2/+0.\nDuring turns other than yours, creatures you control get -0/-2.",
+    ],
+    // Walking Wall
+    &[
+        "Defender\n{3}: This creature gets +3/-1 until end of turn and can attack this turn as though it didn't have defender. Activate only once each turn.",
+    ],
     // Wall of Lava
     &["Defender (This creature can't attack.)\n{R}: This creature gets +1/+1 until end of turn."],
     // Wall of Pine Needles
@@ -4071,30 +4109,56 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // War Chariot
     &["{3}, {T}: Target creature gains trample until end of turn."],
-    &[],
+    // Warning
+    &["Prevent all combat damage that would be dealt by target attacking creature this turn."],
     // Whalebone Glider
     &["{2}, {T}: Target creature with power 3 or less gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
+    // White Scarab
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by white creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a white permanent.",
+    ],
+    // Whiteout
+    &[
+        "All creatures lose flying until end of turn.\nSacrifice a snow land: Return this card from your graveyard to your hand.",
+    ],
+    // Wiitigo
+    &[
+        "This creature enters with six +1/+1 counters on it.\nAt the beginning of your upkeep, put a +1/+1 counter on this creature if it has blocked or been blocked since your last upkeep. Otherwise, remove a +1/+1 counter from it.",
+    ],
     // Wind Spirit
     &["Flying\nMenace (This creature can't be blocked except by two or more creatures.)"],
     // Wings of Aesthir
     &["Enchant creature\nEnchanted creature gets +1/+0 and has flying and first strike."],
-    &[],
-    &[],
+    // Winter's Chill
+    &[
+        "Cast this spell only during combat before blockers are declared.\nX can't be greater than the number of snow lands you control.\nChoose X target attacking creatures. For each of those creatures, its controller may pay {1} or {2}. If that player doesn't, destroy that creature at end of combat. If that player pays only {1}, prevent all combat damage that would be dealt to and dealt by that creature this combat.",
+    ],
+    // Withering Wisps
+    &[
+        "At the beginning of the end step, if no creatures are on the battlefield, sacrifice this enchantment.\n{B}: This enchantment deals 1 damage to each creature and each player. Activate no more times each turn than the number of snow Swamps you control.",
+    ],
     // Woolly Mammoths
     &["This creature has trample as long as you control a snow land."],
-    &[],
-    &[],
-    &[],
+    // Woolly Spider
+    &[
+        "Reach (This creature can block creatures with flying.)\nWhenever this creature blocks a creature with flying, this creature gets +0/+2 until end of turn.",
+    ],
+    // Word of Blasting
+    &[
+        "Destroy target Wall. It can't be regenerated. Word of Blasting deals damage equal to that Wall's mana value to the Wall's controller.",
+    ],
+    // Word of Undoing
+    &["Return target creature and all white Auras you own attached to it to their owners' hands."],
     // Wrath of Marit Lage
     &[
         "When this enchantment enters, tap all red creatures.\nRed creatures don't untap during their controllers' untap steps.",
     ],
     // Yavimaya Gnats
     &["Flying\n{G}: Regenerate this creature."],
-    &[],
+    // Zur's Weirding
+    &[
+        "Players play with their hands revealed.\nIf a player would draw a card, they reveal it instead. Then any other player may pay 2 life. If a player does, put that card into its owner's graveyard. Otherwise, that player draws a card.",
+    ],
     // Zuran Enchanter
     &["{2}{B}, {T}: Target player discards a card. Activate only during your turn."],
     // Zuran Orb
