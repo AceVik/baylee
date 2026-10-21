@@ -7588,11 +7588,17 @@ operations:
       and past that it is closed with 1008 and `too many frames`. Text frames
       are passed over. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the
-      same chair replaces this one, which closes. The chair's authorization is
-      checked again every 5 seconds and before each frame is forwarded, and
-      the socket closes, with a close frame without a code, once it no longer
-      holds (the seat token was replaced or ended, or the Central session
-      behind it lapsed or was banned), once the engine's link ends, and at the
+      same chair replaces this one, which closes. Before each frame is
+      forwarded the seat token is checked, and the chair's whole
+      authorization too when the gateway itself has withdrawn something of
+      its account since the last check (moved to Baylee Central, password
+      changed or reset, banned, deleted). The whole authorization is also
+      checked every 5 seconds, so a Central session that lapsed, was signed
+      out or was revoked at Central stops the chair's frames within 5 seconds
+      (`docs/protocol.md`, Once a socket is open). The socket closes, with a
+      close frame without a code, once it no longer holds (the seat token was
+      replaced or ended, or the Central session behind it lapsed or was
+      banned), once the engine's link ends, and at the
       first frame the client sends after the engine said the seat is out of
       the game. While a chair has no socket, its frames are dropped and the
       engine holds its place for the reconnect window (`docs/protocol.md`,
@@ -7648,11 +7654,17 @@ operations:
       and past that it is closed with 1008 and `too many frames`. Text frames
       are passed over. A socket that falls behind the engine is not dropped:
       the engine is asked to send it a fresh snapshot. A newer socket for the
-      same chair replaces this one, which closes. The chair's authorization is
-      checked again every 5 seconds and before each frame is forwarded, and
-      the socket closes, with a close frame without a code, once it no longer
-      holds (the seat token was replaced or ended, or the Central session
-      behind it lapsed or was banned), once the engine's link ends, and at the
+      same chair replaces this one, which closes. Before each frame is
+      forwarded the seat token is checked, and the chair's whole
+      authorization too when the gateway itself has withdrawn something of
+      its account since the last check (moved to Baylee Central, password
+      changed or reset, banned, deleted). The whole authorization is also
+      checked every 5 seconds, so a Central session that lapsed, was signed
+      out or was revoked at Central stops the chair's frames within 5 seconds
+      (`docs/protocol.md`, Once a socket is open). The socket closes, with a
+      close frame without a code, once it no longer holds (the seat token was
+      replaced or ended, or the Central session behind it lapsed or was
+      banned), once the engine's link ends, and at the
       first frame the client sends after the engine said the seat is out of
       the game. While a chair has no socket, its frames are dropped and the
       engine holds its place for the reconnect window (`docs/protocol.md`,
