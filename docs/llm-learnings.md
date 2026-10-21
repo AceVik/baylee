@@ -5128,7 +5128,7 @@ resolved battle-damage holds:
 
 ## 2026-10-20 — Ice Age (`ice`) batches 1–4 (100 cards + 1 unplayable)
 
-- Added `Effect::AtNextTurnsUpkeep` (`DelayedWhen::NextTurnsUpkeep`),
+- Added `Effect::AtNextTurnsUpkeep` (`DelayedWhen::NextUpkeepOfAnyone`),
   `ManaUse::CumulativeUpkeep`, and `Filter::HasCumulativeUpkeep` to `baylee-cards-dsl`
   and `baylee-engine`, and taught `scriptgen` to transcode *Ice Age* slowtrips
   (*"Draw a card at the beginning of the next turn's upkeep"*), `K:Cumulative upkeep`,
@@ -5141,11 +5141,55 @@ resolved battle-damage holds:
     line; otherwise two-phase `xtask codegen` treats the file as an un-adopted stub
     and overwrites the hand-written implementation.
   - Raised the custom-counter ceiling in `crates/baylee-cards/src/lints/tests/entries.rs`
-    from `100` to `130` as *Ice Age* adds `counters::AGE`, `counters::ICE`,
-    `counters::DRIFT`, and `counters::ECHO` carriers.
+    from `100` to `130` as *Ice Age* adds carriers of age, ice, wind, healing,
+    sleight and paralyzation counters (`counters::HEALING`, `SLEIGHT`,
+    `PARALYZATION` and `MUSIC` are new ids).
   - `cast_with_floating` may spend colored mana from the pool to pay generic costs
     if multiple colors are floated up front; float exact mana per spell when casting
     multiple spells in sequence in a test.
   - `lk::attack` advances out of `Phase::FirstMain`, which empties all players'
     mana pools (CR 500.4); float mana for combat-step activations (`Grizzled Wolverine`,
     `Giant Trap Door Spider`) after entering the combat step where the ability is used.
+
+### The review of Ice Age batches 1–4 (claude-opus-5-5, 2026-10-21)
+
+Four reviewers read the 100 cards against their oracle text. More than half
+needed a fix, most in the test only. Four Partials became Implemented (Arcum's
+Sleigh, Arctic Foxes, Blizzard, Dread Wight: their `// NOT SUPPORTED` was
+false), and one Implemented card became Partial (Cloak of Confusion:
+`PlayerRel::DefendingPlayer` reads the Aura's own attack, so at a table of
+more than two it names nobody). What the author did more than once:
+
+- **One side of a condition played.** "Unless", "may", "any amount", "or",
+  "as long as" and cumulative upkeep were paid but never declined, or
+  declined but never paid. Such a test still passes with the condition
+  deleted. Play both branches, and the second upkeep of a cumulative upkeep.
+- **A restriction never tested from the side it excludes.** "You control",
+  "an opponent", "without flying", "attacking you", "creature cards": put
+  the excluded object on the board and assert it is left alone. A "can't be
+  blocked" needs a creature that could block.
+- **Partial without searching the vocabulary.** "Defending player
+  controls", "can't attack unless you sacrifice" (`CantAttackUnlessYouSacrifice`),
+  a permanent's cast restriction, the opponent choice (`ChooseOpponent`) and
+  a counter on "that creature" after the Aura left (`ChangeAttachedCounters`)
+  already exist. Grep before writing `// NOT SUPPORTED`.
+- **A Partial reason that hides a stand-in.** Call to Arms and Chaos Moon
+  always pump, Demonic Consultation reveals only the top card, Forgotten Lore
+  and Hipparion play stronger than printed. The reason must say what the card
+  does instead, not only what is missing.
+- **A Partial wired to the nearest effect with another rule** (General
+  Jarkeld's `SwapBlockers`, which in play does nothing).
+- **Hollow tests:** a test that reads P/T or a keyword, one that pins an
+  outcome the printed card would not produce (Call to Arms pumping green), an
+  either/or assertion on a random outcome, and a negative check that holds
+  because nothing could pay (Ashen Ghoul).
+- **Comments claiming more than the code** ("Also verify …" with no
+  assertion, another card's oracle id in a doc comment), struct literals
+  instead of `cost!`, per-card copies of `Filter::YOUR_CREATURE`, and
+  `Generated` hand-flipped to `Implemented` on machine-owned files (codegen's
+  job).
+- Cumulative upkeep now has one shape, `Effect::is_cumulative_upkeep` (an age
+  counter, then pay or sacrifice), which `Filter::HasCumulativeUpkeep` and the
+  mana restricted to cumulative upkeep both read;
+  `cumulative_upkeep_is_said_in_the_one_shape_its_readers_know` holds every
+  card printed with the keyword to it.
