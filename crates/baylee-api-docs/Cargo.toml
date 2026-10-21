@@ -1,0 +1,14 @@
+[package]
+name = "baylee-api-docs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: writes and checks the API documents in docs/api/ (OpenAPI and AsyncAPI, from the servers' sources with oas-forge), run as `cargo dev api`"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+oas-forge.workspace = true

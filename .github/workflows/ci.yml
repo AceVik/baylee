@@ -379,6 +379,9 @@ jobs:
       # payloads in about 30 s (run 37787880265).
       - run: cargo run --locked -p xtask -- scryfall-cache
       - run: cargo run --locked -p xtask -- validate
+      # The API documents (docs/api/): current, and every route a service
+      # registers is in one of them (`cargo dev api check`).
+      - run: cargo run --locked -q -p baylee-api-docs -- check
       # Saved even when the comparison fails (`actions/cache`'s own post step
       # is skipped on a failed job). `!cancelled()` and deliberately not
       # `always()`: `actions/cache/save` never overwrites a key, so a run
