@@ -3491,40 +3491,96 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this enchantment enters, exile target creature.\nAt the beginning of your upkeep, sacrifice this enchantment unless any player pays {3}.\nWhen this enchantment leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Illusionary Forces
+    &[
+        "Flying\nCumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Illusionary Presence
+    &[
+        "Cumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your upkeep, choose a land type. This creature gains landwalk of the chosen type until end of turn. (It can't be blocked as long as defending player controls a land of that type.)",
+    ],
+    // Illusionary Terrain
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAs this enchantment enters, choose two basic land types.\nBasic lands of the first chosen type are the second chosen type.",
+    ],
+    // Illusionary Wall
+    &[
+        "Defender, flying, first strike\nCumulative upkeep {U} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Illusions of Grandeur
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this enchantment enters, you gain 20 life.\nWhen this enchantment leaves the battlefield, you lose 20 life.",
+    ],
     // Imposing Visage
     &[
         "Enchant creature\nEnchanted creature has menace. (It can't be blocked except by two or more creatures.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Incinerate
+    &[
+        "Incinerate deals 3 damage to any target. A creature dealt damage this way can't be regenerated this turn.",
+    ],
+    // Infernal Darkness
+    &[
+        "Cumulative upkeep—Pay {B} and 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nIf a land is tapped for mana, it produces {B} instead of any other type.",
+    ],
+    // Infernal Denizen
+    &[
+        "At the beginning of your upkeep, sacrifice two Swamps. If you can't, tap this creature, and an opponent may gain control of a creature you control of their choice for as long as this creature remains on the battlefield.\n{T}: Gain control of target creature for as long as this creature remains on the battlefield.",
+    ],
+    // Infinite Hourglass
+    &[
+        "At the beginning of your upkeep, put a time counter on this artifact.\nAll creatures get +1/+0 for each time counter on this artifact.\n{3}: Remove a time counter from this artifact. Any player may activate this ability but only during any upkeep step.",
+    ],
+    // Infuse
+    &[
+        "Untap target artifact, creature, or land.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Jester's Cap
+    &[
+        "{2}, {T}, Sacrifice this artifact: Search target player's library for three cards and exile them. Then that player shuffles.",
+    ],
+    // Jester's Mask
+    &[
+        "This artifact enters tapped.\n{1}, {T}, Sacrifice this artifact: Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. That player puts those cards into their hand, then shuffles.",
+    ],
+    // Jeweled Amulet
+    &[
+        "{1}, {T}: Put a charge counter on this artifact. Note the type of mana spent to pay this activation cost. Activate only if there are no charge counters on this artifact.\n{T}, Remove a charge counter from this artifact: Add one mana of this artifact's last noted type.",
+    ],
+    // Johtull Wurm
+    &[
+        "Whenever this creature becomes blocked, it gets -2/-1 until end of turn for each creature blocking it beyond the first.",
+    ],
     // Jokulhaups
     &["Destroy all artifacts, creatures, and lands. They can't be regenerated."],
     // Juniper Order Druid
     &["{T}: Untap target land."],
-    &[],
+    // Justice
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{W}.\nWhenever a red creature or spell deals damage, this enchantment deals that much damage to that creature's or spell's controller.",
+    ],
     // Karplusan Forest
     &["{T}: Add {C}.\n{T}: Add {R} or {G}. This land deals 1 damage to you."],
     // Karplusan Giant
     &["Tap an untapped snow land you control: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Karplusan Yeti
+    &[
+        "{T}: This creature deals damage equal to its power to target creature. That creature deals damage equal to its power to this creature.",
+    ],
     // Kelsinko Ranger
     &["{1}{W}: Target green creature gains first strike until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Kjeldoran Dead
+    &["When this creature enters, sacrifice a creature.\n{B}: Regenerate this creature."],
+    // Kjeldoran Elite Guard
+    &[
+        "{T}: Target creature gets +2/+2 until end of turn. When that creature leaves the battlefield this turn, sacrifice this creature. Activate only during combat.",
+    ],
+    // Kjeldoran Frostbeast
+    &["At end of combat, destroy all creatures blocking or blocked by this creature."],
+    // Kjeldoran Guard
+    &[
+        "{T}: Target creature gets +1/+1 until end of turn. When that creature leaves the battlefield this turn, sacrifice this creature. Activate only during combat and only if defending player controls no snow lands.",
+    ],
     // Kjeldoran Knight
     &[
         "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{1}{W}: This creature gets +1/+0 until end of turn.\n{W}{W}: This creature gets +0/+2 until end of turn.",
@@ -3533,7 +3589,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
+    // Kjeldoran Royal Guard
+    &[
+        "{T}: All combat damage that would be dealt to you by unblocked creatures this turn is dealt to this creature instead.",
+    ],
     // Kjeldoran Skycaptain
     &[
         "Flying; first strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
@@ -3550,10 +3609,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Protection from white\n{B}: This creature gains first strike until end of turn.\n{B}{B}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Krovikan Elementalist
+    &[
+        "{2}{R}: Target creature gets +1/+0 until end of turn.\n{U}{U}: Target creature you control gains flying until end of turn. Sacrifice it at the beginning of the next end step.",
+    ],
+    // Krovikan Fetish
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nEnchanted creature gets +1/+1.",
+    ],
+    // Krovikan Sorcerer
+    &[
+        "{T}, Discard a nonblack card: Draw a card.\n{T}, Discard a black card: Draw two cards, then discard one of them.",
+    ],
+    // Krovikan Vampire
+    &[
+        "At the beginning of each end step, if a creature dealt damage by this creature this turn died, put that card onto the battlefield under your control. Sacrifice it when you lose control of this creature.",
+    ],
     // Land Cap
     &[
         "This land doesn't untap during your untap step if it has a depletion counter on it.\nAt the beginning of your upkeep, remove a depletion counter from this land.\n{T}: Add {W} or {U}. Put a depletion counter on this land.",

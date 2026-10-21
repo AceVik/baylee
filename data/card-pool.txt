@@ -3930,7 +3930,12 @@ Ill-Gotten Inheritance
 Illegitimate Business
 Illness in the Ranks
 Illuminated Wings
+Illusionary Forces
 Illusionary Mask
+Illusionary Presence
+Illusionary Terrain
+Illusionary Wall
+Illusions of Grandeur
 Illusory Wrappings
 Illvoi Galeblade
 Imi Statue
@@ -3965,6 +3970,7 @@ Improvised Armor
 Improvised Weaponry
 In the Eye of Chaos
 Incandescent Aria
+Incinerate
 Incubator Drone
 Incurable Ogre
 Indatha Crystal
@@ -3981,6 +3987,8 @@ Inertia Bubble
 Infantry Veteran
 Infectious Horror
 Infectious Host
+Infernal Darkness
+Infernal Denizen
 Infernal Grasp
 Infernal Idol
 Infernal Medusa
@@ -3991,7 +3999,9 @@ Infestation Sage
 Infested Roothold
 Infiltrate
 Infinite Authority
+Infinite Hourglass
 Infuriate
+Infuse
 Ingenious Skaab
 Inheritance
 Initiate's Companion
@@ -4136,10 +4146,13 @@ Jeskai Sage
 Jeskai Shrinekeeper
 Jeskai Student
 Jeskai Windscout
+Jester's Cap
+Jester's Mask
 Jetmir's Garden
 Jetmir, Nexus of Revels
 Jewel Thief
 Jewel-Eyed Cobra
+Jeweled Amulet
 Jhessian Balmgiver
 Jhessian Lookout
 Jhessian Thief
@@ -4149,6 +4162,7 @@ Jibbirik Omnivore
 Jidoor, Aristocratic Capital // Overture
 Jihad
 Johan
+Johtull Wurm
 Join the Ranks
 Joiner Adept
 Jokulhaups
@@ -4186,6 +4200,7 @@ Juniper Order Druid
 Junktown
 Juntu Stakes
 Junún Efreet
+Justice
 Juxtapose
 Juzám Djinn
 Jwar Isle Refuge
@@ -4222,6 +4237,7 @@ Karoo Meerkat
 Karplusan Forest
 Karplusan Giant
 Karplusan Hound
+Karplusan Yeti
 Karsus Depthguard
 Kasimir the Lone Wolf
 Kavaron, Memorial World
@@ -4310,11 +4326,16 @@ Kithkin Rabble
 Kithkin Shielddare
 Kitsune Diviner
 Kitsune Riftwalker
+Kjeldoran Dead
+Kjeldoran Elite Guard
 Kjeldoran Escort
+Kjeldoran Frostbeast
+Kjeldoran Guard
 Kjeldoran Knight
 Kjeldoran Outpost
 Kjeldoran Outrider
 Kjeldoran Phalanx
+Kjeldoran Royal Guard
 Kjeldoran Skycaptain
 Kjeldoran Skyknight
 Kjeldoran Warrior
@@ -4390,8 +4411,12 @@ Krosan Constrictor
 Krosan Grip
 Krosan Groundshaker
 Krosan Verge
+Krovikan Elementalist
+Krovikan Fetish
 Krovikan Mist
 Krovikan Scoundrel
+Krovikan Sorcerer
+Krovikan Vampire
 Kruin Striker
 Kry Shield
 Kudo, King Among Bears
