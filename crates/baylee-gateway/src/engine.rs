@@ -184,6 +184,34 @@ fn stop_engine(state: &Shared, game_id: &str) {
 // ---------------------------------------------------------- control plane
 
 /// `GET /agent/ws` — an agent offering to run engines.
+///
+/// @channel agent /agent/ws
+/// @scope public
+/// @summary An engine agent's link
+/// @description The control link of an engine agent (`baylee-agent`),
+/// which starts one engine process per game it is ordered to run. Every
+/// frame is one protobuf `Envelope` (`baylee.v1`) in a binary frame. There
+/// is no ticket: the agent's secret is in its first frame, an `AgentHello`
+/// within 10 seconds carrying the gateway's `BAYLEE_AGENT_TOKEN`. A gateway
+/// without `BAYLEE_AGENT_TOKEN`, a wrong token, or a first binary frame that
+/// is not an `AgentHello` closes the socket without a word; an agent of
+/// another protocol is sent an `Error` naming both and the socket closes.
+/// Accepted, the agent is sent `AgentWelcome` and is ordered from then on:
+/// `StartEngine` for each game it is to run (the least busy agent with room
+/// is picked) and `StopEngine` once a game it runs is over. It says what
+/// became of each engine with `EngineStatus`, and a start that failed ends
+/// that game. A frame that does not decode, and a kind this link does not
+/// carry, is passed over. An agent on the gateway's unix socket
+/// (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
+/// player's seat token or session opens no agent link. Frames have no
+/// bound beyond the transport's default, and there is no rate bound.
+/// @receive `AgentHello`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `agent_hello`, first: `token` (the gateway's `BAYLEE_AGENT_TOKEN`), `name` (for logs and the operator), `capacity` (engines at once, 0 for no bound) and `protocol_version` (the protocol it was built with; another, or 0, is refused)."
+/// @receive `EngineStatus`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `engine_status`: what became of one engine, by `game_id`. `kind` is `KIND_STARTED`, `KIND_EXITED` or `KIND_FAILED` (it never started, which ends the game), and `detail` says why."
+/// @receive `Heartbeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `heartbeat`, every `heartbeat_secs`: still here. It needs no answer."
+/// @send `AgentWelcome`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `agent_welcome`: accepted. `agent_id` is the gateway's id for this link, and `heartbeat_secs` how often to send a `Heartbeat`."
+/// @send `Error`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `error`, `code` 1: the agent's protocol is not the gateway's, and `message` names both. The only frame; the socket closes after it."
+/// @send `StartEngine`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `start_engine`: start an engine for `game_id` (a replay job's id begins `replay-`). `engine_token` is one game's authority, which the engine shows in its `EngineHello` and which never leaves the agent's machine; `gateway_url` is where the engine dials back (`BAYLEE_ENGINE_URL`; a local agent hands its engines the unix socket instead)."
+/// @send `StopEngine`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `stop_engine`: the game `game_id` is over and its engine can go."
 pub async fn agent_ws(
     State(state): State<Shared>,
     via_unix: Option<Extension<ViaUnix>>,
@@ -323,6 +351,55 @@ fn report(state: &Shared, status: &v1::EngineStatus) {
 // ----------------------------------------------------------- engine plane
 
 /// `GET /engine/ws` — the engine process for one game, dialling back.
+///
+/// @channel engine /engine/ws
+/// @scope public
+/// @summary An engine's link
+/// @description The link of one engine process (`baylee-engine-server`)
+/// for one game, or for one replay job, dialled back after its agent was
+/// sent `StartEngine`. Every frame is one protobuf `Envelope` (`baylee.v1`)
+/// in a binary frame. There is no ticket: the engine's secret is in its
+/// first frame, an `EngineHello` within 10 seconds carrying the game's id
+/// and the token `StartEngine` named. A game that is not here or not being
+/// played, a wrong token, a second engine for a game that has one, or a
+/// first binary frame that is not an `EngineHello` closes the socket
+/// without a word. An engine of another protocol is sent an `Error` naming
+/// both and the socket closes, and the game ends with it (it leaves the
+/// listing and its agent is sent `StopEngine`). Accepted, the engine is
+/// sent `GameSetup`, and the seat sockets waiting for it go on. From then on
+/// the gateway tells it which seat sockets come and go (`SeatAttached`,
+/// `SeatDetached`), forwards each seat's frames (`SeatFrameFromSeat`) and
+/// the spectator count (`SpectatorsChanged`), asks for the record as it
+/// stands for a bug report (`FlushRecord`), and passes on an admin's
+/// `CloseGame`. The engine sends each seat's frames (`SeatFrameToSeat`, for
+/// the seat's socket as they are), the spectators' stream
+/// (`SpectatorFrame`), the game record in pieces (`GameRecordChunk`, stored
+/// and never forwarded to anyone), an answer to every `FlushRecord`
+/// (`RecordFlushed`), the seats that are out of the game
+/// (`SeatParticipationEnded`), and `GameEnded` last. Losing this link ends
+/// the game, since its state lives in that process. An engine started for a
+/// replay job (an id beginning `replay-`) is sent `ProjectRecord` instead
+/// of `GameSetup`, sends `TapeChunk`s back until the last, and is closed. A
+/// frame that does not decode, and a kind this link does not carry, is
+/// passed over. Frames have no bound beyond the transport's default, and
+/// there is no rate bound.
+/// @receive `EngineHello`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `engine_hello`, first: `game_id` and `token` as `StartEngine` named them, `protocol_version` (another, or 0, is refused), `pid` (its process id, which a gateway on the same machine reads for the admin console; 0 says none) and `build` (its build, kept beside the game's record; empty from an older engine)."
+/// @receive `SeatFrameToSeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_frame`: `envelope`, an encoded player-facing `Envelope`, for the socket of seat `seat`, which is handed it as it is. Dropped while that seat has no socket."
+/// @receive `SpectatorFrame`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `spectator_frame`: `envelope`, an encoded player-facing `Envelope` of the public stream, handed as it is to every watch socket of the game."
+/// @receive `GameRecordChunk`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_record_chunk`: a piece of the game's record. `seq` counts from 0, `data` is one gzip member of JSON Lines (so the pieces in `seq` order are one gzip stream), and `last` marks the piece sent just before `GameEnded`. Stored, never forwarded to a seat."
+/// @receive `RecordFlushed`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `record_flushed`: everything of the record up to the `FlushRecord` with this `nonce` was sent before this frame; `pieces` is how many pieces the engine has sent so far."
+/// @receive `SeatParticipationEnded`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_participation_ended`: these `seats` lost, conceded, or were left to the house with no human playing. Their players may start or join another game on this gateway again."
+/// @receive `GameEnded`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_ended`: the game is over. `winners` (empty for a draw or a game an admin closed), `reason`, and `turn` (0 from an older engine). The gateway marks the game over and its agent is sent `StopEngine`."
+/// @receive `TapeChunk`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `tape_chunk`, replay jobs only: a piece of the tape for `job`; `data` is one gzip member, the pieces in `seq` order are one gzip stream, and the `last` piece ends the job."
+/// @send `GameSetup`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_setup`: everything needed to build the game. `preset_json` is the game's `GamePreset` as JSON; `seat_names` are the seats' names in seat order."
+/// @send `SeatAttached`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_attached`: seat `seat` has a socket now. With `resync` true the seat is already in the game and its socket fell behind: send it a snapshot rather than advancing the game."
+/// @send `SeatDetached`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_detached`: seat `seat` has no socket any more. With `left` true its player left on purpose (`POST /lobby/depart`): the house takes the chair at once, or the game ends when no other player is at the table."
+/// @send `SeatFrameFromSeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_frame`: `envelope` is a frame exactly as seat `seat`'s socket sent it, the seat stamped by the gateway."
+/// @send `SpectatorsChanged`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `spectators_changed`: `count` watch sockets are open now; `joined` asks for a whole spectator snapshot (one opened, or one fell behind)."
+/// @send `FlushRecord`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `flush_record`, for a bug report at a game that goes on: send what has gathered of the record now as a piece that is not `last`, then a `RecordFlushed` with the same `nonce`."
+/// @send `CloseGame`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `close_game`: an admin ends the game. Tell every seat and spectator `GameClosed` with `reason`, send the rest of the record and then `GameEnded` with no winners."
+/// @send `ProjectRecord`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `project_record`, replay jobs only, instead of `GameSetup`: play the stored record (`record`, one gzip stream) again and send back the tape of one perspective of it (a seat, the spectators, or a seat with other hands beside it)."
+/// @send `Error`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `error`, `code` 1: the engine's protocol is not the gateway's, and `message` names both. The only frame; the socket closes after it."
 pub async fn engine_ws(State(state): State<Shared>, ws: WebSocketUpgrade) -> Response {
     ws.read_buffer_size(ENGINE_READ_BUFFER)
         .on_upgrade(move |socket| run_engine_socket(state, socket))

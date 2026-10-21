@@ -3,32 +3,79 @@
 
 use crate::{Deserialize, ErrorBody, Json, Shared, StatusCode, db_down, err, store};
 
+/// The body of `POST /decks` and `PUT /decks/{id}`.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct DeckBody {
+    /// @description The deck's name, 1–64 bytes of UTF-8.
+    /// @openapi
+    /// ```yaml
+    /// minLength: 1
+    /// ```
     pub(crate) name: String,
+    /// @description Main-deck lines, 1–250 of them: `N Card Name`, a card
+    /// named as this pool or Scryfall spells it, optionally with a printing,
+    /// finish, language or note (`docs/deck-format.md`). At most four copies
+    /// of a card that is not a basic land, and 250 cards in all.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 1
+    /// ```
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 250
+    /// ```
     pub(crate) cards: Vec<String>,
+    /// @description Sideboard lines, in the same form and under the same
+    /// limits; none when absent.
+    /// @internal
     /// Optional: a deck saved without one simply has no sideboard.
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 250
+    /// ```
     #[serde(default)]
     pub(crate) sideboard: Vec<String>,
+    /// @description The deck's commanders by name: none, one, or two that
+    /// may lead a deck together (the partner rule).
+    /// @internal
     /// The deck's commanders: none, one, or two under the partner rule.
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 2
+    /// ```
     #[serde(default)]
     pub(crate) commanders: Vec<String>,
+    /// @description The one commander an older client sends; read only when
+    /// `commanders` is empty.
+    /// @internal
     /// The one commander an older client sends.
     ///
     /// A reader's tolerance, not a second field: a build made before the
     /// partner rule existed still saves decks, and refusing it would lose
     /// the commander rather than the feature. Nothing writes this back.
+    /// @openapi deprecated: true
     #[serde(default)]
     pub(crate) commander: Option<String>,
+    /// @description What the deck plays (`commander`, `freeform`, …). When
+    /// absent a saved deck keeps its format and a new one is read off its
+    /// commanders.
+    /// @internal
     /// What the deck plays. A body that does not say keeps what the deck
     /// already said, and a new deck that does not say is read off its
     /// commander ([`baylee_cards::decks::format_of`]).
     #[serde(default)]
     pub(crate) format: Option<String>,
+    /// @description What the deck is for, in its owner's words. When saving
+    /// a deck again, absent leaves it alone and an empty string clears it.
+    /// @internal
     /// What the deck is for, in its owner's words. Absent leaves it alone;
     /// an empty string clears it.
     #[serde(default)]
     pub(crate) description: Option<String>,
+    /// @description What this change is called, for the deck's history;
+    /// read only by `PUT /decks/{id}`, and only when a list changes.
+    /// @internal
     /// What this change was called, for the deck's history.
     ///
     /// Only read when the cards actually change — a save that renames the
@@ -36,6 +83,10 @@ pub(crate) struct DeckBody {
     /// attached to.
     #[serde(default)]
     pub(crate) summary: Option<String>,
+    /// @description The image id of the deck's sleeve, from
+    /// `POST /images?kind=sleeve`; it must be a picture this account
+    /// uploaded. Absent or `null` for the generated card back.
+    /// @internal
     /// Image id of the deck's sleeve, from `POST /images?kind=sleeve`.
     ///
     /// The caller must have uploaded it ([`check_pictures`]). Whether its
@@ -44,6 +95,9 @@ pub(crate) struct DeckBody {
     /// does anyway.
     #[serde(default)]
     pub(crate) sleeve: Option<String>,
+    /// @description The image id of the deck's playmat, from
+    /// `POST /images?kind=playmat`, under the same rule as the sleeve.
+    /// @internal
     /// Image id of the deck's playmat, from `POST /images?kind=playmat`,
     /// under the same rule as the sleeve.
     #[serde(default)]

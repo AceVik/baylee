@@ -12,24 +12,44 @@ use serde::{Deserialize, Serialize};
 /// The fields a gateway added later carry `#[serde(default)]`, so a client
 /// reads an older gateway's answer, and an older client, which does not
 /// refuse unknown fields, reads a newer one.
+///
+/// @description Every face of one card, in one language, read from one
+/// printing.
+/// @openapi
 #[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub struct CardTextEntry {
+    /// @description Asked for by card (`oracle_ids`): the Scryfall id of
+    /// the printing the faces are read from. Asked for by printing (`ids`):
+    /// the printing id that was asked for, which need not be that one.
+    /// @internal
     /// Asked for by card (`oracle_ids=`): the printing every face below is
     /// read from. Asked for by printing (`ids=`): the printing id that was
     /// asked for, which need not be that one — [`Self::lang`],
     /// [`Self::layout`] and the faces are still the served printing's.
     pub scryfall_id: String,
+    /// @description The card's Scryfall oracle id.
+    /// @internal
     /// The card: Scryfall's oracle id. Empty from a gateway that predates
     /// `oracle_ids=`.
     #[serde(default)]
     pub oracle_id: String,
+    /// @description The language code of the printing the names and type
+    /// lines are read from: the one asked for, or `en` where the catalog
+    /// has no printing in it. Whether a face's rules text is in it is that
+    /// face's `printed`.
+    /// @internal
     /// The language of the printing the names and type lines are read from.
     /// Whether a face's rules text is in it is [`FaceText::printed`].
     pub lang: String,
+    /// @description That printing's Scryfall layout (`normal`,
+    /// `modal_dfc`, …).
+    /// @internal
     /// That printing's Scryfall `layout`, which [`align`](crate::align)
     /// reads: a modal double-faced card's hint lines are removed only there.
     #[serde(default)]
     pub layout: String,
+    /// @description The card's faces, in printed order.
+    /// @internal
     /// Faces in printed order.
     pub faces: Vec<FaceText>,
 }
@@ -40,19 +60,39 @@ pub struct CardTextEntry {
 /// English name to recognise whether the object on the table is still the
 /// card this text describes (a clone is not), and it cannot do that from a
 /// translated name.
+///
+/// @description The text of one face of a card, in the served language.
+/// @openapi
 #[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub struct FaceText {
+    /// @description The face's name in the served language.
+    /// @internal
     /// Name in the served language.
     pub name: String,
+    /// @description The same face's English name.
+    /// @internal
     /// English name of the same face.
     pub english_name: String,
+    /// @description The face's type line in the served language.
+    /// @internal
     /// Type line in the served language.
     pub type_line: String,
+    /// @description The face's whole rules text to draw: `printed` where
+    /// there is one, the English Oracle text otherwise.
+    /// @internal
     /// The face's whole rules text to draw: [`Self::printed`] where there
     /// is one, the English Oracle otherwise.
     pub oracle_text: String,
+    /// @description The face's mana cost in Scryfall's notation (`{2}{G}`),
+    /// the same in every language.
+    /// @internal
     /// Mana cost in Scryfall notation (language-independent).
     pub mana_cost: String,
+    /// @description The face's rules text in the asked language, exactly as
+    /// that printing has it; `null` when it is not a translation: under
+    /// `en`, and when no printing of the card translated this face. Never
+    /// English.
+    /// @internal
     /// The face's rules text in the asked language, exactly as Scryfall has
     /// it printed, from the printing [`pick`](crate::pick) chose — the input
     /// [`align`](crate::align) takes, as from any other source of printings.

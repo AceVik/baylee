@@ -112,20 +112,64 @@ pub(crate) struct Row<'a> {
 }
 
 impl Row<'_> {
-    pub(crate) fn json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "id": self.id,
-            "label": self.first.label,
-            "vendor": self.first.vendor,
-            "kind": self.first.kind,
-            "model": self.first.model,
-            "state": self.state.word(),
-            "until_unix": self.until,
-            "games": self.games,
-            "max_games": self.max_games,
-            "available": self.state == ProfileState::Available,
-        })
+    /// The row as a player's list shows it (`GET /lobby/llm-profiles`).
+    pub(crate) fn profile(&self) -> HostedProfile {
+        HostedProfile {
+            id: self.id.to_owned(),
+            label: self.first.label.clone(),
+            vendor: self.first.vendor.clone(),
+            kind: self.first.kind.clone(),
+            model: self.first.model.clone(),
+            state: self.state.word(),
+            until_unix: self.until,
+            games: self.games,
+            max_games: self.max_games,
+            available: self.state == ProfileState::Available,
+        }
     }
+
+    /// [`Row::profile`] as JSON, for the console's answer, which adds the
+    /// seat agents to it.
+    pub(crate) fn json(&self) -> serde_json::Value {
+        serde_json::to_value(self.profile()).unwrap_or_default()
+    }
+}
+
+/// One hosted profile as a player's list shows it.
+///
+/// @description A hosted model a player may seat: one row per profile id
+/// over every connected seat agent.
+/// @openapi
+#[derive(serde::Serialize)]
+pub(crate) struct HostedProfile {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Whether it may be ordered now (`state` is
+    /// `available`).
+    available: bool,
+    /// @description Games it plays now, over every seat agent.
+    games: u32,
+    /// @description The profile's id, which an order names.
+    id: String,
+    /// @description How its seat agent runs it (`api`, or a CLI).
+    kind: String,
+    /// @description What players see it called.
+    label: String,
+    /// @description How many it may play at once over every seat agent;
+    /// `null` when one of them sets no bound.
+    max_games: Option<u32>,
+    /// @description The model.
+    model: String,
+    /// @description The best state any seat agent holding it reports.
+    /// @openapi
+    /// ```yaml
+    /// enum: [available, busy, probing, exhausted, needs_login, failing, disabled]
+    /// ```
+    state: &'static str,
+    /// @description When that state is expected to end, in Unix seconds
+    /// (the earliest any seat agent reports); `null` when none says.
+    until_unix: Option<i64>,
+    /// @description Who the game data goes to.
+    vendor: String,
 }
 
 impl Registry {
@@ -233,6 +277,33 @@ pub(crate) fn token_from_env(
 // ------------------------------------------------------------------ socket
 
 /// `GET /seathost/ws`: a seat agent offering hosted models.
+///
+/// @channel seathost /seathost/ws
+/// @scope public
+/// @summary A seat agent's link
+/// @description The link of a seat agent (`baylee-seathost`), which offers
+/// the operator's hosted language-model profiles and runs one seat bridge
+/// per order. Its secret is in its first frame, not in the address: `hello`
+/// with the gateway's `BAYLEE_SEATHOST_TOKEN`, its name, its protocol and
+/// its capacity, within 10 seconds. A wrong token, a gateway without
+/// `BAYLEE_SEATHOST_TOKEN`, or a first text frame that is not a `hello`
+/// closes the socket without a word. Another protocol, a name that is not 1
+/// to 64 of `A-Z a-z 0-9 . - _`, or the name of a seat agent connected
+/// already is answered `refused` with one sentence, and the socket closes.
+/// Accepted, the seat agent is sent `welcome` with the heartbeat interval
+/// and reports every profile it holds (`profiles`), on connect and after
+/// every change. The gateway then sends orders for a chair (`start_seat`,
+/// `stop_seat`), which the seat agent answers with `seat_status`, and the
+/// admin console's requests (`profile_write`, `profile_delete`, `control`,
+/// `key_write`), each answered by an `answer` naming its `request` within
+/// 10 seconds. A key is sent only to a seat agent on the gateway's unix
+/// socket (`BAYLEE_UNIX_SOCKET`). A seat agent that sends nothing for two
+/// heartbeats (60 seconds) is dropped, and its profiles leave the offer
+/// with it. Frames are JSON text frames of at most 1 MiB, with no rate
+/// bound; a frame that does not read is passed over. Several seat agents may be connected at once,
+/// each under its own name.
+/// @receive `AgentFrame`: `$Frame` application/json "What the seat agent sends: `hello` first, then `profiles`, `seat_status`, `answer` and `heartbeat`"
+/// @send `GatewayFrame`: `$Frame` application/json "What the gateway sends: `welcome` or `refused` after the `hello`, then `start_seat`, `stop_seat`, `profile_write`, `profile_delete`, `control` and `key_write`"
 pub(crate) async fn socket(
     State(state): State<Shared>,
     via_unix: Option<Extension<crate::engine::ViaUnix>>,
@@ -537,24 +608,51 @@ pub(crate) fn stop_unseated(state: &Shared) {
     }
 }
 
-/// What a room's listing says of a chair's hosted model.
-pub(crate) fn chair_json(chair: &lobby::LobbySeat) -> serde_json::Value {
-    let Some(hosted) = &chair.hosted else {
-        return serde_json::Value::Null;
-    };
+/// What a room's listing says of a chair's hosted model, or `None` for a
+/// chair with none.
+pub(crate) fn hosted_seat(chair: &lobby::LobbySeat) -> Option<HostedSeat> {
+    let hosted = chair.hosted.as_ref()?;
     let state = match (&hosted.note, &chair.delegate) {
         (Some(_), _) => "failed",
         (None, Some(delegate)) if delegate.ready => "ready",
         _ => "starting",
     };
-    serde_json::json!({
-        "profile": hosted.profile,
-        "label": hosted.label,
-        "vendor": hosted.vendor,
-        "model": hosted.model,
-        "state": state,
-        "note": hosted.note,
+    Some(HostedSeat {
+        profile: hosted.profile.clone(),
+        label: hosted.label.clone(),
+        vendor: hosted.vendor.clone(),
+        model: hosted.model.clone(),
+        state,
+        note: hosted.note.clone(),
     })
+}
+
+/// [`hosted_seat`] as JSON (`null` for none), for the console's view.
+pub(crate) fn chair_json(chair: &lobby::LobbySeat) -> serde_json::Value {
+    serde_json::to_value(hosted_seat(chair)).unwrap_or_default()
+}
+
+/// A chair's hosted model, as a room's listing says it.
+///
+/// @description The hosted model ordered for a chair.
+/// @openapi
+#[derive(serde::Serialize)]
+pub(crate) struct HostedSeat {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description What players see it called.
+    label: String,
+    /// @description The model.
+    model: String,
+    /// @description Why the order failed; `null` while it stands.
+    note: Option<String>,
+    /// @description The profile's id (`GET /lobby/llm-profiles`).
+    profile: String,
+    /// @description `starting` (ordered, not ready yet), `ready`, or
+    /// `failed` (the chair is open again, and `note` says why).
+    /// @openapi enum: [starting, ready, failed]
+    state: &'static str,
+    /// @description Who the game data goes to.
+    vendor: String,
 }
 
 // ------------------------------------------------------------------ players
@@ -586,33 +684,87 @@ async fn standing(
 
 /// `GET /lobby/llm-profiles`: the hosted profiles this account may seat,
 /// available first. A guest's list is empty.
+///
+/// @route GET /lobby/llm-profiles
+/// @scope public
+/// @summary The hosted models you may seat
+/// @operation-id `hosted_profiles`
+/// @description The language models this gateway's seat agents run that
+/// the caller's account may order for a chair: one row per profile, the
+/// available ones first, each group by label. Rows that are not available
+/// now are listed too, so a player knows when to come back. A guest's list
+/// is empty.
+/// @tag Chairs
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or the gateway's database is"
 pub(crate) async fn profiles(
     State(state): State<Shared>,
     headers: HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<HostedProfiles>, (StatusCode, Json<ErrorBody>)> {
     let session = authed_session(&state, &headers).await?;
     let standing = standing(&state, &session).await?;
     let registry = state.seathosts.lock();
-    let rows: Vec<serde_json::Value> = registry
+    let profiles: Vec<HostedProfile> = registry
         .rows()
         .iter()
         .filter(|row| llm_access::admits(standing.get(row.id).copied(), session.guest))
-        .map(Row::json)
+        .map(Row::profile)
         .collect();
-    Ok(Json(serde_json::json!({ "profiles": rows })))
+    Ok(Json(HostedProfiles { profiles }))
+}
+
+/// `GET /lobby/llm-profiles`.
+/// @openapi
+#[derive(serde::Serialize)]
+pub(crate) struct HostedProfiles {
+    /// @description The profiles the caller may seat, available first.
+    profiles: Vec<HostedProfile>,
 }
 
 /// What a host orders.
+///
+/// @description The profile to seat, and the deck it plays.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct OrderBody {
+    /// @description The profile's id (`GET /lobby/llm-profiles`).
     profile: String,
+    /// @description The deck the model plays, as text in any format the
+    /// seat bridge reads (at most 64 KiB); absent, the bridge plays its own.
+    /// A deck the host gives the chair (`POST …/seats/{seat}`) wins over
+    /// either.
     #[serde(default)]
     deck_text: Option<String>,
 }
 
 /// `POST /lobby/games/{id}/chairs/{seat}/hosted`: the room's host seats a
 /// hosted model.
+///
+/// @route POST /lobby/games/{id}/chairs/{seat}/hosted
+/// @scope public
+/// @summary Seat a hosted model at a chair
+/// @operation-id `order_hosted_seat`
+/// @description The room's host, signed in to a registered account, orders
+/// a language model this gateway's seat agents run for one open person's
+/// chair. The chair is marked for it at once (the listing's `hosted`,
+/// `starting`); the model's seat bridge then sits down as the host's
+/// delegate and says ready. A chair not ready within 60 seconds is opened
+/// again with a `note`. Asked before the session: a gateway with no seat
+/// agent connected answers `503` to anybody.
+/// @tag Chairs
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param id: String "The room's game id"
+/// @path-param seat: usize "The chair, counted from 0"
+/// @return 202: `$HostedOrdered` "Ordered; the chair is starting"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`); a guest asked, the profile is not open to the account, or the caller is not the room's host"
+/// @return 404: `$ErrorBody` "No such room (`no such game`) or chair (`no such seat`)"
+/// @return 409: `{ anyOf: [ { $ref: $ErrorBody }, { $ref: $HostedUnavailable } ] }` "The chair is not an open person's chair of a waiting room (an error alone), or the profile is not available now or no seat agent holds it (with `state` and `until_unix`)"
+/// @return 413: `$ErrorBody` "The deck text is longer than 64 KiB"
+/// @return 429: `$ErrorBody` "Too many chairs asked for by this host in a minute"
+/// @return 503: `$ErrorBody` "No seat agent is connected, the account store, Baylee Central or the gateway's database is unavailable, too many chairs are being handed over, or the seat agent went away"
 pub(crate) async fn order(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -715,13 +867,52 @@ pub(crate) async fn order(
     arm_ready_timer(&state, &order, &id, seat);
     Ok((
         StatusCode::ACCEPTED,
-        Json(serde_json::json!({
-            "seat": seat,
-            "profile": body.profile,
-            "state": "starting",
-        })),
+        Json(HostedOrdered {
+            seat,
+            profile: body.profile,
+            state: "starting",
+        }),
     )
         .into_response())
+}
+
+/// What an order is answered with (`202`).
+///
+/// @description The order taken: the chair is marked for the model, which
+/// is on its way.
+/// @openapi
+#[derive(serde::Serialize)]
+pub(crate) struct HostedOrdered {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description The profile ordered.
+    profile: String,
+    /// @description The chair, counted from 0.
+    seat: usize,
+    /// @description Always `starting`; the listing says when it is `ready`.
+    /// @openapi enum: [starting]
+    state: &'static str,
+}
+
+/// Why no seat agent could take an order (`409`).
+///
+/// @description A profile that cannot be seated now: unknown here, or not
+/// available.
+/// @openapi
+#[derive(serde::Serialize)]
+pub(crate) struct HostedUnavailable {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description The refusal, as one sentence for a person.
+    error: String,
+    /// @description Why: `unknown` (no seat agent holds the profile), or
+    /// the state it is in.
+    /// @openapi
+    /// ```yaml
+    /// enum: [unknown, busy, probing, exhausted, needs_login, failing, disabled]
+    /// ```
+    state: &'static str,
+    /// @description When that state is expected to end, in Unix seconds;
+    /// `null` when nobody says.
+    until_unix: Option<i64>,
 }
 
 /// The seat agent and profile an order for `profile` goes to, or the
@@ -825,20 +1016,37 @@ fn arm_ready_timer(state: &Shared, order: &str, game_id: &str, seat: usize) {
     });
 }
 
-fn unavailable(state: &str, until: Option<i64>) -> Response {
+fn unavailable(state: &'static str, until: Option<i64>) -> Response {
     (
         StatusCode::CONFLICT,
-        Json(serde_json::json!({
-            "error": format!("that model is not available now ({state})"),
-            "state": state,
-            "until_unix": until,
-        })),
+        Json(HostedUnavailable {
+            error: format!("that model is not available now ({state})"),
+            state,
+            until_unix: until,
+        }),
     )
         .into_response()
 }
 
 /// `DELETE /lobby/games/{id}/chairs/{seat}/hosted`: the host takes a
 /// hosted chair back before the game.
+///
+/// @route DELETE /lobby/games/{id}/chairs/{seat}/hosted
+/// @scope public
+/// @summary Take a hosted chair back
+/// @operation-id `cancel_hosted_seat`
+/// @description The room's host cancels a hosted model's chair before the
+/// game: a standing order's chair is opened again and its bridge stopped;
+/// a failed one's note is cleared.
+/// @tag Chairs
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param id: String "The room's game id"
+/// @path-param seat: usize "The chair, counted from 0"
+/// @return 204: "Taken back"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), or the caller is not the room's host"
+/// @return 404: `$ErrorBody` "No such room (`no such game`) or chair (`no such seat`), or no hosted model at that chair"
+/// @return 409: `$ErrorBody` "The game has already started"
 pub(crate) async fn cancel(
     State(state): State<Shared>,
     headers: HeaderMap,

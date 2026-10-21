@@ -194,14 +194,11 @@ impl Metrics {
     }
 
     /// The answer of `GET /admin/metrics`.
-    pub fn snapshot(&self, at: &str, process_uptime_secs: u64) -> serde_json::Value {
+    pub fn snapshot(&self, at: &str, process_uptime_secs: u64) -> MetricsSnapshot {
         let inner = self.inner.lock();
         let ring = &inner.ring;
-        let column = |pick: fn(&Sample) -> serde_json::Value| -> Vec<serde_json::Value> {
-            ring.iter().map(pick).collect()
-        };
         let now = ring.back();
-        let games: Vec<serde_json::Value> = now
+        let games: Vec<GameColumns> = now
             .map(|latest| {
                 latest
                     .games
@@ -212,51 +209,221 @@ impl Metrics {
                                 .iter()
                                 .find(|g| g.game_id == game.game_id && g.pid == game.pid)
                         }
-                        let cpu: Vec<Option<f32>> = ring
+                        let cpu: Vec<Option<f64>> = ring
                             .iter()
-                            .map(|s| same(s, game).and_then(|g| g.cpu))
+                            .map(|s| same(s, game).and_then(|g| g.cpu).map(f64::from))
                             .collect();
                         let rss: Vec<Option<u64>> =
                             ring.iter().map(|s| same(s, game).map(|g| g.rss)).collect();
-                        serde_json::json!({
-                            "game_id": game.game_id,
-                            "pid": game.pid,
-                            "cpu": cpu,
-                            "rss": rss,
-                        })
+                        GameColumns {
+                            game_id: game.game_id.clone(),
+                            pid: game.pid,
+                            cpu,
+                            rss,
+                        }
                     })
                     .collect()
             })
             .unwrap_or_default();
-        serde_json::json!({
-            "at": at,
-            "interval_secs": INTERVAL.as_secs(),
-            "keep": KEEP,
-            "platform": self.facts.platform,
-            "cores": self.facts.cores,
-            "process_uptime_secs": process_uptime_secs,
-            "host": {
-                "uptime_secs": inner.host_uptime,
-                "mem_total": inner.mem_total,
-                "disk_total": inner.disk_total,
-                "disk_path": DISK_PATH,
-                "load": inner.load,
+        MetricsSnapshot {
+            at: at.to_owned(),
+            interval_secs: INTERVAL.as_secs(),
+            keep: KEEP,
+            platform: self.facts.platform,
+            cores: self.facts.cores,
+            process_uptime_secs,
+            host: HostNow {
+                uptime_secs: inner.host_uptime,
+                mem_total: inner.mem_total,
+                disk_total: inner.disk_total,
+                disk_path: DISK_PATH,
+                load: inner.load.map(|load| load.map(f64::from)),
             },
-            "now": now,
-            "history": {
-                "at": column(|s| s.at.into()),
-                "cpu": column(|s| s.cpu.into()),
-                "load1": column(|s| s.load1.into()),
-                "mem_used": column(|s| s.mem_used.into()),
-                "disk_used": column(|s| s.disk_used.into()),
-                "net_in": column(|s| s.net_in.into()),
-                "net_out": column(|s| s.net_out.into()),
-                "sockets": column(|s| s.sockets.into()),
-                "requests": column(|s| s.requests.into()),
+            now: now.map(SampleShown::from),
+            history: MetricsHistory {
+                at: ring.iter().map(|s| s.at).collect(),
+                cpu: ring.iter().map(|s| s.cpu.map(f64::from)).collect(),
+                load1: ring.iter().map(|s| s.load1.map(f64::from)).collect(),
+                mem_used: ring.iter().map(|s| s.mem_used).collect(),
+                disk_used: ring.iter().map(|s| s.disk_used).collect(),
+                net_in: ring.iter().map(|s| s.net_in).collect(),
+                net_out: ring.iter().map(|s| s.net_out).collect(),
+                sockets: ring.iter().map(|s| s.sockets).collect(),
+                requests: ring.iter().map(|s| s.requests).collect(),
             },
-            "games": games,
-        })
+            games,
+        }
     }
+}
+
+// The answer is written with every `f32` widened to `f64`, as it always
+// was (it used to pass through `serde_json::Value`, which holds an `f32` as
+// the `f64` it widens to): the same numbers, digit for digit.
+
+/// `GET /admin/metrics`.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct MetricsSnapshot {
+    /// @description When it was read, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    at: String,
+    /// @description Seconds between two samples (5).
+    interval_secs: u64,
+    /// @description How many samples the ring keeps (720, an hour).
+    keep: usize,
+    /// @description The operating system this gateway runs on (`linux`,
+    /// `macos`, …).
+    platform: &'static str,
+    /// @description The cores this process may use.
+    cores: usize,
+    /// @description Seconds this process has served.
+    process_uptime_secs: u64,
+    /// @description The host now: what the ring does not keep.
+    host: HostNow,
+    /// @description The latest sample, or `null` before the first.
+    now: Option<SampleShown>,
+    /// @description The ring's samples, oldest first, one column per
+    /// field and one value per sample.
+    history: MetricsHistory,
+    /// @description The engine processes of the latest sample, each with
+    /// its column over the whole ring.
+    games: Vec<GameColumns>,
+}
+
+/// `GET /admin/metrics`'s host.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct HostNow {
+    /// @description Seconds since the host booted; `null` off Linux.
+    uptime_secs: Option<u64>,
+    /// @description The host's memory in bytes; `null` off Linux.
+    mem_total: Option<u64>,
+    /// @description The disk's size in bytes, as this process could fill
+    /// it.
+    disk_total: Option<u64>,
+    /// @description The filesystem whose space is reported (`/`).
+    disk_path: &'static str,
+    /// @description The 1-, 5- and 15-minute load averages; `null` off
+    /// Linux.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 3
+    /// ```
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 3
+    /// ```
+    load: Option<[f64; 3]>,
+}
+
+/// One sample, as `GET /admin/metrics` shows it.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct SampleShown {
+    /// @description When it was taken, in Unix seconds.
+    at: u64,
+    /// @description The share of all cores busy over the interval, 0 to 1;
+    /// `null` on the first sample and off Linux.
+    cpu: Option<f64>,
+    /// @description The 1-minute load average; `null` off Linux.
+    load1: Option<f64>,
+    /// @description Bytes of memory in use; `null` off Linux.
+    mem_used: Option<u64>,
+    /// @description Bytes in use on the disk.
+    disk_used: Option<u64>,
+    /// @description Bytes a second received over every interface but
+    /// loopback; `null` on the first sample and off Linux.
+    net_in: Option<f64>,
+    /// @description Bytes a second sent, likewise.
+    net_out: Option<f64>,
+    /// @description This process's open sockets; `null` off Linux.
+    sockets: Option<u32>,
+    /// @description Requests a second on the public routes (the console's
+    /// own are not counted).
+    requests: f64,
+    /// @description The engine processes on this machine.
+    games: Vec<GameShown>,
+}
+
+impl From<&Sample> for SampleShown {
+    fn from(sample: &Sample) -> Self {
+        Self {
+            at: sample.at,
+            cpu: sample.cpu.map(f64::from),
+            load1: sample.load1.map(f64::from),
+            mem_used: sample.mem_used,
+            disk_used: sample.disk_used,
+            net_in: sample.net_in,
+            net_out: sample.net_out,
+            sockets: sample.sockets,
+            requests: sample.requests,
+            games: sample
+                .games
+                .iter()
+                .map(|game| GameShown {
+                    game_id: game.game_id.clone(),
+                    pid: game.pid,
+                    cpu: game.cpu.map(f64::from),
+                    rss: game.rss,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// One engine process in a sample.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct GameShown {
+    /// @description The game it runs.
+    game_id: String,
+    /// @description Its process id.
+    pid: u32,
+    /// @description Cores used over the interval (0.5 is half a core);
+    /// `null` on its first sample.
+    cpu: Option<f64>,
+    /// @description Resident memory, in bytes.
+    rss: u64,
+}
+
+/// `GET /admin/metrics`'s columns: one value per sample, oldest first.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct MetricsHistory {
+    /// @description When each was taken, in Unix seconds.
+    at: Vec<u64>,
+    /// @description The share of all cores busy, 0 to 1.
+    cpu: Vec<Option<f64>>,
+    /// @description The 1-minute load average.
+    load1: Vec<Option<f64>>,
+    /// @description Bytes of memory in use.
+    mem_used: Vec<Option<u64>>,
+    /// @description Bytes in use on the disk.
+    disk_used: Vec<Option<u64>>,
+    /// @description Bytes a second received.
+    net_in: Vec<Option<f64>>,
+    /// @description Bytes a second sent.
+    net_out: Vec<Option<f64>>,
+    /// @description This process's open sockets.
+    sockets: Vec<Option<u32>>,
+    /// @description Requests a second on the public routes.
+    requests: Vec<f64>,
+}
+
+/// One engine process of the latest sample, over the whole ring.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct GameColumns {
+    /// @description The game it runs.
+    game_id: String,
+    /// @description Its process id.
+    pid: u32,
+    /// @description Cores used, per sample; `null` where a sample did not
+    /// have it.
+    cpu: Vec<Option<f64>>,
+    /// @description Resident memory in bytes, per sample; `null` where a
+    /// sample did not have it.
+    rss: Vec<Option<u64>>,
 }
 
 /// A counter as a float: a 53-bit mantissa holds any rate a server sees.
@@ -626,7 +793,7 @@ mod tests {
         // 1000 out, 250 ticks of one process, 30 requests.
         let t1 = t0 + Duration::from_secs(10);
         m.tick(reading(550, 1900, 6000, 3000, 750), 1_700_000_010, t1);
-        let snap = m.snapshot("now", 10);
+        let snap = serde_json::to_value(m.snapshot("now", 10)).unwrap();
         let now = &snap["now"];
         assert!((now["cpu"].as_f64().unwrap() - 0.5).abs() < 1e-6, "{now}");
         assert!((now["net_in"].as_f64().unwrap() - 500.0).abs() < 1e-9);
@@ -644,7 +811,7 @@ mod tests {
         // Counters that went backwards (a reused pid, a reset interface).
         let t2 = t1 + Duration::from_secs(10);
         m.tick(reading(100, 2900, 10, 10, 1), 1_700_000_020, t2);
-        let snap = m.snapshot("now", 20);
+        let snap = serde_json::to_value(m.snapshot("now", 20)).unwrap();
         assert_eq!(snap["now"]["net_in"], 0.0);
         assert_eq!(snap["now"]["games"][0]["cpu"], 0.0);
         assert_eq!(snap["now"]["cpu"], 0.0);
@@ -666,7 +833,7 @@ mod tests {
                 t0 + Duration::from_secs(i * INTERVAL.as_secs()),
             );
         }
-        let snap = m.snapshot("now", 0);
+        let snap = serde_json::to_value(m.snapshot("now", 0)).unwrap();
         let at = snap["history"]["at"].as_array().unwrap();
         assert_eq!(at.len(), KEEP);
         assert_eq!(at[0], 5);

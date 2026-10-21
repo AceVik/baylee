@@ -50,6 +50,49 @@ const FRAME_BURST: u32 = 40;
 /// larger ends the connection in the transport.
 const TRANSPORT_LIMIT: usize = 64 * 1024;
 
+/// `GET /social/ws`: one chat device's socket.
+///
+/// @channel social /social/ws
+/// @scope public
+/// @summary Friends, presence and chat
+/// @description One chat device's socket: friends and their presence,
+/// friend requests, blocks, groups, table invites, the lobby chat and
+/// end-to-end sealed messages. Buy a ticket with the session
+/// (`POST /ws-ticket` with `{"socket":"social"}`) and open the socket with
+/// it, the gateway's protocol and the chat protocol, in that order
+/// (`baylee_protocol::social::social_socket_path` builds the address). The
+/// upgrade is refused as an HTTP answer, not a frame: with `403` and
+/// `this gateway has no chat` on a gateway without chat
+/// (`BAYLEE_SOCIAL=off`), and with `401` and `ticket expired or used` for a
+/// ticket that is unknown, spent, expired or for another socket, or whose
+/// session has since signed out, lapsed, been banned or must accept new
+/// terms. A socket that states
+/// another protocol or chat version is sent one `refused` (`why` is
+/// `protocol`, `message` names both versions) and closed. Every frame is one
+/// JSON object in a text frame. The client's first frame is `hello`, within
+/// 30 seconds, naming one of the account's registered devices; nothing else
+/// is accepted before it, and a device that is not the account's is
+/// answered `refused` (`why` is `device`) before the socket closes. The
+/// gateway then sends `welcome`, a whole `snapshot`, the last 50 lobby chat
+/// messages (`global`) it holds and up to 256 pending deliveries (`msg`);
+/// more deliveries follow as `ack`s come. A client frame over 48 KiB closes
+/// the socket with 1008 (over 64 KiB the transport drops the connection),
+/// and so do more than 40 frames at once or more than 10 a second after
+/// that; a binary frame closes it with 1003. It also closes with 1008 when
+/// the first frame is not a `hello`, when a frame is not one of the client's
+/// frames, and when the session is signed out, lapses or is banned (checked
+/// every 5 seconds); with 1013 when the database cannot be read; with 4001
+/// when another socket says `hello` for the same device; with 4002 when a
+/// guest's device is replaced; with 4003 when the device is removed; and
+/// with 1000 when the account is deleted. The gateway pings every 20
+/// seconds and drops a socket that has said nothing for 50. An open social
+/// socket counts its account as online and keeps its waiting-room chairs,
+/// as a lobby socket does.
+/// @ws-query ticket: String required "A single-use ticket bought for the social socket with `POST /ws-ticket`"
+/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is refused"
+/// @ws-query social: u32 required "The chat protocol the client speaks (`SOCIAL_VERSION`, as `GET /info` answers it in `social.version`); another, or none, is refused"
+/// @receive Up: `$Up` application/json "What the client sends: `hello` first and once, then `send`, `global`, `ack` and `presence`"
+/// @send Down: `$Down` application/json "What the gateway sends: `welcome` and `snapshot` after `hello`, deliveries (`msg`), lobby chat (`global`), the answer to every send (`sent` or `refused`), and what changed (`presence`, `friend`, `group`, `members`, `keys_changed`, `invite`, `invite_gone`, `notice`)"
 pub(crate) async fn social_ws(
     State(state): State<Shared>,
     Query(params): Query<SocialParams>,

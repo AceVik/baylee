@@ -80,16 +80,29 @@ use sql::{
 };
 
 /// One search result, for the deck builder.
+///
+/// @description One printing that matched a catalog search.
+/// @openapi
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct SearchHit {
+    /// @description The printing's Scryfall id.
+    /// @internal
     /// Printing id.
     pub scryfall_id: String,
+    /// @description The printing's language code (`en`, `de`, …).
+    /// @internal
     /// Language of the printing.
     pub lang: String,
+    /// @description The card's name in that language.
+    /// @internal
     /// Name in that language.
     pub name: String,
+    /// @description The card's English name.
+    /// @internal
     /// English name.
     pub english_name: String,
+    /// @description The type line in that language.
+    /// @internal
     /// Type line in that language.
     pub type_line: String,
 }
@@ -114,36 +127,83 @@ pub struct PrintingRules {
 /// two different things to own. The deck row that comes out of a pick is
 /// `set` + `collector_number` + `lang` + `finish`, and `scryfall_id` pins it
 /// exactly when the player wants no ambiguity at all.
+///
+/// @description One printing of a card, as a picker shows it: the piece of
+/// cardboard, not the card. A deck line picks it by `set`,
+/// `collector_number`, `lang` and a finish, or exactly by `scryfall_id`.
+/// Without a catalog the one printing this build references stands in, with
+/// only `scryfall_id`, `oracle_id`, `lang`, `finishes`, `name` and `layout`
+/// filled and every other text empty.
+/// @openapi
+/// @openapi rename `CatalogPrinting`
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Printing {
+    /// @description The printing's Scryfall id: a deck line's `scryfall=`
+    /// form, and its picture's key.
+    /// @internal
     /// Printing id — the deck row's `scryfall=` form, and the art key.
     pub scryfall_id: String,
+    /// @description The card's Scryfall oracle id, shared with every other
+    /// printing of it.
+    /// @internal
     /// Rules identity, shared with every other printing of this card.
     pub oracle_id: String,
+    /// @description The printing's language code (`en`, `de`, …).
+    /// @internal
     /// Language of this printing.
     pub lang: String,
+    /// @description The set code, as a deck line writes it.
+    /// @internal
     /// Set code, as a deck row writes it.
     pub set: String,
+    /// @description The set's full name.
+    /// @internal
     /// Full set name.
     pub set_name: String,
+    /// @description The collector number within the set.
+    /// @internal
     /// Collector number within the set.
     pub collector_number: String,
+    /// @description Its rarity, as Scryfall names it (`common`, `uncommon`,
+    /// `rare`, `mythic`, …).
+    /// @internal
     /// Rarity.
     pub rarity: String,
+    /// @description When it was released, `YYYY-MM-DD`; empty when that is
+    /// not known.
+    /// @internal
     /// Release date, ISO-8601.
     pub released_at: String,
+    /// @description Who illustrated it.
+    /// @internal
     /// Illustrator.
     pub artist: String,
+    /// @description The finishes it was sold in: `nonfoil`, `foil`, `etched`.
+    /// @internal
     /// Finishes this printing was sold in: `nonfoil`, `foil`, `etched`.
     pub finishes: Vec<String>,
+    /// @description Its frame treatments, as Scryfall names them
+    /// (`showcase`, `extendedart`, …).
+    /// @internal
     /// Frame treatments (`showcase`, `extendedart`, …).
     pub frame_effects: Vec<String>,
+    /// @description Its border colour, as Scryfall names it (`black`,
+    /// `borderless`, …).
+    /// @internal
     /// Border color, `borderless` included.
     pub border_color: String,
+    /// @description Whether it is a promo.
+    /// @internal
     /// Whether it is a promo.
     pub promo: bool,
+    /// @description The front face's name in the printing's language.
+    /// @internal
     /// Front-face name in this printing's language.
     pub name: String,
+    /// @description Its Scryfall layout (`normal`, `transform`,
+    /// `modal_dfc`, …), which tells a card with a back picture from one with
+    /// two faces on its front; may be empty.
+    /// @internal
     /// Printed layout, used to distinguish true back images from split faces.
     #[serde(default)]
     pub layout: String,

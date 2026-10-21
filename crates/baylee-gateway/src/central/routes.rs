@@ -106,6 +106,29 @@ async fn redeem(
     }
 }
 
+/// `POST /auth/central/migrate`: a legacy account's last password proof,
+/// answered with its reserved Central identity and its source snapshot.
+///
+/// @route POST /auth/central/migrate
+/// @scope public
+/// @operation-id `central_migrate`
+/// @summary Begin moving a legacy account to Baylee Central
+/// @description The native client's last password proof for a legacy
+/// account, on the official migration gateway only. The gateway checks the
+/// password, a ban and a forced reset, reserves the account's immutable
+/// Central identity, and answers it with an enrollment ticket and the
+/// account's source snapshot. Every refusal is a bare status.
+/// @tag Central
+/// @security none
+/// @body `$CentralCredentials`
+/// @return 200: `$CentralEnrollment` "The reserved identity, its enrollment ticket and the source snapshot"
+/// @return 401: "A wrong username or password, an account linked to Central already, a guest, a password or name that changed meanwhile, or Central refused"
+/// @return 403: "This gateway is not the migration gateway, or the account is banned or must choose a new password first"
+/// @return 409: "The snapshot could not be prepared (it is too large), or Central holds a conflicting enrollment"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 429: "Too many sign-in attempts at this account, or Central is busy"
+/// @return 500: "The password check failed"
+/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn migrate(
     State(state): State<Shared>,
     Json(credentials): Json<Credentials>,
@@ -139,6 +162,27 @@ async fn migrate(
     }
 }
 
+/// `POST /auth/central/export`: the source snapshot again, for a migration
+/// that was interrupted.
+///
+/// @route POST /auth/central/export
+/// @scope public
+/// @operation-id `central_export`
+/// @summary Read a migrating account's source snapshot again
+/// @description Resumes an interrupted migration on the official migration
+/// gateway: an `export` ticket from Baylee Central buys the legacy
+/// account's source snapshot as it stands now. Every refusal is a bare
+/// status.
+/// @tag Central
+/// @security none
+/// @body `$CentralCapability`
+/// @return 200: `$CentralSnapshot` "The account's source snapshot"
+/// @return 401: "The ticket is not good, names no legacy account, or the account is a guest or has no username"
+/// @return 403: "This gateway is not the migration gateway, or the account is banned or must choose a new password first"
+/// @return 409: "The snapshot could not be read, or Central answered a conflict"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 429: "Central is busy"
+/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn export(
     State(state): State<Shared>,
     Json(capability): Json<Capability>,
@@ -151,6 +195,31 @@ async fn export(
     Ok(Json(snapshot(&state, &account, false).await?))
 }
 
+/// `POST /auth/central/link`: the cutover, once the client restored the
+/// snapshot at Central.
+///
+/// @route POST /auth/central/link
+/// @scope public
+/// @operation-id `central_link`
+/// @summary Link a migrated account to Baylee Central
+/// @description Finishes a migration on the official migration gateway: a
+/// `link` ticket and the digest of the snapshot the client restored fix the
+/// legacy account's link to its Central identity, retire its password here
+/// and end its old sessions. Answers `428` when the gateway holds no source
+/// proof for the account yet: then, and only then, `POST
+/// /auth/central/prepare` takes one fresh password proof. Every other
+/// refusal is a bare status.
+/// @tag Central
+/// @security none
+/// @body `$CentralLink`
+/// @return 200: `$CentralDone` "Linked; the legacy account's sessions are ended"
+/// @return 401: "The ticket is not good or names no legacy account, or the account is a guest"
+/// @return 403: "This gateway is not the migration gateway, or the account is banned or must choose a new password first"
+/// @return 409: "The digest is not the snapshot's, the source changed, or Central answered a conflict"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 428: `$CentralFreshProofRequired` "No source proof is held for this account: send one with `POST /auth/central/prepare`"
+/// @return 429: "Central is busy"
+/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn link(
     State(state): State<Shared>,
     Json(link): Json<Link>,
@@ -204,6 +273,30 @@ async fn link(
     Ok(Json(Done {}).into_response())
 }
 
+/// `POST /auth/central/prepare`: one fresh password proof for a migration
+/// from before the source proof was kept, after a `428` from
+/// `POST /auth/central/link`.
+///
+/// @route POST /auth/central/prepare
+/// @scope public
+/// @operation-id `central_prepare`
+/// @summary Prove a migrating account's password again
+/// @description After `POST /auth/central/link` answered `428`: a `link`
+/// ticket and the legacy account's password establish the source proof the
+/// gateway lacks, and the answer is the account's source snapshot. Only an
+/// account with no source proof yet is taken. Every refusal is a bare
+/// status.
+/// @tag Central
+/// @security none
+/// @body `$CentralPreparation`
+/// @return 200: `$CentralSnapshot` "The account's source snapshot"
+/// @return 401: "The ticket is not good or is another account's, a wrong username or password, an account linked already, a guest, or a password or name that changed meanwhile"
+/// @return 403: "This gateway is not the migration gateway, or the account is banned or must choose a new password first"
+/// @return 409: "A source proof is held already, the snapshot could not be prepared, or Central answered a conflict"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 429: "Too many sign-in attempts at this account, or Central is busy"
+/// @return 500: "The password check failed"
+/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn prepare(
     State(state): State<Shared>,
     Json(preparation): Json<Preparation>,
@@ -245,6 +338,28 @@ async fn prepare(
     Ok(Json(snapshot(&state, &account, true).await?))
 }
 
+/// `POST /auth/central/login`: a Baylee Central account admitted here.
+///
+/// @route POST /auth/central/login
+/// @scope public
+/// @operation-id `central_login`
+/// @summary Sign in with Baylee Central
+/// @description Trades an `admit` ticket from Baylee Central for a session
+/// at this gateway, for the account Central names (a gateway that is not
+/// the migration gateway makes a local projection of it the first time,
+/// only while its registration is open). Answered as a sign-in is, and the
+/// session's every request is checked with Central. Every refusal is a bare
+/// status.
+/// @tag Central
+/// @security none
+/// @body `$CentralCapability`
+/// @return 200: `$CentralSession` "The session"
+/// @return 401: "The ticket is not good, the account is not linked here, it is a guest, or Central no longer admits it"
+/// @return 403: "The account is banned or must choose a new password first, or Central refused"
+/// @return 409: "Central answered a conflict"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 429: "Central is busy"
+/// @return 503: "No Baylee Central is configured, the database or Central is unavailable, or the account is new here and this gateway's registration is not open"
 async fn login(
     State(state): State<Shared>,
     Json(capability): Json<Capability>,
@@ -252,6 +367,26 @@ async fn login(
     login_for(&state, capability, TicketPurpose::Admit).await
 }
 
+/// `POST /auth/central/admin`: a gateway admin, by Baylee Central.
+///
+/// @route POST /auth/central/admin
+/// @scope public
+/// @operation-id `central_admin_login`
+/// @summary Sign in to the admin console with Baylee Central
+/// @description Trades an `admin` ticket from Baylee Central for a bearer
+/// that works on the admin listener only, where each request checks the
+/// Central session and the account's admin membership. Not on the migration
+/// gateway. Every refusal is a bare status.
+/// @tag Central
+/// @security none
+/// @body `$CentralCapability`
+/// @return 200: `$CentralAdminSession` "The admin bearer"
+/// @return 401: "The ticket is not good, or the account is a guest"
+/// @return 403: "This is the migration gateway, the account is banned or must choose a new password first, or Central refused"
+/// @return 409: "Central answered a conflict"
+/// @return 413: String text/plain "The body is over 8 KiB"
+/// @return 429: "Central is busy"
+/// @return 503: "No Baylee Central is configured, or the database or Central is unavailable"
 async fn admin_login(
     State(state): State<Shared>,
     Json(capability): Json<Capability>,
@@ -326,6 +461,177 @@ async fn login_for(
     Ok(Json(answer))
 }
 
+/// The Central routes, outside the migration barrier (each takes it itself)
+/// and with a body limit of their own.
+///
+/// The bodies and answers are `baylee_account::migration`'s and
+/// `central_api`'s types, which the API document is not read from, so their
+/// schemas are spelled here. Each `Token` and digest is 32 bytes as a JSON
+/// array of numbers (`[u8; 32]`), an identity's account 16.
+///
+/// @openapi document
+/// ```yaml
+/// components:
+///   schemas:
+///     CentralBytes32:
+///       type: array
+///       description: '32 bytes, as a JSON array of 32 numbers from 0 to 255.'
+///       items: { type: integer, minimum: 0, maximum: 255 }
+///       minItems: 32
+///       maxItems: 32
+///     CentralIdentity:
+///       type: object
+///       description: 'An account''s immutable identity at Baylee Central.'
+///       properties:
+///         account:
+///           type: array
+///           description: 'The Central account''s UUIDv7: its 16 bytes, as a JSON array of numbers from 0 to 255.'
+///           items: { type: integer, minimum: 0, maximum: 255 }
+///           minItems: 16
+///           maxItems: 16
+///         epoch:
+///           type: integer
+///           format: int64
+///           minimum: 0
+///           description: 'The epoch of the account''s encrypted vault at Central.'
+///       required: [account, epoch]
+///       additionalProperties: false
+///     CentralCredentials:
+///       type: object
+///       description: 'A legacy account''s last password proof; never kept.'
+///       properties:
+///         username:
+///           type: string
+///           description: 'The legacy account''s username.'
+///         password:
+///           type: string
+///           description: 'Its password.'
+///       required: [username, password]
+///       additionalProperties: false
+///     CentralCapability:
+///       type: object
+///       description: 'A one-use ticket Baylee Central issued for this gateway and this route''s purpose, good for 30 seconds.'
+///       properties:
+///         ticket:
+///           $ref: '#/components/schemas/CentralBytes32'
+///       required: [ticket]
+///       additionalProperties: false
+///     CentralLink:
+///       type: object
+///       description: 'What links a migrated account.'
+///       properties:
+///         ticket:
+///           $ref: '#/components/schemas/CentralBytes32'
+///           description: 'A one-use `link` ticket from Baylee Central.'
+///         digest:
+///           $ref: '#/components/schemas/CentralBytes32'
+///           description: 'The digest of the source snapshot the client restored, as the snapshot named it.'
+///       required: [ticket, digest]
+///       additionalProperties: false
+///     CentralPreparation:
+///       type: object
+///       description: 'A fresh source proof for a migration, bound to a `link` ticket.'
+///       properties:
+///         ticket:
+///           $ref: '#/components/schemas/CentralBytes32'
+///           description: 'A one-use `link` ticket from Baylee Central.'
+///         credentials:
+///           $ref: '#/components/schemas/CentralCredentials'
+///       required: [ticket, credentials]
+///       additionalProperties: false
+///     CentralSnapshot:
+///       type: object
+///       description: 'A legacy account''s personal content as this gateway holds it; the gateway keeps its own copy.'
+///       properties:
+///         digest:
+///           $ref: '#/components/schemas/CentralBytes32'
+///           description: 'The digest the cutover is bound to; `POST /auth/central/link` names it back.'
+///         account_id:
+///           type: string
+///           description: 'The legacy account''s immutable id here.'
+///         username:
+///           type: string
+///           description: 'Its username.'
+///         preferences:
+///           type: object
+///           description: 'Its whole preferences document, fields this client does not know included.'
+///         decks:
+///           type: array
+///           description: 'Its decks, each with its whole version history (`history`).'
+///           items: { type: object }
+///       required: [digest, account_id, username, preferences, decks]
+///       additionalProperties: false
+///     CentralEnrollment:
+///       type: object
+///       description: 'The start of a migration.'
+///       properties:
+///         identity:
+///           $ref: '#/components/schemas/CentralIdentity'
+///         ticket:
+///           $ref: '#/components/schemas/CentralBytes32'
+///           description: 'The enrollment ticket for Baylee Central, which cannot replace a credential that exists already.'
+///         snapshot:
+///           $ref: '#/components/schemas/CentralSnapshot'
+///       required: [identity, ticket, snapshot]
+///       additionalProperties: false
+///     CentralDone:
+///       type: object
+///       description: 'Done; nothing else is said.'
+///       additionalProperties: false
+///     CentralFreshProofRequired:
+///       type: object
+///       description: 'The one answer that lets a client send a fresh password proof (`POST /auth/central/prepare`).'
+///       properties:
+///         fresh_proof_required:
+///           type: boolean
+///           const: true
+///           description: 'Always `true`.'
+///       required: [fresh_proof_required]
+///       additionalProperties: false
+///     CentralAdminSession:
+///       type: object
+///       description: 'A bearer for the admin listener.'
+///       properties:
+///         token:
+///           type: string
+///           description: 'The bearer: 64 lowercase hex characters.'
+///         expires_at:
+///           type: integer
+///           format: int64
+///           description: 'When it ends, Unix seconds: the end of its Central lease.'
+///         username:
+///           type: [string, 'null']
+///           description: 'The account''s username here, `null` for an account only Central knows.'
+///         display_name:
+///           type: string
+///           description: 'The name other players see.'
+///       required: [token, expires_at, username, display_name]
+///     CentralSession:
+///       type: object
+///       description: 'A session at this gateway, answered as a sign-in is.'
+///       properties:
+///         token:
+///           type: string
+///           description: 'The session''s bearer token: 64 lowercase hex characters.'
+///         expires_at:
+///           type: integer
+///           format: int64
+///           description: 'When it ends, Unix seconds: the end of its Central lease.'
+///         username:
+///           type: [string, 'null']
+///           description: 'The account''s username here, `null` for an account only Central knows.'
+///         display_name:
+///           type: string
+///           description: 'The name other players see.'
+///         terms_stale:
+///           type: boolean
+///           description: 'Whether the account has yet to accept this gateway''s terms in force (at Central); only on a gateway with terms.'
+///         central_terms_stale:
+///           type: boolean
+///           const: true
+///           description: 'Only there when the account has yet to accept Baylee Central''s own terms, which come first.'
+///       required: [token, expires_at, username, display_name]
+/// ```
 pub(crate) fn router() -> Router<Shared> {
     Router::new()
         .route("/auth/central/migrate", post(migrate))

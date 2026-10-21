@@ -49,20 +49,44 @@ const fn is_zero(n: &u32) -> bool {
 }
 
 /// A commander and the printing to picture it by.
+///
+/// @description A card a deck is pictured by (one of its commanders, or the
+/// signature card of a deck without one) and the printing to picture it
+/// with.
+/// @openapi
+/// @openapi rename `DeckLeader`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Leader {
+    /// @description The card's English name, as the deck stores it.
+    /// @internal
     /// Its English name, as the deck stores it.
     pub name: String,
+    /// @description The Scryfall id of the printing the deck's row names,
+    /// else of the one this build references; empty when the card is
+    /// unknown to this build.
+    /// @internal
     /// The printing the deck's row names, else the one the registry
     /// references. Empty when the reader does not know the card.
     pub scryfall_id: String,
+    /// @description The language code of that printing (`en`, `de`, …).
+    /// @internal
     /// The language of that printing.
     pub lang: String,
+    /// @description The finish the row names; `Normal` when it names none.
+    /// @internal
     /// The finish the row names; non-foil when it names none.
     pub finish: Finish,
+    /// @description Whether the card has a second picture (a back face) to
+    /// turn to; left out when it has none.
+    /// @internal
     /// Whether that card has a second picture to turn to.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub has_back_image: bool,
+    /// @description Who painted that printing's art, from the gateway's
+    /// catalog; left out when nobody knows (no catalog, or one that lacks
+    /// the printing or is down). Show the printing's art only with its
+    /// artist credited: no `artist` means no art.
+    /// @internal
     /// Who painted that printing's art, from the gateway's catalog (WG-3).
     /// Empty — and absent on the wire — when nobody knows: a gateway without
     /// a catalog, a printing the catalog lacks, the offline lobby. A client

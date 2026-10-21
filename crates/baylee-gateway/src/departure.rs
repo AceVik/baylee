@@ -74,6 +74,20 @@ pub(crate) fn leave_waiting_rooms(state: &Shared, account_id: &str) -> usize {
 /// the house takes the chair now if another player is at the table, and the
 /// game ends if none is. A crash says none of this and is waited for
 /// instead. Answers `204` whether or not there was anything to leave.
+///
+/// @route POST /lobby/depart
+/// @scope public
+/// @summary Leave every table on purpose
+/// @description What a client sends when its player leaves on purpose (never
+/// when the application merely closes). The caller stands up from every
+/// waiting room at once, and every running game it sits in is told the
+/// player left: the house takes the chair if another player is at the
+/// table, and the game ends if none is. `204` whether or not there was
+/// anything to leave.
+/// @tag Lobby
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @return 204: "Left, or there was nothing to leave"
 pub(crate) async fn depart(
     State(state): State<Shared>,
     headers: HeaderMap,

@@ -54,17 +54,6 @@ impl Block {
         self.until.is_none_or(|until| until > now)
     }
 
-    /// The block as a player is told it: `{"index", "name", "reason",
-    /// "until"}`, `until` an RFC 3339 moment in UTC or `null`.
-    pub(crate) fn json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "index": self.index,
-            "name": self.name,
-            "reason": self.reason,
-            "until": self.until.map(iso),
-        })
-    }
-
     /// What a player is told when a deck is refused for this card.
     pub(crate) fn sentence(&self, deck: &str) -> String {
         let until = self

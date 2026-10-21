@@ -24,6 +24,11 @@ pub enum FormatId {
 }
 
 /// Physical or cosmetic finish of a printing (presentation-only).
+///
+/// @description The finish of a printing, which only changes how it is
+/// drawn: `Normal` (non-foil), `Foil`, `Etched` (etched foil), or the
+/// cosmetic treatments `Holographic`, `Glitter` and `Galaxy`.
+/// @openapi
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum Finish {
     /// Non-foil.
@@ -143,14 +148,32 @@ impl HouseRules {
 }
 
 /// An atomic host edit. Absent password preserves the existing lock.
+///
+/// @description A host's edit of a waiting room, made whole or not at all:
+/// its name, chairs, password and shared rules.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoomUpdate {
+    /// @description The room's public name: at most 60 characters, no
+    /// control character; empty for none (a client then shows the host's
+    /// name).
+    /// @internal
     /// Public room name.
     pub name: String,
+    /// @description How many chairs the table has, two through eight; a
+    /// chair someone sits in cannot be removed.
+    /// @openapi minimum: 2
+    /// @openapi maximum: 8
+    /// @internal
     /// Number of chairs, two through eight.
     pub chairs: usize,
+    /// @description A new password, at most 128 bytes: empty removes it,
+    /// `null` or absent keeps the one the room has.
+    /// @internal
     /// New password; empty removes it, absent preserves it.
     pub password: Option<String>,
+    /// @description The shared rules and each seat's starting position.
+    /// @internal
     /// Shared rules and per-seat starting position.
     pub setup: RoomSetup,
 }
@@ -174,6 +197,12 @@ pub struct RoomUpdate {
 /// default, so a room that never chose one serializes as it always did. A
 /// word this build does not know reads as [`TableFormat::Host`]: a newer
 /// client's table is still a table here.
+///
+/// @description Which decks a room is for: `host` (the host's deck names
+/// the table's format, and a player whose deck is of another format is
+/// warned) or `mixed` (decks of every format side by side, nobody warned).
+/// It changes no rule. A word the gateway does not know reads as `host`.
+/// @openapi
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TableFormat {
@@ -196,15 +225,34 @@ impl TableFormat {
 }
 
 /// Shared room setup, resolved into a game preset before starting.
+///
+/// @description A room's shared rules and each seat's own starting
+/// position. Every field may be left out of a request: starting life 40,
+/// one free mulligan, no seat of its own, the `host` format.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoomSetup {
+    /// @description The life every player starts with, 1 to 999, unless
+    /// their seat says otherwise.
+    /// @openapi minimum: 1
+    /// @openapi maximum: 999
+    /// @internal
     /// Global starting life; seats may override it.
     pub starting_life: i32,
+    /// @description How many opening redraws cost no cards, 0 to 7.
+    /// @openapi maximum: 7
+    /// @internal
     /// Number of free opening redraws.
     pub free_mulligans: u8,
+    /// @description Each seat's own starting life and permanents, by seat
+    /// number from 0; at most one per chair, and a seat with no entry
+    /// starts as the shared rules say.
+    /// @internal
     /// Per-seat life and extra permanents, indexed by seat.
     pub seats: Vec<RoomSeatSetup>,
+    /// @description Which decks the room is for; left out when `host`.
+    /// @internal
     /// Which decks the room is for. Absent on the wire is
     /// [`TableFormat::Host`], as every room was before.
     #[serde(skip_serializing_if = "TableFormat::is_host")]
@@ -223,22 +271,53 @@ impl Default for RoomSetup {
 }
 
 /// A seat's custom starting position. Card names are resolved during setup.
+///
+/// @description One seat's own starting position. Every field may be left
+/// out of a request.
+/// @openapi
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoomSeatSetup {
+    /// @description The life this seat starts with, 1 to 999, in place of
+    /// the shared starting life; `null` for the shared one.
+    /// @openapi minimum: 1
+    /// @openapi maximum: 999
+    /// @internal
     /// Overrides the shared starting life.
     pub life: Option<i32>,
+    /// @description Permanents this seat starts with on the battlefield,
+    /// apart from its deck: one line per copy, a card name with the deck
+    /// row's printing, set, collector number, language and finish suffixes
+    /// but no count. At most 32, each at most 500 bytes without `;` or a
+    /// line break; every line must name a card this build has.
+    /// @internal
     /// Extra permanents, one name per copy, separate from the deck.
     pub permanents: Vec<String>,
+    /// @description The counters each of those permanents starts with, by
+    /// its position in `permanents`; at most one list per permanent, each
+    /// of at most 32 entries.
+    /// @internal
     /// Counter lists indexed by the permanent's position above.
     pub counters: Vec<Vec<StartingCounter>>,
 }
 
 /// One counter type and its initial amount.
+///
+/// @description One kind of counter a starting permanent carries, and how
+/// many.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct StartingCounter {
+    /// @description The kind, at most 40 bytes: a counter's name
+    /// (`loyalty`, `charge`, `shield`, …), a power/toughness pair with both
+    /// signs alike (`+1/+1`, `-2/-2`), or `custom:` and a number.
+    /// @internal
     /// Canonical engine name, a signed P/T pair, or `custom:ID`.
     pub kind: String,
+    /// @description How many are placed before the game begins, 1 to 999.
+    /// @openapi minimum: 1
+    /// @openapi maximum: 999
+    /// @internal
     /// Number of counters placed before the game begins.
     pub amount: u16,
 }

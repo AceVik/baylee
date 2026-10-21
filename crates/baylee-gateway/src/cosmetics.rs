@@ -413,11 +413,17 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// The sleeve and playmat one seat is playing with.
+/// @openapi
 #[derive(Clone, Default, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SeatCosmetics {
+    /// @description The image id of the seat's sleeve (`GET /images/{id}`),
+    /// absent for the generated card back.
+    /// @internal
     /// Image id of the deck's sleeve, if it set one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sleeve: Option<String>,
+    /// @description The image id of the seat's playmat, absent for none.
+    /// @internal
     /// Image id of the deck's playmat, if it set one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub playmat: Option<String>,
@@ -448,6 +454,29 @@ pub type TableCosmetics = HashMap<usize, SeatCosmetics>;
 /// that filling the disk takes an account first, and a registered one (#269):
 /// a guest is an account anybody gets by asking, and a picture from nobody
 /// in particular is one this gateway would be the only one answerable for.
+///
+/// @route POST /images
+/// @scope public
+/// @summary Upload a sleeve or playmat
+/// @description Stores one picture, sent as the raw body, for the decks of
+/// the account that uploaded it. It is centre-cropped to its kind's shape
+/// and stored as a JPEG at one size (a sleeve 488×680, a playmat 1024×512);
+/// the answer's `id`, a hash of what is stored, is what a deck's `sleeve`
+/// or `playmat` names. A registered account only, never a guest.
+/// @tag Decks
+/// @operation-id `upload_image`
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @no-infer
+/// @query-param kind: String required enum=[sleeve, playmat] "What the picture is for"
+/// @body { type: string, format: binary } image/png image/jpeg
+/// @return 200: `$ImageUploaded`
+/// @return 400: `$ErrorBody` "The body is not a PNG or a JPEG"
+/// @return 403: `$ErrorBody` "A guest (`guests cannot upload images`), a banned account (`ban`), or one that must accept the terms in force first (`terms_required`)"
+/// @return 404: `$ErrorBody` "No `kind`, or one that is neither `sleeve` nor `playmat`"
+/// @return 413: String text/plain "A body over 8 mebibytes (axum's rejection)"
+/// @return 500: `$ErrorBody` "The picture could not be stored"
+/// @return 503: `$ErrorBody` "Uploads are off on this gateway (`BAYLEE_DECK_IMAGE_PATH=off`), or its account store or Baylee Central is unavailable"
 pub async fn upload(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -494,12 +523,27 @@ pub async fn upload(
         // through one path and files the answer under what it asked for; a
         // reply that only said `id` would make the caller remember which
         // request this was.
-        Ok(Ok(())) => {
-            axum::Json(serde_json::json!({ "id": id, "kind": kind.as_str() })).into_response()
-        }
+        Ok(Ok(())) => axum::Json(ImageUploaded {
+            id,
+            kind: kind.as_str(),
+        })
+        .into_response(),
         Ok(Err(rejected)) => refused(rejected),
         Err(_) => err(StatusCode::INTERNAL_SERVER_ERROR, "upload failed").into_response(),
     }
+}
+
+/// `POST /images`.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct ImageUploaded {
+    /// @description The picture's id: 64 lower-case hex digits, the same for
+    /// the same picture however often it is uploaded.
+    /// @openapi pattern: ^[0-9a-f]{64}$
+    id: String,
+    /// @description The kind it was stored as, as asked.
+    /// @openapi enum: [sleeve, playmat]
+    kind: &'static str,
 }
 
 /// A refused upload, as the wire says it.
@@ -527,6 +571,21 @@ fn refused(rejected: Rejected) -> Response {
 /// `serve` wanted a filename. The type is named in a header, which is the
 /// only place a type binds anything; the extension on disk is the store's
 /// business and stays there.
+///
+/// @route GET /images/{id}
+/// @scope public
+/// @summary One stored sleeve or playmat
+/// @description The stored JPEG of an uploaded sleeve or playmat. Anyone
+/// may fetch one: every seat at a table is told its decks' picture ids
+/// (`GET /games/{id}/cosmetics`), and an id is a content hash, so the
+/// image never changes.
+/// @tag Decks
+/// @operation-id `get_image`
+/// @security none
+/// @path-param id: String pattern=^[0-9a-f]{64}$ "The picture's id, as `POST /images` answered it"
+/// @return 200: { type: string, format: binary } image/jpeg
+/// @return-header 200 Cache-Control: String "`public, max-age=31536000, immutable`"
+/// @return 404: `$ErrorBody` "No such image"
 pub async fn serve(State(state): State<Shared>, UrlPath(id): UrlPath<String>) -> Response {
     if !well_formed(&id) {
         return err(StatusCode::NOT_FOUND, "no such image").into_response();

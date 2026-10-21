@@ -11,7 +11,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json, Response};
 use axum::routing::get;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::admin::{Actor, Admin, Refusal, iso};
 use crate::terms::Terms;
@@ -32,49 +32,124 @@ fn db_failed(e: &sea_orm::DbErr) -> Refusal {
     )
 }
 
-fn listed(terms: &Terms, confirmed: bool) -> serde_json::Value {
-    serde_json::json!({
-        "version": terms.version,
-        "digest": crate::auth::hex_lower(&terms.digest),
-        "source": terms.source.as_str(),
-        "at_central": confirmed,
-        "texts": terms.central_texts().iter().map(|text| serde_json::json!({
-            "lang": text.lang,
-            "updated": text.updated,
-            "markdown": text.markdown,
-        })).collect::<Vec<_>>(),
-    })
+/// `GET /admin/terms` and `POST /admin/terms`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct TermsInForce {
+    /// @description The terms in force, or `null` for a gateway without
+    /// terms.
+    terms: Option<ConsoleTerms>,
+}
+
+/// The terms in force, as the console shows them.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleTerms {
+    /// @description What an account accepts.
+    version: String,
+    /// @description Baylee Central's digest of every text, in lowercase
+    /// hex: what an acceptance names beside the version.
+    digest: String,
+    /// @description Where they came from: an admin published them, a
+    /// file (`BAYLEE_TERMS_PATH`) named them, or they are the default every
+    /// gateway ships.
+    /// @openapi enum: [published, file, default]
+    source: &'static str,
+    /// @description Whether Baylee Central holds them; until it does, they
+    /// are shown and not enforced.
+    at_central: bool,
+    /// @description One text per language (`en` for a single file).
+    texts: Vec<ConsoleTermsText>,
+}
+
+/// The terms in one language.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleTermsText {
+    /// @description Its primary language tag, lowercase (`de`, `en`).
+    lang: String,
+    /// @description The date it names as its last change, or `null`.
+    updated: Option<String>,
+    /// @description The text, in Markdown.
+    markdown: String,
+}
+
+fn listed(terms: &Terms, confirmed: bool) -> ConsoleTerms {
+    ConsoleTerms {
+        version: terms.version.clone(),
+        digest: crate::auth::hex_lower(&terms.digest),
+        source: terms.source.as_str(),
+        at_central: confirmed,
+        texts: terms
+            .central_texts()
+            .into_iter()
+            .map(|text| ConsoleTermsText {
+                lang: text.lang,
+                updated: text.updated,
+                markdown: text.markdown,
+            })
+            .collect(),
+    }
 }
 
 /// `GET /admin/terms`: the terms in force, where they came from and whether
 /// Central holds them (`at_central`; until it does, they are shown but not
 /// enforced); `{"terms": null}` for a gateway without terms.
-async fn current(State(console): State<Admin>) -> Json<serde_json::Value> {
+///
+/// @route GET /admin/terms
+/// @scope admin
+/// @summary The terms of use in force
+/// @description The terms in force, where they came from, and whether
+/// Baylee Central holds them (until it does, they are shown and not
+/// enforced); `{"terms": null}` for a gateway without terms.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+async fn current(State(console): State<Admin>) -> Json<TermsInForce> {
     let book = &console.app.terms;
-    Json(serde_json::json!({
-        "terms": book
+    Json(TermsInForce {
+        terms: book
             .current()
             .map(|terms| listed(&terms, book.confirmed().is_some())),
-    }))
+    })
 }
 
 /// One language of a version an admin publishes.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TextBody {
+    /// @description A lowercase primary language tag (`de`, `en`); each
+    /// at most once.
     lang: String,
+    /// @description The date the text names as its last change; absent,
+    /// `null` or empty for none.
     #[serde(default)]
     updated: Option<String>,
+    /// @description The text, in Markdown: at most 64 KiB, no control
+    /// characters but newline and tab.
     markdown: String,
 }
 
 /// What `POST /admin/terms` takes.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PublishBody {
+    /// @description A new version: printable ASCII without spaces, at most
+    /// 64 characters, not `draft`, and never one published before or the
+    /// one in force.
+    /// @internal
     /// A new version: printable ASCII without spaces, never one published
     /// before.
     version: String,
+    /// @description One text per language, at most 4, `en` among them.
+    /// @internal
     /// One text per language, `en` among them.
     texts: Vec<TextBody>,
 }
@@ -83,6 +158,27 @@ struct PublishBody {
 /// in force. `201` with what `GET /admin/terms` answers; `400` for texts
 /// outside the bounds (the sentence says which), `409` for a version
 /// published before. Every player is asked again.
+///
+/// @route POST /admin/terms
+/// @scope admin
+/// @summary Publish a new version of the terms of use
+/// @description Publishes a new version and puts it in force; it goes to
+/// Baylee Central at once, and every player is asked to accept it. A
+/// published version never changes: a changed text needs a new version.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the version's `published_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @body `$PublishBody`
+/// @return 201: `$TermsInForce` "Published and in force, as `GET /admin/terms` answers"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not terms to publish (an unknown field included), or texts or a version outside the bounds; the sentence says which"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 409: `$ErrorBody` "The version was published before, or is the one in force"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn publish(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -156,24 +252,58 @@ async fn publish(
     let answer = book
         .current()
         .map(|terms| listed(&terms, at_central && book.confirmed().is_some()));
-    Ok((
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "terms": answer })),
-    )
-        .into_response())
+    Ok((StatusCode::CREATED, Json(TermsInForce { terms: answer })).into_response())
+}
+
+/// `GET /admin/terms/versions`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct TermsVersions {
+    /// @description Every version an admin published, newest first.
+    versions: Vec<PublishedTerms>,
+}
+
+/// A version of the terms an admin published.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct PublishedTerms {
+    /// @description The version.
+    version: String,
+    /// @description When it was published, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    published_at: String,
+    /// @description The admin who published it.
+    published_by: String,
 }
 
 /// `GET /admin/terms/versions`: every version an admin published, newest
 /// first: version, when, by whom.
-async fn versions(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/terms/versions
+/// @scope admin
+/// @summary Every version of the terms an admin published
+/// @description Every version an admin published, newest first, with when
+/// and by whom; versions from a file or the default are not listed.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn versions(State(console): State<Admin>) -> Result<Json<TermsVersions>, Refusal> {
     let versions = baylee_db::terms::versions(&console.app.db)
         .await
         .map_err(|e| db_failed(&e))?;
-    Ok(Json(serde_json::json!({
-        "versions": versions.iter().map(|published| serde_json::json!({
-            "version": published.version,
-            "published_at": iso(published.published_at),
-            "published_by": published.published_by,
-        })).collect::<Vec<_>>(),
-    })))
+    Ok(Json(TermsVersions {
+        versions: versions
+            .iter()
+            .map(|published| PublishedTerms {
+                version: published.version.clone(),
+                published_at: iso(published.published_at),
+                published_by: published.published_by.clone(),
+            })
+            .collect(),
+    }))
 }

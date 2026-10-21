@@ -46,14 +46,16 @@
 
 use crate::{
     DeckBody, ErrorBody, Shared, TICKET_REFUSED, auth, authed_session, bearer_token, err, lobby,
-    rate_limit_ip, seat_of_token, store, validate_deck, wsticket,
+    rate_limit_ip,
+    routes::{SeatGrant, TicketGrant},
+    seat_of_token, store, validate_deck, wsticket,
 };
 use axum::{
     Json,
     extract::{ConnectInfo, Path, State},
     http::{HeaderMap, StatusCode},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
@@ -97,11 +99,33 @@ pub const GUEST_REFUSED: &str =
 
 /// Asking for a seat bridge's chair (`POST /lobby/games/{id}/chairs/{seat}/ticket`),
 /// as the room's host: `{ticket, expires_in}`.
+///
+/// @route POST /lobby/games/{id}/chairs/{seat}/ticket
+/// @scope public
+/// @summary Hand a chair to a seat bridge
+/// @description The room's host, signed in to a registered account, asks
+/// for a chair ticket for one open person's chair, and hands it to the seat
+/// bridge it starts (never in an address). The bridge sits down with it
+/// (`POST …/chairs/{seat}/redeem`) as the host's delegate. Single use,
+/// bound to this room, chair and host, and dropped when the host leaves or
+/// hands the room on. Refused on a gateway that hands no chair to a bridge
+/// (`BAYLEE_CHAIR_TICKETS=off`) before the session is read.
+/// @tag Chairs
+/// @operation-id `mint_chair_ticket`
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param id: String "The room's game id"
+/// @path-param seat: usize "The chair, counted from 0"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`); this gateway hands no chair to a seat bridge, the caller is a guest, or it is not the room's host"
+/// @return 404: `$ErrorBody` "No such room (`no such game`) or chair (`no such seat`)"
+/// @return 409: `$ErrorBody` "The game has started, or the chair is not an open person's chair"
+/// @return 429: `$ErrorBody` "More than 30 chair tickets asked for by this host in a minute"
+/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or too many chairs are being handed over"
 pub(crate) async fn mint(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path((id, seat)): Path<(String, usize)>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<TicketGrant>, (StatusCode, Json<ErrorBody>)> {
     if !state.chair_tickets_enabled {
         return Err(err(StatusCode::FORBIDDEN, SWITCHED_OFF));
     }
@@ -122,10 +146,10 @@ pub(crate) async fn mint(
         None,
         Instant::now(),
     )?;
-    Ok(Json(serde_json::json!({
-        "ticket": ticket,
-        "expires_in": state.chair_tickets.ttl().as_secs(),
-    })))
+    Ok(Json(TicketGrant {
+        ticket,
+        expires_in: state.chair_tickets.ttl().as_secs(),
+    }))
 }
 
 /// Issues a ticket for chair `seat` of room `id`, from `host`, while the
@@ -229,13 +253,37 @@ pub(crate) fn open_chair(
 }
 
 /// What a seat bridge sits down with.
+///
+/// @description The name the chair sits under, and the deck it plays.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct RedeemBody {
+    /// @description The name the chair sits under: `LLM-` and something
+    /// after it, under the display-name rule.
+    /// @internal
     /// The name the chair sits under (`LLM-…`), under the display-name rule.
     display_name: String,
+    /// @description The deck it plays, as `POST /decks` takes one; a deck
+    /// the host already gave the chair wins over it.
+    /// @internal
     /// The deck it plays, as `POST /decks` takes one. Kept with the chair
     /// and nowhere else: the bridge has no account to keep it under.
     deck: DeckBody,
+}
+
+/// What a seat bridge is answered when it sits down.
+///
+/// @description The chair the seat bridge now holds, and the pace the
+/// table plays at.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ChairGrant {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Seconds a player has for each decision at this table;
+    /// 0 for no decision clock.
+    decide_secs: u32,
+    #[serde(flatten)]
+    grant: SeatGrant,
 }
 
 /// A seat bridge sitting down on its host's ticket
@@ -244,13 +292,35 @@ pub(crate) struct RedeemBody {
 ///
 /// Needs no session, so no guest account, no closed-beta key and no guest
 /// seat: the host vouched for the chair.
+///
+/// @route POST /lobby/games/{id}/chairs/{seat}/redeem
+/// @scope public
+/// @summary Sit down on a host's chair ticket
+/// @description A seat bridge sits in the chair its host's ticket names, as
+/// that host's delegate: no account is made, and the listing shows the
+/// chair under the bridge's name with the host's handle beside it. The
+/// ticket, as `Authorization: Bearer`, is spent whether or not the chair is
+/// still there; the body is checked first, so a malformed one does not
+/// spend it. The chair is ready once the bridge says so
+/// (`POST …/chair/ready`).
+/// @tag Chairs
+/// @operation-id `redeem_chair_ticket`
+/// @security `chairTicket`
+/// @path-param id: String "The room's game id"
+/// @path-param seat: usize "The chair the ticket was asked for"
+/// @return 400: `$ErrorBody` "The name is not a language model's (`LLM-…`), or the deck is not one `POST /decks` would take"
+/// @return 401: `$ErrorBody` "No ticket, or one that opens nothing: unknown, spent, expired, for another chair, or its host's session ended (`ticket expired or used`)"
+/// @return 403: `$ErrorBody` "This gateway hands no chair to a seat bridge, or the host who handed the chair over no longer hosts the room"
+/// @return 404: `$ErrorBody` "No such room (`no such game`) or chair (`no such seat`)"
+/// @return 409: `$ErrorBody` "The game has started, or the chair was taken meanwhile (or no longer waits for this hosted model)"
+/// @return 429: `$ErrorBody` "More than 30 redemptions from this address in a minute"
 pub(crate) async fn redeem(
     State(state): State<Shared>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Path((id, seat)): Path<(String, usize)>,
     Json(body): Json<RedeemBody>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<ChairGrant>, (StatusCode, Json<ErrorBody>)> {
     // `BAYLEE_CHAIR_TICKETS=off` stops a host's own bridges; a hosted
     // model's ticket, which the gateway minted, is checked below.
     let ip = rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers);
@@ -347,12 +417,14 @@ pub(crate) async fn redeem(
         decide_secs
     };
     state.lobby_moved();
-    Ok(Json(serde_json::json!({
-        "game_id": id,
-        "seat": seat,
-        "seat_token": seat_token,
-        "decide_secs": decide_secs,
-    })))
+    Ok(Json(ChairGrant {
+        grant: SeatGrant {
+            game_id: id,
+            seat,
+            seat_token,
+        },
+        decide_secs,
+    }))
 }
 
 /// The deck a seat bridge brought, as the chair keeps it: in memory, in
@@ -405,44 +477,108 @@ fn by_seat_token<'a>(
 /// token as `Authorization: Bearer`): `{game_id, seat, state, decide_secs}`.
 /// What a seat bridge with no session waits for the start with, and asks
 /// whether its room has closed.
+///
+/// @route GET /lobby/games/{id}/chair
+/// @scope public
+/// @summary A chair's own view of its room
+/// @description What a seat bridge, which has a seat token and no session,
+/// waits for the start with: whether the game is on, at what pace, whether
+/// its chair is ready, and the deck it will play. `401` once the token
+/// opens nothing (the host took the chair back, or left).
+/// @tag Chairs
+/// @operation-id `chair_status`
+/// @security `seatToken`
+/// @path-param id: String "The game's id"
+/// @return 401: `$ErrorBody` "No seat token, or one that is not this game's any more (`ticket expired or used`, `invalid seat token`)"
+/// @return 404: `$ErrorBody` "No such game"
 pub(crate) async fn status(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<ChairStatus>, (StatusCode, Json<ErrorBody>)> {
     crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
     let mut lobby = state.lobby.lock();
     let (game, seat) = by_seat_token(&mut lobby, &id, &headers)?;
-    Ok(Json(serde_json::json!({
-        "game_id": id,
-        "seat": seat,
-        "state": match game.state {
+    Ok(Json(ChairStatus {
+        game_id: id,
+        seat,
+        state: match game.state {
             lobby::LobbyState::Waiting => "waiting",
             lobby::LobbyState::Playing => "playing",
             lobby::LobbyState::Over => "over",
         },
-        "decide_secs": game.house_rules.decision_timeout_secs,
-        "ready": game.seats[seat].ready(),
+        decide_secs: game.house_rules.decision_timeout_secs,
+        ready: game.seats[seat].ready(),
         // Only this chair's bearer can read its final deck. The public
         // listing still contains names, never another seat's card list.
-        "deck": game.seats[seat].deck.as_ref().map(|deck| serde_json::json!({
-            "name": deck.name,
-            "cards": deck.cards,
-            "sideboard": deck.sideboard,
-            "commanders": deck.commanders,
-        })),
-    })))
+        deck: game.seats[seat].deck.as_ref().map(|deck| ChairDeck {
+            name: deck.name.clone(),
+            cards: deck.cards.clone(),
+            sideboard: deck.sideboard.clone(),
+            commanders: deck.commanders.clone(),
+        }),
+    }))
+}
+
+/// `GET /lobby/games/{id}/chair`.
+///
+/// @description A chair's own view of its room.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ChairStatus {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Seconds a player has for each decision; 0 for no
+    /// decision clock.
+    decide_secs: u32,
+    /// @description The deck the chair will play; `null` while it has
+    /// none.
+    deck: Option<ChairDeck>,
+    /// @description The game.
+    game_id: String,
+    /// @description Whether the chair is ready to start.
+    ready: bool,
+    /// @description The chair's seat number, counted from 0.
+    seat: usize,
+    /// @description `waiting` until the room starts, then `playing`, then
+    /// `over`.
+    /// @openapi enum: [waiting, playing, over]
+    state: &'static str,
+}
+
+/// The deck a chair plays, as its own bearer may read it.
+///
+/// @description The deck a chair will play, as only that chair's bearer
+/// may read it.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ChairDeck {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Main-deck lines (`N Card Name`, `docs/deck-format.md`).
+    cards: Vec<String>,
+    /// @description The deck's commanders, by name.
+    commanders: Vec<String>,
+    /// @description The deck's name.
+    name: String,
+    /// @description Sideboard lines, in the same form.
+    sideboard: Vec<String>,
 }
 
 /// What a seat bridge says of its chair (`POST …/chair/ready`).
+///
+/// @description Whether the seat bridge's model is ready to play.
+/// @openapi
 #[derive(Deserialize)]
-pub(crate) struct ReadyBody {
+pub(crate) struct ChairReadyBody {
+    /// @description `true` (also when absent) says its mind answered its
+    /// check; `false` takes it back.
+    /// @internal
     /// Absent means ready.
+    /// @openapi default: true
     #[serde(default = "yes")]
     ready: bool,
 }
 
-/// `serde` default for [`ReadyBody::ready`].
+/// `serde` default for [`ChairReadyBody::ready`].
 const fn yes() -> bool {
     true
 }
@@ -451,11 +587,28 @@ const fn yes() -> bool {
 /// may play (`POST /lobby/games/{id}/chair/ready`, the seat token as
 /// `Authorization: Bearer`). Until it does, the room does not start: a
 /// chair whose model cannot answer would lose its game to the clock.
+///
+/// @route POST /lobby/games/{id}/chair/ready
+/// @scope public
+/// @summary A seat bridge says its model is ready
+/// @description A host's seat bridge says its mind answered its check, so
+/// its chair may play; until it does the room does not start. The host
+/// rearranging the table does not take it back. A person says ready with
+/// their session (`POST /lobby/games/{id}/ready`).
+/// @tag Chairs
+/// @operation-id `chair_ready`
+/// @security `seatToken`
+/// @path-param id: String "The room's game id"
+/// @return 204: "Said"
+/// @return 401: `$ErrorBody` "No seat token, or one that is not this game's any more (`ticket expired or used`, `invalid seat token`)"
+/// @return 403: `$ErrorBody` "The chair is a person's, not a seat bridge's"
+/// @return 404: `$ErrorBody` "No such game"
+/// @return 409: `$ErrorBody` "The game has already started"
 pub(crate) async fn ready(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(body): Json<ReadyBody>,
+    Json(body): Json<ChairReadyBody>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
     crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
     {
@@ -480,6 +633,22 @@ pub(crate) async fn ready(
 /// (`POST /lobby/games/{id}/chair/leave`, the seat token as
 /// `Authorization: Bearer`). A person leaves with their session
 /// (`POST …/leave`); this is the delegate's only way out.
+///
+/// @route POST /lobby/games/{id}/chair/leave
+/// @scope public
+/// @summary A seat bridge gives its chair back
+/// @description A host's seat bridge gives its chair back before the game,
+/// which empties it and ends its seat token. A person leaves with their
+/// session (`POST /lobby/games/{id}/leave`).
+/// @tag Chairs
+/// @operation-id `chair_leave`
+/// @security `seatToken`
+/// @path-param id: String "The room's game id"
+/// @return 204: "The chair is open again"
+/// @return 401: `$ErrorBody` "No seat token, or one that is not this game's any more (`ticket expired or used`, `invalid seat token`)"
+/// @return 403: `$ErrorBody` "The chair is a person's, not a seat bridge's"
+/// @return 404: `$ErrorBody` "No such game"
+/// @return 409: `$ErrorBody` "The game has already started"
 pub(crate) async fn leave(
     State(state): State<Shared>,
     headers: HeaderMap,

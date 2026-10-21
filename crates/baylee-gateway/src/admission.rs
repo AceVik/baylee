@@ -20,7 +20,12 @@
 use std::path::PathBuf;
 
 /// What `/health` says about admission.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// @description Whether a new game may start: `unmanaged` (no hold
+/// configured), `open`, or `held` (a deploy holds new games back).
+/// @openapi
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub(crate) enum Admission {
     /// No `BAYLEE_ADMISSION_HOLD`: nothing here can hold games.
     Unmanaged,
@@ -28,17 +33,6 @@ pub(crate) enum Admission {
     Open,
     /// The hold file is there: no new game starts.
     Held,
-}
-
-impl Admission {
-    /// The word `/health` answers.
-    pub(crate) fn wire(self) -> &'static str {
-        match self {
-            Self::Unmanaged => "unmanaged",
-            Self::Open => "open",
-            Self::Held => "held",
-        }
-    }
 }
 
 /// What a refused start says, and the reason `start_engine` returns.

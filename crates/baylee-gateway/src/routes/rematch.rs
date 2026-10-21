@@ -2,7 +2,7 @@
 
 use crate::{
     Deck, ErrorBody, HeaderMap, Json, LobbyGame, LobbyState, Path, Shared, State, StatusCode, auth,
-    authed, db_down, err, store, try_start,
+    authed, db_down, err, routes::SeatGrant, store, try_start,
 };
 
 /// Plays the same table again — or joins the room somebody already opened.
@@ -25,11 +25,32 @@ use crate::{
 /// another game. An AI chair is ready as soon as it is configured, so a solo
 /// player is one press from the next game, which is the case that matters
 /// most — the game they are asking to repeat was itself one tap.
+///
+/// @route POST /lobby/games/{id}/rematch
+/// @scope public
+/// @summary Play the same table again
+/// @description `{id}` is either the finished game or the room opened from
+/// it. The first press opens a room with the table's arrangement copied
+/// (chairs, sides, who sat where, the AI and its difficulty, the name, the
+/// password, the clock) and each player's deck as it is saved now; every
+/// press after that joins the same room. Pressing is also saying ready, and
+/// the room starts itself once every chair is ready. Answers the caller's
+/// chair in the new room.
+/// @tag Lobby
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param id: String "The finished game's id, or its rematch room's"
+/// @return 400: `$ErrorBody` "The room would start, but a deck at it does not load or a starting card does not resolve"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`), or the caller did not sit at that table (`you were not at that table`)"
+/// @return 404: `$ErrorBody` "No such game"
+/// @return 409: `$ErrorBody` "The game is not over yet, the rematch has already started, the caller is still playing another running game, or (the room starting) every chair is on one team or a deck holds a card blocked here"
+/// @return 500: `$ErrorBody` "The room would start, but the house deck is missing from this build"
+/// @return 503: `$ErrorBody` "The account store, Baylee Central or the gateway's database is unavailable, or no engine could be ordered for a room that would start"
 pub(crate) async fn rematch(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<SeatGrant>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let central_session = crate::central::seat_binding(&state, &headers).await?;
     let seat_token = auth::new_token();
@@ -150,9 +171,9 @@ pub(crate) async fn rematch(
     // last is the one who starts it.
     try_start(&state, &room_id).await?;
     state.lobby_moved();
-    Ok(Json(serde_json::json!({
-        "game_id": room_id,
-        "seat": seat,
-        "seat_token": seat_token,
-    })))
+    Ok(Json(SeatGrant {
+        game_id: room_id,
+        seat,
+        seat_token,
+    }))
 }

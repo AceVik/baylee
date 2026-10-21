@@ -61,122 +61,197 @@ pub fn chair_name(label: &str, id: &str) -> String {
 }
 
 /// One frame on the link.
+///
+/// @description One frame on the seat agents' socket, one JSON object per
+/// text frame, tagged by `type`.
+/// @openapi
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Frame {
+    /// @description Seat agent to gateway, first: who it is.
+    /// @internal
     /// Agent → gateway, first: who it is.
     Hello {
+        /// @description The gateway's `BAYLEE_SEATHOST_TOKEN`.
+        /// @internal
         /// `BAYLEE_SEATHOST_TOKEN`.
         token: String,
+        /// @description Its stable name: 1 to 64 of `A-Z a-z 0-9 . - _`,
+        /// not dots alone.
+        /// @internal
         /// Its stable name ([`valid_name`]).
         name: String,
+        /// @description The protocol it was built with; another is refused.
+        /// @internal
         /// The protocol it was built with.
         protocol_version: u32,
+        /// @description How many bridges it runs at once; 0 means no bound.
+        /// @internal
         /// Live bridges at once; 0 = no bound.
         capacity: u32,
     },
+    /// @description Gateway to seat agent: accepted.
+    /// @internal
     /// Gateway → agent: accepted.
     Welcome {
+        /// @description How often, in seconds, to say it is there
+        /// (`heartbeat`); two missed and it is dropped.
+        /// @internal
         /// How often to say it is there.
         heartbeat_secs: u32,
     },
+    /// @description Gateway to seat agent: refused, and why; the socket
+    /// closes.
+    /// @internal
     /// Gateway → agent: refused, and why; the socket closes.
     Refused {
-        /// One sentence.
+        /// @description One sentence.
         message: String,
     },
+    /// @description Seat agent to gateway: every profile it holds, whole,
+    /// on connect and after every change.
+    /// @internal
     /// Agent → gateway: every profile it holds, whole.
     Profiles {
-        /// The profiles.
+        /// @description The profiles.
         profiles: Vec<Reported>,
     },
+    /// @description Gateway to seat agent: start a bridge for one chair.
+    /// @internal
     /// Gateway → agent: start a bridge for one chair.
     StartSeat {
-        /// The gateway's id for this order.
+        /// @description The gateway's id for this order.
         order: String,
-        /// The room.
+        /// @description The room.
         game_id: String,
-        /// The chair.
+        /// @description The chair.
         seat: u32,
-        /// The profile id.
+        /// @description The profile id.
         profile: String,
+        /// @description The chair ticket the bridge redeems; handed to it
+        /// as its first line of standard input, never logged.
+        /// @internal
         /// The chair ticket, for the bridge's stdin; never logged.
         chair_ticket: String,
-        /// Where the bridge dials.
+        /// @description Where the bridge dials.
         gateway_url: String,
+        /// @description A deck in any format the bridge reads; absent for
+        /// the bridge's own.
+        /// @internal
         /// A deck in any format the bridge reads, or none for its own.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         deck_text: Option<String>,
     },
+    /// @description Gateway to seat agent: stop an order's bridge.
+    /// @internal
     /// Gateway → agent: stop an order's bridge.
     StopSeat {
-        /// The order.
+        /// @description The order.
         order: String,
     },
+    /// @description Seat agent to gateway: what became of an order.
+    /// @internal
     /// Agent → gateway: what became of an order.
     SeatStatus {
-        /// The order.
+        /// @description The order.
         order: String,
+        /// @description What became of it.
+        /// @internal
         /// What.
         kind: SeatStatusKind,
+        /// @description One sentence, never a key; empty when absent.
+        /// @internal
         /// One sentence, never a key.
         #[serde(default)]
         detail: String,
     },
+    /// @description Gateway to seat agent: write a profile's definition;
+    /// answered by `answer` with the same `request`.
+    /// @internal
     /// Gateway → agent: write a profile's definition.
     ProfileWrite {
+        /// @description The request's id, which the `answer` names.
+        /// @internal
         /// Answered by [`Frame::Answer`] with the same id.
         request: String,
-        /// The profile id.
+        /// @description The profile id.
         id: String,
+        /// @description What the profile is.
+        /// @internal
         /// What it is.
         definition: Definition,
-        /// The admin who asked.
+        /// @description The admin who asked.
         admin: String,
     },
+    /// @description Gateway to seat agent: forget a profile; answered by
+    /// `answer`.
+    /// @internal
     /// Gateway → agent: forget a profile.
     ProfileDelete {
+        /// @description The request's id, which the `answer` names.
+        /// @internal
         /// Answered by [`Frame::Answer`].
         request: String,
-        /// The profile id.
+        /// @description The profile id.
         id: String,
-        /// The admin who asked.
+        /// @description The admin who asked.
         admin: String,
     },
+    /// @description Gateway to seat agent: act on a profile; answered by
+    /// `answer`.
+    /// @internal
     /// Gateway → agent: act on a profile.
     Control {
+        /// @description The request's id, which the `answer` names.
+        /// @internal
         /// Answered by [`Frame::Answer`].
         request: String,
-        /// The profile id.
+        /// @description The profile id.
         id: String,
+        /// @description What to do.
+        /// @internal
         /// What.
         action: ControlAction,
-        /// The admin who asked.
+        /// @description The admin who asked.
         admin: String,
     },
+    /// @description Gateway to seat agent: keep (or forget) a profile's
+    /// key; answered by `answer`. Write-only: nothing ever answers a key.
+    /// Only a seat agent on the gateway's unix socket is sent one.
+    /// @internal
     /// Gateway → agent: keep (or forget) a profile's key. Write-only:
     /// nothing ever answers a key.
     KeyWrite {
+        /// @description The request's id, which the `answer` names.
+        /// @internal
         /// Answered by [`Frame::Answer`].
         request: String,
-        /// The profile id.
+        /// @description The profile id.
         id: String,
+        /// @description The key; `null` or absent forgets it.
+        /// @internal
         /// The key; `None` forgets it.
         #[serde(default)]
         key: Option<String>,
-        /// The admin who asked.
+        /// @description The admin who asked.
         admin: String,
     },
+    /// @description Seat agent to gateway: how a request went.
+    /// @internal
     /// Agent → gateway: how a request went.
     Answer {
-        /// The request's id.
+        /// @description The request's id.
         request: String,
-        /// Whether it was done.
+        /// @description Whether it was done.
         ok: bool,
+        /// @description Why not, one sentence; absent when done.
+        /// @internal
         /// Why not, one sentence.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+    /// @description Either way: still here.
+    /// @internal
     /// Either way: still here.
     Heartbeat,
 }
@@ -233,6 +308,11 @@ impl Frame {
 }
 
 /// What became of an order.
+///
+/// @description What became of an order: `started` (the bridge is
+/// running), `failed` (it never got going, or the profile could not take
+/// it) or `exited` (it ended).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SeatStatusKind {
@@ -245,6 +325,10 @@ pub enum SeatStatusKind {
 }
 
 /// An action on a profile.
+///
+/// @description An action on a profile: `probe` (run its check now),
+/// `enable` or `disable`.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlAction {
@@ -257,25 +341,48 @@ pub enum ControlAction {
 }
 
 /// What a profile is, as an admin writes it: nothing secret.
+///
+/// @description A hosted profile's definition, as an admin writes it:
+/// nothing secret (a key is written apart). The seat agent checks it and
+/// answers its refusal in a sentence.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Definition {
+    /// @description What players see it called.
+    /// @internal
     /// What players see ([`valid_label`]).
     pub label: String,
+    /// @description Who the game data goes to.
+    /// @internal
     /// Who the game data goes to ([`valid_label`]).
     pub vendor: String,
+    /// @description Whether it is offered at all; `true` when absent.
+    /// @internal
     /// Offered at all.
     #[serde(default = "yes")]
     pub enabled: bool,
+    /// @description How many games it plays at once; no bound when absent.
+    /// @internal
     /// Games at once; `None` = no bound.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_games: Option<u32>,
+    /// @description Its own spend caps, in the seat settings file's
+    /// format (`docs/llm-seat.md`); none when absent.
+    /// @internal
     /// The profile's own spend caps; `None` = none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caps: Option<serde_json::Value>,
+    /// @description Whether each probe also makes a paid canary call.
+    /// @internal
     /// A paid canary call with each probe.
     #[serde(default)]
     pub canary: bool,
+    /// @description Another profile of the same seat agent and vendor that
+    /// takes a game over when this one's model is rate limited or busy,
+    /// and that new games start on while this one is not available; none
+    /// when absent.
+    /// @internal
     /// Another profile of the same seat agent that takes a game over when
     /// this one's model is rate limited or busy, and that a new game
     /// starts on while this one is not available (at `max_games`, limited,
@@ -284,6 +391,9 @@ pub struct Definition {
     /// followed (`docs/protocol.md` §"A fallback profile").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fallback: Option<String>,
+    /// @description One profile of the seat settings file, in its own
+    /// format (`docs/llm-seat.md`).
+    /// @internal
     /// One profile of the settings file, in its own format.
     pub profile: serde_json::Value,
 }
@@ -293,6 +403,13 @@ const fn yes() -> bool {
 }
 
 /// A profile's state (`docs/protocol.md` §"Hosted language-model seats").
+///
+/// @description A profile's state: `available`, `busy` (at its games'
+/// bound, or its seat agent at capacity), `probing` (its check is running),
+/// `exhausted` (a spend cap is reached or the provider said it is limited),
+/// `needs_login` (a CLI's login check says signed out), `failing` (its
+/// check failed) or `disabled` (switched off).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum State {
@@ -329,6 +446,11 @@ impl State {
 }
 
 /// Whether a key is kept for a profile; never the key.
+///
+/// @description Whether a key is kept for a profile, never the key:
+/// `kept`, `absent`, `none_needed` (a CLI, or an endpoint that takes none)
+/// or `unavailable` (the seat agent has no key store).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeyKept {
@@ -343,60 +465,105 @@ pub enum KeyKept {
 }
 
 /// What a profile spent in its own book.
+///
+/// @description What a profile spent in its own spend book.
+/// @openapi
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Spent {
+    /// @description US dollars today (UTC).
+    /// @internal
     /// Dollars today (UTC).
     pub day_usd: f64,
+    /// @description US dollars this month (UTC).
+    /// @internal
     /// Dollars this month.
     pub month_usd: f64,
+    /// @description Tokens today (UTC).
+    /// @internal
     /// Tokens today.
     pub day_tokens: u64,
+    /// @description Tokens this month (UTC).
+    /// @internal
     /// Tokens this month.
     pub month_tokens: u64,
 }
 
 /// A profile as a seat agent reports it.
+///
+/// @description A profile as its seat agent reports it. The gateway
+/// derives none of it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Reported {
-    /// Its id.
+    /// @description Its id.
     pub id: String,
+    /// @description What players see it called.
+    /// @internal
     /// What players see.
     pub label: String,
-    /// Who the game data goes to.
+    /// @description Who the game data goes to.
     pub vendor: String,
+    /// @description `api` (a model behind an HTTP API and a key) or `cli`
+    /// (an agent CLI signed in on the seat agent's machine).
+    /// @openapi enum: [api, cli]
+    /// @internal
     /// `api` or `cli`.
     pub kind: String,
-    /// The model, as the profile names it.
+    /// @description The model, as the profile names it.
     pub model: String,
-    /// Its state.
+    /// @description Its state.
     pub state: State,
+    /// @description When it is expected back, where that is known, in Unix
+    /// seconds.
+    /// @internal
     /// When it is expected back, where known (Unix seconds).
     #[serde(default)]
     pub until_unix: Option<i64>,
+    /// @description How many of its bridges are live.
+    /// @internal
     /// Live bridges of it.
     pub games: u32,
+    /// @description How many games it plays at once; no bound when `null`.
+    /// @internal
     /// Its bound.
     #[serde(default)]
     pub max_games: Option<u32>,
+    /// @description Whether it is switched on.
+    /// @internal
     /// Switched on.
     pub enabled: bool,
+    /// @description Whether each probe also makes a paid canary call.
+    /// @internal
     /// Probes pay a canary call.
     #[serde(default)]
     pub canary: bool,
+    /// @description Its spend caps, as its definition says; none when
+    /// `null`.
+    /// @internal
     /// Its caps, as the definition says.
     #[serde(default)]
     pub caps: Option<serde_json::Value>,
+    /// @description What it spent today and this month.
+    /// @internal
     /// What it spent.
     #[serde(default)]
     pub spent: Spent,
-    /// Whether a key is kept.
+    /// @description Whether a key is kept.
     pub key: KeyKept,
+    /// @description The last failure, one sentence; `null` when none.
+    /// @internal
     /// The last failure, one sentence.
     #[serde(default)]
     pub last_error: Option<String>,
+    /// @description The last success, in Unix seconds.
+    /// @internal
     /// The last success (Unix seconds).
     #[serde(default)]
     pub last_ok_unix: Option<i64>,
+    /// @description The fallback profile a new game of this one starts on
+    /// now, because this one is not available and its fallback is; the
+    /// profile is then reported `available`. Absent otherwise.
+    /// @internal
     /// The fallback a new game of this profile starts on now, because the
     /// profile is not available (at `max_games`, limited, failing, signed
     /// out, being checked, switched off) and its fallback is:
@@ -405,7 +572,7 @@ pub struct Reported {
     /// game plays the profile itself, or not at all.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diverts: Option<String>,
-    /// What an admin wrote.
+    /// @description What an admin wrote.
     pub definition: Definition,
 }
 

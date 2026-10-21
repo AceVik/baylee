@@ -171,9 +171,14 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// What a report is about.
+///
+/// @description What a report is about: `bug` (something is broken),
+/// `improvement`, `feedback`, `crash` (the client crashed; sent by the
+/// client) or `other`.
+/// @openapi
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Kind {
+pub enum ReportKind {
     /// Something is broken.
     Bug,
     /// Something could be better.
@@ -187,22 +192,40 @@ pub enum Kind {
 }
 
 /// The request body (frozen: `docs/feedback.md`).
+///
+/// @description A bug report, crash report or feedback. It is about one
+/// game of this gateway's (`game_id`), one the client hosted itself
+/// (`local_record`), or none; never both.
+/// @openapi
 #[derive(Deserialize)]
 struct Report {
-    kind: Kind,
+    /// @description What it is about.
+    kind: ReportKind,
+    /// @description What the player says, at most 20000 characters.
     text: String,
+    /// @description The game of this gateway's it is about, at most 128
+    /// characters; `null`, empty or left out for none. When the reporter sat
+    /// at it, that game's record goes with the report.
     #[serde(default)]
     game_id: Option<String>,
+    /// @description Anything the client wants to say: a JSON object, at most
+    /// 2 MiB serialized.
+    /// @openapi type: object
     client: serde_json::Value,
-    /// The record of a game the client hosted itself, as it wrote it.
+    /// @description The record of a game the client hosted itself, as it
+    /// wrote it; never beside a `game_id`.
     #[serde(default)]
     local_record: Option<LocalRecord>,
 }
 
 /// A client's record of its own game, as the body carries it.
+/// @openapi
 #[derive(Deserialize)]
 struct LocalRecord {
+    /// @description Whether the game's end is in it.
     complete: bool,
+    /// @description The record (the JSON Lines a game's engine writes),
+    /// gzip, in standard base64: at most 4 MiB of gzip.
     gzip_base64: String,
 }
 
@@ -272,7 +295,7 @@ fn validate(body: &[u8]) -> Result<Report, (StatusCode, &'static str)> {
 struct Forward<'a> {
     gateway: GatewayInfo<'a>,
     reporter: String,
-    kind: Kind,
+    kind: ReportKind,
     text: &'a str,
     game_id: Option<&'a str>,
     client: &'a serde_json::Value,
@@ -318,6 +341,28 @@ pub fn routes() -> axum::Router<Shared> {
 }
 
 /// `POST /reports`.
+///
+/// @route POST /reports
+/// @scope public
+/// @operation-id `send_report`
+/// @summary Send a bug report or feedback
+/// @description A signed-in player's bug report, crash report or feedback,
+/// guests included. The gateway passes it on to the feedback service with
+/// its own name and build, a pseudonym for the reporter, and the record of
+/// the game it names when the reporter sat at it (or the client's own
+/// record of a local game); never a name, address or IP. 64 reports an
+/// hour per account; one the service did not take is not counted.
+/// @tag Reports
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @body `$Report`
+/// @return 201: `$ReportReceipt` "The feedback service took it"
+/// @return 400: `$ErrorBody` "Not a report: not JSON, an unknown `kind`, no `text`, `client` not an object, a `game_id` over 128 characters, or a `local_record` beside a `game_id` or not base64 of gzip"
+/// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, or the `local_record` over 4 MiB; a body over 7.58 MiB is refused before it is read, in plain text"
+/// @return 429: `$ErrorBody` "64 reports in the last hour from this account"
+/// @return 500: `$ErrorBody` "The report could not be encoded"
+/// @return 502: `$ErrorBody` "The feedback service did not take it"
+/// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable"
 pub async fn post_report(
     State(state): State<Shared>,
     headers: HeaderMap,

@@ -67,6 +67,30 @@ fn message_text(body: &[u8]) -> String {
 }
 
 /// `POST /social/reports`.
+///
+/// @route POST /social/reports
+/// @scope public
+/// @operation-id `social_report`
+/// @summary Report a chat message
+/// @description Reveals one delivered message to the feedback service: the
+/// message as it arrived, its key and the body it decrypted to. The gateway
+/// checks the sender's signature and that the key opens the message to
+/// exactly that body, and sends the reporter's note and the message's text
+/// on as a `chat` report saying whether the check held (a device removed
+/// since cannot be checked). Guests may report too; 10 reports an hour per
+/// account.
+/// @tag Social
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @body `$ChatReport`
+/// @return 201: `$ReportReceipt` "The feedback service took it"
+/// @return 400: `$ErrorBody` "Not a report or a conversation id, a note over 2000 characters, a malformed message, key or body, or a message of another conversation"
+/// @return 403: `$ErrorBody` "This gateway has no chat, or the account is banned (`ban`) or must accept the terms in force first (`terms_required`)"
+/// @return 413: `$ErrorBody` "The body is over 64 KiB (over 2 MiB it is refused before it is read, in plain text)"
+/// @return 429: `$ErrorBody` "10 reports in the last hour from this account"
+/// @return 500: `$ErrorBody` "The report could not be encoded"
+/// @return 502: `$ErrorBody` "The feedback service did not take it"
+/// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable"
 #[allow(clippy::too_many_lines)] // the checks, in their order, read top to bottom
 pub(crate) async fn post_report(
     State(state): State<Shared>,

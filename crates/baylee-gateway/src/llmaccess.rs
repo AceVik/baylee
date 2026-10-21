@@ -17,7 +17,7 @@ use axum::response::Json;
 use axum::routing::{get, post};
 use baylee_db::llm_access::{self, Policy};
 use baylee_protocol::seathost::valid_name;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::admin::{Actor, Admin, Refusal, iso};
@@ -66,31 +66,88 @@ fn reported(console: &Admin, id: &str) -> Option<(String, String)> {
         .map(|row| (row.first.label.clone(), row.first.vendor.clone()))
 }
 
+/// Who may seat one hosted profile.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ProfileAccess {
+    /// @description The profile's id, over every seat agent.
+    id: String,
+    /// @description Who may seat it: every registered account, only the
+    /// accounts on its list, or nobody. A guest may seat none.
+    /// @openapi enum: [registered, listed, nobody]
+    policy: &'static str,
+    /// @description Whether a policy is kept for it; `false` reads as
+    /// `listed` with nobody on the list.
+    stored: bool,
+    /// @description Whether it is the operator's default seat for every
+    /// registered account.
+    default_for_registered: bool,
+    /// @description How many accounts are on its list.
+    listed: i64,
+    /// @description When its policy last changed, RFC 3339 in UTC, or
+    /// `null`.
+    /// @openapi format: date-time
+    updated_at: Option<String>,
+    /// @description The admin who changed it, or `null`.
+    updated_by: Option<String>,
+    /// @description Whether a seat agent reports it now.
+    connected: bool,
+    /// @description What a seat agent reports it called, or `null`.
+    label: Option<String>,
+    /// @description Who a seat agent reports the game data goes to, or
+    /// `null`.
+    vendor: Option<String>,
+}
+
 /// One profile's access as the console shows it; `stored` is `None` for a
 /// profile without a row, which is listed with nobody on its list.
 fn access_json(
     id: &str,
     stored: Option<&llm_access::Access>,
     seen: Option<&(String, String)>,
-) -> serde_json::Value {
+) -> ProfileAccess {
     let (label, vendor) = seen.cloned().unzip();
-    serde_json::json!({
-        "id": id,
-        "policy": stored.map_or(Policy::Listed, |a| a.policy).word(),
-        "stored": stored.is_some(),
-        "default_for_registered": stored.is_some_and(|a| a.default_for_registered),
-        "listed": stored.map_or(0, |a| a.listed),
-        "updated_at": stored.map(|a| iso(a.updated_at)),
-        "updated_by": stored.map(|a| a.updated_by.clone()),
-        "connected": seen.is_some(),
-        "label": label,
-        "vendor": vendor,
-    })
+    ProfileAccess {
+        id: id.to_owned(),
+        policy: stored.map_or(Policy::Listed, |a| a.policy).word(),
+        stored: stored.is_some(),
+        default_for_registered: stored.is_some_and(|a| a.default_for_registered),
+        listed: stored.map_or(0, |a| a.listed),
+        updated_at: stored.map(|a| iso(a.updated_at)),
+        updated_by: stored.map(|a| a.updated_by.clone()),
+        connected: seen.is_some(),
+        label,
+        vendor,
+    }
+}
+
+/// `GET /admin/llm/access`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ProfileAccessList {
+    /// @description Every profile a seat agent reports or a policy names,
+    /// by id.
+    profiles: Vec<ProfileAccess>,
 }
 
 /// `GET /admin/llm/access`: every profile a seat agent reports or a policy
 /// names, by id.
-async fn list(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/llm/access
+/// @scope admin
+/// @summary Who may seat each hosted profile
+/// @description Every profile a seat agent reports or a policy names, by
+/// id, with its policy and whether a seat agent reports it now. A profile
+/// without a policy is open to nobody.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn list(State(console): State<Admin>) -> Result<Json<ProfileAccessList>, Refusal> {
     let stored = llm_access::all(&console.app.db)
         .await
         .map_err(|e| db_failed(&e))?;
@@ -109,62 +166,134 @@ async fn list(State(console): State<Admin>) -> Result<Json<serde_json::Value>, R
     };
     let mut ids: std::collections::BTreeSet<&str> = seen.keys().map(String::as_str).collect();
     ids.extend(stored.iter().map(|a| a.profile_id.as_str()));
-    let profiles: Vec<serde_json::Value> = ids
+    let profiles: Vec<ProfileAccess> = ids
         .into_iter()
         .map(|id| access_json(id, stored.iter().find(|a| a.profile_id == id), seen.get(id)))
         .collect();
-    Ok(Json(serde_json::json!({ "profiles": profiles })))
+    Ok(Json(ProfileAccessList { profiles }))
 }
 
 /// One profile's access with the accounts on its list.
-async fn one_json(console: &Admin, id: &str) -> Result<serde_json::Value, Refusal> {
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ProfileAccessDetail {
+    #[serde(flatten)]
+    access: ProfileAccess,
+    /// @description The accounts on its list, by username.
+    accounts: Vec<AllowedAccount>,
+}
+
+/// An account on a profile's list.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct AllowedAccount {
+    /// @description The account's id.
+    id: Uuid,
+    /// @description Its username, or `null`.
+    username: Option<String>,
+    /// @description What other players see.
+    display_name: String,
+    /// @description Its handle, `Name#tag`.
+    handle: String,
+    /// @description When it was put on the list, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    added_at: String,
+    /// @description The admin who put it there.
+    added_by: String,
+}
+
+/// One profile's access with the accounts on its list.
+async fn one_json(console: &Admin, id: &str) -> Result<ProfileAccessDetail, Refusal> {
     let db = &console.app.db;
     let stored = llm_access::one(db, id).await.map_err(|e| db_failed(&e))?;
     let allowed = llm_access::allowed(db, id)
         .await
         .map_err(|e| db_failed(&e))?;
-    let mut json = access_json(id, stored.as_ref(), reported(console, id).as_ref());
-    json["accounts"] = allowed
-        .iter()
-        .map(|a| {
-            serde_json::json!({
-                "id": a.account_id,
-                "username": a.username,
-                "display_name": a.display_name,
-                "handle": crate::handle::handle(&a.display_name, a.tag),
-                "added_at": iso(a.added_at),
-                "added_by": a.added_by,
+    Ok(ProfileAccessDetail {
+        access: access_json(id, stored.as_ref(), reported(console, id).as_ref()),
+        accounts: allowed
+            .iter()
+            .map(|a| AllowedAccount {
+                id: a.account_id,
+                username: a.username.clone(),
+                display_name: a.display_name.clone(),
+                handle: crate::handle::handle(&a.display_name, a.tag),
+                added_at: iso(a.added_at),
+                added_by: a.added_by.clone(),
             })
-        })
-        .collect();
-    Ok(json)
+            .collect(),
+    })
 }
 
 /// `GET /admin/llm/access/{id}`: one profile's policy and its list.
+///
+/// @route GET /admin/llm/access/{id}
+/// @scope admin
+/// @summary Who may seat one hosted profile
+/// @description One profile's policy and the accounts on its list. A
+/// profile no seat agent reports and no policy names reads as `listed`
+/// with nobody on it.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @return 400: `$ErrorBody` "The id is not 1-64 of A-Z a-z 0-9 . - _"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn one(
     State(console): State<Admin>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ProfileAccessDetail>, Refusal> {
     profile_id(&id)?;
     one_json(&console, &id).await.map(Json)
 }
 
 /// What `PUT /admin/llm/access/{id}` takes.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PolicyBody {
+    /// @description Who may seat the profile.
+    /// @openapi enum: [registered, listed, nobody]
     policy: String,
+    /// @description `true` makes it the operator's default seat, taking the
+    /// mark from any other profile (only with `registered`); `false` takes
+    /// the mark away; absent leaves it, though another policy than
+    /// `registered` takes it away too.
     #[serde(default)]
     default_for_registered: Option<bool>,
 }
 
 /// `PUT /admin/llm/access/{id}` `{"policy", "default_for_registered"?}`.
+///
+/// @route PUT /admin/llm/access/{id}
+/// @scope admin
+/// @summary Set who may seat a hosted profile
+/// @description Sets the profile's policy, and whether it is the default
+/// seat; answers as `GET`. A change stops nothing already ordered: it is
+/// read at each listing and each order.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `updated_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$PolicyBody`
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a policy (an unknown field included), another policy word, or the default mark with a policy other than `registered`"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn set_policy(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ProfileAccessDetail>, Refusal> {
     profile_id(&id)?;
     let body: PolicyBody = serde_json::from_slice(&body).map_err(|_| {
         err(
@@ -206,10 +335,41 @@ async fn set_policy(
 }
 
 /// What `…/allow` and `…/disallow` take.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AccountsBody {
+    /// @description Account ids, 1 to 200; an id named twice counts once.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 1
+    /// ```
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 200
+    /// ```
+    /// @openapi items: { type: string, format: uuid }
     accounts: Vec<String>,
+}
+
+/// `POST /admin/llm/access/{id}/allow`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct AccessAdded {
+    #[serde(flatten)]
+    detail: ProfileAccessDetail,
+    /// @description How many of the accounts were not on the list already.
+    added: u64,
+}
+
+/// `POST /admin/llm/access/{id}/disallow`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct AccessRemoved {
+    #[serde(flatten)]
+    detail: ProfileAccessDetail,
+    /// @description How many of the accounts were on the list.
+    removed: u64,
 }
 
 fn accounts_of(body: &Bytes) -> Result<Vec<Uuid>, Refusal> {
@@ -246,12 +406,34 @@ fn joined(ids: &[Uuid]) -> String {
 /// `POST /admin/llm/access/{id}/allow` `{"accounts": [id, …]}`: puts
 /// registered accounts on the profile's list. All or nothing: `404` for an
 /// id no account has, `409` for a guest's.
+///
+/// @route POST /admin/llm/access/{id}/allow
+/// @scope admin
+/// @summary Put accounts on a hosted profile's list
+/// @description Puts registered accounts on the profile's list, all or
+/// nothing; a profile without a policy gets `listed`. Answers as `GET`,
+/// with how many were added.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and `added_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$AccountsBody`
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list of accounts (an unknown field included), fewer than 1 or more than 200, or one that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "An id no account has; nobody was added"
+/// @return 409: `$ErrorBody` "A guest's account, which cannot seat a hosted model; nobody was added"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn allow(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<AccessAdded>, Refusal> {
     profile_id(&id)?;
     let accounts = accounts_of(&body)?;
     let added = match llm_access::allow(&console.app.db, &id, &accounts, &actor)
@@ -281,19 +463,39 @@ async fn allow(
         added,
         "admin console: hosted model access changed"
     );
-    let mut json = one_json(&console, &id).await?;
-    json["added"] = added.into();
-    Ok(Json(json))
+    Ok(Json(AccessAdded {
+        detail: one_json(&console, &id).await?,
+        added,
+    }))
 }
 
 /// `POST /admin/llm/access/{id}/disallow` `{"accounts": [id, …]}`: takes
 /// accounts off the profile's list; an id not on it is no error.
+///
+/// @route POST /admin/llm/access/{id}/disallow
+/// @scope admin
+/// @summary Take accounts off a hosted profile's list
+/// @description Takes accounts off the profile's list; an id not on it is
+/// no error. Answers as `GET`, with how many were removed.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$AccountsBody`
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id outside 1-64 of A-Z a-z 0-9 . - _, not a list of accounts (an unknown field included), fewer than 1 or more than 200, or one that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn disallow(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<AccessRemoved>, Refusal> {
     profile_id(&id)?;
     let accounts = accounts_of(&body)?;
     let removed = llm_access::disallow(&console.app.db, &id, &accounts)
@@ -308,26 +510,71 @@ async fn disallow(
         removed,
         "admin console: hosted model access changed"
     );
-    let mut json = one_json(&console, &id).await?;
-    json["removed"] = removed.into();
-    Ok(Json(json))
+    Ok(Json(AccessRemoved {
+        detail: one_json(&console, &id).await?,
+        removed,
+    }))
 }
 
 /// What `GET /admin/accounts/lookup` takes.
+/// @openapi
 #[derive(Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 struct LookupQuery {
+    /// @description The start of a username or display name, any case
+    /// (`%` and `_` are themselves); fewer than 2 characters find nothing,
+    /// at most 100.
     q: String,
+}
+
+/// `GET /admin/accounts/lookup`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct LookupAnswer {
+    /// @description At most 10 registered accounts, the username equal to
+    /// `q` first, then by username.
+    accounts: Vec<LookedUp>,
+}
+
+/// An account the type-ahead found.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct LookedUp {
+    /// @description The account's id.
+    id: Uuid,
+    /// @description Its username, or `null`.
+    username: Option<String>,
+    /// @description What other players see.
+    display_name: String,
+    /// @description Its handle, `Name#tag`.
+    handle: String,
 }
 
 /// `GET /admin/accounts/lookup?q=`: registered accounts whose username or
 /// display name starts with `q`, for the allow-list editor's type-ahead;
 /// fewer than two characters find nothing, at most ten are answered. A
 /// read, so not audited.
+///
+/// @route GET /admin/accounts/lookup
+/// @scope admin
+/// @summary Find registered accounts by the start of a name
+/// @description Registered accounts whose username or display name starts
+/// with `q`, for a list editor's type-ahead: the username equal to `q`
+/// first, then by username, at most 10.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @query-params `$LookupQuery`
+/// @return 400: `$ErrorBody` "A query parameter other than `q`, or a search over 100 characters"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn lookup(
     State(console): State<Admin>,
     query: Result<Query<LookupQuery>, axum::extract::rejection::QueryRejection>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<LookupAnswer>, Refusal> {
     let Query(query) = query.map_err(|_| err(StatusCode::BAD_REQUEST, "send ?q=<prefix>"))?;
     if query.q.chars().count() > MAX_SEARCH_CHARS {
         return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
@@ -335,16 +582,14 @@ async fn lookup(
     let found = llm_access::candidates(&console.app.db, &query.q, llm_access::MAX_CANDIDATES)
         .await
         .map_err(|e| db_failed(&e))?;
-    let accounts: Vec<serde_json::Value> = found
+    let accounts: Vec<LookedUp> = found
         .iter()
-        .map(|c| {
-            serde_json::json!({
-                "id": c.account_id,
-                "username": c.username,
-                "display_name": c.display_name,
-                "handle": crate::handle::handle(&c.display_name, c.tag),
-            })
+        .map(|c| LookedUp {
+            id: c.account_id,
+            username: c.username.clone(),
+            display_name: c.display_name.clone(),
+            handle: crate::handle::handle(&c.display_name, c.tag),
         })
         .collect();
-    Ok(Json(serde_json::json!({ "accounts": accounts })))
+    Ok(Json(LookupAnswer { accounts }))
 }
