@@ -4306,41 +4306,90 @@ pub static ORACLE: &[&[&str]] = &[
     &["Creature spells cost {2} more to cast."],
     // Folk of An-Havva
     &["Whenever this creature blocks, it gets +2/+0 until end of turn."],
-    &[],
-    &[],
+    // Forget
+    &["Target player discards two cards, then draws as many cards as they discarded this way."],
+    // Funeral March
+    &[
+        "Enchant creature\nWhen enchanted creature leaves the battlefield, its controller sacrifices a creature of their choice.",
+    ],
     // Ghost Hounds
     &[
         "Vigilance\nWhenever this creature blocks or becomes blocked by a white creature, this creature gains first strike until end of turn.",
     ],
-    &[],
-    &[],
+    // Giant Albatross
+    &[
+        "Flying\nWhen this creature dies, you may pay {1}{U}. If you do, for each creature that dealt damage to this creature this turn, destroy that creature unless its controller pays 2 life. A creature destroyed this way can't be regenerated.",
+    ],
+    // Giant Oyster
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: For as long as this creature remains tapped, target tapped creature doesn't untap during its controller's untap step, and at the beginning of each of your draw steps, put a -1/-1 counter on that creature. When this creature leaves the battlefield or becomes untapped, remove all -1/-1 counters from the creature.",
+    ],
     // Grandmother Sengir
     &["{1}{B}, {T}: Target creature gets -1/-1 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Greater Werewolf
+    &[
+        "At end of combat, put a -0/-2 counter on each creature blocking or blocked by this creature.",
+    ],
+    // Hazduhr the Abbot
+    &[
+        "{X}, {T}: The next X damage that would be dealt this turn to target white creature you control is dealt to Hazduhr instead.",
+    ],
+    // Headstone
+    &[
+        "Exile target card from a graveyard.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Heart Wolf
+    &[
+        "First strike\n{T}: Target Dwarf creature gets +2/+0 and gains first strike until end of turn. When that creature leaves the battlefield this turn, sacrifice this creature. Activate only during combat.",
+    ],
     // Hungry Mist
     &["At the beginning of your upkeep, sacrifice this creature unless you pay {G}{G}."],
     // Ihsan's Shade
     &["Protection from white"],
-    &[],
-    &[],
-    &[],
+    // Irini Sengir
+    &["Green enchantment spells and white enchantment spells cost {2} more to cast."],
+    // Ironclaw Curse
+    &[
+        "Enchant creature\nEnchanted creature gets -0/-1.\nEnchanted creature can't block creatures with power equal to or greater than the enchanted creature's toughness.",
+    ],
+    // Jinx
+    &[
+        "Target land becomes the basic land type of your choice until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Joven
     &["{R}{R}{R}, {T}: Destroy target noncreature artifact."],
-    &[],
-    &[],
-    &[],
+    // Joven's Ferrets
+    &[
+        "Whenever this creature attacks, it gets +0/+2 until end of turn.\nAt end of combat, tap all creatures that blocked this creature this turn. They don't untap during their controller's next untap step.",
+    ],
+    // Joven's Tools
+    &["{4}, {T}: Target creature can't be blocked this turn except by Walls."],
+    // Koskun Falls
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you tap an untapped creature you control.\nCreatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    ],
     // Koskun Keep
     &["{T}: Add {C}.\n{1}, {T}: Add {R}.\n{2}, {T}: Add {B} or {G}."],
-    &[],
+    // Labyrinth Minotaur
+    &[
+        "Whenever this creature blocks a creature, that creature doesn't untap during its controller's next untap step.",
+    ],
     // Leaping Lizard
     &["{1}{G}: This creature gets -0/-1 and gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Leeches
+    &["Target player loses all poison counters. Leeches deals that much damage to that player."],
+    // Mammoth Harness
+    &[
+        "Enchant creature\nEnchanted creature loses flying.\nWhenever enchanted creature blocks or becomes blocked by a creature, the other creature gains first strike until end of turn.",
+    ],
+    // Marjhan
+    &[
+        "This creature doesn't untap during your untap step.\n{U}{U}, Sacrifice a creature: Untap this creature. Activate only during your upkeep.\nThis creature can't attack unless defending player controls an Island.\n{U}{U}: This creature gets -1/-0 until end of turn and deals 1 damage to target attacking creature without flying.\nWhen you control no Islands, sacrifice this creature.",
+    ],
+    // Memory Lapse
+    &[
+        "Counter target spell. If that spell is countered this way, put it on top of its owner's library instead of into that player's graveyard.",
+    ],
     // Merchant Scroll
     &[
         "Search your library for a blue instant card, reveal that card, put it into your hand, then shuffle.",
@@ -4351,18 +4400,34 @@ pub static ORACLE: &[&[&str]] = &[
     &["All creatures lose flying and islandwalk."],
     // Narwhal
     &["First strike, protection from red"],
-    &[],
+    // Orcish Mine
+    &[
+        "Enchant land\nThis Aura enters with three ore counters on it.\nAt the beginning of your upkeep and whenever enchanted land becomes tapped, remove an ore counter from this Aura.\nWhen the last ore counter is removed from this Aura, destroy enchanted land and this Aura deals 2 damage to that land's controller.",
+    ],
     // Primal Order
     &[
         "At the beginning of each player's upkeep, this enchantment deals damage to that player equal to the number of nonbasic lands they control.",
     ],
-    &[],
-    &[],
+    // Prophecy
+    &[
+        "Reveal the top card of target opponent's library. If it's a land, you gain 1 life. Then that player shuffles.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Rashka the Slayer
+    &[
+        "Reach (This creature can block creatures with flying.)\nWhenever Rashka blocks one or more black creatures, Rashka gets +1/+2 until end of turn.",
+    ],
     // Reef Pirates
     &["Whenever this creature deals damage to an opponent, that player mills a card."],
-    &[],
-    &[],
-    &[],
+    // Renewal
+    &[
+        "As an additional cost to cast this spell, sacrifice a land.\nSearch your library for a basic land card, put that card onto the battlefield, then shuffle.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Retribution
+    &[
+        "Choose two target creatures controlled by the same opponent. That player chooses and sacrifices one of those creatures. Put a -1/-1 counter on the other.",
+    ],
+    // Reveka, Wizard Savant
+    &["{T}: Reveka deals 2 damage to any target and doesn't untap during your next untap step."],
     &[],
     // Roots
     &[

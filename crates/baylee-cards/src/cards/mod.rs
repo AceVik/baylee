@@ -5889,6 +5889,8 @@ pub mod forge_devil;
 pub mod forge_of_heroes;
 #[path = "creatures/enchantments/mv_4/forgeborn_oreads.rs"]
 pub mod forgeborn_oreads;
+#[path = "sorceries/mv_2/forget.rs"]
+pub mod forget;
 #[path = "lands/cycling/forgotten_cave.rs"]
 pub mod forgotten_cave;
 #[path = "sorceries/mv_1/forgotten_lore.rs"]
@@ -6069,6 +6071,8 @@ pub mod fulminator_mage;
 pub mod fumarole;
 #[path = "instants/mv_1/funeral_charm.rs"]
 pub mod funeral_charm;
+#[path = "enchantments/auras/mv_3/funeral_march.rs"]
+pub mod funeral_march;
 #[path = "sorceries/mv_3/funeral_rites.rs"]
 pub mod funeral_rites;
 #[path = "enchantments/mv_2/fungal_bloom.rs"]
@@ -6333,6 +6337,8 @@ pub mod ghoul_s_feast;
 pub mod ghoulcaller_s_bell;
 #[path = "enchantments/auras/mv_1/ghoulflesh.rs"]
 pub mod ghoulflesh;
+#[path = "creatures/mv_2/giant_albatross.rs"]
+pub mod giant_albatross;
 #[path = "creatures/mv_3/giant_badger.rs"]
 pub mod giant_badger;
 #[path = "creatures/mv_4/giant_cockroach.rs"]
@@ -6345,6 +6351,8 @@ pub mod giant_growth;
 pub mod giant_mantis;
 #[path = "creatures/mv_4/giant_octopus.rs"]
 pub mod giant_octopus;
+#[path = "creatures/mv_4/giant_oyster.rs"]
+pub mod giant_oyster;
 #[path = "artifacts/mv_1/giant_s_boulder.rs"]
 pub mod giant_s_boulder;
 #[path = "creatures/mv_3/giant_scorpion.rs"]
@@ -6943,6 +6951,8 @@ pub mod greater_forgeling;
 pub mod greater_realm_of_preservation;
 #[path = "creatures/mv_7/greater_sandwurm.rs"]
 pub mod greater_sandwurm;
+#[path = "creatures/mv_5/greater_werewolf.rs"]
+pub mod greater_werewolf;
 #[path = "artifacts/equipment/mv_3/greatsword.rs"]
 pub mod greatsword;
 #[path = "enchantments/mv_4/greed.rs"]
@@ -7327,6 +7337,8 @@ pub mod hawkeater_moth;
 pub mod hawkeye_clint_barton;
 #[path = "creatures/artifacts/mv_1/haywire_mite.rs"]
 pub mod haywire_mite;
+#[path = "creatures/mv_5/hazduhr_the_abbot.rs"]
+pub mod hazduhr_the_abbot;
 #[path = "instants/mv_2/haze_of_pollen.rs"]
 pub mod haze_of_pollen;
 #[path = "creatures/mv_4/hazerider_drake.rs"]
@@ -7343,6 +7355,8 @@ pub mod head_of_the_homestead;
 pub mod headless_horseman;
 #[path = "creatures/mv_3/headless_rider.rs"]
 pub mod headless_rider;
+#[path = "instants/mv_2/headstone.rs"]
+pub mod headstone;
 #[path = "creatures/mv_4/headwater_sentries.rs"]
 pub mod headwater_sentries;
 #[path = "instants/mv_1/heal.rs"]
@@ -7371,6 +7385,8 @@ pub mod heart_of_yavimaya;
 pub mod heart_sliver;
 #[path = "creatures/mv_2/heart_warden.rs"]
 pub mod heart_warden;
+#[path = "creatures/mv_4/heart_wolf.rs"]
+pub mod heart_wolf;
 #[path = "creatures/mv_8/hearthcage_giant.rs"]
 pub mod hearthcage_giant;
 #[path = "creatures/mv_3/hearthfire_hobgoblin.rs"]
@@ -8163,6 +8179,8 @@ pub mod ior_ruin_expedition;
 pub mod ipnu_rivulet;
 #[path = "creatures/mv_2/iridescent_blademaster.rs"]
 pub mod iridescent_blademaster;
+#[path = "creatures/mv_4/irini_sengir.rs"]
+pub mod irini_sengir;
 #[path = "enchantments/auras/mv_4/iroas_s_blessing.rs"]
 pub mod iroas_s_blessing;
 #[path = "creatures/mv_3/iroas_s_champion.rs"]
@@ -8199,6 +8217,8 @@ pub mod ironclad_krovod;
 pub mod ironclad_slayer;
 #[path = "creatures/mv_3/ironclaw_buzzardiers.rs"]
 pub mod ironclaw_buzzardiers;
+#[path = "enchantments/auras/mv_1/ironclaw_curse.rs"]
+pub mod ironclaw_curse;
 #[path = "creatures/mv_2/ironclaw_orcs.rs"]
 pub mod ironclaw_orcs;
 #[path = "creatures/mv_2/ironpaw_aspirant.rs"]
@@ -8383,6 +8403,8 @@ pub mod jidoor_aristocratic_capital;
 pub mod jihad;
 #[path = "creatures/mv_7/jin_gitaxias_progress_tyrant.rs"]
 pub mod jin_gitaxias_progress_tyrant;
+#[path = "instants/mv_2/jinx.rs"]
+pub mod jinx;
 #[path = "creatures/mv_6/johan.rs"]
 pub mod johan;
 #[path = "creatures/mv_6/johtull_wurm.rs"]
@@ -8409,6 +8431,10 @@ pub mod joust_through;
 pub mod jousting_dummy;
 #[path = "creatures/mv_5/joven.rs"]
 pub mod joven;
+#[path = "creatures/mv_1/joven_s_ferrets.rs"]
+pub mod joven_s_ferrets;
+#[path = "artifacts/mv_6/joven_s_tools.rs"]
+pub mod joven_s_tools;
 #[path = "sorceries/mv_3/jovial_evil.rs"]
 pub mod jovial_evil;
 #[path = "sorceries/mv_4/joyous_respite.rs"]
@@ -8837,6 +8863,8 @@ pub mod kor_sky_climber;
 pub mod kor_skyfisher;
 #[path = "artifacts/mv_4/kormus_bell.rs"]
 pub mod kormus_bell;
+#[path = "enchantments/mv_4/koskun_falls.rs"]
+pub mod koskun_falls;
 #[path = "lands/koskun_keep.rs"]
 pub mod koskun_keep;
 #[path = "creatures/mv_3/koth_s_courier.rs"]
@@ -8939,6 +8967,8 @@ pub mod kyscu_drake;
 pub mod la_forge_perceptive_engineer;
 #[path = "creatures/mv_4/laboratory_brute.rs"]
 pub mod laboratory_brute;
+#[path = "creatures/mv_4/labyrinth_minotaur.rs"]
+pub mod labyrinth_minotaur;
 #[path = "lands/utility/labyrinth_of_skophos.rs"]
 pub mod labyrinth_of_skophos;
 #[path = "instants/mv_3/lace_with_moonglove.rs"]
@@ -9077,6 +9107,8 @@ pub mod leatherback_baloth;
 pub mod leave_in_the_dust;
 #[path = "creatures/mv_2/ledger_shredder.rs"]
 pub mod ledger_shredder;
+#[path = "sorceries/mv_3/leeches.rs"]
+pub mod leeches;
 #[path = "lands/restricted/leechridden_swamp.rs"]
 pub mod leechridden_swamp;
 #[path = "artifacts/equipment/mv_2/leering_emblem.rs"]
@@ -9657,6 +9689,8 @@ pub mod malevolent_awakening;
 pub mod malevolent_hermit;
 #[path = "enchantments/auras/mv_4/malfunction.rs"]
 pub mod malfunction;
+#[path = "enchantments/auras/mv_4/mammoth_harness.rs"]
+pub mod mammoth_harness;
 #[path = "creatures/mv_5/mammoth_spider.rs"]
 pub mod mammoth_spider;
 #[path = "creatures/mv_3/man_o_war.rs"]
@@ -9773,6 +9807,8 @@ pub mod mariposa_military_base;
 pub mod marisi_s_twinclaws;
 #[path = "creatures/mv_2/maritime_guard.rs"]
 pub mod maritime_guard;
+#[path = "creatures/mv_7/marjhan.rs"]
+pub mod marjhan;
 #[path = "enchantments/auras/mv_3/mark_of_the_oni.rs"]
 pub mod mark_of_the_oni;
 #[path = "enchantments/auras/mv_4/mark_of_the_vampire.rs"]
@@ -9947,6 +9983,8 @@ pub mod memorial_to_war;
 pub mod memory_deluge;
 #[path = "instants/mv_4/memory_drain.rs"]
 pub mod memory_drain;
+#[path = "instants/mv_2/memory_lapse.rs"]
+pub mod memory_lapse;
 #[path = "instants/mv_1/mending_hands.rs"]
 pub mod mending_hands;
 #[path = "instants/mv_1/mending_touch.rs"]
@@ -11341,6 +11379,8 @@ pub mod orcish_librarian;
 pub mod orcish_lumberjack;
 #[path = "creatures/mv_3/orcish_mechanics.rs"]
 pub mod orcish_mechanics;
+#[path = "enchantments/auras/mv_3/orcish_mine.rs"]
+pub mod orcish_mine;
 #[path = "enchantments/mv_4/orcish_oriflamme.rs"]
 pub mod orcish_oriflamme;
 #[path = "creatures/mv_1/orcish_spy.rs"]
@@ -12111,6 +12151,8 @@ pub mod professor_zei_anthropologist;
 pub mod progenitor_mimic;
 #[path = "lands/caves/promising_vein.rs"]
 pub mod promising_vein;
+#[path = "sorceries/mv_1/prophecy.rs"]
+pub mod prophecy;
 #[path = "creatures/mv_1/prophet_of_distortion.rs"]
 pub mod prophet_of_distortion;
 #[path = "creatures/artifacts/mv_6/prophet_of_the_peak.rs"]
@@ -12491,6 +12533,8 @@ pub mod raptor_companion;
 pub mod raptor_hatchling;
 #[path = "sorceries/mv_6/rapturous_moment.rs"]
 pub mod rapturous_moment;
+#[path = "creatures/mv_5/rashka_the_slayer.rs"]
+pub mod rashka_the_slayer;
 #[path = "creatures/mv_6/rasputin_dreamweaver.rs"]
 pub mod rasputin_dreamweaver;
 #[path = "lands/utility/rath_s_edge.rs"]
@@ -12783,6 +12827,8 @@ pub mod renegade_rallier;
 pub mod renegade_s_getaway;
 #[path = "creatures/mv_5/renegade_troops.rs"]
 pub mod renegade_troops;
+#[path = "sorceries/mv_3/renewal.rs"]
+pub mod renewal;
 #[path = "creatures/mv_1/renowned_weaver.rs"]
 pub mod renowned_weaver;
 #[path = "instants/mv_2/repel_calamity.rs"]
@@ -12857,6 +12903,8 @@ pub mod resupply;
 pub mod resurrection;
 #[path = "enchantments/mv_3/retreat_to_kazandu.rs"]
 pub mod retreat_to_kazandu;
+#[path = "sorceries/mv_4/retribution.rs"]
+pub mod retribution;
 #[path = "sorceries/mv_3/retribution_of_the_meek.rs"]
 pub mod retribution_of_the_meek;
 #[path = "artifacts/mv_3/retributive_wand.rs"]
@@ -12879,6 +12927,8 @@ pub mod returned_pastcaller;
 pub mod returned_reveler;
 #[path = "creatures/mv_5/reveillark.rs"]
 pub mod reveillark;
+#[path = "creatures/mv_4/reveka_wizard_savant.rs"]
+pub mod reveka_wizard_savant;
 #[path = "sorceries/mv_7/revel_of_the_fallen_god.rs"]
 pub mod revel_of_the_fallen_god;
 #[path = "enchantments/mv_1/revelation.rs"]

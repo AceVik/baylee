@@ -168,6 +168,7 @@ Aether Hub
 Aether Shockwave
 Aether Spellbomb
 Aether Sting
+Aether Storm
 Aether Vial
 Affa Guard Hound
 Affa Protector
@@ -273,6 +274,7 @@ Ambassador Laquatus
 Ambassador Oak
 Ambition's Cost
 Ambrosia Whiteheart
+Ambush
 Ambush Gigapede
 Ambush Krotiq
 Ambush Party
@@ -286,7 +288,10 @@ Amrou Scout
 Amrou Seekers
 Amulet of Kroog
 An Offer You Can't Refuse
+An-Havva Constable
+An-Havva Inn
 An-Havva Township
+An-Zerrin Ruins
 Ana Disciple
 Anaba Ancestor
 Anaba Bodyguard
@@ -367,6 +372,7 @@ Anti-Magic Aura
 Anurid Murkdiver
 Anvilwrought Raptor
 Aphelia, Viper Whisperer
+Apocalypse Chime
 Appa, Aang's Companion
 Appendage Amalgam
 Appetite for the Unnatural
@@ -539,6 +545,7 @@ Auroral Procession
 Auspicious Arrival
 Austere Command
 Automatic Librarian
+Autumn Willow
 Avacyn's Collar
 Avacyn's Memorial
 Avacyn's Pilgrim
@@ -587,6 +594,7 @@ Ayara, First of Locthwain
 Ayesha Tanaka
 Aysen Abbey
 Aysen Bureaucrats
+Aysen Crusader
 Aysen Highway
 Ayula's Influence
 Azami, Lady of Scrolls
@@ -616,6 +624,7 @@ Badgey, Malicious Glitch
 Bag End Banquet
 Bag End Porter
 Bake into a Pie
+Baki's Curse
 Bala Ged Recovery // Bala Ged Sanctuary
 Bala Ged Scorpion
 Balamb Garden, SeeD Academy // Balamb Garden, Airborne
@@ -662,6 +671,7 @@ Barkhide Mauler
 Barkhide Troll
 Barktooth Warbeard
 Barl's Cage
+Baron Sengir
 Baron, Airship Kingdom
 Barony Vampire
 Barrage Ogre
@@ -795,6 +805,7 @@ Bishop's Soldier
 Bitterbloom Bearer
 Bitterblossom
 Bitterbow Sharpshooters
+Black Carriage
 Black Cat
 Black Dragon
 Black Dragon Gate
@@ -1098,6 +1109,7 @@ Bristling Backwoods
 Bristly Bill, Spine Sower
 Broadside Barrage
 Broken Fall
+Broken Visage
 Broken Wings
 Brokers Hideout
 Brokers Initiate
@@ -1330,6 +1342,7 @@ Cerulean Wyvern
 Ceta Disciple
 Cha'DIch Investigator
 Chain Lightning
+Chain Stasis
 Chain to Memory
 Chained Brute
 Chains of Mephistopheles
@@ -1337,6 +1350,7 @@ Champion of Arashin
 Champion of the Parish
 Champion of the Perished
 Champion's Helm
+Chandler
 Chandra's Emberling
 Change the Equation
 Changeling Sentinel
@@ -1462,6 +1476,9 @@ Cloaked Siren
 Clockwork Avian
 Clockwork Beast
 Clockwork Drawbridge
+Clockwork Gnomes
+Clockwork Steed
+Clockwork Swarm
 Cloistered Telepath
 Clone
 Clot Sliver
@@ -1612,6 +1629,7 @@ Coral Commando
 Coral Eel
 Coral Helm
 Coral Merfolk
+Coral Reef
 Coralhelm Guide
 Coretapper
 Cori Mountain Monastery
@@ -1806,6 +1824,7 @@ Dark Favor
 Dark Fortress
 Dark Hatchling
 Dark Heart of the Wood
+Dark Maze
 Dark Nourishment
 Dark Offering
 Dark Privilege
@@ -1839,6 +1858,7 @@ Darkwater Catacombs
 Darkwater Egg
 Darling of the Masses
 Daru Encampment
+Daughter of Autumn
 Dauntless Aven
 Dauntless River Marshal
 Dauntless Survivor
@@ -2026,6 +2046,7 @@ Diamond Kaleidoscope
 Diamond Valley
 Dictate of Heliod
 Dictate of Kruphix
+Didgeridoo
 Dimension X
 Dimir Aqueduct
 Dimir Cluestone
@@ -2283,6 +2304,7 @@ Dwarven Nomad
 Dwarven Pony
 Dwarven Priest
 Dwarven Ruins
+Dwarven Sea Clan
 Dwarven Soldier
 Dwarven Song
 Dwarven Trader
@@ -2627,6 +2649,7 @@ Faerie Duelist
 Faerie Formation
 Faerie Invaders
 Faerie Mastermind
+Faerie Noble
 Faerie Seer
 Faerie Swarm
 Failed Conversion
@@ -2728,6 +2751,7 @@ Ferocious Charge
 Ferocious Pup
 Ferocious Zheng
 Ferocity of the Wilds
+Feroz's Ban
 Ferrous Lake
 Ferrovore
 Fertile Thicket
@@ -2902,6 +2926,7 @@ Fog
 Fog of Gnats
 Foggy Bottom Swamp
 Fogwell's Gym
+Folk of An-Havva
 Folk of the Pines
 Fomori Nomad
 Fomori Vault
@@ -2935,6 +2960,7 @@ Forethought Amulet
 Forge Devil
 Forge of Heroes
 Forgeborn Oreads
+Forget
 Forgotten Cave
 Forgotten Lore
 Forgotten Monument
@@ -3024,6 +3050,7 @@ Fugue
 Fulminator Mage
 Fumarole
 Funeral Charm
+Funeral March
 Funeral Rites
 Fungal Bloom
 Fungal Infection
@@ -3156,12 +3183,14 @@ Ghosts of the Damned
 Ghoul's Feast
 Ghoulcaller's Bell
 Ghoulflesh
+Giant Albatross
 Giant Badger
 Giant Cockroach
 Giant Crab
 Giant Growth
 Giant Mantis
 Giant Octopus
+Giant Oyster
 Giant Scorpion
 Giant Shark
 Giant Slug
@@ -3456,6 +3485,7 @@ Greater Basilisk
 Greater Forgeling
 Greater Realm of Preservation
 Greater Sandwurm
+Greater Werewolf
 Greatsword
 Greed
 Greedy Freebooter
@@ -3646,6 +3676,7 @@ Havoc Sower
 Hawkeater Moth
 Hawkeye, Clint Barton
 Haywire Mite
+Hazduhr the Abbot
 Haze of Pollen
 Hazerider Drake
 Hazezon Tamar
@@ -3654,6 +3685,7 @@ Head of Security
 Head of the Homestead
 Headless Horseman
 Headless Rider
+Headstone
 Headwater Sentries
 Heal
 Healer of the Glade
@@ -3666,6 +3698,7 @@ Healing Salve
 Heap Gate
 Heart Sliver
 Heart Warden
+Heart Wolf
 Heart of Ramos
 Heart of Yavimaya
 Hearthcage Giant
@@ -4055,6 +4088,7 @@ Iona's Judgment
 Ior Ruin Expedition
 Ipnu Rivulet
 Iridescent Blademaster
+Irini Sengir
 Iroas's Blessing
 Iroas's Champion
 Iroh's Demonstration
@@ -4073,6 +4107,7 @@ Iron-Shield Elf
 Ironclad Krovod
 Ironclad Slayer
 Ironclaw Buzzardiers
+Ironclaw Curse
 Ironclaw Orcs
 Ironpaw Aspirant
 Ironroot Treefolk
@@ -4160,6 +4195,7 @@ Jhovall Rider
 Jibbirik Omnivore
 Jidoor, Aristocratic Capital // Overture
 Jihad
+Jinx
 Johan
 Johtull Wurm
 Join the Ranks
@@ -4173,6 +4209,8 @@ Journeyer's Kite
 Joust Through
 Jousting Dummy
 Joven
+Joven's Ferrets
+Joven's Tools
 Jovial Evil
 Joyous Respite
 Judge Magister Gabranth
@@ -4381,6 +4419,7 @@ Kor Scythemaster
 Kor Sky Climber
 Kor Skyfisher
 Kormus Bell
+Koskun Falls
 Koskun Keep
 Koth's Courier
 Kozilek's Channeler
@@ -4432,6 +4471,7 @@ Kyoshi Warriors
 Kyscu Drake
 La Forge, Perceptive Engineer
 Laboratory Brute
+Labyrinth Minotaur
 Labyrinth of Skophos
 Lace with Moonglove
 Lady Caleria
@@ -4501,6 +4541,7 @@ Learn from the Past
 Leatherback Baloth
 Leave in the Dust
 Ledger Shredder
+Leeches
 Leechridden Swamp
 Leering Emblem
 Legion Extruder
@@ -4786,6 +4827,7 @@ Malcator's Watcher
 Malevolent Awakening
 Malevolent Hermit
 Malfunction
+Mammoth Harness
 Mammoth Spider
 Man-o'-War
 Mana Clash
@@ -4843,6 +4885,7 @@ Marionette Apprentice
 Mariposa Military Base
 Marisi's Twinclaws
 Maritime Guard
+Marjhan
 Mark of the Oni
 Mark of the Vampire
 Marked by Honor
@@ -4926,6 +4969,7 @@ Memorial to Unity
 Memorial to War
 Memory Deluge
 Memory Drain
+Memory Lapse
 Mending Hands
 Mending Touch
 Meng Huo's Horde
@@ -5611,6 +5655,7 @@ Orcish Healer
 Orcish Librarian
 Orcish Lumberjack
 Orcish Mechanics
+Orcish Mine
 Orcish Oriflamme
 Orcish Spy
 Orcish Squatters
@@ -5981,6 +6026,7 @@ Professor Dellian Fel
 Professor Zei, Anthropologist
 Professor of Zoomancy
 Promising Vein
+Prophecy
 Prophet of Distortion
 Prophet of the Peak
 Prophetic Prism
@@ -6170,6 +6216,7 @@ Rapid Fire
 Raptor Companion
 Raptor Hatchling
 Rapturous Moment
+Rashka the Slayer
 Rasputin Dreamweaver
 Rath's Edge
 Rathi Assassin
@@ -6308,6 +6355,7 @@ Renegade Map
 Renegade Rallier
 Renegade Troops
 Renegade's Getaway
+Renewal
 Renowned Weaver
 Repel Calamity
 Repentant Blacksmith
@@ -6344,6 +6392,7 @@ Restoration Gearsmith
 Resupply
 Resurrection
 Retreat to Kazandu
+Retribution
 Retribution of the Meek
 Retributive Wand
 Retrieval Agent
@@ -6354,6 +6403,7 @@ Return to the Earth
 Returned Centaur
 Returned Pastcaller
 Returned Reveler
+Reveka, Wizard Savant
 Revel of the Fallen God
 Revelation
 Revelsong Horn
@@ -7713,6 +7763,7 @@ Storm World
 Storm the Vault // Vault of Catlacan
 Storm's Wrath
 Storm-Kiln Artist
+Stormbind
 Stormcaller of Keranos
 Stormcarved Coast
 Stormchaser Mage
@@ -7770,6 +7821,7 @@ Study Hall
 Stuffed Bear
 Stump Stomp // Burnwillow Clearing
 Stunt Double
+Stunted Growth
 Stupor
 Stymied Hopes
 Su-Chi
@@ -8144,6 +8196,7 @@ Thelonite Monk
 Theorist's Proxy
 Thermal Glider
 Thermal Navigator
+Thermokarst
 Thespian's Stage
 They Went This Way
 Thicket Basilisk
@@ -8281,6 +8334,7 @@ Timeless Lotus
 Timetwister
 Tin Street Market
 Tinder Farm
+Tinder Wall
 Tinker's Tote
 Tinybones, the Pickpocket
 Tireless Hauler // Dire-Strain Brawler
@@ -8329,11 +8383,14 @@ Tormod's Crypt
 Torpor Dust
 Torsten Von Ursus
 Tortured Existence
+Total War
 Totem Speaker
 Toucan-Puffin
 Touch of Brilliance
 Touch of Darkness
+Touch of Death
 Touch of Invisibility
+Touch of Vitae
 Tough Cookie
 Tourach's Chant
 Tourach's Gate
@@ -8599,6 +8656,7 @@ Unyaro Bee Sting
 Unyaro Bees
 Unyaro Griffin
 Unyielding Krumar
+Updraft
 Updraft Elemental
 Ur-Drago
 Ur-Golem's Eye
@@ -8615,6 +8673,7 @@ Urn of Godfire
 Uro, Titan of Nature's Wrath
 Ursapine
 Urza's Avenger
+Urza's Bauble
 Urza's Cave
 Urza's Chalice
 Urza's Factory
@@ -8711,6 +8770,7 @@ Vengeful Dead
 Venom
 Venom Sliver
 Venomcrawler
+Venomous Breath
 Venomous Changeling
 Venomous Dragonfly
 Venomous Hierophant
@@ -8726,6 +8786,7 @@ Vermin Gorger
 Vernadi Shieldmate
 Vernal Bloom
 Vernal Fen
+Vertigo
 Vesper Ghoul
 Vessel of Ephemera
 Vessel of Paramnesia
@@ -8741,6 +8802,7 @@ Veteran Cavalier
 Veteran Swordsmith
 Veteran of the Depths
 Veteran's Sidearm
+Vexing Arcanix
 Vexing Gull
 Vial of Dragonfire
 Vial of Poison
@@ -8757,6 +8819,7 @@ Viashino Warrior
 Viashivan Dragon
 Vibranium Energy Daggers
 Vibrant Cityscape
+Vibrating Sphere
 Vicious Clown
 Vicious Conquistador
 Vicious Hunger
@@ -8881,6 +8944,7 @@ Walking Archive
 Walking Ballista
 Walking Corpse
 Walking Dead
+Walking Wall
 Wall of Air
 Wall of Blood
 Wall of Blossoms
@@ -8958,6 +9022,7 @@ Warleader's Helix
 Warlord's Axe
 Warmonger's Chariot
 Warmth
+Warning
 Warp Artifact
 Warpath Ghoul
 Warped Landscape
@@ -9062,15 +9127,18 @@ White Lotus Hideout
 White Lotus Reinforcements
 White Mana Battery
 White Plume Adventurer
+White Scarab
 White Shield Crusader
 White Ward
 Whitemane Lion
+Whiteout
 Whitesun's Passage
 Whitewater Naiads
 Wicked Visitor
 Wicker Witch
 Wickerbough Elder
 Wielding the Green Dragon
+Wiitigo
 Wild Aesthir
 Wild Cantor
 Wild Celebrants
@@ -9135,6 +9203,7 @@ Winter Blast
 Winter Moon
 Winter Orb
 Winter Soldier, Bucky Barnes
+Winter's Chill
 Winter's Grasp
 Winter's Intervention
 Wintermoon Mesa
@@ -9161,6 +9230,7 @@ Witches' Eye
 Witching Well
 Witherbloom Campus
 Withering Torment
+Withering Wisps
 Without Weakness
 Withstand
 Withstand Death
@@ -9196,9 +9266,12 @@ Woodlot Crawler
 Woodwraith Corrupter
 Woodwraith Strangler
 Woolly Mammoths
+Woolly Spider
 Woolly Thoctar
 Word of Binding
+Word of Blasting
 Word of Command
+Word of Undoing
 Worf, Chief Tactical Officer
 Workhorse
 World Map
@@ -9326,55 +9399,7 @@ Zuko's Offense
 Zuko, Avatar Hunter
 Zulaport Chainmage
 Zulaport Cutthroat
+Zur's Weirding
 Zuran Enchanter
 Zuran Orb
 Zuran Spellcaster
-Stormbind
-Stunted Growth
-Thermokarst
-Tinder Wall
-Total War
-Touch of Death
-Touch of Vitae
-Updraft
-Urza's Bauble
-Venomous Breath
-Vertigo
-Vexing Arcanix
-Vibrating Sphere
-Walking Wall
-Warning
-White Scarab
-Whiteout
-Wiitigo
-Winter's Chill
-Withering Wisps
-Woolly Spider
-Word of Blasting
-Word of Undoing
-Zur's Weirding
-Aether Storm
-Ambush
-An-Havva Constable
-An-Havva Inn
-An-Zerrin Ruins
-Apocalypse Chime
-Autumn Willow
-Aysen Crusader
-Baki's Curse
-Baron Sengir
-Black Carriage
-Broken Visage
-Chain Stasis
-Chandler
-Clockwork Gnomes
-Clockwork Steed
-Clockwork Swarm
-Coral Reef
-Dark Maze
-Daughter of Autumn
-Didgeridoo
-Dwarven Sea Clan
-Faerie Noble
-Feroz's Ban
-Folk of An-Havva
