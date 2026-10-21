@@ -392,3 +392,18 @@
     right: var(--sp-2);
   }
 }
+
+/* The narrowest phones (320 px): the bar's words sit closer. */
+@media (max-width: 380px) {
+  .bar {
+    gap: 0;
+    padding-right: max(var(--sp-2), env(safe-area-inset-right));
+    padding-left: max(var(--sp-2), env(safe-area-inset-left));
+  }
+  .tabs a {
+    padding: 0 var(--sp-2);
+  }
+  .bar > button {
+    padding: 0 var(--sp-2);
+  }
+}

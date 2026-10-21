@@ -473,6 +473,12 @@ table.reports th[aria-sort] {
   white-space: nowrap;
 }
 
+/* Beside its term a time may break, so a phone keeps it on the screen. */
+.facts .when,
+.kv .when {
+  white-space: normal;
+}
+
 .status-new {
   font-weight: var(--fw-semibold);
 }

@@ -1191,7 +1191,7 @@ dialog.llm-dialog > form {
   gap: var(--sp-4);
 }
 
-dialog.llm-dialog fieldset.field {
+dialog.llm-dialog fieldset.field:not(.llm-pair-field) {
   display: grid;
   gap: var(--sp-2);
   margin: 0;
@@ -1200,7 +1200,7 @@ dialog.llm-dialog fieldset.field {
   border-radius: var(--r-md);
 }
 
-dialog.llm-dialog fieldset.field > label {
+dialog.llm-dialog fieldset.field:not(.llm-pair-field) > label {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);

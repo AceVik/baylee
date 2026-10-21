@@ -1,8 +1,9 @@
 // The admin console in a real browser, through a real baylee-feedback, to
-// a real baylee-gateway's console (harness.ts): the overview renders at a
-// phone held upright, a phone on its side and a desktop, with nothing wider
-// than the screen and targets a finger can hit; keys are made, shown once,
-// let a player in, and are revoked.
+// a real baylee-gateway's console (harness.ts): the reports, a report and
+// the overview render at the narrowest phone, a phone held upright, a phone
+// on its side and a desktop, with nothing wider than the screen, targets a
+// finger can hit and no text under 12 px; keys are made, shown once, let a
+// player in, and are revoked.
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -18,6 +19,8 @@ interface Size {
 }
 
 const SIZES: Size[] = [
+  // The narrowest a page must reflow to without scrolling sideways (WCAG 1.4.10).
+  { name: "phone-narrow", width: 320, height: 640, phone: true, locale: "de-DE", colorScheme: "dark" },
   { name: "phone-portrait", width: 360, height: 740, phone: true, locale: "de-DE", colorScheme: "light" },
   { name: "phone-landscape", width: 740, height: 360, phone: true, locale: "en-GB", colorScheme: "dark" },
   { name: "desktop", width: 1280, height: 800, phone: false, locale: "en-GB", colorScheme: "light" },

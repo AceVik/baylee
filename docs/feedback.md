@@ -740,8 +740,10 @@ the browser never sees:
   password, nor a ban's or game's reason, which may name a person and is
   kept only on the account row (the ban's) or nowhere (the game's).
 - **The page.** Mobile first (one column on a phone, 44 px targets, safe-area
-  insets, a sticky bar that folds as the page scrolls), light and dark as
-  the system says, English or German as the browser asks. The numbers are
+  insets, a sticky bar that lifts off the page as it scrolls), light and dark
+  as the system says, English or German as the browser asks, WCAG 2.1 AA
+  (its design tokens and how they are held to it: `web/feedback/README.md`
+  §"Its look"). The numbers are
   asked again every 15 seconds while the page is visible and not while it
   is hidden. New keys are shown once with Copy, Copy all and, where the
   browser has it, Share; there is no invite link, because the client takes
