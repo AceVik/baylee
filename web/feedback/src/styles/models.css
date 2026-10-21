@@ -1,6 +1,8 @@
 /* The hosted models (`/admin/models`): seat agents as even cards, each
    profile a card with one row per seat agent holding it, an assignment
-   grid, and quick, quiet motion that stops when the system asks. */
+   grid, the editor and who may seat each model. Built from
+   `components.css`; the modal itself is there (`dialog.llm-dialog`). */
+
 .llm-hosts,
 .llm-profiles,
 .llm-on-list {
@@ -12,77 +14,71 @@
 .llm-hosts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
-  gap: 0.75rem;
+  gap: var(--sp-3);
 }
 
 .llm-profiles {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--sp-4);
 }
 
 .llm-profile-head,
 .llm-on-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: var(--sp-2);
 }
 
 .llm-profile-head h3 {
   margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .llm-profile-head p {
-  margin: 0.15rem 0 0;
+  margin: var(--sp-1) 0 0;
   overflow-wrap: anywhere;
 }
 
 .llm-badges {
   display: inline-flex;
-  gap: 0.35rem;
   flex-wrap: wrap;
+  gap: var(--sp-1);
 }
 
 .llm-on-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
-  gap: 0.6rem;
-  margin-top: 0.75rem;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
 }
 
 .llm-on {
   display: grid;
-  gap: 0.5rem;
   align-content: start;
-  padding: 0.75rem;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  background: var(--surface-alt);
 }
 
 .llm-on.state-disabled {
   opacity: 0.72;
 }
 
-.facts.llm-facts {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.facts.llm-facts dd {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
 .llm-meter {
   display: block;
   inline-size: 5rem;
   block-size: 4px;
-  margin: 0.2rem 0 0 auto;
+  margin: var(--sp-1) 0 0 auto;
+  overflow: hidden;
   border-radius: 2px;
   background: var(--border);
-  overflow: hidden;
 }
 
 .llm-meter > span {
@@ -107,16 +103,15 @@
 .llm-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .llm-actions button {
-  min-height: 44px;
   min-width: 0;
-  padding-inline: 0.4rem;
-  white-space: nowrap;
+  padding-inline: var(--sp-2);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Delete always sits in the last column, so every card's row ends alike. */
@@ -128,16 +123,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: var(--sp-2);
 }
 
 .llm-knob {
   position: relative;
-  inline-size: 1.9rem;
-  block-size: 1.05rem;
-  border-radius: 1rem;
-  background: var(--border);
   flex: none;
+  inline-size: 2rem;
+  block-size: 1.15rem;
+  border-radius: var(--r-full);
+  background: var(--border-strong);
+  transition: background-color var(--dur) var(--ease);
 }
 
 .llm-knob::after {
@@ -145,11 +141,12 @@
   position: absolute;
   inset-block-start: 0.15rem;
   inset-inline-start: 0.15rem;
-  inline-size: 0.75rem;
-  block-size: 0.75rem;
+  inline-size: 0.85rem;
+  block-size: 0.85rem;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur) var(--ease);
 }
 
 .llm-switch.on .llm-knob {
@@ -162,19 +159,18 @@
 
 .llm-key {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .llm-key-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .llm-key-row input {
   flex: 1 1 10rem;
   min-width: 0;
-  min-height: 44px;
 }
 
 .llm-matrix-wrap {
@@ -182,15 +178,21 @@
 }
 
 .llm-matrix {
-  border-collapse: collapse;
   min-width: 100%;
+  border-collapse: collapse;
 }
 
 .llm-matrix th,
 .llm-matrix td {
-  padding: 0.4rem 0.6rem;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
   text-align: center;
+}
+
+.llm-matrix thead th {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
 }
 
 .llm-matrix th[scope="row"],
@@ -201,14 +203,18 @@
 /* A square a finger can hit, ticked with the accent. */
 .llm-cell {
   appearance: none;
-  inline-size: 44px;
-  block-size: 44px;
+  inline-size: var(--control-h);
+  block-size: var(--control-h);
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
   background: var(--surface) center / 1.3rem no-repeat;
-  cursor: pointer;
   vertical-align: middle;
+  cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
 }
 
 .llm-cell:hover:not(:disabled) {
@@ -221,25 +227,37 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' fill='white'/%3E%3C/svg%3E");
 }
 
-.llm-cell:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+.llm-cell:active {
+  transform: scale(0.96);
 }
 
 .llm-notice {
   position: fixed;
   inset-inline: 0;
-  inset-block-start: 4.5rem;
-  z-index: 20;
+  inset-block-start: calc(var(--header-h) + var(--sp-4));
+  z-index: var(--z-toast);
   inline-size: fit-content;
   max-inline-size: calc(100% - 2rem);
   margin-inline: auto;
-  padding: 0.5rem 0.9rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition:
+    opacity var(--dur) var(--ease),
+    visibility var(--dur);
+}
+
+.llm-notice.tone-ok {
+  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
+  background: var(--ok-soft);
+  color: var(--ok);
 }
 
 .llm-notice.tone-danger {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -248,61 +266,43 @@
   opacity: 0;
 }
 
-.llm-dialog::backdrop {
-  background: rgb(0 0 0 / 40%);
-}
-
-.llm-dialog {
-  inline-size: min(calc(100% - 2rem), 30rem);
-  max-block-size: calc(100% - 2rem);
-  background: var(--surface);
-  overflow-y: auto;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.llm-dialog[open],
 .llm-editor-form {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--sp-4);
 }
 
-.llm-dialog h3 {
-  margin: 0;
-}
-
-.llm-dialog.llm-editor {
+dialog.llm-dialog.llm-editor {
   inline-size: min(calc(100% - 2rem), 46rem);
 }
 
 .llm-section {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--sp-3);
   margin: 0;
-  padding: 0.6rem 0.75rem 0.75rem;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-md);
 }
 
 .llm-section legend {
-  padding: 0 0.3rem;
-  font-weight: 600;
+  padding: 0 var(--sp-1);
+  font-weight: var(--fw-semibold);
 }
 
 .llm-hint {
-  margin: 0.2rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.35;
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
 }
 
 /* A switch of the profile's: the box and its word on one line, the hint below. */
 .llm-check label {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: var(--sp-2);
   margin: 0;
-  font-size: 0.9rem;
   color: var(--text);
+  font-size: var(--fs-md);
 }
 
 .form-grid .llm-check input {
@@ -317,16 +317,10 @@
   align-items: start;
 }
 
-@media (max-width: 34rem) {
-  .llm-section .form-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .llm-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
+  gap: var(--sp-2);
 }
 
 .llm-pair-field {
@@ -338,88 +332,40 @@
 
 /* The pair's legend reads as every other box's label. */
 .llm-pair-field legend.llm-label {
+  margin-bottom: var(--sp-1);
   padding: 0;
-  margin-bottom: 0.2rem;
-  font-size: 0.8rem;
-  font-weight: inherit;
-  color: var(--muted);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
 }
 
 .llm-fallback-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--sp-2);
   margin: 0;
 }
 
 .llm-editor textarea {
   inline-size: 100%;
-  font: 0.85rem/1.4 var(--mono);
+  font: var(--fs-sm) / 1.45 var(--font-mono);
 }
 
-
-@media (prefers-reduced-motion: no-preference) {
-  .llm-cell {
-    transition:
-      transform 90ms ease-out,
-      background-color 120ms ease-out,
-      border-color 120ms ease-out;
-  }
-  .llm-on,
-  .llm-host {
-    transition:
-      box-shadow 120ms ease-out,
-      border-color 120ms ease-out;
-  }
-  .llm-on:hover,
-  .llm-host:hover {
-    border-color: var(--accent);
-  }
-  .llm-actions button,
-  .llm-key-row button {
-    transition:
-      transform 90ms ease-out,
-      background-color 120ms ease-out;
-  }
-  .llm-actions button:active:not(:disabled),
-  .llm-key-row button:active:not(:disabled),
-  .llm-cell:active {
-    transform: scale(0.96);
-  }
-  .llm-knob,
-  .llm-knob::after {
-    transition:
-      transform 140ms ease-out,
-      background-color 140ms ease-out;
-  }
-  .llm-meter > span {
-    transition: inline-size 300ms ease-out;
-  }
-  .llm-notice {
-    transition:
-      opacity 160ms ease-out,
-      visibility 160ms;
-  }
-  .llm-dialog::backdrop {
-    animation: llm-fade 140ms ease-out;
-  }
-  .llm-dialog {
-    animation: llm-rise 160ms ease-out;
-  }
+.llm-on,
+.llm-host {
+  transition:
+    box-shadow var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
 }
 
-@keyframes llm-fade {
-  from {
-    opacity: 0;
-  }
+.llm-on:hover,
+.llm-host:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 
-@keyframes llm-rise {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem) scale(0.98);
-  }
+.llm-meter > span {
+  transition: inline-size 300ms var(--ease);
 }
 
 /* Who may seat each model: profiles as rows with their policy, and the
@@ -435,73 +381,84 @@
 
 .access-profiles {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--sp-2);
 }
 
 .access-profile {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.75rem;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
 }
 
 .access-profile .llm-badges {
-  margin-top: 0.3rem;
+  margin-top: var(--sp-1);
 }
 
-.access-editor {
+dialog.llm-dialog.access-editor {
   inline-size: min(44rem, calc(100vw - 2rem));
 }
 
 .access-form {
   display: grid;
-  gap: 1rem;
+  gap: var(--sp-4);
 }
 
 .access-policies {
   display: grid;
-  gap: 0.4rem;
+  gap: var(--sp-2);
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .access-policies legend {
-  font-weight: 600;
-  margin-bottom: 0.35rem;
+  margin-bottom: var(--sp-2);
+  font-weight: var(--fw-semibold);
 }
 
 .access-policy {
   display: flex;
-  gap: 0.6rem;
   align-items: flex-start;
-  padding: 0.55rem 0.7rem;
+  gap: var(--sp-3);
+  min-block-size: var(--control-h);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--r-lg);
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
   cursor: pointer;
-  min-block-size: 44px;
-  transition: border-color 120ms ease, background-color 120ms ease;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.access-policy:hover {
+  border-color: var(--border-strong);
 }
 
 .access-policy > span {
   display: grid;
-  gap: 0.1rem;
+  gap: 2px;
 }
 
-.access-policy.on {
+.access-policy.on,
+.access-policy.on:hover {
   border-color: var(--accent);
-  background: var(--selected);
+  background: var(--accent-soft);
 }
 
 .access-default {
-  margin-top: 0.4rem;
+  margin-top: var(--sp-2);
 }
 
 .access-list {
   display: grid;
-  gap: 0.6rem;
+  gap: var(--sp-3);
 }
 
 .access-list h4 {
@@ -516,7 +473,7 @@
 .access-picker {
   position: relative;
   display: grid;
-  gap: 0.25rem;
+  gap: var(--sp-1);
 }
 
 .access-picker p {
@@ -527,56 +484,56 @@
   position: absolute;
   inset-inline: 0;
   inset-block-start: 4.4rem;
-  z-index: 5;
+  z-index: var(--z-popover);
   max-block-size: 18rem;
   overflow-y: auto;
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
 }
 
 .access-option {
-  padding: 0.55rem 0.7rem;
-  cursor: pointer;
-  min-block-size: 44px;
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  min-block-size: var(--control-h);
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
 }
 
 .access-option.active {
-  background: var(--selected);
+  background: var(--accent-soft);
 }
 
 .access-option.taken {
-  cursor: default;
   opacity: 0.6;
+  cursor: default;
 }
 
 .access-pending p {
-  margin: 0 0 0.3rem;
+  margin: 0 0 var(--sp-1);
 }
 
 .access-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: var(--sp-2);
 }
 
 .access-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.15rem 0.2rem 0.15rem 0.6rem;
+  gap: var(--sp-1);
+  padding: 2px 2px 2px var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--info-bg);
+  border-radius: var(--r-full);
+  background: var(--info-soft);
 }
 
 .access-pending.removing .access-chip {
-  background: var(--warn-bg);
+  background: var(--warn-soft);
   text-decoration: line-through;
 }
 
@@ -584,15 +541,15 @@
   min-inline-size: 2rem;
   min-block-size: 2rem;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   line-height: 1;
 }
 
 .access-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
   align-items: center;
+  gap: var(--sp-2);
 }
 
 .access-tools input[type="search"] {
@@ -604,15 +561,15 @@
   max-block-size: 22rem;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-md);
 }
 
 .access-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: 0.6rem;
   align-items: center;
-  padding: 0.4rem 0.6rem;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -621,8 +578,8 @@
 }
 
 .access-row.going .access-who {
+  color: var(--text-muted);
   text-decoration: line-through;
-  color: var(--muted);
 }
 
 .access-who {
@@ -630,10 +587,16 @@
 }
 
 .access-review ul {
-  margin: 0.4rem 0 0.6rem;
-  padding-inline-start: 1.2rem;
   display: grid;
-  gap: 0.3rem;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 var(--sp-3);
+  padding-inline-start: var(--sp-5);
+}
+
+@media (max-width: 34rem) {
+  .llm-section .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -642,11 +605,5 @@
   }
   .access-row > .muted {
     grid-column: 2 / -1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .access-policy {
-    transition: none;
   }
 }

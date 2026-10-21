@@ -7,6 +7,8 @@ nav-admin = Admin
 nav-label = Bereiche
 nav-signOut = Abmelden
 nav-contact = Kontakt
+nav-skip = Zum Inhalt springen
+nav-signedIn = Angemeldet als { $name }
 
 contact-title = Kontaktnachrichten
 contact-summary = { $open } offen · aus dem Formular der Startseite

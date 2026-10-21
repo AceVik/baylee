@@ -4,6 +4,8 @@
 // behind one section bar that sits on top on a wide screen and at the
 // bottom of a phone, under the thumb.
 
+import { useEffect } from "react";
+
 import { AccountDetail } from "./admin/AccountDetail";
 import { Accounts } from "./admin/Accounts";
 import { Cards } from "./admin/Cards";
@@ -13,6 +15,7 @@ import { Models } from "./admin/Models";
 import { Overview } from "./admin/Overview";
 import { SetPage, Sets } from "./admin/Sets";
 import { go } from "./admin/shared";
+import { BRAND } from "./Brand";
 import { t, type Key, type Lang } from "./i18n";
 import { adminPath, ADMIN_SECTIONS, type AdminSection } from "./router";
 
@@ -71,6 +74,12 @@ export function Admin({
   id?: string | undefined;
   search?: string | undefined;
 }) {
+  // The window's title names the section (WCAG 2.4.2), and one set its code.
+  useEffect(() => {
+    const name = t(lang, LABELS[section]);
+    const set = section === "sets" && id !== undefined ? `${id.toUpperCase()} · ` : "";
+    document.title = `${set}${name} · ${BRAND}`;
+  }, [lang, section, id]);
   return (
     <div className="admin-shell">
       <SectionBar lang={lang} section={section} />

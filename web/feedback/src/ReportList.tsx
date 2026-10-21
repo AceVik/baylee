@@ -674,8 +674,9 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
   };
 
   return (
-    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`}>
+    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`} id="main">
       <div className="list-main">
+        <h1 className="sr-only">{t(lang, "nav.reports")}</h1>
         <div className="list-toolbar">
           <fieldset className="views segmented">
             <legend className="sr-only">{t(lang, "rep.views")}</legend>

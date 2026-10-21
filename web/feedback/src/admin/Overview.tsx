@@ -345,7 +345,7 @@ function Details({
       ? t(lang, "stats.noCap")
       : t(lang, "stats.guestCap", { cap: n(stats.guests.cap) });
   return (
-    <div className="panels">
+    <div className="panels stat-panels">
       <Panel id="st-players" title={t(lang, "stats.players")}>
         <p className="big" data-testid="registered">
           <span className="big-number">{n(stats.accounts.registered)}</span>{" "}

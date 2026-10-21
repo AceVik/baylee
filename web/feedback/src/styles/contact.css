@@ -1,0 +1,90 @@
+/* The landing page's contact messages (`/contact`): a list of cards, and one
+   message with its answer and history. */
+
+.contact-page {
+  max-width: 920px;
+}
+
+.contact-filter {
+  margin-bottom: var(--sp-4);
+}
+
+.contact-list {
+  display: grid;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+}
+
+.contact-link {
+  display: grid;
+  gap: var(--sp-2);
+  min-height: var(--control-h);
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.contact-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+
+.contact-item.status-new .contact-link {
+  box-shadow: inset 3px 0 0 var(--accent), var(--shadow-xs);
+}
+
+.contact-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.contact-when {
+  margin-left: auto;
+}
+
+.contact-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.contact-back a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+}
+
+.contact-detail .page-head {
+  margin: 0 0 var(--sp-4);
+}
+
+.contact-text {
+  margin: var(--sp-5) 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  font-size: var(--fs-lg);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.contact-history-title {
+  margin: var(--sp-6) 0 var(--sp-2);
+  font-size: var(--fs-lg);
+}

@@ -9,6 +9,8 @@ export const KEYS = [
   "nav.label",
   "nav.signOut",
   "nav.contact",
+  "nav.skip",
+  "nav.signedIn",
   "contact.title",
   "contact.summary",
   "contact.filter",

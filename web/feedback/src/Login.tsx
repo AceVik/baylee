@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import { api, Refused } from "./api";
+import { BRAND, BrandMark } from "./Brand";
 
 export function Login({ onSignedIn }: { onSignedIn: (name: string) => void }) {
   const [name, setName] = useState("");
@@ -30,7 +31,8 @@ export function Login({ onSignedIn }: { onSignedIn: (name: string) => void }) {
   return (
     <main className="center">
       <form className="card login" onSubmit={(event) => void submit(event)} aria-labelledby="login-title">
-        <h1 id="login-title">Baylee reports</h1>
+        <BrandMark size={40} />
+        <h1 id="login-title">{BRAND}</h1>
         <p className="muted">Admins only.</p>
         <label htmlFor="login-name">Name</label>
         <input

@@ -7,6 +7,8 @@ nav-admin = Admin
 nav-label = Sections
 nav-signOut = Sign out
 nav-contact = Contact
+nav-skip = Skip to content
+nav-signedIn = Signed in as { $name }
 
 contact-title = Contact messages
 contact-summary = { $open } open · from the landing page's form
