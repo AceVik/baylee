@@ -77,6 +77,7 @@ mod morphling;
 mod ogre_arsonist;
 mod ogre_berserker;
 mod ojer_kaslem_deepest_growth;
+mod orcish_squatters;
 mod ore_gorger;
 mod orgg;
 mod phyrexian_plaguelord;

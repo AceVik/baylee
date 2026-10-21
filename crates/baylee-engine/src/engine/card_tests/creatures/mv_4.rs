@@ -127,6 +127,7 @@ mod nameless_race;
 mod nantuko_disciple;
 mod nettletooth_djinn;
 mod nightscape_master;
+mod norritt;
 mod northern_paladin;
 mod norwood_archers;
 mod oboro_envoy;

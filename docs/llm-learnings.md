@@ -5238,3 +5238,20 @@ more than two it names nobody). What the author did more than once:
     `GameObject::chosen_opponent()`, and `Modifier::MayChooseNotToUntap` prompts
     `Pending::ChooseCards { prompt: ChoicePrompt::LeaveTapped, .. }` during the untap
     step (`vec![permanent]` leaves it tapped; `vec![]` lets it untap).
+
+## 2026-10-21 — Ice Age (`ice`) batch 7 (25 cards: `Mudslide` to `Red Scarab`)
+
+- Added 25 *Ice Age* first-printing cards (`Mudslide` through `Red Scarab`,
+  14 `Coverage::Implemented`, 11 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Effect::WhenLeavesThisTurn { watched, effects }` cleanly expresses bidirectional
+    same-turn departure links (`Phantasmal Mount`: one watching `TargetSpec::Source`
+    with `Effect::Sacrifice { target: TargetSpec::ChosenTarget(0) }` and a second
+    watching `TargetSpec::ChosenTarget(0)` with `Effect::SacrificeSelf`).
+  - `Modifier::GrantActivatedDefinition(&GRANTED)` on a land enchanted by an Aura
+    (`Mystic Might`) exposes the granted ability on the land at
+    `crate::choice::GRANTED_ABILITY`.
+  - `Modifier::ReplaceProducedManaColor(ManaColor)` on subtype filters (`Naked Singularity`,
+    `Reality Twist`) cleanly replaces the mana color produced by lands of each basic
+    land subtype without affecting unmentioned basic land subtypes (`Island` on
+    `Reality Twist`).

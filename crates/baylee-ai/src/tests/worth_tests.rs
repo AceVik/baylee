@@ -937,7 +937,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Legions of Lim-Dûl, Magus of the Unseen, Mercenaries, Merieke Ri Berit,
     // Mesmeric Trance, Minion of Leshrac, Mistfolk, and Mole Worms, of which
     // 4 are read by the evaluator.
-    assert_eq!((read, of), (2602, 3190), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 7 adds 6 non-mana activated abilities across
+    // Musician, Norritt, Oath of Lim-Dûl, Orcish Farmer, and Phantasmal Mount,
+    // of which 2 are read by the evaluator.
+    assert_eq!((read, of), (2604, 3196), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

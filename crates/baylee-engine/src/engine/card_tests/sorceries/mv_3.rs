@@ -35,6 +35,7 @@ mod maelstrom_pulse;
 mod mind_ravel;
 mod pelakka_predation;
 mod pillage;
+mod pox;
 mod precision_bolt;
 mod rain_of_tears;
 mod recover;

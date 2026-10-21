@@ -11,7 +11,7 @@ card!(
     oracle_id = "857f9a8d-ba77-4afd-922d-994f66e478ef",
     scryfall_id = "6ffc64e4-ae3c-49f9-8ed6-518dd497bfe6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Pyknite",
         mana_cost = mana!("{2}{G}"),

@@ -27,6 +27,7 @@ mod inertia_bubble;
 mod invisibility;
 mod mageta_s_boon;
 mod phantasmal_terrain;
+mod prismatic_ward;
 mod psychic_venom;
 mod regeneration;
 mod sinister_strength;

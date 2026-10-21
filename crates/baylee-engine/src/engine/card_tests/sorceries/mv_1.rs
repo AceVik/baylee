@@ -27,6 +27,7 @@ mod metamorphosis;
 mod meteor_shower;
 mod mind_bomb;
 mod mind_twist;
+mod portent;
 mod prismatic_ending;
 mod psychic_purge;
 mod raise_dead;

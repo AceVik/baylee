@@ -16,6 +16,7 @@ mod irradiate;
 mod lightning_blast;
 mod memory_deluge;
 mod might_of_oaks;
+mod ray_of_command;
 mod reverberation;
 mod sewers_of_estark;
 mod sudden_strength;

@@ -68,6 +68,7 @@ mod nourish;
 mod predator_s_strike;
 mod preemptive_strike;
 mod raise_the_alarm;
+mod rally;
 mod razorgrass_ambush;
 mod remove_soul;
 mod reverse_polarity;

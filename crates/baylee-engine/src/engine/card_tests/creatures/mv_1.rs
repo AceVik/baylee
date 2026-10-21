@@ -81,6 +81,7 @@ mod mountain_bandit;
 mod nezumi_shadow_watcher;
 mod noble_hierarch;
 mod orcish_captain;
+mod orcish_conscripts;
 mod orcish_lumberjack;
 mod orcish_spy;
 mod orochi_leafcaller;

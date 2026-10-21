@@ -11,7 +11,7 @@ card!(
     oracle_id = "29d828fa-a813-48f6-8dcb-43f6047b88a3",
     scryfall_id = "5a09fc0b-7b9c-4283-8336-f2607f5ffaf5",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ray of Erasure",
         mana_cost = mana!("{U}"),
