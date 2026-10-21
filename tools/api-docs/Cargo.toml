@@ -1,0 +1,19 @@
+# The API documents' generator (`docs/api/`), run as `cargo dev api`.
+#
+# A workspace of its own, outside the main one: oas-forge turns on
+# serde_json's `preserve_order`, and as a member it would reach every
+# `--workspace` build by feature unification, so a `serde_json::Value` would
+# keep insertion order in the tests and sorted order in a binary built alone
+# (and grow past clippy's `large_enum_variant`).
+[package]
+name = "baylee-api-docs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace]
+
+[dependencies]
+oas-forge = "0.2.0"

@@ -1,6 +1,6 @@
 //! The feedback service's API document: its root, its security schemes and
 //! the refusals many routes share. Nothing here runs; `cargo dev api`
-//! (`crates/baylee-api-docs`) reads these blocks with every route's own and writes
+//! (`tools/api-docs`) reads these blocks with every route's own and writes
 //! `docs/api/feedback.openapi.yaml`. `docs/feedback.md` stays the normative
 //! description; the document is what a client author reads first.
 //!

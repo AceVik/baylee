@@ -53,6 +53,7 @@ pub fn full() -> Result<i32> {
         println!("STEP validate SKIPPED - no {SCRYFALL_CACHE}");
     }
     steps.run("api", &mut crate::api::command("check"));
+    steps.run("api-tests", &mut crate::api::tests());
     Ok(steps.finish())
 }
 

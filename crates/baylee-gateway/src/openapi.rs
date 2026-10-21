@@ -1,6 +1,6 @@
 //! The gateway's API document: its root, its security scheme and the
 //! refusals many routes share. Nothing here runs; `cargo dev api`
-//! (`crates/baylee-api-docs`) reads these blocks with every route's own and writes
+//! (`tools/api-docs`) reads these blocks with every route's own and writes
 //! `docs/api/gateway.openapi.yaml`. `docs/protocol.md` stays the normative
 //! description; the document is what a client author reads first.
 //!
