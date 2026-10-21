@@ -93,7 +93,7 @@ async function readable(page: Page) {
       .filter((el) => (el as HTMLElement).offsetParent !== null && el.getBoundingClientRect().width > 1)
       .filter((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== ""))
       .map((el) => ({ el: el.outerHTML.slice(0, 80), px: parseFloat(getComputedStyle(el).fontSize) }))
-      .filter(({ px }) => px < 11.95),
+      .filter(({ px }) => px < 12),
   );
   expect(tiny, "text under 12 px").toEqual([]);
 }
