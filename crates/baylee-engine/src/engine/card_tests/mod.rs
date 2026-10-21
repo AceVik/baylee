@@ -778,6 +778,18 @@ fn priority_offer(engine: &Engine<RegistryLookup>) -> crate::choice::LegalAction
     *legal
 }
 
+/// Whether `object`'s activated ability `index` is offered at this priority,
+/// payable now (`abilities`) or once its mana is made (`unpaid_abilities`):
+/// an offer test that floats no mana reads the second list.
+fn ability_offered(engine: &Engine<RegistryLookup>, object: ObjectId, index: u32) -> bool {
+    let legal = priority_offer(engine);
+    legal.abilities.contains(&(object, index))
+        || legal
+            .unpaid_abilities
+            .iter()
+            .any(|&(source, i, _)| source == object && i == index)
+}
+
 /// Casts the object `card` (wherever it is) off floating mana and lets it
 /// resolve.
 #[track_caller]

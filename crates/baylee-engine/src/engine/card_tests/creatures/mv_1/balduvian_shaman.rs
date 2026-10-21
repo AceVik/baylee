@@ -2,6 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -102,11 +104,80 @@ fn balduvian_shaman_rewrites_color_word_on_white_enchantment_you_control_without
         "Crusade gained Cumulative upkeep {{1}} and received an age counter"
     );
 
-    // Also verify that once Balduvian Shaman untaps on P0's turn, my Crusade is
-    // no longer a legal target because it now has cumulative upkeep.
+    // Declining the granted upkeep sacrifices the Crusade, as cumulative
+    // upkeep does.
     engine
         .apply(P0, PlayerAction::YesNo(false))
         .expect("decline cumulative upkeep -> sacrifice Crusade");
     pass_until(&mut engine, stack_is_empty);
     assert!(on_battlefield(&engine, P0, crusade()).is_none());
+}
+
+/// "...target white enchantment you control that doesn't have cumulative
+/// upkeep": Energy Storm prints cumulative upkeep and is never on the menu,
+/// and the Crusade the first activation gave "Cumulative upkeep {1}" is off
+/// it for the second (the Shaman untapped by hand), while Circle of
+/// Protection: Red, white and without it, stays on.
+#[test]
+fn balduvian_shaman_cannot_target_an_enchantment_that_has_cumulative_upkeep() {
+    // Energy Storm's own cumulative upkeep comes due at the first upkeep:
+    // paid, so it is still there in the main phase.
+    let mut engine = lk::game_with(
+        SEED,
+        &[
+            balduvian_shaman(),
+            index::ENERGY_STORM,
+            crusade(),
+            index::CIRCLE_OF_PROTECTION_RED,
+        ],
+        &[],
+        &[],
+        &[],
+        |e| {
+            lk::float(e, P0, &[(ManaColor::Colorless, 1)]);
+            lk::yes_no(e, true);
+        },
+    );
+
+    let shaman = on_battlefield(&engine, P0, balduvian_shaman()).expect("Shaman seated");
+    let storm = on_battlefield(&engine, P0, index::ENERGY_STORM).expect("Energy Storm seated");
+    let my_crusade = on_battlefield(&engine, P0, crusade()).expect("Crusade seated");
+    let circle =
+        on_battlefield(&engine, P0, index::CIRCLE_OF_PROTECTION_RED).expect("Circle seated");
+
+    activate(&mut engine, P0, balduvian_shaman(), 0);
+    let menu = aim_at(&mut engine, P0, my_crusade);
+    assert!(
+        menu.contains(&my_crusade) && menu.contains(&circle),
+        "white enchantments without cumulative upkeep: {menu:?}"
+    );
+    assert!(
+        !menu.contains(&storm),
+        "Energy Storm prints cumulative upkeep: {menu:?}"
+    );
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseNumber { .. })
+    });
+    engine
+        .apply(P0, PlayerAction::ChooseNumber(3))
+        .expect("replace white with green");
+    pass_until(&mut engine, stack_is_empty);
+
+    engine
+        .dev_state_mut(P0)
+        .unwrap()
+        .object_mut(shaman)
+        .unwrap()
+        .status
+        .remove(Status::TAPPED);
+    engine.refresh_offer();
+
+    activate(&mut engine, P0, balduvian_shaman(), 0);
+    let menu = aim_at(&mut engine, P0, circle);
+    assert!(
+        !menu.contains(&my_crusade),
+        "the Crusade has the granted cumulative upkeep now: {menu:?}"
+    );
+    assert!(!menu.contains(&storm), "{menu:?}");
+    assert!(menu.contains(&circle), "{menu:?}");
 }

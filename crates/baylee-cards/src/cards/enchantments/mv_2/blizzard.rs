@@ -6,23 +6,27 @@
 
 use baylee_cards_dsl::prelude::*;
 
+static SNOW_LAND: Filter = Filter::And(&[Filter::LAND, Filter::HasSupertype(SupertypeSet::SNOW)]);
+
 static FLYING_CREATURE: Filter =
     Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]);
 
-// NOT SUPPORTED: "Cast this spell only if you control a snow land." —
-// SpellParts does not have a cast condition field on permanent spells.
 card!(
     index = index::BLIZZARD,
     oracle_id = "698feaaa-2fff-4809-81d1-4caad44c6c0a",
     scryfall_id = "c369e4f9-0f2b-446c-9e2d-d3eefab0586d",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial("missing cast restriction requiring you to control a snow land"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Blizzard",
         mana_cost = mana!("{G}{G}"),
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[
+        spell!(
+            &[],
+            condition = Some(Condition::ControlCount(&SNOW_LAND, 1))
+        ),
         triggered!(
             Trigger::StepBegin {
                 step: StepKind::Upkeep,

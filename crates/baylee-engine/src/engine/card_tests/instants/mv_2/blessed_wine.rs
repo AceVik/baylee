@@ -11,7 +11,7 @@ fn blessed_wine() -> CardIndex {
     card_index("8079007c-a07a-4d71-bb08-e1dd215297de")
 }
 
-/// Blessed Wine (8de50a0d-2a80-4673-b592-4859d93a1b43) — {1}{W} Instant:
+/// Blessed Wine (8079007c-a07a-4d71-bb08-e1dd215297de) — {1}{W} Instant:
 /// - "You gain 1 life."
 /// - "Draw a card at the beginning of the next turn's upkeep."
 #[test]

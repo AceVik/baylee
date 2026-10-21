@@ -66,4 +66,45 @@ fn brand_of_ill_omen_enchants_a_creature_and_has_cumulative_upkeep_red() {
         on_battlefield(&engine, P0, brand_of_ill_omen()).is_some(),
         "paid cumulative upkeep {{R}}, so Brand stays on the battlefield"
     );
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "the floating {{R}} paid for the one age counter"
+    );
+}
+
+/// "Sacrifice it unless you pay its upkeep cost for each age counter on it":
+/// declined at the first upkeep, Brand of Ill Omen goes to the graveyard.
+#[test]
+fn brand_of_ill_omen_is_sacrificed_when_its_cumulative_upkeep_is_not_paid() {
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .battlefield(1, &[gray_ogre()])
+        .hand(0, &[brand_of_ill_omen()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    let ogre = on_battlefield(&engine, P1, gray_ogre()).expect("Gray Ogre seated");
+    cast_from_hand(&mut engine, P0, brand_of_ill_omen());
+    aim_at(&mut engine, P0, ogre);
+    pass_until(&mut engine, stack_is_empty);
+    let brand = on_battlefield(&engine, P0, brand_of_ill_omen()).expect("Brand seated");
+
+    reach_their_main_phase(&mut engine, P1);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == P0),
+    );
+    assert_eq!(
+        counters_on(&engine, brand, baylee_cards_dsl::counters::AGE),
+        1
+    );
+    engine
+        .apply(P0, PlayerAction::YesNo(false))
+        .expect("decline cumulative upkeep");
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, P0, brand_of_ill_omen()).is_none());
+    assert!(in_graveyard(&engine, P0, brand_of_ill_omen()).is_some());
 }

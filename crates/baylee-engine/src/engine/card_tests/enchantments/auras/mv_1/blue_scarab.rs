@@ -19,11 +19,17 @@ fn merfolk_of_the_pearl_trident() -> CardIndex {
 /// - "Enchanted creature can't be blocked by blue creatures."
 /// - "Enchanted creature gets +2/+2 as long as an opponent controls a blue
 ///   permanent."
+///
+/// P0's own blue Merfolk is there from the start and earns nothing: the
+/// bonus waits for an opponent's blue permanent.
 #[test]
 fn blue_scarab_grants_plus_two_plus_two_when_opponent_controls_blue_permanent_and_prevents_blue_blockers()
  {
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), llanowar_elves()])
+        .battlefield(
+            0,
+            &[plains(), llanowar_elves(), merfolk_of_the_pearl_trident()],
+        )
         .battlefield(1, &[gray_ogre()])
         .hand(0, &[blue_scarab()])
         .hand(1, &[island(), merfolk_of_the_pearl_trident()])
@@ -38,11 +44,11 @@ fn blue_scarab_grants_plus_two_plus_two_when_opponent_controls_blue_permanent_an
     aim_at(&mut engine, P0, my_elf);
     pass_until(&mut engine, stack_is_empty);
 
-    // No opponent controls a blue permanent yet -> no +2/+2 bonus (1/1).
+    // Only P0 controls a blue permanent -> no +2/+2 bonus (1/1).
     assert_eq!(
         pt(&engine, my_elf),
         (1, 1),
-        "no blue permanent controlled by an opponent yet"
+        "P0's own blue Merfolk is not an opponent's blue permanent"
     );
 
     // On P1's turn, P1 plays an Island and casts Merfolk of the Pearl Trident (a blue permanent).

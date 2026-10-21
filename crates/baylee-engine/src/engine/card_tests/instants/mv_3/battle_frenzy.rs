@@ -10,7 +10,7 @@ fn battle_frenzy() -> CardIndex {
     card_index("0fca46ec-ec1a-4e6c-bb0e-cdb834b38c92")
 }
 
-/// Battle Frenzy (80a6dc47-e63f-444c-989f-7357b42b9d8b) — {2}{R} Instant:
+/// Battle Frenzy (0fca46ec-ec1a-4e6c-bb0e-cdb834b38c92) — {2}{R} Instant:
 /// - "Green creatures you control get +1/+1 until end of turn."
 /// - "Nongreen creatures you control get +1/+0 until end of turn."
 #[test]

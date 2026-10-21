@@ -4,15 +4,20 @@
 
 use baylee_cards_dsl::prelude::*;
 
-// NOT SUPPORTED: "and only if defending player controls a snow land" —
-// Condition has no variant checking whether the defending player controls a matching permanent.
+// "Defending player controls a snow land": the Sleigh is no attacker, so
+// `ControlledByDefendingPlayer` reads the active player's opponents during
+// combat (CR 506.2, 802.2) and nobody outside it.
+static DEFENDING_PLAYERS_SNOW_LAND: Filter = Filter::And(&[
+    Filter::LAND,
+    Filter::HasSupertype(SupertypeSet::SNOW),
+    Filter::ControlledByDefendingPlayer,
+]);
+
 card!(
     index = index::ARCUM_S_SLEIGH,
     oracle_id = "40960ec8-e3be-45f2-8d27-316d82c69123",
     scryfall_id = "e9780ce2-756c-48e5-9936-45f6a224f61d",
-    coverage = Coverage::Partial(
-        "missing condition checking whether defending player controls a snow land"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Arcum's Sleigh",
         mana_cost = mana!("{1}"),
@@ -27,6 +32,9 @@ card!(
             duration: Duration::UntilEndOfTurn,
         }],
         target = Some(TargetSpec::Object(&Filter::CREATURE)),
-        condition = Some(Condition::DuringCombat)
+        condition = Some(Condition::All(&[
+            Condition::DuringCombat,
+            Condition::BattlefieldCount(&DEFENDING_PLAYERS_SNOW_LAND, 1),
+        ]))
     )],
 );

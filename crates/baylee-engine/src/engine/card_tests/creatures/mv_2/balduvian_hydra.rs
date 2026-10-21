@@ -102,3 +102,62 @@ fn balduvian_hydra_enters_with_x_plus_one_plus_zero_counters_prevents_damage_and
     );
     assert_eq!(engine.state().object(hydra).unwrap().damage, 0);
 }
+
+/// "Prevent the next 1 damage that would be dealt to it **this turn**": a
+/// shield bought on P0's first turn is gone by P0's next one. The Hydra,
+/// cast with X = 1, spends its only counter on a shield and is a 0/1; two
+/// turns later Spikefield Hazard's 1 damage is not prevented, it dies, and
+/// the Hazard exiles it instead.
+#[test]
+fn balduvian_hydra_s_shield_ends_with_the_turn_it_was_made() {
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .hand(0, &[balduvian_hydra(), spikefield_hazard()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    // Three Mountains -> X = 1 ({1}{R}{R}).
+    tap_all_mana_but(&mut engine, P0, None);
+    cast_with_floating(&mut engine, P0, balduvian_hydra());
+    if let Pending::ChooseNumber { .. } = engine.pending() {
+        engine
+            .apply(P0, PlayerAction::ChooseNumber(1))
+            .expect("choose X = 1");
+    }
+    pass_until(&mut engine, stack_is_empty);
+    let hydra = on_battlefield(&engine, P0, balduvian_hydra()).expect("Hydra entered");
+    assert_eq!(pt(&engine, hydra), (1, 1), "one +1/+0 counter");
+
+    activate(&mut engine, P0, balduvian_hydra(), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        pt(&engine, hydra),
+        (0, 1),
+        "its counter paid for the shield"
+    );
+
+    reach_their_main_phase(&mut engine, P1);
+    assert!(walk_to_own_main(&mut engine, P0));
+    tap_all_mana_but(&mut engine, P0, None);
+    cast_front_face(&mut engine, P0, spikefield_hazard());
+    aim_at(&mut engine, P0, hydra);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        on_battlefield(&engine, P0, balduvian_hydra()).is_none(),
+        "the turn-one shield had ended, so the 1 damage killed the 0/1"
+    );
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Exile(P0))
+            .iter()
+            .any(|&id| engine
+                .state()
+                .object(id)
+                .is_some_and(|o| o.card.is_some_and(|c| c.index == balduvian_hydra()))),
+        "and Spikefield Hazard exiled it instead"
+    );
+}

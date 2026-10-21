@@ -15,11 +15,14 @@ fn black_scarab() -> CardIndex {
 /// - "Enchanted creature can't be blocked by black creatures."
 /// - "Enchanted creature gets +2/+2 as long as an opponent controls a black
 ///   permanent."
+///
+/// P0's own black Festering Goblin is there from the start and earns nothing:
+/// the bonus waits for an opponent's black permanent.
 #[test]
 fn black_scarab_grants_plus_two_plus_two_when_opponent_controls_black_permanent_and_prevents_black_blockers()
  {
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), llanowar_elves()])
+        .battlefield(0, &[plains(), llanowar_elves(), festering_goblin()])
         .battlefield(1, &[gray_ogre()])
         .hand(0, &[black_scarab()])
         .hand(1, &[swamp(), festering_goblin()])
@@ -34,11 +37,11 @@ fn black_scarab_grants_plus_two_plus_two_when_opponent_controls_black_permanent_
     aim_at(&mut engine, P0, my_elf);
     pass_until(&mut engine, stack_is_empty);
 
-    // No opponent controls a black permanent yet -> no +2/+2 bonus (1/1).
+    // Only P0 controls a black permanent -> no +2/+2 bonus (1/1).
     assert_eq!(
         pt(&engine, my_elf),
         (1, 1),
-        "no black permanent controlled by an opponent yet"
+        "P0's own black Goblin is not an opponent's black permanent"
     );
 
     // On P1's turn, P1 plays a Swamp and casts Festering Goblin (a black permanent).

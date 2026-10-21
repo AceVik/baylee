@@ -14,7 +14,7 @@ fn wall_of_wood() -> CardIndex {
     card_index("aa5e6894-8c97-46f8-a0fd-07c6db51e9a7")
 }
 
-/// Aegis of the Meek (924083a2-f08e-4821-b956-6f101980d0ab) — {3} Artifact:
+/// Aegis of the Meek (0cf78877-bf08-413c-8ecb-8c3265ac1c4a) — {3} Artifact:
 /// - "{1}, {T}: Target 1/1 creature gets +1/+2 until end of turn."
 ///
 /// Only creatures with current power 1 and toughness 1 are legal targets; a 2/2

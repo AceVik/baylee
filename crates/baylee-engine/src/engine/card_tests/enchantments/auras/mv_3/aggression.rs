@@ -94,3 +94,36 @@ fn aggression_spares_enchanted_creature_when_it_attacked_this_turn() {
         "Gray Ogre attacked this turn so Aggression does not destroy it"
     );
 }
+
+/// "At the beginning of the end step of enchanted creature's controller":
+/// P0's Aggression on P1's Ogre. P0's own end step passes it by, though the
+/// Ogre did not attack that turn; P1's end step destroys it after P1 does
+/// not attack with it.
+#[test]
+fn aggression_on_an_opponents_creature_waits_for_that_players_end_step() {
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .battlefield(1, &[gray_ogre()])
+        .hand(0, &[aggression()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    let their_ogre = on_battlefield(&engine, P1, gray_ogre()).expect("their Ogre seated");
+    cast_from_hand(&mut engine, P0, aggression());
+    aim_at(&mut engine, P0, their_ogre);
+    pass_until(&mut engine, stack_is_empty);
+
+    reach_their_main_phase(&mut engine, P1);
+    assert!(
+        on_battlefield(&engine, P1, gray_ogre()).is_some(),
+        "P0's end step is not the end step of the Ogre's controller"
+    );
+
+    assert!(walk_to_own_main(&mut engine, P0));
+    assert!(
+        on_battlefield(&engine, P1, gray_ogre()).is_none(),
+        "P1's Ogre did not attack on P1's turn and was destroyed at P1's end step"
+    );
+    assert!(in_graveyard(&engine, P1, gray_ogre()).is_some());
+}

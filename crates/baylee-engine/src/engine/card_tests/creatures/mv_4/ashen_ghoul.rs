@@ -11,11 +11,23 @@ fn ashen_ghoul() -> CardIndex {
     card_index("46fbcbdf-73d0-4fa2-8db7-3b19bfc7ac22")
 }
 
+/// Puts {B} in P0's pool and republishes the offer, so that a check of the
+/// timing gate is not answered by an empty pool instead: an ability from the
+/// graveyard is offered only when its cost can be paid.
+fn float_black(engine: &mut Engine<RegistryLookup>) {
+    engine.state.players[0].mana_pool.add(ManaColor::Black, 1);
+    engine.refresh_offer();
+}
+
 /// Ashen Ghoul (46fbcbdf-73d0-4fa2-8db7-3b19bfc7ac22) — {3}{B} 3/1 Creature — Zombie:
 /// - Haste
 /// - "{B}: Return Ashen Ghoul from your graveyard to the battlefield. Activate
 ///   only during your upkeep and only if three or more creature cards are above
 ///   Ashen Ghoul."
+///
+/// With {B} available every time it is asked: not with two creature cards and
+/// a land above it in P0's upkeep, not with three in P0's main phase, not in
+/// P1's upkeep, and then in P0's upkeep it returns.
 #[test]
 fn ashen_ghoul_has_haste_and_returns_from_graveyard_during_your_upkeep_with_three_creatures_above_it()
  {
@@ -26,6 +38,7 @@ fn ashen_ghoul_has_haste_and_returns_from_graveyard_during_your_upkeep_with_thre
             &[
                 ashen_ghoul(),
                 llanowar_elves(),
+                forest(),
                 gray_ogre(),
                 festering_goblin(),
             ],
@@ -34,13 +47,13 @@ fn ashen_ghoul_has_haste_and_returns_from_graveyard_during_your_upkeep_with_thre
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    // Put Ashen Ghoul into graveyard first (bottom), then two creatures above it.
+    // Ashen Ghoul at the bottom; above it two creature cards and a land.
     let ghoul_id = hand_to_graveyard(&mut engine, P0, ashen_ghoul());
     hand_to_graveyard(&mut engine, P0, llanowar_elves());
+    hand_to_graveyard(&mut engine, P0, forest());
     hand_to_graveyard(&mut engine, P0, gray_ogre());
 
-    // Advance to P1's main phase, then to P0's upkeep: with only 2 creatures
-    // above Ashen Ghoul, it cannot be activated even with {B} floating.
+    // P0's upkeep, {B} floating: three cards above it, two of them creatures.
     reach_their_main_phase(&mut engine, P1);
     pass_until(&mut engine, |e| {
         e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep
@@ -51,21 +64,31 @@ fn ashen_ghoul_has_haste_and_returns_from_graveyard_during_your_upkeep_with_thre
         .expect("tap Swamp for {B}");
     assert!(
         !priority_offer(&engine).abilities.contains(&(ghoul_id, 0)),
-        "only two creature cards are above Ashen Ghoul, so the ability is not legal"
+        "the Forest above it is not a creature card, so only two count"
     );
 
-    // Put a third creature card on top of P0's graveyard during P0's main phase.
+    // P0's main phase: a third creature card on top, {B} in the pool.
     walk_to_own_main(&mut engine, P0);
     hand_to_graveyard(&mut engine, P0, festering_goblin());
-
-    // Outside upkeep (in FirstMain), the ability is still not legal.
+    float_black(&mut engine);
     assert!(
         !priority_offer(&engine).abilities.contains(&(ghoul_id, 0)),
         "cannot activate outside your upkeep"
     );
 
-    // Advance to P0's next upkeep: now 3 creature cards are above Ashen Ghoul!
-    reach_their_main_phase(&mut engine, P1);
+    // P1's upkeep, P0 holding priority with {B}: an upkeep, but not P0's.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P1
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    float_black(&mut engine);
+    assert!(
+        !priority_offer(&engine).abilities.contains(&(ghoul_id, 0)),
+        "an opponent's upkeep is not your upkeep"
+    );
+
+    // P0's next upkeep: three creature cards above it.
     pass_until(&mut engine, |e| {
         e.state().turn.active == P0 && e.state().turn.step == Step::Upkeep
     });

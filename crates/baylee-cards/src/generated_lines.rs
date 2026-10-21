@@ -7308,7 +7308,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Arctic Foxes
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Arcum's Sleigh
     &[FaceLines {
         sentences: 1,
@@ -7476,7 +7483,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     &[FaceLines {
         sentences: 3,
         stackable: 1,
-        lines: &[None, None],
+        lines: &[None, None, None],
         modes: &[],
         alternatives: &[],
     }],
