@@ -13,7 +13,7 @@ card!(
     scryfall_id = "1f011ad5-0ff1-4538-942e-b72e93d87e3c",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Illusionary Forces",
         mana_cost = mana!("{3}{U}"),

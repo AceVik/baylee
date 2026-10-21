@@ -61,6 +61,7 @@ mod initiates_of_the_ebon_hand;
 mod ivy_elemental;
 mod kird_ape;
 mod kitsune_diviner;
+mod kjeldoran_dead;
 mod kris_mage;
 mod lake_town_lookout;
 mod lantern_kami;

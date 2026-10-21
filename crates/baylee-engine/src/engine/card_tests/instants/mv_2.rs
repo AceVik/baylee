@@ -48,6 +48,7 @@ mod heroic_intervention;
 mod hisoka_s_defiance;
 mod hoodwink;
 mod hurkyl_s_recall;
+mod incinerate;
 mod jwari_disruption;
 mod kabira_takedown;
 mod last_gasp;

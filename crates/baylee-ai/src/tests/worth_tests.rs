@@ -928,7 +928,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Goblin Sappers, Goblin Ski Patrol, Goblin Snowman, Hallowed Ground,
     // Hecatomb, Hot Springs, Ice Cauldron, and Iceberg, of which 7 are read by
     // the evaluator.
-    assert_eq!((read, of), (2592, 3168), "activated/loyalty reader census");
+    // Ice Age (`ice`) Batch 5 adds 14 non-mana activated abilities across
+    // Infernal Denizen, Infinite Hourglass, Jester's Cap, Jester's Mask,
+    // Jeweled Amulet, Karplusan Yeti, Kjeldoran Dead, Kjeldoran Elite Guard,
+    // Kjeldoran Guard, Kjeldoran Royal Guard, Krovikan Elementalist, and
+    // Krovikan Sorcerer, of which 6 are read by the evaluator.
+    assert_eq!((read, of), (2598, 3182), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

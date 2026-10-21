@@ -13,7 +13,7 @@ card!(
     oracle_id = "20c7630d-a97f-4f09-9ec5-b7a1739107de",
     scryfall_id = "73f75891-00fa-428b-a3cb-88867ff35cd2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Krovikan Fetish",
         mana_cost = mana!("{2}{B}"),

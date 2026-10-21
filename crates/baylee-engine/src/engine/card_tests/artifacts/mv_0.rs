@@ -8,6 +8,7 @@ mod claws_of_gix;
 mod dark_sphere;
 mod delif_s_cone;
 mod fountain_of_youth;
+mod jeweled_amulet;
 mod lotus_petal;
 mod mana_crypt;
 mod mox_diamond;

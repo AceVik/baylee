@@ -684,6 +684,14 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
 /// unread, even with mana floating. This arrival does not close #166 or
 /// make a targeted clock effect reachable.
 ///
+/// Infinite Hourglass joined in Ice Age Batch 5. Its upkeep puts a time
+/// counter on itself without targeting, and its `{3}` upkeep ability removes a
+/// time counter from itself without targeting. It prints no `Suspend`, so
+/// `clock_score` answers 0 for it as well.
+/// `infinite_hourglass_counts_upkeeps_and_the_ai_declines_its_upkeep_counter_removal`
+/// pins both the untargeted upkeep counter placement and the AI declining the
+/// unread counter-removal ability during upkeep.
+///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the
 /// pool is full of +1/+1 — and `seen` is the population it read, so a walker
@@ -692,7 +700,7 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
 fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     // Named by the card that puts them, so another arrival is a name in a
     // failure message and not a number to bump.
-    const REACHABLE_CLOCKS: &[&str] = &["Time Bomb", "Trenzalore Clocktower"];
+    const REACHABLE_CLOCKS: &[&str] = &["Infinite Hourglass", "Time Bomb", "Trenzalore Clocktower"];
     let mut seen = 0;
     let mut kinds = Vec::new();
     for def in baylee_cards::all() {

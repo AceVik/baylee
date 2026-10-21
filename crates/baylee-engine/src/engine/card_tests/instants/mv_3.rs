@@ -28,6 +28,7 @@ mod force_void;
 mod foxfire;
 mod hero_s_downfall;
 mod holy_light;
+mod infuse;
 mod inner_calm_outer_strength;
 mod kazuul_s_fury;
 mod khalni_ambush;

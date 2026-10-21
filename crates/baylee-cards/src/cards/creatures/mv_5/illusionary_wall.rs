@@ -15,7 +15,7 @@ card!(
     keywords = KeywordSet::DEFENDER
         .union(KeywordSet::FLYING)
         .union(KeywordSet::FIRST_STRIKE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Illusionary Wall",
         mana_cost = mana!("{4}{U}"),

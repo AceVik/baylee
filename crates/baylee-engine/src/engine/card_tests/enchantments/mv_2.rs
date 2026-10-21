@@ -40,6 +40,7 @@ mod homarid_spawning_bed;
 mod honor_of_the_pure;
 mod iceberg;
 mod icy_prison;
+mod illusionary_terrain;
 mod island_sanctuary;
 mod lifeforce;
 mod lifetap;

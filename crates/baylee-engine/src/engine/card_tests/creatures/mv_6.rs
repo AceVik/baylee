@@ -24,6 +24,7 @@ mod gruul_nodorog;
 mod hand_of_justice;
 mod jedit_s_dragoons;
 mod jhovall_queen;
+mod johtull_wurm;
 mod kamahl_pit_fighter;
 mod kavu_mauler;
 mod lumra_bellow_of_the_woods;

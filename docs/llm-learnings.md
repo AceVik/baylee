@@ -5193,3 +5193,29 @@ more than two it names nobody). What the author did more than once:
   mana restricted to cumulative upkeep both read;
   `cumulative_upkeep_is_said_in_the_one_shape_its_readers_know` holds every
   card printed with the keyword to it.
+
+## 2026-10-21 — Ice Age (`ice`) batch 5 (25 cards: `Illusionary Forces` to `Krovikan Vampire`)
+
+- Added 25 *Ice Age* first-printing cards (`Illusionary Forces` through `Krovikan Vampire`,
+  12 `Coverage::Implemented`, 13 `Coverage::Partial`) with engine/DSL files frozen pending
+  file splits on `main`.
+- Key card-authoring and testing lessons applying the Batch 1–4 review rules:
+  - Do not wire a `Coverage::Partial` card to a nearest-looking trigger/effect that
+    either plays a different rule or fails at resolution (`Krovikan Vampire`:
+    `Trigger::DiesAfterDamageByThis` captures `victim.version` before zone departure,
+    so `Effect::GraveyardToBattlefield { target: TargetSpec::EventObject }` skips it on
+    `!subjects::is_current`; leave `abilities = &[]` and state both what is missing and
+    how the card plays instead).
+  - `Trigger::DealsDamage` in `trigger.rs` sets `event_object_for = None` (unlike
+    `Trigger::DealtDamage`), so `PlayerRel::ControllerOfEvent` on `Justice` resolves to
+    nothing and only battlefield sources are scanned; keep `Justice`'s working upkeep
+    trigger and document the missing damage trigger until `trigger.rs` splits land.
+  - `Amount::SignedCountOf(&Filter::AttackerBlockersBeyondFirst)` + `Effect::ScalePT`
+    cleanly expresses `Johtull Wurm` (*"-2/-1 until end of turn for each creature
+    blocking it beyond the first"*), tested both against a single blocker (`-0/-0`) and
+    against three blockers (`-4/-2`).
+  - `Condition::Not(&Condition::DefendingPlayerControls(&Filter::And(&[Filter::LAND,
+    Filter::SNOW])))` inside `ActivationRestriction::All` cleanly expresses
+    `Kjeldoran Guard`'s *"only if defending player controls no snow lands"* restriction,
+    tested both when the controller owns a snow land (allowed) and when the defending
+    player controls one (excluded).

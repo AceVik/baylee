@@ -2532,3 +2532,53 @@ fn the_ai_declines_time_bombs_unread_sweep_even_with_mana_and_enemy_creatures() 
         1
     );
 }
+
+/// Infinite Hourglass is not a suspend clock and neither ability chooses
+/// targets. Its upkeep trigger puts a time counter on itself, and its `{3}`
+/// counter-removal activation is offered during upkeep and unread by the AI.
+#[test]
+fn infinite_hourglass_counts_upkeeps_and_the_ai_declines_its_upkeep_counter_removal() {
+    let me = PlayerId::new(0);
+    let preset = position(&[], &["Infinite Hourglass", "Forest", "Forest", "Forest"]);
+    let mut engine = Engine::new(&preset, RegistryLookup).unwrap();
+    // Mulligan keep, then resolve the upkeep trigger so we are in turn 1's
+    // upkeep step with an empty stack and 1 time counter on Infinite Hourglass.
+    loop {
+        let pending = engine.pending();
+        let seat = pending_player(pending).expect("the fixture stays live");
+        let view = asked_view(engine.state(), seat, 0, pending);
+        if view.turn == 1
+            && view.active == me
+            && view.step == baylee_view::Step::Upkeep
+            && view.stack.is_empty()
+        {
+            break;
+        }
+        let action = match pending {
+            Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
+            Pending::Priority { .. } => PlayerAction::PassPriority,
+            other => panic!("Infinite Hourglass should need no target or choice: {other:?}"),
+        };
+        engine.apply(seat, action).expect("legal step");
+    }
+    let view = asked_view(engine.state(), me, 0, engine.pending());
+    let hourglass = untapped(&view, "Infinite Hourglass")[0];
+    assert_eq!(time_on_bomb(&view, hourglass), 1);
+    float(&mut engine, &untapped(&view, "Forest"));
+    let view = asked_view(engine.state(), me, 0, engine.pending());
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("the agent is asked at priority");
+    };
+    assert_eq!(
+        legal.abilities,
+        vec![(hourglass, 1)],
+        "the upkeep counter removal is payable and the only activation"
+    );
+    let agent = HeuristicAgent::new(AIProfile::EXPERT);
+    let answer = agent.act_with_context(&view, engine.pending(), &engine.decision_context());
+    assert_eq!(
+        answer,
+        PlayerAction::PassPriority,
+        "the unread self-counter removal is left alone"
+    );
+}

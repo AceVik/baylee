@@ -16,6 +16,7 @@ mod goblin_caves;
 mod goblin_shrine;
 mod infinite_authority;
 mod journey_to_eternity;
+mod krovikan_fetish;
 mod kudzu;
 mod lure;
 mod maggot_therapy;
