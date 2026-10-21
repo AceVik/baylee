@@ -16,7 +16,7 @@ card!(
     oracle_id = "0464176d-75d2-403a-aa9d-40e85f106d01",
     scryfall_id = "7a93e6ce-1295-41f8-b454-2dfe321481a6",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Rime Dryad",
         mana_cost = mana!("{G}"),

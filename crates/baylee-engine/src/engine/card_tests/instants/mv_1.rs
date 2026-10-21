@@ -98,6 +98,7 @@ mod silence;
 mod silk_net;
 mod siren_s_call;
 mod sleight_of_mind;
+mod songs_of_the_damned;
 mod spark_spray;
 mod spell_blast;
 mod spikefield_hazard;

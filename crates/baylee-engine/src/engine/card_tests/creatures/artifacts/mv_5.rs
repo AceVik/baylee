@@ -34,6 +34,7 @@ mod rith_s_attendant;
 mod saberclaw_golem;
 mod scarecrow;
 mod slash_panther;
+mod snow_fortress;
 mod soldevi_steam_beast;
 mod soliton;
 mod stone_golem;

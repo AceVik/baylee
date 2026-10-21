@@ -25,6 +25,7 @@ mod past_in_flames;
 mod rejuvenate;
 mod resurrection;
 mod shatterstorm;
+mod stench_of_evil;
 mod sunder_from_within;
 mod touch_of_brilliance;
 mod tsunami;

@@ -11,7 +11,7 @@ card!(
     index = index::SOLDEVI_SIMULACRUM,
     oracle_id = "227ed0b7-7a9a-41f1-a190-1d1b85a44720",
     scryfall_id = "9d60f16a-0a67-4ad7-8dad-ee97cd01fb89",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Soldevi Simulacrum",
         mana_cost = mana!("{4}"),

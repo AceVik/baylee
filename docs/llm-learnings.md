@@ -5255,3 +5255,21 @@ more than two it names nobody). What the author did more than once:
     `Reality Twist`) cleanly replaces the mana color produced by lands of each basic
     land subtype without affecting unmentioned basic land subtypes (`Island` on
     `Reality Twist`).
+
+## 2026-10-21 — Ice Age (`ice`) batch 8 (25 cards: `Rime Dryad` to `Stench of Evil`)
+
+- Added 25 *Ice Age* first-printing cards (`Rime Dryad` through `Stench of Evil`,
+  15 `Coverage::Implemented`, 10 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Modifier::ReplaceTappedMana { from, to }` applied across the 5 colored `ManaColor`
+    variants on `Filter::LAND` cleanly implements `Ritual of Subdual`'s *"If a land is
+    tapped for mana, it produces colorless mana instead of any other type"*.
+  - `Modifier::CantBeTargetedBy(&Filter::InZone(ZoneRef::Stack))` on
+    `Filter::AttachedToBySource` (`Spectral Shield`, matching `Anti-Magic Aura`) blocks
+    spells on the stack from targeting the enchanted creature while still allowing
+    activated/triggered abilities from permanents on the battlefield to target it.
+  - Restricted mana in `ManaPool` (`Soldevi Machinist`'s `{C}{C}` restricted to
+    `ManaUse::Abilities` on `Filter::ARTIFACT`) is tracked in `mana_pool.restricted()`
+    (and included in `mana_pool.total()`, while `mana_pool.available(color)` reports
+    unrestricted mana only). When floating in the pool, `priority_offer(&engine).abilities`
+    includes affordable artifact abilities while excluding non-artifact abilities.

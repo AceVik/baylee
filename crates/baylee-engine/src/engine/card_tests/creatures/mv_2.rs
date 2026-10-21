@@ -186,6 +186,7 @@ mod skyclave_cleric;
 mod skyshroud_elf;
 mod skyshroud_falcon;
 mod slobad_goblin_tinkerer;
+mod soldevi_machinist;
 mod sparkmage_apprentice;
 mod spiteful_bully;
 mod spore_flower;

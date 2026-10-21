@@ -23,6 +23,7 @@ mod maddening_wind;
 mod maggot_therapy;
 mod relic_bind;
 mod scavenged_weaponry;
+mod spectral_shield;
 mod strength_of_the_harvest;
 mod tiger_claws;
 mod tourach_s_gate;

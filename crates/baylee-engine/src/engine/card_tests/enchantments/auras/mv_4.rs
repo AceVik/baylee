@@ -15,6 +15,7 @@ mod improvised_armor;
 mod merseine;
 mod mind_whip;
 mod serra_s_embrace;
+mod snowblind;
 mod steal_artifact;
 mod takklemaggot;
 mod zephid_s_embrace;

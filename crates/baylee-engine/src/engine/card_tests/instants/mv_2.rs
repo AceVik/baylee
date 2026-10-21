@@ -73,6 +73,7 @@ mod razorgrass_ambush;
 mod remove_soul;
 mod reverse_polarity;
 mod revitalize;
+mod sacred_boon;
 mod searing_spear;
 mod sejiri_shelter;
 mod shatter;

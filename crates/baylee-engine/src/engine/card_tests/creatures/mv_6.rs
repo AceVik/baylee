@@ -49,6 +49,7 @@ mod rorix_bladewing;
 mod scaled_hulk;
 mod sea_serpent;
 mod shivan_dragon;
+mod sibilant_spirit;
 mod sire_of_the_storm;
 mod stangg;
 mod storm_spirit;

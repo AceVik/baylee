@@ -94,6 +94,7 @@ mod risen_sanctuary;
 mod roaring_slagwurm;
 mod rockcaster_platoon;
 mod rune_scarred_demon;
+mod seraph;
 mod seraph_of_the_suns;
 mod silent_sentinel;
 mod simic_sky_swallower;

@@ -15,6 +15,7 @@ mod mind_over_matter;
 mod primeval_bounty;
 mod rage_reflection;
 mod rite_of_the_dragoncaller;
+mod ritual_of_subdual;
 mod storm_of_saruman;
 mod true_conviction;
 

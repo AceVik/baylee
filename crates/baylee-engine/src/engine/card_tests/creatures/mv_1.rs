@@ -91,6 +91,7 @@ mod plated_sliver;
 mod quirion_ranger;
 mod ragavan_nimble_pilferer;
 mod raging_goblin;
+mod rime_dryad;
 mod rogue_elephant;
 mod sandbar_merfolk;
 mod savaen_elves;

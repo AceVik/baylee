@@ -41,6 +41,7 @@ mod rain_of_tears;
 mod recover;
 mod screaming_fury;
 mod sevinne_s_reclamation;
+mod soul_burn;
 mod spirit_water_revival;
 mod spoils_of_victory;
 mod stone_rain;

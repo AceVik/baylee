@@ -66,6 +66,7 @@ mod sacred_mesa;
 mod season_of_the_witch;
 mod seismic_assault;
 mod sidequest_catch_a_fish;
+mod snowfall;
 mod spidersilk_armor;
 mod still_life;
 mod teferi_s_care;

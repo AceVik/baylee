@@ -37,6 +37,7 @@ mod return_to_battle;
 mod rite_of_flame;
 mod scorching_spear;
 mod serum_visions;
+mod spoils_of_war;
 mod steelshaper_s_gift;
 mod stir_the_grave;
 mod stream_of_life;

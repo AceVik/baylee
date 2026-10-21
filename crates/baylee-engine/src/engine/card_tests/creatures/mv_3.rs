@@ -230,6 +230,7 @@ mod skyhunter_prowler;
 mod skyhunter_skirmisher;
 mod skyknight_legionnaire;
 mod smokespew_invoker;
+mod snow_hound;
 mod soratami_rainshaper;
 mod sorceress_queen;
 mod soulherder;

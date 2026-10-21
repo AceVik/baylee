@@ -55,6 +55,8 @@ mod shield_wall_sentinel;
 mod signpost_scarecrow;
 mod skorpekh_destroyer;
 mod snare_thopter;
+mod soldevi_golem;
+mod soldevi_simulacrum;
 mod solemn_simulacrum;
 mod su_chi;
 mod surgical_metamorph;
