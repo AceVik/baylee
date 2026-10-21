@@ -135,6 +135,11 @@ JSON has `endpoint` (`"live"` or a numeric-loopback development origin) and
 it outside the repository, readable only by the service identity. Never put
 the value in arguments, logs or client configuration. Unknown settings fail
 startup. Without this file the migration routes reject requests.
+The official gateway admits a migrated account as the legacy account it was
+linked to, and an account registered at Central (no legacy account) as a new
+local projection, as a registered gateway does; Central's beta key stood in for
+the gateway's at sign-up, so only `BAYLEE_REGISTRATION=off` refuses it
+(baylee-central `docs/web-accounts.md`).
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,
 `heartbeat` and `metadata` (`name`, `version`, `website`). Both credentials are
 independent random 32-byte JSON arrays returned once by registration. Their

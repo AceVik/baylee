@@ -407,24 +407,38 @@ async fn login_for(
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
     let _guard = exclusive(state).await?;
-    let account_id = if bridge(state)?.legacy {
-        let legacy = legacy.ok_or(StatusCode::UNAUTHORIZED)?;
-        if !baylee_db::central::matches(&state.db, &legacy, identity.account)
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-        {
-            return Err(StatusCode::UNAUTHORIZED);
+    let admin = matches!(purpose, TicketPurpose::Admin);
+    let account_id = match (bridge(state)?.legacy, legacy) {
+        // The official gateway: a migrated account is the legacy account it
+        // was linked to, and nothing else.
+        (true, Some(legacy)) => {
+            if !baylee_db::central::matches(&state.db, &legacy, identity.account)
+                .await
+                .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+            {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            legacy
         }
-        legacy
-    } else {
-        baylee_db::central::projection(
+        // An account registered at Central has no legacy account: the
+        // official gateway makes it a projection, as a registered gateway
+        // does. Central's beta key stood in for this gateway's at sign-up,
+        // so only `BAYLEE_REGISTRATION=off` closes the door (baylee-central
+        // `docs/web-accounts.md`).
+        (true, None) => baylee_db::central::projection(
             &state.db,
             identity.account,
-            matches!(purpose, TicketPurpose::Admin)
-                || state.registration == crate::invite::Registration::Open,
+            admin || state.registration != crate::invite::Registration::Off,
         )
         .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
+        (false, _) => baylee_db::central::projection(
+            &state.db,
+            identity.account,
+            admin || state.registration == crate::invite::Registration::Open,
+        )
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
     };
     let account = allowed(state, &account_id).await?;
     let token = crate::auth::new_token();
