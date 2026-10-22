@@ -10,6 +10,7 @@ mod blind_fury;
 mod clever_concealment;
 mod cryptic_command;
 mod dismiss;
+mod ether_well;
 mod fact_or_fiction;
 mod fanatical_fever;
 mod fell_the_profane;

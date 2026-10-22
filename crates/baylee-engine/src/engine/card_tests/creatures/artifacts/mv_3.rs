@@ -20,6 +20,7 @@ mod custodian_of_the_trove;
 mod darksteel_myr;
 mod dragon_engine;
 mod elf_replica;
+mod ersatz_gnomes;
 mod esper_battlemage;
 mod esperzoa;
 mod etched_familiar;

@@ -13,6 +13,7 @@ mod demonic_tutor;
 mod diabolic_vision;
 mod drain_life;
 mod drain_power;
+mod energy_bolt;
 mod expressive_iteration;
 mod eye_of_nowhere;
 mod farseek;

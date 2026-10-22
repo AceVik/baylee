@@ -32,6 +32,7 @@ mod demystify;
 mod disfigure;
 mod dwarven_catapult;
 mod dwarven_song;
+mod ebony_charm;
 mod enchantment_alteration;
 mod enlightened_tutor;
 mod enrage;
