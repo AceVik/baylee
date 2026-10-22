@@ -3,9 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
-
-
 mod aftershock;
 mod agonizing_syphon;
 mod all_hallow_s_eve;
@@ -30,12 +27,14 @@ mod flashfires;
 mod juxtapose;
 mod lay_waste;
 mod mind_warp;
+mod misfortune;
 mod mizzix_s_mastery;
 mod natural_order;
 mod past_in_flames;
 mod rejuvenate;
 mod resurrection;
 mod retribution;
+mod ritual_of_the_machine;
 mod shatterstorm;
 mod stench_of_evil;
 mod sunder_from_within;

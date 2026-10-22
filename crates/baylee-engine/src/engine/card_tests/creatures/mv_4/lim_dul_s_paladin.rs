@@ -54,9 +54,7 @@ fn lim_dul_s_paladin_unblocked_loses_4_life_and_upkeep_sacrifices_to_draw() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain
-    });
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
 
     assert_eq!(engine.state().players[1].life, 16);
 
@@ -130,9 +128,7 @@ fn lim_dul_s_paladin_gets_plus_6_plus_3_when_blocked() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain
-    });
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
 
     assert_eq!(
         pt(&engine, paladin),

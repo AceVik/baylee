@@ -90,9 +90,7 @@ fn krovikan_horror_sacrifices_creature_for_1_damage_and_returns_from_graveyard_a
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });
-    engine
-        .apply(p0, PlayerAction::YesNo(true))
-        .unwrap();
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_hand(&engine, p0, krovikan_horror()).is_some());

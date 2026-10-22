@@ -11,16 +11,7 @@ fn false_demise() -> CardIndex {
 fn false_demise_returns_enchanted_opponent_creature_under_your_control_when_it_dies() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
-        .battlefield(
-            0,
-            &[
-                island(),
-                island(),
-                island(),
-                mountain(),
-                mountain(),
-            ],
-        )
+        .battlefield(0, &[island(), island(), island(), mountain(), mountain()])
         .battlefield(1, &[grizzly_bears()])
         .hand(0, &[false_demise(), lightning_bolt()])
         .start();

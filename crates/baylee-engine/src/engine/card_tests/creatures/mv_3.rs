@@ -214,6 +214,7 @@ mod renegade_rallier;
 mod rib_cage_spider;
 mod risen_reef;
 mod rishkar_peema_renegade;
+mod rogue_skycaptain;
 mod rootwalla;
 mod rootwater_hunter;
 mod rotlung_reanimator;

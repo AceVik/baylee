@@ -68,3 +68,5 @@ mod wurm_s_tooth;
 mod arcum_s_weathervane;
 
 mod crown_of_the_ages;
+mod mystic_compass;
+mod scarab_of_the_unseen;

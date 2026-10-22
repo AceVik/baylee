@@ -29,9 +29,7 @@ fn gargantuan_gorilla_fights_with_tap_and_upkeep_sacrifices_forest_or_deals_seve
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![fst] })
         .unwrap();
     pass_until(&mut engine, |e| {
-        e.state().turn.active == p0
-            && e.state().turn.phase == Phase::FirstMain
-            && stack_is_empty(e)
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
     });
     let gorilla = on_battlefield(&engine, p0, gargantuan_gorilla()).unwrap();
     let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();

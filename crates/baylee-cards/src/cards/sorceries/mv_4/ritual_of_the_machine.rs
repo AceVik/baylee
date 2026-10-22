@@ -22,7 +22,7 @@ card!(
         name = "Ritual of the Machine",
         mana_cost = mana!("{2}{B}{B}"),
         types = TypeSet::SORCERY,
-        additional_costs = &[cost!(Sacrifice(&Filter::CREATURE))],
+        mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::CREATURE)],
     ),],
     abilities = &[spell!(
         &[Effect::ModifyTargets {

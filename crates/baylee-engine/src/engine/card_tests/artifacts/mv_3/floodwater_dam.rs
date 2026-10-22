@@ -43,9 +43,7 @@ fn floodwater_dam_pays_twice_x_plus_one_to_tap_x_target_lands() {
             },
         )
         .unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseNumber(2))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
     engine
         .apply(
             p0,

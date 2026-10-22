@@ -34,9 +34,7 @@ fn keeper_of_tresserhorn_unblocked_assigns_no_combat_damage_and_defender_loses_2
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain
-    });
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
 
     assert_eq!(
         engine.state().players[1].life,

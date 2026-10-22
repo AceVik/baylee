@@ -29,9 +29,7 @@ fn fatal_lore_mode_one_draws_three_cards() {
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, fatal_lore());
-    engine
-        .apply(p0, PlayerAction::ChooseMode(0))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
@@ -59,9 +57,7 @@ fn fatal_lore_mode_two_destroys_up_to_two_opponent_creatures_and_opponent_draws_
 
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, fatal_lore());
-    engine
-        .apply(p0, PlayerAction::ChooseMode(1))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseMode(1)).unwrap();
     engine
         .apply(
             p0,

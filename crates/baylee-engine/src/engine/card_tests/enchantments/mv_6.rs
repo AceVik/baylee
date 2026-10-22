@@ -114,3 +114,4 @@ fn ogre_may_block(p0_board: &[CardIndex], attacker: CardIndex, p1_land: CardInde
 }
 
 mod earthlink;
+mod nature_s_wrath;

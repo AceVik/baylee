@@ -15,15 +15,7 @@ fn sol_ring() -> CardIndex {
 fn gorilla_shaman_destroys_noncreature_artifact_with_mana_value_x() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(
-            0,
-            &[
-                gorilla_shaman(),
-                mountain(),
-                mountain(),
-                mountain(),
-            ],
-        )
+        .battlefield(0, &[gorilla_shaman(), mountain(), mountain(), mountain()])
         .battlefield(1, &[sol_ring()])
         .start();
 
@@ -43,9 +35,7 @@ fn gorilla_shaman_destroys_noncreature_artifact_with_mana_value_x() {
             },
         )
         .unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseNumber(1))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
     engine
         .apply(
             p0,

@@ -29,11 +29,10 @@ card!(
         activated!(
             cost!("{G}"),
             &[
-                Effect::continuous(
-                    &Filter::This,
-                    Modifier::AddKeyword(KeywordSet::TRAMPLE),
-                    Duration::UntilEndOfTurn,
-                ),
+                Effect::ModifySource {
+                    modifier: Modifier::AddKeyword(KeywordSet::TRAMPLE),
+                    duration: Duration::UntilEndOfTurn,
+                },
                 Effect::CreateTokensFor {
                     player: PlayerRel::Chosen,
                     token: &generated_tokens::HIPPO_1_1_GREEN,
@@ -45,11 +44,10 @@ card!(
         activated!(
             cost!("{W}"),
             &[
-                Effect::continuous(
-                    &Filter::This,
-                    Modifier::AddKeyword(KeywordSet::FLYING),
-                    Duration::UntilEndOfTurn,
-                ),
+                Effect::ModifySource {
+                    modifier: Modifier::AddKeyword(KeywordSet::FLYING),
+                    duration: Duration::UntilEndOfTurn,
+                },
                 Effect::GainLifeFor {
                     amount: Amount::Fixed(2),
                     who: PlayerRel::Chosen,

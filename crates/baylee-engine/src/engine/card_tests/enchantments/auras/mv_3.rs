@@ -27,6 +27,7 @@ mod lure;
 mod maddening_wind;
 mod maggot_therapy;
 mod orcish_mine;
+mod phyrexian_boon;
 mod relic_bind;
 mod scavenged_weaponry;
 mod spectral_shield;

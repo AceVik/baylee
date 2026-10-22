@@ -163,3 +163,4 @@ fn tramples_over_a_blocker(card: CardIndex, power: i32) {
         "the excess tramples over"
     );
 }
+mod phyrexian_devourer;

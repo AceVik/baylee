@@ -6,3 +6,4 @@ use super::*;
 mod banishing_stroke;
 mod opportunity;
 mod pull_under;
+mod pyrokinesis;

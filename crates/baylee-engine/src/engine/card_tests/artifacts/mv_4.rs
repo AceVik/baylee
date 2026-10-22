@@ -3,11 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
-
-
-
-
 /// Sets the counters of `kind` on `id` (harness door) and refreshes the offer.
 fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: CounterKind, n: u16) {
     let state = engine.dev_state_mut(PlayerId::new(0)).expect("harness");

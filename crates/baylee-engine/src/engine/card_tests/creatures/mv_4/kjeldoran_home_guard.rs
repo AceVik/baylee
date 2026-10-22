@@ -36,9 +36,7 @@ fn kjeldoran_home_guard_gets_minus_zero_minus_one_counter_and_creates_deserter_a
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain
-    });
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
 
     assert_eq!(pt(&engine, guard), (1, 5));
     let tokens = tokens_of(&engine, p0);

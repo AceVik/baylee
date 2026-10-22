@@ -29,6 +29,7 @@ mod nature_s_lore;
 mod neoform;
 mod night_s_whisper;
 mod nylea_s_intervention;
+mod primitive_justice;
 mod rampant_growth;
 mod regrowth;
 mod reshape;

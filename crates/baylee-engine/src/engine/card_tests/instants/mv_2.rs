@@ -63,6 +63,7 @@ mod lat_nam_s_legacy;
 mod legion_leadership;
 mod lightning_blow;
 mod lightning_strike;
+mod lim_dul_s_vault;
 mod lose_focus;
 mod mage_s_guile;
 mod magma_jet;

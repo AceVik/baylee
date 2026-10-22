@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
 // ---- Helpers shared by the tests of this directory -------------------------
 //
 // A sibling module reaches nothing of this file's neighbours, so the few verbs
@@ -299,6 +298,7 @@ mod melee;
 mod misdirection;
 mod muse_s_encouragement;
 mod narset_s_rebuke;
+mod omen_of_fire;
 mod second_thoughts;
 mod stonefury;
 mod strength_of_cedars;

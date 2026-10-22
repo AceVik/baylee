@@ -342,3 +342,4 @@ fn p1_library_at_its_main(engine: &mut Engine<RegistryLookup>) -> usize {
     reach_their_main_phase(engine, p1);
     library_of(engine, p1).len()
 }
+mod phyrexian_war_beast;

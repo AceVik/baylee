@@ -5383,3 +5383,21 @@ more than two it names nobody). What the author did more than once:
     `CostPart::Discard` (`Lim-Dûl's Paladin`) directly opens `Pending::ChooseCards { min: 0, max: 1, prompt: ChoicePrompt::CostSacrifice / CostDiscard }`
     without a preceding `Pending::YesNo` prompt: choosing 1 object pays the cost, and choosing
     `vec![]` declines and runs the `else` branch.
+
+## 2026-10-22 — Alliances (`all`) batch 3 (25 cards: `Lim-Dûl's Vault` to `Scarab of the Unseen`)
+
+- Added 25 *Alliances* first-printing cards (`Lim-Dûl's Vault` through `Scarab of the Unseen`,
+  12 `Coverage::Implemented`, 13 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - When an activated ability has a target (`target = Some(TargetSpec::AnyOpponent)` on
+    `Phelddagrif`) and also modifies its own source permanent, use `Effect::ModifySource` rather
+    than `Effect::continuous(&Filter::This, ...)`. `Filter::This` inside `CreateContinuousEffect`
+    resolves through `subjects::this`, which reads `res.targets.first()` whenever `res.targeted`
+    is `true` and returns `None` when the only target is a player (`res.target_players`).
+  - Mandatory spell additional costs (*"As an additional cost to cast this spell, sacrifice a
+    creature"* on `Ritual of the Machine`) must be declared on `face!` as
+    `mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::CREATURE)]`, not
+    `additional_costs` (which is for optional additional costs like kicker or waterbend).
+  - Granted activated abilities (`Modifier::GrantActivatedDefinition` on `Martyrdom`) receive a
+    synthetic ability index on the recipient permanent; tests should look up the synthetic `id`
+    via `crate::effects::granted_activated(engine.state(), recipient)`.

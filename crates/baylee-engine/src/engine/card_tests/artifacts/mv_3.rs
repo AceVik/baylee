@@ -48,6 +48,7 @@ mod obelisk_of_jund;
 mod obelisk_of_naya;
 mod phyrexian_altar;
 mod phyrexian_lens;
+mod phyrexian_portal;
 mod phyrexian_vault;
 mod runed_arch;
 mod scepter_of_insight;

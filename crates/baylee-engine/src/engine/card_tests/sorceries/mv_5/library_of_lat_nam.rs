@@ -29,9 +29,7 @@ fn library_of_lat_nam_mode_0_draws_three_next_upkeep_and_mode_1_searches_library
     engine
         .apply(p0, PlayerAction::CastSpell { card: lib1 })
         .unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseMode(0))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
@@ -49,9 +47,7 @@ fn library_of_lat_nam_mode_0_draws_three_next_upkeep_and_mode_1_searches_library
     engine
         .apply(p0, PlayerAction::CastSpell { card: lib2 })
         .unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseMode(1))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseMode(1)).unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });

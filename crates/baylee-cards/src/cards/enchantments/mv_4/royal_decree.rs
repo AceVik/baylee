@@ -19,7 +19,7 @@ card!(
     oracle_id = "fca14cbd-5ffc-441f-bccb-7ec22b03acbb",
     scryfall_id = "41367363-7af7-423f-9423-78fb92043712",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Royal Decree",
         mana_cost = mana!("{2}{W}{W}"),

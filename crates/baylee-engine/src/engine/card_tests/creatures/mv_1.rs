@@ -3,11 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
-
-
-
-
 mod abu_ja_far;
 mod acolyte_of_xathrid;
 mod agent_of_stromgald;
@@ -116,6 +111,7 @@ mod ragavan_nimble_pilferer;
 mod raging_goblin;
 mod rime_dryad;
 mod rogue_elephant;
+mod royal_herbalist;
 mod sandbar_merfolk;
 mod savaen_elves;
 mod savannah_lions;

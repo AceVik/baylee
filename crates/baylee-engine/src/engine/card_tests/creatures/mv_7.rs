@@ -3,12 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
-
-
-
-
-
 // ---------------------------------------------------------------------------
 // Helpers shared by the generated seven-drops. Each reads one thing the
 // per-card tests would otherwise spell out again.

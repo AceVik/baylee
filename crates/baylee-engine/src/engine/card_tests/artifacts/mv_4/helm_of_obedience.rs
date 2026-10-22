@@ -36,9 +36,7 @@ fn helm_of_obedience_causes_target_opponent_to_mill_x_cards() {
             },
         )
         .unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseNumber(3))
-        .unwrap();
+    engine.apply(p0, PlayerAction::ChooseNumber(3)).unwrap();
     engine
         .apply(
             p0,

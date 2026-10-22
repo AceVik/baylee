@@ -16,10 +16,7 @@ fn insidious_bookworms_dies_trigger_pays_mana_to_make_target_player_discard_at_r
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[lightning_bolt()])
-        .battlefield(
-            0,
-            &[insidious_bookworms(), mountain(), swamp(), swamp()],
-        )
+        .battlefield(0, &[insidious_bookworms(), mountain(), swamp(), swamp()])
         .hand(1, &[grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
@@ -61,9 +58,7 @@ fn insidious_bookworms_dies_trigger_pays_mana_to_make_target_player_discard_at_r
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });
-    engine
-        .apply(p0, PlayerAction::YesNo(true))
-        .unwrap();
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

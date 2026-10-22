@@ -964,7 +964,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Floodwater Dam, Gargantuan Gorilla, Gorilla Shaman, Gustha's Scepter (2),
     // Helm of Obedience, Ivory Gargoyle, Kjeldoran Pride, Krovikan Horror, and
     // Krovikan Plague, of which 7 are read by the evaluator.
-    assert_eq!((read, of), (2642, 3254), "activated/loyalty reader census");
+    // Alliances (`all`) Batch 3 adds 12 non-mana activated abilities across
+    // Lodestone Bauble, Lord of Tresserhorn, Mystic Compass, Nature's Blessing,
+    // Phantasmal Fiend (2), Phelddagrif (3), Phyrexian Devourer, Phyrexian Portal,
+    // Royal Herbalist, and Scarab of the Unseen, of which 4 are read by the evaluator.
+    assert_eq!((read, of), (2646, 3266), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

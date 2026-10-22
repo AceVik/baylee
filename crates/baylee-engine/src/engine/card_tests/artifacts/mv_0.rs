@@ -10,6 +10,7 @@ mod delif_s_cone;
 mod fountain_of_youth;
 mod gustha_s_scepter;
 mod jeweled_amulet;
+mod lodestone_bauble;
 mod lotus_petal;
 mod mana_crypt;
 mod mox_diamond;
