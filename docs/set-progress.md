@@ -699,3 +699,4 @@ no-engine-change contract:
   - Batch 2 (`Dauthi Ghoul` to `Flailing Drake`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 3 (`Flickering Ward` to `Leeching Licid`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 4 (`Legacy's Allure` to `Phyrexian Splicer`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 5 (`Precognition` to `Segmented Wurm`, 25 cards): **15 Implemented, 10 Partial**.

@@ -1,0 +1,30 @@
+//! Reap — {1}{G} — Instant
+//! Oracle: Return up to X target cards from your graveyard to your hand, where X is the number of black permanents target opponent controls as you cast this spell.
+//! Set: TMP #247 — Tempest | Scryfall ID: 229f8a3d-d1a5-46d7-9b1b-e165397e6579 | Oracle ID: 7fcb8472-1e77-4dcd-b18f-8abf8806da08
+// PARTIAL: returns up to one target card from your graveyard to your hand; targeting an opponent and returning up to X target cards where X is the number of black permanents that opponent controls is not in TargetReq.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::REAP,
+    oracle_id = "7fcb8472-1e77-4dcd-b18f-8abf8806da08",
+    scryfall_id = "229f8a3d-d1a5-46d7-9b1b-e165397e6579",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Partial(
+        "returns up to one target card from your graveyard to your hand; targeting an opponent and returning up to X target cards where X is the number of black permanents that opponent controls is not in TargetReq",
+    ),
+    faces = &[face!(
+        name = "Reap",
+        mana_cost = mana!("{1}{G}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(
+        &[Effect::GraveyardToHand {
+            target: TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You),
+        }],
+        targets = Some(TargetReq::up_to(
+            TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::You),
+            1,
+        )),
+    )],
+);

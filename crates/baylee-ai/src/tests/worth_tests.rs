@@ -1056,7 +1056,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Legacy's Allure, Maddening Imp, Magnetic Web,Mounted Archers, Nurturing
     // Licid, Opportunist, Oracle en-Vec, Phyrexian Grimoire, and Phyrexian
     // Splicer (4), of which 3 are read by the evaluator.
-    assert_eq!((read, of), (2753, 3459), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 5 adds 5 non-mana activated abilities across
+    // Quickening Licid, Rootwater Matriarch, Sacred Guide, Safeguard, and
+    // Scroll Rack, of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2756, 3464), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

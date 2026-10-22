@@ -8008,34 +8008,60 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
     ],
-    &[],
-    &[],
+    // Precognition
+    &[
+        "At the beginning of your upkeep, you may look at the top card of target opponent's library. If you do, you may put that card on the bottom of that player's library.",
+    ],
+    // Propaganda
+    &[
+        "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    ],
     // Puppet Strings
     &["{2}, {T}: You may tap or untap target creature."],
-    &[],
+    // Quickening Licid
+    &[
+        "{1}{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {W} to end this effect.\nEnchanted creature has first strike.",
+    ],
     // Ranger en-Vec
     &["First strike\n{G}: Regenerate this creature."],
-    &[],
+    // Rathi Dragon
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature enters, sacrifice it unless you sacrifice two Mountains.",
+    ],
     // Rats of Rath
     &["{B}: Destroy target artifact, creature, or land you control."],
-    &[],
+    // Reality Anchor
+    &["Target creature loses shadow until end of turn.\nDraw a card."],
     // Reanimate
     &[
         "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
     ],
-    &[],
-    &[],
-    &[],
+    // Reap
+    &[
+        "Return up to X target cards from your graveyard to your hand, where X is the number of black permanents target opponent controls as you cast this spell.",
+    ],
+    // Reckless Spite
+    &["Destroy two target nonblack creatures. You lose 5 life."],
+    // Recycle
+    &[
+        "Skip your draw step.\nWhenever you play a card, draw a card.\nYour maximum hand size is two.",
+    ],
     // Reflecting Pool
     &["{T}: Add one mana of any type that a land you control could produce."],
-    &[],
-    &[],
+    // Renegade Warlord
+    &[
+        "First strike\nWhenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.",
+    ],
+    // Repentance
+    &["Target creature deals damage to itself equal to its power."],
     // Respite
     &[
         "Prevent all combat damage that would be dealt this turn. You gain 1 life for each attacking creature.",
     ],
-    &[],
-    &[],
+    // Rolling Thunder
+    &["Rolling Thunder deals X damage divided as you choose among any number of targets."],
+    // Root Maze
+    &["Artifacts and lands enter tapped."],
     // Rootbreaker Wurm
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
@@ -8050,12 +8076,20 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rootwater Hunter
     &["{T}: This creature deals 1 damage to any target."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rootwater Matriarch
+    &["{T}: Gain control of target creature for as long as that creature is enchanted."],
+    // Rootwater Shaman
+    &["You may cast Aura spells with enchant creature as though they had flash."],
+    // Ruby Medallion
+    &["Red spells you cast cost {1} less to cast."],
+    // Sacred Guide
+    &[
+        "{1}{W}, Sacrifice this creature: Reveal cards from the top of your library until you reveal a white card. Put that card into your hand and exile all other cards revealed this way.",
+    ],
+    // Sadistic Glee
+    &["Enchant creature\nWhenever a creature dies, put a +1/+1 counter on enchanted creature."],
+    // Safeguard
+    &["{2}{W}: Prevent all combat damage that would be dealt by target creature this turn."],
     // Salt Flats
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
@@ -8064,7 +8098,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "First strike (This creature deals combat damage before creatures without first strike.)\n{R}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
+    // Sapphire Medallion
+    &["Blue spells you cast cost {1} less to cast."],
     // Sarcomancy
     &[
         "When this enchantment enters, create a 2/2 black Zombie creature token.\nAt the beginning of your upkeep, if there are no Zombies on the battlefield, this enchantment deals 1 damage to you.",
@@ -8073,18 +8108,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {R} or {W}. This land deals 1 damage to you.",
     ],
-    &[],
-    &[],
-    &[],
+    // Scalding Tongs
+    &[
+        "At the beginning of your upkeep, if you have three or fewer cards in hand, this artifact deals 1 damage to target opponent or planeswalker.",
+    ],
+    // Scorched Earth
+    &["As an additional cost to cast this spell, discard X land cards.\nDestroy X target lands."],
+    // Scragnoth
+    &["This spell can't be countered.\nProtection from blue"],
     // Screeching Harpy
     &["Flying\n{1}{B}: Regenerate this creature."],
-    &[],
+    // Scroll Rack
+    &[
+        "{1}, {T}: Exile any number of cards from your hand face down. Put that many cards from the top of your library into your hand. Then look at the exiled cards and put them on top of your library in any order.",
+    ],
     // Sea Monster
     &["This creature can't attack unless defending player controls an Island."],
-    &[],
+    // Searing Touch
+    &[
+        "Buyback {4} (You may pay an additional {4} as you cast this spell. If you do, put this card into your hand as it resolves.)\nSearing Touch deals 1 damage to any target.",
+    ],
     // Seeker of Skybreak
     &["{T}: Untap target creature."],
-    &[],
+    // Segmented Wurm
+    &[
+        "Whenever this creature becomes the target of a spell or ability, put a -1/-1 counter on it.",
+    ],
     &[],
     &[],
     &[],

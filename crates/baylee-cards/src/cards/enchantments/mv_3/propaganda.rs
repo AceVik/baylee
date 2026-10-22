@@ -1,0 +1,25 @@
+//! Propaganda — {2}{U} — Enchantment
+//! Oracle: Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.
+//! Set: MSC #151 — Marvel Super Heroes Commander | Scryfall ID: ac943e31-26bc-4b54-b73f-460e6e402d86 | Oracle ID: ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd
+// PARTIAL: taxes all attacks by opposing creatures by {2} per creature; taxing only creatures attacking you directly rather than planeswalkers or other players is not in Modifier.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::PROPAGANDA,
+    oracle_id = "ea9709b6-4c37-4d5a-b04d-cd4c42e4f9dd",
+    scryfall_id = "ac943e31-26bc-4b54-b73f-460e6e402d86",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial(
+        "taxes all attacks by opposing creatures by {2} per creature; taxing only creatures attacking you directly rather than planeswalkers or other players is not in Modifier",
+    ),
+    faces = &[face!(
+        name = "Propaganda",
+        mana_cost = mana!("{2}{U}"),
+        types = TypeSet::ENCHANTMENT,
+    ),],
+    abilities = &[static_ability!(
+        Filter::OPPONENT_CREATURE,
+        Modifier::CantAttackUnlessPayMana(2),
+    )],
+);
