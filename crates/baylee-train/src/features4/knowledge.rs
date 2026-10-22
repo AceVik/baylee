@@ -64,6 +64,9 @@ pub fn view_only_state_hash(view: &PlayerView, pending: &Pending) -> u64 {
 ///
 /// Used by [`SeatKnowledge4::observe`] so passive observation frames fire only
 /// when public or seat-visible game state actually changes (`P0-4`).
+///
+/// # Panics
+/// If serializing the view fails; the current view contains only JSON-safe types.
 #[must_use]
 pub fn board_observation_hash(view: &PlayerView) -> u64 {
     // Serialize the complete authorized view, not an incomplete hand-written
@@ -110,7 +113,7 @@ pub struct SeatHistoryStats4 {
     pub graveyard_peak: u16,
 }
 
-/// A card revealed in an opponent's hand/library/looking_at that has not yet
+/// A card revealed in an opponent's `hand/library/looking_at` that has not yet
 /// been seen moving to a public zone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KnownCardMemory4 {
@@ -120,7 +123,7 @@ pub struct KnownCardMemory4 {
     pub card_index: u32,
     /// Turn when last observed.
     pub last_seen_turn: u32,
-    /// `1` = revealed in hand/looking_at, `2` = revealed on library top.
+    /// `1` = revealed in `hand/looking_at`, `2` = revealed on library top.
     pub origin_zone: u8,
 }
 
@@ -227,6 +230,7 @@ impl SeatKnowledge4 {
 
     /// Updates `SeatKnowledge4` from a seat-authorized `PlayerView` and returns
     /// `true` if the observable state changed since the last call.
+    #[allow(clippy::too_many_lines, reason = "One ordered update of public event counters and remembered cards")]
     pub fn observe(&mut self, view: &PlayerView) -> bool {
         if self.cursor == 0 {
             for (i, s) in view.seats.iter().enumerate().take(MAX_SEATS) {
@@ -245,11 +249,11 @@ impl SeatKnowledge4 {
             if delta > 0 {
                 self.seat_history[i].life_gained_total = self.seat_history[i]
                     .life_gained_total
-                    .saturating_add(delta.min(u16::MAX as i32) as u16);
+                    .saturating_add(delta.min(i32::from(u16::MAX)) as u16);
             } else if delta < 0 {
                 self.seat_history[i].life_lost_total = self.seat_history[i]
                     .life_lost_total
-                    .saturating_add((-delta).min(u16::MAX as i32) as u16);
+                    .saturating_add((-delta).min(i32::from(u16::MAX)) as u16);
             }
             self.last_life[i] = s.life;
             let gy = s.graveyard_count.min(u32::from(u16::MAX)) as u16;

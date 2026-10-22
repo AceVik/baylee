@@ -134,6 +134,10 @@ impl ShardWriter {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Conversion setup, workers and immutable output manifest"
+)]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     if args.out.exists() {

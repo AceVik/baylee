@@ -128,6 +128,14 @@ pub fn extract_game4(
 /// # Errors
 /// When the record header is missing/invalid, the version does not match, or
 /// an input in the record is rejected by the engine.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep audited replay and observation ordering contiguous"
+)]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "Outcome counts are normalized into f32 model targets"
+)]
 pub fn extract_game4_with_sidecar(
     record: &[u8],
     game_id: u32,
@@ -212,15 +220,15 @@ pub fn extract_game4_with_sidecar(
 
                 let p_kind = PendingKind4::of(&pending);
                 let mut step_loss_weight = 1.0_f32;
-                if matches!(&pending, Pending::Priority { .. }) {
-                    if matches!(action, baylee_engine::choice::PlayerAction::PassPriority) {
-                        // Never drop PassPriority steps from the trajectory sequence (P0-4);
-                        // downweight 5/6 of them via `loss_weight = 0.2`.
-                        let full_weight = mana_pass_count.is_multiple_of(6);
-                        mana_pass_count += 1;
-                        if !full_weight {
-                            step_loss_weight = 0.2;
-                        }
+                if matches!(&pending, Pending::Priority { .. })
+                    && matches!(action, baylee_engine::choice::PlayerAction::PassPriority)
+                {
+                    // Never drop PassPriority steps from the trajectory sequence (P0-4);
+                    // downweight 5/6 of them via `loss_weight = 0.2`.
+                    let full_weight = mana_pass_count.is_multiple_of(6);
+                    mana_pass_count += 1;
+                    if !full_weight {
+                        step_loss_weight = 0.2;
                     }
                 }
 
@@ -295,10 +303,10 @@ pub fn extract_game4_with_sidecar(
                         if !sc_entry.free_mask.is_empty()
                             && sc_entry.free_mask.len() == target.multi_mask.len()
                         {
-                            target.free_mask = sc_entry.free_mask.clone();
+                            target.free_mask.clone_from(&sc_entry.free_mask);
                         }
                         if !sc_entry.pick_sequence.is_empty() {
-                            target.pick_sequence = sc_entry.pick_sequence.clone();
+                            target.pick_sequence.clone_from(&sc_entry.pick_sequence);
                         }
                         sc_entry.provenance
                     } else {
@@ -339,7 +347,11 @@ pub fn extract_game4_with_sidecar(
                                 .map(|c| c.rel_seat_idx)
                                 .collect(),
                             cand_card_id: cands.candidates.iter().map(|c| c.card_id).collect(),
-                            cand_face_id: cands.candidates.iter().map(|c| c.named_face()).collect(),
+                            cand_face_id: cands
+                                .candidates
+                                .iter()
+                                .map(super::features4::Candidate4::named_face)
+                                .collect(),
                             cand_ability_idx: cands
                                 .candidates
                                 .iter()
@@ -389,9 +401,9 @@ pub fn extract_game4_with_sidecar(
     let final_state = session.state();
     let mut final_lives = [0_i32; MAX_SEATS];
     let mut surviving_seats = Vec::new();
-    for s in 0..seat_count {
+    for (s, life) in final_lives.iter_mut().enumerate().take(seat_count) {
         let pid = PlayerId::new(s as u8);
-        final_lives[s] = final_state.players[s].life;
+        *life = final_state.players[s].life;
         if !final_state.has_left(pid) {
             surviving_seats.push(s as u8);
         }

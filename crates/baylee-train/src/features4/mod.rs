@@ -25,6 +25,9 @@
 //! - **View-only state hash** ([`view_only_state_hash`]) for stall/loop guards
 //!   that never reads hidden engine state (`Session::snapshot_hash`).
 
+// Counts and coordinates are deliberately normalized into the f32 model ABI.
+#![allow(clippy::cast_precision_loss)]
+
 use std::collections::BTreeMap;
 
 use baylee_core::color::Color;

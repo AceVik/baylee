@@ -44,6 +44,10 @@ use serde_json::{Value, json};
 
 #[derive(Parser, Debug)]
 #[command(about = "Plays and records house-AI games for the trainer")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent command-line switches"
+)]
 struct Args {
     /// House decks (`data/decks/<key>.txt`), comma-separated. Every ordered
     /// pair of two different decks is a matchup; games cycle through them.

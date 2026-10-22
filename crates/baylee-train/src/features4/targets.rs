@@ -1,6 +1,9 @@
 /// Computes the binary `free_mask` (`1` = free Bernoulli decision, `0` = forced
 /// or forbidden by constraints, `P0-3`) when visiting `cands.candidates` in
 /// `visit_order` (completed with any remaining indices in `0..N`).
+///
+/// # Panics
+/// If the internal attacker-count map loses an entry inserted in the same call.
 #[must_use]
 pub fn compute_subset_free_mask(
     cands: &EncodedCandidates4,
@@ -22,8 +25,8 @@ pub fn compute_subset_free_mask(
             order.push(i);
         }
     }
-    for i in 0..n {
-        if !in_order[i] {
+    for (i, &visited) in in_order.iter().enumerate() {
+        if !visited {
             order.push(i);
         }
     }
@@ -103,8 +106,8 @@ pub fn compute_pair_free_mask(
             order.push(i);
         }
     }
-    for i in 0..n {
-        if !in_order[i] {
+    for (i, &visited) in in_order.iter().enumerate() {
+        if !visited {
             order.push(i);
         }
     }
@@ -138,7 +141,7 @@ pub fn normalize_scalar_choice(v: u32, min: u32, max: u32) -> f32 {
     if span <= 20 {
         (offset as f32 / span as f32).clamp(0.0, 1.0)
     } else {
-        (((offset as f64).ln_1p() / (span as f64).ln_1p()) as f32).clamp(0.0, 1.0)
+        ((f64::from(offset).ln_1p() / f64::from(span).ln_1p()) as f32).clamp(0.0, 1.0)
     }
 }
 
@@ -155,7 +158,7 @@ pub fn denormalize_scalar_choice(scalar_norm: f32, min: u32, max: u32) -> u32 {
     let offset = if span <= 20 {
         (norm * span as f32).round() as u32
     } else {
-        ((f64::from(norm) * (span as f64).ln_1p()).exp_m1().round() as u32).min(span)
+        ((f64::from(norm) * f64::from(span).ln_1p()).exp_m1().round() as u32).min(span)
     };
     lo.saturating_add(offset).clamp(lo, hi)
 }
@@ -166,6 +169,7 @@ pub fn denormalize_scalar_choice(scalar_norm: f32, min: u32, max: u32) -> u32 {
 /// Never falls back to `single_idx = 0` when an action is missing from `cands`:
 /// returns `None` so `convert4` increments `unencoded_decisions` honestly (`P0-2`).
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "Explicit action-to-label mapping for each Pending variant")]
 pub fn encode_teacher_action4(
     cands: &EncodedCandidates4,
     pending: &Pending,
@@ -358,6 +362,7 @@ pub fn encode_teacher_action4(
 /// Decodes a [`TeacherTarget4`] (or model prediction) back into a legal
 /// [`PlayerAction`] for `pending`.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "Inverse label-to-action mapping for each Pending variant")]
 pub fn decode_action4(
     cands: &EncodedCandidates4,
     view: &PlayerView,

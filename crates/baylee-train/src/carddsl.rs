@@ -18,6 +18,9 @@
 //!    `StackItem::Ability { ability }`, and `GrantSource` can look up the exact
 //!    structured representation of the referenced ability.
 
+// The versioned model interface intentionally normalizes counts into f32.
+#![allow(clippy::cast_precision_loss)]
+
 use baylee_cards::dsl::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule,
     Cost, CostPart, DivisionAmount, Effect, EnterModifier, FaceDef, Filter, KeywordSet, Modifier,
@@ -79,6 +82,10 @@ fn signed_unit(v: f32, cap: f32) -> f32 {
 /// Encodes a [`ManaCost`] into `10` floats:
 /// `[mv, W, U, B, R, G, C, generic, X_count, hybrid_or_phyrexian]`.
 #[must_use]
+#[allow(
+    clippy::many_single_char_names,
+    reason = "Printed WUBRGC mana coordinates"
+)]
 pub fn encode_mana_cost(cost: &ManaCost) -> [f32; 10] {
     let mut w = 0.0_f32;
     let mut u = 0.0_f32;
@@ -268,6 +275,14 @@ fn amount_scalar(amount: &Amount) -> f32 {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit typed effect-to-channel schema"
+)]
+#[allow(
+    clippy::manual_midpoint,
+    reason = "Preserve version-2 feature arithmetic bit for bit"
+)]
 fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
     match effect {
         Effect::DrawCards { amount } | Effect::DrawCardsFor { amount, .. } => {
@@ -353,7 +368,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::DealDamageDivided { amount, .. } => {
             let v = match amount {
                 DivisionAmount::Fixed(n) => (*n as f32).clamp(1.0, 10.0),
-                _ => 3.0,
+                DivisionAmount::XDoubleFrom(_) => 3.0,
             };
             ch.damage_any += v;
         }
@@ -613,6 +628,10 @@ fn filter_mentions_type(filter: &Filter, t: TypeSet) -> bool {
 /// - `[32..40]`: target requirement features (`encode_target_req`)
 /// - `[40..64]`: 24 semantic effect channels (`EffectChannels::to_array`)
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit typed ability-to-channel schema"
+)]
 pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
     let mut out = [0.0_f32; ABILITY_DSL_WIDTH];
     let mut ch = EffectChannels::default();
@@ -739,7 +758,7 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
         }
         AbilityDef::Ward { mana } => {
             out[6] = 1.0;
-            out[21] = unit(*mana as f32, 6.0);
+            out[21] = unit(f32::from(*mana), 6.0);
         }
         AbilityDef::Toxic { poison } => {
             out[6] = 1.0;
@@ -969,6 +988,10 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
 
 /// Encodes one face of a [`CardDef`] into its typed [`CardDslFeatures`].
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Contiguous versioned card feature layout"
+)]
 pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
     let mut out = CardDslFeatures::default();
     let Some(face) = def.faces.get(face_idx).or_else(|| def.faces.first()) else {
@@ -1176,6 +1199,7 @@ pub fn encode_token_def(tok: &TokenDef) -> CardDslFeatures {
     out
 }
 
+#[allow(clippy::too_many_lines, reason = "Explicit synergy tag schema")]
 fn populate_synergy_tags(
     def: &CardDef,
     face: &FaceDef,

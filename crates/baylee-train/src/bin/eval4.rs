@@ -147,7 +147,24 @@ fn is_net_seat(seat: usize, focal_seat: usize, teams: &[Option<u8>]) -> bool {
     false
 }
 
-#[allow(clippy::too_many_arguments)]
+type TableOutcome = (
+    f32,
+    bool,
+    u64,
+    u64,
+    u64,
+    u64,
+    Vec<f64>,
+    Vec<u8>,
+    Value,
+    Vec<RolloutStepSidecar4>,
+);
+
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "Ordered observation, action and recording loop"
+)]
 fn play_one_table(
     game_id: &str,
     deal_idx: u64,
@@ -162,18 +179,7 @@ fn play_one_table(
     fair_scouting: bool,
     max_decisions: u64,
     record_steps: bool,
-) -> anyhow::Result<(
-    f32,
-    bool,
-    u64,
-    u64,
-    u64,
-    u64,
-    Vec<f64>,
-    Vec<u8>,
-    Value,
-    Vec<RolloutStepSidecar4>,
-)> {
+) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
     if let Some(n) = net.as_deref_mut() {
@@ -215,7 +221,7 @@ fn play_one_table(
             let winners: Vec<u8> = session
                 .winning_seats(*result)
                 .into_iter()
-                .map(|w| w.get())
+                .map(PlayerId::get)
                 .collect();
             let surviving: Vec<u8> = if winners.is_empty() {
                 (0..n_seats as u8).collect()
@@ -274,8 +280,7 @@ fn play_one_table(
             continue;
         }
 
-        let mut progressed = false;
-        for s in 0..n_seats {
+        for (s, seat_visits) in visit_counts.iter_mut().enumerate() {
             if !is_net_seat(s, focal_seat, teams) {
                 continue;
             }
@@ -283,9 +288,8 @@ fn play_one_table(
             let Some((pending, view)) = session.view_for(pid) else {
                 continue;
             };
-            progressed = true;
             let vh = view_only_state_hash(&view, &pending);
-            let vc = visit_counts[s].entry(vh).or_insert(0);
+            let vc = seat_visits.entry(vh).or_insert(0);
             *vc = vc.saturating_add(1);
             if *vc > 4 {
                 stalls += 1;
@@ -343,10 +347,6 @@ fn play_one_table(
             }
             break;
         }
-        if !progressed && net.is_none() {
-            // Pure house baseline progresses via pump_at_most(32)
-            continue;
-        }
     }
 }
 
@@ -402,6 +402,14 @@ fn load_manifest_decks(
     Ok(out)
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Evaluation setup, workers and aggregate report"
+)]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "Floating-point statistical rates and latency quantiles"
+)]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     if !(2..=8).contains(&args.seats) {
@@ -577,9 +585,9 @@ fn main() -> anyhow::Result<()> {
                     table_decks.push(&decks_arc[idx]);
                 }
                 let mut profiles = vec![opp_profile; seats];
-                for s in 0..seats {
+                for (s, profile) in profiles.iter_mut().enumerate() {
                     if is_net_seat(s, focal_seat, &teams_arc) {
-                        profiles[s] = base_profile;
+                        *profile = base_profile;
                     }
                 }
 
@@ -717,7 +725,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut st = stats_arc.lock().expect("stats lock");
     st.deal_details.sort_by_key(|deal| deal["deal"].as_u64());
-    st.latencies_ms.sort_by(|a, b| a.total_cmp(b));
+    st.latencies_ms.sort_by(f64::total_cmp);
     let n_lat = st.latencies_ms.len();
     let pct = |q: f64| -> f64 {
         if n_lat == 0 {

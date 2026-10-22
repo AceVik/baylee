@@ -1,6 +1,9 @@
 /// Samples a valid subset mask for `SubsetPick` (`ChooseAttackers`, `ChooseCards`,
 /// `ChooseTargets`, `MulliganBottom`, `DiscardChoice`) while tracking exact
 /// conditional `free_mask` and `logprob` (`P0-3`).
+///
+/// # Panics
+/// If the internal attacker-count map loses an entry inserted in the same call.
 pub fn sample_subset_constrained(
     logits: &[f32],
     cands: &EncodedCandidates4,

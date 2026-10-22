@@ -1,5 +1,6 @@
 /// Encodes all legal candidates for `pending` given `state` and `view`.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "One explicit encoding arm per Pending variant")]
 pub fn encode_candidates4(
     state: &EncodedState4,
     view: &PlayerView,
@@ -203,7 +204,7 @@ pub fn encode_candidates4(
                     | DamageEffectKind::RemoveShieldCounter
                     | DamageEffectKind::RemoveCounter { .. } => c.feat[16] = 1.0,
                     DamageEffectKind::Redirect { .. } | DamageEffectKind::RedirectNext { .. } => {
-                        c.feat[17] = 1.0
+                        c.feat[17] = 1.0;
                     }
                     DamageEffectKind::ReplaceAmount { .. }
                     | DamageEffectKind::Reflect { .. }
@@ -384,7 +385,7 @@ pub fn encode_candidates4(
                     && let Some(def) = baylee_cards::by_index(ci.index)
                 {
                     for face in def.faces {
-                        for &st in face.subtypes.iter() {
+                        for &st in face.subtypes {
                             if options.contains(&st) && !prioritized.contains(&st) {
                                 prioritized.push(st);
                             }
@@ -395,7 +396,7 @@ pub fn encode_candidates4(
             for h_obj in &view.hand {
                 if let Some(def) = baylee_cards::by_index(h_obj.card.index) {
                     for face in def.faces {
-                        for &st in face.subtypes.iter() {
+                        for &st in face.subtypes {
                             if options.contains(&st) && !prioritized.contains(&st) {
                                 prioritized.push(st);
                             }
@@ -613,8 +614,8 @@ pub fn encode_candidates4(
             } else {
                 HeadKind4::SubsetPick
             };
-            out.min_choices = u32::from(*min);
-            out.max_choices = u32::from(*max);
+            out.min_choices = *min;
+            out.max_choices = *max;
             if *min == 0 && single {
                 let mut none_cand = Candidate4::default();
                 none_cand.feat[0] = 1.0;
@@ -723,11 +724,11 @@ fn prioritize_object_options(view: &PlayerView, objs: &[ObjectId], cap: usize) -
             let tok = o.token.unwrap_or(0);
             if o.types.contains(TypeSet::LAND) {
                 let sig = (o.controller.get(), cid, o.status.bits());
-                if !seen_land.contains(&sig) {
+                if seen_land.contains(&sig) {
+                    tier3.push(oid);
+                } else {
                     seen_land.push(sig);
                     tier1.push(oid);
-                } else {
-                    tier3.push(oid);
                 }
             } else {
                 let sig = (
@@ -738,11 +739,11 @@ fn prioritize_object_options(view: &PlayerView, objs: &[ObjectId], cap: usize) -
                     o.power.unwrap_or(0),
                     o.toughness.unwrap_or(0),
                 );
-                if !seen_nonland.contains(&sig) {
+                if seen_nonland.contains(&sig) {
+                    tier2.push(oid);
+                } else {
                     seen_nonland.push(sig);
                     tier0.push(oid);
-                } else {
-                    tier2.push(oid);
                 }
             }
         } else {

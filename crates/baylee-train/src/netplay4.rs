@@ -36,6 +36,9 @@ pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
 
+/// Memory, candidate logits, pair logits, scalar prediction and utility.
+type StepOutputs = (Vec<f32>, Vec<f32>, Vec<f32>, f32, f32);
+
 /// Output tensor names produced by the Playernet v4 ONNX graph.
 pub const OUTPUT_NAMES: &[&str] = &[
     "h_out",
@@ -218,9 +221,12 @@ impl NetPlayer4 {
     /// Updates `seat`'s [`SeatKnowledge4`] and recurrent memory `h_state` from a
     /// passive view observation (`thinking_steps = 0`, `P0-4`).
     ///
-    /// Deduplicates identical views via `SeatKnowledge4::cursor` and caches the
-    /// pre-observation `h_state` so a subsequent `act_detailed` on the same
-    /// board state does not double-step the recurrent cell.
+    /// Deduplicates identical views via `SeatKnowledge4::cursor`. Decisions
+    /// consume the updated memory without advancing it again.
+    ///
+    /// # Errors
+    /// If loading or executing the observation graph fails. The host must stop
+    /// this trajectory instead of continuing with stale recurrent memory.
     pub fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         let s = view.seat.get();
         let seat_count = view.seats.len().clamp(1, MAX_SEATS);
@@ -341,49 +347,51 @@ impl NetPlayer4 {
         }
 
         // 3. Run ONNX inference
-        match self.infer_and_sample(&state, &cands, view, pending, &h_in) {
-            Ok((action, value, logprob, target)) => {
-                self.coverage.record(p_kind, SourceKind4::Net);
-                Answer4 {
-                    action,
-                    value,
-                    provenance: StepProvenance4 {
-                        source: SourceKind4::Net,
-                        temperature: self.temperature,
-                        thinking_steps: self.thinking_steps,
-                        behavior_logprob: logprob,
-                        has_logprob: self.temperature > 1e-4
-                            && cands.head != HeadKind4::ScalarValue,
-                    },
-                    target,
-                }
+        if let Ok((action, value, logprob, target)) =
+            self.infer_and_sample(&state, &cands, view, pending, &h_in)
+        {
+            self.coverage.record(p_kind, SourceKind4::Net);
+            Answer4 {
+                action,
+                value,
+                provenance: StepProvenance4 {
+                    source: SourceKind4::Net,
+                    temperature: self.temperature,
+                    thinking_steps: self.thinking_steps,
+                    behavior_logprob: logprob,
+                    has_logprob: self.temperature > 1e-4 && cands.head != HeadKind4::ScalarValue,
+                },
+                target,
             }
-            Err(_) => {
-                let action = fallback_action(&cands, pending);
-                self.coverage.record(p_kind, SourceKind4::House);
-                Answer4 {
-                    action,
-                    value: 0.5,
-                    provenance: StepProvenance4 {
-                        source: SourceKind4::House,
-                        temperature: self.temperature,
-                        thinking_steps: 0,
-                        behavior_logprob: 0.0,
-                        has_logprob: false,
-                    },
-                    target: TeacherTarget4::default(),
-                }
+        } else {
+            let action = fallback_action(&cands, pending);
+            self.coverage.record(p_kind, SourceKind4::House);
+            Answer4 {
+                action,
+                value: 0.5,
+                provenance: StepProvenance4 {
+                    source: SourceKind4::House,
+                    temperature: self.temperature,
+                    thinking_steps: 0,
+                    behavior_logprob: 0.0,
+                    has_logprob: false,
+                },
+                target: TeacherTarget4::default(),
             }
         }
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Explicit tensor packing and extraction for the model ABI"
+    )]
     fn run_onnx_step(
         &mut self,
         state: &crate::features4::EncodedState4,
         cands: &crate::features4::EncodedCandidates4,
         h_in: &[f32],
         k_val: u8,
-    ) -> anyhow::Result<(Vec<f32>, Vec<f32>, Vec<f32>, f32, f32)> {
+    ) -> anyhow::Result<StepOutputs> {
         let e_len = state.entity_feat.len().max(1);
         let mut ent_feat = vec![0.0_f32; e_len * ENTITY_FEAT_WIDTH];
         let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
@@ -401,7 +409,7 @@ impl NetPlayer4 {
             seat_feat[s * SEAT_FEAT_WIDTH..(s + 1) * SEAT_FEAT_WIDTH]
                 .copy_from_slice(&state.seat_feat[s]);
         }
-        let global_feat = state.global_feat.to_vec();
+        let global_feat = state.global_feat.clone();
 
         let m_len = state.edges.len().max(1);
         let mut edge_index = vec![0_i64; m_len * 2];
@@ -512,15 +520,14 @@ impl NetPlayer4 {
         let (_, cand_logits, pair_logits, scalar_pred, value) =
             self.run_onnx_step(state, cands, h_in, k_val)?;
         let mut target = TeacherTarget4::default();
-        let logprob: f32;
 
-        match cands.head {
+        let logprob: f32 = match cands.head {
             HeadKind4::SingleChoice => {
                 let n = cands.candidates.len();
                 let logits = &cand_logits[..n];
                 let (chosen_idx, lp) = sample_categorical(logits, self.temperature, &mut self.rng);
                 target.single_idx = chosen_idx as u16;
-                logprob = lp;
+                lp
             }
             HeadKind4::SubsetPick => {
                 let n = cands.candidates.len();
@@ -535,7 +542,7 @@ impl NetPlayer4 {
                 target.multi_mask = mask;
                 target.free_mask = free_mask;
                 target.pick_sequence = seq;
-                logprob = lp;
+                lp
             }
             HeadKind4::PairPick => {
                 let n = cands.pairs.len();
@@ -545,7 +552,7 @@ impl NetPlayer4 {
                 target.multi_mask = mask;
                 target.free_mask = free_mask;
                 target.pick_sequence = seq;
-                logprob = lp;
+                lp
             }
             HeadKind4::ScalarValue => {
                 let pred = scalar_pred.clamp(0.0, 1.0);
@@ -555,9 +562,9 @@ impl NetPlayer4 {
                     normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
                 target.scalar_norm = norm;
                 // Deterministic regression head: supervised training only.
-                logprob = 0.0;
+                0.0
             }
-        }
+        };
 
         let action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;

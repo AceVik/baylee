@@ -139,6 +139,7 @@ impl EncodedState4 {
 /// Encodes a [`PlayerView`] (plus optional [`Pending`] and [`SeatKnowledge4`])
 /// into an [`EncodedState4`].
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "Ordered zone traversal is part of the versioned encoder")]
 pub fn encode_state4(
     view: &PlayerView,
     pending: Option<&Pending>,
@@ -299,6 +300,7 @@ pub fn encode_state4(
     state
 }
 
+#[allow(clippy::too_many_lines, reason = "Contiguous versioned public-object feature layout")]
 fn push_public_object(
     state: &mut EncodedState4,
     view: &PlayerView,
@@ -369,11 +371,10 @@ fn push_public_object(
             Pending::ChooseCards { options, .. }
             | Pending::ChooseTargets { options, .. }
             | Pending::LegendChoice { options, .. }
-            | Pending::Arrange { cards: options, .. } => {
-                if options.contains(&obj.id) {
+            | Pending::Arrange { cards: options, .. }
+                if options.contains(&obj.id) => {
                     f[30] = 1.0;
                 }
-            }
             _ => {}
         }
     }
@@ -412,19 +413,19 @@ fn push_public_object(
 
     // [46..56]: projected & base P/T, damage, remaining toughness, lethal, loyalty
     f[46] = f32::from(u8::from(obj.power.is_some()));
-    f[47] = obj.power.map_or(0.0, |p| signed_unit(p as f32, 12.0));
-    f[48] = obj.toughness.map_or(0.0, |t| signed_unit(t as f32, 12.0));
-    f[49] = obj.base_power.map_or(0.0, |p| signed_unit(p as f32, 12.0));
+    f[47] = obj.power.map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
+    f[48] = obj.toughness.map_or(0.0, |t| signed_unit(f32::from(t), 12.0));
+    f[49] = obj.base_power.map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
     f[50] = obj
         .base_toughness
-        .map_or(0.0, |t| signed_unit(t as f32, 12.0));
-    f[51] = unit(obj.damage as f32, 10.0);
+        .map_or(0.0, |t| signed_unit(f32::from(t), 12.0));
+    f[51] = unit(f32::from(obj.damage), 10.0);
     f[52] = obj
         .remaining_toughness()
-        .map_or(0.0, |r| signed_unit(r as f32, 12.0));
+        .map_or(0.0, |r| signed_unit(f32::from(r), 12.0));
     f[53] = f32::from(u8::from(obj.is_lethally_damaged()));
     f[54] = f32::from(u8::from(obj.loyalty.is_some()));
-    f[55] = obj.loyalty.map_or(0.0, |l| unit(l as f32, 10.0));
+    f[55] = obj.loyalty.map_or(0.0, |l| unit(f32::from(l), 10.0));
 
     // [56..70]: types (9) + colors (5)
     f[56] = f32::from(u8::from(obj.types.contains(TypeSet::CREATURE)));
@@ -444,7 +445,7 @@ fn push_public_object(
 
     // [70..82]: CounterKind categories (all 21 mapped into 12 dense channels)
     for entry in &obj.counters {
-        let amt = entry.count as f32;
+        let amt = f32::from(entry.count);
         match entry.kind {
             CounterKind::Plus { power, toughness } => {
                 f[70] = (f[70] + unit(amt * f32::from(power.max(toughness).max(1)), 8.0)).min(1.0);
@@ -631,6 +632,7 @@ fn push_remembered_card(
     state.entity_rel_controller.push(rel_own as u8);
 }
 
+#[allow(clippy::too_many_lines, reason = "Contiguous versioned seat feature layout")]
 fn encode_seats4(
     state: &mut EncodedState4,
     view: &PlayerView,
@@ -688,8 +690,8 @@ fn encode_seats4(
         for obj in view.battlefield.iter().filter(|o| o.controller == abs) {
             if obj.types.contains(TypeSet::CREATURE) {
                 creatures += 1.0;
-                board_power += obj.power.unwrap_or(0).max(0) as f32;
-                board_tough += obj.toughness.unwrap_or(0).max(0) as f32;
+                board_power += f32::from(obj.power.unwrap_or(0).max(0));
+                board_tough += f32::from(obj.toughness.unwrap_or(0).max(0));
             } else if obj.types.contains(TypeSet::LAND) {
                 lands += 1.0;
                 if !obj.status.contains(ObjectStatus::TAPPED) {
@@ -730,7 +732,7 @@ fn encode_seats4(
             .map(|cd| cd.amount)
             .max()
             .unwrap_or(0);
-        dst[43] = unit(max_cmd_dmg as f32, 21.0);
+        dst[43] = unit(f32::from(max_cmd_dmg), 21.0);
         // Map each CommanderDamage source back to the relative seat of that commander's owner
         for cd in &sv.commander_damage {
             if let Some((owner_idx, _)) = view
@@ -741,7 +743,7 @@ fn encode_seats4(
             {
                 let rel_src = rel_seat(viewer, Some(PlayerId::new(owner_idx as u8)), seat_count);
                 if rel_src < MAX_SEATS {
-                    dst[44 + rel_src] = (dst[44 + rel_src] + unit(cd.amount as f32, 21.0)).min(1.0);
+                    dst[44 + rel_src] = (dst[44 + rel_src] + unit(f32::from(cd.amount), 21.0)).min(1.0);
                 }
             }
         }
@@ -843,7 +845,7 @@ fn encode_global4(
 
     if let Some(p) = pending {
         let pk = PendingKind4::of(p);
-        g[34] = unit(pk as u8 as f32, 28.0);
+        g[34] = unit(f32::from(pk as u8), 28.0);
     }
     if let Some(kn) = knowledge {
         g[35] = unit(kn.cursor as f32, 200.0);
@@ -852,6 +854,7 @@ fn encode_global4(
     }
 }
 
+#[allow(clippy::too_many_lines, reason = "Explicit relation schema and stable edge ordering")]
 fn build_edges4(state: &mut EncodedState4, view: &PlayerView, viewer: PlayerId, seat_count: usize) {
     let entity_ids = state.entity_object_ids.clone();
     let obj_token = |id: ObjectId| -> Option<i16> {
