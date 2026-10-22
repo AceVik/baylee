@@ -77,6 +77,7 @@ mod ring_of_the_lucii;
 mod rocket_launcher;
 mod rod_of_ruin;
 mod sandals_of_abdallah;
+mod sands_of_time;
 mod seer_s_sundial;
 mod serrated_arrows;
 mod sisay_s_ring;

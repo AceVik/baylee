@@ -93,6 +93,7 @@ mod raise_the_alarm;
 mod rally;
 mod razorgrass_ambush;
 mod reality_ripple;
+mod remedy;
 mod remove_soul;
 mod reverse_polarity;
 mod revitalize;

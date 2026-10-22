@@ -27,6 +27,7 @@ mod iron_man_tony_stark;
 mod lead_golem;
 mod mantis_engine;
 mod marble_priest;
+mod matopi_golem;
 mod narstad_scrapper;
 mod necropolis;
 mod pewter_golem;

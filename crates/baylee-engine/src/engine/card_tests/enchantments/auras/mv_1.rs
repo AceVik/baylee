@@ -40,6 +40,8 @@ mod ironclaw_curse;
 mod lance;
 mod living_artifact;
 mod mind_harness;
+mod mob_mentality;
+mod mortal_wound;
 mod mystic_might;
 mod paralyze;
 mod primal_frenzy;

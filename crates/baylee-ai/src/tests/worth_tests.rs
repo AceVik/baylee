@@ -1014,7 +1014,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Flooded Shoreline, Giant Caterpillar, Gossamer Chains, Iron-Heart
     // Chimera, Juju Bubble, Keeper of Kookus, Knight of Valor, and Kookus, of
     // which 6 are read by the evaluator.
-    assert_eq!((read, of), (2703, 3367), "activated/loyalty reader census");
+    // Visions (`vis`) Batch 3 adds 6 non-mana activated abilities across
+    // Lead-Belly Chimera, Matopi Golem, Mundungu, Rainbow Efreet, Resistance
+    // Fighter, and Righteous Aura, of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2706, 3373), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

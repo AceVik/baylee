@@ -184,6 +184,7 @@ mod questing_beast;
 mod rag_man;
 mod raging_minotaur;
 mod raging_spirit;
+mod rainbow_efreet;
 mod ravenous_baboons;
 mod ravenous_baloth;
 mod razorfoot_griffin;

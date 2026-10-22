@@ -98,6 +98,7 @@ mod remove_enchantments;
 mod rescue;
 mod revitalizing_repast;
 mod righteousness;
+mod rock_slide;
 mod rust;
 mod sacrifice;
 mod sandstorm;

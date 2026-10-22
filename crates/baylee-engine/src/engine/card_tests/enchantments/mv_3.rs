@@ -68,6 +68,7 @@ mod moonlit_wake;
 mod mudslide;
 mod narcissism;
 mod necrogen_mists;
+mod necromancy;
 mod noble_steeds;
 mod oubliette;
 mod overgrown_estate;

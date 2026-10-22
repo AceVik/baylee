@@ -38,6 +38,7 @@ mod phyrexian_purge;
 mod polymorph;
 mod reign_of_chaos;
 mod rejuvenate;
+mod relentless_assault;
 mod resurrection;
 mod retribution;
 mod ritual_of_the_machine;

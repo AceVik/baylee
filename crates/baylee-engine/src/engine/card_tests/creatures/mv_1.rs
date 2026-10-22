@@ -115,6 +115,7 @@ mod plated_sliver;
 mod quirion_ranger;
 mod ragavan_nimble_pilferer;
 mod raging_goblin;
+mod resistance_fighter;
 mod rime_dryad;
 mod rogue_elephant;
 mod royal_herbalist;

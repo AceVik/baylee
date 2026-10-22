@@ -167,6 +167,7 @@ mod plant_elemental;
 mod priest_of_titania;
 mod priest_of_yawgmoth;
 mod putrid_leech;
+mod pygmy_hippo;
 mod pygmy_razorback;
 mod pyric_salamander;
 mod quirion_elves;
