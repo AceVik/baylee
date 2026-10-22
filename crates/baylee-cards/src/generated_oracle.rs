@@ -7852,23 +7852,46 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{B}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {B} to end this effect.\nAt the beginning of the upkeep of enchanted creature's controller, this creature deals 1 damage to that player.",
     ],
-    &[],
-    &[],
-    &[],
+    // Legacy's Allure
+    &[
+        "At the beginning of your upkeep, you may put a treasure counter on this enchantment.\nSacrifice this enchantment: Gain control of target creature with power less than or equal to the number of treasure counters on this enchantment. (This effect lasts indefinitely.)",
+    ],
+    // Legerdemain
+    &[
+        "Exchange control of target artifact or creature and another target permanent that shares one of those types with it. (This effect lasts indefinitely.)",
+    ],
+    // Light of Day
+    &["Black creatures can't attack or block."],
     // Lightning Blast
     &["Lightning Blast deals 4 damage to any target."],
     // Lightning Elemental
     &["Haste (This creature can attack and {T} as soon as it comes under your control.)"],
-    &[],
-    &[],
+    // Living Death
+    &[
+        "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+    ],
+    // Lobotomy
+    &[
+        "Target player reveals their hand, then you choose a card other than a basic land card from it. Search that player's graveyard, hand, and library for all cards with the same name as the chosen card and exile them. Then that player shuffles.",
+    ],
     // Lotus Petal
     &["{T}, Sacrifice this artifact: Add one mana of any color."],
     // Lowland Giant
     &[""],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Maddening Imp
+    &[
+        "Flying\n{T}: Non-Wall creatures the active player controls attack this turn if able. At the beginning of the next end step, destroy each of those creatures that didn't attack this turn. Activate only during an opponent's turn and only before combat.",
+    ],
+    // Magmasaur
+    &[
+        "This creature enters with five +1/+1 counters on it.\nAt the beginning of your upkeep, you may remove a +1/+1 counter from this creature. If you don't, sacrifice this creature and it deals damage equal to the number of +1/+1 counters on it to each creature without flying and each player.",
+    ],
+    // Magnetic Web
+    &[
+        "If a creature with a magnet counter on it attacks, all creatures with magnet counters on them attack if able.\nWhenever a creature with a magnet counter on it attacks, all creatures with magnet counters on them block that creature this turn if able.\n{1}, {T}: Put a magnet counter on target creature.",
+    ],
+    // Mana Severance
+    &["Search your library for any number of land cards, exile them, then shuffle."],
     // Manakin
     &["{T}: Add {C}."],
     // Manta Riders
@@ -7891,8 +7914,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["Draw four cards. You skip your next turn."],
     // Metallic Sliver
     &[""],
-    &[],
-    &[],
+    // Mindwhip Sliver
+    &[
+        "All Slivers have \"{2}, Sacrifice this permanent: Target player discards a card at random. Activate only as a sorcery.\"",
+    ],
+    // Minion of the Wastes
+    &[
+        "Trample\nAs this creature enters, pay any amount of life.\nMinion of the Wastes's power and toughness are each equal to the life paid as it entered.",
+    ],
     // Mirri's Guile
     &[
         "At the beginning of your upkeep, you may look at the top three cards of your library, then put them back in any order.",
@@ -7903,42 +7932,72 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Target creature you control gets +1/+0 and gains flying until end of turn. Destroy that creature at the beginning of the next end step.",
     ],
-    &[],
+    // Mogg Conscripts
+    &["This creature can't attack unless you've cast a creature spell this turn."],
     // Mogg Fanatic
     &["Sacrifice this creature: It deals 1 damage to any target."],
     // Mogg Hollows
     &["{T}: Add {C}.\n{T}: Add {R} or {G}. This land doesn't untap during your next untap step."],
     // Mogg Raider
     &["Sacrifice a Goblin: Target creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Mogg Squad
+    &["This creature gets -1/-1 for each other creature on the battlefield."],
+    // Mongrel Pack
+    &["When this creature dies during combat, create four 1/1 green Dog creature tokens."],
+    // Mounted Archers
+    &[
+        "Reach (This creature can block creatures with flying.)\n{W}: This creature can block an additional creature this turn.",
+    ],
     // Muscle Sliver
     &["All Sliver creatures get +1/+1."],
     // Nature's Revolt
     &["All lands are 2/2 creatures that are still lands."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // No Quarter
+    &[
+        "Whenever a creature becomes blocked by a creature with lesser power, destroy the blocking creature.\nWhenever a creature blocks a creature with lesser power, destroy the attacking creature.",
+    ],
+    // Nurturing Licid
+    &[
+        "{G}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {G} to end this effect.\n{G}: Regenerate enchanted creature.",
+    ],
+    // Opportunist
+    &["{T}: This creature deals 1 damage to target creature that was dealt damage this turn."],
+    // Oracle en-Vec
+    &[
+        "{T}: Target opponent chooses any number of creatures they control. During that player's next turn, the chosen creatures attack if able, and other creatures can't attack. At the beginning of that turn's end step, destroy each of the chosen creatures that didn't attack this turn. Activate only during your turn.",
+    ],
+    // Orim's Prayer
+    &["Whenever one or more creatures attack you, you gain 1 life for each attacking creature."],
     // Orim, Samite Healer
     &["{T}: Prevent the next 3 damage that would be dealt to any target this turn."],
-    &[],
-    &[],
+    // Overrun
+    &[
+        "Creatures you control get +3/+3 and gain trample until end of turn. (Each of those creatures can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
+    // Pallimud
+    &[
+        "As this creature enters, choose an opponent.\nPallimud's power is equal to the number of tapped lands the chosen player controls.",
+    ],
     // Patchwork Gnomes
     &[
         "Discard a card: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
     ],
-    &[],
+    // Pearl Medallion
+    &["White spells you cast cost {1} less to cast."],
     // Pegasus Refuge
     &["{2}, Discard a card: Create a 1/1 white Pegasus creature token with flying."],
     // Perish
     &["Destroy all green creatures. They can't be regenerated."],
-    &[],
+    // Phyrexian Grimoire
+    &[
+        "{4}, {T}: Target opponent chooses one of the top two cards of your graveyard. Exile that card and put the other one into your hand.",
+    ],
     // Phyrexian Hulk
     &[""],
-    &[],
+    // Phyrexian Splicer
+    &[
+        "{2}, {T}, Choose flying, first strike, trample, or shadow: Until end of turn, target creature with the chosen ability loses it and another target creature gains it.",
+    ],
     // Pincher Beetles
     &["Shroud (This creature can't be the target of spells or abilities.)"],
     // Pine Barrens

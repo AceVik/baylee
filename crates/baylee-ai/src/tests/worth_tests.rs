@@ -1052,7 +1052,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Gerrard's Battle Cry, Grindstone, Heartwood Giant, Helm of Possession,
     // Jinxed Idol, Knight of Dawn, Knight of Dusk, and Leeching Licid, of
     // which 10 are read by the evaluator.
-    assert_eq!((read, of), (2750, 3447), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 4 adds 12 non-mana activated abilities across
+    // Legacy's Allure, Maddening Imp, Magnetic Web,Mounted Archers, Nurturing
+    // Licid, Opportunist, Oracle en-Vec, Phyrexian Grimoire, and Phyrexian
+    // Splicer (4), of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2753, 3459), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

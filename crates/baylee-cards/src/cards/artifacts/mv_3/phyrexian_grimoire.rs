@@ -1,0 +1,30 @@
+//! Phyrexian Grimoire — {3} — Artifact — Book
+//! Oracle: {4}, {T}: Target opponent chooses one of the top two cards of your graveyard. Exile that card and put the other one into your hand.
+//! Set: TMP #301 — Tempest | Scryfall ID: 2fcf5b8a-563b-48d7-a874-e9c226192320 | Oracle ID: 090052a8-9e5b-4024-881f-5f8b65db7aa7
+// PARTIAL: taps with {4} targeting an opponent to return a card from your graveyard to your hand; having the targeted opponent choose one of the top two cards of your graveyard to exile while putting the other into your hand is not in Effect.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::PHYREXIAN_GRIMOIRE,
+    oracle_id = "090052a8-9e5b-4024-881f-5f8b65db7aa7",
+    scryfall_id = "2fcf5b8a-563b-48d7-a874-e9c226192320",
+    coverage = Coverage::Partial(
+        "taps with {4} targeting an opponent to return a card from your graveyard to your hand; having the targeted opponent choose one of the top two cards of your graveyard to exile while putting the other into your hand is not in Effect",
+    ),
+    faces = &[face!(
+        name = "Phyrexian Grimoire",
+        mana_cost = mana!("{3}"),
+        types = TypeSet::ARTIFACT,
+        subtypes = &[subtypes::artifact::BOOK],
+    ),],
+    abilities = &[activated!(
+        cost!("{4}", TapSelf),
+        &[Effect::ReturnFromGraveyardOf {
+            whose: PlayerRel::You,
+            filter: &Filter::Any,
+        }],
+        target = Some(TargetSpec::AnyOpponent),
+    )],
+);

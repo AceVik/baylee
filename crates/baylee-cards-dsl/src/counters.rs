@@ -216,6 +216,12 @@ pub const BOUNTY: CounterKind = CounterKind::Custom(56);
 /// Elixir counters (Essence Bottle).
 pub const ELIXIR: CounterKind = CounterKind::Custom(57);
 
+/// Treasure counters (Legacy's Allure).
+pub const TREASURE: CounterKind = CounterKind::Custom(58);
+
+/// Magnet counters (Magnetic Web).
+pub const MAGNET: CounterKind = CounterKind::Custom(59);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -279,6 +285,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("shell", SHELL),
     ("bounty", BOUNTY),
     ("elixir", ELIXIR),
+    ("treasure", TREASURE),
+    ("magnet", MAGNET),
 ];
 
 #[cfg(test)]
