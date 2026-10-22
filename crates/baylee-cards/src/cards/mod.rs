@@ -2849,6 +2849,8 @@ pub mod chime_of_night;
 pub mod chimeric_egg;
 #[path = "artifacts/mv_3/chimeric_idol.rs"]
 pub mod chimeric_idol;
+#[path = "artifacts/mv_3/chimeric_sphere.rs"]
+pub mod chimeric_sphere;
 #[path = "artifacts/equipment/mv_3/chitinous_cloak.rs"]
 pub mod chitinous_cloak;
 #[path = "creatures/mv_4/chitinous_graspling.rs"]
@@ -2867,6 +2869,8 @@ pub mod choke;
 pub mod choked_estuary;
 #[path = "sorceries/mv_3/choking_sands.rs"]
 pub mod choking_sands;
+#[path = "instants/mv_1/choking_vines.rs"]
+pub mod choking_vines;
 #[path = "instants/mv_3/chord_of_calling.rs"]
 pub mod chord_of_calling;
 #[path = "instants/mv_4/chorus_of_might.rs"]
@@ -2901,12 +2905,16 @@ pub mod chub_toad;
 pub mod cinder_barrens;
 #[path = "instants/mv_5/cinder_cloud.rs"]
 pub mod cinder_cloud;
+#[path = "creatures/mv_4/cinder_giant.rs"]
+pub mod cinder_giant;
 #[path = "lands/battle/cinder_glade.rs"]
 pub mod cinder_glade;
 #[path = "lands/no_untap/cinder_marsh.rs"]
 pub mod cinder_marsh;
 #[path = "sorceries/mv_7/cinder_storm.rs"]
 pub mod cinder_storm;
+#[path = "creatures/mv_1/cinder_wall.rs"]
+pub mod cinder_wall;
 #[path = "creatures/mv_5/cinderhaze_wretch.rs"]
 pub mod cinderhaze_wretch;
 #[path = "enchantments/mv_3/circle_of_despair.rs"]
@@ -2925,6 +2933,8 @@ pub mod circle_of_protection_green;
 pub mod circle_of_protection_red;
 #[path = "enchantments/mv_2/circle_of_protection_white.rs"]
 pub mod circle_of_protection_white;
+#[path = "creatures/mv_1/circling_vultures.rs"]
+pub mod circling_vultures;
 #[path = "creatures/mv_5/cirith_ungol_patrol.rs"]
 pub mod cirith_ungol_patrol;
 #[path = "lands/gates/citadel_gate.rs"]
@@ -3133,6 +3143,8 @@ pub mod cogworker_s_puzzleknot;
 pub mod coiled_tinviper;
 #[path = "creatures/mv_2/coiling_oracle.rs"]
 pub mod coiling_oracle;
+#[path = "enchantments/auras/mv_2/coils_of_the_medusa.rs"]
+pub mod coils_of_the_medusa;
 #[path = "creatures/mv_4/cold_case_cracker.rs"]
 pub mod cold_case_cracker;
 #[path = "enchantments/mv_3/cold_snap.rs"]
@@ -3237,6 +3249,8 @@ pub mod condescend;
 pub mod conduit_of_worlds;
 #[path = "lands/deserts/conduit_pylons.rs"]
 pub mod conduit_pylons;
+#[path = "sorceries/mv_5/cone_of_flame.rs"]
+pub mod cone_of_flame;
 #[path = "sorceries/mv_3/confidence_from_strength.rs"]
 pub mod confidence_from_strength;
 #[path = "instants/mv_5/confirm_suspicions.rs"]
@@ -3987,6 +4001,8 @@ pub mod deathmark;
 pub mod deathrite_shaman;
 #[path = "enchantments/auras/mv_2/debilitating_injury.rs"]
 pub mod debilitating_injury;
+#[path = "instants/mv_3/debt_of_loyalty.rs"]
+pub mod debt_of_loyalty;
 #[path = "sorceries/mv_3/deception.rs"]
 pub mod deception;
 #[path = "lands/fetch/deceptive_landscape.rs"]
@@ -4109,6 +4125,8 @@ pub mod demystify;
 pub mod den_of_the_bugbear;
 #[path = "enchantments/mv_2/dense_canopy.rs"]
 pub mod dense_canopy;
+#[path = "enchantments/mv_3/dense_foliage.rs"]
+pub mod dense_foliage;
 #[path = "instants/mv_3/deny_entry.rs"]
 pub mod deny_entry;
 #[path = "instants/mv_3/depths_of_desire.rs"]
@@ -4173,6 +4191,8 @@ pub mod desolation_prowler;
 pub mod despark;
 #[path = "creatures/mv_2/desperate_bloodseeker.rs"]
 pub mod desperate_bloodseeker;
+#[path = "instants/mv_1/desperate_gambit.rs"]
+pub mod desperate_gambit;
 #[path = "instants/mv_2/desperate_lunge.rs"]
 pub mod desperate_lunge;
 #[path = "sorceries/mv_4/despoil.rs"]
@@ -4415,6 +4435,8 @@ pub mod doomed_dissenter;
 pub mod doomed_necromancer;
 #[path = "creatures/mv_1/doomed_traveler.rs"]
 pub mod doomed_traveler;
+#[path = "sorceries/mv_3/doomsday.rs"]
+pub mod doomsday;
 #[path = "creatures/mv_3/dori_bearer_of_friends.rs"]
 pub mod dori_bearer_of_friends;
 #[path = "lands/utility/dormant_volcano.rs"]
@@ -4435,6 +4457,8 @@ pub mod douse_in_gloom;
 pub mod douser_of_lights;
 #[path = "creatures/artifacts/mv_4/dovin_s_automaton.rs"]
 pub mod dovin_s_automaton;
+#[path = "enchantments/mv_3/downdraft.rs"]
+pub mod downdraft;
 #[path = "artifacts/equipment/mv_2/dowsing_dagger.rs"]
 pub mod dowsing_dagger;
 #[path = "artifacts/mv_2/dowsing_device.rs"]
@@ -4753,6 +4777,8 @@ pub mod dwalin_weaponmaster;
 pub mod dwarven_armorer;
 #[path = "enchantments/mv_4/dwarven_armory.rs"]
 pub mod dwarven_armory;
+#[path = "creatures/mv_2/dwarven_berserker.rs"]
+pub mod dwarven_berserker;
 #[path = "creatures/mv_3/dwarven_bloodboiler.rs"]
 pub mod dwarven_bloodboiler;
 #[path = "creatures/mv_2/dwarven_castle_guard.rs"]
@@ -4785,6 +4811,8 @@ pub mod dwarven_sea_clan;
 pub mod dwarven_soldier;
 #[path = "instants/mv_1/dwarven_song.rs"]
 pub mod dwarven_song;
+#[path = "creatures/mv_3/dwarven_thaumaturgist.rs"]
+pub mod dwarven_thaumaturgist;
 #[path = "creatures/mv_1/dwarven_trader.rs"]
 pub mod dwarven_trader;
 #[path = "creatures/mv_3/dwarven_vigilantes.rs"]
@@ -5143,6 +5171,8 @@ pub mod emmessi_tome;
 pub mod empowered_autogenerator;
 #[path = "creatures/mv_3/empyrean_eagle.rs"]
 pub mod empyrean_eagle;
+#[path = "enchantments/auras/mv_3/empyrial_armor.rs"]
+pub mod empyrial_armor;
 #[path = "creatures/mv_5/emrakul_s_hatcher.rs"]
 pub mod emrakul_s_hatcher;
 #[path = "enchantments/mv_4/emrakul_s_influence.rs"]
@@ -5303,6 +5333,8 @@ pub mod ersatz_gnomes;
 pub mod erstwhile_trooper;
 #[path = "creatures/mv_4/ertai_resurrected.rs"]
 pub mod ertai_resurrected;
+#[path = "creatures/mv_2/ertai_s_familiar.rs"]
+pub mod ertai_s_familiar;
 #[path = "creatures/mv_3/ertai_wizard_adept.rs"]
 pub mod ertai_wizard_adept;
 #[path = "enchantments/mv_3/escape_routes.rs"]
@@ -5583,6 +5615,8 @@ pub mod false_demise;
 pub mod false_orders;
 #[path = "instants/mv_2/false_summoning.rs"]
 pub mod false_summoning;
+#[path = "enchantments/mv_3/familiar_ground.rs"]
+pub mod familiar_ground;
 #[path = "sorceries/mv_5/famine.rs"]
 pub mod famine;
 #[path = "creatures/mv_1/fan_bearer.rs"]
@@ -5631,6 +5665,8 @@ pub mod fascination;
 pub mod fastbond;
 #[path = "enchantments/mv_1/fasting.rs"]
 pub mod fasting;
+#[path = "instants/mv_1/fatal_blow.rs"]
+pub mod fatal_blow;
 #[path = "instants/mv_4/fatal_fumes.rs"]
 pub mod fatal_fumes;
 #[path = "sorceries/mv_4/fatal_lore.rs"]
@@ -5893,6 +5929,8 @@ pub mod fire_sprites;
 pub mod fire_tempest;
 #[path = "creatures/mv_2/fire_urchin.rs"]
 pub mod fire_urchin;
+#[path = "enchantments/auras/mv_2/fire_whip.rs"]
+pub mod fire_whip;
 #[path = "sorceries/mv_1/fireball.rs"]
 pub mod fireball;
 #[path = "instants/mv_6/fireblast.rs"]
@@ -5923,6 +5961,8 @@ pub mod fireshrieker;
 pub mod fireslinger;
 #[path = "creatures/mv_3/firespitter_whelp.rs"]
 pub mod firespitter_whelp;
+#[path = "instants/mv_1/firestorm.rs"]
+pub mod firestorm;
 #[path = "creatures/mv_6/firestorm_hellkite.rs"]
 pub mod firestorm_hellkite;
 #[path = "creatures/mv_6/firestorm_phoenix.rs"]
@@ -6121,6 +6161,8 @@ pub mod flying_men;
 pub mod fodder_cannon;
 #[path = "instants/mv_1/fog.rs"]
 pub mod fog;
+#[path = "creatures/mv_3/fog_elemental.rs"]
+pub mod fog_elemental;
 #[path = "creatures/mv_2/fog_of_gnats.rs"]
 pub mod fog_of_gnats;
 #[path = "lands/utility/foggy_bottom_swamp.rs"]
@@ -6407,6 +6449,8 @@ pub mod fungal_infection;
 pub mod fungal_reaches;
 #[path = "creatures/mv_7/fungal_shambler.rs"]
 pub mod fungal_shambler;
+#[path = "creatures/mv_4/fungus_elemental.rs"]
+pub mod fungus_elemental;
 #[path = "creatures/mv_4/fungusaur.rs"]
 pub mod fungusaur;
 #[path = "instants/mv_2/furious_bellow.rs"]
@@ -6459,6 +6503,8 @@ pub mod gabriel_angelfire;
 pub mod gaea_s_anthem;
 #[path = "creatures/mv_3/gaea_s_avenger.rs"]
 pub mod gaea_s_avenger;
+#[path = "sorceries/mv_2/gaea_s_blessing.rs"]
+pub mod gaea_s_blessing;
 #[path = "lands/gaea_s_cradle.rs"]
 pub mod gaea_s_cradle;
 #[path = "enchantments/auras/mv_4/gaea_s_embrace.rs"]
@@ -6503,6 +6549,8 @@ pub mod gallant_strike;
 pub mod gallantry;
 #[path = "lands/utility/gallifrey_council_chamber.rs"]
 pub mod gallifrey_council_chamber;
+#[path = "creatures/mv_5/gallowbraid.rs"]
+pub mod gallowbraid;
 #[path = "creatures/mv_5/gallows_warden.rs"]
 pub mod gallows_warden;
 #[path = "enchantments/auras/mv_3/galvanic_arc.rs"]
@@ -6615,6 +6663,8 @@ pub mod geothermal_crevice;
 pub mod gerrard_s_command;
 #[path = "creatures/mv_5/gerrard_s_irregulars.rs"]
 pub mod gerrard_s_irregulars;
+#[path = "sorceries/mv_4/gerrard_s_wisdom.rs"]
+pub mod gerrard_s_wisdom;
 #[path = "instants/mv_1/get_a_leg_up.rs"]
 pub mod get_a_leg_up;
 #[path = "instants/mv_5/get_the_point.rs"]

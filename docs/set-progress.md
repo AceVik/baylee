@@ -690,3 +690,4 @@ no-engine-change contract:
   - Batch 5 (`Wand of Denial` to `Zhalfirin Crusader`, 4 cards): **2 Implemented, 2 Partial**.
 - **Weatherlight (`wth`)** — in progress:
   - Batch 1 (`Abduction` to `Call of the Wild`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 2 (`Chimeric Sphere` to `Gerrard's Wisdom`, 25 cards): **13 Implemented, 12 Partial**.

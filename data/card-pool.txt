@@ -9871,3 +9871,28 @@ Bubble Matrix
 Buried Alive
 Bösium Strip
 Call of the Wild
+Chimeric Sphere
+Choking Vines
+Cinder Giant
+Cinder Wall
+Circling Vultures
+Coils of the Medusa
+Cone of Flame
+Debt of Loyalty
+Dense Foliage
+Desperate Gambit
+Doomsday
+Downdraft
+Dwarven Berserker
+Dwarven Thaumaturgist
+Empyrial Armor
+Ertai's Familiar
+Familiar Ground
+Fatal Blow
+Fire Whip
+Firestorm
+Fog Elemental
+Fungus Elemental
+Gaea's Blessing
+Gallowbraid
+Gerrard's Wisdom

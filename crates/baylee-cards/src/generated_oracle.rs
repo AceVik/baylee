@@ -7055,34 +7055,72 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{2}{G}{G}: Reveal the top card of your library. If it's a creature card, put it onto the battlefield. Otherwise, put it into your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chimeric Sphere
+    &[
+        "{2}: Until end of turn, this artifact becomes a 2/1 Construct artifact creature with flying.\n{2}: Until end of turn, this artifact becomes a 3/2 Construct artifact creature and loses flying.",
+    ],
+    // Choking Vines
+    &[
+        "Cast this spell only during the declare blockers step.\nX target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures. (This spell works on creatures that can't be blocked.)",
+    ],
+    // Cinder Giant
+    &[
+        "At the beginning of your upkeep, this creature deals 2 damage to each other creature you control.",
+    ],
+    // Cinder Wall
+    &["Defender\nWhen this creature blocks, destroy it at end of combat."],
+    // Circling Vultures
+    &[
+        "Flying\nYou may discard this card any time you could cast an instant.\nAt the beginning of your upkeep, sacrifice this creature unless you exile the top creature card of your graveyard.",
+    ],
     // Cloud Djinn
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Coils of the Medusa
+    &[
+        "Enchant creature\nEnchanted creature gets +1/-1.\nSacrifice this Aura: Destroy all non-Wall creatures blocking enchanted creature.",
+    ],
+    // Cone of Flame
+    &[
+        "Cone of Flame deals 1 damage to any target, 2 damage to another target, and 3 damage to a third target.",
+    ],
+    // Debt of Loyalty
+    &["Regenerate target creature. You gain control of that creature if it regenerates this way."],
+    // Dense Foliage
+    &["Creatures can't be the targets of spells."],
+    // Desperate Gambit
+    &[
+        "Choose a source you control and flip a coin. If you win the flip, the next time that source would deal damage this turn, it deals double that damage instead. If you lose the flip, the next time it would deal damage this turn, prevent that damage.",
+    ],
     // Dingus Staff
     &["Whenever a creature dies, this artifact deals 2 damage to that creature's controller."],
     // Disrupt
     &["Counter target instant or sorcery spell unless its controller pays {1}.\nDraw a card."],
-    &[],
-    &[],
+    // Doomsday
+    &[
+        "Search your library and graveyard for five cards and exile the rest. Put the chosen cards on top of your library in any order. You lose half your life, rounded up.",
+    ],
+    // Downdraft
+    &[
+        "{G}: Target creature loses flying until end of turn.\nSacrifice this enchantment: It deals 2 damage to each creature with flying.",
+    ],
     // Duskrider Falcon
     &["Flying, protection from black"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dwarven Berserker
+    &["Whenever this creature becomes blocked, it gets +3/+0 and gains trample until end of turn."],
+    // Dwarven Thaumaturgist
+    &["{T}: Switch target creature's power and toughness until end of turn."],
+    // Empyrial Armor
+    &["Enchant creature\nEnchanted creature gets +1/+1 for each card in your hand."],
+    // Ertai's Familiar
+    &[
+        "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhen this creature phases out or leaves the battlefield, mill three cards.\n{U}: Until your next upkeep, this creature can't phase out.",
+    ],
     // Fallow Wurm
     &["When this creature enters, sacrifice it unless you discard a land card."],
-    &[],
-    &[],
+    // Familiar Ground
+    &["Each creature you control can't be blocked by more than one creature."],
+    // Fatal Blow
+    &["Destroy target creature that was dealt damage this turn. It can't be regenerated."],
     // Fervor
     &[
         "Creatures you control have haste. (They can attack and {T} as soon as they come under your control.)",
@@ -7091,23 +7129,42 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, this enchantment deals 1 damage to each creature and each player.\n{B}{B}, Sacrifice this enchantment: It deals 3 damage to each creature and each player.",
     ],
-    &[],
-    &[],
+    // Fire Whip
+    &[
+        "Enchant creature you control\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"\nSacrifice this Aura: It deals 1 damage to any target.",
+    ],
+    // Firestorm
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nFirestorm deals X damage to each of X targets.",
+    ],
     // Fit of Rage
     &["Target creature gets +3/+3 and gains first strike until end of turn."],
     // Fledgling Djinn
     &["Flying\nAt the beginning of your upkeep, this creature deals 1 damage to you."],
-    &[],
+    // Fog Elemental
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature attacks or blocks, sacrifice it at end of combat.",
+    ],
     // Foriysian Brigade
     &["This creature can block an additional creature each combat."],
-    &[],
-    &[],
-    &[],
+    // Fungus Elemental
+    &[
+        "{G}, Sacrifice a Forest: Put a +2/+2 counter on this creature. Activate only if this creature entered this turn.",
+    ],
+    // Gaea's Blessing
+    &[
+        "Target player shuffles up to three target cards from their graveyard into their library.\nDraw a card.\nWhen this card is put into your graveyard from your library, shuffle your graveyard into your library.",
+    ],
+    // Gallowbraid
+    &[
+        "Trample\nCumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
     // Gemstone Mine
     &[
         "This land enters with three mining counters on it.\n{T}, Remove a mining counter from this land: Add one mana of any color. If there are no mining counters on this land, sacrifice it.",
     ],
-    &[],
+    // Gerrard's Wisdom
+    &["You gain 2 life for each card in your hand."],
     &[],
     &[],
     &[],
