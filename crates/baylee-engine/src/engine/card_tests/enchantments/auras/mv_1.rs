@@ -22,6 +22,7 @@ mod crown_of_flames;
 mod death_watch;
 mod dream_coat;
 mod earthbind;
+mod endless_scream;
 mod equinox;
 mod essence_flare;
 mod eternal_warrior;

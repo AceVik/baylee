@@ -29,6 +29,7 @@ mod cyclopean_tomb;
 mod diamond_kaleidoscope;
 mod dingus_egg;
 mod dingus_staff;
+mod echo_chamber;
 mod elixir_of_vitality;
 mod emmessi_tome;
 mod empowered_autogenerator;

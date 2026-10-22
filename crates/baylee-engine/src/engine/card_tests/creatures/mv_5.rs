@@ -43,6 +43,7 @@ mod eater_of_the_dead;
 mod elesh_norn_mother_of_machines;
 mod elvish_bard;
 mod endless_wurm;
+mod escaped_shapeshifter;
 mod ethereal_champion;
 mod fallen_angel;
 mod fire_elemental;

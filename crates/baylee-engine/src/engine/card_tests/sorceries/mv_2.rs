@@ -12,6 +12,7 @@ mod damn;
 mod death_stroke;
 mod demonic_tutor;
 mod diabolic_vision;
+mod disturbed_burial;
 mod drain_life;
 mod drain_power;
 mod energy_bolt;

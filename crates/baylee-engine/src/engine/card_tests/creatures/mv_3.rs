@@ -75,6 +75,7 @@ mod dwarven_thaumaturgist;
 mod dwarven_vigilantes;
 mod dwarven_warriors;
 mod el_hajjaj;
+mod elite_javelineer;
 mod elvish_healer;
 mod elvish_spirit_guide;
 mod emry_lurker_of_the_loch;

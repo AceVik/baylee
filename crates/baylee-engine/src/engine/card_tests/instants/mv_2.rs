@@ -28,6 +28,7 @@ mod clear;
 mod consult_the_star_charts;
 mod counterspell;
 mod destroy_evil;
+mod diabolic_edict;
 mod disempower;
 mod disenchant;
 mod doom_blade;
