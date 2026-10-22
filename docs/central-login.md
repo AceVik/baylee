@@ -7,8 +7,10 @@ account form into Central's; the sign-in restores the account's gateways and
 admits the player to the one chosen. Every other gateway signs people in
 itself, with sign-up and guests where it offers them. `‹` on Central's form
 goes back to the device's own gateways, and so does the end of a Central
-session (owner, 21.10.2026: Central serves no registration yet, and the
-official gateway has no bridge). `baylee-account` wraps the pinned Central SDK using a
+session. The official gateway is bound to Central through its bridge since
+beta.8a (22.10.2026): new accounts register at baylee.app, and an account from
+before moves to Central at its first sign-in in the client (§"Legacy
+migration"). `baylee-account` wraps the pinned Central SDK using a
 transport that always verifies TLS, rejects redirects, bounds responses and
 discards remote diagnostics. Passwords and central sessions are never forwarded
 to arbitrary saved gateways. OPAQUE and authenticated client encryption are in

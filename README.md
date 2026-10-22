@@ -385,6 +385,11 @@ of gateways and your settings and takes you to the gateway you choose; the
 session renews itself while Baylee runs, for up to 12 hours, and then you
 sign in again.
 
+**An account from before beta.8** on Baylee Sanctuary needs no new one: the
+first time you sign in with it in the client, with the same username and
+password, it moves to Baylee Central, and your decks and settings come
+along. You accept Central's terms on the way.
+
 Before the first gateway, the client shows **Baylee Central's terms of
 use**; your acceptance is kept with the account, so another computer does
 not ask again. For now a Baylee account is deleted on request, through the

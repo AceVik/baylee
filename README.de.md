@@ -411,6 +411,12 @@ deine Einstellungen zurück und bringt dich zu dem Gateway, das du wählst;
 die Sitzung verlängert sich selbst, solange Baylee läuft, bis zu 12
 Stunden, danach meldest du dich neu an.
 
+**Ein Account aus der Zeit vor beta.8** auf Baylee Sanctuary braucht keinen
+neuen: Wenn du dich zum ersten Mal im Client damit anmeldest, mit demselben
+Benutzernamen und Passwort, zieht er zu Baylee Central um, und deine Decks
+und Einstellungen kommen mit. Unterwegs stimmst du den Nutzungsbedingungen
+von Central zu.
+
 Vor dem ersten Gateway zeigt der Client die **Nutzungsbedingungen von
 Baylee Central**; deine Zustimmung bleibt beim Account, ein anderer Rechner
 fragt also nicht noch einmal. Gelöscht wird ein Baylee-Account vorerst auf
