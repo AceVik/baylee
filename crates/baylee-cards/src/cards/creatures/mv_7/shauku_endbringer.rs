@@ -49,7 +49,7 @@ card!(
                 Effect::Exile {
                     target: TargetSpec::Object(&Filter::CREATURE),
                 },
-                Effect::AddCounter {
+                Effect::AddCounterSource {
                     kind: CounterKind::P1P1,
                     amount: Amount::Fixed(1),
                 },

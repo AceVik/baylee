@@ -301,6 +301,7 @@ mod misdirection;
 mod muse_s_encouragement;
 mod narset_s_rebuke;
 mod omen_of_fire;
+mod reflect_damage;
 mod scars_of_the_veteran;
 mod second_thoughts;
 mod stonefury;

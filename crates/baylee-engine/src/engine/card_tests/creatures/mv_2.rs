@@ -191,6 +191,7 @@ mod sigiled_starfish;
 mod silverglade_pathfinder;
 mod sindbad;
 mod skittering_skirge;
+mod skulking_ghost;
 mod skyclave_cleric;
 mod skyshroud_elf;
 mod skyshroud_falcon;

@@ -35,6 +35,7 @@ mod natural_order;
 mod past_in_flames;
 mod phyrexian_purge;
 mod polymorph;
+mod reign_of_chaos;
 mod rejuvenate;
 mod resurrection;
 mod retribution;

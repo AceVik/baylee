@@ -175,6 +175,7 @@ mod royal_decree;
 mod sarkhan_s_unsealing;
 mod security_detail;
 mod serra_aviary;
+mod shimmer;
 mod smothering_tithe;
 mod snake_pit;
 mod spirit_mirror;

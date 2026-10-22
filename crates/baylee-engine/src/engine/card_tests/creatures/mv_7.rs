@@ -454,6 +454,7 @@ mod rune_scarred_demon;
 mod seraph;
 mod seraph_of_the_suns;
 mod shaleskin_bruiser;
+mod shauku_endbringer;
 mod shivan_hellkite;
 mod silent_sentinel;
 mod simic_sky_swallower;

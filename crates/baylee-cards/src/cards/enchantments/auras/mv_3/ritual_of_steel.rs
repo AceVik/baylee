@@ -13,7 +13,7 @@ card!(
     oracle_id = "0af91b63-a874-4184-8f8f-3871429fd1ad",
     scryfall_id = "21205189-0d00-44d5-9772-820e607dba25",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Ritual of Steel",
         mana_cost = mana!("{2}{W}"),

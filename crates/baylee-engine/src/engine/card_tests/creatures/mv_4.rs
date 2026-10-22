@@ -203,6 +203,7 @@ mod sengir_autocrat;
 mod serendib_djinn;
 mod sheoldred_the_apocalypse;
 mod shock_troops;
+mod sidar_jabari;
 mod silver_erne;
 mod singing_tree;
 mod skyhunter_patrol;

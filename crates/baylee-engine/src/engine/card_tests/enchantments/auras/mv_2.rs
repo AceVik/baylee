@@ -44,6 +44,7 @@ mod seizures;
 mod serra_bestiary;
 mod sinister_strength;
 mod snow_devil;
+mod soar;
 mod spectral_cloak;
 mod torment;
 mod twisted_experiment;

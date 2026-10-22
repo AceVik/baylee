@@ -123,6 +123,7 @@ mod scavenger_folk;
 mod scryb_sprites;
 mod serra_zealot;
 mod sewer_rats;
+mod shadow_guildmage;
 mod shanodin_dryads;
 mod shaper_guildmage;
 mod shield_mate;

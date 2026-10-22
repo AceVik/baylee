@@ -37,6 +37,7 @@ mod rampant_growth;
 mod regrowth;
 mod reshape;
 mod sacred_nectar;
+mod sealed_fate;
 mod shatterskull_smashing;
 mod sign_in_blood;
 mod sinkhole;

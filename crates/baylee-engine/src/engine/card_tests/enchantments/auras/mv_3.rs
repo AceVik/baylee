@@ -29,6 +29,7 @@ mod maggot_therapy;
 mod orcish_mine;
 mod phyrexian_boon;
 mod relic_bind;
+mod ritual_of_steel;
 mod scavenged_weaponry;
 mod spectral_shield;
 mod strength_of_the_harvest;

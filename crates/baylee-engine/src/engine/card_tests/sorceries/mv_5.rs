@@ -21,6 +21,7 @@ mod makindi_stampede;
 mod mana_geyser;
 mod natural_spring;
 mod psychic_transfer;
+mod reign_of_terror;
 mod song_mad_treachery;
 mod soul_feast;
 mod spring_of_eternal_peace;

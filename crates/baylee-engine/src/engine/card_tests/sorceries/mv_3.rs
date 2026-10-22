@@ -50,6 +50,7 @@ mod rain_of_tears;
 mod recover;
 mod renewal;
 mod screaming_fury;
+mod seeds_of_innocence;
 mod sevinne_s_reclamation;
 mod soul_burn;
 mod spirit_water_revival;
