@@ -5,6 +5,8 @@ mod chat;
 mod common;
 #[path = "central/fresh.rs"]
 mod fresh;
+#[path = "central/held.rs"]
+mod held;
 #[path = "central/registered.rs"]
 mod registered;
 #[path = "central/terms.rs"]
@@ -24,8 +26,14 @@ use central_http::DevelopmentServer;
 use central_identity::IdentityService;
 use central_postgres::{AccountStore, DevConfig};
 use sea_orm::ConnectionTrait;
-use std::{io::Write, net::TcpStream, path::PathBuf, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, sync::oneshot};
+use std::{
+    io::Write,
+    net::{SocketAddr, TcpStream},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
+use tokio::{runtime::Runtime, sync::oneshot, task::JoinHandle};
 
 struct BridgeFile(PathBuf);
 impl Drop for BridgeFile {
@@ -130,6 +138,48 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             "CENTRAL_TEST_RUNTIME_PASSWORD",
         )))
         .unwrap();
+    let served = serve(&runtime, &store, "central", None);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        run(gateway, endpoint, origin);
+        changed_legacy_password_invalidates_pending_enrollment(gateway, endpoint, origin);
+        upgrade::run(gateway, endpoint, origin);
+        fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
+        registered::run(&runtime, &operator, endpoint);
+        terms::run(&runtime, &operator, endpoint);
+        held::run(&runtime, &store);
+        ui_fixture(endpoint, origin);
+    }));
+    served.close(&runtime);
+    runtime.block_on(async {
+        store.close().await.unwrap();
+        operator.close().await.unwrap();
+    });
+    if let Err(failure) = result {
+        std::panic::resume_unwind(failure);
+    }
+}
+
+/// A Central development server over the fixture's store, its identity
+/// service (with `terms` in force) and a gateway bridged to it.
+struct Served {
+    endpoint: Endpoint,
+    gateway: common::Gateway,
+    origin: String,
+    service: Arc<IdentityService>,
+    secret_file: BridgeFile,
+    stop: oneshot::Sender<()>,
+    serving: JoinHandle<()>,
+    address: SocketAddr,
+    gateway_address: SocketAddr,
+}
+
+fn serve(
+    runtime: &Runtime,
+    store: &AccountStore,
+    label: &str,
+    terms: Option<baylee_account::terms::TermsDocument>,
+) -> Served {
     let server = runtime
         .block_on(DevelopmentServer::bind(
             central_policy::config::Config::from_pairs([
@@ -144,7 +194,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let bridge = Token::generate().unwrap();
     let secret_file = bridge_file(&endpoint, &bridge);
     let gateway = common::spawn_gateway_with(
-        "central",
+        label,
         &[
             (
                 "BAYLEE_CENTRAL_CONFIG_FILE",
@@ -155,61 +205,61 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         ],
     );
     let gateway_address = format!("127.0.0.1:{}", gateway.port).parse().unwrap();
-    let gateway_origin = format!("http://{gateway_address}");
+    let origin = format!("http://{gateway_address}");
     let service = Arc::new(
         IdentityService::new(
             store.clone(),
             &endpoint,
             ServerKeys::generate(),
             &bridge,
-            &gateway_origin,
+            &origin,
         )
-        .unwrap(),
+        .unwrap()
+        .with_terms(terms),
     );
-    let website = Arc::clone(&service);
     let (stop, stopped) = oneshot::channel();
     let served_endpoint = endpoint.clone();
+    let identity = Arc::clone(&service);
     let serving = runtime.spawn(async move {
         server
-            .run_with_identity(&served_endpoint, service, async {
+            .run_with_identity(&served_endpoint, identity, async {
                 let _ = stopped.await;
             })
             .await
             .unwrap();
     });
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        run(&gateway, &endpoint, &gateway_origin);
-        changed_legacy_password_invalidates_pending_enrollment(
-            &gateway,
-            &endpoint,
-            &gateway_origin,
-        );
-        upgrade::run(&gateway, &endpoint, &gateway_origin);
-        fresh::run(&runtime, &website, &operator, &endpoint, &gateway);
-        registered::run(&runtime, &operator, &endpoint);
-        terms::run(&runtime, &operator, &endpoint);
-        ui_fixture(&endpoint, &gateway_origin);
-    }));
-    drop(gateway);
-    drop(secret_file);
-    let _ = stop.send(());
-    runtime.block_on(async {
-        tokio::time::timeout(Duration::from_secs(5), serving)
-            .await
-            .unwrap()
-            .unwrap();
-        store.close().await.unwrap();
-        operator.close().await.unwrap();
-    });
-    for closed in [address, gateway_address] {
-        // Windows may report loopback refusal after about two seconds; a
-        // shorter timeout is not evidence that a listener remains or closed.
-        let error = TcpStream::connect_timeout(&closed, Duration::from_secs(5))
-            .expect_err("owned service listener must be closed");
-        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    Served {
+        endpoint,
+        gateway,
+        origin,
+        service,
+        secret_file,
+        stop,
+        serving,
+        address,
+        gateway_address,
     }
-    if let Err(failure) = result {
-        std::panic::resume_unwind(failure);
+}
+
+impl Served {
+    /// Stops the gateway and Central, and checks both listeners are gone.
+    fn close(self, runtime: &Runtime) {
+        drop(self.gateway);
+        drop(self.secret_file);
+        let _ = self.stop.send(());
+        runtime.block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), self.serving)
+                .await
+                .unwrap()
+                .unwrap();
+        });
+        for closed in [self.address, self.gateway_address] {
+            // Windows may report loopback refusal after about two seconds; a
+            // shorter timeout is not evidence that a listener remains or closed.
+            let error = TcpStream::connect_timeout(&closed, Duration::from_secs(5))
+                .expect_err("owned service listener must be closed");
+            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+        }
     }
 }
 

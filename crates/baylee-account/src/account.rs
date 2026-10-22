@@ -16,11 +16,25 @@ pub struct Account {
     // still-open settings form's unchanged values look like new edits.
     submitted_preferences: serde_json::Value,
     submitted_gateways: Vec<String>,
+    /// The password of a migration that waits for Baylee Central's terms:
+    /// resuming it asks for gateway tickets, which Central gives only once
+    /// its terms in force are accepted. Held, zeroized, until
+    /// [`Account::finish_migration`].
+    held: Option<Zeroizing<String>>,
+    /// Baylee Central's terms in force were unaccepted when the sign-in read
+    /// them, and have not been accepted through this account since.
+    terms_open: bool,
 }
 
 impl Account {
     /// Authenticate centrally and resume a previous migration. An absent upgrade-era source
     /// proof permits one fresh proof to the compiled official gateway; ordinary errors do not.
+    ///
+    /// While the account has not accepted Baylee Central's terms in force
+    /// ([`Account::central_terms_open`]), the sign-in succeeds and the
+    /// migration waits: show the terms, accept them ([`Account::accept_terms`])
+    /// and call [`Account::finish_migration`] ([`Account::migration_held`]
+    /// says whether one waits).
     ///
     /// # Errors
     /// Refuses corrupt/unsupported account data, conflicts and failed or ambiguous network calls.
@@ -69,13 +83,26 @@ impl Account {
             let _ = session.logout(&http);
             return Err(error);
         }
+        let terms_open = match session.terms_status(&http) {
+            Ok(status) => !status.accepted,
+            Err(error) => {
+                let _ = session.logout(&http);
+                return Err(error);
+            }
+        };
         let mut account = Self {
             http,
             session,
             submitted_preferences: data.preferences.clone(),
             submitted_gateways: data.gateways.clone(),
             data,
+            held: None,
+            terms_open,
         };
+        if terms_open && account.data.legacy.is_some() {
+            account.held = Some(password);
+            return Ok(account);
+        }
         if let Err(error) = account.resume_migration(&password) {
             let _ = account.session.logout(&account.http);
             return Err(error);
@@ -182,6 +209,37 @@ impl Account {
         self.session.confirm_restored(&self.http)
     }
 
+    /// Whether a migration waits for Baylee Central's terms to be accepted.
+    #[must_use]
+    pub const fn migration_held(&self) -> bool {
+        self.held.is_some()
+    }
+
+    /// Whether Baylee Central's terms in force waited for this account when it
+    /// signed in, and have not been accepted through it since: they come
+    /// before any gateway, since Central gives no ticket until then.
+    #[must_use]
+    pub const fn central_terms_open(&self) -> bool {
+        self.terms_open
+    }
+
+    /// Resume the migration [`Account::login`] held back for Baylee Central's
+    /// terms, once they are accepted. Nothing when none waits.
+    ///
+    /// # Errors
+    /// As the sign-in's migration: conflicts, refusals and failed network
+    /// calls. The held password is gone either way; sign in again to retry.
+    pub fn finish_migration(&mut self) -> Result<(), Error> {
+        let Some(password) = self.held.take() else {
+            return Ok(());
+        };
+        self.resume_migration(&password)?;
+        self.submitted_preferences
+            .clone_from(&self.data.preferences);
+        self.submitted_gateways.clone_from(&self.data.gateways);
+        Ok(())
+    }
+
     /// Gateway admission never exposes the central password, master key or session token.
     ///
     /// # Errors
@@ -220,11 +278,16 @@ impl Account {
     /// `Conflict` when the terms changed since they were read (read and show
     /// them again); refuses a revoked session and failed network calls.
     pub fn accept_terms(
-        &self,
+        &mut self,
         subject: crate::terms::TermsSubject,
         version: &crate::terms::TermsVersion,
     ) -> Result<(), Error> {
-        self.session.accept_terms(&self.http, subject, version)
+        let central = matches!(subject, crate::terms::TermsSubject::Central);
+        self.session.accept_terms(&self.http, subject, version)?;
+        if central {
+            self.terms_open = false;
+        }
+        Ok(())
     }
 
     /// Save changed preferences and/or saved gateways with optimistic concurrency.

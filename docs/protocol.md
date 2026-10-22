@@ -3505,7 +3505,14 @@ raises the sheet and `GET /terms?lang=` in the interface's language
 (`terms::url`); `false` with `/info.terms` named keeps that version as the
 device's copy (`ClientSettings.terms`, by gateway address). A kept guest,
 which signs in to nothing, is asked when `/info.terms` differs from that
-copy. A Central sign-in's `"central_terms_stale": true` shows Baylee
+copy. Central gives no gateway ticket and keeps no write while its own
+terms in force wait for the account (`TermsRequired`), so the native client
+asks before any gateway: a Central sign-in that finds them unaccepted
+(`TermsStatus`) shows Baylee Central's own terms with no gateway session
+yet, and admits only after they are accepted; Later ends the Central
+sign-in. A gateway account's migration waits for them the same way
+(`Account::migration_held`; `Account::finish_migration` after the
+acceptance). A Central sign-in's `"central_terms_stale": true` shows Baylee
 Central's own terms first (fetched and accepted through the account worker,
 `Account::central_terms`, `accept_terms`), then admits again, which brings
 the gateway's own answer. The sheet renders the Markdown subset (`#`/`##`,

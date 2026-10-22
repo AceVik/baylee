@@ -496,3 +496,102 @@ fn central_terms_come_first_and_offer_no_deletion() {
     assert!(!words.contains(Phrase::TermsChatNote.text(Lang::En)));
     assert_eq!(stops(&mut app), ["accept", "later"]);
 }
+
+/// Central's own terms before any gateway session (the owner's sign-in,
+/// 22.10.2026, which failed until they were accepted on the website): the
+/// sheet goes up with no token, names Central, and Later ends the Central
+/// sign-in, the one session there is.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn central_terms_before_any_gateway_and_later_ends_the_central_sign_in() {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
+        state.central.as_mut().expect("Central on").terms_pending = true;
+    }
+    app.update();
+    {
+        let state = app.world().resource::<LobbyState>();
+        assert!(state.terms.up(), "the sheet is up");
+        assert!(state.lobby.token().is_none(), "with no gateway session");
+    }
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc("# Central terms\n\nBe kind."),
+        }),
+    );
+    let words = drawn(&mut app);
+    assert!(words.contains(Phrase::CentralTermsTitle.text(Lang::En)));
+    assert_eq!(stops(&mut app), ["accept", "later"]);
+    click(&mut app, Press::Front(FrontPress::TermsLater));
+    app.update();
+    let state = app.world().resource::<LobbyState>();
+    assert!(state.central.is_none(), "Later ends the Central sign-in");
+    assert!(!state.terms.up());
+}
+
+/// A lobby signed in to Central whose own terms wait, with a gateway chosen
+/// and the account worker's queue in the test's hand.
+#[cfg(not(target_arch = "wasm32"))]
+fn central_terms_waiting() -> (App, std::sync::mpsc::Receiver<super::super::central::Job>) {
+    let mut app = headless();
+    app.insert_resource(crate::settings::ClientSettings::default());
+    let (handle, jobs) = super::super::central::Handle::queued_for_test();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        super::super::central::enable(&mut state);
+        // Chosen, as a bound sign-in's gateway is once it lands.
+        state.gateway.clear();
+        state.gateway_selected = true;
+        let central = state.central.as_mut().expect("Central on");
+        central.terms_pending = true;
+        central.handle = Some(handle);
+    }
+    app.update();
+    assert!(app.world().resource::<LobbyState>().terms.up());
+    // The sheet's own request for the text, through the worker.
+    assert!(jobs.try_recv().is_ok(), "the text is asked for");
+    post(
+        &mut app,
+        Reply::Terms(TermsReply::Doc {
+            asked: Lang::En,
+            doc: doc("# Central terms\n\nBe kind."),
+        }),
+    );
+    (app, jobs)
+}
+
+/// Accepted at Central, the sheet goes down and the chosen gateway is
+/// entered: the one admission there is, after the terms.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn accepting_central_terms_first_then_enters_the_gateway() {
+    let (mut app, jobs) = central_terms_waiting();
+    assert!(jobs.try_recv().is_err(), "nothing entered yet");
+    post(&mut app, Reply::Terms(TermsReply::Accepted("v1".into())));
+    post(&mut app, Reply::Terms(TermsReply::Readmit));
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.terms.up(), "the sheet is down");
+    assert!(!super::super::central::terms_pending(state));
+    assert!(jobs.try_recv().is_ok(), "and the gateway is entered");
+}
+
+/// The move that waited for Central's terms failed after the acceptance:
+/// Central is signed out of, as at a failed sign-in, and the lobby says so.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_move_that_fails_after_central_terms_ends_the_central_sign_in() {
+    let (mut app, jobs) = central_terms_waiting();
+    post(&mut app, Reply::Terms(TermsReply::Accepted("v1".into())));
+    post(&mut app, Reply::Terms(TermsReply::MigrationFailed));
+    let state = app.world().resource::<LobbyState>();
+    assert!(!state.terms.up());
+    assert!(state.central.is_none(), "signed out of Central");
+    assert!(jobs.try_recv().is_err(), "no gateway entered");
+    let words = drawn(&mut app);
+    assert!(words.contains(Phrase::CentralSignInFailed.text(Lang::En)));
+}

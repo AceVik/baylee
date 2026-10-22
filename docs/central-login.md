@@ -48,6 +48,13 @@ Network errors, ordinary conflicts, revoked sessions and completed migrations do
 not trigger that fallback. Once Central confirms migration closure, future logins
 do not contact the legacy gateway.
 
+Link and export capabilities are gateway tickets, which Central refuses until
+its own terms in force are accepted. A sign-in that finds them unaccepted
+therefore succeeds with the migration held; the client shows those terms, and
+their acceptance resumes the migration before any gateway admission
+(`docs/protocol.md` §"Terms of use (WG-1)"). A migration that fails then ends
+the Central sign-in, as at sign-in; the next one resumes it.
+
 Cutover is serialized against ordinary gateway requests, reconciles the source,
 fixes the legacy-to-central mapping and revokes legacy HTTP sessions atomically.
 The same transaction retires the gateway's password verifier. A database

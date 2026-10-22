@@ -182,7 +182,13 @@ pub(super) fn poll(
                 }
             }
             Reply::Terms(reply) => {
-                super::front::terms::receive(reply, &mut state, &mailbox, &mut settings);
+                super::front::terms::receive(
+                    reply,
+                    &mut state,
+                    &mut prefs,
+                    &mailbox,
+                    &mut settings,
+                );
             }
             Reply::Gateway { url, probe } => {
                 if state.gateway_answered(url, probe)
