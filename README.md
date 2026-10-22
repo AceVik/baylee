@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: signing in at a gateway, in a moonlit garden" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylee's front door in its moonlit garden, clouds drifting and fireflies glowing behind a gateway's sign-in" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://baylee.acevik.de/"><b>Website</b></a> ·
+  <a href="https://baylee.app/"><b>Website</b></a> ·
   <a href="https://github.com/AceVik/baylee/releases"><b>Download</b></a> ·
   <a href="https://discord.gg/4pP3uAwgY"><b>Discord</b></a> ·
   <a href="https://github.com/AceVik/baylee-central"><b>Accounts (Baylee Central)</b></a>
@@ -28,16 +28,17 @@
 </p>
 
 > [!NOTE]
-> **Baylee is in closed beta.** This page describes version **0.1.0-beta.7**, a
-> pre-release for **Windows, macOS and Linux** computers. The public server,
-> **Baylee Sanctuary** at `https://baylee.acevik.de`, takes new players only
-> with a closed-beta key. Without a key you can still play offline against
+> **Baylee is in closed beta.** This page describes version **0.1.0-beta.8b**,
+> a pre-release for **Windows, macOS and Linux** computers. The public server,
+> **Baylee Sanctuary** at `https://baylee.acevik.de`, is played with a Baylee
+> account, and creating one at [baylee.app](https://baylee.app/register)
+> takes a closed-beta key. Without a key you can still play offline against
 > the house AI, build decks, or run a server of your own for your group.
 
 ## Contents
 
 - [What Baylee is](#what-baylee-is)
-- [New in beta.7](#new-in-beta7)
+- [New in beta.8](#new-in-beta8)
 - [Screenshots](#screenshots)
 - [Installing](#installing)
 - [Your first game](#your-first-game)
@@ -78,7 +79,11 @@ What you can do with it:
   table, free-for-all or in teams (uneven teams such as 3 against 2 work
   too), with or without AI players in the empty chairs. A deck that names a
   commander plays Commander; any other deck plays freeform.
-- **Add friends and chat** with them, end-to-end encrypted.
+- **Sign in once** with a Baylee account: it brings back your gateways and
+  settings, and keeps your chat keys backed up, encrypted, so another
+  computer picks up where the last one left off.
+- **Add friends and chat** with them, end-to-end encrypted, or talk to
+  everyone in the lobby.
 - **Watch** a friend's running table, and **watch your own games again** as
   replays.
 - **Seat a language model** at your table, on your own key, or one the
@@ -91,75 +96,89 @@ What you can do with it:
 Baylee is free and stays free: no paywall, no ads, nothing to buy. It is a
 non-commercial fan project and not affiliated with Wizards of the Coast.
 
-## New in beta.7
+## New in beta.8
 
-- **Friends and chat.** Friend requests, whispers, groups, a chat for each
-  table and each team, and who of your friends is online and where. Every
-  message is end-to-end encrypted ([details](#friends-and-chat)).
-- **The game log is a tab of the chat window.** At a table the window has
-  tabs for *All*, *Log*, *Table*, *Team*, *Private* and *Group*. The log
-  names phases, modes and targets, and every card in it is a link to its
-  picture.
-- **Replays.** Every online game you played can be watched again from any
-  computer, from your seat, from the table's public view, or from any
-  player's seat if that player agreed to share their hidden cards
-  ([details](#replays)). Games against the house are kept on your computer.
-- **Watching.** A table can let others watch; the lobby shows a *Watch*
-  button and how many are watching.
-- **A new payment window.** When something asks you to pay (a spell, an
-  ability, a "pay or …" tax), you first tap your lands as a plan, nothing
-  happens yet, and then pay everything at once. A land tapped by mistake is
-  simply taken back.
-- **Reveals stand up.** When another player reveals a card, it is shown to
-  you in the middle of the table until you put it away.
-- **Easier to read at a glance.** Keywords that protect a card wear borders
-  around it, each with its own colour and pattern (indestructible, hexproof,
-  shroud, defender); a creature with summoning sickness shows a slow wave of
-  moonlight; a phased-out permanent is drawn grey and faded.
-- **Cards with unusual faces.** Adventures, flip cards, split and Aftermath
-  cards and battles are shown the way they are read; holding <kbd>Shift</kbd>
-  over a preview turns or rotates the card to its other half.
-- **Language models hosted by the server.** A server operator can offer
-  models of their own, and decide per player who may seat them.
-- **For operators:** an admin console in the browser (accounts, bans,
-  password resets, ending games, blocking cards, beta keys, hosted models,
-  server load), per-gateway terms of use and a link to the operator's legal
-  notice (Impressum).
-- **An Intel Mac build.** Six downloads now: Windows (x64, ARM64), macOS
-  (Apple silicon, Intel) and Linux (x86-64, ARM64).
-- **500 more cards play exactly as printed** (2,702 in beta.6, 3,202
-  now), most of them partial cards finished; partial cards went from 571 to
-  68 ([Where the cards stand](#where-the-cards-stand)).
+What changed since beta.7, in 0.1.0-beta.8a and this release, 0.1.0-beta.8b:
+
+- **Baylee accounts.** Signing in moves to **Baylee Central**, the
+  project's account service. On Baylee Sanctuary you sign in with a Baylee
+  account, which you create on the website,
+  [baylee.app](https://baylee.app/register); the client then brings back
+  your list of gateways and your settings and takes you to the gateway you
+  choose. An account from beta.7 or earlier moves over the first time you
+  sign in with its username and password, with its decks and settings
+  ([Your first game](#your-first-game)).
+- **Central's terms come first.** Before the first gateway, the client shows
+  Baylee Central's terms of use. Your acceptance is kept with your account,
+  so another computer does not ask again.
+- **A session lasts while you play.** It renews itself while Baylee runs,
+  for up to 12 hours after you signed in with your password. In beta.8a it
+  ended after 30 minutes, and every game on it with it.
+- **Your chat keys in a vault.** On your computer the chat keys are locked
+  with your account password (*Unlock chat*), and with a Baylee account
+  they and your chat history are backed up, encrypted, so a new computer
+  gets them back ([details](#friends-and-chat)).
+- **A lobby chat.** The chat window's *Lobby* tab talks to everyone on the
+  gateway. It is public and not encrypted, unlike whispers, groups and
+  table chat.
+- **The update card.** An update now shows its download as it happens (the
+  share, the megabytes, the speed and the time left), then the check of its
+  signature, and offers **Restart to update**: Baylee restarts into the new
+  version and carries on where you were, in a game too. *Later* installs it
+  when you quit ([Updating](#updating)).
+- **A new lobby header**, with the gateway, your friends, the notifications
+  bell and your account; the lobby's notices stand in its top left corner.
+- **Back after a drop.** A table you lost the connection to is dialled
+  again until its reconnect window has passed (three minutes unless the
+  table says otherwise), and the client then says whether your sign-in
+  ended or the table could not be reached.
+- **Costs in the payment window.** Cumulative upkeep (Ice Age) and attack
+  taxes are paid there too, with lands staged before anything taps.
+- **Fixes from your reports.** Among the problems players sent with
+  <kbd>F8</kbd>: a language model's chair that was refused for a moment
+  dials again instead of leaving, the lobby's notices no longer stand over
+  a game, a duel the house finishes for a player who left ends with a
+  result, an overloaded Cyclonic Rift no longer touches a teammate's
+  permanents, a creature on an Adventure can be cast from exile, and turns
+  with thousands of triggers play many times faster.
+- **6,000 more cards play exactly as printed** (3,202 in beta.7, 9,265
+  now): The Dark and Fallen Empires are complete, and Ice Age is half done
+  ([Where the cards stand](#where-the-cards-stand)).
 
 This release is for desktop computers only. The browser version and the
-phone apps are not part of beta.7 ([docs/mobile.md](docs/mobile.md) says
+phone apps are not part of beta.8b ([docs/mobile.md](docs/mobile.md) says
 where they stand).
 
 ## Screenshots
 
-The screenshots show Baylee's **text view**, which draws each card from its
-rules text instead of the printed card image ([License and legal](#license-and-legal)
-explains why). In the game, the card images come from Scryfall, and <kbd>T</kbd>
-switches between the two views. In the text view a card far off on the table
-shows only its colour, its cost and its marks; pointing at it shows its text
-large. The pictures were taken with 0.1.0-beta.7 on a local test server, with
-card images switched off and made-up players.
+The pictures are short recordings of the running game. They show Baylee's
+**text view**, which draws each card from its rules text instead of the
+printed card image ([License and legal](#license-and-legal) explains why).
+In the game, the card images come from Scryfall, and <kbd>T</kbd> switches
+between the two views. In the text view a card far off on the table shows
+only its colour, its cost and its marks; pointing at it shows its text
+large. They were recorded shortly before 0.1.0-beta.8b, on a local test
+gateway, with card images switched off and made-up players.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="The lobby with an open table, a table invite, the friends drawer and a private chat"><br><sub><b>The lobby, with friends and chat.</b> A friend invites you to her table, the friends drawer shows who is online and where, and the private chat is end-to-end encrypted.</sub></td>
-    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel in progress with the chat window open on its All tab"><br><sub><b>At the table.</b> The chat window holds the game log as a tab; <i>All</i> mixes log lines and table chat, and every card name is a link.</sub></td>
+    <td width="50%"><img src="docs/images/readme/lobby.webp" alt="The lobby: a friend's whisper and her table invitation arrive, then the private chat opens"><br><sub><b>The lobby, with friends and chat.</b> A friend whispers that her table has a seat for you, and her invitation follows with <i>Join</i>; the friends drawer shows who is online and at which table, and the whisper is end-to-end encrypted.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel: a land is played, two spells go on the stack, and the game log fills"><br><sub><b>At the table.</b> A land, then Llanowar Elves and a Lightning Bolt go on the stack; the bolt's target is chosen in a sheet, and the game log beside the table writes down every move, each card a link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: one seat taken, an empty seat offering AI and Language model"><br><sub><b>Arranging a table.</b> Rules, teams and seats; an empty chair takes another player, the house AI or a language model.</sub></td>
-    <td width="50%"><img src="docs/images/readme/payment.webp" alt="The payment window: a tax is owed and one land is staged"><br><sub><b>The payment window.</b> A tax is owed: the lands you click are staged, nothing taps until you press <i>Pay</i>, and <i>Untap all</i> takes them back.</sub></td>
+    <td width="50%"><img src="docs/images/readme/combat.webp" alt="Combat: five attackers, three blocked, and the blocked ones go to the graveyard"><br><sub><b>Combat.</b> Five creatures attack and three are blocked; the lines show who fights whom. Six damage gets through, and the three blocked creatures go to the graveyard.</sub></td>
+    <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: three empty chairs are given to the house AI at three levels"><br><sub><b>Arranging a table.</b> The host gives three empty chairs to the house AI, each at its own level; a chair can also take another player or a language model.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/replay.webp" alt="A replay with its timeline, transport controls and the Watch from menu"><br><sub><b>Replays.</b> One cell per turn, play and pause, steps and speeds, and <i>Watch from…</i>: your seat, another player's, the table or all hands.</sub></td>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder with a search for walls and a 60-card deck grouped by type"><br><sub><b>The deck builder.</b> A search over the whole pool (here: playable walls), the deck grouped by type, and Import, Export and History.</sub></td>
+    <td width="50%"><img src="docs/images/readme/payment.webp" alt="The payment window: a cumulative upkeep of two is paid with two staged lands"><br><sub><b>The payment window.</b> Cold Snap's cumulative upkeep asks for two mana: the lands you click are staged, nothing taps until you press <i>Pay</i>, and <i>Untap all</i> takes them back.</sub></td>
+    <td width="50%"><img src="docs/images/readme/replay.webp" alt="A replay playing at double speed, then the Watch from menu opens"><br><sub><b>Replays.</b> A kept game against the house plays back at 2×, the stack, the attack and the blocks included; <i>Your seat</i> chooses whose view you watch from: yours, another player's, the table or all hands.</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Five creatures on the battlefield, each with its own border or shimmer"><br><sub><b>Read at a glance.</b> From the left: shroud (violet mist), indestructible (golden rim), summoning sickness (a pale wave of moonlight), defender and hexproof together (a stone wall inside a thin blue line), and summoning sickness again.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder: a search for angel narrows the pool, and a card goes into the deck"><br><sub><b>The deck builder.</b> Typing <i>angel</i> narrows a pool of 9,343 cards to 92 playable ones, and one goes into the deck, which is grouped by type, with Import, Export and History above.</sub></td>
+    <td width="50%"><img src="docs/images/readme/update.webp" alt="The update card: a download with its share, speed and time left, then Restart to update"><br><sub><b>Updating.</b> The update card shows the download as it happens, then the check and the unpacking, and offers <i>Restart to update</i> (here a simulated download of beta.8b).</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Six creatures on the battlefield, each with its own border, shimmer or wave of moonlight"><br><sub><b>Read at a glance.</b> From the left: indestructible (a golden rim with a glint), shroud (violet mist), hexproof (a blue line with flowing streaks), summoning sickness (pale moonlight and its wave on Llanowar Elves, cast this turn), defender (stone blocks), and defender with shroud (stone inside violet mist).</sub></td>
   </tr>
 </table>
 
@@ -167,7 +186,7 @@ card images switched off and made-up players.
 
 Download Baylee for your system from the
 **[releases page](https://github.com/AceVik/baylee/releases)** (pre-releases
-are listed there too), or from the [website](https://baylee.acevik.de/),
+are listed there too), or from the [website](https://baylee.app/download),
 which picks the right file for you. Each system has an **installer**, which
 is the easy way, and an **archive** with the same game to unpack anywhere.
 Baylee then updates itself ([Updating](#updating)).
@@ -290,11 +309,17 @@ and compare the result with the number in the `.sha256` file.
 
 ### Updating
 
-Baylee updates itself. It asks GitHub for a newer release at start and every
-six hours, downloads it, checks its signature, and installs it when you
-quit; the lobby says "Update X ready – installs when you quit", and the next
-start says "Updated to X" once. An update whose signature does not verify is
-never installed. The settings screen has two switches, "Update
+Baylee updates itself. It asks GitHub for a newer release as it starts and
+every six hours, downloads it, checks its signature, and installs it when
+you quit. A card in the lobby's lower left corner shows the download as it
+happens (the share, the megabytes, the speed and the time left), then the
+check and the unpacking; once the update is ready it offers **Restart to
+update**, which restarts into the new version and carries on where you
+were, in a game too, or **Later**, which installs it when you quit. At a
+table the card stands only once the update is ready, never in the middle
+of a question, and the table's menu says how far the download has got. The
+next start says "Updated to X" once. An update whose signature does not
+verify is never installed. The settings screen has two switches, "Update
 automatically" and "Check for updates automatically" (off: Baylee asks
 GitHub nothing until you press "Check for updates"); `docs/privacy.md` says
 what GitHub sees.
@@ -322,14 +347,16 @@ that variable). There you find
 - `update.json`: the two update switches;
 - `records/`: your last 20 games against the house, for replays
   (`records/archive/` keeps the ones you archived);
-- `chat/`: your chat history, encrypted, and your device's chat key where
-  the system has no keychain for it;
+- `vault/`: for each account and gateway, your chat keys, locked with your
+  account password, and your chat history, encrypted;
 - `llm-seat.json` and `llm-spend.json`, once you set up a language model.
 
 Card images are cached separately, in `~/Library/Caches/baylee` (macOS),
-`%LOCALAPPDATA%\baylee` (Windows) or `~/.cache/baylee` (Linux). Your account,
-your online decks, your friends and your replays live on the gateway, so
-they are there on any computer you sign in on.
+`%LOCALAPPDATA%\baylee` (Windows) or `~/.cache/baylee` (Linux). A Baylee
+account lives at Baylee Central, with your list of gateways, your settings
+and a backup of your chat keys and history, all encrypted on your computer
+before they leave it; your online decks, your friends and your replays live
+on the gateway. Both are there on any computer you sign in on.
 
 Every build shows its version and commit in the lobby. A new version may be
 unable to talk to an older gateway, so update when a new release comes out.
@@ -347,32 +374,48 @@ game against the house AI at once. The small arrow on that button picks how
 strongly the AI plays.
 
 **Online.** Choose a gateway from the list (**Baylee Sanctuary** is already
-in it, and you can add others by their address), then sign in:
+in it, and you can add others by their address), then sign in.
 
-- **Create account**: a *username* (3–24 letters, digits, `_ - .`), a
-  *display name* and a password. No e-mail address is asked for. The
-  username is private: other players only see your display name and a short
-  tag, such as `Alice#af03`.
-- **Play as guest**: a display name is enough. A guest can build decks and
-  play, but cannot upload sleeves or playmats, and is deleted when it signs
-  out or after 30 days without use.
+**On Baylee Sanctuary** you sign in with a **Baylee account**, which lives
+at Baylee Central, the project's account service. You create it on the
+website, at [baylee.app/register](https://baylee.app/register) (the client's
+sign-in links there): a *username* (3 to 24 characters: letters a–z,
+digits, and `.`, `_` or `-` between them) and a password. No e-mail address is asked
+for. Only you see the username; on a gateway, other players see a display
+name and a short tag, such as `Alice#af03`. Signing in brings back your list
+of gateways and your settings and takes you to the gateway you choose; the
+session renews itself while Baylee runs, for up to 12 hours, and then you
+sign in again. An account you made on Sanctuary before beta.8 moves to
+Baylee Central the first time you sign in with its username and password,
+with its decks and settings.
 
-You can delete your account from the client at any time; everything that
-belongs to it goes with it.
+Before the first gateway, the client shows **Baylee Central's terms of
+use**; your acceptance is kept with the account, so another computer does
+not ask again. For now a Baylee account is deleted on request, through the
+contact in the website's legal notice.
 
-A gateway may have **terms of use**: you are shown them when you create an
-account, and again when they change. Where the operator names a legal notice
-(Impressum), the client links it on the front door's *About*, beside the
-terms and under *Settings → Network*.
+**On a gateway that signs its players in itself**, such as one you or a
+friend run, **Create account** asks for a username, a display name and a
+password, and **Play as guest**, where the gateway offers it, only for a
+display name. A guest can build decks and play, but cannot upload sleeves
+or playmats, and is deleted when it signs out or after 30 days without use.
+An account on such a gateway can be deleted from the client at any time;
+everything that belongs to it goes with it.
+
+A gateway may have **terms of use** of its own: you are shown them when you
+first sign in there, and again when they change. Where the operator names a
+legal notice (Impressum), the client links it on the front door's *About*,
+beside the terms and under *Settings → Network*.
 
 ### Getting in: closed-beta keys
 
-Baylee Sanctuary is a closed beta: **a new account and a new guest each
-need a key** of the form `BAYLEE-XXXX-XXXX-XXXX-XXXX`. Keys are handed out by
-the project owner ([@AceVik](https://github.com/AceVik)); there is no public
-sign-up form. Paste the key when you create the account or the guest;
-upper and lower case, spaces and dashes do not matter. Once you have an
-account, you sign in with username and password and need no key again.
+Baylee Sanctuary is a closed beta: **creating a Baylee account needs a
+key** of the form `CENTRAL-XXXX-XXXX-XXXX-XXXX`, which you enter on the
+website's sign-up form. Keys are handed out by the project owner
+([@AceVik](https://github.com/AceVik)). Once you have an account, you sign
+in with username and password and need no key again. A gateway someone runs
+for their own group can be a closed beta too, with keys of its own
+(`BAYLEE-XXXX-XXXX-XXXX-XXXX`, [below](#4-closed-beta-keys)).
 
 ## Playing with friends
 
@@ -414,7 +457,7 @@ keys:
 | <kbd>?</kbd> | Every key that works right now |
 
 Every key can be rebound in the settings, and a signed-in account keeps its
-bindings on the gateway. [docs/keyboard-map.md](docs/keyboard-map.md) has
+bindings with the account. [docs/keyboard-map.md](docs/keyboard-map.md) has
 the complete list.
 
 **Watching.** If a table allows it, anyone signed in to the gateway can
@@ -422,8 +465,10 @@ press *Watch* in the lobby and follow the game from the public view: no
 hands, no hidden cards. The players see how many are watching.
 
 **If your connection drops**, your chair waits for you: the client
-reconnects by itself, and the other players see a countdown. If you are not
-back in time, the house AI plays your chair until you return.
+reconnects by itself, dialling until the table's window has passed (three
+minutes unless the table sets another), and the other players see a
+countdown. If you are not back in time, the house AI plays your chair until
+you return.
 
 ## Friends and chat
 
@@ -433,12 +478,14 @@ playing or watching. Add a friend by name and tag (`Alice#af03`), or from
 the players you recently sat with. From a friend's row you can whisper to them,
 watch their table or invite them to yours. Groups are chats for several
 friends. At a table, everyone seated has a table chat, and every team its
-own.
+own. The *Lobby* tab is one chat for everyone on the gateway.
 
-**What is encrypted.** Messages are **end-to-end encrypted**: they are
-locked on the sender's computer for the computers of the people in the
-conversation, and only those can open them. Here, honestly, is what that
-means:
+**What is encrypted.** Whispers, group, table and team messages are
+**end-to-end encrypted**: they are locked on the sender's computer for the
+computers of the people in the conversation, and only those can open them.
+The lobby chat is not: it is public, the gateway passes it on as plain text
+and keeps its last 50 lines in memory only, until it restarts. Here,
+honestly, is what the encryption means:
 
 - **The server cannot read your messages.** It passes them on and keeps
   them, still encrypted, until they are delivered, for at most 14 days
@@ -451,14 +498,19 @@ means:
   device the people in the conversation use Baylee on, as long as those
   devices really are theirs. To be sure, compare **safety numbers** with a
   friend (the lock line at the top of the chat opens them). Anyone who can
-  use your computer can read the chat history kept on it.
+  use your computer while chat is unlocked can read the history kept on it.
+- **Your keys are locked with your password.** On your computer the chat
+  keys and history sit in a vault that your account password opens
+  (*Unlock chat*; *Lock chat* closes it again). With a Baylee account they
+  are also backed up, encrypted on your computer, so a new computer gets
+  them back. A guest's keys live in memory only.
 - **Table chat** goes only to the people seated at the table. Spectators,
   the house AI and language models never receive chat, and chat is never
   part of a game record or a replay.
 - **Reporting a message** sends that one message, and nothing else of the
   conversation, to the gateway's moderators.
 
-The chat window docks in the lower right of the lobby; at a table it is the
+The chat window docks at the bottom of the lobby; at a table it is the
 same window as the game log. Its settings (*Chat & privacy* in the friends
 drawer) hold who may whisper to you, how long your history is kept, sounds,
 and the list of your devices. [docs/privacy.md](docs/privacy.md) lists
@@ -585,19 +637,19 @@ Every card in Baylee is code: one file per card, written in a small rules
 language, and played in a test. There is no interpreter guessing at card
 text, which is why the pool grows batch by batch instead of all at once.
 
-Counted on the beta.7 release candidate (13 October 2026):
+Counted on the pool beta.8b ships with (the card status of 21 October 2026):
 
 | | Cards |
 | --- | --- |
-| Play **exactly as printed** (`Implemented`) | **3,202** |
-| Play, but **not every sentence** yet (`Partial`, the deck builder warns) | 68 |
-| In the pool, **no rules yet** (the deck builder warns) | 48 |
-| **Never built** on purpose (ante, dexterity and subgame cards) | 13 |
+| Play **exactly as printed** (`Implemented`) | **9,265** |
+| Play, but **not every sentence** yet (`Partial`, the deck builder warns) | 33 |
+| In the pool, **no rules yet** (the deck builder warns) | 45 |
+| **Never built** on purpose (ante, dexterity and subgame cards) | 14 |
 | **All Magic cards** we are working towards (every distinct card, one per Oracle text) | 33,694 |
 
-So about **one card in ten** of all of Magic plays today. The deck builder
-can show only playable cards, and it warns when a deck holds cards that will
-not play as printed.
+So more than **one card in four** of all of Magic plays today. The deck
+builder can show only playable cards, and it warns when a deck holds cards
+that will not play as printed.
 
 **Sets.** Cards are built set by set in the order Magic printed them, each
 card counted in the set it first appeared in:
@@ -605,22 +657,23 @@ card counted in the set it first appeared in:
 | Set | Cards | Play as printed | Partial | No rules yet | Not in the pool yet | Never built |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Limited Edition Alpha (and the two cards Beta added) | 292 | 288 | 0 | 0 | 0 | 4 |
-| Arabian Nights | 77 | 64 | 11 | 0 | 0 | 2 |
-| Antiquities | 85 | 81 | 3 | 0 | 0 | 1 |
-| Legends | 310 | 277 | 24 | 6 | 0 | 3 |
-| The Dark | 119 | 19 | 0 | 2 | 98 | 0 |
-| Fallen Empires | 102 | 23 | 0 | 0 | 79 | 0 |
+| Arabian Nights | 77 | 75 | 0 | 0 | 0 | 2 |
+| Antiquities | 85 | 84 | 0 | 0 | 0 | 1 |
+| Legends | 310 | 307 | 0 | 0 | 0 | 3 |
+| The Dark | 119 | 119 | 0 | 0 | 0 | 0 |
+| Fallen Empires | 102 | 102 | 0 | 0 | 0 | 0 |
+| Ice Age | 346 | 187 | 33 | 1 | 124 | 1 |
 
-**Alpha is complete**: every card that can be played plays exactly as
-printed (the four left out are Chaos Orb, a dexterity card, and three ante
-cards). Arabian Nights, Antiquities and Legends are in the pool in full;
-their partial cards are being finished now. The Dark, Fallen Empires and
-Ice Age come next. Cards from later sets that are already playable came in
-with earlier batches.
+**Alpha to Fallen Empires are complete**: every card that can be played
+plays exactly as printed (the few left out are ante, dexterity and subgame
+cards, among them Chaos Orb). Ice Age is being built now, cumulative upkeep
+included, and the sets after it follow in the order Magic printed them.
+Cards from later sets that are already playable came in with earlier
+batches.
 
 **Known gaps.** No banlists or format-legality checks yet; the
 variant formats' special objects (planes, schemes, vanguards, conspiracies,
-dungeons) are not built. The [website](https://baylee.acevik.de/#cards)
+dungeons) are not built. The [website](https://baylee.app/cards)
 shows every set and card with its status, and for a partial card what it
 does not do yet;
 [docs/mechanics-roadmap.md](docs/mechanics-roadmap.md) §E8 is the plan, and
@@ -629,8 +682,9 @@ does not do yet;
 ## Running your own gateway
 
 A gateway is the server players sign in to. You can run one for your own
-group: everything the public one does, on your own machine. A game runs as
-three kinds of process:
+group: everything the public one does, on your own machine, except that
+yours signs its players in itself, with accounts of its own, where Baylee
+Sanctuary uses Baylee Central. A game runs as three kinds of process:
 
 - **`baylee-gateway`** handles accounts, decks, rooms, friends, chat and
   replays. It runs no rules itself and needs PostgreSQL.
@@ -895,7 +949,7 @@ Wizards of the Coast asset is shipped in this repository.
 **Scryfall.** Card data and images provided by
 [Scryfall](https://scryfall.com). The client loads card images from Scryfall
 while you play; they are not part of this repository and are not
-redistributed. For that reason the screenshots above use Baylee's own text
+redistributed. For that reason the pictures above use Baylee's own text
 view, which draws a card from its name and rules text in our own layout, with
 no frame art or image of a printed card
 ([docs/legal.md](docs/legal.md), clauses 2 and 3). Baylee is not affiliated
