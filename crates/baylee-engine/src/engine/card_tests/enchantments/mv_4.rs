@@ -104,6 +104,7 @@ mod arboria;
 mod blood_mist;
 mod breath_of_dreams;
 mod breeding_pit;
+mod browse;
 mod builder_s_blessing;
 mod burning_earth;
 mod castle;

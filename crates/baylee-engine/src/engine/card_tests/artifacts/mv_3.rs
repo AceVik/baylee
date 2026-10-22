@@ -8,6 +8,7 @@ mod aegis_of_the_meek;
 mod arcane_encyclopedia;
 mod arcum_s_whistle;
 mod ashnod_s_altar;
+mod astrolabe;
 mod basalt_monolith;
 mod bloodstone_cameo;
 mod bone_flute;

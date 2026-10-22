@@ -15,6 +15,7 @@ mod concentrate;
 mod creeping_mold;
 mod demolish;
 mod diabolic_tutor;
+mod diminishing_returns;
 mod eternal_flame;
 mod flashfires;
 mod juxtapose;

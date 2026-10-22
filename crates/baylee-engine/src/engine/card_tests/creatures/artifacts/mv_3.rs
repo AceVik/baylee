@@ -4,6 +4,7 @@
 use super::*;
 
 mod a_i_m_bot;
+mod aesthir_glider;
 mod alloy_myr;
 mod assembly_worker;
 mod automatic_librarian;

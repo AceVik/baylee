@@ -24,6 +24,7 @@ mod clairvoyance;
 mod crop_rotation;
 mod crumble;
 mod dark_ritual;
+mod death_spark;
 mod death_ward;
 mod deathlace;
 mod demonic_consultation;

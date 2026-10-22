@@ -35,7 +35,7 @@ card!(
             &[Effect::PlayerMayPayManaThen {
                 player: PlayerRel::You,
                 cost: mana!("{1}"),
-                effects: &[Effect::GraveyardToHand {
+                effects: &[Effect::ReturnToHand {
                     target: TargetSpec::ThisObject,
                 }],
             }],

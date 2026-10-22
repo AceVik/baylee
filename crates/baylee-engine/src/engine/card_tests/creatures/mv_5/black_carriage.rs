@@ -77,13 +77,15 @@ fn black_carriage_stays_tapped_at_untap_step_and_untaps_by_sacrificing_creature_
         )
         .unwrap();
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![fodder] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![fodder],
+            },
+        )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(
-        engine.state().object(fodder).unwrap().zone,
-        Zone::Graveyard
-    );
+    assert_eq!(engine.state().object(fodder).unwrap().zone, Zone::Graveyard);
     assert!(!is_tapped(&engine, carriage));
 }

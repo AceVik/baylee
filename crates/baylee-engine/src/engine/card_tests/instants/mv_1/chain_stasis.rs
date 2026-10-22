@@ -43,7 +43,9 @@ fn chain_stasis_may_tap_or_untap_target_creature() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCastMode { .. })
@@ -66,7 +68,9 @@ fn chain_stasis_may_tap_or_untap_target_creature() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCastMode { .. })

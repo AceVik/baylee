@@ -5349,3 +5349,21 @@ more than two it names nobody). What the author did more than once:
     is still on the battlefield when `damage_death_snapshot` is taken (`object.zone == Zone::Battlefield`),
     so when testing a 1/2 creature with `Trigger::DiesAfterDamageByThis`, block a 1/1 attacker rather
     than a 2/2 attacker so the source survives combat to witness the death.
+
+## 2026-10-22 — Alliances (`all`) batch 1 (25 cards: `Aesthir Glider` to `Exile`)
+
+- Added 25 *Alliances* first-printing cards (`Aesthir Glider` through `Exile`,
+  9 `Coverage::Implemented`, 16 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Returning a card from a graveyard to its owner's hand via `TargetSpec::ThisObject`
+    (`Death Spark`, matching `Puppet Master`) must use `Effect::ReturnToHand { target: TargetSpec::ThisObject }`,
+    not `Effect::GraveyardToHand { target: TargetSpec::ThisObject }`, because `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads`
+    allowlists `ReturnToHand` as the self-returning `ThisObject` carrier.
+  - Hand-exile mana abilities (`Elvish Spirit Guide`'s *"Exile this card from your hand: Add `{G}`"*)
+    are expressed with `AbilityDef::Activated` (`from_zone: ZoneRef::Hand`, `is_mana_ability: true`,
+    `CostItem::ExileSelf`) and activated from hand via `PlayerAction::ActivateAbility { source, ability_index: 0 }`
+    on the hand `ObjectId`.
+  - Conditional counterspells with an unconditional slowtrip (`Burnout`: *"Counter target instant
+    spell if it's blue. Draw a card at the beginning of the next turn's upkeep."*) are 100%
+    `Coverage::Implemented` via `Effect::When { condition: Condition::TargetMatches(&Filter::HasColor(Color::Blue)), then: &[Effect::CounterTargetSpell { unless_pays: None }] }`
+    followed by `Effect::AtNextTurnsUpkeep(&[Effect::DrawCards(ValueExpr::Fixed(1))])`.

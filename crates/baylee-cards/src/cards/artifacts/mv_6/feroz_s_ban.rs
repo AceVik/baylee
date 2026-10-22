@@ -15,5 +15,8 @@ card!(
         mana_cost = mana!("{6}"),
         types = TypeSet::ARTIFACT,
     ),],
-    abilities = &[static_ability!(Filter::CREATURE, Modifier::SpellsCostMore(2))],
+    abilities = &[static_ability!(
+        Filter::CREATURE,
+        Modifier::SpellsCostMore(2)
+    )],
 );

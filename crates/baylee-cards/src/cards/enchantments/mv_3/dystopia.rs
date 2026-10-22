@@ -5,7 +5,8 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static GREEN_OR_WHITE: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green, Color::White]));
+static GREEN_OR_WHITE: Filter =
+    Filter::HasColor(ColorSet::from_slice(&[Color::Green, Color::White]));
 
 card!(
     index = index::DYSTOPIA,

@@ -21,7 +21,10 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[lightning_bolt(), lightning_bolt()])
-        .battlefield(0, &[baron_sengir(), sengir_vampire(), mountain(), mountain()])
+        .battlefield(
+            0,
+            &[baron_sengir(), sengir_vampire(), mountain(), mountain()],
+        )
         .battlefield(1, &[sengir_vampire()])
         .start();
     keep_mulligans(&mut engine);

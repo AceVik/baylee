@@ -5,6 +5,7 @@ use super::*;
 
 mod animate_wall;
 mod artifact_ward;
+mod awesome_presence;
 mod backfire;
 mod black_scarab;
 mod black_ward;

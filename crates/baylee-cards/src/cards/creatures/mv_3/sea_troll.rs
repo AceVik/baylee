@@ -10,8 +10,10 @@ const BLUE_CREATURE: Filter = Filter::And(&[
     Filter::HasColor(ColorSet::from_slice(&[Color::Blue])),
 ]);
 
-const BLOCKED_OR_BLOCKED_BY_BLUE_THIS_TURN: Filter =
-    Filter::Or(&[Filter::BlockedThisTurn, Filter::BlockedThisTurnBy(&BLUE_CREATURE)]);
+const BLOCKED_OR_BLOCKED_BY_BLUE_THIS_TURN: Filter = Filter::Or(&[
+    Filter::BlockedThisTurn,
+    Filter::BlockedThisTurnBy(&BLUE_CREATURE),
+]);
 
 // NOT SUPPORTED: Filter::BlockedThisTurn does not filter on the characteristics of the blocked attacker, so blocking any creature this turn or being blocked by a blue creature this turn satisfies the activation gate.
 card!(

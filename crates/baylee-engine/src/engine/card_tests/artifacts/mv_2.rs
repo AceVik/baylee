@@ -10,6 +10,7 @@ mod ankh_of_mishra;
 mod apocalypse_chime;
 mod ark_of_blight;
 mod ashnod_s_battle_gear;
+mod ashnod_s_cylix;
 mod balm_of_restoration;
 mod boros_signet;
 mod charcoal_diamond;

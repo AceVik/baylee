@@ -11,8 +11,10 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 const ISLAND: Filter = Filter::HasSubtype(subtypes::land::ISLAND);
-const YOUR_ISLAND: Filter =
-    Filter::And(&[Filter::ControlledByYou, Filter::HasSubtype(subtypes::land::ISLAND)]);
+const YOUR_ISLAND: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::HasSubtype(subtypes::land::ISLAND),
+]);
 const NO_ISLANDS: Condition = Condition::ControlCountAtMost(&YOUR_ISLAND, 0);
 static ATTACKING_NONFLYER: Filter = Filter::And(&[
     Filter::ATTACKING_CREATURE,
@@ -43,7 +45,10 @@ card!(
                 Condition::DuringStep(StepKind::Upkeep),
             ]))
         ),
-        static_ability!(Filter::This, Modifier::CantAttackUnlessDefenderControls(&ISLAND)),
+        static_ability!(
+            Filter::This,
+            Modifier::CantAttackUnlessDefenderControls(&ISLAND)
+        ),
         activated!(
             cost!("{U}{U}"),
             &[

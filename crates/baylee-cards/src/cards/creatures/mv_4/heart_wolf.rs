@@ -7,8 +7,10 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static DWARF_CREATURE: Filter =
-    Filter::And(&[Filter::CREATURE, Filter::HasSubtype(subtypes::creature::DWARF)]);
+static DWARF_CREATURE: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::HasSubtype(subtypes::creature::DWARF),
+]);
 
 card!(
     index = index::HEART_WOLF,

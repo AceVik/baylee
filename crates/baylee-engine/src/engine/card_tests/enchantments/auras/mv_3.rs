@@ -5,6 +5,8 @@ use super::*;
 
 mod aggression;
 mod anti_magic_aura;
+mod bestial_fury;
+mod casting_of_bones;
 mod chromatic_armor;
 mod erosion;
 mod errant_minion;

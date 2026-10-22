@@ -9,7 +9,7 @@ card!(
     index = index::ASTROLABE,
     oracle_id = "d19567ac-1f52-40eb-b2cf-4c791823ec92",
     scryfall_id = "a4578576-de6b-4387-aad3-0ae9d91244d1",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Astrolabe",
         mana_cost = mana!("{3}"),

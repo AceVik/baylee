@@ -5,12 +5,14 @@ use super::*;
 
 mod annihilate;
 mod blessed_light;
+mod bounty_of_the_hunt;
 mod breath_of_malfegor;
 mod bright_reprisal;
 mod broken_visage;
 mod command_the_storm;
 mod confirm_suspicions;
 mod consume_the_meek;
+mod contagion;
 mod contradict;
 mod dark_nourishment;
 mod enhanced_awareness;

@@ -23,5 +23,8 @@ card!(
         power = Some(2),
         toughness = Some(4),
     ),],
-    abilities = &[static_ability!(Filter::This, Modifier::MustBeBlockedByAllAble)],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::MustBeBlockedByAllAble
+    )],
 );
