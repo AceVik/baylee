@@ -2388,6 +2388,17 @@ pub static HIPPO_1_1_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 blue Starfish.
+pub static STARFISH_0_1_BLUE: TokenDef = TokenDef {
+    name: "Starfish",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::STARFISH],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2626,6 +2637,7 @@ pub static ALL: &[&TokenDef] = &[
     &SERF_0_1_BLACK,
     &DESERTER_0_1_WHITE,
     &HIPPO_1_1_GREEN,
+    &STARFISH_0_1_BLUE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2832,4 +2844,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &SERF_0_1_BLACK,
     &DESERTER_0_1_WHITE,
     &HIPPO_1_1_GREEN,
+    &STARFISH_0_1_BLUE,
 ];

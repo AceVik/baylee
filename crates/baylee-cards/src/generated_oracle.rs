@@ -4861,55 +4861,120 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}, Sacrifice this artifact: Return all Auras attached to target permanent you own to their owners' hands. Draw a card at the beginning of the next turn's upkeep.",
     ],
-    &[],
+    // Scars of the Veteran
+    &[
+        "You may exile a white card from your hand rather than pay this spell's mana cost.\nPrevent the next 7 damage that would be dealt to any target this turn. If it's a creature, put a +0/+1 counter on it for each 1 damage prevented this way at the beginning of the next end step.",
+    ],
     // School of the Unseen
     &["{T}: Add {C}.\n{2}, {T}: Add one mana of any color."],
-    &[],
+    // Seasoned Tactician
+    &[
+        "{3}, Exile the top four cards of your library: The next time a source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Sheltered Valley
     &[
         "If this land would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put this land onto the battlefield.\nAt the beginning of your upkeep, if you control three or fewer lands, you gain 1 life.\n{T}: Add {C}.",
     ],
-    &[],
+    // Shield Sphere
+    &["Defender\nWhenever this creature blocks, put a -0/-1 counter on it."],
     // Sol Grail
     &["As this artifact enters, choose a color.\n{T}: Add one mana of the chosen color."],
-    &[],
-    &[],
+    // Soldevi Adnate
+    &[
+        "{T}, Sacrifice a black or artifact creature: Add an amount of {B} equal to the sacrificed creature's mana value.",
+    ],
+    // Soldevi Digger
+    &["{2}: Put the top card of your graveyard on the bottom of your library."],
     // Soldevi Excavations
     &[
         "If this land would enter, sacrifice an untapped Island instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{U}.\n{1}, {T}: Scry 1.",
     ],
-    &[],
-    &[],
-    &[],
+    // Soldevi Heretic
+    &[
+        "{W}, {T}: Prevent the next 2 damage that would be dealt to target creature this turn. Target opponent may draw a card.",
+    ],
+    // Soldevi Sage
+    &["{T}, Sacrifice two lands: Draw three cards, then discard one of them."],
+    // Soldevi Sentry
+    &[
+        "{1}: Choose target opponent. Regenerate this creature. When it regenerates this way, that player may draw a card.",
+    ],
     // Soldevi Steam Beast
     &[
         "Whenever this creature becomes tapped, target opponent gains 2 life.\n{2}: Regenerate this creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Soldier of Fortune
+    &["{R}, {T}: Target player shuffles their library."],
+    // Spiny Starfish
+    &[
+        "{U}: Regenerate this creature.\nAt the beginning of each end step, if this creature regenerated this turn, create a 0/1 blue Starfish creature token for each time it regenerated this turn.",
+    ],
+    // Splintering Wind
+    &[
+        "{2}{G}: This enchantment deals 1 damage to target creature. Create a 1/1 green Splinter creature token. It has flying and \"Cumulative upkeep {G}.\" When it leaves the battlefield, it deals 1 damage to you and each creature you control. (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)",
+    ],
+    // Stench of Decay
+    &["Nonartifact creatures get -1/-1 until end of turn."],
+    // Storm Cauldron
+    &[
+        "Each player may play an additional land during each of their turns.\nWhenever a land is tapped for mana, return it to its owner's hand.",
+    ],
     // Storm Crow
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
-    &[],
+    // Storm Elemental
+    &[
+        "Flying\n{U}, Exile the top card of your library: Tap target creature with flying.\n{U}, Exile the top card of your library: If the exiled card is a snow land, this creature gets +1/+1 until end of turn.",
+    ],
     // Storm Shaman
     &["{R}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Stromgald Spy
+    &[
+        "Whenever this creature attacks and isn't blocked, you may have defending player play with their hand revealed for as long as this creature remains on the battlefield. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Suffocation
+    &[
+        "Cast this spell only if you were dealt damage this turn by a red instant or sorcery spell.\nSuffocation deals 4 damage to the controller of the last red instant or sorcery spell that dealt damage to you this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Surge of Strength
+    &[
+        "As an additional cost to cast this spell, discard a red or green card.\nTarget creature gains trample and gets +X/+0 until end of turn, where X is that creature's mana value.",
+    ],
+    // Sustaining Spirit
+    &[
+        "Cumulative upkeep {1}{W} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nDamage that would reduce your life total to less than 1 reduces it to 1 instead.",
+    ],
+    // Swamp Mosquito
+    &[
+        "Flying\nWhenever this creature attacks and isn't blocked, defending player gets a poison counter. (A player with ten or more poison counters loses the game.)",
+    ],
+    // Sworn Defender
+    &[
+        "{1}: This creature's power becomes the toughness of target creature blocking or being blocked by this creature minus 1 until end of turn, and its toughness becomes 1 plus the power of that creature until end of turn.",
+    ],
+    // Taste of Paradise
+    &[
+        "As an additional cost to cast this spell, you may pay {1}{G} any number of times.\nYou gain 3 life plus an additional 3 life for each additional {1}{G} you paid.",
+    ],
     // Thawing Glaciers
     &[
         "This land enters tapped.\n{1}, {T}: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle. Return this land to its owner's hand at the beginning of the next cleanup step.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thought Lash
+    &[
+        "Cumulative upkeep—Exile the top card of your library. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen a player doesn't pay this enchantment's cumulative upkeep, that player exiles all cards from their library.\nExile the top card of your library: Prevent the next 1 damage that would be dealt to you this turn.",
+    ],
+    // Tidal Control
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.",
+    ],
+    // Tornado
+    &[
+        "Cumulative upkeep {G} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\n{2}{G}, Pay 3 life for each velocity counter on this enchantment: Destroy target permanent and put a velocity counter on this enchantment. Activate only once each turn.",
+    ],
+    // Undergrowth
+    &[
+        "As an additional cost to cast this spell, you may pay {2}{R}.\nPrevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect combat damage that would be dealt by red creatures.",
+    ],
     &[],
     &[],
     &[],

@@ -11405,7 +11405,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Scars of the Veteran
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[Some(0)],
+    }],
     // School of the Unseen
     &[FaceLines {
         sentences: 2,
@@ -11414,7 +11421,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Seasoned Tactician
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sheltered Valley
     &[FaceLines {
         sentences: 3,
@@ -11423,7 +11437,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Shield Sphere
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Sol Grail
     &[FaceLines {
         sentences: 2,
@@ -11432,8 +11453,22 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
+    // Soldevi Adnate
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Soldevi Digger
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Soldevi Excavations
     &[FaceLines {
         sentences: 3,
@@ -11442,9 +11477,30 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
-    &[],
+    // Soldevi Heretic
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Soldevi Sage
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Soldevi Sentry
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Soldevi Steam Beast
     &[FaceLines {
         sentences: 2,
@@ -11453,13 +11509,55 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
+    // Soldier of Fortune
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Spiny Starfish
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Splintering Wind
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Stench of Decay
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Storm Cauldron
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Storm Elemental
+    &[FaceLines {
+        sentences: 3,
+        stackable: 2,
+        lines: &[Some(1), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Storm Shaman
     &[FaceLines {
         sentences: 1,
@@ -11468,13 +11566,62 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Stromgald Spy
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Suffocation
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Surge of Strength
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Sustaining Spirit
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Swamp Mosquito
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Sworn Defender
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Taste of Paradise
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Thawing Glaciers
     &[FaceLines {
         sentences: 2,
@@ -11483,10 +11630,38 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thought Lash
+    &[FaceLines {
+        sentences: 3,
+        stackable: 1,
+        lines: &[Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Tidal Control
+    &[FaceLines {
+        sentences: 2,
+        stackable: 3,
+        lines: &[None, None, Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Tornado
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Undergrowth
+    &[FaceLines {
+        sentences: 2,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
     &[],
     &[],

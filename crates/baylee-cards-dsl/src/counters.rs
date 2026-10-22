@@ -183,6 +183,9 @@ pub const INFECTION: CounterKind = CounterKind::Custom(45);
 /// Wage counters (Rogue Skycaptain).
 pub const WAGE: CounterKind = CounterKind::Custom(46);
 
+/// Velocity counters (Tornado).
+pub const VELOCITY: CounterKind = CounterKind::Custom(47);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -235,6 +238,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("currency", CURRENCY),
     ("infection", INFECTION),
     ("wage", WAGE),
+    ("velocity", VELOCITY),
 ];
 
 #[cfg(test)]
