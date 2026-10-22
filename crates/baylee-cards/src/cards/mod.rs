@@ -18767,6 +18767,8 @@ pub mod wall_of_bone;
 pub mod wall_of_brambles;
 #[path = "creatures/mv_2/wall_of_caltrops.rs"]
 pub mod wall_of_caltrops;
+#[path = "creatures/mv_2/wall_of_corpses.rs"]
+pub mod wall_of_corpses;
 #[path = "creatures/mv_3/wall_of_denial.rs"]
 pub mod wall_of_denial;
 #[path = "creatures/mv_3/wall_of_dust.rs"]
@@ -18805,6 +18807,8 @@ pub mod wall_of_pine_needles;
 pub mod wall_of_putrid_flesh;
 #[path = "creatures/mv_2/wall_of_razors.rs"]
 pub mod wall_of_razors;
+#[path = "creatures/mv_2/wall_of_resistance.rs"]
+pub mod wall_of_resistance;
 #[path = "creatures/mv_2/wall_of_roots.rs"]
 pub mod wall_of_roots;
 #[path = "creatures/mv_1/wall_of_runes.rs"]
@@ -18893,6 +18897,8 @@ pub mod war_spike_changeling;
 pub mod war_torch_goblin;
 #[path = "creatures/mv_1/warclamp_mastiff.rs"]
 pub mod warclamp_mastiff;
+#[path = "enchantments/auras/mv_2/ward_of_lights.rs"]
+pub mod ward_of_lights;
 #[path = "creatures/mv_3/warded_battlements.rs"]
 pub mod warded_battlements;
 #[path = "creatures/mv_4/warden_of_geometries.rs"]
@@ -18919,6 +18925,8 @@ pub mod warp_artifact;
 pub mod warpath_ghoul;
 #[path = "lands/fetch/warped_landscape.rs"]
 pub mod warped_landscape;
+#[path = "creatures/mv_4/warping_wurm.rs"]
+pub mod warping_wurm;
 #[path = "creatures/mv_2/warren_scourge_elf.rs"]
 pub mod warren_scourge_elf;
 #[path = "creatures/mv_3/warren_soultrader.rs"]
@@ -18993,6 +19001,8 @@ pub mod waterspout_djinn;
 pub mod waterveil_cavern;
 #[path = "lands/shock/watery_grave.rs"]
 pub mod watery_grave;
+#[path = "creatures/mv_4/wave_elemental.rs"]
+pub mod wave_elemental;
 #[path = "creatures/mv_6/wave_wing_elemental.rs"]
 pub mod wave_wing_elemental;
 #[path = "creatures/mv_4/waxen_shapethief.rs"]
@@ -19061,6 +19071,8 @@ pub mod welkin_hawk;
 pub mod welkin_tern;
 #[path = "artifacts/equipment/mv_1/well_worn_spatula.rs"]
 pub mod well_worn_spatula;
+#[path = "enchantments/auras/mv_3/wellspring.rs"]
+pub mod wellspring;
 #[path = "creatures/mv_2/wellwisher.rs"]
 pub mod wellwisher;
 #[path = "creatures/mv_3/werefox_bodyguard.rs"]
@@ -19345,6 +19357,8 @@ pub mod witches_eye;
 pub mod witching_well;
 #[path = "lands/scry/witherbloom_campus.rs"]
 pub mod witherbloom_campus;
+#[path = "instants/mv_2/withering_boon.rs"]
+pub mod withering_boon;
 #[path = "instants/mv_3/withering_torment.rs"]
 pub mod withering_torment;
 #[path = "enchantments/mv_3/withering_wisps.rs"]
@@ -19511,6 +19525,8 @@ pub mod xindi_surveyors;
 pub mod xira_arien;
 #[path = "creatures/mv_3/yahenni_undying_partisan.rs"]
 pub mod yahenni_undying_partisan;
+#[path = "instants/mv_3/yare.rs"]
+pub mod yare;
 #[path = "creatures/mv_6/yargle_and_multani.rs"]
 pub mod yargle_and_multani;
 #[path = "creatures/mv_5/yargle_glutton_of_urborg.rs"]
@@ -19599,6 +19615,8 @@ pub mod zarichi_tiger;
 pub mod zealous_guardian;
 #[path = "instants/mv_2/zealous_strike.rs"]
 pub mod zealous_strike;
+#[path = "creatures/mv_4/zebra_unicorn.rs"]
+pub mod zebra_unicorn;
 #[path = "artifacts/mv_3/zelyon_sword.rs"]
 pub mod zelyon_sword;
 #[path = "creatures/mv_5/zendikar_farguide.rs"]
@@ -19625,6 +19643,10 @@ pub mod zephyr_sprite;
 pub mod zeriam_golden_wind;
 #[path = "creatures/mv_8/zetalpa_primal_dawn.rs"]
 pub mod zetalpa_primal_dawn;
+#[path = "creatures/mv_3/zhalfirin_commander.rs"]
+pub mod zhalfirin_commander;
+#[path = "creatures/mv_3/zhalfirin_knight.rs"]
+pub mod zhalfirin_knight;
 #[path = "creatures/mv_3/zhalfirin_lancer.rs"]
 pub mod zhalfirin_lancer;
 #[path = "instants/mv_2/zhalfirin_shapecraft.rs"]
@@ -19641,6 +19663,8 @@ pub mod zhou_yu_chief_commander;
 pub mod zhur_taa_druid;
 #[path = "lands/triome/ziatora_s_proving_ground.rs"]
 pub mod ziatora_s_proving_ground;
+#[path = "creatures/mv_5/zirilan_of_the_claw.rs"]
+pub mod zirilan_of_the_claw;
 #[path = "creatures/mv_3/zo_zu_the_punisher.rs"]
 pub mod zo_zu_the_punisher;
 #[path = "creatures/mv_3/zodiac_dog.rs"]
@@ -19675,6 +19699,8 @@ pub mod zof_shade;
 pub mod zombie_goliath;
 #[path = "creatures/mv_3/zombie_master.rs"]
 pub mod zombie_master;
+#[path = "creatures/mv_4/zombie_mob.rs"]
+pub mod zombie_mob;
 #[path = "creatures/mv_2/zombie_outlander.rs"]
 pub mod zombie_outlander;
 #[path = "creatures/mv_3/zombie_trailblazer.rs"]

@@ -6029,29 +6029,62 @@ pub static ORACLE: &[&[&str]] = &[
     &["Volcanic Geyser deals X damage to any target."],
     // Waiting in the Weeds
     &["Each player creates a 1/1 green Cat creature token for each untapped Forest they control."],
-    &[],
-    &[],
+    // Wall of Corpses
+    &[
+        "Defender (This creature can't attack.)\n{B}, Sacrifice this creature: Destroy target creature this creature is blocking.",
+    ],
+    // Wall of Resistance
+    &[
+        "Defender (This creature can't attack.)\nFlying\nAt the beginning of each end step, if this creature was dealt damage this turn, put a +0/+1 counter on it.",
+    ],
     // Wall of Roots
     &["Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ward of Lights
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.",
+    ],
+    // Warping Wurm
+    &[
+        "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nAt the beginning of your upkeep, this creature phases out unless you pay {2}{G}{U}.\nWhenever this creature phases in, put a +1/+1 counter on it.",
+    ],
+    // Wave Elemental
+    &["{U}, {T}, Sacrifice this creature: Tap up to three target creatures without flying."],
+    // Wellspring
+    &[
+        "Enchant land\nWhen this Aura enters, gain control of enchanted land until end of turn.\nAt the beginning of your upkeep, untap enchanted land. You gain control of that land until end of turn.",
+    ],
     // Wild Elephant
     &["Trample"],
     // Wildfire Emissary
     &["Protection from white\n{1}{R}: This creature gets +1/+0 until end of turn."],
     // Windreaper Falcon
     &["Flying, protection from blue"],
-    &[],
+    // Withering Boon
+    &["As an additional cost to cast this spell, pay 3 life.\nCounter target creature spell."],
     // Worldly Tutor
     &["Search your library for a creature card, reveal it, then shuffle and put the card on top."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Yare
+    &[
+        "Target creature defending player controls gets +3/+0 until end of turn. That creature can block up to two additional creatures this turn.",
+    ],
+    // Zebra Unicorn
+    &["Whenever this creature deals damage, you gain that much life."],
+    // Zhalfirin Commander
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}{W}: Target Knight creature gets +1/+1 until end of turn.",
+    ],
+    // Zhalfirin Knight
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{W}{W}: This creature gains first strike until end of turn.",
+    ],
+    // Zirilan of the Claw
+    &[
+        "{1}{R}{R}, {T}: Search your library for a Dragon permanent card, put that card onto the battlefield, then shuffle. That Dragon gains haste until end of turn. Exile it at the beginning of the next end step.",
+    ],
+    // Zombie Mob
+    &[
+        "This creature enters with a +1/+1 counter on it for each creature card in your graveyard.\nWhen this creature enters, exile all creature cards from your graveyard.",
+    ],
     // Zuberi, Golden Feather
     &["Flying\nOther Griffin creatures get +1/+1."],
     &[],

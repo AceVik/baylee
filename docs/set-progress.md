@@ -672,7 +672,7 @@ no-engine-change contract:
 - **Alliances (`all`)** — 144 first-printing Oracle identities: **83
   Implemented, 61 Partial, 0 excluded**. Every card in all 5 batches has a
   dedicated played test under `crates/baylee-engine/src/engine/card_tests/`.
-- **Mirage (`mir`)** — in progress:
+- **Mirage (`mir`)** — completed across 9 batches (all first-printing Oracle identities implemented or documented as Partial):
   - Batch 1 (`Abyssal Hunter` to `Brushwagg`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Builder's Bane` to `Dazzling Beauty`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Decomposition` to `Forbidden Crypt`, 25 cards): **13 Implemented, 12 Partial**.
@@ -681,3 +681,4 @@ no-engine-change contract:
   - Batch 6 (`Nocturnal Raid` to `Reckless Embermage`, 25 cards): **14 Implemented, 11 Partial**.
   - Batch 7 (`Reflect Damage` to `Soul Echo`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 8 (`Soul Rend` to `Waiting in the Weeds`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 9 (`Wall of Corpses` to `Zombie Mob`, 13 cards): **9 Implemented, 4 Partial**.

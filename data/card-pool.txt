@@ -9270,6 +9270,7 @@ Wall of Blossoms
 Wall of Bone
 Wall of Brambles
 Wall of Caltrops
+Wall of Corpses
 Wall of Denial
 Wall of Dust
 Wall of Earth
@@ -9289,6 +9290,7 @@ Wall of Opposition
 Wall of Pine Needles
 Wall of Putrid Flesh
 Wall of Razors
+Wall of Resistance
 Wall of Roots
 Wall of Runes
 Wall of Shadows
@@ -9333,6 +9335,7 @@ War Room
 War-Spike Changeling
 War-Torch Goblin
 Warclamp Mastiff
+Ward of Lights
 Warded Battlements
 Warden of Geometries
 Wardscale Crocodile
@@ -9346,6 +9349,7 @@ Warning
 Warp Artifact
 Warpath Ghoul
 Warped Landscape
+Warping Wurm
 Warren Soultrader
 Warren-Scourge Elf
 Warriors of Wakanda
@@ -9380,6 +9384,7 @@ Waterlogged Teachings // Inundated Archive
 Watermarket
 Waterspout Djinn
 Waterveil Cavern
+Wave Elemental
 Wave-Wing Elemental
 Waxen Shapethief
 Wayfarer's Bauble
@@ -9414,6 +9419,7 @@ Welkin Guide
 Welkin Hawk
 Welkin Tern
 Well-Worn Spatula
+Wellspring
 Wellwisher
 Western Paladin
 Westvale Abbey // Ormendahl, Profane Prince
@@ -9554,6 +9560,7 @@ Witch's Familiar
 Witches' Eye
 Witching Well
 Witherbloom Campus
+Withering Boon
 Withering Torment
 Withering Wisps
 Without Weakness
@@ -9636,6 +9643,7 @@ Xenobotanist
 Xindi Surveyors
 Xira Arien
 Yahenni, Undying Partisan
+Yare
 Yargle and Multani
 Yargle, Glutton of Urborg
 Yargle, Goliath of Otaria
@@ -9679,6 +9687,7 @@ Zap
 Zarichi Tiger
 Zealous Guardian
 Zealous Strike
+Zebra Unicorn
 Zelyon Sword
 Zendikar Farguide
 Zendikar's Roil
@@ -9692,6 +9701,8 @@ Zephyr Net
 Zephyr Sprite
 Zeriam, Golden Wind
 Zetalpa, Primal Dawn
+Zhalfirin Commander
+Zhalfirin Knight
 Zhalfirin Lancer
 Zhalfirin Shapecraft
 Zhalfirin Void
@@ -9700,6 +9711,7 @@ Zhao, the Seething Flame
 Zhou Yu, Chief Commander
 Zhur-Taa Druid
 Ziatora's Proving Ground
+Zirilan of the Claw
 Zo-Zu the Punisher
 Zodiac Dog
 Zodiac Goat
@@ -9717,6 +9729,7 @@ Zof Consumption // Zof Bloodbog
 Zof Shade
 Zombie Goliath
 Zombie Master
+Zombie Mob
 Zombie Outlander
 Zombie Trailblazer
 Zombify
