@@ -17701,6 +17701,8 @@ pub mod unknown_shores;
 pub mod unlicensed_hearse;
 #[path = "instants/mv_2/unlikely_aid.rs"]
 pub mod unlikely_aid;
+#[path = "enchantments/mv_2/unlikely_alliance.rs"]
+pub mod unlikely_alliance;
 #[path = "creatures/mv_4/unliving_psychopath.rs"]
 pub mod unliving_psychopath;
 #[path = "instants/mv_3/unmake.rs"]
@@ -17791,6 +17793,8 @@ pub mod urza_s_bauble;
 pub mod urza_s_cave;
 #[path = "artifacts/mv_1/urza_s_chalice.rs"]
 pub mod urza_s_chalice;
+#[path = "creatures/artifacts/mv_5/urza_s_engine.rs"]
+pub mod urza_s_engine;
 #[path = "lands/utility/urza_s_factory.rs"]
 pub mod urza_s_factory;
 #[path = "sorceries/mv_4/urza_s_guilt.rs"]
@@ -17909,6 +17913,10 @@ pub mod vanquisher_s_axe;
 pub mod vapor_snag;
 #[path = "creatures/mv_2/vaporkin.rs"]
 pub mod vaporkin;
+#[path = "creatures/mv_4/varchild_s_crusader.rs"]
+pub mod varchild_s_crusader;
+#[path = "creatures/mv_2/varchild_s_war_riders.rs"]
+pub mod varchild_s_war_riders;
 #[path = "creatures/mv_3/vassal_soul.rs"]
 pub mod vassal_soul;
 #[path = "instants/mv_1/vastwood_fortification.rs"]
@@ -18049,6 +18057,8 @@ pub mod veteran_cavalier;
 pub mod veteran_of_the_depths;
 #[path = "artifacts/equipment/mv_2/veteran_s_sidearm.rs"]
 pub mod veteran_s_sidearm;
+#[path = "enchantments/auras/mv_1/veteran_s_voice.rs"]
+pub mod veteran_s_voice;
 #[path = "creatures/mv_3/veteran_swordsmith.rs"]
 pub mod veteran_swordsmith;
 #[path = "artifacts/mv_4/vexing_arcanix.rs"]
@@ -18163,6 +18173,8 @@ pub mod virulent_plague;
 pub mod visara_the_dreadful;
 #[path = "creatures/mv_1/viscera_seer.rs"]
 pub mod viscera_seer;
+#[path = "enchantments/auras/mv_2/viscerid_armor.rs"]
+pub mod viscerid_armor;
 #[path = "creatures/mv_2/viscerid_drone.rs"]
 pub mod viscerid_drone;
 #[path = "creatures/mv_5/viscid_lemures.rs"]
@@ -18445,6 +18457,8 @@ pub mod wanderer_s_intervention;
 pub mod wanderer_s_twig;
 #[path = "lands/manlands/wandering_fumarole.rs"]
 pub mod wandering_fumarole;
+#[path = "creatures/mv_3/wandering_mage.rs"]
+pub mod wandering_mage;
 #[path = "creatures/mv_1/wandering_ones.rs"]
 pub mod wandering_ones;
 #[path = "creatures/mv_4/wandering_tombshell.rs"]
@@ -18669,6 +18683,8 @@ pub mod whetstone;
 pub mod whimwader;
 #[path = "creatures/mv_3/whip_sergeant.rs"]
 pub mod whip_sergeant;
+#[path = "creatures/mv_3/whip_vine.rs"]
+pub mod whip_vine;
 #[path = "sorceries/mv_2/whipflare.rs"]
 pub mod whipflare;
 #[path = "creatures/mv_1/whippoorwill.rs"]
@@ -18685,6 +18701,8 @@ pub mod whiptongue_frog;
 pub mod whir_of_invention;
 #[path = "artifacts/mv_3/whirlermaker.rs"]
 pub mod whirlermaker;
+#[path = "artifacts/mv_4/whirling_catapult.rs"]
+pub mod whirling_catapult;
 #[path = "creatures/mv_2/whirling_dervish.rs"]
 pub mod whirling_dervish;
 #[path = "instants/mv_2/whirling_strike.rs"]
@@ -18875,6 +18893,8 @@ pub mod winter_s_chill;
 pub mod winter_s_grasp;
 #[path = "instants/mv_2/winter_s_intervention.rs"]
 pub mod winter_s_intervention;
+#[path = "enchantments/mv_3/winter_s_night.rs"]
+pub mod winter_s_night;
 #[path = "sorceries/mv_1/winter_sky.rs"]
 pub mod winter_sky;
 #[path = "creatures/mv_1/winter_soldier_bucky_barnes.rs"]
@@ -19101,6 +19121,8 @@ pub mod yargle_goliath_of_otaria;
 pub mod yarok_s_wavecrasher;
 #[path = "creatures/mv_5/yavimaya_ancients.rs"]
 pub mod yavimaya_ancients;
+#[path = "creatures/mv_4/yavimaya_ants.rs"]
+pub mod yavimaya_ants;
 #[path = "creatures/mv_2/yavimaya_barbarian.rs"]
 pub mod yavimaya_barbarian;
 #[path = "lands/pain/yavimaya_coast.rs"]

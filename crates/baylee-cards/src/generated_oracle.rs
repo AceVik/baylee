@@ -4975,27 +4975,58 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "As an additional cost to cast this spell, you may pay {2}{R}.\nPrevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect combat damage that would be dealt by red creatures.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Unlikely Alliance
+    &["{1}{W}: Target nonattacking, nonblocking creature gets +0/+2 until end of turn."],
+    // Urza's Engine
+    &[
+        "Trample\n{3}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{3}: Attacking creatures banded with this creature gain trample until end of turn.",
+    ],
+    // Varchild's Crusader
+    &[
+        "{0}: This creature can't be blocked this turn except by Walls. Sacrifice this creature at the beginning of the next end step.",
+    ],
+    // Varchild's War-Riders
+    &[
+        "Cumulative upkeep—Have an opponent create a 1/1 red Survivor creature token. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nTrample; rampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Veteran's Voice
+    &[
+        "Enchant creature you control\nTap enchanted creature: Target creature other than the creature tapped this way gets +2/+1 until end of turn. Activate only if enchanted creature is untapped.",
+    ],
+    // Viscerid Armor
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1.\n{1}{U}: Return this Aura to its owner's hand.",
+    ],
     // Viscerid Drone
     &[
         "{T}, Sacrifice a creature and a Swamp: Destroy target nonartifact creature. It can't be regenerated.\n{T}, Sacrifice a creature and a snow Swamp: Destroy target creature. It can't be regenerated.",
     ],
-    &[],
-    &[],
-    &[],
+    // Wandering Mage
+    &[
+        "{W}, Pay 1 life: Prevent the next 2 damage that would be dealt to target creature this turn.\n{U}: Prevent the next 1 damage that would be dealt to target Cleric or Wizard creature this turn.\n{B}, Put a -1/-1 counter on a creature you control: Prevent the next 2 damage that would be dealt to target player or planeswalker this turn.",
+    ],
+    // Whip Vine
+    &[
+        "Defender; reach (This creature can block creatures with flying.)\nYou may choose not to untap this creature during your untap step.\n{T}: Tap target creature with flying blocked by this creature. That creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
+    // Whirling Catapult
+    &[
+        "{2}, Exile the top two cards of your library: This artifact deals 1 damage to each creature with flying and each player.",
+    ],
     // Wild Aesthir
     &[
         "Flying, first strike\n{W}{W}: This creature gets +2/+0 until end of turn. Activate only once each turn.",
     ],
-    &[],
+    // Winter's Night
+    &[
+        "Whenever a player taps a snow land for mana, that player adds one mana of any type that land produced. That land doesn't untap during its controller's next untap step.",
+    ],
     // Yavimaya Ancients
     &["{G}: This creature gets +1/-2 until end of turn."],
-    &[],
+    // Yavimaya Ants
+    &[
+        "Trample, haste\nCumulative upkeep {G}{G} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
     &[],
     &[],
     &[],

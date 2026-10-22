@@ -2399,6 +2399,17 @@ pub static STARFISH_0_1_BLUE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 red Survivor.
+pub static SURVIVOR_1_1_RED: TokenDef = TokenDef {
+    name: "Survivor",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SURVIVOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2638,6 +2649,7 @@ pub static ALL: &[&TokenDef] = &[
     &DESERTER_0_1_WHITE,
     &HIPPO_1_1_GREEN,
     &STARFISH_0_1_BLUE,
+    &SURVIVOR_1_1_RED,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2845,4 +2857,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &DESERTER_0_1_WHITE,
     &HIPPO_1_1_GREEN,
     &STARFISH_0_1_BLUE,
+    &SURVIVOR_1_1_RED,
 ];
