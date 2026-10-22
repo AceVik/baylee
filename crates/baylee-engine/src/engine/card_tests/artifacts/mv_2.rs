@@ -49,6 +49,7 @@ mod marble_diamond;
 mod millstone;
 mod moss_diamond;
 mod mystic_compass;
+mod null_rod;
 mod relic_barrier;
 mod scarab_of_the_unseen;
 mod selesnya_signet;

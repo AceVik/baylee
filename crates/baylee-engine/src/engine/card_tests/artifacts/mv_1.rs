@@ -35,6 +35,7 @@ mod mana_vault;
 mod meekstone;
 mod mossfire_egg;
 mod obelisk_of_undoing;
+mod phyrexian_furnace;
 mod pithing_needle;
 mod pyrite_spellbomb;
 mod renegade_map;

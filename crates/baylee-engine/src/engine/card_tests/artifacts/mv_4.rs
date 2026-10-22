@@ -92,6 +92,7 @@ mod teferi_s_puzzle_box;
 mod the_one_ring;
 mod thousand_moons_smithy;
 mod thran_dynamo;
+mod thran_tome;
 mod time_bomb;
 mod tower_of_calamities;
 mod tower_of_champions;

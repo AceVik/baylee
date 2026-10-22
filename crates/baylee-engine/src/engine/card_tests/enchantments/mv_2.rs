@@ -77,6 +77,7 @@ mod sterling_grove;
 mod suleiman_s_legacy;
 mod sustenance;
 mod sylvan_library;
+mod teferi_s_veil;
 mod the_meathook_massacre;
 mod thelon_s_curse;
 mod thoughtleech;

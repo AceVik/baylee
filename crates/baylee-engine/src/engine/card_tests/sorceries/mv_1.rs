@@ -44,6 +44,7 @@ mod spoils_of_war;
 mod steelshaper_s_gift;
 mod stir_the_grave;
 mod stream_of_life;
+mod tendrils_of_despair;
 mod thoughtseize;
 mod winds_of_change;
 mod winter_blast;

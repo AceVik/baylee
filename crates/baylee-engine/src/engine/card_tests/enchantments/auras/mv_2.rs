@@ -42,6 +42,7 @@ mod mystic_veil;
 mod nature_s_kiss;
 mod pacifism;
 mod phantasmal_terrain;
+mod phantom_wings;
 mod prismatic_ward;
 mod psychic_venom;
 mod regeneration;

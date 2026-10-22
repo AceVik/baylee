@@ -122,6 +122,7 @@ mod ragavan_nimble_pilferer;
 mod raging_goblin;
 mod resistance_fighter;
 mod rime_dryad;
+mod roc_hatchling;
 mod rogue_elephant;
 mod royal_herbalist;
 mod sandbar_merfolk;

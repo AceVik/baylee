@@ -8,3 +8,4 @@ mod fireblast;
 mod opportunity;
 mod pull_under;
 mod pyrokinesis;
+mod spinning_darkness;
