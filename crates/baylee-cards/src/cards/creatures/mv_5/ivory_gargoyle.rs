@@ -35,9 +35,6 @@ card!(
                 counters: None,
             }],
         ),
-        activated!(
-            cost!("{4}{W}"),
-            &[Effect::ExileSource],
-        ),
+        activated!(cost!("{4}{W}"), &[Effect::ExileSource],),
     ],
 );

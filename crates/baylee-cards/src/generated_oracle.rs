@@ -4753,45 +4753,114 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample\nAt the beginning of your upkeep, you may discard a card. If you don't, sacrifice this creature and draw a card.\nWhenever this creature becomes blocked, it gets +6/+3 until end of turn.\nWhenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 4 life.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Lim-Dûl's Vault
+    &[
+        "Look at the top five cards of your library. As many times as you choose, you may pay 1 life, put those cards on the bottom of your library in any order, then look at the top five cards of your library. Then shuffle and put the last cards you looked at this way on top in any order.",
+    ],
+    // Lodestone Bauble
+    &[
+        "{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from a player's graveyard on top of their library in any order. That player draws a card at the beginning of the next turn's upkeep.",
+    ],
+    // Lord of Tresserhorn
+    &[
+        "When Lord of Tresserhorn enters, you lose 2 life, you sacrifice two creatures, and target opponent draws two cards.\n{B}: Regenerate Lord of Tresserhorn.",
+    ],
+    // Martyrdom
+    &[
+        "Until end of turn, target creature you control gains \"{0}: The next 1 damage that would be dealt to target creature, planeswalker, or player this turn is dealt to this creature instead.\" Only you may activate this ability.",
+    ],
+    // Misfortune
+    &[
+        "An opponent chooses one —\n• You put a +1/+1 counter on each creature you control and gain 4 life.\n• You put a -1/-1 counter on each creature that player controls and Misfortune deals 4 damage to that player.",
+    ],
     // Mishra's Groundbreaker
     &[
         "{T}, Sacrifice this artifact: Target land becomes a 3/3 artifact creature that's still a land. (This effect lasts indefinitely.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Misinformation
+    &[
+        "Put up to three target cards from an opponent's graveyard on top of their library in any order.",
+    ],
+    // Mystic Compass
+    &["{1}, {T}: Target land becomes the basic land type of your choice until end of turn."],
+    // Nature's Blessing
+    &[
+        "{G}{W}, Discard a card: Put a +1/+1 counter on target creature or that creature gains banding, first strike, or trample. (This effect lasts indefinitely. Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+    ],
     // Nature's Chosen
     &[
         "Enchant creature you control\n{0}: Untap enchanted creature. Activate only during your turn and only once each turn.\nTap enchanted creature: Untap target artifact, creature, or land. Activate only if enchanted creature is white and untapped and only once each turn.",
     ],
-    &[],
+    // Nature's Wrath
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you pay {G}.\nWhenever a player puts an Island or blue permanent onto the battlefield, that player sacrifices an Island or blue permanent of their choice.\nWhenever a player puts a Swamp or black permanent onto the battlefield, that player sacrifices a Swamp or black permanent of their choice.",
+    ],
     // Noble Steeds
     &["{1}{W}: Target creature gains first strike until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Omen of Fire
+    &[
+        "Return all Islands to their owners' hands. Each player sacrifices a Plains or a white permanent of their choice for each white permanent they control.",
+    ],
+    // Phantasmal Fiend
+    &[
+        "{B}: This creature gets +1/-1 until end of turn.\n{1}{U}: Switch this creature's power and toughness until end of turn.",
+    ],
+    // Phantasmal Sphere
+    &[
+        "Flying\nAt the beginning of your upkeep, put a +1/+1 counter on this creature, then sacrifice this creature unless you pay {1} for each +1/+1 counter on it.\nWhen this creature leaves the battlefield, target opponent creates an X/X blue Orb creature token with flying, where X is the number of +1/+1 counters on this creature.",
+    ],
+    // Phelddagrif
+    &[
+        "{G}: Phelddagrif gains trample until end of turn. Target opponent creates a 1/1 green Hippo creature token.\n{W}: Phelddagrif gains flying until end of turn. Target opponent gains 2 life.\n{U}: Return Phelddagrif to its owner's hand. Target opponent may draw a card.",
+    ],
+    // Phyrexian Boon
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+1 as long as it's black. Otherwise, it gets -1/-2.",
+    ],
+    // Phyrexian Devourer
+    &[
+        "When this creature's power is 7 or greater, sacrifice it.\nExile the top card of your library: Put X +1/+1 counters on this creature, where X is the exiled card's mana value.",
+    ],
+    // Phyrexian Portal
+    &[
+        "{3}: If your library has ten or more cards in it, target opponent looks at the top ten cards of your library and separates them into two face-down piles. Exile one of those piles. Search the other pile for a card, put it into your hand, then shuffle the rest of that pile into your library.",
+    ],
+    // Phyrexian War Beast
+    &[
+        "When this creature leaves the battlefield, sacrifice a land and this creature deals 1 damage to you.",
+    ],
     // Pillage
     &["Destroy target artifact or land. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
+    // Primitive Justice
+    &[
+        "As an additional cost to cast this spell, you may pay {1}{R} and/or {1}{G} any number of times.\nDestroy target artifact. For each additional {1}{R} you paid, destroy another target artifact. For each additional {1}{G} you paid, destroy another target artifact, and you gain 1 life.",
+    ],
+    // Pyrokinesis
+    &[
+        "You may exile a red card from your hand rather than pay this spell's mana cost.\nPyrokinesis deals 4 damage divided as you choose among any number of target creatures.",
+    ],
+    // Reinforcements
+    &["Put up to three target creature cards from your graveyard on top of your library."],
     // Reprisal
     &["Destroy target creature with power 4 or greater. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ritual of the Machine
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nGain control of target nonartifact, nonblack creature.",
+    ],
+    // Rogue Skycaptain
+    &[
+        "Flying\nAt the beginning of your upkeep, put a wage counter on this creature. You may pay {2} for each wage counter on it. If you don't, remove all wage counters from this creature and an opponent gains control of it.",
+    ],
+    // Royal Decree
+    &[
+        "Cumulative upkeep {W} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhenever a Swamp, Mountain, black permanent, or red permanent becomes tapped, this enchantment deals 1 damage to that permanent's controller.",
+    ],
+    // Royal Herbalist
+    &["{2}, Exile the top card of your library: You gain 1 life."],
+    // Scarab of the Unseen
+    &[
+        "{T}, Sacrifice this artifact: Return all Auras attached to target permanent you own to their owners' hands. Draw a card at the beginning of the next turn's upkeep.",
+    ],
     &[],
     // School of the Unseen
     &["{T}: Add {C}.\n{2}, {T}: Add one mana of any color."],
