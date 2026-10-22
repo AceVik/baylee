@@ -7281,30 +7281,66 @@ pub static ORACLE: &[&[&str]] = &[
     &["Each player draws a card for each creature card in their graveyard."],
     // Necratog
     &["Exile the top creature card of your graveyard: this creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Noble Benefactor
+    &[
+        "When this creature dies, each player may search their library for a card and put that card into their hand. Then each player who searched their library this way shuffles.",
+    ],
+    // Null Rod
+    &["Activated abilities of artifacts can't be activated."],
+    // Odylic Wraith
+    &[
+        "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nWhenever this creature deals damage to a player, that player discards a card.",
+    ],
+    // Ophidian
+    &[
+        "Whenever this creature attacks and isn't blocked, you may draw a card. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Orcish Settlers
+    &["{X}{X}{R}, {T}, Sacrifice this creature: Destroy X target lands."],
+    // Paradigm Shift
+    &["Exile all cards from your library. Then shuffle your graveyard into your library."],
+    // Peacekeeper
+    &[
+        "At the beginning of your upkeep, sacrifice this creature unless you pay {1}{W}.\nCreatures can't attack.",
+    ],
+    // Pendrell Mists
+    &[
+        "All creatures have \"At the beginning of your upkeep, sacrifice this creature unless you pay {1}.\"",
+    ],
+    // Phantom Wings
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nSacrifice this Aura: Return enchanted creature to its owner's hand.",
+    ],
+    // Phyrexian Furnace
+    &[
+        "{T}: Exile the bottom card of target player's graveyard.\n{1}, Sacrifice this artifact: Exile target card from a graveyard. Draw a card.",
+    ],
+    // Psychic Vortex
+    &[
+        "Cumulative upkeep—Draw a card. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your end step, sacrifice a land and discard your hand.",
+    ],
     // Razortooth Rats
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
     // Relearn
     &["Return target instant or sorcery card from your graveyard to your hand."],
-    &[],
-    &[],
+    // Revered Unicorn
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this creature leaves the battlefield, you gain life equal to the number of age counters on it.",
+    ],
+    // Roc Hatchling
+    &[
+        "This creature enters with four shell counters on it.\nAt the beginning of your upkeep, remove a shell counter from this creature.\nAs long as this creature has no shell counters on it, it gets +3/+2 and has flying.",
+    ],
     // Rogue Elephant
     &["When this creature enters, sacrifice it unless you sacrifice a Forest."],
     // Sage Owl
     &[
         "Flying\nWhen this creature enters, look at the top four cards of your library, then put them back in any order.",
     ],
-    &[],
+    // Sawtooth Ogre
+    &[
+        "Whenever this creature blocks or becomes blocked by a creature, this creature deals 1 damage to that creature at end of combat.",
+    ],
     // Scorched Ruins
     &[
         "If this land would enter, sacrifice two untapped lands instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {C}{C}{C}{C}.",
@@ -7315,15 +7351,24 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Serra's Blessing
     &["Creatures you control have vigilance. (Attacking doesn't cause them to tap.)"],
-    &[],
-    &[],
-    &[],
+    // Serrated Biskelion
+    &["{T}: Put a -1/-1 counter on this creature and a -1/-1 counter on target creature."],
+    // Shadow Rider
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Shattered Crypt
+    &["Return X target creature cards from your graveyard to your hand. You lose X life."],
     // Soul Shepherd
     &["{W}, Exile a creature card from your graveyard: You gain 1 life."],
     // Southern Paladin
     &["{W}{W}, {T}: Destroy target red permanent."],
-    &[],
-    &[],
+    // Spinning Darkness
+    &[
+        "You may exile the top three black cards of your graveyard rather than pay this spell's mana cost.\nSpinning Darkness deals 3 damage to target nonblack creature. You gain 3 life.",
+    ],
+    // Steel Golem
+    &["You can't cast creature spells."],
     // Strands of Night
     &[
         "{B}{B}, Pay 2 life, Sacrifice a Swamp: Return target creature card from your graveyard to the battlefield.",
@@ -7332,16 +7377,34 @@ pub static ORACLE: &[&[&str]] = &[
     &["When an opponent casts a creature spell, sacrifice this creature."],
     // Striped Bears
     &["When this creature enters, draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sylvan Hierophant
+    &[
+        "When this creature dies, exile it, then return another target creature card from your graveyard to your hand.",
+    ],
+    // Tariff
+    &[
+        "Each player sacrifices the creature they control with the greatest mana value unless they pay that creature's mana cost. If two or more creatures a player controls are tied for greatest, that player chooses one.",
+    ],
+    // Teferi's Veil
+    &[
+        "Whenever a creature you control attacks, it phases out at end of combat. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
+    // Tendrils of Despair
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nTarget opponent discards two cards.",
+    ],
     // Thran Forge
     &[
         "{2}: Until end of turn, target nonartifact creature gets +1/+0 and becomes an artifact in addition to its other types.",
     ],
-    &[],
-    &[],
+    // Thran Tome
+    &[
+        "{5}, {T}: Reveal the top three cards of your library. Target opponent chooses one of those cards. Put that card into your graveyard, then draw two cards.",
+    ],
+    // Thunderbolt
+    &[
+        "Choose one —\n• Thunderbolt deals 3 damage to target player or planeswalker.\n• Thunderbolt deals 4 damage to target creature with flying.",
+    ],
     &[],
     &[],
     &[],
