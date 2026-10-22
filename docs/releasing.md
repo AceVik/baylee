@@ -466,3 +466,25 @@ same machine in lockstep, and can require release tags to be signed by a key
 of their choosing: `docs/deploy-hooks.md` is the contract, including the
 admission hold (`BAYLEE_ADMISSION_HOLD`) a deploy with hooks drains every
 agent's games under, and the dispatcher's exit codes.
+
+### What the server builds with
+
+The server builds each release itself, as the deploy user, in its checkout
+(`baylee-deploy stage`). It needs:
+
+- `rustup`'s `stable` at least the workspace's `rust-version` (`Cargo.toml`).
+  A release that raises it needs `rustup update stable` there first; the
+  deploy otherwise stops at "is not supported by the following packages"
+  (22.10.2026).
+- A C toolchain, `pkg-config` and the headers of `libsecret-1` (Debian and
+  Ubuntu: `libsecret-1-dev`, which brings GLib's). `baylee-keyring` links
+  libsecret on Linux, and the engine server, the seat bridge and the seat
+  agent reach it through `baylee-client-core`. CI installs the same package
+  in `.github/actions/linux-deps`, beside the client's audio, udev and
+  Wayland headers, which the server does not need.
+- For the browser client at `/play`: `trunk` (0.21.14) and the
+  `wasm32-unknown-unknown` target. Without them the installed client stays.
+- For the feedback service's UI: `npm`. Without it the installed UI stays.
+
+A build that fails shows its first error, and for the first two causes
+one sentence on what to do.

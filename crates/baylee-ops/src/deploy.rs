@@ -366,7 +366,7 @@ impl Deploy {
         ] {
             build.args(["-p", package]);
         }
-        last_line(&mut build)?;
+        run_build(&mut build)?;
         let rev = out(&mut self.in_src(&["git", "rev-parse", "HEAD"]))
             .unwrap_or_default()
             .trim()
@@ -1230,7 +1230,7 @@ impl Deploy {
             .current_dir(self.p.src.join("crates/baylee-client"))
             .env("PWD", self.p.src.join("crates/baylee-client"))
             .env("PATH", path);
-        if last_line(&mut build).is_err() || !dist.join("index.html").is_file() {
+        if run_build(&mut build).is_err() || !dist.join("index.html").is_file() {
             let _ = fs::remove_dir_all(&dist);
             say("the browser client did not build; the one installed stays");
             return;
@@ -1529,16 +1529,16 @@ fn print_info() {
     }
 }
 
-/// Runs a build, showing only its last line, and fails as the build fails
-/// (`… 2>&1 | tail -1` under `pipefail`).
-fn last_line(command: &mut Command) -> Run {
+/// Runs a build and fails as the build fails. A build that worked shows its
+/// last line; one that failed shows why ([`build_report`]).
+fn run_build(command: &mut Command) -> Run {
     let output = command
         .stdin(std::process::Stdio::null())
         .output()
         .map_err(|_| Stop(1))?;
     let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&output.stderr));
-    if let Some(line) = text.lines().rfind(|l| !l.trim().is_empty()) {
+    for line in build_report(&text, output.status.success()) {
         println!("{line}");
     }
     if output.status.success() {
@@ -1546,6 +1546,50 @@ fn last_line(command: &mut Command) -> Run {
     } else {
         Err(Stop(output.status.code().unwrap_or(1)))
     }
+}
+
+/// Lines of a failed build's first error block shown, at most.
+const ERROR_LINES: usize = 40;
+
+/// What a build's output shows: its last line when it worked. When it
+/// failed, the last line alone is cargo's "build failed, waiting for other
+/// jobs" (22.10.2026, three deploys), so it is the first `error` block (up to
+/// [`ERROR_LINES`]) and the last line, and for the causes a server meets
+/// after a release (`docs/releasing.md` §"What the server builds with") one
+/// sentence on what to do.
+fn build_report(text: &str, success: bool) -> Vec<String> {
+    let last = text.lines().rfind(|l| !l.trim().is_empty());
+    if success {
+        return last.map(str::to_owned).into_iter().collect();
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let mut shown: Vec<String> = match lines.iter().position(|l| l.starts_with("error")) {
+        Some(start) => lines[start..]
+            .iter()
+            .take(ERROR_LINES)
+            .map(|l| (*l).to_owned())
+            .collect(),
+        None => lines[lines.len().saturating_sub(ERROR_LINES)..]
+            .iter()
+            .map(|l| (*l).to_owned())
+            .collect(),
+    };
+    if let Some(last) = last
+        && shown.last().map(String::as_str) != Some(last)
+    {
+        shown.push(last.to_owned());
+    }
+    if text.contains("is not supported by the following packages") {
+        shown.push(format!(
+            "{TAG}: this machine's Rust is older than the workspace's rust-version: `rustup update stable`"
+        ));
+    }
+    if text.contains("The system library") {
+        shown.push(format!(
+            "{TAG}: a system library for the build is missing (docs/releasing.md §\"What the server builds with\")"
+        ));
+    }
+    shown
 }
 
 /// A directory argument with its trailing slash (`install … "$bin/"`).
@@ -1676,6 +1720,115 @@ mod tests {
             version_cmp("v0.1.0-beta.7", "v0.1.0-beta.7b"),
             std::cmp::Ordering::Less
         );
+    }
+
+    /// Every package CI installs for a Linux build is either the client's
+    /// alone or one the server builds with, and then `docs/releasing.md`
+    /// §"What the server builds with" names it: a new native dependency of a
+    /// server crate reaches the server's list, not only CI's.
+    #[test]
+    fn the_server_s_build_packages_are_written_down() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let ci = fs::read_to_string(root.join(".github/actions/linux-deps/action.yml")).unwrap();
+        let doc = fs::read_to_string(root.join("docs/releasing.md")).unwrap();
+        let section = doc
+            .split("### What the server builds with")
+            .nth(1)
+            .and_then(|rest| rest.split("\n## ").next())
+            .expect("the section");
+        let packages = ci
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("pkgs=("))
+            .and_then(|l| l.strip_suffix(')'))
+            .expect("linux-deps' package list");
+        let client_only = ["libasound2-dev", "libudev-dev", "libwayland-dev"];
+        let mut seen = 0;
+        for package in packages.split_whitespace() {
+            seen += 1;
+            assert!(
+                client_only.contains(&package) || section.contains(package),
+                "{package} is installed for CI's Linux builds but neither the client's alone nor in docs/releasing.md §\"What the server builds with\""
+            );
+        }
+        assert!(seen >= 4, "read {seen} packages from linux-deps");
+    }
+
+    /// What 22.10.2026's three failed deploys printed, abridged: cargo's
+    /// last line said nothing, the cause sat in its first error.
+    const MISSING_GLIB: &str = "   Compiling glib-sys v0.22.9
+error: failed to run custom build command for `glib-sys v0.22.9`
+
+Caused by:
+  pkg-config exited with status code 1
+  The system library `glib-2.0` required by crate `glib-sys` was not found.
+  HINT: you may need to install a package such as glib-2.0, glib-2.0-dev or glib-2.0-devel.
+warning: build failed, waiting for other jobs to finish...
+";
+    const OLD_RUST: &str = "error: rustc 1.98.1 is not supported by the following packages:
+  baylee-ops@0.1.0-beta.8a requires rustc 1.99
+
+";
+
+    #[test]
+    fn a_build_that_worked_shows_its_last_line() {
+        let shown = build_report("   Compiling a\n    Finished `release` profile\n\n", true);
+        assert_eq!(shown, ["    Finished `release` profile"]);
+    }
+
+    #[test]
+    fn a_failed_build_shows_its_first_error_and_what_to_do() {
+        let shown = build_report(MISSING_GLIB, false);
+        assert_eq!(
+            shown[0],
+            "error: failed to run custom build command for `glib-sys v0.22.9`"
+        );
+        assert!(
+            shown
+                .iter()
+                .any(|l| l.contains("`glib-2.0` required by crate `glib-sys`"))
+        );
+        assert_eq!(
+            shown
+                .iter()
+                .filter(|l| l.starts_with("warning: build failed"))
+                .count(),
+            1,
+            "the last line once: {shown:?}"
+        );
+        assert!(
+            shown
+                .last()
+                .unwrap()
+                .contains("a system library for the build is missing")
+        );
+
+        let shown = build_report(OLD_RUST, false);
+        assert!(shown[0].contains("rustc 1.98.1 is not supported"));
+        assert!(shown.last().unwrap().contains("`rustup update stable`"));
+    }
+
+    #[test]
+    fn a_failed_build_shows_a_bounded_tail_when_nothing_says_error() {
+        let text = (0..100)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let shown = build_report(&text, false);
+        assert_eq!(shown.len(), ERROR_LINES);
+        assert_eq!(shown.first().unwrap(), "line 60");
+        assert_eq!(shown.last().unwrap(), "line 99");
+
+        let text = std::iter::once("error: x".to_owned())
+            .chain((0..100).map(|i| format!("  line {i}")))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let shown = build_report(&text, false);
+        assert_eq!(
+            shown.len(),
+            ERROR_LINES + 1,
+            "the block, bounded, and the last line"
+        );
+        assert_eq!(shown.last().unwrap(), "  line 99");
     }
 
     #[test]
