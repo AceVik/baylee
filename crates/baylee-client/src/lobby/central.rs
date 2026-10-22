@@ -18,10 +18,10 @@ type SaveResult = Arc<Mutex<Option<Result<(), Error>>>>;
 
 /// How often the account worker renews its Central session: well inside the
 /// 30 minutes one renewal grants.
-const RENEW_EVERY: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+const RENEW_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
 /// How soon a failed renewal is tried again (a Central restarting, or not
 /// renewing yet).
-const RENEW_RETRY: std::time::Duration = std::time::Duration::from_secs(60);
+const RENEW_RETRY: std::time::Duration = std::time::Duration::from_mins(1);
 
 struct PendingSave {
     gateways: Vec<String>,
