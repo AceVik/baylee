@@ -208,12 +208,12 @@ pub(super) fn draw(
     state: &LobbyState,
     kit: Kit,
     metrics: Metrics,
-    retained: Option<Entity>,
+    retained: Option<&crate::shellkit::retain::Kept>,
 ) {
     let seated = seated(state);
     if wears_header(state) {
-        if let Some(bar) = retained {
-            commands.entity(root).add_child(bar);
+        if let Some(kept) = retained {
+            kept.attach(commands, root);
         } else {
             bar(commands, root, state, kit, seated.is_some());
         }

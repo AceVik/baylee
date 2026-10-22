@@ -16,7 +16,7 @@ pub(super) fn table(
     scrolled_to: &Scrolled,
     kit: crate::shellkit::controls::Kit,
     prefs: &baylee_client_core::prefs::Preferences,
-    retained_header: Option<Entity>,
+    retained_header: Option<&crate::shellkit::retain::Kept>,
 ) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
