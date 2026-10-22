@@ -729,14 +729,45 @@ impl HeuristicAgent {
         material(o)
     }
 
-    /// `o` leaving the battlefield for good, to this seat.
+    /// `o` leaving the battlefield for good, to this seat: nothing more for
+    /// an opponent's permanent this seat's own spell is already taking.
     fn removal(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let worth = Self::permanent_worth(view, o);
-        if self.hostile(o.controller, view.seat) {
-            worth
-        } else {
+        if !self.hostile(o.controller, view.seat) {
             -worth
+        } else if Self::answered(view, o) {
+            0
+        } else {
+            worth
         }
+    }
+
+    /// Whether an instant or sorcery of this seat's on the stack is aimed at
+    /// `o` to destroy, exile or tuck it: [`doomed`](Self::doomed) seen from
+    /// the other side.
+    ///
+    /// A second answer to it is worth nothing while the first is on its way.
+    /// The house cast Path to Exile at a commander, was asked again as its
+    /// caster (CR 117.3c), and cast Swords to Plowshares at it as well;
+    /// Swords resolved first, and Path had no target left (CR 608.2b), a
+    /// card thrown away (22.10.2026). Once the first has left the stack,
+    /// countered or fizzled, the second is worth its card again.
+    fn answered(view: &PlayerView, o: &PublicObject) -> bool {
+        view.stack.iter().any(|s| {
+            s.controller == view.seat
+                && crate::tactics::printed_effects(s)
+                    .iter()
+                    .any(|effects| effects.iter().any(crate::policy::removal))
+                && s.targets.iter().any(|target| match target {
+                    TargetRef::Object(source) => {
+                        source.object == o.id
+                            && view
+                                .target_object(*source)
+                                .is_some_and(|target| target.is_current)
+                    }
+                    TargetRef::Player(_) => false,
+                })
+        })
     }
 
     /// Whether `o` is going anyway: an opponent's spell or ability on the
