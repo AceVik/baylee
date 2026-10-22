@@ -67,6 +67,8 @@ def main():
                      "--decks-manifest", args.manifest, "--deck-split", "val",
                      "--threads", "4", "--first-seed", "870001", "--out", str(path)], 5400,
               [model / "model.onnx.json", args.manifest])
+        stage(name + "-uncertainty", [py, "tools/trainer/summarize_eval4.py", str(path),
+              "--out", str(path.with_suffix(".uncertainty.json"))], 120, [path])
         return path
 
     export("export-bc", bc)
