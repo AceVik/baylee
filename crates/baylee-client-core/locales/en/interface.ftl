@@ -3477,11 +3477,15 @@ LeaveTable = Leave the table
 # The lobby's note after a player left a running table from its menu.
 LeftTheTable = You left the table
 
-# Leaving a networked table, armed: the house plays the chair on.
-LeaveTableConfirm = Leave? The house plays on for you. Press again
+# Leaving the table, armed: the second press leaves. As short as
+# `ConcedeConfirm`; what leaving does stands under it.
+LeaveTableConfirm = Leave? Press again
 
-# Leaving a game this client hosts offline, armed: it ends with it.
-LeaveTableConfirmOffline = Leave? This game ends. Press again
+# Under it at a networked table: the house plays the chair on.
+LeaveTableCost = The house plays on for you.
+
+# Under it in a game this client hosts offline: it ends with it.
+LeaveTableCostOffline = This game ends.
 
 # The game log panel's title (#262). Not a `Log…` phrase: those are the
 # book's own sentences, which `gamelog` writes; these are the panel's.
@@ -3877,6 +3881,11 @@ LostHousePlays = The house AI plays for { $player }
 # a client as a refusal string rather than as a state it can match on, so
 # this is what a client says when it cannot tell the two apart.
 LinkGaveUp = The table cannot be reached. Rejoin from the lobby.
+
+# After the retry schedule runs out with the table refusing this seat's
+# ticket on every dial: the sign-in behind the seat ended, or the chair was
+# taken up on another device. Signing in again offers the chair back.
+LinkSignInEnded = The table no longer takes this seat from here: your sign-in ended, or the seat was taken up on another device. Sign in again in the lobby to return.
 
 # The table refused this client's protocol, and speaks a newer one
 # (#271). No numbers: the log has both, and the player can act only on

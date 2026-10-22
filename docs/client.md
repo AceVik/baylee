@@ -3691,9 +3691,22 @@ only thing that knows the language.
 
 #### What the banner may claim, and why it cannot count
 
+*Since 22.10.2026* the schedule also dials on until the table's window has
+passed (`Retry::hold_for`; the window has been 180 s by default since
+10.10.2026, longer than the twelve dials below). A client that stopped at
+120.5 s gave up a chair the table was still holding for it, which the owner
+met as a connection that was lost and never came back. When it does run out,
+`reconnect::gave_up` picks the sentence: a seat whose ticket was refused
+(`401`) on every dial is told its sign-in ended or the seat was taken up on
+another device, and to sign in again in the lobby (`LinkSignInEnded`); a
+Central session lives 30 minutes and is never renewed
+(`docs/central-login.md`), and the gateway then refuses the seat. A single
+refusal says nothing: the gateway answers a failed Central check `401` too.
+The rest of this section is the reasoning as it stood before.
+
 The schedule outlives the thing it was reassuring the player about. Twelve
 dials land at t = 0.5, 1.5, 3.5, 7.5, 15.5 and then every fifteen seconds to
-**120.5 s**. `HouseRules::reconnect_window_secs` is shorter than that on all
+**120.5 s**. `HouseRules::reconnect_window_secs` was shorter than that on all
 four presets — 30 s or 60 s — though not on every table that can be opened,
 since a room may ask for anything up to an hour. When it does expire,
 `Session::stand_in` gives the chair to the house, and for the rest of that
@@ -4216,9 +4229,16 @@ folds into the header as the gold Return pill in the gateway dot's place.
 `r` is its Return. The reconnecting strip stands while a feed that was
 live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
-table filling (`strips::table_news`); each ring is a toast for six seconds,
-at most three, bottom-right (from the top on a Phone), in a lane of its own
-outside the lobby's tree. A `401` lands on the front door with "Signed out
+table filling (`strips::table_news`); each ring is a toast for fifteen
+seconds, beside the lobby's own notices (`Lobby::status`), at most four,
+top-left under the header (`header::toast_lane`), in a lane of its own
+outside the lobby's tree. Each toast's cross takes that toast away, named by
+the number it came with (`header::ToastId`), never by its place in the lane.
+The lane is put away when a table opens (`put_the_toasts_away`), and what it
+said does not come back after the game: it ages and answers its cross only
+while the lobby runs, so the toasts of the last rings before a game, which
+is when a table fills, stood over the whole game with a cross that did
+nothing (owner, 22.10.2026). A `401` lands on the front door with "Signed out
 — your session ended · Sign in again", and the builder's draft and pool are
 kept for the next sign-in.
 
@@ -10831,7 +10851,15 @@ chosen").
   /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
   so the house takes the chair at once rather than after the reconnect
   window, and the lobby says "You left the table". Offline the game this
-  client hosts ends with it, which its armed words say. A spectator's way
+  client hosts ends with it. Armed, the row says only *Leave? Press again*,
+  as short as the concession's, and what leaving costs stands in a quiet
+  line under the row (*The house plays on for you.* / *This game ends.*),
+  armed or not, as the host's Leave says it under its question (owner,
+  22.10.2026: the armed words were too long for the row;
+  `the_panel_is_wide_enough_for_everything_it_can_ever_say` now measures
+  every row the menu draws). Arming adds no row: the panel grows upward
+  from the burger, and a line that came with the arming slid the armed row
+  out from under the pointer. A spectator's way
   out stays *Stop watching*; a finished game's stays the end screen's.
 
 The October 14 real-client check recorded five seconds at 20 samples/s,

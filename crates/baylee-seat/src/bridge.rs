@@ -783,7 +783,7 @@ impl Bridge {
     /// or the room has closed meanwhile (`false`): the house plays on for a
     /// seat whose socket is gone, and may finish the game before the mind
     /// comes back, if it ever does.
-    async fn wait_for_mind(&mut self, link: &SeatLink) -> bool {
+    async fn wait_for_mind(&mut self, link: &mut SeatLink) -> bool {
         loop {
             tokio::time::sleep(self.options.mind_poll).await;
             // A mind handed over meanwhile is the one asked.
