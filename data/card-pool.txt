@@ -5662,6 +5662,7 @@ Noble Hierarch
 Noble Panther
 Noble Steeds
 Nocturnal Feeder
+Nocturnal Raid
 Noggle Bandit
 Noggle Bridgebreaker
 Noggle Ransacker
@@ -5697,6 +5698,7 @@ Noxious Toad
 Nucklavee
 Nuclear Fallout
 Nuisance Engine
+Null Chamber
 Nullify
 Numbing Dose
 Nurturing Peatland
@@ -5909,7 +5911,9 @@ Oxidize
 Oyobi, Who Split the Heavens
 Ozai's Cruelty
 Pacification Array
+Pacifism
 Painful Lesson
+Painful Memories
 Painful Quandary
 Painsmith
 Painted Bluffs
@@ -5956,6 +5960,7 @@ Patriar's Seal
 Patrol Hound
 Patrol Signaler
 Patron Wizard
+Paupers' Cage
 Pavel Maliki
 Pawn of Ulamog
 Pawpatch Formation
@@ -6030,6 +6035,7 @@ Phyrexian Debaser
 Phyrexian Defiler
 Phyrexian Denouncer
 Phyrexian Devourer
+Phyrexian Dreadnought
 Phyrexian Fleshgorger
 Phyrexian Gargantua
 Phyrexian Ghoul
@@ -6040,9 +6046,11 @@ Phyrexian Monitor
 Phyrexian Pegasus
 Phyrexian Plaguelord
 Phyrexian Portal
+Phyrexian Purge
 Phyrexian Rager
 Phyrexian Reclamation
 Phyrexian Tower
+Phyrexian Tribute
 Phyrexian Vault
 Phyrexian Vivisector
 Phyrexian Walker
@@ -6127,9 +6135,11 @@ Poison-Blade Mentor
 Poison-Tip Archer
 Poisonbelly Ogre
 Polar Kraken
+Political Trickery
 Polluted Bonds
 Polluted Dead
 Polluted Mire
+Polymorph
 Pond Prophet
 Ponder
 Pondering Mage
@@ -6167,6 +6177,7 @@ Predatory Sliver
 Predatory Wurm
 Preemptive Strike
 Preening Champion
+Preferred Selection
 Preordain
 Prescient Chimera
 Presence of Gond
@@ -6201,7 +6212,10 @@ Primordial Sage
 Primordial Wurm
 Princess Lucrezia
 Prismari Campus
+Prismatic Boon
+Prismatic Circle
 Prismatic Ending
+Prismatic Lace
 Prismatic Lens
 Prismatic Vista
 Prismatic Ward
@@ -6245,6 +6259,7 @@ Psychic Drain
 Psychic Frog
 Psychic Purge
 Psychic Symbiont
+Psychic Transfer
 Psychic Venom
 Pterafractyl
 Pterodon Knight
@@ -6262,9 +6277,11 @@ Puppet Master
 Puppet Strings
 Puppeteer
 Purelace
+Purgatory
 Purge the Profane
 Purify
 Purple-Crystal Crab
+Purraj of Urborg
 Pursuit of Flight
 Putrefaction
 Putrefy
@@ -6279,6 +6296,7 @@ Pyre Charger
 Pyre Hound
 Pyre Spawn
 Pyretic Ritual
+Pyric Salamander
 Pyrite Spellbomb
 Pyroblast
 Pyroceratops
@@ -6325,6 +6343,7 @@ Rabid Rats
 Rabid Wombat
 Racers' Ring
 Radha, Heir to Keld
+Radiant Essence
 Radiant Fountain
 Radiant Grove
 Radiant Strike
@@ -6349,6 +6368,7 @@ Raging Ravine
 Raging Redcap
 Raging Regisaur
 Raging River
+Raging Spirit
 Ragnar
 Raiding Nightstalker
 Raiding Party
@@ -6410,6 +6430,7 @@ Rapid Fire
 Raptor Companion
 Raptor Hatchling
 Rapturous Moment
+Rashida Scalebane
 Rashka the Slayer
 Rasputin Dreamweaver
 Rath's Edge
@@ -6436,6 +6457,7 @@ Ravenous Intruder
 Ravenous Lindwurm
 Ravenous Rats
 Ravenous Skirge
+Ravenous Vampire
 Ravine Raider
 Ray of Command
 Ray of Dissolution
@@ -6444,6 +6466,7 @@ Ray of Ruin
 Razaketh's Rite
 Razaketh, the Foulblooded
 Raze the Effigy
+Razor Pendulum
 Razorfield Thresher
 Razorfin Hunter
 Razorfoot Griffin
@@ -6458,6 +6481,7 @@ Reach for the Sky
 Read the Bones
 Ready to Rumble
 Reality Hemorrhage
+Reality Ripple
 Reality Twist
 Realm of Koh
 Realms Uncharted
@@ -6473,6 +6497,7 @@ Reckless Air Strike
 Reckless Assault
 Reckless Barbarian
 Reckless Brute
+Reckless Embermage
 Reckless Fireweaver
 Reckless Lackey
 Reckless One
@@ -6504,6 +6529,7 @@ Reduce to Ashes
 Redwood Treefolk
 Reef Pirates
 Reef Roads
+Reflect Damage
 Reflecting Mirror
 Reflex Sliver
 Reflexes
@@ -6520,6 +6546,8 @@ Regenerate
 Regeneration
 Regress
 Regrowth
+Reign of Chaos
+Reign of Terror
 Reincarnation
 Reinforced Bulwark
 Reinforcements
@@ -6552,6 +6580,7 @@ Renegade Troops
 Renegade's Getaway
 Renewal
 Renowned Weaver
+Reparations
 Repel Calamity
 Repentant Blacksmith
 Reprisal
@@ -6683,6 +6712,7 @@ Rith's Grove
 Ritual of Rejuvenation
 Ritual of Restoration
 Ritual of Soot
+Ritual of Steel
 Ritual of Subdual
 Ritual of the Machine
 Riven Turnbull
@@ -6744,6 +6774,7 @@ Rootbound Crag
 Rootbreaker Wurm
 Rootrider Faun
 Roots
+Roots of Life
 Rootwalla
 Rootwater Alligator
 Rootwater Commando
@@ -6844,6 +6875,7 @@ Ryusei, the Falling Star
 S.H.I.E.L.D. Deployment Drone
 Sab-Sunen, Luxa Embodied
 Saberclaw Golem
+Sabertooth Cobra
 Sabertooth Nishoba
 Sabertooth Wyvern
 Sabotender
@@ -6906,8 +6938,10 @@ Sanctum Seeker
 Sanctum Weaver
 Sanctum of Eternity
 Sanctum of Ugin
+Sand Golem
 Sand Silos
 Sandals of Abdallah
+Sandbar Crocodile
 Sandbar Merfolk
 Sandbar Serpent
 Sandblast
@@ -6926,6 +6960,7 @@ Sanguine Guard
 Sanguine Syphoner
 Sanitation Automaton
 Sanity Gnawers
+Sapphire Charm
 Saprazzan Cove
 Saprazzan Skerry
 Sapseep Forest
@@ -6957,6 +6992,7 @@ Savannah Lions
 Savannah Sage
 Savior of the Sleeping
 Savor
+Sawback Manticore
 Sawblade Scamp
 Sazh's Chocobo
 Scabland
@@ -7079,11 +7115,13 @@ Seal of Fire
 Seal of Primordium
 Seal of Removal
 Seal of Strength
+Sealed Fate
 Sear
 Search for Azcanta // Azcanta, the Sunken Ruin
 Searchlight Geist
 Searing Light
 Searing Spear
+Searing Spear Askari
 Searing Wind
 Seashell Cameo
 Seaside Citadel
@@ -7109,7 +7147,9 @@ Security Detail
 Sedge Scorpion
 Sedge Troll
 Sedraxis Alchemist
+Seedling Charm
 Seedpod Squire
+Seeds of Innocence
 Seeds of Strength
 Seeker
 Seeker of Skybreak
@@ -7225,11 +7265,13 @@ Sewers of Estark
 Sewn-Eye Drake
 Shadewing Laureate
 Shadow Glider
+Shadow Guildmage
 Shadow Lance
 Shadow Rift
 Shadow Sliver
 Shadow Stinger
 Shadow-Rite Priest
+Shadowbane
 Shadowblood Egg
 Shadowblood Ridge
 Shadowcloak Vampire
@@ -7238,6 +7280,7 @@ Shadowspear
 Shadowy Backstreet
 Shake the Foundations
 Shaleskin Bruiser
+Shallow Grave
 Shaman of Spring
 Shaman of the Pack
 Shambling Ghoul
@@ -7263,6 +7306,7 @@ Shatterskull Recruit
 Shatterskull Smashing // Shatterskull, the Hammer Pass
 Shatterstorm
 Shauku's Minion
+Shauku, Endbringer
 She-Hulk, Jennifer Walters
 Shefet Dunes
 Shelkin Brownie
@@ -7290,6 +7334,7 @@ Shifting Sliver
 Shifting Wall
 Shifting Woodland
 Shimian Night Stalker
+Shimmer
 Shimmerdrift Vale
 Shimmering Barrier
 Shimmering Grotto
@@ -7356,6 +7401,7 @@ Sibsig Host
 Sibsig Icebreakers
 Sickbay Orderly
 Sicken
+Sidar Jabari
 Sidequest: Catch a Fish // Cooking Campsite
 Siege Mastodon
 Siege Modification
@@ -7435,6 +7481,7 @@ Sir Shandlar of Eberyn
 Sire of Insanity
 Sire of the Storm
 Siren's Call
+Sirocco
 Sisay's Ring
 Sisters of the Flame
 Sivitri Scarzam
@@ -7469,6 +7516,7 @@ Skittering Invasion
 Skittering Monstrosity
 Skittering Skirge
 Skorpekh Destroyer
+Skulking Ghost
 Skull Catapult
 Skull Collector
 Skull Prophet
@@ -7606,6 +7654,7 @@ Snowblind
 Snowfall
 Snowfield Sinkhole
 So Shiny
+Soar
 Soaring Drake
 Soaring Seacliff
 Soaring Show-Off
@@ -7667,6 +7716,7 @@ Soul Barrier
 Soul Bleed
 Soul Burn
 Soul Channeling
+Soul Echo
 Soul Exchange
 Soul Feast
 Soul Kiss
@@ -9654,28 +9704,3 @@ Zur's Weirding
 Zuran Enchanter
 Zuran Orb
 Zuran Spellcaster
-Nocturnal Raid
-Null Chamber
-Pacifism
-Painful Memories
-Paupers' Cage
-Phyrexian Dreadnought
-Phyrexian Purge
-Phyrexian Tribute
-Political Trickery
-Polymorph
-Preferred Selection
-Prismatic Boon
-Prismatic Circle
-Prismatic Lace
-Psychic Transfer
-Purgatory
-Purraj of Urborg
-Pyric Salamander
-Radiant Essence
-Raging Spirit
-Rashida Scalebane
-Ravenous Vampire
-Razor Pendulum
-Reality Ripple
-Reckless Embermage

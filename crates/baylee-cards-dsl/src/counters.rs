@@ -195,6 +195,9 @@ pub const GROWTH: CounterKind = CounterKind::Custom(49);
 /// Fungus counters (Mindbender Spores).
 pub const FUNGUS: CounterKind = CounterKind::Custom(50);
 
+/// Echo counters (Soul Echo).
+pub const ECHO: CounterKind = CounterKind::Custom(51);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -251,11 +254,12 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("vortex", VORTEX),
     ("growth", GROWTH),
     ("fungus", FUNGUS),
+    ("echo", ECHO),
 ];
 
 #[cfg(test)]
 mod tests {
-    use super::{CounterKind, ASSIGNED};
+    use super::{ASSIGNED, CounterKind};
 
     /// Two words sharing an id would be one counter wearing two names: a
     /// permanent carrying both would count each as the other, and nothing

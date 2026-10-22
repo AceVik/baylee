@@ -679,3 +679,4 @@ no-engine-change contract:
   - Batch 4 (`Forsaken Wastes` to `Jungle Wurm`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 5 (`Kaervek's Purge` to `Natural Balance`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 6 (`Nocturnal Raid` to `Reckless Embermage`, 25 cards): **14 Implemented, 11 Partial**.
+  - Batch 7 (`Reflect Damage` to `Soul Echo`, 25 cards): **10 Implemented, 15 Partial**.

@@ -5745,13 +5745,28 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Reckless Embermage
     &["{1}{R}: This creature deals 1 damage to any target and 1 damage to itself."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Reflect Damage
+    &[
+        "The next time a source of your choice would deal damage this turn, that damage is dealt to that source's controller instead.",
+    ],
+    // Reign of Chaos
+    &[
+        "Choose one —\n• Destroy target Plains and target white creature.\n• Destroy target Island and target blue creature.",
+    ],
+    // Reign of Terror
+    &[
+        "Destroy all green creatures or all white creatures. They can't be regenerated. You lose 2 life for each creature that died this way.",
+    ],
+    // Reparations
+    &[
+        "Whenever an opponent casts a spell that targets you or a creature you control, you may draw a card.",
+    ],
     // Restless Dead
     &["{B}: Regenerate this creature."],
-    &[],
+    // Ritual of Steel
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nEnchanted creature gets +0/+2.",
+    ],
     // Rock Basilisk
     &[
         "Whenever this creature blocks or becomes blocked by a non-Wall creature, destroy that creature at end of combat.",
@@ -5760,48 +5775,106 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
+    // Roots of Life
+    &[
+        "As this enchantment enters, choose Island or Swamp.\nWhenever a land of the chosen type an opponent controls becomes tapped, you gain 1 life.",
+    ],
+    // Sabertooth Cobra
+    &[
+        "Whenever this creature deals damage to a player, that player gets a poison counter. The player gets another poison counter at the beginning of their next upkeep unless they pay {2} before that step. (A player with ten or more poison counters loses the game.)",
+    ],
     // Sacred Mesa
     &[
         "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a Pegasus.\n{1}{W}: Create a 1/1 white Pegasus creature token with flying.",
     ],
-    &[],
-    &[],
-    &[],
+    // Sand Golem
+    &[
+        "When a spell or ability an opponent controls causes you to discard this card, return this card from your graveyard to the battlefield with a +1/+1 counter on it at the beginning of the next end step.",
+    ],
+    // Sandbar Crocodile
+    &[
+        "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Sapphire Charm
+    &[
+        "Choose one —\n• Target player draws a card at the beginning of the next turn's upkeep.\n• Target creature gains flying until end of turn.\n• Target creature an opponent controls phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    ],
     // Savage Twister
     &["Savage Twister deals X damage to each creature."],
-    &[],
+    // Sawback Manticore
+    &[
+        "{4}: This creature gains flying until end of turn.\n{1}: This creature deals 2 damage to target attacking or blocking creature. Activate only if this creature is attacking or blocking and only once each turn.",
+    ],
     // Sea Scryer
     &["{T}: Add {C}.\n{1}, {T}: Add {U}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sealed Fate
+    &[
+        "Look at the top X cards of target opponent's library. Exile one of those cards and put the rest back on top of that player's library in any order.",
+    ],
+    // Searing Spear Askari
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{R}: This creature gains menace until end of turn. (It can't be blocked except by two or more creatures.)",
+    ],
+    // Seedling Charm
+    &[
+        "Choose one —\n• Return target Aura attached to a creature to its owner's hand.\n• Regenerate target green creature.\n• Target creature gains trample until end of turn.",
+    ],
+    // Seeds of Innocence
+    &[
+        "Destroy all artifacts. They can't be regenerated. The controller of each of those artifacts gains life equal to its mana value.",
+    ],
     // Serene Heart
     &["Destroy all Auras."],
     // Sewer Rats
     &[
         "{B}, Pay 1 life: This creature gets +1/+0 until end of turn. Activate no more than three times each turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Shadow Guildmage
+    &[
+        "{U}, {T}: Put target creature you control on top of its owner's library.\n{R}, {T}: This creature deals 1 damage to any target and 1 damage to you.",
+    ],
+    // Shadowbane
+    &[
+        "The next time a source of your choice would deal damage to you and/or creatures you control this turn, prevent that damage. If damage from a black source is prevented this way, you gain that much life.",
+    ],
+    // Shallow Grave
+    &[
+        "Return the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+    ],
     // Shaper Guildmage
     &[
         "{W}, {T}: Target creature gains first strike until end of turn.\n{B}, {T}: Target creature gets +1/+0 until end of turn.",
     ],
     // Shauku's Minion
     &["{B}{R}, {T}: This creature deals 2 damage to target white creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Shauku, Endbringer
+    &[
+        "Flying\nShauku can't attack if there's another creature on the battlefield.\nAt the beginning of your upkeep, you lose 3 life.\n{T}: Exile target creature and put a +1/+1 counter on Shauku.",
+    ],
+    // Shimmer
+    &[
+        "As this enchantment enters, choose a land type.\nEach land of the chosen type has phasing. (It phases in or out before its controller untaps during each of their untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Sidar Jabari
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nWhenever Sidar Jabari attacks, tap target creature defending player controls.",
+    ],
+    // Sirocco
+    &[
+        "Target player reveals their hand. For each blue instant card revealed this way, that player discards that card unless they pay 4 life.",
+    ],
+    // Skulking Ghost
+    &["Flying\nWhen this creature becomes the target of a spell or ability, sacrifice it."],
     // Sky Diamond
     &["This artifact enters tapped.\n{T}: Add {U}."],
-    &[],
-    &[],
+    // Soar
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nEnchanted creature gets +0/+1 and has flying.",
+    ],
+    // Soul Echo
+    &[
+        "This enchantment enters with X echo counters on it.\nYou don't lose the game for having 0 or less life.\nAt the beginning of your upkeep, sacrifice this enchantment if there are no echo counters on it. Otherwise, target opponent may choose that for each 1 damage that would be dealt to you until your next upkeep, you remove an echo counter from this enchantment instead.",
+    ],
     &[],
     &[],
     &[],
