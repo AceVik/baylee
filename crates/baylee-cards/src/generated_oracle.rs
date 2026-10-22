@@ -6945,26 +6945,70 @@ pub static ORACLE: &[&[&str]] = &[
         "When this creature enters, search your library for a Forest card, put that card onto the battlefield, then shuffle.",
     ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Abduction
+    &[
+        "Enchant creature\nWhen this Aura enters, untap enchanted creature.\nYou control enchanted creature.\nWhen enchanted creature dies, return that card to the battlefield under its owner's control.",
+    ],
+    // Abeyance
+    &[
+        "Until end of turn, target player can't cast instant or sorcery spells, and that player can't activate abilities that aren't mana abilities.\nDraw a card.",
+    ],
+    // Abjure
+    &[
+        "As an additional cost to cast this spell, sacrifice a blue permanent.\nCounter target spell.",
+    ],
+    // Aboroth
+    &[
+        "Cumulative upkeep—Put a -1/-1 counter on this creature. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Abyssal Gatekeeper
+    &["When this creature dies, each player sacrifices a creature of their choice."],
+    // Aether Flash
+    &["Whenever a creature enters, this enchantment deals 2 damage to it."],
+    // Agonizing Memories
+    &[
+        "Look at target player's hand and choose two cards from it. Put them on top of that player's library in any order.",
+    ],
+    // Alms
+    &[
+        "{1}, Exile the top card of your graveyard: Prevent the next 1 damage that would be dealt to target creature this turn.",
+    ],
+    // Ancestral Knowledge
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this enchantment enters, look at the top ten cards of your library, then exile any number of them and put the rest back on top of your library in any order.\nWhen this enchantment leaves the battlefield, shuffle your library.",
+    ],
+    // Angelic Renewal
+    &[
+        "Whenever a creature is put into your graveyard from the battlefield, you may sacrifice this enchantment. If you do, return that card to the battlefield.",
+    ],
+    // Apathy
+    &[
+        "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of the upkeep of enchanted creature's controller, that player may discard a card at random. If the player does, untap that creature.",
+    ],
+    // Arctic Wolves
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen this creature enters, draw a card.",
+    ],
     // Argivian Find
     &["Return target artifact or enchantment card from your graveyard to your hand."],
     // Argivian Restoration
     &["Return target artifact card from your graveyard to the battlefield."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aura of Silence
+    &[
+        "Artifact and enchantment spells your opponents cast cost {2} more to cast.\nSacrifice this enchantment: Destroy target artifact or enchantment.",
+    ],
+    // Avizoa
+    &[
+        "Flying\n{0}: This creature gets +2/+2 until end of turn. You skip your next untap step. Activate only once each turn.",
+    ],
+    // Barishi
+    &[
+        "When this creature dies, exile it, then shuffle all creature cards from your graveyard into your library.",
+    ],
+    // Barrow Ghoul
+    &[
+        "At the beginning of your upkeep, sacrifice this creature unless you exile the top creature card of your graveyard.",
+    ],
     // Benalish Infantry
     &[
         "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
@@ -6973,23 +7017,44 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\nFirst strike (This creature deals combat damage before creatures without first strike.)",
     ],
-    &[],
-    &[],
+    // Benalish Missionary
+    &[
+        "{1}{W}, {T}: Prevent all combat damage that would be dealt by target blocked creature this turn.",
+    ],
+    // Betrothed of Fire
+    &[
+        "Enchant creature\nSacrifice an untapped creature: Enchanted creature gets +2/+0 until end of turn.\nSacrifice enchanted creature: Creatures you control get +2/+0 until end of turn.",
+    ],
     // Bloodrock Cyclops
     &["This creature attacks each combat if able."],
-    &[],
+    // Blossoming Wreath
+    &["You gain life equal to the number of creature cards in your graveyard."],
     // Bogardan Firefiend
     &["When this creature dies, it deals 2 damage to target creature."],
-    &[],
-    &[],
+    // Boiling Blood
+    &["Target creature attacks this turn if able.\nDraw a card."],
+    // Bone Dancer
+    &[
+        "Whenever this creature attacks and isn't blocked, you may put the top creature card of defending player's graveyard onto the battlefield under your control. If you do, this creature assigns no combat damage this turn.",
+    ],
     // Briar Shield
     &[
         "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice this Aura: Enchanted creature gets +3/+3 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bubble Matrix
+    &["Prevent all damage that would be dealt to creatures."],
+    // Buried Alive
+    &[
+        "Search your library for up to three creature cards, put them into your graveyard, then shuffle.",
+    ],
+    // Bösium Strip
+    &[
+        "{3}, {T}: Until end of turn, you may cast instant and sorcery spells from the top of your graveyard. If a spell cast this way would be put into a graveyard, exile it instead.",
+    ],
+    // Call of the Wild
+    &[
+        "{2}{G}{G}: Reveal the top card of your library. If it's a creature card, put it onto the battlefield. Otherwise, put it into your graveyard.",
+    ],
     &[],
     &[],
     &[],
