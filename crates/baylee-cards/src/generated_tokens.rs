@@ -2479,6 +2479,17 @@ pub static DOG_1_1_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 3/1 red Carnivore.
+pub static CARNIVORE_3_1_RED: TokenDef = TokenDef {
+    name: "Carnivore",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(3),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2725,6 +2736,7 @@ pub static ALL: &[&TokenDef] = &[
     &WALL_5_5_BLUE_DEFENDER,
     &BUTTERFLY_1_1_GREEN_FLYING,
     &DOG_1_1_GREEN,
+    &CARNIVORE_3_1_RED,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2939,4 +2951,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &WALL_5_5_BLUE_DEFENDER,
     &BUTTERFLY_1_1_GREEN_FLYING,
     &DOG_1_1_GREEN,
+    &CARNIVORE_3_1_RED,
 ];

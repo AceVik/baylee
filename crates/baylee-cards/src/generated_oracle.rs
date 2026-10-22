@@ -8134,26 +8134,40 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever this creature becomes the target of a spell or ability, put a -1/-1 counter on it.",
     ],
-    &[],
-    &[],
-    &[],
+    // Selenia, Dark Angel
+    &["Flying\nPay 2 life: Return Selenia to its owner's hand."],
+    // Serene Offering
+    &["Destroy target enchantment. You gain life equal to its mana value."],
+    // Servant of Volrath
+    &["When this creature leaves the battlefield, sacrifice a creature."],
     // Shadow Rift
     &[
         "Target creature gains shadow until end of turn. (It can block or be blocked by only creatures with shadow.)\nDraw a card.",
     ],
-    &[],
-    &[],
-    &[],
+    // Shadowstorm
+    &["Shadowstorm deals 2 damage to each creature with shadow."],
+    // Shimmering Wings
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature has flying. (It can't be blocked except by creatures with flying or reach.)\n{U}: Return this Aura to its owner's hand.",
+    ],
+    // Shocker
+    &[
+        "Whenever this creature deals damage to a player, that player discards all the cards in their hand, then draws that many cards.",
+    ],
     // Sky Spirit
     &["Flying, first strike"],
-    &[],
+    // Skyshroud Condor
+    &["Cast this spell only if you've cast another spell this turn.\nFlying"],
     // Skyshroud Elf
     &["{T}: Add {G}.\n{1}: Add {R} or {W}."],
     // Skyshroud Forest
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {G} or {U}. This land deals 1 damage to you.",
     ],
-    &[],
+    // Skyshroud Ranger
+    &[
+        "{T}: You may put a land card from your hand onto the battlefield. Activate only as a sorcery.",
+    ],
     // Skyshroud Troll
     &["{1}{G}: Regenerate this creature."],
     // Skyshroud Vampire
@@ -8168,7 +8182,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Soltari Foot Soldier
     &["Shadow (This creature can block or be blocked by only creatures with shadow.)"],
-    &[],
+    // Soltari Guerrillas
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{0}: The next time this creature would deal combat damage to an opponent this turn, it deals that damage to target creature instead.",
+    ],
     // Soltari Lancer
     &[
         "Shadow (This creature can block or be blocked by only creatures with shadow.)\nThis creature has first strike as long as it's attacking.",
@@ -8191,19 +8208,28 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature enters with a +1/+1 counter on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.",
     ],
-    &[],
+    // Spinal Graft
+    &[
+        "Enchant creature\nEnchanted creature gets +3/+3.\nWhen enchanted creature becomes the target of a spell or ability, destroy that creature. It can't be regenerated.",
+    ],
     // Spirit Mirror
     &[
         "At the beginning of your upkeep, if there are no Reflection tokens on the battlefield, create a 2/2 white Reflection creature token.\n{0}: Destroy target Reflection.",
     ],
-    &[],
+    // Spontaneous Combustion
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nSpontaneous Combustion deals 3 damage to each creature.",
+    ],
     // Squee's Toy
     &["{T}: Prevent the next 1 damage that would be dealt to target creature this turn."],
     // Stalking Stones
     &[
         "{T}: Add {C}.\n{6}: This land becomes a 3/3 Elemental artifact creature that's still a land. (This effect lasts indefinitely.)",
     ],
-    &[],
+    // Starke of Rath
+    &[
+        "{T}: Destroy target artifact or creature. That permanent's controller gains control of Starke. (This effect lasts indefinitely.)",
+    ],
     // Static Orb
     &[
         "As long as this artifact is untapped, players can't untap more than two permanents during their untap steps.",
@@ -8212,35 +8238,68 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, you gain 4 life."],
     // Steal Enchantment
     &["Enchant enchantment\nYou control enchanted enchantment."],
-    &[],
+    // Stinging Licid
+    &[
+        "{1}{U}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {U} to end this effect.\nWhenever enchanted creature becomes tapped, this creature deals 2 damage to that creature's controller.",
+    ],
     // Storm Front
     &["{G}{G}: Tap target creature with flying."],
-    &[],
-    &[],
-    &[],
+    // Stun
+    &["Target creature can't block this turn.\nDraw a card."],
+    // Sudden Impact
+    &[
+        "Sudden Impact deals damage to target player equal to the number of cards in that player's hand.",
+    ],
+    // Tahngarth's Rage
+    &[
+        "Enchant creature\nEnchanted creature gets +3/+0 as long as it's attacking. Otherwise, it gets -2/-1.",
+    ],
     // Talon Sliver
     &["All Sliver creatures have first strike."],
     // Telethopter
     &["Tap an untapped creature you control: This creature gains flying until end of turn."],
-    &[],
+    // Thalakos Dreamsower
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nYou may choose not to untap this creature during your untap step.\nWhenever this creature deals damage to an opponent, tap target creature. That creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
     // Thalakos Lowlands
     &["{T}: Add {C}.\n{T}: Add {W} or {U}. This land doesn't untap during your next untap step."],
-    &[],
-    &[],
+    // Thalakos Mistfolk
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{U}: Put this creature on top of its owner's library.",
+    ],
+    // Thalakos Seer
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhen this creature leaves the battlefield, draw a card.",
+    ],
     // Thalakos Sentry
     &["Shadow (This creature can block or be blocked by only creatures with shadow.)"],
-    &[],
+    // Thumbscrews
+    &[
+        "At the beginning of your upkeep, if you have five or more cards in hand, this artifact deals 1 damage to target opponent or planeswalker.",
+    ],
     // Time Warp
     &["Target player takes an extra turn after this one."],
-    &[],
-    &[],
-    &[],
+    // Tooth and Claw
+    &["Sacrifice two creatures: Create a 3/1 red Beast creature token named Carnivore."],
+    // Torture Chamber
+    &[
+        "At the beginning of your upkeep, put a pain counter on this artifact.\nAt the beginning of your end step, this artifact deals damage to you equal to the number of pain counters on it.\n{1}, {T}, Remove all pain counters from this artifact: It deals damage to target creature equal to the number of pain counters removed this way.",
+    ],
+    // Tradewind Rider
+    &[
+        "Flying\n{T}, Tap two untapped creatures you control: Return target permanent to its owner's hand.",
+    ],
     // Trained Armodon
     &[""],
-    &[],
+    // Trumpeting Armodon
+    &["{1}{G}: Target creature blocks this creature this turn if able."],
     // Twitch
     &["You may tap or untap target artifact, creature, or land.\nDraw a card."],
-    &[],
+    // Unstable Shapeshifter
+    &[
+        "Whenever another creature enters, this creature becomes a copy of that creature, except it has this ability.",
+    ],
     // Vec Townships
     &["{T}: Add {C}.\n{T}: Add {G} or {W}. This land doesn't untap during your next untap step."],
     // Verdant Force
