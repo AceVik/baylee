@@ -67,6 +67,8 @@ mod the_everflowing_well;
 mod tigereye_cameo;
 mod tooth_of_ramos;
 mod troll_horn_cameo;
+mod unerring_sling;
+mod ventifact_bottle;
 mod war_chariot;
 mod war_horn;
 mod whetstone;

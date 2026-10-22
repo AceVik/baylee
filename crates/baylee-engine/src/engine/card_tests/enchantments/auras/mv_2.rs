@@ -46,6 +46,7 @@ mod sinister_strength;
 mod snow_devil;
 mod soar;
 mod spectral_cloak;
+mod teferi_s_curse;
 mod torment;
 mod twisted_experiment;
 mod viscerid_armor;

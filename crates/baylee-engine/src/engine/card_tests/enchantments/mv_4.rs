@@ -186,6 +186,7 @@ mod storm_the_vault;
 mod strands_of_night;
 mod the_abyss;
 mod thought_lash;
+mod tombstone_stairwell;
 mod total_war;
 mod treasure_trove;
 mod vance_s_blasting_cannons;

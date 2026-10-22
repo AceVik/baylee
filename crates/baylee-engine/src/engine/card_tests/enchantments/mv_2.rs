@@ -62,6 +62,7 @@ mod serra_s_blessing;
 mod shivan_harvest;
 mod smoke;
 mod soul_echo;
+mod spatial_binding;
 mod stasis;
 mod steely_resolve;
 mod sterling_grove;

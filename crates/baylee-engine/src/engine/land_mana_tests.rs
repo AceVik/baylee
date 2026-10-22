@@ -1621,7 +1621,7 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     unparsed: 57..=57,
     fully_read: 373,
     costly_lines: 141..=141,
-    triggered_lines: 21..=21,
+    triggered_lines: 22..=22,
     granted_lines: 41..=41,
     self_granted: 7..=7,
     busy: 1,
@@ -1658,7 +1658,7 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 376,
+        expected, 377,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -1677,7 +1677,7 @@ fn check_other_permanent_population(tally: &Tally) {
         (474, 214, 212, 1)
     );
     assert_eq!((tally.creatures, tally.creature_promises), (235, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (21, 57));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (22, 57));
     assert_eq!(
         (
             tally.conditional,

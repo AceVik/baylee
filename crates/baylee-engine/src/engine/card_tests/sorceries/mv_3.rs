@@ -67,6 +67,7 @@ mod tranquility;
 mod typhoon;
 mod untamed_wilds;
 mod volcanic_eruption;
+mod waiting_in_the_weeds;
 mod wheel_of_fortune;
 mod winter_s_grasp;
 mod yawgmoth_s_will;

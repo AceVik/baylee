@@ -146,6 +146,7 @@ mod toxic_iguanar;
 mod trade_caravan;
 mod tree_monkey;
 mod tundra_wolves;
+mod vigilant_martyr;
 mod viridian_acolyte;
 mod wall_of_wood;
 mod water_wurm;

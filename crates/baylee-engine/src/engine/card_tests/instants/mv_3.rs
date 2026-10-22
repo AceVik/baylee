@@ -74,6 +74,7 @@ mod stampede;
 mod stench_of_decay;
 mod sultai_charm;
 mod teferi_s_protection;
+mod tidal_wave;
 mod touch_of_vitae;
 mod truce;
 mod valakut_awakening;

@@ -1000,7 +1000,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mirage (`mir`) Batch 7 adds 6 non-mana activated abilities across
     // Sawback Manticore (2), Searing Spear Askari, Shadow Guildmage (2), and
     // Shauku, Endbringer, of which 5 are read by the evaluator.
-    assert_eq!((read, of), (2681, 3340), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 8 adds 10 non-mana activated abilities across
+    // Spatial Binding, Suq'Ata Firewalker, Tainted Specter, Telim'Tor's Darts,
+    // Unerring Sling, Urborg Panther (2), Ventifact Bottle, and Vigilant Martyr
+    // (2), of which 8 are read by the evaluator.
+    assert_eq!((read, of), (2689, 3350), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

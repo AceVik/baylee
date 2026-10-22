@@ -72,3 +72,4 @@ mod cursed_totem;
 mod mystic_compass;
 mod scarab_of_the_unseen;
 mod soldevi_digger;
+mod telim_tor_s_darts;
