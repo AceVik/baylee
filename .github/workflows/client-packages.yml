@@ -23,7 +23,13 @@ env:
 jobs:
   package:
     name: package (${{ matrix.target }})
-    runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || matrix.os }}
+    # A promotion runs on Linux. The two macOS rows build on the owner's Mac,
+    # each in a throwaway Tart VM, while the repository variable
+    # `MACOS_RUNNER` is `self-hosted`, and only for a push to main or a
+    # dispatch (which only someone with write access can start): a pull
+    # request, `ci:full` included, never reaches that machine. Unset, they
+    # run on GitHub's image as before (docs/releasing.md §"The macOS runner").
+    runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
     # two shipped binaries); a promotion takes minutes under the same bound.
     timeout-minutes: ${{ matrix.timeout }}
@@ -48,6 +54,7 @@ jobs:
           # minutes and the x86_64 cross build ran past them.
           - os: macos-latest
             target: aarch64-apple-darwin
+            mac: true
             timeout: 150
           # Intel Macs: cross-compiled on the arm runner (the macOS SDK
           # carries both slices; `rustup target add` is all it takes), and
@@ -57,6 +64,7 @@ jobs:
           # the arm runner is the faster machine of the two.
           - os: macos-latest
             target: x86_64-apple-darwin
+            mac: true
             timeout: 150
     env:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
@@ -107,8 +115,10 @@ jobs:
           targets: ${{ matrix.target }}
       - if: inputs.source-run == ''
         uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+        # The VM is not GitHub's image (another macOS, another SDK), so it
+        # keeps a cache of its own; GitHub's rows keep their keys.
         with:
-          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}
+          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}${{ runner.environment == 'self-hosted' && '-vm' || '' }}
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       # The three binaries the package ships, the client, its launcher and the

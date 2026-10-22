@@ -185,13 +185,74 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
-The `x86_64-apple-darwin` package row (added 12.10.2026) has no measurement
-yet; it is the arm row's work cross-compiled, so it starts with the arm row's
-105-minute timeout.
+The `x86_64-apple-darwin` package row (added 12.10.2026) is the arm row's
+work cross-compiled on the same runner: 42–82 minutes over ten main pushes
+(20.–21.10.2026), against 32–88 for the arm row. Both have 150 minutes, enough
+for a cold cache (§"The macOS runner").
 
 Three jobs (bench, msrv, features) hung on 07.10.2026 for 228, 361 and 360
 minutes, all in `apt-get update` against a mirror that stopped answering; apt
 is now bounded in `.github/actions/linux-deps` and every job has a timeout.
+
+### The macOS runner
+
+The two macOS package rows can build on the owner's MacBook (M1 Max, ten
+cores, 64 GB) instead of GitHub's three-core macOS image. While the
+repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
+dispatch, which only someone with write access can start) sends them to the
+label `baylee-vm`. Every other run, a `ci:full` pull request included, and
+every other macOS job (`macos-intel`, the nightly `build` row) stays on
+GitHub; with the variable unset, nothing differs from before.
+
+Measured over ten main pushes (20.–21.10.2026, minutes), GitHub's rows took
+32–88 (aarch64) and 42–82 (x86_64), 27–54 of it the `dist` build with
+dependencies restored from the cache. On the MacBook the same build took 19
+cold and 16 with every workspace crate rebuilt (22.10.2026, with about two and
+a half cores busy elsewhere; 9.6 GB at its peak). The rest of a main push then
+ends with `test-release` (37–44).
+
+Each job runs in a throwaway Tart VM (`scripts/macos-runner/runner.sh`):
+
+- **Who can reach it.** A personal repository has no runner groups, so
+  nothing on GitHub's side ties the runner to main's workflow: a fork's pull
+  request brings its own YAML and could name the label. What keeps it off is
+  the repository's fork policy, **approval required for all external
+  contributors** (set 22.10.2026). Approve a fork's run only after reading it,
+  and never one that changes `.github/` unread.
+- **No secrets.** The package jobs hold only the read-only `github.token`, and
+  release signing stays on GitHub's Ubuntu runner, so no key touches the Mac.
+  The runner registers with a fine-grained token of its own (this repository;
+  Administration read and write, Actions read) from the owner's login keychain
+  (service `baylee-macos-runner`); the just-in-time registration it buys
+  reaches the VM on stdin and is good for one job.
+- **Nothing stays.** Every job gets a fresh clone of the image `baylee-runner`,
+  deleted afterwards. Softnet (`--net-softnet`) lets the VM reach the internet
+  and not the home network.
+- **The cargo lock.** The runner holds `with-cargo-lock.sh` for each job, so a
+  CI build and a `cargo dev land` never share the CPU (under load the e2e
+  timing tests fail). A land waits for at most one job; a job waits queued,
+  which does not count against its timeout.
+- **Release trust.** The macOS archives a release promotes were built on that
+  Mac. `release verify-run` checks that they come from a main push run, not
+  where the run built them.
+
+When the Mac is away, `gh variable delete MACOS_RUNNER`. A job already queued
+for `baylee-vm` keeps waiting (up to 24 hours, and a push run is never
+cancelled), so cancel the run and re-run it: a re-run reads the variable anew.
+Back with `gh variable set MACOS_RUNNER --body self-hosted`.
+
+Setting it up, once: `brew trust --formula openai/tools/softnet && brew install
+openai/tools/tart`; Softnet's SUID bit (`sudo chown root:wheel` and `chmod
+u+s` on the binary); the token in the keychain (`security
+add-generic-password -s baylee-macos-runner -a AceVik -w`, which prompts for
+it); then `scripts/macos-runner/runner.sh prepare`, which clones
+`ghcr.io/cirruslabs/macos-tahoe-base` (about 25 GB) into `baylee-runner` and
+adds rustup and the pinned actions runner, and `runner.sh install`, which
+copies the script to `~/baylee-ci` and loads the LaunchAgent
+`org.baylee.macos-runner` (log: `~/Library/Logs/baylee-macos-runner.log`).
+When the pinned actions runner is a month old, `tart delete baylee-runner`,
+raise the pin and `prepare` again: an older runner downloads its update at the
+start of every job.
 
 ## Installers
 
