@@ -68,6 +68,7 @@ mod thaumatic_compass;
 mod thopter_foundry;
 mod thought_vessel;
 mod time_sieve;
+mod touchstone;
 mod tower_of_coireall;
 mod treasure_map;
 mod wand_of_denial;

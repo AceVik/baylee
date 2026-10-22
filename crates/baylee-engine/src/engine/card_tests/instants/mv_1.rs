@@ -141,6 +141,7 @@ mod unsummon;
 mod vastwood_fortification;
 mod vertigo;
 mod vision_charm;
+mod vitalize;
 mod warning;
 mod winter_s_chill;
 mod wirewood_pride;

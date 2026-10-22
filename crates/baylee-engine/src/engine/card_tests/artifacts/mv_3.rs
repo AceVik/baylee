@@ -75,6 +75,7 @@ mod unerring_sling;
 mod ventifact_bottle;
 mod war_chariot;
 mod war_horn;
+mod well_of_knowledge;
 mod whetstone;
 mod worn_powerstone;
 mod worry_beads;

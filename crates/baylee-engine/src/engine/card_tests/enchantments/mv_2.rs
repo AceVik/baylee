@@ -82,6 +82,7 @@ mod the_meathook_massacre;
 mod thelon_s_curse;
 mod thoughtleech;
 mod trade_routes;
+mod tranquil_grove;
 mod underworld_breach;
 mod unlikely_alliance;
 mod warmth;
