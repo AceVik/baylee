@@ -6979,6 +6979,8 @@ pub mod goblin_balloon_brigade;
 pub mod goblin_berserker;
 #[path = "creatures/mv_2/goblin_bird_grabber.rs"]
 pub mod goblin_bird_grabber;
+#[path = "enchantments/mv_2/goblin_bomb.rs"]
+pub mod goblin_bomb;
 #[path = "enchantments/mv_2/goblin_bombardment.rs"]
 pub mod goblin_bombardment;
 #[path = "artifacts/mv_4/goblin_boom_keg.rs"]
@@ -7025,6 +7027,8 @@ pub mod goblin_gang_leader;
 pub mod goblin_gardener;
 #[path = "sorceries/mv_1/goblin_grenade.rs"]
 pub mod goblin_grenade;
+#[path = "creatures/mv_4/goblin_grenadiers.rs"]
+pub mod goblin_grenadiers;
 #[path = "creatures/mv_3/goblin_hero.rs"]
 pub mod goblin_hero;
 #[path = "creatures/mv_2/goblin_instigator.rs"]
@@ -7111,6 +7115,8 @@ pub mod goblin_trashmaster;
 pub mod goblin_trenches;
 #[path = "creatures/mv_2/goblin_tunneler.rs"]
 pub mod goblin_tunneler;
+#[path = "creatures/mv_1/goblin_vandal.rs"]
+pub mod goblin_vandal;
 #[path = "enchantments/mv_3/goblin_war_drums.rs"]
 pub mod goblin_war_drums;
 #[path = "enchantments/auras/mv_2/goblin_war_paint.rs"]
@@ -7707,6 +7713,8 @@ pub mod harrier_strix;
 pub mod harrowing_journey;
 #[path = "instants/mv_3/harsh_sustenance.rs"]
 pub mod harsh_sustenance;
+#[path = "creatures/mv_2/harvest_wurm.rs"]
+pub mod harvest_wurm;
 #[path = "creatures/mv_6/harvester_of_souls.rs"]
 pub mod harvester_of_souls;
 #[path = "creatures/mv_3/harvesttide_infiltrator.rs"]
@@ -7737,6 +7745,8 @@ pub mod haunted_ridge;
 pub mod haunter_of_nightveil;
 #[path = "creatures/mv_3/haunting_apparition.rs"]
 pub mod haunting_apparition;
+#[path = "sorceries/mv_3/haunting_misery.rs"]
+pub mod haunting_misery;
 #[path = "enchantments/mv_4/haunting_wind.rs"]
 pub mod haunting_wind;
 #[path = "lands/utility/haven_of_the_spirit_dragon.rs"]
@@ -7803,6 +7813,8 @@ pub mod healing_leaves;
 pub mod healing_salve;
 #[path = "lands/gates/heap_gate.rs"]
 pub mod heap_gate;
+#[path = "enchantments/mv_4/heart_of_bogardan.rs"]
+pub mod heart_of_bogardan;
 #[path = "artifacts/mv_3/heart_of_ramos.rs"]
 pub mod heart_of_ramos;
 #[path = "lands/utility/heart_of_yavimaya.rs"]
@@ -7823,6 +7835,8 @@ pub mod hearthfire_hobgoblin;
 pub mod heartwood_treefolk;
 #[path = "instants/mv_1/heat_ray.rs"]
 pub mod heat_ray;
+#[path = "enchantments/mv_3/heat_stroke.rs"]
+pub mod heat_stroke;
 #[path = "enchantments/mv_3/heat_wave.rs"]
 pub mod heat_wave;
 #[path = "instants/mv_1/heaven_s_gate.rs"]
@@ -8241,6 +8255,8 @@ pub mod hurkyl_s_recall;
 pub mod hurler_cyclops;
 #[path = "creatures/mv_3/hurloon_minotaur.rs"]
 pub mod hurloon_minotaur;
+#[path = "creatures/mv_3/hurloon_shaman.rs"]
+pub mod hurloon_shaman;
 #[path = "sorceries/mv_2/hurly_burly.rs"]
 pub mod hurly_burly;
 #[path = "creatures/mv_1/hurr_jackal.rs"]
@@ -8541,6 +8557,8 @@ pub mod inkrise_infiltrator;
 pub mod inkwell_leviathan;
 #[path = "instants/mv_3/inner_calm_outer_strength.rs"]
 pub mod inner_calm_outer_strength;
+#[path = "enchantments/mv_3/inner_sanctum.rs"]
+pub mod inner_sanctum;
 #[path = "enchantments/classes/mv_2/innkeeper_s_talent.rs"]
 pub mod innkeeper_s_talent;
 #[path = "instants/mv_2/inordinate_rage.rs"]
@@ -8749,6 +8767,8 @@ pub mod izzet_guildgate;
 pub mod izzet_locket;
 #[path = "artifacts/mv_2/izzet_signet.rs"]
 pub mod izzet_signet;
+#[path = "artifacts/mv_2/jabari_s_banner.rs"]
+pub mod jabari_s_banner;
 #[path = "instants/mv_5/jabari_s_influence.rs"]
 pub mod jabari_s_influence;
 #[path = "instants/mv_5/jace_s_ingenuity.rs"]
@@ -8787,6 +8807,8 @@ pub mod jalum_tome;
 pub mod jandor_s_ring;
 #[path = "artifacts/mv_2/jandor_s_saddlebags.rs"]
 pub mod jandor_s_saddlebags;
+#[path = "creatures/artifacts/mv_3/jangling_automaton.rs"]
+pub mod jangling_automaton;
 #[path = "creatures/mv_3/jarvis_earth_s_mightiest_butler.rs"]
 pub mod jarvis_earth_s_mightiest_butler;
 #[path = "creatures/mv_5/jasmine_boreal.rs"]
@@ -9213,6 +9235,8 @@ pub mod kitesail;
 pub mod kitesail_corsair;
 #[path = "creatures/mv_1/kitesail_scout.rs"]
 pub mod kitesail_scout;
+#[path = "enchantments/auras/mv_1/kithkin_armor.rs"]
+pub mod kithkin_armor;
 #[path = "creatures/mv_3/kithkin_billyrider.rs"]
 pub mod kithkin_billyrider;
 #[path = "creatures/mv_2/kithkin_daggerdare.rs"]
@@ -9553,6 +9577,8 @@ pub mod lava_flow;
 pub mod lava_hounds;
 #[path = "creatures/mv_6/lava_serpent.rs"]
 pub mod lava_serpent;
+#[path = "instants/mv_5/lava_storm.rs"]
+pub mod lava_storm;
 #[path = "lands/utility/lava_tubes.rs"]
 pub mod lava_tubes;
 #[path = "creatures/mv_3/lava_zombie.rs"]
@@ -9695,6 +9721,8 @@ pub mod lich;
 pub mod lich_s_caress;
 #[path = "creatures/mv_5/lichenthrope.rs"]
 pub mod lichenthrope;
+#[path = "creatures/mv_4/liege_of_the_hollows.rs"]
+pub mod liege_of_the_hollows;
 #[path = "creatures/mv_3/lieutenant_kirtar.rs"]
 pub mod lieutenant_kirtar;
 #[path = "artifacts/mv_4/life_chisel.rs"]
@@ -9843,6 +9871,8 @@ pub mod llanowar_behemoth;
 pub mod llanowar_cavalry;
 #[path = "creatures/mv_2/llanowar_dead.rs"]
 pub mod llanowar_dead;
+#[path = "creatures/mv_2/llanowar_druid.rs"]
+pub mod llanowar_druid;
 #[path = "creatures/mv_1/llanowar_elves.rs"]
 pub mod llanowar_elves;
 #[path = "creatures/mv_3/llanowar_envoy.rs"]
@@ -9853,6 +9883,8 @@ pub mod llanowar_knight;
 pub mod llanowar_mentor;
 #[path = "lands/tapland/llanowar_reborn.rs"]
 pub mod llanowar_reborn;
+#[path = "creatures/mv_3/llanowar_sentinel.rs"]
+pub mod llanowar_sentinel;
 #[path = "creatures/mv_1/llanowar_stalker.rs"]
 pub mod llanowar_stalker;
 #[path = "creatures/mv_3/llanowar_tribe.rs"]
@@ -10221,6 +10253,8 @@ pub mod mammoth_harness;
 pub mod mammoth_spider;
 #[path = "creatures/mv_3/man_o_war.rs"]
 pub mod man_o_war;
+#[path = "enchantments/auras/mv_1/mana_chains.rs"]
+pub mod mana_chains;
 #[path = "sorceries/mv_1/mana_clash.rs"]
 pub mod mana_clash;
 #[path = "lands/mana_confluence.rs"]
@@ -10251,6 +10285,8 @@ pub mod mana_tithe;
 pub mod mana_vault;
 #[path = "enchantments/mv_3/mana_vortex.rs"]
 pub mod mana_vortex;
+#[path = "artifacts/mv_3/mana_web.rs"]
+pub mod mana_web;
 #[path = "enchantments/mv_4/manabarbs.rs"]
 pub mod manabarbs;
 #[path = "creatures/mv_1/manaforge_cinder.rs"]
@@ -10427,6 +10463,8 @@ pub mod master_apothecary;
 pub mod master_decoy;
 #[path = "creatures/mv_5/master_healer.rs"]
 pub mod master_healer;
+#[path = "creatures/mv_3/master_of_arms.rs"]
+pub mod master_of_arms;
 #[path = "creatures/mv_1/master_of_dark_rites.rs"]
 pub mod master_of_dark_rites;
 #[path = "creatures/enchantments/mv_3/master_of_the_feast.rs"]
@@ -10885,6 +10923,8 @@ pub mod mistfolk;
 pub mod mistford_river_turtle;
 #[path = "creatures/mv_2/mistmeadow_skulk.rs"]
 pub mod mistmeadow_skulk;
+#[path = "creatures/mv_4/mistmoon_griffin.rs"]
+pub mod mistmoon_griffin;
 #[path = "creatures/mv_2/mistral_charger.rs"]
 pub mod mistral_charger;
 #[path = "creatures/mv_3/mistral_singer.rs"]
@@ -11059,6 +11099,8 @@ pub mod mordenkainen_s_polymorph;
 pub mod morgue_thrull;
 #[path = "creatures/mv_3/morgue_toad.rs"]
 pub mod morgue_toad;
+#[path = "creatures/mv_5/morinfen.rs"]
+pub mod morinfen;
 #[path = "creatures/mv_3/moriok_reaver.rs"]
 pub mod moriok_reaver;
 #[path = "creatures/artifacts/mv_3/moriok_replica.rs"]
@@ -11225,6 +11267,8 @@ pub mod mutant_town;
 pub mod mutant_town_musicians;
 #[path = "lands/manlands/mutavault.rs"]
 pub mod mutavault;
+#[path = "creatures/mv_1/mwonvuli_ooze.rs"]
+pub mod mwonvuli_ooze;
 #[path = "creatures/mv_4/mycoid_shepherd.rs"]
 pub mod mycoid_shepherd;
 #[path = "artifacts/mv_6/mycosynth_lattice.rs"]
@@ -11351,8 +11395,12 @@ pub mod nature_s_chant;
 pub mod nature_s_chosen;
 #[path = "instants/mv_1/nature_s_claim.rs"]
 pub mod nature_s_claim;
+#[path = "enchantments/auras/mv_2/nature_s_kiss.rs"]
+pub mod nature_s_kiss;
 #[path = "sorceries/mv_2/nature_s_lore.rs"]
 pub mod nature_s_lore;
+#[path = "sorceries/mv_4/nature_s_resurgence.rs"]
+pub mod nature_s_resurgence;
 #[path = "enchantments/mv_5/nature_s_revolt.rs"]
 pub mod nature_s_revolt;
 #[path = "sorceries/mv_3/nature_s_ruin.rs"]
@@ -11381,6 +11429,8 @@ pub mod nebula_dragon;
 pub mod neck_snap;
 #[path = "creatures/mv_1/necra_disciple.rs"]
 pub mod necra_disciple;
+#[path = "creatures/mv_3/necratog.rs"]
+pub mod necratog;
 #[path = "creatures/mv_3/necrite.rs"]
 pub mod necrite;
 #[path = "lands/tapland/necroblossom_snarl.rs"]

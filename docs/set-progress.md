@@ -691,3 +691,4 @@ no-engine-change contract:
 - **Weatherlight (`wth`)** — in progress:
   - Batch 1 (`Abduction` to `Call of the Wild`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 2 (`Chimeric Sphere` to `Gerrard's Wisdom`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 3 (`Goblin Bomb` to `Necratog`, 25 cards): **13 Implemented, 12 Partial**.

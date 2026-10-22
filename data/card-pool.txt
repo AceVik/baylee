@@ -9896,3 +9896,28 @@ Fungus Elemental
 Gaea's Blessing
 Gallowbraid
 Gerrard's Wisdom
+Goblin Bomb
+Goblin Grenadiers
+Goblin Vandal
+Harvest Wurm
+Haunting Misery
+Heart of Bogardan
+Heat Stroke
+Hurloon Shaman
+Inner Sanctum
+Jabari's Banner
+Jangling Automaton
+Kithkin Armor
+Lava Storm
+Liege of the Hollows
+Llanowar Druid
+Llanowar Sentinel
+Mana Chains
+Mana Web
+Master of Arms
+Mistmoon Griffin
+Morinfen
+Mwonvuli Ooze
+Nature's Kiss
+Nature's Resurgence
+Necratog

@@ -7165,40 +7165,86 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Gerrard's Wisdom
     &["You gain 2 life for each card in your hand."],
-    &[],
-    &[],
-    &[],
+    // Goblin Bomb
+    &[
+        "At the beginning of your upkeep, you may flip a coin. If you win the flip, put a fuse counter on this enchantment. If you lose the flip, remove a fuse counter from this enchantment.\nRemove five fuse counters from this enchantment and sacrifice it: It deals 20 damage to target player or planeswalker.",
+    ],
+    // Goblin Grenadiers
+    &[
+        "Whenever this creature attacks and isn't blocked, you may sacrifice it. If you do, destroy target creature and target land.",
+    ],
+    // Goblin Vandal
+    &[
+        "Whenever this creature attacks and isn't blocked, you may pay {R}. If you do, destroy target artifact defending player controls and this creature assigns no combat damage this turn.",
+    ],
     // Guided Strike
     &["Target creature gets +1/+0 and gains first strike until end of turn.\nDraw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Harvest Wurm
+    &[
+        "When this creature enters, sacrifice it unless you return a basic land card from your graveyard to your hand.",
+    ],
+    // Haunting Misery
+    &[
+        "As an additional cost to cast this spell, exile X creature cards from your graveyard.\nHaunting Misery deals X damage to target player or planeswalker.",
+    ],
+    // Heart of Bogardan
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen a player doesn't pay this enchantment's cumulative upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.",
+    ],
+    // Heat Stroke
+    &["At end of combat, destroy each creature that blocked or was blocked this turn."],
     // Heavy Ballista
     &["{T}: This creature deals 2 damage to target attacking or blocking creature."],
     // Hidden Horror
     &["When this creature enters, sacrifice it unless you discard a creature card."],
-    &[],
+    // Hurloon Shaman
+    &["When this creature dies, each player sacrifices a land of their choice."],
     // Infernal Tribute
     &["{2}, Sacrifice a nontoken permanent: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Inner Sanctum
+    &[
+        "Cumulative upkeep—Pay 2 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPrevent all damage that would be dealt to creatures you control.",
+    ],
+    // Jabari's Banner
+    &[
+        "{1}, {T}: Target creature gains flanking until end of turn. (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Jangling Automaton
+    &["Whenever this creature attacks, untap all creatures defending player controls."],
+    // Kithkin Armor
+    &[
+        "Enchant creature\nEnchanted creature can't be blocked by creatures with power 3 or greater.\nSacrifice this Aura: The next time a source of your choice would deal damage to enchanted creature this turn, prevent that damage.",
+    ],
     // Lava Hounds
     &["Haste\nWhen this creature enters, it deals 4 damage to you."],
-    &[],
-    &[],
+    // Lava Storm
+    &[
+        "Lava Storm deals 2 damage to each attacking creature or Lava Storm deals 2 damage to each blocking creature.",
+    ],
+    // Liege of the Hollows
+    &[
+        "When this creature dies, each player may pay any amount of mana. Then each player creates a number of 1/1 green Squirrel creature tokens equal to the amount of mana they paid this way.",
+    ],
     // Llanowar Behemoth
     &["Tap an untapped creature you control: This creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
+    // Llanowar Druid
+    &["{T}, Sacrifice this creature: Untap all Forests."],
+    // Llanowar Sentinel
+    &[
+        "When this creature enters, you may pay {1}{G}. If you do, search your library for a card named Llanowar Sentinel, put that card onto the battlefield, then shuffle.",
+    ],
     // Lotus Vale
     &[
         "If this land would enter, sacrifice two untapped lands instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add three mana of any one color.",
     ],
-    &[],
-    &[],
+    // Mana Chains
+    &[
+        "Enchant creature\nEnchanted creature has \"Cumulative upkeep {1}.\" (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)",
+    ],
+    // Mana Web
+    &[
+        "Whenever a land an opponent controls is tapped for mana, tap all lands that player controls that could produce any type of mana that land could produce.",
+    ],
     // Manta Ray
     &[
         "This creature can't attack unless defending player controls an Island.\nThis creature can't be blocked except by blue creatures.\nWhen you control no Islands, sacrifice this creature.",
@@ -7207,19 +7253,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Maraxus's power and toughness are each equal to the number of untapped artifacts, creatures, and lands you control.",
     ],
-    &[],
+    // Master of Arms
+    &["First strike\n{1}{W}: Tap target creature blocking this creature."],
     // Merfolk Traders
     &["When this creature enters, draw a card, then discard a card."],
     // Mind Stone
     &["{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card."],
     // Mischievous Poltergeist
     &["Flying\nPay 1 life: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mistmoon Griffin
+    &[
+        "Flying\nWhen this creature dies, exile it, then return the top creature card of your graveyard to the battlefield.",
+    ],
+    // Morinfen
+    &[
+        "Flying\nCumulative upkeep—Pay 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Mwonvuli Ooze
+    &[
+        "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay {2} for each age counter on it.)\nMwonvuli Ooze's power and toughness are each equal to 1 plus twice the number of age counters on it.",
+    ],
+    // Nature's Kiss
+    &[
+        "Enchant creature\n{1}, Exile the top card of your graveyard: Enchanted creature gets +1/+1 until end of turn.",
+    ],
+    // Nature's Resurgence
+    &["Each player draws a card for each creature card in their graveyard."],
+    // Necratog
+    &["Exile the top creature card of your graveyard: this creature gets +2/+2 until end of turn."],
     &[],
     &[],
     &[],
