@@ -31,6 +31,7 @@ mod ghostly_visit;
 mod goblin_offensive;
 mod grim_tutor;
 mod hammer_of_bogardan;
+mod haunting_misery;
 mod healing_hands;
 mod howling_fury;
 mod ice_storm;

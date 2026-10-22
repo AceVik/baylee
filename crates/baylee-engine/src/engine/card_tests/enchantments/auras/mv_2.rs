@@ -39,6 +39,7 @@ mod kjeldoran_pride;
 mod lightning_reflexes;
 mod mageta_s_boon;
 mod mystic_veil;
+mod nature_s_kiss;
 mod pacifism;
 mod phantasmal_terrain;
 mod prismatic_ward;

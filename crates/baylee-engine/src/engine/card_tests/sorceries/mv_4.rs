@@ -35,6 +35,7 @@ mod misfortune;
 mod mizzix_s_mastery;
 mod natural_balance;
 mod natural_order;
+mod nature_s_resurgence;
 mod past_in_flames;
 mod phyrexian_purge;
 mod polymorph;

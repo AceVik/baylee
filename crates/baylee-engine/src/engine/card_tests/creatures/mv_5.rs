@@ -97,6 +97,7 @@ mod loxodon_mystic;
 mod martyrs_of_korlis;
 mod mawcor;
 mod meloku_the_clouded_mirror;
+mod morinfen;
 mod morphling;
 mod ogre_arsonist;
 mod ogre_berserker;

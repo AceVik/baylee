@@ -38,6 +38,7 @@ mod howling_mine;
 mod illusionary_mask;
 mod implements_of_sacrifice;
 mod iron_lance;
+mod jabari_s_banner;
 mod jandor_s_saddlebags;
 mod journeyer_s_kite;
 mod kraken_s_eye;

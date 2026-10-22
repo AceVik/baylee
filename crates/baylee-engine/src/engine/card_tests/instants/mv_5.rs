@@ -296,6 +296,7 @@ mod humble_the_brute;
 mod jabari_s_influence;
 mod jace_s_ingenuity;
 mod lash_of_the_whip;
+mod lava_storm;
 mod live_or_die;
 mod melee;
 mod miraculous_recovery;

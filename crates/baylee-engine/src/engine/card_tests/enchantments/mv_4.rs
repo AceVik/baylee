@@ -143,6 +143,7 @@ mod glare_of_subdual;
 mod grasping_shadows;
 mod greed;
 mod gruul_war_chant;
+mod heart_of_bogardan;
 mod ill_gotten_inheritance;
 mod illusions_of_grandeur;
 mod infernal_darkness;

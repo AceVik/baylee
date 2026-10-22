@@ -42,6 +42,7 @@ mod inspirit_flagship_vessel;
 mod jalum_tome;
 mod mana_geode;
 mod mana_prism;
+mod mana_web;
 mod manalith;
 mod matzalantli_the_great_door;
 mod misers_cage;

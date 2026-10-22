@@ -1030,7 +1030,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Chimeric Sphere (2), Coils of the Medusa, Downdraft (2), Dwarven
     // Thaumaturgist, Ertai's Familiar, Fire Whip, and Fungus Elemental, of
     // which 2 are read by the evaluator.
-    assert_eq!((read, of), (2716, 3397), "activated/loyalty reader census");
+    // Weatherlight (`wth`) Batch 3 adds 7 non-mana activated abilities across
+    // Goblin Bomb, Jabari's Banner, Kithkin Armor, Llanowar Druid, Master of
+    // Arms, Nature's Kiss, and Necratog, of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2719, 3404), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -36,6 +36,7 @@ mod fungal_bloom;
 mod gaea_s_touch;
 mod gate_to_phyrexia;
 mod ghostly_flame;
+mod goblin_bomb;
 mod goblin_bombardment;
 mod goblin_kites;
 mod goblin_oriflamme;

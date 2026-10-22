@@ -35,6 +35,7 @@ mod hoof_skulkin;
 mod hopping_automaton;
 mod hotfoot_gnome;
 mod iron_bully;
+mod jangling_automaton;
 mod kiln_walker;
 mod machinesmith_automaton;
 mod marble_gargoyle;
