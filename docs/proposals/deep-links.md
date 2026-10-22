@@ -233,6 +233,12 @@ Nothing a link asks interrupts a game, and nothing is entered by itself.
   deliberate fix: before it, "a stolen cookie would have been a full native
   session".
 
+- Sessions renew (owner, 22.10.2026, being built in Central): native and
+  browser alike, about 30 more minutes per renewal, at most 12 hours after
+  the password sign-in. Before that a session ended after 30 minutes. So a
+  person may now stay signed in on the website for a working day, and the
+  click may come hours after the password was typed.
+
 So at the moment of the click, the website holds nothing that gives full
 access.
 
@@ -273,8 +279,13 @@ moment only in one of two ways:
   once anyway, but in the browser, where a password manager fills it.
 - **C2.** The page keeps the master key in memory for its session. That is a
   change of `web-accounts.md` ("keeps nothing"). Any script that ever runs on
-  baylee.app could read the key then. The site's CSP makes that less likely;
-  it does not rule it out. It is one click.
+  baylee.app could read the key then, and with renewing sessions "then" is up
+  to 12 hours, not 30 minutes. The site's CSP makes that less likely; it does
+  not rule it out. It is one click, but only until the tab reloads: a key in
+  memory is gone after a reload, while the cookie session lives on. After a
+  reload C2 falls back to C1. Keeping the key across reloads (in
+  `sessionStorage` or IndexedDB) would put it where every script on the
+  origin reads it, and is not proposed.
 
 A fourth road, the client keeping the master key in the system's key store
 between launches, is a design of its own and not proposed here.
@@ -313,7 +324,11 @@ RFC 8252 (a native app signs in through the system browser) with PKCE
    neither was used. It makes a native session, which ends any other native
    session of the account as a sign-in does, and answers `{ identity,
    session, sealed, expires_at }`. The client opens the sealed key, then reads
-   the document and confirms the restore as after a sign-in.
+   the document and confirms the restore as after a sign-in. The new session
+   renews like any other, but its 12 hours count from the password proof that
+   unlocked the key: with C1 the fresh sign-in of step 3, with C2 the website
+   session's own sign-in. A pairing never restarts the clock, so pairing
+   again and again cannot keep an account open without the password.
 6. The client forgets its private key, `V` and `K`. The page says "Done, back
    to Baylee".
 
@@ -336,7 +351,17 @@ What Central would need (for its own design and its three assurance passes):
   needs a cap on live handles as well. At most three redeem attempts per
   handle, then it is dead.
 - A table: handle digest, challenge, public key, account, sealed key, code
-  digest, expiry, used. Rows live five minutes.
+  digest, expiry, used, and the time of the password sign-in the new native
+  session inherits as the start of its 12 hours. Rows live five minutes.
+- **The cookie alone must not approve.** Central cannot check that the
+  sealed bytes hold the real master key. Someone who stole the cookie could
+  start a pairing on their own machine, approve it with bytes that are not
+  the key, and receive a native session: option B through the back door,
+  and the very cookie-to-native step the server PR closed. With renewing
+  sessions such a cookie is good for up to 12 hours. So `HandoffApprove`
+  needs a password proof Central can check and recent enough: a browser
+  sign-in finished within a few minutes (C1 always qualifies; C2 only
+  shortly after the website's own sign-in, and asks again after that).
 - Sealing: HPKE (RFC 9180, base mode, X25519, HKDF-SHA256,
   ChaCha20-Poly1305) or an equivalent sealed box. Central's graph has neither
   `hpke` nor `x25519-dalek` (Baylee's has `x25519-dalek` for `baylee-seal`). A
@@ -402,6 +427,7 @@ and, under it, the origin (`row_words`), as for every gateway.
 | A page fires links in a loop. | The browser asks before it opens an app, per site. The client keeps one proposal, reads at most ten links a minute and drops the rest. |
 | A link makes the client contact an address (an intranet host, a tracker). | Nothing is contacted before "Add"; links take `https` DNS names only. |
 | Signing the client into someone else's account. | No link names an account. A pairing is started by the client and approved in the person's own browser session; the browser surface's `SameSite=Strict` cookie, `Origin` check and custom header guard the approval. |
+| A stolen website cookie (good for up to 12 hours since sessions renew) approves the thief's own pairing. | `HandoffApprove` needs a recent password proof, not only the cookie. |
 | Someone else starts a pairing and sends the person the page. | `K` goes to the person's own computer; the comparison code; with C1, the password. |
 | Another app on the same computer claims the scheme. | It sees only public values, or `K` without `V`. |
 | Another process reads a launcher's arguments. | Links carry no secret; `K` lives 60 seconds and is worthless alone. |
@@ -441,8 +467,12 @@ security.
    website?** (A) It does not: the link opens the client and the person types
    the password there. (C1) The website asks for the password again and pairs
    the client. (C2) The website keeps the master key while signed in (a change
-   of `web-accounts.md`, and a wider window for any script on baylee.app) and
-   pairs with one click.
+   of `web-accounts.md`, and a window of up to 12 hours for any script on
+   baylee.app, now that sessions renew) and pairs with one click until the
+   tab reloads, and only shortly after the website's sign-in: Central has to
+   see a recent password proof before it approves. Either way, a paired
+   client's session ends 12 hours after the password proof behind it, never
+   later.
 3. **Does the pairing code in the return link conform to "no token in a
    URL"?** `baylee://signin/done?code=…` lives 60 seconds, is used once and is
    worthless without the client's verifier, which never leaves the client. If
