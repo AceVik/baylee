@@ -1,0 +1,32 @@
+//! Phyrexian Marauder — {X} — Artifact Creature — Phyrexian Construct
+//! Oracle: This creature enters with X +1/+1 counters on it.
+//! Oracle: This creature can't block.
+//! Oracle: This creature can't attack unless you pay {1} for each +1/+1 counter on it.
+//! Set: VIS #151 — Visions | Scryfall ID: 29a75dc8-1c24-4063-8944-d7e71b4a5755 | Oracle ID: 405674c5-607a-43d3-8b46-8741d2339f80
+// PARTIAL: enters with X +1/+1 counters and can't block; requiring {1} per +1/+1 counter to attack is not yet supported.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+// NOT SUPPORTED: This creature can't attack unless you pay {1} for each +1/+1 counter on it.
+card!(
+    index = index::PHYREXIAN_MARAUDER,
+    oracle_id = "405674c5-607a-43d3-8b46-8741d2339f80",
+    scryfall_id = "29a75dc8-1c24-4063-8944-d7e71b4a5755",
+    coverage = Coverage::Partial(
+        "enters with X +1/+1 counters and can't block; requiring {1} per +1/+1 counter to attack is not yet supported"
+    ),
+    faces = &[face!(
+        name = "Phyrexian Marauder",
+        mana_cost = mana!("{X}"),
+        types = TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+        subtypes = &[subtypes::creature::PHYREXIAN, subtypes::creature::CONSTRUCT],
+        power = Some(0),
+        toughness = Some(0),
+        enter_modifiers = &[EnterModifier::WithCounters {
+            kind: CounterKind::P1P1,
+            amount: Amount::X,
+        }],
+    ),],
+    abilities = &[static_ability!(Filter::This, Modifier::CantBlock(&Filter::Any))],
+);

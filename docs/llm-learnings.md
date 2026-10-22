@@ -5461,3 +5461,7 @@ more than two it names nobody). What the author did more than once:
   - Cards with `KeywordSet::FLANKING` (`Knight of Valor`, `Knight of the Mists`) must also carry the explicit
     `triggered!(Trigger::BecomesBlockedBy(&WITHOUT_FLANKING), &[Effect::ModifyEvent { modifier: Modifier::ModifyPT(-1, -1), duration: Duration::UntilEndOfTurn }])`
     ability so the flanking -1/-1 trigger fires when blocked by a creature without flanking.
+- Added *Visions* Batch 3 (`Lead-Belly Chimera` through `Sands of Time`, **9 `Coverage::Implemented`, 16 `Coverage::Partial`**),
+  including `Rock Slide` (`Effect::DealDamageDivided { amount: DivisionAmount::XDoubleFrom(u32::MAX) }` with `TargetReq::up_to(..., u8::MAX)`),
+  `Miraculous Recovery` (`Effect::GraveyardToBattlefield` with `counters: Some((CounterKind::P1P1, 1))`),
+  and `Resistance Fighter` (`Effect::continuous(&Filter::This, Modifier::AssignsNoCombatDamage, Duration::UntilEndOfTurn)` on a targeted ability).

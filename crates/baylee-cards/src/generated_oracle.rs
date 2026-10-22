@@ -6363,9 +6363,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{G}: This creature gets +0/+1 until end of turn. Activate only once each turn.\nSacrifice this creature and a creature named Spitting Drake: Search your library for a card named Viashivan Dragon, put that card onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
+    // Lead-Belly Chimera
+    &[
+        "Trample\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains trample. (This effect lasts indefinitely.)",
+    ],
+    // Lichenthrope
+    &[
+        "If damage would be dealt to this creature, put that many -1/-1 counters on it instead.\nAt the beginning of your upkeep, remove a -1/-1 counter from this creature.",
+    ],
+    // Lightning Cloud
+    &[
+        "Whenever a player casts a red spell, you may pay {R}. If you do, this enchantment deals 1 damage to any target.",
+    ],
     // Longbow Archer
     &["Reach (This creature can block creatures with flying.)\nFirst strike"],
     // Magma Mine
@@ -6374,32 +6383,62 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Man-o'-War
     &["When this creature enters, return target creature to its owner's hand."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Matopi Golem
+    &["{1}: Regenerate this creature. When it regenerates this way, put a -1/-1 counter on it."],
+    // Miraculous Recovery
+    &[
+        "Return target creature card from your graveyard to the battlefield. Put a +1/+1 counter on it.",
+    ],
+    // Mob Mentality
+    &[
+        "Enchant creature\nEnchanted creature has trample.\nWhenever all non-Wall creatures you control attack, enchanted creature gets +X/+0 until end of turn, where X is the number of attacking creatures.",
+    ],
+    // Mortal Wound
+    &["Enchant creature\nWhen enchanted creature is dealt damage, destroy it."],
+    // Mundungu
+    &["{T}: Counter target spell unless its controller pays {1} and 1 life."],
+    // Mystic Veil
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nEnchanted creature has shroud. (It can't be the target of spells or abilities.)",
+    ],
     // Natural Order
     &[
         "As an additional cost to cast this spell, sacrifice a green creature.\nSearch your library for a green creature card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Necromancy
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it's on the battlefield, it becomes an Aura with \"enchant creature put onto the battlefield with Necromancy.\" Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature's controller sacrifices it.",
+    ],
     // Nekrataal
     &[
         "First strike\nWhen this creature enters, destroy target nonartifact, nonblack creature. That creature can't be regenerated.",
     ],
-    &[],
+    // Ogre Enforcer
+    &[
+        "This creature can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it.",
+    ],
     // Panther Warriors
     &[""],
-    &[],
-    &[],
+    // Parapet
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nCreatures you control get +0/+1.",
+    ],
+    // Phyrexian Marauder
+    &[
+        "This creature enters with X +1/+1 counters on it.\nThis creature can't block.\nThis creature can't attack unless you pay {1} for each +1/+1 counter on it.",
+    ],
     // Phyrexian Walker
     &[""],
-    &[],
+    // Pillar Tombs of Aku
+    &[
+        "At the beginning of each player's upkeep, that player may sacrifice a creature of their choice. If that player doesn't, they lose 5 life and you sacrifice this enchantment.",
+    ],
     // Prosperity
     &["Each player draws X cards."],
-    &[],
+    // Pygmy Hippo
+    &[
+        "Whenever this creature attacks and isn't blocked, you may have defending player activate a mana ability of each land they control and lose all unspent mana. If you do, this creature assigns no combat damage this turn and at the beginning of your next main phase this turn, you add an amount of {C} equal to the amount of mana that player lost this way.",
+    ],
     // Python
     &[""],
     // Quicksand
@@ -6414,15 +6453,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Return a Forest you control to its owner's hand: Untap target creature. Activate only once each turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Raging Gorilla
+    &["Whenever this creature blocks or becomes blocked, it gets +2/-2 until end of turn."],
+    // Rainbow Efreet
+    &[
+        "Flying\n{U}{U}: This creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
+    // Relentless Assault
+    &[
+        "Untap all creatures that attacked this turn. After this main phase, there is an additional combat phase followed by an additional main phase.",
+    ],
+    // Relic Ward
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant artifact\nEnchanted artifact has shroud. (It can't be the target of spells or abilities.)",
+    ],
+    // Remedy
+    &[
+        "Prevent the next 5 damage that would be dealt this turn to any number of targets, divided as you choose.",
+    ],
+    // Resistance Fighter
+    &["Sacrifice this creature: Prevent all combat damage target creature would deal this turn."],
     // Retribution of the Meek
     &["Destroy all creatures with power 4 or greater. They can't be regenerated."],
-    &[],
+    // Righteous Aura
+    &[
+        "{W}, Pay 2 life: The next time a source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Righteous War
     &[
         "White creatures you control have protection from black.\nBlack creatures you control have protection from white.",
@@ -6431,9 +6487,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\n{G}: Regenerate this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Rock Slide
+    &[
+        "Rock Slide deals X damage divided as you choose among any number of target attacking or blocking creatures without flying.",
+    ],
+    // Rowen
+    &[
+        "Reveal the first card you draw each turn. Whenever you reveal a basic land card this way, draw a card.",
+    ],
+    // Sands of Time
+    &[
+        "Each player skips their untap step.\nAt the beginning of each player's upkeep, that player simultaneously untaps each tapped artifact, creature, and land they control and taps each untapped artifact, creature, and land they control.",
+    ],
     // Scalebane's Elite
     &["Protection from black"],
     &[],

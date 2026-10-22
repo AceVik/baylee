@@ -685,3 +685,4 @@ no-engine-change contract:
 - **Visions (`vis`)** — in progress in 25-card batches:
   - Batch 1 (`Aku Djinn` to `Feral Instinct`, 25 cards): **11 Implemented, 14 Partial**.
   - Batch 2 (`Fireblast` to `Kookus`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 3 (`Lead-Belly Chimera` to `Sands of Time`, 25 cards): **9 Implemented, 16 Partial**.
