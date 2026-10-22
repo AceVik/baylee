@@ -2432,6 +2432,30 @@ pub static INSECT_0_1_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 black Tombspawn with haste.
+pub static TOMBSPAWN_2_2_BLACK_HASTE: TokenDef = TokenDef {
+    name: "Tombspawn",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 blue Wall with defender.
+pub static WALL_5_5_BLUE_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2674,6 +2698,8 @@ pub static ALL: &[&TokenDef] = &[
     &SURVIVOR_1_1_RED,
     &WALL_ARTIFACT_0_2_DEFENDER,
     &INSECT_0_1_BLACK,
+    &TOMBSPAWN_2_2_BLACK_HASTE,
+    &WALL_5_5_BLUE_DEFENDER,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2884,4 +2910,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &SURVIVOR_1_1_RED,
     &WALL_ARTIFACT_0_2_DEFENDER,
     &INSECT_0_1_BLACK,
+    &TOMBSPAWN_2_2_BLACK_HASTE,
+    &WALL_5_5_BLUE_DEFENDER,
 ];

@@ -5875,9 +5875,16 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This enchantment enters with X echo counters on it.\nYou don't lose the game for having 0 or less life.\nAt the beginning of your upkeep, sacrifice this enchantment if there are no echo counters on it. Otherwise, target opponent may choose that for each 1 damage that would be dealt to you until your next upkeep, you remove an echo counter from this enchantment instead.",
     ],
-    &[],
-    &[],
-    &[],
+    // Soul Rend
+    &[
+        "Destroy target creature if it's white. A creature destroyed this way can't be regenerated.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Soulshriek
+    &[
+        "Target creature you control gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard. Sacrifice that creature at the beginning of the next end step.",
+    ],
+    // Spatial Binding
+    &["Pay 1 life: Until your next upkeep, target permanent can't phase out."],
     // Spectral Guardian
     &[
         "As long as this creature is untapped, noncreature artifacts have shroud. (They can't be the targets of spells or abilities.)",
@@ -5890,7 +5897,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Spitting Earth deals damage to target creature equal to the number of Mountains you control.",
     ],
-    &[],
+    // Stalking Tiger
+    &["This creature can't be blocked by more than one creature."],
     // Stupor
     &["Target opponent discards a card at random, then discards a card."],
     // Subterranean Spirit
@@ -5899,23 +5907,54 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Defender (This creature can't attack.)\nFlying\nThis creature can't block creatures with power 2 or less.",
     ],
-    &[],
-    &[],
-    &[],
+    // Superior Numbers
+    &[
+        "Superior Numbers deals damage to target creature equal to the number of creatures you control in excess of the number of creatures target opponent controls.",
+    ],
+    // Suq'Ata Firewalker
+    &[
+        "This creature can't be the target of red spells or abilities from red sources.\n{T}: This creature deals 1 damage to any target.",
+    ],
+    // Tainted Specter
+    &[
+        "Flying\n{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, this creature deals 1 damage to each creature and each player. Activate only as a sorcery.",
+    ],
     // Talruum Minotaur
     &["Haste"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Taniwha
+    &[
+        "Trample\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nAt the beginning of your upkeep, all lands you control phase out. (They phase in before you untap during your next untap step.)",
+    ],
+    // Teeka's Dragon
+    &[
+        "Flying; trample; rampage 4 (Whenever this creature becomes blocked, it gets +4/+4 until end of turn for each creature blocking it beyond the first.)",
+    ],
+    // Teferi's Curse
+    &[
+        "Enchant artifact or creature\nEnchanted permanent has phasing. (It phases in or out before its controller untaps during each of their untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Teferi's Drake
+    &[
+        "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Teferi's Imp
+    &[
+        "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhenever this creature phases out, discard a card.\nWhenever this creature phases in, draw a card.",
+    ],
     // Teferi's Isle
     &[
         "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nTeferi's Isle enters tapped.\n{T}: Add {U}{U}.",
     ],
-    &[],
-    &[],
-    &[],
+    // Telim'Tor
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nWhenever Telim'Tor attacks, all attacking creatures with flanking get +1/+1 until end of turn.",
+    ],
+    // Telim'Tor's Darts
+    &["{2}, {T}: This artifact deals 1 damage to target player or planeswalker."],
+    // Telim'Tor's Edict
+    &[
+        "Exile target permanent you own or control.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Teremko Griffin
     &[
         "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
@@ -5924,9 +5963,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nAt the beginning of your upkeep, sacrifice this Aura unless you pay {U}.",
     ],
-    &[],
-    &[],
-    &[],
+    // Tidal Wave
+    &[
+        "Create a 5/5 blue Wall creature token with defender. Sacrifice it at the beginning of the next end step.",
+    ],
+    // Tombstone Stairwell
+    &[
+        "Cumulative upkeep {1}{B} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each creature card in their graveyard.\nAt the beginning of each end step and when this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+    ],
+    // Torrent of Lava
+    &[
+        "Torrent of Lava deals X damage to each creature without flying.\nAs long as Torrent of Lava is on the stack, each creature has \"{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn.\"",
+    ],
     // Tranquil Domain
     &["Destroy all non-Aura enchantments."],
     // Tropical Storm
@@ -5939,7 +5987,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Uktabi Wildcats's power and toughness are each equal to the number of Forests you control.\n{G}, Sacrifice a Forest: Regenerate this creature.",
     ],
-    &[],
+    // Unerring Sling
+    &[
+        "{3}, {T}, Tap an untapped creature you control: This artifact deals damage equal to the tapped creature's power to target attacking or blocking creature with flying.",
+    ],
     // Unfulfilled Desires
     &["{1}, Pay 1 life: Draw a card, then discard a card."],
     // Unseen Walker
@@ -5950,20 +6001,34 @@ pub static ORACLE: &[&[&str]] = &[
     &["Unyaro Bee Sting deals 2 damage to any target."],
     // Unyaro Griffin
     &["Flying\nSacrifice this creature: Counter target red instant or sorcery spell."],
-    &[],
-    &[],
-    &[],
+    // Urborg Panther
+    &[
+        "{B}, Sacrifice this creature: Destroy target creature blocking it.\nSacrifice a creature named Feral Shadow, a creature named Breathstealer, and this creature: Search your library for a card named Spirit of the Night, put that card onto the battlefield, then shuffle.",
+    ],
+    // Vaporous Djinn
+    &[
+        "Flying\nAt the beginning of your upkeep, this creature phases out unless you pay {U}{U}. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
+    // Ventifact Bottle
+    &[
+        "{X}{1}, {T}: Put X charge counters on this artifact. Activate only as a sorcery.\nAt the beginning of your first main phase, if this artifact has a charge counter on it, tap it and remove all charge counters from it. Add {C} for each charge counter removed this way.",
+    ],
     // Viashino Warrior
     &[""],
-    &[],
+    // Vigilant Martyr
+    &[
+        "Sacrifice this creature: Regenerate target creature.\n{W}{W}, {T}, Sacrifice this creature: Counter target spell that targets an enchantment.",
+    ],
     // Village Elder
     &["{G}, {T}, Sacrifice a Forest: Regenerate target creature."],
-    &[],
+    // Vitalizing Cascade
+    &["You gain X plus 3 life."],
     // Volcanic Dragon
     &["Flying, haste"],
     // Volcanic Geyser
     &["Volcanic Geyser deals X damage to any target."],
-    &[],
+    // Waiting in the Weeds
+    &["Each player creates a 1/1 green Cat creature token for each untapped Forest they control."],
     &[],
     &[],
     // Wall of Roots

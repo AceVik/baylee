@@ -1,0 +1,31 @@
+//! Superior Numbers — {G}{G} — Sorcery
+//! Oracle: Superior Numbers deals damage to target creature equal to the number of creatures you control in excess of the number of creatures target opponent controls.
+//! Set: MIR #244 — Mirage | Scryfall ID: 43d90914-ddfc-49c2-8e58-fdc3693040f2 | Oracle ID: b98177b5-599f-41b0-aa1e-4769d7005bbd
+// PARTIAL — deals damage to target creature equal to the number of creatures you control; no "in excess of the number of creatures target opponent controls" difference against a second targeted player exists yet.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::SUPERIOR_NUMBERS,
+    oracle_id = "b98177b5-599f-41b0-aa1e-4769d7005bbd",
+    scryfall_id = "43d90914-ddfc-49c2-8e58-fdc3693040f2",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    coverage = Coverage::Partial(
+        "deals damage to target creature equal to the number of creatures you control; no 'in excess of the number of creatures target opponent controls' difference against a second targeted player exists yet",
+    ),
+    faces = &[face!(
+        name = "Superior Numbers",
+        mana_cost = mana!("{G}{G}"),
+        types = TypeSet::SORCERY,
+    ),],
+    abilities = &[spell!(
+        &[Effect::DealDamage {
+            amount: Amount::CountOf {
+                filter: &Filter::YOUR_CREATURE,
+                zone: ZoneSel::Battlefield,
+            },
+            target: TargetSpec::Object(&Filter::CREATURE),
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+    )],
+);

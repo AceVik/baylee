@@ -7722,6 +7722,7 @@ Soul Feast
 Soul Kiss
 Soul Net
 Soul Read
+Soul Rend
 Soul Shepherd
 Soul Shred
 Soul Warden
@@ -7737,6 +7738,7 @@ Soulknife Spy
 Soulmender
 Soulreaper of Mogis
 Soulscour
+Soulshriek
 Soulstone Sanctuary
 Soulsworn Jury
 Soured Springs
@@ -7751,6 +7753,7 @@ Sparkmage Apprentice
 Sparksmith
 Sparring Construct
 Sparring Mummy
+Spatial Binding
 Spatial Contortion
 Spawnbinder Mage
 Spawning Bed
@@ -7917,6 +7920,7 @@ Stalking Assassin
 Stalking Bloodsucker
 Stalking Drone
 Stalking Stones
+Stalking Tiger
 Stalwart Shield-Bearers
 Stamina
 Stampede
@@ -8175,12 +8179,14 @@ Sunweb
 Super Intelligence
 Super Speed
 Super-Skrull
+Superior Numbers
 Suplex
 Supply Caravan
 Supply Drop
 Supply-Line Cranes
 Suppression Ray // Orderly Plaza
 Supreme Phantom
+Suq'Ata Firewalker
 Sure Strike
 Sure-Footed Infiltrator
 Surge Node
@@ -8258,6 +8264,7 @@ Tainted Field
 Tainted Isle
 Tainted Pact
 Tainted Peak
+Tainted Specter
 Tainted Well
 Tainted Wood
 Tajuru Archer
@@ -8309,6 +8316,7 @@ Tanglepool Bridge
 Tangleroot
 Tanglespan Lookout
 Tangletrap
+Taniwha
 Tanufel Rimespeaker
 Taoist Hermit
 Tar Pitcher
@@ -8339,9 +8347,13 @@ Tear Asunder
 Teardrop Kami
 Tectonic Edge
 Tectonic Hazard
+Teeka's Dragon
 Teetering Peaks
 Teeterpeak Ambusher
 Teferi's Care
+Teferi's Curse
+Teferi's Drake
+Teferi's Imp
 Teferi's Isle
 Teferi's Protection
 Teferi's Protege
@@ -8357,6 +8369,9 @@ Tel-Jilad Outrider
 Telekinesis
 Teleport
 Telethopter
+Telim'Tor
+Telim'Tor's Darts
+Telim'Tor's Edict
 Teller of Tales
 Tempest Angler
 Tempest Drake
@@ -8586,6 +8601,7 @@ Tidal Flats
 Tidal Force
 Tidal Influence
 Tidal Warrior
+Tidal Wave
 Tide Drifter
 Tidehollow Strix
 Tidepool Turtle
@@ -8648,6 +8664,7 @@ Tolsimir Wolfblood
 Tomb Fortress
 Tomb of Urami
 Tomb of the Spirit Dragon
+Tombstone Stairwell
 Tome Raider
 Tome Scour
 Tonic Peddler
@@ -8665,6 +8682,7 @@ Tormented Angel
 Tormod's Crypt
 Tornado
 Torpor Dust
+Torrent of Lava
 Torsten Von Ursus
 Torture
 Tortured Existence
@@ -8901,6 +8919,7 @@ Underworld Connections
 Underworld Dreams
 Undiscovered Paradise
 Unearth
+Unerring Sling
 Unexplained Disappearance
 Unfathomable Truths
 Unflinching Courage
@@ -8954,6 +8973,7 @@ Urbis Protector
 Urborg
 Urborg Drake
 Urborg Elf
+Urborg Panther
 Urborg Shambler
 Urborg Volcano
 Urborg, Tomb of Yawgmoth
@@ -9024,6 +9044,7 @@ Vanquish the Weak
 Vanquisher's Axe
 Vapor Snag
 Vaporkin
+Vaporous Djinn
 Varchild's Crusader
 Varchild's War-Riders
 Vassal Soul
@@ -9068,6 +9089,7 @@ Venomous Dragonfly
 Venomous Hierophant
 Venomthrope
 Venser's Sliver
+Ventifact Bottle
 Verdant Automaton
 Verdant Catacombs
 Verdant Force
@@ -9123,6 +9145,7 @@ Victual Sliver
 Vigilance
 Vigilant Baloth
 Vigilant Drake
+Vigilant Martyr
 Vigilante Justice
 Vile Deacon
 Village Cannibals
@@ -9157,6 +9180,7 @@ Vision Skeins
 Visions
 Vital Splicer
 Vitality Charm
+Vitalizing Cascade
 Vithian Renegades
 Vitu-Ghazi, the City-Tree
 Vivid Crag
@@ -9227,6 +9251,7 @@ Vulshok Refugee
 Vulshok Sorcerer
 Vulshok War Boar
 Wailing Ghoul
+Waiting in the Weeds
 Wakandan Drone Flock
 Wakandan Shield Guard
 Wakandan Tusker
