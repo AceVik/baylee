@@ -7,6 +7,8 @@ mod common;
 mod fresh;
 #[path = "central/held.rs"]
 mod held;
+#[path = "central/official.rs"]
+mod official;
 #[path = "central/registered.rs"]
 mod registered;
 #[path = "central/renewal.rs"]
@@ -151,6 +153,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
+        official::run(&runtime, &operator, endpoint, &served.bridge, origin);
         held::run(&runtime, &store);
         ui_fixture(endpoint, origin);
     }));
@@ -171,6 +174,9 @@ struct Served {
     gateway: common::Gateway,
     origin: String,
     service: Arc<IdentityService>,
+    /// The bridge credential the gateway holds, for a second bridge-mode
+    /// gateway (`central/official.rs`).
+    bridge: Token,
     secret_file: BridgeFile,
     stop: oneshot::Sender<()>,
     serving: JoinHandle<()>,
@@ -237,6 +243,7 @@ fn serve(
         gateway,
         origin,
         service,
+        bridge,
         secret_file,
         stop,
         serving,

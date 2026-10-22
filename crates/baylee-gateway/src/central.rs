@@ -96,11 +96,16 @@ impl Bridge {
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let _pending = pending;
-            let credential = if matches!(&request, wire::Request::GatewayHeartbeat { .. }) {
-                bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
-            } else {
-                &bridge.credential
-            };
+            // A registered gateway beats with its heartbeat token; the official
+            // gateway's bridge beats with the bridge credential, for the
+            // official directory entry alone (baylee-central
+            // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
+            let credential =
+                if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !bridge.legacy {
+                    bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
+                } else {
+                    &bridge.credential
+                };
             bridge
                 .http
                 .exchange(&request, Some(credential))
@@ -133,14 +138,14 @@ impl Settings {
         (),
     > {
         if let Some(bridge) = self.bridge {
-            if self.credential.is_some() || self.heartbeat.is_some() || self.metadata.is_some() {
+            if self.credential.is_some() || self.heartbeat.is_some() {
                 return Err(());
             }
             // Only the separately provisioned official migration bridge has legacy authority.
             // Synthetic loopback fixtures deliberately use their isolated bridge credential.
-            if let Some(origin) = self.origin {
+            if let Some(origin) = &self.origin {
                 baylee_account::gateway::validate_origin(
-                    &origin,
+                    origin,
                     endpoint.legacy_origin().is_none(),
                 )
                 .map_err(|_| ())?;
@@ -151,7 +156,23 @@ impl Settings {
                     return Err(());
                 }
             }
-            return Ok((bridge, None, None, true));
+            // The official gateway's directory entry, sent with the bridge
+            // credential. Its website lies on the bridge's origin: the compiled
+            // legacy origin live, the configured `origin` in development.
+            let metadata = match self.metadata {
+                None => None,
+                Some(mut metadata) => {
+                    let origin = endpoint
+                        .legacy_origin()
+                        .map(str::to_owned)
+                        .or(self.origin)
+                        .ok_or(())?;
+                    metadata.version = env!("CARGO_PKG_VERSION").into();
+                    metadata.validate(&origin).map_err(|_| ())?;
+                    Some(metadata)
+                }
+            };
+            return Ok((bridge, None, metadata, true));
         }
         let (Some(origin), Some(credential), Some(heartbeat), Some(mut metadata)) =
             (self.origin, self.credential, self.heartbeat, self.metadata)
@@ -177,8 +198,10 @@ pub(crate) struct Heartbeat {
 }
 
 impl Heartbeat {
+    /// Beats for a registered gateway, and for the official one when its
+    /// bridge has `metadata`; nothing without metadata.
     pub(crate) fn start(bridge: Option<&Arc<Bridge>>) -> Option<Self> {
-        let bridge = bridge.filter(|bridge| bridge.heartbeat.is_some())?.clone();
+        let bridge = bridge.filter(|bridge| bridge.metadata.is_some())?.clone();
         let (stop, mut stopped) = tokio::sync::oneshot::channel();
         let task = tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(30));
@@ -538,5 +561,72 @@ mod tests {
             metadata: None,
         };
         assert!(wrong_bridge.validate(&endpoint).is_err());
+    }
+
+    fn official(website: &str) -> Settings {
+        Settings {
+            endpoint: "live".into(),
+            bridge: Some(Token::generate().unwrap()),
+            origin: None,
+            credential: None,
+            heartbeat: None,
+            metadata: Some(baylee_account::gateway::GatewayMetadata {
+                name: "Synthetic official gateway".into(),
+                version: "ignored".into(),
+                website: website.into(),
+            }),
+        }
+    }
+
+    /// The official gateway's bridge may carry its directory entry, on the
+    /// bridge's origin; never a registered gateway's credentials.
+    #[test]
+    fn the_bridge_takes_metadata_on_its_own_origin_and_no_registered_credential() {
+        let live = Endpoint::live();
+        let (_, heartbeat, metadata, legacy) = official("https://baylee.acevik.de/")
+            .validate(&live)
+            .unwrap();
+        assert!(legacy);
+        assert!(
+            heartbeat.is_none(),
+            "the bridge beats with its own credential"
+        );
+        let metadata = metadata.unwrap();
+        assert_eq!(metadata.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(metadata.website, "https://baylee.acevik.de/");
+        let mut named = official("https://baylee.acevik.de/status");
+        named.origin = Some("https://baylee.acevik.de".into());
+        assert!(named.validate(&live).is_ok());
+        // Without metadata the bridge is as before: no heartbeat at all.
+        let mut plain = official("https://baylee.acevik.de/");
+        plain.metadata = None;
+        let (_, _, metadata, legacy) = plain.validate(&live).unwrap();
+        assert!(legacy && metadata.is_none());
+        // A website elsewhere, or a registered gateway's credentials beside the bridge.
+        assert!(
+            official("https://gateway.example/")
+                .validate(&live)
+                .is_err()
+        );
+        let mut with_credential = official("https://baylee.acevik.de/");
+        with_credential.credential = Some(Token::generate().unwrap());
+        assert!(with_credential.validate(&live).is_err());
+        let mut with_heartbeat = official("https://baylee.acevik.de/");
+        with_heartbeat.heartbeat = Some(Token::generate().unwrap());
+        assert!(with_heartbeat.validate(&live).is_err());
+        // In development the bridge's origin is the configured one: metadata
+        // without it is refused, and metadata must lie on it.
+        let development = Endpoint::development("http://127.0.0.1:9").unwrap();
+        assert!(
+            official("http://127.0.0.1:45125/")
+                .validate(&development)
+                .is_err()
+        );
+        let mut local = official("http://127.0.0.1:45125/");
+        local.origin = Some("http://127.0.0.1:45125".into());
+        assert!(local.validate(&development).unwrap().2.is_some());
+        let mut foreign = official("http://127.0.0.1:45126/");
+        foreign.origin = Some("http://127.0.0.1:45125".into());
+        assert!(foreign.validate(&development).is_err());
     }
 }
