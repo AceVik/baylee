@@ -3706,3 +3706,12 @@ cast; it handed priority on before). The client is `ManaRun::cast_first`.
 (Living Artifact on a Sol Ring), and the Khalni Ambush cast-mode test now
 follows the cast through its targets and window.
 
+
+## Seen while recording the beta.8b pictures, 2026-10-22
+
+Seen by the agent that recorded the README and website loops, on a local test
+stack (passive, silent client at 1600×900); not yet reproduced on purpose.
+
+- **The "Lock chat" pill sits over the hand** at a table on a gateway with chat.
+- **The "Ring" pill stays over the lobby's logo** after leaving a table.
+- **A lobby notice covers the room's title** while a table is being arranged.
