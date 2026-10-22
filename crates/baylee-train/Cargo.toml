@@ -117,7 +117,7 @@ required-features = ["onnx"]
 
 [[bin]]
 name = "eval4"
-path = "src/bin/eval4.rs"
+path = "src/bin/eval4/main.rs"
 required-features = ["onnx"]
 
 [[bin]]
