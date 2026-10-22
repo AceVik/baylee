@@ -135,6 +135,7 @@ mod savage_gorilla;
 mod sawback_manticore;
 mod scragnoth;
 mod segmented_wurm;
+mod selenia_dark_angel;
 mod sengir_vampire;
 mod serpentine_kavu;
 mod serra_angel;

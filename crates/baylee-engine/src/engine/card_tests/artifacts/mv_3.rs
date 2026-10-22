@@ -71,6 +71,7 @@ mod standing_stones;
 mod the_everflowing_well;
 mod tigereye_cameo;
 mod tooth_of_ramos;
+mod torture_chamber;
 mod troll_horn_cameo;
 mod unerring_sling;
 mod ventifact_bottle;

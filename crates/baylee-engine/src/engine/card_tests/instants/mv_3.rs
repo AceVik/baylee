@@ -77,6 +77,7 @@ mod sink_into_stupor;
 mod smash;
 mod solfatara;
 mod spoils_of_evil;
+mod spontaneous_combustion;
 mod spore_cloud;
 mod stampede;
 mod stench_of_decay;

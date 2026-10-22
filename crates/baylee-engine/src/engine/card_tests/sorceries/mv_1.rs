@@ -41,6 +41,7 @@ mod rite_of_flame;
 mod scorched_earth;
 mod scorching_spear;
 mod serum_visions;
+mod shadowstorm;
 mod spoils_of_war;
 mod steelshaper_s_gift;
 mod stir_the_grave;

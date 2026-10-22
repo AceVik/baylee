@@ -80,6 +80,7 @@ mod telim_tor_s_darts;
 mod thaumatic_compass;
 mod thopter_foundry;
 mod thought_vessel;
+mod thumbscrews;
 mod time_sieve;
 mod touchstone;
 mod tower_of_coireall;

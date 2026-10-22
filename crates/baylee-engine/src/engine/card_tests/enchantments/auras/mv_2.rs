@@ -53,6 +53,7 @@ mod sinister_strength;
 mod snow_devil;
 mod soar;
 mod spectral_cloak;
+mod spinal_graft;
 mod sun_clasp;
 mod teferi_s_curse;
 mod torment;
