@@ -987,7 +987,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mirage (`mir`) Batch 3 adds 6 non-mana activated abilities across
     // Energy Vortex, Ersatz Gnomes (2), Ethereal Champion, Femeref Knight, and
     // Flame Elemental, of which 4 are read by the evaluator.
-    assert_eq!((read, of), (2668, 3315), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 4 adds 8 non-mana activated abilities across
+    // Frenetic Efreet, Goblin Soothsayer, Goblin Tinkerer, Grinning Totem,
+    // Hakim, Loreweaver (2), Hammer of Bogardan, and Hivis of the Scale, of
+    // which 3 are read by the evaluator.
+    assert_eq!((read, of), (2671, 3323), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -63,6 +63,7 @@ mod howl_from_beyond;
 mod hydroblast;
 mod indestructible_aura;
 mod iron_will;
+mod ivory_charm;
 mod jump;
 mod leap;
 mod lifelace;

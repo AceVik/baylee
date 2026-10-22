@@ -292,6 +292,7 @@ mod flesh_to_dust;
 mod force_of_will;
 mod get_the_point;
 mod humble_the_brute;
+mod jabari_s_influence;
 mod jace_s_ingenuity;
 mod lash_of_the_whip;
 mod live_or_die;

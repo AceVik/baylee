@@ -40,6 +40,7 @@ mod gemstone_array;
 mod goblin_boom_keg;
 mod goblin_cannon;
 mod grafted_skullcap;
+mod grinning_totem;
 mod gruul_war_plow;
 mod hedron_archive;
 mod helm_of_obedience;

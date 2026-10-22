@@ -57,6 +57,7 @@ mod goblin_artisans;
 mod goblin_balloon_brigade;
 mod goblin_digging_team;
 mod goblin_sledder;
+mod goblin_soothsayer;
 mod gorilla_shaman;
 mod granger_guildmage;
 mod greenseeker;

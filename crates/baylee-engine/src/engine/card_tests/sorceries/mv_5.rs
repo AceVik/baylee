@@ -13,6 +13,7 @@ mod essence_drain;
 mod fumarole;
 mod hellfire;
 mod hymn_of_rebirth;
+mod illicit_auction;
 mod implode;
 mod lava_flow;
 mod library_of_lat_nam;

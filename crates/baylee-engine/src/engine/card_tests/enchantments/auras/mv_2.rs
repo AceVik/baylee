@@ -24,6 +24,7 @@ mod fear;
 mod fishliver_oil;
 mod flaming_sword;
 mod giant_strength;
+mod grave_servitude;
 mod greel_s_caress;
 mod hero_s_resolve;
 mod hot_springs;
