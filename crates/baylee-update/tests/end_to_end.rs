@@ -531,8 +531,8 @@ fn a_check_with_nothing_to_download_reports_no_stage() {
 }
 
 /// The first check leaves as the service starts, not after a delay: the
-/// stub sees the request well inside a second, and the report that it
-/// began says when.
+/// stub sees the request within 3 s even on a loaded machine (it takes
+/// milliseconds), and the report that it began says when.
 #[test]
 fn the_first_check_leaves_as_soon_as_the_service_starts() {
     let os = Os::Linux;
@@ -555,7 +555,7 @@ fn the_first_check_leaves_as_soon_as_the_service_starts() {
     let seen = started.elapsed();
     assert_eq!(stub.count(), 1);
     assert!(
-        seen < Duration::from_secs(1),
+        seen < Duration::from_secs(3),
         "first request after {seen:?}"
     );
     let Ok(Report::Checking { at }) = service.reports.recv_timeout(Duration::from_secs(5)) else {

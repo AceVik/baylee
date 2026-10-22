@@ -9376,7 +9376,7 @@ a mark in the accent; under it:
   and **Try again** with the release notes.
 - **Only a link** (installing off, a development build, a folder this user
   cannot write, a refused signature): why, the moves where one helps
-  (§"Moving the app"), and the release notes; **Updated to X** after an
+  ("Moving the app", above), and the release notes; **Updated to X** after an
   update, with its release notes.
 
 Every card but the ready one has a close mark, which hides it for the
@@ -9403,7 +9403,8 @@ per device in `update.json`.
 would send, by the same path (`update/native/dev.rs`): `found`,
 `downloading` (`received`, `total`, `rate`, `left`), `verifying`,
 `unpacking`, `staged`, `failed` (`reason`), `available` (`why`: `dev`,
-`off`, `unsigned`, `folder`, `other`), and `simulate` (`size`, `ms`): a whole
+`off`, `unsigned`, `folder`, `other`), `updated`, `moved` and `kept` (the
+start's own cards, set directly), and `simulate` (`size`, `ms`): a whole
 download in real time through the updater's own meter on a line whose speed
 wanders, then verifying, unpacking and ready. Point `BAYLEE_UPDATE_API` at
 a closed loopback port, and the real check makes no request off the machine.

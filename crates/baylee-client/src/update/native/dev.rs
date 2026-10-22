@@ -11,6 +11,8 @@
 //! - `{"stage":"staged","version":…}`: ready to install
 //! - `{"stage":"failed","version":…,"reason":…}`: the download stopped
 //! - `{"stage":"available","version":…,"why":"dev|off|unsigned|folder|other"}`
+//! - `{"stage":"updated","version":…}`, `{"stage":"moved"}`,
+//!   `{"stage":"kept"}`: the cards the start shows, set directly
 //! - `{"stage":"simulate","version":…,"size":150000000,"ms":8000}`: a whole
 //!   download in real time on a line whose speed wanders, its readings from
 //!   the updater's own [`Meter`], then verifying, unpacking and ready.
@@ -18,9 +20,11 @@
 //! The release page it names is a loopback address, which the face opens
 //! only as a stub's; nothing here asks the network.
 
+use crate::update::{Shown, UpdateNotice, UpdatePlace};
 use baylee_update::check::{Manual, Outcome};
 use baylee_update::progress::{Meter, Stage, Transfer};
 use baylee_update::service::Report;
+use bevy::prelude::*;
 use serde_json::Value;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Mutex, OnceLock};
@@ -108,6 +112,19 @@ pub(crate) fn feed(body: &str) -> Option<String> {
                 _ => Manual::DevBuild,
             },
         }),
+        // The two cards no report leads to: the first start after an
+        // update, and after a move (and its answer, which puts it away).
+        "updated" => return Some(direct(Direct::Updated(version), stage)),
+        "moved" => {
+            return Some(direct(
+                Direct::Moved(
+                    "/Users/you/Applications/Baylee.app".into(),
+                    "/Users/you/Downloads/Baylee.app".into(),
+                ),
+                stage,
+            ));
+        }
+        "kept" => return Some(direct(Direct::Kept, stage)),
         "simulate" => {
             let length = Duration::from_millis(number("ms").unwrap_or(8_000).clamp(500, 120_000));
             return Some(
@@ -120,13 +137,51 @@ pub(crate) fn feed(body: &str) -> Option<String> {
         _ => {
             return Some(
                 "\"update\":\"unknown stage: found downloading verifying unpacking staged \
-                 failed available simulate\""
+                 failed available updated moved kept simulate\""
                     .to_owned(),
             );
         }
     };
     send(report);
     Some(format!("\"update\":\"{stage}\""))
+}
+
+/// What the harness sets on the face directly: the states the updater's
+/// thread never reports, because they come from the start.
+pub(super) enum Direct {
+    /// "Updated to X", as the first start after an update says it.
+    Updated(String),
+    /// The first start after a move: where it runs now, the old copy.
+    Moved(String, String),
+    /// The old copy kept: the move's question answered.
+    Kept,
+}
+
+static DIRECT: Mutex<Vec<Direct>> = Mutex::new(Vec::new());
+
+fn direct(change: Direct, stage: &str) -> String {
+    if let Ok(mut queue) = DIRECT.lock() {
+        queue.push(change);
+    }
+    format!("\"update\":\"{stage}\"")
+}
+
+/// Applies what [`direct`] queued, on the app's thread.
+pub(super) fn apply_direct(mut notice: ResMut<UpdateNotice>, mut place: ResMut<UpdatePlace>) {
+    let changes: Vec<Direct> = match DIRECT.lock() {
+        Ok(mut queue) if !queue.is_empty() => queue.drain(..).collect(),
+        _ => return,
+    };
+    for change in changes {
+        match change {
+            Direct::Updated(version) => notice.show(Shown::Updated {
+                version,
+                page: Some(PAGE.to_owned()),
+            }),
+            Direct::Moved(now, old) => place.moved = Some((now, old)),
+            Direct::Kept => place.moved = None,
+        }
+    }
 }
 
 /// A whole download of `size` bytes over about `length`, on a thread of its

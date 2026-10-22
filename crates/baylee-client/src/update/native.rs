@@ -379,6 +379,8 @@ impl Plugin for NativeUpdatePlugin {
             .insert_resource(running.updater)
             .add_systems(Update, relocate_on_request)
             .add_systems(Update, (forward, receive).chain());
+        #[cfg(feature = "dev-control")]
+        app.add_systems(Update, dev::apply_direct);
     }
 }
 
