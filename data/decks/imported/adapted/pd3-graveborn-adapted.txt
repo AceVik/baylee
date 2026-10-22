@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/PD3/graveborn.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Graveborn_PD3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Graveborn (Adapted)]
+3 Animate Dead
+2 Awaken the Bear
+1 Catalog
+1 Chord of Calling
+1 Crystal Vein
+1 Déjà Vu
+1 Ebon Stronghold
+4 Essence Vortex
+2 Eyeblight's Ending
+2 Fabricate
+1 Growth Spasm
+1 Gruesome Fate
+2 Hidden Horror
+1 Hop to It
+1 Inkwell Leviathan
+1 Jovial Evil
+2 Pointed Discussion
+1 Polluted Mire
+1 Reanimate
+2 Rend Flesh
+3 Reviving Dose
+1 Sphinx of the Steel Wind
+2 Sphinx's Revelation
+21 Swamp
+1 Verdant Force
+1 Yawgmoth's Will

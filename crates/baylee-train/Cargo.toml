@@ -19,6 +19,7 @@ default = ["play"]
 # Playing and recording games: everything past the card rule.
 play = [
     "dep:baylee-build",
+    "dep:baylee-cards-dsl",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
     "dep:baylee-view",
@@ -26,6 +27,7 @@ play = [
     "dep:flate2",
     "dep:serde",
     "dep:serde_json",
+    "dep:uuid",
 ]
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
@@ -45,7 +47,10 @@ llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
 anyhow.workspace = true
 baylee-build = { workspace = true, optional = true }
 baylee-cards.workspace = true
+baylee-cards-dsl = { workspace = true, optional = true }
+baylee-cards-index.workspace = true
 baylee-core.workspace = true
+baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
@@ -55,6 +60,7 @@ clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 sha2.workspace = true
 ort = { workspace = true, optional = true, features = [
     "std",
@@ -90,6 +96,11 @@ path = "src/bin/convert3.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "convert4"
+path = "src/bin/convert4.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "fuzz"
 path = "src/bin/fuzz.rs"
 required-features = ["play"]
@@ -103,3 +114,13 @@ required-features = ["onnx"]
 name = "league"
 path = "src/bin/league.rs"
 required-features = ["onnx"]
+
+[[bin]]
+name = "eval4"
+path = "src/bin/eval4.rs"
+required-features = ["onnx"]
+
+[[bin]]
+name = "import_decks"
+path = "src/bin/import_decks.rs"
+required-features = ["play"]

@@ -1,0 +1,72 @@
+# baylee curated commander control seed=20261079
+# licence: AGPL-3.0-only
+[deck:commander control R #20261079]
+1 Adarkar Sentinel
+1 Aladdin
+1 Backdraft
+1 Basalt Monolith
+1 Ben-Ben, Akki Hermit
+1 Birthing Boughs
+1 Bogardan Rager
+1 Bombard
+1 Bonders' Enclave
+1 Breakneck Berserker
+1 Bronze Sword
+1 Brotherhood's End
+1 Captain's Tutelage
+1 City of Traitors
+1 Claws of Gix
+1 Coral Helm
+1 Defense Force Aggressor
+1 Desert of the Fervent
+1 Dingus Staff
+1 Fellwar Stone
+1 Fiery Hellhound
+1 Forgotten Monument
+1 Goblin Artillery
+1 Goblin Kites
+1 Goldhound
+1 Greataxe
+1 Heart of Ramos
+1 Implode
+1 Inferno
+1 Instant Ramen
+1 Jalum Tome
+1 Lava Flow
+1 Liberated Dwarf
+1 Make Mischief
+1 Manalith
+35 Mountain
+1 Nova Pentacle
+1 Omega Myr
+1 Orcish Veteran
+1 Patriar's Seal
+1 Power Matrix
+1 Prowler's Helm
+1 Rage Reflection
+1 Ready to Rumble
+1 Rustspore Ram
+1 Sandals of Abdallah
+1 Searing Spear
+1 Seething Pathblazer
+1 Seismic Rupture
+1 Shatterstorm
+1 Skullmead Cauldron
+1 Smoldering Crater
+1 Sonic Screwdriver
+1 Springjaw Trap
+1 Stone Golem
+1 Sundering Eruption
+1 Sword of Hearth and Home
+1 Temple of the Dragon Queen
+1 The Autonomous Furnace
+1 Ticked Off
+1 Tocasia's Dig Site
+1 Victorious Destruction
+1 Voodoo Doll
+1 Wild Jhovall
+1 Wildfire Emissary
+1 Workhorse
+
+[commander]
+Ben-Ben, Akki Hermit

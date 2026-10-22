@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/VIS/wild-eyed-frenzy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WildEyedFrenzy_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wild-Eyed Frenzy (Adapted)]
+3 Battle Frenzy
+1 Bombard
+3 Chaos Charm
+2 Disharmony
+4 Flare
+3 Flick a Coin
+2 Goblin Offensive
+2 Goblin Scouts
+2 Hordeling Outburst
+2 Make Mischief
+23 Mountain
+1 Sarkhan's Triumph
+2 Scrap
+1 Sizzle
+2 Slaughter Cry
+2 Stone Rain
+1 Sundering Eruption
+4 Wheel of Fortune

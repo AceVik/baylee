@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/STH/the-spikes.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSpikes_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Spikes (Adapted)]
+1 Bayou Dragonfly
+1 Canopy Spider
+1 Elvish Visionary
+12 Forest
+4 Incandescent Aria
+9 Mountain
+2 Naya Charm
+2 Pincher Beetles
+2 Rampant Growth
+4 Rith's Charm
+1 Rith's Grove
+2 Shock
+3 Silt Crawler
+4 Skyshroud Elf
+1 Spike Breeder
+2 Spike Colony
+4 Spike Drone
+2 Spike Feeder
+2 Spike Soldier
+1 Tranquility

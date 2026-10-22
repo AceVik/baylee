@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261039
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #20261039]
+1 Aeronaut's Wings
+1 Agna Qel'a
+1 Ancient Tomb
+1 Archaeomender
+1 Aven Reedstalker
+1 Bond Beetle
+1 Capture Sphere
+1 Cloudpost
+1 Compulsion
+1 Consulate Skygate
+1 Darksteel Brute
+1 Dismiss
+1 Druid Lyrist
+1 Energy Tap
+1 Erratic Visionary
+1 Fleeting Distraction
+1 Flooded Grove
+11 Forest
+1 Gaea's Skyfolk
+1 Gladecover Scout
+1 Greenseeker
+1 Groundskeeper
+1 Hollow Trees
+1 Hornet Cobra
+1 Hullbreacher
+1 Hydrosurge
+13 Island
+1 Isolated Watchtower
+1 Kitchen
+1 Krark-Clan Ironworks
+1 Kraul Stinger
+1 Leaping Lizard
+1 Living Tsunami
+1 Lotus Vale
+1 Maestros Theater
+1 Mana Matrix
+1 Merfolk Coralsmith
+1 Mikokoro, Center of the Sea
+1 Mold Adder
+1 Network Disruptor
+1 Nissa, Resurgent Animist
+1 Oashra Cultivator
+1 Order of the Sacred Bell
+1 Ornery Dilophosaur
+1 Patriar's Seal
+1 Pestered Wellguard
+1 Pradesh Gypsies
+1 Prophet of Distortion
+1 Pull from Tomorrow
+1 Quirion Sentinel
+1 Ramunap Excavator
+1 Repulse
+1 Reset
+1 Rupture Spire
+1 Scholar of Stars
+1 Scribe of the Mindful
+1 Scythe Tiger
+1 Setessan Skirmisher
+1 Shrink
+1 Sisay's Ring
+1 Spike Drone
+1 Standing Stones
+1 Taigam's Scheming
+1 Thalakos Sentry
+1 The Great Mound
+1 The Mycosynth Gardens
+1 Thran Dynamo
+1 Throne of the God-Pharaoh
+1 Toil to Renown
+1 Trenchpost
+1 Undiscovered Paradise
+1 Unsummon
+1 Virtue of Knowledge
+1 Vision Skeins
+1 Watchwing Scarecrow
+1 Wetland Sambar
+1 Wing Splicer
+1 Wooded Foothills

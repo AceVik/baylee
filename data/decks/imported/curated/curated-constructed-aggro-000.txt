@@ -1,0 +1,18 @@
+# baylee curated constructed aggro seed=20261023
+# licence: AGPL-3.0-only
+[deck:constructed aggro W #20261023]
+3 Arashin Cleric
+4 Balance
+4 Courier Hawk
+1 Dragon-Cursed Halls
+3 Eagle of the Watch
+2 Forsaken Crossroads
+2 Kindly Customer
+4 Lodestone Myr
+4 Mana Crypt
+19 Plains
+3 Soltari Priest
+3 Spirited Companion
+3 Swords to Plowshares
+1 Three Tree City
+4 Wolf Cove Villager

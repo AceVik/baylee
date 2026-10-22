@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/AER/tezzeret-master-of-metal.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TezzeretMasterOfMetal_AER.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Tezzeret, Master of Metal (Adapted)]
+2 Agony Warp
+2 Augmenting Automaton
+4 Consult the Necrosages
+1 Countersquall
+2 Dhund Operative
+1 Dukhara Peafowl
+1 Essence Extraction
+4 Essence Vortex
+1 Glimpse the Unthinkable
+2 Implement of Examination
+11 Island
+4 Notion Rain
+1 Ornithopter
+4 Pendulum of Patterns
+4 Pilfered Plans
+4 Submerged Boneyard
+10 Swamp
+2 Universal Solvent

@@ -1,0 +1,21 @@
+# baylee curated constructed control seed=20261041
+# licence: AGPL-3.0-only
+[deck:constructed control WR #20261041]
+1 Anaba Ancestor
+2 Blood Rites
+1 Cavern of Souls
+2 Darksteel Pendant
+4 Dragon Blood
+4 Fountain of Youth
+1 Great Hall of the Citadel
+3 Herald of the Fair
+2 Iron Hills
+3 Jackhammer
+9 Mountain
+4 Necrogen Censer
+7 Plains
+3 School of the Unseen
+4 Serenity
+3 Skycoach Waypoint
+4 Staff of Domination
+3 Tower of Eons

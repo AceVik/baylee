@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261087
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #20261087]
+1 Aesi, Tyrant of Gyre Strait
+1 Aquatic Incursion
+1 Aquus Steed
+1 Back to Basics
+1 Bad River
+1 Binding Grasp
+1 Bloodstained Mire
+1 Bonesplitter
+1 Borne Upon a Wind
+1 Captivating Cave
+1 Centaur Glade
+1 Cerulean Wyvern
+1 Claws of Wirewood
+1 Corridor Monitor
+1 Crash the Ramparts
+1 Cumber Stone
+1 Dark Depths
+1 Deep Spawn
+1 Deeptread Merrow
+1 Dispersing Orb
+1 Doubling Season
+1 Douse
+1 Elite Cat Warrior
+1 Fable of Wolf and Owl
+1 Flooded Strand
+12 Forest
+1 Fylamarid
+1 Galadhrim Guide
+1 Gargoyle Castle
+1 Gauntlets of Chaos
+1 Giant Shark
+1 Gladewalker Ritualist
+1 Grappler Spider
+1 Havenwood Battleground
+1 Homarid Spawning Bed
+1 Howlpack Resurgence
+1 Hullbreacher
+12 Island
+1 Joiner Adept
+1 Mana Matrix
+1 Maze's End
+1 Millstone
+1 Mirkwood Spider
+1 Mox Emerald
+1 Mystic Restraints
+1 Paragon of Gathering Mists
+1 Parcel Myr
+1 Petrified Field
+1 Pit of Offerings
+1 Prescient Chimera
+1 Primoc Escapee
+1 Prizefighter Construct
+1 Ravenous Daggertooth
+1 Reef Pirates
+1 Regeneration
+1 Reliquary Tower
+1 Reset
+1 Roterothopter
+1 Scavenging Ooze
+1 Secluded Courtyard
+1 Sejiri Merfolk
+1 Shadow Sliver
+1 Silver Erne
+1 Silver Myr
+1 Skateboard
+1 Sporecap Spider
+1 The One Ring
+1 The Rack
+1 Throne of the High City
+1 Tower of Eons
+1 Tranquility
+1 Turbulent Wilderness
+1 Vineglimmer Snarl
+1 Vulshok Battlegear
+1 Whirling Dervish
+1 White Lotus Hideout
+1 Woodcutter's Grit
+1 Zephyr Charge

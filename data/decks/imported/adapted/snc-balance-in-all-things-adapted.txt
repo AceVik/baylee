@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/SNC/balance-in-all-things.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BalanceInAllThings_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Balance in All Things (Adapted)]
+4 Anguished Unmaking
+1 Fracture
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+2 Nezumi Bladeblesser
+1 Pest Control
+9 Plains
+2 Purge the Profane
+1 Roadside Reliquary
+4 Scoured Barrens
+1 Shattered Sanctum
+3 Spirited Companion
+10 Swamp
+2 Twisted Embrace
+4 Unmake
+4 Vindicate

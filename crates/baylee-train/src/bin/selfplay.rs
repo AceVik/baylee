@@ -33,7 +33,7 @@ use baylee_core::ids::CardIndex;
 use baylee_core::preset::AIProfile;
 use baylee_train::deckgen::{self, Archetype, shape_name};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::selfplay::{Caps, Outcome, play, table, table_for};
+use baylee_train::selfplay::{Caps, Outcome, play_with_options, table, table_for, write_fault_bundle};
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
 use flate2::Compression;
@@ -140,6 +140,17 @@ struct Args {
     /// --teams`); none = every seat for itself. Needs three seats or more.
     #[arg(long, value_delimiter = ',')]
     teams: Vec<u8>,
+    /// Clamp AI scouting requests so `sharp` and `expert` teachers only see
+    /// their own submitted decklist and never peek at opponent decks, opponent
+    /// hands, or library order.
+    #[arg(long)]
+    fair_scouting: bool,
+    /// Optional path to `data/decks/manifest.v4.json` to load real-world decks.
+    #[arg(long)]
+    decks_manifest: Option<PathBuf>,
+    /// Split to filter when `--decks-manifest` is given (`train`, `val`, `test`).
+    #[arg(long, default_value = "train")]
+    deck_split: String,
     /// Where the run is written; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -315,11 +326,52 @@ fn main() -> anyhow::Result<()> {
         bail!("{} exists; a run is never written over", args.out.display());
     }
     let working = Working::scan(&repo_root()).context("reading the card and combo tests")?;
-    let mut decks: Vec<HouseDeck> = args
-        .decks
-        .iter()
-        .map(|key| HouseDeck::named(key))
-        .collect::<anyhow::Result<_>>()?;
+    let mut decks: Vec<HouseDeck> = if args.decks_manifest.is_some() {
+        Vec::new()
+    } else {
+        args.decks
+            .iter()
+            .map(|key| HouseDeck::named(key))
+            .collect::<anyhow::Result<_>>()?
+    };
+    if let Some(manifest_path) = &args.decks_manifest {
+        let raw = fs::read(manifest_path)
+            .with_context(|| format!("reading manifest {}", manifest_path.display()))?;
+        let val: Value = serde_json::from_slice(&raw)?;
+        let root = repo_root();
+        if let Some(entries) = val["decks"].as_array() {
+            for entry in entries {
+                let entry_split = entry["split"].as_str().unwrap_or("");
+                if !args.deck_split.is_empty()
+                    && args.deck_split != "all"
+                    && entry_split != args.deck_split
+                {
+                    continue;
+                }
+                let entry_fmt = entry["format"].as_str().unwrap_or("");
+                if !args.shapes.is_empty()
+                    && !entry_fmt.is_empty()
+                    && !args.shapes.iter().any(|s| s == entry_fmt)
+                {
+                    continue;
+                }
+                let Some(rel_path) = entry["path"].as_str() else {
+                    continue;
+                };
+                let full_path = root.join(rel_path);
+                let Ok(text) = fs::read_to_string(&full_path) else {
+                    continue;
+                };
+                let key = entry["id"].as_str().unwrap_or(rel_path).to_owned();
+                let Ok(hd) = HouseDeck::parse_any(&key, &text) else {
+                    continue;
+                };
+                if !decks.iter().any(|d| d.key == key) {
+                    decks.push(hd);
+                }
+            }
+        }
+    }
     if decks.len() < 2 && args.generated == 0 {
         bail!("a duel needs two decks");
     }
@@ -365,7 +417,7 @@ fn main() -> anyhow::Result<()> {
     // Generated decks, and the shape classes a game draws its two decks from.
     let mut classes: Vec<(f64, Vec<usize>, Vec<usize>)> = Vec::new();
     let mut held_cards: Vec<u32> = Vec::new();
-    if args.generated > 0 {
+    if args.generated > 0 || args.decks_manifest.is_some() {
         let shapes: Vec<Shape> = args
             .shapes
             .iter()
@@ -539,6 +591,7 @@ fn main() -> anyhow::Result<()> {
         "caps": {"answers": caps.answers, "secs": caps.wall.as_secs()},
         "seats": args.seats,
         "teams": args.teams,
+        "fair_scouting": args.fair_scouting,
         "threads": threads,
         "started": unix_secs(),
     });
@@ -584,6 +637,8 @@ fn main() -> anyhow::Result<()> {
             order.clone(),
         );
         let (records, run, shard_games) = (records.clone(), run.clone(), args.shard_games);
+        let faults_dir = args.out.join("faults");
+        let fair_scouting = args.fair_scouting;
         let teams = args.teams.clone();
         std::thread::spawn(move || {
             let mut shard: Option<Shard> = None;
@@ -614,7 +669,10 @@ fn main() -> anyhow::Result<()> {
                         table_for(game.seed, &table_decks, &profiles, &teams)
                     };
                     let id = format!("{run}-{i:07}");
-                    let played = play(&preset, &id, caps);
+                    let played = play_with_options(&preset, &id, caps, fair_scouting);
+                    if !played.outcome.finished() {
+                        let _ = write_fault_bundle(&faults_dir, &id, &preset, &played);
+                    }
                     if shard.as_ref().is_none_or(|s| s.games >= shard_games) {
                         shard = Some(Shard::open(&records, worker, shards)?);
                         shards += 1;

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/USG/the-plague.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ThePlague_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Plague (Adapted)]
+4 Anguished Unmaking
+1 Befoul
+1 Blood Vassal
+3 Disciple of Grace
+2 Disenchant
+3 Drifting Meadow
+2 Expunge
+1 Mortify
+4 Pestilence
+7 Plains
+2 Polluted Mire
+2 Rune of Protection: Black
+1 Sicken
+1 Silent Attendant
+12 Swamp
+4 Unmake
+3 Unworthy Dead
+4 Vindicate
+3 Voice of Grace

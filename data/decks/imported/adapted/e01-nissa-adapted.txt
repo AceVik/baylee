@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/E01/nissa.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Nissa_E01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Nissa (Adapted)]
+4 Auroral Procession
+1 Cultivate
+4 Double Major
+13 Forest
+1 Greater Sandwurm
+4 Hydroform
+1 Initiate's Companion
+1 Ior Ruin Expedition
+7 Island
+4 Neoform
+1 Rampaging Baloths
+1 Reckless Scholar
+1 Retreat to Kazandu
+1 Scaled Behemoth
+1 Scute Mob
+4 Square Up
+1 Thragtusk
+2 Vision Skeins
+2 Windrider Eel
+1 Woodborn Behemoth
+1 Woodcutter's Grit
+4 Woodland Stream

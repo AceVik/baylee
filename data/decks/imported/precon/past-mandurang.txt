@@ -1,0 +1,31 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Mandurang_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mandurang]
+1 Blood Lust
+1 Braingeyser
+2 Carrion Ants
+2 Celestial Prism
+3 Cursed Land
+4 Dancing Scimitar
+4 Giant Strength
+6 Island
+2 Jayemdae Tome
+6 Mountain
+1 Mox Jet
+1 Mox Ruby
+1 Mox Sapphire
+4 Ornithopter
+6 Swamp
+4 Unholy Strength
+4 Unstable Mutation
+4 Will-o'-the-Wisp
+4 Zephyr Falcon
+
+[sideboard]
+3 Blue Elemental Blast
+3 Bog Wraith
+2 Deathgrip
+2 Flashfires
+1 Gloom
+1 Lifetap
+3 Red Elemental Blast

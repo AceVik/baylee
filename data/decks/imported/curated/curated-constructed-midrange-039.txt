@@ -1,0 +1,20 @@
+# baylee curated constructed midrange seed=20261062
+# licence: AGPL-3.0-only
+[deck:constructed midrange BG #20261062]
+1 Adventurer's Inn
+4 Alpha Myr
+4 Arcum's Astrolabe
+3 Eliminate
+7 Forest
+3 Great Hall of the Citadel
+4 Guardian of the Halls
+4 Lash of Thorns
+2 Midnight Covenant
+2 Misshapen Fiend
+3 Renegade Demon
+4 Rotting Legion
+4 Strangleroot Geist
+8 Swamp
+2 Thawing Glaciers
+2 Timber Wolves
+3 Urza's Factory

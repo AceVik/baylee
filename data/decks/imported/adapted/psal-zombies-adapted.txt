@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/PSAL/zombies.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Zombies_PSAL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zombies (Adapted)]
+1 Abrupt Decay
+1 Carrion Howler
+3 Dark Banishing
+1 Fallen Angel
+3 Festering Goblin
+4 Gaze of Granite
+1 Gluttonous Zombie
+1 Golgari Guildmage
+3 Gravedigger
+1 Horror of Horrors
+1 Lord of the Undead
+4 Maelstrom Pulse
+3 Nantuko Husk
+1 Necromantic Thirst
+4 Pest Summoning
+2 Plagued Rusalka
+24 Swamp
+2 Woebearer

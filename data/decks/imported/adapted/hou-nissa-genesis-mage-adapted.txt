@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/HOU/nissa-genesis-mage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, NissaGenesisMage_HOU.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Nissa, Genesis Mage (Adapted)]
+2 Aerial Guide
+2 Angler Drake
+4 Auroral Procession
+2 Aven Reedstalker
+4 Brambleweft Behemoth
+2 Feral Prowler
+14 Forest
+4 Hydroform
+8 Island
+4 Neoform
+3 Pouncing Cheetah
+2 River Hoopoe
+3 Unsummon
+2 Weaver of Currents
+4 Woodland Stream

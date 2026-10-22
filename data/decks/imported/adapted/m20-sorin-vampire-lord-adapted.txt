@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/M20/sorin-vampire-lord.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SorinVampireLord_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sorin, Vampire Lord (Adapted)]
+2 Daggerdrome Imp
+2 Dark Remedy
+1 Funeral Rites
+1 Mind Drain
+3 Murder
+4 Reaver Ambush
+4 Sorin's Thirst
+25 Swamp
+4 Syphon Soul
+3 Thirsting Bloodlord
+4 Toxic Deluge
+1 Unhinge
+4 Vampire of the Dire Moon
+2 Yawgmoth's Will

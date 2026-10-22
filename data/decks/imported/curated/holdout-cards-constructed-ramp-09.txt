@@ -1,0 +1,21 @@
+# baylee unseen-card holdout constructed seed=90000022
+# licence: AGPL-3.0-only
+[deck:constructed ramp WU #90000022]
+2 Aang, Air Nomad
+3 Adarkar Wastes
+3 Aerial Engineer
+4 Aladdin's Lamp
+2 Capashen Standard
+4 Divine Arrow
+4 Eternity Snare
+7 Island
+2 Legion's Landing
+1 Nephalia Academy
+8 Plains
+3 Rise of Eagles
+3 Ruins of Trokair
+4 Sheltering Light
+4 Spirit Away
+1 Throne of Makindi
+2 Throne of the High City
+3 Withstand

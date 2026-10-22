@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/UDS/fiendish-nature.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FiendishNature_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fiendish Nature (Adapted)]
+3 Abrupt Decay
+1 Ancient Silverback
+3 Assassin's Trophy
+1 Braidwood Cup
+1 Chime of Night
+2 Elvish Lyrist
+2 Expunge
+13 Forest
+4 Gaze of Granite
+1 Goliath Beetle
+3 Heart Warden
+4 Maelstrom Pulse
+1 Marker Beetles
+2 Okina, Temple to the Grandfathers
+4 Pest Summoning
+1 Phyrexian Monitor
+1 Phyrexian Reclamation
+3 Plated Spider
+1 Polluted Mire
+1 Rancor
+6 Swamp
+2 Twisted Experiment

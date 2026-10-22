@@ -1,0 +1,24 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, CentaurWarchief_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Centaur Warchief]
+2 Ali Baba
+2 Cave People
+2 Colossus of Sardia
+2 Dragon Whelp
+2 Eternal Warrior
+2 Healing Salve
+3 Kismet
+1 Land Tax
+2 Lightning Bolt
+12 Mountain
+12 Plains
+2 Savannah Lions
+4 Serra Angel
+3 Smoke
+3 Swords to Plowshares
+2 Wall of Swords
+4 Yotian Soldier
+
+[sideboard]
+2 Kormus Bell
+2 Magnetic Mountain

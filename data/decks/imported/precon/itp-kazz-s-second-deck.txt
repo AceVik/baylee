@@ -1,0 +1,21 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, KazzSSecondDeck_ITP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Kazz's Second Deck]
+1 Battering Ram
+1 Clockwork Beast
+1 Cursed Land
+1 Detonate
+1 Energy Flux
+1 Feedback
+1 Fireball
+4 Island
+1 Jayemdae Tome
+1 Mons's Goblin Raiders
+5 Mountain
+1 Orcish Artillery
+1 Orcish Oriflamme
+1 Phantom Monster
+2 Power Sink
+1 Sorceress Queen
+4 Swamp
+2 Vampire Bats

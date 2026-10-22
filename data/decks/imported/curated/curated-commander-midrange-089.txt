@@ -1,0 +1,85 @@
+# baylee curated commander midrange seed=20261112
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20261112]
+1 Alabaster Potion
+1 Bag End Banquet
+1 Birnin Zana Plaza
+1 Black Vise
+1 Celestial Purge
+1 Coastal Piracy
+1 Cryptic Command
+1 Dense Canopy
+1 Diabolic Machine
+1 Doomed Traveler
+1 Eager Cadet
+1 Endless One
+1 Ensoul Artifact
+1 Exorcise
+4 Forest
+1 Frostwalk Bastion
+1 Galestrike
+1 Gemstone Mine
+1 Grizzled Leotau
+1 Hada Freeblade
+1 Hedge Troll
+1 Herbal Poultice
+1 Hollow Trees
+10 Island
+1 Jeskai Runemark
+1 Jousting Dummy
+1 Katara, the Fearless
+1 King Suleiman
+1 Lance
+1 Lay Claim
+1 Library of Alexandria
+1 Magosi, the Waterveil
+1 Malach of the Dawn
+1 Mech Hangar
+1 Memnite
+1 Moat
+1 Molimo, Maro-Sorcerer
+1 Necrogen Censer
+1 Nighthawk, Dark Defender
+1 Nine-Tail White Fox
+1 North Star
+1 One With the Wind
+1 Overflowing Insight
+1 Panharmonicon
+1 Patagia Tiger
+1 Pegasus Refuge
+10 Plains
+1 Power Depot
+1 Primal Huntbeast
+1 Prodigious Growth
+1 Reconnaissance Mission
+1 Rhystic Cave
+1 River Hoopoe
+1 Rofellos, Llanowar Emissary
+1 Rowan Treefolk
+1 Sabertooth Nishoba
+1 Safewright Quest
+1 Scavenger Grounds
+1 Secluded Steppe
+1 Sentinel of the Eternal Watch
+1 Seshiro the Anointed
+1 Shrink
+1 Skateboard
+1 Skillful Lunge
+1 Soulstone Sanctuary
+1 Spined Megalodon
+1 Spoils of Victory
+1 Stalking Drone
+1 Steal Artifact
+1 Storm of Saruman
+1 Survivors' Encampment
+1 Temple of Mystery
+1 The Fair Basilica
+1 Tigereye Cameo
+1 Trusted Pegasus
+1 Unknown Shores
+1 Voodoo Doll
+1 Water Wings
+1 Welding Jar
+
+[commander]
+Katara, the Fearless

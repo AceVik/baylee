@@ -1,0 +1,24 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Prismat_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Prismat]
+1 Black Lotus
+2 Detonate
+2 Disenchant
+4 Earthquake
+2 Fellwar Stone
+6 Forest
+4 Healing Salve
+4 Hurricane
+4 Inferno
+1 Ivory Tower
+4 Living Artifact
+7 Mountain
+1 Mox Emerald
+1 Mox Pearl
+1 Mox Ruby
+4 Onulet
+6 Plains
+2 Reverse Damage
+1 Sol Ring
+3 Stream of Life
+2 Wrath of God

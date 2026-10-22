@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261063
+# licence: AGPL-3.0-only
+[deck:highlander midrange UR #20261063]
+1 Armored Skaab
+1 Baron, Airship Kingdom
+1 Bloodshot Trainee
+1 Breakneck Berserker
+1 Brotherhood Spy
+1 Chromatic Sphere
+1 Clone
+1 Cursed Rack
+1 Desert of the Fervent
+1 Deserted Temple
+1 Dragon's Rage Channeler
+1 Drownyard Temple
+1 Dukhara Peafowl
+1 Dwarven Hold
+1 Earth Tremor
+1 Elementalist Adept
+1 Enraged Flamecaster
+1 Floodchaser
+1 Foundry of the Consuls
+1 Grafted Skullcap
+1 Horizon Drake
+1 Horned Turtle
+1 Independent Troops
+8 Island
+1 Izzet Guildgate
+1 Kiln Fiend
+1 Kite Shield
+1 Krark-Clan Ironworks
+1 Lunar Frenzy
+1 Manakin
+1 Mardu Runemark
+1 Mech Hangar
+1 Memory Deluge
+1 Moonglove Extract
+1 Mothdust Changeling
+16 Mountain
+1 Myr Sire
+1 Nucklavee
+1 Opportunity
+1 Perilous Myr
+1 Persuasion
+1 Pithing Needle
+1 Ral's Reinforcements
+1 Red Elemental Blast
+1 Renegade Firebrand
+1 Rescind
+1 Ring of Three Wishes
+1 Rocket Launcher
+1 Runewing
+1 Rusted Slasher
+1 Salvager of Secrets
+1 Saprazzan Skerry
+1 Scalding Tarn
+1 Seafloor Debris
+1 Sharpened Pitchfork
+1 Skirk Shaman
+1 Soaring Seacliff
+1 Sonic Screwdriver
+1 Spark Spray
+1 Spawning Bed
+1 Steam Frigate
+1 TVA Bureaucrat
+1 The Gold Saucer
+1 The Hive
+1 The Mechanist, Aerial Artisan
+1 Tidings
+1 Time Walk
+1 Tomb of the Spirit Dragon
+1 Ur-Golem's Eye
+1 Vendilion Clique
+1 Victorious Destruction
+1 Volatile Fjord
+1 Vulshok Refugee
+1 War Horn
+1 War-Spike Changeling
+1 War-Torch Goblin
+1 Warship Scout
+1 Welding Jar

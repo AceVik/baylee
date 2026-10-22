@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261102
+# licence: AGPL-3.0-only
+[deck:highlander control RG #20261102]
+1 Anaconda
+1 Arboria
+1 Argothian Enchantress
+1 Avishkar Raceway
+1 Black Lotus
+1 Blighted Gorge
+1 Bloodstained Mire
+1 Bootleggers' Stash
+1 Braidwood Cup
+1 Bristling Backwoods
+1 Chaoslace
+1 Command Tower
+1 Coral Helm
+1 Crawling Barrens
+1 Creeperhulk
+1 Cryptolith Rite
+1 Crystal Grotto
+1 Dosan's Oldest Chant
+1 Ember Shot
+1 Equestrian Skill
+1 Flora Colossus
+1 Flowstone Mauler
+1 Forbidden Orchard
+13 Forest
+1 Frostwalk Bastion
+1 Ghost Town
+1 Gilded Lotus
+1 Glissa's Scorn
+1 Goblin Hero
+1 Indicate
+1 Jandor's Ring
+1 Keldon Necropolis
+1 Khalni Ambush
+1 Labyrinth of Skophos
+1 Lothlórien Lookout
+1 Lotus Vale
+1 Magmaquake
+1 Mardu Runemark
+1 Mending Touch
+1 Mind Stone
+13 Mountain
+1 Mox Emerald
+1 Mox Opal
+1 Mox Ruby
+1 Open Fire
+1 Oran-Rief, the Vastwood
+1 Oread of Mountain's Blaze
+1 Planar Portal
+1 Precise Strike
+1 Pyre Spawn
+1 Raiding Party
+1 Rath's Edge
+1 Reduce to Ashes
+1 Revive
+1 Rocket Launcher
+1 Scald
+1 Scorched Ruins
+1 Serpent Generator
+1 Sharpened Pitchfork
+1 Skull Catapult
+1 Spark Spray
+1 Sporecrown Thallid
+1 Squall
+1 Squirrel Nest
+1 Surge Node
+1 Tavern Ruffian
+1 The One Ring
+1 Thornado
+1 Timberline Ridge
+1 Underworld Breach
+1 Universal Automaton
+1 Vampires' Vengeance
+1 Voodoo Doll
+1 Walk-In Closet
+1 Winter Moon
+1 Woodborn Behemoth

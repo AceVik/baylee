@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261108
+# licence: AGPL-3.0-only
+[deck:highlander aggro UB #20261108]
+1 Ancient Tomb
+1 Archway Commons
+1 Audacious Thief
+1 Bad River
+1 Balduvian Shaman
+1 Banehound
+1 Black Cat
+1 Bladed Pinions
+1 Bojuka Bog
+1 Brotherhood Headquarters
+1 Caustic Hound
+1 Chronomaton
+1 Claws of Gix
+1 Cloaked Siren
+1 Crystal Vein
+1 Dakmor Salvage
+1 Drudge Skeletons
+1 Dune Beetle
+1 Endless One
+1 Ensoul Artifact
+1 Equilibrium
+1 Faerie Duelist
+1 Feebleness
+1 Floodhound
+1 Fountain of Youth
+1 Galvanic Key
+1 Gemstone Mine
+1 Gifted Aetherborn
+1 Greedy Freebooter
+1 Hoard Robber
+1 Homeward Path
+1 Humongulus
+1 Hydroelectric Specimen
+1 Iron-Shield Elf
+7 Island
+1 Jace, the Mind Sculptor
+1 Krovikan Scoundrel
+1 Lesser Werewolf
+1 Mage-Ring Network
+1 Mark of the Vampire
+1 Master of the Feast
+1 Mirror Image
+1 Mnemonic Wall
+1 Myr Landshaper
+1 Nether Shadow
+1 Novice Occultist
+1 Noxious Groodion
+1 Omen of the Sea
+1 Omenspeaker
+1 Overwhelmed Apprentice
+1 Phyrexian Walker
+1 Prickly Boggart
+1 Pulse Tracker
+1 Putrefaction
+1 Rathi Trapper
+1 Ravenous Harpy
+1 Reef Roads
+1 Sanguinary Priest
+1 Scalding Tarn
+1 Silhouette
+1 Sindbad
+1 Sliver Construct
+1 Soured Springs
+1 Sparring Construct
+1 Spindrift Drake
+1 Stardew Valley
+1 Sterling Hound
+1 Sultai Runemark
+16 Swamp
+1 The Theorist, Jace Beleren
+1 Tomb of the Spirit Dragon
+1 Treasure Dredger
+1 Universal Automaton
+1 Vodalian Arcanist
+1 Voodoo Doll
+1 Wreckage Wickerfolk
+1 You See a Guard Approach
+1 Zombie Master
+1 Zombie Trailblazer

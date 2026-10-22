@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/DDK/sorin.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Sorin_DDK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sorin (Adapted)]
+1 Ancient Craving
+4 Anguished Unmaking
+1 Child of Night
+1 Death Grasp
+2 Doomed Traveler
+2 Evolving Wilds
+1 Field of Souls
+1 Harsh Sustenance
+3 Inkling Summoning
+1 Mark of the Vampire
+1 Mausoleum Guard
+4 Mortify
+1 Phantom General
+9 Plains
+1 Sengir Vampire
+1 Sorin's Thirst
+2 Spectral Procession
+12 Swamp
+2 Tainted Field
+4 Unmake
+1 Vampire Nighthawk
+4 Vindicate
+1 Wall of Omens

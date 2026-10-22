@@ -1,0 +1,20 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ZakkSSecondDeck_RQS.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zakk's Second Deck]
+1 Circle of Protection: Black
+1 Circle of Protection: Red
+1 Dark Ritual
+1 Elvish Archers
+4 Forest
+1 Glasses of Urza
+1 Mesa Pegasus
+4 Plains
+1 Reverse Damage
+1 Rod of Ruin
+4 Swamp
+1 Wall of Bone
+1 War Mammoth
+1 Warp Artifact
+1 Weakness
+1 Whirling Dervish
+1 Winter Blast

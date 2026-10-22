@@ -1,0 +1,79 @@
+# baylee unseen-card holdout highlander seed=90000020
+# licence: AGPL-3.0-only
+[deck:highlander control UR #90000020]
+1 Acid Rain
+1 Aether Sting
+1 Bellowing Crier
+1 Blue Elemental Blast
+1 Boil
+1 Brass's Tunnel-Grinder
+1 Brilliant Plan
+1 Darkslick Drake
+1 Devastation
+1 Dread Statuary
+1 Dwarven Ruins
+1 Earthquake
+1 Empowered Autogenerator
+1 Experimental Armor
+1 Field of Ruin
+1 Fire
+1 Fire Nation's Conquest
+1 Fireball
+1 Frontline War-Rager
+1 Ghirapur Gearcrafter
+1 Goblin Bully
+1 Goblin Burrows
+1 Goblin Snowman
+1 Gryff Vanguard
+1 Hidden Volcano
+1 Hobblefiend
+1 Hordeling Outburst
+11 Island
+1 Kher Keep
+1 Levitating Statue
+1 Lose Focus
+1 Majestic Metamorphosis
+1 Merfolk Assassin
+1 Miner's Bane
+1 Mirror Universe
+1 Mobilized District
+15 Mountain
+1 Mouth of Ronom
+1 Mox Ruby
+1 Myr Matrix
+1 Planar Bridge
+1 Pyramids
+1 Ravenous Giant
+1 Renegade Map
+1 Repulse
+1 Runesword
+1 Sandstone Needle
+1 Saprazzan Skerry
+1 Scour from Existence
+1 Scrap
+1 Shatterskull Giant
+1 Sheltered Valley
+1 Sonic Screwdriver
+1 Starlit Mantle
+1 Sterling Hound
+1 Stern Scolding
+1 Stonefury
+1 Storm's Wrath
+1 Sword of the Meek
+1 Tectonic Edge
+1 The Chase Is On
+1 The Whizzer, Classic Speedster
+1 Thriving Bluff
+1 Tolaria West
+1 Tormod's Crypt
+1 Tower of Eons
+1 Trenchpost
+1 Two-Headed Dragon
+1 Valgavoth's Lair
+1 Vampires' Vengeance
+1 Veteran's Sidearm
+1 Voldaren Estate
+1 Voodoo Doll
+1 Where Ancients Tread
+1 Worn Powerstone
+1 You Come to a River

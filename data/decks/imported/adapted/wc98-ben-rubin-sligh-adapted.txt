@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/WC98/ben-rubin-sligh.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BenRubinSligh_WC98.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ben Rubin - Sligh (Adapted)]
+4 Ball Lightning
+1 Char
+4 Fateful End
+4 Goblin Offensive
+2 Hordeling Outburst
+4 Ironclaw Orcs
+4 Mogg Fanatic
+17 Mountain
+2 Sarkhan's Triumph
+4 Shock
+4 Slagstorm
+2 Steam Blast
+4 Sundering Eruption
+4 Wasteland

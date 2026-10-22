@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/WC97/svend-geertsen-green-stompy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SvendGeertsenGreenStompy_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Svend Geertsen - Green Stompy (Adapted)]
+2 Call the Scions
+2 Eldritch Evolution
+16 Forest
+4 Fyndhorn Elves
+4 Ghazbán Ogre
+4 Giant Growth
+3 Growth Spasm
+2 Heart of Yavimaya
+3 Khalni Ambush
+4 Rogue Elephant
+2 Uktabi Orangutan
+4 Valley Mightcaller
+4 Verdigris
+2 Whirling Dervish
+4 Winter Orb

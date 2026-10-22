@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/VIS/savage-stompdown.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SavageStompdown_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Savage Stompdown (Adapted)]
+4 Bathe in Dragonfire
+1 Copper Host Crusher
+1 Creeping Mold
+2 Expose to Daylight
+12 Forest
+1 Granger Guildmage
+4 Incandescent Aria
+2 Jungle Troll
+1 King Cheetah
+2 Kyscu Drake
+1 Locust Swarm
+12 Mountain
+1 Natural Order
+4 Naya Charm
+2 Quirion Elves
+4 Rith's Charm
+2 Spitting Drake
+2 Unyaro Bee Sting
+1 Viashivan Dragon
+1 Volcanic Geyser

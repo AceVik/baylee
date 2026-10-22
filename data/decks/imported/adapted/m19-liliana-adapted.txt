@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/M19/liliana.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Liliana_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Liliana (Adapted)]
+2 Afflict
+3 Arisen Gorgon
+2 Blood Pact
+2 Diregraf Ghoul
+1 Funeral Rites
+1 Gravedigger
+1 Icequake
+1 Inquisition
+2 Lich's Caress
+1 Meteor Golem
+2 Murder
+2 Risky Shortcut
+1 Skeleton Archer
+2 Skymarch Bloodletter
+1 Sovereign's Bite
+1 Strangling Spores
+1 Succumb to Temptation
+26 Swamp
+4 Tattered Mummy
+2 Vampire Sovereign
+2 Walking Corpse

@@ -1,0 +1,21 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ElvishMagi_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elvish Magi]
+4 Elven Riders
+4 Elvish Archers
+22 Forest
+4 Giant Spider
+4 Hurricane
+2 Jayemdae Tome
+4 Llanowar Elves
+4 Stream of Life
+4 Untamed Wilds
+4 War Mammoth
+4 Winter Blast
+
+[sideboard]
+1 Living Artifact
+1 Tranquility
+1 Wall of Brambles
+1 Web
+1 Whirling Dervish

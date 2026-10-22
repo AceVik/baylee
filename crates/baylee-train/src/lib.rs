@@ -12,16 +12,22 @@
 
 #[cfg(feature = "onnx")]
 pub mod batchnet;
+#[cfg(feature = "play")]
+pub mod carddsl;
 pub mod cardwalk;
 #[cfg(feature = "play")]
 pub mod convert;
 #[cfg(feature = "play")]
 pub mod convert3;
+#[cfg(feature = "play")]
+pub mod convert4;
 pub mod deckgen;
 #[cfg(feature = "play")]
 pub mod features;
 #[cfg(feature = "play")]
 pub mod features3;
+#[cfg(feature = "play")]
+pub mod features4;
 pub mod housedeck;
 #[cfg(feature = "llm")]
 pub mod llmchair;
@@ -29,6 +35,8 @@ pub mod llmchair;
 pub mod netplay;
 #[cfg(feature = "onnx")]
 pub mod netplay3;
+#[cfg(feature = "onnx")]
+pub mod netplay4;
 #[cfg(feature = "onnx")]
 pub mod onnx;
 #[cfg(feature = "play")]

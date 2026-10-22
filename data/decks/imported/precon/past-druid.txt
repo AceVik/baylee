@@ -1,0 +1,23 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Druid_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Druid]
+2 Craw Wurm
+2 Durkwood Boars
+20 Forest
+4 Giant Growth
+2 Giant Spider
+3 Grizzly Bears
+3 Instill Energy
+2 Ironroot Treefolk
+2 Killer Bees
+3 Ley Druid
+3 Llanowar Elves
+4 Mishra's Factory
+2 Nafs Asp
+2 Oasis
+2 Wall of Wood
+3 Wanderlust
+3 Wooden Sphere
+
+[sideboard]
+3 Shanodin Dryads

@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/E02/brazen-coalition.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BrazenCoalition_E02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Brazen Coalition (Adapted)]
+1 Coat with Venom
+2 Convolute
+4 Crosis's Charm
+4 Crumbling Necropolis
+3 Dire Fleet Hoarder
+1 Doom Blade
+4 Drastic Revelation
+1 Fiery Cannonade
+7 Island
+1 Lightning Strike
+8 Mountain
+2 Pilfered Plans
+2 Prismatic Lens
+2 Rend Flesh
+2 Rush of Adrenaline
+2 Sailor of Means
+2 Start from Scratch
+1 Stupor
+1 Suit Up
+7 Swamp
+2 Teleport
+1 Unhinge

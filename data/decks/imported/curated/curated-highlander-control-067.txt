@@ -1,0 +1,69 @@
+# baylee curated highlander control seed=20261090
+# licence: AGPL-3.0-only
+[deck:highlander control W #20261090]
+1 Allied Teamwork
+1 Armed Response
+1 Beaming Defiance
+1 Big Apple, 3 a.m.
+1 Blood of the Martyr
+1 Bottle of Suleiman
+1 Bounty Agent
+1 Braidwood Cup
+1 Claws of Gix
+1 Conqueror's Galleon
+1 Crusade
+1 D'Avenant Archer
+1 Desert
+1 Diamond Kaleidoscope
+1 Divine Intervention
+1 Dungeon Descent
+1 Foundry of the Consuls
+1 Glory Seeker
+1 Grapeshot Catapult
+1 Hallowed Ground
+1 Hero's Resolve
+1 Honor-Worn Shaku
+1 Kami of Tattered Shoji
+1 Karn, the Great Creator
+1 Knight-Captain of Eos
+1 Leonin Scimitar
+1 Marked by Honor
+1 Mending Hands
+1 Moonglove Extract
+1 Mycosynth Lattice
+1 Nine-Ringed Bo
+1 North Star
+1 Panharmonicon
+1 Pardic Wanderer
+1 Pit Trap
+35 Plains
+1 Planar Bridge
+1 Plaza of Heroes
+1 Ray of Dissolution
+1 Recuperate
+1 Red Ward
+1 Righteous Avengers
+1 Rising Populace
+1 Rumble Arena
+1 Sanctimony
+1 Seeker
+1 Sensor Splicer
+1 Serum Tank
+1 Silver Knight
+1 Sonic Screwdriver
+1 Spatial Contortion
+1 Spirit Mantle
+1 Staff of Domination
+1 Static Orb
+1 Survive the Night
+1 Sylvok Lifestaff
+1 Thran Portal
+1 Tower of Eons
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Unholy Citadel
+1 Vanquish
+1 Wall of Spears
+1 War Chariot
+1 Winged Shepherd
+1 Winter Moon
+1 Worn Powerstone

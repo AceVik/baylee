@@ -1,0 +1,22 @@
+# baylee unseen-card holdout constructed seed=90000004
+# licence: AGPL-3.0-only
+[deck:constructed aggro UR #90000004]
+2 Brass Man
+1 Den of the Bugbear
+4 Eye of Malcator
+3 Fire Nation Palace
+2 Frostling
+4 Goblin Sledder
+9 Island
+2 Looming Spires
+5 Mountain
+4 Selhoff Entomber
+4 Simulacrum Synthesizer
+4 Spectral Cloak
+4 Stonybrook Angler
+2 The Gold Saucer
+1 Uthros, Titanic Godcore
+1 Utvara Scalper
+4 Vendilion Clique
+2 Whalebone Glider
+2 Zephyr Gull

@@ -1,0 +1,16 @@
+# baylee curated constructed ramp seed=20261032
+# licence: AGPL-3.0-only
+[deck:constructed ramp B #20261032]
+2 Boon of Emrakul
+4 Burrog Banemaker
+4 Environmental Sciences
+2 Glacial Chasm
+3 Goldvein Pick
+4 Jandor's Ring
+2 Kry Shield
+4 Massacre Wurm
+4 Ray of Ruin
+20 Swamp
+4 Triassic Egg
+3 Underdark Rift
+4 Vicious Hunger

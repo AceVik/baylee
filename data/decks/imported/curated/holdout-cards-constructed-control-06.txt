@@ -1,0 +1,20 @@
+# baylee unseen-card holdout constructed seed=90000019
+# licence: AGPL-3.0-only
+[deck:constructed control WG #90000019]
+3 Bootleggers' Stash
+3 Bountiful Harvest
+4 Builder's Blessing
+9 Forest
+3 Kjeldoran Outpost
+4 Knightly Valor
+4 Last Breath
+2 Lotus Vale
+7 Plains
+2 Purify
+3 Sea Gate Wreckage
+2 Security Detail
+4 Sphinx-Bone Wand
+3 Squall Line
+2 Squirrel Nest
+3 Trailblazer
+2 Vibrant Cityscape

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M15/hit-the-ground-running.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HitTheGroundRunning_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Hit The Ground Running (Adapted)]
+4 Auroral Procession
+1 Carnivorous Moss-Beast
+2 Coral Barrier
+2 Double Major
+12 Forest
+1 Fugitive Wizard
+3 Hydroform
+2 Invasive Species
+13 Island
+2 Kapsho Kitefins
+1 Meteorite
+1 Negate
+4 Neoform
+1 Plummet
+2 Reclamation Sage
+1 Research Assistant
+2 Roaring Primadox
+2 Runeclaw Bear
+3 Shaman of Spring
+1 Square Up

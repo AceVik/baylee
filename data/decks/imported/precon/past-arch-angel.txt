@@ -1,0 +1,18 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ArchAngel_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Arch Angel]
+2 Mana Vault
+4 Mishra's Factory
+4 Onulet
+4 Osai Vultures
+22 Plains
+4 Serra Angel
+4 Soul Net
+4 Swords to Plowshares
+4 Tetravus
+4 The Hive
+4 Wrath of God
+
+[sideboard]
+3 Disenchant
+3 Reverse Damage

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/TMP/deep-freeze-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeepFreezeAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deep Freeze - Advanced Deck (Adapted)]
+4 Absorb
+4 Adarkar Wastes
+2 Binding Grasp
+4 Counterspell
+4 Daring Leap
+2 Disenchant
+2 Dismiss
+1 Inspiration
+10 Island
+2 Man-o'-War
+2 Offering to Asha
+2 Ojutai's Command
+6 Plains
+2 Quicksand
+2 Sky Spirit
+4 Sphinx's Revelation
+1 Svyelunite Temple
+3 Thalakos Lowlands
+3 Wrath of God

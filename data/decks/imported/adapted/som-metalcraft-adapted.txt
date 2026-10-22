@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/SOM/metalcraft.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Metalcraft_SOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Metalcraft (Adapted)]
+1 Accorder's Shield
+4 Broadside Barrage
+1 Darksteel Axe
+1 Disperse
+1 Echo Circlet
+2 Embersmith
+4 Fire
+1 Golem's Heart
+4 Invoke the Firemind
+2 Iron Myr
+12 Island
+4 Izzet Charm
+2 Memnite
+12 Mountain
+1 Retributive Wand
+4 Rush of Inspiration
+2 Silver Myr
+1 Sylvok Lifestaff
+1 Traumatic Critique

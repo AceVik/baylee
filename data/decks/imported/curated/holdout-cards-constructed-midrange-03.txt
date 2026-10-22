@@ -1,0 +1,20 @@
+# baylee unseen-card holdout constructed seed=90000010
+# licence: AGPL-3.0-only
+[deck:constructed midrange UR #90000010]
+4 Battleground Geist
+4 Black Lotus
+4 Brass Secretary
+4 Cache Raiders
+3 Detection Tower
+3 Golem Foundry
+2 Haven of the Spirit Dragon
+3 Hobbit Hole
+13 Island
+4 Mirrormade
+2 Mountain
+4 Mountain Goat
+3 Rakalite
+1 Skycoach Waypoint
+2 Sunglasses of Urza
+2 The Underworld Cookbook
+2 Worry Beads

@@ -1,0 +1,70 @@
+# baylee curated highlander ramp seed=20261081
+# licence: AGPL-3.0-only
+[deck:highlander ramp G #20261081]
+1 A Realm Reborn
+1 Aeolipile
+1 Aisling Leprechaun
+1 Arasta of the Endless Web
+1 Archway Commons
+1 Aurochs
+1 Brass Man
+1 Byway Courier
+1 Celestial Sword
+1 Chocobo Racetrack
+1 Delif's Cube
+1 Doubling Season
+1 Elven Lyre
+1 Emerald Dragonfly
+1 Enraged Ceratok
+1 Esper Panorama
+1 Excavated Wall
+1 Fangren Hunter
+34 Forest
+1 Havenwood Wurm
+1 Hobbit Hole
+1 Inkmoth Nexus
+1 Kithkin Daggerdare
+1 Lifecrafter's Bestiary
+1 Lurker
+1 Mana Matrix
+1 Marshdrinker Giant
+1 Mimic
+1 Mogg Cannon
+1 Natural Spring
+1 Needleshot Gourna
+1 Nissa, Vital Force
+1 Ornithopter
+1 Pacification Array
+1 Plated Crusher
+1 Plated Slagwurm
+1 Powerstone Shard
+1 Primeval Bounty
+1 Pristine Talisman
+1 Pyramids
+1 Quilled Slagwurm
+1 Ring of Immortals
+1 Ring of Ma'rûf
+1 Secluded Starforge
+1 Signpost Scarecrow
+1 Skycoach Waypoint
+1 Skyshroud Archer
+1 Spined Wurm
+1 Squall Line
+1 Staff of Nin
+1 Steady Aim
+1 Steelbane Hydra
+1 Strangleroot Geist
+1 Tajuru Pathwarden
+1 Terrain Elemental
+1 Thallid
+1 Totem Speaker
+1 Trolls of Tel-Jilad
+1 Undiscovered Paradise
+1 Unnatural Predation
+1 Unstable Obelisk
+1 Urza's Factory
+1 Vulshok Morningstar
+1 Wanderlust
+1 Wolfwillow Haven
+1 Worldslayer
+1 Yavimaya Ancients

@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/VIS/legion-of-glory.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LegionOfGlory_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Legion of Glory (Adapted)]
+1 Army of Allah
+1 Bargain
+2 Blinding Light
+2 Femeref Healer
+3 Femeref Scouts
+2 Forsake the Worldly
+2 Guiding Bolt
+1 Hive Stirrings
+1 Hope Charm
+1 Longbow Archer
+2 Magma Mine
+2 Metal Fatigue
+23 Plains
+2 Radiant's Judgment
+2 Rebuke
+3 Resolute Watchdog
+1 Retribution of the Meek
+2 Split Up
+3 Survive the Night
+2 Sworn Companions
+2 Tempest of Light

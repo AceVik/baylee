@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/USG/special-delivery-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDeliveryEnhancedDeck_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Special Delivery - Enhanced Deck (Adapted)]
+1 City of Brass
+4 Colossal Might
+1 Fireball
+4 Forest
+4 Ground Assault
+4 Guttural Response
+2 Hurricane
+1 Hush
+3 Karplusan Forest
+4 Manamorphose
+2 Mirri, Cat Warrior
+4 Mogg Fanatic
+5 Mountain
+2 Okina, Temple to the Grandfathers
+2 Reflecting Pool
+2 Sangrite Surge
+4 Savage Twister
+2 Shock
+2 Smoldering Crater
+1 Stalking Stones
+4 Stump Stomp
+2 Wasteland

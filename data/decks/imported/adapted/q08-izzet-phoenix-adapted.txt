@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/Q08/izzet-phoenix.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, IzzetPhoenix_Q08.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Izzet Phoenix (Adapted)]
+4 Broadside Barrage
+4 Consider
+4 Expressive Iteration
+4 Fire
+2 Flame-Blessed Bolt
+4 Invoke the Firemind
+6 Island
+4 Izzet Charm
+4 Mountain
+4 Opt
+4 Rush of Inspiration
+4 Shivan Reef
+1 Steam Vents
+2 Sulfur Falls
+4 Temple of Epiphany
+1 Traumatic Critique
+4 Treasure Cruise

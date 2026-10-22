@@ -1,0 +1,81 @@
+# baylee unseen-card holdout highlander seed=90000037
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #90000037]
+1 Access Tunnel
+1 Aeronaut's Wings
+1 Air Marshal
+1 Angel's Tomb
+1 Ash Barrens
+1 Baldur's Gate
+1 Battlegrowth
+1 Bone to Ash
+1 Claws of Gix
+1 Cloistered Telepath
+1 Cloud Djinn
+1 Constricting Tendrils
+1 Containment Protocol
+1 Darksteel Forge
+1 Desecration Plague
+1 Desert Twister
+1 Dragon Blood
+1 Efficient Construction
+1 Ensouled Scimitar
+1 Envelop
+1 Ertai, Wizard Adept
+1 Eternity Snare
+1 Eye of Ramos
+1 Fierce Guardianship
+1 Flight
+1 Font of Fertility
+7 Forest
+1 Giant Warthog
+1 Glyph of Reincarnation
+1 Gnarled Mass
+1 Grounded
+1 Hornswoggle
+1 Interplanar Beacon
+17 Island
+1 Kodama's Reach
+1 Krosan Verge
+1 Mental Discipline
+1 Merchant of Secrets
+1 Mikokoro, Center of the Sea
+1 Mind Over Matter
+1 Moon-Eating Dog
+1 Mosstodon
+1 Mox Sapphire
+1 Mystifying Maze
+1 Natural Spring
+1 Oashra Cultivator
+1 Petrified Field
+1 Phyrexian Altar
+1 Prosperous Pirates
+1 Pyramids
+1 Quandrix Campus
+1 Reincarnation
+1 Rishadan Dockhand
+1 Roterothopter
+1 Sanctum of Eternity
+1 School of the Unseen
+1 Sea Gate
+1 Search for Azcanta
+1 Shifting Wall
+1 Shopkeeper's Bane
+1 Silver-Inlaid Dagger
+1 Slumbering Waterways
+1 Social Climber
+1 Stronghold Machinist
+1 Swampbenders
+1 Temporal Manipulation
+1 The One Ring
+1 The Rack
+1 Thornwood Falls
+1 Tower of Champions
+1 Trained Armodon
+1 True-Faith Censer
+1 Turtle Lair
+1 Walking Ballista
+1 Wall of Brambles
+1 Wind Spirit
+1 Winged Coatl
+1 Wirewood Lodge

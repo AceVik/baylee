@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/JOU/the-wilds-and-the-deep.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheWildsAndTheDeep_JOU.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Wilds and the Deep (Adapted)]
+1 Agent of Horizons
+4 Auroral Procession
+1 Bassara Tower Archer
+1 Cloaked Siren
+4 Double Major
+2 Font of Fertility
+1 Font of Fortunes
+15 Forest
+2 Golden Hind
+4 Hydroform
+11 Island
+4 Neoform
+1 Nessian Courser
+2 Pterafractyl
+4 Square Up
+2 Swordwise Centaur
+1 Thassa's Ire

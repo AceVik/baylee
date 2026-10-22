@@ -1,0 +1,21 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Sorceress_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sorceress]
+3 Ball Lightning
+4 Bird Maiden
+4 Blood Lust
+2 Dragon Whelp
+4 Dwarven Warriors
+4 Firebreathing
+2 Hurloon Minotaur
+4 Hurr Jackal
+3 Iron Star
+2 Meekstone
+23 Mountain
+2 Shatter
+3 The Brute
+
+[sideboard]
+1 Red Elemental Blast
+1 Sunglasses of Urza
+2 The Brute

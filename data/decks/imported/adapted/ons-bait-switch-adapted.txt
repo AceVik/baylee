@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/ONS/bait-switch.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BaitSwitch_ONS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Bait & Switch (Adapted)]
+2 Barren Moor
+2 Cabal Slaver
+4 Consult the Necrosages
+4 Essence Vortex
+1 Feeding Frenzy
+1 Glimpse the Unthinkable
+11 Island
+2 Lonely Sandbar
+1 Mage's Guile
+1 Misery Charm
+4 Notion Rain
+4 Pilfered Plans
+4 Psychic Drain
+1 Smother
+9 Swamp
+3 Swat
+4 Tyrant's Scorn
+2 Urza's Guilt

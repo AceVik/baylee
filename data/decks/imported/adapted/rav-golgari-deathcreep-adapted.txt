@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/RAV/golgari-deathcreep.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariDeathcreep_RAV.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Golgari Deathcreep (Adapted)]
+1 Abrupt Decay
+2 Assassin's Trophy
+2 Drain the Well
+2 Elves of Deep Shadow
+1 Elvish Skysweeper
+11 Forest
+4 Gaze of Granite
+1 Golgari Guildmage
+1 Golgari Rot Farm
+2 Golgari Rotwurm
+2 Infectious Host
+2 Last Gasp
+4 Maelstrom Pulse
+1 Necromantic Thirst
+4 Pest Summoning
+2 Recollect
+1 Svogthos, the Restless Tomb
+11 Swamp
+4 Tear Asunder
+2 Woodwraith Strangler

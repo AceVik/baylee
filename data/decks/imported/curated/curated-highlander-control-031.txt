@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261054
+# licence: AGPL-3.0-only
+[deck:highlander control BG #20261054]
+1 Abstergo Entertainment
+1 Accorder's Shield
+1 Afflict
+1 Ancient Ziggurat
+1 Armageddon Clock
+1 Assassin's Trophy
+1 Bladebrand
+1 Certain Death
+1 Corrupted Roots
+1 Cryptic Caves
+1 Dark Nourishment
+1 Dark Sphere
+1 Death-Hood Cobra
+1 Defenestrate
+1 Deranged Outcast
+1 Diamond City
+1 Dream Beavers
+1 Dungeon Descent
+1 Eat to Extinction
+1 Essence Filter
+1 Feeding Frenzy
+1 Final Death
+1 Final Reward
+1 Flooded Strand
+1 Flying Carpet
+1 Fodder Cannon
+11 Forest
+1 Forge of Heroes
+1 Fountain of Youth
+1 Fungal Infection
+1 Gaea's Gift
+1 Glass Golem
+1 Grisly Ritual
+1 Harmonize
+1 Howlpack Resurgence
+1 Iridescent Blademaster
+1 Kozilek's Translator
+1 Larceny
+1 Lifegift
+1 Live or Die
+1 Llanowar Dead
+1 Llanowar Wastes
+1 Lurking Lizards
+1 Memnite
+1 Memorial to Folly
+1 Meteor Sword
+1 Meteorite
+1 Might of Oaks
+1 Moonglove Extract
+1 Mox Opal
+1 Nettlecyst
+1 Nova Pentacle
+1 Onyx Goblet
+1 Peat Bog
+1 Power Matrix
+1 Priest of Titania
+1 Raise Dead
+1 Reflecting Mirror
+1 Scavenger Grounds
+1 Scour from Existence
+1 Skeletal Kathari
+1 Sol Ring
+1 Spidery Grasp
+15 Swamp
+1 Swarmyard
+1 Tawnos's Coffin
+1 Terminal Moraine
+1 The Great Mound
+1 The Hive
+1 Three Tragedies
+1 Timberland Ruins
+1 Vault of Whispers
+1 Walking Ballista
+1 War Chariot
+1 Winding Canyons
+1 Yawgmoth's Will

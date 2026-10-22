@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261123
+# licence: AGPL-3.0-only
+[deck:highlander midrange WU #20261123]
+1 Abstergo Entertainment
+1 Adarkar Sentinel
+1 Alabaster Wall
+1 Amnesia
+1 Ancestral Recall
+1 Armored Skaab
+1 Aven Sentry
+1 Beloved Princess
+1 Beyeen Veil
+1 Bottle Gnomes
+1 Cabaretti Courtyard
+1 Call to Heel
+1 Cathodion
+1 Celebrity Fencer
+1 Champion of Arashin
+1 Champion of the Parish
+1 Curio Vendor
+1 D'Avenant Healer
+1 Deeproot Waters
+1 Eidolon of Rhetoric
+1 Encroaching Wastes
+1 Expanded Anatomy
+1 Favorable Winds
+1 Fire and Brimstone
+1 Fortified Beachhead
+1 Fortifying Provisions
+1 Goblin Cannon
+1 Gorgon Flail
+1 Helionaut
+1 Henge Guardian
+1 I Am Iron Man
+1 Iron Bully
+1 Iron Star
+10 Island
+1 Karoo
+1 Kor Haven
+1 Lazotep Quarry
+1 Leonin Vanguard
+1 Lore Broker
+1 Maestros Theater
+1 Mana Geode
+1 Merchant Scroll
+1 Micromancer
+1 Night Market
+1 Numbing Dose
+1 Nyx-Fleece Ram
+1 Order of the White Shield
+1 Path of Ancestry
+14 Plains
+1 Power Matrix
+1 Quicksilver Fisher
+1 Reliquary Monk
+1 Remote Isle
+1 Reroute Systems
+1 Rivendell
+1 Rune of Protection: Black
+1 Salvage Scout
+1 Scorched Ruins
+1 Seafloor Debris
+1 Secluded Steppe
+1 Serpentine Ambush
+1 Sevinne's Reclamation
+1 Shinechaser
+1 Sift
+1 Soltari Emissary
+1 Soulscour
+1 Sphinx's Revelation
+1 Standing Stones
+1 Starlit Mantle
+1 Take Up the Shield
+1 Tarnished Citadel
+1 Tek
+1 Terashi's Verdict
+1 Treasure Hunter
+1 Vision Skeins
+1 Voiceless Spirit
+1 Whetstone
+1 Zhou Yu, Chief Commander

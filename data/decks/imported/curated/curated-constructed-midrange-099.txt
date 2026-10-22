@@ -1,0 +1,23 @@
+# baylee curated constructed midrange seed=20261122
+# licence: AGPL-3.0-only
+[deck:constructed midrange BG #20261122]
+3 Arcane Encyclopedia
+1 Blast Zone
+4 Book of Rass
+1 Contested War Zone
+4 Femeref Archers
+1 Flood Plain
+5 Forest
+1 Illegitimate Business
+3 Kami of the Waning Moon
+1 Maestros Theater
+2 Maga, Traitor to Mortals
+3 Mintstrosity
+4 Mischievous Poltergeist
+2 Springjack Pasture
+1 Static Orb
+10 Swamp
+4 Terrian, World Tyrant
+2 Vesuva
+4 Wall of Putrid Flesh
+4 Warren Soultrader

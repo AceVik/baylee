@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/VIS/unnatural-forces.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UnnaturalForces_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Unnatural Forces (Adapted)]
+1 Boomerang
+4 Consult the Necrosages
+2 Enfeeblement
+4 Essence Vortex
+2 Fetid Horror
+1 Funeral Charm
+1 Glimpse the Unthinkable
+2 Inspiration
+12 Island
+2 Kukemssa Serpent
+2 Man-o'-War
+1 Nekrataal
+4 Notion Rain
+4 Pilfered Plans
+1 Psychic Drain
+2 Restless Dead
+1 Shrieking Drake
+2 Silent Observer
+12 Swamp

@@ -1,0 +1,73 @@
+# baylee curated highlander aggro seed=20261096
+# licence: AGPL-3.0-only
+[deck:highlander aggro B #20261096]
+1 Abstergo Entertainment
+1 Aclazotz, Deepest Betrayal
+1 Banehound
+1 Battlefly Swarm
+1 Bereavement
+1 Burglar Rat
+1 Carrier Thrall
+1 Champion of the Perished
+1 Contested War Zone
+1 Coretapper
+1 Dark Prophecy
+1 Darksteel Plate
+1 Demon's Herald
+1 Dream Beavers
+1 Eclipsed Realms
+1 Embraal Bruiser
+1 Endless One
+1 Fear
+1 Feral Abomination
+1 Festerleech
+1 Foundry Screecher
+1 Frankenstein's Monster
+1 Gold Pan
+1 Grim Physician
+1 Guardians of Meletis
+1 Guildless Commons
+1 Hunted Ghoul
+1 Illness in the Ranks
+1 Inkmoth Nexus
+1 Isolated Watchtower
+1 Ivory Cup
+1 Jandor's Saddlebags
+1 Jawbone Skulkin
+1 Levitating Statue
+1 Locthwain Gargoyle
+1 Mind Twist
+1 Mischievous Poltergeist
+1 Monoist Sentry
+1 Moor Fiend
+1 Nighthaze
+1 Order of the Ebon Hand
+1 Ornithopter
+1 Pitiless Plunderer
+1 Plague Beetle
+1 Planar Bridge
+1 Prakhata Club Security
+1 Rathi Fiend
+1 Ring of Three Wishes
+1 Sacred Armory
+1 Salvaged Manaworker
+1 Serrated Scorpion
+1 Sinkhole
+1 Specter's Shroud
+1 Springjaw Trap
+1 Stitcher's Supplier
+1 Stone-Throwing Devils
+1 Suspicious Bookcase
+31 Swamp
+1 Sweettooth Witch
+1 Teferi's Sentinel
+1 Throne of the High City
+1 Tinybones, the Pickpocket
+1 Unburied Earthcarver
+1 Undercity Dire Rat
+1 Unholy Strength
+1 Vampire Bats
+1 Vampire Envoy
+1 Voltaic Key
+1 Walking Ballista
+1 Wriggling Grub

@@ -1,0 +1,75 @@
+# baylee curated commander midrange seed=20261064
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20261064]
+1 A.I.M. Synthoids
+1 Anodet Lurker
+1 Archers of Qarsi
+1 Argothian Pixies
+1 Ashnod's Transmogrant
+1 Awaken the Woods
+1 Baxter Building
+1 Brown Ouphe
+1 Bull Aurochs
+1 Chrome Cat
+1 Cyclopean Tomb
+1 Daggerback Basilisk
+1 Dancing Scimitar
+1 Darksteel Plate
+1 Defiant Elf
+1 Dingus Egg
+1 Dreamstone Hedron
+32 Forest
+1 Gaea's Embrace
+1 Gemstone Mine
+1 Gilt-Leaf Seer
+1 Growth Spasm
+1 Icy Manipulator
+1 Lay of the Land
+1 Leatherback Baloth
+1 Lurker
+1 Moss Viper
+1 Mox Diamond
+1 Myr Matrix
+1 Nature's Chosen
+1 Pheres-Band Centaurs
+1 Phyrexia's Core
+1 Primal Huntbeast
+1 Ravenous Baloth
+1 Regrowth
+1 Rib Cage Spider
+1 Ring of Ma'rûf
+1 Ring of Renewal
+1 Ring of the Lucii
+1 Rod of Ruin
+1 Roughshod Mentor
+1 Rusted Sentinel
+1 Sanitation Automaton
+1 Scarwood Treefolk
+1 Sculpting Steel
+1 Sea Gate Wreckage
+1 Serpent Skin
+1 Shifting Wall
+1 Shimmerdrift Vale
+1 Shopkeeper's Bane
+1 Spawning Bed
+1 Spawning Pit
+1 Spidery Grasp
+1 Spike Feeder
+1 Thaumatic Compass
+1 The Fabulous Frog-Man
+1 The Grey Havens
+1 Topan Ascetic
+1 Trained Jackal
+1 True-Faith Censer
+1 Unforgiving Aim
+1 Urza's Factory
+1 Wild Wanderer
+1 Wirewood Elf
+1 Wirewood Symbiote
+1 Wood Elves
+1 Wyluli Wolf
+1 Yavimaya Scion
+1 Zodiac Horse
+
+[commander]
+The Fabulous Frog-Man

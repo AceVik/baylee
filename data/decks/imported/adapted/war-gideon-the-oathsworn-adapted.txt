@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/WAR/gideon-the-oathsworn.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GideonTheOathsworn_WAR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gideon, the Oathsworn (Adapted)]
+4 Anguished Unmaking
+3 Cruel Celebrant
+1 Daggerdrome Imp
+4 Desperate Lunge
+2 Enforcer Griffin
+1 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+3 Ob Nixilis's Cruelty
+4 Orzhov Guildgate
+12 Plains
+8 Swamp
+2 Trusted Pegasus
+4 Unmake
+4 Vindicate

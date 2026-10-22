@@ -1,0 +1,15 @@
+# adapted from data/decks/precon/WC01/alex-borteh-merfolk-opposition.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AlexBortehMerfolkOpposition_WC01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Alex Borteh - Merfolk Opposition (Adapted)]
+4 Counterspell
+4 Galestrike
+4 I Am Iron Man
+20 Island
+4 Lord of Atlantis
+4 Merfolk Looter
+4 Merfolk of the Pearl Trident
+4 Opposition
+2 Repulse
+4 Static Orb
+4 Vodalian Merchant
+2 Waterfront Bouncer

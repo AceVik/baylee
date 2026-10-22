@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/MIR/jungle-jam.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JungleJam_MIR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jungle Jam (Adapted)]
+1 Bridgeworks Battle
+1 Direct Hit
+1 Disenchant
+2 Ekundu Griffin
+2 Foratog
+10 Forest
+3 Gibbering Hyenas
+1 Grasslands
+4 Incandescent Aria
+1 Legion's Judgment
+1 Mountain
+1 Mountain Valley
+4 Naya Charm
+2 Nettletooth Djinn
+10 Plains
+3 Quirion Elves
+3 Rampant Growth
+4 Rith's Charm
+2 Teremko Griffin
+2 Unyaro Griffin
+1 Worldly Tutor
+1 Zuberi, Golden Feather

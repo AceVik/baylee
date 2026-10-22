@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M19/tezzeret.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Tezzeret_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Tezzeret (Adapted)]
+2 Bewilder
+1 Call to Mind
+3 Catalog
+2 Chrome Cat
+2 Darksteel Juggernaut
+1 Divination
+1 Dream Fracture
+1 Exclusion Mage
+2 Field Creeper
+2 Gearsmith Prodigy
+26 Island
+2 Launch Mishap
+1 Manalith
+1 Meditate
+2 Meteor Golem
+4 Pendulum of Patterns
+1 Riddlemaster Sphinx
+1 Scholar of Stars
+2 Snapping Drake
+3 Tezzeret's Strider

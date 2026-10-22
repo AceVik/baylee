@@ -1,0 +1,21 @@
+# baylee curated constructed ramp seed=20261092
+# licence: AGPL-3.0-only
+[deck:constructed ramp WB #20261092]
+3 +2 Mace
+4 Appendage Amalgam
+3 Book of Rass
+1 Cradle of the Accursed
+2 Glidedive Duo
+4 Healer's Hawk
+4 Icatian Skirmishers
+4 Karma
+2 Luminous Broodmoth
+2 Meteorite
+3 Mind Stone
+2 Nephalia Academy
+10 Plains
+4 Reroute Systems
+3 Silverquill Campus
+5 Swamp
+2 Tomb Fortress
+2 Tomb of Urami

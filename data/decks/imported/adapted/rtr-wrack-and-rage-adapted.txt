@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/RTR/wrack-and-rage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WrackAndRage_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wrack and Rage (Adapted)]
+4 Auger Spree
+4 Bedevil
+2 Breath of Malfegor
+1 Dragonskull Summit
+4 Dreadbore
+13 Mountain
+2 Rakdos Guildgate
+4 Rakdos Shred-Freak
+4 Searing Spear
+4 Skull Rend
+2 Stromkirk Noble
+8 Swamp
+4 Terminate
+4 Wrecking Ball

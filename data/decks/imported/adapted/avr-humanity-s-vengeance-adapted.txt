@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/AVR/humanity-s-vengeance.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HumanitySVengeance_AVR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Humanity's Vengeance (Adapted)]
+1 Blade Splicer
+2 Dismember
+1 Dream Fracture
+4 Esper Charm
+4 Gideon's Lawkeeper
+2 Glacial Fortress
+9 Island
+2 Mental Misstep
+1 Mirran Crusader
+1 Moorland Haunt
+1 Phyrexian Metamorph
+12 Plains
+4 Porcelain Legionnaire
+4 Punish Ignorance
+3 Reverent Howl
+3 Righteous Blow
+2 Tempest of Light
+4 Void Rend

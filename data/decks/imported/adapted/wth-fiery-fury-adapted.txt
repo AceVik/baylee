@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WTH/fiery-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FieryFury_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fiery Fury (Adapted)]
+1 Bathe in Dragonfire
+3 Bloodrock Cyclops
+1 Char
+1 Crystal Vein
+1 Deflecting Swat
+2 Goblin Offensive
+3 Hordeling Outburst
+3 Lava Hounds
+2 Mad Prophet
+3 Massive Raid
+3 Mind Stone
+3 Molten Blast
+23 Mountain
+3 Sarkhan's Triumph
+2 Spitting Earth
+1 Steam Blast
+4 Sundering Eruption
+1 Wildfire Emissary

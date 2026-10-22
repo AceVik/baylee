@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/GN2/massive-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MassiveMight_GN2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Massive Might (Adapted)]
+1 Appetite for the Unnatural
+3 Bala Ged Recovery
+2 Bestow Greatness
+3 Chord of Calling
+1 Fade into Antiquity
+2 Ferocious Pup
+26 Forest
+2 Grazing Whiptail
+1 Growth Spasm
+2 Howling Giant
+3 Natural End
+1 Plummet
+1 Ripjaw Raptor
+2 Silverback Shaman
+2 Spidery Grasp
+1 Spoils of Victory
+3 They Went This Way
+2 Thundering Spineback
+2 Wildsize

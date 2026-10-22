@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/USG/special-delivery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDelivery_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Special Delivery (Adapted)]
+1 Anaconda
+1 Bull Hippo
+4 Colossal Might
+10 Forest
+4 Ground Assault
+4 Guttural Response
+1 Heat Ray
+1 Hush
+4 Manamorphose
+11 Mountain
+2 Okina, Temple to the Grandfathers
+3 Sangrite Surge
+4 Savage Twister
+1 Scrap
+1 Shiv's Embrace
+2 Smoldering Crater
+4 Stump Stomp
+2 Thundering Giant

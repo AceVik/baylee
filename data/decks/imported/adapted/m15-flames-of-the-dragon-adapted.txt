@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M15/flames-of-the-dragon.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FlamesOfTheDragon_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Flames Of The Dragon (Adapted)]
+3 Aeronaut Tinkerer
+1 Brawler's Plate
+4 Broadside Barrage
+3 Bronze Sable
+1 Darksteel Citadel
+2 Ensoul Artifact
+4 Invoke the Firemind
+12 Island
+1 Izzet Charm
+2 Juggernaut
+12 Mountain
+2 Ornithopter
+1 Rogue's Gloves
+1 Rummaging Goblin
+4 Rush of Inspiration
+1 Sacred Armory
+3 Scrapyard Mongrel
+1 Tyrant's Machine
+2 Welkin Tern

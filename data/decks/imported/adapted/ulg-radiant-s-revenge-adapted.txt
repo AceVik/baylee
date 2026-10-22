@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ULG/radiant-s-revenge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RadiantSRevenge_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Radiant's Revenge (Adapted)]
+4 Absorb
+1 Catalog
+4 Daring Leap
+1 Disenchant
+2 Dragon Blood
+1 Drifting Meadow
+1 Erase
+12 Island
+2 Miscalculation
+2 Ojutai's Command
+2 Opportunity
+2 Overrule
+11 Plains
+1 Power Sink
+3 Radiant's Judgment
+2 Remote Isle
+2 Sanctum Custodian
+4 Sphinx's Revelation
+1 Thornwind Faeries
+2 Vigilant Drake

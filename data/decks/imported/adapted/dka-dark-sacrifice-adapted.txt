@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/DKA/dark-sacrifice.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkSacrifice_DKA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dark Sacrifice (Adapted)]
+4 Anguished Unmaking
+1 Avacyn's Collar
+1 Champion of the Parish
+2 Doomed Traveler
+2 Elgaud Inquisitor
+4 Harsh Sustenance
+1 Haunted Fengraf
+4 Inkling Summoning
+1 Mausoleum Guard
+4 Mortify
+12 Plains
+1 Skirsdag Flayer
+11 Swamp
+4 Unmake
+2 Unruly Mob
+2 Village Cannibals
+4 Vindicate

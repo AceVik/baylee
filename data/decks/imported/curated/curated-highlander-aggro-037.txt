@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261060
+# licence: AGPL-3.0-only
+[deck:highlander aggro WB #20261060]
+1 Bastion Enforcer
+1 Blade Splicer
+1 Bog Initiate
+1 Brawler's Plate
+1 Cabal Coffers
+1 Cabal Trainee
+1 Call to Serve
+1 Carrion Ants
+1 Darksteel Axe
+1 Dauntless Aven
+1 Dead Weight
+1 Desperate Bloodseeker
+1 Diamond City
+1 Dragon's Eye Sentry
+1 Dread Statuary
+1 Dreg Reaver
+1 Eidolon of Rhetoric
+1 Eldrazi Temple
+1 Flying Carpet
+1 Goblin Lyre
+1 Gods' Eye, Gate to the Reikai
+1 Greedy Freebooter
+1 Guard Duty
+1 Guided Strike
+1 Healer's Hawk
+1 Holy Light
+1 Honed Khopesh
+1 Invasion Reinforcements
+1 Judge Magister Gabranth
+1 Kami of False Hope
+1 King Suleiman
+1 Kinsbaile Cavalier
+1 Kitsune Diviner
+1 Levitating Statue
+1 Limestone Golem
+1 Miren, the Moaning Well
+1 Mortify
+1 Mothrider Patrol
+1 Mountain Stronghold
+1 Myr Scrapling
+1 Nath's Buffoon
+1 Nemesis Mask
+1 Nezumi Informant
+1 Nightwing Shade
+1 Nimble Pilferer
+1 Nykthos, Shrine to Nyx
+1 Ornithopter
+1 Orzhov Basilica
+1 Patagia Golem
+1 Pearl Dragon
+1 Petrified Hamlet
+1 Phyrexian Walker
+16 Plains
+1 Powerstone Shard
+1 Promising Vein
+1 Quicksand
+1 Ravenous Rats
+1 Salvage Scout
+1 Scourgemark
+1 Scrap Trawler
+1 Skull of Orm
+1 Sliver Construct
+1 Spirit Shield
+1 Stalking Stones
+1 Stern Constable
+1 Sudden Strike
+7 Swamp
+1 Syphon Soul
+1 Trained Caracal
+1 Trenchpost
+1 Vanquish the Weak
+1 Wakandan Drone Flock
+1 Walking Ballista
+1 Wall of Shadows
+1 Warlord's Axe
+1 Wintermoon Mesa
+1 Wolf Cove Villager
+1 Wooden Sphere
+1 World Map

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/M14/fire-surge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FireSurge_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fire Surge (Adapted)]
+4 Broadside Barrage
+2 Disperse
+2 Dragon Hatchling
+1 Essence Scatter
+1 Fire
+2 Fleshpulper Giant
+4 Invoke the Firemind
+10 Island
+16 Mountain
+1 Negate
+2 Nephalia Seakite
+2 Opportunity
+3 Regathan Firecat
+4 Rush of Inspiration
+2 Shiv's Embrace
+1 Shivan Dragon
+2 Trained Condor
+1 Volcanic Geyser

@@ -1,0 +1,33 @@
+# adapted from data/decks/precon/KTK/mardu-raiders.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MarduRaiders_KTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mardu Raiders (Adapted)]
+1 Bloodfell Caves
+2 Borderland Marauder
+1 Carrion Crow
+4 Defibrillating Current
+1 Firehoof Cavalry
+1 Flesh to Dust
+2 Goblin Roughrider
+1 Gurmag Swiftwing
+2 Harsh Sustenance
+1 Heat Ray
+1 Hordeling Outburst
+2 Jovial Evil
+1 Lightning Strike
+1 Mardu Banner
+1 Mardu Hateblade
+8 Mountain
+1 Necrogen Scudder
+2 Nomad Outpost
+5 Plains
+2 Precision Bolt
+1 Rain of Tears
+1 Raise the Alarm
+2 Rend Spirit
+4 Ruinous Ultimatum
+1 Scoured Barrens
+1 Smite the Monstrous
+1 Spin Out
+7 Swamp
+1 Valley Dasher
+1 Wind-Scarred Crag

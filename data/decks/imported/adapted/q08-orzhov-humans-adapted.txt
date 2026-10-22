@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/Q08/orzhov-humans.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovHumans_Q08.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Orzhov Humans (Adapted)]
+4 Anguished Unmaking
+4 Caves of Koilos
+4 Concealed Courtyard
+2 Death Grasp
+1 Godless Shrine
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Luminarch Aspirant
+4 Mortify
+2 Mutavault
+4 Pest Control
+3 Plains
+4 Secluded Courtyard
+4 Thraben Inspector
+4 Unclaimed Territory
+4 Unmake
+4 Vindicate

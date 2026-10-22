@@ -1,0 +1,79 @@
+# baylee unseen-card holdout highlander seed=90000024
+# licence: AGPL-3.0-only
+[deck:highlander ramp RG #90000024]
+1 Aggressive Mammoth
+1 Aladdin's Lamp
+1 Axebane Beast
+1 Berserkers' Onslaught
+1 Black Vise
+1 Blockbuster
+1 Carnivorous Moss-Beast
+1 Caverns of Despair
+1 Collector's Vault
+1 Conquer
+1 Crenellated Wall
+1 Diabolic Machine
+1 Disintegrate
+1 Dosan's Oldest Chant
+1 Dread Statuary
+1 Ember Shot
+1 Field Creeper
+1 Flowstone Mauler
+13 Forest
+1 Foundry Street Denizen
+1 Gerrard's Irregulars
+1 Gilded Lotus
+1 Glimmervoid
+1 Go Forth
+1 Great Furnace
+1 Groundskeeper
+1 Guardian Automaton
+1 Hashep Oasis
+1 Hickory Woodlot
+1 Homeward Path
+1 Junktown
+1 Khenra Charioteer
+1 Lotus Petal
+1 Lunar Frenzy
+1 Magmatic Force
+1 Manabarbs
+1 Masticore
+1 Maze's End
+1 Meteor Sword
+1 Molten Nursery
+13 Mountain
+1 Myr Landshaper
+1 Omashu City
+1 Omni-Cheese Pizza
+1 Orcish Cannonade
+1 Orcish Oriflamme
+1 Painted Bluffs
+1 Paragon of Eternal Wilds
+1 Planar Portal
+1 Primal Visitation
+1 Pyre Charger
+1 Radiant Fountain
+1 Raging Bull
+1 Rakalite
+1 Ready to Rumble
+1 Regenerate
+1 Relic of Legends
+1 Revelation
+1 Ring of Three Wishes
+1 Scour from Existence
+1 Shimmering Grotto
+1 Smoke
+1 Smoldering Crater
+1 Sudden Breakthrough
+1 Sure Strike
+1 Taiga
+1 Thrór's Map
+1 Thunder Strike
+1 Titan Forge
+1 Turntimber Symbiosis
+1 Twists and Turns
+1 Valakut, the Molten Pinnacle
+1 Vernal Bloom
+1 Watermarket
+1 Whippoorwill
+1 Xanthic Statue

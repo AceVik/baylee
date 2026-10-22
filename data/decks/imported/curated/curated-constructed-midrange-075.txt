@@ -1,0 +1,21 @@
+# baylee curated constructed midrange seed=20261098
+# licence: AGPL-3.0-only
+[deck:constructed midrange URG #20261098]
+3 Ambush Party
+1 Cavern of Souls
+1 Cavernous Maw
+4 Cloud Spirit
+4 Dancing Scimitar
+2 Dragon's Claw
+4 Enlightened Maniac
+4 Gaseous Form
+1 Guildmages' Forum
+14 Island
+1 Mountain
+2 Omenspeaker
+2 Otherworld Atlas
+4 Rushwood Grove
+2 Sheltered Valley
+4 Sure Strike
+4 Sword of the Meek
+3 Thassa's Devourer

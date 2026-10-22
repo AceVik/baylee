@@ -1,0 +1,75 @@
+# baylee curated commander midrange seed=20261100
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20261100]
+1 Aardvark Sloth
+1 Angelic Armaments
+1 Binding Mummy
+1 Blade of the Sixth Pride
+1 Builder's Blessing
+1 Cathar's Shield
+1 Checkpoint Officer
+1 Clergy en-Vec
+1 Clive's Hideaway
+1 Crawling Barrens
+1 Darksteel Citadel
+1 Darksteel Pendant
+1 Eclipsed Realms
+1 Endless One
+1 Esper Panorama
+1 Esper Sentinel
+1 Expose to Daylight
+1 Favored of Iroas
+1 Femeref Healer
+1 Gaelicat
+1 Glimmerlight
+1 Griffin Dreamfinder
+1 Guan Yu's 1,000-Li March
+1 Hall of the Bandit Lord
+1 Hanna's Custody
+1 Hedron Archive
+1 Hypochondria
+1 Imperial Oath
+1 Irregular Cohort
+1 Kill Shot
+1 Kitesail Scout
+1 Kjeldoran Skyknight
+1 Lyra Dawnbringer
+1 Makindi Stampede
+1 Mask of Avacyn
+1 Meteor Golem
+1 Nine-Ringed Bo
+1 Order of Whiteclay
+1 Phyrexian Hulk
+1 Phyrexian Walker
+32 Plains
+1 Pterodon Knight
+1 Ramosian Commander
+1 Reflecting Mirror
+1 Reverse Polarity
+1 Rusted Sentinel
+1 Sacred Armory
+1 Scepter of Dominance
+1 School of the Unseen
+1 Scrapheap
+1 Segovian Angel
+1 Shrine Keeper
+1 Siege Veteran
+1 Soltari Lancer
+1 Soulbound Guardians
+1 Soulcatcher
+1 Sphinx-Bone Wand
+1 Steeple Roc
+1 Stone Calendar
+1 Surge of Righteousness
+1 Sword of Hearth and Home
+1 Thousand Moons Smithy
+1 Tireless Tribe
+1 Trenching Steed
+1 Triassic Egg
+1 Tundra Wolves
+1 Urza's Workshop
+1 Voltaic Key
+1 Wipe Clean
+
+[commander]
+Lyra Dawnbringer

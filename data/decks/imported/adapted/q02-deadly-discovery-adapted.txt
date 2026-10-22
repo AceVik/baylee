@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/Q02/deadly-discovery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadlyDiscovery_Q02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deadly Discovery (Adapted)]
+4 Abrupt Decay
+3 Assassin's Trophy
+4 Cast Down
+8 Forest
+4 Gaze of Granite
+3 Golgari Findbroker
+4 Golgari Guildgate
+4 Llanowar Elves
+4 Maelstrom Pulse
+2 Memorial to Folly
+1 Overgrown Tomb
+4 Pest Summoning
+3 Ravenous Chupacabra
+6 Swamp
+4 Tear Asunder
+2 Woodland Cemetery

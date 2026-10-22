@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/UDS/battle-surge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleSurge_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Battle Surge (Adapted)]
+1 Aether Sting
+4 Broadside Barrage
+3 Expressive Iteration
+4 Fire
+1 Ghitu War Cry
+2 Goblin Berserker
+4 Invoke the Firemind
+9 Island
+3 Izzet Charm
+3 Kingfisher
+14 Mountain
+1 Parch
+4 Rush of Inspiration
+2 Thieving Magpie
+1 Thundering Giant
+4 Wild Colos

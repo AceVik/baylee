@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/WC04/manuel-bevand-myr-incubator-combo.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ManuelBevandMyrIncubatorCombo_WC04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Manuel Bevand - Myr Incubator Combo (Adapted)]
+2 Ancient Den
+4 Condescend
+4 Darksteel Citadel
+3 Fabricate
+1 Fireball
+4 Great Furnace
+4 Growth Spasm
+4 Krark-Clan Ironworks
+3 Read the Bones
+4 Seat of the Synod
+3 Serum Visions
+1 Smash
+4 Steam Blast
+3 Talisman of Dominance
+3 Talisman of Progress
+4 Tormod's Crypt
+3 Tree of Tales
+2 Vault of Whispers
+4 Whir of Invention

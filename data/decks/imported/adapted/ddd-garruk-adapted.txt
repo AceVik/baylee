@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/DDD/garruk.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Garruk_DDD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Garruk (Adapted)]
+1 Call the Scions
+4 Chord of Calling
+3 Cultivate
+3 Deconstruct
+1 Elephant Guide
+1 Fade into Antiquity
+21 Forest
+1 Giant Growth
+2 Harmonize
+2 Indrik Stomphowler
+3 Khalni Ambush
+1 Lace with Moonglove
+2 Nature's Lore
+2 Okina, Temple to the Grandfathers
+1 Plated Slagwurm
+2 Rancor
+1 Ravenous Baloth
+1 Stampeding Wildebeests
+1 Treetop Village
+2 Vine Trellis
+2 Wildsize
+1 Windstorm
+2 Wirewood Savage

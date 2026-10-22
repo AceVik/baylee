@@ -1,0 +1,17 @@
+# baylee curated constructed ramp seed=20261044
+# licence: AGPL-3.0-only
+[deck:constructed ramp R #20261044]
+4 Accelerate
+3 Chain Lightning
+4 Crimson Manticore
+2 Ember-Eye Wolf
+3 Fire Nation Palace
+2 Great Hall of the Biblioplex
+4 Guardians of Meletis
+2 Meteor Sword
+20 Mountain
+1 Mountain Bandit
+4 Scouring Sands
+4 Stingcaster Mage
+3 Sword of the Chosen
+4 Whip Sergeant

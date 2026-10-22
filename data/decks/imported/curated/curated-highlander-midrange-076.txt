@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261099
+# licence: AGPL-3.0-only
+[deck:highlander midrange WB #20261099]
+1 Aerial Responder
+1 Akroma's Vengeance
+1 Ankh of Mishra
+1 Bag End Banquet
+1 Blighted Shaman
+1 Bone Saw
+1 Cave of Temptation
+1 Celestial Sword
+1 Certain Death
+1 Clergy of the Holy Nimbus
+1 Commander's Sphere
+1 Contested War Zone
+1 Cryptic Caves
+1 Cryptic Spires
+1 Dawnstrike Paladin
+1 Doomed Traveler
+1 Dread of Night
+1 East Wind Avatar
+1 Edgewall Inn
+1 Eidolon of Inspiration
+1 Elephant Graveyard
+1 Endless Sands
+1 Expedition Map
+1 Eyeblight Assassin
+1 Farmstead
+1 Feldon's Cane
+1 Forgotten Sentinel
+1 Goldmeadow Lookout
+1 Goldmire Bridge
+1 Gond Gate
+1 Grasping Dunes
+1 Grotesque Mutation
+1 Guul Draz Mucklord
+1 Hive of the Eye Tyrant
+1 Hop to It
+1 Hunted Ghoul
+1 Icatian Skirmishers
+1 Indestructible Aura
+1 Knight of Doves
+1 Leonin Scimitar
+1 Looming Altisaur
+1 Make Your Move
+1 Mana Matrix
+1 Memnite
+1 Nighthaze
+1 Ogre's Cleaver
+1 Olivia's Dragoon
+1 Orzhov Keyrune
+1 Phyrexian Hulk
+1 Phyrexian Rager
+14 Plains
+1 Predator, Flagship
+1 Ramosian Revivalist
+1 Ramosian Sergeant
+1 Rhystic Cave
+1 Risky Shortcut
+1 Savannah Lions
+1 Scepter of Dominance
+1 School of the Unseen
+1 Scorpion's Sting
+1 Scour from Existence
+1 Shimmering Grotto
+1 Spectral Procession
+1 Starlight Invoker
+1 Starry-Eyed Skyrider
+10 Swamp
+1 Tasseled Dromedary
+1 Tawnos's Weaponry
+1 Terminal Moraine
+1 Twisted Experiment
+1 Umbral Expanse
+1 Vanquish the Weak
+1 Vermiculos
+1 Voice of Truth
+1 Vona, Butcher of Magan
+1 War Chariot
+1 Zhang Liao, Hero of Hefei
+1 Zulaport Cutthroat

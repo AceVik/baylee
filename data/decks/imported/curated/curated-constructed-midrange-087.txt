@@ -1,0 +1,18 @@
+# baylee curated constructed midrange seed=20261110
+# licence: AGPL-3.0-only
+[deck:constructed midrange W #20261110]
+3 Alaborn Musketeer
+3 Angel of the God-Pharaoh
+4 Angelic Edict
+4 Coldsteel Heart
+3 Diamond City
+2 Dromoka Dunecaster
+3 Emmessi Tome
+3 Hair-Strung Koto
+4 Kami of Ancient Law
+4 Kami of False Hope
+1 Mana Confluence
+3 Master Trinketeer
+2 Myr Landshaper
+20 Plains
+1 Temple Acolyte

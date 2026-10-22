@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/SCG/max-attax.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MaxAttax_SCG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Max Attax (Adapted)]
+4 Abrupt Decay
+4 Assassin's Trophy
+2 Barren Moor
+3 Drain the Well
+14 Forest
+4 Gaze of Granite
+1 Gluttonous Zombie
+2 Kurgadon
+4 Maelstrom Pulse
+4 Pest Summoning
+1 Smother
+3 Spring of Eternal Peace
+6 Swamp
+4 Tear Asunder
+2 Temple of the False God
+2 Tranquil Thicket

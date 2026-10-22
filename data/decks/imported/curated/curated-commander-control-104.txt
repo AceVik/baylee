@@ -1,0 +1,82 @@
+# baylee curated commander control seed=20261127
+# licence: AGPL-3.0-only
+[deck:commander control WG #20261127]
+1 Adaptive Shimmerer
+1 Aether Vial
+1 Aladdin's Ring
+1 Armageddon Clock
+1 Armed Response
+1 Auspicious Arrival
+1 Barkhide Troll
+1 Battlefield Promotion
+1 Blighted Woodland
+1 Bootleggers' Stash
+1 Bridgeworks Battle
+1 Caregiver
+1 Chorus of Might
+1 City of Shadows
+1 Clear
+1 Darksteel Citadel
+1 Elvish Handservant
+1 Emeria, the Sky Ruin
+1 Emiel the Blessed
+1 Ephara's Radiance
+1 Eriette's Lullaby
+1 Escape Tunnel
+14 Forest
+1 Gale Force
+1 Gauntlets of Chaos
+1 Glare of Heresy
+1 Glint Hawk Idol
+1 Golden Hind
+1 Guarded Heir
+1 Heavy Infantry
+1 Hidden Nursery
+1 Ichneumon Druid
+1 Ishgard, the Holy See
+1 Jandor's Ring
+1 Jandor's Saddlebags
+1 Jihad
+1 Karn's Bastion
+1 Kavu Lair
+1 Kry Shield
+1 Lucent Liminid
+1 Martyr of Dusk
+1 Mask of Avacyn
+1 Mox Pearl
+1 Ornithopter of Paradise
+1 Phyrexia's Core
+12 Plains
+1 Promising Vein
+1 Puncturing Light
+1 Recollect
+1 Release the Dogs
+1 Rune of Protection: Black
+1 Sacred Armory
+1 Sapseep Forest
+1 Scrapheap
+1 Sensei's Divining Top
+1 Shefet Dunes
+1 Shield of Kaldra
+1 Skillful Lunge
+1 Sokka, Wolf Cove's Protector
+1 Sonic Screwdriver
+1 Soulscour
+1 Spire of Industry
+1 Spore Swarm
+1 Supply Caravan
+1 Tattoo Ward
+1 Terrain Generator
+1 Thallid
+1 The Fabulous Frog-Man
+1 The Hive
+1 The Mycosynth Gardens
+1 Time of Need
+1 Vibrant Cityscape
+1 Wanderer's Twig
+1 Watermarket
+1 Web
+1 Woodcutter's Grit
+
+[commander]
+Emiel the Blessed

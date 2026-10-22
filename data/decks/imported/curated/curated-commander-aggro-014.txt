@@ -1,0 +1,85 @@
+# baylee curated commander aggro seed=20261037
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20261037]
+1 Adanto Vanguard
+1 Adherent of Hope
+1 Aerial Maneuver
+1 Alabaster Kirin
+1 Alaborn Musketeer
+1 Alloy Animist
+1 Big Bertha
+1 Charging Badger
+1 Charging Paladin
+1 Charming Prince
+1 Circle of Dreams Druid
+1 Conch Horn
+1 Coordinated Maneuver
+1 Desecration Plague
+1 Drownyard Temple
+1 Dunes of the Dead
+1 Eiganjo Castle
+1 Elvish Lookout
+1 Evendo, Waking Haven
+15 Forest
+1 Friendly Teddy
+1 Fyndhorn Brownie
+1 Glimmer Bairn
+1 Glory Seeker
+1 Greataxe
+1 Inventors' Fair
+1 Jaddi Offshoot
+1 Jade Bearer
+1 Jeong Jeong's Deserters
+1 Kalonian Tusker
+1 Kei Takahashi
+1 Kiln Walker
+1 Land Tax
+1 Lantern Kami
+1 Loam Dryad
+1 Locthwain Gargoyle
+1 Makindi Griffin
+1 Manifold Key
+1 Marble Gargoyle
+1 Martyr of Dusk
+1 Mask of Law and Grace
+1 Mech Hangar
+1 Myrsmith
+1 Natural Connection
+1 Neighborhood Guardian
+1 Noble Elephant
+1 Novice Inspector
+1 Nyxborn Courser
+1 Okina, Temple to the Grandfathers
+1 Pay No Heed
+8 Plains
+1 Public Thoroughfare
+1 Rain of Blades
+1 Red Ward
+1 Revive
+1 Revoke Existence
+1 Rogue's Passage
+1 Salt Road Quartermasters
+1 Scrying Sheets
+1 Selfless Savior
+1 Sevinne's Reclamation
+1 Silt Crawler
+1 Sliver Construct
+1 Squire
+1 Stampeding Serow
+1 Sunlance
+1 Sylvan Safekeeper
+1 Tarnished Citadel
+1 Temple of Plenty
+1 Tranquil Garden
+1 Turtle Lair
+1 Typhoon
+1 Valley Mightcaller
+1 Vibranium Energy Daggers
+1 Village Elder
+1 Wall of Caltrops
+1 Winter Orb
+1 Wirewood Lodge
+1 Wolfir Avenger
+
+[commander]
+Kei Takahashi

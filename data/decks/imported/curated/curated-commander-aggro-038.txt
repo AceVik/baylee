@@ -1,0 +1,76 @@
+# baylee curated commander aggro seed=20261061
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20261061]
+1 Acidic Slime
+1 Arbor Armament
+1 Ashcoat Bear
+1 Battering Ram
+1 Boreal Druid
+1 Bottle Gnomes
+1 Bugenhagen, Wise Elder
+1 Colossus Hammer
+1 Darksteel Brute
+1 Darksteel Citadel
+1 Dense Canopy
+1 Desert Twister
+1 Dowsing Dagger
+1 Drop of Honey
+1 Dune Diviner
+1 Elvish Ranger
+1 Elvish Scout
+1 Epic Proportions
+1 Fang Guardian
+31 Forest
+1 Friendly Teddy
+1 Frog-Squirrels
+1 Gilded Sentinel
+1 Giltgrove Stalker
+1 Golden Hind
+1 Hidden Nursery
+1 Hungry Megasloth
+1 Imperious Perfect
+1 Inkmoth Nexus
+1 Invasive Species
+1 Ivy Elemental
+1 Jawbone Skulkin
+1 Krosan Archer
+1 Leaf Gilder
+1 Levitating Statue
+1 Marsh Boa
+1 Mimic
+1 Mirkwood Spider
+1 Mountain Stronghold
+1 Mox Emerald
+1 Mox Jasper
+1 Mox Opal
+1 Nafs Asp
+1 Nasty Little Rabbit
+1 Nim Deathmantle
+1 Onulet
+1 Ornithopter
+1 Painted Bluffs
+1 Paradise Mantle
+1 Pardic Wanderer
+1 Questing Beast
+1 Relic of Legends
+1 Renowned Weaver
+1 Saruli Caretaker
+1 Satyr Grovedancer
+1 Scythe Leopard
+1 Serpent Generator
+1 Shire Terrace
+1 Silverglade Pathfinder
+1 Sword of the Chosen
+1 Sylvan Library
+1 Talon Gates of Madara
+1 Tawnos's Wand
+1 Undergrowth Leopard
+1 Viridian Acolyte
+1 Voracious Varmint
+1 Wary Okapi
+1 Wild Ceratok
+1 Yavimaya Sapherd
+1 Yotian Soldier
+
+[commander]
+Questing Beast

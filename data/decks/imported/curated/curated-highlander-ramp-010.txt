@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261033
+# licence: AGPL-3.0-only
+[deck:highlander ramp WG #20261033]
+1 Abstergo Entertainment
+1 Ancient Silverback
+1 Ancient Ziggurat
+1 Angelic Edict
+1 Avacyn, Angel of Hope
+1 Bag End Banquet
+1 Basalt Monolith
+1 Bootleggers' Stash
+1 Border Guard
+1 Bramble Creeper
+1 Bulwark Giant
+1 Chimeric Egg
+1 Chocobo Racetrack
+1 Chronomaton
+1 Cold Snap
+1 Death Speakers
+1 Detection Tower
+1 Diamond Valley
+1 Dryad Arbor
+1 Emeria's Call
+1 Erratic Portal
+1 Faceless Haven
+11 Forest
+1 Geier Reach Sanitarium
+1 Golden-Tail Disciple
+1 Goldvein Pick
+1 Great Hall of the Citadel
+1 Hair-Strung Koto
+1 Heavenly Qilin
+1 Helm of Chatzuk
+1 Hexplate Golem
+1 Isamaru, Hound of Konda
+1 Jumbo Cactuar
+1 Kinsbaile Cavalier
+1 Kitesail
+1 Kormus Bell
+1 Leaf Arrow
+1 Lightbringer
+1 Lion Heart
+1 Loxodon Battle Priest
+1 Meteor Sword
+1 Most Wanted
+1 Mutagenic Growth
+1 Nature's Revolt
+1 Necrogen Censer
+1 Needlebug
+1 Neurok Hoversail
+1 Ornithopter
+1 Pillar of the Paruns
+15 Plains
+1 Planar Bridge
+1 Plover Knights
+1 Power Armor
+1 Radiant Fountain
+1 Rejuvenate
+1 Rishadan Port
+1 Rushwood Elemental
+1 Rushwood Grove
+1 Serpent Generator
+1 Sharpened Pitchfork
+1 Shefet Dunes
+1 Shimmering Barrier
+1 Sliversmith
+1 Spectral Procession
+1 Staff of Nin
+1 Sword of the Ages
+1 Tawnos's Coffin
+1 Tendo Ice Bridge
+1 Thaumatog
+1 Tower of the Magistrate
+1 Treetop Rangers
+1 Urgent Exorcism
+1 Utopia Tree
+1 Voodoo Doll
+1 Wasteland
+1 Xanthic Statue

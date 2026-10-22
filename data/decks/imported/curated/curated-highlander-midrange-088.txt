@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261111
+# licence: AGPL-3.0-only
+[deck:highlander midrange BG #20261111]
+1 Abundant Countryside
+1 Alchor's Tomb
+1 Back to Nature
+1 Barkhide Troll
+1 Bile Urchin
+1 Birthing Pod
+1 Bishop of the Bloodstained
+1 Black Lotus
+1 Blacklance Paragon
+1 Brood Butcher
+1 Cat-Gator
+1 Cavern of Souls
+1 Coastal Bulwark
+1 Conqueror's Galleon
+1 Cruel Truths
+1 Darksteel Ingot
+1 Demon's Due
+1 Demon's Herald
+1 Desert Twister
+1 Eastern Paladin
+1 Emmessi Tome
+1 Extinguish All Hope
+1 Feast or Famine
+1 Flood Plain
+7 Forest
+1 Gemstone Mine
+1 Gloomwidow
+1 Golden Urn
+1 Gorgon Flail
+1 Grimclaw Bats
+1 Hidden Path
+1 Hungry Mist
+1 Illness in the Ranks
+1 Inkmoth Nexus
+1 Intimidation
+1 Island of Wak-Wak
+1 Liliana's Mastery
+1 Lion Heart
+1 Lotus Field
+1 Magma Mine
+1 Meteorite
+1 Mind Twist
+1 Mirror Universe
+1 Moldervine Reclamation
+1 Nacatl Savage
+1 Needlebug
+1 Oakhollow Village
+1 Ob Nixilis, the Fallen
+1 Open the Graves
+1 Oran-Rief, the Vastwood
+1 Phyrexian Vault
+1 Phyrexian Walker
+1 Prophetic Prism
+1 Renegade Map
+1 Sapseep Forest
+1 Sorrow's Path
+1 Soul Exchange
+1 Sprout
+1 Sunscorched Desert
+17 Swamp
+1 Tablet of Epityr
+1 Tainted Wood
+1 Team Transmitter
+1 The Grey Havens
+1 Thermal Navigator
+1 Torment
+1 Touch of Darkness
+1 Trading Post
+1 Uktabi Faerie
+1 Underworld Connections
+1 Unholy Citadel
+1 Warden of Geometries
+1 Watcher in the Web
+1 Whetstone
+1 Whirlermaker
+1 Wirewood Elf
+1 Wolfwillow Haven
+1 Zoetic Cavern

@@ -1379,8 +1379,10 @@ dependencies = [
  "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
+ "baylee-cards-index",
  "baylee-client-core",
  "baylee-core",
+ "baylee-deckio",
  "baylee-engine",
  "baylee-gamehost",
  "baylee-seat",
@@ -1392,6 +1394,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

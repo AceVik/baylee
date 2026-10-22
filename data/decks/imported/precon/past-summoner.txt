@@ -1,0 +1,22 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Summoner_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Summoner]
+4 Birds of Paradise
+1 Channel
+3 Circle of Protection: Green
+2 Colossus of Sardia
+2 Disenchant
+3 Force of Nature
+20 Forest
+3 Giant Growth
+2 Healing Salve
+4 Hurricane
+4 Lifelace
+4 Plains
+4 Radjan Spirit
+4 War Mammoth
+
+[sideboard]
+1 Disenchant
+1 Lifeforce
+1 Tsunami

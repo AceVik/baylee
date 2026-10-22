@@ -1,0 +1,73 @@
+# baylee curated commander ramp seed=20261034
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20261034]
+1 Agatha's Soul Cauldron
+1 Akroma's Memorial
+1 Aladdin's Lamp
+1 Aven Envoy
+1 Beast of Burden
+1 Burrog Befuddler
+1 Cache Raiders
+1 Chromatic Sphere
+1 Coastal Hornclaw
+1 Coretapper
+1 Dark Depths
+1 Deepfathom Skulker
+1 Erosion
+1 Facet Reader
+1 Fallowsage
+1 Fleetfeather Sandals
+1 Fountain of Youth
+1 Geist of Saint Thalia
+1 Grand Coliseum
+1 Gravitational Shift
+1 Gryff Vanguard
+1 Guildmages' Forum
+1 Illusory Wrappings
+34 Island
+1 Ithilien Kingfisher
+1 Mana Cylix
+1 Mana Matrix
+1 Meteor Sword
+1 Mindculling
+1 Mirage Mesa
+1 Mistfire Adept
+1 Narwhal
+1 Network Disruptor
+1 Numbing Dose
+1 Opal Palace
+1 Phyrexian Walker
+1 Rakalite
+1 Rite of Replication
+1 River Merfolk
+1 Rusted Slasher
+1 Sage's Row Savant
+1 Scavenger Grounds
+1 Seacoast Drake
+1 Shimmering Grotto
+1 Shriekhorn
+1 Skull of Orm
+1 Solemn Simulacrum
+1 Spellseeker
+1 Sphinx's Herald
+1 Sphinx-Bone Wand
+1 Spindrift Drake
+1 Stern Dismissal
+1 Stormkeld Prowler
+1 Straw Golem
+1 Temporal Mastery
+1 The Unspeakable
+1 Trickster Mage
+1 Trigon of Thought
+1 Universal Automaton
+1 Universal Solvent
+1 Urza's Avenger
+1 Vibrant Cityscape
+1 Wan Shi Tong, Librarian
+1 Warmonger's Chariot
+1 Weight of Memory
+1 Witness of Tomorrows
+1 Wrath of Marit Lage
+
+[commander]
+Geist of Saint Thalia

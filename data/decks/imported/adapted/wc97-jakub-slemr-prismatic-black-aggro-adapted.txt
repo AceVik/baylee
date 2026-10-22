@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC97/jakub-slemr-prismatic-black-aggro.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JakubŠlemrPrismaticBlackAggro_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jakub Šlemr - Prismatic Black Aggro (Adapted)]
+4 Afflict
+4 Black Knight
+4 Blood Pact
+3 City of Brass
+4 Cruel Finality
+2 Earthquake
+1 Flare
+3 Gemstone Mine
+2 Icequake
+4 Knight of Stromgald
+4 Man-o'-War
+4 Nekrataal
+2 Sulfurous Springs
+10 Swamp
+2 Uktabi Orangutan
+1 Underground River
+3 Undiscovered Paradise
+4 Yawgmoth's Will

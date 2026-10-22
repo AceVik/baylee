@@ -1,0 +1,20 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Witch_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Witch]
+3 Clay Statue
+2 Dark Ritual
+3 Diabolic Machine
+2 Drain Life
+4 Drudge Skeletons
+2 Greed
+4 Nevinyrral's Disk
+3 Scavenging Ghoul
+23 Swamp
+3 Throne of Bone
+4 Unholy Strength
+2 Wall of Bone
+3 Weakness
+4 Will-o'-the-Wisp
+
+[sideboard]
+1 Gloom

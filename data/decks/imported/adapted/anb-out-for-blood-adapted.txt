@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/ANB/out-for-blood.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OutForBlood_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Out for Blood (Adapted)]
+2 Breach
+4 Child of Night
+3 Daggerdrome Imp
+2 Disfigure
+2 Funeral Rites
+1 Meteor Golem
+3 Murder
+1 Perish
+1 Reverent Howl
+2 Sorin's Thirst
+25 Swamp
+1 Syphon Soul
+3 Thirsting Bloodlord
+3 Toxic Deluge
+4 Vampire of the Dire Moon
+3 Vindictive Vampire

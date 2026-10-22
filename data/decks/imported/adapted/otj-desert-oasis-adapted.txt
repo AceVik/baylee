@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/OTJ/desert-oasis.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DesertOasis_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Desert Oasis (Adapted)]
+4 Auroral Procession
+2 Bridgeworks Battle
+1 Bristly Bill, Spine Sower
+2 Chord of Calling
+2 Crushing Canopy
+4 Double Major
+2 Fabricate
+13 Forest
+1 Hedge Maze
+4 Hydroform
+1 I Am Iron Man
+7 Island
+4 Lush Oasis
+4 Neoform
+3 Rootrider Faun
+4 Square Up
+2 Woodcutter's Grit

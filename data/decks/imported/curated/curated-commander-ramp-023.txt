@@ -1,0 +1,83 @@
+# baylee curated commander ramp seed=20261046
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20261046]
+1 Angelfire Crusader
+1 Anthem of Champions
+1 Astral Cornucopia
+1 Avacyn's Pilgrim
+1 Ba Sing Se
+1 Battle Hurda
+1 Bhaal's Invoker
+1 Birnin Zana Plaza
+1 Blisterpod
+1 Bucolic Ranch
+1 Cavern of Souls
+1 Celestial Sword
+1 Chocobo Camp
+1 Chocobo Racetrack
+1 Crib Swap
+1 Curse of Marit Lage
+1 Divine Intervention
+1 Dragon's Claw
+1 Elvish Healer
+1 Explosive Apparatus
+1 Font of Mythos
+8 Forest
+1 Gemstone Mine
+1 Gideon's Reproach
+1 Glittering Massif
+1 Gold Pan
+1 Great Hall of the Biblioplex
+1 Groundchuck & Dirtbag
+1 Halberdier
+1 Harrier Naga
+1 Heap Gate
+1 Imperial Oath
+1 Improvised Armor
+1 Indomitable Ancients
+1 Inferno
+1 Levitating Statue
+1 Living Lands
+1 Los Diablos Missile Base
+1 Lumbering Satyr
+1 Magus of the Moon
+1 Meteorite
+1 Mishra's Workshop
+7 Mountain
+1 Mox Pearl
+1 Mycosynth Lattice
+1 New Benalia
+1 Novice Inspector
+1 Nyx-Fleece Ram
+1 Ogre's Cleaver
+1 Okina, Temple to the Grandfathers
+1 Oyobi, Who Split the Heavens
+1 Pacification Array
+1 Palace Jailer
+11 Plains
+1 Plateau
+1 Prowler's Helm
+1 Ridge Rannet
+1 Rin and Seri, Inseparable
+1 Roots
+1 Rugged Highlands
+1 Rune-Cervin Rider
+1 Runes of the Deus
+1 Slash Panther
+1 Soilshaper
+1 Spinning Wheel
+1 Spore Frog
+1 Squirrel Nest
+1 Strider Harness
+1 Swab Goblin
+1 Thicket Crasher
+1 Thundering Tanadon
+1 Tinder Farm
+1 Vibranium Energy Daggers
+1 Volcanic Geyser
+1 Voldaren Stinger
+1 Whirling Strike
+1 Wolfkin Bond
+
+[commander]
+Rin and Seri, Inseparable

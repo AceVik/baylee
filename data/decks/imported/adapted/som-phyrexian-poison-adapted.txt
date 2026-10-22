@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/SOM/phyrexian-poison.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianPoison_SOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Phyrexian Poison (Adapted)]
+3 Abrupt Decay
+4 Assassin's Trophy
+2 Assassinate
+2 Bladed Pinions
+2 Drain the Well
+13 Forest
+4 Gaze of Granite
+2 Giant Growth
+4 Maelstrom Pulse
+4 Pest Summoning
+2 Slice in Twain
+1 Strider Harness
+13 Swamp
+4 Tear Asunder

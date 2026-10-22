@@ -1,0 +1,86 @@
+# baylee curated commander aggro seed=20261073
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20261073]
+1 Angel's Tomb
+1 Bloodstained Mire
+1 Boggart Cursecrafter
+1 Castle Locthwain
+1 Centaur Courser
+1 Chocobo Camp
+1 Circle of Dreams Druid
+1 Clot Sliver
+1 Consumptive Goo
+1 Daring Demolition
+1 Dauthi Horror
+1 Deathknell Berserker
+1 Dire Fleet Neckbreaker
+1 Dowsing Device
+1 Dragon's Herald
+1 Dread Shade
+1 Eidolon of the Great Revel
+1 Elven Palisade
+1 Emerald Oryx
+1 Exploration
+1 Eyeless Watcher
+1 Festering Goblin
+1 Font of Fertility
+6 Forest
+1 Fourth Bridge Prowler
+1 Gamble
+1 Ghost Quarter
+1 Go Forth
+1 Goblin Burrows
+1 Hecatomb
+1 Hidden Grotto
+1 Incurable Ogre
+1 Journeyer's Kite
+1 Keldon Necropolis
+1 Kraken's Eye
+1 Leaf-Crowned Visionary
+1 Marshdrinker Giant
+1 Medicine Bag
+1 Mercadian Bazaar
+1 Millennial Gargoyle
+10 Mountain
+1 Need for Speed
+1 Nexus Wardens
+1 Phyrexian Tower
+1 Plague Beetle
+1 Plaza of Heroes
+1 Pyrotechnics
+1 Quarry Beetle
+1 Ragged Playmate
+1 Renowned Weaver
+1 Rhystic Cave
+1 Ridged Kusite
+1 Rishkar, Peema Renegade
+1 Roterothopter
+1 Signpost Scarecrow
+1 Spore Crawler
+1 Springjack Pasture
+1 Steel Wall
+1 Stone Giant
+1 Subdue
+7 Swamp
+1 Syndicate Trafficker
+1 Tendrils of Corruption
+1 Thallid
+1 Thrashing Brontodon
+1 Torch Gauntlet
+1 Trollhide
+1 Ulvenwald Observer
+1 Vault of Whispers
+1 Vicious Hunger
+1 Vindictive Vampire
+1 Wall of Dust
+1 Warship Scout
+1 Weatherseed Elf
+1 Wildwood Rebirth
+1 Witherbloom Campus
+1 Wooden Sphere
+1 Xira Arien
+1 Ydwen Efreet
+1 Zhalfirin Void
+
+[commander]
+Xira Arien

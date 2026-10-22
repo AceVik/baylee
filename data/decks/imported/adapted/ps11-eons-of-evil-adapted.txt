@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/PS11/eons-of-evil.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EonsOfEvil_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eons of Evil (Adapted)]
+1 Acolyte of Xathrid
+1 Consult the Necrosages
+4 Crosis's Charm
+1 Deathbringer Thoctar
+1 Demon's Horn
+1 Dragon's Claw
+4 Drastic Revelation
+2 Hidden Horror
+4 Island
+2 Mana Leak
+8 Mountain
+1 Obelisk of Grixis
+1 Rakshasa's Secret
+3 Sift
+10 Swamp
+3 Terminate
+2 Terramorphic Expanse
+2 Terror
+3 Wanderer's Twig
+2 Zombie Goliath
+4 Zombify

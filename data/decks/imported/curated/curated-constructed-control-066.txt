@@ -1,0 +1,22 @@
+# baylee curated constructed control seed=20261089
+# licence: AGPL-3.0-only
+[deck:constructed control WG #20261089]
+2 Abu Ja'far
+4 Amonkhet Raceway
+3 Armory Guard
+2 Bestow Greatness
+4 Channel
+1 Faceless Haven
+11 Forest
+3 Horizon of Progress
+4 Life Matrix
+3 Myr Matrix
+1 Ogre's Cleaver
+5 Plains
+2 Righteous Cause
+4 Scour from Existence
+3 Scrapheap
+1 Sheltered Valley
+2 Sterling Grove
+1 The Fair Basilica
+4 Time Vault

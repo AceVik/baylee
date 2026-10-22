@@ -1,0 +1,19 @@
+# baylee curated constructed aggro seed=20261059
+# licence: AGPL-3.0-only
+[deck:constructed aggro UR #20261059]
+4 Barbarian Outcast
+2 Bloodtallow Candle
+4 City of Brass
+2 Enraged Flamecaster
+4 Foriysian Totem
+4 Goblin Piker
+3 Island
+3 Lavastep Raider
+11 Mountain
+4 Ornithopter
+4 Phyrexian Walker
+4 Silhouette
+1 Stalking Stones
+4 Tawnos's Weaponry
+4 Thran Quarry
+2 Wall of Razors

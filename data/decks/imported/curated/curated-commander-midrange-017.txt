@@ -1,0 +1,85 @@
+# baylee curated commander midrange seed=20261040
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20261040]
+1 Abzan Runemark
+1 Accursed Horde
+1 Adagia, Windswept Bastion
+1 Ajani's Mantra
+1 Ajani's Welcome
+1 Angelic Reward
+1 Arid Mesa
+1 Artifact Possession
+1 Aspect of Lamprey
+1 Baldur's Gate
+1 Blade Banish
+1 Blighted Fen
+1 Blood Vassal
+1 Bog Wraith
+1 Call to Mind
+1 Capashen Standard
+1 Capture of Jingzhou
+1 Chromium
+1 Daily Bugle Newspaper
+1 Damnable Pact
+1 Desert
+1 Desiccated Naga
+1 Doom Whisperer
+1 Dragon-Cursed Halls
+1 Drainpipe Vermin
+1 Drake-Skull Cameo
+1 Dunes of the Dead
+1 Dungeon Descent
+1 Faceless Haven
+1 Feral Abomination
+1 Fleet-Footed Monk
+1 Flow of Maggots
+1 Gargoyle Castle
+1 Glorious Anthem
+1 Gravitational Shift
+1 HELIOS One
+1 Halt Order
+1 Hexplate Golem
+9 Island
+1 Jace, the Mind Sculptor
+1 Jade Monolith
+1 Juxtapose
+1 Kite Shield
+1 Leonin Bladetrap
+1 Lightbringer
+1 Liturgy of Blood
+1 Manta Ray
+1 Marsh Threader
+1 Nectar Faerie
+1 Nightwing Shade
+1 Nim Replica
+1 Nuclear Fallout
+1 Pawn of Ulamog
+9 Plains
+1 Power Artifact
+1 Razortide Bridge
+1 Refute
+1 Ridged Kusite
+1 Rotting Regisaur
+1 Sanguine Syphoner
+1 Secret Passage
+1 Sejiri Refuge
+1 Short Circuit
+1 Silver Drake
+1 Spawning Pool
+1 Sterling Hound
+6 Swamp
+1 Thermal Navigator
+1 Trenching Steed
+1 Underdark Rift
+1 Valorous Stance
+1 Vampire Bats
+1 Vial of Poison
+1 Viscerid Drone
+1 Wall of Denial
+1 White Ward
+1 Windbrisk Raptor
+1 Wit's End
+1 Zombie Outlander
+
+[commander]
+Chromium

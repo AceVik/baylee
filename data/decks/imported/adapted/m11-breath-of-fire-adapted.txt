@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/M11/breath-of-fire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BreathOfFire_M11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Breath of Fire (Adapted)]
+1 Augury Owl
+2 Berserkers of Blood Ridge
+4 Broadside Barrage
+1 Call to Mind
+1 Canyon Minotaur
+2 Ember Hauler
+2 Fiery Hellhound
+1 Fireball
+1 Foresee
+1 Goblin Piker
+2 Goblin Tunneler
+3 Invoke the Firemind
+9 Island
+3 Lightning Bolt
+16 Mountain
+1 Negate
+1 Preordain
+2 Prodigal Pyromancer
+4 Rush of Inspiration
+1 Shiv's Embrace
+1 Stone Golem
+1 Unsummon

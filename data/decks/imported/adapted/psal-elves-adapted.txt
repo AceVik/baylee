@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/PSAL/elves.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Elves_PSAL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elves (Adapted)]
+1 Drain the Well
+1 Elvish Champion
+1 Elvish Vanguard
+2 Elvish Warrior
+23 Forest
+4 Gaze of Granite
+1 Golgari Guildmage
+1 Heedless One
+4 Maelstrom Pulse
+4 Pest Summoning
+2 Seeker of Skybreak
+3 Tear Asunder
+2 Timberwatch Elf
+2 Treetop Scout
+1 Viridian Scout
+1 Wellwisher
+1 Wirewood Channeler
+2 Wirewood Hivemaster
+1 Wirewood Lodge
+3 Wirewood Pride

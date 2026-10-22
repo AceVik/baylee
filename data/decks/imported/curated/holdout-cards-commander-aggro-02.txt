@@ -1,0 +1,76 @@
+# baylee unseen-card holdout commander seed=90000006
+# licence: AGPL-3.0-only
+[deck:commander aggro U #90000006]
+1 Alpha Myr
+1 Argent Mutation
+1 Balduvian Frostwaker
+1 Base Camp
+1 Blood Servitor
+1 Bottle Gnomes
+1 Brokers Hideout
+1 Cathartic Adept
+1 Ceremonious Rejection
+1 Cloudkin Seer
+1 Coralhelm Guide
+1 Coretapper
+1 Dictate of Kruphix
+1 Erratic Visionary
+1 Escaped Experiment
+1 Experimental Aviator
+1 Grapeshot Catapult
+1 Halcyon Glaze
+1 Hedron Rover
+1 Horned Turtle
+1 Iceberg Cancrix
+1 Iron Star
+31 Island
+1 Keeneye Aven
+1 Library Larcenist
+1 Magosi, the Waterveil
+1 Malevolent Hermit
+1 Merrow Reejerey
+1 Merrow Witsniper
+1 Miscalculation
+1 Mothdust Changeling
+1 Mox Jasper
+1 Night Market Guard
+1 Nine-Ringed Bo
+1 Palace Familiar
+1 Phase Dolphin
+1 Phyrexian Walker
+1 Pili-Pala
+1 Psychic Purge
+1 Quick Study
+1 Reach Through Mists
+1 Remote Isle
+1 Rishadan Airship
+1 Runed Servitor
+1 Salvager of Secrets
+1 School of Piranha
+1 Seacoast Drake
+1 Sequestered Stash
+1 Serum Tank
+1 Shocking Grasp
+1 Shorecomber Crab
+1 Silvergill Douser
+1 Sindbad
+1 Spell Blast
+1 Spell Pierce
+1 Spellseeker
+1 Spiketail Hatchling
+1 Spire of Industry
+1 Steel Wall
+1 Thought Courier
+1 Three Tree Mascot
+1 Treachery
+1 Trickster Mage
+1 Trigon of Thought
+1 Urza, Lord High Artificer
+1 Volatile Fault
+1 Wand of Ith
+1 Wizard Replica
+1 Worldslayer
+1 Zephyr Charge
+
+[commander]
+Urza, Lord High Artificer

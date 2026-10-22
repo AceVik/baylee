@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/PAST/goblin-warlord.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GoblinWarlord_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Goblin Warlord (Adapted)]
+4 Giant Strength
+4 Goblin Balloon Brigade
+4 Goblin King
+4 Helm of Chatzuk
+2 Immolation
+4 Keldon Warlord
+2 Manabarbs
+4 Mons's Goblin Raiders
+21 Mountain
+4 Orcish Oriflamme
+1 Shatter
+4 Sundering Eruption
+2 Tawnos's Weaponry

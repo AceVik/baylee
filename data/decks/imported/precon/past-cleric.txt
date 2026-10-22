@@ -1,0 +1,20 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Cleric_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cleric]
+4 Amrou Kithkin
+4 Benalish Hero
+3 Disenchant
+3 Holy Armor
+4 Holy Strength
+3 Meekstone
+4 Mesa Pegasus
+2 Pikemen
+21 Plains
+2 Samite Healer
+2 Savannah Lions
+4 Swords to Plowshares
+4 Tawnos's Weaponry
+
+[sideboard]
+1 Conversion
+1 Karma

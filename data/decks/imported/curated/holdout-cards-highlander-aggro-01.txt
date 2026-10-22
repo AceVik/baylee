@@ -1,0 +1,82 @@
+# baylee unseen-card holdout highlander seed=90000005
+# licence: AGPL-3.0-only
+[deck:highlander aggro WB #90000005]
+1 Abstergo Entertainment
+1 Alloy Myr
+1 Ambition's Cost
+1 Badgey, Malicious Glitch
+1 Baxter Building
+1 Black Lotus
+1 Blood-Cursed Knight
+1 Candelabra of Tawnos
+1 Cenn's Heir
+1 Claws of Gix
+1 Consulate Skygate
+1 Cosmium Blast
+1 Court Cleric
+1 Dancing Scimitar
+1 Darksteel Pendant
+1 Deception
+1 Delif's Cone
+1 Delif's Cube
+1 Devout Decree
+1 Devout Monk
+1 Fresh Volunteers
+1 Frostwalk Bastion
+1 Ghost Quarter
+1 Gift of Orzhova
+1 Gloomhunter
+1 Hag of Noxious Nightmares
+1 Hall of Oracles
+1 Haunted Library
+1 Herbal Poultice
+1 Icequake
+1 Iron Lance
+1 Jagwasp Swarm
+1 Jawbone Skulkin
+1 Kraul Raider
+1 Lantern Kami
+1 Lash of Thorns
+1 Levitating Statue
+1 Lotus Petal
+1 Luminarch Aspirant
+1 Magnetic Mine
+1 Malachite Talisman
+1 Martyr of Dusk
+1 Moaning Wall
+1 Molting Harpy
+1 Mox Jet
+1 Muraganda Raceway
+1 Myr Moonvessel
+1 Mystifying Maze
+1 Nezumi Informant
+1 One with Nothing
+1 Perilous Myr
+1 Petra Sphinx
+7 Plains
+1 Plasmancer
+1 Public Thoroughfare
+1 Rakshasa's Secret
+1 Recruiter of the Guard
+1 Scourgemark
+1 Shifting Wall
+1 Slimy Dualleech
+1 Spin Out
+1 Stardew Valley
+1 Study Hall
+1 Sunscorched Desert
+16 Swamp
+1 Sweettooth Witch
+1 Swift Response
+1 The Great Mound
+1 Thopter Architect
+1 Throne of the High City
+1 Tidy Conclusion
+1 Underdark Rift
+1 Vampire Opportunist
+1 Voltaic Servant
+1 Wei Ambush Force
+1 Westvale Abbey
+1 Whetstone
+1 Wolf Cove Villager
+1 You're Ambushed on the Road

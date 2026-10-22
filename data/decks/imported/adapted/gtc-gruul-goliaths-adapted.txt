@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/GTC/gruul-goliaths.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulGoliaths_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gruul Goliaths (Adapted)]
+1 Arbor Elf
+2 Centaur Courser
+4 Colossal Might
+2 Disciple of the Old Ways
+1 Duskdale Wurm
+2 Fire Elemental
+13 Forest
+1 Foundry Street Denizen
+2 Ground Assault
+1 Gruul Guildgate
+2 Gruul Keyrune
+3 Manamorphose
+12 Mountain
+1 Primal Huntbeast
+1 Raging Ravine
+1 Ripscale Predator
+2 Ruination Wurm
+4 Savage Twister
+4 Stump Stomp
+1 Volcanic Geyser

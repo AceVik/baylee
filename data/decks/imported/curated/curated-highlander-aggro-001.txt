@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261024
+# licence: AGPL-3.0-only
+[deck:highlander aggro WG #20261024]
+1 Abbey Matron
+1 Almighty Brushwagg
+1 Ankle Biter
+1 Anointed Chorister
+1 Avatar Enthusiasts
+1 Bandage
+1 Blasted Landscape
+1 Boseiju, Who Shelters All
+1 Branch of Vitu-Ghazi
+1 Brokers Hideout
+1 Canopy Vista
+1 Conifer Strider
+1 Daybreak Chaplain
+1 Diamond Valley
+1 Dromad Purebred
+1 Earth Kingdom Protectors
+1 Elvish Champion
+1 Elvish Handservant
+1 Elvish Visionary
+1 Exorcist
+1 Fangren Hunter
+1 Farrel's Zealot
+14 Forest
+1 Forge of Heroes
+1 Foriysian Brigade
+1 Fyndhorn Elves
+1 Gale Force
+1 Goldmeadow Harrier
+1 Grappling Sundew
+1 Greensleeves, Maro-Sorcerer
+1 Healer's Flock
+1 Hillcomber Giant
+1 Jade Mage
+1 Jawbone Skulkin
+1 Jungle Delver
+1 Mending Touch
+1 Natural Connection
+1 Nature's Chant
+1 Neurok Hoversail
+1 Oasis
+1 Omega Myr
+1 Order of the Golden Cricket
+1 Path of Ancestry
+1 Phyrexia's Core
+1 Pierce the Sky
+9 Plains
+1 Portcullis Vine
+1 Prized Elephant
+1 Raptor Companion
+1 Recruiter of the Guard
+1 Renowned Weaver
+1 Savannah Lions
+1 Scalding Cauldron
+1 Scavenger Folk
+1 Scrap Compactor
+1 Sedge Scorpion
+1 Shrine of the Forsaken Gods
+1 Slagwurm Armor
+1 Split-Tail Miko
+1 Steadfast Cathar
+1 Steeple Roc
+1 Swooping Lookout
+1 Swords to Plowshares
+1 Sylvan Safekeeper
+1 Temple of Plenty
+1 Thunder Totem
+1 Tributary Vaulter
+1 Umbral Mantle
+1 Unyaro Bees
+1 Venser's Sliver
+1 Vivid Grove
+1 Voice of the Provinces
+1 War Room
+1 Warclamp Mastiff
+1 Watcher Sliver
+1 Watcher of the Wayside
+1 Wildsize
+1 Willow Elf
+1 Winding Canyons

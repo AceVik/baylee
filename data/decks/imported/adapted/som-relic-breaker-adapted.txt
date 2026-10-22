@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/SOM/relic-breaker.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RelicBreaker_SOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Relic Breaker (Adapted)]
+1 Acid Web Spider
+1 Asceticism
+1 Barbed Battlegear
+2 Barrage Ogre
+2 Copper Myr
+1 Cudgel Troll
+1 Fireball
+2 Flameborn Hellion
+12 Forest
+1 Ground Assault
+2 Iron Myr
+1 Manamorphose
+2 Molder Beast
+12 Mountain
+2 Oxidda Scrapmelter
+1 Prodigal Pyromancer
+4 Savage Twister
+2 Shatter
+4 Stump Stomp
+2 Sylvok Replica
+2 Untamed Might
+2 Vulshok Heartstoker

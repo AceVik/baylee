@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M19/walk-the-plank.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WalkThePlank_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Walk the Plank (Adapted)]
+4 Consult the Necrosages
+1 Dire Fleet Poisoner
+1 Drowned Catacomb
+4 Essence Vortex
+2 Exclusion Mage
+3 Glimpse the Unthinkable
+3 Grasping Scoundrel
+10 Island
+3 Kitesail Corsair
+3 Murder
+4 Notion Rain
+4 Pilfered Plans
+2 Ravenous Chupacabra
+1 Restless Reef
+1 Riddlemaster Sphinx
+4 Submerged Boneyard
+10 Swamp

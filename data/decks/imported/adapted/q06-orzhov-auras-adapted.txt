@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/Q06/orzhov-auras.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovAuras_Q06.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Orzhov Auras (Adapted)]
+4 Anguished Unmaking
+4 Cartouche of Solidarity
+4 Caves of Koilos
+4 Concealed Courtyard
+1 Death Grasp
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+4 Pest Control
+7 Plains
+4 Selfless Savior
+4 Sram, Senior Edificer
+4 Swamp
+4 Unmake
+4 Vindicate

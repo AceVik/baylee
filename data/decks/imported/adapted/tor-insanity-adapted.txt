@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/TOR/insanity.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Insanity_TOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Insanity (Adapted)]
+3 Abrupt Decay
+4 Assassin's Trophy
+2 Centaur Veteran
+4 Drain the Well
+10 Forest
+4 Gaze of Granite
+2 Krosan Archer
+2 Krosan Constrictor
+4 Maelstrom Pulse
+2 Muscle Burst
+1 Narcissism
+4 Pest Summoning
+12 Swamp
+2 Tainted Wood
+4 Tear Asunder

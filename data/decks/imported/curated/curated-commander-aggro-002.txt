@@ -1,0 +1,76 @@
+# baylee curated commander aggro seed=20261025
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20261025]
+1 Advance Scout
+1 Alpha Myr
+1 Angelic Curator
+1 Anointer of Champions
+1 Attended Knight
+1 Automatic Librarian
+1 Battle Hurda
+1 Benalish Hero
+1 Benevolent Ancestor
+1 Blighted Steppe
+1 Bronze Walrus
+1 Clockwork Drawbridge
+1 Compassionate Healer
+1 Consulate Skygate
+1 Dawn Gryff
+1 Daybreak Charger
+1 Devoted Hero
+1 Dragon's Eye Sentry
+1 Expedition Envoy
+1 Farrelite Priest
+1 Flutterfox
+1 Gilded Sentinel
+1 Goblin Lyre
+1 Grindclock
+1 Inspired Insurgent
+1 Jeskai Barricade
+1 Keening Apparition
+1 Kelsinko Ranger
+1 Kinsbaile Skirmisher
+1 Labyrinth of Skophos
+1 Lake-town Lookout
+1 Liquimetal Torque
+1 Loam Lion
+1 Loran, Disciple of History
+1 Luminarch Ascension
+1 Mandroid Squadron
+1 Militant Monk
+1 Military Discipline
+1 Mothrider Patrol
+1 Nimbus Wings
+1 Ondu War Cleric
+1 Pierce Strider
+1 Pious Wayfarer
+31 Plains
+1 Reinforced Bulwark
+1 Rishadan Port
+1 Rising Populace
+1 Runed Servitor
+1 Sanctuary Raptor
+1 Savannah Sage
+1 Secret Base
+1 Seer's Sundial
+1 Smuggler's Copter
+1 Soltari Emissary
+1 Spirit Link
+1 Spirit Mirror
+1 Steadfast Cathar
+1 Steeple Roc
+1 Sunlance
+1 Swift Reconfiguration
+1 Sworn Companions
+1 The Great Mound
+1 Thraben Valiant
+1 Tireless Tribe
+1 Tormod's Crypt
+1 Tragic Poet
+1 Urza's Mine
+1 Vivid Meadow
+1 Voltaic Servant
+1 Welding Jar
+
+[commander]
+Loran, Disciple of History

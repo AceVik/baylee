@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/AFR/sneak-attack.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SneakAttack_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sneak Attack (Adapted)]
+4 Axgard Cavalry
+4 Broadside Barrage
+4 Evolving Wilds
+4 Invoke the Firemind
+11 Island
+1 Izzet Charm
+12 Mountain
+3 Red Dragon
+4 Run Amok
+4 Rush of Inspiration
+4 Teeterpeak Ambusher
+3 Thundering Rebuke
+2 Wormhole Serpent

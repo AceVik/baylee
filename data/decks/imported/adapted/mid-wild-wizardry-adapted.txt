@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/MID/wild-wizardry.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WildWizardry_MID.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wild Wizardry (Adapted)]
+4 Broadside Barrage
+3 Expressive Iteration
+4 Fire
+4 Invoke the Firemind
+8 Island
+4 Izzet Charm
+9 Mountain
+4 Prismari Campus
+4 Rush of Inspiration
+2 Shock
+3 Silundi Vision
+3 Song-Mad Treachery
+4 Traumatic Critique
+3 Umara Mystic
+1 Wizard Class

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/TMP/the-swarm.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarm_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Swarm (Adapted)]
+1 Disenchant
+14 Forest
+4 Incandescent Aria
+1 Krakilin
+3 Master Decoy
+4 Muscle Sliver
+2 Naya Charm
+1 Needle Storm
+3 Pincher Beetles
+7 Plains
+2 Ranger en-Vec
+4 Rith's Charm
+3 Rootwalla
+3 Skyshroud Elf
+1 Soltari Crusader
+2 Soltari Trooper
+3 Trained Armodon
+2 Vec Townships

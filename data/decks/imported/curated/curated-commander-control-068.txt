@@ -1,0 +1,82 @@
+# baylee curated commander control seed=20261091
+# licence: AGPL-3.0-only
+[deck:commander control WG #20261091]
+1 Aether Shockwave
+1 Almost Perfect
+1 Angelic Edict
+1 Arcum's Sleigh
+1 Awaken the Bear
+1 Awaken the Woods
+1 Base Camp
+1 Blanchwood Treefolk
+1 Bring to Trial
+1 Cactus Preserve
+1 Capital City
+1 Charging Badger
+1 Clive's Hideaway
+1 Crumbling Vestige
+1 Day of Judgment
+1 Dispeller's Capsule
+1 Disruptor Pistol
+1 Dromoka Dunecaster
+1 Elite Cat Warrior
+1 Elspeth, Storm Slayer
+1 Elvish Regrower
+1 Eriette's Lullaby
+1 Force of Nature
+14 Forest
+1 Forethought Amulet
+1 Forsake the Worldly
+1 Fountainport
+1 Fungal Bloom
+1 Gaea's Anthem
+1 Gauntlets of Chaos
+1 Guardians of Meletis
+1 Halls of Mist
+1 Holy Mantle
+1 Horizon of Progress
+1 Huatli's Snubhorn
+1 Iron Lance
+1 Lapis Lazuli Talisman
+1 Levitating Statue
+1 Lossarnach Captain
+1 Many Partings
+1 Meteorite
+1 Mountain Valley
+1 Mox Pearl
+1 Nature's Revolt
+1 Nimbus Wings
+12 Plains
+1 Quarry Beetle
+1 Rapid Fire
+1 Reverse Polarity
+1 Sacred Armory
+1 Sacred Wolf
+1 Sandstorm Verge
+1 Sarkhan's Resolve
+1 Scampering Surveyor
+1 Secluded Starforge
+1 Security Detail
+1 Selesnya Cluestone
+1 Sir Shandlar of Eberyn
+1 Soulscour
+1 Spare Supplies
+1 Sporecap Spider
+1 Stalking Stones
+1 Static Orb
+1 Sunlance
+1 Swift Response
+1 Team Transmitter
+1 Thaumaturge's Familiar
+1 Throne of the High City
+1 Tocasia's Dig Site
+1 Toil to Renown
+1 Tranquil Path
+1 Turntimber Symbiosis
+1 Unflinching Courage
+1 Unknown Shores
+1 Warped Landscape
+1 Yavimaya Hollow
+
+[commander]
+Sir Shandlar of Eberyn

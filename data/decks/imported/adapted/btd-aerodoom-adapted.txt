@@ -1,0 +1,39 @@
+# adapted from data/decks/precon/BTD/aerodoom.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Aerodoom_BTD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Aerodoom (Adapted)]
+1 Air Elemental
+1 Blizzard Elemental
+1 Brainstorm
+1 Clockwork Avian
+1 Cloud Djinn
+1 Cloud Elemental
+1 Consult the Necrosages
+1 Counterspell
+1 Dark Ritual
+1 Death Stroke
+1 Drain Life
+1 Ebon Stronghold
+3 Essence Vortex
+1 Fallen Angel
+1 Feral Shadow
+1 Gaseous Form
+1 Giant Crab
+1 Glimpse the Unthinkable
+1 Gravedigger
+1 Hollow Dogs
+11 Island
+1 Killer Whale
+1 Leviathan
+1 Mahamoti Djinn
+4 Notion Rain
+1 Polluted Mire
+1 Power Sink
+1 Remote Isle
+1 Sengir Vampire
+1 Skittering Horror
+1 Skittering Skirge
+1 Snapping Drake
+1 Svyelunite Temple
+11 Swamp
+1 Terror
+1 Vigilant Drake

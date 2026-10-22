@@ -1,0 +1,76 @@
+# baylee curated commander aggro seed=20261097
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20261097]
+1 Airship Crash
+1 Aisling Leprechaun
+1 Alloy Myr
+1 Armageddon Clock
+1 Assembly-Worker
+1 Avishkar Raceway
+1 Barbed Battlegear
+1 Base Camp
+1 Behemoth's Herald
+1 Blessed Respite
+1 Bramblefort Fink
+1 Canopy Baloth
+1 Cathodion
+1 Coretapper
+1 Crystal Ball
+1 Crystal Rod
+1 Defiant Elf
+1 Dune Diviner
+1 Eidolon of Blossoms
+1 Endurance
+1 Eye of Ugin
+31 Forest
+1 Galadhrim Guide
+1 Goobbue Gardener
+1 Grand Coliseum
+1 Grazing Gladehart
+1 Henge Guardian
+1 Ice Storm
+1 Implements of Sacrifice
+1 Ivy Elemental
+1 Jade Bearer
+1 Mana Cylix
+1 Memnite
+1 Might Weaver
+1 Mightstone
+1 Mind Stone
+1 Mirri's Guile
+1 Nettlecyst
+1 Nova Pentacle
+1 Oasis
+1 Perilous Myr
+1 Pierce Strider
+1 Promising Vein
+1 Renowned Weaver
+1 Ripjaw Raptor
+1 Roughshod Mentor
+1 Rusted Slasher
+1 Scampering Surveyor
+1 Scattershot Archer
+1 Sculptor of Winter
+1 Smuggler's Copter
+1 Spike Drone
+1 Spore Swarm
+1 Starved Rusalka
+1 Thrun, Breaker of Silence
+1 Tranquil Path
+1 Turtle Lair
+1 Unlicensed Hearse
+1 Viridian Harvest
+1 Viridian Scout
+1 Vitality Charm
+1 Wall of Roots
+1 Wall of Vines
+1 Wall of Wood
+1 Watcher of the Wayside
+1 Weatherseed Elf
+1 Whippoorwill
+1 Whirling Dervish
+1 Wildwood Patrol
+1 Wirewood Symbiote
+
+[commander]
+Thrun, Breaker of Silence

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/TMP/deep-freeze.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeepFreeze_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deep Freeze (Adapted)]
+4 Absorb
+1 Cloudchaser Eagle
+3 Counterspell
+4 Daring Leap
+1 Disenchant
+2 Dismiss
+1 Emmessi Tome
+2 Gaseous Form
+2 Horned Turtle
+13 Island
+2 Master Decoy
+1 Offering to Asha
+11 Plains
+2 Power Sink
+1 Puppet Strings
+1 Sky Spirit
+2 Soltari Lancer
+1 Spell Blast
+4 Sphinx's Revelation
+2 Wind Drake

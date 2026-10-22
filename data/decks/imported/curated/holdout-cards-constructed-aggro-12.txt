@@ -1,0 +1,21 @@
+# baylee unseen-card holdout constructed seed=90000031
+# licence: AGPL-3.0-only
+[deck:constructed aggro R #90000031]
+4 Crookshank Kobolds
+4 Goblin Chariot
+4 Kessig Flamebreather
+3 Krark-Clan Shaman
+3 Mobilized District
+24 Mountain
+3 Puncturing Blow
+4 Quaketusk Boar
+4 Quarum Trench Gnomes
+1 Rishadan Port
+3 Sabretooth Tiger
+2 Scrap Trawler
+4 Shivan Devastator
+4 Slagstorm
+4 Tetravus
+1 The Lonely Mountain
+2 Voldaren Stinger
+1 Vulshok Berserker

@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261057
+# licence: AGPL-3.0-only
+[deck:highlander ramp WU #20261057]
+1 Aerial Maneuver
+1 Aladdin's Lamp
+1 Anointed Chorister
+1 Arcane Lighthouse
+1 Arcane Spyglass
+1 Arena of the Ancients
+1 Auriok Transfixer
+1 Avengers Hangar
+1 Birthing Boughs
+1 Castle Ardenvale
+1 Clachan Festival
+1 Claustrophobia
+1 Cloud Spirit
+1 Curate
+1 Darksteel Pendant
+1 Daru Encampment
+1 Deathless Angel
+1 Deserted Temple
+1 Detection Tower
+1 Devoted Hero
+1 Dispersing Orb
+1 Elgaud Inquisitor
+1 Elite Archers
+1 Elite Instructor
+1 Enhanced Awareness
+1 Equinox
+1 Exorcise
+1 Farewell
+1 Festival of the Guildpact
+1 Field of the Dead
+1 Gilded Lotus
+1 Godhead of Awe
+1 Gosta Dirk
+1 Guan Yu's 1,000-Li March
+1 Hair-Strung Koto
+1 Haven of the Spirit Dragon
+1 Historian of Zhalfir
+1 Honor Guard
+1 Inspiring Commander
+17 Island
+1 Jhovall Queen
+1 Kor Haven
+1 Lotus Guardian
+1 Lotus Vale
+1 Maestros Theater
+1 Mage-Ring Network
+1 Meteor Golem
+1 Mortal's Ardor
+1 Nimbus Wings
+1 Phase Dolphin
+9 Plains
+1 Power Armor
+1 Rasputin Dreamweaver
+1 Ring of Three Wishes
+1 Ronom Serpent
+1 Salvage Scuttler
+1 Sandstorm Verge
+1 Savannah Sage
+1 Select for Inspection
+1 Serpent Generator
+1 Shapeshifter
+1 Spectral Procession
+1 Starting Town
+1 Steppe Lynx
+1 Sun Titan
+1 Sword of the Ages
+1 Tangle Kelp
+1 Tempest Drake
+1 The Walls of Ba Sing Se
+1 Thran Portal
+1 Tidal Flats
+1 Urza's Workshop
+1 Vodalian Hexcatcher
+1 Yoked Plowbeast
+1 Zetalpa, Primal Dawn
+1 Zhou Yu, Chief Commander

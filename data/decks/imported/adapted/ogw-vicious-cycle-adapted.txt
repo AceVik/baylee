@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/OGW/vicious-cycle.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ViciousCycle_OGW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Vicious Cycle (Adapted)]
+1 Abrupt Decay
+2 Assassin's Trophy
+1 Blighted Woodland
+2 Blisterpod
+1 Brood Monitor
+1 Broodhunter Wurm
+2 Carrier Thrall
+1 Essence Depleter
+1 Evolving Wilds
+2 Fertile Thicket
+9 Forest
+4 Gaze of Granite
+1 Grasp of Darkness
+4 Maelstrom Pulse
+2 Natural Connection
+2 Oblivion Strike
+4 Pest Summoning
+1 Pulse of Murasa
+2 Rot Shambler
+2 Stalking Drone
+8 Swamp
+3 Tear Asunder
+4 Wastes

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/WTH/gatecrasher.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Gatecrasher_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gatecrasher (Adapted)]
+1 Bogardan Firefiend
+1 Creeping Mold
+15 Forest
+2 Granger Guildmage
+4 Incandescent Aria
+1 Llanowar Behemoth
+1 Maraxus of Keld
+4 Molten Blast
+7 Mountain
+4 Naya Charm
+3 Rampant Growth
+2 Redwood Treefolk
+4 Rith's Charm
+1 Savage Twister
+2 Stampeding Wildebeests
+2 Steam Blast
+2 Striped Bears
+1 Uktabi Orangutan
+3 Wall of Roots

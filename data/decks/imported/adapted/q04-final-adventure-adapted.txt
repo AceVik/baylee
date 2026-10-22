@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/Q04/final-adventure.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FinalAdventure_Q04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Final Adventure (Adapted)]
+4 Abrupt Decay
+4 Assassin's Trophy
+2 Blacklance Paragon
+2 Castle Locthwain
+2 Disfigure
+4 Drain the Well
+1 Fabled Passage
+7 Forest
+4 Gaze of Granite
+3 Jungle Hollow
+4 Maelstrom Pulse
+2 Midnight Reaper
+2 Murderous Rider
+4 Pest Summoning
+1 Revitalizing Repast
+8 Swamp
+4 Tear Asunder
+2 Temple of Malady

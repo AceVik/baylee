@@ -1,0 +1,19 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, KazzSFirstDeck_ITP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Kazz's First Deck]
+2 Disintegrate
+1 Hill Giant
+1 Ironclaw Orcs
+4 Island
+1 Lost Soul
+1 Merfolk of the Pearl Trident
+1 Mons's Goblin Raiders
+4 Mountain
+2 Murk Dwellers
+1 Pyrotechnics
+2 Scathe Zombies
+4 Swamp
+1 Terror
+1 Twiddle
+2 Unsummon
+2 Zephyr Falcon

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/EMN/dangerous-knowledge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DangerousKnowledge_EMN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dangerous Knowledge (Adapted)]
+4 Broadside Barrage
+1 Convolute
+1 Dance with Devils
+1 Drag Under
+3 Fire
+2 Ingenious Skaab
+4 Invoke the Firemind
+13 Island
+4 Izzet Charm
+2 Make Mischief
+2 Mercurial Geists
+12 Mountain
+1 Niblis of Dusk
+1 Pyre Hound
+1 Reduce to Ashes
+4 Rush of Inspiration
+1 Sanguinary Mage
+1 Traumatic Critique
+2 Weaver of Lightning

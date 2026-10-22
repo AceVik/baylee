@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/SNC/blossoming-growth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BlossomingGrowth_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Blossoming Growth (Adapted)]
+2 Airship Crash
+4 Auroral Procession
+1 Bestow Greatness
+1 Bridgeworks Battle
+1 Crack Open
+1 Cultivate
+4 Double Major
+1 Dreamroot Cascade
+2 Fabricate
+2 Fang of Shigeki
+10 Forest
+1 Frantic Search
+4 Hydroform
+1 Inner Calm, Outer Strength
+10 Island
+3 Jewel Thief
+4 Neoform
+4 Square Up
+4 Thornwood Falls

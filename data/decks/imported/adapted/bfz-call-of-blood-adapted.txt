@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/BFZ/call-of-blood.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CallOfBlood_BFZ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Call of Blood (Adapted)]
+4 Anguished Unmaking
+1 Blighted Steppe
+2 Courier Griffin
+2 Demon's Grasp
+2 Drana's Emissary
+2 Evolving Wilds
+2 Gideon's Reproach
+1 Hagra Sharpshooter
+2 Inkling Summoning
+2 Kitesail Scout
+4 Mortify
+2 Mortuary Mire
+11 Plains
+1 Shadow Glider
+3 Stone Haven Medic
+10 Swamp
+4 Unmake
+4 Vindicate
+1 Zulaport Cutthroat

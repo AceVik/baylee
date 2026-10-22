@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/DGM/strength-of-selesnya.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StrengthOfSelesnya_DGM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Strength Of Selesnya (Adapted)]
+1 Advent of the Wurm
+3 Appetite for the Unnatural
+4 Call of the Conclave
+2 Dismember
+2 Doomed Traveler
+4 Evolving Wilds
+6 Forest
+4 Foxfire
+1 Geist-Honored Monk
+1 Godless Shrine
+1 Grove of the Guardian
+1 Guiding Bolt
+4 Intangible Virtue
+1 Morale
+1 Needle Storm
+7 Plains
+2 Rancor
+1 Rend Flesh
+1 Sandsteppe Citadel
+4 Selesnya Charm
+4 Selesnya Guildgate
+1 Swamp
+1 Tranquility
+3 Yawgmoth's Will

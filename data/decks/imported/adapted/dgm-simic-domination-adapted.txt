@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/DGM/simic-domination.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SimicDomination_DGM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Simic Domination (Adapted)]
+1 Archweaver
+4 Auroral Procession
+2 Beetleform Mage
+3 Centaur Courser
+2 Double Major
+10 Forest
+4 Hydroform
+12 Island
+1 Murmuring Phantasm
+4 Neoform
+2 Opal Lake Gatekeepers
+1 Phytoburst
+2 Runner's Bane
+2 Simic Cluestone
+4 Simic Guildgate
+2 Species Gorger
+4 Square Up

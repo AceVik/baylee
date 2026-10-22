@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M21/teferi-timeless-voyager.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TeferiTimelessVoyager_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Teferi, Timeless Voyager (Adapted)]
+2 Call to Mind
+2 Charmed Sleep
+1 Counsel of the Soratami
+4 Dream Fracture
+2 Exclude
+3 Historian of Zhalfir
+2 I Am Iron Man
+25 Island
+1 Mana Short
+4 Meditate
+3 Opt
+1 Quick Study
+2 Shipwreck Dowser
+1 Solve the Equation
+1 Stern Dismissal
+4 Stroke of Genius
+2 Volcanic Eruption

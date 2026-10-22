@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261069
+# licence: AGPL-3.0-only
+[deck:highlander ramp UR #20261069]
+1 Aftershock
+1 Alexi's Cloak
+1 Ancestors' Aid
+1 Arch of Orazca
+1 Aspiring Aeronaut
+1 Basalt Monolith
+1 Bloodfire Colossus
+1 Bribery
+1 Cascading Cataracts
+1 Chronatog
+1 Cinder Storm
+1 Confiscate
+1 Corrupted Crossroads
+1 Cradle of Safety
+1 Cursed Rack
+1 Dwarven Pony
+1 Ember Shot
+1 Equilibrium
+1 Erratic Portal
+1 Faceless Haven
+1 Fire Drake
+1 Flameborn Viron
+1 Frilled Sea Serpent
+1 Geistcatcher's Rig
+1 Gemstone Mine
+1 Goblin Assailant
+1 Goblin Digging Team
+1 Guildless Commons
+1 Hedron Rover
+1 Hidden Cataract
+1 Inferno
+1 Invisibility
+15 Island
+1 Kobold Taskmaster
+1 Lumengrid Gargoyle
+1 Lumengrid Warden
+1 Meteor Golem
+1 Mindless Automaton
+1 Miner's Bane
+11 Mountain
+1 Opposition
+1 Paradise Mantle
+1 Phantasmal Forces
+1 Power Matrix
+1 Prismite
+1 Pyramids
+1 Remote Isle
+1 Rogue's Passage
+1 Runewing
+1 Sage of Epityr
+1 Saprazzan Skerry
+1 Screeching Skaab
+1 Searing Wind
+1 Sensei's Divining Top
+1 Shapeshifter
+1 Shredded Sails
+1 Sift
+1 Soldevi Steam Beast
+1 Spirit Away
+1 Stalking Stones
+1 Stonefury
+1 Strix Lookout
+1 Talonrend
+1 Tarnation Vista
+1 Teferi's Sentinel
+1 Throne of the High City
+1 Thundering Falls
+1 Tidal Flats
+1 Tin Street Market
+1 Tolarian Serpent
+1 Tony Stark
+1 Triassic Egg
+1 Underfoot Underdogs
+1 Villainous Hideout
+1 Volatile Fault
+1 Windstorm Drake

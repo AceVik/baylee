@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M19/eternal-thirst.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EternalThirst_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eternal Thirst (Adapted)]
+2 Ajani's Welcome
+4 Anguished Unmaking
+3 Bishop's Soldier
+3 Call to the Feast
+4 Forsaken Sanctuary
+1 Herald of Faith
+2 Inspiring Cleric
+1 Isolated Chapel
+2 Legion Lieutenant
+2 Moment of Triumph
+3 Mortify
+3 Murder
+10 Plains
+1 Sanctum Seeker
+3 Skymarch Bloodletter
+10 Swamp
+2 Unmake
+1 Vampire Sovereign
+3 Vindicate

@@ -1,0 +1,20 @@
+# baylee curated constructed aggro seed=20261119
+# licence: AGPL-3.0-only
+[deck:constructed aggro W #20261119]
+4 Cathar's Shield
+2 Cyclopean Tomb
+4 Desperate Lunge
+2 Faceless Haven
+4 Fate Forgotten
+4 Gorgon's Head
+2 Guided Strike
+3 Horizon of Progress
+2 Icatian Crier
+3 Keen-Eyed Archers
+4 Locthwain Gargoyle
+22 Plains
+4 Silver Knight
+4 Terashi's Verdict
+2 Thistledown Players
+2 Valiant Guard
+2 Watcher Sliver

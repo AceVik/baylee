@@ -1,0 +1,21 @@
+# baylee curated constructed aggro seed=20261035
+# licence: AGPL-3.0-only
+[deck:constructed aggro UR #20261035]
+4 Alchemist's Apprentice
+2 Amaranthine Wall
+2 Bay Falcon
+4 Coral Atoll
+3 Giant Spectacle
+2 Goblin Gang Leader
+3 Hedron Rover
+9 Island
+4 Izzet Cluestone
+5 Mountain
+4 Orcish Spy
+3 Riddleform
+3 Riot Devils
+2 Sanctum of Ugin
+1 Shivan Gorge
+4 Talas Merchant
+2 Three Tree City
+3 Tilonalli's Knight

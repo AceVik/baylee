@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/JUD/air-razers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AirRazers_JUD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Air Razers (Adapted)]
+2 Barbarian Lunatic
+4 Broadside Barrage
+2 Compulsion
+1 Concentrate
+4 Expressive Iteration
+4 Fire
+2 Hapless Researcher
+4 Invoke the Firemind
+12 Island
+4 Izzet Charm
+12 Mountain
+4 Rush of Inspiration
+1 Thoughtflare
+4 Traumatic Critique

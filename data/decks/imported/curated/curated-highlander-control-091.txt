@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261114
+# licence: AGPL-3.0-only
+[deck:highlander control UG #20261114]
+1 Accelerated Evolution
+1 Ally Encampment
+1 Ark of Blight
+1 Betrayal
+1 Black Lotus
+1 Book of Rass
+1 Bower Passage
+1 Bramblesnap
+1 Centaur Glade
+1 Chromatic Star
+1 Chrome Prowler
+1 Conduit Pylons
+1 Confirm Suspicions
+1 Contradict
+1 Doubling Season
+1 Dreamstone Hedron
+1 Eden, Seat of the Sanctum
+1 Elven Lyre
+1 Energy Refractor
+1 Eye of Nowhere
+1 Fallowsage
+1 Flooded Strand
+1 Font of Fortunes
+12 Forest
+1 Frazzle
+1 Frostwalk Bastion
+1 Goggles of Night
+1 Golden Egg
+1 Grand Coliseum
+1 Green Mana Battery
+1 Grounded
+1 Hydroelectric Specimen
+14 Island
+1 Island of Wak-Wak
+1 Jandor's Ring
+1 Jwari Shapeshifter
+1 Kalonian Behemoth
+1 Krosan Verge
+1 Lunar Mystic
+1 Managorger Hydra
+1 Mirkwood Meditator
+1 Natural Spring
+1 Oran-Rief Survivalist
+1 Pact of Negation
+1 Phantasmal Terrain
+1 Reflecting Mirror
+1 Robotics Mastery
+1 Rumble Arena
+1 Sand Silos
+1 Sculptor of Winter
+1 Shattered Wings
+1 Short Bow
+1 Silken Strength
+1 Skyscythe Engulfer
+1 Soldevi Excavations
+1 Springjack Pasture
+1 Sprout
+1 Staff of Zegon
+1 Stone Calendar
+1 Temporal Manipulation
+1 Temporal Mastery
+1 The Hive
+1 The Monumental Facade
+1 The Shire
+1 The Theorist, Jace Beleren
+1 Tranquil Thicket
+1 Treasure Cruise
+1 Viridian Lorebearers
+1 Virtue of Knowledge
+1 Vivify
+1 Voyage's End
+1 Weaver of Currents
+1 White Lotus Hideout
+1 Wooded Foothills
+1 Wrenn and Realmbreaker
+1 Wretched Throng

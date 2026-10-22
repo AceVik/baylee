@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/M12/illusionary-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, IllusionaryMight_M12.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Illusionary Might (Adapted)]
+3 Absorb
+4 Aether Adept
+4 Daring Leap
+1 Glacial Fortress
+4 Glimmerpost
+19 Island
+1 Lord of the Unreal
+4 Mana Leak
+3 Mind Control
+1 Phantasmal Image
+4 Porcelain Legionnaire
+4 Preordain
+4 Sphinx's Revelation
+4 Spined Thopter

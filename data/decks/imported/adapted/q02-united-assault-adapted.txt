@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/Q02/united-assault.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UnitedAssault_Q02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:United Assault (Adapted)]
+4 Adanto Vanguard
+4 Benalish Marshal
+4 Bring to Trial
+3 Dragon's Presence
+4 Forsake the Worldly
+2 Guiding Bolt
+4 Healer's Hawk
+1 Hunted Witness
+4 Idyllic Tutor
+2 Legion's Landing
+4 Leonin Vanguard
+21 Plains
+3 Survive the Night

@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/EXO/groundbreaker-basic-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundbreakerBasicDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Groundbreaker - Basic Deck (Adapted)]
+2 Aftershock
+4 Auger Spree
+4 Bedevil
+4 Dreadbore
+12 Mountain
+1 Phyrexian Denouncer
+3 Rain of Tears
+3 Shock
+1 Skull Rend
+4 Stone Rain
+12 Swamp
+4 Terminate
+2 Vampire Hounds
+4 Wrecking Ball

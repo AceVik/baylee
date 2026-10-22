@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/OTJ/power-to-the-people.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerToThePeople_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Power to the People (Adapted)]
+4 Anguished Unmaking
+2 Auspicious Arrival
+1 Delney, Streetwise Lookout
+4 Forlorn Flats
+1 Inkling Summoning
+2 Ironpaw Aspirant
+2 Make Your Move
+3 Marketwatch Phantom
+2 Mortify
+2 Neighborhood Guardian
+3 Outlaw Medic
+10 Plains
+2 Screaming Phantom
+1 Shadowy Backstreet
+1 Slimy Dualleech
+2 Snarling Gorehound
+10 Swamp
+4 Unmake
+4 Vindicate

@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/RTR/creep-and-conquer.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CreepAndConquer_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Creep and Conquer (Adapted)]
+4 Abrupt Decay
+4 Assassin's Trophy
+2 Daggerdrome Imp
+3 Dawntreader Elk
+1 Drain the Well
+4 Evolving Wilds
+8 Forest
+4 Gaze of Granite
+3 Golgari Guildgate
+1 Grim Backwoods
+4 Maelstrom Pulse
+4 Pest Summoning
+7 Swamp
+4 Tear Asunder
+4 Vampire Nighthawk
+2 Victim of Night
+1 Woodland Cemetery

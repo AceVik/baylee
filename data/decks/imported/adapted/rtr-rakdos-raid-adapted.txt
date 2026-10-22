@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/RTR/rakdos-raid.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RakdosRaid_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rakdos Raid (Adapted)]
+1 Assassin's Strike
+4 Auger Spree
+4 Bedevil
+1 Bellows Lizard
+1 Breath of Malfegor
+2 Canyon Minotaur
+1 Dralnu's Crusade
+4 Dreadbore
+1 Mind Rot
+1 Minotaur Aggressor
+12 Mountain
+1 Rakdos Guildgate
+2 Rakdos Keyrune
+2 Rakdos Shred-Freak
+1 Ravenous Rats
+12 Swamp
+4 Terminate
+4 Wrecking Ball
+2 Zombie Goliath

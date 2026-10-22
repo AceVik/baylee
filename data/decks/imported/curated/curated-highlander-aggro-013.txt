@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261036
+# licence: AGPL-3.0-only
+[deck:highlander aggro BG #20261036]
+1 Angelic Armaments
+1 Arisen Gorgon
+1 Atrocious Experiment
+1 Bear Trap
+1 Bottomless Pit
+1 Broken Wings
+1 Cabal Coffers
+1 Callous Inspector
+1 Carrion Howler
+1 Coastal Bulwark
+1 Coat with Venom
+1 Coiled Tinviper
+1 Cryptic Spires
+1 Death Cultist
+1 Defiant Elf
+1 Desert of the Glorified
+1 Elephant-Rat
+1 Elvish Warrior
+1 Etched Familiar
+1 Eternal Witness
+1 Exotic Orchard
+1 Fang of Shigeki
+1 Flayed One
+1 Flesh to Dust
+8 Forest
+1 Frontier Guide
+1 Gaea's Touch
+1 Gifted Aetherborn
+1 Gladecover Scout
+1 Glamorous Grapplers
+1 Gluttonous Zombie
+1 Grasping Scoundrel
+1 Great Hall of the Citadel
+1 Haze of Pollen
+1 Hedron Crawler
+1 Intrepid Stablemaster
+1 Ivory Tower
+1 Leechridden Swamp
+1 Mirkwood Spider
+1 Mosswort Bridge
+1 Mouth of Ronom
+1 Myr Moonvessel
+1 Nesting Grounds
+1 Night Market Lookout
+1 Novice Occultist
+1 Ornithopter
+1 Poisonbelly Ogre
+1 Pouncing Cheetah
+1 Qasali Slingers
+1 Ravine Raider
+1 River Boa
+1 Rofellos, Llanowar Emissary
+1 Roughshod Mentor
+1 Rowan Treefolk
+1 Scarecrow
+1 Scrounger of Souls
+1 Seal of Strength
+1 Silk Net
+1 Skybeast Tracker
+1 Spore Frog
+1 Spymaster's Vault
+1 Starved Rusalka
+15 Swamp
+1 Sweettooth Witch
+1 Thirsting Shade
+1 Treetop Village
+1 Twisted Experiment
+1 Unstable Frontier
+1 Urza's Tower
+1 Vampiric Tutor
+1 Vibrant Cityscape
+1 Visara the Dreadful
+1 Wailing Ghoul
+1 Wall of Blood
+1 War Room
+1 Weed-Pruner Poplar
+1 Whippoorwill
+1 Zodiac Horse
+1 Zuran Orb

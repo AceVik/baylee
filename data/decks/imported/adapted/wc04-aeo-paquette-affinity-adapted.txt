@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WC04/aeo-paquette-affinity.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AeoPaquetteAffinity_WC04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Aeo Paquette - Affinity (Adapted)]
+4 Arcbound Ravager
+4 Bewilder
+3 Blinkmoth Nexus
+4 Crosis's Charm
+4 Disciple of the Vault
+4 Drastic Revelation
+4 Fiery Cannonade
+3 Glimmervoid
+4 Great Furnace
+4 Ornithopter
+4 Seat of the Synod
+2 Spin Out
+4 Steam Blast
+4 Tormod's Crypt
+4 Vault of Whispers
+4 Welding Jar

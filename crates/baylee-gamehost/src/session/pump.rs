@@ -92,7 +92,12 @@ impl Session {
                 SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
                     let view = self.agent_view(player, &pending);
                     let context = self.engine.decision_context();
-                    let scouting = agent.scouting_request(&pending).and_then(|request| {
+                    let scouting = agent.scouting_request(&pending).and_then(|mut request| {
+                        if self.fair_scouting {
+                            request.opponents = false;
+                            request.hands = false;
+                            request.library = baylee_ai::intelligence::LibraryAccess::None;
+                        }
                         crate::scouting::request(
                             &self.seats,
                             &self.scouting_decks,
@@ -166,7 +171,10 @@ impl Session {
         };
         let refused = action.clone();
         let kept = self.record.is_some().then(|| action.clone());
-        let error = match self.engine.apply(player, action) {
+        self.last_attempt = Some((player, by, action.clone()));
+        let applied = self.engine.apply(player, action);
+        self.last_attempt = None;
+        let error = match applied {
             Ok(()) => {
                 if let Some(action) = kept {
                     self.recorded(player, by, action);
@@ -210,9 +218,11 @@ impl Session {
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
         let kept = self.record.is_some().then(|| fallback.clone());
+        self.last_attempt = Some((player, by, fallback.clone()));
         self.engine.apply(player, fallback).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
+        self.last_attempt = None;
         if let Some(action) = kept {
             self.recorded(player, by, action);
         }

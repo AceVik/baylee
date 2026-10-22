@@ -1,0 +1,83 @@
+# baylee unseen-card holdout highlander seed=90000032
+# licence: AGPL-3.0-only
+[deck:highlander aggro URG #90000032]
+1 Animal Sanctuary
+1 Balduvian Conjurer
+1 Battleground Geist
+1 Cathar's Shield
+1 Cathartic Adept
+1 Centaur's Herald
+1 Corridor Monitor
+1 Corrupted Crossroads
+1 Crimson Kobolds
+1 Crookshank Kobolds
+1 Cultivate
+1 Daring Escape
+1 Drowned Rusalka
+1 Drowner Initiate
+1 Druid of the Cowl
+1 Earthquake
+1 Earthshaking Si
+1 Elven Palisade
+1 Elvish Clancaller
+1 Elvish Scout
+1 Endurance
+1 Essence Warden
+1 Favor of the Overbeing
+1 Firebrand Archer
+1 Flowstone Embrace
+7 Forest
+1 Foxfire
+1 Frog-Squirrels
+1 Glissa's Courier
+1 Gnottvold Recluse
+1 Goblin Assailant
+1 HELIOS One
+1 Harmattan Efreet
+1 Hot Springs
+1 Iridescent Blademaster
+1 Iron Suitcase
+10 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Kazandu Nectarpot
+1 Khalni Garden
+1 Kulrath Mystic
+1 Lindblum, Industrial Regency
+1 Livonya Silone
+1 Maze's End
+1 Merfolk Coralsmith
+1 Mogg Fanatic
+1 Mogg Hollows
+1 Molder Beast
+1 Mordenkainen's Polymorph
+6 Mountain
+1 Mox Ruby
+1 Muse's Encouragement
+1 Orcish Captain
+1 Overflowing Basin
+1 Owl Familiar
+1 Palace Familiar
+1 Pincher Beetles
+1 Poison Dart Frog
+1 Prophet of Distortion
+1 Prosperity
+1 Pyretic Ritual
+1 Raging Ravine
+1 Rockface Village
+1 Rustvine Cultivator
+1 Sapseep Forest
+1 Savage Mansion
+1 Scrapyard Steelbreaker
+1 Scryb Ranger
+1 Shrieking Drake
+1 Shrine of the Forsaken Gods
+1 Sparring Construct
+1 Spell Blast
+1 Temur Banner
+1 Third Path Iconoclast
+1 Thornwood Falls
+1 Tree Monkey
+1 Universal Solvent
+1 Viashino Slasher
+1 Wilderness Hypnotist
+1 Wooded Foothills

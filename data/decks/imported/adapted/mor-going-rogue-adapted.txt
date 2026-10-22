@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/MOR/going-rogue.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GoingRogue_MOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Going Rogue (Adapted)]
+4 Consult the Necrosages
+1 Dewdrop Spy
+4 Essence Vortex
+2 Ghostly Changeling
+1 Glimpse the Unthinkable
+10 Island
+1 Marsh Flitter
+1 Mothdust Changeling
+4 Notion Rain
+2 Pestermite
+4 Pilfered Plans
+2 Prickly Boggart
+1 Psychic Drain
+13 Swamp
+4 Tyrant's Scorn
+2 Violet Pall
+4 Waterlogged Teachings

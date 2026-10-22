@@ -1,0 +1,83 @@
+# baylee curated commander ramp seed=20261082
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20261082]
+1 Archweaver
+1 Ashnod's Battle Gear
+1 Baloth Woodcrasher
+1 Cavern of Souls
+1 Chord of Calling
+1 City in a Bottle
+1 Coma Veil
+1 Consulate Skygate
+1 Corrosive Gale
+1 Crumble
+1 Darksteel Plate
+1 Demonic Hordes
+1 Douse in Gloom
+1 Drowner of Truth
+1 Enter the Enigma
+1 Exotic Orchard
+12 Forest
+1 Friendly Teddy
+1 Gateway Sneak
+1 Gift of the Deity
+1 Golden Egg
+1 Golgari Rot Farm
+1 Guardian Automaton
+1 Hag of Death's Legion
+1 Homarid Warrior
+1 Honor-Worn Shaku
+1 Horizon of Progress
+1 Hornet Sting
+1 Infiltrate
+1 Intimidation
+9 Island
+1 Island of Wak-Wak
+1 Jayemdae Tome
+1 Karn, the Great Creator
+1 Kudzu
+1 Leafdrake Roost
+1 Levitating Statue
+1 Lightning-Core Excavator
+1 Limestone Golem
+1 Lotus Vale
+1 Lounge
+1 Maggot Carrier
+1 Meteor Sword
+1 Mirror Universe
+1 Mishra's Foundry
+1 Muldrotha, the Gravetide
+1 Murderous Rider
+1 Mutant Town
+1 Mythic Proportions
+1 Necroblossom Snarl
+1 Overflowing Insight
+1 Pardic Wanderer
+1 Planar Bridge
+1 Polluted Mire
+1 Razaketh's Rite
+1 Refocus
+1 Serpent of Yawning Depths
+1 Shelkin Brownie
+1 Skateboard
+1 Skeletal Crocodile
+1 Skittering Heartstopper
+1 Slumbering Waterways
+1 Sodden Verdure
+1 Sonic Screwdriver
+1 Soratami Rainshaper
+1 Spitting Sliver
+1 Stir the Grave
+5 Swamp
+1 Tsunami
+1 Tyrant's Scorn
+1 Unclaimed Territory
+1 Vesuva
+1 Weatherseed Elf
+1 Willow Satyr
+1 Without Weakness
+1 Woodland Chasm
+1 Zombie Outlander
+
+[commander]
+Muldrotha, the Gravetide

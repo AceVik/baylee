@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M19/wrath-of-mages.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WrathOfMages_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wrath of Mages (Adapted)]
+2 Aven Wind Mage
+4 Broadside Barrage
+3 Disperse
+4 Fire
+2 Guttersnipe
+4 Highland Lake
+4 Invoke the Firemind
+10 Island
+2 Izzet Charm
+2 Lightning Strike
+10 Mountain
+1 Mystic Archaeologist
+4 Rush of Inspiration
+1 Salvager of Secrets
+3 Sift
+1 Sulfur Falls
+3 Vodalian Arcanist

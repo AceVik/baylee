@@ -1,0 +1,21 @@
+# baylee curated constructed aggro seed=20261047
+# licence: AGPL-3.0-only
+[deck:constructed aggro WU #20261047]
+2 Arid Archway
+4 Cho-Arrim Alchemist
+4 Cursecatcher
+4 Darksteel Pendant
+1 Floodbringer
+4 Gideon's Avenger
+3 Icatian Javelineers
+9 Island
+3 Leonin Vanguard
+4 Locthwain Gargoyle
+2 Mechan Navigator
+5 Plains
+2 Starlit Mantle
+4 Swarmyard
+2 Take Vengeance
+1 The Mycosynth Gardens
+4 Weight of Memory
+2 Winding Canyons

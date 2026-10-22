@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/DKA/spiraling-doom.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpiralingDoom_DKA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spiraling Doom (Adapted)]
+1 Acidic Slime
+1 Assassin's Trophy
+2 Birthing Pod
+1 Bloodgift Demon
+2 Diabolic Tutor
+3 Doom Blade
+1 Drain the Well
+2 Evolving Wilds
+14 Forest
+4 Gaze of Granite
+1 Grim Backwoods
+4 Maelstrom Pulse
+1 Perilous Myr
+4 Pest Summoning
+1 Phyrexian Rager
+1 Solemn Simulacrum
+1 Stingerfling Spider
+4 Strangleroot Geist
+8 Swamp
+4 Young Wolf

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/TMP/the-swarm-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarmAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Swarm - Advanced Deck (Adapted)]
+3 Armageddon
+2 Birds of Paradise
+4 Brushland
+1 Force of Nature
+11 Forest
+1 Hurricane
+4 Incandescent Aria
+4 Llanowar Elves
+1 Molten Blast
+4 Muscle Sliver
+4 Naya Charm
+4 Quicksand
+4 Rith's Charm
+4 River Boa
+2 Skyshroud Elf
+1 Spirit Link
+1 Trained Armodon
+3 Uktabi Orangutan
+2 Vec Townships

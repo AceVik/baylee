@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/M12/grab-for-power.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GrabForPower_M12.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Grab for Power (Adapted)]
+2 Azure Mage
+1 Buried Ruin
+2 Child of Night
+1 Consult the Necrosages
+1 Devouring Swarm
+1 Diabolic Tutor
+1 Disentomb
+2 Divination
+3 Doom Blade
+1 Drifting Shade
+4 Essence Vortex
+1 Gravedigger
+10 Island
+2 Merfolk Looter
+2 Nephalia Drownyard
+4 Notion Rain
+1 Ponder
+1 Rune-Scarred Demon
+1 Sorin's Thirst
+14 Swamp
+3 Warpath Ghoul
+2 Zombie Goliath

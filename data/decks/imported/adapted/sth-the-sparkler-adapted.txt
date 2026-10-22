@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/STH/the-sparkler.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSparkler_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Sparkler (Adapted)]
+4 Broadside Barrage
+1 Counterspell
+2 Fire
+2 Flowstone Blade
+4 Invoke the Firemind
+14 Island
+1 Izzet Charm
+3 Lightning Blast
+3 Mana Leak
+1 Mogg Fanatic
+13 Mountain
+2 Power Sink
+4 Rush of Inspiration
+1 Shatter
+2 Shock
+2 Spell Blast
+1 Wall of Razors

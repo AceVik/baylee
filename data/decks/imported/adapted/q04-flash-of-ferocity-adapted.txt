@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/Q04/flash-of-ferocity.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FlashOfFerocity_Q04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Flash of Ferocity (Adapted)]
+3 Auroral Procession
+1 Brazen Borrower
+2 Castle Vantress
+4 Double Major
+1 Fabled Passage
+8 Forest
+4 Frilled Mystic
+4 Hydroform
+8 Island
+4 Neoform
+4 Opt
+4 Quench
+2 Sinister Sabotage
+4 Spectral Sailor
+2 Temple of Mystery
+3 Thornwood Falls
+2 Unsummon

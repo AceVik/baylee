@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261093
+# licence: AGPL-3.0-only
+[deck:highlander ramp BR #20261093]
+1 Ally Encampment
+1 Amulet of Kroog
+1 Asphyxiate
+1 Assassin's Strike
+1 Bad River
+1 Banshee
+1 Barad-dûr
+1 Black Poplar Shaman
+1 Bombard
+1 Bone Saw
+1 Book of Rass
+1 Branch of Vitu-Ghazi
+1 Bronze Horse
+1 Buried Ruin
+1 Burning-Fist Minotaur
+1 Capital City
+1 Castle Locthwain
+1 Chardalyn Dragon
+1 Complete Disregard
+1 Crimson Kobolds
+1 Crucible of Worlds
+1 Crumbling Vestige
+1 Dark Depths
+1 Dismember
+1 Dragon Engine
+1 Dragon Roost
+1 Dragon-Style Twins
+1 Dragonmaster Outcast
+1 Dreadbore
+1 Drudge Skeletons
+1 Dwarven Trader
+1 Evil Eye of Orms-by-Gore
+1 Evolving Wilds
+1 Expunge
+1 Eyes of the Beholder
+1 Fire Tempest
+1 Fog of Gnats
+1 Frontline War-Rager
+1 Goblin Mountaineer
+1 Gravity Sphere
+1 Highborn Vampire
+1 Hired Blade
+1 Inferno
+1 Liquimetal Coating
+1 Maelstrom of the Spirit Dragon
+1 Masterwork of Ingenuity
+1 Metalspinner's Puzzleknot
+12 Mountain
+1 Murasa Pyromancer
+1 Phyrexian Hulk
+1 Planar Portal
+1 Polluted Mire
+1 Pyre Spawn
+1 Rakalite
+1 Razaketh, the Foulblooded
+1 Reaver Ambush
+1 Rix Maadi, Dungeon Palace
+1 Rohgahh of Kher Keep
+1 Romantic Rendezvous
+1 Royal Assassin
+1 Runaway Boulder
+1 Shadowblood Egg
+1 Shire Terrace
+1 Smelt
+1 Sphinx-Bone Wand
+1 Springjack Pasture
+14 Swamp
+1 Symbiote Spawn
+1 Tawnos's Wand
+1 Tetravus
+1 The Black Gate
+1 The Whizzer, Classic Speedster
+1 Tortured Existence
+1 Utvara Hellkite
+1 Venomcrawler
+1 Wreckage Wickerfolk

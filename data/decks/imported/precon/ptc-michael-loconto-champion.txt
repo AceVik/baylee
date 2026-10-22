@@ -1,0 +1,29 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, MichaelLocontoChampion_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Michael Loconto, Champion]
+4 Adarkar Wastes
+1 Balance
+2 Blinking Spirit
+2 Control Magic
+4 Counterspell
+1 Deflection
+4 Disenchant
+1 Feldon's Cane
+2 Fountain of Youth
+2 Hallowed Ground
+2 Icy Manipulator
+4 Island
+1 Ivory Tower
+1 Jayemdae Tome
+2 Land Tax
+3 Millstone
+4 Mishra's Factory
+7 Plains
+1 Recall
+1 Ruins of Trokair
+1 Strip Mine
+2 Svyelunite Temple
+4 Swords to Plowshares
+1 Wizards' School
+4 Wrath of God
+1 Zuran Orb

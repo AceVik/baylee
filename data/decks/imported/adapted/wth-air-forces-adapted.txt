@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/WTH/air-forces.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AirForces_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Air Forces (Adapted)]
+4 Absorb
+1 Cloud Djinn
+4 Daring Leap
+1 Disrupt
+4 Dramatic Rescue
+2 Heavy Ballista
+14 Island
+1 Man-o'-War
+3 Monastery Mentor
+4 Offering to Asha
+4 Ojutai's Command
+10 Plains
+1 Power Sink
+1 Sage Owl
+1 Silent Observer
+4 Sphinx's Revelation
+1 Supreme Verdict

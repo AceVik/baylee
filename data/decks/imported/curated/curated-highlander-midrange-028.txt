@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261051
+# licence: AGPL-3.0-only
+[deck:highlander midrange WU #20261051]
+1 Aerial Maneuver
+1 Aether Vial
+1 Angry Mob
+1 Bad River
+1 Brainwash
+1 Burden of Guilt
+1 Castle
+1 Cleansing
+1 Collision Course
+1 Coral Eel
+1 Cosmium Blast
+1 Dehydration
+1 Despotic Scepter
+1 Drownyard Temple
+1 Dunes of the Dead
+1 Elite Vanguard
+1 Encroaching Wastes
+1 Erosion
+1 Feather of Flight
+1 Fleeting Distraction
+1 Foundry of the Consuls
+1 Gemstone Array
+1 Glimmering Angel
+1 Glory Seeker
+1 Goldvein Pick
+1 Great Hart
+1 Griffin Rider
+1 Haazda Exonerator
+1 Hall of Oracles
+1 Halls of Mist
+1 Homeward Path
+1 Icatian Scout
+1 Imperial Oath
+8 Island
+1 Kite Shield
+1 Knight-Captain of Eos
+1 Library Larcenist
+1 Manta Riders
+1 Marauder's Axe
+1 Military Discipline
+1 Minister of Impediments
+1 Mobilized District
+1 Monastery Mentor
+1 Neutralize
+1 Noble Steeds
+1 Nykthos, Shrine to Nyx
+1 Opportunity
+1 Path of Ancestry
+1 Patrol Hound
+16 Plains
+1 Reflections of Littjara
+1 Research Assistant
+1 Rumble Arena
+1 Sanctum of Ugin
+1 Scatter Arc
+1 Scour from Existence
+1 Sea Gate Restoration
+1 Seasoned Marshal
+1 Sentinel Sliver
+1 Seraph Sanctuary
+1 Skillful Lunge
+1 Skycloud Expanse
+1 Sokka's Sword Training
+1 Soltari Foot Soldier
+1 Sorrow's Path
+1 Squee's Toy
+1 Supply-Line Cranes
+1 Sword of Hearth and Home
+1 Tempest of Light
+1 Teremko Griffin
+1 Thalakos Drifters
+1 The Mechanist, Aerial Artisan
+1 Trapmaker's Snare
+1 Unfathomable Truths
+1 Venser, the Sojourner
+1 Welkin Guide
+1 Yotian Soldier
+1 Zuran Orb

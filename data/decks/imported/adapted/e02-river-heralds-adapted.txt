@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/E02/river-heralds.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RiverHeralds_E02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:River Heralds (Adapted)]
+2 Air Elemental
+4 Auroral Procession
+1 Concentrate
+2 Double Major
+12 Forest
+1 Giant Growth
+4 Hydroform
+12 Island
+2 Jungle Barrier
+1 Merfolk Sovereign
+4 Neoform
+2 Prismatic Lens
+2 Rancor
+1 Soul of the Harvest
+4 Square Up
+1 Threads of Disloyalty
+1 Time Warp
+2 Unknown Shores
+2 Unsummon

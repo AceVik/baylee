@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M15/fate.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Fate_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fate (Adapted)]
+4 Auroral Procession
+1 Curse of the Swine
+2 Divination
+3 Double Major
+7 Forest
+4 Hydroform
+17 Island
+2 Jace's Ingenuity
+2 Negate
+4 Neoform
+2 Omenspeaker
+2 Pin to the Earth
+3 Pterafractyl
+2 Square Up
+1 Temple of Mystery
+3 Vaporkin
+1 Voyage's End

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/GPT/code-of-the-orzhov.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CodeOfTheOrzhov_GPT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Code of the Orzhov (Adapted)]
+4 Anguished Unmaking
+1 Festival of the Guildpact
+4 Harsh Sustenance
+2 Infectious Host
+4 Inkling Summoning
+4 Mortify
+2 Orzhov Basilica
+1 Orzhov Guildmage
+1 Orzhova, the Church of Deals
+2 Ostiary Thrull
+1 Plagued Rusalka
+10 Plains
+2 Poisonbelly Ogre
+1 Skeletal Vampire
+2 Strands of Undeath
+11 Swamp
+4 Unmake
+4 Vindicate

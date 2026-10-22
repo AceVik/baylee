@@ -1,0 +1,75 @@
+# baylee curated commander midrange seed=20261076
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20261076]
+1 Abbey Matron
+1 Ajani's Mantra
+1 Akroma's Memorial
+1 Angelic Edict
+1 Arcane Spyglass
+1 Aysen Highway
+1 Bastion Enforcer
+1 Battlefield Promotion
+1 Beloved Chaplain
+1 Bishop of Rebirth
+1 Bladed Ambassador
+1 Bygone Bishop
+1 Carnage Altar
+1 Cenn's Heir
+1 Coldsteel Heart
+1 Crystal Grotto
+1 Custodian of the Trove
+1 Elven Lyre
+1 Emmessi Tome
+1 Farbog Explorer
+1 Fodder Cannon
+1 Geistcatcher's Rig
+1 Glacial Chasm
+1 Gleaming Barrier
+1 Goblin Boom Keg
+1 Holy Light
+1 Indicate
+1 Jawbone Skulkin
+1 King of the Pride
+1 Knight Watch
+1 Loxodon Mystic
+1 Meteorite
+1 Ogre's Cleaver
+1 Open the Armory
+1 Pegasus Courser
+1 Phantom General
+32 Plains
+1 Porcelain Legionnaire
+1 Red Ward
+1 Reflecting Mirror
+1 Relic of Legends
+1 Ring of Ma'rûf
+1 Rod of Ruin
+1 Sanctifier of Souls
+1 Sanctum of Eternity
+1 Scalding Cauldron
+1 Serra's Sanctum
+1 Shire Terrace
+1 Short Sword
+1 Shrine of the Forsaken Gods
+1 Sigil of the Empty Throne
+1 Slash of Talons
+1 Spinning Wheel
+1 Spirit Shield
+1 Sterling Supplier
+1 Sungold Barrage
+1 Sunstone
+1 Swift Response
+1 The Biblioplex
+1 Tivadar of Thorn
+1 Tomb of the Spirit Dragon
+1 Tower of Calamities
+1 Tragic Poet
+1 Tumble Magnet
+1 Valkyrior Skyrider
+1 White Mana Battery
+1 Winged Shepherd
+1 Wrath of God
+1 Yoked Plowbeast
+
+[commander]
+Tivadar of Thorn

@@ -1,0 +1,76 @@
+# baylee curated commander aggro seed=20261121
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20261121]
+1 Abu Ja'far
+1 Alabaster Mage
+1 Alabaster Wall
+1 Ant-Man, Scott Lang
+1 Armor of Faith
+1 Armored Warhorse
+1 Benalish Hero
+1 Blighted Steppe
+1 Blood Servitor
+1 Boseiju, Who Shelters All
+1 Bounty Agent
+1 Cathodion
+1 Champion of the Parish
+1 Chimeric Egg
+1 Court Cleric
+1 Delney, Streetwise Lookout
+1 Demystify
+1 Destroy Evil
+1 Devoted Hero
+1 Disciple of Law
+1 Doomed Traveler
+1 Draconian Cylix
+1 Duskrider Falcon
+1 Eager Cadet
+1 Expose to Daylight
+1 Forgotten Sentinel
+1 Gale Swooper
+1 Gemstone Mine
+1 Goldmeadow Dodger
+1 Greataxe
+1 Healer's Hawk
+1 Hoof Skulkin
+1 Impostor of the Sixth Pride
+1 Inspired Insurgent
+1 Inspiring Commander
+1 Ironwright's Cleansing
+1 Kami of Old Stone
+1 Lightning-Core Excavator
+1 Longbow Archer
+1 Lotus Vale
+1 Luminarch Aspirant
+1 Magma Mine
+1 Manifold Key
+1 Metallurgeon
+1 Mummy Paramount
+1 Nacre Talisman
+1 Pit of Offerings
+31 Plains
+1 Retrofitter Foundry
+1 Runed Servitor
+1 Savannah Lions
+1 Segovian Angel
+1 Sentinel of the Eternal Watch
+1 Shifting Wall
+1 Soldevi Steam Beast
+1 Spawning Pit
+1 Sterling Hound
+1 Terashi's Verdict
+1 The Great Mound
+1 The Rack
+1 Thraben Valiant
+1 Tributary Vaulter
+1 Urza's Mine
+1 Veteran Armorer
+1 Voltaic Servant
+1 Wakandan Shield Guard
+1 War Priest of Thune
+1 Watcher of the Wayside
+1 Welding Jar
+1 Wild Aesthir
+
+[commander]
+Delney, Streetwise Lookout

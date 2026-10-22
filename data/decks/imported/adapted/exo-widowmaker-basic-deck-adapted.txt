@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/EXO/widowmaker-basic-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WidowmakerBasicDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Widowmaker - Basic Deck (Adapted)]
+2 Consult the Necrosages
+2 Counterspell
+2 Dark Banishing
+2 Dark Ritual
+4 Essence Vortex
+14 Island
+2 Mana Leak
+3 Manta Riders
+4 Merfolk Looter
+1 Mindless Automaton
+4 Notion Rain
+3 Pilfered Plans
+1 Rootwater Hunter
+1 Skyshroud Vampire
+11 Swamp
+1 Treasure Trove
+3 Vampire Hounds

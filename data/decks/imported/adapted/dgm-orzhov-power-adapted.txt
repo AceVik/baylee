@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/DGM/orzhov-power.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovPower_DGM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Orzhov Power (Adapted)]
+4 Anguished Unmaking
+1 Assassin's Strike
+3 Bane Alley Blackguard
+2 Fatal Fumes
+1 Gift of Orzhova
+3 Inkling Summoning
+4 Mortify
+2 Orzhov Cluestone
+4 Orzhov Guildgate
+11 Plains
+1 Smog Elemental
+2 Steeple Roc
+12 Swamp
+2 Ubul Sar Gatekeepers
+4 Unmake
+4 Vindicate

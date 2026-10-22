@@ -1,0 +1,84 @@
+# baylee curated commander midrange seed=20261124
+# licence: AGPL-3.0-only
+[deck:commander midrange BR #20261124]
+1 Aclazotz, Deepest Betrayal
+1 Arnyn, Deathbloom Botanist
+1 Assassinate
+1 Bog Wreckage
+1 Boris Devilboon
+1 Boulderborn Dragon
+1 Clockwork Beast
+1 Concentrated Fire
+1 Craterize
+1 Dalek Drone
+1 Darksteel Citadel
+1 Darksteel Sentinel
+1 Dauthi Voidwalker
+1 Desperate Bloodseeker
+1 Dire Fleet Captain
+1 Dragon Tyrant
+1 Everglades
+1 Fear
+1 Fellwar Stone
+1 Fire Urchin
+1 Flood Plain
+1 Foundry Screecher
+1 Frankenstein's Monster
+1 Fugue
+1 Gargoyle Castle
+1 Ghirapur Gearcrafter
+1 Goblin Bully
+1 Golden Guardian
+1 Gond Gate
+1 Hellfire
+1 Horror of Horrors
+1 Hunger of the Nim
+1 Hyalopterous Lemure
+1 Insolent Neonate
+1 Jade Monolith
+1 Karn's Bastion
+1 Kormus Bell
+1 Krosan Verge
+1 Lay Waste
+1 Liliana's Specter
+1 Macetail Hystrodon
+1 Maggot Therapy
+1 Malachite Talisman
+1 Mana Confluence
+1 Melancholy
+1 Meltdown
+1 Midnight Covenant
+1 Mire Kavu
+11 Mountain
+1 Muck Rats
+1 Mycosynth Lattice
+1 Myr Retriever
+1 Nimble-Blade Khenra
+1 Ojer Axonil, Deepest Might
+1 Orcish Spy
+1 Rocky Tar Pit
+1 Rogue's Passage
+1 Rotted Hulk
+1 Shield of the Ages
+1 Skycrash
+1 Slaughter Cry
+1 Sootstoke Kindler
+1 Spitting Sliver
+1 Spreading Rot
+1 Spur Grappler
+1 Stone Calendar
+1 Sulfurous Mire
+13 Swamp
+1 Temple of the Dragon Queen
+1 The Tabernacle at Pendrell Vale
+1 Three Tragedies
+1 Unfriendly Fire
+1 Urza's Avenger
+1 Valakut, the Molten Pinnacle
+1 Vicious Conquistador
+1 Whalebone Glider
+1 Winding Canyons
+1 Zodiac Rat
+
+[commander]
+Boris Devilboon

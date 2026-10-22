@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/KTK/conquering-hordes.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ConqueringHordes_KTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Conquering Hordes (Adapted)]
+4 Anguished Unmaking
+1 Caves of Koilos
+2 Chief of the Edge
+2 Chief of the Scale
+1 Dictate of Heliod
+3 Harsh Sustenance
+4 Inkling Summoning
+3 Mardu Hateblade
+4 Mortify
+3 Oreskos Swiftclaw
+10 Plains
+4 Scoured Barrens
+2 Seeker of the Way
+9 Swamp
+4 Unmake
+4 Vindicate

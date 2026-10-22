@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261072
+# licence: AGPL-3.0-only
+[deck:highlander aggro WG #20261072]
+1 Abu Ja'far
+1 Aisling Leprechaun
+1 Angelic Armaments
+1 Animate Land
+1 April O'Neil, Kunoichi Trainee
+1 Arboria
+1 Arch of Orazca
+1 Attentive Sunscribe
+1 Attercop
+1 Bear Cub
+1 Bloodstained Mire
+1 Bonders' Enclave
+1 Bountiful Harvest
+1 Cathedral of Serra
+1 Cavernous Maw
+1 Chitinous Cloak
+1 Coordinated Maneuver
+1 Corrosive Gale
+1 Defiant Falcon
+1 Detection Tower
+1 Divine Offering
+1 Elite Vanguard
+1 Elven Lyre
+1 Erhnam Djinn
+1 Fang of Shigeki
+1 Field Marshal
+11 Forest
+1 Foxfire
+1 Gaea's Avenger
+1 Gallows Warden
+1 Gideon's Reproach
+1 Golden Bear
+1 Goldmeadow Dodger
+1 Healer of the Glade
+1 Hematite Talisman
+1 Iron Star
+1 Ironpaw Aspirant
+1 Jade Guardian
+1 Jeong Jeong's Deserters
+1 Joiner Adept
+1 Kalonian Tusker
+1 Kami of False Hope
+1 Karn's Bastion
+1 Knight of the Keep
+1 Lotus Petal
+1 Loxodon Wayfarer
+1 Mana Prism
+1 Mandible Justiciar
+1 Mandroid Squadron
+1 Mirrorpool
+1 Nantuko Mentor
+1 Nesting Dovehawk
+1 Nuisance Engine
+1 Okina, Temple to the Grandfathers
+1 Oran-Rief, the Vastwood
+1 Order of Whiteclay
+1 Perimeter Patrol
+1 Phyrexian Walker
+1 Pili-Pala
+12 Plains
+1 Primal Amulet
+1 Rishkar, Peema Renegade
+1 Selfless Savior
+1 Shimmering Barrier
+1 Shimmering Grotto
+1 Shredding Winds
+1 Social Climber
+1 Student of Ojutai
+1 Swordwise Centaur
+1 Throne of Makindi
+1 Titania's Chosen
+1 Treetop Scout
+1 Unclaimed Territory
+1 Underdark Rift
+1 Universal Solvent
+1 Valorous Stance
+1 Willow Dryad
+1 Woodland Druid
+1 Yavimaya, Cradle of Growth

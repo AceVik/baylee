@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/DKM/garfield.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Garfield_DKM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Garfield (Adapted)]
+2 Balduvian Bears
+4 Colossal Might
+1 Crucible of Worlds
+1 Devils' Playground
+1 Folk of the Pines
+12 Forest
+2 Fyndhorn Elves
+2 Giant Growth
+2 Giant Trap Door Spider
+4 Ground Assault
+1 Hurricane
+1 Karplusan Forest
+1 Manamorphose
+12 Mountain
+1 Pillage
+4 Savage Twister
+1 Shatter
+2 Storm Shaman
+4 Stump Stomp
+2 The Underworld Cookbook
+2 Yavimaya Ancients

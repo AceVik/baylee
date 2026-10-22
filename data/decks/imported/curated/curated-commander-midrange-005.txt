@@ -1,0 +1,75 @@
+# baylee curated commander midrange seed=20261028
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20261028]
+1 Akki Avalanchers
+1 Astral Cornucopia
+1 Barrels of Blasting Jelly
+1 Basilisk Gate
+1 Bolt of Keranos
+1 Book of Rass
+1 Bot Bashing Time
+1 Brass Man
+1 Consulate Skygate
+1 Coretapper
+1 Crookshank Kobolds
+1 Crumbling Vestige
+1 Darksteel Forge
+1 Deadeye Duelist
+1 Dungeon Descent
+1 Dwarven Song
+1 Explosive Apparatus
+1 Fiery Intervention
+1 Firespitter Whelp
+1 Frost Giant
+1 Furnace Strider
+1 Gallifrey Council Chamber
+1 Ghirapur Gearcrafter
+1 Hollowhead Sliver
+1 Impetuous Sunchaser
+1 Kry Shield
+1 Limestone Golem
+1 Loxodon Warhammer
+1 Mad Prophet
+1 Messenger's Speed
+32 Mountain
+1 Mox Diamond
+1 Murmuring Volume
+1 Myriad Landscape
+1 Obelisk of Undoing
+1 Ogre Arsonist
+1 One-Clown Band
+1 Panicked Altisaur
+1 Pitchburn Devils
+1 Rain of Embers
+1 Rapacious Dragon
+1 Raphael, Tough Turtle
+1 Red Elemental Blast
+1 Red Mana Battery
+1 Rust Monster
+1 Sandals of Abdallah
+1 Scarlet Witch, Wanda Maximoff
+1 Secluded Courtyard
+1 Seismic Shudder
+1 Shatterskull Recruit
+1 Shivan Hellkite
+1 Shock Troops
+1 Skittering Invasion
+1 Skullclamp
+1 Skullmead Cauldron
+1 Slaughter Cry
+1 Spare Supplies
+1 Sparkmage Apprentice
+1 Spellshock
+1 Storm's Wrath
+1 Tezzeret's Strider
+1 Thaumatic Compass
+1 Tocasia's Dig Site
+1 Torch Gauntlet
+1 Wand of the Elements
+1 War Chariot
+1 Whirling Strike
+1 Windswept Heath
+1 Witches' Eye
+
+[commander]
+Raphael, Tough Turtle

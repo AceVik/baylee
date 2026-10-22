@@ -1,0 +1,73 @@
+# baylee curated commander ramp seed=20261106
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20261106]
+1 A Realm Reborn
+1 Abzan Kin-Guard
+1 Accursed Duneyard
+1 Archway Commons
+1 Birds of Paradise
+1 Blor the Impervious
+1 Blossoming Defense
+1 Bootleggers' Stash
+1 Boseiju, Who Shelters All
+1 Chardalyn Dragon
+1 Colossus of Sardia
+1 Conduit Pylons
+1 Conduit of Worlds
+1 Crawling Barrens
+1 Cursed Rack
+1 Desert of the Indomitable
+1 Dosan's Oldest Chant
+1 Dreamstone Hedron
+1 Enchantress's Presence
+1 Evolving Wilds
+1 Feldon's Cane
+1 Feral Thallid
+34 Forest
+1 Fungal Bloom
+1 Hedron Crawler
+1 Helm of Chatzuk
+1 Ifh-Bíff Efreet
+1 Jungleborn Pioneer
+1 Kalonian Behemoth
+1 Kalonian Tusker
+1 Life Matrix
+1 Memnite
+1 Mishra's Groundbreaker
+1 Multani's Harmony
+1 Nissa, Vital Force
+1 Peace Strider
+1 Quakestrider Ceratops
+1 Rakalite
+1 Retrofitter Foundry
+1 Ring of Ma'rûf
+1 Ring of Renewal
+1 Scrap Compactor
+1 Setessan Starbreaker
+1 Skull Catapult
+1 Slith Predator
+1 Snakeskin Veil
+1 Spawning Grounds
+1 Specter's Shroud
+1 Springmane Cervin
+1 Staff of Zegon
+1 Steel Wall
+1 Strider Harness
+1 The Biblioplex
+1 The One Ring
+1 Tree Monkey
+1 Turtle Power!
+1 Unlicensed Hearse
+1 Viridian Scout
+1 Voltaic Key
+1 Voltaic Servant
+1 Wielding the Green Dragon
+1 Willow Faerie
+1 Wing Snare
+1 Winter's Grasp
+1 Wolfwillow Haven
+1 Woodborn Behemoth
+1 Yavimaya Gnats
+
+[commander]
+Blor the Impervious

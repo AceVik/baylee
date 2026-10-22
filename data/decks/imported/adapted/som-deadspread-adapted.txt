@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/SOM/deadspread.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Deadspread_SOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deadspread (Adapted)]
+4 Consult the Necrosages
+1 Culling Dais
+1 Darkslick Drake
+1 Doom Blade
+4 Essence Vortex
+2 Glimpse the Unthinkable
+13 Island
+2 Leaden Myr
+2 Maritime Guard
+2 Moriok Reaver
+2 Necrogen Censer
+4 Notion Rain
+4 Pilfered Plans
+2 Silver Myr
+2 Sky-Eel School
+13 Swamp
+1 Trigon of Thought

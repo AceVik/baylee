@@ -1,0 +1,23 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ShawnHammerRegnierQuarterfinalist_PTC.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Shawn Hammer Regnier, Quarterfinalist]
+4 Adarkar Wastes
+1 Balance
+1 City of Brass
+4 Counterspell
+4 Disenchant
+3 Icy Manipulator
+4 Island
+1 Ivory Tower
+3 Land Tax
+3 Millstone
+3 Mishra's Factory
+6 Plains
+4 Power Sink
+1 Recall
+1 Ruins of Trokair
+4 Spell Blast
+4 Svyelunite Temple
+4 Swords to Plowshares
+4 Wrath of God
+1 Zuran Orb

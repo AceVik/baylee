@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/ULG/time-drain-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TimeDrainEnhancedDeck_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Time Drain - Enhanced Deck (Adapted)]
+3 Armageddon
+3 Birds of Paradise
+2 Brushland
+3 Call the Gatewatch
+2 Call the Scions
+3 Catalog
+2 City of Brass
+2 Counterspell
+3 Disenchant
+1 Drifting Meadow
+6 Forest
+4 Island
+2 Miscalculation
+2 Plains
+2 Reflecting Pool
+1 Remote Isle
+2 Retribution of the Meek
+2 Skyshroud Forest
+1 Solemn Offering
+2 Sphinx's Revelation
+1 Stroke of Genius
+4 Treva's Charm
+3 Wall of Blossoms
+4 Wargate
