@@ -42,11 +42,11 @@ Use `BAYLEE_DEV_MONITOR=0` there; reconfirm after display topology changes.
 Do not substitute the primary screen if the left screen is absent.
 On the owner's MacBook, use the **built-in display** (owner, 22.10.2026: he
 works on the external screens). The main display there is external, so
-`primary` is wrong: on that date the built-in "Color LCD" was index **1**
-(`CGGetActiveDisplayList` order, which winit's indices follow: 0 the external
-main screen, 2 another external one). Set `BAYLEE_DEV_MONITOR=1`, confirm with
-`/monitors` right after launch, and close the client at once if it opened
-anywhere else. Re-read the order when screens are plugged or unplugged.
+`primary` is wrong, and the built-in display's index changes with the screens
+attached (it was 1 with two external screens, 0 with one, the same day). Pick
+it by its name in `/monitors` (the built-in panel, "Color LCD" or "Built-in …"),
+confirm right after launch that the window is on it, and close the client at
+once if it opened anywhere else.
 
 ```bash
 XDG_CONFIG_HOME=/tmp/baylee-qa/config XDG_CACHE_HOME=/tmp/baylee-qa/cache \
