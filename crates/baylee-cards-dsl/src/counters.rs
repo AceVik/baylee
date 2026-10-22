@@ -186,6 +186,9 @@ pub const WAGE: CounterKind = CounterKind::Custom(46);
 /// Velocity counters (Tornado).
 pub const VELOCITY: CounterKind = CounterKind::Custom(47);
 
+/// Vortex counters (Energy Vortex).
+pub const VORTEX: CounterKind = CounterKind::Custom(48);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -239,11 +242,12 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("infection", INFECTION),
     ("wage", WAGE),
     ("velocity", VELOCITY),
+    ("vortex", VORTEX),
 ];
 
 #[cfg(test)]
 mod tests {
-    use super::{ASSIGNED, CounterKind};
+    use super::{CounterKind, ASSIGNED};
 
     /// Two words sharing an id would be one counter wearing two names: a
     /// permanent carrying both would count each as the other, and nothing

@@ -1,0 +1,29 @@
+//! Disempower — {1}{W} — Instant
+//! Oracle: Put target artifact or enchantment on top of its owner's library.
+//! Set: MIR #9 — Mirage | Scryfall ID: 3a86a2ae-aaf3-4d4d-ae06-ec3d4a539550 | Oracle ID: ff9f4bfe-1585-4eaa-943c-1e85ed79a820
+// PARTIAL — putting a target permanent unconditionally on top of its owner's library from the battlefield is not yet a dedicated Effect variant; uses OwnerPutsOnTopOrBottom.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::DISEMPOWER,
+    oracle_id = "ff9f4bfe-1585-4eaa-943c-1e85ed79a820",
+    scryfall_id = "3a86a2ae-aaf3-4d4d-ae06-ec3d4a539550",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Partial(
+        "putting target artifact or enchantment unconditionally on top of its owner's library from the battlefield is not yet a dedicated Effect variant; uses OwnerPutsOnTopOrBottom so its owner puts it on top or bottom of their library",
+    ),
+    faces = &[face!(
+        name = "Disempower",
+        mana_cost = mana!("{1}{W}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(
+        &[Effect::OwnerPutsOnTopOrBottom {
+            target: TargetSpec::Object(&Filter::ARTIFACT_OR_ENCHANTMENT),
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Object(
+            &Filter::ARTIFACT_OR_ENCHANTMENT,
+        ))),
+    )],
+);

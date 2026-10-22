@@ -5255,15 +5255,28 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Cast this spell only during the declare blockers step.\nTarget unblocked attacking creature becomes blocked. (This spell works on creatures that can't be blocked.)\nDraw a card at the beginning of the next turn's upkeep.",
     ],
-    &[],
-    &[],
+    // Decomposition
+    &[
+        "Enchant black creature\nEnchanted creature has \"Cumulative upkeep—Pay 1 life.\" (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)\nWhen enchanted creature dies, its controller loses 2 life.",
+    ],
+    // Delirium
+    &[
+        "Cast this spell only during an opponent's turn.\nTap target creature that player controls. That creature deals damage equal to its power to the player. Prevent all combat damage that would be dealt to and dealt by the creature this turn.",
+    ],
     // Dirtwater Wraith
     &[
         "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{B}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Discordant Spirit
+    &[
+        "At the beginning of each end step, if it's an opponent's turn, put a +1/+1 counter on this creature for each 1 damage dealt to you this turn.\nAt the beginning of your end step, remove all +1/+1 counters from this creature.",
+    ],
+    // Disempower
+    &["Put target artifact or enchantment on top of its owner's library."],
+    // Dissipate
+    &[
+        "Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
     // Divine Retribution
     &[
         "Divine Retribution deals damage to target attacking creature equal to the number of attacking creatures.",
@@ -5272,25 +5285,48 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever this creature blocks or becomes blocked by a nonblack creature, destroy that creature at end of combat.",
     ],
-    &[],
-    &[],
+    // Dream Cache
+    &[
+        "Draw three cards, then put two cards from your hand both on top of your library or both on the bottom of your library.",
+    ],
+    // Dream Fighter
+    &[
+        "Whenever this creature blocks or becomes blocked by a creature, this creature and that creature phase out. (While they're phased out, they're treated as though they don't exist. Each one phases in before its controller untaps during their next untap step.)",
+    ],
     // Dwarven Miner
     &["{2}{R}, {T}: Destroy target nonbasic land."],
     // Dwarven Nomad
     &["{T}: Target creature with power 2 or less can't be blocked this turn."],
-    &[],
-    &[],
-    &[],
+    // Early Harvest
+    &["Target player untaps all basic lands they control."],
+    // Ebony Charm
+    &[
+        "Choose one —\n• Target opponent loses 1 life and you gain 1 life.\n• Exile up to three target cards from a single graveyard.\n• Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+    ],
+    // Ekundu Cyclops
+    &["If a creature you control attacks, this creature also attacks if able."],
     // Ekundu Griffin
     &["Flying, first strike"],
     // Elixir of Vitality
     &[
         "This artifact enters tapped.\n{T}, Sacrifice this artifact: You gain 4 life.\n{8}, {T}, Sacrifice this artifact: You gain 8 life.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Emberwilde Caliph
+    &[
+        "Flying, trample\nThis creature attacks each combat if able.\nWhenever this creature deals damage, you lose that much life.",
+    ],
+    // Emberwilde Djinn
+    &[
+        "Flying\nAt the beginning of each player's upkeep, that player may pay {R}{R} or 2 life. If the player does, they gain control of this creature.",
+    ],
+    // Energy Bolt
+    &[
+        "Choose one —\n• Energy Bolt deals X damage to target player or planeswalker.\n• Target player gains X life.",
+    ],
+    // Energy Vortex
+    &[
+        "As this enchantment enters, choose an opponent.\nAt the beginning of your upkeep, remove all vortex counters from this enchantment.\nAt the beginning of the chosen player's upkeep, this enchantment deals 3 damage to that player unless they pay {1} for each vortex counter on this enchantment.\n{X}: Put X vortex counters on this enchantment. Activate only during your upkeep.",
+    ],
     // Enfeeblement
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature gets -2/-2.",
@@ -5299,35 +5335,62 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Search your library for an artifact or enchantment card, reveal it, then shuffle and put that card on top.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ersatz Gnomes
+    &[
+        "{T}: Target spell becomes colorless.\n{T}: Target permanent becomes colorless until end of turn.",
+    ],
+    // Ether Well
+    &[
+        "Put target creature on top of its owner's library. If that creature is red, you may put it on the bottom of its owner's library instead.",
+    ],
+    // Ethereal Champion
+    &["Pay 1 life: Prevent the next 1 damage that would be dealt to this creature this turn."],
+    // Fallow Earth
+    &["Put target land on top of its owner's library."],
+    // Favorable Destiny
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+2 as long as it's white.\nEnchanted creature has shroud as long as its controller controls another creature. (It can't be the target of spells or abilities.)",
+    ],
     // Femeref Archers
     &["{T}: This creature deals 4 damage to target attacking creature with flying."],
     // Femeref Healer
     &["{T}: Prevent the next 1 damage that would be dealt to any target this turn."],
-    &[],
+    // Femeref Knight
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{W}: This creature gains vigilance until end of turn.",
+    ],
     // Femeref Scouts
     &[""],
     // Feral Shadow
     &["Flying"],
     // Fetid Horror
     &["{B}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Final Fortune
+    &[
+        "Take an extra turn after this one. At the beginning of that turn's end step, you lose the game.",
+    ],
     // Fire Diamond
     &["This artifact enters tapped.\n{T}: Add {R}."],
-    &[],
-    &[],
+    // Flame Elemental
+    &["{R}, {T}, Sacrifice this creature: It deals damage equal to its power to target creature."],
+    // Flash
+    &[
+        "You may put a creature card from your hand onto the battlefield. If you do, sacrifice it unless you pay its mana cost reduced by {2}.",
+    ],
     // Flood Plain
     &[
         "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Floodgate
+    &[
+        "Defender\nWhen this creature has flying, sacrifice it.\nWhen this creature leaves the battlefield, it deals damage to each nonblue creature without flying equal to half the number of Islands you control, rounded down.",
+    ],
     // Foratog
     &["{G}, Sacrifice a Forest: This creature gets +2/+2 until end of turn."],
-    &[],
+    // Forbidden Crypt
+    &[
+        "If you would draw a card, return a card from your graveyard to your hand instead. If you can't, you lose the game.\nIf a card would be put into your graveyard from anywhere, exile that card instead.",
+    ],
     &[],
     &[],
     // Giant Mantis
