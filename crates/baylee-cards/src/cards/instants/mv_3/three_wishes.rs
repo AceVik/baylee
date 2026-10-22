@@ -1,0 +1,31 @@
+//! Three Wishes — {1}{U}{U} — Instant
+//! Oracle: Exile the top three cards of your library face down. You may look at those cards for as long as they remain exiled. Until your next turn, you may play those cards. At the beginning of your next upkeep, put any of those cards you didn't play into your graveyard.
+//! Set: VIS #45 — Visions | Scryfall ID: dbb2b253-7023-44d1-963b-eae98d48f498 | Oracle ID: 6b3110a5-fd38-4d09-9073-c8a6f3f17840
+// PARTIAL: exiles the top three cards of your library and lets you play them until your next turn; exiling them face down and putting any unplayed cards into your graveyard at the beginning of your next upkeep is not yet modeled.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::THREE_WISHES,
+    oracle_id = "6b3110a5-fd38-4d09-9073-c8a6f3f17840",
+    scryfall_id = "dbb2b253-7023-44d1-963b-eae98d48f498",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial(
+        "exiles the top three cards of your library and lets you play them until your next turn; exiling them face down and putting any unplayed cards into your graveyard at the beginning of your next upkeep is not yet modeled",
+    ),
+    faces = &[face!(
+        name = "Three Wishes",
+        mana_cost = mana!("{1}{U}{U}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(&[Effect::ExileTopToPlay {
+        who: PlayerRel::You,
+        play: ExilePlay {
+            count: 3,
+            window: PlayWindow::UntilYourNextTurn,
+            free: false,
+            mana_any_type: false,
+            spell_types: None,
+        },
+    }])],
+);

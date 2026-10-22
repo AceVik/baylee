@@ -5465,3 +5465,12 @@ more than two it names nobody). What the author did more than once:
   including `Rock Slide` (`Effect::DealDamageDivided { amount: DivisionAmount::XDoubleFrom(u32::MAX) }` with `TargetReq::up_to(..., u8::MAX)`),
   `Miraculous Recovery` (`Effect::GraveyardToBattlefield` with `counters: Some((CounterKind::P1P1, 1))`),
   and `Resistance Fighter` (`Effect::continuous(&Filter::This, Modifier::AssignsNoCombatDamage, Duration::UntilEndOfTurn)` on a targeted ability).
+- Added *Visions* Batch 4 (`Shimmering Efreet` through `Vision Charm`, **13 `Coverage::Implemented`, 12 `Coverage::Partial`**),
+  including `Summer Bloom` (`Effect::continuous(&Filter::Any, Modifier::ExtraLandDrops(3), Duration::UntilEndOfTurn)`),
+  `Sun Clasp` (`Effect::ReturnAllToHand { filter: &ENCHANTED_CREATURE, opponents_only: false }`),
+  `Vanishing` (`Effect::PhaseOutFilter(&ENCHANTED_CREATURE)`),
+  `Triangle of War` (`Effect::Fight { fighter: TargetSlot::First, foe: TargetSlot::Second }`),
+  and `Teferi's Puzzle Box` (`Effect::PutAnyFromHandOnBottom` + `Effect::DrawCards { amount: Amount::ThisWay(ThisWay::PutIntoLibraryFromHand) }`).
+  - `lines::tests::every_mode_and_alternative_cost_knows_its_printed_sentence` requires every `AbilityDef::ModalSpell`
+    whose Oracle text has `•` bullets to have the exact same number of non-empty `modes` as `•` bullets so
+    `baylee_cards_codegen::lines::map` maps each mode index to its bullet line.

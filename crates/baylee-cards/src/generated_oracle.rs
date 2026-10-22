@@ -6501,55 +6501,118 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Scalebane's Elite
     &["Protection from black"],
-    &[],
-    &[],
+    // Shimmering Efreet
+    &[
+        "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhenever this creature phases in, target creature phases out. (It phases in before its controller untaps during their next untap step.)",
+    ],
+    // Simoon
+    &["Simoon deals 1 damage to each creature target opponent controls."],
     // Sisay's Ring
     &["{T}: Add {C}{C}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Snake Basket
+    &[
+        "{X}, Sacrifice this artifact: Create X 1/1 green Snake creature tokens. Activate only as a sorcery.",
+    ],
+    // Solfatara
+    &[
+        "Target player can't play lands this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Song of Blood
+    &[
+        "Mill four cards. Whenever a creature attacks this turn, it gets +1/+0 until end of turn for each creature card put into your graveyard this way.",
+    ],
+    // Spider Climb
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nEnchanted creature gets +0/+3 and has reach. (It can block creatures with flying.)",
+    ],
     // Spitting Drake
     &["Flying\n{R}: This creature gets +1/+0 until end of turn. Activate only once each turn."],
-    &[],
+    // Squandered Resources
+    &["Sacrifice a land: Add one mana of any type the sacrificed land could produce."],
     // Stampeding Wildebeests
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nAt the beginning of your upkeep, return a green creature you control to its owner's hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Suleiman's Legacy
+    &[
+        "When this enchantment enters, destroy all Djinns and Efreets. They can't be regenerated.\nWhenever a Djinn or Efreet enters, destroy it. It can't be regenerated.",
+    ],
+    // Summer Bloom
+    &["You may play up to three additional lands this turn."],
+    // Sun Clasp
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+3.\n{W}: Return enchanted creature to its owner's hand.",
+    ],
+    // Suq'Ata Assassin
+    &[
+        "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature attacks and isn't blocked, defending player gets a poison counter. (A player with ten or more poison counters loses the game.)",
+    ],
+    // Suq'Ata Lancer
+    &[
+        "Haste\nFlanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Talruum Piper
+    &["All creatures with flying able to block this creature do so."],
+    // Tar Pit Warrior
+    &["When this creature becomes the target of a spell or ability, sacrifice it."],
+    // Teferi's Honor Guard
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{U}{U}: This creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
+    // Teferi's Puzzle Box
+    &[
+        "At the beginning of each player's draw step, that player puts the cards in their hand on the bottom of their library in any order, then draws that many cards.",
+    ],
+    // Teferi's Realm
+    &[
+        "At the beginning of each player's upkeep, that player chooses artifact, creature, land, or non-Aura enchantment. All nontoken permanents of that type phase out. (While they're phased out, they're treated as though they don't exist. Each one phases in before its controller untaps during their next untap step.)",
+    ],
     // Tempest Drake
     &["Flying, vigilance"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Three Wishes
+    &[
+        "Exile the top three cards of your library face down. You may look at those cards for as long as they remain exiled. Until your next turn, you may play those cards. At the beginning of your next upkeep, put any of those cards you didn't play into your graveyard.",
+    ],
+    // Time and Tide
+    &[
+        "Simultaneously, all phased-out creatures phase in and all creatures with phasing phase out.",
+    ],
+    // Tin-Wing Chimera
+    &[
+        "Flying\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains flying. (This effect lasts indefinitely.)",
+    ],
+    // Tithe
+    &[
+        "Search your library for a Plains card. If target opponent controls more lands than you, you may search your library for an additional Plains card. Reveal those cards, put them into your hand, then shuffle.",
+    ],
     // Tremor
     &["Tremor deals 1 damage to each creature without flying."],
-    &[],
+    // Triangle of War
+    &[
+        "{2}, Sacrifice this artifact: Target creature you control fights target creature an opponent controls. (Each deals damage equal to its power to the other.)",
+    ],
     // Uktabi Orangutan
     &["When this creature enters, destroy target artifact."],
     // Undiscovered Paradise
     &[
         "{T}: Add one mana of any color. During your next untap step, as you untap your permanents, return this land to its owner's hand.",
     ],
-    &[],
+    // Undo
+    &["Return two target creatures to their owners' hands."],
     // Vampiric Tutor
     &["Search your library for a card, then shuffle and put that card on top. You lose 2 life."],
-    &[],
+    // Vanishing
+    &[
+        "Enchant creature\n{U}{U}: Enchanted creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    ],
     // Viashivan Dragon
     &[
         "Flying\n{R}: This creature gets +1/+0 until end of turn.\n{G}: This creature gets +0/+1 until end of turn.",
     ],
-    &[],
+    // Vision Charm
+    &[
+        "Choose one —\n• Target player mills four cards.\n• Choose a land type and a basic land type. Each land of the first chosen type becomes the second chosen type until end of turn.\n• Target artifact phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    ],
     // Wake of Vultures
     &["Flying\n{1}{B}, Sacrifice a creature: Regenerate this creature."],
     &[],
