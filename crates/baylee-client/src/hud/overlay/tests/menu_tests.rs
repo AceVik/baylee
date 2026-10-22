@@ -431,7 +431,10 @@ fn panel_rows(app: &mut App) -> usize {
     let mut panels = app
         .world_mut()
         .query_filtered::<&Children, With<ledge::menu::MenuPanel>>();
-    panels.iter(app.world()).map(|kids| kids.len()).sum()
+    panels
+        .iter(app.world())
+        .map(bevy::ecs::hierarchy::Children::len)
+        .sum()
 }
 
 /// Opens the game menu through the door a click uses.
