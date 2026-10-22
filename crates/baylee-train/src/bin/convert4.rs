@@ -78,6 +78,19 @@ fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
+fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<()> {
+    let temporary = path.with_extension("partial");
+    fs::write(
+        &temporary,
+        serde_json::to_vec(&json!({
+            "status": status, "game_id": game.game_id, "shard": game.shard_path,
+            "offset": game.offset, "len": game.len, "validation": game.validation,
+        }))?,
+    )?;
+    fs::rename(temporary, path)?;
+    Ok(())
+}
+
 struct ShardWriter {
     dir: PathBuf,
     prefix: &'static str,
@@ -237,9 +250,12 @@ fn main() -> anyhow::Result<()> {
     let unencoded_total = Arc::new(AtomicUsize::new(0));
     let rejected = Arc::new(Mutex::new(Vec::<Value>::new()));
     let converted = Arc::new(AtomicUsize::new(0));
+    let worker_dir = args.out.join("workers");
+    fs::create_dir_all(&worker_dir)?;
 
     let mut handles = Vec::new();
-    for _ in 0..threads {
+    for worker_id in 0..threads {
+        let journal = worker_dir.join(format!("w{worker_id:02}.json"));
         let games_arc = games_arc.clone();
         let next_idx = next_idx.clone();
         let train_writer = train_writer.clone();
@@ -257,6 +273,9 @@ fn main() -> anyhow::Result<()> {
                 let Some(gref) = games_arc.get(idx) else {
                     break;
                 };
+                // Persist the exact record member before replay: an abort or
+                // memory deadline must still identify the in-flight game.
+                journal_worker(&journal, gref, "replaying")?;
                 let bytes = read_member(&gref.shard_path, gref.offset, gref.len)?;
                 let extracted = match extract_game4_with_sidecar(
                     &bytes,
@@ -271,6 +290,7 @@ fn main() -> anyhow::Result<()> {
                             "game_id": gref.game_id, "shard": gref.shard_path,
                             "offset": gref.offset, "len": gref.len, "reason": e,
                         }));
+                        journal_worker(&journal, gref, "rejected")?;
                         continue;
                     }
                 };
@@ -305,7 +325,11 @@ fn main() -> anyhow::Result<()> {
                 let writer = if is_val { &val_writer } else { &train_writer };
                 let mut w = writer.lock().expect("writer lock");
                 w.write_steps(&extracted.steps)?;
-                converted.fetch_add(1, Ordering::Relaxed);
+                journal_worker(&journal, gref, "complete")?;
+                let complete = converted.fetch_add(1, Ordering::Relaxed) + 1;
+                if complete.is_multiple_of(16) || complete == games_arc.len() {
+                    eprintln!("[convert4] completed {complete}/{} games", games_arc.len());
+                }
             }
             Ok(())
         }));
