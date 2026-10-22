@@ -112,6 +112,7 @@ mod field_of_dreams;
 mod flame_blitz;
 mod flood;
 mod font_of_fertility;
+mod gerrard_s_battle_cry;
 mod graf_harvest;
 mod high_ground;
 mod hopeless_nightmare;

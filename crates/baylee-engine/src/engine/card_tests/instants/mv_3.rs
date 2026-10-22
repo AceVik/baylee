@@ -39,6 +39,7 @@ mod flare;
 mod flawless_maneuver;
 mod force_void;
 mod foxfire;
+mod harrow;
 mod hero_s_downfall;
 mod holy_light;
 mod infuse;

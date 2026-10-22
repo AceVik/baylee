@@ -9,6 +9,7 @@ mod chardalyn_dragon;
 mod composite_golem;
 mod darksteel_sentinel;
 mod enatu_golem;
+mod flowstone_sculpture;
 mod geistcatcher_s_rig;
 mod gold_forged_sentinel;
 mod iron_man_futurist_paragon;

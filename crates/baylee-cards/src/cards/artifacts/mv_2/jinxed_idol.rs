@@ -29,8 +29,9 @@ card!(
         ),
         activated!(
             cost!(Sacrifice(&Filter::YOUR_CREATURE)),
-            &[Effect::ChangeController {
-                new_controller: PlayerRel::Chosen,
+            &[Effect::GainControlAll {
+                filter: &Filter::This,
+                to: PlayerRel::TargetPlayerOrController,
             }],
             target = Some(TargetSpec::AnyOpponent),
         ),

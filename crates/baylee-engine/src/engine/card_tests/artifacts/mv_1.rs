@@ -25,6 +25,7 @@ mod feldon_s_cane;
 mod flamecast_wheel;
 mod glasses_of_urza;
 mod goblin_firebomb;
+mod grindstone;
 mod helm_of_chatzuk;
 mod iron_star;
 mod ivory_cup;

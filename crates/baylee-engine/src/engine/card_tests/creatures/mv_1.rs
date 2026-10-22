@@ -81,6 +81,7 @@ mod initiates_of_the_ebon_hand;
 mod insidious_bookworms;
 mod inventor_s_apprentice;
 mod ivy_elemental;
+mod jackal_pup;
 mod jade_bearer;
 mod joven_s_ferrets;
 mod keeper_of_kookus;

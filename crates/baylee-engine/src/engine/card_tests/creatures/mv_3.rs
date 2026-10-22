@@ -156,6 +156,8 @@ mod khabal_ghoul;
 mod khenra_charioteer;
 mod killer_bees;
 mod kitchen_finks;
+mod knight_of_dawn;
+mod knight_of_dusk;
 mod knight_of_the_mists;
 mod knight_of_valor;
 mod krark_clan_grunt;

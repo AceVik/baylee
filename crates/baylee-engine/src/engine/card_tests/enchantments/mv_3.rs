@@ -51,6 +51,7 @@ mod grim_feast;
 mod growing_rites_of_itlimoc;
 mod hadana_s_climb;
 mod hall_of_gemstone;
+mod hand_to_hand;
 mod hanna_s_custody;
 mod heat_stroke;
 mod heat_wave;

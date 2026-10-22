@@ -28,6 +28,7 @@ mod essence_flare;
 mod eternal_warrior;
 mod evil_presence;
 mod firebreathing;
+mod flickering_ward;
 mod flight;
 mod frog_tongue;
 mod fylgja;
