@@ -56,7 +56,7 @@ the pointers, because line numbers move.
 | Crash file | the player's device, `crash-report.json` | until the next start sends or discards it | the client |
 | Update check (#326) | leaves a desktop client for `api.github.com` and GitHub's download hosts | GitHub's own terms | switching "Check for updates automatically" off |
 | Update choice and payloads | the player's device: `update.json`; per-user updater state (paths below) | choices until changed; active and previous payload retained; older payloads removed on a safe next launch | the player; the launcher when no runtime is using them |
-| Where the player was, across "Restart now" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
+| Where the player was, across "Restart to update" (no secret) | the player's device, `resume.json` beside the settings (desktop only) | until the next start reads it; ignored after ten minutes | the client, at the next start |
 
 ## Friends and chat (beta.8)
 
@@ -619,7 +619,7 @@ decks and settings as JSON.
     version against this one and asks again only when they differ. The
     account's own record (version and time) is the gateway's, above; the
     terms sheet's note says both;
-  - `resume.json`, only between "Restart now" (a ready update, desktop
+  - `resume.json`, only between "Restart to update" (a ready update, desktop
     only) and the next start, which reads and deletes it whatever it
     holds; ignored when older than ten minutes or not handed over by that
     restart (`client-core::resume`, `docs/client.md` §"Restarting into an
