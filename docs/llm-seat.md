@@ -763,6 +763,17 @@ holds the processes).
   …/seats/{seat}` with a `kind`), which ends its seat token; a host who
   leaves the room, hands it on or deletes its account takes its bridges'
   chairs and its unspent tickets with it.
+- **Refused for a while.** The gateway answers `401` to a delegate's seat
+  token when the chair was taken back, when the host's sign-in it was
+  minted under ended (a Central session lives 30 minutes, never renewed:
+  `docs/central-login.md`), and when it could not make the check at all (a
+  failed Central check is a `401` too, every five seconds on every
+  socket). A delegate counts its room closed to it only once the refusals
+  of its chair (`GET …/chair`) have lasted `link::REFUSAL_PATIENCE` (45 s);
+  until then a refused ticket is dialled again on the client's schedule
+  and a refused chair read is asked again. A room that is gone (`404`)
+  closes it at once. Until 22.10.2026 the first `401` ended the seat for
+  good (owner: the local LLM agent "keeps losing its connection").
 - **Limits.** A blitz table (30 seconds or less a decision) is refused by
   the bridge, as from a terminal. The chair keeps the house level `steady`
   for its fallbacks (a plan's end, a cap reached).
