@@ -1182,6 +1182,7 @@ dependencies = [
  "baylee-view",
  "serde",
  "serde_json",
+ "tracing",
  "uuid",
 ]
 
