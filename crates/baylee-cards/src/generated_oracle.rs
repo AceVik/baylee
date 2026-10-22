@@ -7405,27 +7405,60 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Choose one —\n• Thunderbolt deals 3 damage to target player or planeswalker.\n• Thunderbolt deals 4 damage to target creature with flying.",
     ],
-    &[],
-    &[],
-    &[],
+    // Timid Drake
+    &["Flying\nWhen another creature enters, return this creature to its owner's hand."],
+    // Tolarian Drake
+    &[
+        "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Tolarian Entrancer
+    &[
+        "Whenever this creature becomes blocked by a creature, gain control of that creature at end of combat.",
+    ],
     // Tolarian Serpent
     &["At the beginning of your upkeep, mill seven cards."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Touchstone
+    &["{T}: Tap target artifact you don't control."],
+    // Tranquil Grove
+    &["{1}{G}{G}: Destroy all other enchantments."],
+    // Uktabi Efreet
+    &[
+        "Cumulative upkeep {G} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Urborg Justice
+    &[
+        "Target opponent sacrifices a creature of their choice for each creature put into your graveyard from the battlefield this turn.",
+    ],
+    // Urborg Stalker
+    &[
+        "At the beginning of each player's upkeep, if that player controls a nonblack, nonland permanent, this creature deals 1 damage to that player.",
+    ],
+    // Veteran Explorer
+    &[
+        "When this creature dies, each player may search their library for up to two basic land cards, put them onto the battlefield, then shuffle.",
+    ],
+    // Vitalize
+    &["Untap all creatures you control."],
+    // Vodalian Illusionist
+    &[
+        "{U}{U}, {T}: Target creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    ],
+    // Volunteer Reserves
+    &[
+        "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\nCumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Wave of Terror
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your draw step, destroy each creature with mana value equal to the number of age counters on this enchantment. They can't be regenerated.",
+    ],
+    // Well of Knowledge
+    &["{2}: Draw a card. Any player may activate this ability but only during their draw step."],
     // Winding Canyons
     &["{T}: Add {C}.\n{2}, {T}: You may cast creature spells this turn as though they had flash."],
     // Xanthic Statue
     &["{5}: Until end of turn, this artifact becomes an 8/8 Golem artifact creature with trample."],
-    &[],
+    // Zombie Scavengers
+    &["Exile the top creature card of your graveyard: Regenerate this creature."],
     &[],
     &[],
     // Advance Scout

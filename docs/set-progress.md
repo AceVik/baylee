@@ -688,8 +688,9 @@ no-engine-change contract:
   - Batch 3 (`Lead-Belly Chimera` to `Sands of Time`, 25 cards): **9 Implemented, 16 Partial**.
   - Batch 4 (`Shimmering Efreet` to `Vision Charm`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 5 (`Wand of Denial` to `Zhalfirin Crusader`, 4 cards): **2 Implemented, 2 Partial**.
-- **Weatherlight (`wth`)** — in progress:
+- **Weatherlight (`wth`)** — completed across 5 batches (**65 Implemented, 50 Partial** across the 115 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Abduction` to `Call of the Wild`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 2 (`Chimeric Sphere` to `Gerrard's Wisdom`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 3 (`Goblin Bomb` to `Necratog`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 4 (`Noble Benefactor` to `Thunderbolt`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 5 (`Timid Drake` to `Zombie Scavengers`, 15 cards): **11 Implemented, 4 Partial**.

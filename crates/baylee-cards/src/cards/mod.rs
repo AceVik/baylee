@@ -17841,6 +17841,8 @@ pub mod time_wipe;
 pub mod timeless_lotus;
 #[path = "sorceries/mv_3/timetwister.rs"]
 pub mod timetwister;
+#[path = "creatures/mv_3/timid_drake.rs"]
+pub mod timid_drake;
 #[path = "enchantments/auras/mv_5/tin_street_market.rs"]
 pub mod tin_street_market;
 #[path = "creatures/artifacts/mv_4/tin_wing_chimera.rs"]
@@ -17899,6 +17901,10 @@ pub mod tolaria;
 pub mod tolaria_west;
 #[path = "lands/tolarian_academy.rs"]
 pub mod tolarian_academy;
+#[path = "creatures/mv_3/tolarian_drake.rs"]
+pub mod tolarian_drake;
+#[path = "creatures/mv_2/tolarian_entrancer.rs"]
+pub mod tolarian_entrancer;
 #[path = "creatures/mv_3/tolarian_scholar.rs"]
 pub mod tolarian_scholar;
 #[path = "creatures/mv_4/tolarian_sentinel.rs"]
@@ -17973,6 +17979,8 @@ pub mod touch_of_death;
 pub mod touch_of_invisibility;
 #[path = "instants/mv_3/touch_of_vitae.rs"]
 pub mod touch_of_vitae;
+#[path = "artifacts/mv_2/touchstone.rs"]
+pub mod touchstone;
 #[path = "creatures/artifacts/mv_2/tough_cookie.rs"]
 pub mod tough_cookie;
 #[path = "enchantments/mv_3/tourach_s_chant.rs"]
@@ -18059,6 +18067,8 @@ pub mod tranquil_domain;
 pub mod tranquil_expanse;
 #[path = "lands/no_untap/tranquil_garden.rs"]
 pub mod tranquil_garden;
+#[path = "enchantments/mv_2/tranquil_grove.rs"]
+pub mod tranquil_grove;
 #[path = "lands/fetch/tranquil_landscape.rs"]
 pub mod tranquil_landscape;
 #[path = "sorceries/mv_5/tranquil_path.rs"]
@@ -18337,6 +18347,8 @@ pub mod u_s_s_enterprise_d_galaxy_class;
 pub mod ubul_sar_gatekeepers;
 #[path = "lands/utility/ugin_s_labyrinth.rs"]
 pub mod ugin_s_labyrinth;
+#[path = "creatures/mv_4/uktabi_efreet.rs"]
+pub mod uktabi_efreet;
 #[path = "creatures/mv_2/uktabi_faerie.rs"]
 pub mod uktabi_faerie;
 #[path = "creatures/mv_3/uktabi_orangutan.rs"]
@@ -18553,10 +18565,14 @@ pub mod urborg;
 pub mod urborg_drake;
 #[path = "creatures/mv_2/urborg_elf.rs"]
 pub mod urborg_elf;
+#[path = "instants/mv_2/urborg_justice.rs"]
+pub mod urborg_justice;
 #[path = "creatures/mv_3/urborg_panther.rs"]
 pub mod urborg_panther;
 #[path = "creatures/mv_4/urborg_shambler.rs"]
 pub mod urborg_shambler;
+#[path = "creatures/mv_4/urborg_stalker.rs"]
+pub mod urborg_stalker;
 #[path = "lands/urborg_tomb_of_yawgmoth.rs"]
 pub mod urborg_tomb_of_yawgmoth;
 #[path = "lands/tapland/urborg_volcano.rs"]
@@ -18845,6 +18861,8 @@ pub mod veteran_bodyguard;
 pub mod veteran_cathar;
 #[path = "creatures/mv_2/veteran_cavalier.rs"]
 pub mod veteran_cavalier;
+#[path = "creatures/mv_1/veteran_explorer.rs"]
+pub mod veteran_explorer;
 #[path = "creatures/mv_4/veteran_of_the_depths.rs"]
 pub mod veteran_of_the_depths;
 #[path = "artifacts/equipment/mv_2/veteran_s_sidearm.rs"]
@@ -18983,6 +19001,8 @@ pub mod visions;
 pub mod vital_splicer;
 #[path = "instants/mv_1/vitality_charm.rs"]
 pub mod vitality_charm;
+#[path = "instants/mv_1/vitalize.rs"]
+pub mod vitalize;
 #[path = "instants/mv_2/vitalizing_cascade.rs"]
 pub mod vitalizing_cascade;
 #[path = "creatures/mv_3/vithian_renegades.rs"]
@@ -19015,6 +19035,8 @@ pub mod vizzerdrix;
 pub mod vodalian_arcanist;
 #[path = "creatures/mv_2/vodalian_hexcatcher.rs"]
 pub mod vodalian_hexcatcher;
+#[path = "creatures/mv_3/vodalian_illusionist.rs"]
+pub mod vodalian_illusionist;
 #[path = "creatures/mv_3/vodalian_knights.rs"]
 pub mod vodalian_knights;
 #[path = "creatures/mv_3/vodalian_mage.rs"]
@@ -19091,6 +19113,8 @@ pub mod voltaic_key;
 pub mod voltaic_servant;
 #[path = "creatures/mv_1/volunteer_militia.rs"]
 pub mod volunteer_militia;
+#[path = "creatures/mv_2/volunteer_reserves.rs"]
+pub mod volunteer_reserves;
 #[path = "creatures/mv_5/vona_butcher_of_magan.rs"]
 pub mod vona_butcher_of_magan;
 #[path = "artifacts/mv_6/voodoo_doll.rs"]
@@ -19407,6 +19431,8 @@ pub mod waterveil_cavern;
 pub mod watery_grave;
 #[path = "creatures/mv_4/wave_elemental.rs"]
 pub mod wave_elemental;
+#[path = "enchantments/mv_3/wave_of_terror.rs"]
+pub mod wave_of_terror;
 #[path = "creatures/mv_6/wave_wing_elemental.rs"]
 pub mod wave_wing_elemental;
 #[path = "creatures/mv_4/waxen_shapethief.rs"]
@@ -19473,6 +19499,8 @@ pub mod welkin_guide;
 pub mod welkin_hawk;
 #[path = "creatures/mv_2/welkin_tern.rs"]
 pub mod welkin_tern;
+#[path = "artifacts/mv_3/well_of_knowledge.rs"]
+pub mod well_of_knowledge;
 #[path = "artifacts/equipment/mv_1/well_worn_spatula.rs"]
 pub mod well_worn_spatula;
 #[path = "enchantments/auras/mv_3/wellspring.rs"]
@@ -20111,6 +20139,8 @@ pub mod zombie_master;
 pub mod zombie_mob;
 #[path = "creatures/mv_2/zombie_outlander.rs"]
 pub mod zombie_outlander;
+#[path = "creatures/mv_3/zombie_scavengers.rs"]
+pub mod zombie_scavengers;
 #[path = "creatures/mv_3/zombie_trailblazer.rs"]
 pub mod zombie_trailblazer;
 #[path = "sorceries/mv_4/zombify.rs"]

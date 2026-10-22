@@ -1036,7 +1036,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Weatherlight (`wth`) Batch 4 adds 6 non-mana activated abilities across
     // Orcish Settlers, Phantom Wings, Phyrexian Furnace (2), Serrated
     // Biskelion, and Thran Tome, of which 5 are read by the evaluator.
-    assert_eq!((read, of), (2724, 3410), "activated/loyalty reader census");
+    // Weatherlight (`wth`) Batch 5 adds 5 non-mana activated abilities across
+    // Touchstone, Tranquil Grove, Vodalian Illusionist, Well of Knowledge, and
+    // Zombie Scavengers, of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2727, 3415), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
