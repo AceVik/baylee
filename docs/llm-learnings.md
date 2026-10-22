@@ -5474,3 +5474,9 @@ more than two it names nobody). What the author did more than once:
   - `lines::tests::every_mode_and_alternative_cost_knows_its_printed_sentence` requires every `AbilityDef::ModalSpell`
     whose Oracle text has `•` bullets to have the exact same number of non-empty `modes` as `•` bullets so
     `baylee_cards_codegen::lines::map` maps each mode index to its bullet line.
+- Added *Visions* Batch 5 (`Wand of Denial` through `Zhalfirin Crusader`, **2 `Coverage::Implemented`, 2 `Coverage::Partial`**),
+  completing all 104 newly implemented *Visions* (`vis`) first-printing cards (**50 `Coverage::Implemented`, 54 `Coverage::Partial`**).
+  - Continuous effects from a resolving spell (`Wind Shear`: *"Attacking creatures with flying get -2/-2 and lose flying
+    until end of turn"*) lock their affected permanent set on resolution (CR 611.2c), so applying `Modifier::ModifyPT(-2, -2)`
+    and `Modifier::RemoveKeyword(KeywordSet::FLYING)` in sequence on `ATTACKING_WITH_FLYING` affects the same locked set
+    without the keyword removal invalidating the filter for the second effect.

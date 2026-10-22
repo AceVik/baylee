@@ -6615,16 +6615,24 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Wake of Vultures
     &["Flying\n{1}{B}, Sacrifice a creature: Regenerate this creature."],
-    &[],
-    &[],
+    // Wand of Denial
+    &[
+        "{T}: Look at the top card of target player's library. If it's a nonland card, you may pay 2 life. If you do, put it into that player's graveyard.",
+    ],
+    // Warrior's Honor
+    &["Creatures you control get +1/+1 until end of turn."],
     // Warthog
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
     // Waterspout Djinn
     &[
         "Flying\nAt the beginning of your upkeep, sacrifice this creature unless you return an untapped Island you control to its owner's hand.",
     ],
-    &[],
-    &[],
+    // Wind Shear
+    &["Attacking creatures with flying get -2/-2 and lose flying until end of turn."],
+    // Zhalfirin Crusader
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}: The next 1 damage that would be dealt to this creature this turn is dealt to any target instead.",
+    ],
     &[],
     &[],
     &[],

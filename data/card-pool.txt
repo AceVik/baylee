@@ -9842,3 +9842,7 @@ Triangle of War
 Undo
 Vanishing
 Vision Charm
+Wand of Denial
+Warrior's Honor
+Wind Shear
+Zhalfirin Crusader

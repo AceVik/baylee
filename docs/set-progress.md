@@ -682,8 +682,9 @@ no-engine-change contract:
   - Batch 7 (`Reflect Damage` to `Soul Echo`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 8 (`Soul Rend` to `Waiting in the Weeds`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 9 (`Wall of Corpses` to `Zombie Mob`, 13 cards): **9 Implemented, 4 Partial**.
-- **Visions (`vis`)** — in progress in 25-card batches:
+- **Visions (`vis`)** — completed across 5 batches (**50 Implemented, 54 Partial** across the 104 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Aku Djinn` to `Feral Instinct`, 25 cards): **11 Implemented, 14 Partial**.
   - Batch 2 (`Fireblast` to `Kookus`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 3 (`Lead-Belly Chimera` to `Sands of Time`, 25 cards): **9 Implemented, 16 Partial**.
   - Batch 4 (`Shimmering Efreet` to `Vision Charm`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 5 (`Wand of Denial` to `Zhalfirin Crusader`, 4 cards): **2 Implemented, 2 Partial**.

@@ -19043,6 +19043,8 @@ pub mod wall_of_wood;
 pub mod wallop;
 #[path = "creatures/mv_2/wan_shi_tong_librarian.rs"]
 pub mod wan_shi_tong_librarian;
+#[path = "artifacts/mv_2/wand_of_denial.rs"]
+pub mod wand_of_denial;
 #[path = "artifacts/mv_4/wand_of_ith.rs"]
 pub mod wand_of_ith;
 #[path = "artifacts/mv_4/wand_of_the_elements.rs"]
@@ -19131,6 +19133,8 @@ pub mod warping_wurm;
 pub mod warren_scourge_elf;
 #[path = "creatures/mv_3/warren_soultrader.rs"]
 pub mod warren_soultrader;
+#[path = "instants/mv_3/warrior_s_honor.rs"]
+pub mod warrior_s_honor;
 #[path = "creatures/mv_4/warriors_of_wakanda.rs"]
 pub mod warriors_of_wakanda;
 #[path = "creatures/mv_2/warship_flight_crew.rs"]
@@ -19441,6 +19445,8 @@ pub mod wind_dancer;
 pub mod wind_drake;
 #[path = "lands/gain/wind_scarred_crag.rs"]
 pub mod wind_scarred_crag;
+#[path = "instants/mv_3/wind_shear.rs"]
+pub mod wind_shear;
 #[path = "creatures/mv_5/wind_spirit.rs"]
 pub mod wind_spirit;
 #[path = "creatures/mv_5/wind_strider.rs"]
@@ -19845,6 +19851,8 @@ pub mod zeriam_golden_wind;
 pub mod zetalpa_primal_dawn;
 #[path = "creatures/mv_3/zhalfirin_commander.rs"]
 pub mod zhalfirin_commander;
+#[path = "creatures/mv_3/zhalfirin_crusader.rs"]
+pub mod zhalfirin_crusader;
 #[path = "creatures/mv_3/zhalfirin_knight.rs"]
 pub mod zhalfirin_knight;
 #[path = "creatures/mv_3/zhalfirin_lancer.rs"]

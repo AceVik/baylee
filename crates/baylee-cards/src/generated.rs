@@ -24436,6 +24436,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::anaba_ancestor::CARD,
     ),
     (
+        "9d32da71-60e5-4eb3-97ca-ae76e2f5df57",
+        &crate::cards::wand_of_denial::CARD,
+    ),
+    (
         "9d3b60af-3e38-4d36-95fc-11b31c38f955",
         &crate::cards::festering_gulch::CARD,
     ),
@@ -24610,6 +24614,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "9e4db334-4698-4986-820f-1daf1bffda83",
         &crate::cards::angel_s_herald::CARD,
+    ),
+    (
+        "9e60c102-412e-4956-a7bb-a2cd737d6692",
+        &crate::cards::zhalfirin_crusader::CARD,
     ),
     (
         "9e660f66-0a94-4694-95e0-25296799b193",
@@ -30218,6 +30226,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "c3b46bd6-b3ef-452d-a916-995c44f1da07",
         &crate::cards::wanderwine_hub::CARD,
+    ),
+    (
+        "c3c9da49-ef4f-48c7-99c8-0f226b485285",
+        &crate::cards::warrior_s_honor::CARD,
     ),
     (
         "c3ea33f4-17ac-41a4-8320-361b6f8aba0d",
@@ -38896,6 +38908,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::dimir_informant::CARD,
     ),
     (
+        "fa683059-b9de-4063-ae71-597ed4e2df30",
+        &crate::cards::wind_shear::CARD,
+    ),
+    (
         "fa6d05a1-3df4-4751-b1a0-8d9693faec73",
         &crate::cards::tainted_wood::CARD,
     ),
@@ -41902,12 +41918,12 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::viashivan_dragon::CARD),
     Some(&crate::cards::vision_charm::CARD),
     Some(&crate::cards::wake_of_vultures::CARD),
-    None,
-    None,
+    Some(&crate::cards::wand_of_denial::CARD),
+    Some(&crate::cards::warrior_s_honor::CARD),
     Some(&crate::cards::warthog::CARD),
     Some(&crate::cards::waterspout_djinn::CARD),
-    None,
-    None,
+    Some(&crate::cards::wind_shear::CARD),
+    Some(&crate::cards::zhalfirin_crusader::CARD),
     None,
     None,
     None,
@@ -73529,7 +73545,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0xcb081ca5f1801546;
+pub const POOL_HASH: u64 = 0x54d0b76244b43da1;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))
