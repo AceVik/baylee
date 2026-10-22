@@ -190,6 +190,21 @@ pub struct ChairStatus {
     pub decide_secs: Option<u32>,
 }
 
+/// What the gateway said when a chair's holder asked after it.
+#[derive(Clone, Debug)]
+pub enum ChairAnswer {
+    /// The chair's room, as its holder sees it.
+    Status(Box<ChairStatus>),
+    /// The room is gone (`404`).
+    Gone,
+    /// The gateway does not take the chair's token now (`401`). That is the
+    /// host having taken the chair back, the host's sign-in having ended
+    /// (the chair was minted under it), and also a check the gateway could
+    /// not make: it answers a failed Central check `401` too, so one is not
+    /// yet the end of anything.
+    Refused,
+}
+
 /// The name a mind sits under: `prefix` + `name`, held to the gateway's
 /// display-name rule (3 to 16 of `A-Z a-z 0-9 _ -`, a letter or digit at
 /// each end).
@@ -481,22 +496,37 @@ impl Lobby {
     /// The chair's room as the gateway tells the chair's holder
     /// (`GET …/chair`, the seat token as `Authorization`); `None` when the
     /// room is gone or no longer takes the token (the host took the chair
-    /// back, or left).
+    /// back, or left). [`Lobby::chair`] keeps the two apart.
     ///
     /// # Errors
     /// When the gateway cannot be reached or answers otherwise.
     pub async fn chair_status(&self, chair: &Chair) -> anyhow::Result<Option<ChairStatus>> {
+        Ok(match self.chair(chair).await? {
+            ChairAnswer::Status(status) => Some(*status),
+            ChairAnswer::Gone | ChairAnswer::Refused => None,
+        })
+    }
+
+    /// The chair's room as the gateway tells the chair's holder, with a
+    /// room that is gone (`404`) kept apart from a token it does not take
+    /// now (`401`).
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or answers otherwise.
+    pub async fn chair(&self, chair: &Chair) -> anyhow::Result<ChairAnswer> {
         let path = format!("/lobby/games/{}/chair", escape(&chair.game_id));
         let answer = self
             .call("GET", &path, Some(&chair.seat_token), None)
             .await?;
-        if matches!(answer.status, 401 | 404) {
-            return Ok(None);
+        match answer.status {
+            404 => return Ok(ChairAnswer::Gone),
+            401 => return Ok(ChairAnswer::Refused),
+            _ => {}
         }
         let status = answer.expect_ok("ask after the chair")?.body;
-        Ok(Some(
+        Ok(ChairAnswer::Status(Box::new(
             serde_json::from_value(status).context("an unreadable chair status")?,
-        ))
+        )))
     }
 
     /// Says a chair taken on a host's ticket may play (`POST …/chair/ready`,
