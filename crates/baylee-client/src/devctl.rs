@@ -144,7 +144,8 @@ fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
 /// `text_size` is the device's step (`xs s m l xl`); `lang` the interface's
 /// language (`en de`), in the settings and the lobby both; `input` pins the
 /// input class (`touch pointer`, `auto` unpins it); `gallery` opens or
-/// closes the kit's gallery. Nothing is written to the settings file.
+/// closes the kit's gallery; `update` (an object) feeds the update card a
+/// state (`update::native::dev`). Nothing is written to the settings file.
 fn shell_knobs(
     mut commands: Commands,
     mut control: ResMut<DevControl>,
@@ -218,6 +219,12 @@ fn shell_knobs(
             });
             notice.hidden = false;
             said.push(format!("\"update_ready\":{}", quoted(version)));
+        }
+        // Every state of the update card, fed as the updater's thread
+        // reports it (`update::native::dev`): `{"update":{"stage":…}}`.
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        if let Some(fed) = crate::update::native::dev_feed(body) {
+            said.push(fed);
         }
         let _ = job.reply.send(format!("{{{}}}", said.join(",")));
     }

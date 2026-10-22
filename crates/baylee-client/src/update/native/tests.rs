@@ -121,7 +121,7 @@ fn the_exit_installs_and_the_next_start_says_so_once() {
     let (base, install) = installed();
     stage(&install);
     assert_eq!(
-        on_start(&build(&install, false)).shown,
+        on_start(&build(&install, false), &mut Notes::default()).shown,
         Some(Shown::Ready {
             version: "0.1.0-beta.3".into(),
             page: "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into(),
@@ -133,7 +133,7 @@ fn the_exit_installs_and_the_next_start_says_so_once() {
     assert!(said.starts_with("installed 0.1.0-beta.3"), "{said}");
     assert_eq!(program(&base), "new");
 
-    let first = on_start(&build(&install, false));
+    let first = on_start(&build(&install, false), &mut Notes::default());
     assert_eq!(
         first.shown,
         Some(Shown::Updated {
@@ -141,7 +141,11 @@ fn the_exit_installs_and_the_next_start_says_so_once() {
             page: Some("https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into()),
         })
     );
-    assert_eq!(on_start(&build(&install, false)).shown, None, "only once");
+    assert_eq!(
+        on_start(&build(&install, false), &mut Notes::default()).shown,
+        None,
+        "only once"
+    );
     assert!(
         install.stage().join("current.json").exists(),
         "the launcher retains its pointer"
@@ -162,7 +166,7 @@ fn a_development_build_never_installs() {
     assert_eq!(program(&base), "old");
     assert!(
         matches!(
-            on_start(&build(&install, true)).shown,
+            on_start(&build(&install, true), &mut Notes::default()).shown,
             Some(Shown::Available {
                 why: Why::DevBuild,
                 ..
@@ -188,7 +192,10 @@ fn installing_off_leaves_the_update_staged() {
 fn nothing_staged_is_nothing_to_do() {
     let (base, install) = installed();
     assert_eq!(exit_with(&install, "0.1.0-beta.2", true, false), None);
-    assert_eq!(on_start(&build(&install, false)), UpdateNotice::default());
+    assert_eq!(
+        on_start(&build(&install, false), &mut Notes::default()),
+        UpdateNotice::default()
+    );
     assert_eq!(program(&base), "old");
     let _ = fs::remove_dir_all(base);
 }
@@ -199,17 +206,17 @@ fn an_outcome_reaches_the_notice_and_answers_a_check_the_player_asked_for() {
         asked: Some(Asked::Checking),
         ..UpdateNotice::default()
     };
-    take(&mut notice, Outcome::UpToDate);
+    finish(&mut notice, Outcome::UpToDate);
     assert_eq!(notice.asked, Some(Asked::UpToDate));
     assert_eq!(notice.shown, None);
 
     notice.asked = Some(Asked::Checking);
-    take(&mut notice, Outcome::Unknown("offline".into()));
+    finish(&mut notice, Outcome::Unknown("offline".into()));
     assert_eq!(notice.asked, Some(Asked::Failed));
 
     notice.asked = None;
     notice.hidden = true;
-    take(
+    finish(
         &mut notice,
         Outcome::Available {
             version: "0.1.0-beta.3".into(),
@@ -229,7 +236,7 @@ fn an_outcome_reaches_the_notice_and_answers_a_check_the_player_asked_for() {
     assert_eq!(notice.asked, None, "a scheduled check answers nobody");
 
     notice.hidden = true;
-    take(
+    finish(
         &mut notice,
         Outcome::Available {
             version: "0.1.0-beta.3".into(),
@@ -240,7 +247,7 @@ fn an_outcome_reaches_the_notice_and_answers_a_check_the_player_asked_for() {
     assert!(notice.hidden, "the same news stays hidden");
 
     notice.asked = Some(Asked::Checking);
-    take(
+    finish(
         &mut notice,
         Outcome::Staged {
             version: "0.1.0-beta.3".into(),
@@ -452,4 +459,124 @@ fn every_reason_is_worded() {
     ] {
         assert_eq!(why_of(&manual), why, "{manual:?}");
     }
+}
+
+/// A check that downloads, report by report: found shows the card with an
+/// empty bar, readings move only the progress, and a card the player hid
+/// stays hidden through the download's stages and comes back once it is
+/// ready.
+#[test]
+fn a_download_reaches_the_card_report_by_report() {
+    use baylee_update::progress::Transfer;
+    let mut notice = UpdateNotice::default();
+    take(
+        &mut notice,
+        Report::Checking {
+            at: std::time::Instant::now(),
+        },
+    );
+    assert_eq!(
+        notice,
+        UpdateNotice::default(),
+        "a check begun says nothing"
+    );
+    take(
+        &mut notice,
+        Report::Stage(Stage::Found {
+            version: "0.1.0-beta.9".into(),
+            page: "p".into(),
+            size: 150,
+        }),
+    );
+    assert!(matches!(
+        notice.shown,
+        Some(Shown::Fetching {
+            stage: Fetch::Downloading,
+            ..
+        })
+    ));
+    assert_eq!(
+        notice.progress.map(|p| (p.received, p.total)),
+        Some((0, 150))
+    );
+    notice.hidden = true;
+    let shown = notice.shown.clone();
+    take(
+        &mut notice,
+        Report::Stage(Stage::Downloading(Transfer {
+            received: 60,
+            total: 150,
+            rate: Some(30),
+            left: Some(3),
+        })),
+    );
+    assert_eq!(notice.shown, shown, "a reading is not a new card");
+    assert_eq!(
+        notice.progress,
+        Some(Progress {
+            received: 60,
+            total: 150,
+            rate: Some(30),
+            left: Some(3),
+        })
+    );
+    take(&mut notice, Report::Stage(Stage::Verifying));
+    take(&mut notice, Report::Stage(Stage::Unpacking));
+    assert!(matches!(
+        notice.shown,
+        Some(Shown::Fetching {
+            stage: Fetch::Unpacking,
+            ..
+        })
+    ));
+    assert!(notice.hidden, "a stage is not news");
+    assert!(
+        notice.progress.is_some(),
+        "kept while it verifies and unpacks"
+    );
+    take(
+        &mut notice,
+        Report::Done(Outcome::Staged {
+            version: "0.1.0-beta.9".into(),
+            page: "p".into(),
+        }),
+    );
+    assert!(matches!(notice.shown, Some(Shown::Ready { .. })));
+    assert!(!notice.hidden, "ready is news");
+    assert_eq!(notice.progress, None);
+}
+
+/// A download that fails is said as one, and the next check retries it
+/// quietly for a player who hid the failure.
+#[test]
+fn a_failed_download_is_said_and_retried_quietly() {
+    let mut failed = UpdateNotice::default();
+    take(
+        &mut failed,
+        Report::Done(Outcome::Available {
+            version: "0.1.0-beta.9".into(),
+            page: "p".into(),
+            why: Manual::Download("connection reset".into()),
+        }),
+    );
+    assert_eq!(
+        failed.shown,
+        Some(Shown::Failed {
+            version: "0.1.0-beta.9".into(),
+            page: "p".into(),
+            reason: "connection reset".into(),
+        })
+    );
+    // The next check retries it: the same version downloading again is
+    // not news to a player who hid the failure.
+    failed.hidden = true;
+    take(
+        &mut failed,
+        Report::Stage(Stage::Found {
+            version: "0.1.0-beta.9".into(),
+            page: "p".into(),
+            size: 150,
+        }),
+    );
+    assert!(failed.hidden);
 }

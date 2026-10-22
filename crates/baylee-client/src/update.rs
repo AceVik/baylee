@@ -8,10 +8,13 @@
 //! gets the resource, and so draws none of this (`docs/client.md`
 //! §"Updating").
 //!
-//! The notice is quiet on purpose: one small panel in the lobby's corner,
+//! The notice is quiet on purpose: one small card in the lobby's corner,
 //! which the player can hide for the session, and one line in the table's
-//! menu. Nothing interrupts a game, and nothing is installed while one is
-//! open: the swap happens when the program has ended.
+//! menu. The card names the version, fills a slim bar while the update
+//! downloads (so many of so many MB, the rate, the time left), says when it
+//! verifies and unpacks it, and offers the restart once it is ready
+//! ([`card`]). Nothing interrupts a game, and nothing is installed while one
+//! is open: the swap happens when the program has ended.
 
 // A browser or phone build adds no updater, and so none of the systems here.
 #![cfg_attr(
@@ -23,6 +26,7 @@ mod card;
 #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
 pub mod native;
 mod settings;
+mod words;
 
 pub(crate) use card::menu_line;
 pub(crate) use settings::controls;
@@ -153,12 +157,32 @@ impl UpdatePlace {
 /// What the notice says, if anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Shown {
+    /// Newer, and being downloaded, verified or unpacked: it installs
+    /// itself once it is ready. How far the download is lives beside it, in
+    /// [`UpdateNotice::progress`].
+    Fetching {
+        /// Its version.
+        version: String,
+        /// Its release page.
+        page: String,
+        /// Which part of the work.
+        stage: Fetch,
+    },
     /// Staged and verified; it installs on quit.
     Ready {
         /// Its version.
         version: String,
         /// Its release page.
         page: String,
+    },
+    /// The download (or the unpacking) failed; the next check tries again.
+    Failed {
+        /// Its version.
+        version: String,
+        /// Its release page.
+        page: String,
+        /// What went wrong, as the system said it.
+        reason: String,
     },
     /// Newer, and only a link.
     Available {
@@ -178,12 +202,45 @@ pub enum Shown {
     },
 }
 
+/// Which part of fetching an update is under way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fetch {
+    /// The archive is arriving.
+    Downloading,
+    /// Its checksum and signature are being checked.
+    Verifying,
+    /// It is being unpacked beside the installation.
+    Unpacking,
+}
+
+/// How far a download is: the face's copy of the updater's reading (a
+/// browser or phone build has no updater crate to take it from). Whole
+/// numbers, so a reading that changes nothing drawn compares equal.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Progress {
+    /// Bytes received.
+    pub received: u64,
+    /// Bytes in all.
+    pub total: u64,
+    /// Bytes a second, smoothed; `None` until the updater can say.
+    pub rate: Option<u64>,
+    /// Seconds left at that rate.
+    pub left: Option<u64>,
+}
+
 impl Shown {
-    /// The notice's first line.
+    /// The notice in one line: the table menu's, the settings' status.
     #[must_use]
     pub fn headline(&self, lang: Lang) -> String {
         match self {
+            Self::Fetching { version, stage, .. } => match stage {
+                Fetch::Downloading => Phrase::UpdateDownloadingLine,
+                Fetch::Verifying => Phrase::UpdateVerifyingLine,
+                Fetch::Unpacking => Phrase::UpdateUnpackingLine,
+            }
+            .fill(lang, &[version]),
             Self::Ready { version, .. } => Phrase::UpdateReady.fill(lang, &[version]),
+            Self::Failed { version, .. } => Phrase::UpdateFailedLine.fill(lang, &[version]),
             Self::Available { version, .. } => Phrase::UpdateAvailable.fill(lang, &[version]),
             Self::Updated { version, .. } => Phrase::UpdatedTo.fill(lang, &[version]),
         }
@@ -202,8 +259,23 @@ impl Shown {
     #[must_use]
     pub fn page(&self) -> Option<&str> {
         match self {
-            Self::Ready { page, .. } | Self::Available { page, .. } => Some(page),
+            Self::Fetching { page, .. }
+            | Self::Ready { page, .. }
+            | Self::Failed { page, .. }
+            | Self::Available { page, .. } => Some(page),
             Self::Updated { page, .. } => page.as_deref(),
+        }
+    }
+
+    /// The version it is about.
+    #[must_use]
+    pub fn version(&self) -> &str {
+        match self {
+            Self::Fetching { version, .. }
+            | Self::Ready { version, .. }
+            | Self::Failed { version, .. }
+            | Self::Available { version, .. }
+            | Self::Updated { version, .. } => version,
         }
     }
 }
@@ -230,6 +302,32 @@ pub struct UpdateNotice {
     pub hidden: bool,
     /// The last check the player asked for.
     pub asked: Option<Asked>,
+    /// The download's last reading while [`Shown::Fetching`] stands: kept
+    /// apart from [`Self::shown`], so a reading redraws the bar and the line
+    /// under it and never the card or the table's menu.
+    pub progress: Option<Progress>,
+}
+
+impl UpdateNotice {
+    /// Shows `next`. The card comes back after the player hid it only for
+    /// news: another version, or one that has become ready to install. A
+    /// download moving on to its next stage, or the six-hourly check saying
+    /// the same thing again, is not news.
+    pub fn show(&mut self, next: Shown) {
+        let news = self.shown.as_ref().is_none_or(|now| {
+            now.version() != next.version()
+                || (matches!(next, Shown::Ready { .. }) && !matches!(now, Shown::Ready { .. }))
+        });
+        if !matches!(next, Shown::Fetching { .. }) {
+            self.progress = None;
+        }
+        if self.shown.as_ref() != Some(&next) {
+            self.shown = Some(next);
+        }
+        if news {
+            self.hidden = false;
+        }
+    }
 }
 
 /// What the face asks of the updater's thread. `native` forwards it.
@@ -274,6 +372,9 @@ pub enum UpdateButton {
     RestartNow,
     /// Not now: the restart offer goes away for the session.
     Later,
+    /// A failed download's "Try again": checks now, as the settings'
+    /// button does.
+    TryAgain,
 }
 
 /// The face: the notice, its buttons, the settings' labels. `native`
@@ -295,6 +396,8 @@ impl Plugin for UpdatePlugin {
                     press,
                     card::scroll_toasts,
                     card::show_toast,
+                    card::show_progress,
+                    card::follow_the_menu_line,
                     settings::show_settings,
                     settings::show_place,
                 )
@@ -344,7 +447,7 @@ fn press(
                 prefs.save();
                 requests.write(UpdateRequest::Prefs(*prefs));
             }
-            UpdateButton::CheckNow => {
+            UpdateButton::CheckNow | UpdateButton::TryAgain => {
                 notice.asked = Some(Asked::Checking);
                 requests.write(UpdateRequest::CheckNow);
             }

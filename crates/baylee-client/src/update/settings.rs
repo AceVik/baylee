@@ -1,14 +1,129 @@
 //! The settings screen's Updates section: the two per-device switches,
 //! "Check for updates" and its status line, and where the app lies.
 
-use super::card::{move_part, our_button, small_line};
-use super::{Asked, MoveTo, UpdateButton, UpdateNotice, UpdatePlace, UpdatePrefs};
+use super::card::status_text;
+use super::{Asked, MoveTo, Shown, UpdateButton, UpdateNotice, UpdatePlace, UpdatePrefs};
 use crate::hud::{UiFonts, palette, tf};
 use crate::lobby::{self, Metrics};
 use crate::settings::ClientSettings;
 use baylee_client_core::i18n::{Lang, Phrase};
 use bevy::prelude::*;
-use bevy::ui::percent;
+use bevy::ui::{percent, px};
+
+/// One small line of text for the toast or the settings.
+pub(super) fn small_line(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    text: String,
+) -> Entity {
+    commands
+        .spawn((
+            Text::new(text),
+            TextLayout::new(Justify::Left, LineBreak::WordOrCharacter),
+            Node {
+                min_width: px(0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            tf(fonts, metrics.small),
+            TextColor(palette::MUTED),
+            Pickable::IGNORE,
+        ))
+        .id()
+}
+
+/// A row of buttons that wraps.
+fn button_row(commands: &mut Commands, buttons: &[Entity]) -> Entity {
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                min_width: px(0),
+                flex_shrink: 0.0,
+                column_gap: px(8),
+                row_gap: px(6),
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for &button in buttons {
+        commands
+            .entity(button)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.min_width = px(0);
+                node.max_width = percent(100);
+            });
+    }
+    commands.entity(row).add_children(buttons);
+    row
+}
+
+/// The move's buttons, one per destination, then what moving does, and
+/// the last failure if there was one.
+pub(super) fn move_part(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    lang: Lang,
+    place: &UpdatePlace,
+) -> Vec<Entity> {
+    let buttons: Vec<Entity> = place
+        .moves
+        .iter()
+        .map(|to| {
+            let id = our_button(
+                commands,
+                fonts,
+                metrics,
+                to.phrase().text(lang),
+                UpdateButton::Move(*to),
+            );
+            commands
+                .entity(id)
+                .insert(update_stop(&UpdateButton::Move(*to)));
+            id
+        })
+        .collect();
+    let mut parts = vec![
+        button_row(commands, &buttons),
+        small_line(
+            commands,
+            fonts,
+            metrics,
+            Phrase::UpdateMoveWhat.text(lang).to_owned(),
+        ),
+    ];
+    if let Some(failed) = &place.failed {
+        parts.push(small_line(commands, fonts, metrics, failed.clone()));
+    }
+    parts
+}
+
+/// A lobby button that answers to the updater's `press` rather than to
+/// the lobby.
+pub(super) fn our_button(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    label: &str,
+    action: UpdateButton,
+) -> Entity {
+    let id = lobby::button(
+        commands,
+        fonts,
+        metrics,
+        label,
+        lobby::Press::Shared(lobby::SharedPress::PickerNothing),
+        palette::PANEL,
+        true,
+    );
+    commands.entity(id).remove::<lobby::Press>().insert(action);
+    id
+}
 
 /// The settings screen's place for [`UpdatePlace`], filled by `show_place`.
 #[derive(Component)]
@@ -22,7 +137,6 @@ pub(super) enum Readout {
     Status,
 }
 
-/// A lobby button that answers to [`press`] rather than to the lobby.
 /// An Updates control's place in the settings screen's tab order.
 pub(super) fn update_stop(action: &UpdateButton) -> crate::shellkit::focus::Stop {
     let item = match action {
@@ -237,9 +351,17 @@ pub(super) fn show_settings(
     for (mut text, readout) in &mut texts {
         let value = match readout {
             Readout::Check | Readout::Install => continue,
+            // A download under way says how far, whoever asked for it; a
+            // check the player asked for comes next, then a failed download.
             Readout::Status => match notice.asked {
-                None => String::new(),
+                _ if matches!(notice.shown, Some(Shown::Fetching { .. })) => {
+                    status_text(&notice, lang).unwrap_or_default()
+                }
                 Some(Asked::Checking) => Phrase::UpdateChecking.text(lang).to_owned(),
+                _ if matches!(notice.shown, Some(Shown::Failed { .. })) => {
+                    status_text(&notice, lang).unwrap_or_default()
+                }
+                None => String::new(),
                 Some(Asked::UpToDate) => Phrase::UpdateUpToDate.text(lang).to_owned(),
                 Some(Asked::Failed) => Phrase::UpdateCheckFailed.text(lang).to_owned(),
                 Some(Asked::Found) => notice
