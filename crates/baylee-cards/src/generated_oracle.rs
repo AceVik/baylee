@@ -5027,57 +5027,126 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample, haste\nCumulative upkeep {G}{G} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Abyssal Hunter
+    &[
+        "{B}, {T}: Tap target creature. This creature deals damage equal to its power to that creature.",
+    ],
+    // Acidic Dagger
+    &[
+        "{4}, {T}: Whenever target creature deals combat damage to a non-Wall creature this turn, destroy that non-Wall creature. When the targeted creature leaves the battlefield this turn, sacrifice this artifact. Activate only before blockers are declared.",
+    ],
+    // Afiya Grove
+    &[
+        "This enchantment enters with three +1/+1 counters on it.\nAt the beginning of your upkeep, move a +1/+1 counter from this enchantment onto target creature.\nWhen this enchantment has no +1/+1 counters on it, sacrifice it.",
+    ],
+    // Afterlife
+    &[
+        "Destroy target creature. It can't be regenerated. Its controller creates a 1/1 white Spirit creature token with flying.",
+    ],
+    // Agility
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 and has flanking. (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Alarum
+    &["Untap target nonattacking creature. It gets +1/+3 until end of turn."],
+    // Aleatory
+    &[
+        "Cast this spell only during combat after blockers are declared.\nFlip a coin. If you win the flip, target creature gets +1/+1 until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Amber Prison
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{4}, {T}: Tap target artifact, creature, or land. That permanent doesn't untap during its controller's untap step for as long as this artifact remains tapped.",
+    ],
+    // Amulet of Unmaking
+    &[
+        "{5}, {T}, Exile this artifact: Exile target artifact, creature, or land. Activate only as a sorcery.",
+    ],
+    // Ancestral Memories
+    &[
+        "Look at the top seven cards of your library. Put two of them into your hand and the rest into your graveyard.",
+    ],
+    // Armor of Thorns
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant nonblack creature\nEnchanted creature gets +2/+2.",
+    ],
     // Armorer Guildmage
     &[
         "{B}, {T}: Target creature gets +1/+0 until end of turn.\n{G}, {T}: Target creature gets +0/+1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Ashen Powder
+    &[
+        "Put target creature card from an opponent's graveyard onto the battlefield under your control.",
+    ],
+    // Asmira, Holy Avenger
+    &[
+        "Flying\nAt the beginning of each end step, put a +1/+1 counter on Asmira for each creature put into your graveyard from the battlefield this turn.",
+    ],
+    // Auspicious Ancestor
+    &[
+        "When this creature dies, you gain 3 life.\nWhenever a player casts a white spell, you may pay {1}. If you do, you gain 1 life.",
+    ],
     // Azimaet Drake
     &["Flying\n{U}: This creature gets +1/+0 until end of turn. Activate only once each turn."],
     // Bad River
     &[
         "This land enters tapped.\n{T}, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Barbed Foliage
+    &[
+        "Whenever a creature attacks you, it loses flanking until end of turn.\nWhenever a creature without flying attacks you, this enchantment deals 1 damage to it.",
+    ],
+    // Barbed-Back Wurm
+    &["{B}: Target green creature blocking this creature gets -1/-1 until end of turn."],
+    // Barreling Attack
+    &[
+        "Target creature gains trample until end of turn. When that creature becomes blocked this turn, it gets +1/+1 until end of turn for each creature blocking it.",
+    ],
+    // Basalt Golem
+    &[
+        "This creature can't be blocked by artifact creatures.\nWhenever this creature becomes blocked by a creature, that creature's controller sacrifices it at end of combat. If the player does, they create a 0/2 colorless Wall artifact creature token with defender.",
+    ],
     // Bay Falcon
     &["Flying, vigilance"],
-    &[],
-    &[],
+    // Bazaar of Wonders
+    &[
+        "When this enchantment enters, exile all graveyards.\nWhenever a player casts a spell, counter it if a card with the same name is in a graveyard or a nontoken permanent with the same name is on the battlefield.",
+    ],
+    // Benevolent Unicorn
+    &[
+        "If a spell would deal damage to a permanent or player, it deals that much damage minus 1 to that permanent or player instead.",
+    ],
     // Benthic Djinn
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nAt the beginning of your upkeep, you lose 2 life.",
     ],
-    &[],
+    // Binding Agony
+    &[
+        "Enchant creature\nWhenever enchanted creature is dealt damage, this Aura deals that much damage to that creature's controller.",
+    ],
     // Blighted Shaman
     &[
         "{T}, Sacrifice a Swamp: Target creature gets +1/+1 until end of turn.\n{T}, Sacrifice a creature: Target creature gets +2/+2 until end of turn.",
     ],
-    &[],
+    // Blind Fury
+    &[
+        "All creatures lose trample until end of turn. If a creature would deal combat damage to a creature this turn, it deals double that damage to that creature instead.",
+    ],
     // Blinding Light
     &["Tap all nonwhite creatures."],
     // Blistering Barrier
     &["Defender (This creature can't attack.)"],
-    &[],
-    &[],
+    // Bone Harvest
+    &[
+        "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Bone Mask
+    &[
+        "{2}, {T}: The next time a source of your choice would deal damage to you this turn, prevent that damage. Exile cards from the top of your library equal to the damage prevented this way.",
+    ],
     // Breathstealer
     &["{B}: This creature gets +1/-1 until end of turn."],
-    &[],
+    // Brushwagg
+    &["Whenever this creature blocks or becomes blocked, it gets -2/+2 until end of turn."],
     &[],
     &[],
     &[],

@@ -2410,6 +2410,17 @@ pub static SURVIVOR_1_1_RED: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/2 colorless artifact Wall with defender.
+pub static WALL_ARTIFACT_0_2_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(2),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2650,6 +2661,7 @@ pub static ALL: &[&TokenDef] = &[
     &HIPPO_1_1_GREEN,
     &STARFISH_0_1_BLUE,
     &SURVIVOR_1_1_RED,
+    &WALL_ARTIFACT_0_2_DEFENDER,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2858,4 +2870,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &HIPPO_1_1_GREEN,
     &STARFISH_0_1_BLUE,
     &SURVIVOR_1_1_RED,
+    &WALL_ARTIFACT_0_2_DEFENDER,
 ];
