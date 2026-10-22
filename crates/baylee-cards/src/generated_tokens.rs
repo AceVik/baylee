@@ -2421,6 +2421,17 @@ pub static WALL_ARTIFACT_0_2_DEFENDER: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Insect.
+pub static INSECT_0_1_BLACK: TokenDef = TokenDef {
+    name: "Insect",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2662,6 +2673,7 @@ pub static ALL: &[&TokenDef] = &[
     &STARFISH_0_1_BLUE,
     &SURVIVOR_1_1_RED,
     &WALL_ARTIFACT_0_2_DEFENDER,
+    &INSECT_0_1_BLACK,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2871,4 +2883,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &STARFISH_0_1_BLUE,
     &SURVIVOR_1_1_RED,
     &WALL_ARTIFACT_0_2_DEFENDER,
+    &INSECT_0_1_BLACK,
 ];

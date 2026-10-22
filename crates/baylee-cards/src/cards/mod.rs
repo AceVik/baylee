@@ -2239,6 +2239,8 @@ pub mod buccaneer_s_bravado;
 pub mod bucolic_ranch;
 #[path = "creatures/mv_2/bugenhagen_wise_elder.rs"]
 pub mod bugenhagen_wise_elder;
+#[path = "sorceries/mv_1/builder_s_bane.rs"]
+pub mod builder_s_bane;
 #[path = "enchantments/mv_4/builder_s_blessing.rs"]
 pub mod builder_s_blessing;
 #[path = "creatures/mv_2/bull_aurochs.rs"]
@@ -2265,8 +2267,12 @@ pub mod burning_earth;
 pub mod burning_fist_minotaur;
 #[path = "sorceries/mv_1/burning_inquiry.rs"]
 pub mod burning_inquiry;
+#[path = "creatures/mv_4/burning_palm_efreet.rs"]
+pub mod burning_palm_efreet;
 #[path = "creatures/mv_2/burning_prophet.rs"]
 pub mod burning_prophet;
+#[path = "creatures/mv_3/burning_shield_askari.rs"]
+pub mod burning_shield_askari;
 #[path = "creatures/mv_2/burning_tree_emissary.rs"]
 pub mod burning_tree_emissary;
 #[path = "creatures/mv_5/burning_yard_trainer.rs"]
@@ -2335,6 +2341,10 @@ pub mod cacophodon;
 pub mod cactus_preserve;
 #[path = "creatures/mv_3/cadaver_imp.rs"]
 pub mod cadaver_imp;
+#[path = "enchantments/mv_5/cadaverous_bloom.rs"]
+pub mod cadaverous_bloom;
+#[path = "creatures/mv_3/cadaverous_knight.rs"]
+pub mod cadaverous_knight;
 #[path = "creatures/mv_2/caelorna_coral_tyrant.rs"]
 pub mod caelorna_coral_tyrant;
 #[path = "lands/storage/calciform_pools.rs"]
@@ -2381,6 +2391,8 @@ pub mod candlelight_vigil;
 pub mod candy_trail;
 #[path = "creatures/mv_4/canopy_baloth.rs"]
 pub mod canopy_baloth;
+#[path = "creatures/mv_6/canopy_dragon.rs"]
+pub mod canopy_dragon;
 #[path = "creatures/mv_6/canopy_gorger.rs"]
 pub mod canopy_gorger;
 #[path = "creatures/mv_2/canopy_spider.rs"]
@@ -2461,6 +2473,8 @@ pub mod carpet_of_flowers;
 pub mod carrier_pigeons;
 #[path = "creatures/mv_2/carrier_thrall.rs"]
 pub mod carrier_thrall;
+#[path = "instants/mv_3/carrion.rs"]
+pub mod carrion;
 #[path = "creatures/mv_4/carrion_ants.rs"]
 pub mod carrion_ants;
 #[path = "creatures/mv_3/carrion_crow.rs"]
@@ -2519,6 +2533,8 @@ pub mod cat_owl;
 pub mod cat_warriors;
 #[path = "creatures/mv_5/catacomb_crocodile.rs"]
 pub mod catacomb_crocodile;
+#[path = "creatures/mv_6/catacomb_dragon.rs"]
+pub mod catacomb_dragon;
 #[path = "creatures/mv_3/catacomb_sifter.rs"]
 pub mod catacomb_sifter;
 #[path = "creatures/mv_5/catacomb_slug.rs"]
@@ -2593,6 +2609,8 @@ pub mod caves_of_koilos;
 pub mod celebrity_fencer;
 #[path = "lands/manlands/celestial_colonnade.rs"]
 pub mod celestial_colonnade;
+#[path = "enchantments/mv_3/celestial_dawn.rs"]
+pub mod celestial_dawn;
 #[path = "creatures/mv_3/celestial_enforcer.rs"]
 pub mod celestial_enforcer;
 #[path = "creatures/mv_8/celestial_force.rs"]
@@ -2729,6 +2747,8 @@ pub mod charging_strifeknight;
 pub mod charging_troll;
 #[path = "creatures/mv_3/charging_war_boar.rs"]
 pub mod charging_war_boar;
+#[path = "artifacts/mv_3/chariot_of_the_sun.rs"]
+pub mod chariot_of_the_sun;
 #[path = "artifacts/equipment/mv_3/chariot_of_victory.rs"]
 pub mod chariot_of_victory;
 #[path = "creatures/mv_4/charity_extractor.rs"]
@@ -2781,6 +2801,8 @@ pub mod chocobo_racetrack;
 pub mod choke;
 #[path = "lands/tapland/choked_estuary.rs"]
 pub mod choked_estuary;
+#[path = "sorceries/mv_3/choking_sands.rs"]
+pub mod choking_sands;
 #[path = "instants/mv_3/chord_of_calling.rs"]
 pub mod chord_of_calling;
 #[path = "instants/mv_4/chorus_of_might.rs"]
@@ -2813,6 +2835,8 @@ pub mod chronomaton;
 pub mod chub_toad;
 #[path = "lands/tapland/cinder_barrens.rs"]
 pub mod cinder_barrens;
+#[path = "instants/mv_5/cinder_cloud.rs"]
+pub mod cinder_cloud;
 #[path = "lands/battle/cinder_glade.rs"]
 pub mod cinder_glade;
 #[path = "lands/no_untap/cinder_marsh.rs"]
@@ -2821,6 +2845,8 @@ pub mod cinder_marsh;
 pub mod cinder_storm;
 #[path = "creatures/mv_5/cinderhaze_wretch.rs"]
 pub mod cinderhaze_wretch;
+#[path = "enchantments/mv_3/circle_of_despair.rs"]
+pub mod circle_of_despair;
 #[path = "creatures/mv_3/circle_of_dreams_druid.rs"]
 pub mod circle_of_dreams_druid;
 #[path = "enchantments/mv_2/circle_of_protection_artifacts.rs"]
@@ -2857,6 +2883,8 @@ pub mod citywatch_sphinx;
 pub mod citywide_bust;
 #[path = "creatures/mv_2/civic_gardener.rs"]
 pub mod civic_gardener;
+#[path = "creatures/mv_1/civic_guildmage.rs"]
+pub mod civic_guildmage;
 #[path = "enchantments/kindred/mv_3/clachan_festival.rs"]
 pub mod clachan_festival;
 #[path = "instants/mv_1/clairvoyance.rs"]
@@ -2925,6 +2953,8 @@ pub mod clive_s_hideaway;
 pub mod cloak_of_confusion;
 #[path = "sorceries/mv_1/cloak_of_feathers.rs"]
 pub mod cloak_of_feathers;
+#[path = "enchantments/auras/mv_1/cloak_of_invisibility.rs"]
+pub mod cloak_of_invisibility;
 #[path = "artifacts/equipment/mv_2/cloak_of_the_bat.rs"]
 pub mod cloak_of_the_bat;
 #[path = "creatures/mv_4/cloaked_siren.rs"]
@@ -3179,6 +3209,8 @@ pub mod consume_the_meek;
 pub mod consuming_bonfire;
 #[path = "instants/mv_2/consuming_corruption.rs"]
 pub mod consuming_corruption;
+#[path = "enchantments/auras/mv_2/consuming_ferocity.rs"]
+pub mod consuming_ferocity;
 #[path = "creatures/mv_2/consumptive_goo.rs"]
 pub mod consumptive_goo;
 #[path = "instants/mv_5/contagion.rs"]
@@ -3243,6 +3275,8 @@ pub mod coral_barrier;
 pub mod coral_commando;
 #[path = "creatures/mv_2/coral_eel.rs"]
 pub mod coral_eel;
+#[path = "creatures/mv_2/coral_fighters.rs"]
+pub mod coral_fighters;
 #[path = "artifacts/mv_3/coral_helm.rs"]
 pub mod coral_helm;
 #[path = "creatures/mv_2/coral_merfolk.rs"]
@@ -3375,6 +3409,8 @@ pub mod crevasse;
 pub mod crib_swap;
 #[path = "enchantments/mv_3/criminal_enterprise.rs"]
 pub mod criminal_enterprise;
+#[path = "creatures/mv_9/crimson_hellkite.rs"]
+pub mod crimson_hellkite;
 #[path = "creatures/mv_0/crimson_kobolds.rs"]
 pub mod crimson_kobolds;
 #[path = "creatures/mv_2/crimson_mage.rs"]
@@ -3383,6 +3419,8 @@ pub mod crimson_mage;
 pub mod crimson_manticore;
 #[path = "creatures/mv_2/crimson_muckwader.rs"]
 pub mod crimson_muckwader;
+#[path = "creatures/mv_5/crimson_roc.rs"]
+pub mod crimson_roc;
 #[path = "sorceries/mv_6/crisis_of_conscience.rs"]
 pub mod crisis_of_conscience;
 #[path = "creatures/mv_2/crooked_custodian.rs"]
@@ -3451,6 +3489,8 @@ pub mod crushing_vines;
 pub mod crux_of_fate;
 #[path = "creatures/mv_5/crypt_angel.rs"]
 pub mod crypt_angel;
+#[path = "creatures/mv_4/crypt_cobra.rs"]
+pub mod crypt_cobra;
 #[path = "lands/tapland/crypt_of_agadeem.rs"]
 pub mod crypt_of_agadeem;
 #[path = "lands/filter/crypt_of_the_eternals.rs"]
@@ -3471,6 +3511,8 @@ pub mod cryptolith_rite;
 pub mod crystacean;
 #[path = "artifacts/mv_3/crystal_ball.rs"]
 pub mod crystal_ball;
+#[path = "creatures/artifacts/mv_4/crystal_golem.rs"]
+pub mod crystal_golem;
 #[path = "lands/utility/crystal_grotto.rs"]
 pub mod crystal_grotto;
 #[path = "lands/crystal_quarry.rs"]
@@ -3535,12 +3577,16 @@ pub mod cursed_minotaur;
 pub mod cursed_mirror;
 #[path = "artifacts/mv_4/cursed_rack.rs"]
 pub mod cursed_rack;
+#[path = "artifacts/mv_2/cursed_totem.rs"]
+pub mod cursed_totem;
 #[path = "creatures/artifacts/mv_3/custodian_of_the_trove.rs"]
 pub mod custodian_of_the_trove;
 #[path = "enchantments/mv_2/customs_depot.rs"]
 pub mod customs_depot;
 #[path = "creatures/mv_1/cutthroat_contender.rs"]
 pub mod cutthroat_contender;
+#[path = "enchantments/mv_3/cycle_of_life.rs"]
+pub mod cycle_of_life;
 #[path = "enchantments/mv_4/cyclone.rs"]
 pub mod cyclone;
 #[path = "instants/mv_2/cyclonic_rift.rs"]
@@ -3625,6 +3671,8 @@ pub mod darigaaz_s_attendant;
 pub mod darigaaz_s_caldera;
 #[path = "instants/mv_3/darigaaz_s_charm.rs"]
 pub mod darigaaz_s_charm;
+#[path = "creatures/mv_3/daring_apprentice.rs"]
+pub mod daring_apprentice;
 #[path = "sorceries/mv_4/daring_demolition.rs"]
 pub mod daring_demolition;
 #[path = "instants/mv_1/daring_escape.rs"]
@@ -3781,6 +3829,8 @@ pub mod daybreak_charger;
 pub mod daybreak_combatants;
 #[path = "creatures/mv_4/daysquad_marshal.rs"]
 pub mod daysquad_marshal;
+#[path = "instants/mv_3/dazzling_beauty.rs"]
+pub mod dazzling_beauty;
 #[path = "instants/mv_1/dazzling_lights.rs"]
 pub mod dazzling_lights;
 #[path = "creatures/mv_5/dazzling_ramparts.rs"]

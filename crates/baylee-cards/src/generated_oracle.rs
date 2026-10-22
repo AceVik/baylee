@@ -5147,15 +5147,38 @@ pub static ORACLE: &[&[&str]] = &[
     &["{B}: This creature gets +1/-1 until end of turn."],
     // Brushwagg
     &["Whenever this creature blocks or becomes blocked, it gets -2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Builder's Bane
+    &[
+        "Destroy X target artifacts. Builder's Bane deals damage to each player equal to the number of artifacts they controlled that were put into a graveyard this way.",
+    ],
+    // Burning Palm Efreet
+    &[
+        "{1}{R}{R}: This creature deals 2 damage to target creature with flying and that creature loses flying until end of turn.",
+    ],
+    // Burning Shield Askari
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{R}{R}: This creature gains first strike until end of turn.",
+    ],
+    // Cadaverous Bloom
+    &["Exile a card from your hand: Add {B}{B} or {G}{G}."],
+    // Cadaverous Knight
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{B}{B}: Regenerate this creature.",
+    ],
+    // Canopy Dragon
+    &["Trample\n{1}{G}: This creature gains flying and loses trample until end of turn."],
+    // Carrion
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nCreate X 0/1 black Insect creature tokens, where X is the sacrificed creature's power.",
+    ],
+    // Catacomb Dragon
+    &[
+        "Flying\nWhenever this creature becomes blocked by a nonartifact, non-Dragon creature, that creature gets -X/-0 until end of turn, where X is half the creature's power, rounded down.",
+    ],
+    // Celestial Dawn
+    &[
+        "Lands you control are Plains.\nNonland permanents you control are white. The same is true for spells you control and nonland cards you own that aren't on the battlefield.\nYou may spend white mana as though it were mana of any color. You may spend other mana only as though it were colorless mana.",
+    ],
     // Cerulean Wyvern
     &["Flying, protection from green"],
     // Chaos Charm
@@ -5168,26 +5191,70 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Charcoal Diamond
     &["This artifact enters tapped.\n{T}: Add {B}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chariot of the Sun
+    &[
+        "{2}, {T}: Until end of turn, target creature you control gains flying and has base toughness 1.",
+    ],
+    // Choking Sands
+    &[
+        "Destroy target non-Swamp land. If that land was nonbasic, Choking Sands deals 2 damage to the land's controller.",
+    ],
+    // Cinder Cloud
+    &[
+        "Destroy target creature. If a white creature dies this way, Cinder Cloud deals damage to that creature's controller equal to the creature's power.",
+    ],
+    // Circle of Despair
+    &[
+        "{1}, Sacrifice a creature: The next time a source of your choice would deal damage to any target this turn, prevent that damage.",
+    ],
+    // Civic Guildmage
+    &[
+        "{G}, {T}: Target creature gets +0/+1 until end of turn.\n{U}, {T}: Put target creature you control on top of its owner's library.",
+    ],
+    // Cloak of Invisibility
+    &[
+        "Enchant creature\nEnchanted creature has phasing and can't be blocked except by Walls. (It phases in or out before its controller untaps during each of their untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Consuming Ferocity
+    &[
+        "Enchant non-Wall creature\nEnchanted creature gets +1/+0.\nAt the beginning of your upkeep, put a +1/+0 counter on enchanted creature. If that creature has three or more +1/+0 counters on it, it deals damage equal to its power to its controller, then destroy that creature and it can't be regenerated.",
+    ],
+    // Coral Fighters
+    &[
+        "Whenever this creature attacks and isn't blocked, look at the top card of defending player's library. You may put that card on the bottom of that player's library.",
+    ],
     // Crash of Rhinos
     &["Trample"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crimson Hellkite
+    &[
+        "Flying\n{X}, {T}: This creature deals X damage to target creature. Spend only red mana on X.",
+    ],
+    // Crimson Roc
+    &[
+        "Flying\nWhenever this creature blocks a creature without flying, this creature gets +1/+0 and gains first strike until end of turn.",
+    ],
+    // Crypt Cobra
+    &[
+        "Whenever this creature attacks and isn't blocked, defending player gets a poison counter. (A player with ten or more poison counters loses the game.)",
+    ],
+    // Crystal Golem
+    &[
+        "At the beginning of your end step, this creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
     // Crystal Vein
     &["{T}: Add {C}.\n{T}, Sacrifice this land: Add {C}{C}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cursed Totem
+    &["Activated abilities of creatures can't be activated."],
+    // Cycle of Life
+    &[
+        "Return this enchantment to its owner's hand: Target creature you cast this turn has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature.",
+    ],
+    // Daring Apprentice
+    &["{T}, Sacrifice this creature: Counter target spell."],
+    // Dazzling Beauty
+    &[
+        "Cast this spell only during the declare blockers step.\nTarget unblocked attacking creature becomes blocked. (This spell works on creatures that can't be blocked.)\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     &[],
     &[],
     // Dirtwater Wraith
