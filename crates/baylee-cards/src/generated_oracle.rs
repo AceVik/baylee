@@ -5641,45 +5641,110 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nocturnal Raid
+    &["Black creatures get +2/+0 until end of turn."],
+    // Null Chamber
+    &[
+        "As this enchantment enters, you and an opponent each choose a card name other than a basic land card name.\nSpells with the chosen names can't be cast and lands with the chosen names can't be played.",
+    ],
+    // Pacifism
+    &["Enchant creature\nEnchanted creature can't attack or block."],
+    // Painful Memories
+    &[
+        "Look at target opponent's hand and choose a card from it. Put that card on top of that player's library.",
+    ],
     // Patagia Golem
     &["{3}: This creature gains flying until end of turn."],
-    &[],
+    // Paupers' Cage
+    &[
+        "At the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this artifact deals 2 damage to that player.",
+    ],
     // Pearl Dragon
     &["Flying\n{1}{W}: This creature gets +0/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Phyrexian Dreadnought
+    &[
+        "Trample\nWhen this creature enters, sacrifice it unless you sacrifice any number of creatures with total power 12 or greater.",
+    ],
+    // Phyrexian Purge
+    &[
+        "This spell costs 3 life more to cast for each target.\nDestroy any number of target creatures.",
+    ],
+    // Phyrexian Tribute
+    &[
+        "As an additional cost to cast this spell, sacrifice two creatures.\nDestroy target artifact.",
+    ],
     // Phyrexian Vault
     &["{2}, {T}, Sacrifice a creature: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Political Trickery
+    &[
+        "Exchange control of target land you control and target land an opponent controls. (This effect lasts indefinitely.)",
+    ],
+    // Polymorph
+    &[
+        "Destroy target creature. It can't be regenerated. Its controller reveals cards from the top of their library until they reveal a creature card. The player puts that card onto the battlefield, then shuffles all other cards revealed this way into their library.",
+    ],
+    // Preferred Selection
+    &[
+        "At the beginning of your upkeep, look at the top two cards of your library. You may sacrifice this enchantment and pay {2}{G}{G}. If you do, put one of those cards into your hand. If you don't, put one of those cards on the bottom of your library.",
+    ],
+    // Prismatic Boon
+    &[
+        "Choose a color. X target creatures gain protection from the chosen color until end of turn.",
+    ],
+    // Prismatic Circle
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAs this enchantment enters, choose a color.\n{1}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
+    ],
+    // Prismatic Lace
+    &[
+        "Target permanent becomes the color or colors of your choice. (This effect lasts indefinitely.)",
+    ],
+    // Psychic Transfer
+    &[
+        "If the difference between your life total and target player's life total is 5 or less, exchange life totals with that player.",
+    ],
+    // Purgatory
+    &[
+        "Whenever a nontoken creature is put into your graveyard from the battlefield, exile that card.\nAt the beginning of your upkeep, you may pay {4} and 2 life. If you do, return a card exiled with this enchantment to the battlefield.",
+    ],
+    // Purraj of Urborg
+    &[
+        "Purraj has first strike as long as it's attacking.\nWhenever a player casts a black spell, you may pay {B}. If you do, put a +1/+1 counter on Purraj.",
+    ],
+    // Pyric Salamander
+    &[
+        "{R}: This creature gets +1/+0 until end of turn. Sacrifice this creature at the beginning of the next end step.",
+    ],
     // Quirion Elves
     &[
         "As this creature enters, choose a color.\n{T}: Add {G}.\n{T}: Add one mana of the chosen color.",
     ],
-    &[],
-    &[],
+    // Radiant Essence
+    &["This creature gets +1/+2 as long as an opponent controls a black permanent."],
+    // Raging Spirit
+    &["{2}: This creature becomes colorless until end of turn."],
     // Rampant Growth
     &[
         "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rashida Scalebane
+    &[
+        "{T}: Destroy target attacking or blocking Dragon. It can't be regenerated. You gain life equal to its power.",
+    ],
+    // Ravenous Vampire
+    &[
+        "Flying\nAt the beginning of your upkeep, you may sacrifice a nonartifact creature. If you do, put a +1/+1 counter on this creature. If you don't, tap this creature.",
+    ],
+    // Razor Pendulum
+    &[
+        "At the beginning of each player's end step, if that player has 5 or less life, this artifact deals 2 damage to that player.",
+    ],
+    // Reality Ripple
+    &[
+        "Target artifact, creature, or land phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before its controller untaps during their next untap step.)",
+    ],
+    // Reckless Embermage
+    &["{1}{R}: This creature deals 1 damage to any target and 1 damage to itself."],
     &[],
     &[],
     &[],
