@@ -3398,11 +3398,15 @@ LeaveTable = Leave the table
 # The lobby's note after a player left a running table from its menu.
 LeftTheTable = You left the table
 
-# Leaving a networked table, armed: the house plays the chair on.
-LeaveTableConfirm = Leave? The house plays on for you. Press again
+# Leaving the table, armed: the second press leaves. As short as
+# `ConcedeConfirm`; what leaving does stands under it.
+LeaveTableConfirm = Leave? Press again
 
-# Leaving a game this client hosts offline, armed: it ends with it.
-LeaveTableConfirmOffline = Leave? This game ends. Press again
+# Under it at a networked table: the house plays the chair on.
+LeaveTableCost = The house plays on for you.
+
+# Under it in a game this client hosts offline: it ends with it.
+LeaveTableCostOffline = This game ends.
 
 # The game log panel's title (#262). Not a `Log…` phrase: those are the
 # book's own sentences, which `gamelog` writes; these are the panel's.
