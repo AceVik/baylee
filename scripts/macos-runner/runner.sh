@@ -9,10 +9,12 @@
 #
 # `serve` asks GitHub every POLL_SECS whether a job labelled baylee-vm is
 # queued. If one is, it takes the machine's cargo lock (so a CI build and a
-# `cargo dev land` never share the CPU: under load the e2e timing tests fail),
-# clones a fresh VM from the image, hands it a just-in-time registration for
-# exactly one job and deletes the VM when the job is over. Nothing a job leaves
-# behind reaches the next one, and Softnet keeps the VM off the home network.
+# `cargo dev land` never share the CPU: under load the e2e timing tests fail)
+# and, while jobs are queued, gives each a fresh VM cloned from the image, two
+# at a time (macOS allows two VMs per Mac, and a main push has two macOS
+# packages), with a just-in-time registration for exactly that job; the VM is
+# deleted when the job is over. Nothing a job leaves behind reaches the next
+# one, and Softnet keeps the VMs off the home network.
 #
 # GitHub is asked with a fine-grained token of its own (this repository only;
 # Administration: read and write, Actions: read), which the owner keeps in the
@@ -33,9 +35,10 @@ POLL_SECS=60
 # A registered runner that has not started a job by then never will: the job
 # was cancelled or taken while this one waited for the lock.
 IDLE_SECS=900
-# Two of the host's ten cores stay with the owner. The dist build peaked at
-# 9.6 GB on the host (thin LTO of the client, 22.10.2026); 16 GB holds it and
-# the guest's own macOS.
+MAX_VMS=2
+# The dist build keeps two or three cores busy on average (user over real,
+# 22.10.2026), so two VMs of eight share the host's ten well. It peaked at
+# 9.6 GB (thin LTO of the client); 16 GB holds it and the guest's own macOS.
 VM_CPUS=8
 VM_MEMORY_MB=16384
 VM_DISK_GB=120
@@ -51,17 +54,17 @@ token() {
     security find-generic-password -s "$KEYCHAIN_SERVICE" -w 2>/dev/null
 }
 
-# Is some unfinished run waiting for this runner?
-waiting() {
-    local run
+# How many jobs of unfinished runs are waiting for this runner? (0 when
+# GitHub does not answer.)
+queued() {
+    local run k n=0
     for run in $(gh api "repos/$REPO/actions/runs?status=in_progress&per_page=20" --jq '.workflow_runs[].id') \
         $(gh api "repos/$REPO/actions/runs?status=queued&per_page=20" --jq '.workflow_runs[].id'); do
-        if gh api "repos/$REPO/actions/runs/$run/jobs?filter=latest&per_page=100" \
-            --jq "any(.jobs[]; .status == \"queued\" and (.labels | index(\"$LABEL\") != null))" | grep -q true; then
-            return 0
-        fi
+        k=$(gh api "repos/$REPO/actions/runs/$run/jobs?filter=latest&per_page=100" \
+            --jq "[.jobs[] | select(.status == \"queued\" and (.labels | index(\"$LABEL\") != null))] | length")
+        n=$((n + ${k:-0}))
     done
-    return 1
+    echo "$n"
 }
 
 wait_for_agent() {
@@ -76,14 +79,11 @@ wait_for_agent() {
     return 1
 }
 
-# Runs under the cargo lock: one VM, one job.
+# One VM, one job; $1 tells the VMs of a batch apart. Run it in a subshell:
+# the EXIT trap is what deletes the VM.
 one_job() {
-    if ! waiting; then
-        log "the job was taken or cancelled while waiting for the lock"
-        return 0
-    fi
-    local vm reply runner_id tart_pid watch_pid
-    vm="$LABEL-$(date +%Y%m%d-%H%M%S)"
+    local vm reply runner_id tart_pid watch_pid status
+    vm="$LABEL-$(date +%Y%m%d-%H%M%S)-$1"
     tart clone "$IMAGE" "$vm" || return 1
     tart run "$vm" --no-graphics --net-softnet >"$HOME/Library/Logs/$vm.log" 2>&1 &
     tart_pid=$!
@@ -103,12 +103,38 @@ one_job() {
         fi
     ) &
     watch_pid=$!
-    printf '%s\n' "$reply" | jq -r .encoded_jit_config | tart exec -i "$vm" /Users/admin/start-runner.sh
-    log "$vm: runner exited ($?)"
+    # The runner's own lines, marked with the VM they came from.
+    printf '%s\n' "$reply" | jq -r .encoded_jit_config | tart exec -i "$vm" /Users/admin/start-runner.sh 2>&1 |
+        while IFS= read -r line; do printf '%s %s\n' "$vm:" "$line"; done
+    status=${PIPESTATUS[2]}
+    log "$vm: runner exited ($status)"
     kill "$watch_pid" 2>/dev/null
     # A just-in-time runner removes itself after its job; one that never got
     # a job stays registered, offline.
     gh api -X DELETE "repos/$REPO/actions/runners/$runner_id" >/dev/null 2>&1 || true
+}
+
+# Runs under the cargo lock: while jobs are queued, up to MAX_VMS at a time,
+# each in a VM of its own. A main push that lands meanwhile is served before
+# the lock goes back.
+batch() {
+    local n i
+    while true; do
+        n=$(queued)
+        if [ "${n:-0}" -le 0 ]; then
+            break
+        fi
+        if [ "$n" -gt "$MAX_VMS" ]; then
+            n=$MAX_VMS
+        fi
+        log "$n job(s) queued"
+        for i in $(seq 1 "$n"); do
+            (one_job "$i") &
+        done
+        wait
+        # A registration GitHub refuses must not become a loop of clones.
+        sleep 10
+    done
 }
 
 serve() {
@@ -120,9 +146,9 @@ serve() {
     export GH_TOKEN
     log "serving $REPO as $LABEL from $IMAGE"
     while true; do
-        if waiting; then
+        if [ "$(queued)" -gt 0 ]; then
             log "a job is queued; taking the cargo lock"
-            BAYLEE_SESSION="macos-runner (CI job)" "$LOCK" "$0" one-job
+            BAYLEE_SESSION="macos-runner (CI jobs)" "$LOCK" "$0" batch
         fi
         sleep "$POLL_SECS"
     done
@@ -180,7 +206,7 @@ install_agent() {
 case ${1:-} in
 prepare) prepare ;;
 serve) serve ;;
-one-job) one_job ;;
+batch) batch ;;
 install) install_agent ;;
 *)
     echo "usage: runner.sh prepare|serve|install" >&2

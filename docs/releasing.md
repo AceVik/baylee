@@ -228,10 +228,13 @@ Each job runs in a throwaway Tart VM (`scripts/macos-runner/runner.sh`):
 - **Nothing stays.** Every job gets a fresh clone of the image `baylee-runner`,
   deleted afterwards. Softnet (`--net-softnet`) lets the VM reach the internet
   and not the home network.
-- **The cargo lock.** The runner holds `with-cargo-lock.sh` for each job, so a
-  CI build and a `cargo dev land` never share the CPU (under load the e2e
-  timing tests fail). A land waits for at most one job; a job waits queued,
-  which does not count against its timeout.
+- **The cargo lock.** The runner holds `with-cargo-lock.sh` while jobs are
+  queued for it, so a CI build and a `cargo dev land` never share the CPU
+  (under load the e2e timing tests fail). It builds a main push's two macOS
+  packages at once, a VM each (macOS allows two per Mac), so a land waits for
+  about one package's build; a job waits queued, which does not count against
+  its timeout. One job at a time, as first written, let a land in between
+  the two (22.10.2026), and the second package waited for the whole land.
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.
