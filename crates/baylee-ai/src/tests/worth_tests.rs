@@ -1044,7 +1044,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Protection: Shadow, Coffin Queen, Cold Storage (2), Crazed Armodon, Crown
     // of Flames (2), and Cursed Scroll, of which 8 are read before the two
     // generated cards promote to Implemented.
-    assert_eq!((read, of), (2735, 3428), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 2 adds 7 non-mana activated abilities across
+    // Dracoplasm, Echo Chamber, Enraging Licid, Essence Bottle (2), Excavator,
+    // and Fevered Convulsions, of which 5 are read by the evaluator.
+    assert_eq!((read, of), (2740, 3435), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

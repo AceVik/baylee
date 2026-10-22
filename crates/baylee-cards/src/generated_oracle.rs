@@ -7608,7 +7608,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{B}{B}: Target creature gains shadow until end of turn. (It can block or be blocked by only creatures with shadow.)",
     ],
-    &[],
+    // Dauthi Ghoul
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever a creature with shadow dies, put a +1/+1 counter on this creature.",
+    ],
     // Dauthi Horror
     &[
         "Shadow (This creature can block or be blocked by only creatures with shadow.)\nThis creature can't be blocked by white creatures.",
@@ -7619,47 +7622,98 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{1}{B}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
+    // Dauthi Mindripper
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever this creature attacks and isn't blocked, you may sacrifice it. If you do, defending player discards three cards.",
+    ],
     // Dauthi Slayer
     &[
         "Shadow (This creature can block or be blocked by only creatures with shadow.)\nThis creature attacks each combat if able.",
     ],
-    &[],
-    &[],
-    &[],
+    // Deadshot
+    &["Tap target creature. It deals damage equal to its power to another target creature."],
+    // Death Pits of Rath
+    &["Whenever a creature is dealt damage, destroy it. It can't be regenerated."],
+    // Diabolic Edict
+    &["Target player sacrifices a creature of their choice."],
     // Dismiss
     &["Counter target spell.\nDraw a card."],
-    &[],
-    &[],
+    // Disturbed Burial
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn target creature card from your graveyard to your hand.",
+    ],
+    // Dracoplasm
+    &[
+        "Flying\nAs this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures and its toughness becomes their total toughness.\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
     // Dread of Night
     &["White creatures get -1/-1."],
-    &[],
-    &[],
+    // Dregs of Sorrow
+    &["Destroy X target nonblack creatures. Draw X cards."],
+    // Duplicity
+    &[
+        "When this enchantment enters, exile the top five cards of your library face down.\nAt the beginning of your upkeep, you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this enchantment into your hand.\nAt the beginning of your end step, discard a card.\nWhen you lose control of this enchantment, put all cards exiled with this enchantment into their owner's graveyard.",
+    ],
     // Earthcraft
     &["Tap an untapped creature you control: Untap target basic land."],
-    &[],
-    &[],
+    // Echo Chamber
+    &[
+        "{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery.",
+    ],
+    // Eladamri's Vineyard
+    &["At the beginning of each player's first main phase, that player adds {G}{G}."],
     // Eladamri, Lord of Leaves
     &[
         "Other Elf creatures have forestwalk. (They can't be blocked as long as defending player controls a Forest.)\nOther Elves have shroud. (They can't be the targets of spells or abilities.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Elite Javelineer
+    &["Whenever this creature blocks, it deals 1 damage to target attacking creature."],
+    // Elven Warhounds
+    &[
+        "Whenever this creature becomes blocked by a creature, put that creature on top of its owner's library.",
+    ],
+    // Elvish Fury
+    &[
+        "Buyback {4} (You may pay an additional {4} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget creature gets +2/+2 until end of turn.",
+    ],
+    // Emerald Medallion
+    &["Green spells you cast cost {1} less to cast."],
     // Emmessi Tome
     &["{5}, {T}: Draw two cards, then discard a card."],
-    &[],
+    // Endless Scream
+    &[
+        "Enchant creature\nThis Aura enters with X scream counters on it.\nEnchanted creature gets +1/+0 for each scream counter on this Aura.",
+    ],
     // Energizer
     &["{2}, {T}: Put a +1/+1 counter on this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Enraging Licid
+    &[
+        "{R}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {R} to end this effect.\nEnchanted creature has haste.",
+    ],
+    // Ertai's Meddling
+    &[
+        "X can't be 0.\nTarget spell's controller exiles it with X delay counters on it.\nAt the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, the player puts it onto the stack as a copy of the original spell.",
+    ],
+    // Escaped Shapeshifter
+    &[
+        "As long as an opponent controls a creature with flying not named Escaped Shapeshifter, this creature has flying. The same is true for first strike, trample, and protection from any color.",
+    ],
+    // Essence Bottle
+    &[
+        "{3}, {T}: Put an elixir counter on this artifact.\n{T}, Remove all elixir counters from this artifact: You gain 2 life for each elixir counter removed this way.",
+    ],
+    // Evincar's Justice
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nEvincar's Justice deals 2 damage to each creature and each player.",
+    ],
+    // Excavator
+    &[
+        "{T}, Sacrifice a basic land: Target creature gains landwalk of each of the land types of the sacrificed land until end of turn. (It can't be blocked as long as defending player controls a land of any of those types.)",
+    ],
+    // Extinction
+    &["Destroy all creatures of the creature type of your choice."],
+    // Fevered Convulsions
+    &["{2}{B}{B}: Put a -1/-1 counter on target creature."],
     // Field of Souls
     &[
         "Whenever a nontoken creature is put into your graveyard from the battlefield, create a 1/1 white Spirit creature token with flying.",
@@ -7670,7 +7724,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\n{R}: This creature gets +1/+0 until end of turn."],
     // Fireslinger
     &["{T}: This creature deals 1 damage to any target and 1 damage to you."],
-    &[],
+    // Flailing Drake
+    &[
+        "Flying\nWhenever this creature blocks or becomes blocked by a creature, that creature gets +1/+1 until end of turn.",
+    ],
     &[],
     // Flowstone Giant
     &["{R}: This creature gets +2/-2 until end of turn."],

@@ -696,3 +696,4 @@ no-engine-change contract:
   - Batch 5 (`Timid Drake` to `Zombie Scavengers`, 15 cards): **11 Implemented, 4 Partial**.
 - **Tempest (`tmp`)** — in progress:
   - Batch 1 (`Abandon Hope` to `Cursed Scroll`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Dauthi Ghoul` to `Flailing Drake`, 25 cards): **10 Implemented, 15 Partial**.

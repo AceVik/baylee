@@ -1,0 +1,31 @@
+//! Ertai's Meddling — {X}{U} — Instant
+//! Oracle: X can't be 0.
+//! Oracle: Target spell's controller exiles it with X delay counters on it.
+//! Oracle: At the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, the player puts it onto the stack as a copy of the original spell.
+//! Set: TMP #61 — Tempest | Scryfall ID: 35c7e7fa-1493-4ef8-9cdb-b02b07a1ad85 | Oracle ID: 609c529a-b3b3-46d5-b9d0-ae0117507d6e
+// PARTIAL
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::ERTAI_S_MEDDLING,
+    oracle_id = "609c529a-b3b3-46d5-b9d0-ae0117507d6e",
+    scryfall_id = "35c7e7fa-1493-4ef8-9cdb-b02b07a1ad85",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial(
+        "Exiles target spell when X is 1 or more; restricting X from being 0 at cast time, putting X delay counters on the exiled card, and removing delay counters each upkeep to put it back onto the stack as a copy are not yet modeled."
+    ),
+    faces = &[face!(
+        name = "Ertai's Meddling",
+        mana_cost = mana!("{X}{U}"),
+        types = TypeSet::INSTANT,
+    ),],
+    abilities = &[spell!(
+        &[Effect::IfCondition {
+            condition: Condition::XAtLeast(1),
+            then: &[Effect::CounterTargetSpellToExile],
+            otherwise: &[],
+        }],
+        targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))),
+    )],
+);
