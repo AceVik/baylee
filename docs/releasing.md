@@ -424,7 +424,7 @@ permanent in every package, so a runtime must read a session from every
 older launcher. A directly started runtime also cannot auto-install; use the
 normal packaged launch path.
 
-"Restart now" (`baylee_update::relaunch`, `docs/client.md` §"Restarting
+"Restart to update" (`baylee_update::relaunch`, `docs/client.md` §"Restarting
 into an update") needs no launcher change: the runtime leaves its own
 executable behind as a helper that waits for the old runtime (the end of
 its stdin) and the old launcher (the lifetime lock) before it starts the

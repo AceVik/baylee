@@ -8,10 +8,11 @@ mod support;
 use baylee_update::apply::{self, Install};
 use baylee_update::check::{Checker, Context, Manual, Outcome};
 use baylee_update::plan::{NEW, Os};
-use baylee_update::service::{Command, Service, Settings};
+use baylee_update::progress::Stage;
+use baylee_update::service::{Command, Report, Service, Settings};
 use baylee_update::sign::{self, SigningKey, VerifyingKey};
 use sha2::{Digest as _, Sha256};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use support::{Answer, Stub, expected, installed, snapshot};
 
 const OLD: &str = "0.1.0-beta.2";
@@ -385,15 +386,227 @@ fn with_automatic_checks_off_no_request_is_made() {
     .unwrap();
     std::thread::sleep(Duration::from_millis(400));
     assert_eq!(stub.count(), 0, "a request with automatic checks off");
-    assert!(service.outcomes.try_recv().is_err());
+    assert!(
+        service.reports.try_recv().is_err(),
+        "not even a check begun"
+    );
     // The same service, asked: the stub was there all along.
     service.send(Command::CheckNow);
-    let outcome = service
-        .outcomes
-        .recv_timeout(Duration::from_secs(20))
-        .unwrap();
-    assert!(matches!(outcome, Outcome::Staged { .. }), "{outcome:?}");
+    let reports = until_done(&service);
+    assert!(
+        matches!(reports.last(), Some(Report::Done(Outcome::Staged { .. }))),
+        "{reports:?}"
+    );
     assert!(stub.count() >= 1);
+}
+
+/// Every report of one check, up to and with its end.
+fn until_done(service: &Service) -> Vec<Report> {
+    let mut reports = Vec::new();
+    loop {
+        let report = service
+            .reports
+            .recv_timeout(Duration::from_secs(20))
+            .expect("the check ends");
+        let done = matches!(report, Report::Done(_));
+        reports.push(report);
+        if done {
+            return reports;
+        }
+    }
+}
+
+/// A check that stages a release says so as it goes, in order: begun,
+/// found (with the archive's size), the bytes as they arrive (never fewer
+/// than before, the last of them the whole archive), verifying,
+/// unpacking, and the end, staged.
+#[test]
+fn a_check_reports_each_stage_of_staging_in_order() {
+    let os = Os::Linux;
+    let stub = Stub::start();
+    publish(&stub, os, Publish::Signed);
+    let (_, install, _) = installed(os, OLD, "progress");
+    let service = Service::start(
+        api(&stub),
+        context(os, &install, vec![test_key().verifying_key()]),
+        Settings {
+            check: true,
+            install: true,
+        },
+        false,
+        Duration::from_hours(1),
+    )
+    .unwrap();
+    let reports = until_done(&service);
+    let mut stages = reports.iter();
+    assert!(matches!(stages.next(), Some(Report::Checking { .. })));
+    let Some(Report::Stage(Stage::Found {
+        version,
+        page,
+        size,
+    })) = stages.next()
+    else {
+        panic!("found first: {reports:?}");
+    };
+    assert_eq!(version, NEWER);
+    assert_eq!(page, &format!("{}/page/v{NEWER}", stub.base));
+    let readings: Vec<_> = reports
+        .iter()
+        .filter_map(|r| match r {
+            Report::Stage(Stage::Downloading(t)) => Some(*t),
+            _ => None,
+        })
+        .collect();
+    assert!(readings.len() >= 2, "the start and the end: {readings:?}");
+    assert_eq!(readings[0].received, 0);
+    for pair in readings.windows(2) {
+        assert!(pair[1].received >= pair[0].received, "monotone: {pair:?}");
+    }
+    for reading in &readings {
+        assert_eq!(reading.total, *size);
+    }
+    let last = readings.last().unwrap();
+    assert_eq!(last.received, *size, "the bytes add up to the archive");
+    let rest: Vec<_> = reports
+        .iter()
+        .filter(|r| !matches!(r, Report::Stage(Stage::Downloading(_))))
+        .skip(2)
+        .collect();
+    assert!(
+        matches!(
+            rest.as_slice(),
+            [
+                Report::Stage(Stage::Verifying),
+                Report::Stage(Stage::Unpacking),
+                Report::Done(Outcome::Staged { .. })
+            ]
+        ),
+        "{rest:?}"
+    );
+    // Downloading lies between found and verifying.
+    let at = |want: fn(&Report) -> bool| reports.iter().position(want).unwrap();
+    let verifying = at(|r| matches!(r, Report::Stage(Stage::Verifying)));
+    let first = at(|r| matches!(r, Report::Stage(Stage::Downloading(_))));
+    let final_reading = reports
+        .iter()
+        .rposition(|r| matches!(r, Report::Stage(Stage::Downloading(_))))
+        .unwrap();
+    assert!(first == 2 && final_reading < verifying, "{reports:?}");
+    assert_eq!(apply::staged(&install).unwrap().version, NEWER);
+}
+
+/// A release that is staged already, or only linked to, reports no stage:
+/// it begins and ends.
+#[test]
+fn a_check_with_nothing_to_download_reports_no_stage() {
+    let os = Os::Linux;
+    let stub = Stub::start();
+    publish(&stub, os, Publish::Unsigned);
+    let (_, install, _) = installed(os, OLD, "no-stage");
+    let service = Service::start(
+        api(&stub),
+        context(os, &install, vec![test_key().verifying_key()]),
+        Settings {
+            check: true,
+            install: true,
+        },
+        false,
+        Duration::from_hours(1),
+    )
+    .unwrap();
+    let reports = until_done(&service);
+    assert!(
+        matches!(
+            reports.as_slice(),
+            [
+                Report::Checking { .. },
+                Report::Done(Outcome::Available {
+                    why: Manual::Unsigned,
+                    ..
+                })
+            ]
+        ),
+        "{reports:?}"
+    );
+}
+
+/// The first check leaves as the service starts, not after a delay: the
+/// stub sees the request within 3 s even on a loaded machine (it takes
+/// milliseconds), and the report that it began says when.
+#[test]
+fn the_first_check_leaves_as_soon_as_the_service_starts() {
+    let os = Os::Linux;
+    let stub = Stub::start();
+    publish(&stub, os, Publish::Unsigned);
+    let (_, install, _) = installed(os, OLD, "soon");
+    let started = Instant::now();
+    let service = Service::start(
+        api(&stub),
+        context(os, &install, vec![test_key().verifying_key()]),
+        Settings {
+            check: true,
+            install: true,
+        },
+        false,
+        Duration::from_hours(1),
+    )
+    .unwrap();
+    wait_for(&stub, 1);
+    let seen = started.elapsed();
+    assert_eq!(stub.count(), 1);
+    assert!(
+        seen < Duration::from_secs(3),
+        "first request after {seen:?}"
+    );
+    let Ok(Report::Checking { at }) = service.reports.recv_timeout(Duration::from_secs(5)) else {
+        panic!("a check begins");
+    };
+    assert!(at.duration_since(started) <= seen, "said before it asked");
+}
+
+/// A client that stops listening in the middle of a download stops it:
+/// nothing is staged and no part of the archive is left behind.
+#[test]
+fn a_download_nobody_waits_for_stops() {
+    let os = Os::Linux;
+    let stub = Stub::start();
+    publish(&stub, os, Publish::Signed);
+    let (_, install, _) = installed(os, OLD, "nobody");
+    let mut checker = Checker::new(api(&stub), OLD);
+    let mut said = Vec::new();
+    let outcome = checker.run_reporting(
+        &context(os, &install, vec![test_key().verifying_key()]),
+        &mut |stage| {
+            let downloading = matches!(stage, Stage::Downloading(_));
+            said.push(stage);
+            !downloading
+        },
+    );
+    assert!(
+        matches!(
+            &outcome,
+            Outcome::Available { why: Manual::Download(why), .. } if why.contains("nobody")
+        ),
+        "{outcome:?}"
+    );
+    assert_eq!(said.len(), 2, "found and one reading: {said:?}");
+    assert_eq!(apply::staged(&install), None);
+    let left: Vec<_> = std::fs::read_dir(install.stage())
+        .map(|d| {
+            d.flatten()
+                .map(|e| e.file_name().to_string_lossy().into_owned())
+                .collect()
+        })
+        .unwrap_or_default();
+    assert!(
+        left.iter().all(|n| {
+            std::path::Path::new(n)
+                .extension()
+                .is_none_or(|e| e != "part")
+                && !n.ends_with(".tar.gz")
+        }),
+        "left behind: {left:?}"
+    );
 }
 
 /// On: at start, and again every period, the second time with the `ETag`.

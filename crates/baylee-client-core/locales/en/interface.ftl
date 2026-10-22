@@ -816,15 +816,13 @@ UpdateWhyOther = This update cannot be installed automatically.
 # Opens the release page.
 ReleaseNotes = Release notes
 
-# Puts the notice away for this session.
-UpdateHide = Hide
-
-# The ready update's offer, under its headline (beta.6): a restart
-# installs it and comes back to where the player is.
-UpdateRestartOffer = Update ready – restart now and continue where you are.
+# The ready update's offer, under its title (beta.6): a restart
+# installs it and comes back to where the player is; else it installs
+# when the player quits.
+UpdateRestartOffer = Restart now and carry on right where you are – or later: it installs when you quit.
 
 # The ready update's button: restart into it now.
-UpdateRestartNow = Restart now
+UpdateRestartNow = Restart to update
 
 # The ready update's other button: not now, for this session.
 UpdateLater = Later
@@ -870,6 +868,87 @@ UpdateUpToDate = Baylee is up to date.
 
 # A check that could not ask (offline, rate limited).
 UpdateCheckFailed = Could not check for updates.
+
+# The update card's title while an update downloads, verifies or
+# unpacks, or after its download failed. `$version` its version.
+# Arguments: version
+UpdateCardTitle = Update { $version }
+
+# The update card's title once the update is downloaded, verified and
+# waiting to be installed.
+# Arguments: version
+UpdateCardReady = Update { $version } is ready
+
+# The update card's title for an update that does not install itself.
+# Arguments: version
+UpdateCardAvailable = Update { $version } available
+
+# Above the card's bar: the update's archive is arriving.
+UpdateDownloading = Downloading…
+
+# Above the full bar: its checksum and signature are being checked.
+UpdateVerifying = Verifying…
+
+# Above the full bar: it is being unpacked beside the installation.
+UpdateUnpacking = Unpacking…
+
+# Under the bar: how much has arrived of how much. `$received` a number,
+# `$total` a number and its unit ("150 MB").
+# Arguments: received, total
+UpdateBytesOf = { $received } of { $total }
+
+# Beside the stage, above the bar: how much has arrived, `$percent`
+# whole percent.
+# Arguments: percent
+UpdatePercent = { $percent }%
+
+# Under the bar: the time left, under a minute. `$count` seconds, in
+# steps of five; "s" is the unit, so it has no plural.
+# Arguments: count
+UpdateLeftSeconds = about { $count } s left
+
+# Under the bar: the time left, in whole minutes ("min", no plural).
+# Arguments: count
+UpdateLeftMinutes = about { $count } min left
+
+# Under the bar: hardly any time left.
+UpdateLeftMoment = a few seconds left
+
+# Under the bar: an hour or more left.
+UpdateLeftHours = more than an hour left
+
+# Under the full bar while it verifies. `$size` a number and its unit.
+# Arguments: size
+UpdateDownloaded = { $size } downloaded
+
+# Under the full bar while it unpacks.
+UpdateSignatureVerified = Signature verified
+
+# The table menu's line and the settings' status while the update
+# downloads. `$version` its version.
+# Arguments: version
+UpdateDownloadingLine = Downloading update { $version }
+
+# The same while it verifies.
+# Arguments: version
+UpdateVerifyingLine = Verifying update { $version }…
+
+# The same while it unpacks.
+# Arguments: version
+UpdateUnpackingLine = Unpacking update { $version }…
+
+# The table menu's line and the settings' status after the download
+# failed. `$version` its version.
+# Arguments: version
+UpdateFailedLine = Update { $version } did not download – tried again at the next check
+
+# The update card's line after the download failed. `$error` what went
+# wrong, as the system said it.
+# Arguments: error
+UpdateFailedWhy = The download stopped ({ $error }). Baylee tries again at the next check.
+
+# The failed card's button: check, and download, again now.
+UpdateTryAgain = Try again
 
 # Leaves the account.
 SignOut = Sign out

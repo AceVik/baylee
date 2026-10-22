@@ -9237,6 +9237,17 @@ and every six hours: no account, `User-Agent: Baylee/<version>`, the last
 build is offered stable releases only, a pre-release build both, ordered by
 semver precedence (`0.1.0-beta.10` after `beta.9`).
 
+The first check leaves as early as the client can (owner, 22.10.2026:
+"check as quickly as possible"): `update::native::begin` runs in
+`standalone::run` right after the settings store opens, before the window,
+the renderer and the lobby are built, and starts the thread, whose first
+request leaves at once. The log says how soon: in the live check of
+22.10.2026, a debug build, "begun 3 ms after the process started" and "first
+check asked 5 ms after", where the plugin's build (the old start) came at
+317–356 ms. `begin` runs before Bevy's logger exists, so what it says is kept
+and logged once the plugin is built. With automatic checks off it still
+makes no request at all.
+
 **Staging.** For a newer release it downloads the archive for its own target
 into its per-user state directory, checks the size, the `.sha256` (a
 sanity check against a broken download, nothing more) and then the Ed25519
@@ -9247,6 +9258,18 @@ the signed internal folder must name the exact offered version and target;
 only then is `staged.json` written. An unsigned archive is never
 downloaded, and a refused one is deleted; the notice then only links to the
 release page.
+
+**Reporting.** The thread says how far it has got (`service::Report`):
+a check begun (with when), found (version, page, the archive's size), the
+download as it arrives, verifying, unpacking, and the check's end
+(`Report::Done(Outcome)`, as before). `progress::Meter` turns the 64 KiB
+reads into at most four readings a second, always the first and the last,
+so the readings a client sees add up to the archive; its rate is smoothed
+over a 3 s time constant and said only after 0.75 s of download, and the
+time left follows it. A client that has gone stops a download in the
+middle, leaving no part of it behind. A download that fails is said as
+such ("tried again at the next check"); the next check, or "Try again",
+downloads it anew.
 
 **Installing on exit.** The public executable is a permanent launcher; the
 real client is `baylee-runtime`. On exit the updater places the verified
@@ -9333,16 +9356,58 @@ folder it runs from is `target/release`, not an installation. Under
 `BAYLEE_UPDATE_KEY` point it at a stub, make it pretend to be an older
 version and make it trust a test key.
 
-**The face.** `update::UpdateNotice` is what is shown: a small panel in the
-lobby's bottom-left corner (hidden for the session by its own button, back
-on news) and a line in the table's menu, both opening the release page
-(`https` only, or a loopback stub). The settings screen has "Update
-automatically", "Check for updates automatically" (off: no request at all,
-until "Check for updates" is pressed) and that button, kept per device in
-`update.json`.
+**The card.** `update::UpdateNotice` is what is shown, and `update::card`
+draws it on the shell's kit: one card in the lobby's bottom-left corner,
+above the front door's colophon, 336 px wide at the default text step and
+opaque, with an accent edge on its left. Its title names the version beside
+a mark in the accent; under it:
 
-A ready update (staged and verified) also offers "Restart now" and "Later"
-on that panel, and at a table (§"Restarting into an update").
+- **Downloading**: a slim bar, the share beside "Downloading…" ("45%",
+  German "45 %"), and "45 of 150 MB · 3.2 MB/s · about 30 s left" under it
+  (SI megabytes; what has arrived rounded down, so it never reads the whole
+  early; the time left in steps of 5 s, then whole minutes, then "more than
+  an hour"; `update/words.rs`).
+- **Verifying**, **unpacking**: the full bar, "Verifying…" over "150 MB
+  downloaded", then "Unpacking…" over "Signature verified".
+- **Ready**: "Update X is ready", "Restart now and carry on right where you
+  are – or later: it installs when you quit", **Restart to update** (the
+  screen's one primary) and **Later**.
+- **Failed**: why, in the system's words, that the next check tries again,
+  and **Try again** with the release notes.
+- **Only a link** (installing off, a development build, a folder this user
+  cannot write, a refused signature): why, the moves where one helps
+  ("Moving the app", above), and the release notes; **Updated to X** after an
+  update, with its release notes.
+
+Every card but the ready one has a close mark, which hides it for the
+session; "Later" does that for the ready one. It comes back only for news:
+another version, or one that has become ready (`UpdateNotice::show`), so a
+card hidden during the download stays hidden through its stages and
+returns once there is something to restart into. Nothing plays a sound,
+takes the keyboard or covers the screen. At a table no card stands but the
+ready one (§"Restarting into an update"); the table menu's line says the
+rest and follows a download's share ("Downloading update X · 45%"), and the
+settings' status line says the whole download line. The pages open only
+over `https`, or a loopback stub.
+
+A reading writes only the bar's width (in tenths of a percent) and the two
+numbers, compared before writing; `UpdateNotice::progress` stands beside
+`shown`, so the card, the table menu and its revision rebuild only when the
+stage changes, and a download relays nothing else out. The settings screen
+has "Update automatically", "Check for updates automatically" (off: no
+request at all, until "Check for updates" is pressed) and that button, kept
+per device in `update.json`.
+
+**Showing every state without a release** (`dev-control` only):
+`POST /shell {"update":{"stage":…}}` feeds the card the reports the thread
+would send, by the same path (`update/native/dev.rs`): `found`,
+`downloading` (`received`, `total`, `rate`, `left`), `verifying`,
+`unpacking`, `staged`, `failed` (`reason`), `available` (`why`: `dev`,
+`off`, `unsigned`, `folder`, `other`), `updated`, `moved` and `kept` (the
+start's own cards, set directly), and `simulate` (`size`, `ms`): a whole
+download in real time through the updater's own meter on a line whose speed
+wanders, then verifying, unpacking and ready. Point `BAYLEE_UPDATE_API` at
+a closed loopback port, and the real check makes no request off the machine.
 
 **macOS quarantine.** Files the client writes are not quarantined: macOS
 marks a download with `com.apple.quarantine` only when the program that
@@ -9364,20 +9429,21 @@ The owner, 09.10.2026 (beta.6): when an update is ready, the client
 suggests a restart, and after it the player goes on at exactly the same
 point, in a game too.
 
-**The offer.** `Shown::Ready` (staged and verified) draws "Update ready –
-restart now and continue where you are" with **Restart now**, **Later**
-and the release notes: in the lobby's corner panel, and at a table at the
-top of the window. At a table it never appears in the middle of a question
+**The offer.** `Shown::Ready` (staged and verified) draws the ready card
+("Restart now and carry on right where you are – or later: it installs when
+you quit", **Restart to update** and **Later**; §"Updating"): in the
+lobby's corner, and at a table at the top of the window. At a table it never appears in the middle of a question
 of this player's (`client-core::resume::RestartOffer`): an update that
 becomes ready while the player owes an answer is held until that question
 is answered, and appears then, between that answer and whatever comes
 next, or at once while nothing is asked. Against the house the player is
 asked almost every frame, so "only while nothing is asked" would never show
 it. Once it stands it stays (a panel, never a question, and it takes no
-key) until "Later", which puts it away for the session. The table's menu
-line is unchanged.
+key) until "Later", which puts it away for the session. A download, a
+failure or a link never stands over a table; the table's menu line says
+them (§"Updating").
 
-**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart now"
+**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart to update"
 writes where the player is to `resume.json` beside the settings (`0600`,
 atomically), leaves the relaunch helper behind with the handoff on its
 pipe (`update::native::restart`, `baylee_update::relaunch`), and quits; the
