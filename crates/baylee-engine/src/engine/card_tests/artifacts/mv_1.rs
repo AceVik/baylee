@@ -53,6 +53,7 @@ mod tanglebloom;
 mod the_rack;
 mod throne_of_bone;
 mod traveler_s_amulet;
+mod triangle_of_war;
 mod urza_s_chalice;
 mod voltaic_key;
 mod wanderer_s_twig;

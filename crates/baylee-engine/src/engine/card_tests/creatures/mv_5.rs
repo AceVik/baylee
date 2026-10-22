@@ -142,6 +142,7 @@ mod spock_logical_choice;
 mod starlit_angel;
 mod staunch_defenders;
 mod sunastian_falconer;
+mod talruum_piper;
 mod taniwha;
 mod tatyova_benthic_druid;
 mod telim_tor;

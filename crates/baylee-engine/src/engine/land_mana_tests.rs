@@ -1620,7 +1620,7 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     creature_promises: 90..=90,
     unparsed: 57..=57,
     fully_read: 373,
-    costly_lines: 141..=141,
+    costly_lines: 142..=142,
     triggered_lines: 23..=23,
     granted_lines: 41..=41,
     self_granted: 7..=7,
@@ -1686,7 +1686,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 102, 80, 0, 0),
+        (4, 103, 80, 0, 0),
         "the measured skip categories changed"
     );
 }

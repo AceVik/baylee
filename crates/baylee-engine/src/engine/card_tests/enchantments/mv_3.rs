@@ -89,6 +89,7 @@ mod spidersilk_armor;
 mod still_life;
 mod stormbind;
 mod teferi_s_care;
+mod teferi_s_realm;
 mod temur_ascendancy;
 mod thelon_s_chant;
 mod think_tank;
