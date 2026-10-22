@@ -219,9 +219,10 @@ fn the_panel_survives_the_rebuild_the_arming_press_causes() {
     let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
     assert!(shown, "the menu is open");
     assert_eq!(
-        rows, 10,
-        "three ways out, the report row, the tour's row, music controls, the \
-         priority sound's switch, a rule, the version and Scryfall's attribution"
+        rows, 11,
+        "three ways out and what leaving costs, the report row, the tour's \
+         row, music controls, the priority sound's switch, a rule, the version \
+         and Scryfall's attribution"
     );
     // The shelf's own children, less the two casts: those are spawned
     // with the shelf and exempt from its rebuild, so counting them would
@@ -425,6 +426,14 @@ fn the_menu_offers_no_way_out_of_a_game_that_has_ended() {
     );
 }
 
+/// How many rows the game menu's panel stands in.
+fn panel_rows(app: &mut App) -> usize {
+    let mut panels = app
+        .world_mut()
+        .query_filtered::<&Children, With<ledge::menu::MenuPanel>>();
+    panels.iter(app.world()).map(|kids| kids.len()).sum()
+}
+
 /// Opens the game menu through the door a click uses.
 fn open_the_menu(app: &mut App) {
     crate::input::menu_click(
@@ -441,8 +450,10 @@ fn open_the_menu(app: &mut App) {
 /// and the menu offers no second one. On the old code there was no such row.
 ///
 /// Since 22.10.2026 the armed row is as short as the concession's and what
-/// leaving costs stands in a line under it (owner: the armed words were too
-/// long for the row).
+/// leaving costs stands in a line under the row, armed or not (owner: the
+/// armed words were too long for the row). Arming adds no row: the panel
+/// grows upward from the burger, so a line that came with the arming slid
+/// the row out from under the pointer about to press it again.
 #[test]
 fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     let leave = Phrase::LeaveTable.text(Lang::En).to_string();
@@ -461,9 +472,10 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     assert!(pressed(&lines, &leave), "a row to leave by: {lines:?}");
     assert!(!pressed(&lines, &armed));
     assert!(
-        !pressed(&lines, &networked) && !pressed(&lines, &house),
-        "unarmed, no cost is quoted: {lines:?}"
+        pressed(&lines, &networked) && !pressed(&lines, &house),
+        "the cost is said before the first press: {lines:?}"
     );
+    let rows = panel_rows(&mut app);
     crate::input::menu_click(
         &mut app.world_mut().resource_mut::<Duel>(),
         MenuAction::LeaveGame,
@@ -482,6 +494,7 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
         !pressed(&lines, &leave),
         "and the row now asks for the second press, not the first"
     );
+    assert_eq!(panel_rows(&mut app), rows, "arming moves no row");
 
     // A game this client hosts: the same row, the other wording.
     let mut app = bar_of(duel_with(false));

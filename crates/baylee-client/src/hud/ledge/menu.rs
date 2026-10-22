@@ -428,31 +428,31 @@ pub fn sync_menu(
             action: MenuAction::LeaveGame,
         });
         commands.entity(panel).add_child(leave);
-        // Armed, what leaving costs stands under the row, as the host's
-        // Leave says it under its question (DESIGN-v5 §5): the row itself is
-        // as short as the concession's (owner, 22.10.2026: the armed words
-        // were too long for it). Under the row, so nothing above the pointer
-        // moves.
-        if next.leaving {
-            let cost = if next.house {
-                Phrase::LeaveTableCostOffline
-            } else {
-                Phrase::LeaveTableCost
-            };
-            let line = commands
-                .spawn((
-                    Text::new(cost.text(lang)),
-                    tf(&fonts, VERSION_PT),
-                    TextColor(palette::DIALOG_SOFT),
-                    Node {
-                        width: percent(100),
-                        ..default()
-                    },
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(panel).add_child(line);
-        }
+        // What leaving costs stands under the row, as the host's Leave says
+        // it under its question (DESIGN-v5 §5): the armed row itself is as
+        // short as the concession's (owner, 22.10.2026: the armed words were
+        // too long for it). Armed or not, so arming moves nothing: the panel
+        // stands on the burger and grows upward, and a line that came with
+        // the arming slid the row out from under the pointer about to press
+        // it again (found on the live check).
+        let cost = if next.house {
+            Phrase::LeaveTableCostOffline
+        } else {
+            Phrase::LeaveTableCost
+        };
+        let line = commands
+            .spawn((
+                Text::new(cost.text(lang)),
+                tf(&fonts, VERSION_PT),
+                TextColor(palette::DIALOG_SOFT),
+                Node {
+                    width: percent(100),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(panel).add_child(line);
     }
 
     // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is

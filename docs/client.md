@@ -10787,10 +10787,13 @@ chosen").
   window, and the lobby says "You left the table". Offline the game this
   client hosts ends with it. Armed, the row says only *Leave? Press again*,
   as short as the concession's, and what leaving costs stands in a quiet
-  line under it (*The house plays on for you.* / *This game ends.*), as
-  the host's Leave says it under its question (owner, 22.10.2026: the armed
-  words were too long for the row; `the_panel_is_wide_enough_for_everything_it_can_ever_say`
-  now measures every row the menu draws). A spectator's way
+  line under the row (*The house plays on for you.* / *This game ends.*),
+  armed or not, as the host's Leave says it under its question (owner,
+  22.10.2026: the armed words were too long for the row;
+  `the_panel_is_wide_enough_for_everything_it_can_ever_say` now measures
+  every row the menu draws). Arming adds no row: the panel grows upward
+  from the burger, and a line that came with the arming slid the armed row
+  out from under the pointer. A spectator's way
   out stays *Stop watching*; a finished game's stays the end screen's.
 
 The October 14 real-client check recorded five seconds at 20 samples/s,
