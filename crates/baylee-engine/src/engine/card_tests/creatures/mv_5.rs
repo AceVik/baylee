@@ -3,8 +3,15 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+
+
+
+
+
+
 mod acidic_slime;
 mod aclazotz_deepest_betrayal;
+mod aerathi_berserker;
 mod ambush_party;
 mod angel_of_light;
 mod angel_of_mercy;
@@ -29,6 +36,7 @@ mod coastal_hornclaw;
 mod cockatrice;
 mod dark_maze;
 mod deadly_insect;
+mod dread_wight;
 mod earth_elemental;
 mod eater_of_the_dead;
 mod elesh_norn_mother_of_machines;
@@ -51,6 +59,7 @@ mod gerrard_s_irregulars;
 mod giant_crab;
 mod glintwing_invoker;
 mod goblin_commando;
+mod gorilla_berserkers;
 mod grandmother_sengir;
 mod greater_werewolf;
 mod hazduhr_the_abbot;
@@ -61,6 +70,7 @@ mod illusionary_wall;
 mod indrik_stomphowler;
 mod iron_tusk_elephant;
 mod ironroot_treefolk;
+mod ivory_gargoyle;
 mod jhovall_rider;
 mod joven;
 mod kami_of_tattered_shoji;
@@ -97,6 +107,7 @@ mod rashka_the_slayer;
 mod ravaging_horde;
 mod renegade_troops;
 mod reveillark;
+mod rubinia_soulsinger;
 mod rushwood_elemental;
 mod sabertooth_wyvern;
 mod sandbar_serpent;
@@ -116,10 +127,12 @@ mod sliver_queen;
 mod solitude;
 mod soul_of_magma;
 mod spiritual_guardian;
+mod spock_logical_choice;
 mod starlit_angel;
 mod staunch_defenders;
 mod sunastian_falconer;
 mod tatyova_benthic_druid;
+mod the_wretched;
 mod thicket_basilisk;
 mod thragtusk;
 mod thrull_champion;
@@ -135,16 +148,5 @@ mod veteran_bodyguard;
 mod vigilant_drake;
 mod water_elemental;
 mod wind_spirit;
-mod zuberi_golden_feather;
-
-mod the_wretched;
-
-mod aerathi_berserker;
-
-mod rubinia_soulsinger;
-
 mod windstorm_drake;
-
-mod spock_logical_choice;
-
-mod dread_wight;
+mod zuberi_golden_feather;

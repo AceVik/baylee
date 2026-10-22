@@ -3,10 +3,17 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+
+
+
 mod aftershock;
+mod agonizing_syphon;
+mod all_hallow_s_eve;
 mod ambition_s_cost;
+mod ancestral_reminiscence;
 mod ancient_craving;
 mod armageddon;
+mod avalanche;
 mod baki_s_curse;
 mod bee_sting;
 mod break_asunder;
@@ -17,6 +24,8 @@ mod demolish;
 mod diabolic_tutor;
 mod diminishing_returns;
 mod eternal_flame;
+mod eureka;
+mod fatal_lore;
 mod flashfires;
 mod juxtapose;
 mod lay_waste;
@@ -35,11 +44,3 @@ mod tsunami;
 mod unyaro_bee_sting;
 mod vengeance;
 mod wrath_of_god;
-
-mod agonizing_syphon;
-mod all_hallow_s_eve;
-
-mod ancestral_reminiscence;
-mod eureka;
-
-mod avalanche;

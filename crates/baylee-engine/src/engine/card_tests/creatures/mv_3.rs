@@ -94,6 +94,7 @@ mod frozen_shade;
 mod fulminator_mage;
 mod furnace_spirit;
 mod fyndhorn_brownie;
+mod fyndhorn_druid;
 mod fyndhorn_elder;
 mod gaea_s_avenger;
 mod gangrenous_zombies;

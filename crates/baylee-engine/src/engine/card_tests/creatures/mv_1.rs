@@ -3,7 +3,13 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+
+
+
+
+
 mod abu_ja_far;
+mod acolyte_of_xathrid;
 mod agent_of_stromgald;
 mod akki_avalanchers;
 mod ali_baba;
@@ -12,15 +18,19 @@ mod armorer_guildmage;
 mod auriok_transfixer;
 mod avacyn_s_pilgrim;
 mod aven_envoy;
+mod balduvian_shaman;
 mod benalish_hero;
 mod bile_urchin;
 mod birds_of_paradise;
 mod blood_celebrant;
 mod blood_pet;
+mod bond_beetle;
 mod boros_recruit;
+mod brown_ouphe;
 mod cabal_trainee;
 mod camel;
 mod carrion_feeder;
+mod cathedral_sanctifier;
 mod ceta_disciple;
 mod child_of_thorns;
 mod dedicated_martyr;
@@ -41,14 +51,20 @@ mod elvish_scrapper;
 mod flamekin_harbinger;
 mod flying_men;
 mod folk_of_an_havva;
+mod forge_devil;
 mod frostling;
 mod fyndhorn_elves;
+mod galerider_sliver;
+mod gearsmith_prodigy;
 mod ghazban_ogre;
 mod goblin_artisans;
 mod goblin_balloon_brigade;
 mod goblin_digging_team;
 mod goblin_sledder;
+mod gorilla_shaman;
 mod granger_guildmage;
+mod greenseeker;
+mod healer_of_the_glade;
 mod hexdrinker;
 mod honor_guard;
 mod hurr_jackal;
@@ -57,9 +73,13 @@ mod icatian_moneychanger;
 mod icatian_priest;
 mod icatian_scout;
 mod ignoble_hierarch;
+mod imperial_lancer;
 mod infantry_veteran;
 mod initiates_of_the_ebon_hand;
+mod insidious_bookworms;
+mod inventor_s_apprentice;
 mod ivy_elemental;
+mod jade_bearer;
 mod joven_s_ferrets;
 mod kird_ape;
 mod kitsune_diviner;
@@ -69,6 +89,7 @@ mod lake_town_lookout;
 mod lantern_kami;
 mod leonin_elder;
 mod llanowar_elves;
+mod loam_lion;
 mod maggot_carrier;
 mod manta_riders;
 mod merchant_ship;
@@ -109,6 +130,8 @@ mod skirk_prospector;
 mod soul_warden;
 mod stone_throwing_devils;
 mod stormscape_apprentice;
+mod striking_sliver;
+mod sunshower_druid;
 mod suntail_hawk;
 mod sylvan_safekeeper;
 mod thallid;
@@ -117,6 +140,7 @@ mod thunderscape_apprentice;
 mod timber_wolves;
 mod tinder_wall;
 mod tireless_tribe;
+mod toxic_iguanar;
 mod trade_caravan;
 mod tree_monkey;
 mod tundra_wolves;
@@ -127,25 +151,3 @@ mod whippoorwill;
 mod will_o_the_wisp;
 mod wirewood_symbiote;
 mod young_wolf;
-
-mod acolyte_of_xathrid;
-
-mod bond_beetle;
-mod cathedral_sanctifier;
-mod galerider_sliver;
-mod gearsmith_prodigy;
-mod healer_of_the_glade;
-mod imperial_lancer;
-mod inventor_s_apprentice;
-mod jade_bearer;
-mod loam_lion;
-mod striking_sliver;
-mod toxic_iguanar;
-
-mod forge_devil;
-mod greenseeker;
-mod sunshower_druid;
-
-mod balduvian_shaman;
-
-mod brown_ouphe;

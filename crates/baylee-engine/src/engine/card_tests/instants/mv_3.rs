@@ -21,6 +21,7 @@ mod exclude;
 mod exile;
 mod feeding_frenzy;
 mod ferocious_charge;
+mod fevered_strength;
 mod fierce_guardianship;
 mod fire_covenant;
 mod flare;

@@ -960,7 +960,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Alliances (`all`) Batch 1 adds 4 non-mana activated abilities across
     // Ashnod's Cylix, Balduvian Dead, Browse, and Chaos Harlequin, of which 3
     // are read by the evaluator.
-    assert_eq!((read, of), (2635, 3244), "activated/loyalty reader census");
+    // Alliances (`all`) Batch 2 adds 10 non-mana activated abilities across
+    // Floodwater Dam, Gargantuan Gorilla, Gorilla Shaman, Gustha's Scepter (2),
+    // Helm of Obedience, Ivory Gargoyle, Kjeldoran Pride, Krovikan Horror, and
+    // Krovikan Plague, of which 7 are read by the evaluator.
+    assert_eq!((read, of), (2642, 3254), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

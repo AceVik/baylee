@@ -25,6 +25,7 @@ mod illuminated_wings;
 mod indomitable_will;
 mod inertia_bubble;
 mod invisibility;
+mod kjeldoran_pride;
 mod mageta_s_boon;
 mod phantasmal_terrain;
 mod prismatic_ward;

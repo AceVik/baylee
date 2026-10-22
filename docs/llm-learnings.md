@@ -5367,3 +5367,19 @@ more than two it names nobody). What the author did more than once:
     spell if it's blue. Draw a card at the beginning of the next turn's upkeep."*) are 100%
     `Coverage::Implemented` via `Effect::When { condition: Condition::TargetMatches(&Filter::HasColor(Color::Blue)), then: &[Effect::CounterTargetSpell { unless_pays: None }] }`
     followed by `Effect::AtNextTurnsUpkeep(&[Effect::DrawCards(ValueExpr::Fixed(1))])`.
+
+## 2026-10-22 — Alliances (`all`) batch 2 (25 cards: `False Demise` to `Lim-Dûl's Paladin`)
+
+- Added 25 *Alliances* first-printing cards (`False Demise` through `Lim-Dûl's Paladin`,
+  13 `Coverage::Implemented`, 12 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Abilities that exile their own source permanent (`Ivory Gargoyle`'s `"{4}{W}: Exile this creature."`)
+    must use `Effect::ExileSource` rather than `Effect::Exile { target: TargetSpec::ThisObject }`,
+    as enforced by `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads`.
+  - Activated abilities targeting an opponent (`Helm of Obedience`) must use
+    `target = Some(TargetSpec::AnyOpponent)` rather than `TargetSpec::Player(PlayerRel::Opponent)`,
+    so `eval::target_player_options` offers opponent seats in `Pending::ChooseTargets`.
+  - `Effect::PlayerMayPayCostOr` with `CostPart::Sacrifice` (`Gargantuan Gorilla`) or
+    `CostPart::Discard` (`Lim-Dûl's Paladin`) directly opens `Pending::ChooseCards { min: 0, max: 1, prompt: ChoicePrompt::CostSacrifice / CostDiscard }`
+    without a preceding `Pending::YesNo` prompt: choosing 1 object pays the cost, and choosing
+    `vec![]` declines and runs the `else` branch.

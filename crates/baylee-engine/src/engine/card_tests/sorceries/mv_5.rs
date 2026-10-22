@@ -14,6 +14,7 @@ mod hellfire;
 mod hymn_of_rebirth;
 mod implode;
 mod lava_flow;
+mod library_of_lat_nam;
 mod makindi_stampede;
 mod mana_geyser;
 mod natural_spring;
