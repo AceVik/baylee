@@ -8306,24 +8306,50 @@ pub static ORACLE: &[&[&str]] = &[
     &["At the beginning of each upkeep, create a 1/1 green Saproling creature token."],
     // Verdigris
     &["Destroy target artifact."],
-    &[],
-    &[],
-    &[],
+    // Vhati il-Dal
+    &["{T}: Until end of turn, target creature has base power 1 or base toughness 1."],
+    // Volrath's Curse
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice for that player to ignore this effect until end of turn.\n{1}{U}: Return this Aura to its owner's hand.",
+    ],
+    // Wall of Diffusion
+    &[
+        "Defender (This creature can't attack.)\nThis creature can block creatures with shadow as though it had shadow.",
+    ],
     // Warmth
     &["Whenever an opponent casts a red spell, you gain 2 life."],
     // Wasteland
     &["{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target nonbasic land."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Watchdog
+    &[
+        "This creature blocks each combat if able.\nAs long as this creature is untapped, all creatures attacking you get -1/-0.",
+    ],
+    // Whim of Volrath
+    &[
+        "Buyback {2} (You may pay an additional {2} as you cast this spell. If you do, put this card into your hand as it resolves.)\nChange the text of target permanent by replacing all instances of one color word with another or one basic land type with another until end of turn. (For example, you may change \"nonred creature\" to \"nongreen creature\" or \"plainswalk\" to \"swampwalk.\")",
+    ],
+    // Whispers of the Muse
+    &[
+        "Buyback {5} (You may pay an additional {5} as you cast this spell. If you do, put this card into your hand as it resolves.)\nDraw a card.",
+    ],
+    // Wild Wurm
+    &[
+        "When this creature enters, flip a coin. If you lose the flip, return this creature to its owner's hand.",
+    ],
     // Wind Dancer
     &["Flying\n{T}: Target creature gains flying until end of turn."],
-    &[],
+    // Winds of Rath
+    &["Destroy all creatures that aren't enchanted. They can't be regenerated."],
     // Winged Sliver
     &["All Sliver creatures have flying."],
-    &[],
-    &[],
+    // Wood Sage
+    &[
+        "{T}: Choose a creature card name. Reveal the top four cards of your library and put all of them with that name into your hand. Put the rest into your graveyard.",
+    ],
+    // Worthy Cause
+    &[
+        "Buyback {2} (You may pay an additional {2} as you cast this spell. If you do, put this card into your hand as it resolves.)\nAs an additional cost to cast this spell, sacrifice a creature.\nYou gain life equal to the sacrificed creature's toughness.",
+    ],
     // Gaea's Cradle
     &["{T}: Add {G} for each creature you control."],
     // Stroke of Genius

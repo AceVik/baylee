@@ -1064,7 +1064,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Stinging Licid, Thalakos Mistfolk, Tooth and Claw, Torture Chamber,
     // Tradewind Rider, and Trumpeting Armodon, of which 5 are read by the
     // evaluator.
-    assert_eq!((read, of), (2761, 3474), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 7 adds 3 non-mana activated abilities across
+    // Vhati il-Dal, Volrath's Curse, and Wood Sage, of which 1 is read by the
+    // evaluator.
+    assert_eq!((read, of), (2762, 3477), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

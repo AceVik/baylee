@@ -694,10 +694,11 @@ no-engine-change contract:
   - Batch 3 (`Goblin Bomb` to `Necratog`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 4 (`Noble Benefactor` to `Thunderbolt`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 5 (`Timid Drake` to `Zombie Scavengers`, 15 cards): **11 Implemented, 4 Partial**.
-- **Tempest (`tmp`)** — in progress:
+- **Tempest (`tmp`)** — completed across 7 batches (**86 Implemented, 75 Partial** across the 161 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Abandon Hope` to `Cursed Scroll`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Dauthi Ghoul` to `Flailing Drake`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 3 (`Flickering Ward` to `Leeching Licid`, 25 cards): **13 Implemented, 12 Partial**.
   - Batch 4 (`Legacy's Allure` to `Phyrexian Splicer`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 5 (`Precognition` to `Segmented Wurm`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 6 (`Selenia, Dark Angel` to `Unstable Shapeshifter`, 25 cards): **19 Implemented, 6 Partial**.
+  - Batch 7 (`Intuition` and `Vhati il-Dal` to `Worthy Cause`, 11 cards): **4 Implemented, 7 Partial**.

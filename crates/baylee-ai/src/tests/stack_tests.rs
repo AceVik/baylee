@@ -141,6 +141,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Reach Through Mists",
             "Serum Visions",
             "Taigam's Scheming",
+            "Whispers of the Muse",
         ]
     );
 }

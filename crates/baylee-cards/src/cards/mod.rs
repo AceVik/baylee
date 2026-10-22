@@ -19175,6 +19175,8 @@ pub mod veteran_swordsmith;
 pub mod vexing_arcanix;
 #[path = "creatures/mv_3/vexing_gull.rs"]
 pub mod vexing_gull;
+#[path = "creatures/mv_4/vhati_il_dal.rs"]
+pub mod vhati_il_dal;
 #[path = "artifacts/mv_2/vial_of_dragonfire.rs"]
 pub mod vial_of_dragonfire;
 #[path = "artifacts/mv_1/vial_of_poison.rs"]
@@ -19405,6 +19407,8 @@ pub mod voldaren_estate;
 pub mod voldaren_stinger;
 #[path = "creatures/mv_4/volley_veteran.rs"]
 pub mod volley_veteran;
+#[path = "enchantments/auras/mv_2/volrath_s_curse.rs"]
+pub mod volrath_s_curse;
 #[path = "lands/utility/volrath_s_stronghold.rs"]
 pub mod volrath_s_stronghold;
 #[path = "artifacts/mv_1/voltaic_key.rs"]
@@ -19495,6 +19499,8 @@ pub mod wall_of_caltrops;
 pub mod wall_of_corpses;
 #[path = "creatures/mv_3/wall_of_denial.rs"]
 pub mod wall_of_denial;
+#[path = "creatures/mv_2/wall_of_diffusion.rs"]
+pub mod wall_of_diffusion;
 #[path = "creatures/mv_3/wall_of_dust.rs"]
 pub mod wall_of_dust;
 #[path = "creatures/mv_2/wall_of_earth.rs"]
@@ -19683,6 +19689,8 @@ pub mod wasteland_scorpion;
 pub mod wastes;
 #[path = "lands/restricted/wastewood_verge.rs"]
 pub mod wastewood_verge;
+#[path = "creatures/artifacts/mv_3/watchdog.rs"]
+pub mod watchdog;
 #[path = "creatures/mv_5/watcher_in_the_mist.rs"]
 pub mod watcher_in_the_mist;
 #[path = "creatures/mv_5/watcher_in_the_web.rs"]
@@ -19823,6 +19831,8 @@ pub mod wheel_of_fortune;
 pub mod where_ancients_tread;
 #[path = "artifacts/mv_3/whetstone.rs"]
 pub mod whetstone;
+#[path = "instants/mv_1/whim_of_volrath.rs"]
+pub mod whim_of_volrath;
 #[path = "creatures/mv_5/whimwader.rs"]
 pub mod whimwader;
 #[path = "creatures/mv_3/whip_sergeant.rs"]
@@ -19867,6 +19877,8 @@ pub mod whisperer_of_the_wilds;
 pub mod whispergear_sneak;
 #[path = "creatures/mv_4/whispering_shade.rs"]
 pub mod whispering_shade;
+#[path = "instants/mv_1/whispers_of_the_muse.rs"]
+pub mod whispers_of_the_muse;
 #[path = "creatures/mv_2/white_knight.rs"]
 pub mod white_knight;
 #[path = "lands/white_lotus_hideout.rs"]
@@ -19931,6 +19943,8 @@ pub mod wild_research;
 pub mod wild_roads;
 #[path = "creatures/mv_4/wild_wanderer.rs"]
 pub mod wild_wanderer;
+#[path = "creatures/mv_4/wild_wurm.rs"]
+pub mod wild_wurm;
 #[path = "creatures/mv_4/wilderness_hypnotist.rs"]
 pub mod wilderness_hypnotist;
 #[path = "creatures/mv_4/wildfire_emissary.rs"]
@@ -19999,6 +20013,8 @@ pub mod windrider_eel;
 pub mod windrider_patrol;
 #[path = "sorceries/mv_1/winds_of_change.rs"]
 pub mod winds_of_change;
+#[path = "sorceries/mv_5/winds_of_rath.rs"]
+pub mod winds_of_rath;
 #[path = "instants/mv_2/winds_of_rebuke.rs"]
 pub mod winds_of_rebuke;
 #[path = "creatures/mv_3/windseeker_centaur.rs"]
@@ -20133,6 +20149,8 @@ pub mod wolverine_pack;
 pub mod wood_elemental;
 #[path = "creatures/mv_3/wood_elves.rs"]
 pub mod wood_elves;
+#[path = "creatures/mv_2/wood_sage.rs"]
+pub mod wood_sage;
 #[path = "creatures/mv_5/woodborn_behemoth.rs"]
 pub mod woodborn_behemoth;
 #[path = "instants/mv_3/woodcutter_s_grit.rs"]
@@ -20207,6 +20225,8 @@ pub mod worn_powerstone;
 pub mod worry_beads;
 #[path = "creatures/mv_4/wort_boggart_auntie.rs"]
 pub mod wort_boggart_auntie;
+#[path = "instants/mv_1/worthy_cause.rs"]
+pub mod worthy_cause;
 #[path = "creatures/mv_2/worthy_knight.rs"]
 pub mod worthy_knight;
 #[path = "creatures/mv_2/wose_pathfinder.rs"]
