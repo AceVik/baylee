@@ -980,7 +980,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mirage (`mir`) Batch 1 adds 6 non-mana activated abilities across
     // Abyssal Hunter, Acidic Dagger, Amber Prison, Amulet of Unmaking,
     // Barbed-Back Wurm, and Bone Mask, of which 1 is read by the evaluator.
-    assert_eq!((read, of), (2659, 3298), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 2 adds 11 non-mana activated abilities across
+    // Burning Palm Efreet, Burning Shield Askari, Cadaverous Knight, Canopy Dragon,
+    // Chariot of the Sun, Circle of Despair, Civic Guildmage (2), Crimson Hellkite,
+    // Cycle of Life, and Daring Apprentice, of which 5 are read by the evaluator.
+    assert_eq!((read, of), (2664, 3309), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -140,3 +140,4 @@ fn may_block(
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })
 }
+mod cadaverous_bloom;

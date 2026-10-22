@@ -28,6 +28,7 @@ mod carrion_feeder;
 mod cathedral_sanctifier;
 mod ceta_disciple;
 mod child_of_thorns;
+mod civic_guildmage;
 mod dedicated_martyr;
 mod defiant_elf;
 mod dega_disciple;

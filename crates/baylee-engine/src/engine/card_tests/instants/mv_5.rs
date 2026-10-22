@@ -274,6 +274,7 @@ mod bounty_of_the_hunt;
 mod breath_of_malfegor;
 mod bright_reprisal;
 mod broken_visage;
+mod cinder_cloud;
 mod command_the_storm;
 mod confirm_suspicions;
 mod consume_the_meek;

@@ -29,6 +29,7 @@ mod chandler;
 mod charging_bandits;
 mod coastal_hornclaw;
 mod cockatrice;
+mod crimson_roc;
 mod dark_maze;
 mod deadly_insect;
 mod dread_wight;

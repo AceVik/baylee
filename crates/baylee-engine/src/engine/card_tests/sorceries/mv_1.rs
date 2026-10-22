@@ -5,6 +5,7 @@ use super::*;
 
 mod blaze;
 mod bloodcurdling_scream;
+mod builder_s_bane;
 mod cateran_summons;
 mod chain_lightning;
 mod cloak_of_feathers;

@@ -12,6 +12,7 @@ mod binding_agony;
 mod blessing;
 mod buoyancy;
 mod cloak_of_confusion;
+mod consuming_ferocity;
 mod creature_bond;
 mod dance_of_the_dead;
 mod diplomatic_immunity;

@@ -40,3 +40,4 @@ fn cast_and_settle(engine: &mut Engine<RegistryLookup>, card: CardIndex) -> Obje
 fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
 }
+mod crimson_hellkite;

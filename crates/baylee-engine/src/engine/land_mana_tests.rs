@@ -1620,7 +1620,7 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     creature_promises: 90..=90,
     unparsed: 57..=57,
     fully_read: 373,
-    costly_lines: 140..=140,
+    costly_lines: 141..=141,
     triggered_lines: 21..=21,
     granted_lines: 41..=41,
     self_granted: 7..=7,

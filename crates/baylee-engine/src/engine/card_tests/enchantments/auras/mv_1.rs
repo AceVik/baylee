@@ -14,6 +14,7 @@ mod blue_ward;
 mod brainwash;
 mod burrowing;
 mod capashen_standard;
+mod cloak_of_invisibility;
 mod consecrate_land;
 mod crackling_club;
 mod dream_coat;
