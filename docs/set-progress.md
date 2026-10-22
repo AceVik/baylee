@@ -682,3 +682,5 @@ no-engine-change contract:
   - Batch 7 (`Reflect Damage` to `Soul Echo`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 8 (`Soul Rend` to `Waiting in the Weeds`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 9 (`Wall of Corpses` to `Zombie Mob`, 13 cards): **9 Implemented, 4 Partial**.
+- **Visions (`vis`)** — in progress in 25-card batches:
+  - Batch 1 (`Aku Djinn` to `Feral Instinct`, 25 cards): **11 Implemented, 14 Partial**.

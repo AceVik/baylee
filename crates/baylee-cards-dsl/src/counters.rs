@@ -198,6 +198,12 @@ pub const FUNGUS: CounterKind = CounterKind::Custom(50);
 /// Echo counters (Soul Echo).
 pub const ECHO: CounterKind = CounterKind::Custom(51);
 
+/// Death counters (Bogardan Phoenix).
+pub const DEATH: CounterKind = CounterKind::Custom(52);
+
+/// Rust counters (Corrosion).
+pub const RUST: CounterKind = CounterKind::Custom(53);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -255,6 +261,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("growth", GROWTH),
     ("fungus", FUNGUS),
     ("echo", ECHO),
+    ("death", DEATH),
+    ("rust", RUST),
 ];
 
 #[cfg(test)]

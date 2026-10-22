@@ -5434,3 +5434,18 @@ more than two it names nobody). What the author did more than once:
   - `Trigger::TappedForMana` with `Effect::AddManaLikeEvent { amount: 1 }` and
     `Effect::SuppressUntap { target: TargetSpec::EventObject, steps: 1 }` expresses `Winter's Night`
     as a triggered mana ability that also suppresses the tapped snow land's next untap step.
+
+## 2026-10-22 — Mirage (`mir`) batches 1–9 (213 cards: `Abyssal Hunter` to `Zombie Mob`) and Visions (`vis`) batch 1 (25 cards: `Aku Djinn` to `Feral Instinct`)
+
+- Completed all 213 remaining *Mirage* first-printing cards across 9 batches (**123 `Coverage::Implemented`,
+  90 `Coverage::Partial`**), each with a dedicated played engine test, and added *Visions* Batch 1
+  (`Aku Djinn` through `Feral Instinct`, **11 `Coverage::Implemented`, 14 `Coverage::Partial`**).
+- Key card-authoring and testing lessons:
+  - When a `Trigger::Dies` self-return card (`Bogardan Phoenix`) uses `Effect::ReturnSourceFromGraveyard`,
+    `lints::tests::entries::every_self_return_comes_back_under_the_control_its_sentence_prints` checks
+    that `owner_control` matches the printed Oracle text (`false` for *"under your control"*, `true` for
+    *"under its owner's control"*) and enforces a pool count ceiling in `entries.rs`.
+  - When an Aura's triggered ability (`Death Watch`: *"When enchanted creature dies, its controller loses
+    life equal to its power and you gain life equal to its toughness"*) fires on `Trigger::Dies(&Filter::AttachedToBySource)`,
+    `PlayerRel::ControllerOfEvent`, `Amount::EventPower`, and `Amount::EventLastToughness` read the LKI
+    snapshot of the dying enchanted creature directly.

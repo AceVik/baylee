@@ -551,7 +551,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (7..=14).contains(&checked),
+        (7..=15).contains(&checked),
         "read {checked} self-returns out of the pool, and seven were written"
     );
 }

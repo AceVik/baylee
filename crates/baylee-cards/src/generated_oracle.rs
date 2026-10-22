@@ -6105,8 +6105,14 @@ pub static ORACLE: &[&[&str]] = &[
     // Shrieking Drake
     &["Flying\nWhen this creature enters, return a creature you control to its owner's hand."],
     &[],
-    &[],
-    &[],
+    // Aku Djinn
+    &[
+        "Trample\nAt the beginning of your upkeep, put a +1/+1 counter on each creature each opponent controls.",
+    ],
+    // Anvil of Bogardan
+    &[
+        "Players have no maximum hand size.\nAt the beginning of each player's draw step, that player draws an additional card, then discards a card.",
+    ],
     // Archangel
     &["Flying, vigilance"],
     // Army Ants
@@ -6117,31 +6123,66 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Blanket of Night
     &["Each land is a Swamp in addition to its other land types."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bogardan Phoenix
+    &[
+        "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.",
+    ],
+    // Brass-Talon Chimera
+    &[
+        "First strike\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains first strike. (This effect lasts indefinitely.)",
+    ],
+    // Breathstealer's Crypt
+    &[
+        "If a player would draw a card, instead they draw a card and reveal it. If it's a creature card, that player discards it unless they pay 3 life.",
+    ],
+    // Breezekeeper
+    &[
+        "Flying\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Brood of Cockroaches
+    &[
+        "When this creature is put into your graveyard from the battlefield, at the beginning of the next end step, you lose 1 life and return this card to your hand.",
+    ],
     // Chronatog
     &[
         "{0}: This creature gets +3/+3 until end of turn. You skip your next turn. Activate only once each turn.",
     ],
-    &[],
+    // City of Solitude
+    &["Players can cast spells and activate abilities only during their own turns."],
     // Cloud Elemental
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
+    // Coercion
+    &[
+        "Target opponent reveals their hand. You choose a card from it. That player discards that card.",
+    ],
     // Coral Atoll
     &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Island you control to its owner's hand.\n{T}: Add {C}{U}.",
     ],
-    &[],
+    // Corrosion
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.\nWhen this enchantment leaves the battlefield, remove all rust counters from all permanents.",
+    ],
     // Creeping Mold
     &["Destroy target artifact, enchantment, or land."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crypt Rats
+    &[
+        "{X}: This creature deals X damage to each creature and each player. Spend only black mana on X.",
+    ],
+    // Daraja Griffin
+    &["Flying\nSacrifice this creature: Destroy target black creature."],
+    // Death Watch
+    &[
+        "Enchant creature\nWhen enchanted creature dies, its controller loses life equal to its power and you gain life equal to its toughness.",
+    ],
+    // Desertion
+    &[
+        "Counter target spell. If an artifact or creature spell is countered this way, put that card onto the battlefield under your control instead of into its owner's graveyard.",
+    ],
+    // Desolation
+    &[
+        "At the beginning of each end step, each player who tapped a land for mana this turn sacrifices a land of their choice. This enchantment deals 2 damage to each player who sacrificed a Plains this way.",
+    ],
     // Diamond Kaleidoscope
     &[
         "{3}, {T}: Create a 0/1 colorless Prism artifact creature token.\nSacrifice a Prism token: Add one mana of any color.",
@@ -6150,24 +6191,54 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Mountain you control to its owner's hand.\n{T}: Add {C}{R}.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dragon Mask
+    &[
+        "{3}, {T}: Target creature you control gets +2/+2 until end of turn. Return it to its owner's hand at the beginning of the next end step. (Return it only if it's on the battlefield.)",
+    ],
+    // Dream Tides
+    &[
+        "Creatures don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player may choose any number of tapped nongreen creatures they control and pay {2} for each creature chosen this way. If the player does, untap those creatures.",
+    ],
+    // Dwarven Vigilantes
+    &[
+        "Whenever this creature attacks and isn't blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Elephant Grass
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nBlack creatures can't attack you.\nNonblack creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    ],
+    // Elkin Lair
+    &[
+        "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.",
+    ],
     // Elven Cache
     &["Return target card from your graveyard to your hand."],
-    &[],
-    &[],
+    // Emerald Charm
+    &[
+        "Choose one —\n• Untap target permanent.\n• Destroy target non-Aura enchantment.\n• Target creature loses flying until end of turn.",
+    ],
+    // Equipoise
+    &[
+        "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures. (While they're phased out, they're treated as though they don't exist. They phase in before that player untaps during their next untap step.)",
+    ],
     // Everglades
     &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Swamp you control to its owner's hand.\n{T}: Add {C}{B}.",
     ],
-    &[],
-    &[],
+    // Eye of Singularity
+    &[
+        "When this enchantment enters, destroy each permanent with the same name as another permanent, except for basic lands. They can't be regenerated.\nWhenever a permanent other than a basic land enters, destroy all other permanents with that name. They can't be regenerated.",
+    ],
+    // Fallen Askari
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nThis creature can't block.",
+    ],
     // Femeref Enchantress
     &["Whenever an enchantment is put into a graveyard from the battlefield, draw a card."],
-    &[],
+    // Feral Instinct
+    &[
+        "Target creature gets +1/+1 until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     &[],
     &[],
     &[],

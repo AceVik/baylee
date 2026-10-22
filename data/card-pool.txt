@@ -226,6 +226,7 @@ Akroma's Memorial
 Akroma's Vengeance
 Akroma, Angel of Wrath
 Akron Legionnaire
+Aku Djinn
 Al Bhed Salvagers
 Al-abara's Carpet
 Alabaster Host Sanctifier
@@ -381,6 +382,7 @@ Antagonize
 Anthem of Champions
 Anti-Magic Aura
 Anurid Murkdiver
+Anvil of Bogardan
 Anvilwrought Raptor
 Aphelia, Viper Whisperer
 Apocalypse Chime
@@ -1000,6 +1002,7 @@ Bog Wraith
 Bog Wreckage
 Bog-Strider Ash
 Bogardan Firefiend
+Bogardan Phoenix
 Bogardan Rager
 Bogbrew Witch
 Boggart Arsonists
@@ -1100,6 +1103,7 @@ Brand of Ill Omen
 Brass Man
 Brass Secretary
 Brass's Tunnel-Grinder // Tecutlan, the Searing Rift
+Brass-Talon Chimera
 Brassclaw Orcs
 Brave the Sands
 Brawler's Plate
@@ -1118,8 +1122,10 @@ Breath of Fire
 Breath of Life
 Breath of Malfegor
 Breathstealer
+Breathstealer's Crypt
 Breeding Pit
 Breeding Pool
+Breezekeeper
 Bretagard Stronghold
 Breya, Etherium Shaper
 Bria, Riptide Rogue
@@ -1156,6 +1162,7 @@ Bronzebeak Moa
 Brood Butcher
 Brood Monitor
 Brood Weaver
+Brood of Cockroaches
 Broodhunter Wurm
 Broodmate Dragon
 Broodwarden
@@ -1489,6 +1496,7 @@ Citanul Druid
 Citanul Hierophants
 City in a Bottle
 City of Shadows
+City of Solitude
 City of Traitors
 Citywatch Sphinx
 Citywide Bust
@@ -1576,6 +1584,7 @@ Cockatrice
 Cocoon
 Codex Shredder
 Coerced to Kill
+Coercion
 Coeurl
 Cogwork Librarian
 Cogwork Wrestler
@@ -1696,6 +1705,7 @@ Corpse Blockade
 Corpse Knight
 Corpsehatch
 Corridor Monitor
+Corrosion
 Corrosive Gale
 Corrupt Court Official
 Corrupt Eunuchs
@@ -1791,6 +1801,7 @@ Crushing Vines
 Crux of Fate
 Crypt Angel
 Crypt Cobra
+Crypt Rats
 Crypt Ripper
 Crypt of Agadeem
 Crypt of the Eternals
@@ -1871,6 +1882,7 @@ Dance with Devils
 Dancing Scimitar
 Dandân
 Dangerous Wager
+Daraja Griffin
 Darba
 Daredevil's Billy Club
 Darigaaz's Attendant
@@ -1977,6 +1989,7 @@ Death Spark
 Death Speakers
 Death Stroke
 Death Ward
+Death Watch
 Death Wind
 Death-Hood Cobra
 Deathbellow Raider
@@ -2077,9 +2090,11 @@ Desert of the True
 Deserted Beach
 Deserted Temple
 Deserter's Disciple
+Desertion
 Desiccated Naga
 Desolate Lighthouse
 Desolate Mire
+Desolation
 Desolation Prowler
 Desolation of Smaug
 Despark
@@ -2227,6 +2242,7 @@ Dragon Fodder
 Dragon Hatchling
 Dragon Mage
 Dragon Mantle
+Dragon Mask
 Dragon Moose
 Dragon Roost
 Dragon Sniper
@@ -2283,6 +2299,7 @@ Dream Coat
 Dream Fighter
 Dream Fracture
 Dream Stalker
+Dream Tides
 Dreamroot Cascade
 Dreams of the Dead
 Dreamstone Hedron
@@ -2385,6 +2402,7 @@ Dwarven Sea Clan
 Dwarven Soldier
 Dwarven Song
 Dwarven Trader
+Dwarven Vigilantes
 Dwarven Warriors
 Dwarven Weaponsmith
 Dwynen, Gilt-Leaf Daen
@@ -2472,6 +2490,7 @@ Elemental Augury
 Elemental Bond
 Elemental Summoning
 Elementalist Adept
+Elephant Grass
 Elephant Graveyard
 Elephant Guide
 Elephant-Rat
@@ -2491,6 +2510,7 @@ Elite Instructor
 Elite Vanguard
 Elixir of Vitality
 Elkin Bottle
+Elkin Lair
 Elspeth's Smite
 Elturgard Ranger
 Elusive Spellfist
@@ -2542,6 +2562,7 @@ Emblem of the Warmind
 Embodiment of Spring
 Embraal Bruiser
 Embraal Gear-Smasher
+Emerald Charm
 Emerald Dragonfly
 Emerald Oryx
 Emerge from the Cocoon
@@ -2613,6 +2634,7 @@ Epiphany Storm
 Equestrian Skill
 Equilibrium
 Equinox
+Equipoise
 Erase
 Erdwal Ripper
 Erebor Flamesmith
@@ -2715,6 +2737,7 @@ Eye for an Eye
 Eye of Malcator
 Eye of Nowhere
 Eye of Ramos
+Eye of Singularity
 Eye of Ugin
 Eye of Vecna
 Eyeblight Assassin
@@ -2759,6 +2782,7 @@ Fall of the Gavel
 Fallaji Chaindancer
 Fallaji Vanguard
 Fallen Angel
+Fallen Askari
 Fallow Earth
 Fallow Wurm
 Fallowsage
@@ -2836,6 +2860,7 @@ Fen Stalker
 Fencing Ace
 Feral Abomination
 Feral Ferocity
+Feral Instinct
 Feral Invocation
 Feral Krushok
 Feral Maaka
