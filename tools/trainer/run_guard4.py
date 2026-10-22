@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import time
 
@@ -59,7 +60,11 @@ def run_job(directory, command, timeout, memory_gib=48, inputs=()):
     revision = git("rev-parse", "HEAD").decode().strip()
     diff = git("diff", "--binary", "HEAD")
     (directory / "source.patch").write_bytes(diff)
+    executable = Path(shutil.which(command[0]) or command[0]).resolve()
+    with executable.open("rb") as executable_file:
+        executable_sha256 = hashlib.file_digest(executable_file, "sha256").hexdigest()
     state = {"command": command, "cwd": os.getcwd(), "revision": revision,
+             "executable": str(executable), "executable_sha256": executable_sha256,
              "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
              "inputs": {str(p): hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in inputs},
              "status": "starting", "started_at_unix": time.time(),

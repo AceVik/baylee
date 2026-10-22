@@ -206,3 +206,47 @@ or measured experienced-human strength. Caps (E=1024, edges=8192, C/P=65535)
 are finite, not a losslessness proof. Ability summaries still cap at eight;
 chosen-name state features, arrangements, huge boards and explicit overflow
 diagnostics need further work. Next decisions follow gameplay evidence.
+
+## Follow-up findings during the main run
+
+- Main experiment started at about 00:25 CEST on 23 October:
+  `experiments/codex-r3-main-54m`, source `612c5aa50`. The detached pipeline
+  writes `pipeline.log`, per-stage `jobs/*/{job.json,stdout.log,stderr.log}`,
+  atomic BC checkpoints and subsequent evaluation/rollout/PPO outputs.
+- The 300-step warmup lost all eight pilot duels against Sharp; its same-table
+  Steady baseline scored 0.5 utility. No caps/fallbacks/refusals. CPU decision
+  latency on this 3900X was p50=34.4 ms, p95=64.6 ms (observation work excluded).
+  Four paired tables are a diagnostic pilot, not a precise strength estimate.
+- Extra house collection: 24 three-seat games finished, 18 six-seat games had
+  one answer cap, all 16 eight-seat games finished (three draws). Every run used
+  fair scouting and train decks. The six-seat cap was not accepted as data.
+- The capped game (`codex-r3-six-seat`, game 14, seed 891015) repeated
+  CastSpell(Stir the Grave)/ChooseNumber(1) on turn 118. Doubling the cap to
+  36,000 answers did not advance the turn. A view-only house-policy correction
+  rejects a positive-X graveyard target if no eligible public target fits the
+  payable X. Its regression fails on the old code and passes with the fix;
+  all 274 house-AI unit tests pass. The identical original game now finishes
+  on turn 124 after 8,913 answers. No engine rule or card script was changed.
+- Authoritative deck parsing found three invalid Cryptic Spires lists in
+  Argon's manifest (missing circled colors), previously skipped silently by
+  collectors. `deck_catalog4 --manifest` reports them explicitly: 849 of 852
+  parse and pass the working-card check. Keep the original experiment manifest
+  immutable; filter/revalidate future manifests instead of pretending all 852
+  loaded successfully.
+- New public source: [fbettega's MTGO deck cache](https://github.com/fbettega/MTG_decklistcache),
+  GPL-3.0, pinned at `6c8c09979f6b388a7aa5a6e13c685d1c96ffc3da`; archive SHA-256
+  `9ff22e8b81cb27182dbf8740f312a029de0660368f46af86e9db209e8eca0dea`.
+  The importer checked 314,031 deck entries in 12,905 tournaments, strips player
+  names/results, records exact source row/revision and licence, and compares
+  exact multiset Jaccard against all 849 valid existing decks and accepted lists.
+  One empty source JSON is reported, not silently treated as a deck.
+- Whole-deck/sideboard filtering initially admitted only all-basic placeholder
+  submissions. They were never trained on and are marked quarantined; the new
+  quality filter rejects them. Explicit **first-game mainboard projection**
+  yields 91 fully supported, unchanged mainboards, with the entire sideboard
+  omitted and this transformation labelled: `decks/mtgo-r3-mainboards`.
+  All 91 pass the real Rust parser and working-card check. These are primarily
+  88 Yawgmoth lists plus three Psychic Frog lists, **not 91 archetypes**.
+  Existing card holdouts leave seven train, one validation and 83 test lists.
+  The current card pool and arbitrary 5% card holdout constrain real-deck
+  diversity strongly; do not relabel test cards just to inflate training counts.

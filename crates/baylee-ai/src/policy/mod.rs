@@ -16,10 +16,21 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod x_targets;
+
 pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
     baylee_cards::by_index(card.index)?
         .faces
         .get(usize::from(card.face))
+}
+
+fn has_instant_speed(card: CardIdentity, face: &FaceDef) -> bool {
+    face.types.contains(TypeSet::INSTANT)
+        || baylee_cards::by_index(card.index).is_some_and(|definition| {
+            definition
+                .keywords_for_face(usize::from(card.face))
+                .contains(KeywordSet::FLASH)
+        })
 }
 
 /// The land face of a card held in hand, whichever side it is printed on.
@@ -762,11 +773,7 @@ impl HeuristicAgent {
             if f.types.contains(TypeSet::LAND) {
                 continue;
             }
-            let instant = f.types.contains(TypeSet::INSTANT)
-                || baylee_cards::by_index(card.index).is_some_and(|d| {
-                    d.keywords_for_face(usize::from(card.face))
-                        .contains(KeywordSet::FLASH)
-                });
+            let instant = has_instant_speed(card, f);
             if !legal.castable.contains(&id) && (!main && !instant || !f.castable_from_hand) {
                 continue;
             }
@@ -794,7 +801,9 @@ impl HeuristicAgent {
                 &plain,
                 u32::try_from(budget).unwrap_or(u32::MAX),
             );
-            if stillborn(f, &printed, &cost) {
+            if stillborn(f, &printed, &cost)
+                || self.unreachable_x_graveyard_target(view, id, card, &printed, &cost)
+            {
                 continue;
             }
             // A price floated before the cast is checked against the pool the

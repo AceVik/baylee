@@ -1,9 +1,11 @@
 //! Exports the current tested working-card vocabulary for offline deck ingestion.
 //! Only public card identities and implementation evidence leave the process.
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 use baylee_train::deckgen;
+use baylee_train::housedeck::HouseDeck;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
 use serde_json::json;
@@ -13,6 +15,9 @@ struct Args {
     /// Destination JSON, written only if it does not already exist.
     #[arg(long)]
     out: PathBuf,
+    /// Existing corpus, parsed by the real deck reader for duplicate checks.
+    #[arg(long)]
+    manifest: Option<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -30,10 +35,45 @@ fn main() -> anyhow::Result<()> {
                "held_out": held.contains(id)})
         })
         .collect();
+    let mut existing_decks = Vec::new();
+    let mut manifest_rejected = Vec::new();
+    if let Some(path) = args.manifest {
+        let manifest: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+        for entry in manifest["decks"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("missing decks"))?
+        {
+            let path = entry["path"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("missing path"))?;
+            let key = entry["id"].as_str().unwrap_or(path);
+            let text = fs::read_to_string(repo_root().join(path))?;
+            let deck = match HouseDeck::parse_any(key, &text) {
+                Ok(deck) => deck,
+                Err(error) => {
+                    manifest_rejected
+                        .push(json!({"id": key, "path": path, "reason": error.to_string()}));
+                    continue;
+                }
+            };
+            if !deck.failing(&working).is_empty() {
+                manifest_rejected
+                    .push(json!({"id": key, "path": path, "reason": "unsupported cards"}));
+                continue;
+            }
+            let mut main: BTreeMap<u32, usize> = BTreeMap::new();
+            for card in &deck.deck.main {
+                *main.entry(card.index.get()).or_default() += 1;
+            }
+            existing_decks.push(json!({"id": key, "main": main, "split": entry["split"]}));
+        }
+    }
     fs::write(
         args.out,
         serde_json::to_vec_pretty(&json!({
             "working_pool_hash": working.hash(), "cards": cards,
+            "existing_decks": existing_decks,
+            "manifest_rejected": manifest_rejected,
             "rule": "Coverage::Implemented and named by an engine test; see working.rs"
         }))?,
     )?;

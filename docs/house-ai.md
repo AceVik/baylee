@@ -15,6 +15,15 @@ All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
 
+An X spell whose required graveyard target has a positive mana-value bound must
+also have enough visible eligible targets at the planned, payable X. This avoids
+repeatedly announcing Stir the Grave with X=1 when every creature in the caster's
+graveyard costs more: the engine rolls that announcement back, and the same
+priority offer otherwise causes another identical attempt. The check reads only
+the seat's public graveyards and treats unknown filter clauses as possible,
+not impossible. The regression is in `baylee-ai/src/tests/x_target_tests.rs`;
+six-seat training seed 891015 now finishes instead of looping on turn 118.
+
 **One source per permanent is a rule with a consequence**, and it is the
 reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
 keys on `ObjectId`, so the dedup in `policy::sources` is the only thing
