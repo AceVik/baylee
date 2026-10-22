@@ -96,6 +96,7 @@ fn life(e: &Engine<RegistryLookup>, seat: PlayerId) -> i32 {
 }
 
 mod ajani_s_welcome;
+mod alms;
 mod barrage_of_expendables;
 mod concordant_crossroads;
 mod darkest_hour;

@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abjure;
 mod an_offer_you_can_t_refuse;
 mod ancestral_recall;
 mod annul;
@@ -11,6 +12,7 @@ mod avoid_fate;
 mod battlegrowth;
 mod berserk;
 mod blaze_of_glory;
+mod blossoming_wreath;
 mod blue_elemental_blast;
 mod brainstorm;
 mod brightstone_ritual;

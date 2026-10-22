@@ -3,7 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abduction;
 mod animate_artifact;
+mod brand_of_ill_omen;
 mod control_magic;
 mod curse_artifact;
 mod cursed_land;
@@ -20,5 +22,3 @@ mod snowblind;
 mod steal_artifact;
 mod takklemaggot;
 mod zephid_s_embrace;
-
-mod brand_of_ill_omen;

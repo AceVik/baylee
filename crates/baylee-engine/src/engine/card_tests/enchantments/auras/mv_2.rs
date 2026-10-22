@@ -8,6 +8,7 @@ mod alexi_s_cloak;
 mod animate_dead;
 mod armor_of_thorns;
 mod aspect_of_wolf;
+mod betrothed_of_fire;
 mod binding_agony;
 mod blessing;
 mod buoyancy;

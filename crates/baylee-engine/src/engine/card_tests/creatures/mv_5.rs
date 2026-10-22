@@ -11,6 +11,7 @@ mod ambush_party;
 mod angel_of_light;
 mod angel_of_mercy;
 mod archangel_avacyn;
+mod arctic_wolves;
 mod ardent_militia;
 mod argothian_treefolk;
 mod arrogant_vampire;

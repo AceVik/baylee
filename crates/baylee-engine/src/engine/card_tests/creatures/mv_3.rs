@@ -43,6 +43,7 @@ mod blur_sliver;
 mod bog_witch;
 mod bogardan_firefiend;
 mod boggart_trawler;
+mod bone_dancer;
 mod brazen_borrower;
 mod breathstealer;
 mod brushwagg;

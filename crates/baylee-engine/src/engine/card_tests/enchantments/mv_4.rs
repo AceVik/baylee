@@ -96,6 +96,7 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, attacker: ObjectId, defender
         .expect("the attacker came off the list");
 }
 
+mod aether_flash;
 mod aether_sting;
 mod aether_storm;
 mod an_zerrin_ruins;
@@ -109,6 +110,7 @@ mod breeding_pit;
 mod browse;
 mod builder_s_blessing;
 mod burning_earth;
+mod call_of_the_wild;
 mod castle;
 mod caverns_of_despair;
 mod chaos_moon;

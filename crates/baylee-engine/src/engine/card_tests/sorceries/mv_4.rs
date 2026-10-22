@@ -4,6 +4,7 @@
 use super::*;
 
 mod aftershock;
+mod agonizing_memories;
 mod agonizing_syphon;
 mod all_hallow_s_eve;
 mod ambition_s_cost;

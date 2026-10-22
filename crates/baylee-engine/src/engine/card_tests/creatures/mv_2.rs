@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abyssal_gatekeeper;
 mod advance_scout;
 mod agent_of_shauku;
 mod akki_raider;
@@ -22,6 +23,7 @@ mod auriok_bladewarden;
 mod azure_mage;
 mod badgermole_cub;
 mod balduvian_hydra;
+mod barrow_ghoul;
 mod basal_thrull;
 mod bay_falcon;
 mod benalish_trapper;

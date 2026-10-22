@@ -4,6 +4,7 @@
 use super::*;
 
 mod aang_and_katara;
+mod aboroth;
 mod aesi_tyrant_of_gyre_strait;
 mod aggressive_mammoth;
 mod akoum_boulderfoot;

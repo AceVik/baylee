@@ -12,6 +12,7 @@ mod astrolabe;
 mod basalt_monolith;
 mod bloodstone_cameo;
 mod bone_flute;
+mod bosium_strip;
 mod braided_net;
 mod braidwood_cup;
 mod brass_s_tunnel_grinder;

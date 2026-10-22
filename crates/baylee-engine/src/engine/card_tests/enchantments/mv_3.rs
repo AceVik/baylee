@@ -8,6 +8,7 @@ mod arenson_s_aura;
 mod armistice;
 mod arnjlot_s_ascent;
 mod aura_fracture;
+mod aura_of_silence;
 mod aura_shards;
 mod back_to_basics;
 mod blanket_of_night;

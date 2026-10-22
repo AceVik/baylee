@@ -4,6 +4,7 @@
 use super::*;
 
 mod animate_wall;
+mod apathy;
 mod artifact_ward;
 mod awesome_presence;
 mod backfire;
