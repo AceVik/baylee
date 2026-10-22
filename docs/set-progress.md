@@ -672,7 +672,7 @@ no-engine-change contract:
 - **Alliances (`all`)** — 144 first-printing Oracle identities: **83
   Implemented, 61 Partial, 0 excluded**. Every card in all 5 batches has a
   dedicated played test under `crates/baylee-engine/src/engine/card_tests/`.
-- **Mirage (`mir`)** — completed across 9 batches (all first-printing Oracle identities implemented or documented as Partial):
+- **Mirage (`mir`)** — completed across 9 batches (**123 Implemented, 90 Partial** across the 213 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Abyssal Hunter` to `Brushwagg`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Builder's Bane` to `Dazzling Beauty`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Decomposition` to `Forbidden Crypt`, 25 cards): **13 Implemented, 12 Partial**.

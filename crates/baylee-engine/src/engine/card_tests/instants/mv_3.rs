@@ -82,4 +82,5 @@ mod verdigris;
 mod void_rend;
 mod whir_of_invention;
 mod wildsize;
+mod yare;
 mod zap;

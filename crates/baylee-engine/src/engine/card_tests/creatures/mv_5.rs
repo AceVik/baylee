@@ -156,4 +156,5 @@ mod vigilant_drake;
 mod water_elemental;
 mod wind_spirit;
 mod windstorm_drake;
+mod zirilan_of_the_claw;
 mod zuberi_golden_feather;

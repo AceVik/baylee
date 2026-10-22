@@ -119,6 +119,7 @@ mod volcanic_geyser;
 mod whiteout;
 mod wildwood_rebirth;
 mod wipe_clean;
+mod withering_boon;
 mod word_of_blasting;
 mod word_of_command;
 mod zealous_strike;

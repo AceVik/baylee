@@ -1004,7 +1004,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Spatial Binding, Suq'Ata Firewalker, Tainted Specter, Telim'Tor's Darts,
     // Unerring Sling, Urborg Panther (2), Ventifact Bottle, and Vigilant Martyr
     // (2), of which 8 are read by the evaluator.
-    assert_eq!((read, of), (2689, 3350), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 9 adds 5 non-mana activated abilities across
+    // Wall of Corpses, Wave Elemental, Zhalfirin Commander, Zhalfirin Knight,
+    // and Zirilan of the Claw, all 5 of which are read by the evaluator.
+    assert_eq!((read, of), (2694, 3355), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
