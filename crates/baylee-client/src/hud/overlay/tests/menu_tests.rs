@@ -439,13 +439,19 @@ fn open_the_menu(app: &mut App) {
 /// leaving does: at a networked table the house plays on for you, in a game
 /// this client hosts the game ends. A spectator's way out is "Stop watching"
 /// and the menu offers no second one. On the old code there was no such row.
+///
+/// Since 22.10.2026 the armed row is as short as the concession's and what
+/// leaving costs stands in a line under it (owner: the armed words were too
+/// long for the row).
 #[test]
 fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     let leave = Phrase::LeaveTable.text(Lang::En).to_string();
-    let networked = Phrase::LeaveTableConfirm.text(Lang::En).to_string();
-    let house = Phrase::LeaveTableConfirmOffline.text(Lang::En).to_string();
-    assert_eq!(networked, "Leave? The house plays on for you. Press again");
-    assert_eq!(house, "Leave? This game ends. Press again");
+    let armed = Phrase::LeaveTableConfirm.text(Lang::En).to_string();
+    let networked = Phrase::LeaveTableCost.text(Lang::En).to_string();
+    let house = Phrase::LeaveTableCostOffline.text(Lang::En).to_string();
+    assert_eq!(armed, "Leave? Press again");
+    assert_eq!(networked, "The house plays on for you.");
+    assert_eq!(house, "This game ends.");
     let pressed = |lines: &[String], row: &str| lines.iter().any(|l| l == row);
 
     // A seat at a gateway's table.
@@ -453,7 +459,11 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     open_the_menu(&mut app);
     let lines = said(&mut app);
     assert!(pressed(&lines, &leave), "a row to leave by: {lines:?}");
-    assert!(!pressed(&lines, &networked) && !pressed(&lines, &house));
+    assert!(!pressed(&lines, &armed));
+    assert!(
+        !pressed(&lines, &networked) && !pressed(&lines, &house),
+        "unarmed, no cost is quoted: {lines:?}"
+    );
     crate::input::menu_click(
         &mut app.world_mut().resource_mut::<Duel>(),
         MenuAction::LeaveGame,
@@ -462,9 +472,10 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     assert!(app.world().resource::<Duel>().leave_armed);
     app.update();
     let lines = said(&mut app);
+    assert!(pressed(&lines, &armed), "armed, the short row: {lines:?}");
     assert!(
         pressed(&lines, &networked),
-        "armed, the networked wording: {lines:?}"
+        "and under it, the networked cost: {lines:?}"
     );
     assert!(!pressed(&lines, &house));
     assert!(
@@ -489,6 +500,7 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     );
     app.update();
     let lines = said(&mut app);
+    assert!(pressed(&lines, &armed), "the same row: {lines:?}");
     assert!(
         pressed(&lines, &house),
         "a house game ends with its player: {lines:?}"
@@ -503,7 +515,8 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
     open_the_menu(&mut app);
     let lines = said(&mut app);
     assert!(
-        pressed(&lines, Phrase::LeaveTableConfirmOffline.text(Lang::De)),
+        pressed(&lines, Phrase::LeaveTableConfirm.text(Lang::De))
+            && pressed(&lines, Phrase::LeaveTableCostOffline.text(Lang::De)),
         "{lines:?}"
     );
 
