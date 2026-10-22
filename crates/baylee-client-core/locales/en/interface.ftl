@@ -3803,6 +3803,11 @@ LostHousePlays = The house AI plays for { $player }
 # this is what a client says when it cannot tell the two apart.
 LinkGaveUp = The table cannot be reached. Rejoin from the lobby.
 
+# After the retry schedule runs out with the table refusing this seat's
+# ticket on every dial: the sign-in behind the seat ended, or the chair was
+# taken up on another device. Signing in again offers the chair back.
+LinkSignInEnded = The table no longer takes this seat from here: your sign-in ended, or the seat was taken up on another device. Sign in again in the lobby to return.
+
 # The table refused this client's protocol, and speaks a newer one
 # (#271). No numbers: the log has both, and the player can act only on
 # which side is behind.

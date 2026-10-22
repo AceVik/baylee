@@ -3691,9 +3691,22 @@ only thing that knows the language.
 
 #### What the banner may claim, and why it cannot count
 
+*Since 22.10.2026* the schedule also dials on until the table's window has
+passed (`Retry::hold_for`; the window has been 180 s by default since
+10.10.2026, longer than the twelve dials below). A client that stopped at
+120.5 s gave up a chair the table was still holding for it, which the owner
+met as a connection that was lost and never came back. When it does run out,
+`reconnect::gave_up` picks the sentence: a seat whose ticket was refused
+(`401`) on every dial is told its sign-in ended or the seat was taken up on
+another device, and to sign in again in the lobby (`LinkSignInEnded`); a
+Central session lives 30 minutes and is never renewed
+(`docs/central-login.md`), and the gateway then refuses the seat. A single
+refusal says nothing: the gateway answers a failed Central check `401` too.
+The rest of this section is the reasoning as it stood before.
+
 The schedule outlives the thing it was reassuring the player about. Twelve
 dials land at t = 0.5, 1.5, 3.5, 7.5, 15.5 and then every fifteen seconds to
-**120.5 s**. `HouseRules::reconnect_window_secs` is shorter than that on all
+**120.5 s**. `HouseRules::reconnect_window_secs` was shorter than that on all
 four presets — 30 s or 60 s — though not on every table that can be opened,
 since a room may ask for anything up to an hour. When it does expire,
 `Session::stand_in` gives the chair to the house, and for the rest of that

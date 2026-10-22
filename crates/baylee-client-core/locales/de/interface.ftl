@@ -1288,6 +1288,7 @@ LostWaiting = { $player } hat die Verbindung verloren – der Tisch wartet { $wa
 LostPaused = { $player } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung wieder steht
 LostHousePlays = Die Haus-KI spielt für { $player }
 LinkGaveUp = Der Tisch ist nicht erreichbar. Tritt aus der Lobby erneut bei.
+LinkSignInEnded = Der Tisch nimmt diesen Platz von hier nicht mehr an: Deine Anmeldung ist abgelaufen, oder der Platz wurde auf einem anderen Gerät übernommen. Melde dich in der Lobby neu an, um zurückzukehren.
 ClientOutdated = Dein Client ist veraltet: Aktualisiere ihn, um beizutreten.
 TableOlder = Dieser Tisch läuft mit einer älteren Version als dein Client.
 CardHasNoTarget = Für diese Karte gibt es kein gültiges Ziel mehr
