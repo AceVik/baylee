@@ -159,6 +159,14 @@ pub trait DuelHost: Send + Sync + 'static {
         Ok(())
     }
 
+    /// How many dials since the connection was last up the table refused
+    /// this seat's ticket on (`401`), for what the reconnect schedule says
+    /// when it runs out (`reconnect::gave_up`). Defaults to none, for a host
+    /// with nothing to dial.
+    fn ticket_refusals(&self) -> u32 {
+        0
+    }
+
     /// The seat token this host plays with, for the report form's leak
     /// check (`report::keyring`) and for nothing else.
     ///
