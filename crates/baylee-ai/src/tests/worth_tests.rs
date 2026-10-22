@@ -1039,7 +1039,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Weatherlight (`wth`) Batch 5 adds 5 non-mana activated abilities across
     // Touchstone, Tranquil Grove, Vodalian Illusionist, Well of Knowledge, and
     // Zombie Scavengers, of which 3 are read by the evaluator.
-    assert_eq!((read, of), (2727, 3415), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 1 adds 13 non-mana activated abilities across Altar
+    // of Dementia, Bounty Hunter (2), Canyon Drake, Carrionette, Circle of
+    // Protection: Shadow, Coffin Queen, Cold Storage (2), Crazed Armodon, Crown
+    // of Flames (2), and Cursed Scroll, of which 8 are read before the two
+    // generated cards promote to Implemented.
+    assert_eq!((read, of), (2735, 3428), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

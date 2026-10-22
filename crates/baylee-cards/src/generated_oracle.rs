@@ -7460,48 +7460,76 @@ pub static ORACLE: &[&[&str]] = &[
     // Zombie Scavengers
     &["Exile the top creature card of your graveyard: Regenerate this creature."],
     &[],
-    &[],
+    // Abandon Hope
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nLook at target opponent's hand and choose X cards from it. That player discards those cards.",
+    ],
     // Advance Scout
     &["First strike\n{W}: Target creature gains first strike until end of turn."],
     // Aftershock
     &["Destroy target artifact, creature, or land. Aftershock deals 3 damage to you."],
-    &[],
-    &[],
+    // Altar of Dementia
+    &["Sacrifice a creature: Target player mills cards equal to the sacrificed creature's power."],
+    // Aluren
+    &[
+        "Any player may cast creature spells with mana value 3 or less without paying their mana costs and as though they had flash.",
+    ],
     // Ancient Runes
     &[
         "At the beginning of each player's upkeep, this enchantment deals damage to that player equal to the number of artifacts they control.",
     ],
     // Ancient Tomb
     &["{T}: Add {C}{C}. This land deals 2 damage to you."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Angelic Protector
+    &[
+        "Flying\nWhenever this creature becomes the target of a spell or ability, this creature gets +0/+3 until end of turn.",
+    ],
+    // Anoint
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nPrevent the next 3 damage that would be dealt to target creature this turn.",
+    ],
+    // Apes of Rath
+    &["Whenever this creature attacks, it doesn't untap during its controller's next untap step."],
+    // Apocalypse
+    &["Exile all permanents. You discard your hand."],
     // Armor Sliver
     &["All Sliver creatures have \"{2}: This creature gets +0/+1 until end of turn.\""],
     // Auratog
     &["Sacrifice an enchantment: This creature gets +2/+2 until end of turn."],
-    &[],
+    // Avenging Angel
+    &["Flying\nWhen this creature dies, you may put it on top of its owner's library."],
     // Barbed Sliver
     &["All Sliver creatures have \"{2}: This creature gets +1/+0 until end of turn.\""],
     // Bayou Dragonfly
     &[
         "Flying; swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)",
     ],
-    &[],
+    // Bellowing Fiend
+    &[
+        "Flying\nWhenever this creature deals damage to a creature, this creature deals 3 damage to that creature's controller and 3 damage to you.",
+    ],
     // Benthic Behemoth
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
     ],
-    &[],
+    // Blood Frenzy
+    &[
+        "Cast this spell only before the combat damage step.\nTarget attacking or blocking creature gets +4/+0 until end of turn. Destroy that creature at the beginning of the next end step.",
+    ],
     // Blood Pet
     &["Sacrifice this creature: Add {B}."],
     // Boil
     &["Destroy all Islands."],
-    &[],
+    // Booby Trap
+    &[
+        "As this artifact enters, choose an opponent and a card name other than a basic land card name.\nThe chosen player reveals each card they draw.\nWhen the chosen player draws a card with the chosen name, sacrifice this artifact. If you do, this artifact deals 10 damage to that player.",
+    ],
     // Bottle Gnomes
     &["Sacrifice this creature: You gain 3 life."],
-    &[],
+    // Bounty Hunter
+    &[
+        "{T}: Put a bounty counter on target nonblack creature.\n{T}: Destroy target creature with a bounty counter on it.",
+    ],
     // Broken Fall
     &["Return this enchantment to its owner's hand: Regenerate target creature."],
     // Caldera Lake
@@ -7510,35 +7538,70 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Canopy Spider
     &["Reach (This creature can block creatures with flying.)"],
-    &[],
+    // Canyon Drake
+    &["Flying\n{1}, Discard a card at random: This creature gets +2/+0 until end of turn."],
     // Canyon Wildcat
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Capsize
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn target permanent to its owner's hand.",
+    ],
+    // Carrionette
+    &[
+        "{2}{B}{B}: Exile this card and target creature unless that creature's controller pays {2}. Activate only if this card is in your graveyard.",
+    ],
+    // Chaotic Goo
+    &[
+        "This creature enters with three +1/+1 counters on it.\nAt the beginning of your upkeep, you may flip a coin. If you win the flip, put a +1/+1 counter on this creature. If you lose the flip, remove a +1/+1 counter from this creature.",
+    ],
+    // Chill
+    &["Red spells cost {2} more to cast."],
     // Choke
     &["Islands don't untap during their controllers' untap steps."],
     // Cinder Marsh
     &["{T}: Add {C}.\n{T}: Add {B} or {R}. This land doesn't untap during your next untap step."],
-    &[],
+    // Circle of Protection: Shadow
+    &[
+        "{1}: The next time a creature of your choice with shadow would deal damage to you this turn, prevent that damage.",
+    ],
     // Clergy en-Vec
     &["{T}: Prevent the next 1 damage that would be dealt to any target this turn."],
     // Clot Sliver
     &["All Slivers have \"{2}: Regenerate this permanent.\""],
     // Cloudchaser Eagle
     &["Flying\nWhen this creature enters, destroy target enchantment."],
-    &[],
+    // Coffin Queen
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. When this creature becomes untapped or you lose control of this creature, exile that creature.",
+    ],
     // Coiled Tinviper
     &["First strike"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cold Storage
+    &[
+        "{3}: Exile target creature you control.\nSacrifice this artifact: Return each creature card exiled with this artifact to the battlefield under your control.",
+    ],
+    // Commander Greven il-Vec
+    &[
+        "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhen Commander Greven il-Vec enters, sacrifice a creature.",
+    ],
+    // Corpse Dance
+    &[
+        "Buyback {2} (You may pay an additional {2} as you cast this spell. If you do, put this card into your hand as it resolves.)\nReturn the top creature card of your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+    ],
+    // Crazed Armodon
+    &[
+        "{G}: This creature gets +3/+0 and gains trample until end of turn. Destroy this creature at the beginning of the next end step. Activate only once each turn.",
+    ],
+    // Crown of Flames
+    &[
+        "Enchant creature\n{R}: Enchanted creature gets +1/+0 until end of turn.\n{R}: Return this Aura to its owner's hand.",
+    ],
+    // Cursed Scroll
+    &[
+        "{3}, {T}: Choose a card name, then reveal a card at random from your hand. If that card has the chosen name, this artifact deals 2 damage to any target.",
+    ],
     // Darkling Stalker
     &["{B}: Regenerate this creature.\n{B}: This creature gets +1/+1 until end of turn."],
     // Dauthi Embrace

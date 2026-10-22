@@ -31,6 +31,8 @@ pub mod aang_and_katara;
 pub mod aang_s_defense;
 #[path = "creatures/mv_4/aardvark_sloth.rs"]
 pub mod aardvark_sloth;
+#[path = "sorceries/mv_2/abandon_hope.rs"]
+pub mod abandon_hope;
 #[path = "lands/check/abandoned_air_temple.rs"]
 pub mod abandoned_air_temple;
 #[path = "lands/unlucky/abandoned_campground.rs"]
@@ -421,12 +423,16 @@ pub mod alpine_watchdog;
 pub mod altac_bloodseeker;
 #[path = "sorceries/mv_2/altar_of_bone.rs"]
 pub mod altar_of_bone;
+#[path = "artifacts/mv_2/altar_of_dementia.rs"]
+pub mod altar_of_dementia;
 #[path = "artifacts/mv_1/altar_of_the_brood.rs"]
 pub mod altar_of_the_brood;
 #[path = "instants/mv_4/altar_s_light.rs"]
 pub mod altar_s_light;
 #[path = "creatures/mv_4/altered_ego.rs"]
 pub mod altered_ego;
+#[path = "enchantments/mv_4/aluren.rs"]
+pub mod aluren;
 #[path = "enchantments/mv_3/always_watching.rs"]
 pub mod always_watching;
 #[path = "creatures/artifacts/mv_4/amaranthine_wall.rs"]
@@ -581,6 +587,8 @@ pub mod angelic_gift;
 pub mod angelic_overseer;
 #[path = "creatures/mv_2/angelic_page.rs"]
 pub mod angelic_page;
+#[path = "creatures/mv_4/angelic_protector.rs"]
+pub mod angelic_protector;
 #[path = "enchantments/mv_2/angelic_renewal.rs"]
 pub mod angelic_renewal;
 #[path = "enchantments/auras/mv_5/angelic_reward.rs"]
@@ -627,6 +635,8 @@ pub mod annihilate;
 pub mod annul;
 #[path = "creatures/artifacts/mv_5/anodet_lurker.rs"]
 pub mod anodet_lurker;
+#[path = "instants/mv_1/anoint.rs"]
+pub mod anoint;
 #[path = "creatures/mv_1/anointed_chorister.rs"]
 pub mod anointed_chorister;
 #[path = "creatures/mv_5/anointed_deacon.rs"]
@@ -653,8 +663,12 @@ pub mod anvil_of_bogardan;
 pub mod anvilwrought_raptor;
 #[path = "enchantments/auras/mv_1/apathy.rs"]
 pub mod apathy;
+#[path = "creatures/mv_4/apes_of_rath.rs"]
+pub mod apes_of_rath;
 #[path = "creatures/mv_2/aphelia_viper_whisperer.rs"]
 pub mod aphelia_viper_whisperer;
+#[path = "sorceries/mv_5/apocalypse.rs"]
+pub mod apocalypse;
 #[path = "artifacts/mv_2/apocalypse_chime.rs"]
 pub mod apocalypse_chime;
 #[path = "creatures/mv_4/appa_aang_s_companion.rs"]
@@ -1087,6 +1101,8 @@ pub mod aven_wind_mage;
 pub mod avengers_hangar;
 #[path = "lands/utility/avengers_tower.rs"]
 pub mod avengers_tower;
+#[path = "creatures/mv_5/avenging_angel.rs"]
+pub mod avenging_angel;
 #[path = "creatures/mv_3/avian_changeling.rs"]
 pub mod avian_changeling;
 #[path = "creatures/mv_2/aviary_mechanic.rs"]
@@ -1477,6 +1493,8 @@ pub mod belligerent_sliver;
 pub mod belligerent_whiptail;
 #[path = "creatures/mv_2/bellowing_crier.rs"]
 pub mod bellowing_crier;
+#[path = "creatures/mv_5/bellowing_fiend.rs"]
+pub mod bellowing_fiend;
 #[path = "creatures/mv_1/bellows_lizard.rs"]
 pub mod bellows_lizard;
 #[path = "creatures/mv_2/beloved_chaplain.rs"]
@@ -1771,6 +1789,8 @@ pub mod blood_celebrant;
 pub mod blood_crypt;
 #[path = "creatures/mv_3/blood_cursed_knight.rs"]
 pub mod blood_cursed_knight;
+#[path = "instants/mv_2/blood_frenzy.rs"]
+pub mod blood_frenzy;
 #[path = "creatures/mv_5/blood_glutton.rs"]
 pub mod blood_glutton;
 #[path = "creatures/mv_5/blood_host.rs"]
@@ -2005,6 +2025,8 @@ pub mod bonescythe_sliver;
 pub mod bonesplitter;
 #[path = "creatures/mv_4/bonesplitter_sliver.rs"]
 pub mod bonesplitter_sliver;
+#[path = "artifacts/mv_6/booby_trap.rs"]
+pub mod booby_trap;
 #[path = "artifacts/mv_6/book_of_rass.rs"]
 pub mod book_of_rass;
 #[path = "instants/mv_2/boomerang.rs"]
@@ -2091,6 +2113,8 @@ pub mod bountiful_landscape;
 pub mod bountiful_promenade;
 #[path = "creatures/mv_2/bounty_agent.rs"]
 pub mod bounty_agent;
+#[path = "creatures/mv_4/bounty_hunter.rs"]
+pub mod bounty_hunter;
 #[path = "instants/mv_6/bounty_of_might.rs"]
 pub mod bounty_of_might;
 #[path = "instants/mv_5/bounty_of_the_hunt.rs"]
@@ -2465,6 +2489,8 @@ pub mod canopy_spider;
 pub mod canopy_tactician;
 #[path = "lands/battle/canopy_vista.rs"]
 pub mod canopy_vista;
+#[path = "creatures/mv_4/canyon_drake.rs"]
+pub mod canyon_drake;
 #[path = "creatures/mv_4/canyon_minotaur.rs"]
 pub mod canyon_minotaur;
 #[path = "lands/cycling/canyon_slough.rs"]
@@ -2483,6 +2509,8 @@ pub mod capashen_unicorn;
 pub mod capital_city;
 #[path = "creatures/mv_2/capital_guard.rs"]
 pub mod capital_guard;
+#[path = "instants/mv_3/capsize.rs"]
+pub mod capsize;
 #[path = "creatures/mv_6/captain_of_the_watch.rs"]
 pub mod captain_of_the_watch;
 #[path = "creatures/mv_3/captain_of_umbar.rs"]
@@ -2551,6 +2579,8 @@ pub mod carrion_howler;
 pub mod carrion_screecher;
 #[path = "creatures/mv_3/carrion_wall.rs"]
 pub mod carrion_wall;
+#[path = "creatures/mv_2/carrionette.rs"]
+pub mod carrionette;
 #[path = "creatures/mv_3/cartographer.rs"]
 pub mod cartographer;
 #[path = "enchantments/auras/mv_2/cartouche_of_knowledge.rs"]
@@ -2781,6 +2811,8 @@ pub mod chaos_terminator_lord;
 pub mod chaoslace;
 #[path = "enchantments/mv_3/chaosphere.rs"]
 pub mod chaosphere;
+#[path = "creatures/mv_4/chaotic_goo.rs"]
+pub mod chaotic_goo;
 #[path = "creatures/mv_3/chapel_geist.rs"]
 pub mod chapel_geist;
 #[path = "sorceries/mv_1/chaplain_s_blessing.rs"]
@@ -2841,6 +2873,8 @@ pub mod child_of_gaea;
 pub mod child_of_night;
 #[path = "creatures/mv_1/child_of_thorns.rs"]
 pub mod child_of_thorns;
+#[path = "enchantments/mv_2/chill.rs"]
+pub mod chill;
 #[path = "creatures/mv_3/chilling_apparition.rs"]
 pub mod chilling_apparition;
 #[path = "enchantments/auras/mv_2/chime_of_night.rs"]
@@ -2931,6 +2965,8 @@ pub mod circle_of_protection_blue;
 pub mod circle_of_protection_green;
 #[path = "enchantments/mv_2/circle_of_protection_red.rs"]
 pub mod circle_of_protection_red;
+#[path = "enchantments/mv_2/circle_of_protection_shadow.rs"]
+pub mod circle_of_protection_shadow;
 #[path = "enchantments/mv_2/circle_of_protection_white.rs"]
 pub mod circle_of_protection_white;
 #[path = "creatures/mv_1/circling_vultures.rs"]
@@ -3133,6 +3169,8 @@ pub mod coerced_to_kill;
 pub mod coercion;
 #[path = "creatures/mv_2/coeurl.rs"]
 pub mod coeurl;
+#[path = "creatures/mv_3/coffin_queen.rs"]
+pub mod coffin_queen;
 #[path = "creatures/artifacts/mv_4/cogwork_librarian.rs"]
 pub mod cogwork_librarian;
 #[path = "creatures/artifacts/mv_1/cogwork_wrestler.rs"]
@@ -3149,6 +3187,8 @@ pub mod coils_of_the_medusa;
 pub mod cold_case_cracker;
 #[path = "enchantments/mv_3/cold_snap.rs"]
 pub mod cold_snap;
+#[path = "artifacts/mv_4/cold_storage.rs"]
+pub mod cold_storage;
 #[path = "creatures/mv_6/cold_water_snapper.rs"]
 pub mod cold_water_snapper;
 #[path = "artifacts/mv_2/coldsteel_heart.rs"]
@@ -3203,6 +3243,8 @@ pub mod command_the_storm;
 pub mod command_tower;
 #[path = "creatures/mv_4/commander_eesha.rs"]
 pub mod commander_eesha;
+#[path = "creatures/mv_6/commander_greven_il_vec.rs"]
+pub mod commander_greven_il_vec;
 #[path = "instants/mv_3/commander_s_insight.rs"]
 pub mod commander_s_insight;
 #[path = "artifacts/mv_3/commander_s_sphere.rs"]
@@ -3373,6 +3415,8 @@ pub mod coretapper;
 pub mod cori_mountain_monastery;
 #[path = "creatures/mv_3/corpse_blockade.rs"]
 pub mod corpse_blockade;
+#[path = "instants/mv_3/corpse_dance.rs"]
+pub mod corpse_dance;
 #[path = "creatures/mv_2/corpse_knight.rs"]
 pub mod corpse_knight;
 #[path = "sorceries/mv_5/corpsehatch.rs"]
@@ -3465,6 +3509,8 @@ pub mod craw_giant;
 pub mod craw_wurm;
 #[path = "lands/utility/crawling_barrens.rs"]
 pub mod crawling_barrens;
+#[path = "creatures/mv_4/crazed_armodon.rs"]
+pub mod crazed_armodon;
 #[path = "creatures/mv_1/crazed_goblin.rs"]
 pub mod crazed_goblin;
 #[path = "creatures/mv_4/crazed_skirge.rs"]
@@ -3533,6 +3579,8 @@ pub mod crosswinds;
 pub mod crowd_favorites;
 #[path = "creatures/mv_4/crowd_of_cinders.rs"]
 pub mod crowd_of_cinders;
+#[path = "enchantments/auras/mv_1/crown_of_flames.rs"]
+pub mod crown_of_flames;
 #[path = "artifacts/mv_2/crown_of_the_ages.rs"]
 pub mod crown_of_the_ages;
 #[path = "enchantments/mv_4/crucible_of_fire.rs"]
@@ -3663,6 +3711,8 @@ pub mod cursed_minotaur;
 pub mod cursed_mirror;
 #[path = "artifacts/mv_4/cursed_rack.rs"]
 pub mod cursed_rack;
+#[path = "artifacts/mv_1/cursed_scroll.rs"]
+pub mod cursed_scroll;
 #[path = "artifacts/mv_2/cursed_totem.rs"]
 pub mod cursed_totem;
 #[path = "creatures/artifacts/mv_3/custodian_of_the_trove.rs"]

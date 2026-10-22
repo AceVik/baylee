@@ -210,6 +210,9 @@ pub const FUSE: CounterKind = CounterKind::Custom(54);
 /// Shell counters (Roc Hatchling).
 pub const SHELL: CounterKind = CounterKind::Custom(55);
 
+/// Bounty counters (Bounty Hunter).
+pub const BOUNTY: CounterKind = CounterKind::Custom(56);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -271,6 +274,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("rust", RUST),
     ("fuse", FUSE),
     ("shell", SHELL),
+    ("bounty", BOUNTY),
 ];
 
 #[cfg(test)]
