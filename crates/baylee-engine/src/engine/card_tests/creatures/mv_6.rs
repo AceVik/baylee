@@ -50,6 +50,7 @@ mod megantic_sliver;
 mod megatog;
 mod metamorphosis_fanatic;
 mod mikaeus_the_unhallowed;
+mod minion_of_the_wastes;
 mod mist_dragon;
 mod moss_kami;
 mod muldrotha_the_gravetide;

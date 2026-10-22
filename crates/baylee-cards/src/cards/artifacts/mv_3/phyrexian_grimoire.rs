@@ -21,8 +21,7 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{4}", TapSelf),
-        &[Effect::ReturnFromGraveyardOf {
-            whose: PlayerRel::You,
+        &[Effect::RandomGraveyardToHand {
             filter: &Filter::Any,
         }],
         target = Some(TargetSpec::AnyOpponent),

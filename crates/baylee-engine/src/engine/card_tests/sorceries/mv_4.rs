@@ -32,6 +32,8 @@ mod forbidden_ritual;
 mod gerrard_s_wisdom;
 mod juxtapose;
 mod lay_waste;
+mod legerdemain;
+mod lobotomy;
 mod mind_warp;
 mod misfortune;
 mod mizzix_s_mastery;

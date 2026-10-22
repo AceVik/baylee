@@ -52,6 +52,7 @@ mod iceberg;
 mod icy_prison;
 mod illusionary_terrain;
 mod island_sanctuary;
+mod legacy_s_allure;
 mod leshrac_s_sigil;
 mod lifeforce;
 mod lifetap;

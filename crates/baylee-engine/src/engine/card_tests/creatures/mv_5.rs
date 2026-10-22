@@ -99,6 +99,7 @@ mod lichenthrope;
 mod lithophage;
 mod lovisa_coldeyes;
 mod loxodon_mystic;
+mod magmasaur;
 mod martyrs_of_korlis;
 mod mawcor;
 mod meloku_the_clouded_mirror;

@@ -99,6 +99,7 @@ mod manta_riders;
 mod merchant_ship;
 mod merfolk_of_the_pearl_trident;
 mod miracle_worker;
+mod mogg_conscripts;
 mod mogg_fanatic;
 mod mogg_raider;
 mod mogg_sentry;

@@ -54,6 +54,7 @@ mod obelisk_of_jund;
 mod obelisk_of_naya;
 mod paupers_cage;
 mod phyrexian_altar;
+mod phyrexian_grimoire;
 mod phyrexian_lens;
 mod phyrexian_portal;
 mod phyrexian_vault;

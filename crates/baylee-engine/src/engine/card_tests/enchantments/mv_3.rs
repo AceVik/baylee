@@ -77,6 +77,7 @@ mod narcissism;
 mod necrogen_mists;
 mod necromancy;
 mod noble_steeds;
+mod orim_s_prayer;
 mod oubliette;
 mod overgrown_estate;
 mod phyrexian_arena;
