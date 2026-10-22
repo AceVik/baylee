@@ -4216,9 +4216,16 @@ folds into the header as the gold Return pill in the gateway dot's place.
 `r` is its Return. The reconnecting strip stands while a feed that was
 live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
-table filling (`strips::table_news`); each ring is a toast for six seconds,
-at most three, bottom-right (from the top on a Phone), in a lane of its own
-outside the lobby's tree. A `401` lands on the front door with "Signed out
+table filling (`strips::table_news`); each ring is a toast for fifteen
+seconds, beside the lobby's own notices (`Lobby::status`), at most four,
+top-left under the header (`header::toast_lane`), in a lane of its own
+outside the lobby's tree. Each toast's cross takes that toast away, named by
+the number it came with (`header::ToastId`), never by its place in the lane.
+The lane is put away when a table opens (`put_the_toasts_away`), and what it
+said does not come back after the game: it ages and answers its cross only
+while the lobby runs, so the toasts of the last rings before a game, which
+is when a table fills, stood over the whole game with a cross that did
+nothing (owner, 22.10.2026). A `401` lands on the front door with "Signed out
 — your session ended · Sign in again", and the builder's draft and pool are
 kept for the next sign-in.
 
