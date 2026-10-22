@@ -113,6 +113,7 @@ mod sacrifice;
 mod sandstorm;
 mod sapphire_charm;
 mod sea_kings_blessing;
+mod searing_touch;
 mod seedling_charm;
 mod shock;
 mod shrink;

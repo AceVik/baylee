@@ -82,6 +82,7 @@ mod oubliette;
 mod overgrown_estate;
 mod phyrexian_arena;
 mod prismatic_circle;
+mod propaganda;
 mod raiding_party;
 mod reality_twist;
 mod reparations;

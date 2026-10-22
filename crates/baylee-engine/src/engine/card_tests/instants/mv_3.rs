@@ -59,6 +59,7 @@ mod piety;
 mod psionic_blast;
 mod quick_study;
 mod realms_uncharted;
+mod reckless_spite;
 mod regress;
 mod reincarnation;
 mod rend_flesh;

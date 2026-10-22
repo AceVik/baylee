@@ -42,6 +42,7 @@ mod primitive_justice;
 mod rampant_growth;
 mod regrowth;
 mod reshape;
+mod rolling_thunder;
 mod sacred_nectar;
 mod sealed_fate;
 mod shattered_crypt;

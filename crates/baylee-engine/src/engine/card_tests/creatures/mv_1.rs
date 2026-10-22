@@ -127,6 +127,7 @@ mod rime_dryad;
 mod roc_hatchling;
 mod rogue_elephant;
 mod royal_herbalist;
+mod sacred_guide;
 mod sandbar_merfolk;
 mod savaen_elves;
 mod savannah_lions;

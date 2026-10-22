@@ -255,6 +255,7 @@ mod rishkar_peema_renegade;
 mod rogue_skycaptain;
 mod rootwalla;
 mod rootwater_hunter;
+mod rootwater_shaman;
 mod rotlung_reanimator;
 mod royal_assassin;
 mod rysorian_badger;

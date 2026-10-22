@@ -38,6 +38,7 @@ mod recall;
 mod reconstruction;
 mod return_to_battle;
 mod rite_of_flame;
+mod scorched_earth;
 mod scorching_spear;
 mod serum_visions;
 mod spoils_of_war;

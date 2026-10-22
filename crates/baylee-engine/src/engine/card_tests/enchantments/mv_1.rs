@@ -130,6 +130,7 @@ mod onslaught;
 mod phyrexian_reclamation;
 mod quest_for_the_gravelord;
 mod revelation;
+mod root_maze;
 mod sarcomancy;
 mod seal_of_fire;
 mod seal_of_removal;

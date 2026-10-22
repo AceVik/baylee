@@ -186,6 +186,7 @@ mod putrid_leech;
 mod pygmy_hippo;
 mod pygmy_razorback;
 mod pyric_salamander;
+mod quickening_licid;
 mod quirion_elves;
 mod quirion_sentinel;
 mod rats_of_rath;

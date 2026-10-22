@@ -56,6 +56,7 @@ mod red_scarab;
 mod red_ward;
 mod reflexes;
 mod robe_of_mirrors;
+mod sadistic_glee;
 mod sicken;
 mod spider_climb;
 mod spirit_link;
