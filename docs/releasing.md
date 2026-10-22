@@ -40,6 +40,14 @@ While the version is `0.x`:
   (decks, preferences, replays, `CardIndex`).
 - **patch** (`0.1.0 → 0.1.1`): everything else.
 
+Pre-release names follow SemVer §11, and the updater compares by it
+(`baylee_update::version`): a purely numeric identifier sorts **below** any
+alphanumeric one, and alphanumeric ones compare as text. So after
+`0.1.0-beta.8a` and `0.1.0-beta.8b`, a `0.1.0-beta.9` would be older than both
+and never offered to those installs, and lettered names break at ten
+(`10a` sorts below `9a`). The release after `0.1.0-beta.8b` therefore raises
+the patch: `0.1.1-beta.1`, and pre-releases stay plain numbers from then on.
+
 ## Cutting one
 
 1. On `main`, bump `version` in `[workspace.package]`, rewrite the API
