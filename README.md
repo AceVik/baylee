@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylee's front door in its moonlit garden, clouds drifting and fireflies glowing behind a gateway's sign-in" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylee's front door: a gateway's sign-in in a moonlit garden of lanterns and wisteria that moves gently behind it" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -105,9 +105,7 @@ What changed since beta.7, in 0.1.0-beta.8a and this release, 0.1.0-beta.8b:
   account, which you create on the website,
   [baylee.app](https://baylee.app/register); the client then brings back
   your list of gateways and your settings and takes you to the gateway you
-  choose. An account from beta.7 or earlier moves over the first time you
-  sign in with its username and password, with its decks and settings
-  ([Your first game](#your-first-game)).
+  choose ([Your first game](#your-first-game)).
 - **Central's terms come first.** Before the first gateway, the client shows
   Baylee Central's terms of use. Your acceptance is kept with your account,
   so another computer does not ask again.
@@ -385,9 +383,7 @@ for. Only you see the username; on a gateway, other players see a display
 name and a short tag, such as `Alice#af03`. Signing in brings back your list
 of gateways and your settings and takes you to the gateway you choose; the
 session renews itself while Baylee runs, for up to 12 hours, and then you
-sign in again. An account you made on Sanctuary before beta.8 moves to
-Baylee Central the first time you sign in with its username and password,
-with its decks and settings.
+sign in again.
 
 Before the first gateway, the client shows **Baylee Central's terms of
 use**; your acceptance is kept with the account, so another computer does

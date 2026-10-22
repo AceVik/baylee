@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang in seinem mondbeschienenen Garten: Wolken ziehen und Glühwürmchen leuchten hinter der Anmeldung an einem Gateway" width="100%">
+  <img src="docs/images/readme/hero.webp" alt="Baylees Eingang: die Anmeldung an einem Gateway in einem mondbeschienenen Garten mit Laternen und Glyzinien, der sich dahinter sacht bewegt" width="100%">
 </p>
 
 <h1 align="center">Baylee</h1>
@@ -111,10 +111,7 @@ Was sich seit beta.7 geändert hat, in 0.1.0-beta.8a und in dieser Version,
   einem Baylee-Account an, den du auf der Website anlegst,
   [baylee.app](https://baylee.app/register); der Client holt danach deine
   Gateway-Liste und deine Einstellungen zurück und bringt dich zu dem
-  Gateway, das du wählst. Ein Account aus beta.7 oder früher zieht mit um,
-  sobald du dich zum ersten Mal mit seinem Benutzernamen und Passwort
-  anmeldest, samt Decks und Einstellungen
-  ([Dein erstes Spiel](#dein-erstes-spiel)).
+  Gateway, das du wählst ([Dein erstes Spiel](#dein-erstes-spiel)).
 - **Erst die Bedingungen von Central.** Vor dem ersten Gateway zeigt der
   Client die Nutzungsbedingungen von Baylee Central. Deine Zustimmung bleibt
   bei deinem Account, ein anderer Rechner fragt also nicht noch einmal.
@@ -144,7 +141,7 @@ Was sich seit beta.7 geändert hat, in 0.1.0-beta.8a und in dieser Version,
   Wiederverbindungsfenster des Tisches vorbei ist (drei Minuten, wenn der
   Tisch nichts anderes sagt), und sagt dann, ob deine Anmeldung abgelaufen
   ist oder der Tisch nicht zu erreichen war.
-- **Kosten im Bezahlfenster.** Kumulative Versorgungskosten (Ice Age) und
+- **Kosten im Bezahlfenster.** Kumulative Versorgung (Ice Age) und
   Angriffssteuern bezahlst du jetzt auch dort, mit vorgemerkten Ländern,
   bevor irgendetwas getappt wird.
 - **Behoben nach euren Berichten.** Unter den Problemen, die Spieler mit
@@ -186,7 +183,7 @@ Spielern (die Oberfläche ist hier englisch; sie spricht auch Deutsch).
     <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Raum wird eingerichtet: Drei freie Plätze gehen an die Haus-KI in drei Stufen"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber gibt drei freie Plätze der Haus-KI, jeden in einer eigenen Stufe; einen Platz kann auch ein anderer Spieler oder ein Sprachmodell nehmen.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/payment.webp" alt="Das Bezahlfenster: Kumulative Versorgungskosten von zwei werden mit zwei vorgemerkten Ländern bezahlt"><br><sub><b>Das Bezahlfenster.</b> Die kumulativen Versorgungskosten von Cold Snap verlangen zwei Mana: Angeklickte Länder werden vorgemerkt, getappt wird erst mit <i>Pay</i>, und <i>Untap all</i> nimmt alles zurück.</sub></td>
+    <td width="50%"><img src="docs/images/readme/payment.webp" alt="Das Bezahlfenster: Die kumulative Versorgung von zwei wird mit zwei vorgemerkten Ländern bezahlt"><br><sub><b>Das Bezahlfenster.</b> Die kumulative Versorgung von Cold Snap verlangt zwei Mana: Angeklickte Länder werden vorgemerkt, getappt wird erst mit <i>Pay</i>, und <i>Untap all</i> nimmt alles zurück.</sub></td>
     <td width="50%"><img src="docs/images/readme/replay.webp" alt="Ein Replay läuft mit doppelter Geschwindigkeit, dann öffnet sich das Menü Watch from"><br><sub><b>Replays.</b> Eine gespeicherte Partie gegen das Haus läuft mit 2×, mit Stapel, Angriff und Blocks; <i>Your seat</i> wählt, aus wessen Sicht du zusiehst: deiner, der eines anderen Spielers, des Tisches oder aller Hände.</sub></td>
   </tr>
   <tr>
@@ -412,10 +409,7 @@ nur du; auf einem Gateway sehen andere einen Anzeigenamen und ein kurzes
 Kennzeichen, etwa `Alice#af03`. Die Anmeldung holt deine Gateway-Liste und
 deine Einstellungen zurück und bringt dich zu dem Gateway, das du wählst;
 die Sitzung verlängert sich selbst, solange Baylee läuft, bis zu 12
-Stunden, danach meldest du dich neu an. Ein Account, den du vor beta.8 auf
-Sanctuary angelegt hast, zieht zu Baylee Central um, sobald du dich zum
-ersten Mal mit seinem Benutzernamen und Passwort anmeldest, samt Decks und
-Einstellungen.
+Stunden, danach meldest du dich neu an.
 
 Vor dem ersten Gateway zeigt der Client die **Nutzungsbedingungen von
 Baylee Central**; deine Zustimmung bleibt beim Account, ein anderer Rechner
@@ -716,7 +710,7 @@ gedruckt hat; jede Karte zählt in dem Set, in dem sie zuerst erschien:
 **Alpha bis Fallen Empires sind vollständig**: Jede spielbare Karte spielt
 genau wie gedruckt (die wenigen fehlenden sind Ante-, Geschicklichkeits-
 und Subgame-Karten, darunter Chaos Orb). Ice Age entsteht gerade, samt
-kumulativer Versorgungskosten, und die Sets danach folgen in der
+kumulativer Versorgung, und die Sets danach folgen in der
 Reihenfolge, in der Magic sie gedruckt hat. Karten aus späteren Sets, die
 schon spielen, kamen mit früheren Stapeln dazu.
 
