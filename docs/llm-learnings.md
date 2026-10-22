@@ -5416,3 +5416,21 @@ more than two it names nobody). What the author did more than once:
     `Coverage::Partial`, with a `PARTIAL_NON_PRODUCER` entry in `land_mana_tests.rs`.
   - `Amount::TargetCmc` inside `Effect::PumpTarget` (`Surge of Strength`) and `Effect::SetSourceToughness { base: Amount::TargetPower, offset: 1, duration: Duration::UntilEndOfTurn }`
     (`Sworn Defender`) read the targeted permanent's mana value / power at resolution time.
+
+## 2026-10-22 — Alliances (`all`) batch 5 (11 cards: `Unlikely Alliance` to `Yavimaya Ants`)
+
+- Added the final 11 *Alliances* first-printing cards (`Unlikely Alliance` through `Yavimaya Ants`,
+  9 `Coverage::Implemented`, 2 `Coverage::Partial`), completing all 144 *Alliances* first-printing
+  Oracle identities (83 `Coverage::Implemented`, 61 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Filter::BandedWithSource` is supported in `Effect::continuous` (`Urza's Engine`'s second `{3}`
+    ability: *"Attacking creatures banded with this creature gain trample until end of turn"*), and
+    combat bands are tested via `declare_band_attack` + `answer_band_and_reach_blockers`.
+  - `CostPart::TapOther(&Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]))` paired with
+    `TargetSpec::Object(&Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::AttachedToBySource)]))`
+    cleanly expresses `Veteran's Voice` (*"Tap enchanted creature: Target creature other than the
+    creature tapped this way gets +2/+1 until end of turn. Activate only if enchanted creature is
+    untapped."*).
+  - `Trigger::TappedForMana` with `Effect::AddManaLikeEvent { amount: 1 }` and
+    `Effect::SuppressUntap { target: TargetSpec::EventObject, steps: 1 }` expresses `Winter's Night`
+    as a triggered mana ability that also suppresses the tapped snow land's next untap step.

@@ -38,6 +38,7 @@ mod snow_devil;
 mod spectral_cloak;
 mod torment;
 mod twisted_experiment;
+mod viscerid_armor;
 mod warp_artifact;
 mod wings_of_aesthir;
 mod wings_of_hope;

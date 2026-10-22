@@ -13,7 +13,7 @@ card!(
     scryfall_id = "41fba6db-fc52-43f2-a5d6-72001be126af",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::TRAMPLE.union(KeywordSet::HASTE),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Yavimaya Ants",
         mana_cost = mana!("{2}{G}{G}"),

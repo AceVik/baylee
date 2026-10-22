@@ -657,3 +657,18 @@ yet**: the 121 newly Implemented cards sit at L2 (validate-clean, no engine
 test names them yet) and the 46 inherited ones keep their prior level. The
 ARN (21) and ATQ (30) passes are the template. Nothing in this set was
 demoted by testing because testing has not run.
+
+## Ice Age, Homelands, and Alliances — release-order batches (2026-10-22)
+
+Implemented in 25-card batches with per-card played engine tests under the
+no-engine-change contract:
+
+- **Ice Age (`ice`)** — 346 first-printing Oracle identities: **258
+  Implemented, 86 Partial, 2 excluded/held-back** (`Amulet of Quoz` ante,
+  `Drudge Spell` token identity clash in `docs/generated-held-back.md`).
+- **Homelands (`hml`)** — 115 first-printing Oracle identities: **90
+  Implemented, 23 Partial, 2 excluded/held-back** (`Timmerian Fiends` ante,
+  `Koskun Falls` world enchantment upkeep tax).
+- **Alliances (`all`)** — 144 first-printing Oracle identities: **83
+  Implemented, 61 Partial, 0 excluded**. Every card in all 5 batches has a
+  dedicated played test under `crates/baylee-engine/src/engine/card_tests/`.

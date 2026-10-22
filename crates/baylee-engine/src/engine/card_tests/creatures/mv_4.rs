@@ -239,5 +239,7 @@ mod witch_enchanter;
 mod witch_hunter;
 mod wolverine_pack;
 mod world_shaper;
+mod varchild_s_crusader;
+mod yavimaya_ants;
 mod yawgmoth_thran_physician;
 mod zarichi_tiger;

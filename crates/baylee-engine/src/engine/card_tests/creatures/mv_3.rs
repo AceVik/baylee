@@ -316,4 +316,6 @@ mod xenic_poltergeist;
 mod xira_arien;
 mod ydwen_efreet;
 mod zombie_master;
+mod wandering_mage;
+mod whip_vine;
 mod zuran_spellcaster;

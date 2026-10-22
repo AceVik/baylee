@@ -244,5 +244,6 @@ mod wretched_anurid;
 mod wyluli_wolf;
 mod young_pyromancer;
 mod youthful_knight;
+mod varchild_s_war_riders;
 mod zephyr_falcon;
 mod zulaport_cutthroat;

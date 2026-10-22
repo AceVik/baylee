@@ -52,6 +52,7 @@ mod tangle_kelp;
 mod torture;
 mod unholy_strength;
 mod unstable_mutation;
+mod veteran_s_voice;
 mod vigilance;
 mod weakness;
 mod web;

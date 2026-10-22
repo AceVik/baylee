@@ -973,7 +973,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Sentry, Soldier of Fortune, Spiny Starfish, Splintering Wind, Storm
     // Elemental (2), Sworn Defender, Thought Lash, Tidal Control (2), and Tornado,
     // of which 7 are read by the evaluator.
-    assert_eq!((read, of), (2653, 3281), "activated/loyalty reader census");
+    // Alliances (`all`) Batch 5 adds 11 non-mana activated abilities across
+    // Unlikely Alliance, Urza's Engine (2), Varchild's Crusader, Veteran's Voice,
+    // Viscerid Armor, Wandering Mage (3), Whip Vine, and Whirling Catapult, of
+    // which 5 are read by the evaluator.
+    assert_eq!((read, of), (2658, 3292), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

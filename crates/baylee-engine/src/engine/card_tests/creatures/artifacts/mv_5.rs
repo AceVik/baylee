@@ -44,6 +44,7 @@ mod tek;
 mod titanium_golem;
 mod treva_s_attendant;
 mod ultron_machine_overlord;
+mod urza_s_engine;
 mod vectis_agents;
 mod venser_s_sliver;
 

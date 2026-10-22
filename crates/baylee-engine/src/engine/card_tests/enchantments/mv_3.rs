@@ -81,4 +81,5 @@ mod tourach_s_chant;
 mod tribute_to_the_world_tree;
 mod underworld_dreams;
 mod unspeakable_symbol;
+mod winter_s_night;
 mod withering_wisps;
