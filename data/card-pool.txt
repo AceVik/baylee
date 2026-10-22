@@ -3082,6 +3082,7 @@ Forsaken City
 Forsaken Crossroads
 Forsaken Drifters
 Forsaken Sanctuary
+Forsaken Wastes
 Fortified Area
 Fortified Beachhead
 Fortified Rampart
@@ -3116,6 +3117,7 @@ Frantic Strength
 Frazzle
 Freed from the Real
 Freewind Falcon
+Frenetic Efreet
 Frenzied Devils
 Frenzied Rage
 Frenzied Raptor
@@ -3435,6 +3437,7 @@ Goblin Clearcutter
 Goblin Commando
 Goblin Deathraiders
 Goblin Digging Team
+Goblin Elite Infantry
 Goblin Engineer
 Goblin Firebomb
 Goblin Flotilla
@@ -3472,8 +3475,10 @@ Goblin Sky Raider
 Goblin Sledder
 Goblin Smuggler
 Goblin Snowman
+Goblin Soothsayer
 Goblin Spelunkers
 Goblin Striker
+Goblin Tinkerer
 Goblin Tomb Raider
 Goblin Trailblazer
 Goblin Trashmaster
@@ -3566,6 +3571,8 @@ Grasslands
 Gravblade Heavy
 Grave Bramble
 Grave Robbers
+Grave Servitude
+Gravebane Zombie
 Gravebind
 Gravecrawler
 Gravedigger
@@ -3624,6 +3631,7 @@ Griffin Sentinel
 Grim Backwoods
 Grim Bauble
 Grim Bounty
+Grim Feast
 Grim Guardian
 Grim Monolith
 Grim Physician
@@ -3631,6 +3639,7 @@ Grim Tutor
 Grimclaw Bats
 Grindclock
 Grinding Station
+Grinning Totem
 Griselbrand
 Grisly Ritual
 Grist, the Hunger Tide
@@ -3716,12 +3725,14 @@ Hagra Mauling // Hagra Broodpit
 Hagra Sharpshooter
 Hail Storm
 Hair-Strung Koto
+Hakim, Loreweaver
 Halberdier
 Halcyon Glaze
 Half-Elf Monk
 Halfdane
 Halimar Depths
 Hall
+Hall of Gemstone
 Hall of Heliod's Generosity
 Hall of Oracles
 Hall of Storm Giants
@@ -3731,6 +3742,7 @@ Hallowed Ground
 Halls of Mist
 Halt Order
 Hamato Guardian Stance
+Hammer of Bogardan
 Hammerfist Giant
 Hammerhead Shark
 Hammerheim
@@ -3746,8 +3758,10 @@ Hapatra, Vizier of Poisons
 Hapless Researcher
 Happy Hogan, Dauntless Driver
 Haradrim Spearmaster
+Harbinger of Night
 Harbinger of the Seas
 Harbor Bandit
+Harbor Guardian
 Hard Evidence
 Hard-Won Jitte
 Hardened Escort
@@ -3777,6 +3791,7 @@ Haunted Library
 Haunted Mire
 Haunted Ridge
 Haunter of Nightveil
+Haunting Apparition
 Haunting Wind
 Haven of the Spirit Dragon
 Havengul Laboratory // Havengul Mystery
@@ -3914,6 +3929,7 @@ Hithlain Knots
 Hive Stirrings
 Hive of the Eye Tyrant
 Hivestone
+Hivis of the Scale
 Hoar Shade
 Hoard Robber
 Hobbit Hole
@@ -3969,6 +3985,7 @@ Hornet Harasser
 Hornet Queen
 Hornet Sting
 Hornswoggle
+Horrible Hordes
 Horrid Vigor
 Horrifying Revelation
 Horror of Horrors
@@ -4075,8 +4092,10 @@ Ihsan's Shade
 Il Mheg Pixie
 Ill-Gotten Inheritance
 Illegitimate Business
+Illicit Auction
 Illness in the Ranks
 Illuminated Wings
+Illumination
 Illusionary Forces
 Illusionary Mask
 Illusionary Presence
@@ -4134,6 +4153,7 @@ Inertia Bubble
 Infantry Veteran
 Infectious Horror
 Infectious Host
+Infernal Contract
 Infernal Darkness
 Infernal Denizen
 Infernal Grasp
@@ -4244,6 +4264,7 @@ Isolated Watchtower
 Isolation Cell
 It'll Quench Ya!
 Ithilien Kingfisher
+Ivory Charm
 Ivory Cup
 Ivory Gargoyle
 Ivory Guardians
@@ -4258,6 +4279,7 @@ Izzet Cluestone
 Izzet Guildgate
 Izzet Locket
 Izzet Signet
+Jabari's Influence
 Jace's Ingenuity
 Jace's Scrutiny
 Jackhammer
@@ -4318,7 +4340,9 @@ Johtull Wurm
 Join the Ranks
 Joiner Adept
 Jokulhaups
+Jolrael's Centaur
 Jolrael's Favor
+Jolt
 Joraga Visionary
 Jorubai Murk Lurker
 Journey to Eternity // Atzal, Cave of Eternity
@@ -4348,6 +4372,7 @@ Jungle Patrol
 Jungle Shrine
 Jungle Troll
 Jungle Weaver
+Jungle Wurm
 Jungleborn Pioneer
 Juniper Order Advocate
 Juniper Order Druid

@@ -676,3 +676,4 @@ no-engine-change contract:
   - Batch 1 (`Abyssal Hunter` to `Brushwagg`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Builder's Bane` to `Dazzling Beauty`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Decomposition` to `Forbidden Crypt`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 4 (`Forsaken Wastes` to `Jungle Wurm`, 25 cards): **15 Implemented, 10 Partial**.

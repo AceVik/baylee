@@ -5391,19 +5391,30 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "If you would draw a card, return a card from your graveyard to your hand instead. If you can't, you lose the game.\nIf a card would be put into your graveyard from anywhere, exile that card instead.",
     ],
-    &[],
-    &[],
+    // Forsaken Wastes
+    &[
+        "Players can't gain life.\nAt the beginning of each player's upkeep, that player loses 1 life.\nWhenever this enchantment becomes the target of a spell, that spell's controller loses 5 life.",
+    ],
+    // Frenetic Efreet
+    &[
+        "Flying\n{0}: Flip a coin. If you win the flip, this creature phases out. If you lose the flip, sacrifice this creature. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
     // Giant Mantis
     &["Reach (This creature can block creatures with flying.)"],
     // Gibbering Hyenas
     &["This creature can't block black creatures."],
-    &[],
+    // Goblin Elite Infantry
+    &["Whenever this creature blocks or becomes blocked, it gets -1/-1 until end of turn."],
     // Goblin Scouts
     &[
         "Create three 1/1 red Goblin Scout creature tokens with mountainwalk. (They can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
-    &[],
+    // Goblin Soothsayer
+    &["{R}, {T}, Sacrifice a Goblin: Red creatures get +1/+1 until end of turn."],
+    // Goblin Tinkerer
+    &[
+        "{R}, {T}: Destroy target artifact. That artifact deals damage equal to its mana value to this creature.",
+    ],
     // Granger Guildmage
     &[
         "{R}, {T}: This creature deals 1 damage to any target and 1 damage to you.\n{W}, {T}: Target creature gains first strike until end of turn.",
@@ -5412,40 +5423,94 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Grave Servitude
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nEnchanted creature gets +3/-1 and is black.",
+    ],
+    // Gravebane Zombie
+    &["If this creature would die, put it on top of its owner's library instead."],
+    // Grim Feast
+    &[
+        "At the beginning of your upkeep, this enchantment deals 1 damage to you.\nWhenever a creature is put into an opponent's graveyard from the battlefield, you gain life equal to its toughness.",
+    ],
+    // Grinning Totem
+    &[
+        "{2}, {T}, Sacrifice this artifact: Search target opponent's library for a card and exile it. Then that player shuffles. Until the beginning of your next upkeep, you may play that card. At the beginning of your next upkeep, if you haven't played it, put it into its owner's graveyard.",
+    ],
+    // Hakim, Loreweaver
+    &[
+        "Flying\n{U}{U}: Return target Aura card from your graveyard to the battlefield attached to Hakim. Activate only during your upkeep and only if Hakim isn't enchanted.\n{U}{U}, {T}: Destroy all Auras attached to Hakim.",
+    ],
+    // Hall of Gemstone
+    &[
+        "At the beginning of each player's upkeep, that player chooses a color. Until end of turn, lands tapped for mana produce mana of the chosen color instead of any other color.",
+    ],
+    // Hammer of Bogardan
+    &[
+        "Hammer of Bogardan deals 3 damage to any target.\n{2}{R}{R}{R}: Return this card from your graveyard to your hand. Activate only during your upkeep.",
+    ],
+    // Harbinger of Night
+    &["At the beginning of your upkeep, put a -1/-1 counter on each creature."],
+    // Harbor Guardian
+    &[
+        "Reach (This creature can block creatures with flying.)\nWhenever this creature attacks, defending player may draw a card.",
+    ],
     // Harmattan Efreet
     &["Flying\n{1}{U}{U}: Target creature gains flying until end of turn."],
-    &[],
+    // Haunting Apparition
+    &[
+        "Flying\nAs this creature enters, choose an opponent.\nHaunting Apparition's power is equal to 1 plus the number of green creature cards in the chosen player's graveyard.",
+    ],
     // Hazerider Drake
     &["Flying, protection from red"],
-    &[],
-    &[],
+    // Hivis of the Scale
+    &[
+        "You may choose not to untap Hivis during your untap step.\n{T}: Gain control of target Dragon for as long as you control Hivis and Hivis remains tapped.",
+    ],
+    // Horrible Hordes
+    &[
+        "Rampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)",
+    ],
     // Igneous Golem
     &["{2}: This creature gains trample until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Illicit Auction
+    &[
+        "Each player may bid life for control of target creature. You start the bidding with a bid of 0. In turn order, each player may top the high bid. The bidding ends if the high bid stands. The high bidder loses life equal to the high bid and gains control of the creature. (This effect lasts indefinitely.)",
+    ],
+    // Illumination
+    &[
+        "Counter target artifact or enchantment spell. Its controller gains life equal to its mana value.",
+    ],
+    // Infernal Contract
+    &["Draw four cards. You lose half your life, rounded up."],
     // Iron Tusk Elephant
     &["Trample"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ivory Charm
+    &[
+        "Choose one —\n• All creatures get -2/-0 until end of turn.\n• Tap target creature.\n• Prevent the next 1 damage that would be dealt to any target this turn.",
+    ],
+    // Jabari's Influence
+    &[
+        "Cast this spell only after combat.\nGain control of target nonartifact, nonblack creature that attacked you this turn and put a -1/-0 counter on it.",
+    ],
+    // Jolrael's Centaur
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nFlanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Jolt
+    &[
+        "You may tap or untap target artifact, creature, or land.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Jungle Patrol
     &[
         "{1}{G}, {T}: Create a 0/1 green Wall creature token with defender named Wood.\nSacrifice a token named Wood: Add {R}.",
     ],
     // Jungle Troll
     &["{R}: Regenerate this creature.\n{G}: Regenerate this creature."],
-    &[],
+    // Jungle Wurm
+    &[
+        "Whenever this creature becomes blocked, it gets -1/-1 until end of turn for each creature blocking it beyond the first.",
+    ],
     // Kaervek's Hex
     &[
         "Kaervek's Hex deals 1 damage to each nonblack creature and an additional 1 damage to each green creature.",
