@@ -18,6 +18,9 @@ def main():
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--web-manifest", required=True)
     ap.add_argument("--extra-run", action="append", default=[])
+    ap.add_argument("--conversion-threads", type=int, default=2)
+    ap.add_argument("--conversion-timeout", type=float, default=7200)
+    ap.add_argument("--conversion-attempt", default="convert", help="New name after a quarantined conversion")
     args = ap.parse_args()
     root = Path(args.out).resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -46,11 +49,13 @@ def main():
         admission[run] = run_meta.get("totals", {}).get("outcomes", {})
     atomic_json(root / "admission.json", {"outcomes_by_run": admission,
         "rule": "Only won/team_won/draw records enter conversion; caps and failures remain findings"})
-    dataset = root / "dataset"
+    if Path(args.conversion_attempt).name != args.conversion_attempt:
+        raise ValueError("Conversion attempt must be one directory name")
+    dataset = root / ("dataset" if args.conversion_attempt == "convert" else "dataset-" + args.conversion_attempt)
     command = ["target/release/convert4", "--runs", ",".join(train),
                "--val-runs", ",".join(val), "--out", str(dataset),
-               "--include-passive-obs", "--threads", "4"]
-    if run_job(root / "jobs" / "convert", command, 3600,
+               "--include-passive-obs", "--threads", str(args.conversion_threads)]
+    if run_job(root / "jobs" / args.conversion_attempt, command, args.conversion_timeout,
                inputs=[Path(run) / "run.json" for run in train + val]):
         raise RuntimeError("Conversion quarantined")
     converted = json.loads((dataset / "meta.json").read_text())

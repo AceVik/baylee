@@ -20,7 +20,7 @@ use baylee_train::carddsl::{
     ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, UNKNOWN_CARD,
     card_ability_table, card_back_summary_table, card_summary_table, token_summary_table,
 };
-use baylee_train::convert4::{RolloutStepSidecar4, extract_game4_with_sidecar};
+use baylee_train::convert4::{RolloutStepSidecar4, Step4, extract_game4_with_sidecar};
 use baylee_train::features4::{
     CAND_FEAT_WIDTH, CoverageMatrix4, ENCODER_VERSION, ENTITY_FEAT_WIDTH, GLOBAL_FEAT_WIDTH,
     MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS, SEAT_FEAT_WIDTH,
@@ -104,7 +104,8 @@ impl ShardWriter {
         })
     }
 
-    fn write_raw_batch(&mut self, raw_jsonl: &[u8], step_count: usize) -> anyhow::Result<()> {
+    fn write_steps(&mut self, steps: &[Step4]) -> anyhow::Result<()> {
+        let step_count = steps.len();
         if step_count == 0 {
             return Ok(());
         }
@@ -120,7 +121,15 @@ impl ShardWriter {
             self.shards_written.push(name);
         }
         let enc = self.enc.as_mut().expect("opened above");
-        enc.write_all(raw_jsonl)?;
+        // A long multiplayer game can serialize to several GiB. Retain only
+        // one JSON frame beside its typed representation, then compress it.
+        let mut frame = Vec::with_capacity(64 * 1024);
+        for step in steps {
+            frame.clear();
+            serde_json::to_writer(&mut frame, step)?;
+            frame.push(b'\n');
+            enc.write_all(&frame)?;
+        }
         self.cur_steps += step_count;
         self.total_steps += step_count as u64;
         Ok(())
@@ -292,15 +301,10 @@ fn main() -> anyhow::Result<()> {
                     vocab_extra.lock().expect("vocab lock").extend(local_cards);
                 }
 
-                let mut raw_buf = Vec::with_capacity(extracted.steps.len() * 2048);
-                for st in &extracted.steps {
-                    serde_json::to_writer(&mut raw_buf, st)?;
-                    raw_buf.push(b'\n');
-                }
                 let is_val = gref.validation;
                 let writer = if is_val { &val_writer } else { &train_writer };
                 let mut w = writer.lock().expect("writer lock");
-                w.write_raw_batch(&raw_buf, extracted.steps.len())?;
+                w.write_steps(&extracted.steps)?;
                 converted.fetch_add(1, Ordering::Relaxed);
             }
             Ok(())

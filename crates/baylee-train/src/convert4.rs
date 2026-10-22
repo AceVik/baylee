@@ -421,17 +421,15 @@ pub fn extract_game4_with_sidecar(
     // Populate outcome & auxiliary targets on every step
     let n_steps = raw_steps.len();
     let mut steps = Vec::with_capacity(n_steps);
-    for i in 0..n_steps {
-        let (mut step, cur_life) = raw_steps[i].clone();
+    let mut next_lives = final_lives;
+    // Move each large encoded frame instead of duplicating the whole game.
+    // Walking backwards also supplies the next same-seat life in constant time.
+    for (i, (mut step, cur_life)) in raw_steps.into_iter().enumerate().rev() {
         let s = step.seat as usize;
         step.outcome = side_utility(step.seat, &teams, &surviving_seats, &winners);
         step.is_terminal = last_any_idx[s] == Some(i);
-
-        // Find next life for the same seat
-        let next_life = raw_steps[(i + 1)..]
-            .iter()
-            .find(|(st, _)| st.seat == step.seat)
-            .map_or(final_lives[s], |(_, l)| *l);
+        let next_life = next_lives[s];
+        next_lives[s] = cur_life;
 
         let min_opp_life = (0..seat_count)
             .filter(|&o| o != s)
@@ -448,6 +446,7 @@ pub fn extract_game4_with_sidecar(
         };
         steps.push(step);
     }
+    steps.reverse();
 
     Ok(ExtractedGame4 {
         steps,
