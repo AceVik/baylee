@@ -341,6 +341,7 @@ mod vectis_silencers;
 mod walking_archive;
 mod wall_of_shields;
 mod wall_of_spears;
+mod watchdog;
 mod watcher_of_the_wayside;
 mod watchful_automaton;
 mod weldfast_monitor;

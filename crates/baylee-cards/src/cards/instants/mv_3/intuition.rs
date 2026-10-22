@@ -24,6 +24,6 @@ card!(
             up_to: 3,
             chosen: 2,
         }],
-        targets = Some(TargetReq::one(TargetSpec::Player(PlayerRel::Opponent))),
+        targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
     )],
 );

@@ -7,12 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static UNTAPPED_SELF: Filter = Filter::And(&[
-    Filter::InZone(ZoneRef::Battlefield),
-    Filter::This,
-    Filter::Untapped,
-]);
-
 card!(
     index = index::WATCHDOG,
     oracle_id = "6a951d2d-fc5a-4f41-bd77-3e301b76cf47",
@@ -29,9 +23,9 @@ card!(
     abilities = &[
         static_ability!(Filter::This, Modifier::BlocksEachAttackerIfAble),
         static_ability!(
-            Filter::And(&[Filter::CREATURE, Filter::AttackingYou]),
+            Filter::And(&[Filter::CREATURE, Filter::Attacking, Filter::AttackingYou]),
             Modifier::ModifyPT(-1, 0),
-            condition = Some(Condition::SourceMatches(&UNTAPPED_SELF)),
+            condition = Some(Condition::SourceMatches(&Filter::Untapped)),
         ),
     ],
 );

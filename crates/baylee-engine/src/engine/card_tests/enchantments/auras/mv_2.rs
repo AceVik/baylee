@@ -59,6 +59,7 @@ mod teferi_s_curse;
 mod torment;
 mod twisted_experiment;
 mod viscerid_armor;
+mod volrath_s_curse;
 mod ward_of_lights;
 mod warp_artifact;
 mod wings_of_aesthir;
