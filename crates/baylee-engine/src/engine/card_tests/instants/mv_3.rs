@@ -62,6 +62,7 @@ mod smash;
 mod spoils_of_evil;
 mod spore_cloud;
 mod stampede;
+mod stench_of_decay;
 mod sultai_charm;
 mod teferi_s_protection;
 mod touch_of_vitae;

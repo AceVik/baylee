@@ -91,6 +91,8 @@ mod silhouette;
 mod simulacrum;
 mod soothing_balm;
 mod strength_in_numbers;
+mod suffocation;
+mod surge_of_strength;
 mod tear_asunder;
 mod tel_jilad_justice;
 mod terminate;

@@ -22,6 +22,7 @@ mod meteorite;
 mod predator_flagship;
 mod ring_of_renewal;
 mod ring_of_three_wishes;
+mod storm_cauldron;
 mod timeless_lotus;
 mod trigon_of_thought;
 

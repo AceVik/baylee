@@ -12,7 +12,7 @@ card!(
     oracle_id = "4d4fbb16-0421-4e9c-af9e-e2c12a11c4ed",
     scryfall_id = "f9a45644-549a-4eaa-8367-b170027bd5a2",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Stench of Decay",
         mana_cost = mana!("{1}{B}{B}"),

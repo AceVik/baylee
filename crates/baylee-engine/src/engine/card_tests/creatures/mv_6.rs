@@ -67,6 +67,7 @@ mod shivan_dragon;
 mod sibilant_spirit;
 mod sire_of_the_storm;
 mod stangg;
+mod storm_elemental;
 mod storm_spirit;
 mod sun_titan;
 mod sunrise_sovereign;

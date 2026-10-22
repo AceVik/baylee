@@ -968,7 +968,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Lodestone Bauble, Lord of Tresserhorn, Mystic Compass, Nature's Blessing,
     // Phantasmal Fiend (2), Phelddagrif (3), Phyrexian Devourer, Phyrexian Portal,
     // Royal Herbalist, and Scarab of the Unseen, of which 4 are read by the evaluator.
-    assert_eq!((read, of), (2646, 3266), "activated/loyalty reader census");
+    // Alliances (`all`) Batch 4 adds 15 non-mana activated abilities across
+    // Seasoned Tactician, Soldevi Digger, Soldevi Heretic, Soldevi Sage, Soldevi
+    // Sentry, Soldier of Fortune, Spiny Starfish, Splintering Wind, Storm
+    // Elemental (2), Sworn Defender, Thought Lash, Tidal Control (2), and Tornado,
+    // of which 7 are read by the evaluator.
+    assert_eq!((read, of), (2653, 3281), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

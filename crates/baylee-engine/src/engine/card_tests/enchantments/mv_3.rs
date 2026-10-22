@@ -75,6 +75,7 @@ mod teferi_s_care;
 mod temur_ascendancy;
 mod thelon_s_chant;
 mod think_tank;
+mod tidal_control;
 mod tidal_influence;
 mod tourach_s_chant;
 mod tribute_to_the_world_tree;

@@ -123,6 +123,7 @@ mod shanodin_dryads;
 mod shaper_guildmage;
 mod shield_mate;
 mod skirk_prospector;
+mod soldier_of_fortune;
 mod soul_warden;
 mod stone_throwing_devils;
 mod stormscape_apprentice;

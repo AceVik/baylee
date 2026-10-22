@@ -26,6 +26,7 @@ mod rabbit_battery;
 mod roterothopter;
 mod sarpadian_simulacrum;
 mod silver_raven;
+mod soldevi_sentry;
 mod sparring_construct;
 mod sphinx_s_herald;
 mod steel_wall;

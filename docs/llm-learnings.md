@@ -5401,3 +5401,18 @@ more than two it names nobody). What the author did more than once:
   - Granted activated abilities (`Modifier::GrantActivatedDefinition` on `Martyrdom`) receive a
     synthetic ability index on the recipient permanent; tests should look up the synthetic `id`
     via `crate::effects::granted_activated(engine.state(), recipient)`.
+
+## 2026-10-22 — Alliances (`all`) batch 4 (25 cards: `Scars of the Veteran` to `Undergrowth`)
+
+- Added 25 *Alliances* first-printing cards (`Scars of the Veteran` through `Undergrowth`,
+  9 `Coverage::Implemented`, 16 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Abilities that put counters on their own source permanent (`Shield Sphere`, `Tornado`) must use
+    `Effect::AddCounterSource { kind, amount }` rather than `Effect::AddCounter { target: TargetSpec::ThisObject, .. }`,
+    because `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads` only
+    allowlists the specific `Effect` variants whose resolvers inspect `TargetSpec::ThisObject`.
+  - Dynamic mana abilities (`Soldevi Adnate`: *"Add an amount of `{B}` equal to the sacrificed
+    creature's mana value"*) cannot be expressed as a static `&[ManaSymbol]` slice and must remain
+    `Coverage::Partial`, with a `PARTIAL_NON_PRODUCER` entry in `land_mana_tests.rs`.
+  - `Amount::TargetCmc` inside `Effect::PumpTarget` (`Surge of Strength`) and `Effect::SetSourceToughness { base: Amount::TargetPower, offset: 1, duration: Duration::UntilEndOfTurn }`
+    (`Sworn Defender`) read the targeted permanent's mana value / power at resolution time.
