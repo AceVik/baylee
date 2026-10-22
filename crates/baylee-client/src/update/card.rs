@@ -964,7 +964,9 @@ fn action_row(commands: &mut Commands, kit: Kit, actions: Vec<Action>) -> Entity
         ))
         .id();
     for action in actions {
-        let ghost = action.weight == Weight::Ghost;
+        // The release notes as a ghost go to the right of the choices; a
+        // ghost that is a choice of its own ("Keep it") stays with them.
+        let aside = action.weight == Weight::Ghost && matches!(action.does, UpdateButton::Open(_));
         let button = controls::button(
             commands,
             kit,
@@ -980,7 +982,7 @@ fn action_row(commands: &mut Commands, kit: Kit, actions: Vec<Action>) -> Entity
             .and_modify(move |mut node| {
                 node.min_width = px_fixed(0.0);
                 node.max_width = percent(100);
-                if ghost {
+                if aside {
                     node.margin.left = Val::Auto;
                 }
             });
