@@ -4625,29 +4625,62 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Exile
     &["Exile target nonwhite attacking creature. You gain life equal to its toughness."],
-    &[],
-    &[],
+    // False Demise
+    &[
+        "Enchant creature\nWhen enchanted creature dies, return that card to the battlefield under your control.",
+    ],
+    // Fatal Lore
+    &[
+        "An opponent chooses one —\n• You draw three cards.\n• You destroy up to two target creatures that player controls. They can't be regenerated. That player draws up to three cards.",
+    ],
     // Feast or Famine
     &[
         "Choose one —\n• Create a 2/2 black Zombie creature token.\n• Destroy target nonartifact, nonblack creature. It can't be regenerated.",
     ],
-    &[],
-    &[],
+    // Fevered Strength
+    &[
+        "Target creature gets +2/+0 until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Floodwater Dam
+    &["{X}{X}{1}, {T}: Tap X target lands."],
     // Force of Will
     &[
         "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Foresight
+    &[
+        "Search your library for three cards, exile them, then shuffle.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Fyndhorn Druid
+    &["When this creature dies, if it was blocked this turn, you gain 4 life."],
+    // Gargantuan Gorilla
+    &[
+        "At the beginning of your upkeep, you may sacrifice a Forest. If you sacrifice a snow Forest this way, this creature gains trample until end of turn. If you don't sacrifice a Forest, sacrifice this creature and it deals 7 damage to you.\n{T}: This creature deals damage equal to its power to another target creature. That creature deals damage equal to its power to this creature.",
+    ],
+    // Gift of the Woods
+    &[
+        "Enchant creature\nWhenever enchanted creature blocks or becomes blocked, it gets +0/+3 until end of turn and you gain 1 life.",
+    ],
+    // Gorilla Berserkers
+    &[
+        "Trample; rampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)\nThis creature can't be blocked except by three or more creatures.",
+    ],
     // Gorilla Chieftain
     &["{1}{G}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gorilla Shaman
+    &["{X}{X}{1}: Destroy target noncreature artifact with mana value X."],
+    // Gorilla War Cry
+    &[
+        "Cast this spell only during combat before blockers are declared.\nAll creatures gain menace until end of turn. (They can't be blocked except by two or more creatures.)\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
+    // Guerrilla Tactics
+    &[
+        "Guerrilla Tactics deals 2 damage to any target.\nWhen a spell or ability an opponent controls causes you to discard this card, it deals 4 damage to any target.",
+    ],
+    // Gustha's Scepter
+    &[
+        "{T}: Exile a card from your hand face down. You may look at it for as long as it remains exiled.\n{T}: Return a card you own exiled with this artifact to your hand.\nWhen you lose control of this artifact, put all cards exiled with this artifact into their owner's graveyard.",
+    ],
     // Hail Storm
     &[
         "Hail Storm deals 2 damage to each attacking creature and 1 damage to you and each creature you control.",
@@ -4656,37 +4689,70 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "If this land would enter, sacrifice a Forest instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {G}.\n{T}: Target creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Helm of Obedience
+    &[
+        "{X}, {T}: Target opponent mills a card, then repeats this process until a creature card or X cards have been put into their graveyard this way, whichever comes first. If one or more creature cards were put into that graveyard this way, sacrifice this artifact and put one of them onto the battlefield under your control. X can't be 0.",
+    ],
     // Inheritance
     &["Whenever a creature dies, you may pay {3}. If you do, draw a card."],
-    &[],
-    &[],
+    // Insidious Bookworms
+    &[
+        "When this creature dies, you may pay {1}{B}. If you do, target player discards a card at random.",
+    ],
+    // Ivory Gargoyle
+    &[
+        "Flying\nWhen this creature dies, return it to the battlefield under its owner's control at the beginning of the next end step and you skip your next draw step.\n{4}{W}: Exile this creature.",
+    ],
     // Juniper Order Advocate
     &["As long as this creature is untapped, green creatures you control get +1/+1."],
     // Kaysa
     &["Green creatures you control get +1/+1."],
-    &[],
+    // Keeper of Tresserhorn
+    &[
+        "Whenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 2 life.",
+    ],
     // Kjeldoran Escort
     &[
         "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
     ],
-    &[],
+    // Kjeldoran Home Guard
+    &[
+        "At end of combat, if this creature attacked or blocked this combat, put a -0/-1 counter on this creature and create a 0/1 white Deserter creature token.",
+    ],
     // Kjeldoran Outpost
     &[
         "If this land would enter, sacrifice a Plains instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {W}.\n{1}{W}, {T}: Create a 1/1 white Soldier creature token.",
     ],
-    &[],
-    &[],
-    &[],
+    // Kjeldoran Pride
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+2.\n{2}{U}: Attach this Aura to target creature other than enchanted creature.",
+    ],
+    // Krovikan Horror
+    &[
+        "At the beginning of the end step, if this card is in your graveyard with a creature card directly above it, you may return this card to your hand.\n{1}, Sacrifice a creature: This creature deals 1 damage to any target.",
+    ],
+    // Krovikan Plague
+    &[
+        "Enchant non-Wall creature you control\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nTap enchanted creature: This Aura deals 1 damage to any target. Put a -0/-1 counter on enchanted creature. Activate only if enchanted creature is untapped.",
+    ],
     // Lake of the Dead
     &[
         "If this land would enter, sacrifice a Swamp instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add {B}.\n{T}, Sacrifice a Swamp: Add {B}{B}{B}{B}.",
     ],
-    &[],
-    &[],
+    // Lat-Nam's Legacy
+    &[
+        "Shuffle a card from your hand into your library. If you do, draw two cards at the beginning of the next turn's upkeep.",
+    ],
+    // Library of Lat-Nam
+    &[
+        "An opponent chooses one —\n• You draw three cards at the beginning of the next turn's upkeep.\n• You search your library for a card, put that card into your hand, then shuffle.",
+    ],
     // Lim-Dûl's High Guard
     &["First strike\n{1}{B}: Regenerate this creature."],
-    &[],
+    // Lim-Dûl's Paladin
+    &[
+        "Trample\nAt the beginning of your upkeep, you may discard a card. If you don't, sacrifice this creature and draw a card.\nWhenever this creature becomes blocked, it gets +6/+3 until end of turn.\nWhenever this creature attacks and isn't blocked, it assigns no combat damage this turn and defending player loses 4 life.",
+    ],
     &[],
     &[],
     &[],

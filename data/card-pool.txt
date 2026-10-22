@@ -9443,3 +9443,28 @@ Elvish Bard
 Elvish Spirit Guide
 Energy Arc
 Exile
+False Demise
+Fatal Lore
+Fevered Strength
+Floodwater Dam
+Force of Will
+Foresight
+Fyndhorn Druid
+Gargantuan Gorilla
+Gift of the Woods
+Gorilla Berserkers
+Gorilla Shaman
+Gorilla War Cry
+Guerrilla Tactics
+Gustha's Scepter
+Helm of Obedience
+Insidious Bookworms
+Ivory Gargoyle
+Keeper of Tresserhorn
+Kjeldoran Home Guard
+Kjeldoran Pride
+Krovikan Horror
+Krovikan Plague
+Lat-Nam's Legacy
+Library of Lat-Nam
+Lim-Dûl's Paladin

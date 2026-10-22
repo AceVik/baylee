@@ -1,0 +1,36 @@
+//! Library of Lat-Nam — {4}{U} — Sorcery
+//! Oracle: An opponent chooses one —
+//! Oracle: • You draw three cards at the beginning of the next turn's upkeep.
+//! Oracle: • You search your library for a card, put that card into your hand, then shuffle.
+//! Set: 6ED #78 — Classic Sixth Edition | Scryfall ID: 9ea40438-90ca-47ff-9805-df130d47ae48 | Oracle ID: 67f68a0f-bd3d-47ba-ad99-95c1a2acd170
+// NOT SUPPORTED: having an opponent choose the mode (CR 601.2b) is not supported; the caster chooses between drawing three cards at the beginning of the next turn's upkeep or searching their library for a card, putting it into their hand, and shuffling.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::LIBRARY_OF_LAT_NAM,
+    oracle_id = "67f68a0f-bd3d-47ba-ad99-95c1a2acd170",
+    scryfall_id = "9ea40438-90ca-47ff-9805-df130d47ae48",
+    color_identity = ColorSet::from_slice(&[Color::Blue]),
+    coverage = Coverage::Partial(
+        "having an opponent choose the mode (CR 601.2b) is not supported; the caster chooses between drawing three cards at the beginning of the next turn's upkeep or searching their library for a card, putting it into their hand, and shuffling",
+    ),
+    faces = &[face!(
+        name = "Library of Lat-Nam",
+        mana_cost = mana!("{4}{U}"),
+        types = TypeSet::SORCERY,
+    ),],
+    abilities = &[AbilityDef::ModalSpell {
+        choose: ModeCount::ONE,
+        modes: &[
+            mode!(&[Effect::AtNextTurnsUpkeep {
+                effects: &[Effect::draw(3)],
+            }]),
+            mode!(&[Effect::SearchLibrary {
+                filter: &Filter::Any,
+                finds: &[Find::HAND],
+                optional: false,
+            }]),
+        ],
+    }],
+);

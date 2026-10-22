@@ -2366,6 +2366,17 @@ pub static SERF_0_1_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 white Deserter.
+pub static DESERTER_0_1_WHITE: TokenDef = TokenDef {
+    name: "Deserter",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DESERTER],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2602,6 +2613,7 @@ pub static ALL: &[&TokenDef] = &[
     &HUMAN_1_1_RED,
     &CAMARID_1_1_BLUE,
     &SERF_0_1_BLACK,
+    &DESERTER_0_1_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2806,4 +2818,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &HUMAN_1_1_RED,
     &CAMARID_1_1_BLUE,
     &SERF_0_1_BLACK,
+    &DESERTER_0_1_WHITE,
 ];
