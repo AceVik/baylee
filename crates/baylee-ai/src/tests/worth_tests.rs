@@ -1007,7 +1007,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mirage (`mir`) Batch 9 adds 5 non-mana activated abilities across
     // Wall of Corpses, Wave Elemental, Zhalfirin Commander, Zhalfirin Knight,
     // and Zirilan of the Claw, all 5 of which are read by the evaluator.
-    assert_eq!((read, of), (2694, 3355), "activated/loyalty reader census");
+    // Visions (`vis`) Batch 1 adds 4 non-mana activated abilities across
+    // Brass-Talon Chimera, Crypt Rats, Daraja Griffin, and Dragon Mask, of
+    // which 3 are read by the evaluator.
+    assert_eq!((read, of), (2697, 3359), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

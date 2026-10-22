@@ -7,6 +7,7 @@ mod aeolipile;
 mod agatha_s_soul_cauldron;
 mod amulet_of_kroog;
 mod ankh_of_mishra;
+mod anvil_of_bogardan;
 mod apocalypse_chime;
 mod ark_of_blight;
 mod ashnod_s_battle_gear;

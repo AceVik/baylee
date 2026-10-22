@@ -281,6 +281,7 @@ mod consume_the_meek;
 mod contagion;
 mod contradict;
 mod dark_nourishment;
+mod desertion;
 mod enhanced_awareness;
 mod fall_of_the_gavel;
 mod final_death;

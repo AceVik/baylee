@@ -100,6 +100,7 @@ mod barrage_of_expendables;
 mod concordant_crossroads;
 mod darkest_hour;
 mod dread_of_night;
+mod elephant_grass;
 mod elven_fortress;
 mod elven_palisade;
 mod exploration;

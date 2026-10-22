@@ -25,6 +25,7 @@ mod darksteel_ingot;
 mod disrupting_scepter;
 mod draconian_cylix;
 mod dragon_blood;
+mod dragon_mask;
 mod drake_skull_cameo;
 mod ebony_horse;
 mod elkin_bottle;

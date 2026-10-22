@@ -12,6 +12,7 @@ mod bargain;
 mod bridgeworks_battle;
 mod choking_sands;
 mod cleansing;
+mod coercion;
 mod deconstruct;
 mod divination;
 mod dream_cache;

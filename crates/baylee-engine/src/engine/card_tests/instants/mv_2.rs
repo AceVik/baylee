@@ -37,6 +37,7 @@ mod everybody_lives;
 mod extinguish;
 mod eye_for_an_eye;
 mod false_summoning;
+mod feral_instinct;
 mod final_fortune;
 mod fire;
 mod fists_of_the_anvil;

@@ -9,6 +9,7 @@ mod anvilwrought_raptor;
 mod architects_of_will;
 mod badgey_malicious_glitch;
 mod bladed_sentinel;
+mod brass_talon_chimera;
 mod clay_statue;
 mod clockwork_gnomes;
 mod clockwork_steed;
