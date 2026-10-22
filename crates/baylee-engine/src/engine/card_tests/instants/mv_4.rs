@@ -5,6 +5,8 @@ use super::*;
 
 mod altar_s_light;
 mod ambush;
+mod barreling_attack;
+mod blind_fury;
 mod clever_concealment;
 mod cryptic_command;
 mod dismiss;

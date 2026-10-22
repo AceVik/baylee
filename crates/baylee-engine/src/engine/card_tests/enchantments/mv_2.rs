@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod afiya_grove;
 mod ajani_s_mantra;
 mod angelic_shield;
 mod arguel_s_blood_fast;

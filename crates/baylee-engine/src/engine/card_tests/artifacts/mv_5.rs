@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod amulet_of_unmaking;
 mod forethought_amulet;
 mod gilded_lotus;
 mod jester_s_mask;

@@ -35,9 +35,9 @@ card!(
         ),
         triggered!(
             Trigger::Attacks(&WITHOUT_FLYING_ATTACKING_YOU),
-            &[Effect::DealDamage {
-                target: TargetSpec::EventObject,
+            &[Effect::DealDamageEach {
                 amount: Amount::Fixed(1),
+                filter: &Filter::Reference,
             }],
         ),
     ],

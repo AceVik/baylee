@@ -18,6 +18,7 @@ mod aven_flock;
 mod azami_lady_of_scrolls;
 mod balduvian_war_makers;
 mod barbarian_riftcutter;
+mod barbed_back_wurm;
 mod barkhide_mauler;
 mod black_carriage;
 mod boa_constrictor;

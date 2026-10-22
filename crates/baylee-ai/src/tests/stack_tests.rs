@@ -132,6 +132,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Deliberate",
             "Index",
             "Introduction to Prophecy",
+            "Lim-Dûl's Vault",
             "Open Communications",
             "Opt",
             "Preordain",

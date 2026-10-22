@@ -10,6 +10,7 @@ mod ambition_s_cost;
 mod ancestral_reminiscence;
 mod ancient_craving;
 mod armageddon;
+mod ashen_powder;
 mod avalanche;
 mod baki_s_curse;
 mod bee_sting;

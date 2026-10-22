@@ -977,7 +977,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Unlikely Alliance, Urza's Engine (2), Varchild's Crusader, Veteran's Voice,
     // Viscerid Armor, Wandering Mage (3), Whip Vine, and Whirling Catapult, of
     // which 5 are read by the evaluator.
-    assert_eq!((read, of), (2658, 3292), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 1 adds 6 non-mana activated abilities across
+    // Abyssal Hunter, Acidic Dagger, Amber Prison, Amulet of Unmaking,
+    // Barbed-Back Wurm, and Bone Mask, of which 1 is read by the evaluator.
+    assert_eq!((read, of), (2659, 3298), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

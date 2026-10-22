@@ -45,6 +45,7 @@ mod bogardan_firefiend;
 mod boggart_trawler;
 mod brazen_borrower;
 mod breathstealer;
+mod brushwagg;
 mod cabal_archon;
 mod capashen_templar;
 mod centaur_healer;

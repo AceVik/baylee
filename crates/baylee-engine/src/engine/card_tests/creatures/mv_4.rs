@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abyssal_hunter;
 mod abyssal_specter;
 mod advanced_hoverguard;
 mod aeronaut_admiral;
@@ -23,7 +24,9 @@ mod archivist;
 mod argothian_swine;
 mod armored_griffin;
 mod ashen_ghoul;
+mod asmira_holy_avenger;
 mod aurochs;
+mod auspicious_ancestor;
 mod aven_cloudchaser;
 mod aven_fogbringer;
 mod aven_trooper;

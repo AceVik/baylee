@@ -4,6 +4,7 @@
 use super::*;
 
 mod asceticism;
+mod bazaar_of_wonders;
 mod berserkers_onslaught;
 mod blockbuster;
 mod blood_rites;

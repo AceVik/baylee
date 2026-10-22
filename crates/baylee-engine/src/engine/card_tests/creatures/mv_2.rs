@@ -25,6 +25,7 @@ mod balduvian_hydra;
 mod basal_thrull;
 mod bay_falcon;
 mod benalish_trapper;
+mod benevolent_unicorn;
 mod black_knight;
 mod blazing_effigy;
 mod blighted_shaman;

@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod ancestral_memories;
 mod angelic_edict;
 mod bribery;
 mod brilliant_plan;

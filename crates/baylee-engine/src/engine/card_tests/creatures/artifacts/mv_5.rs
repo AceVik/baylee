@@ -5,6 +5,7 @@ use super::*;
 
 mod adarkar_sentinel;
 mod anodet_lurker;
+mod basalt_golem;
 mod bastion_mastodon;
 mod boulderborn_dragon;
 mod clockwork_avian;

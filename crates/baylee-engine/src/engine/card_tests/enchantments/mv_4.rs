@@ -101,6 +101,7 @@ mod aether_storm;
 mod an_zerrin_ruins;
 mod aquatic_incursion;
 mod arboria;
+mod barbed_foliage;
 mod blood_mist;
 mod breath_of_dreams;
 mod breeding_pit;

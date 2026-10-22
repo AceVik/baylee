@@ -10,11 +10,14 @@ fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: Counter
     state.invalidate_projections();
     engine.refresh_offer();
 }
+mod acidic_dagger;
 mod alchor_s_tomb;
+mod amber_prison;
 mod anchovy_banana_pizza;
 mod arcane_spyglass;
 mod barl_s_cage;
 mod birthing_pod;
+mod bone_mask;
 mod bottle_of_suleiman;
 mod conduit_of_worlds;
 mod conservator;

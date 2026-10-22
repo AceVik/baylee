@@ -9,6 +9,8 @@ mod adamant_will;
 mod aegis_of_the_heavens;
 mod aggressive_urge;
 mod agony_warp;
+mod alarum;
+mod aleatory;
 mod arcane_denial;
 mod assassin_s_trophy;
 mod aura_blast;
