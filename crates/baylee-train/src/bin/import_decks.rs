@@ -166,11 +166,7 @@ fn color_string(cs: ColorSet) -> String {
             s.push(ch);
         }
     }
-    if s.is_empty() {
-        "C".to_string()
-    } else {
-        s
-    }
+    if s.is_empty() { "C".to_string() } else { s }
 }
 
 fn compute_multiset(main: &[CardIndex], commanders: &[CardIndex]) -> BTreeMap<CardIndex, u32> {
@@ -181,10 +177,7 @@ fn compute_multiset(main: &[CardIndex], commanders: &[CardIndex]) -> BTreeMap<Ca
     m
 }
 
-fn compute_deck_hash(
-    multiset: &BTreeMap<CardIndex, u32>,
-    commanders: &[CardIndex],
-) -> String {
+fn compute_deck_hash(multiset: &BTreeMap<CardIndex, u32>, commanders: &[CardIndex]) -> String {
     let mut hasher = Sha256::new();
     for (&cid, &cnt) in multiset {
         hasher.update(cid.get().to_le_bytes());
@@ -630,10 +623,7 @@ fn main() -> anyhow::Result<()> {
             let shape_valid = formats::check(shape, &main_cards, &cmd_cards).is_empty();
             let (arch, tags, colors) = classify_deck_strategy(&main_cards, &cmd_cards);
             let multiset = compute_multiset(&main_cards, &cmd_cards);
-            let held_cnt = multiset
-                .keys()
-                .filter(|c| held_out_set.contains(c))
-                .count();
+            let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
             let deck_hash = compute_deck_hash(&multiset, &cmd_cards);
             let rel_path = path
                 .strip_prefix(&root)
@@ -710,10 +700,7 @@ fn main() -> anyhow::Result<()> {
         let shape_valid = formats::check(shape, &main_cards, &cmd_cards).is_empty();
         let (arch, tags, colors) = classify_deck_strategy(&main_cards, &cmd_cards);
         let multiset = compute_multiset(&main_cards, &cmd_cards);
-        let held_cnt = multiset
-            .keys()
-            .filter(|c| held_out_set.contains(c))
-            .count();
+        let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
         let deck_hash = compute_deck_hash(&multiset, &cmd_cards);
         let rel_path = path
             .strip_prefix(&root)
@@ -852,7 +839,9 @@ fn main() -> anyhow::Result<()> {
                         if leader_of(cid).is_some_and(|l| l.eligible) {
                             cmd_ok.push(cid);
                         } else {
-                            *reason_counts.entry("invalid_leader".to_string()).or_insert(0) += 1;
+                            *reason_counts
+                                .entry("invalid_leader".to_string())
+                                .or_insert(0) += 1;
                             cmd_failing.push((card.name.clone(), "invalid_leader".to_string()));
                         }
                     }
@@ -880,14 +869,14 @@ fn main() -> anyhow::Result<()> {
             if cmd_ok.len() == 2 {
                 let l0 = leader_of(cmd_ok[0]);
                 let l1 = leader_of(cmd_ok[1]);
-                if !l0
-                    .zip(l1)
-                    .is_some_and(|(a, b)| may_lead_together(&a, &b))
-                {
+                if !l0.zip(l1).is_some_and(|(a, b)| may_lead_together(&a, &b)) {
                     *reason_counts
                         .entry("cannot_lead_together".to_string())
                         .or_insert(0) += 1;
-                    cmd_failing.push(("commander_pair".to_string(), "cannot_lead_together".to_string()));
+                    cmd_failing.push((
+                        "commander_pair".to_string(),
+                        "cannot_lead_together".to_string(),
+                    ));
                 }
             }
 
@@ -924,10 +913,7 @@ fn main() -> anyhow::Result<()> {
 
                 let (arch, tags, colors) = classify_deck_strategy(&main_ok, &cmd_ok);
                 let multiset = compute_multiset(&main_ok, &cmd_ok);
-                let held_cnt = multiset
-                    .keys()
-                    .filter(|c| held_out_set.contains(c))
-                    .count();
+                let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
                 let deck_hash = compute_deck_hash(&multiset, &cmd_ok);
                 let cmd_names: Vec<String> = cmd_ok
                     .iter()
@@ -988,8 +974,11 @@ fn main() -> anyhow::Result<()> {
             // distinct failing cards), replacing each failing card with a functionally matched
             // Working card (never substituting basic lands for spells!).
             let is_commander_product = !cmd_ok.is_empty() && cmd_failing.is_empty();
-            let main_total_intended: usize =
-                main_ok.len() + main_failing.iter().map(|(_, c, _)| *c as usize).sum::<usize>();
+            let main_total_intended: usize = main_ok.len()
+                + main_failing
+                    .iter()
+                    .map(|(_, c, _)| *c as usize)
+                    .sum::<usize>();
             let can_adapt_constructed = cmd_ok.is_empty()
                 && cmd_failing.is_empty()
                 && main_total_intended >= 60
@@ -1029,8 +1018,7 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                     if deck_colors.is_empty() {
-                        deck_colors =
-                            ColorSet::of(Color::Red).union(ColorSet::of(Color::Green));
+                        deck_colors = ColorSet::of(Color::Red).union(ColorSet::of(Color::Green));
                     }
                 }
 
@@ -1040,7 +1028,8 @@ fn main() -> anyhow::Result<()> {
                 let mut ok_all = true;
 
                 for (h_cid, h_cnt) in held_to_replace {
-                    let orig_name = baylee_cards::by_index(h_cid).map_or("HeldOutCard", |d| d.name());
+                    let orig_name =
+                        baylee_cards::by_index(h_cid).map_or("HeldOutCard", |d| d.name());
                     for _ in 0..h_cnt {
                         if let Some((rep_cid, rep_name)) = find_functional_replacement(
                             orig_name,
@@ -1197,7 +1186,10 @@ fn main() -> anyhow::Result<()> {
         let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
         let norm_text = format_house_deck_text(
             &g.name,
-            &format!("baylee curated {fmt_str} {} seed={seed_cursor}", arch.name()),
+            &format!(
+                "baylee curated {fmt_str} {} seed={seed_cursor}",
+                arch.name()
+            ),
             "AGPL-3.0-only",
             &g.main,
             &[],
@@ -1259,10 +1251,7 @@ fn main() -> anyhow::Result<()> {
             continue;
         };
         let multiset = compute_multiset(&g.main, &g.leaders);
-        let held_cnt = multiset
-            .keys()
-            .filter(|c| held_out_set.contains(c))
-            .count();
+        let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
         if held_cnt < 2 {
             continue;
         }
@@ -1530,7 +1519,10 @@ fn main() -> anyhow::Result<()> {
 
     // Write human-readable report (`docs/history/deck-corpus-v4-2026-10-22.md`)
     let mut rep = String::new();
-    let _ = writeln!(rep, "# Playernet v4 Deck Corpus & Split Report (2026-10-22)\n");
+    let _ = writeln!(
+        rep,
+        "# Playernet v4 Deck Corpus & Split Report (2026-10-22)\n"
+    );
     let _ = writeln!(rep, "- **Importer Version:** `{IMPORTER_VERSION}`");
     let _ = writeln!(
         rep,
@@ -1567,23 +1559,38 @@ fn main() -> anyhow::Result<()> {
     for (k, v) in &by_split {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }
-    let _ = writeln!(rep, "\n## Counts by Holdout Tier\n\n| Holdout Tier | Decks |\n|---|---:|");
+    let _ = writeln!(
+        rep,
+        "\n## Counts by Holdout Tier\n\n| Holdout Tier | Decks |\n|---|---:|"
+    );
     for (k, v) in &by_tier {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }
-    let _ = writeln!(rep, "\n## Counts by Format\n\n| Format | Decks |\n|---|---:|");
+    let _ = writeln!(
+        rep,
+        "\n## Counts by Format\n\n| Format | Decks |\n|---|---:|"
+    );
     for (k, v) in &by_format {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }
-    let _ = writeln!(rep, "\n## Counts by Source\n\n| Source | Decks |\n|---|---:|");
+    let _ = writeln!(
+        rep,
+        "\n## Counts by Source\n\n| Source | Decks |\n|---|---:|"
+    );
     for (k, v) in &by_source {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }
-    let _ = writeln!(rep, "\n## Counts by Primary Archetype\n\n| Archetype | Decks |\n|---|---:|");
+    let _ = writeln!(
+        rep,
+        "\n## Counts by Primary Archetype\n\n| Archetype | Decks |\n|---|---:|"
+    );
     for (k, v) in &by_archetype {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }
-    let _ = writeln!(rep, "\n## Counts by Strategy Tag\n\n| Strategy Tag | Decks |\n|---|---:|");
+    let _ = writeln!(
+        rep,
+        "\n## Counts by Strategy Tag\n\n| Strategy Tag | Decks |\n|---|---:|"
+    );
     for (k, v) in &by_tag {
         let _ = writeln!(rep, "| `{k}` | {v} |");
     }

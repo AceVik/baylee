@@ -202,8 +202,9 @@ pub fn encode_candidates4(
                     | DamageEffectKind::PreventFromSource { .. }
                     | DamageEffectKind::RemoveShieldCounter
                     | DamageEffectKind::RemoveCounter { .. } => c.feat[16] = 1.0,
-                    DamageEffectKind::Redirect { .. }
-                    | DamageEffectKind::RedirectNext { .. } => c.feat[17] = 1.0,
+                    DamageEffectKind::Redirect { .. } | DamageEffectKind::RedirectNext { .. } => {
+                        c.feat[17] = 1.0
+                    }
                     DamageEffectKind::ReplaceAmount { .. }
                     | DamageEffectKind::Reflect { .. }
                     | DamageEffectKind::TurnFaceUp { .. } => c.feat[18] = 1.0,
@@ -301,15 +302,13 @@ pub fn encode_candidates4(
                     c.entity_idx = eidx as i16;
                     c.card_id = state.entity_card_ids[eidx];
                 }
-                c.action = Some(PlayerAction::ChooseObjects {
-                    objects: vec![oid],
-                });
+                c.action = Some(PlayerAction::ChooseObjects { objects: vec![oid] });
                 out.candidates.push(c);
             }
         }
 
         Pending::YesNo { source, .. } => {
-            let cid = source.map_or(0, |a| a.card.get());
+            let cid = source.map_or(UNKNOWN_CARD, |a| a.card.get());
             for yn in [true, false] {
                 let mut c = Candidate4::default();
                 c.feat[11] = 1.0;
@@ -415,63 +414,29 @@ pub fn encode_candidates4(
             for st in prioritized.into_iter().take(MAX_CANDIDATES) {
                 let mut c = Candidate4::default();
                 c.feat[15] = 1.0;
-                c.feat[20] = unit(f32::from(st.get() % 256), 256.0);
+                c.feat[20] = f32::from(st.get()) / 1024.0;
                 c.action = Some(PlayerAction::ChooseSubtype(st));
                 out.candidates.push(c);
             }
         }
 
         Pending::ChooseCardName { types, .. } => {
-            let mut seen_cards: Vec<(CardIndex, u8)> = Vec::new();
-            for (eidx, &cid) in state.entity_card_ids.iter().enumerate() {
-                if out.candidates.len() >= MAX_CANDIDATES.saturating_sub(1) {
-                    break;
-                }
-                if cid == 0 {
-                    continue;
-                }
-                let card_idx = CardIndex::new(cid);
-                let Some(def) = baylee_cards::by_index(card_idx) else {
-                    continue;
-                };
-                for (f_idx, face) in def.faces.iter().enumerate() {
+            // Naming is a choice over the public registry, not just the cards
+            // currently visible plus one arbitrary fallback. Structural card
+            // features distinguish candidates with no board entity pointer.
+            for def in baylee_cards::all() {
+                for (face_idx, face) in def.faces.iter().enumerate() {
                     if !types.is_empty() && !face.types.intersects(*types) {
                         continue;
                     }
-                    let key = (card_idx, f_idx as u8);
-                    if seen_cards.contains(&key) {
-                        continue;
-                    }
-                    seen_cards.push(key);
-                    let mut c = Candidate4::default();
-                    c.feat[15] = 1.0;
-                    c.entity_idx = eidx as i16;
-                    c.card_id = cid;
-                    c.action = Some(PlayerAction::ChooseCardName {
-                        card: card_idx,
-                        face: f_idx as u8,
+                    let mut candidate = Candidate4::default();
+                    candidate.feat[15] = 1.0;
+                    candidate.card_id = def.index.get();
+                    candidate.action = Some(PlayerAction::ChooseCardName {
+                        card: def.index,
+                        face: face_idx as u8,
                     });
-                    out.candidates.push(c);
-                }
-            }
-            if out.candidates.len() < MAX_CANDIDATES {
-                'fallback_card: for def in baylee_cards::all() {
-                    for (f_idx, face) in def.faces.iter().enumerate() {
-                        if types.is_empty() || face.types.intersects(*types) {
-                            let key = (def.index, f_idx as u8);
-                            if !seen_cards.contains(&key) {
-                                let mut c = Candidate4::default();
-                                c.feat[15] = 1.0;
-                                c.card_id = def.index.get();
-                                c.action = Some(PlayerAction::ChooseCardName {
-                                    card: def.index,
-                                    face: f_idx as u8,
-                                });
-                                out.candidates.push(c);
-                            }
-                            break 'fallback_card;
-                        }
-                    }
+                    out.candidates.push(candidate);
                 }
             }
         }
@@ -627,9 +592,7 @@ pub fn encode_candidates4(
                     c.card_id = state.entity_card_ids[eidx];
                 }
                 if single {
-                    c.action = Some(PlayerAction::ChooseObjects {
-                        objects: vec![oid],
-                    });
+                    c.action = Some(PlayerAction::ChooseObjects { objects: vec![oid] });
                 } else {
                     c.object_id = Some(oid);
                 }
@@ -705,7 +668,11 @@ pub fn encode_candidates4(
 
         Pending::ChooseBlockers { blockers, .. } => {
             out.head = HeadKind4::PairPick;
-            let max_atk = blockers.iter().map(|b| b.attackers.len()).max().unwrap_or(0);
+            let max_atk = blockers
+                .iter()
+                .map(|b| b.attackers.len())
+                .max()
+                .unwrap_or(0);
             for atk_idx in 0..max_atk {
                 for b in blockers {
                     if out.pairs.len() >= MAX_PAIRS {
@@ -734,11 +701,7 @@ pub fn encode_candidates4(
     out
 }
 
-fn prioritize_object_options(
-    view: &PlayerView,
-    objs: &[ObjectId],
-    cap: usize,
-) -> Vec<ObjectId> {
+fn prioritize_object_options(view: &PlayerView, objs: &[ObjectId], cap: usize) -> Vec<ObjectId> {
     if objs.len() <= cap {
         return objs.to_vec();
     }
@@ -756,7 +719,7 @@ fn prioritize_object_options(
 
     for &oid in objs {
         if let Some(o) = view.object(oid) {
-            let cid = o.card.map_or(0, |c| c.index.get());
+            let cid = o.card.map_or(UNKNOWN_CARD, |c| c.index.get());
             let tok = o.token.unwrap_or(0);
             if o.types.contains(TypeSet::LAND) {
                 let sig = (o.controller.get(), cid, o.status.bits());
@@ -804,7 +767,7 @@ fn populate_cand_ability_dsl(
 ) {
     let cid = state.entity_card_ids[entity_idx];
     let fid = state.entity_face_ids[entity_idx] as usize;
-    if cid != 0
+    if cid != UNKNOWN_CARD
         && let Some(def) = baylee_cards::by_index(CardIndex::new(cid))
         && let Some(ab) = def.abilities_for_face(fid).get(ab_idx)
     {
@@ -824,12 +787,7 @@ fn populate_cand_ability_dsl(
 
 /// Encodes all 21 [`CastModeKind`] variants + option [`ManaCost`] into `feat[0..48]`
 /// (fixes P0-4: `ChooseMode` options are never collapsed to `[0, 0, index]`).
-fn encode_cast_mode_kind_into(
-    kind: &CastModeKind,
-    cost: &ManaCost,
-    index: u8,
-    feat: &mut [f32],
-) {
+fn encode_cast_mode_kind_into(kind: &CastModeKind, cost: &ManaCost, index: u8, feat: &mut [f32]) {
     feat[14] = 1.0; // ChooseMode family marker
     feat[15] = unit(f32::from(index), 8.0);
     let mc = encode_mana_cost(cost);
@@ -869,10 +827,7 @@ fn encode_cast_mode_kind_into(
     }
 }
 
-fn enumerate_arrangements(
-    cards: &[ObjectId],
-    piles: &[ArrangePile],
-) -> Vec<PlayerAction> {
+fn enumerate_arrangements(cards: &[ObjectId], piles: &[ArrangePile]) -> Vec<PlayerAction> {
     let mut out = Vec::new();
     let mut push_unique = |p: Vec<Vec<ObjectId>>| {
         if out.len() >= MAX_CANDIDATES {
@@ -929,4 +884,3 @@ fn enumerate_arrangements(
     }
     out
 }
-

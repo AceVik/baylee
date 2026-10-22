@@ -29,6 +29,8 @@ from torch.utils.data import DataLoader
 import dataset4 as D4
 import model4 as M
 import train4 as T4
+from ppo_targets4 import prepare_targets
+from checkpoint4 import atomic_save, rng_state
 
 
 def action_logprob_and_kl(
@@ -45,12 +47,12 @@ def action_logprob_and_kl(
     B = cand_logits.shape[0]
     head = batch["head"][:, t].to(device)
     single_idx = batch["single_idx"][:, t].to(device)
-    cmask = batch["cand_mask"][:, t].to(device)
-    pmask = batch["pair_mask"][:, t].to(device)
-    ctgt = batch["cand_target_mask"][:, t].to(device)
-    ptgt = batch["pair_target_mask"][:, t].to(device)
-    cfmask = batch["cand_free_mask"][:, t].to(device) * cmask.float()
-    pfmask = batch["pair_free_mask"][:, t].to(device) * pmask.float()
+    cmask = batch["cand_mask"][:, t, :cand_logits.shape[1]].to(device)
+    pmask = batch["pair_mask"][:, t, :pair_logits.shape[1]].to(device)
+    ctgt = batch["cand_target_mask"][:, t, :cand_logits.shape[1]].to(device)
+    ptgt = batch["pair_target_mask"][:, t, :pair_logits.shape[1]].to(device)
+    cfmask = batch["cand_free_mask"][:, t, :cand_logits.shape[1]].to(device) * cmask.float()
+    pfmask = batch["pair_free_mask"][:, t, :pair_logits.shape[1]].to(device) * pmask.float()
     temp = batch["temperature"][:, t].to(device)
     scale = torch.where(temp <= 1e-4, torch.ones_like(temp), 1.0 / temp).unsqueeze(-1)
 
@@ -108,15 +110,8 @@ def action_logprob_and_kl(
         )
         kl[m2] = (kl2 * fm2).sum(dim=-1).clamp(min=0.0)
 
-    # 3: ScalarValue (Gaussian log-density around scalar_pred with sigma=0.15)
-    m3 = head == 3
-    if m3.any():
-        stgt3 = batch["scalar_target"][:, t].to(device)[m3]
-        sp3 = scalar_pred[m3].clamp(0.0, 1.0)
-        asp3 = anc_scalar_pred[m3].clamp(0.0, 1.0)
-        logp[m3] = -0.5 * ((stgt3 - sp3) / 0.15).pow(2)
-        kl[m3] = 0.5 * ((asp3 - sp3) / 0.15).pow(2)
-
+    # ScalarValue is deterministic regression, not a stochastic behavior policy.
+    # It remains eligible for supervised replay, never the PPO ratio.
     return logp, kl
 
 
@@ -127,11 +122,14 @@ def compute_reverse_gae(
     is_terminal: torch.Tensor,
     gamma: float,
     gae_lambda: float,
+    bootstrap_value: torch.Tensor | None = None,
+    bootstrap_advantage: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Computes reverse-time GAE(gamma, lambda) across `[B, U]` (`P0-5`)."""
     B, U = values.shape
     device = values.device
-    gae = torch.zeros(B, device=device, dtype=torch.float32)
+    gae = (torch.zeros(B, device=device, dtype=torch.float32) if bootstrap_advantage is None
+           else bootstrap_advantage.detach().to(device).clone())
     adv_out = torch.zeros((B, U), device=device, dtype=torch.float32)
     ret_out = torch.zeros((B, U), device=device, dtype=torch.float32)
 
@@ -140,19 +138,17 @@ def compute_reverse_gae(
         valid_t = step_valid[:, t]
         v_t = values[:, t].detach()
         r_term = outcomes[:, t]
-        if t == U - 1:
-            delta = torch.where(term_t, r_term - v_t, gamma * v_t - v_t)
-            gae = torch.where(term_t, delta, gae_lambda * (r_term - v_t))
-        else:
-            v_next = values[:, t + 1].detach()
-            next_valid = step_valid[:, t + 1]
-            is_end = term_t | (~next_valid)
-            delta = torch.where(is_end, r_term - v_t, gamma * v_next - v_t)
-            gae = torch.where(is_end, delta, delta + gamma * gae_lambda * gae)
-
-        gae = torch.where(valid_t, gae, torch.zeros_like(gae))
-        adv_out[:, t] = gae
-        ret_out[:, t] = (v_t + gae).clamp(0.0, 1.0)
+        at_boundary = torch.ones(B, dtype=torch.bool, device=device) if t == U - 1 else ~step_valid[:, t + 1]
+        needs_bootstrap = valid_t & ~term_t & at_boundary
+        if needs_bootstrap.any() and bootstrap_value is None:
+            raise ValueError("Nonterminal sequence boundary requires the actual next-state value")
+        boot = torch.zeros(B, device=device) if bootstrap_value is None else bootstrap_value.detach().to(device)
+        v_next = boot if t == U - 1 else torch.where(at_boundary, boot, values[:, t + 1].detach())
+        delta = torch.where(term_t, r_term - v_t, gamma * v_next - v_t)
+        updated = delta + gamma * gae_lambda * (~term_t).float() * gae
+        gae = torch.where(valid_t, updated, gae)
+        adv_out[:, t] = torch.where(valid_t, gae, 0.0)
+        ret_out[:, t] = torch.where(valid_t, v_t + gae, 0.0)
 
     return adv_out, ret_out
 
@@ -169,6 +165,8 @@ def main() -> None:
     )
     ap.add_argument("--anchor-data", default="", help="Optional supervised replay dataset for mixing")
     ap.add_argument("--out", required=True, help="Output checkpoint directory")
+    ap.add_argument("--audit-only", action="store_true")
+    ap.add_argument("--target-kl", type=float, default=0.03)
     ap.add_argument("--batch-size", type=int, default=4)
     ap.add_argument("--unroll", "--unroll-len", dest="unroll", type=int, default=16)
     ap.add_argument("--thinking-steps", type=int, default=2)
@@ -179,18 +177,21 @@ def main() -> None:
     ap.add_argument("--clip-eps", type=float, default=0.2)
     ap.add_argument("--beta-kl", type=float, default=0.02)
     ap.add_argument("--anchor-mix-weight", type=float, default=0.25)
-    ap.add_argument("--gamma", type=float, default=0.995)
+    ap.add_argument("--gamma", type=float, default=1.0)
     ap.add_argument("--gae-lambda", type=float, default=0.95)
     args = ap.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    use_bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
+    use_bf16 = False  # Collector probabilities are float32; audit and PPO use the same precision.
 
     init_dir = Path(args.init).expanduser()
     ckpt = torch.load(init_dir / "net.pt", map_location="cpu", weights_only=False)
+    if (ckpt.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt.get("model_version") != M.MODEL_VERSION
+                or ckpt.get("encoder_version") != M.ENCODER_VERSION):
+        raise ValueError("Incompatible checkpoint memory contract")
     cfg = M.Config4(**ckpt["config"])
     net = M.PlayerNet4(cfg).to(device)
-    net.load_state_dict(ckpt["state_dict"], strict=False)
+    net.load_state_dict(ckpt["state_dict"], strict=True)
 
     anchor = copy.deepcopy(net).to(device).eval()
     for p in anchor.parameters():
@@ -202,6 +203,11 @@ def main() -> None:
         unroll_len=args.unroll,
         max_shards=args.max_shards,
     )
+    audit = prepare_targets(net, rollout_ds, device, args.batch_size, args.gamma,
+                            args.gae_lambda, action_logprob_and_kl, compute_reverse_gae)
+    if args.audit_only:
+        print(json.dumps(audit, indent=2))
+        return
     rollout_sampler = D4.StatefulBatchSampler4(
         rollout_ds, batch_size=args.batch_size, shuffle=True
     )
@@ -233,6 +239,8 @@ def main() -> None:
 
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-2)
 
+    h_sup_state = None
+    stop = False
     step_num = 0
     total_rl_decisions = 0
     for epoch in range(1, args.epochs + 1):
@@ -250,14 +258,10 @@ def main() -> None:
             opt.zero_grad(set_to_none=True)
             is_new = batch["is_new_traj"].to(device)
 
-            if h is None or h.shape[0] != B:
-                h = torch.zeros((B, M.RECURRENT_SLOTS, cfg.d_model), device=device)
-                h_anc = torch.zeros((B, M.RECURRENT_SLOTS, cfg.d_model), device=device)
-            else:
-                h = h.detach()
-                h_anc = h_anc.detach()
-                h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
-                h_anc = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h_anc), h_anc)
+            # Standard truncated recurrent PPO: condition each unroll on the
+            # stored behavior memory, with gradients through this unroll only.
+            h = batch["behavior_h"].to(device)
+            h_anc = h.clone()
 
             default_k = torch.full((B,), args.thinking_steps, dtype=torch.long, device=device)
 
@@ -289,6 +293,7 @@ def main() -> None:
                     batch["cand_mask"][:, t].to(device),
                     batch["pair_index"][:, t].to(device),
                     batch["pair_mask"][:, t].to(device),
+                    batch["cand_dsl"][:, t].to(device),
                 )
                 with torch.autocast(
                     device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
@@ -319,6 +324,8 @@ def main() -> None:
                     batch["step_valid"][:, t].to(device)
                     & batch["is_decision"][:, t].to(device)
                     & is_net_step
+                    & (batch["head"][:, t].to(device) != 3)
+                    & (batch["temperature"][:, t].to(device) > 1e-4)
                 )
 
                 step_valid_t = batch["step_valid"][:, t].to(device)
@@ -338,27 +345,21 @@ def main() -> None:
             v_mask = torch.stack(valids, dim=1)  # [B, U]
             total_rl_decisions += int(v_mask.sum().item())
 
-            adv, td_returns = compute_reverse_gae(
-                vals,
-                outcomes,
-                step_valid_stack,
-                is_term_stack,
-                args.gamma,
-                args.gae_lambda,
-            )
-            if v_mask.sum() > 1.0:
-                adv_mean = (adv * v_mask).sum() / v_mask.sum().clamp(min=1.0)
-                adv_var = (((adv - adv_mean).pow(2)) * v_mask).sum() / v_mask.sum().clamp(
-                    min=1.0
-                )
-                adv = (adv - adv_mean) / (adv_var.sqrt() + 1e-5)
-            adv = adv * v_mask
+            # Targets were computed once from complete episodes with the frozen
+            # behavior policy, before the first optimizer step.
+            adv = batch["advantages"].to(device) * v_mask
+            td_returns = batch["returns"].to(device)
 
             lp_stack = torch.stack(logps, dim=1)
             old_lp_stack = torch.stack(old_logps, dim=1)
             kl_stack = torch.stack(kls, dim=1)
 
             ratio = torch.exp((lp_stack - old_lp_stack).clamp(-10.0, 10.0))
+            approx_kl = (((ratio - 1) - (lp_stack - old_lp_stack)) * v_mask).sum() / v_mask.sum().clamp(min=1)
+            if approx_kl > args.target_kl:
+                print(f"[train_rl4] stopping update: behavior KL={float(approx_kl):.4f}", flush=True)
+                stop = True
+                break
             surr1 = ratio * adv
             surr2 = torch.clamp(ratio, 1.0 - args.clip_eps, 1.0 + args.clip_eps) * adv
             ppo_loss = -(torch.min(surr1, surr2) * v_mask).sum() / v_mask.sum().clamp(
@@ -380,14 +381,20 @@ def main() -> None:
                     anc_batch = next(anchor_iter)
                 except StopIteration:
                     anchor_iter = iter(anchor_loader)
+                    h_sup_state = None
                     anc_batch = next(anchor_iter)
                 B_a, U_a = anc_batch["step_valid"].shape
-                h_sup = torch.zeros((B_a, M.RECURRENT_SLOTS, cfg.d_model), device=device)
+                if h_sup_state is None or h_sup_state.shape[0] != B_a:
+                    h_sup_state = torch.zeros((B_a, M.RECURRENT_SLOTS, cfg.d_model), device=device)
+                h_sup = torch.where(anc_batch["is_new_traj"].to(device).view(B_a, 1, 1),
+                                    torch.zeros_like(h_sup_state), h_sup_state.detach())
                 k_sup = torch.full(
                     (B_a,), args.thinking_steps, dtype=torch.long, device=device
                 )
                 sup_loss = torch.tensor(0.0, device=device)
                 for t_a in range(U_a):
+                    k_sup = torch.where(anc_batch["is_decision"][:, t_a].to(device),
+                                        args.thinking_steps, 0)
                     with torch.autocast(
                         device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
                     ):
@@ -406,6 +413,7 @@ def main() -> None:
                             anc_batch["cand_mask"][:, t_a].to(device),
                             anc_batch["pair_index"][:, t_a].to(device),
                             anc_batch["pair_mask"][:, t_a].to(device),
+                            anc_batch["cand_dsl"][:, t_a].to(device),
                             h_sup,
                             k_sup,
                         )
@@ -422,6 +430,7 @@ def main() -> None:
                     v_a = anc_batch["step_valid"][:, t_a].to(device)
                     h_sup = torch.where(v_a.view(B_a, 1, 1), h_sup_next.float(), h_sup)
                     sup_loss = sup_loss + l_a / U_a
+                h_sup_state = h_sup.detach()
                 loss = loss + args.anchor_mix_weight * sup_loss
 
             loss.backward()
@@ -440,7 +449,7 @@ def main() -> None:
             f"loss={tot_loss / max(n_batches, 1):.4f} kl={tot_kl / max(n_batches, 1):.4f}",
             flush=True,
         )
-        if args.max_steps > 0 and step_num >= args.max_steps:
+        if stop or (args.max_steps > 0 and step_num >= args.max_steps):
             break
 
     if total_rl_decisions == 0:
@@ -450,9 +459,13 @@ def main() -> None:
 
     out_dir = Path(args.out).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(
+    atomic_save(
         {
             "config": cfg.to_dict(),
+            "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
+            "sampling_version": M.SAMPLING_VERSION,
+            "dataset_fingerprint": rollout_ds.fingerprint,
+            "optimizer": opt.state_dict(), "rng": rng_state(), "audit": audit,
             "state_dict": net.state_dict(),
             "step": step_num,
             "rl_decisions": total_rl_decisions,
@@ -463,7 +476,7 @@ def main() -> None:
     (out_dir / "meta.json").write_text(
         json.dumps(
             {
-                "encoder_version": 4,
+                "encoder_version": M.ENCODER_VERSION,
                 "d_model": cfg.d_model,
                 "n_layers": cfg.n_layers,
                 "n_heads": cfg.n_heads,

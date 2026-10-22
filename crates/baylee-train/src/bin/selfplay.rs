@@ -33,7 +33,9 @@ use baylee_core::ids::CardIndex;
 use baylee_core::preset::AIProfile;
 use baylee_train::deckgen::{self, Archetype, shape_name};
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::selfplay::{Caps, Outcome, play_with_options, table, table_for, write_fault_bundle};
+use baylee_train::selfplay::{
+    Caps, Outcome, play_with_options, table, table_for, write_fault_bundle,
+};
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
 use flate2::Compression;
@@ -422,7 +424,7 @@ fn main() -> anyhow::Result<()> {
             .shapes
             .iter()
             .map(|s| match s.as_str() {
-                "constructed" => Ok(Shape::Constructed),
+                "constructed" | "limited" => Ok(Shape::Constructed),
                 "highlander" => Ok(Shape::Highlander),
                 "commander" => Ok(Shape::Commander),
                 other => Err(anyhow::anyhow!("unknown shape {other}")),

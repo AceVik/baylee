@@ -128,6 +128,7 @@ struct EvalStats {
     stalls: u64,
     latencies_ms: Vec<f64>,
     coverage: CoverageMatrix4,
+    deal_details: Vec<Value>,
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {
@@ -177,9 +178,8 @@ fn play_one_table(
     let n_seats = decks.len();
     if let Some(n) = net.as_deref_mut() {
         // Independent policy RNG seed: never depends on deal shuffle `seed` (P0-7)
-        let indep_policy_seed = policy_seed
-            ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15)
-            ^ ((n_seats as u64) << 48);
+        let indep_policy_seed =
+            policy_seed ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ ((n_seats as u64) << 48);
         n.reseed(indep_policy_seed);
         n.init_game(&preset);
     }
@@ -255,19 +255,23 @@ fn play_one_table(
                 rollout_sidecar,
             ));
         }
-        session.pump_at_most(32);
 
         // Passively observe the table for all neural seats after opponent progression (P0-4)
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
                 if is_net_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    if session.view_for(pid).is_none() {
-                        let obs_v = session.observe_view(pid);
-                        n.observe(&obs_v);
-                    }
+                    let obs_v = session.observe_view(pid);
+                    n.observe(&obs_v)?;
                 }
             }
+        }
+
+        // Observe every pre-action root. A multi-answer pump would skip states
+        // that the record converter subsequently replays, breaking recurrent PPO.
+        if session.needs_pump() {
+            session.pump_at_most(1);
+            continue;
         }
 
         let mut progressed = false;
@@ -287,7 +291,7 @@ fn play_one_table(
                 stalls += 1;
                 fallbacks += 1;
                 let act = session.house_action(pid).context("house fallback")?;
-                if session.act(pid, act).is_ok() && record_steps {
+                if session.act_slice(pid, act, 0).is_ok() && record_steps {
                     rollout_sidecar.push(RolloutStepSidecar4 {
                         provenance: StepProvenance4 {
                             source: SourceKind4::House,
@@ -298,7 +302,7 @@ fn play_one_table(
                         pick_sequence: Vec::new(),
                     });
                 }
-                continue;
+                break;
             }
 
             if let Some(n) = net.as_deref_mut() {
@@ -311,7 +315,7 @@ fn play_one_table(
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
                 }
-                if session.act(pid, ans.action).is_ok() {
+                if session.act_slice(pid, ans.action, 0).is_ok() {
                     if record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: ans.provenance,
@@ -321,8 +325,10 @@ fn play_one_table(
                     }
                 } else {
                     refused += 1;
-                    let fb = session.house_action(pid).context("house fallback after refusal")?;
-                    if session.act(pid, fb).is_ok() && record_steps {
+                    let fb = session
+                        .house_action(pid)
+                        .context("house fallback after refusal")?;
+                    if session.act_slice(pid, fb, 0).is_ok() && record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: StepProvenance4 {
                                 source: SourceKind4::House,
@@ -335,6 +341,7 @@ fn play_one_table(
                     }
                 }
             }
+            break;
         }
         if !progressed && net.is_none() {
             // Pure house baseline progresses via pump_at_most(32)
@@ -385,10 +392,7 @@ fn load_manifest_decks(
             let Ok(text) = fs::read_to_string(&full_path) else {
                 continue;
             };
-            let key = entry["id"]
-                .as_str()
-                .unwrap_or(rel_path)
-                .to_owned();
+            let key = entry["id"].as_str().unwrap_or(rel_path).to_owned();
             let Ok(hd) = HouseDeck::parse_any(&key, &text) else {
                 continue;
             };
@@ -409,10 +413,7 @@ fn main() -> anyhow::Result<()> {
         if args.teams.len() != args.seats {
             bail!("--teams length must equal --seats");
         }
-        args.teams
-            .iter()
-            .map(|&t| (t != 0).then_some(t))
-            .collect()
+        args.teams.iter().map(|&t| (t != 0).then_some(t)).collect()
     };
 
     let opp_profile = parse_profile(&args.against)?;
@@ -420,7 +421,7 @@ fn main() -> anyhow::Result<()> {
 
     let working = Working::scan(&repo_root())?;
     let shape = match args.shape.as_str() {
-        "constructed" => Shape::Constructed,
+        "constructed" | "limited" => Shape::Constructed,
         "highlander" => Shape::Highlander,
         "commander" => Shape::Commander,
         other => bail!("unknown shape {other}"),
@@ -446,7 +447,11 @@ fn main() -> anyhow::Result<()> {
         )?);
     }
     let mut attempt = 0_u64;
-    let seed_base = if args.held_out_cards { 99_999_u64 } else { 7_777_u64 };
+    let seed_base = if args.held_out_cards {
+        99_999_u64
+    } else {
+        7_777_u64
+    };
     let target_decks = if args.decks_manifest.is_some() && args.generated == 0 {
         decks.len().max(args.seats)
     } else {
@@ -472,7 +477,11 @@ fn main() -> anyhow::Result<()> {
         });
     }
     if decks.len() < args.seats {
-        bail!("could not load/generate enough decks ({} < {})", decks.len(), args.seats);
+        bail!(
+            "could not load/generate enough decks ({} < {})",
+            decks.len(),
+            args.seats
+        );
     }
 
     if let Some(rec_dir) = &args.record_out {
@@ -513,7 +522,12 @@ fn main() -> anyhow::Result<()> {
     let teams_arc = Arc::new(teams);
     let next_deal = Arc::new(AtomicU64::new(0));
     let stats_arc = Arc::new(Mutex::new(EvalStats::default()));
-    let games_lines = Arc::new(Mutex::new(Vec::<String>::new()));
+    let games_lines = Arc::new(Mutex::new(
+        args.record_out
+            .as_ref()
+            .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
+            .transpose()?,
+    ));
 
     let started = Instant::now();
     let mut handles = Vec::new();
@@ -571,6 +585,17 @@ fn main() -> anyhow::Result<()> {
 
                 let deal_game_id = format!("eval4-deal-{table_idx:05}");
                 let rec_game_id = format!("eval4-{d:05}");
+                if let Some(dir) = &rec_out {
+                    // Written before entering the engine, so aborts/hangs have
+                    // a reproducible deal even without a completed record.
+                    fs::write(
+                        dir.join(format!("worker-{worker_id:02}.json")),
+                        serde_json::to_vec_pretty(&json!({"status": "running", "deal": d,
+                            "seed": seed, "focal_seat": focal_seat,
+                            "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>(),
+                            "policy_seed": policy_seed, "model": model_path}))?,
+                    )?;
+                }
                 let (
                     net_u,
                     net_capped,
@@ -617,7 +642,10 @@ fn main() -> anyhow::Result<()> {
                         "rollout_sidecar": rollout_sidecar,
                     }))?;
                     *offset += len;
-                    games_lines.lock().expect("games lock").push(line);
+                    if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
+                        writeln!(index, "{line}")?;
+                        index.flush()?;
+                    }
                 }
 
                 let (base_u, base_capped) = if no_base {
@@ -643,6 +671,11 @@ fn main() -> anyhow::Result<()> {
 
                 let mut st = stats_arc.lock().expect("stats lock");
                 st.deals_completed += 1;
+                st.deal_details.push(json!({"deal": d, "table": table_idx,
+                    "seed": seed, "focal_seat": focal_seat,
+                    "net_utility": net_u, "base_utility": if no_base { None } else { Some(base_u) },
+                    "net_capped": net_capped, "base_capped": base_capped,
+                    "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
                 if net_capped {
@@ -682,17 +715,8 @@ fn main() -> anyhow::Result<()> {
         h.join().expect("worker panicked")?;
     }
 
-    if let Some(rec_dir) = &args.record_out {
-        let lines = games_lines.lock().expect("games lock");
-        let mut f = BufWriter::new(File::create(rec_dir.join("games.jsonl"))?);
-        for l in lines.iter() {
-            f.write_all(l.as_bytes())?;
-            f.write_all(b"\n")?;
-        }
-        f.flush()?;
-    }
-
     let mut st = stats_arc.lock().expect("stats lock");
+    st.deal_details.sort_by_key(|deal| deal["deal"].as_u64());
     st.latencies_ms.sort_by(|a, b| a.total_cmp(b));
     let n_lat = st.latencies_ms.len();
     let pct = |q: f64| -> f64 {
@@ -736,7 +760,7 @@ fn main() -> anyhow::Result<()> {
     let fb_rate = (st.coverage.fallback_decisions() as f64)
         / ((st.coverage.neural_decisions() + st.coverage.fallback_decisions()).max(1) as f64);
 
-    let summary = json!({
+    let mut summary = json!({
         "model": args.model,
         "seats": args.seats,
         "teams": args.teams,
@@ -779,6 +803,9 @@ fn main() -> anyhow::Result<()> {
         },
         "elapsed_secs": started.elapsed().as_secs_f64(),
     });
+    summary["deal_details"] = json!(st.deal_details);
+    summary["coverage_matrix"] = json!(st.coverage.counts);
+    summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
 
     if let Some(parent) = args.out.parent() {
         fs::create_dir_all(parent)?;

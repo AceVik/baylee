@@ -72,7 +72,8 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
         dpath = Path(tmpdir)
         (dpath / "train").mkdir()
         meta = {
-            "encoder_version": 4,
+            "encoder_version": M.ENCODER_VERSION,
+            "trajectory_version": M.TRAJECTORY_VERSION,
             "dsl_version": 1,
             "cards": [1, 2],
             "token_count": 2,
@@ -101,7 +102,7 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
             "step_cursor": 0,
             "state": {
                 "entity_feat": [[0.0] * M.ENTITY_FEAT_WIDTH, [0.0] * M.ENTITY_FEAT_WIDTH],
-                "entity_card_ids": [1, 0],
+                "entity_card_ids": [1, M.UNKNOWN_CARD],
                 "entity_face_ids": [1, 0],
                 "entity_token_ids": [0, 2],
                 "seat_feat": [[0.0] * M.SEAT_FEAT_WIDTH for _ in range(M.MAX_SEATS)],
@@ -113,7 +114,7 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
             "cand_entity_idx": [0],
             "cand_rel_seat_idx": [-1],
             "pairs": [],
-            "target": {"single_idx": 99, "multi_mask": [], "free_mask": [], "scalar_norm": 0.0},
+            "target": {"single_idx": 0, "multi_mask": [], "free_mask": [], "scalar_norm": 0.0},
             "outcome": 1.0,
             "is_decision": True,
             "is_terminal": False,
@@ -127,7 +128,7 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
             "step_cursor": 1,
             "state": {
                 "entity_feat": [[0.0] * M.ENTITY_FEAT_WIDTH, [0.0] * M.ENTITY_FEAT_WIDTH],
-                "entity_card_ids": [1, 0],
+                "entity_card_ids": [1, M.UNKNOWN_CARD],
                 "entity_face_ids": [0, 0],
                 "entity_token_ids": [0, 0],
                 "seat_feat": [[0.0] * M.SEAT_FEAT_WIDTH for _ in range(M.MAX_SEATS)],
@@ -157,8 +158,13 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
         assert np.allclose(sample["entity_dsl"][0, 0], 2.0), "Back-face DSL lookup failed"
         assert np.allclose(sample["entity_dsl"][0, 1], 3.0), "Token DSL lookup failed"
         # Verify step 0 with out-of-range single_idx=99 was marked invalid (is_decision=False, loss_weight=0.0)
-        assert bool(sample["is_decision"][0].item()) is False, "Out-of-range single_idx must set is_decision=False"
-        assert float(sample["loss_weight"][0].item()) == 0.0
+        invalid = dict(step0, target=dict(step0["target"], single_idx=99))
+        try:
+            ds.encode_single_step(invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Out-of-range decision target must fail loudly")
         # Verify step 1 filtered out invalid pair [999, 0] and remapped pair [0, 1]'s target=1 and free=1 to index 0
         assert bool(sample["is_decision"][1].item()) is True
         assert sample["pair_index"][1, 0].tolist() == [0, 1]
@@ -233,7 +239,7 @@ def test_p0_3_collector_vs_trainer_logprob_parity():
     rust_lp2 = float(np.log(max(p2[0], 1e-7)) + np.log(max(1.0 - p2[2], 1e-7)))
 
     # 3: ScalarValue Gaussian log-density around scalar_pred with sigma=0.15
-    rust_lp3 = float(-0.5 * ((0.35 - 0.62) / 0.15) ** 2)
+    rust_lp3 = 0.0  # Deterministic scalar actions are excluded from PPO.
 
     expected = np.array([rust_lp0, rust_lp1, rust_lp2, rust_lp3], dtype=np.float32)
     actual = logp.numpy()

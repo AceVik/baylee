@@ -17,8 +17,8 @@ use std::time::Instant;
 
 use anyhow::{Context as _, bail};
 use baylee_train::carddsl::{
-    ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, card_ability_table,
-    card_back_summary_table, card_summary_table, token_summary_table,
+    ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, UNKNOWN_CARD,
+    card_ability_table, card_back_summary_table, card_summary_table, token_summary_table,
 };
 use baylee_train::convert4::{RolloutStepSidecar4, extract_game4_with_sidecar};
 use baylee_train::features4::{
@@ -37,6 +37,10 @@ struct Args {
     /// Input selfplay run directories, comma-separated.
     #[arg(long, value_delimiter = ',')]
     runs: Vec<PathBuf>,
+    /// Separate validation runs (for example games from held-out deck families).
+    /// When supplied, every --runs game is training and every --val-runs game validation.
+    #[arg(long, value_delimiter = ',')]
+    val_runs: Vec<PathBuf>,
     /// Output dataset directory; must not exist yet.
     #[arg(long)]
     out: PathBuf,
@@ -57,11 +61,11 @@ struct Args {
 #[derive(Clone, Debug)]
 struct GameRef {
     game_id: u32,
-    seed: u64,
     shard_path: PathBuf,
     offset: u64,
     len: u64,
     sidecar: Option<Vec<RolloutStepSidecar4>>,
+    validation: bool,
 }
 
 fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
@@ -138,9 +142,10 @@ fn main() -> anyhow::Result<()> {
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
-    let mut vocab_set: BTreeSet<u32> = (0..=(baylee_cards::count() as u32)).collect();
+    let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
+    vocab_set.insert(UNKNOWN_CARD);
 
-    for run_dir in &args.runs {
+    for run_dir in args.runs.iter().chain(&args.val_runs) {
         let run_json: Value = serde_json::from_slice(
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
@@ -179,11 +184,15 @@ fn main() -> anyhow::Result<()> {
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 game_id,
-                seed,
                 shard_path: run_dir.join("records").join(shard_name),
                 offset,
                 len,
                 sidecar,
+                validation: if args.val_runs.is_empty() {
+                    args.val_every > 0 && seed.is_multiple_of(args.val_every)
+                } else {
+                    args.val_runs.contains(run_dir)
+                },
             });
         }
     }
@@ -213,6 +222,8 @@ fn main() -> anyhow::Result<()> {
     let cov_total = Arc::new(Mutex::new(CoverageMatrix4::default()));
     let vocab_extra = Arc::new(Mutex::new(BTreeSet::<u32>::new()));
     let unencoded_total = Arc::new(AtomicUsize::new(0));
+    let rejected = Arc::new(Mutex::new(Vec::<Value>::new()));
+    let converted = Arc::new(AtomicUsize::new(0));
 
     let mut handles = Vec::new();
     for _ in 0..threads {
@@ -223,7 +234,8 @@ fn main() -> anyhow::Result<()> {
         let cov_total = cov_total.clone();
         let vocab_extra = vocab_extra.clone();
         let unencoded_total = unencoded_total.clone();
-        let val_every = args.val_every.max(2);
+        let rejected = rejected.clone();
+        let converted = converted.clone();
         let include_passive = args.include_passive_obs;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
@@ -241,7 +253,11 @@ fn main() -> anyhow::Result<()> {
                 ) {
                     Ok(ex) => ex,
                     Err(e) => {
-                        eprintln!("[convert4] skipping game {}: {e}", gref.game_id);
+                        eprintln!("[convert4] quarantining game {}: {e}", gref.game_id);
+                        rejected.lock().expect("rejection lock").push(json!({
+                            "game_id": gref.game_id, "shard": gref.shard_path,
+                            "offset": gref.offset, "len": gref.len, "reason": e,
+                        }));
                         continue;
                     }
                 };
@@ -258,21 +274,18 @@ fn main() -> anyhow::Result<()> {
                 let mut local_cards = BTreeSet::new();
                 for st in &extracted.steps {
                     for &cid in &st.state.entity_card_ids {
-                        if cid != 0 {
+                        if cid != UNKNOWN_CARD {
                             local_cards.insert(cid);
                         }
                     }
                     for &cid in &st.cand_card_id {
-                        if cid != 0 {
+                        if cid != UNKNOWN_CARD {
                             local_cards.insert(cid);
                         }
                     }
                 }
                 if !local_cards.is_empty() {
-                    vocab_extra
-                        .lock()
-                        .expect("vocab lock")
-                        .extend(local_cards);
+                    vocab_extra.lock().expect("vocab lock").extend(local_cards);
                 }
 
                 let mut raw_buf = Vec::with_capacity(extracted.steps.len() * 2048);
@@ -280,10 +293,11 @@ fn main() -> anyhow::Result<()> {
                     serde_json::to_writer(&mut raw_buf, st)?;
                     raw_buf.push(b'\n');
                 }
-                let is_val = (gref.seed % val_every) == 0;
+                let is_val = gref.validation;
                 let writer = if is_val { &val_writer } else { &train_writer };
                 let mut w = writer.lock().expect("writer lock");
                 w.write_raw_batch(&raw_buf, extracted.steps.len())?;
+                converted.fetch_add(1, Ordering::Relaxed);
             }
             Ok(())
         }));
@@ -315,9 +329,16 @@ fn main() -> anyhow::Result<()> {
         .into_inner()?
         .finish()?;
     let cov = cov_total.lock().expect("cov lock").clone();
+    let rejected = rejected.lock().expect("rejection lock");
+    fs::write(
+        args.out.join("rejected-games.json"),
+        serde_json::to_vec_pretty(&*rejected)?,
+    )?;
 
     let meta = json!({
         "encoder_version": ENCODER_VERSION,
+        "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
+        "sampling_version": 2,
         "dsl_version": DSL_VERSION,
         "card_dsl_width": CARD_DSL_WIDTH,
         "ability_dsl_width": ABILITY_DSL_WIDTH,
@@ -333,7 +354,11 @@ fn main() -> anyhow::Result<()> {
         "max_pairs": MAX_PAIRS,
         "cards": cards,
         "token_count": baylee_cards::tokens::ALL.len(),
-        "games_converted": games_arc.len(),
+        "games_requested": games_arc.len(),
+        "games_converted": converted.load(Ordering::Relaxed),
+        "games_rejected": rejected.len(),
+        "source_runs": args.runs,
+        "validation_runs": args.val_runs,
         "train_steps": train_steps,
         "val_steps": val_steps,
         "train_shards": train_shards,
@@ -349,7 +374,7 @@ fn main() -> anyhow::Result<()> {
 
     eprintln!(
         "[convert4] converted {} games -> {} train steps + {} val steps ({} vocab cards, {} unencoded) in {:.1}s",
-        games_arc.len(),
+        converted.load(Ordering::Relaxed),
         train_steps,
         val_steps,
         cards.len(),

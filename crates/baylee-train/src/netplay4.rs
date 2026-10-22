@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
 use baylee_core::ids::PlayerId;
@@ -60,7 +60,8 @@ pub struct Answer4 {
 
 /// A Playernet v4 agent driving one or more seats via ONNX Runtime.
 pub struct NetPlayer4 {
-    session: Session,
+    sessions: BTreeMap<u8, Session>,
+    model_dir: PathBuf,
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
@@ -69,9 +70,6 @@ pub struct NetPlayer4 {
     teams: Vec<Option<u8>>,
     /// Per-seat recurrent hidden state `9 * d_model` indexed by `PlayerId::get()`.
     h_states: BTreeMap<u8, Vec<f32>>,
-    /// Per-seat `(cursor_when_h_updated, pre_obs_h)` so `observe(view)` followed
-    /// by `act_detailed(view, pending)` on the same state does not double-step `h`.
-    last_obs_cursor: BTreeMap<u8, (u64, Vec<f32>)>,
     /// Per-seat persistent [`SeatKnowledge4`] indexed by `PlayerId::get()`.
     knowledge: BTreeMap<u8, SeatKnowledge4>,
     /// View-only state visit counts `(seat, view_hash) -> count` for loop guarding.
@@ -82,6 +80,26 @@ pub struct NetPlayer4 {
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
     anyhow::anyhow!("{e}")
+}
+
+fn load_session(path: &Path) -> anyhow::Result<Session> {
+    let builder =
+        Session::builder(crate::onnx::environment().map_err(ort_error)?).map_err(ort_error)?;
+    #[cfg(feature = "onnx-cuda")]
+    let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cuda") {
+        builder
+            .with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()])
+            .map_err(ort_error)?
+    } else {
+        builder
+    };
+    builder
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(ort_error)?
+        .with_intra_threads(1)
+        .map_err(ort_error)?
+        .commit_from_file(path)
+        .with_context(|| format!("loading {}", path.display()))
 }
 
 fn fallback_action(cands: &EncodedCandidates4, pending: &Pending) -> PlayerAction {
@@ -103,7 +121,7 @@ impl NetPlayer4 {
     /// When the ONNX model or metadata cannot be loaded.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         let (onnx_path, meta_path) = if path.is_dir() {
-            (path.join("model.onnx"), path.join("meta.json"))
+            (path.join("model.onnx"), path.join("model.onnx.json"))
         } else {
             let onnx_json = path.with_extension("onnx.json");
             let meta_p = if onnx_json.exists() {
@@ -113,37 +131,29 @@ impl NetPlayer4 {
             };
             (path.to_path_buf(), meta_p)
         };
-        let mut d_model = 512_usize;
-        let mut thinking_steps = 2_u8;
-        if meta_path.exists()
-            && let Ok(bytes) = fs::read(&meta_path)
-            && let Ok(meta) = serde_json::from_slice::<Value>(&bytes)
-        {
-            if let Some(d) = meta["d_model"].as_u64() {
-                d_model = d as usize;
-            }
-            if let Some(k) = meta["thinking_steps"].as_u64() {
-                thinking_steps = (k as u8).clamp(1, 8);
-            }
-        }
-        let session = Session::builder(crate::onnx::environment().map_err(ort_error)?)
-            .map_err(ort_error)?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(ort_error)?
-            .with_intra_threads(1)
-            .map_err(ort_error)?
-            .commit_from_file(&onnx_path)
-            .with_context(|| format!("loading Playernet v4 ONNX from {}", onnx_path.display()))?;
+        let meta: Value = serde_json::from_slice(&fs::read(&meta_path)?)?;
+        anyhow::ensure!(
+            meta["encoder_version"] == 5
+                && meta["trajectory_version"] == 2
+                && meta["sampling_version"] == 2
+                && meta["model_version"] == 2,
+            "incompatible v4 model contracts; re-export repaired model"
+        );
+        let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
+        let thinking_steps = meta["thinking_steps"]
+            .as_u64()
+            .context("missing thinking_steps")? as u8;
+        let session = load_session(&onnx_path)?;
 
         Ok(Self {
-            session,
+            sessions: BTreeMap::from([(thinking_steps, session)]),
+            model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
             d_model,
             thinking_steps,
             temperature: 0.0,
             rng: Rng::new(0x517c_c1b7_2722_0a95),
             teams: Vec::new(),
             h_states: BTreeMap::new(),
-            last_obs_cursor: BTreeMap::new(),
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
@@ -178,7 +188,6 @@ impl NetPlayer4 {
     pub fn reset_game(&mut self) {
         self.teams.clear();
         self.h_states.clear();
-        self.last_obs_cursor.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
     }
@@ -195,7 +204,6 @@ impl NetPlayer4 {
     pub fn init_game(&mut self, preset: &GamePreset) {
         self.teams = preset.seats.iter().map(|s| s.team).collect();
         self.h_states.clear();
-        self.last_obs_cursor.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
         for s in 0..preset.seats.len() {
@@ -213,7 +221,7 @@ impl NetPlayer4 {
     /// Deduplicates identical views via `SeatKnowledge4::cursor` and caches the
     /// pre-observation `h_state` so a subsequent `act_detailed` on the same
     /// board state does not double-step the recurrent cell.
-    pub fn observe(&mut self, view: &PlayerView) {
+    pub fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         let s = view.seat.get();
         let seat_count = view.seats.len().clamp(1, MAX_SEATS);
         let prev_cursor = self.knowledge.get(&s).map_or(0, |k| k.cursor);
@@ -224,7 +232,7 @@ impl NetPlayer4 {
         kn.observe(view);
         let new_cursor = kn.cursor;
         if new_cursor == prev_cursor {
-            return;
+            return Ok(());
         }
         let pre_h = self
             .h_states
@@ -241,10 +249,9 @@ impl NetPlayer4 {
             pairs: Vec::new(),
             pair_objects: Vec::new(),
         };
-        if let Ok((h_next, _, _, _, _)) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0) {
-            self.h_states.insert(s, h_next);
-            self.last_obs_cursor.insert(s, (new_cursor, pre_h));
-        }
+        let (h_next, _, _, _, _) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
+        self.h_states.insert(s, h_next);
+        Ok(())
     }
 
     /// Chooses a legal [`PlayerAction`] for `view` and `pending`.
@@ -266,27 +273,15 @@ impl NetPlayer4 {
         teams: &[Option<u8>],
     ) -> Answer4 {
         let seat_u8 = view.seat.get();
-        let seat_count = view.seats.len().clamp(1, MAX_SEATS);
         let p_kind = PendingKind4::of(pending);
 
-        // Update SeatKnowledge4 for the deciding seat
-        let kn = self
-            .knowledge
+        // The host calls observe() for every neural seat before each table action.
+        // Decision inference is read-only with respect to persistent memory.
+        let h_in = self
+            .h_states
             .entry(seat_u8)
-            .or_insert_with(|| SeatKnowledge4::empty(view.seat, seat_count));
-        kn.observe(view);
-        let cur_cursor = kn.cursor;
-
-        // Resolve h_in: if observe() already stepped h_states on this exact cursor,
-        // reuse the pre-observation h_in so recurrent_cell is applied once.
-        let h_in = match self.last_obs_cursor.get(&seat_u8) {
-            Some((obs_cur, pre_h)) if *obs_cur == cur_cursor => pre_h.clone(),
-            _ => self
-                .h_states
-                .entry(seat_u8)
-                .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
-                .clone(),
-        };
+            .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
+            .clone();
 
         let state = encode_state4(view, Some(pending), self.knowledge.get(&seat_u8), teams);
         let cands = encode_candidates4(&state, view, pending);
@@ -299,10 +294,6 @@ impl NetPlayer4 {
             HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
         };
         if is_forced {
-            if let Ok((h_next, _, _, _, _)) = self.run_onnx_step(&state, &cands, &h_in, 0) {
-                self.h_states.insert(seat_u8, h_next);
-                self.last_obs_cursor.insert(seat_u8, (cur_cursor + 1, h_in));
-            }
             let forced_target = TeacherTarget4 {
                 single_idx: 0,
                 multi_mask: vec![0; cands.candidates.len().max(cands.pairs.len())],
@@ -350,7 +341,7 @@ impl NetPlayer4 {
         }
 
         // 3. Run ONNX inference
-        match self.infer_and_sample(&state, &cands, view, pending, &h_in, cur_cursor) {
+        match self.infer_and_sample(&state, &cands, view, pending, &h_in) {
             Ok((action, value, logprob, target)) => {
                 self.coverage.record(p_kind, SourceKind4::Net);
                 Answer4 {
@@ -361,7 +352,8 @@ impl NetPlayer4 {
                         temperature: self.temperature,
                         thinking_steps: self.thinking_steps,
                         behavior_logprob: logprob,
-                        has_logprob: true,
+                        has_logprob: self.temperature > 1e-4
+                            && cands.head != HeadKind4::ScalarValue,
                     },
                     target,
                 }
@@ -424,11 +416,14 @@ impl NetPlayer4 {
 
         let c_len = cands.candidates.len().max(1);
         let mut cand_feat = vec![0.0_f32; c_len * CAND_FEAT_WIDTH];
+        let mut cand_dsl = vec![0.0_f32; c_len * CARD_DSL_WIDTH];
         let mut cand_ent = vec![-1_i64; c_len];
         let mut cand_seat = vec![-1_i64; c_len];
         let mut cand_mask = vec![false; c_len];
         for (i, c) in cands.candidates.iter().enumerate() {
             cand_feat[i * CAND_FEAT_WIDTH..(i + 1) * CAND_FEAT_WIDTH].copy_from_slice(&c.feat);
+            cand_dsl[i * CARD_DSL_WIDTH..(i + 1) * CARD_DSL_WIDTH]
+                .copy_from_slice(&c.dsl_summary(state));
             cand_ent[i] = i64::from(c.entity_idx);
             cand_seat[i] = i64::from(c.rel_seat_idx);
             cand_mask[i] = true;
@@ -460,11 +455,27 @@ impl NetPlayer4 {
             "cand_mask" => Tensor::from_array(([1, c_len], cand_mask)).map_err(ort_error)?,
             "pair_index" => Tensor::from_array(([1, p_len, 2], pair_index)).map_err(ort_error)?,
             "pair_mask" => Tensor::from_array(([1, p_len], pair_mask)).map_err(ort_error)?,
+            "cand_dsl" => Tensor::from_array(([1, c_len, CARD_DSL_WIDTH], cand_dsl)).map_err(ort_error)?,
             "h_in" => Tensor::from_array(([1, RECURRENT_SLOTS, self.d_model], h_in.to_vec())).map_err(ort_error)?,
             "thinking_steps" => Tensor::from_array(([1], k_steps)).map_err(ort_error)?,
         ];
 
-        let outputs = self.session.run(inputs).map_err(ort_error)?;
+        let depth = if k_val == 0 {
+            0
+        } else {
+            k_val.next_power_of_two().min(8)
+        };
+        if !self.sessions.contains_key(&depth) {
+            let path = self.model_dir.join(format!("model.k{depth}.onnx"));
+            let session = load_session(&path)?;
+            self.sessions.insert(depth, session);
+        }
+        let outputs = self
+            .sessions
+            .get_mut(&depth)
+            .expect("loaded graph")
+            .run(inputs)
+            .map_err(ort_error)?;
         let (_, h_out_slice) = outputs["h_out"]
             .try_extract_tensor::<f32>()
             .map_err(ort_error)?;
@@ -496,16 +507,10 @@ impl NetPlayer4 {
         view: &PlayerView,
         pending: &Pending,
         h_in: &[f32],
-        cur_cursor: u64,
     ) -> anyhow::Result<(PlayerAction, f32, f32, TeacherTarget4)> {
-        let seat_u8 = view.seat.get();
         let k_val = self.thinking_steps;
-        let (h_next, cand_logits, pair_logits, scalar_pred, value) =
+        let (_, cand_logits, pair_logits, scalar_pred, value) =
             self.run_onnx_step(state, cands, h_in, k_val)?;
-        self.h_states.insert(seat_u8, h_next);
-        self.last_obs_cursor
-            .insert(seat_u8, (cur_cursor + 1, h_in.to_vec()));
-
         let mut target = TeacherTarget4::default();
         let logprob: f32;
 
@@ -535,12 +540,8 @@ impl NetPlayer4 {
             HeadKind4::PairPick => {
                 let n = cands.pairs.len();
                 let logits = &pair_logits[..n];
-                let (mask, free_mask, seq, lp) = sample_pairs_constrained(
-                    logits,
-                    cands,
-                    self.temperature,
-                    &mut self.rng,
-                );
+                let (mask, free_mask, seq, lp) =
+                    sample_pairs_constrained(logits, cands, self.temperature, &mut self.rng);
                 target.multi_mask = mask;
                 target.free_mask = free_mask;
                 target.pick_sequence = seq;
@@ -553,7 +554,8 @@ impl NetPlayer4 {
                 let norm =
                     normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
                 target.scalar_norm = norm;
-                logprob = -0.5 * ((norm - pred) / 0.15).powi(2);
+                // Deterministic regression head: supervised training only.
+                logprob = 0.0;
             }
         }
 
@@ -571,10 +573,7 @@ fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (usize, f32) {
         return (0, 0.0);
     }
     let scale = if tau <= 1e-4 { 1.0 } else { 1.0 / tau };
-    let max_l = logits
-        .iter()
-        .copied()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let max_l = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     let mut probs = Vec::with_capacity(logits.len());
     let mut sum = 0.0_f32;
     for &l in logits {
@@ -607,7 +606,10 @@ fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (usize, f32) {
         }
         idx
     };
-    let lp = probs[chosen].max(1e-12).ln();
+    let lp = if tau <= 1e-4 {
+        0.0
+    } else {
+        probs[chosen].max(1e-12).ln()
+    };
     (chosen, lp)
 }
-

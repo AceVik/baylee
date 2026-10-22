@@ -71,7 +71,7 @@ pub struct EncodedState4 {
     pub entity_feat: Vec<Vec<f32>>,
     /// Engine `ObjectId` for each entity row (`0` for synthetic memory rows).
     pub entity_object_ids: Vec<u64>,
-    /// Active rules `CardIndex` (`rules.card` when copying, else `card.index`, `0` if unknown/token).
+    /// Active rules `CardIndex` (`rules.card` when copying, else `card.index`, `UNKNOWN_CARD` if unknown/token).
     pub entity_card_ids: Vec<u32>,
     /// Active face (`0` or `1`).
     pub entity_face_ids: Vec<u8>,
@@ -119,9 +119,9 @@ impl EncodedState4 {
     /// `1 + token_id` = registry token).
     #[must_use]
     pub fn entity_dsl_summary(&self, idx: usize) -> [f32; CARD_DSL_WIDTH] {
-        let card_id = self.entity_card_ids.get(idx).copied().unwrap_or(0);
+        let card_id = self.entity_card_ids.get(idx).copied().unwrap_or(UNKNOWN_CARD);
         let face_id = self.entity_face_ids.get(idx).copied().unwrap_or(0) as usize;
-        if card_id != 0
+        if card_id != UNKNOWN_CARD
             && let Some(def) = baylee_cards::by_index(CardIndex::new(card_id))
         {
             return encode_card_face(def, face_id).summary;
@@ -289,7 +289,9 @@ pub fn encode_state4(
     encode_seats4(&mut state, view, knowledge, teams, viewer, seat_count);
 
     // 3. Encode Global features
-    encode_global4(&mut state, view, pending, knowledge, teams, viewer, seat_count);
+    encode_global4(
+        &mut state, view, pending, knowledge, teams, viewer, seat_count,
+    );
 
     // 4. Build directed relational edges
     build_edges4(&mut state, view, viewer, seat_count);
@@ -386,7 +388,7 @@ fn push_public_object(
         .rules
         .map(|r| r.card.get())
         .or_else(|| obj.card.map(|c| c.index.get()))
-        .unwrap_or(0);
+        .unwrap_or(UNKNOWN_CARD);
     let is_copy_override = obj
         .rules
         .zip(obj.card)
@@ -396,7 +398,7 @@ fn push_public_object(
     f[36] = f32::from(u8::from(obj.prepared_spell.is_some()));
     f[37] = obj
         .chosen_subtype
-        .map_or(0.0, |st| unit(f32::from(st.get() % 256), 256.0));
+        .map_or(0.0, |st| f32::from(st.get()) / 1024.0);
     f[38] = f32::from(u8::from(obj.chosen_name.is_some()));
     if let Some([d0, d1]) = obj.unlocked_doors {
         f[39] = f32::from(u8::from(d0));
@@ -412,9 +414,7 @@ fn push_public_object(
     f[46] = f32::from(u8::from(obj.power.is_some()));
     f[47] = obj.power.map_or(0.0, |p| signed_unit(p as f32, 12.0));
     f[48] = obj.toughness.map_or(0.0, |t| signed_unit(t as f32, 12.0));
-    f[49] = obj
-        .base_power
-        .map_or(0.0, |p| signed_unit(p as f32, 12.0));
+    f[49] = obj.base_power.map_or(0.0, |p| signed_unit(p as f32, 12.0));
     f[50] = obj
         .base_toughness
         .map_or(0.0, |t| signed_unit(t as f32, 12.0));
@@ -471,16 +471,8 @@ fn push_public_object(
     }
 
     // [82..90]: Combat state & mana/grant capabilities
-    let is_attacking = view
-        .combat
-        .attackers
-        .iter()
-        .find(|a| a.creature == obj.id);
-    let is_blocking = view
-        .combat
-        .blockers
-        .iter()
-        .any(|b| b.blocker == obj.id);
+    let is_attacking = view.combat.attackers.iter().find(|a| a.creature == obj.id);
+    let is_blocking = view.combat.blockers.iter().any(|b| b.blocker == obj.id);
     f[82] = f32::from(u8::from(is_attacking.is_some()));
     f[83] = f32::from(u8::from(is_attacking.is_some_and(|a| a.blocked)));
     f[84] = f32::from(u8::from(is_blocking));
@@ -558,11 +550,7 @@ fn push_hand_object(
         if legal.lands.contains(&h_obj.id) {
             f[28] = 1.0;
         }
-        if legal
-            .abilities
-            .iter()
-            .any(|(src, _)| *src == h_obj.id)
-        {
+        if legal.abilities.iter().any(|(src, _)| *src == h_obj.id) {
             f[29] = 1.0;
         }
     }
@@ -571,7 +559,10 @@ fn push_hand_object(
     f[45] = unit(h_obj.mana_value as f32, 12.0);
 
     if let Some(def) = baylee_cards::by_index(h_obj.card.index)
-        && let Some(face) = def.faces.get(h_obj.card.face as usize).or_else(|| def.faces.first())
+        && let Some(face) = def
+            .faces
+            .get(h_obj.card.face as usize)
+            .or_else(|| def.faces.first())
     {
         f[46] = f32::from(u8::from(face.power.is_some()));
         f[47] = face.power.map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
@@ -685,10 +676,7 @@ fn encode_seats4(
         dst[17] = unit(sv.hand_count as f32, 7.0);
         dst[18] = unit(sv.library_count as f32, 60.0);
         dst[19] = unit(sv.graveyard_count as f32, 20.0);
-        let exile_cnt = view
-            .exile
-            .get(abs.get() as usize)
-            .map_or(0, Vec::len);
+        let exile_cnt = view.exile.get(abs.get() as usize).map_or(0, Vec::len);
         dst[20] = unit(exile_cnt as f32, 10.0);
 
         let mut creatures = 0.0_f32;
@@ -753,8 +741,7 @@ fn encode_seats4(
             {
                 let rel_src = rel_seat(viewer, Some(PlayerId::new(owner_idx as u8)), seat_count);
                 if rel_src < MAX_SEATS {
-                    dst[44 + rel_src] =
-                        (dst[44 + rel_src] + unit(cd.amount as f32, 21.0)).min(1.0);
+                    dst[44 + rel_src] = (dst[44 + rel_src] + unit(cd.amount as f32, 21.0)).min(1.0);
                 }
             }
         }
@@ -865,12 +852,7 @@ fn encode_global4(
     }
 }
 
-fn build_edges4(
-    state: &mut EncodedState4,
-    view: &PlayerView,
-    viewer: PlayerId,
-    seat_count: usize,
-) {
+fn build_edges4(state: &mut EncodedState4, view: &PlayerView, viewer: PlayerId, seat_count: usize) {
     let entity_ids = state.entity_object_ids.clone();
     let obj_token = |id: ObjectId| -> Option<i16> {
         let raw = pack_object_id(id);
@@ -975,7 +957,7 @@ fn build_edges4(
     let n_ent = state.entity_card_ids.len();
     for i in 0..n_ent {
         let cid = state.entity_card_ids[i];
-        if cid == 0 {
+        if cid == UNKNOWN_CARD {
             continue;
         }
         for j in (i + 1)..n_ent {
@@ -988,4 +970,3 @@ fn build_edges4(
         }
     }
 }
-

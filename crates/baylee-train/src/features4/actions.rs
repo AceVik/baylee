@@ -202,7 +202,7 @@ impl Default for Candidate4 {
             feat: vec![0.0; CAND_FEAT_WIDTH],
             entity_idx: -1,
             rel_seat_idx: -1,
-            card_id: 0,
+            card_id: UNKNOWN_CARD,
             ability_idx: -1,
             action: None,
             object_id: None,
@@ -210,6 +210,32 @@ impl Default for Candidate4 {
             index_id: None,
             defender: None,
         }
+    }
+}
+
+impl Candidate4 {
+    /// Explicit named face, or 255 to use the referenced entity's rules face.
+    #[must_use]
+    pub const fn named_face(&self) -> u8 {
+        match self.action {
+            Some(PlayerAction::ChooseCardName { face, .. }) => face,
+            _ => 255,
+        }
+    }
+
+    /// Card structure for this action, including cards absent from the table.
+    #[must_use]
+    pub fn dsl_summary(&self, state: &EncodedState4) -> [f32; CARD_DSL_WIDTH] {
+        let face = self.named_face();
+        if face == 255 && self.entity_idx >= 0 {
+            return state.entity_dsl_summary(self.entity_idx as usize);
+        }
+        if self.card_id == UNKNOWN_CARD {
+            return [0.0; CARD_DSL_WIDTH];
+        }
+        baylee_cards::by_index(CardIndex::new(self.card_id)).map_or([0.0; CARD_DSL_WIDTH], |def| {
+            encode_card_face(def, if face == 255 { 0 } else { face as usize }).summary
+        })
     }
 }
 
@@ -259,4 +285,3 @@ impl Default for TeacherTarget4 {
         }
     }
 }
-

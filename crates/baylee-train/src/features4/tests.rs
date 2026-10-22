@@ -1,10 +1,87 @@
 #[cfg(test)]
 mod tests {
     use super::*;
-    use baylee_core::preset::AIProfile;
-    use baylee_gamehost::Session;
+
+    #[test]
+    fn card_zero_is_air_elemental_and_is_distinct_from_missing_identity() {
+        let def = baylee_cards::by_index(CardIndex::new(0)).unwrap();
+        assert_eq!(def.name(), "Air Elemental");
+        let expected = encode_card_face(def, 0).summary;
+        assert!(expected.iter().any(|v| *v != 0.0));
+        let mut state = EncodedState4::default();
+        state.entity_card_ids = vec![0, UNKNOWN_CARD];
+        assert_eq!(state.entity_dsl_summary(0), expected);
+        assert_eq!(state.entity_dsl_summary(1), [0.0; CARD_DSL_WIDTH]);
+        let mut candidate = Candidate4::default();
+        assert_eq!(candidate.dsl_summary(&state), [0.0; CARD_DSL_WIDTH]);
+        candidate.card_id = 0;
+        assert_eq!(candidate.dsl_summary(&state), expected);
+        let table = crate::carddsl::card_summary_table(&[UNKNOWN_CARD, 0]);
+        assert_eq!(&table[..CARD_DSL_WIDTH], &[0.0; CARD_DSL_WIDTH]);
+        assert_eq!(&table[CARD_DSL_WIDTH..], &expected);
+    }
     use crate::housedeck::HouseDeck;
     use crate::selfplay::table_for;
+    use baylee_core::preset::AIProfile;
+    use baylee_gamehost::Session;
+
+    #[test]
+    fn naming_candidates_cover_the_public_registry_with_structural_features() {
+        let d = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d, &d], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let view = session.observe_view(PlayerId::new(0));
+        let pending = Pending::ChooseCardName {
+            player: PlayerId::new(0),
+            types: TypeSet::CREATURE,
+        };
+        let state = encode_state4(&view, Some(&pending), None, &[]);
+        let candidates = encode_candidates4(&state, &view, &pending);
+        let expected: usize = baylee_cards::all()
+            .map(|def| {
+                def.faces
+                    .iter()
+                    .filter(|face| face.types.intersects(TypeSet::CREATURE))
+                    .count()
+            })
+            .sum();
+        assert_eq!(candidates.candidates.len(), expected);
+        assert!(expected > 64);
+        for candidate in candidates.candidates {
+            let Some(PlayerAction::ChooseCardName { card, face }) = candidate.action else {
+                panic!("name action")
+            };
+            assert_eq!(
+                candidate.dsl_summary(&state),
+                encode_card_face(baylee_cards::by_index(card).unwrap(), face as usize).summary
+            );
+        }
+    }
+
+    #[test]
+    fn observation_digest_ignores_transport_but_tracks_priority_and_phase() {
+        let d = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d, &d], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let view = session.observe_view(PlayerId::new(0));
+        let mut changed = view.clone();
+        changed.seq += 1;
+        assert_eq!(
+            board_observation_hash(&view),
+            board_observation_hash(&changed)
+        );
+        changed.phase = Phase::SecondMain;
+        assert_ne!(
+            board_observation_hash(&view),
+            board_observation_hash(&changed)
+        );
+        changed = view.clone();
+        changed.awaiting = Some(PlayerId::new(1));
+        assert_ne!(
+            board_observation_hash(&view),
+            board_observation_hash(&changed)
+        );
+    }
 
     #[test]
     fn eight_seat_relative_coordinates_round_trip_and_never_alias() {
@@ -75,8 +152,14 @@ mod tests {
         let cands = encode_candidates4(&state, &view, &pending);
         assert_eq!(cands.candidates.len(), 3);
         // Verify that the three options have distinct CastModeKind and ManaCost vectors
-        assert_ne!(cands.candidates[0].feat[16..46], cands.candidates[1].feat[16..46]);
-        assert_ne!(cands.candidates[1].feat[16..46], cands.candidates[2].feat[16..46]);
+        assert_ne!(
+            cands.candidates[0].feat[16..46],
+            cands.candidates[1].feat[16..46]
+        );
+        assert_ne!(
+            cands.candidates[1].feat[16..46],
+            cands.candidates[2].feat[16..46]
+        );
     }
 
     #[test]
@@ -142,7 +225,10 @@ mod tests {
                 .expect("decodes subset cleanly");
             let reencoded = encode_teacher_action4(&cands, &pending_subset, &ans)
                 .expect("decoded subset must re-encode cleanly");
-            assert_eq!(reencoded.multi_mask, mask, "decode_action4 must never modify sampled mask");
+            assert_eq!(
+                reencoded.multi_mask, mask,
+                "decode_action4 must never modify sampled mask"
+            );
             assert_eq!(
                 compute_subset_free_mask(&cands, &pending_subset, &mask, &seq),
                 free_mask
@@ -205,7 +291,10 @@ mod tests {
                     rebuilt[idx] = 1;
                 }
             }
-            assert_eq!(rebuilt, mask, "decode_action4 must never repair sampled pair mask");
+            assert_eq!(
+                rebuilt, mask,
+                "decode_action4 must never repair sampled pair mask"
+            );
             assert_eq!(compute_pair_free_mask(&pair_cands, &mask, &seq), free_mask);
             pair_probs.insert(mask, (lp as f64).exp());
         }
@@ -225,7 +314,10 @@ mod tests {
                 let t = normalize_scalar_choice(v, lo, hi);
                 assert!((-1.0 - 1e-5..=1.0 + 1e-5).contains(&t));
                 let back = denormalize_scalar_choice(t, lo, hi);
-                assert_eq!(back, v, "scalar choice {v} in [{lo}, {hi}] failed round-trip");
+                assert_eq!(
+                    back, v,
+                    "scalar choice {v} in [{lo}, {hi}] failed round-trip"
+                );
             }
         }
     }

@@ -59,56 +59,34 @@ pub fn view_only_state_hash(view: &PlayerView, pending: &Pending) -> u64 {
 }
 
 /// Computes a deterministic 64-bit FNV-1a hash of the observable board, stack,
-/// hand, zones, and seat totals in [`PlayerView`], excluding transient priority
-/// window fields (`view.awaiting`, `view.step`, `pending`).
+/// hand, zones, and seat totals in [`PlayerView`], excluding transport sequence numbers
+/// and wall-clock/presentation fields. Phase and priority changes are observations.
 ///
 /// Used by [`SeatKnowledge4::observe`] so passive observation frames fire only
 /// when public or seat-visible game state actually changes (`P0-4`).
 #[must_use]
 pub fn board_observation_hash(view: &PlayerView) -> u64 {
-    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut feed = |bytes: &[u8]| {
-        for &b in bytes {
-            h ^= u64::from(b);
-            h = h.wrapping_mul(0x0100_0000_01b3);
-        }
-    };
-    feed(&view.turn.to_le_bytes());
-    feed(&[view.seat.get(), view.active.get()]);
-    for s in &view.seats {
-        feed(&s.life.to_le_bytes());
-        feed(&s.poison.to_le_bytes());
-        feed(&s.energy.to_le_bytes());
-        feed(&[s.speed]);
-        feed(&s.rad.to_le_bytes());
-        feed(&s.hand_count.to_le_bytes());
-        feed(&s.library_count.to_le_bytes());
-        feed(&s.graveyard_count.to_le_bytes());
-        feed(&s.mana_pool.total().to_le_bytes());
-    }
-    for h_obj in &view.hand {
-        feed(&pack_object_id(h_obj.id).to_le_bytes());
-        feed(&h_obj.card.index.get().to_le_bytes());
-    }
-    for obj in view
-        .battlefield
-        .iter()
-        .chain(&view.stack)
-        .chain(view.graveyards.iter().flatten())
-        .chain(view.exile.iter().flatten())
-        .chain(view.command.iter().flatten())
-        .chain(&view.looking_at)
-    {
-        feed(&pack_object_id(obj.id).to_le_bytes());
-        feed(&[obj.controller.get(), obj.owner.get(), obj.status.bits()]);
-        feed(&obj.damage.to_le_bytes());
-        feed(&obj.power.unwrap_or(0).to_le_bytes());
-        feed(&obj.toughness.unwrap_or(0).to_le_bytes());
-        for c in &obj.counters {
-            feed(&c.count.to_le_bytes());
+    // Serialize the complete authorized view, not an incomplete hand-written
+    // list of fields (which missed phases, colors of floating mana, faces,
+    // combat, revealed library tops and several card-specific choices).
+    let mut value = serde_json::to_value(view).expect("PlayerView serializes");
+    if let Some(obj) = value.as_object_mut() {
+        for key in [
+            "seq",
+            "decision_remaining_ms",
+            "clocks",
+            "lost",
+            "policy_acts",
+        ] {
+            obj.remove(key);
         }
     }
-    h
+    let bytes = serde_json::to_vec(&value).expect("PlayerView value serializes");
+    bytes
+        .into_iter()
+        .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+        })
 }
 
 /// Public per-seat history statistics accumulated from seat-authorized views.
@@ -202,7 +180,7 @@ impl SeatKnowledge4 {
                 .chain(&spec.starting_battlefield)
             {
                 let idx = entry.card.get();
-                if idx != 0 {
+                if idx != UNKNOWN_CARD {
                     *counts.entry(idx).or_insert(0) =
                         counts.get(&idx).copied().unwrap_or(0).saturating_add(1);
                 }
@@ -306,14 +284,21 @@ impl SeatKnowledge4 {
                         self.seat_history[c].lands_played_total.saturating_add(1);
                 }
                 if obj.types.contains(TypeSet::CREATURE) {
-                    self.seat_history[c].creatures_entered_total =
-                        self.seat_history[c].creatures_entered_total.saturating_add(1);
+                    self.seat_history[c].creatures_entered_total = self.seat_history[c]
+                        .creatures_entered_total
+                        .saturating_add(1);
                 }
             }
             self.known_cards.remove(&(obj.owner.get(), id));
         }
-        for obj in view.graveyards.iter().flatten().chain(view.exile.iter().flatten()) {
-            self.known_cards.remove(&(obj.owner.get(), pack_object_id(obj.id)));
+        for obj in view
+            .graveyards
+            .iter()
+            .flatten()
+            .chain(view.exile.iter().flatten())
+        {
+            self.known_cards
+                .remove(&(obj.owner.get(), pack_object_id(obj.id)));
         }
         // Record newly revealed opponent cards in shared_hands, controlled_hands, looking_at, library_tops
         for sh in view.shared_hands.iter().chain(&view.controlled_hands) {
@@ -423,4 +408,3 @@ fn summarize_deck(cards: &[(u32, u8)]) -> [f32; 24] {
     }
     out
 }
-

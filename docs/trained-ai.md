@@ -1,5 +1,12 @@
 # The trained AI
 
+**Current v4 work (23 October 2026):** implementation and experiments are on
+`c42/trained-ai`. The [takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
+records the repaired observation clock, contract versions, measured model size,
+checks and remaining limitations. v4 uses structural card features and
+persistent seat memory; the older pipeline below describes v1–v3.
+Experienced-human strength and Phoenix NPU deployment are not established.
+
 Baylee's own Magic AI: a net that knows every card by its `CardIndex` alone,
 reads only what its seat may see, scores only the answers the engine offers,
 and runs on a player's CPU, GPU or NPU. This is how it is built, what its

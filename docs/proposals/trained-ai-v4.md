@@ -2,7 +2,17 @@
 
 **Reviewstand:** 22. Oktober 2026; Codebasis `main` / `HEAD` @ `30779bc920147a2a2acc713ebcb784badceced4a`.
 
-**Status:** überarbeitetes Proposal; die beschriebenen v4-Schnittstellen sind noch nicht implementiert.
+**Status am 23. Oktober 2026:** Proposal mit laufender Implementierung auf
+`c42/trained-ai`. Der [Implementierungs- und Trainingsbericht](../history/trained-ai-v4-codex-run-2026-10-22.md)
+ist für tatsächlich implementierte Verträge, Korrekturen, Messungen und Grenzen
+maßgeblich. Die ursprünglichen Reviewangaben unten beziehen sich auf die oben
+genannte `main`-Basis, nicht auf den aktuellen Branch.
+
+**Gemessene Modellwahl:** Der erste größere Trainingslauf verwendet `d=640`,
+acht Schichten, zehn Heads und rund 54,28 Millionen Parameter. Der reale
+Trainingsbenchmark mit `B=8, U=32, K=1` benötigte etwa 3,3 GB VRAM;
+der erste Vorlauf mit `K=1/2/4/8` erreichte etwa 5,2 GB. Die H-Schnittstelle
+bleibt `9 × d`; Arbeitszustand Z und persistentes Gedächtnis H sind getrennt.
 
 **Prüfmethode:** Quellcodevergleich, Bestandszählungen, kleine CPU-Python-Proben am bestehenden Encoder/Modell sowie Recherche in Originalpublikationen und Herstellerdokumentation. Keine v4-VRAM- oder `acenb`-Latenzmessung; kein neuer Trainingslauf.
 

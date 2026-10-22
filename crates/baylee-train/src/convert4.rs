@@ -80,6 +80,8 @@ pub struct Step4 {
     pub cand_rel_seat_idx: Vec<i8>,
     /// Candidate referenced `CardIndex` (`0` if none).
     pub cand_card_id: Vec<u32>,
+    /// Named face, or 255 to use the referenced entity's rules face.
+    pub cand_face_id: Vec<u8>,
     /// Candidate referenced ability index (`-1` if none).
     pub cand_ability_idx: Vec<i8>,
     /// Legal `(blocker_entity_idx, attacker_entity_idx)` pairs for `PairPick`.
@@ -203,26 +205,14 @@ pub fn extract_game4_with_sidecar(
                     .view_for(seat)
                     .ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
 
-                // Update SeatKnowledge4 for the acting seat
-                knowledge[seat_u8 as usize].observe(&view);
+                // Diagnostic decision-only conversion is not a recurrent training dataset.
+                if !include_passive_obs {
+                    knowledge[seat_u8 as usize].observe(&view);
+                }
 
                 let p_kind = PendingKind4::of(&pending);
                 let mut step_loss_weight = 1.0_f32;
-                if let Pending::Priority { legal, .. } = &pending {
-                    let is_pass_only = legal.lands.is_empty()
-                        && legal.castable.is_empty()
-                        && legal.suspendable.is_empty()
-                        && legal.mana_abilities.is_empty()
-                        && legal.abilities.is_empty()
-                        && legal.granted_actions.is_empty();
-                    if is_pass_only {
-                        coverage.record(p_kind, SourceKind4::Forced);
-                        session
-                            .act(seat, action)
-                            .map_err(|e| format!("replay rejected action for {seat:?}: {e}"))?;
-                        session.pump();
-                        continue;
-                    }
+                if matches!(&pending, Pending::Priority { .. }) {
                     if matches!(action, baylee_engine::choice::PlayerAction::PassPriority) {
                         // Never drop PassPriority steps from the trajectory sequence (P0-4);
                         // downweight 5/6 of them via `loss_weight = 0.2`.
@@ -234,26 +224,16 @@ pub fn extract_game4_with_sidecar(
                     }
                 }
 
-                // Optionally update passive observation streams for other seats using
-                // `Session::observe_view` when observable board state changes (P0-4).
+                // Every seat observes the pre-action state, including the acting seat.
+                // Decisions consume this memory; they never update it again.
                 if include_passive_obs {
                     for other_idx in 0..seat_count {
-                        if other_idx == seat_u8 as usize {
-                            continue;
-                        }
                         let other_pid = PlayerId::new(other_idx as u8);
                         let other_v = session.observe_view(other_pid);
                         if knowledge[other_idx].observe(&other_v) {
-                            let st = encode_state4(
-                                &other_v,
-                                None,
-                                Some(&knowledge[other_idx]),
-                                &teams,
-                            );
-                            let cur_life = other_v
-                                .seats
-                                .get(other_idx)
-                                .map_or(20, |s| s.life);
+                            let st =
+                                encode_state4(&other_v, None, Some(&knowledge[other_idx]), &teams);
+                            let cur_life = other_v.seats.get(other_idx).map_or(20, |s| s.life);
                             let sc = seat_cursors[other_idx];
                             seat_cursors[other_idx] += 1;
                             raw_steps.push((
@@ -272,6 +252,7 @@ pub fn extract_game4_with_sidecar(
                                     cand_entity_idx: Vec::new(),
                                     cand_rel_seat_idx: Vec::new(),
                                     cand_card_id: Vec::new(),
+                                    cand_face_id: Vec::new(),
                                     cand_ability_idx: Vec::new(),
                                     pairs: Vec::new(),
                                     target: TeacherTarget4::default(),
@@ -358,6 +339,7 @@ pub fn extract_game4_with_sidecar(
                                 .map(|c| c.rel_seat_idx)
                                 .collect(),
                             cand_card_id: cands.candidates.iter().map(|c| c.card_id).collect(),
+                            cand_face_id: cands.candidates.iter().map(|c| c.named_face()).collect(),
                             cand_ability_idx: cands
                                 .candidates
                                 .iter()
@@ -416,15 +398,11 @@ pub fn extract_game4_with_sidecar(
     }
 
     // Find the last step index and last decision step index for each seat (`is_terminal`, P0-5)
-    let mut last_decision_idx = [None::<usize>; MAX_SEATS];
     let mut last_any_idx = [None::<usize>; MAX_SEATS];
     for (idx, (st, _)) in raw_steps.iter().enumerate() {
         let s = st.seat as usize;
         if s < MAX_SEATS {
             last_any_idx[s] = Some(idx);
-            if st.is_decision {
-                last_decision_idx[s] = Some(idx);
-            }
         }
     }
 
@@ -435,7 +413,7 @@ pub fn extract_game4_with_sidecar(
         let (mut step, cur_life) = raw_steps[i].clone();
         let s = step.seat as usize;
         step.outcome = side_utility(step.seat, &teams, &surviving_seats, &winners);
-        step.is_terminal = last_decision_idx[s] == Some(i) || last_any_idx[s] == Some(i);
+        step.is_terminal = last_any_idx[s] == Some(i);
 
         // Find next life for the same seat
         let next_life = raw_steps[(i + 1)..]
@@ -469,10 +447,10 @@ pub fn extract_game4_with_sidecar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
-    use baylee_core::preset::AIProfile;
     use crate::housedeck::HouseDeck;
     use crate::selfplay::{Caps, play_with_options, table};
+    use baylee_core::preset::AIProfile;
+    use std::time::Duration;
 
     #[test]
     fn extract_game4_replays_fair_selfplay_with_zero_unencoded_decisions() {
@@ -515,9 +493,9 @@ mod tests {
 
     #[test]
     fn observe_view_hides_opponent_private_hand_and_library() {
+        use crate::selfplay::table_for;
         use baylee_core::ids::PlayerId;
         use baylee_gamehost::Session;
-        use crate::selfplay::table_for;
 
         let d1 = HouseDeck::named("allytifact").unwrap();
         let d2 = HouseDeck::named("victory").unwrap();

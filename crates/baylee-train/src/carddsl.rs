@@ -1,4 +1,4 @@
-//! Typed Card & Ability DSL encoder (`DSL_VERSION = 1`), shared by Expert 1
+//! Typed Card & Ability DSL encoder (`DSL_VERSION = 2`), shared by Expert 1
 //! (Playernet v4) and the future Expert 2 (Deckbuilder / Synergy / Bracket
 //! Evaluator).
 //!
@@ -29,7 +29,10 @@ use baylee_core::mana::{ManaCost, ManaSymbol};
 use baylee_core::types::{SupertypeSet, TypeSet};
 
 /// Schema version of the typed Card/Ability DSL encoder.
-pub const DSL_VERSION: u32 = 1;
+pub const DSL_VERSION: u32 = 2;
+
+/// Missing card identity; registry index zero is a real card.
+pub const UNKNOWN_CARD: u32 = u32::MAX;
 
 /// Width of the card/face summary vector.
 pub const CARD_DSL_WIDTH: usize = 160;
@@ -416,9 +419,15 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::UntapChosen { .. } => {
             ch.tap_untap += 1.0;
         }
-        Effect::PumpTarget { power, toughness, .. }
-        | Effect::PumpTargetSlot { power, toughness, .. }
-        | Effect::PumpFilter { power, toughness, .. } => {
+        Effect::PumpTarget {
+            power, toughness, ..
+        }
+        | Effect::PumpTargetSlot {
+            power, toughness, ..
+        }
+        | Effect::PumpFilter {
+            power, toughness, ..
+        } => {
             ch.pump_pt += (amount_scalar(power) + amount_scalar(toughness)) * 0.5;
         }
         Effect::ModifyTargets { .. }
@@ -545,9 +554,7 @@ fn encode_target_req(req: Option<&TargetReq>) -> [f32; 8] {
             player = 1.0;
             permanent = 1.0;
         }
-        TargetSpec::Spell(_)
-        | TargetSpec::AbilityOnStack(_)
-        | TargetSpec::SpellOrAbility(_) => {
+        TargetSpec::Spell(_) | TargetSpec::AbilityOnStack(_) | TargetSpec::SpellOrAbility(_) => {
             stack = 1.0;
         }
         TargetSpec::StackOrBattlefield(_) => {
@@ -575,7 +582,9 @@ fn encode_target_req(req: Option<&TargetReq>) -> [f32; 8] {
             permanent = 1.0;
         }
     }
-    [min_t, max_t, up_to, creature, player, stack, permanent, graveyard]
+    [
+        min_t, max_t, up_to, creature, player, stack, permanent, graveyard,
+    ]
 }
 
 fn filter_mentions_creature(filter: &Filter) -> bool {
@@ -690,11 +699,7 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             targ = targets.as_ref();
             walk_effects(effects, &mut ch);
         }
-        AbilityDef::ModalTriggered {
-            trigger,
-            modes,
-            ..
-        } => {
+        AbilityDef::ModalTriggered { trigger, modes, .. } => {
             out[2] = 1.0;
             encode_trigger_into(trigger, &mut out[22..32]);
             for mode in *modes {
@@ -816,9 +821,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::EntersBattlefieldEvoked => {
             dst[0] = 1.0;
         }
-        Trigger::Dies(_)
-        | Trigger::DiesNotSacrificed(_)
-        | Trigger::DiesAfterDamageByThis(_) => {
+        Trigger::Dies(_) | Trigger::DiesNotSacrificed(_) | Trigger::DiesAfterDamageByThis(_) => {
             dst[1] = 1.0;
         }
         Trigger::LeavesBattlefield(_)
@@ -968,11 +971,7 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
 #[must_use]
 pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
     let mut out = CardDslFeatures::default();
-    let Some(face) = def
-        .faces
-        .get(face_idx)
-        .or_else(|| def.faces.first())
-    else {
+    let Some(face) = def.faces.get(face_idx).or_else(|| def.faces.first()) else {
         return out;
     };
     let s = &mut out.summary;
@@ -1023,7 +1022,9 @@ pub fn encode_card_face(def: &CardDef, face_idx: usize) -> CardDslFeatures {
     s[71] = f32::from(u8::from(face.escape.is_some()));
     s[72] = f32::from(u8::from(face.adventure || face.prototype.is_some()));
     s[73] = f32::from(u8::from(face.morph.is_some() || face.disguise.is_some()));
-    s[74] = f32::from(u8::from(face.miracle.is_some() || face.dash.is_some() || face.mutate.is_some()));
+    s[74] = f32::from(u8::from(
+        face.miracle.is_some() || face.dash.is_some() || face.mutate.is_some(),
+    ));
     s[75] = f32::from(u8::from(
         face.delve || face.convoke || face.improvise || face.waterbend,
     ));
@@ -1190,7 +1191,9 @@ fn populate_synergy_tags(
     let mv = face.mana_cost.cmc();
 
     // 0: mana_dork_or_rock (non-land mana producer)
-    dst[0] = f32::from(u8::from(!is_land && (count_mana > 0.0 || ch.mana_add > 0.0)));
+    dst[0] = f32::from(u8::from(
+        !is_land && (count_mana > 0.0 || ch.mana_add > 0.0),
+    ));
     // 1: land_ramp_or_fetcher
     dst[1] = f32::from(u8::from(!is_land && ch.tutor_search > 0.0 && mv <= 4));
     // 2: card_draw_engine
@@ -1330,7 +1333,7 @@ fn encode_subtypes_into(subtypes: &[baylee_core::ids::SubtypeId], dst: &mut [f32
 pub fn card_summary_table(cards: &[u32]) -> Vec<f32> {
     let mut out = vec![0.0_f32; cards.len() * CARD_DSL_WIDTH];
     for (row, &card_id) in cards.iter().enumerate() {
-        if card_id == 0 {
+        if card_id == UNKNOWN_CARD {
             continue;
         }
         let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {
@@ -1350,7 +1353,7 @@ pub fn card_summary_table(cards: &[u32]) -> Vec<f32> {
 pub fn card_back_summary_table(cards: &[u32]) -> Vec<f32> {
     let mut out = vec![0.0_f32; cards.len() * CARD_DSL_WIDTH];
     for (row, &card_id) in cards.iter().enumerate() {
-        if card_id == 0 {
+        if card_id == UNKNOWN_CARD {
             continue;
         }
         let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {
@@ -1385,7 +1388,7 @@ pub fn card_ability_table(cards: &[u32]) -> Vec<f32> {
     let stride = MAX_ABILITIES * ABILITY_DSL_WIDTH;
     let mut out = vec![0.0_f32; cards.len() * stride];
     for (row, &card_id) in cards.iter().enumerate() {
-        if card_id == 0 {
+        if card_id == UNKNOWN_CARD {
             continue;
         }
         let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {

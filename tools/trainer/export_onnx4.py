@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -66,6 +67,7 @@ def make_dummy_inputs(
         cand_mask,
         pair_index,
         pair_mask,
+        torch.zeros(B, C, M.CARD_DSL_WIDTH),
         h_in,
         thinking_steps,
     )
@@ -75,6 +77,7 @@ def export_v4_onnx(
     net: M.PlayerNet4,
     onnx_path: Path,
     thinking_steps: int = 2,
+    fixed_depth: bool = False,
 ) -> None:
     net = net.cpu().eval()
     net.cfg.default_thinking_steps = thinking_steps
@@ -94,6 +97,7 @@ def export_v4_onnx(
         "cand_mask": {0: "B", 1: "C"},
         "pair_index": {0: "B", 1: "P"},
         "pair_mask": {0: "B", 1: "P"},
+        "cand_dsl": {0: "B", 1: "C"},
         "h_in": {0: "B"},
         "thinking_steps": {0: "B"},
         "h_out": {0: "B"},
@@ -102,6 +106,8 @@ def export_v4_onnx(
         "scalar_pred": {0: "B"},
         "value": {0: "B"},
     }
+    if fixed_depth:
+        net.export_thinking_steps = thinking_steps
     torch.onnx.export(
         net,
         dummy,
@@ -112,159 +118,100 @@ def export_v4_onnx(
         opset_version=18,
         dynamo=False,
     )
+    if fixed_depth:
+        del net.export_thinking_steps
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Export Playernet v4 to ONNX and verify parity")
-    ap.add_argument("--model", required=True, help="Model directory containing net.pt")
-    ap.add_argument("--data", default="", help="Optional dataset directory for held-out parity checks")
+    ap = argparse.ArgumentParser(description="Export bounded-depth Playernet v4 graphs")
+    ap.add_argument("--model", required=True)
+    ap.add_argument("--data", default="")
     ap.add_argument("--entities", type=int, default=192)
-    ap.add_argument("--thinking-steps", type=int, default=2)
+    ap.add_argument("--thinking-steps", type=int, default=2, choices=(1, 2, 4, 8))
     ap.add_argument("--check", type=int, default=32)
     args = ap.parse_args()
-
+    torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
     ckpt = torch.load(model_dir / "net.pt", map_location="cpu", weights_only=False)
+    if (ckpt.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt.get("model_version") != M.MODEL_VERSION
+            or ckpt.get("encoder_version") != M.ENCODER_VERSION):
+        raise ValueError("Checkpoint uses the old recurrent memory contract")
     cfg = M.Config4(**ckpt["config"])
-    cfg.default_thinking_steps = args.thinking_steps
-    net = M.PlayerNet4(cfg)
-    net.load_state_dict(ckpt["state_dict"])
-    net.eval()
-
-    onnx_path = model_dir / "model.onnx"
-    export_v4_onnx(net, onnx_path, thinking_steps=args.thinking_steps)
-
-    sess_opts = ort.SessionOptions()
-    sess_opts.intra_op_num_threads = 1
-    sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    session = ort.InferenceSession(
-        str(onnx_path), sess_options=sess_opts, providers=["CPUExecutionProvider"]
-    )
-
+    net = M.PlayerNet4(cfg).eval()
+    net.load_state_dict(ckpt["state_dict"], strict=True)
+    options = ort.SessionOptions()
+    options.intra_op_num_threads = 1
+    sessions = {}
     worst_diff = 0.0
     checked = 0
 
+    def compare(inputs, depth, h_ort=None):
+        nonlocal worst_diff, checked
+        with torch.inference_mode():
+            want = net(*inputs)
+        feed = {name: tensor.numpy() for name, tensor in zip(M.INPUT_NAMES, inputs)}
+        if h_ort is not None:
+            feed["h_in"] = h_ort
+        got = sessions[depth].run(list(M.OUTPUT_NAMES), feed)
+        for name, actual, expected in zip(M.OUTPUT_NAMES, got, want):
+            ref = expected.numpy()
+            if actual.shape != ref.shape and name in ("cand_logits", "pair_logits"):
+                # Eager execution trims unused padding per time step; ONNX
+                # preserves dynamic input lengths and masks that padding.
+                if not np.all(actual[:, ref.shape[1]:] < -1e8):
+                    raise ValueError(f"Unmasked ONNX padding: {name}")
+                actual = actual[:, :ref.shape[1]]
+            if not np.isfinite(actual).all() or not np.isfinite(ref).all():
+                raise ValueError("Non-finite ONNX parity result")
+            finite = np.abs(ref) < 1e8
+            if finite.any():
+                worst_diff = max(worst_diff, float(np.max(np.abs(actual[finite] - ref[finite]))))
+        checked += 1
+        return want[0], got[0]
+
+    for depth in (0, 1, 2, 4, 8):
+        path = model_dir / f"model.k{depth}.onnx"
+        export_v4_onnx(net, path, thinking_steps=depth, fixed_depth=True)
+        sessions[depth] = ort.InferenceSession(str(path), sess_options=options,
+                                             providers=["CPUExecutionProvider"])
+        for e in (1, 17, 96):
+            compare(make_dummy_inputs(cfg.d_model, E=e, M_edges=1, C=7, P=1, K=depth), depth)
+
     if args.data:
-        ds = D4.TrajectoryDataset4(
-            Path(args.data).expanduser(), split="val", unroll_len=8, max_shards=1
-        )
-        if len(ds) == 0:
-            ds = D4.TrajectoryDataset4(
-                Path(args.data).expanduser(), split="train", unroll_len=8, max_shards=1
-            )
-        with torch.inference_mode():
-            for seg_idx in range(min(len(ds), max(1, args.check // 4))):
+        ds = D4.TrajectoryDataset4(Path(args.data).expanduser(), split="val", unroll_len=16,
+                                  max_shards=1)
+        for trajectory in ds.trajectories:
+            h_pt = torch.zeros(1, M.RECURRENT_SLOTS, cfg.d_model)
+            h_ort = h_pt.numpy().copy()
+            for seg_idx in trajectory:
                 seg = ds[seg_idx]
-                h_torch = torch.zeros(1, M.RECURRENT_SLOTS, cfg.d_model, dtype=torch.float32)
-                h_ort = np.zeros((1, M.RECURRENT_SLOTS, cfg.d_model), dtype=np.float32)
-                k_t = torch.tensor([args.thinking_steps], dtype=torch.int64)
-                for t in range(seg["step_valid"].shape[0]):
+                for t in range(len(seg["step_valid"])):
                     if not seg["step_valid"][t]:
+                        continue
+                    depth = args.thinking_steps if seg["is_decision"][t] else 0
+                    inputs = tuple(torch.from_numpy(seg[name][t:t+1]) for name in M.INPUT_NAMES[:-2])
+                    inputs += (h_pt, torch.tensor([depth], dtype=torch.int64))
+                    h_pt, h_ort = compare(inputs, depth, h_ort)
+                    if checked >= args.check + 15:
                         break
-                    t_inputs = (
-                        torch.from_numpy(seg["entity_feat"][t : t + 1]),
-                        torch.from_numpy(seg["entity_dsl"][t : t + 1]),
-                        torch.from_numpy(seg["entity_mask"][t : t + 1]),
-                        torch.from_numpy(seg["seat_feat"][t : t + 1]),
-                        torch.from_numpy(seg["global_feat"][t : t + 1]),
-                        torch.from_numpy(seg["edge_index"][t : t + 1]),
-                        torch.from_numpy(seg["edge_type"][t : t + 1]),
-                        torch.from_numpy(seg["edge_mask"][t : t + 1]),
-                        torch.from_numpy(seg["cand_feat"][t : t + 1]),
-                        torch.from_numpy(seg["cand_entity_idx"][t : t + 1]),
-                        torch.from_numpy(seg["cand_seat_idx"][t : t + 1]),
-                        torch.from_numpy(seg["cand_mask"][t : t + 1]),
-                        torch.from_numpy(seg["pair_index"][t : t + 1]),
-                        torch.from_numpy(seg["pair_mask"][t : t + 1]),
-                        h_torch,
-                        k_t,
-                    )
-                    want = net(*t_inputs)
-                    feeds = {
-                        name: t_in.numpy()
-                        for name, t_in in zip(M.INPUT_NAMES, t_inputs)
-                    }
-                    feeds["h_in"] = h_ort
-                    got = session.run(None, feeds)
-                    for g_arr, w_ten in zip(got, want):
-                        w_arr = w_ten.numpy()
-                        finite = np.isfinite(w_arr) & (np.abs(w_arr) < 1e8)
-                        if finite.any():
-                            diff = float(np.max(np.abs(g_arr[finite] - w_arr[finite])))
-                            worst_diff = max(worst_diff, diff)
-                    h_torch = want[0]
-                    h_ort = got[0]
-                    checked += 1
-    else:
-        with torch.inference_mode():
-            for e_sz in (16, 48, 96):
-                t_inputs = make_dummy_inputs(
-                    cfg.d_model, B=1, E=e_sz, M_edges=32, C=24, P=16, K=args.thinking_steps
-                )
-                want = net(*t_inputs)
-                feeds = {name: t_in.numpy() for name, t_in in zip(M.INPUT_NAMES, t_inputs)}
-                got = session.run(None, feeds)
-                for g_arr, w_ten in zip(got, want):
-                    w_arr = w_ten.numpy()
-                    finite = np.isfinite(w_arr) & (np.abs(w_arr) < 1e8)
-                    if finite.any():
-                        worst_diff = max(
-                            worst_diff, float(np.max(np.abs(g_arr[finite] - w_arr[finite])))
-                        )
-                checked += 1
-
-    # Also verify that K in (1, 2, 4, 8) produce distinct ONNX outputs and match PyTorch for every K
-    with torch.inference_mode():
-        base_inputs = list(make_dummy_inputs(cfg.d_model, B=1, E=24, M_edges=32, C=16, P=16, K=1))
-        k_cand_logits: dict[int, np.ndarray] = {}
-        for k_val in (1, 2, 4, 8):
-            base_inputs[-1] = torch.tensor([k_val], dtype=torch.int64)
-            t_in_tuple = tuple(base_inputs)
-            want_k = net(*t_in_tuple)
-            feeds_k = {name: t_in.numpy() for name, t_in in zip(M.INPUT_NAMES, t_in_tuple)}
-            got_k = session.run(None, feeds_k)
-            for g_arr, w_ten in zip(got_k, want_k):
-                w_arr = w_ten.numpy()
-                finite = np.isfinite(w_arr) & (np.abs(w_arr) < 1e8)
-                if finite.any():
-                    worst_diff = max(
-                        worst_diff, float(np.max(np.abs(g_arr[finite] - w_arr[finite])))
-                    )
-            k_cand_logits[k_val] = got_k[1].copy()
-        for k_a, k_b in ((1, 2), (2, 4), (4, 8)):
-            k_delta = float(np.max(np.abs(k_cand_logits[k_a] - k_cand_logits[k_b])))
-            if k_delta < 1e-6:
-                raise SystemExit(
-                    f"[export_onnx4] K-step loop failed: K={k_a} and K={k_b} produced identical outputs (delta={k_delta:.2e})"
-                )
-
+                if checked >= args.check + 15:
+                    break
+            if checked >= args.check + 15:
+                break
     if worst_diff > 1e-3:
-        raise SystemExit(
-            f"[export_onnx4] parity check failed: max |diff| = {worst_diff:.2e} > 1e-3"
-        )
-
+        raise ValueError(f"ONNX parity failed: {worst_diff:.3g}")
+    shutil.copyfile(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
-        "encoder_version": 4,
-        "d_model": cfg.d_model,
-        "n_layers": cfg.n_layers,
-        "n_heads": cfg.n_heads,
-        "thinking_steps": args.thinking_steps,
-        "entities": args.entities,
-        "inputs": {
-            "global_feat": [1, M.GLOBAL_FEAT_WIDTH],
-            "entity_feat": [1, args.entities, M.ENTITY_FEAT_WIDTH],
-        },
-        "outputs": list(M.OUTPUT_NAMES),
-        "config": cfg.to_dict(),
-        "parity_max_abs_diff": worst_diff,
-        "checked_decisions": checked,
+        "encoder_version": M.ENCODER_VERSION, "model_version": M.MODEL_VERSION,
+        "trajectory_version": M.TRAJECTORY_VERSION,
+        "sampling_version": M.SAMPLING_VERSION,
+        "d_model": cfg.d_model, "n_layers": cfg.n_layers, "n_heads": cfg.n_heads,
+        "thinking_steps": args.thinking_steps, "config": cfg.to_dict(),
+        "graphs": {str(k): f"model.k{k}.onnx" for k in sessions},
+        "parity_max_abs_diff": worst_diff, "checked_frames": checked,
     }
-    (model_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     (model_dir / "model.onnx.json").write_text(json.dumps(meta, indent=2))
-    print(
-        f"[export_onnx4] wrote {onnx_path} ({onnx_path.stat().st_size / 1e6:.2f} MB) | "
-        f"checked={checked} max_abs_diff={worst_diff:.2e}"
-    )
+    print(f"[export4] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 
 if __name__ == "__main__":

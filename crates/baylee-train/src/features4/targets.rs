@@ -519,10 +519,7 @@ fn choose_best_attack_target(view: &PlayerView, targets: &[Defender]) -> Option<
     let mut best: Option<(i32, Defender)> = None;
     for &def in targets {
         let score = match def {
-            Defender::Player(pid) => view
-                .seats
-                .get(pid.get() as usize)
-                .map_or(20, |s| -s.life),
+            Defender::Player(pid) => view.seats.get(pid.get() as usize).map_or(20, |s| -s.life),
             Defender::Planeswalker(_) | Defender::Battle(_) => 0,
         };
         if best.is_none_or(|(b_score, _)| score > b_score) {
@@ -531,4 +528,3 @@ fn choose_best_attack_target(view: &PlayerView, targets: &[Defender]) -> Option<
     }
     best.map(|(_, d)| d)
 }
-

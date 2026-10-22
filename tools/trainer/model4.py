@@ -22,15 +22,20 @@ from dataclasses import asdict, dataclass
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 RECURRENT_SLOTS = 9
 MAX_SEATS = 8
-MAX_ENTITIES = 256
-MAX_EDGES = 256
-MAX_CANDIDATES = 64
-MAX_PAIRS = 128
-ENCODER_VERSION = 4
-DSL_VERSION = 1
+MAX_ENTITIES = 1024
+MAX_EDGES = 8192
+MAX_CANDIDATES = 65535
+MAX_PAIRS = 65535
+ENCODER_VERSION = 5
+DSL_VERSION = 2
+UNKNOWN_CARD = 2**32 - 1
+TRAJECTORY_VERSION = 2
+SAMPLING_VERSION = 2
+MODEL_VERSION = 2
 ENTITY_FEAT_WIDTH = 96
 CARD_DSL_WIDTH = 160
 SEAT_FEAT_WIDTH = 64
@@ -60,6 +65,7 @@ INPUT_NAMES = (
     "cand_mask",
     "pair_index",
     "pair_mask",
+    "cand_dsl",
     "h_in",
     "thinking_steps",
 )
@@ -79,7 +85,8 @@ class Config4:
     n_layers: int = 8
     n_heads: int = 8
     d_ff: int = 2048
-    dropout: float = 0.05
+    dropout: float = 0.0
+    activation_checkpointing: bool = False
     default_thinking_steps: int = 2
     max_thinking_steps: int = 8
 
@@ -141,15 +148,18 @@ class DynamicMultiHeadAttention(nn.Module):
         kh = self.k_proj(k).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
         vh = self.v_proj(v).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
 
-        scores = torch.matmul(qh, kh.transpose(-2, -1)) * self.scale
-        if key_padding_mask is not None:
-            # key_padding_mask: [B, S_k], True = ignore
-            mask = key_padding_mask.unsqueeze(1).unsqueeze(2)
-            scores = scores.masked_fill(mask, -1e9)
-        attn = torch.softmax(scores, dim=-1)
-        if self.training:
-            attn = self.dropout(attn)
-        out = torch.matmul(attn, vh)
+        if not torch.jit.is_tracing():
+            allowed = None if key_padding_mask is None else ~key_padding_mask[:, None, None, :]
+            out = F.scaled_dot_product_attention(
+                qh, kh, vh, attn_mask=allowed,
+                dropout_p=self.dropout.p if self.training else 0.0,
+            )
+        else:
+            # Portable ONNX path; numerically checked against fused PyTorch SDPA.
+            scores = torch.matmul(qh, kh.transpose(-2, -1)) * self.scale
+            if key_padding_mask is not None:
+                scores = scores.masked_fill(key_padding_mask[:, None, None, :], -1e9)
+            out = torch.matmul(torch.softmax(scores, dim=-1), vh)
         out = out.transpose(1, 2).contiguous().reshape(B, -1, self.d_model)
         return self.out_proj(out)
 
@@ -365,7 +375,10 @@ class PlayerNet4(nn.Module):
 
         x = tokens
         for layer in self.trunk_layers:
-            x = layer(x, src_key_padding_mask=pad_mask)
+            if self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled():
+                x = checkpoint(layer, x, pad_mask, use_reentrant=False)
+            else:
+                x = layer(x, src_key_padding_mask=pad_mask)
         board = self.trunk_norm(x)
         return board, pad_mask
 
@@ -385,6 +398,7 @@ class PlayerNet4(nn.Module):
         cand_mask: torch.Tensor,
         pair_index: torch.Tensor,
         pair_mask: torch.Tensor,
+        cand_dsl: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
     ) -> tuple[
@@ -410,15 +424,32 @@ class PlayerNet4(nn.Module):
             edge_mask,
         )
 
+        if not torch.jit.is_tracing():
+            # A rare name-card decision can offer thousands of candidates.
+            # Trim this time step independently of the rest of its unroll.
+            c_used = cand_mask.any(dim=0).nonzero()
+            p_used = pair_mask.any(dim=0).nonzero()
+            c_len = int(c_used[-1]) + 1 if c_used.numel() else 1
+            p_len = int(p_used[-1]) + 1 if p_used.numel() else 1
+            cand_dsl = cand_dsl[:, :c_len]
+            cand_feat, cand_entity_idx = cand_feat[:, :c_len], cand_entity_idx[:, :c_len]
+            cand_seat_idx, cand_mask = cand_seat_idx[:, :c_len], cand_mask[:, :c_len]
+            pair_index, pair_mask = pair_index[:, :p_len], pair_mask[:, :p_len]
+
         # Persistent recurrent memory update on the 9 summary slots (1 Global + 8 Seats)
-        h_mem = self.recurrent_cell(board[:, :RECURRENT_SLOTS], h_in)
-        h_out = self.h_norm(h_mem)
+        # K=0 consumes one observation. K>=1 decides/thinks without changing
+        # persistent memory. Live and replay both observe before deciding.
+        h_observed = self.h_norm(self.recurrent_cell(board[:, :RECURRENT_SLOTS], h_in))
+        is_observation = (thinking_steps == 0).view(B, 1, 1)
+        h_out = torch.where(is_observation, h_observed, h_in)
 
         # Latent thinking scratchpad `z`: unroll all `max_thinking_steps` during ONNX tracing
         # so runtime `thinking_steps` (`0..=8`) genuinely executes `K` steps.
-        z = h_mem
+        # Current seat-specific summaries also seed the scratchpad: on a fresh
+        # game H is all zero, but seat queries must already be distinguishable.
+        z = h_out + board[:, :RECURRENT_SLOTS]
         max_k = (
-            self.cfg.max_thinking_steps
+            getattr(self, "export_thinking_steps", self.cfg.max_thinking_steps)
             if torch.jit.is_tracing()
             else max(0, min(int(thinking_steps.max().item()), self.cfg.max_thinking_steps))
         )
@@ -434,7 +465,7 @@ class PlayerNet4(nn.Module):
         e_ref = board[:, RECURRENT_SLOTS:]  # [B, E, d]
 
         # Candidate scoring (`cand_logits: [B, C]`)
-        c_emb = self.cand_proj(symlog(cand_feat))
+        c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl))
 
         ent_idx_clamped = cand_entity_idx.clamp(min=0)
         has_ent = cand_entity_idx >= 0
@@ -508,6 +539,7 @@ class PlayerNet4(nn.Module):
         cand_mask: torch.Tensor,
         pair_index: torch.Tensor,
         pair_mask: torch.Tensor,
+        cand_dsl: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -527,6 +559,7 @@ class PlayerNet4(nn.Module):
                 cand_mask,
                 pair_index,
                 pair_mask,
+                cand_dsl,
                 h_in,
                 thinking_steps,
             )

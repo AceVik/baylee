@@ -17,7 +17,7 @@ pub fn sample_subset_constrained(
     }
     let scale = if tau <= 1e-4 { 1.0 } else { 1.0 / tau };
 
-    let mut order: Vec<(usize, f32)> = logits[..n]
+    let order: Vec<(usize, f32)> = logits[..n]
         .iter()
         .enumerate()
         .map(|(i, &l)| {
@@ -25,7 +25,8 @@ pub fn sample_subset_constrained(
             (i, p)
         })
         .collect();
-    order.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    // Canonical candidate order is independent of model weights. Otherwise
+    // recorded conditional masks are invalid after the first PPO update.
     let visit_seq: Vec<u16> = order.iter().map(|&(i, _)| i as u16).collect();
 
     if let Pending::ChooseAttackers { required, .. } = pending {
@@ -122,7 +123,7 @@ pub fn sample_pairs_constrained(
     }
     let scale = if tau <= 1e-4 { 1.0 } else { 1.0 / tau };
 
-    let mut order: Vec<(usize, f32)> = logits[..n]
+    let order: Vec<(usize, f32)> = logits[..n]
         .iter()
         .enumerate()
         .map(|(i, &l)| {
@@ -130,7 +131,8 @@ pub fn sample_pairs_constrained(
             (i, p)
         })
         .collect();
-    order.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    // Canonical candidate order is independent of model weights. Otherwise
+    // recorded conditional masks are invalid after the first PPO update.
     let visit_seq: Vec<u16> = order.iter().map(|&(i, _)| i as u16).collect();
 
     let mut used_blockers = Vec::new();
@@ -164,4 +166,3 @@ pub fn sample_pairs_constrained(
     }
     (mask, free_mask, visit_seq, total_lp)
 }
-

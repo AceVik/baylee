@@ -8,9 +8,9 @@ Reads datasets produced by `cargo run --release -p baylee-train --bin convert4`:
 - `token_dsl.bin`: `[token_count + 1, 160]` float32 token DSL summary table.
 - `train/steps-*.jsonl.gz` and `val/steps-*.jsonl.gz`: `Step4` records.
 
-Fixes all P0/P1 dataset & trajectory findings:
+Sequence and encoding contracts:
 - P0-2: Front/back face + token DSL parity with Rust `entity_dsl_summary`;
-  full caps (`E=256, M=256, C=64, P=128`) with dynamic per-batch trimming;
+  versioned caps with dynamic per-batch trimming;
   pair target/free mask remapping; no silent relabeling of out-of-range targets.
 - P0-3: Exports `cand_free_mask`, `pair_free_mask`, `temperature`, `source_kind`,
   and `has_logprob` for exact conditional log-probabilities.
@@ -25,7 +25,6 @@ from __future__ import annotations
 import gzip
 import json
 import random
-import zlib
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -34,6 +33,7 @@ import torch
 from torch.utils.data import Dataset, Sampler
 
 import model4 as M
+from trajectory_store4 import TrajectoryStore4
 
 SOURCE_KIND_MAP = {
     "Net": 0,
@@ -41,6 +41,14 @@ SOURCE_KIND_MAP = {
     "Forced": 2,
     "Search": 3,
 }
+
+
+def padded_stack(arrays: list[np.ndarray]) -> np.ndarray:
+    shape = tuple(max(a.shape[i] for a in arrays) for i in range(arrays[0].ndim))
+    out = np.zeros((len(arrays), *shape), dtype=arrays[0].dtype)
+    for i, arr in enumerate(arrays):
+        out[(i, *(slice(0, n) for n in arr.shape))] = arr
+    return out
 
 
 def parse_source_kind(raw: Any) -> int:
@@ -69,9 +77,11 @@ class TrajectoryDataset4(Dataset):
         super().__init__()
         self.data_dir = Path(data_dir).expanduser()
         self.meta = json.loads((self.data_dir / "meta.json").read_text())
-        assert self.meta["encoder_version"] == 4, (
-            f"Expected encoder_version=4, got {self.meta['encoder_version']}"
+        assert self.meta["encoder_version"] == M.ENCODER_VERSION, (
+            f"Expected encoder_version={M.ENCODER_VERSION}, got {self.meta['encoder_version']}"
         )
+        if self.meta.get("trajectory_version") != M.TRAJECTORY_VERSION:
+            raise ValueError("Reconvert records with the current complete-observation converter")
         self.unroll_len = unroll_len
         self.max_entities = max_entities
         self.max_edges = max_edges
@@ -101,59 +111,38 @@ class TrajectoryDataset4(Dataset):
         shard_names = self.meta["train_shards" if split == "train" else "val_shards"]
         if max_shards > 0:
             shard_names = shard_names[:max_shards]
-        split_dir = self.data_dir / split
-
-        # Store compressed UTF-8 JSON bytes in RAM rather than nested Python dicts/lists
-        # to reduce memory footprint by ~40x and prevent OOM on large shard counts.
-        by_traj: dict[tuple[int, int], list[tuple[int, bool, bytes]]] = {}
-        for sname in shard_names:
-            spath = split_dir / sname
-            if not spath.exists():
-                continue
-            with gzip.open(spath, "rt", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    st = json.loads(line)
-                    is_dec = bool(st.get("is_decision", True))
-                    if decisions_only and not is_dec:
-                        continue
-                    key = (int(st["game_id"]), int(st["seat"]))
-                    sc = int(st["step_cursor"])
-                    comp = zlib.compress(line.encode("utf-8"), level=1)
-                    by_traj.setdefault(key, []).append((sc, is_dec, comp))
-
-        # Slice each trajectory into chronological segments of length `unroll_len`
-        self.segments: list[list[tuple[bytes, bool]]] = []
+        if decisions_only:
+            raise ValueError("Recurrent training requires the complete observation stream")
+        self.store = TrajectoryStore4(self.data_dir, split, shard_names)
+        self.fingerprint = self.store.fingerprint
+        index = self.store.index
+        order = np.lexsort((index["cursor"], index["seat"], index["game"]))
+        self.segments: list[np.ndarray] = []
         self.segment_is_new_traj: list[bool] = []
         self.trajectories: list[list[int]] = []
-
-        for key in sorted(by_traj.keys()):
-            traj = sorted(by_traj[key], key=lambda item: item[0])
-            n_traj = len(traj)
-            traj_seg_indices: list[int] = []
-            for start in range(0, n_traj, unroll_len):
-                end = min(start + unroll_len, n_traj)
-                chunk = traj[start:end]
-                if any(item[1] for item in chunk):
-                    seg_idx = len(self.segments)
-                    seg = [
-                        (item[2], (start + idx) == (n_traj - 1))
-                        for idx, item in enumerate(chunk)
-                    ]
-                    self.segments.append(seg)
-                    self.segment_is_new_traj.append(len(traj_seg_indices) == 0)
-                    traj_seg_indices.append(seg_idx)
-            if traj_seg_indices:
-                self.trajectories.append(traj_seg_indices)
+        if len(order):
+            games, seats = index["game"][order], index["seat"][order]
+            cuts = np.flatnonzero((games[1:] != games[:-1]) | (seats[1:] != seats[:-1])) + 1
+            for rows in np.split(order, cuts):
+                cursors = index["cursor"][rows]
+                if not np.array_equal(cursors, np.arange(len(rows))):
+                    raise ValueError("Incomplete or duplicated trajectory cursors")
+                terminals = (index["flags"][rows] & 2) != 0
+                if not terminals[-1] or terminals[:-1].any():
+                    raise ValueError("A trajectory must have exactly one terminal, at its true end")
+                traj_indices = []
+                for start in range(0, len(rows), unroll_len):
+                    traj_indices.append(len(self.segments))
+                    self.segments.append(rows[start:start + unroll_len])
+                    self.segment_is_new_traj.append(start == 0)
+                self.trajectories.append(traj_indices)
 
     def __len__(self) -> int:
         return len(self.segments)
 
     def lookup_entity_dsl(self, cid: int, fid: int, tslot: int) -> np.ndarray:
-        if cid != 0:
-            row_idx = self.card_to_row.get(cid, 0)
+        if cid != M.UNKNOWN_CARD:
+            row_idx = self.card_to_row[cid]  # Missing registry entries are corruption.
             if fid == 1:
                 return self.card_dsl_back_table[row_idx]
             return self.card_dsl_table[row_idx]
@@ -163,23 +152,18 @@ class TrajectoryDataset4(Dataset):
             and tslot < len(self.token_dsl_table)
         ):
             return self.token_dsl_table[tslot]
-        return self.card_dsl_table[0]
+        return np.zeros(M.CARD_DSL_WIDTH, dtype=np.float32)
 
-    def encode_single_step(
-        self, st_or_comp: dict[str, Any] | tuple[bytes, bool]
-    ) -> dict[str, np.ndarray]:
-        if isinstance(st_or_comp, tuple):
-            comp_bytes, is_last = st_or_comp
-            st = json.loads(zlib.decompress(comp_bytes).decode("utf-8"))
-            if is_last:
-                st["is_terminal"] = True
-        else:
-            st = st_or_comp
+    def encode_single_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
+        st = step_or_row if isinstance(step_or_row, dict) else self.store.read(int(step_or_row))
         state = st["state"]
-        E_max = self.max_entities
-        M_max = self.max_edges
-        C_max = self.max_cands
-        P_max = self.max_pairs
+        # Allocate actual lengths, then pad only this minibatch. In particular,
+        # naming any card/subtype must not require a 65k-row padded tensor at
+        # every ordinary priority or observation frame.
+        E_max = max(1, min(len(state["entity_feat"]), self.max_entities))
+        M_max = max(1, min(len(state["edges"]), self.max_edges))
+        C_max = max(1, min(len(st["cand_feat"]), self.max_cands))
+        P_max = max(1, min(len(st["pairs"]), self.max_pairs))
 
         ent_feat = np.zeros((E_max, M.ENTITY_FEAT_WIDTH), dtype=np.float32)
         ent_dsl = np.zeros((E_max, M.CARD_DSL_WIDTH), dtype=np.float32)
@@ -219,6 +203,7 @@ class TrajectoryDataset4(Dataset):
                 n_edg += 1
 
         cand_feat = np.zeros((C_max, M.CAND_FEAT_WIDTH), dtype=np.float32)
+        cand_dsl = np.zeros((C_max, M.CARD_DSL_WIDTH), dtype=np.float32)
         cand_ent = np.full((C_max,), -1, dtype=np.int64)
         cand_seat = np.full((C_max,), -1, dtype=np.int64)
         cand_mask = np.zeros((C_max,), dtype=bool)
@@ -233,6 +218,14 @@ class TrajectoryDataset4(Dataset):
                 ce = int(raw_ce[i])
                 cand_ent[i] = ce if ce < E_max else -1
                 cand_seat[i] = int(raw_cs[i])
+                cid = int(st.get("cand_card_id", [M.UNKNOWN_CARD] * n_cand)[i])
+                face = int(st.get("cand_face_id", [255] * n_cand)[i])
+                if face != 255:
+                    cand_dsl[i] = self.lookup_entity_dsl(cid, face, 0)
+                elif 0 <= ce < n_ent:
+                    cand_dsl[i] = ent_dsl[ce]
+                elif cid != M.UNKNOWN_CARD:
+                    cand_dsl[i] = self.lookup_entity_dsl(cid, 0, 0)
             cand_mask[:n_cand] = True
         else:
             cand_mask[0] = True
@@ -246,10 +239,8 @@ class TrajectoryDataset4(Dataset):
 
         # Never silently relabel an out-of-range SingleChoice target to 0 (P0-2)
         raw_single_idx = int(tgt.get("single_idx", 0))
-        if head == 0 and (n_cand == 0 or raw_single_idx >= n_cand):
-            single_idx = 0
-            is_decision = False
-            loss_weight = 0.0
+        if is_decision and head == 0 and not 0 <= raw_single_idx < n_cand:
+            raise ValueError("Decision target is outside the represented candidate set")
         else:
             single_idx = min(max(raw_single_idx, 0), max(n_cand - 1, 0))
 
@@ -314,6 +305,7 @@ class TrajectoryDataset4(Dataset):
             "edge_type": edge_type,
             "edge_mask": edge_mask,
             "cand_feat": cand_feat,
+            "cand_dsl": cand_dsl,
             "cand_entity_idx": cand_ent,
             "cand_seat_idx": cand_seat,
             "cand_mask": cand_mask,
@@ -343,6 +335,15 @@ class TrajectoryDataset4(Dataset):
         }
 
     def __getitem__(self, idx: int) -> dict[str, np.ndarray]:
+        if idx == -1:
+            # An exhausted persistent batch lane. Never shift another game's
+            # state into this lane and never drop the surviving lanes' tails.
+            out = {k: np.zeros_like(v) for k, v in self[0].items()}
+            out["cand_mask"][:, 0] = True
+            out["pair_mask"][:, 0] = True
+            out["is_new_traj"] = np.array(True, dtype=bool)
+            out["segment_index"] = np.array(-1, dtype=np.int64)
+            return out
         seg = self.segments[idx]
         U = self.unroll_len
         encoded = [self.encode_single_step(s) for s in seg]
@@ -359,11 +360,14 @@ class TrajectoryDataset4(Dataset):
 
         out: dict[str, np.ndarray] = {}
         for k in encoded[0].keys():
-            out[k] = np.stack([e[k] for e in encoded], axis=0)
+            out[k] = padded_stack([e[k] for e in encoded])
         out["step_valid"] = np.array(
             [i < len(seg) for i in range(U)], dtype=bool
         )
         out["is_new_traj"] = np.array(self.segment_is_new_traj[idx], dtype=bool)
+        out["segment_index"] = np.array(idx, dtype=np.int64)
+        if hasattr(self, "ppo_cache"):
+            out.update({name: array[idx] for name, array in self.ppo_cache.items()})
         return out
 
 
@@ -385,14 +389,15 @@ class StatefulBatchSampler4(Sampler[list[int]]):
         self.seed = seed
         self.epoch = 0
 
-    def _build_batches(self) -> list[list[int]]:
+    def _build_batches(self, advance_epoch: bool = True) -> list[list[int]]:
         trajs = [list(t) for t in self.dataset.trajectories if t]
         if not trajs:
             return []
         if self.shuffle:
             rng = random.Random(self.seed + self.epoch)
             rng.shuffle(trajs)
-        self.epoch += 1
+        if advance_epoch:
+            self.epoch += 1
 
         B = min(self.batch_size, len(trajs))
         queue_idx = B
@@ -418,28 +423,26 @@ class StatefulBatchSampler4(Sampler[list[int]]):
                 if cursors[b] < len(lanes[b]):
                     batch.append(lanes[b][cursors[b]])
                     cursors[b] += 1
-            if len(batch) == B:
-                batches.append(batch)
-            elif batch and not batches:
-                batches.append(batch)
+                else:
+                    batch.append(-1)
+            batches.append(batch)
         return batches
 
     def __iter__(self) -> Iterator[list[int]]:
-        yield from self._build_batches()
+        yield from self._build_batches()[getattr(self, "start_batch", 0):]
 
     def __len__(self) -> int:
-        total_segs = len(self.dataset)
-        return max(1, total_segs // self.batch_size)
+        return len(self._build_batches(advance_epoch=False))
 
 
 def collate_trajectories(batch: list[dict[str, np.ndarray]]) -> dict[str, torch.Tensor]:
     out: dict[str, torch.Tensor] = {}
     for k in batch[0].keys():
-        arr = np.stack([b[k] for b in batch], axis=0)
+        arr = padded_stack([b[k] for b in batch])
         out[k] = torch.from_numpy(arr)
 
     # Dynamic per-batch trimming along E, M, C, P so full caps (256/256/64/128)
-    # never waste compute on empty padding columns while remaining 100% lossless (P0-2).
+    # Trim padding columns without removing encoded candidates.
     ent_any = out["entity_mask"].any(dim=(0, 1))
     e_trim = max(1, int(ent_any.nonzero()[-1].item()) + 1) if ent_any.any() else 1
     out["entity_feat"] = out["entity_feat"][:, :, :e_trim]
@@ -455,6 +458,7 @@ def collate_trajectories(batch: list[dict[str, np.ndarray]]) -> dict[str, torch.
     cnd_any = out["cand_mask"].any(dim=(0, 1))
     c_trim = max(1, int(cnd_any.nonzero()[-1].item()) + 1) if cnd_any.any() else 1
     out["cand_feat"] = out["cand_feat"][:, :, :c_trim]
+    out["cand_dsl"] = out["cand_dsl"][:, :, :c_trim]
     out["cand_entity_idx"] = out["cand_entity_idx"][:, :, :c_trim]
     out["cand_seat_idx"] = out["cand_seat_idx"][:, :, :c_trim]
     out["cand_mask"] = out["cand_mask"][:, :, :c_trim]

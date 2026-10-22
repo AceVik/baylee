@@ -1,12 +1,13 @@
-//! Playernet v4 state, observation-stream, relational-graph, and lossless
-//! candidate/action encoder (`ENCODER_VERSION = 4`).
+//! Playernet v4 state, observation-stream, relational-graph, and
+//! candidate/action encoder (`ENCODER_VERSION = 5`).
 //!
-//! Fixes all P0 encoder/contract findings from
-//! `docs/history/trained-ai-v4-handover-2026-10-22.md`:
+//! Implements the v4 representation described in
+//! `docs/history/trained-ai-v4-handover-2026-10-22.md`, with remaining
+//! representation limits tracked in the Codex takeover log:
 //!
 //! - **Full 8-seat relative coordinates** (`0..7`, `8 = none`) across every
 //!   entity, seat, combat arrow, commander-damage tally, and candidate.
-//! - **Complete `PublicObject`, `SeatView`, and `PlayerView` coverage**:
+//! - **Expanded `PublicObject`, `SeatView`, and `PlayerView` features**:
 //!   all 7 `ObjectStatus` bits, all 6 `offered` bits + numeric `picked`,
 //!   active face (`card.face`), `rules` (`RulesFace`), `prepared_spell`,
 //!   `chosen_subtype`, `chosen_name`, `chosen_opponent`, `unlocked_doors`,
@@ -15,7 +16,7 @@
 //!   `owed` (`ManaPayment`), `casting`, `targeting`, `sorcery_lock`,
 //!   `sorceries_have_flash`, `SeatView::{speed, rad, no_max_hand_size}`, and
 //!   `ManaPoolView::{spending, restricted}`.
-//! - **Lossless `CastModeKind` & option `ManaCost` encoding** on `ChooseMode`
+//! - **`CastModeKind` & option `ManaCost` features** on `ChooseMode`
 //!   candidates.
 //! - **Expanded neural head coverage** across all 28 `Pending` variants,
 //!   including `ChooseManaAbility`, `ChooseDamageSource`, `ChooseDamageEffect`,
@@ -41,8 +42,8 @@ use baylee_view::{
 use serde::{Deserialize, Serialize};
 
 use crate::carddsl::{
-    CARD_DSL_WIDTH, MAX_ABILITIES, encode_ability_def, encode_card_face, encode_mana_cost,
-    encode_token_def,
+    CARD_DSL_WIDTH, MAX_ABILITIES, UNKNOWN_CARD, encode_ability_def, encode_card_face,
+    encode_mana_cost, encode_token_def,
 };
 
 /// Packs an [`ObjectId`] (`slot` + `generation`) into a deterministic `u64`.
@@ -53,22 +54,22 @@ pub const fn pack_object_id(id: ObjectId) -> u64 {
 }
 
 /// Schema version of the v4 state/action encoder.
-pub const ENCODER_VERSION: u32 = 4;
+pub const ENCODER_VERSION: u32 = 5;
 
 /// Maximum seats at a Baylee table.
 pub const MAX_SEATS: usize = 8;
 
 /// Maximum tokenized entities per frame.
-pub const MAX_ENTITIES: usize = 256;
+pub const MAX_ENTITIES: usize = 1024;
 
 /// Maximum directed relational edges per frame.
-pub const MAX_EDGES: usize = 256;
+pub const MAX_EDGES: usize = 8192;
 
 /// Maximum action candidates per decision.
-pub const MAX_CANDIDATES: usize = 64;
+pub const MAX_CANDIDATES: usize = 65535;
 
 /// Maximum pair candidates for `PairPick` (`DeclareBlockers`, multi-defender attacks).
-pub const MAX_PAIRS: usize = 128;
+pub const MAX_PAIRS: usize = 65535;
 
 /// Width of per-entity numeric features (excluding looked-up `CARD_DSL_WIDTH`).
 pub const ENTITY_FEAT_WIDTH: usize = 96;
@@ -126,12 +127,7 @@ pub fn abs_seat(viewer: PlayerId, rel: usize, seat_count: usize) -> PlayerId {
 /// - `0.0` if another side won,
 /// - `1.0 / surviving_sides` on a draw if `seat`'s side survived, else `0.0`.
 #[must_use]
-pub fn side_utility(
-    seat: u8,
-    teams: &[Option<u8>],
-    surviving_seats: &[u8],
-    winners: &[u8],
-) -> f32 {
+pub fn side_utility(seat: u8, teams: &[Option<u8>], surviving_seats: &[u8], winners: &[u8]) -> f32 {
     let my_team = teams.get(seat as usize).copied().flatten();
     let on_my_side = |other: u8| -> bool {
         if other == seat {
@@ -166,7 +162,6 @@ pub fn side_utility(
     }
     1.0 / (sides.len().max(1) as f32)
 }
-
 
 // Kept in one namespace; these files separate observation, state and action contracts.
 include!("knowledge.rs");

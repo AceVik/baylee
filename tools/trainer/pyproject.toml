@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=2.0",
     "onnx>=1.17",
     "onnxruntime>=1.20",
+    "orjson>=3.11",
 ]
 
 [tool.uv]
