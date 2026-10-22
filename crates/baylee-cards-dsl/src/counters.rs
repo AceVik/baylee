@@ -189,6 +189,12 @@ pub const VELOCITY: CounterKind = CounterKind::Custom(47);
 /// Vortex counters (Energy Vortex).
 pub const VORTEX: CounterKind = CounterKind::Custom(48);
 
+/// Growth counters (Malignant Growth).
+pub const GROWTH: CounterKind = CounterKind::Custom(49);
+
+/// Fungus counters (Mindbender Spores).
+pub const FUNGUS: CounterKind = CounterKind::Custom(50);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -243,6 +249,8 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("wage", WAGE),
     ("velocity", VELOCITY),
     ("vortex", VORTEX),
+    ("growth", GROWTH),
+    ("fungus", FUNGUS),
 ];
 
 #[cfg(test)]

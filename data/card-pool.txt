@@ -4390,6 +4390,8 @@ Kabira Crossroads
 Kabira Takedown // Kabira Plateau
 Kabuto Moth
 Kaervek's Hex
+Kaervek's Purge
+Kaervek's Torch
 Kaervek, the Spiteful
 Kalakscion, Hunger Tyrant
 Kalastria Healer
@@ -4607,6 +4609,7 @@ Kry Shield
 Kudo, King Among Bears
 Kudzu
 Kujar Seedsculptor
+Kukemssa Pirates
 Kukemssa Serpent
 Kulrath Mystic
 Kurgadon
@@ -4675,6 +4678,7 @@ Lay Waste
 Lay of the Land
 Lazotep Behemoth
 Lazotep Quarry
+Lead Golem
 Lead Pipe
 Leaden Myr
 Leaf Arrow
@@ -4692,6 +4696,7 @@ Ledger Shredder
 Leeches
 Leechridden Swamp
 Leering Emblem
+Leering Gargoyle
 Legion Extruder
 Legion Guildmage
 Legion Leadership // Legion Stronghold
@@ -4756,6 +4761,7 @@ Lightning Helix
 Lightning Hounds
 Lightning Javelin
 Lightning Reaver
+Lightning Reflexes
 Lightning Spear
 Lightning Stormkin
 Lightning Strike
@@ -4894,6 +4900,7 @@ Lunatic Pandora
 Lupinflower Village
 Lurching Rotbeast
 Lure
+Lure of Prey
 Lurker
 Lurking Green Dragon
 Lurking Lizards
@@ -4980,6 +4987,7 @@ Malcator's Watcher
 Malevolent Awakening
 Malevolent Hermit
 Malfunction
+Malignant Growth
 Mammoth Harness
 Mammoth Spider
 Man-o'-War
@@ -5007,6 +5015,9 @@ Manaweft Sliver
 Mandible Justiciar
 Mandroid Squadron
 Maned Serval
+Mangara's Blessing
+Mangara's Equity
+Mangara's Tome
 Manhole Cover
 Manic Vandal
 Manifold Key
@@ -5047,6 +5058,7 @@ Marketwatch Phantom
 Markov Blademaster
 Markov Dreadknight
 Markov Patrician
+Maro
 Marrow Bats
 Marsh Boa
 Marsh Crocodile
@@ -5101,6 +5113,7 @@ Meandering River
 Mech Hangar
 Mechan Navigator
 Mechanized Ninja Cavalry
+Meddle
 Medicine Bag
 Meditate
 Meditation Pools
@@ -5146,7 +5159,9 @@ Merfolk Looter
 Merfolk Mesmerist
 Merfolk Mistbinder
 Merfolk Observer
+Merfolk Raiders
 Merfolk Seastalkers
+Merfolk Seer
 Merfolk Sovereign
 Merfolk Traders
 Merfolk of the Depths
@@ -5212,9 +5227,11 @@ Mimic
 Minamo, School at Water's Edge
 Minas Morgul, Dark Fortress
 Minas Tirith
+Mind Bend
 Mind Bomb
 Mind Control
 Mind Drain
+Mind Harness
 Mind Knives
 Mind Over Matter
 Mind Ravel
@@ -5226,6 +5243,7 @@ Mind Stone
 Mind Twist
 Mind Warp
 Mind Whip
+Mindbender Spores
 Mindculling
 Mindeye Drake
 Mindful Biomancer
@@ -5255,6 +5273,7 @@ Miracle Worker
 Mirage Mesa
 Mire Boa
 Mire Kavu
+Mire Shade
 Mire Triton
 Mire's Grasp
 Miren, the Moaning Well
@@ -5277,6 +5296,7 @@ Miscalculation
 Miscast
 Mischievous Poltergeist
 Mischievous Sneakling
+Misers' Cage
 Misery Charm
 Misfortune
 Mishra's Factory
@@ -5286,6 +5306,7 @@ Mishra's War Machine
 Mishra's Workshop
 Misinformation
 Misshapen Fiend
+Mist Dragon
 Mist Leopard
 Mist Raven
 Mistfire Adept
@@ -5419,6 +5440,9 @@ Mox Jet
 Mox Pearl
 Mox Ruby
 Mox Sapphire
+Mtenda Griffin
+Mtenda Herder
+Mtenda Lion
 Muck Rats
 Mudbrawler Raiders
 Mudbutton Torchrunner
@@ -5500,6 +5524,7 @@ Narstad Scrapper
 Narwhal
 Nasty Little Rabbit
 Nath's Buffoon
+Natural Balance
 Natural Connection
 Natural Emergence
 Natural End

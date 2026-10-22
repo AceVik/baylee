@@ -5515,18 +5515,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kaervek's Hex deals 1 damage to each nonblack creature and an additional 1 damage to each green creature.",
     ],
-    &[],
-    &[],
+    // Kaervek's Purge
+    &[
+        "Destroy target creature with mana value X. If that creature dies this way, Kaervek's Purge deals damage equal to the creature's power to the creature's controller.",
+    ],
+    // Kaervek's Torch
+    &[
+        "As long as Kaervek's Torch is on the stack, spells that target it cost {2} more to cast.\nKaervek's Torch deals X damage to any target.",
+    ],
     // Karoo Meerkat
     &["Protection from blue"],
-    &[],
+    // Kukemssa Pirates
+    &[
+        "Whenever this creature attacks and isn't blocked, you may gain control of target artifact defending player controls. If you do, this creature assigns no combat damage this turn.",
+    ],
     // Kukemssa Serpent
     &[
         "This creature can't attack unless defending player controls an Island.\n{U}, Sacrifice an Island: Target land an opponent controls becomes an Island until end of turn.\nWhen you control no Islands, sacrifice this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Lead Golem
+    &["Whenever this creature attacks, it doesn't untap during its controller's next untap step."],
+    // Leering Gargoyle
+    &["Flying\n{T}: This creature gets -2/+2 and loses flying until end of turn."],
+    // Lightning Reflexes
+    &[
+        "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant creature\nEnchanted creature gets +1/+0 and has first strike.",
+    ],
     // Lion's Eye Diamond
     &[
         "Discard your hand, Sacrifice this artifact: Add three mana of any one color. Activate only as an instant.",
@@ -5535,41 +5549,92 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{G}: Regenerate this creature.\n{G}: Untap this creature. Activate only once each turn.",
     ],
-    &[],
-    &[],
+    // Lure of Prey
+    &[
+        "Cast this spell only if an opponent cast a creature spell this turn.\nYou may put a green creature card from your hand onto the battlefield.",
+    ],
+    // Malignant Growth
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your upkeep, put a growth counter on this enchantment.\nAt the beginning of each opponent's draw step, that player draws an additional card for each growth counter on this enchantment, then this enchantment deals damage to the player equal to the number of cards they drew this way.",
+    ],
     // Mana Prism
     &["{T}: Add {C}.\n{1}, {T}: Add one mana of any color."],
-    &[],
-    &[],
-    &[],
+    // Mangara's Blessing
+    &[
+        "You gain 5 life.\nWhen a spell or ability an opponent controls causes you to discard this card, you gain 2 life, and you return this card from your graveyard to your hand at the beginning of the next end step.",
+    ],
+    // Mangara's Equity
+    &[
+        "As this enchantment enters, choose black or red.\nAt the beginning of your upkeep, sacrifice this enchantment unless you pay {1}{W}.\nWhenever a creature of the chosen color deals damage to you or a white creature you control, this enchantment deals that much damage to that creature.",
+    ],
+    // Mangara's Tome
+    &[
+        "When this artifact enters, search your library for five cards, exile them in a face-down pile, and shuffle that pile. Then shuffle your library.\n{2}: The next time you would draw a card this turn, instead put the top card of the exiled pile into its owner's hand.",
+    ],
     // Marble Diamond
     &["This artifact enters tapped.\n{T}: Add {W}."],
-    &[],
-    &[],
+    // Maro
+    &["Maro's power and toughness are each equal to the number of cards in your hand."],
+    // Meddle
+    &[
+        "If target spell has only one target and that target is a creature, change that spell's target to another creature.",
+    ],
     // Melesse Spirit
     &["Flying, protection from black"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Merfolk Raiders
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nPhasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)",
+    ],
+    // Merfolk Seer
+    &["When this creature dies, you may pay {1}{U}. If you do, draw a card."],
+    // Mind Bend
+    &[
+        "Change the text of target permanent by replacing all instances of one color word with another or one basic land type with another. (For example, you may change \"nonblack creature\" to \"nongreen creature\" or \"forestwalk\" to \"islandwalk.\" This effect lasts indefinitely.)",
+    ],
+    // Mind Harness
+    &[
+        "Enchant red or green creature\nCumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nYou control enchanted creature.",
+    ],
+    // Mindbender Spores
+    &[
+        "Defender (This creature can't attack.)\nFlying\nWhenever this creature blocks a creature, put four fungus counters on that creature. The creature gains \"This creature doesn't untap during your untap step if it has a fungus counter on it\" and \"At the beginning of your upkeep, remove a fungus counter from this creature.\"",
+    ],
+    // Mire Shade
+    &["{B}, Sacrifice a Swamp: Put a +1/+1 counter on this creature. Activate only as a sorcery."],
+    // Misers' Cage
+    &[
+        "At the beginning of each opponent's upkeep, if that player has five or more cards in hand, this artifact deals 2 damage to that player.",
+    ],
+    // Mist Dragon
+    &[
+        "{0}: This creature gains flying. (This effect lasts indefinitely.)\n{0}: This creature loses flying. (This effect lasts indefinitely.)\n{3}{U}{U}: This creature phases out. (While it's phased out, it's treated as though it doesn't exist. It phases in before you untap during your next untap step.)",
+    ],
     // Moss Diamond
     &["This artifact enters tapped.\n{T}: Add {G}."],
     // Mountain Valley
     &[
         "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
+    // Mtenda Griffin
+    &[
+        "Flying\n{W}, {T}: Return this creature to its owner's hand and return target Griffin card from your graveyard to your hand. Activate only during your upkeep.",
+    ],
+    // Mtenda Herder
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+    ],
+    // Mtenda Lion
+    &[
+        "Whenever this creature attacks, defending player may pay {U}. If that player does, prevent all combat damage that would be dealt by this creature this turn.",
+    ],
     // Mystical Tutor
     &[
         "Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.",
     ],
-    &[],
+    // Natural Balance
+    &[
+        "Each player who controls six or more lands chooses five lands they control and sacrifices the rest. Each player who controls four or fewer lands may search their library for up to X basic land cards and put them onto the battlefield, where X is five minus the number of lands they control. Then each player who searched their library this way shuffles.",
+    ],
     // Nettletooth Djinn
     &["At the beginning of your upkeep, this creature deals 1 damage to you."],
     // Noble Elephant
