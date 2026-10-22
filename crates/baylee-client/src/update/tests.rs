@@ -1235,12 +1235,19 @@ fn the_download_card_fits_desktop_small_and_phone_frames() {
                 .single(world)
                 .unwrap();
             let title = world.get::<Children>(body).unwrap()[0];
+            let stage = world
+                .get::<Children>(world.get::<ChildOf>(share).unwrap().parent())
+                .unwrap()[0];
             let one = fixture.rect(share).height();
-            let title = fixture.rect(title);
-            assert!(
-                title.height() < one * 2.0 && title.width() > 200.0,
-                "{lang:?} {size}: the title on one row: {title:?}"
-            );
+            for (what, rect) in [
+                ("title", fixture.rect(title)),
+                ("stage", fixture.rect(stage)),
+            ] {
+                assert!(
+                    rect.height() < one * 2.0 && rect.width() > 100.0,
+                    "{lang:?} {size}: the {what} on one row: {rect:?}"
+                );
+            }
             if size.x >= 1280 {
                 let under = fixture.rect(line);
                 assert!(
@@ -1270,4 +1277,39 @@ fn the_ready_card_s_actions_share_a_row_on_a_desktop() {
         );
         assert!(restart.max.x <= later.min.x);
     }
+}
+
+/// The front door's page stands in the host its scroll bar shares with it
+/// (`lobby::scrollbars::attach`), not in the lobby's root itself: the card
+/// still stands above the colophon (live check of 22.10.2026, where it
+/// covered the colophon's first words).
+#[test]
+fn the_card_clears_the_colophon_of_a_page_with_a_scroll_bar() {
+    use crate::shellkit::role::Role;
+    let mut fixture = NoticeLayout::new(UVec2::new(1280, 800), Some(56.0), Lang::En, 1.0);
+    let world = fixture.app.world_mut();
+    let page = world
+        .query::<(Entity, &Role)>()
+        .iter(world)
+        .find_map(|(entity, role)| (*role == Role::Scroll).then_some(entity))
+        .expect("the page");
+    let host = world
+        .spawn(Node {
+            width: percent(100),
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_height: px(0),
+            ..default()
+        })
+        .id();
+    world.entity_mut(fixture.canvas).insert_children(0, &[host]);
+    world.entity_mut(host).add_child(page);
+    let toast = fixture.show(Some(fetching(Fetch::Downloading)), UpdatePlace::default());
+    let colophon = fixture.rect(fixture.footer.unwrap()).min.y;
+    assert!((colophon - 744.0).abs() < 0.5, "the fixture's colophon");
+    let card = fixture.rect(toast);
+    assert!(
+        card.max.y <= colophon - 16.0 + 0.5,
+        "above the colophon: {card:?}"
+    );
 }

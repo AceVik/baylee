@@ -37,6 +37,7 @@ use crate::ui_button::UiButton;
 use crate::{DuelPhase, lobby};
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_client_core::resume::RestartOffer;
+use bevy::color::Mix as _;
 use bevy::input::mouse::MouseScrollUnit;
 use bevy::picking::events::PointerScroll;
 use bevy::prelude::*;
@@ -91,9 +92,12 @@ pub(super) const TOAST_BORDER: f32 = 1.0;
 pub(super) const ROW_GAP: f32 = 6.0;
 /// The accent edge on the card's left, as the lobby's toasts wear it.
 const ACCENT_EDGE: f32 = 3.0;
-/// The card's width at the default text step: the download's line on one
-/// row, and the ready card's three actions on one row in English.
-const CARD_WIDTH: f32 = 380.0;
+/// The card's width at the default text step: the download's line and the
+/// ready card's two actions each on one row, in both languages, and clear
+/// of the front door's language strip at 1280 px, whose German row starts
+/// at 362 (live check of 22.10.2026; at 380 the ready card covered
+/// "English").
+const CARD_WIDTH: f32 = 336.0;
 /// Over a table the card stands above the HUD's own layers, as it always
 /// did; in the lobby it takes the kit's toast band.
 const TABLE_Z: i32 = 40;
@@ -306,6 +310,7 @@ pub(super) fn fit_toasts(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
     roots: Query<(), With<lobby::LobbyRoot>>,
+    hosts: Query<&ChildOf>,
     pages: Query<(&Role, &ChildOf, &ComputedNode, &bevy::ui::UiGlobalTransform)>,
     mut toasts: Query<
         (&ToastPlacement, &CardSize, &mut Node),
@@ -319,13 +324,21 @@ pub(super) fn fit_toasts(
     let Some(window) = crate::hud::scale::window_space(&windows, ui.as_deref()) else {
         return;
     };
-    // The front door's direct scroll child ends exactly where its fixed
-    // colophon starts. This follows both footer forms and their text scale;
+    // The front door's scrolling page ends exactly where its fixed colophon
+    // starts. This follows both footer forms and their text scale;
     // signed-in screens with no such page reserve only the window margin.
+    // The page stands in the lobby's root, or in the host its scroll bar
+    // shares with it (`lobby::scrollbars::attach`), which it fills.
+    let in_root = |parent: Entity| {
+        roots.contains(parent)
+            || hosts
+                .get(parent)
+                .is_ok_and(|host| roots.contains(host.parent()))
+    };
     let page_bottom = pages
         .iter()
         .filter(|(role, parent, node, _)| {
-            **role == Role::Scroll && roots.contains(parent.parent()) && node.size().y > 0.0
+            **role == Role::Scroll && in_root(parent.parent()) && node.size().y > 0.0
         })
         .map(|(_, _, node, at)| {
             (at.translation.y + node.size().y * 0.5) * node.inverse_scale_factor()
@@ -812,6 +825,16 @@ fn meter_part(
         Fetch::Unpacking => Phrase::UpdateUnpacking,
     };
     let stage_words = line(commands, kit, said.text(lang).to_owned(), tokens::INK);
+    // The row's rest, as the title's: a wrapping text's own basis in a row
+    // is one character wide.
+    commands
+        .entity(stage_words)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_basis = px_fixed(0.0);
+            node.flex_grow = 1.0;
+            node.flex_shrink = 1.0;
+        });
     let share = commands
         .spawn((
             ProgressPercent,
@@ -970,7 +993,11 @@ fn spawn_card(commands: &mut Commands, kit: Kit, lang: Lang, card: &Card) -> Ent
     let look = Look::of(card, lang);
     let width = kit.m.scaled(CARD_WIDTH);
     let pad = kit.m.pad.min(kit.m.scaled(14.0));
-    let base = tokens::OPAQUE.with_alpha(0.94);
+    // Opaque, as the kit's sheets are: a card of words never lets the
+    // painting through (the shell design, §2.2). The accent only tints
+    // its top, and both stops are opaque, so the tint cannot thin it.
+    let base = tokens::OPAQUE;
+    let tinted = base.mix(&look.accent, 0.14);
     let edge = look.accent.with_alpha(0.35);
     let toast = commands
         .spawn((
@@ -999,10 +1026,7 @@ fn spawn_card(commands: &mut Commands, kit: Kit, lang: Lang, card: &Card) -> Ent
                 ..default()
             },
             BackgroundColor(base),
-            BackgroundGradient::from(LinearGradient::to_bottom(vec![
-                look.accent.with_alpha(0.16).into(),
-                base.into(),
-            ])),
+            BackgroundGradient::from(LinearGradient::to_bottom(vec![tinted.into(), base.into()])),
             BorderColor {
                 top: edge,
                 right: edge,
