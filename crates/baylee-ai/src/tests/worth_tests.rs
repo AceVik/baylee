@@ -1047,7 +1047,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Tempest (`tmp`) Batch 2 adds 7 non-mana activated abilities across
     // Dracoplasm, Echo Chamber, Enraging Licid, Essence Bottle (2), Excavator,
     // and Fevered Convulsions, of which 5 are read by the evaluator.
-    assert_eq!((read, of), (2740, 3435), "activated/loyalty reader census");
+    // Tempest (`tmp`) Batch 3 adds 12 non-mana activated abilities across
+    // Flickering Ward, Flowstone Salamander, Flowstone Sculpture, Fool's Tome,
+    // Gerrard's Battle Cry, Grindstone, Heartwood Giant, Helm of Possession,
+    // Jinxed Idol, Knight of Dawn, Knight of Dusk, and Leeching Licid, of
+    // which 10 are read by the evaluator.
+    assert_eq!((read, of), (2750, 3447), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

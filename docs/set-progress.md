@@ -697,3 +697,4 @@ no-engine-change contract:
 - **Tempest (`tmp`)** — in progress:
   - Batch 1 (`Abandon Hope` to `Cursed Scroll`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Dauthi Ghoul` to `Flailing Drake`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 3 (`Flickering Ward` to `Leeching Licid`, 25 cards): **13 Implemented, 12 Partial**.

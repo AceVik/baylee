@@ -7728,27 +7728,40 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\nWhenever this creature blocks or becomes blocked by a creature, that creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Flickering Ward
+    &[
+        "Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.\n{W}: Return this Aura to its owner's hand.",
+    ],
     // Flowstone Giant
     &["{R}: This creature gets +2/-2 until end of turn."],
-    &[],
-    &[],
+    // Flowstone Salamander
+    &["{R}: This creature deals 1 damage to target creature blocking it."],
+    // Flowstone Sculpture
+    &[
+        "{2}, Discard a card: Put a +1/+1 counter on this creature or this creature gains flying, first strike, or trample. (This effect lasts indefinitely.)",
+    ],
     // Flowstone Wyvern
     &["Flying\n{R}: This creature gets +2/-2 until end of turn."],
-    &[],
+    // Fool's Tome
+    &["{2}, {T}: Draw a card. Activate only if you have no cards in hand."],
     // Frog Tongue
     &[
         "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has reach. (It can block creatures with flying.)",
     ],
-    &[],
-    &[],
+    // Fugitive Druid
+    &["Whenever this creature becomes the target of an Aura spell, you draw a card."],
+    // Furnace of Rath
+    &[
+        "If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.",
+    ],
     // Fylamarid
     &[
         "Flying\nThis creature can't be blocked by blue creatures.\n{U}: Target creature becomes blue until end of turn.",
     ],
     // Gallantry
     &["Target blocking creature gets +4/+4 until end of turn.\nDraw a card."],
-    &[],
+    // Gerrard's Battle Cry
+    &["{2}{W}: Creatures you control get +1/+1 until end of turn."],
     // Ghost Town
     &[
         "{T}: Add {C}.\n{0}: Return this land to its owner's hand. Activate only if it's not your turn.",
@@ -7759,44 +7772,86 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Goblin Bombardment
     &["Sacrifice a creature: This enchantment deals 1 damage to any target."],
-    &[],
-    &[],
+    // Grindstone
+    &[
+        "{3}, {T}: Target player mills two cards. If two cards that share a color were milled this way, repeat this process.",
+    ],
+    // Hand to Hand
+    &[
+        "During combat, players can't cast instant spells or activate abilities that aren't mana abilities.",
+    ],
     // Hanna's Custody
     &["All artifacts have shroud. (They can't be the targets of spells or abilities.)"],
-    &[],
+    // Harrow
+    &[
+        "As an additional cost to cast this spell, sacrifice a land.\nSearch your library for up to two basic land cards, put them onto the battlefield, then shuffle.",
+    ],
     // Havoc
     &["Whenever an opponent casts a white spell, they lose 2 life."],
     // Heart Sliver
     &["All Sliver creatures have haste."],
-    &[],
-    &[],
+    // Heartwood Dryad
+    &["This creature can block creatures with shadow as though it had shadow."],
+    // Heartwood Giant
+    &["{T}, Sacrifice a Forest: This creature deals 2 damage to target player or planeswalker."],
     // Heartwood Treefolk
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
-    &[],
+    // Helm of Possession
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{2}, {T}, Sacrifice a creature: Gain control of target creature for as long as you control this artifact and this artifact remains tapped.",
+    ],
     // Hero's Resolve
     &["Enchant creature\nEnchanted creature gets +1/+5."],
     // Horned Sliver
     &["All Sliver creatures have trample."],
-    &[],
-    &[],
+    // Humility
+    &["All creatures lose all abilities and have base power and toughness 1/1."],
+    // Imps' Taunt
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget creature attacks this turn if able.",
+    ],
     // Insight
     &["Whenever an opponent casts a green spell, you draw a card."],
-    &[],
+    // Interdict
+    &[
+        "Counter target activated ability from an artifact, creature, enchantment, or land. That permanent's activated abilities can't be activated this turn. (Mana abilities can't be targeted.)\nDraw a card.",
+    ],
     // Intuition
     &[
         "Search your library for three cards and reveal them. Target opponent chooses one. Put that card into your hand and the rest into your graveyard. Then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Invulnerability
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nThe next time a source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
+    // Jackal Pup
+    &["Whenever this creature is dealt damage, it deals that much damage to you."],
+    // Jet Medallion
+    &["Black spells you cast cost {1} less to cast."],
+    // Jinxed Idol
+    &[
+        "At the beginning of your upkeep, this artifact deals 2 damage to you.\nSacrifice a creature: Target opponent gains control of this artifact.",
+    ],
+    // Kezzerdrix
+    &[
+        "First strike\nAt the beginning of your upkeep, if your opponents control no creatures, this creature deals 4 damage to you.",
+    ],
+    // Kindle
+    &[
+        "Kindle deals X damage to any target, where X is 2 plus the number of cards named Kindle in all graveyards.",
+    ],
+    // Knight of Dawn
+    &[
+        "First strike\n{W}{W}: This creature gains protection from the color of your choice until end of turn.",
+    ],
+    // Knight of Dusk
+    &["{B}{B}: Destroy target creature blocking this creature."],
     // Krakilin
     &["This creature enters with X +1/+1 counters on it.\n{1}{G}: Regenerate this creature."],
-    &[],
+    // Leeching Licid
+    &[
+        "{B}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {B} to end this effect.\nAt the beginning of the upkeep of enchanted creature's controller, this creature deals 1 damage to that player.",
+    ],
     &[],
     &[],
     &[],
