@@ -149,12 +149,24 @@ linked to, and an account registered at Central (no legacy account) as a new
 local projection, as a registered gateway does; Central's beta key stood in for
 the gateway's at sign-up, so only `BAYLEE_REGISTRATION=off` refuses it
 (baylee-central `docs/web-accounts.md`).
+The official gateway is listed in Central's directory (`baylee.app/gateways`,
+marked "Official") once Central's operator has listed it (baylee-central
+`docs/operations.md` §"The official gateway"). Its bridge file then gains
+`metadata` (`name`, `version`, `website`) beside `bridge`, for example
+`"metadata": {"name": "Baylee", "version": "0", "website":
+"https://baylee.acevik.de/"}`: the gateway sends `GatewayHeartbeat` with the
+bridge credential every 30 seconds, Central updates the official entry and no
+other, and the entry shows online. The website must lie on the bridge's origin,
+the compiled `https://baylee.acevik.de` live; in development that is `origin`,
+which a bridge file with `metadata` must then name. `version` is replaced with
+the running binary's version. Without `metadata` the bridge sends no heartbeat
+and the entry stays listed and offline.
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,
 `heartbeat` and `metadata` (`name`, `version`, `website`). Both credentials are
 independent random 32-byte JSON arrays returned once by registration. Their
 purpose is enforced centrally; `version` is replaced with the running binary's
-version. Never combine these settings with `bridge`: the official legacy bridge
-alone may reserve/export/close old account migrations. The reusable Central SDK
+version. Never combine `credential` or `heartbeat` with `bridge`: the official
+legacy bridge alone may reserve/export/close old account migrations. The reusable Central SDK
 offers registration, directory paging and versioned admin-list management; no
 registration or admin-management UI is implied by these server APIs.
 Use `BAYLEE_BIND=127.0.0.1` for local gateway fixtures; the existing default
@@ -184,8 +196,9 @@ skill, use the extra left monitor, and close the exact owned client afterward.
 `cargo dev central integration` additionally runs a real gateway and
 Central against that isolated database: source edits during enrollment,
 operation-bound capabilities, cutover, upgrade-era source-proof recovery,
-old-login and game-seat revocation, fresh-device restore, preference reconciliation
-and registered-gateway admission. Its optional
+old-login and game-seat revocation, fresh-device restore, preference reconciliation,
+registered-gateway admission and the official gateway's heartbeat in bridge
+mode. Its optional
 `BAYLEE_CENTRAL_UI_READY` path exposes only synthetic fixture addresses for at
 most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.

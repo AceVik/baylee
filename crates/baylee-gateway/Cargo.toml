@@ -78,12 +78,12 @@ rustix.workspace = true
 [dev-dependencies]
 baylee-account = { workspace = true, features = ["client"] }
 central-api.workspace = true
-central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a", features = ["server"] }
-central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a" }
-central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a" }
-central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a" }
-central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a" }
-central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "e7631ced9825889487f891618bb2440c1534977a" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2", features = ["server"] }
+central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2" }
+central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2" }
+central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2" }
+central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2" }
+central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "ab81e2b95c39c49dfe27c91d5899f36529e48ad2" }
 # The gateway no longer links the rules kernel — that is the point of the
 # engine plane. Its tests still have to prove the two ends agree, so they link
 # what the engine reads with, and drive a real engine over the real link.
