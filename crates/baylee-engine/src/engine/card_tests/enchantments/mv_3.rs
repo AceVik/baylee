@@ -66,6 +66,7 @@ mod noble_steeds;
 mod oubliette;
 mod overgrown_estate;
 mod phyrexian_arena;
+mod prismatic_circle;
 mod raiding_party;
 mod reality_twist;
 mod retreat_to_kazandu;

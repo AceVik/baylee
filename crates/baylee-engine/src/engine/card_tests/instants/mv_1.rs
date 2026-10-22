@@ -83,6 +83,7 @@ mod oxidize;
 mod panic;
 mod path_to_exile;
 mod power_sink;
+mod prismatic_lace;
 mod purelace;
 mod pyroblast;
 mod qilin_s_blessing;

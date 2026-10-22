@@ -33,6 +33,8 @@ mod mizzix_s_mastery;
 mod natural_balance;
 mod natural_order;
 mod past_in_flames;
+mod phyrexian_purge;
+mod polymorph;
 mod rejuvenate;
 mod resurrection;
 mod retribution;

@@ -10,6 +10,7 @@ use super::Precon;
 #[rustfmt::skip]
 pub static PLAYABLE: &[Precon] = &[
     Precon { key: "5ED/deck-b", text: include_str!("../../../../data/decks/precon/5ED/deck-b.txt") },
+    Precon { key: "7ED/armada", text: include_str!("../../../../data/decks/precon/7ED/armada.txt") },
     Precon { key: "8ED/silver-deck", text: include_str!("../../../../data/decks/precon/8ED/silver-deck.txt") },
     Precon { key: "9ED/silver-deck", text: include_str!("../../../../data/decks/precon/9ED/silver-deck.txt") },
     Precon { key: "ITP/kazz-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-first-deck.txt") },

@@ -22,6 +22,6 @@ card!(
         &[Effect::ExchangeLifeTotals {
             with: PlayerRel::Chosen,
         }],
-        targets = Some(TargetReq::one(TargetSpec::Player(PlayerRel::EachPlayer))),
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer)),
     )],
 );

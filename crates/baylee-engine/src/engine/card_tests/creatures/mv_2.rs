@@ -165,6 +165,7 @@ mod priest_of_titania;
 mod priest_of_yawgmoth;
 mod putrid_leech;
 mod pygmy_razorback;
+mod pyric_salamander;
 mod quirion_elves;
 mod quirion_sentinel;
 mod rats_of_rath;

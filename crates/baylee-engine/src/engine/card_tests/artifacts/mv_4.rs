@@ -70,6 +70,7 @@ mod pentagram_of_the_ages;
 mod power_armor;
 mod power_matrix;
 mod primal_amulet;
+mod razor_pendulum;
 mod reflecting_mirror;
 mod relic_of_sauron;
 mod ring_of_the_lucii;

@@ -22,6 +22,7 @@ mod monoist_sentry;
 mod myr_moonvessel;
 mod myr_scrapling;
 mod network_disruptor;
+mod phyrexian_dreadnought;
 mod rabbit_battery;
 mod roterothopter;
 mod sarpadian_simulacrum;

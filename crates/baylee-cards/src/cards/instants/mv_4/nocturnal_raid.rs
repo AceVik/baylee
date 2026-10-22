@@ -15,7 +15,7 @@ card!(
     oracle_id = "5b4b08a5-3af8-4c33-ab5e-7bee7f79e77a",
     scryfall_id = "77419949-7e62-48fe-b952-56d943ddd39f",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Nocturnal Raid",
         mana_cost = mana!("{2}{B}{B}"),

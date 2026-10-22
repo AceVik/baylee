@@ -27,9 +27,9 @@ card!(
                 amount: Amount::Fixed(1),
                 target: TargetSpec::AnyTarget,
             },
-            Effect::DealDamage {
+            Effect::DealDamageEach {
                 amount: Amount::Fixed(1),
-                target: TargetSpec::ThisObject,
+                filter: &Filter::This,
             },
         ],
         target = Some(TargetSpec::AnyTarget),

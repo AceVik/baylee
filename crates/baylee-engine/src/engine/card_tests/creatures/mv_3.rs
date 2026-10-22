@@ -213,6 +213,7 @@ mod priest_of_gix;
 mod prodigal_sorcerer;
 mod pyknite;
 mod quagmire_druid;
+mod radiant_essence;
 mod rageblood_shaman;
 mod raging_cougar;
 mod raging_kavu;

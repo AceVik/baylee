@@ -30,7 +30,7 @@ deck	set	type	released	name	cards	playable
 5ED/deck-b	5ED	Starter Deck	1997-04-24	Deck B	30	yes
 6ED/deck-a	6ED	Starter Deck	1999-04-21	Deck A	40	no
 6ED/deck-b	6ED	Starter Deck	1999-04-21	Deck B	40	no
-7ED/armada	7ED	Theme Deck	2001-04-11	Armada	40	no
+7ED/armada	7ED	Theme Deck	2001-04-11	Armada	40	yes
 7ED/bomber	7ED	Theme Deck	2001-04-11	Bomber	40	no
 7ED/decay	7ED	Theme Deck	2001-04-11	Decay	40	no
 7ED/gold-deck	7ED	Starter Deck	2001-04-11	Gold Deck	30	no

@@ -35,6 +35,7 @@ mod invisibility;
 mod kjeldoran_pride;
 mod lightning_reflexes;
 mod mageta_s_boon;
+mod pacifism;
 mod phantasmal_terrain;
 mod prismatic_ward;
 mod psychic_venom;
