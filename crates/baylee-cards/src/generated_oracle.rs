@@ -6239,57 +6239,126 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target creature gets +1/+1 until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Fireblast
+    &[
+        "You may sacrifice two Mountains rather than pay this spell's mana cost.\nFireblast deals 4 damage to any target.",
+    ],
+    // Firestorm Hellkite
+    &[
+        "Flying, trample\nCumulative upkeep {U}{R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+    ],
+    // Flooded Shoreline
+    &[
+        "{U}{U}, Return two Islands you control to their owner's hand: Return target creature to its owner's hand.",
+    ],
+    // Forbidden Ritual
+    &[
+        "Sacrifice a nontoken permanent. If you do, target opponent loses 2 life unless that player sacrifices a permanent of their choice or discards a card. You may repeat this process any number of times.",
+    ],
+    // Foreshadow
+    &[
+        "Choose a card name, then target opponent mills a card. If a card with the chosen name was milled this way, you draw a card.\nDraw a card at the beginning of the next turn's upkeep.",
+    ],
     // Freewind Falcon
     &["Flying, protection from red"],
     // Funeral Charm
     &[
         "Choose one —\n• Target player discards a card.\n• Target creature gets +2/-1 until end of turn.\n• Target creature gains swampwalk until end of turn. (It can't be blocked as long as defending player controls a Swamp.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Giant Caterpillar
+    &[
+        "{G}, Sacrifice this creature: Create a 1/1 green Insect creature token with flying named Butterfly at the beginning of the next end step.",
+    ],
+    // Goblin Recruiter
+    &[
+        "When this creature enters, search your library for any number of Goblin cards, reveal them, then shuffle and put those cards on top in any order.",
+    ],
+    // Goblin Swine-Rider
+    &[
+        "Whenever this creature becomes blocked, it deals 2 damage to each attacking creature and each blocking creature.",
+    ],
+    // Gossamer Chains
+    &[
+        "Return this enchantment to its owner's hand: Prevent all combat damage that would be dealt by target unblocked creature this turn.",
+    ],
     // Griffin Canyon
     &[
         "{T}: Add {C}.\n{T}: Untap target Griffin. If it's a creature, it gets +1/+1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Guiding Spirit
+    &[
+        "Flying\n{T}: If the top card of target player's graveyard is a creature card, put that card on top of that player's library.",
+    ],
+    // Hearth Charm
+    &[
+        "Choose one —\n• Destroy target artifact creature.\n• Attacking creatures get +1/+0 until end of turn.\n• Target creature with power 2 or less can't be blocked this turn.",
+    ],
+    // Heat Wave
+    &[
+        "Cumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nBlue creatures can't block creatures you control.\nNonblue creatures can't block creatures you control unless their controller pays 1 life for each blocking creature they control.",
+    ],
+    // Helm of Awakening
+    &["Spells cost {1} less to cast."],
+    // Honorable Passage
+    &[
+        "The next time a source of your choice would deal damage to any target this turn, prevent that damage. If damage from a red source is prevented this way, Honorable Passage deals that much damage to the source's controller.",
+    ],
     // Hope Charm
     &[
         "Choose one —\n• Target creature gains first strike until end of turn.\n• Target player gains 2 life.\n• Destroy target Aura.",
     ],
-    &[],
-    &[],
+    // Hulking Cyclops
+    &["This creature can't block."],
+    // Impulse
+    &[
+        "Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.",
+    ],
     // Infantry Veteran
     &["{T}: Target attacking creature gets +1/+1 until end of turn."],
-    &[],
+    // Infernal Harvest
+    &[
+        "As an additional cost to cast this spell, return X Swamps you control to their owner's hand.\nInfernal Harvest deals X damage divided as you choose among any number of target creatures.",
+    ],
     // Inspiration
     &["Target player draws two cards."],
-    &[],
-    &[],
+    // Iron-Heart Chimera
+    &[
+        "Vigilance\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains vigilance. (This effect lasts indefinitely.)",
+    ],
+    // Juju Bubble
+    &[
+        "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nWhen you play a card, sacrifice this artifact.\n{2}: You gain 1 life.",
+    ],
     // Jungle Basin
     &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Forest you control to its owner's hand.\n{T}: Add {C}{G}.",
     ],
-    &[],
+    // Kaervek's Spite
+    &[
+        "As an additional cost to cast this spell, sacrifice all permanents you control and discard your hand.\nTarget player loses 5 life.",
+    ],
     // Karoo
     &[
         "This land enters tapped.\nWhen this land enters, sacrifice it unless you return an untapped Plains you control to its owner's hand.\n{T}: Add {C}{W}.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Katabatic Winds
+    &[
+        "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nCreatures with flying can't attack or block, and their activated abilities with {T} in their costs can't be activated.",
+    ],
+    // Keeper of Kookus
+    &["{R}: This creature gains protection from red until end of turn."],
+    // Knight of Valor
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}: Each creature without flanking blocking this creature gets -1/-1 until end of turn. Activate only once each turn.",
+    ],
+    // Knight of the Mists
+    &[
+        "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nWhen this creature enters, you may pay {U}. If you don't, destroy target Knight and it can't be regenerated.",
+    ],
+    // Kookus
+    &[
+        "Trample\nAt the beginning of your upkeep, if you don't control a creature named Keeper of Kookus, this creature deals 3 damage to you and attacks this turn if able.\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
     // Kyscu Drake
     &[
         "Flying\n{G}: This creature gets +0/+1 until end of turn. Activate only once each turn.\nSacrifice this creature and a creature named Spitting Drake: Search your library for a card named Viashivan Dragon, put that card onto the battlefield, then shuffle.",

@@ -5449,3 +5449,7 @@ more than two it names nobody). What the author did more than once:
     life equal to its power and you gain life equal to its toughness"*) fires on `Trigger::Dies(&Filter::AttachedToBySource)`,
     `PlayerRel::ControllerOfEvent`, `Amount::EventPower`, and `Amount::EventLastToughness` read the LKI
     snapshot of the dying enchanted creature directly.
+- Added *Visions* Batch 2 (`Fireblast` through `Kookus`, **17 `Coverage::Implemented`, 8 `Coverage::Partial`**),
+  including `Goblin Recruiter`'s multi-find top-of-library search (`Find::TOP_OF_LIBRARY.any_number()`),
+  `Fireblast`'s alternative cost sacrificing two Mountains (`CostPart::SacrificeN { filter, count: 2 }`),
+  and `Helm of Awakening`'s global spell cost reduction (`Modifier::SpellsCostLess(1)` on `Filter::Any`).
