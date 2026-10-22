@@ -991,7 +991,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Frenetic Efreet, Goblin Soothsayer, Goblin Tinkerer, Grinning Totem,
     // Hakim, Loreweaver (2), Hammer of Bogardan, and Hivis of the Scale, of
     // which 3 are read by the evaluator.
-    assert_eq!((read, of), (2671, 3323), "activated/loyalty reader census");
+    // Mirage (`mir`) Batch 5 adds 6 non-mana activated abilities across
+    // Leering Gargoyle, Mangara's Tome, Mire Shade, Mist Dragon (2), and
+    // Mtenda Griffin, of which 3 are read by the evaluator.
+    assert_eq!((read, of), (2674, 3329), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

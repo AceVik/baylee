@@ -73,6 +73,7 @@ mod magical_hack;
 mod malakir_rebirth;
 mod marsh_gas;
 mod mental_note;
+mod mind_bend;
 mod misinformation;
 mod mystical_tutor;
 mod natural_selection;

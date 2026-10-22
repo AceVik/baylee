@@ -30,6 +30,7 @@ mod lay_waste;
 mod mind_warp;
 mod misfortune;
 mod mizzix_s_mastery;
+mod natural_balance;
 mod natural_order;
 mod past_in_flames;
 mod rejuvenate;

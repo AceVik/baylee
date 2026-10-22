@@ -21,6 +21,7 @@ mod goblin_grenade;
 mod green_sun_s_zenith;
 mod hurricane;
 mod imperial_seal;
+mod kaervek_s_torch;
 mod lava_burst;
 mod lay_of_the_land;
 mod mana_clash;

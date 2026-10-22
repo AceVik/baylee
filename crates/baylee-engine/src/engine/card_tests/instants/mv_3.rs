@@ -44,6 +44,7 @@ mod kazuul_s_fury;
 mod khalni_ambush;
 mod krosan_grip;
 mod mana_short;
+mod mangara_s_blessing;
 mod martyrdom;
 mod morale;
 mod mystic_denial;

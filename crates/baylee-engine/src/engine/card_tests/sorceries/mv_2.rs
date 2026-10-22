@@ -24,6 +24,7 @@ mod foresight;
 mod forget;
 mod gaze_of_pain;
 mod hunger_of_the_nim;
+mod kaervek_s_purge;
 mod martyr_s_cry;
 mod monstrous_growth;
 mod nature_s_lore;

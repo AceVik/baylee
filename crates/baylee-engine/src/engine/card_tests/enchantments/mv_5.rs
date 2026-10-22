@@ -21,6 +21,7 @@ mod gravitational_shift;
 mod intimidation;
 mod larceny;
 mod liliana_s_mastery;
+mod malignant_growth;
 mod moldervine_reclamation;
 mod nature_s_revolt;
 mod open_the_graves;

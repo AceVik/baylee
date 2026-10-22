@@ -41,6 +41,7 @@ mod mana_geode;
 mod mana_prism;
 mod manalith;
 mod matzalantli_the_great_door;
+mod misers_cage;
 mod nuisance_engine;
 mod obelisk_of_bant;
 mod obelisk_of_esper;

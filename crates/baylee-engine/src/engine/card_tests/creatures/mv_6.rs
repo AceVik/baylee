@@ -47,6 +47,7 @@ mod megantic_sliver;
 mod megatog;
 mod metamorphosis_fanatic;
 mod mikaeus_the_unhallowed;
+mod mist_dragon;
 mod moss_kami;
 mod muldrotha_the_gravetide;
 mod needleshot_gourna;

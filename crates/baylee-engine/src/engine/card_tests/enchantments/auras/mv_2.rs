@@ -33,6 +33,7 @@ mod indomitable_will;
 mod inertia_bubble;
 mod invisibility;
 mod kjeldoran_pride;
+mod lightning_reflexes;
 mod mageta_s_boon;
 mod phantasmal_terrain;
 mod prismatic_ward;

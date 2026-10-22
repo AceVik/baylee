@@ -38,6 +38,7 @@ mod instill_energy;
 mod ironclaw_curse;
 mod lance;
 mod living_artifact;
+mod mind_harness;
 mod mystic_might;
 mod paralyze;
 mod primal_frenzy;

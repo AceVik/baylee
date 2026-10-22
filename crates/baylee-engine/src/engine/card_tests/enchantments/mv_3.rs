@@ -54,6 +54,7 @@ mod lifegift;
 mod magnetic_mountain;
 mod mana_flare;
 mod mana_vortex;
+mod mangara_s_equity;
 mod mental_discipline;
 mod mesmeric_trance;
 mod mobilization;

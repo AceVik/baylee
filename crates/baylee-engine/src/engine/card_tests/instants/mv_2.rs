@@ -75,6 +75,7 @@ mod mage_s_guile;
 mod magma_jet;
 mod mana_drain;
 mod mana_leak;
+mod meddle;
 mod memory_lapse;
 mod mighty_leap;
 mod muscle_burst;

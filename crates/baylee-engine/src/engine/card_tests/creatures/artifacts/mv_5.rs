@@ -24,6 +24,7 @@ mod glassdust_hulk;
 mod henge_guardian;
 mod igneous_golem;
 mod iron_man_tony_stark;
+mod lead_golem;
 mod mantis_engine;
 mod marble_priest;
 mod narstad_scrapper;

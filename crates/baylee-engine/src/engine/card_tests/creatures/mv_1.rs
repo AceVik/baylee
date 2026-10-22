@@ -98,6 +98,8 @@ mod mogg_sentry;
 mod molting_harpy;
 mod mons_s_goblin_raiders;
 mod mountain_bandit;
+mod mtenda_herder;
+mod mtenda_lion;
 mod nezumi_shadow_watcher;
 mod noble_hierarch;
 mod orcish_captain;

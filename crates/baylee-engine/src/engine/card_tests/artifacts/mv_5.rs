@@ -7,6 +7,7 @@ mod amulet_of_unmaking;
 mod forethought_amulet;
 mod gilded_lotus;
 mod jester_s_mask;
+mod mangara_s_tome;
 mod myr_matrix;
 mod naked_singularity;
 mod stone_calendar;

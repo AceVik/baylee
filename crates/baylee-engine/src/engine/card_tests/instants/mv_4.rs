@@ -18,6 +18,7 @@ mod hagra_mauling;
 mod inspiration;
 mod irradiate;
 mod lightning_blast;
+mod lure_of_prey;
 mod memory_deluge;
 mod might_of_oaks;
 mod ray_of_command;

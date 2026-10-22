@@ -6,12 +6,16 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+const WITHOUT_FLANKING: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
+]);
+
 card!(
     index = index::MTENDA_HERDER,
     oracle_id = "0edf5bac-36a9-4f35-afd1-73f7e1aab51b",
     scryfall_id = "51f30a3d-1421-4706-b17f-39a9ec7a0d8b",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    keywords = KeywordSet::FLANKING,
     coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Mtenda Herder",
@@ -20,5 +24,14 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::SCOUT],
         power = Some(1),
         toughness = Some(1),
+        keywords = KeywordSet::FLANKING,
+    ),],
+    abilities = &[triggered!(
+        Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
+        &[Effect::continuous(
+            &Filter::Reference,
+            Modifier::ModifyPT(-1, -1),
+            Duration::UntilEndOfTurn,
+        )],
     ),],
 );
