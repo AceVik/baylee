@@ -40,7 +40,13 @@ runs:
         #
         # The package lists the image ships are tried first, with no update
         # at all; only when that install fails is the network asked.
-        apt=(sudo timeout 300 apt-get -o Acquire::Retries=3 \
+        #
+        # A slow mirror is not a dead one: on 22.10.2026 the azure mirror
+        # delivered about 15 kB/s, and libsecret's 13 MB of glib and systemd
+        # updates ran past 300 s twice in `msrv`. A connection that stops
+        # answering still fails in 30 s; each call now has 10 minutes (clippy's
+        # job allows for that).
+        apt=(sudo timeout 600 apt-get -o Acquire::Retries=3 \
           -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
         # Native credential storage uses libsecret's reviewed safe Rust API.
         pkgs=(libasound2-dev libudev-dev libwayland-dev libsecret-1-dev)
