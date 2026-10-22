@@ -68,6 +68,7 @@ mod thought_vessel;
 mod time_sieve;
 mod tower_of_coireall;
 mod treasure_map;
+mod wand_of_denial;
 mod winter_orb;
 mod wishclaw_talisman;
 mod wurm_s_tooth;

@@ -21,5 +21,8 @@ card!(
         mana_cost = mana!("{1}{W}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[static_ability!(Filter::YOUR_CREATURE, Modifier::ModifyPT(0, 1))],
+    abilities = &[static_ability!(
+        Filter::YOUR_CREATURE,
+        Modifier::ModifyPT(0, 1)
+    )],
 );

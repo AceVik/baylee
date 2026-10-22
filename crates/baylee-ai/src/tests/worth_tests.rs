@@ -1020,7 +1020,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Visions (`vis`) Batch 4 adds 6 non-mana activated abilities across
     // Snake Basket, Sun Clasp, Teferi's Honor Guard, Tin-Wing Chimera,
     // Triangle of War, and Vanishing, of which 2 are read by the evaluator.
-    assert_eq!((read, of), (2708, 3379), "activated/loyalty reader census");
+    // Visions (`vis`) Batch 5 adds 1 non-mana activated ability on Wand of
+    // Denial, which is not read by the evaluator.
+    assert_eq!((read, of), (2708, 3380), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

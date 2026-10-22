@@ -30,6 +30,9 @@ fn simoon_deals_one_damage_to_each_opponent_creature() {
 
     assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
     assert_eq!(engine.state().object(opp_bear).unwrap().damage, 1);
-    assert_eq!(engine.state().object(own_elf).unwrap().zone, Zone::Battlefield);
+    assert_eq!(
+        engine.state().object(own_elf).unwrap().zone,
+        Zone::Battlefield
+    );
     assert_eq!(engine.state().object(own_elf).unwrap().damage, 0);
 }

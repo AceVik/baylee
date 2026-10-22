@@ -8,10 +8,8 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static ENCHANTED_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]);
-static OTHER_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::AttachedToBySource),
-]);
+static OTHER_CREATURE: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::AttachedToBySource)]);
 
 card!(
     index = index::VETERAN_S_VOICE,

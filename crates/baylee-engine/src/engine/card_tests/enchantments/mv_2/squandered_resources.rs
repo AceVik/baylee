@@ -38,7 +38,9 @@ fn squandered_resources_sacrifices_a_land_to_add_mana() {
 
     assert!(in_graveyard(&engine, p0, forest()).is_some());
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Black),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
         1
     );
 }

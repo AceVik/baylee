@@ -15,7 +15,10 @@ fn triangle_of_war() -> CardIndex {
 fn triangle_of_war_sacrifices_to_make_your_creature_fight_opponent_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), plains(), plains(), HILL_GIANT, GRIZZLY_BEARS])
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), HILL_GIANT, GRIZZLY_BEARS],
+        )
         .battlefield(1, &[GRIZZLY_BEARS])
         .hand(0, &[triangle_of_war()])
         .start();

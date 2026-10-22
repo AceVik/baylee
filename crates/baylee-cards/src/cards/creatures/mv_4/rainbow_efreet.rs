@@ -22,5 +22,8 @@ card!(
         power = Some(3),
         toughness = Some(1),
     ),],
-    abilities = &[activated!(cost!("{U}{U}"), &[Effect::PhaseOut { target: None }])],
+    abilities = &[activated!(
+        cost!("{U}{U}"),
+        &[Effect::PhaseOut { target: None }]
+    )],
 );

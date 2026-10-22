@@ -349,6 +349,7 @@ mod xenic_poltergeist;
 mod xira_arien;
 mod ydwen_efreet;
 mod zhalfirin_commander;
+mod zhalfirin_crusader;
 mod zhalfirin_knight;
 mod zombie_master;
 mod zuran_spellcaster;

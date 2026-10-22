@@ -5,10 +5,8 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static FLYING_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasKeyword(KeywordSet::FLYING),
-]);
+static FLYING_CREATURE: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]);
 
 card!(
     index = index::WHIRLING_CATAPULT,

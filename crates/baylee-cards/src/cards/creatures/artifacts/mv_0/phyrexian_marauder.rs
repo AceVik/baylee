@@ -28,5 +28,8 @@ card!(
             amount: Amount::X,
         }],
     ),],
-    abilities = &[static_ability!(Filter::This, Modifier::CantBlock(&Filter::Any))],
+    abilities = &[static_ability!(
+        Filter::This,
+        Modifier::CantBlock(&Filter::Any)
+    )],
 );

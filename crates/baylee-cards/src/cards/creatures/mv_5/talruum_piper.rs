@@ -6,10 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const CREATURE_WITH_FLYING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasKeyword(KeywordSet::FLYING),
-]);
+const CREATURE_WITH_FLYING: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]);
 
 card!(
     index = index::TALRUUM_PIPER,

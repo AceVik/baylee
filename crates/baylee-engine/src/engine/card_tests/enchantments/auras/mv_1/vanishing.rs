@@ -14,7 +14,10 @@ fn vanishing() -> CardIndex {
 fn vanishing_phases_out_enchanted_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), island(), GRIZZLY_BEARS, HILL_GIANT])
+        .battlefield(
+            0,
+            &[island(), island(), island(), GRIZZLY_BEARS, HILL_GIANT],
+        )
         .hand(0, &[vanishing()])
         .start();
     keep_mulligans(&mut engine);

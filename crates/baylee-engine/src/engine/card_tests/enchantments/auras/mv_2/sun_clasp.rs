@@ -15,7 +15,10 @@ fn sun_clasp() -> CardIndex {
 fn sun_clasp_pumps_enchanted_creature_and_returns_it_to_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), plains(), plains(), GRIZZLY_BEARS, HILL_GIANT])
+        .battlefield(
+            0,
+            &[plains(), plains(), plains(), GRIZZLY_BEARS, HILL_GIANT],
+        )
         .hand(0, &[sun_clasp()])
         .start();
     keep_mulligans(&mut engine);
@@ -36,5 +39,8 @@ fn sun_clasp_pumps_enchanted_creature_and_returns_it_to_hand() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_hand(&engine, p0, GRIZZLY_BEARS).is_some());
-    assert_eq!(engine.state().object(other).unwrap().zone, Zone::Battlefield);
+    assert_eq!(
+        engine.state().object(other).unwrap().zone,
+        Zone::Battlefield
+    );
 }

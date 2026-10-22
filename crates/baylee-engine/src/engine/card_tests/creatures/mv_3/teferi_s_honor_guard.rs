@@ -53,7 +53,8 @@ fn teferi_s_honor_guard_has_flanking_and_phases_out() {
         .unwrap();
     // Resolve the flanking trigger first, then activate {U}{U} to phase out
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0) && stack_is_empty(e)
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+            && stack_is_empty(e)
     });
     assert_eq!(pt(&engine, blocker), (1, 1));
     tap_all_mana(&mut engine, p0);
