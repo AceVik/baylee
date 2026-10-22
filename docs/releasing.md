@@ -230,11 +230,16 @@ Each job runs in a throwaway Tart VM (`scripts/macos-runner/runner.sh`):
   and not the home network.
 - **The cargo lock.** The runner holds `with-cargo-lock.sh` while jobs are
   queued for it, so a CI build and a `cargo dev land` never share the CPU
-  (under load the e2e timing tests fail). It builds a main push's two macOS
-  packages at once, a VM each (macOS allows two per Mac), so a land waits for
-  about one package's build; a job waits queued, which does not count against
-  its timeout. One job at a time, as first written, let a land in between
-  the two (22.10.2026), and the second package waited for the whole land.
+  (under load the e2e timing tests fail): a land waits for both packages of a
+  main push, and a job waits queued, which does not count against its
+  timeout. Giving the lock back after each job, as first written, let a land
+  in between the two (22.10.2026), and the second package waited for the
+  whole land. Every `tart exec` under the lock is bounded and no job outlives
+  three hours, since a wedged guest's exec never returns.
+- **One VM at a time.** macOS allows two per Mac, and `MAX_VMS=2` would build
+  both packages at once, but on 22.10.2026 the second of two VMs started
+  together got no name resolution and then an exec that never returned, so
+  the runner builds them one after the other until that is understood.
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.

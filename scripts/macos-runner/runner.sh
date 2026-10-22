@@ -35,6 +35,8 @@ POLL_SECS=60
 # A registered runner that has not started a job by then never will: the job
 # was cancelled or taken while this one waited for the lock.
 IDLE_SECS=900
+# No job outlives this: the package rows' timeout is 150 minutes.
+JOB_CAP_SECS=10800
 MAX_VMS=1
 # The dist build keeps two or three cores busy on average (user over real,
 # 22.10.2026), so two VMs of eight share the host's ten well. It peaked at
@@ -67,10 +69,30 @@ queued() {
     echo "$n"
 }
 
+# Runs "$@" for at most $1 seconds. `tart exec` can hang for good when a guest
+# wedges (22.10.2026: a second VM's exec never returned and held the cargo
+# lock for half an hour), and nothing under the lock may wait unbounded.
+bounded() {
+    local secs=$1 pid guard status
+    shift
+    "$@" &
+    pid=$!
+    (
+        sleep "$secs"
+        kill "$pid" 2>/dev/null
+    ) &
+    guard=$!
+    wait "$pid" 2>/dev/null
+    status=$?
+    kill "$guard" 2>/dev/null
+    wait "$guard" 2>/dev/null
+    return "$status"
+}
+
 wait_for_agent() {
     local vm=$1
     for _ in $(seq 1 90); do
-        if tart exec "$vm" true >/dev/null 2>&1; then
+        if bounded 10 tart exec "$vm" true >/dev/null 2>&1; then
             return 0
         fi
         sleep 2
@@ -85,7 +107,7 @@ wait_for_agent() {
 wait_for_network() {
     local vm=$1
     for _ in $(seq 1 30); do
-        if tart exec "$vm" /usr/bin/curl -sS -m 3 -o /dev/null https://github.com >/dev/null 2>&1; then
+        if bounded 10 tart exec "$vm" /usr/bin/curl -sS -m 3 -o /dev/null https://github.com >/dev/null 2>&1; then
             return 0
         fi
         sleep 2
@@ -97,7 +119,7 @@ wait_for_network() {
 # One VM, one job; $1 tells the VMs of a batch apart. Run it in a subshell:
 # the EXIT trap is what deletes the VM.
 one_job() {
-    local vm reply runner_id tart_pid watch_pid status
+    local vm reply runner_id tart_pid watch_pid job_pid status
     vm="$LABEL-$(date +%Y%m%d-%H%M%S)-$1"
     tart clone "$IMAGE" "$vm" || return 1
     tart run "$vm" --no-graphics --net-softnet >"$HOME/Library/Logs/$vm.log" 2>&1 &
@@ -111,18 +133,33 @@ one_job() {
         -f 'labels[]=self-hosted' -f 'labels[]=macOS' -f 'labels[]=ARM64' -f "labels[]=$LABEL") || return 1
     runner_id=$(printf '%s' "$reply" | jq -r .runner.id)
     log "$vm: registered as runner $runner_id"
+    # The job runs in the background so that `wait`, which a signal ends,
+    # stands between it and this shell; the runner's own lines are marked
+    # with the VM they came from.
+    (
+        printf '%s\n' "$reply" | jq -r .encoded_jit_config | tart exec -i "$vm" /Users/admin/start-runner.sh 2>&1 |
+            while IFS= read -r line; do printf '%s %s\n' "$vm:" "$line"; done
+        exit "${PIPESTATUS[2]}"
+    ) &
+    job_pid=$!
+    # A runner that got no job, or a job past any timeout, is stopped; if the
+    # exec still does not return, it is killed.
     (
         sleep "$IDLE_SECS"
-        if [ "$(gh api "repos/$REPO/actions/runners/$runner_id" --jq .busy 2>/dev/null)" != true ]; then
+        if [ "$(gh api "repos/$REPO/actions/runners/$runner_id" --jq .busy 2>/dev/null)" = true ]; then
+            sleep $((JOB_CAP_SECS - IDLE_SECS))
+            log "$vm: still running after ${JOB_CAP_SECS}s, stopping"
+        else
             log "$vm: no job after ${IDLE_SECS}s, stopping"
-            tart stop "$vm" >/dev/null 2>&1
         fi
+        tart stop "$vm" >/dev/null 2>&1
+        sleep 30
+        pkill -P "$job_pid" 2>/dev/null
+        kill "$job_pid" 2>/dev/null
     ) &
     watch_pid=$!
-    # The runner's own lines, marked with the VM they came from.
-    printf '%s\n' "$reply" | jq -r .encoded_jit_config | tart exec -i "$vm" /Users/admin/start-runner.sh 2>&1 |
-        while IFS= read -r line; do printf '%s %s\n' "$vm:" "$line"; done
-    status=${PIPESTATUS[2]}
+    wait "$job_pid"
+    status=$?
     log "$vm: runner exited ($status)"
     kill "$watch_pid" 2>/dev/null
     # A just-in-time runner removes itself after its job; one that never got
