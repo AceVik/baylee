@@ -13,7 +13,7 @@ card!(
     scryfall_id = "22f84143-5912-43ca-a274-f26ed0dbadd0",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Canyon Drake",
         mana_cost = mana!("{2}{R}{R}"),

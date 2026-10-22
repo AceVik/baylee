@@ -5,6 +5,7 @@ use super::*;
 
 mod aeolipile;
 mod agatha_s_soul_cauldron;
+mod altar_of_dementia;
 mod amulet_of_kroog;
 mod angel_s_feather;
 mod ankh_of_mishra;

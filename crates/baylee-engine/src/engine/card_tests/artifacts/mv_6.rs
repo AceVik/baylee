@@ -22,4 +22,5 @@ mod serpent_generator;
 
 mod mirror_universe;
 
+mod booby_trap;
 mod celestial_sword;

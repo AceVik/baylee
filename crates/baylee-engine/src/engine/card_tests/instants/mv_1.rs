@@ -7,6 +7,7 @@ mod abjure;
 mod an_offer_you_can_t_refuse;
 mod ancestral_recall;
 mod annul;
+mod anoint;
 mod artifact_blast;
 mod avoid_fate;
 mod battlegrowth;

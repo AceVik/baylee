@@ -18,6 +18,7 @@ mod capashen_standard;
 mod cloak_of_invisibility;
 mod consecrate_land;
 mod crackling_club;
+mod crown_of_flames;
 mod death_watch;
 mod dream_coat;
 mod earthbind;

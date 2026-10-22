@@ -15,6 +15,7 @@ mod braidwood_sextant;
 mod candelabra_of_tawnos;
 mod chromatic_sphere;
 mod crystal_rod;
+mod cursed_scroll;
 mod darkwater_egg;
 mod delif_s_cube;
 mod despotic_scepter;

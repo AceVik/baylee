@@ -56,6 +56,7 @@ mod cephalid_looter;
 mod charging_paladin;
 mod chub_toad;
 mod coastal_drake;
+mod coffin_queen;
 mod council_of_advisors;
 mod crypt_rats;
 mod daring_apprentice;

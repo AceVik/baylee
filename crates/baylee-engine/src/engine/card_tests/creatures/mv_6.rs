@@ -14,6 +14,7 @@ mod bartel_runeaxe;
 mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;
+mod commander_greven_il_vec;
 mod craw_wurm;
 mod deathcurse_ogre;
 mod demonic_hordes;

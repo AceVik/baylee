@@ -18,6 +18,7 @@ mod aura_blast;
 mod backdraft;
 mod beyeen_veil;
 mod blessed_wine;
+mod blood_frenzy;
 mod blood_lust;
 mod boomerang;
 mod borne_upon_a_wind;

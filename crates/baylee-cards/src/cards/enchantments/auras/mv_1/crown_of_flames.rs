@@ -13,7 +13,7 @@ card!(
     oracle_id = "f14fb965-5ebc-427a-a5b8-149f54c64171",
     scryfall_id = "5a46239c-3de7-48ca-8f5c-b51f307fd0e5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Crown of Flames",
         mana_cost = mana!("{R}"),

@@ -5,6 +5,7 @@ use super::*;
 
 mod ancestral_memories;
 mod angelic_edict;
+mod apocalypse;
 mod bribery;
 mod brilliant_plan;
 mod cone_of_flame;

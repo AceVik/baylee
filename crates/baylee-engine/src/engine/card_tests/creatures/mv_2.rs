@@ -43,6 +43,7 @@ mod brood_of_cockroaches;
 mod canopy_spider;
 mod capashen_knight;
 mod capashen_unicorn;
+mod carrionette;
 mod cephalid_scout;
 mod charming_prince;
 mod citanul_druid;

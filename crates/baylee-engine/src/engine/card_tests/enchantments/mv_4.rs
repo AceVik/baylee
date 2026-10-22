@@ -99,6 +99,7 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, attacker: ObjectId, defender
 mod aether_flash;
 mod aether_sting;
 mod aether_storm;
+mod aluren;
 mod an_zerrin_ruins;
 mod aquatic_incursion;
 mod arboria;

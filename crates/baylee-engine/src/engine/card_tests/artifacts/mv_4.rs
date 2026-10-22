@@ -20,6 +20,7 @@ mod birthing_pod;
 mod bone_mask;
 mod bottle_of_suleiman;
 mod bubble_matrix;
+mod cold_storage;
 mod conduit_of_worlds;
 mod conservator;
 mod cumber_stone;
