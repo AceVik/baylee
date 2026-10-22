@@ -494,6 +494,19 @@ impl Account {
         self.session.check_active(&self.http)
     }
 
+    /// Renew the Central session: it expires 30 minutes from now, at most 12
+    /// hours after this sign-in, and the gateway admissions made from it last
+    /// as long (baylee-central `docs/operations.md` §"Sessions"). Returns the
+    /// new absolute Unix-seconds expiry.
+    ///
+    /// # Errors
+    /// Refuses an expired, replaced or revoked session, and a Central that does
+    /// not renew yet; a failed renewal ends nothing ([`Account::check_active`]
+    /// says whether the session lives).
+    pub fn renew(&self) -> Result<i64, Error> {
+        self.session.renew(&self.http)
+    }
+
     /// Upload a new immutable history chunk, encrypted inside the SDK.
     ///
     /// # Errors

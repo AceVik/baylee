@@ -133,6 +133,30 @@ pub async fn issue_session(
     transaction.commit().await
 }
 
+/// Move a Central-bound session's expiry forward to `expires_at`, once Central
+/// renewed its lease (baylee-central `docs/operations.md` §"Sessions"): the
+/// lease's row and the bearer session it belongs to, never backwards.
+///
+/// # Errors
+/// Reports storage failures; nothing is moved then.
+pub async fn extend_session(
+    db: &DatabaseConnection,
+    lease: [u8; 32],
+    expires_at: i64,
+) -> Result<(), DbErr> {
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "WITH moved AS (
+             UPDATE central_gateway_session SET expires_at = to_timestamp($2::bigint)
+             WHERE lease = $1 AND expires_at < to_timestamp($2::bigint) RETURNING token_hash)
+         UPDATE session_token s SET expires_at = to_timestamp($2::bigint) FROM moved
+         WHERE s.token_hash = moved.token_hash AND s.expires_at < to_timestamp($2::bigint)",
+        [lease.to_vec().into(), expires_at.into()],
+    ))
+    .await?;
+    Ok(())
+}
+
 /// Inspect whether a bearer session must still pass Central introspection.
 /// A Central-only account without a lease fails closed, including after restart.
 ///

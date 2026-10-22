@@ -8,7 +8,9 @@ use sea_orm::{
 use sha2::{Digest, Sha256};
 
 mod sessions;
-pub use sessions::{GatewayLease, SessionBinding, issue_session, projection, session_binding};
+pub use sessions::{
+    GatewayLease, SessionBinding, extend_session, issue_session, projection, session_binding,
+};
 
 /// Snapshot size admitted by the initial encrypted account-document format.
 pub const MAX_SNAPSHOT_BYTES: usize = 196_608;

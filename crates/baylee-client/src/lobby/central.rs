@@ -16,6 +16,13 @@ use std::sync::{
 pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;
 type SaveResult = Arc<Mutex<Option<Result<(), Error>>>>;
 
+/// How often the account worker renews its Central session: well inside the
+/// 30 minutes one renewal grants.
+const RENEW_EVERY: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+/// How soon a failed renewal is tried again (a Central restarting, or not
+/// renewing yet).
+const RENEW_RETRY: std::time::Duration = std::time::Duration::from_secs(60);
+
 struct PendingSave {
     gateways: Vec<String>,
     result: SaveResult,
@@ -126,6 +133,7 @@ impl Handle {
             .spawn(move || {
                 let interval = std::time::Duration::from_secs(10);
                 let mut checked = std::time::Instant::now();
+                let mut renew_at = std::time::Instant::now() + RENEW_EVERY;
                 loop {
                     if checked.elapsed() >= interval {
                         if matches!(account.check_active(), Err(Error::Rejected)) {
@@ -133,6 +141,18 @@ impl Handle {
                             break;
                         }
                         checked = std::time::Instant::now();
+                    }
+                    // The session, and every game admitted from it, lasts while
+                    // the client runs (Central caps it at 12 hours). A failed
+                    // renewal is tried again a minute later and ends nothing:
+                    // the check above says whether the session lives.
+                    if std::time::Instant::now() >= renew_at {
+                        let next = if account.renew().is_ok() {
+                            RENEW_EVERY
+                        } else {
+                            RENEW_RETRY
+                        };
+                        renew_at = std::time::Instant::now() + next;
                     }
                     match receive.recv_timeout(interval.saturating_sub(checked.elapsed())) {
                         Ok(job) => job(&mut account),

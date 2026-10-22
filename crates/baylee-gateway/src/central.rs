@@ -265,7 +265,9 @@ pub(crate) async fn resolve_digest(
 /// accepted Central's terms in force and the version of this gateway's
 /// terms Central confirmed (none confirmed: nothing to accept yet, so
 /// nothing is enforced). `None` when the lease is no longer good or no
-/// longer the one bound here.
+/// longer the one bound here. A renewed session's lease comes back with a
+/// later expiry (never an earlier one), which is stored here too
+/// ([`renewed`]).
 pub(crate) async fn authorize(
     state: &Shared,
     bridge: &Arc<Bridge>,
@@ -286,11 +288,30 @@ pub(crate) async fn authorize(
             expires_at,
             central_terms,
             gateway_terms,
-        } if identity.account == account && expires_at == expires => {
+        } if identity.account == account && expires_at >= expires => {
+            renewed(state, lease, expires, expires_at).await?;
             Some(crate::terms::Standing::of(central_terms, gateway_terms))
         }
         _ => None,
     })
+}
+
+/// Central renewed the session behind `lease` (baylee-central
+/// `docs/operations.md` §"Sessions"): its later expiry becomes this
+/// gateway's for the lease and its bearer, so the local session lasts as
+/// long as Central's. Nothing when it did not move.
+async fn renewed(
+    state: &Shared,
+    lease: [u8; 32],
+    expires: i64,
+    expires_at: i64,
+) -> Result<(), StatusCode> {
+    if expires_at <= expires {
+        return Ok(());
+    }
+    baylee_db::central::extend_session(&state.db, lease, expires_at)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)
 }
 
 /// Publish the terms in force to Central until it confirms them; only then
@@ -374,11 +395,17 @@ pub(crate) async fn admin_actor(
             purpose: wire::TicketPurpose::Admin,
         })
         .await?;
-    if !matches!(response, wire::Response::GatewaySession { identity, expires_at }
-        if identity.account == binding.central && expires_at == binding.expires_at)
-    {
+    let wire::Response::GatewaySession {
+        identity,
+        expires_at,
+    } = response
+    else {
+        return Ok(None);
+    };
+    if identity.account != binding.central || expires_at < binding.expires_at {
         return Ok(None);
     }
+    renewed(state, binding.lease, binding.expires_at, expires_at).await?;
     let Some(session) = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?

@@ -9,6 +9,8 @@ mod fresh;
 mod held;
 #[path = "central/registered.rs"]
 mod registered;
+#[path = "central/renewal.rs"]
+mod renewal;
 #[path = "central/terms.rs"]
 mod terms;
 #[path = "central/upgrade.rs"]
@@ -89,6 +91,7 @@ const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_
             GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
             GRANT SELECT ON central_identity.gateway_approvals TO central_runtime;
             GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime;
+            GRANT UPDATE (expires_at) ON central_identity.gateway_leases TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
                 central_identity.terms_acceptances TO central_runtime;
             GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime";
@@ -144,6 +147,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         run(gateway, endpoint, origin);
         changed_legacy_password_invalidates_pending_enrollment(gateway, endpoint, origin);
         upgrade::run(gateway, endpoint, origin);
+        renewal::run(gateway, endpoint, origin);
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);

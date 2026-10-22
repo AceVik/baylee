@@ -208,8 +208,17 @@ from application state, not from a transitional frame. The harness reports
 front-panel motion so the script waits until controls accept input. Exact
 owned client PIDs, HTTP listeners and backend containers were closed/verified.
 
-Current operational limits: Central sessions expire after 30 minutes without
-background renewal; sign in again to resume synchronization. New account
+Sessions renew (since beta.8b): the account worker renews its Central session
+every ten minutes (`Account::renew`; a failure is retried a minute later and
+ends nothing), so it, and every gateway session admitted from it, lasts while
+the client runs, up to 12 hours after the password sign-in (baylee-central
+`docs/operations.md` §"Sessions"). The gateway takes the later lease expiry
+Central reports on its next check and stores it (`central::authorize`,
+`baylee_db::central::extend_session`); an earlier one is refused. A gateway
+built before this compares the expiry exactly and so ends a session at its
+first renewal: gateways update together with Central.
+
+Current operational limits: after the 12 hours, sign in again. New account
 registration and password changes/recovery are not exposed by this native UI.
 Gateway registration/admin APIs are available in the reusable Central SDK, with
 operator approval still required. Never substitute the old gateway
