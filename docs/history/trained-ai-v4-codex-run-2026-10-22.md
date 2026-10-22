@@ -167,6 +167,9 @@ only verifies training execution.
 4. Expand 3/6/8-seat, mechanics and deck-family coverage and tactical fixtures.
    Fix/replay engine failures before admitting their data. Keep real public
    decks distinct from generated/adapted variants and preserve held-out splits.
+   Before a longer scaling campaign, replace the lossy card-summary bottleneck
+   described below with a versioned structural representation. Keep this first
+   run as an instrumented baseline, not the final universal-player architecture.
 5. Compare K=1/2/4/8 at equal wall time and ablate/shuffle/reset memory. Longer
    iteration is useful only if decisions improve. Add action-conditioned plan
    quality, counterfactual tests and calibrated stopping before spending
@@ -250,3 +253,122 @@ diagnostics need further work. Next decisions follow gameplay evidence.
   Existing card holdouts leave seven train, one validation and 83 test lists.
   The current card pool and arbitrary 5% card holdout constrain real-deck
   diversity strongly; do not relabel test cards just to inflate training counts.
+
+## Overnight continuation and first full validation
+
+At step 1,000 the main model completed all 463,322 validation frames:
+active single-choice accuracy 44.17% on 17,793 choices, overall top-1 86.28%,
+Brier 0.25081 versus uniform-surviving-seat 0.19971, ECE 0.21449.
+Mean predicted utility was 0.10887 versus observed 0.30534. This is a poorly
+calibrated critic, not evidence for trusting a plan-ranking head. This validation
+set differs from the warmup's, so their percentages are not a controlled before/
+after comparison. Training resumed successfully after validation; peak training
+allocation subsequently reached 5.45 GB. Full validation used about 10.1 GB
+device memory including allocator reservations. No CUDA OOM occurred.
+
+Three detached processes implement the continuation without needing approval:
+
+- `experiments/codex-r3-main-54m`: five-hour BC budget, export/parity, paired
+  evaluation, fresh stochastic collection, audited bounded PPO, re-evaluation.
+  Full validation consumes part of the BC budget; five hours is not five hours
+  of optimizer work. Best weights and resumable latest weights remain separate.
+- `experiments/codex-r3-broad-corpus`: the original sources plus 3/6/8-seat
+  games, 48 real-web-mainboard training games and new held-out 3/6/8-seat games.
+  All 48 web games completed. Three new held-out multiplayer games reached their
+  answer caps at turns 265/269/275; the examined final states advanced rather
+  than repeating the Stir the Grave loop. Caps remain findings, not losses or
+  accepted training examples. Excluding capped games can bias coverage and must
+  remain visible in `admission.json`.
+- `experiments/codex-r3-broad-followup`: waits for the first pipeline to release
+  the GPU and for a successfully validated broad corpus, then runs one bounded
+  additional BC hour from the first BC checkpoint, exports and evaluates it.
+  It keeps the previous corpus in the mixture. It does not silently replace
+  BC with the exploratory PPO checkpoint or deploy either model.
+
+The broad conversion's first attempt was terminated by its watchdog after
+906.5 s at 51.71 GB proportional RAM, exceeding its 48 GiB limit. The process
+group exited, the incomplete dataset remains quarantined, and the GPU training
+job continued. Two avoidable copies were removed: replay finalization now moves
+frames backwards while computing next-seat-life labels, and serialization buffers
+one frame instead of a whole game's JSON. The old/new binaries produce exactly
+the same 21,847 serialized frames from six live duel/team records and bit-identical
+DSL tables (`checks/conversion-memory-parity.json`). Small-case peak PSS fell
+from 312 MB to 208 MB. The retry uses two workers, a new job directory
+`jobs/convert-retry-1`, a new `dataset-convert-retry-1` and a two-hour deadline.
+Source game records and the failed attempt are preserved. The followup consumes
+only the dataset published in the successful `result.json`.
+
+The largest completed eight-seat validation record by compressed input size
+(game `eight-val-0000001`, 21,935 answers, turn 219) then converted successfully
+in 554.9 s with 19.31 GB peak PSS and no rejected/unencoded decisions. This is
+why conversion concurrency is two, not four, on the 64 GB training host.
+Subsequent converter builds also journal each worker's in-flight shard/member
+before replay and report completed-game counts. The already-started broad retry
+uses the preceding, memory-corrected executable; its executable hash is saved.
+
+`tools/trainer/report_experiment4.py` observes both training experiments for up
+to 16 hours. Current local status is
+`experiments/codex-r3-status/progress.md` (also `progress.json`), refreshed every
+30 seconds. It also adds paired uncertainty reports to completed evaluations,
+including the already-running pipeline that predates automatic report creation.
+Seat rotations remain one statistical cluster. Capped outcomes are unknown in
+`[0,1]`: reported intervals include their best/worst possible completions; an
+imputed 0.5 is not presented as an observed draw. The watcher never retries or
+promotes a model. Per-stage `job.json`, stdout/stderr and source hashes are the
+authoritative failure evidence. On failure, inspect those and resume into a new
+attempt; do not delete a failed directory or restart a second GPU job blindly.
+
+## Representation audit: next architecture priority
+
+`audit_representation4.py` compared all 9,265 working-pool front faces in the
+converted vocabulary: only 8,217 unique 160-float summaries, 553 collision
+groups containing 1,601 cards. Adding all eight stored ability rows still leaves
+443 groups containing 1,198 cards. Some groups are legitimate functional
+reprints, but others include materially different rules: Mana Leak / Negate /
+Remove Soul, different fetch lands, and different utility lands. See
+`checks/representation-r3.json` for the full groups and table checksum.
+
+The actor does not consume all stored ability rows. Activation candidates
+currently receive only the effect-channel slice of their selected ability;
+named-card choices receive the card summary without an identity embedding or
+entity pointer. Exactly colliding named-card summaries are indistinguishable
+to that head. Chosen-name object state also records presence without the actual
+chosen identity. Legal offers can distinguish some situations indirectly, but
+cannot recover all missing card semantics or support reliable hypothetical plans.
+
+Therefore the next contract must combine a stable public identity/reference
+channel with an actual hierarchical typed AST encoder: ability kind, costs,
+timing/zone, nested filter logic (including negation), target scope/controller,
+numeric and X-dependent predicates, conditions, effect sequence/branches,
+replacement rules, dependencies and selected-ability links. Identity alone
+cannot generalize to unseen cards; pooled effect counts alone cannot distinguish
+these rules. Preserve every ability, or report explicit overflow and route it
+through a defined fallback. Add counterexamples that distinguish the above
+cards and hidden-information invariance tests. Version/reconvert/export this
+separately; never mutate encoder 5 under the active experiment. This is a higher
+priority than increasing depth, adding MoE or trusting a larger value head.
+
+Another label limitation to migrate explicitly: `opp_min_final_life_norm`
+currently takes the minimum over all other seats, including teammates. Its
+name overstates opponent-only semantics in team games. Correct the team mask
+with a trajectory-version migration and regression before relying on this
+auxiliary target; do not silently change labels under a resumable checkpoint.
+
+## Verification and deployment limits at handoff
+
+The latest replay change passes all 57 trainer library tests. The relevant
+trainer library plus `selfplay`, `convert4`, `eval4` and `deck_catalog4` pass
+Clippy with `-D warnings`. Six existing Python contract checks, six recurrent
+regressions, two watchdog tests, two deck-import tests and two statistical
+evaluation tests pass. The large DSL and evaluation source files are now split
+into directory modules. Whole-repository gates have not been run; this work is
+neither pushed nor landed on `main`.
+
+The overnight binaries use ONNX CPU execution. A previous smoke command set
+`BAYLEE_EP=cuda` on a binary lacking `onnx-cuda`; that was CPU execution and is
+not evidence for CUDA EP support. Phoenix NPU execution remains untested.
+Release binaries use panic-abort: the external watchdog and saved deal identity
+survive, but in-process `catch_unwind` cannot salvage an aborting game. An unwind
+collector build or per-game isolation is needed for stronger crash containment.
+The implemented loop fix changed the house policy only. The pipeline does not
+automatically apply engine rules patches or train through an unverified fix.

@@ -14,6 +14,13 @@ Trainingsbenchmark mit `B=8, U=32, K=1` benötigte etwa 3,3 GB VRAM;
 der erste Vorlauf mit `K=1/2/4/8` erreichte etwa 5,2 GB. Die H-Schnittstelle
 bleibt `9 × d`; Arbeitszustand Z und persistentes Gedächtnis H sind getrennt.
 
+**Neue Implementierungsgrenze:** Der aktuelle 160-dimensionale DSL-Summary
+verliert relevante Regelunterschiede (unter anderem Mana Leak/Negate).
+Der [Repräsentationsaudit](../history/trained-ai-v4-codex-run-2026-10-22.md#representation-audit-next-architecture-priority)
+macht einen hierarchischen AST-Encoder mit expliziten Identitäts-/Fähigkeitsbezügen
+zur nächsten Architekturpriorität. Der laufende 54M-Versuch ist eine überprüfbare
+Vergleichsbasis, nicht bereits die endgültige universelle Spiel-KI.
+
 **Prüfmethode:** Quellcodevergleich, Bestandszählungen, kleine CPU-Python-Proben am bestehenden Encoder/Modell sowie Recherche in Originalpublikationen und Herstellerdokumentation. Keine v4-VRAM- oder `acenb`-Latenzmessung; kein neuer Trainingslauf.
 
 Bezugsdokumente: [trained-ai](../trained-ai.md), [house-ai](../house-ai.md),
