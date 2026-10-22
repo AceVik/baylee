@@ -1,9 +1,17 @@
 //! The updater's face in a headless app: the notice appears where it
 //! should, its buttons do what they say, and the switches reach the thread.
 
+use super::card::*;
+use super::settings::*;
 use super::*;
+use crate::hud::{UiFonts, tf};
+use crate::lobby::Metrics;
+use crate::settings::ClientSettings;
+use crate::{DuelPhase, lobby};
 use bevy::ecs::system::RunSystemOnce;
+use bevy::input::mouse::MouseScrollUnit;
 use bevy::picking::events::PointerClick;
+use bevy::ui::{percent, px};
 
 fn fonts() -> UiFonts {
     UiFonts {
