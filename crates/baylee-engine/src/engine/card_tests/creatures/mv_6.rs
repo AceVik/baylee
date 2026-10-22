@@ -21,6 +21,7 @@ mod dread_reaper;
 mod dread_rider;
 mod ebon_praetor;
 mod feral_thallid;
+mod firestorm_hellkite;
 mod firestorm_phoenix;
 mod flowstone_mauler;
 mod force_of_nature;

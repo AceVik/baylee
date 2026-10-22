@@ -7,6 +7,11 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static WITHOUT_FLANKING: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
+]);
+
 static KNIGHT_CREATURE: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::HasSubtype(subtypes::creature::KNIGHT),
@@ -26,17 +31,27 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::KNIGHT],
         power = Some(2),
         toughness = Some(2),
+        keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[triggered!(
-        Trigger::ETB,
-        &[Effect::PlayerMayPayManaOr {
-            player: PlayerRel::You,
-            cost: mana!("{U}"),
-            effect: &Effect::Destroy {
-                target: TargetSpec::Object(&KNIGHT_CREATURE),
-                no_regen: true,
-            },
-        }],
-        targets = Some(TargetReq::one(TargetSpec::Object(&KNIGHT_CREATURE))),
-    )],
+    abilities = &[
+        triggered!(
+            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
+            &[Effect::ModifyEvent {
+                modifier: Modifier::ModifyPT(-1, -1),
+                duration: Duration::UntilEndOfTurn,
+            }],
+        ),
+        triggered!(
+            Trigger::ETB,
+            &[Effect::PlayerMayPayManaOr {
+                player: PlayerRel::You,
+                cost: mana!("{U}"),
+                effect: &Effect::Destroy {
+                    target: TargetSpec::Object(&KNIGHT_CREATURE),
+                    no_regen: true,
+                },
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&KNIGHT_CREATURE))),
+        ),
+    ],
 );

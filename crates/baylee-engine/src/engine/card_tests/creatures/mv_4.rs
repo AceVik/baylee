@@ -90,6 +90,7 @@ mod fungusaur;
 mod furnace_whelp;
 mod gemrazer;
 mod general_jarkeld;
+mod giant_caterpillar;
 mod giant_mantis;
 mod giant_oyster;
 mod giant_spider;

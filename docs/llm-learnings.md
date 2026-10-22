@@ -5449,7 +5449,15 @@ more than two it names nobody). What the author did more than once:
     life equal to its power and you gain life equal to its toughness"*) fires on `Trigger::Dies(&Filter::AttachedToBySource)`,
     `PlayerRel::ControllerOfEvent`, `Amount::EventPower`, and `Amount::EventLastToughness` read the LKI
     snapshot of the dying enchanted creature directly.
-- Added *Visions* Batch 2 (`Fireblast` through `Kookus`, **17 `Coverage::Implemented`, 8 `Coverage::Partial`**),
-  including `Goblin Recruiter`'s multi-find top-of-library search (`Find::TOP_OF_LIBRARY.any_number()`),
-  `Fireblast`'s alternative cost sacrificing two Mountains (`CostPart::SacrificeN { filter, count: 2 }`),
+- Added *Visions* Batch 2 (`Fireblast` through `Kookus`, **15 `Coverage::Implemented`, 10 `Coverage::Partial`**),
+  including `Goblin Recruiter`'s multi-find top-of-library search (`Find::TOP_OF_LIBRARY.any_number()`)
   and `Helm of Awakening`'s global spell cost reduction (`Modifier::SpellsCostLess(1)` on `Filter::Any`).
+  - `cast_wizard::paid_as_an_alternative_cost` only supports `CostPart::PayLife(_)` and `CostPart::ExileFromHand(_)`,
+    and `cast_wizard::paid_as_a_mandatory_additional_cost` only supports `PayLifeX`, `PayLife(_)`, `Sacrifice(_)`,
+    `ExilePermanent(_)`, `ExileFromGraveyard(_)`, `Discard(_)`, `DiscardHand`, and `DiscardLastDrawnThisTurn`
+    (enforced by `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`), so `Fireblast`,
+    `Kaervek's Spite`, and `Infernal Harvest` must not place `CostPart::Sacrifice` in `alternative_costs`
+    or `CostPart::SacrificeAll` / `CostPart::ReturnToHand` in `mandatory_additional_costs`.
+  - Cards with `KeywordSet::FLANKING` (`Knight of Valor`, `Knight of the Mists`) must also carry the explicit
+    `triggered!(Trigger::BecomesBlockedBy(&WITHOUT_FLANKING), &[Effect::ModifyEvent { modifier: Modifier::ModifyPT(-1, -1), duration: Duration::UntilEndOfTurn }])`
+    ability so the flanking -1/-1 trigger fires when blocked by a creature without flanking.

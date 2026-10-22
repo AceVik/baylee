@@ -14384,7 +14384,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         stackable: 0,
         lines: &[None],
         modes: &[],
-        alternatives: &[Some(0)],
+        alternatives: &[],
     }],
     // Firestorm Hellkite
     &[FaceLines {
@@ -14614,16 +14614,16 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Knight of Valor
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],
     // Knight of the Mists
     &[FaceLines {
         sentences: 2,
-        stackable: 1,
-        lines: &[Some(1)],
+        stackable: 2,
+        lines: &[None, Some(1)],
         modes: &[],
         alternatives: &[],
     }],

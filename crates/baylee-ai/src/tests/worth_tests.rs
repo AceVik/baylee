@@ -1010,7 +1010,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Visions (`vis`) Batch 1 adds 4 non-mana activated abilities across
     // Brass-Talon Chimera, Crypt Rats, Daraja Griffin, and Dragon Mask, of
     // which 3 are read by the evaluator.
-    assert_eq!((read, of), (2697, 3359), "activated/loyalty reader census");
+    // Visions (`vis`) Batch 2 adds 8 non-mana activated abilities across
+    // Flooded Shoreline, Giant Caterpillar, Gossamer Chains, Iron-Heart
+    // Chimera, Juju Bubble, Keeper of Kookus, Knight of Valor, and Kookus, of
+    // which 6 are read by the evaluator.
+    assert_eq!((read, of), (2703, 3367), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

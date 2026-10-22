@@ -57,6 +57,7 @@ mod great_defender;
 mod guardian_angel;
 mod heal;
 mod healing_salve;
+mod hearth_charm;
 mod heat_ray;
 mod heaven_s_gate;
 mod high_tide;

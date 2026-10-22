@@ -93,6 +93,7 @@ mod gilded_drake;
 mod goblin_elite_infantry;
 mod goblin_engineer;
 mod goblin_masons;
+mod goblin_recruiter;
 mod goblin_rock_sled;
 mod goblin_sappers;
 mod goblin_ski_patrol;

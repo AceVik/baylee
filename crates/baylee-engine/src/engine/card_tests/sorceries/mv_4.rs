@@ -25,6 +25,7 @@ mod eternal_flame;
 mod eureka;
 mod fatal_lore;
 mod flashfires;
+mod forbidden_ritual;
 mod juxtapose;
 mod lay_waste;
 mod mind_warp;

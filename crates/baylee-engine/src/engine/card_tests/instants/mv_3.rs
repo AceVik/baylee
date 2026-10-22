@@ -40,6 +40,7 @@ mod holy_light;
 mod infuse;
 mod inner_calm_outer_strength;
 mod jolt;
+mod kaervek_s_spite;
 mod kazuul_s_fury;
 mod khalni_ambush;
 mod krosan_grip;
