@@ -298,7 +298,7 @@ pub(crate) async fn authorize(
 
 /// Central renewed the session behind `lease` (baylee-central
 /// `docs/operations.md` §"Sessions"): its later expiry becomes this
-/// gateway's for the lease and its bearer, so the local session lasts as
+/// gateway's for the lease, which bounds the local session, so that lasts as
 /// long as Central's. Nothing when it did not move.
 async fn renewed(
     state: &Shared,

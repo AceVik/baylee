@@ -51,18 +51,14 @@ pub(super) fn run(gateway: &common::Gateway, endpoint: &Endpoint, origin: &str) 
     )
     .unwrap();
     let admitted = account.admit(origin).unwrap();
-    let stored = format!(
-        "SELECT floor(extract(epoch FROM s.expires_at))::bigint FROM session_token s
-         JOIN central_gateway_session c ON c.token_hash = s.token_hash
-         WHERE s.account_id = '{source_id}'::uuid"
-    );
+    // The lease bounds a Central session here; the bearer's own expiry
+    // renews itself on use, as every session's does.
     let leased = format!(
         "SELECT floor(extract(epoch FROM c.expires_at))::bigint FROM session_token s
          JOIN central_gateway_session c ON c.token_hash = s.token_hash
          WHERE s.account_id = '{source_id}'::uuid"
     );
-    let first = gateway.scalar(&stored);
-    assert_eq!(gateway.scalar(&leased), first);
+    let first = gateway.scalar(&leased);
     assert_eq!(
         common::http(gateway.port, "GET", "/me", Some(&admitted.token), "").0,
         200
@@ -76,8 +72,7 @@ pub(super) fn run(gateway: &common::Gateway, endpoint: &Endpoint, origin: &str) 
         200,
         "the gateway takes the renewed lease"
     );
-    assert_eq!(gateway.scalar(&stored), renewed, "and keeps its expiry");
-    assert_eq!(gateway.scalar(&leased), renewed);
+    assert_eq!(gateway.scalar(&leased), renewed, "and keeps its expiry");
     // Signing out still ends it at once, renewed or not.
     account.logout().unwrap();
     assert_eq!(

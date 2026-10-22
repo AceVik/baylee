@@ -133,9 +133,10 @@ pub async fn issue_session(
     transaction.commit().await
 }
 
-/// Move a Central-bound session's expiry forward to `expires_at`, once Central
-/// renewed its lease (baylee-central `docs/operations.md` §"Sessions"): the
-/// lease's row and the bearer session it belongs to, never backwards.
+/// Move a Central-bound session's lease expiry forward to `expires_at`, once
+/// Central renewed it (baylee-central `docs/operations.md` §"Sessions"); never
+/// backwards. The lease bounds the session (`session_binding`); the bearer's
+/// own expiry renews itself on use like any session's.
 ///
 /// # Errors
 /// Reports storage failures; nothing is moved then.
@@ -146,11 +147,8 @@ pub async fn extend_session(
 ) -> Result<(), DbErr> {
     db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
-        "WITH moved AS (
-             UPDATE central_gateway_session SET expires_at = to_timestamp($2::bigint)
-             WHERE lease = $1 AND expires_at < to_timestamp($2::bigint) RETURNING token_hash)
-         UPDATE session_token s SET expires_at = to_timestamp($2::bigint) FROM moved
-         WHERE s.token_hash = moved.token_hash AND s.expires_at < to_timestamp($2::bigint)",
+        "UPDATE central_gateway_session SET expires_at = to_timestamp($2::bigint)
+         WHERE lease = $1 AND expires_at < to_timestamp($2::bigint)",
         [lease.to_vec().into(), expires_at.into()],
     ))
     .await?;

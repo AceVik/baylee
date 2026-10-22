@@ -213,8 +213,9 @@ every ten minutes (`Account::renew`; a failure is retried a minute later and
 ends nothing), so it, and every gateway session admitted from it, lasts while
 the client runs, up to 12 hours after the password sign-in (baylee-central
 `docs/operations.md` §"Sessions"). The gateway takes the later lease expiry
-Central reports on its next check and stores it (`central::authorize`,
-`baylee_db::central::extend_session`); an earlier one is refused. A gateway
+Central reports on its next check and stores it on the lease, which bounds
+the session (`central::authorize`, `baylee_db::central::extend_session`); an
+earlier one is refused. A gateway
 built before this compares the expiry exactly and so ends a session at its
 first renewal: gateways update together with Central.
 
