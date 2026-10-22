@@ -418,16 +418,41 @@ pub fn sync_menu(
     // Getting up without conceding (report 33): a spectator's *Stop
     // watching* above already is that, so a player's chair only.
     if !next.watching {
-        let (words, weight) = match (next.leaving, next.house) {
-            (true, true) => (Phrase::LeaveTableConfirmOffline, Weight::Danger),
-            (true, false) => (Phrase::LeaveTableConfirm, Weight::Danger),
-            (false, _) => (Phrase::LeaveTable, Weight::Secondary),
+        let (words, weight) = if next.leaving {
+            (Phrase::LeaveTableConfirm, Weight::Danger)
+        } else {
+            (Phrase::LeaveTable, Weight::Secondary)
         };
         let leave = answer(&mut commands, &fonts, words.text(lang), weight, None);
         commands.entity(leave).insert(MenuButton {
             action: MenuAction::LeaveGame,
         });
         commands.entity(panel).add_child(leave);
+        // Armed, what leaving costs stands under the row, as the host's
+        // Leave says it under its question (DESIGN-v5 §5): the row itself is
+        // as short as the concession's (owner, 22.10.2026: the armed words
+        // were too long for it). Under the row, so nothing above the pointer
+        // moves.
+        if next.leaving {
+            let cost = if next.house {
+                Phrase::LeaveTableCostOffline
+            } else {
+                Phrase::LeaveTableCost
+            };
+            let line = commands
+                .spawn((
+                    Text::new(cost.text(lang)),
+                    tf(&fonts, VERSION_PT),
+                    TextColor(palette::DIALOG_SOFT),
+                    Node {
+                        width: percent(100),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(panel).add_child(line);
+        }
     }
 
     // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is
@@ -678,17 +703,37 @@ mod tests {
     /// character commit and the `-dirty` suffix — and the real
     /// `baylee_build::short()` is held against that shape, which is what
     /// makes the bound a measurement instead of a guess.
+    ///
+    /// Every row `sync_menu` can draw is in the first population, the leave
+    /// rows of report 33 too: they were not, and the armed one ran out of the
+    /// panel (owner, 22.10.2026, "the confirmation button text is too long").
     #[test]
     fn the_panel_is_wide_enough_for_everything_it_can_ever_say() {
+        use baylee_client_core::layout::Arrangement;
+        use baylee_client_core::replay::words::ReplayPhrase;
         let inside = MENU_W - 2.0 * MENU_PAD_X - 2.0;
         for lang in [Lang::En, Lang::De] {
-            for phrase in [
+            let mut rows: Vec<String> = [
                 Phrase::OfferADraw,
                 Phrase::Concede,
                 Phrase::ConcedeConfirm,
+                Phrase::StopWatching,
+                Phrase::LeaveTable,
+                Phrase::LeaveTableConfirm,
                 Phrase::ReportButton,
-            ] {
-                let label = phrase.text(lang);
+                Phrase::TourMenuRow,
+                Phrase::TourMenuRowAway,
+            ]
+            .iter()
+            .map(|phrase| phrase.text(lang).to_string())
+            .collect();
+            rows.push(ReplayPhrase::LeaveReplay.text(lang).to_string());
+            rows.extend(
+                Arrangement::ALL
+                    .iter()
+                    .map(|a| Phrase::ArrGameMenuRow.fill(lang, &[a.name().text(lang)])),
+            );
+            for label in &rows {
                 let row = crate::hud::text_width(label, LABEL_PT, true) + 2.0 * BUTTON_PAD_X + 2.0;
                 assert!(
                     row <= inside,
