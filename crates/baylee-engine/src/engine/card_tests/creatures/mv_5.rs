@@ -53,6 +53,7 @@ mod flowstone_wyvern;
 mod folk_of_the_pines;
 mod fountain_watch;
 mod fury;
+mod gallowbraid;
 mod garna_the_bloodflame;
 mod general_tazri;
 mod gerrard_s_irregulars;

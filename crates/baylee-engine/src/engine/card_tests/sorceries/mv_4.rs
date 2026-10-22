@@ -27,6 +27,7 @@ mod eureka;
 mod fatal_lore;
 mod flashfires;
 mod forbidden_ritual;
+mod gerrard_s_wisdom;
 mod juxtapose;
 mod lay_waste;
 mod mind_warp;

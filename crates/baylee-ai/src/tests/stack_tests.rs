@@ -125,6 +125,7 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
     assert_eq!(
         held,
         [
+            "Abeyance",
             "Brainstorm",
             "Consider",
             "Contingency Plan",

@@ -16,6 +16,7 @@ mod cleansing;
 mod coercion;
 mod deconstruct;
 mod divination;
+mod doomsday;
 mod dream_cache;
 mod dust_to_dust;
 mod eerie_procession;

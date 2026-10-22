@@ -7,6 +7,7 @@ mod ancestral_memories;
 mod angelic_edict;
 mod bribery;
 mod brilliant_plan;
+mod cone_of_flame;
 mod demon_s_grasp;
 mod dosan_s_oldest_chant;
 mod essence_drain;

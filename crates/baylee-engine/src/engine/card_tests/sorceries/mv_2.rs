@@ -22,6 +22,7 @@ mod fire_ambush;
 mod fit_of_rage;
 mod foresight;
 mod forget;
+mod gaea_s_blessing;
 mod gaze_of_pain;
 mod hunger_of_the_nim;
 mod infernal_harvest;

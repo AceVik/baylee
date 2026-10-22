@@ -18,6 +18,7 @@ mod braidwood_cup;
 mod brass_s_tunnel_grinder;
 mod celestial_prism;
 mod chariot_of_the_sun;
+mod chimeric_sphere;
 mod chromatic_lantern;
 mod commander_s_sphere;
 mod crucible_of_worlds;

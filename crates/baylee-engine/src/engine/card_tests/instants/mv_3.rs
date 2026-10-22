@@ -19,6 +19,7 @@ mod chord_of_calling;
 mod daring_leap;
 mod dark_banishing;
 mod dazzling_beauty;
+mod debt_of_loyalty;
 mod deflecting_swat;
 mod delirium;
 mod dissipate;

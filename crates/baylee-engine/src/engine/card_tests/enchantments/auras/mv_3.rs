@@ -8,6 +8,7 @@ mod anti_magic_aura;
 mod bestial_fury;
 mod casting_of_bones;
 mod chromatic_armor;
+mod empyrial_armor;
 mod erosion;
 mod errant_minion;
 mod false_demise;
