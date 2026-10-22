@@ -35,7 +35,7 @@ POLL_SECS=60
 # A registered runner that has not started a job by then never will: the job
 # was cancelled or taken while this one waited for the lock.
 IDLE_SECS=900
-MAX_VMS=2
+MAX_VMS=1
 # The dist build keeps two or three cores busy on average (user over real,
 # 22.10.2026), so two VMs of eight share the host's ten well. It peaked at
 # 9.6 GB (thin LTO of the client); 16 GB holds it and the guest's own macOS.
@@ -79,6 +79,21 @@ wait_for_agent() {
     return 1
 }
 
+# The agent answers before the network does. A VM that cannot reach GitHub
+# gets no registration: its job stays queued for the next VM instead of
+# failing in its checkout.
+wait_for_network() {
+    local vm=$1
+    for _ in $(seq 1 30); do
+        if tart exec "$vm" /usr/bin/curl -sS -m 3 -o /dev/null https://github.com >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+    done
+    log "$vm: no way to github.com after 60 s"
+    return 1
+}
+
 # One VM, one job; $1 tells the VMs of a batch apart. Run it in a subshell:
 # the EXIT trap is what deletes the VM.
 one_job() {
@@ -90,6 +105,7 @@ one_job() {
     # shellcheck disable=SC2064 # the names are fixed now, on purpose
     trap "tart stop '$vm' >/dev/null 2>&1; wait $tart_pid 2>/dev/null; tart delete '$vm'; rm -f '$HOME/Library/Logs/$vm.log'" EXIT
     wait_for_agent "$vm" || return 1
+    wait_for_network "$vm" || return 1
     reply=$(gh api -X POST "repos/$REPO/actions/runners/generate-jitconfig" \
         -f name="$vm" -F runner_group_id=1 -f work_folder=_work \
         -f 'labels[]=self-hosted' -f 'labels[]=macOS' -f 'labels[]=ARM64' -f "labels[]=$LABEL") || return 1
@@ -118,7 +134,7 @@ one_job() {
 # each in a VM of its own. A main push that lands meanwhile is served before
 # the lock goes back.
 batch() {
-    local n i
+    local n i pids pid served failed=0
     while true; do
         n=$(queued)
         if [ "${n:-0}" -le 0 ]; then
@@ -128,11 +144,28 @@ batch() {
             n=$MAX_VMS
         fi
         log "$n job(s) queued"
+        pids=
         for i in $(seq 1 "$n"); do
             (one_job "$i") &
+            pids="$pids $!"
         done
-        wait
-        # A registration GitHub refuses must not become a loop of clones.
+        served=0
+        for pid in $pids; do
+            if wait "$pid"; then
+                served=1
+            fi
+        done
+        # Three rounds in which no VM got as far as a job hand the lock back:
+        # a VM that never reaches GitHub must not keep every land waiting.
+        if [ "$served" = 1 ]; then
+            failed=0
+        else
+            failed=$((failed + 1))
+            if [ "$failed" -ge 3 ]; then
+                log "three rounds without a job; giving the lock back"
+                break
+            fi
+        fi
         sleep 10
     done
 }
