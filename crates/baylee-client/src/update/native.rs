@@ -371,8 +371,10 @@ fn receive(updater: Res<Updater>, mut notice: ResMut<UpdateNotice>) {
     let Some(service) = service.as_ref() else {
         return;
     };
-    while let Ok(outcome) = service.outcomes.try_recv() {
-        take(&mut notice, outcome);
+    while let Ok(report) = service.reports.try_recv() {
+        if let Some(outcome) = report.outcome() {
+            take(&mut notice, outcome);
+        }
     }
 }
 
