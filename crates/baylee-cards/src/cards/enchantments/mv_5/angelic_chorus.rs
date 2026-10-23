@@ -1,0 +1,21 @@
+//! Angelic Chorus — {3}{W}{W} — Enchantment
+//! Oracle: Whenever a creature you control enters, you gain life equal to its toughness.
+//! Set: BBD #87 — Battlebond | Scryfall ID: d9e966cb-bb42-49d8-b351-114619b31497 | Oracle ID: e66b12ff-45da-46dc-9148-bd8ea9b7fde0
+// PARTIAL: Triggered ability gaining life equal to the entering creature's toughness is not supported because Amount lacks an EventToughness reader for entering permanents; enters as a {3}{W}{W} enchantment with no abilities.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::ANGELIC_CHORUS,
+    oracle_id = "e66b12ff-45da-46dc-9148-bd8ea9b7fde0",
+    scryfall_id = "d9e966cb-bb42-49d8-b351-114619b31497",
+    color_identity = ColorSet::from_slice(&[Color::White]),
+    coverage = Coverage::Partial(
+        "Triggered ability gaining life equal to the entering creature's toughness is not supported because Amount lacks an EventToughness reader for entering permanents; enters as a {3}{W}{W} enchantment with no abilities.",
+    ),
+    faces = &[face!(
+        name = "Angelic Chorus",
+        mana_cost = mana!("{3}{W}{W}"),
+        types = TypeSet::ENCHANTMENT,
+    ),],
+);

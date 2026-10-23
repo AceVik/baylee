@@ -10298,3 +10298,29 @@ Volrath's Dungeon
 Wall of Nets
 Wayward Soul
 Zealots en-Dal
+# Urza's Saga (usg)
+Abundance
+Academy Researchers
+Acidic Soil
+Acridian
+Albino Troll
+Angelic Chorus
+Antagonism
+Arc Lightning
+Argothian Elder
+Argothian Wurm
+Barrin's Codex
+Bedlam
+Blanchwood Armor
+Brand
+Bravado
+Brilliant Halo
+Bulwark
+Carrion Beetles
+Catastrophe
+Cave Tiger
+Chimeric Staff
+Citanul Centaurs
+Citanul Flute
+Cloak of Mists
+Congregate

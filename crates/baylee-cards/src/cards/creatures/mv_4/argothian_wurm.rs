@@ -1,0 +1,36 @@
+//! Argothian Wurm — {3}{G} — Creature — Wurm
+//! Oracle: Trample
+//! Oracle: When this creature enters, any player may sacrifice a land of their choice. If a player does, put this creature on top of its owner's library.
+//! Set: USG #236 — Urza's Saga | Scryfall ID: 93294349-75ae-4a6b-896d-b403a5d69e98 | Oracle ID: f8aa1893-60e5-439e-9316-872a9f6b6c94
+// PARTIAL: Has trample and an enters-the-battlefield trigger where an opponent may sacrifice a land to put Argothian Wurm on top of its owner's library; asking every player in turn order ("any player") is not supported.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::ARGOTHIAN_WURM,
+    oracle_id = "f8aa1893-60e5-439e-9316-872a9f6b6c94",
+    scryfall_id = "93294349-75ae-4a6b-896d-b403a5d69e98",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    keywords = KeywordSet::TRAMPLE,
+    coverage = Coverage::Partial(
+        "Has trample and an enters-the-battlefield trigger where an opponent may sacrifice a land to put Argothian Wurm on top of its owner's library; asking every player in turn order (\"any player\") is not supported.",
+    ),
+    faces = &[face!(
+        name = "Argothian Wurm",
+        mana_cost = mana!("{3}{G}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::WURM],
+        power = Some(6),
+        toughness = Some(6),
+    ),],
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[Effect::PlayerMaySacrificeNThen {
+            player: PlayerRel::Opponent,
+            filter: &Filter::LAND,
+            count: 1,
+            effect: &Effect::PutSourceOnTopOfLibrary,
+        }],
+    )],
+);

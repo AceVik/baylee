@@ -9405,87 +9405,138 @@ pub static ORACLE: &[&[&str]] = &[
     &["All creatures have protection from black."],
     // Absolute Law
     &["All creatures have protection from red."],
-    &[],
+    // Abundance
+    &[
+        "If you would draw a card, you may instead choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order.",
+    ],
     // Abyssal Horror
     &["Flying\nWhen this creature enters, target player discards two cards."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Academy Researchers
+    &[
+        "When this creature enters, you may put an Aura card from your hand onto the battlefield attached to this creature.",
+    ],
+    // Acidic Soil
+    &["Acidic Soil deals damage to each player equal to the number of lands they control."],
+    // Acridian
+    &[
+        "Echo {1}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Albino Troll
+    &[
+        "Echo {1}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\n{1}{G}: Regenerate this creature.",
+    ],
+    // Angelic Chorus
+    &["Whenever a creature you control enters, you gain life equal to its toughness."],
     // Angelic Page
     &["Flying\n{T}: Target attacking or blocking creature gets +1/+1 until end of turn."],
     // Annul
     &["Counter target artifact or enchantment spell."],
-    &[],
-    &[],
+    // Antagonism
+    &[
+        "At the beginning of each player's end step, this enchantment deals 2 damage to that player unless one of their opponents was dealt damage this turn.",
+    ],
+    // Arc Lightning
+    &["Arc Lightning deals 3 damage divided as you choose among one, two, or three targets."],
     // Arcane Laboratory
     &["Each player can't cast more than one spell each turn."],
-    &[],
+    // Argothian Elder
+    &["{T}: Untap two target lands."],
     // Argothian Enchantress
     &[
         "Shroud (This creature can't be the target of spells or abilities.)\nWhenever you cast an enchantment spell, draw a card.",
     ],
     // Argothian Swine
     &["Trample"],
-    &[],
+    // Argothian Wurm
+    &[
+        "Trample\nWhen this creature enters, any player may sacrifice a land of their choice. If a player does, put this creature on top of its owner's library.",
+    ],
     // Attunement
     &["Return this enchantment to its owner's hand: Draw three cards, then discard four cards."],
     // Back to Basics
     &["Nonbasic lands don't untap during their controllers' untap steps."],
-    &[],
+    // Barrin's Codex
+    &[
+        "At the beginning of your upkeep, you may put a page counter on this artifact.\n{4}, {T}, Sacrifice this artifact: Draw X cards, where X is the number of page counters on this artifact.",
+    ],
     // Barrin, Master Wizard
     &["{2}, Sacrifice a permanent: Return target creature to its owner's hand."],
-    &[],
+    // Bedlam
+    &["Creatures can't block."],
     // Befoul
     &["Destroy target land or nonblack creature. It can't be regenerated."],
     // Bereavement
     &["Whenever a green creature dies, its controller discards a card."],
-    &[],
+    // Blanchwood Armor
+    &["Enchant creature\nEnchanted creature gets +1/+1 for each Forest you control."],
     // Blanchwood Treefolk
     &[""],
     // Blasted Landscape
     &["{T}: Add {C}.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     // Blood Vassal
     &["Sacrifice this creature: Add {B}{B}."],
-    &[],
-    &[],
+    // Brand
+    &[
+        "Gain control of all permanents you own. (This effect lasts indefinitely.)\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Bravado
+    &["Enchant creature\nEnchanted creature gets +1/+1 for each other creature you control."],
     // Breach
     &[
         "Target creature gets +2/+0 and gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
+    // Brilliant Halo
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+2.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Bulwark
+    &[
+        "At the beginning of your upkeep, this enchantment deals X damage to target opponent, where X is the number of cards in your hand minus the number of cards in that player's hand.",
+    ],
     // Cackling Fiend
     &["When this creature enters, each opponent discards a card."],
     // Carpet of Flowers
     &[
         "At the beginning of each of your main phases, if you haven't added mana with this ability this turn, you may add X mana of any one color, where X is the number of Islands target opponent controls.",
     ],
-    &[],
+    // Carrion Beetles
+    &["{2}{B}, {T}: Exile up to three target cards from a single graveyard."],
     // Catalog
     &["Draw two cards, then discard a card."],
-    &[],
+    // Catastrophe
+    &["Destroy all lands or all creatures. Creatures destroyed this way can't be regenerated."],
     // Cathodion
     &["When this creature dies, add {C}{C}{C}."],
-    &[],
+    // Cave Tiger
+    &[
+        "Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.",
+    ],
     // Child of Gaea
     &[
         "Trample\nAt the beginning of your upkeep, sacrifice this creature unless you pay {G}{G}.\n{1}{G}: Regenerate this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Chimeric Staff
+    &["{X}: This artifact becomes an X/X Construct artifact creature until end of turn."],
+    // Citanul Centaurs
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nEcho {3}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Citanul Flute
+    &[
+        "{X}, {T}: Search your library for a creature card with mana value X or less, reveal it, put it into your hand, then shuffle.",
+    ],
     // Citanul Hierophants
     &["Creatures you control have \"{T}: Add {G}.\""],
     // Claws of Gix
     &["{1}, Sacrifice a permanent: You gain 1 life."],
     // Clear
     &["Destroy target enchantment.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Cloak of Mists
+    &["Enchant creature\nEnchanted creature can't be blocked."],
     // Confiscate
     &["Enchant permanent\nYou control enchanted permanent."],
-    &[],
+    // Congregate
+    &["Target player gains 2 life for each creature on the battlefield."],
     &[],
     &[],
     // Coral Merfolk
