@@ -106,7 +106,7 @@ required-features = ["play"]
 
 [[bin]]
 name = "convert4"
-path = "src/bin/convert4.rs"
+path = "src/bin/convert4/main.rs"
 required-features = ["play"]
 
 [[bin]]
