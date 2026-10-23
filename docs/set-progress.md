@@ -707,7 +707,8 @@ no-engine-change contract:
   - Batch 2 (`Gliding Licid` to `Mogg Maniac`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 3 (`Mortuary` to `Verdant Touch`, 25 cards): **8 Implemented, 17 Partial**.
   - Batch 4 (`Volrath's Gardens` to `Warrior en-Kor`, 9 cards): **4 Implemented, 5 Partial**.
-- **Exodus (`exo`)** — in progress:
+- **Exodus (`exo`)** — completed across 4 batches (**43 Implemented, 50 Partial** across the 93 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Aether Tide` to `Fighting Chance`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 2 (`Flowstone Flood` to `Oath of Ghouls`, 25 cards): **8 Implemented, 17 Partial**.
   - Batch 3 (`Oath of Lieges` to `Skyshaper`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 4 (`Skyshroud Elite` to `Zealots en-Dal`, 18 cards): **8 Implemented, 10 Partial**.

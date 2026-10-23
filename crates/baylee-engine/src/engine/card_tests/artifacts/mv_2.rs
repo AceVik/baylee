@@ -70,6 +70,7 @@ mod selesnya_signet;
 mod sky_diamond;
 mod skyshaper;
 mod soldevi_digger;
+mod sphere_of_resistance;
 mod sword_of_the_chosen;
 mod talisman_of_dominance;
 mod talisman_of_impulse;

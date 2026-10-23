@@ -20,6 +20,7 @@ mod mox_opal;
 mod mox_pearl;
 mod mox_ruby;
 mod mox_sapphire;
+mod spellbook;
 mod tormod_s_crypt;
 mod urza_s_bauble;
 mod zuran_orb;

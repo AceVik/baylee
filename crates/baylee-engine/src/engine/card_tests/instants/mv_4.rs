@@ -40,3 +40,4 @@ mod weave_fate;
 mod deflection;
 mod nocturnal_raid;
 mod reins_of_power;
+mod slaughter;

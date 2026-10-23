@@ -145,6 +145,7 @@ mod shanodin_dryads;
 mod shaper_guildmage;
 mod shield_mate;
 mod skirk_prospector;
+mod skyshroud_elite;
 mod skyshroud_ranger;
 mod soldier_of_fortune;
 mod soul_warden;

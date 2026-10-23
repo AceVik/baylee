@@ -25,7 +25,7 @@ card!(
             &[Effect::RevealHandDiscard {
                 filter: &Filter::Any,
             }],
-            target = Some(TargetSpec::Player(PlayerRel::EachPlayer)),
+            target = Some(TargetSpec::AnyPlayer),
             timing = ActivationTiming::SorcerySpeed,
         )],
     ),],

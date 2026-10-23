@@ -81,6 +81,7 @@ mod search_for_azcanta;
 mod serra_s_blessing;
 mod shivan_harvest;
 mod smoke;
+mod song_of_serenity;
 mod soul_echo;
 mod spatial_binding;
 mod squandered_resources;

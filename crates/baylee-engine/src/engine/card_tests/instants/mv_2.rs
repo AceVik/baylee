@@ -126,6 +126,7 @@ mod simoon;
 mod simulacrum;
 mod sirocco;
 mod soothing_balm;
+mod sonic_burst;
 mod soul_rend;
 mod strength_in_numbers;
 mod stun;
