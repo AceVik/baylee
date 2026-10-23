@@ -682,6 +682,13 @@ checks only that the card is in a graveyard or in exile (CR 603.7c); a card
 moved from the graveyard into exile in response would come back from exile,
 because a synthetic trigger carries no version.
 
+When a source's own departure trigger creates `AtNextEndStep` or
+`AtNextCleanup`, the delayed action remembers the exact public-zone successor
+that the departure recorded (CR 400.7e). This lets a dies trigger return its
+card from the graveyard later. Moving that card out of the graveyard and back,
+before or after the delayed action is created, does not retarget the action
+to the new incarnation (CR 603.7c).
+
 ### A permanent spell keeps what was done to it (CR 400.7a)
 An effect a resolution registers on one object names it by id and version
 (`EffectFilter::ObjectIs`), and the permanent a spell becomes is a new object

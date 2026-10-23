@@ -2347,7 +2347,10 @@ hashes, layers and does nothing. This paragraph said THREE until
   this resolves: Dragon Whelp's "sacrifice this creature at the beginning
   of the next end step" is `AtNextEndStep { effects:
   &[Effect::SacrificeObject { target: TargetSpec::EventObject }] }`, and a
-  Whelp that left and came back is not sacrificed.
+  Whelp that left and came back is not sacrificed. A source's own departure
+  trigger can instead retain its exact public-zone successor (CR 400.7e),
+  such as its card in the graveyard after dying. Leaving that zone and
+  returning before or after the delay is created does not renew the link.
 - **`Effect::AtEndOfCombat { about, effects }`** is "[effects] at end of
   combat", a delayed trigger (CR 603.7) with this ability's source and
   controller that triggers as the next end of combat step begins

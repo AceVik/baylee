@@ -811,7 +811,15 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::AtNextEndStep { effects } | Effect::AtNextCleanup { effects } => {
-            let about_ref = subjects::this(state, res);
+            // A source's own departure trigger may find its exact public-zone
+            // successor (CR 400.7e). Remember that incarnation for the delayed
+            // action (CR 603.7c), not the former battlefield incarnation.
+            // Explicit targets retain their own identity rules.
+            let about_ref = if res.targets.is_empty() && !res.targeted {
+                subjects::moving_source(state, res).or_else(|| subjects::source(state, res))
+            } else {
+                subjects::this(state, res)
+            };
             let action = match about_ref.map(|r| (r.object, r.version)) {
                 Some((object, version)) => crate::state::DelayedAction::TriggerAbout {
                     source: res.source,
