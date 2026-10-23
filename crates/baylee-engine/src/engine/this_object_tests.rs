@@ -461,6 +461,12 @@ fn every_event_object_in_the_pool_is_one_the_engine_reads() {
         // reads `res.event_object`; `target` is the damage's recipient.
         "EventObjectDealsDamage {",
         "EventObjectDealsDamageEqualToPower",
+        // Dwarven Sea Clan's delayed "deals 2 damage to that creature" and
+        // Caltrops' "deals 1 damage to it": `resolve::life::recipients` reads
+        // the event object for any amount. `Debug` prints the amount first,
+        // so each amount the pool spells is listed.
+        "DealDamage { amount: Fixed(1), target: EventObject",
+        "DealDamage { amount: Fixed(2), target: EventObject",
         // Berserk's delayed "if it attacked this turn": the variant asks
         // `res.event_object` itself, and the destroy inside it is counted
         // above.

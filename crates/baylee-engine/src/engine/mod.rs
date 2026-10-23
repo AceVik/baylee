@@ -1980,6 +1980,8 @@ mod end_step_tests;
 #[cfg(test)]
 mod enter_zone_tests;
 #[cfg(test)]
+mod event_object_damage_tests;
+#[cfg(test)]
 mod event_player_tests;
 #[cfg(test)]
 mod extra_turn_tests;

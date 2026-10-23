@@ -887,11 +887,25 @@ fn recipients(
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)
-        | TargetSpec::SpellOrAbility(_)
-        | TargetSpec::EventObject => res
+        | TargetSpec::SpellOrAbility(_) => res
             .targets
             .first()
             .copied()
+            .map(DamageTarget::Object)
+            .into_iter()
+            .collect(),
+        // "That creature": chosen when the ability's own target requirement
+        // says `EventObject` (Caltrops), and otherwise the object the trigger
+        // remembers, which nothing chose. A delayed trigger has no targets at
+        // all (CR 603.7c): Dwarven Sea Clan's "deals 2 damage to that
+        // creature at end of combat" read `targets`, found nothing, and dealt
+        // no damage — the reader `zones::spec_object` keeps for the moving
+        // effects was never asked here.
+        TargetSpec::EventObject => res
+            .targets
+            .first()
+            .copied()
+            .or_else(|| super::zones::spec_object(state, res, target))
             .map(DamageTarget::Object)
             .into_iter()
             .collect(),
