@@ -10365,42 +10365,86 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Beast of Burden's power and toughness are each equal to the number of creatures on the battlefield.",
     ],
-    &[],
-    &[],
+    // About Face
+    &["Switch target creature's power and toughness until end of turn."],
+    // Angel's Trumpet
+    &[
+        "All creatures have vigilance.\nAt the beginning of each player's end step, tap all untapped creatures that player controls that didn't attack this turn. This artifact deals damage to the player equal to the number of creatures tapped this way.",
+    ],
     // Angelic Curator
     &["Flying, protection from artifacts"],
-    &[],
+    // Anthroplasm
+    &[
+        "This creature enters with two +1/+1 counters on it.\n{X}, {T}: Remove all +1/+1 counters from this creature and put X +1/+1 counters on it.",
+    ],
     // Archivist
     &["{T}: Draw a card."],
-    &[],
-    &[],
+    // Aura Flux
+    &[
+        "Other enchantments have \"At the beginning of your upkeep, sacrifice this enchantment unless you pay {2}.\"",
+    ],
+    // Avalanche Riders
+    &[
+        "Haste\nEcho {3}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, destroy target land.",
+    ],
     // Bloated Toad
     &["Protection from blue\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
-    &[],
+    // Bone Shredder
+    &[
+        "Flying\nEcho {2}{B} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, destroy target nonartifact, nonblack creature.",
+    ],
+    // Bouncing Beebles
+    &["This creature can't be blocked as long as defending player controls an artifact."],
+    // Brink of Madness
+    &[
+        "At the beginning of your upkeep, if you have no cards in hand, sacrifice this enchantment and target opponent discards their hand.",
+    ],
     // Burst of Energy
     &["Untap target permanent."],
-    &[],
-    &[],
-    &[],
+    // Cessation
+    &[
+        "Enchant creature\nEnchanted creature can't attack.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Cloud of Faeries
+    &[
+        "Flying\nWhen this creature enters, untap up to two lands.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Crawlspace
+    &["No more than two creatures can attack you each combat."],
     // Crop Rotation
     &[
         "As an additional cost to cast this spell, sacrifice a land.\nSearch your library for a land card, put that card onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Damping Engine
+    &[
+        "A player who controls more permanents than each other player can't play lands or cast artifact, creature, or enchantment spells. That player may sacrifice a permanent of their choice for that player to ignore this effect until end of turn.",
+    ],
     // Darkwatch Elves
     &["Protection from black\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     // Defender of Chaos
     &["Flash\nProtection from white"],
     // Defender of Law
     &["Flash\nProtection from red"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Defense Grid
+    &["Each spell costs {3} more to cast except during its controller's turn."],
+    // Defense of the Heart
+    &[
+        "At the beginning of your upkeep, if an opponent controls three or more creatures, sacrifice this enchantment, search your library for up to two creature cards, put those cards onto the battlefield, then shuffle.",
+    ],
+    // Delusions of Mediocrity
+    &[
+        "When this enchantment enters, you gain 10 life.\nWhen this enchantment leaves the battlefield, you lose 10 life.",
+    ],
+    // Deranged Hermit
+    &[
+        "Echo {3}{G}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, create four 1/1 green Squirrel creature tokens.\nSquirrel creatures get +1/+1.",
+    ],
+    // Devout Harpist
+    &["{T}: Destroy target Aura attached to a creature."],
+    // Engineered Plague
+    &[
+        "As this enchantment enters, choose a creature type.\nAll creatures of the chosen type get -1/-1.",
+    ],
     // Erase
     &["Exile target enchantment."],
     // Eviscerator
@@ -10411,7 +10455,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {U}.\n{1}{U}: This land becomes a 2/1 blue Faerie creature with flying until end of turn. It's still a land.",
     ],
-    &[],
+    // Fleeting Image
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{1}{U}: Return this creature to its owner's hand.",
+    ],
     // Fog of Gnats
     &["Flying\n{B}: Regenerate this creature."],
     // Forbidding Watchtower
@@ -10420,13 +10467,20 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Frantic Search
     &["Draw two cards, then discard two cards. Untap up to three lands."],
-    &[],
+    // Gang of Elk
+    &[
+        "Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it.",
+    ],
     // Ghitu Encampment
     &[
         "This land enters tapped.\n{T}: Add {R}.\n{1}{R}: This land becomes a 2/1 red Warrior creature with first strike until end of turn. It's still a land. (It deals combat damage before creatures without first strike.)",
     ],
-    &[],
-    &[],
+    // Ghitu Fire-Eater
+    &["{T}, Sacrifice this creature: It deals damage equal to its power to any target."],
+    // Ghitu Slinger
+    &[
+        "Echo {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, it deals 2 damage to any target.",
+    ],
     // Ghitu War Cry
     &["{R}: Target creature gets +1/+0 until end of turn."],
     // Giant Cockroach
@@ -10437,13 +10491,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Choose target artifact a player controls and target artifact card in that player's graveyard. If both targets are still legal as this ability resolves, that player simultaneously sacrifices the artifact and returns the artifact card to the battlefield.",
     ],
-    &[],
+    // Granite Grip
+    &["Enchant creature\nEnchanted creature gets +1/+0 for each Mountain you control."],
     // Grim Monolith
     &[
         "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{4}: Untap this artifact.",
     ],
-    &[],
-    &[],
+    // Harmonic Convergence
+    &["Put all enchantments on top of their owners' libraries."],
+    // Hidden Gibbons
+    &[
+        "When an opponent casts an instant spell, if this permanent is an enchantment, it becomes a 4/4 Ape creature.",
+    ],
     &[],
     // Impending Disaster
     &[
