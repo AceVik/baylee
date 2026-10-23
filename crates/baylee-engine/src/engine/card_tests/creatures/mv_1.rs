@@ -53,6 +53,7 @@ mod elvish_mystic;
 mod elvish_scout;
 mod elvish_scrapper;
 mod flamekin_harbinger;
+mod fledgling_osprey;
 mod flying_men;
 mod folk_of_an_havva;
 mod forge_devil;

@@ -36,7 +36,12 @@ fn argothian_wurm_put_on_top_of_library_when_opponent_sacrifices_land() {
     assert!(on_battlefield(&engine, p1, forest()).is_none());
     assert!(in_graveyard(&engine, p1, forest()).is_some());
     assert!(on_battlefield(&engine, p0, argothian_wurm()).is_none());
-    let top = *engine.state().zones.list(ZoneLocation::Library(p0)).last().unwrap();
+    let top = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .last()
+        .unwrap();
     assert_eq!(
         engine.state().object(top).unwrap().card.unwrap().index,
         argothian_wurm()

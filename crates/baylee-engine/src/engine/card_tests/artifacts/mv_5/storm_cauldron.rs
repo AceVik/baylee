@@ -23,7 +23,9 @@ fn storm_cauldron_grants_extra_land_drop_and_bounces_lands_tapped_for_mana() {
     // Play two Forests on the same turn thanks to the extra land play.
     for _ in 0..2 {
         let f = in_hand(&engine, p0, forest()).unwrap();
-        engine.apply(p0, PlayerAction::PlayLand { card: f }).unwrap();
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: f })
+            .unwrap();
     }
     let land = on_battlefield(&engine, p0, forest()).unwrap();
 

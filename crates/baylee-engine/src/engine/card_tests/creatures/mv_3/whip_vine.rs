@@ -47,9 +47,10 @@ fn whip_vine_blocks_flyer_taps_and_locks_it_while_whip_vine_stays_tapped() {
         .unwrap();
 
     // Activate Whip Vine's {T} ability targeting the blocked flyer.
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
     activate(&mut engine, p0, card, 1);
     aim_at(&mut engine, p0, flyer);
     pass_until(&mut engine, stack_is_empty);

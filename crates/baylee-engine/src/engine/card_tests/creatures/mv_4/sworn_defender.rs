@@ -45,9 +45,10 @@ fn sworn_defender_sets_toughness_to_one_plus_combat_partner_power() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
 
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, sworn_defender(), 0);

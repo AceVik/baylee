@@ -45,7 +45,8 @@ fn destructive_urge_makes_damaged_player_sacrifice_land() {
         .unwrap();
 
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. }) || on_battlefield(e, p1, plains()).is_none()
+        matches!(e.pending(), Pending::ChooseCards { .. })
+            || on_battlefield(e, p1, plains()).is_none()
     });
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
         engine

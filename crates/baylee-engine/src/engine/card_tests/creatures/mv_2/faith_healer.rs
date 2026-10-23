@@ -17,12 +17,7 @@ fn faith_healer_sacrifices_enchantment_to_gain_fixed_life_stub() {
     let lib = on_battlefield(&engine, p0, sylvan_library()).expect("seated");
     activate(&mut engine, p0, faith_healer(), 0);
     engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![lib],
-            },
-        )
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![lib] })
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 

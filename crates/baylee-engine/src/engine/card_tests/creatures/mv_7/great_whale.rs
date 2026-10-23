@@ -33,12 +33,7 @@ fn great_whale_untaps_up_to_seven_lands_on_etb() {
     });
     if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
         engine
-            .apply(
-                p0,
-                PlayerAction::ChooseObjects {
-                    objects: options,
-                },
-            )
+            .apply(p0, PlayerAction::ChooseObjects { objects: options })
             .unwrap();
     }
     pass_until(&mut engine, stack_is_empty);

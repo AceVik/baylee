@@ -65,7 +65,12 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
         .unwrap();
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
         engine
-            .apply(p0, PlayerAction::ChooseObjects { objects: vec![token] })
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![token],
+                },
+            )
             .unwrap();
     }
     pass_until(&mut engine, stack_is_empty);

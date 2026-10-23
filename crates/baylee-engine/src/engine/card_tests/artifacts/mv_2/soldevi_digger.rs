@@ -35,7 +35,13 @@ fn soldevi_digger_moves_graveyard_card_to_bottom_of_library() {
     activate(&mut engine, p0, soldevi_digger(), 0);
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(engine.state().zones.list(ZoneLocation::Graveyard(p0)).is_empty());
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Graveyard(p0))
+            .is_empty()
+    );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Library(p0)).len(),
         lib_before + 1

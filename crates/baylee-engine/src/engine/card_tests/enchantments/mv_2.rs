@@ -22,6 +22,7 @@ mod circle_of_protection_green;
 mod circle_of_protection_red;
 mod circle_of_protection_shadow;
 mod circle_of_protection_white;
+mod compost;
 mod compulsion;
 mod convalescence;
 mod copy_artifact;

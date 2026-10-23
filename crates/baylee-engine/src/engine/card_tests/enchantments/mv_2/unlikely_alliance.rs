@@ -58,10 +58,7 @@ fn unlikely_alliance_pumps_noncombat_creature_and_rejects_attackers() {
 
     // Activate Unlikely Alliance during combat: attacking Hill Giant cannot be targeted,
     // while nonattacking Grizzly Bears can.
-    engine
-        .dev_state_mut(p0)
-        .unwrap()
-        .players[0]
+    engine.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::White, 2);
     engine.refresh_offer();

@@ -8,10 +8,7 @@ use baylee_core::generated::index::{AMBER_PRISON, GRIZZLY_BEARS};
 fn amber_prison_taps_and_locks_down_while_tapped() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(
-            0,
-            &[AMBER_PRISON, plains(), plains(), plains(), plains()],
-        )
+        .battlefield(0, &[AMBER_PRISON, plains(), plains(), plains(), plains()])
         .battlefield(1, &[GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);

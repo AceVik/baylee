@@ -20,6 +20,7 @@ mod coercion;
 mod death_s_duet;
 mod deconstruct;
 mod divination;
+mod donate;
 mod doomsday;
 mod dream_cache;
 mod dust_to_dust;

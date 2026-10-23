@@ -32,9 +32,10 @@ fn undergrowth_prevents_all_combat_damage_this_turn() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
 
     tap_all_mana(&mut engine, p0);
     let under = in_hand(&engine, p0, undergrowth()).unwrap();

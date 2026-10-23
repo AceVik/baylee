@@ -41,10 +41,7 @@ fn tornado_destroys_target_permanent_once_per_turn_and_adds_velocity_counter() {
 
     let torn = on_battlefield(&engine, p0, tornado()).unwrap();
     let bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
-    engine
-        .dev_state_mut(p0)
-        .unwrap()
-        .players[0]
+    engine.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::Green, 6);
     engine.refresh_offer();

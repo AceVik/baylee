@@ -34,9 +34,10 @@ fn soldevi_sentry_regenerates_itself_and_offers_target_opponent_a_draw() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

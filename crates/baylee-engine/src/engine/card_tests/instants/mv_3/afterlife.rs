@@ -31,10 +31,7 @@ fn afterlife_destroys_creature_and_creates_spirit_for_its_controller() {
             let obj = engine.state().object(id).unwrap();
             obj.controller == p1
                 && obj.token.is_some()
-                && obj
-                    .characteristics()
-                    .keywords
-                    .contains(KeywordSet::FLYING)
+                && obj.characteristics().keywords.contains(KeywordSet::FLYING)
         })
         .count();
     assert_eq!(spirits, 1);

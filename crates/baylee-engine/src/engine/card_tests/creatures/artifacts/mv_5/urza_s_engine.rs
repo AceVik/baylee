@@ -75,10 +75,7 @@ fn urza_s_engine_gains_banding_and_grants_trample_to_banded_attackers() {
     engine
         .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
-    engine
-        .dev_state_mut(p0)
-        .unwrap()
-        .players[0]
+    engine.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::Green, 3);
     engine.refresh_offer();

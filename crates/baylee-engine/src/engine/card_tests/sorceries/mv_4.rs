@@ -24,6 +24,7 @@ mod deadshot;
 mod demolish;
 mod diabolic_tutor;
 mod diminishing_returns;
+mod eradicate;
 mod eternal_flame;
 mod eureka;
 mod evincar_s_justice;

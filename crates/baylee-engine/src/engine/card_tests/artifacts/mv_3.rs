@@ -17,6 +17,7 @@ mod bosium_strip;
 mod braided_net;
 mod braidwood_cup;
 mod brass_s_tunnel_grinder;
+mod caltrops;
 mod celestial_prism;
 mod chariot_of_the_sun;
 mod chimeric_sphere;

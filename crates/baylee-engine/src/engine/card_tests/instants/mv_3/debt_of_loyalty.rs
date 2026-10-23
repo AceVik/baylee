@@ -9,7 +9,10 @@ use baylee_core::generated::index::{DEBT_OF_LOYALTY, GRIZZLY_BEARS, LIGHTNING_BO
 fn debt_of_loyalty_regenerates_target_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[GRIZZLY_BEARS, plains(), plains(), plains(), mountain()])
+        .battlefield(
+            0,
+            &[GRIZZLY_BEARS, plains(), plains(), plains(), mountain()],
+        )
         .hand(0, &[DEBT_OF_LOYALTY, LIGHTNING_BOLT])
         .start();
     keep_mulligans(&mut engine);

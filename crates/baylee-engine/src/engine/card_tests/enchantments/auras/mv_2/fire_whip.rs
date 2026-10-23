@@ -23,7 +23,12 @@ fn fire_whip_grants_ping_to_enchanted_creature_and_sacrifices_for_1_damage() {
     aim_at(&mut engine, p0, bears);
     pass_until(&mut engine, stack_is_empty);
 
-    activate(&mut engine, p0, GRIZZLY_BEARS, crate::choice::GRANTED_ABILITY);
+    activate(
+        &mut engine,
+        p0,
+        GRIZZLY_BEARS,
+        crate::choice::GRANTED_ABILITY,
+    );
     engine
         .apply(
             p0,

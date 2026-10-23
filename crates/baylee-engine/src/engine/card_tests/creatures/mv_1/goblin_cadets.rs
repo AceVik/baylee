@@ -45,7 +45,9 @@ fn goblin_cadets_gives_control_to_opponent_when_blocked() {
 
     match engine.pending().clone() {
         Pending::ChoosePlayer { player, .. } => {
-            engine.apply(player, PlayerAction::ChoosePlayer(p1)).unwrap();
+            engine
+                .apply(player, PlayerAction::ChoosePlayer(p1))
+                .unwrap();
         }
         Pending::ChooseTargets { player, .. } => {
             engine

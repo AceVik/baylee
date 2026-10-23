@@ -10,10 +10,7 @@ fn wayward_soul_puts_itself_on_top_of_owners_library() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[wayward_soul()])
-        .battlefield(
-            0,
-            &[island(), island(), island(), island(), island()],
-        )
+        .battlefield(0, &[island(), island(), island(), island(), island()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

@@ -11,10 +11,7 @@ fn discordant_dirge_sacrifices_to_reveal_target_opponent_hand() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[discordant_dirge()])
-        .battlefield(
-            0,
-            &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()],
-        )
+        .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

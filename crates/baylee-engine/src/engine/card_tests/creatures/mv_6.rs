@@ -11,6 +11,7 @@ mod akoum_boulderfoot;
 mod akoum_warrior;
 mod autumn_willow;
 mod bartel_runeaxe;
+mod bloodshot_cyclops;
 mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;

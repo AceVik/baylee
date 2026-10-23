@@ -15,7 +15,10 @@ fn lotus_blossom_adds_petal_counter_on_upkeep_and_sacrifices_for_mana() {
     reach_their_main_phase(&mut engine, p0);
 
     let blossom = on_battlefield(&engine, p0, lotus_blossom()).expect("seated");
-    assert_eq!(counters_on(&engine, blossom, baylee_cards_dsl::counters::PETAL), 1);
+    assert_eq!(
+        counters_on(&engine, blossom, baylee_cards_dsl::counters::PETAL),
+        1
+    );
     activate(&mut engine, p0, lotus_blossom(), 1);
     if matches!(engine.pending(), Pending::ChooseColor { .. }) {
         engine

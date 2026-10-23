@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
 /// A seat's life total.
 fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life

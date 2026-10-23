@@ -35,9 +35,10 @@ fn seasoned_tactician_prevents_next_damage_from_chosen_source_to_you() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, seasoned_tactician(), 0);
     pass_until(&mut engine, |e| {

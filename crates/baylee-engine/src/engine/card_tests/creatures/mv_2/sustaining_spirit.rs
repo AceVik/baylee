@@ -14,10 +14,7 @@ fn sustaining_spirit() -> CardIndex {
 fn sustaining_spirit_floors_damage_life_loss_at_one_and_has_cumulative_upkeep() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(
-            0,
-            &[sustaining_spirit(), plains(), plains(), mountain()],
-        )
+        .battlefield(0, &[sustaining_spirit(), plains(), plains(), mountain()])
         .hand(0, &[lightning_bolt()])
         .start();
     keep_mulligans(&mut engine);
@@ -32,10 +29,7 @@ fn sustaining_spirit_floors_damage_life_loss_at_one_and_has_cumulative_upkeep() 
     reach_main_phase(&mut engine, p0);
 
     engine.dev_state_mut(p0).unwrap().players[0].life = 2;
-    engine
-        .dev_state_mut(p0)
-        .unwrap()
-        .players[0]
+    engine.dev_state_mut(p0).unwrap().players[0]
         .mana_pool
         .add(ManaColor::Red, 1);
     engine.refresh_offer();

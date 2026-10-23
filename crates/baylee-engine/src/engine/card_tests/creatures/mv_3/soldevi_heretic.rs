@@ -13,7 +13,10 @@ fn soldevi_heretic() -> CardIndex {
 fn soldevi_heretic_prevents_two_damage_to_target_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[soldevi_heretic(), grizzly_bears(), plains(), mountain()])
+        .battlefield(
+            0,
+            &[soldevi_heretic(), grizzly_bears(), plains(), mountain()],
+        )
         .hand(0, &[lightning_bolt()])
         .start();
     keep_mulligans(&mut engine);

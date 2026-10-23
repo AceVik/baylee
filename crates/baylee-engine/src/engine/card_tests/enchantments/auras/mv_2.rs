@@ -31,6 +31,7 @@ mod errantry;
 mod favorable_destiny;
 mod fear;
 mod fertile_ground;
+mod festering_wound;
 mod fiery_mantle;
 mod fire_whip;
 mod fishliver_oil;

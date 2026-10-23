@@ -32,9 +32,10 @@ fn stromgald_spy_reveals_defending_players_hand_when_unblocked() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0),
+    );
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

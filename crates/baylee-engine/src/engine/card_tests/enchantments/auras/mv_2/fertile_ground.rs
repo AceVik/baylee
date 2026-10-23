@@ -43,6 +43,16 @@ fn fertile_ground_adds_bonus_mana_when_enchanted_land_is_tapped() {
     }
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(engine.state().players[0].mana_pool.available(ManaColor::White), 1);
-    assert_eq!(engine.state().players[0].mana_pool.available(ManaColor::Blue), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        1
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
 }

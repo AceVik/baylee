@@ -42,7 +42,9 @@ fn winter_s_night_doubles_snow_land_mana_and_suppresses_its_next_untap() {
         .apply(p0, PlayerAction::ActivateManaAbility { source: snow_id })
         .unwrap();
     assert_eq!(
-        engine.state().players[0].mana_pool.available(ManaColor::Green),
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
         2
     );
 

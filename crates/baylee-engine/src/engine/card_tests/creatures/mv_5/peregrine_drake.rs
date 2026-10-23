@@ -10,10 +10,7 @@ fn peregrine_drake_untaps_up_to_five_lands_on_etb() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[peregrine_drake()])
-        .battlefield(
-            0,
-            &[island(), island(), island(), island(), island()],
-        )
+        .battlefield(0, &[island(), island(), island(), island(), island()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -25,12 +22,7 @@ fn peregrine_drake_untaps_up_to_five_lands_on_etb() {
     });
     if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
         engine
-            .apply(
-                p0,
-                PlayerAction::ChooseObjects {
-                    objects: options,
-                },
-            )
+            .apply(p0, PlayerAction::ChooseObjects { objects: options })
             .unwrap();
     }
     pass_until(&mut engine, stack_is_empty);

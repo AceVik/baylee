@@ -31,6 +31,7 @@ mod bogardan_phoenix;
 mod border_patrol;
 mod boris_devilboon;
 mod briarknit_kami;
+mod bubbling_beebles;
 mod chandler;
 mod charging_bandits;
 mod coastal_hornclaw;

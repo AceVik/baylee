@@ -10,6 +10,7 @@ mod control_magic;
 mod curse_artifact;
 mod cursed_land;
 mod dehydration;
+mod disappear;
 mod divine_transformation;
 mod feast_of_the_unicorn;
 mod flight_of_fancy;

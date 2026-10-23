@@ -725,3 +725,5 @@ no-engine-change contract:
   - Batch 2 (`Hope and Glory` to `Rack and Ruin`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Radiant's Dragoons` to `Treacherous Link`, 25 cards): **21 Implemented, 4 Partial**.
   - Batch 4 (`Treefolk Mystic` to `Yavimaya Granger`, 10 cards): **8 Implemented, 2 Partial**.
+- **Urza's Destiny (`uds`)** — in progress (every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Apprentice Necromancer` to `Gamekeeper`, 25 cards): **15 Implemented, 10 Partial**.

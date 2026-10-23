@@ -122,6 +122,7 @@ mod dross_ripper;
 mod dukhara_peafowl;
 mod energizer;
 mod esper_cormorants;
+mod extruder;
 mod filigree_crawler;
 mod filigree_sages;
 mod forgotten_sentinel;

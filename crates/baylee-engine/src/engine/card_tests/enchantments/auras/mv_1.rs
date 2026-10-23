@@ -5,6 +5,7 @@ use super::*;
 
 mod animate_wall;
 mod apathy;
+mod archery_training;
 mod artifact_ward;
 mod awesome_presence;
 mod backfire;
