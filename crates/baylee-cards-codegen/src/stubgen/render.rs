@@ -36,7 +36,7 @@ pub fn render_stub(
         })
         .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
-    render_card(card, row, ledger, cats, cycles, land, tested, None)
+    render_card(card, row, ledger, cats, cycles, land.as_ref(), tested, None)
 }
 
 /// Render an explicitly reviewed card as an unimplemented stub, bypassing
@@ -75,7 +75,7 @@ fn render_card(
     ledger: &IndexLedger,
     cats: &SubtypeCatalogs,
     cycles: &crate::layout::LandCycles,
-    land: Option<CardBody>,
+    land: Option<&CardBody>,
     tested: &dyn Fn(&str) -> bool,
     held: Option<&str>,
 ) -> Result<(StubInfo, String), CodegenError> {
@@ -184,7 +184,7 @@ fn render_card(
         &oracle_id,
         &faces,
         &face_defs,
-        land.as_ref(),
+        land,
         ledger,
         land.is_some() && tested(&path),
     )?;
