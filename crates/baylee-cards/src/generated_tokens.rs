@@ -2521,6 +2521,17 @@ pub static BEAST_2_2_GREEN: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 white Knight.
+pub static KNIGHT_2_2_WHITE: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2771,6 +2782,7 @@ pub static ALL: &[&TokenDef] = &[
     &HORNET_ARTIFACT_1_1_FLYING_HASTE,
     &CHOSENTYPE_2_2,
     &BEAST_2_2_GREEN,
+    &KNIGHT_2_2_WHITE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2989,4 +3001,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &HORNET_ARTIFACT_1_1_FLYING_HASTE,
     &CHOSENTYPE_2_2,
     &BEAST_2_2_GREEN,
+    &KNIGHT_2_2_WHITE,
 ];

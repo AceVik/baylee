@@ -23670,13 +23670,62 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vebulid
+    &[FaceLines {
+        sentences: 3,
+        stackable: 3,
+        lines: &[Some(1), Some(2), Some(2)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Veil of Birds
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Veiled Apparition
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Veiled Crocodile
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Veiled Sentry
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Veiled Serpent
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Venomous Fangs
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Vernal Bloom
     &[FaceLines {
         sentences: 1,
@@ -23685,12 +23734,47 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
+    // Viashino Outrider
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Viashino Sandswimmer
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Viashino Weaponsmith
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Victimize
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Vile Requiem
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Voice of Grace
     &[FaceLines {
         sentences: 1,
@@ -23715,10 +23799,38 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vug Lizard
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Wall of Junk
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // War Dance
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Waylay
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Western Paladin
     &[FaceLines {
         sentences: 1,
@@ -23743,12 +23855,47 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
+    // Wild Dogs
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Winding Wurm
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Wirecat
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Witch Engine
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
+    // Wizard Mentor
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Worn Powerstone
     &[FaceLines {
         sentences: 2,
@@ -23757,7 +23904,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Worship
+    &[FaceLines {
+        sentences: 1,
+        stackable: 0,
+        lines: &[None],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Yawgmoth's Edict
     &[FaceLines {
         sentences: 1,

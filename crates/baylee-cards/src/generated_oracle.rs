@@ -10243,50 +10243,112 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature gets +2/+2 and has flying.\nWhenever a creature dealt damage by enchanted creature this turn dies, put a +1/+1 counter on that creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vebulid
+    &[
+        "This creature enters with a +1/+1 counter on it.\nAt the beginning of your upkeep, you may put a +1/+1 counter on this creature.\nWhen this creature attacks or blocks, destroy it at end of combat.",
+    ],
+    // Veil of Birds
+    &[
+        "When an opponent casts a spell, if this permanent is an enchantment, it becomes a 1/1 Bird creature with flying.",
+    ],
+    // Veiled Apparition
+    &[
+        "When an opponent casts a spell, if this permanent is an enchantment, it becomes a 3/3 Illusion creature with flying and \"At the beginning of your upkeep, sacrifice this creature unless you pay {1}{U}.\"",
+    ],
+    // Veiled Crocodile
+    &[
+        "When a player has no cards in hand, if this permanent is an enchantment, it becomes a 4/4 Crocodile creature.",
+    ],
+    // Veiled Sentry
+    &[
+        "When an opponent casts a spell, if this permanent is an enchantment, it becomes an Illusion creature with power and toughness each equal to that spell's mana value.",
+    ],
+    // Veiled Serpent
+    &[
+        "When an opponent casts a spell, if this permanent is an enchantment, it becomes a 4/4 Serpent creature with \"This creature can't attack unless defending player controls an Island.\"\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Venomous Fangs
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to a creature, destroy the other creature.",
+    ],
     // Vernal Bloom
     &["Whenever a Forest is tapped for mana, its controller adds an additional {G}."],
-    &[],
+    // Viashino Outrider
+    &[
+        "Echo {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
     // Viashino Runner
     &["Menace (This creature can't be blocked except by two or more creatures.)"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Viashino Sandswimmer
+    &[
+        "{R}: Flip a coin. If you win the flip, return this creature to its owner's hand. If you lose the flip, sacrifice this creature.",
+    ],
+    // Viashino Weaponsmith
+    &[
+        "Whenever this creature becomes blocked by a creature, this creature gets +2/+2 until end of turn.",
+    ],
+    // Victimize
+    &[
+        "Choose two target creature cards in your graveyard. Sacrifice a creature. If you do, return the chosen cards to the battlefield tapped.",
+    ],
+    // Vile Requiem
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{1}{B}, Sacrifice this enchantment: Destroy up to X target nonblack creatures, where X is the number of verse counters on this enchantment. They can't be regenerated.",
+    ],
     // Voice of Grace
     &["Flying, protection from black"],
     // Voice of Law
     &["Flying, protection from red"],
     // Voltaic Key
     &["{1}, {T}: Untap target artifact."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vug Lizard
+    &[
+        "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)\nEcho {1}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Wall of Junk
+    &[
+        "Defender (This creature can't attack.)\nWhen this creature blocks, return it to its owner's hand at end of combat. (Return it only if it's on the battlefield.)",
+    ],
+    // War Dance
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\nSacrifice this enchantment: Target creature gets +X/+X until end of turn, where X is the number of verse counters on this enchantment.",
+    ],
+    // Waylay
+    &[
+        "Create three 2/2 white Knight creature tokens. Exile them at the beginning of the next cleanup step.",
+    ],
     // Western Paladin
     &["{B}{B}, {T}: Destroy target white creature."],
     // Whetstone
     &["{3}: Each player mills two cards."],
     // Whirlwind
     &["Destroy all creatures with flying."],
-    &[],
+    // Wild Dogs
+    &[
+        "At the beginning of your upkeep, if a player has more life than each other player, the player with the most life gains control of this creature.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     // Windfall
     &[
         "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Winding Wurm
+    &[
+        "Echo {4}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Wirecat
+    &["This creature can't attack or block if an enchantment is on the battlefield."],
+    // Witch Engine
+    &[
+        "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{T}: Add {B}{B}{B}{B}. Target opponent gains control of this creature. (Activate only as an instant.)",
+    ],
+    // Wizard Mentor
+    &["{T}: Return this creature and target creature you control to their owner's hand."],
     // Worn Powerstone
     &["This artifact enters tapped.\n{T}: Add {C}{C}."],
-    &[],
+    // Worship
+    &[
+        "If you control a creature, damage that would reduce your life total to less than 1 reduces it to 1 instead.",
+    ],
     // Yawgmoth's Edict
     &["Whenever an opponent casts a white spell, that player loses 1 life and you gain 1 life."],
     // Yawgmoth's Will

@@ -19667,6 +19667,8 @@ pub mod vault_plunderer;
 pub mod vault_robber;
 #[path = "creatures/artifacts/mv_2/vault_skirge.rs"]
 pub mod vault_skirge;
+#[path = "creatures/mv_1/vebulid.rs"]
+pub mod vebulid;
 #[path = "lands/no_untap/vec_townships.rs"]
 pub mod vec_townships;
 #[path = "creatures/artifacts/mv_5/vectis_agents.rs"]
@@ -19693,8 +19695,18 @@ pub mod vedalken_mesmerist;
 pub mod vedalken_outlander;
 #[path = "artifacts/mv_2/veil_of_assimilation.rs"]
 pub mod veil_of_assimilation;
+#[path = "enchantments/mv_1/veil_of_birds.rs"]
+pub mod veil_of_birds;
 #[path = "instants/mv_1/veil_of_summer.rs"]
 pub mod veil_of_summer;
+#[path = "enchantments/mv_2/veiled_apparition.rs"]
+pub mod veiled_apparition;
+#[path = "enchantments/mv_3/veiled_crocodile.rs"]
+pub mod veiled_crocodile;
+#[path = "enchantments/mv_1/veiled_sentry.rs"]
+pub mod veiled_sentry;
+#[path = "enchantments/mv_3/veiled_serpent.rs"]
+pub mod veiled_serpent;
 #[path = "creatures/mv_3/veiled_shade.rs"]
 pub mod veiled_shade;
 #[path = "creatures/mv_7/veldrane_of_sengir.rs"]
@@ -19729,6 +19741,8 @@ pub mod venomous_breath;
 pub mod venomous_changeling;
 #[path = "creatures/mv_4/venomous_dragonfly.rs"]
 pub mod venomous_dragonfly;
+#[path = "enchantments/auras/mv_3/venomous_fangs.rs"]
+pub mod venomous_fangs;
 #[path = "creatures/mv_4/venomous_hierophant.rs"]
 pub mod venomous_hierophant;
 #[path = "creatures/mv_3/venomthrope.rs"]
@@ -19817,8 +19831,12 @@ pub mod viashino_fangtail;
 pub mod viashino_firstblade;
 #[path = "creatures/mv_3/viashino_grappler.rs"]
 pub mod viashino_grappler;
+#[path = "creatures/mv_3/viashino_outrider.rs"]
+pub mod viashino_outrider;
 #[path = "creatures/mv_4/viashino_runner.rs"]
 pub mod viashino_runner;
+#[path = "creatures/mv_4/viashino_sandswimmer.rs"]
+pub mod viashino_sandswimmer;
 #[path = "creatures/mv_4/viashino_skeleton.rs"]
 pub mod viashino_skeleton;
 #[path = "creatures/mv_2/viashino_slasher.rs"]
@@ -19829,6 +19847,8 @@ pub mod viashino_slaughtermaster;
 pub mod viashino_spearhunter;
 #[path = "creatures/mv_4/viashino_warrior.rs"]
 pub mod viashino_warrior;
+#[path = "creatures/mv_4/viashino_weaponsmith.rs"]
+pub mod viashino_weaponsmith;
 #[path = "creatures/mv_6/viashivan_dragon.rs"]
 pub mod viashivan_dragon;
 #[path = "artifacts/equipment/mv_1/vibranium_energy_daggers.rs"]
@@ -19847,6 +19867,8 @@ pub mod vicious_hunger;
 pub mod vicious_kavu;
 #[path = "instants/mv_2/victim_of_night.rs"]
 pub mod victim_of_night;
+#[path = "sorceries/mv_3/victimize.rs"]
+pub mod victimize;
 #[path = "sorceries/mv_5/victorious_destruction.rs"]
 pub mod victorious_destruction;
 #[path = "creatures/mv_2/victual_sliver.rs"]
@@ -19863,6 +19885,8 @@ pub mod vigilant_martyr;
 pub mod vigilante_justice;
 #[path = "creatures/mv_4/vile_deacon.rs"]
 pub mod vile_deacon;
+#[path = "enchantments/mv_4/vile_requiem.rs"]
+pub mod vile_requiem;
 #[path = "creatures/mv_3/village_cannibals.rs"]
 pub mod village_cannibals;
 #[path = "creatures/mv_1/village_elder.rs"]
@@ -20075,6 +20099,8 @@ pub mod votary_of_the_conclave;
 pub mod voyage_s_end;
 #[path = "creatures/mv_2/voyaging_satyr.rs"]
 pub mod voyaging_satyr;
+#[path = "creatures/mv_3/vug_lizard.rs"]
+pub mod vug_lizard;
 #[path = "creatures/mv_6/vulpine_goliath.rs"]
 pub mod vulpine_goliath;
 #[path = "artifacts/equipment/mv_3/vulshok_battlegear.rs"]
@@ -20155,6 +20181,8 @@ pub mod wall_of_granite;
 pub mod wall_of_heat;
 #[path = "creatures/mv_3/wall_of_ice.rs"]
 pub mod wall_of_ice;
+#[path = "creatures/artifacts/mv_2/wall_of_junk.rs"]
+pub mod wall_of_junk;
 #[path = "creatures/mv_2/wall_of_kelp.rs"]
 pub mod wall_of_kelp;
 #[path = "creatures/mv_3/wall_of_lava.rs"]
@@ -20259,6 +20287,8 @@ pub mod wanderwine_hub;
 pub mod war_barge;
 #[path = "artifacts/mv_3/war_chariot.rs"]
 pub mod war_chariot;
+#[path = "enchantments/mv_1/war_dance.rs"]
+pub mod war_dance;
 #[path = "creatures/mv_4/war_elephant.rs"]
 pub mod war_elephant;
 #[path = "artifacts/mv_3/war_horn.rs"]
@@ -20397,6 +20427,8 @@ pub mod wave_wing_elemental;
 pub mod waxen_shapethief;
 #[path = "artifacts/mv_1/wayfarer_s_bauble.rs"]
 pub mod wayfarer_s_bauble;
+#[path = "instants/mv_3/waylay.rs"]
+pub mod waylay;
 #[path = "creatures/mv_5/wayward_giant.rs"]
 pub mod wayward_giant;
 #[path = "creatures/mv_2/wayward_servant.rs"]
@@ -20575,6 +20607,8 @@ pub mod wild_celebrants;
 pub mod wild_ceratok;
 #[path = "creatures/mv_3/wild_colos.rs"]
 pub mod wild_colos;
+#[path = "creatures/mv_1/wild_dogs.rs"]
+pub mod wild_dogs;
 #[path = "creatures/mv_4/wild_elephant.rs"]
 pub mod wild_elephant;
 #[path = "creatures/mv_3/wild_griffin.rs"]
@@ -20655,6 +20689,8 @@ pub mod windfall;
 pub mod windgrace_acolyte;
 #[path = "lands/utility/winding_canyons.rs"]
 pub mod winding_canyons;
+#[path = "creatures/mv_5/winding_wurm.rs"]
+pub mod winding_wurm;
 #[path = "creatures/mv_7/windreader_sphinx.rs"]
 pub mod windreader_sphinx;
 #[path = "creatures/mv_3/windreaper_falcon.rs"]
@@ -20717,6 +20753,8 @@ pub mod winter_soldier_bucky_barnes;
 pub mod wintermoon_mesa;
 #[path = "instants/mv_2/wipe_clean.rs"]
 pub mod wipe_clean;
+#[path = "creatures/artifacts/mv_4/wirecat.rs"]
+pub mod wirecat;
 #[path = "creatures/mv_4/wirewood_channeler.rs"]
 pub mod wirewood_channeler;
 #[path = "creatures/mv_2/wirewood_elf.rs"]
@@ -20743,6 +20781,8 @@ pub mod wistful_thinking;
 pub mod wit_s_end;
 #[path = "creatures/mv_4/witch_enchanter.rs"]
 pub mod witch_enchanter;
+#[path = "creatures/mv_6/witch_engine.rs"]
+pub mod witch_engine;
 #[path = "creatures/mv_4/witch_hunter.rs"]
 pub mod witch_hunter;
 #[path = "artifacts/mv_1/witch_s_cauldron.rs"]
@@ -20777,6 +20817,8 @@ pub mod witness_of_tomorrows;
 pub mod witty_roastmaster;
 #[path = "enchantments/classes/mv_1/wizard_class.rs"]
 pub mod wizard_class;
+#[path = "creatures/mv_3/wizard_mentor.rs"]
+pub mod wizard_mentor;
 #[path = "creatures/artifacts/mv_3/wizard_replica.rs"]
 pub mod wizard_replica;
 #[path = "lands/wizards_school.rs"]
@@ -20875,6 +20917,8 @@ pub mod wormwood_treefolk;
 pub mod worn_powerstone;
 #[path = "artifacts/mv_3/worry_beads.rs"]
 pub mod worry_beads;
+#[path = "enchantments/mv_4/worship.rs"]
+pub mod worship;
 #[path = "creatures/mv_4/wort_boggart_auntie.rs"]
 pub mod wort_boggart_auntie;
 #[path = "instants/mv_1/worthy_cause.rs"]
