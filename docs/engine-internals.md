@@ -375,6 +375,13 @@ The source's version also follows the resulting ability onto the stack, so a
 self-counter cannot affect a later incarnation. A phased-out source is absent
 both when observing a death and when an effect would put a counter on it.
 
+`Trigger::DealtDamage` retains the damaged permanent as `EventObject` with
+its event-time incarnation, and the received damage as `EventAmount`. As with
+the player-damage trigger, simultaneous combat damage from several sources
+is one event with their total (CR 510.2, 603.2c). Noncombat damage retains
+each event's own amount. The amount remains available after lethal damage
+moves the creature to its graveyard.
+
 ### Damage dealt to a player
 
 `GameState::damage_player` is the door for damage that reaches a player, as

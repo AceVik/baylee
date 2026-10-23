@@ -730,21 +730,21 @@ pub(super) fn first_combat_damage_to(
     })
 }
 
-/// All the combat damage a batch dealt to `player`: the one event
+/// All the combat damage a batch dealt to `recipient`: the one event
 /// [`first_combat_damage_to`] fires on, as an amount (CR 510.2).
 pub(super) fn combat_damage_in_batch(
     batch: &[crate::event::JournalEntry],
-    player: PlayerId,
+    recipient: crate::event::DamageTarget,
 ) -> u32 {
     batch
         .iter()
         .filter_map(|entry| match entry.event {
             GameEvent::DamageDealt {
-                target: crate::event::DamageTarget::Player(to),
+                target,
                 amount,
                 is_combat: true,
                 ..
-            } if to == player => Some(amount),
+            } if target == recipient => Some(amount),
             _ => None,
         })
         .fold(0u32, u32::saturating_add)

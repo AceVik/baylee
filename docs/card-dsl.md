@@ -2496,6 +2496,9 @@ Triggers, reflexive events and amounts:
   damage" (Fungusaur). All combat damage in a step is dealt at once
   (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);
   every other damage event triggers it once, and prevented damage never.
+  `TargetSpec::EventObject` is the damaged permanent's event incarnation;
+  `Amount::EventAmount` is the damage it received, summed across sources
+  for simultaneous combat damage and retained even when that damage kills it.
 - **`Trigger::PlayerDealtDamage(rel)`** is "whenever you're dealt damage"
   (Living Artifact, Lich), the player's side of `DealtDamage`: once for a
   step's combat damage to that player and once for every other damage

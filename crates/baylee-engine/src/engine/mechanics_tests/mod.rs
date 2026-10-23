@@ -25,6 +25,7 @@ mod control;
 mod costs;
 mod counter_payment;
 mod crew_saddle;
+mod damaged_object;
 mod departed;
 mod destruction_order;
 mod draw_replacements;

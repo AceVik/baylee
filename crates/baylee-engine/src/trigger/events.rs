@@ -7,7 +7,7 @@ use baylee_cards_dsl::Trigger;
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// How much damage a damage event dealt, as `trigger` reads it: to a
-/// player, or for [`Trigger::DealsDamage`] to anything.
+/// player or permanent, or for [`Trigger::DealsDamage`] to anything.
 ///
 /// Per entry, except where the trigger is about the player rather than the
 /// source: [`Trigger::PlayerDealtDamage`] fires once for a step's combat
@@ -35,17 +35,17 @@ pub(super) fn event_damage_of(
             Some(*amount)
         }
         GameEvent::DamageDealt {
-            target: crate::event::DamageTarget::Player(player),
+            target,
             is_combat: true,
             ..
-        } if matches!(trigger, Trigger::PlayerDealtDamage(_)) => {
-            Some(combat_damage_in_batch(batch, *player))
+        } if matches!(
+            trigger,
+            Trigger::PlayerDealtDamage(_) | Trigger::DealtDamage(_)
+        ) =>
+        {
+            Some(combat_damage_in_batch(batch, *target))
         }
-        GameEvent::DamageDealt {
-            target: crate::event::DamageTarget::Player(_),
-            amount,
-            ..
-        } => Some(*amount),
+        GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         _ => None,
     }
@@ -120,7 +120,7 @@ pub(super) fn event_object_for(
             },
         ) => Some(*blocker),
         (
-            Trigger::DealsCombatDamageToCreature(_),
+            Trigger::DealsCombatDamageToCreature(_) | Trigger::DealtDamage(_),
             GameEvent::DamageDealt {
                 target: crate::event::DamageTarget::Object(recipient),
                 ..
