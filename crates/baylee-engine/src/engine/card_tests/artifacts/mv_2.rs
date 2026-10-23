@@ -28,6 +28,7 @@ mod dowsing_device;
 mod dragon_s_claw;
 mod elven_lyre;
 mod emerald_medallion;
+mod endoskeleton;
 mod essence_bottle;
 mod excavator;
 mod fellwar_stone;

@@ -122,6 +122,7 @@ mod curse_of_marit_lage;
 mod death_pits_of_rath;
 mod dictate_of_heliod;
 mod dire_undercurrents;
+mod discordant_dirge;
 mod dispersing_orb;
 mod dream_halls;
 mod duplicity;

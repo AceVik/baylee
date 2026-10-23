@@ -126,6 +126,7 @@ mod cyclone;
 mod dampening_pulse;
 mod daxos_s_torment;
 mod day_of_destiny;
+mod diabolic_servitude;
 mod dogged_pursuit;
 mod dream_tides;
 mod dreams_of_the_dead;

@@ -87,6 +87,7 @@ mod enraging_licid;
 mod erg_raiders;
 mod ertai_s_familiar;
 mod facet_reader;
+mod faith_healer;
 mod fallen_askari;
 mod fanatic_of_rhonas;
 mod fatehold_chronologist;

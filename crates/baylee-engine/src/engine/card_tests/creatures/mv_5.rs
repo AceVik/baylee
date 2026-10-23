@@ -42,6 +42,7 @@ mod deadly_insect;
 mod dread_wight;
 mod earth_elemental;
 mod eater_of_the_dead;
+mod electryte;
 mod elesh_norn_mother_of_machines;
 mod elvish_bard;
 mod endless_wurm;

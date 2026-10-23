@@ -101,6 +101,7 @@ mod barrage_of_expendables;
 mod burgeoning;
 mod concordant_crossroads;
 mod darkest_hour;
+mod defensive_formation;
 mod dread_of_night;
 mod eladamri_s_vineyard;
 mod elephant_grass;

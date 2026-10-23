@@ -23,6 +23,7 @@ mod chromatic_lantern;
 mod commander_s_sphere;
 mod crucible_of_worlds;
 mod crystal_ball;
+mod crystal_chimes;
 mod darksteel_ingot;
 mod disrupting_scepter;
 mod draconian_cylix;

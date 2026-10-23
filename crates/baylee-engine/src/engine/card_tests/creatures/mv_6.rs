@@ -15,6 +15,7 @@ mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;
 mod commander_greven_il_vec;
+mod crater_hellion;
 mod craw_wurm;
 mod deathcurse_ogre;
 mod demonic_hordes;

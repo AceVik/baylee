@@ -319,6 +319,7 @@ mod bad_deal;
 mod boon_of_the_wish_giver;
 mod catastrophe;
 mod certain_death;
+mod corrupt;
 mod crisis_of_conscience;
 mod dark_offering;
 mod defibrillating_current;

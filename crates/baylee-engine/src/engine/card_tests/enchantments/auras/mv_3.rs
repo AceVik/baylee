@@ -9,6 +9,7 @@ mod bestial_fury;
 mod blanchwood_armor;
 mod casting_of_bones;
 mod chromatic_armor;
+mod destructive_urge;
 mod empyrial_armor;
 mod erosion;
 mod errant_minion;

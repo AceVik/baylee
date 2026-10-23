@@ -31,6 +31,7 @@ mod crop_rotation;
 mod crossbow_ambush;
 mod crumble;
 mod culling_the_weak;
+mod curfew;
 mod dark_ritual;
 mod death_spark;
 mod death_ward;
