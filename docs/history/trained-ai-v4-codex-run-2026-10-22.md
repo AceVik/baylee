@@ -801,3 +801,66 @@ portion with no allocation retries; unlike the matched 14% result, this rate
 must not be directly compared with earlier runs on different trajectory batches.
 Full validation, export equivalence and the frozen matched games still follow
 automatically. No model promotion was added.
+
+
+## Bounded asynchronous GPU input buffering
+
+The user proposed overlapping SSD/RAM/GPU input movement using double, triple
+or quadruple buffering. CPU-side preparation was already parallel: four
+DataLoader workers, pinned batches and memory-mapped trajectory storage backed
+by Linux's filesystem cache. `/proc/meminfo` at the check reported about 52 GiB
+in Cached (including shared memory); a low "used RAM" chart does not mean this
+reclaimable cache is unused. Those figures cover the machine, not only this job.
+
+Implemented `--gpu-prefetch 0..3`: up to three future input batches on a dedicated
+CUDA copy stream (0 is the default; 1 corresponds to current + one future batch).
+Each staged input is limited to 128 MiB. Oversized/unpinned batches use the
+existing transfer path. CUDA events enforce copy-before-use; `record_stream`
+protects device allocation lifetime, and iterator cleanup drains transfers
+before releasing pinned sources. Retiring/current tensors and model activations
+are additional to the lookahead queue's memory bound. Neither examples nor
+trajectory lanes are reordered. DataLoader prefetch and OS caching continue
+independently; VRAM addresses are owned by the allocator.
+
+`prefetch-timing/benchmark.json` uses step 15300, identical batches and 36 timed
+updates per variant. CPU staging and iterator work are inside the measured wall
+time, rather than incorrectly counting prefetched data preparation as free:
+
+| Future GPU batches | Total input buffers | Updates/s | Peak allocated GiB |
+| --- | --- | --- | --- |
+| 0 | current only | 2.0186 | 4.057 |
+| 1 | double | 2.0367 | 4.115 |
+| 2 | triple | 2.0396 | 4.158 |
+| 3 | quadruple | 2.0435 | 4.197 |
+
+This short test's apparent improvement is only 0.9–1.2%, below the 3% adoption
+threshold; the reverse-order confirmation was therefore **not run**. No candidate
+was promoted. The first gradients also were not bit-identical (relative L2
+0.051–0.078% versus the no-prefetch baseline). This is far below prior BF16
+execution changes but does not pass the stricter transport-only numerical gate;
+it must not be presented as bitwise-equivalent network execution. A separate
+real-data audit checked four fully staged batches and all 140 input tensors
+bit-for-bit equal after transfer. The source of the remaining arithmetic
+variation was not isolated. CUDA unit tests passed for every queue depth,
+ordering, allocation lifetime, oversized fallback and early close. CPU-only
+unit discovery: 26 tests, 24 passed, two CUDA tests skipped; the new CUDA test
+was run separately and passed.
+
+The baseline copies occupied 1.857 ms of an approximately 495 ms update. With
+lookahead the copy work happens on its separate stream, so the benchmark's
+compute-stream H2D interval is about 0.010 ms; that does not mean the physical
+transfer became free or 185 times faster. The full-update numbers above are the
+relevant throughput measurement. More buffers cannot compensate for a sustained
+input bandwidth deficit; they can absorb temporary jitter.
+
+Resumed step 15300 as `codex-r4-buffer-reviewed-bc`, preserving the approximately
+629 seconds of optimization budget remaining at handoff. `--gpu-prefetch 0`
+remains selected, while grouped boards/readouts and the prior verified
+optimizations remain enabled. The active pointer and `selection.json` record
+this explicitly. Full validation/export/matched games follow unchanged.
+
+A read-only inotify observation also timed a 651,862,065-byte checkpoint from
+partial-file creation to atomic publication at 0.514 seconds. At roughly two
+updates/s and one checkpoint per 100 updates, this accounts for about 1% of
+wall time: it can make a visible dip but cannot explain a factor-of-two reserve.
+Artifact: `deferred-timing/checkpoint-timing.json`.

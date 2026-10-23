@@ -174,6 +174,7 @@ def main():
         retries_before = torch.cuda.memory_stats()["num_alloc_retries"]
         samples, row = [], {"variant":variant, "started_at_unix":time.time()}
         stream_batches = prefetch_batches(batches, torch.device("cuda"), getattr(net, "gpu_prefetch", 0))
+        staged, batch = None, None
         try:
             for i in range(len(batches)):
                 torch.cuda.synchronize()
@@ -207,7 +208,7 @@ def main():
         report["results"].append(row)
         atomic_json(Path(args.out), report)
         print(json.dumps({k:v for k,v in row.items() if k not in ("samples","profile_cpu_top")}),flush=True)
-        del net,optimizer,h
+        del net,optimizer,h,staged,batch,stream_batches
         gc.collect();torch.cuda.empty_cache()
     if args.validation_batches:
         from validation_probe4 import compare_validation
