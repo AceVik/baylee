@@ -995,3 +995,58 @@ Performance comparisons are queued separately in
 trainer at `97bccc5e5`. They wait for the current production pipeline and an idle
 GPU, then measure activation retention, checkpoint staging/publication and fresh
 B=8/16/24 trajectory lanes. They do not interrupt validation or promote a model.
+
+## Completed performance comparisons and model-quality gate (23 October, 16:30)
+
+The queued experiments completed automatically by approximately 16:28. No job
+failed; the idle GPU afterward was a completed queue, not a stuck launcher.
+`compute-batching-timing/` contains raw samples and all job manifests.
+
+| Fresh trajectory lanes | Valid frames/s | Decisions/s | Peak allocated GiB | Allocator retries |
+| --- | --- | --- | --- | --- |
+| 8 | 648.4 | 102.8 | 3.283 | 0 |
+| 16 | 911.4 | 163.3 | 5.365 | 0 |
+| 24 | 1180.8 | 201.3 | 7.354 | 1 |
+
+The observed frame-rate increases are 40.6% and 82.1%, respectively. These are
+exploratory throughput results on different trajectory mixtures, not matched
+training-quality improvements. All three sampled at most 123 entity rows;
+larger boards and rare huge candidate sets still need memory testing. Batch 24
+already used 10.406 GiB of reserved allocator memory and retried one allocation.
+Do not switch the production recurrent cursor into a different lane count.
+
+Retaining two trunk layers' activations improved the first same-batch comparison
+from 2.0146 to 2.1147 updates/s (+5.0%), but the reverse-order confirmation was
+2.0448 versus 2.1001 (+2.7%). That misses the standing 3% confirmation threshold
+while spending about 1.77 GiB more peak allocated memory. It remains off.
+First-gradient relative L2 difference was 0.077%, max absolute 0.0004883;
+no allocation retries occurred on these batches (up to 174 entity rows).
+
+The full-size checkpoint benchmark round-tripped every tensor/state exactly.
+Synchronous saves returned after 495–515 ms. Warm asynchronous saves returned
+after 9.9–10.1 ms and allowed parameter mutation after approximately 26.7 ms;
+publication still took 449–533 ms. Its first pinned-memory staging cost 588 ms
+and publication 1014 ms. This measures checkpoint API/staging latency, not an
+equivalent speedup of complete training. Async writing is suitable for the next
+bounded training pilot; the new pinned snapshot and cold allocation cost remain.
+
+The completed K=1 model at step 16442 scored 17/128 duel wins and 1/64 Commander
+wins, compared with paired Steady house baselines of 58/128 and 11/64 against
+Sharp opponents. It had zero refused actions and zero answer caps, but 9/33
+stall fallbacks in duel/Commander. On the exact same duel cases versus broad v4
+BC it improved 10 outcomes and worsened 12; versus v3 it improved 5 and worsened
+30, with one unknown capped reference. Those are regressions in observed play,
+not evidence that throughput optimization has yielded a stronger model.
+
+Full validation included 3,072,672 frames and 45,951 active single choices:
+active accuracy 37.35%, value MSE 0.150865 versus uniform-seat MSE 0.124138,
+predicted utility mean 0.10107 versus observed 0.15646. Overall top-1 accuracy
+91.32% includes many trivial/passive cases and must not be advertised as tactical
+precision. The export passed 143 frame checks, max absolute error 2.26e-5.
+
+Started `experiments/codex-r4-thinking-eval`: same frozen checkpoint, evaluator,
+manifest, seeds and rotated focal seats at K=4, with the same 128/64 games. This
+tests whether the trained extra thinking helps before committing a long new
+training run. `paired_eval4.py --allow-thinking-difference` permits only this
+explicit budget difference and records both depths; other pairing checks remain.
+The active experiment pointer was advanced; no checkpoint was promoted.

@@ -39,13 +39,18 @@ def read_verified(evaluation, job):
     return value, provenance, hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def compare(candidate, reference, candidate_provenance, reference_provenance, resamples=20000):
+def compare(candidate, reference, candidate_provenance, reference_provenance, resamples=20000,
+            allow_thinking_difference=False):
     required = {"engine_sha256", "deck_manifest_sha256", "max_decisions", "fair_scouting", "holdout_tier", "generated"}
     if not required.issubset(candidate_provenance) or candidate_provenance != reference_provenance:
         raise ValueError("Engine, deck content and evaluation limits must match")
     for key in ("against", "baseline", "seats", "shape", "teams", "deck_split", "held_out_cards",
                 "first_seed", "deal_offset", "deals", "policy_seed", "temperature", "thinking_steps"):
-        if key not in candidate or key not in reference or candidate[key] != reference[key]:
+        if key not in candidate or key not in reference:
+            raise ValueError(f"Evaluation protocol is missing: {key}")
+        if key == "thinking_steps" and allow_thinking_difference:
+            continue
+        if candidate[key] != reference[key]:
             raise ValueError(f"Evaluation protocol differs or is missing: {key}")
     if candidate.get("no_baseline") or reference.get("no_baseline"):
         raise ValueError("House duplicates are required to audit matching outcomes")
@@ -80,6 +85,8 @@ def compare(candidate, reference, candidate_provenance, reference_provenance, re
         counts["both_lose"] += int(x == y == 0)
         counts["both_win"] += int(x == y == 1)
     return {"candidate": candidate["model"], "reference": reference["model"],
+            "thinking_steps": {"candidate": candidate["thinking_steps"], "reference": reference["thinking_steps"]},
+            "different_thinking_budgets_allowed": allow_thinking_difference,
             "provenance": candidate_provenance, "outcomes": dict(counts),
             "execution_quality": {label: {key: value.get(key) for key in
                 ("model_family", "house_fallbacks", "fallback_rate", "refused", "stalls", "net_answer_caps")}
@@ -97,11 +104,12 @@ def main():
     ap.add_argument("reference")
     ap.add_argument("--candidate-job", required=True)
     ap.add_argument("--reference-job", required=True)
+    ap.add_argument("--allow-thinking-difference", action="store_true", help="Explicit depth experiment; report each policy's thinking budget")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     candidate, cp, ch = read_verified(args.candidate, args.candidate_job)
     reference, rp, rh = read_verified(args.reference, args.reference_job)
-    report = compare(candidate, reference, cp, rp)
+    report = compare(candidate, reference, cp, rp, allow_thinking_difference=args.allow_thinking_difference)
     report["evaluation_sha256"] = {"candidate": ch, "reference": rh}
     atomic_json(Path(args.out), report)
     print(json.dumps(report, indent=2))

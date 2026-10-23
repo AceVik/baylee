@@ -41,6 +41,19 @@ class PairedModelEvaluation(unittest.TestCase):
         self.assertEqual(result["outcomes"]["better"], 0)
         self.assertIsNone(result["paired_uncertainty"]["paired_utility_difference"])
 
+    def test_depth_change_is_explicit_and_reported_without_relaxing_other_checks(self):
+        a, b = fixture([0, 1]), fixture([0, 1])
+        a["thinking_steps"] = 4
+        with self.assertRaises(ValueError):
+            self.compare(a, b)
+        result = compare(a, b, self.provenance, self.provenance, resamples=100,
+                         allow_thinking_difference=True)
+        self.assertEqual(result["thinking_steps"], {"candidate": 4, "reference": 1})
+        self.assertTrue(result["different_thinking_budgets_allowed"])
+        b["against"] = "casual"
+        with self.assertRaises(ValueError):
+            compare(a, b, self.provenance, self.provenance, allow_thinking_difference=True)
+
     def test_rejects_different_missing_duplicate_or_unreproduced_cases(self):
         original = fixture([0, 1])
         mutations = [lambda b: b.update(against="casual"),
