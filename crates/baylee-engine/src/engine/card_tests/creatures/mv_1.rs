@@ -38,6 +38,7 @@ mod dega_disciple;
 mod devout_monk;
 mod dragon_s_rage_channeler;
 mod druid_lyrist;
+mod duct_crawler;
 mod dwarven_armorer;
 mod electric_eel;
 mod elves_of_deep_shadow;

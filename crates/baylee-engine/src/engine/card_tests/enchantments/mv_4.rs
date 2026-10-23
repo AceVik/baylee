@@ -103,6 +103,7 @@ mod aluren;
 mod an_zerrin_ruins;
 mod aquatic_incursion;
 mod arboria;
+mod awakening;
 mod barbed_foliage;
 mod blood_mist;
 mod breath_of_dreams;

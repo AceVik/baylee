@@ -4,6 +4,7 @@
 use super::*;
 
 mod abyssal_gatekeeper;
+mod acidic_sliver;
 mod advance_scout;
 mod agent_of_shauku;
 mod akki_raider;

@@ -14,6 +14,7 @@ mod death_pits_of_rath;
 mod dictate_of_heliod;
 mod dire_undercurrents;
 mod dispersing_orb;
+mod dream_halls;
 mod duplicity;
 mod enchanted_evening;
 mod energy_vortex;

@@ -5,6 +5,7 @@ use super::*;
 
 mod afiya_grove;
 mod ajani_s_mantra;
+mod amok;
 mod ancestral_knowledge;
 mod angelic_renewal;
 mod angelic_shield;

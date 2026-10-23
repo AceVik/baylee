@@ -10,6 +10,7 @@ mod ashes_to_ashes;
 mod bala_ged_recovery;
 mod bargain;
 mod bridgeworks_battle;
+mod brush_with_death;
 mod buried_alive;
 mod choking_sands;
 mod cleansing;

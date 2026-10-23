@@ -31,6 +31,7 @@ mod dragon_mask;
 mod drake_skull_cameo;
 mod ebony_horse;
 mod elkin_bottle;
+mod ensnaring_bridge;
 mod eye_of_ramos;
 mod floodwater_dam;
 mod forcefield;

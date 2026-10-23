@@ -15,6 +15,8 @@ mod buoyancy;
 mod cloak_of_confusion;
 mod coils_of_the_medusa;
 mod consuming_ferocity;
+mod contempt;
+mod conviction;
 mod creature_bond;
 mod dance_of_the_dead;
 mod decomposition;
