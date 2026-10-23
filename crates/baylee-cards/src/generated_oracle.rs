@@ -8473,43 +8473,104 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nWhen this creature enters, you lose 2 life."],
     // Furnace Spirit
     &["Haste\n{R}: This creature gets +1/+0 until end of turn."],
-    &[],
-    &[],
+    // Gliding Licid
+    &[
+        "{U}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {U} to end this effect.\nEnchanted creature has flying.",
+    ],
+    // Grave Pact
+    &[
+        "Whenever a creature you control dies, each other player sacrifices a creature of their choice.",
+    ],
     // Hammerhead Shark
     &["This creature can't attack unless defending player controls an Island."],
-    &[],
-    &[],
+    // Heartstone
+    &[
+        "Activated abilities of creatures cost {1} less to activate. This effect can't reduce the mana in that cost to less than one mana.",
+    ],
+    // Heat of Battle
+    &["Whenever a creature blocks, this enchantment deals 1 damage to that creature's controller."],
     // Hermit Druid
     &[
         "{G}, {T}: Reveal cards from the top of your library until you reveal a basic land card. Put that card into your hand and all other cards revealed this way into your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
+    // Hesitation
+    &["When a player casts a spell, sacrifice this enchantment and counter that spell."],
+    // Hibernation Sliver
+    &["All Slivers have \"Pay 2 life: Return this permanent to its owner's hand.\""],
+    // Hidden Retreat
+    &[
+        "Put a card from your hand on top of your library: Prevent all damage that would be dealt by target instant or sorcery spell this turn.",
+    ],
     // Honor Guard
     &["{W}: This creature gets +0/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Horn of Greed
+    &["Whenever a player plays a land, that player draws a card."],
+    // Hornet Cannon
+    &[
+        "{3}, {T}: Create a 1/1 colorless Insect artifact creature token with flying and haste named Hornet. Destroy it at the beginning of the next end step.",
+    ],
+    // Intruder Alarm
+    &[
+        "Creatures don't untap during their controllers' untap steps.\nWhenever a creature enters, untap all creatures.",
+    ],
+    // Invasion Plans
+    &[
+        "All creatures block each combat if able.\nThe attacking player chooses how each creature blocks each combat.",
+    ],
+    // Jinxed Ring
+    &[
+        "Whenever a nontoken permanent is put into your graveyard from the battlefield, this artifact deals 1 damage to you.\nSacrifice a creature: Target opponent gains control of this artifact. (This effect lasts indefinitely.)",
+    ],
+    // Lab Rats
+    &[
+        "Buyback {4} (You may pay an additional {4} as you cast this spell. If you do, put this card into your hand as it resolves.)\nCreate a 1/1 black Rat creature token.",
+    ],
+    // Lancers en-Kor
+    &[
+        "Trample\n{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.",
+    ],
     // Leap
     &["Target creature gains flying until end of turn.\nDraw a card."],
-    &[],
+    // Lowland Basilisk
+    &["Whenever this creature deals damage to a creature, destroy that creature at end of combat."],
     // Mana Leak
     &["Counter target spell unless its controller pays {3}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mask of the Mimic
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card with the same name as target nontoken creature, put that card onto the battlefield, then shuffle.",
+    ],
+    // Megrim
+    &["Whenever an opponent discards a card, this enchantment deals 2 damage to that player."],
+    // Mind Games
+    &[
+        "Buyback {2}{U} (You may pay an additional {2}{U} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTap target artifact, creature, or land.",
+    ],
+    // Mind Peel
+    &[
+        "Buyback {2}{B}{B} (You may pay an additional {2}{B}{B} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget player discards a card.",
+    ],
+    // Mindwarper
+    &[
+        "This creature enters with three +1/+1 counters on it.\n{2}{B}, Remove a +1/+1 counter from this creature: Target player discards a card. Activate only as a sorcery.",
+    ],
+    // Mob Justice
+    &[
+        "Mob Justice deals damage to target player or planeswalker equal to the number of creatures you control.",
+    ],
+    // Mogg Bombers
+    &[
+        "When another creature enters, sacrifice this creature and it deals 3 damage to target player or planeswalker.",
+    ],
+    // Mogg Flunkies
+    &["This creature can't attack or block alone."],
+    // Mogg Infestation
+    &[
+        "Destroy all creatures target player controls. For each creature that died this way, that player creates two 1/1 red Goblin creature tokens.",
+    ],
+    // Mogg Maniac
+    &[
+        "Whenever this creature is dealt damage, it deals that much damage to target opponent or planeswalker.",
+    ],
     // Morgue Thrull
     &["Sacrifice this creature: Mill three cards."],
     &[],
