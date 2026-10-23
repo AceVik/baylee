@@ -46,28 +46,18 @@ impl<L: CardLookup> Engine<L> {
     /// Whether an effect keeps `id` from untapping this untap step
     /// (CR 502.3, and CR 613.11 for what kind of effect that is).
     ///
-    /// One condition, and the missing second one is worth saying out loud:
-    /// **whose** untap step is already answered by the loop that calls
-    /// this. CR 502.3 untaps the permanents *the active player controls*
-    /// and no others, and every printing of the sentence names that same
-    /// player — Basalt Monolith says "during **your** untap step" about
-    /// itself, Paralyze says "during **its controller's** untap step" about
-    /// the creature it enchants, and the card-script reference writes both
-    /// as `ValidStepTurnToController$ You`, where "you" is the *affected*
-    /// card's controller rather than the effect's.
-    ///
-    /// Reading it as the effect's controller instead would have been a
-    /// one-word mistake that worked on the monoliths — an ability a
-    /// permanent has about itself puts all three players on the same seat —
-    /// and broke the 45 Auras that are the commonest printing of this
-    /// sentence: the Aura's controller is the one player whose untap step
-    /// the enchanted creature never untaps in anyway.
+    /// An ordinary restriction follows the affected permanent's controller
+    /// (Paralyze). "Your next untap step" instead refers to the resolving
+    /// ability's controller (CR 109.5), even after the permanent changes
+    /// hands. Its duration supplies that fixed seat as well as its deadline.
     fn keeps_tapped(&self, id: ObjectId) -> bool {
         let Some(obj) = self.state.object(id) else {
             return false;
         };
         self.state.effects.iter().any(|fx| {
             matches!(fx.modifier, baylee_cards_dsl::Modifier::DoesNotUntap)
+                && (fx.duration != baylee_cards_dsl::Duration::UntilYourNextUntapStep
+                    || fx.controller == self.state.turn.active)
                 && crate::effects::applies_to(&self.state, fx, obj)
         })
     }
@@ -395,13 +385,8 @@ impl<L: CardLookup> Engine<L> {
         // untap step with it and cost the land a second turn. Both
         // directions are pinned in `untap_tests`.
         //
-        // `fx.controller` and not the affected permanent's controller, which
-        // is the one place this and `keeps_tapped` read CR 502.3's "your"
-        // from different seats. The sentence is only ever printed about the
-        // source of the ability that created it, so the two seats are the
-        // same one on every card that can say this; a permanent that changed
-        // hands in between is the case where they would part, and no
-        // printing reaches it.
+        // Both expiry and `keeps_tapped` bind "your" to the ability's
+        // controller, independently of who now controls the permanent.
         self.state.effects.remove_where(|fx| {
             matches!(
                 fx.duration,
@@ -410,5 +395,4 @@ impl<L: CardLookup> Engine<L> {
         });
         self.advance_step();
     }
-
 }

@@ -2083,6 +2083,13 @@ player's permanents, which is the same player every printing of the sentence
 names. It is **not** the way to say "doesn't untap during your *next* untap
 step" — that is a created effect with `Duration::UntilYourNextUntapStep`
 (`Effect::continuous(&Filter::This, Modifier::DoesNotUntap, …)`).
+That duration also binds the restriction to the resolving ability's
+controller: another player who gains control of the permanent untaps it
+normally. For the ability's source independently of its targets, use
+`ModifySource { modifier: DoesNotUntap, duration: UntilYourNextUntapStep }`.
+`SuppressUntap` instead follows the affected permanent's current controller
+and counts that player's actual untap steps; it does not mean "your next
+untap step" after a control change.
 
 `MayChooseNotToUntap` is the other half of the same rule and the storage
 lands' clause: CR 502.3 has the active player *determine* which of their
