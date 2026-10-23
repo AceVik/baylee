@@ -25,3 +25,4 @@ mod mirror_universe;
 mod booby_trap;
 mod celestial_sword;
 mod urza_s_armor;
+mod urza_s_blueprints;

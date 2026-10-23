@@ -187,6 +187,7 @@ mod vesuvan_doppelganger;
 mod veteran_bodyguard;
 mod vigilant_drake;
 mod water_elemental;
+mod weatherseed_treefolk;
 mod wind_spirit;
 mod winding_wurm;
 mod windstorm_drake;

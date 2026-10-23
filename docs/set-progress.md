@@ -720,7 +720,8 @@ no-engine-change contract:
   - Batch 5 (`Phyrexian Colossus` to `Shower of Sparks`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 6 (`Sleeper Agent` to `Vampiric Embrace`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 7 (`Vebulid` to `Worship`, 22 cards): **14 Implemented, 8 Partial**.
-- **Urza's Legacy (`ulg`)** — in progress:
+- **Urza's Legacy (`ulg`)** — completed across 4 batches (**64 Implemented, 21 Partial** across the 85 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`About Face` to `Hidden Gibbons`, 25 cards): **19 Implemented, 6 Partial**.
   - Batch 2 (`Hope and Glory` to `Rack and Ruin`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Radiant's Dragoons` to `Treacherous Link`, 25 cards): **21 Implemented, 4 Partial**.
+  - Batch 4 (`Treefolk Mystic` to `Yavimaya Granger`, 10 cards): **8 Implemented, 2 Partial**.
