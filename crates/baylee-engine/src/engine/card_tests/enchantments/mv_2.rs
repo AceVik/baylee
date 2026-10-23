@@ -65,6 +65,8 @@ mod luminarch_ascension;
 mod night_soil;
 mod oath_of_druids;
 mod oath_of_ghouls;
+mod oath_of_lieges;
+mod oath_of_mages;
 mod parapet;
 mod path_of_mettle;
 mod peace_of_mind;

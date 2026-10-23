@@ -219,6 +219,7 @@ mod ravenous_baboons;
 mod ravenous_baloth;
 mod razorfoot_griffin;
 mod reckless_embermage;
+mod reckless_ogre;
 mod reclusive_wight;
 mod restoration_angel;
 mod reveka_wizard_savant;

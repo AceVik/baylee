@@ -45,6 +45,7 @@ mod maniacal_rage;
 mod mystic_veil;
 mod nature_s_kiss;
 mod pacifism;
+mod paroxysm;
 mod phantasmal_terrain;
 mod phantom_wings;
 mod prismatic_ward;

@@ -51,6 +51,7 @@ mod mob_mentality;
 mod mortal_wound;
 mod mystic_might;
 mod paralyze;
+mod predatory_hunger;
 mod primal_frenzy;
 mod rancor;
 mod red_scarab;

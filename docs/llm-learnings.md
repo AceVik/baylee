@@ -5480,3 +5480,10 @@ more than two it names nobody). What the author did more than once:
     until end of turn"*) lock their affected permanent set on resolution (CR 611.2c), so applying `Modifier::ModifyPT(-2, -2)`
     and `Modifier::RemoveKeyword(KeywordSet::FLYING)` in sequence on `ATTACKING_WITH_FLYING` affects the same locked set
     without the keyword removal invalidating the filter for the second effect.
+- Added *Exodus* Batch 3 (`Oath of Lieges` through `Skyshaper`, **12 `Coverage::Implemented`, 13 `Coverage::Partial`**),
+  including `Reconnaissance` (`Effect::RemoveTargetFromCombat { unblock: false }` + `Effect::UntapTarget`),
+  `Plaguebearer` (`Filter::ManaValue(Cmp::Eq, ManaBound::ChosenX)`), and `Rabid Wolverines`
+  (`Amount::Count { filter: &Filter::BlockingSource, owner: PlayerRel::Any }`).
+  - `baylee_cards_codegen::lines::granted_cost` only inspects `AbilityDef::Static` and `AbilityDef::CopyOnEnter*`,
+    not `AbilityDef::Spell`, so an instant/sorcery spell cannot use `Modifier::GrantActivated` inside
+    `Effect::CreateContinuousEffect` (`Resuscitate`) until `granted_cost` walks `AbilityDef::Spell`.

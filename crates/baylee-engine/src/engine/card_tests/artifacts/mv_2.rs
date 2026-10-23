@@ -68,6 +68,7 @@ mod scarab_of_the_unseen;
 mod scroll_rack;
 mod selesnya_signet;
 mod sky_diamond;
+mod skyshaper;
 mod soldevi_digger;
 mod sword_of_the_chosen;
 mod talisman_of_dominance;

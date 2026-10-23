@@ -130,6 +130,7 @@ mod resistance_fighter;
 mod rime_dryad;
 mod roc_hatchling;
 mod rogue_elephant;
+mod rootwater_mystic;
 mod royal_herbalist;
 mod sacred_guide;
 mod sandbar_merfolk;

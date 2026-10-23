@@ -85,6 +85,7 @@ mod noble_steeds;
 mod orim_s_prayer;
 mod oubliette;
 mod overgrown_estate;
+mod penance;
 mod phyrexian_arena;
 mod prismatic_circle;
 mod propaganda;

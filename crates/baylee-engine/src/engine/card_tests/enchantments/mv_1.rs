@@ -132,6 +132,7 @@ mod omen_of_the_dead;
 mod onslaught;
 mod phyrexian_reclamation;
 mod quest_for_the_gravelord;
+mod reconnaissance;
 mod revelation;
 mod root_maze;
 mod sarcomancy;

@@ -44,6 +44,7 @@ mod night_s_whisper;
 mod nylea_s_intervention;
 mod painful_memories;
 mod paradigm_shift;
+mod pegasus_stampede;
 mod primitive_justice;
 mod rampant_growth;
 mod regrowth;

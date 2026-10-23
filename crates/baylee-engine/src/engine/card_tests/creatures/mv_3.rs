@@ -273,6 +273,7 @@ mod rysorian_badger;
 mod sabertooth_cobra;
 mod sabretooth_tiger;
 mod satyr_enchanter;
+mod scalding_salamander;
 mod scathe_zombies;
 mod sea_troll;
 mod searing_spear_askari;

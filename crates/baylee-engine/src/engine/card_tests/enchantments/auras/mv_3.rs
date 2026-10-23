@@ -32,6 +32,7 @@ mod phyrexian_boon;
 mod relic_bind;
 mod ritual_of_steel;
 mod scavenged_weaponry;
+mod shackles;
 mod spectral_shield;
 mod strength_of_the_harvest;
 mod tiger_claws;
