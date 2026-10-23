@@ -548,3 +548,42 @@ and per-seat memory. Longer RL runs require frozen-policy parity and stable
 KL checks first. Current hardware is sufficient for these pilots. Experienced
 player reviews of withheld tactical positions are useful later, not a blocker
 or a substitute for deterministic correctness tests.
+
+## Completed matched comparison and bounded continuation (23 October, midday)
+
+`codex-r4-comparison` finished both lanes. Every row uses the same frozen engine,
+manifest, Sharp opponents and seeds; Steady won 58/128 duels and 11/64 Commander
+deals (plus one four-way draw). These are matched opponent tests, not head-to-head:
+
+| Checkpoint | Duel wins / 128 | Commander wins / 64 | House fallbacks, duel / Commander |
+| --- | --- | --- | --- |
+| Archived v3 rl23 | 41 | 4 | 2313 / 337 |
+| Initial v4 BC | 24 | 8 | 43 / 42 |
+| Initial v4 PPO | 22 | 3 | 40 / 47 |
+| Broad-data v4 BC, +1h | 19 | 5 | 2 / 13 |
+
+All have zero refused actions. One v3 duel and one Commander deal per checkpoint
+hit the answer cap; those outcomes are unknown, not draws. Commander still has
+only 16 independent tables. The v3 adapter delegates substantially more choices
+to the house AI; the table compares complete seat systems, not isolated network
+quality. Broader data reduced fallbacks but has not established stronger play.
+No model was promoted. Machine-readable results: `codex-r4-comparison/summary.json`
+and each evaluation's table-cluster uncertainty report.
+
+While implementing the requested low-priority workstation dashboard, launched
+`codex-r4-broad-continuation`: a bounded additional 10800-second BC optimization
+budget, resuming the broad run's optimizer, RNG, recurrent state and exact sampler
+position (epoch 1, batch/step 2683). Original checkpoints remain unchanged; copies
+live in the new experiment. This tests the longer-training explanation, not a
+claim that the architecture's known blind spots are solved. Encoder/data/config
+stay unchanged. Training scripts are frozen under the experiment's `runtime/`;
+each guarded job hashes inputs. Final full validation, ONNX equivalence checks,
+128 matched duels and 64 Commander deals follow automatically with the frozen
+comparison binary. Final validation is additional time beyond the optimization
+budget. No PPO and no automatic promotion. A launcher initially resolved the
+venv interpreter symlink and exited before starting any job (missing NumPy); its
+log is retained, and launch through the actual venv path resumed successfully.
+
+The user clarified that useful contributions mean information/data, not buying
+hardware. Expert-annotated held-out tactical positions remain useful, but no user
+input is required for this continuation or dashboard work.
