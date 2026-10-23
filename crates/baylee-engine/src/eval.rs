@@ -144,7 +144,9 @@ pub fn matches_projected_with_context(
         Filter::HasSubtype(s) => chars.subtypes.contains(*s),
         Filter::HasWatermark => obj.watermark().is_some(),
         Filter::SharesWatermarkWithSource => obj.watermark().is_some_and(|mark| {
-            state.object(this).is_some_and(|source| source.watermark() == Some(mark))
+            state
+                .object(this)
+                .is_some_and(|source| source.watermark() == Some(mark))
         }),
         Filter::UnCard => obj.is_un_card(),
         Filter::HasColor(c) => chars.colors.intersects(*c),
@@ -189,7 +191,11 @@ pub fn matches_projected_with_context(
                     obj.chosen_player
                         .is_some_and(|p| !obj.target_players.contains(p)),
                 );
-            obj.targets.len() + obj.second_targets().len() + players + obj.second_target_players().len() == 1
+            obj.targets.len()
+                + obj.second_targets().len()
+                + players
+                + obj.second_target_players().len()
+                == 1
         }
         Filter::HasManaAbility => {
             (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
@@ -212,7 +218,9 @@ pub fn matches_projected_with_context(
             }
         }
         Filter::OwnedByYou => obj.owner == you,
-        Filter::OwnedBySourceOwner => state.object_or_departed(this).is_some_and(|source| source.owner == obj.owner),
+        Filter::OwnedBySourceOwner => state
+            .object_or_departed(this)
+            .is_some_and(|source| source.owner == obj.owner),
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
@@ -367,12 +375,12 @@ pub fn matches_projected_with_context(
         Filter::BlockingReference => context
             .reference
             .is_some_and(|reference| state.combat.is_blocking(obj.id, reference)),
-        Filter::BlockedByReferenceThisTurn => context.reference.is_some_and(|reference| {
-            blocked_this_turn(state, reference, obj.id)
-        }),
-        Filter::BlockedReferenceThisTurn => context.reference.is_some_and(|reference| {
-            blocked_this_turn(state, obj.id, reference)
-        }),
+        Filter::BlockedByReferenceThisTurn => context
+            .reference
+            .is_some_and(|reference| blocked_this_turn(state, reference, obj.id)),
+        Filter::BlockedReferenceThisTurn => context
+            .reference
+            .is_some_and(|reference| blocked_this_turn(state, obj.id, reference)),
         Filter::AttachedTo(inner) => obj
             .attached_to
             .and_then(|host| state.object(host))
@@ -387,9 +395,10 @@ pub fn matches_projected_with_context(
                     .intersects(*types)
             }),
         Filter::SharesCreatureTypeWithOtherTarget => context.reference.is_none_or(|reference| {
-            reference != obj.id && state.object(reference).is_some_and(|other| {
-                target_pair::shares(chars, other.characteristics())
-            })
+            reference != obj.id
+                && state
+                    .object(reference)
+                    .is_some_and(|other| target_pair::shares(chars, other.characteristics()))
         }),
         Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
         Filter::BlockedByReference => context
@@ -502,7 +511,9 @@ pub fn matches_projected_with_context(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => chars.mana_value() <= announced_x(state, this),
         Filter::CmcExactlyX => chars.mana_value() == announced_x(state, this),
-        Filter::TwiceCmcExactlyX => chars.mana_value().saturating_mul(2) == announced_x(state, this),
+        Filter::TwiceCmcExactlyX => {
+            chars.mana_value().saturating_mul(2) == announced_x(state, this)
+        }
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
         Filter::CmcAtMostColorsSpent => {
