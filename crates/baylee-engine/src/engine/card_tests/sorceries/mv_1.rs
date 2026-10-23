@@ -42,6 +42,7 @@ mod return_to_battle;
 mod rite_of_flame;
 mod scorched_earth;
 mod scorching_spear;
+mod seething_anger;
 mod serum_visions;
 mod shadowstorm;
 mod spoils_of_war;

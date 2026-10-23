@@ -74,6 +74,7 @@ mod nova_pentacle;
 mod otherworld_atlas;
 mod panharmonicon;
 mod pentagram_of_the_ages;
+mod portcullis;
 mod power_armor;
 mod power_matrix;
 mod primal_amulet;

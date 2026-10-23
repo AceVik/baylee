@@ -43,6 +43,7 @@ mod nature_s_resurgence;
 mod past_in_flames;
 mod phyrexian_purge;
 mod polymorph;
+mod ransack;
 mod reign_of_chaos;
 mod rejuvenate;
 mod relentless_assault;

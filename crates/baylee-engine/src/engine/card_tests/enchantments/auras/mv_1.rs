@@ -57,6 +57,7 @@ mod red_ward;
 mod reflexes;
 mod robe_of_mirrors;
 mod sadistic_glee;
+mod samite_blessing;
 mod shimmering_wings;
 mod sicken;
 mod spider_climb;
