@@ -31,6 +31,7 @@ mod departed;
 mod destruction_order;
 mod draw_replacements;
 mod effects;
+mod flanking;
 mod mana;
 mod modal_activated;
 mod powerstone;

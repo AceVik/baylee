@@ -247,12 +247,16 @@ pub(super) fn target(
         .or_else(|| {
             let stack = state.object(res.on_stack)?;
             if res.event_object != Some(object)
-                || !stack.target_req.is_some_and(|req| {
-                    matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject)
-                })
+                || (res.targeted
+                    && !stack.target_req.is_some_and(|req| {
+                        matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject)
+                    }))
             {
                 return None;
             }
+            // Synthetic untargeted abilities can carry an implicit event
+            // subject too. It remains the incarnation that caused the
+            // trigger, even when the same card leaves and returns.
             let (version, _) = super::event_object_identity(state, res)?;
             Some(DamageSourceRef { object, version })
         })

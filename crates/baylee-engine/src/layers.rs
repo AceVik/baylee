@@ -36,7 +36,9 @@ use smallvec::SmallVec;
 use std::sync::Arc;
 
 mod index;
+mod keyword_instances;
 mod projection;
+pub(crate) use keyword_instances::keyword_instances;
 pub(crate) use projection::recompute_cow;
 
 /// Number of layers (CR 613.1 sublayers included).

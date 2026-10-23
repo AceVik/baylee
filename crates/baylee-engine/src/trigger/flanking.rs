@@ -32,14 +32,16 @@ pub(super) fn collect(
     // Flanking (engine-level keyword trigger, CR 702.25a): "Whenever a
     // creature without flanking blocks this creature, the blocking
     // creature gets -1/-1 until end of turn." Once per blocker, and the
-    // blocker's own flanking is read as it blocks. A `KeywordSet` holds
-    // one instance, so a creature with two (CR 702.25b) triggers once.
+    // blocker's own flanking is read as it blocks. Each instance triggers
+    // separately (CR 702.25b).
     if batch_has_blocks
         && obj
             .characteristics()
             .keywords
             .contains(baylee_cards_dsl::KeywordSet::FLANKING)
     {
+        let instances =
+            crate::layers::keyword_instances(state, obj, baylee_cards_dsl::KeywordSet::FLANKING);
         for entry in events {
             if let GameEvent::BecameBlocker { object, attacker } = &entry.event
                 && *attacker == permanent
@@ -51,16 +53,18 @@ pub(super) fn collect(
                 })
             {
                 let source = source_at_event_with_moves(state, obj, moves, entry.seq, false);
-                for _ in
-                    0..times_triggered(state, baylee_cards_dsl::TriggerEventKind::Any, permanent)
-                {
+                for _ in 0..instances.saturating_mul(times_triggered(
+                    state,
+                    baylee_cards_dsl::TriggerEventKind::Any,
+                    permanent,
+                )) {
                     triggers.push(PendingTrigger {
                         text: TextChangeMap::IDENTITY,
                         source_version: Some(source.version),
                         related_objects: None,
                         event_subject: None,
                         event_ability: None,
-                        event_object_identity: None,
+                        event_object_identity: state.event_object_identity(*object, entry.seq),
                         counter_source_version: None,
                         event_mana: None,
                         event_mana_value: None,

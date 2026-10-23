@@ -38,22 +38,24 @@ fn mountain() -> CardIndex {
     card_index("a3fb7228-e76b-4e96-a40e-20b5fed75685")
 }
 
-/// Enchants p0's Grizzly Bears with Agility, attacks p1 with it and lets
+/// Enchants p0's creature with Agility, attacks p1 with it and lets
 /// p1 block with `blocker`. Returns the engine after the block's triggers
 /// resolved, with the blocker's id.
 fn attack_into(
+    attacker_card: CardIndex,
     them: &[CardIndex],
     blocker: CardIndex,
 ) -> (Engine<testkit::RegistryLookup>, ObjectId) {
     let (us, they) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .hand(0, &[agility()])
-        .battlefield(0, &[grizzly_bears(), mountain(), mountain()])
+        .battlefield(0, &[attacker_card, mountain(), mountain()])
         .battlefield(1, them)
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, us);
-    let attacker = on_battlefield(&engine, us, grizzly_bears()).unwrap();
+    let attacker = on_battlefield(&engine, us, attacker_card).unwrap();
+    let original = pt(&engine, attacker);
     let blocking = on_battlefield(&engine, they, blocker).unwrap();
     cast_from_hand(&mut engine, us, agility());
     engine
@@ -66,7 +68,11 @@ fn attack_into(
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
-    assert_eq!(pt(&engine, attacker), (3, 3), "Agility is on the attacker");
+    assert_eq!(
+        pt(&engine, attacker),
+        (original.0 + 1, original.1 + 1),
+        "Agility is on the attacker"
+    );
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -97,7 +103,7 @@ fn attack_into(
 /// A granted flanking shrinks the blocker once: one -1/-1, not two.
 #[test]
 fn a_creature_that_gains_flanking_shrinks_its_blocker_once() {
-    let (engine, giant) = attack_into(&[hill_giant()], hill_giant());
+    let (engine, giant) = attack_into(grizzly_bears(), &[hill_giant()], hill_giant());
     assert_eq!(pt(&engine, giant), (2, 2));
 }
 
@@ -105,6 +111,17 @@ fn a_creature_that_gains_flanking_shrinks_its_blocker_once() {
 /// time it is blocked has no trigger left.
 #[test]
 fn a_creature_that_lost_flanking_does_not_shrink_its_blocker() {
-    let (engine, giant) = attack_into(&[hill_giant(), barbed_foliage()], hill_giant());
+    let (engine, giant) = attack_into(
+        grizzly_bears(),
+        &[hill_giant(), barbed_foliage()],
+        hill_giant(),
+    );
     assert_eq!(pt(&engine, giant), (3, 3));
+}
+
+#[test]
+fn agility_adds_a_second_instance_to_a_native_flanker() {
+    let herder = card_index("0edf5bac-36a9-4f35-afd1-73f7e1aab51b");
+    let (engine, giant) = attack_into(herder, &[hill_giant()], hill_giant());
+    assert_eq!(pt(&engine, giant), (1, 1));
 }

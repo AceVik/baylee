@@ -16,11 +16,20 @@ use baylee_core::{
 };
 use smallvec::SmallVec;
 
-#[allow(clippy::too_many_lines)]
 pub(crate) fn recompute_cow<'a>(
     state: &GameState,
     obj: &'a GameObject,
     plan: &LayerPlan,
+) -> (std::borrow::Cow<'a, Characteristics>, PlayerId, bool) {
+    recompute_observing(state, obj, plan, |_, _, _| {})
+}
+
+#[allow(clippy::too_many_lines)]
+pub(super) fn recompute_observing<'a>(
+    state: &GameState,
+    obj: &'a GameObject,
+    plan: &LayerPlan,
+    mut applied: impl FnMut(Layer, &super::ContinuousEffect, &Characteristics),
 ) -> (std::borrow::Cow<'a, Characteristics>, PlayerId, bool) {
     // CR 406.3a: a face-down card in exile has no characteristics, including
     // its printed characteristic-defining abilities.
@@ -124,6 +133,7 @@ pub(crate) fn recompute_cow<'a>(
                     );
                     // A prohibited grant must not be visible to later filters either.
                     c_mut.keywords = c_mut.keywords.difference(prohibited);
+                    applied(layer, fx, c_mut);
                 }
             }
         }

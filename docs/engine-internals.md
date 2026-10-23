@@ -415,6 +415,15 @@ machine, so no block trigger reaches the stack before the last declaration
 (509.2a).
 
 ## What must block, and how many (CR 509.1a, 509.1c)
+Flanking is collected from the attacker's keyword when each blocker is
+declared. `layers::keyword_instances` replays the normal layer projection
+to count its native instance and each applicable grant; removing the
+keyword clears every earlier instance, and a later grant starts again.
+Each instance triggers separately (CR 702.25b), unless the blocker itself
+has flanking. The blocker is an implicit, untargeted event subject, pinned
+to its incarnation when it blocked: blinking it in response does not shrink
+the returned creature (CR 400.7).
+
 Four rules modifiers change a declaration of blockers, statics or
 until-end-of-turn effects on `Layer::Text` like the attack ones:
 
