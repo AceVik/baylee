@@ -149,22 +149,20 @@ where they stand).
 
 ## Screenshots
 
-The pictures are short recordings of the running game. They show Baylee's
-**text view**, which draws each card from its rules text instead of the
-printed card image ([License and legal](#license-and-legal) explains why).
-In the game, the card images come from Scryfall, and <kbd>T</kbd> switches
-between the two views. In the text view a card far off on the table shows
-only its colour, its cost and its marks; pointing at it shows its text
-large. They were recorded shortly before 0.1.0-beta.8b, on a local test
-gateway, with card images switched off and made-up players.
+The pictures are short recordings of the running game, with the card images
+from Scryfall as the game draws them. The ones at the table, the replay and
+the deck builder were recorded with 0.1.0-beta.8b on a local test gateway,
+with made-up players and decks from Magic's own sets; the front door, the
+lobby, the table being arranged and the update card show no cards and come
+from the recordings made shortly before beta.8b.
 
 <table>
   <tr>
     <td width="50%"><img src="docs/images/readme/lobby.webp" alt="The lobby: a friend's whisper and her table invitation arrive, then the private chat opens"><br><sub><b>The lobby, with friends and chat.</b> A friend whispers that her table has a seat for you, and her invitation follows with <i>Join</i>; the friends drawer shows who is online and at which table, and the whisper is end-to-end encrypted.</sub></td>
-    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel: a land is played, two spells go on the stack, and the game log fills"><br><sub><b>At the table.</b> A land, then Llanowar Elves and a Lightning Bolt go on the stack; the bolt's target is chosen in a sheet, and the game log beside the table writes down every move, each card a link.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="A duel: a land is played, Raging Goblin and Storm Seeker go on the stack, the house AI is chosen as the target, and the game log fills"><br><sub><b>At the table.</b> A land, then Raging Goblin goes on the stack and Storm Seeker follows in response; its target is chosen in a sheet that shows the card, and the game log beside the table writes down every move, each card a link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/combat.webp" alt="Combat: five attackers, three blocked, and the blocked ones go to the graveyard"><br><sub><b>Combat.</b> Five creatures attack and three are blocked; the lines show who fights whom. Six damage gets through, and the three blocked creatures go to the graveyard.</sub></td>
+    <td width="50%"><img src="docs/images/readme/combat.webp" alt="Combat: six attackers, three blocked by two walls and an angel, and the blocked ones go to the graveyard"><br><sub><b>Combat.</b> Six creatures attack and three are blocked; the lines show who fights whom. Wall of Spears strikes first, nine damage gets through, and the three blocked creatures go to the graveyard.</sub></td>
     <td width="50%"><img src="docs/images/readme/room.webp" alt="A room being arranged: three empty chairs are given to the house AI at three levels"><br><sub><b>Arranging a table.</b> The host gives three empty chairs to the house AI, each at its own level; a chair can also take another player or a language model.</sub></td>
   </tr>
   <tr>
@@ -172,13 +170,15 @@ gateway, with card images switched off and made-up players.
     <td width="50%"><img src="docs/images/readme/replay.webp" alt="A replay playing at double speed, then the Watch from menu opens"><br><sub><b>Replays.</b> A kept game against the house plays back at 2×, the stack, the attack and the blocks included; <i>Your seat</i> chooses whose view you watch from: yours, another player's, the table or all hands.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder: a search for angel narrows the pool, and a card goes into the deck"><br><sub><b>The deck builder.</b> Typing <i>angel</i> narrows a pool of 9,343 cards to 92 playable ones, and one goes into the deck, which is grouped by type, with Import, Export and History above.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="The deck builder: the search angel serra narrows the pool to three cards, Serra Angel is shown large, and it goes into the deck"><br><sub><b>The deck builder.</b> A search for <i>angel</i> keeps 92 playable cards of a pool of 9,343, and <i>serra</i> after it narrows them to three; pointing at Serra Angel shows it large, and <i>+</i> puts it into the deck, which is grouped by type.</sub></td>
     <td width="50%"><img src="docs/images/readme/update.webp" alt="The update card: a download with its share, speed and time left, then Restart to update"><br><sub><b>Updating.</b> The update card shows the download as it happens, then the check and the unpacking, and offers <i>Restart to update</i> (here a simulated download of beta.8b).</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Six creatures on the battlefield, each with its own border, shimmer or wave of moonlight"><br><sub><b>Read at a glance.</b> From the left: indestructible (a golden rim with a glint), shroud (violet mist), hexproof (a blue line with flowing streaks), summoning sickness (pale moonlight and its wave on Llanowar Elves, cast this turn), defender (stone blocks), and defender with shroud (stone inside violet mist).</sub></td>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Six creatures on the battlefield, each with its own animated border"><br><sub><b>Read at a glance.</b> From the left: indestructible (a golden rim with a glint), shroud (violet mist), hexproof (a blue line with flowing streaks), defender with hexproof (stone blocks and the blue line), defender with shroud (stone inside violet mist), and defender (stone blocks).</sub></td>
   </tr>
 </table>
+
+<p align="center"><sub>Card images: Scryfall · © Wizards of the Coast</sub></p>
 
 ## Installing
 
@@ -944,17 +944,19 @@ and a privacy notice template for anyone running a gateway are in
 Not approved/endorsed by Wizards. Portions of the materials used are property
 of Wizards of the Coast. ©Wizards of the Coast LLC. Magic: The Gathering,
 card names, set names, card images and mana symbols are property of Wizards
-of the Coast LLC. Baylee is not affiliated with Wizards of the Coast, and no
-Wizards of the Coast asset is shipped in this repository.
+of the Coast LLC. Baylee is not affiliated with Wizards of the Coast, and the
+game ships no Wizards of the Coast asset; the recordings in this README show
+card images © Wizards of the Coast (see Scryfall, below).
 
 **Scryfall.** Card data and images provided by
-[Scryfall](https://scryfall.com). The client loads card images from Scryfall
-while you play; they are not part of this repository and are not
-redistributed. For that reason the pictures above use Baylee's own text
-view, which draws a card from its name and rules text in our own layout, with
-no frame art or image of a printed card
-([docs/legal.md](docs/legal.md), clauses 2 and 3). Baylee is not affiliated
-with Scryfall.
+[Scryfall](https://scryfall.com). The client loads card images from Scryfall,
+or from its gateway's cache of them, while you play; the game ships none. The
+recordings above show them as the game draws them, scaled and nothing more,
+and no Universes Beyond card among them. Those card images are © Wizards of the
+Coast, provided by Scryfall, and are not covered by this repository's
+licence ([docs/images/readme/README.md](docs/images/readme/README.md);
+[docs/legal.md](docs/legal.md), clause 3). Baylee is not affiliated with
+Scryfall.
 
 **Third-party material.** [NOTICE](NOTICE) lists the bundled fonts (Alegreya
 Sans, Faustina, Font Awesome Free and the Mana font, all SIL OFL 1.1);

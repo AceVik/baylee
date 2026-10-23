@@ -162,24 +162,21 @@ wo sie stehen).
 
 ## Bilder
 
-Die Bilder sind kurze Aufnahmen des laufenden Spiels. Sie zeigen Baylees
-**Textansicht**, die jede Karte aus ihrem Regeltext zeichnet statt aus dem
-gedruckten Kartenbild (warum, steht unter
-[Lizenz und Rechtliches](#lizenz-und-rechtliches)). Im Spiel kommen die
-Kartenbilder von Scryfall, und <kbd>T</kbd> schaltet zwischen beiden
-Ansichten um. In der Textansicht zeigt eine Karte weit weg auf dem Tisch nur
-ihre Farbe, ihre Kosten und ihre Markierungen; zeigst du auf sie, siehst du
-ihren Text groß. Aufgenommen wurden sie kurz vor 0.1.0-beta.8b an einem
-lokalen Test-Gateway, mit abgeschalteten Kartenbildern und ausgedachten
-Spielern (die Oberfläche ist hier englisch; sie spricht auch Deutsch).
+Die Bilder sind kurze Aufnahmen des laufenden Spiels, mit den Kartenbildern
+von Scryfall, so wie das Spiel sie zeichnet. Die Aufnahmen am Tisch, das
+Replay und der Deckbauer entstanden mit 0.1.0-beta.8b an einem lokalen
+Test-Gateway, mit ausgedachten Spielern und Decks aus Magics eigenen Sets;
+Eingang, Lobby, Tischeinrichtung und Update-Karte zeigen keine Karten und
+stammen aus den Aufnahmen kurz vor beta.8b (die Oberfläche ist hier
+englisch; sie spricht auch Deutsch).
 
 <table>
   <tr>
     <td width="50%"><img src="docs/images/readme/lobby.webp" alt="Die Lobby: Ein Flüstern und eine Tischeinladung einer Freundin kommen an, dann öffnet sich der private Chat"><br><sub><b>Die Lobby, mit Freunden und Chat.</b> Eine Freundin flüstert dir zu, dass an ihrem Tisch ein Platz frei ist, ihre Einladung mit <i>Join</i> folgt; die Freundesleiste zeigt, wer online ist und an welchem Tisch, und das Flüstern ist Ende-zu-Ende-verschlüsselt.</sub></td>
-    <td width="50%"><img src="docs/images/readme/table.webp" alt="Ein Duell: Ein Land wird gespielt, zwei Zaubersprüche gehen auf den Stapel, und das Protokoll füllt sich"><br><sub><b>Am Tisch.</b> Ein Land, dann gehen Llanowar Elves und ein Lightning Bolt auf den Stapel; das Ziel des Bolt wählst du in einem Blatt, und das Protokoll neben dem Tisch schreibt jeden Zug mit, jede Karte ein Link.</sub></td>
+    <td width="50%"><img src="docs/images/readme/table.webp" alt="Ein Duell: Ein Land wird gespielt, Raging Goblin und Storm Seeker gehen auf den Stapel, die Haus-KI wird als Ziel gewählt, und das Protokoll füllt sich"><br><sub><b>Am Tisch.</b> Ein Land, dann geht Raging Goblin auf den Stapel, und Storm Seeker folgt als Antwort; sein Ziel wählst du in einem Blatt, das die Karte zeigt, und das Protokoll neben dem Tisch schreibt jeden Zug mit, jede Karte ein Link.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/combat.webp" alt="Kampf: fünf Angreifer, drei davon geblockt, und die geblockten gehen auf den Friedhof"><br><sub><b>Kampf.</b> Fünf Kreaturen greifen an, drei werden geblockt; die Linien zeigen, wer gegen wen kämpft. Sechs Schaden kommen durch, und die drei geblockten Kreaturen gehen auf den Friedhof.</sub></td>
+    <td width="50%"><img src="docs/images/readme/combat.webp" alt="Kampf: sechs Angreifer, drei davon von zwei Mauern und einem Engel geblockt, und die geblockten gehen auf den Friedhof"><br><sub><b>Kampf.</b> Sechs Kreaturen greifen an, drei werden geblockt; die Linien zeigen, wer gegen wen kämpft. Wall of Spears schlägt zuerst zu, neun Schaden kommen durch, und die drei geblockten Kreaturen gehen auf den Friedhof.</sub></td>
     <td width="50%"><img src="docs/images/readme/room.webp" alt="Ein Raum wird eingerichtet: Drei freie Plätze gehen an die Haus-KI in drei Stufen"><br><sub><b>Einen Tisch einrichten.</b> Der Gastgeber gibt drei freie Plätze der Haus-KI, jeden in einer eigenen Stufe; einen Platz kann auch ein anderer Spieler oder ein Sprachmodell nehmen.</sub></td>
   </tr>
   <tr>
@@ -187,13 +184,15 @@ Spielern (die Oberfläche ist hier englisch; sie spricht auch Deutsch).
     <td width="50%"><img src="docs/images/readme/replay.webp" alt="Ein Replay läuft mit doppelter Geschwindigkeit, dann öffnet sich das Menü Watch from"><br><sub><b>Replays.</b> Eine gespeicherte Partie gegen das Haus läuft mit 2×, mit Stapel, Angriff und Blocks; <i>Your seat</i> wählt, aus wessen Sicht du zusiehst: deiner, der eines anderen Spielers, des Tisches oder aller Hände.</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Der Deckbauer: Eine Suche nach angel engt den Pool ein, und eine Karte kommt ins Deck"><br><sub><b>Der Deckbauer.</b> Die Eingabe <i>angel</i> engt einen Pool von 9.343 Karten auf 92 spielbare ein, und eine davon kommt ins Deck, nach Typ gruppiert, mit Import, Export und Historie darüber.</sub></td>
+    <td width="50%"><img src="docs/images/readme/deck-builder.webp" alt="Der Deckbauer: Die Suche angel serra engt den Pool auf drei Karten ein, Serra Angel wird groß gezeigt und kommt ins Deck"><br><sub><b>Der Deckbauer.</b> Die Suche <i>angel</i> lässt von einem Pool aus 9.343 Karten 92 spielbare übrig, und <i>serra</i> dahinter engt sie auf drei ein; zeigst du auf Serra Angel, siehst du sie groß, und <i>+</i> legt sie ins Deck, nach Typ gruppiert.</sub></td>
     <td width="50%"><img src="docs/images/readme/update.webp" alt="Die Update-Karte: ein Download mit Anteil, Geschwindigkeit und Restzeit, dann Restart to update"><br><sub><b>Aktualisieren.</b> Die Update-Karte zeigt den Download, während er läuft, dann Prüfung und Entpacken, und bietet <i>Restart to update</i> an (hier ein simulierter Download von beta.8b).</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Sechs Kreaturen auf dem Spielfeld, jede mit eigenem Rand, Schimmer oder einer Welle aus Mondlicht"><br><sub><b>Auf einen Blick.</b> Von links: indestructible (ein goldener Rand mit einem Glanzlicht), shroud (violetter Nebel), hexproof (eine blaue Linie mit fließenden Schlieren), Einsatzverzögerung (blasses Mondlicht und seine Welle auf den Llanowar Elves, in diesem Zug gewirkt), defender (Steinblöcke) und defender mit shroud (Stein in violettem Nebel).</sub></td>
+    <td colspan="2"><img src="docs/images/readme/keyword-borders.webp" alt="Sechs Kreaturen auf dem Spielfeld, jede mit eigenem bewegtem Rand"><br><sub><b>Auf einen Blick.</b> Von links: indestructible (ein goldener Rand mit einem Glanzlicht), shroud (violetter Nebel), hexproof (eine blaue Linie mit fließenden Schlieren), defender mit hexproof (Steinblöcke und die blaue Linie), defender mit shroud (Stein in violettem Nebel) und defender (Steinblöcke).</sub></td>
   </tr>
 </table>
+
+<p align="center"><sub>Kartenbilder: Scryfall · © Wizards of the Coast</sub></p>
 
 ## Installation
 
@@ -1010,16 +1009,19 @@ den auch der Client zeigt:
 > property of Wizards of the Coast. ©Wizards of the Coast LLC.
 
 Magic: The Gathering sowie Kartennamen, Setnamen, Kartenbilder und
-Manasymbole sind Eigentum von Wizards of the Coast LLC. Dieses Repository
-enthält kein Material von Wizards of the Coast.
+Manasymbole sind Eigentum von Wizards of the Coast LLC. Das Spiel liefert
+kein Material von Wizards of the Coast mit; die Aufnahmen in dieser README
+zeigen Kartenbilder © Wizards of the Coast (siehe Scryfall, unten).
 
 **Scryfall.** Kartendaten und -bilder bereitgestellt von
 [Scryfall](https://scryfall.com). Der Client lädt die Kartenbilder beim
-Spielen von Scryfall; sie gehören nicht zu diesem Repository und werden
-nicht weiterverbreitet. Deshalb zeigen die Bilder oben Baylees eigene
-Textansicht: Sie zeichnet eine Karte aus Name und Regeltext in unserem
-eigenen Layout, ohne Rahmengrafik und ohne das Bild einer gedruckten Karte
-([docs/legal.md](docs/legal.md), Abschnitte 2 und 3). Baylee steht in keiner
+Spielen von Scryfall oder aus dem Zwischenspeicher seines Gateways; das Spiel
+liefert keine mit. Die Aufnahmen oben zeigen sie so, wie das Spiel sie
+zeichnet, nur verkleinert, und keine Universes-Beyond-Karte darunter.
+Diese Kartenbilder sind © Wizards of the Coast, bereitgestellt von Scryfall,
+und fallen nicht unter die Lizenz dieses Repositorys
+([docs/images/readme/README.md](docs/images/readme/README.md);
+[docs/legal.md](docs/legal.md), Abschnitt 3). Baylee steht in keiner
 Verbindung zu Scryfall.
 
 **Fremdes Material.** [NOTICE](NOTICE) führt die mitgelieferten Schriften auf
