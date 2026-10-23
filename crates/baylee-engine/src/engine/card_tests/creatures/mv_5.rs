@@ -118,6 +118,7 @@ mod ojer_kaslem_deepest_growth;
 mod orcish_squatters;
 mod ore_gorger;
 mod orgg;
+mod peregrine_drake;
 mod phyrexian_plaguelord;
 mod pinnacle_monk;
 mod pirate_ship;

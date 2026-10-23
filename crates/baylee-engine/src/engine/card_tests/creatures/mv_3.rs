@@ -195,6 +195,7 @@ mod lurker;
 mod maddening_imp;
 mod mage_il_vec;
 mod man_o_war;
+mod mana_leech;
 mod manic_vandal;
 mod marker_beetles;
 mod master_of_arms;

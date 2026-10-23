@@ -135,6 +135,7 @@ mod mystic_remora;
 mod need_for_speed;
 mod omen_of_the_dead;
 mod onslaught;
+mod opal_caryatid;
 mod phyrexian_reclamation;
 mod quest_for_the_gravelord;
 mod reconnaissance;

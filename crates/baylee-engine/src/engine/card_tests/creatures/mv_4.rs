@@ -202,6 +202,7 @@ mod odylic_wraith;
 mod ojer_axonil_deepest_might;
 mod ojer_pakpatiq_deepest_epoch;
 mod omnath_locus_of_creation;
+mod order_of_yawgmoth;
 mod palace_jailer;
 mod pardic_collaborator;
 mod pendrell_drake;

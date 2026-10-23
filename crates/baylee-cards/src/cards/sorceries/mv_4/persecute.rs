@@ -22,6 +22,6 @@ card!(
         &[Effect::RevealHandDiscard {
             filter: &Filter::Any,
         }],
-        targets = Some(TargetReq::one(TargetSpec::Player(PlayerRel::EachPlayer))),
+        targets = Some(TargetReq::one(TargetSpec::AnyPlayer)),
     )],
 );

@@ -54,6 +54,7 @@ mod kraken_s_eye;
 mod kry_shield;
 mod liquimetal_coating;
 mod liquimetal_torque;
+mod lotus_blossom;
 mod magnetic_web;
 mod marble_diamond;
 mod millstone;

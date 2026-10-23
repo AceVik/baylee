@@ -139,6 +139,7 @@ mod machine_man_model_x_51;
 mod masticore;
 mod millennial_gargoyle;
 mod mindless_automaton;
+mod mobile_fort;
 mod molten_tail_masticore;
 mod needlebug;
 mod patagia_golem;

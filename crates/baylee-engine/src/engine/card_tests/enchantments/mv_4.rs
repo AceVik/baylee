@@ -180,6 +180,7 @@ mod no_quarter;
 mod null_chamber;
 mod oath_of_lim_dul;
 mod oath_of_scholars;
+mod opal_titan;
 mod opposition;
 mod orcish_oriflamme;
 mod pandemonium;

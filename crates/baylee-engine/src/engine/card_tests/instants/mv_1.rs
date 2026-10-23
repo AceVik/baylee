@@ -98,6 +98,7 @@ mod mystical_tutor;
 mod natural_selection;
 mod nature_s_claim;
 mod opt;
+mod outmaneuver;
 mod oxidize;
 mod panic;
 mod path_to_exile;

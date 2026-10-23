@@ -44,6 +44,7 @@ mod natural_balance;
 mod natural_order;
 mod nature_s_resurgence;
 mod past_in_flames;
+mod persecute;
 mod phyrexian_purge;
 mod polymorph;
 mod ransack;
