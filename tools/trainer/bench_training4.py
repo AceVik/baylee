@@ -23,9 +23,10 @@ from training4.execution import plan_batch, transfer_batch, encode_boards, compi
 from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss
 from training4.deferred import deferred_readouts
+from training4.prefetch import prefetch_batches
 
 
-def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, capture=False):
+def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, capture=False, staged=None):
     if getattr(net, "_cuda_graphs", False):
         torch.compiler.cudagraph_mark_step_begin()
     plan_start = time.perf_counter()
@@ -33,7 +34,7 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
     plan_ms = (time.perf_counter() - plan_start) * 1000
     events = [torch.cuda.Event(enable_timing=True) for _ in range(4)]
     events[0].record()
-    batch = transfer_batch(host, torch.device("cuda"))
+    batch = transfer_batch(host, torch.device("cuda")) if staged is None else staged
     events[1].record()
     b, u = batch["step_valid"].shape
     h = torch.where(batch["is_new_traj"].cuda()[:, None, None], torch.zeros_like(h), h.detach())
@@ -144,6 +145,8 @@ def main():
         for part in variant.split("-"):
             if part.startswith("deferred"):
                 net.decision_chunk = int(part[len("deferred"):])
+            if part.startswith("prefetch"):
+                net.gpu_prefetch = int(part[len("prefetch"):])
         if "regional" in variant.split("-"):
             compile_regions(net, readouts="readouts" in variant.split("-"))
         elif "graphs" in variant.split("-"):
@@ -170,11 +173,15 @@ def main():
         torch.cuda.reset_peak_memory_stats()
         retries_before = torch.cuda.memory_stats()["num_alloc_retries"]
         samples, row = [], {"variant":variant, "started_at_unix":time.time()}
+        stream_batches = prefetch_batches(batches, torch.device("cuda"), getattr(net, "gpu_prefetch", 0))
         try:
-            for i, batch in enumerate(batches):
+            for i in range(len(batches)):
                 torch.cuda.synchronize()
                 start, cpu_start = time.perf_counter(), time.process_time()
-                h, metrics, gradients = update(net, optimizer, batch, h, saved["step_num"]+i, reference, chunk, fused, capture=i==0)
+                # Include staging/API overhead in wall time; moving it outside
+                # the measurement would unfairly favor the prefetch variant.
+                batch, staged = next(stream_batches)
+                h, metrics, gradients = update(net, optimizer, batch, h, saved["step_num"]+i, reference, chunk, fused, capture=i==0, staged=staged)
                 metrics.update(wall_ms=(time.perf_counter()-start)*1000, cpu_ms=(time.process_time()-cpu_start)*1000)
                 if i == 0:
                     row["first_loss"] = metrics["loss"]
@@ -194,6 +201,8 @@ def main():
                 row["profile_cpu_top"]=averages.table(sort_by="self_cpu_time_total",row_limit=12)
         except torch.cuda.OutOfMemoryError:
             row["error"]="CUDA out of memory; variant rejected"
+        finally:
+            stream_batches.close()
         row["finished_at_unix"] = time.time()
         report["results"].append(row)
         atomic_json(Path(args.out), report)

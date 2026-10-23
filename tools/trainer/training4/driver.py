@@ -35,6 +35,7 @@ from .validation_device import evaluate_device
 from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from .deferred import deferred_readouts
+from .prefetch import prefetch_batches
 
 
 def main() -> None:
@@ -75,6 +76,7 @@ def main() -> None:
     ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
     ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
+    ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     args = ap.parse_args()
     if args.compile_readouts and not args.compile_regions:
         ap.error("--compile-readouts requires --compile-regions")
@@ -150,6 +152,7 @@ def main() -> None:
     net = M.PlayerNet4(cfg).to(device)
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
+    net.gpu_prefetch = args.gpu_prefetch
     net.prune_unused_policy_heads = args.prune_unused_policy_heads
     if args.init:
         init_p = Path(args.init).expanduser()
@@ -267,11 +270,12 @@ def main() -> None:
         train_sampler.start_batch = resume_batch if epoch == resume_epoch else 0
         next_batch = train_sampler.start_batch
 
-        for batch_idx, batch in enumerate(train_loader, start=train_sampler.start_batch):
+        for batch_idx, (host, staged) in enumerate(prefetch_batches(train_loader, device, args.gpu_prefetch),
+                                                  start=train_sampler.start_batch):
             # A rare name-card question can pad many ordinary frames to a very
             # wide C. Keep large batches on the host and transfer one time step.
-            plans = None if args.reference_execution else plan_batch(batch, step_num, args.thinking_steps, args.thinking_curriculum)
-            batch = transfer_batch(batch, device)
+            plans = None if args.reference_execution else plan_batch(host, step_num, args.thinking_steps, args.thinking_curriculum)
+            batch = transfer_batch(host, device) if staged is None else staged
             B, U = batch["step_valid"].shape
             opt.zero_grad(set_to_none=True)
             is_new = batch["is_new_traj"].to(device)

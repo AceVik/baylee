@@ -42,6 +42,13 @@ own already-computed state. It requires grouped boards and dropout=0. Grouping
 respects thinking depth and candidate/pair size; large candidate sets reduce
 the group size instead of truncating choices. No future observation enters an
 earlier decision, and gradients still traverse the full recurrent chain.
+`--gpu-prefetch 1` adds one future batch on a dedicated CUDA copy stream, using
+the loader's pinned RAM. Values 2/3 provide triple/quadruple buffering. Each queued
+GPU input batch is limited to 128 MiB; oversized/unpinned inputs retain the
+ordinary transfer/streaming path. Events establish copy-before-use ordering,
+and allocator stream tracking prevents premature reuse of retired GPU buffers.
+This is separate from the existing DataLoader CPU prefetch and filesystem cache;
+benchmark the complete update before enabling it.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.

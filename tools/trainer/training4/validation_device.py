@@ -9,6 +9,7 @@ import model4 as M
 from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards
 from .deferred import deferred_readouts
+from .prefetch import prefetch_batches
 
 
 @torch.no_grad()
@@ -18,9 +19,9 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
     calibration = torch.zeros(3, 10, dtype=torch.float64, device=device)
     h = None
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
-    for host in loader:
+    for host, staged in prefetch_batches(loader, device, getattr(net, "gpu_prefetch", 0)):
         plans = plan_batch(host, 0, thinking_steps)
-        batch = transfer_batch(host, device)
+        batch = transfer_batch(host, device) if staged is None else staged
         b, u = batch["step_valid"].shape
         new = batch["is_new_traj"].to(device)
         if h is None or h.shape[0] != b:
