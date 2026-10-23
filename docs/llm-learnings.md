@@ -5557,3 +5557,13 @@ final validation are in `docs/history/2026-10-23-argon-review.md`.
   versus `adds`; record it explicitly rather than claiming complete coverage.
   Text provenance for retained modal subsets must be unique, and unknown or
   ambiguous effects must refuse a label rather than inherit a shifted index.
+
+- **Adding mana does not make an activation a mana ability.** A direct target
+  in any immediate sentence keeps Witch Engine's ability on the stack. Its
+  printed-line reader must agree. A target in a later delayed trigger belongs
+  to that separate ability; retain a Primal Wellspring-style negative control.
+- **A public view cannot reconstruct missing history.** Zero marked damage
+  after regeneration is not proof of no damage this turn. Current combat is
+  not all attacks this turn, and an unannounced X is not a candidate's mana
+  value. Keep the client's conservative unknown answer, pin known gaps by exact
+  membership, and test the genuinely empty candidate population separately.

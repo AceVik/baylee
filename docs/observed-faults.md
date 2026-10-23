@@ -3738,3 +3738,25 @@ verb form and supplying legal attachments for the affected land Auras before
 measuring the expanded population; widening a busy/skip allowance would not
 establish that coverage. The October 23 population adjustment retains the
 existing reader boundary and explicitly documents it beside the exact pins.
+
+
+### 66. Target preflight has nine exact history/X/source gaps — KNOWN coverage gap
+
+The client cannot prove target availability for Detonate, Fatal Blow,
+Fire and Brimstone, Glyph of Delusion, Interdict, Kaervek's Purge, Rust,
+Spell Blast and Stir the Grave in every view. These filters need unannounced
+X, this turn's damage/attack/block history, or authoritative activated-ability
+kind and source incarnation. `PlayerView` does not carry those facts for this
+preflight. Marked damage can be zero after regeneration, current combat is not
+all combat this turn, and printed source identity does not describe a copied
+or granted stack ability's exact provenance.
+
+`targeting` therefore keeps the conservative unknown answer and lets the
+engine decide the cast. It never invents a legal target. An existing creature
+with zero marked damage is still unknown for Fatal Blow, while a genuinely
+empty creature population can still prove Fatal Blow and Kaervek's Purge
+unplayable. Fire and Brimstone remains unknown with empty current combat.
+The population test now pins all nine identities and the exact ability count,
+replacing the previous coarse ceiling; adding, removing or duplicating an
+unread member must be reviewed. Closing a gap requires a sufficient public
+projection or a proof that does not substitute current state for history.

@@ -396,6 +396,26 @@ card scenarios, exact census lists, modal provenance, basic-land guards and
 narrator fixtures now pass. Canonical held cards have their obsolete played
 card tests removed by codegen.
 
+The first full workspace gate reached 22,949 tests: 22,947 passed and two
+client checks failed (25 existing skips). Witch Engine's targeted activation
+was incorrectly classified as a mana line because its first instruction adds
+mana; the reader now checks all immediate sentences for targets while keeping
+later triggered riders separate. Its CardDef and coverage are unchanged.
+The other failure was the client target preflight's coarse blind-spot budget.
+An exact nine-member census now replaces that budget, preserving the structural
+negative controls and population floor. New boundaries distinguish unknown
+history/X for an existing creature from a genuinely empty creature population.
+No hidden state or unannounced X is inferred from the public view. These known
+preflight gaps remain documented rather than being disguised as readable rules.
+The diagnostic landing run was stopped after the red full gate; the repaired
+commit must pass all three local gates afresh before it can land.
+
+The targeted repair checks pass: **360 codegen tests, 39 client targeting
+tests, the full written-row sentence check, and Clippy for both affected
+crates with all targets**. The tables were regenerated twice and change only
+Witch Engine's missing ability line. Both fixes and the supporting docs were
+independently reviewed by Astra.
+
 The final landing command is `DATABASE_URL=… cargo dev land`. It fetches and
 incorporates current main under the shared cargo lock, runs **all three**
 required local gates (`gate`, `gate features`, `gate wasm`) and pushes only
