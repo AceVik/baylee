@@ -234,6 +234,9 @@ pub const PAGE: CounterKind = CounterKind::Custom(62);
 /// Verse counters (Discordant Dirge, Serra's Hymn, Recantation, …).
 pub const VERSE: CounterKind = CounterKind::Custom(63);
 
+/// Petal counters (Lotus Blossom).
+pub const PETAL: CounterKind = CounterKind::Custom(64);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -303,6 +306,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("study", STUDY),
     ("page", PAGE),
     ("verse", VERSE),
+    ("petal", PETAL),
 ];
 
 #[cfg(test)]

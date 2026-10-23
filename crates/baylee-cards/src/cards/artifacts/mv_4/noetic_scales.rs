@@ -1,0 +1,21 @@
+//! Noetic Scales — {4} — Artifact
+//! Oracle: At the beginning of each player's upkeep, return to its owner's hand each creature that player controls with power greater than the number of cards in their hand.
+//! Set: USG #304 — Urza's Saga | Scryfall ID: 18506777-cd69-42f6-99c9-cde9b0958868 | Oracle ID: aebddadd-f05b-4ad5-bda4-603a134f68dc
+// PARTIAL
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::NOETIC_SCALES,
+    oracle_id = "aebddadd-f05b-4ad5-bda4-603a134f68dc",
+    scryfall_id = "18506777-cd69-42f6-99c9-cde9b0958868",
+    coverage = Coverage::Partial(
+        "filtering creatures controlled by the active player with power greater than the number of cards in that player's hand is not in Filter; enters as a {4} artifact with no abilities",
+    ),
+    faces = &[face!(
+        name = "Noetic Scales",
+        mana_cost = mana!("{4}"),
+        types = TypeSet::ARTIFACT,
+    ),],
+    abilities = &[],
+);

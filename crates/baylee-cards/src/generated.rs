@@ -912,6 +912,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::death_ward::CARD,
     ),
     (
+        "0547e426-e23e-4c60-ba6b-cfd4b5ff8485",
+        &crate::cards::mobile_fort::CARD,
+    ),
+    (
         "054a0193-861e-4644-ab0a-8aa33407abc8",
         &crate::cards::kor_skyfisher::CARD,
     ),
@@ -1914,6 +1918,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "0bc7f093-bef0-4f1a-852c-4b75ebf54838",
         &crate::cards::arcane_signet::CARD,
+    ),
+    (
+        "0bd67481-6bd9-48d6-92bd-8933b5ea1eae",
+        &crate::cards::peregrine_drake::CARD,
     ),
     (
         "0bd8917c-bec4-4603-bc3f-8e0c2afae56a",
@@ -6944,6 +6952,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::abomination::CARD,
     ),
     (
+        "2c5c8250-1860-42a1-a335-071f54830d37",
+        &crate::cards::pariah::CARD,
+    ),
+    (
         "2c5e30c3-0b9f-4d3e-af44-be7fcd34df25",
         &crate::cards::take_heart::CARD,
     ),
@@ -8018,6 +8030,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "32e5339e-9e4f-46f8-b305-f9d6d3ba8bb5",
         &crate::cards::lotus_petal::CARD,
+    ),
+    (
+        "32e66ea0-5f35-4df8-8d00-580403c51bb5",
+        &crate::cards::lotus_blossom::CARD,
     ),
     (
         "32e7befb-c083-4e17-aaeb-7247f317bbcf",
@@ -10730,6 +10746,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "42b2db4c-4a1d-436f-9eeb-53a04db46c58",
         &crate::cards::enfeeblement::CARD,
+    ),
+    (
+        "42b44108-4a03-4333-bf5a-e42493f4d5e4",
+        &crate::cards::outmaneuver::CARD,
     ),
     (
         "42b8aa14-10bc-4bd6-88d9-4bb287eadd19",
@@ -14052,6 +14072,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::natural_selection::CARD,
     ),
     (
+        "57fe5c94-ee93-45c6-bf7e-89d177d0fe70",
+        &crate::cards::metrognome::CARD,
+    ),
+    (
         "57fe941c-a830-4570-afe2-18f93c7a7b84",
         &crate::cards::obliterating_bolt::CARD,
     ),
@@ -16712,6 +16736,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::kozilek_s_translator::CARD,
     ),
     (
+        "676c4cfa-f929-43aa-95cc-df81a596c2a2",
+        &crate::cards::persecute::CARD,
+    ),
+    (
         "6774c0ce-103e-471b-8de0-f325805674ca",
         &crate::cards::insatiable_harpy::CARD,
     ),
@@ -17390,6 +17418,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "6b151418-092f-4a43-8b21-3de64ea80cab",
         &crate::cards::firefly::CARD,
+    ),
+    (
+        "6b1552f2-df64-485a-8509-b1916edf19cf",
+        &crate::cards::mishra_s_helix::CARD,
     ),
     (
         "6b2184ce-d6b1-411e-80ac-05a6e5993a39",
@@ -21116,6 +21148,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::wishclaw_talisman::CARD,
     ),
     (
+        "81d6b42e-9c41-4d1e-bd28-4662e1fde572",
+        &crate::cards::lurking_evil::CARD,
+    ),
+    (
         "81e6ade9-a38f-4655-b09c-9ca41a11face",
         &crate::cards::breath_of_malfegor::CARD,
     ),
@@ -22288,6 +22324,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::skeleton_scavengers::CARD,
     ),
     (
+        "888d12d4-aaa5-406f-9dc8-8c4e856eb2fe",
+        &crate::cards::opal_archangel::CARD,
+    ),
+    (
         "88923ca1-a793-42f0-b9f8-ed9ff9c1185d",
         &crate::cards::super_speed::CARD,
     ),
@@ -22598,6 +22638,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "8a7c3718-74a1-4f26-8e06-0e17db4b0077",
         &crate::cards::gilded_pinions::CARD,
+    ),
+    (
+        "8a7c6391-020a-4d7a-8abb-702631bbee56",
+        &crate::cards::karn_silver_golem::CARD,
     ),
     (
         "8a83d284-75a0-4901-b7d9-c4b7586ee327",
@@ -25848,6 +25892,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::cocoon::CARD,
     ),
     (
+        "9e3b373f-05f5-44df-9568-bd1f8039aa54",
+        &crate::cards::launch::CARD,
+    ),
+    (
         "9e3dd85c-ba19-4d22-9f90-252676f3cffa",
         &crate::cards::flamekin_brawler::CARD,
     ),
@@ -28402,6 +28450,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "aeb85786-16fc-45d8-9383-60054a878c40",
         &crate::cards::fatal_lore::CARD,
+    ),
+    (
+        "aebddadd-f05b-4ad5-bda4-603a134f68dc",
+        &crate::cards::noetic_scales::CARD,
     ),
     (
         "aebe0ba5-70b2-406b-b53b-03b12a95c2c2",
@@ -31412,6 +31464,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::glasspool_mimic::CARD,
     ),
     (
+        "c1795e9c-31c9-4892-a796-7656e09257b3",
+        &crate::cards::order_of_yawgmoth::CARD,
+    ),
+    (
         "c17b9e5b-58b6-4ccf-8283-945ba77429e7",
         &crate::cards::mutagenic_growth::CARD,
     ),
@@ -32984,6 +33040,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::colossal_majesty::CARD,
     ),
     (
+        "cad05528-917b-4296-9d23-ba9433612709",
+        &crate::cards::mana_leech::CARD,
+    ),
+    (
         "cad0f865-62e0-47ba-84ae-8e97cb52bbd1",
         &crate::cards::pallimud::CARD,
     ),
@@ -33540,6 +33600,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::nimbus_swimmer::CARD,
     ),
     (
+        "ce06fe83-a8c5-46b7-b30c-b8189d217741",
+        &crate::cards::opal_titan::CARD,
+    ),
+    (
         "ce07104c-8573-4dc0-a492-f9548d4317d2",
         &crate::cards::rowan_s_battleguard::CARD,
     ),
@@ -33944,6 +34008,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::spiritual_guardian::CARD,
     ),
     (
+        "d03fd358-ff3f-45ab-9601-07dbb535cb51",
+        &crate::cards::no_rest_for_the_wicked::CARD,
+    ),
+    (
         "d04a836b-7e42-424d-9600-42a40d0dfccd",
         &crate::cards::gravebane_zombie::CARD,
     ),
@@ -33994,6 +34062,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "d07f497e-4cf8-4e12-b17e-e3d58ff9df47",
         &crate::cards::skittering_heartstopper::CARD,
+    ),
+    (
+        "d08b8dd6-3a44-4e86-8ce8-2d0a014a9aa8",
+        &crate::cards::opal_acrolith::CARD,
     ),
     (
         "d08e9784-75f7-4164-ac48-d06160f8c56b",
@@ -34490,6 +34562,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "d3576617-7867-4c3d-aa31-d6742483465b",
         &crate::cards::chandra_s_emberling::CARD,
+    ),
+    (
+        "d3579282-5045-4b37-9998-9a282e9932b9",
+        &crate::cards::midsummer_revel::CARD,
     ),
     (
         "d36075c2-de66-4202-9217-b1102a2bc14b",
@@ -38268,6 +38344,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::dragon_mage::CARD,
     ),
     (
+        "eabcb1bd-5317-4e01-8f18-94f01c12c852",
+        &crate::cards::opal_caryatid::CARD,
+    ),
+    (
         "eabe9a02-ea47-4548-8933-e5d1269fab25",
         &crate::cards::iron_man_futurist_paragon::CARD,
     ),
@@ -39208,6 +39288,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::regal_bunnicorn::CARD,
     ),
     (
+        "efef2d33-5354-4fce-880e-cb91fa60f730",
+        &crate::cards::opal_gargoyle::CARD,
+    ),
+    (
         "efefb339-bb7c-4b26-abed-8434f955122b",
         &crate::cards::furious_strength::CARD,
     ),
@@ -39984,6 +40068,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::feed_the_flames::CARD,
     ),
     (
+        "f475b636-eb7f-4dd7-bc87-a1af07064ffe",
+        &crate::cards::lifeline::CARD,
+    ),
+    (
         "f47659b5-d834-4153-b9fc-6a0702c503d9",
         &crate::cards::dark_prophecy::CARD,
     ),
@@ -40588,6 +40676,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::viscera_seer::CARD,
     ),
     (
+        "f835a8d3-e117-4669-9952-6e9ce13b35fa",
+        &crate::cards::okk::CARD,
+    ),
+    (
         "f8410804-632b-4f18-9a73-6dccc7e4582d",
         &crate::cards::kazuul_s_fury::CARD,
     ),
@@ -40742,6 +40834,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "f916f689-a314-4952-8107-41c4c2f2e811",
         &crate::cards::pulse_tracker::CARD,
+    ),
+    (
+        "f91a71b7-9bc0-4609-a312-ffede52dc0ad",
+        &crate::cards::lilting_refrain::CARD,
     ),
     (
         "f91ef713-5289-4901-9291-0a5afe6f997b",
@@ -41698,6 +41794,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "fe8fc442-ed17-40b2-8624-69f2eed3f9be",
         &crate::cards::nesting_dovehawk::CARD,
+    ),
+    (
+        "fe902db2-3b1d-4266-88eb-307f878fc317",
+        &crate::cards::pendrell_flux::CARD,
     ),
     (
         "fe971240-268a-47d4-a14e-3d6352656091",
@@ -45220,43 +45320,43 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::ill_gotten_gains::CARD),
     Some(&crate::cards::imaginary_pet::CARD),
     Some(&crate::cards::intrepid_hero::CARD),
-    None,
-    None,
+    Some(&crate::cards::karn_silver_golem::CARD),
+    Some(&crate::cards::launch::CARD),
     Some(&crate::cards::lay_waste::CARD),
-    None,
-    None,
+    Some(&crate::cards::lifeline::CARD),
+    Some(&crate::cards::lilting_refrain::CARD),
     Some(&crate::cards::lingering_mirage::CARD),
     Some(&crate::cards::looming_shade::CARD),
-    None,
+    Some(&crate::cards::lotus_blossom::CARD),
     Some(&crate::cards::lull::CARD),
-    None,
-    None,
+    Some(&crate::cards::lurking_evil::CARD),
+    Some(&crate::cards::mana_leech::CARD),
     Some(&crate::cards::meltdown::CARD),
-    None,
-    None,
-    None,
-    None,
+    Some(&crate::cards::metrognome::CARD),
+    Some(&crate::cards::midsummer_revel::CARD),
+    Some(&crate::cards::mishra_s_helix::CARD),
+    Some(&crate::cards::mobile_fort::CARD),
     Some(&crate::cards::monk_idealist::CARD),
     Some(&crate::cards::monk_realist::CARD),
     Some(&crate::cards::morphling::CARD),
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
+    Some(&crate::cards::no_rest_for_the_wicked::CARD),
+    Some(&crate::cards::noetic_scales::CARD),
+    Some(&crate::cards::okk::CARD),
+    Some(&crate::cards::opal_acrolith::CARD),
+    Some(&crate::cards::opal_archangel::CARD),
+    Some(&crate::cards::opal_caryatid::CARD),
+    Some(&crate::cards::opal_gargoyle::CARD),
+    Some(&crate::cards::opal_titan::CARD),
     Some(&crate::cards::oppression::CARD),
-    None,
-    None,
+    Some(&crate::cards::order_of_yawgmoth::CARD),
+    Some(&crate::cards::outmaneuver::CARD),
     Some(&crate::cards::parasitic_bond::CARD),
-    None,
+    Some(&crate::cards::pariah::CARD),
     Some(&crate::cards::pegasus_charger::CARD),
     Some(&crate::cards::pendrell_drake::CARD),
-    None,
-    None,
-    None,
+    Some(&crate::cards::pendrell_flux::CARD),
+    Some(&crate::cards::peregrine_drake::CARD),
+    Some(&crate::cards::persecute::CARD),
     None,
     Some(&crate::cards::phyrexian_ghoul::CARD),
     None,
@@ -75653,7 +75753,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x932f58689d46a52b;
+pub const POOL_HASH: u64 = 0x6272a0099d4aa38d;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

@@ -1104,7 +1104,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // evaluator.
     // Urza's Saga (`usg`) Batch 3 adds 2 non-mana activated abilities across
     // Fortitude and Greater Good, of which 1 is read by the evaluator.
-    assert_eq!((read, of), (2801, 3542), "activated/loyalty reader census");
+    // Urza's Saga (`usg`) Batch 4 adds 10 non-mana activated abilities across
+    // Karn, Silver Golem, Lilting Refrain, Lurking Evil, Mana Leech,
+    // Metrognome, Midsummer Revel, Mishra's Helix, Mobile Fort, No Rest for
+    // the Wicked, and Opal Acrolith, of which 4 are read by the evaluator.
+    assert_eq!((read, of), (2805, 3552), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

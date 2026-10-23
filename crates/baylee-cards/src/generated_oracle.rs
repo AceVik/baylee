@@ -9805,31 +9805,62 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Intrepid Hero
     &["{T}: Destroy target creature with power 4 or greater."],
-    &[],
-    &[],
+    // Karn, Silver Golem
+    &[
+        "Whenever Karn blocks or becomes blocked, it gets -4/+4 until end of turn.\n{1}: Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value until end of turn.",
+    ],
+    // Launch
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
     // Lay Waste
     &["Destroy target land.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
+    // Lifeline
+    &[
+        "Whenever a creature dies, if another creature is on the battlefield, return the first card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
+    // Lilting Refrain
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\nSacrifice this enchantment: Counter target spell unless its controller pays {X}, where X is the number of verse counters on this enchantment.",
+    ],
     // Lingering Mirage
     &[
         "Enchant land\nEnchanted land is an Island.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
     // Looming Shade
     &["{B}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Lotus Blossom
+    &[
+        "At the beginning of your upkeep, you may put a petal counter on this artifact.\n{T}, Sacrifice this artifact: Add X mana of any one color, where X is the number of petal counters on this artifact.",
+    ],
     // Lull
     &[
         "Prevent all combat damage that would be dealt this turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Lurking Evil
+    &[
+        "Pay half your life, rounded up: This enchantment becomes a 4/4 Phyrexian Horror creature with flying.",
+    ],
+    // Mana Leech
+    &[
+        "You may choose not to untap this creature during your untap step.\n{T}: Tap target land. It doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
     // Meltdown
     &["Destroy each artifact with mana value X or less."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Metrognome
+    &[
+        "When a spell or ability an opponent controls causes you to discard this card, create four 1/1 colorless Gnome artifact creature tokens.\n{4}, {T}: Create a 1/1 colorless Gnome artifact creature token.",
+    ],
+    // Midsummer Revel
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{G}, Sacrifice this enchantment: Create X 3/3 green Beast creature tokens, where X is the number of verse counters on this enchantment.",
+    ],
+    // Mishra's Helix
+    &["{X}, {T}: Tap X target lands."],
+    // Mobile Fort
+    &[
+        "Defender (This creature can't attack.)\n{3}: This creature gets +3/-1 until end of turn and can attack this turn as though it didn't have defender. Activate only once each turn.",
+    ],
     // Monk Idealist
     &[
         "When this creature enters, return target enchantment card from your graveyard to your hand.",
@@ -9840,32 +9871,70 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{U}: Untap this creature.\n{U}: This creature gains flying until end of turn.\n{U}: This creature gains shroud until end of turn. (It can't be the target of spells or abilities.)\n{1}: This creature gets +1/-1 until end of turn.\n{1}: This creature gets -1/+1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // No Rest for the Wicked
+    &[
+        "Sacrifice this enchantment: Return to your hand all creature cards in your graveyard that were put there from the battlefield this turn.",
+    ],
+    // Noetic Scales
+    &[
+        "At the beginning of each player's upkeep, return to its owner's hand each creature that player controls with power greater than the number of cards in their hand.",
+    ],
+    // Okk
+    &[
+        "This creature can't attack unless a creature with greater power also attacks.\nThis creature can't block unless a creature with greater power also blocks.",
+    ],
+    // Opal Acrolith
+    &[
+        "Whenever an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 2/4 Soldier creature.\n{0}: This permanent becomes an enchantment.",
+    ],
+    // Opal Archangel
+    &[
+        "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 5/5 Angel creature with flying and vigilance.",
+    ],
+    // Opal Caryatid
+    &[
+        "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 2/2 Soldier creature.",
+    ],
+    // Opal Gargoyle
+    &[
+        "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 2/2 Gargoyle creature with flying.",
+    ],
+    // Opal Titan
+    &[
+        "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 4/4 Giant creature with protection from each of that spell's colors.",
+    ],
     // Oppression
     &["Whenever a player casts a spell, that player discards a card."],
-    &[],
-    &[],
+    // Order of Yawgmoth
+    &[
+        "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature deals damage to a player, that player discards a card.",
+    ],
+    // Outmaneuver
+    &[
+        "X target blocked creatures assign their combat damage this turn as though they weren't blocked.",
+    ],
     // Parasitic Bond
     &[
         "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals 2 damage to that player.",
     ],
-    &[],
+    // Pariah
+    &[
+        "Enchant creature\nAll damage that would be dealt to you is dealt to enchanted creature instead.",
+    ],
     // Pegasus Charger
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nFirst strike (This creature deals combat damage before creatures without first strike.)",
     ],
     // Pendrell Drake
     &["Flying\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
-    &[],
+    // Pendrell Flux
+    &[
+        "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice this creature unless you pay its mana cost.\"",
+    ],
+    // Peregrine Drake
+    &["Flying\nWhen this creature enters, untap up to five lands."],
+    // Persecute
+    &["Choose a color. Target player reveals their hand and discards all cards of that color."],
     &[],
     // Phyrexian Ghoul
     &["Sacrifice a creature: This creature gets +2/+2 until end of turn."],
