@@ -95,6 +95,7 @@ mod valakut_awakening;
 mod verdigris;
 mod void_rend;
 mod warrior_s_honor;
+mod waylay;
 mod whir_of_invention;
 mod wildsize;
 mod wind_shear;

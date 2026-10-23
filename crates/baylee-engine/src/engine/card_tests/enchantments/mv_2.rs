@@ -106,5 +106,6 @@ mod trade_routes;
 mod tranquil_grove;
 mod underworld_breach;
 mod unlikely_alliance;
+mod veiled_apparition;
 mod volrath_s_gardens;
 mod warmth;

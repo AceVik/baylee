@@ -156,4 +156,7 @@ mod tidal_flats;
 mod tortured_existence;
 mod twists_and_turns;
 mod vampiric_rites;
+mod veil_of_birds;
+mod veiled_sentry;
+mod war_dance;
 mod weaponize_the_monsters;

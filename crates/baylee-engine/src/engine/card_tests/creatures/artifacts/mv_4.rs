@@ -174,3 +174,4 @@ mod venomcrawler;
 mod wakandan_drone_flock;
 mod walking_wall;
 mod watchwing_scarecrow;
+mod wirecat;

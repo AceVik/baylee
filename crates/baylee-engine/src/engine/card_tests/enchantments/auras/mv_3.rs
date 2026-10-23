@@ -41,5 +41,6 @@ mod strength_of_the_harvest;
 mod tiger_claws;
 mod tourach_s_gate;
 mod venom;
+mod venomous_fangs;
 mod wanderlust;
 mod wellspring;

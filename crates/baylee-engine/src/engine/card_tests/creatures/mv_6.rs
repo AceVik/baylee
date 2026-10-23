@@ -88,6 +88,7 @@ mod visara_the_dreadful;
 mod volcanic_dragon;
 mod warrior_angel;
 mod wiitigo;
+mod witch_engine;
 mod yavimaya_wurm;
 mod yawgmoth_demon;
 mod zephid;

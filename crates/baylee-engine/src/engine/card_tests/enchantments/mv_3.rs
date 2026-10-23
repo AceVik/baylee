@@ -121,6 +121,8 @@ mod tourach_s_chant;
 mod tribute_to_the_world_tree;
 mod underworld_dreams;
 mod unspeakable_symbol;
+mod veiled_crocodile;
+mod veiled_serpent;
 mod wave_of_terror;
 mod winter_s_night;
 mod withering_wisps;

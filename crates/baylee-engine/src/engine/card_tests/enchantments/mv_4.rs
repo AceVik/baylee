@@ -228,6 +228,8 @@ mod treasure_trove;
 mod vance_s_blasting_cannons;
 mod vernal_bloom;
 mod vigilante_justice;
+mod vile_requiem;
 mod volrath_s_dungeon;
 mod whirlwind_of_thought;
+mod worship;
 mod zur_s_weirding;

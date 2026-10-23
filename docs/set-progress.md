@@ -712,10 +712,11 @@ no-engine-change contract:
   - Batch 2 (`Flowstone Flood` to `Oath of Ghouls`, 25 cards): **8 Implemented, 17 Partial**.
   - Batch 3 (`Oath of Lieges` to `Skyshaper`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 4 (`Skyshroud Elite` to `Zealots en-Dal`, 18 cards): **8 Implemented, 10 Partial**.
-- **Urza's Saga (`usg`)** — in progress:
+- **Urza's Saga (`usg`)** — completed across 7 batches (**109 Implemented, 63 Partial** across the 172 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Abundance` to `Congregate`, 25 cards): **20 Implemented, 5 Partial**.
   - Batch 2 (`Contamination` to `Fire Ants`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Flesh Reaver` to `Imaginary Pet`, 25 cards): **20 Implemented, 5 Partial**.
   - Batch 4 (`Karn, Silver Golem` to `Persecute`, 25 cards): **17 Implemented, 8 Partial**.
   - Batch 5 (`Phyrexian Colossus` to `Shower of Sparks`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 6 (`Sleeper Agent` to `Vampiric Embrace`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 7 (`Vebulid` to `Worship`, 22 cards): **14 Implemented, 8 Partial**.

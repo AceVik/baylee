@@ -368,6 +368,7 @@ mod vault_skirge;
 mod vedalken_outlander;
 mod verdant_automaton;
 mod voltaic_servant;
+mod wall_of_junk;
 mod wall_of_tanglecord;
 mod welder_automaton;
 mod wreckage_wickerfolk;

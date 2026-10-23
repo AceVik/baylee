@@ -298,6 +298,8 @@ mod vedalken_entrancer;
 mod vengeful_dead;
 mod venser_shaper_savant;
 mod vhati_il_dal;
+mod viashino_sandswimmer;
+mod viashino_weaponsmith;
 mod vile_deacon;
 mod viridian_lorebearers;
 mod volcano_imp;
