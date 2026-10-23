@@ -934,3 +934,64 @@ per-head loss normalization: cross-size timing is exploratory, not a matched
 equivalence or quality result. The production B=8/U=32 configuration remains
 selected. Full held-out validation, export and frozen games have priority over
 the queued isolated performance comparisons.
+
+## Paired evaluation and adverse starts (owner follow-up, 23 October)
+
+The owner emphasized that deck strength and drawing luck vary, and that a loss
+does not necessarily mean the AI made a mistake. The existing evaluator already
+plays each table seed/deck assignment from every focal seat, with a paired
+Steady house baseline against Sharp opponents. v3 and the archived v4 models
+use the same frozen evaluator and manifest. A 128-deal duel suite has 64 table
+seeds, and 64 Commander deals only 16 table seeds; rotations are correlated,
+not independent samples. Those counts are still too small for fine strength
+claims. They compare substituting one policy against fixed opponents, not
+direct v3-versus-v4 games.
+
+Added `paired_eval4.py` to compare models directly case by case. Job manifests
+must confirm the same engine executable hash, deck-manifest content hash,
+limits and scouting settings. Report metadata and every table/seed/deck/focal
+seat must match; differing, missing or duplicate cases are rejected instead of
+quietly intersected. Repeated house-baseline outcomes must reproduce. The tool
+reports candidate-better/equal/worse, both-lost/both-won subsets, unresolved caps
+and table-clustered uncertainty. Fallback/refusal counts remain visible,
+particularly because archived v3 uses substantially more house fallback.
+
+Important interpretation and training rules:
+
+- Keep bad draws and weak-deck games in the suite. Both policies losing yields
+  zero outcome difference for that pair, not a claim that no winning line
+  existed. Never remove hard games after seeing their outcomes or classify them
+  as objectively unwinnable using an unvalidated value network.
+- Identical engine seeds and ordered decks reproduce initial conditions.
+  Different mulligans, tutors, shuffles and decisions can change later random
+  consumption and cards drawn. Do not force equal later draws across different
+  legal actions or expose the seed/hidden library to the policy.
+- Evaluate advantages across many table seeds and deck matchups, report deck/
+  archetype slices when sample sizes permit, and retain an untouched final
+  seed/deck test set. Repeatedly optimizing a fixed validation suite can overfit
+  it even if it never enters gradient training. Expand baseline profiles beyond
+  the current Steady focal baseline/Sharp opponents in a separate frozen suite.
+- For tactical precision, use reproducible view-only cases with independently
+  checked legal solutions (for example a forced lethal, mandatory defense or
+  avoiding a known rules violation). Survival time, remaining life/cards or a
+  private critic score are not reliable substitutes for move quality.
+- A losing trajectory can contain good moves; retain such policy examples.
+  Value targets remain stochastic outcomes whose expectation/calibration is
+  learned over many games, and PPO advantages need enough samples to reduce
+  outcome noise. Do not relabel every losing move as bad or replace terminal
+  goals with rewards for prolonging a lost game.
+
+Five paired/uncertainty tests passed, including adverse cases, answer caps,
+seat clustering, worker-order invariance and strict mismatch rejection. Existing
+archived results were reanalyzed without running GPU games. For example, broad
+v4 BC versus initial v4 BC on 128 duel cases has 7 improved outcomes, 12 worse,
+109 equal (97 both lost, 12 both won). That is a -3.91 percentage-point observed
+utility difference on this suite, not an established universal strength change.
+The running optimized checkpoint is a different model and has not completed its
+new full evaluation yet. Artifacts: `checks/paired-evaluation-20261023/`.
+
+Performance comparisons are queued separately in
+`checks/training-throughput-20261023/compute-batching-timing/`, using the frozen
+trainer at `97bccc5e5`. They wait for the current production pipeline and an idle
+GPU, then measure activation retention, checkpoint staging/publication and fresh
+B=8/16/24 trajectory lanes. They do not interrupt validation or promote a model.

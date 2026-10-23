@@ -66,6 +66,15 @@ execution change: saved recurrent state and sampler cursors cannot be reassigned
 to a new batch size. The benchmark's `--fresh-trajectories --batch-size N` resets
 both at trajectory boundaries and reports valid frames/decisions per second;
 its results alone do not justify a production batch-size change.
+`tools/trainer/paired_eval4.py` compares completed model evaluations case by
+case against the same opponents. It verifies the frozen engine/deck hashes,
+protocol, complete seed/deck/focal-seat set and repeated house-baseline outcomes.
+It reports improvements, regressions, ties and unknown capped games, with
+uncertainty clustered by table. Losing deals remain included; two policies
+losing a game does not establish that it was unwinnable. Fixed-start comparisons
+control luck better than unrelated win rates, but actions can change later
+draws. Keep final seed/deck holdouts separate from repeatedly consulted tuning
+suites and complement match results with view-only tactical regression cases.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.
