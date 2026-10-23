@@ -49,6 +49,23 @@ ordinary transfer/streaming path. Events establish copy-before-use ordering,
 and allocator stream tracking prevents premature reuse of retired GPU buffers.
 This is separate from the existing DataLoader CPU prefetch and filesystem cache;
 benchmark the complete update before enabling it.
+`--saved-activation-layers N` retains the last N trunk layers' intermediate
+activations instead of checkpoint-recomputing them. It requires activation
+checkpointing, defaults to zero and spends VRAM to avoid backward recomputation;
+benchmark worst-case entity/candidate shapes before selecting it. It does not
+change model weights, the loss or the recurrent memory contract.
+`--async-checkpoint` stages one immutable CPU snapshot of `last.pt`, then writes
+and atomically publishes it in a background thread. CUDA staging uses pinned RAM
+and a copy stream. The next optimizer mutation waits for staging, while forward/
+backward may overlap it. This relies on v4's forward not mutating model buffers;
+models with running-statistic updates would need an earlier barrier. At most one
+snapshot is pending, write failures propagate and normal/exceptional context
+exit drains the writer. The default remains synchronous until measured.
+Changing optimizer batch lanes is a learning experiment, not an equivalent
+execution change: saved recurrent state and sampler cursors cannot be reassigned
+to a new batch size. The benchmark's `--fresh-trajectories --batch-size N` resets
+both at trajectory boundaries and reports valid frames/decisions per second;
+its results alone do not justify a production batch-size change.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.

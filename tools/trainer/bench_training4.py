@@ -104,17 +104,26 @@ def main():
     ap.add_argument("--steps", type=int, default=8)
     ap.add_argument("--variants", default="reference,optimizer,device,chunk4,chunk8,chunk16,chunk32,chunk8-fused")
     ap.add_argument("--gradient-reference", default="reference", help="Variant whose first gradient is the parity baseline")
+    ap.add_argument("--batch-size", type=int, default=0, help="Benchmark batch lanes (0=checkpoint). Changing lanes requires --fresh-trajectories")
+    ap.add_argument("--fresh-trajectories", action="store_true", help="Start sampler and memory at trajectory beginnings; never resume old memory into different lanes")
+    ap.add_argument("--cuda-memory-fraction", type=float, default=1.0, help="Allocator ceiling; OOM rejects this benchmark variant")
     ap.add_argument("--profile", action="store_true")
     ap.add_argument("--validation-batches", type=int, default=0, help="Also audit a held-out prefix with fully optimized validation")
     args = ap.parse_args()
+    if args.batch_size < 0 or not 0 < args.cuda_memory_fraction <= 1:
+        ap.error("Invalid batch size or CUDA memory fraction")
     torch.set_num_threads(4)
+    torch.cuda.set_per_process_memory_fraction(args.cuda_memory_fraction)
     saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    batch_size = args.batch_size or saved["batch_size"]
+    if batch_size != saved["batch_size"] and not args.fresh_trajectories:
+        ap.error("Changing batch lanes requires --fresh-trajectories; resumed H/cursor cannot be reassigned")
     ds = D.TrajectoryDataset4(Path(args.data), split="train", unroll_len=saved["unroll"])
     if ds.fingerprint != saved["dataset_fingerprint"]:
         raise ValueError("Dataset does not match the checkpoint")
-    sampler = D.StatefulBatchSampler4(ds, saved["batch_size"], shuffle=True, seed=42)
+    sampler = D.StatefulBatchSampler4(ds, batch_size, shuffle=True, seed=42)
     sampler.epoch = saved["epoch"] - 1
-    sampler.start_batch = saved["next_batch"]
+    sampler.start_batch = 0 if args.fresh_trajectories else saved["next_batch"]
     loader = DataLoader(ds, batch_sampler=sampler, collate_fn=D.collate_trajectories,
                         num_workers=4, pin_memory=True)
     batches, waits = [], []
@@ -125,7 +134,10 @@ def main():
         waits.append(time.perf_counter() - start)
     del iterator, loader
     report = {"gpu": torch.cuda.get_device_name(), "torch": torch.__version__,
-              "checkpoint": args.checkpoint, "step": saved["step_num"], "batch_size": saved["batch_size"],
+              "checkpoint": args.checkpoint, "step": saved["step_num"], "batch_size": batch_size,
+              "fresh_trajectories": args.fresh_trajectories,
+              "cuda_memory_fraction": args.cuda_memory_fraction,
+              "cross_batch_size_caveat": "Different lane counts change trajectory mix and loss normalization; compare frames/s, then validate learning in a separate pilot, not as equivalent resume.",
               "unroll": saved["unroll"], "scope": __doc__, "gradient_reference": args.gradient_reference,
               "loader_wait_ms": [v*1000 for v in waits],
               "batch_mib": [sum(t.numel()*t.element_size() for t in b.values())/2**20 for b in batches],
@@ -147,6 +159,8 @@ def main():
                 net.decision_chunk = int(part[len("deferred"):])
             if part.startswith("prefetch"):
                 net.gpu_prefetch = int(part[len("prefetch"):])
+            if part.startswith("saved"):
+                net.saved_activation_layers = int(part[len("saved"):])
         if "regional" in variant.split("-"):
             compile_regions(net, readouts="readouts" in variant.split("-"))
         elif "graphs" in variant.split("-"):
@@ -169,7 +183,8 @@ def main():
                 for key, value in state.items():
                     if isinstance(value, torch.Tensor): state[key] = value.cuda()
         restore_rng(saved["rng"])
-        h = saved["h"].cuda() if saved["h"] is not None else torch.zeros(saved["batch_size"],9,net.cfg.d_model,device="cuda")
+        h = (saved["h"].cuda() if saved["h"] is not None and not args.fresh_trajectories
+             else torch.zeros(batch_size, 9, net.cfg.d_model, device="cuda"))
         torch.cuda.reset_peak_memory_stats()
         retries_before = torch.cuda.memory_stats()["num_alloc_retries"]
         samples, row = [], {"variant":variant, "started_at_unix":time.time()}
@@ -191,6 +206,8 @@ def main():
                     del gradients
                 if i >= 2: samples.append(metrics)
             row.update(samples=samples, updates_per_second=1000/np.mean([s["wall_ms"] for s in samples]),
+                       valid_frames_per_second=sum(int(b["step_valid"].sum()) for b in batches[2:]) / (sum(s["wall_ms"] for s in samples)/1000),
+                       decisions_per_second=sum(int((b["step_valid"] & b["is_decision"]).sum()) for b in batches[2:]) / (sum(s["wall_ms"] for s in samples)/1000),
                        peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,
                        peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30,
                        allocation_retries=torch.cuda.memory_stats()["num_alloc_retries"]-retries_before)

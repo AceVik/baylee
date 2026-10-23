@@ -179,8 +179,13 @@ class PlayerNet4(nn.Module):
         pad_mask = torch.cat([g_pad, s_pad, e_pad], dim=1)  # [B, 9 + E]
 
         x = tokens
-        for layer in self.trunk_layers:
-            if self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled():
+        # Execution-only memory/compute tradeoff: retaining the last N layers'
+        # activations avoids recomputing them on backward. Default remains full
+        # checkpointing; inference and checkpoint keys are unaffected.
+        saved_layers = getattr(self, "saved_activation_layers", 0)
+        for index, layer in enumerate(self.trunk_layers):
+            if (self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled()
+                    and index < len(self.trunk_layers) - saved_layers):
                 x = checkpoint(layer, x, pad_mask, use_reentrant=False)
             else:
                 x = layer(x, src_key_padding_mask=pad_mask)

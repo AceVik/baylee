@@ -36,6 +36,7 @@ from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
+from .checkpoint_async import AsyncCheckpointWriter
 
 
 def main() -> None:
@@ -66,6 +67,8 @@ def main() -> None:
     ap.add_argument("--checkpoint-every", type=int, default=100)
     ap.add_argument("--validation-every", type=int, default=1000)
     ap.add_argument("--activation-checkpointing", action="store_true")
+    ap.add_argument("--saved-activation-layers", type=int, default=0, help="Keep the last N trunk layers' activations instead of recomputing them; uses more VRAM")
+    ap.add_argument("--async-checkpoint", action="store_true", help="Stage one immutable last.pt snapshot and write it in the background")
     ap.add_argument("--time-budget-seconds", type=float, default=0)
     ap.add_argument("--dropout", type=float, default=0.0)
     ap.add_argument("--reference-execution", action="store_true", help="Use the original synchronized execution for A/B checks")
@@ -80,6 +83,10 @@ def main() -> None:
     args = ap.parse_args()
     if args.compile_readouts and not args.compile_regions:
         ap.error("--compile-readouts requires --compile-regions")
+    if not 0 <= args.saved_activation_layers <= args.layers:
+        ap.error("--saved-activation-layers must be between zero and --layers")
+    if args.saved_activation_layers and not args.activation_checkpointing:
+        ap.error("--saved-activation-layers requires --activation-checkpointing")
 
     if args.decision_chunk > 1 and (args.reference_execution or args.board_chunk < 2 or args.dropout != 0):
         ap.error("--decision-chunk > 1 requires --board-chunk >= 2, dropout=0 and optimized execution")
@@ -150,6 +157,7 @@ def main() -> None:
         activation_checkpointing=args.activation_checkpointing,
     )
     net = M.PlayerNet4(cfg).to(device)
+    net.saved_activation_layers = args.saved_activation_layers
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
     net.gpu_prefetch = args.gpu_prefetch
@@ -213,12 +221,14 @@ def main() -> None:
     elif (out_dir / "last.pt").exists() or (out_dir / "net.pt").exists():
         raise FileExistsError("Output contains a run already; use --resume or a new output directory")
 
+    checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
+
     def save_last(epoch, next_batch, hidden):
-        atomic_save({"config": cfg.to_dict(), "state_dict": net.state_dict(),
+        checkpoint_writer.save({"config": cfg.to_dict(), "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
-                     "h": None if hidden is None else hidden.detach().cpu(),
+                     "h": None if hidden is None else (hidden.detach() if args.async_checkpoint else hidden.detach().cpu()),
                      "dataset_fingerprint": train_ds.fingerprint,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "best_score": best_score}, out_dir / "last.pt")
@@ -233,6 +243,7 @@ def main() -> None:
         nonlocal last_validation_step, last_validation_metrics
         if last_validation_step == step_num:
             return last_validation_metrics
+        print(f"[validation4] starting full held-out validation at step={step_num}", flush=True)
         was_training = net.training
         metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
                    else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk))
@@ -256,136 +267,138 @@ def main() -> None:
     if resume_epoch > args.epochs:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
         return
-    for epoch in range(resume_epoch, args.epochs + 1):
-        net.train()
-        ep_pol = 0.0
-        ep_val = 0.0
-        ep_aux = 0.0
-        ep_corr = 0
-        ep_tot = 0
-        epoch_stats = torch.zeros(5, device=device)
-        ep_batches = 0
-        h = resume_h if epoch == resume_epoch else None
-        train_sampler.epoch = epoch - 1
-        train_sampler.start_batch = resume_batch if epoch == resume_epoch else 0
-        next_batch = train_sampler.start_batch
+    with checkpoint_writer:
+        for epoch in range(resume_epoch, args.epochs + 1):
+            net.train()
+            ep_pol = 0.0
+            ep_val = 0.0
+            ep_aux = 0.0
+            ep_corr = 0
+            ep_tot = 0
+            epoch_stats = torch.zeros(5, device=device)
+            ep_batches = 0
+            h = resume_h if epoch == resume_epoch else None
+            train_sampler.epoch = epoch - 1
+            train_sampler.start_batch = resume_batch if epoch == resume_epoch else 0
+            next_batch = train_sampler.start_batch
 
-        for batch_idx, (host, staged) in enumerate(prefetch_batches(train_loader, device, args.gpu_prefetch),
-                                                  start=train_sampler.start_batch):
-            # A rare name-card question can pad many ordinary frames to a very
-            # wide C. Keep large batches on the host and transfer one time step.
-            plans = None if args.reference_execution else plan_batch(host, step_num, args.thinking_steps, args.thinking_curriculum)
-            batch = transfer_batch(host, device) if staged is None else staged
-            B, U = batch["step_valid"].shape
-            opt.zero_grad(set_to_none=True)
-            is_new = batch["is_new_traj"].to(device)
-            if h is None or h.shape[0] != B:
-                h = torch.zeros(
-                    (B, M.RECURRENT_SLOTS, cfg.d_model), dtype=torch.float32, device=device
-                )
-            else:
-                h = h.detach()
-                h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
-
-            k_choices = (1, 2, 4, 8)
-            traj_loss = torch.tensor(0.0, device=device)
-            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                boards = encode_boards(net, batch, args.board_chunk, device)
-
-            prepared = None
-            if args.decision_chunk > 1:
-                prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
-                                                          args.decision_chunk, device, use_bf16)
-            for t in range(U):
-                if prepared is None:
-                    k_val = (k_choices[(step_num + t) % len(k_choices)]
-                             if args.thinking_curriculum else args.thinking_steps)
-                    k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
-                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                        output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:15]], h, k_tensor,
-                                     execution_hint=None if plans is None else plans[t].hint,
-                                     encoded_board=None if boards is None else boards[t],
-                                     policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
+            for batch_idx, (host, staged) in enumerate(prefetch_batches(train_loader, device, args.gpu_prefetch),
+                                                      start=train_sampler.start_batch):
+                # A rare name-card question can pad many ordinary frames to a very
+                # wide C. Keep large batches on the host and transfer one time step.
+                plans = None if args.reference_execution else plan_batch(host, step_num, args.thinking_steps, args.thinking_curriculum)
+                batch = transfer_batch(host, device) if staged is None else staged
+                B, U = batch["step_valid"].shape
+                opt.zero_grad(set_to_none=True)
+                is_new = batch["is_new_traj"].to(device)
+                if h is None or h.shape[0] != B:
+                    h = torch.zeros(
+                        (B, M.RECURRENT_SLOTS, cfg.d_model), dtype=torch.float32, device=device
+                    )
                 else:
-                    output = prepared[t]
-                h_next, cand_l, pair_l, scal_p, val_p = output
+                    h = h.detach()
+                    h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
+
+                k_choices = (1, 2, 4, 8)
+                traj_loss = torch.tensor(0.0, device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                    aux_p = net.aux_head(h_next[:, 0])
-                loss_function = compute_step_loss if plans is None else compute_device_loss
-                loss_t, st = loss_function(
-                    cand_l.float(),
-                    pair_l.float(),
-                    scal_p.float(),
-                    val_p.float(),
-                    aux_p.float(),
-                    batch,
-                    t,
-                    *([] if plans is None else [plans[t]]),
-                )
-                if prepared is None:
-                    valid_t = batch["step_valid"][:, t].to(device)
-                    h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
-                traj_loss = traj_loss + loss_t / U
-                if plans is None:
-                    ep_pol += st["pol_loss"] / U
-                    ep_val += st["val_loss"] / U
-                    ep_aux += st["aux_loss"] / U
-                    ep_corr += st["correct_single"]
-                    ep_tot += st["total_single"]
-                else:
-                    epoch_stats[:3] += st[:3] / U
-                    epoch_stats[3:] += st[3:]
+                    boards = encode_boards(net, batch, args.board_chunk, device)
 
-            if prepared is not None:
-                h = final_hidden
-            if not torch.isfinite(traj_loss):
-                raise FloatingPointError(f"Non-finite loss at step {step_num}")
-            traj_loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
-            opt.step()
+                prepared = None
+                if args.decision_chunk > 1:
+                    prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
+                                                              args.decision_chunk, device, use_bf16)
+                for t in range(U):
+                    if prepared is None:
+                        k_val = (k_choices[(step_num + t) % len(k_choices)]
+                                 if args.thinking_curriculum else args.thinking_steps)
+                        k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
+                        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                            output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:15]], h, k_tensor,
+                                         execution_hint=None if plans is None else plans[t].hint,
+                                         encoded_board=None if boards is None else boards[t],
+                                         policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
+                    else:
+                        output = prepared[t]
+                    h_next, cand_l, pair_l, scal_p, val_p = output
+                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                        aux_p = net.aux_head(h_next[:, 0])
+                    loss_function = compute_step_loss if plans is None else compute_device_loss
+                    loss_t, st = loss_function(
+                        cand_l.float(),
+                        pair_l.float(),
+                        scal_p.float(),
+                        val_p.float(),
+                        aux_p.float(),
+                        batch,
+                        t,
+                        *([] if plans is None else [plans[t]]),
+                    )
+                    if prepared is None:
+                        valid_t = batch["step_valid"][:, t].to(device)
+                        h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
+                    traj_loss = traj_loss + loss_t / U
+                    if plans is None:
+                        ep_pol += st["pol_loss"] / U
+                        ep_val += st["val_loss"] / U
+                        ep_aux += st["aux_loss"] / U
+                        ep_corr += st["correct_single"]
+                        ep_tot += st["total_single"]
+                    else:
+                        epoch_stats[:3] += st[:3] / U
+                        epoch_stats[3:] += st[3:]
 
-            step_num += 1
-            ep_batches += 1
-            next_batch = batch_idx + 1
-            if step_num % 25 == 0:
-                elapsed = time.perf_counter() - t0
-                print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
-                      f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
-                      f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
-                      f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
-            stop = ((args.max_steps > 0 and step_num >= args.max_steps)
-                    or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds))
-            if step_num % args.checkpoint_every == 0 or stop:
-                save_last(epoch, next_batch, h)
-            if args.validation_every > 0 and step_num % args.validation_every == 0:
-                validate_and_save()
-                save_last(epoch, next_batch, h)
-                # Validation can itself exhaust the wall-time budget. Stop at
-                # this already-validated checkpoint instead of taking one more
-                # update and triggering another full validation immediately.
-                stop = stop or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds)
+                if prepared is not None:
+                    h = final_hidden
+                if not torch.isfinite(traj_loss):
+                    raise FloatingPointError(f"Non-finite loss at step {step_num}")
+                traj_loss.backward()
+                torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
+                checkpoint_writer.before_mutation()
+                opt.step()
+
+                step_num += 1
+                ep_batches += 1
+                next_batch = batch_idx + 1
+                if step_num % 25 == 0:
+                    elapsed = time.perf_counter() - t0
+                    print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
+                          f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
+                          f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
+                          f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
+                stop = ((args.max_steps > 0 and step_num >= args.max_steps)
+                        or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds))
+                if step_num % args.checkpoint_every == 0 or stop:
+                    save_last(epoch, next_batch, h)
+                if args.validation_every > 0 and step_num % args.validation_every == 0:
+                    validate_and_save()
+                    save_last(epoch, next_batch, h)
+                    # Validation can itself exhaust the wall-time budget. Stop at
+                    # this already-validated checkpoint instead of taking one more
+                    # update and triggering another full validation immediately.
+                    stop = stop or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds)
+                if stop:
+                    break
+
+            val_metrics = validate_and_save()
+            if not args.reference_execution:
+                ep_pol, ep_val, ep_aux, ep_corr, ep_tot = epoch_stats.cpu().tolist()
+            elapsed = time.perf_counter() - t0
+            print(
+                f"[train4] epoch={epoch} step={step_num} "
+                f"train_pol={ep_pol / max(ep_batches, 1):.4f} "
+                f"train_val={ep_val / max(ep_batches, 1):.4f} "
+                f"train_aux={ep_aux / max(ep_batches, 1):.4f} "
+                f"train_acc={ep_corr / max(ep_tot, 1):.3f} | "
+                f"val_pol={val_metrics['val_pol_loss']:.4f} "
+                f"val_mse={val_metrics['val_mse']:.4f} "
+                f"val_aux={val_metrics['val_aux_mse']:.4f} "
+                f"val_acc={val_metrics['val_top1_acc']:.3f} ({elapsed:.1f}s)",
+                flush=True,
+            )
+            save_last(epoch if stop else epoch + 1, next_batch if stop else 0, h if stop else None)
             if stop:
                 break
-
-        val_metrics = validate_and_save()
-        if not args.reference_execution:
-            ep_pol, ep_val, ep_aux, ep_corr, ep_tot = epoch_stats.cpu().tolist()
-        elapsed = time.perf_counter() - t0
-        print(
-            f"[train4] epoch={epoch} step={step_num} "
-            f"train_pol={ep_pol / max(ep_batches, 1):.4f} "
-            f"train_val={ep_val / max(ep_batches, 1):.4f} "
-            f"train_aux={ep_aux / max(ep_batches, 1):.4f} "
-            f"train_acc={ep_corr / max(ep_tot, 1):.3f} | "
-            f"val_pol={val_metrics['val_pol_loss']:.4f} "
-            f"val_mse={val_metrics['val_mse']:.4f} "
-            f"val_aux={val_metrics['val_aux_mse']:.4f} "
-            f"val_acc={val_metrics['val_top1_acc']:.3f} ({elapsed:.1f}s)",
-            flush=True,
-        )
-        save_last(epoch if stop else epoch + 1, next_batch if stop else 0, h if stop else None)
-        if stop:
-            break
 
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics

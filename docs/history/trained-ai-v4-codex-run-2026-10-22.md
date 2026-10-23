@@ -864,3 +864,73 @@ partial-file creation to atomic publication at 0.514 seconds. At roughly two
 updates/s and one checkpoint per 100 updates, this accounts for about 1% of
 wall time: it can make a visible dip but cannot explain a factor-of-two reserve.
 Artifact: `deferred-timing/checkpoint-timing.json`.
+
+## Larger compute batches and spending spare VRAM (23 October, follow-up)
+
+The owner suggested two roughly 6 GB batches and requested further web research.
+Distinguish input staging from the training working set: measured ordinary input
+batches are about 50 MiB, whereas weights, gradients, AdamW moments, retained
+activations and kernel workspaces account for most GPU memory. Two 6 GB input
+buffers cannot fit alongside that working set on a 12 GB card. Input double
+buffering also does not merge the model's individual kernel launches. Larger
+compute batches can amortize those launches, but saturating a utilization chart
+is neither a throughput measurement nor evidence of better learning.
+
+Primary sources checked in this follow-up:
+
+- [NVIDIA's fully-connected training guide](https://docs.nvidia.com/deeplearning/performance/dl-performance-fully-connected/index.html)
+  explains how batch size changes forward/backward GEMM tiling and arithmetic
+  intensity. Its hardware-specific examples are not predictions for this GPU.
+- [PyTorch's activation-checkpointing discussion](https://pytorch.org/blog/activation-checkpointing-techniques/)
+  describes spending memory to avoid recomputation, including selective operator
+  policies. Our initial experiment retains whole trunk layers; it does not yet
+  implement operator-level selective checkpointing or the experimental budget API.
+- [PyTorch's async checkpoint recipe](https://docs.pytorch.org/tutorials/recipes/distributed_async_checkpoint_recipe.html)
+  describes immutable CPU staging and limiting outstanding writes. We retain our
+  single-file atomic checkpoint/resume format instead of introducing distributed
+  storage solely for a single GPU.
+- [CUDA graph API constraints](https://docs.pytorch.org/docs/main/generated/torch.cuda.make_graphed_callables.html)
+  support testing a small fixed-shape recurrent region, with strict call order,
+  gradient signatures and disabled autocast caching. This remains a candidate;
+  the previously rejected whole-unroll capture is not silently enabled again.
+- [Critical Batch Size Revisited](https://arxiv.org/abs/2505.23971), revised
+  November 2025, measures the throughput/data-efficiency tradeoff and batch-size
+  warmup on language models. It motivates a separate learning pilot here, not
+  importing its model-specific optimal batch sizes into a recurrent game policy.
+- [PyTorch CUDA allocator documentation](https://docs.pytorch.org/docs/2.14/notes/cuda.html)
+  describes expandable segments for varying allocation sizes. Consider this if
+  measured allocation retries/fragmentation recur; it does not cure kernel-launch
+  overhead. Current selected training reported no allocation retries.
+
+Added two opt-in experiments, both off by default and absent from the frozen
+running trainer: `--saved-activation-layers N` retains the last N trunk layers'
+activations; `--async-checkpoint` stages a consistent GPU/CPU snapshot and writes
+it in the background. The writer overlaps staging with read-only forward/
+backward, waits before the next parameter/optimizer mutation, preserves CPU RNG
+and optimizer counters, propagates errors and drains on exit. One outstanding
+snapshot bounds its additional pinned memory to approximately one checkpoint
+(about 650 MB here). Staging allocation/API costs still occur on the main thread;
+zero pause or faster full training has not yet been demonstrated.
+
+CPU tests compare all retained-layer counts on a small model, including dropout
+RNG preservation, all parameter gradients and deferred recurrent memory. All are
+exact in those tests. Checkpoint tests hold the disk writer behind a barrier,
+mutate the original CPU payload, check atomic publication and inject a write
+failure. A separate CUDA test stages from a non-default compute stream, performs
+another forward/backward/update and mutates memory; the saved weights, moments,
+step counter and memory are exact, and optimizer resume advances correctly.
+Unit discovery: 30 tests, 27 passed and three CUDA tests skipped; the new CUDA
+snapshot test was run separately and passed. These are correctness checks, not
+end-to-end performance measurements.
+All six explicit Python/ONNX contract checks also passed after these changes.
+Logs are `activation-checkpoint-unit-tests.log` and
+`activation-contract-tests.log` under the throughput-check directory.
+
+The benchmark can now compare batch lanes 8/16/24 using explicit
+`--fresh-trajectories`. It refuses changing lane count while resuming the old
+memory/cursor, reports valid frames and decisions/s and accepts a CUDA allocator
+ceiling. Different lane counts sample a different trajectory mix and change the
+per-head loss normalization: cross-size timing is exploratory, not a matched
+equivalence or quality result. The production B=8/U=32 configuration remains
+selected. Full held-out validation, export and frozen games have priority over
+the queued isolated performance comparisons.
