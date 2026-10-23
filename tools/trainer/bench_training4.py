@@ -186,7 +186,8 @@ def main():
         gc.collect();torch.cuda.empty_cache()
     if args.validation_batches:
         from validation_probe4 import compare_validation
-        report["validation"] = compare_validation(saved, args.data, args.validation_batches)
+        report["validation"] = compare_validation(saved, args.data, args.validation_batches,
+                                                   readouts="readouts" in args.variants)
         atomic_json(Path(args.out), report)
         print(json.dumps({"validation": report["validation"]}), flush=True)
 

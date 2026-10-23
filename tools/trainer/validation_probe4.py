@@ -14,7 +14,7 @@ from training4.validation import evaluate
 from training4.validation_device import evaluate_device
 
 
-def compare_validation(saved, data, count):
+def compare_validation(saved, data, count, readouts=False):
     ds = D.TrajectoryDataset4(Path(data), split="val", unroll_len=saved["unroll"])
     sampler = D.StatefulBatchSampler4(ds, saved["batch_size"], shuffle=False, seed=42)
     loader = DataLoader(ds, batch_sampler=sampler, collate_fn=D.collate_trajectories,
@@ -34,13 +34,14 @@ def compare_validation(saved, data, count):
         if optimized:
             net.cache_thinking_kv = True
             net.prune_unused_policy_heads = True
-            compile_regions(net, readouts=True)
+            compile_regions(net, readouts=readouts)
         torch.cuda.synchronize()
         start = time.perf_counter()
         function = evaluate_device if optimized else evaluate
         metrics = function(net, Prefix(), torch.device("cuda"), 1)
         torch.cuda.synchronize()
         rows.append({"optimized": optimized, "seconds_including_compile": time.perf_counter()-start,
+                     "compile_readouts": optimized and readouts,
                      "batches": len(batches), "metrics": metrics})
         del net
         gc.collect(); torch.cuda.empty_cache()

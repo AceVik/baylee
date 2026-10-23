@@ -25,7 +25,8 @@ directories as well as the top-level scripts when snapshotting a trainer.
 without changing checkpoint keys; it is optional and currently CUDA-verified.
 `--compile-readouts` extends that choice to the recurrent update and the
 candidate/pair/seat-value readouts; benchmark both cold compilation and sustained
-throughput before enabling it for a run.
+throughput before enabling it for a run. The 54M comparison rejected this extra
+mode: it was slower, hit recompilation limits and amplified BF16 differences.
 `--cache-thinking-kv` optionally reuses the unchanged board's cross-attention
 key/value projections within one multi-step decision. The projections retain
 their autograd history and are discarded after that forward call; they never

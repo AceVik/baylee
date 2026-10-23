@@ -693,3 +693,37 @@ Each handoff preserved its atomic checkpoint and frozen runtime; standalone
 resume supervisors selected only passing variants and restarted training as soon
 as the bounded benchmark finished. Old job guard failures are annotated as
 intentional handoffs. Full validation and matched games remain pending.
+
+
+### Rejected readout compilation and longer validation audit
+
+`readouts-timing/benchmark.json` at step 6500 compared the old execution
+(0.777 updates/s), selected production path (1.481), and additionally compiled
+recurrent/readout blocks (1.249). The extra mode hit TorchDynamo's recompilation
+limit for differently shaped Sequential modules and was rejected. Its first
+full-update gradient relative L2 difference was 6.67% (max absolute 0.00832).
+The production path on this low-loss batch differed by 4.35% (max 0.000489):
+relative gradient differences are not a fixed constant across positions, and
+cannot alone establish optimizer/playing equivalence. This does not overwrite
+the smaller differences measured on previous batches. Extra readout compilation
+remains opt-in experimental code and is **off** in the actual continuation.
+
+The 16-batch validation probe with experimental readout compilation showed the
+same choice accuracy but an amplified value-prediction mean difference of 0.0041.
+A longer, separate audit therefore checked the actual production configuration
+without those extra compiled modules: `production-validation.json`, same step
+6500 weights, 64 held-out trajectory batches, 16,216 valid frames and 1,179 active
+choices. Reference and optimized execution had identical total/active choice
+accuracy and frame counts. Policy loss delta was -0.0000316, value MSE delta
++0.0000123, auxiliary MSE delta -0.00000241, prediction-mean delta +0.000104 and
+ECE delta -0.000167. Timing (76.8 vs 18.7 seconds) was gathered alongside live
+training, so it is **not** an uncontended validation speed benchmark. This prefix
+checks numerical execution parity; it is not the full corpus or a strength test.
+
+`codex-r4-compiled-bc` resumed step 6500 with 6600 seconds of optimization budget.
+Despite the directory name, `selection.json` explicitly records
+`compile_readouts: false`. Enabled: chunk 8, ordinary regional transformer/
+thinking compilation, local K/V reuse and unused-policy-head omission. Disabled:
+CUDA Graphs, entity padding, fused AdamW and extra recurrent/readout compilation.
+The active pointer identifies this run. Full validation, export parity and
+matched 128-duel/64-Commander tests follow automatically; no automatic promotion.
