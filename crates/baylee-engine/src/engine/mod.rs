@@ -2143,6 +2143,9 @@ mod damage_resume_tests;
 mod source_resume_tests;
 
 #[cfg(test)]
+mod cost_source_lki_tests;
+
+#[cfg(test)]
 mod trigger_source_tests;
 
 #[cfg(test)]

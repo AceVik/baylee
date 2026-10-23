@@ -717,6 +717,15 @@ id is unchanged. The former Scavenging Ghoul self-counter leak is guarded by
 `resolve::counters` checking the captured source version before adding counters;
 the exact Ghoul/Kenrith scenario is not yet a dedicated regression.
 
+Source power and source-counter amounts read that exact incarnation, live while
+it remains and from its departure snapshot after it leaves (CR 608.2h). Paying
+a sacrifice cost can remove the source before its stack ability is created.
+Immediate mana abilities retain the pre-payment source version in their
+resolution context because they have no stack object. Counter amounts use the
+counters remaining after any earlier counter-removal cost, and a color choice
+retains the amount across suspension. `engine::cost_source_lki_tests` covers
+these paths, a returning source, and power changing before resolution.
+
 Damage uses the retained source incarnation and its last known characteristics.
 The former Circle of Protection failure after a pinger leaves and returns is
 covered by independent tests for all five Circles, including multiple historical
