@@ -172,3 +172,101 @@ fn sacrificing_mana_ability_reads_source_power_without_a_stack_object() {
         5
     );
 }
+
+#[test]
+fn removing_a_counter_before_sacrificing_uses_the_remaining_power_for_damage() {
+    static ABILITIES: &[AbilityDef] = &[
+        GROW,
+        baylee_cards_dsl::activated!(
+            baylee_cards_dsl::cost!(
+                RemoveCounterSelf {
+                    kind: CounterKind::P1P1,
+                    n: 1
+                },
+                SacrificeSelf
+            ),
+            DAMAGE
+        ),
+    ];
+    let (mut engine, source) = setup(ABILITIES);
+    activate(&mut engine, source, 1);
+    assert_eq!(engine.state.object(source).unwrap().zone, Zone::Graveyard);
+    assert_eq!(engine.state.zones.list(ZoneLocation::Stack).len(), 1);
+    settle(&mut engine);
+    assert_eq!(engine.state.players[1].life, 16);
+}
+
+#[test]
+fn removing_a_counter_before_sacrificing_uses_the_remaining_power_for_mana() {
+    static ABILITIES: &[AbilityDef] = &[
+        GROW,
+        baylee_cards_dsl::mana_ability!(
+            baylee_cards_dsl::cost!(
+                RemoveCounterSelf {
+                    kind: CounterKind::P1P1,
+                    n: 1
+                },
+                SacrificeSelf
+            ),
+            &[Effect::mana_dynamic(ManaColor::Green, Amount::SourcePower)]
+        ),
+    ];
+    let (mut engine, source) = setup(ABILITIES);
+    activate(&mut engine, source, 1);
+    assert_eq!(engine.state.object(source).unwrap().zone, Zone::Graveyard);
+    assert!(engine.state.zones.list(ZoneLocation::Stack).is_empty());
+    assert_eq!(
+        engine.state.players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        4
+    );
+}
+
+#[test]
+fn sacrificing_all_keeps_the_lords_bonus_on_the_later_sacrificed_source() {
+    const LORD: u32 = SOURCE + 1;
+    static LORD_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::static_ability!(
+        baylee_cards_dsl::Filter::CREATURE,
+        baylee_cards_dsl::Modifier::ModifyPT(1, 1)
+    )];
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::activated!(
+        baylee_cards_dsl::cost!(SacrificeAll(&baylee_cards_dsl::Filter::CREATURE)),
+        DAMAGE
+    )];
+    let lord = Box::leak(Box::new(baylee_cards_dsl::CardDef {
+        abilities: LORD_ABILITIES,
+        ..*synthetic::creature(LORD, "Sacrificed lord probe", 2, 2, &[])
+    }));
+    let card = Box::leak(Box::new(baylee_cards_dsl::CardDef {
+        abilities: ABILITIES,
+        ..*synthetic::creature(SOURCE, "Sacrifice all probe", 2, 2, &[])
+    }));
+    let mut engine = Engine::new(
+        &synthetic::preset(98_161, &[LORD, SOURCE]),
+        SyntheticLookup::new(vec![lord, card]),
+    )
+    .unwrap();
+    synthetic::keep_mulligans(&mut engine);
+    walk(&mut engine, |e| {
+        e.state.turn.phase == Phase::FirstMain
+            && matches!(e.pending(), Pending::Priority { player: YOU, .. })
+    });
+    let lord = synthetic::permanents(&engine, LORD)[0];
+    let source = synthetic::permanents(&engine, SOURCE)[0];
+    assert_eq!(
+        engine.state.object(source).unwrap().characteristics().power,
+        Some(3)
+    );
+    assert_eq!(
+        engine.state.zones.list(ZoneLocation::Battlefield),
+        &[lord, source]
+    );
+    activate(&mut engine, source, 0);
+    assert_eq!(
+        engine.state.zones.list(ZoneLocation::Graveyard(YOU)),
+        &[lord, source]
+    );
+    settle(&mut engine);
+    assert_eq!(engine.state.players[1].life, 17);
+}
