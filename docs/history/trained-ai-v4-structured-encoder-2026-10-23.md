@@ -89,13 +89,23 @@ changed. Work is on `c42/trained-ai`; artifacts are in
    existing B=8, U=32, observation chunk=8, decision chunk=4 and thinking-depth
    curriculum. Keep validation lanes fixed at 8 and evaluate full trajectories.
    Start with the existing cautious fine-tuning rate (5e-5); retain atomic
-   last/best checkpoints and distinguish their parameter sets.
+   last/best checkpoints and distinguish their parameter sets. While the large
+   8-seat records finish replaying, `joint-adapt-v1` uses the complete 704-game
+   integration corpus for up to 1,000 updates / 900 training seconds, starting
+   from `initial` (not the two-shard pilot). `joint-broad-v1` then starts from
+   these adapted weights with fresh optimizer/memory, for up to 4,000 updates /
+   2,700 training seconds. Both phases finish full validation; its duration is
+   additional to the training budget. This is staged training, not an equal-
+   training-budget architecture ablation.
 6. **Strength comparison:** export and verify nonzero references, then compare
    to the archived encoder-5 policy in the **same new eval executable**, with
    the frozen deck manifest, starting seeds and seat rotations. Keep all bad
    deals and unknown capped outcomes. Repeat K=1/4 only after a useful base
    policy is established; this change does not create future-state search.
-   Final untouched tests and broader tactical/card holdouts remain required.
+   The queued K=1 comparison uses 128 duels and 64 Commander games, seed
+   980001, Sharp opponents, Steady house duplicates and the previous selected
+   phase-3116 policy. Final untouched tests and broader tactical/card holdouts
+   remain required; no model is promoted automatically.
 
 ## Verification and operational notes
 
@@ -116,6 +126,13 @@ export passed **143 frames**, including a recurrent held-out trajectory with
 nonzero rule references, at maximum absolute error **3.41e-5**. The migrated
 initial policy also matched the legacy policy exactly for all outputs at
 K=0/1/4 and for two actual games (answers, outcomes and fallback counts).
+The trained pilot also completed eight GPU-inferred Rust games with 1,824
+neural answers, two house fallbacks, no refused actions and no stalls. It won
+0/8 against Sharp (Steady duplicates won 4/8); this bounded integration pilot
+is not a strength improvement. Its inference p95 was about 4.1 ms. The first
+attempt from a copied executable lacked adjacent ORT provider libraries and
+failed at startup; the corrected runtime includes them and preserves the
+failed attempt's logs separately.
 
 The old `pretrain_dsl4.py` summary experiment is explicitly rejected for the
 new contract; it cannot silently emit an incomplete encoder-6 artifact.
@@ -130,4 +147,8 @@ owner enabled passwordless sudo.
 Persistent experiment manifests record commands, source snapshots, catalog
 checksums, stdout/stderr and failures. Initial pretraining uses a frozen
 `pretrain-runtime`; replays use a frozen `convert-runtime`. These remain separate
-from ongoing source edits. The machine monitor remains running.
+from ongoing source edits. The subsequent `runtime-v1` freezes source at
+`db27937b9` and includes the eval executable and CUDA provider libraries with
+file hashes. `continue-structured.py`, `continuation-status.json`, and the
+per-stage `jobs/` directories record the automatic sequence and its failures.
+The machine monitor remains running.
