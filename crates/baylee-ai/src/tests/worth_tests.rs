@@ -1081,7 +1081,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Stronghold (`sth`) Batch 4 adds 3 non-mana activated abilities across
     // Volrath's Gardens, Volrath's Laboratory, and Volrath's Shapeshifter, of
     // which 2 are read by the evaluator.
-    assert_eq!((read, of), (2772, 3498), "activated/loyalty reader census");
+    // Exodus (`exo`) Batch 1 adds 6 non-mana activated abilities across Cat
+    // Burglar, Cinder Crawler, Dauthi Cutthroat, Dauthi Jackal, Dizzying Gaze,
+    // and Ephemeron, of which 5 are read by the evaluator.
+    assert_eq!((read, of), (2777, 3504), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

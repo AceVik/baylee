@@ -8788,27 +8788,58 @@ pub static ORACLE: &[&[&str]] = &[
     // Youthful Knight
     &["First strike"],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aether Tide
+    &[
+        "As an additional cost to cast this spell, discard X creature cards.\nReturn X target creatures to their owners' hands.",
+    ],
+    // Allay
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target enchantment.",
+    ],
+    // Anarchist
+    &[
+        "When this creature enters, you may return target sorcery card from your graveyard to your hand.",
+    ],
+    // Avenging Druid
+    &[
+        "Whenever this creature deals damage to an opponent, you may reveal cards from the top of your library until you reveal a land card. If you do, put that card onto the battlefield and put all other cards revealed this way into your graveyard.",
+    ],
     // Bequeathal
     &["Enchant creature\nWhen enchanted creature dies, you draw two cards."],
-    &[],
+    // Carnophage
+    &["At the beginning of your upkeep, tap this creature unless you pay 1 life."],
     // Cartographer
     &[
         "When this creature enters, you may return target land card from your graveyard to your hand.",
     ],
-    &[],
-    &[],
-    &[],
+    // Cat Burglar
+    &["{2}{B}, {T}: Target player discards a card. Activate only as a sorcery."],
+    // Cataclysm
+    &[
+        "Each player chooses from among the permanents they control an artifact, a creature, an enchantment, and a land, then sacrifices the rest.",
+    ],
+    // Cinder Crawler
+    &[
+        "{R}: This creature gets +1/+0 until end of turn. Activate only if this creature is blocked.",
+    ],
     // City of Traitors
     &["When you play another land, sacrifice this land.\n{T}: Add {C}{C}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Coat of Arms
+    &[
+        "Each creature gets +1/+1 for each other creature on the battlefield that shares at least one creature type with it. (For example, if two Goblin Warriors and a Goblin Shaman are on the battlefield, each gets +2/+2.)",
+    ],
+    // Convalescence
+    &["At the beginning of your upkeep, if you have 10 or less life, you gain 1 life."],
+    // Crashing Boars
+    &[
+        "Whenever this creature attacks, defending player chooses an untapped creature they control. That creature blocks this creature this turn if able.",
+    ],
+    // Culling the Weak
+    &["As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}."],
+    // Cunning
+    &[
+        "Enchant creature\nEnchanted creature gets +3/+3.\nWhen enchanted creature attacks or blocks, sacrifice this Aura at the beginning of the next cleanup step.",
+    ],
     // Curiosity
     &[
         "Enchant creature\nWhenever enchanted creature deals damage to an opponent, you may draw a card.",
@@ -8817,17 +8848,40 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature gets -1/-1 and has fear. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dauthi Cutthroat
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{1}{B}, {T}: Destroy target creature with shadow.",
+    ],
+    // Dauthi Jackal
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{B}{B}, Sacrifice this creature: Destroy target blocking creature.",
+    ],
+    // Dauthi Warlord
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nDauthi Warlord's power is equal to the number of creatures on the battlefield with shadow.",
+    ],
+    // Death's Duet
+    &["Return two target creature cards from your graveyard to your hand."],
+    // Dizzying Gaze
+    &[
+        "Enchant creature you control\n{R}: Enchanted creature deals 1 damage to target creature with flying.",
+    ],
+    // Dominating Licid
+    &[
+        "{1}{U}{U}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {U} to end this effect.\nYou control enchanted creature.",
+    ],
     // Elven Palisade
     &["Sacrifice a Forest: Target attacking creature gets -3/-0 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Elvish Berserker
+    &[
+        "Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.",
+    ],
+    // Entropic Specter
+    &[
+        "Flying\nAs this creature enters, choose an opponent.\nEntropic Specter's power and toughness are each equal to the number of cards in the chosen player's hand.\nWhenever this creature deals damage to a player, that player discards a card.",
+    ],
+    // Ephemeron
+    &["Flying\nDiscard a card: Return this creature to its owner's hand."],
     // Equilibrium
     &[
         "Whenever you cast a creature spell, you may pay {1}. If you do, return target creature to its owner's hand.",
@@ -8836,9 +8890,18 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}, {T}: Return target creature to its owner's hand unless its controller pays {1}."],
     // Ertai, Wizard Adept
     &["{2}{U}{U}, {T}: Counter target spell."],
-    &[],
-    &[],
-    &[],
+    // Exalted Dragon
+    &[
+        "Flying\nThis creature can't attack unless you sacrifice a land. (This cost is paid as attackers are declared.)",
+    ],
+    // Fade Away
+    &[
+        "For each creature, its controller sacrifices a permanent of their choice unless they pay {1}.",
+    ],
+    // Fighting Chance
+    &[
+        "For each blocking creature, flip a coin. If you win the flip, prevent all combat damage that would be dealt by that creature this turn.",
+    ],
     &[],
     &[],
     // Fugue
