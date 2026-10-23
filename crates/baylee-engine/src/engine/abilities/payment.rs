@@ -322,6 +322,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: resolve::SubjectContext::after_cost(&paid)
+                    .with_source_version(activated_source_version)
                     .with_mana_tap_source(cost.parts.contains(&CostPart::TapSelf).then_some(
                         baylee_core::ids::DamageSourceRef {
                             object: source,

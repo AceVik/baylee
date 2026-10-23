@@ -382,6 +382,9 @@ fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i1
 
 /// The source incarnation an ability captured, independent of later moves.
 pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32> {
+    if let Some(version) = res.subject.source_version {
+        return Some(version);
+    }
     state
         .object(res.on_stack)?
         .riders
@@ -578,12 +581,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .damage_source(res.source, source_version(state, res))
             .map_or(0, |object| u32::from(object.counters.get(*kind))),
         Amount::SourcePower => state
-            .object(res.on_stack)
-            .and_then(|o| o.source_power_lki)
-            .map_or_else(
-                || eval::amount_with_context(amount, state, you, res.rule_context(), res.x),
-                |p| p.max(0) as u32,
-            ),
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|source| source.characteristics().power)
+            .map_or(0, |power| power.max(0) as u32),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;

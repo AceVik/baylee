@@ -20,6 +20,8 @@ pub struct SubjectContext {
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
+    /// Original ability source, separate from any successor found by its costs.
+    pub(super) source_version: Option<u32>,
     mana_tap_source: Option<DamageSourceRef>,
     event_player: Option<baylee_core::ids::PlayerId>,
     pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
@@ -48,6 +50,7 @@ impl SubjectContext {
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
+            source_version: None,
             mana_tap_source: None,
             event_player: None,
             for_each_remaining: None,
@@ -68,6 +71,12 @@ impl SubjectContext {
     /// Immediate mana resolutions retain their linked family without a stack object.
     pub(crate) fn with_acquisition(mut self, acquisition: u64) -> Self {
         self.acquisition = Some(acquisition);
+        self
+    }
+
+    /// Immediate mana abilities have no stack object to retain their source version.
+    pub(crate) fn with_source_version(mut self, version: Option<u32>) -> Self {
+        self.source_version = version;
         self
     }
 
@@ -104,6 +113,9 @@ impl SubjectContext {
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.acquisition));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.source_version));
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.mana_tap_source));
