@@ -4,15 +4,14 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: Duration::UntilAffectedUntapSteps is only decremented for untap-suppression effects during the untap step, not for general continuous effects on a single target, so the land-type change lasts until end of turn instead of until its controller's next untap step.
+// IMPLEMENTED — {T} makes the target land a Swamp for Duration::UntilAffectedUntapSteps(1): through the land's controller's next untap step, whoever controls the land.
+
 card!(
     index = index::ORCISH_FARMER,
     oracle_id = "c3039d19-8c98-4953-8943-9922b6ab45ef",
     scryfall_id = "2563a5b5-ea7a-4400-9e40-292623db2f96",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "the target land becomes a Swamp until end of turn rather than until its controller's next untap step",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Orcish Farmer",
         mana_cost = mana!("{1}{R}{R}"),
@@ -26,7 +25,7 @@ card!(
         &[Effect::continuous(
             &Filter::This,
             Modifier::SetLandType(subtypes::land::SWAMP),
-            Duration::UntilEndOfTurn,
+            Duration::UntilAffectedUntapSteps(1),
         )],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND)))
     )],

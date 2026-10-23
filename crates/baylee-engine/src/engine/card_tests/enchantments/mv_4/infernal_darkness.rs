@@ -13,7 +13,8 @@ fn infernal_darkness() -> CardIndex {
 }
 
 /// Infernal Darkness (dd821fca-79a0-48a9-b1cf-5a496bc04f65) — {2}{B}{B} Enchantment:
-/// - "Cumulative upkeep—Pay {B} and 1 life." (Partial: pays {B} per age counter)
+/// - "Cumulative upkeep—Pay {B} and 1 life." (Partial: asked as {B} per age counter, then 1 life
+///   per age counter, as two payments in a row.)
 /// - "If a land is tapped for mana, it produces {B} instead of any other type."
 #[test]
 fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declined() {
@@ -24,6 +25,7 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
         &[],
         &[],
         |e| {
+            // The upkeep asks twice: pay {B} (mana is floated for it), then pay 1 life.
             lk::float(e, P0, &[(ManaColor::Black, 1)]);
             lk::yes_no(e, true);
         },
@@ -37,6 +39,11 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
             .counters
             .get(baylee_cards_dsl::counters::AGE),
         1
+    );
+    assert_eq!(
+        lk::life(&engine, P0),
+        19,
+        "the first upkeep cost {{B}} and 1 life (one age counter)"
     );
 
     // Tapping Forest, Plains, and Island while Infernal Darkness is on the battlefield produces {B}{B}{B}.
@@ -72,6 +79,11 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
         )
     });
     assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (3, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+    assert_eq!(
         engine
             .state()
             .object(darkness)
@@ -83,8 +95,26 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
     lk::yes_no(&mut engine, true);
     tap_all_mana_but(&mut engine, P0, None);
     engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    // After the mana, the life: 1 life for each of the 2 age counters.
+    assert!(
+        matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayLife { amount: 2 },
+                ..
+            }
+        ),
+        "after the {{B}}{{B}} the upkeep asks for 2 life, got {:?}",
+        engine.pending()
+    );
+    lk::yes_no(&mut engine, true);
     lk::settle(&mut engine);
     assert!(on_battlefield(&engine, P0, infernal_darkness()).is_some());
+    assert_eq!(
+        lk::life(&engine, P0),
+        17,
+        "the second upkeep cost 2 life on top of the first one's 1"
+    );
     assert_eq!(
         engine.state().players[0]
             .mana_pool
@@ -103,9 +133,19 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
             }
         )
     });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (5, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
     lk::yes_no(&mut engine, false);
     lk::settle(&mut engine);
     assert!(in_graveyard(&engine, P0, infernal_darkness()).is_some());
+    assert_eq!(
+        lk::life(&engine, P0),
+        17,
+        "declining the payment costs no life"
+    );
 
     tap_all_mana_but(&mut engine, P0, None);
     for (color, expected) in [
@@ -116,4 +156,54 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
     ] {
         assert_eq!(lk::pool_of(&engine, P0, color), expected);
     }
+}
+
+#[test]
+fn infernal_darkness_is_sacrificed_when_the_life_is_refused_after_the_mana() {
+    let engine = lk::game_with(SEED, &[infernal_darkness(), forest()], &[], &[], &[], |e| {
+        if matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        ) {
+            lk::float(e, P0, &[(ManaColor::Black, 1)]);
+            lk::yes_no(e, true);
+        } else {
+            // The life: refused.
+            lk::yes_no(e, false);
+        }
+    });
+    assert!(
+        in_graveyard(&engine, P0, infernal_darkness()).is_some(),
+        "the mana alone does not keep Infernal Darkness: the life is part of the cost"
+    );
+    assert_eq!(lk::life(&engine, P0), 20, "the refused life was not paid");
+}
+
+#[test]
+fn infernal_darkness_changes_land_mana_only_not_an_artifacts() {
+    let mut engine = lk::game_with(
+        SEED,
+        &[infernal_darkness(), forest(), sol_ring()],
+        &[],
+        &[],
+        &[],
+        |e| {
+            lk::float(e, P0, &[(ManaColor::Black, 1)]);
+            lk::yes_no(e, true);
+        },
+    );
+    tap_all_mana_but(&mut engine, P0, None);
+    assert_eq!(
+        lk::pool_of(&engine, P0, ManaColor::Black),
+        1,
+        "the Forest is a land: it produces {{B}}"
+    );
+    assert_eq!(
+        lk::pool_of(&engine, P0, ManaColor::Colorless),
+        2,
+        "Sol Ring is not a land: its {{C}}{{C}} is not turned black"
+    );
 }

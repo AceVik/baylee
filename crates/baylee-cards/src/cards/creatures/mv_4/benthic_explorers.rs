@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d7eca8c7-cc51-44d6-a529-ccf128136c07",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "{T} adds one mana of any color; untapping a tapped land an opponent controls as part of the activation cost and restricting the mana to a type that land could produce are not supported",
+        "'{T}, Untap a tapped land an opponent controls: Add one mana of any type that land could produce' is not supported: no cost untaps another player's tapped land and no mana effect reads what a chosen land could produce, so the ability is left off (a bare {T} for any color would be free mana the card does not print) and the card is a 2/4 creature",
     ),
     faces = &[face!(
         name = "Benthic Explorers",
@@ -22,5 +22,5 @@ card!(
         power = Some(2),
         toughness = Some(4),
     ),],
-    abilities = &[mana_ability!(&[Effect::mana_of_any_color()])],
+    // NOT SUPPORTED: "{T}, Untap a tapped land an opponent controls: Add one mana of any type that land could produce." There is no cost that untaps another player's tapped land and no mana effect that reads what a chosen land could produce; "{T}: Add one mana of any color" would be mana without the cost and without the limit.
 );

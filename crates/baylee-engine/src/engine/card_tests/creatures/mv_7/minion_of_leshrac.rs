@@ -2,7 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::turn::Step;
+use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -117,5 +119,45 @@ fn minion_of_leshrac_upkeep_sacrifice_or_damage_and_tap_plus_tap_destroy_creatur
     assert!(
         on_battlefield(&engine, P0, grizzly_bears()).is_some(),
         "the surviving Grizzly Bears was not sacrificed"
+    );
+}
+
+#[test]
+fn minion_of_leshrac_has_protection_from_black_so_black_creatures_cannot_block_it() {
+    let mut engine = lk::game_with(
+        SEED,
+        &[minion_of_leshrac(), grizzly_bears()],
+        &[index::DRUDGE_SKELETONS, grizzly_bears()],
+        &[],
+        &[],
+        |e| {
+            // Upkeep: sacrifice the other creature rather than take 5 and tap the Minion.
+            let Pending::ChooseCards {
+                player, options, ..
+            } = e.pending().clone()
+            else {
+                panic!("expected the sacrifice question, got {:?}", e.pending());
+            };
+            e.apply(
+                player,
+                PlayerAction::ChooseObjects {
+                    objects: options.into_iter().take(1).collect(),
+                },
+            )
+            .unwrap();
+        },
+    );
+    let minion = lk::obj(&engine, P0, minion_of_leshrac());
+    let black_blocker = lk::obj(&engine, P1, index::DRUDGE_SKELETONS);
+    let green_blocker = lk::obj(&engine, P1, grizzly_bears());
+
+    let offer = lk::attack(&mut engine, &[minion]);
+    assert!(
+        !lk::may_block(&offer, black_blocker, minion),
+        "protection from black: a black creature cannot block Minion of Leshrac"
+    );
+    assert!(
+        lk::may_block(&offer, green_blocker, minion),
+        "a green creature can still block it"
     );
 }

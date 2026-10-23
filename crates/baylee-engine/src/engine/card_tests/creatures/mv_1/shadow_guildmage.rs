@@ -2,90 +2,63 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::generated::index;
 
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+// oracle_id = "cdda63d7-e3ea-455c-b7d4-c6cfdda2703c"
 fn shadow_guildmage() -> CardIndex {
     card_index("cdda63d7-e3ea-455c-b7d4-c6cfdda2703c")
 }
 
-/// Shadow Guildmage (`{B}`, `Coverage::Partial`): `{U}, {T}` puts target
-/// creature you control on top (or bottom) of its owner's library, and
-/// `{R}, {T}` deals 1 damage to any target and 1 damage to you.
+/// "{R}, {T}: 1 damage to any target and 1 damage to you."
 #[test]
-fn shadow_guildmage_abilities_return_creature_and_deal_damage() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(
-            0,
-            &[shadow_guildmage(), island(), mountain(), grizzly_bears()],
-        )
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn shadow_guildmage_pings_a_player_and_hurts_its_controller() {
+    let mut engine = lk::game(SEED, &[shadow_guildmage()], &[], &[], &[]);
+    let mage = lk::obj(&engine, P0, shadow_guildmage());
 
-    let mage = on_battlefield(&engine, p0, shadow_guildmage()).unwrap();
-    let bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    lk::float(&mut engine, P0, &[(ManaColor::Red, 1)]);
+    lk::use_ability(&mut engine, P0, shadow_guildmage(), 0, &[], &[P1]);
 
-    // Activate ability 0 ({U}, {T}): put target creature you control on top of library.
-    let my_island = on_battlefield(&engine, p0, island()).unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: my_island,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: mage,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    aim_at(&mut engine, p0, bear);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { .. })
-    });
-    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
-    pass_until(&mut engine, stack_is_empty);
-    assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
+    assert_eq!(lk::life(&engine, P1), 19);
+    assert_eq!(lk::life(&engine, P0), 19);
+    assert!(lk::tapped(&engine, mage));
+}
 
-    // Next turn, activate ability 1 ({R}, {T}): deal 1 damage to p1 and 1 damage to p0.
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-    let my_mountain = on_battlefield(&engine, p0, mountain()).unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: my_mountain,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: mage,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p1],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+/// A creature is a target too, and the second point of damage still goes to
+/// the controller; the {T} cost allows one ping a turn.
+#[test]
+fn shadow_guildmage_pings_a_creature_and_only_once_a_turn() {
+    let mut engine = lk::game(
+        SEED,
+        &[shadow_guildmage()],
+        &[index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let bears = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
 
-    assert_eq!(engine.state().players[1].life, 19);
-    assert_eq!(engine.state().players[0].life, 19);
+    lk::float(&mut engine, P0, &[(ManaColor::Red, 2)]);
+    lk::use_ability(&mut engine, P0, shadow_guildmage(), 0, &[bears], &[]);
+
+    assert_eq!(lk::damage_on(&engine, bears), 1);
+    assert_eq!(lk::life(&engine, P1), 20);
+    assert_eq!(lk::life(&engine, P0), 19);
+    assert!(
+        !lk::offered(&engine, shadow_guildmage(), P0, 0),
+        "tapped, it cannot ping again"
+    );
+}
+
+/// "{U}, {T}: put target creature you control on top of its owner's library"
+/// is not on the card (no top-only tuck exists): with only {U} to spend,
+/// nothing is offered.
+#[test]
+fn shadow_guildmage_has_no_blue_ability() {
+    let mut engine = lk::game(SEED, &[shadow_guildmage()], &[], &[], &[]);
+
+    lk::float(&mut engine, P0, &[(ManaColor::Blue, 1)]);
+    assert!(!lk::offered(&engine, shadow_guildmage(), P0, 0));
 }

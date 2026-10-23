@@ -7,7 +7,6 @@ mod aggression;
 mod anti_magic_aura;
 mod bestial_fury;
 mod blanchwood_armor;
-mod casting_of_bones;
 mod cessation;
 mod chromatic_armor;
 mod destructive_urge;

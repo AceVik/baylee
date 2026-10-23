@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::subtypes;
 
 fn shimmer() -> CardIndex {
@@ -34,4 +35,47 @@ fn shimmer_grants_phasing_only_to_lands_of_chosen_type() {
 
     assert!(keywords(&engine, my_forest).contains(KeywordSet::PHASING));
     assert!(!keywords(&engine, my_island).contains(KeywordSet::PHASING));
+}
+
+/// "Each land of the chosen type", whoever controls it: the opponent's Forest
+/// phases out at its controller's untap step, the controller's Island (not the
+/// chosen type) does not.
+#[test]
+fn shimmer_phases_an_opponents_land_of_the_chosen_type_and_spares_other_lands() {
+    const P0: PlayerId = PlayerId::new(0);
+    const P1: PlayerId = PlayerId::new(1);
+    let mut engine = lk::game(SEED, &[island()], &[forest()], &[shimmer()], &[]);
+    let my_island = lk::obj(&engine, P0, island());
+    let their_forest = lk::obj(&engine, P1, forest());
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::Blue, 2)],
+    );
+    cast_with_floating(&mut engine, P0, shimmer());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseSubtype { .. })
+    });
+    engine
+        .apply(P0, PlayerAction::ChooseSubtype(subtypes::land::FOREST))
+        .unwrap();
+    lk::settle(&mut engine);
+    assert!(keywords(&engine, their_forest).contains(KeywordSet::PHASING));
+    assert!(!keywords(&engine, my_island).contains(KeywordSet::PHASING));
+
+    reach_their_main_phase(&mut engine, P1);
+    let phased_out = |id| {
+        engine
+            .state()
+            .object(id)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT)
+    };
+    assert!(
+        phased_out(their_forest),
+        "phased out before its controller untapped"
+    );
+    assert!(!phased_out(my_island));
 }

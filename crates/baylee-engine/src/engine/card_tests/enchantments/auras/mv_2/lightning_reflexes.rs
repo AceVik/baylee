@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::engine::card_tests::legends_kit as lk;
+use crate::turn::Step;
 use baylee_cards_dsl::KeywordSet;
 use baylee_core::generated::index;
 
@@ -42,5 +43,38 @@ fn lightning_reflexes_grants_plus_1_plus_0_and_first_strike_to_enchanted_creatur
             .characteristics()
             .keywords
             .contains(KeywordSet::FIRST_STRIKE)
+    );
+}
+
+/// Flash is left off because the sacrifice rider that goes with it is not
+/// supported: the Aura is castable in the main phase and not in the end step.
+#[test]
+fn lightning_reflexes_is_castable_only_at_sorcery_speed() {
+    let mut engine = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS, mountain(), mountain()],
+        &[],
+        &[lightning_reflexes()],
+        &[],
+    );
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Red, 1)],
+    );
+    assert!(
+        lk::castable(&engine, P0, lightning_reflexes()),
+        "castable in the main phase with its mana floating"
+    );
+
+    lk::to_step(&mut engine, P0, Step::End);
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 1), (ManaColor::Red, 1)],
+    );
+    assert!(
+        !lk::castable(&engine, P0, lightning_reflexes()),
+        "not castable in the end step without flash"
     );
 }

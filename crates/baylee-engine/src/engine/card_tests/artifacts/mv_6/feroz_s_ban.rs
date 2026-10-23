@@ -60,3 +60,35 @@ fn feroz_s_ban_increases_creature_spell_cost_by_two_and_leaves_noncreature_spell
         "Grizzly Bears spent all 4 mana ({{1}}{{G}} + {{2}} tax)"
     );
 }
+
+/// "Creature spells cost {2} more to cast" taxes every player, not only the
+/// one who controls Feroz's Ban: the opponent's Grizzly Bears costs `{3}{G}`
+/// on their own turn.
+#[test]
+fn feroz_s_ban_taxes_the_opponents_creature_spells_too() {
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[feroz_s_ban()])
+        .hand(1, &[bears()])
+        .battlefield(1, &[forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    let bears_hand = in_hand(&engine, p1, bears()).unwrap();
+    let forests = all_on_battlefield(&engine, p1, forest());
+
+    // Three Forests would pay the printed {1}{G} twice over, but not {3}{G}.
+    tap_mana_where(&mut engine, p1, |id| forests[..3].contains(&id));
+    assert!(
+        !priority_offer(&engine).castable.contains(&bears_hand),
+        "under Feroz's Ban the opponent's Grizzly Bears costs {{3}}{{G}} and three mana is short"
+    );
+
+    // The fourth Forest pays the tax.
+    tap_mana_where(&mut engine, p1, |id| id == forests[3]);
+    assert!(
+        priority_offer(&engine).castable.contains(&bears_hand),
+        "four mana pays {{3}}{{G}}"
+    );
+}

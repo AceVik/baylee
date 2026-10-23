@@ -3,9 +3,10 @@
 //! At the beginning of the end step, if no creatures are on the battlefield,
 //! sacrifice Withering Wisps.
 //! `{B}`: Withering Wisps deals 1 damage to each creature and each player.
-//! Activate only if you control a snow Swamp and only no more times each turn
-//! than the number of snow Swamps you control.
-//! (`Coverage::Partial`: omits the per-turn activation cap.)
+//! Activate no more times each turn than the number of snow Swamps you
+//! control.
+//! (`Coverage::Partial`: the cap is one activation per turn while a snow Swamp
+//! is controlled, which is the printed cap for exactly one snow Swamp.)
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -92,6 +93,13 @@ fn withering_wisps_requires_snow_swamp_to_activate_and_sacrifices_at_end_step_on
     );
     assert_eq!(engine.state().players[0].life, 19);
     assert_eq!(engine.state().players[1].life, 19);
+
+    // One snow Swamp, one activation this turn: with the mana of four more
+    // Swamps still floating, the ability is not offered a second time.
+    assert!(
+        !ability_offered(&engine, wisps, 1),
+        "Withering Wisps' {{B}} ability can be activated no more times each turn than snow Swamps controlled (one)"
+    );
 
     // Advance to the end step with no creatures on the battlefield: Withering Wisps triggers and sacrifices itself.
     pass_until(&mut engine, |e| {

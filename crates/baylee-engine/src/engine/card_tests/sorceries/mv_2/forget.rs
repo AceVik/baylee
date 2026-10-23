@@ -57,3 +57,49 @@ fn forget_makes_target_player_discard_two_and_draw_as_many_as_discarded() {
         "target player drew 2 cards for the 2 cards discarded"
     );
 }
+
+/// "As many cards as they discarded this way": a hand of one is one discard
+/// and one draw, not two.
+#[test]
+fn forget_draws_only_as_many_cards_as_were_discarded() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .hand(0, &[forget()])
+        .hand(1, &[bears()])
+        .battlefield(0, &[island(), island()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let spell = in_hand(&engine, p0, forget()).unwrap();
+    let only_card = in_hand(&engine, p1, bears()).unwrap();
+
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: spell })
+        .unwrap();
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: vec![only_card],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(only_card).unwrap().zone,
+        Zone::Graveyard
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        1,
+        "one card discarded, one card drawn"
+    );
+    assert!(in_graveyard(&engine, p0, forget()).is_some());
+}

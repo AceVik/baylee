@@ -21,13 +21,14 @@ fn jinx_turns_target_land_into_island_until_end_of_turn_and_draws_at_next_upkeep
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[jinx()])
         .battlefield(0, &[island(), island()])
-        .battlefield(1, &[mountain()])
+        .battlefield(1, &[mountain(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let jinx_hand = in_hand(&engine, p0, jinx()).unwrap();
     let opp_mtn = on_battlefield(&engine, p1, mountain()).unwrap();
+    let opp_forest = on_battlefield(&engine, p1, forest()).unwrap();
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     tap_all_mana(&mut engine, p0);
@@ -58,6 +59,17 @@ fn jinx_turns_target_land_into_island_until_end_of_turn_and_draws_at_next_upkeep
     assert!(
         !subs.contains(subtypes::land::MOUNTAIN),
         "target Mountain lost its Mountain land type until end of turn"
+    );
+
+    assert!(
+        engine
+            .state()
+            .object(opp_forest)
+            .unwrap()
+            .characteristics()
+            .subtypes
+            .contains(subtypes::land::FOREST),
+        "a land that was not targeted keeps its type"
     );
 
     // Advance to p1's main phase: land reverts to Mountain and p0 drew a card at p1's upkeep.

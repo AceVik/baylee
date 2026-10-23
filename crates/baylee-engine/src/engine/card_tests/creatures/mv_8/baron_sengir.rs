@@ -20,12 +20,18 @@ fn sengir_vampire() -> CardIndex {
 fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_vampire() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[lightning_bolt(), lightning_bolt()])
+        .hand(0, &[lightning_bolt(), lightning_bolt(), lightning_bolt()])
         .battlefield(
             0,
-            &[baron_sengir(), sengir_vampire(), mountain(), mountain()],
+            &[
+                baron_sengir(),
+                sengir_vampire(),
+                mountain(),
+                mountain(),
+                mountain(),
+            ],
         )
-        .battlefield(1, &[sengir_vampire()])
+        .battlefield(1, &[sengir_vampire(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -33,6 +39,7 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
     let baron = on_battlefield(&engine, p0, baron_sengir()).unwrap();
     let ally_vampire = on_battlefield(&engine, p0, sengir_vampire()).unwrap();
     let opp_vampire = on_battlefield(&engine, p1, sengir_vampire()).unwrap();
+    let opp_bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     assert_eq!(pt(&engine, baron), (5, 5));
     assert!(keywords(&engine, baron).contains(KeywordSet::FLYING));
 
@@ -106,6 +113,10 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
         "Baron Sengir can only target *another* Vampire, not itself"
     );
     assert!(options.contains(&ally_vampire));
+    assert!(
+        !options.contains(&opp_bears),
+        "Grizzly Bears is not a Vampire"
+    );
     engine
         .apply(
             p0,
@@ -141,4 +152,39 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
         "another target Vampire regenerated from lethal damage via Baron Sengir"
     );
     assert!(is_tapped(&engine, ally_vampire));
+
+    // A creature that Baron Sengir did not damage dies: no counter. Lightning
+    // Bolt kills the opponent's Grizzly Bears; Baron Sengir is still 7/7.
+    let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![opp_bears],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().object(opp_bears).unwrap().zone,
+        Zone::Graveyard
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(baron)
+            .unwrap()
+            .counters
+            .get(CounterKind::Plus {
+                power: 2,
+                toughness: 2,
+            }),
+        1,
+        "a creature not dealt damage by Baron Sengir dying adds no counter"
+    );
+    assert_eq!(pt(&engine, baron), (7, 7));
 }

@@ -33,6 +33,18 @@ fn mystic_compass_changes_target_land_to_chosen_basic_land_type_until_end_of_tur
             },
         )
         .unwrap();
+    // "Target land": the Compass itself is no land.
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![compass],
+                    players: vec![],
+                },
+            )
+            .is_err()
+    );
     engine
         .apply(
             p0,

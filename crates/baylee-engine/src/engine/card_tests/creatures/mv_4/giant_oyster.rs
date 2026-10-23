@@ -28,13 +28,14 @@ fn giant_oyster_keeps_target_tapped_creature_from_untapping_while_oyster_stays_t
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[giant_oyster()])
-        .battlefield(1, &[bears()])
+        .battlefield(1, &[bears(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let oyster = on_battlefield(&engine, p0, giant_oyster()).unwrap();
     let target_bears = on_battlefield(&engine, p1, bears()).unwrap();
+    let untapped_ogre = on_battlefield(&engine, p1, gray_ogre()).unwrap();
 
     // p1 attacks with Grizzly Bears so it becomes tapped.
     pass_until(&mut engine, |e| {
@@ -68,6 +69,19 @@ fn giant_oyster_keeps_target_tapped_creature_from_untapping_while_oyster_stays_t
             },
         )
         .unwrap();
+    // "Target tapped creature": the untapped Ogre is not a legal target.
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![untapped_ogre],
+                    players: vec![],
+                },
+            )
+            .is_err(),
+        "an untapped creature cannot be targeted"
+    );
     engine
         .apply(
             p0,

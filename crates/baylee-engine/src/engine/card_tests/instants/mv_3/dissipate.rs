@@ -2,10 +2,14 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{DISSIPATE, HILL_GIANT};
+use baylee_core::generated::index::HILL_GIANT;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
+
+fn dissipate() -> CardIndex {
+    card_index("4b2e9aa9-6f91-41de-84b6-e9a89be06a53")
+}
 
 /// Dissipate (4b2e9aa9-6f91-41de-84b6-e9a89be06a53) — {1}{U}{U} Instant:
 /// "Counter target spell. If that spell is countered this way, exile it instead
@@ -16,7 +20,7 @@ fn dissipate_counters_target_spell_and_exiles_it() {
         .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
         .battlefield(1, &[island(), island(), island()])
         .hand(0, &[HILL_GIANT])
-        .hand(1, &[DISSIPATE])
+        .hand(1, &[dissipate()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -27,7 +31,7 @@ fn dissipate_counters_target_spell_and_exiles_it() {
 
     let spell = engine.state().zones.list(ZoneLocation::Stack)[0];
     tap_all_mana(&mut engine, P1);
-    cast_with_floating(&mut engine, P1, DISSIPATE);
+    cast_with_floating(&mut engine, P1, dissipate());
     aim_at(&mut engine, P1, spell);
     pass_until(&mut engine, stack_is_empty);
 

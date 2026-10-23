@@ -43,4 +43,12 @@ fn lead_golem_attacking_does_not_untap_during_controllers_next_untap_step() {
         is_tapped(&engine, golem),
         "Lead Golem remains tapped during its controller's next untap step"
     );
+
+    // "Next untap step" is one untap step: it untaps in the one after.
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+    assert!(
+        !is_tapped(&engine, golem),
+        "Lead Golem untaps again at the untap step after the skipped one"
+    );
 }

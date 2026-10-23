@@ -19,6 +19,7 @@ fn walking_wall_cannot_attack_until_activated_and_activates_only_once_each_turn(
             0,
             &[
                 walking_wall(),
+                grizzly_bears(), // can attack on any turn: the contrast for defender
                 forest(),
                 forest(),
                 forest(),
@@ -32,6 +33,7 @@ fn walking_wall_cannot_attack_until_activated_and_activates_only_once_each_turn(
     reach_main_phase(&mut engine, p0);
 
     let wall = on_battlefield(&engine, p0, walking_wall()).unwrap();
+    let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     assert_eq!(pt(&engine, wall), (0, 6));
 
     // Activate {3} once: Walking Wall becomes 3/5 and can attack this turn.
@@ -80,12 +82,17 @@ fn walking_wall_cannot_attack_until_activated_and_activates_only_once_each_turn(
     });
     assert_eq!(pt(&engine, wall), (0, 6));
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::Combat || e.state().turn.phase == Phase::SecondMain
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
-    if let Pending::ChooseAttackers { attackers, .. } = engine.pending() {
-        assert!(
-            !attackers.contains(&wall),
-            "without activating its ability, Walking Wall has defender and cannot attack"
-        );
-    }
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers");
+    };
+    assert!(
+        attackers.contains(&bears),
+        "the menu is open: Grizzly Bears may attack"
+    );
+    assert!(
+        !attackers.contains(&wall),
+        "without activating its ability, Walking Wall has defender and cannot attack"
+    );
 }

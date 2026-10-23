@@ -2,7 +2,8 @@
 //! Oracle: When this enchantment enters, exile all graveyards.
 //! Oracle: Whenever a player casts a spell, counter it if a card with the same name is in a graveyard or a nontoken permanent with the same name is on the battlefield.
 //! Set: MIR #55 — Mirage | Scryfall ID: 78e7a165-e135-4b85-943d-8352b6e65870 | Oracle ID: 7fca65b8-01fe-4858-97c6-f97ae82cd801
-// NOT SUPPORTED: countering cast spells that share a name with a card in a graveyard or a nontoken permanent on the battlefield.
+// PARTIAL — exiles all graveyards when it enters; the counter clause is not played.
+// NOT SUPPORTED: "Whenever a player casts a spell, counter it if a card with the same name is in a graveyard or a nontoken permanent with the same name is on the battlefield." No Filter or Condition compares the name of a spell with the names of cards in graveyards or of permanents.
 
 use baylee_cards_dsl::prelude::*;
 

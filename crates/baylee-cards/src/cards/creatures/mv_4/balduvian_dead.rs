@@ -12,7 +12,7 @@ card!(
     scryfall_id = "c9aee135-65f6-4abb-b0ca-ee5ceb958a24",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::Red]),
     coverage = Coverage::Partial(
-        "{2}{R}, exiling a creature card from your graveyard creates a 3/1 black and red Graveborn creature token with haste; sacrificing that token at the beginning of the next end step is not supported",
+        "'{2}{R}, Exile a creature card from your graveyard: create a 3/1 Graveborn token with haste. Sacrifice it at the beginning of the next end step' is not supported: no effect names the token it just created for a delayed end-step sacrifice (the token would stay for good, which is more than printed), so the ability is left off and the card is a 2/3 creature",
     ),
     faces = &[face!(
         name = "Balduvian Dead",
@@ -22,10 +22,5 @@ card!(
         power = Some(2),
         toughness = Some(3),
     ),],
-    abilities = &[activated!(
-        cost!("{2}{R}", ExileFromGraveyard(&Filter::CREATURE)),
-        &[Effect::CreateToken {
-            token: &crate::generated_tokens::GRAVEBORN_3_1_BLACK_RED_HASTE,
-        }],
-    )],
+    // NOT SUPPORTED: "{2}{R}, Exile a creature card from your graveyard: Create a 3/1 black and red Graveborn creature token with haste. Sacrifice it at the beginning of the next end step." `AtNextEndStep` names the source or the first target, not a token the ability created, and sacrificing every Graveborn token at the end step would also take the permanent ones Sek'Kuar, Deathkeeper makes. A token that stayed would be more than printed.
 );

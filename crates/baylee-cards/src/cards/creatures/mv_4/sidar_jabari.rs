@@ -6,10 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
 static DEFENDING_CREATURE: Filter =
     Filter::And(&[Filter::CREATURE, Filter::ControlledByDefendingPlayer]);
 
@@ -30,19 +26,9 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::continuous(
-                &Filter::Reference,
-                Modifier::ModifyPT(-1, -1),
-                Duration::UntilEndOfTurn,
-            )],
-        ),
-        triggered!(
-            Trigger::Attacks(&Filter::This),
-            &[Effect::TapTarget],
-            targets = Some(TargetReq::one(TargetSpec::Object(&DEFENDING_CREATURE))),
-        ),
-    ],
+    abilities = &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::TapTarget],
+        targets = Some(TargetReq::one(TargetSpec::Object(&DEFENDING_CREATURE))),
+    ),],
 );

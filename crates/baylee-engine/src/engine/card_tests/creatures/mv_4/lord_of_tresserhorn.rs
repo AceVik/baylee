@@ -3,7 +3,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::engine::card_tests::partials_w2c_kit::life;
-use baylee_core::generated::index::{HILL_GIANT, TERROR};
+use baylee_core::generated::index::HILL_GIANT;
 
 fn lord_of_tresserhorn() -> CardIndex {
     card_index("283e7a23-ae25-48d1-abb5-cd021f66cc29")
@@ -29,7 +29,6 @@ fn lord_of_tresserhorn_etb_loses_life_sacrifices_two_creatures_opponent_draws_an
             ],
         )
         .hand(0, &[lord_of_tresserhorn()])
-        .hand(1, &[TERROR])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -103,4 +102,58 @@ fn lord_of_tresserhorn_etb_loses_life_sacrifices_two_creatures_opponent_draws_an
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().object(lord).unwrap().regeneration_shields, 1);
+}
+
+/// Lord of Tresserhorn — "{B}: Regenerate Lord of Tresserhorn." The shield
+/// holds through damage that is not lethal, is spent on damage that is, and
+/// leaves the Lord tapped and undamaged on the battlefield.
+#[test]
+fn lord_of_tresserhorn_regeneration_replaces_one_destruction_by_lethal_damage() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[lord_of_tresserhorn(), swamp(), mountain(), mountain()])
+        .hand(0, &[lightning_bolt(), lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let lord = on_battlefield(&engine, p0, lord_of_tresserhorn()).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: lord,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().object(lord).unwrap().regeneration_shields, 1);
+
+    for (round, damage) in [(1, 3), (2, 0)] {
+        cast_with_floating(&mut engine, p0, lightning_bolt());
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![lord],
+                    players: vec![],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        let object = engine.state().object(lord).expect("the Lord is still here");
+        assert_eq!(object.zone, Zone::Battlefield, "bolt {round}");
+        assert_eq!(object.damage, damage, "bolt {round}");
+        if round == 1 {
+            // Three damage on a toughness of four: nothing to regenerate.
+            assert_eq!(object.regeneration_shields, 1);
+            assert!(!is_tapped(&engine, lord));
+        }
+    }
+    // The second bolt made the damage lethal: the shield replaced the
+    // destruction, tapped the Lord and took the damage off it.
+    assert_eq!(engine.state().object(lord).unwrap().regeneration_shields, 0);
+    assert!(is_tapped(&engine, lord));
 }

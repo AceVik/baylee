@@ -168,7 +168,6 @@ mod vitalize;
 mod warning;
 mod whim_of_volrath;
 mod whispers_of_the_muse;
-mod winter_s_chill;
 mod wirewood_pride;
 mod word_of_undoing;
 mod worthy_cause;

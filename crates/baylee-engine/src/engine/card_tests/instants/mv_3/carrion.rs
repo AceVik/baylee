@@ -2,9 +2,13 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{CARRION, HILL_GIANT};
+use baylee_core::generated::index::HILL_GIANT;
 
 const P0: PlayerId = PlayerId::new(0);
+
+fn carrion() -> CardIndex {
+    card_index("84ca8d74-95ec-4a9c-8793-7a195ad28be9")
+}
 
 /// Carrion (84ca8d74-95ec-4a9c-8793-7a195ad28be9) — {1}{B}{B} Instant:
 /// "As an additional cost to cast this spell, sacrifice a creature. Create X
@@ -13,14 +17,14 @@ const P0: PlayerId = PlayerId::new(0);
 fn carrion_sacrifices_creature_and_creates_insects_equal_to_its_power() {
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(0, &[swamp(), swamp(), swamp(), HILL_GIANT])
-        .hand(0, &[CARRION])
+        .hand(0, &[carrion()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
     let giant = on_battlefield(&engine, P0, HILL_GIANT).unwrap();
     tap_all_mana(&mut engine, P0);
-    cast_with_floating(&mut engine, P0, CARRION);
+    cast_with_floating(&mut engine, P0, carrion());
     engine
         .apply(
             P0,
@@ -41,4 +45,23 @@ fn carrion_sacrifices_creature_and_creates_insects_equal_to_its_power() {
         })
         .count();
     assert_eq!(insects, 3);
+}
+
+/// "As an additional cost ... sacrifice a creature": with no creature to
+/// sacrifice the spell cannot be cast, even with the mana for it.
+#[test]
+fn carrion_cannot_be_cast_without_a_creature_to_sacrifice() {
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .hand(0, &[carrion()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    tap_all_mana(&mut engine, P0);
+    let card = in_hand(&engine, P0, carrion()).unwrap();
+    let legal = priority_offer(&engine);
+
+    assert!(!legal.castable.contains(&card), "{legal:?}");
+    assert!(!legal.payable.contains(&card), "{legal:?}");
 }

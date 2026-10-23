@@ -7,6 +7,18 @@ fn rogue_skycaptain() -> CardIndex {
     card_index("e600136a-8b4f-4725-a29e-021e0cfc7d0a")
 }
 
+/// The price the pending "pay?" question names, as a mana value.
+fn price(engine: &Engine<RegistryLookup>) -> u32 {
+    let Pending::YesNo {
+        prompt: crate::choice::YesNoPrompt::PayMana { cost },
+        ..
+    } = engine.pending()
+    else {
+        panic!("a payment question, got {:?}", engine.pending())
+    };
+    cost.cmc()
+}
+
 /// Rogue Skycaptain ({2}{R} 3/4 Creature — Human Rogue Mercenary):
 /// - Flying
 /// - "At the beginning of your upkeep, put a wage counter on this creature. You may pay {2} for each wage counter on it. If you don't, remove all wage counters from this creature and an opponent gains control of it."
@@ -25,6 +37,7 @@ fn rogue_skycaptain_accumulates_wage_counters_and_changes_control_when_unpaid() 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });
+    assert_eq!(price(&engine), 2, "{{2}} for the one wage counter");
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     tap_all_mana(&mut engine, p0);
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
@@ -48,6 +61,7 @@ fn rogue_skycaptain_accumulates_wage_counters_and_changes_control_when_unpaid() 
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && matches!(e.pending(), Pending::YesNo { .. })
     });
+    assert_eq!(price(&engine), 4, "{{2}} for each of two wage counters");
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

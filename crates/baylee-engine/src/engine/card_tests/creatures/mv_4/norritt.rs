@@ -117,3 +117,79 @@ fn norritt_untaps_only_blue_creatures_and_forces_non_wall_active_player_creature
         "targeted creature that did not attack this turn is destroyed at the beginning of the end step"
     );
 }
+
+#[test]
+fn norritt_goaded_creature_must_attack_and_is_not_destroyed_when_it_does() {
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[norritt(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+    activate(&mut engine, P0, norritt(), 1);
+    aim_at(&mut engine, P0, bears);
+    pass_until(&mut engine, stack_is_empty);
+
+    // "That creature attacks this turn if able": declaring no attackers is refused.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    assert!(
+        engine
+            .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "the goaded creature has to attack"
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+
+    // It attacked, so the next end step does not destroy it (checked a turn later).
+    pass_until(&mut engine, |e| e.state().turn.number == 2);
+    assert!(
+        on_battlefield(&engine, P0, grizzly_bears()).is_some(),
+        "'destroy it if it didn't attack': it did attack, so it stays"
+    );
+}
+
+#[test]
+fn norritt_on_the_opponents_turn_goads_the_active_players_creature_not_its_own() {
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[norritt(), grizzly_bears()])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let my_bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+    let their_bears = on_battlefield(&engine, P1, grizzly_bears()).unwrap();
+
+    // P1's upkeep (turn 2): P1 passes, then P0 holds priority and may activate Norritt.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 2
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    activate(&mut engine, P0, norritt(), 1);
+    let options = aim_at(&mut engine, P0, their_bears);
+    assert!(
+        !options.contains(&my_bears),
+        "on P1's turn the active player is P1: Norritt's controller's own creature is not a legal target"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    assert!(
+        engine
+            .apply(P1, PlayerAction::DeclareAttackers { attackers: vec![] })
+            .is_err(),
+        "the goaded creature (P1's) has to attack on P1's turn"
+    );
+}

@@ -18,7 +18,7 @@ card!(
     abilities = &[triggered!(
         Trigger::StepBegin {
             step: StepKind::Upkeep,
-            whose: PlayerRel::EachOpponent,
+            whose: PlayerRel::Opponent,
         },
         &[Effect::DealDamage {
             amount: Amount::Fixed(2),

@@ -19,7 +19,7 @@ fn labyrinth_minotaur_suppresses_blocked_creature_untap() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[bears()])
+        .battlefield(0, &[bears(), gray_ogre()])
         .battlefield(1, &[labyrinth_minotaur()])
         .start();
     keep_mulligans(&mut engine);
@@ -29,12 +29,16 @@ fn labyrinth_minotaur_suppresses_blocked_creature_untap() {
     });
     let bear = on_battlefield(&engine, p0, bears()).unwrap();
     let minotaur = on_battlefield(&engine, p1, labyrinth_minotaur()).unwrap();
+    let unblocked = on_battlefield(&engine, p0, gray_ogre()).unwrap();
 
     engine
         .apply(
             p0,
             PlayerAction::DeclareAttackers {
-                attackers: vec![(bear, Defender::Player(p1))],
+                attackers: vec![
+                    (bear, Defender::Player(p1)),
+                    (unblocked, Defender::Player(p1)),
+                ],
             },
         )
         .unwrap();
@@ -53,6 +57,7 @@ fn labyrinth_minotaur_suppresses_blocked_creature_untap() {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
     assert!(is_tapped(&engine, bear));
+    assert!(is_tapped(&engine, unblocked));
 
     // Advance through p1's turn to p0's next FirstMain: Grizzly Bears did NOT untap!
     pass_until(&mut engine, |e| {
@@ -64,5 +69,21 @@ fn labyrinth_minotaur_suppresses_blocked_creature_untap() {
     assert!(
         is_tapped(&engine, bear),
         "creature blocked by Labyrinth Minotaur did not untap during its controller's next untap step"
+    );
+    assert!(
+        !is_tapped(&engine, unblocked),
+        "the attacker the Minotaur did not block untapped as usual"
+    );
+
+    // Only that one untap step: the Bears untap in the next one.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert!(
+        !is_tapped(&engine, bear),
+        "the Bears untap in the untap step after the skipped one"
     );
 }

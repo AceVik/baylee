@@ -49,4 +49,12 @@ fn phantasmal_fiend_pumps_and_switches_power_and_toughness_in_layer_order() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, fiend), (4, 2));
+
+    // "Until end of turn": on the opponent's turn it is a 1/5 again.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == PlayerId::new(1)
+            && e.state().turn.phase == Phase::FirstMain
+            && stack_is_empty(e)
+    });
+    assert_eq!(pt(&engine, fiend), (1, 5));
 }

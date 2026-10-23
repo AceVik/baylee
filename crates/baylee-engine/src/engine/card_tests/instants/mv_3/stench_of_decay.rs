@@ -45,4 +45,10 @@ fn stench_of_decay_gives_nonartifact_creatures_minus_one_minus_one_sparing_artif
         "0/2 artifact creature Ornithopter is unaffected"
     );
     assert_eq!(pt(&engine, thopter), (0, 2));
+
+    // "Until end of turn": on the opponent's turn the Bears are a 2/2 again.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
+    });
+    assert_eq!(pt(&engine, bears), (2, 2));
 }

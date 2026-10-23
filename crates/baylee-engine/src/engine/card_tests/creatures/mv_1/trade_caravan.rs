@@ -96,3 +96,40 @@ fn trade_caravan_gains_currency_counters_and_untaps_basic_land_only_during_oppon
         0
     );
 }
+
+/// "Activate only during an opponent's upkeep": the opponent's main phase is
+/// not it, however many counters there are.
+#[test]
+fn trade_caravan_cannot_untap_a_land_in_an_opponents_main_phase() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[trade_caravan(), plains()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let caravan = on_battlefield(&engine, p0, trade_caravan()).unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert_eq!(
+        engine
+            .state()
+            .object(caravan)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::CURRENCY),
+        2
+    );
+
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert!(
+        !ability_offered(&engine, caravan, 1),
+        "two counters, but this is the opponent's main phase and not their upkeep"
+    );
+}

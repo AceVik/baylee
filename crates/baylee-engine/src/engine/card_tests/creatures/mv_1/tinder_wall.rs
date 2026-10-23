@@ -21,13 +21,14 @@ fn tinder_wall_has_defender_and_sacrifices_for_two_red_mana() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[tinder_wall()])
-        .battlefield(0, &[forest(), tinder_wall()])
+        .battlefield(0, &[forest(), tinder_wall(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     // Seat 0 already controls one Tinder Wall (not summoning sick) and casts a second.
     let existing_wall = on_battlefield(&engine, p0, tinder_wall()).unwrap();
+    let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     let hand_wall = in_hand(&engine, p0, tinder_wall()).unwrap();
     tap_all_mana(&mut engine, p0);
     engine
@@ -74,16 +75,22 @@ fn tinder_wall_has_defender_and_sacrifices_for_two_red_mana() {
         "sacrificing Tinder Wall adds {{R}}{{R}}"
     );
 
-    // Advance to combat: existing_wall has defender and cannot attack.
+    // Advance to combat: existing_wall has defender and cannot attack, while
+    // Grizzly Bears can, so the menu is really open.
     pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::Combat || e.state().turn.phase == Phase::SecondMain
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
-    if let Pending::ChooseAttackers { attackers, .. } = engine.pending() {
-        assert!(
-            !attackers.contains(&existing_wall),
-            "Tinder Wall has defender and cannot attack"
-        );
-    }
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers");
+    };
+    assert!(
+        attackers.contains(&bears),
+        "Grizzly Bears may attack: the attack menu is open"
+    );
+    assert!(
+        !attackers.contains(&existing_wall),
+        "Tinder Wall has defender and cannot attack"
+    );
 }
 
 #[test]

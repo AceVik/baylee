@@ -2,13 +2,17 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{AFIYA_GROVE, GRIZZLY_BEARS};
+use baylee_core::generated::index::GRIZZLY_BEARS;
+
+fn afiya_grove() -> CardIndex {
+    card_index("056a98aa-f3f7-4ac9-9755-3e8a60a59abb")
+}
 
 #[test]
 fn afiya_grove_moves_counters_to_creatures_and_sacrifices_when_empty() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[AFIYA_GROVE])
+        .hand(0, &[afiya_grove()])
         .battlefield(0, &[GRIZZLY_BEARS, forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
@@ -16,10 +20,10 @@ fn afiya_grove_moves_counters_to_creatures_and_sacrifices_when_empty() {
 
     let bear = on_battlefield(&engine, p0, GRIZZLY_BEARS).unwrap();
 
-    cast_from_hand(&mut engine, p0, AFIYA_GROVE);
+    cast_from_hand(&mut engine, p0, afiya_grove());
     pass_until(&mut engine, stack_is_empty);
 
-    let grove = on_battlefield(&engine, p0, AFIYA_GROVE).unwrap();
+    let grove = on_battlefield(&engine, p0, afiya_grove()).unwrap();
     assert_eq!(
         engine
             .state()
@@ -45,6 +49,16 @@ fn afiya_grove_moves_counters_to_creatures_and_sacrifices_when_empty() {
                 .get(CounterKind::P1P1),
             expected_bear_counters
         );
+        // While counters are left on it the Grove stays; the state trigger
+        // waits for none.
+        if expected_bear_counters < 3 {
+            let grove_object = engine.state().object(grove).unwrap();
+            assert_eq!(grove_object.zone, Zone::Battlefield);
+            assert_eq!(
+                grove_object.counters.get(CounterKind::P1P1),
+                3 - expected_bear_counters
+            );
+        }
         reach_main_phase(&mut engine, p0);
     }
 

@@ -3,6 +3,7 @@
 //! Oracle: When a player doesn't pay this enchantment's cumulative upkeep, that player exiles all cards from their library.
 //! Oracle: Exile the top card of your library: Prevent the next 1 damage that would be dealt to you this turn.
 //! Set: ME2 #70 — Masters Edition II | Scryfall ID: 547b1405-3f4e-4c47-8600-3e92197b1dd7 | Oracle ID: 81fe7c5e-503e-488c-b06c-1615ed38e5a3
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,14 +17,6 @@ card!(
         mana_cost = mana!("{2}{U}{U}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    coverage = Coverage::Partial(
-        "Cumulative upkeep—Exile the top card of your library, the library-exile trigger when cumulative upkeep is not paid, and the library-exile activation cost are not implemented; activating the {0} ability prevents the next 1 damage that would be dealt to you this turn."
-    ),
-    abilities = &[activated!(
-        cost!("{0}"),
-        &[Effect::PreventNextDamage {
-            target: TargetSpec::Player(PlayerRel::You),
-            amount: Amount::Fixed(1),
-        }]
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

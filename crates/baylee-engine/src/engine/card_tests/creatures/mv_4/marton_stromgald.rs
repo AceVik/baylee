@@ -193,4 +193,11 @@ fn marton_stromgald_pumps_other_attacking_and_blocking_creatures_by_their_count_
         (2, 2),
         "non-blocking Bear stays 2/2"
     );
+    for &attacker in &p1_bears {
+        assert_eq!(
+            pt(&engine2, attacker),
+            (2, 2),
+            "the attackers are not blocking creatures: the block trigger pumps blockers only"
+        );
+    }
 }

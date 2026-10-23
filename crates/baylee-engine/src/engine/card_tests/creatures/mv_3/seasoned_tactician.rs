@@ -7,56 +7,48 @@ fn seasoned_tactician() -> CardIndex {
     card_index("d7c2f27c-8c82-4283-a17d-f979ee636542")
 }
 
-/// Seasoned Tactician ({2}{W} 1/3 Creature — Human Advisor):
-/// - "{3}, Exile the top four cards of your library: The next time a source of your choice would deal damage to you this turn, prevent that damage."
+/// Seasoned Tactician ({2}{W} 1/3 Creature — Human Advisor, Partial):
+/// "{3}, Exile the top four cards of your library: The next time a source of
+/// your choice would deal damage to you this turn, prevent that damage."
+/// No cost exiles the top cards of a library, and the shield for {3} alone
+/// would be cheaper than printed, so the card offers no ability. A pinned
+/// limitation: this test moves when that cost can be said.
 #[test]
-fn seasoned_tactician_prevents_next_damage_from_chosen_source_to_you() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+fn seasoned_tactician_offers_no_ability_instead_of_a_shield_without_its_exile_cost() {
+    let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[seasoned_tactician(), plains(), plains(), plains()])
-        .battlefield(1, &[grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
-    pass_until(&mut engine, |e| {
-        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain && stack_is_empty(e)
-    });
+    reach_main_phase(&mut engine, p0);
+    let tactician = on_battlefield(&engine, p0, seasoned_tactician()).unwrap();
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
 
-    let bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
-
-    // Attack P0 with Grizzly Bears; P0 activates Seasoned Tactician choosing Grizzly Bears.
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(bears, Defender::Player(p0))],
-            },
-        )
-        .unwrap();
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
-    );
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, seasoned_tactician(), 0);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseDamageSource { .. })
-    });
-    let Pending::ChooseDamageSource {
-        choice, options, ..
-    } = engine.pending().clone()
-    else {
-        unreachable!();
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("priority, got {:?}", engine.pending())
     };
-    let source = *options.iter().find(|s| s.object == bears).unwrap();
-    engine
-        .apply(p0, PlayerAction::ChooseDamageSource { choice, source })
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
-    });
-
-    assert_eq!(engine.state().players[0].life, 20);
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(source, _)| *source == tactician),
+        "the {{3}} ability is not offered"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: tactician,
+                    ability_index: 0,
+                },
+            )
+            .is_err()
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
+        library_before,
+        "nothing is exiled from the library"
+    );
 }

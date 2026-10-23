@@ -2,15 +2,10 @@
 //! Oracle: Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)
 //! Oracle: {W}: This creature gains vigilance until end of turn.
 //! Set: MIR #18 — Mirage | Scryfall ID: 915a2e07-b449-4d94-93e3-e756e891c542 | Oracle ID: 4365521e-996d-4eca-bbc9-b0988fa973ae
-// IMPLEMENTED — flanking trigger and {W}: gains vigilance until end of turn.
+// IMPLEMENTED
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
-
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
 
 card!(
     index = index::FEMEREF_KNIGHT,
@@ -27,20 +22,11 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        activated!(
-            cost!("{W}"),
-            &[Effect::ModifySource {
-                modifier: Modifier::AddKeyword(KeywordSet::VIGILANCE),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-    ],
+    abilities = &[activated!(
+        cost!("{W}"),
+        &[Effect::ModifySource {
+            modifier: Modifier::AddKeyword(KeywordSet::VIGILANCE),
+            duration: Duration::UntilEndOfTurn,
+        }],
+    )],
 );

@@ -18,7 +18,6 @@ mod coat_of_arms;
 mod forethought_amulet;
 mod gauntlets_of_chaos;
 mod gilded_lotus;
-mod jester_s_mask;
 mod lifeline;
 mod mangara_s_tome;
 mod memory_jar;

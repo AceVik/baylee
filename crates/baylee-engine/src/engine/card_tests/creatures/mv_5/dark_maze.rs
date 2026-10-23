@@ -73,3 +73,30 @@ fn dark_maze_activates_to_attack_despite_defender_and_exiles_at_next_end_step() 
         "Dark Maze is exiled at the beginning of the next end step"
     );
 }
+
+/// Defender holds until the ability is used: with Grizzly Bears in the same
+/// menu, Dark Maze is not offered as an attacker.
+#[test]
+fn dark_maze_cannot_attack_while_its_ability_is_unused() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[dark_maze(), grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let maze = on_battlefield(&engine, p0, dark_maze()).unwrap();
+    let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
+        panic!("expected ChooseAttackers");
+    };
+    assert!(attackers.contains(&bears), "the attack menu is open");
+    assert!(
+        !attackers.contains(&maze),
+        "Dark Maze has defender until its {{0}} ability is used"
+    );
+}

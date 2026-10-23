@@ -25,13 +25,15 @@ fn orcish_mine_removes_counters_on_tap_and_upkeep_then_destroys_land_for_two_dam
     let mut engine = Duel::new(SEED, mountain())
         .hand(0, &[orcish_mine()])
         .battlefield(0, &[mountain(), mountain(), mountain()])
-        .battlefield(1, &[forest()])
+        .battlefield(1, &[forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let aura = in_hand(&engine, p0, orcish_mine()).unwrap();
-    let land = on_battlefield(&engine, p1, forest()).unwrap();
+    let forests = all_on_battlefield(&engine, p1, forest());
+    let (land, other_land) = (forests[0], forests[1]);
+    let p0_life_before = engine.state().players[0].life;
     let p1_life_before = engine.state().players[1].life;
 
     tap_all_mana(&mut engine, p0);
@@ -60,10 +62,26 @@ fn orcish_mine_removes_counters_on_tap_and_upkeep_then_destroys_land_for_two_dam
         3
     );
 
-    // Pass to P1's main phase and tap the enchanted Forest (removes 1st counter -> 2 left).
+    // Pass to P1's main phase. P1's upkeep removed nothing, and tapping the
+    // other Forest removes nothing; tapping the enchanted one removes the 1st
+    // counter -> 2 left.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
     });
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: other_land })
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(mine)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::MINING),
+        3,
+        "a land the Aura is not on tapped, and the opponent's upkeep is not yours"
+    );
     engine
         .apply(p1, PlayerAction::ActivateManaAbility { source: land })
         .unwrap();
@@ -101,7 +119,20 @@ fn orcish_mine_removes_counters_on_tap_and_upkeep_then_destroys_land_for_two_dam
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p1, forest()).is_none());
-    assert!(in_graveyard(&engine, p1, forest()).is_some());
+    assert_eq!(
+        engine.state().object(land).unwrap().zone,
+        Zone::Graveyard,
+        "the enchanted Forest was destroyed"
+    );
+    assert_eq!(
+        all_on_battlefield(&engine, p1, forest()),
+        vec![other_land],
+        "the other Forest is untouched"
+    );
     assert_eq!(engine.state().players[1].life, p1_life_before - 2);
+    assert_eq!(
+        engine.state().players[0].life,
+        p0_life_before,
+        "the land's controller takes it, not the Aura's"
+    );
 }

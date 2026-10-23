@@ -1,6 +1,7 @@
 //! Misinformation — {B} — Instant
 //! Oracle: Put up to three target cards from an opponent's graveyard on top of their library in any order.
 //! Set: ME2 #105 — Masters Edition II | Scryfall ID: 90a79cd5-d951-4ad7-a6a1-0cade4d0c189 | Oracle ID: 03dc8820-ec10-42c1-8200-d323cfcbf2b0
+// PARTIAL — puts the first of the up-to-three targeted cards from an opponent's graveyard on top of its owner's library; the other two stay.
 // NOT SUPPORTED: putting up to three target cards from an opponent's graveyard on top of their library in any order requires multi-target graveyard-to-top ordering in Effect::GraveyardToTop.
 
 use baylee_cards_dsl::prelude::*;

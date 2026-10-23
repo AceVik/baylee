@@ -4,9 +4,9 @@
 //! with a name originally printed in the Homelands expansion. They can't be
 //! regenerated.
 //!
-//! (`Coverage::Partial`: `OriginalExpansion::Homelands` is not yet in
-//! `Filter::OriginallyPrintedIn`; activating the `{2}, {T}, sacrifice` ability
-//! sacrifices Apocalypse Chime and resolves with no effect.)
+//! (`Coverage::Partial`: `OriginalExpansion` has no Homelands for
+//! `Filter::NameOriginallyPrintedIn`; activating the `{2}, {T}, sacrifice`
+//! ability sacrifices Apocalypse Chime and resolves with no effect.)
 
 #[allow(clippy::wildcard_imports)]
 use super::*;

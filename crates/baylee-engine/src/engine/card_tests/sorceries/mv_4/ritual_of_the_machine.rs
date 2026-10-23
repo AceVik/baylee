@@ -69,3 +69,35 @@ fn ritual_of_the_machine_sacrifices_creature_and_gains_control_of_nonartifact_no
     assert!(in_graveyard(&engine, p0, SAVANNAH_LIONS).is_some());
     assert_eq!(engine.state().object(bears).unwrap().controller, p0);
 }
+
+/// Ritual of the Machine — "As an additional cost to cast this spell,
+/// sacrifice a creature.": without a creature to sacrifice it is not
+/// castable, with one it is.
+#[test]
+fn ritual_of_the_machine_needs_a_creature_to_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let castable_with = |board: &[CardIndex]| {
+        let mut engine = Duel::new(SEED, swamp())
+            .battlefield(0, board)
+            .battlefield(1, &[GRIZZLY_BEARS])
+            .hand(0, &[ritual_of_the_machine()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        tap_all_mana(&mut engine, p0);
+        let ritual = in_hand(&engine, p0, ritual_of_the_machine()).unwrap();
+        let Pending::Priority { legal, .. } = engine.pending().clone() else {
+            panic!("priority, got {:?}", engine.pending())
+        };
+        legal.castable.contains(&ritual)
+    };
+    let lands = [swamp(), swamp(), swamp(), swamp()];
+    assert!(!castable_with(&lands), "no creature to sacrifice");
+    assert!(castable_with(&[
+        lands[0],
+        lands[1],
+        lands[2],
+        lands[3],
+        SAVANNAH_LIONS
+    ]));
+}

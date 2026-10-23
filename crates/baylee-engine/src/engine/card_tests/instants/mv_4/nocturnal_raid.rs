@@ -43,3 +43,24 @@ fn nocturnal_raid_gives_all_black_creatures_plus_2_plus_0_until_end_of_turn() {
     let bears_ch = engine.state().object(my_bears).unwrap().characteristics();
     assert_eq!((bears_ch.power, bears_ch.toughness), (Some(2), Some(2)));
 }
+
+/// "Until end of turn": the Imps are 1/1 again in the next turn.
+#[test]
+fn nocturnal_raid_wears_off_at_end_of_turn() {
+    let mut engine = lk::game(SEED, &[index::BOG_IMP], &[], &[nocturnal_raid()], &[]);
+    let imp = lk::obj(&engine, P0, index::BOG_IMP);
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Colorless, 2), (ManaColor::Black, 2)],
+    );
+    cast_with_floating(&mut engine, P0, nocturnal_raid());
+    lk::settle(&mut engine);
+    let ch = engine.state().object(imp).unwrap().characteristics();
+    assert_eq!((ch.power, ch.toughness), (Some(3), Some(1)));
+
+    reach_their_main_phase(&mut engine, P1);
+    let ch = engine.state().object(imp).unwrap().characteristics();
+    assert_eq!((ch.power, ch.toughness), (Some(1), Some(1)));
+}

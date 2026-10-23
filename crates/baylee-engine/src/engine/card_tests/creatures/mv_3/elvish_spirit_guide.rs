@@ -41,3 +41,39 @@ fn elvish_spirit_guide_exiles_from_hand_for_green_mana_with_no_lands() {
     pass_until(&mut engine, stack_is_empty);
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
 }
+
+/// "Exile this card from your hand": the ability is a hand ability. A Guide on the battlefield
+/// cannot be exiled for mana.
+#[test]
+fn elvish_spirit_guide_cannot_be_exiled_for_mana_from_the_battlefield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[elvish_spirit_guide()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let guide = on_battlefield(&engine, p0, elvish_spirit_guide()).unwrap();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: guide,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the ability works from the hand only"
+    );
+    assert_eq!(
+        engine.state().object(guide).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0
+    );
+}

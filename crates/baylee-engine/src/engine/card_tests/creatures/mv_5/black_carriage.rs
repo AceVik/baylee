@@ -48,6 +48,25 @@ fn black_carriage_stays_tapped_at_untap_step_and_untaps_by_sacrificing_creature_
     assert!(is_tapped(&engine, carriage));
     assert_eq!(engine.state().players[1].life, 16);
 
+    // "Activate only during your upkeep": in the opponent's upkeep p0 gets
+    // priority too, with the Carriage tapped and a creature to sacrifice, and
+    // the ability is not offered.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == p0),
+        "p0 holds priority in p1's upkeep: {:?}",
+        engine.pending()
+    );
+    assert!(
+        !ability_offered(&engine, carriage, 1),
+        "Black Carriage's ability is not offered in the opponent's upkeep"
+    );
+
     // Advance to p0's next upkeep: Black Carriage did not untap during p0's untap step.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain

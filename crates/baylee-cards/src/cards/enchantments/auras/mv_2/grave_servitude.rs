@@ -3,7 +3,7 @@
 //! Oracle: Enchant creature
 //! Oracle: Enchanted creature gets +3/-1 and is black.
 //! Set: MIR #126 — Mirage | Scryfall ID: fbe072da-0524-492b-af3d-7c2600e915ab | Oracle ID: 6f54e7ea-bb87-4ce0-96b6-4fc82605ed2a
-// NOT SUPPORTED: sacrificing the Aura at the beginning of the next cleanup step if cast any time a sorcery couldn't have been cast.
+// NOT SUPPORTED: casting this spell as though it had flash. Flash comes with "if you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step", which cannot be said, and flash without that drawback would be stronger than printed, so the Aura is cast at sorcery speed only.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -16,14 +16,13 @@ card!(
     scryfall_id = "fbe072da-0524-492b-af3d-7c2600e915ab",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "has flash, enchants target creature, and gives enchanted creature +3/-1 and makes it black; sacrificing it at the beginning of the next cleanup step if cast any time a sorcery couldn't have been cast is not supported",
+        "enchants target creature, giving it +3/-1 and making it black, but only at sorcery speed: flash is left off because its drawback (the Aura is sacrificed at the beginning of the next cleanup step if cast when a sorcery couldn't have been cast) cannot be said, and flash without it would be stronger than printed",
     ),
     faces = &[face!(
         name = "Grave Servitude",
         mana_cost = mana!("{1}{B}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        keywords = KeywordSet::FLASH,
     ),],
     abilities = &[
         spell!(

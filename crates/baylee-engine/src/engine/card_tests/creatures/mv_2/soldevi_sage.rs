@@ -7,10 +7,14 @@ fn soldevi_sage() -> CardIndex {
     card_index("1f612df3-53b6-4317-9d63-1f903ee3f0c4")
 }
 
-/// Soldevi Sage ({1}{U} 1/1 Creature — Human Wizard):
-/// - "{T}, Sacrifice two lands: Draw three cards, then discard one of them."
+/// Soldevi Sage ({1}{U} 1/1 Creature — Human Wizard, Partial):
+/// "{T}, Sacrifice two lands: Draw three cards, then discard one of them."
+/// The discard must be one of the three cards drawn, and no effect says that
+/// (the discard effect takes any card from the hand, which is more than
+/// printed), so the card offers no ability. A pinned limitation: this test
+/// moves when the discard can be restricted to the cards drawn.
 #[test]
-fn soldevi_sage_sacrifices_two_lands_to_draw_three_and_discard_one() {
+fn soldevi_sage_offers_no_ability_instead_of_a_wider_discard_than_printed() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[soldevi_sage(), island(), island()])
@@ -19,59 +23,40 @@ fn soldevi_sage_sacrifices_two_lands_to_draw_three_and_discard_one() {
     reach_main_phase(&mut engine, p0);
 
     let sage = on_battlefield(&engine, p0, soldevi_sage()).unwrap();
-
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    let lands: Vec<ObjectId> = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .copied()
-        .filter(|&id| id != sage)
-        .collect();
-    assert_eq!(lands.len(), 2);
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
+    let lands_before = all_on_battlefield(&engine, p0, island()).len();
+    assert_eq!(lands_before, 2);
 
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: sage,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    for land in lands {
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == sage),
+        "the {{T}}, sacrifice-two-lands ability is not offered"
+    );
+    assert!(
         engine
             .apply(
                 p0,
-                PlayerAction::ChooseObjects {
-                    objects: vec![land],
+                PlayerAction::ActivateAbility {
+                    source: sage,
+                    ability_index: 0,
                 },
             )
-            .unwrap();
-    }
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
-        panic!("expected discard choice");
-    };
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![options[0]],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(
-        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before + 2
+            .is_err()
     );
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
-        3
+        all_on_battlefield(&engine, p0, island()).len(),
+        lands_before
+    );
+    assert!(!is_tapped(&engine, sage));
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
+        library_before
     );
 }

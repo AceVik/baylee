@@ -32,6 +32,10 @@ fn prophecy_shuffles_target_opponent_library_and_draws_on_next_upkeep() {
     engine
         .apply(p0, PlayerAction::CastSpell { card: spell })
         .unwrap();
+    assert!(
+        engine.apply(p0, PlayerAction::ChoosePlayer(p0)).is_err(),
+        "target opponent: you are not one"
+    );
     engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

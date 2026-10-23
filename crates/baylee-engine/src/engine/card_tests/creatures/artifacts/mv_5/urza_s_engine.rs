@@ -4,12 +4,10 @@
 use super::*;
 use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT};
 
-const URZA_S_ENGINE: &str = "bf6ea878-044b-40a8-a21b-0191a948a69a";
-
 #[test]
 fn urza_s_engine_gains_banding_and_grants_trample_to_banded_attackers() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let card = card_index(URZA_S_ENGINE);
+    let card = card_index("bf6ea878-044b-40a8-a21b-0191a948a69a");
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,

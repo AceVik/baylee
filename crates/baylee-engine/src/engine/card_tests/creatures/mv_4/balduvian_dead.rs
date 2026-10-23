@@ -1,4 +1,11 @@
-//! `cards/creatures/mv_4/balduvian_dead.rs`, played.
+//! Balduvian Dead — `{3}{B}` 2/3 Creature — Zombie (Masters Edition II)
+//!
+//! `{2}{R}`, Exile a creature card from your graveyard: Create a 3/1 black and red Graveborn
+//! creature token with haste. Sacrifice it at the beginning of the next end step.
+//!
+//! The ability is off the card: nothing can name the token it creates for the delayed sacrifice,
+//! and a token that stayed would be more than printed. This test pins that, so the day the piece
+//! exists it has to move (with a test that the token goes at the end step).
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -7,13 +14,9 @@ fn balduvian_dead() -> CardIndex {
     card_index("18d6b89a-3588-43d9-a247-4747a7d784fc")
 }
 
-/// `Balduvian Dead` ({3}{B}, 2/3 Creature — Zombie, `Coverage::Partial`)
-/// activates for `{2}{R}, Exile a creature card from your graveyard` to create
-/// a 3/1 black and red Graveborn creature token with haste.
 #[test]
-fn balduvian_dead_exiles_creature_from_graveyard_to_create_hasty_graveborn_token() {
+fn balduvian_dead_is_a_two_three_without_the_token_ability_it_cannot_yet_play_correctly() {
     let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
             0,
@@ -43,54 +46,32 @@ fn balduvian_dead_exiles_creature_from_graveyard_to_create_hasty_graveborn_token
             crate::event::Cause::Effect,
         )
         .unwrap();
+    engine.refresh_offer();
 
     cast_from_hand(&mut engine, p0, balduvian_dead());
     pass_until(&mut engine, stack_is_empty);
     let dead = on_battlefield(&engine, p0, balduvian_dead()).expect("Balduvian Dead enters");
     assert_eq!(pt(&engine, dead), (2, 3));
 
+    // {2}{R} and a creature card in the graveyard are both there, and the ability is not: a Graveborn
+    // that nothing sacrifices at the end step would stay for good.
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: dead,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![corpse],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().object(corpse).unwrap().zone, Zone::Exile);
-    let tokens = tokens_of(&engine, p0);
-    assert_eq!(tokens.len(), 1);
-    let graveborn = tokens[0];
-    assert_eq!(pt(&engine, graveborn), (3, 1));
-    assert!(keywords(&engine, graveborn).contains(KeywordSet::HASTE));
-
-    // Graveborn token attacks immediately thanks to haste.
-    pass_until(&mut engine, |e| {
-        e.state().turn.active == p0 && e.state().turn.step == Step::DeclareAttackers
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(graveborn, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    reach_their_main_phase(&mut engine, p1);
-    assert_eq!(engine.state().players[1].life, 17);
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: dead,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "the token ability is not on the card"
+    );
+    assert!(tokens_of(&engine, p0).is_empty());
+    assert_eq!(
+        engine.state().object(corpse).unwrap().zone,
+        Zone::Graveyard,
+        "nothing was exiled"
+    );
 }

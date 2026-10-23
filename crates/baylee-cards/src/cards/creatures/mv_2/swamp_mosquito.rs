@@ -2,6 +2,7 @@
 //! Oracle: Flying
 //! Oracle: Whenever this creature attacks and isn't blocked, defending player gets a poison counter. (A player with ten or more poison counters loses the game.)
 //! Set: TSB #49 — Time Spiral Timeshifted | Scryfall ID: 450800c5-28e0-4eeb-9164-db9fdebc595f | Oracle ID: 4bb4844c-2678-45c7-8f5e-9cf185fd484b
+// IMPLEMENTED — flying; attacking and unblocked gives the defending player a poison counter.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

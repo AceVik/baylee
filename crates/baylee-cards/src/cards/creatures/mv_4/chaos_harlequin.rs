@@ -12,7 +12,7 @@ card!(
     scryfall_id = "ec7d7c80-4e3c-454e-b2ed-6f0436df19c9",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     coverage = Coverage::Partial(
-        "{R} gives this creature +2/+0 until end of turn; exiling the top card of your library and giving -4/-0 instead if that card is a land card is not supported",
+        "'{R}: Exile the top card of your library. If that card is a land card, this creature gets -4/-0 until end of turn. Otherwise, this creature gets +2/+0 until end of turn' is not supported: no effect exiles the top card and then branches on whether it was a land card, and a bare +2/+0 for {R} would never give the -4/-0, so the ability is left off and the card is a 2/4 creature",
     ),
     faces = &[face!(
         name = "Chaos Harlequin",
@@ -22,15 +22,5 @@ card!(
         power = Some(2),
         toughness = Some(4),
     ),],
-    abilities = &[activated!(
-        cost!("{R}"),
-        &[Effect::PumpFilter {
-            filter: &Filter::This,
-            controlled_by: None,
-            power: Amount::Fixed(2),
-            toughness: Amount::Fixed(0),
-            keywords: KeywordSet::EMPTY,
-            duration: Duration::UntilEndOfTurn,
-        }],
-    )],
+    // NOT SUPPORTED: "{R}: Exile the top card of your library. If that card is a land card, this creature gets -4/-0 until end of turn. Otherwise, this creature gets +2/+0 until end of turn." `ThisWay` counts nothing exiled from a library and no effect branches on the type of the card it just exiled; a flat "{R}: +2/+0" is always better than the printed ability and exiles nothing.
 );

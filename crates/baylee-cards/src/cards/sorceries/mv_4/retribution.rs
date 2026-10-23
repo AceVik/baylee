@@ -1,7 +1,7 @@
 //! Retribution — {2}{R}{R} — Sorcery
 //! Oracle: Choose two target creatures controlled by the same opponent. That player chooses and sacrifices one of those creatures. Put a -1/-1 counter on the other.
 //! Set: ME2 #148 — Masters Edition II | Scryfall ID: 55bacf5b-70d4-45bc-a7e2-44492fa182bc | Oracle ID: 2c7b0034-7eb5-4950-b6dc-8e1d07d26899
-// PARTIAL — same-opponent two-target constraint and opponent choosing one of the two targets to sacrifice while the other gets a -1/-1 counter are not in Effect; puts a -1/-1 counter on two target creatures an opponent controls.
+// PARTIAL — no sacrifice and no same-opponent constraint: both of the two target creatures an opponent controls get a -1/-1 counter. The printed "that player chooses and sacrifices one of those creatures; put a -1/-1 counter on the other" and "controlled by the same opponent" are not said.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,7 +11,7 @@ card!(
     scryfall_id = "55bacf5b-70d4-45bc-a7e2-44492fa182bc",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     coverage = Coverage::Partial(
-        "same-opponent two-target constraint and opponent choosing one of the two targets to sacrifice while the other gets a -1/-1 counter are not in Effect; puts a -1/-1 counter on two target creatures an opponent controls"
+        "no sacrifice and no same-opponent constraint: both of the two target creatures an opponent controls get a -1/-1 counter; the opponent's choice of one of them to sacrifice (the other getting the counter) and \"controlled by the same opponent\" are not said"
     ),
     faces = &[face!(
         name = "Retribution",

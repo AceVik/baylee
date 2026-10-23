@@ -19,13 +19,14 @@ fn kjeldoran_dead_sacrifices_a_creature_on_entry_and_regenerates_for_one_black()
     let mut engine = Duel::new(SEED, index::SWAMP)
         .battlefield(0, &[index::SWAMP, index::SWAMP, llanowar_elves()])
         .hand(0, &[kjeldoran_dead()])
-        .battlefield(1, &[index::MOUNTAIN])
+        .battlefield(1, &[index::MOUNTAIN, index::GRIZZLY_BEARS])
         .hand(1, &[index::LIGHTNING_BOLT])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
     let elf = on_battlefield(&engine, P0, llanowar_elves()).expect("Elf seated");
+    let their_bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).expect("Bears seated");
 
     // Tap one Swamp to cast Kjeldoran Dead.
     let swamp0 = on_battlefield(&engine, P0, index::SWAMP).unwrap();
@@ -44,6 +45,10 @@ fn kjeldoran_dead_sacrifices_a_creature_on_entry_and_regenerates_for_one_black()
         options.contains(&elf) && options.contains(&dead),
         "ETB sacrifice offers any creature P0 controls (both Llanowar Elves and Kjeldoran Dead)"
     );
+    assert!(
+        !options.contains(&their_bears),
+        "'sacrifice a creature' offers only creatures its controller has"
+    );
     engine
         .apply(P0, PlayerAction::ChooseObjects { objects: vec![elf] })
         .unwrap();
@@ -54,6 +59,10 @@ fn kjeldoran_dead_sacrifices_a_creature_on_entry_and_regenerates_for_one_black()
         "Llanowar Elves was sacrificed to Kjeldoran Dead's ETB trigger"
     );
     assert!(on_battlefield(&engine, P0, kjeldoran_dead()).is_some());
+    assert!(
+        on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_some(),
+        "the opponent's creature is not sacrificed"
+    );
 
     // P0 activates "{B}: Regenerate this creature", then P1 casts Lightning Bolt targeting Kjeldoran Dead.
     tap_all_mana_but(&mut engine, P0, None);

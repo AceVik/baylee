@@ -200,7 +200,6 @@ mod osai_vultures;
 mod patrol_hound;
 mod people_of_the_woods;
 mod phantasmal_mount;
-mod phantasmal_sphere;
 mod phyrexian_denouncer;
 mod plague_witch;
 mod plaguebearer;

@@ -9,9 +9,12 @@ fn royal_herbalist() -> CardIndex {
 }
 
 /// Royal Herbalist ({W} 1/1 Creature — Human Cleric, Partial):
-/// "{2}, Exile the top card of your library: You gain 1 life."
+/// "{2}, Exile the top card of your library: You gain 1 life." The cost has
+/// no CostPart, and the ability without it would be a free life gain, so the
+/// card offers none. A pinned limitation: this test moves when the cost is
+/// said.
 #[test]
-fn royal_herbalist_activated_ability_gains_one_life() {
+fn royal_herbalist_offers_no_life_gain_without_its_cost() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[royal_herbalist(), plains(), plains()])
@@ -21,18 +24,34 @@ fn royal_herbalist_activated_ability_gains_one_life() {
 
     let herbalist = on_battlefield(&engine, p0, royal_herbalist()).unwrap();
     let life_before = life(&engine, p0);
-
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: herbalist,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(life(&engine, p0), life_before + 1);
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(source, _)| *source == herbalist),
+        "nothing is offered on the Herbalist"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: herbalist,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "and nothing can be activated"
+    );
+    assert_eq!(life(&engine, p0), life_before);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
+        library_before
+    );
 }

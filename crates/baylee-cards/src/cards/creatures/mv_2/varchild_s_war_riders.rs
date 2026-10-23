@@ -2,7 +2,8 @@
 //! Oracle: Cumulative upkeep—Have an opponent create a 1/1 red Survivor creature token. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)
 //! Oracle: Trample; rampage 1 (Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it beyond the first.)
 //! Set: ME1 #110 — Masters Edition | Scryfall ID: e879b457-dffa-4b3b-a3cd-717a60c1e586 | Oracle ID: 258921f2-df26-4d8a-ad34-8f44d0158ae7
-// NOT SUPPORTED: Cumulative upkeep has no optional opponent-token-creation payment variant, so upkeep puts an age counter on Varchild's War-Riders and has each opponent create that many 1/1 red Survivor creature tokens without offering to decline and sacrifice it.
+// PARTIAL — Trample and rampage 1 as printed; the cumulative upkeep always pays (an age counter, then each opponent creates a 1/1 red Survivor per age counter), so its controller can never decline and sacrifice the creature.
+// NOT SUPPORTED: "Cumulative upkeep—Have an opponent create a 1/1 red Survivor creature token" as a payment the controller may decline (then sacrifice it): no Effect pays with an effect and runs the sacrifice on a refusal. With more than one opponent every opponent creates the tokens, not one opponent of the controller's choice.
 
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
@@ -15,7 +16,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::TRAMPLE,
     coverage = Coverage::Partial(
-        "Cumulative upkeep always pays by putting an age counter on Varchild's War-Riders and having each opponent create that many 1/1 red Survivor creature tokens rather than offering to decline and sacrifice it; Trample and Rampage 1 work as printed.",
+        "The cumulative upkeep always pays (an age counter, then each opponent creates a 1/1 red Survivor token per age counter), so the controller cannot decline it and sacrifice the creature, and with several opponents each of them creates the tokens, not one chosen opponent; Trample and rampage 1 work as printed.",
     ),
     faces = &[face!(
         name = "Varchild's War-Riders",

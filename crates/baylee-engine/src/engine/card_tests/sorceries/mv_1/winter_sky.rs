@@ -24,12 +24,15 @@ fn winter_sky_deals_damage_on_won_flip_and_draws_for_each_player_on_lost_flip() 
         let mut engine = Duel::new(seed, mountain())
             .hand(0, &[winter_sky()])
             .battlefield(0, &[mountain(), grizzly_bears()])
+            .battlefield(1, &[gray_ogre()])
             .start();
         keep_mulligans(&mut engine);
         reach_main_phase(&mut engine, p0);
 
         let sky = in_hand(&engine, p0, winter_sky()).unwrap();
         let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+        let ogre = on_battlefield(&engine, p1, gray_ogre()).unwrap();
+        let p0_hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
         let p1_hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
 
         tap_all_mana(&mut engine, p0);
@@ -42,9 +45,32 @@ fn winter_sky_deals_damage_on_won_flip_and_draws_for_each_player_on_lost_flip() 
             saw_win = true;
             assert_eq!(engine.state().players[1].life, 19);
             assert_eq!(engine.state().object(bears).unwrap().damage, 1);
+            assert_eq!(
+                engine.state().object(ogre).unwrap().damage,
+                1,
+                "each creature, the opponent's too"
+            );
+            // A won flip draws nothing: the Sky left p0's hand and no card came in.
+            assert_eq!(
+                engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+                p0_hand_before - 1
+            );
+            assert_eq!(
+                engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+                p1_hand_before
+            );
         } else {
             saw_loss = true;
+            // A lost flip deals no damage to anything.
             assert_eq!(engine.state().players[0].life, 20);
+            assert_eq!(engine.state().players[1].life, 20);
+            assert_eq!(engine.state().object(bears).unwrap().damage, 0);
+            assert_eq!(engine.state().object(ogre).unwrap().damage, 0);
+            // Each player draws: the caster too (the Sky left the hand, one card came in).
+            assert_eq!(
+                engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+                p0_hand_before
+            );
             assert_eq!(
                 engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
                 p1_hand_before + 1

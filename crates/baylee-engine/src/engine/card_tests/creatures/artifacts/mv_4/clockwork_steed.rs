@@ -78,9 +78,32 @@ fn clockwork_steed_cant_be_blocked_by_artifact_creatures_loses_counter_after_com
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseNumber { .. })
     });
+    // X = 2 but only one counter of room: "can't cause the total ... to be
+    // greater than four" caps the number at 1.
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the number of counters");
+    };
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "three counters plus at most one is four"
+    );
     engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(plus_one_zero(&engine, steed), 4);
     assert_eq!(pt(&engine, steed), (4, 3));
+
+    // No attack on this turn (the Steed is tapped): the end-of-combat trigger
+    // removes nothing, because it did not attack or block this combat.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.phase == Phase::SecondMain
+            && stack_is_empty(e)
+    });
+    assert_eq!(
+        plus_one_zero(&engine, steed),
+        4,
+        "a combat the Steed did not attack or block in costs it no counter"
+    );
 }

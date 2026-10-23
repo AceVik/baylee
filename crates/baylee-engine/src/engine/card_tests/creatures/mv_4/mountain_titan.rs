@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::turn::Phase;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -28,7 +29,10 @@ fn mountain_titan_gains_a_plus_one_counter_when_you_cast_a_black_spell_after_act
             ],
         )
         .battlefield(1, &[swamp()])
-        .hand(0, &[dark_ritual(), giant_growth(), dark_ritual()])
+        .hand(
+            0,
+            &[dark_ritual(), giant_growth(), dark_ritual(), dark_ritual()],
+        )
         .hand(1, &[dark_ritual()])
         .start();
     keep_mulligans(&mut engine);
@@ -98,5 +102,22 @@ fn mountain_titan_gains_a_plus_one_counter_when_you_cast_a_black_spell_after_act
             .get(CounterKind::P1P1),
         1,
         "casting a black spell after activating Mountain Titan puts a +1/+1 counter on it"
+    );
+
+    // 6. "Until end of turn": on P0's next turn a black spell adds nothing.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3 && e.state().turn.phase == Phase::FirstMain
+    });
+    cast_from_hand(&mut engine, P0, dark_ritual());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine
+            .state()
+            .object(titan)
+            .unwrap()
+            .counters
+            .get(CounterKind::P1P1),
+        1,
+        "the granted trigger ended with the turn: a black spell on the next turn adds no counter"
     );
 }

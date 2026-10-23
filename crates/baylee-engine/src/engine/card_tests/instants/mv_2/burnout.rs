@@ -90,4 +90,51 @@ fn burnout_counters_blue_instant_leaves_nonblue_instant_alone_and_draws_next_upk
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before + 2
     );
+
+    // It is one upkeep only: the opponent's next upkeep draws P0 nothing more.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.step == Step::Upkeep
+    });
+    let hand_at_their_upkeep = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_at_their_upkeep
+    );
+}
+
+/// "Counter target instant spell": a creature spell is not a legal target, so Burnout cannot be
+/// cast with only a creature spell on the stack.
+#[test]
+fn burnout_cannot_target_a_creature_spell() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain()])
+        .battlefield(1, &[forest(), forest()])
+        .hand(0, &[burnout()])
+        .hand(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, grizzly_bears());
+    assert!(on_stack(&engine, grizzly_bears()).is_some());
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    let spell = in_hand(&engine, p0, burnout()).expect("Burnout is in hand");
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: spell })
+            .is_err(),
+        "no instant spell on the stack, so Burnout has no target"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p1, grizzly_bears()).is_some());
 }

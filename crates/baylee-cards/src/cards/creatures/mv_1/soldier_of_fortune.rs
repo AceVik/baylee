@@ -1,6 +1,7 @@
 //! Soldier of Fortune — {R} — Creature — Human Mercenary
 //! Oracle: {R}, {T}: Target player shuffles their library.
 //! Set: ALL #80 — Alliances | Scryfall ID: 37c05f46-2081-4ebb-a758-894ac040ea2a | Oracle ID: 8b2367b3-3a8d-442f-8d58-6e4c03fa5a46
+// IMPLEMENTED — {R}, {T}: the target player shuffles their library.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

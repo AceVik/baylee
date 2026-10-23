@@ -2,6 +2,11 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::generated::index;
+
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 fn shauku_endbringer() -> CardIndex {
     card_index("49478593-29ff-4e5a-b1e8-6462c2d6176d")
@@ -54,4 +59,50 @@ fn shauku_endbringer_upkeep_life_loss_tap_exile_and_attack_restriction() {
         !keywords(&engine, shauku).contains(KeywordSet::CANT_ATTACK),
         "Shauku can attack once no other creature is on the battlefield"
     );
+}
+
+/// "Can't attack if there's another creature on the battlefield": the attack
+/// menu leaves Shauku out beside a creature of its own controller, and has it
+/// when Shauku is alone.
+#[test]
+fn shauku_endbringer_attacks_only_when_no_other_creature_is_on_the_battlefield() {
+    let mut crowded = lk::game(
+        SEED,
+        &[shauku_endbringer(), index::GRIZZLY_BEARS],
+        &[],
+        &[],
+        &[],
+    );
+    let shauku = lk::obj(&crowded, P0, shauku_endbringer());
+    let bears = lk::obj(&crowded, P0, index::GRIZZLY_BEARS);
+    let able = lk::attackers_offered(&mut crowded);
+    assert!(able.contains(&bears));
+    assert!(
+        !able.contains(&shauku),
+        "another creature is on the battlefield"
+    );
+
+    let mut alone = lk::game(SEED, &[shauku_endbringer()], &[], &[], &[]);
+    let shauku = lk::obj(&alone, P0, shauku_endbringer());
+    let able = lk::attackers_offered(&mut alone);
+    assert!(
+        able.contains(&shauku),
+        "no other creature: Shauku may attack"
+    );
+}
+
+/// "At the beginning of **your** upkeep, you lose 3 life": the opponent's
+/// upkeep costs the controller nothing, and the life loss is the controller's.
+#[test]
+fn shauku_endbringer_upkeep_costs_only_its_controller_life() {
+    let mut engine = lk::game(SEED, &[shauku_endbringer()], &[], &[], &[]);
+    assert_eq!(lk::life(&engine, P0), 17, "the first upkeep already cost 3");
+
+    reach_their_main_phase(&mut engine, P1);
+    assert_eq!(
+        lk::life(&engine, P0),
+        17,
+        "the opponent's upkeep costs nothing"
+    );
+    assert_eq!(lk::life(&engine, P1), 20);
 }

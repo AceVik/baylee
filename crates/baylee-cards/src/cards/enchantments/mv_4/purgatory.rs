@@ -2,11 +2,16 @@
 //! Oracle: Whenever a nontoken creature is put into your graveyard from the battlefield, exile that card.
 //! Oracle: At the beginning of your upkeep, you may pay {4} and 2 life. If you do, return a card exiled with this enchantment to the battlefield.
 //! Set: MIR #275 — Mirage | Scryfall ID: 9ed5e58b-46f3-437c-89ac-24235a65bd1f | Oracle ID: 2fb8e100-58a1-4dc6-bc38-ad7f115e3e46
-// PARTIAL: Trigger::Dies checks all dying nontoken creatures rather than only those put into your graveyard, and the upkeep trigger pays {4} and then loses 2 life rather than paying {4} and 2 life as a single combined cost; dying nontoken creatures are exiled linked to this enchantment and paying {4} at your upkeep loses 2 life and returns a chosen linked card to the battlefield
+// PARTIAL: the upkeep payment is {4} paid and then 2 life lost as an effect, rather than {4} and 2 life as one combined cost (at 1 life the printed payment is impossible, here it would be paid and the player would lose); the exiled creatures are your own nontoken creatures put into your graveyard from the battlefield
 
 use baylee_cards_dsl::prelude::*;
 
-const NONTOKEN_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::IsToken)]);
+/// "A nontoken creature … put into your graveyard": a card goes to its owner's graveyard.
+const NONTOKEN_CREATURE_YOU_OWN: Filter = Filter::And(&[
+    Filter::CREATURE,
+    Filter::OwnedByYou,
+    Filter::Not(&Filter::IsToken),
+]);
 
 card!(
     index = index::PURGATORY,
@@ -14,7 +19,7 @@ card!(
     scryfall_id = "9ed5e58b-46f3-437c-89ac-24235a65bd1f",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     coverage = Coverage::Partial(
-        "Trigger::Dies checks all dying nontoken creatures rather than only those put into your graveyard, and the upkeep trigger pays {4} and then loses 2 life rather than paying {4} and 2 life as a single combined cost; dying nontoken creatures are exiled linked to this enchantment and paying {4} at your upkeep loses 2 life and returns a chosen linked card to the battlefield"
+        "the upkeep payment is {4} paid and then 2 life lost as an effect, rather than {4} and 2 life as one combined cost (at 1 life the printed payment is impossible, here it would be paid and the player would lose); the exiled creatures are your own nontoken creatures put into your graveyard from the battlefield"
     ),
     faces = &[face!(
         name = "Purgatory",
@@ -23,7 +28,7 @@ card!(
     ),],
     abilities = &[
         triggered!(
-            Trigger::Dies(&NONTOKEN_CREATURE),
+            Trigger::Dies(&NONTOKEN_CREATURE_YOU_OWN),
             &[Effect::exile_linked(TargetSpec::Object(&Filter::Any))],
             targets = Some(TargetReq::one(TargetSpec::EventObject)),
         ),

@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::turn::{Phase, Step};
 
 const P0: PlayerId = PlayerId::new(0);
@@ -23,7 +24,7 @@ fn hand_size(engine: &Engine<RegistryLookup>, seat: PlayerId) -> usize {
 fn panic_can_only_be_cast_during_combat_before_blockers_prevents_blocking_and_draws_next_upkeep() {
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), mountain(), grizzly_bears()])
-        .battlefield(1, &[grizzly_bears()])
+        .battlefield(1, &[grizzly_bears(), gray_ogre()])
         .hand(0, &[panic_card(), panic_card()])
         .start();
     keep_mulligans(&mut engine);
@@ -32,16 +33,18 @@ fn panic_can_only_be_cast_during_combat_before_blockers_prevents_blocking_and_dr
     let first_panic = in_hand(&engine, P0, panic_card()).unwrap();
     let p0_bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
     let p1_bears = on_battlefield(&engine, P1, grizzly_bears()).unwrap();
+    let p1_ogre = on_battlefield(&engine, P1, gray_ogre()).unwrap();
 
     // 1. Outside combat (FirstMain), Panic is not castable even with mana floating.
     let first_mtn = on_battlefield(&engine, P0, mountain()).unwrap();
     tap_mana_where(&mut engine, P0, |id| id == first_mtn);
-    if let Pending::Priority { legal, .. } = engine.pending() {
-        assert!(
-            !legal.castable.contains(&first_panic),
-            "Panic cannot be cast outside combat"
-        );
-    }
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.castable.contains(&first_panic),
+        "Panic cannot be cast outside combat"
+    );
 
     // 2. Advance to DeclareAttackers: declare P0's Grizzly Bears as an attacker, then cast Panic
     // on P1's Grizzly Bears before blockers are declared.
@@ -63,7 +66,21 @@ fn panic_can_only_be_cast_during_combat_before_blockers_prevents_blocking_and_dr
         e.state().turn.step == Step::DeclareBlockers
     });
 
-    // P1's Grizzly Bears cannot block P0's Grizzly Bears.
+    // P1's Grizzly Bears cannot block P0's Grizzly Bears, but the untargeted Gray Ogre can.
+    let Pending::ChooseBlockers {
+        blockers: offered, ..
+    } = engine.pending().clone()
+    else {
+        panic!("expected the block question, got {:?}", engine.pending());
+    };
+    assert!(
+        !lk::may_block(&offered, p1_bears, p0_bears),
+        "the targeted creature is not offered as a blocker"
+    );
+    assert!(
+        lk::may_block(&offered, p1_ogre, p0_bears),
+        "a creature Panic did not target can still block"
+    );
     assert!(
         engine
             .apply(
@@ -82,12 +99,13 @@ fn panic_can_only_be_cast_during_combat_before_blockers_prevents_blocking_and_dr
     // 3. After blockers are declared (in DeclareBlockers priority), the second Panic in hand
     // is NOT castable even with {R} floating ("before blockers are declared").
     let second_panic = in_hand(&engine, P0, panic_card()).unwrap();
-    if let Pending::Priority { legal, .. } = engine.pending() {
-        assert!(
-            !legal.castable.contains(&second_panic),
-            "Panic cannot be cast after blockers are declared"
-        );
-    }
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority, got {:?}", engine.pending());
+    };
+    assert!(
+        !legal.castable.contains(&second_panic),
+        "Panic cannot be cast after blockers are declared"
+    );
 
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)

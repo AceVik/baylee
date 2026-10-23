@@ -2,12 +2,17 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::generated::index::{CELESTIAL_DAWN, GRIZZLY_BEARS};
+use baylee_core::generated::index::GRIZZLY_BEARS;
 use baylee_core::generated::subtypes;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
+
+fn celestial_dawn() -> CardIndex {
+    card_index("b4d27fad-9a94-4760-80a6-6a2948109864")
+}
 
 /// Celestial Dawn (b4d27fad-9a94-4760-80a6-6a2948109864) — {1}{W}{W} Enchantment:
 /// "Lands you control are Plains. Nonland permanents you control are white."
@@ -16,7 +21,7 @@ fn celestial_dawn_makes_your_lands_plains_and_your_nonland_permanents_white() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains(), forest(), GRIZZLY_BEARS])
         .battlefield(1, &[forest(), GRIZZLY_BEARS])
-        .hand(0, &[CELESTIAL_DAWN])
+        .hand(0, &[celestial_dawn()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -27,7 +32,7 @@ fn celestial_dawn_makes_your_lands_plains_and_your_nonland_permanents_white() {
     let p1_bears = on_battlefield(&engine, P1, GRIZZLY_BEARS).unwrap();
 
     tap_all_mana(&mut engine, P0);
-    cast_with_floating(&mut engine, P0, CELESTIAL_DAWN);
+    cast_with_floating(&mut engine, P0, celestial_dawn());
     pass_until(&mut engine, stack_is_empty);
 
     let p0_forest_chars = engine.state().object(p0_forest).unwrap().characteristics();
@@ -56,4 +61,39 @@ fn celestial_dawn_makes_your_lands_plains_and_your_nonland_permanents_white() {
             .colors,
         ColorSet::from_slice(&[Color::Green])
     );
+}
+
+/// "Lands you control are Plains": a Forest of the controller's taps for
+/// white only after Celestial Dawn (the Forest ability is lost with its
+/// type), and the land itself stays colourless ("nonland permanents" only).
+#[test]
+fn celestial_dawn_lands_tap_for_white_only_and_stay_colourless() {
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains(), forest(), forest()])
+        .hand(0, &[celestial_dawn()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    let forest_id = on_battlefield(&engine, P0, forest()).unwrap();
+    tap_all_mana(&mut engine, P0);
+    cast_with_floating(&mut engine, P0, celestial_dawn());
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine
+            .state()
+            .object(forest_id)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::from_slice(&[])
+    );
+
+    // Next turn of P0's: all four lands make white and no green.
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+    tap_all_mana(&mut engine, P0);
+    assert_eq!(lk::pool_of(&engine, P0, ManaColor::White), 4);
+    assert_eq!(lk::pool_of(&engine, P0, ManaColor::Green), 0);
 }

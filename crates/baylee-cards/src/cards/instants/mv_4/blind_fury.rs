@@ -1,7 +1,8 @@
 //! Blind Fury — {2}{R}{R} — Instant
 //! Oracle: All creatures lose trample until end of turn. If a creature would deal combat damage to a creature this turn, it deals double that damage to that creature instead.
 //! Set: MIR #158 — Mirage | Scryfall ID: 0ff91a17-0a5f-456f-a431-8505ba29e679 | Oracle ID: 5dbfd316-a0a9-4caa-99b1-069931d2aaa4
-// NOT SUPPORTED: doubling combat damage dealt by creatures to creatures this turn.
+// PARTIAL — all creatures lose trample until end of turn; the damage doubling is not played.
+// NOT SUPPORTED: "If a creature would deal combat damage to a creature this turn, it deals double that damage to that creature instead." No effect or static ability doubles damage dealt by creatures to creatures.
 
 use baylee_cards_dsl::prelude::*;
 

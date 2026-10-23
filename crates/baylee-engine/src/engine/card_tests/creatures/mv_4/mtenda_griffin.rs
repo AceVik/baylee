@@ -90,3 +90,27 @@ fn mtenda_griffin_activates_during_your_upkeep_to_bounce_self_and_return_griffin
         .count();
     assert_eq!(hand_griffins, 2);
 }
+
+/// "Activate only during your upkeep": with a Griffin card in the graveyard to
+/// target and a Plains untapped, the ability is still not offered in the main
+/// phase.
+#[test]
+fn mtenda_griffin_is_not_offered_in_the_main_phase() {
+    let mut engine = lk::game(
+        SEED,
+        &[mtenda_griffin(), mtenda_griffin(), plains()],
+        &[],
+        &[],
+        &[],
+    );
+    let victim = lk::obj(&engine, P0, mtenda_griffin());
+    bury(&mut engine, &[victim]);
+    assert!(in_graveyard(&engine, P0, mtenda_griffin()).is_some());
+    assert!(on_battlefield(&engine, P0, mtenda_griffin()).is_some());
+
+    lk::float(&mut engine, P0, &[(ManaColor::White, 1)]);
+    assert!(
+        !lk::offered(&engine, mtenda_griffin(), P0, 0),
+        "not offered in the main phase, though a target and the mana are there"
+    );
+}

@@ -4,12 +4,10 @@
 use super::*;
 use baylee_core::generated::index::HILL_GIANT;
 
-const UNLIKELY_ALLIANCE: &str = "f7ac18bc-ea63-4808-b709-92c1e69cf541";
-
 #[test]
 fn unlikely_alliance_pumps_noncombat_creature_and_rejects_attackers() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let card = card_index(UNLIKELY_ALLIANCE);
+    let card = card_index("f7ac18bc-ea63-4808-b709-92c1e69cf541");
     let mut engine = Duel::new(SEED, plains())
         .hand(0, &[card])
         .battlefield(
@@ -71,4 +69,56 @@ fn unlikely_alliance_pumps_noncombat_creature_and_rejects_attackers() {
     aim_at(&mut engine, p0, bear);
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, bear), (2, 6));
+    // "Until end of turn": both +0/+2 are gone on the opponent's turn.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(pt(&engine, bear), (2, 2));
+}
+
+#[test]
+fn unlikely_alliance_rejects_a_blocking_and_an_attacking_creature() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let card = card_index("f7ac18bc-ea63-4808-b709-92c1e69cf541");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[card, plains(), plains(), grizzly_bears(), HILL_GIANT])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let giant = on_battlefield(&engine, p0, HILL_GIANT).unwrap();
+    let enemy = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    // p1 attacks with its Bears; Hill Giant blocks, Grizzly Bears stays back.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(enemy, Defender::Player(p0))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(giant, enemy)],
+            },
+        )
+        .unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, card, 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("expected ChooseTargets, got {:?}", engine.pending());
+    };
+    assert!(options.contains(&bear), "neither attacking nor blocking");
+    assert!(!options.contains(&giant), "a blocking creature");
+    assert!(!options.contains(&enemy), "an attacking creature");
 }

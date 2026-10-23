@@ -2,6 +2,10 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 fn seedling_charm() -> CardIndex {
     card_index("b8d66cd6-15db-41ff-bae3-60f1aad3ea23")
@@ -113,4 +117,41 @@ fn seedling_charm_modes_bounce_aura_regenerate_green_and_grant_trample() {
         on_battlefield(&engine, p0, grizzly_bears()).is_some(),
         "Grizzly Bears regenerates from Lightning Bolt"
     );
+}
+
+/// "Regenerate target **green** creature": with no Aura on the battlefield the
+/// modes on offer are regenerate and trample; the regenerate menu leaves a red
+/// creature out, the trample menu does not.
+#[test]
+fn seedling_charm_regenerate_menu_is_green_creatures_only() {
+    let mut engine = lk::game(
+        SEED,
+        &[grizzly_bears()],
+        &[gray_ogre()],
+        &[seedling_charm(), seedling_charm()],
+        &[],
+    );
+    let bear = lk::obj(&engine, P0, grizzly_bears());
+    let ogre = lk::obj(&engine, P1, gray_ogre());
+
+    lk::float(&mut engine, P0, &[(ManaColor::Green, 2)]);
+    cast_with_floating(&mut engine, P0, seedling_charm());
+    engine.apply(P0, PlayerAction::ChooseMode(0)).unwrap();
+    let menu = aim_at(&mut engine, P0, bear);
+    assert_eq!(
+        menu,
+        vec![bear],
+        "the Gray Ogre is red and cannot be regenerated"
+    );
+    pass_until(&mut engine, stack_is_empty);
+
+    cast_with_floating(&mut engine, P0, seedling_charm());
+    engine.apply(P0, PlayerAction::ChooseMode(1)).unwrap();
+    let menu = aim_at(&mut engine, P0, ogre);
+    assert!(
+        menu.contains(&bear) && menu.contains(&ogre),
+        "trample goes to any creature"
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(keywords(&engine, ogre).contains(KeywordSet::TRAMPLE));
 }

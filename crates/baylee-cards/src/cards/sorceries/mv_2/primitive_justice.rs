@@ -2,6 +2,7 @@
 //! Oracle: As an additional cost to cast this spell, you may pay {1}{R} and/or {1}{G} any number of times.
 //! Oracle: Destroy target artifact. For each additional {1}{R} you paid, destroy another target artifact. For each additional {1}{G} you paid, destroy another target artifact, and you gain 1 life.
 //! Set: ME4 #130 — Masters Edition IV | Scryfall ID: 5bfe2504-5085-4dbd-b093-f0a1536b4526 | Oracle ID: cf38ac6e-e370-4ca5-90cd-26a1b812c63a
+// PARTIAL — destroys one target artifact; the extra {1}{R} / {1}{G} payments (more artifacts, life) are not offered.
 // NOT SUPPORTED: paying {1}{R} and/or {1}{G} any number of times as an additional cost to destroy an additional target artifact per payment and gain 1 life per {1}{G} paid has no DSL representation.
 
 use baylee_cards_dsl::prelude::*;

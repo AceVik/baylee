@@ -41,6 +41,11 @@ fn illusionary_terrain_cumulative_upkeep_pays_two_per_age_counter_or_sacrifices(
         )
     });
     assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (3, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+    assert_eq!(
         engine
             .state()
             .object(terrain)
@@ -68,6 +73,11 @@ fn illusionary_terrain_cumulative_upkeep_pays_two_per_age_counter_or_sacrifices(
             }
         )
     });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (5, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
     assert_eq!(
         engine
             .state()

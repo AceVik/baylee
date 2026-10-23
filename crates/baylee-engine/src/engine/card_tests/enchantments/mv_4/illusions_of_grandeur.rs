@@ -46,6 +46,11 @@ fn illusions_of_grandeur_gains_twenty_life_on_entry_scales_upkeep_and_loses_twen
         )
     });
     assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (3, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+    assert_eq!(
         engine
             .state()
             .object(illusions)
@@ -71,6 +76,11 @@ fn illusions_of_grandeur_gains_twenty_life_on_entry_scales_upkeep_and_loses_twen
         )
     });
     assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (5, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+    assert_eq!(
         engine
             .state()
             .object(illusions)
@@ -94,6 +104,11 @@ fn illusions_of_grandeur_gains_twenty_life_on_entry_scales_upkeep_and_loses_twen
             }
         )
     });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (7, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
     assert_eq!(
         engine
             .state()

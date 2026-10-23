@@ -2,6 +2,7 @@
 //! Oracle: When this creature's power is 7 or greater, sacrifice it.
 //! Oracle: Exile the top card of your library: Put X +1/+1 counters on this creature, where X is the exiled card's mana value.
 //! Set: ME2 #216 — Masters Edition II | Scryfall ID: ca4e27ca-a731-44f5-8e47-701c7a7e6149 | Oracle ID: 28b1ed69-784c-4642-86c7-104792d5afc2
+// PARTIAL — the sacrifice at power 7 or more is played; the ability that exiles the top card of your library and grows it is not, so it stays a 1/1.
 // NOT SUPPORTED: exiling the top card of your library as an activation cost and putting X +1/+1 counters on Phyrexian Devourer equal to the exiled card's mana value has no CostPart or Amount representation.
 
 use baylee_cards_dsl::prelude::*;

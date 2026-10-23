@@ -7,10 +7,14 @@ fn soldevi_sentry() -> CardIndex {
     card_index("d2a61132-d881-4c80-92f1-a151d835832a")
 }
 
-/// Soldevi Sentry ({1} 1/1 Artifact Creature — Soldier):
-/// - "{1}: Choose target opponent. Regenerate this creature. When it regenerates this way, that player may draw a card."
+/// Soldevi Sentry ({1} 1/1 Artifact Creature — Soldier, Partial):
+/// "{1}: Choose target opponent. Regenerate this creature. When it
+/// regenerates this way, that player may draw a card."
+/// The drawback (the opponent's card) cannot be said, and regeneration without
+/// it would play stronger than printed, so the card offers no ability. A pinned
+/// limitation: this test moves when a regeneration shield can trigger.
 #[test]
-fn soldevi_sentry_regenerates_itself_and_offers_target_opponent_a_draw() {
+fn soldevi_sentry_offers_no_regeneration_without_its_drawback() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[soldevi_sentry(), mountain(), mountain()])
@@ -20,36 +24,30 @@ fn soldevi_sentry_regenerates_itself_and_offers_target_opponent_a_draw() {
     reach_main_phase(&mut engine, p0);
 
     let sentry = on_battlefield(&engine, p0, soldevi_sentry()).unwrap();
-    let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
     let p1_hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
 
     tap_all_mana_but(&mut engine, p0, Some(soldevi_sentry()));
-    activate(&mut engine, p0, soldevi_sentry(), 0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p1],
-            },
-        )
-        .unwrap();
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    let Pending::Priority { legal, .. } = engine.pending().clone() else {
+        panic!("priority, got {:?}", engine.pending())
+    };
+    assert!(
+        !legal.abilities.iter().any(|(source, _)| *source == sentry),
+        "the {{1}} ability is not offered"
     );
-    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(
-        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
-        p1_hand_before + 1
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: sentry,
+                    ability_index: 0,
+                },
+            )
+            .is_err()
     );
 
-    // Lethal damage from Lightning Bolt uses the regeneration shield (tapping Soldevi Sentry instead of destroying it).
-    engine
-        .apply(p0, PlayerAction::CastSpell { card: bolt })
-        .unwrap();
+    // No shield: Lightning Bolt destroys the Sentry, and nobody drew.
+    cast_with_floating(&mut engine, p0, lightning_bolt());
     engine
         .apply(
             p0,
@@ -60,7 +58,10 @@ fn soldevi_sentry_regenerates_itself_and_offers_target_opponent_a_draw() {
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, soldevi_sentry()).is_some());
-    assert!(is_tapped(&engine, sentry));
+    assert!(on_battlefield(&engine, p0, soldevi_sentry()).is_none());
+    assert!(in_graveyard(&engine, p0, soldevi_sentry()).is_some());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        p1_hand_before
+    );
 }

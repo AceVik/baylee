@@ -10,19 +10,15 @@ const BLUE_CREATURE: Filter = Filter::And(&[
     Filter::HasColor(ColorSet::from_slice(&[Color::Blue])),
 ]);
 
-const BLOCKED_OR_BLOCKED_BY_BLUE_THIS_TURN: Filter = Filter::Or(&[
-    Filter::BlockedThisTurn,
-    Filter::BlockedThisTurnBy(&BLUE_CREATURE),
-]);
-
-// NOT SUPPORTED: Filter::BlockedThisTurn does not filter on the characteristics of the blocked attacker, so blocking any creature this turn or being blocked by a blue creature this turn satisfies the activation gate.
+const BLOCKED_BY_BLUE_THIS_TURN: Filter = Filter::BlockedThisTurnBy(&BLUE_CREATURE);
+// NOT SUPPORTED: "this creature blocked [a blue creature]" this turn. No Filter reads the colour of the attacker a blocker blocked (`Filter::BlockedThisTurn` takes no inner filter), so the gate counts only the printed "was blocked by a blue creature this turn" half; a Sea Troll that blocked a blue attacker cannot activate.
 card!(
     index = index::SEA_TROLL,
     oracle_id = "feabe30a-3c28-43a1-b538-b0207758520c",
     scryfall_id = "b7da23d4-f9fb-40a5-8395-51b47a064600",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "checking whether the creature Sea Troll blocked this turn was blue is not in Filter; requires that Sea Troll blocked a creature or was blocked by a blue creature this turn to activate its {U} regeneration ability"
+        "the 'blocked a blue creature this turn' half of the activation gate is not in Filter (no filter reads the colour of the attacker a blocker blocked); the {U} regeneration can be activated only after Sea Troll was blocked by a blue creature this turn, never after it blocked one"
     ),
     faces = &[face!(
         name = "Sea Troll",
@@ -35,8 +31,6 @@ card!(
     abilities = &[activated!(
         cost!("{U}"),
         &[Effect::regenerate(TargetSpec::ThisObject)],
-        condition = Some(Condition::SourceMatches(
-            &BLOCKED_OR_BLOCKED_BY_BLUE_THIS_TURN
-        )),
+        condition = Some(Condition::SourceMatches(&BLOCKED_BY_BLUE_THIS_TURN)),
     )],
 );

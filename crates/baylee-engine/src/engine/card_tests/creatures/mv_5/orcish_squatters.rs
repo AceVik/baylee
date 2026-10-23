@@ -2,7 +2,9 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::turn::{Phase, Step};
+use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -132,5 +134,30 @@ fn orcish_squatters_steals_defenders_land_for_as_long_as_you_control_it_or_deals
         engine2.state().players[1].life,
         18,
         "declining the trigger lets Orcish Squatters deal its 2 combat damage"
+    );
+}
+
+#[test]
+fn orcish_squatters_does_nothing_when_it_is_blocked() {
+    let mut engine = lk::game(
+        SEED,
+        &[orcish_squatters()],
+        &[index::GRIZZLY_BEARS, index::FOREST],
+        &[],
+        &[],
+    );
+    let squatters = lk::obj(&engine, P0, orcish_squatters());
+    let bears = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+    let their_forest = lk::obj(&engine, P1, index::FOREST);
+
+    let offer = lk::attack(&mut engine, &[squatters]);
+    assert!(lk::may_block(&offer, bears, squatters));
+    lk::block(&mut engine, &[(bears, squatters)]);
+    // A trigger that wrongly fired would stop here on its target question.
+    lk::through_combat(&mut engine);
+    assert_eq!(
+        engine.state().object(their_forest).unwrap().controller,
+        P1,
+        "'attacks and isn't blocked': a blocked Orcish Squatters takes no land"
     );
 }

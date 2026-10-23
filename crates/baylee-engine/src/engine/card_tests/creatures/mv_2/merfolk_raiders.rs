@@ -75,3 +75,34 @@ fn merfolk_raiders_has_islandwalk_and_phasing() {
     });
     assert_eq!(engine.state().players[1].life, 18);
 }
+
+/// Islandwalk needs an Island: against a Plains the Bears may block, and the
+/// 2/3 Raiders kills them without the defender losing life.
+#[test]
+fn merfolk_raiders_can_be_blocked_when_the_defender_has_no_island() {
+    let mut engine = lk::game(
+        SEED,
+        &[merfolk_raiders()],
+        &[plains(), index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let raiders = lk::obj(&engine, P0, merfolk_raiders());
+    let bears = lk::obj(&engine, P1, index::GRIZZLY_BEARS);
+
+    // Phased out through turn 1; back in on P0's next turn.
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+
+    let offer = lk::attack(&mut engine, &[raiders]);
+    assert!(
+        lk::may_block(&offer, bears, raiders),
+        "no Island, so islandwalk does not apply"
+    );
+    lk::block(&mut engine, &[(bears, raiders)]);
+    lk::through_combat(&mut engine);
+
+    assert_eq!(engine.state().players[1].life, 20);
+    assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_none());
+    assert!(on_battlefield(&engine, P0, merfolk_raiders()).is_some());
+}

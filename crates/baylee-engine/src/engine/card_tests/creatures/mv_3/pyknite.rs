@@ -45,4 +45,15 @@ fn pyknite_schedules_a_card_draw_for_the_beginning_of_the_next_turns_upkeep() {
         hand_before_cast,
         "P0 draws a card at the beginning of the next turn's upkeep"
     );
+
+    // Only the next turn's upkeep: P0's own upkeep two turns on (turn 3, before the draw step)
+    // draws nothing extra.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3 && e.state().turn.step == Step::Upkeep && stack_is_empty(e)
+    });
+    assert_eq!(
+        hand_size(&engine, P0),
+        hand_before_cast,
+        "the delayed draw happened once, at the next turn's upkeep, and not again"
+    );
 }

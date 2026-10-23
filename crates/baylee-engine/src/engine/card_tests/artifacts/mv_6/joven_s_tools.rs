@@ -4,7 +4,6 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 fn joven_s_tools() -> CardIndex {
     card_index("b1935140-b038-4a81-98f7-28d2c137124a")
@@ -18,22 +17,45 @@ fn joven_s_tools_makes_target_creature_unblockable_except_by_walls() {
             0,
             &[
                 joven_s_tools(),
-                index::GRIZZLY_BEARS,
+                card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0"),
+                gray_ogre(),
                 forest(),
                 forest(),
                 forest(),
                 forest(),
             ],
         )
-        .battlefield(1, &[index::GRIZZLY_BEARS, index::WALL_OF_WOOD])
+        .battlefield(
+            1,
+            &[
+                card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0"),
+                card_index("aa5e6894-8c97-46f8-a0fd-07c6db51e9a7"),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let tools = on_battlefield(&engine, p0, joven_s_tools()).unwrap();
-    let attacker = on_battlefield(&engine, p0, index::GRIZZLY_BEARS).unwrap();
-    let non_wall = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
-    let wall = on_battlefield(&engine, p1, index::WALL_OF_WOOD).unwrap();
+    let attacker = on_battlefield(
+        &engine,
+        p0,
+        card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0"),
+    )
+    .unwrap();
+    let untargeted = on_battlefield(&engine, p0, gray_ogre()).unwrap();
+    let non_wall = on_battlefield(
+        &engine,
+        p1,
+        card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0"),
+    )
+    .unwrap();
+    let wall = on_battlefield(
+        &engine,
+        p1,
+        card_index("aa5e6894-8c97-46f8-a0fd-07c6db51e9a7"),
+    )
+    .unwrap();
 
     tap_all_mana(&mut engine, p0);
     engine
@@ -63,7 +85,10 @@ fn joven_s_tools_makes_target_creature_unblockable_except_by_walls() {
         .apply(
             p0,
             PlayerAction::DeclareAttackers {
-                attackers: vec![(attacker, Defender::Player(p1))],
+                attackers: vec![
+                    (attacker, Defender::Player(p1)),
+                    (untargeted, Defender::Player(p1)),
+                ],
             },
         )
         .unwrap();
@@ -82,12 +107,14 @@ fn joven_s_tools_makes_target_creature_unblockable_except_by_walls() {
             .is_err(),
         "non-Wall creature cannot block target of Joven's Tools"
     );
+    // Only the target is restricted: the other attacker may be blocked by
+    // the non-Wall creature, and the Wall may still block the target.
     engine
         .apply(
             p1,
             PlayerAction::DeclareBlockers {
-                blockers: vec![(wall, attacker)],
+                blockers: vec![(non_wall, untargeted), (wall, attacker)],
             },
         )
-        .unwrap();
+        .expect("the untargeted attacker takes a non-Wall blocker, the target a Wall");
 }

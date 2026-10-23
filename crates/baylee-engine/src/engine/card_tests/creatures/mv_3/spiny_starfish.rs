@@ -44,3 +44,32 @@ fn spiny_starfish_regenerates_from_lethal_damage() {
     assert!(is_tapped(&engine, starfish));
     assert_eq!(engine.state().object(starfish).unwrap().damage, 0);
 }
+
+/// "{U}: Regenerate this creature" is a shield that has to be paid for: with
+/// no activation, lethal damage destroys the Starfish.
+#[test]
+fn spiny_starfish_is_destroyed_by_lethal_damage_without_a_regeneration_shield() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[spiny_starfish(), island(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let starfish = on_battlefield(&engine, p0, spiny_starfish()).unwrap();
+
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![starfish],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(on_battlefield(&engine, p0, spiny_starfish()).is_none());
+    assert!(in_graveyard(&engine, p0, spiny_starfish()).is_some());
+}

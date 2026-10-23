@@ -33,3 +33,24 @@ fn radiant_essence_gets_plus_1_plus_2_when_opponent_controls_a_black_permanent()
     let ch_after = engine.state().object(essence).unwrap().characteristics();
     assert_eq!((ch_after.power, ch_after.toughness), (Some(3), Some(5)));
 }
+
+/// "An opponent controls a black permanent": a non-black permanent of the
+/// opponent's, and the controller's own black permanent, give nothing.
+#[test]
+fn radiant_essence_ignores_a_non_black_opposing_permanent_and_its_own_black_one() {
+    let engine = lk::game(
+        SEED,
+        &[radiant_essence(), index::BLACK_KNIGHT],
+        &[index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let essence = lk::obj(&engine, P0, radiant_essence());
+
+    let ch = engine.state().object(essence).unwrap().characteristics();
+    assert_eq!(
+        (ch.power, ch.toughness),
+        (Some(2), Some(3)),
+        "a green opposing creature and an own black one do not count"
+    );
+}

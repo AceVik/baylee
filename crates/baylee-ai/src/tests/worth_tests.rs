@@ -1115,7 +1115,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Urza's Saga (`usg`) Batch 6–7, Urza's Legacy (`ulg`) Batches 1–4, and
     // Urza's Destiny (`uds`) Batch 1 add 48 non-mana activated abilities, of
     // which 24 are read by the evaluator.
-    assert_eq!((read, of), (2835, 3609), "activated/loyalty reader census");
+    // The review of those batches took 36 abilities off cards that
+    // played more than they print, 16 of them read by the evaluator.
+    assert_eq!((read, of), (2819, 3573), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

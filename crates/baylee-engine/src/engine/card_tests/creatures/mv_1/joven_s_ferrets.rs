@@ -20,13 +20,14 @@ fn joven_s_ferrets_gets_plus_zero_plus_two_on_attack_and_taps_and_freezes_its_bl
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[joven_s_ferrets()])
-        .battlefield(1, &[bears()])
+        .battlefield(1, &[bears(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let ferrets = on_battlefield(&engine, p0, joven_s_ferrets()).unwrap();
     let blocker = on_battlefield(&engine, p1, bears()).unwrap();
+    let bystander = on_battlefield(&engine, p1, gray_ogre()).unwrap();
     assert_eq!(pt(&engine, ferrets), (1, 1));
 
     pass_until(&mut engine, |e| {
@@ -62,6 +63,10 @@ fn joven_s_ferrets_gets_plus_zero_plus_two_on_attack_and_taps_and_freezes_its_bl
         is_tapped(&engine, blocker),
         "blocker was tapped at end of combat by Joven's Ferrets"
     );
+    assert!(
+        !is_tapped(&engine, bystander),
+        "a creature that did not block the Ferrets is left alone"
+    );
 
     // Advance to p1's FirstMain: blocker does NOT untap during p1's next untap step!
     pass_until(&mut engine, |e| {
@@ -70,5 +75,18 @@ fn joven_s_ferrets_gets_plus_zero_plus_two_on_attack_and_taps_and_freezes_its_bl
     assert!(
         is_tapped(&engine, blocker),
         "blocker did not untap during its controller's next untap step"
+    );
+    assert!(!is_tapped(&engine, bystander), "the bystander never tapped");
+
+    // Only the next untap step is skipped: the one after it untaps the blocker.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert!(
+        !is_tapped(&engine, blocker),
+        "the blocker untaps in the untap step after the skipped one"
     );
 }

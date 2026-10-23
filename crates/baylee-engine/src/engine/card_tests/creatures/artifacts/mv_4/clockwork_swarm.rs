@@ -64,7 +64,7 @@ fn clockwork_swarm_cant_be_blocked_by_walls_loses_counter_after_combat_and_refil
     );
     assert_eq!(pt(&engine, swarm), (3, 3));
 
-    // In p0's next upkeep, refill with X=1.
+    // In p0's next upkeep, refill with X=2 when only one counter fits.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0
             && e.state().turn.step == Step::Upkeep
@@ -73,10 +73,18 @@ fn clockwork_swarm_cant_be_blocked_by_walls_loses_counter_after_combat_and_refil
     });
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, clockwork_swarm(), 2);
-    engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+    engine.apply(p0, PlayerAction::ChooseNumber(2)).unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseNumber { .. })
     });
+    let Pending::ChooseNumber { min, max, .. } = engine.pending().clone() else {
+        panic!("expected the number of counters");
+    };
+    assert_eq!(
+        (min, max),
+        (0, 1),
+        "X = 2 but three counters plus at most one is four"
+    );
     engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

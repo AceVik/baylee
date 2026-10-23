@@ -79,3 +79,70 @@ fn greater_werewolf_puts_minus_zero_minus_two_counter_on_creatures_blocking_or_b
         "uninvolved creature received no -0/-2 counter"
     );
 }
+
+/// "Blocking or blocked by": the Werewolf on defence puts the counter on the
+/// attacker it blocked, and not on the attacker it did not.
+#[test]
+fn greater_werewolf_puts_the_counter_on_the_attacker_it_blocks() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[hill_giant(), bears()])
+        .battlefield(1, &[greater_werewolf()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let werewolf = on_battlefield(&engine, p1, greater_werewolf()).unwrap();
+    let blocked = on_battlefield(&engine, p0, hill_giant()).unwrap();
+    let unblocked = on_battlefield(&engine, p0, bears()).unwrap();
+
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![
+                    (blocked, Defender::Player(p1)),
+                    (unblocked, Defender::Player(p1)),
+                ],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(werewolf, blocked)],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+
+    // The 2/4 Werewolf dealt 2 to the 3/3 Giant, which survives that damage
+    // alone: it died to the -0/-2 counter.
+    assert_eq!(
+        engine.state().object(blocked).unwrap().zone,
+        Zone::Graveyard,
+        "the attacker the Werewolf blocked got a -0/-2 counter and died of its 2 damage"
+    );
+    assert_eq!(
+        engine
+            .state()
+            .object(unblocked)
+            .unwrap()
+            .counters
+            .get(CounterKind::Minus {
+                power: 0,
+                toughness: 2,
+            }),
+        0,
+        "the unblocked attacker got no counter"
+    );
+}

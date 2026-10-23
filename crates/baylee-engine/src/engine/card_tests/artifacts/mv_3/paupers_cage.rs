@@ -40,3 +40,26 @@ fn paupers_cage_does_not_trigger_when_opponent_has_three_or_more_cards_in_hand()
         "Paupers' Cage does not trigger when opponent has 3 cards in hand at upkeep"
     );
 }
+
+/// "Each opponent's upkeep": the controller's own empty hand at their own
+/// upkeep is not hit, and an opponent holding three cards is not either.
+#[test]
+fn paupers_cage_does_not_hit_its_own_controller() {
+    const P0: PlayerId = PlayerId::new(0);
+    let mut engine = lk::game(
+        SEED,
+        &[paupers_cage()],
+        &[],
+        &[],
+        &[forest(), forest(), forest()],
+    );
+
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+    assert_eq!(
+        lk::life(&engine, P0),
+        20,
+        "P0 held no cards at its own upkeep, and the cage only watches opponents"
+    );
+    assert_eq!(lk::life(&engine, P1), 20);
+}

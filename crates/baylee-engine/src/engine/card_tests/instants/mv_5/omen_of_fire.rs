@@ -9,9 +9,13 @@ fn omen_of_fire() -> CardIndex {
 }
 
 /// Omen of Fire ({3}{R}{R} Instant, Partial):
-/// "Return all Islands to their owners' hands. Each player sacrifices a Plains or a white permanent of their choice for each white permanent they control."
+/// "Return all Islands to their owners' hands." The second sentence, "Each
+/// player sacrifices a Plains or a white permanent of their choice for each
+/// white permanent they control", is not played: its count is per player.
+/// P0 here controls a Plains and no white permanent, so the real card has
+/// them sacrifice nothing, and so does this one.
 #[test]
-fn omen_of_fire_bounces_all_islands_and_each_player_sacrifices_plains_or_white() {
+fn omen_of_fire_returns_every_island_to_its_owner_and_sacrifices_nothing_without_white() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(
@@ -26,39 +30,30 @@ fn omen_of_fire_bounces_all_islands_and_each_player_sacrifices_plains_or_white()
                 plains(),
             ],
         )
-        .battlefield(1, &[island(), plains(), SAVANNAH_LIONS])
+        .battlefield(1, &[island(), plains(), mountain(), SAVANNAH_LIONS])
         .hand(0, &[omen_of_fire()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-
-    let p1_plains = on_battlefield(&engine, p1, plains()).unwrap();
+    assert!(on_battlefield(&engine, p0, island()).is_some());
+    assert!(on_battlefield(&engine, p1, island()).is_some());
 
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, omen_of_fire());
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
-    });
-    while let Pending::ChooseCards {
-        player, options, ..
-    } = engine.pending().clone()
-    {
-        let chosen = if player == p1 { p1_plains } else { options[0] };
-        engine
-            .apply(
-                player,
-                PlayerAction::ChooseObjects {
-                    objects: vec![chosen],
-                },
-            )
-            .unwrap();
-        pass_until(&mut engine, |e| {
-            matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
-        });
-    }
+    pass_until(&mut engine, stack_is_empty);
 
+    // All Islands, whoever controls them, go to their owners' hands.
     assert!(on_battlefield(&engine, p0, island()).is_none());
     assert!(on_battlefield(&engine, p1, island()).is_none());
-    assert!(in_graveyard(&engine, p0, plains()).is_some());
-    assert!(in_graveyard(&engine, p1, plains()).is_some());
+    assert!(in_hand(&engine, p0, island()).is_some());
+    assert!(in_hand(&engine, p1, island()).is_some());
+    // Nothing else moves: Mountains are no Islands, and a Plains is no white
+    // permanent, so P0 (no white permanent) sacrifices nothing.
+    assert!(on_battlefield(&engine, p0, mountain()).is_some());
+    assert!(on_battlefield(&engine, p1, mountain()).is_some());
+    assert!(
+        on_battlefield(&engine, p0, plains()).is_some(),
+        "a Plains without a white permanent beside it is not sacrificed"
+    );
+    assert!(in_graveyard(&engine, p0, plains()).is_none());
 }

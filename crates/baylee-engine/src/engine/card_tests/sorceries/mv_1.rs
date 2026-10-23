@@ -51,7 +51,6 @@ mod scorching_spear;
 mod seething_anger;
 mod serum_visions;
 mod shadowstorm;
-mod spoils_of_war;
 mod steelshaper_s_gift;
 mod stir_the_grave;
 mod stream_of_life;

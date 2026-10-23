@@ -2,8 +2,8 @@
 //!
 //! Prevent all combat damage that would be dealt by target attacking creature
 //! this turn.
-//! (`Coverage::Partial`: prevents all damage dealt by the target creature this
-//! turn via `Modifier::PreventDamageFromIt`.)
+//! (`Coverage::Implemented`: `Modifier::PreventDamageFromIt` is combat damage
+//! only, which is what is printed.)
 
 #[allow(clippy::wildcard_imports)]
 use super::*;

@@ -22,7 +22,22 @@ fn pyric_salamander_pumps_and_sacrifices_at_end_step() {
 
     let ch = engine.state().object(salamander).unwrap().characteristics();
     assert_eq!((ch.power, ch.toughness), (Some(2), Some(1)));
+    assert!(
+        on_battlefield(&engine, P0, pyric_salamander()).is_some(),
+        "the sacrifice waits for the next end step"
+    );
 
     reach_their_main_phase(&mut engine, P1);
     assert!(on_battlefield(&engine, P0, pyric_salamander()).is_none());
+    assert!(in_graveyard(&engine, P0, pyric_salamander()).is_some());
+}
+
+/// The sacrifice belongs to the pump: a Salamander nobody pumped is still
+/// there when the end step has come and gone.
+#[test]
+fn pyric_salamander_that_was_not_pumped_is_not_sacrificed() {
+    let mut engine = lk::game(SEED, &[pyric_salamander()], &[], &[], &[]);
+
+    reach_their_main_phase(&mut engine, P1);
+    assert!(on_battlefield(&engine, P0, pyric_salamander()).is_some());
 }

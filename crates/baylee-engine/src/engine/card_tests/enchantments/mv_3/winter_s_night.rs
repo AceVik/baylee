@@ -4,12 +4,10 @@
 use super::*;
 use baylee_core::generated::index::SNOW_COVERED_FOREST;
 
-const WINTER_S_NIGHT: &str = "e4f73802-b639-47ab-a6c6-f761afa4e00e";
-
 #[test]
 fn winter_s_night_doubles_snow_land_mana_and_suppresses_its_next_untap() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let card = card_index(WINTER_S_NIGHT);
+    let card = card_index("e4f73802-b639-47ab-a6c6-f761afa4e00e");
     let snow_forest = SNOW_COVERED_FOREST;
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[card])
@@ -59,4 +57,81 @@ fn winter_s_night_doubles_snow_land_mana_and_suppresses_its_next_untap() {
 
     assert!(!is_tapped(&engine, plain_forest));
     assert!(is_tapped(&engine, snow_id));
+    // Only "its controller's next untap step": the one after untaps it.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert!(!is_tapped(&engine, snow_id));
+}
+
+#[test]
+fn winter_s_night_leaves_a_nonsnow_land_alone() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let card = card_index("e4f73802-b639-47ab-a6c6-f761afa4e00e");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[card, forest(), SNOW_COVERED_FOREST])
+        .battlefield(1, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let plain_forest = on_battlefield(&engine, p0, forest()).unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateManaAbility {
+                source: plain_forest,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1,
+        "a Forest that is not snow adds only its own {{G}}"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
+    });
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert!(!is_tapped(&engine, plain_forest), "and it untaps as usual");
+}
+
+#[test]
+fn winter_s_night_binds_the_opponents_snow_land_and_pays_its_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let card = card_index("e4f73802-b639-47ab-a6c6-f761afa4e00e");
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[card, mountain()])
+        .battlefield(1, &[SNOW_COVERED_FOREST])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_their_main_phase(&mut engine, p1);
+    let snow = on_battlefield(&engine, p1, SNOW_COVERED_FOREST).unwrap();
+    engine
+        .apply(p1, PlayerAction::ActivateManaAbility { source: snow })
+        .unwrap();
+    assert_eq!(
+        engine.state().players[1]
+            .mana_pool
+            .available(ManaColor::Green),
+        2,
+        "\"that player\" (the one who tapped it) adds the extra mana"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        0,
+        "not the enchantment's controller"
+    );
+    // p1's next untap step is two turns away; the land is still tapped then.
+    reach_their_main_phase(&mut engine, p0);
+    reach_their_main_phase(&mut engine, p1);
+    assert!(is_tapped(&engine, snow));
 }

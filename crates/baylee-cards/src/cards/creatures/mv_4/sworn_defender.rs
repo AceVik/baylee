@@ -2,6 +2,9 @@
 //! Oracle: {1}: This creature's power becomes the toughness of target creature blocking or being blocked by this creature minus 1 until end of turn, and its toughness becomes 1 plus the power of that creature until end of turn.
 //! Set: ALL #19 — Alliances | Scryfall ID: 328e6ceb-30f7-415e-93b4-7075af0fed89 | Oracle ID: 02197d14-8d9f-4b1f-9ee0-ce8ef690843c
 
+// PARTIAL — {1}: this creature's toughness becomes 1 plus the power of target creature blocking or being blocked by it, until end of turn.
+// NOT SUPPORTED: "This creature's power becomes the toughness of that creature minus 1 until end of turn." Only toughness can be set from another creature's value (SetSourceToughness); Modifier::SetPower takes a constant, so the power stays printed (1).
+
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 

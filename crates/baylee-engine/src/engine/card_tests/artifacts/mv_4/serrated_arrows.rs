@@ -137,9 +137,15 @@ fn serrated_arrows_enters_with_three_counters_puts_m1m1_counters_and_sacrifices_
     );
 
     // Advance to p0's next upkeep and resolve the sacrifice trigger: Serrated Arrows is sacrificed!
+    // The opponent's upkeep is not yours: it is still there in their main phase.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p1 && e.state().turn.phase == Phase::FirstMain
     });
+    assert_eq!(
+        engine.state().object(arrows).unwrap().zone,
+        Zone::Battlefield,
+        "no sacrifice at the beginning of the opponent's upkeep"
+    );
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
     });

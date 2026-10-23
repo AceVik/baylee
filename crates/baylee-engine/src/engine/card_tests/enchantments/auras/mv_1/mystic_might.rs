@@ -40,6 +40,20 @@ fn mystic_might_enchants_only_your_land_grants_tap_pump_and_has_cumulative_upkee
     );
     pass_until(&mut engine, stack_is_empty);
 
+    // Only the enchanted land has the ability.
+    let other_island = all_on_battlefield(&engine, P0, island())
+        .into_iter()
+        .find(|&id| id != first_island)
+        .unwrap();
+    assert!(
+        ability_offered(&engine, my_forest, crate::choice::GRANTED_ABILITY),
+        "the enchanted land has the granted ability"
+    );
+    assert!(
+        !ability_offered(&engine, other_island, crate::choice::GRANTED_ABILITY),
+        "a land that is not enchanted does not"
+    );
+
     // Enchanted Forest has "{T}: Target creature gets +2/+2 until end of turn".
     engine
         .apply(

@@ -68,6 +68,11 @@ fn illusionary_forces_flies_over_ground_blocker_and_scales_cumulative_upkeep() {
         )
     });
     assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (3, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+    assert_eq!(
         engine
             .state()
             .object(forces)
@@ -95,6 +100,11 @@ fn illusionary_forces_flies_over_ground_blocker_and_scales_cumulative_upkeep() {
             }
         )
     });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (5, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
     assert_eq!(
         engine
             .state()

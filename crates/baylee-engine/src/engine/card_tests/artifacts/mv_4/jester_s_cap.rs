@@ -22,6 +22,7 @@ fn jesters_cap_pays_cost_sacrifices_itself_and_shuffles_target_players_library()
     reach_main_phase(&mut engine, P0);
 
     let lib_before = engine.state().zones.list(ZoneLocation::Library(P1)).clone();
+    let own_lib_before = engine.state().zones.list(ZoneLocation::Library(P0)).clone();
 
     tap_all_mana_but(&mut engine, P0, None);
     activate(&mut engine, P0, jester_s_cap(), 0);
@@ -59,5 +60,15 @@ fn jesters_cap_pays_cost_sacrifices_itself_and_shuffles_target_players_library()
         engine.state().zones.list(ZoneLocation::Library(P1)),
         &lib_before,
         "target player P1's library was shuffled"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(P1)).len(),
+        lib_before.len(),
+        "no card was searched out and exiled (Partial: the search-and-exile half is missing)"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(P0)),
+        &own_lib_before,
+        "only the target player's library is shuffled, not the activator's"
     );
 }

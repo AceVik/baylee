@@ -2,6 +2,7 @@
 //! Oracle: As an additional cost to cast this spell, discard a red or green card.
 //! Oracle: Target creature gains trample and gets +X/+0 until end of turn, where X is that creature's mana value.
 //! Set: ALL #109 — Alliances | Scryfall ID: 96fff700-af02-4861-b7ed-be9950e69bf1 | Oracle ID: bd3e55cf-ffca-402c-91ea-2420035a9dd1
+// IMPLEMENTED — additional cost: discard a red or green card; the target gains trample and +X/+0 until end of turn, X its mana value.
 
 use baylee_cards_dsl::prelude::*;
 

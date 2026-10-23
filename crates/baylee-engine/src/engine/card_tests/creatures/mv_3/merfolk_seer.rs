@@ -47,3 +47,45 @@ fn merfolk_seer_dies_trigger_pays_1u_to_draw_a_card() {
         hand_before + 1
     );
 }
+
+/// "You may pay": declining draws nothing.
+#[test]
+fn merfolk_seer_draws_nothing_when_the_controller_declines_to_pay() {
+    let mut engine = lk::game(
+        SEED,
+        &[merfolk_seer(), island(), island()],
+        &[],
+        &[index::LIGHTNING_BOLT],
+        &[],
+    );
+    let seer = lk::obj(&engine, P0, merfolk_seer());
+
+    lk::float(
+        &mut engine,
+        P0,
+        &[
+            (ManaColor::Red, 1),
+            (ManaColor::Colorless, 1),
+            (ManaColor::Blue, 1),
+        ],
+    );
+    cast_with_floating(&mut engine, P0, index::LIGHTNING_BOLT);
+    lk::aim(&mut engine, &[seer], &[]);
+
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(P0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        hand_before,
+        "the controller declined, so no card was drawn"
+    );
+    assert!(
+        in_graveyard(&engine, P0, merfolk_seer()).is_some(),
+        "the Seer died either way"
+    );
+}

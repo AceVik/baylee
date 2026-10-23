@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 card!(
     index = index::SEARING_SPEAR_ASKARI,
     oracle_id = "d3c68573-95b1-4db5-bbea-363b86f713c1",
@@ -26,22 +21,12 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::continuous(
-                &Filter::Reference,
-                Modifier::ModifyPT(-1, -1),
-                Duration::UntilEndOfTurn,
-            )],
-        ),
-        activated!(
-            cost!("{1}{R}"),
-            &[Effect::continuous(
-                &Filter::This,
-                Modifier::AddKeyword(KeywordSet::MENACE),
-                Duration::UntilEndOfTurn,
-            )],
-        ),
-    ],
+    abilities = &[activated!(
+        cost!("{1}{R}"),
+        &[Effect::continuous(
+            &Filter::This,
+            Modifier::AddKeyword(KeywordSet::MENACE),
+            Duration::UntilEndOfTurn,
+        )],
+    ),],
 );

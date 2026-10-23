@@ -2,6 +2,7 @@
 //! Oracle: Cumulative upkeep {1}{W} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)
 //! Oracle: Damage that would reduce your life total to less than 1 reduces it to 1 instead.
 //! Set: ME2 #36 — Masters Edition II | Scryfall ID: 9fe9e2e6-c430-4806-b833-dc6d91f7ed80 | Oracle ID: 683c81ae-38cd-4db1-b7e7-a09d34b6431e
+// IMPLEMENTED — cumulative upkeep {1}{W}; damage cannot reduce your life total below 1.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

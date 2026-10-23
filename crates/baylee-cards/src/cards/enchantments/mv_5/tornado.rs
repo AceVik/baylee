@@ -3,6 +3,9 @@
 //! Oracle: {2}{G}, Pay 3 life for each velocity counter on this enchantment: Destroy target permanent and put a velocity counter on this enchantment. Activate only once each turn.
 //! Set: ME1 #136 — Masters Edition | Scryfall ID: 23f94cb6-1880-4c99-ba14-91807a6df92d | Oracle ID: dd283473-6423-4a1f-b5a3-77234cdce643
 
+// PARTIAL — cumulative upkeep {G}, and the ability's first activation: {2}{G} (no velocity counter yet, so no life to pay) destroys target permanent and puts a velocity counter on this enchantment.
+// NOT SUPPORTED: "Pay 3 life for each velocity counter on this enchantment" for every later activation. CostPart::PayLife takes a constant, so once a velocity counter is on Tornado the ability is no longer offered (it would otherwise destroy a permanent for {2}{G} with the life skipped).
+
 use baylee_cards_dsl::prelude::*;
 
 card!(
@@ -16,7 +19,7 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     coverage = Coverage::Partial(
-        "Cumulative upkeep {G} and the once-per-turn {2}{G} activation that destroys target permanent and puts a velocity counter on Tornado are implemented; paying 3 life for each velocity counter on Tornado as part of the activation cost is not implemented."
+        "Cumulative upkeep {G} and the first activation of the {2}{G} ability (no velocity counter yet, so no life to pay) are played, once each turn; later activations cost 3 life for each velocity counter, and the cost has no per-counter life payment, so with a velocity counter on Tornado the ability is not offered."
     ),
     abilities = &[
         triggered!(
@@ -51,7 +54,8 @@ card!(
                 },
             ],
             target = Some(TargetSpec::Object(&Filter::Any)),
-            limit = ActivationLimit::PerTurn(1)
+            limit = ActivationLimit::PerTurn(1),
+            condition = Some(Condition::CountersOnSelfExactly(counters::VELOCITY, 0)),
         ),
     ],
 );

@@ -70,7 +70,12 @@ fn headstone_exiles_target_card_from_graveyard_and_draws_at_next_upkeep() {
     );
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before - 1
+        hand_before - 1,
+        "the card is drawn at the next upkeep, not now"
+    );
+    assert!(
+        in_graveyard(&engine, p0, lightning_bolt()).is_some(),
+        "only the targeted card is exiled"
     );
 
     // Advance to p1's FirstMain: p0 drew a card at p1's upkeep from the delayed trigger.

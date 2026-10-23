@@ -127,3 +127,50 @@ fn total_war_destroys_only_untapped_non_wall_non_attackers_controlled_since_turn
         "defending player's creature survives Total War"
     );
 }
+
+/// "That player" is the one who attacks, not the one who controls Total War:
+/// when the opponent attacks with one creature, their idle creature is
+/// destroyed and Total War's controller keeps theirs.
+#[test]
+fn total_war_destroys_only_the_attacking_players_idle_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[total_war(), gray_ogre()]) // idle, but not the attacker's
+        .battlefield(1, &[grizzly_bears(), hill_giant()])
+        .start();
+    keep_mulligans(&mut engine);
+
+    let own_idle = on_battlefield(&engine, p0, gray_ogre()).unwrap();
+    let attacker = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    let shirker = on_battlefield(&engine, p1, hill_giant()).unwrap();
+
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(attacker, Defender::Player(p0))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(
+        engine.state().object(shirker).unwrap().zone,
+        Zone::Graveyard,
+        "the attacking player's untapped non-attacker is destroyed"
+    );
+    assert_eq!(
+        engine.state().object(attacker).unwrap().zone,
+        Zone::Battlefield,
+        "the attacker survives"
+    );
+    assert_eq!(
+        engine.state().object(own_idle).unwrap().zone,
+        Zone::Battlefield,
+        "Total War's controller did not attack, and their creatures are not 'that player's'"
+    );
+}

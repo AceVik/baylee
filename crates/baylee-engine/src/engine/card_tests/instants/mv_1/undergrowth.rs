@@ -42,12 +42,34 @@ fn undergrowth_prevents_all_combat_damage_this_turn() {
     engine
         .apply(p0, PlayerAction::CastSpell { card: under })
         .unwrap();
-    if matches!(engine.pending(), Pending::YesNo { .. }) {
-        engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
-    }
+    // The optional {2}{R} additional cost is not offered (it is not played).
+    assert!(
+        !matches!(engine.pending(), Pending::YesNo { .. }),
+        "no question about an additional cost: {:?}",
+        engine.pending()
+    );
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
     assert_eq!(engine.state().players[0].life, 20);
+
+    // "This turn": the Bears attack again two turns later and are not prevented.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number > 2
+            && e.state().turn.active == p1
+            && matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(p0))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+    assert_eq!(engine.state().players[0].life, 18);
 }

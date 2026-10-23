@@ -95,3 +95,90 @@ fn dystopia_makes_each_player_sacrifice_green_or_white_permanent_and_charges_cum
     assert!(in_graveyard(&engine, p0, mesa_pegasus()).is_some());
     assert!(on_battlefield(&engine, p0, dystopia()).is_some());
 }
+
+/// Passes to `seat`'s next upkeep and plays its triggers out: a payment question is answered `pay`
+/// and a sacrifice is the first permanent offered. The game must settle with an empty stack.
+fn through_upkeep(engine: &mut Engine<RegistryLookup>, seat: PlayerId, pay: bool) {
+    pass_until(engine, |e| {
+        e.state().turn.active == seat && e.state().turn.step == Step::Upkeep
+    });
+    for _ in 0..10 {
+        match engine.pending().clone() {
+            Pending::Priority { .. } if stack_is_empty(engine) => return,
+            Pending::YesNo { player, .. } => {
+                engine.apply(player, PlayerAction::YesNo(pay)).unwrap();
+            }
+            Pending::ChooseCards {
+                player, options, ..
+            } => {
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: options.first().copied().into_iter().collect(),
+                        },
+                    )
+                    .unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            other => panic!("unexpected pending in {seat:?}'s upkeep: {other:?}"),
+        }
+    }
+    panic!("the upkeep never settled");
+}
+
+/// "Cumulative upkeep—Pay 1 life": one more life per age counter each turn, and refusing
+/// sacrifices it. The cumulative upkeep is its controller's, not the opponent's, and a player with
+/// no green or white permanent sacrifices nothing.
+#[test]
+fn dystopia_cumulative_upkeep_grows_by_a_life_each_turn_and_declining_sacrifices_it() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, swamp())
+        .battlefield(0, &[swamp(), swamp(), swamp()])
+        .battlefield(1, &[drudge_skeletons(), swamp()])
+        .hand(0, &[dystopia()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, dystopia());
+    pass_until(&mut engine, stack_is_empty);
+    let dys = on_battlefield(&engine, p0, dystopia()).expect("Dystopia enters");
+
+    // The opponent's upkeep: no payment, and nothing green or white to sacrifice.
+    through_upkeep(&mut engine, p1, true);
+    assert_eq!(engine.state().players[1].life, 20);
+    assert!(on_battlefield(&engine, p1, drudge_skeletons()).is_some());
+    assert!(on_battlefield(&engine, p1, swamp()).is_some());
+    assert_eq!(
+        counters_on(&engine, dys, baylee_cards_dsl::counters::AGE),
+        0
+    );
+
+    // First upkeep: one age counter, one life.
+    through_upkeep(&mut engine, p0, true);
+    assert_eq!(
+        counters_on(&engine, dys, baylee_cards_dsl::counters::AGE),
+        1
+    );
+    assert_eq!(engine.state().players[0].life, 19);
+
+    // Second upkeep: two age counters, two life.
+    through_upkeep(&mut engine, p1, true);
+    through_upkeep(&mut engine, p0, true);
+    assert_eq!(
+        counters_on(&engine, dys, baylee_cards_dsl::counters::AGE),
+        2
+    );
+    assert_eq!(engine.state().players[0].life, 17);
+
+    // Third upkeep: declining the three life sacrifices it, and the life stays.
+    through_upkeep(&mut engine, p1, true);
+    through_upkeep(&mut engine, p0, false);
+    assert!(in_graveyard(&engine, p0, dystopia()).is_some());
+    assert!(on_battlefield(&engine, p0, dystopia()).is_none());
+    assert_eq!(engine.state().players[0].life, 17);
+}

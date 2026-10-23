@@ -1,7 +1,7 @@
 //! Stunted Growth — {3}{G}{G} — Sorcery
 //! Oracle: Target player chooses three cards from their hand and puts them on top of their library in any order.
 //! Set: ME2 #179 — Masters Edition II | Scryfall ID: 413bebf6-d47c-4bd2-ad2d-9b1ae70ef066 | Oracle ID: e3480c8f-15ad-451b-bb34-b129805569e1
-// NOT SUPPORTED: putting cards from a targeted player's hand on top of their library in any order is not supported; target player discards three cards instead.
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -10,19 +10,11 @@ card!(
     oracle_id = "e3480c8f-15ad-451b-bb34-b129805569e1",
     scryfall_id = "413bebf6-d47c-4bd2-ad2d-9b1ae70ef066",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial(
-        "putting cards from a targeted player's hand on top of their library in any order is not supported; target player discards three cards instead",
-    ),
     faces = &[face!(
         name = "Stunted Growth",
         mana_cost = mana!("{3}{G}{G}"),
         types = TypeSet::SORCERY,
     ),],
-    abilities = &[spell!(
-        &[Effect::DiscardForPlayers {
-            who: PlayerRel::Chosen,
-            count: 3,
-        }],
-        targets = Some(TargetReq::one(TargetSpec::AnyPlayer))
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

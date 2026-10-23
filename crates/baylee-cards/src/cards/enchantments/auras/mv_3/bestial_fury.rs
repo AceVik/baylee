@@ -3,7 +3,7 @@
 //! Oracle: When this Aura enters, draw a card at the beginning of the next turn's upkeep.
 //! Oracle: Whenever enchanted creature becomes blocked, it gets +4/+0 and gains trample until end of turn.
 //! Set: ME1 #88 — Masters Edition | Scryfall ID: e4820e94-0dd8-42c1-b606-331442b76111 | Oracle ID: dfc08963-132f-4ebf-9384-15d17d1098f7
-// NOT SUPPORTED: triggering from the Aura itself when enchanted creature becomes blocked is approximated by granting the triggered ability to enchanted creature.
+// NOT SUPPORTED: the Aura's own "whenever enchanted creature becomes blocked" trigger (once, however many block): it is granted to enchanted creature instead, so that creature's controller controls the trigger and it is lost when the creature loses its abilities.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,7 +14,7 @@ card!(
     scryfall_id = "e4820e94-0dd8-42c1-b606-331442b76111",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     coverage = Coverage::Partial(
-        "attaches to target creature, draws a card at the beginning of the next turn's upkeep when it enters, and grants enchanted creature a trigger that gives it +4/+0 and trample until end of turn whenever it becomes blocked; triggering from the Aura itself rather than granting the triggered ability to the enchanted creature is not supported",
+        "attaches to target creature, draws a card at the beginning of the next turn's upkeep when it enters, and grants enchanted creature a trigger that gives it +4/+0 and trample until end of turn whenever it becomes blocked; the becomes-blocked trigger is granted to the enchanted creature instead of being the Aura's own, so the creature's controller controls it and it is lost when the creature loses its abilities",
     ),
     faces = &[face!(
         name = "Bestial Fury",

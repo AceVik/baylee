@@ -18,12 +18,13 @@ fn savannah_lions() -> CardIndex {
 fn scars_of_the_veteran_pitch_casts_by_exiling_white_card_and_prevents_seven_damage() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[mountain(), mountain()])
+        .battlefield(0, &[mountain(), mountain(), mountain()])
         .hand(
             0,
             &[
                 scars_of_the_veteran(),
                 savannah_lions(),
+                lightning_bolt(),
                 lightning_bolt(),
                 lightning_bolt(),
             ],
@@ -48,6 +49,14 @@ fn scars_of_the_veteran_pitch_casts_by_exiling_white_card_and_prevents_seven_dam
             },
         )
         .unwrap();
+    // Only a white card may be exiled: the Lightning Bolts are red.
+    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
+        panic!(
+            "the cost asks which card to exile, got {:?}",
+            engine.pending()
+        )
+    };
+    assert_eq!(options, vec![lions], "only the white card is offered");
     engine
         .apply(
             p0,
@@ -79,4 +88,22 @@ fn scars_of_the_veteran_pitch_casts_by_exiling_white_card_and_prevents_seven_dam
     }
 
     assert_eq!(engine.state().players[0].life, 20);
+
+    // "The next 7 damage": a third Bolt gets 1 point of the shield and takes
+    // the other 2 damage.
+    let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
+    engine
+        .apply(p0, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 18);
 }

@@ -60,4 +60,41 @@ fn astrolabe_sacrifices_for_two_mana_of_one_color_and_draws_next_upkeep() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before + 1
     );
+
+    // Only the next turn's upkeep: P0's own draw step on the turn after is the ordinary one card.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "the Astrolabe's card, then the draw step's; no second Astrolabe card"
+    );
+}
+
+/// "{1}": the cost is a mana to pay, not just the tap and the sacrifice.
+#[test]
+fn astrolabe_cannot_be_activated_without_the_one_mana() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[astrolabe()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let astro = on_battlefield(&engine, p0, astrolabe()).unwrap();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: astro,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "no mana to pay {{1}} with"
+    );
+    assert!(on_battlefield(&engine, p0, astrolabe()).is_some());
+    assert!(!is_tapped(&engine, astro));
 }

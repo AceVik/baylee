@@ -2,7 +2,7 @@
 //! Oracle: Death Spark deals 1 damage to any target.
 //! Oracle: At the beginning of your upkeep, if this card is in your graveyard with a creature card directly above it, you may pay {1}. If you do, return this card to your hand.
 //! Set: ME2 #123 — Masters Edition II | Scryfall ID: 778d3497-2067-4d61-a322-5efb776dbaf1 | Oracle ID: 4b23a89c-89ba-41ad-b894-ec02221689eb
-// NOT SUPPORTED: checking whether a creature card is directly above this card in your graveyard is approximated by checking whether at least one creature card is above it in your graveyard.
+// NOT SUPPORTED: "a creature card directly above it" in any graveyard order. No condition names the card directly above, so the return is gated on the narrower case it can say: exactly one card above this card, and it is a creature (this never fires when the printed text would not; it misses a creature directly above with more cards on top of it).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,7 +12,7 @@ card!(
     scryfall_id = "778d3497-2067-4d61-a322-5efb776dbaf1",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     coverage = Coverage::Partial(
-        "deals 1 damage to any target, and at the beginning of your upkeep, if it is in your graveyard with at least one creature card above it, you may pay {1} to return it to your hand; requiring a creature card to be directly above it rather than anywhere above it in your graveyard is not supported",
+        "deals 1 damage to any target; at the beginning of your upkeep, if it is in your graveyard with exactly one card above it and that card is a creature card, you may pay {1} to return it to your hand; a creature card directly above it with other cards on top of that is not recognised, so the return happens less often than printed",
     ),
     faces = &[face!(
         name = "Death Spark",
@@ -40,7 +40,10 @@ card!(
                 }],
             }],
             zone = TriggerZone::Graveyard,
-            condition = Some(Condition::GraveyardCardsAbove(&Filter::CREATURE, 1)),
+            condition = Some(Condition::All(&[
+                Condition::GraveyardCardsAbove(&Filter::CREATURE, 1),
+                Condition::Not(&Condition::GraveyardCardsAbove(&Filter::Any, 2)),
+            ])),
         ),
     ],
 );

@@ -74,4 +74,10 @@ fn snow_hound_returns_itself_and_target_green_or_blue_creature_you_control_to_ha
             && in_hand(&engine, P0, grizzly_bears()).is_some(),
         "targeted green creature returned to owner's hand"
     );
+    assert!(
+        on_battlefield(&engine, P0, merfolk_of_the_pearl_trident()).is_some()
+            && on_battlefield(&engine, P0, gray_ogre()).is_some()
+            && on_battlefield(&engine, P1, grizzly_bears()).is_some(),
+        "only Snow Hound and its target return: the other blue creature, the red one and the opponent's stay"
+    );
 }

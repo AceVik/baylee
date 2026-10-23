@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::turn::Phase;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -91,5 +92,44 @@ fn phantasmal_mount_pumps_your_small_creature_and_links_both_departures_this_tur
         engine2.state().object(mount2).unwrap().zone,
         Zone::Graveyard,
         "when the targeted creature leaves the battlefield this turn, Phantasmal Mount is sacrificed"
+    );
+}
+
+#[test]
+fn phantasmal_mount_links_last_only_this_turn() {
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[phantasmal_mount(), grizzly_bears(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+
+    let mount = on_battlefield(&engine, P0, phantasmal_mount()).unwrap();
+    let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
+
+    activate(&mut engine, P0, phantasmal_mount(), 0);
+    aim_at(&mut engine, P0, bears);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(pt(&engine, bears), (3, 3));
+
+    // P0's next turn (turn 3): the pump and both departures-this-turn are over.
+    pass_until(&mut engine, |e| {
+        e.state().turn.number == 3 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert_eq!(
+        pt(&engine, bears),
+        (2, 2),
+        "the +1/+1 lasted until end of turn only"
+    );
+    cast_from_hand(&mut engine, P0, lightning_bolt());
+    aim_at(&mut engine, P0, mount);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, P0, phantasmal_mount()).is_none(),
+        "Phantasmal Mount died to the Bolt"
+    );
+    assert!(
+        on_battlefield(&engine, P0, grizzly_bears()).is_some(),
+        "'this turn' is over: Mount leaving on a later turn does not sacrifice the creature"
     );
 }

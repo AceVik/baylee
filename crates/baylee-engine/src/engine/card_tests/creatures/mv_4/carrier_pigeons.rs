@@ -35,4 +35,14 @@ fn carrier_pigeons_enters_with_flying_and_draws_a_card_at_next_turns_upkeep() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before + 1
     );
+
+    // Only the next turn's upkeep, once: on P0's own next turn it draws just the draw step's card.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
+    });
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "the Pigeons' card, then the ordinary draw; no second Pigeons card"
+    );
 }

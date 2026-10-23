@@ -12,7 +12,7 @@ card!(
     scryfall_id = "778b028f-fa4e-4638-82b4-fb287223ea20",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Partial(
-        "checking whether this creature was blocked this turn on its dies trigger is not supported; gains 4 life whenever this creature dies regardless of whether it was blocked this turn",
+        "the dies trigger 'if it was blocked this turn, you gain 4 life' is not supported: nothing reads that this creature was blocked this turn, and gaining the 4 life on every death would be more than printed, so the trigger is left off and the card is a 2/2",
     ),
     faces = &[face!(
         name = "Fyndhorn Druid",
@@ -22,8 +22,5 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    abilities = &[triggered!(
-        Trigger::Dies(&Filter::This),
-        &[Effect::gain_life(4)],
-    )],
+    // NOT SUPPORTED: "When this creature dies, if it was blocked this turn, you gain 4 life." Nothing reads "was blocked this turn" for the creature itself (`AttackedOrBlockedThisCombat` also holds when it attacked unblocked or blocked another creature, and `BlockedThisTurn` is the blocker's side), so a trigger on every death would gain life more often than printed.
 );

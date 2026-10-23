@@ -74,4 +74,33 @@ fn tornado_destroys_target_permanent_once_per_turn_and_adds_velocity_counter() {
         panic!("expected priority");
     };
     assert!(!legal.abilities.contains(&(torn, 1)));
+
+    // With a velocity counter on Tornado the next activation would cost 3
+    // life, and that payment is not played: on P0's next turn (second
+    // cumulative upkeep, {G}{G}) the ability is still not offered.
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.number > 1
+            && matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    tap_all_mana(&mut engine, p0);
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    reach_main_phase(&mut engine, p0);
+    let object = engine.state().object(torn).expect("still in play");
+    assert_eq!(object.zone, Zone::Battlefield);
+    assert_eq!(
+        object.counters.get(baylee_cards_dsl::counters::AGE),
+        2,
+        "a second age counter"
+    );
+    tap_all_mana(&mut engine, p0);
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("expected priority");
+    };
+    assert!(
+        !legal.abilities.contains(&(torn, 1)),
+        "not offered again with a velocity counter on it"
+    );
+    assert!(on_battlefield(&engine, p1, llanowar_elves()).is_some());
 }

@@ -1,6 +1,7 @@
 //! Reinforcements — {W} — Instant
 //! Oracle: Put up to three target creature cards from your graveyard on top of your library.
 //! Set: ME2 #28 — Masters Edition II | Scryfall ID: 36f250f5-e667-458d-aed7-3ead3f3db64b | Oracle ID: ff27ff96-afd2-45df-b799-3046179e27c6
+// PARTIAL — puts the first of the up-to-three targeted creature cards from your graveyard on top of your library; the other two stay.
 // NOT SUPPORTED: putting up to three target creature cards from your graveyard on top of your library in any order requires multi-target graveyard-to-top ordering in Effect::GraveyardToTop.
 
 use baylee_cards_dsl::prelude::*;

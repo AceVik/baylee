@@ -11,11 +11,15 @@ fn aether_storm() -> CardIndex {
     card_index("ff4297d3-3d96-4bd6-a606-1bdc20a6df2b")
 }
 
+fn dryad_arbor() -> CardIndex {
+    card_index("e996cd67-739c-40f4-b276-0042acf26c71")
+}
+
 #[test]
 fn aether_storm_forbids_creature_spells_until_opponent_pays_four_life_to_destroy_it() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[aether_storm(), grizzly_bears()])
+        .hand(0, &[aether_storm(), grizzly_bears(), dryad_arbor()])
         .battlefield(
             0,
             &[island(), forest(), forest(), forest(), forest(), forest()],
@@ -40,6 +44,14 @@ fn aether_storm_forbids_creature_spells_until_opponent_pays_four_life_to_destroy
         !priority_offer(&engine).castable.contains(&bears_hand),
         "Aether Storm prevents creature spells from being cast"
     );
+
+    // A land creature is played and not cast, so "creature spells can't be
+    // cast" leaves Dryad Arbor alone.
+    let arbor = in_hand(&engine, p0, dryad_arbor()).unwrap();
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: arbor })
+        .expect("Dryad Arbor is a land play, not a creature spell");
+    assert!(on_battlefield(&engine, p0, dryad_arbor()).is_some());
 
     // Pass priority to p1; p1 (the non-controller) activates Aether Storm's Pay 4 life ability.
     engine.apply(p0, PlayerAction::PassPriority).unwrap();
