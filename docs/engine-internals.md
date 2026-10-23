@@ -886,7 +886,12 @@ split rather than inside either branch, because an Aura is a targeted
 `eval::target_player_options`, with the object's own controller and source),
 which are the enumerations that offered those targets in the first place —
 one predicate read from both ends, so an offer and a re-check cannot disagree
-about what was choosable. A change of targets (CR 115.7, `resolve::retarget`)
+about what was choosable. A `TargetReq` naming `Player(You)` is an explicit
+self-target: only the controller is offered, their own hexproof permits it,
+and protection from everything forbids it both when choosing and when
+resolving. A bare `Player(You)` in an effect remains an implicit subject;
+without a target requirement it asks no target choice or target re-check.
+A change of targets (CR 115.7, `resolve::retarget`)
 asks the same function, so a redirected spell is offered only what the
 re-check would call legal (#247).
 

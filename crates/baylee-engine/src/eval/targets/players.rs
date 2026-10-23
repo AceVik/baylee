@@ -3,7 +3,7 @@
 use crate::eval::players;
 use crate::object::GameObject;
 use crate::state::GameState;
-use baylee_cards_dsl::TargetSpec;
+use baylee_cards_dsl::{PlayerRel, TargetSpec};
 use baylee_core::ids::PlayerId;
 
 /// The players a spell or ability may target.
@@ -11,11 +11,14 @@ use baylee_core::ids::PlayerId;
 /// A player is untargetable only through an effect, never through a
 /// characteristic — there is nothing on a player for a `Filter` to match —
 /// so this is a list, not a filtered enumeration like the object half.
+/// `Player(You)` here is an explicit target requirement; implicit self-effects
+/// resolve their relation directly and never ask this targeting enumerator.
 #[must_use]
 pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId) -> Vec<PlayerId> {
     if !matches!(
         spec,
         TargetSpec::AnyTarget
+            | TargetSpec::Player(PlayerRel::You)
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::PlayerWhoAttackedThisTurn
@@ -28,6 +31,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         spec,
         TargetSpec::AnyOpponent | TargetSpec::OpponentOrObject(_)
     );
+    let self_only = matches!(spec, TargetSpec::Player(PlayerRel::You));
     let attacked_only = matches!(spec, TargetSpec::PlayerWhoAttackedThisTurn);
     // Build the small seat set once instead of rescanning all effects for
     // each potential player target.
@@ -63,7 +67,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
         .players
         .iter()
         .filter(|p| {
-            if p.has_lost() || everything.contains(p.id) {
+            if p.has_lost() || everything.contains(p.id) || (self_only && p.id != you) {
                 return false;
             }
             // "Target opponent" is a choice over a smaller set, not a
@@ -94,7 +98,7 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
 /// They ride in two fields. `target_players` is the set "any target" named,
 /// and `chosen_player` is the one seat a player target named, but it is also
 /// written by choices that are not targets at all. So the second is read
-/// only for the three specs that can name a player, which is exactly the
+/// only for specs that can explicitly name a player, which is exactly the
 /// set [`target_player_options`] answers for: folding it in for any other
 /// spec would put a chosen player in front of an enumeration that never
 /// offered them.
@@ -104,6 +108,7 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
     if matches!(
         spec,
         TargetSpec::AnyTarget
+            | TargetSpec::Player(PlayerRel::You)
             | TargetSpec::AnyPlayer
             | TargetSpec::AnyOpponent
             | TargetSpec::PlayerWhoAttackedThisTurn
@@ -117,4 +122,3 @@ pub fn targeted_players(obj: &GameObject, spec: &TargetSpec) -> baylee_core::ids
     }
     players
 }
-

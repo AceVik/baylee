@@ -2137,6 +2137,9 @@ mod dauthi_tests;
 mod variable_payment_tests;
 
 #[cfg(test)]
+mod self_target_tests;
+
+#[cfg(test)]
 mod damage_resume_tests;
 
 #[cfg(test)]

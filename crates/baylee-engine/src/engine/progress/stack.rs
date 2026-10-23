@@ -266,16 +266,15 @@ impl<L: CardLookup> Engine<L> {
         chosen: &[ObjectId],
         players: bool,
     ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
-        // Two specs name no *chosen* target. `EventObject` is the object the
-        // trigger fired on, and `Player(rel)` derives its players from a
-        // relation at resolution — `resolve::players_of` reads neither list
-        // for it. Both enumerate empty by construction, so asking them this
-        // question would read every target they have as illegal.
-        if matches!(req.spec, TargetSpec::EventObject | TargetSpec::Player(_)) {
+        // Event objects and context-player relations are implicit. An explicit
+        // self-target requirement chooses a player and must be rechecked;
+        // untargeted self-effects carry no requirement through this path.
+        if matches!(req.spec, TargetSpec::EventObject)
+            || matches!(req.spec, TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You)
+        {
             return None;
         }
-        // The player half exists only for the three specs that can name one;
-        // `eval::targeted_players` says why the bound matters.
+        // Only player-target specs read the chosen-player fields.
         let chosen_players = if players {
             eval::targeted_players(obj, &req.spec)
         } else {

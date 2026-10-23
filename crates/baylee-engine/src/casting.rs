@@ -528,9 +528,10 @@ pub(crate) fn requirement_is_reachable_for(
     };
     if req.min == 0
         || req.count_is_x
+        || matches!(req.spec, baylee_cards_dsl::TargetSpec::ThisObject)
         || matches!(
             req.spec,
-            baylee_cards_dsl::TargetSpec::Player(_) | baylee_cards_dsl::TargetSpec::ThisObject
+            baylee_cards_dsl::TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You
         )
     {
         return true;
