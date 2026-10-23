@@ -540,6 +540,7 @@ impl Resolution {
         crate::text_changes::RuleContext {
             source: self.source,
             text: self.text,
+            resolved_name: self.subject.named.map(|(_, name)| name),
             // A relational filter's object: the first target, else the
             // triggering event's object (Glyph of Doom's delayed trigger
             // remembers its Wall as that).

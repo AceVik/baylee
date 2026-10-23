@@ -163,6 +163,7 @@ fn ability_context(
     RuleContext {
         source: object.id,
         text: list.base_text(index).then(object_text(state, object)),
+        resolved_name: None,
         reference: None,
     }
 }
@@ -923,6 +924,7 @@ fn collect_for_objects(
             let context = RuleContext {
                 source: permanent,
                 text,
+                resolved_name: None,
                 reference: None,
             };
             let look_back = matches!(
@@ -1135,6 +1137,7 @@ fn collect_for_objects(
             let obj_context = RuleContext {
                 source: obj.id,
                 text: list.base_text(index).then(current_text),
+                resolved_name: None,
                 reference: None,
             };
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);

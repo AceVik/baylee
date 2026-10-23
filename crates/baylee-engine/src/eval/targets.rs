@@ -631,6 +631,7 @@ fn stack_target_options_impl(
     let context = RuleContext {
         source: this,
         text: live_context(state, obj.id).text,
+        resolved_name: None,
         reference: reference.map(|reference| reference.object),
     };
     let mut objects = target_pair::stack_options(state, obj, spec, context, reference, retargeting)

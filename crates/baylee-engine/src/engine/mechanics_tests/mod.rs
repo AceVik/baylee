@@ -34,6 +34,7 @@ mod effects;
 mod flanking;
 mod mana;
 mod modal_activated;
+mod names;
 mod powerstone;
 mod preparation;
 mod tokens;

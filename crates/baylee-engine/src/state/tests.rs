@@ -1470,6 +1470,7 @@ fn mana_loop_identity_tracks_producers_without_tracking_allocation_history() {
             RuleContext {
                 source,
                 text: TextChangeMap::IDENTITY,
+                resolved_name: None,
                 reference: None,
             },
             None,

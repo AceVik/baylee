@@ -32,6 +32,7 @@ fn guards(
     let context = RuleContext {
         source: effect.source.unwrap_or(object.id),
         text: state.effect_text(effect),
+        resolved_name: None,
         reference: None,
     };
     // Status can change between two instructions before the normal static sweep.
@@ -70,6 +71,8 @@ fn guards(
             characteristics,
             controller,
             crate::text_changes::RuleContext {
+                resolved_name: None,
+
                 reference: crate::effects::still_the_object(state, id, version),
                 ..context
             },

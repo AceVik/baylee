@@ -490,6 +490,7 @@ fn applies(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: None,
             },
         ),
@@ -502,6 +503,7 @@ fn applies(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: crate::effects::still_the_object(state, *id, *version),
             },
         ),
@@ -1132,6 +1134,7 @@ fn apply(
     let context = crate::text_changes::RuleContext {
         source: fx.source.unwrap_or(obj.id),
         text: state.effect_text(fx),
+        resolved_name: None,
         reference: None,
     };
     match &context.text.modifier(fx.modifier) {

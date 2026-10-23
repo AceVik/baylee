@@ -37,6 +37,7 @@ pub(super) fn protected_from_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    resolved_name: None,
                     reference: None,
                 },
             )
@@ -85,6 +86,7 @@ pub(super) fn untargetable_by_source_object(
                 RuleContext {
                     source: fx.source.unwrap_or(source),
                     text: state.effect_text(fx),
+                    resolved_name: None,
                     reference: None,
                 },
             )

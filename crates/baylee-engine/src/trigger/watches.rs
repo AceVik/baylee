@@ -572,6 +572,7 @@ pub(super) fn attack_watch_triggers(
                 let context = crate::text_changes::RuleContext {
                     source: base.source,
                     text: base.text,
+                    resolved_name: None,
                     reference: None,
                 };
                 for entry in events.iter().filter(|entry| entry.seq > after) {

@@ -266,6 +266,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        resolved_name: None,
                         reference: None,
                     },
                     None,
@@ -634,6 +635,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        resolved_name: None,
                         reference: None,
                     },
                     None,
@@ -690,6 +692,7 @@ impl<L: CardLookup> Engine<L> {
                             crate::text_changes::RuleContext {
                                 source: t.source,
                                 text: t.text,
+                                resolved_name: None,
                                 reference: None,
                             },
                             self.trigger_wall_only(&t),
@@ -779,6 +782,7 @@ impl<L: CardLookup> Engine<L> {
                         crate::text_changes::RuleContext {
                             source: t.source,
                             text: t.text,
+                            resolved_name: None,
                             reference: None,
                         },
                         self.trigger_wall_only(&t),
@@ -803,6 +807,7 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
+                        resolved_name: None,
                         reference: None,
                     },
                     None,

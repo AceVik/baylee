@@ -200,6 +200,7 @@ impl crate::state::GameState {
                 let context = crate::text_changes::RuleContext {
                     source: id,
                     text: origin.resolve(&self.text_changes),
+                    resolved_name: None,
                     reference: None,
                 };
                 let registered = self

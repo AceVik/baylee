@@ -1094,6 +1094,7 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: None,
             },
         ),
@@ -1105,6 +1106,7 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: still_the_object(state, *id, *version),
             },
         ),

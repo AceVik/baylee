@@ -53,6 +53,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
         return RuleContext {
             source,
             text: TextChangeMap::IDENTITY,
+            resolved_name: None,
             reference: None,
         };
     }
@@ -66,6 +67,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
                     version: object.version,
                 })
             }),
+        resolved_name: None,
         reference: None,
     }
 }
@@ -169,7 +171,7 @@ pub fn matches_projected_with_context(
                             })
                     })
             }),
-        Filter::NamedBySource => names::named_by_source(state, this, chars.name),
+        Filter::NamedBySource => names::named_by_source(state, context, chars.name),
         Filter::IsToken => !obj.is_card(),
         Filter::ActivatedAbilityFrom(filter) => {
             stack_filters::activated_source_matches(filter, state, obj, you, context)

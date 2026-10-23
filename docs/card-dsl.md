@@ -1962,6 +1962,13 @@ Modal/sequence: `Sequence(&[..])`.
 `ModifyPTHalfCount(count)`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
+`Filter::NamedBySource` reads a name chosen during the current resolution
+first. `ChooseCardName` supplies that local choice whether or not `remember`
+is set and whether or not the source remains on the battlefield (CR 113.7a,
+608.2d). Without a local choice, the filter reads names remembered by the
+source's current rules acquisition. `remember` controls persistence for
+later abilities, not whether this resolution can use its choice.
+
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",
 written `static_ability!(Filter::Any, Modifier::ChosenNameCantActivate)`

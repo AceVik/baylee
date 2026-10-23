@@ -98,6 +98,7 @@ fn printed_effects(state: &GameState, source: ObjectId) -> Vec<(ContinuousEffect
             let context = RuleContext {
                 source,
                 text: origin.resolve(&state.text_changes),
+                resolved_name: None,
                 reference: None,
             };
             if ability.condition.is_some_and(|condition| {

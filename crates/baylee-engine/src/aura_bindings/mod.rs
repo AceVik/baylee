@@ -51,6 +51,7 @@ pub(crate) fn printed_restriction(
             let context = RuleContext {
                 source: aura.id,
                 text: state.ability_text(aura.id, u32::try_from(index).ok()?),
+                resolved_name: None,
                 reference: None,
             };
             effects.iter().find_map(|effect| match effect {

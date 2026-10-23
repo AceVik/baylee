@@ -287,6 +287,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: list.base_text(index),
+                    resolved_name: None,
                     reference: None,
                 };
                 if *zone != TriggerZone::Battlefield
@@ -321,6 +322,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: *text,
+                    resolved_name: None,
                     reference: None,
                 };
                 if matches_death(trigger, state, death, source, context) {

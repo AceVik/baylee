@@ -241,6 +241,7 @@ impl<L: CardLookup> Engine<L> {
             return crate::text_changes::RuleContext {
                 source,
                 text: granted.text,
+                resolved_name: None,
                 reference: None,
             };
         }
@@ -255,6 +256,7 @@ impl<L: CardLookup> Engine<L> {
         crate::text_changes::RuleContext {
             source,
             text,
+            resolved_name: None,
             reference: None,
         }
     }
@@ -319,6 +321,8 @@ impl<L: CardLookup> Engine<L> {
                     &self.state,
                     player,
                     crate::text_changes::RuleContext {
+                        resolved_name: None,
+
                         reference: Some(reference),
                         ..context
                     },

@@ -176,6 +176,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
@@ -212,6 +213,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
@@ -243,6 +245,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(source.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
@@ -330,6 +333,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: this,
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     );
