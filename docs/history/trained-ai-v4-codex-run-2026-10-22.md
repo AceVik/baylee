@@ -741,3 +741,63 @@ benchmark/probe/sampling processes had exited; training and the requested
 workstation monitor remained running. The final unittest discovery ran 21 tests:
 20 passed, the CUDA placement test was skipped in that CPU-only run (it passed
 separately earlier). The six explicit model/ONNX contract checks also passed.
+
+
+## Causal memory pass and grouped readouts (23 October, later afternoon)
+
+The user asked whether removing the remaining GPU utilization valleys could
+again double throughput. NVML reports time with at least one running kernel,
+not the fraction of peak FLOPs achieved. At the previously sampled 66% busy
+time, eliminating all idle time alone would suggest about 1/0.66 = 1.5x under
+unchanged active-kernel speed; this is a rough illustration, not a performance
+prediction or a bound on optimizations that also improve the kernels.
+
+Implemented an additional opt-in `--decision-chunk`: compute the recurrent
+memory pass in original chronological order, then group independent decision/
+value readouts using each observation's own state. The recurrent autograd chain
+remains attached; grouping is across batch lanes, never a time-attention axis.
+The optimization requires dropout=0, respects thinking budgets and candidate/
+pair size buckets, and bounds the large scorer input shapes to avoid inflating
+rare NameCard decisions. It does not truncate any frame or choice. The ordinary
+forward/export path remains available with the same checkpoint keys and ONNX
+inputs. Tests verify every policy head, K=1/2/4/8 with passive lanes, invalid-row
+memory preservation, losses, None-gradient patterns, all parameter gradients,
+validation resets/metrics, and immunity of earlier decisions to future input
+changes. Discovery: 24 tests, 23 passed and one CUDA-only optimizer test skipped;
+all six explicit model/ONNX contract checks passed.
+
+`checks/training-throughput-20261023/deferred-timing/benchmark.json` captures the
+same step 13500 checkpoint, B=8/U=32, optimizer/RNG/memory/cursor and 24 measured
+updates per variant. Here gradients are compared with the existing optimized
+production path, rather than the original slow implementation:
+
+| Readout execution | Updates/s | Peak allocated GiB | Gradient relative L2 difference |
+| --- | --- | --- | --- |
+| Existing per-frame readouts | 1.5604 | 4.370 | reference |
+| Groups of at most 4 | 1.7796 | 4.032 | 0.377% |
+| Groups of at most 8 | 1.3942 | 4.036 | 0.377% |
+
+Grouping four improved throughput by 14.0%. Group eight's median update was
+548.8 ms versus 539.8 ms for group four, but it also had a 4436 ms outlier; it was
+not adopted. No allocation retries occurred in this benchmark. Training now logs
+allocator retry counts, allowing memory-management stalls to be distinguished
+from steady compute. A previous allocator warning in the old live run recovered;
+that run subsequently passed step 13000, so the warning was not a training abort.
+
+`deferred-timing/validation.json` compares the selected group-four path against
+existing production on 64 held-out batches / 16,216 frames. Policy loss delta
+was -0.000110, value MSE delta -0.0000412, prediction-mean delta +0.0000110.
+Active accuracy changed by +0.000848: one additional correct label among 1179
+active decisions, consistent with BF16 near-tie rounding. Do not claim bitwise
+identity or a playing-strength gain. FP32 causal memory is exact in the tests.
+
+A controlled checkpoint handoff resumed step 13500 as `codex-r4-deferred-bc`,
+with decision chunk 4 and approximately 1682 seconds of the prior optimization
+budget left (derived from the old job/handoff times). The runtime and packages
+are frozen; all previous checkpoints and benchmark failures remain preserved.
+`selection.json` records the checks and `codex-r4-active.json` points here.
+After over 400 updates, the live run reported about 2.03 updates/s on that data
+portion with no allocation retries; unlike the matched 14% result, this rate
+must not be directly compared with earlier runs on different trajectory batches.
+Full validation, export equivalence and the frozen matched games still follow
+automatically. No model promotion was added.
