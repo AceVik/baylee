@@ -1144,3 +1144,10 @@ step, never silently attached to subsequent unvalidated updates. The CLI resume
 integration test checks that both saves carry the correct validation step and
 complete held-out frame count. Checkpoint selection itself is unchanged pending
 the playing-strength evidence. No model is automatically promoted.
+
+The unique selected-model K=8 evaluation subsequently completed with 32/128
+duel wins and 9/64 Commander wins (one Commander cap), versus K=1/K=4's 31 and
+10. More depth is not a monotonic strength improvement here. The old launcher
+was stopped after its unique K=8 work completed, identical remaining comparisons
+were suppressed, and `deduplication.json` records the matching hashes. The latest
+step-5748 export passed its checks and its first matched K=1 games are running.
