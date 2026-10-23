@@ -9010,52 +9010,104 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of each player's upkeep, that player chooses target player whose graveyard has fewer creature cards in it than their graveyard does and is their opponent. The first player may return a creature card from their graveyard to their hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Oath of Lieges
+    &[
+        "At the beginning of each player's upkeep, that player chooses target player who controls more lands than they do and is their opponent. The first player may search their library for a basic land card, put that card onto the battlefield, then shuffle.",
+    ],
+    // Oath of Mages
+    &[
+        "At the beginning of each player's upkeep, that player chooses target player who has more life than they do and is their opponent. The first player may have this enchantment deal 1 damage to the second player.",
+    ],
+    // Oath of Scholars
+    &[
+        "At the beginning of each player's upkeep, that player chooses target player who has more cards in hand than they do and is their opponent. The first player may discard their hand and draw three cards.",
+    ],
+    // Ogre Shaman
+    &["{2}, Discard a card at random: This creature deals 2 damage to any target."],
     // Onslaught
     &["Whenever you cast a creature spell, tap target creature."],
     // Paladin en-Vec
     &[
         "First strike, protection from black and from red (This creature deals combat damage before creatures without first strike. It can't be blocked, targeted, dealt damage, or enchanted by anything black or red.)",
     ],
-    &[],
-    &[],
+    // Pandemonium
+    &[
+        "Whenever a creature enters, that creature's controller may have it deal damage equal to its power to any target of their choice.",
+    ],
+    // Paroxysm
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player reveals the top card of their library. If that card is a land card, destroy that creature. Otherwise, it gets +3/+3 until end of turn.",
+    ],
     // Peace of Mind
     &["{W}, Discard a card: You gain 3 life."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Pegasus Stampede
+    &[
+        "Buyback—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nCreate a 1/1 white Pegasus creature token with flying.",
+    ],
+    // Penance
+    &[
+        "Put a card from your hand on top of your library: The next time a black or red source of your choice would deal damage this turn, prevent that damage.",
+    ],
+    // Pit Spawn
+    &[
+        "First strike\nAt the beginning of your upkeep, sacrifice this creature unless you pay {B}{B}.\nWhenever this creature deals damage to a creature, exile that creature.",
+    ],
+    // Plaguebearer
+    &["{X}{X}{B}: Destroy target nonblack creature with mana value X."],
     // Plated Rootwalla
     &["{2}{G}: This creature gets +3/+3 until end of turn. Activate only once each turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Predatory Hunger
+    &[
+        "Enchant creature\nWhenever an opponent casts a creature spell, put a +1/+1 counter on enchanted creature.",
+    ],
+    // Price of Progress
+    &[
+        "Price of Progress deals damage to each player equal to twice the number of nonbasic lands that player controls.",
+    ],
+    // Pygmy Troll
+    &[
+        "Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.\n{G}: Regenerate this creature.",
+    ],
+    // Rabid Wolverines
+    &[
+        "Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.",
+    ],
     // Ravenous Baboons
     &["When this creature enters, destroy target nonbasic land."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Reaping the Rewards
+    &[
+        "Buyback—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nYou gain 2 life.",
+    ],
+    // Reckless Ogre
+    &["Whenever this creature attacks alone, it gets +3/+0 until end of turn."],
+    // Reclaim
+    &["Put target card from your graveyard on top of your library."],
+    // Reconnaissance
+    &[
+        "{0}: Remove target attacking creature you control from combat and untap it. (If you activate during end of combat, the creature will untap after it deals combat damage.)",
+    ],
     // Recurring Nightmare
     &[
         "Sacrifice a creature, Return this enchantment to its owner's hand: Return target creature card from your graveyard to the battlefield. Activate only as a sorcery.",
     ],
-    &[],
+    // Resuscitate
+    &["Until end of turn, creatures you control gain \"{1}: Regenerate this creature.\""],
     // Robe of Mirrors
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature has shroud. (It can't be the target of spells or abilities.)",
     ],
     // Rootwater Alligator
     &["Sacrifice a Forest: Regenerate this creature."],
-    &[],
+    // Rootwater Mystic
+    &["{1}{U}: Look at the top card of target player's library."],
     // Sabertooth Wyvern
     &["Flying, first strike"],
-    &[],
-    &[],
+    // Scalding Salamander
+    &[
+        "Whenever this creature attacks, you may have it deal 1 damage to each creature without flying defending player controls.",
+    ],
+    // Scare Tactics
+    &["Creatures you control get +1/+0 until end of turn."],
     // School of Piranha
     &["At the beginning of your upkeep, sacrifice this creature unless you pay {1}{U}."],
     // Scrivener
@@ -9064,11 +9116,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Seismic Assault
     &["Discard a land card: This enchantment deals 2 damage to any target."],
-    &[],
-    &[],
+    // Shackles
+    &[
+        "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\n{W}: Return this Aura to its owner's hand.",
+    ],
+    // Shattering Pulse
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target artifact.",
+    ],
     // Shield Mate
     &["Sacrifice this creature: Target creature gets +0/+4 until end of turn."],
-    &[],
+    // Skyshaper
+    &["Sacrifice this artifact: Creatures you control gain flying until end of turn."],
     &[],
     &[],
     &[],
