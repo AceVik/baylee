@@ -998,13 +998,21 @@ fn matches(
             }
             match whose {
                 PlayerRel::You => *active == you,
-                PlayerRel::Opponent => state.is_opponent(*active, you),
+                // "Each opponent's upkeep" is the upkeep of whichever
+                // opponent is active, which is what "an opponent's" says.
+                PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*active, you),
                 // "At the beginning of the upkeep of enchanted land's
                 // controller" (Cursed Land): that controller's step only.
                 PlayerRel::ControllerOfAttached => {
                     crate::eval::controller_of_attached(state, source) == Some(*active)
                 }
-                _ => true,
+                PlayerRel::EachPlayer | PlayerRel::ActivePlayer => true,
+                // Every other relation names no step's player. This was a
+                // `_ => true`, and Miser's Cage's "each opponent's upkeep"
+                // fired in its controller's own upkeep too;
+                // `every_step_trigger_names_a_player_the_matcher_reads`
+                // keeps the pool off this arm.
+                _ => false,
             }
         }
         (Trigger::SearchesLibrary(rel), GameEvent::LibrarySearched { player }) => {
