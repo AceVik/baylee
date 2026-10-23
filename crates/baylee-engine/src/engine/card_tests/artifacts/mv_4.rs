@@ -79,6 +79,7 @@ mod null_brooch;
 mod otherworld_atlas;
 mod panharmonicon;
 mod pentagram_of_the_ages;
+mod phyrexian_processor;
 mod portcullis;
 mod power_armor;
 mod power_matrix;

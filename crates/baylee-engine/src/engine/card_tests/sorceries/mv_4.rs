@@ -51,6 +51,7 @@ mod ransack;
 mod reign_of_chaos;
 mod rejuvenate;
 mod relentless_assault;
+mod reprocess;
 mod resurrection;
 mod retribution;
 mod ritual_of_the_machine;

@@ -455,6 +455,7 @@ mod rockcaster_platoon;
 mod rune_scarred_demon;
 mod seraph;
 mod seraph_of_the_suns;
+mod serra_avatar;
 mod shaleskin_bruiser;
 mod shauku_endbringer;
 mod shivan_hellkite;

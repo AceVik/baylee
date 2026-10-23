@@ -111,6 +111,7 @@ mod reality_anchor;
 mod reality_ripple;
 mod reap;
 mod rebound;
+mod redeem;
 mod remedy;
 mod remove_soul;
 mod resuscitate;

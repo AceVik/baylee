@@ -141,6 +141,7 @@ mod sandbar_crocodile;
 mod sandbar_serpent;
 mod savage_gorilla;
 mod sawback_manticore;
+mod scoria_wurm;
 mod scragnoth;
 mod segmented_wurm;
 mod selenia_dark_angel;

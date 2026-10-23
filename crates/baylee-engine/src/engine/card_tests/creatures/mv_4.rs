@@ -227,6 +227,7 @@ mod reckless_embermage;
 mod reckless_ogre;
 mod reclusive_wight;
 mod restoration_angel;
+mod retromancer;
 mod reveka_wizard_savant;
 mod ridgetop_raptor;
 mod roc_of_kher_ridges;

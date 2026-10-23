@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
 /// Declares `attackers` for `seat` against `at` and stops once the
 /// declaration has been accepted.
 #[track_caller]
@@ -145,7 +144,9 @@ mod polluted_bonds;
 mod precognition;
 mod psychic_allergy;
 mod putrefaction;
+mod recantation;
 mod righteous_cause;
+mod rumbling_crescendo;
 mod safeguard;
 mod screams_of_the_damned;
 mod sigil_of_the_empty_throne;

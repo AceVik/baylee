@@ -38,6 +38,7 @@ mod prismatic_ending;
 mod prophecy;
 mod psychic_purge;
 mod raise_dead;
+mod raze;
 mod recall;
 mod reconstruction;
 mod return_to_battle;

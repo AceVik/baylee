@@ -63,6 +63,7 @@ mod repentance;
 mod screaming_fury;
 mod seeds_of_innocence;
 mod sevinne_s_reclamation;
+mod show_and_tell;
 mod soul_burn;
 mod spirit_water_revival;
 mod spoils_of_victory;

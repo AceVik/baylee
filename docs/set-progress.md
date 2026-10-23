@@ -717,3 +717,4 @@ no-engine-change contract:
   - Batch 2 (`Contamination` to `Fire Ants`, 25 cards): **16 Implemented, 9 Partial**.
   - Batch 3 (`Flesh Reaver` to `Imaginary Pet`, 25 cards): **20 Implemented, 5 Partial**.
   - Batch 4 (`Karn, Silver Golem` to `Persecute`, 25 cards): **17 Implemented, 8 Partial**.
+  - Batch 5 (`Phyrexian Colossus` to `Shower of Sparks`, 25 cards): **10 Implemented, 15 Partial**.
