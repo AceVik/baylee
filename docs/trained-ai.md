@@ -21,6 +21,11 @@ Ordinary AdamW step counters stay on the CPU on resume; only capturable/fused
 optimizers put them on the device. Optional `--fused-optimizer` is a measured
 execution choice, not a change to the model/encoder contract. Freeze these package
 directories as well as the top-level scripts when snapshotting a trainer.
+`--compile-regions` additionally compiles the repeated transformer/thinking blocks
+without changing checkpoint keys; it is optional and currently CUDA-verified.
+The optimized validator uses the same metric definitions with device-side
+reductions and float64 accumulators. Grouped BF16 execution has normal rounding
+differences; verify gradients, full validation and actual game results.
 
 Baylee's own Magic AI: a net that knows every card by its `CardIndex` alone,
 reads only what its seat may see, scores only the answers the engine offers,

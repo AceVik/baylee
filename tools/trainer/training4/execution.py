@@ -76,3 +76,12 @@ def encode_boards(net, batch, chunk, device):
         mask = mask.reshape(b, end - start, *mask.shape[1:])
         result.extend((board[:, t], mask[:, t]) for t in range(end - start))
     return result
+
+
+def compile_regions(net):
+    """Fuse repeated layers without changing state_dict keys or ONNX exports."""
+    import torch._inductor.config
+    torch._inductor.config.compile_threads = 4
+    for layer in net.trunk_layers:
+        layer.compile(dynamic=True)
+    net.thinking_block.compile(dynamic=True)

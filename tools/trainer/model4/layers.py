@@ -124,5 +124,3 @@ class ThinkingStepBlock(nn.Module):
         h = h + attn_out
         h = h + self.ff(self.norm_ff(h))
         return h
-
-

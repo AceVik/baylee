@@ -1,6 +1,7 @@
 """Execution optimizations must preserve losses, gradients and causal memory."""
 import copy
 import unittest
+from types import SimpleNamespace
 import torch
 import model4 as M
 from export_onnx4 import make_dummy_inputs
@@ -8,6 +9,8 @@ from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss
 from training4.execution import plan_batch, encode_boards
 from checkpoint4 import move_optimizer
+from training4.validation import evaluate
+from training4.validation_device import evaluate_device
 
 
 def batch_fixture(b=8, u=4):
@@ -108,6 +111,24 @@ class TrainingExecution(unittest.TestCase):
         for t in range(3):
             torch.testing.assert_close(before[t][0], after[t][0], rtol=0, atol=0)
         self.assertFalse(torch.equal(before[3][0], after[3][0]))
+
+    def test_device_validation_preserves_all_metrics_and_resets(self):
+        first, second = batch_fixture(), batch_fixture()
+        first["is_new_traj"] = torch.ones(8, dtype=torch.bool)
+        second["is_new_traj"] = torch.tensor([True,False]*4)
+        for batch in (first,second):
+            # The old validator gathered irrelevant non-single labels too.
+            batch["single_idx"][batch["head"] != 0] = 0
+        class Loader:
+            dataset = SimpleNamespace(unroll_len=4)
+            def __iter__(self): return iter((first,second))
+            def __len__(self): return 2
+        net = M.PlayerNet4(M.Config4(d_model=32,n_layers=1,n_heads=4,d_ff=64)).eval()
+        expected = evaluate(net,Loader(),torch.device("cpu"),2)
+        actual = evaluate_device(net,Loader(),torch.device("cpu"),2,board_chunk=3)
+        self.assertEqual(expected.keys(),actual.keys())
+        for key in expected:
+            self.assertAlmostEqual(actual[key],expected[key],delta=2e-6,msg=key)
 
     @unittest.skipUnless(torch.cuda.is_available(), "CUDA optimizer placement regression")
     def test_resume_keeps_unfused_adamw_steps_on_cpu(self):

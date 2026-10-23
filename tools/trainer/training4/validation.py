@@ -125,5 +125,3 @@ def evaluate(
         "val_outcome_mean": outcome_sum / denom,
         "val_frames": tot_steps,
     }
-
-

@@ -18,7 +18,7 @@ import dataset4 as D
 import model4 as M
 from checkpoint4 import move_optimizer, restore_rng
 from run_guard4 import atomic_json
-from training4.execution import plan_batch, transfer_batch, encode_boards
+from training4.execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss
 
@@ -120,6 +120,8 @@ def main():
         fused = variant.endswith("-fused")
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
         net.load_state_dict(saved["state_dict"])
+        if variant.endswith("-regional"):
+            compile_regions(net)
         value_params = [p for n,p in net.named_parameters() if "seat_value_head" in n]
         other_params = [p for n,p in net.named_parameters() if "seat_value_head" not in n]
         optimizer = torch.optim.AdamW([{"params":other_params}, {"params":value_params}], fused=True if fused else None)

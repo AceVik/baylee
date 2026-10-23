@@ -74,5 +74,3 @@ class Config4:
 
 def symlog(x: torch.Tensor) -> torch.Tensor:
     return torch.sign(x) * torch.log1p(torch.abs(x))
-
-

@@ -99,5 +99,3 @@ def compute_step_loss(
         "total_single": total_single,
     }
     return total_loss, stats
-
-

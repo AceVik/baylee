@@ -31,8 +31,9 @@ from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
 
 from .loss import compute_step_loss
 from .validation import evaluate
+from .validation_device import evaluate_device
 from .device_loss import compute_device_loss
-from .execution import plan_batch, transfer_batch, encode_boards
+from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
 
 
 def main() -> None:
@@ -68,6 +69,7 @@ def main() -> None:
     ap.add_argument("--reference-execution", action="store_true", help="Use the original synchronized execution for A/B checks")
     ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
     ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
+    ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
     args = ap.parse_args()
 
     torch.set_num_threads(4)
@@ -203,13 +205,19 @@ def main() -> None:
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "best_score": best_score}, out_dir / "last.pt")
 
+    if args.compile_regions:
+        if device.type != "cuda":
+            raise ValueError("Regional compilation is currently verified on CUDA only")
+        compile_regions(net)
+
     def validate_and_save():
         nonlocal best_score, best_state, best_val_metrics, best_step
         nonlocal last_validation_step, last_validation_metrics
         if last_validation_step == step_num:
             return last_validation_metrics
         was_training = net.training
-        metrics = evaluate(net, val_loader, device, args.thinking_steps)
+        metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
+                   else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk))
         net.train(was_training)
         score = metrics["val_pol_loss"] + 2.0 * metrics["val_mse"]
         if score < best_score:
