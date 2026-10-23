@@ -8573,47 +8573,98 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Morgue Thrull
     &["Sacrifice this creature: Mill three cards."],
-    &[],
+    // Mortuary
+    &[
+        "Whenever a creature is put into your graveyard from the battlefield, put that card on top of your library.",
+    ],
     // Mox Diamond
     &[
         "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add one mana of any color.",
     ],
-    &[],
-    &[],
+    // Mulch
+    &[
+        "Reveal the top four cards of your library. Put all land cards revealed this way into your hand and the rest into your graveyard.",
+    ],
+    // Nomads en-Kor
+    &[
+        "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.",
+    ],
     // Overgrowth
     &[
         "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}{G}.",
     ],
-    &[],
+    // Portcullis
+    &[
+        "Whenever a creature enters, if there are two or more other creatures on the battlefield, exile that creature. Return that card to the battlefield under its owner's control when this artifact leaves the battlefield.",
+    ],
     // Primal Rage
     &[
         "Creatures you control have trample. (A creature with trample can deal excess combat damage to the player or planeswalker it's attacking.)",
     ],
-    &[],
-    &[],
+    // Provoke
+    &[
+        "Untap target creature you don't control. That creature blocks this turn if able.\nDraw a card.",
+    ],
+    // Pursuit of Knowledge
+    &[
+        "If you would draw a card, you may put a study counter on this enchantment instead.\nRemove three study counters from this enchantment, Sacrifice this enchantment: Draw seven cards.",
+    ],
     // Rabid Rats
     &["{T}: Target blocking creature gets -1/-1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Ransack
+    &[
+        "Look at the top five cards of target player's library. Put any number of them on the bottom of that library in any order and the rest on top of the library in any order.",
+    ],
+    // Rebound
+    &[
+        "Change the target of target spell that targets only a player. The new target must be a player.",
+    ],
+    // Reins of Power
+    &[
+        "Untap all creatures you control and all creatures target opponent controls. You and that opponent each gain control of all creatures the other controls until end of turn. Those creatures gain haste until end of turn.",
+    ],
     // Rolling Stones
     &["Wall creatures can attack as though they didn't have defender."],
     // Ruination
     &["Destroy all nonbasic lands."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sacred Ground
+    &[
+        "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.",
+    ],
+    // Samite Blessing
+    &[
+        "Enchant creature\nEnchanted creature has \"{T}: The next time a source of your choice would deal damage to target creature this turn, prevent that damage.\"",
+    ],
+    // Scapegoat
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nReturn any number of target creatures you control to their owner's hand.",
+    ],
+    // Seething Anger
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget creature gets +3/+0 until end of turn.",
+    ],
+    // Shaman en-Kor
+    &[
+        "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.\n{1}{W}: The next time a source of your choice would deal damage to target creature this turn, that damage is dealt to this creature instead.",
+    ],
+    // Shard Phoenix
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nSacrifice this creature: It deals 2 damage to each creature without flying.\n{R}{R}{R}: Return this card from your graveyard to your hand. Activate only during your upkeep.",
+    ],
     // Shifting Wall
     &["Defender (This creature can't attack.)\nThis creature enters with X +1/+1 counters on it."],
     // Shock
     &["Shock deals 2 damage to any target."],
     // Sift
     &["Draw three cards, then discard a card."],
-    &[],
-    &[],
+    // Silver Wyvern
+    &[
+        "Flying\n{U}: Change the target of target spell or ability that targets only this creature. The new target must be a creature.",
+    ],
+    // Skeleton Scavengers
+    &[
+        "This creature enters with a +1/+1 counter on it.\nPay {1} for each +1/+1 counter on this creature: Regenerate this creature. When it regenerates this way, put a +1/+1 counter on it.",
+    ],
     // Skyshroud Archer
     &["{T}: Target creature with flying gets -1/-1 until end of turn."],
     // Skyshroud Falcon
@@ -8622,8 +8673,12 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {G}."],
     // Sliver Queen
     &["{2}: Create a 1/1 colorless Sliver creature token."],
-    &[],
-    &[],
+    // Smite
+    &["Destroy target blocked creature."],
+    // Soltari Champion
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever this creature attacks, other creatures you control get +1/+1 until end of turn.",
+    ],
     // Spike Breeder
     &[
         "This creature enters with three +1/+1 counters on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.\n{2}, Remove a +1/+1 counter from this creature: Create a 1/1 green Spike creature token.",
@@ -8646,8 +8701,14 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Spindrift Drake
     &["Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {U}."],
-    &[],
-    &[],
+    // Spined Sliver
+    &[
+        "Whenever a Sliver becomes blocked, that Sliver gets +1/+1 until end of turn for each creature blocking it.",
+    ],
+    // Spirit en-Kor
+    &[
+        "Flying\n{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.",
+    ],
     // Spitting Hydra
     &[
         "This creature enters with four +1/+1 counters on it.\n{1}{R}, Remove a +1/+1 counter from this creature: It deals 1 damage to target creature.",
@@ -8658,9 +8719,18 @@ pub static ORACLE: &[&[&str]] = &[
     &["Other black creatures get -1/-1."],
     // Sword of the Chosen
     &["{T}: Target legendary creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Temper
+    &[
+        "Prevent the next X damage that would be dealt to target creature this turn. For each 1 damage prevented this way, put a +1/+1 counter on that creature.",
+    ],
+    // Tempting Licid
+    &[
+        "{G}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {G} to end this effect.\nAll creatures able to block enchanted creature do so.",
+    ],
+    // Thalakos Deceiver
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever this creature attacks and isn't blocked, you may sacrifice it. If you do, gain control of target creature. (This effect lasts indefinitely.)",
+    ],
     // Tidal Warrior
     &["{T}: Target land becomes an Island until end of turn."],
     // Torment
@@ -8669,7 +8739,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{B}, Discard a creature card: Return target creature card from your graveyard to your hand.",
     ],
-    &[],
+    // Verdant Touch
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget land becomes a 2/2 creature that's still a land. (This effect lasts indefinitely.)",
+    ],
     // Victual Sliver
     &["All Slivers have \"{2}, Sacrifice this permanent: You gain 4 life.\""],
     &[],

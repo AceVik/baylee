@@ -225,6 +225,9 @@ pub const MAGNET: CounterKind = CounterKind::Custom(59);
 /// Pain counters (Torture Chamber).
 pub const PAIN: CounterKind = CounterKind::Custom(60);
 
+/// Study counters (Pursuit of Knowledge).
+pub const STUDY: CounterKind = CounterKind::Custom(61);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -291,6 +294,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("treasure", TREASURE),
     ("magnet", MAGNET),
     ("pain", PAIN),
+    ("study", STUDY),
 ];
 
 #[cfg(test)]

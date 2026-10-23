@@ -1074,7 +1074,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Stronghold (`sth`) Batch 2 adds 4 non-mana activated abilities across
     // Gliding Licid, Hornet Cannon, Jinxed Ring, and Mindwarper, of which 1 is
     // read by the evaluator.
-    assert_eq!((read, of), (2767, 3489), "activated/loyalty reader census");
+    // Stronghold (`sth`) Batch 3 adds 6 non-mana activated abilities across
+    // Pursuit of Knowledge, Samite Blessing, Shard Phoenix (2), Silver Wyvern,
+    // Skeleton Scavengers, and Tempting Licid, of which 3 are read by the
+    // evaluator.
+    assert_eq!((read, of), (2770, 3495), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
