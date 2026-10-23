@@ -37,7 +37,10 @@ Content Policy. It is not approved, endorsed, sponsored, or affiliated with
 Wizards of the Coast. Portions of the materials used (card names, rules text,
 and imagery when displayed by clients) are property of Wizards of the Coast,
 © Wizards of the Coast LLC. No Wizards of the Coast assets are distributed
-in this repository.
+in this repository, with one exception: the recordings of the game in
+docs/images/readme/ and web/site/img/ show card images as the client draws
+them. Those card images are © Wizards of the Coast, provided by Scryfall,
+and are not covered by this repository's licence (docs/legal.md §3).
 
 Card data and images are provided by Scryfall (https://scryfall.com) under
 its API terms. This project honors Scryfall's rate limits and caches images

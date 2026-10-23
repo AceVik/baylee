@@ -23,7 +23,8 @@ unofficial, non-commercial fan project.
 - **Hidden information is unrepresentable** in a view, and the gateway runs
   no rules (`docs/architecture.md`, `docs/protocol.md`).
 - **Legal guardrails** bind every change to what a player sees: never copy
-  the card-script corpus, no WotC assets, check the rules we depend on, and
+  the card-script corpus, no WotC assets (recordings of the game showing its
+  card images are the one exception), check the rules we depend on, and
   stop and say so when something is clearly forbidden
   (`docs/legal.md` §"Guardrails for every change").
 - **Never run full `codegen` without the corpus**: it rewrites every

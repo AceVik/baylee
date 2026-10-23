@@ -17,7 +17,9 @@ this check, so no claim of newly verified Scryfall wording is made here.
 
 ## Guardrails for every change
 
-- Unofficial non-commercial fan project. No WotC assets in the repo.
+- Unofficial non-commercial fan project. No WotC assets in the repo, except
+  the card images inside recordings of the game (§3, "Recordings of the game
+  show its card images").
 - The card-script reference is an external, GPL-licensed corpus that codegen
   may read as an automated lookup from a local checkout. No file of it is
   ever copied into this repository or distributed with it. `NOTICE` names it

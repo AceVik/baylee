@@ -44,11 +44,12 @@ On the owner's MacBook, use the **built-in display** (owner, 22.10.2026: he
 works on the external screens). The main display there is external, so
 `primary` is wrong, and the built-in display's index changes with the screens
 attached (it was 1 with two external screens, 0 with one, the same day).
-`/monitors` names every screen `Monitor #…`, so pick the built-in by its size:
-3456×2234 px at scale 2 on this MacBook (`CGGetActiveDisplayList` with
-`CGDisplayIsBuiltin` gives the order without starting a client). Confirm right
-after launch that the window is on it, and close the client at once if it
-opened anywhere else.
+`/monitors` names every screen `Monitor #…`, and its pixel size follows the
+owner's resolution setting (3456×2234 and 4112×2658 were both seen), so find
+it by asking macOS: `CGGetActiveDisplayList` with `CGDisplayIsBuiltin` (a short
+Swift script, no client needed) gives its index and bounds, which match one
+`/monitors` rectangle. Confirm right after launch that the window is on it,
+and close the client at once if it opened anywhere else.
 
 ```bash
 XDG_CONFIG_HOME=/tmp/baylee-qa/config XDG_CACHE_HOME=/tmp/baylee-qa/cache \
