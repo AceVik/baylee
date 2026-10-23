@@ -95,6 +95,7 @@ mod kjeldoran_royal_guard;
 mod kodama_of_the_north_tree;
 mod kookus;
 mod krovikan_vampire;
+mod lancers_en_kor;
 mod lichenthrope;
 mod lithophage;
 mod lovisa_coldeyes;

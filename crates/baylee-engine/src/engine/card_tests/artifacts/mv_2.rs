@@ -46,6 +46,7 @@ mod jabari_s_banner;
 mod jandor_s_saddlebags;
 mod jet_medallion;
 mod jinxed_idol;
+mod jinxed_ring;
 mod journeyer_s_kite;
 mod kraken_s_eye;
 mod kry_shield;

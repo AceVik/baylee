@@ -50,6 +50,7 @@ mod gruul_war_plow;
 mod hedron_archive;
 mod helm_of_obedience;
 mod helm_of_possession;
+mod hornet_cannon;
 mod ice_cauldron;
 mod icy_manipulator;
 mod infinite_hourglass;

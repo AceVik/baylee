@@ -47,6 +47,8 @@ mod goblin_oriflamme;
 mod gossamer_chains;
 mod hallowed_ground;
 mod havoc;
+mod heat_of_battle;
+mod hesitation;
 mod homarid_spawning_bed;
 mod honor_of_the_pure;
 mod iceberg;

@@ -34,6 +34,7 @@ mod infernal_harvest;
 mod kaervek_s_purge;
 mod mana_severance;
 mod martyr_s_cry;
+mod mob_justice;
 mod monstrous_growth;
 mod nature_s_lore;
 mod neoform;

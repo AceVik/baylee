@@ -24,6 +24,7 @@ mod library_of_lat_nam;
 mod living_death;
 mod makindi_stampede;
 mod mana_geyser;
+mod mogg_infestation;
 mod natural_spring;
 mod overrun;
 mod psychic_transfer;
