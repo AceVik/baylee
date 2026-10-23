@@ -1,3 +1,4 @@
+mod modal_subsets;
 mod spell_grants;
 
 use super::*;

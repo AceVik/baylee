@@ -1,8 +1,8 @@
 //! Which printed sentence each mode of a modal ability came from.
 
-use baylee_cards_dsl::SpellMode;
+use baylee_cards_dsl::{SpellMode, effect::Effect};
 
-use super::{LineShape, cost_fits, line_shape, sentences};
+use super::{LineShape, cost_fits, line_shape, sentences, without_reminder};
 
 /// The bullet a modal card lists its modes under.
 const BULLET: char = '\u{2022}';
@@ -27,8 +27,11 @@ fn is_mode_line(line: &str) -> bool {
 /// Two printings, and the text says which. A card that prints `Choose one —`
 /// — or `choose up to one —`, where one mode does nothing and is how a
 /// player declines — lists its modes as bullets, one per mode that does
-/// something, in order. The other shape is **overload**, which prints no
-/// bullet at all: the card's body, and a keyword line naming the other
+/// something, in order. A compiled subset can omit printed modes: each
+/// retained mode must then have one unambiguous effect-word match, with
+/// different modes owning different bullets. Unknown effects and ambiguous
+/// matches refuse the whole subset. The other shape is **overload**, which
+/// prints no bullet at all: the card's body, and a keyword line naming the other
 /// cost. There, a mode with a `cost_override` finds the keyword line
 /// printing that cost and a mode without one is the body, and both halves
 /// have to come out to exactly the right count or the card is refused.
@@ -41,7 +44,7 @@ fn is_mode_line(line: &str) -> bool {
 /// charge counters" — which is a mode with no sentence of its own, and a
 /// number is the better label for it.
 ///
-/// It reads modes and not abilities, so it is not part of [`map`]: an
+/// It reads modes and not abilities, so it is not part of [`super::map`]: an
 /// `AbilityDef::ModalSpell` is [`LineShape::Other`] there, which is the
 /// right answer for the ability — the whole card is its text — and no
 /// answer at all for the modes inside it.
@@ -83,11 +86,13 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
             .collect();
         let declines = modes.len() - spoken.len();
         let optional = oracle.to_lowercase().contains("choose up to");
-        // A bullet count that disagrees with the mode count is the printing
-        // and the code describing different cards, which is exactly the
-        // case where walking them in step is confidently wrong.
-        if bullets.len() != spoken.len() || (declines > 0 && !(optional && declines == 1)) {
+        // More compiled modes than printed bullets is never a subset.
+        // A missing compiled mode must not shift the labels of those kept.
+        if bullets.len() < spoken.len() || (declines > 0 && !(optional && declines == 1)) {
             return refuse();
+        }
+        if bullets.len() > spoken.len() {
+            return map_subset(modes, &spoken, &bullets, &lines).unwrap_or_else(refuse);
         }
         let mut found = vec![None; modes.len()];
         for (at, line) in spoken.iter().zip(&bullets) {
@@ -137,4 +142,51 @@ pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
         found[*at] = u8::try_from(line).ok();
     }
     found
+}
+
+/// Match a retained subset only when every mode has exactly one distinct bullet.
+fn map_subset(
+    modes: &[SpellMode],
+    spoken: &[usize],
+    bullets: &[usize],
+    lines: &[&str],
+) -> Option<Vec<Option<u8>>> {
+    let mut found = vec![None; modes.len()];
+    for &at in spoken {
+        let mode = &modes[at];
+        // Cost-bearing choices need a reader for both the cost and effect.
+        if mode.cost_override.is_some() || mode.additional_cost.is_some() {
+            return None;
+        }
+        let mut hits = bullets.iter().copied().filter(|&line| {
+            let lower = without_reminder(lines[line]).to_lowercase();
+            !mode.effects.is_empty()
+                && mode
+                    .effects
+                    .iter()
+                    .all(|effect| effect_fits(effect, &lower))
+        });
+        let line = u8::try_from(hits.next()?).ok()?;
+        if hits.next().is_some() || found.contains(&Some(line)) {
+            return None;
+        }
+        found[at] = Some(line);
+    }
+    Some(found)
+}
+
+/// Narrow effect-word discriminators; an unread effect cannot claim a bullet.
+/// These identify provenance, not completeness or the correctness of a card.
+fn effect_fits(effect: &Effect, lower: &str) -> bool {
+    let words: Vec<&str> = lower
+        .split(|c: char| !c.is_alphabetic())
+        .filter(|word| !word.is_empty())
+        .collect();
+    match effect {
+        Effect::Mill { .. } => words.iter().any(|word| matches!(*word, "mill" | "mills")),
+        Effect::PhaseOut { .. } => words
+            .windows(2)
+            .any(|pair| matches!(pair[0], "phase" | "phases") && pair[1] == "out"),
+        _ => false,
+    }
 }
