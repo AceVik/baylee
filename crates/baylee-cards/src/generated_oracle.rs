@@ -11042,15 +11042,30 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{G}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
     ],
-    &[],
-    &[],
+    // Apprentice Necromancer
+    &[
+        "{B}, {T}, Sacrifice this creature: Return target creature card from your graveyard to the battlefield. That creature gains haste. At the beginning of the next end step, sacrifice it.",
+    ],
+    // Archery Training
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put an arrow counter on this Aura.\nEnchanted creature has \"{T}: This creature deals X damage to target attacking or blocking creature, where X is the number of arrow counters on Archery Training.\"",
+    ],
     // Attrition
     &["{B}, Sacrifice a creature: Destroy target nonblack creature."],
-    &[],
+    // Aura Thief
+    &[
+        "Flying\nWhen this creature dies, you gain control of all enchantments. (You don't get to move Auras.)",
+    ],
     // Blizzard Elemental
     &["Flying\n{3}{U}: Untap this creature."],
-    &[],
-    &[],
+    // Bloodshot Cyclops
+    &[
+        "{T}, Sacrifice a creature: This creature deals damage equal to the sacrificed creature's power to any target.",
+    ],
+    // Body Snatcher
+    &[
+        "When this creature enters, exile it unless you discard a creature card.\nWhen this creature dies, exile it and return target creature card from your graveyard to the battlefield.",
+    ],
     // Braidwood Cup
     &["{T}: You gain 1 life."],
     // Braidwood Sextant
@@ -11059,10 +11074,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Brass Secretary
     &["{2}, Sacrifice this creature: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Brine Seer
+    &[
+        "{2}{U}, {T}: Reveal any number of blue cards in your hand. Counter target spell unless its controller pays {1} for each card revealed this way.",
+    ],
+    // Bubbling Beebles
+    &["This creature can't be blocked as long as defending player controls an enchantment."],
+    // Bubbling Muck
+    &[
+        "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+    ],
+    // Caltrops
+    &["Whenever a creature attacks, this artifact deals 1 damage to it."],
     // Capashen Knight
     &[
         "First strike (This creature deals combat damage before creatures without first strike.)\n{1}{W}: This creature gets +1/+0 until end of turn.",
@@ -11077,40 +11100,76 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nWhen this Aura is put into a graveyard from the battlefield, destroy target nonblack creature.",
     ],
-    &[],
+    // Cinder Seer
+    &[
+        "{2}{R}, {T}: Reveal any number of red cards in your hand. This creature deals X damage to any target, where X is the number of cards revealed this way.",
+    ],
     // Colos Yearling
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)\n{R}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
+    // Compost
+    &[
+        "Whenever a black card is put into an opponent's graveyard from anywhere, you may draw a card.",
+    ],
     // Covetous Dragon
     &["Flying\nWhen you control no artifacts, sacrifice this creature."],
-    &[],
+    // Disappear
+    &["Enchant creature\n{U}: Return enchanted creature and this Aura to their owners' hands."],
     // Disease Carriers
     &["When this creature dies, target creature gets -2/-2 until end of turn."],
-    &[],
+    // Donate
+    &["Target player gains control of target permanent you control."],
     // Dying Wail
     &["Enchant creature\nWhen enchanted creature dies, target player discards two cards."],
     // Elvish Lookout
     &["Shroud (This creature can't be the target of spells or abilities.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Elvish Piper
+    &["{G}, {T}: You may put a creature card from your hand onto the battlefield."],
+    // Emperor Crocodile
+    &["When you control no other creatures, sacrifice this creature."],
+    // Encroach
+    &[
+        "Target player reveals their hand. You choose a nonbasic land card from it. That player discards that card.",
+    ],
+    // Eradicate
+    &[
+        "Exile target nonblack creature. Search its controller's graveyard, hand, and library for all cards with the same name as that creature and exile them. Then that player shuffles.",
+    ],
+    // Extruder
+    &[
+        "Echo {4} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nSacrifice an artifact: Put a +1/+1 counter on target creature.",
+    ],
+    // Fatigue
+    &["Target player skips their next draw step."],
+    // Fend Off
+    &[
+        "Prevent all combat damage that would be dealt by target creature this turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Festering Wound
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put an infection counter on this Aura.\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals X damage to that player, where X is the number of infection counters on this Aura.",
+    ],
     // Field Surgeon
     &[
         "Tap an untapped creature you control: Prevent the next 1 damage that would be dealt to target creature this turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Flame Jet
+    &[
+        "Flame Jet deals 3 damage to target player or planeswalker.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Fledgling Osprey
+    &["This creature has flying as long as it's enchanted."],
+    // Flicker
+    &[
+        "Exile target nontoken permanent, then return it to the battlefield under its owner's control.",
+    ],
     // Fodder Cannon
     &["{4}, {T}, Sacrifice a creature: This artifact deals 4 damage to target creature."],
-    &[],
+    // Gamekeeper
+    &[
+        "When this creature dies, you may exile it. If you do, reveal cards from the top of your library until you reveal a creature card. Put that card onto the battlefield and put all other cards revealed this way into your graveyard.",
+    ],
     // Goblin Berserker
     &["First strike, haste"],
     &[],

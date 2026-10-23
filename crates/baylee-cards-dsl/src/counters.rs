@@ -240,6 +240,9 @@ pub const PETAL: CounterKind = CounterKind::Custom(64);
 /// Soot counters (Smokestack).
 pub const SOOT: CounterKind = CounterKind::Custom(65);
 
+/// Arrow counters (Archery Training).
+pub const ARROW: CounterKind = CounterKind::Custom(66);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -311,6 +314,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("verse", VERSE),
     ("petal", PETAL),
     ("soot", SOOT),
+    ("arrow", ARROW),
 ];
 
 #[cfg(test)]
