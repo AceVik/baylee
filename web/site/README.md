@@ -146,8 +146,10 @@ when a visitor sends the contact form, and, for an opened set, Scryfall's
 image host: the fonts (Faustina,
 Alegreya Sans; subsets of the client's own files, OFL 1.1, licences beside
 them in `fonts/`), the painting and the logo (ours, `docs/legal.md` §10)
-and the screenshots (`docs/images/readme/`, Baylee's text view, no card
-image) are in this folder. No analytics, no cookies.
+and the screenshots (recordings of the client; those at the table and in
+the deck builder show card images © Wizards of the Coast from Scryfall,
+credited under the pictures and in `img/README.md`) are in this folder. No
+analytics, no cookies.
 
 ## The Impressum
 
