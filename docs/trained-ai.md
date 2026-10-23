@@ -28,6 +28,10 @@ key/value projections within one multi-step decision. The projections retain
 their autograd history and are discarded after that forward call; they never
 carry across observations or optimizer updates. This adds no persistent model
 state and leaves the portable ONNX inference path unchanged.
+`--prune-unused-policy-heads` omits only policy branches absent from the current
+frame's supervised loss. It keeps value/auxiliary supervision and every memory
+update, including passive observations. Suppressed logits are placeholders for
+training only; ordinary inference/export computes every policy output.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.

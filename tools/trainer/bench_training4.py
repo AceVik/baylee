@@ -47,7 +47,8 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
         with torch.autocast("cuda", dtype=torch.bfloat16):
             out = net(*[batch[n][:, t].cuda() for n in M.INPUT_NAMES[:15]], h, thinking,
                       execution_hint=None if reference else plans[t].hint,
-                      encoded_board=None if boards is None else boards[t])
+                      encoded_board=None if boards is None else boards[t],
+                      policy_heads=plans[t].heads if not reference and getattr(net, "prune_unused_policy_heads", False) else None)
             aux = net.aux_head(out[0][:, 0])
         args = (*[x.float() for x in out[1:]], aux.float(), batch, t)
         if reference:
@@ -126,6 +127,8 @@ def main():
         net.load_state_dict(saved["state_dict"])
         if "cached" in variant.split("-"):
             net.cache_thinking_kv = True
+        if "selected" in variant.split("-"):
+            net.prune_unused_policy_heads = True
         if "regional" in variant.split("-"):
             compile_regions(net)
         elif "graphs" in variant.split("-"):

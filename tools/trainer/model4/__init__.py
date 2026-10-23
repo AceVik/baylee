@@ -208,6 +208,7 @@ class PlayerNet4(nn.Module):
         thinking_steps: torch.Tensor,
         execution_hint: tuple[int, int, int] | None = None,
         encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
+        policy_heads: tuple[bool, bool, bool, bool] | None = None,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
@@ -280,42 +281,52 @@ class PlayerNet4(nn.Module):
         s_ref = z_out[:, 1:RECURRENT_SLOTS]  # [B, 8, d]
         e_ref = board[:, RECURRENT_SLOTS:]  # [B, E, d]
 
-        # Candidate scoring (`cand_logits: [B, C]`)
-        c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl))
+        # Training may omit heads absent from the loss for this frame. The
+        # default computes every output for inference and portable ONNX export.
+        if policy_heads is None or policy_heads[0] or policy_heads[1]:
+            # Candidate scoring (`cand_logits: [B, C]`)
+            c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl))
 
-        ent_idx_clamped = cand_entity_idx.clamp(min=0)
-        has_ent = cand_entity_idx >= 0
-        c_ent = torch.gather(
-            e_ref, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
-        ) * has_ent.unsqueeze(-1).to(e_ref.dtype)
+            ent_idx_clamped = cand_entity_idx.clamp(min=0)
+            has_ent = cand_entity_idx >= 0
+            c_ent = torch.gather(
+                e_ref, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
+            ) * has_ent.unsqueeze(-1).to(e_ref.dtype)
 
-        seat_idx_clamped = cand_seat_idx.clamp(0, MAX_SEATS - 1)
-        has_seat = (cand_seat_idx >= 0) & (cand_seat_idx < MAX_SEATS)
-        c_seat = torch.gather(
-            s_ref, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
-        ) * has_seat.unsqueeze(-1).to(s_ref.dtype)
+            seat_idx_clamped = cand_seat_idx.clamp(0, MAX_SEATS - 1)
+            has_seat = (cand_seat_idx >= 0) & (cand_seat_idx < MAX_SEATS)
+            c_seat = torch.gather(
+                s_ref, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
+            ) * has_seat.unsqueeze(-1).to(s_ref.dtype)
 
-        g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
-        cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-        cand_logits = self.cand_scorer(cand_in).squeeze(-1)
-        cand_logits = cand_logits.masked_fill(~cand_mask, -1e9)
+            g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
+            cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
+            cand_logits = self.cand_scorer(cand_in).squeeze(-1)
+            cand_logits = cand_logits.masked_fill(~cand_mask, -1e9)
+        else:
+            cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
 
-        # Blocker-Attacker Pair scoring (`pair_logits: [B, P]`)
-        blk_idx = pair_index[:, :, 0].clamp(min=0)
-        atk_idx = pair_index[:, :, 1].clamp(min=0)
-        blk_tok = self.pair_blk_proj(
-            torch.gather(e_ref, 1, blk_idx.unsqueeze(-1).expand(-1, -1, d))
-        )
-        atk_tok = self.pair_atk_proj(
-            torch.gather(e_ref, 1, atk_idx.unsqueeze(-1).expand(-1, -1, d))
-        )
-        g_pair = g_ref.unsqueeze(1).expand_as(blk_tok)
-        pair_in = torch.cat([blk_tok, atk_tok, blk_tok * atk_tok + g_pair], dim=-1)
-        pair_logits = self.pair_scorer(pair_in).squeeze(-1)
-        pair_logits = pair_logits.masked_fill(~pair_mask, -1e9)
+        if policy_heads is None or policy_heads[2]:
+            # Blocker-Attacker Pair scoring (`pair_logits: [B, P]`)
+            blk_idx = pair_index[:, :, 0].clamp(min=0)
+            atk_idx = pair_index[:, :, 1].clamp(min=0)
+            blk_tok = self.pair_blk_proj(
+                torch.gather(e_ref, 1, blk_idx.unsqueeze(-1).expand(-1, -1, d))
+            )
+            atk_tok = self.pair_atk_proj(
+                torch.gather(e_ref, 1, atk_idx.unsqueeze(-1).expand(-1, -1, d))
+            )
+            g_pair = g_ref.unsqueeze(1).expand_as(blk_tok)
+            pair_in = torch.cat([blk_tok, atk_tok, blk_tok * atk_tok + g_pair], dim=-1)
+            pair_logits = self.pair_scorer(pair_in).squeeze(-1)
+            pair_logits = pair_logits.masked_fill(~pair_mask, -1e9)
+        else:
+            pair_logits = torch.zeros_like(pair_mask, dtype=board.dtype).masked_fill(~pair_mask, -1e9)
 
         # Scalar value prediction (`scalar_pred: [B]`)
-        scalar_pred = torch.sigmoid(self.scalar_head(g_ref)).squeeze(-1)
+        scalar_pred = (torch.sigmoid(self.scalar_head(g_ref)).squeeze(-1)
+                       if policy_heads is None or policy_heads[3]
+                       else torch.zeros(B, device=device, dtype=g_ref.dtype))
 
         # Multiplayer seat value distribution (`seat_win_logits: [B, 8]`, `value: [B]`)
         seat0_mask = torch.arange(MAX_SEATS, device=device).unsqueeze(0) == 0
@@ -360,6 +371,7 @@ class PlayerNet4(nn.Module):
         thinking_steps: torch.Tensor,
         execution_hint: tuple[int, int, int] | None = None,
         encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
+        policy_heads: tuple[bool, bool, bool, bool] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         h_out, cand_logits, pair_logits, scalar_pred, value, _ = (
             self.forward_with_seat_logits(
@@ -382,6 +394,7 @@ class PlayerNet4(nn.Module):
                 thinking_steps,
                 execution_hint=execution_hint,
                 encoded_board=encoded_board,
+                policy_heads=policy_heads,
             )
         )
         return h_out, cand_logits, pair_logits, scalar_pred, value

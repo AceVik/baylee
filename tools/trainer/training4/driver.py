@@ -71,6 +71,7 @@ def main() -> None:
     ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
     ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
     ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
+    ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
     args = ap.parse_args()
 
     torch.set_num_threads(4)
@@ -138,6 +139,7 @@ def main() -> None:
     )
     net = M.PlayerNet4(cfg).to(device)
     net.cache_thinking_kv = args.cache_thinking_kv
+    net.prune_unused_policy_heads = args.prune_unused_policy_heads
     if args.init:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
@@ -310,6 +312,7 @@ def main() -> None:
                         k_tensor,
                         execution_hint=None if plans is None else plans[t].hint,
                         encoded_board=None if boards is None else boards[t],
+                        policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None,
                     )
                     aux_p = net.aux_head(h_next[:, 0])
                 loss_function = compute_step_loss if plans is None else compute_device_loss

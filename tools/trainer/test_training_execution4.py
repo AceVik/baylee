@@ -145,6 +145,10 @@ class TrainingExecution(unittest.TestCase):
         self.assertEqual(expected.keys(),actual.keys())
         for key in expected:
             self.assertAlmostEqual(actual[key],expected[key],delta=2e-6,msg=key)
+        net.prune_unused_policy_heads = True
+        pruned = evaluate_device(net,Loader(),torch.device("cpu"),2,board_chunk=3)
+        for key in expected:
+            self.assertAlmostEqual(pruned[key],expected[key],delta=2e-6,msg=key)
 
     @unittest.skipUnless(torch.cuda.is_available(), "CUDA optimizer placement regression")
     def test_resume_keeps_unfused_adamw_steps_on_cpu(self):

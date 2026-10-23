@@ -33,7 +33,8 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
             thinking = at("is_decision").long() * thinking_steps
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
                 output = net(*[at(n) for n in M.INPUT_NAMES[:15]], h, thinking,
-                             execution_hint=plans[t].hint, encoded_board=None if boards is None else boards[t])
+                             execution_hint=plans[t].hint, encoded_board=None if boards is None else boards[t],
+                             policy_heads=plans[t].heads if getattr(net, "prune_unused_policy_heads", False) else None)
                 auxiliary = net.aux_head(output[0][:, 0])
             _, stats = compute_device_loss(*[v.float() for v in output[1:]], auxiliary.float(), batch, t, plans[t])
             valid = at("step_valid")
