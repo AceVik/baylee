@@ -26,6 +26,7 @@ mod brown_ouphe;
 mod cabal_trainee;
 mod camel;
 mod carnophage;
+mod carrion_beetles;
 mod carrion_feeder;
 mod cathedral_sanctifier;
 mod ceta_disciple;

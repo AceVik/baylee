@@ -3,9 +3,11 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod acidic_soil;
 mod agadeem_s_awakening;
 mod an_havva_inn;
 mod angelic_blessing;
+mod arc_lightning;
 mod ashes_to_ashes;
 mod bala_ged_recovery;
 mod bargain;

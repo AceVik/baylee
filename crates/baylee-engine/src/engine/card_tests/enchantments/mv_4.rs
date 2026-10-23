@@ -96,15 +96,18 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, attacker: ObjectId, defender
         .expect("the attacker came off the list");
 }
 
+mod abundance;
 mod aether_flash;
 mod aether_sting;
 mod aether_storm;
 mod aluren;
 mod an_zerrin_ruins;
+mod antagonism;
 mod aquatic_incursion;
 mod arboria;
 mod awakening;
 mod barbed_foliage;
+mod bedlam;
 mod blood_mist;
 mod breath_of_dreams;
 mod breathstealer_s_crypt;

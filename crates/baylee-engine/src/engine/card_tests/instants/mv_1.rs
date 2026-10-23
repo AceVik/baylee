@@ -16,6 +16,7 @@ mod blaze_of_glory;
 mod blossoming_wreath;
 mod blue_elemental_blast;
 mod brainstorm;
+mod brand;
 mod brightstone_ritual;
 mod brute_force;
 mod burnt_offering;

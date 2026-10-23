@@ -712,3 +712,5 @@ no-engine-change contract:
   - Batch 2 (`Flowstone Flood` to `Oath of Ghouls`, 25 cards): **8 Implemented, 17 Partial**.
   - Batch 3 (`Oath of Lieges` to `Skyshaper`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 4 (`Skyshroud Elite` to `Zealots en-Dal`, 18 cards): **8 Implemented, 10 Partial**.
+- **Urza's Saga (`usg`)** — in progress:
+  - Batch 1 (`Abundance` to `Congregate`, 25 cards): **20 Implemented, 5 Partial**.

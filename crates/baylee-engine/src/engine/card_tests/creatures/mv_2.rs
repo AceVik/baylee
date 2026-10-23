@@ -5,12 +5,14 @@ use super::*;
 
 mod abyssal_gatekeeper;
 mod acidic_sliver;
+mod acridian;
 mod advance_scout;
 mod agent_of_shauku;
 mod akki_raider;
 mod akki_rockspeaker;
 mod alaborn_grenadier;
 mod alaborn_musketeer;
+mod albino_troll;
 mod alchemist_s_apprentice;
 mod anaba_ancestor;
 mod angelic_wall;

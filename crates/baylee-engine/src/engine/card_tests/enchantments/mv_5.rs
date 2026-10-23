@@ -3,45 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod asceticism;
-mod bazaar_of_wonders;
-mod berserkers_onslaught;
-mod blockbuster;
-mod blood_rites;
-mod centaur_glade;
-mod curse_of_marit_lage;
-mod death_pits_of_rath;
-mod dictate_of_heliod;
-mod dire_undercurrents;
-mod dispersing_orb;
-mod dream_halls;
-mod duplicity;
-mod enchanted_evening;
-mod energy_vortex;
-mod festering_evil;
-mod forbidden_crypt;
-mod gravitational_shift;
-mod intimidation;
-mod larceny;
-mod liliana_s_mastery;
-mod malignant_growth;
-mod moldervine_reclamation;
-mod nature_s_revolt;
-mod open_the_graves;
-mod painful_quandary;
-mod polluted_bonds;
-mod precognition;
-mod psychic_allergy;
-mod putrefaction;
-mod righteous_cause;
-mod safeguard;
-mod screams_of_the_damned;
-mod sigil_of_the_empty_throne;
-mod tornado;
-mod where_ancients_tread;
-mod worms_of_the_earth;
-mod wrath_of_marit_lage;
-mod zendikar_s_roil;
 
 /// Declares `attackers` for `seat` against `at` and stops once the
 /// declaration has been accepted.
@@ -148,4 +109,45 @@ fn may_block(
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })
 }
+mod angelic_chorus;
+mod asceticism;
+mod bazaar_of_wonders;
+mod berserkers_onslaught;
+mod blockbuster;
+mod blood_rites;
+mod bulwark;
 mod cadaverous_bloom;
+mod centaur_glade;
+mod curse_of_marit_lage;
+mod death_pits_of_rath;
+mod dictate_of_heliod;
+mod dire_undercurrents;
+mod dispersing_orb;
+mod dream_halls;
+mod duplicity;
+mod enchanted_evening;
+mod energy_vortex;
+mod festering_evil;
+mod forbidden_crypt;
+mod gravitational_shift;
+mod intimidation;
+mod larceny;
+mod liliana_s_mastery;
+mod malignant_growth;
+mod moldervine_reclamation;
+mod nature_s_revolt;
+mod open_the_graves;
+mod painful_quandary;
+mod polluted_bonds;
+mod precognition;
+mod psychic_allergy;
+mod putrefaction;
+mod righteous_cause;
+mod safeguard;
+mod screams_of_the_damned;
+mod sigil_of_the_empty_throne;
+mod tornado;
+mod where_ancients_tread;
+mod worms_of_the_earth;
+mod wrath_of_marit_lage;
+mod zendikar_s_roil;

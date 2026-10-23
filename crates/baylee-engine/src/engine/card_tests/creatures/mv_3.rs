@@ -4,6 +4,7 @@
 use super::*;
 
 mod abbey_matron;
+mod academy_researchers;
 mod adarkar_unicorn;
 mod adept_watershaper;
 mod aeronaut_tinkerer;
@@ -53,6 +54,7 @@ mod cabal_archon;
 mod cadaverous_knight;
 mod calming_licid;
 mod capashen_templar;
+mod cave_tiger;
 mod centaur_healer;
 mod cephalid_looter;
 mod charging_paladin;
