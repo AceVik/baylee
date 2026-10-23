@@ -2,12 +2,11 @@
 
 use baylee_cards_dsl::AbilityDef;
 
-/// The cost of the activated ability a static or a copy clause grants, when
-/// it grants one: the two kinds of ability [`LineShape::Grant`] is for.
+/// The activated cost granted by a static, copy clause or spell body.
+/// These otherwise unshaped abilities use [`super::LineShape::Grant`].
 ///
-/// `None` for every other ability, including one that grants through an
-/// effect it resolves (a saga chapter, Spawning Pool's `{1}{B}:`), since
-/// that one already has a sentence of its own shape.
+/// Abilities with an existing shape (activated, triggered, saga) retain their
+/// own sentence even when their resolving effects also grant an ability.
 pub(super) fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cost> {
     use baylee_cards_dsl::{CopyMod, Modifier};
     let cost = |modifier: &Modifier| match modifier {
@@ -26,6 +25,19 @@ pub(super) fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cos
                 ) => Some(*cost),
                 _ => None,
             })
+        }
+        AbilityDef::Spell { effects, .. } => {
+            let mut found = None;
+            baylee_cards_dsl::effect::Effect::walk(effects, &mut 0, &mut |effect| {
+                if found.is_none()
+                    && let baylee_cards_dsl::effect::Effect::CreateContinuousEffect {
+                        modifier, ..
+                    } = effect
+                {
+                    found = cost(modifier);
+                }
+            });
+            found
         }
         _ => None,
     }

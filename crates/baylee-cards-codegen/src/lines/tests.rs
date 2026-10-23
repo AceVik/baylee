@@ -1,3 +1,5 @@
+mod spell_grants;
+
 use super::*;
 use baylee_cards_dsl::effect::{Amount, Effect};
 use baylee_cards_dsl::filter::Filter;

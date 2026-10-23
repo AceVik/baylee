@@ -80,9 +80,9 @@ pub enum LineShape {
     ///
     /// Not every grant: one written inside an ability that already has a
     /// sentence of its own shape, such as Urza's Saga's chapters or Spawning
-    /// Pool's `{1}{B}:`, is found under that shape. This is for the two
-    /// kinds of ability that were [`Self::Other`] and grant one: a static
-    /// and a copy clause (`…except it has "{T}: Add {U}."`).
+    /// Pool's `{1}{B}:`, is found under that shape. This is for abilities
+    /// otherwise classified as [`Self::Other`]: statics, copy clauses
+    /// (`…except it has "{T}: Add {U}."`) and spell effects.
     ///
     /// A static never uses the stack, so it is not counted in
     /// [`Self::stackable`].
@@ -896,7 +896,7 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         A::Ward { .. } => line.to_lowercase().starts_with("ward"),
         // A grant's cost is the one inside the quotation marks, which is the
         // granted ability's and printed as its head (CR 113.10a).
-        A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } => {
+        A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } | A::Spell { .. } => {
             match granted_cost(ability) {
                 Some(cost) => {
                     quoted(line).is_some_and(|inside| cost_fits(&cost, inside))
