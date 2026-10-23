@@ -727,3 +727,17 @@ thinking compilation, local K/V reuse and unused-policy-head omission. Disabled:
 CUDA Graphs, entity padding, fused AdamW and extra recurrent/readout compilation.
 The active pointer identifies this run. Full validation, export parity and
 matched 128-duel/64-Commander tests follow automatically; no automatic promotion.
+
+
+Final 120-second live observation of the selected production path, with no other
+GPU job running: GPU utilization averaged 66.3% (median 81.5%, range 0–100%),
+GPU power 157.2 W, total CPU 6.4%, RAM 13.2% and NVML VRAM 72.6%. Observed log
+transitions from step 6875 to 7025 took 104.0 seconds, about 1.44 updates/s on
+this portion of the corpus, including ordinary checkpoints. One-second sampling
+and 25-step logs bound precision; this is not a paired energy benchmark.
+Artifacts: `production-resource-samples.json` and `production-resource-summary.json`.
+The process had passed step 7050 without a reported error when checked. All
+benchmark/probe/sampling processes had exited; training and the requested
+workstation monitor remained running. The final unittest discovery ran 21 tests:
+20 passed, the CUDA placement test was skipped in that CPU-only run (it passed
+separately earlier). The six explicit model/ONNX contract checks also passed.
