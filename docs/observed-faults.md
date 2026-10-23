@@ -90,6 +90,27 @@ hand deliberately rather than drawn.
 
 ## Engine
 
+### Training robustness audit, 23 October 2026 — two offer-contract gaps
+
+Reproduced by `baylee-train fuzz`, run
+`/home/ace/baylee-data/v4/checks/parallel-engine-audit`, name
+`codex-r3-resource-audit-20261023`, first seed 970001, deck seed 971001,
+72 generated working decks, chaos 0.2. Both remain unfixed:
+
+- Game 127 (seed 970128): banding offers selecting two members without
+  banding, then rejects the selection. The offered question has `min: 0`,
+  `max: 2`, `total: None`; its `answer_fault` reports no fault. The missing
+  bound belongs in the machine-readable question.
+- Game 208 (seed 970209): the question offers three attackers and no count
+  cap; selecting all three passes its checker, then apply rejects it as
+  "too many attackers declared". An offline replay verified all 301 accepted
+  inputs and reproduced the refusal without changing state. The aggregate
+  `AttackRules::max_attackers` restriction is missing from the offer.
+
+See the [training log](history/trained-ai-v4-codex-run-2026-10-22.md) for the
+record/probe paths and repair boundaries. These are distinct from v4's invalid
+priority-pass fallback for a number question, which was fixed and replayed.
+
 These four came from one game and have not been investigated yet.
 
 ### 4. "Mein Mana ist verschwunden"

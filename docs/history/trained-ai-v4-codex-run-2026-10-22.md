@@ -477,3 +477,35 @@ decks, seed and seat: zero refusals, zero stalls/caps, still a loss. Its origina
 11 fallback decisions are still explicitly counted. Both before/after records
 and logs are preserved in `checks/commander-number-{reproducer,fixed}-*`.
 The change repairs a legal-action failure; it does not claim improved strength.
+
+### CPU robustness audit while the GPU trains
+
+`checks/parallel-engine-audit` completed 256 games across 72 generated working
+decks (constructed/highlander/Commander) on eight CPU workers in 8.7 seconds.
+It used the optimized unwind profile, seed 970001, deck seed 971001, chaos 0.2,
+and run name `codex-r3-resource-audit-20261023`. No panic, replay divergence,
+refusal-induced state change or cap was reported. Two random attacks violated
+an explicit `MustAttack` constraint and are correctly separate from defects.
+
+Two **unfixed engine offer-contract defects** remain, with records and seeds:
+
+- Game 127 / seed 970128 / decision 546: a `ChooseCards` Band offer permits
+  two non-banding members by its count bounds and has `total: None`.
+  `answer_band` then rejects the selection. The bound must be machine-readable;
+  simply weakening the engine rule would be wrong. Mixed banding and
+  "bands with other" groups need regression coverage as well.
+- Game 208 / seed 970209 / decision 301: three offered attackers pass
+  `Pending::answer_fault`, but the engine rejects all three with
+  `IllegalAction("too many attackers declared")`. `AttackRules::max_attackers`
+  is checked by apply but missing from `Pending::ChooseAttackers`.
+  `probe_refusal` verified all 301 recorded inputs and reproduced that exact
+  error, with the rejected action leaving the state unchanged. Its report is
+  `checks/attack-208-probe.json`.
+
+The new offline `probe_refusal` example accepts an uncompressed record, a JSON
+action file and a seat, verifies the record hashes, and compares the offered
+constraint with the actual engine result. It is omniscient diagnostic tooling,
+never an actor input. The example passes strict Clippy. The next engine repair
+must update the offered constraints, all consumers and appropriate protocol/
+training contracts together; preserve this experiment and its old records as
+versioned evidence. The robustness findings are separate from training data.
