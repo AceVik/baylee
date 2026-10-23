@@ -109,10 +109,15 @@ fn a_finished_machine_owned_card_must_be_fixed_in_its_reader() {
         stubgen::OWNED_MARKER,
         fs::read_to_string(&bolt).unwrap()
     );
-    fs::write(&bolt, &source).unwrap();
-    let error = f.run(&["Lightning Bolt"], false).unwrap_err().to_string();
-    assert!(error.contains("fix its reader"));
-    assert_eq!(fs::read_to_string(bolt).unwrap(), source);
+    for source in [
+        source.clone(),
+        format!("{}\n{source}", stubgen::STUB_MARKER),
+    ] {
+        fs::write(&bolt, &source).unwrap();
+        let error = f.run(&["Lightning Bolt"], false).unwrap_err().to_string();
+        assert!(error.contains("fix its reader"));
+        assert_eq!(fs::read_to_string(&bolt).unwrap(), source);
+    }
 }
 
 #[test]

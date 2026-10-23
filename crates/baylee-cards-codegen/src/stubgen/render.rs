@@ -1,6 +1,10 @@
 //! Per-card source rendering.
 
-use super::*;
+use super::{
+    CardBody, CodegenError, IndexLedger, LedgerEntry, OWNED_MARKER, STUB_MARKER, ScryfallCard,
+    StubInfo, SubtypeCatalogs, doc_lines, faces_of, render_card_literal, render_face, set_line,
+    slug, transcode_card, vanilla,
+};
 
 /// Renders one stub file, and says where under `cards/` it belongs.
 ///

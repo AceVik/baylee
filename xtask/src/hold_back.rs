@@ -84,7 +84,7 @@ fn reviewed_printing(
     source: &str,
 ) -> anyhow::Result<scryfall::ScryfallCard> {
     anyhow::ensure!(
-        !stubgen::is_machine_owned(source) || source.contains(stubgen::STUB_MARKER),
+        !source.contains(stubgen::OWNED_MARKER),
         "{} is a finished machine-owned card; fix its reader before restoring it",
         row.name,
     );
