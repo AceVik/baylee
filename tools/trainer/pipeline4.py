@@ -27,7 +27,12 @@ def main():
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--unroll", type=int, default=32)
     ap.add_argument("--supervised-only", action="store_true")
+    ap.add_argument("--validation-every", type=int, default=1000)
+    ap.add_argument("--eval-binary", default="target/release/eval4")
+    ap.add_argument("--eval-threads", type=int, default=4)
     args = ap.parse_args()
+    if args.eval_threads < 1:
+        ap.error("--eval-threads must be positive")
     root, data = Path(args.out).resolve(), Path(args.data).resolve()
     root.mkdir(parents=True, exist_ok=True)
     if not (data / "meta.json").exists():
@@ -49,9 +54,11 @@ def main():
           "--batch-size", str(args.batch_size), "--unroll", str(args.unroll),
           "--activation-checkpointing", "--thinking-steps", "1", "--thinking-curriculum", "--lr", "0.00015",
           "--epochs", str(args.epochs), "--time-budget-seconds", str(args.hours * 3600),
-          "--num-workers", "4", "--checkpoint-every", "100", "--validation-every", "1000",
+          "--num-workers", "4", "--checkpoint-every", "100", "--validation-every", str(args.validation_every),
           *(["--init", args.init] if args.init else [])],
-          args.hours * 3600 + 5400,
+          # Larger held-out multiplayer corpora need longer than the initial
+          # 463k-frame validation. Include cache startup and final validation.
+          args.hours * 3600 + max(5400, metadata["val_steps"] / 250 + 1800),
           [data / "meta.json", args.manifest, *([Path(args.init) / "net.pt"] if args.init else [])])
 
     def export(name, model):
@@ -61,11 +68,11 @@ def main():
 
     def evaluate(name, model, seats=2, shape="constructed", depth=1):
         path = root / "evaluation" / f"{name}.json"
-        stage(name, ["target/release/eval4", "--model", str(model), "--deals", "32",
+        stage(name, [args.eval_binary, "--model", str(model), "--deals", "32",
                      "--seats", str(seats), "--shape", shape, "--thinking-steps", str(depth),
                      "--against", "sharp", "--baseline", "steady", "--generated", "0",
                      "--decks-manifest", args.manifest, "--deck-split", "val",
-                     "--threads", "4", "--first-seed", "870001", "--out", str(path)], 5400,
+                     "--threads", str(args.eval_threads), "--first-seed", "870001", "--out", str(path)], 5400,
               [model / "model.onnx.json", args.manifest])
         stage(name + "-uncertainty", [py, "tools/trainer/summarize_eval4.py", str(path),
               "--out", str(path.with_suffix(".uncertainty.json"))], 120, [path])
@@ -83,10 +90,10 @@ def main():
         ("teams", 4, "commander", 16, ["--teams", "1,2,1,2"])]:
         run = root / "rollouts" / name
         runs.append(str(run))
-        stage("collect-" + name, ["target/release/eval4", "--model", str(bc), "--deals", str(deals),
+        stage("collect-" + name, [args.eval_binary, "--model", str(bc), "--deals", str(deals),
               "--seats", str(seats), "--shape", shape, "--thinking-steps", "1", "--temperature", "0.6",
               "--against", "steady", "--generated", "0", "--decks-manifest", args.manifest,
-              "--deck-split", "train", "--threads", "4", "--first-seed", "880001", "--no-baseline",
+              "--deck-split", "train", "--threads", str(args.eval_threads), "--first-seed", "880001", "--no-baseline",
               "--record-out", str(run), "--out", str(root / "evaluation" / f"collect-{name}.json"), *teams],
               7200, [bc / "model.onnx.json", args.manifest])
     rollout = root / "rollout-data"

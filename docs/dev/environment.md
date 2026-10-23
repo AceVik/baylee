@@ -4,6 +4,18 @@ Every variable a Baylee process reads, by process. A value outside its range
 refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
 
+## Neural player and offline evaluation (`baylee-train`)
+
+- `BAYLEE_EP=cuda` selects the v4 ONNX CUDA provider; unset or `cpu` uses CPU.
+  Build with `--features onnx-cuda` and provide the CUDA 13 / cuDNN 9 libraries
+  on `LD_LIBRARY_PATH`. A v4 binary without that feature refuses `cuda`, and
+  provider initialization failures are errors. TF32 is disabled to preserve
+  agreement with the FP32 rollout probability audit. This selects inference;
+  Python training chooses its PyTorch device separately.
+- `pipeline4.py --eval-binary` selects the evaluation/collection binary and
+  `--eval-threads` controls concurrent games. Each ONNX session uses one CPU
+  intra-op thread. Measure whole games before increasing worker counts.
+
 ## Gateway (`baylee-gateway`)
 
 - `PORT` (`0` binds any free port; `BAYLEE_PORT_FILE`, a path, receives the bound port just before serving, which is how e2e helpers find it, #279).

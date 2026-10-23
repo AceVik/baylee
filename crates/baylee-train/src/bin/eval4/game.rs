@@ -38,7 +38,7 @@ fn play_one_table(
     profiles: &[AIProfile],
     teams_u8: &[u8],
     teams: &[Option<u8>],
-    mut net: Option<&mut NetPlayer4>,
+    mut net: Option<&mut dyn EvaluationPlayer>,
     fair_scouting: bool,
     max_decisions: u64,
     record_steps: bool,
@@ -174,7 +174,21 @@ fn play_one_table(
 
             if let Some(n) = net.as_deref_mut() {
                 let t0 = Instant::now();
-                let ans = n.act_detailed(&view, &pending, teams);
+                let ans = match n.answer(&view, &pending, teams)? {
+                    Some(answer) => answer,
+                    None => baylee_train::netplay4::Answer4 {
+                        action: session
+                            .house_action(pid)
+                            .context("legacy unsupported choice")?,
+                        value: 0.5,
+                        provenance: StepProvenance4 {
+                            source: SourceKind4::House,
+                            has_logprob: false,
+                            ..StepProvenance4::default()
+                        },
+                        target: baylee_train::features4::TeacherTarget4::default(),
+                    },
+                };
                 let dt_ms = t0.elapsed().as_secs_f64() * 1000.0;
                 if ans.provenance.source == SourceKind4::Net {
                     latencies.push(dt_ms);
@@ -182,7 +196,8 @@ fn play_one_table(
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
                 }
-                if session.act_slice(pid, ans.action, 0).is_ok() {
+                let result = session.act_slice(pid, ans.action, 0);
+                if result.is_ok() {
                     if record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: ans.provenance,
@@ -190,8 +205,13 @@ fn play_one_table(
                             pick_sequence: ans.target.pick_sequence,
                         });
                     }
-                } else {
+                } else if let Err(error) = result {
                     refused += 1;
+                    eprintln!(
+                        "[eval4] refused deal={deal_idx} seed={seed} seat={} pending={:?}: {error}",
+                        pid.get(),
+                        baylee_train::features4::PendingKind4::of(&pending),
+                    );
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
@@ -212,4 +232,3 @@ fn play_one_table(
         }
     }
 }
-

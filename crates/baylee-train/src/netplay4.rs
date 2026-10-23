@@ -86,12 +86,22 @@ fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
 }
 
 fn load_session(path: &Path) -> anyhow::Result<Session> {
+    #[cfg(not(feature = "onnx-cuda"))]
+    anyhow::ensure!(
+        std::env::var("BAYLEE_EP").as_deref() != Ok("cuda"),
+        "BAYLEE_EP=cuda requires a binary built with --features onnx-cuda"
+    );
     let builder =
         Session::builder(crate::onnx::environment().map_err(ort_error)?).map_err(ort_error)?;
     #[cfg(feature = "onnx-cuda")]
     let builder = if std::env::var("BAYLEE_EP").as_deref() == Ok("cuda") {
         builder
-            .with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()])
+            // Rollout probabilities must agree with the FP32 behavior-policy
+            // audit. TF32 changes the policy before PPO has taken any step.
+            .with_execution_providers([ort::ep::CUDA::default()
+                .with_tf32(false)
+                .build()
+                .error_on_failure()])
             .map_err(ort_error)?
     } else {
         builder

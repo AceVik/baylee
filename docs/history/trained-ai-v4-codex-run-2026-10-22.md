@@ -372,3 +372,62 @@ survive, but in-process `catch_unwind` cannot salvage an aborting game. An unwin
 collector build or per-game isolation is needed for stronger crash containment.
 The implemented loop fix changed the house policy only. The pipeline does not
 automatically apply engine rules patches or train through an unverified fix.
+
+## Morning follow-up: matched v3 baseline and GPU inference (23 October)
+
+The initial experiment completed. PPO Commander won 3/32 deals against Sharp
+(no answer caps, one refused action, 56 house fallbacks); this is not evidence
+of strong play. Future evaluator summaries record refusals per deal and log
+their seed, seat, pending kind and engine error to make diagnosis possible.
+
+`eval4 --legacy-v3 --thinking-steps 1` now evaluates archived v3 exports using
+the same current engine, decks, rotations, scouting rules and house opponents.
+It refuses stochastic rollout recording; v3 actions cannot masquerade as v4
+behavior labels. Only the deciding seat's own deck enters its network input.
+On the same 32 validation duels (16 independent tables), BC v4 won 4, PPO v4
+won 6, archived `a-dyn` v3 won 7 and archived `rl23` v3 won 11; Steady won 15.
+The paired v4 PPO minus rl23 utility difference is -0.15625, table-bootstrap
+95% interval [-0.3125, 0.03125]. This small matched-opponent test does not
+establish statistical superiority, and is not a head-to-head match. Current
+v4 has not demonstrated an improvement over v3.
+
+The PPO KL stop was a trust-region guard, not a crash. Replaying the exact
+first eleven minibatches gives active PPO decision counts
+`5,2,2,4,0,1,5,0,1,5,5`: the ten applied updates contained only 25 such
+decisions. The logged count of 30 also includes the five in the rejected
+eleventh batch. Two updates had no policy examples but still changed shared
+weights through value/anchor losses. KL 0.0583 exceeded the configured 0.02;
+the stop retains earlier updates, without rollback. The next PPO revision
+needs enough genuine decisions per update, separate value/anchor weighting,
+and a stable KL check. Do not solve this by disabling the guard. Keep passive
+observations for recurrent memory even when a chunk contributes no policy loss.
+
+`bench_inference4.py` compares CPU ONNX with CUDA PyTorch on actual frames,
+including transfers. Repeated-frame batches measure batching potential, not
+whole-game speed. The decisive measurement uses the **same CUDA-capable Rust
+binary** with CPU/CUDA provider selection. CUDA really runs on the 4070 Ti:
+32 complete duels plus their baseline games take 32.6 seconds with four
+workers (decision p50 3.6 ms), or 28.7 seconds with eight workers (p50 6.4 ms).
+Per-deal outcomes agree with the original CPU evaluation. The eight-worker
+CUDA run also has identical coverage counts; the four-worker CUDA run has
+6,459 neural answers versus 6,517 in the other two. Thus these measurements
+do not establish identical action traces across providers or worker counts.
+Four stochastic CUDA rollout games were replayed and audited: 565 decisions,
+maximum log-probability discrepancy 5.78e-6. See `checks/full-game-*-job`,
+`checks/cuda-eight-games-job` and `checks/cuda-rollout-audit-job`.
+
+CUDA inference explicitly disables TF32 to agree with the FP32 policy audit.
+`BAYLEE_EP=cuda` now fails on a CPU-only v4 build instead of silently using CPU.
+Use `--profile selfplay --features onnx-cuda --bin eval4` and the CUDA 13/cuDNN 9
+library directories. `pipeline4.py` accepts an evaluation binary and worker
+count; its job manifest records non-secret provider/library settings. Evaluation
+and collection stages can therefore use the GPU after training releases it.
+
+The broad follow-up keeps its one-hour supervised training budget and validates
+at the end. Repeated full validation every 1,000 updates would be expensive on
+the new 3.07M-frame validation split. The stage deadline now includes a scaled
+allowance for that final validation. Training rechecks its wall budget after
+periodic validation, preventing a redundant update and full validation pass.
+Twelve Python regression tests, six legacy contract checks and strict Clippy
+for the CUDA trainer library/evaluator pass. Full repository gates remain
+outstanding; nothing was pushed or promoted.

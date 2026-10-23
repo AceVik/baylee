@@ -40,6 +40,7 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
 
@@ -53,6 +54,11 @@ include!("decks.rs");
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.legacy_v3
+        && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
+    {
+        bail!("--legacy-v3 supports greedy K=1 evaluation only, without rollout recording");
+    }
     if !(2..=8).contains(&args.seats) {
         bail!("--seats must be between 2 and 8");
     }
@@ -197,11 +203,10 @@ fn main() -> anyhow::Result<()> {
         let temp = args.temperature;
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
+        let legacy = args.legacy_v3;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = NetPlayer4::load(&model_path)?
-                .with_thinking_steps(k_steps)
-                .with_temperature(temp);
+            let mut net = load_player(&model_path, legacy, k_steps, temp)?;
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -266,7 +271,7 @@ fn main() -> anyhow::Result<()> {
                     &profiles,
                     &teams_u8_arc,
                     &teams_arc,
-                    Some(&mut net),
+                    Some(net.as_mut()),
                     fair,
                     max_decisions,
                     shard_file.is_some(),
@@ -324,6 +329,7 @@ fn main() -> anyhow::Result<()> {
                     "seed": seed, "focal_seat": focal_seat,
                     "net_utility": net_u, "base_utility": if no_base { None } else { Some(base_u) },
                     "net_capped": net_capped, "base_capped": base_capped,
+                    "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
@@ -351,9 +357,10 @@ fn main() -> anyhow::Result<()> {
             }
 
             let mut st = stats_arc.lock().expect("stats lock");
-            for pk in 0..net.coverage.counts.len() {
+            let coverage = net.coverage();
+            for pk in 0..coverage.counts.len() {
                 for sk in 0..4 {
-                    st.coverage.counts[pk][sk] += net.coverage.counts[pk][sk];
+                    st.coverage.counts[pk][sk] += coverage.counts[pk][sk];
                 }
             }
             Ok(())
@@ -454,6 +461,7 @@ fn main() -> anyhow::Result<()> {
     });
     summary["deal_details"] = json!(st.deal_details);
     summary["coverage_matrix"] = json!(st.coverage.counts);
+    summary["model_family"] = json!(if args.legacy_v3 { "v3-expert" } else { "v4" });
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
 
     if let Some(parent) = args.out.parent() {

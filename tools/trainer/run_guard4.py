@@ -64,6 +64,10 @@ def run_job(directory, command, timeout, memory_gib=48, inputs=()):
     with executable.open("rb") as executable_file:
         executable_sha256 = hashlib.file_digest(executable_file, "sha256").hexdigest()
     state = {"command": command, "cwd": os.getcwd(), "revision": revision,
+             # Only known non-secret execution settings; never dump the environment.
+             "runtime_environment": {key: os.environ[key] for key in
+                 ("BAYLEE_EP", "CUDA_VISIBLE_DEVICES", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "LD_LIBRARY_PATH")
+                 if key in os.environ},
              "executable": str(executable), "executable_sha256": executable_sha256,
              "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
              "inputs": {str(p): hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in inputs},

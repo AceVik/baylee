@@ -1,9 +1,17 @@
 #[derive(Parser, Debug)]
 #[command(about = "Multi-format duplicate evaluator and RL rollout generator for Playernet v4")]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent command-line switches"
+)]
 struct Args {
     /// Path to Playernet v4 `model.onnx` or checkpoint directory.
     #[arg(long)]
     model: PathBuf,
+    /// Evaluate an archived v3 net (expert profile) under the same table protocol.
+    /// Greedy evaluation only; never write v4 PPO rollout labels for v3 actions.
+    #[arg(long)]
+    legacy_v3: bool,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -93,4 +101,3 @@ struct EvalStats {
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {
     AIProfile::named(name).with_context(|| format!("unknown AIProfile {name}"))
 }
-

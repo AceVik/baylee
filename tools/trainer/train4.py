@@ -544,6 +544,10 @@ def main() -> None:
             if args.validation_every > 0 and step_num % args.validation_every == 0:
                 validate_and_save()
                 save_last(epoch, next_batch, h)
+                # Validation can itself exhaust the wall-time budget. Stop at
+                # this already-validated checkpoint instead of taking one more
+                # update and triggering another full validation immediately.
+                stop = stop or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds)
             if stop:
                 break
 
