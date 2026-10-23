@@ -10743,7 +10743,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nAll damage that would be dealt to enchanted creature is dealt to its controller instead.",
     ],
-    &[],
+    // Treefolk Mystic
+    &[
+        "Whenever this creature blocks or becomes blocked by a creature, destroy all Auras attached to that creature.",
+    ],
     // Treetop Village
     &[
         "This land enters tapped.\n{T}: Add {G}.\n{1}{G}: This land becomes a 3/3 green Ape creature with trample until end of turn. It's still a land. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
@@ -10752,25 +10755,46 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Urza's Blueprints
+    &[
+        "Echo {6} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\n{T}: Draw a card.",
+    ],
+    // Viashino Bey
+    &["If this creature attacks, all creatures you control attack if able."],
+    // Viashino Cutthroat
+    &["Haste\nAt the beginning of the end step, return this creature to its owner's hand."],
+    // Viashino Heretic
+    &[
+        "{1}{R}, {T}: Destroy target artifact. This creature deals damage to that artifact's controller equal to the artifact's mana value.",
+    ],
+    // Viashino Sandscout
+    &[
+        "Haste (This creature can attack and {T} as soon as it comes under your control.)\nAt the beginning of the end step, return this creature to its owner's hand. (Return it only if it's on the battlefield.)",
+    ],
     // Vigilant Drake
     &["Flying\n{2}{U}: Untap this creature."],
-    &[],
+    // Walking Sponge
+    &[
+        "{T}: Target creature loses your choice of flying, first strike, or trample until end of turn.",
+    ],
     // Weatherseed Elf
     &[
         "{T}: Target creature gains forestwalk until end of turn. (It can't be blocked as long as defending player controls a Forest.)",
     ],
     // Weatherseed Faeries
     &["Flying, protection from red"],
-    &[],
-    &[],
+    // Weatherseed Treefolk
+    &["Trample\nWhen this creature dies, return it to its owner's hand."],
+    // Wheel of Torture
+    &[
+        "At the beginning of each opponent's upkeep, this artifact deals X damage to that player, where X is 3 minus the number of cards in their hand.",
+    ],
     // Wing Snare
     &["Destroy target creature with flying."],
-    &[],
+    // Yavimaya Granger
+    &[
+        "Echo {2}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    ],
     // Yavimaya Scion
     &["Protection from artifacts"],
     // Yavimaya Wurm
