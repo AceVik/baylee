@@ -18,208 +18,13 @@ Implements the architecture specified in `docs/proposals/trained-ai-v4.md` and
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
-RECURRENT_SLOTS = 9
-MAX_SEATS = 8
-MAX_ENTITIES = 1024
-MAX_EDGES = 8192
-MAX_CANDIDATES = 65535
-MAX_PAIRS = 65535
-ENCODER_VERSION = 5
-DSL_VERSION = 2
-UNKNOWN_CARD = 2**32 - 1
-TRAJECTORY_VERSION = 2
-SAMPLING_VERSION = 2
-MODEL_VERSION = 2
-ENTITY_FEAT_WIDTH = 96
-CARD_DSL_WIDTH = 160
-SEAT_FEAT_WIDTH = 64
-GLOBAL_FEAT_WIDTH = 64
-CAND_FEAT_WIDTH = 48
-NUM_EDGE_TYPES = 14
-
-# Shared seat_feat column indices (must match `crates/baylee-train/src/features4.rs:encode_seats4`)
-SEAT_FEAT_PRESENT = 0
-SEAT_FEAT_SELF = 1
-SEAT_FEAT_TEAMMATE = 2
-SEAT_FEAT_OPPONENT = 3
-SEAT_FEAT_LOST = 4
-
-INPUT_NAMES = (
-    "entity_feat",
-    "entity_dsl",
-    "entity_mask",
-    "seat_feat",
-    "global_feat",
-    "edge_index",
-    "edge_type",
-    "edge_mask",
-    "cand_feat",
-    "cand_entity_idx",
-    "cand_seat_idx",
-    "cand_mask",
-    "pair_index",
-    "pair_mask",
-    "cand_dsl",
-    "h_in",
-    "thinking_steps",
-)
-
-OUTPUT_NAMES = (
-    "h_out",
-    "cand_logits",
-    "pair_logits",
-    "scalar_pred",
-    "value",
-)
-
-
-@dataclass
-class Config4:
-    d_model: int = 512
-    n_layers: int = 8
-    n_heads: int = 8
-    d_ff: int = 2048
-    dropout: float = 0.0
-    activation_checkpointing: bool = False
-    default_thinking_steps: int = 2
-    max_thinking_steps: int = 8
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
-
-def symlog(x: torch.Tensor) -> torch.Tensor:
-    return torch.sign(x) * torch.log1p(torch.abs(x))
-
-
-class GatedResidualUpdate(nn.Module):
-    """GRU-style gated recurrent update for `[B, N, D]` belief tokens."""
-
-    def __init__(self, d_model: int):
-        super().__init__()
-        self.norm_x = nn.LayerNorm(d_model)
-        self.norm_h = nn.LayerNorm(d_model)
-        self.gate_z = nn.Linear(d_model * 2, d_model)
-        self.gate_r = nn.Linear(d_model * 2, d_model)
-        self.cand_h = nn.Linear(d_model * 2, d_model)
-
-    def forward(self, x: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
-        xn = self.norm_x(x)
-        hn = self.norm_h(h)
-        cat = torch.cat([xn, hn], dim=-1)
-        z = torch.sigmoid(self.gate_z(cat))
-        r = torch.sigmoid(self.gate_r(cat))
-        h_tilde = torch.tanh(self.cand_h(torch.cat([xn, r * hn], dim=-1)))
-        return (1.0 - z) * h + z * h_tilde
-
-
-class DynamicMultiHeadAttention(nn.Module):
-    """Multi-head attention that uses `-1` for sequence lengths in `reshape`,
-    ensuring ONNX exports remain 100% dynamic across arbitrary entity counts `E`."""
-
-    def __init__(self, d_model: int, n_heads: int, dropout: float = 0.0):
-        super().__init__()
-        assert d_model % n_heads == 0
-        self.d_model = d_model
-        self.n_heads = n_heads
-        self.head_dim = d_model // n_heads
-        self.scale = self.head_dim ** -0.5
-        self.q_proj = nn.Linear(d_model, d_model)
-        self.k_proj = nn.Linear(d_model, d_model)
-        self.v_proj = nn.Linear(d_model, d_model)
-        self.out_proj = nn.Linear(d_model, d_model)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        key_padding_mask: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        B = q.shape[0]
-        qh = self.q_proj(q).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        kh = self.k_proj(k).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        vh = self.v_proj(v).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-
-        if not torch.jit.is_tracing():
-            allowed = None if key_padding_mask is None else ~key_padding_mask[:, None, None, :]
-            out = F.scaled_dot_product_attention(
-                qh, kh, vh, attn_mask=allowed,
-                dropout_p=self.dropout.p if self.training else 0.0,
-            )
-        else:
-            # Portable ONNX path; numerically checked against fused PyTorch SDPA.
-            scores = torch.matmul(qh, kh.transpose(-2, -1)) * self.scale
-            if key_padding_mask is not None:
-                scores = scores.masked_fill(key_padding_mask[:, None, None, :], -1e9)
-            out = torch.matmul(torch.softmax(scores, dim=-1), vh)
-        out = out.transpose(1, 2).contiguous().reshape(B, -1, self.d_model)
-        return self.out_proj(out)
-
-
-class PreNormTransformerLayer(nn.Module):
-    """Pre-Norm Transformer Encoder layer with dynamic sequence length."""
-
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.0):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(d_model)
-        self.attn = DynamicMultiHeadAttention(d_model, n_heads, dropout=dropout)
-        self.norm2 = nn.LayerNorm(d_model)
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(dropout),
-        )
-
-    def forward(
-        self, x: torch.Tensor, src_key_padding_mask: torch.Tensor | None = None
-    ) -> torch.Tensor:
-        xn = self.norm1(x)
-        x = x + self.attn(xn, xn, xn, key_padding_mask=src_key_padding_mask)
-        x = x + self.ff(self.norm2(x))
-        return x
-
-
-class ThinkingStepBlock(nn.Module):
-    """Shared-weight latent thinking step: cross-attends from the 9 recurrent
-    belief slots into the full `[Global, Seats, Entities]` board representation."""
-
-    def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.0):
-        super().__init__()
-        self.norm_q = nn.LayerNorm(d_model)
-        self.norm_kv = nn.LayerNorm(d_model)
-        self.attn = DynamicMultiHeadAttention(d_model, n_heads, dropout=dropout)
-        self.norm_ff = nn.LayerNorm(d_model)
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.GELU(),
-            nn.Linear(d_ff, d_model),
-        )
-        self.step_emb = nn.Embedding(16, d_model)
-
-    def forward(
-        self,
-        h: torch.Tensor,
-        board_tokens: torch.Tensor,
-        board_key_padding_mask: torch.Tensor,
-        step_idx: torch.Tensor,
-    ) -> torch.Tensor:
-        q = self.norm_q(h + self.step_emb(step_idx).unsqueeze(1))
-        kv = self.norm_kv(board_tokens)
-        attn_out = self.attn(q, kv, kv, key_padding_mask=board_key_padding_mask)
-        h = h + attn_out
-        h = h + self.ff(self.norm_ff(h))
-        return h
-
+from .config import *
+from .layers import GatedResidualUpdate, DynamicMultiHeadAttention, PreNormTransformerLayer, ThinkingStepBlock
 
 class PlayerNet4(nn.Module):
     """Playernet v4 single-step and unrolled trajectory network."""
@@ -401,6 +206,8 @@ class PlayerNet4(nn.Module):
         cand_dsl: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
+        execution_hint: tuple[int, int, int] | None = None,
+        encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
@@ -413,7 +220,7 @@ class PlayerNet4(nn.Module):
         d = self.cfg.d_model
         device = entity_feat.device
 
-        board, pad_mask = self.encode_board(
+        board, pad_mask = encoded_board if encoded_board is not None else self.encode_board(
             entity_feat,
             entity_dsl,
             entity_mask,
@@ -427,10 +234,15 @@ class PlayerNet4(nn.Module):
         if not torch.jit.is_tracing():
             # A rare name-card decision can offer thousands of candidates.
             # Trim this time step independently of the rest of its unroll.
-            c_used = cand_mask.any(dim=0).nonzero()
-            p_used = pair_mask.any(dim=0).nonzero()
-            c_len = int(c_used[-1]) + 1 if c_used.numel() else 1
-            p_len = int(p_used[-1]) + 1 if p_used.numel() else 1
+            if execution_hint is None:
+                c_used = cand_mask.any(dim=0).nonzero()
+                p_used = pair_mask.any(dim=0).nonzero()
+                c_len = int(c_used[-1]) + 1 if c_used.numel() else 1
+                p_len = int(p_used[-1]) + 1 if p_used.numel() else 1
+            else:
+                # Training knows these from CPU batch masks before the transfer.
+                # Do not ask CUDA to return three shape/schedule scalars per frame.
+                c_len, p_len, _ = execution_hint
             cand_dsl = cand_dsl[:, :c_len]
             cand_feat, cand_entity_idx = cand_feat[:, :c_len], cand_entity_idx[:, :c_len]
             cand_seat_idx, cand_mask = cand_seat_idx[:, :c_len], cand_mask[:, :c_len]
@@ -451,6 +263,7 @@ class PlayerNet4(nn.Module):
         max_k = (
             getattr(self, "export_thinking_steps", self.cfg.max_thinking_steps)
             if torch.jit.is_tracing()
+            else max(0, min(execution_hint[2], self.cfg.max_thinking_steps)) if execution_hint is not None
             else max(0, min(int(thinking_steps.max().item()), self.cfg.max_thinking_steps))
         )
         for k in range(max_k):
@@ -542,6 +355,8 @@ class PlayerNet4(nn.Module):
         cand_dsl: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
+        execution_hint: tuple[int, int, int] | None = None,
+        encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         h_out, cand_logits, pair_logits, scalar_pred, value, _ = (
             self.forward_with_seat_logits(
@@ -562,6 +377,8 @@ class PlayerNet4(nn.Module):
                 cand_dsl,
                 h_in,
                 thinking_steps,
+                execution_hint=execution_hint,
+                encoded_board=encoded_board,
             )
         )
         return h_out, cand_logits, pair_logits, scalar_pred, value

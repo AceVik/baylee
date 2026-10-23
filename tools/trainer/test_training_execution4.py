@@ -1,0 +1,134 @@
+"""Execution optimizations must preserve losses, gradients and causal memory."""
+import copy
+import unittest
+import torch
+import model4 as M
+from export_onnx4 import make_dummy_inputs
+from training4.loss import compute_step_loss
+from training4.device_loss import compute_device_loss
+from training4.execution import plan_batch, encode_boards
+from checkpoint4 import move_optimizer
+
+
+def batch_fixture(b=8, u=4):
+    inputs = make_dummy_inputs(32, E=5, M_edges=3, C=7, P=4, K=1)
+    batch = {name: tensor.unsqueeze(1).repeat(b, u, *([1] * (tensor.ndim - 1)))
+             for name, tensor in zip(M.INPUT_NAMES[:15], inputs[:15])}
+    batch.update(step_valid=torch.ones(b, u, dtype=torch.bool),
+                 is_decision=torch.ones(b, u, dtype=torch.bool),
+                 head=torch.arange(b)[:, None].expand(b, u) % 4,
+                 loss_weight=torch.rand(b, u), outcome=torch.rand(b, u),
+                 aux_target=torch.rand(b, u, 4), single_idx=torch.zeros(b, u, dtype=torch.long),
+                 scalar_target=torch.rand(b, u))
+    for prefix in ("cand", "pair"):
+        batch[prefix + "_free_mask"] = batch[prefix + "_mask"].float().clone()
+        batch[prefix + "_target_mask"] = torch.zeros_like(batch[prefix + "_free_mask"])
+    batch["step_valid"][-1, -2:] = False
+    batch["is_decision"][:, 0] = False
+    batch["cand_mask"][:, 0] = False
+    batch["pair_mask"][:, 0] = False
+    batch["single_idx"][batch["head"] != 0] = 9999
+    return batch
+
+
+class TrainingExecution(unittest.TestCase):
+    def setUp(self):
+        torch.manual_seed(91)
+        torch.set_num_threads(1)
+
+    def test_loss_and_output_gradients_match_all_heads_and_empty_masks(self):
+        batch = batch_fixture()
+        for t, plan in enumerate(plan_batch(batch, 0)):
+            outputs = [torch.randn(8, 7), torch.randn(8, 4), torch.rand(8), torch.rand(8), torch.rand(8, 4)]
+            old = [x.clone().requires_grad_() for x in outputs]
+            new = [x.clone().requires_grad_() for x in outputs]
+            reference, stats = compute_step_loss(*old, batch, t)
+            actual, device_stats = compute_device_loss(*new, batch, t, plan)
+            torch.testing.assert_close(actual, reference, atol=1e-6, rtol=1e-6)
+            expected_stats = torch.tensor([stats[k] for k in ("pol_loss", "val_loss", "aux_loss", "correct_single", "total_single")])
+            torch.testing.assert_close(device_stats, expected_stats, atol=1e-6, rtol=1e-6)
+            reference.backward(); actual.backward()
+            for a, b in zip(old, new):
+                self.assertEqual(a.grad is None, b.grad is None)
+                if a.grad is not None:
+                    torch.testing.assert_close(a.grad, b.grad, atol=1e-7, rtol=1e-6)
+        batch["step_valid"].zero_()
+        plan = plan_batch(batch, 0)[0]
+        loss, _ = compute_device_loss(*new, batch, 0, plan)
+        self.assertFalse(loss.requires_grad)
+        self.assertEqual(float(loss), 0)
+
+    def test_plan_keeps_noncontiguous_last_candidate_and_passive_clock(self):
+        batch = batch_fixture()
+        batch["cand_mask"].zero_()
+        batch["cand_mask"][:, 1, 6] = True
+        plans = plan_batch(batch, 1, curriculum=True)
+        self.assertEqual(plans[0].thinking, 0)
+        self.assertEqual(plans[1].hint, (7, 4, 4))
+        self.assertEqual(plans[2].candidates, 1)
+
+    def test_grouped_boards_preserve_recurrence_outputs_and_parameter_gradients(self):
+        batch = batch_fixture(b=4)
+        config = M.Config4(d_model=32, n_heads=4, n_layers=1, d_ff=64, activation_checkpointing=True)
+        reference = M.PlayerNet4(config)
+        actual = copy.deepcopy(reference)
+        plans = plan_batch(batch, 0)
+
+        def unroll(net, grouped):
+            boards = encode_boards(net, batch, 3 if grouped else 1, torch.device("cpu"))
+            h = torch.zeros(4, 9, 32)
+            results = []
+            loss = 0
+            for t in range(4):
+                k = batch["is_decision"][:, t].long()
+                out = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:15]], h, k,
+                          execution_hint=plans[t].hint if grouped else None,
+                          encoded_board=boards[t] if grouped else None)
+                h = torch.where(batch["step_valid"][:, t, None, None], out[0], h)
+                results.append(tuple(x.detach() for x in out))
+                loss = loss + out[0].square().mean() + out[3].square().mean() + out[4].square().mean()
+            loss.backward()
+            return results
+        left, right = unroll(reference, False), unroll(actual, True)
+        for a, b in zip(left, right):
+            for x, y in zip(a, b):
+                torch.testing.assert_close(x, y, atol=2e-6, rtol=2e-5)
+        for a, b in zip(reference.parameters(), actual.parameters()):
+            self.assertEqual(a.grad is None, b.grad is None)
+            if a.grad is not None:
+                torch.testing.assert_close(a.grad, b.grad, atol=2e-6, rtol=2e-5)
+
+    def test_future_observation_cannot_change_earlier_board(self):
+        batch = batch_fixture(b=2)
+        net = M.PlayerNet4(M.Config4(d_model=32, n_heads=4, n_layers=1, d_ff=64)).eval()
+        with torch.no_grad():
+            before = encode_boards(net, batch, 4, torch.device("cpu"))
+            batch["entity_feat"][:, 3] += 500
+            after = encode_boards(net, batch, 4, torch.device("cpu"))
+        for t in range(3):
+            torch.testing.assert_close(before[t][0], after[t][0], rtol=0, atol=0)
+        self.assertFalse(torch.equal(before[3][0], after[3][0]))
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA optimizer placement regression")
+    def test_resume_keeps_unfused_adamw_steps_on_cpu(self):
+        for fused in (False, True):
+            parameter = torch.nn.Parameter(torch.ones(3, device="cuda"))
+            optimizer = torch.optim.AdamW([parameter], fused=fused)
+            parameter.sum().backward(); optimizer.step(); optimizer.zero_grad()
+            before = parameter.detach().clone()
+            saved = copy.deepcopy(optimizer.state_dict())
+            parameter.sum().backward(); optimizer.step(); optimizer.zero_grad()
+            expected = parameter.detach().clone()
+            parameter.data.copy_(before)
+            optimizer.load_state_dict(saved)
+            # Simulate the old resume helper's incorrect all-CUDA placement.
+            optimizer.state[parameter]["step"] = optimizer.state[parameter]["step"].cuda()
+            move_optimizer(optimizer, "cuda")
+            self.assertEqual(optimizer.state[parameter]["step"].device.type, "cuda" if fused else "cpu")
+            self.assertEqual(optimizer.state[parameter]["exp_avg"].device.type, "cuda")
+            parameter.sum().backward(); optimizer.step()
+            torch.testing.assert_close(parameter, expected, rtol=0, atol=0)
+
+
+if __name__ == "__main__":
+    unittest.main()

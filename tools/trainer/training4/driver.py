@@ -22,7 +22,6 @@ import numpy as np
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 import dataset4 as D4
@@ -30,222 +29,10 @@ import model4 as M
 from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
 
 
-def compute_step_loss(
-    cand_logits: torch.Tensor,
-    pair_logits: torch.Tensor,
-    scalar_pred: torch.Tensor,
-    value_pred: torch.Tensor,
-    aux_pred: torch.Tensor,
-    step_batch: dict[str, torch.Tensor],
-    t: int,
-    smooth_value: bool = True,
-) -> tuple[torch.Tensor, dict[str, float]]:
-    device = cand_logits.device
-    valid = step_batch["step_valid"][:, t].to(device)
-    is_dec = step_batch["is_decision"][:, t].to(device) & valid
-    loss_w = step_batch["loss_weight"][:, t].to(device)
-    head = step_batch["head"][:, t].to(device)
-    outcome = step_batch["outcome"][:, t].to(device)
-    aux_tgt = step_batch["aux_target"][:, t].to(device)
-
-    # Value and Auxiliary self-supervised loss on all valid steps
-    if valid.any():
-        # Terminal side utility is a proper probability target in duels, teams
-        # and FFA. Shrinking every early position toward 0.5 biases 3–8 seat FFA.
-        val_loss = F.mse_loss(value_pred[valid], outcome[valid])
-        aux_loss = F.mse_loss(aux_pred[valid], aux_tgt[valid])
-    else:
-        val_loss = torch.tensor(0.0, device=device)
-        aux_loss = torch.tensor(0.0, device=device)
-
-    pol_loss = torch.tensor(0.0, device=device)
-    correct_single = 0
-    total_single = 0
-
-    # 0: SingleChoice (weighted by step loss_weight and active-play boost)
-    m0 = is_dec & (head == 0)
-    if m0.any():
-        logits0 = cand_logits[m0]
-        tgt0 = step_batch["single_idx"][:, t].to(device)[m0]
-        w0 = loss_w[m0]
-        ce_per_sample = F.cross_entropy(logits0, tgt0, reduction="none")
-        chosen_features = step_batch["cand_feat"][:, t].to(device)[m0]
-        is_pass = chosen_features.gather(1, tgt0[:, None, None].expand(-1, 1, M.CAND_FEAT_WIDTH))[:, 0, 0] > 0.5
-        sample_w = torch.where(is_pass, 1.0, 3.0) * w0
-        pol_loss = pol_loss + (ce_per_sample * sample_w).sum() / sample_w.sum().clamp(min=1e-6)
-        correct_single = int((logits0.argmax(dim=-1) == tgt0).sum().item())
-        total_single = int(m0.sum().item())
-
-    # 1: SubsetPick (ChooseAttackers, ChooseTargets, ChooseCards) on free choices (P0-3)
-    m1 = is_dec & (head == 1)
-    if m1.any():
-        logits1 = cand_logits[m1]
-        cmask1 = step_batch["cand_mask"][:, t, :cand_logits.shape[1]].to(device)[m1]
-        fmask1 = step_batch["cand_free_mask"][:, t, :cand_logits.shape[1]].to(device)[m1] * cmask1.float()
-        tgt1 = step_batch["cand_target_mask"][:, t, :cand_logits.shape[1]].to(device)[m1]
-        w1 = loss_w[m1].unsqueeze(-1)
-        pos_w1 = torch.tensor(2.0, device=device)
-        bce1 = F.binary_cross_entropy_with_logits(
-            logits1.masked_fill(~cmask1, 0.0), tgt1, pos_weight=pos_w1, reduction="none"
-        )
-        eff_mask1 = fmask1 * w1
-        denom1 = eff_mask1.sum().clamp(min=1.0)
-        pol_loss = pol_loss + 2.5 * (bce1 * eff_mask1).sum() / denom1
-
-    # 2: PairPick (ChooseBlockers) on free choices (P0-3)
-    m2 = is_dec & (head == 2)
-    if m2.any():
-        logits2 = pair_logits[m2]
-        pmask2 = step_batch["pair_mask"][:, t, :pair_logits.shape[1]].to(device)[m2]
-        fmask2 = step_batch["pair_free_mask"][:, t, :pair_logits.shape[1]].to(device)[m2] * pmask2.float()
-        tgt2 = step_batch["pair_target_mask"][:, t, :pair_logits.shape[1]].to(device)[m2]
-        w2 = loss_w[m2].unsqueeze(-1)
-        pos_w2 = torch.tensor(2.0, device=device)
-        bce2 = F.binary_cross_entropy_with_logits(
-            logits2.masked_fill(~pmask2, 0.0), tgt2, pos_weight=pos_w2, reduction="none"
-        )
-        eff_mask2 = fmask2 * w2
-        denom2 = eff_mask2.sum().clamp(min=1.0)
-        pol_loss = pol_loss + 2.5 * (bce2 * eff_mask2).sum() / denom2
-
-    # 3: ScalarValue
-    m3 = is_dec & (head == 3)
-    if m3.any():
-        pred3 = scalar_pred[m3]
-        tgt3 = step_batch["scalar_target"][:, t].to(device)[m3]
-        w3 = loss_w[m3]
-        pol_loss = pol_loss + ((pred3 - tgt3).pow(2) * w3).sum() / w3.sum().clamp(min=1e-6)
-
-    total_loss = pol_loss + 0.5 * val_loss + 0.25 * aux_loss
-    stats = {
-        "pol_loss": float(pol_loss.detach().item()),
-        "val_loss": float(val_loss.detach().item()),
-        "aux_loss": float(aux_loss.detach().item()),
-        "correct_single": correct_single,
-        "total_single": total_single,
-    }
-    return total_loss, stats
-
-
-@torch.no_grad()
-def evaluate(
-    net: M.PlayerNet4,
-    loader: DataLoader,
-    device: torch.device,
-    thinking_steps: int,
-) -> dict[str, float]:
-    net.eval()
-    tot_pol = 0.0
-    tot_val = 0.0
-    tot_aux = 0.0
-    tot_steps = 0
-    corr = 0
-    tot_single = 0
-    active_correct = active_count = 0
-    baseline_squared_error = prediction_sum = outcome_sum = 0.0
-    calibration_count = np.zeros(10)
-    calibration_prediction = np.zeros(10)
-    calibration_outcome = np.zeros(10)
-    use_bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
-    h: torch.Tensor | None = None
-
-    for batch in loader:
-        B, U = batch["step_valid"].shape
-        is_new = batch["is_new_traj"].to(device)
-        if h is None or h.shape[0] != B:
-            h = torch.zeros(
-                (B, M.RECURRENT_SLOTS, net.cfg.d_model), dtype=torch.float32, device=device
-            )
-        else:
-            h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
-
-        k_tensor = torch.full((B,), thinking_steps, dtype=torch.long, device=device)
-        for t in range(U):
-            k_tensor = torch.where(
-                batch["is_decision"][:, t].to(device),
-                torch.full((B,), thinking_steps, dtype=torch.long, device=device),
-                torch.zeros((B,), dtype=torch.long, device=device),
-            )
-            with torch.autocast(
-                device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
-            ):
-                h_next, cand_l, pair_l, scal_p, val_p = net(
-                    batch["entity_feat"][:, t].to(device),
-                    batch["entity_dsl"][:, t].to(device),
-                    batch["entity_mask"][:, t].to(device),
-                    batch["seat_feat"][:, t].to(device),
-                    batch["global_feat"][:, t].to(device),
-                    batch["edge_index"][:, t].to(device),
-                    batch["edge_type"][:, t].to(device),
-                    batch["edge_mask"][:, t].to(device),
-                    batch["cand_feat"][:, t].to(device),
-                    batch["cand_entity_idx"][:, t].to(device),
-                    batch["cand_seat_idx"][:, t].to(device),
-                    batch["cand_mask"][:, t].to(device),
-                    batch["pair_index"][:, t].to(device),
-                    batch["pair_mask"][:, t].to(device),
-                        batch["cand_dsl"][:, t].to(device),
-                    h,
-                    k_tensor,
-                )
-                aux_p = net.aux_head(h_next[:, 0])
-            _, st = compute_step_loss(
-                cand_l.float(),
-                pair_l.float(),
-                scal_p.float(),
-                val_p.float(),
-                aux_p.float(),
-                batch,
-                t,
-                smooth_value=False,
-            )
-            valid_t = batch["step_valid"][:, t].to(device)
-            h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
-            tot_pol += st["pol_loss"]
-            count = int(valid_t.sum())
-            tot_val += st["val_loss"] * count
-            tot_aux += st["aux_loss"] * count
-            tot_steps += count
-            corr += st["correct_single"]
-            tot_single += st["total_single"]
-            truth = batch["outcome"][:, t].to(device)
-            sf = batch["seat_feat"][:, t].to(device)
-            alive = (sf[:, :, M.SEAT_FEAT_PRESENT] > .5) & (sf[:, :, M.SEAT_FEAT_LOST] < .5)
-            allied = (sf[:, :, M.SEAT_FEAT_SELF] > .5) | (sf[:, :, M.SEAT_FEAT_TEAMMATE] > .5)
-            # Explicitly a uniform surviving-seat baseline; does not assume
-            # two sides or a 0.5 prior in multiplayer games.
-            prior = (alive & allied).sum(-1) / alive.sum(-1).clamp_min(1)
-            baseline_squared_error += float(((prior - truth).square() * valid_t).sum())
-            predictions = val_p.float()[valid_t].cpu().numpy()
-            targets = truth[valid_t].cpu().numpy()
-            prediction_sum += float(predictions.sum())
-            outcome_sum += float(targets.sum())
-            bins = np.minimum((predictions * 10).astype(int), 9)
-            np.add.at(calibration_count, bins, 1)
-            np.add.at(calibration_prediction, bins, predictions)
-            np.add.at(calibration_outcome, bins, targets)
-            single = valid_t & batch["is_decision"][:, t].to(device) & (batch["head"][:, t].to(device) == 0)
-            target_idx = batch["single_idx"][:, t].to(device)
-            features = batch["cand_feat"][:, t].to(device)
-            pass_target = features.gather(1, target_idx[:, None, None].expand(-1, 1, M.CAND_FEAT_WIDTH))[:, 0, 0] > .5
-            active = single & ~pass_target
-            active_count += int(active.sum())
-            active_correct += int(((cand_l.argmax(-1) == target_idx) & active).sum())
-
-    denom = max(tot_steps, 1)
-    return {
-        "val_pol_loss": tot_pol / max(len(loader) * loader.dataset.unroll_len, 1),
-        "val_mse": tot_val / denom,
-        "val_aux_mse": tot_aux / denom,
-        "val_top1_acc": corr / max(tot_single, 1),
-        "val_active_top1_acc": active_correct / max(active_count, 1),
-        "val_active_choices": active_count,
-        "val_uniform_seat_mse": baseline_squared_error / denom,
-        "val_ece": float(np.abs(calibration_prediction - calibration_outcome).sum() / denom),
-        "val_prediction_mean": prediction_sum / denom,
-        "val_outcome_mean": outcome_sum / denom,
-        "val_frames": tot_steps,
-    }
+from .loss import compute_step_loss
+from .validation import evaluate
+from .device_loss import compute_device_loss
+from .execution import plan_batch, transfer_batch, encode_boards
 
 
 def main() -> None:
@@ -278,6 +65,9 @@ def main() -> None:
     ap.add_argument("--activation-checkpointing", action="store_true")
     ap.add_argument("--time-budget-seconds", type=float, default=0)
     ap.add_argument("--dropout", type=float, default=0.0)
+    ap.add_argument("--reference-execution", action="store_true", help="Use the original synchronized execution for A/B checks")
+    ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
+    ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
     args = ap.parse_args()
 
     torch.set_num_threads(4)
@@ -359,7 +149,8 @@ def main() -> None:
         [
             {"params": other_params, "lr": args.lr, "weight_decay": 1e-2},
             {"params": val_head_params, "lr": args.lr * 0.2, "weight_decay": 5e-2},
-        ]
+        ],
+        fused=True if args.fused_optimizer and device.type == "cuda" else None,
     )
 
     n_params = sum(p.numel() for p in net.parameters())
@@ -385,6 +176,8 @@ def main() -> None:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         net.load_state_dict(saved["state_dict"], strict=True)
         opt.load_state_dict(saved["optimizer"])
+        for group in opt.param_groups:
+            group["fused"] = True if args.fused_optimizer and device.type == "cuda" else None
         move_optimizer(opt, device)
         step_num = saved["step_num"]
         resume_epoch, resume_batch = saved["epoch"], saved["next_batch"]
@@ -444,6 +237,7 @@ def main() -> None:
         ep_aux = 0.0
         ep_corr = 0
         ep_tot = 0
+        epoch_stats = torch.zeros(5, device=device)
         ep_batches = 0
         h = resume_h if epoch == resume_epoch else None
         train_sampler.epoch = epoch - 1
@@ -453,9 +247,8 @@ def main() -> None:
         for batch_idx, batch in enumerate(train_loader, start=train_sampler.start_batch):
             # A rare name-card question can pad many ordinary frames to a very
             # wide C. Keep large batches on the host and transfer one time step.
-            batch_bytes = sum(tensor.numel() * tensor.element_size() for tensor in batch.values())
-            if batch_bytes < 256 * 1024**2:
-                batch = {key: tensor.to(device, non_blocking=True) for key, tensor in batch.items()}
+            plans = None if args.reference_execution else plan_batch(batch, step_num, args.thinking_steps, args.thinking_curriculum)
+            batch = transfer_batch(batch, device)
             B, U = batch["step_valid"].shape
             opt.zero_grad(set_to_none=True)
             is_new = batch["is_new_traj"].to(device)
@@ -469,6 +262,8 @@ def main() -> None:
 
             k_choices = (1, 2, 4, 8)
             traj_loss = torch.tensor(0.0, device=device)
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                boards = encode_boards(net, batch, args.board_chunk, device)
 
             for t in range(U):
                 k_val = (
@@ -503,9 +298,12 @@ def main() -> None:
                         batch["cand_dsl"][:, t].to(device),
                         h,
                         k_tensor,
+                        execution_hint=None if plans is None else plans[t].hint,
+                        encoded_board=None if boards is None else boards[t],
                     )
                     aux_p = net.aux_head(h_next[:, 0])
-                loss_t, st = compute_step_loss(
+                loss_function = compute_step_loss if plans is None else compute_device_loss
+                loss_t, st = loss_function(
                     cand_l.float(),
                     pair_l.float(),
                     scal_p.float(),
@@ -513,20 +311,25 @@ def main() -> None:
                     aux_p.float(),
                     batch,
                     t,
+                    *([] if plans is None else [plans[t]]),
                 )
                 valid_t = batch["step_valid"][:, t].to(device)
                 h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
                 traj_loss = traj_loss + loss_t / U
-                ep_pol += st["pol_loss"] / U
-                ep_val += st["val_loss"] / U
-                ep_aux += st["aux_loss"] / U
-                ep_corr += st["correct_single"]
-                ep_tot += st["total_single"]
+                if plans is None:
+                    ep_pol += st["pol_loss"] / U
+                    ep_val += st["val_loss"] / U
+                    ep_aux += st["aux_loss"] / U
+                    ep_corr += st["correct_single"]
+                    ep_tot += st["total_single"]
+                else:
+                    epoch_stats[:3] += st[:3] / U
+                    epoch_stats[3:] += st[3:]
 
             if not torch.isfinite(traj_loss):
                 raise FloatingPointError(f"Non-finite loss at step {step_num}")
             traj_loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
             opt.step()
 
             step_num += 1
@@ -552,6 +355,8 @@ def main() -> None:
                 break
 
         val_metrics = validate_and_save()
+        if not args.reference_execution:
+            ep_pol, ep_val, ep_aux, ep_corr, ep_tot = epoch_stats.cpu().tolist()
         elapsed = time.perf_counter() - t0
         print(
             f"[train4] epoch={epoch} step={step_num} "

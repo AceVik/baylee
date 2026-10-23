@@ -34,7 +34,13 @@ def restore_rng(state: dict) -> None:
 
 
 def move_optimizer(optimizer, device) -> None:
-    for state in optimizer.state.values():
-        for key, value in state.items():
-            if isinstance(value, torch.Tensor):
-                state[key] = value.to(device)
+    # Ordinary AdamW reads its scalar step counters on the CPU. Moving those
+    # to CUDA on resume adds a device synchronization per parameter; fused or
+    # capturable optimizers, conversely, need the counters on the device.
+    for group in optimizer.param_groups:
+        device_steps = group.get("fused", False) or group.get("capturable", False)
+        for parameter in group["params"]:
+            for key, value in optimizer.state.get(parameter, {}).items():
+                if isinstance(value, torch.Tensor):
+                    destination = device if key != "step" or device_steps else "cpu"
+                    optimizer.state[parameter][key] = value.to(destination)

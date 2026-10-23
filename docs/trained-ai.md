@@ -11,6 +11,17 @@ answers, valid clock defaults, or the ordinary view-only house AI. A question
 without a clock default must never be answered with an invented priority pass.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+The v4 Python CLI remains `tools/trainer/train4.py`; its implementation is split
+into `training4/` (driver, losses, validation and execution planning), and the
+network into the `model4/` package. `--board-chunk 8` batches independent spatial
+encodings across eight observations while retaining sequential per-seat memory
+updates and the same batch lanes/unroll. Loss statistics remain on the device;
+`--reference-execution` provides the previous synchronized loss path for checks.
+Ordinary AdamW step counters stay on the CPU on resume; only capturable/fused
+optimizers put them on the device. Optional `--fused-optimizer` is a measured
+execution choice, not a change to the model/encoder contract. Freeze these package
+directories as well as the top-level scripts when snapshotting a trainer.
+
 Baylee's own Magic AI: a net that knows every card by its `CardIndex` alone,
 reads only what its seat may see, scores only the answers the engine offers,
 and runs on a player's CPU, GPU or NPU. This is how it is built, what its
