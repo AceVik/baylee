@@ -4,6 +4,7 @@ Metric definitions match validation.evaluate. Only aggregation and execution are
 batched; observations, per-seat state resets and active-choice denominators stay
 unchanged. Float64 accumulators keep long validation runs numerically stable.
 """
+import time
 import torch
 import model4 as M
 from .device_loss import compute_device_loss
@@ -13,13 +14,14 @@ from .prefetch import prefetch_batches
 
 
 @torch.no_grad()
-def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
+def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress_every=0):
     net.eval()
     totals = torch.zeros(11, dtype=torch.float64, device=device)
     calibration = torch.zeros(3, 10, dtype=torch.float64, device=device)
     h = None
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
-    for host, staged in prefetch_batches(loader, device, getattr(net, "gpu_prefetch", 0)):
+    started = time.perf_counter()
+    for batch_index, (host, staged) in enumerate(prefetch_batches(loader, device, getattr(net, "gpu_prefetch", 0)), start=1):
         plans = plan_batch(host, 0, thinking_steps)
         batch = transfer_batch(host, device) if staged is None else staged
         b, u = batch["step_valid"].shape
@@ -68,6 +70,8 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
             calibration[2].scatter_add_(0, bins, truth.double()*valid)
         if prepared is not None:
             h = final_hidden
+        if progress_every and batch_index % progress_every == 0:
+            print(f"[validation4] batches={batch_index}/{len(loader)} elapsed_s={time.perf_counter()-started:.1f}", flush=True)
     values = totals.cpu().tolist()
     pol, val, aux, frames, correct, singles, baseline, predicted, truth, active, active_correct = values
     denominator = max(frames, 1)

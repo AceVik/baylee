@@ -49,6 +49,7 @@ def main() -> None:
     ap.add_argument("--heads", "--n-heads", dest="heads", type=int, default=8)
     ap.add_argument("--d-ff", type=int, default=0, help="FFN width (0 = 4 * d_model)")
     ap.add_argument("--batch-size", type=int, default=4)
+    ap.add_argument("--validation-batch-size", type=int, default=0, help="Validation lanes (0=training batch size); keep fixed when comparing training batch sizes")
     ap.add_argument("--unroll", "--unroll-len", dest="unroll", type=int, default=16)
     ap.add_argument("--thinking-steps", type=int, default=2)
     ap.add_argument(
@@ -81,6 +82,9 @@ def main() -> None:
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     args = ap.parse_args()
+    if args.batch_size < 1 or args.validation_batch_size < 0:
+        ap.error("Training batch size must be positive; validation batch size must be nonnegative")
+    args.validation_batch_size = args.validation_batch_size or args.batch_size
     if args.compile_readouts and not args.compile_regions:
         ap.error("--compile-readouts requires --compile-regions")
     if not 0 <= args.saved_activation_layers <= args.layers:
@@ -125,7 +129,7 @@ def main() -> None:
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
     )
     val_sampler = D4.StatefulBatchSampler4(
-        val_ds, batch_size=args.batch_size, shuffle=False, seed=args.seed
+        val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed
     )
 
     nw = args.num_workers if len(train_ds) >= 32 else 0
@@ -185,7 +189,7 @@ def main() -> None:
     print(
         f"[train4] device={device} bf16={use_bf16} params={n_params / 1e6:.2f}M "
         f"train_segments={len(train_ds)} val_segments={len(val_ds)} "
-        f"B={args.batch_size} U={args.unroll} K={args.thinking_steps}"
+        f"B={args.batch_size} U={args.unroll} K={args.thinking_steps} validation_B={args.validation_batch_size}"
     )
 
     step_num = 0
@@ -202,6 +206,8 @@ def main() -> None:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved["config"] != cfg.to_dict() or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
+        if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
+            raise ValueError("Resume validation batch lanes must match the saved scoring protocol")
         net.load_state_dict(saved["state_dict"], strict=True)
         opt.load_state_dict(saved["optimizer"])
         for group in opt.param_groups:
@@ -231,6 +237,7 @@ def main() -> None:
                      "h": None if hidden is None else (hidden.detach() if args.async_checkpoint else hidden.detach().cpu()),
                      "dataset_fingerprint": train_ds.fingerprint,
                      "batch_size": args.batch_size, "unroll": args.unroll,
+                     "validation_batch_size": args.validation_batch_size,
                      "best_score": best_score}, out_dir / "last.pt")
 
     if args.compile_regions:
@@ -246,7 +253,7 @@ def main() -> None:
         print(f"[validation4] starting full held-out validation at step={step_num}", flush=True)
         was_training = net.training
         metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
-                   else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk))
+                   else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk, progress_every=500))
         net.train(was_training)
         score = metrics["val_pol_loss"] + 2.0 * metrics["val_mse"]
         if score < best_score:
@@ -256,6 +263,7 @@ def main() -> None:
             atomic_save({"config": cfg.to_dict(), "state_dict": best_state,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
+                         "validation_batch_size": args.validation_batch_size,
                          "val_metrics": metrics, "dataset_fingerprint": train_ds.fingerprint}, out_dir / "net.pt")
         last_validation_step, last_validation_metrics = step_num, metrics
         print(f"[validation4] step={step_num} " + json.dumps(metrics, sort_keys=True), flush=True)
@@ -403,6 +411,7 @@ def main() -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
+        "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
@@ -413,6 +422,7 @@ def main() -> None:
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
+        "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,

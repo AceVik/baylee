@@ -66,6 +66,12 @@ execution change: saved recurrent state and sampler cursors cannot be reassigned
 to a new batch size. The benchmark's `--fresh-trajectories --batch-size N` resets
 both at trajectory boundaries and reports valid frames/decisions per second;
 its results alone do not justify a production batch-size change.
+For learning pilots, `--validation-batch-size 8` keeps validation lanes and
+per-head normalization fixed even when the training batch size changes. The
+default follows the training batch size for compatibility. Resume checks this
+scoring setting; old checkpoints implicitly used their training batch size.
+Full optimized validation logs progress every 500 batches without per-frame
+device synchronization.
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,
 protocol, complete seed/deck/focal-seat set and repeated house-baseline outcomes.

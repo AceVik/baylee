@@ -1050,3 +1050,50 @@ tests whether the trained extra thinking helps before committing a long new
 training run. `paired_eval4.py --allow-thinking-difference` permits only this
 explicit budget difference and records both depths; other pairing checks remain.
 The active experiment pointer was advanced; no checkpoint was promoted.
+
+## Thinking result and evening learning pilot (23 October)
+
+The K=4 run completed: 18/128 duel wins versus K=1's 17/128 (two improved,
+one worse, 125 equal cases). Commander remained at one win, with one capped
+game whose outcome is unknown; one case improved and 62 were equal, while the
+capped case cannot be ordered. The paired intervals include zero. Extra depth
+has not yet demonstrated a reliable strength improvement. The owner explicitly
+wants thinking/difficulty levels retained; training continues to cover K=1/2/4/8.
+Difficulty labels should eventually reflect measured playing strength, rather
+than assuming that increasing K necessarily makes the policy stronger.
+
+At the owner's request, plan `experiments/codex-r4-evening-batch-pilot` to finish
+training plus validation around 19:05 Europe/Berlin, then automatically compare
+play. Two bounded B=8/B=16 pilots start from the same step-16442 model weights,
+each with fresh AdamW/memory, LR 5e-5 and sampler seed 43 at complete trajectory
+beginnings. This is an explicitly new fine-tuning phase, not migration of an
+existing recurrent cursor or optimizer to different batch lanes. Fresh optimizer
+state and lower LR apply to both; it is not a claim that batch size alone fixes
+the prior model's shortcomings. All prior artifacts remain preserved.
+
+Validation stays at B=8/U=32 for both models, over all 3,072,672 held-out frames.
+`--validation-batch-size` is recorded in last/best checkpoints and metadata;
+resume rejects a change to that scoring protocol. Old checkpoints default to
+their training batch size. A real synthetic-data CLI integration test trained
+at B=4/validation-B=2, checked all 32 held-out frames, rejected incompatible
+resume and successfully continued with the original scoring configuration.
+Sixteen focused existing tests ran (14 passed, two CUDA skips); the new CLI
+integration test passed. Full validation now logs progress every 500 batches.
+
+The orchestrator allocates equal initial optimization budgets after reserving
+35 minutes per full validation and startup overhead. It records and, if needed,
+reduces the second budget using the first measured validation duration to target
+19:05. Any unequal budgets are disclosed in `plan.json`. No intentional waiting
+for the clock is added. Completion is an estimate because validation time varies.
+An OOM in B=16 preserves the failed experiment; if time permits, the runner
+continues the known B=8 checkpoint with intact lanes in a separate output folder.
+Other failures are kept visible rather than silently reinterpreted as results.
+
+Both pilots use the measured async checkpoint writer and the previously selected
+execution optimizations; extra retained activations and GPU input prefetch remain
+off. The frozen dataset/evaluator/deck manifest are unchanged by the ongoing card
+review. After the final training/validation stage: ONNX checks, then K=1/4/8
+evaluations with 128 duels and 64 Commander deals per model/depth, paired against
+the same house baseline, v3, the prior model, each other and their own K=1 results
+as applicable. There is no automatic model promotion or declaration of human
+strength. This remains one-seed exploratory evidence, not a final held-out test.
