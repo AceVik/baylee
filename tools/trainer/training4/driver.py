@@ -160,7 +160,9 @@ def main() -> None:
         dropout=args.dropout,
         activation_checkpointing=args.activation_checkpointing,
     )
-    net = M.PlayerNet4(cfg).to(device)
+    net = M.PlayerNet4(cfg)
+    net.attach_structure(train_ds.structure.data)
+    net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
@@ -173,6 +175,9 @@ def main() -> None:
         if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") != M.MODEL_VERSION
                 or ckpt_init.get("encoder_version") != M.ENCODER_VERSION):
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
+        from model4.structure import structure_digest
+        if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
+            raise ValueError("Initial checkpoint uses a different public rules catalog")
         net.load_state_dict(ckpt_init["state_dict"], strict=True)
         print(f"[train4] loaded initial weights from {init_pt}")
     val_head_params = [p for n, p in net.named_parameters() if "seat_value_head" in n]
@@ -230,7 +235,7 @@ def main() -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({"config": cfg.to_dict(), "state_dict": net.state_dict(),
+        checkpoint_writer.save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
@@ -262,7 +267,7 @@ def main() -> None:
             best_score, best_step = score, step_num
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
-            atomic_save({"config": cfg.to_dict(), "state_dict": best_state,
+            atomic_save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
                          "validation_batch_size": args.validation_batch_size,
@@ -312,6 +317,8 @@ def main() -> None:
                 k_choices = (1, 2, 4, 8)
                 traj_loss = torch.tensor(0.0, device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                    net.clear_structure()
+                    net.prepare_structure()
                     boards = encode_boards(net, batch, args.board_chunk, device)
 
                 prepared = None
@@ -324,7 +331,7 @@ def main() -> None:
                                  if args.thinking_curriculum else args.thinking_steps)
                         k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                            output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:15]], h, k_tensor,
+                            output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:-2]], h, k_tensor,
                                          execution_hint=None if plans is None else plans[t].hint,
                                          encoded_board=None if boards is None else boards[t],
                                          policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
@@ -366,6 +373,7 @@ def main() -> None:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
                 checkpoint_writer.before_mutation()
                 opt.step()
+                net.clear_structure()
 
                 step_num += 1
                 ep_batches += 1
@@ -418,7 +426,7 @@ def main() -> None:
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,
-        "state_dict": final_state,
+        "structure": train_ds.structure.data, "state_dict": final_state,
         "step_num": best_step if best_state is not None else step_num,
         "val_metrics": final_metrics,
     }
@@ -429,6 +437,7 @@ def main() -> None:
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,
         "dsl_version": M.DSL_VERSION,
+        "structure_version": 1, "structure_sha256": train_ds.structure.digest,
         "d_model": cfg.d_model,
         "n_layers": cfg.n_layers,
         "n_heads": cfg.n_heads,

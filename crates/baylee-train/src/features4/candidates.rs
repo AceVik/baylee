@@ -1,6 +1,9 @@
 /// Encodes all legal candidates for `pending` given `state` and `view`.
 #[must_use]
-#[allow(clippy::too_many_lines, reason = "One explicit encoding arm per Pending variant")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "One explicit encoding arm per Pending variant"
+)]
 pub fn encode_candidates4(
     state: &EncodedState4,
     view: &PlayerView,
@@ -109,9 +112,7 @@ pub fn encode_candidates4(
                 if let Some(eidx) = state.find_entity(src_id) {
                     c.entity_idx = eidx as i16;
                     c.card_id = state.entity_card_ids[eidx];
-                    if (ab_idx as usize) < MAX_ABILITIES {
-                        c.ability_idx = ab_idx as i8;
-                    }
+                    c.ability_idx = i64::from(ab_idx);
                     populate_cand_ability_dsl(&mut c, state, eidx, ab_idx as usize);
                 }
                 c.action = Some(PlayerAction::ActivateAbility {
@@ -147,6 +148,7 @@ pub fn encode_candidates4(
                 c.feat[5] = 1.0; // ChooseManaAbility
                 c.feat[16] = unit(idx as f32, 16.0);
                 c.feat[17] = unit(opt.ability_index.unwrap_or(0) as f32, 8.0);
+                c.ability_idx = opt.ability_index.map_or(-1, i64::from);
                 if let Some(eidx) = state.find_entity(opt.source.object) {
                     c.entity_idx = eidx as i16;
                     c.card_id = state.entity_card_ids[eidx];
@@ -259,6 +261,11 @@ pub fn encode_candidates4(
                 if let Some(eidx) = state.find_entity(*object) {
                     c.entity_idx = eidx as i16;
                     c.card_id = state.entity_card_ids[eidx];
+                    c.extra_rules = crate::cardstructure::refs::mode_refs(
+                        c.card_id,
+                        state.entity_face_ids[eidx],
+                        &opt.kind,
+                    );
                 }
                 c.action = Some(PlayerAction::ChooseMode(idx));
                 out.candidates.push(c);

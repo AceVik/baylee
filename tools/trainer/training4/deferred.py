@@ -58,7 +58,7 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         # Merge frames into the batch axis. Trim BEFORE concatenation so one
         # rare NameCard frame cannot inflate all other readouts in the unroll.
         inputs = []
-        for name in M.INPUT_NAMES[:15]:
+        for name in M.INPUT_NAMES[:-2]:
             frames = []
             for t in times:
                 frame = batch[name][:, t]

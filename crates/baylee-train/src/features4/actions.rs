@@ -178,10 +178,12 @@ pub struct Candidate4 {
     pub entity_idx: i16,
     /// Referenced relative seat index (`0..7`, `-1` if none).
     pub rel_seat_idx: i8,
-    /// Referenced `CardIndex` (`0` if none).
+    /// Referenced `CardIndex` (`UNKNOWN_CARD` if none; zero is a valid card).
     pub card_id: u32,
-    /// Referenced ability index (`0..MAX_ABILITIES`, `-1` if none).
-    pub ability_idx: i8,
+    /// Referenced ability index (`-1` if none); retains the full u32 range.
+    pub ability_idx: i64,
+    /// Additional exact face/mode semantics supplied by a public offer.
+    pub extra_rules: Vec<crate::cardstructure::refs::RuleRef>,
     /// Concrete `PlayerAction` when `head == SingleChoice` (or the atomic item
     /// meaning for `SubsetPick`).
     pub action: Option<PlayerAction>,
@@ -204,6 +206,7 @@ impl Default for Candidate4 {
             rel_seat_idx: -1,
             card_id: UNKNOWN_CARD,
             ability_idx: -1,
+            extra_rules: Vec::new(),
             action: None,
             object_id: None,
             player_id: None,

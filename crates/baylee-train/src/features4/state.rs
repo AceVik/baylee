@@ -77,6 +77,8 @@ pub struct EncodedState4 {
     pub entity_face_ids: Vec<u8>,
     /// Registry token ID (`0` if not a registry token).
     pub entity_token_ids: Vec<u16>,
+    /// All public printed/selected/granted rule references; no ability cap.
+    pub entity_rule_refs: Vec<Vec<crate::cardstructure::refs::RuleRef>>,
     /// Zone ID (`EntityZone4 as u8`).
     pub entity_zone_ids: Vec<u8>,
     /// Relative controller seat (`0..7`, `8` = unknown).
@@ -97,6 +99,7 @@ impl Default for EncodedState4 {
             entity_card_ids: Vec::new(),
             entity_face_ids: Vec::new(),
             entity_token_ids: Vec::new(),
+            entity_rule_refs: Vec::new(),
             entity_zone_ids: Vec::new(),
             entity_rel_controller: Vec::new(),
             seat_feat: vec![vec![0.0; SEAT_FEAT_WIDTH]; MAX_SEATS],
@@ -119,7 +122,11 @@ impl EncodedState4 {
     /// `1 + token_id` = registry token).
     #[must_use]
     pub fn entity_dsl_summary(&self, idx: usize) -> [f32; CARD_DSL_WIDTH] {
-        let card_id = self.entity_card_ids.get(idx).copied().unwrap_or(UNKNOWN_CARD);
+        let card_id = self
+            .entity_card_ids
+            .get(idx)
+            .copied()
+            .unwrap_or(UNKNOWN_CARD);
         let face_id = self.entity_face_ids.get(idx).copied().unwrap_or(0) as usize;
         if card_id != UNKNOWN_CARD
             && let Some(def) = baylee_cards::by_index(CardIndex::new(card_id))
@@ -139,7 +146,10 @@ impl EncodedState4 {
 /// Encodes a [`PlayerView`] (plus optional [`Pending`] and [`SeatKnowledge4`])
 /// into an [`EncodedState4`].
 #[must_use]
-#[allow(clippy::too_many_lines, reason = "Ordered zone traversal is part of the versioned encoder")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Ordered zone traversal is part of the versioned encoder"
+)]
 pub fn encode_state4(
     view: &PlayerView,
     pending: Option<&Pending>,
@@ -300,7 +310,10 @@ pub fn encode_state4(
     state
 }
 
-#[allow(clippy::too_many_lines, reason = "Contiguous versioned public-object feature layout")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Contiguous versioned public-object feature layout"
+)]
 fn push_public_object(
     state: &mut EncodedState4,
     view: &PlayerView,
@@ -372,9 +385,10 @@ fn push_public_object(
             | Pending::ChooseTargets { options, .. }
             | Pending::LegendChoice { options, .. }
             | Pending::Arrange { cards: options, .. }
-                if options.contains(&obj.id) => {
-                    f[30] = 1.0;
-                }
+                if options.contains(&obj.id) =>
+            {
+                f[30] = 1.0;
+            }
             _ => {}
         }
     }
@@ -414,8 +428,12 @@ fn push_public_object(
     // [46..56]: projected & base P/T, damage, remaining toughness, lethal, loyalty
     f[46] = f32::from(u8::from(obj.power.is_some()));
     f[47] = obj.power.map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
-    f[48] = obj.toughness.map_or(0.0, |t| signed_unit(f32::from(t), 12.0));
-    f[49] = obj.base_power.map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
+    f[48] = obj
+        .toughness
+        .map_or(0.0, |t| signed_unit(f32::from(t), 12.0));
+    f[49] = obj
+        .base_power
+        .map_or(0.0, |p| signed_unit(f32::from(p), 12.0));
     f[50] = obj
         .base_toughness
         .map_or(0.0, |t| signed_unit(f32::from(t), 12.0));
@@ -519,6 +537,14 @@ fn push_public_object(
     state.entity_card_ids.push(active_card_id);
     state.entity_face_ids.push(face_idx);
     state.entity_token_ids.push(token_slot);
+    state
+        .entity_rule_refs
+        .push(crate::cardstructure::refs::public_refs(
+            obj,
+            active_card_id,
+            face_idx,
+            token_slot,
+        ));
     state.entity_zone_ids.push(zone as u8);
     state.entity_rel_controller.push(rel_ctrl as u8);
 }
@@ -593,6 +619,13 @@ fn push_hand_object(
     state.entity_card_ids.push(h_obj.card.index.get());
     state.entity_face_ids.push(h_obj.card.face);
     state.entity_token_ids.push(0);
+    state
+        .entity_rule_refs
+        .push(crate::cardstructure::refs::card_refs(
+            h_obj.card.index.get(),
+            h_obj.card.face,
+            0,
+        ));
     state.entity_zone_ids.push(zone as u8);
     state.entity_rel_controller.push(rel_own as u8);
 }
@@ -627,12 +660,18 @@ fn push_remembered_card(
     state.entity_face_ids.push(0);
     state.entity_token_ids.push(0);
     state
+        .entity_rule_refs
+        .push(crate::cardstructure::refs::card_refs(mem.card_index, 0, 0));
+    state
         .entity_zone_ids
         .push(EntityZone4::RememberedOpponentCard as u8);
     state.entity_rel_controller.push(rel_own as u8);
 }
 
-#[allow(clippy::too_many_lines, reason = "Contiguous versioned seat feature layout")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Contiguous versioned seat feature layout"
+)]
 fn encode_seats4(
     state: &mut EncodedState4,
     view: &PlayerView,
@@ -743,7 +782,8 @@ fn encode_seats4(
             {
                 let rel_src = rel_seat(viewer, Some(PlayerId::new(owner_idx as u8)), seat_count);
                 if rel_src < MAX_SEATS {
-                    dst[44 + rel_src] = (dst[44 + rel_src] + unit(f32::from(cd.amount), 21.0)).min(1.0);
+                    dst[44 + rel_src] =
+                        (dst[44 + rel_src] + unit(f32::from(cd.amount), 21.0)).min(1.0);
                 }
             }
         }
@@ -854,7 +894,10 @@ fn encode_global4(
     }
 }
 
-#[allow(clippy::too_many_lines, reason = "Explicit relation schema and stable edge ordering")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit relation schema and stable edge ordering"
+)]
 fn build_edges4(state: &mut EncodedState4, view: &PlayerView, viewer: PlayerId, seat_count: usize) {
     let entity_ids = state.entity_object_ids.clone();
     let obj_token = |id: ObjectId| -> Option<i16> {

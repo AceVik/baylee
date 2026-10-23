@@ -34,7 +34,7 @@ class DeferredReadouts(unittest.TestCase):
         else:
             out = []
             for t, plan in enumerate(plans):
-                values = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:15]], h,
+                values = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:-2]], h,
                              batch["is_decision"][:, t].long() * plan.thinking,
                              execution_hint=plan.hint, encoded_board=boards[t],
                              policy_heads=plan.heads if getattr(net, "prune_unused_policy_heads", False) else None)

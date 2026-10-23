@@ -34,6 +34,7 @@ use crate::features4::{
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
+mod structure;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 
@@ -69,6 +70,7 @@ pub struct Answer4 {
 pub struct NetPlayer4 {
     sessions: BTreeMap<u8, Session>,
     model_dir: PathBuf,
+    rule_roots: Option<BTreeMap<String, u32>>,
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
@@ -138,11 +140,12 @@ impl NetPlayer4 {
             (path.to_path_buf(), meta_p)
         };
         let meta: Value = serde_json::from_slice(&fs::read(&meta_path)?)?;
+        let legacy = meta["encoder_version"] == 5 && meta["model_version"] == 2;
+        let structured = meta["encoder_version"] == 6 && meta["model_version"] == 3;
         anyhow::ensure!(
-            meta["encoder_version"] == 5
+            (legacy || structured)
                 && meta["trajectory_version"] == 2
-                && meta["sampling_version"] == 2
-                && meta["model_version"] == 2,
+                && meta["sampling_version"] == 2,
             "incompatible v4 model contracts; re-export repaired model"
         );
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
@@ -150,10 +153,21 @@ impl NetPlayer4 {
             .as_u64()
             .context("missing thinking_steps")? as u8;
         let session = load_session(&onnx_path)?;
+        let rule_roots = if structured {
+            Some(structure::load(
+                &onnx_path.with_file_name("card_structure.json"),
+                meta["structure_sha256"]
+                    .as_str()
+                    .context("missing structure hash")?,
+            )?)
+        } else {
+            None
+        };
 
         Ok(Self {
             sessions: BTreeMap::from([(thinking_steps, session)]),
             model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
+            rule_roots,
             d_model,
             thinking_steps,
             temperature: 0.0,
@@ -458,8 +472,7 @@ impl NetPlayer4 {
         }
 
         let k_steps = vec![i64::from(k_val)];
-
-        let inputs = ort::inputs![
+        let mut inputs = ort::inputs![
             "entity_feat" => Tensor::from_array(([1, e_len, ENTITY_FEAT_WIDTH], ent_feat)).map_err(ort_error)?,
             "entity_dsl" => Tensor::from_array(([1, e_len, CARD_DSL_WIDTH], ent_dsl)).map_err(ort_error)?,
             "entity_mask" => Tensor::from_array(([1, e_len], ent_mask)).map_err(ort_error)?,
@@ -478,6 +491,20 @@ impl NetPlayer4 {
             "h_in" => Tensor::from_array(([1, RECURRENT_SLOTS, self.d_model], h_in.to_vec())).map_err(ort_error)?,
             "thinking_steps" => Tensor::from_array(([1], k_steps)).map_err(ort_error)?,
         ];
+
+        if let Some(roots) = &self.rule_roots {
+            let (er, entity_rules) = structure::pack(&state.entity_rule_refs, e_len, roots)?;
+            let refs = cands
+                .candidates
+                .iter()
+                .map(|c| crate::cardstructure::refs::candidate_refs(c, state))
+                .collect::<Vec<_>>();
+            let (cr, cand_rules) = structure::pack(&refs, c_len, roots)?;
+            inputs.extend(ort::inputs![
+                "entity_rules" => Tensor::from_array(([1, e_len, er, 2], entity_rules)).map_err(ort_error)?,
+                "cand_rules" => Tensor::from_array(([1, c_len, cr, 2], cand_rules)).map_err(ort_error)?,
+            ]);
+        }
 
         let depth = if k_val == 0 {
             0

@@ -22,6 +22,11 @@ def write_dataset(root, lengths, candidates=1):
     meta = {"encoder_version": M.ENCODER_VERSION, "trajectory_version": M.TRAJECTORY_VERSION,
             "sampling_version": M.SAMPLING_VERSION, "cards": [M.UNKNOWN_CARD],
             "train_shards": ["steps.jsonl.gz"], "val_shards": []}
+    from test_structure4 import small_forest
+    from model4.structure import structure_digest
+    forest = small_forest()
+    meta["structure_sha256"] = structure_digest(forest)
+    (root / "card_structure.json").write_text(json.dumps(forest))
     (root / "meta.json").write_text(json.dumps(meta))
     for table in ("card_dsl.bin", "card_dsl_back.bin", "token_dsl.bin"):
         np.zeros((1, M.CARD_DSL_WIDTH), dtype=np.float32).tofile(root / table)
@@ -32,12 +37,13 @@ def write_dataset(root, lengths, candidates=1):
                 step = {"game_id": game, "seat": 0, "step_cursor": cursor,
                         "is_decision": decision, "is_terminal": decision,
                         "head": 0, "outcome": 1.0,
-                        "state": {"entity_feat": [], "entity_card_ids": [], "edges": [],
+                        "state": {"entity_feat": [], "entity_card_ids": [], "entity_rule_refs": [], "edges": [],
                                   "seat_feat": [[0.] * M.SEAT_FEAT_WIDTH] * 8,
                                   "global_feat": [0.] * M.GLOBAL_FEAT_WIDTH},
                         "cand_feat": [[0.] * M.CAND_FEAT_WIDTH] * (candidates if decision else 0),
                         "cand_entity_idx": [-1] * (candidates if decision else 0),
                         "cand_rel_seat_idx": [-1] * (candidates if decision else 0),
+                        "cand_rule_refs": [[] for _ in range(candidates if decision else 0)],
                         "pairs": [], "target": {"single_idx": candidates - 1 if decision else 0,
                                                   "scalar_norm": 0.0}}
                 f.write(json.dumps(step) + "\n")

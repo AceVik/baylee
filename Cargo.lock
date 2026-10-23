@@ -1409,6 +1409,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "syn 3.0.9",
  "tokio",
  "uuid",
 ]

@@ -5,6 +5,12 @@
 records the repaired observation clock, contract versions, measured model size,
 checks and remaining limitations. v4 uses structural card features and
 persistent seat memory; the older pipeline below describes v1–v3.
+The [structured encoder implementation](history/trained-ai-v4-structured-encoder-2026-10-23.md)
+adds encoder 6 / model 3: complete ordered typed rule trees, neural hierarchical
+card/ability representations, public identity and selected-rule references.
+Its dataset and checkpoint contract is separate from encoder 5 / model 2.
+The runtime can still evaluate archived encoder-5 models with their original
+17-input interface, allowing comparisons in the same engine executable.
 CUDA inference is measured and rollout-probability audited on the 4070 Ti;
 see the log for whole-game CPU/GPU comparisons. v4 fallbacks use legal offered
 answers, valid clock defaults, or the ordinary view-only house AI. A question

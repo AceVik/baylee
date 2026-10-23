@@ -83,6 +83,11 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
         import gzip
         import json
 
+        from test_structure4 import small_forest
+        from model4.structure import structure_digest
+        forest = small_forest()
+        meta["structure_sha256"] = structure_digest(forest)
+        (dpath / "card_structure.json").write_text(json.dumps(forest))
         (dpath / "meta.json").write_text(json.dumps(meta))
         front = np.ones((2, M.CARD_DSL_WIDTH), dtype=np.float32) * 1.0
         back = np.ones((2, M.CARD_DSL_WIDTH), dtype=np.float32) * 2.0
@@ -148,6 +153,9 @@ def test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping():
             "aux": {},
             "provenance": {"source": "Net", "thinking_steps": 2, "temperature": 1.0, "behavior_logprob": -0.5, "has_logprob": True},
         }
+        for step in (step0, step1):
+            step["state"]["entity_rule_refs"] = [[] for _ in step["state"]["entity_feat"]]
+            step["cand_rule_refs"] = [[] for _ in step["cand_feat"]]
         with gzip.open(dpath / "train" / "steps-000.jsonl.gz", "wt", encoding="utf-8") as gz:
             gz.write(json.dumps(step0) + "\n")
             gz.write(json.dumps(step1) + "\n")

@@ -8,8 +8,8 @@ Implements T3 (Phase A) from `docs/history/trained-ai-v4-handover-2026-10-22.md`
 3. Multi-Card Set Transformer Masked Reconstruction (24-card board/hand sets
    passed through `PlayerNet4.trunk_layers`).
 
-Produces a warm-started `PlayerNet4` checkpoint (`net.pt`) for Phase B
-trajectory distillation (`train4.py --init`).
+Historical encoder-5 experiment, retained for reference. It cannot produce
+encoder-6 checkpoints: use `pretrain_structure4.py` for the complete rule DAG.
 """
 
 from __future__ import annotations
@@ -64,6 +64,9 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=5e-4)
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
+
+    if M.ENCODER_VERSION >= 6:
+        ap.error("This legacy eight-ability summary pretrainer is incompatible with encoder 6; use pretrain_structure4.py")
 
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

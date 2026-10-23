@@ -45,8 +45,8 @@ use baylee_view::{
 use serde::{Deserialize, Serialize};
 
 use crate::carddsl::{
-    CARD_DSL_WIDTH, MAX_ABILITIES, UNKNOWN_CARD, encode_ability_def, encode_card_face,
-    encode_mana_cost, encode_token_def,
+    CARD_DSL_WIDTH, UNKNOWN_CARD, encode_ability_def, encode_card_face, encode_mana_cost,
+    encode_token_def,
 };
 
 /// Packs an [`ObjectId`] (`slot` + `generation`) into a deterministic `u64`.
@@ -57,7 +57,7 @@ pub const fn pack_object_id(id: ObjectId) -> u64 {
 }
 
 /// Schema version of the v4 state/action encoder.
-pub const ENCODER_VERSION: u32 = 5;
+pub const ENCODER_VERSION: u32 = 6;
 
 /// Maximum seats at a Baylee table.
 pub const MAX_SEATS: usize = 8;

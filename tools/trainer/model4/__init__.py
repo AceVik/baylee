@@ -32,6 +32,10 @@ class PlayerNet4(nn.Module):
     def __init__(self, cfg: Config4):
         super().__init__()
         self.cfg = cfg
+        from .structure import RuleEncoder
+        self.rules = RuleEncoder({"version": 1, "dsl_source_sha256": "", "tags": ["Unknown"],
+                                  "nodes": [{"tag": 0, "bytes": [], "children": []}], "roots": {}}, cfg.structure_width)
+        self.rules_proj = nn.Linear(cfg.structure_width, cfg.d_model, bias=False)
         d = cfg.d_model
 
         # 1. Token Encoders
@@ -121,6 +125,23 @@ class PlayerNet4(nn.Module):
         )
         self.aux_head = nn.Linear(d, 4)
 
+    def attach_structure(self, data):
+        from .structure import RuleEncoder
+        self.rules = RuleEncoder(data, self.cfg.structure_width)
+
+    def prepare_structure(self):
+        if self.rules is not None:
+            self.rules.prepare()
+
+    def clear_structure(self):
+        if self.rules is not None:
+            self.rules.clear()
+
+    def rule_features(self, refs):
+        if self.rules is None:
+            return self.rules_proj.weight.new_zeros((*refs.shape[:-2], self.cfg.d_model))
+        return self.rules_proj(self.rules(refs))
+
     def encode_board(
         self,
         entity_feat: torch.Tensor,
@@ -131,6 +152,7 @@ class PlayerNet4(nn.Module):
         edge_index: torch.Tensor,
         edge_type: torch.Tensor,
         edge_mask: torch.Tensor,
+        entity_rules: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encodes `[Global(1), Seats(8), Entities(E)]` through the relation-aware trunk."""
         B, E, _ = entity_feat.shape
@@ -147,6 +169,7 @@ class PlayerNet4(nn.Module):
         e_tok = (
             self.entity_proj(symlog(entity_feat))
             + self.dsl_proj(symlog(entity_dsl))
+            + self.rule_features(entity_rules)
             + self.token_type_emb.weight[2]
         )
 
@@ -214,6 +237,8 @@ class PlayerNet4(nn.Module):
         pair_index: torch.Tensor,
         pair_mask: torch.Tensor,
         cand_dsl: torch.Tensor,
+        entity_rules: torch.Tensor,
+        cand_rules: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
         execution_hint: tuple[int, int, int] | None = None,
@@ -241,6 +266,7 @@ class PlayerNet4(nn.Module):
             edge_index,
             edge_type,
             edge_mask,
+            entity_rules,
         )
 
         if not torch.jit.is_tracing():
@@ -256,6 +282,7 @@ class PlayerNet4(nn.Module):
                 # Do not ask CUDA to return three shape/schedule scalars per frame.
                 c_len, p_len, _ = execution_hint
             cand_dsl = cand_dsl[:, :c_len]
+            cand_rules = cand_rules[:, :c_len]
             cand_feat, cand_entity_idx = cand_feat[:, :c_len], cand_entity_idx[:, :c_len]
             cand_seat_idx, cand_mask = cand_seat_idx[:, :c_len], cand_mask[:, :c_len]
             pair_index, pair_mask = pair_index[:, :p_len], pair_mask[:, :p_len]
@@ -295,7 +322,7 @@ class PlayerNet4(nn.Module):
         # default computes every output for inference and portable ONNX export.
         if policy_heads is None or policy_heads[0] or policy_heads[1]:
             # Candidate scoring (`cand_logits: [B, C]`)
-            c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl))
+            c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl)) + self.rule_features(cand_rules)
 
             ent_idx_clamped = cand_entity_idx.clamp(min=0)
             has_ent = cand_entity_idx >= 0
@@ -377,6 +404,8 @@ class PlayerNet4(nn.Module):
         pair_index: torch.Tensor,
         pair_mask: torch.Tensor,
         cand_dsl: torch.Tensor,
+        entity_rules: torch.Tensor,
+        cand_rules: torch.Tensor,
         h_in: torch.Tensor,
         thinking_steps: torch.Tensor,
         execution_hint: tuple[int, int, int] | None = None,
@@ -401,6 +430,8 @@ class PlayerNet4(nn.Module):
                 pair_index,
                 pair_mask,
                 cand_dsl,
+                entity_rules,
+                cand_rules,
                 h_in,
                 thinking_steps,
                 execution_hint=execution_hint,

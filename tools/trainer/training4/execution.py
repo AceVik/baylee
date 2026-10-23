@@ -69,7 +69,7 @@ def encode_boards(net, batch, chunk, device, entity_bucket=0):
     for start in range(0, unroll, chunk):
         end = min(start + chunk, unroll)
         inputs = []
-        for name in M.INPUT_NAMES[:8]:
+        for name in (*M.INPUT_NAMES[:8], "entity_rules"):
             tensor = batch[name][:, start:end]
             inputs.append(tensor.reshape(b * (end - start), *tensor.shape[2:]).to(device, non_blocking=True))
         if entity_bucket:
@@ -79,6 +79,7 @@ def encode_boards(net, batch, chunk, device, entity_bucket=0):
             if padding:
                 inputs[0] = torch.nn.functional.pad(inputs[0], (0, 0, 0, padding))
                 inputs[1] = torch.nn.functional.pad(inputs[1], (0, 0, 0, padding))
+                inputs[8] = torch.nn.functional.pad(inputs[8], (0, 0, 0, 0, 0, padding))
                 inputs[2] = torch.nn.functional.pad(inputs[2], (0, padding), value=False)
         board, mask = net.encode_board(*inputs)
         board = board.reshape(b, end - start, *board.shape[1:])

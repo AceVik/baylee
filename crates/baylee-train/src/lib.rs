@@ -14,6 +14,8 @@
 pub mod batchnet;
 #[cfg(feature = "play")]
 pub mod carddsl;
+#[cfg(feature = "play")]
+pub mod cardstructure;
 pub mod cardwalk;
 #[cfg(feature = "play")]
 pub mod convert;

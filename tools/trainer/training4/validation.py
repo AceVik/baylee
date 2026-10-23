@@ -14,6 +14,8 @@ def evaluate(
     thinking_steps: int,
 ) -> dict[str, float]:
     net.eval()
+    net.clear_structure()
+    net.prepare_structure()
     tot_pol = 0.0
     tot_val = 0.0
     tot_aux = 0.0
@@ -63,7 +65,9 @@ def evaluate(
                     batch["cand_mask"][:, t].to(device),
                     batch["pair_index"][:, t].to(device),
                     batch["pair_mask"][:, t].to(device),
-                        batch["cand_dsl"][:, t].to(device),
+                    batch["cand_dsl"][:, t].to(device),
+                    batch["entity_rules"][:, t].to(device),
+                    batch["cand_rules"][:, t].to(device),
                     h,
                     k_tensor,
                 )

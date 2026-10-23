@@ -30,6 +30,8 @@ def compare_validation(saved, data, count, readouts=False, decision_chunk=1, pro
     rows = []
     for optimized in (False, True):
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().eval()
+        net.attach_structure(saved["structure"])
+        net = net.cuda()
         net.load_state_dict(saved["state_dict"])
         if optimized or production_reference:
             net.cache_thinking_kv = True

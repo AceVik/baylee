@@ -30,7 +30,7 @@ class TrainingHeadSelection(unittest.TestCase):
                     loss, stats = 0, torch.zeros(5)
                     for t, plan in enumerate(plans):
                         thinking = batch["is_decision"][:, t].long() * plan.thinking
-                        out = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:15]], h, thinking,
+                        out = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:-2]], h, thinking,
                                   execution_hint=plan.hint, encoded_board=boards[t],
                                   policy_heads=plan.heads if selected else None)
                         auxiliary = net.aux_head(out[0][:, 0])

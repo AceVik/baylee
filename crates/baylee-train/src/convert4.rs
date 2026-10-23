@@ -83,7 +83,9 @@ pub struct Step4 {
     /// Named face, or 255 to use the referenced entity's rules face.
     pub cand_face_id: Vec<u8>,
     /// Candidate referenced ability index (`-1` if none).
-    pub cand_ability_idx: Vec<i8>,
+    pub cand_ability_idx: Vec<i64>,
+    /// Complete public semantic references for each action candidate.
+    pub cand_rule_refs: Vec<Vec<crate::cardstructure::refs::RuleRef>>,
     /// Legal `(blocker_entity_idx, attacker_entity_idx)` pairs for `PairPick`.
     pub pairs: Vec<[i16; 2]>,
     /// Ground-truth teacher or rollout action target.
@@ -262,6 +264,7 @@ pub fn extract_game4_with_sidecar(
                                     cand_card_id: Vec::new(),
                                     cand_face_id: Vec::new(),
                                     cand_ability_idx: Vec::new(),
+                                    cand_rule_refs: Vec::new(),
                                     pairs: Vec::new(),
                                     target: TeacherTarget4::default(),
                                     outcome: 0.0,
@@ -332,6 +335,11 @@ pub fn extract_game4_with_sidecar(
                             is_decision: true,
                             loss_weight: step_loss_weight,
                             is_terminal: false,
+                            cand_rule_refs: cands
+                                .candidates
+                                .iter()
+                                .map(|c| crate::cardstructure::refs::candidate_refs(c, &state))
+                                .collect(),
                             state,
                             head: cands.head as u8,
                             pending_kind: p_kind as u8,

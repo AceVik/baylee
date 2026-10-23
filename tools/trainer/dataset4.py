@@ -34,6 +34,7 @@ from torch.utils.data import Dataset, Sampler
 
 import model4 as M
 from trajectory_store4 import TrajectoryStore4
+from structure_data4 import StructureData
 
 SOURCE_KIND_MAP = {
     "Net": 0,
@@ -82,6 +83,7 @@ class TrajectoryDataset4(Dataset):
         )
         if self.meta.get("trajectory_version") != M.TRAJECTORY_VERSION:
             raise ValueError("Reconvert records with the current complete-observation converter")
+        self.structure = StructureData(self.data_dir / "card_structure.json", self.meta["structure_sha256"])
         self.unroll_len = unroll_len
         self.max_entities = max_entities
         self.max_edges = max_edges
@@ -230,6 +232,11 @@ class TrajectoryDataset4(Dataset):
         else:
             cand_mask[0] = True
 
+        if len(state["entity_rule_refs"]) != len(raw_ef) or len(st["cand_rule_refs"]) != len(raw_cf):
+            raise ValueError("Missing entity/action rule references; reconvert the observation stream")
+        entity_rules = self.structure.pack(state["entity_rule_refs"], E_max)
+        cand_rules = self.structure.pack(st["cand_rule_refs"], C_max)
+
         tgt = st["target"]
         raw_mm = tgt.get("multi_mask", [])
         raw_fm = tgt.get("free_mask", [])
@@ -298,6 +305,8 @@ class TrajectoryDataset4(Dataset):
         return {
             "entity_feat": ent_feat,
             "entity_dsl": ent_dsl,
+            "entity_rules": entity_rules,
+            "cand_rules": cand_rules,
             "entity_mask": ent_mask,
             "seat_feat": seat_feat,
             "global_feat": global_feat,
@@ -446,6 +455,7 @@ def collate_trajectories(batch: list[dict[str, np.ndarray]]) -> dict[str, torch.
     ent_any = out["entity_mask"].any(dim=(0, 1))
     e_trim = max(1, int(ent_any.nonzero()[-1].item()) + 1) if ent_any.any() else 1
     out["entity_feat"] = out["entity_feat"][:, :, :e_trim]
+    out["entity_rules"] = out["entity_rules"][:, :, :e_trim]
     out["entity_dsl"] = out["entity_dsl"][:, :, :e_trim]
     out["entity_mask"] = out["entity_mask"][:, :, :e_trim]
 
@@ -458,6 +468,7 @@ def collate_trajectories(batch: list[dict[str, np.ndarray]]) -> dict[str, torch.
     cnd_any = out["cand_mask"].any(dim=(0, 1))
     c_trim = max(1, int(cnd_any.nonzero()[-1].item()) + 1) if cnd_any.any() else 1
     out["cand_feat"] = out["cand_feat"][:, :, :c_trim]
+    out["cand_rules"] = out["cand_rules"][:, :, :c_trim]
     out["cand_dsl"] = out["cand_dsl"][:, :, :c_trim]
     out["cand_entity_idx"] = out["cand_entity_idx"][:, :, :c_trim]
     out["cand_seat_idx"] = out["cand_seat_idx"][:, :, :c_trim]

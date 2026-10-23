@@ -100,10 +100,16 @@ struct ShardWriter {
     enc: Option<GzEncoder<BufWriter<File>>>,
     shards_written: Vec<String>,
     total_steps: u64,
+    rule_roots: Arc<std::collections::BTreeMap<String, u32>>,
 }
 
 impl ShardWriter {
-    fn new(dir: PathBuf, prefix: &'static str, shard_steps: usize) -> anyhow::Result<Self> {
+    fn new(
+        dir: PathBuf,
+        prefix: &'static str,
+        shard_steps: usize,
+        rule_roots: Arc<std::collections::BTreeMap<String, u32>>,
+    ) -> anyhow::Result<Self> {
         fs::create_dir_all(&dir)?;
         Ok(Self {
             dir,
@@ -114,10 +120,29 @@ impl ShardWriter {
             enc: None,
             shards_written: Vec::new(),
             total_steps: 0,
+            rule_roots,
         })
     }
 
     fn write_steps(&mut self, steps: &[Step4]) -> anyhow::Result<()> {
+        for step in steps {
+            for refs in step
+                .state
+                .entity_rule_refs
+                .iter()
+                .chain(&step.cand_rule_refs)
+            {
+                for r in refs {
+                    anyhow::ensure!(
+                        self.rule_roots.contains_key(&r.key),
+                        "unrepresented rule {} in game {} cursor {}",
+                        r.key,
+                        step.game_id,
+                        step.step_cursor
+                    );
+                }
+            }
+        }
         let step_count = steps.len();
         if step_count == 0 {
             return Ok(());
@@ -232,6 +257,12 @@ fn main() -> anyhow::Result<()> {
         n => n,
     };
 
+    let structure = baylee_train::cardstructure::catalog(
+        &baylee_cards::all()
+            .map(|c| c.index.get())
+            .collect::<Vec<_>>(),
+    )?;
+    let rule_roots = Arc::new(structure.roots.clone());
     let started = Instant::now();
     let games_arc = Arc::new(games);
     let next_idx = Arc::new(AtomicUsize::new(0));
@@ -239,11 +270,13 @@ fn main() -> anyhow::Result<()> {
         args.out.join("train"),
         "steps",
         args.shard_steps,
+        Arc::clone(&rule_roots),
     )?));
     let val_writer = Arc::new(Mutex::new(ShardWriter::new(
         args.out.join("val"),
         "steps",
         args.shard_steps,
+        Arc::clone(&rule_roots),
     )?));
     let cov_total = Arc::new(Mutex::new(CoverageMatrix4::default()));
     let vocab_extra = Arc::new(Mutex::new(BTreeSet::<u32>::new()));
@@ -352,6 +385,12 @@ fn main() -> anyhow::Result<()> {
     write_f32_bin(&args.out.join("token_dsl.bin"), &tok_table)?;
     write_f32_bin(&args.out.join("card_abilities.bin"), &ability_table)?;
 
+    let structure_sha256 = baylee_train::cardstructure::digest(&structure)?;
+    fs::write(
+        args.out.join("card_structure.json"),
+        serde_json::to_vec(&structure)?,
+    )?;
+
     let (train_steps, train_shards) = Arc::try_unwrap(train_writer)
         .map_err(|_| anyhow::anyhow!("train_writer still shared"))?
         .into_inner()?
@@ -372,6 +411,8 @@ fn main() -> anyhow::Result<()> {
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
         "sampling_version": 2,
         "dsl_version": DSL_VERSION,
+        "structure_version": 1,
+        "structure_sha256": structure_sha256,
         "card_dsl_width": CARD_DSL_WIDTH,
         "ability_dsl_width": ABILITY_DSL_WIDTH,
         "max_abilities": MAX_ABILITIES,

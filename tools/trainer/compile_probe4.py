@@ -47,6 +47,8 @@ def main():
     rows, gradients, weights = [], None, None
     for compiled in (False, True):
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
+        net.attach_structure(saved["structure"])
+        net = net.cuda()
         net.load_state_dict(saved["state_dict"])
         if compiled:
             net.cache_thinking_kv = args.cache_thinking_kv

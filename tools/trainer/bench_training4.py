@@ -40,6 +40,8 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
     h = torch.where(batch["is_new_traj"].cuda()[:, None, None], torch.zeros_like(h), h.detach())
     optimizer.zero_grad(set_to_none=True)
     with torch.autocast("cuda", dtype=torch.bfloat16):
+        net.clear_structure()
+        net.prepare_structure()
         boards = encode_boards(net, batch, chunk, torch.device("cuda"), getattr(net,"_entity_bucket",0))
     loss = torch.zeros((), device="cuda")
     stats = torch.zeros(5, device="cuda")
@@ -51,7 +53,7 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
         k = (1, 2, 4, 8)[(step_num + t) % 4]
         thinking = batch["is_decision"][:, t].cuda().long() * k
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            out = (net(*[batch[n][:, t].cuda() for n in M.INPUT_NAMES[:15]], h, thinking,
+            out = (net(*[batch[n][:, t].cuda() for n in M.INPUT_NAMES[:-2]], h, thinking,
                       execution_hint=None if reference else plans[t].hint,
                       encoded_board=None if boards is None else boards[t],
                       policy_heads=plans[t].heads if not reference and getattr(net, "prune_unused_policy_heads", False) else None)
@@ -75,6 +77,7 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
     gradients = {name: p.grad.detach().cpu().clone() for name, p in net.named_parameters() if p.grad is not None} if capture else None
     torch.nn.utils.clip_grad_norm_(net.parameters(), 1, error_if_nonfinite=True)
     optimizer.step()
+    net.clear_structure()
     events[3].record()
     torch.cuda.synchronize()
     return h, {"loss": float(loss.detach()), "plan_ms": plan_ms,
@@ -149,6 +152,8 @@ def main():
         chunk = int(variant.split("-")[0][5:]) if variant.startswith("chunk") else 1
         fused = variant.endswith("-fused")
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
+        net.attach_structure(saved["structure"])
+        net = net.cuda()
         net.load_state_dict(saved["state_dict"])
         if "cached" in variant.split("-"):
             net.cache_thinking_kv = True

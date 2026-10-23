@@ -69,29 +69,20 @@ def bench_gpu_config(
         t.to(device)
         for t in E4.make_dummy_inputs(d_model, B=B, E=E, M_edges=M_edges, C=C, P=P, K=K)
     ]
-    entity_feat, entity_dsl, entity_mask, seat_feat, global_feat, edge_index, edge_type, edge_mask, cand_feat, cand_entity_idx, cand_seat_idx, cand_mask, pair_index, pair_mask, _, k_t = inputs
+    # Synthetic backbone benchmark only; use bench_training4.py with real
+    # trajectories to include the full public rule catalog and candidate mix.
+    observations, k_t = inputs[:-2], inputs[-1]
 
     def run_step() -> None:
         opt.zero_grad(set_to_none=True)
         h = torch.zeros((B, M.RECURRENT_SLOTS, d_model), dtype=torch.float32, device=device)
         loss_acc = torch.tensor(0.0, device=device)
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            net.prepare_structure()
         for _ in range(U):
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 h_next, cand_l, pair_l, scal_p, val_p = net(
-                    entity_feat,
-                    entity_dsl,
-                    entity_mask,
-                    seat_feat,
-                    global_feat,
-                    edge_index,
-                    edge_type,
-                    edge_mask,
-                    cand_feat,
-                    cand_entity_idx,
-                    cand_seat_idx,
-                    cand_mask,
-                    pair_index,
-                    pair_mask,
+                    *observations,
                     h,
                     k_t,
                 )
@@ -105,6 +96,7 @@ def bench_gpu_config(
             loss_acc = loss_acc + loss_t / U
         loss_acc.backward()
         opt.step()
+        net.clear_structure()
 
     try:
         for _ in range(warmup):

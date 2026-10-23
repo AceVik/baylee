@@ -45,7 +45,10 @@ def main():
     ckpt = torch.load(model / "net.pt", map_location="cpu", weights_only=False)
     cfg = M.Config4(**ckpt["config"])
     net = M.PlayerNet4(cfg).eval()
+    net.attach_structure(ckpt["structure"])
     net.load_state_dict(ckpt["state_dict"], strict=True)
+    net.rules.eval()
+    net.rules = net.rules.freeze()
     net = net.cuda()
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 1

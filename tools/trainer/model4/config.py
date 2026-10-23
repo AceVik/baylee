@@ -8,12 +8,12 @@ MAX_ENTITIES = 1024
 MAX_EDGES = 8192
 MAX_CANDIDATES = 65535
 MAX_PAIRS = 65535
-ENCODER_VERSION = 5
+ENCODER_VERSION = 6
 DSL_VERSION = 2
 UNKNOWN_CARD = 2**32 - 1
 TRAJECTORY_VERSION = 2
 SAMPLING_VERSION = 2
-MODEL_VERSION = 2
+MODEL_VERSION = 3
 ENTITY_FEAT_WIDTH = 96
 CARD_DSL_WIDTH = 160
 SEAT_FEAT_WIDTH = 64
@@ -44,6 +44,8 @@ INPUT_NAMES = (
     "pair_index",
     "pair_mask",
     "cand_dsl",
+    "entity_rules",
+    "cand_rules",
     "h_in",
     "thinking_steps",
 )
@@ -59,6 +61,7 @@ OUTPUT_NAMES = (
 
 @dataclass
 class Config4:
+    structure_width: int = 128
     d_model: int = 512
     n_layers: int = 8
     n_heads: int = 8

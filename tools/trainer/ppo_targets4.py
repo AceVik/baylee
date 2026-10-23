@@ -15,6 +15,8 @@ def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
     if dataset.meta.get("sampling_version") != M.SAMPLING_VERSION:
         raise ValueError("Rollout uses an incompatible constrained sampler")
     net.eval()
+    net.clear_structure()
+    net.prepare_structure()
     n, u, d = len(dataset), dataset.unroll_len, net.cfg.d_model
     values = torch.zeros(n, u)
     outcomes = torch.zeros(n, u)
@@ -88,4 +90,5 @@ def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
     report = {"decisions_checked": checked, "max_logprob_error": max_error,
               "trajectories": len(dataset.trajectories), "gamma": gamma, "lambda": gae_lambda}
     print(f"[ppo-audit] {report}", flush=True)
+    net.clear_structure()
     return report

@@ -16,6 +16,8 @@ from .prefetch import prefetch_batches
 @torch.no_grad()
 def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress_every=0):
     net.eval()
+    net.clear_structure()
+    net.prepare_structure()
     totals = torch.zeros(11, dtype=torch.float64, device=device)
     calibration = torch.zeros(3, 10, dtype=torch.float64, device=device)
     h = None
@@ -40,7 +42,7 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress
             at = lambda key: batch[key][:, t].to(device, non_blocking=True)
             thinking = at("is_decision").long() * thinking_steps
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
-                output = (net(*[at(n) for n in M.INPUT_NAMES[:15]], h, thinking,
+                output = (net(*[at(n) for n in M.INPUT_NAMES[:-2]], h, thinking,
                              execution_hint=plans[t].hint, encoded_board=None if boards is None else boards[t],
                              policy_heads=plans[t].heads if getattr(net, "prune_unused_policy_heads", False) else None)
                           if prepared is None else prepared[t])

@@ -190,10 +190,14 @@ def main() -> None:
                 or ckpt.get("encoder_version") != M.ENCODER_VERSION):
         raise ValueError("Incompatible checkpoint memory contract")
     cfg = M.Config4(**ckpt["config"])
-    net = M.PlayerNet4(cfg).to(device)
+    net = M.PlayerNet4(cfg)
+    net.attach_structure(ckpt["structure"])
+    net = net.to(device)
     net.load_state_dict(ckpt["state_dict"], strict=True)
 
     anchor = copy.deepcopy(net).to(device).eval()
+    with torch.no_grad():
+        anchor.prepare_structure()
     for p in anchor.parameters():
         p.requires_grad_(False)
 
@@ -203,6 +207,8 @@ def main() -> None:
         unroll_len=args.unroll,
         max_shards=args.max_shards,
     )
+    if rollout_ds.structure.digest != net.rules.digest:
+        raise ValueError("Rollout and policy use different public rule catalogs")
     audit = prepare_targets(net, rollout_ds, device, args.batch_size, args.gamma,
                             args.gae_lambda, action_logprob_and_kl, compute_reverse_gae)
     if args.audit_only:
@@ -228,6 +234,8 @@ def main() -> None:
                 unroll_len=args.unroll,
                 max_shards=1,
             )
+            if anc_ds.structure.digest != net.rules.digest:
+                raise ValueError("Supervised anchor and policy use different public rule catalogs")
             anc_sampler = D4.StatefulBatchSampler4(
                 anc_ds, batch_size=args.batch_size, shuffle=True
             )
@@ -256,6 +264,8 @@ def main() -> None:
         for batch in loader:
             B, U = batch["step_valid"].shape
             opt.zero_grad(set_to_none=True)
+            net.clear_structure()
+            net.prepare_structure()
             is_new = batch["is_new_traj"].to(device)
 
             # Standard truncated recurrent PPO: condition each unroll on the
@@ -294,6 +304,8 @@ def main() -> None:
                     batch["pair_index"][:, t].to(device),
                     batch["pair_mask"][:, t].to(device),
                     batch["cand_dsl"][:, t].to(device),
+                    batch["entity_rules"][:, t].to(device),
+                    batch["cand_rules"][:, t].to(device),
                 )
                 with torch.autocast(
                     device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
@@ -414,6 +426,8 @@ def main() -> None:
                             anc_batch["pair_index"][:, t_a].to(device),
                             anc_batch["pair_mask"][:, t_a].to(device),
                             anc_batch["cand_dsl"][:, t_a].to(device),
+                            anc_batch["entity_rules"][:, t_a].to(device),
+                            anc_batch["cand_rules"][:, t_a].to(device),
                             h_sup,
                             k_sup,
                         )
@@ -436,6 +450,7 @@ def main() -> None:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
+            net.clear_structure()
 
             tot_loss += float(loss.detach().item())
             tot_kl += float(kl_loss.detach().item())
@@ -466,7 +481,7 @@ def main() -> None:
             "sampling_version": M.SAMPLING_VERSION,
             "dataset_fingerprint": rollout_ds.fingerprint,
             "optimizer": opt.state_dict(), "rng": rng_state(), "audit": audit,
-            "state_dict": net.state_dict(),
+            "structure": ckpt["structure"], "state_dict": net.state_dict(),
             "step": step_num,
             "rl_decisions": total_rl_decisions,
             "dataset": str(args.rollout_data),

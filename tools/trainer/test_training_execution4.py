@@ -16,7 +16,7 @@ from training4.validation_device import evaluate_device
 def batch_fixture(b=8, u=4):
     inputs = make_dummy_inputs(32, E=5, M_edges=3, C=7, P=4, K=1)
     batch = {name: tensor.unsqueeze(1).repeat(b, u, *([1] * (tensor.ndim - 1)))
-             for name, tensor in zip(M.INPUT_NAMES[:15], inputs[:15])}
+             for name, tensor in zip(M.INPUT_NAMES[:-2], inputs[:-2])}
     batch.update(step_valid=torch.ones(b, u, dtype=torch.bool),
                  is_decision=torch.ones(b, u, dtype=torch.bool),
                  head=torch.arange(b)[:, None].expand(b, u) % 4,
@@ -84,7 +84,7 @@ class TrainingExecution(unittest.TestCase):
             loss = 0
             for t in range(4):
                 k = batch["is_decision"][:, t].long()
-                out = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:15]], h, k,
+                out = net(*[batch[n][:, t] for n in M.INPUT_NAMES[:-2]], h, k,
                           execution_hint=plans[t].hint if grouped else None,
                           encoded_board=boards[t] if grouped else None)
                 h = torch.where(batch["step_valid"][:, t, None, None], out[0], h)
@@ -123,7 +123,7 @@ class TrainingExecution(unittest.TestCase):
             self.assertTrue(padded[0][1][:,14:].all())
             for t in range(4):
                 torch.testing.assert_close(ordinary[t][0],padded[t][0][:,:14],atol=1e-6,rtol=1e-5)
-                args=[batch[n][:,t] for n in M.INPUT_NAMES[:15]]+[torch.zeros(2,9,32),batch["is_decision"][:,t].long()]
+                args=[batch[n][:,t] for n in M.INPUT_NAMES[:-2]]+[torch.zeros(2,9,32),batch["is_decision"][:,t].long()]
                 left=net(*args,execution_hint=plans[t].hint,encoded_board=ordinary[t])
                 right=net(*args,execution_hint=plans[t].hint,encoded_board=padded[t])
                 for a,b in zip(left,right):torch.testing.assert_close(a,b,atol=1e-6,rtol=1e-5)

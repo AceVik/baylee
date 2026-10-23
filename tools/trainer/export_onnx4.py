@@ -68,6 +68,8 @@ def make_dummy_inputs(
         pair_index,
         pair_mask,
         torch.zeros(B, C, M.CARD_DSL_WIDTH),
+        torch.zeros(B, E, 1, 2, dtype=torch.long),
+        torch.zeros(B, C, 1, 2, dtype=torch.long),
         h_in,
         thinking_steps,
     )
@@ -81,6 +83,9 @@ def export_v4_onnx(
 ) -> None:
     net = net.cpu().eval()
     net.cfg.default_thinking_steps = thinking_steps
+    from model4.structure import RuleEncoder
+    if isinstance(net.rules, RuleEncoder):
+        net.rules = net.rules.freeze()
     dummy = make_dummy_inputs(net.cfg.d_model, K=thinking_steps)
     dynamic_axes = {
         "entity_feat": {0: "B", 1: "E"},
@@ -98,6 +103,8 @@ def export_v4_onnx(
         "pair_index": {0: "B", 1: "P"},
         "pair_mask": {0: "B", 1: "P"},
         "cand_dsl": {0: "B", 1: "C"},
+        "entity_rules": {0: "B", 1: "E", 2: "R"},
+        "cand_rules": {0: "B", 1: "C", 2: "Q"},
         "h_in": {0: "B"},
         "thinking_steps": {0: "B"},
         "h_out": {0: "B"},
@@ -138,7 +145,12 @@ def main() -> None:
         raise ValueError("Checkpoint uses the old recurrent memory contract")
     cfg = M.Config4(**ckpt["config"])
     net = M.PlayerNet4(cfg).eval()
+    net.attach_structure(ckpt["structure"])
     net.load_state_dict(ckpt["state_dict"], strict=True)
+    net.rules.eval()
+    structure_sha256 = net.rules.digest
+    net.rules = net.rules.freeze()
+    (model_dir / "card_structure.json").write_text(json.dumps(ckpt["structure"]))
     options = ort.SessionOptions()
     options.intra_op_num_threads = 1
     sessions = {}
@@ -180,6 +192,8 @@ def main() -> None:
     if args.data:
         ds = D4.TrajectoryDataset4(Path(args.data).expanduser(), split="val", unroll_len=16,
                                   max_shards=1)
+        if ds.structure.digest != structure_sha256:
+            raise ValueError("Parity dataset and checkpoint use different public rule catalogs")
         for trajectory in ds.trajectories:
             h_pt = torch.zeros(1, M.RECURRENT_SLOTS, cfg.d_model)
             h_ort = h_pt.numpy().copy()
@@ -205,6 +219,7 @@ def main() -> None:
         "encoder_version": M.ENCODER_VERSION, "model_version": M.MODEL_VERSION,
         "trajectory_version": M.TRAJECTORY_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
+        "structure_version": 1, "structure_sha256": structure_sha256,
         "d_model": cfg.d_model, "n_layers": cfg.n_layers, "n_heads": cfg.n_heads,
         "thinking_steps": args.thinking_steps, "config": cfg.to_dict(),
         "graphs": {str(k): f"model.k{k}.onnx" for k in sessions},
