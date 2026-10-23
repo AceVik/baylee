@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--data", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--cuda-graphs", action="store_true")
+    ap.add_argument("--cache-thinking-kv", action="store_true")
     args = ap.parse_args()
     torch.set_num_threads(2)
     torch.cuda.set_per_process_memory_fraction(0.18)
@@ -39,12 +40,15 @@ def main():
     indices = next(iter(sampler))
     host = D.collate_trajectories([ds[i] for i in indices])
     host = {key: value[:, :4].pin_memory() if value.ndim >= 2 else value.pin_memory() for key,value in host.items()}
+    decisions = host["is_decision"].sum(0).tolist()
+    print(json.dumps({"decisions_per_frame": decisions, "step": saved["step_num"]}), flush=True)
     del ds,sampler
     rows, gradients, weights = [], None, None
     for compiled in (False, True):
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
         net.load_state_dict(saved["state_dict"])
         if compiled:
+            net.cache_thinking_kv = args.cache_thinking_kv
             net._entity_bucket = 64 if args.cuda_graphs else 0
             compile_regions(net, cuda_graphs=args.cuda_graphs)
         optimizer = torch.optim.AdamW([

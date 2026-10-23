@@ -266,9 +266,12 @@ class PlayerNet4(nn.Module):
             else max(0, min(execution_hint[2], self.cfg.max_thinking_steps)) if execution_hint is not None
             else max(0, min(int(thinking_steps.max().item()), self.cfg.max_thinking_steps))
         )
+        projected_kv = None
+        if not torch.jit.is_tracing() and getattr(self, "cache_thinking_kv", False) and max_k > 1:
+            projected_kv = self.thinking_block.prepare_board(board)
         for k in range(max_k):
             step_t = torch.full((B,), k, dtype=torch.long, device=device)
-            z_next_k = self.thinking_block(z, board, pad_mask, step_t)
+            z_next_k = self.thinking_block(z, board, pad_mask, step_t, projected_kv)
             active_k = (thinking_steps > k).view(B, 1, 1).to(z.dtype)
             z = z + active_k * (z_next_k - z)
 

@@ -124,7 +124,9 @@ def main():
         fused = variant.endswith("-fused")
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
         net.load_state_dict(saved["state_dict"])
-        if variant.endswith("-regional"):
+        if "cached" in variant.split("-"):
+            net.cache_thinking_kv = True
+        if "regional" in variant.split("-"):
             compile_regions(net)
         elif "graphs" in variant.split("-"):
             net._entity_bucket = 0 if variant.endswith("-unpadded") else 64

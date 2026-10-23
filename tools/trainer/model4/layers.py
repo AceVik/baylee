@@ -47,11 +47,11 @@ class DynamicMultiHeadAttention(nn.Module):
         k: torch.Tensor,
         v: torch.Tensor,
         key_padding_mask: torch.Tensor | None = None,
+        projected_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> torch.Tensor:
         B = q.shape[0]
         qh = self.q_proj(q).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        kh = self.k_proj(k).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
-        vh = self.v_proj(v).reshape(B, -1, self.n_heads, self.head_dim).transpose(1, 2)
+        kh, vh = self.project_kv(k, v) if projected_kv is None else projected_kv
 
         if not torch.jit.is_tracing():
             allowed = None if key_padding_mask is None else ~key_padding_mask[:, None, None, :]
@@ -67,6 +67,13 @@ class DynamicMultiHeadAttention(nn.Module):
             out = torch.matmul(torch.softmax(scores, dim=-1), vh)
         out = out.transpose(1, 2).contiguous().reshape(B, -1, self.d_model)
         return self.out_proj(out)
+
+    def project_kv(self, k: torch.Tensor, v: torch.Tensor):
+        """Project a fixed attention source, retaining its autograd history."""
+        b = k.shape[0]
+        kh = self.k_proj(k).reshape(b, -1, self.n_heads, self.head_dim).transpose(1, 2)
+        vh = self.v_proj(v).reshape(b, -1, self.n_heads, self.head_dim).transpose(1, 2)
+        return kh, vh
 
 
 class PreNormTransformerLayer(nn.Module):
@@ -111,16 +118,30 @@ class ThinkingStepBlock(nn.Module):
         )
         self.step_emb = nn.Embedding(16, d_model)
 
+    def prepare_board(self, board_tokens: torch.Tensor):
+        """K/V depend on this observation, not the scratchpad or thinking step.
+
+        Keep the tensors local to one decision and attached to autograd. They
+        must never be reused after a new observation or an optimizer update.
+        """
+        kv = self.norm_kv(board_tokens)
+        return self.attn.project_kv(kv, kv)
+
     def forward(
         self,
         h: torch.Tensor,
         board_tokens: torch.Tensor,
         board_key_padding_mask: torch.Tensor,
         step_idx: torch.Tensor,
+        projected_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> torch.Tensor:
         q = self.norm_q(h + self.step_emb(step_idx).unsqueeze(1))
-        kv = self.norm_kv(board_tokens)
-        attn_out = self.attn(q, kv, kv, key_padding_mask=board_key_padding_mask)
+        if projected_kv is None:
+            kv = self.norm_kv(board_tokens)
+            attn_out = self.attn(q, kv, kv, key_padding_mask=board_key_padding_mask)
+        else:
+            attn_out = self.attn(q, board_tokens, board_tokens,
+                                 key_padding_mask=board_key_padding_mask, projected_kv=projected_kv)
         h = h + attn_out
         h = h + self.ff(self.norm_ff(h))
         return h

@@ -70,6 +70,7 @@ def main() -> None:
     ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
     ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
     ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
+    ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
     args = ap.parse_args()
 
     torch.set_num_threads(4)
@@ -136,6 +137,7 @@ def main() -> None:
         activation_checkpointing=args.activation_checkpointing,
     )
     net = M.PlayerNet4(cfg).to(device)
+    net.cache_thinking_kv = args.cache_thinking_kv
     if args.init:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p

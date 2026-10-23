@@ -23,6 +23,11 @@ execution choice, not a change to the model/encoder contract. Freeze these packa
 directories as well as the top-level scripts when snapshotting a trainer.
 `--compile-regions` additionally compiles the repeated transformer/thinking blocks
 without changing checkpoint keys; it is optional and currently CUDA-verified.
+`--cache-thinking-kv` optionally reuses the unchanged board's cross-attention
+key/value projections within one multi-step decision. The projections retain
+their autograd history and are discarded after that forward call; they never
+carry across observations or optimizer updates. This adds no persistent model
+state and leaves the portable ONNX inference path unchanged.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.
