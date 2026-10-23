@@ -6323,6 +6323,8 @@ pub mod flowstone_charger;
 pub mod flowstone_crusher;
 #[path = "enchantments/auras/mv_2/flowstone_embrace.rs"]
 pub mod flowstone_embrace;
+#[path = "sorceries/mv_4/flowstone_flood.rs"]
+pub mod flowstone_flood;
 #[path = "creatures/mv_4/flowstone_giant.rs"]
 pub mod flowstone_giant;
 #[path = "creatures/mv_5/flowstone_hellion.rs"]
@@ -6405,6 +6407,8 @@ pub mod foot_soldiers;
 pub mod footlight_fiend;
 #[path = "creatures/mv_3/foratog.rs"]
 pub mod foratog;
+#[path = "instants/mv_3/forbid.rs"]
+pub mod forbid;
 #[path = "enchantments/mv_5/forbidden_crypt.rs"]
 pub mod forbidden_crypt;
 #[path = "enchantments/auras/mv_3/forbidden_lore.rs"]
@@ -7673,6 +7677,8 @@ pub mod grizzled_wolverine;
 pub mod grizzly_bears;
 #[path = "creatures/mv_4/grizzly_ghoul.rs"]
 pub mod grizzly_ghoul;
+#[path = "creatures/mv_3/grollub.rs"]
+pub mod grollub;
 #[path = "instants/mv_3/grotesque_demise.rs"]
 pub mod grotesque_demise;
 #[path = "instants/mv_2/grotesque_mutation.rs"]
@@ -7951,6 +7957,8 @@ pub mod hasran_ogress;
 pub mod hatching_plans;
 #[path = "creatures/mv_2/hate_weaver.rs"]
 pub mod hate_weaver;
+#[path = "instants/mv_5/hatred.rs"]
+pub mod hatred;
 #[path = "sorceries/mv_5/haunt_the_network.rs"]
 pub mod haunt_the_network;
 #[path = "artifacts/equipment/mv_3/haunted_cloak.rs"]
@@ -9035,6 +9043,8 @@ pub mod jace_s_scrutiny;
 pub mod jace_the_mind_sculptor;
 #[path = "creatures/mv_1/jackal_pup.rs"]
 pub mod jackal_pup;
+#[path = "creatures/mv_4/jackalope_herd.rs"]
+pub mod jackalope_herd;
 #[path = "artifacts/equipment/mv_2/jackhammer.rs"]
 pub mod jackhammer;
 #[path = "creatures/mv_4/jacques_le_vert.rs"]
@@ -9385,6 +9395,16 @@ pub mod keening_apparition;
 pub mod keening_banshee;
 #[path = "creatures/mv_1/keeper_of_kookus.rs"]
 pub mod keeper_of_kookus;
+#[path = "creatures/mv_2/keeper_of_the_beasts.rs"]
+pub mod keeper_of_the_beasts;
+#[path = "creatures/mv_2/keeper_of_the_dead.rs"]
+pub mod keeper_of_the_dead;
+#[path = "creatures/mv_2/keeper_of_the_flame.rs"]
+pub mod keeper_of_the_flame;
+#[path = "creatures/mv_2/keeper_of_the_light.rs"]
+pub mod keeper_of_the_light;
+#[path = "creatures/mv_2/keeper_of_the_mind.rs"]
+pub mod keeper_of_the_mind;
 #[path = "creatures/mv_6/keeper_of_tresserhorn.rs"]
 pub mod keeper_of_tresserhorn;
 #[path = "creatures/mv_3/keepers_of_the_faith.rs"]
@@ -9633,6 +9653,8 @@ pub mod kookus;
 pub mod kor_castigator;
 #[path = "creatures/mv_3/kor_celebrant.rs"]
 pub mod kor_celebrant;
+#[path = "instants/mv_3/kor_chant.rs"]
+pub mod kor_chant;
 #[path = "creatures/mv_5/kor_entanglers.rs"]
 pub mod kor_entanglers;
 #[path = "creatures/mv_2/kor_firewalker.rs"]
@@ -10101,6 +10123,8 @@ pub mod lim_dul_s_paladin;
 pub mod lim_dul_s_vault;
 #[path = "creatures/artifacts/mv_6/limestone_golem.rs"]
 pub mod limestone_golem;
+#[path = "enchantments/mv_1/limited_resources.rs"]
+pub mod limited_resources;
 #[path = "lands/towns/lindblum_industrial_regency.rs"]
 pub mod lindblum_industrial_regency;
 #[path = "creatures/mv_3/linden_the_steadfast_queen.rs"]
@@ -10427,6 +10451,8 @@ pub mod maelstrom_wanderer;
 pub mod maestros_theater;
 #[path = "creatures/mv_3/maga_traitor_to_mortals.rs"]
 pub mod maga_traitor_to_mortals;
+#[path = "creatures/mv_3/mage_il_vec.rs"]
+pub mod mage_il_vec;
 #[path = "creatures/mv_2/mage_ring_bully.rs"]
 pub mod mage_ring_bully;
 #[path = "lands/storage/mage_ring_network.rs"]
@@ -10549,6 +10575,8 @@ pub mod mammoth_harness;
 pub mod mammoth_spider;
 #[path = "creatures/mv_3/man_o_war.rs"]
 pub mod man_o_war;
+#[path = "enchantments/mv_3/mana_breach.rs"]
+pub mod mana_breach;
 #[path = "enchantments/auras/mv_1/mana_chains.rs"]
 pub mod mana_chains;
 #[path = "sorceries/mv_1/mana_clash.rs"]
@@ -10587,6 +10615,8 @@ pub mod mana_vortex;
 pub mod mana_web;
 #[path = "enchantments/mv_4/manabarbs.rs"]
 pub mod manabarbs;
+#[path = "enchantments/mv_1/manabond.rs"]
+pub mod manabond;
 #[path = "creatures/mv_1/manaforge_cinder.rs"]
 pub mod manaforge_cinder;
 #[path = "creatures/mv_3/managorger_hydra.rs"]
@@ -10613,6 +10643,8 @@ pub mod mangara_s_equity;
 pub mod mangara_s_tome;
 #[path = "artifacts/mv_2/manhole_cover.rs"]
 pub mod manhole_cover;
+#[path = "enchantments/auras/mv_2/maniacal_rage.rs"]
+pub mod maniacal_rage;
 #[path = "creatures/mv_3/manic_vandal.rs"]
 pub mod manic_vandal;
 #[path = "artifacts/mv_1/manifold_key.rs"]
@@ -10859,6 +10891,8 @@ pub mod memorial_to_glory;
 pub mod memorial_to_unity;
 #[path = "lands/utility/memorial_to_war.rs"]
 pub mod memorial_to_war;
+#[path = "artifacts/mv_3/memory_crystal.rs"]
+pub mod memory_crystal;
 #[path = "instants/mv_4/memory_deluge.rs"]
 pub mod memory_deluge;
 #[path = "instants/mv_4/memory_drain.rs"]
@@ -11061,6 +11095,8 @@ pub mod mind_games;
 pub mod mind_harness;
 #[path = "sorceries/mv_2/mind_knives.rs"]
 pub mod mind_knives;
+#[path = "creatures/mv_4/mind_maggots.rs"]
+pub mod mind_maggots;
 #[path = "enchantments/mv_6/mind_over_matter.rs"]
 pub mod mind_over_matter;
 #[path = "sorceries/mv_1/mind_peel.rs"]
@@ -11169,6 +11205,8 @@ pub mod mirkwood_meditator;
 pub mod mirkwood_pathmaker;
 #[path = "creatures/mv_1/mirkwood_spider.rs"]
 pub mod mirkwood_spider;
+#[path = "creatures/mv_4/mirozel.rs"]
+pub mod mirozel;
 #[path = "creatures/mv_3/mirran_crusader.rs"]
 pub mod mirran_crusader;
 #[path = "creatures/mv_3/mirran_spy.rs"]
@@ -11283,6 +11321,8 @@ pub mod mobilization;
 pub mod mobilized_district;
 #[path = "creatures/mv_4/mockingbird_bobbi_morse.rs"]
 pub mod mockingbird_bobbi_morse;
+#[path = "creatures/mv_3/mogg_assassin.rs"]
+pub mod mogg_assassin;
 #[path = "creatures/mv_4/mogg_bombers.rs"]
 pub mod mogg_bombers;
 #[path = "artifacts/mv_2/mogg_cannon.rs"]
@@ -11743,6 +11783,8 @@ pub mod nature_s_ruin;
 pub mod nature_s_spiral;
 #[path = "enchantments/mv_6/nature_s_wrath.rs"]
 pub mod nature_s_wrath;
+#[path = "sorceries/mv_2/nausea.rs"]
+pub mod nausea;
 #[path = "creatures/mv_3/naya_battlemage.rs"]
 pub mod naya_battlemage;
 #[path = "instants/mv_3/naya_charm.rs"]
@@ -11777,6 +11819,8 @@ pub mod necrogen_mists;
 pub mod necrogen_scudder;
 #[path = "artifacts/mv_1/necrogen_spellbomb.rs"]
 pub mod necrogen_spellbomb;
+#[path = "instants/mv_5/necrologia.rs"]
+pub mod necrologia;
 #[path = "creatures/mv_3/necromancer_s_assistant.rs"]
 pub mod necromancer_s_assistant;
 #[path = "enchantments/mv_3/necromancy.rs"]
@@ -12067,6 +12111,8 @@ pub mod nucklavee;
 pub mod nuclear_fallout;
 #[path = "artifacts/mv_3/nuisance_engine.rs"]
 pub mod nuisance_engine;
+#[path = "artifacts/mv_4/null_brooch.rs"]
+pub mod null_brooch;
 #[path = "enchantments/mv_4/null_chamber.rs"]
 pub mod null_chamber;
 #[path = "artifacts/mv_2/null_rod.rs"]
@@ -12113,6 +12159,10 @@ pub mod oashra_cultivator;
 pub mod oasis;
 #[path = "creatures/artifacts/mv_3/oasis_gardener.rs"]
 pub mod oasis_gardener;
+#[path = "enchantments/mv_2/oath_of_druids.rs"]
+pub mod oath_of_druids;
+#[path = "enchantments/mv_2/oath_of_ghouls.rs"]
+pub mod oath_of_ghouls;
 #[path = "enchantments/mv_4/oath_of_lim_dul.rs"]
 pub mod oath_of_lim_dul;
 #[path = "enchantments/mv_3/oath_of_the_ancient_wood.rs"]

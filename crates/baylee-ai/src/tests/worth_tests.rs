@@ -1084,7 +1084,11 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Exodus (`exo`) Batch 1 adds 6 non-mana activated abilities across Cat
     // Burglar, Cinder Crawler, Dauthi Cutthroat, Dauthi Jackal, Dizzying Gaze,
     // and Ephemeron, of which 5 are read by the evaluator.
-    assert_eq!((read, of), (2777, 3504), "activated/loyalty reader census");
+    // Exodus (`exo`) Batch 2 adds 8 non-mana activated abilities across Keeper
+    // of the Beasts, Keeper of the Dead, Keeper of the Flame, Keeper of the
+    // Light, Keeper of the Mind, Mage il-Vec, Mogg Assassin, and Null Brooch,
+    // all 8 of which are read by the evaluator.
+    assert_eq!((read, of), (2785, 3512), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

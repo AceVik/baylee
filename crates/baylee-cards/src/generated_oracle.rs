@@ -8902,53 +8902,114 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "For each blocking creature, flip a coin. If you win the flip, prevent all combat damage that would be dealt by that creature this turn.",
     ],
-    &[],
-    &[],
+    // Flowstone Flood
+    &[
+        "Buyback—Pay 3 life, Discard a card at random. (You may pay 3 life and discard a card at random in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target land.",
+    ],
+    // Forbid
+    &[
+        "Buyback—Discard two cards. (You may discard two cards in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nCounter target spell.",
+    ],
     // Fugue
     &["Target player discards three cards."],
     // Furnace Brood
     &["{R}: Target creature can't be regenerated this turn."],
-    &[],
-    &[],
+    // Grollub
+    &["Whenever this creature is dealt damage, each opponent gains that much life."],
+    // Hatred
+    &[
+        "As an additional cost to cast this spell, pay X life.\nTarget creature gets +X/+0 until end of turn.",
+    ],
     // High Ground
     &["Each creature you control can block an additional creature each combat."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Jackalope Herd
+    &["When you cast a spell, return this creature to its owner's hand."],
+    // Keeper of the Beasts
+    &[
+        "{G}, {T}: Choose target opponent who controls more creatures than you do as you activate this ability. Create a 2/2 green Beast creature token.",
+    ],
+    // Keeper of the Dead
+    &[
+        "{B}, {T}: Choose target opponent who has at least two fewer creature cards in their graveyard than you do as you activate this ability. Destroy target nonblack creature that player controls.",
+    ],
+    // Keeper of the Flame
+    &[
+        "{R}, {T}: Choose target opponent who has more life than you do as you activate this ability. This creature deals 2 damage to that player.",
+    ],
+    // Keeper of the Light
+    &[
+        "{W}, {T}: Choose target opponent who has more life than you do as you activate this ability. You gain 3 life.",
+    ],
+    // Keeper of the Mind
+    &[
+        "{U}, {T}: Choose target opponent who has at least two more cards in hand than you do as you activate this ability. Draw a card.",
+    ],
     // Killer Whale
     &["{U}: This creature gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Kor Chant
+    &[
+        "All damage that would be dealt this turn to target creature you control by a source of your choice is dealt to another target creature instead.",
+    ],
+    // Limited Resources
+    &[
+        "When this enchantment enters, each player chooses five lands they control and sacrifices the rest.\nPlayers can't play lands as long as ten or more lands are on the battlefield.",
+    ],
+    // Mage il-Vec
+    &["{T}, Discard a card at random: This creature deals 1 damage to any target."],
+    // Mana Breach
+    &[
+        "Whenever a player casts a spell, that player returns a land they control to its owner's hand.",
+    ],
+    // Manabond
+    &[
+        "At the beginning of your end step, you may reveal your hand and put all land cards from it onto the battlefield. If you do, discard your hand.",
+    ],
+    // Maniacal Rage
+    &["Enchant creature\nEnchanted creature gets +2/+2 and can't block."],
     // Medicine Bag
     &["{1}, {T}, Discard a card: Regenerate target creature."],
-    &[],
+    // Memory Crystal
+    &["Buyback costs cost {2} less."],
     // Merfolk Looter
     &["{T}: Draw a card, then discard a card."],
-    &[],
+    // Mind Maggots
+    &[
+        "When this creature enters, discard any number of creature cards. For each card discarded this way, put two +1/+1 counters on this creature.",
+    ],
     // Mind Over Matter
     &["Discard a card: You may tap or untap target artifact, creature, or land."],
     // Mindless Automaton
     &[
         "This creature enters with two +1/+1 counters on it.\n{1}, Discard a card: Put a +1/+1 counter on this creature.\nRemove two +1/+1 counters from this creature: Draw a card.",
     ],
-    &[],
+    // Mirozel
+    &[
+        "Flying\nWhen this creature becomes the target of a spell or ability, return this creature to its owner's hand.",
+    ],
     // Mirri, Cat Warrior
     &[
         "First strike, forestwalk, vigilance (This creature deals combat damage before creatures without first strike, it can't be blocked as long as defending player controls a Forest, and attacking doesn't cause this creature to tap.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mogg Assassin
+    &[
+        "{T}: You choose target creature an opponent controls, and that opponent chooses target creature. Flip a coin. If you win the flip, destroy the creature you chose. If you lose the flip, destroy the creature your opponent chose.",
+    ],
+    // Nausea
+    &["All creatures get -1/-1 until end of turn."],
+    // Necrologia
+    &[
+        "Cast this spell only during your end step.\nAs an additional cost to cast this spell, pay X life.\nDraw X cards.",
+    ],
+    // Null Brooch
+    &["{2}, {T}, Discard your hand: Counter target noncreature spell."],
+    // Oath of Druids
+    &[
+        "At the beginning of each player's upkeep, that player chooses target player who controls more creatures than they do and is their opponent. The first player may reveal cards from the top of their library until they reveal a creature card. If the first player does, that player puts that card onto the battlefield and all other cards revealed this way into their graveyard.",
+    ],
+    // Oath of Ghouls
+    &[
+        "At the beginning of each player's upkeep, that player chooses target player whose graveyard has fewer creature cards in it than their graveyard does and is their opponent. The first player may return a creature card from their graveyard to their hand.",
+    ],
     &[],
     &[],
     &[],
