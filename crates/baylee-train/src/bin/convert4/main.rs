@@ -20,7 +20,7 @@ use baylee_train::carddsl::{
     ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, UNKNOWN_CARD,
     card_ability_table, card_back_summary_table, card_summary_table, token_summary_table,
 };
-use baylee_train::convert4::{RolloutStepSidecar4, Step4, extract_game4_with_sidecar};
+use baylee_train::convert4::{RolloutStepSidecar4, Step4, stream_game4};
 use baylee_train::features4::{
     CAND_FEAT_WIDTH, CoverageMatrix4, ENCODER_VERSION, ENTITY_FEAT_WIDTH, GLOBAL_FEAT_WIDTH,
     MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS, SEAT_FEAT_WIDTH,
@@ -47,8 +47,15 @@ struct Args {
     /// Worker threads (0 = available cores).
     #[arg(long, default_value_t = 0)]
     threads: usize,
-    /// Steps per output `.jsonl.gz` shard.
-    #[arg(long, default_value_t = 25_000)]
+    /// Reproducibly mix game scheduling across source runs (0 keeps input order).
+    #[arg(long, default_value_t = 0)]
+    schedule_seed: u64,
+    /// Suggested frames per consumer package; games are never split.
+    #[arg(
+        long = "package-steps",
+        alias = "shard-steps",
+        default_value_t = 250_000
+    )]
     shard_steps: usize,
     /// Validation fraction (`1 / val_every` games go to `val/`).
     #[arg(long, default_value_t = 10)]
@@ -91,95 +98,8 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
-struct ShardWriter {
-    dir: PathBuf,
-    prefix: &'static str,
-    shard_steps: usize,
-    shard_idx: usize,
-    cur_steps: usize,
-    enc: Option<GzEncoder<BufWriter<File>>>,
-    shards_written: Vec<String>,
-    total_steps: u64,
-    rule_roots: Arc<std::collections::BTreeMap<String, u32>>,
-}
-
-impl ShardWriter {
-    fn new(
-        dir: PathBuf,
-        prefix: &'static str,
-        shard_steps: usize,
-        rule_roots: Arc<std::collections::BTreeMap<String, u32>>,
-    ) -> anyhow::Result<Self> {
-        fs::create_dir_all(&dir)?;
-        Ok(Self {
-            dir,
-            prefix,
-            shard_steps,
-            shard_idx: 0,
-            cur_steps: 0,
-            enc: None,
-            shards_written: Vec::new(),
-            total_steps: 0,
-            rule_roots,
-        })
-    }
-
-    fn write_steps(&mut self, steps: &[Step4]) -> anyhow::Result<()> {
-        for step in steps {
-            for refs in step
-                .state
-                .entity_rule_refs
-                .iter()
-                .chain(&step.cand_rule_refs)
-            {
-                for r in refs {
-                    anyhow::ensure!(
-                        self.rule_roots.contains_key(&r.key),
-                        "unrepresented rule {} in game {} cursor {}",
-                        r.key,
-                        step.game_id,
-                        step.step_cursor
-                    );
-                }
-            }
-        }
-        let step_count = steps.len();
-        if step_count == 0 {
-            return Ok(());
-        }
-        if self.enc.is_none() || self.cur_steps >= self.shard_steps {
-            if let Some(old) = self.enc.take() {
-                old.finish()?.flush()?;
-            }
-            let name = format!("{}-{:04}.jsonl.gz", self.prefix, self.shard_idx);
-            self.shard_idx += 1;
-            self.cur_steps = 0;
-            let file = File::create(self.dir.join(&name))?;
-            self.enc = Some(GzEncoder::new(BufWriter::new(file), Compression::fast()));
-            self.shards_written.push(name);
-        }
-        let enc = self.enc.as_mut().expect("opened above");
-        // A long multiplayer game can serialize to several GiB. Retain only
-        // one JSON frame beside its typed representation, then compress it.
-        let mut frame = Vec::with_capacity(64 * 1024);
-        for step in steps {
-            frame.clear();
-            serde_json::to_writer(&mut frame, step)?;
-            frame.push(b'\n');
-            enc.write_all(&frame)?;
-        }
-        self.cur_steps += step_count;
-        self.total_steps += step_count as u64;
-        Ok(())
-    }
-
-    fn finish(mut self) -> anyhow::Result<(u64, Vec<String>)> {
-        if let Some(old) = self.enc.take() {
-            old.finish()?.flush()?;
-        }
-        Ok((self.total_steps, self.shards_written))
-    }
-}
+mod output;
+use output::{GameWriter, publish_ready};
 
 #[allow(
     clippy::too_many_lines,
@@ -251,6 +171,15 @@ fn main() -> anyhow::Result<()> {
     if games.is_empty() {
         bail!("no finished games found across {:?}", args.runs);
     }
+    if args.schedule_seed != 0 {
+        use sha2::{Digest as _, Sha256};
+        games.sort_by_cached_key(|game| {
+            let mut hash = Sha256::new();
+            hash.update(args.schedule_seed.to_le_bytes());
+            hash.update(game.game_id.to_le_bytes());
+            <[u8; 32]>::from(hash.finalize())
+        });
+    }
 
     let threads = match args.threads {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
@@ -266,35 +195,86 @@ fn main() -> anyhow::Result<()> {
     let started = Instant::now();
     let games_arc = Arc::new(games);
     let next_idx = Arc::new(AtomicUsize::new(0));
-    let train_writer = Arc::new(Mutex::new(ShardWriter::new(
-        args.out.join("train"),
-        "steps",
-        args.shard_steps,
-        Arc::clone(&rule_roots),
-    )?));
-    let val_writer = Arc::new(Mutex::new(ShardWriter::new(
-        args.out.join("val"),
-        "steps",
-        args.shard_steps,
-        Arc::clone(&rule_roots),
-    )?));
+    let train_rows = Arc::new(Mutex::new(Vec::<(u32, String, u64)>::new()));
+    let val_rows = Arc::new(Mutex::new(Vec::<(u32, String, u64)>::new()));
     let cov_total = Arc::new(Mutex::new(CoverageMatrix4::default()));
-    let vocab_extra = Arc::new(Mutex::new(BTreeSet::<u32>::new()));
     let unencoded_total = Arc::new(AtomicUsize::new(0));
     let rejected = Arc::new(Mutex::new(Vec::<Value>::new()));
     let converted = Arc::new(AtomicUsize::new(0));
     let worker_dir = args.out.join("workers");
     fs::create_dir_all(&worker_dir)?;
 
+    let cards: Vec<u32> = vocab_set.into_iter().collect();
+
+    // Write card_dsl.bin (front), card_dsl_back.bin (back), token_dsl.bin (tokens), and card_abilities.bin
+    let summary_table = card_summary_table(&cards);
+    let back_summary_table = card_back_summary_table(&cards);
+    let tok_table = token_summary_table();
+    let ability_table = card_ability_table(&cards);
+    write_f32_bin(&args.out.join("card_dsl.bin"), &summary_table)?;
+    write_f32_bin(&args.out.join("card_dsl_back.bin"), &back_summary_table)?;
+    write_f32_bin(&args.out.join("token_dsl.bin"), &tok_table)?;
+    write_f32_bin(&args.out.join("card_abilities.bin"), &ability_table)?;
+
+    let structure_sha256 = baylee_train::cardstructure::digest(&structure)?;
+    fs::write(
+        args.out.join("card_structure.json"),
+        serde_json::to_vec(&structure)?,
+    )?;
+
+    let mut meta = json!({
+        "encoder_version": ENCODER_VERSION,
+        "package_target_steps": args.shard_steps,
+        "streaming_frames_per_worker": MAX_SEATS,
+        "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
+        "sampling_version": 2,
+        "dsl_version": DSL_VERSION,
+        "structure_version": 1,
+        "structure_sha256": structure_sha256,
+        "card_dsl_width": CARD_DSL_WIDTH,
+        "ability_dsl_width": ABILITY_DSL_WIDTH,
+        "max_abilities": MAX_ABILITIES,
+        "entity_feat_width": ENTITY_FEAT_WIDTH,
+        "seat_feat_width": SEAT_FEAT_WIDTH,
+        "global_feat_width": GLOBAL_FEAT_WIDTH,
+        "cand_feat_width": CAND_FEAT_WIDTH,
+        "max_seats": MAX_SEATS,
+        "max_entities": MAX_ENTITIES,
+        "max_edges": MAX_EDGES,
+        "max_candidates": MAX_CANDIDATES,
+        "max_pairs": MAX_PAIRS,
+        "cards": cards,
+        "token_count": baylee_cards::tokens::ALL.len(),
+        "games_requested": games_arc.len(),
+        "games_converted": 0,
+        "games_rejected": 0,
+        "source_runs": args.runs,
+        "validation_runs": args.val_runs,
+        "train_steps": 0,
+        "val_steps": 0,
+        "train_shards": [],
+        "val_shards": [],
+        "unencoded_decisions": 0,
+        "coverage_matrix": CoverageMatrix4::default().counts,
+        "elapsed_secs": 0.0,
+    });
+    fs::write(
+        args.out.join("dataset_header.json"),
+        serde_json::to_vec_pretty(&meta)?,
+    )?;
+    fs::create_dir_all(args.out.join("ready"))?;
+
     let mut handles = Vec::new();
     for worker_id in 0..threads {
         let journal = worker_dir.join(format!("w{worker_id:02}.json"));
         let games_arc = games_arc.clone();
         let next_idx = next_idx.clone();
-        let train_writer = train_writer.clone();
-        let val_writer = val_writer.clone();
+        let train_rows = train_rows.clone();
+        let val_rows = val_rows.clone();
+        let root = args.out.clone();
+        let rule_roots = rule_roots.clone();
+        let structure_sha256 = structure_sha256.clone();
         let cov_total = cov_total.clone();
-        let vocab_extra = vocab_extra.clone();
         let unencoded_total = unencoded_total.clone();
         let rejected = rejected.clone();
         let converted = converted.clone();
@@ -310,11 +290,13 @@ fn main() -> anyhow::Result<()> {
                 // memory deadline must still identify the in-flight game.
                 journal_worker(&journal, gref, "replaying")?;
                 let bytes = read_member(&gref.shard_path, gref.offset, gref.len)?;
-                let extracted = match extract_game4_with_sidecar(
+                let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?;
+                let extracted = match stream_game4(
                     &bytes,
                     gref.game_id,
                     include_passive,
                     gref.sidecar.as_deref(),
+                    |step| writer.push(&step).map_err(|e| e.to_string()),
                 ) {
                     Ok(ex) => ex,
                     Err(e) => {
@@ -337,27 +319,17 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                 }
-                let mut local_cards = BTreeSet::new();
-                for st in &extracted.steps {
-                    for &cid in &st.state.entity_card_ids {
-                        if cid != UNKNOWN_CARD {
-                            local_cards.insert(cid);
-                        }
-                    }
-                    for &cid in &st.cand_card_id {
-                        if cid != UNKNOWN_CARD {
-                            local_cards.insert(cid);
-                        }
-                    }
+                if extracted.unencoded_decisions > 0 {
+                    rejected.lock().expect("rejection lock").push(json!({
+                        "game_id": gref.game_id, "reason": "unencoded decisions", "count": extracted.unencoded_decisions,
+                    }));
+                    journal_worker(&journal, gref, "rejected")?;
+                    continue;
                 }
-                if !local_cards.is_empty() {
-                    vocab_extra.lock().expect("vocab lock").extend(local_cards);
-                }
-
-                let is_val = gref.validation;
-                let writer = if is_val { &val_writer } else { &train_writer };
-                let mut w = writer.lock().expect("writer lock");
-                w.write_steps(&extracted.steps)?;
+                let name = writer.finish()?;
+                publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
+                let rows = if gref.validation { &val_rows } else { &train_rows };
+                rows.lock().expect("row lock").push((gref.game_id, name, extracted.steps));
                 journal_worker(&journal, gref, "complete")?;
                 let complete = converted.fetch_add(1, Ordering::Relaxed) + 1;
                 if complete.is_multiple_of(16) || complete == games_arc.len() {
@@ -372,33 +344,16 @@ fn main() -> anyhow::Result<()> {
         h.join().expect("worker panicked")?;
     }
 
-    vocab_set.extend(vocab_extra.lock().expect("vocab lock").iter().copied());
-    let cards: Vec<u32> = vocab_set.into_iter().collect();
-
-    // Write card_dsl.bin (front), card_dsl_back.bin (back), token_dsl.bin (tokens), and card_abilities.bin
-    let summary_table = card_summary_table(&cards);
-    let back_summary_table = card_back_summary_table(&cards);
-    let tok_table = token_summary_table();
-    let ability_table = card_ability_table(&cards);
-    write_f32_bin(&args.out.join("card_dsl.bin"), &summary_table)?;
-    write_f32_bin(&args.out.join("card_dsl_back.bin"), &back_summary_table)?;
-    write_f32_bin(&args.out.join("token_dsl.bin"), &tok_table)?;
-    write_f32_bin(&args.out.join("card_abilities.bin"), &ability_table)?;
-
-    let structure_sha256 = baylee_train::cardstructure::digest(&structure)?;
-    fs::write(
-        args.out.join("card_structure.json"),
-        serde_json::to_vec(&structure)?,
-    )?;
-
-    let (train_steps, train_shards) = Arc::try_unwrap(train_writer)
-        .map_err(|_| anyhow::anyhow!("train_writer still shared"))?
-        .into_inner()?
-        .finish()?;
-    let (val_steps, val_shards) = Arc::try_unwrap(val_writer)
-        .map_err(|_| anyhow::anyhow!("val_writer still shared"))?
-        .into_inner()?
-        .finish()?;
+    let finish_rows = |rows: &Mutex<Vec<(u32, String, u64)>>| {
+        let mut rows = rows.lock().expect("rows lock");
+        rows.sort_by_key(|row| row.0);
+        (
+            rows.iter().map(|row| row.2).sum::<u64>(),
+            rows.iter().map(|row| row.1.clone()).collect::<Vec<_>>(),
+        )
+    };
+    let (train_steps, train_shards) = finish_rows(&train_rows);
+    let (val_steps, val_shards) = finish_rows(&val_rows);
     let cov = cov_total.lock().expect("cov lock").clone();
     let rejected = rejected.lock().expect("rejection lock");
     fs::write(
@@ -406,40 +361,15 @@ fn main() -> anyhow::Result<()> {
         serde_json::to_vec_pretty(&*rejected)?,
     )?;
 
-    let meta = json!({
-        "encoder_version": ENCODER_VERSION,
-        "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
-        "sampling_version": 2,
-        "dsl_version": DSL_VERSION,
-        "structure_version": 1,
-        "structure_sha256": structure_sha256,
-        "card_dsl_width": CARD_DSL_WIDTH,
-        "ability_dsl_width": ABILITY_DSL_WIDTH,
-        "max_abilities": MAX_ABILITIES,
-        "entity_feat_width": ENTITY_FEAT_WIDTH,
-        "seat_feat_width": SEAT_FEAT_WIDTH,
-        "global_feat_width": GLOBAL_FEAT_WIDTH,
-        "cand_feat_width": CAND_FEAT_WIDTH,
-        "max_seats": MAX_SEATS,
-        "max_entities": MAX_ENTITIES,
-        "max_edges": MAX_EDGES,
-        "max_candidates": MAX_CANDIDATES,
-        "max_pairs": MAX_PAIRS,
-        "cards": cards,
-        "token_count": baylee_cards::tokens::ALL.len(),
-        "games_requested": games_arc.len(),
-        "games_converted": converted.load(Ordering::Relaxed),
-        "games_rejected": rejected.len(),
-        "source_runs": args.runs,
-        "validation_runs": args.val_runs,
-        "train_steps": train_steps,
-        "val_steps": val_steps,
-        "train_shards": train_shards,
-        "val_shards": val_shards,
-        "unencoded_decisions": unencoded_total.load(Ordering::Relaxed),
-        "coverage_matrix": cov.counts,
-        "elapsed_secs": started.elapsed().as_secs_f64(),
-    });
+    meta["train_steps"] = json!(train_steps);
+    meta["val_steps"] = json!(val_steps);
+    meta["train_shards"] = json!(train_shards);
+    meta["val_shards"] = json!(val_shards);
+    meta["games_converted"] = json!(converted.load(Ordering::Relaxed));
+    meta["games_rejected"] = json!(rejected.len());
+    meta["unencoded_decisions"] = json!(unencoded_total.load(Ordering::Relaxed));
+    meta["coverage_matrix"] = json!(cov.counts);
+    meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
         args.out.join("meta.json"),
         serde_json::to_vec_pretty(&meta)?,

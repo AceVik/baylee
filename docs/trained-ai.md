@@ -83,6 +83,31 @@ metrics apply only to that step, which may precede its latest optimizer step.
 `net.pt` remains the checkpoint selected by the combined validation score.
 Evaluate unique parameter sets: a resumed run may keep the same earlier best
 checkpoint while `last.pt` contains newer weights worth a separate diagnostic.
+
+The v4 converter streams complete games instead of retaining all encoded frames
+of a game in RAM. An initial replay verifies every recorded state hash and
+derives terminal training labels. Feature encoding then retains one pending
+frame per seat for next-observation targets; actor inputs still come only from
+that seat's current view. Each game is compressed privately, closed and published
+under `ready/` only after successful replay, semantic-reference and coverage
+checks. A failed game never becomes a ready training shard. `--schedule-seed`
+mixes the processing order reproducibly without changing game IDs or splits;
+`--package-steps` is a consumer size hint, not a per-game truncation limit.
+
+`prepare_packages4.py` groups only complete training games and builds their
+random-access caches on the CPU while `consume_packages4.py` trains on the GPU.
+`ready.json` follows gzip integrity, cursor continuity and terminal checks.
+The default queue holds two unconsumed packages (current and next); whole games
+may exceed the requested frame count. Raw shards are hard-linked, and no running
+dataset is modified. `--validation-data` reuses a separate fixed validation set
+with the same rule catalog. `--init-state last.pt` transfers weights and Adam
+state to a new package, resetting sampler lanes and recurrent memory because
+these are new games. Exact mid-package continuation remains `--resume`, which
+requires matching training/validation fingerprints. This pipeline currently
+distills recorded house games; fresh on-policy RL additionally needs policy
+generation barriers and verified behavior probabilities, not arbitrary stale
+packages. See the structured-encoder log for active jobs and measurements.
+
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,
 protocol, complete seed/deck/focal-seat set and repeated house-baseline outcomes.

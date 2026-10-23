@@ -65,9 +65,11 @@ changed. Work is on `c42/trained-ai`; artifacts are in
    completed in about 110 seconds. Fixed held-out node-kind accuracy reached
    **95.36%**, combined query loss **0.3149**; these are not win rates.
 2. **Replay data:** first a 704-game integration corpus (`dataset-v1`), then
-   the same broad corpus used by the previous policy (`dataset-broad-v2`,
+   the same broad corpus used by the previous policy (`dataset-stream-v1`,
    expected 847 games, 6,620,782 training and 3,072,672 validation observations).
-   The converter checks replay hashes and every semantic reference. Existing
+   The new streaming converter checks replay hashes and every semantic reference.
+   The previous v4 collecting path did not audit recorded hashes; that gap was
+   found and repaired together with its memory problem. Existing
    lossy vectors are not patched to pretend discarded information survived.
    Failed records/jobs are preserved; no rejected dataset is automatically used.
 3. **Explicit warm start:** `migrate_structure4.py` transfers the selected
@@ -85,18 +87,16 @@ changed. Work is on `c42/trained-ai`; artifacts are in
    accuracy was **45.84%** (2,101 choices); this small split cannot be compared
    to earlier full-corpus scores. Both the semantic projection and encoder
    weights changed; gradients reach the structural encoder.
-5. **Broad continuation:** train on the complete replayed broad corpus with the
-   existing B=8, U=32, observation chunk=8, decision chunk=4 and thinking-depth
-   curriculum. Keep validation lanes fixed at 8 and evaluate full trajectories.
-   Start with the existing cautious fine-tuning rate (5e-5); retain atomic
-   last/best checkpoints and distinguish their parameter sets. While the large
-   8-seat records finish replaying, `joint-adapt-v1` uses the complete 704-game
-   integration corpus for up to 1,000 updates / 900 training seconds, starting
-   from `initial` (not the two-shard pilot). `joint-broad-v1` then starts from
-   these adapted weights with fresh optimizer/memory, for up to 4,000 updates /
-   2,700 training seconds. Both phases finish full validation; its duration is
-   additional to the training budget. This is staged training, not an equal-
-   training-budget architecture ablation.
+5. **Broad continuation:** CPU preparation and GPU training now overlap, using
+   the existing B=8, U=32, observation chunk=8, decision chunk=4 and thinking-depth
+   curriculum. Every complete-game package receives one full epoch at **2e-5**;
+   Adam state transfers across packages, recurrent lanes reset. Two packages of
+   approximately 500,000 frames can be queued. Each phase validates on the same
+   463,322 integration holdout frames, with lanes fixed at 8. The earlier
+   `joint-adapt-v1` completed 1,000 updates at 5e-5 but regressed in paired games
+   and is not the starting policy. The failed replay prevented `joint-broad-v1`
+   from starting. The replacement bootstrap and its evidence are detailed below.
+   This is staged training, not an equal-budget architecture ablation.
 6. **Strength comparison:** export and verify nonzero references, then compare
    to the archived encoder-5 policy in the **same new eval executable**, with
    the frozen deck manifest, starting seeds and seat rotations. Keep all bad
@@ -116,8 +116,9 @@ tests check semantic dependence, gradient equivalence with table reuse, frozen
 lookup equivalence, malformed DAG rejection and ONNX with nonzero references
 and changing reference-list lengths. Existing recurrent/training tests and the
 six original Python contract tests are included in the checks.
-The complete library suite passes **63 Rust tests**; Python discovery passes
-**40 tests**, including refresh after operator/DAG renumbering.
+The initial encoder milestone passed **63 Rust tests** and **40 Python tests**,
+including refresh after operator/DAG renumbering. The streaming follow-up adds
+exact frame/target equivalence and package-integrity tests, described below.
 
 The initial migrated 54.8M model exported K=0/1/2/4/8 with maximum Torch/ORT
 error **1.38e-5** on 15 synthetic frames. Real-trajectory parity and subsequent
@@ -160,12 +161,101 @@ from ongoing source edits. The subsequent `runtime-v1` freezes source at
 file hashes. `continue-structured.py`, `continuation-status.json`, and the
 per-stage `jobs/` directories record the automatic sequence and its failures.
 The first broad replay attempt hit its **28 GiB** process-group limit with four
-workers during large 8-seat games (peak PSS 28.17 GiB); it was terminated and
-quarantined, not accepted as a dataset. `reconvert-broad-v2` retries from the
-records with **two workers and a 48 GiB limit**, matching the previously
-successful broad replay's worker count. `continue-structured-v2.py` lets the
-already running adaptation finish, performs its export and paired comparisons,
-then waits for the validated retry before broad training. The first controller
-exits at its failed replay prerequisite; no checkpoint writer is interrupted.
-All attempts and both controller logs remain available.
+workers during large 8-seat games (peak PSS 28.17 GiB). The two-worker retry
+`reconvert-broad-v2` also failed at **48 GiB**, after about 4,302 seconds with
+836/847 games converted. Both attempts are quarantined. The old controllers
+exited at their failed prerequisite; all attempts and logs remain available.
 The machine monitor remains running.
+
+## CPU preparation and GPU training overlap
+
+The user requested preparing the next training set while the GPU consumes the
+current one. The actual memory cause was a whole game's encoded `Step4` vectors
+being accumulated before writing. Raising the memory allowance did not solve it.
+`convert4.rs` and its binary were first moved to directory modules in a separate
+move-only commit. The new production path then changed to two bounded passes:
+
+- Audit the record with `baylee_gamehost::record::replay`, checking the initial
+  and every subsequent recorded state hash; derive final labels from the verified
+  terminal state. These future labels never enter the actor's feature encoder.
+- Replay features while keeping one pending frame per seat. Its successor gives
+  the next-life target; the final frame receives the terminal marker. Every
+  passive observation and decision, per-seat order, supervised and auxiliary
+  target remains the same. Cross-seat file interleaving can differ.
+- Each worker serializes and compresses its own game. Only completed games with
+  represented semantic references and zero unencoded decisions receive an atomic
+  ready marker. Failures retain private partial files and a record locator.
+
+`stream-smoke-v1` replayed three complete records (duel, team, and the troublesome
+eight-seat validation seed **898002**): **199,019 frames in 461.9 seconds**, peak
+process-group PSS **257,002,496 bytes (245.1 MiB)**. The large eight-seat record now
+completes. This measures conversion memory, not the GPU trainer's memory budget.
+
+The replacement `stream-broad-v1` job runs six CPU workers against the original
+847-game corpus, with schedule seed 2718 and a 16 GiB guard. It writes
+`dataset-stream-v1`; the expected full counts remain 6,620,782 training and
+3,072,672 validation frames. `stream-convert-runtime-v2/` freezes its binary,
+sources and hashes. Completion and zero rejections still have to be checked;
+partial progress is not the full dataset.
+
+`prepare-stream-packages-v1` verifies completed training shards, builds their
+compressed random-access caches and publishes immutable `packages-stream-v1/`
+packages. It holds at most two unconsumed packages; validation runs cannot enter
+the training queue. It hard-links closed files instead of copying them. The
+GPU consumer uses `package-runtime-v1/`, retaining weights and optimizer moments
+across packages through `--init-state`. No hidden state or sampler cursor from
+the preceding package is transferred. Final source-count and duplicate checks
+must show that every training frame was consumed once. This is supervised
+training on existing recorded games, not collection by a changing on-policy agent.
+
+To restart useful GPU work before the full replay finished, `recover_packages4.py`
+verified a **65-game / 234,925-frame** subset from closed shards of the failed
+attempt, using the same converter executable as a completed template. It excluded
+the last possibly unclosed shard, checked gzip integrity, per-seat continuity,
+terminal markers, source split and absence of conversion warnings. Original failed
+attempts remain quarantined. This subset is explicitly not the full corpus and
+does not replace the new hash-audited replay. Its separate integrity manifest is
+`package-ready-v1.integrity.json`.
+
+The subset's `joint-package-v1` bootstrap completed **1,005 updates**, one full
+epoch, at 2e-5 from `initial`; peak allocated VRAM was **5.59 GiB**. Its matched
+fixed validation is slightly better than the migrated initial policy:
+
+| Same 463,322 validation frames, 17,793 active choices | Initial | Bootstrap |
+| --- | ---: | ---: |
+| Active-choice accuracy | 43.882% | 44.326% |
+| Policy loss | 0.462767 | 0.460424 |
+| Value MSE | 0.270361 | 0.256137 |
+
+The uniform-seat value baseline is **0.199713 MSE**, so this value head remains
+poorly calibrated and these numbers do not prove useful lookahead or stronger
+play. `bootstrap-selection.json` records the same policy-loss-plus-twice-MSE
+criterion used by training; the consumer chose the bootstrap's optimizer state.
+The new first package has **500,058 frames / 96 games**, and the second has
+**506,786 frames / 29 games**. GPU training and CPU replay are running concurrently.
+
+For comparison, the earlier 1,000-update `joint-adapt-v1` won **24/128 duels** and
+**5/64 Commander games**, against the archived reference's **31/128** and **10/64**.
+The paired duel changes were 3 improvements, 10 regressions, 115 ties; Commander
+had 4 improvements, 9 regressions, 48 ties and 3 unresolved capped pairs. It was
+not promoted. The present pipeline does not continue from that policy.
+
+`finish-package-comparison-v1.py` is queued behind the package consumer. It checks
+full corpus coverage, selects the best checkpoint on the fixed tuning validation
+including the initial baseline, exports into a separate directory, checks ONNX
+parity on real trajectories, and runs 128 duel / 64 Commander paired games. It
+uses the frozen `runtime-v1/eval4` executable and its already completed reference
+results, with identical seeds, decks, opponents and focal seats. Selection is
+recorded separately from the latest optimizer state. No automatic promotion is
+performed. Full broader 3/6/8-seat validation and untouched final tests remain
+necessary before a general-strength claim.
+
+Durable status: `package-training-v1/status.json`, `progress.json`, per-package
+`jobs/`, `package-comparison-status.json`, and the shared `codex-r4-active.json`.
+All runtimes are frozen before execution; edits to repository sources do not
+change a running job. The full library suite with ONNX passes **64 Rust tests**;
+the Python suite passes **44 tests**, including optimizer
+continuation, immutable cache reuse, rejection of validation/unverified games,
+truncated gzip members and broken trajectory cursors/terminal markers. The Rust
+streaming equivalence test compares every frame field against the collecting
+implementation on duel and team records and checks corrupted-hash/output errors.

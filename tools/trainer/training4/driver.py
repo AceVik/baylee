@@ -42,8 +42,10 @@ from .checkpoint_async import AsyncCheckpointWriter
 def main() -> None:
     ap = argparse.ArgumentParser(description="Train Playernet v4 via stateful TBPTT distillation")
     ap.add_argument("--data", required=True, help="Dataset directory produced by convert4")
+    ap.add_argument("--validation-data", default="", help="Separate immutable validation dataset; reuses its cache while training packages change")
     ap.add_argument("--out", required=True, help="Output checkpoint directory")
     ap.add_argument("--init", default="", help="Optional initial checkpoint directory (e.g. Phase A)")
+    ap.add_argument("--init-state", default="", help="Continue weights/optimizer from last.pt on a new package; reset recurrent lanes and sampler")
     ap.add_argument("--d-model", type=int, default=512)
     ap.add_argument("--layers", "--n-layers", dest="layers", type=int, default=8)
     ap.add_argument("--heads", "--n-heads", dest="heads", type=int, default=8)
@@ -82,6 +84,8 @@ def main() -> None:
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     args = ap.parse_args()
+    if sum(bool(v) for v in (args.init, args.init_state, args.resume)) > 1:
+        ap.error("Choose one of --init, --init-state or --resume")
     if args.batch_size < 1 or args.validation_batch_size < 0:
         ap.error("Training batch size must be positive; validation batch size must be nonnegative")
     args.validation_batch_size = args.validation_batch_size or args.batch_size
@@ -116,7 +120,7 @@ def main() -> None:
         max_shards=args.max_shards,
     )
     val_ds = D4.TrajectoryDataset4(
-        data_dir,
+        Path(args.validation_data).expanduser() if args.validation_data else data_dir,
         split="val",
         unroll_len=args.unroll,
         max_entities=args.max_entities,
@@ -124,6 +128,8 @@ def main() -> None:
     )
     if len(train_ds) == 0 or len(val_ds) == 0:
         raise ValueError("Nonempty separate training and validation trajectories are required")
+    if train_ds.structure.digest != val_ds.structure.digest:
+        raise ValueError("Training and validation use different public rule catalogs")
 
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
@@ -189,6 +195,11 @@ def main() -> None:
         ],
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
     )
+    package_parent = None
+    if args.init_state:
+        from .package_state import load_package_state
+        package_parent = load_package_state(args.init_state, net, opt, device)
+        print("[train4] package continuation " + json.dumps(package_parent), flush=True)
 
     n_params = sum(p.numel() for p in net.parameters())
     print(
@@ -209,6 +220,8 @@ def main() -> None:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
         if saved.get("dataset_fingerprint") != train_ds.fingerprint:
             raise ValueError("Resume dataset differs from the checkpoint")
+        if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
+            raise ValueError("Resume validation dataset differs from the checkpoint")
         if saved["config"] != cfg.to_dict() or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
@@ -241,6 +254,8 @@ def main() -> None:
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
                      "h": None if hidden is None else (hidden.detach() if args.async_checkpoint else hidden.detach().cpu()),
                      "dataset_fingerprint": train_ds.fingerprint,
+                     "validation_fingerprint": val_ds.fingerprint,
+                     "package_parent": package_parent,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
                      "last_validation_step": last_validation_step,
@@ -429,6 +444,8 @@ def main() -> None:
         "structure": train_ds.structure.data, "state_dict": final_state,
         "step_num": best_step if best_state is not None else step_num,
         "val_metrics": final_metrics,
+        "validation_fingerprint": val_ds.fingerprint,
+        "package_parent": package_parent,
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
@@ -444,6 +461,8 @@ def main() -> None:
         "thinking_steps": args.thinking_steps,
         "step_num": best_step if best_state is not None else step_num,
         "val_metrics": final_metrics,
+        "validation_fingerprint": val_ds.fingerprint,
+        "package_parent": package_parent,
     }
     (out_dir / "meta.json").write_text(json.dumps(meta_out, indent=2))
     print(f"[train4] saved checkpoint to {out_dir}")
