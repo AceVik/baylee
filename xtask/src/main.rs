@@ -15,6 +15,7 @@ mod cross_read;
 mod dev_table;
 mod explain;
 mod files;
+mod hold_back;
 mod hooks;
 mod ledger_cmd;
 mod mechanics;
@@ -95,6 +96,9 @@ fn main() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Codegen {
             adopt_stub,
+            hold_back,
+            hold_back_file,
+            hold_back_reason,
             check,
             tables,
             subtypes,
@@ -102,6 +106,16 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => match adopt_stub {
             Some(name) => adopt_stub_card(&root, &name),
+            None if hold_back_reason.is_some() => hold_back::run(
+                &root,
+                &cache,
+                &hold_back,
+                hold_back_file.as_deref(),
+                hold_back_reason
+                    .as_deref()
+                    .expect("selection requires a reason"),
+                check,
+            ),
             None if subtypes => codegen::subtypes(&root, check, &cache),
             None => codegen(&root, check, tables, &scripts, &cache),
         },

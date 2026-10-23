@@ -32,6 +32,13 @@ and `docs/card-identity.md` (indices and who may write what).
 - DSL facts: `Effect::AddMana` takes `Amount`/`combination` (`mana_dynamic`, `mana_choice_dynamic`, `mana_combination`). `.restricted(filter, rider)` is "Spend this mana only…"; a rider without "only" is `.when_spent(filter, rider)`: ordinary mana (CR 106.6) whose rider fires once per unit spent on a matching spell (106.6a). `DB$ Sacrifice` is `SacrificeSelf`; with `UnlessCost$`, `Effect::PlayerMayPayCostOr` (one `CostPart`; naming none declines). `cost_expr` (scriptgen) turns cost spellings (`Sac`, `tapXType`, …) into `CostPart`s; check it before blaming `cost_wizard`. `ChangeTypeDesc$` is claimed via `Params::claim_label` beside `ChangeType$`. Library search: `Optional$` = up to, `Mandatory$ True` = must, neither = refused.
 - In a trigger `Amount::X` is `x.unwrap_or(0)`; `Tx::has_x` is per rules line. `S: Mode$ Continuous` becomes one `static_ability!` per layer.
 - `stubgen::STUB_MARKER`/`OWNED_MARKER` files are rewritten every run; files with neither are hand-written, untouched. Fix wrong output in the reader, never the card. Only `stubgen::is_machine_owned` asks; never retype the markers. `validate` prints the hand-owned/machine-owned/stub split; watch it.
+- A reviewed unsafe hand-owned implementation can be restored only through
+  `cargo run -p xtask -- codegen --hold-back "<name>" --hold-back-reason "<finding>"`
+  (repeat names or pass `--hold-back-file`). This narrow mode needs cached
+  pinned printings, never the corpus; it writes only selected canonical stubs
+  with no abilities or coverage claim and records the reason. It refuses
+  finished machine-owned cards, whose reader must be fixed instead. Regenerate
+  compiled tables separately with `codegen --tables`.
 - `cross-read` is a report (disagreement ≠ defect), blind to costs.
 
 ## Writing a card

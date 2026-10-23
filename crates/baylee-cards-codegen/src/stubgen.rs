@@ -14,7 +14,7 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 use heck::ToSnakeCase;
 
 mod render;
-pub use render::render_stub;
+pub use render::{render_stub, render_unimplemented};
 
 /// The marker a card file carries while nobody has finished it.
 ///

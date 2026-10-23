@@ -12,7 +12,18 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 pub(crate) enum Cmd {
     /// Regenerate subtype constants, card stubs, registry, and the script index.
+    #[command(group(clap::ArgGroup::new("hold_back_selection").args(["hold_back", "hold_back_file"]).multiple(true)))]
     Codegen {
+        /// Restore only these reviewed, hand-owned cards to canonical stubs.
+        /// Repeat for multiple names; requires a concrete review reason.
+        #[arg(long, conflicts_with_all = ["adopt_stub", "tables", "subtypes"], requires = "hold_back_reason")]
+        hold_back: Vec<String>,
+        /// Additional card names, one per line; blanks and # comments skipped.
+        #[arg(long, conflicts_with_all = ["adopt_stub", "tables", "subtypes"], requires = "hold_back_reason")]
+        hold_back_file: Option<PathBuf>,
+        /// Review finding recorded in every restored stub.
+        #[arg(long, requires = "hold_back_selection")]
+        hold_back_reason: Option<String>,
         /// Transfer an unfinished generated card to hand ownership, without
         /// claiming it is implemented. No other files are regenerated.
         #[arg(long, conflicts_with_all = ["check", "tables", "subtypes"])]

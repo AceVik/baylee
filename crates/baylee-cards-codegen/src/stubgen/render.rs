@@ -24,9 +24,7 @@ pub fn render_stub(
 ) -> Result<(StubInfo, String), CodegenError> {
     // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
     // → "brightclimb_pathway").
-    let slug = slug(card.name.split(" // ").next().unwrap_or(&card.name));
     let faces = faces_of(card);
-    let oracle_id = card.oracle_id.clone().unwrap_or_default();
     // A card is written out finished only when a reader understood the whole
     // of it; one clause left over and it stays an ordinary stub. Its own
     // printed text is tried first, because a land's intrinsic mana comes from
@@ -38,6 +36,52 @@ pub fn render_stub(
         })
         .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
 
+    render_card(card, row, ledger, cats, cycles, land, tested, None)
+}
+
+/// Render an explicitly reviewed card as an unimplemented stub, bypassing
+/// both ability readers even for lands they would ordinarily finish.
+///
+/// `reason` is recorded in the generated source, one comment per line.
+/// No ability, keyword or test-derived coverage is retained.
+///
+/// # Errors
+/// [`CodegenError::Mana`] when a printed mana cost fails validation.
+pub fn render_unimplemented(
+    card: &ScryfallCard,
+    row: &LedgerEntry,
+    ledger: &IndexLedger,
+    cats: &SubtypeCatalogs,
+    cycles: &crate::layout::LandCycles,
+    reason: &str,
+) -> Result<(StubInfo, String), CodegenError> {
+    render_card(
+        card,
+        row,
+        ledger,
+        cats,
+        cycles,
+        None,
+        &|_| false,
+        Some(reason),
+    )
+}
+
+// Shared canonical rendering for ordinary generation and explicit review holds.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn render_card(
+    card: &ScryfallCard,
+    row: &LedgerEntry,
+    ledger: &IndexLedger,
+    cats: &SubtypeCatalogs,
+    cycles: &crate::layout::LandCycles,
+    land: Option<CardBody>,
+    tested: &dyn Fn(&str) -> bool,
+    held: Option<&str>,
+) -> Result<(StubInfo, String), CodegenError> {
+    let slug = slug(card.name.split(" // ").next().unwrap_or(&card.name));
+    let faces = faces_of(card);
+    let oracle_id = card.oracle_id.clone().unwrap_or_default();
     let path = crate::layout::path_for(card, &slug, cycles);
     let mut out = String::with_capacity(4096);
     // Human-verifiable header (docs/card-dsl.md).
@@ -100,6 +144,12 @@ pub fn render_stub(
         out.push_str(&format!(
             "{STUB_MARKER} \u{2014} implement abilities + tests, see docs/card-dsl.md.\n\n"
         ));
+    }
+    if let Some(reason) = held {
+        for line in reason.lines() {
+            out.push_str(&format!("// Held back: {line}\n"));
+        }
+        out.push('\n');
     }
     // One import, not six. The old list was the same for every card whether
     // or not the card used it, which is why every stub also had to carry
@@ -179,4 +229,3 @@ pub fn render_stub(
         out,
     ))
 }
-

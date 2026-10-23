@@ -48,6 +48,8 @@ No `cargo xtask` alias exists; every line below follows `cargo run -p xtask --`.
 
 ```text
 codegen [--check | --tables]      # --tables: no corpus needed
+codegen --hold-back "<card>" --hold-back-reason "<review finding>" [--check]
+codegen --hold-back-file <names.txt> --hold-back-reason "<review finding>" [--check]
 validate
 ledger [--check]                  # assign CardIndex; --check writes nothing
 adopt --name "<card>"             # hand-own a generated card
@@ -70,6 +72,16 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 - Scryfall: `fetch_named` answers cached payloads from disk, else fetches one card. Fill a cold cache in bulk (`scryfall::fill_from_bulk`, `oracle_cards`), matched on ledger `oracle_id`, never name. Bulk never fails; gaps fetch singly.
 - `data/scryfall-cache` (`--cache` default) is gitignored; copy it into a fresh worktree or codegen fails at the lines stage.
 - Never run full `codegen` without the corpus: it rewrites every machine-owned card as a stub. `--tables` regenerates the four compiled-pool tables after a hand-edited card or a `baylee_cards_codegen::lines` change.
+- `codegen --hold-back` restores only selected reviewed cards to canonical
+  `Coverage::Unimplemented` stubs, recording the required reason as a generated
+  comment and removing every ability and keyword. Repeat the flag or use
+  `--hold-back-file` (one name per line, blanks and `#` comments skipped).
+  It reads the ledger, existing subtype assignments and cached **pinned**
+  printings only; missing or mismatched printings fail before any card is
+  written. Finished machine-owned cards are refused: fix their reader first.
+  Existing file locations, unrelated cards and tables stay untouched. `--check`
+  compares the selected output without writing; follow a restoration with
+  `codegen --tables` to update the compiled-pool tables.
 - Codegen (even `--check`) never runs in CI; `validate` checks committed cards.
 
 ## Running
