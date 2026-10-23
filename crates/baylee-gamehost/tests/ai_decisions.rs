@@ -108,13 +108,23 @@ fn float(engine: &mut Engine<RegistryLookup>, sources: &[ObjectId]) {
     }
 }
 
+#[path = "ai_decisions/card_choices.rs"]
 mod card_choices;
+#[path = "ai_decisions/casting.rs"]
 mod casting;
+#[path = "ai_decisions/combat.rs"]
 mod combat;
+#[path = "ai_decisions/copies.rs"]
 mod copies;
+#[path = "ai_decisions/counterspells.rs"]
 mod counterspells;
+#[path = "ai_decisions/graveyard.rs"]
 mod graveyard;
+#[path = "ai_decisions/mana.rs"]
 mod mana;
+#[path = "ai_decisions/randomness.rs"]
 mod randomness;
+#[path = "ai_decisions/stack.rs"]
 mod stack;
+#[path = "ai_decisions/time_counters.rs"]
 mod time_counters;

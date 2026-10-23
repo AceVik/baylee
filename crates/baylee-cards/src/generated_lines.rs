@@ -14079,7 +14079,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         sentences: 4,
         stackable: 0,
         lines: &[None],
-        modes: &[None, None],
+        modes: &[Some(1), Some(3)],
         alternatives: &[],
     }],
     // Wake of Vultures

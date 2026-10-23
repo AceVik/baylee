@@ -154,7 +154,11 @@ fn pool_effects() -> (Vec<&'static Effect>, usize) {
     (all, seen)
 }
 
+#[path = "ai_coverage_guards/effect_shapes.rs"]
 mod effect_shapes;
+#[path = "ai_coverage_guards/mechanic_debt.rs"]
 mod mechanic_debt;
+#[path = "ai_coverage_guards/priced_grants.rs"]
 mod priced_grants;
+#[path = "ai_coverage_guards/time_counters.rs"]
 mod time_counters;
