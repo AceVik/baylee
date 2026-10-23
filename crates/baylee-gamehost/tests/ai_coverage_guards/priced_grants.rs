@@ -6,8 +6,9 @@ use super::*;
 /// `simple_mana` reads output, not whether a non-mana price is free.
 /// `PublicObject::granted_mana` and `GrantSource::mana` therefore require
 /// `tap_only`: neither projection has a field for life or sacrifice costs.
-/// Each name below owes a real-board projection test and a documented AI
-/// limitation; a newly priced grant must trip this guard until both exist.
+/// Each name below owes real-board evidence of its paid activation and a
+/// documented AI limitation. The shared projection boundary is covered by
+/// `view::tests::grants::granted_mana_refuses_a_priced_grant`.
 ///
 /// The population bound is the load-bearing half. A grant hides in **two**
 /// shapes — `AbilityDef::Static`, which `ability_effects` deliberately
@@ -67,16 +68,22 @@ fn no_granted_mana_ability_charges_more_than_the_tap() {
          three, so the assertion below is over a list too short to fail"
     );
     // `view::tests::grants::granted_mana_refuses_a_priced_grant` builds
-    // both boards and checks both mana fields while the engine still offers
-    // the paid activation. Basal Sliver additionally sacrifices the recipient
-    // for exactly {B}{B}, leaving its grantor alive. Neither grant can be
-    // planned by the AI today; docs/ai-coverage-todo.md records that debt.
+    // the Basal Sliver and Forgotten Monument boards and checks both mana
+    // fields while the engine still offers the paid activation. Basal Sliver
+    // additionally sacrifices the recipient for exactly {B}{B}.
+    // `baylee-engine::engine::card_tests::instants::mv_1::rain_of_filth`
+    // exercises Rain of Filth on a real board: an existing controlled land
+    // is sacrificed for exactly {B}, without using the stack; later and
+    // opposing lands receive no grant, and it expires at end of turn.
+    // This card test proves the paid activation, not a gamehost projection.
+    // None of these grants can be planned by the AI today;
+    // docs/ai-coverage-todo.md records the price-aware planning debt.
     // Sort names so this is membership, independent of generated index order.
     // Keep exact equality: additions and removals must both be reviewed.
     priced.sort_unstable();
     assert_eq!(
         priced,
-        ["Basal Sliver", "Forgotten Monument"],
+        ["Basal Sliver", "Forgotten Monument", "Rain of Filth"],
         "the pool's priced granted mana abilities have changed. Each one is \
          dropped from `PublicObject::granted_mana` rather than reported free \
          — see `baylee_cards_dsl::tap_only` — and each owes a test with a \

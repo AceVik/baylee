@@ -34,10 +34,9 @@ use super::*;
 /// it is now waiting for is narrower and worth saying: a lore or time
 /// counter effect that **targets**, which is the only shape that reaches the
 /// rule. The played game the ticket asked for exists —
-/// `a_mana_land_that_also_counts_is_invisible_to_the_planner` in
-/// `ai_decisions.rs` — and it pins the real consequence of this card, which
-/// is **#170**: the planner cannot read a mana ability that has a second
-/// sentence, so the agent never taps this land.
+/// `a_mana_land_that_also_counts_pays_for_the_spell` in
+/// `ai_decisions/mana.rs` — and now proves that the planner taps this land
+/// and casts the spell despite the mana ability's counter rider (#170).
 ///
 /// The zero is a **pinned list** now, the same shape as
 /// `LANDS_THAT_WOULD_COUNT_THEMSELVES`: it names what is reachable, it is
@@ -56,13 +55,12 @@ use super::*;
 /// unread, even with mana floating. This arrival does not close #166 or
 /// make a targeted clock effect reachable.
 ///
-/// Infinite Hourglass joined in Ice Age Batch 5. Its upkeep puts a time
-/// counter on itself without targeting, and its `{3}` upkeep ability removes a
-/// time counter from itself without targeting. It prints no `Suspend`, so
-/// `clock_score` answers 0 for it as well.
-/// `infinite_hourglass_counts_upkeeps_and_the_ai_declines_its_upkeep_counter_removal`
-/// pins both the untargeted upkeep counter placement and the AI declining the
-/// unread counter-removal ability during upkeep.
+/// Infinite Hourglass is held back after the Argon review (23.10.2026):
+/// its earlier counter manipulation omitted the printed creature-power
+/// payoff. The canonical stub has no abilities and therefore no reachable
+/// clock effect or meaningful card-specific AI regression. Reassess it
+/// here when the full card is implemented; see
+/// `docs/history/2026-10-23-argon-review.md`.
 ///
 /// The two assertions above the list are what make it mean something.
 /// `signed` proves the walk reaches real `AddCounter` effects at all — the
@@ -72,7 +70,7 @@ use super::*;
 fn only_the_named_cards_put_a_lore_or_time_counter_on_anything() {
     // Named by the card that puts them, so another arrival is a name in a
     // failure message and not a number to bump.
-    const REACHABLE_CLOCKS: &[&str] = &["Infinite Hourglass", "Time Bomb", "Trenzalore Clocktower"];
+    const REACHABLE_CLOCKS: &[&str] = &["Time Bomb", "Trenzalore Clocktower"];
     let mut seen = 0;
     let mut kinds = Vec::new();
     for def in baylee_cards::all() {

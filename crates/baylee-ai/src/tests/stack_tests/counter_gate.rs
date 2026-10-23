@@ -17,6 +17,9 @@ use super::*;
 /// Consider, Deliberate, Introduction to Prophecy and Preordain (look or
 /// scry, then draw), Curate, Contingency Plan and Taigam's Scheming (look or
 /// surveil into the graveyard, no draw).
+/// PR #394's review holds Lim-Dûl's Vault and implements Ransack as `ScryFor`
+/// on its chosen player's library. Neither has the former pure-selection
+/// shape accepted by this deliberately narrow predicate.
 #[test]
 fn the_counter_gate_lets_only_a_cantrip_resolve() {
     let mut held: Vec<&str> = baylee_cards::all()
@@ -63,11 +66,9 @@ fn the_counter_gate_lets_only_a_cantrip_resolve() {
             "Dream Cache",
             "Index",
             "Introduction to Prophecy",
-            "Lim-Dûl's Vault",
             "Open Communications",
             "Opt",
             "Preordain",
-            "Ransack",
             "Reach Through Mists",
             "Serum Visions",
             "Taigam's Scheming",
