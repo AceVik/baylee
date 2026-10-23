@@ -350,6 +350,7 @@ mod vicious_kavu;
 mod viridian_shaman;
 mod vodalian_illusionist;
 mod vodalian_war_machine;
+mod volrath_s_shapeshifter;
 mod vulshok_sorcerer;
 mod wall_of_air;
 mod wall_of_blood;

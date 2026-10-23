@@ -291,6 +291,7 @@ mod viridian_lorebearers;
 mod volcano_imp;
 mod vulshok_berserker;
 mod vulshok_war_boar;
+mod walking_dream;
 mod wall_of_swords;
 mod wall_of_vapor;
 mod war_elephant;

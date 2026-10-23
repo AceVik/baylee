@@ -27,6 +27,7 @@ mod ring_of_three_wishes;
 mod storm_cauldron;
 mod timeless_lotus;
 mod trigon_of_thought;
+mod volrath_s_laboratory;
 
 /// Sets the counters of `kind` on `id` (harness door) and refreshes the offer.
 fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: CounterKind, n: u16) {

@@ -702,5 +702,8 @@ no-engine-change contract:
   - Batch 5 (`Precognition` to `Segmented Wurm`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 6 (`Selenia, Dark Angel` to `Unstable Shapeshifter`, 25 cards): **19 Implemented, 6 Partial**.
   - Batch 7 (`Intuition` and `Vhati il-Dal` to `Worthy Cause`, 11 cards): **4 Implemented, 7 Partial**.
-- **Stronghold (`sth`)** — in progress:
+- **Stronghold (`sth`)** — completed across 4 batches (**35 Implemented, 49 Partial** across the 84 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Acidic Sliver` to `Fling`, 25 cards): **11 Implemented, 14 Partial**.
+  - Batch 2 (`Gliding Licid` to `Mogg Maniac`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 3 (`Mortuary` to `Verdant Touch`, 25 cards): **8 Implemented, 17 Partial**.
+  - Batch 4 (`Volrath's Gardens` to `Warrior en-Kor`, 9 cards): **4 Implemented, 5 Partial**.
