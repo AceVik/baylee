@@ -1091,7 +1091,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Exodus (`exo`) Batch 3 adds 7 non-mana activated abilities across Ogre
     // Shaman, Plaguebearer, Pygmy Troll, Reconnaissance, Rootwater Mystic,
     // Shackles, and Skyshaper, of which 5 are read by the evaluator.
-    assert_eq!((read, of), (2790, 3519), "activated/loyalty reader census");
+    // Exodus (`exo`) Batch 4 adds 7 non-mana activated abilities across Spike
+    // Rogue, Thalakos Scout, Thopter Squadron (two), Thrull Surgeon, Volrath's
+    // Dungeon, and Wayward Soul, of which 6 are read by the evaluator.
+    assert_eq!((read, of), (2796, 3526), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

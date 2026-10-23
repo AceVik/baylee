@@ -9128,24 +9128,46 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this creature: Target creature gets +0/+4 until end of turn."],
     // Skyshaper
     &["Sacrifice this artifact: Creatures you control gain flying until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Skyshroud Elite
+    &["This creature gets +1/+2 as long as an opponent controls a nonbasic land."],
+    // Skyshroud War Beast
+    &[
+        "Trample\nAs this creature enters, choose an opponent.\nSkyshroud War Beast's power and toughness are each equal to the number of nonbasic lands the chosen player controls.",
+    ],
+    // Slaughter
+    &[
+        "Buyback—Pay 4 life. (You may pay 4 life in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Soltari Visionary
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever this creature deals damage to a player, destroy target enchantment that player controls.",
+    ],
+    // Song of Serenity
+    &["Creatures that are enchanted can't attack or block."],
+    // Sonic Burst
+    &[
+        "As an additional cost to cast this spell, discard a card at random.\nSonic Burst deals 4 damage to any target.",
+    ],
     // Soul Warden
     &["Whenever another creature enters, you gain 1 life."],
-    &[],
+    // Spellbook
+    &["You have no maximum hand size."],
     // Spellshock
     &["Whenever a player casts a spell, this enchantment deals 2 damage to that player."],
-    &[],
-    &[],
+    // Sphere of Resistance
+    &["Spells cost {1} more to cast."],
+    // Spike Cannibal
+    &[
+        "This creature enters with a +1/+1 counter on it.\nWhen this creature enters, move all +1/+1 counters from all creatures onto it.",
+    ],
     // Spike Hatcher
     &[
         "This creature enters with six +1/+1 counters on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.\n{1}, Remove a +1/+1 counter from this creature: Regenerate this creature.",
     ],
-    &[],
+    // Spike Rogue
+    &[
+        "This creature enters with two +1/+1 counters on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.\n{2}, Remove a +1/+1 counter from a creature you control: Put a +1/+1 counter on this creature.",
+    ],
     // Spike Weaver
     &[
         "This creature enters with three +1/+1 counters on it.\n{2}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on target creature.\n{1}, Remove a +1/+1 counter from this creature: Prevent all combat damage that would be dealt this turn.",
@@ -9160,10 +9182,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Discard a card: This creature gains shadow until end of turn. (It can block or be blocked by only creatures with shadow.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thalakos Scout
+    &[
+        "Shadow (This creature can block or be blocked by only creatures with shadow.)\nDiscard a card: Return this creature to its owner's hand.",
+    ],
+    // Thopter Squadron
+    &[
+        "Flying\nThis creature enters with three +1/+1 counters on it.\n{1}, Remove a +1/+1 counter from this creature: Create a 1/1 colorless Thopter artifact creature token with flying. Activate only as a sorcery.\n{1}, Sacrifice another Thopter: Put a +1/+1 counter on this creature. Activate only as a sorcery.",
+    ],
+    // Thrull Surgeon
+    &[
+        "{1}{B}, Sacrifice this creature: Look at target player's hand and choose a card from it. That player discards that card. Activate only as a sorcery.",
+    ],
+    // Transmogrifying Licid
+    &[
+        "{1}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {1} to end this effect.\nEnchanted creature gets +1/+1 and is an artifact in addition to its other types.",
+    ],
     // Treasure Hunter
     &[
         "When this creature enters, you may return target artifact card from your graveyard to your hand.",
@@ -9172,9 +9206,16 @@ pub static ORACLE: &[&[&str]] = &[
     &["{2}{U}{U}: Draw a card."],
     // Vampire Hounds
     &["Discard a creature card: This creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Volrath's Dungeon
+    &[
+        "Pay 5 life: Destroy this enchantment. Any player may activate this ability but only during their turn.\nDiscard a card: Target player puts a card from their hand on top of their library. Activate only as a sorcery.",
+    ],
+    // Wall of Nets
+    &[
+        "Defender (This creature can't attack.)\nAt end of combat, exile all creatures blocked by this creature.\nWhen this creature leaves the battlefield, return all cards exiled with it to the battlefield under their owners' control.",
+    ],
+    // Wayward Soul
+    &["Flying\n{U}: Put this creature on top of its owner's library."],
     // Welkin Hawk
     &[
         "Flying\nWhen this creature dies, you may search your library for a card named Welkin Hawk, reveal that card, put it into your hand, then shuffle.",
@@ -9185,7 +9226,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature enters with four +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}.",
     ],
-    &[],
+    // Zealots en-Dal
+    &[
+        "At the beginning of your upkeep, if all nonland permanents you control are white, you gain 1 life.",
+    ],
     &[],
     // Alaborn Cavalier
     &["Whenever this creature attacks, you may tap target creature."],

@@ -16147,6 +16147,8 @@ pub mod skyshroud_archer;
 pub mod skyshroud_condor;
 #[path = "creatures/mv_2/skyshroud_elf.rs"]
 pub mod skyshroud_elf;
+#[path = "creatures/mv_1/skyshroud_elite.rs"]
+pub mod skyshroud_elite;
 #[path = "creatures/mv_2/skyshroud_falcon.rs"]
 pub mod skyshroud_falcon;
 #[path = "lands/pain/skyshroud_forest.rs"]
@@ -16161,6 +16163,8 @@ pub mod skyshroud_troll;
 pub mod skyshroud_troopers;
 #[path = "creatures/mv_5/skyshroud_vampire.rs"]
 pub mod skyshroud_vampire;
+#[path = "creatures/mv_2/skyshroud_war_beast.rs"]
+pub mod skyshroud_war_beast;
 #[path = "creatures/mv_6/skysnare_spider.rs"]
 pub mod skysnare_spider;
 #[path = "creatures/mv_5/skyspear_cavalry.rs"]
@@ -16185,6 +16189,8 @@ pub mod slash_of_talons;
 pub mod slash_panther;
 #[path = "creatures/mv_5/slash_reptile_rampager.rs"]
 pub mod slash_reptile_rampager;
+#[path = "instants/mv_4/slaughter.rs"]
+pub mod slaughter;
 #[path = "instants/mv_3/slaughter_cry.rs"]
 pub mod slaughter_cry;
 #[path = "creatures/mv_2/slaughter_drone.rs"]
@@ -16437,6 +16443,8 @@ pub mod soltari_monk;
 pub mod soltari_priest;
 #[path = "creatures/mv_2/soltari_trooper.rs"]
 pub mod soltari_trooper;
+#[path = "creatures/mv_3/soltari_visionary.rs"]
+pub mod soltari_visionary;
 #[path = "sorceries/mv_3/solve_the_equation.rs"]
 pub mod solve_the_equation;
 #[path = "creatures/mv_2/somberwald_dryad.rs"]
@@ -16449,10 +16457,14 @@ pub mod somnomancer;
 pub mod song_mad_treachery;
 #[path = "sorceries/mv_2/song_of_blood.rs"]
 pub mod song_of_blood;
+#[path = "enchantments/mv_2/song_of_serenity.rs"]
+pub mod song_of_serenity;
 #[path = "creatures/mv_2/songbird_sonic_screamer.rs"]
 pub mod songbird_sonic_screamer;
 #[path = "instants/mv_1/songs_of_the_damned.rs"]
 pub mod songs_of_the_damned;
+#[path = "instants/mv_2/sonic_burst.rs"]
+pub mod sonic_burst;
 #[path = "artifacts/mv_3/sonic_screwdriver.rs"]
 pub mod sonic_screwdriver;
 #[path = "creatures/mv_3/soot_imp.rs"]
@@ -16635,6 +16647,8 @@ pub mod spell_pierce;
 pub mod spell_snare;
 #[path = "instants/mv_3/spell_snip.rs"]
 pub mod spell_snip;
+#[path = "artifacts/mv_0/spellbook.rs"]
+pub mod spellbook;
 #[path = "creatures/mv_3/spellgorger_weird.rs"]
 pub mod spellgorger_weird;
 #[path = "creatures/mv_3/spellkeeper_weird.rs"]
@@ -16643,6 +16657,8 @@ pub mod spellkeeper_weird;
 pub mod spellseeker;
 #[path = "enchantments/mv_3/spellshock.rs"]
 pub mod spellshock;
+#[path = "artifacts/mv_2/sphere_of_resistance.rs"]
+pub mod sphere_of_resistance;
 #[path = "artifacts/mv_7/sphinx_bone_wand.rs"]
 pub mod sphinx_bone_wand;
 #[path = "creatures/mv_7/sphinx_mindbreaker.rs"]
@@ -16675,6 +16691,8 @@ pub mod spiderwig_boggart;
 pub mod spidery_grasp;
 #[path = "creatures/mv_4/spike_breeder.rs"]
 pub mod spike_breeder;
+#[path = "creatures/mv_3/spike_cannibal.rs"]
+pub mod spike_cannibal;
 #[path = "creatures/mv_5/spike_colony.rs"]
 pub mod spike_colony;
 #[path = "creatures/mv_1/spike_drone.rs"]
@@ -16685,6 +16703,8 @@ pub mod spike_feeder;
 pub mod spike_hatcher;
 #[path = "creatures/mv_2/spike_jester.rs"]
 pub mod spike_jester;
+#[path = "creatures/mv_3/spike_rogue.rs"]
+pub mod spike_rogue;
 #[path = "creatures/mv_4/spike_soldier.rs"]
 pub mod spike_soldier;
 #[path = "creatures/mv_5/spike_tailed_ceratops.rs"]
@@ -18011,6 +18031,8 @@ pub mod thalakos_drifters;
 pub mod thalakos_lowlands;
 #[path = "creatures/mv_3/thalakos_mistfolk.rs"]
 pub mod thalakos_mistfolk;
+#[path = "creatures/mv_3/thalakos_scout.rs"]
+pub mod thalakos_scout;
 #[path = "creatures/mv_2/thalakos_seer.rs"]
 pub mod thalakos_seer;
 #[path = "creatures/mv_2/thalakos_sentry.rs"]
@@ -18181,6 +18203,8 @@ pub mod thistledown_players;
 pub mod thopter_architect;
 #[path = "artifacts/mv_2/thopter_foundry.rs"]
 pub mod thopter_foundry;
+#[path = "creatures/artifacts/mv_5/thopter_squadron.rs"]
+pub mod thopter_squadron;
 #[path = "creatures/mv_5/thor_odinson.rs"]
 pub mod thor_odinson;
 #[path = "creatures/mv_2/thorin_oakenshield.rs"]
@@ -18311,6 +18335,8 @@ pub mod throttle;
 pub mod thrull_champion;
 #[path = "enchantments/auras/mv_1/thrull_retainer.rs"]
 pub mod thrull_retainer;
+#[path = "creatures/mv_2/thrull_surgeon.rs"]
+pub mod thrull_surgeon;
 #[path = "creatures/mv_3/thrull_wizard.rs"]
 pub mod thrull_wizard;
 #[path = "creatures/mv_5/thrun_breaker_of_silence.rs"]
@@ -18675,6 +18701,8 @@ pub mod tranquility;
 pub mod transdimensional_bovine;
 #[path = "lands/utility/transguild_promenade.rs"]
 pub mod transguild_promenade;
+#[path = "creatures/artifacts/mv_3/transmogrifying_licid.rs"]
+pub mod transmogrifying_licid;
 #[path = "instants/mv_2/transmutation.rs"]
 pub mod transmutation;
 #[path = "sorceries/mv_2/transmute_artifact.rs"]
@@ -19709,6 +19737,8 @@ pub mod voldaren_stinger;
 pub mod volley_veteran;
 #[path = "enchantments/auras/mv_2/volrath_s_curse.rs"]
 pub mod volrath_s_curse;
+#[path = "enchantments/mv_4/volrath_s_dungeon.rs"]
+pub mod volrath_s_dungeon;
 #[path = "enchantments/mv_2/volrath_s_gardens.rs"]
 pub mod volrath_s_gardens;
 #[path = "artifacts/mv_5/volrath_s_laboratory.rs"]
@@ -19837,6 +19867,8 @@ pub mod wall_of_lost_thoughts;
 pub mod wall_of_mist;
 #[path = "creatures/mv_2/wall_of_mulch.rs"]
 pub mod wall_of_mulch;
+#[path = "creatures/mv_3/wall_of_nets.rs"]
+pub mod wall_of_nets;
 #[path = "creatures/mv_2/wall_of_omens.rs"]
 pub mod wall_of_omens;
 #[path = "creatures/mv_5/wall_of_opposition.rs"]
@@ -20069,6 +20101,8 @@ pub mod wayfarer_s_bauble;
 pub mod wayward_giant;
 #[path = "creatures/mv_2/wayward_servant.rs"]
 pub mod wayward_servant;
+#[path = "creatures/mv_4/wayward_soul.rs"]
+pub mod wayward_soul;
 #[path = "creatures/mv_3/wayward_swordtooth.rs"]
 pub mod wayward_swordtooth;
 #[path = "enchantments/auras/mv_1/weakness.rs"]
@@ -20683,6 +20717,8 @@ pub mod zanarkand_ancient_metropolis;
 pub mod zap;
 #[path = "creatures/mv_4/zarichi_tiger.rs"]
 pub mod zarichi_tiger;
+#[path = "creatures/mv_4/zealots_en_dal.rs"]
+pub mod zealots_en_dal;
 #[path = "creatures/mv_1/zealous_guardian.rs"]
 pub mod zealous_guardian;
 #[path = "instants/mv_2/zealous_strike.rs"]
