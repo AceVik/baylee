@@ -9935,19 +9935,32 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nWhen this creature enters, untap up to five lands."],
     // Persecute
     &["Choose a color. Target player reveals their hand and discards all cards of that color."],
-    &[],
+    // Phyrexian Colossus
+    &[
+        "This creature doesn't untap during your untap step.\nPay 8 life: Untap this creature.\nThis creature can't be blocked except by three or more creatures.",
+    ],
     // Phyrexian Ghoul
     &["Sacrifice a creature: This creature gets +2/+2 until end of turn."],
-    &[],
+    // Phyrexian Processor
+    &[
+        "As this artifact enters, pay any amount of life.\n{4}, {T}: Create an X/X black Phyrexian Minion creature token, where X is the life paid as this artifact entered.",
+    ],
     // Phyrexian Tower
     &["{T}: Add {C}.\n{T}, Sacrifice a creature: Add {B}{B}."],
-    &[],
-    &[],
+    // Planar Birth
+    &[
+        "Return all basic land cards from all graveyards to the battlefield tapped under their owners' control.",
+    ],
+    // Planar Void
+    &["Whenever another card is put into a graveyard from anywhere, exile that card."],
     // Polluted Mire
     &[
         "This land enters tapped.\n{T}: Add {B}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Pouncing Jaguar
+    &[
+        "Echo {G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
     // Power Taint
     &[
         "Enchant enchantment\nAt the beginning of the upkeep of enchanted enchantment's controller, that player loses 2 life unless they pay {2}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
@@ -9956,38 +9969,66 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, add {B}{B}{B}."],
     // Priest of Titania
     &["{T}: Add {G} for each Elf on the battlefield."],
-    &[],
-    &[],
+    // Purging Scythe
+    &[
+        "At the beginning of your upkeep, this artifact deals 2 damage to the creature with the least toughness. If two or more creatures are tied for least toughness, you choose one of them.",
+    ],
+    // Rain of Filth
+    &["Until end of turn, lands you control gain \"Sacrifice this land: Add {B}.\""],
     // Ravenous Skirge
     &["Flying\nWhenever this creature attacks, it gets +2/+0 until end of turn."],
-    &[],
-    &[],
+    // Raze
+    &["As an additional cost to cast this spell, sacrifice a land.\nDestroy target land."],
+    // Recantation
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{U}, Sacrifice this enchantment: Return up to X target permanents to their owners' hands, where X is the number of verse counters on this enchantment.",
+    ],
     // Reclusive Wight
     &[
         "At the beginning of your upkeep, if you control another nonland permanent, sacrifice this creature.",
     ],
-    &[],
+    // Redeem
+    &["Prevent all damage that would be dealt this turn to up to two target creatures."],
     // Reflexes
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature has first strike. (It deals combat damage before creatures without first strike.)",
     ],
     // Rejuvenate
     &["You gain 6 life.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Remembrance
+    &[
+        "Whenever a nontoken creature you control dies, you may search your library for a card with the same name as that creature, reveal it, put it into your hand, then shuffle.",
+    ],
     // Remote Isle
     &[
         "This land enters tapped.\n{T}: Add {U}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Reprocess
+    &[
+        "Sacrifice any number of artifacts, creatures, and/or lands. Draw a card for each permanent sacrificed this way.",
+    ],
     // Rescind
     &[
         "Return target permanent to its owner's hand.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Retaliation
+    &[
+        "Creatures you control have \"Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.\"",
+    ],
+    // Retromancer
+    &[
+        "Whenever this creature becomes the target of a spell or ability, this creature deals 3 damage to that spell or ability's controller.",
+    ],
+    // Rewind
+    &["Counter target spell. Untap up to four lands."],
+    // Rumbling Crescendo
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{R}, Sacrifice this enchantment: Destroy up to X target lands, where X is the number of verse counters on this enchantment.",
+    ],
+    // Rune of Protection: Artifacts
+    &[
+        "{W}: The next time an artifact source of your choice would deal damage to you this turn, prevent that damage.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     // Rune of Protection: Black
     &[
         "{W}: The next time a black source of your choice would deal damage to you this turn, prevent that damage.\nCycling {2} ({2}, Discard this card: Draw a card.)",
@@ -10014,7 +10055,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Sanctum Custodian
     &["{T}: Prevent the next 2 damage that would be dealt to any target this turn."],
-    &[],
+    // Sanctum Guardian
+    &[
+        "Sacrifice this creature: The next time a source of your choice would deal damage to any target this turn, prevent that damage.",
+    ],
     // Sandbar Merfolk
     &["Cycling {2} ({2}, Discard this card: Draw a card.)"],
     // Sandbar Serpent
@@ -10023,18 +10067,30 @@ pub static ORACLE: &[&[&str]] = &[
     &["First strike\n{1}{B}: Regenerate this creature."],
     // Scald
     &["Whenever a player taps an Island for mana, this enchantment deals 1 damage to that player."],
-    &[],
+    // Scoria Wurm
+    &[
+        "At the beginning of your upkeep, flip a coin. If you lose the flip, return this creature to its owner's hand.",
+    ],
     // Scrap
     &["Destroy target artifact.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Serra Avatar
+    &[
+        "Serra Avatar's power and toughness are each equal to your life total.\nWhen Serra Avatar is put into a graveyard from anywhere, shuffle it into its owner's library.",
+    ],
     // Serra Zealot
     &["First strike"],
     // Serra's Embrace
     &[
         "Enchant creature\nEnchanted creature gets +2/+2 and has flying and vigilance. (Attacking doesn't cause it to tap.)",
     ],
-    &[],
-    &[],
+    // Serra's Hymn
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\nSacrifice this enchantment: Prevent the next X damage that would be dealt this turn to any number of targets, divided as you choose, where X is the number of verse counters on this enchantment.",
+    ],
+    // Serra's Liturgy
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{W}, Sacrifice this enchantment: Destroy up to X target artifacts and/or enchantments, where X is the number of verse counters on this enchantment.",
+    ],
     // Serra's Sanctum
     &["{T}: Add {W} for each enchantment you control."],
     // Shimmering Barrier
@@ -10051,9 +10107,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{1}{R}: This creature deals 1 damage to any target.",
     ],
-    &[],
-    &[],
-    &[],
+    // Shivan Raptor
+    &[
+        "First strike, haste\nEcho {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Show and Tell
+    &[
+        "Each player may put an artifact, creature, enchantment, or land card from their hand onto the battlefield.",
+    ],
+    // Shower of Sparks
+    &[
+        "Shower of Sparks deals 1 damage to target creature and 1 damage to target player or planeswalker.",
+    ],
     // Sicken
     &[
         "Enchant creature\nEnchanted creature gets -1/-1.\nCycling {2} ({2}, Discard this card: Draw a card.)",

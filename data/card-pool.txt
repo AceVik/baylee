@@ -10399,3 +10399,28 @@ Pariah
 Pendrell Flux
 Peregrine Drake
 Persecute
+Phyrexian Colossus
+Phyrexian Processor
+Planar Birth
+Planar Void
+Pouncing Jaguar
+Purging Scythe
+Rain of Filth
+Raze
+Recantation
+Redeem
+Remembrance
+Reprocess
+Retaliation
+Retromancer
+Rewind
+Rumbling Crescendo
+Rune of Protection: Artifacts
+Sanctum Guardian
+Scoria Wurm
+Serra Avatar
+Serra's Hymn
+Serra's Liturgy
+Shivan Raptor
+Show and Tell
+Shower of Sparks
