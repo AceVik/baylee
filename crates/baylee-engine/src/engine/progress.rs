@@ -27,6 +27,7 @@ mod statics;
 mod steps;
 mod triggers;
 mod turn;
+mod untap;
 
 /// What a permanent that has just entered still has to ask as it enters,
 /// queued in [`Engine::entry_questions`] until every co-arrival's other
