@@ -5,6 +5,7 @@ under concurrent training are NOT a throughput comparison. This is a compile/
 correctness probe; measure complete updates on an idle GPU before deployment.
 """
 import argparse
+import copy
 import gc
 import json
 from pathlib import Path
@@ -25,6 +26,7 @@ def main():
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--data", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--cuda-graphs", action="store_true")
     args = ap.parse_args()
     torch.set_num_threads(2)
     torch.cuda.set_per_process_memory_fraction(0.18)
@@ -42,12 +44,14 @@ def main():
     for compiled in (False, True):
         net = M.PlayerNet4(M.Config4(**saved["config"])).cuda().train()
         net.load_state_dict(saved["state_dict"])
-        if compiled: compile_regions(net)
+        if compiled:
+            net._entity_bucket = 64 if args.cuda_graphs else 0
+            compile_regions(net, cuda_graphs=args.cuda_graphs)
         optimizer = torch.optim.AdamW([
             {"params":[p for n,p in net.named_parameters() if "seat_value_head" not in n]},
             {"params":[p for n,p in net.named_parameters() if "seat_value_head" in n]},
         ])
-        optimizer.load_state_dict(saved["optimizer"])
+        optimizer.load_state_dict(copy.deepcopy(saved["optimizer"]))
         move_optimizer(optimizer,"cuda")
         restore_rng(saved["rng"])
         h = saved["h"].cuda()

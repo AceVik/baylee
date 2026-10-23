@@ -5,6 +5,7 @@ Each variant starts with identical weights, optimizer, recurrent state and data.
 Spatial chunking keeps B/U and the chronological recurrence unchanged.
 """
 import argparse
+import copy
 import gc
 import json
 from pathlib import Path
@@ -24,6 +25,8 @@ from training4.device_loss import compute_device_loss
 
 
 def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, capture=False):
+    if getattr(net, "_cuda_graphs", False):
+        torch.compiler.cudagraph_mark_step_begin()
     plan_start = time.perf_counter()
     plans = None if reference else plan_batch(host, step_num, curriculum=True)
     plan_ms = (time.perf_counter() - plan_start) * 1000
@@ -35,7 +38,7 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
     h = torch.where(batch["is_new_traj"].cuda()[:, None, None], torch.zeros_like(h), h.detach())
     optimizer.zero_grad(set_to_none=True)
     with torch.autocast("cuda", dtype=torch.bfloat16):
-        boards = encode_boards(net, batch, chunk, torch.device("cuda"))
+        boards = encode_boards(net, batch, chunk, torch.device("cuda"), getattr(net,"_entity_bucket",0))
     loss = torch.zeros((), device="cuda")
     stats = torch.zeros(5, device="cuda")
     for t in range(u):
@@ -115,6 +118,7 @@ def main():
               "entity_counts": [b["entity_feat"].shape[2] for b in batches], "results": []}
     reference_gradients = None
     for variant in args.variants.split(","):
+        print(json.dumps({"variant": variant, "phase": "starting", "at_unix": time.time()}), flush=True)
         reference = variant in ("reference", "optimizer")
         chunk = int(variant.split("-")[0][5:]) if variant.startswith("chunk") else 1
         fused = variant.endswith("-fused")
@@ -122,10 +126,18 @@ def main():
         net.load_state_dict(saved["state_dict"])
         if variant.endswith("-regional"):
             compile_regions(net)
+        elif "graphs" in variant.split("-"):
+            net._entity_bucket = 0 if variant.endswith("-unpadded") else 64
+            compile_regions(net, cuda_graphs=True)
+        elif variant.endswith("-padded"):
+            net._entity_bucket = 64
+            compile_regions(net)
         value_params = [p for n,p in net.named_parameters() if "seat_value_head" in n]
         other_params = [p for n,p in net.named_parameters() if "seat_value_head" not in n]
         optimizer = torch.optim.AdamW([{"params":other_params}, {"params":value_params}], fused=True if fused else None)
-        optimizer.load_state_dict(saved["optimizer"])
+        # load_state_dict may share CPU scalar step tensors with its input.
+        # Each comparison must start at the same counters, not mutate saved.
+        optimizer.load_state_dict(copy.deepcopy(saved["optimizer"]))
         for group in optimizer.param_groups: group["fused"] = True if fused else None
         move_optimizer(optimizer, torch.device("cuda"))
         if variant == "reference":

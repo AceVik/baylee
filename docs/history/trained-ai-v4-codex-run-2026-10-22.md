@@ -587,3 +587,69 @@ log is retained, and launch through the actual venv path resumed successfully.
 The user clarified that useful contributions mean information/data, not buying
 hardware. Expert-annotated held-out tactical positions remain useful, but no user
 input is required for this continuation or dashboard work.
+
+
+## Training throughput investigation (23 October, afternoon)
+
+The user authorized repeated measured improvements while retaining training as
+priority. The original recurrent trainer saturated one CPU thread, not the data
+loader or PCIe link. A real B=8, U=32 batch occupied roughly 48–51 MiB; transfer
+was about 2.2 ms of a 1344 ms update. Different decks use the same network, so
+there is no per-deck weight swap. Loading the corpus into VRAM or replacing the
+loader with Rust would not address the measured bottleneck.
+
+Implemented an exact CPU-derived execution plan, device-side loss/metric
+reductions, and grouping of independent spatial encodings across eight frames.
+Only the independent batch axis is merged: memory evolves in original time
+order, every observation remains visible, and batch lanes, unroll, loss weights,
+optimizer state, RNG and data cursor remain intact on resume. CPU tests check
+losses, absent gradients, all action heads, noncontiguous masks, future-frame
+isolation, recurrent outputs and gradients. CUDA tests check AdamW scalar step
+placement and exact resumed optimizer updates. Ordinary AdamW uses CPU counters;
+fused/capturable variants require device counters. Preserve `fused=None` when
+not requested so PyTorch can choose its foreach implementation.
+
+All artifacts are under `checks/training-throughput-20261023/`. Full-update
+comparisons use identical copied checkpoints and consecutive real batches:
+
+| Comparison | Original updates/s | Optimized updates/s | Decision |
+| --- | --- | --- | --- |
+| `timing-repeat.json`, step 4000 | 0.744 | 1.334, chunk 8 | deploy chunk 8 |
+| `regional-timing/benchmark.json`, step 4500 | 0.782 | 1.550 chunk 8; 1.644 compiled blocks | deploy regional compilation |
+| `graphs-timing/benchmark.json`, step 5200 | 0.778 | 2.022 compiled; 1.765 padded | retain unpadded compiled blocks |
+
+These are different batches, not directly comparable absolute rates. The live
+regional run reached about 1.47 updates/s before the next handoff. Grouping all
+32 frames was slower than grouping 8 and used more VRAM. Fused AdamW did not
+produce a useful further gain. Reference profiler counts fell from 64,216 to
+25,896 CUDA kernel launches and from 1,015 to four stream synchronizations per
+update; instrumentation perturbed subsequent timings, so throughput claims use
+separate runs without the profiler. Grouped BF16 arithmetic differs slightly:
+full-update gradient relative L2 differences were roughly 0.36–0.44%; FP32
+causality/loss/gradient tests and six ONNX dynamic-K contract checks passed.
+The comparison helper now deep-copies optimizer input state because CPU scalar
+step tensors otherwise alias between variants. Earlier first-step gradient
+comparisons and throughput remain informative, but later optimizer counters in
+those earlier benchmarks were not strictly identical.
+
+CUDA Graphs are experimental and **not enabled in production**. A small
+four-frame probe compiled, but the full recurrent padded variant spent over
+180 seconds without completing its first update. It was stopped, preserving
+partial results and the reason. Padding alone was already slower. The unpadded
+CUDA Graphs variant was not reached; no performance claim is made for it. Dynamic
+shapes, checkpointed backward and long recurrent graphs need a separate bounded
+experiment before reconsideration. Current production keeps all dynamic entities
+without padding or truncation. Unit tests establish that the experimental
+padding preserves visible tokens and masks in FP32.
+
+Controlled atomic-checkpoint handoffs went through
+`codex-r4-efficient-bc` (step 4000), `codex-r4-regional-bc` (4500), then
+`codex-r4-regional-continuation` (5200, 7800 seconds remaining optimization
+budget). SIGTERM produces a preserved guard quarantine on old jobs; `handoff.json`
+explains the intentional interruption. It is not an engine/numerical failure.
+`experiments/codex-r4-active.json` identifies the current continuation. Runtime
+Python files **and both packages** are frozen per experiment. Full validation,
+ONNX equivalence and the same matched 128-duel/64-Commander evaluation follow
+without automatic promotion. The validator now uses device reductions and
+float64 totals with the same metrics and denominators as the reference.
+More updates per hour do not establish improved playing strength.

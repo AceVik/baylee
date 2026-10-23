@@ -112,6 +112,22 @@ class TrainingExecution(unittest.TestCase):
             torch.testing.assert_close(before[t][0], after[t][0], rtol=0, atol=0)
         self.assertFalse(torch.equal(before[3][0], after[3][0]))
 
+    def test_entity_padding_preserves_every_visible_token_and_reference(self):
+        batch = batch_fixture(b=2)
+        net = M.PlayerNet4(M.Config4(d_model=32,n_layers=1,n_heads=4,d_ff=64)).eval()
+        plans = plan_batch(batch,0)
+        with torch.no_grad():
+            ordinary = encode_boards(net,batch,2,torch.device("cpu"))
+            padded = encode_boards(net,batch,2,torch.device("cpu"),entity_bucket=16)
+            self.assertEqual(padded[0][0].shape[1],9+16)
+            self.assertTrue(padded[0][1][:,14:].all())
+            for t in range(4):
+                torch.testing.assert_close(ordinary[t][0],padded[t][0][:,:14],atol=1e-6,rtol=1e-5)
+                args=[batch[n][:,t] for n in M.INPUT_NAMES[:15]]+[torch.zeros(2,9,32),batch["is_decision"][:,t].long()]
+                left=net(*args,execution_hint=plans[t].hint,encoded_board=ordinary[t])
+                right=net(*args,execution_hint=plans[t].hint,encoded_board=padded[t])
+                for a,b in zip(left,right):torch.testing.assert_close(a,b,atol=1e-6,rtol=1e-5)
+
     def test_device_validation_preserves_all_metrics_and_resets(self):
         first, second = batch_fixture(), batch_fixture()
         first["is_new_traj"] = torch.ones(8, dtype=torch.bool)

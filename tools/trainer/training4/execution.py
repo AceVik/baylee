@@ -54,15 +54,16 @@ def transfer_batch(batch, device, limit_bytes=256 * 1024**2):
     return batch
 
 
-def encode_boards(net, batch, chunk, device):
+def encode_boards(net, batch, chunk, device, entity_bucket=0):
     """Batch independent spatial encodings; recurrence still runs in time order.
 
     Only the batch axis is merged. There is no attention between frames or lanes.
     Chunk size bounds temporary trunk activations; checkpointing stays enabled.
     Return None for the reference per-frame path.
     """
-    if chunk <= 1:
+    if chunk <= 1 and not entity_bucket:
         return None
+    chunk = max(1, chunk)
     b, unroll = batch["step_valid"].shape
     result = []
     for start in range(0, unroll, chunk):
@@ -71,6 +72,14 @@ def encode_boards(net, batch, chunk, device):
         for name in M.INPUT_NAMES[:8]:
             tensor = batch[name][:, start:end]
             inputs.append(tensor.reshape(b * (end - start), *tensor.shape[2:]).to(device, non_blocking=True))
+        if entity_bucket:
+            # Padding happens on-device, never copies the whole batch through
+            # pageable host memory. No entity or edge is removed or reordered.
+            padding = (-inputs[0].shape[1]) % entity_bucket
+            if padding:
+                inputs[0] = torch.nn.functional.pad(inputs[0], (0, 0, 0, padding))
+                inputs[1] = torch.nn.functional.pad(inputs[1], (0, 0, 0, padding))
+                inputs[2] = torch.nn.functional.pad(inputs[2], (0, padding), value=False)
         board, mask = net.encode_board(*inputs)
         board = board.reshape(b, end - start, *board.shape[1:])
         mask = mask.reshape(b, end - start, *mask.shape[1:])
@@ -78,10 +87,12 @@ def encode_boards(net, batch, chunk, device):
     return result
 
 
-def compile_regions(net):
+def compile_regions(net, cuda_graphs=False):
     """Fuse repeated layers without changing state_dict keys or ONNX exports."""
     import torch._inductor.config
     torch._inductor.config.compile_threads = 4
+    net._cuda_graphs = cuda_graphs
+    mode = "reduce-overhead" if cuda_graphs else "default"
     for layer in net.trunk_layers:
-        layer.compile(dynamic=True)
-    net.thinking_block.compile(dynamic=True)
+        layer.compile(dynamic=True, mode=mode)
+    net.thinking_block.compile(dynamic=True, mode=mode)
