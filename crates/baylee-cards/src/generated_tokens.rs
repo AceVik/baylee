@@ -2501,6 +2501,15 @@ pub static HORNET_ARTIFACT_1_1_FLYING_HASTE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 colorless ChosenType.
+pub static CHOSENTYPE_2_2: TokenDef = TokenDef {
+    name: "ChosenType",
+    types: TypeSet::CREATURE,
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2749,6 +2758,7 @@ pub static ALL: &[&TokenDef] = &[
     &DOG_1_1_GREEN,
     &CARNIVORE_3_1_RED,
     &HORNET_ARTIFACT_1_1_FLYING_HASTE,
+    &CHOSENTYPE_2_2,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2965,4 +2975,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &DOG_1_1_GREEN,
     &CARNIVORE_3_1_RED,
     &HORNET_ARTIFACT_1_1_FLYING_HASTE,
+    &CHOSENTYPE_2_2,
 ];

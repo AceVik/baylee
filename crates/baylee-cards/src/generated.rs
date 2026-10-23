@@ -2936,6 +2936,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::torture_chamber::CARD,
     ),
     (
+        "1245b165-e26f-4839-8468-2e95148fc6f6",
+        &crate::cards::warrior_en_kor::CARD,
+    ),
+    (
         "124c8663-21f3-4cd8-a060-9d04be35c43f",
         &crate::cards::stone_throwing_devils::CARD,
     ),
@@ -3114,6 +3118,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "13745b92-1e30-4075-9733-5d00da11408c",
         &crate::cards::seasinger::CARD,
+    ),
+    (
+        "1374ac18-01bd-452f-af72-a5f96285ed69",
+        &crate::cards::wall_of_essence::CARD,
     ),
     (
         "137e0ad2-e10a-4327-86a3-5ac7bc7fc469",
@@ -3630,6 +3638,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "16e555f2-5aa8-4100-a036-eed48db0e84a",
         &crate::cards::bone_saw::CARD,
+    ),
+    (
+        "16e9a4ee-0398-4e76-bc7e-dd2d52056aaf",
+        &crate::cards::volrath_s_shapeshifter::CARD,
     ),
     (
         "16e9c452-6288-4da8-813d-2eb6b7a538c3",
@@ -6284,6 +6296,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::gin_tak_charge::CARD,
     ),
     (
+        "286e7ef1-d763-4b48-8603-a161dcf7efbc",
+        &crate::cards::walking_dream::CARD,
+    ),
+    (
         "28778958-a1f9-4fea-b551-c193d1257f18",
         &crate::cards::open_the_graves::CARD,
     ),
@@ -6886,6 +6902,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "2c80fc55-86a0-403e-82ce-09ee03095d8a",
         &crate::cards::hithlain_knots::CARD,
+    ),
+    (
+        "2c85c9ea-c3fd-4981-a65c-4405bd87764e",
+        &crate::cards::wall_of_souls::CARD,
     ),
     (
         "2c87565b-3902-4b11-b894-6922f66008ba",
@@ -13882,6 +13902,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "58257464-278e-45fa-8e0b-bcd9a7500bc1",
         &crate::cards::ash_barrens::CARD,
+    ),
+    (
+        "5825d718-6a32-4f4c-9b56-1a50051cfe28",
+        &crate::cards::wall_of_tears::CARD,
     ),
     (
         "582fdfbe-c5fe-45d0-b3ff-e66db5183725",
@@ -24322,6 +24346,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "96ef0bd9-4abb-49af-8744-0b2ad595a393",
         &crate::cards::white_shield_crusader::CARD,
+    ),
+    (
+        "97140551-341a-40a1-93fe-0fcaa0c3be33",
+        &crate::cards::warrior_angel::CARD,
     ),
     (
         "97159138-c34b-416e-b079-5c952383a243",
@@ -39000,6 +39028,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::bloodline_necromancer::CARD,
     ),
     (
+        "f2a6e26c-6bd6-4fca-ba9f-d52d01fc03ef",
+        &crate::cards::volrath_s_laboratory::CARD,
+    ),
+    (
         "f2b284cd-fa12-4ba1-b297-80105bb48fde",
         &crate::cards::hobblefiend::CARD,
     ),
@@ -41194,6 +41226,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "ff942899-a70d-4fca-b125-9712aa635fff",
         &crate::cards::reclamation::CARD,
+    ),
+    (
+        "ff99337e-410c-43af-9475-7995d690bcef",
+        &crate::cards::volrath_s_gardens::CARD,
     ),
     (
         "ff9f4bfe-1585-4eaa-943c-1e85ed79a820",
@@ -44112,18 +44148,18 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::tortured_existence::CARD),
     Some(&crate::cards::verdant_touch::CARD),
     Some(&crate::cards::victual_sliver::CARD),
-    None,
-    None,
-    None,
+    Some(&crate::cards::volrath_s_gardens::CARD),
+    Some(&crate::cards::volrath_s_laboratory::CARD),
+    Some(&crate::cards::volrath_s_shapeshifter::CARD),
     Some(&crate::cards::volrath_s_stronghold::CARD),
-    None,
+    Some(&crate::cards::walking_dream::CARD),
     Some(&crate::cards::wall_of_blossoms::CARD),
-    None,
+    Some(&crate::cards::wall_of_essence::CARD),
     Some(&crate::cards::wall_of_razors::CARD),
-    None,
-    None,
-    None,
-    None,
+    Some(&crate::cards::wall_of_souls::CARD),
+    Some(&crate::cards::wall_of_tears::CARD),
+    Some(&crate::cards::warrior_angel::CARD),
+    Some(&crate::cards::warrior_en_kor::CARD),
     Some(&crate::cards::youthful_knight::CARD),
     None,
     None,
@@ -74945,7 +74981,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x49075a6c82a6a9af;
+pub const POOL_HASH: u64 = 0x69d4bfaf78e4345d;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

@@ -1078,7 +1078,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Pursuit of Knowledge, Samite Blessing, Shard Phoenix (2), Silver Wyvern,
     // Skeleton Scavengers, and Tempting Licid, of which 3 are read by the
     // evaluator.
-    assert_eq!((read, of), (2770, 3495), "activated/loyalty reader census");
+    // Stronghold (`sth`) Batch 4 adds 3 non-mana activated abilities across
+    // Volrath's Gardens, Volrath's Laboratory, and Volrath's Shapeshifter, of
+    // which 2 are read by the evaluator.
+    assert_eq!((read, of), (2772, 3498), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

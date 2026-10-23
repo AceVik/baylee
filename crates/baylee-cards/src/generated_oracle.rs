@@ -8745,23 +8745,46 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Victual Sliver
     &["All Slivers have \"{2}, Sacrifice this permanent: You gain 4 life.\""],
-    &[],
-    &[],
-    &[],
+    // Volrath's Gardens
+    &["{2}, Tap an untapped creature you control: You gain 2 life. Activate only as a sorcery."],
+    // Volrath's Laboratory
+    &[
+        "As this artifact enters, choose a color and a creature type.\n{5}, {T}: Create a 2/2 creature token of the chosen color and type.",
+    ],
+    // Volrath's Shapeshifter
+    &[
+        "As long as the top card of your graveyard is a creature card, this creature has the full text of that card and has the text \"{2}: Discard a card.\" (This creature has that card's name, mana cost, color, types, abilities, power, and toughness.)\n{2}: Discard a card.",
+    ],
     // Volrath's Stronghold
     &[
         "{T}: Add {C}.\n{1}{B}, {T}: Put target creature card from your graveyard on top of your library.",
     ],
-    &[],
+    // Walking Dream
+    &[
+        "This creature can't be blocked.\nThis creature doesn't untap during your untap step if an opponent controls two or more creatures.",
+    ],
     // Wall of Blossoms
     &["Defender\nWhen this creature enters, draw a card."],
-    &[],
+    // Wall of Essence
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature is dealt combat damage, you gain that much life.",
+    ],
     // Wall of Razors
     &["Defender (This creature can't attack.)\nFirst strike"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Wall of Souls
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature is dealt combat damage, it deals that much damage to target opponent or planeswalker.",
+    ],
+    // Wall of Tears
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, return that creature to its owner's hand at end of combat.",
+    ],
+    // Warrior Angel
+    &["Flying\nWhenever this creature deals damage, you gain that much life."],
+    // Warrior en-Kor
+    &[
+        "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.",
+    ],
     // Youthful Knight
     &["First strike"],
     &[],

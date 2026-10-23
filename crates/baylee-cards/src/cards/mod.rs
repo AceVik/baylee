@@ -19559,6 +19559,12 @@ pub mod voldaren_stinger;
 pub mod volley_veteran;
 #[path = "enchantments/auras/mv_2/volrath_s_curse.rs"]
 pub mod volrath_s_curse;
+#[path = "enchantments/mv_2/volrath_s_gardens.rs"]
+pub mod volrath_s_gardens;
+#[path = "artifacts/mv_5/volrath_s_laboratory.rs"]
+pub mod volrath_s_laboratory;
+#[path = "creatures/mv_3/volrath_s_shapeshifter.rs"]
+pub mod volrath_s_shapeshifter;
 #[path = "lands/utility/volrath_s_stronghold.rs"]
 pub mod volrath_s_stronghold;
 #[path = "artifacts/mv_1/voltaic_key.rs"]
@@ -19631,6 +19637,8 @@ pub mod walking_ballista;
 pub mod walking_corpse;
 #[path = "creatures/mv_2/walking_dead.rs"]
 pub mod walking_dead;
+#[path = "creatures/mv_4/walking_dream.rs"]
+pub mod walking_dream;
 #[path = "creatures/artifacts/mv_4/walking_wall.rs"]
 pub mod walking_wall;
 #[path = "creatures/mv_3/wall_of_air.rs"]
@@ -19655,6 +19663,8 @@ pub mod wall_of_diffusion;
 pub mod wall_of_dust;
 #[path = "creatures/mv_2/wall_of_earth.rs"]
 pub mod wall_of_earth;
+#[path = "creatures/mv_2/wall_of_essence.rs"]
+pub mod wall_of_essence;
 #[path = "creatures/mv_4/wall_of_faith.rs"]
 pub mod wall_of_faith;
 #[path = "creatures/mv_3/wall_of_fire.rs"]
@@ -19697,6 +19707,8 @@ pub mod wall_of_runes;
 pub mod wall_of_shadows;
 #[path = "creatures/artifacts/mv_3/wall_of_shields.rs"]
 pub mod wall_of_shields;
+#[path = "creatures/mv_2/wall_of_souls.rs"]
+pub mod wall_of_souls;
 #[path = "creatures/artifacts/mv_3/wall_of_spears.rs"]
 pub mod wall_of_spears;
 #[path = "creatures/mv_3/wall_of_stone.rs"]
@@ -19705,6 +19717,8 @@ pub mod wall_of_stone;
 pub mod wall_of_swords;
 #[path = "creatures/artifacts/mv_2/wall_of_tanglecord.rs"]
 pub mod wall_of_tanglecord;
+#[path = "creatures/mv_2/wall_of_tears.rs"]
+pub mod wall_of_tears;
 #[path = "creatures/mv_2/wall_of_tombstones.rs"]
 pub mod wall_of_tombstones;
 #[path = "creatures/mv_2/wall_of_torches.rs"]
@@ -19813,6 +19827,10 @@ pub mod warping_wurm;
 pub mod warren_scourge_elf;
 #[path = "creatures/mv_3/warren_soultrader.rs"]
 pub mod warren_soultrader;
+#[path = "creatures/mv_6/warrior_angel.rs"]
+pub mod warrior_angel;
+#[path = "creatures/mv_2/warrior_en_kor.rs"]
+pub mod warrior_en_kor;
 #[path = "instants/mv_3/warrior_s_honor.rs"]
 pub mod warrior_s_honor;
 #[path = "creatures/mv_4/warriors_of_wakanda.rs"]
