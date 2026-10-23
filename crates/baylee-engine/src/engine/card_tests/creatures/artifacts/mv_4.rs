@@ -168,6 +168,7 @@ mod su_chi;
 mod surgical_metamorph;
 mod telethopter;
 mod the_vision_and_scarlet_witch;
+mod thran_war_machine;
 mod tin_wing_chimera;
 mod tower_gargoyle;
 mod venomcrawler;

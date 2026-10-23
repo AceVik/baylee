@@ -723,3 +723,4 @@ no-engine-change contract:
 - **Urza's Legacy (`ulg`)** — in progress:
   - Batch 1 (`About Face` to `Hidden Gibbons`, 25 cards): **19 Implemented, 6 Partial**.
   - Batch 2 (`Hope and Glory` to `Rack and Ruin`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 3 (`Radiant's Dragoons` to `Treacherous Link`, 25 cards): **21 Implemented, 4 Partial**.

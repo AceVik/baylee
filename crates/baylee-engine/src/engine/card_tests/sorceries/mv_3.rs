@@ -73,6 +73,7 @@ mod symbol_of_unsummoning;
 mod syphon_soul;
 mod thermokarst;
 mod timetwister;
+mod tinker;
 mod touch_of_death;
 mod toxic_deluge;
 mod tranquility;

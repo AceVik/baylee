@@ -128,6 +128,7 @@ mod plated_spider;
 mod primaris_eliminator;
 mod purraj_of_urborg;
 mod rabid_wolverines;
+mod radiant_archangel;
 mod rashida_scalebane;
 mod rashka_the_slayer;
 mod ravaging_horde;

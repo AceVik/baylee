@@ -88,6 +88,7 @@ mod temporal_aperture;
 mod thaumatic_compass;
 mod thopter_foundry;
 mod thought_vessel;
+mod thran_lens;
 mod thumbscrews;
 mod time_sieve;
 mod touchstone;

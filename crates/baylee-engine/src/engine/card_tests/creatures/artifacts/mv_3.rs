@@ -337,6 +337,7 @@ mod sylvok_replica;
 mod tezzeret_s_strider;
 mod thaumaturge_s_familiar;
 mod thermal_navigator;
+mod ticking_gnomes;
 mod transmogrifying_licid;
 mod vectis_silencers;
 mod walking_archive;

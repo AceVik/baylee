@@ -38,6 +38,8 @@ mod relic_bind;
 mod ritual_of_steel;
 mod scavenged_weaponry;
 mod shackles;
+mod sleeper_s_guile;
+mod slow_motion;
 mod spectral_shield;
 mod strength_of_the_harvest;
 mod tiger_claws;
