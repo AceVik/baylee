@@ -5272,7 +5272,11 @@ population is closed" survived being written down. Every target-requiring
 spell ability is provable, never-targetless (a spec naming a player, or naming
 something the spell already holds, refused by construction rather than by a
 gap), or blind; a blind one is offered and never withheld, and the test puts a
-floor under the population and a ceiling over the blind bucket.
+floor under the population and pins the exact blind membership. A new blind
+ability, a removed member or a duplicate must be reviewed. The known gaps
+require turn history, unannounced X or authoritative stack-source facts absent
+from `PlayerView`; marked damage and the current combat cannot substitute for
+that history. The engine remains authoritative when the preflight is unknown.
 
 #### A card in a pile is reached for too (#242)
 

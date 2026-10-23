@@ -53,7 +53,7 @@
 //! spell already holds, so the proof is refused by construction rather than
 //! by a gap. **Blind** — a spec or a filter arm this client cannot read,
 //! which is offered rather than withheld, per the rule above. The test puts
-//! a floor under the whole population and a ceiling over the blind bucket,
+//! a floor under the whole population and exact membership of the blind bucket,
 //! and names the blind ones so a failure is actionable without a debugger.
 //!
 //! # Why it is here and not in `baylee-client-core`
@@ -574,12 +574,13 @@ pub(crate) fn only_a_dearer_mode_is_left(
 mod tests {
     mod attached;
     mod boundaries;
-    mod public_filters;
     mod population;
+    mod public_filters;
     use super::*;
     use baylee_client_core::test_support::{ViewBuilder, printed};
     use baylee_core::ids::PrintRef;
     use baylee_core::types::TypeSet;
+    use population::unreadable_leaf;
 
     /// A card as a hand holds it, named the way a player names it.
     ///
@@ -722,6 +723,4 @@ mod tests {
         };
         assert!(!provably_targetless(&view, in_hand("Sink into Stupor")));
     }
-
-
 }

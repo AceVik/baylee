@@ -11,7 +11,7 @@ use super::*;
 /// the composites are walked here and *which leaves are unreadable* stays
 /// [`matches`]'s own answer, in one place, rather than a second list that
 /// could drift away from it.
-fn unreadable_leaf<'f>(
+pub(super) fn unreadable_leaf<'f>(
     view: &PlayerView,
     probe: &PublicObject,
     filter: &'f Filter,
@@ -25,9 +25,9 @@ fn unreadable_leaf<'f>(
     }
 }
 
-/// The ceiling below is a bound over a measured zero, so no card in this
-/// pool fires it. These two do, and in **both** directions: an injection
-/// that only went red would show the assert runs, not that it
+/// The structural census must distinguish readable and unknown leaves in
+/// both directions, even when another predicate short-circuits first. An
+/// injection that only went red would show an assertion runs, not that it
 /// discriminates.
 ///
 /// The unreadable one is deliberately hidden *behind a leaf that does not
@@ -104,13 +104,20 @@ fn the_census_tells_a_filter_it_can_read_from_one_it_cannot() {
 /// never be targetless, provable 185 -> 187, blind 2 -> 0.
 #[test]
 fn the_pools_targets_are_a_population_this_client_can_read() {
-    // The ceiling is a **budget on a known gap, not a target**. Five, so
-    // one new blind spell costs nobody a red gate and a drift to six
-    // trips it — the point is to notice the blind spot spreading, not to
-    // police the pool. Six since the wave 2 partials (13.10.2026): Glyph
-    // of Delusion targets a Wall that blocked this turn, and this turn's
-    // blocks are not in the view (`Filter::BlockedThisTurnBy`).
-    const CEILING: usize = 6;
+    // Exact membership replaces a growing budget. These predicates require
+    // history, unannounced X, or stack-source facts absent from PlayerView.
+    // They deliberately remain unknown; their printed cards are unchanged.
+    const EXPECTED_BLIND: [&str; 9] = [
+        "Detonate",
+        "Fatal Blow",
+        "Fire and Brimstone",
+        "Glyph of Delusion",
+        "Interdict",
+        "Kaervek's Purge",
+        "Rust",
+        "Spell Blast",
+        "Stir the Grave",
+    ];
 
     // Two seats, because `Filter::ControlledByOpponent` refuses to answer
     // at any other table size. And one well-formed permanent, because on
@@ -124,6 +131,7 @@ fn the_pools_targets_are_a_population_this_client_can_read() {
 
     let (mut always, mut provable, mut unread) = (0usize, 0usize, 0usize);
     let mut blind: Vec<String> = Vec::new();
+    let mut blind_names = Vec::new();
 
     for def in baylee_cards::all() {
         for face in 0..def.faces.len() {
@@ -178,9 +186,11 @@ fn the_pools_targets_are_a_population_this_client_can_read() {
                 let name = def.faces[0].name;
                 if legal_targets(&view, &req.spec).is_none() {
                     unread += 1;
+                    blind_names.push(name);
                     blind.push(format!("{name} — spec {:?} has no arm", req.spec));
                 } else if let Some(leaf) = unreadable_leaf(&view, &probe, filter) {
                     unread += 1;
+                    blind_names.push(name);
                     blind.push(format!("{name} — filter {leaf:?}"));
                 } else {
                     provable += 1;
@@ -201,16 +211,48 @@ fn the_pools_targets_are_a_population_this_client_can_read() {
          which is too few to be reading this pool at all"
     );
 
-    assert!(
-        unread <= CEILING,
-        "{unread} of {total} spell abilities requiring a target are ones this \
-         client cannot reason about, over a budget of {CEILING}.\n\n\
-         This is not a defect in these cards. An unreadable filter or an \
-         unhandled spec makes the client *offer* the spell, which is the safe \
-         direction; the blind spot has simply grown. The repair is one arm in \
-         crates/baylee-client/src/targeting.rs — in `legal_targets` if the \
-         line below says `spec`, in `matches` if it says `filter` — and never \
-         a change to the card:\n  {}",
+    blind_names.sort_unstable();
+    assert_eq!(
+        blind_names,
+        EXPECTED_BLIND,
+        "the exact unread target population changed:\n  {}",
         blind.join("\n  ")
     );
+    assert_eq!(
+        unread,
+        EXPECTED_BLIND.len(),
+        "count abilities before deduplication"
+    );
+}
+
+#[test]
+fn history_and_unannounced_x_do_not_prove_an_existing_creature_illegal() {
+    let mut creature = printed(3, 1, "Grizzly Bears", 3);
+    creature.damage = 0;
+    creature.mana_value = 2;
+    let view = ViewBuilder::new(2)
+        .with_battlefield(1, vec![creature])
+        .build();
+    for name in ["Fatal Blow", "Kaervek's Purge"] {
+        assert!(
+            !provably_targetless(&view, in_hand(name)),
+            "{name}: zero marked damage is not a history, and X is not announced"
+        );
+        let empty = ViewBuilder::new(2).build();
+        assert!(
+            provably_targetless(&empty, in_hand(name)),
+            "{name}: no battlefield objects still proves that no creature can be targeted"
+        );
+        let mut land = printed(4, 0, "Forest", 4);
+        land.types = TypeSet::LAND;
+        let noncreature = ViewBuilder::new(2).with_battlefield(0, vec![land]).build();
+        assert!(provably_targetless(&noncreature, in_hand(name)));
+    }
+}
+
+#[test]
+fn an_empty_current_combat_does_not_prove_no_player_attacked_this_turn() {
+    let view = ViewBuilder::new(2).build();
+    assert!(view.combat.attackers.is_empty());
+    assert!(!provably_targetless(&view, in_hand("Fire and Brimstone")));
 }

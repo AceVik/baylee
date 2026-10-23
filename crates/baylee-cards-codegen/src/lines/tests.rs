@@ -1,5 +1,6 @@
 mod modal_subsets;
 mod spell_grants;
+mod targeted_mana;
 
 use super::*;
 use baylee_cards_dsl::effect::{Amount, Effect};

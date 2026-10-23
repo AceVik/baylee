@@ -87,38 +87,30 @@ pub fn line_shape(line: &str) -> LineShape {
     // [`LineShape::Mana`] — including why it has to be said here as well as
     // in `ability_shape`.
     let lower_body = body.to_lowercase();
-    // The "add" may open the body's *second* sentence: Three Tree City's
-    // "{2}, {T}: Choose a color. Add an amount of mana of that color …" is a
-    // mana ability (CR 605.1a — it could add mana and targets nothing), and
-    // read on the first sentence alone it was `Activated`, so the card's
-    // mana ability had no sentence. That later "add" is believed only in a
-    // body that never says "target", because a targeting ability is not a
-    // mana ability whatever it adds; a body *opening* on "add" keeps the
-    // reading it always had, since Primal Wellspring's "Add one mana of any
-    // color. When that mana is spent …, you may choose new targets for the
-    // copy" is a mana ability whose "target" belongs to a delayed trigger.
+    // A later sentence may still add mana, but every immediate sentence
+    // belongs to this activation. A direct target there keeps it on the
+    // stack even when "Add" is the first instruction. Targets and library
+    // movement in a later delayed trigger belong to that separate ability.
+    let immediate = lower_body.split(". ").take_while(|clause| {
+        !clause.starts_with("when")
+            && !clause.starts_with("at ")
+            && !clause.contains(" at the beginning of ")
+    });
+    let targets_directly = immediate
+        .clone()
+        .flat_map(|clause| clause.split(|c: char| !c.is_ascii_alphabetic()))
+        .any(|word| matches!(word, "target" | "targets"));
     let makes = |s: &str| s.starts_with("add ") && (s.contains('{') || s.contains("mana"));
     let adds_first = makes(&lower_body)
-        || (!lower_body.contains("target")
-            && lower_body.starts_with("for each color among ")
+        || (lower_body.starts_with("for each color among ")
             && lower_body
                 .split_once(", ")
                 .is_some_and(|(_, effect)| makes(effect)));
-    let adds_later = !lower_body.contains("target") && lower_body.split(". ").skip(1).any(makes);
-    // Drawing and milling move cards out of the library, so adding mana
-    // beside them does not make this a mana ability (CR 605.1a). Read words
-    // rather than card names or one particular "Draw a card" sentence.
-    // A delayed trigger is a separate ability, just as in `mana_rule`.
-    let moves_library = lower_body
-        .split(". ")
-        .take_while(|clause| {
-            !clause.starts_with("when")
-                && !clause.starts_with("at ")
-                && !clause.contains(" at the beginning of ")
-        })
+    let adds_later = immediate.clone().skip(1).any(makes);
+    let moves_library = immediate
         .flat_map(|clause| clause.split(|c: char| !c.is_ascii_alphabetic()))
         .any(|word| matches!(word, "draw" | "draws" | "mill" | "mills"));
-    if (adds_first || adds_later) && !moves_library {
+    if (adds_first || adds_later) && !targets_directly && !moves_library {
         return LineShape::Mana;
     }
     // A loyalty cost is the whole of what precedes the colon, and the minus
