@@ -405,6 +405,7 @@ mod gabriel_angelfire;
 mod gargantuan_gorilla;
 mod ghastbark_twins;
 mod goliath_sphinx;
+mod great_whale;
 mod greater_sandwurm;
 mod groundshaker_sliver;
 mod guardian_of_cloverdell;

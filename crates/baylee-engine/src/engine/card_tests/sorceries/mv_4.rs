@@ -32,6 +32,7 @@ mod flashfires;
 mod flowstone_flood;
 mod forbidden_ritual;
 mod gerrard_s_wisdom;
+mod ill_gotten_gains;
 mod juxtapose;
 mod lay_waste;
 mod legerdemain;

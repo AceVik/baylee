@@ -149,6 +149,7 @@ mod glaciers;
 mod glare_of_subdual;
 mod grasping_shadows;
 mod grave_pact;
+mod greater_good;
 mod greed;
 mod gruul_war_chant;
 mod heart_of_bogardan;

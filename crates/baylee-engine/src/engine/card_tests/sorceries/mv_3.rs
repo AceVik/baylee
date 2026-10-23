@@ -31,6 +31,7 @@ mod fabricate;
 mod fade_away;
 mod fallow_earth;
 mod fiery_justice;
+mod gaea_s_bounty;
 mod game_of_chaos;
 mod ghostly_visit;
 mod goblin_offensive;

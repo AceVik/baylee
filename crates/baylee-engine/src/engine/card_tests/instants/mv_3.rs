@@ -42,6 +42,7 @@ mod force_void;
 mod foxfire;
 mod harrow;
 mod hero_s_downfall;
+mod hibernation;
 mod holy_light;
 mod infuse;
 mod inner_calm_outer_strength;

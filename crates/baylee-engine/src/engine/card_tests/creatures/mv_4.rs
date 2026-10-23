@@ -132,6 +132,7 @@ mod harbor_guardian;
 mod harmattan_efreet;
 mod hawkeater_moth;
 mod heart_wolf;
+mod herald_of_serra;
 mod herd_gnarr;
 mod highway_robber;
 mod hill_giant;

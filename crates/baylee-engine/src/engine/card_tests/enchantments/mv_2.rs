@@ -51,6 +51,8 @@ mod hallowed_ground;
 mod havoc;
 mod heat_of_battle;
 mod hesitation;
+mod hidden_ancients;
+mod hidden_stag;
 mod homarid_spawning_bed;
 mod honor_of_the_pure;
 mod iceberg;

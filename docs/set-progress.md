@@ -715,3 +715,4 @@ no-engine-change contract:
 - **Urza's Saga (`usg`)** — in progress:
   - Batch 1 (`Abundance` to `Congregate`, 25 cards): **20 Implemented, 5 Partial**.
   - Batch 2 (`Contamination` to `Fire Ants`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 3 (`Flesh Reaver` to `Imaginary Pet`, 25 cards): **20 Implemented, 5 Partial**.

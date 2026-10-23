@@ -33,6 +33,7 @@ mod essence_bottle;
 mod excavator;
 mod fellwar_stone;
 mod fire_diamond;
+mod fluctuator;
 mod fyndhorn_bow;
 mod galvanic_key;
 mod golem_s_heart;
