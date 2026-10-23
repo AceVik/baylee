@@ -71,6 +71,7 @@ mod mightstone;
 mod mishra_s_groundbreaker;
 mod nevinyrral_s_disk;
 mod nova_pentacle;
+mod null_brooch;
 mod otherworld_atlas;
 mod panharmonicon;
 mod pentagram_of_the_ages;

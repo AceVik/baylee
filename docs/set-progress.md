@@ -709,3 +709,4 @@ no-engine-change contract:
   - Batch 4 (`Volrath's Gardens` to `Warrior en-Kor`, 9 cards): **4 Implemented, 5 Partial**.
 - **Exodus (`exo`)** — in progress:
   - Batch 1 (`Aether Tide` to `Fighting Chance`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Flowstone Flood` to `Oath of Ghouls`, 25 cards): **8 Implemented, 17 Partial**.

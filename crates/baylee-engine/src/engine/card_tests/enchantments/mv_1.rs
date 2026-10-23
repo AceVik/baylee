@@ -121,6 +121,8 @@ mod illness_in_the_ranks;
 mod inheritance;
 mod land_tax;
 mod legion_s_landing;
+mod limited_resources;
+mod manabond;
 mod mass_hysteria;
 mod mirri_s_guile;
 mod molten_vortex;

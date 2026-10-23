@@ -41,6 +41,7 @@ mod invisibility;
 mod kjeldoran_pride;
 mod lightning_reflexes;
 mod mageta_s_boon;
+mod maniacal_rage;
 mod mystic_veil;
 mod nature_s_kiss;
 mod pacifism;

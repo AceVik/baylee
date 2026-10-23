@@ -63,6 +63,8 @@ mod lifetap;
 mod lim_dul_s_hex;
 mod luminarch_ascension;
 mod night_soil;
+mod oath_of_druids;
+mod oath_of_ghouls;
 mod parapet;
 mod path_of_mettle;
 mod peace_of_mind;

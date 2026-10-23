@@ -38,6 +38,7 @@ mod mob_justice;
 mod monstrous_growth;
 mod mulch;
 mod nature_s_lore;
+mod nausea;
 mod neoform;
 mod night_s_whisper;
 mod nylea_s_intervention;

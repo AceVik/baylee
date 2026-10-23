@@ -48,6 +48,7 @@ mod mana_prism;
 mod mana_web;
 mod manalith;
 mod matzalantli_the_great_door;
+mod memory_crystal;
 mod misers_cage;
 mod nuisance_engine;
 mod obelisk_of_bant;
