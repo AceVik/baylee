@@ -10503,54 +10503,98 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When an opponent casts an instant spell, if this permanent is an enchantment, it becomes a 4/4 Ape creature.",
     ],
-    &[],
+    // Hope and Glory
+    &["Untap two target creatures. Each of them gets +1/+1 until end of turn."],
     // Impending Disaster
     &[
         "At the beginning of your upkeep, if there are seven or more lands on the battlefield, sacrifice this enchantment and destroy all lands.",
     ],
-    &[],
-    &[],
+    // Intervene
+    &["Counter target spell that targets a creature."],
+    // Iron Maiden
+    &[
+        "At the beginning of each opponent's upkeep, this artifact deals X damage to that player, where X is the number of cards in their hand minus 4.",
+    ],
     // Iron Will
     &[
         "Target creature gets +0/+4 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Jhoira's Toolbox
+    &["{2}: Regenerate target artifact creature."],
     // Karmic Guide
     &[
         "Flying, protection from black\nEcho {3}{W}{W} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, return target creature card from your graveyard to the battlefield.",
     ],
-    &[],
+    // King Crab
+    &["{1}{U}, {T}: Put target green creature on top of its owner's library."],
     // Knighthood
     &["Creatures you control have first strike."],
-    &[],
+    // Last-Ditch Effort
+    &["Sacrifice any number of creatures. Last-Ditch Effort deals that much damage to any target."],
     // Levitation
     &["Creatures you control have flying."],
-    &[],
-    &[],
-    &[],
+    // Lurking Skirge
+    &[
+        "When a creature is put into an opponent's graveyard from the battlefield, if this permanent is an enchantment, it becomes a 3/2 Phyrexian Imp creature with flying.",
+    ],
+    // Martyr's Cause
+    &[
+        "Sacrifice a creature: The next time a source of your choice would deal damage to any target this turn, prevent that damage.",
+    ],
+    // Memory Jar
+    &[
+        "{T}, Sacrifice this artifact: Each player exiles all cards from their hand face down and draws seven cards. At the beginning of the next end step, each player discards their hand and returns to their hand each card they exiled this way.",
+    ],
     // Might of Oaks
     &["Target creature gets +7/+7 until end of turn."],
     // Miscalculation
     &[
         "Counter target spell unless its controller pays {2}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Molten Hydra
+    &[
+        "{1}{R}{R}: Put a +1/+1 counter on this creature.\n{T}, Remove all +1/+1 counters from this creature: It deals damage to any target equal to the number of +1/+1 counters removed this way.",
+    ],
+    // Mother of Runes
+    &[
+        "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+    ],
+    // Multani's Acolyte
+    &[
+        "Echo {G}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, draw a card.",
+    ],
+    // Multani's Presence
+    &["Whenever a spell you've cast is countered, draw a card."],
+    // Multani, Maro-Sorcerer
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nMultani's power and toughness are each equal to the total number of cards in all players' hands.",
+    ],
+    // No Mercy
+    &["Whenever a creature deals damage to you, destroy it."],
+    // Opal Avenger
+    &[
+        "When you have 10 or less life, if this permanent is an enchantment, it becomes a 3/5 Soldier creature.",
+    ],
+    // Opal Champion
+    &[
+        "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 3/3 Knight creature with first strike.",
+    ],
     // Opportunity
     &["Target player draws four cards."],
-    &[],
-    &[],
+    // Ostracize
+    &[
+        "Target opponent reveals their hand. You choose a creature card from it. That player discards that card.",
+    ],
+    // Palinchron
+    &[
+        "Flying\nWhen this creature enters, untap up to seven lands.\n{2}{U}{U}: Return this creature to its owner's hand.",
+    ],
     // Parch
     &[
         "Choose one —\n• Parch deals 2 damage to any target.\n• Parch deals 4 damage to target blue creature.",
     ],
-    &[],
+    // Peace and Quiet
+    &["Destroy two target enchantments."],
     // Phyrexian Broodlings
     &["{1}, Sacrifice a creature: Put a +1/+1 counter on this creature."],
     // Phyrexian Debaser
@@ -10567,13 +10611,22 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}{B}, Pay 2 life: Return target creature card from your graveyard to your hand."],
     // Plague Beetle
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
-    &[],
+    // Planar Collapse
+    &[
+        "At the beginning of your upkeep, if there are four or more creatures on the battlefield, sacrifice this enchantment and destroy all creatures. They can't be regenerated.",
+    ],
     // Purify
     &["Destroy all artifacts and enchantments."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Pygmy Pyrosaur
+    &["This creature can't block.\n{R}: This creature gets +1/+0 until end of turn."],
+    // Pyromancy
+    &[
+        "{3}, Discard a card at random: This enchantment deals damage to any target equal to the mana value of the discarded card.",
+    ],
+    // Quicksilver Amulet
+    &["{4}, {T}: You may put a creature card from your hand onto the battlefield."],
+    // Rack and Ruin
+    &["Destroy two target artifacts."],
     &[],
     // Radiant's Judgment
     &[
