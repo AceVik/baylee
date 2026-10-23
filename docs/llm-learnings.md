@@ -5488,3 +5488,72 @@ more than two it names nobody). What the author did more than once:
   - `baylee_cards_codegen::lines::granted_cost` only inspects `AbilityDef::Static` and `AbilityDef::CopyOnEnter*`,
     not `AbilityDef::Spell`, so an instant/sorcery spell cannot use `Modifier::GrantActivated` inside
     `Effect::CreateContinuousEffect` (`Resuscitate`) until `granted_cost` walks `AbilityDef::Spell`.
+
+
+## 2026-10-23 — Review of Argon PR #394 (Ice Age 5 to Urza's Destiny 1)
+
+The second-model review read all 1,350 card/test pairs. Detailed findings and
+final validation are in `docs/history/2026-10-23-argon-review.md`.
+
+- **A Partial is a player-facing rules claim.** Missing a cost, upkeep
+  consequence, casting restriction, opponent choice or mandatory symmetric
+  effect makes a card stronger in a reachable game. Kaervek's Spite and
+  Infernal Harvest cannot move an additional cost to resolution; Aluren
+  cannot replace a free-cast permission with an ordinary generic reduction;
+  Nature's Resurgence and Pandemonium cannot drop the opponents' instructions.
+  Remove the whole optional upside or hold the card back. A useless 0/0 or
+  blank noncreature is held too.
+- **Search the existing DSL before naming a gap.** Mindwhip Sliver uses the
+  complete granted-ability definition; Body Snatcher can ask for its creature
+  discard; Magmasaur can branch on its counters and keep the sacrifice;
+  Umbilicus already has a life-payment alternative. The missing sentence and
+  the code used instead must both be explicit in a Partial reason.
+- **Read the consumer as well as the variant.** `EventAmount` must capture
+  damage to a permanent, not only damage to a player; `EventObject` on a
+  damage-received trigger means the recipient. A delayed self-return needs
+  the exact graveyard successor, not the old battlefield version, and it
+  must not follow the card out of the graveyard and back. Keyword bits do not
+  prove a rule is implemented, and a second handwritten flanking trigger
+  doubles the keyword's effect.
+- **Test the sentence's boundary through the real offer.** `castable` alone
+  means mana already floats; include `payable` for a real availability test.
+  Check both paid and unpaid abilities, and both sides of a filter. A turn
+  helper returns immediately when its predicate already holds. Printed mana
+  abilities use `ActivateAbility`; the intrinsic basic-land door is different.
+  A setup helper that taps every mana creature can accidentally tap the next
+  blocker too. Declare combat explicitly, and settle the stack before claiming
+  a trigger did not fire.
+- **Preventing damage and assigning none are different rules.** Use the
+  combat-prevention modifier for Resistance Fighter, Gossamer Chains and Fend
+  Off. Include a case where damage cannot be prevented. Assignment restrictions
+  also have to reach blockers and the masked-creature reveal preview.
+- **Generated files stay generated.** Restore reviewed unsafe cards with the
+  selective hold-back codegen mode, remove their mirrored tests/module entries,
+  then regenerate compiled tables. Never hand-write the generated stub marker
+  or run full codegen without the corpus. Keep reviews in small batches and
+  rerun the relevant tests before asking for the next batch.
+
+- **The controller in a duration is observable.** `SuppressUntap` follows the
+  affected permanent's controller. Use the existing `UntilYourNextUntapStep`
+  scope for the resolving ability's “your”, and test a control change before
+  untap. “Until its next untap” and “during its next untap” also differ at the
+  start/end boundary; checking only the final type misses Choke interactions.
+- **Measure the committed pool rather than adding authoring claims.** The
+  reviewed 1,350 identities contain 793 Implemented, 260 Partial and 297
+  Unimplemented cards. First-printing set totals also contain inherited cards.
+  Native `site card-status` checks the ledger/pool/index relationship and keeps
+  Excluded, Absent and Unimplemented separate. The original authoring snapshot
+  is not a current coverage report.
+
+- **Cost parts and simultaneous events have different snapshot boundaries.**
+  Refresh projected characteristics between completed cost parts, before the
+  next sacrifice records its source. Removing a counter then sacrificing must
+  use the remaining power. Do not refresh between individual sacrifices within
+  one simultaneous part: a sacrificed lord still contributes to that event's
+  last known characteristics. Include stacked and immediate mana controls.
+- **Census agreement is bounded by the reader.** Exact populations should be
+  reconciled by individual card evidence, preserving negative controls. Two
+  counts using the same text reader can share a blind spot, such as `add`
+  versus `adds`; record it explicitly rather than claiming complete coverage.
+  Text provenance for retained modal subsets must be unique, and unknown or
+  ambiguous effects must refuse a label rather than inherit a shifted index.

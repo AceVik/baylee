@@ -660,6 +660,11 @@ demoted by testing because testing has not run.
 
 ## Ice Age, Homelands, and Alliances — release-order batches (2026-10-22)
 
+The figures in this section are the original authoring snapshot, before the
+independent PR #394 review. They are superseded by the 23 October review
+snapshot below; in particular, the old Partial totals include cards since
+held as unimplemented.
+
 Implemented in 25-card batches with per-card played engine tests under the
 no-engine-change contract:
 
@@ -727,3 +732,33 @@ no-engine-change contract:
   - Batch 4 (`Treefolk Mystic` to `Yavimaya Granger`, 10 cards): **8 Implemented, 2 Partial**.
 - **Urza's Destiny (`uds`)** — in progress (every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Apprentice Necromancer` to `Gamekeeper`, 25 cards): **15 Implemented, 10 Partial**.
+
+## PR #394 review snapshot (2026-10-23)
+
+Measured from revision `4975f5442` by the native `site card-status` tool,
+which validates the committed ledger, pool, exclusions and core index before
+counting. This table counts **all first-printing identities in each set**,
+including implementations inherited from before the reviewed batches. It is
+not a sum of the author's individual batch claims. The dated review report
+records test evidence and the three required local landing gates.
+
+| First-print set | Total | Implemented | Partial | Unimplemented | Absent | Excluded |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ice | 346 | 257 | 57 | 31 | 0 | 1 |
+| hml | 115 | 93 | 9 | 11 | 1 | 1 |
+| all | 144 | 86 | 29 | 29 | 0 | 0 |
+| mir | 313 | 224 | 31 | 58 | 0 | 0 |
+| vis | 154 | 107 | 25 | 22 | 0 | 0 |
+| wth | 161 | 112 | 23 | 26 | 0 | 0 |
+| tmp | 298 | 232 | 40 | 26 | 0 | 0 |
+| sth | 136 | 89 | 29 | 18 | 0 | 0 |
+| exo | 137 | 91 | 25 | 21 | 0 | 0 |
+| usg | 306 | 247 | 17 | 42 | 0 | 0 |
+| ulg | 139 | 119 | 5 | 15 | 0 | 0 |
+| uds | 141 | 73 | 4 | 4 | 60 | 0 |
+
+Within the 1,350 reviewed identities: **793 Implemented, 260 Partial,
+297 Unimplemented**. Whole pool: **10,693 definitions** — 10,058 Implemented,
+294 Partial, 341 Unimplemented; no Generated cards. The remaining corpus is
+22,986 Absent and 15 Excluded. Full findings and final verification belong to
+`docs/history/2026-10-23-argon-review.md`.

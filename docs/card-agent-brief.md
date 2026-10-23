@@ -83,6 +83,17 @@ the defects earlier batches shipped. Read it whole before the first edit.
   any printed sentence is played wrong or not at all. Brainwash was
   `Implemented` while its {3} could not be paid with lands.
 
+- **Partial is playable, so it must never gain an unprinted advantage.**
+  Never omit a printed cost, restriction, condition, drawback, opposing choice
+  or the opponent's half of a symmetric instruction while keeping the benefit.
+  Paying an additional cost on resolution is not paying it on casting: it must
+  already be paid when a spell is countered. Search the vocabulary first. If
+  the exact rule is unavailable, remove an optional positive ability in full,
+  or restore the card to a stub with `codegen --hold-back` and record why.
+  A blank noncreature, or a 0/0 creature without its missing size rule, is not
+  useful playable coverage. A test that casts it and observes nothing does not
+  make it useful.
+
 ## 3. When the DSL or the engine needs a new piece
 
 Prefer extending the DSL to a `Partial`. A new piece is held to this:
