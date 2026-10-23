@@ -3715,3 +3715,26 @@ stack (passive, silent client at 1600×900); not yet reproduced on purpose.
 - **The "Lock chat" pill sits over the hand** at a table on a gateway with chat.
 - **The "Ring" pill stays over the lobby's logo** after leaving a table.
 - **A lobby notice covers the room's title** while a table is being arranged.
+
+
+## Found while reviewing the Argon card pool, 2026-10-23
+
+### 65. The mana sweep ignores “adds” when selecting faces — CONFIRMED coverage gap
+
+`engine::land_mana_tests::adds_mana` recognizes `add ` but not `adds `.
+The compiled Oracle table contains 13 affected lines, on 11 nonland
+permanents and two instants/sorceries. The nonland faces are Gauntlet of
+Might, Mana Flare, Wild Growth, Chaos Moon, Winter's Night, Eladamri's
+Vineyard, Overgrowth, Fertile Ground, Vernal Bloom, Tangleroot and Wolfwillow
+Haven; the spells are High Tide and Bubbling Muck. These faces can be absent
+from `other_permanent_faces` even though their text describes mana production.
+The two independently counted sides of the current sweep share this reader,
+so agreement between their totals does not establish coverage of these lines.
+
+This is a test coverage finding, not evidence of incorrect game resolution.
+Eladamri's Vineyard has its own passing played-card regression. Fertile
+Ground is held back. Closing the sweep gap requires recognizing the additional
+verb form and supplying legal attachments for the affected land Auras before
+measuring the expanded population; widening a busy/skip allowance would not
+establish that coverage. The October 23 population adjustment retains the
+existing reader boundary and explicitly documents it beside the exact pins.

@@ -306,18 +306,32 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// 366 wholly readable faces (146 Implemented, 220 Generated), 128 costly
 /// lines, 41 granted, 7 self-granting; 211 promises (90 by creatures of 227)
 /// and 55 unparsed lines, each listed in the output. Pinned exactly again.
+///
+/// Reviewed 2026-10-23 against the last pins (6db0d8a60): Benthic Explorers
+/// lost its unsupported free tap-for-any-color ability (-1 route, -5 colors).
+/// Lotus Blossom adds one wholly readable face and one costly line/ability;
+/// Thran Turbine adds one wholly readable face and one triggered line;
+/// Witch Engine adds one creature and one unparsed line (its targeted ability
+/// correctly uses the stack). Holding Squandered Resources removes one costly
+/// ability, balancing Lotus Blossom. No printed promise was lost: 212 plus
+/// Fellwar Stone's opponent-land promise still make 213. The independent
+/// census and the executed sweep both reach 379 wholly readable faces.
+///
+/// This remains the existing reader's population: it recognizes "add", not
+/// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
+/// Aura fixtures needed to close it are recorded in observed-faults #65.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     colors: 469,
     routes: 213,
     promises: 212..=212,
     creature_promises: 90..=90,
-    unparsed: 57..=57,
-    fully_read: 373,
-    costly_lines: 142..=142,
-    triggered_lines: 23..=23,
+    unparsed: 58..=58,
+    fully_read: 379,
+    costly_lines: 143..=143,
+    triggered_lines: 24..=24,
     granted_lines: 41..=41,
     self_granted: 7..=7,
-    busy: 1,
+    busy: 0,
     not_implemented: 0,
     ..OTHER_PERMANENTS
 };
@@ -349,9 +363,15 @@ fn check_other_permanent_population(tally: &Tally) {
     println!(
         "other permanents census [Implemented, Generated, other]: eligible={eligible:?}, wholly readable={readable:?}"
     );
+    assert_eq!(
+        eligible,
+        [436, 0, 10],
+        "the coverage-tier population changed"
+    );
+    assert_eq!(readable, [379, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 377,
+        expected, 379,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -367,10 +387,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (474, 214, 212, 1)
+        (469, 213, 212, 1)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (236, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (23, 57));
+    assert_eq!((tally.creatures, tally.creature_promises), (237, 90));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (24, 58));
     assert_eq!(
         (
             tally.conditional,
@@ -384,3 +404,44 @@ fn check_other_permanent_population(tally: &Tally) {
     );
 }
 
+/// These five reviewed definitions explain every change from the old pins.
+/// In particular, a partial creature must not recover the free mana route
+/// removed for omitting a printed cost; a held card stays in the text census.
+#[test]
+fn reviewed_cards_explain_the_mana_population_changes() {
+    use baylee_core::generated::index;
+
+    for (card, fully_read, expected) in [
+        (index::BENTHIC_EXPLORERS, false, (0, 1, 1, 0, 0, 0)),
+        (index::SQUANDERED_RESOURCES, false, (0, 0, 1, 0, 0, 0)),
+        (index::LOTUS_BLOSSOM, true, (1, 0, 1, 0, 0, 1)),
+        (index::THRAN_TURBINE, true, (1, 0, 0, 1, 0, 0)),
+        (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0)),
+    ] {
+        let def = baylee_cards::by_index(card).expect("reviewed card remains registered");
+        assert_eq!(def.is_fully_read(), fully_read, "{}", def.name());
+        assert_eq!(other_permanent_faces(def), [0], "{}", def.name());
+        let (offenders, tally) = walk(&[def], other_permanent_faces);
+        report(def.name(), &tally);
+        assert!(offenders.is_empty(), "{offenders:#?}");
+        assert_eq!(
+            (
+                tally.fully_read,
+                tally.creatures,
+                tally.costly_lines,
+                tally.triggered_lines,
+                tally.unparsed.len(),
+                tally.costly,
+            ),
+            expected,
+            "{}: read faces, creatures, costly/triggered/unparsed lines, costly abilities",
+            def.name(),
+        );
+        assert_eq!(
+            (tally.routes, tally.colors, tally.promises, tally.busy),
+            (0, 0, 0, 0),
+            "{} has no simple tap-only mana route to exercise or skipped board",
+            def.name(),
+        );
+    }
+}
