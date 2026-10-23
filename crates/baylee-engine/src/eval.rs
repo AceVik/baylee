@@ -5,6 +5,7 @@
 
 mod amounts;
 mod conditions;
+mod names;
 mod protection;
 mod relations;
 mod stack_filters;
@@ -168,12 +169,7 @@ pub fn matches_projected_with_context(
                             })
                     })
             }),
-        Filter::NamedBySource => state.object(this).is_some_and(|source| {
-            let current = source.rules_acquisition();
-            source.riders.iter().any(|rider| {
-            matches!(rider, crate::object::Rider::ChosenName { acquisition, name, .. } if *acquisition == current && *name == chars.name)
-        })
-        }),
+        Filter::NamedBySource => names::named_by_source(state, this, chars.name),
         Filter::IsToken => !obj.is_card(),
         Filter::ActivatedAbilityFrom(filter) => {
             stack_filters::activated_source_matches(filter, state, obj, you, context)
