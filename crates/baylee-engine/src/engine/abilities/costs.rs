@@ -2,6 +2,8 @@
 #[allow(clippy::wildcard_imports)] // shared ability vocabulary
 use super::*;
 
+mod triggers;
+
 impl<L: CardLookup> Engine<L> {
     pub(super) fn mana_activation_life(&self, source: ObjectId, index: u32) -> u32 {
         if self.state.effects.may_tax_mana_life()
@@ -467,21 +469,6 @@ impl<L: CardLookup> Engine<L> {
             self.trigger_queue.truncate(queue_before);
         }
         paid
-    }
-
-    /// Detect journal triggers without stacking, pruning, or running SBAs.
-    /// Append only so an unsuccessful payment can restore its queue length.
-    pub(super) fn capture_cost_triggers(&mut self) {
-        if self.breaking_loop || self.trigger_scan_seq == self.state.journal.last_seq() {
-            return;
-        }
-        self.trigger_queue.extend(crate::trigger::collect(
-            &self.state,
-            &self.lookup,
-            self.trigger_scan_seq,
-        ));
-        self.trigger_scan_seq = self.state.journal.last_seq();
-        crate::resolve::linked_reanimation::prune(&mut self.state);
     }
 
     /// [`Self::pay_cost`] without the checkpoint: what it pays, part by part.
