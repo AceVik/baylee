@@ -1959,6 +1959,8 @@ mod entry_counter_transaction_tests;
 #[cfg(test)]
 mod fight_tests;
 #[cfg(test)]
+mod flanking_tests;
+#[cfg(test)]
 mod flashback_tests;
 #[cfg(test)]
 mod graveyard_order_tests;

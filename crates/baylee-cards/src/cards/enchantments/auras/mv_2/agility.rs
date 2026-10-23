@@ -8,10 +8,6 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static ENCHANTED_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]);
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
 
 card!(
     index = index::AGILITY,
@@ -36,18 +32,6 @@ card!(
         static_ability!(
             ENCHANTED_CREATURE,
             Modifier::AddKeyword(KeywordSet::FLANKING)
-        ),
-        static_ability!(
-            ENCHANTED_CREATURE,
-            Modifier::GrantTriggered {
-                trigger: Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-                effects: &[Effect::continuous(
-                    &Filter::Reference,
-                    Modifier::ModifyPT(-1, -1),
-                    Duration::UntilEndOfTurn,
-                )],
-                target: None,
-            },
         ),
     ],
 );

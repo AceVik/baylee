@@ -618,6 +618,17 @@ fn graveyard_observers<'a>(
 
 static PROWESS_SELF: baylee_cards_dsl::Filter = baylee_cards_dsl::Filter::This;
 
+/// Flanking's "the blocking creature gets -1/-1 until end of turn"
+/// (CR 702.25a). The blocker is the trigger's implicit target, so
+/// `Filter::This` names it, as it names the permanent for prowess.
+static FLANKING_SHRINK: &[baylee_cards_dsl::Effect] =
+    &[baylee_cards_dsl::Effect::CreateContinuousEffect {
+        layer: baylee_cards_dsl::Layer::PtModify,
+        filter: &PROWESS_SELF,
+        modifier: baylee_cards_dsl::Modifier::ModifyPT(-1, -1),
+        duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+    }];
+
 static PROWESS_PUMP: &[baylee_cards_dsl::Effect] =
     &[baylee_cards_dsl::Effect::CreateContinuousEffect {
         layer: baylee_cards_dsl::Layer::PtModify,
@@ -798,6 +809,9 @@ fn collect_for_objects(
     let batch_has_spells_cast = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }));
+    let batch_has_blocks = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::BecameBlocker { .. }));
     for permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
@@ -879,6 +893,62 @@ fn collect_for_objects(
                     // Once per spell, not once per window: two noncreature
                     // spells can land in one of these (a spell cast during
                     // another's resolution), and prowess counts both.
+                }
+            }
+        }
+        // Flanking (engine-level keyword trigger, CR 702.25a): "Whenever a
+        // creature without flanking blocks this creature, the blocking
+        // creature gets -1/-1 until end of turn." Once per blocker, and the
+        // blocker's own flanking is read as it blocks. A `KeywordSet` holds
+        // one instance, so a creature with two (CR 702.25b) triggers once.
+        if batch_has_blocks
+            && obj
+                .characteristics()
+                .keywords
+                .contains(baylee_cards_dsl::KeywordSet::FLANKING)
+        {
+            for entry in events {
+                if let GameEvent::BecameBlocker { object, attacker } = &entry.event
+                    && *attacker == permanent
+                    && state.object(*object).is_some_and(|blocker| {
+                        !blocker
+                            .characteristics()
+                            .keywords
+                            .contains(baylee_cards_dsl::KeywordSet::FLANKING)
+                    })
+                {
+                    let source = source_at_event_with_moves(state, obj, &moves, entry.seq, false);
+                    for _ in 0..times_triggered(
+                        state,
+                        baylee_cards_dsl::TriggerEventKind::Any,
+                        permanent,
+                    ) {
+                        triggers.push(PendingTrigger {
+                            text: TextChangeMap::IDENTITY,
+                            source_version: Some(source.version),
+                            related_objects: None,
+                            event_subject: None,
+                            event_ability: None,
+                            event_object_identity: None,
+                            counter_source_version: None,
+                            event_mana: None,
+                            event_mana_value: None,
+                            event_departure: None,
+                            event_amount: None,
+                            event_player: None,
+                            source: permanent,
+                            ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
+                            controller: source.controller,
+                            timestamp: source.timestamp,
+                            event_object: Some(*object),
+                            implicit_target: Some(*object),
+                            abilities: None,
+                            synthetic_effects: Some(FLANKING_SHRINK),
+                            once_per_turn: false,
+                            synthetic_target: None,
+                            chosen_mode: None,
+                        });
+                    }
                 }
             }
         }
