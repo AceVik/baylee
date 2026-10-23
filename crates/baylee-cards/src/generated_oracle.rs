@@ -10627,61 +10627,122 @@ pub static ORACLE: &[&[&str]] = &[
     &["{4}, {T}: You may put a creature card from your hand onto the battlefield."],
     // Rack and Ruin
     &["Destroy two target artifacts."],
-    &[],
+    // Radiant's Dragoons
+    &[
+        "Echo {3}{W} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, you gain 5 life.",
+    ],
     // Radiant's Judgment
     &[
         "Destroy target creature with power 4 or greater.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Radiant, Archangel
+    &[
+        "Flying, vigilance\nRadiant gets +1/+1 for each other creature on the battlefield with flying.",
+    ],
     // Rancor
     &[
         "Enchant creature\nEnchanted creature gets +2/+0 and has trample.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rank and File
+    &["When this creature enters, green creatures get -1/-1 until end of turn."],
+    // Raven Familiar
+    &[
+        "Flying\nEcho {2}{U} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.",
+    ],
+    // Rebuild
+    &[
+        "Return all artifacts to their owners' hands.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Repopulate
+    &[
+        "Shuffle all creature cards from target player's graveyard into that player's library.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Ring of Gix
+    &[
+        "Echo {3} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\n{1}, {T}: Tap target artifact, creature, or land.",
+    ],
+    // Rivalry
+    &[
+        "At the beginning of each player's upkeep, if that player controls more lands than each other player, this enchantment deals 2 damage to them.",
+    ],
     // Scrapheap
     &[
         "Whenever an artifact or enchantment is put into your graveyard from the battlefield, you gain 1 life.",
     ],
-    &[],
-    &[],
-    &[],
+    // Second Chance
+    &[
+        "At the beginning of your upkeep, if you have 5 or less life, sacrifice this enchantment and take an extra turn after this one.",
+    ],
+    // Shivan Phoenix
+    &["Flying\nWhen this creature dies, return it to its owner's hand."],
+    // Sick and Tired
+    &["Two target creatures each get -1/-1 until end of turn."],
     // Silk Net
     &[
         "Target creature gets +1/+1 and gains reach until end of turn. (It can block creatures with flying.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Simian Grunts
+    &[
+        "Flash\nEcho {2}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Sleeper's Guile
+    &[
+        "Enchant creature\nEnchanted creature has fear. (It can't be blocked except by artifact creatures and/or black creatures.)\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Slow Motion
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player sacrifices that creature unless they pay {2}.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Sluggishness
+    &[
+        "Enchant creature\nEnchanted creature can't block.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Snap
+    &["Return target creature to its owner's hand. Untap up to two lands."],
     // Spawning Pool
     &[
         "This land enters tapped.\n{T}: Add {B}.\n{1}{B}: This land becomes a 1/1 black Skeleton creature with \"{B}: Regenerate this creature\" until end of turn. It's still a land. (If it regenerates, the next time it would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
     ],
-    &[],
-    &[],
+    // Subversion
+    &[
+        "At the beginning of your upkeep, each opponent loses 1 life. You gain life equal to the life lost this way.",
+    ],
+    // Sustainer of the Realm
+    &["Flying\nWhenever this creature blocks, it gets +0/+2 until end of turn."],
     // Swat
     &[
         "Destroy target creature with power 2 or less.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Tethered Skirge
+    &["Flying\nWhenever this creature becomes the target of a spell or ability, you lose 1 life."],
     // Thornwind Faeries
     &["Flying\n{T}: This creature deals 1 damage to any target."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thran Lens
+    &["All permanents are colorless."],
+    // Thran War Machine
+    &[
+        "Echo {4} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nThis creature attacks each combat if able.",
+    ],
+    // Thran Weaponry
+    &[
+        "Echo {4} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nYou may choose not to untap this artifact during your untap step.\n{2}, {T}: All creatures get +2/+2 for as long as this artifact remains tapped.",
+    ],
+    // Ticking Gnomes
+    &[
+        "Echo {3} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nSacrifice this creature: It deals 1 damage to any target.",
+    ],
+    // Tinker
+    &[
+        "As an additional cost to cast this spell, sacrifice an artifact.\nSearch your library for an artifact card, put that card onto the battlefield, then shuffle.",
+    ],
     // Tragic Poet
     &[
         "{T}, Sacrifice this creature: Return target enchantment card from your graveyard to your hand.",
     ],
-    &[],
+    // Treacherous Link
+    &[
+        "Enchant creature\nAll damage that would be dealt to enchanted creature is dealt to its controller instead.",
+    ],
     &[],
     // Treetop Village
     &[

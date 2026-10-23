@@ -1,0 +1,36 @@
+//! Treacherous Link — {1}{B} — Enchantment — Aura
+//! Oracle: Enchant creature
+//! Oracle: All damage that would be dealt to enchanted creature is dealt to its controller instead.
+//! Set: ULG #71 — Urza's Legacy | Scryfall ID: 2e5f8581-411b-4403-9c3a-3cf2156f6779 | Oracle ID: b7902113-9ddf-4d81-a76a-b54b8a36c154
+// NOT SUPPORTED: redirecting damage that would be dealt to enchanted creature to its controller instead requires a RedirectDamageToController modifier.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::TREACHEROUS_LINK,
+    oracle_id = "b7902113-9ddf-4d81-a76a-b54b8a36c154",
+    scryfall_id = "2e5f8581-411b-4403-9c3a-3cf2156f6779",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    coverage = Coverage::Partial(
+        "enchants target creature and prevents combat damage that would be dealt to enchanted creature; redirecting all damage that would be dealt to enchanted creature to its controller instead requires a RedirectDamageToController modifier",
+    ),
+    faces = &[face!(
+        name = "Treacherous Link",
+        mana_cost = mana!("{1}{B}"),
+        types = TypeSet::ENCHANTMENT,
+        subtypes = &[subtypes::enchantment::AURA],
+    ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
+            Modifier::PreventDamageToIt,
+        ),
+    ],
+);
