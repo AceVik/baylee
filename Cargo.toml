@@ -107,6 +107,10 @@ parking_lot = "0.12"
 # (`statvfs`) and the clock ticks a `/proc/<pid>/stat` counts in.
 rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
+# The optional workstation monitor: no GPU context, no process commands,
+# and no parallel process scan competing with the training workers.
+sysinfo = { version = "0.39.6", default-features = false, features = ["system", "disk", "network", "component"] }
+nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"
 # PNG encoding for the dev-control screenshot endpoint (`dev-control`

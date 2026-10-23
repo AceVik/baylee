@@ -56,6 +56,7 @@ unofficial, non-commercial fan project.
 | PostgreSQL, the gateway's store, the card catalog | `docs/dev/database.md` |
 | How code is written and committed here | `docs/dev/conventions.md` |
 | Development and release tools (`cargo dev`, `cargo tools`) | `docs/dev-tools.md` |
+| Local PC/GPU monitoring dashboard (Baylee Pulse) | `docs/workstation-monitor.md` |
 | Crates, engine, hidden information and seats, the gateway | `docs/architecture.md` |
 | Words that mean one thing here | `docs/dictionary.md` |
 | The engine's internals (normative) | `docs/engine-internals.md`, `docs/mana-notation.md`, `docs/pending-constraints.md`, `docs/cost-model.md` |

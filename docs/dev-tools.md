@@ -1,5 +1,9 @@
 # Native development tools
 
+The independent PC/GPU dashboard is documented in
+[`workstation-monitor.md`](workstation-monitor.md). It runs alongside training
+with low scheduling priority and serves live metrics to desktop/mobile browsers.
+
 `baylee-tools` contains the repository's maintenance tools in Rust. It is a
 small workspace binary, independent of the engine, card pool and renderer.
 The `tools` profile optimises image/audio kernels and keeps panic unwinding

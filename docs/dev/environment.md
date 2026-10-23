@@ -1,5 +1,9 @@
 # Environment variables
 
+The optional workstation dashboard `baylee-monitor` has no service-specific
+environment variables; its CLI flags and user unit are described in
+[`../workstation-monitor.md`](../workstation-monitor.md).
+
 Every variable a Baylee process reads, by process. A value outside its range
 refuses startup where this says so; the normative behaviour behind each is in
 the document it names.
