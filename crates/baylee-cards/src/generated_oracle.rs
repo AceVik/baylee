@@ -9673,11 +9673,24 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Fire Ants
     &["{T}: This creature deals 1 damage to each other creature without flying."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Flesh Reaver
+    &[
+        "Whenever this creature deals damage to a creature or opponent, this creature deals that much damage to you.",
+    ],
+    // Fluctuator
+    &["Cycling abilities you activate cost {2} less to activate."],
+    // Fog Bank
+    &[
+        "Defender (This creature can't attack.)\nFlying\nPrevent all combat damage that would be dealt to and dealt by this creature.",
+    ],
+    // Fortitude
+    &[
+        "Enchant creature\nSacrifice a Forest: Regenerate enchanted creature.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Gaea's Bounty
+    &[
+        "Search your library for up to two Forest cards, reveal those cards, put them into your hand, then shuffle.",
+    ],
     // Gaea's Embrace
     &[
         "Enchant creature\nEnchanted creature gets +3/+3 and has trample.\n{G}: Regenerate enchanted creature.",
@@ -9692,50 +9705,104 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Glorious Anthem
     &["Creatures you control get +1/+1."],
-    &[],
-    &[],
+    // Goblin Cadets
+    &[
+        "Whenever this creature blocks or becomes blocked, target opponent gains control of it. (This removes this creature from combat.)",
+    ],
+    // Goblin Lackey
+    &[
+        "Whenever this creature deals damage to a player, you may put a Goblin permanent card from your hand onto the battlefield.",
+    ],
     // Goblin Offensive
     &["Create X 1/1 red Goblin creature tokens."],
-    &[],
+    // Goblin Patrol
+    &[
+        "Echo {R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
     // Goblin Spelunkers
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Goblin War Buggy
+    &[
+        "Haste\nEcho {1}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
     // Grafted Skullcap
     &[
         "At the beginning of your draw step, draw an additional card.\nAt the beginning of your end step, discard your hand.",
     ],
-    &[],
-    &[],
-    &[],
+    // Great Whale
+    &["When this creature enters, untap up to seven lands."],
+    // Greater Good
+    &[
+        "Sacrifice a creature: Draw cards equal to the sacrificed creature's power, then discard three cards.",
+    ],
+    // Greener Pastures
+    &[
+        "At the beginning of each player's upkeep, if that player controls more lands than each other player, the player creates a 1/1 green Saproling creature token.",
+    ],
     // Guma
     &["Protection from blue"],
     // Hawkeater Moth
     &["Flying\nShroud (This creature can't be the target of spells or abilities.)"],
-    &[],
+    // Headlong Rush
+    &["Attacking creatures gain first strike until end of turn."],
     // Heat Ray
     &["Heat Ray deals X damage to target creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Herald of Serra
+    &[
+        "Flying, vigilance\nEcho {2}{W}{W} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Hermetic Study
+    &[
+        "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"",
+    ],
+    // Hibernation
+    &["Return all green permanents to their owners' hands."],
+    // Hidden Ancients
+    &[
+        "When an opponent casts an enchantment spell, if this permanent is an enchantment, it becomes a 5/5 Treefolk creature.",
+    ],
+    // Hidden Guerrillas
+    &[
+        "When an opponent casts an artifact spell, if this permanent is an enchantment, it becomes a 5/3 Soldier creature with trample.",
+    ],
+    // Hidden Herd
+    &[
+        "When an opponent plays a nonbasic land, if this permanent is an enchantment, it becomes a 3/3 Beast creature.",
+    ],
+    // Hidden Predators
+    &[
+        "When an opponent controls a creature with power 4 or greater, if this permanent is an enchantment, it becomes a 4/4 Beast creature.",
+    ],
+    // Hidden Spider
+    &[
+        "When an opponent casts a creature spell with flying, if this permanent is an enchantment, it becomes a 3/5 Spider creature with reach. (It can block creatures with flying.)",
+    ],
+    // Hidden Stag
+    &[
+        "Whenever an opponent plays a land, if this permanent is an enchantment, it becomes a 3/2 Elk Beast creature.\nWhenever you play a land, if this permanent is a creature, it becomes an enchantment.",
+    ],
     // Hollow Dogs
     &["Whenever this creature attacks, it gets +2/+0 until end of turn."],
     // Hopping Automaton
     &["{0}: This creature gets -1/-1 and gains flying until end of turn."],
     // Horseshoe Crab
     &["{U}: Untap this creature."],
-    &[],
+    // Humble
+    &[
+        "Until end of turn, target creature loses all abilities and has base power and toughness 0/1.",
+    ],
     // Hush
     &["Destroy all enchantments.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
+    // Ill-Gotten Gains
+    &[
+        "Exile Ill-Gotten Gains. Each player discards their hand, then returns up to three cards from their graveyard to their hand.",
+    ],
+    // Imaginary Pet
+    &[
+        "At the beginning of your upkeep, if you have a card in hand, return this creature to its owner's hand.",
+    ],
     // Intrepid Hero
     &["{T}: Destroy target creature with power 4 or greater."],
     &[],

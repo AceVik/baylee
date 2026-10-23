@@ -1102,7 +1102,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Copper Gnomes, Crystal Chimes, Discordant Dirge, Endoskeleton, Faith
     // Healer, Fiery Mantle, and Fire Ants, all 7 of which are read by the
     // evaluator.
-    assert_eq!((read, of), (2800, 3540), "activated/loyalty reader census");
+    // Urza's Saga (`usg`) Batch 3 adds 2 non-mana activated abilities across
+    // Fortitude and Greater Good, of which 1 is read by the evaluator.
+    assert_eq!((read, of), (2801, 3542), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
