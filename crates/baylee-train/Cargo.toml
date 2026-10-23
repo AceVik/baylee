@@ -32,7 +32,7 @@ play = [
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
 # only the trainer's machine needs it.
-onnx = ["play", "dep:ort"]
+onnx = ["play", "dep:ort", "dep:baylee-ai"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
 # and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
@@ -45,6 +45,7 @@ llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
 
 [dependencies]
 anyhow.workspace = true
+baylee-ai = { workspace = true, optional = true }
 baylee-build = { workspace = true, optional = true }
 baylee-cards.workspace = true
 baylee-cards-dsl = { workspace = true, optional = true }

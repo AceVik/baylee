@@ -451,3 +451,23 @@ in `checks/prewarm-broad-val-job`. The corrected attempt keeps the virtualenv
 path and has a separate `checks/prewarm-broad-val-retry-job` manifest. No data
 was removed or relabelled. The final CPU-feature build also passes strict
 Clippy and all 57 trainer library tests.
+
+### The Commander refusal was a player bug
+
+The single-deal replay preserved the original deck/seed/seat assignment and
+exposed the attempted action: `PassPriority` for `ChooseNumber { min: 0,
+max: 4294967295, reason: X }`. The engine correctly rejected it. v4's fallback
+used `timeout_answer(...).unwrap_or(PassPriority)`, but clock defaults deliberately
+omit number, naming and mandatory-choice questions. A missing clock answer does
+not authorize passing. The fallback now keeps valid offered/default actions and
+otherwise uses `HeuristicAgent::act` with the player's filtered view and public
+teams, without scouting or an engine reference. A failed forced decoder routed
+through that fallback is labelled House, not Forced. Old trajectory data and
+the running supervised job are unchanged.
+
+The new regression reproduces the old invalid pass for unbounded X, and also
+checks a strictly positive number range. It fails before the fix and all 58
+trainer library tests pass afterwards. CUDA library/evaluator Clippy passes.
+No engine rule was changed for this finding. The broader training job has
+finished both data caches and is performing GPU optimizer updates; its later
+evaluations use the corrected runtime.

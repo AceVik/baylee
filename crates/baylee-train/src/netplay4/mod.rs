@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context as _;
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
-use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
@@ -31,7 +31,11 @@ use crate::features4::{
     StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice, encode_candidates4,
     encode_state4, normalize_scalar_choice, view_only_state_hash,
 };
+mod fallback;
+#[cfg(test)]
+mod fallback_tests;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
+use fallback::fallback_action;
 
 /// Number of recurrent memory tokens per seat (`1` Global + `8` Relative Seats).
 pub const RECURRENT_SLOTS: usize = 9;
@@ -113,17 +117,6 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
         .map_err(ort_error)?
         .commit_from_file(path)
         .with_context(|| format!("loading {}", path.display()))
-}
-
-fn fallback_action(cands: &EncodedCandidates4, pending: &Pending) -> PlayerAction {
-    for c in &cands.candidates {
-        if let Some(act) = &c.action
-            && pending.answer_fault(act).is_none()
-        {
-            return act.clone();
-        }
-    }
-    timeout_answer(pending).unwrap_or(PlayerAction::PassPriority)
 }
 
 impl NetPlayer4 {
@@ -317,15 +310,23 @@ impl NetPlayer4 {
                 pick_sequence: Vec::new(),
                 scalar_norm: 0.0,
             };
-            let action = decode_action4(&cands, view, pending, &forced_target)
+            let (action, source) = decode_action4(&cands, view, pending, &forced_target)
                 .filter(|a| pending.answer_fault(a).is_none())
-                .unwrap_or_else(|| fallback_action(&cands, pending));
-            self.coverage.record(p_kind, SourceKind4::Forced);
+                .map_or_else(
+                    || {
+                        (
+                            fallback_action(&cands, view, pending, teams),
+                            SourceKind4::House,
+                        )
+                    },
+                    |action| (action, SourceKind4::Forced),
+                );
+            self.coverage.record(p_kind, source);
             return Answer4 {
                 action,
                 value: 0.5,
                 provenance: StepProvenance4 {
-                    source: SourceKind4::Forced,
+                    source,
                     temperature: self.temperature,
                     thinking_steps: 0,
                     behavior_logprob: 0.0,
@@ -340,7 +341,7 @@ impl NetPlayer4 {
         let visits = self.seen_hashes.entry((seat_u8, v_hash)).or_insert(0);
         *visits = visits.saturating_add(1);
         if *visits >= 4 {
-            let action = fallback_action(&cands, pending);
+            let action = fallback_action(&cands, view, pending, teams);
             self.coverage.record(p_kind, SourceKind4::House);
             return Answer4 {
                 action,
@@ -374,7 +375,7 @@ impl NetPlayer4 {
                 target,
             }
         } else {
-            let action = fallback_action(&cands, pending);
+            let action = fallback_action(&cands, view, pending, teams);
             self.coverage.record(p_kind, SourceKind4::House);
             Answer4 {
                 action,

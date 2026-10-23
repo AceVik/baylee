@@ -5,6 +5,10 @@
 records the repaired observation clock, contract versions, measured model size,
 checks and remaining limitations. v4 uses structural card features and
 persistent seat memory; the older pipeline below describes v1–v3.
+CUDA inference is measured and rollout-probability audited on the 4070 Ti;
+see the log for whole-game CPU/GPU comparisons. v4 fallbacks use legal offered
+answers, valid clock defaults, or the ordinary view-only house AI. A question
+without a clock default must never be answered with an invented priority pass.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
 Baylee's own Magic AI: a net that knows every card by its `CardIndex` alone,
