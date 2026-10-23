@@ -24,7 +24,10 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[triggered!(
-        Trigger::State(&Condition::OpponentControlCount(&OPPONENT_POWER_4_CREATURE, 1)),
+        Trigger::State(&Condition::OpponentControlCount(
+            &OPPONENT_POWER_4_CREATURE,
+            1
+        )),
         &[
             Effect::continuous(
                 &Filter::This,

@@ -22,5 +22,7 @@ card!(
         toughness = Some(1),
         keywords = KeywordSet::FIRST_STRIKE.union(KeywordSet::HASTE),
     ),],
-    abilities = &[AbilityDef::Echo { cost: mana!("{2}{R}") },],
+    abilities = &[AbilityDef::Echo {
+        cost: mana!("{2}{R}")
+    },],
 );

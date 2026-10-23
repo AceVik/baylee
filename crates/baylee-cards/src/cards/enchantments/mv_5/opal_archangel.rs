@@ -6,7 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_CREATURE_SPELL: Filter = Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent]);
+const OPPONENT_CREATURE_SPELL: Filter =
+    Filter::And(&[Filter::CREATURE, Filter::ControlledByOpponent]);
 
 card!(
     index = index::OPAL_ARCHANGEL,

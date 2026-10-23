@@ -6,7 +6,8 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_ENCHANTMENT: Filter = Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByOpponent]);
+const OPPONENT_ENCHANTMENT: Filter =
+    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByOpponent]);
 
 card!(
     index = index::HIDDEN_ANCIENTS,

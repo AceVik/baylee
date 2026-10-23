@@ -10129,63 +10129,120 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nDiscard a card: Add {B}."],
     // Skittering Skirge
     &["Flying\nWhen you cast a creature spell, sacrifice this creature."],
-    &[],
+    // Sleeper Agent
+    &[
+        "When this creature enters, target opponent gains control of it.\nAt the beginning of your upkeep, this creature deals 2 damage to you.",
+    ],
     // Slippery Karst
     &[
         "This land enters tapped.\n{T}: Add {G}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Smokestack
+    &[
+        "At the beginning of your upkeep, you may put a soot counter on this artifact.\nAt the beginning of each player's upkeep, that player sacrifices a permanent of their choice for each soot counter on this artifact.",
+    ],
     // Smoldering Crater
     &[
         "This land enters tapped.\n{T}: Add {R}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sneak Attack
+    &[
+        "{R}: You may put a creature card from your hand onto the battlefield. That creature gains haste. Sacrifice the creature at the beginning of the next end step.",
+    ],
+    // Somnophore
+    &[
+        "Flying\nWhenever this creature deals damage to a player, tap target creature that player controls. That creature doesn't untap during its controller's untap step for as long as this creature remains on the battlefield.",
+    ],
+    // Songstitcher
+    &[
+        "{1}{W}: Prevent all combat damage that would be dealt this turn by target attacking creature with flying.",
+    ],
+    // Soul Sculptor
+    &[
+        "{1}{W}, {T}: Target creature becomes an enchantment and loses all abilities until a player casts a creature spell.",
+    ],
+    // Spined Fluke
+    &["When this creature enters, sacrifice a creature.\n{B}: Regenerate this creature."],
     // Spire Owl
     &[
         "Flying\nWhen this creature enters, look at the top four cards of your library, then put them back in any order.",
     ],
-    &[],
-    &[],
+    // Sporogenesis
+    &[
+        "At the beginning of your upkeep, you may put a fungus counter on target nontoken creature.\nWhenever a creature with a fungus counter on it dies, create a 1/1 green Saproling creature token for each fungus counter on that creature.\nWhen this enchantment leaves the battlefield, remove all fungus counters from all creatures.",
+    ],
+    // Spreading Algae
+    &[
+        "Enchant Swamp\nWhen enchanted land becomes tapped, destroy it.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
     // Steam Blast
     &["Steam Blast deals 2 damage to each creature and each player."],
     // Stern Proctor
     &["When this creature enters, return target artifact or enchantment to its owner's hand."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sulfuric Vapors
+    &[
+        "If a red spell would deal damage to a permanent or player, it deals that much damage plus 1 to that permanent or player instead.",
+    ],
+    // Sunder
+    &["Return all lands to their owners' hands."],
+    // Symbiosis
+    &["Two target creatures each get +2/+2 until end of turn."],
+    // Tainted Aether
+    &["Whenever a creature enters, its controller sacrifices a creature or land of their choice."],
+    // Telepathy
+    &["Your opponents play with their hands revealed."],
+    // Temporal Aperture
+    &[
+        "{5}, {T}: Shuffle your library, then reveal the top card. Until end of turn, for as long as that card remains on top of your library, play with the top card of your library revealed and you may play that card without paying its mana cost. (If it has X in its mana cost, X is 0.)",
+    ],
     // Thran Quarry
     &[
         "At the beginning of the end step, if you control no creatures, sacrifice this land.\n{T}: Add one mana of any color.",
     ],
-    &[],
+    // Thran Turbine
+    &[
+        "At the beginning of your upkeep, you may add {C}{C}. This mana can't be spent to cast spells.",
+    ],
     // Thundering Giant
     &["Haste (This creature can attack and {T} as soon as it comes under your control.)"],
-    &[],
-    &[],
+    // Time Spiral
+    &[
+        "Exile Time Spiral. Each player shuffles their hand and graveyard into their library, then draws seven cards. You untap up to six lands.",
+    ],
+    // Titania's Boon
+    &["Put a +1/+1 counter on each creature you control."],
     // Titania's Chosen
     &["Whenever a player casts a green spell, put a +1/+1 counter on this creature."],
     // Tolarian Academy
     &["{T}: Add {U} for each artifact you control."],
-    &[],
-    &[],
-    &[],
+    // Tolarian Winds
+    &["Discard all the cards in your hand, then draw that many cards."],
+    // Torch Song
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{2}{R}, Sacrifice this enchantment: It deals X damage to any target, where X is the number of verse counters on this enchantment.",
+    ],
+    // Treefolk Seedlings
+    &["Treefolk Seedlings's toughness is equal to the number of Forests you control."],
     // Treetop Rangers
     &["This creature can't be blocked except by creatures with flying."],
-    &[],
-    &[],
+    // Turnabout
+    &[
+        "Choose artifact, creature, or land. Tap all untapped permanents of the chosen type target player controls, or untap all tapped permanents of that type that player controls.",
+    ],
+    // Umbilicus
+    &[
+        "At the beginning of each player's upkeep, that player may pay 2 life. If they don't, they return a permanent they control to its owner's hand.",
+    ],
     // Unnerve
     &["Each opponent discards two cards."],
     // Unworthy Dead
     &["{B}: Regenerate this creature."],
-    &[],
-    &[],
+    // Urza's Armor
+    &["If a source would deal damage to you, prevent 1 of that damage."],
+    // Vampiric Embrace
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 and has flying.\nWhenever a creature dealt damage by enchanted creature this turn dies, put a +1/+1 counter on that creature.",
+    ],
     &[],
     &[],
     &[],

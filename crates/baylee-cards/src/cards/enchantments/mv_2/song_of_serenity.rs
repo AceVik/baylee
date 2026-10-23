@@ -4,7 +4,8 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static ENCHANTED_CREATURE: Filter = Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::Enchanted]);
+static ENCHANTED_CREATURE: Filter =
+    Filter::And(&[Filter::HasType(TypeSet::CREATURE), Filter::Enchanted]);
 
 card!(
     index = index::SONG_OF_SERENITY,
