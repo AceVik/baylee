@@ -390,6 +390,37 @@ pub fn new_id() -> String {
 mod tests {
     use super::*;
 
+    /// The table of cases baylee-central's `central_api::profile` tests too:
+    /// Central keeps the same rule for the names the bridge carries and the
+    /// ones people choose there, and refuses a name that breaks it.
+    const SHARED_NAMES: [(&str, bool); 13] = [
+        ("Alice", true),
+        ("player_one-99", true),
+        ("ab", false),
+        ("has space", false),
+        ("emoji🎉", false),
+        ("sixteen_chars_yz", true),
+        ("seventeen_chars_x", false),
+        ("alice@example.com", false),
+        ("Alice#af03", false),
+        ("_Alice", false),
+        ("Alice-", false),
+        ("abc", true),
+        ("a_-b", true),
+    ];
+
+    #[test]
+    fn the_display_name_rule_is_centrals() {
+        for (name, valid) in SHARED_NAMES {
+            assert_eq!(valid_display_name(name), valid, "{name}");
+            assert_eq!(
+                central_api::profile::valid_display_name(name),
+                valid,
+                "Central reads {name} as this gateway does"
+            );
+        }
+    }
+
     #[test]
     fn display_name_validation() {
         assert!(valid_display_name("Alice"));

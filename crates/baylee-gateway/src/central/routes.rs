@@ -76,6 +76,41 @@ async fn snapshot(
     })
 }
 
+/// A legacy account's display name and tag as Central keeps them: the name
+/// only when it keeps the rule, which one written before the rule of
+/// 15.09.2026 (or imported from `gateway-store.json`) may not, and which
+/// Central refuses; such an account keeps its tag and chooses a name on the
+/// website. Central's check is the same rule (`central_api::profile`), held
+/// to the same table of cases in `auth.rs`.
+fn profile(account: &crate::store::Account) -> (Option<String>, Option<u32>) {
+    let name = crate::auth::valid_display_name(&account.display_name)
+        .then(|| account.display_name.clone());
+    (name, u32::try_from(account.tag).ok().filter(|tag| *tag > 0))
+}
+
+/// Carries a moved account's name and tag to Central once, for an account
+/// that moved before Central kept them: at each of its Central sign-ins
+/// here, since nothing on this side records that it was done. Central sets
+/// them only while the account has no tag (`LegacyProfile`, `Done`) and
+/// answers `Conflict` once it has, so a repeat changes nothing. Any answer,
+/// a refusal or Central being away included, leaves the sign-in as it is:
+/// the next one tries again.
+async fn carry_profile(state: &Shared, account: &crate::store::Account) {
+    let (display_name, Some(tag)) = profile(account) else {
+        return;
+    };
+    let Ok(bridge) = bridge(state) else {
+        return;
+    };
+    let _ = bridge
+        .exchange(Request::LegacyProfile {
+            legacy_id: account.id.clone(),
+            display_name,
+            tag,
+        })
+        .await;
+}
+
 async fn redeem(
     state: &Shared,
     capability: Capability,
@@ -146,10 +181,15 @@ async fn migrate(
         return Err(StatusCode::UNAUTHORIZED);
     }
     let source = snapshot(&state, &account, true).await?;
+    // The moved account keeps its name and tag here at Central
+    // (baylee-central `docs/native-login.md`).
+    let (display_name, tag) = profile(&account);
     let result = bridge
         .exchange(Request::LegacyReserve {
             legacy_id: account.id,
             username: source.username.clone(),
+            display_name,
+            tag,
         })
         .await?;
     match result {
@@ -408,6 +448,7 @@ async fn login_for(
     };
     let _guard = exclusive(state).await?;
     let admin = matches!(purpose, TicketPurpose::Admin);
+    let legacy_link = legacy.is_some();
     let account_id = match (bridge(state)?.legacy, legacy) {
         // The official gateway: a migrated account is the legacy account it
         // was linked to, and nothing else.
@@ -441,6 +482,9 @@ async fn login_for(
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
     };
     let account = allowed(state, &account_id).await?;
+    if bridge(state)?.legacy && legacy_link {
+        carry_profile(state, &account).await;
+    }
     let token = crate::auth::new_token();
     baylee_db::central::issue_session(
         &state.db,

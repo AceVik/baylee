@@ -53,6 +53,7 @@ pub fn run(
     let register = Request::Register {
         username: username.into(),
         beta_key: key.display().to_string(),
+        display_name: Some("Fresh_Player".into()),
     };
     let Response::Enrollment { identity, ticket } = website(&register) else {
         panic!("a valid key registers a free name");

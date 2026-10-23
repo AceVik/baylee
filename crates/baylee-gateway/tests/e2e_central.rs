@@ -9,6 +9,8 @@ mod fresh;
 mod held;
 #[path = "central/official.rs"]
 mod official;
+#[path = "central/profiles.rs"]
+mod profiles;
 #[path = "central/registered.rs"]
 mod registered;
 #[path = "central/renewal.rs"]
@@ -147,6 +149,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
         run(gateway, endpoint, origin);
+        profiles::run(&runtime, &operator, gateway, endpoint, origin);
         changed_legacy_password_invalidates_pending_enrollment(gateway, endpoint, origin);
         upgrade::run(gateway, endpoint, origin);
         renewal::run(gateway, endpoint, origin);
