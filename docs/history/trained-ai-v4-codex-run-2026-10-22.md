@@ -471,3 +471,9 @@ trainer library tests pass afterwards. CUDA library/evaluator Clippy passes.
 No engine rule was changed for this finding. The broader training job has
 finished both data caches and is performing GPU optimizer updates; its later
 evaluations use the corrected runtime.
+
+The full failing deal was replayed after the fix using the same PPO checkpoint,
+decks, seed and seat: zero refusals, zero stalls/caps, still a loss. Its original
+11 fallback decisions are still explicitly counted. Both before/after records
+and logs are preserved in `checks/commander-number-{reproducer,fixed}-*`.
+The change repairs a legal-action failure; it does not claim improved strength.
