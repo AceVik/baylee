@@ -29,6 +29,13 @@ fn strikes_now(state: &GameState, creature: ObjectId, first_strike_step: bool) -
     }
 }
 
+/// The same assignment eligibility for previews, divisions and final damage.
+/// Keep the strike-step participants separate: assigning no damage does not
+/// change which step a first striker belongs to (CR 510.4).
+fn assigns_damage_now(state: &GameState, creature: ObjectId, first: bool) -> bool {
+    strikes_now(state, creature, first) && !assigns_no_combat_damage(state, creature)
+}
+
 /// CR 510.4 fixes the strike-step participants before assignments. Revealing
 /// a creature during assignment cannot create another damage step or remove
 /// its already-required assignment. Returns whether any permanent turned up.
@@ -59,12 +66,12 @@ pub(crate) fn prepare_damage_step(state: &mut GameState, first: bool) -> bool {
     // it neither spends existing divisions nor applies damage/prevention.
     let mut assignments = Vec::new();
     for attacker in state.combat.attackers() {
-        if strikes_now(state, attacker.creature, first) {
+        if assigns_damage_now(state, attacker.creature, first) {
             assign_attacker_damage(state, attacker.creature, attacker.blocked, &mut assignments);
         }
     }
     for blocker in blocking_creatures(state) {
-        if strikes_now(state, blocker, first) {
+        if assigns_damage_now(state, blocker, first) {
             for (attacker, amount) in shares(
                 state,
                 blocker,
@@ -202,10 +209,7 @@ fn blocking_creatures(state: &GameState) -> Vec<ObjectId> {
 pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDivision> {
     let mut owed = Vec::new();
     for info in state.combat.attackers() {
-        if !info.blocked
-            || !strikes_now(state, info.creature, first_strike_step)
-            || assigns_no_combat_damage(state, info.creature)
-        {
+        if !info.blocked || !assigns_damage_now(state, info.creature, first_strike_step) {
             continue;
         }
         let amount = power_of(state, info.creature);
@@ -234,9 +238,7 @@ pub fn divisions_owed(state: &GameState, first_strike_step: bool) -> Vec<OwedDiv
         }
     }
     for blocker in blocking_creatures(state) {
-        if !strikes_now(state, blocker, first_strike_step)
-            || assigns_no_combat_damage(state, blocker)
-        {
+        if !assigns_damage_now(state, blocker, first_strike_step) {
             continue;
         }
         let amount = power_of(state, blocker);
@@ -316,14 +318,12 @@ pub(crate) fn collect_combat_damage(
     prepare_damage_step(state, first_strike_step);
     let mut assignments = Vec::new();
     for info in state.combat.attackers() {
-        if strikes_now(state, info.creature, first_strike_step)
-            && !assigns_no_combat_damage(state, info.creature)
-        {
+        if assigns_damage_now(state, info.creature, first_strike_step) {
             assign_attacker_damage(state, info.creature, info.blocked, &mut assignments);
         }
     }
     for blocker in blocking_creatures(state) {
-        if !strikes_now(state, blocker, first_strike_step) {
+        if !assigns_damage_now(state, blocker, first_strike_step) {
             continue;
         }
         let power = power_of(state, blocker);

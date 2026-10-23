@@ -1,5 +1,6 @@
 //! Combat's tests: declarations, restrictions, damage assignment and banding.
 
+mod assignment_restrictions;
 mod battle;
 mod history;
 use super::block::LANDWALKS;

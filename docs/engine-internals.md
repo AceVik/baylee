@@ -293,6 +293,14 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+`Modifier::AssignsNoCombatDamage` excludes an affected attacker or blocker
+from the assignment preview, damage-division questions and final assignments
+(CR 510.1a, 101.1). It is not prevention and does not suppress noncombat
+damage. In particular, a masked creature that would assign no damage does
+not turn face up for that assignment. Strike-step membership remains separate
+(CR 510.4); the restriction neither moves a first striker into the regular
+step nor allows a double striker to assign damage in either step.
+
 ### What must attack, and what may attack whom (CR 508.1c–d)
 Two sentences change a declaration of attackers, and both are statics the
 layers carry as rules modifiers (`Layer::Text`, beside the other

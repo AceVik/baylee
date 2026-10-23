@@ -15,6 +15,7 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;
 mod blocks;
