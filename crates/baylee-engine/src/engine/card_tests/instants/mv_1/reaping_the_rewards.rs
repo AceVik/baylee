@@ -19,4 +19,5 @@ fn reaping_the_rewards_gains_2_life() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(engine.state().players[0].life, 22);
+    assert!(in_graveyard(&engine, p0, reaping_the_rewards()).is_some());
 }

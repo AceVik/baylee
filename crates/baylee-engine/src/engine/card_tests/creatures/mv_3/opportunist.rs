@@ -23,6 +23,14 @@ fn opportunist_deals_one_damage_to_damaged_creature() {
     reach_main_phase(&mut engine, P0);
 
     let bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    let source = on_battlefield(&engine, P0, opportunist()).unwrap();
+    assert!(
+        !legal.abilities.iter().any(|(id, _)| *id == source),
+        "no damaged creature means no legal activation"
+    );
     activate(&mut engine, P0, index::PRODIGAL_SORCERER, 0);
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, stack_is_empty);

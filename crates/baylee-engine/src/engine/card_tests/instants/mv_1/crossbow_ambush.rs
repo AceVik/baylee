@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -16,6 +17,7 @@ fn crossbow_ambush() -> CardIndex {
 fn crossbow_ambush_grants_reach_to_creatures_you_control() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), index::GRIZZLY_BEARS])
+        .battlefield(1, &[index::GRIZZLY_BEARS])
         .hand(0, &[crossbow_ambush()])
         .start();
     keep_mulligans(&mut engine);
@@ -28,4 +30,8 @@ fn crossbow_ambush_grants_reach_to_creatures_you_control() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(keywords(&engine, bears).contains(KeywordSet::REACH));
+    let enemy = on_battlefield(&engine, lk::P1, index::GRIZZLY_BEARS).unwrap();
+    assert!(!keywords(&engine, enemy).contains(KeywordSet::REACH));
+    reach_their_main_phase(&mut engine, lk::P1);
+    assert!(!keywords(&engine, bears).contains(KeywordSet::REACH));
 }

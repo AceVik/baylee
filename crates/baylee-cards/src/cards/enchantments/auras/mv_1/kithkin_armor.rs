@@ -3,7 +3,7 @@
 //! Oracle: Enchanted creature can't be blocked by creatures with power 3 or greater.
 //! Oracle: Sacrifice this Aura: The next time a source of your choice would deal damage to enchanted creature this turn, prevent that damage.
 //! Set: WTH #19 — Weatherlight | Scryfall ID: 395e7882-0429-46aa-8e38-be707067c588 | Oracle ID: 35e2730e-b3aa-4080-aae8-7b3ad1e59848
-// PARTIAL — Enchants a creature and grants 'can't be blocked by creatures with power 3 or greater'; the sacrifice ability sacrifices this Aura as a cost, while choosing a single damage source and tracking LKI attachment across sacrifice-as-cost to prevent its next damage this turn are not yet modeled.
+// PARTIAL — enchant creature and "can't be blocked by creatures with power 3 or greater". NOT SUPPORTED: "Sacrifice this Aura: The next time a source of your choice would deal damage to enchanted creature this turn, prevent that damage" — no effect prevents only the next damage from one chosen source to the enchanted creature, and `PreventDamageFrom(Any)` would prevent all damage from every source this turn.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -16,7 +16,7 @@ card!(
     scryfall_id = "395e7882-0429-46aa-8e38-be707067c588",
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Partial(
-        "Enchants a creature and grants 'can't be blocked by creatures with power 3 or greater'; the sacrifice ability sacrifices this Aura as a cost, while choosing a single damage source and tracking LKI attachment across sacrifice-as-cost to prevent its next damage this turn are not yet modeled."
+        "enchants a creature, which cannot be blocked by creatures with power 3 or greater; the sacrifice ability (prevent the next damage a chosen source would deal to the enchanted creature this turn) is left off because no effect prevents only the next damage from one chosen source to a creature",
     ),
     faces = &[face!(
         name = "Kithkin Armor",
@@ -34,13 +34,6 @@ card!(
         static_ability!(
             Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
             Modifier::CantBeBlockedBy(&POWER_3_OR_MORE)
-        ),
-        activated!(
-            cost!(SacrificeSelf),
-            &[Effect::ModifyAttached {
-                modifier: Modifier::PreventDamageFrom(&Filter::Any),
-                duration: Duration::UntilEndOfTurn
-            }]
         ),
     ],
 );

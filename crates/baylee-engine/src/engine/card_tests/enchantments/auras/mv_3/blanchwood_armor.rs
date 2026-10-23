@@ -11,6 +11,7 @@ fn blanchwood_armor_grants_plus_one_plus_one_per_forest_you_control() {
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[blanchwood_armor()])
         .battlefield(0, &[forest(), forest(), forest(), grizzly_bears()])
+        .battlefield(1, &[forest(), forest(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -31,4 +32,6 @@ fn blanchwood_armor_grants_plus_one_plus_one_per_forest_you_control() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bears), (5, 5));
+    let their_bear = on_battlefield(&engine, PlayerId::new(1), grizzly_bears()).unwrap();
+    assert_eq!(pt(&engine, their_bear), (2, 2));
 }

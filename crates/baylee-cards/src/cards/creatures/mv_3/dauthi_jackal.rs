@@ -2,6 +2,7 @@
 //! Oracle: Shadow (This creature can block or be blocked by only creatures with shadow.)
 //! Oracle: {B}{B}, Sacrifice this creature: Destroy target blocking creature.
 //! Set: TPR #95 — Tempest Remastered | Scryfall ID: 37b3667e-c7e5-4304-bc73-5b3ec7ac224a | Oracle ID: 8847b057-8896-4c72-a11f-3c183b1cc60e
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

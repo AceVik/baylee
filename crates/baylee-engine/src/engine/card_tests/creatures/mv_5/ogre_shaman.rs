@@ -31,4 +31,10 @@ fn ogre_shaman_discards_at_random_to_deal_2_damage_to_any_target() {
 
     assert!(on_battlefield(&engine, p1, gray_ogre()).is_none());
     assert!(in_graveyard(&engine, p0, mountain()).is_some());
+    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Red, 2)]);
+    let source = on_battlefield(&engine, p0, ogre_shaman()).unwrap();
+    assert!(
+        crate::engine::card_tests::partials_w1b_kit::offered(&engine, source).is_empty(),
+        "empty hand cannot pay random discard"
+    );
 }

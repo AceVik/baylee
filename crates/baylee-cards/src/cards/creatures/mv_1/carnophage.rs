@@ -1,6 +1,7 @@
 //! Carnophage — {B} — Creature — Zombie
 //! Oracle: At the beginning of your upkeep, tap this creature unless you pay 1 life.
 //! Set: TPR #84 — Tempest Remastered | Scryfall ID: 889a92ca-e198-494d-9ccb-6ae2c19ec62e | Oracle ID: 9ac77cfd-7d78-4c8a-bffc-17649a852114
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

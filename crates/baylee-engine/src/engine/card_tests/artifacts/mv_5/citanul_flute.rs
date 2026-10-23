@@ -9,7 +9,15 @@ fn citanul_flute() -> CardIndex {
 fn citanul_flute_searches_library_for_creature_with_mv_at_most_x() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[citanul_flute(), llanowar_elves()])
+        .hand(
+            0,
+            &[
+                citanul_flute(),
+                llanowar_elves(),
+                grizzly_bears(),
+                sol_ring(),
+            ],
+        )
         .battlefield(
             0,
             &[
@@ -27,6 +35,8 @@ fn citanul_flute_searches_library_for_creature_with_mv_at_most_x() {
     reach_main_phase(&mut engine, p0);
 
     hand_to_library_top(&mut engine, p0, llanowar_elves());
+    hand_to_library_top(&mut engine, p0, grizzly_bears());
+    hand_to_library_top(&mut engine, p0, sol_ring());
     cast_from_hand(&mut engine, p0, citanul_flute());
     pass_until(&mut engine, stack_is_empty);
     let flute = on_battlefield(&engine, p0, citanul_flute()).expect("seated");
@@ -48,7 +58,16 @@ fn citanul_flute_searches_library_for_creature_with_mv_at_most_x() {
         matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
     });
     if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
+        assert_eq!(
+            options.len(),
+            1,
+            "only the creature with mana value <= X is offered"
+        );
         let pick = options[0];
+        assert_eq!(
+            engine.state().object(pick).unwrap().card.unwrap().index,
+            llanowar_elves()
+        );
         engine
             .apply(
                 p0,

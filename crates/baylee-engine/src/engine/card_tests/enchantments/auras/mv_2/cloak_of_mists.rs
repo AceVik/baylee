@@ -32,3 +32,36 @@ fn cloak_of_mists_makes_enchanted_creature_unblockable() {
 
     assert!(keywords(&engine, bears).contains(KeywordSet::UNBLOCKABLE));
 }
+
+#[test]
+fn cloak_of_mists_excludes_its_host_from_the_block_offer_only() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[grizzly_bears(), gray_ogre()],
+        &[grizzly_bears()],
+        &[cloak_of_mists()],
+        &[],
+    );
+    let host = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let other = on_battlefield(&engine, p0, gray_ogre()).unwrap();
+    let blocker = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    lk::float(&mut engine, p0, &[(ManaColor::Blue, 2)]);
+    lk::cast_at(&mut engine, p0, cloak_of_mists(), &[host], &[]);
+    let offer = lk::attack(&mut engine, &[host, other]);
+    assert!(!lk::may_block(&offer, blocker, host));
+    assert!(lk::may_block(&offer, blocker, other));
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(blocker, host)]
+                }
+            )
+            .is_err()
+    );
+    lk::block(&mut engine, &[(blocker, other)]);
+}

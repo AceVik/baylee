@@ -42,4 +42,6 @@ fn elvish_berserker_gets_plus_1_plus_1_for_each_creature_blocking_it() {
     kit::resolve_the_stack(&mut engine, |_, _| None);
 
     assert_eq!(pt(&engine, berserker), (3, 3));
+    reach_their_main_phase(&mut engine, P1);
+    assert_eq!(pt(&engine, berserker), (1, 1));
 }

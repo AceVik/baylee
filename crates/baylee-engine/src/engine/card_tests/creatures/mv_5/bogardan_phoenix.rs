@@ -8,7 +8,7 @@ fn bogardan_phoenix() -> CardIndex {
 }
 
 #[test]
-fn bogardan_phoenix_returns_from_graveyard_with_death_counter_when_it_dies() {
+fn bogardan_phoenix_returns_once_with_a_death_counter_and_is_exiled_the_second_time() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(
@@ -34,5 +34,26 @@ fn bogardan_phoenix_returns_from_graveyard_with_death_counter_when_it_dies() {
     assert_eq!(
         counters_on(&engine, returned, baylee_cards_dsl::counters::DEATH),
         1
+    );
+    assert!(
+        in_graveyard(&engine, p0, bogardan_phoenix()).is_none(),
+        "the first death returns it, it is not left in the graveyard"
+    );
+
+    // Second death: it had a death counter, so it is exiled instead.
+    kill(&mut engine, returned);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, p0, bogardan_phoenix()).is_none(),
+        "no second return"
+    );
+    assert!(
+        in_graveyard(&engine, p0, bogardan_phoenix()).is_none(),
+        "exiled, not left in the graveyard"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Exile(p0)).len(),
+        1,
+        "the Phoenix is in exile"
     );
 }

@@ -13,7 +13,7 @@ fn fugitive_druid() -> CardIndex {
 /// Fugitive Druid (`e05f3236-dc82-4353-87ab-d26ae7caa0e7`) — {3}{G} Creature — Human Druid (Partial):
 /// "Whenever this creature becomes the target of an Aura spell, you draw a card."
 #[test]
-fn fugitive_druid_draws_a_card_when_targeted_by_an_aura_spell() {
+fn fugitive_druid_does_not_offer_an_unrestricted_target_draw() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[fugitive_druid(), plains()])
         .hand(0, &[index::HOLY_STRENGTH])
@@ -29,6 +29,6 @@ fn fugitive_druid_draws_a_card_when_targeted_by_an_aura_spell() {
 
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
-        hand_after_cast + 1
+        hand_after_cast
     );
 }

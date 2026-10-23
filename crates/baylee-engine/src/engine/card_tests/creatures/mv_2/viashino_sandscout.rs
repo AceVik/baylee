@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_2/viashino_sandscout.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -19,7 +21,7 @@ fn viashino_sandscout_has_haste_and_returns_to_hand_at_end_step() {
     pass_until(&mut engine, stack_is_empty);
 
     let scout = on_battlefield(&engine, p0, viashino_sandscout()).unwrap();
-    assert!(keywords(&engine, scout).contains(KeywordSet::HASTE));
+    crate::engine::card_tests::legends_kit::attack(&mut engine, &[scout]);
 
     pass_until(&mut engine, |e| {
         e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
@@ -28,4 +30,9 @@ fn viashino_sandscout_has_haste_and_returns_to_hand_at_end_step() {
 
     assert!(on_battlefield(&engine, p0, viashino_sandscout()).is_none());
     assert!(in_hand(&engine, p0, viashino_sandscout()).is_some());
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "haste allowed the cast-turn attack"
+    );
 }

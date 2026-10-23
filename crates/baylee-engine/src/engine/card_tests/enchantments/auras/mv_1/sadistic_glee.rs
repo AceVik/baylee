@@ -55,3 +55,27 @@ fn sadistic_glee_puts_a_plus_one_plus_one_counter_on_enchanted_creature_when_a_c
     let ch = engine.state().object(bears).unwrap().characteristics();
     assert_eq!((ch.power, ch.toughness), (Some(3), Some(3)));
 }
+
+#[test]
+fn your_creature_dying_also_grows_an_enchanted_opposing_creature() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[LLANOWAR_ELVES],
+        &[GRIZZLY_BEARS],
+        &[sadistic_glee(), LIGHTNING_BOLT],
+        &[],
+    );
+    let bears = on_battlefield(&e, p1, GRIZZLY_BEARS).unwrap();
+    let elves = on_battlefield(&e, p0, LLANOWAR_ELVES).unwrap();
+    lk::float(&mut e, p0, &[(ManaColor::Black, 1), (ManaColor::Red, 1)]);
+    cast_with_floating(&mut e, p0, sadistic_glee());
+    lk::aim(&mut e, &[bears], &[]);
+    lk::settle(&mut e);
+    cast_with_floating(&mut e, p0, LIGHTNING_BOLT);
+    lk::aim(&mut e, &[elves], &[]);
+    lk::settle(&mut e);
+    let ch = e.state().object(bears).unwrap().characteristics();
+    assert_eq!((ch.power, ch.toughness), (Some(3), Some(3)));
+}

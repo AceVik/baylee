@@ -1,51 +1,23 @@
-//! `cards/creatures/mv_3/tempting_licid.rs`, played.
-
+//! The supported creature body is played; omitted abilities are not invented.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
+use crate::engine::card_tests::legends_kit as lk;
 
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
-
-fn tempting_licid() -> CardIndex {
-    card_index("3b2206ed-55e9-4735-b969-59d9e089bb10")
-}
-
-/// Tempting Licid (`3b2206ed-55e9-4735-b969-59d9e089bb10`) — {2}{G} 2/2 Creature — Licid (Partial):
-/// "{G}, {T}: All creatures able to block target creature this turn do so."
 #[test]
-fn tempting_licid_forces_all_able_creatures_to_block_target_creature() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[tempting_licid(), index::HILL_GIANT, forest()])
-        .battlefield(1, &[index::GRIZZLY_BEARS])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let giant = on_battlefield(&engine, P0, index::HILL_GIANT).unwrap();
-    tap_all_mana(&mut engine, P0);
-    activate(&mut engine, P0, tempting_licid(), 0);
-    aim_at(&mut engine, P0, giant);
-    pass_until(&mut engine, stack_is_empty);
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            P0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(giant, Defender::Player(P1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    assert!(
-        engine
-            .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
-            .is_err(),
-        "able blocker must block the creature targeted by Tempting Licid"
-    );
+fn supported_body_attacks_without_an_invented_activation() {
+    let subject = card_index("3b2206ed-55e9-4735-b969-59d9e089bb10");
+    let mut e = lk::game(SEED, &[subject], &[], &[], &[]);
+    let body = lk::obj(&e, lk::P0, subject);
+    for color in ManaColor::ALL {
+        lk::float(&mut e, lk::P0, &[(color, 10)]);
+    }
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority expected")
+    };
+    assert!(!legal.abilities.iter().any(|(source, _)| *source == body));
+    lk::attackers_offered(&mut e);
+    lk::declare(&mut e, &[body]);
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, lk::P1), 18);
 }

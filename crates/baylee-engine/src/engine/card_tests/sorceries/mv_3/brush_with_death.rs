@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -22,8 +23,13 @@ fn brush_with_death_drains_target_opponent_for_two() {
     reach_main_phase(&mut engine, P0);
 
     cast_from_hand(&mut engine, P0, brush_with_death());
+    assert!(engine.apply(P0, PlayerAction::ChoosePlayer(P0)).is_err());
     engine.apply(P0, PlayerAction::ChoosePlayer(P1)).unwrap();
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, brush_with_death()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     assert_eq!(engine.state().players[1].life, 18);
     assert_eq!(engine.state().players[0].life, 22);

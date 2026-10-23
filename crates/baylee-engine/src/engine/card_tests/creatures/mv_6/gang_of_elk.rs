@@ -42,4 +42,6 @@ fn gang_of_elk_gets_plus_two_plus_two_for_each_creature_blocking_it() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, elk), (9, 8));
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(pt(&engine, elk), (5, 4));
 }

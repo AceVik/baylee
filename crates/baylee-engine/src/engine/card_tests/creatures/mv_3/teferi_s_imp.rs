@@ -27,6 +27,15 @@ fn teferi_s_imp_has_1_1_flying_and_phases_out_and_in() {
     assert!(keywords(&engine, imp).contains(KeywordSet::PHASING));
 
     reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !engine
+            .state()
+            .object(imp)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT),
+        "the opponent's untap step does not phase it"
+    );
     reach_their_main_phase(&mut engine, p0);
     assert!(
         engine

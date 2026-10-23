@@ -1,3 +1,5 @@
+//! `cards/instants/mv_2/fend_off.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -30,4 +32,57 @@ fn fend_off_prevents_combat_damage_dealt_by_target_creature() {
     });
 
     assert_eq!(engine.state().players[1].life, 20);
+}
+
+#[test]
+fn cycling_discards_for_two_and_draws_one() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[fend_off()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 2)]);
+    let before = engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len();
+    activate(&mut engine, lk::P0, fend_off(), 1);
+    assert!(in_graveyard(&engine, lk::P0, fend_off()).is_some());
+    assert_eq!(lk::pool_total(&engine, lk::P0), 0);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len(),
+        before
+    );
+}
+
+#[test]
+fn fend_off_prevents_a_blockers_damage_and_expires_next_turn() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[gray_ogre()],
+        &[earth_elemental()],
+        &[fend_off()],
+        &[],
+    );
+    let ogre = lk::obj(&engine, lk::P0, gray_ogre());
+    let blocker = lk::obj(&engine, lk::P1, earth_elemental());
+    lk::float(&mut engine, lk::P0, &[(ManaColor::White, 2)]);
+    lk::cast_at(&mut engine, lk::P0, fend_off(), &[blocker], &[]);
+    lk::attack(&mut engine, &[ogre]);
+    lk::block(&mut engine, &[(blocker, ogre)]);
+    lk::through_combat(&mut engine);
+    assert!(
+        on_battlefield(&engine, lk::P0, gray_ogre()).is_some(),
+        "blocking creature deals no damage either"
+    );
+    assert_eq!(
+        lk::damage_on(&engine, blocker),
+        2,
+        "untargeted attacker still deals damage"
+    );
+    reach_their_main_phase(&mut engine, lk::P1);
+    reach_their_main_phase(&mut engine, lk::P0);
+    lk::attack(&mut engine, &[ogre]);
+    lk::block(&mut engine, &[(blocker, ogre)]);
+    lk::through_combat(&mut engine);
+    assert!(
+        in_graveyard(&engine, lk::P0, gray_ogre()).is_some(),
+        "prevention expired"
+    );
 }

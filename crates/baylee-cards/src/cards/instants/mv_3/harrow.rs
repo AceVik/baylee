@@ -21,6 +21,6 @@ card!(
     abilities = &[spell!(&[Effect::SearchLibrary {
         filter: &Filter::BASIC_LAND,
         finds: &[Find::BATTLEFIELD, Find::BATTLEFIELD],
-        optional: false,
+        optional: true,
     }])],
 );

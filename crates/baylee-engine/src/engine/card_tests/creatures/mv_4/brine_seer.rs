@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_4/brine_seer.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -6,33 +8,29 @@ fn brine_seer() -> CardIndex {
 }
 
 #[test]
-fn brine_seer_counters_target_spell_unless_controller_pays_for_blue_cards_in_hand() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = Duel::new(SEED, island())
-        .hand(0, &[gray_ogre()])
-        .battlefield(0, &[mountain(), mountain(), mountain()])
-        .hand(1, &[counterspell()])
-        .battlefield(1, &[brine_seer(), island(), island(), island()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    cast_from_hand(&mut engine, p0, gray_ogre());
-    let spell_id = on_stack(&engine, gray_ogre()).unwrap();
-    engine.apply(p0, PlayerAction::PassPriority).unwrap();
-
-    tap_all_mana(&mut engine, p1);
-    activate(&mut engine, p1, brine_seer(), 0);
-    aim_at(&mut engine, p1, spell_id);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
-    });
-    if let Pending::YesNo { player, .. } = engine.pending().clone() {
-        engine.apply(player, PlayerAction::YesNo(false)).unwrap();
-    }
+fn brine_seer_does_not_counter_from_an_unrevealed_hand() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[mountain(), mountain(), mountain()],
+        &[brine_seer()],
+        &[gray_ogre()],
+        &[counterspell()],
+    );
+    cast_from_hand(&mut engine, lk::P0, gray_ogre());
+    engine.apply(lk::P0, PlayerAction::PassPriority).unwrap();
+    lk::float(&mut engine, lk::P1, &[(ManaColor::Blue, 10)]);
+    assert!(!lk::offered(&engine, brine_seer(), lk::P1, 0));
     pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, lk::P0, gray_ogre()).is_some());
+}
 
-    assert!(on_battlefield(&engine, p0, gray_ogre()).is_none());
-    assert!(in_graveyard(&engine, p0, gray_ogre()).is_some());
+#[test]
+fn creature_body_remains_playable() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[brine_seer()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 6)]);
+    cast_with_floating(&mut engine, lk::P0, brine_seer());
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, lk::P0, brine_seer()).is_some());
 }

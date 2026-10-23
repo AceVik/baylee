@@ -17,7 +17,7 @@ fn knight_of_dusk() -> CardIndex {
 fn knight_of_dusk_destroys_target_creature_blocking_it() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[knight_of_dusk(), swamp(), swamp()])
-        .battlefield(1, &[index::HILL_GIANT])
+        .battlefield(1, &[index::HILL_GIANT, index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -50,7 +50,9 @@ fn knight_of_dusk_destroys_target_creature_blocking_it() {
 
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, knight_of_dusk(), 0);
-    aim_at(&mut engine, P0, giant);
+    let idle = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).unwrap();
+    let menu = aim_at(&mut engine, P0, giant);
+    assert!(!menu.contains(&idle));
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_none());

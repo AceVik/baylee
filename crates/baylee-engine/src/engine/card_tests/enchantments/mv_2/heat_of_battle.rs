@@ -50,4 +50,5 @@ fn heat_of_battle_deals_one_damage_to_blocking_creatures_controller() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(engine.state().players[1].life, 19);
+    assert_eq!(engine.state().players[0].life, 20);
 }

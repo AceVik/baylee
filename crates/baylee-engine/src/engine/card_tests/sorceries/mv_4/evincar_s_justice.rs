@@ -35,4 +35,5 @@ fn evincar_s_justice_deals_two_damage_to_each_creature_and_each_player() {
     );
     assert_eq!(engine.state().players[0].life, 18);
     assert_eq!(engine.state().players[1].life, 18);
+    assert!(in_graveyard(&engine, P0, evincar_s_justice()).is_some());
 }

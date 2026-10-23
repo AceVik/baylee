@@ -41,3 +41,23 @@ fn wayward_soul_puts_itself_on_top_of_owners_library() {
         wayward_soul()
     );
 }
+
+#[test]
+fn wayward_soul_flies_over_ground_creatures() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[wayward_soul()],
+        &[gray_ogre(), index::WIND_DRAKE],
+        &[],
+        &[],
+    );
+    let soul = lk::obj(&e, p0, wayward_soul());
+    let ground = lk::obj(&e, p1, gray_ogre());
+    let flyer = lk::obj(&e, p1, index::WIND_DRAKE);
+    let offer = lk::attack(&mut e, &[soul]);
+    assert!(!lk::may_block(&offer, ground, soul));
+    assert!(lk::may_block(&offer, flyer, soul));
+}

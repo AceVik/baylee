@@ -2,7 +2,7 @@
 //! Oracle: Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)
 //! Oracle: Return target creature card from your graveyard to your hand.
 //! Set: TMP #129 — Tempest | Scryfall ID: 06254b6c-eb22-4ec9-9420-74e9ee15e072 | Oracle ID: cdbaa21d-5896-4b8b-9a08-f0839ccfddfc
-// PARTIAL
+// PARTIAL — Returns target creature card from your graveyard to your hand; Buyback {3} (paying an additional {3} as you cast this spell to put it into your hand as it resolves) is not yet modeled.
 
 use baylee_cards_dsl::prelude::*;
 

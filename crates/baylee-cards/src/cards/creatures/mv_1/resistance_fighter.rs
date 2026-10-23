@@ -24,7 +24,7 @@ card!(
         cost!(SacrificeSelf),
         &[Effect::continuous(
             &Filter::This,
-            Modifier::AssignsNoCombatDamage,
+            Modifier::PreventDamageFromIt,
             Duration::UntilEndOfTurn,
         )],
         target = Some(TargetSpec::Object(&Filter::CREATURE)),

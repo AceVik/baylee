@@ -2,7 +2,7 @@
 //! Oracle: Flying
 //! Oracle: When this creature dies, exile it, then return the top creature card of your graveyard to the battlefield.
 //! Set: VMA #34 — Vintage Masters | Scryfall ID: 0831f747-b3e5-4e5f-9cc2-ad581a90797a | Oracle ID: 7fe9d30f-c778-4769-a3ae-3cb48cd23e07
-// PARTIAL — Exiles itself when it dies and returns a creature card from your graveyard to the battlefield; restricting the returned card to the top creature card of your graveyard is not yet modeled.
+// PARTIAL — Flying and self-exile on death; returning the top creature card of your graveyard is omitted because the return effect permits choosing any creature card.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,7 +14,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FLYING,
     coverage = Coverage::Partial(
-        "Exiles itself when it dies and returns a creature card from your graveyard to the battlefield; restricting the returned card to the top creature card of your graveyard is not yet modeled."
+        "Flying and self-exile on death; returning the top creature card of your graveyard is omitted because the return effect permits choosing any creature card."
     ),
     faces = &[face!(
         name = "Mistmoon Griffin",
@@ -28,10 +28,8 @@ card!(
         Trigger::Dies(&Filter::This),
         &[
             Effect::ExileSource,
-            Effect::ReturnFromGraveyardOf {
-                whose: PlayerRel::You,
-                filter: &Filter::CREATURE
-            }
+            // NOT SUPPORTED: Return the top creature card of your graveyard to the battlefield.
+            // ReturnFromGraveyardOf would allow choosing a different card.
         ]
-    ),],
+    )],
 );

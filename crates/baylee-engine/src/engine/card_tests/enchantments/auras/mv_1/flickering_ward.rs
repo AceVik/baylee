@@ -43,3 +43,38 @@ fn flickering_ward_chooses_color_on_entry_and_bounces_for_white() {
     assert!(on_battlefield(&engine, P0, flickering_ward()).is_none());
     assert!(in_hand(&engine, P0, flickering_ward()).is_some());
 }
+
+#[test]
+fn flickering_ward_protects_from_its_chosen_color_and_bouncing_ends_the_protection() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS, index::HILL_GIANT],
+        &[],
+        &[
+            flickering_ward(),
+            index::HOLY_STRENGTH,
+            index::HOLY_STRENGTH,
+        ],
+        &[],
+    );
+    let bears = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let giant = lk::obj(&e, P0, index::HILL_GIANT);
+    lk::float(&mut e, P0, &[(ManaColor::White, 4)]);
+    cast_with_floating(&mut e, P0, flickering_ward());
+    lk::aim(&mut e, &[bears], &[]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseColor { .. })
+    });
+    e.apply(P0, PlayerAction::ChooseColor(ManaColor::White))
+        .unwrap();
+    lk::settle(&mut e);
+    assert!(on_battlefield(&e, P0, flickering_ward()).is_some());
+    cast_with_floating(&mut e, P0, index::HOLY_STRENGTH);
+    let menu = aim_at(&mut e, P0, giant);
+    assert!(!menu.contains(&bears));
+    lk::settle(&mut e);
+    lk::use_ability(&mut e, P0, flickering_ward(), 2, &[], &[]);
+    lk::cast_at(&mut e, P0, index::HOLY_STRENGTH, &[bears], &[]);
+    assert_eq!(pt(&e, bears), (3, 4));
+}

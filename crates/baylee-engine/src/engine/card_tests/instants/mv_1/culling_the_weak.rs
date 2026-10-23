@@ -28,3 +28,21 @@ fn culling_the_weak_sacrifices_creature_and_adds_four_black_mana() {
     assert!(on_battlefield(&engine, P0, index::GRIZZLY_BEARS).is_none());
     assert_eq!(engine.state().players[0].mana_pool.total(), 4);
 }
+
+#[test]
+fn culling_the_weak_cannot_sacrifice_an_opponents_creature() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[],
+        &[index::GRIZZLY_BEARS],
+        &[culling_the_weak()],
+        &[],
+    );
+    lk::float(&mut e, P0, &[(ManaColor::Black, 10)]);
+    let card = in_hand(&e, P0, culling_the_weak()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.castable.contains(&card) && !legal.payable.contains(&card));
+}

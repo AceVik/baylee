@@ -15,7 +15,15 @@ fn elven_rite() -> CardIndex {
 #[test]
 fn elven_rite_puts_two_plus_one_counters_on_target_creature() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), index::GRIZZLY_BEARS])
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                index::GRIZZLY_BEARS,
+                index::SAVANNAH_LIONS,
+            ],
+        )
         .hand(0, &[elven_rite()])
         .start();
     keep_mulligans(&mut engine);
@@ -27,4 +35,6 @@ fn elven_rite_puts_two_plus_one_counters_on_target_creature() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bears), (4, 4));
+    let lions = on_battlefield(&engine, P0, index::SAVANNAH_LIONS).unwrap();
+    assert_eq!(pt(&engine, lions), (2, 1));
 }

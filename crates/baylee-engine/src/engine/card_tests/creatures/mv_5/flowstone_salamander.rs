@@ -20,7 +20,7 @@ fn flowstone_salamander_deals_one_damage_to_target_creature_blocking_it() {
             0,
             &[flowstone_salamander(), index::MOUNTAIN, index::MOUNTAIN],
         )
-        .battlefield(1, &[index::GRIZZLY_BEARS])
+        .battlefield(1, &[index::GRIZZLY_BEARS, index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -53,7 +53,9 @@ fn flowstone_salamander_deals_one_damage_to_target_creature_blocking_it() {
 
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, flowstone_salamander(), 0);
-    aim_at(&mut engine, P0, bears);
+    let idle = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
+    let menu = aim_at(&mut engine, P0, bears);
+    assert!(!menu.contains(&idle));
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

@@ -1,7 +1,7 @@
 //! Skyshaper — {2} — Artifact
 //! Oracle: Sacrifice this artifact: Creatures you control gain flying until end of turn.
 //! Set: TPR #231 — Tempest Remastered | Scryfall ID: bfebe9f6-9915-47d2-8565-ca9132ee29ff | Oracle ID: b5642460-883c-4e38-8552-9bea4e50d8e8
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 

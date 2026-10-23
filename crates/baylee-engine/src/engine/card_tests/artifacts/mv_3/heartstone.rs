@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -44,4 +45,57 @@ fn heartstone_reduces_generic_activated_ability_cost_to_minimum_one() {
 
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, mindwarper(), 0);
+    engine
+        .apply(P0, PlayerAction::ChoosePlayer(lk::P1))
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(player, lk::P1);
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseObjects {
+                objects: vec![options[0]],
+            },
+        )
+        .unwrap();
+    lk::settle(&mut engine);
+    assert_eq!(lk::pool_total(&engine, P0), 0);
+    assert!(in_graveyard(&engine, lk::P1, index::GRIZZLY_BEARS).is_some());
+}
+
+#[test]
+fn global_creature_discount_never_makes_one_mana_free_and_leaves_artifacts_unchanged() {
+    let ants = card_index("87bc6be7-4734-4a11-806e-e9e4f5616fe0");
+    let mut e = lk::game(
+        SEED,
+        &[heartstone(), heartstone(), ants, index::BULLWHIP],
+        &[ants],
+        &[],
+        &[],
+    );
+    assert!(!lk::offered(&e, ants, P0, 0), "minimum one mana");
+    lk::float(&mut e, P0, &[(ManaColor::Colorless, 1)]);
+    assert!(lk::offered(&e, ants, P0, 0));
+    assert!(
+        !lk::offered(&e, index::BULLWHIP, P0, 0),
+        "artifact still costs two"
+    );
+    lk::use_ability(&mut e, P0, ants, 0, &[], &[]);
+    let mine = lk::obj(&e, P0, ants);
+    assert_eq!(pt(&e, mine), (1, 2));
+    assert_eq!(lk::pool_total(&e, P0), 0);
+    reach_their_main_phase(&mut e, lk::P1);
+    lk::float(&mut e, lk::P1, &[(ManaColor::Colorless, 1)]);
+    lk::use_ability(&mut e, lk::P1, ants, 0, &[], &[]);
+    let theirs = lk::obj(&e, lk::P1, ants);
+    assert_eq!(pt(&e, theirs), (1, 2));
+    assert_eq!(lk::pool_total(&e, lk::P1), 0);
 }

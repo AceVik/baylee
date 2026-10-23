@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::engine::card_tests::partials_w2c_kit::power_toughness;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -27,4 +28,26 @@ fn spirit_en_kor_enters_with_flying() {
     let spirit = on_battlefield(&engine, P0, spirit_en_kor()).unwrap();
     assert_eq!(power_toughness(&engine, spirit), (2, 2));
     assert!(keywords(&engine, spirit).contains(KeywordSet::FLYING));
+}
+
+#[test]
+fn flying_excludes_ground_blockers_but_allows_flying_blockers() {
+    use baylee_core::generated::index;
+    let mut e = lk::game(
+        SEED,
+        &[spirit_en_kor()],
+        &[index::GRIZZLY_BEARS, index::AIR_ELEMENTAL],
+        &[],
+        &[],
+    );
+    let spirit = lk::obj(&e, P0, spirit_en_kor());
+    let bear = lk::obj(&e, lk::P1, index::GRIZZLY_BEARS);
+    let air = lk::obj(&e, lk::P1, index::AIR_ELEMENTAL);
+    lk::attackers_offered(&mut e);
+    let options = lk::declare(&mut e, &[spirit]);
+    assert!(!lk::may_block(&options, bear, spirit));
+    assert!(lk::may_block(&options, air, spirit));
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, lk::P1), 18);
 }

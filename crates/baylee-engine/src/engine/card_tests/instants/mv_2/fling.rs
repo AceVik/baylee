@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -57,4 +58,15 @@ fn fling_sacrifices_creature_and_deals_its_power_in_damage() {
 
     assert!(in_graveyard(&engine, P0, index::HILL_GIANT).is_some());
     assert_eq!(engine.state().players[1].life, 17);
+}
+
+#[test]
+fn opposing_creature_cannot_pay_the_additional_sacrifice() {
+    let mut e = lk::game(SEED, &[], &[index::HILL_GIANT], &[fling()], &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Red, 2)]);
+    let spell = in_hand(&e, P0, fling()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert!(!legal.castable.contains(&spell) && !legal.payable.contains(&spell));
 }

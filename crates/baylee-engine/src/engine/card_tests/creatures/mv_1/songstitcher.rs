@@ -38,3 +38,40 @@ fn songstitcher_prevents_combat_damage_from_attacking_flyer() {
 
     assert_eq!(engine.state().players[0].life, 20);
 }
+
+#[test]
+fn songstitcher_excludes_ground_attackers_and_idle_flyers() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[songstitcher()],
+        &[somnophore(), gray_ogre()],
+        &[],
+        &[],
+    );
+    lk::float(&mut e, p0, &[(ManaColor::White, 2)]);
+    assert!(
+        !lk::offered(&e, songstitcher(), p0, 0),
+        "idle flyer is not a target"
+    );
+    reach_their_main_phase(&mut e, p1);
+    let flyer = lk::obj(&e, p1, somnophore());
+    let ground = lk::obj(&e, p1, gray_ogre());
+    lk::attack(&mut e, &[flyer, ground]);
+    lk::block(&mut e, &[]);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    lk::float(&mut e, p0, &[(ManaColor::White, 2)]);
+    activate(&mut e, p0, songstitcher(), 0);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target")
+    };
+    assert!(options.contains(&flyer) && !options.contains(&ground));
+    lk::aim(&mut e, &[flyer], &[]);
+    lk::settle(&mut e);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, p0), 18, "ground attack is unaffected");
+}

@@ -18,6 +18,7 @@ card!(
         mana_cost = mana!("{2}{U}{U}"),
         types = TypeSet::INSTANT,
     ),],
+    // NOT SUPPORTED: choosing artifact, creature, or land and choosing to tap or untap all permanents of that type target player controls is not in Effect; taps all creatures target player controls.
     abilities = &[spell!(
         &[Effect::TapAllOf {
             who: PlayerRel::Chosen,

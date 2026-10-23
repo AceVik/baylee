@@ -6,12 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OTHER_WITHOUT_FLYING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Another,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
-]);
-
 card!(
     index = index::FIRE_ANTS,
     oracle_id = "c23543b7-f637-4a7c-9b72-ec411cd5488e",
@@ -30,7 +24,11 @@ card!(
         Cost::TAP,
         &[Effect::DealDamageEach {
             amount: Amount::Fixed(1),
-            filter: &OTHER_WITHOUT_FLYING,
+            filter: &Filter::And(&[
+                Filter::CREATURE,
+                Filter::Another,
+                Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
+            ]),
         }],
     )],
 );

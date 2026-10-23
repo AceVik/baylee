@@ -1,36 +1,23 @@
-//! `cards/creatures/mv_3/calming_licid.rs`, played.
-
+//! The supported creature body is played; omitted abilities are not invented.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
+use crate::engine::card_tests::legends_kit as lk;
 
-const P0: PlayerId = PlayerId::new(0);
-
-fn calming_licid() -> CardIndex {
-    card_index("93d20859-249f-47ae-8f6d-095228e7b6e9")
-}
-
-/// Calming Licid (`93d20859-249f-47ae-8f6d-095228e7b6e9`) — {2}{W} 2/2 Creature — Licid (Partial):
-/// "{W}, {T}: Target creature can't attack this turn."
 #[test]
-fn calming_licid_prevents_target_creature_from_attacking() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[plains(), calming_licid(), index::GRIZZLY_BEARS])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
-    tap_all_mana(&mut engine, P0);
-    activate(&mut engine, P0, calming_licid(), 0);
-    aim_at(&mut engine, P0, bears);
-    pass_until(&mut engine, stack_is_empty);
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    let Pending::ChooseAttackers { attackers, .. } = engine.pending().clone() else {
-        panic!("expected ChooseAttackers");
+fn supported_body_attacks_without_an_invented_activation() {
+    let subject = card_index("93d20859-249f-47ae-8f6d-095228e7b6e9");
+    let mut e = lk::game(SEED, &[subject], &[], &[], &[]);
+    let body = lk::obj(&e, lk::P0, subject);
+    for color in ManaColor::ALL {
+        lk::float(&mut e, lk::P0, &[(color, 10)]);
+    }
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority expected")
     };
-    assert!(!attackers.contains(&bears));
+    assert!(!legal.abilities.iter().any(|(source, _)| *source == body));
+    lk::attackers_offered(&mut e);
+    lk::declare(&mut e, &[body]);
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, lk::P1), 18);
 }

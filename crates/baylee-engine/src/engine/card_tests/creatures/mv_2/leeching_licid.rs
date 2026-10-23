@@ -1,32 +1,21 @@
-//! `cards/creatures/mv_2/leeching_licid.rs`, played.
+//! Reviewed leeching licid behavior.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
-
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
+use crate::engine::card_tests::legends_kit as lk;
 
 fn leeching_licid() -> CardIndex {
     card_index("bcb5af89-a304-4de0-86af-b3f4cfabafc4")
 }
 
-/// Leeching Licid (`bcb5af89-a304-4de0-86af-b3f4cfabafc4`) — {1}{B} Creature — Licid (Partial):
-/// "{B}, {T}: ... deals 1 damage to that player."
 #[test]
-fn leeching_licid_deals_one_damage_to_target_creatures_controller() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[leeching_licid(), swamp()])
-        .battlefield(1, &[index::GRIZZLY_BEARS])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).unwrap();
-    tap_all_mana(&mut engine, P0);
-    activate(&mut engine, P0, leeching_licid(), 0);
-    aim_at(&mut engine, P0, bears);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().players[1].life, 19);
+fn leeching_licid_body_casts_without_the_unprinted_tap_ability() {
+    let mut e = lk::game(SEED, &[], &[], &[leeching_licid()], &[]);
+    lk::float(&mut e, lk::P0, &[(ManaColor::Black, 3)]);
+    lk::cast_at(&mut e, lk::P0, leeching_licid(), &[], &[]);
+    assert!(on_battlefield(&e, lk::P0, leeching_licid()).is_some());
+    reach_their_main_phase(&mut e, lk::P1);
+    reach_their_main_phase(&mut e, lk::P0);
+    lk::float(&mut e, lk::P0, &[(ManaColor::Black, 1)]);
+    assert!(!lk::offered(&e, leeching_licid(), lk::P0, 0));
 }

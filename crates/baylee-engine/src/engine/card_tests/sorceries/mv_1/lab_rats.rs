@@ -23,8 +23,22 @@ fn lab_rats_creates_one_one_black_rat_token() {
 
     cast_from_hand(&mut engine, P0, lab_rats());
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, lab_rats()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     let tokens = tokens_of(&engine, P0);
     assert_eq!(tokens.len(), 1);
     assert_eq!(power_toughness(&engine, tokens[0]), (1, 1));
+    let token = engine.state().object(tokens[0]).unwrap().characteristics();
+    assert_eq!(
+        token.colors,
+        baylee_core::color::ColorSet::from_slice(&[baylee_core::color::Color::Black])
+    );
+    assert!(
+        token
+            .subtypes
+            .contains(baylee_core::generated::subtypes::creature::RAT)
+    );
 }

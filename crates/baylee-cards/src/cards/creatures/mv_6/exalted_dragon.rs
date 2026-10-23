@@ -2,6 +2,7 @@
 //! Oracle: Flying
 //! Oracle: This creature can't attack unless you sacrifice a land. (This cost is paid as attackers are declared.)
 //! Set: TPR #12 — Tempest Remastered | Scryfall ID: 0cf0866d-4544-4074-bf55-fcac0799c764 | Oracle ID: c901805e-c196-4b9d-8d5a-e17367fb37bc
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

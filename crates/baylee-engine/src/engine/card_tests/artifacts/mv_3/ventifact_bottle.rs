@@ -72,3 +72,32 @@ fn ventifact_bottle_stores_charge_counters_and_drains_them_for_mana_at_first_mai
         2
     );
 }
+
+/// Ventifact Bottle — "if this artifact has a charge counter on it": with
+/// none, the first main phase taps nothing and adds no mana.
+#[test]
+fn ventifact_bottle_without_a_charge_counter_does_nothing_at_first_main() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[ventifact_bottle()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let bottle = on_battlefield(&engine, p0, ventifact_bottle()).unwrap();
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert!(
+        !is_tapped(&engine, bottle),
+        "nothing to drain, nothing tapped"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        0,
+        "no counter, no {{C}}"
+    );
+}

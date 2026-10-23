@@ -18,3 +18,28 @@ fn imaginary_pet_returns_to_hand_at_upkeep_when_hand_is_nonempty() {
     assert!(on_battlefield(&engine, p0, imaginary_pet()).is_none());
     assert!(in_hand(&engine, p0, imaginary_pet()).is_some());
 }
+
+#[test]
+fn imaginary_pet_stays_with_an_empty_hand_and_ignores_the_opponents_upkeep() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[imaginary_pet()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, imaginary_pet()).is_some(),
+        "empty hand at upkeep"
+    );
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, imaginary_pet()).is_some(),
+        "the draw does not make the opponent's upkeep ours"
+    );
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        in_hand(&engine, p0, imaginary_pet()).is_some(),
+        "next own upkeep sees the drawn card"
+    );
+}

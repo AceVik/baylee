@@ -2,7 +2,9 @@
 //! Oracle: At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a creature.
 //! Oracle: If a land is tapped for mana, it produces {B} instead of any other type and amount.
 //! Set: USG #123 — Urza's Saga | Scryfall ID: 86067dfe-65c3-4c96-bccd-b3915d6663f9 | Oracle ID: 4013b4c2-c9ed-4d14-90f0-97214ec1fded
-// PARTIAL
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,24 +13,11 @@ card!(
     oracle_id = "4013b4c2-c9ed-4d14-90f0-97214ec1fded",
     scryfall_id = "86067dfe-65c3-4c96-bccd-b3915d6663f9",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "replacing all mana a land produces when tapped with a single {B} is not in Modifier; implements the upkeep sacrifice-a-creature-or-sacrifice-this trigger",
-    ),
     faces = &[face!(
         name = "Contamination",
         mana_cost = mana!("{2}{B}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[triggered!(
-        Trigger::StepBegin {
-            step: StepKind::Upkeep,
-            whose: PlayerRel::You,
-        },
-        &[Effect::PlayerMaySacrificeNOr {
-            player: PlayerRel::You,
-            count: 1,
-            filter: &Filter::CREATURE,
-            effect: &Effect::SacrificeSelf,
-        }],
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

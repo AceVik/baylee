@@ -1,5 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 fn victimize() -> CardIndex {
     card_index("240e85d3-e495-4877-8609-4b4056c402f7")
@@ -66,4 +67,61 @@ fn victimize_sacrifices_creature_to_return_two_creatures_from_graveyard() {
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_none());
     assert!(on_battlefield(&engine, p0, gray_ogre()).is_some());
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_some());
+    assert!(is_tapped(
+        &engine,
+        on_battlefield(&engine, p0, gray_ogre()).unwrap()
+    ));
+    assert!(is_tapped(
+        &engine,
+        on_battlefield(&engine, p0, grizzly_bears()).unwrap()
+    ));
+}
+
+#[test]
+fn victimize_cannot_return_targets_without_a_creature_to_sacrifice() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[],
+        &[],
+        &[victimize(), gray_ogre(), grizzly_bears()],
+        &[gray_ogre()],
+    );
+    let ogre = in_hand(&engine, p0, gray_ogre()).unwrap();
+    let bears = in_hand(&engine, p0, grizzly_bears()).unwrap();
+    let theirs = in_hand(&engine, p1, gray_ogre()).unwrap();
+    for (id, owner) in [(ogre, p0), (bears, p0), (theirs, p1)] {
+        engine
+            .dev_state_mut(p0)
+            .unwrap()
+            .move_object(
+                id,
+                ZoneLocation::Graveyard(owner),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Setup,
+            )
+            .unwrap();
+    }
+    lk::float(&mut engine, p0, &[(ManaColor::Black, 3)]);
+    cast_with_floating(&mut engine, p0, victimize());
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!options.contains(&theirs));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![ogre],
+                    players: vec![]
+                }
+            )
+            .is_err()
+    );
+    lk::aim(&mut engine, &[ogre, bears], &[]);
+    lk::settle(&mut engine);
+    assert!(in_graveyard(&engine, p0, gray_ogre()).is_some());
+    assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
 }

@@ -12,6 +12,7 @@ fn corrupt_drains_for_number_of_swamps_controlled() {
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[corrupt()])
         .battlefield(0, &[swamp(), swamp(), swamp(), swamp(), swamp(), swamp()])
+        .battlefield(1, &[swamp(), swamp()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

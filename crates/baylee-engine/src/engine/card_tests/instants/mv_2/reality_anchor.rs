@@ -59,4 +59,14 @@ fn reality_anchor_removes_shadow_from_target_creature_and_draws_a_card() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before
     );
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        engine
+            .state()
+            .object(ghoul)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::SHADOW)
+    );
 }

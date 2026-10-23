@@ -46,3 +46,40 @@ fn rumbling_crescendo_adds_verse_counter_and_destroys_target_land() {
     assert!(on_battlefield(&engine, p1, forest()).is_none());
     assert!(in_graveyard(&engine, p1, forest()).is_some());
 }
+
+#[test]
+fn rumbling_crescendo_partial_never_uses_a_target_without_a_verse_counter() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game_with(
+        SEED,
+        &[rumbling_crescendo()],
+        &[forest(), sol_ring()],
+        &[],
+        &[],
+        |e| lk::yes_no(e, false),
+    );
+    lk::float(&mut e, p0, &[(ManaColor::Red, 1)]);
+    assert!(!lk::offered(&e, rumbling_crescendo(), p0, 1));
+    let id = lk::obj(&e, p0, rumbling_crescendo());
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(id)
+        .unwrap()
+        .counters
+        .add(baylee_cards_dsl::counters::VERSE, 1);
+    e.refresh_offer();
+    assert!(lk::offered(&e, rumbling_crescendo(), p0, 1));
+    activate(&mut e, p0, rumbling_crescendo(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target")
+    };
+    let excluded = lk::obj(&e, PlayerId::new(1), sol_ring());
+    assert!(!options.contains(&excluded));
+    lk::aim(&mut e, &[], &[]);
+    lk::settle(&mut e);
+    assert!(
+        in_graveyard(&e, p0, rumbling_crescendo()).is_some(),
+        "up to one includes zero targets"
+    );
+}

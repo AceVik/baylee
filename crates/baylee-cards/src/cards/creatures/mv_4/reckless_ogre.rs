@@ -1,7 +1,7 @@
 //! Reckless Ogre — {3}{R} — Creature — Ogre
 //! Oracle: Whenever this creature attacks alone, it gets +3/+0 until end of turn.
 //! Set: EXO #98 — Exodus | Scryfall ID: 90d27b79-a22d-48d9-86b2-7ad02cab8697 | Oracle ID: fe455177-d9e5-4893-ad87-ebbba5e2fa45
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

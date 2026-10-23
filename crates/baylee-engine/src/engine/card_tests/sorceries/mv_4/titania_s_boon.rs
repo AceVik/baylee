@@ -33,3 +33,26 @@ fn titania_s_boon_puts_plus_one_counter_on_each_creature_you_control() {
     assert_eq!(pt(&engine, ogre), (3, 3));
     assert_eq!(pt(&engine, elephant), (4, 4));
 }
+
+#[test]
+fn titania_s_boon_excludes_opponents_creatures_and_your_noncreatures() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[gray_ogre(), forest()],
+        &[gray_ogre()],
+        &[titania_s_boon()],
+        &[],
+    );
+    let mine = lk::obj(&e, p0, gray_ogre());
+    let theirs = lk::obj(&e, p1, gray_ogre());
+    let land = lk::obj(&e, p0, forest());
+    lk::float(&mut e, p0, &[(ManaColor::Green, 4)]);
+    lk::cast_at(&mut e, p0, titania_s_boon(), &[], &[]);
+    assert_eq!(counters_on(&e, mine, CounterKind::P1P1), 1);
+    assert_eq!(counters_on(&e, theirs, CounterKind::P1P1), 0);
+    assert_eq!(counters_on(&e, land, CounterKind::P1P1), 0);
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(pt(&e, mine), (3, 3));
+}

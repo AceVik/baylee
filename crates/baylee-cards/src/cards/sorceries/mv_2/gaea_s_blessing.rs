@@ -3,7 +3,7 @@
 //! Oracle: Draw a card.
 //! Oracle: When this card is put into your graveyard from your library, shuffle your graveyard into your library.
 //! Set: DOM #161 — Dominaria | Scryfall ID: 23cf81ed-b86c-42b8-b796-2032b0a3654a | Oracle ID: bd5478df-3854-404b-8634-9debcef69b99
-// NOT SUPPORTED: triggering when Gaea's Blessing is put into your graveyard from your library is not yet modeled.
+// PARTIAL — the spell is complete (target player shuffles up to three target cards from their graveyard into their library, you draw a card); "When this card is put into your graveyard from your library, shuffle your graveyard into your library" is missing (no trigger for a card milled from the library).
 
 use baylee_cards_dsl::prelude::*;
 
@@ -13,7 +13,7 @@ card!(
     scryfall_id = "23cf81ed-b86c-42b8-b796-2032b0a3654a",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     coverage = Coverage::Partial(
-        "puts up to three target cards from target player's graveyard into their library, shuffles that player's library, and draws a card; the triggered ability when Gaea's Blessing is put into your graveyard from your library is not yet modeled",
+        "puts up to three target cards from target player's graveyard into their library, shuffles that player's library, and draws a card; the trigger 'when this card is put into your graveyard from your library, shuffle your graveyard into your library' is missing because there is no trigger for a card put into the graveyard from the library",
     ),
     faces = &[face!(
         name = "Gaea's Blessing",

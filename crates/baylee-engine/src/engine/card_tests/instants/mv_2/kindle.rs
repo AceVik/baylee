@@ -49,3 +49,20 @@ fn kindle_deals_two_plus_the_number_of_kindles_in_all_graveyards() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[1].life, 15);
 }
+
+#[test]
+fn kindle_counts_the_opponents_graveyard_but_not_other_card_names() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let mut e = lk::game(SEED, &[index::GRIZZLY_BEARS], &[], &[kindle()], &[kindle()]);
+    let bears = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    bury(&mut e, &[bears]);
+    e.refresh_offer();
+    lk::float(&mut e, P0, &[(ManaColor::Red, 2)]);
+    e.apply(P0, PlayerAction::PassPriority).unwrap();
+    lk::float(&mut e, P1, &[(ManaColor::Red, 2)]);
+    lk::cast_at(&mut e, P1, kindle(), &[], &[P0]);
+    assert_eq!(lk::life(&e, P0), 18);
+    lk::cast_at(&mut e, P0, kindle(), &[], &[P1]);
+    assert_eq!(lk::life(&e, P1), 17);
+}

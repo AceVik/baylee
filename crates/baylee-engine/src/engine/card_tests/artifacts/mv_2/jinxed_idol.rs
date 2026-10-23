@@ -21,9 +21,21 @@ fn jinxed_idol_sacrifices_creature_to_hand_control_to_opponent_and_damages_at_up
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
+    assert_eq!(engine.state().players[0].life, 18);
     let idol = on_battlefield(&engine, P0, jinxed_idol()).unwrap();
     let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
     activate(&mut engine, P0, jinxed_idol(), 1);
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![P0]
+                }
+            )
+            .is_err()
+    );
     engine
         .apply(
             P0,
@@ -48,4 +60,7 @@ fn jinxed_idol_sacrifices_creature_to_hand_control_to_opponent_and_damages_at_up
     // Advance to P1's upkeep: Jinxed Idol deals 2 damage to P1.
     reach_their_main_phase(&mut engine, P1);
     assert_eq!(engine.state().players[1].life, 18);
+    assert_eq!(engine.state().players[0].life, 18);
+    reach_their_main_phase(&mut engine, P0);
+    assert_eq!(engine.state().players[0].life, 18);
 }

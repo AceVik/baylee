@@ -46,3 +46,40 @@ fn serra_s_liturgy_adds_verse_counter_and_destroys_artifact_or_enchantment() {
     assert!(on_battlefield(&engine, p1, sol_ring()).is_none());
     assert!(in_graveyard(&engine, p1, sol_ring()).is_some());
 }
+
+#[test]
+fn serra_s_liturgy_partial_never_uses_a_target_without_a_verse_counter() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game_with(
+        SEED,
+        &[serra_s_liturgy()],
+        &[forest(), sol_ring()],
+        &[],
+        &[],
+        |e| lk::yes_no(e, false),
+    );
+    lk::float(&mut e, p0, &[(ManaColor::White, 1)]);
+    assert!(!lk::offered(&e, serra_s_liturgy(), p0, 1));
+    let id = lk::obj(&e, p0, serra_s_liturgy());
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(id)
+        .unwrap()
+        .counters
+        .add(baylee_cards_dsl::counters::VERSE, 1);
+    e.refresh_offer();
+    assert!(lk::offered(&e, serra_s_liturgy(), p0, 1));
+    activate(&mut e, p0, serra_s_liturgy(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target")
+    };
+    let excluded = lk::obj(&e, PlayerId::new(1), forest());
+    assert!(!options.contains(&excluded));
+    lk::aim(&mut e, &[], &[]);
+    lk::settle(&mut e);
+    assert!(
+        in_graveyard(&e, p0, serra_s_liturgy()).is_some(),
+        "up to one includes zero targets"
+    );
+}

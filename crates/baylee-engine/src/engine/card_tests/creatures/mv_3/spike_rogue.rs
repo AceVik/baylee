@@ -42,6 +42,11 @@ fn spike_rogue_enters_with_two_counters_and_moves_counter_to_target_creature() {
             },
         )
         .unwrap();
+    let land = on_battlefield(&engine, p0, forest()).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("targets")
+    };
+    assert!(!options.contains(&land));
     engine
         .apply(
             p0,

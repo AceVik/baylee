@@ -53,7 +53,20 @@ fn chimeric_staff_becomes_x_x_construct_artifact_creature_until_end_of_turn() {
             .object(staff)
             .unwrap()
             .characteristics()
+            .subtypes
+            .contains(&baylee_core::generated::subtypes::creature::CONSTRUCT)
+    );
+    assert!(
+        engine
+            .state()
+            .object(staff)
+            .unwrap()
+            .characteristics()
             .types
             .contains(TypeSet::CREATURE)
     );
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    let chars = engine.state().object(staff).unwrap().characteristics();
+    assert!(chars.types.contains(TypeSet::ARTIFACT));
+    assert!(!chars.types.contains(TypeSet::CREATURE));
 }

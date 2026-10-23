@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_6/shivan_phoenix.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -34,4 +36,14 @@ fn shivan_phoenix_returns_to_hand_on_death() {
 
     assert!(in_hand(&engine, p0, shivan_phoenix()).is_some());
     assert!(in_graveyard(&engine, p0, shivan_phoenix()).is_none());
+}
+
+#[test]
+fn shivan_phoenix_flies_over_a_ground_blocker() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[shivan_phoenix()], &[gray_ogre()], &[], &[]);
+    let phoenix = lk::obj(&engine, lk::P0, shivan_phoenix());
+    let blocker = lk::obj(&engine, lk::P1, gray_ogre());
+    let offer = lk::attack(&mut engine, &[phoenix]);
+    assert!(!lk::may_block(&offer, blocker, phoenix));
 }

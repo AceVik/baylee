@@ -32,3 +32,34 @@ fn retaliation_pumps_your_creature_when_blocked() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, attacker), (3, 3));
 }
+
+#[test]
+fn retaliation_triggers_per_blocker_and_is_not_granted_to_opponents() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for mine in [false, true] {
+        let mut e = lk::game(
+            SEED,
+            &[retaliation(), gray_ogre()],
+            &[gray_ogre(), llanowar_elves(), index::ORNITHOPTER],
+            &[],
+            &[],
+        );
+        let my_ogre = lk::obj(&e, p0, gray_ogre());
+        let their_ogre = lk::obj(&e, p1, gray_ogre());
+        if mine {
+            let elf = lk::obj(&e, p1, llanowar_elves());
+            let thopter = lk::obj(&e, p1, index::ORNITHOPTER);
+            lk::attack(&mut e, &[my_ogre]);
+            lk::block(&mut e, &[(elf, my_ogre), (thopter, my_ogre)]);
+        } else {
+            reach_their_main_phase(&mut e, p1);
+            lk::attack(&mut e, &[their_ogre]);
+            lk::block(&mut e, &[(my_ogre, their_ogre)]);
+        }
+        lk::settle(&mut e);
+        assert_eq!(pt(&e, my_ogre), if mine { (4, 4) } else { (2, 2) });
+        assert_eq!(pt(&e, their_ogre), (2, 2));
+    }
+}

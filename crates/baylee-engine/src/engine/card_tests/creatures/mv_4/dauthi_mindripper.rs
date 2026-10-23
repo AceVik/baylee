@@ -73,3 +73,31 @@ fn dauthi_mindripper_sacrifices_when_unblocked_to_make_defender_discard_three() 
         hand_before - 3
     );
 }
+
+#[test]
+fn dauthi_mindripper_may_decline_and_does_not_trigger_when_blocked() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    for blocked in [false, true] {
+        let mut e = lk::game(
+            SEED,
+            &[dauthi_mindripper()],
+            &[index::DAUTHI_GHOUL],
+            &[],
+            &[forest(), forest(), forest()],
+        );
+        let ripper = lk::obj(&e, P0, dauthi_mindripper());
+        let blocker = lk::obj(&e, P1, index::DAUTHI_GHOUL);
+        lk::attack(&mut e, &[ripper]);
+        lk::block(&mut e, if blocked { &[(blocker, ripper)] } else { &[] });
+        if !blocked {
+            pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+            e.apply(P0, PlayerAction::YesNo(false)).unwrap();
+        }
+        lk::settle(&mut e);
+        assert_eq!(e.state().zones.list(ZoneLocation::Hand(P1)).len(), 3);
+        if !blocked {
+            assert!(on_battlefield(&e, P0, dauthi_mindripper()).is_some());
+        }
+    }
+}

@@ -20,6 +20,7 @@ fn bravado_grants_plus_one_plus_one_per_other_creature_you_control() {
                 gray_ogre(),
             ],
         )
+        .battlefield(1, &[grizzly_bears(), llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -40,4 +41,8 @@ fn bravado_grants_plus_one_plus_one_per_other_creature_you_control() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bears), (4, 4));
+    let ally = on_battlefield(&engine, p0, gray_ogre()).unwrap();
+    assert_eq!(pt(&engine, ally), (2, 2));
+    kill(&mut engine, ally);
+    assert_eq!(pt(&engine, bears), (3, 3));
 }

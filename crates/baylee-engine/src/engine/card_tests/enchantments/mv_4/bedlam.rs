@@ -57,3 +57,33 @@ fn bedlam_prevents_creatures_from_blocking() {
             .is_err()
     );
 }
+
+#[test]
+fn bedlam_also_prevents_its_controllers_creatures_from_blocking() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[bedlam(), grizzly_bears()],
+        &[grizzly_bears()],
+        &[],
+        &[],
+    );
+    reach_their_main_phase(&mut engine, p1);
+    let attacker = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    let blocker = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let offer = lk::attack(&mut engine, &[attacker]);
+    assert!(!lk::may_block(&offer, blocker, attacker));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(blocker, attacker)]
+                }
+            )
+            .is_err()
+    );
+    lk::block(&mut engine, &[]);
+}

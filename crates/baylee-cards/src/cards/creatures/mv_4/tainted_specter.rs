@@ -2,7 +2,8 @@
 //! Oracle: Flying
 //! Oracle: {1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, this creature deals 1 damage to each creature and each player. Activate only as a sorcery.
 //! Set: MIR #148 — Mirage | Scryfall ID: 74feb223-784a-4540-8a8e-6007d10a9505 | Oracle ID: fc638800-6aec-4a48-ad2c-c9a5ce93c236
-// PARTIAL — flying and {1}{B}{B}, {T} sorcery-speed ability making target player discard a card and dealing 1 damage to each creature and each player; no "unless they put a card from their hand on top of their library" punisher choice exists yet.
+// PARTIAL — Flying only: the {1}{B}{B}, {T} ability is not played, since no effect lets the target player choose between discarding a card and putting a card from their hand on top of their library, and no check says "if that player discards a card this way".
+// NOT SUPPORTED: "{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, this creature deals 1 damage to each creature and each player. Activate only as a sorcery." A forced discard and unconditional damage take the choice from the target player.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,7 +15,7 @@ card!(
     color_identity = ColorSet::from_slice(&[Color::Black]),
     keywords = KeywordSet::FLYING,
     coverage = Coverage::Partial(
-        "2/2 Specter with flying; {1}{B}{B}, {T} sorcery-speed ability makes target player discard a card and deals 1 damage to each creature and each player (no 'unless they put a card from their hand on top of their library' punisher choice yet)",
+        "flying only: the {1}{B}{B}, {T} ability (target player discards a card unless they put a card from their hand on top of their library; if they discard, 1 damage to each creature and each player) is not played, since no effect lets that player choose and nothing checks whether they discarded",
     ),
     faces = &[face!(
         name = "Tainted Specter",
@@ -25,20 +26,4 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLYING,
     ),],
-    abilities = &[activated!(
-        cost!("{1}{B}{B}", TapSelf),
-        &[
-            Effect::DiscardForPlayers {
-                who: PlayerRel::TargetPlayerOrController,
-                count: 1,
-            },
-            Effect::damage_each(1, &Filter::CREATURE),
-            Effect::DealDamage {
-                amount: Amount::Fixed(1),
-                target: TargetSpec::Player(PlayerRel::EachPlayer),
-            },
-        ],
-        target = Some(TargetSpec::AnyPlayer),
-        timing = ActivationTiming::SorcerySpeed,
-    )],
 );

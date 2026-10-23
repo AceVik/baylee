@@ -46,3 +46,41 @@ fn reprocess_sacrifices_permanent_and_draws_card() {
         hand_before
     );
 }
+
+#[test]
+fn reprocess_partial_may_decline_and_cannot_sacrifice_opponents_or_enchantments() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[gray_ogre(), index::CRUSADE],
+        &[wild_elephant()],
+        &[reprocess()],
+        &[],
+    );
+    let mine = lk::obj(&e, p0, gray_ogre());
+    let theirs = lk::obj(&e, p1, wild_elephant());
+    let enchantment = lk::obj(&e, p0, index::CRUSADE);
+    lk::float(&mut e, p0, &[(ManaColor::Black, 4)]);
+    cast_with_floating(&mut e, p0, reprocess());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert!(
+        options.contains(&mine) && !options.contains(&theirs) && !options.contains(&enchantment)
+    );
+    e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    lk::settle(&mut e);
+    assert!(
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .is_empty()
+    );
+    assert!(on_battlefield(&e, p0, gray_ogre()).is_some());
+}

@@ -2,6 +2,7 @@
 //! Oracle: Flying
 //! Oracle: {U}: Put this creature on top of its owner's library.
 //! Set: TPR #78 — Tempest Remastered | Scryfall ID: 4a761397-3613-4d91-adbf-978a12e7ef32 | Oracle ID: 319b4715-c3eb-49bf-b8d2-4d41e601ebe4
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -20,6 +21,6 @@ card!(
         power = Some(3),
         toughness = Some(2),
         keywords = KeywordSet::FLYING,
-        abilities = &[activated!(cost!("{U}"), &[Effect::PutSourceOnTopOfLibrary])],
     ),],
+    abilities = &[activated!(cost!("{U}"), &[Effect::PutSourceOnTopOfLibrary])],
 );

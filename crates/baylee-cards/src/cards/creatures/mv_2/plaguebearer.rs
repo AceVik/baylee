@@ -1,7 +1,7 @@
 //! Plaguebearer — {1}{B} — Creature — Zombie
 //! Oracle: {X}{X}{B}: Destroy target nonblack creature with mana value X.
 //! Set: EXO #71 — Exodus | Scryfall ID: a8493df6-9954-4e33-867c-ca4bcf3953b2 | Oracle ID: f8cc1dc4-740d-4c5b-ac51-7355730a6595
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

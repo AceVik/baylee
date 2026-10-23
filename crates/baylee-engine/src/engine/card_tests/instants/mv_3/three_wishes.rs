@@ -33,3 +33,31 @@ fn three_wishes_exiles_top_three_cards_to_play_until_next_turn() {
         Zone::Battlefield
     );
 }
+
+/// "Until your next turn": the cards can be played through the opponent's turn
+/// and no longer once the caster's next turn has begun.
+#[test]
+fn three_wishes_cards_cannot_be_played_once_the_next_turn_has_begun() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island()])
+        .hand(0, &[three_wishes()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, three_wishes());
+    pass_until(&mut engine, stack_is_empty);
+    let exiled = engine.state().zones.list(ZoneLocation::Exile(p0)).to_vec();
+    assert_eq!(exiled.len(), 3);
+
+    // The caster's own next turn: the land drop is unused, and the window is over.
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        engine
+            .apply(p0, PlayerAction::PlayLand { card: exiled[0] })
+            .is_err(),
+        "the window closed when the next turn began"
+    );
+}

@@ -10,10 +10,12 @@ fn greater_good_sacrifices_creature_to_draw_power_and_discard_three() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[greater_good(), grizzly_bears()])
+        .hand(0, &[forest(), forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
     activate(&mut engine, p0, greater_good(), 0);
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
@@ -42,4 +44,14 @@ fn greater_good_sacrifices_creature_to_draw_power_and_discard_three() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before - 1,
+        "draw two, discard three"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        4,
+        "sacrificed creature plus three discards"
+    );
 }

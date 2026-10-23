@@ -3,7 +3,7 @@
 //! Oracle: Enchanted creature doesn't untap during its controller's untap step.
 //! Oracle: {W}: Return this Aura to its owner's hand.
 //! Set: TPR #26 — Tempest Remastered | Scryfall ID: b5a92d31-d569-4520-b06a-0664fe050e64 | Oracle ID: 05861ff2-ec85-43d1-b641-c5d2da819c03
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

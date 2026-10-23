@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::ControlledByOpponent]);
-
 card!(
     index = index::HIDDEN_GUERRILLAS,
     oracle_id = "4337f35b-baab-4640-9e1c-05f61c49bbdd",
@@ -20,7 +18,10 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[triggered!(
-        Trigger::SpellCast(&OPPONENT_ARTIFACT),
+        Trigger::SpellCast(&Filter::And(&[
+            Filter::ARTIFACT,
+            Filter::ControlledByOpponent
+        ])),
         &[
             Effect::continuous(
                 &Filter::This,

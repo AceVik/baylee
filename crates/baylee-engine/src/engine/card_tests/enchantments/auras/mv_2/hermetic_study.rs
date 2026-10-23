@@ -44,3 +44,56 @@ fn hermetic_study_grants_tap_ping_ability_to_enchanted_creature() {
 
     assert_eq!(engine.state().players[1].life, 19);
 }
+
+#[test]
+fn hermetic_study_grants_the_ability_to_an_opponents_creature_and_its_controller() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[grizzly_bears()],
+        &[grizzly_bears()],
+        &[hermetic_study()],
+        &[],
+    );
+    let host = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    lk::float(&mut engine, p0, &[(ManaColor::Blue, 2)]);
+    lk::cast_at(&mut engine, p0, hermetic_study(), &[host], &[]);
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: host,
+                    ability_index: crate::choice::GRANTED_ABILITY
+                }
+            )
+            .is_err()
+    );
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::ActivateAbility {
+                source: host,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[0].life, 19);
+    assert!(lk::tapped(&engine, host));
+}

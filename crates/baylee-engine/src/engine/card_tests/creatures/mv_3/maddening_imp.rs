@@ -36,3 +36,75 @@ fn maddening_imp_forces_active_opponents_non_wall_creatures_to_attack() {
             .is_err()
     );
 }
+
+/// The unsupported delayed destruction must not kill unrelated late arrivals.
+#[test]
+fn unsupported_destruction_does_not_kill_creatures_entering_later() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[maddening_imp()],
+        &[
+            index::GRIZZLY_BEARS,
+            index::LLANOWAR_ELVES,
+            index::WALL_OF_WOOD,
+        ],
+        &[],
+        &[index::HILL_GIANT],
+    );
+    reach_their_main_phase(&mut e, P1);
+    let imp = on_battlefield(&e, P0, maddening_imp()).unwrap();
+    // The activation is restricted to an opponent's precombat turn.
+    let bears = on_battlefield(&e, P1, index::GRIZZLY_BEARS).unwrap();
+    activate(&mut e, P1, index::LLANOWAR_ELVES, 0);
+    e.apply(P1, PlayerAction::PassPriority).unwrap();
+    activate(&mut e, P0, maddening_imp(), 0);
+    lk::settle(&mut e);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P1),
+    );
+    lk::float(&mut e, P1, &[(ManaColor::Red, 4)]);
+    cast_with_floating(&mut e, P1, index::HILL_GIANT);
+    lk::settle(&mut e);
+    lk::attackers_offered(&mut e);
+    e.apply(
+        P1,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(P0))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| e.state().turn.step == crate::turn::Step::End);
+    lk::settle(&mut e);
+    assert!(
+        on_battlefield(&e, P1, index::LLANOWAR_ELVES).is_some(),
+        "Partial omits the delayed destruction altogether"
+    );
+    assert!(
+        on_battlefield(&e, P1, index::WALL_OF_WOOD).is_some(),
+        "Walls were excluded"
+    );
+    assert!(
+        on_battlefield(&e, P1, index::HILL_GIANT).is_some(),
+        "late arrivals were not among those creatures"
+    );
+    assert!(
+        on_battlefield(&e, P1, index::GRIZZLY_BEARS).is_some(),
+        "the creature that attacked survives"
+    );
+    assert!(e.state().object(imp).is_some());
+}
+
+#[test]
+fn imp_cannot_activate_on_its_controllers_turn_or_after_combat_begins() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(SEED, &[maddening_imp()], &[index::GRIZZLY_BEARS], &[], &[]);
+    assert!(!lk::offered(&e, maddening_imp(), P0, 0));
+    reach_their_main_phase(&mut e, P1);
+    pass_until(&mut e, |e| {
+        e.state().turn.step == crate::turn::Step::CombatBegin
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    assert!(!lk::offered(&e, maddening_imp(), P0, 0));
+}

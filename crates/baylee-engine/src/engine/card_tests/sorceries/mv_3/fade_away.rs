@@ -35,3 +35,32 @@ fn fade_away_causes_player_to_sacrifice_a_permanent_for_each_creature_unless_pay
     assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_none());
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
 }
+
+#[test]
+fn fade_away_asks_each_creatures_controller_and_can_sacrifice_a_noncreature() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS],
+        &[index::HILL_GIANT, forest()],
+        &[fade_away()],
+        &[],
+    );
+    let land = lk::obj(&e, P1, forest());
+    lk::float(&mut e, P0, &[(ManaColor::Blue, 10)]);
+    cast_with_floating(&mut e, P0, fade_away());
+    kit::settle(&mut e, P0, |_, p| {
+        if let Pending::YesNo { player, .. } = p {
+            return Some(PlayerAction::YesNo(*player == P0));
+        }
+        kit::choose_cards(p, &[land])
+    });
+    assert!(on_battlefield(&e, P0, index::GRIZZLY_BEARS).is_some());
+    assert!(on_battlefield(&e, P1, index::HILL_GIANT).is_some());
+    assert!(in_graveyard(&e, P1, forest()).is_some());
+    assert_eq!(
+        lk::pool_total(&e, P0),
+        6,
+        "three to cast, one for your own creature"
+    );
+}

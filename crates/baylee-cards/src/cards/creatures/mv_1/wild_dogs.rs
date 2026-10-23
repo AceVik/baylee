@@ -2,7 +2,7 @@
 //! Oracle: At the beginning of your upkeep, if a player has more life than each other player, the player with the most life gains control of this creature.
 //! Oracle: Cycling {2} ({2}, Discard this card: Draw a card.)
 //! Set: USG #284 — Urza's Saga | Scryfall ID: 7c7811e2-8bff-44a9-96bf-8e302c3cade9 | Oracle ID: 711cda97-bf57-4b22-b9c1-854ef448d27a
-// PARTIAL: giving control of this creature to the player with the most life at the beginning of your upkeep is not in Effect; implements Cycling {2} and a placeholder upkeep trigger.
+// IMPLEMENTED — most-life upkeep transfer and cycling.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,9 +12,7 @@ card!(
     oracle_id = "711cda97-bf57-4b22-b9c1-854ef448d27a",
     scryfall_id = "7c7811e2-8bff-44a9-96bf-8e302c3cade9",
     color_identity = ColorSet::from_slice(&[Color::Green]),
-    coverage = Coverage::Partial(
-        "giving control of this creature to the player with the most life at the beginning of your upkeep is not in Effect; implements Cycling {2} and a placeholder upkeep trigger",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Wild Dogs",
         mana_cost = mana!("{G}"),
@@ -29,7 +27,10 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::You,
             },
-            &[Effect::UntapSelf],
+            &[Effect::ChangeController {
+                new_controller: PlayerRel::MostLife
+            }],
+            condition = Some(Condition::APlayerHasMostLife),
         ),
         activated!(
             cost!("{2}", DiscardSelf),

@@ -26,3 +26,11 @@ fn fool_s_tome_draws_a_card_only_when_hand_is_empty() {
 
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(P0)).len(), 1);
 }
+
+#[test]
+fn fool_s_tome_is_unavailable_with_a_card_in_hand_even_when_the_cost_is_payable() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(SEED, &[fool_s_tome()], &[], &[forest()], &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Colorless, 2)]);
+    assert!(!lk::offered(&e, fool_s_tome(), P0, 0));
+}

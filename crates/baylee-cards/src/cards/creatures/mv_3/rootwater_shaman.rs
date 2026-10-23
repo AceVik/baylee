@@ -1,7 +1,8 @@
 //! Rootwater Shaman — {2}{U} — Creature — Merfolk Shaman
 //! Oracle: You may cast Aura spells with enchant creature as though they had flash.
 //! Set: TMP #84 — Tempest | Scryfall ID: caa1b84b-efda-4324-9106-0d1d00385cdc | Oracle ID: 8a449915-8bd7-4a9c-abb1-a95852f33695
-// PARTIAL: lets you cast enchantment spells as though they had flash; restricting the flash permission to Aura spells with enchant creature is not in Modifier::SpellsHaveFlash.
+
+// PARTIAL — Flash permission restricted to Aura spells with enchant creature is not supported; only the 2/2 body is played.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,7 +13,7 @@ card!(
     scryfall_id = "caa1b84b-efda-4324-9106-0d1d00385cdc",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "lets you cast enchantment spells as though they had flash; restricting the flash permission to Aura spells with enchant creature is not in Modifier::SpellsHaveFlash",
+        "Flash permission restricted to Aura spells with enchant creature is not supported; only the 2/2 body is played."
     ),
     faces = &[face!(
         name = "Rootwater Shaman",
@@ -22,8 +23,5 @@ card!(
         power = Some(2),
         toughness = Some(2),
     ),],
-    abilities = &[static_ability!(
-        Filter::This,
-        Modifier::SpellsHaveFlash(Some(TypeSet::ENCHANTMENT)),
-    )],
+    // NOT SUPPORTED: Flash permission restricted to Aura spells with enchant creature is not supported; only the 2/2 body is played.
 );

@@ -3,7 +3,7 @@
 //! Oracle: When you play a card, sacrifice this artifact.
 //! Oracle: {2}: You gain 1 life.
 //! Set: VIS #147 — Visions | Scryfall ID: a5fa8208-7d65-4f8f-b07e-f5c3a66e1143 | Oracle ID: 9344ae2e-cb2e-400d-9157-e8158ce31813
-// PARTIAL — Triggering on both playing a land and casting a spell from a single 'When you play a card' triggered ability (CR 701.18a) is not yet a combined Trigger variant; in play, Juju Bubble has cumulative upkeep {1}, sacrifices itself when you cast a spell, and {2} gains 1 life.
+// IMPLEMENTED
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,9 +11,7 @@ card!(
     index = index::JUJU_BUBBLE,
     oracle_id = "9344ae2e-cb2e-400d-9157-e8158ce31813",
     scryfall_id = "a5fa8208-7d65-4f8f-b07e-f5c3a66e1143",
-    coverage = Coverage::Partial(
-        "Triggering on both playing a land and casting a spell from a single 'When you play a card' triggered ability (CR 701.18a) is not yet a combined Trigger variant; in play, Juju Bubble has cumulative upkeep {1}, sacrifices itself when you cast a spell, and {2} gains 1 life.",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Juju Bubble",
         mana_cost = mana!("{1}"),
@@ -42,6 +40,9 @@ card!(
                 ZoneRef::Battlefield,
             ))),
         ),
+        // "When you play a card" is playing a land or casting a spell (CR 701.18a): two events,
+        // so two triggers say the one printed sentence.
+        triggered!(Trigger::PlaysLand(PlayerRel::You), &[Effect::SacrificeSelf]),
         triggered!(
             Trigger::SpellCast(&Filter::ControlledByYou),
             &[Effect::SacrificeSelf],

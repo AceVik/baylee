@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static FORESTS: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::BLANCHWOOD_ARMOR,
     oracle_id = "80ea56ad-e741-4a85-b4e8-ce62e7d593d5",
@@ -30,7 +28,9 @@ card!(
         ),
         static_ability!(
             Filter::AttachedToBySource,
-            Modifier::ModifyPTByCount(PtCount::YouControl(&FORESTS))
+            Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::HasSubtype(
+                subtypes::land::FOREST
+            )))
         ),
     ],
 );

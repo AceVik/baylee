@@ -5,27 +5,62 @@ fn mishra_s_helix() -> CardIndex {
     card_index("6b1552f2-df64-485a-8509-b1916edf19cf")
 }
 
+use crate::engine::card_tests::legends_kit as lk;
+
 #[test]
-fn mishra_s_helix_taps_x_target_lands() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[mishra_s_helix(), forest()])
-        .battlefield(1, &[island()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let opp_land = on_battlefield(&engine, p1, island()).expect("seated");
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, mishra_s_helix(), 0);
-    if matches!(engine.pending(), Pending::ChooseNumber { .. }) {
-        engine.apply(p0, PlayerAction::ChooseNumber(1)).unwrap();
+fn mishras_helix_uses_exactly_x_distinct_land_targets_including_zero() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for x in [0, 2] {
+        let mut e = lk::game(
+            SEED,
+            &[mishra_s_helix(), forest()],
+            &[island(), grizzly_bears()],
+            &[],
+            &[],
+        );
+        let mine = lk::obj(&e, p0, forest());
+        let theirs = lk::obj(&e, p1, island());
+        let bear = lk::obj(&e, p1, grizzly_bears());
+        lk::float(&mut e, p0, &[(ManaColor::Colorless, 2)]);
+        activate(&mut e, p0, mishra_s_helix(), 0);
+        e.apply(p0, PlayerAction::ChooseNumber(x)).unwrap();
+        if x == 2 {
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![mine, bear],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+            );
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![mine],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+            );
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![mine, mine],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+            );
+            lk::aim(&mut e, &[mine, theirs], &[]);
+        } else if matches!(e.pending(), Pending::ChooseTargets { .. }) {
+            lk::aim(&mut e, &[], &[]);
+        }
+        lk::settle(&mut e);
+        assert_eq!(is_tapped(&e, mine), x != 0);
+        assert_eq!(is_tapped(&e, theirs), x != 0);
     }
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
-        aim_at(&mut engine, p0, opp_land);
-    }
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(is_tapped(&engine, opp_land));
 }

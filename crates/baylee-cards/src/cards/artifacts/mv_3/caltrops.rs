@@ -21,6 +21,5 @@ card!(
             amount: Amount::Fixed(1),
             target: TargetSpec::EventObject,
         }],
-        targets = Some(TargetReq::one(TargetSpec::EventObject)),
     )],
 );

@@ -15,7 +15,8 @@ fn heartwood_giant() -> CardIndex {
 #[test]
 fn heartwood_giant_sacrifices_forest_to_deal_two_damage_to_target_player() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[heartwood_giant(), forest()])
+        .battlefield(0, &[heartwood_giant(), forest(), swamp()])
+        .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -31,6 +32,14 @@ fn heartwood_giant_sacrifices_forest_to_deal_two_damage_to_target_player() {
             },
         )
         .unwrap();
+    let nonforest = on_battlefield(&engine, P0, swamp()).unwrap();
+    let opposing = on_battlefield(&engine, P1, forest()).unwrap();
+    let Pending::ChooseCards { options, .. } = engine.pending() else {
+        panic!("sacrifice menu")
+    };
+    assert!(options.contains(&f));
+    assert!(!options.contains(&nonforest));
+    assert!(!options.contains(&opposing));
     engine
         .apply(P0, PlayerAction::ChooseObjects { objects: vec![f] })
         .unwrap();
@@ -38,4 +47,7 @@ fn heartwood_giant_sacrifices_forest_to_deal_two_damage_to_target_player() {
 
     assert!(on_battlefield(&engine, P0, forest()).is_none());
     assert_eq!(engine.state().players[1].life, 18);
+    let source = on_battlefield(&engine, P0, heartwood_giant()).unwrap();
+    assert!(is_tapped(&engine, source));
+    assert!(!ability_offered(&engine, source, 0));
 }

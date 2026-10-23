@@ -6,7 +6,7 @@ fn opal_acrolith() -> CardIndex {
 }
 
 #[test]
-fn opal_acrolith_becomes_2_4_soldier_on_opponent_creature_cast_and_returns_to_enchantment() {
+fn opal_acrolith_partial_becomes_2_4_soldier_on_opponent_creature_cast() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, plains())
@@ -22,10 +22,54 @@ fn opal_acrolith_becomes_2_4_soldier_on_opponent_creature_cast_and_returns_to_en
 
     let perm = on_battlefield(&engine, p0, opal_acrolith()).expect("seated");
     assert_eq!(pt(&engine, perm), (2, 4));
+}
 
-    assert!(walk_to_own_main(&mut engine, p0));
-    activate(&mut engine, p0, opal_acrolith(), 1);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, opal_acrolith()).is_some());
+/// The trigger excludes your creature spells, opposing noncreature spells,
+/// and further creature spells once the Opal has become a creature.
+#[test]
+fn opal_acrolith_respects_opponent_creature_and_enchantment_conditions() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[opal_acrolith()],
+        &[],
+        &[grizzly_bears()],
+        &[giant_growth(), grizzly_bears(), grizzly_bears()],
+    );
+    let opal = lk::obj(&e, p0, opal_acrolith());
+    lk::float(&mut e, p0, &[(ManaColor::Green, 2)]);
+    lk::cast_at(&mut e, p0, grizzly_bears(), &[], &[]);
+    assert!(
+        e.state()
+            .object(opal)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::ENCHANTMENT)
+    );
+    reach_their_main_phase(&mut e, p1);
+    lk::float(&mut e, p1, &[(ManaColor::Green, 5)]);
+    let bear = lk::obj(&e, p0, grizzly_bears());
+    lk::cast_at(&mut e, p1, giant_growth(), &[bear], &[]);
+    assert!(
+        e.state()
+            .object(opal)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::ENCHANTMENT)
+    );
+    lk::cast_at(&mut e, p1, grizzly_bears(), &[], &[]);
+    let chars = e.state().object(opal).unwrap().characteristics();
+    assert!(chars.types.contains(TypeSet::CREATURE));
+    assert!(!chars.types.contains(TypeSet::ENCHANTMENT));
+    assert_eq!(pt(&e, opal), (2, 4));
+    cast_with_floating(&mut e, p1, grizzly_bears());
+    assert_eq!(
+        e.state().zones.list(crate::zone::ZoneLocation::Stack).len(),
+        1,
+        "intervening if prevents another trigger"
+    );
+    lk::settle(&mut e);
 }

@@ -1,3 +1,5 @@
+//! `cards/artifacts/mv_2/thran_lens.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -14,7 +16,7 @@ fn thran_lens_makes_permanents_colorless() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains(), llanowar_elves()])
         .battlefield(1, &[gray_ogre()])
-        .hand(0, &[thran_lens()])
+        .hand(0, &[thran_lens(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -60,5 +62,15 @@ fn thran_lens_makes_permanents_colorless() {
             .characteristics()
             .colors,
         ColorSet::EMPTY
+    );
+    let hand_card = in_hand(&engine, p0, gray_ogre()).unwrap();
+    assert_eq!(
+        engine
+            .state()
+            .object(hand_card)
+            .unwrap()
+            .characteristics()
+            .colors,
+        ColorSet::from_slice(&[Color::Red])
     );
 }

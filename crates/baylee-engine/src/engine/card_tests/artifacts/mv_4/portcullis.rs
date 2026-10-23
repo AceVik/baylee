@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -30,4 +31,36 @@ fn portcullis_exiles_entering_creature_when_two_other_creatures_exist() {
         "entering third creature should be exiled by Portcullis"
     );
     assert_eq!(engine.state().zones.list(ZoneLocation::Exile(P0)).len(), 1);
+}
+
+#[test]
+fn second_creature_stays_and_third_returns_when_artifact_leaves() {
+    let mut e = lk::game(
+        SEED,
+        &[portcullis(), index::GRIZZLY_BEARS],
+        &[],
+        &[index::SAVANNAH_LIONS, index::HILL_GIANT, index::DISENCHANT],
+        &[],
+    );
+    lk::float(
+        &mut e,
+        lk::P0,
+        &[(ManaColor::White, 20), (ManaColor::Red, 5)],
+    );
+    cast_with_floating(&mut e, lk::P0, index::SAVANNAH_LIONS);
+    lk::settle(&mut e);
+    assert!(
+        on_battlefield(&e, lk::P0, index::SAVANNAH_LIONS).is_some(),
+        "only one other creature"
+    );
+    cast_with_floating(&mut e, lk::P0, index::HILL_GIANT);
+    lk::settle(&mut e);
+    assert!(on_battlefield(&e, lk::P0, index::HILL_GIANT).is_none());
+    let artifact = lk::obj(&e, lk::P0, portcullis());
+    lk::cast_at(&mut e, lk::P0, index::DISENCHANT, &[artifact], &[]);
+    assert!(
+        on_battlefield(&e, lk::P0, index::HILL_GIANT).is_some(),
+        "linked card returns to owner"
+    );
+    assert!(e.state().zones.list(ZoneLocation::Exile(lk::P0)).is_empty());
 }

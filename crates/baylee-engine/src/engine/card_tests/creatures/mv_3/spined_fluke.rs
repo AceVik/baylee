@@ -9,8 +9,11 @@ fn spined_fluke() -> CardIndex {
 fn spined_fluke_sacrifices_creature_on_etb_and_regenerates() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[spined_fluke()])
-        .battlefield(0, &[gray_ogre(), swamp(), swamp(), swamp(), swamp()])
+        .hand(0, &[spined_fluke(), lightning_bolt()])
+        .battlefield(
+            0,
+            &[gray_ogre(), swamp(), swamp(), swamp(), swamp(), mountain()],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -44,4 +47,23 @@ fn spined_fluke_sacrifices_creature_on_etb_and_regenerates() {
             .regeneration_shields,
         1
     );
+    cast_from_hand(&mut engine, p0, lightning_bolt());
+    aim_at(&mut engine, p0, fluke_id);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+    });
+    if matches!(engine.pending(), Pending::YesNo { .. }) {
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    }
+    pass_until(&mut engine, stack_is_empty);
+    assert!(on_battlefield(&engine, p0, spined_fluke()).is_some());
+    assert_eq!(
+        engine
+            .state()
+            .object(fluke_id)
+            .unwrap()
+            .regeneration_shields,
+        0
+    );
+    assert_eq!(engine.state().object(fluke_id).unwrap().damage, 0);
 }

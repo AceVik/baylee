@@ -8,11 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const YOUR_FOREST: Filter = Filter::And(&[
-    Filter::ControlledByYou,
-    Filter::HasSubtype(subtypes::land::FOREST),
-]);
-
 card!(
     index = index::FORTITUDE,
     oracle_id = "5017c07d-8ad5-4ee2-91d3-974811cdff75",
@@ -33,7 +28,10 @@ card!(
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
         ),
         activated!(
-            cost!(Sacrifice(&YOUR_FOREST)),
+            cost!(Sacrifice(&Filter::And(&[
+                Filter::ControlledByYou,
+                Filter::HasSubtype(subtypes::land::FOREST),
+            ]))),
             &[Effect::RegenerateAll {
                 filter: &Filter::AttachedToBySource,
             }],

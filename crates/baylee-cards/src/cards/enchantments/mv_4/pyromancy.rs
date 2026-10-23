@@ -1,7 +1,9 @@
 //! Pyromancy — {2}{R}{R} — Enchantment
 //! Oracle: {3}, Discard a card at random: This enchantment deals damage to any target equal to the mana value of the discarded card.
 //! Set: ULG #88 — Urza's Legacy | Scryfall ID: 35a91a58-cc8b-47a3-8c53-43c32753a00d | Oracle ID: 71a176ce-cbe7-4cec-a2ca-58abf59ad964
-// PARTIAL
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -10,20 +12,11 @@ card!(
     oracle_id = "71a176ce-cbe7-4cec-a2ca-58abf59ad964",
     scryfall_id = "35a91a58-cc8b-47a3-8c53-43c32753a00d",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "Activating {3}, Discard a card at random deals 1 damage to any target; scaling damage by the mana value of the card discarded to pay the cost is not in Amount.",
-    ),
     faces = &[face!(
         name = "Pyromancy",
         mana_cost = mana!("{2}{R}{R}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[activated!(
-        cost!("{3}", DiscardRandom),
-        &[Effect::DealDamage {
-            amount: Amount::Fixed(1),
-            target: TargetSpec::AnyTarget,
-        }],
-        targets = Some(TargetReq::one(TargetSpec::AnyTarget)),
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

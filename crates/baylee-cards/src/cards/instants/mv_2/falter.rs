@@ -5,11 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-const WITHOUT_FLYING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
-]);
-
 card!(
     index = index::FALTER,
     oracle_id = "d4b50749-a016-4aff-8d70-a1707cabf57b",
@@ -22,7 +17,10 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(&[Effect::continuous(
-        &WITHOUT_FLYING,
+        &Filter::And(&[
+            Filter::CREATURE,
+            Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)),
+        ]),
         Modifier::CantBlock(&Filter::Any),
         Duration::UntilEndOfTurn,
     )])],

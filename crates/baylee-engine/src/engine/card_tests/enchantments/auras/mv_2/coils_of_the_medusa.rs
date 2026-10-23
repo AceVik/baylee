@@ -2,57 +2,78 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{COILS_OF_THE_MEDUSA, GRIZZLY_BEARS, HILL_GIANT};
+use crate::engine::card_tests::aura_kit as kit;
+use crate::engine::card_tests::legends_kit as lk;
 
-/// `Coils of the Medusa` ({1}{B}, Enchantment — Aura) gives enchanted creature
-/// +1/-1 and can be sacrificed to destroy all non-Wall creatures blocking
-/// enchanted creature.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn coils_of_the_medusa() -> CardIndex {
+    card_index("02a8a4e6-2081-4903-81ad-96e5a949dff8")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+/// Coils of the Medusa (02a8a4e6-2081-4903-81ad-96e5a949dff8) — "Enchant
+/// creature. Enchanted creature gets +1/-1." Only the enchanted creature is
+/// changed, and the bonus goes with the Aura.
 #[test]
-fn coils_of_the_medusa_modifies_pt_and_sacrifice_destroys_non_wall_blocker() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[GRIZZLY_BEARS, swamp(), swamp()])
-        .battlefield(1, &[HILL_GIANT])
-        .hand(0, &[COILS_OF_THE_MEDUSA])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn coils_of_the_medusa_gives_only_the_enchanted_creature_plus_one_minus_one() {
+    let mut e = lk::game(
+        SEED,
+        &[grizzly_bears(), savannah_lions()],
+        &[],
+        &[coils_of_the_medusa()],
+        &[],
+    );
+    let bears = lk::obj(&e, P0, grizzly_bears());
+    let lions = lk::obj(&e, P0, savannah_lions());
+    assert_eq!(pt(&e, bears), (2, 2));
 
-    let bears = on_battlefield(&engine, p0, GRIZZLY_BEARS).unwrap();
-    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
+    let aura = kit::cast_aura(
+        &mut e,
+        P0,
+        coils_of_the_medusa(),
+        bears,
+        &[(ManaColor::Black, 1), (ManaColor::Colorless, 1)],
+    );
+    assert_eq!(kit::attached_to(&e, aura), Some(bears));
+    assert_eq!(pt(&e, bears), (3, 1), "+1/-1");
+    assert_eq!(pt(&e, lions), (2, 1), "the other creature is untouched");
+}
 
-    cast_from_hand(&mut engine, p0, COILS_OF_THE_MEDUSA);
-    aim_at(&mut engine, p0, bears);
-    pass_until(&mut engine, stack_is_empty);
+/// Coils of the Medusa — "Enchant creature" means any creature, and the -1
+/// is real: on the opponent's 2/1 it makes a 3/0, which dies, and the Aura
+/// goes with it.
+#[test]
+fn coils_of_the_medusa_on_an_opposing_one_toughness_creature_kills_it() {
+    let mut e = lk::game(
+        SEED,
+        &[],
+        &[savannah_lions()],
+        &[coils_of_the_medusa()],
+        &[],
+    );
+    let lions = lk::obj(&e, P1, savannah_lions());
+    lk::float(
+        &mut e,
+        P0,
+        &[(ManaColor::Black, 1), (ManaColor::Colorless, 1)],
+    );
+    lk::cast_at(&mut e, P0, coils_of_the_medusa(), &[lions], &[]);
 
-    assert_eq!(pt(&engine, bears), (3, 1));
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(bears, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(giant, bears)],
-            },
-        )
-        .unwrap();
-
-    activate(&mut engine, p0, COILS_OF_THE_MEDUSA, 2);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(in_graveyard(&engine, p0, COILS_OF_THE_MEDUSA).is_some());
-    assert!(in_graveyard(&engine, p1, HILL_GIANT).is_some());
+    assert!(
+        in_graveyard(&e, P1, savannah_lions()).is_some(),
+        "toughness 0 (CR 704.5f)"
+    );
+    assert!(
+        in_graveyard(&e, P0, coils_of_the_medusa()).is_some(),
+        "the Aura falls off with nothing to enchant"
+    );
 }

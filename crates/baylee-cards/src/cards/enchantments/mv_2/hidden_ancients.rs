@@ -6,9 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_ENCHANTMENT: Filter =
-    Filter::And(&[Filter::ENCHANTMENT, Filter::ControlledByOpponent]);
-
 card!(
     index = index::HIDDEN_ANCIENTS,
     oracle_id = "dc430e1b-d57f-4035-b518-9bc2e26a6c04",
@@ -21,7 +18,10 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[triggered!(
-        Trigger::SpellCast(&OPPONENT_ENCHANTMENT),
+        Trigger::SpellCast(&Filter::And(&[
+            Filter::ENCHANTMENT,
+            Filter::ControlledByOpponent
+        ])),
         &[
             Effect::continuous(
                 &Filter::This,

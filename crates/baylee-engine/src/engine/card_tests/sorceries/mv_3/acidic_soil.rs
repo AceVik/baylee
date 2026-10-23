@@ -10,8 +10,8 @@ fn acidic_soil_deals_damage_to_each_player_equal_to_lands_they_control() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, mountain())
         .hand(0, &[acidic_soil()])
-        .battlefield(0, &[mountain(), mountain(), mountain()])
-        .battlefield(1, &[forest(), forest(), forest(), forest()])
+        .battlefield(0, &[mountain(), mountain(), mountain(), grizzly_bears()])
+        .battlefield(1, &[forest(), forest(), forest(), forest(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);

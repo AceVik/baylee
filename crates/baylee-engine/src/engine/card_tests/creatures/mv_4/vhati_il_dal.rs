@@ -44,3 +44,23 @@ fn vhati_il_dal_sets_target_creature_base_toughness_to_one_until_end_of_turn() {
     let ch = engine.state().object(giant).unwrap().characteristics();
     assert_eq!((ch.power, ch.toughness), (Some(3), Some(1)));
 }
+
+#[test]
+fn vhati_can_set_power_instead_and_the_effect_ends_at_cleanup() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[vhati_il_dal()], &[HILL_GIANT], &[], &[]);
+    let giant = on_battlefield(&e, p1, HILL_GIANT).unwrap();
+    activate(&mut e, p0, vhati_il_dal(), 0);
+    lk::aim(&mut e, &[giant], &[]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    e.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
+    lk::settle(&mut e);
+    let ch = e.state().object(giant).unwrap().characteristics();
+    assert_eq!((ch.power, ch.toughness), (Some(1), Some(3)));
+    reach_their_main_phase(&mut e, p1);
+    let ch = e.state().object(giant).unwrap().characteristics();
+    assert_eq!((ch.power, ch.toughness), (Some(3), Some(3)));
+}

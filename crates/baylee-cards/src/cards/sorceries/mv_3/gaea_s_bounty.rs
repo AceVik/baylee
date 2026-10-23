@@ -6,8 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const FOREST_CARD: Filter = Filter::HasSubtype(subtypes::land::FOREST);
-
 card!(
     index = index::GAEA_S_BOUNTY,
     oracle_id = "c5a61e61-d5fe-41ef-afd6-ba5e0399b986",
@@ -20,7 +18,7 @@ card!(
         types = TypeSet::SORCERY,
     ),],
     abilities = &[spell!(&[Effect::SearchLibrary {
-        filter: &FOREST_CARD,
+        filter: &Filter::HasSubtype(subtypes::land::FOREST),
         finds: &[Find::HAND, Find::HAND],
         optional: true,
     }])],

@@ -37,3 +37,19 @@ fn worthy_cause_sacrifices_a_creature_and_gains_life_equal_to_its_toughness() {
     assert!(on_battlefield(&engine, p0, HILL_GIANT).is_none());
     assert_eq!(engine.state().players[0].life, 23);
 }
+
+#[test]
+fn no_creature_means_the_additional_cost_cannot_be_paid() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[], &[], &[worthy_cause()], &[]);
+    lk::float(&mut e, p0, &[(ManaColor::White, 5)]);
+    let card = in_hand(&e, p0, worthy_cause()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority");
+    };
+    assert!(
+        !legal.castable.contains(&card) && !legal.payable.contains(&card),
+        "mana alone cannot pay the sacrifice"
+    );
+}

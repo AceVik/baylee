@@ -1,3 +1,5 @@
+//! `cards/instants/mv_2/repopulate.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -6,19 +8,16 @@ fn repopulate() -> CardIndex {
 }
 
 #[test]
-fn repopulate_shuffles_graveyard_into_library() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest()])
-        .hand(0, &[repopulate(), gray_ogre()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-    hand_to_graveyard(&mut engine, p0, gray_ogre());
-
-    cast_from_hand(&mut engine, p0, repopulate());
-    engine.apply(p0, PlayerAction::ChoosePlayer(p0)).unwrap();
+fn repopulate_cycles_for_two_and_discards_itself() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[repopulate()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 2)]);
+    let before = engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len();
+    activate(&mut engine, lk::P0, repopulate(), 0);
+    assert!(in_graveyard(&engine, lk::P0, repopulate()).is_some());
     pass_until(&mut engine, stack_is_empty);
-
-    assert!(in_graveyard(&engine, p0, gray_ogre()).is_none());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(lk::P0)).len(),
+        before
+    );
 }

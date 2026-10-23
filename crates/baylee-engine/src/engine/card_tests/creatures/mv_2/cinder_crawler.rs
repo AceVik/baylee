@@ -26,6 +26,7 @@ fn cinder_crawler_activates_only_when_blocked_to_pump_power() {
     let crawler = on_battlefield(&engine, P0, cinder_crawler()).unwrap();
     let wall = on_battlefield(&engine, P1, index::WALL_OF_STONE).unwrap();
 
+    tap_all_mana(&mut engine, P0);
     // Cannot activate in precombat main phase while unblocked.
     assert!(kit::offered(&engine, crawler).is_empty());
 
@@ -42,9 +43,11 @@ fn cinder_crawler_activates_only_when_blocked_to_pump_power() {
         )
         .unwrap();
 
-    tap_all_mana(&mut engine, P0);
+    crate::engine::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Red, 1)]);
     kit::activate_object(&mut engine, P0, crawler, 0);
     kit::resolve_the_stack(&mut engine, |_, _| None);
 
     assert_eq!(pt(&engine, crawler), (2, 2));
+    reach_their_main_phase(&mut engine, P1);
+    assert_eq!(pt(&engine, crawler), (1, 2));
 }

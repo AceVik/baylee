@@ -21,6 +21,7 @@ card!(
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
     ),],
+    // NOT SUPPORTED: Noncombat damage by the enchanted creature is not available as a creature-recipient trigger.
     abilities = &[
         spell!(
             &[Effect::AttachSelf {

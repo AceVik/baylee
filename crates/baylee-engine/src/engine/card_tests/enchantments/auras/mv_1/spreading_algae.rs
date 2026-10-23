@@ -28,3 +28,25 @@ fn spreading_algae_destroys_enchanted_swamp_when_tapped_and_returns_to_hand() {
     assert!(in_graveyard(&engine, p0, swamp()).is_some());
     assert!(in_hand(&engine, p0, spreading_algae()).is_some());
 }
+
+#[test]
+fn spreading_algae_rejects_non_swamps_and_ignores_another_lands_tap() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[swamp(), island()], &[], &[spreading_algae()], &[]);
+    let enchanted = lk::obj(&e, p0, swamp());
+    let other = lk::obj(&e, p0, island());
+    lk::float(&mut e, p0, &[(ManaColor::Green, 1)]);
+    cast_with_floating(&mut e, p0, spreading_algae());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("target swamp")
+    };
+    assert!(options.contains(&enchanted) && !options.contains(&other));
+    lk::aim(&mut e, &[enchanted], &[]);
+    lk::settle(&mut e);
+    e.apply(p0, PlayerAction::ActivateManaAbility { source: other })
+        .unwrap();
+    lk::settle(&mut e);
+    assert!(on_battlefield(&e, p0, swamp()).is_some());
+    assert!(on_battlefield(&e, p0, spreading_algae()).is_some());
+}

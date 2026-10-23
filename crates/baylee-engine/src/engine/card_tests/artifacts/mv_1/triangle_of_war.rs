@@ -34,8 +34,15 @@ fn triangle_of_war_sacrifices_to_make_your_creature_fight_opponent_creature() {
 
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, triangle_of_war(), 0);
-    aim_at(&mut engine, p0, hero);
-    aim_at(&mut engine, p0, foe);
+    let own = aim_at(&mut engine, p0, hero);
+    assert!(own.contains(&hero) && own.contains(&bystander));
+    assert!(!own.contains(&foe), "the fighter is a creature you control");
+    let theirs = aim_at(&mut engine, p0, foe);
+    assert!(theirs.contains(&foe));
+    assert!(
+        !theirs.contains(&hero) && !theirs.contains(&bystander),
+        "the foe is a creature an opponent controls"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p0, triangle_of_war()).is_some());

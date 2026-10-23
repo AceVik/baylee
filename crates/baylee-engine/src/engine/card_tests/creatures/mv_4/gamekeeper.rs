@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_4/gamekeeper.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -6,35 +8,29 @@ fn gamekeeper() -> CardIndex {
 }
 
 #[test]
-fn gamekeeper_exiles_itself_on_death_and_searches_library_for_creature() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, llanowar_elves())
-        .battlefield(0, &[gamekeeper()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn gamekeeper_does_not_use_the_wrong_reveal_destination() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[gamekeeper()], &[], &[], &[]);
+    let keeper = lk::obj(&engine, lk::P0, gamekeeper());
+    let library = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(lk::P0))
+        .to_vec();
+    kill(&mut engine, keeper);
+    assert!(in_graveyard(&engine, lk::P0, gamekeeper()).is_some());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(lk::P0)),
+        library
+    );
+}
 
-    let keeper = on_battlefield(&engine, p0, gamekeeper()).unwrap();
-    let state = engine.dev_state_mut(p0).unwrap();
-    crate::sba::destroy(state, keeper);
-    let Pending::Priority { player, .. } = engine.pending().clone() else {
-        panic!("expected priority");
-    };
-    engine.apply(player, PlayerAction::PassPriority).unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
-    });
-    if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
-        engine
-            .apply(
-                p0,
-                PlayerAction::ChooseObjects {
-                    objects: vec![options[0]],
-                },
-            )
-            .unwrap();
-    }
+#[test]
+fn creature_body_remains_playable() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[gamekeeper()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Green, 6)]);
+    cast_with_floating(&mut engine, lk::P0, gamekeeper());
     pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, lk::P0, gamekeeper()).is_some());
 }

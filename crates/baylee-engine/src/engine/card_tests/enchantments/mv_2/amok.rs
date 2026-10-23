@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -33,4 +34,11 @@ fn amok_discards_at_random_and_adds_plus_one_counter() {
 
     assert_eq!(pt(&engine, bears), (3, 3));
     assert!(in_graveyard(&engine, P0, forest()).is_some());
+}
+
+#[test]
+fn cannot_activate_without_a_card_to_discard_even_with_mana() {
+    let mut e = lk::game(SEED, &[amok(), index::GRIZZLY_BEARS], &[], &[], &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Colorless, 1)]);
+    assert!(!lk::offered(&e, amok(), P0, 0));
 }

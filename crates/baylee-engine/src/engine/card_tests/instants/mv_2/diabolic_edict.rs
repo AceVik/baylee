@@ -43,3 +43,37 @@ fn diabolic_edict_makes_target_player_sacrifice_a_creature() {
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_some());
 }
+
+#[test]
+fn diabolic_edict_can_target_you_but_only_you_choose_your_sacrifice() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS],
+        &[index::HILL_GIANT],
+        &[diabolic_edict()],
+        &[],
+    );
+    let own = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let opposing = lk::obj(&e, P1, index::HILL_GIANT);
+    lk::float(&mut e, P0, &[(ManaColor::Black, 2)]);
+    cast_with_floating(&mut e, P0, diabolic_edict());
+    e.apply(P0, PlayerAction::ChoosePlayer(P0)).unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = e.pending()
+    else {
+        panic!("sacrifice")
+    };
+    assert_eq!(*player, P0);
+    assert!(options.contains(&own));
+    assert!(!options.contains(&opposing));
+    e.apply(P0, PlayerAction::ChooseObjects { objects: vec![own] })
+        .unwrap();
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, P0, index::GRIZZLY_BEARS).is_some());
+    assert!(on_battlefield(&e, P1, index::HILL_GIANT).is_some());
+}

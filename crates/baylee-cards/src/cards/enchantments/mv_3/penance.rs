@@ -1,7 +1,9 @@
 //! Penance — {2}{W} — Enchantment
 //! Oracle: Put a card from your hand on top of your library: The next time a black or red source of your choice would deal damage this turn, prevent that damage.
 //! Set: EXO #15 — Exodus | Scryfall ID: 1f3db848-8394-43bd-a236-264641033a6d | Oracle ID: 7818d6e0-74d8-46ae-94f6-d2a349c9507b
-// PARTIAL: Putting a card from your hand on top of your library as an activation cost to prevent the next damage from a chosen black or red source is not supported; enters as an inert enchantment.
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -10,12 +12,11 @@ card!(
     oracle_id = "7818d6e0-74d8-46ae-94f6-d2a349c9507b",
     scryfall_id = "1f3db848-8394-43bd-a236-264641033a6d",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial(
-        "Putting a card from your hand on top of your library as an activation cost to prevent the next damage from a chosen black or red source is not supported; enters as an inert enchantment.",
-    ),
     faces = &[face!(
         name = "Penance",
         mana_cost = mana!("{2}{W}"),
         types = TypeSet::ENCHANTMENT,
     ),],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

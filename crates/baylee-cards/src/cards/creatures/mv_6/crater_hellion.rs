@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OTHER_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Another]);
-
 card!(
     index = index::CRATER_HELLION,
     oracle_id = "2d37c437-0d5c-400d-88ce-10d173b28eda",
@@ -31,7 +29,7 @@ card!(
             Trigger::ETB,
             &[Effect::DealDamageEach {
                 amount: Amount::Fixed(4),
-                filter: &OTHER_CREATURE,
+                filter: &Filter::And(&[Filter::CREATURE, Filter::Another]),
             }],
         ),
     ],

@@ -13,7 +13,7 @@ fn flowstone_flood_destroys_target_land() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(1, forest())
         .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
-        .battlefield(1, &[forest()])
+        .battlefield(1, &[forest(), gray_ogre()])
         .hand(0, &[flowstone_flood()])
         .start();
     keep_mulligans(&mut engine);
@@ -21,9 +21,14 @@ fn flowstone_flood_destroys_target_land() {
 
     let target_land = on_battlefield(&engine, p1, forest()).unwrap();
     cast_from_hand(&mut engine, p0, flowstone_flood());
+    let creature = on_battlefield(&engine, p1, gray_ogre()).unwrap();
     kit::settle(&mut engine, p0, |_, p| {
+        if let Pending::ChooseTargets { options, .. } = p {
+            assert!(!options.contains(&creature));
+        }
         kit::choose_targets(p, &[target_land], &[])
     });
 
     assert!(on_battlefield(&engine, p1, forest()).is_none());
+    assert!(in_graveyard(&engine, p0, flowstone_flood()).is_some());
 }

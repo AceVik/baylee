@@ -21,6 +21,18 @@ fn shower_of_sparks_damages_target_creature_and_target_player() {
     cast_from_hand(&mut engine, p0, shower_of_sparks());
     aim_at(&mut engine, p0, bear_id);
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![bear_id],
+                        players: vec![]
+                    }
+                )
+                .is_err(),
+            "second target cannot be another creature"
+        );
         engine
             .apply(
                 p0,

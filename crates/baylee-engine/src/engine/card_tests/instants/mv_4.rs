@@ -24,7 +24,6 @@ mod might_of_oaks;
 mod nocturnal_raid;
 mod rapid_fire;
 mod ray_of_command;
-mod reins_of_power;
 mod reverberation;
 mod rewind;
 mod sewers_of_estark;

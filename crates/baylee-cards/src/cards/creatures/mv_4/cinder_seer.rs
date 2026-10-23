@@ -1,12 +1,10 @@
 //! Cinder Seer — {3}{R} — Creature — Human Wizard
 //! Oracle: {2}{R}, {T}: Reveal any number of red cards in your hand. This creature deals X damage to any target, where X is the number of cards revealed this way.
 //! Set: UDS #78 — Urza's Destiny | Scryfall ID: d96e7522-e0bc-4e23-8e4b-40a0c28ea986 | Oracle ID: 64b63797-9db0-41fa-b2eb-fbf51de0e337
-// PARTIAL: revealing any number of red cards in your hand as part of resolution is not in Effect; activates for {2}{R}, {T} to deal damage equal to the number of red cards in your hand to any target.
+// PARTIAL — revealing any number of red hand cards and counting only the revealed cards is unsupported.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
-
-static RED_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Red]));
 
 card!(
     index = index::CINDER_SEER,
@@ -14,7 +12,7 @@ card!(
     scryfall_id = "d96e7522-e0bc-4e23-8e4b-40a0c28ea986",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     coverage = Coverage::Partial(
-        "revealing any number of red cards in your hand as part of resolution is not in Effect; activates for {2}{R}, {T} to deal damage equal to the number of red cards in your hand to any target",
+        "revealing any number of red hand cards and counting only the revealed cards is unsupported"
     ),
     faces = &[face!(
         name = "Cinder Seer",
@@ -24,15 +22,5 @@ card!(
         power = Some(1),
         toughness = Some(1),
     ),],
-    abilities = &[activated!(
-        cost!("{2}{R}", TapSelf),
-        &[Effect::DealDamage {
-            amount: Amount::CountOf {
-                filter: &RED_CARD,
-                zone: ZoneSel::HandYou,
-            },
-            target: TargetSpec::AnyTarget,
-        }],
-        targets = Some(TargetReq::one(TargetSpec::AnyTarget)),
-    )],
+    // NOT SUPPORTED: revealing any number of red hand cards and counting only the revealed cards is unsupported.
 );

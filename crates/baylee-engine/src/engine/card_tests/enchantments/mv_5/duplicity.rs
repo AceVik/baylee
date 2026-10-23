@@ -29,6 +29,16 @@ fn duplicity_exiles_five_face_down_on_etb_and_discards_at_end_step() {
         lib_before - 5
     );
     assert_eq!(engine.state().zones.list(ZoneLocation::Exile(P0)).len(), 5);
+    for id in engine.state().zones.list(ZoneLocation::Exile(P0)) {
+        assert!(
+            engine
+                .state()
+                .object(*id)
+                .unwrap()
+                .status
+                .contains(Status::FACE_DOWN)
+        );
+    }
 
     let hand_before_end = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
     pass_until(&mut engine, |e| {
@@ -49,5 +59,12 @@ fn duplicity_exiles_five_face_down_on_etb_and_discards_at_end_step() {
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
         hand_before_end - 1
+    );
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    let before = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
+    reach_their_main_phase(&mut engine, P0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        before + 1
     );
 }

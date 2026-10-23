@@ -19,6 +19,7 @@ fn palinchron_untaps_up_to_seven_lands_on_etb_and_bounces_itself() {
                 island(),
                 island(),
                 island(),
+                island(),
             ],
         )
         .hand(0, &[palinchron()])
@@ -30,9 +31,26 @@ fn palinchron_untaps_up_to_seven_lands_on_etb_and_bounces_itself() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
     });
-    if let Pending::ChooseCards { options, .. } = engine.pending().clone() {
+    if let Pending::ChooseCards {
+        options, min, max, ..
+    } = engine.pending().clone()
+    {
+        assert_eq!((min, max), (0, 7));
+        if options.len() > 7 {
+            assert!(
+                engine
+                    .apply(
+                        p0,
+                        PlayerAction::ChooseObjects {
+                            objects: options.clone()
+                        }
+                    )
+                    .is_err()
+            );
+        }
+        let chosen = options.into_iter().take(7).collect();
         engine
-            .apply(p0, PlayerAction::ChooseObjects { objects: options })
+            .apply(p0, PlayerAction::ChooseObjects { objects: chosen })
             .unwrap();
     }
     pass_until(&mut engine, stack_is_empty);

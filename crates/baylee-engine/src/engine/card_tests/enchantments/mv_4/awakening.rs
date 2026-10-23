@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -44,4 +45,39 @@ fn awakening_untaps_creatures_and_lands_at_upkeep() {
     });
 
     assert!(!is_tapped(&engine, elf));
+}
+
+#[test]
+fn upkeep_untaps_creatures_and_lands_on_both_sides_but_not_artifacts() {
+    let mut e = lk::game(
+        SEED,
+        &[awakening(), index::GRIZZLY_BEARS, forest(), index::SOL_RING],
+        &[index::GRIZZLY_BEARS, island()],
+        &[],
+        &[],
+    );
+    let mine = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let my_land = lk::obj(&e, P0, forest());
+    let artifact = lk::obj(&e, P0, index::SOL_RING);
+    let theirs = lk::obj(&e, lk::P1, index::GRIZZLY_BEARS);
+    let their_land = lk::obj(&e, lk::P1, island());
+    reach_their_main_phase(&mut e, lk::P1);
+    pass_until(&mut e, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && !stack_is_empty(e)
+    });
+    for id in [mine, my_land, artifact, theirs, their_land] {
+        e.dev_state_mut(P0)
+            .unwrap()
+            .object_mut(id)
+            .unwrap()
+            .status
+            .insert(Status::TAPPED);
+    }
+    lk::settle(&mut e);
+    for id in [mine, my_land, theirs, their_land] {
+        assert!(!lk::tapped(&e, id));
+    }
+    assert!(lk::tapped(&e, artifact));
 }

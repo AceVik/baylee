@@ -3,7 +3,7 @@
 //! Oracle: Enchanted creature has flying.
 //! Oracle: Sacrifice this Aura: Return enchanted creature to its owner's hand.
 //! Set: BOK #46 — Betrayers of Kamigawa | Scryfall ID: a96e5a18-5958-426e-892f-5c68f44c1b41 | Oracle ID: 9da74f0f-143d-4db2-81eb-c7873744a2d0
-// PARTIAL — Enchants a creature, grants flying to enchanted creature, and has 'Sacrifice this Aura' as an activated ability; returning the enchanted creature to its owner's hand after sacrificing the Aura as a cost requires LKI attachment tracking across activation cost payment.
+// PARTIAL — Enchant creature and "Enchanted creature has flying." NOT SUPPORTED: "Sacrifice this Aura: Return enchanted creature to its owner's hand." — once the Aura is sacrificed as the cost it is attached to nothing, so the creature it enchanted cannot be named; as an ability that only sacrificed the Aura it would be a button that destroys it for nothing.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -14,7 +14,7 @@ card!(
     scryfall_id = "a96e5a18-5958-426e-892f-5c68f44c1b41",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "Enchants a creature, grants flying to enchanted creature, and has 'Sacrifice this Aura' as an activated ability; returning the enchanted creature to its owner's hand after sacrificing the Aura as a cost requires LKI attachment tracking across activation cost payment.",
+        "enchants a creature and gives it flying; the ability 'Sacrifice this Aura: Return enchanted creature to its owner's hand' is not supported (after the sacrifice cost the Aura is attached to nothing, so the creature it enchanted cannot be named)",
     ),
     faces = &[face!(
         name = "Phantom Wings",
@@ -33,12 +33,7 @@ card!(
             Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
             Modifier::AddKeyword(KeywordSet::FLYING),
         ),
-        activated!(
-            cost!(SacrificeSelf),
-            &[Effect::ReturnAllToHand {
-                filter: &Filter::AttachedToBySource,
-                opponents_only: false,
-            }],
-        ),
+        // NOT SUPPORTED: "Sacrifice this Aura: Return enchanted creature to its
+        // owner's hand." — the creature cannot be named once the Aura has left.
     ],
 );

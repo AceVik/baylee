@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::engine::card_tests::partials_w2c_kit::power_toughness;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -27,4 +28,24 @@ fn lancers_en_kor_enters_with_trample() {
     let id = on_battlefield(&engine, P0, lancers_en_kor()).unwrap();
     assert_eq!(power_toughness(&engine, id), (3, 3));
     assert!(keywords(&engine, id).contains(KeywordSet::TRAMPLE));
+}
+
+#[test]
+fn trample_deals_excess_damage_through_a_one_toughness_blocker() {
+    use baylee_core::generated::index;
+    let mut e = lk::game(
+        SEED,
+        &[lancers_en_kor()],
+        &[index::SAVANNAH_LIONS],
+        &[],
+        &[],
+    );
+    let lancers = lk::obj(&e, P0, lancers_en_kor());
+    let lions = lk::obj(&e, lk::P1, index::SAVANNAH_LIONS);
+    lk::attackers_offered(&mut e);
+    lk::declare(&mut e, &[lancers]);
+    lk::block(&mut e, &[(lions, lancers)]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, lk::P1), 18);
+    assert!(in_graveyard(&e, lk::P1, index::SAVANNAH_LIONS).is_some());
 }

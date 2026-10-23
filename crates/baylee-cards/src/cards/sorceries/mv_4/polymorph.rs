@@ -3,6 +3,8 @@
 //! Set: M10 #67 — Magic 2010 | Scryfall ID: 83d274f4-452b-4ff2-b026-83667e9ba98f | Oracle ID: 039115f2-6322-4674-bc64-f21883ed375a
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

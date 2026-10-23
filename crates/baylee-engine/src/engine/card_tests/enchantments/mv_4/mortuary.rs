@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -39,5 +40,38 @@ fn mortuary_puts_dying_owned_creature_on_top_of_library() {
     assert_eq!(
         engine.state().object(top).unwrap().card.map(|c| c.index),
         Some(index::GRIZZLY_BEARS)
+    );
+}
+
+#[test]
+fn ownership_not_control_decides_whose_graveyard_and_library_are_used() {
+    let mut e = lk::game(
+        SEED,
+        &[mortuary(), index::GRIZZLY_BEARS],
+        &[index::SAVANNAH_LIONS],
+        &[lightning_bolt(), lightning_bolt()],
+        &[],
+    );
+    lk::float(&mut e, P0, &[(ManaColor::Red, 2)]);
+    let enemy = lk::obj(&e, lk::P1, index::SAVANNAH_LIONS);
+    lk::cast_at(&mut e, P0, lightning_bolt(), &[enemy], &[]);
+    assert!(in_graveyard(&e, lk::P1, index::SAVANNAH_LIONS).is_some());
+    let mine = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    e.dev_state_mut(P0)
+        .unwrap()
+        .object_mut(mine)
+        .unwrap()
+        .controller = lk::P1;
+    e.refresh_offer();
+    lk::cast_at(&mut e, P0, lightning_bolt(), &[mine], &[]);
+    let top = *e
+        .state()
+        .zones
+        .list(ZoneLocation::Library(P0))
+        .last()
+        .unwrap();
+    assert_eq!(
+        e.state().object(top).unwrap().card.unwrap().index,
+        index::GRIZZLY_BEARS
     );
 }

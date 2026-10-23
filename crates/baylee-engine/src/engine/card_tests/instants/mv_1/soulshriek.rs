@@ -7,6 +7,10 @@ fn soulshriek() -> CardIndex {
     card_index("77ae796e-fc56-47b9-b8a0-97e24fbd60f7")
 }
 
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
 fn hill_giant() -> CardIndex {
     baylee_core::generated::index::HILL_GIANT
 }
@@ -28,6 +32,7 @@ fn soulshriek_pumps_by_graveyard_creatures_and_sacrifices_at_end_step() {
                 giant_growth(),
             ],
         )
+        .battlefield(1, &[savannah_lions()])
         .hand(0, &[soulshriek()])
         .start();
     keep_mulligans(&mut engine);
@@ -37,10 +42,16 @@ fn soulshriek_pumps_by_graveyard_creatures_and_sacrifices_at_end_step() {
     let giant = on_battlefield(&engine, p0, hill_giant()).unwrap();
     let ogre = on_battlefield(&engine, p0, gray_ogre()).unwrap();
     let growth = on_battlefield(&engine, p0, giant_growth()).unwrap();
+    let lions = on_battlefield(&engine, p1, savannah_lions()).unwrap();
     bury(&mut engine, &[giant, ogre, growth]);
 
     cast_from_hand(&mut engine, p0, soulshriek());
-    aim_at(&mut engine, p0, bear);
+    let menu = aim_at(&mut engine, p0, bear);
+    assert!(menu.contains(&bear));
+    assert!(
+        !menu.contains(&lions),
+        "only a creature you control may be named"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     // 2 creature cards in graveyard (Hill Giant, Gray Ogre) -> +2/+0 (4/2).
@@ -50,4 +61,8 @@ fn soulshriek_pumps_by_graveyard_creatures_and_sacrifices_at_end_step() {
     reach_their_main_phase(&mut engine, p1);
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
     assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
+    assert!(
+        on_battlefield(&engine, p1, savannah_lions()).is_some(),
+        "the opponent's creature is not sacrificed"
+    );
 }

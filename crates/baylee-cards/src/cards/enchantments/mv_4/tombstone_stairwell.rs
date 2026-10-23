@@ -3,7 +3,9 @@
 //! Oracle: At the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each creature card in their graveyard.
 //! Oracle: At the beginning of each end step and when this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.
 //! Set: MIR #149 — Mirage | Scryfall ID: f8fe2f99-7ec2-490c-8ec3-aa2fb4680826 | Oracle ID: 9aaf1149-eccb-434a-a1a7-14b93fa50141
-// PARTIAL — cumulative upkeep {1}{B}, upkeep trigger creating 2/2 black Tombspawn Zombie tokens with haste for each creature card in your graveyard, and end-step/LTB triggers destroying all Tombspawn tokens without regeneration; no per-player graveyard token creation or "tokens created with this enchantment" link exists yet.
+// PARTIAL — cumulative upkeep, the upkeep tokens for each player (a duel exactly) and the end-step and leaves-the-battlefield destruction of the Tombspawn tokens; with three or more players each opponent gets tokens for every creature card in all opponents' graveyards together, not for their own graveyard alone.
+// NOT SUPPORTED: "each player creates a … token for each creature card in their graveyard": no token instruction counts each player's own graveyard, so "each opponent" is read from the opponents' graveyards as a whole, which is each player's own in a duel only.
+// NOT SUPPORTED: "destroy all tokens created with this enchantment": read as every token named Tombspawn, and only this enchantment makes them.
 
 use crate::generated_tokens;
 use baylee_cards_dsl::prelude::*;
@@ -16,7 +18,7 @@ card!(
     scryfall_id = "f8fe2f99-7ec2-490c-8ec3-aa2fb4680826",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "cumulative upkeep {1}{B}, upkeep trigger creating 2/2 black Tombspawn Zombie tokens with haste for each creature card in your graveyard, and end-step/LTB triggers destroying all Tombspawn tokens without regeneration; no per-player graveyard token creation or 'tokens created with this enchantment' link exists yet",
+        "in a game of three or more players each opponent gets Tombspawn tokens for every creature card in all opponents' graveyards together, not for their own alone (a duel is exact); the tokens to destroy are all tokens named Tombspawn, not tracked to this enchantment",
     ),
     faces = &[face!(
         name = "Tombstone Stairwell",
@@ -52,13 +54,23 @@ card!(
                 step: StepKind::Upkeep,
                 whose: PlayerRel::EachPlayer,
             },
-            &[Effect::CreateTokenN {
-                token: &generated_tokens::TOMBSPAWN_2_2_BLACK_HASTE,
-                amount: Amount::CountOf {
-                    filter: &Filter::CREATURE,
-                    zone: ZoneSel::GraveyardYou,
+            &[
+                Effect::CreateTokenN {
+                    token: &generated_tokens::TOMBSPAWN_2_2_BLACK_HASTE,
+                    amount: Amount::CountOf {
+                        filter: &Filter::CREATURE,
+                        zone: ZoneSel::GraveyardYou,
+                    },
                 },
-            }],
+                Effect::CreateTokensFor {
+                    player: PlayerRel::EachOpponent,
+                    token: &generated_tokens::TOMBSPAWN_2_2_BLACK_HASTE,
+                    amount: Amount::CountOf {
+                        filter: &Filter::CREATURE,
+                        zone: ZoneSel::GraveyardOpponents,
+                    },
+                },
+            ],
             condition = Some(Condition::SourceMatches(&Filter::InZone(
                 ZoneRef::Battlefield
             ))),

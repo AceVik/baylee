@@ -29,9 +29,17 @@ fn shackles_prevents_untap_and_returns_to_hand_for_w() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p0, shackles()).is_some());
+    use crate::engine::card_tests::legends_kit as lk;
+    use crate::engine::card_tests::partials_w1b_kit as kit;
+    lk::attack(&mut engine, &[ogre]);
+    kit::walk_to_next_own_main(&mut engine, p0);
+    assert!(is_tapped(&engine, ogre), "host skips its actual untap step");
+    lk::float(&mut engine, p0, &[(ManaColor::White, 1)]);
     activate(&mut engine, p0, shackles(), 2);
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p0, shackles()).is_none());
     assert!(in_hand(&engine, p0, shackles()).is_some());
+    kit::walk_to_next_own_main(&mut engine, p0);
+    assert!(!is_tapped(&engine, ogre));
 }

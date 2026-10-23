@@ -11,8 +11,8 @@ fn engineered_plague_gives_creatures_of_chosen_type_minus_one_minus_one() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[engineered_plague()])
-        .battlefield(0, &[swamp(), swamp(), swamp()])
-        .battlefield(1, &[llanowar_elves()])
+        .battlefield(0, &[swamp(), swamp(), swamp(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -31,4 +31,12 @@ fn engineered_plague_gives_creatures_of_chosen_type_minus_one_minus_one() {
 
     assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
     assert!(in_graveyard(&engine, p1, llanowar_elves()).is_some());
+    assert!(
+        in_graveyard(&engine, p0, llanowar_elves()).is_some(),
+        "both controllers are affected"
+    );
+    assert_eq!(
+        pt(&engine, on_battlefield(&engine, p1, gray_ogre()).unwrap()),
+        (2, 2)
+    );
 }

@@ -2,7 +2,7 @@
 //! Oracle: Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.
 //! Oracle: {G}: Regenerate this creature.
 //! Set: EXO #118 — Exodus | Scryfall ID: 7be9714d-125f-4700-879d-b920fe9f1b68 | Oracle ID: 6f18f41e-df8d-4b59-87cc-ea167823fbda
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

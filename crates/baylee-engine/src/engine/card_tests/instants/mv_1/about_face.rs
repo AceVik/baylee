@@ -31,4 +31,6 @@ fn about_face_switches_power_and_toughness_until_end_of_turn() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, elem), (5, 4));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert_eq!(pt(&engine, elem), (4, 5));
 }

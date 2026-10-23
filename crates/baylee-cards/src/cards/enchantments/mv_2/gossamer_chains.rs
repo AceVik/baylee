@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static UNBLOCKED_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Unblocked]);
-
 card!(
     index = index::GOSSAMER_CHAINS,
     oracle_id = "af3936ab-0156-438d-9fef-a924d2fcffc3",
@@ -22,9 +20,12 @@ card!(
         cost!(ReturnSelfToHand),
         &[Effect::continuous(
             &Filter::This,
-            Modifier::AssignsNoCombatDamage,
+            Modifier::PreventDamageFromIt,
             Duration::UntilEndOfTurn,
         )],
-        target = Some(TargetSpec::Object(&UNBLOCKED_CREATURE)),
+        target = Some(TargetSpec::Object(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::Unblocked,
+        ]))),
     )],
 );

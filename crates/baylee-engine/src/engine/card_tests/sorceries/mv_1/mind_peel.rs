@@ -42,6 +42,10 @@ fn mind_peel_causes_target_player_to_discard_a_card() {
             .unwrap();
     }
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, mind_peel()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
 }

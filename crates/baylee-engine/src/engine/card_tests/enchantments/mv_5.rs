@@ -108,7 +108,6 @@ fn may_block(
             .any(|b| b.blocker == blocker && b.attackers.contains(&attacker))
     })
 }
-mod angelic_chorus;
 mod asceticism;
 mod bazaar_of_wonders;
 mod berserkers_onslaught;
@@ -122,7 +121,6 @@ mod dictate_of_heliod;
 mod dire_undercurrents;
 mod discordant_dirge;
 mod dispersing_orb;
-mod dream_halls;
 mod duplicity;
 mod enchanted_evening;
 mod energy_vortex;

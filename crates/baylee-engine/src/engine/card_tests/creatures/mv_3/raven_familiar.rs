@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_3/raven_familiar.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -21,7 +23,20 @@ fn raven_familiar_etb_picks_one_of_top_three() {
     let Pending::ChooseCards { options, .. } = pass_to_card_choice(&mut engine) else {
         panic!("expected ChooseCards for Raven Familiar");
     };
+    assert_eq!(options.len(), 3);
+    let expected_top: Vec<_> = engine
+        .state()
+        .zones
+        .list(ZoneLocation::Library(p0))
+        .iter()
+        .rev()
+        .take(3)
+        .copied()
+        .collect();
+    assert_eq!(options, expected_top);
     let chosen = options[0];
+    let mut remainder = options[1..].to_vec();
+    remainder.reverse();
     engine
         .apply(
             p0,
@@ -31,14 +46,51 @@ fn raven_familiar_etb_picks_one_of_top_three() {
         )
         .unwrap();
 
-    if let Pending::Arrange { cards, .. } = engine.pending().clone() {
-        engine
-            .apply(p0, PlayerAction::Arrange { piles: vec![cards] })
-            .unwrap();
-    }
+    let Pending::Arrange { cards, .. } = engine.pending().clone() else {
+        panic!("order the other two cards")
+    };
+    assert_eq!(cards.len(), 2);
+    engine
+        .apply(
+            p0,
+            PlayerAction::Arrange {
+                piles: vec![remainder.clone()],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
     let hand_after = engine.state().zones.list(ZoneLocation::Hand(p0));
     assert_eq!(hand_after.len(), hand_before);
     assert!(hand_after.contains(&chosen));
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    assert!(
+        library[..2].iter().all(|id| remainder.contains(id)),
+        "the two unpicked cards are on the bottom"
+    );
+    // Its echo upkeep is a real price, even after its entry benefit resolved.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, raven_familiar()).is_some());
+}
+
+#[test]
+fn flying_prevents_a_ground_creature_from_blocking() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game_with(SEED, &[raven_familiar()], &[gray_ogre()], &[], &[], |e| {
+        let Pending::YesNo { player, .. } = e.pending().clone() else {
+            panic!("echo payment")
+        };
+        e.dev_state_mut(player).unwrap().players[usize::from(player.get())]
+            .mana_pool
+            .add(ManaColor::Blue, 3);
+        e.apply(player, PlayerAction::YesNo(true)).unwrap();
+    });
+    let flyer = lk::obj(&engine, lk::P0, raven_familiar());
+    let ground = lk::obj(&engine, lk::P1, gray_ogre());
+    let offer = lk::attack(&mut engine, &[flyer]);
+    assert!(!lk::may_block(&offer, ground, flyer));
 }

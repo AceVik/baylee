@@ -19,13 +19,39 @@ fn ostracize_discards_chosen_creature_card_from_opponent_hand() {
 
     let ogre_in_hand = in_hand(&engine, p1, gray_ogre()).unwrap();
     cast_from_hand(&mut engine, p0, ostracize());
-    if matches!(engine.pending(), Pending::ChoosePlayer { .. }) {
-        engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
-    }
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p0]
+                }
+            )
+            .is_err()
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. }) || stack_is_empty(e)
     });
-    if matches!(engine.pending(), Pending::ChooseCards { .. }) {
+    if let Pending::ChooseCards {
+        player,
+        ref options,
+        ..
+    } = engine.pending().clone()
+    {
+        assert_eq!(player, p0, "caster chooses the discarded creature");
+        let land = in_hand(&engine, p1, plains()).unwrap();
+        assert!(!options.contains(&land));
         engine
             .apply(
                 p0,
@@ -38,4 +64,5 @@ fn ostracize_discards_chosen_creature_card_from_opponent_hand() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p1, gray_ogre()).is_some());
+    assert!(in_hand(&engine, p1, plains()).is_some());
 }

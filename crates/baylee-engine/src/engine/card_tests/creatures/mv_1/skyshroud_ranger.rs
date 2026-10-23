@@ -38,3 +38,39 @@ fn skyshroud_ranger_taps_at_sorcery_speed_to_put_a_land_from_hand_onto_battlefie
 
     assert!(on_battlefield(&engine, p0, forest()).is_some());
 }
+
+#[test]
+fn ranger_is_sorcery_only_and_may_decline_but_cannot_put_a_creature() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[skyshroud_ranger()],
+        &[],
+        &[forest(), index::GRIZZLY_BEARS],
+        &[],
+    );
+    reach_their_main_phase(&mut e, p1);
+    e.apply(p1, PlayerAction::PassPriority).unwrap();
+    assert!(!lk::offered(&e, skyshroud_ranger(), p0, 0));
+    reach_their_main_phase(&mut e, p0);
+    activate(&mut e, p0, skyshroud_ranger(), 0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let creature = in_hand(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![creature]
+            }
+        )
+        .is_err()
+    );
+    e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    lk::settle(&mut e);
+    assert!(in_hand(&e, p0, forest()).is_some());
+}

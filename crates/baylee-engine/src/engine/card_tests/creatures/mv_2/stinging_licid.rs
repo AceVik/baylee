@@ -1,39 +1,28 @@
-//! `cards/creatures/mv_2/stinging_licid.rs`, played.
+//! The remaining Partial body is cast; unsupported approximations are absent.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::GRIZZLY_BEARS;
+use crate::engine::card_tests::legends_kit as lk;
 
-fn stinging_licid() -> CardIndex {
-    card_index("c6e48eaf-02f8-43b3-90bf-970d4e412fa6")
-}
-
-/// `Stinging Licid` ({1}{U}, 1/1 Creature — Licid, `Coverage::Partial`):
-/// activates `{1}{U}, {T}` to deal 2 damage to target creature's controller.
 #[test]
-fn stinging_licid_deals_two_damage_to_target_creatures_controller() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), stinging_licid()])
-        .battlefield(1, &[GRIZZLY_BEARS])
+fn unsupported_approximation_is_not_an_ability() {
+    let card = card_index("c6e48eaf-02f8-43b3-90bf-970d4e412fa6");
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[baylee_core::generated::index::GRIZZLY_BEARS])
+        .hand(0, &[card])
         .start();
-    keep_mulligans(&mut engine);
-    reach_their_main_phase(&mut engine, p1);
-
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
-    engine.apply(p1, PlayerAction::PassPriority).unwrap();
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, stinging_licid(), 0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().players[1].life, 18);
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    cast_with_floating(&mut e, p0, card);
+    pass_until(&mut e, stack_is_empty);
+    let creature = on_battlefield(&e, p0, card).expect("the remaining body is cast");
+    reach_their_main_phase(&mut e, PlayerId::new(1));
+    reach_their_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority after resolving the creature");
+    };
+    assert!(legal.abilities.iter().all(|(id, _)| *id != creature));
 }

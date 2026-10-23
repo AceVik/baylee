@@ -1,7 +1,7 @@
 //! Necratog — {1}{B}{B} — Creature — Atog
 //! Oracle: Exile the top creature card of your graveyard: this creature gets +2/+2 until end of turn.
 //! Set: WTH #76 — Weatherlight | Scryfall ID: fb19c519-c09a-44a0-8d4b-ab6c15dabdef | Oracle ID: 9f820f1e-3cd1-4a3e-8d00-194c8a80b296
-// PARTIAL — Exiles any creature card from your graveyard to pay its activation cost; requiring the exiled card to be the top creature card of your graveyard is not yet modeled.
+// PARTIAL — the body only. NOT SUPPORTED: "Exile the top creature card of your graveyard: this creature gets +2/+2 until end of turn" — `CostPart::ExileFromGraveyard` lets the player pick any creature card of the graveyard, not the top one, so the ability is left off.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,7 +12,7 @@ card!(
     scryfall_id = "fb19c519-c09a-44a0-8d4b-ab6c15dabdef",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "Exiles any creature card from your graveyard to pay its activation cost; requiring the exiled card to be the top creature card of your graveyard is not yet modeled."
+        "the 1/2 body only; the ability 'exile the top creature card of your graveyard: +2/+2 until end of turn' is left off because the exile cost cannot name the top creature card, and picking any creature card would be a different card than printed",
     ),
     faces = &[face!(
         name = "Necratog",
@@ -21,12 +21,5 @@ card!(
         subtypes = &[subtypes::creature::ATOG],
         power = Some(1),
         toughness = Some(2),
-    ),],
-    abilities = &[activated!(
-        cost!(ExileFromGraveyard(&Filter::CREATURE)),
-        &[Effect::ModifySource {
-            modifier: Modifier::ModifyPT(2, 2),
-            duration: Duration::UntilEndOfTurn
-        }]
     ),],
 );

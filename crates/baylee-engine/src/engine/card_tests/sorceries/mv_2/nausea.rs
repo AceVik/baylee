@@ -11,7 +11,7 @@ fn nausea() -> CardIndex {
 fn nausea_gives_all_creatures_minus_one_minus_one() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(1, forest())
-        .battlefield(0, &[swamp(), swamp()])
+        .battlefield(0, &[swamp(), swamp(), gray_ogre()])
         .battlefield(1, &[gray_ogre()])
         .hand(0, &[nausea()])
         .start();
@@ -22,5 +22,10 @@ fn nausea_gives_all_creatures_minus_one_minus_one() {
     cast_from_hand(&mut engine, p0, nausea());
     pass_until(&mut engine, stack_is_empty);
 
+    let mine = on_battlefield(&engine, p0, gray_ogre()).unwrap();
     assert_eq!(pt(&engine, bears), (1, 1));
+    assert_eq!(pt(&engine, mine), (1, 1));
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(pt(&engine, bears), (2, 2));
+    assert_eq!(pt(&engine, mine), (2, 2));
 }

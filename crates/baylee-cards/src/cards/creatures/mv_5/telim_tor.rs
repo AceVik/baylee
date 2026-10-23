@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 static ATTACKING_WITH_FLANKING: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Attacking,
@@ -36,24 +31,15 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        triggered!(
-            Trigger::Attacks(&Filter::This),
-            &[Effect::PumpFilter {
-                filter: &ATTACKING_WITH_FLANKING,
-                controlled_by: None,
-                power: Amount::Fixed(1),
-                toughness: Amount::Fixed(1),
-                keywords: KeywordSet::EMPTY,
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-    ],
+    abilities = &[triggered!(
+        Trigger::Attacks(&Filter::This),
+        &[Effect::PumpFilter {
+            filter: &ATTACKING_WITH_FLANKING,
+            controlled_by: None,
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(1),
+            keywords: KeywordSet::EMPTY,
+            duration: Duration::UntilEndOfTurn,
+        }],
+    ),],
 );

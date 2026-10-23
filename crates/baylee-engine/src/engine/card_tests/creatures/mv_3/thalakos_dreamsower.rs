@@ -69,3 +69,31 @@ fn thalakos_dreamsower_taps_target_creature_on_damage_and_keeps_it_tapped_while_
     reach_their_main_phase(&mut engine, p1);
     assert!(is_tapped(&engine, bears));
 }
+
+#[test]
+fn choosing_to_untap_the_source_releases_the_creature() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[thalakos_dreamsower()], &[GRIZZLY_BEARS], &[], &[]);
+    let source = on_battlefield(&e, p0, thalakos_dreamsower()).unwrap();
+    let bears = on_battlefield(&e, p1, GRIZZLY_BEARS).unwrap();
+    lk::attack(&mut e, &[source]);
+    lk::block(&mut e, &[]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    lk::aim(&mut e, &[bears], &[]);
+    lk::through_combat(&mut e);
+    reach_their_main_phase(&mut e, p1);
+    assert!(is_tapped(&e, bears));
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    // Choosing no permanents to keep tapped lets the source untap.
+    e.apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    reach_their_main_phase(&mut e, p0);
+    assert!(!is_tapped(&e, source));
+    reach_their_main_phase(&mut e, p1);
+    assert!(!is_tapped(&e, bears));
+}

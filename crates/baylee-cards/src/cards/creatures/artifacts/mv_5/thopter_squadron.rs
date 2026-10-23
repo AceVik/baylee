@@ -4,6 +4,7 @@
 //! Oracle: {1}, Remove a +1/+1 counter from this creature: Create a 1/1 colorless Thopter artifact creature token with flying. Activate only as a sorcery.
 //! Oracle: {1}, Sacrifice another Thopter: Put a +1/+1 counter on this creature. Activate only as a sorcery.
 //! Set: TPR #233 — Tempest Remastered | Scryfall ID: 5fd13ac2-9642-4d59-a5c6-cc13c86991f0 | Oracle ID: f1482ca4-610b-48fe-ac23-4526637bb72a
+// IMPLEMENTED — all printed abilities are represented.
 
 use crate::generated_tokens::THOPTER_ARTIFACT_1_1_FLYING;
 use baylee_cards_dsl::prelude::*;
@@ -32,28 +33,28 @@ card!(
             kind: CounterKind::P1P1,
             amount: Amount::Fixed(3),
         }],
-        abilities = &[
-            activated!(
-                cost!(
-                    "{1}",
-                    RemoveCounterSelf {
-                        kind: CounterKind::P1P1,
-                        n: 1,
-                    }
-                ),
-                &[Effect::CreateToken {
-                    token: &THOPTER_ARTIFACT_1_1_FLYING,
-                }],
-                timing = ActivationTiming::SorcerySpeed,
-            ),
-            activated!(
-                cost!("{1}", Sacrifice(&ANOTHER_THOPTER_YOU_CONTROL)),
-                &[Effect::AddCounterSource {
-                    kind: CounterKind::P1P1,
-                    amount: Amount::Fixed(1),
-                }],
-                timing = ActivationTiming::SorcerySpeed,
-            ),
-        ],
     ),],
+    abilities = &[
+        activated!(
+            cost!(
+                "{1}",
+                RemoveCounterSelf {
+                    kind: CounterKind::P1P1,
+                    n: 1,
+                }
+            ),
+            &[Effect::CreateToken {
+                token: &THOPTER_ARTIFACT_1_1_FLYING,
+            }],
+            timing = ActivationTiming::SorcerySpeed,
+        ),
+        activated!(
+            cost!("{1}", Sacrifice(&ANOTHER_THOPTER_YOU_CONTROL)),
+            &[Effect::AddCounterSource {
+                kind: CounterKind::P1P1,
+                amount: Amount::Fixed(1),
+            }],
+            timing = ActivationTiming::SorcerySpeed,
+        ),
+    ],
 );

@@ -1,7 +1,7 @@
 //! Jackal Pup — {R} — Creature — Jackal
 //! Oracle: Whenever this creature is dealt damage, it deals that much damage to you.
 //! Set: A25 #139 — Masters 25 | Scryfall ID: 9d8743b2-30e3-4d15-89fc-72974747aec5 | Oracle ID: 993e41e6-0643-4a1f-8ada-b7a4aae486d9
-// PARTIAL
+// IMPLEMENTED — damage dealt to this creature is repeated to you, including lethal damage.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -11,9 +11,7 @@ card!(
     oracle_id = "993e41e6-0643-4a1f-8ada-b7a4aae486d9",
     scryfall_id = "9d8743b2-30e3-4d15-89fc-72974747aec5",
     color_identity = ColorSet::from_slice(&[Color::Red]),
-    coverage = Coverage::Partial(
-        "Triggers whenever this creature is dealt damage to deal 1 damage to you; Trigger::DealtDamage does not yet capture the exact amount of damage dealt to a permanent as EventAmount."
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Jackal Pup",
         mana_cost = mana!("{R}"),
@@ -26,7 +24,7 @@ card!(
         Trigger::DealtDamage(&Filter::This),
         &[Effect::DealDamage {
             target: TargetSpec::Player(PlayerRel::You),
-            amount: Amount::Fixed(1),
+            amount: Amount::EventAmount,
         }],
     )],
 );

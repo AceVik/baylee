@@ -12,7 +12,7 @@ fn skyshroud_elite_gets_plus_one_plus_two_when_opponent_controls_nonbasic_land()
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[skyshroud_elite()])
         .hand(1, &[badlands()])
-        .battlefield(0, &[forest()])
+        .battlefield(0, &[forest(), badlands()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);

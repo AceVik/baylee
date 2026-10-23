@@ -21,4 +21,44 @@ fn endoskeleton_grants_plus_zero_plus_three_while_tapped() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, elves), (1, 4));
+    let source = on_battlefield(&engine, p0, endoskeleton()).unwrap();
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(pt(&engine, elves), (1, 4));
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![source],
+            },
+        )
+        .unwrap();
+    reach_main_phase(&mut engine, p0);
+    assert!(is_tapped(&engine, source));
+    assert_eq!(pt(&engine, elves), (1, 4));
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: crate::choice::ChoicePrompt::LeaveTapped,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
+        .unwrap();
+    reach_main_phase(&mut engine, p0);
+    assert!(!is_tapped(&engine, source));
+    assert_eq!(pt(&engine, elves), (1, 1));
 }

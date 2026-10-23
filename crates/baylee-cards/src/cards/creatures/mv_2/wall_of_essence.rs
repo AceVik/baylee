@@ -2,7 +2,7 @@
 //! Oracle: Defender (This creature can't attack.)
 //! Oracle: Whenever this creature is dealt combat damage, you gain that much life.
 //! Set: TPR #38 — Tempest Remastered | Scryfall ID: 94b05805-e2af-4048-b7c7-1dbd188ba0f6 | Oracle ID: 1374ac18-01bd-452f-af72-a5f96285ed69
-// PARTIAL: restricting the trigger to combat damage and reading the exact amount of damage dealt to a permanent in Trigger::DealtDamage are not supported; has defender and gains 1 life whenever dealt damage.
+// PARTIAL — The combat-only received-damage trigger is not supported; only defender and the creature body are implemented
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,7 +13,7 @@ card!(
     scryfall_id = "94b05805-e2af-4048-b7c7-1dbd188ba0f6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Partial(
-        "restricting the trigger to combat damage and reading the exact amount of damage dealt to a permanent in Trigger::DealtDamage are not supported; has defender and gains 1 life whenever dealt damage",
+        "The combat-only received-damage trigger is not supported; only defender and the creature body are implemented"
     ),
     keywords = KeywordSet::DEFENDER,
     faces = &[face!(
@@ -24,8 +24,5 @@ card!(
         power = Some(0),
         toughness = Some(4),
     ),],
-    abilities = &[triggered!(
-        Trigger::DealtDamage(&Filter::This),
-        &[Effect::gain_life(1)],
-    ),],
+    // NOT SUPPORTED: The combat-only received-damage trigger is not supported; only defender and the creature body are implemented.
 );

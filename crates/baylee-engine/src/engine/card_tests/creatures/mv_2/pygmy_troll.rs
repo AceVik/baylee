@@ -46,4 +46,12 @@ fn pygmy_troll_gets_plus_one_plus_one_when_blocked_and_can_regenerate() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, troll), (2, 2));
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert!(
+        on_battlefield(&engine, p0, pygmy_troll()).is_some(),
+        "regeneration saves the troll from lethal combat damage"
+    );
+    assert!(is_tapped(&engine, troll));
+    assert_eq!(engine.state().object(troll).unwrap().damage, 0);
+    assert!(in_graveyard(&engine, p1, gray_ogre()).is_some());
 }

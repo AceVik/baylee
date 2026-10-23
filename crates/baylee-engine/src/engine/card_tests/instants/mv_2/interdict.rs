@@ -19,6 +19,7 @@ fn interdict_counters_target_activated_ability_and_draws_a_card() {
         .battlefield(0, &[island(), island()])
         .battlefield(1, &[index::PRODIGAL_SORCERER])
         .hand(0, &[interdict()])
+        .hand(1, &[index::GIANT_GROWTH])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -34,11 +35,24 @@ fn interdict_counters_target_activated_ability_and_draws_a_card() {
             },
         )
         .unwrap();
+    let sorcerer = on_battlefield(&engine, P1, index::PRODIGAL_SORCERER).unwrap();
+    crate::engine::card_tests::legends_kit::float(&mut engine, P1, &[(ManaColor::Green, 1)]);
+    cast_with_floating(&mut engine, P1, index::GIANT_GROWTH);
+    aim_at(&mut engine, P1, sorcerer);
+    let growth = in_hand(&engine, P1, index::GIANT_GROWTH);
+    assert!(growth.is_none());
+    let growth_spell = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .unwrap();
     engine.apply(P1, PlayerAction::PassPriority).unwrap();
 
     let ability_id = engine.state().zones.list(ZoneLocation::Stack)[0];
     cast_from_hand(&mut engine, P0, interdict());
-    aim_at(&mut engine, P0, ability_id);
+    let menu = aim_at(&mut engine, P0, ability_id);
+    assert!(!menu.contains(&growth_spell));
     let hand_after_cast = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
     pass_until(&mut engine, stack_is_empty);
 

@@ -1,28 +1,31 @@
-//! `cards/creatures/mv_2/heartwood_dryad.rs`, played.
-
+//! Heartwood Dryad's body remains playable without an unprinted actual shadow ability.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
-
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::generated::index;
 fn heartwood_dryad() -> CardIndex {
     card_index("976968c5-7ef4-4451-86ff-03a011bbcca7")
 }
 
-/// Heartwood Dryad (`976968c5-7ef4-4451-86ff-03a011bbcca7`) — {1}{G} Creature — Dryad (Partial):
-/// "This creature can block creatures with shadow as though it had shadow."
 #[test]
-fn heartwood_dryad_gains_shadow_on_opponents_turn_to_block_shadow_creatures() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[heartwood_dryad()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let dryad = on_battlefield(&engine, P0, heartwood_dryad()).unwrap();
-    assert!(!keywords(&engine, dryad).contains(KeywordSet::SHADOW));
-
-    reach_their_main_phase(&mut engine, P1);
-    assert!(keywords(&engine, dryad).contains(KeywordSet::SHADOW));
+fn heartwood_dryad_casts_and_never_gains_unprinted_shadow() {
+    let mut e = lk::game(
+        SEED,
+        &[],
+        &[index::GRIZZLY_BEARS],
+        &[heartwood_dryad()],
+        &[],
+    );
+    lk::float(&mut e, lk::P0, &[(ManaColor::Green, 2)]);
+    lk::cast_at(&mut e, lk::P0, heartwood_dryad(), &[], &[]);
+    let dryad = lk::obj(&e, lk::P0, heartwood_dryad());
+    assert_eq!(pt(&e, dryad), (2, 1));
+    reach_their_main_phase(&mut e, lk::P1);
+    assert!(!keywords(&e, dryad).contains(KeywordSet::SHADOW));
+    reach_their_main_phase(&mut e, lk::P0);
+    let bears = lk::obj(&e, lk::P1, index::GRIZZLY_BEARS);
+    let menu = lk::attack(&mut e, &[dryad]);
+    assert!(lk::may_block(&menu, bears, dryad));
+    lk::block(&mut e, &[(bears, dryad)]);
+    lk::settle(&mut e);
 }

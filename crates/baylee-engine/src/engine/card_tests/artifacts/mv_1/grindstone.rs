@@ -39,3 +39,17 @@ fn grindstone_mills_two_cards_from_target_player() {
         gy_before + 2
     );
 }
+
+#[test]
+fn grindstone_can_mill_its_controller_and_requires_three_mana_and_a_tap() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(SEED, &[grindstone()], &[], &[], &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Colorless, 2)]);
+    assert!(!lk::offered(&e, grindstone(), P0, 0));
+    lk::float(&mut e, P0, &[(ManaColor::Colorless, 1)]);
+    lk::use_ability(&mut e, P0, grindstone(), 0, &[], &[P0]);
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P0)).len(), 2);
+    assert_eq!(e.state().zones.list(ZoneLocation::Graveyard(P1)).len(), 0);
+    assert_eq!(lk::pool_total(&e, P0), 0);
+    assert!(lk::tapped(&e, lk::obj(&e, P0, grindstone())));
+}

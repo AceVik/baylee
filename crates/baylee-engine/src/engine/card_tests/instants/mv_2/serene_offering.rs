@@ -2,7 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::CRUSADE;
+use baylee_core::generated::index::{CRUSADE, GRIZZLY_BEARS};
 
 fn serene_offering() -> CardIndex {
     card_index("6cef0548-6010-4781-8e83-431d014dd1da")
@@ -15,14 +15,27 @@ fn serene_offering_destroys_target_enchantment_and_gains_life_equal_to_its_mana_
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[plains(), plains()])
-        .battlefield(1, &[CRUSADE])
+        .battlefield(1, &[CRUSADE, GRIZZLY_BEARS])
         .hand(0, &[serene_offering()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let crusade = on_battlefield(&engine, p1, CRUSADE).unwrap();
+    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
     cast_from_hand(&mut engine, p0, serene_offering());
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![bears],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "only enchantments are targets"
+    );
     engine
         .apply(
             p0,

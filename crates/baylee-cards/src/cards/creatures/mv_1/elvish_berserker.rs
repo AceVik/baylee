@@ -1,6 +1,7 @@
 //! Elvish Berserker — {G} — Creature — Elf Berserker
 //! Oracle: Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.
 //! Set: 10E #260 — Tenth Edition | Scryfall ID: 777633d7-e31c-4ea3-a085-2858d6ee6040 | Oracle ID: c9046281-dedb-4246-8e5d-7786fe0c41c7
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

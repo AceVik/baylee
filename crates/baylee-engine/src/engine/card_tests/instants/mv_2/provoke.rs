@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -35,6 +36,17 @@ fn provoke_untaps_opponent_creature_forces_block_and_draws_a_card() {
 
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(P0)).len();
     cast_from_hand(&mut engine, P0, provoke());
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![attacker],
+                    players: vec![]
+                }
+            )
+            .is_err()
+    );
     aim_at(&mut engine, P0, blocker);
     pass_until(&mut engine, stack_is_empty);
 
@@ -73,4 +85,7 @@ fn provoke_untaps_opponent_creature_forces_block_and_draws_a_card() {
             .is_err(),
         "provoked creature must block if able"
     );
+    lk::block(&mut engine, &[(blocker, attacker)]);
+    lk::through_combat(&mut engine);
+    assert_eq!(lk::life(&engine, P1), 20);
 }

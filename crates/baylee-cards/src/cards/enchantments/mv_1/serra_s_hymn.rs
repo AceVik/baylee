@@ -19,6 +19,7 @@ card!(
         mana_cost = mana!("{W}"),
         types = TypeSet::ENCHANTMENT,
     ),],
+    // NOT SUPPORTED: dividing X damage prevention among any number of targets is not in Effect; puts a verse counter on itself on your upkeep and sacrifices itself to prevent the next X damage to any single target this turn, where X is the number of verse counters on it.
     abilities = &[
         triggered!(
             Trigger::StepBegin {

@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_4/viashino_cutthroat.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -21,6 +23,7 @@ fn viashino_cutthroat_has_haste_and_returns_to_hand_at_end_step() {
     let cutthroat = on_battlefield(&engine, p0, viashino_cutthroat()).unwrap();
     assert!(keywords(&engine, cutthroat).contains(KeywordSet::HASTE));
     assert_eq!(pt(&engine, cutthroat), (5, 3));
+    crate::engine::card_tests::legends_kit::attack(&mut engine, &[cutthroat]);
 
     pass_until(&mut engine, |e| {
         e.state().turn.step == crate::turn::Step::End && !stack_is_empty(e)
@@ -29,4 +32,9 @@ fn viashino_cutthroat_has_haste_and_returns_to_hand_at_end_step() {
 
     assert!(on_battlefield(&engine, p0, viashino_cutthroat()).is_none());
     assert!(in_hand(&engine, p0, viashino_cutthroat()).is_some());
+    assert_eq!(
+        engine.state().players[1].life,
+        15,
+        "haste allowed the cast-turn attack"
+    );
 }

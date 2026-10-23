@@ -52,6 +52,7 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
         .find(|&id| engine.state().object(id).unwrap().card.is_none())
         .expect("Thopter token created");
     assert_eq!(pt(&engine, token), (1, 1));
+    assert!(keywords(&engine, token).contains(KeywordSet::FLYING));
 
     // Activate ability 1 ({1}, Sacrifice another Thopter: Put a +1/+1 counter on this creature).
     engine
@@ -63,7 +64,8 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
             },
         )
         .unwrap();
-    if matches!(engine.pending(), Pending::ChooseCards { .. }) {
+    if let Pending::ChooseCards { options, .. } = engine.pending() {
+        assert!(!options.contains(&squadron), "sacrifice another Thopter");
         engine
             .apply(
                 p0,
@@ -75,4 +77,21 @@ fn thopter_squadron_spawns_and_sacrifices_thopter_tokens() {
     }
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, squadron), (3, 3));
+    assert!(
+        engine
+            .state()
+            .object(token)
+            .is_none_or(|o| o.zone != crate::zone::Zone::Battlefield)
+    );
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    crate::engine::card_tests::legends_kit::float(&mut engine, p0, &[(ManaColor::Colorless, 2)]);
+    assert!(
+        crate::engine::card_tests::partials_w1b_kit::offered(&engine, squadron).is_empty(),
+        "both activations are sorcery only"
+    );
 }

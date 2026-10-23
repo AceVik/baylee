@@ -22,6 +22,10 @@ fn kezzerdrix_deals_four_damage_at_upkeep_only_when_opponents_control_no_creatur
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
     assert_eq!(engine.state().players[0].life, 16);
+    let k = on_battlefield(&engine, P0, kezzerdrix()).unwrap();
+    assert!(keywords(&engine, k).contains(KeywordSet::FIRST_STRIKE));
+    reach_their_main_phase(&mut engine, P1);
+    assert_eq!(engine.state().players[0].life, 16);
 
     // When opponent controls a creature, Kezzerdrix does not trigger at P0's upkeep.
     let mut engine2 = Duel::new(SEED, forest())
@@ -31,5 +35,4 @@ fn kezzerdrix_deals_four_damage_at_upkeep_only_when_opponents_control_no_creatur
     keep_mulligans(&mut engine2);
     reach_main_phase(&mut engine2, P0);
     assert_eq!(engine2.state().players[0].life, 20);
-    let _ = P1;
 }

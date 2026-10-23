@@ -1,7 +1,7 @@
 //! Scare Tactics — {B} — Instant
 //! Oracle: Creatures you control get +1/+0 until end of turn.
 //! Set: EXO #73 — Exodus | Scryfall ID: 6a9d4e11-ce2e-445a-9536-756a6687d6d7 | Oracle ID: d7548770-5c60-4c3f-b1d6-554ab5f931f9
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 

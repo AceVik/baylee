@@ -56,4 +56,12 @@ fn rewind_counters_target_spell_and_untaps_up_to_four_lands() {
 
     assert!(on_battlefield(&engine, p0, gray_ogre()).is_none());
     assert!(in_graveyard(&engine, p0, gray_ogre()).is_some());
+    let untapped = engine
+        .state()
+        .zones
+        .list(crate::zone::ZoneLocation::Battlefield)
+        .iter()
+        .filter(|id| !is_tapped(&engine, **id))
+        .count();
+    assert_eq!(untapped, 4, "only the chosen four lands untap");
 }

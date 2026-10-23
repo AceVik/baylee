@@ -43,6 +43,30 @@ fn martyr_s_cause_sacrifices_creature_to_prevent_next_damage_from_chosen_source(
             },
         )
         .unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { .. }),
+        "the shield targets its recipient"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p1]
+                }
+            )
+            .is_err()
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p0],
+            },
+        )
+        .unwrap();
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
         engine
             .apply(

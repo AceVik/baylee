@@ -4,7 +4,7 @@
 //! Oracle: At the beginning of your end step, discard a card.
 //! Oracle: When you lose control of this enchantment, put all cards exiled with this enchantment into their owner's graveyard.
 //! Set: TMP #60 — Tempest | Scryfall ID: d529cb33-292d-40e3-8cfe-db5eeb0d711e | Oracle ID: 01072a45-ab1c-4d19-b493-76cf4aae351e
-// PARTIAL
+// PARTIAL — Exiles the top five cards of your library face down when it enters and makes you discard a card at the beginning of your end step; the upkeep hand/linked-exile swap trigger and the control-loss trigger putting exiled cards into their owner's graveyard are not yet modeled.
 
 use baylee_cards_dsl::prelude::*;
 

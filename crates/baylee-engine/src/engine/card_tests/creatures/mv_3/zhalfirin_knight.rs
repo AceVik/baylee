@@ -31,7 +31,7 @@ fn zhalfirin_knight_gains_first_strike_and_flanks_blocker() {
             p0,
             PlayerAction::ActivateAbility {
                 source: knight,
-                ability_index: 1,
+                ability_index: 0,
             },
         )
         .unwrap();
@@ -64,4 +64,17 @@ fn zhalfirin_knight_gains_first_strike_and_flanks_blocker() {
 
     // Grizzly Bears gets -1/-1 from flanking (1/1).
     assert_eq!(pt(&engine, bear), (1, 1));
+    // First strike: the 1/1 Bears dies before it can deal its damage.
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
+    assert_eq!(
+        engine.state().object(knight).unwrap().damage,
+        0,
+        "the Knight struck first and took nothing"
+    );
+    // Until end of turn.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(!keywords(&engine, knight).contains(KeywordSet::FIRST_STRIKE));
 }

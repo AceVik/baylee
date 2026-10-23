@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static OTHER_ENCHANTMENT: Filter = Filter::And(&[Filter::ENCHANTMENT, Filter::Another]);
-
 card!(
     index = index::TRANQUIL_GROVE,
     oracle_id = "2f2a3588-b9a6-4c1a-89f8-b11339851b8f",
@@ -20,6 +18,9 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{1}{G}{G}"),
-        &[Effect::destroy_all(&OTHER_ENCHANTMENT)]
+        &[Effect::destroy_all(&Filter::And(&[
+            Filter::ENCHANTMENT,
+            Filter::Another,
+        ]))]
     ),],
 );

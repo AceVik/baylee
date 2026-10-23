@@ -31,3 +31,16 @@ fn despondency_weakens_creature_and_returns_to_hand_when_put_into_graveyard() {
 
     assert!(in_hand(&engine, p0, despondency()).is_some());
 }
+
+#[test]
+fn despondency_does_not_return_when_discarded_from_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[despondency()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    hand_to_graveyard(&mut engine, p0, despondency());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, despondency()).is_some());
+    assert!(in_hand(&engine, p0, despondency()).is_none());
+}

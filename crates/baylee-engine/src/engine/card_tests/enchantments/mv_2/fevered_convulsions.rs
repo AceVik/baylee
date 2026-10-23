@@ -28,7 +28,11 @@ fn fevered_convulsions_puts_minus_one_minus_one_counter_on_target_creature() {
     let bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).unwrap();
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, fevered_convulsions(), 0);
-    aim_at(&mut engine, P0, bears);
+    let source = on_battlefield(&engine, P0, fevered_convulsions()).unwrap();
+    let land = on_battlefield(&engine, P0, swamp()).unwrap();
+    let menu = aim_at(&mut engine, P0, bears);
+    assert!(!menu.contains(&source));
+    assert!(!menu.contains(&land));
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(

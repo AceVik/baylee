@@ -17,14 +17,19 @@ fn wellspring_gains_control_of_enchanted_land_on_etb_and_upkeep() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), plains()])
         .hand(0, &[wellspring()])
-        .battlefield(1, &[island()])
+        .battlefield(1, &[island(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let opp_island = on_battlefield(&engine, p1, island()).unwrap();
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     cast_from_hand(&mut engine, p0, wellspring());
-    aim_at(&mut engine, p0, opp_island);
+    let menu = aim_at(&mut engine, p0, opp_island);
+    assert!(
+        !menu.contains(&their_bear),
+        "enchant land: a creature is no target"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     // ETB trigger gave p0 control of the Island until end of turn.
@@ -40,4 +45,7 @@ fn wellspring_gains_control_of_enchanted_land_on_etb_and_upkeep() {
     reach_their_main_phase(&mut engine, p0);
     assert_eq!(engine.state().object(opp_island).unwrap().controller, p0);
     assert!(!is_tapped(&engine, opp_island));
+    // The upkeep grant is also only until end of turn: back to p1 for theirs.
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().object(opp_island).unwrap().controller, p1);
 }

@@ -1,34 +1,21 @@
+#[allow(clippy::wildcard_imports)]
 use super::*;
-
+use crate::engine::card_tests::legends_kit as lk;
 fn reckless_ogre() -> CardIndex {
     card_index("fe455177-d9e5-4893-ad87-ebbba5e2fa45")
 }
-
 #[test]
-fn reckless_ogre_gets_plus_3_plus_0_when_attacking_alone() {
+fn reckless_ogre_gets_the_bonus_only_when_it_attacks_alone_and_only_for_the_turn() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[reckless_ogre()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let ogre = on_battlefield(&engine, p0, reckless_ogre()).unwrap();
-    assert_eq!(pt(&engine, ogre), (3, 2));
-
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
-    );
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(ogre, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(pt(&engine, ogre), (6, 2));
+    for alone in [false, true] {
+        let mut e = lk::game(SEED, &[reckless_ogre(), gray_ogre()], &[], &[], &[]);
+        let ogre = lk::obj(&e, p0, reckless_ogre());
+        let other = lk::obj(&e, p0, gray_ogre());
+        let attackers = if alone { vec![ogre] } else { vec![ogre, other] };
+        lk::attack(&mut e, &attackers);
+        lk::settle(&mut e);
+        assert_eq!(pt(&e, ogre), if alone { (6, 2) } else { (3, 2) });
+        reach_their_main_phase(&mut e, p1);
+        assert_eq!(pt(&e, ogre), (3, 2));
+    }
 }

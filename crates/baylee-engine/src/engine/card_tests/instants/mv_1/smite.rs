@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -37,6 +38,14 @@ fn smite_destroys_target_blocked_creature() {
             },
         )
         .unwrap();
+    let smite_card = in_hand(&engine, P0, smite()).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority after attack")
+    };
+    assert!(
+        !legal.castable.contains(&smite_card) && !legal.payable.contains(&smite_card),
+        "attacker is not blocked before declarations"
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });

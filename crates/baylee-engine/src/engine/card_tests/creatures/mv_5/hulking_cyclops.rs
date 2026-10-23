@@ -15,7 +15,14 @@ fn hulking_cyclops_cannot_block() {
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(
             0,
-            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+            &[
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                mountain(),
+                grizzly_bears(),
+            ],
         )
         .battlefield(1, &[grizzly_bears()])
         .hand(0, &[hulking_cyclops()])
@@ -29,6 +36,7 @@ fn hulking_cyclops_cannot_block() {
     assert_eq!(pt(&engine, cyclops), (5, 5));
 
     let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    let my_bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     reach_their_main_phase(&mut engine, p1);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -44,6 +52,17 @@ fn hulking_cyclops_cannot_block() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending().clone() else {
+        unreachable!("pass_until stopped on the question")
+    };
+    assert!(
+        blockers.iter().any(|option| option.blocker == my_bear),
+        "the Bears may block"
+    );
+    assert!(
+        blockers.iter().all(|option| option.blocker != cyclops),
+        "the Cyclops is not offered as a blocker"
+    );
     assert!(
         engine
             .apply(
@@ -55,4 +74,12 @@ fn hulking_cyclops_cannot_block() {
             .is_err(),
         "Hulking Cyclops cannot block"
     );
+    engine
+        .apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(my_bear, bear)],
+            },
+        )
+        .expect("the Bears may block");
 }

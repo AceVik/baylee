@@ -20,7 +20,7 @@ fn legerdemain_exchanges_control_of_two_creatures() {
             0,
             &[island(), island(), island(), island(), index::GRIZZLY_BEARS],
         )
-        .battlefield(1, &[index::HILL_GIANT])
+        .battlefield(1, &[index::HILL_GIANT, index::JAYEMDAE_TOME])
         .hand(0, &[legerdemain()])
         .start();
     keep_mulligans(&mut engine);
@@ -30,7 +30,45 @@ fn legerdemain_exchanges_control_of_two_creatures() {
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
 
     cast_from_hand(&mut engine, P0, legerdemain());
+    let tome = on_battlefield(&engine, P1, index::JAYEMDAE_TOME).unwrap();
+    let land = on_battlefield(&engine, P0, island()).unwrap();
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![land],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "first target must be artifact or creature"
+    );
     aim_at(&mut engine, P0, bears);
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![bears],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "another target permanent"
+    );
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![tome],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "a plain artifact shares no printed type with a creature"
+    );
     aim_at(&mut engine, P0, giant);
     pass_until(&mut engine, stack_is_empty);
 

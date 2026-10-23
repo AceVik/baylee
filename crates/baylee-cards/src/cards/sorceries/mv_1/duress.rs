@@ -5,9 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-const NONCREATURE_NONLAND: Filter =
-    Filter::And(&[Filter::Not(&Filter::CREATURE), Filter::Not(&Filter::LAND)]);
-
 card!(
     index = index::DURESS,
     oracle_id = "33d405ea-7a9a-4970-b70f-9c05d90dd6f0",
@@ -21,7 +18,7 @@ card!(
     ),],
     abilities = &[spell!(
         &[Effect::RevealHandDiscard {
-            filter: &NONCREATURE_NONLAND,
+            filter: &Filter::And(&[Filter::Not(&Filter::CREATURE), Filter::Not(&Filter::LAND)]),
         }],
         targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
     )],

@@ -64,3 +64,24 @@ fn scragnoth_cannot_be_countered_and_has_protection_from_blue() {
             .is_err()
     );
 }
+
+#[test]
+fn protection_excludes_blue_blockers_but_allows_green_blockers() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[scragnoth()],
+        &[index::AIR_ELEMENTAL, index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let attacker = on_battlefield(&e, p0, scragnoth()).unwrap();
+    let blue = on_battlefield(&e, p1, index::AIR_ELEMENTAL).unwrap();
+    let green = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+    let blocks = lk::attack(&mut e, &[attacker]);
+    assert!(!lk::may_block(&blocks, blue, attacker));
+    assert!(lk::may_block(&blocks, green, attacker));
+    lk::block(&mut e, &[(green, attacker)]);
+}

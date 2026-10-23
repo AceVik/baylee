@@ -17,6 +17,7 @@ card!(
         mana_cost = mana!("{2}"),
         types = TypeSet::ARTIFACT,
     ),],
+    // NOT SUPPORTED: playing with the top card of your library revealed and playing it without paying its mana cost until end of turn is not in Effect; activates {5}, {T} to shuffle your library.
     abilities = &[activated!(
         cost!("{5}", TapSelf),
         &[Effect::ShuffleLibrary {

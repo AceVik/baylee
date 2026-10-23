@@ -1,7 +1,7 @@
 //! Escaped Shapeshifter — {3}{U}{U} — Creature — Shapeshifter
 //! Oracle: As long as an opponent controls a creature with flying not named Escaped Shapeshifter, this creature has flying. The same is true for first strike, trample, and protection from any color.
 //! Set: TMP #62 — Tempest | Scryfall ID: e0171d4f-c871-4a7f-821a-82b7f401e9ca | Oracle ID: 17f2342b-4dd8-445a-a7c1-4a15a5688294
-// PARTIAL
+// PARTIAL — Gains flying, first strike and trample from opposing creatures not named Escaped Shapeshifter; detecting protection from each color on opposing creatures is unsupported.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,11 +22,6 @@ const OPP_TRAMPLE: Filter = Filter::And(&[
     Filter::HasKeyword(KeywordSet::TRAMPLE),
     NOT_SHAPESHIFTER,
 ]);
-const OPP_PRO_BLACK: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::HasKeyword(KeywordSet::PROTECTION_BLACK),
-    NOT_SHAPESHIFTER,
-]);
 
 card!(
     index = index::ESCAPED_SHAPESHIFTER,
@@ -34,7 +29,7 @@ card!(
     scryfall_id = "e0171d4f-c871-4a7f-821a-82b7f401e9ca",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "Gains flying, first strike, trample, and protection from black as long as an opponent controls a creature not named Escaped Shapeshifter with that ability; protection from white, blue, red, and green are not yet in KeywordSet."
+        "Gains flying, first strike and trample from opposing creatures not named Escaped Shapeshifter; detecting protection from each color on opposing creatures is unsupported."
     ),
     faces = &[face!(
         name = "Escaped Shapeshifter",
@@ -44,6 +39,7 @@ card!(
         power = Some(3),
         toughness = Some(4),
     ),],
+    // NOT SUPPORTED: conditional protection from each color.
     abilities = &[
         static_ability!(
             Filter::This,
@@ -59,11 +55,6 @@ card!(
             Filter::This,
             Modifier::AddKeyword(KeywordSet::TRAMPLE),
             condition = Some(Condition::OpponentControlCount(&OPP_TRAMPLE, 1)),
-        ),
-        static_ability!(
-            Filter::This,
-            Modifier::AddKeyword(KeywordSet::PROTECTION_BLACK),
-            condition = Some(Condition::OpponentControlCount(&OPP_PRO_BLACK, 1)),
         ),
     ],
 );

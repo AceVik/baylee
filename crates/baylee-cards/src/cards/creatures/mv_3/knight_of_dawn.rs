@@ -2,7 +2,7 @@
 //! Oracle: First strike
 //! Oracle: {W}{W}: This creature gains protection from the color of your choice until end of turn.
 //! Set: TMP #26 — Tempest | Scryfall ID: bf0e5034-a134-4eb6-af8e-b2419b92b3a6 | Oracle ID: 51262155-f1be-45a8-a21f-94e920a93e55
-// PARTIAL
+// IMPLEMENTED — first strike and a non-targeted choice of protection color until end of turn.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,9 +13,7 @@ card!(
     scryfall_id = "bf0e5034-a134-4eb6-af8e-b2419b92b3a6",
     color_identity = ColorSet::from_slice(&[Color::White]),
     keywords = KeywordSet::FIRST_STRIKE,
-    coverage = Coverage::Partial(
-        "Has first strike and '{W}{W}: This creature gains protection from black until end of turn'; Effect::ProtectionFromChosenColor requires a target, so a non-targeted self-protection color choice is not yet modeled."
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Knight of Dawn",
         mana_cost = mana!("{1}{W}{W}"),
@@ -26,13 +24,39 @@ card!(
     ),],
     abilities = &[activated!(
         cost!("{W}{W}"),
-        &[Effect::PumpFilter {
-            filter: &Filter::This,
-            controlled_by: None,
-            power: Amount::Fixed(0),
-            toughness: Amount::Fixed(0),
-            keywords: KeywordSet::PROTECTION_BLACK,
-            duration: Duration::UntilEndOfTurn,
+        &[Effect::ChooseOne {
+            choices: &[
+                Effect::ModifySource {
+                    modifier: Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[
+                        Color::White
+                    ]))),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::ModifySource {
+                    modifier: Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[
+                        Color::Blue
+                    ]))),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::ModifySource {
+                    modifier: Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[
+                        Color::Black
+                    ]))),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::ModifySource {
+                    modifier: Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[
+                        Color::Red
+                    ]))),
+                    duration: Duration::UntilEndOfTurn
+                },
+                Effect::ModifySource {
+                    modifier: Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[
+                        Color::Green
+                    ]))),
+                    duration: Duration::UntilEndOfTurn
+                }
+            ]
         }],
     )],
 );

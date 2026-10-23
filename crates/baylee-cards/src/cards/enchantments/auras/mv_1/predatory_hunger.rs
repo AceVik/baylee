@@ -2,7 +2,7 @@
 //! Oracle: Enchant creature
 //! Oracle: Whenever an opponent casts a creature spell, put a +1/+1 counter on enchanted creature.
 //! Set: EXO #117 — Exodus | Scryfall ID: db6d9d28-3a05-4dfa-a322-36b4cc2697d4 | Oracle ID: eed2606b-9a27-4af3-8120-c45a1d6b5c00
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

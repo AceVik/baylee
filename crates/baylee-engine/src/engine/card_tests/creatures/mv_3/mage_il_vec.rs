@@ -29,3 +29,12 @@ fn mage_il_vec_discards_random_card_to_deal_one_damage() {
     );
     assert_eq!(engine.state().players[1].life, 19);
 }
+
+#[test]
+fn mage_il_vec_cannot_activate_without_a_card_to_discard() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let e = lk::game(SEED, &[mage_il_vec()], &[], &[], &[]);
+    let mage = lk::obj(&e, p0, mage_il_vec());
+    assert!(kit::offered(&e, mage).is_empty());
+}

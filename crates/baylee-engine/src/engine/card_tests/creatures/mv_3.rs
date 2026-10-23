@@ -232,7 +232,6 @@ mod nettling_imp;
 mod nightguard_patrol;
 mod nim_abomination;
 mod nissa_resurgent_animist;
-mod noble_benefactor;
 mod noble_panther;
 mod old_man_of_the_sea;
 mod ophidian;

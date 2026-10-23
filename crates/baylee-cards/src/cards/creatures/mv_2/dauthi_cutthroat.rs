@@ -2,6 +2,7 @@
 //! Oracle: Shadow (This creature can block or be blocked by only creatures with shadow.)
 //! Oracle: {1}{B}, {T}: Destroy target creature with shadow.
 //! Set: EXO #57 — Exodus | Scryfall ID: 127b8994-fff8-4500-8ab4-244eeb3ed110 | Oracle ID: 5fdde593-54cb-4186-974b-df4383f7efe2
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

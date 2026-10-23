@@ -26,6 +26,12 @@ fn seething_anger_gives_target_creature_plus_three_plus_zero() {
     cast_from_hand(&mut engine, P0, seething_anger());
     aim_at(&mut engine, P0, bear);
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, seething_anger()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     assert_eq!(power_toughness(&engine, bear), (5, 2));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert_eq!(power_toughness(&engine, bear), (2, 2));
 }

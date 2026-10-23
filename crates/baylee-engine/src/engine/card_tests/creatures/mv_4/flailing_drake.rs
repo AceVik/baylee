@@ -51,3 +51,28 @@ fn flailing_drake_pumps_creature_it_blocks_by_plus_one_plus_one() {
 
     assert_eq!(pt(&engine, bears), (3, 3));
 }
+
+#[test]
+fn flailing_drake_pumps_only_its_blocker_and_only_until_end_of_turn() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[flailing_drake(), index::GRIZZLY_BEARS],
+        &[index::WALL_OF_AIR],
+        &[],
+        &[],
+    );
+    let drake = lk::obj(&e, P0, flailing_drake());
+    let bears = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let wall = lk::obj(&e, P1, index::WALL_OF_AIR);
+    let menu = lk::attack(&mut e, &[drake]);
+    assert!(lk::may_block(&menu, wall, drake));
+    lk::block(&mut e, &[(wall, drake)]);
+    lk::settle(&mut e);
+    assert_eq!(pt(&e, wall), (2, 6));
+    assert_eq!(pt(&e, bears), (2, 2));
+    assert_eq!(pt(&e, drake), (2, 3));
+    assert!(keywords(&e, drake).contains(KeywordSet::FLYING));
+    reach_their_main_phase(&mut e, P1);
+    assert_eq!(pt(&e, wall), (1, 5));
+}

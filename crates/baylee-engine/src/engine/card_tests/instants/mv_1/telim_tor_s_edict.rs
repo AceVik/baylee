@@ -51,4 +51,11 @@ fn telim_tor_s_edict_exiles_your_permanent_and_draws_next_upkeep() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before + 1
     );
+    // Once only: the next turn of P0's own adds just the draw step's card.
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        hand_before + 2,
+        "the Edict's card was drawn once, the draw step's is the second"
+    );
 }

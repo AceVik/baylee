@@ -1,30 +1,38 @@
-//! `cards/creatures/mv_1/jackal_pup.rs`, played.
+//! Reviewed jackal pup behavior.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+
 use baylee_core::generated::index;
-
-const P0: PlayerId = PlayerId::new(0);
-
 fn jackal_pup() -> CardIndex {
     card_index("993e41e6-0643-4a1f-8ada-b7a4aae486d9")
 }
 
-/// Jackal Pup (`993e41e6-0643-4a1f-8ada-b7a4aae486d9`) — {R} Creature — Jackal (Partial):
-/// "Whenever this creature is dealt damage, it deals that much damage to you."
 #[test]
-fn jackal_pup_deals_damage_to_its_controller_when_dealt_damage() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[jackal_pup(), index::PRODIGAL_SORCERER])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
+fn jackal_pup_repeats_the_actual_damage_even_when_lethal() {
+    for (spell, n) in [(index::LIGHTNING_BOLT, 3), (index::SHOCK, 2)] {
+        let mut e = lk::game(SEED, &[jackal_pup()], &[], &[spell], &[]);
+        let pup = lk::obj(&e, lk::P0, jackal_pup());
+        lk::float(&mut e, lk::P0, &[(ManaColor::Red, 1)]);
+        lk::cast_at(&mut e, lk::P0, spell, &[pup], &[]);
+        assert!(in_graveyard(&e, lk::P0, jackal_pup()).is_some());
+        assert_eq!(lk::life(&e, lk::P0), 20 - n);
+        assert_eq!(lk::life(&e, lk::P1), 20);
+    }
+}
 
-    let pup = on_battlefield(&engine, P0, jackal_pup()).unwrap();
-    activate(&mut engine, P0, index::PRODIGAL_SORCERER, 0);
-    aim_at(&mut engine, P0, pup);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, P0, jackal_pup()).is_none());
-    assert_eq!(engine.state().players[0].life, 19);
+#[test]
+fn jackal_pup_does_not_repeat_damage_to_another_creature() {
+    let mut e = lk::game(
+        SEED,
+        &[jackal_pup(), index::GRIZZLY_BEARS],
+        &[],
+        &[index::LIGHTNING_BOLT],
+        &[],
+    );
+    let bears = lk::obj(&e, lk::P0, index::GRIZZLY_BEARS);
+    lk::float(&mut e, lk::P0, &[(ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, lk::P0, index::LIGHTNING_BOLT, &[bears], &[]);
+    assert_eq!(lk::life(&e, lk::P0), 20);
 }

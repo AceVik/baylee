@@ -10,7 +10,7 @@ fn somnophore_taps_and_locks_damaged_players_creature() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[somnophore()])
+        .battlefield(0, &[somnophore(), grizzly_bears()])
         .battlefield(1, &[gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
@@ -25,7 +25,9 @@ fn somnophore_taps_and_locks_damaged_players_creature() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-    aim_at(&mut engine, p0, ogre);
+    let own_bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let options = aim_at(&mut engine, p0, ogre);
+    assert!(!options.contains(&own_bear));
     pass_until(&mut engine, stack_is_empty);
 
     assert!(
@@ -45,4 +47,8 @@ fn somnophore_taps_and_locks_damaged_players_creature() {
             .status
             .contains(Status::TAPPED)
     );
+    kill(&mut engine, somno);
+    reach_their_main_phase(&mut engine, p0);
+    reach_their_main_phase(&mut engine, p1);
+    assert!(!is_tapped(&engine, ogre), "leaving ends the lock");
 }

@@ -37,3 +37,20 @@ fn raze_sacrifices_your_land_and_destroys_target_land() {
     assert!(on_battlefield(&engine, p1, forest()).is_none());
     assert!(in_graveyard(&engine, p1, forest()).is_some());
 }
+
+#[test]
+fn raze_needs_a_land_you_control_even_when_mana_and_enemy_targets_exist() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[], &[forest()], &[raze()], &[]);
+    lk::float(&mut e, p0, &[(ManaColor::Red, 1)]);
+    let spell = in_hand(&e, p0, raze()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.castable.contains(&spell) && !legal.payable.contains(&spell));
+    assert!(
+        e.apply(p0, PlayerAction::CastSpell { card: spell })
+            .is_err()
+    );
+}

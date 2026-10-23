@@ -46,3 +46,35 @@ fn recantation_adds_verse_counter_and_bounces_target_permanent() {
     assert!(on_battlefield(&engine, p1, gray_ogre()).is_none());
     assert!(in_hand(&engine, p1, gray_ogre()).is_some());
 }
+
+#[test]
+fn recantation_partial_never_uses_a_target_without_a_verse_counter() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game_with(
+        SEED,
+        &[recantation()],
+        &[forest(), sol_ring()],
+        &[],
+        &[],
+        |e| lk::yes_no(e, false),
+    );
+    lk::float(&mut e, p0, &[(ManaColor::Blue, 1)]);
+    assert!(!lk::offered(&e, recantation(), p0, 1));
+    let id = lk::obj(&e, p0, recantation());
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(id)
+        .unwrap()
+        .counters
+        .add(baylee_cards_dsl::counters::VERSE, 1);
+    e.refresh_offer();
+    assert!(lk::offered(&e, recantation(), p0, 1));
+    activate(&mut e, p0, recantation(), 1);
+    lk::aim(&mut e, &[], &[]);
+    lk::settle(&mut e);
+    assert!(
+        in_graveyard(&e, p0, recantation()).is_some(),
+        "up to one includes zero targets"
+    );
+}

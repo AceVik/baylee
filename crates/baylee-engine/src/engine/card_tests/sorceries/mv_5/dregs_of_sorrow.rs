@@ -28,7 +28,14 @@ fn dregs_of_sorrow_destroys_x_nonblack_creatures_and_draws_x_cards() {
                 swamp(),
             ],
         )
-        .battlefield(1, &[index::GRIZZLY_BEARS, index::HILL_GIANT])
+        .battlefield(
+            1,
+            &[
+                index::GRIZZLY_BEARS,
+                index::HILL_GIANT,
+                index::DRUDGE_SKELETONS,
+            ],
+        )
         .hand(0, &[dregs_of_sorrow()])
         .start();
     keep_mulligans(&mut engine);
@@ -43,6 +50,13 @@ fn dregs_of_sorrow_destroys_x_nonblack_creatures_and_draws_x_cards() {
         .apply(P0, PlayerAction::CastSpell { card: spell })
         .unwrap();
     engine.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
+    let black = on_battlefield(&engine, P1, index::DRUDGE_SKELETONS).unwrap();
+    let land = on_battlefield(&engine, P0, swamp()).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("target menu")
+    };
+    assert!(!options.contains(&black));
+    assert!(!options.contains(&land));
     engine
         .apply(
             P0,
@@ -61,4 +75,26 @@ fn dregs_of_sorrow_destroys_x_nonblack_creatures_and_draws_x_cards() {
         engine.state().zones.list(ZoneLocation::Hand(P0)).len(),
         hand_after_cast + 2
     );
+}
+
+#[test]
+fn dregs_of_sorrow_for_zero_has_no_targets_and_draws_nothing() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(SEED, &[], &[], &[dregs_of_sorrow()], &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Black, 5)]);
+    cast_with_floating(&mut e, P0, dregs_of_sorrow());
+    e.apply(P0, PlayerAction::ChooseNumber(0)).unwrap();
+    if matches!(e.pending(), Pending::ChooseTargets { .. }) {
+        e.apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    }
+    lk::settle(&mut e);
+    assert_eq!(e.state().zones.list(ZoneLocation::Hand(P0)).len(), 0);
+    assert!(in_graveyard(&e, P0, dregs_of_sorrow()).is_some());
 }

@@ -27,6 +27,7 @@ card!(
         mana_cost = mana!("{2}{B}{B}"),
         types = TypeSet::SORCERY,
     ),],
+    // NOT SUPPORTED: sacrificing any number of artifacts, creatures, and/or lands on resolution and drawing a card for each sacrificed is not in Effect; optionally sacrifices one artifact, creature, or land you control and draws a card if you do.
     abilities = &[spell!(&[Effect::PlayerMayPayCostThen {
         player: PlayerRel::You,
         cost: &CostPart::Sacrifice(&YOUR_ARTIFACT_CREATURE_OR_LAND),

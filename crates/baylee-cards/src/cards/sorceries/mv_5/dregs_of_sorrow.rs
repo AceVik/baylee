@@ -5,7 +5,7 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static NONBLACK_CREATURE: Filter = Filter::And(&[
+const NONBLACK_CREATURE: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::Black]))),
 ]);

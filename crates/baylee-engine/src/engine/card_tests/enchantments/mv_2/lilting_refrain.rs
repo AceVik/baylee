@@ -39,3 +39,44 @@ fn lilting_refrain_adds_verse_counter_and_sacrifices_to_counter_spell() {
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
     assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
 }
+
+#[test]
+fn lilting_refrain_offers_payment_to_the_target_spells_controller() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for pay in [false, true] {
+        let mut e = lk::game_with(
+            SEED,
+            &[lilting_refrain()],
+            &[],
+            &[],
+            &[grizzly_bears()],
+            |e| lk::yes_no(e, true),
+        );
+        reach_their_main_phase(&mut e, p1);
+        lk::float(&mut e, p1, &[(ManaColor::Green, 3)]);
+        cast_with_floating(&mut e, p1, grizzly_bears());
+        let spell = *e
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Stack)
+            .last()
+            .unwrap();
+        pass_until(
+            &mut e,
+            |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+        );
+        activate(&mut e, p0, lilting_refrain(), 1);
+        lk::aim(&mut e, &[spell], &[]);
+        pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+        assert_eq!(e.pending().asked(), Some(p1));
+        lk::yes_no(&mut e, pay);
+        lk::settle(&mut e);
+        assert_eq!(on_battlefield(&e, p1, grizzly_bears()).is_some(), pay);
+        assert_eq!(
+            lk::pool_of(&e, p1, ManaColor::Green),
+            if pay { 0 } else { 1 }
+        );
+        assert!(in_graveyard(&e, p0, lilting_refrain()).is_some());
+    }
+}

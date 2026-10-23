@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -17,7 +18,7 @@ fn lowland_basilisk() -> CardIndex {
 fn lowland_basilisk_destroys_creature_dealt_combat_damage_at_end_of_combat() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[lowland_basilisk()])
-        .battlefield(1, &[index::HILL_GIANT])
+        .battlefield(1, &[index::HILL_GIANT, index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -48,9 +49,15 @@ fn lowland_basilisk_destroys_creature_dealt_combat_damage_at_end_of_combat() {
         )
         .unwrap();
     pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatDamage && stack_is_empty(e)
+    });
+    assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_some());
+    assert_eq!(lk::damage_on(&engine, giant), 1);
+    pass_until(&mut engine, |e| {
         e.state().turn.phase == crate::turn::Phase::SecondMain
     });
 
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_none());
     assert!(in_graveyard(&engine, P1, index::HILL_GIANT).is_some());
+    assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_some());
 }

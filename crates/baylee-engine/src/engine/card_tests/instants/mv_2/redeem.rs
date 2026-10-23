@@ -35,3 +35,53 @@ fn redeem_prevents_all_damage_to_targeted_creatures() {
     assert!(on_battlefield(&engine, p0, gray_ogre()).is_some());
     assert_eq!(engine.state().object(bear_id).unwrap().damage, 0);
 }
+
+#[test]
+fn redeem_can_protect_two_creatures_but_expires_and_does_not_protect_others() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[gray_ogre(), forest()],
+        &[wild_elephant(), grizzly_bears()],
+        &[
+            redeem(),
+            lightning_bolt(),
+            lightning_bolt(),
+            lightning_bolt(),
+            lightning_bolt(),
+        ],
+        &[],
+    );
+    let mine = lk::obj(&e, p0, gray_ogre());
+    let theirs = lk::obj(&e, p1, wild_elephant());
+    let other = lk::obj(&e, p1, grizzly_bears());
+    lk::float(&mut e, p0, &[(ManaColor::White, 2), (ManaColor::Red, 3)]);
+    cast_with_floating(&mut e, p0, redeem());
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![mine, theirs, other],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    lk::aim(&mut e, &[mine, theirs], &[]);
+    lk::settle(&mut e);
+    lk::cast_at(&mut e, p0, lightning_bolt(), &[mine], &[]);
+    lk::cast_at(&mut e, p0, lightning_bolt(), &[theirs], &[]);
+    lk::cast_at(&mut e, p0, lightning_bolt(), &[other], &[]);
+    assert_eq!(lk::damage_on(&e, mine), 0);
+    assert_eq!(lk::damage_on(&e, theirs), 0);
+    assert!(in_graveyard(&e, p1, grizzly_bears()).is_some());
+    reach_their_main_phase(&mut e, p1);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    lk::float(&mut e, p0, &[(ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, p0, lightning_bolt(), &[mine], &[]);
+    assert!(in_graveyard(&e, p0, gray_ogre()).is_some());
+}

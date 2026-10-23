@@ -7,7 +7,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static SHADOW_CREATURE: Filter =
+const SHADOW_CREATURE: Filter =
     Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::SHADOW)]);
 
 card!(

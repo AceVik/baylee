@@ -5,7 +5,10 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static RED_SPELL: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Red]));
+static RED_SPELL: Filter = Filter::And(&[
+    Filter::ControlledByYou,
+    Filter::HasColor(ColorSet::from_slice(&[Color::Red])),
+]);
 
 card!(
     index = index::RUBY_MEDALLION,

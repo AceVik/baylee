@@ -27,3 +27,18 @@ fn sudden_impact_deals_damage_to_target_player_equal_to_their_hand_size() {
 
     assert_eq!(engine.state().players[1].life, 17);
 }
+
+#[test]
+fn empty_hand_takes_zero_and_you_can_target_yourself() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for target in [p0, p1] {
+        let mut e = lk::game(SEED, &[], &[], &[sudden_impact()], &[]);
+        lk::float(&mut e, p0, &[(ManaColor::Red, 4)]);
+        cast_with_floating(&mut e, p0, sudden_impact());
+        e.apply(p0, PlayerAction::ChoosePlayer(target)).unwrap();
+        lk::settle(&mut e);
+        assert_eq!(e.state().players[0].life, 20);
+        assert_eq!(e.state().players[1].life, 20);
+    }
+}

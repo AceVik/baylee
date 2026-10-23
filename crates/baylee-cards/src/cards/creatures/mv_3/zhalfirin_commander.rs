@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 static KNIGHT_CREATURE: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::HasSubtype(subtypes::creature::KNIGHT),
@@ -33,23 +28,14 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        activated!(
-            cost!("{1}{W}{W}"),
-            &[Effect::PumpTarget {
-                power: Amount::Fixed(1),
-                toughness: Amount::Fixed(1),
-                keywords: KeywordSet::EMPTY,
-                duration: Duration::UntilEndOfTurn,
-            }],
-            target = Some(TargetSpec::Object(&KNIGHT_CREATURE)),
-        ),
-    ],
+    abilities = &[activated!(
+        cost!("{1}{W}{W}"),
+        &[Effect::PumpTarget {
+            power: Amount::Fixed(1),
+            toughness: Amount::Fixed(1),
+            keywords: KeywordSet::EMPTY,
+            duration: Duration::UntilEndOfTurn,
+        }],
+        target = Some(TargetSpec::Object(&KNIGHT_CREATURE)),
+    ),],
 );

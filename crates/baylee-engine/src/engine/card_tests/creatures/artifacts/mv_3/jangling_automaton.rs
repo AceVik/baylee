@@ -2,41 +2,100 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, JANGLING_AUTOMATON};
+use crate::engine::card_tests::legends_kit as lk;
+use crate::object::Status;
 
-/// `Jangling Automaton` ({3}, Artifact Creature — Construct 3/2) untaps all
-/// creatures defending player controls whenever it attacks.
-#[test]
-fn jangling_automaton_untaps_defenders_creatures_on_attack() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[JANGLING_AUTOMATON])
-        .battlefield(1, &[GRIZZLY_BEARS])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
-    let automaton = on_battlefield(&engine, p0, JANGLING_AUTOMATON).unwrap();
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
-    engine
-        .state
-        .object_mut(bears)
-        .unwrap()
+fn jangling_automaton() -> CardIndex {
+    card_index("b6f67539-9f76-42b2-96a8-575f27ba928e")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+fn tap(e: &mut Engine<RegistryLookup>, id: ObjectId) {
+    e.state
+        .object_mut(id)
+        .expect("object exists")
         .status
-        .insert(crate::object::Status::TAPPED);
+        .insert(Status::TAPPED);
+}
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(automaton, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+/// Jangling Automaton (b6f67539-9f76-42b2-96a8-575f27ba928e) — "Whenever this
+/// creature attacks, untap all creatures defending player controls." Both of
+/// the defender's tapped creatures are untapped by the attack — which shows
+/// at the block question, where they are offered as blockers — and the
+/// attacker's own tapped Hill Giant stays tapped.
+#[test]
+fn jangling_automaton_untaps_every_creature_the_defender_controls_when_it_attacks() {
+    let mut e = lk::game(
+        SEED,
+        &[jangling_automaton(), hill_giant()],
+        &[grizzly_bears(), savannah_lions()],
+        &[],
+        &[],
+    );
+    let automaton = lk::obj(&e, P0, jangling_automaton());
+    let giant = lk::obj(&e, P0, hill_giant());
+    let bears = lk::obj(&e, P1, grizzly_bears());
+    let lions = lk::obj(&e, P1, savannah_lions());
+    for id in [giant, bears, lions] {
+        tap(&mut e, id);
+    }
+    assert!(
+        lk::tapped(&e, bears) && lk::tapped(&e, lions),
+        "tapped before the attack"
+    );
 
-    assert!(!is_tapped(&engine, bears));
+    let offer = lk::attack(&mut e, &[automaton]);
+
+    assert!(
+        !lk::tapped(&e, bears) && !lk::tapped(&e, lions),
+        "untapped by the trigger"
+    );
+    assert!(
+        lk::may_block(&offer, bears, automaton),
+        "and offered as a blocker"
+    );
+    assert!(lk::may_block(&offer, lions, automaton));
+    assert!(
+        lk::tapped(&e, giant),
+        "the attacker's own creatures are not untapped"
+    );
+}
+
+/// Jangling Automaton — "whenever this creature *attacks*": before the attack
+/// the defender's tapped creature is still tapped, and a Hill Giant attacking
+/// instead of the Automaton untaps nothing.
+#[test]
+fn jangling_automaton_untaps_nothing_when_another_creature_attacks() {
+    let mut e = lk::game(
+        SEED,
+        &[jangling_automaton(), hill_giant()],
+        &[grizzly_bears()],
+        &[],
+        &[],
+    );
+    let giant = lk::obj(&e, P0, hill_giant());
+    let bears = lk::obj(&e, P1, grizzly_bears());
+    tap(&mut e, bears);
+
+    let offer = lk::attack(&mut e, &[giant]);
+
+    assert!(lk::tapped(&e, bears), "the Automaton did not attack");
+    assert!(
+        !lk::may_block(&offer, bears, giant),
+        "a tapped creature cannot block"
+    );
 }

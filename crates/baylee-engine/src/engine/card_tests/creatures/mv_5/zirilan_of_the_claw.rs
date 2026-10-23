@@ -7,11 +7,13 @@ fn zirilan_of_the_claw() -> CardIndex {
     card_index("3aeb28ac-8ed2-4a90-a631-d84361ac6acc")
 }
 
-/// Zirilan of the Claw (`{3}{R}{R}`, `Coverage::Partial`): 3/4 Legendary
-/// Lizard Shaman with `{1}{R}{R}, {T}: Search your library for a Dragon
-/// permanent card, put that card onto the battlefield, then shuffle.`
+/// Zirilan of the Claw (`{3}{R}{R}`, `Coverage::Partial`): only the 3/4 body is
+/// played. The Dragon search is stripped because nothing can give "that
+/// Dragon" haste or exile it at the next end step, and a search without them
+/// would leave a Dragon on the battlefield for good: the ability must not be
+/// offered, activating it is refused, and the library's Dragon stays put.
 #[test]
-fn zirilan_of_the_claw_searches_library_for_dragon_onto_battlefield() {
+fn zirilan_of_the_claw_is_a_3_4_body_that_cannot_fetch_a_dragon() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, shivan_dragon())
         .battlefield(
@@ -25,32 +27,27 @@ fn zirilan_of_the_claw_searches_library_for_dragon_onto_battlefield() {
     reach_their_main_phase(&mut engine, p0);
 
     let zirilan = on_battlefield(&engine, p0, zirilan_of_the_claw()).unwrap();
-
+    assert_eq!(pt(&engine, zirilan), (3, 4), "the printed body");
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: zirilan,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
-    });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
-        unreachable!();
-    };
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![options[0]],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, shivan_dragon()).is_some());
+    assert!(
+        !ability_offered(&engine, zirilan, 0),
+        "the Dragon search is not played"
+    );
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ActivateAbility {
+                    source: zirilan,
+                    ability_index: 0,
+                },
+            )
+            .is_err(),
+        "there is no ability to activate"
+    );
+    assert!(
+        on_battlefield(&engine, p0, shivan_dragon()).is_none(),
+        "no Dragon came out of the library"
+    );
+    assert!(!is_tapped(&engine, zirilan), "nothing was activated");
 }

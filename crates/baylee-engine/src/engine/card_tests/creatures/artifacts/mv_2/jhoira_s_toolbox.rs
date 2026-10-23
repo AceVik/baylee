@@ -1,5 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 fn jhoira_s_toolbox() -> CardIndex {
     card_index("a08475a6-1fac-4a3f-b343-aed16a61bc16")
@@ -56,4 +57,26 @@ fn jhoira_s_toolbox_regenerates_target_artifact_creature() {
 
     assert!(on_battlefield(&engine, p0, jhoira_s_toolbox()).is_some());
     assert!(is_tapped(&engine, toolbox));
+}
+
+#[test]
+fn jhoira_s_toolbox_does_not_regenerate_plain_creatures_or_noncreature_artifacts() {
+    let p0 = PlayerId::new(0);
+    let mut engine = lk::game(
+        SEED,
+        &[jhoira_s_toolbox(), gray_ogre(), sol_ring()],
+        &[],
+        &[],
+        &[],
+    );
+    lk::float(&mut engine, p0, &[(ManaColor::Colorless, 2)]);
+    activate(&mut engine, p0, jhoira_s_toolbox(), 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!options.contains(&lk::obj(&engine, p0, gray_ogre())));
+    assert!(!options.contains(&lk::obj(&engine, p0, sol_ring())));
+    let toolbox = lk::obj(&engine, p0, jhoira_s_toolbox());
+    lk::aim(&mut engine, &[toolbox], &[]);
+    lk::settle(&mut engine);
 }

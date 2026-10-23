@@ -64,3 +64,25 @@ fn dauthi_ghoul_grows_only_when_a_shadow_creature_dies() {
     );
     assert_eq!(pt(&engine, ghoul), (2, 2));
 }
+
+#[test]
+fn dauthi_ghoul_grows_for_opponents_shadow_creatures_and_shadow_limits_blocks() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[dauthi_ghoul()],
+        &[index::DAUTHI_MINDRIPPER, index::GRIZZLY_BEARS],
+        &[index::LIGHTNING_BOLT],
+        &[],
+    );
+    let ghoul = lk::obj(&e, P0, dauthi_ghoul());
+    let shadow = lk::obj(&e, lk::P1, index::DAUTHI_MINDRIPPER);
+    let bears = lk::obj(&e, lk::P1, index::GRIZZLY_BEARS);
+    let menu = lk::attack(&mut e, &[ghoul]);
+    assert!(lk::may_block(&menu, shadow, ghoul));
+    assert!(!lk::may_block(&menu, bears, ghoul));
+    lk::block(&mut e, &[]);
+    lk::float(&mut e, P0, &[(ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, P0, index::LIGHTNING_BOLT, &[shadow], &[]);
+    assert_eq!(pt(&e, ghoul), (2, 2));
+}

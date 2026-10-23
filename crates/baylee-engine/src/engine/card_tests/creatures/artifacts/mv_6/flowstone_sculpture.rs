@@ -1,49 +1,47 @@
-//! `cards/creatures/artifacts/mv_6/flowstone_sculpture.rs`, played.
+//! Reviewed flowstone sculpture behavior.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-
-const P0: PlayerId = PlayerId::new(0);
+use crate::engine::card_tests::legends_kit as lk;
 
 fn flowstone_sculpture() -> CardIndex {
     card_index("42b01697-8663-4b53-86d5-699063bd0778")
 }
 
-/// Flowstone Sculpture (`42b01697-8663-4b53-86d5-699063bd0778`) — {6} Artifact Creature — Shapeshifter (Partial):
-/// "{2}, Discard a card: Put a +1/+1 counter on this creature..."
 #[test]
-fn flowstone_sculpture_discards_a_card_to_put_a_p1p1_counter_on_itself() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[flowstone_sculpture(), forest(), forest()])
-        .hand(0, &[forest()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let sculpture = on_battlefield(&engine, P0, flowstone_sculpture()).unwrap();
-    assert_eq!(pt(&engine, sculpture), (4, 4));
-
-    let card_in_hand = in_hand(&engine, P0, forest()).unwrap();
-    tap_all_mana(&mut engine, P0);
-    activate(&mut engine, P0, flowstone_sculpture(), 0);
-    engine
-        .apply(
-            P0,
+fn flowstone_sculpture_pays_then_chooses_a_counter_or_permanent_keyword() {
+    for (mode, keyword) in [
+        (0, KeywordSet::EMPTY),
+        (1, KeywordSet::FLYING),
+        (2, KeywordSet::FIRST_STRIKE),
+        (3, KeywordSet::TRAMPLE),
+    ] {
+        let mut e = lk::game(SEED, &[flowstone_sculpture()], &[], &[forest()], &[]);
+        let source = lk::obj(&e, lk::P0, flowstone_sculpture());
+        let discard = in_hand(&e, lk::P0, forest()).unwrap();
+        lk::float(&mut e, lk::P0, &[(ManaColor::Colorless, 2)]);
+        activate(&mut e, lk::P0, flowstone_sculpture(), 0);
+        e.apply(
+            lk::P0,
             PlayerAction::ChooseObjects {
-                objects: vec![card_in_hand],
+                objects: vec![discard],
             },
         )
         .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(pt(&engine, sculpture), (5, 5));
-    assert_eq!(
-        engine
-            .state()
-            .object(sculpture)
-            .unwrap()
-            .counters
-            .get(CounterKind::P1P1),
-        1
-    );
+        assert!(in_graveyard(&e, lk::P0, forest()).is_some());
+        assert_eq!(lk::pool_total(&e, lk::P0), 0);
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseCastMode { .. })
+        });
+        e.apply(lk::P0, PlayerAction::ChooseMode(mode)).unwrap();
+        lk::settle(&mut e);
+        assert_eq!(pt(&e, source), if mode == 0 { (5, 5) } else { (4, 4) });
+        assert_eq!(keywords(&e, source), keyword);
+        reach_their_main_phase(&mut e, lk::P1);
+        assert_eq!(pt(&e, source), if mode == 0 { (5, 5) } else { (4, 4) });
+        assert_eq!(keywords(&e, source), keyword);
+        let mut empty = lk::game(SEED, &[flowstone_sculpture()], &[], &[], &[]);
+        lk::float(&mut empty, lk::P0, &[(ManaColor::Colorless, 2)]);
+        assert!(!lk::offered(&empty, flowstone_sculpture(), lk::P0, 0));
+    }
 }

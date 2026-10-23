@@ -40,3 +40,34 @@ fn starke_of_rath_destroys_target_creature_and_gives_its_controller_control_of_s
     assert!(in_graveyard(&engine, p1, GRIZZLY_BEARS).is_some());
     assert!(on_battlefield(&engine, p1, starke_of_rath()).is_some());
 }
+
+#[test]
+fn starke_can_destroy_an_artifact_but_cannot_target_a_land() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[starke_of_rath()],
+        &[forest(), index::JAYEMDAE_TOME],
+        &[],
+        &[],
+    );
+    let land = on_battlefield(&e, p1, forest()).unwrap();
+    let artifact = on_battlefield(&e, p1, index::JAYEMDAE_TOME).unwrap();
+    activate(&mut e, p0, starke_of_rath(), 0);
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![land],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    lk::aim(&mut e, &[artifact], &[]);
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, p1, index::JAYEMDAE_TOME).is_some());
+    assert!(on_battlefield(&e, p1, starke_of_rath()).is_some());
+}

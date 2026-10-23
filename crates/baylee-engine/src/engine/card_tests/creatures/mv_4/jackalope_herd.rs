@@ -23,3 +23,23 @@ fn jackalope_herd_returns_to_hand_when_you_cast_a_spell() {
     assert!(on_battlefield(&engine, p0, jackalope_herd()).is_none());
     assert!(in_hand(&engine, p0, jackalope_herd()).is_some());
 }
+
+#[test]
+fn jackalope_herd_ignores_an_opponents_spell_but_returns_for_your_spell() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[jackalope_herd()],
+        &[],
+        &[lightning_bolt()],
+        &[lightning_bolt()],
+    );
+    lk::float(&mut e, p0, &[(ManaColor::Red, 1)]);
+    lk::pass_once(&mut e);
+    lk::float(&mut e, p1, &[(ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, p1, lightning_bolt(), &[], &[p0]);
+    assert!(on_battlefield(&e, p0, jackalope_herd()).is_some());
+    lk::cast_at(&mut e, p0, lightning_bolt(), &[], &[p1]);
+    assert!(in_hand(&e, p0, jackalope_herd()).is_some());
+}

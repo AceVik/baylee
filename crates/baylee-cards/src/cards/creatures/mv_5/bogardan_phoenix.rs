@@ -2,7 +2,7 @@
 //! Oracle: Flying
 //! Oracle: When this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.
 //! Set: VIS #76 — Visions | Scryfall ID: 253db28a-3873-4364-80d7-a8164000ea9e | Oracle ID: 72586a7a-3c73-4012-8664-1db0f268eb60
-// PARTIAL — has flying and returns from the graveyard to the battlefield under your control with a death counter when it dies; no last-known-information death-counter check to exile it instead if it had a death counter when it died exists yet.
+// IMPLEMENTED — flying; when it dies without a death counter it returns to the battlefield under your control with one, and when it dies with a death counter it is exiled.
 
 use baylee_cards_dsl::counters;
 use baylee_cards_dsl::prelude::*;
@@ -14,9 +14,7 @@ card!(
     scryfall_id = "253db28a-3873-4364-80d7-a8164000ea9e",
     color_identity = ColorSet::from_slice(&[Color::Red]),
     keywords = KeywordSet::FLYING,
-    coverage = Coverage::Partial(
-        "has flying and returns from the graveyard to the battlefield under your control with a death counter when it dies; no last-known-information death-counter check to exile it instead if it had a death counter when it died exists yet",
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Bogardan Phoenix",
         mana_cost = mana!("{2}{R}{R}{R}"),
@@ -26,13 +24,27 @@ card!(
         toughness = Some(3),
         keywords = KeywordSet::FLYING,
     ),],
-    abilities = &[triggered!(
-        Trigger::Dies(&Filter::This),
-        &[Effect::ReturnSourceFromGraveyard {
-            face: None,
-            tapped: false,
-            owner_control: false,
-            counters: Some((counters::DEATH, 1)),
-        }],
-    )],
+    abilities = &[
+        // "Exile it if it had a death counter on it": a dies trigger asks its
+        // filter of the permanent as it left, counters included (CR 603.10a).
+        triggered!(
+            Trigger::Dies(&Filter::And(&[
+                Filter::This,
+                Filter::Not(&Filter::HasCounter(counters::DEATH)),
+            ])),
+            &[Effect::ReturnSourceFromGraveyard {
+                face: None,
+                tapped: false,
+                owner_control: false,
+                counters: Some((counters::DEATH, 1)),
+            }],
+        ),
+        triggered!(
+            Trigger::Dies(&Filter::And(&[
+                Filter::This,
+                Filter::HasCounter(counters::DEATH),
+            ])),
+            &[Effect::ExileSource],
+        ),
+    ],
 );

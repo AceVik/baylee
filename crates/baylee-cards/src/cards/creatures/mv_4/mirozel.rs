@@ -2,6 +2,7 @@
 //! Oracle: Flying
 //! Oracle: When this creature becomes the target of a spell or ability, return this creature to its owner's hand.
 //! Set: EXO #41 — Exodus | Scryfall ID: 16417e94-e33f-4ed4-bb3e-52f29f7d441b | Oracle ID: c35111ce-4325-4547-b954-08275a268060
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 card!(
     index = index::TEFERI_S_HONOR_GUARD,
     oracle_id = "8a3a8a02-b7da-4648-a772-c9efb7c332da",
@@ -28,14 +23,9 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        activated!(cost!("{U}{U}"), &[Effect::PhaseOut { target: None }]),
-    ],
+    // Flanking is the keyword above: the engine raises the -1/-1 trigger itself (CR 702.25a).
+    abilities = &[activated!(
+        cost!("{U}{U}"),
+        &[Effect::PhaseOut { target: None }]
+    )],
 );

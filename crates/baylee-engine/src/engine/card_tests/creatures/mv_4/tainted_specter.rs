@@ -7,61 +7,57 @@ fn tainted_specter() -> CardIndex {
     card_index("fc638800-6aec-4a48-ad2c-c9a5ce93c236")
 }
 
-/// Tainted Specter (`{3}{B}`, `Coverage::Partial`): 2/2 flying Specter with
-/// `{1}{B}{B}, {T}` sorcery-speed ability making target player discard a card
-/// and dealing 1 damage to each creature and each player.
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+/// Tainted Specter (`{3}{B}`, `Coverage::Partial`): flying is the part that is
+/// played. The Specter attacks past an untapped Hill Giant that cannot block
+/// it, and 2 damage goes through. The activated ability is not played, so
+/// nothing is asked of the opponent's hand.
 #[test]
-fn tainted_specter_discards_and_deals_1_damage_to_each_creature_and_player() {
+fn tainted_specter_attacks_in_the_air_past_a_ground_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[tainted_specter(), swamp(), swamp(), swamp()])
-        .battlefield(1, &[llanowar_elves()])
-        .hand(1, &[grizzly_bears()])
+        .battlefield(0, &[tainted_specter()])
+        .battlefield(1, &[hill_giant()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
 
     let specter = on_battlefield(&engine, p0, tainted_specter()).unwrap();
-    assert!(keywords(&engine, specter).contains(KeywordSet::FLYING));
-
-    tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: specter,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p1],
-            },
-        )
-        .unwrap();
-    let bear_in_hand = in_hand(&engine, p1, grizzly_bears()).unwrap();
+    assert!(on_battlefield(&engine, p1, hill_giant()).is_some());
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
     engine
         .apply(
-            p1,
-            PlayerAction::ChooseObjects {
-                objects: vec![bear_in_hand],
+            p0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(specter, Defender::Player(p1))],
             },
         )
         .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+            || e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    // Either nobody was asked, because nobody could block, or the question
+    // pairs no creature with the Specter.
+    let offered = match engine.pending() {
+        Pending::ChooseBlockers { blockers, .. } => blockers.clone(),
+        _ => Vec::new(),
+    };
     assert!(
-        on_battlefield(&engine, p1, llanowar_elves()).is_none(),
-        "1/1 Llanowar Elves dies to 1 damage"
+        offered
+            .iter()
+            .all(|option| !option.attackers.contains(&specter)),
+        "the Hill Giant has no reach: nothing may block the Specter"
     );
-    assert_eq!(engine.state().players[0].life, 19);
-    assert_eq!(engine.state().players[1].life, 19);
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd
+    });
+    assert_eq!(engine.state().players[1].life, 18, "two damage in the air");
 }

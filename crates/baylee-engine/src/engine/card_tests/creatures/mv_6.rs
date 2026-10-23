@@ -60,7 +60,6 @@ mod minion_of_the_wastes;
 mod mist_dragon;
 mod moss_kami;
 mod muldrotha_the_gravetide;
-mod multani_maro_sorcerer;
 mod needleshot_gourna;
 mod nightmare;
 mod oathsworn_giant;

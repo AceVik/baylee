@@ -37,3 +37,21 @@ fn phyrexian_colossus_pays_eight_life_to_untap_itself() {
             .contains(Status::TAPPED)
     );
 }
+
+#[test]
+fn phyrexian_colossus_stays_tapped_through_its_untap_step() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[phyrexian_colossus()], &[], &[], &[]);
+    let colossus = lk::obj(&e, p0, phyrexian_colossus());
+    lk::attack(&mut e, &[colossus]);
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, p1), 12);
+    reach_their_main_phase(&mut e, p1);
+    reach_their_main_phase(&mut e, p0);
+    assert!(is_tapped(&e, colossus));
+    lk::use_ability(&mut e, p0, phyrexian_colossus(), 1, &[], &[]);
+    assert!(!is_tapped(&e, colossus));
+    assert_eq!(lk::life(&e, p0), 12);
+}

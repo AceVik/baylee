@@ -2,6 +2,7 @@
 //! Oracle: As an additional cost to cast this spell, pay X life.
 //! Oracle: Target creature gets +X/+0 until end of turn.
 //! Set: EXO #64 — Exodus | Scryfall ID: 2383a8d9-96fd-4f9a-bcf9-eb81fdb15ead | Oracle ID: 40601061-1b25-4db8-8b99-33324ce945cf
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 

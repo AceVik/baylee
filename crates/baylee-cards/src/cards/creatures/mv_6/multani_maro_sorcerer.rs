@@ -2,7 +2,9 @@
 //! Oracle: Shroud (This creature can't be the target of spells or abilities.)
 //! Oracle: Multani's power and toughness are each equal to the total number of cards in all players' hands.
 //! Set: ULG #107 — Urza's Legacy | Scryfall ID: 0d6cc98b-b376-40af-8308-198bab00b2b1 | Oracle ID: bce5b327-7da1-4136-b76f-069e2fef5d2a
-// PARTIAL
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,9 +15,6 @@ card!(
     scryfall_id = "0d6cc98b-b376-40af-8308-198bab00b2b1",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     commander = CommanderRule::Legendary,
-    coverage = Coverage::Partial(
-        "Plays as a 0/0 creature with shroud; characteristic-defining power and toughness equal to the total number of cards in all players' hands is not in PtCount.",
-    ),
     faces = &[face!(
         name = "Multani, Maro-Sorcerer",
         mana_cost = mana!("{4}{G}{G}"),
@@ -24,6 +23,7 @@ card!(
         subtypes = &[subtypes::creature::ELEMENTAL, subtypes::creature::SORCERER],
         power = Some(0),
         toughness = Some(0),
-        keywords = KeywordSet::SHROUD,
     ),],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

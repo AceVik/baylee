@@ -34,3 +34,58 @@ fn symbiosis_pumps_two_target_creatures() {
     assert_eq!(pt(&engine, ogre), (4, 4));
     assert_eq!(pt(&engine, elephant), (5, 5));
 }
+
+#[test]
+fn symbiosis_requires_two_distinct_creatures_and_ends_after_this_turn() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[gray_ogre(), forest()],
+        &[wild_elephant()],
+        &[symbiosis()],
+        &[],
+    );
+    let ogre = lk::obj(&e, p0, gray_ogre());
+    let elephant = lk::obj(&e, p1, wild_elephant());
+    let land = lk::obj(&e, p0, forest());
+    lk::float(&mut e, p0, &[(ManaColor::Green, 2)]);
+    cast_with_floating(&mut e, p0, symbiosis());
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![ogre],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![ogre, ogre],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![ogre, land],
+                players: vec![]
+            }
+        )
+        .is_err()
+    );
+    lk::aim(&mut e, &[ogre, elephant], &[]);
+    lk::settle(&mut e);
+    assert_eq!(pt(&e, ogre), (4, 4));
+    assert_eq!(pt(&e, elephant), (5, 5));
+    reach_their_main_phase(&mut e, p1);
+    assert_eq!(pt(&e, ogre), (2, 2));
+    assert_eq!(pt(&e, elephant), (3, 3));
+}

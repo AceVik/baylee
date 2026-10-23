@@ -60,6 +60,17 @@ fn tradewind_rider_taps_itself_and_two_creatures_to_bounce_target_permanent() {
             },
         )
         .unwrap();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![giant]
+                }
+            )
+            .is_err(),
+        "only creatures you control can pay the tapping cost"
+    );
     engine
         .apply(
             p0,
@@ -68,6 +79,17 @@ fn tradewind_rider_taps_itself_and_two_creatures_to_bounce_target_permanent() {
             },
         )
         .unwrap();
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![bears[0]]
+                }
+            )
+            .is_err(),
+        "the same tapped creature cannot pay twice"
+    );
     engine
         .apply(
             p0,
@@ -80,4 +102,6 @@ fn tradewind_rider_taps_itself_and_two_creatures_to_bounce_target_permanent() {
 
     assert!(on_battlefield(&engine, p1, HILL_GIANT).is_none());
     assert!(in_hand(&engine, p1, HILL_GIANT).is_some());
+    assert!(is_tapped(&engine, rider));
+    assert!(bears.into_iter().all(|id| is_tapped(&engine, id)));
 }

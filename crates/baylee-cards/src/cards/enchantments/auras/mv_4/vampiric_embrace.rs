@@ -24,6 +24,7 @@ card!(
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
     ),],
+    // NOT SUPPORTED: triggering when a creature dealt damage by enchanted creature this turn dies to put a +1/+1 counter on enchanted creature is not in Trigger; enchants a creature and grants +2/+2 and flying.
     abilities = &[
         spell!(
             &[Effect::AttachSelf {

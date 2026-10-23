@@ -6,17 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const GOBLIN_PERMANENT: Filter = Filter::And(&[
-    Filter::HasSubtype(subtypes::creature::GOBLIN),
-    Filter::Or(&[
-        Filter::ARTIFACT,
-        Filter::CREATURE,
-        Filter::ENCHANTMENT,
-        Filter::LAND,
-        Filter::PLANESWALKER,
-    ]),
-]);
-
 card!(
     index = index::GOBLIN_LACKEY,
     oracle_id = "213fbbdd-f1bc-4bba-9124-7b26e9a706c8",
@@ -38,7 +27,17 @@ card!(
         },
         &[Effect::PutFromHandOntoBattlefield {
             tapped: false,
-            filter: &GOBLIN_PERMANENT,
+            filter: &Filter::And(&[
+                Filter::HasSubtype(subtypes::creature::GOBLIN),
+                Filter::Or(&[
+                    Filter::ARTIFACT,
+                    Filter::CREATURE,
+                    Filter::ENCHANTMENT,
+                    Filter::LAND,
+                    Filter::PLANESWALKER,
+                    Filter::HasType(TypeSet::BATTLE),
+                ]),
+            ]),
             mana_value: None,
             optional: true,
         }],

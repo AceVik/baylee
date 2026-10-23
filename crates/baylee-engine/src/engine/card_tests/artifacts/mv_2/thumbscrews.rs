@@ -35,3 +35,17 @@ fn thumbscrews_deals_one_damage_on_upkeep_when_controller_has_five_or_more_cards
 
     assert_eq!(engine.state().players[1].life, 19);
 }
+
+/// Outside the printed hand-size bound, no target is asked and no damage dealt.
+#[test]
+fn upkeep_with_four_cards_does_not_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[thumbscrews()])
+        .hand(0, &[forest(), forest(), forest(), forest()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    assert!(e.state().zones.list(ZoneLocation::Stack).is_empty());
+    assert_eq!(e.state().players[1].life, 20);
+}

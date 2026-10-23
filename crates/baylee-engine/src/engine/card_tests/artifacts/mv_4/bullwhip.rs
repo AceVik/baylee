@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -40,6 +41,7 @@ fn bullwhip_pings_target_creature_and_forces_attack() {
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, stack_is_empty);
 
+    assert_eq!(lk::damage_on(&engine, bears), 1);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
@@ -47,4 +49,24 @@ fn bullwhip_pings_target_creature_and_forces_attack() {
         panic!("expected ChooseAttackers");
     };
     assert!(required.contains(&bears));
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(lk::P1))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    lk::block(&mut engine, &[]);
+    lk::through_combat(&mut engine);
+    reach_their_main_phase(&mut engine, lk::P1);
+    reach_their_main_phase(&mut engine, P0);
+    lk::attackers_offered(&mut engine);
+    let Pending::ChooseAttackers { required, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!required.contains(&bears), "requirement ends with the turn");
 }

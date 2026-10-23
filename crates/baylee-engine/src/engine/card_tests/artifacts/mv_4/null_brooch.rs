@@ -48,3 +48,17 @@ fn null_brooch_discards_hand_and_counters_target_noncreature_spell() {
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 0);
     assert_eq!(engine.state().players[0].life, 20);
 }
+
+#[test]
+fn null_brooch_cannot_counter_a_creature_spell() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[null_brooch()], &[], &[gray_ogre(), forest()], &[]);
+    lk::float(&mut e, p0, &[(ManaColor::Red, 10)]);
+    cast_with_floating(&mut e, p0, gray_ogre());
+    let source = lk::obj(&e, p0, null_brooch());
+    assert!(
+        kit::offered(&e, source).is_empty(),
+        "plenty of mana and cards, but no noncreature spell"
+    );
+}

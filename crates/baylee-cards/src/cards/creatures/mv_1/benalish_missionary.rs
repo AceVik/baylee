@@ -1,7 +1,7 @@
 //! Benalish Missionary — {W} — Creature — Human Cleric
 //! Oracle: {1}{W}, {T}: Prevent all combat damage that would be dealt by target blocked creature this turn.
 //! Set: WTH #10 — Weatherlight | Scryfall ID: e9ac1992-6212-4f05-af16-c892dfc40643 | Oracle ID: 84fdcfd3-2b22-4570-af34-7e3f55f97466
-// NOT SUPPORTED: a dedicated Filter::Blocked variant to prevent targeting an attacker during the declare attackers step before blockers are declared is not yet modeled.
+// PARTIAL: {1}{W}, {T}: prevents all combat damage that would be dealt by target blocked attacking creature this turn, but only during the declare blockers step; it cannot be activated later in combat (after first-strike damage, say), because "blocked" is read as "not unblocked", which is true of every attacker before blockers are declared.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -18,7 +18,7 @@ card!(
     scryfall_id = "e9ac1992-6212-4f05-af16-c892dfc40643",
     color_identity = ColorSet::from_slice(&[Color::White]),
     coverage = Coverage::Partial(
-        "activates for {1}{W}, {T} targeting a blocked attacking creature so it assigns no combat damage this turn; a dedicated Filter::Blocked variant to prevent targeting an attacker during the declare attackers step before blockers are declared is not yet modeled",
+        "{1}{W}, {T}: prevents all combat damage that would be dealt by target blocked attacking creature this turn, but only during the declare blockers step; it cannot be activated later in combat (after first-strike damage, say), because \"blocked\" is read as \"not unblocked\", which is true of every attacker before blockers are declared",
     ),
     faces = &[face!(
         name = "Benalish Missionary",
@@ -32,9 +32,13 @@ card!(
         cost!("{1}{W}", TapSelf),
         &[Effect::continuous(
             &Filter::This,
-            Modifier::AssignsNoCombatDamage,
+            Modifier::PreventDamageFromIt,
             Duration::UntilEndOfTurn,
         )],
         target = Some(TargetSpec::Object(&BLOCKED_CREATURE)),
+        // NOT SUPPORTED: activating it after the declare blockers step, while the attacker is
+        // still a blocked creature. Before blockers are declared `Not(Unblocked)` holds for every
+        // attacker, so the step is the only moment "blocked" is read right.
+        condition = Some(Condition::DuringStep(StepKind::DeclareBlockers)),
     )],
 );

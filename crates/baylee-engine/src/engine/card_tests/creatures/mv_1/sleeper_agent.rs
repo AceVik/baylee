@@ -21,6 +21,17 @@ fn sleeper_agent_enters_and_gives_control_to_target_opponent_then_damages_contro
         matches!(e.pending(), Pending::ChooseTargets { .. }) || stack_is_empty(e)
     });
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![],
+                        players: vec![p0]
+                    }
+                )
+                .is_err()
+        );
         engine
             .apply(
                 p0,
@@ -36,4 +47,11 @@ fn sleeper_agent_enters_and_gives_control_to_target_opponent_then_damages_contro
     assert!(on_battlefield(&engine, p1, sleeper_agent()).is_some());
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(engine.state().players[1].life, 18);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(engine.state().players[0].life, 20);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "only its current controller's upkeep deals damage"
+    );
 }

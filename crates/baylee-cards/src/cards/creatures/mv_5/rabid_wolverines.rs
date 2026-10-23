@@ -1,7 +1,7 @@
 //! Rabid Wolverines — {3}{G}{G} — Creature — Wolverine
 //! Oracle: Whenever this creature becomes blocked by a creature, this creature gets +1/+1 until end of turn.
 //! Set: EXO #119 — Exodus | Scryfall ID: 99121a2b-c735-47be-b01e-cdf59809e7f3 | Oracle ID: ed076c39-9bfc-424a-8ce8-8572f7c0de73
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

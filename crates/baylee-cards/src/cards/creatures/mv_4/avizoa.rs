@@ -2,7 +2,8 @@
 //! Oracle: Flying
 //! Oracle: {0}: This creature gets +2/+2 until end of turn. You skip your next untap step. Activate only once each turn.
 //! Set: WTH #35 — Weatherlight | Scryfall ID: a993986c-e8f1-41b1-86e6-c72021c53b87 | Oracle ID: 91520db8-2d50-4c17-9f0e-2f92f63285f7
-// NOT SUPPORTED: skipping your next untap step is not yet modeled.
+// PARTIAL — flying body only; the optional pump needs separately consumed
+// skipped-untap-step debts, including activations during successive turns.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,7 +14,7 @@ card!(
     scryfall_id = "a993986c-e8f1-41b1-86e6-c72021c53b87",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "has flying and activates {0} once each turn to get +2/+2 until end of turn; skipping your next untap step is not yet modeled",
+        "flying body only; the optional +2/+2 activation is omitted because multiple skip-your-next-untap effects must consume separate future untap steps",
     ),
     faces = &[face!(
         name = "Avizoa",
@@ -24,16 +25,7 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLYING,
     ),],
-    abilities = &[activated!(
-        cost!("{0}"),
-        &[Effect::PumpFilter {
-            filter: &Filter::This,
-            controlled_by: None,
-            power: Amount::Fixed(2),
-            toughness: Amount::Fixed(2),
-            keywords: KeywordSet::EMPTY,
-            duration: Duration::UntilEndOfTurn,
-        }],
-        limit = ActivationLimit::PerTurn(1),
-    )],
+    // NOT SUPPORTED: the optional pump and its skip-your-next-untap obligation
+    // are omitted together. A continuous skip expiring at the next upkeep
+    // merges obligations from activations on different turns into one skip.
 );

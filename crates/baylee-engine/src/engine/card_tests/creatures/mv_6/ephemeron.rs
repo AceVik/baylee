@@ -30,3 +30,24 @@ fn ephemeron_discards_a_card_to_return_itself_to_owners_hand() {
     assert!(in_hand(&engine, P0, ephemeron()).is_some());
     assert!(in_graveyard(&engine, P0, index::GRIZZLY_BEARS).is_some());
 }
+
+#[test]
+fn ephemeron_requires_a_discard_and_flies_over_ground_blockers() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut e = lk::game(
+        SEED,
+        &[ephemeron()],
+        &[index::GRIZZLY_BEARS, index::WIND_DRAKE],
+        &[],
+        &[],
+    );
+    let eph = lk::obj(&e, p0, ephemeron());
+    assert!(kit::offered(&e, eph).is_empty());
+    let ground = lk::obj(&e, p1, index::GRIZZLY_BEARS);
+    let flyer = lk::obj(&e, p1, index::WIND_DRAKE);
+    let offer = lk::attack(&mut e, &[eph]);
+    assert!(!lk::may_block(&offer, ground, eph));
+    assert!(lk::may_block(&offer, flyer, eph));
+}

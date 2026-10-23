@@ -1,6 +1,7 @@
 //! Cat Burglar — {3}{B} — Creature — Kor Rogue Minion
 //! Oracle: {2}{B}, {T}: Target player discards a card. Activate only as a sorcery.
 //! Set: EXO #54 — Exodus | Scryfall ID: 947109f9-7035-4a2a-bbc2-a2958f8c5d01 | Oracle ID: 16aea5b3-9f43-4852-b8b8-80e87909b794
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

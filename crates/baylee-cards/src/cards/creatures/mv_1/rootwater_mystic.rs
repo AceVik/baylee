@@ -1,7 +1,7 @@
 //! Rootwater Mystic — {U} — Creature — Merfolk Wizard
 //! Oracle: {1}{U}: Look at the top card of target player's library.
 //! Set: EXO #44 — Exodus | Scryfall ID: 94af81f2-383c-4129-b8dc-60633c3f4ea1 | Oracle ID: 32d8f7c8-8680-4901-b31b-e0cb66e37548
-// IMPLEMENTED
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

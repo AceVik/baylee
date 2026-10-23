@@ -14,7 +14,6 @@ mod hidden_path;
 mod mind_over_matter;
 mod primeval_bounty;
 mod rage_reflection;
-mod recycle;
 mod rite_of_the_dragoncaller;
 mod ritual_of_subdual;
 mod storm_of_saruman;

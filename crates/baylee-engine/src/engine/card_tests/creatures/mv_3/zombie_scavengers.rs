@@ -2,54 +2,37 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::LIGHTNING_BOLT;
+use crate::engine::card_tests::legends_kit as lk;
+
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
 
 fn zombie_scavengers() -> CardIndex {
     card_index("8c5298da-6759-444e-8870-6c96d226c940")
 }
 
-/// `Zombie Scavengers` ({2}{B}, 3/1 Zombie, Partial) exiles a creature card
-/// from its controller's graveyard to regenerate itself.
+/// Zombie Scavengers retains its 3/1 body while the top-creature-card exile
+/// cost cannot be expressed. A creature card in the graveyard offers no
+/// substitute pick-any-card regeneration ability; the body still attacks.
 #[test]
-fn zombie_scavengers_exiles_creature_card_from_graveyard_to_regenerate() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, swamp())
-        .battlefield(
-            0,
-            &[
-                zombie_scavengers(),
-                quiet_creature(),
-                baylee_core::generated::index::MOUNTAIN,
-            ],
-        )
-        .hand(0, &[LIGHTNING_BOLT])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let scavengers = on_battlefield(&engine, p0, zombie_scavengers()).expect("Scavengers");
-    let fodder = on_battlefield(&engine, p0, quiet_creature()).expect("fodder");
-    bury(&mut engine, &[fodder]);
-    engine.refresh_offer();
-    let gy_fodder = in_graveyard(&engine, p0, quiet_creature()).expect("fodder in graveyard");
-
-    activate(&mut engine, p0, zombie_scavengers(), 0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![gy_fodder],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().object(gy_fodder).unwrap().zone, Zone::Exile);
-
-    cast_from_hand(&mut engine, p0, LIGHTNING_BOLT);
-    aim_at(&mut engine, p0, scavengers);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, zombie_scavengers()).is_some());
-    assert!(is_tapped(&engine, scavengers));
+fn zombie_scavengers_attacks_without_the_unmodelled_regeneration() {
+    let mut e = lk::game(
+        SEED,
+        &[swamp(), swamp(), swamp()],
+        &[],
+        &[zombie_scavengers(), quiet_creature()],
+        &[],
+    );
+    hand_to_graveyard(&mut e, P0, quiet_creature());
+    cast_from_hand(&mut e, P0, zombie_scavengers());
+    lk::settle(&mut e);
+    assert!(!lk::offered(&e, zombie_scavengers(), P0, 0));
+    assert!(in_graveyard(&e, P0, quiet_creature()).is_some());
+    reach_their_main_phase(&mut e, P1);
+    reach_their_main_phase(&mut e, P0);
+    let body = lk::obj(&e, P0, zombie_scavengers());
+    lk::attack(&mut e, &[body]);
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, P1), 17);
 }

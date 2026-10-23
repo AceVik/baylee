@@ -69,3 +69,21 @@ fn root_maze_causes_artifacts_and_lands_to_enter_tapped() {
             .contains(Status::TAPPED)
     );
 }
+
+#[test]
+fn opponents_lands_also_enter_tapped() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[root_maze()], &[], &[], &[island()]);
+    reach_their_main_phase(&mut e, p1);
+    let land = in_hand(&e, p1, island()).unwrap();
+    e.apply(p1, PlayerAction::PlayLand { card: land }).unwrap();
+    assert!(
+        e.state()
+            .object(land)
+            .unwrap()
+            .status
+            .contains(Status::TAPPED)
+    );
+    assert!(on_battlefield(&e, p0, root_maze()).is_some());
+}

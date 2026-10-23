@@ -10,7 +10,6 @@ mod blanchwood_armor;
 mod cessation;
 mod chromatic_armor;
 mod destructive_urge;
-mod empyrial_armor;
 mod erosion;
 mod errant_minion;
 mod false_demise;

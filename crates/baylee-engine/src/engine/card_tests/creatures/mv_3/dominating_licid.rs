@@ -1,28 +1,41 @@
-//! `cards/creatures/mv_3/dominating_licid.rs`, played.
-
+//! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-
-const P0: PlayerId = PlayerId::new(0);
+use crate::engine::card_tests::legends_kit as lk;
+use crate::engine::card_tests::partials_w1b_kit as kit;
 
 fn dominating_licid() -> CardIndex {
     card_index("ae2804c6-fb38-4845-ae21-7f41a766cbba")
 }
 
-/// Dominating Licid (`ae2804c6-fb38-4845-ae21-7f41a766cbba`) — {1}{U}{U} Creature — Licid (Partial):
-/// "{1}{U}{U}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {U} to end this effect. You control enchanted creature."
 #[test]
-fn dominating_licid_casts_and_enters_as_1_1() {
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), island()])
-        .hand(0, &[dominating_licid()])
+fn dominating_licid_keeps_its_body_without_an_inaccurate_ability() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[dominating_licid()])
         .start();
-    assert!(walk_to_own_main(&mut engine, P0));
-
-    tap_all_mana(&mut engine, P0);
-    cast_from_hand(&mut engine, P0, dominating_licid());
-    pass_until(&mut engine, stack_is_empty);
-
-    let licid = on_battlefield(&engine, P0, dominating_licid()).unwrap();
-    assert_eq!(pt(&engine, licid), (1, 1));
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let body = on_battlefield(&engine, p0, dominating_licid()).unwrap();
+    lk::float(
+        &mut engine,
+        p0,
+        &[
+            (ManaColor::Black, 10),
+            (ManaColor::Blue, 10),
+            (ManaColor::Green, 10),
+            (ManaColor::White, 10),
+            (ManaColor::Red, 10),
+        ],
+    );
+    assert!(
+        kit::offered(&engine, body).is_empty(),
+        "unsupported activations are unavailable"
+    );
+    kit::declare_attack(&mut engine, &[body], p1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
+    });
+    assert_eq!(engine.state().players[1].life, 20 - 1);
+    assert!(on_battlefield(&engine, p0, dominating_licid()).is_some());
 }

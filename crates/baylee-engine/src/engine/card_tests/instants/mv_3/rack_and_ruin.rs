@@ -19,7 +19,25 @@ fn rack_and_ruin_destroys_two_target_artifacts() {
 
     let a1 = on_battlefield(&engine, p1, sol_ring()).unwrap();
     let a2 = on_battlefield(&engine, p1, jayemdae_tome()).unwrap();
+    let wrong = on_battlefield(&engine, p0, mountain()).unwrap();
     cast_from_hand(&mut engine, p0, rack_and_ruin());
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!options.contains(&wrong), "a land is not a legal target");
+    for objects in [vec![a1], vec![a1, a1]] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects,
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
+    }
     engine
         .apply(
             p0,

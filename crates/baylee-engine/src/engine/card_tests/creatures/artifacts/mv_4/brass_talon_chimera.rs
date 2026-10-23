@@ -21,12 +21,14 @@ fn brass_talon_chimera_sacrifices_to_give_target_chimera_plus_two_counter_and_fi
                 brass_talon_chimera(),
             ],
         )
+        .battlefield(1, &[grizzly_bears()])
         .hand(0, &[brass_talon_chimera()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let other_chimera = on_battlefield(&engine, p0, brass_talon_chimera()).unwrap();
+    let their_bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     cast_from_hand(&mut engine, p0, brass_talon_chimera());
     pass_until(&mut engine, stack_is_empty);
 
@@ -56,10 +58,23 @@ fn brass_talon_chimera_sacrifices_to_give_target_chimera_plus_two_counter_and_fi
             },
         )
         .unwrap();
-    aim_at(&mut engine, p0, other_chimera);
+    let menu = aim_at(&mut engine, p0, other_chimera);
+    assert!(
+        !menu.contains(&their_bear),
+        "\"target Chimera creature\": a Bears is no target"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, other_chimera), (4, 4));
+    assert!(
+        in_graveyard(&engine, p0, brass_talon_chimera()).is_some(),
+        "the sacrificed Chimera is the cost"
+    );
+    assert_eq!(pt(&engine, their_bear), (2, 2), "the Bears got nothing");
+    assert!(
+        !keywords(&engine, their_bear).contains(KeywordSet::FIRST_STRIKE),
+        "no first strike for the Bears"
+    );
     assert!(keywords(&engine, other_chimera).contains(KeywordSet::FIRST_STRIKE));
 
     reach_their_main_phase(&mut engine, p1);

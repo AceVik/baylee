@@ -1,3 +1,5 @@
+//! `cards/sorceries/mv_1/bubbling_muck.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -26,4 +28,54 @@ fn bubbling_muck_causes_swamps_to_add_an_additional_black_mana_this_turn() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p0, necro).is_some());
+}
+
+#[test]
+fn bubbling_muck_affects_both_players_swamps_for_this_turn_only() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[swamp(), forest()],
+        &[swamp()],
+        &[bubbling_muck()],
+        &[],
+    );
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Black, 1)]);
+    lk::cast_at(&mut engine, lk::P0, bubbling_muck(), &[], &[]);
+    let mine = lk::obj(&engine, lk::P0, swamp());
+    let other_land = lk::obj(&engine, lk::P0, forest());
+    let theirs = lk::obj(&engine, lk::P1, swamp());
+    engine
+        .apply(lk::P0, PlayerAction::ActivateManaAbility { source: mine })
+        .unwrap();
+    engine
+        .apply(
+            lk::P0,
+            PlayerAction::ActivateManaAbility { source: other_land },
+        )
+        .unwrap();
+    assert_eq!(lk::pool_of(&engine, lk::P0, ManaColor::Black), 2);
+    assert_eq!(
+        lk::pool_of(&engine, lk::P0, ManaColor::Green),
+        1,
+        "non-Swamp receives no bonus"
+    );
+    engine.apply(lk::P0, PlayerAction::PassPriority).unwrap();
+    engine
+        .apply(lk::P1, PlayerAction::ActivateManaAbility { source: theirs })
+        .unwrap();
+    assert_eq!(
+        lk::pool_of(&engine, lk::P1, ManaColor::Black),
+        2,
+        "each player benefits"
+    );
+    reach_their_main_phase(&mut engine, lk::P1);
+    engine
+        .apply(lk::P1, PlayerAction::ActivateManaAbility { source: theirs })
+        .unwrap();
+    assert_eq!(
+        lk::pool_of(&engine, lk::P1, ManaColor::Black),
+        1,
+        "the delayed trigger expired"
+    );
 }

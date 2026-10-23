@@ -35,3 +35,20 @@ fn exalted_dragon_cant_attack_unless_controller_sacrifices_a_land() {
     assert!(in_graveyard(&engine, P0, plains()).is_some());
     assert_eq!(engine.state().players[1].life, 15);
 }
+
+#[test]
+fn exalted_dragon_cannot_attack_without_a_land_of_its_controllers_own() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[exalted_dragon(), gray_ogre()],
+        &[plains()],
+        &[],
+        &[],
+    );
+    let dragon = lk::obj(&e, P0, exalted_dragon());
+    let ogre = lk::obj(&e, P0, gray_ogre());
+    let offered = lk::attackers_offered(&mut e);
+    assert!(!offered.contains(&dragon));
+    assert!(offered.contains(&ogre));
+}

@@ -1,37 +1,40 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-
+use crate::engine::card_tests::legends_kit as lk;
+use crate::engine::card_tests::partials_w1b_kit as kit;
+use baylee_core::generated::index;
 fn slaughter() -> CardIndex {
     card_index("37de575d-15d4-42a2-a3d2-3855fb6ab110")
 }
-
 #[test]
-fn slaughter_destroys_target_nonblack_creature() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[slaughter()])
-        .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
-        .battlefield(1, &[grizzly_bears()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("seated");
-    cast_from_hand(&mut engine, p0, slaughter());
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
-        engine
-            .apply(
-                p0,
-                PlayerAction::ChooseTargets {
-                    objects: vec![bears],
-                    players: vec![],
-                },
-            )
-            .unwrap();
-    }
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p1, grizzly_bears()).is_none());
-    assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
+fn slaughter_destroys_nonblack_creatures_despite_regeneration_and_excludes_black_targets() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[],
+        &[index::PYGMY_TROLL, index::DAUTHI_CUTTHROAT],
+        &[slaughter()],
+        &[],
+    );
+    let troll = lk::obj(&e, p1, index::PYGMY_TROLL);
+    let black = lk::obj(&e, p1, index::DAUTHI_CUTTHROAT);
+    lk::float(&mut e, p0, &[(ManaColor::Black, 4)]);
+    lk::pass_once(&mut e);
+    lk::float(&mut e, p1, &[(ManaColor::Green, 1)]);
+    kit::activate_object(&mut e, p1, troll, 1);
+    lk::settle(&mut e);
+    cast_with_floating(&mut e, p0, slaughter());
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("targets")
+    };
+    assert!(options.contains(&troll));
+    assert!(!options.contains(&black));
+    lk::aim(&mut e, &[troll], &[]);
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, p1, index::PYGMY_TROLL).is_some());
+    assert!(on_battlefield(&e, p1, index::DAUTHI_CUTTHROAT).is_some());
+    assert!(
+        in_graveyard(&e, p0, slaughter()).is_some(),
+        "buyback is omitted"
+    );
 }

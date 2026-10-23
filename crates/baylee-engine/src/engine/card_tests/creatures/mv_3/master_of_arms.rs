@@ -2,50 +2,123 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, MASTER_OF_ARMS};
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::mana::ManaColor;
 
-/// `Master of Arms` ({2}{W}, Creature — Human Soldier 2/2) has first strike and
-/// `{1}{W}`: Tap target creature blocking this creature.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn master_of_arms() -> CardIndex {
+    card_index("37e90cab-d904-4387-9d18-62f125c38c46")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+/// P0's Master of Arms (no lands, so only floating mana can pay for it) has
+/// attacked a board of Grizzly Bears and Savannah Lions; P1 blocks with the
+/// Bears or not at all. Returns at P0's priority in the declare blockers step.
+fn attack_and_block(
+    block_with_bears: bool,
+) -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
+    let mut e = lk::game(
+        SEED,
+        &[master_of_arms()],
+        &[grizzly_bears(), savannah_lions()],
+        &[],
+        &[],
+    );
+    let master = lk::obj(&e, P0, master_of_arms());
+    let bears = lk::obj(&e, P1, grizzly_bears());
+    let lions = lk::obj(&e, P1, savannah_lions());
+    lk::attack(&mut e, &[master]);
+    if block_with_bears {
+        lk::block(&mut e, &[(bears, master)]);
+    } else {
+        lk::block(&mut e, &[]);
+    }
+    (e, master, bears, lions)
+}
+
+/// Master of Arms (37e90cab-d904-4387-9d18-62f125c38c46) — "{1}{W}: Tap target
+/// creature blocking this creature." The ability needs its {1}{W} and a
+/// blocker; the menu holds the Bears that block it and not the Lions that
+/// do not; the Bears end up tapped and the Lions untapped.
 #[test]
-fn master_of_arms_taps_blocking_creature() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[MASTER_OF_ARMS, plains(), plains()])
-        .battlefield(1, &[GRIZZLY_BEARS])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn master_of_arms_taps_the_creature_blocking_it_and_only_that() {
+    let (mut e, _master, bears, lions) = attack_and_block(true);
 
-    let master = on_battlefield(&engine, p0, MASTER_OF_ARMS).unwrap();
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
+    assert!(
+        !lk::offered(&e, master_of_arms(), P0, 0),
+        "{{1}}{{W}} is not paid for"
+    );
+    lk::float(
+        &mut e,
+        P0,
+        &[(ManaColor::White, 1), (ManaColor::Colorless, 1)],
+    );
+    assert!(
+        lk::offered(&e, master_of_arms(), P0, 0),
+        "blocked, and paid for"
+    );
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(master, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(bears, master)],
-            },
-        )
-        .unwrap();
+    activate(&mut e, P0, master_of_arms(), 0);
+    let menu = aim_at(&mut e, P0, bears);
+    assert!(menu.contains(&bears), "the blocker: {menu:?}");
+    assert!(
+        !menu.contains(&lions),
+        "not the creature that is not blocking: {menu:?}"
+    );
+    lk::settle(&mut e);
 
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, MASTER_OF_ARMS, 0);
-    aim_at(&mut engine, p0, bears);
-    pass_until(&mut engine, stack_is_empty);
+    assert!(lk::tapped(&e, bears), "tapped");
+    assert!(!lk::tapped(&e, lions), "the other creature is untouched");
+    assert_eq!(lk::pool_total(&e, P0), 0, "{{1}}{{W}} was spent");
+}
 
-    assert!(is_tapped(&engine, bears));
+/// Master of Arms — "First strike": the 2/2 kills the blocking 2/2 Bears in
+/// the first-strike step, before the Bears deal any damage.
+#[test]
+fn master_of_arms_has_first_strike() {
+    let (mut e, master, _bears, _lions) = attack_and_block(true);
+
+    lk::through_combat(&mut e);
+
+    assert!(
+        in_graveyard(&e, P1, grizzly_bears()).is_some(),
+        "the Bears died"
+    );
+    assert!(
+        on_battlefield(&e, P0, master_of_arms()).is_some(),
+        "the Master lives"
+    );
+    assert_eq!(
+        lk::damage_on(&e, master),
+        0,
+        "dealt damage first, took none"
+    );
+}
+
+/// Master of Arms — "creature blocking this creature": when nothing blocks
+/// it there is no legal target, so the ability is not offered even with the
+/// mana in the pool.
+#[test]
+fn master_of_arms_has_no_target_when_it_is_not_blocked() {
+    let (mut e, _master, _bears, _lions) = attack_and_block(false);
+
+    lk::float(
+        &mut e,
+        P0,
+        &[(ManaColor::White, 1), (ManaColor::Colorless, 1)],
+    );
+
+    assert!(
+        !lk::offered(&e, master_of_arms(), P0, 0),
+        "no blocker to tap"
+    );
 }

@@ -12,7 +12,7 @@ fn hibernation_returns_all_green_permanents_to_owners_hands() {
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[hibernation()])
         .battlefield(0, &[island(), island(), island(), llanowar_elves()])
-        .battlefield(1, &[grizzly_bears()])
+        .battlefield(1, &[grizzly_bears(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -22,4 +22,8 @@ fn hibernation_returns_all_green_permanents_to_owners_hands() {
 
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_none());
     assert!(on_battlefield(&engine, p1, grizzly_bears()).is_none());
+    assert!(in_hand(&engine, p0, llanowar_elves()).is_some());
+    assert!(in_hand(&engine, p1, grizzly_bears()).is_some());
+    assert!(on_battlefield(&engine, p1, gray_ogre()).is_some());
+    assert_eq!(all_on_battlefield(&engine, p0, island()).len(), 3);
 }

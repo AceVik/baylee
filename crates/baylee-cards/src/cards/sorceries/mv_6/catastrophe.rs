@@ -20,7 +20,7 @@ card!(
         choices: &[
             Effect::DestroyAll {
                 filter: &Filter::LAND,
-                no_regen: false,
+                no_regen: true,
             },
             Effect::DestroyAll {
                 filter: &Filter::CREATURE,

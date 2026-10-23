@@ -27,4 +27,11 @@ fn wall_of_diffusion_casts_and_enters_as_a_zero_five_with_defender() {
     let ch = engine.state().object(wall).unwrap().characteristics();
     assert_eq!((ch.power, ch.toughness), (Some(0), Some(5)));
     assert!(ch.keywords.contains(KeywordSet::DEFENDER));
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    let Pending::ChooseAttackers { attackers, .. } = engine.pending() else {
+        panic!("attackers");
+    };
+    assert!(!attackers.contains(&wall), "defender is enforced in play");
 }

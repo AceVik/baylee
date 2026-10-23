@@ -56,3 +56,32 @@ fn serra_s_hymn_adds_verse_counter_and_prevents_damage() {
 
     assert_eq!(engine.state().players[0].life, 18);
 }
+
+#[test]
+fn serras_hymn_single_target_partial_counts_zero_and_multiple_verse_counters() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for n in [0, 2] {
+        let mut e = lk::game_with(
+            SEED,
+            &[serra_s_hymn()],
+            &[],
+            &[lightning_bolt(), lightning_bolt()],
+            &[],
+            |e| lk::yes_no(e, false),
+        );
+        let hymn = lk::obj(&e, p0, serra_s_hymn());
+        e.dev_state_mut(p0)
+            .unwrap()
+            .object_mut(hymn)
+            .unwrap()
+            .counters
+            .add(baylee_cards_dsl::counters::VERSE, n);
+        lk::use_ability(&mut e, p0, serra_s_hymn(), 1, &[], &[p0]);
+        lk::float(&mut e, p0, &[(ManaColor::Red, 2)]);
+        lk::cast_at(&mut e, p0, lightning_bolt(), &[], &[p1]);
+        assert_eq!(lk::life(&e, p1), 17, "other targets are not protected");
+        lk::cast_at(&mut e, p0, lightning_bolt(), &[], &[p0]);
+        assert_eq!(lk::life(&e, p0), 17 + i32::from(n));
+    }
+}

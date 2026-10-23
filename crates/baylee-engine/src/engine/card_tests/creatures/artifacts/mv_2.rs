@@ -307,6 +307,7 @@ mod bronze_sable;
 mod buzz_bots;
 mod coastal_bulwark;
 mod consulate_skygate;
+mod copper_gnomes;
 mod copper_myr;
 mod coretapper;
 mod corridor_monitor;

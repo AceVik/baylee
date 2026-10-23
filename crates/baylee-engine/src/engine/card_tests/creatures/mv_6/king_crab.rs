@@ -6,47 +6,25 @@ fn king_crab() -> CardIndex {
 }
 
 #[test]
-fn king_crab_puts_target_green_creature_into_owners_library() {
+fn king_crab_keeps_its_body_without_the_unsupported_library_ability() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), king_crab()])
-        .battlefield(1, &[grizzly_bears()])
+        .battlefield(0, &[king_crab()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-
     let crab = on_battlefield(&engine, p0, king_crab()).unwrap();
-    let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
-
-    tap_all_mana(&mut engine, p0);
+    if let Pending::Priority { legal, .. } = engine.pending() {
+        assert!(
+            !legal.abilities.iter().any(|(source, _)| *source == crab),
+            "unsupported ability is unavailable"
+        );
+    }
+    let _ = attack_and_collect_blocks(&mut engine, crab, p1);
     engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: crab,
-                ability_index: 0,
-            },
-        )
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
-        engine
-            .apply(
-                p0,
-                PlayerAction::ChooseTargets {
-                    objects: vec![bear],
-                    players: vec![],
-                },
-            )
-            .unwrap();
-    }
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
-    });
-    if matches!(engine.pending(), Pending::YesNo { .. }) {
-        engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
-    }
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p1, grizzly_bears()).is_none());
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[1].life, 16);
 }

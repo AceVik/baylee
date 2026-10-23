@@ -35,5 +35,21 @@ fn imps_taunt_forces_target_creature_to_attack_this_turn() {
             .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
             .is_err()
     );
-    let _ = P1;
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
+    assert!(in_graveyard(&engine, P0, imps_taunt()).is_some());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    engine
+        .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
 }

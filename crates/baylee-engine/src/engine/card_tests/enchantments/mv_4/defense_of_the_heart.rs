@@ -51,3 +51,19 @@ fn defense_of_the_heart_sacrifices_itself_and_tutors_two_creatures_to_battlefiel
     assert!(on_battlefield(&engine, p0, defense_of_the_heart()).is_none());
     assert!(on_battlefield(&engine, p0, gray_ogre()).is_some());
 }
+
+#[test]
+fn defense_of_the_heart_does_not_add_creatures_from_different_opponents() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::table(SEED, forest(), 3)
+        .battlefield(0, &[defense_of_the_heart()])
+        .battlefield(1, &[gray_ogre(), grizzly_bears()])
+        .battlefield(2, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, defense_of_the_heart()).is_some(),
+        "no opponent individually has three creatures"
+    );
+}

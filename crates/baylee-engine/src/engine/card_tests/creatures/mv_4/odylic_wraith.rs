@@ -2,75 +2,114 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::ODYLIC_WRAITH;
+use crate::engine::card_tests::legends_kit as lk;
 
-/// `Odylic Wraith` ({3}{B}, Creature — Wraith 2/2) has swampwalk and makes a
-/// player it deals damage to discard a card.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn odylic_wraith() -> CardIndex {
+    card_index("613fa223-856e-49c4-8952-224895e00b5e")
+}
+
+fn llanowar_elves() -> CardIndex {
+    card_index("68954295-54e3-4303-a6bc-fc4547a4e3a3")
+}
+
+/// Odylic Wraith (613fa223-856e-49c4-8952-224895e00b5e) — "Swampwalk" and
+/// "whenever this creature deals damage to a player, that player discards a
+/// card." The defender controls a Swamp, so the Llanowar Elves may not block it;
+/// 2 damage goes through and player 1 (not the attacker) is asked which of their
+/// two cards to discard, from their own hand.
 #[test]
-fn odylic_wraith_has_swampwalk_and_forces_discard_on_damage() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[ODYLIC_WRAITH])
-        .battlefield(1, &[swamp(), llanowar_elves()])
-        .hand(1, &[swamp(), swamp()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let hand1_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
-    let wraith = on_battlefield(&engine, p0, ODYLIC_WRAITH).unwrap();
-    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(wraith, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    assert!(
-        engine
-            .apply(
-                p1,
-                PlayerAction::DeclareBlockers {
-                    blockers: vec![(elves, wraith)],
-                },
-            )
-            .is_err(),
-        "Swampwalk prevents blocking while defending player controls a Swamp"
+fn odylic_wraith_is_unblockable_by_a_swamp_player_and_makes_them_discard() {
+    let mut e = lk::game(
+        SEED,
+        &[odylic_wraith()],
+        &[swamp(), llanowar_elves()],
+        &[],
+        &[island(), plains()],
     );
-    engine
-        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
+    let wraith = lk::obj(&e, P0, odylic_wraith());
+    let elves = lk::obj(&e, P1, llanowar_elves());
+    let island_id = in_hand(&e, P1, island()).expect("Island in hand");
+    let plains_id = in_hand(&e, P1, plains()).expect("Plains in hand");
 
-    pass_until(&mut engine, |e| {
+    let offer = lk::attack(&mut e, &[wraith]);
+    assert!(
+        !lk::may_block(&offer, elves, wraith),
+        "swampwalk: no block against a Swamp"
+    );
+    lk::block(&mut e, &[]);
+    pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
-    let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
-        panic!("expected ChooseCards for p1 discard");
+    let Pending::ChooseCards {
+        player, options, ..
+    } = e.pending().clone()
+    else {
+        unreachable!()
     };
-    engine
-        .apply(
-            p1,
-            PlayerAction::ChooseObjects {
-                objects: vec![options[0]],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == crate::turn::Phase::SecondMain
-    });
+    assert_eq!(player, P1, "the damaged player discards");
+    assert!(
+        options.contains(&island_id) && options.contains(&plains_id) && options.len() == 2,
+        "from their own hand: {options:?}"
+    );
+    e.apply(
+        P1,
+        PlayerAction::ChooseObjects {
+            objects: vec![island_id],
+        },
+    )
+    .unwrap();
+    lk::through_combat(&mut e);
 
-    assert_eq!(engine.state().players[1].life, 18);
+    assert_eq!(lk::life(&e, P1), 18, "2 damage");
+    assert!(
+        in_graveyard(&e, P1, island()).is_some(),
+        "the chosen card is discarded"
+    );
+    assert!(in_hand(&e, P1, plains()).is_some(), "only one card goes");
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
-        hand1_before - 1
+        e.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        0,
+        "the attacker discards nothing"
+    );
+}
+
+/// Odylic Wraith — without a Swamp on the defender's side the Elves may block
+/// (swampwalk only works against a Swamp), the Wraith deals its damage to the
+/// Elves and not to a player, so nobody discards and the Island stays in hand.
+#[test]
+fn odylic_wraith_can_be_blocked_without_a_swamp_and_then_no_one_discards() {
+    let mut e = lk::game(
+        SEED,
+        &[odylic_wraith()],
+        &[llanowar_elves()],
+        &[],
+        &[island()],
+    );
+    let wraith = lk::obj(&e, P0, odylic_wraith());
+    let elves = lk::obj(&e, P1, llanowar_elves());
+
+    let offer = lk::attack(&mut e, &[wraith]);
+    assert!(
+        lk::may_block(&offer, elves, wraith),
+        "no Swamp, so the Elves may block"
+    );
+    lk::block(&mut e, &[(elves, wraith)]);
+    lk::through_combat(&mut e);
+
+    assert!(
+        in_graveyard(&e, P1, llanowar_elves()).is_some(),
+        "the 1/1 Elves die"
+    );
+    assert_eq!(lk::life(&e, P1), 20, "no damage to the player");
+    assert!(
+        in_hand(&e, P1, island()).is_some(),
+        "damage to a creature makes no one discard"
+    );
+    assert!(
+        matches!(e.pending(), Pending::Priority { .. }),
+        "nothing was asked"
     );
 }

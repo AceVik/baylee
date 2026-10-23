@@ -3,6 +3,7 @@
 //! Oracle: Enchanted creature gets +3/+3.
 //! Oracle: When enchanted creature attacks or blocks, sacrifice this Aura at the beginning of the next cleanup step.
 //! Set: EXO #28 — Exodus | Scryfall ID: 52f36bb8-5a97-4596-8ca3-707665770c76 | Oracle ID: d5e48041-5f21-48e6-bd0c-000f02dfbe8a
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -30,17 +31,13 @@ card!(
         triggered!(
             Trigger::Attacks(&Filter::AttachedToBySource),
             &[Effect::AtNextCleanup {
-                effects: &[Effect::SacrificeObject {
-                    target: TargetSpec::EventObject,
-                }],
+                effects: &[Effect::SacrificeSelf],
             }],
         ),
         triggered!(
             Trigger::Blocks(&Filter::AttachedToBySource),
             &[Effect::AtNextCleanup {
-                effects: &[Effect::SacrificeObject {
-                    target: TargetSpec::EventObject,
-                }],
+                effects: &[Effect::SacrificeSelf],
             }],
         ),
     ],

@@ -1,3 +1,5 @@
+//! `cards/sorceries/mv_3/tinker.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -49,4 +51,24 @@ fn tinker_sacrifices_artifact_and_tutors_artifact_to_battlefield() {
 
     assert!(in_graveyard(&engine, p0, thran_lens()).is_some());
     assert!(on_battlefield(&engine, p0, thran_war_machine()).is_some());
+}
+
+#[test]
+fn tinker_cannot_sacrifice_an_opponents_artifact() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[sol_ring()], &[tinker()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 3)]);
+    let spell = in_hand(&engine, lk::P0, tinker()).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
+    };
+    assert!(
+        !legal.castable.contains(&spell) && !legal.payable.contains(&spell),
+        "mana is ready, but no owned sacrifice exists"
+    );
+    assert!(
+        engine
+            .apply(lk::P0, PlayerAction::CastSpell { card: spell })
+            .is_err()
+    );
 }

@@ -61,3 +61,22 @@ fn watchdog_reduces_attackers_power_while_untapped_and_must_block_if_able() {
     assert!(on_battlefield(&engine, p0, watchdog()).is_some());
     assert!(on_battlefield(&engine, p1, GRIZZLY_BEARS).is_some());
 }
+
+#[test]
+fn tapped_watchdog_neither_weakens_attackers_nor_has_to_block() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[watchdog()], &[GRIZZLY_BEARS], &[], &[]);
+    let dog = on_battlefield(&e, p0, watchdog()).unwrap();
+    let bears = on_battlefield(&e, p1, GRIZZLY_BEARS).unwrap();
+    lk::attack(&mut e, &[dog]);
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    reach_their_main_phase(&mut e, p1);
+    lk::attack(&mut e, &[bears]);
+    assert!(is_tapped(&e, dog));
+    assert_eq!(pt(&e, bears), (2, 2));
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(e.state().players[0].life, 18);
+}

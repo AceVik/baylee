@@ -1,39 +1,28 @@
-//! `cards/creatures/mv_2/oracle_en_vec.rs`, played.
+//! The remaining Partial body is cast; unsupported approximations are absent.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::legends_kit;
-use baylee_core::generated::index;
+use crate::engine::card_tests::legends_kit as lk;
 
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
-
-fn oracle_en_vec() -> CardIndex {
-    card_index("367faa8c-617a-41a0-901c-f65106e86d56")
-}
-
-/// Oracle en-Vec (`367faa8c-617a-41a0-901c-f65106e86d56`) — {1}{W} Creature — Human Wizard (Partial):
-/// "{T}: Target opponent chooses any number of creatures they control. During that player's next turn, the chosen creatures attack if able..."
 #[test]
-fn oracle_en_vec_forces_opponents_creatures_to_attack_on_their_turn() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[oracle_en_vec()])
-        .battlefield(1, &[index::GRIZZLY_BEARS])
+fn unsupported_approximation_is_not_an_ability() {
+    let card = card_index("367faa8c-617a-41a0-901c-f65106e86d56");
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[baylee_core::generated::index::GRIZZLY_BEARS])
+        .hand(0, &[card])
         .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    activate(&mut engine, P0, oracle_en_vec(), 0);
-    legends_kit::aim(&mut engine, &[], &[P1]);
-    pass_until(&mut engine, stack_is_empty);
-
-    reach_their_main_phase(&mut engine, P1);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    assert!(
-        engine
-            .apply(P1, PlayerAction::DeclareAttackers { attackers: vec![] })
-            .is_err()
-    );
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    cast_with_floating(&mut e, p0, card);
+    pass_until(&mut e, stack_is_empty);
+    let creature = on_battlefield(&e, p0, card).expect("the remaining body is cast");
+    reach_their_main_phase(&mut e, PlayerId::new(1));
+    reach_their_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority after resolving the creature");
+    };
+    assert!(legal.abilities.iter().all(|(id, _)| *id != creature));
 }

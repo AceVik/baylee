@@ -1,3 +1,5 @@
+//! `cards/artifacts/mv_3/wheel_of_torture.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -28,4 +30,23 @@ fn wheel_of_torture_deals_three_minus_hand_size_at_opponents_upkeep() {
 
     // Opponent has 0 cards in hand at upkeep, so Wheel of Torture deals 3 - 0 = 3 damage.
     assert_eq!(engine.state().players[1].life, 17);
+}
+
+#[test]
+fn wheel_never_hits_its_controller_or_a_full_hand() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[wheel_of_torture()],
+        &[],
+        &[],
+        &[forest(), forest(), forest(), forest()],
+    );
+    assert_eq!(lk::life(&engine, lk::P0), 20, "own upkeep does not trigger");
+    reach_their_main_phase(&mut engine, lk::P1);
+    assert_eq!(
+        lk::life(&engine, lk::P1),
+        20,
+        "negative damage floors to zero"
+    );
 }

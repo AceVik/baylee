@@ -23,3 +23,53 @@ fn opal_gargoyle_becomes_2_2_gargoyle_with_flying_when_opponent_casts_creature()
     let perm = on_battlefield(&engine, p0, opal_gargoyle()).expect("seated");
     assert_eq!(pt(&engine, perm), (2, 2));
 }
+
+/// The trigger excludes your creature spells, opposing noncreature spells,
+/// and further creature spells once the Opal has become a creature.
+#[test]
+fn opal_gargoyle_respects_opponent_creature_and_enchantment_conditions() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[opal_gargoyle()],
+        &[],
+        &[grizzly_bears()],
+        &[giant_growth(), grizzly_bears(), grizzly_bears()],
+    );
+    let opal = lk::obj(&e, p0, opal_gargoyle());
+    lk::float(&mut e, p0, &[(ManaColor::Green, 2)]);
+    lk::cast_at(&mut e, p0, grizzly_bears(), &[], &[]);
+    assert!(
+        e.state()
+            .object(opal)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::ENCHANTMENT)
+    );
+    reach_their_main_phase(&mut e, p1);
+    lk::float(&mut e, p1, &[(ManaColor::Green, 5)]);
+    let bear = lk::obj(&e, p0, grizzly_bears());
+    lk::cast_at(&mut e, p1, giant_growth(), &[bear], &[]);
+    assert!(
+        e.state()
+            .object(opal)
+            .unwrap()
+            .characteristics()
+            .types
+            .contains(TypeSet::ENCHANTMENT)
+    );
+    lk::cast_at(&mut e, p1, grizzly_bears(), &[], &[]);
+    let chars = e.state().object(opal).unwrap().characteristics();
+    assert!(chars.types.contains(TypeSet::CREATURE));
+    assert!(!chars.types.contains(TypeSet::ENCHANTMENT));
+    assert_eq!(pt(&e, opal), (2, 2));
+    cast_with_floating(&mut e, p1, grizzly_bears());
+    assert_eq!(
+        e.state().zones.list(crate::zone::ZoneLocation::Stack).len(),
+        1,
+        "intervening if prevents another trigger"
+    );
+    lk::settle(&mut e);
+}

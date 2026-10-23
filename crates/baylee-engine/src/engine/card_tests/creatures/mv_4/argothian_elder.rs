@@ -46,7 +46,34 @@ fn argothian_elder_untaps_two_target_lands() {
             },
         )
         .unwrap();
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+    if let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    {
+        assert_eq!((min, max), (2, 2));
+        assert!(!options.contains(&elder));
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![f1],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![f1, f1],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
         engine
             .apply(
                 p0,

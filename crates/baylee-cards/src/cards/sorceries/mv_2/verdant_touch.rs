@@ -21,12 +21,14 @@ card!(
     ),],
     abilities = &[spell!(
         &[
-            Effect::continuous(
-                &Filter::This,
-                Modifier::AddType(TypeSet::CREATURE),
-                Duration::Indefinitely,
-            ),
-            Effect::continuous(&Filter::This, Modifier::SetPT(2, 2), Duration::Indefinitely,),
+            Effect::ModifyTargets {
+                modifier: Modifier::AddType(TypeSet::CREATURE),
+                duration: Duration::Indefinitely
+            },
+            Effect::ModifyTargets {
+                modifier: Modifier::SetPT(2, 2),
+                duration: Duration::Indefinitely
+            },
         ],
         targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))),
     ),],

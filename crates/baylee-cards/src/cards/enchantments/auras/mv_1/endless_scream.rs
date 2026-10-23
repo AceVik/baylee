@@ -3,7 +3,7 @@
 //! Oracle: This Aura enters with X scream counters on it.
 //! Oracle: Enchanted creature gets +1/+0 for each scream counter on this Aura.
 //! Set: TMP #132 — Tempest | Scryfall ID: e9474231-34c5-4563-8a61-fd1bc2693f86 | Oracle ID: cde3e29c-31fd-4dce-a008-283bbe90bfc6
-// PARTIAL
+// PARTIAL — Enters with X scream counters on it and gives enchanted creature +1/+0 while this Aura has a scream counter on it; scaling +1/+0 per scream counter on the Aura source is not yet modeled.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

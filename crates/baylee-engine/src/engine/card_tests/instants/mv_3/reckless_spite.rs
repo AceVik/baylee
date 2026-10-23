@@ -26,6 +26,18 @@ fn reckless_spite_destroys_two_target_nonblack_creatures_and_controller_loses_fi
     let imp = on_battlefield(&engine, p1, BOG_IMP).unwrap();
 
     cast_from_hand(&mut engine, p0, reckless_spite());
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![bears],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "exactly two target creatures are required"
+    );
     // Black creature cannot be targeted.
     assert!(
         engine

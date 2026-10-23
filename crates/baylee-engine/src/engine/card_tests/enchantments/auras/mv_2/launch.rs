@@ -18,10 +18,13 @@ fn launch_grants_flying_and_returns_to_hand_when_put_into_graveyard() {
     let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
     cast_from_hand(&mut engine, p0, launch());
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
-        aim_at(&mut engine, p0, bear);
+        let options = aim_at(&mut engine, p0, bear);
+        let land = on_battlefield(&engine, p0, island()).unwrap();
+        assert!(!options.contains(&land));
     }
     pass_until(&mut engine, stack_is_empty);
 
+    assert!(keywords(&engine, bear).contains(KeywordSet::FLYING));
     let aura = on_battlefield(&engine, p0, launch()).expect("attached");
     kill(&mut engine, aura);
 

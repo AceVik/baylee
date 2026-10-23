@@ -3,7 +3,9 @@
 //! Oracle: When the creature put onto the battlefield with this enchantment dies, exile it and return this enchantment to its owner's hand.
 //! Oracle: When this enchantment leaves the battlefield, exile the creature put onto the battlefield with this enchantment.
 //! Set: USG #130 — Urza's Saga | Scryfall ID: 0cb1e0c9-9041-44cd-9e96-87cf14c67068 | Oracle ID: e275cbfb-3d25-4189-84f0-3162eadc7d65
-// PARTIAL
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,24 +14,11 @@ card!(
     oracle_id = "e275cbfb-3d25-4189-84f0-3162eadc7d65",
     scryfall_id = "0cb1e0c9-9041-44cd-9e96-87cf14c67068",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "exiling the linked creature when it dies or when this enchantment leaves the battlefield and returning this enchantment to hand when that creature dies are not in Trigger/Effect; implements the ETB reanimation of target creature card from your graveyard",
-    ),
     faces = &[face!(
         name = "Diabolic Servitude",
         mana_cost = mana!("{3}{B}"),
         types = TypeSet::ENCHANTMENT,
     ),],
-    abilities = &[triggered!(
-        Trigger::ETB,
-        &[Effect::GraveyardToBattlefield {
-            target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You),
-            owner_control: false,
-            counters: None,
-        }],
-        targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(
-            &Filter::CREATURE,
-            PlayerRel::You,
-        ))),
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

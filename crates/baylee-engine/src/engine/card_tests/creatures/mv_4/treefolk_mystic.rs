@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_4/treefolk_mystic.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -46,4 +48,35 @@ fn treefolk_mystic_destroys_all_auras_attached_to_blocked_creature() {
 
     assert!(on_battlefield(&engine, p0, aura).is_none());
     assert!(in_graveyard(&engine, p0, aura).is_some());
+}
+
+#[test]
+fn treefolk_mystic_also_destroys_auras_when_it_is_blocked() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let aura = baylee_core::generated::index::GRANITE_GRIP;
+    let mut engine = lk::game(
+        SEED,
+        &[treefolk_mystic(), llanowar_elves()],
+        &[gray_ogre()],
+        &[aura, rancor()],
+        &[],
+    );
+    let mystic = lk::obj(&engine, lk::P0, treefolk_mystic());
+    let elf = lk::obj(&engine, lk::P0, llanowar_elves());
+    let blocker = lk::obj(&engine, lk::P1, gray_ogre());
+    lk::float(
+        &mut engine,
+        lk::P0,
+        &[(ManaColor::Red, 3), (ManaColor::Green, 1)],
+    );
+    lk::cast_at(&mut engine, lk::P0, aura, &[blocker], &[]);
+    lk::cast_at(&mut engine, lk::P0, rancor(), &[elf], &[]);
+    lk::attack(&mut engine, &[mystic]);
+    lk::block(&mut engine, &[(blocker, mystic)]);
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, lk::P0, aura).is_some());
+    assert!(
+        on_battlefield(&engine, lk::P0, rancor()).is_some(),
+        "an Aura on an unrelated creature stays"
+    );
 }

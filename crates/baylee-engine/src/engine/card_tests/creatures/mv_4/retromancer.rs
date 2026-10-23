@@ -25,3 +25,26 @@ fn retromancer_deals_three_damage_to_targeting_spells_controller() {
 
     assert_eq!(engine.state().players[0].life, 17);
 }
+
+#[test]
+fn retromancer_also_punishes_targeted_abilities_and_its_own_controllers_spells() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[index::PRODIGAL_SORCERER],
+        &[retromancer()],
+        &[],
+        &[giant_growth()],
+    );
+    let retro = lk::obj(&e, p1, retromancer());
+    lk::use_ability(&mut e, p0, index::PRODIGAL_SORCERER, 0, &[retro], &[]);
+    assert_eq!(lk::life(&e, p0), 17);
+    assert_eq!(lk::life(&e, p1), 20);
+    reach_their_main_phase(&mut e, p1);
+    lk::float(&mut e, p1, &[(ManaColor::Green, 1)]);
+    lk::cast_at(&mut e, p1, giant_growth(), &[retro], &[]);
+    assert_eq!(lk::life(&e, p1), 17);
+    assert_eq!(lk::life(&e, p0), 17);
+}

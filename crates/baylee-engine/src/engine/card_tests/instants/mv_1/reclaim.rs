@@ -32,6 +32,10 @@ fn reclaim_puts_target_card_from_graveyard_on_top_of_library() {
 
     assert!(in_graveyard(&engine, p0, forest()).is_none());
     assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).last(),
+        Some(&card_in_gy)
+    );
+    assert_eq!(
         engine.state().zones.list(ZoneLocation::Library(p0)).len(),
         lib_before + 1
     );

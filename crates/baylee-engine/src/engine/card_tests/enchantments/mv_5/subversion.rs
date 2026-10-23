@@ -1,3 +1,5 @@
+//! `cards/enchantments/mv_5/subversion.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -23,5 +25,9 @@ fn subversion_drains_on_upkeep() {
     reach_their_main_phase(&mut engine, p0);
 
     assert_eq!(engine.state().players[1].life, 19);
-    assert_eq!(engine.state().players[0].life, 21);
+    assert_eq!(
+        engine.state().players[0].life,
+        20,
+        "unsupported gain is omitted"
+    );
 }

@@ -28,7 +28,14 @@ fn unstable_shapeshifter_copies_each_entering_creature_and_keeps_its_trigger() {
                 unstable_shapeshifter(),
             ],
         )
-        .hand(0, &[GRIZZLY_BEARS, HILL_GIANT])
+        .hand(
+            0,
+            &[
+                GRIZZLY_BEARS,
+                HILL_GIANT,
+                baylee_core::generated::index::SPELLBOOK,
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -36,6 +43,15 @@ fn unstable_shapeshifter_copies_each_entering_creature_and_keeps_its_trigger() {
     let shifter = on_battlefield(&engine, p0, unstable_shapeshifter()).unwrap();
     let ch0 = engine.state().object(shifter).unwrap().characteristics();
     assert_eq!((ch0.power, ch0.toughness), (Some(0), Some(1)));
+
+    cast_from_hand(&mut engine, p0, baylee_core::generated::index::SPELLBOOK);
+    pass_until(&mut engine, stack_is_empty);
+    let unchanged = engine.state().object(shifter).unwrap().characteristics();
+    assert_eq!(
+        (unchanged.power, unchanged.toughness),
+        (Some(0), Some(1)),
+        "noncreatures do not trigger the copy"
+    );
 
     // Cast Grizzly Bears (2/2) -> Unstable Shapeshifter becomes a 2/2 copy.
     cast_from_hand(&mut engine, p0, GRIZZLY_BEARS);

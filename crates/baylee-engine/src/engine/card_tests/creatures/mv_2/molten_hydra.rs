@@ -51,26 +51,18 @@ fn molten_hydra_adds_counters_and_removes_them_to_deal_damage() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(pt(&engine, hydra), (3, 3));
 
+    assert!(!is_tapped(&engine, hydra));
+    if let Pending::Priority { legal, .. } = engine.pending() {
+        assert!(
+            !legal.abilities.contains(&(hydra, 1)),
+            "unsupported damage ability is unavailable"
+        );
+    }
+    let _ = attack_and_collect_blocks(&mut engine, hydra, p1);
     engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: hydra,
-                ability_index: 1,
-            },
-        )
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
         .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p1],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().players[1].life, 18);
-    assert_eq!(pt(&engine, hydra), (1, 1));
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().players[1].life, 17);
+    assert_eq!(pt(&engine, hydra), (3, 3));
 }

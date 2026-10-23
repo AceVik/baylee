@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_4/cinder_seer.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -6,28 +8,26 @@ fn cinder_seer() -> CardIndex {
 }
 
 #[test]
-fn cinder_seer_deals_damage_equal_to_red_cards_in_hand() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = Duel::new(SEED, mountain())
-        .hand(0, &[lightning_bolt(), lightning_bolt()])
-        .battlefield(0, &[cinder_seer(), mountain(), mountain(), mountain()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn cinder_seer_does_not_damage_from_an_unrevealed_hand() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[cinder_seer()],
+        &[],
+        &[lightning_bolt(), lightning_bolt()],
+        &[],
+    );
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Red, 10)]);
+    assert!(!lk::offered(&engine, cinder_seer(), lk::P0, 0));
+    assert_eq!(lk::life(&engine, lk::P1), 20);
+}
 
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, cinder_seer(), 0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p1],
-            },
-        )
-        .unwrap();
+#[test]
+fn creature_body_remains_playable() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[cinder_seer()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Red, 6)]);
+    cast_with_floating(&mut engine, lk::P0, cinder_seer());
     pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().players[1].life, 18);
+    assert!(on_battlefield(&engine, lk::P0, cinder_seer()).is_some());
 }

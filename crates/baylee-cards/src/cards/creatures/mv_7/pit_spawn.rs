@@ -3,11 +3,12 @@
 //! Oracle: At the beginning of your upkeep, sacrifice this creature unless you pay {B}{B}.
 //! Oracle: Whenever this creature deals damage to a creature, exile that creature.
 //! Set: EXO #70 — Exodus | Scryfall ID: 669ad60b-4053-4f07-9072-52e6ff65b4e3 | Oracle ID: f536acf3-ff8e-48da-8509-00e7ce4a1678
-// PARTIAL: First strike, upkeep sacrifice-unless-pay {B}{B}, and exiling creatures dealt combat damage are implemented; exiling creatures dealt noncombat damage by Pit Spawn is not supported.
+// PARTIAL — First strike, upkeep sacrifice-unless-pay {B}{B}, and exiling creatures dealt combat damage are implemented; exiling creatures dealt noncombat damage by Pit Spawn is not supported.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+// NOT SUPPORTED: First strike, upkeep sacrifice-unless-pay {B}{B}, and exiling creatures dealt combat damage are implemented; exiling creatures dealt noncombat damage by Pit Spawn is not supported.
 card!(
     index = index::PIT_SPAWN,
     oracle_id = "f536acf3-ff8e-48da-8509-00e7ce4a1678",

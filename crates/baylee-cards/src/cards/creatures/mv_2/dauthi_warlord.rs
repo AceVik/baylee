@@ -2,6 +2,7 @@
 //! Oracle: Shadow (This creature can block or be blocked by only creatures with shadow.)
 //! Oracle: Dauthi Warlord's power is equal to the number of creatures on the battlefield with shadow.
 //! Set: TPR #98 — Tempest Remastered | Scryfall ID: d7679a92-52a1-4b8f-99e6-564ac14b0cce | Oracle ID: 42bb6537-fa54-43b7-84f2-dea41adc35fd
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;

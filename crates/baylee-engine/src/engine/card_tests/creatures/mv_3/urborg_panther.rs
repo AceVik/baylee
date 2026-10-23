@@ -19,6 +19,10 @@ fn spirit_of_the_night() -> CardIndex {
     baylee_core::generated::index::SPIRIT_OF_THE_NIGHT
 }
 
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
 fn hill_giant() -> CardIndex {
     baylee_core::generated::index::HILL_GIANT
 }
@@ -35,7 +39,7 @@ fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
     // Part 1: {B}, Sacrifice Urborg Panther to destroy target creature blocking it.
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[urborg_panther(), swamp()])
-        .battlefield(1, &[hill_giant()])
+        .battlefield(1, &[hill_giant(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -44,6 +48,7 @@ fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
 
     let panther = on_battlefield(&engine, p0, urborg_panther()).unwrap();
     let giant = on_battlefield(&engine, p1, hill_giant()).unwrap();
+    let idle_bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -82,11 +87,23 @@ fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
             },
         )
         .unwrap();
-    aim_at(&mut engine, p0, giant);
+    let menu = aim_at(&mut engine, p0, giant);
+    assert!(
+        !menu.contains(&idle_bear),
+        "only a creature blocking the Panther is a target"
+    );
+    assert!(
+        !menu.contains(&panther),
+        "the Panther does not block itself"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p0, urborg_panther()).is_none());
     assert!(on_battlefield(&engine, p1, hill_giant()).is_none());
+    assert!(
+        on_battlefield(&engine, p1, grizzly_bears()).is_some(),
+        "the unblocking Bears lives"
+    );
 
     // Part 2: Sacrifice Feral Shadow, Breathstealer, and Urborg Panther to search for Spirit of the Night.
     let mut engine2 = Duel::new(SEED, spirit_of_the_night())
@@ -146,5 +163,23 @@ fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
     assert!(
         on_battlefield(&engine2, p0, spirit_of_the_night()).is_some(),
         "Spirit of the Night put onto the battlefield from library"
+    );
+}
+
+/// Urborg Panther — the Spirit of the Night ability needs all three
+/// sacrifices: without a Breathstealer it is not offered.
+#[test]
+fn urborg_panther_cannot_summon_the_spirit_without_a_breathstealer() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, spirit_of_the_night())
+        .battlefield(0, &[urborg_panther(), feral_shadow()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let panther = on_battlefield(&engine, p0, urborg_panther()).unwrap();
+    assert!(
+        !ability_offered(&engine, panther, 1),
+        "a Feral Shadow and the Panther are not enough"
     );
 }

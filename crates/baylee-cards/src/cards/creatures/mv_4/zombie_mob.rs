@@ -2,7 +2,9 @@
 //! Oracle: This creature enters with a +1/+1 counter on it for each creature card in your graveyard.
 //! Oracle: When this creature enters, exile all creature cards from your graveyard.
 //! Set: MIR #153 — Mirage | Scryfall ID: ab85551f-c9cc-409c-9fb5-a45de695e521 | Oracle ID: c56f0f4c-c85a-4931-b22a-42dc5d1dc7dd
-// PARTIAL — enters with a +1/+1 counter on it for each creature card in your graveyard and exiles your graveyard when it enters; no filtered graveyard-exile effect ("exile all creature cards from your graveyard") exists yet.
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -12,9 +14,6 @@ card!(
     oracle_id = "c56f0f4c-c85a-4931-b22a-42dc5d1dc7dd",
     scryfall_id = "ab85551f-c9cc-409c-9fb5-a45de695e521",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "enters with a +1/+1 counter on it for each creature card in your graveyard and exiles all cards from your graveyard when it enters; no filtered graveyard-exile effect ('exile all creature cards from your graveyard') exists yet",
-    ),
     faces = &[face!(
         name = "Zombie Mob",
         mana_cost = mana!("{2}{B}{B}"),
@@ -22,18 +21,7 @@ card!(
         subtypes = &[subtypes::creature::ZOMBIE],
         power = Some(2),
         toughness = Some(0),
-        enter_modifiers = &[EnterModifier::WithCounters {
-            kind: CounterKind::P1P1,
-            amount: Amount::CountOf {
-                filter: &Filter::CREATURE,
-                zone: ZoneSel::GraveyardYou,
-            },
-        }],
     ),],
-    abilities = &[triggered!(
-        Trigger::ETB,
-        &[Effect::ExileGraveyard {
-            player: PlayerRel::You,
-        }],
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

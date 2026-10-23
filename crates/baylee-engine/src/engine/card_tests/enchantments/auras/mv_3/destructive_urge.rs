@@ -62,3 +62,47 @@ fn destructive_urge_makes_damaged_player_sacrifice_land() {
 
     assert!(on_battlefield(&engine, p1, plains()).is_none());
 }
+
+#[test]
+fn destructive_urge_does_not_trigger_on_noncombat_damage() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[grizzly_bears()],
+        &[plains()],
+        &[destructive_urge(), index::HERMETIC_STUDY],
+        &[],
+    );
+    let host = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    lk::float(
+        &mut engine,
+        p0,
+        &[(ManaColor::Red, 3), (ManaColor::Blue, 2)],
+    );
+    lk::cast_at(&mut engine, p0, destructive_urge(), &[host], &[]);
+    lk::cast_at(&mut engine, p0, index::HERMETIC_STUDY, &[host], &[]);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ActivateAbility {
+                source: host,
+                ability_index: crate::choice::GRANTED_ABILITY,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![p1],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(engine.state().players[1].life, 19);
+    assert!(on_battlefield(&engine, p1, plains()).is_some());
+}

@@ -21,7 +21,7 @@ card!(
         spell!(
             &[Effect::continuous(
                 &Filter::This,
-                Modifier::AssignsNoCombatDamage,
+                Modifier::PreventDamageFromIt,
                 Duration::UntilEndOfTurn,
             )],
             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),

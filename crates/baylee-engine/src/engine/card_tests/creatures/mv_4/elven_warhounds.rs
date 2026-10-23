@@ -14,7 +14,7 @@ fn elven_warhounds() -> CardIndex {
 /// Elven Warhounds (`ae997fee-2c1f-43c8-9dba-8b409d8e449e`) — {3}{G} Creature — Dog (Partial):
 /// "Whenever this creature becomes blocked by a creature, put that creature on top of its owner's library."
 #[test]
-fn elven_warhounds_returns_blocking_creature_when_blocked() {
+fn elven_warhounds_does_not_bounce_a_blocker_instead_of_topdecking_it() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[elven_warhounds()])
         .battlefield(1, &[index::GRIZZLY_BEARS])
@@ -49,6 +49,7 @@ fn elven_warhounds_returns_blocking_creature_when_blocked() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_none());
-    assert!(in_hand(&engine, P1, index::GRIZZLY_BEARS).is_some());
+    assert!(on_battlefield(&engine, P1, index::GRIZZLY_BEARS).is_some());
+    assert!(in_hand(&engine, P1, index::GRIZZLY_BEARS).is_none());
+    assert!(on_battlefield(&engine, P0, elven_warhounds()).is_some());
 }

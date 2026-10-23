@@ -6,12 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_FLYING_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::ControlledByOpponent,
-    Filter::HasKeyword(KeywordSet::FLYING),
-]);
-
 card!(
     index = index::HIDDEN_SPIDER,
     oracle_id = "b0709570-a145-4c3c-ba56-f06d25753855",
@@ -24,7 +18,11 @@ card!(
         types = TypeSet::ENCHANTMENT,
     ),],
     abilities = &[triggered!(
-        Trigger::SpellCast(&OPPONENT_FLYING_CREATURE),
+        Trigger::SpellCast(&Filter::And(&[
+            Filter::CREATURE,
+            Filter::ControlledByOpponent,
+            Filter::HasKeyword(KeywordSet::FLYING),
+        ])),
         &[
             Effect::continuous(
                 &Filter::This,

@@ -32,7 +32,25 @@ fn hope_and_glory_untaps_two_target_creatures_and_pumps_each() {
         .status
         .insert(crate::object::Status::TAPPED);
 
+    let wrong = on_battlefield(&engine, p0, plains()).unwrap();
     cast_from_hand(&mut engine, p0, hope_and_glory());
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!options.contains(&wrong), "a land is not a legal target");
+    for objects in [vec![c1], vec![c1, c1]] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects,
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
+    }
     engine
         .apply(
             p0,
@@ -48,4 +66,7 @@ fn hope_and_glory_untaps_two_target_creatures_and_pumps_each() {
     assert!(!is_tapped(&engine, c2));
     assert_eq!(pt(&engine, c1), (3, 3));
     assert_eq!(pt(&engine, c2), (5, 6));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert_eq!(pt(&engine, c1), (2, 2));
+    assert_eq!(pt(&engine, c2), (4, 5));
 }

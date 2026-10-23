@@ -27,7 +27,7 @@ fn evacuation_returns_all_creatures_to_owners_hands() {
                 index::GRIZZLY_BEARS,
             ],
         )
-        .battlefield(1, &[index::HILL_GIANT])
+        .battlefield(1, &[index::HILL_GIANT, index::SOL_RING])
         .hand(0, &[evacuation()])
         .start();
     keep_mulligans(&mut engine);
@@ -40,4 +40,6 @@ fn evacuation_returns_all_creatures_to_owners_hands() {
     assert!(on_battlefield(&engine, P1, index::HILL_GIANT).is_none());
     assert!(in_hand(&engine, P0, index::GRIZZLY_BEARS).is_some());
     assert!(in_hand(&engine, P1, index::HILL_GIANT).is_some());
+    assert!(on_battlefield(&engine, P1, index::SOL_RING).is_some());
+    assert_eq!(all_on_battlefield(&engine, P0, island()).len(), 5);
 }

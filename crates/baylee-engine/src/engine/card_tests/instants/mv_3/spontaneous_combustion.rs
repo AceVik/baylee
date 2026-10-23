@@ -38,3 +38,19 @@ fn spontaneous_combustion_sacrifices_a_creature_and_deals_three_damage_to_each_c
     assert!(on_battlefield(&engine, p1, HILL_GIANT).is_none());
     assert!(in_graveyard(&engine, p1, HILL_GIANT).is_some());
 }
+
+#[test]
+fn no_creature_means_the_additional_cost_cannot_be_paid() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[], &[], &[spontaneous_combustion()], &[]);
+    lk::float(&mut e, p0, &[(ManaColor::Black, 5), (ManaColor::Red, 5)]);
+    let card = in_hand(&e, p0, spontaneous_combustion()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority");
+    };
+    assert!(
+        !legal.castable.contains(&card) && !legal.payable.contains(&card),
+        "mana alone cannot pay the sacrifice"
+    );
+}

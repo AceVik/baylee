@@ -44,4 +44,27 @@ fn shimmering_efreet_enters_with_flying_and_phasing_and_phases_out_on_untap() {
             .status
             .contains(Status::PHASED_OUT)
     );
+
+    // Phasing (CR 702.26): it phases in again at the next of its controller's
+    // untap steps, and nothing of the opponent's turn moves it.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        engine
+            .state()
+            .object(efreet)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT),
+        "the opponent's untap step does not phase it in"
+    );
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        !engine
+            .state()
+            .object(efreet)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT),
+        "its controller's next untap step phases it in"
+    );
 }

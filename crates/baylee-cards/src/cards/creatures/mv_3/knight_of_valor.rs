@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 static BLOCKER_WITHOUT_FLANKING: Filter = Filter::And(&[
     Filter::CREATURE,
     Filter::BlockingSource,
@@ -34,22 +29,13 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        activated!(
-            cost!("{1}{W}"),
-            &[Effect::continuous(
-                &BLOCKER_WITHOUT_FLANKING,
-                Modifier::ModifyPT(-1, -1),
-                Duration::UntilEndOfTurn,
-            )],
-            limit = ActivationLimit::PerTurn(1),
-        ),
-    ],
+    abilities = &[activated!(
+        cost!("{1}{W}"),
+        &[Effect::continuous(
+            &BLOCKER_WITHOUT_FLANKING,
+            Modifier::ModifyPT(-1, -1),
+            Duration::UntilEndOfTurn,
+        )],
+        limit = ActivationLimit::PerTurn(1),
+    ),],
 );

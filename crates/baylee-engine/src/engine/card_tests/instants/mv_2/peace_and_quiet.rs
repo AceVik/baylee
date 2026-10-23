@@ -29,7 +29,25 @@ fn peace_and_quiet_destroys_two_target_enchantments() {
         .collect();
     assert_eq!(targets.len(), 2);
 
+    let wrong = on_battlefield(&engine, p0, plains()).unwrap();
     cast_from_hand(&mut engine, p0, peace_and_quiet());
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        unreachable!()
+    };
+    assert!(!options.contains(&wrong), "a land is not a legal target");
+    for objects in [vec![targets[0]], vec![targets[0], targets[0]]] {
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects,
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
+    }
     engine
         .apply(
             p0,

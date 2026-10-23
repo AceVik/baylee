@@ -11,9 +11,10 @@ fn city_of_traitors() -> CardIndex {
 #[test]
 fn price_of_progress_deals_2_damage_per_nonbasic_land_to_each_player() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, mountain())
+    let mut engine = Duel::table(SEED, mountain(), 3)
         .battlefield(0, &[mountain(), city_of_traitors()])
         .battlefield(1, &[city_of_traitors(), city_of_traitors()])
+        .battlefield(2, &[mountain()])
         .hand(0, &[price_of_progress()])
         .start();
     keep_mulligans(&mut engine);
@@ -25,4 +26,9 @@ fn price_of_progress_deals_2_damage_per_nonbasic_land_to_each_player() {
 
     assert_eq!(engine.state().players[0].life, 18);
     assert_eq!(engine.state().players[1].life, 16);
+    assert_eq!(
+        engine.state().players[2].life,
+        20,
+        "basic-only seat takes no damage"
+    );
 }

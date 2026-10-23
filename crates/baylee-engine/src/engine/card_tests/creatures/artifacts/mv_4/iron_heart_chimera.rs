@@ -16,7 +16,7 @@ fn brass_talon_chimera() -> CardIndex {
 /// counter on target Chimera creature and grant it vigilance indefinitely.
 #[test]
 fn iron_heart_chimera_sacrifices_to_put_p2p2_counter_and_vigilance_on_target_chimera() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
             0,
@@ -26,8 +26,10 @@ fn iron_heart_chimera_sacrifices_to_put_p2p2_counter_and_vigilance_on_target_chi
                 plains(),
                 plains(),
                 brass_talon_chimera(),
+                grizzly_bears(),
             ],
         )
+        .battlefield(1, &[brass_talon_chimera()])
         .hand(0, &[iron_heart_chimera()])
         .start();
     keep_mulligans(&mut engine);
@@ -39,8 +41,18 @@ fn iron_heart_chimera_sacrifices_to_put_p2p2_counter_and_vigilance_on_target_chi
     assert!(keywords(&engine, iron_heart).contains(KeywordSet::VIGILANCE));
 
     let target_chimera = on_battlefield(&engine, p0, brass_talon_chimera()).unwrap();
+    let opp_chimera = on_battlefield(&engine, p1, brass_talon_chimera()).unwrap();
+    let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     activate(&mut engine, p0, iron_heart_chimera(), 0);
-    aim_at(&mut engine, p0, target_chimera);
+    let menu = aim_at(&mut engine, p0, target_chimera);
+    assert!(
+        menu.contains(&opp_chimera),
+        "any Chimera creature, the opponent's too"
+    );
+    assert!(
+        !menu.contains(&bears),
+        "a creature that is no Chimera is not offered"
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(
@@ -58,6 +70,19 @@ fn iron_heart_chimera_sacrifices_to_put_p2p2_counter_and_vigilance_on_target_chi
         ),
         1
     );
+    assert_eq!(pt(&engine, target_chimera), (4, 4));
+    assert!(keywords(&engine, target_chimera).contains(KeywordSet::VIGILANCE));
+
+    assert_eq!(
+        pt(&engine, opp_chimera),
+        (2, 2),
+        "the other Chimera was not touched"
+    );
+    assert!(!keywords(&engine, opp_chimera).contains(KeywordSet::VIGILANCE));
+    assert_eq!(pt(&engine, bears), (2, 2));
+
+    // "This effect lasts indefinitely": the counter and the vigilance outlive the turn.
+    reach_their_main_phase(&mut engine, p1);
     assert_eq!(pt(&engine, target_chimera), (4, 4));
     assert!(keywords(&engine, target_chimera).contains(KeywordSet::VIGILANCE));
 }

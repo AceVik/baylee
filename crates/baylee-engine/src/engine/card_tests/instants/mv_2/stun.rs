@@ -49,4 +49,14 @@ fn stun_makes_target_creature_unable_to_block_this_turn_and_draws_a_card() {
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         hand_before
     );
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !engine
+            .state()
+            .object(bears)
+            .unwrap()
+            .characteristics()
+            .keywords
+            .contains(KeywordSet::CANT_BLOCK)
+    );
 }

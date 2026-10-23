@@ -17,13 +17,13 @@ fn mounted_archers() -> CardIndex {
 fn mounted_archers_can_block_an_additional_creature_after_activation() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[mounted_archers(), plains()])
-        .battlefield(1, &[index::GRIZZLY_BEARS, index::HILL_GIANT])
+        .battlefield(1, &[index::AIR_ELEMENTAL, index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
     reach_their_main_phase(&mut engine, P1);
 
     let archers = on_battlefield(&engine, P0, mounted_archers()).unwrap();
-    let bears = on_battlefield(&engine, P1, index::GRIZZLY_BEARS).unwrap();
+    let bears = on_battlefield(&engine, P1, index::AIR_ELEMENTAL).unwrap();
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
 
     pass_until(&mut engine, |e| {
@@ -54,4 +54,33 @@ fn mounted_archers_can_block_an_additional_creature_after_activation() {
             },
         )
         .unwrap();
+}
+
+/// Reach permits one flying blocker pairing without buying extra capacity.
+#[test]
+fn reach_does_not_allow_a_second_block_without_activation() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[mounted_archers()],
+        &[index::AIR_ELEMENTAL, index::HILL_GIANT],
+        &[],
+        &[],
+    );
+    reach_their_main_phase(&mut e, P1);
+    let archer = on_battlefield(&e, P0, mounted_archers()).unwrap();
+    let air = on_battlefield(&e, P1, index::AIR_ELEMENTAL).unwrap();
+    let giant = on_battlefield(&e, P1, index::HILL_GIANT).unwrap();
+    let offer = lk::attack(&mut e, &[air, giant]);
+    assert!(lk::may_block(&offer, archer, air));
+    assert!(
+        e.apply(
+            P0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(archer, air), (archer, giant)]
+            }
+        )
+        .is_err()
+    );
+    lk::block(&mut e, &[(archer, air)]);
 }

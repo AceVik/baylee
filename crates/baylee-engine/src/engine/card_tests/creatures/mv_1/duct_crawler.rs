@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -45,4 +46,33 @@ fn duct_crawler_prevents_target_creature_from_blocking_it() {
     });
 
     assert_eq!(engine.state().players[1].life, 19);
+}
+
+#[test]
+fn restriction_is_one_blocker_one_attacker_and_one_turn() {
+    let mut e = lk::game(
+        SEED,
+        &[duct_crawler(), index::GRIZZLY_BEARS],
+        &[index::HILL_GIANT, index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let crawler = lk::obj(&e, P0, duct_crawler());
+    let friend = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let giant = lk::obj(&e, P1, index::HILL_GIANT);
+    let bear = lk::obj(&e, P1, index::GRIZZLY_BEARS);
+    lk::float(&mut e, P0, &[(ManaColor::Red, 2)]);
+    lk::use_ability(&mut e, P0, duct_crawler(), 0, &[giant], &[]);
+    lk::attackers_offered(&mut e);
+    let offer = lk::declare(&mut e, &[crawler, friend]);
+    assert!(!lk::may_block(&offer, giant, crawler));
+    assert!(lk::may_block(&offer, giant, friend));
+    assert!(lk::may_block(&offer, bear, crawler));
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    reach_their_main_phase(&mut e, P1);
+    reach_their_main_phase(&mut e, P0);
+    lk::attackers_offered(&mut e);
+    let offer = lk::declare(&mut e, &[crawler]);
+    assert!(lk::may_block(&offer, giant, crawler));
 }

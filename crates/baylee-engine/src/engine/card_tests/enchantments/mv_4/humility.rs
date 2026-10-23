@@ -16,12 +16,27 @@ fn humility() -> CardIndex {
 #[test]
 fn humility_removes_all_abilities_and_sets_all_creatures_to_one_one() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[humility(), index::SERRA_ANGEL])
+        .battlefield(
+            0,
+            &[
+                index::SERRA_ANGEL,
+                index::PRODIGAL_SORCERER,
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[humility()])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
+    cast_from_hand(&mut engine, P0, humility());
+    pass_until(&mut engine, stack_is_empty);
+    let sorcerer = on_battlefield(&engine, P0, index::PRODIGAL_SORCERER).unwrap();
+    assert!(!ability_offered(&engine, sorcerer, 0));
     let angel = on_battlefield(&engine, P0, index::SERRA_ANGEL).unwrap();
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
 

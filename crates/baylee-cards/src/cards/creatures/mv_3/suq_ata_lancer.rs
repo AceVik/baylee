@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 card!(
     index = index::SUQ_ATA_LANCER,
     oracle_id = "f348b326-8a73-4df9-8faf-e271a36ce373",
@@ -28,11 +23,4 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::HASTE.union(KeywordSet::FLANKING),
     ),],
-    abilities = &[triggered!(
-        Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-        &[Effect::ModifyEvent {
-            modifier: Modifier::ModifyPT(-1, -1),
-            duration: Duration::UntilEndOfTurn,
-        }],
-    )],
 );

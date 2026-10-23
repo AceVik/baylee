@@ -2,7 +2,7 @@
 //! Oracle: Flying
 //! Oracle: {U}: Change the target of target spell or ability that targets only this creature. The new target must be a creature.
 //! Set: TPR #68 — Tempest Remastered | Scryfall ID: 882dc8fc-0938-4619-807d-bb60df8ac390 | Oracle ID: 4baa8f05-1ef8-4770-8c66-ef5f0f02a717
-// PARTIAL: restricting the targeted single-target spell or ability to one currently targeting this creature is not supported; has flying and "{U}: Change the target of target spell or ability with a single target to a creature."
+// PARTIAL — Redirects a single-target spell targeting this creature to a creature; redirecting abilities targeting this creature is not supported
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,7 +13,7 @@ card!(
     scryfall_id = "882dc8fc-0938-4619-807d-bb60df8ac390",
     color_identity = ColorSet::from_slice(&[Color::Blue]),
     coverage = Coverage::Partial(
-        "restricting the targeted single-target spell or ability to one currently targeting this creature is not supported; has flying and \"{U}: Change the target of target spell or ability with a single target to a creature.\"",
+        "Redirects a single-target spell targeting this creature to a creature; redirecting abilities targeting this creature is not supported"
     ),
     keywords = KeywordSet::FLYING,
     faces = &[face!(
@@ -29,6 +29,9 @@ card!(
         &[Effect::ChangeTarget {
             to: &Filter::CREATURE,
         }],
-        target = Some(TargetSpec::SpellOrAbility(&Filter::WithSingleTarget)),
+        target = Some(TargetSpec::Spell(&Filter::And(&[
+            Filter::WithSingleTarget,
+            Filter::SpellTargetingAffected
+        ]))),
     ),],
 );

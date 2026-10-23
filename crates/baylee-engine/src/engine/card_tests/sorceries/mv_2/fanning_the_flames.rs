@@ -37,6 +37,10 @@ fn fanning_the_flames_deals_x_damage_to_any_target() {
         )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, fanning_the_flames()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     assert_eq!(engine.state().players[1].life, 17);
 }

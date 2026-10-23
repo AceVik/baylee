@@ -52,3 +52,20 @@ fn mongrel_pack_creates_four_dog_tokens_when_it_dies_during_combat() {
     assert!(in_graveyard(&engine, P0, mongrel_pack()).is_some());
     assert_eq!(tokens_of(&engine, P0).len(), 4);
 }
+
+/// A death outside combat creates no tokens.
+#[test]
+fn dying_in_main_phase_does_not_create_dogs() {
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[mongrel_pack(), mountain()])
+        .hand(0, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, P0);
+    let pack = on_battlefield(&e, P0, mongrel_pack()).unwrap();
+    cast_from_hand(&mut e, P0, lightning_bolt());
+    aim_at(&mut e, P0, pack);
+    pass_until(&mut e, stack_is_empty);
+    assert!(in_graveyard(&e, P0, mongrel_pack()).is_some());
+    assert!(tokens_of(&e, P0).is_empty());
+}

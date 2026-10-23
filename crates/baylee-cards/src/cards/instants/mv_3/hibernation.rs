@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-const GREEN_PERMANENT: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green]));
-
 card!(
     index = index::HIBERNATION,
     oracle_id = "633b541b-e37f-451a-be73-3398e61e0f75",
@@ -19,7 +17,7 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(&[Effect::ReturnAllToHand {
-        filter: &GREEN_PERMANENT,
+        filter: &Filter::HasColor(ColorSet::from_slice(&[Color::Green])),
         opponents_only: false,
     }])],
 );

@@ -1,10 +1,12 @@
 //! Cinder Crawler — {1}{R} — Creature — Salamander
 //! Oracle: {R}: This creature gets +1/+0 until end of turn. Activate only if this creature is blocked.
 //! Set: EXO #80 — Exodus | Scryfall ID: a9406050-d76b-4569-a463-e21acaf84166 | Oracle ID: 3850479f-1c1e-4a72-ae47-6da2997202e2
+// PARTIAL — Checking whether this creature is blocked after all blockers have left combat is not supported; requires at least one creature currently blocking this creature on the battlefield.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+// NOT SUPPORTED: Checking whether this creature is blocked after all blockers have left combat is not supported; requires at least one creature currently blocking this creature on the battlefield.
 card!(
     index = index::CINDER_CRAWLER,
     oracle_id = "3850479f-1c1e-4a72-ae47-6da2997202e2",

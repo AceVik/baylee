@@ -41,3 +41,46 @@ fn undo_returns_two_target_creatures_to_their_owners_hands() {
     assert!(in_hand(&engine, p1, HILL_GIANT).is_some());
     assert_eq!(engine.state().object(c3).unwrap().zone, Zone::Battlefield);
 }
+
+/// "Two target creatures" is exactly two: one target does not cast the spell,
+/// and the question stays open for a legal answer.
+#[test]
+fn undo_refuses_a_single_target() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island(), island(), GRIZZLY_BEARS])
+        .battlefield(1, &[HILL_GIANT])
+        .hand(0, &[undo()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let bears = on_battlefield(&engine, p0, GRIZZLY_BEARS).unwrap();
+    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
+
+    cast_from_hand(&mut engine, p0, undo());
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![giant],
+                    players: vec![],
+                },
+            )
+            .is_err(),
+        "one target is not two"
+    );
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { .. }));
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: vec![bears, giant],
+                players: vec![],
+            },
+        )
+        .expect("two targets are legal");
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_hand(&engine, p0, GRIZZLY_BEARS).is_some());
+    assert!(in_hand(&engine, p1, HILL_GIANT).is_some());
+}

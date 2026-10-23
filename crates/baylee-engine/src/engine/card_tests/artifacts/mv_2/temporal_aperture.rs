@@ -26,6 +26,7 @@ fn temporal_aperture_taps_to_shuffle_library() {
 
     let ap_id = on_battlefield(&engine, p0, temporal_aperture()).expect("aperture on bf");
     tap_all_mana(&mut engine, p0);
+    let journal_from = engine.state().journal.len();
     activate(&mut engine, p0, temporal_aperture(), 0);
     pass_until(&mut engine, stack_is_empty);
 
@@ -37,4 +38,7 @@ fn temporal_aperture_taps_to_shuffle_library() {
             .status
             .contains(Status::TAPPED)
     );
+    assert!(engine.state().journal.entries()[journal_from..].iter().any(
+        |entry| matches!(entry.event, crate::event::GameEvent::Shuffled { player } if player == p0)
+    ));
 }

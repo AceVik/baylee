@@ -1,32 +1,32 @@
-//! `cards/creatures/mv_2/wall_of_souls.rs`, played.
-
+//! Defender is played; the unsupported received-combat-damage trigger is omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w1b_kit as kit;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
-
-const P0: PlayerId = PlayerId::new(0);
-const P1: PlayerId = PlayerId::new(1);
-
-fn wall_of_souls() -> CardIndex {
-    card_index("2c85c9ea-c3fd-4981-a65c-4405bd87764e")
-}
-
-/// Wall of Souls (`2c85c9ea-c3fd-4981-a65c-4405bd87764e`) — {1}{B} Creature — Wall (Partial):
-/// "Defender. Whenever this creature is dealt combat damage, it deals that much damage to target opponent or planeswalker."
 #[test]
-fn wall_of_souls_deals_damage_to_target_opponent_when_dealt_damage() {
-    let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[wall_of_souls(), mountain()])
-        .hand(0, &[index::LIGHTNING_BOLT])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let wall = on_battlefield(&engine, P0, wall_of_souls()).unwrap();
-    cast_from_hand(&mut engine, P0, index::LIGHTNING_BOLT);
-    aim_at(&mut engine, P0, wall);
-    kit::settle(&mut engine, P0, |_, p| kit::choose_targets(p, &[], &[P1]));
-
-    assert_eq!(engine.state().players[1].life, 19);
+fn defender_cannot_attack_and_bolt_has_no_invented_noncombat_benefit() {
+    let subject = card_index("2c85c9ea-c3fd-4981-a65c-4405bd87764e");
+    let mut e = lk::game(SEED, &[subject], &[], &[lightning_bolt()], &[]);
+    let wall = lk::obj(&e, lk::P0, subject);
+    lk::float(&mut e, lk::P0, &[(ManaColor::Red, 1)]);
+    lk::cast_at(&mut e, lk::P0, lightning_bolt(), &[wall], &[]);
+    assert_eq!(lk::life(&e, lk::P0), 20);
+    assert_eq!(lk::life(&e, lk::P1), 20);
+    assert_eq!(lk::damage_on(&e, wall), 3);
+    assert!(!lk::attackers_offered(&mut e).contains(&wall));
+}
+#[test]
+fn supported_wall_blocks_and_survives_a_three_power_attacker() {
+    let subject = card_index("2c85c9ea-c3fd-4981-a65c-4405bd87764e");
+    let mut e = lk::game(SEED, &[index::HILL_GIANT], &[subject], &[], &[]);
+    let giant = lk::obj(&e, lk::P0, index::HILL_GIANT);
+    let wall = lk::obj(&e, lk::P1, subject);
+    lk::attackers_offered(&mut e);
+    let blockers = lk::declare(&mut e, &[giant]);
+    assert!(lk::may_block(&blockers, wall, giant));
+    lk::block(&mut e, &[(wall, giant)]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::damage_on(&e, wall), 3);
+    assert_eq!(lk::life(&e, lk::P0), 20);
+    assert_eq!(lk::life(&e, lk::P1), 20);
 }

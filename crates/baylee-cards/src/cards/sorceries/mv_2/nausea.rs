@@ -1,6 +1,7 @@
 //! Nausea — {1}{B} — Sorcery
 //! Oracle: All creatures get -1/-1 until end of turn.
 //! Set: EMA #97 — Eternal Masters | Scryfall ID: 2569173f-df5e-4518-9fb3-f972210595df | Oracle ID: 2b8abae2-dd15-41ee-81ae-6a463723b43e
+// IMPLEMENTED — all printed abilities are represented.
 
 use baylee_cards_dsl::prelude::*;
 

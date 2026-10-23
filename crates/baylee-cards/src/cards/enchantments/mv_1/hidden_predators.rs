@@ -6,12 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const OPPONENT_POWER_4_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::ControlledByOpponent,
-    Filter::PowerAtLeast(4),
-]);
-
 card!(
     index = index::HIDDEN_PREDATORS,
     oracle_id = "3b143227-f373-4403-b246-ee1c9a0dc85a",
@@ -25,7 +19,11 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::State(&Condition::OpponentControlCount(
-            &OPPONENT_POWER_4_CREATURE,
+            &Filter::And(&[
+                Filter::CREATURE,
+                Filter::ControlledByOpponent,
+                Filter::PowerAtLeast(4),
+            ]),
             1
         )),
         &[

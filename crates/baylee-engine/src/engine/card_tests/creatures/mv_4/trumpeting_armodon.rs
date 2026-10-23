@@ -1,69 +1,28 @@
-//! `cards/creatures/mv_4/trumpeting_armodon.rs`, played.
+//! The remaining Partial body is cast; unsupported approximations are absent.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::GRIZZLY_BEARS;
+use crate::engine::card_tests::legends_kit as lk;
 
-fn trumpeting_armodon() -> CardIndex {
-    card_index("7fc3c2a5-2754-4237-8a37-cb3166c20c3c")
-}
-
-/// `Trumpeting Armodon` ({3}{G}, 3/3 Creature — Elephant, `Coverage::Partial`):
-/// activates `{1}{G}` to require target creature to block this turn if able.
 #[test]
-fn trumpeting_armodon_forces_target_creature_to_block_if_able() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), trumpeting_armodon()])
-        .battlefield(1, &[GRIZZLY_BEARS])
+fn unsupported_approximation_is_not_an_ability() {
+    let card = card_index("7fc3c2a5-2754-4237-8a37-cb3166c20c3c");
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[baylee_core::generated::index::GRIZZLY_BEARS])
+        .hand(0, &[card])
         .start();
-    keep_mulligans(&mut engine);
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
-    let armodon = on_battlefield(&engine, p0, trumpeting_armodon()).unwrap();
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
-
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, trumpeting_armodon(), 0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(armodon, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-
-    // Declaring zero blockers is illegal because Grizzly Bears must block if able.
-    assert!(
-        engine
-            .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
-            .is_err()
-    );
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(bears, armodon)],
-            },
-        )
-        .unwrap();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    cast_with_floating(&mut e, p0, card);
+    pass_until(&mut e, stack_is_empty);
+    let creature = on_battlefield(&e, p0, card).expect("the remaining body is cast");
+    reach_their_main_phase(&mut e, PlayerId::new(1));
+    reach_their_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority after resolving the creature");
+    };
+    assert!(legal.abilities.iter().all(|(id, _)| *id != creature));
 }

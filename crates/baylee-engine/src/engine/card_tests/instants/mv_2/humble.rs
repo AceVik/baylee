@@ -10,12 +10,12 @@ fn humble_removes_abilities_and_sets_target_creature_to_0_1() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
         .hand(0, &[humble()])
-        .battlefield(0, &[plains(), plains(), grizzly_bears()])
+        .battlefield(0, &[plains(), plains(), llanowar_elves(), grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let bear = on_battlefield(&engine, p0, grizzly_bears()).expect("seated");
+    let bear = on_battlefield(&engine, p0, llanowar_elves()).expect("seated");
     cast_from_hand(&mut engine, p0, humble());
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
         aim_at(&mut engine, p0, bear);
@@ -23,4 +23,20 @@ fn humble_removes_abilities_and_sets_target_creature_to_0_1() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bear), (0, 1));
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority");
+    };
+    assert!(!legal.abilities.iter().any(|(id, _)| *id == bear));
+    let other = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    assert_eq!(pt(&engine, other), (2, 2));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(pt(&engine, bear), (1, 1));
+    activate(&mut engine, p0, llanowar_elves(), 0);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Green),
+        1
+    );
 }

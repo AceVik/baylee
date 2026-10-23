@@ -21,6 +21,8 @@ fn foreshadow_names_card_mills_target_opponent_and_draws_next_upkeep() {
     reach_main_phase(&mut engine, p0);
 
     let p1_gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p1)).len();
+    let p0_gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let p1_hand_before = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, foreshadow());
     match engine.pending().clone() {
@@ -47,7 +49,7 @@ fn foreshadow_names_card_mills_target_opponent_and_draws_next_upkeep() {
         .apply(
             p0,
             PlayerAction::ChooseCardName {
-                card: island(),
+                card: grizzly_bears(),
                 face: 0,
             },
         )
@@ -56,13 +58,25 @@ fn foreshadow_names_card_mills_target_opponent_and_draws_next_upkeep() {
 
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
-        p1_gy_before + 1
+        p1_gy_before + 1,
+        "the opponent mills exactly one card"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
+        p0_gy_before + 1,
+        "the caster mills nothing: only the spell itself lands in the graveyard"
     );
 
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before + 1
+        hand_before + 1,
+        "the caster draws one card at the next upkeep (the milled card was not named)"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        p1_hand_before + 1,
+        "the opponent draws only its own draw step's card"
     );
 }

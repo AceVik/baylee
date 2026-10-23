@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -29,4 +30,37 @@ fn ensnaring_bridge_stops_creatures_from_attacking_when_hand_is_empty() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(keywords(&engine, bears).contains(KeywordSet::CANT_ATTACK));
+}
+
+#[test]
+fn empty_hand_restriction_is_read_by_both_players_attack_offers() {
+    let mut e = lk::game(
+        SEED,
+        &[ensnaring_bridge(), index::GRIZZLY_BEARS, index::ORNITHOPTER],
+        &[index::GRIZZLY_BEARS],
+        &[],
+        &[],
+    );
+    let my_bear = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let zero = lk::obj(&e, P0, index::ORNITHOPTER);
+    let their_bear = lk::obj(&e, lk::P1, index::GRIZZLY_BEARS);
+    let offered = lk::attackers_offered(&mut e);
+    assert!(!offered.contains(&my_bear));
+    assert!(offered.contains(&zero));
+    e.apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    reach_their_main_phase(&mut e, lk::P1);
+    assert!(!lk::attackers_offered(&mut e).contains(&their_bear));
+}
+#[test]
+fn safe_partial_does_not_apply_empty_hand_rule_to_a_nonempty_hand() {
+    let mut e = lk::game(
+        SEED,
+        &[ensnaring_bridge(), index::GRIZZLY_BEARS],
+        &[],
+        &[forest()],
+        &[],
+    );
+    let bear = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    assert!(lk::attackers_offered(&mut e).contains(&bear));
 }

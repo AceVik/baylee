@@ -11,11 +11,13 @@ fn carrion_beetles_exiles_up_to_three_cards_from_single_graveyard() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, swamp())
         .hand(1, &[grizzly_bears(), gray_ogre()])
+        .hand(0, &[llanowar_elves()])
         .battlefield(0, &[carrion_beetles(), swamp(), swamp(), swamp()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    hand_to_graveyard(&mut engine, p0, llanowar_elves());
     hand_to_graveyard(&mut engine, p1, grizzly_bears());
     hand_to_graveyard(&mut engine, p1, gray_ogre());
     let beetles = on_battlefield(&engine, p0, carrion_beetles()).expect("seated");
@@ -32,7 +34,27 @@ fn carrion_beetles_exiles_up_to_three_cards_from_single_graveyard() {
             },
         )
         .unwrap();
-    if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
+    assert!(matches!(engine.pending(), Pending::ChoosePlayer { .. }));
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    if let Pending::ChooseTargets {
+        options, min, max, ..
+    } = engine.pending().clone()
+    {
+        assert_eq!((min, max), (0, 3));
+        assert!(options.contains(&g1) && options.contains(&g2));
+        let other = in_graveyard(&engine, p0, llanowar_elves()).unwrap();
+        assert!(!options.contains(&other));
+        assert!(
+            engine
+                .apply(
+                    p0,
+                    PlayerAction::ChooseTargets {
+                        objects: vec![g1, other],
+                        players: vec![]
+                    }
+                )
+                .is_err()
+        );
         engine
             .apply(
                 p0,

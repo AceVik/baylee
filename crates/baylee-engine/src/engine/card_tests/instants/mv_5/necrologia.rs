@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 fn necrologia() -> CardIndex {
     card_index("925f11c3-fd32-4aa7-a130-6554b81ad3eb")
@@ -17,6 +18,21 @@ fn necrologia_pays_x_life_and_draws_x_cards() {
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0));
 
+    lk::float(&mut engine, p0, &[(ManaColor::Black, 10)]);
+    let spell = in_hand(&engine, p0, necrologia()).unwrap();
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.castable.contains(&spell) && !legal.payable.contains(&spell));
+    assert!(
+        engine
+            .apply(p0, PlayerAction::CastSpell { card: spell })
+            .is_err()
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
     let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     tap_all_mana(&mut engine, p0);
     let card = in_hand(&engine, p0, necrologia()).unwrap();
@@ -28,5 +44,26 @@ fn necrologia_pays_x_life_and_draws_x_cards() {
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
         before - 1 + 3
+    );
+}
+
+#[test]
+fn necrologia_is_not_castable_in_an_opponents_end_step() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[], &[], &[necrologia()], &[]);
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == crate::turn::Step::End
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    lk::float(&mut e, p0, &[(ManaColor::Black, 10)]);
+    let spell = in_hand(&e, p0, necrologia()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority")
+    };
+    assert!(!legal.castable.contains(&spell) && !legal.payable.contains(&spell));
+    assert!(
+        e.apply(p0, PlayerAction::CastSpell { card: spell })
+            .is_err()
     );
 }

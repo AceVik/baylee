@@ -6,11 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const YOUR_SWAMP: Filter = Filter::And(&[
-    Filter::HasSubtype(subtypes::land::SWAMP),
-    Filter::ControlledByYou,
-]);
-
 card!(
     index = index::CORRUPT,
     oracle_id = "a88a1c53-7de3-423a-a95a-24ed5666ab96",
@@ -26,7 +21,10 @@ card!(
         &[
             Effect::DealDamage {
                 amount: Amount::CountOf {
-                    filter: &YOUR_SWAMP,
+                    filter: &Filter::And(&[
+                        Filter::HasSubtype(subtypes::land::SWAMP),
+                        Filter::ControlledByYou,
+                    ]),
                     zone: ZoneSel::Battlefield,
                 },
                 target: TargetSpec::AnyTarget,

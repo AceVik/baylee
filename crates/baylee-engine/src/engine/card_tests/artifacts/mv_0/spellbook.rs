@@ -25,6 +25,20 @@ fn spellbook_removes_maximum_hand_size_at_cleanup() {
                 forest(),
             ],
         )
+        .hand(
+            1,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -37,5 +51,34 @@ fn spellbook_removes_maximum_hand_size_at_cleanup() {
 
     // Pass through cleanup into opponent's turn: no cleanup discard is asked.
     reach_their_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 9);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards {
+        player,
+        min,
+        max,
+        options,
+        ..
+    } = engine.pending().clone()
+    else {
+        unreachable!()
+    };
+    assert_eq!(
+        player, p1,
+        "opponent still discards to their normal maximum"
+    );
+    assert_eq!(min, 3);
+    assert_eq!(max, 3);
+    engine
+        .apply(
+            p1,
+            PlayerAction::ChooseObjects {
+                objects: options[..3].to_vec(),
+            },
+        )
+        .unwrap();
+    assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p1)).len(), 7);
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 9);
 }

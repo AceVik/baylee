@@ -28,15 +28,17 @@ fn hand_to_hand_prevents_players_from_casting_instants_during_combat() {
     };
     assert!(legal.castable.contains(&growth));
 
-    // Advance into combat; Giant Growth can no longer be cast.
+    // Advance into combat; float new mana after the phase boundary.
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
     engine
         .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
         .unwrap();
+    crate::engine::card_tests::legends_kit::float(&mut engine, P0, &[(ManaColor::Green, 1)]);
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("expected Priority");
     };
     assert!(!legal.castable.contains(&growth));
+    assert!(!legal.payable.contains(&growth));
 }

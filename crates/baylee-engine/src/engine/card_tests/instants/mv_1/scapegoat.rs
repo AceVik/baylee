@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -24,6 +25,7 @@ fn scapegoat_sacrifices_a_creature_and_returns_target_creatures_to_hand() {
                 plains(),
             ],
         )
+        .battlefield(1, &[index::GRIZZLY_BEARS])
         .hand(0, &[scapegoat()])
         .start();
     keep_mulligans(&mut engine);
@@ -35,6 +37,18 @@ fn scapegoat_sacrifices_a_creature_and_returns_target_creatures_to_hand() {
 
     tap_all_mana(&mut engine, P0);
     cast_with_floating(&mut engine, P0, scapegoat());
+    let enemy = lk::obj(&engine, lk::P1, index::GRIZZLY_BEARS);
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![enemy],
+                    players: vec![]
+                }
+            )
+            .is_err()
+    );
     engine
         .apply(
             P0,
@@ -61,4 +75,6 @@ fn scapegoat_sacrifices_a_creature_and_returns_target_creatures_to_hand() {
     assert!(on_battlefield(&engine, P0, index::HILL_GIANT).is_none());
     let hand = engine.state().zones.list(ZoneLocation::Hand(P0));
     assert_eq!(hand.len(), 2);
+    assert!(in_graveyard(&engine, P0, index::SAVANNAH_LIONS).is_some());
+    assert!(on_battlefield(&engine, lk::P1, index::GRIZZLY_BEARS).is_some());
 }

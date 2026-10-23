@@ -43,6 +43,12 @@ fn goblin_cadets_gives_control_to_opponent_when_blocked() {
         )
         .unwrap();
 
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChoosePlayer { .. } | Pending::ChooseTargets { .. }
+        )
+    });
     match engine.pending().clone() {
         Pending::ChoosePlayer { player, .. } => {
             engine
@@ -50,6 +56,17 @@ fn goblin_cadets_gives_control_to_opponent_when_blocked() {
                 .unwrap();
         }
         Pending::ChooseTargets { player, .. } => {
+            assert!(
+                engine
+                    .apply(
+                        player,
+                        PlayerAction::ChooseTargets {
+                            objects: vec![],
+                            players: vec![p0]
+                        }
+                    )
+                    .is_err()
+            );
             engine
                 .apply(
                     player,
@@ -66,4 +83,10 @@ fn goblin_cadets_gives_control_to_opponent_when_blocked() {
 
     assert!(on_battlefield(&engine, p0, goblin_cadets()).is_none());
     assert!(on_battlefield(&engine, p1, goblin_cadets()).is_some());
+    assert!(!engine.state().combat.is_attacking(cadets));
+    pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::End
+    });
+    assert_eq!(engine.state().players[1].life, 20);
+    assert_eq!(engine.state().object(bear).unwrap().damage, 0);
 }

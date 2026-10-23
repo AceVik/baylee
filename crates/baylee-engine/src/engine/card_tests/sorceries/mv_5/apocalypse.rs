@@ -28,6 +28,7 @@ fn apocalypse_exiles_all_permanents_and_discards_your_hand() {
         )
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .hand(0, &[apocalypse(), index::HILL_GIANT])
+        .hand(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -49,4 +50,6 @@ fn apocalypse_exiles_all_permanents_and_discards_your_hand() {
     assert_eq!(engine.state().object(bears).unwrap().zone, Zone::Exile);
     assert!(engine.state().zones.list(ZoneLocation::Hand(P0)).is_empty());
     assert!(in_graveyard(&engine, P0, index::HILL_GIANT).is_some());
+    assert!(in_hand(&engine, PlayerId::new(1), forest()).is_some());
+    assert!(in_graveyard(&engine, PlayerId::new(1), forest()).is_none());
 }

@@ -12,7 +12,7 @@ fn falter_prevents_creatures_without_flying_from_blocking() {
     let mut engine = Duel::new(SEED, mountain())
         .hand(0, &[falter()])
         .battlefield(0, &[mountain(), mountain(), grizzly_bears()])
-        .battlefield(1, &[wild_elephant()])
+        .battlefield(1, &[wild_elephant(), ornithopter()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -48,4 +48,34 @@ fn falter_prevents_creatures_without_flying_from_blocking() {
             )
             .is_err()
     );
+    let flyer = on_battlefield(&engine, p1, ornithopter()).unwrap();
+    let Pending::ChooseBlockers { blockers, .. } = engine.pending() else {
+        panic!("block offer");
+    };
+    assert!(crate::engine::card_tests::legends_kit::may_block(
+        blockers, flyer, bear
+    ));
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(flyer, bear)],
+            },
+        )
+        .unwrap();
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    let blocks = crate::engine::card_tests::legends_kit::attack(&mut engine, &[bear]);
+    assert!(
+        crate::engine::card_tests::legends_kit::may_block(&blocks, elephant, bear),
+        "restriction expires after the turn"
+    );
+    engine
+        .apply(
+            p1,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(elephant, bear)],
+            },
+        )
+        .unwrap();
 }

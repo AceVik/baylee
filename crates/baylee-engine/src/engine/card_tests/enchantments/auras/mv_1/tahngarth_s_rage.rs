@@ -54,4 +54,11 @@ fn tahngarths_rage_gives_minus_two_minus_one_until_attacking_then_plus_three_plu
         .unwrap();
     let ch_atk = engine.state().object(giant).unwrap().characteristics();
     assert_eq!((ch_atk.power, ch_atk.toughness), (Some(6), Some(3)));
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    let ch_after = engine.state().object(giant).unwrap().characteristics();
+    assert_eq!(
+        (ch_after.power, ch_after.toughness),
+        (Some(1), Some(2)),
+        "otherwise includes after combat"
+    );
 }

@@ -5,7 +5,7 @@
 
 use baylee_cards_dsl::prelude::*;
 
-static ANOTHER_TARGET_CREATURE: Filter =
+const ANOTHER_TARGET_CREATURE: Filter =
     Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::Reference)]);
 
 card!(

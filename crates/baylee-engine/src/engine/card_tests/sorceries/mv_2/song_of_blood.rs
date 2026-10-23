@@ -12,7 +12,7 @@ fn song_of_blood() -> CardIndex {
 /// resolution.
 #[test]
 fn song_of_blood_mills_four_cards() {
-    let p0 = PlayerId::new(0);
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, MOUNTAIN)
         .battlefield(0, &[MOUNTAIN, MOUNTAIN])
         .hand(0, &[song_of_blood()])
@@ -21,6 +21,8 @@ fn song_of_blood_mills_four_cards() {
     reach_main_phase(&mut engine, p0);
 
     let gy_before = engine.state().zones.list(ZoneLocation::Graveyard(p0)).len();
+    let library_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
+    let opponent_library = engine.state().zones.list(ZoneLocation::Library(p1)).len();
     cast_from_hand(&mut engine, p0, song_of_blood());
     pass_until(&mut engine, stack_is_empty);
 
@@ -28,5 +30,19 @@ fn song_of_blood_mills_four_cards() {
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Graveyard(p0)).len(),
         gy_before + 5
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p0)).len(),
+        library_before - 4,
+        "four cards left the caster's library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p1)).len(),
+        opponent_library,
+        "\"Mill four cards\" is the caster's own library"
+    );
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+        0
     );
 }

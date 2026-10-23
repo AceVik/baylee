@@ -2,41 +2,87 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::FOG_ELEMENTAL;
+use crate::engine::card_tests::legends_kit as lk;
+use crate::turn::Step;
 
-/// `Fog Elemental` ({2}{U}, Creature — Elemental 4/4) has flying and is
-/// sacrificed at end of combat when it attacks or blocks.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn fog_elemental() -> CardIndex {
+    card_index("b304fcc0-899e-433f-b6df-5cea504dc4ba")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+/// Fog Elemental (b304fcc0-899e-433f-b6df-5cea504dc4ba) — "When this creature
+/// attacks or blocks, sacrifice it at end of combat." Attacking: its four
+/// damage is dealt first, and it is sacrificed only when the end of combat
+/// step begins.
 #[test]
-fn fog_elemental_deals_combat_damage_and_sacrifices_at_end_of_combat() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[FOG_ELEMENTAL])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn fog_elemental_attacks_deals_its_damage_then_is_sacrificed_at_end_of_combat() {
+    let mut e = lk::game(SEED, &[fog_elemental()], &[], &[], &[]);
+    let fog = lk::obj(&e, P0, fog_elemental());
 
-    let elemental = on_battlefield(&engine, p0, FOG_ELEMENTAL).unwrap();
-    assert!(keywords(&engine, elemental).contains(KeywordSet::FLYING));
+    lk::attack(&mut e, &[fog]);
+    lk::block(&mut e, &[]);
+    lk::to_step(&mut e, P0, Step::CombatDamage);
+    assert_eq!(lk::life(&e, P1), 16, "the damage was dealt");
+    assert!(
+        on_battlefield(&e, P0, fog_elemental()).is_some(),
+        "and the Elemental is still there until the end of combat"
+    );
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    lk::to_step(&mut e, P0, Step::CombatEnd);
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, P0, fog_elemental()).is_some());
+    assert!(on_battlefield(&e, P0, fog_elemental()).is_none());
+}
+
+/// Fog Elemental — blocking counts as well: it kills the attacker it blocks
+/// and is sacrificed at end of combat.
+#[test]
+fn fog_elemental_blocks_kills_the_attacker_then_is_sacrificed() {
+    let mut e = lk::game(SEED, &[fog_elemental()], &[savannah_lions()], &[], &[]);
+    let fog = lk::obj(&e, P0, fog_elemental());
+    let lions = lk::obj(&e, P1, savannah_lions());
+
+    pass_until(&mut e, |e| {
+        e.state().turn.active == P1 && matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(elemental, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
-    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    lk::declare(&mut e, &[lions]);
+    lk::block(&mut e, &[(fog, lions)]);
+    lk::to_step(&mut e, P1, Step::CombatDamage);
+    assert!(
+        in_graveyard(&e, P1, savannah_lions()).is_some(),
+        "four damage killed the Lions"
+    );
+    assert!(on_battlefield(&e, P0, fog_elemental()).is_some());
 
-    assert_eq!(engine.state().players[1].life, 16);
-    assert!(in_graveyard(&engine, p0, FOG_ELEMENTAL).is_some());
+    lk::to_step(&mut e, P1, Step::CombatEnd);
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, P0, fog_elemental()).is_some());
+}
+
+/// Fog Elemental — an Elemental that neither attacks nor blocks is never
+/// sacrificed: it sits out its own turn and the opponent's attack.
+#[test]
+fn fog_elemental_that_stays_out_of_combat_stays() {
+    let mut e = lk::game(SEED, &[fog_elemental()], &[savannah_lions()], &[], &[]);
+    let lions = lk::obj(&e, P1, savannah_lions());
+
+    pass_until(&mut e, |e| {
+        e.state().turn.active == P1 && matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    lk::declare(&mut e, &[lions]);
+    lk::block(&mut e, &[]);
+    pass_until(&mut e, |e| {
+        e.state().turn.active == P1 && e.state().turn.phase == Phase::SecondMain
+    });
+    assert_eq!(lk::life(&e, P0), 18, "the Lions went unblocked");
+    assert!(
+        on_battlefield(&e, P0, fog_elemental()).is_some(),
+        "no attack and no block, so no sacrifice"
+    );
 }

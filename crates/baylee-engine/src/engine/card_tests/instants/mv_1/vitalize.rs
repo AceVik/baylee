@@ -20,6 +20,7 @@ fn vitalize_untaps_all_creatures_you_control() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    let land = on_battlefield(&engine, p0, forest()).expect("own land");
     let elf = on_battlefield(&engine, p0, quiet_creature()).expect("elf");
     let own_bear = on_battlefield(&engine, p0, GRIZZLY_BEARS).expect("own bear");
     let opp_bear = on_battlefield(&engine, p1, GRIZZLY_BEARS).expect("opp bear");
@@ -39,4 +40,8 @@ fn vitalize_untaps_all_creatures_you_control() {
     assert!(!is_tapped(&engine, elf));
     assert!(!is_tapped(&engine, own_bear));
     assert!(is_tapped(&engine, opp_bear));
+    assert!(
+        is_tapped(&engine, land),
+        "the Forest used to cast Vitalize stays tapped"
+    );
 }

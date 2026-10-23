@@ -38,4 +38,6 @@ fn hatred_pays_x_life_and_pumps_target_creature_by_x() {
 
     assert_eq!(engine.state().players[0].life, 16);
     assert_eq!(pt(&engine, bears), (6, 2));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert_eq!(pt(&engine, bears), (2, 2));
 }

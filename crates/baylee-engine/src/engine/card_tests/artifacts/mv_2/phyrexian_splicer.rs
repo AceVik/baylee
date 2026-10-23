@@ -1,59 +1,89 @@
-//! `cards/artifacts/mv_2/phyrexian_splicer.rs`, played.
-
+//! Each keyword transfer observes both target restrictions and cleanup.
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
-
-const P0: PlayerId = PlayerId::new(0);
-
 fn phyrexian_splicer() -> CardIndex {
     card_index("4433a5fd-2daa-440a-b9cc-4ad028358cbc")
 }
 
-/// Phyrexian Splicer (`4433a5fd-2daa-440a-b9cc-4ad028358cbc`) — {2} Artifact (Partial):
-/// "{2}, {T}, Choose flying, first strike, trample, or shadow: Until end of turn, target creature with the chosen ability loses it and another target creature gains it."
 #[test]
-fn phyrexian_splicer_moves_flying_between_two_creatures() {
-    let mut engine = Duel::new(SEED, forest())
-        .battlefield(
-            0,
-            &[
-                phyrexian_splicer(),
-                forest(),
-                forest(),
-                index::AIR_ELEMENTAL,
-                index::GRIZZLY_BEARS,
-            ],
-        )
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, P0);
-
-    let air = on_battlefield(&engine, P0, index::AIR_ELEMENTAL).unwrap();
-    let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
-
-    tap_all_mana(&mut engine, P0);
-    activate(&mut engine, P0, phyrexian_splicer(), 0);
-    aim_at(&mut engine, P0, air);
-    aim_at(&mut engine, P0, bears);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(
-        !engine
-            .state()
-            .object(air)
-            .unwrap()
-            .characteristics()
-            .keywords
-            .contains(KeywordSet::FLYING)
-    );
-    assert!(
-        engine
-            .state()
-            .object(bears)
-            .unwrap()
-            .characteristics()
-            .keywords
-            .contains(KeywordSet::FLYING)
-    );
+fn splicer_moves_each_chosen_keyword_only_until_cleanup() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for (ability, donor, keyword) in [
+        (0, index::AIR_ELEMENTAL, KeywordSet::FLYING),
+        (1, index::WHITE_KNIGHT, KeywordSet::FIRST_STRIKE),
+        (2, index::WAR_MAMMOTH, KeywordSet::TRAMPLE),
+        (3, index::DAUTHI_HORROR, KeywordSet::SHADOW),
+    ] {
+        let mut e = lk::game(
+            SEED,
+            &[phyrexian_splicer(), donor],
+            &[index::GRIZZLY_BEARS],
+            &[],
+            &[],
+        );
+        let donor = on_battlefield(&e, p0, donor).unwrap();
+        let recipient = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+        lk::float(&mut e, p0, &[(ManaColor::Colorless, 2)]);
+        activate(&mut e, p0, phyrexian_splicer(), ability);
+        assert!(
+            e.apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![recipient],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+            "the donor must already have the chosen ability"
+        );
+        lk::aim(&mut e, &[donor], &[]);
+        assert!(
+            e.apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![donor],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+            "another target creature"
+        );
+        lk::aim(&mut e, &[recipient], &[]);
+        lk::settle(&mut e);
+        assert!(
+            !e.state()
+                .object(donor)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(keyword)
+        );
+        assert!(
+            e.state()
+                .object(recipient)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(keyword)
+        );
+        reach_their_main_phase(&mut e, p1);
+        assert!(
+            e.state()
+                .object(donor)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(keyword)
+        );
+        assert!(
+            !e.state()
+                .object(recipient)
+                .unwrap()
+                .characteristics()
+                .keywords
+                .contains(keyword)
+        );
+    }
 }

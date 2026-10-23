@@ -28,3 +28,28 @@ fn midsummer_revel_adds_verse_counter_and_sacrifices_for_beast_tokens() {
         2
     );
 }
+
+#[test]
+fn midsummer_revel_uses_sacrificed_sources_last_counter_count_including_zero() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    for n in [0, 2] {
+        let mut e = lk::game_with(SEED, &[midsummer_revel()], &[], &[], &[], |e| {
+            lk::yes_no(e, false)
+        });
+        let revel = lk::obj(&e, p0, midsummer_revel());
+        e.dev_state_mut(p0)
+            .unwrap()
+            .object_mut(revel)
+            .unwrap()
+            .counters
+            .add(baylee_cards_dsl::counters::VERSE, n);
+        lk::float(&mut e, p0, &[(ManaColor::Green, 1)]);
+        lk::use_ability(&mut e, p0, midsummer_revel(), 1, &[], &[]);
+        let tokens = tokens_of(&e, p0);
+        assert_eq!(tokens.len(), usize::from(n));
+        for token in tokens {
+            assert_eq!(pt(&e, token), (3, 3));
+        }
+    }
+}

@@ -15,12 +15,15 @@ fn taniwha_phases_out_and_phases_out_your_lands_on_upkeep_when_phased_in() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[island(); 5])
+        .battlefield(1, &[island(); 2])
         .hand(0, &[taniwha()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let my_islands = lands_of(&engine, p0);
+    let their_islands = lands_of(&engine, p1);
+    assert_eq!(their_islands.len(), 2);
     cast_from_hand(&mut engine, p0, taniwha());
     pass_until(&mut engine, stack_is_empty);
     let serpent = on_battlefield(&engine, p0, taniwha()).unwrap();
@@ -67,5 +70,14 @@ fn taniwha_phases_out_and_phases_out_your_lands_on_upkeep_when_phased_in() {
             .status
             .contains(Status::PHASED_OUT)),
         "all lands controlled by p0 phased out on Taniwha's upkeep trigger"
+    );
+    assert!(
+        their_islands.iter().all(|&id| !engine
+            .state()
+            .object(id)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT)),
+        "only the lands Taniwha's controller controls phase out"
     );
 }

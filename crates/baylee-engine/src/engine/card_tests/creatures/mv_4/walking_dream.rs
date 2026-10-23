@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::engine::card_tests::partials_w1b_kit as kit;
 use baylee_core::generated::index;
 
@@ -37,4 +38,19 @@ fn walking_dream_is_unblockable_and_stays_tapped_when_opponent_has_two_creatures
         entered_tapped(&engine, dream),
         "Walking Dream should not untap when an opponent controls two or more creatures"
     );
+}
+
+#[test]
+fn a_single_opposing_creature_does_not_prevent_untap_and_cannot_block() {
+    let mut e = lk::game(SEED, &[walking_dream()], &[index::GRIZZLY_BEARS], &[], &[]);
+    let dream = lk::obj(&e, P0, walking_dream());
+    let bear = lk::obj(&e, P1, index::GRIZZLY_BEARS);
+    lk::attackers_offered(&mut e);
+    let options = lk::declare(&mut e, &[dream]);
+    assert!(!lk::may_block(&options, bear, dream));
+    lk::block(&mut e, &[]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, P1), 17);
+    kit::walk_to_next_own_main(&mut e, P0);
+    assert!(!lk::tapped(&e, dream), "one opponent creature is below two");
 }

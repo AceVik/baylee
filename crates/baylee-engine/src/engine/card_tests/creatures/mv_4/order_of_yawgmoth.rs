@@ -55,3 +55,28 @@ fn order_of_yawgmoth_makes_damaged_player_discard_a_card() {
 
     assert!(in_hand(&engine, p1, swamp()).is_none());
 }
+
+#[test]
+fn order_of_yawgmoth_fear_allows_artifact_and_black_blockers_only() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[order_of_yawgmoth()],
+        &[grizzly_bears(), index::ORNITHOPTER, index::SCATHE_ZOMBIES],
+        &[],
+        &[],
+    );
+    let knight = lk::obj(&e, p0, order_of_yawgmoth());
+    let green = lk::obj(&e, p1, grizzly_bears());
+    let artifact = lk::obj(&e, p1, index::ORNITHOPTER);
+    let black = lk::obj(&e, p1, index::SCATHE_ZOMBIES);
+    let blocks = lk::attack(&mut e, &[knight]);
+    assert!(!lk::may_block(&blocks, green, knight));
+    assert!(lk::may_block(&blocks, artifact, knight));
+    assert!(lk::may_block(&blocks, black, knight));
+    lk::block(&mut e, &[(artifact, knight)]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, p1), 20);
+}

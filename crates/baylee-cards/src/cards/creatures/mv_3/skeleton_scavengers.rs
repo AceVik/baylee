@@ -2,7 +2,7 @@
 //! Oracle: This creature enters with a +1/+1 counter on it.
 //! Oracle: Pay {1} for each +1/+1 counter on this creature: Regenerate this creature. When it regenerates this way, put a +1/+1 counter on it.
 //! Set: STH #70 — Stronghold | Scryfall ID: 57af1b3f-661a-4b02-be08-0ec721d7cab8 | Oracle ID: 88782913-bfba-4300-b26c-405e6a45537c
-// PARTIAL: scaling the activation cost per +1/+1 counter on this creature and delaying the +1/+1 counter until a regeneration shield is used are not supported; enters with a +1/+1 counter and has "{1}: Regenerate this creature and put a +1/+1 counter on it."
+// PARTIAL — The counter-scaled regeneration cost and adding a counter only when regeneration occurs are not supported; enters with one +1/+1 counter only
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -13,7 +13,7 @@ card!(
     scryfall_id = "57af1b3f-661a-4b02-be08-0ec721d7cab8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "scaling the activation cost per +1/+1 counter on this creature and delaying the +1/+1 counter until a regeneration shield is used are not supported; enters with a +1/+1 counter and has \"{1}: Regenerate this creature and put a +1/+1 counter on it.\"",
+        "The counter-scaled regeneration cost and adding a counter only when regeneration occurs are not supported; enters with one +1/+1 counter only"
     ),
     faces = &[face!(
         name = "Skeleton Scavengers",
@@ -27,16 +27,5 @@ card!(
             amount: Amount::Fixed(1),
         }],
     ),],
-    abilities = &[activated!(
-        cost!("{1}"),
-        &[
-            Effect::Regenerate {
-                target: TargetSpec::ThisObject,
-            },
-            Effect::AddCounterSource {
-                kind: CounterKind::P1P1,
-                amount: Amount::Fixed(1),
-            },
-        ],
-    ),],
+    // NOT SUPPORTED: The counter-scaled regeneration cost and adding a counter only when regeneration occurs are not supported; enters with one +1/+1 counter only.
 );

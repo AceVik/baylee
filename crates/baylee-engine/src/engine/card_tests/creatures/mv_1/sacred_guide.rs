@@ -1,34 +1,28 @@
-//! `cards/creatures/mv_1/sacred_guide.rs`, played.
+//! The remaining Partial body is cast; unsupported approximations are absent.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::SAVANNAH_LIONS;
+use crate::engine::card_tests::legends_kit as lk;
 
-fn sacred_guide() -> CardIndex {
-    card_index("de9e8b71-897d-4a9d-942b-af10f31e0425")
-}
-
-/// `Sacred Guide` ({W}, 1/1 Creature — Human Cleric, `Coverage::Partial`):
-/// `{1}{W}, Sacrifice this creature: Reveal cards from the top of your library
-/// until you reveal a white card and put that card into your hand.`
 #[test]
-fn sacred_guide_sacrifices_to_search_library_for_a_white_card_into_hand() {
+fn unsupported_approximation_is_not_an_ability() {
+    let card = card_index("de9e8b71-897d-4a9d-942b-af10f31e0425");
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, SAVANNAH_LIONS)
-        .battlefield(0, &[plains(), plains(), sacred_guide()])
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[baylee_core::generated::index::GRIZZLY_BEARS])
+        .hand(0, &[card])
         .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, sacred_guide(), 0);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(on_battlefield(&engine, p0, sacred_guide()).is_none());
-    assert!(in_graveyard(&engine, p0, sacred_guide()).is_some());
-    assert_eq!(
-        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before + 1
-    );
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    cast_with_floating(&mut e, p0, card);
+    pass_until(&mut e, stack_is_empty);
+    let creature = on_battlefield(&e, p0, card).expect("the remaining body is cast");
+    reach_their_main_phase(&mut e, PlayerId::new(1));
+    reach_their_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority after resolving the creature");
+    };
+    assert!(legal.abilities.iter().all(|(id, _)| *id != creature));
 }

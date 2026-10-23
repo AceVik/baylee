@@ -2,66 +2,104 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT, KITHKIN_ARMOR};
+use crate::engine::card_tests::aura_kit as kit;
+use crate::engine::card_tests::legends_kit as lk;
 
-/// `Kithkin Armor` ({W}, Enchantment — Aura, Partial) prevents enchanted
-/// creature from being blocked by creatures with power 3 or greater and can be
-/// sacrificed as an activated ability cost.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn kithkin_armor() -> CardIndex {
+    card_index("35e2730e-b3aa-4080-aae8-7b3ad1e59848")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+/// Kithkin Armor (35e2730e-b3aa-4080-aae8-7b3ad1e59848) — "Enchanted creature
+/// can't be blocked by creatures with power 3 or greater." The Hill Giant (3)
+/// may not block the enchanted Bears and a declaration that tries is
+/// refused; the Bears (power 2) may; and the unenchanted Lions are blockable
+/// by the Giant.
 #[test]
-fn kithkin_armor_prevents_high_power_blocks_and_can_be_sacrificed() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[GRIZZLY_BEARS, plains()])
-        .battlefield(1, &[HILL_GIANT, llanowar_elves()])
-        .hand(0, &[KITHKIN_ARMOR])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let bears = on_battlefield(&engine, p0, GRIZZLY_BEARS).unwrap();
-    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
-    let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
-
-    cast_from_hand(&mut engine, p0, KITHKIN_ARMOR);
-    aim_at(&mut engine, p0, bears);
-    pass_until(&mut engine, stack_is_empty);
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(bears, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    assert!(
-        engine
-            .apply(
-                p1,
-                PlayerAction::DeclareBlockers {
-                    blockers: vec![(giant, bears)],
-                },
-            )
-            .is_err(),
-        "3/3 Hill Giant cannot block creature enchanted by Kithkin Armor"
+fn kithkin_armor_stops_blockers_with_power_three_or_more_for_the_enchanted_creature() {
+    let mut e = lk::game(
+        SEED,
+        &[grizzly_bears(), savannah_lions()],
+        &[hill_giant(), grizzly_bears()],
+        &[kithkin_armor()],
+        &[],
     );
-    engine
-        .apply(
-            p1,
+    let bears = lk::obj(&e, P0, grizzly_bears());
+    let lions = lk::obj(&e, P0, savannah_lions());
+    let giant = lk::obj(&e, P1, hill_giant());
+    let their_bears = lk::obj(&e, P1, grizzly_bears());
+    kit::cast_aura(&mut e, P0, kithkin_armor(), bears, &[(ManaColor::White, 1)]);
+
+    let offer = lk::attack(&mut e, &[bears, lions]);
+
+    assert!(
+        !lk::may_block(&offer, giant, bears),
+        "power 3 may not block the enchanted creature"
+    );
+    assert!(lk::may_block(&offer, their_bears, bears), "power 2 may");
+    assert!(
+        lk::may_block(&offer, giant, lions),
+        "and the Giant may block an unenchanted one"
+    );
+    assert!(
+        e.apply(
+            P1,
             PlayerAction::DeclareBlockers {
-                blockers: vec![(elves, bears)],
+                blockers: vec![(giant, bears)],
             },
         )
-        .unwrap();
+        .is_err(),
+        "the illegal block is refused"
+    );
+    e.apply(
+        P1,
+        PlayerAction::DeclareBlockers {
+            blockers: vec![(their_bears, bears), (giant, lions)],
+        },
+    )
+    .expect("the legal blocks are accepted");
+}
 
-    activate(&mut engine, p0, KITHKIN_ARMOR, 2);
-    pass_until(&mut engine, stack_is_empty);
+/// Kithkin Armor — control for the test above: with no Aura the Giant may
+/// block the same Bears.
+#[test]
+fn without_kithkin_armor_the_giant_may_block_the_bears() {
+    let mut e = lk::game(SEED, &[grizzly_bears()], &[hill_giant()], &[], &[]);
+    let bears = lk::obj(&e, P0, grizzly_bears());
+    let giant = lk::obj(&e, P1, hill_giant());
 
-    assert!(in_graveyard(&engine, p0, KITHKIN_ARMOR).is_some());
+    let offer = lk::attack(&mut e, &[bears]);
+
+    assert!(lk::may_block(&offer, giant, bears));
+}
+
+/// Kithkin Armor — the sacrifice ability ("prevent the next damage from a
+/// source of your choice") is not carried: preventing all damage from every
+/// source for the turn would be more than printed. When it exists this
+/// assertion moves to tests of the prevention.
+#[test]
+fn kithkin_armor_carries_no_sacrifice_ability() {
+    let mut e = lk::game(SEED, &[grizzly_bears()], &[], &[kithkin_armor()], &[]);
+    let bears = lk::obj(&e, P0, grizzly_bears());
+    let aura = kit::cast_aura(&mut e, P0, kithkin_armor(), bears, &[(ManaColor::White, 1)]);
+
+    assert!(
+        !lk::offered(&e, kithkin_armor(), P0, 2),
+        "no activated ability on offer"
+    );
+    assert_eq!(kit::attached_to(&e, aura), Some(bears));
 }

@@ -11,8 +11,8 @@ fn curfew_returns_a_creature_from_each_player_to_hand() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[curfew()])
-        .battlefield(0, &[island(), grizzly_bears()])
-        .battlefield(1, &[wild_elephant()])
+        .battlefield(0, &[island(), grizzly_bears(), llanowar_elves()])
+        .battlefield(1, &[wild_elephant(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -20,14 +20,31 @@ fn curfew_returns_a_creature_from_each_player_to_hand() {
     cast_from_hand(&mut engine, p0, curfew());
     while !stack_is_empty(&engine) || matches!(engine.pending(), Pending::ChooseCards { .. }) {
         if let Pending::ChooseCards {
-            player, options, ..
+            player,
+            options,
+            min,
+            max,
+            ..
         } = engine.pending().clone()
         {
+            assert_eq!((min, max), (1, 1));
+            assert!(
+                options
+                    .iter()
+                    .all(|id| engine.state().object(*id).unwrap().controller == player)
+            );
+            let card = if player == p0 {
+                grizzly_bears()
+            } else {
+                wild_elephant()
+            };
+            let chosen = on_battlefield(&engine, player, card).unwrap();
+            assert!(options.contains(&chosen));
             engine
                 .apply(
                     player,
                     PlayerAction::ChooseObjects {
-                        objects: vec![options[0]],
+                        objects: vec![chosen],
                     },
                 )
                 .unwrap();
@@ -42,4 +59,7 @@ fn curfew_returns_a_creature_from_each_player_to_hand() {
     assert!(on_battlefield(&engine, p1, wild_elephant()).is_none());
     assert!(in_hand(&engine, p0, grizzly_bears()).is_some());
     assert!(in_hand(&engine, p1, wild_elephant()).is_some());
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, p1, gray_ogre()).is_some());
+    assert!(on_battlefield(&engine, p0, island()).is_some());
 }

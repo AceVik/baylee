@@ -2,47 +2,63 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+use crate::object::Status;
+
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
 fn tolarian_drake() -> CardIndex {
     card_index("d999f2a3-5cb4-4f12-a79a-c5db0a300620")
 }
 
-/// `Tolarian Drake` ({2}{U}, 2/4 Drake) has flying and phasing, and phases out
-/// during its controller's next untap step.
+fn phased_out(e: &Engine<RegistryLookup>, id: ObjectId) -> bool {
+    e.state()
+        .object(id)
+        .expect("the object exists")
+        .status
+        .contains(Status::PHASED_OUT)
+}
+
+/// Tolarian Drake (d999f2a3-5cb4-4f12-a79a-c5db0a300620) — "Flying. Phasing:
+/// this phases in or out before you untap during each of your untap steps." A
+/// 2/4 flyer with phasing: in play on the opponent's turn 2 (their untap steps
+/// do not phase it), phased out from its controller's untap step on turn 3, still
+/// out on turn 4, and phased back in on turn 5.
 #[test]
-fn tolarian_drake_has_flying_and_phases_out_at_untap() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), island()])
-        .hand(0, &[tolarian_drake()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn tolarian_drake_phases_at_its_controllers_untap_steps_only() {
+    let mut e = lk::game(
+        SEED,
+        &[island(), island(), island()],
+        &[],
+        &[tolarian_drake()],
+        &[],
+    );
+    cast_from_hand(&mut e, P0, tolarian_drake());
+    pass_until(&mut e, stack_is_empty);
+    let drake = lk::obj(&e, P0, tolarian_drake());
+    assert_eq!(pt(&e, drake), (2, 4));
+    assert!(keywords(&e, drake).contains(KeywordSet::FLYING));
+    assert!(keywords(&e, drake).contains(KeywordSet::PHASING));
 
-    cast_from_hand(&mut engine, p0, tolarian_drake());
-    pass_until(&mut engine, stack_is_empty);
-
-    let drake = on_battlefield(&engine, p0, tolarian_drake()).expect("Tolarian Drake");
-    assert_eq!(pt(&engine, drake), (2, 4));
+    reach_their_main_phase(&mut e, P1);
     assert!(
-        engine
-            .state()
-            .object(drake)
-            .unwrap()
-            .characteristics()
-            .keywords
-            .contains(KeywordSet::FLYING.union(KeywordSet::PHASING))
+        !phased_out(&e, drake),
+        "the opponent's untap step does not phase it"
     );
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-
+    reach_their_main_phase(&mut e, P0);
     assert!(
-        engine
-            .state()
-            .object(drake)
-            .unwrap()
-            .status
-            .contains(Status::PHASED_OUT),
-        "Tolarian Drake phased out during its controller's untap step"
+        phased_out(&e, drake),
+        "phased out at its controller's untap step (turn 3)"
+    );
+
+    reach_their_main_phase(&mut e, P1);
+    assert!(phased_out(&e, drake), "still out on the opponent's turn 4");
+
+    reach_their_main_phase(&mut e, P0);
+    assert!(
+        !phased_out(&e, drake),
+        "phased in again at its controller's next untap step"
     );
 }

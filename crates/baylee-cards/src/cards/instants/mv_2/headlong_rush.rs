@@ -5,8 +5,6 @@
 
 use baylee_cards_dsl::prelude::*;
 
-const ATTACKING_CREATURE: Filter = Filter::And(&[Filter::CREATURE, Filter::Attacking]);
-
 card!(
     index = index::HEADLONG_RUSH,
     oracle_id = "cc3abacc-6643-49c5-8df8-5b56ab20fba5",
@@ -19,7 +17,7 @@ card!(
         types = TypeSet::INSTANT,
     ),],
     abilities = &[spell!(&[Effect::continuous(
-        &ATTACKING_CREATURE,
+        &Filter::And(&[Filter::CREATURE, Filter::Attacking]),
         Modifier::AddKeyword(KeywordSet::FIRST_STRIKE),
         Duration::UntilEndOfTurn,
     )])],

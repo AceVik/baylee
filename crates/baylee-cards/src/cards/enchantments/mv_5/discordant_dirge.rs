@@ -2,7 +2,7 @@
 //! Oracle: At the beginning of your upkeep, you may put a verse counter on this enchantment.
 //! Oracle: {B}, Sacrifice this enchantment: Look at target opponent's hand and choose up to X cards from it, where X is the number of verse counters on this enchantment. That player discards those cards.
 //! Set: USG #131 — Urza's Saga | Scryfall ID: d48e753c-ba11-4aa3-9a73-584f8a7538f5 | Oracle ID: edd4741b-3ee6-421a-8bac-d60736755356
-// PARTIAL
+// PARTIAL — Choosing up to the verse-counter count of cards from the privately inspected hand to discard is unsupported; only the optional verse counters and private hand inspection are implemented.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,7 +12,7 @@ card!(
     scryfall_id = "d48e753c-ba11-4aa3-9a73-584f8a7538f5",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "choosing up to X cards from an opponent's hand where X is the verse-counter count is not in Effect; implements the upkeep optional verse counter and a single-card revealed-hand discard on {B}, Sacrifice",
+        "Choosing up to the verse-counter count of cards from the privately inspected hand to discard is unsupported; only the optional verse counters and private hand inspection are implemented.",
     ),
     faces = &[face!(
         name = "Discordant Dirge",
@@ -34,9 +34,10 @@ card!(
         ),
         activated!(
             cost!("{B}", SacrificeSelf),
-            &[Effect::RevealHandDiscard {
-                filter: &Filter::Any,
-            }],
+            &[
+                // NOT SUPPORTED: choose up to X privately inspected cards to discard.
+                Effect::LookAtChosenHand,
+            ],
             target = Some(TargetSpec::AnyOpponent),
         ),
     ],

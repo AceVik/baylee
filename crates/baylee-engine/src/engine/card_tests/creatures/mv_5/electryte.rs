@@ -6,50 +6,75 @@ fn electryte() -> CardIndex {
 }
 
 #[test]
-fn electryte_deals_damage_to_blocking_creatures_when_hitting_player() {
+fn electryte_partial_keeps_its_body_but_does_not_use_an_overbroad_damage_trigger() {
     let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[electryte(), rib_cage_spider()])
-        .battlefield(1, &[wild_elephant()])
+        .hand(0, &[electryte()])
+        .battlefield(
+            0,
+            &[mountain(), mountain(), mountain(), mountain(), mountain()],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    cast_from_hand(&mut engine, p0, electryte());
+    pass_until(&mut engine, stack_is_empty);
+    let creature = on_battlefield(&engine, p0, electryte()).unwrap();
+    assert_eq!(pt(&engine, creature), (3, 3));
+}
 
-    let elec = on_battlefield(&engine, p0, electryte()).expect("seated");
-    let spider = on_battlefield(&engine, p0, rib_cage_spider()).expect("seated");
-    let elephant = on_battlefield(&engine, p1, wild_elephant()).expect("seated");
-
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
+#[test]
+fn electryte_does_not_sweep_blockers_when_combat_damage_is_redirected_to_a_nondefender() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[electryte(), grizzly_bears(), index::PERSONAL_INCARNATION],
+        &[index::PHYREXIAN_WALKER],
+        &[index::MENDING_TOUCH],
+        &[],
+    );
+    let elec = on_battlefield(&engine, p0, electryte()).unwrap();
+    let bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
+    let incarnation = on_battlefield(&engine, p0, index::PERSONAL_INCARNATION).unwrap();
+    // The potential blocker is owned by p0 but controlled by defender p1.
+    engine.state.object_mut(incarnation).unwrap().controller = p1;
+    engine.state.invalidate_projections();
+    engine.refresh_offer();
+    let elf = on_battlefield(&engine, p1, index::PHYREXIAN_WALKER).unwrap();
+    lk::attack(&mut engine, &[elec, bear]);
+    lk::block(&mut engine, &[(incarnation, elec), (elf, bear)]);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    // The owner redirects one point of Electryte's combat damage to p0.
     engine
         .apply(
             p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![
-                    (elec, baylee_core::ids::Defender::Player(p1)),
-                    (spider, baylee_core::ids::Defender::Player(p1)),
-                ],
+            PlayerAction::ActivateAbility {
+                source: incarnation,
+                ability_index: 0,
             },
         )
         .unwrap();
-
+    pass_until(&mut engine, stack_is_empty);
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    lk::float(&mut engine, p0, &[(ManaColor::Green, 1)]);
+    lk::cast_at(&mut engine, p0, index::MENDING_TOUCH, &[elec], &[]);
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
+        e.state().turn.step == crate::turn::Step::End
     });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(elephant, spider)],
-            },
-        )
-        .unwrap();
-
-    pass_until(&mut engine, |e| {
-        e.state().players[1].life == 17 && stack_is_empty(e)
-    });
-
-    assert!(on_battlefield(&engine, p1, wild_elephant()).is_none());
+    assert_eq!(engine.state().players[0].life, 19);
+    assert!(on_battlefield(&engine, p0, electryte()).is_some());
+    assert!(
+        on_battlefield(&engine, p1, index::PHYREXIAN_WALKER).is_some(),
+        "a nondefender damage event must not sweep a different blocker"
+    );
+    assert_eq!(engine.state().object(elf).unwrap().damage, 2);
 }

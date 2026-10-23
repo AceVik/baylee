@@ -6,12 +6,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static ACTIVE_NONBLACK_NONLAND: Filter = Filter::And(&[
-    Filter::ControlledByActivePlayer,
-    Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::Black]))),
-    Filter::Not(&Filter::LAND),
-]);
-
 card!(
     index = index::URBORG_STALKER,
     oracle_id = "e5ef45e4-8c19-40bf-8756-c1b408dcb2fb",
@@ -35,6 +29,13 @@ card!(
             amount: Amount::Fixed(1),
             target: TargetSpec::Player(PlayerRel::ActivePlayer),
         }],
-        condition = Some(Condition::BattlefieldCount(&ACTIVE_NONBLACK_NONLAND, 1))
+        condition = Some(Condition::BattlefieldCount(
+            &Filter::And(&[
+                Filter::ControlledByActivePlayer,
+                Filter::Not(&Filter::HasColor(ColorSet::from_slice(&[Color::Black]))),
+                Filter::Not(&Filter::LAND),
+            ]),
+            1
+        ))
     ),],
 );

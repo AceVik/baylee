@@ -3,20 +3,19 @@
 //! Oracle: Enchant artifact
 //! Oracle: Enchanted artifact has shroud. (It can't be the target of spells or abilities.)
 //! Set: VIS #16 — Visions | Scryfall ID: f0459667-b7da-43bd-b981-0e515432d147 | Oracle ID: c6321de2-80b0-4679-93cf-97df75344e97
-// PARTIAL: has flash, enchants artifact, and grants shroud; sacrificing Relic Ward at the beginning of the next cleanup step if cast at instant speed is not yet supported.
+// PARTIAL — an Aura that gives the enchanted artifact shroud, cast at sorcery speed only; the flash and its sacrifice rider are not supported.
+// NOT SUPPORTED: "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step." Flash is left off on purpose: the DSL cannot say the sacrifice rider (the cast timing is not remembered), and flash without it would be stronger than printed. The Aura casts at sorcery speed only, where the printed rider never applies.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.
 card!(
     index = index::RELIC_WARD,
     oracle_id = "c6321de2-80b0-4679-93cf-97df75344e97",
     scryfall_id = "f0459667-b7da-43bd-b981-0e515432d147",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    keywords = KeywordSet::FLASH,
     coverage = Coverage::Partial(
-        "has flash, enchants artifact, and grants shroud; sacrificing Relic Ward at the beginning of the next cleanup step if cast at instant speed is not yet supported"
+        "enchants an artifact and gives it shroud, cast at sorcery speed only; casting it as though it had flash, with the sacrifice at the next cleanup step when it is cast at a time a sorcery couldn't have been cast, is not supported (flash is left off, since without the sacrifice it would be stronger than printed)"
     ),
     faces = &[face!(
         name = "Relic Ward",

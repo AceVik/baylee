@@ -7,11 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static WITHOUT_FLANKING: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Not(&Filter::HasKeyword(KeywordSet::FLANKING)),
-]);
-
 card!(
     index = index::ZHALFIRIN_KNIGHT,
     oracle_id = "a534f06e-dae4-4d1a-96e9-7693bbb21e12",
@@ -28,21 +23,12 @@ card!(
         toughness = Some(2),
         keywords = KeywordSet::FLANKING,
     ),],
-    abilities = &[
-        triggered!(
-            Trigger::BecomesBlockedBy(&WITHOUT_FLANKING),
-            &[Effect::ModifyEvent {
-                modifier: Modifier::ModifyPT(-1, -1),
-                duration: Duration::UntilEndOfTurn,
-            }],
-        ),
-        activated!(
-            cost!("{W}{W}"),
-            &[Effect::continuous(
-                &Filter::This,
-                Modifier::AddKeyword(KeywordSet::FIRST_STRIKE),
-                Duration::UntilEndOfTurn,
-            )],
-        ),
-    ],
+    abilities = &[activated!(
+        cost!("{W}{W}"),
+        &[Effect::continuous(
+            &Filter::This,
+            Modifier::AddKeyword(KeywordSet::FIRST_STRIKE),
+            Duration::UntilEndOfTurn,
+        )],
+    ),],
 );

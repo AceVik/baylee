@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -42,4 +43,24 @@ fn mogg_bombers_sacrifices_itself_and_deals_three_damage_when_another_creature_e
     assert!(on_battlefield(&engine, P0, mogg_bombers()).is_none());
     assert!(in_graveyard(&engine, P0, mogg_bombers()).is_some());
     assert_eq!(engine.state().players[1].life, 17);
+}
+
+#[test]
+fn own_entry_does_not_trigger_but_opponents_creature_entry_does() {
+    let mut e = lk::game(SEED, &[], &[], &[mogg_bombers()], &[index::GRIZZLY_BEARS]);
+    lk::float(&mut e, P0, &[(ManaColor::Red, 4)]);
+    cast_with_floating(&mut e, P0, mogg_bombers());
+    lk::settle(&mut e);
+    assert!(on_battlefield(&e, P0, mogg_bombers()).is_some());
+    assert_eq!(lk::life(&e, P1), 20);
+    reach_their_main_phase(&mut e, P1);
+    lk::float(&mut e, P1, &[(ManaColor::Green, 2)]);
+    cast_with_floating(&mut e, P1, index::GRIZZLY_BEARS);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    lk::aim(&mut e, &[], &[P1]);
+    lk::settle(&mut e);
+    assert_eq!(lk::life(&e, P1), 17);
+    assert!(in_graveyard(&e, P0, mogg_bombers()).is_some());
 }

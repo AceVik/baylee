@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -56,4 +57,26 @@ fn thalakos_deceiver_sacrifices_on_unblocked_attack_to_gain_control_of_target_cr
 
     assert!(on_battlefield(&engine, P0, thalakos_deceiver()).is_none());
     assert_eq!(engine.state().object(giant).unwrap().controller, P0);
+}
+
+#[test]
+fn unblocked_sacrifice_can_be_declined() {
+    let mut e = lk::game(SEED, &[thalakos_deceiver()], &[index::HILL_GIANT], &[], &[]);
+    let deceiver = lk::obj(&e, P0, thalakos_deceiver());
+    let giant = lk::obj(&e, P1, index::HILL_GIANT);
+    lk::attackers_offered(&mut e);
+    let options = lk::declare(&mut e, &[deceiver]);
+    assert!(!lk::may_block(&options, giant, deceiver));
+    lk::block(&mut e, &[]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    lk::aim(&mut e, &[giant], &[]);
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    lk::yes_no(&mut e, false);
+    lk::settle(&mut e);
+    assert!(on_battlefield(&e, P0, thalakos_deceiver()).is_some());
+    assert_eq!(e.state().object(giant).unwrap().controller, P1);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, P1), 19);
 }

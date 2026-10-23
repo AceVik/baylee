@@ -23,6 +23,7 @@ card!(
         power = Some(8),
         toughness = Some(8),
     ),],
+    // NOT SUPPORTED: blocking restriction 'can't be blocked except by three or more creatures' is not in Modifier; doesn't untap during your untap step and pays 8 life to untap itself.
     abilities = &[
         static_ability!(Filter::This, Modifier::DoesNotUntap),
         activated!(cost!(PayLife(8)), &[Effect::UntapSelf]),

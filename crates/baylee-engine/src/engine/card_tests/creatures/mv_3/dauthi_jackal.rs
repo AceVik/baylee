@@ -45,9 +45,36 @@ fn dauthi_jackal_sacrifices_itself_to_destroy_target_blocking_creature() {
 
     tap_all_mana(&mut engine, P0);
     kit::activate_object(&mut engine, P0, jackal, 0);
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("targets")
+    };
+    assert!(!options.contains(&attacker));
     aim_at(&mut engine, P0, blocker);
     kit::resolve_the_stack(&mut engine, |_, _| None);
 
     assert!(on_battlefield(&engine, P0, dauthi_jackal()).is_none());
     assert!(on_battlefield(&engine, P1, index::WALL_OF_STONE).is_none());
+}
+
+#[test]
+fn shadow_limits_both_blocking_and_being_blocked() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let subject = card_index("8847b057-8896-4c72-a11f-3c183b1cc60e");
+    let mut e = lk::game(
+        SEED,
+        &[subject, gray_ogre()],
+        &[subject, grizzly_bears()],
+        &[],
+        &[],
+    );
+    let shadow = lk::obj(&e, p0, subject);
+    let normal = lk::obj(&e, p0, gray_ogre());
+    let enemy_shadow = lk::obj(&e, p1, subject);
+    let enemy_normal = lk::obj(&e, p1, grizzly_bears());
+    let offer = lk::attack(&mut e, &[shadow, normal]);
+    assert!(lk::may_block(&offer, enemy_shadow, shadow));
+    assert!(lk::may_block(&offer, enemy_normal, normal));
+    assert!(!lk::may_block(&offer, enemy_normal, shadow));
+    assert!(!lk::may_block(&offer, enemy_shadow, normal));
 }

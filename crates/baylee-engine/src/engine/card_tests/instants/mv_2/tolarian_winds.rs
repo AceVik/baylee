@@ -10,6 +10,7 @@ fn tolarian_winds_discards_hand_and_draws_that_many() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[tolarian_winds(), gray_ogre(), wild_elephant()])
+        .hand(1, &[gray_ogre()])
         .battlefield(0, &[island(), island()])
         .start();
     keep_mulligans(&mut engine);
@@ -31,5 +32,22 @@ fn tolarian_winds_discards_hand_and_draws_that_many() {
             .list(crate::zone::ZoneLocation::Hand(p0))
             .len(),
         hand_before - 1
+    );
+    assert!(in_hand(&engine, PlayerId::new(1), gray_ogre()).is_some());
+    assert!(in_graveyard(&engine, p0, wild_elephant()).is_some());
+}
+
+#[test]
+fn tolarian_winds_with_no_other_cards_draws_nothing() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[], &[], &[tolarian_winds()], &[]);
+    lk::float(&mut e, p0, &[(ManaColor::Blue, 2)]);
+    lk::cast_at(&mut e, p0, tolarian_winds(), &[], &[]);
+    assert!(
+        e.state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .is_empty()
     );
 }

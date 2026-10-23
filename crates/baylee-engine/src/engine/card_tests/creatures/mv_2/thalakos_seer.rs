@@ -53,3 +53,22 @@ fn thalakos_seer_has_shadow_and_draws_a_card_when_it_leaves_the_battlefield() {
         hand_before + 1
     );
 }
+
+#[test]
+fn leaving_for_the_hand_also_draws_a_card() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = lk::game(SEED, &[thalakos_seer()], &[], &[index::BOOMERANG], &[]);
+    let seer = on_battlefield(&e, p0, thalakos_seer()).unwrap();
+    let before = e.state().zones.list(ZoneLocation::Hand(p0)).len();
+    lk::float(&mut e, p0, &[(ManaColor::Blue, 2)]);
+    cast_with_floating(&mut e, p0, index::BOOMERANG);
+    lk::aim(&mut e, &[seer], &[]);
+    lk::settle(&mut e);
+    assert!(in_hand(&e, p0, thalakos_seer()).is_some());
+    assert_eq!(
+        e.state().zones.list(ZoneLocation::Hand(p0)).len(),
+        before + 1
+    );
+}

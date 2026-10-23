@@ -7,9 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static OTHER_CREATURE: Filter =
-    Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::AttachedToBySource)]);
-
 card!(
     index = index::BRAVADO,
     oracle_id = "69b5af09-b3e6-4abf-b62e-9199c4f43ba7",
@@ -31,7 +28,10 @@ card!(
         ),
         static_ability!(
             Filter::AttachedToBySource,
-            Modifier::ModifyPTByCount(PtCount::YouControl(&OTHER_CREATURE))
+            Modifier::ModifyPTByCount(PtCount::YouControl(&Filter::And(&[
+                Filter::CREATURE,
+                Filter::Not(&Filter::AttachedToBySource)
+            ])))
         ),
     ],
 );

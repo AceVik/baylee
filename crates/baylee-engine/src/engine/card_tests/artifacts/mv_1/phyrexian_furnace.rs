@@ -2,58 +2,120 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT, PHYREXIAN_FURNACE};
+use crate::engine::card_tests::legends_kit as lk;
+use crate::zone::Zone;
 
-/// `Phyrexian Furnace` ({1}, Artifact, Partial) taps to exile target card from
-/// a graveyard, and pays `{1}` and sacrifices itself to exile target card from
-/// a graveyard and draw a card.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn phyrexian_furnace() -> CardIndex {
+    card_index("4aafb7e7-b9fc-44ae-9c54-da11fd9dcc17")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+/// The Furnace and a Plains on player 0's side, one creature card in each
+/// graveyard (Bears in player 0's, the Giant in player 1's).
+fn table() -> Engine<RegistryLookup> {
+    let mut e = lk::game(
+        SEED,
+        &[phyrexian_furnace(), plains()],
+        &[],
+        &[grizzly_bears()],
+        &[hill_giant()],
+    );
+    hand_to_graveyard(&mut e, P0, grizzly_bears());
+    hand_to_graveyard(&mut e, P1, hill_giant());
+    e
+}
+
+/// Phyrexian Furnace (4aafb7e7-b9fc-44ae-9c54-da11fd9dcc17) — "{1}, Sacrifice
+/// this artifact: Exile target card from a graveyard. Draw a card." The
+/// target may be in either graveyard: the opponent's Giant is exiled, the
+/// caster's own Bears stays, the Furnace is sacrificed and one card is drawn.
 #[test]
-fn phyrexian_furnace_exiles_cards_from_graveyard_and_draws() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[PHYREXIAN_FURNACE, plains()])
-        .battlefield(1, &[GRIZZLY_BEARS, HILL_GIANT])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn phyrexian_furnace_sacrifices_to_exile_a_card_from_a_graveyard_and_draw() {
+    let mut e = table();
+    let bears = in_graveyard(&e, P0, grizzly_bears()).expect("Bears in the graveyard");
+    let giant = in_graveyard(&e, P1, hill_giant()).expect("Giant in the graveyard");
+    assert_eq!(e.state().zones.list(ZoneLocation::Hand(P0)).len(), 0);
 
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
-    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
-    let _ = engine.state.move_object(
-        bears,
-        ZoneLocation::Graveyard(p1),
-        crate::zone::ZonePosition::Top,
-        Cause::Effect,
+    tap_all_mana(&mut e, P0);
+    activate(&mut e, P0, phyrexian_furnace(), 0);
+    let menu = aim_at(&mut e, P0, giant);
+    assert!(
+        menu.contains(&bears) && menu.contains(&giant),
+        "a card in either graveyard is a legal target: {menu:?}"
     );
-    let _ = engine.state.move_object(
-        giant,
-        ZoneLocation::Graveyard(p1),
-        crate::zone::ZonePosition::Top,
-        Cause::Effect,
+    pass_until(&mut e, stack_is_empty);
+
+    assert_eq!(lk::zone_of(&e, giant), Zone::Exile, "the target is exiled");
+    assert!(
+        in_graveyard(&e, P0, grizzly_bears()).is_some(),
+        "only the target goes"
     );
-    engine.refresh_offer();
-
-    activate(&mut engine, p0, PHYREXIAN_FURNACE, 0);
-    aim_at(&mut engine, p0, bears);
-    pass_until(&mut engine, stack_is_empty);
-    assert_eq!(engine.state().object(bears).unwrap().zone, Zone::Exile);
-
-    pass_until(&mut engine, |e| {
-        e.state().turn.number == 3
-            && e.state().turn.active == p0
-            && e.state().turn.step == crate::turn::Step::Main
-    });
-
-    let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, PHYREXIAN_FURNACE, 1);
-    aim_at(&mut engine, p0, giant);
-    pass_until(&mut engine, stack_is_empty);
-
-    assert!(in_graveyard(&engine, p0, PHYREXIAN_FURNACE).is_some());
-    assert_eq!(engine.state().object(giant).unwrap().zone, Zone::Exile);
+    assert!(
+        in_graveyard(&e, P0, phyrexian_furnace()).is_some(),
+        "the Furnace was sacrificed as the cost"
+    );
     assert_eq!(
-        engine.state().zones.list(ZoneLocation::Hand(p0)).len(),
-        hand_before + 1
+        e.state().zones.list(ZoneLocation::Hand(P0)).len(),
+        1,
+        "and a card is drawn"
+    );
+}
+
+/// Phyrexian Furnace — the same ability aimed at the caster's own graveyard
+/// ("a graveyard", not "target opponent's"): the Bears is exiled and the
+/// opponent's Giant stays.
+#[test]
+fn phyrexian_furnace_may_exile_a_card_from_its_controllers_graveyard() {
+    let mut e = table();
+    let bears = in_graveyard(&e, P0, grizzly_bears()).expect("Bears in the graveyard");
+
+    tap_all_mana(&mut e, P0);
+    activate(&mut e, P0, phyrexian_furnace(), 0);
+    aim_at(&mut e, P0, bears);
+    pass_until(&mut e, stack_is_empty);
+
+    assert_eq!(lk::zone_of(&e, bears), Zone::Exile);
+    assert!(
+        in_graveyard(&e, P1, hill_giant()).is_some(),
+        "the other graveyard is untouched"
+    );
+}
+
+/// Phyrexian Furnace — "{1}" is a cost: with mana in the pool the ability is
+/// offered, with no mana it is not; and the printed "{T}: Exile the bottom
+/// card of target player's graveyard" is not on the card (nothing at ability
+/// index 1, with or without mana).
+#[test]
+fn phyrexian_furnace_needs_its_mana_and_has_no_tap_ability() {
+    let mut e = table();
+    tap_all_mana(&mut e, P0);
+    assert!(
+        lk::offered(&e, phyrexian_furnace(), P0, 0),
+        "{{1}} is in the pool"
+    );
+    assert!(
+        !lk::offered(&e, phyrexian_furnace(), P0, 1),
+        "no second ability: the tap ability is not supported"
+    );
+
+    let mut poor = lk::game(SEED, &[phyrexian_furnace()], &[], &[grizzly_bears()], &[]);
+    hand_to_graveyard(&mut poor, P0, grizzly_bears());
+    assert!(
+        !lk::offered(&poor, phyrexian_furnace(), P0, 0),
+        "without {{1}} the sacrifice ability cannot be activated"
+    );
+    assert!(
+        !lk::offered(&poor, phyrexian_furnace(), P0, 1),
+        "tapping alone does nothing"
     );
 }

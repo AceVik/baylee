@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_5/bubbling_beebles.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -6,18 +8,30 @@ fn bubbling_beebles() -> CardIndex {
 }
 
 #[test]
-fn bubbling_beebles_casts_for_four_and_blue_as_a_three_three() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, island())
-        .hand(0, &[bubbling_beebles()])
-        .battlefield(0, &[island(), island(), island(), island(), island()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn bubbling_beebles_does_not_use_an_arbitrary_opponents_enchantments() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(
+        SEED,
+        &[bubbling_beebles()],
+        &[sylvan_library(), gray_ogre()],
+        &[],
+        &[],
+    );
+    let beebles = lk::obj(&engine, lk::P0, bubbling_beebles());
+    let blocker = lk::obj(&engine, lk::P1, gray_ogre());
+    let offer = lk::attack(&mut engine, &[beebles]);
+    assert!(
+        lk::may_block(&offer, blocker, beebles),
+        "unsupported evasion is omitted"
+    );
+}
 
-    cast_from_hand(&mut engine, p0, bubbling_beebles());
+#[test]
+fn creature_body_remains_playable() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut engine = lk::game(SEED, &[], &[], &[bubbling_beebles()], &[]);
+    lk::float(&mut engine, lk::P0, &[(ManaColor::Blue, 6)]);
+    cast_with_floating(&mut engine, lk::P0, bubbling_beebles());
     pass_until(&mut engine, stack_is_empty);
-
-    let beebles = on_battlefield(&engine, p0, bubbling_beebles()).unwrap();
-    assert_eq!(pt(&engine, beebles), (3, 3));
+    assert!(on_battlefield(&engine, lk::P0, bubbling_beebles()).is_some());
 }

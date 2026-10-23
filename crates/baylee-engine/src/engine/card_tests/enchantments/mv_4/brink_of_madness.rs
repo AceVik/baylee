@@ -1,5 +1,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 fn brink_of_madness() -> CardIndex {
     card_index("3209ad08-5482-4dd4-a02e-1dbe99ce6b54")
@@ -60,4 +61,21 @@ fn brink_of_madness_sacrifices_itself_and_makes_opponent_discard_hand_when_hellb
     assert!(on_battlefield(&engine, p0, brink_of_madness()).is_none());
     assert!(in_graveyard(&engine, p0, brink_of_madness()).is_some());
     assert!(engine.state().zones.list(ZoneLocation::Hand(p1)).is_empty());
+}
+
+#[test]
+fn brink_of_madness_stays_while_its_controller_has_a_card() {
+    let p0 = PlayerId::new(0);
+    let p1 = PlayerId::new(1);
+    let mut engine = lk::game(
+        SEED,
+        &[brink_of_madness()],
+        &[],
+        &[gray_ogre()],
+        &[gray_ogre()],
+    );
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, p0);
+    assert!(on_battlefield(&engine, p0, brink_of_madness()).is_some());
+    assert!(in_hand(&engine, p1, gray_ogre()).is_some());
 }

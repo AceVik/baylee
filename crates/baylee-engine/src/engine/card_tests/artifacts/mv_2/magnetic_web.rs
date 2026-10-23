@@ -2,7 +2,6 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use crate::engine::card_tests::partials_w2c_kit::glyph_counters;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -28,8 +27,29 @@ fn magnetic_web_puts_magnet_counter_on_target_creature() {
     let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, magnetic_web(), 0);
+    let web = on_battlefield(&engine, P0, magnetic_web()).unwrap();
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![web],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "only creatures are targets"
+    );
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, stack_is_empty);
 
-    assert_eq!(glyph_counters(&engine, bears), 1);
+    assert_eq!(
+        engine
+            .state()
+            .object(bears)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::MAGNET),
+        1
+    );
 }

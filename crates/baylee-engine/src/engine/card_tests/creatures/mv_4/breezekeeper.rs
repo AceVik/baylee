@@ -25,14 +25,31 @@ fn breezekeeper_has_flying_and_phasing_and_phases_out() {
     assert!(keywords(&engine, bk).contains(KeywordSet::FLYING));
     assert!(keywords(&engine, bk).contains(KeywordSet::PHASING));
 
-    reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
-    assert!(
+    let phased_out = |engine: &Engine<RegistryLookup>| {
         engine
             .state()
             .object(bk)
             .unwrap()
             .status
             .contains(Status::PHASED_OUT)
+    };
+    assert!(!phased_out(&engine), "phased in when it enters");
+
+    // The opponent's untap step is not its controller's.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !phased_out(&engine),
+        "only its controller's untap phases it"
     );
+    // Its controller's next untap step phases it out.
+    reach_their_main_phase(&mut engine, p0);
+    assert!(phased_out(&engine), "phased out before p0 untaps");
+    // It stays out through the opponent's turn and phases in at p0's next untap.
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        phased_out(&engine),
+        "the opponent's untap does not bring it back"
+    );
+    reach_their_main_phase(&mut engine, p0);
+    assert!(!phased_out(&engine), "phased in again at p0's next untap");
 }

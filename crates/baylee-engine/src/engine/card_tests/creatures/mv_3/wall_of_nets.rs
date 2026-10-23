@@ -1,68 +1,33 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
-
+use crate::engine::card_tests::legends_kit as lk;
 fn wall_of_nets() -> CardIndex {
     card_index("cd112962-b297-403c-bede-c8b587f379b3")
 }
-
 #[test]
-fn wall_of_nets_exiles_blocked_creature_at_end_of_combat() {
-    let p0 = PlayerId::new(0);
-    let p1 = PlayerId::new(1);
-    let mut engine = Duel::new(SEED, plains())
-        .hand(0, &[wall_of_nets()])
-        .battlefield(0, &[plains(), plains(), plains()])
-        .battlefield(1, &[grizzly_bears()])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    cast_from_hand(&mut engine, p0, wall_of_nets());
-    pass_until(&mut engine, stack_is_empty);
-    let wall = on_battlefield(&engine, p0, wall_of_nets()).expect("seated");
-    let bears = on_battlefield(&engine, p1, grizzly_bears()).expect("seated");
-
-    reach_their_main_phase(&mut engine, p1);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(bears, Defender::Player(p0))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
+fn wall_of_nets_blocks_without_permanently_exiling_unlinked_cards() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(SEED, &[wall_of_nets()], &[grizzly_bears()], &[], &[]);
+    let wall = lk::obj(&e, p0, wall_of_nets());
+    let bears = lk::obj(&e, p1, grizzly_bears());
+    assert!(!lk::attackers_offered(&mut e).contains(&wall));
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
+    );
+    e.apply(
+        p1,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(bears, Defender::Player(p0))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareBlockers {
-                blockers: vec![(wall, bears)],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
-    });
-
-    assert!(on_battlefield(&engine, p1, grizzly_bears()).is_none());
-    assert!(
-        engine
-            .state()
-            .zones
-            .list(ZoneLocation::Exile(p1))
-            .iter()
-            .any(|&id| {
-                engine
-                    .state()
-                    .object(id)
-                    .unwrap()
-                    .card
-                    .is_some_and(|c| c.index == grizzly_bears())
-            })
-    );
+    lk::block(&mut e, &[(wall, bears)]);
+    lk::through_combat(&mut e);
+    assert_eq!(lk::life(&e, p0), 20);
+    assert!(on_battlefield(&e, p0, wall_of_nets()).is_some());
+    assert!(on_battlefield(&e, p1, grizzly_bears()).is_some());
 }

@@ -68,3 +68,55 @@ fn precognition_looks_at_opponents_top_card_on_upkeep_and_may_bottom_or_keep_it(
         Some(top_of_p1)
     );
 }
+
+#[test]
+fn precognition_may_decline_the_look_or_keep_the_top_card() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for look in [false, true] {
+        let mut e = Duel::new(SEED, forest())
+            .battlefield(0, &[precognition()])
+            .start();
+        keep_mulligans(&mut e);
+        let top = *e
+            .state()
+            .zones
+            .list(ZoneLocation::Library(p1))
+            .last()
+            .unwrap();
+        pass_until(&mut e, |e| {
+            matches!(e.pending(), Pending::ChooseTargets { .. })
+        });
+        assert!(
+            e.apply(
+                p0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![p0]
+                }
+            )
+            .is_err(),
+            "target opponent excludes you"
+        );
+        lk::aim(&mut e, &[], &[p1]);
+        pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+        e.apply(p0, PlayerAction::YesNo(look)).unwrap();
+        if look {
+            pass_until(&mut e, |e| matches!(e.pending(), Pending::Arrange { .. }));
+            let Pending::Arrange { player, cards, .. } = e.pending().clone() else {
+                panic!("looked card");
+            };
+            assert_eq!(player, p0);
+            e.apply(p0, look_answer(&cards, &[])).unwrap();
+        }
+        lk::settle(&mut e);
+        assert_eq!(
+            e.state()
+                .zones
+                .list(ZoneLocation::Library(p1))
+                .last()
+                .copied(),
+            Some(top)
+        );
+    }
+}

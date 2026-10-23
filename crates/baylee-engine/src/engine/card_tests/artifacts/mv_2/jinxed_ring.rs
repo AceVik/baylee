@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -72,5 +73,52 @@ fn jinxed_ring_deals_damage_on_nontoken_death_and_transfers_control_on_sacrifice
     assert!(
         on_battlefield(&engine, P1, jinxed_ring()).is_some(),
         "opponent should now control Jinxed Ring"
+    );
+}
+
+#[test]
+fn trigger_checks_nontokens_and_ownership_including_lands() {
+    let rats = card_index("c53d6d3e-64e3-48b9-afab-3bde3164888f");
+    let mut e = lk::game(
+        SEED,
+        &[jinxed_ring(), forest(), index::GRIZZLY_BEARS],
+        &[forest()],
+        &[
+            rats,
+            lightning_bolt(),
+            lightning_bolt(),
+            index::STONE_RAIN,
+            index::STONE_RAIN,
+        ],
+        &[],
+    );
+    lk::float(&mut e, P0, &[(ManaColor::Black, 10), (ManaColor::Red, 20)]);
+    cast_with_floating(&mut e, P0, rats);
+    lk::settle(&mut e);
+    let token = tokens_of(&e, P0)[0];
+    lk::cast_at(&mut e, P0, lightning_bolt(), &[token], &[]);
+    assert_eq!(lk::life(&e, P0), 20, "token death does not count");
+    let theirs = lk::obj(&e, P1, forest());
+    lk::cast_at(&mut e, P0, index::STONE_RAIN, &[theirs], &[]);
+    assert_eq!(
+        lk::life(&e, P0),
+        20,
+        "enemy-owned land goes to their graveyard"
+    );
+    let mine = lk::obj(&e, P0, forest());
+    lk::cast_at(&mut e, P0, index::STONE_RAIN, &[mine], &[]);
+    assert_eq!(lk::life(&e, P0), 19, "nontoken land is a permanent too");
+    let bear = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    e.dev_state_mut(P0)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .controller = P1;
+    e.refresh_offer();
+    lk::cast_at(&mut e, P0, lightning_bolt(), &[bear], &[]);
+    assert_eq!(
+        lk::life(&e, P0),
+        18,
+        "owned creature returns to your graveyard despite enemy control"
     );
 }

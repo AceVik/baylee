@@ -27,6 +27,15 @@ fn teferi_s_drake_has_3_2_flying_and_phases_out_and_in() {
     assert!(keywords(&engine, drake).contains(KeywordSet::PHASING));
 
     reach_their_main_phase(&mut engine, p1);
+    assert!(
+        !engine
+            .state()
+            .object(drake)
+            .unwrap()
+            .status
+            .contains(Status::PHASED_OUT),
+        "the opponent's untap step does not phase it"
+    );
     reach_their_main_phase(&mut engine, p0);
     assert!(
         engine

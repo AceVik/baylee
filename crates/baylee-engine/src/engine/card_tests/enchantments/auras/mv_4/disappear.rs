@@ -1,3 +1,5 @@
+//! `cards/enchantments/auras/mv_4/disappear.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -14,6 +16,7 @@ fn disappear_returns_enchanted_creature_and_itself_to_owners_hands() {
             0,
             &[
                 gray_ogre(),
+                llanowar_elves(),
                 island(),
                 island(),
                 island(),
@@ -21,6 +24,7 @@ fn disappear_returns_enchanted_creature_and_itself_to_owners_hands() {
                 island(),
             ],
         )
+        .battlefield(1, &[gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -36,4 +40,6 @@ fn disappear_returns_enchanted_creature_and_itself_to_owners_hands() {
 
     assert!(in_hand(&engine, p0, gray_ogre()).is_some());
     assert!(in_hand(&engine, p0, disappear()).is_some());
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
+    assert!(on_battlefield(&engine, PlayerId::new(1), gray_ogre()).is_some());
 }

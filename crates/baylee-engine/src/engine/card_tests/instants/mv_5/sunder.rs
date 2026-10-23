@@ -12,7 +12,7 @@ fn sunder_returns_all_lands_to_owners_hands() {
     let mut engine = Duel::new(SEED, island())
         .hand(0, &[sunder()])
         .battlefield(0, &[island(), island(), island(), island(), island()])
-        .battlefield(1, &[forest()])
+        .battlefield(1, &[forest(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -23,4 +23,13 @@ fn sunder_returns_all_lands_to_owners_hands() {
     assert!(on_battlefield(&engine, p0, island()).is_none());
     assert!(on_battlefield(&engine, p1, forest()).is_none());
     assert!(in_hand(&engine, p1, forest()).is_some());
+    assert!(on_battlefield(&engine, p1, gray_ogre()).is_some());
+    assert_eq!(
+        engine
+            .state()
+            .zones
+            .list(crate::zone::ZoneLocation::Hand(p0))
+            .len(),
+        5
+    );
 }

@@ -46,3 +46,32 @@ fn shocker_makes_damaged_player_discard_their_hand_and_draw_that_many_cards() {
     );
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p1)).len(), 3);
 }
+
+/// Damage need not be combat damage, and an empty hand draws zero.
+#[test]
+fn noncombat_damage_discards_and_redraws_the_victims_actual_hand() {
+    use crate::engine::card_tests::{legends_kit as lk, partials_w1b_kit as kit};
+    use baylee_core::generated::index;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for hand in [&[][..], &[GRIZZLY_BEARS, GRIZZLY_BEARS][..]] {
+        let mut e = lk::game(SEED, &[shocker()], &[], &[index::FIRE_WHIP], hand);
+        let source = on_battlefield(&e, p0, shocker()).unwrap();
+        lk::float(&mut e, p0, &[(ManaColor::Red, 2)]);
+        cast_with_floating(&mut e, p0, index::FIRE_WHIP);
+        lk::aim(&mut e, &[source], &[]);
+        lk::settle(&mut e);
+        let ability = kit::offered(&e, source)[0];
+        kit::activate_object(&mut e, p0, source, ability);
+        lk::aim(&mut e, &[], &[p1]);
+        lk::settle(&mut e);
+        assert_eq!(e.state().players[1].life, 19);
+        assert_eq!(
+            e.state().zones.list(ZoneLocation::Graveyard(p1)).len(),
+            hand.len()
+        );
+        assert_eq!(
+            e.state().zones.list(ZoneLocation::Hand(p1)).len(),
+            hand.len()
+        );
+    }
+}

@@ -44,4 +44,6 @@ fn forbid_counters_target_spell() {
     });
 
     assert_eq!(engine.state().players[0].life, 20);
+    assert!(in_graveyard(&engine, p1, lightning_bolt()).is_some());
+    assert!(in_graveyard(&engine, p0, forbid()).is_some());
 }

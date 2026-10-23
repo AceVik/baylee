@@ -2,43 +2,75 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{CINDER_GIANT, GRIZZLY_BEARS, HILL_GIANT};
+use crate::engine::card_tests::legends_kit as lk;
 
-/// `Cinder Giant` ({3}{R}, Creature — Giant 5/3) deals 2 damage to each other
-/// creature you control at the beginning of your upkeep.
+const P0: PlayerId = PlayerId::new(0);
+const P1: PlayerId = PlayerId::new(1);
+
+fn cinder_giant() -> CardIndex {
+    card_index("3a8306ae-3162-4105-95f4-dacd10c7c051")
+}
+
+fn grizzly_bears() -> CardIndex {
+    card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
+}
+
+fn hill_giant() -> CardIndex {
+    card_index("342199e0-15b6-4824-83da-25caef2592b3")
+}
+
+fn savannah_lions() -> CardIndex {
+    card_index("60ba93eb-39e6-4af2-9c66-cd38f72daff2")
+}
+
+/// Cinder Giant (3a8306ae-3162-4105-95f4-dacd10c7c051) — "At the beginning of
+/// your upkeep, this creature deals 2 damage to each other creature you
+/// control." P0 controls a Bears (dies) and a Hill Giant (survives, damaged);
+/// P1's Lions are not "you control" and are untouched. Nothing happens at
+/// P1's upkeep, and the Giant does not hurt itself.
 #[test]
-fn cinder_giant_deals_2_damage_to_each_other_creature_you_control_on_upkeep() {
-    let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, mountain())
-        .battlefield(
-            0,
-            &[
-                GRIZZLY_BEARS,
-                HILL_GIANT,
-                mountain(),
-                mountain(),
-                mountain(),
-                mountain(),
-            ],
-        )
-        .hand(0, &[CINDER_GIANT])
-        .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
+fn cinder_giant_hurts_each_other_creature_you_control_at_your_upkeep_only() {
+    let mut e = lk::game(
+        SEED,
+        &[grizzly_bears(), hill_giant()],
+        &[savannah_lions()],
+        &[cinder_giant()],
+        &[],
+    );
+    lk::float(
+        &mut e,
+        P0,
+        &[(ManaColor::Red, 1), (ManaColor::Colorless, 3)],
+    );
+    cast_with_floating(&mut e, P0, cinder_giant());
+    pass_until(&mut e, stack_is_empty);
+    let giant = lk::obj(&e, P0, cinder_giant());
+    let hill = lk::obj(&e, P0, hill_giant());
+    let lions = lk::obj(&e, P1, savannah_lions());
 
-    cast_from_hand(&mut engine, p0, CINDER_GIANT);
-    pass_until(&mut engine, stack_is_empty);
+    // P1's upkeep comes first, and it is not "your upkeep".
+    reach_their_main_phase(&mut e, P1);
+    assert!(in_graveyard(&e, P0, grizzly_bears()).is_none());
+    assert_eq!(
+        lk::damage_on(&e, hill),
+        0,
+        "nothing at the opponent's upkeep"
+    );
 
-    let cinder = on_battlefield(&engine, p0, CINDER_GIANT).unwrap();
-    let hill_giant = on_battlefield(&engine, p0, HILL_GIANT).unwrap();
-
-    pass_until(&mut engine, |e| {
-        e.state().turn.number == 3
-            && e.state().turn.active == p0
-            && e.state().turn.phase == Phase::FirstMain
+    // P0's turn-3 upkeep.
+    pass_until(&mut e, |e| {
+        e.state().turn.number == 3 && e.state().turn.phase == Phase::FirstMain
     });
-
-    assert!(in_graveyard(&engine, p0, GRIZZLY_BEARS).is_some());
-    assert_eq!(engine.state().object(hill_giant).unwrap().damage, 2);
-    assert_eq!(engine.state().object(cinder).unwrap().damage, 0);
+    assert!(
+        in_graveyard(&e, P0, grizzly_bears()).is_some(),
+        "two damage kills the Bears"
+    );
+    assert_eq!(lk::damage_on(&e, hill), 2, "and marks the Hill Giant");
+    assert_eq!(lk::damage_on(&e, giant), 0, "the Giant says \"other\"");
+    assert_eq!(
+        lk::damage_on(&e, lions),
+        0,
+        "the opponent's Lions are not creatures you control"
+    );
+    assert!(on_battlefield(&e, P1, savannah_lions()).is_some());
 }

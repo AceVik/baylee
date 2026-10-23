@@ -1,3 +1,5 @@
+//! `cards/creatures/mv_6/bloodshot_cyclops.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -10,13 +12,20 @@ fn bloodshot_cyclops_sacrifices_creature_to_deal_its_power_to_any_target() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[bloodshot_cyclops(), earth_elemental()])
+        .battlefield(0, &[bloodshot_cyclops(), earth_elemental(), sol_ring()])
+        .battlefield(1, &[llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let elem = on_battlefield(&engine, p0, earth_elemental()).unwrap();
     activate(&mut engine, p0, bloodshot_cyclops(), 0);
+    if let Pending::ChooseCards { options, .. } = engine.pending() {
+        let nonmatching = on_battlefield(&engine, p0, sol_ring()).unwrap();
+        let opponent = on_battlefield(&engine, PlayerId::new(1), llanowar_elves()).unwrap();
+        assert!(!options.contains(&nonmatching));
+        assert!(!options.contains(&opponent));
+    }
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
         engine
             .apply(
@@ -37,6 +46,12 @@ fn bloodshot_cyclops_sacrifices_creature_to_deal_its_power_to_any_target() {
                 },
             )
             .unwrap();
+    }
+    if let Pending::ChooseCards { options, .. } = engine.pending() {
+        let nonmatching = on_battlefield(&engine, p0, sol_ring()).unwrap();
+        let opponent = on_battlefield(&engine, PlayerId::new(1), llanowar_elves()).unwrap();
+        assert!(!options.contains(&nonmatching));
+        assert!(!options.contains(&opponent));
     }
     if matches!(engine.pending(), Pending::ChooseCards { .. }) {
         engine

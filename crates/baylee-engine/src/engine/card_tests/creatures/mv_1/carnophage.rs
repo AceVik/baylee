@@ -14,18 +14,22 @@ fn carnophage() -> CardIndex {
 /// "At the beginning of your upkeep, tap this creature unless you pay 1 life."
 #[test]
 fn carnophage_upkeep_pays_one_life_or_taps_itself() {
-    let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[carnophage()])
-        .start();
-    keep_mulligans(&mut engine);
+    for pay in [false, true] {
+        let mut engine = Duel::new(SEED, swamp())
+            .battlefield(0, &[carnophage()])
+            .start();
+        keep_mulligans(&mut engine);
 
-    let c = on_battlefield(&engine, P0, carnophage()).unwrap();
-    kit::drive(
-        &mut engine,
-        |e| matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == P0,
-        |_, p| matches!(p, Pending::YesNo { .. }).then_some(PlayerAction::YesNo(false)),
-    );
+        let c = on_battlefield(&engine, P0, carnophage()).unwrap();
+        kit::drive(
+            &mut engine,
+            |e| matches!(e.state().turn.phase, Phase::FirstMain) && e.state().turn.active == P0,
+            |_, p| matches!(p, Pending::YesNo { .. }).then_some(PlayerAction::YesNo(pay)),
+        );
 
-    assert!(entered_tapped(&engine, c));
-    assert_eq!(engine.state().players[0].life, 20);
+        assert_eq!(entered_tapped(&engine, c), !pay);
+        assert_eq!(engine.state().players[0].life, if pay { 19 } else { 20 });
+        reach_their_main_phase(&mut engine, PlayerId::new(1));
+        assert_eq!(engine.state().players[0].life, if pay { 19 } else { 20 });
+    }
 }

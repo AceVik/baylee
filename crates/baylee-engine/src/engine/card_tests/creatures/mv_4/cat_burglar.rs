@@ -33,3 +33,29 @@ fn cat_burglar_causes_target_player_to_discard_at_sorcery_speed() {
 
     assert!(in_graveyard(&engine, P1, index::GRIZZLY_BEARS).is_some());
 }
+
+#[test]
+fn cat_burglar_cannot_activate_with_a_spell_on_stack_or_during_opponents_turn() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let mut e = lk::game(
+        SEED,
+        &[cat_burglar()],
+        &[],
+        &[lightning_bolt()],
+        &[forest()],
+    );
+    let burglar = lk::obj(&e, P0, cat_burglar());
+    lk::float(&mut e, P0, &[(ManaColor::Black, 10), (ManaColor::Red, 1)]);
+    assert!(kit::offered(&e, burglar).contains(&0));
+    cast_with_floating(&mut e, P0, lightning_bolt());
+    lk::aim(&mut e, &[], &[P1]);
+    assert!(kit::offered(&e, burglar).is_empty());
+    lk::settle(&mut e);
+    reach_their_main_phase(&mut e, P1);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
+    );
+    lk::float(&mut e, P0, &[(ManaColor::Black, 10)]);
+    assert!(kit::offered(&e, burglar).is_empty());
+}

@@ -45,3 +45,26 @@ fn thalakos_scout_discards_a_card_to_return_itself_to_hand() {
     assert!(in_hand(&engine, p0, thalakos_scout()).is_some());
     assert!(in_graveyard(&engine, p0, island()).is_some());
 }
+
+#[test]
+fn shadow_limits_both_blocking_and_being_blocked() {
+    use crate::engine::card_tests::legends_kit as lk;
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let subject = card_index("c8877da5-7008-4b47-955e-d205220c91e6");
+    let mut e = lk::game(
+        SEED,
+        &[subject, gray_ogre()],
+        &[subject, grizzly_bears()],
+        &[],
+        &[],
+    );
+    let shadow = lk::obj(&e, p0, subject);
+    let normal = lk::obj(&e, p0, gray_ogre());
+    let enemy_shadow = lk::obj(&e, p1, subject);
+    let enemy_normal = lk::obj(&e, p1, grizzly_bears());
+    let offer = lk::attack(&mut e, &[shadow, normal]);
+    assert!(lk::may_block(&offer, enemy_shadow, shadow));
+    assert!(lk::may_block(&offer, enemy_normal, normal));
+    assert!(!lk::may_block(&offer, enemy_normal, shadow));
+    assert!(!lk::may_block(&offer, enemy_shadow, normal));
+}

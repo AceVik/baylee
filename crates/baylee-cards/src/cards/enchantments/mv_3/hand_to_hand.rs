@@ -1,7 +1,7 @@
 //! Hand to Hand — {2}{R} — Enchantment
 //! Oracle: During combat, players can't cast instant spells or activate abilities that aren't mana abilities.
 //! Set: TMP #180 — Tempest | Scryfall ID: af4cb86a-db01-4d9a-99e9-bb50ce23507f | Oracle ID: bf45f579-539c-4ffe-89df-4896a394158f
-// PARTIAL
+// PARTIAL — Prevents all players from casting instant spells during combat; preventing players from activating non-mana abilities during combat while still allowing mana abilities is not yet modeled.
 
 use baylee_cards_dsl::prelude::*;
 

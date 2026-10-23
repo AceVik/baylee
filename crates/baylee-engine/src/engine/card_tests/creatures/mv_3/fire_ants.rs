@@ -10,8 +10,8 @@ fn fire_ants_damages_each_other_creature_without_flying() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[fire_ants()])
-        .battlefield(1, &[llanowar_elves()])
+        .battlefield(0, &[fire_ants(), llanowar_elves()])
+        .battlefield(1, &[llanowar_elves(), ornithopter()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -22,4 +22,7 @@ fn fire_ants_damages_each_other_creature_without_flying() {
 
     assert!(on_battlefield(&engine, p1, llanowar_elves()).is_none());
     assert_eq!(engine.state().object(ants).unwrap().damage, 0);
+    assert!(on_battlefield(&engine, p0, llanowar_elves()).is_none());
+    let flyer = on_battlefield(&engine, p1, ornithopter()).unwrap();
+    assert_eq!(engine.state().object(flyer).unwrap().damage, 0);
 }

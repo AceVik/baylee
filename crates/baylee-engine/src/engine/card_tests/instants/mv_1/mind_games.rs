@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -27,6 +28,40 @@ fn mind_games_taps_target_artifact_creature_or_land() {
     cast_from_hand(&mut engine, P0, mind_games());
     aim_at(&mut engine, P0, bear);
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, mind_games()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     assert!(is_tapped(&engine, bear));
+}
+
+#[test]
+fn artifacts_and_lands_are_legal_but_enchantments_are_not() {
+    let mut e = lk::game(
+        SEED,
+        &[],
+        &[index::SOL_RING, forest(), index::MEGRIM],
+        &[mind_games(), mind_games()],
+        &[],
+    );
+    lk::float(&mut e, P0, &[(ManaColor::Blue, 2)]);
+    let enchantment = lk::obj(&e, P1, index::MEGRIM);
+    for target_card in [index::SOL_RING, forest()] {
+        let target = lk::obj(&e, P1, target_card);
+        cast_with_floating(&mut e, P0, mind_games());
+        assert!(
+            e.apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![enchantment],
+                    players: vec![]
+                }
+            )
+            .is_err()
+        );
+        lk::aim(&mut e, &[target], &[]);
+        lk::settle(&mut e);
+        assert!(lk::tapped(&e, target));
+    }
 }

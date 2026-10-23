@@ -1,7 +1,7 @@
-//! `cards/creatures/mv_3/mogg_assassin.rs`, played.
-
+//! The supported creature body is played; unsupported abilities are omitted.
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use crate::engine::card_tests::partials_w1b_kit as kit;
 
 fn mogg_assassin() -> CardIndex {
@@ -9,21 +9,33 @@ fn mogg_assassin() -> CardIndex {
 }
 
 #[test]
-fn mogg_assassin_taps_and_flips_coin_against_target_opponent_creature() {
+fn mogg_assassin_keeps_its_body_without_an_inaccurate_ability() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(1, forest())
+    let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[mogg_assassin()])
-        .battlefield(1, &[gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
-    assert!(walk_to_own_main(&mut engine, p0));
-
-    let assassin = on_battlefield(&engine, p0, mogg_assassin()).unwrap();
-    let bears = on_battlefield(&engine, p1, gray_ogre()).unwrap();
-    kit::activate_object(&mut engine, p0, assassin, 0);
-    kit::settle(&mut engine, p0, |_, p| {
-        kit::choose_targets(p, &[bears], &[])
+    reach_main_phase(&mut engine, p0);
+    let body = on_battlefield(&engine, p0, mogg_assassin()).unwrap();
+    lk::float(
+        &mut engine,
+        p0,
+        &[
+            (ManaColor::Black, 10),
+            (ManaColor::Blue, 10),
+            (ManaColor::Green, 10),
+            (ManaColor::White, 10),
+            (ManaColor::Red, 10),
+        ],
+    );
+    assert!(
+        kit::offered(&engine, body).is_empty(),
+        "unsupported activations are unavailable"
+    );
+    kit::declare_attack(&mut engine, &[body], p1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
-
-    assert!(is_tapped(&engine, assassin));
+    assert_eq!(engine.state().players[1].life, 20 - 2);
+    assert!(on_battlefield(&engine, p0, mogg_assassin()).is_some());
 }

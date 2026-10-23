@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -15,7 +16,7 @@ fn change_of_heart() -> CardIndex {
 #[test]
 fn change_of_heart_prevents_target_creature_from_attacking() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[plains(), index::GRIZZLY_BEARS])
+        .battlefield(0, &[plains(), index::GRIZZLY_BEARS, index::SAVANNAH_LIONS])
         .hand(0, &[change_of_heart()])
         .start();
     keep_mulligans(&mut engine);
@@ -25,6 +26,10 @@ fn change_of_heart_prevents_target_creature_from_attacking() {
     cast_from_hand(&mut engine, P0, change_of_heart());
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, P0, change_of_heart()).is_some(),
+        "base spell does not get free buyback"
+    );
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
@@ -33,4 +38,12 @@ fn change_of_heart_prevents_target_creature_from_attacking() {
         panic!("expected ChooseAttackers");
     };
     assert!(!attackers.contains(&bears));
+    let lions = on_battlefield(&engine, P0, index::SAVANNAH_LIONS).unwrap();
+    assert!(attackers.contains(&lions));
+    engine
+        .apply(P0, PlayerAction::DeclareAttackers { attackers: vec![] })
+        .unwrap();
+    reach_their_main_phase(&mut engine, lk::P1);
+    reach_their_main_phase(&mut engine, P0);
+    assert!(lk::attackers_offered(&mut engine).contains(&bears));
 }

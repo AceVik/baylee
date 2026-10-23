@@ -36,6 +36,17 @@ fn avalanche_riders_destroys_target_land_on_etb_and_has_haste_and_echo() {
     assert!(on_battlefield(&engine, p1, island()).is_none());
     assert!(in_graveyard(&engine, p1, island()).is_some());
 
+    let riders = on_battlefield(&engine, p0, avalanche_riders()).unwrap();
+    let _ = attack_and_collect_blocks(&mut engine, riders, p1);
+    engine
+        .apply(p1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[1].life,
+        18,
+        "haste permits attacking the turn it entered"
+    );
     reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
     assert!(on_battlefield(&engine, p0, avalanche_riders()).is_none());

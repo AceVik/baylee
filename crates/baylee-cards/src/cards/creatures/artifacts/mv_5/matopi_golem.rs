@@ -1,18 +1,17 @@
 //! Matopi Golem — {5} — Artifact Creature — Golem
 //! Oracle: {1}: Regenerate this creature. When it regenerates this way, put a -1/-1 counter on it.
 //! Set: VIS #150 — Visions | Scryfall ID: 92378d6f-89ee-49dc-8964-0e9c55daeffc | Oracle ID: 0308b9f2-11da-41d0-8d18-18e8c0c600ab
-// PARTIAL: {1} regenerates Matopi Golem; putting a -1/-1 counter on it when it regenerates this way is not yet supported.
+// PARTIAL: a 3/3 body only; the {1} regeneration is left out, because it cannot be given its "when it regenerates this way, put a -1/-1 counter on it" cost, and regeneration without that counter would be stronger than printed.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: When it regenerates this way, put a -1/-1 counter on it.
 card!(
     index = index::MATOPI_GOLEM,
     oracle_id = "0308b9f2-11da-41d0-8d18-18e8c0c600ab",
     scryfall_id = "92378d6f-89ee-49dc-8964-0e9c55daeffc",
     coverage = Coverage::Partial(
-        "{1} regenerates Matopi Golem; putting a -1/-1 counter on it when it regenerates this way is not yet supported"
+        "a 3/3 body only; the {1} regeneration is left out, because it cannot be given its \"when it regenerates this way, put a -1/-1 counter on it\" cost, and regeneration without that counter would be stronger than printed"
     ),
     faces = &[face!(
         name = "Matopi Golem",
@@ -22,8 +21,7 @@ card!(
         power = Some(3),
         toughness = Some(3),
     ),],
-    abilities = &[activated!(
-        cost!("{1}"),
-        &[Effect::regenerate(TargetSpec::ThisObject)],
-    )],
+    // NOT SUPPORTED: "{1}: Regenerate this creature. When it regenerates this way, put a -1/-1
+    // counter on it." A regeneration shield carries no rider that fires when it is used, so the
+    // counter cannot follow the regeneration; the old ability regenerated for {1} for ever.
 );

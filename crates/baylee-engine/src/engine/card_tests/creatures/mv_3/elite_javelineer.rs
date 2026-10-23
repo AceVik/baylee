@@ -16,7 +16,10 @@ fn elite_javelineer() -> CardIndex {
 #[test]
 fn elite_javelineer_deals_one_damage_to_target_attacker_when_blocking() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::GRIZZLY_BEARS, llanowar_elves()])
+        .battlefield(
+            0,
+            &[index::GRIZZLY_BEARS, llanowar_elves(), index::HILL_GIANT],
+        )
         .battlefield(1, &[elite_javelineer()])
         .start();
     keep_mulligans(&mut engine);
@@ -53,7 +56,11 @@ fn elite_javelineer_deals_one_damage_to_target_attacker_when_blocking() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });
-    aim_at(&mut engine, P1, elves);
+    let idle = on_battlefield(&engine, P0, index::HILL_GIANT).unwrap();
+    let menu = aim_at(&mut engine, P1, elves);
+    assert!(!menu.contains(&idle));
+    assert!(!menu.contains(&javelineer));
+    assert!(menu.contains(&bears));
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, P0, llanowar_elves()).is_none());

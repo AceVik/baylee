@@ -24,9 +24,18 @@ fn allay_destroys_target_enchantment() {
 
     let ench = on_battlefield(&engine, P1, index::CRUSADE).unwrap();
     cast_from_hand(&mut engine, P0, allay());
+    let land = on_battlefield(&engine, P0, plains()).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("targets")
+    };
+    assert!(!options.contains(&land));
     aim_at(&mut engine, P0, ench);
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, P1, index::CRUSADE).is_none());
     assert!(in_graveyard(&engine, P1, index::CRUSADE).is_some());
+    assert!(
+        in_graveyard(&engine, P0, allay()).is_some(),
+        "without buyback it goes to the graveyard"
+    );
 }

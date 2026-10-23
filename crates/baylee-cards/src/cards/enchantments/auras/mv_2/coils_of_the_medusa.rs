@@ -3,16 +3,10 @@
 //! Oracle: Enchanted creature gets +1/-1.
 //! Oracle: Sacrifice this Aura: Destroy all non-Wall creatures blocking enchanted creature.
 //! Set: WTH #65 — Weatherlight | Scryfall ID: 502bfb38-4a37-4053-af20-d5606ffc67c8 | Oracle ID: 02a8a4e6-2081-4903-81ad-96e5a949dff8
-// NOT SUPPORTED: narrowing the destroyed blockers specifically to creatures blocking enchanted creature requires a BlockingAttached filter variant.
+// PARTIAL — enchants a creature and gives it +1/-1; the sacrifice ability is not implemented, because nothing can name "the creature the sacrificed Aura was attached to" to find the creatures blocking it.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
-
-static NON_WALL_BLOCKING_CREATURE: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Blocking,
-    Filter::Not(&Filter::HasSubtype(subtypes::creature::WALL)),
-]);
 
 card!(
     index = index::COILS_OF_THE_MEDUSA,
@@ -20,7 +14,7 @@ card!(
     scryfall_id = "502bfb38-4a37-4053-af20-d5606ffc67c8",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "enchants a creature, gives enchanted creature +1/-1, and has 'Sacrifice this Aura: Destroy all non-Wall blocking creatures'; narrowing the destroyed blockers specifically to creatures blocking enchanted creature requires a BlockingAttached filter variant",
+        "enchants a creature and gives it +1/-1; \"Sacrifice this Aura: Destroy all non-Wall creatures blocking enchanted creature\" is not implemented, because no filter or target can name the creature the sacrificed Aura was attached to (it would destroy every non-Wall blocker, not only those blocking enchanted creature)",
     ),
     faces = &[face!(
         name = "Coils of the Medusa",
@@ -39,9 +33,10 @@ card!(
             Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]),
             Modifier::ModifyPT(1, -1)
         ),
-        activated!(
-            cost!(SacrificeSelf),
-            &[Effect::destroy_all(&NON_WALL_BLOCKING_CREATURE)],
-        ),
+        // NOT SUPPORTED: "Sacrifice this Aura: Destroy all non-Wall creatures
+        // blocking enchanted creature." Only "all non-Wall creatures that
+        // block" can be said, which also kills the blockers of the
+        // controller's other attackers; a filter or target for the creature
+        // the sacrificed Aura was attached to (CR 608.2h) is missing.
     ],
 );

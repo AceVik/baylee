@@ -13,6 +13,8 @@ fn rootwater_mystic_looks_at_top_card_of_target_players_library() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    let before = engine.state().zones.list(ZoneLocation::Library(p1)).clone();
+    let top = *before.last().unwrap();
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, rootwater_mystic(), 0);
     engine
@@ -27,10 +29,25 @@ fn rootwater_mystic_looks_at_top_card_of_target_players_library() {
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
+    let Pending::ChooseCards {
+        player, options, ..
+    } = engine.pending()
+    else {
+        panic!("look prompt")
+    };
+    assert_eq!(*player, p0, "the ability controller looks");
+    assert_eq!(
+        options.as_slice(),
+        &[top],
+        "only the target players top card is shown"
+    );
     engine
         .apply(p0, PlayerAction::ChooseObjects { objects: vec![] })
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p0, rootwater_mystic()).is_some());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Library(p1)),
+        &before
+    );
 }

@@ -9,7 +9,7 @@ fn shattering_pulse_destroys_target_artifact() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), mountain()])
-        .battlefield(1, &[sol_ring()])
+        .battlefield(1, &[sol_ring(), gray_ogre()])
         .hand(0, &[shattering_pulse()])
         .start();
     keep_mulligans(&mut engine);
@@ -18,6 +18,11 @@ fn shattering_pulse_destroys_target_artifact() {
     let ring = on_battlefield(&engine, p1, sol_ring()).unwrap();
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, shattering_pulse());
+    let creature = on_battlefield(&engine, p1, gray_ogre()).unwrap();
+    let Pending::ChooseTargets { options, .. } = engine.pending() else {
+        panic!("targets")
+    };
+    assert!(!options.contains(&creature));
     engine
         .apply(
             p0,
@@ -31,4 +36,5 @@ fn shattering_pulse_destroys_target_artifact() {
 
     assert!(on_battlefield(&engine, p1, sol_ring()).is_none());
     assert!(in_graveyard(&engine, p1, sol_ring()).is_some());
+    assert!(in_graveyard(&engine, p0, shattering_pulse()).is_some());
 }

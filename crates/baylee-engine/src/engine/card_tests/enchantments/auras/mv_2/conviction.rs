@@ -15,7 +15,16 @@ fn conviction() -> CardIndex {
 #[test]
 fn conviction_buffs_enchanted_creature_and_returns_to_hand() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[plains(), plains(), plains(), index::GRIZZLY_BEARS])
+        .battlefield(
+            0,
+            &[
+                plains(),
+                plains(),
+                plains(),
+                index::GRIZZLY_BEARS,
+                index::SAVANNAH_LIONS,
+            ],
+        )
         .hand(0, &[conviction()])
         .start();
     keep_mulligans(&mut engine);
@@ -27,6 +36,8 @@ fn conviction_buffs_enchanted_creature_and_returns_to_hand() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bears), (3, 5));
+    let lions = on_battlefield(&engine, P0, index::SAVANNAH_LIONS).unwrap();
+    assert_eq!(pt(&engine, lions), (2, 1));
 
     activate(&mut engine, P0, conviction(), 2);
     pass_until(&mut engine, stack_is_empty);

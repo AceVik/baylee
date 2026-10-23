@@ -31,3 +31,16 @@ fn fiery_mantle_pumps_enchanted_creature_and_returns_to_hand_on_death() {
     kill(&mut engine, aura);
     assert!(in_hand(&engine, p0, fiery_mantle()).is_some());
 }
+
+#[test]
+fn fiery_mantle_does_not_return_when_discarded_from_hand() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest()).hand(0, &[fiery_mantle()]).start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    hand_to_graveyard(&mut engine, p0, fiery_mantle());
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, fiery_mantle()).is_some());
+    assert!(in_hand(&engine, p0, fiery_mantle()).is_none());
+}

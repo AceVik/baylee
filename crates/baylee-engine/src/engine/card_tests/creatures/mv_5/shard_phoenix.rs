@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
@@ -37,6 +38,32 @@ fn shard_phoenix_sacrifices_to_damage_nonfliers_and_returns_during_upkeep() {
         on_battlefield(&engine, PlayerId::new(1), index::GRIZZLY_BEARS).is_none(),
         "Grizzly Bears without flying should be destroyed by 2 damage"
     );
+    let phoenix = in_graveyard(&engine, P0, shard_phoenix()).unwrap();
+    lk::float(&mut engine, P0, &[(ManaColor::Red, 3)]);
+    assert!(
+        !lk::offered(&engine, shard_phoenix(), P0, 1),
+        "main phase is not upkeep"
+    );
+    reach_their_main_phase(&mut engine, lk::P1);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == P0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    lk::float(&mut engine, P0, &[(ManaColor::Red, 3)]);
+    assert!(lk::offered(&engine, shard_phoenix(), P0, 1));
+    engine
+        .apply(
+            P0,
+            PlayerAction::ActivateAbility {
+                source: phoenix,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    lk::settle(&mut engine);
+    assert!(in_hand(&engine, P0, shard_phoenix()).is_some());
+    assert_eq!(lk::pool_total(&engine, P0), 0);
     let air = on_battlefield(&engine, P0, index::AIR_ELEMENTAL).unwrap();
     assert_eq!(
         engine.state().object(air).unwrap().damage,

@@ -1,3 +1,5 @@
+//! `cards/enchantments/auras/mv_2/festering_wound.rs`, played.
+
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -22,10 +24,33 @@ fn festering_wound_accumulates_infection_counters_and_causes_life_loss() {
     aim_at(&mut engine, p0, ogre);
     pass_until(&mut engine, stack_is_empty);
 
-    // Advance to p1's main phase, then p0's main phase (puts 1 infection counter on Festering Wound), then p1's main phase (p1 loses 1 life).
+    // The first opponent upkeep has zero infection counters.
     reach_their_main_phase(&mut engine, p1);
-    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(engine.state().players[1].life, 20);
+    // The Aura controller may decline to grow the wound.
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
     reach_their_main_phase(&mut engine, p1);
-
-    assert_eq!(engine.state().players[1].life, 19);
+    assert_eq!(engine.state().players[1].life, 20);
+    for expected in [19, 17] {
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::YesNo { .. })
+        });
+        let Pending::YesNo { player, .. } = engine.pending().clone() else {
+            unreachable!()
+        };
+        assert_eq!(player, p0);
+        engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+        pass_until(&mut engine, stack_is_empty);
+        assert_eq!(
+            engine.state().players[0].life,
+            20,
+            "Aura controller's upkeep is not the damage trigger"
+        );
+        reach_their_main_phase(&mut engine, p1);
+        assert_eq!(engine.state().players[1].life, expected);
+    }
 }

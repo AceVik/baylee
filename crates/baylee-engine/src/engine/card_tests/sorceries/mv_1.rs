@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod aether_tide;
 mod blaze;
 mod bloodcurdling_scream;
 mod bubbling_muck;
@@ -46,7 +45,6 @@ mod recall;
 mod reconstruction;
 mod return_to_battle;
 mod rite_of_flame;
-mod scorched_earth;
 mod scorching_spear;
 mod seething_anger;
 mod serum_visions;

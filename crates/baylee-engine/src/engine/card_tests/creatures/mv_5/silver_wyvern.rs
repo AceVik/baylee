@@ -68,3 +68,31 @@ fn silver_wyvern_redirects_single_target_spell_to_another_creature() {
         "Silver Wyvern survived"
     );
 }
+
+#[test]
+fn cannot_redirect_a_spell_targeting_an_unrelated_creature() {
+    let mut e = lk::game(
+        SEED,
+        &[index::GRIZZLY_BEARS],
+        &[silver_wyvern()],
+        &[index::TERROR],
+        &[],
+    );
+    let bear = lk::obj(&e, P0, index::GRIZZLY_BEARS);
+    let wyvern = lk::obj(&e, P1, silver_wyvern());
+    lk::float(&mut e, P0, &[(ManaColor::Black, 2)]);
+    cast_with_floating(&mut e, P0, index::TERROR);
+    lk::aim(&mut e, &[bear], &[]);
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P1),
+    );
+    lk::float(&mut e, P1, &[(ManaColor::Blue, 1)]);
+    let Pending::Priority { legal, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert!(!legal.abilities.contains(&(wyvern, 0)));
+    lk::settle(&mut e);
+    assert!(in_graveyard(&e, P0, index::GRIZZLY_BEARS).is_some());
+    assert!(on_battlefield(&e, P1, silver_wyvern()).is_some());
+}

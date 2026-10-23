@@ -9,6 +9,7 @@ fn skyshaper_sacrifices_to_grant_creatures_you_control_flying_until_eot() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[skyshaper(), gray_ogre()])
+        .battlefield(1, &[gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
@@ -22,4 +23,8 @@ fn skyshaper_sacrifices_to_grant_creatures_you_control_flying_until_eot() {
     assert!(on_battlefield(&engine, p0, skyshaper()).is_none());
     assert!(in_graveyard(&engine, p0, skyshaper()).is_some());
     assert!(keywords(&engine, ogre).contains(KeywordSet::FLYING));
+    let enemy = on_battlefield(&engine, PlayerId::new(1), gray_ogre()).unwrap();
+    assert!(!keywords(&engine, enemy).contains(KeywordSet::FLYING));
+    reach_their_main_phase(&mut engine, PlayerId::new(1));
+    assert!(!keywords(&engine, ogre).contains(KeywordSet::FLYING));
 }

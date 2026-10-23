@@ -1,66 +1,37 @@
-//! `cards/creatures/mv_4/rootwater_matriarch.rs`, played.
+//! The remaining Partial body is cast; unsupported approximations are absent.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index::{GRIZZLY_BEARS, HILL_GIANT, HOLY_STRENGTH};
+use crate::engine::card_tests::legends_kit as lk;
 
-fn rootwater_matriarch() -> CardIndex {
-    card_index("1d260526-db57-486d-b0bc-d523139a0148")
-}
-
-/// `Rootwater Matriarch` ({2}{U}{U}, 2/3 Creature — Merfolk, `Coverage::Partial`):
-/// `{T}: Gain control of target enchanted creature for as long as it remains enchanted.`
 #[test]
-fn rootwater_matriarch_gains_control_of_target_enchanted_creature() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[plains(), rootwater_matriarch()])
-        .battlefield(1, &[GRIZZLY_BEARS, HILL_GIANT])
-        .hand(0, &[HOLY_STRENGTH])
+fn unsupported_approximation_is_not_an_ability() {
+    let card = card_index("1d260526-db57-486d-b0bc-d523139a0148");
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[baylee_core::generated::index::GRIZZLY_BEARS])
+        .hand(0, &[card, baylee_core::generated::index::HOLY_STRENGTH])
         .start();
-    keep_mulligans(&mut engine);
-    reach_main_phase(&mut engine, p0);
-
-    let bears = on_battlefield(&engine, p1, GRIZZLY_BEARS).unwrap();
-    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
-
-    // Enchant Grizzly Bears with Holy Strength.
-    cast_from_hand(&mut engine, p0, HOLY_STRENGTH);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    activate(&mut engine, p0, rootwater_matriarch(), 0);
-    // Unenchanted Hill Giant cannot be targeted.
-    assert!(
-        engine
-            .apply(
-                p0,
-                PlayerAction::ChooseTargets {
-                    objects: vec![giant],
-                    players: vec![],
-                },
-            )
-            .is_err()
-    );
-
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().object(bears).unwrap().controller, p0);
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    cast_with_floating(&mut e, p0, card);
+    pass_until(&mut e, stack_is_empty);
+    let creature = on_battlefield(&e, p0, card).expect("the remaining body is cast");
+    let bears = on_battlefield(
+        &e,
+        PlayerId::new(1),
+        baylee_core::generated::index::GRIZZLY_BEARS,
+    )
+    .unwrap();
+    cast_with_floating(&mut e, p0, baylee_core::generated::index::HOLY_STRENGTH);
+    lk::aim(&mut e, &[bears], &[]);
+    lk::settle(&mut e);
+    reach_their_main_phase(&mut e, PlayerId::new(1));
+    reach_their_main_phase(&mut e, p0);
+    lk::float(&mut e, p0, &ManaColor::ALL.map(|color| (color, 10)));
+    let Pending::Priority { legal, .. } = e.pending() else {
+        panic!("priority after resolving the creature");
+    };
+    assert!(legal.abilities.iter().all(|(id, _)| *id != creature));
 }

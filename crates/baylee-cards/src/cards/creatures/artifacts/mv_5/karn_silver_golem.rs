@@ -7,8 +7,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-const NONCREATURE_ARTIFACT: Filter = Filter::And(&[Filter::ARTIFACT, Filter::NONCREATURE]);
-
 card!(
     index = index::KARN_SILVER_GOLEM,
     oracle_id = "8a7c6391-020a-4d7a-8abb-702631bbee56",
@@ -35,20 +33,14 @@ card!(
         ),
         activated!(
             cost!("{1}"),
-            &[
-                Effect::continuous(
-                    &Filter::This,
-                    Modifier::AddType(TypeSet::CREATURE),
-                    Duration::UntilEndOfTurn,
-                ),
-                Effect::SetPTFilter {
-                    filter: &Filter::This,
-                    power: Amount::TargetCmc,
-                    toughness: Amount::TargetCmc,
-                    duration: Duration::UntilEndOfTurn,
-                },
-            ],
-            target = Some(TargetSpec::Object(&NONCREATURE_ARTIFACT)),
+            &[Effect::ModifyTargets {
+                modifier: Modifier::AnimateNoncreatureArtifact,
+                duration: Duration::UntilEndOfTurn,
+            }],
+            target = Some(TargetSpec::Object(&Filter::And(&[
+                Filter::ARTIFACT,
+                Filter::NONCREATURE,
+            ]))),
         ),
     ],
 );
