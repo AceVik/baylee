@@ -54,7 +54,7 @@ fn chimeric_staff_becomes_x_x_construct_artifact_creature_until_end_of_turn() {
             .unwrap()
             .characteristics()
             .subtypes
-            .contains(&baylee_core::generated::subtypes::creature::CONSTRUCT)
+            .contains(baylee_core::generated::subtypes::creature::CONSTRUCT)
     );
     assert!(
         engine

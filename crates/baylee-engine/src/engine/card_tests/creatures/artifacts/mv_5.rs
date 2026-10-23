@@ -59,7 +59,6 @@ fn is_artifact_creature(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
 }
 mod adarkar_sentinel;
 mod anodet_lurker;
-mod basalt_golem;
 mod bastion_mastodon;
 mod boulderborn_dragon;
 mod clockwork_avian;
@@ -90,7 +89,6 @@ mod prizefighter_construct;
 mod razormane_masticore;
 mod rith_s_attendant;
 mod saberclaw_golem;
-mod sand_golem;
 mod scarecrow;
 mod slash_panther;
 mod snow_fortress;

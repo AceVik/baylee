@@ -89,7 +89,8 @@ fn dauthi_mindripper_may_decline_and_does_not_trigger_when_blocked() {
         let ripper = lk::obj(&e, P0, dauthi_mindripper());
         let blocker = lk::obj(&e, P1, index::DAUTHI_GHOUL);
         lk::attack(&mut e, &[ripper]);
-        lk::block(&mut e, if blocked { &[(blocker, ripper)] } else { &[] });
+        let blocking_pair = [(blocker, ripper)];
+        lk::block(&mut e, if blocked { &blocking_pair } else { &[] });
         if !blocked {
             pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
             e.apply(P0, PlayerAction::YesNo(false)).unwrap();

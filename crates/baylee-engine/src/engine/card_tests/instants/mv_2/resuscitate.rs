@@ -22,14 +22,20 @@ fn resuscitate_grants_paid_regeneration_only_to_your_current_creatures_until_cle
     lk::float(&mut e, p0, &[(ManaColor::Green, 20), (ManaColor::Red, 20)]);
     assert!(kit::offered(&e, bear).is_empty());
     lk::cast_at(&mut e, p0, resuscitate(), &[], &[]);
-    assert_eq!(kit::offered(&e, bear), vec![0]);
-    assert_eq!(kit::offered(&e, ogre), vec![0]);
+    let bear_abilities = kit::offered(&e, bear);
+    assert_eq!(bear_abilities.len(), 1, "one granted regeneration ability");
+    let bear_regeneration = bear_abilities[0];
+    assert_eq!(
+        kit::offered(&e, ogre).len(),
+        1,
+        "the other existing ally also receives the grant"
+    );
     // A later entrant is outside the spell's original cohort.
     lk::cast_at(&mut e, p0, index::HILL_GIANT, &[], &[]);
     let newcomer = lk::obj(&e, p0, index::HILL_GIANT);
     assert!(kit::offered(&e, newcomer).is_empty());
     let before = lk::pool_total(&e, p0);
-    kit::activate_object(&mut e, p0, bear, 0);
+    kit::activate_object(&mut e, p0, bear, bear_regeneration);
     lk::settle(&mut e);
     assert_eq!(lk::pool_total(&e, p0), before - 1);
     lk::cast_at(&mut e, p0, lightning_bolt(), &[bear], &[]);

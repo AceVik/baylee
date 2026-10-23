@@ -9,14 +9,25 @@ fn gaea_s_bounty() -> CardIndex {
 fn gaea_s_bounty_searches_library_for_up_to_two_forests_to_hand() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[gaea_s_bounty(), island(), grizzly_bears()])
+        .hand(
+            0,
+            &[
+                gaea_s_bounty(),
+                island(),
+                baylee_core::generated::index::GRIZZLY_BEARS,
+            ],
+        )
         .battlefield(0, &[forest(), forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     hand_to_library_top(&mut engine, p0, island());
-    hand_to_library_top(&mut engine, p0, grizzly_bears());
+    hand_to_library_top(
+        &mut engine,
+        p0,
+        baylee_core::generated::index::GRIZZLY_BEARS,
+    );
     let hand_before = engine
         .state()
         .zones
@@ -34,7 +45,7 @@ fn gaea_s_bounty_searches_library_for_up_to_two_forests_to_hand() {
                 .unwrap()
                 .characteristics()
                 .subtypes
-                .contains(&baylee_core::generated::subtypes::land::FOREST)
+                .contains(baylee_core::generated::subtypes::land::FOREST)
         }));
         let picks = options.into_iter().take(usize::from(max)).collect();
         engine

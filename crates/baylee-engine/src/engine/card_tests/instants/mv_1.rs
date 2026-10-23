@@ -120,7 +120,6 @@ mod rock_slide;
 mod rust;
 mod sacrifice;
 mod sandstorm;
-mod sapphire_charm;
 mod scapegoat;
 mod scare_tactics;
 mod sea_kings_blessing;

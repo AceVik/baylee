@@ -8,9 +8,6 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static TAPPED_OPPONENT_LAND: Filter =
-    Filter::And(&[Filter::LAND, Filter::Tapped, Filter::ControlledByOpponent]);
-
 card!(
     index = index::PALLIMUD,
     oracle_id = "cad0f865-62e0-47ba-84ae-8e97cb52bbd1",

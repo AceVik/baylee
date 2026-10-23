@@ -188,3 +188,58 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
     );
     assert_eq!(pt(&engine, baron), (7, 7));
 }
+
+/// The subtype restriction admits Kindred permanents too, and does not
+/// require the Vampire to be controlled by Baron's controller.
+#[test]
+fn baron_sengir_regenerates_a_noncreature_kindred_vampire_but_not_itself() {
+    use crate::engine::card_tests::legends_kit as lk;
+    use baylee_core::{
+        generated::{index, subtypes},
+        types::SubtypeSet,
+    };
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = lk::game(
+        SEED,
+        &[baron_sengir(), forest()],
+        &[sol_ring()],
+        &[index::DISENCHANT],
+        &[],
+    );
+    let baron = lk::obj(&e, p0, baron_sengir());
+    let kindred = lk::obj(&e, p1, sol_ring());
+    let land = lk::obj(&e, p0, forest());
+    // There is no real Kindred fixture in this pool. Keep a real artifact
+    // and give this controlled fixture the Vampire subtype and Kindred type.
+    let state = e.dev_state_mut(p0).unwrap();
+    let base = std::sync::Arc::make_mut(&mut state.object_mut(kindred).unwrap().base);
+    base.types = TypeSet::KINDRED.union(TypeSet::ARTIFACT);
+    base.subtypes = SubtypeSet::from_slice(&[subtypes::creature::VAMPIRE]);
+    state.invalidate_projections();
+    state.refresh_characteristics();
+    e.refresh_offer();
+    activate(&mut e, p0, baron_sengir(), 1);
+    let Pending::ChooseTargets { options, .. } = e.pending() else {
+        panic!("choose another Vampire")
+    };
+    assert!(options.contains(&kindred));
+    assert!(!options.contains(&baron) && !options.contains(&land));
+    lk::aim(&mut e, &[kindred], &[]);
+    lk::settle(&mut e);
+    lk::float(&mut e, p0, &[(ManaColor::White, 2)]);
+    cast_with_floating(&mut e, p0, index::DISENCHANT);
+    lk::aim(&mut e, &[kindred], &[]);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+    });
+    if matches!(e.pending(), Pending::YesNo { .. }) {
+        lk::yes_no(&mut e, true);
+    }
+    lk::settle(&mut e);
+    assert_eq!(e.state().object(kindred).unwrap().zone, Zone::Battlefield);
+    assert!(
+        is_tapped(&e, kindred),
+        "the noncreature Vampire regenerated"
+    );
+    assert_eq!(e.state().object(kindred).unwrap().regeneration_shields, 0);
+}

@@ -53,9 +53,24 @@ fn fortitude_sacrifices_only_your_forest_to_regenerate_its_host_and_returns_on_d
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert!(in_graveyard(&engine, p0, super::forest()).is_some());
+    assert_eq!(
+        engine.state().object(elves).unwrap().regeneration_shields,
+        1,
+        "sacrificing the Forest creates a regeneration shield on the enchanted creature"
+    );
+    assert_eq!(
+        pt(&engine, elves),
+        (1, 1),
+        "the test's creature dies to three damage without regeneration"
+    );
     lk::cast_at(&mut engine, p0, lightning_bolt(), &[elves], &[]);
     assert!(on_battlefield(&engine, p0, llanowar_elves()).is_some());
-    assert!(lk::tapped(&engine, elves));
+    assert!(
+        lk::tapped(&engine, elves),
+        "regeneration taps its creature; remaining shields: {}, marked damage: {}",
+        engine.state().object(elves).unwrap().regeneration_shields,
+        engine.state().object(elves).unwrap().damage
+    );
     assert_eq!(engine.state().object(elves).unwrap().damage, 0);
     let aura = on_battlefield(&engine, p0, fortitude()).unwrap();
     kill(&mut engine, aura);

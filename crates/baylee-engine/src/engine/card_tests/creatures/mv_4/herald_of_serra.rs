@@ -86,13 +86,25 @@ fn herald_of_serra_attacks_without_tapping_and_requires_a_flying_blocker() {
     use crate::engine::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
-    let mut engine = lk::game(
-        SEED,
-        &[herald_of_serra()],
-        &[grizzly_bears(), ornithopter()],
-        &[],
-        &[],
-    );
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[herald_of_serra(), plains(), plains(), plains(), plains()],
+        )
+        .battlefield(1, &[grizzly_bears(), ornithopter()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    tap_all_mana(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    reach_main_phase(&mut engine, p0);
     let angel = on_battlefield(&engine, p0, herald_of_serra()).unwrap();
     let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     let flyer = on_battlefield(&engine, p1, ornithopter()).unwrap();

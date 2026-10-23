@@ -69,7 +69,7 @@ fn cinder_wall_is_destroyed_at_end_of_combat_not_before() {
 /// creature of its controller blocking.
 #[test]
 fn cinder_wall_survives_a_combat_it_does_not_block_in() {
-    let (mut e, wall, lions) = lions_attack_into(&[grizzly_bears()]);
+    let (mut e, wall, lions) = lions_attack_into(&[mountain(), grizzly_bears()]);
     let bears = lk::obj(&e, P0, grizzly_bears());
     lk::block(&mut e, &[(bears, lions)]);
 

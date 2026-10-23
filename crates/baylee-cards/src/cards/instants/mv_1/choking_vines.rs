@@ -23,9 +23,9 @@ card!(
         &[
             // NOT SUPPORTED: X target attacking creatures become blocked.
             // Suppressing combat damage would also stop trample, unlike becoming blocked.
-            Effect::DealDamage {
+            Effect::DealDamageToMatchingTargets {
                 amount: Amount::Fixed(1),
-                target: TargetSpec::Object(&Filter::ATTACKING_CREATURE),
+                filter: &Filter::ATTACKING_CREATURE,
             },
         ],
         targets = Some(TargetReq::x_targets(TargetSpec::Object(

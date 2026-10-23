@@ -14,13 +14,13 @@ fn mishras_helix_uses_exactly_x_distinct_land_targets_including_zero() {
         let mut e = lk::game(
             SEED,
             &[mishra_s_helix(), forest()],
-            &[island(), grizzly_bears()],
+            &[island(), baylee_core::generated::index::GRIZZLY_BEARS],
             &[],
             &[],
         );
         let mine = lk::obj(&e, p0, forest());
         let theirs = lk::obj(&e, p1, island());
-        let bear = lk::obj(&e, p1, grizzly_bears());
+        let bear = lk::obj(&e, p1, baylee_core::generated::index::GRIZZLY_BEARS);
         lk::float(&mut e, p0, &[(ManaColor::Colorless, 2)]);
         activate(&mut e, p0, mishra_s_helix(), 0);
         e.apply(p0, PlayerAction::ChooseNumber(x)).unwrap();

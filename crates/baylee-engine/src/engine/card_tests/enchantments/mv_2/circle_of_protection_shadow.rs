@@ -23,7 +23,7 @@ fn grizzly_bears() -> CardIndex {
 }
 
 /// p0 has the Circle and two Plains; p1 has Soltari Foot Soldier (1/1
-/// shadow), Dauthi Mindripper (1/1 shadow) and Grizzly Bears (2/2). p0's
+/// shadow), Dauthi Mindripper (2/1 shadow) and Grizzly Bears (2/2). p0's
 /// first main phase.
 fn a_circle_facing_two_shadows_and_a_bear() -> Engine<RegistryLookup> {
     let mut engine = Duel::new(SEED, plains())
@@ -71,6 +71,28 @@ fn p1_attacks_with(engine: &mut Engine<RegistryLookup>, attackers: &[CardIndex])
         engine,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
     );
+}
+
+/// Resolves the rest of combat while declining Mindripper's optional sacrifice.
+/// The fixture must keep both shadow attackers for the damage comparison.
+#[track_caller]
+fn finish_combat_without_sacrificing(engine: &mut Engine<RegistryLookup>) {
+    for _ in 0..100 {
+        if engine.state().turn.phase == Phase::SecondMain
+            && matches!(engine.pending(), Pending::Priority { .. })
+            && stack_is_empty(engine)
+        {
+            return;
+        }
+        if let Pending::YesNo { player, .. } = engine.pending().clone() {
+            assert_eq!(player, P1, "Mindripper's controller chooses");
+            engine.apply(P1, PlayerAction::YesNo(false)).unwrap();
+        } else {
+            let (player, action) = answer_one(engine).expect("combat can advance");
+            engine.apply(player, action).unwrap();
+        }
+    }
+    panic!("combat did not finish: {:?}", engine.pending());
 }
 
 /// Pays {1}, lets the ability resolve to its question, and returns the
@@ -130,14 +152,15 @@ fn circle_of_protection_shadow_prevents_the_chosen_shadow_creatures_damage_only(
         "a creature without shadow cannot be chosen: {offered:?}"
     );
     choose_source(&mut engine, soltari);
-    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    finish_combat_without_sacrificing(&mut engine);
 
     assert_eq!(
         engine.state().players[0].life,
-        17,
-        "Soltari's 1 is prevented; Mindripper's 1 and the Bears' 2 are not"
+        16,
+        "Soltari's 1 is prevented; Mindripper's 2 and the Bears' 2 are not"
     );
     assert_eq!(engine.state().players[1].life, 20);
+    assert!(on_battlefield(&engine, P1, dauthi_mindripper()).is_some());
 }
 
 #[test]
@@ -148,13 +171,14 @@ fn circle_of_protection_shadow_unused_lets_all_the_damage_through() {
         &[soltari_foot_soldier(), dauthi_mindripper(), grizzly_bears()],
     );
 
-    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    finish_combat_without_sacrificing(&mut engine);
 
     assert_eq!(
         engine.state().players[0].life,
-        16,
-        "1 + 1 + 2 without the Circle"
+        15,
+        "1 + 2 + 2 without the Circle"
     );
+    assert!(on_battlefield(&engine, P1, dauthi_mindripper()).is_some());
 }
 
 /// "This turn": a shield made on p0's own turn is gone when p1 attacks.
@@ -168,7 +192,7 @@ fn circle_of_protection_shadow_shield_does_not_outlast_the_turn() {
     pass_until(&mut engine, stack_is_empty);
 
     p1_attacks_with(&mut engine, &[soltari_foot_soldier()]);
-    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    finish_combat_without_sacrificing(&mut engine);
 
     assert_eq!(
         engine.state().players[0].life,

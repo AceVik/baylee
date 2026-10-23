@@ -5,8 +5,6 @@ fn scoria_wurm() -> CardIndex {
     card_index("ee45c80c-699c-4e37-97e6-1859c6601c99")
 }
 
-use crate::engine::card_tests::legends_kit as lk;
-
 #[test]
 fn scoria_wurm_returns_exactly_when_its_own_upkeep_flip_is_lost() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));

@@ -86,7 +86,22 @@ fn cradle_guard_tramples_over_a_small_blocker() {
     use crate::engine::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
-    let mut engine = lk::game(SEED, &[cradle_guard()], &[llanowar_elves()], &[], &[]);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[cradle_guard(), forest(), forest(), forest()])
+        .battlefield(1, &[llanowar_elves()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    tap_all_mana(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    reach_main_phase(&mut engine, p0);
     let guard = on_battlefield(&engine, p0, cradle_guard()).unwrap();
     let elf = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
     lk::attack(&mut engine, &[guard]);

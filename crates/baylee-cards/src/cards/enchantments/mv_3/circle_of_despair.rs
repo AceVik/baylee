@@ -1,7 +1,7 @@
 //! Circle of Despair — {1}{W}{B} — Enchantment
 //! Oracle: {1}, Sacrifice a creature: The next time a source of your choice would deal damage to any target this turn, prevent that damage.
 //! Set: MIR #259 — Mirage | Scryfall ID: ef9d2c05-0d2f-4d02-aef3-e1078d78e5ff | Oracle ID: 4ad57fbf-69f3-4367-b061-ed8e0b83b9af
-// NOT SUPPORTED: Preventing the next damage from a chosen source to any target (`PreventNextFromChosenSource` only shields `you`, while `PreventNextDamage` shields any target for a fixed amount from any source) is not yet a combined `Effect` variant.
+// PARTIAL — only its controller can be targeted; chosen-source prevention for other players and creatures is unsupported.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -11,7 +11,7 @@ card!(
     scryfall_id = "ef9d2c05-0d2f-4d02-aef3-e1078d78e5ff",
     color_identity = ColorSet::from_slice(&[Color::Black, Color::White]),
     coverage = Coverage::Partial(
-        "Preventing all of the next damage from a chosen source to any target (`PreventNextFromChosenSource` only shields `you`, while `PreventNextDamage` shields any target for a fixed amount) is not yet supported; in play, `{1}, Sacrifice a creature` prevents the next damage from a chosen source to you this turn (`PreventNextFromChosenSource`).",
+        "Target yourself to prevent the next damage a chosen source would deal to you this turn; chosen-source prevention for other players and creatures is unsupported."
     ),
     faces = &[face!(
         name = "Circle of Despair",
@@ -26,5 +26,6 @@ card!(
             all_but: 0,
             gain_life: false,
         }],
+        targets = Some(TargetReq::one(TargetSpec::Player(PlayerRel::You))),
     )],
 );

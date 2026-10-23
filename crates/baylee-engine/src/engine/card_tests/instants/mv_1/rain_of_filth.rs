@@ -8,7 +8,7 @@ fn rain_of_filth() -> CardIndex {
 use crate::engine::card_tests::legends_kit as lk;
 
 #[test]
-fn rain_of_filth_grants_each_existing_owned_land_a_temporary_sacrifice_mana_ability() {
+fn rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana_ability() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game(
         SEED,
@@ -30,7 +30,9 @@ fn rain_of_filth_grants_each_existing_owned_land_a_temporary_sacrifice_mana_abil
         .abilities
         .iter()
         .copied()
-        .filter(|(id, _)| *id == mine || *id == other)
+        .filter(|(id, ability_index)| {
+            (*id == mine || *id == other) && crate::choice::granted_slot(*ability_index).is_some()
+        })
         .collect();
     assert_eq!(grants.len(), 2);
     assert!(!legal.abilities.iter().any(|(id, _)| *id == theirs));
@@ -39,7 +41,13 @@ fn rain_of_filth_grants_each_existing_owned_land_a_temporary_sacrifice_mana_abil
     let Pending::Priority { legal, .. } = e.pending() else {
         panic!("priority")
     };
-    assert!(!legal.abilities.iter().any(|(id, _)| *id == later));
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, ability_index)| *id == later
+                && crate::choice::granted_slot(*ability_index).is_some())
+    );
     let (source, ability_index) = grants[0];
     e.apply(
         p0,
@@ -55,6 +63,21 @@ fn rain_of_filth_grants_each_existing_owned_land_a_temporary_sacrifice_mana_abil
         e.state().object(source).unwrap().zone,
         crate::zone::Zone::Graveyard
     );
+    pass_until(
+        &mut e,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    let Pending::Priority { legal, .. } = e.pending() else {
+        unreachable!()
+    };
+    assert!(
+        !legal
+            .abilities
+            .iter()
+            .any(|(id, ability_index)| *id == theirs
+                && crate::choice::granted_slot(*ability_index).is_some()),
+        "opponent's land never receives the sacrifice ability"
+    );
     reach_their_main_phase(&mut e, p1);
     reach_their_main_phase(&mut e, p0);
     let Pending::Priority { legal, .. } = e.pending() else {
@@ -64,6 +87,7 @@ fn rain_of_filth_grants_each_existing_owned_land_a_temporary_sacrifice_mana_abil
         !legal
             .abilities
             .iter()
-            .any(|(id, _)| *id == mine || *id == other)
+            .any(|(id, ability_index)| (*id == mine || *id == other)
+                && crate::choice::granted_slot(*ability_index).is_some())
     );
 }

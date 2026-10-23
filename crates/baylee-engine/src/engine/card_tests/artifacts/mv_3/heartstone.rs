@@ -45,8 +45,15 @@ fn heartstone_reduces_generic_activated_ability_cost_to_minimum_one() {
 
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, mindwarper(), 0);
+    assert!(matches!(engine.pending(), Pending::ChooseTargets { player, .. } if *player == P0));
     engine
-        .apply(P0, PlayerAction::ChoosePlayer(lk::P1))
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![lk::P1],
+            },
+        )
         .unwrap();
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })

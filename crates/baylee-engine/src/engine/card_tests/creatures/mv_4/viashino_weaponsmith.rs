@@ -1,6 +1,7 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use crate::engine::card_tests::legends_kit as lk;
+use crate::engine::card_tests::partials_w1b_kit as kit;
 
 fn viashino_weaponsmith() -> CardIndex {
     card_index("f4d17f41-efd6-4173-ab6e-28b6fbcee10d")
@@ -52,6 +53,21 @@ fn viashino_weaponsmith_triggers_once_per_blocker_and_pump_expires() {
     lk::block(&mut engine, &[(bear, smith), (ogre, smith)]);
     lk::settle(&mut engine);
     assert_eq!(pt(&engine, smith), (6, 6));
-    reach_their_main_phase(&mut engine, p1);
+    kit::drive(
+        &mut engine,
+        |e| {
+            e.state().turn.active == p1
+                && e.state().turn.phase == Phase::FirstMain
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+        },
+        |_, pending| match pending {
+            Pending::ChooseNumber {
+                max,
+                reason: crate::choice::NumberPrompt::CombatDamage { .. },
+                ..
+            } => Some(PlayerAction::ChooseNumber(*max)),
+            _ => None,
+        },
+    );
     assert_eq!(pt(&engine, smith), (2, 2));
 }

@@ -46,17 +46,17 @@ fn vebulid_enters_with_counter_and_dies_at_end_of_combat_when_attacking() {
 fn vebulid_may_decline_a_counter_and_is_destroyed_after_blocking() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
-    let ornithopter = baylee_core::generated::index::ORNITHOPTER;
-    let mut engine = lk::game_with(SEED, &[vebulid()], &[ornithopter], &[], &[], |e| {
+    let ground_attacker = baylee_core::generated::index::CROOKSHANK_KOBOLDS;
+    let mut engine = lk::game_with(SEED, &[vebulid()], &[ground_attacker], &[], &[], |e| {
         lk::yes_no(e, false)
     });
     let veb = lk::obj(&engine, p0, vebulid());
     assert_eq!(pt(&engine, veb), (1, 1), "upkeep counter is optional");
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(pt(&engine, veb), (1, 1), "opponent upkeep adds no counter");
-    let thopter = lk::obj(&engine, p1, ornithopter);
-    lk::attack(&mut engine, &[thopter]);
-    lk::block(&mut engine, &[(veb, thopter)]);
+    let attacker = lk::obj(&engine, p1, ground_attacker);
+    lk::attack(&mut engine, &[attacker]);
+    lk::block(&mut engine, &[(veb, attacker)]);
     lk::settle(&mut engine);
     assert!(on_battlefield(&engine, p0, vebulid()).is_some());
     lk::through_combat(&mut engine);

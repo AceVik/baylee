@@ -11,6 +11,46 @@ fn circle_of_despair() -> CardIndex {
     card_index("4ad57fbf-69f3-4367-b061-ed8e0b83b9af")
 }
 
+fn target_yourself(engine: &mut Engine<RegistryLookup>) {
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { player, .. } if *player == P0),
+        "the supported self-only subset still requires a real target"
+    );
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "the target is mandatory"
+    );
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![P1]
+                }
+            )
+            .is_err(),
+        "other recipients remain unsupported"
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![P0],
+            },
+        )
+        .unwrap();
+}
+
 /// Circle of Despair (4ad57fbf-69f3-4367-b061-ed8e0b83b9af) — {1}{W}{B} Enchantment:
 /// "{1}, Sacrifice a creature: The next time a source of your choice would deal
 /// damage to any target this turn, prevent that damage."
@@ -48,6 +88,7 @@ fn circle_of_despair_sacrifices_creature_to_prevent_next_damage_from_chosen_sour
     engine.apply(P1, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, circle_of_despair(), 0);
+    target_yourself(&mut engine);
     engine
         .apply(
             P0,
@@ -121,6 +162,7 @@ fn circle_of_despair_lets_damage_from_another_source_through() {
     engine.apply(P1, PlayerAction::PassPriority).unwrap();
     tap_all_mana(&mut engine, P0);
     activate(&mut engine, P0, circle_of_despair(), 0);
+    target_yourself(&mut engine);
     engine
         .apply(
             P0,

@@ -58,7 +58,7 @@ fn serra_s_hymn_adds_verse_counter_and_prevents_damage() {
 }
 
 #[test]
-fn serras_hymn_single_target_partial_counts_zero_and_multiple_verse_counters() {
+fn serras_hymn_single_target_partial_requires_positive_verse_counters() {
     use crate::engine::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for n in [0, 2] {
@@ -77,7 +77,23 @@ fn serras_hymn_single_target_partial_counts_zero_and_multiple_verse_counters() {
             .unwrap()
             .counters
             .add(baylee_cards_dsl::counters::VERSE, n);
-        lk::use_ability(&mut e, p0, serra_s_hymn(), 1, &[], &[p0]);
+        e.refresh_offer();
+        if n == 0 {
+            assert!(!lk::offered(&e, serra_s_hymn(), p0, 1));
+            assert!(
+                e.apply(
+                    p0,
+                    PlayerAction::ActivateAbility {
+                        source: hymn,
+                        ability_index: 1,
+                    },
+                )
+                .is_err(),
+                "zero counters cannot allocate at least one prevention to a target"
+            );
+        } else {
+            lk::use_ability(&mut e, p0, serra_s_hymn(), 1, &[], &[p0]);
+        }
         lk::float(&mut e, p0, &[(ManaColor::Red, 2)]);
         lk::cast_at(&mut e, p0, lightning_bolt(), &[], &[p1]);
         assert_eq!(lk::life(&e, p1), 17, "other targets are not protected");

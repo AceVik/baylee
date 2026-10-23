@@ -34,15 +34,19 @@ fn electryte_does_not_sweep_blockers_when_combat_damage_is_redirected_to_a_nonde
         &[electryte(), grizzly_bears(), index::PERSONAL_INCARNATION],
         &[index::PHYREXIAN_WALKER],
         &[index::MENDING_TOUCH],
-        &[],
+        &[index::CONTROL_MAGIC],
     );
     let elec = on_battlefield(&engine, p0, electryte()).unwrap();
     let bear = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     let incarnation = on_battlefield(&engine, p0, index::PERSONAL_INCARNATION).unwrap();
-    // The potential blocker is owned by p0 but controlled by defender p1.
-    engine.state.object_mut(incarnation).unwrap().controller = p1;
-    engine.state.invalidate_projections();
-    engine.refresh_offer();
+    // Transfer control through the real Aura. A raw controller mutation is
+    // overwritten when the layer system projects the original control state.
+    reach_their_main_phase(&mut engine, p1);
+    lk::float(&mut engine, p1, &[(ManaColor::Blue, 4)]);
+    lk::cast_at(&mut engine, p1, index::CONTROL_MAGIC, &[incarnation], &[]);
+    reach_their_main_phase(&mut engine, p0);
+    assert_eq!(engine.state().object(incarnation).unwrap().owner, p0);
+    assert_eq!(engine.state().object(incarnation).unwrap().controller, p1);
     let elf = on_battlefield(&engine, p1, index::PHYREXIAN_WALKER).unwrap();
     lk::attack(&mut engine, &[elec, bear]);
     lk::block(&mut engine, &[(incarnation, elec), (elf, bear)]);

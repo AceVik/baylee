@@ -1,4 +1,5 @@
 use super::*;
+use crate::engine::card_tests::partials_w1b_kit as kit;
 
 fn rabid_wolverines() -> CardIndex {
     card_index("ed076c39-9bfc-424a-8ce8-8572f7c0de73")
@@ -45,6 +46,21 @@ fn rabid_wolverines_gets_plus_1_plus_1_for_each_blocking_creature() {
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, wolverines), (6, 6));
-    reach_their_main_phase(&mut engine, p1);
+    kit::drive(
+        &mut engine,
+        |e| {
+            e.state().turn.active == p1
+                && e.state().turn.phase == Phase::FirstMain
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+        },
+        |_, pending| match pending {
+            Pending::ChooseNumber {
+                max,
+                reason: crate::choice::NumberPrompt::CombatDamage { .. },
+                ..
+            } => Some(PlayerAction::ChooseNumber(*max)),
+            _ => None,
+        },
+    );
     assert_eq!(pt(&engine, wolverines), (4, 4));
 }

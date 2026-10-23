@@ -74,3 +74,56 @@ fn cinder_giant_hurts_each_other_creature_you_control_at_your_upkeep_only() {
     );
     assert!(on_battlefield(&e, P1, savannah_lions()).is_some());
 }
+
+/// Cinder Giant's upkeep trigger has no intervening if: removing the Giant
+/// in response does not stop its damage to the other creatures you control.
+#[test]
+fn cinder_giant_upkeep_damage_resolves_after_the_source_is_removed() {
+    let mut e = lk::game(
+        SEED,
+        &[grizzly_bears(), hill_giant()],
+        &[savannah_lions()],
+        &[
+            cinder_giant(),
+            baylee_core::generated::index::LIGHTNING_BOLT,
+        ],
+        &[],
+    );
+    lk::float(
+        &mut e,
+        P0,
+        &[(ManaColor::Red, 1), (ManaColor::Colorless, 3)],
+    );
+    cast_with_floating(&mut e, P0, cinder_giant());
+    lk::settle(&mut e);
+    let giant = lk::obj(&e, P0, cinder_giant());
+    let hill = lk::obj(&e, P0, hill_giant());
+    let lions = lk::obj(&e, P1, savannah_lions());
+    pass_until(&mut e, |e| {
+        e.state().turn.number == 3
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && !stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
+    lk::float(&mut e, P0, &[(ManaColor::Red, 1)]);
+    cast_with_floating(&mut e, P0, baylee_core::generated::index::LIGHTNING_BOLT);
+    aim_at(&mut e, P0, giant);
+    pass_until(&mut e, |e| in_graveyard(e, P0, cinder_giant()).is_some());
+    assert!(
+        !stack_is_empty(&e),
+        "the upkeep trigger remains on the stack"
+    );
+    assert_eq!(lk::damage_on(&e, hill), 0, "it has not resolved yet");
+    lk::settle(&mut e);
+    assert!(
+        in_graveyard(&e, P0, grizzly_bears()).is_some(),
+        "two upkeep damage"
+    );
+    assert_eq!(
+        lk::damage_on(&e, hill),
+        2,
+        "other own creature still takes two"
+    );
+    assert_eq!(lk::damage_on(&e, lions), 0, "opposing creature takes none");
+    assert!(on_battlefield(&e, P1, savannah_lions()).is_some());
+}

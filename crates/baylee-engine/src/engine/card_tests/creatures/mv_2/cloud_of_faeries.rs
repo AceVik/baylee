@@ -64,18 +64,22 @@ fn cloud_of_faeries_can_untap_opponents_lands_and_can_cycle() {
     let mut engine = lk::game(
         SEED,
         &[],
-        &[mountain(), gray_ogre()],
+        &[mountain(), forest(), island(), gray_ogre()],
         &[cloud_of_faeries(), cloud_of_faeries()],
         &[],
     );
     let land = lk::obj(&engine, p1, mountain());
-    engine
-        .dev_state_mut(p0)
-        .unwrap()
-        .object_mut(land)
-        .unwrap()
-        .status
-        .insert(Status::TAPPED);
+    let second = lk::obj(&engine, p1, forest());
+    let third = lk::obj(&engine, p1, island());
+    for id in [land, second, third] {
+        engine
+            .dev_state_mut(p0)
+            .unwrap()
+            .object_mut(id)
+            .unwrap()
+            .status
+            .insert(Status::TAPPED);
+    }
     lk::float(&mut engine, p0, &[(ManaColor::Blue, 4)]);
     cast_with_floating(&mut engine, p0, cloud_of_faeries());
     pass_until(&mut engine, |e| {
@@ -92,18 +96,33 @@ fn cloud_of_faeries_can_untap_opponents_lands_and_can_cycle() {
     };
     assert_eq!((min, max), (0, 2));
     assert!(options.contains(&land));
+    assert!(options.contains(&second));
+    assert!(options.contains(&third));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![land, second, third]
+                }
+            )
+            .is_err(),
+        "at most two lands"
+    );
     let ogre = lk::obj(&engine, p1, gray_ogre());
     assert!(!options.contains(&ogre));
     engine
         .apply(
             p0,
             PlayerAction::ChooseObjects {
-                objects: vec![land],
+                objects: vec![land, second],
             },
         )
         .unwrap();
     lk::settle(&mut engine);
     assert!(!is_tapped(&engine, land));
+    assert!(!is_tapped(&engine, second));
+    assert!(is_tapped(&engine, third), "only chosen lands untap");
     let card = in_hand(&engine, p0, cloud_of_faeries()).unwrap();
     let before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
     engine

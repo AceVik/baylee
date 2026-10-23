@@ -19,13 +19,16 @@ fn escaped_shapeshifter_requires_opponents_and_refreshes_after_their_creature_di
     let shifter = lk::obj(&e, lk::P0, escaped_shapeshifter());
     let angel = lk::obj(&e, lk::P1, index::SERRA_ANGEL);
     assert!(
-        keywords(&e, shifter)
-            .contains(KeywordSet::FLYING | KeywordSet::FIRST_STRIKE | KeywordSet::TRAMPLE)
+        keywords(&e, shifter).contains(
+            KeywordSet::FLYING
+                .union(KeywordSet::FIRST_STRIKE)
+                .union(KeywordSet::TRAMPLE)
+        )
     );
     lk::float(&mut e, lk::P0, &[(ManaColor::Black, 2)]);
     lk::cast_at(&mut e, lk::P0, index::TERROR, &[angel], &[]);
     assert!(!keywords(&e, shifter).contains(KeywordSet::FLYING));
-    assert!(keywords(&e, shifter).contains(KeywordSet::FIRST_STRIKE | KeywordSet::TRAMPLE));
+    assert!(keywords(&e, shifter).contains(KeywordSet::FIRST_STRIKE.union(KeywordSet::TRAMPLE)));
 }
 
 #[test]
@@ -46,8 +49,11 @@ fn escaped_shapeshifter_ignores_your_creatures_and_opposing_namesakes() {
     let opposing = lk::obj(&e, lk::P1, escaped_shapeshifter());
     assert_eq!(keywords(&e, own), KeywordSet::EMPTY);
     assert!(
-        keywords(&e, opposing)
-            .contains(KeywordSet::FLYING | KeywordSet::FIRST_STRIKE | KeywordSet::TRAMPLE)
+        keywords(&e, opposing).contains(
+            KeywordSet::FLYING
+                .union(KeywordSet::FIRST_STRIKE)
+                .union(KeywordSet::TRAMPLE)
+        )
     );
     let angel = lk::obj(&e, lk::P0, index::SERRA_ANGEL);
     lk::float(&mut e, lk::P0, &[(ManaColor::Black, 2)]);

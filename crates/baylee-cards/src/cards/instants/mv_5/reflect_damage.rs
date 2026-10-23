@@ -1,7 +1,9 @@
 //! Reflect Damage — {3}{R}{W} — Instant
 //! Oracle: The next time a source of your choice would deal damage this turn, that damage is dealt to that source's controller instead.
 //! Set: MIR #277 — Mirage | Scryfall ID: 3a2bf39b-9665-426b-b618-eb731d24a1ee | Oracle ID: 21565b0d-f814-49ca-8613-f40040c4ba6c
-// PARTIAL: Effect::ReflectNextChosenSourceDamage is Eye for an Eye's sentence: the chosen source's next damage to you is not redirected, so you still take it and its controller takes the same amount from this spell as well; the printed card moves the damage onto that controller instead and covers damage to any recipient, not only to you.
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -10,13 +12,11 @@ card!(
     oracle_id = "21565b0d-f814-49ca-8613-f40040c4ba6c",
     scryfall_id = "3a2bf39b-9665-426b-b618-eb731d24a1ee",
     color_identity = ColorSet::from_slice(&[Color::Red, Color::White]),
-    coverage = Coverage::Partial(
-        "Effect::ReflectNextChosenSourceDamage is Eye for an Eye's sentence: the chosen source's next damage to you is not redirected, so you still take it and its controller takes the same amount from this spell as well; the printed card moves the damage onto that controller instead and covers damage to any recipient, not only to you",
-    ),
     faces = &[face!(
         name = "Reflect Damage",
         mana_cost = mana!("{3}{R}{W}"),
         types = TypeSet::INSTANT,
     ),],
-    abilities = &[spell!(&[Effect::ReflectNextChosenSourceDamage])],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

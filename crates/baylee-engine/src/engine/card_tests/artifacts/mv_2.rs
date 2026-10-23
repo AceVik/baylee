@@ -9,8 +9,6 @@ mod altar_of_dementia;
 mod amulet_of_kroog;
 mod angel_s_feather;
 mod ankh_of_mishra;
-mod anvil_of_bogardan;
-mod apocalypse_chime;
 mod arcum_s_weathervane;
 mod ark_of_blight;
 mod ashnod_s_battle_gear;

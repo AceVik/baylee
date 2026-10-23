@@ -10,10 +10,9 @@ fn soldevi_heretic() -> CardIndex {
 /// Soldevi Heretic ({2}{U} 2/2 Creature — Human Cleric, Partial):
 /// "{W}, {T}: Prevent the next 2 damage that would be dealt to target creature
 /// this turn. Target opponent may draw a card."
-/// The drawback ("Target opponent may draw a card") cannot be said, and the
-/// shield without it would play stronger than printed, so the card offers no
-/// ability. A pinned limitation: this test moves when an opponent can be
-/// offered the card.
+/// A second opponent target can be announced, but no effect-player reference
+/// names that second target for the optional draw. The shield remains absent
+/// until that independently bound opponent can be offered their decision.
 #[test]
 fn soldevi_heretic_offers_no_shield_without_its_drawback() {
     let p0 = PlayerId::new(0);

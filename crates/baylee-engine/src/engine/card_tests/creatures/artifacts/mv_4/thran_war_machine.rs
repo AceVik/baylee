@@ -30,7 +30,7 @@ fn echo_can_be_paid_or_declined() {
     use crate::engine::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for pay in [false, true] {
-        let mut engine = lk::game(SEED, &[], &[], &[thran_war_machine()], &[]);
+        let mut engine = lk::game(SEED, &[plains(); 4], &[], &[thran_war_machine()], &[]);
         lk::float(
             &mut engine,
             p0,
@@ -43,18 +43,18 @@ fn echo_can_be_paid_or_declined() {
         cast_with_floating(&mut engine, p0, thran_war_machine());
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
+            e.state().turn.active == p0
+                && e.state().turn.step == crate::turn::Step::Upkeep
+                && matches!(e.pending(), Pending::Priority { .. })
+        });
+        tap_all_mana(&mut engine, p0);
+        pass_until(&mut engine, |e| {
             matches!(e.pending(), Pending::YesNo { .. })
         });
         let Pending::YesNo { player, .. } = engine.pending().clone() else {
             unreachable!()
         };
         assert_eq!(player, p0);
-        engine.dev_state_mut(p0).unwrap().players[0]
-            .mana_pool
-            .add(ManaColor::White, 10);
-        engine.dev_state_mut(p0).unwrap().players[0]
-            .mana_pool
-            .add(ManaColor::Green, 10);
         let before = engine.state().players[0].mana_pool.total();
         engine.apply(p0, PlayerAction::YesNo(pay)).unwrap();
         pass_until(&mut engine, stack_is_empty);

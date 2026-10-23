@@ -166,6 +166,7 @@ fn carrionette_asks_the_controller_of_a_creature_of_its_own_side_too() {
 fn carrionette_can_be_activated_only_from_the_graveyard() {
     let mut engine = a_carrionette_with_mana();
     let skeleton = on_battlefield(&engine, P0, carrionette()).unwrap();
+    tap_all_mana(&mut engine, P0);
 
     assert!(
         !ability_offered(&engine, skeleton, 0),

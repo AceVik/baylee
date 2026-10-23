@@ -63,6 +63,6 @@ fn hidden_ancients_becomes_5_5_treefolk_when_opponent_casts_enchantment() {
             .unwrap()
             .characteristics()
             .subtypes
-            .contains(&baylee_core::generated::subtypes::creature::TREEFOLK)
+            .contains(baylee_core::generated::subtypes::creature::TREEFOLK)
     );
 }

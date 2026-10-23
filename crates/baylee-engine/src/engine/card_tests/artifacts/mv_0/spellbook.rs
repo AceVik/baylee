@@ -53,31 +53,19 @@ fn spellbook_removes_maximum_hand_size_at_cleanup() {
     reach_their_main_phase(&mut engine, p1);
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 9);
     pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseCards { .. })
+        matches!(e.pending(), Pending::DiscardChoice { .. })
     });
-    let Pending::ChooseCards {
-        player,
-        min,
-        max,
-        options,
-        ..
-    } = engine.pending().clone()
-    else {
+    let Pending::DiscardChoice { player, count } = engine.pending().clone() else {
         unreachable!()
     };
     assert_eq!(
         player, p1,
         "opponent still discards to their normal maximum"
     );
-    assert_eq!(min, 3);
-    assert_eq!(max, 3);
+    assert_eq!(count, 3);
+    let discarded = engine.state().zones.list(ZoneLocation::Hand(p1))[..3].to_vec();
     engine
-        .apply(
-            p1,
-            PlayerAction::ChooseObjects {
-                objects: options[..3].to_vec(),
-            },
-        )
+        .apply(p1, PlayerAction::ChooseObjects { objects: discarded })
         .unwrap();
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p1)).len(), 7);
     assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 9);

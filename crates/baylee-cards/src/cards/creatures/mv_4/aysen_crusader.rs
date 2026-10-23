@@ -6,12 +6,9 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static SOLDIER_OR_WARRIOR: Filter = Filter::And(&[
-    Filter::CREATURE,
-    Filter::Or(&[
-        Filter::HasSubtype(subtypes::creature::SOLDIER),
-        Filter::HasSubtype(subtypes::creature::WARRIOR),
-    ]),
+static SOLDIER_OR_WARRIOR: Filter = Filter::Or(&[
+    Filter::HasSubtype(subtypes::creature::SOLDIER),
+    Filter::HasSubtype(subtypes::creature::WARRIOR),
 ]);
 static SOLDIERS_AND_WARRIORS_YOU_CONTROL: PtCount = PtCount::YouControl(&SOLDIER_OR_WARRIOR);
 

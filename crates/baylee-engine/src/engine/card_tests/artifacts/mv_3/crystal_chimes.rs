@@ -19,13 +19,17 @@ fn crystal_chimes_returns_enchantments_from_graveyard_to_hand() {
                 sylvan_library(),
             ],
         )
-        .hand(0, &[grizzly_bears()])
+        .hand(0, &[baylee_core::generated::index::GRIZZLY_BEARS])
         .hand(1, &[sylvan_library()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    hand_to_graveyard(&mut engine, p0, grizzly_bears());
+    hand_to_graveyard(
+        &mut engine,
+        p0,
+        baylee_core::generated::index::GRIZZLY_BEARS,
+    );
     hand_to_graveyard(&mut engine, PlayerId::new(1), sylvan_library());
     let lib = on_battlefield(&engine, p0, sylvan_library()).expect("seated");
     bury(&mut engine, &[lib]);
@@ -38,6 +42,6 @@ fn crystal_chimes_returns_enchantments_from_graveyard_to_hand() {
     assert!(on_battlefield(&engine, p0, crystal_chimes()).is_none());
     assert!(in_graveyard(&engine, p0, sylvan_library()).is_none());
     assert!(in_hand(&engine, p0, sylvan_library()).is_some());
-    assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
+    assert!(in_graveyard(&engine, p0, baylee_core::generated::index::GRIZZLY_BEARS).is_some());
     assert!(in_graveyard(&engine, PlayerId::new(1), sylvan_library()).is_some());
 }

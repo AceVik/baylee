@@ -9,6 +9,7 @@ use baylee_core::generated::subtypes;
 
 static BLACK_CREATURE: Filter = Filter::And(&[
     Filter::CREATURE,
+    Filter::BlockedBySource,
     Filter::HasColor(ColorSet::from_slice(&[Color::Black])),
 ]);
 
@@ -30,7 +31,7 @@ card!(
         toughness = Some(3),
     ),],
     abilities = &[triggered!(
-        Trigger::BlocksCreature(&BLACK_CREATURE),
+        Trigger::BlocksOrBecomesBlockedByOneOrMore(&BLACK_CREATURE),
         &[Effect::ModifySource {
             modifier: Modifier::ModifyPT(1, 2),
             duration: Duration::UntilEndOfTurn,

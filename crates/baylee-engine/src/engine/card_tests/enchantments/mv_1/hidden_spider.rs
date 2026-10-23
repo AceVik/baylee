@@ -68,6 +68,6 @@ fn hidden_spider_becomes_3_5_spider_with_reach_when_opponent_casts_flyer() {
             .unwrap()
             .characteristics()
             .subtypes
-            .contains(&baylee_core::generated::subtypes::creature::SPIDER)
+            .contains(baylee_core::generated::subtypes::creature::SPIDER)
     );
 }

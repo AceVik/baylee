@@ -21,7 +21,7 @@ fn gamekeeper_does_not_use_the_wrong_reveal_destination() {
     assert!(in_graveyard(&engine, lk::P0, gamekeeper()).is_some());
     assert_eq!(
         engine.state().zones.list(ZoneLocation::Library(lk::P0)),
-        library
+        &library
     );
 }
 

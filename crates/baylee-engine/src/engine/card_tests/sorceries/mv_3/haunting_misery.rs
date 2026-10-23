@@ -76,6 +76,7 @@ fn haunting_misery_exiles_the_chosen_creature_card_and_deals_one_damage() {
     let land = in_graveyard(&e, P0, forest()).expect("Forest in the graveyard");
     let their_giant = lk::obj(&e, P1, hill_giant());
 
+    tap_all_mana(&mut e, P0);
     cast_with_floating(&mut e, P0, haunting_misery());
     let Pending::ChooseTargets {
         player_options,

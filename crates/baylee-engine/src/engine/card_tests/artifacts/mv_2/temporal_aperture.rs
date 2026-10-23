@@ -39,6 +39,6 @@ fn temporal_aperture_taps_to_shuffle_library() {
             .contains(Status::TAPPED)
     );
     assert!(engine.state().journal.entries()[journal_from..].iter().any(
-        |entry| matches!(entry.event, crate::event::GameEvent::Shuffled { player } if player == p0)
+        |entry| matches!(entry.event, crate::event::GameEvent::Shuffled { player, .. } if player == p0)
     ));
 }

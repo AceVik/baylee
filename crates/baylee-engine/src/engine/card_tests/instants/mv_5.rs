@@ -270,7 +270,6 @@ fn cast_in_mode(engine: &mut Engine<RegistryLookup>, spell: CardIndex, mode: usi
 }
 mod annihilate;
 mod blessed_light;
-mod bounty_of_the_hunt;
 mod breath_of_malfegor;
 mod bright_reprisal;
 mod broken_visage;
@@ -295,19 +294,15 @@ mod force_of_will;
 mod get_the_point;
 mod hatred;
 mod humble_the_brute;
-mod jabari_s_influence;
 mod jace_s_ingenuity;
 mod lash_of_the_whip;
 mod lava_storm;
 mod live_or_die;
-mod melee;
 mod miraculous_recovery;
 mod misdirection;
 mod muse_s_encouragement;
 mod narset_s_rebuke;
 mod necrologia;
-mod omen_of_fire;
-mod reflect_damage;
 mod scars_of_the_veteran;
 mod second_thoughts;
 mod stonefury;

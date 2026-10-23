@@ -109,7 +109,6 @@ fn may_block(
     })
 }
 mod asceticism;
-mod bazaar_of_wonders;
 mod berserkers_onslaught;
 mod blockbuster;
 mod blood_rites;
@@ -129,7 +128,6 @@ mod gravitational_shift;
 mod intimidation;
 mod larceny;
 mod liliana_s_mastery;
-mod malignant_growth;
 mod midsummer_revel;
 mod moldervine_reclamation;
 mod nature_s_revolt;

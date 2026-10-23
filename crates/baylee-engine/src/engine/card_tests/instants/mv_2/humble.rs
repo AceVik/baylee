@@ -16,13 +16,30 @@ fn humble_removes_abilities_and_sets_target_creature_to_0_1() {
     reach_main_phase(&mut engine, p0);
 
     let bear = on_battlefield(&engine, p0, llanowar_elves()).expect("seated");
-    cast_from_hand(&mut engine, p0, humble());
+    assert!(!is_tapped(&engine, bear));
+    let Pending::Priority { legal, .. } = engine.pending() else {
+        panic!("priority before Humble");
+    };
+    assert!(
+        legal.abilities.contains(&(bear, 0)),
+        "the untapped Elf can make mana before Humble"
+    );
+    tap_mana_except(&mut engine, p0, bear);
+    assert!(
+        !is_tapped(&engine, bear),
+        "the Elf is not spent paying for Humble"
+    );
+    cast_with_floating(&mut engine, p0, humble());
     if matches!(engine.pending(), Pending::ChooseTargets { .. }) {
         aim_at(&mut engine, p0, bear);
     }
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bear), (0, 1));
+    assert!(
+        !is_tapped(&engine, bear),
+        "ability loss is independent of tapping"
+    );
     let Pending::Priority { legal, .. } = engine.pending() else {
         panic!("priority");
     };

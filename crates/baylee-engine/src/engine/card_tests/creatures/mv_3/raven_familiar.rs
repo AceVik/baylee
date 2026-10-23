@@ -70,6 +70,12 @@ fn raven_familiar_etb_picks_one_of_top_three() {
     );
     // Its echo upkeep is a real price, even after its entry benefit resolved.
     pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    tap_all_mana(&mut engine, p0);
+    pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
@@ -80,15 +86,23 @@ fn raven_familiar_etb_picks_one_of_top_three() {
 #[test]
 fn flying_prevents_a_ground_creature_from_blocking() {
     use crate::engine::card_tests::legends_kit as lk;
-    let mut engine = lk::game_with(SEED, &[raven_familiar()], &[gray_ogre()], &[], &[], |e| {
-        let Pending::YesNo { player, .. } = e.pending().clone() else {
-            panic!("echo payment")
-        };
-        e.dev_state_mut(player).unwrap().players[usize::from(player.get())]
-            .mana_pool
-            .add(ManaColor::Blue, 3);
-        e.apply(player, PlayerAction::YesNo(true)).unwrap();
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[raven_familiar(), island(), island(), island()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut engine);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
     });
+    tap_all_mana(&mut engine, p0);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    reach_main_phase(&mut engine, p0);
     let flyer = lk::obj(&engine, lk::P0, raven_familiar());
     let ground = lk::obj(&engine, lk::P1, gray_ogre());
     let offer = lk::attack(&mut engine, &[flyer]);

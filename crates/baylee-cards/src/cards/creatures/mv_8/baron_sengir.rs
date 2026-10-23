@@ -9,7 +9,6 @@ use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
 static ANOTHER_VAMPIRE: Filter = Filter::And(&[
-    Filter::CREATURE,
     Filter::Another,
     Filter::HasSubtype(subtypes::creature::VAMPIRE),
 ]);

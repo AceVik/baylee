@@ -11,6 +11,46 @@ fn early_harvest() -> CardIndex {
     card_index("32001382-3079-4bbe-8d86-05da654c0d1a")
 }
 
+fn target_yourself(engine: &mut Engine<RegistryLookup>) {
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { player, .. } if *player == P0),
+        "the supported self-only subset still requires a real target"
+    );
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![]
+                }
+            )
+            .is_err(),
+        "the target is mandatory"
+    );
+    assert!(
+        engine
+            .apply(
+                P0,
+                PlayerAction::ChooseTargets {
+                    objects: vec![],
+                    players: vec![P1]
+                }
+            )
+            .is_err(),
+        "other recipients remain unsupported"
+    );
+    engine
+        .apply(
+            P0,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![P0],
+            },
+        )
+        .unwrap();
+}
+
 /// Early Harvest (32001382-3079-4bbe-8d86-05da654c0d1a) — {1}{G}{G} Instant:
 /// "Target player untaps all basic lands they control."
 #[test]
@@ -34,6 +74,7 @@ fn early_harvest_untaps_all_basic_lands_controlled_by_caster() {
 
     tap_all_mana(&mut engine, P0);
     cast_with_floating(&mut engine, P0, early_harvest());
+    target_yourself(&mut engine);
     pass_until(&mut engine, stack_is_empty);
 
     for &id in engine.state().zones.list(ZoneLocation::Battlefield) {
@@ -57,7 +98,7 @@ fn early_harvest_untaps_all_basic_lands_controlled_by_caster() {
     );
 }
 
-/// The card is Partial: it untaps the caster's basic lands only. Another
+/// The card is Partial: it targets the caster and untaps their basic lands only. Another
 /// player's tapped basic land stays tapped, so the spell never does more than
 /// it prints for its caster's side.
 #[test]
@@ -92,6 +133,7 @@ fn early_harvest_leaves_an_opponents_tapped_basic_lands_tapped() {
 
     tap_all_mana(&mut engine, P0);
     cast_with_floating(&mut engine, P0, early_harvest());
+    target_yourself(&mut engine);
     pass_until(&mut engine, stack_is_empty);
 
     for &id in &theirs {

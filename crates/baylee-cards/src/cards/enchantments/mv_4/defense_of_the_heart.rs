@@ -26,7 +26,7 @@ card!(
             Effect::SearchLibrary {
                 filter: &Filter::CREATURE,
                 finds: &[Find::BATTLEFIELD, Find::BATTLEFIELD],
-                optional: false,
+                optional: true,
             },
         ],
         condition = Some(Condition::OpponentControlCount(

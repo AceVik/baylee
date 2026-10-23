@@ -35,11 +35,25 @@ fn imaginary_pet_stays_with_an_empty_hand_and_ignores_the_opponents_upkeep() {
     reach_their_main_phase(&mut engine, p1);
     assert!(
         on_battlefield(&engine, p0, imaginary_pet()).is_some(),
-        "the draw does not make the opponent's upkeep ours"
+        "the opponent's upkeep does not return the empty-handed controller's Pet"
+    );
+    reach_their_main_phase(&mut engine, p0);
+    assert!(
+        on_battlefield(&engine, p0, imaginary_pet()).is_some(),
+        "the starting player skipped the first draw, so this upkeep still saw an empty hand"
+    );
+    assert!(
+        !engine.state().zones.list(ZoneLocation::Hand(p0)).is_empty(),
+        "the second turn's draw now supplies a card"
+    );
+    reach_their_main_phase(&mut engine, p1);
+    assert!(
+        on_battlefield(&engine, p0, imaginary_pet()).is_some(),
+        "an opponent's upkeep is ignored even with a nonempty hand"
     );
     reach_their_main_phase(&mut engine, p0);
     assert!(
         in_hand(&engine, p0, imaginary_pet()).is_some(),
-        "next own upkeep sees the drawn card"
+        "the following own upkeep sees the card drawn last turn"
     );
 }

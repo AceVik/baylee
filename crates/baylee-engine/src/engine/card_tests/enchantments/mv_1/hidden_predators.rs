@@ -61,6 +61,6 @@ fn hidden_predators_becomes_4_4_beast_when_opponent_controls_power_4_creature() 
             .unwrap()
             .characteristics()
             .subtypes
-            .contains(&baylee_core::generated::subtypes::creature::BEAST)
+            .contains(baylee_core::generated::subtypes::creature::BEAST)
     );
 }

@@ -31,6 +31,7 @@ fn well_of_knowledge_lets_the_opponent_draw_in_their_own_draw_step() {
         &[],
         &[],
     );
+    tap_all_mana(&mut e, P0);
     assert!(
         !lk::offered(&e, well_of_knowledge(), P0, 0),
         "not in a main phase"
@@ -41,13 +42,13 @@ fn well_of_knowledge_lets_the_opponent_draw_in_their_own_draw_step() {
             && e.state().turn.active == P1
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P1)
     });
+    tap_all_mana(&mut e, P1);
     assert!(
         lk::offered(&e, well_of_knowledge(), P1, 0),
         "any player: the opponent too"
     );
 
     let hand_before = hand_size(&e, P1);
-    tap_all_mana(&mut e, P1);
     activate(&mut e, P1, well_of_knowledge(), 0);
     pass_until(&mut e, stack_is_empty);
 
@@ -79,6 +80,7 @@ fn well_of_knowledge_is_only_offered_to_the_player_whose_draw_step_it_is() {
             && e.state().turn.step == Step::Draw
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
     });
+    tap_all_mana(&mut e, P0);
     assert!(
         lk::offered(&e, well_of_knowledge(), P0, 0),
         "the active player may in their draw step"
@@ -90,6 +92,7 @@ fn well_of_knowledge_is_only_offered_to_the_player_whose_draw_step_it_is() {
         "priority moved to the opponent in the same step: {:?}",
         e.pending()
     );
+    tap_all_mana(&mut e, P1);
     assert!(
         !lk::offered(&e, well_of_knowledge(), P1, 0),
         "it is not the opponent's draw step"

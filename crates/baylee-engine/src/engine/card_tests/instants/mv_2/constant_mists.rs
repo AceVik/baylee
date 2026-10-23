@@ -59,9 +59,11 @@ fn fog_does_not_stop_noncombat_damage_and_ends_with_the_turn() {
         &[],
     );
     let bear = lk::obj(&e, P0, index::GRIZZLY_BEARS);
-    lk::float(&mut e, P0, &[(ManaColor::Green, 2), (ManaColor::Red, 1)]);
+    lk::float(&mut e, P0, &[(ManaColor::Green, 2)]);
     cast_with_floating(&mut e, P0, constant_mists());
     lk::settle(&mut e);
+    // Pay the green spell before adding red: its generic cost may otherwise spend red.
+    lk::float(&mut e, P0, &[(ManaColor::Red, 1)]);
     lk::cast_at(&mut e, P0, lightning_bolt(), &[], &[P1]);
     assert_eq!(lk::life(&e, P1), 17, "noncombat damage is not prevented");
     reach_their_main_phase(&mut e, P1);

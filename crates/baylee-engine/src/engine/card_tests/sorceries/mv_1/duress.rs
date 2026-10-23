@@ -11,7 +11,14 @@ fn duress_discards_noncreature_nonland_card_from_opponent_hand() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, llanowar_elves())
         .hand(0, &[duress()])
-        .hand(1, &[counterspell(), grizzly_bears(), forest()])
+        .hand(
+            1,
+            &[
+                counterspell(),
+                baylee_core::generated::index::GRIZZLY_BEARS,
+                forest(),
+            ],
+        )
         .battlefield(0, &[swamp()])
         .start();
     keep_mulligans(&mut engine);
@@ -39,6 +46,6 @@ fn duress_discards_noncreature_nonland_card_from_opponent_hand() {
     pass_until(&mut engine, stack_is_empty);
 
     assert!(in_graveyard(&engine, p1, counterspell()).is_some());
-    assert!(in_hand(&engine, p1, grizzly_bears()).is_some());
+    assert!(in_hand(&engine, p1, baylee_core::generated::index::GRIZZLY_BEARS).is_some());
     assert!(in_hand(&engine, p1, forest()).is_some());
 }

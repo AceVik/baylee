@@ -6,7 +6,7 @@
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-static NO_OTHER_CREATURES: Condition = Condition::ControlCountAtMost(
+static NO_OTHER_CREATURES: Condition = Condition::BattlefieldCountAtMost(
     &Filter::And(&[Filter::YOUR_CREATURE, Filter::Not(&Filter::This)]),
     0,
 );

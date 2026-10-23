@@ -3,7 +3,9 @@
 //! Oracle: At the beginning of each player's upkeep, that player loses 1 life.
 //! Oracle: Whenever this enchantment becomes the target of a spell, that spell's controller loses 5 life.
 //! Set: MIR #125 — Mirage | Scryfall ID: c9dbfc7c-164d-47b8-8f05-987864fca89b | Oracle ID: b9e61e68-9dc8-4295-95dc-dd66a0907c8c
-// NOT SUPPORTED: preventing players from gaining life and causing a spell's controller to lose 5 life when this enchantment becomes the target of a spell.
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -12,23 +14,12 @@ card!(
     oracle_id = "b9e61e68-9dc8-4295-95dc-dd66a0907c8c",
     scryfall_id = "c9dbfc7c-164d-47b8-8f05-987864fca89b",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "causes the active player to lose 1 life at the beginning of each player's upkeep; preventing players from gaining life and causing a spell's controller to lose 5 life when this enchantment becomes the target of a spell are not supported",
-    ),
     faces = &[face!(
         name = "Forsaken Wastes",
         mana_cost = mana!("{2}{B}"),
         types = TypeSet::ENCHANTMENT,
         supertypes = SupertypeSet::WORLD,
     ),],
-    abilities = &[triggered!(
-        Trigger::StepBegin {
-            step: StepKind::Upkeep,
-            whose: PlayerRel::EachPlayer,
-        },
-        &[Effect::LoseLife {
-            amount: Amount::Fixed(1),
-            target: PlayerRel::ActivePlayer,
-        }],
-    )],
 );
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

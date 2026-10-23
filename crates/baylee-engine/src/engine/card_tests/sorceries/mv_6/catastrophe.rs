@@ -50,7 +50,14 @@ fn catastrophe_land_choice_stops_regeneration_of_a_land_creature() {
     let p1 = PlayerId::new(1);
     let mut engine = Duel::new(SEED, forest())
         .hand(0, &[catastrophe(), index::MENDING_TOUCH])
-        .battlefield(0, &[mishra_s_factory(), grizzly_bears(), forest()])
+        .battlefield(
+            0,
+            &[
+                mishra_s_factory(),
+                baylee_core::generated::index::GRIZZLY_BEARS,
+                forest(),
+            ],
+        )
         .battlefield(1, &[plains(), gray_ogre()])
         .start();
     keep_mulligans(&mut engine);
@@ -80,6 +87,6 @@ fn catastrophe_land_choice_stops_regeneration_of_a_land_creature() {
     );
     assert!(on_battlefield(&engine, p0, forest()).is_none());
     assert!(on_battlefield(&engine, p1, plains()).is_none());
-    assert!(on_battlefield(&engine, p0, grizzly_bears()).is_some());
+    assert!(on_battlefield(&engine, p0, baylee_core::generated::index::GRIZZLY_BEARS).is_some());
     assert!(on_battlefield(&engine, p1, gray_ogre()).is_some());
 }

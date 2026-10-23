@@ -40,28 +40,21 @@ fn metrognome_triggers_only_when_opponents_spell_discards_this_card() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     for (opponent, discard_this) in [(false, true), (true, false), (true, true)] {
         let caster = if opponent { p1 } else { p0 };
-        let mut e = lk::game(
-            SEED,
-            &[],
-            &[],
-            if opponent {
-                &[metrognome(), grizzly_bears()][..]
-            } else {
-                &[metrognome(), grizzly_bears(), index::THOUGHTSEIZE][..]
-            },
-            if opponent {
-                &[index::THOUGHTSEIZE][..]
-            } else {
-                &[]
-            },
-        );
+        let mut p0_hand = vec![metrognome(), index::GRIZZLY_BEARS];
+        let p1_hand = if opponent {
+            vec![index::THOUGHTSEIZE]
+        } else {
+            p0_hand.push(index::THOUGHTSEIZE);
+            vec![]
+        };
+        let mut e = lk::game(SEED, &[], &[], &p0_hand, &p1_hand);
         let discarded = in_hand(
             &e,
             p0,
             if discard_this {
                 metrognome()
             } else {
-                grizzly_bears()
+                baylee_core::generated::index::GRIZZLY_BEARS
             },
         )
         .unwrap();

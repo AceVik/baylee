@@ -14,7 +14,7 @@ fn citanul_flute_searches_library_for_creature_with_mv_at_most_x() {
             &[
                 citanul_flute(),
                 llanowar_elves(),
-                grizzly_bears(),
+                baylee_core::generated::index::GRIZZLY_BEARS,
                 sol_ring(),
             ],
         )
@@ -35,7 +35,11 @@ fn citanul_flute_searches_library_for_creature_with_mv_at_most_x() {
     reach_main_phase(&mut engine, p0);
 
     hand_to_library_top(&mut engine, p0, llanowar_elves());
-    hand_to_library_top(&mut engine, p0, grizzly_bears());
+    hand_to_library_top(
+        &mut engine,
+        p0,
+        baylee_core::generated::index::GRIZZLY_BEARS,
+    );
     hand_to_library_top(&mut engine, p0, sol_ring());
     cast_from_hand(&mut engine, p0, citanul_flute());
     pass_until(&mut engine, stack_is_empty);

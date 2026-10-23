@@ -29,8 +29,5 @@ card!(
             2,
             &Filter::ANOTHER_CREATURE_YOU_CONTROL
         )],
-        condition = Some(Condition::SourceMatches(&Filter::InZone(
-            ZoneRef::Battlefield
-        ))),
     )],
 );

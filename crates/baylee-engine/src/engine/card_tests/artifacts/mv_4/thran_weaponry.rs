@@ -84,7 +84,7 @@ fn echo_can_be_paid_or_declined() {
     use crate::engine::card_tests::legends_kit as lk;
     let p0 = PlayerId::new(0);
     for pay in [false, true] {
-        let mut engine = lk::game(SEED, &[], &[], &[thran_weaponry()], &[]);
+        let mut engine = lk::game(SEED, &[plains(); 4], &[], &[thran_weaponry()], &[]);
         lk::float(
             &mut engine,
             p0,
@@ -97,18 +97,18 @@ fn echo_can_be_paid_or_declined() {
         cast_with_floating(&mut engine, p0, thran_weaponry());
         pass_until(&mut engine, stack_is_empty);
         pass_until(&mut engine, |e| {
+            e.state().turn.active == p0
+                && e.state().turn.step == crate::turn::Step::Upkeep
+                && matches!(e.pending(), Pending::Priority { .. })
+        });
+        tap_all_mana(&mut engine, p0);
+        pass_until(&mut engine, |e| {
             matches!(e.pending(), Pending::YesNo { .. })
         });
         let Pending::YesNo { player, .. } = engine.pending().clone() else {
             unreachable!()
         };
         assert_eq!(player, p0);
-        engine.dev_state_mut(p0).unwrap().players[0]
-            .mana_pool
-            .add(ManaColor::White, 10);
-        engine.dev_state_mut(p0).unwrap().players[0]
-            .mana_pool
-            .add(ManaColor::Green, 10);
         let before = engine.state().players[0].mana_pool.total();
         engine.apply(p0, PlayerAction::YesNo(pay)).unwrap();
         pass_until(&mut engine, stack_is_empty);
@@ -127,7 +127,13 @@ fn echo_can_be_paid_or_declined() {
 #[test]
 fn thran_weaponry_may_stay_tapped_or_untap_normally() {
     use crate::engine::card_tests::legends_kit as lk;
-    let mut engine = lk::game(SEED, &[gray_ogre()], &[], &[thran_weaponry()], &[]);
+    let mut engine = lk::game(
+        SEED,
+        &[gray_ogre(), plains(), plains(), plains(), plains()],
+        &[],
+        &[thran_weaponry()],
+        &[],
+    );
     lk::float(&mut engine, lk::P0, &[(ManaColor::Colorless, 6)]);
     lk::cast_at(&mut engine, lk::P0, thran_weaponry(), &[], &[]);
     let weapon = lk::obj(&engine, lk::P0, thran_weaponry());
@@ -152,11 +158,14 @@ fn thran_weaponry_may_stay_tapped_or_untap_normally() {
         .unwrap();
     assert!(is_tapped(&engine, weapon));
     pass_until(&mut engine, |e| {
+        e.state().turn.active == lk::P0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { .. })
+    });
+    tap_all_mana(&mut engine, lk::P0);
+    pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });
-    engine.dev_state_mut(lk::P0).unwrap().players[0]
-        .mana_pool
-        .add(ManaColor::Colorless, 4);
     engine.apply(lk::P0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
     assert!(is_tapped(&engine, weapon));

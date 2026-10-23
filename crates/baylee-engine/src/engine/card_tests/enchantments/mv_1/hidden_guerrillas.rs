@@ -54,6 +54,6 @@ fn hidden_guerrillas_becomes_5_3_soldier_when_opponent_casts_artifact() {
     assert!(
         chars
             .subtypes
-            .contains(&baylee_core::generated::subtypes::creature::SOLDIER)
+            .contains(baylee_core::generated::subtypes::creature::SOLDIER)
     );
 }

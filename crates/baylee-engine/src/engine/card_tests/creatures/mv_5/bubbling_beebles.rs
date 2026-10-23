@@ -8,22 +8,47 @@ fn bubbling_beebles() -> CardIndex {
 }
 
 #[test]
-fn bubbling_beebles_does_not_use_an_arbitrary_opponents_enchantments() {
+fn bubbling_beebles_reads_only_the_player_it_is_attacking() {
     use crate::engine::card_tests::legends_kit as lk;
-    let mut engine = lk::game(
-        SEED,
-        &[bubbling_beebles()],
-        &[sylvan_library(), gray_ogre()],
-        &[],
-        &[],
-    );
-    let beebles = lk::obj(&engine, lk::P0, bubbling_beebles());
-    let blocker = lk::obj(&engine, lk::P1, gray_ogre());
-    let offer = lk::attack(&mut engine, &[beebles]);
-    assert!(
-        lk::may_block(&offer, blocker, beebles),
-        "unsupported evasion is omitted"
-    );
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    for defender_has_enchantment in [false, true] {
+        let defender_board = if defender_has_enchantment {
+            vec![gray_ogre(), sylvan_library()]
+        } else {
+            vec![gray_ogre()]
+        };
+        let mut engine = Duel::table(SEED, forest(), 3)
+            .battlefield(0, &[bubbling_beebles()])
+            .battlefield(1, &defender_board)
+            .battlefield(2, &[sylvan_library(), gray_ogre()])
+            .start();
+        keep_mulligans(&mut engine);
+        reach_main_phase(&mut engine, p0);
+        let beebles = lk::obj(&engine, p0, bubbling_beebles());
+        let blocker = lk::obj(&engine, p1, gray_ogre());
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseAttackers { .. })
+        });
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareAttackers {
+                    attackers: vec![(beebles, Defender::Player(p1))],
+                },
+            )
+            .unwrap();
+        pass_until(&mut engine, |e| {
+            matches!(e.pending(), Pending::ChooseBlockers { .. })
+        });
+        let Pending::ChooseBlockers { blockers, .. } = engine.pending() else {
+            unreachable!()
+        };
+        assert_eq!(
+            lk::may_block(blockers, blocker, beebles),
+            !defender_has_enchantment,
+            "a different opponent's enchantment never grants evasion against p1"
+        );
+    }
 }
 
 #[test]
