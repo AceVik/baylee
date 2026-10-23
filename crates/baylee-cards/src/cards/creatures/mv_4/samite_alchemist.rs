@@ -28,10 +28,11 @@ card!(
                 amount: Amount::Fixed(4),
             },
             Effect::TapTarget,
-            Effect::SuppressUntap {
-                target: TargetSpec::Object(&Filter::YOUR_CREATURE),
-                steps: 1,
-            },
+            Effect::continuous(
+                &Filter::This,
+                Modifier::DoesNotUntap,
+                Duration::UntilYourNextUntapStep,
+            ),
         ],
         target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE))
     )],

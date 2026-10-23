@@ -4,6 +4,9 @@
 use super::*;
 use baylee_cards_dsl::{Duration, Filter, Modifier, TargetSpec};
 
+mod cards;
+pub(in crate::engine) use cards::assert_untaps_after_control_change;
+
 const VICTIM: u32 = 7410;
 const LOCKER: u32 = 7411;
 const STEWARD: u32 = 7412;

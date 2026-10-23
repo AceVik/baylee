@@ -132,3 +132,10 @@ fn homarid_warrior_with_shroud_cannot_be_targeted() {
         "the shrouded Homarid Warrior is not: {options:?}"
     );
 }
+
+#[test]
+fn homarid_warrior_untaps_for_a_new_controller() {
+    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(
+        homarid_warrior(),
+    );
+}

@@ -29,9 +29,9 @@ card!(
                 amount: Amount::Fixed(2),
                 target: TargetSpec::AnyTarget,
             },
-            Effect::SuppressUntap {
-                target: TargetSpec::ThisObject,
-                steps: 1,
+            Effect::ModifySource {
+                modifier: Modifier::DoesNotUntap,
+                duration: Duration::UntilYourNextUntapStep,
             },
         ],
         target = Some(TargetSpec::AnyTarget),

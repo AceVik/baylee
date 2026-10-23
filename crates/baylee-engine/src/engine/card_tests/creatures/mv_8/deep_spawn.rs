@@ -157,3 +157,8 @@ fn deep_spawn_shroud_ability_taps_it_and_skips_exactly_one_untap() {
     wait_for_the_upkeep_question(&mut e, 5);
     assert!(!is_tapped(&e, spawn), "only one untap step was skipped");
 }
+
+#[test]
+fn deep_spawn_untaps_for_a_new_controller() {
+    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(deep_spawn());
+}

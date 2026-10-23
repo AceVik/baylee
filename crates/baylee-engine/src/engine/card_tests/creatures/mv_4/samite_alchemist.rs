@@ -225,3 +225,10 @@ fn samite_alchemist_prevents_exactly_four_damage() {
         );
     }
 }
+
+#[test]
+fn samite_alchemist_untaps_for_a_new_controller() {
+    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(
+        samite_alchemist(),
+    );
+}

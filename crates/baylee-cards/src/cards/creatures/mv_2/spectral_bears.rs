@@ -28,9 +28,9 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::Attacks(&Filter::This),
-        &[Effect::SuppressUntap {
-            target: TargetSpec::ThisObject,
-            steps: 1,
+        &[Effect::ModifySource {
+            modifier: Modifier::DoesNotUntap,
+            duration: Duration::UntilYourNextUntapStep,
         }],
         condition = Some(Condition::BattlefieldCountAtMost(
             &DEFENDERS_BLACK_NONTOKEN_PERMANENT,

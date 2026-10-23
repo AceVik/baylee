@@ -119,3 +119,10 @@ fn reveka_wizard_savant_deals_two_damage_to_a_creature() {
     );
     assert!(is_tapped(&engine, reveka));
 }
+
+#[test]
+fn reveka_wizard_savant_untaps_for_a_new_controller() {
+    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(
+        reveka_wizard_savant(),
+    );
+}

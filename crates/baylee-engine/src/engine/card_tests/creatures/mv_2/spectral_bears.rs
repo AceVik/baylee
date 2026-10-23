@@ -146,3 +146,10 @@ fn spectral_bears_ignores_black_tokens_when_it_checks_the_defender() {
         "black tokens are not black nontoken permanents, so the Bears stay tapped"
     );
 }
+
+#[test]
+fn spectral_bears_untaps_for_a_new_controller() {
+    crate::engine::mechanics_tests::untap_scope::assert_untaps_after_control_change(
+        spectral_bears(),
+    );
+}

@@ -40,7 +40,7 @@ mod preparation;
 mod tokens;
 mod transforms;
 mod triggers;
-mod untap_scope;
+pub(super) mod untap_scope;
 mod wave3_rules;
 mod wave3b_rules;
 mod zones;
