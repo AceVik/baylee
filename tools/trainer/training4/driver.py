@@ -70,9 +70,12 @@ def main() -> None:
     ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
     ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
     ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
+    ap.add_argument("--compile-readouts", action="store_true", help="Also compile recurrent updates and action/value readouts; requires --compile-regions")
     ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
     ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
     args = ap.parse_args()
+    if args.compile_readouts and not args.compile_regions:
+        ap.error("--compile-readouts requires --compile-regions")
 
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
@@ -212,7 +215,7 @@ def main() -> None:
     if args.compile_regions:
         if device.type != "cuda":
             raise ValueError("Regional compilation is currently verified on CUDA only")
-        compile_regions(net)
+        compile_regions(net, readouts=args.compile_readouts)
 
     def validate_and_save():
         nonlocal best_score, best_state, best_val_metrics, best_step

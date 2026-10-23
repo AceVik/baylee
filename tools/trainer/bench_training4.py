@@ -94,6 +94,7 @@ def main():
     ap.add_argument("--steps", type=int, default=8)
     ap.add_argument("--variants", default="reference,optimizer,device,chunk4,chunk8,chunk16,chunk32,chunk8-fused")
     ap.add_argument("--profile", action="store_true")
+    ap.add_argument("--validation-batches", type=int, default=0, help="Also audit a held-out prefix with fully optimized validation")
     args = ap.parse_args()
     torch.set_num_threads(4)
     saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
@@ -130,7 +131,7 @@ def main():
         if "selected" in variant.split("-"):
             net.prune_unused_policy_heads = True
         if "regional" in variant.split("-"):
-            compile_regions(net)
+            compile_regions(net, readouts="readouts" in variant.split("-"))
         elif "graphs" in variant.split("-"):
             net._entity_bucket = 0 if variant.endswith("-unpadded") else 64
             compile_regions(net, cuda_graphs=True)
@@ -183,6 +184,11 @@ def main():
         print(json.dumps({k:v for k,v in row.items() if k not in ("samples","profile_cpu_top")}),flush=True)
         del net,optimizer,h
         gc.collect();torch.cuda.empty_cache()
+    if args.validation_batches:
+        from validation_probe4 import compare_validation
+        report["validation"] = compare_validation(saved, args.data, args.validation_batches)
+        atomic_json(Path(args.out), report)
+        print(json.dumps({"validation": report["validation"]}), flush=True)
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ def encode_boards(net, batch, chunk, device, entity_bucket=0):
     return result
 
 
-def compile_regions(net, cuda_graphs=False):
+def compile_regions(net, cuda_graphs=False, readouts=False):
     """Fuse repeated layers without changing state_dict keys or ONNX exports."""
     import torch._inductor.config
     torch._inductor.config.compile_threads = 4
@@ -96,3 +96,6 @@ def compile_regions(net, cuda_graphs=False):
     for layer in net.trunk_layers:
         layer.compile(dynamic=True, mode=mode)
     net.thinking_block.compile(dynamic=True, mode=mode)
+    if readouts:
+        for layer in (net.recurrent_cell, net.cand_scorer, net.pair_scorer, net.seat_value_head):
+            layer.compile(dynamic=True, mode=mode)

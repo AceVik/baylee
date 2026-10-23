@@ -28,6 +28,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--cuda-graphs", action="store_true")
     ap.add_argument("--cache-thinking-kv", action="store_true")
+    ap.add_argument("--compile-readouts", action="store_true")
     args = ap.parse_args()
     torch.set_num_threads(2)
     torch.cuda.set_per_process_memory_fraction(0.18)
@@ -50,7 +51,7 @@ def main():
         if compiled:
             net.cache_thinking_kv = args.cache_thinking_kv
             net._entity_bucket = 64 if args.cuda_graphs else 0
-            compile_regions(net, cuda_graphs=args.cuda_graphs)
+            compile_regions(net, cuda_graphs=args.cuda_graphs, readouts=args.compile_readouts)
         optimizer = torch.optim.AdamW([
             {"params":[p for n,p in net.named_parameters() if "seat_value_head" not in n]},
             {"params":[p for n,p in net.named_parameters() if "seat_value_head" in n]},

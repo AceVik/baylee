@@ -23,6 +23,9 @@ execution choice, not a change to the model/encoder contract. Freeze these packa
 directories as well as the top-level scripts when snapshotting a trainer.
 `--compile-regions` additionally compiles the repeated transformer/thinking blocks
 without changing checkpoint keys; it is optional and currently CUDA-verified.
+`--compile-readouts` extends that choice to the recurrent update and the
+candidate/pair/seat-value readouts; benchmark both cold compilation and sustained
+throughput before enabling it for a run.
 `--cache-thinking-kv` optionally reuses the unchanged board's cross-attention
 key/value projections within one multi-step decision. The projections retain
 their autograd history and are discarded after that forward call; they never

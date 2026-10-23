@@ -653,3 +653,43 @@ ONNX equivalence and the same matched 128-duel/64-Commander evaluation follow
 without automatic promotion. The validator now uses device reductions and
 float64 totals with the same metrics and denominators as the reference.
 More updates per hour do not establish improved playing strength.
+
+
+### Further measured reductions in repeated work
+
+Two more optimizations passed CPU gradient/memory/loss tests for every thinking
+budget and policy head, plus all six Python/ONNX contract checks:
+
+- `--cache-thinking-kv`: the thinking block's board normalization and attention
+  K/V projections do not depend on the thinking step. Reuse them within that
+  forward call while retaining autograd. No cross-observation or persistent cache.
+  `kv-cache-timing/benchmark.json` (step 5800) measured 0.763 original,
+  1.635 grouped/compiled, and 1.712 updates/s with reuse (+4.7%). Peak allocated
+  memory fell from 4.389 to 3.939 GiB. Gradient relative L2 difference from the
+  original was 0.271%, slightly below the uncached grouped variant's 0.278%.
+- `--prune-unused-policy-heads`: skip only policy branches which do not contribute
+  to that frame's loss. Value, auxiliary targets and passive memory updates
+  remain present. Default inference/export still computes every output.
+  `head-selection-timing/benchmark.json` (step 6100) measured 0.776 original,
+  1.457 with grouped/compiled/KV reuse and 1.527 updates/s with unused heads
+  omitted (+4.8%). Chunk 16 measured 1.522 and reserved 7.588 GiB instead of
+  5.877 GiB, so retain chunk 8. FP32 whole-unroll losses, memory, parameter
+  gradients and None-gradient patterns agree; BF16 full-update gradient relative
+  L2 difference from the original was 0.329%.
+
+A separate 120-second live sample of the earlier regional run averaged 52.8%
+GPU utilization (3–100%), 138.5 W GPU power and 6.5% total CPU utilization.
+This is not a paired energy benchmark. CPU dispatch and changing observation/
+decision work still produce peaks; a perfectly flat utilization chart is not
+an efficiency requirement. Throughput, retained supervision, memory bounds and
+correct outputs are the adoption criteria. Reserved allocator memory is not
+identical to live tensor memory; avoid filling the displayed VRAM headroom with
+an unneeded copy of the dataset.
+
+`codex-r4-projection-cache-bc` resumed step 5800, then
+`codex-r4-throughput-bc` resumed step 6100 with 6900 seconds optimization budget
+remaining, chunk 8, regional compilation, K/V reuse and unused-head omission.
+Each handoff preserved its atomic checkpoint and frozen runtime; standalone
+resume supervisors selected only passing variants and restarted training as soon
+as the bounded benchmark finished. Old job guard failures are annotated as
+intentional handoffs. Full validation and matched games remain pending.
