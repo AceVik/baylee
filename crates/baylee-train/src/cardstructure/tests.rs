@@ -58,6 +58,57 @@ fn public_identity_is_explicit_and_unknown_selects_nothing() {
 }
 
 #[test]
+fn room_active_list_indices_resolve_to_the_printed_door() {
+    use crate::features4::{Candidate4, ENTITY_FEAT_WIDTH, EncodedState4};
+    let def = baylee_cards::all()
+        .find(|c| c.name() == "Walk-In Closet")
+        .unwrap();
+    let cid = def.index.get();
+    let catalog = catalog(&[cid]).unwrap();
+    let mut state = EncodedState4 {
+        entity_feat: vec![vec![0.0; ENTITY_FEAT_WIDTH]],
+        entity_card_ids: vec![cid],
+        entity_face_ids: vec![0],
+        entity_token_ids: vec![0],
+        entity_rule_refs: vec![refs::card_refs(cid, 0, 0)],
+        ..Default::default()
+    };
+    let mut candidate = Candidate4 {
+        entity_idx: 0,
+        ability_idx: 0,
+        ..Default::default()
+    };
+    for (left, right, active_index, face, index) in [
+        (true, false, 0, 0, 0),
+        (false, true, 0, 1, 0),
+        (true, true, 1, 1, 0),
+    ] {
+        state.entity_feat[0][39] = f32::from(left);
+        state.entity_feat[0][40] = f32::from(right);
+        candidate.ability_idx = active_index;
+        let selected = refs::candidate_refs(&candidate, &state)
+            .into_iter()
+            .find(|r| r.role == 7)
+            .unwrap();
+        assert_eq!(selected.key, format!("a/{cid}/{face}/{index}"));
+        assert!(catalog.roots.contains_key(&selected.key));
+    }
+    // CardDef's static slice is intentional. This tiny test fixture models a
+    // future Room whose left door is blank, with rules only on its right.
+    let faces = Box::leak(Box::new([
+        baylee_cards_dsl::FaceDef {
+            abilities: &[],
+            ..def.faces[0]
+        },
+        baylee_cards_dsl::FaceDef { ..def.faces[1] },
+    ]));
+    let blank_left = baylee_cards_dsl::CardDef { faces, ..*def };
+    assert!(!blank_left.abilities_for_face(0).is_empty());
+    assert!(super::catalog::face_abilities(&blank_left, 0).is_empty());
+    assert!(!super::catalog::face_abilities(&blank_left, 1).is_empty());
+}
+
+#[test]
 fn changing_opponents_hidden_deal_cannot_change_actor_inputs() {
     use crate::{features4::encode_state4, housedeck::HouseDeck, selfplay::table_for};
     use baylee_core::{ids::PlayerId, preset::AIProfile};

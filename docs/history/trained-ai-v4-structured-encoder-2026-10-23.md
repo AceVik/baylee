@@ -65,7 +65,7 @@ changed. Work is on `c42/trained-ai`; artifacts are in
    completed in about 110 seconds. Fixed held-out node-kind accuracy reached
    **95.36%**, combined query loss **0.3149**; these are not win rates.
 2. **Replay data:** first a 704-game integration corpus (`dataset-v1`), then
-   the same broad corpus used by the previous policy (`dataset-broad-v1`,
+   the same broad corpus used by the previous policy (`dataset-broad-v2`,
    expected 847 games, 6,620,782 training and 3,072,672 validation observations).
    The converter checks replay hashes and every semantic reference. Existing
    lossy vectors are not patched to pretend discarded information survived.
@@ -116,7 +116,7 @@ tests check semantic dependence, gradient equivalence with table reuse, frozen
 lookup equivalence, malformed DAG rejection and ONNX with nonzero references
 and changing reference-list lengths. Existing recurrent/training tests and the
 six original Python contract tests are included in the checks.
-The complete library suite passes **62 Rust tests**; Python discovery passes
+The complete library suite passes **63 Rust tests**; Python discovery passes
 **40 tests**, including refresh after operator/DAG renumbering.
 
 The initial migrated 54.8M model exported K=0/1/2/4/8 with maximum Torch/ORT
@@ -133,6 +133,14 @@ is not a strength improvement. Its inference p95 was about 4.1 ms. The first
 attempt from a copied executable lacked adjacent ORT provider libraries and
 failed at startup; the corrected runtime includes them and preserves the
 failed attempt's logs separately.
+
+A final room-specific check covers the difference between an offered active
+door-list index and a per-face printed index. Selected references now map
+through the publicly encoded unlocked-door bits. A blank left door does not
+inherit the right door's rules when the catalog is built. Stack references
+already carry the engine's captured per-face provenance. The current compiled
+pool's only Room is Walk-In Closet (static/triggered abilities); this follow-up
+does not alter its catalog digest or the active frozen experiment's inputs.
 
 The old `pretrain_dsl4.py` summary experiment is explicitly rejected for the
 new contract; it cannot silently emit an incomplete encoder-6 artifact.
@@ -151,4 +159,13 @@ from ongoing source edits. The subsequent `runtime-v1` freezes source at
 `db27937b9` and includes the eval executable and CUDA provider libraries with
 file hashes. `continue-structured.py`, `continuation-status.json`, and the
 per-stage `jobs/` directories record the automatic sequence and its failures.
+The first broad replay attempt hit its **28 GiB** process-group limit with four
+workers during large 8-seat games (peak PSS 28.17 GiB); it was terminated and
+quarantined, not accepted as a dataset. `reconvert-broad-v2` retries from the
+records with **two workers and a 48 GiB limit**, matching the previously
+successful broad replay's worker count. `continue-structured-v2.py` lets the
+already running adaptation finish, performs its export and paired comparisons,
+then waits for the validated retry before broad training. The first controller
+exits at its failed replay prerequisite; no checkpoint writer is interrupted.
+All attempts and both controller logs remain available.
 The machine monitor remains running.

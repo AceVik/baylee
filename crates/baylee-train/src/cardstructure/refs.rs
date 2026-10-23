@@ -95,7 +95,23 @@ pub fn candidate_refs(c: &Candidate4, state: &EncodedState4) -> Vec<RuleRef> {
         } else if c.ability_idx >= i64::from(u32::MAX - 11) {
             push(&mut out, 7, format!("q/{}", c.ability_idx));
         } else if cid != UNKNOWN_CARD {
-            push(&mut out, 7, format!("a/{cid}/{fid}/{}", c.ability_idx));
+            // Legal offers use the active concatenated door list; catalog
+            // roots and captured stack provenance use per-face indices.
+            let (face, index) = baylee_cards::by_index(baylee_core::ids::CardIndex::new(cid))
+                .filter(|def| def.has_shared_type_line())
+                .map_or((fid, c.ability_idx), |def| {
+                    let left = state.entity_feat[e][39] != 0.0;
+                    let right = state.entity_feat[e][40] != 0.0;
+                    let left_count = def.faces[0].abilities.len() as i64;
+                    if right && !left {
+                        (1, c.ability_idx)
+                    } else if left && right && c.ability_idx >= left_count {
+                        (1, c.ability_idx - left_count)
+                    } else {
+                        (0, c.ability_idx)
+                    }
+                });
+            push(&mut out, 7, format!("a/{cid}/{face}/{index}"));
         } else if token > 0 {
             push(&mut out, 7, format!("ta/{}/{}", token - 1, c.ability_idx));
         }
@@ -128,7 +144,10 @@ pub fn mode_refs(cid: u32, face: u8, kind: &baylee_engine::choice::CastModeKind)
         _ => return out,
     };
     push(&mut out, 7, format!("c/{cid}/{face}"));
-    for (i, ab) in card.abilities_for_face(face).iter().enumerate() {
+    for (i, ab) in super::catalog::face_abilities(card, face)
+        .iter()
+        .enumerate()
+    {
         let list = match ab {
             A::ModalSpell { modes, .. }
             | A::ModalActivated { modes, .. }

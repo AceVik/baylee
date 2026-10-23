@@ -1,6 +1,16 @@
 use super::{Forest, TreeEncode};
 use baylee_cards_dsl::{AbilityDef, CardDef};
 
+// Rooms use the literal list on each door. A blank left door must not
+// inherit the card-level list containing the other door's abilities.
+pub(super) fn face_abilities(def: &CardDef, face: usize) -> &'static [AbilityDef] {
+    if def.has_shared_type_line() {
+        def.faces.get(face).map_or(&[], |f| f.abilities)
+    } else {
+        def.abilities_for_face(face)
+    }
+}
+
 impl Forest {
     fn ability(&mut self, key: &str, ability: &AbilityDef) {
         let root = ability.tree(self);
@@ -22,7 +32,7 @@ impl Forest {
             let children = vec![
                 value.tree(self),
                 def.keywords_for_face(face).tree(self),
-                def.abilities_for_face(face).tree(self),
+                face_abilities(def, face).tree(self),
             ];
             faces.push(self.node("FaceRules", &[], children));
         }
@@ -34,7 +44,7 @@ impl Forest {
                 def.commander.tree(self),
                 def.partner.tree(self),
                 def.keywords_for_face(face).tree(self),
-                def.abilities_for_face(face).tree(self),
+                face_abilities(def, face).tree(self),
                 all_faces,
             ];
             let root = self.node("CardFace", &[], children);
@@ -44,7 +54,7 @@ impl Forest {
             let identity = self.node("FaceIdentity", &(face as u32).to_le_bytes(), vec![identity]);
             self.roots
                 .insert(format!("i/{}/{face}", def.index.get()), identity);
-            for (i, ab) in def.abilities_for_face(face).iter().enumerate() {
+            for (i, ab) in face_abilities(def, face).iter().enumerate() {
                 self.ability(&format!("a/{}/{face}/{i}", def.index.get()), ab);
             }
             for (i, cost) in value.alternative_costs.iter().enumerate() {
