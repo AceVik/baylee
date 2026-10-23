@@ -149,6 +149,19 @@ linked to, and an account registered at Central (no legacy account) as a new
 local projection, as a registered gateway does; Central's beta key stood in for
 the gateway's at sign-up, so only `BAYLEE_REGISTRATION=off` refuses it
 (baylee-central `docs/web-accounts.md`).
+A moved account keeps its display name and tag at Central (baylee-central
+`docs/native-login.md` §"The bridge's reservation carries the name and
+tag"): the bridge sends both with `LegacyReserve` at the move, the name only
+when it keeps `auth::valid_display_name` (a name from before that rule, or
+from `gateway-store.json`, stays behind, and the account chooses one on the
+website), and the tag always. An account that moved before Central kept them
+gets them at its next Central sign-in here: `login_for` sends
+`LegacyProfile` for a linked legacy account at every such sign-in, since
+this side records nothing about it; Central sets name and tag only while the
+account has no tag, answers `Conflict` after that, and any answer leaves the
+sign-in as it is. No background job: every moved account that still plays
+signs in here. Showing Central's names on gateways is the accounts design's
+step 4; until then a gateway shows its own.
 The official gateway is listed in Central's directory (`baylee.app/gateways`,
 marked "Official") once Central's operator has listed it (baylee-central
 `docs/operations.md` §"The official gateway"). Its bridge file then gains
