@@ -40,6 +40,7 @@ mod flawless_maneuver;
 mod forbid;
 mod force_void;
 mod foxfire;
+mod harmonic_convergence;
 mod harrow;
 mod hero_s_downfall;
 mod hibernation;

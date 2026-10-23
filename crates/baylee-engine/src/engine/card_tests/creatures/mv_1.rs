@@ -37,6 +37,7 @@ mod civic_guildmage;
 mod dedicated_martyr;
 mod defiant_elf;
 mod dega_disciple;
+mod devout_harpist;
 mod devout_monk;
 mod dragon_s_rage_channeler;
 mod druid_lyrist;

@@ -720,3 +720,5 @@ no-engine-change contract:
   - Batch 5 (`Phyrexian Colossus` to `Shower of Sparks`, 25 cards): **10 Implemented, 15 Partial**.
   - Batch 6 (`Sleeper Agent` to `Vampiric Embrace`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 7 (`Vebulid` to `Worship`, 22 cards): **14 Implemented, 8 Partial**.
+- **Urza's Legacy (`ulg`)** — in progress:
+  - Batch 1 (`About Face` to `Hidden Gibbons`, 25 cards): **19 Implemented, 6 Partial**.

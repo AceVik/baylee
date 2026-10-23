@@ -23,6 +23,7 @@ mod copper_tablet;
 mod crown_of_the_ages;
 mod cursed_totem;
 mod darksteel_pendant;
+mod defense_grid;
 mod demon_s_horn;
 mod dowsing_device;
 mod dragon_s_claw;

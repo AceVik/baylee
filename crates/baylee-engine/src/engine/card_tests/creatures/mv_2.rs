@@ -51,6 +51,7 @@ mod cephalid_scout;
 mod charming_prince;
 mod cinder_crawler;
 mod citanul_druid;
+mod cloud_of_faeries;
 mod coiling_oracle;
 mod collector_ouphe;
 mod consumptive_goo;

@@ -32,6 +32,7 @@ mod flowstone_mauler;
 mod force_of_nature;
 mod frost_giant;
 mod gaea_s_liege;
+mod gang_of_elk;
 mod giant_shark;
 mod giant_warthog;
 mod grassland_crusader;

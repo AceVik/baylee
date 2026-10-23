@@ -29,6 +29,7 @@ mod conservator;
 mod cumber_stone;
 mod cursed_rack;
 mod cyclopean_tomb;
+mod damping_engine;
 mod diamond_kaleidoscope;
 mod dingus_egg;
 mod dingus_staff;

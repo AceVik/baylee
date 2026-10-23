@@ -116,6 +116,7 @@ mod flood;
 mod font_of_fertility;
 mod gerrard_s_battle_cry;
 mod graf_harvest;
+mod hidden_gibbons;
 mod hidden_guerrillas;
 mod hidden_herd;
 mod hidden_predators;

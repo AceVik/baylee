@@ -5,6 +5,7 @@ use super::*;
 
 mod abzan_banner;
 mod aegis_of_the_meek;
+mod angel_s_trumpet;
 mod arcane_encyclopedia;
 mod arcum_s_whistle;
 mod ashnod_s_altar;
@@ -21,6 +22,7 @@ mod chariot_of_the_sun;
 mod chimeric_sphere;
 mod chromatic_lantern;
 mod commander_s_sphere;
+mod crawlspace;
 mod crucible_of_worlds;
 mod crystal_ball;
 mod crystal_chimes;

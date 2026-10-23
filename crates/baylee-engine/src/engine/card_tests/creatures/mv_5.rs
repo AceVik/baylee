@@ -39,6 +39,7 @@ mod crashing_boars;
 mod crimson_roc;
 mod dark_maze;
 mod deadly_insect;
+mod deranged_hermit;
 mod dread_wight;
 mod earth_elemental;
 mod eater_of_the_dead;
