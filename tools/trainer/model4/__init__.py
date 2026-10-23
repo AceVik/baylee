@@ -187,6 +187,11 @@ class PlayerNet4(nn.Module):
         board = self.trunk_norm(x)
         return board, pad_mask
 
+    def observe_memory(self, board, h_in, thinking_steps):
+        """Consume K=0 observations; decision scratchpads never alter memory."""
+        h_observed = self.h_norm(self.recurrent_cell(board[:, :RECURRENT_SLOTS], h_in))
+        return torch.where((thinking_steps == 0).view(board.shape[0], 1, 1), h_observed, h_in)
+
     def forward_with_seat_logits(
         self,
         entity_feat: torch.Tensor,
@@ -209,6 +214,7 @@ class PlayerNet4(nn.Module):
         execution_hint: tuple[int, int, int] | None = None,
         encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
         policy_heads: tuple[bool, bool, bool, bool] | None = None,
+        observed_memory: torch.Tensor | None = None,
     ) -> tuple[
         torch.Tensor,
         torch.Tensor,
@@ -252,9 +258,8 @@ class PlayerNet4(nn.Module):
         # Persistent recurrent memory update on the 9 summary slots (1 Global + 8 Seats)
         # K=0 consumes one observation. K>=1 decides/thinks without changing
         # persistent memory. Live and replay both observe before deciding.
-        h_observed = self.h_norm(self.recurrent_cell(board[:, :RECURRENT_SLOTS], h_in))
-        is_observation = (thinking_steps == 0).view(B, 1, 1)
-        h_out = torch.where(is_observation, h_observed, h_in)
+        h_out = (self.observe_memory(board, h_in, thinking_steps)
+                 if observed_memory is None else observed_memory)
 
         # Latent thinking scratchpad `z`: unroll all `max_thinking_steps` during ONNX tracing
         # so runtime `thinking_steps` (`0..=8`) genuinely executes `K` steps.
@@ -372,6 +377,7 @@ class PlayerNet4(nn.Module):
         execution_hint: tuple[int, int, int] | None = None,
         encoded_board: tuple[torch.Tensor, torch.Tensor] | None = None,
         policy_heads: tuple[bool, bool, bool, bool] | None = None,
+        observed_memory: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         h_out, cand_logits, pair_logits, scalar_pred, value, _ = (
             self.forward_with_seat_logits(
@@ -395,6 +401,7 @@ class PlayerNet4(nn.Module):
                 execution_hint=execution_hint,
                 encoded_board=encoded_board,
                 policy_heads=policy_heads,
+                observed_memory=observed_memory,
             )
         )
         return h_out, cand_logits, pair_logits, scalar_pred, value

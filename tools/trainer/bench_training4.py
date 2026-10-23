@@ -22,6 +22,7 @@ from run_guard4 import atomic_json
 from training4.execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss
+from training4.deferred import deferred_readouts
 
 
 def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, capture=False):
@@ -41,14 +42,19 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
         boards = encode_boards(net, batch, chunk, torch.device("cuda"), getattr(net,"_entity_bucket",0))
     loss = torch.zeros((), device="cuda")
     stats = torch.zeros(5, device="cuda")
+    prepared = None
+    if getattr(net, "decision_chunk", 1) > 1:
+        prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
+                                                  net.decision_chunk, torch.device("cuda"), True)
     for t in range(u):
         k = (1, 2, 4, 8)[(step_num + t) % 4]
         thinking = batch["is_decision"][:, t].cuda().long() * k
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            out = net(*[batch[n][:, t].cuda() for n in M.INPUT_NAMES[:15]], h, thinking,
+            out = (net(*[batch[n][:, t].cuda() for n in M.INPUT_NAMES[:15]], h, thinking,
                       execution_hint=None if reference else plans[t].hint,
                       encoded_board=None if boards is None else boards[t],
                       policy_heads=plans[t].heads if not reference and getattr(net, "prune_unused_policy_heads", False) else None)
+                   if prepared is None else prepared[t])
             aux = net.aux_head(out[0][:, 0])
         args = (*[x.float() for x in out[1:]], aux.float(), batch, t)
         if reference:
@@ -56,8 +62,11 @@ def update(net, optimizer, host, h, step_num, reference, chunk, fused=False, cap
         else:
             step_loss, st = compute_device_loss(*args, plans[t])
             stats += st
-        h = torch.where(batch["step_valid"][:, t, None, None].cuda(), out[0].float(), h)
+        if prepared is None:
+            h = torch.where(batch["step_valid"][:, t, None, None].cuda(), out[0].float(), h)
         loss = loss + step_loss / u
+    if prepared is not None:
+        h = final_hidden
     events[2].record()
     if not torch.isfinite(loss):
         raise FloatingPointError("Nonfinite benchmark loss")
@@ -93,6 +102,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--steps", type=int, default=8)
     ap.add_argument("--variants", default="reference,optimizer,device,chunk4,chunk8,chunk16,chunk32,chunk8-fused")
+    ap.add_argument("--gradient-reference", default="reference", help="Variant whose first gradient is the parity baseline")
     ap.add_argument("--profile", action="store_true")
     ap.add_argument("--validation-batches", type=int, default=0, help="Also audit a held-out prefix with fully optimized validation")
     args = ap.parse_args()
@@ -115,7 +125,8 @@ def main():
     del iterator, loader
     report = {"gpu": torch.cuda.get_device_name(), "torch": torch.__version__,
               "checkpoint": args.checkpoint, "step": saved["step_num"], "batch_size": saved["batch_size"],
-              "unroll": saved["unroll"], "scope": __doc__, "loader_wait_ms": [v*1000 for v in waits],
+              "unroll": saved["unroll"], "scope": __doc__, "gradient_reference": args.gradient_reference,
+              "loader_wait_ms": [v*1000 for v in waits],
               "batch_mib": [sum(t.numel()*t.element_size() for t in b.values())/2**20 for b in batches],
               "entity_counts": [b["entity_feat"].shape[2] for b in batches], "results": []}
     reference_gradients = None
@@ -130,6 +141,9 @@ def main():
             net.cache_thinking_kv = True
         if "selected" in variant.split("-"):
             net.prune_unused_policy_heads = True
+        for part in variant.split("-"):
+            if part.startswith("deferred"):
+                net.decision_chunk = int(part[len("deferred"):])
         if "regional" in variant.split("-"):
             compile_regions(net, readouts="readouts" in variant.split("-"))
         elif "graphs" in variant.split("-"):
@@ -154,6 +168,7 @@ def main():
         restore_rng(saved["rng"])
         h = saved["h"].cuda() if saved["h"] is not None else torch.zeros(saved["batch_size"],9,net.cfg.d_model,device="cuda")
         torch.cuda.reset_peak_memory_stats()
+        retries_before = torch.cuda.memory_stats()["num_alloc_retries"]
         samples, row = [], {"variant":variant, "started_at_unix":time.time()}
         try:
             for i, batch in enumerate(batches):
@@ -163,13 +178,14 @@ def main():
                 metrics.update(wall_ms=(time.perf_counter()-start)*1000, cpu_ms=(time.process_time()-cpu_start)*1000)
                 if i == 0:
                     row["first_loss"] = metrics["loss"]
-                    if variant == "reference": reference_gradients = gradients
+                    if variant == args.gradient_reference: reference_gradients = gradients
                     elif reference_gradients is not None: row["gradient_difference"] = gradient_difference(reference_gradients,gradients)
                     del gradients
                 if i >= 2: samples.append(metrics)
             row.update(samples=samples, updates_per_second=1000/np.mean([s["wall_ms"] for s in samples]),
                        peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,
-                       peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)
+                       peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30,
+                       allocation_retries=torch.cuda.memory_stats()["num_alloc_retries"]-retries_before)
             if args.profile and variant in ("reference", "chunk8"):
                 with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CPU,torch.profiler.ProfilerActivity.CUDA]) as prof:
                     h, _, _ = update(net,optimizer,batches[-1],h,saved["step_num"],reference,chunk)

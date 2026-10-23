@@ -34,6 +34,7 @@ from .validation import evaluate
 from .validation_device import evaluate_device
 from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
+from .deferred import deferred_readouts
 
 
 def main() -> None:
@@ -73,9 +74,15 @@ def main() -> None:
     ap.add_argument("--compile-readouts", action="store_true", help="Also compile recurrent updates and action/value readouts; requires --compile-regions")
     ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
     ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
+    ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     args = ap.parse_args()
     if args.compile_readouts and not args.compile_regions:
         ap.error("--compile-readouts requires --compile-regions")
+
+    if args.decision_chunk > 1 and (args.reference_execution or args.board_chunk < 2 or args.dropout != 0):
+        ap.error("--decision-chunk > 1 requires --board-chunk >= 2, dropout=0 and optimized execution")
+    if args.decision_chunk < 1:
+        ap.error("--decision-chunk must be positive")
 
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
@@ -142,6 +149,7 @@ def main() -> None:
     )
     net = M.PlayerNet4(cfg).to(device)
     net.cache_thinking_kv = args.cache_thinking_kv
+    net.decision_chunk = args.decision_chunk
     net.prune_unused_policy_heads = args.prune_unused_policy_heads
     if args.init:
         init_p = Path(args.init).expanduser()
@@ -280,43 +288,24 @@ def main() -> None:
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                 boards = encode_boards(net, batch, args.board_chunk, device)
 
+            prepared = None
+            if args.decision_chunk > 1:
+                prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
+                                                          args.decision_chunk, device, use_bf16)
             for t in range(U):
-                k_val = (
-                    k_choices[(step_num + t) % len(k_choices)]
-                    if args.thinking_curriculum
-                    else args.thinking_steps
-                )
-                is_dec_t = batch["is_decision"][:, t].to(device)
-                k_tensor = torch.where(
-                    is_dec_t,
-                    torch.full((B,), k_val, dtype=torch.long, device=device),
-                    torch.zeros((B,), dtype=torch.long, device=device),
-                )
-                with torch.autocast(
-                    device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
-                ):
-                    h_next, cand_l, pair_l, scal_p, val_p = net(
-                        batch["entity_feat"][:, t].to(device),
-                        batch["entity_dsl"][:, t].to(device),
-                        batch["entity_mask"][:, t].to(device),
-                        batch["seat_feat"][:, t].to(device),
-                        batch["global_feat"][:, t].to(device),
-                        batch["edge_index"][:, t].to(device),
-                        batch["edge_type"][:, t].to(device),
-                        batch["edge_mask"][:, t].to(device),
-                        batch["cand_feat"][:, t].to(device),
-                        batch["cand_entity_idx"][:, t].to(device),
-                        batch["cand_seat_idx"][:, t].to(device),
-                        batch["cand_mask"][:, t].to(device),
-                        batch["pair_index"][:, t].to(device),
-                        batch["pair_mask"][:, t].to(device),
-                        batch["cand_dsl"][:, t].to(device),
-                        h,
-                        k_tensor,
-                        execution_hint=None if plans is None else plans[t].hint,
-                        encoded_board=None if boards is None else boards[t],
-                        policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None,
-                    )
+                if prepared is None:
+                    k_val = (k_choices[(step_num + t) % len(k_choices)]
+                             if args.thinking_curriculum else args.thinking_steps)
+                    k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
+                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                        output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:15]], h, k_tensor,
+                                     execution_hint=None if plans is None else plans[t].hint,
+                                     encoded_board=None if boards is None else boards[t],
+                                     policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
+                else:
+                    output = prepared[t]
+                h_next, cand_l, pair_l, scal_p, val_p = output
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                     aux_p = net.aux_head(h_next[:, 0])
                 loss_function = compute_step_loss if plans is None else compute_device_loss
                 loss_t, st = loss_function(
@@ -329,8 +318,9 @@ def main() -> None:
                     t,
                     *([] if plans is None else [plans[t]]),
                 )
-                valid_t = batch["step_valid"][:, t].to(device)
-                h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
+                if prepared is None:
+                    valid_t = batch["step_valid"][:, t].to(device)
+                    h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
                 traj_loss = traj_loss + loss_t / U
                 if plans is None:
                     ep_pol += st["pol_loss"] / U
@@ -342,6 +332,8 @@ def main() -> None:
                     epoch_stats[:3] += st[:3] / U
                     epoch_stats[3:] += st[3:]
 
+            if prepared is not None:
+                h = final_hidden
             if not torch.isfinite(traj_loss):
                 raise FloatingPointError(f"Non-finite loss at step {step_num}")
             traj_loss.backward()
@@ -355,7 +347,8 @@ def main() -> None:
                 elapsed = time.perf_counter() - t0
                 print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
                       f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
-                      f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f}", flush=True)
+                      f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
+                      f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
             stop = ((args.max_steps > 0 and step_num >= args.max_steps)
                     or (args.time_budget_seconds > 0 and time.perf_counter() - t0 >= args.time_budget_seconds))
             if step_num % args.checkpoint_every == 0 or stop:

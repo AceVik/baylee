@@ -36,6 +36,12 @@ state and leaves the portable ONNX inference path unchanged.
 frame's supervised loss. It keeps value/auxiliary supervision and every memory
 update, including passive observations. Suppressed logits are placeholders for
 training only; ordinary inference/export computes every policy output.
+`--decision-chunk N` is an opt-in execution path: it first advances memory in
+strict chronological order, then groups independent readouts using each frame's
+own already-computed state. It requires grouped boards and dropout=0. Grouping
+respects thinking depth and candidate/pair size; large candidate sets reduce
+the group size instead of truncating choices. No future observation enters an
+earlier decision, and gradients still traverse the full recurrent chain.
 The optimized validator uses the same metric definitions with device-side
 reductions and float64 accumulators. Grouped BF16 execution has normal rounding
 differences; verify gradients, full validation and actual game results.

@@ -8,6 +8,7 @@ import torch
 import model4 as M
 from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards
+from .deferred import deferred_readouts
 
 
 @torch.no_grad()
@@ -28,17 +29,23 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
             h = torch.where(new[:, None, None], torch.zeros_like(h), h)
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
             boards = encode_boards(net, batch, board_chunk, device)
+        prepared = None
+        if getattr(net, "decision_chunk", 1) > 1:
+            prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
+                                                      net.decision_chunk, device, bf16)
         for t in range(u):
             at = lambda key: batch[key][:, t].to(device, non_blocking=True)
             thinking = at("is_decision").long() * thinking_steps
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
-                output = net(*[at(n) for n in M.INPUT_NAMES[:15]], h, thinking,
+                output = (net(*[at(n) for n in M.INPUT_NAMES[:15]], h, thinking,
                              execution_hint=plans[t].hint, encoded_board=None if boards is None else boards[t],
                              policy_heads=plans[t].heads if getattr(net, "prune_unused_policy_heads", False) else None)
+                          if prepared is None else prepared[t])
                 auxiliary = net.aux_head(output[0][:, 0])
             _, stats = compute_device_loss(*[v.float() for v in output[1:]], auxiliary.float(), batch, t, plans[t])
             valid = at("step_valid")
-            h = torch.where(valid[:, None, None], output[0].float(), h)
+            if prepared is None:
+                h = torch.where(valid[:, None, None], output[0].float(), h)
             n = valid.sum()
             totals[:6] += torch.stack((stats[0], stats[1]*n, stats[2]*n, n, stats[3], stats[4])).double()
             prediction, truth = output[4].float(), at("outcome")
@@ -58,6 +65,8 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8):
             calibration[0].scatter_add_(0, bins, valid.double())
             calibration[1].scatter_add_(0, bins, prediction.double()*valid)
             calibration[2].scatter_add_(0, bins, truth.double()*valid)
+        if prepared is not None:
+            h = final_hidden
     values = totals.cpu().tolist()
     pol, val, aux, frames, correct, singles, baseline, predicted, truth, active, active_correct = values
     denominator = max(frames, 1)
