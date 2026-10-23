@@ -21,6 +21,7 @@ mod gilded_lotus;
 mod jester_s_mask;
 mod lifeline;
 mod mangara_s_tome;
+mod memory_jar;
 mod meteorite;
 mod mishra_s_helix;
 mod myr_matrix;

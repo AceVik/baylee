@@ -63,6 +63,7 @@ mod open_fire;
 mod piety;
 mod psionic_blast;
 mod quick_study;
+mod rack_and_ruin;
 mod realms_uncharted;
 mod reckless_spite;
 mod regress;

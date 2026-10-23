@@ -113,6 +113,7 @@ mod mogg_raider;
 mod mogg_sentry;
 mod molting_harpy;
 mod mons_s_goblin_raiders;
+mod mother_of_runes;
 mod mountain_bandit;
 mod mtenda_herder;
 mod mtenda_lion;

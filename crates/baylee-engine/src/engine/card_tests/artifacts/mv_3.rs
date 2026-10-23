@@ -45,6 +45,7 @@ mod honor_worn_shaku;
 mod horn_of_greed;
 mod horn_of_ramos;
 mod inspirit_flagship_vessel;
+mod iron_maiden;
 mod jalum_tome;
 mod mana_geode;
 mod mana_prism;

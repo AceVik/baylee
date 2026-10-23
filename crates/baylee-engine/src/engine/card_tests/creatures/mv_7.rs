@@ -440,6 +440,7 @@ mod nebula_dragon;
 mod oakgnarl_warrior;
 mod omnath_locus_of_rage;
 mod oyobi_who_split_the_heavens;
+mod palinchron;
 mod pelakka_wurm;
 mod pit_spawn;
 mod plated_crusher;

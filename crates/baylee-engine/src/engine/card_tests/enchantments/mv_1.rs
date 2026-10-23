@@ -132,6 +132,7 @@ mod manabond;
 mod mass_hysteria;
 mod mirri_s_guile;
 mod molten_vortex;
+mod multani_s_presence;
 mod mystic_remora;
 mod need_for_speed;
 mod omen_of_the_dead;

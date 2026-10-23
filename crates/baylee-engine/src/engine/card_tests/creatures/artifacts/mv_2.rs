@@ -327,6 +327,7 @@ mod hermitic_nautilus;
 mod hovermyr;
 mod hydra_assault_robot;
 mod iron_myr;
+mod jhoira_s_toolbox;
 mod jousting_dummy;
 mod leaden_myr;
 mod malcator_s_watcher;

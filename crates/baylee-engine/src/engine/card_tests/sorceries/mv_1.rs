@@ -33,6 +33,7 @@ mod meteor_shower;
 mod mind_bomb;
 mod mind_peel;
 mod mind_twist;
+mod ostracize;
 mod portent;
 mod prismatic_ending;
 mod prophecy;

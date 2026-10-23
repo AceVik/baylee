@@ -85,6 +85,7 @@ mod portcullis;
 mod power_armor;
 mod power_matrix;
 mod primal_amulet;
+mod quicksilver_amulet;
 mod razor_pendulum;
 mod reflecting_mirror;
 mod relic_of_sauron;
