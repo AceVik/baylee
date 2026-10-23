@@ -8355,30 +8355,74 @@ pub static ORACLE: &[&[&str]] = &[
     // Stroke of Genius
     &["Target player draws X cards."],
     &[],
-    &[],
-    &[],
-    &[],
+    // Acidic Sliver
+    &[
+        "All Slivers have \"{2}, Sacrifice this permanent: This permanent deals 2 damage to any target.\"",
+    ],
+    // Amok
+    &["{1}, Discard a card at random: Put a +1/+1 counter on target creature."],
+    // Awakening
+    &["At the beginning of each upkeep, untap all creatures and lands."],
     // Bandage
     &["Prevent the next 1 damage that would be dealt to any target this turn.\nDraw a card."],
     // Bottomless Pit
     &["At the beginning of each player's upkeep, that player discards a card at random."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Brush with Death
+    &[
+        "Buyback {2}{B}{B} (You may pay an additional {2}{B}{B} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget opponent loses 2 life. You gain 2 life.",
+    ],
+    // Bullwhip
+    &[
+        "{2}, {T}: This artifact deals 1 damage to target creature. That creature attacks this turn if able.",
+    ],
+    // Burgeoning
+    &[
+        "Whenever an opponent plays a land, you may put a land card from your hand onto the battlefield.",
+    ],
+    // Calming Licid
+    &[
+        "{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {W} to end this effect.\nEnchanted creature can't attack.",
+    ],
+    // Cannibalize
+    &[
+        "Choose two target creatures controlled by the same player. Exile one of those creatures and put two +1/+1 counters on the other.",
+    ],
     // Carnassid
     &["Trample\n{1}{G}: Regenerate this creature."],
-    &[],
-    &[],
+    // Change of Heart
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nTarget creature can't attack this turn.",
+    ],
+    // Constant Mists
+    &[
+        "Buyback—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nPrevent all combat damage that would be dealt this turn.",
+    ],
     // Contemplation
     &["Whenever you cast a spell, you gain 1 life."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Contempt
+    &[
+        "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat.",
+    ],
+    // Conviction
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+3.\n{W}: Return this Aura to its owner's hand.",
+    ],
+    // Convulsing Licid
+    &[
+        "{R}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {R} to end this effect.\nEnchanted creature can't block.",
+    ],
+    // Corrupting Licid
+    &[
+        "{B}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {B} to end this effect.\nEnchanted creature has fear. (It can't be blocked except by artifact creatures and/or black creatures.)",
+    ],
+    // Crossbow Ambush
+    &[
+        "Creatures you control gain reach until end of turn. (They can block creatures with flying.)",
+    ],
+    // Crovax the Cursed
+    &[
+        "Crovax enters with four +1/+1 counters on it.\nAt the beginning of your upkeep, you may sacrifice a creature. If you do, put a +1/+1 counter on Crovax. If you don't, remove a +1/+1 counter from Crovax.\n{B}: Crovax gains flying until end of turn.",
+    ],
     // Crystalline Sliver
     &["All Slivers have shroud. (They can't be the targets of spells or abilities.)"],
     // Dauthi Trapper
@@ -8387,19 +8431,36 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Death Stroke
     &["Destroy target tapped creature."],
-    &[],
-    &[],
-    &[],
+    // Dream Halls
+    &[
+        "Rather than pay the mana cost for a spell, its controller may discard a card that shares a color with that spell.",
+    ],
+    // Dream Prowler
+    &["This creature can't be blocked as long as it's attacking alone."],
+    // Duct Crawler
+    &["{1}{R}: Target creature can't block this creature this turn."],
     // Dungeon Shade
     &["Flying\n{B}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Elven Rite
+    &["Distribute two +1/+1 counters among one or two target creatures."],
     // Endangered Armodon
     &["When you control a creature with toughness 2 or less, sacrifice this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ensnaring Bridge
+    &["Creatures with power greater than the number of cards in your hand can't attack."],
+    // Evacuation
+    &["Return all creatures to their owners' hands."],
+    // Fanning the Flames
+    &[
+        "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nFanning the Flames deals X damage to any target.",
+    ],
+    // Flame Wave
+    &[
+        "Flame Wave deals 4 damage to target player or planeswalker and each creature that player or that planeswalker's controller controls.",
+    ],
+    // Fling
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nFling deals damage equal to the sacrificed creature's power to any target.",
+    ],
     // Flowstone Blade
     &["Enchant creature\n{R}: Enchanted creature gets +1/-1 until end of turn."],
     // Flowstone Hellion

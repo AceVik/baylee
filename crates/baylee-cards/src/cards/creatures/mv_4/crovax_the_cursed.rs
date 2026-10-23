@@ -1,0 +1,60 @@
+//! Crovax the Cursed — {2}{B}{B} — Legendary Creature — Vampire Noble
+//! Oracle: Crovax enters with four +1/+1 counters on it.
+//! Oracle: At the beginning of your upkeep, you may sacrifice a creature. If you do, put a +1/+1 counter on Crovax. If you don't, remove a +1/+1 counter from Crovax.
+//! Oracle: {B}: Crovax gains flying until end of turn.
+//! Set: TPR #90 — Tempest Remastered | Scryfall ID: 487e843f-b710-452c-93fe-fce3f90a4d1c | Oracle ID: e1b74ef7-ab6b-4d40-8087-3f3a448b7e0a
+// PARTIAL: enters with four +1/+1 counters, {B} grants flying until end of turn, and upkeep trigger lets you sacrifice a creature to put a +1/+1 counter on Crovax; removing a +1/+1 counter if you don't sacrifice a creature is not supported
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+static ADD_P1P1_SELF: Effect = Effect::AddCounterSource {
+    kind: CounterKind::P1P1,
+    amount: Amount::Fixed(1),
+};
+static SACRIFICE_CREATURE: CostPart = CostPart::Sacrifice(&Filter::CREATURE);
+
+card!(
+    index = index::CROVAX_THE_CURSED,
+    oracle_id = "e1b74ef7-ab6b-4d40-8087-3f3a448b7e0a",
+    scryfall_id = "487e843f-b710-452c-93fe-fce3f90a4d1c",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    commander = CommanderRule::Legendary,
+    coverage = Coverage::Partial(
+        "enters with four +1/+1 counters, {B} grants flying until end of turn, and upkeep trigger lets you sacrifice a creature to put a +1/+1 counter on Crovax; removing a +1/+1 counter if you don't sacrifice a creature is not supported"
+    ),
+    faces = &[face!(
+        name = "Crovax the Cursed",
+        mana_cost = mana!("{2}{B}{B}"),
+        types = TypeSet::CREATURE,
+        supertypes = SupertypeSet::LEGENDARY,
+        subtypes = &[subtypes::creature::VAMPIRE, subtypes::creature::NOBLE],
+        power = Some(0),
+        toughness = Some(0),
+        enter_modifiers = &[EnterModifier::WithCounters {
+            kind: CounterKind::P1P1,
+            amount: Amount::Fixed(4),
+        }],
+    ),],
+    abilities = &[
+        triggered!(
+            Trigger::StepBegin {
+                step: StepKind::Upkeep,
+                whose: PlayerRel::You,
+            },
+            &[Effect::PlayerMayPayCostThen {
+                player: PlayerRel::You,
+                cost: &SACRIFICE_CREATURE,
+                effect: &ADD_P1P1_SELF,
+            }],
+        ),
+        activated!(
+            cost!("{B}"),
+            &[Effect::continuous(
+                &Filter::This,
+                Modifier::AddKeyword(KeywordSet::FLYING),
+                Duration::UntilEndOfTurn,
+            )],
+        ),
+    ],
+);

@@ -13,7 +13,7 @@ card!(
     scryfall_id = "ad19107e-9b31-40c1-9b5d-22f4727d4d2a",
     color_identity = ColorSet::from_slice(&[Color::Black]),
     coverage = Coverage::Partial(
-        "Whenever a creature is dealt damage, destroys creatures that have been dealt damage this turn (they can't be regenerated); Trigger::DealtDamage does not yet bind the specific damaged creature as EventObject."
+        "Whenever a creature is dealt damage, destroys creatures that have been dealt damage this turn (they can't be regenerated); Trigger::DealtDamage does not yet bind the specific damaged creature as the event object."
     ),
     faces = &[face!(
         name = "Death Pits of Rath",

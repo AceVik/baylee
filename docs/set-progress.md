@@ -702,3 +702,5 @@ no-engine-change contract:
   - Batch 5 (`Precognition` to `Segmented Wurm`, 25 cards): **15 Implemented, 10 Partial**.
   - Batch 6 (`Selenia, Dark Angel` to `Unstable Shapeshifter`, 25 cards): **19 Implemented, 6 Partial**.
   - Batch 7 (`Intuition` and `Vhati il-Dal` to `Worthy Cause`, 11 cards): **4 Implemented, 7 Partial**.
+- **Stronghold (`sth`)** — in progress:
+  - Batch 1 (`Acidic Sliver` to `Fling`, 25 cards): **11 Implemented, 14 Partial**.

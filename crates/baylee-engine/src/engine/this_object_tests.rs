@@ -333,6 +333,7 @@ fn every_this_object_in_the_pool_is_one_the_resolver_reads() {
         "ReturnToBattlefieldTapped { target: ThisObject }",
         "Destroy { target: ThisObject, no_regen: false }",
         "Destroy { target: ThisObject, no_regen: true }",
+        "Exile { target: ThisObject }",
         "GraveyardToBattlefield { target: ThisObject, owner_control: false, counters: None }",
         "Regenerate { target: ThisObject }",
         "CantBeRegeneratedThisTurn { target: ThisObject }",
