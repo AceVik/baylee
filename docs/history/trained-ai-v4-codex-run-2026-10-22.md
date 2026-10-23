@@ -1097,3 +1097,50 @@ evaluations with 128 duels and 64 Commander deals per model/depth, paired agains
 the same house baseline, v3, the prior model, each other and their own K=1 results
 as applicable. There is no automatic model promotion or declaration of human
 strength. This remains one-seed exploratory evidence, not a final held-out test.
+
+## Evening result at 19:23 and checkpoint selection audit
+
+Training plus full validation finished at **19:03:19 CEST**, within the planned
+window. B=16 failed after 290 seconds with a CUDA OOM (requested 740 MiB, only
+32 MiB free; 10.29 GiB allocated and approximately 970 MiB reserved but unused).
+Its last logged step was 325. This invalidates the intended completed B=8/B=16
+learning comparison: the short batch benchmark did not cover these larger
+states. The failure and checkpoint are preserved. The fallback resumed the
+valid B=8 lanes/optimizer in `b8-continued` for the remaining 1680-second budget.
+Recoverable allocator retries also occurred in B=8, but both B=8 jobs completed;
+an allocator warning alone is not a terminated training run.
+
+The first B=8 pilot finished at its phase step 3116. Full-validation active
+teacher-choice accuracy rose from 37.35% to 42.81%, policy loss fell from 0.22983
+to 0.22139, while value MSE worsened slightly from 0.15086 to 0.15329. In matched
+K=1 games it won **31/128 duels and 10/64 Commander games**, versus the prior
+model's 17/128 and 1/64. Duels: 17 better outcomes, three worse, 108 equal.
+Commander: nine better, none known worse, 54 equal, one capped pair. The house
+baseline still won 58/128 and 11/64; v3 won 41/128 and 4/64. Commander has only
+16 independent tables. These are improvements on this tuning suite, not proof
+of general superiority to the house AI or experienced humans. K=4 had the same
+win totals as K=1; the unique K=8 comparisons follow.
+
+The continuation reached phase step 5748, active teacher-choice accuracy 43.84%,
+policy loss 0.21920 and value MSE 0.18929. The combined selection score
+`val_pol_loss + 2 * val_mse` therefore retained step 3116 as `net.pt` while the
+actual latest weights remained in `last.pt`. Byte hashes confirmed that the two
+selected `net.pt` files and their K=0/1/4/8 exports were identical. The original
+queue unnecessarily replayed the identical selected models at K=1/4. Those
+repeats are not additional independent evidence.
+
+A controlled follow-up waits for the unique selected-model K=8 Commander job to
+complete, then suppresses the remaining identical-model comparisons and records
+the interruption/deduplication explicitly. It extracts the real step-5748 state
+into `experiments/codex-r4-latest-checkpoint-eval/model`, without replacing any
+selected model. Its validation metrics were recovered from the exact matching
+step in the preserved trainer stdout; provenance includes the source `last.pt`
+hash. ONNX checks and matched K=1/4/8 games then determine whether its stronger
+policy imitation but weaker value estimates help or hurt actual play.
+
+Future `last.pt` files now carry the most recent validation step and metrics,
+avoiding log parsing for this audit. Metrics are associated with their explicit
+step, never silently attached to subsequent unvalidated updates. The CLI resume
+integration test checks that both saves carry the correct validation step and
+complete held-out frame count. Checkpoint selection itself is unchanged pending
+the playing-strength evidence. No model is automatically promoted.

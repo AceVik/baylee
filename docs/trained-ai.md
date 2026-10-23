@@ -72,6 +72,11 @@ default follows the training batch size for compatibility. Resume checks this
 scoring setting; old checkpoints implicitly used their training batch size.
 Full optimized validation logs progress every 500 batches without per-frame
 device synchronization.
+`last.pt` also records `last_validation_step` and `last_validation_metrics`;
+metrics apply only to that step, which may precede its latest optimizer step.
+`net.pt` remains the checkpoint selected by the combined validation score.
+Evaluate unique parameter sets: a resumed run may keep the same earlier best
+checkpoint while `last.pt` contains newer weights worth a separate diagnostic.
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,
 protocol, complete seed/deck/focal-seat set and repeated house-baseline outcomes.

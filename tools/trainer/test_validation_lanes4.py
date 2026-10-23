@@ -40,6 +40,8 @@ class ValidationLanes(unittest.TestCase):
             saved = torch.load(out / "last.pt", map_location="cpu", weights_only=False)
             self.assertEqual((saved["batch_size"], saved["validation_batch_size"]), (4, 2))
             self.assertEqual(saved["h"].shape[0], 4)
+            self.assertEqual(saved["last_validation_step"], 1)
+            self.assertEqual(saved["last_validation_metrics"]["val_frames"], 32)
             metrics = json.loads((out / "meta.json").read_text())
             self.assertEqual(metrics["validation_batch_size"], 2)
             self.assertEqual(metrics["val_metrics"]["val_frames"], 32)
@@ -52,6 +54,8 @@ class ValidationLanes(unittest.TestCase):
             saved = torch.load(out / "last.pt", map_location="cpu", weights_only=False)
             self.assertEqual(saved["step_num"], 2)
             self.assertEqual(saved["h"].shape[0], 4)
+            self.assertEqual(saved["last_validation_step"], 2)
+            self.assertEqual(saved["last_validation_metrics"]["val_frames"], 32)
 
 
 if __name__ == "__main__":

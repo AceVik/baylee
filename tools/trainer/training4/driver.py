@@ -238,6 +238,8 @@ def main() -> None:
                      "dataset_fingerprint": train_ds.fingerprint,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
+                     "last_validation_step": last_validation_step,
+                     "last_validation_metrics": dict(last_validation_metrics),
                      "best_score": best_score}, out_dir / "last.pt")
 
     if args.compile_regions:
