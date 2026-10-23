@@ -509,3 +509,42 @@ never an actor input. The example passes strict Clippy. The next engine repair
 must update the offered constraints, all consumers and appropriate protocol/
 training contracts together; preserve this experiment and its old records as
 versioned evidence. The robustness findings are separate from training data.
+
+## Broad follow-up completed; next decision point
+
+The broad-data experiment finished 2,683 optimizer updates, final validation,
+export parity checks and both GPU evaluations. The supervised stage took
+9,018 seconds including cache preparation; training plus final validation
+reported 8,347 seconds. On the same 32 paired duel setups, the new BC model
+won 7 (initial BC 4, initial PPO 6, archived rl23 v3 11). The new Commander
+run won 4/32, with one answer-capped game; do not count that cap as an observed
+draw. Both new evaluations reported zero refused actions and zero fallbacks.
+The small samples do not establish a strength improvement.
+
+On the expanded validation split, active-choice accuracy is 0.4362. The value
+head's Brier score is 0.1578 versus 0.1241 for the uniform-surviving-seat
+baseline (lower is better). Its prediction mean is 0.1689 versus outcome mean
+0.1565; acceptable aggregate means do not establish good position ranking or
+calibration. These frame-weighted metrics are on a changed validation mix and
+must not be compared directly with the initial corpus's scores. Extra search
+should not be trusted solely on this value head.
+
+`experiments/codex-r4-comparison` now compares broad BC, initial BC, initial
+PPO and rl23 v3 on 128 duels and 64 Commander deals each, validation decks,
+fresh first seed 980001, the same Sharp opponents and paired Steady baseline.
+The binary, helper scripts and deck manifest are frozen in that directory;
+each job hashes model inputs, preserves failures and writes uncertainty
+reports. One GPU lane runs v4, one CPU lane runs v3; each uses eight game
+workers. There is no automatic model promotion. This is a matched-opponent
+comparison, not a direct head-to-head or a human-skill test.
+
+The next implementation order is: repair the two offered-choice contracts
+with regressions and compatible consumers; replace lossy card summaries with
+versioned structural/identity features; repair PPO batching and validate the
+critic; then train controlled tactical/recurrent pilots and measure the gain
+from additional thinking steps. Start with 128–256 genuine policy decisions
+per optimizer update using accumulation, while preserving passive observations
+and per-seat memory. Longer RL runs require frozen-policy parity and stable
+KL checks first. Current hardware is sufficient for these pilots. Experienced
+player reviews of withheld tactical positions are useful later, not a blocker
+or a substitute for deterministic correctness tests.
