@@ -1168,3 +1168,17 @@ fn exert_payment_distinguishes_otherwise_identical_activation_costs() {
     assert!(parts_fit(exert.parts, "exert this land"));
     assert!(!parts_fit(exert.parts, "tap this land"));
 }
+
+#[test]
+fn a_self_trigger_narrowed_by_a_condition_keeps_its_own_sentence() {
+    use baylee_cards_dsl::{Trigger, counters, triggered};
+    static RETURNS: Filter = Filter::And(&[
+        Filter::This,
+        Filter::Not(&Filter::HasCounter(counters::DEATH)),
+    ]);
+    static EXILES: Filter = Filter::And(&[Filter::This, Filter::HasCounter(counters::DEATH)]);
+    let returns = triggered!(Trigger::Dies(&RETURNS), &[Effect::ExileSource]);
+    let exiles = triggered!(Trigger::Dies(&EXILES), &[Effect::ExileSource]);
+    let text = "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.";
+    assert_eq!(map(&[returns, exiles], text).lines, [Some(1), Some(1)]);
+}

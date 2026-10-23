@@ -861,7 +861,16 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::SpellCast(filter)
         | Trigger::SpellCastUsingSourceMana(filter)
         | Trigger::SpellCastOrCopied(filter) => {
-            if matches!(filter, baylee_cards_dsl::Filter::This) {
+            // "This" narrowed by a condition is still this object: Bogardan
+            // Phoenix's two dies triggers are `This` and with and without a
+            // death counter, and both are "when this creature dies".
+            let names_this =
+                |f: &baylee_cards_dsl::Filter| matches!(f, baylee_cards_dsl::Filter::This);
+            let this = match filter {
+                baylee_cards_dsl::Filter::And(parts) => parts.iter().any(names_this),
+                other => names_this(other),
+            };
+            if this {
                 !about_someone_else()
             } else {
                 !about_itself()
