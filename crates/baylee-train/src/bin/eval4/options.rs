@@ -15,6 +15,9 @@ struct Args {
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
+    /// First deal index, preserving table/deck/seat rotation for a reproducer.
+    #[arg(long, default_value_t = 0)]
+    deal_offset: u64,
     /// Seats at the table (`2..=8`).
     #[arg(long, default_value_t = 2)]
     seats: usize,

@@ -431,3 +431,23 @@ periodic validation, preventing a redundant update and full validation pass.
 Twelve Python regression tests, six legacy contract checks and strict Clippy
 for the CUDA trainer library/evaluator pass. Full repository gates remain
 outstanding; nothing was pushed or promoted.
+
+The completed CPU control took 350.5 seconds for the same 32 duels, versus
+28.7 seconds for eight CUDA workers: 12.2x the throughput of **four** CPU
+workers, not a measurement against all twelve physical cores. Both providers
+used the same executable. Commander PPO replay also completed on CUDA:
+155.0 seconds with eight workers versus the original CPU run's 3,204.6 seconds
+with four. Its outcomes matched, including the refusal at deal 6, seed 870002,
+seat 2, `ChooseNumber`. The diagnostic evaluator can replay an individual deal
+using `--deal-offset 6 --deals 1` while preserving deck/seat/seed assignment,
+and logs the offered pending question and attempted action on refusal.
+
+The deferred broad-data queue was resumed under commit `936682165` with eight
+GPU evaluation workers. Its training process first builds the immutable data
+cache; a separate four-worker validation-cache preparation overlaps that work.
+The first preparation command accidentally resolved the virtualenv Python
+symlink to the system interpreter and failed to import numpy; it is preserved
+in `checks/prewarm-broad-val-job`. The corrected attempt keeps the virtualenv
+path and has a separate `checks/prewarm-broad-val-retry-job` manifest. No data
+was removed or relabelled. The final CPU-feature build also passes strict
+Clippy and all 57 trainer library tests.

@@ -175,7 +175,11 @@ fn main() -> anyhow::Result<()> {
     let decks_arc = Arc::new(decks);
     let teams_u8_arc = Arc::new(args.teams.clone());
     let teams_arc = Arc::new(teams);
-    let next_deal = Arc::new(AtomicU64::new(0));
+    let end_deal = args
+        .deal_offset
+        .checked_add(args.deals)
+        .context("deal offset plus count overflows")?;
+    let next_deal = Arc::new(AtomicU64::new(args.deal_offset));
     let stats_arc = Arc::new(Mutex::new(EvalStats::default()));
     let games_lines = Arc::new(Mutex::new(
         args.record_out
@@ -195,7 +199,7 @@ fn main() -> anyhow::Result<()> {
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
-        let deals = args.deals;
+        let deals = end_deal;
         let seats = args.seats;
         let first_seed = args.first_seed;
         let policy_seed = args.policy_seed;
@@ -430,6 +434,7 @@ fn main() -> anyhow::Result<()> {
         "thinking_steps": args.thinking_steps,
         "temperature": args.temperature,
         "first_seed": args.first_seed,
+        "deal_offset": args.deal_offset,
         "policy_seed": args.policy_seed,
         "deals": st.deals_completed,
         "net_win_rate": net_win_rate,

@@ -196,6 +196,7 @@ fn play_one_table(
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
                 }
+                let attempted_action = ans.action.clone();
                 let result = session.act_slice(pid, ans.action, 0);
                 if result.is_ok() {
                     if record_steps {
@@ -208,9 +209,8 @@ fn play_one_table(
                 } else if let Err(error) = result {
                     refused += 1;
                     eprintln!(
-                        "[eval4] refused deal={deal_idx} seed={seed} seat={} pending={:?}: {error}",
+                        "[eval4] refused deal={deal_idx} seed={seed} seat={} action={attempted_action:?} pending={pending:?}: {error}",
                         pid.get(),
-                        baylee_train::features4::PendingKind4::of(&pending),
                     );
                     let fb = session
                         .house_action(pid)
