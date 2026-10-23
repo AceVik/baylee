@@ -3,7 +3,7 @@ mod spell_grants;
 use super::*;
 use baylee_cards_dsl::effect::{Amount, Effect};
 use baylee_cards_dsl::filter::Filter;
-use baylee_cards_dsl::loyalty;
+use baylee_cards_dsl::{SpellMode, loyalty};
 
 #[test]
 fn modal_activation_keeps_its_shared_cost_and_refuses_a_different_cost() {
