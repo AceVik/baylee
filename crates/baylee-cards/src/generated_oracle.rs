@@ -9537,35 +9537,72 @@ pub static ORACLE: &[&[&str]] = &[
     &["Enchant permanent\nYou control enchanted permanent."],
     // Congregate
     &["Target player gains 2 life for each creature on the battlefield."],
-    &[],
-    &[],
+    // Contamination
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a creature.\nIf a land is tapped for mana, it produces {B} instead of any other type and amount.",
+    ],
+    // Copper Gnomes
+    &[
+        "{4}, Sacrifice this creature: You may put an artifact card from your hand onto the battlefield.",
+    ],
     // Coral Merfolk
     &[""],
-    &[],
-    &[],
-    &[],
+    // Corrupt
+    &[
+        "Corrupt deals damage to any target equal to the number of Swamps you control. You gain life equal to the damage dealt this way.",
+    ],
+    // Cradle Guard
+    &[
+        "Trample\nEcho {1}{G}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+    ],
+    // Crater Hellion
+    &[
+        "Echo {4}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, it deals 4 damage to each other creature.",
+    ],
     // Crazed Skirge
     &["Flying, haste"],
     // Crosswinds
     &["Creatures with flying get -2/-0."],
-    &[],
-    &[],
+    // Crystal Chimes
+    &[
+        "{3}, {T}, Sacrifice this artifact: Return all enchantment cards from your graveyard to your hand.",
+    ],
+    // Curfew
+    &["Each player returns a creature they control to its owner's hand."],
     // Dark Hatchling
     &[
         "Flying\nWhen this creature enters, destroy target nonblack creature. It can't be regenerated.",
     ],
     // Darkest Hour
     &["All creatures are black."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Defensive Formation
+    &[
+        "Rather than the attacking player, you assign the combat damage of each creature attacking you. You can divide that creature's combat damage as you choose among any of the creatures blocking it.",
+    ],
+    // Despondency
+    &[
+        "Enchant creature\nEnchanted creature gets -2/-0.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Destructive Urge
+    &[
+        "Enchant creature\nWhenever enchanted creature deals combat damage to a player, that player sacrifices a land of their choice.",
+    ],
+    // Diabolic Servitude
+    &[
+        "When this enchantment enters, return target creature card from your graveyard to the battlefield.\nWhen the creature put onto the battlefield with this enchantment dies, exile it and return this enchantment to its owner's hand.\nWhen this enchantment leaves the battlefield, exile the creature put onto the battlefield with this enchantment.",
+    ],
     // Disciple of Grace
     &["Protection from black\nCycling {2} ({2}, Discard this card: Draw a card.)"],
     // Disciple of Law
     &["Protection from red\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
+    // Discordant Dirge
+    &[
+        "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{B}, Sacrifice this enchantment: Look at target opponent's hand and choose up to X cards from it, where X is the number of verse counters on this enchantment. That player discards those cards.",
+    ],
+    // Disorder
+    &[
+        "Disorder deals 2 damage to each white creature and each player who controls a white creature.",
+    ],
     // Disruptive Student
     &["{T}: Counter target spell unless its controller pays {1}."],
     // Douse
@@ -9580,11 +9617,18 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {W}.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Dromosaur
+    &["Whenever this creature blocks or becomes blocked, it gets +2/-2 until end of turn."],
+    // Duress
+    &[
+        "Target opponent reveals their hand. You choose a noncreature, nonland card from it. That player discards that card.",
+    ],
     // Eastern Paladin
     &["{B}{B}, {T}: Destroy target green creature."],
-    &[],
+    // Electryte
+    &[
+        "Whenever this creature deals combat damage to defending player, it deals damage equal to its power to each blocking creature.",
+    ],
     // Elite Archers
     &["{T}: This creature deals 3 damage to target attacking or blocking creature."],
     // Elvish Herder
@@ -9595,23 +9639,40 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample\nAt the beginning of your upkeep, sacrifice this creature unless you sacrifice an enchantment.",
     ],
-    &[],
-    &[],
-    &[],
+    // Endoskeleton
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{2}, {T}: Target creature gets +0/+3 for as long as this artifact remains tapped.",
+    ],
+    // Energy Field
+    &[
+        "Prevent all damage that would be dealt to you by sources you don't control.\nWhen a card is put into your graveyard from anywhere, sacrifice this enchantment.",
+    ],
+    // Exhume
+    &["Each player puts a creature card from their graveyard onto the battlefield."],
     // Exploration
     &["You may play an additional land on each of your turns."],
     // Expunge
     &[
         "Destroy target nonartifact, nonblack creature. It can't be regenerated.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Faith Healer
+    &["Sacrifice an enchantment: You gain life equal to the sacrificed enchantment's mana value."],
+    // Falter
+    &["Creatures without flying can't block this turn."],
     // Fault Line
     &["Fault Line deals X damage to each creature without flying and each player."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Fecundity
+    &["Whenever a creature dies, that creature's controller may draw a card."],
+    // Fertile Ground
+    &[
+        "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.",
+    ],
+    // Fiery Mantle
+    &[
+        "Enchant creature\n{R}: Enchanted creature gets +1/+0 until end of turn.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+    ],
+    // Fire Ants
+    &["{T}: This creature deals 1 damage to each other creature without flying."],
     &[],
     &[],
     &[],

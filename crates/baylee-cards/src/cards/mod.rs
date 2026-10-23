@@ -3435,6 +3435,8 @@ pub mod contaminated_aquifer;
 pub mod contaminated_ground;
 #[path = "lands/fetch/contaminated_landscape.rs"]
 pub mod contaminated_landscape;
+#[path = "enchantments/mv_3/contamination.rs"]
+pub mod contamination;
 #[path = "enchantments/mv_3/contemplation.rs"]
 pub mod contemplation;
 #[path = "enchantments/auras/mv_2/contempt.rs"]
@@ -3473,6 +3475,8 @@ pub mod convulsing_licid;
 pub mod cooperation;
 #[path = "instants/mv_2/coordinated_maneuver.rs"]
 pub mod coordinated_maneuver;
+#[path = "creatures/artifacts/mv_2/copper_gnomes.rs"]
+pub mod copper_gnomes;
 #[path = "creatures/mv_8/copper_host_crusher.rs"]
 pub mod copper_host_crusher;
 #[path = "creatures/artifacts/mv_2/copper_myr.rs"]
@@ -3523,6 +3527,8 @@ pub mod corridor_monitor;
 pub mod corrosion;
 #[path = "sorceries/mv_1/corrosive_gale.rs"]
 pub mod corrosive_gale;
+#[path = "sorceries/mv_6/corrupt.rs"]
+pub mod corrupt;
 #[path = "creatures/mv_2/corrupt_court_official.rs"]
 pub mod corrupt_court_official;
 #[path = "creatures/mv_4/corrupt_eunuchs.rs"]
@@ -3583,6 +3589,8 @@ pub mod crackling_cyclops;
 pub mod crackling_perimeter;
 #[path = "creatures/mv_3/crackling_triton.rs"]
 pub mod crackling_triton;
+#[path = "creatures/mv_3/cradle_guard.rs"]
+pub mod cradle_guard;
 #[path = "enchantments/auras/mv_2/cradle_of_safety.rs"]
 pub mod cradle_of_safety;
 #[path = "lands/deserts/cradle_of_the_accursed.rs"]
@@ -3601,6 +3609,8 @@ pub mod crash_of_rhinos;
 pub mod crash_the_ramparts;
 #[path = "creatures/mv_5/crashing_boars.rs"]
 pub mod crashing_boars;
+#[path = "creatures/mv_6/crater_hellion.rs"]
+pub mod crater_hellion;
 #[path = "sorceries/mv_4/craterize.rs"]
 pub mod craterize;
 #[path = "creatures/mv_7/craw_giant.rs"]
@@ -3749,6 +3759,8 @@ pub mod cryptolith_rite;
 pub mod crystacean;
 #[path = "artifacts/mv_3/crystal_ball.rs"]
 pub mod crystal_ball;
+#[path = "artifacts/mv_3/crystal_chimes.rs"]
+pub mod crystal_chimes;
 #[path = "creatures/artifacts/mv_4/crystal_golem.rs"]
 pub mod crystal_golem;
 #[path = "lands/utility/crystal_grotto.rs"]
@@ -3791,6 +3803,8 @@ pub mod cunning_sparkmage;
 pub mod cuombajj_witches;
 #[path = "instants/mv_2/curate.rs"]
 pub mod curate;
+#[path = "instants/mv_1/curfew.rs"]
+pub mod curfew;
 #[path = "creatures/mv_2/curio_vendor.rs"]
 pub mod curio_vendor;
 #[path = "enchantments/auras/mv_1/curiosity.rs"]
@@ -4225,6 +4239,8 @@ pub mod defender_of_law;
 pub mod defenestrate;
 #[path = "creatures/mv_1/defense_force_aggressor.rs"]
 pub mod defense_force_aggressor;
+#[path = "enchantments/mv_1/defensive_formation.rs"]
+pub mod defensive_formation;
 #[path = "enchantments/auras/mv_1/defensive_stance.rs"]
 pub mod defensive_stance;
 #[path = "creatures/mv_1/defiant_elf.rs"]
@@ -4371,10 +4387,14 @@ pub mod desperate_gambit;
 pub mod desperate_lunge;
 #[path = "sorceries/mv_4/despoil.rs"]
 pub mod despoil;
+#[path = "enchantments/auras/mv_2/despondency.rs"]
+pub mod despondency;
 #[path = "artifacts/mv_1/despotic_scepter.rs"]
 pub mod despotic_scepter;
 #[path = "instants/mv_2/destroy_evil.rs"]
 pub mod destroy_evil;
+#[path = "enchantments/auras/mv_3/destructive_urge.rs"]
+pub mod destructive_urge;
 #[path = "creatures/mv_6/destructor_dragon.rs"]
 pub mod destructor_dragon;
 #[path = "lands/utility/detection_tower.rs"]
@@ -4419,6 +4439,8 @@ pub mod dhund_operative;
 pub mod diabolic_edict;
 #[path = "creatures/artifacts/mv_7/diabolic_machine.rs"]
 pub mod diabolic_machine;
+#[path = "enchantments/mv_4/diabolic_servitude.rs"]
+pub mod diabolic_servitude;
 #[path = "sorceries/mv_4/diabolic_tutor.rs"]
 pub mod diabolic_tutor;
 #[path = "sorceries/mv_2/diabolic_vision.rs"]
@@ -4505,6 +4527,8 @@ pub mod disciple_of_tevesh_szat;
 pub mod disciple_of_the_old_ways;
 #[path = "creatures/mv_1/disciple_of_the_vault.rs"]
 pub mod disciple_of_the_vault;
+#[path = "enchantments/mv_5/discordant_dirge.rs"]
+pub mod discordant_dirge;
 #[path = "creatures/mv_2/discordant_piper.rs"]
 pub mod discordant_piper;
 #[path = "creatures/mv_4/discordant_spirit.rs"]
@@ -4535,6 +4559,8 @@ pub mod dismember;
 pub mod dismiss;
 #[path = "creatures/mv_2/dismissive_pyromancer.rs"]
 pub mod dismissive_pyromancer;
+#[path = "sorceries/mv_2/disorder.rs"]
+pub mod disorder;
 #[path = "instants/mv_4/disorient.rs"]
 pub mod disorient;
 #[path = "instants/mv_1/dispatch.rs"]
@@ -4837,6 +4863,8 @@ pub mod dromoka_dunecaster;
 pub mod dromoka_monument;
 #[path = "creatures/mv_2/dromoka_warrior.rs"]
 pub mod dromoka_warrior;
+#[path = "creatures/mv_3/dromosaur.rs"]
+pub mod dromosaur;
 #[path = "enchantments/mv_1/drop_of_honey.rs"]
 pub mod drop_of_honey;
 #[path = "creatures/mv_4/dross_crocodile.rs"]
@@ -4939,6 +4967,8 @@ pub mod dungeon_shade;
 pub mod dungrove_elder;
 #[path = "enchantments/mv_5/duplicity.rs"]
 pub mod duplicity;
+#[path = "sorceries/mv_1/duress.rs"]
+pub mod duress;
 #[path = "creatures/mv_5/durkwood_boars.rs"]
 pub mod durkwood_boars;
 #[path = "creatures/mv_3/dusk_imp.rs"]
@@ -5175,6 +5205,8 @@ pub mod electrify;
 pub mod electrostatic_field;
 #[path = "creatures/mv_2/electrostatic_infantry.rs"]
 pub mod electrostatic_infantry;
+#[path = "creatures/mv_5/electryte.rs"]
+pub mod electryte;
 #[path = "creatures/mv_4/elegant_entourage.rs"]
 pub mod elegant_entourage;
 #[path = "lands/surveil/elegant_parlor.rs"]
@@ -5415,6 +5447,8 @@ pub mod endless_sands;
 pub mod endless_scream;
 #[path = "creatures/mv_5/endless_wurm.rs"]
 pub mod endless_wurm;
+#[path = "artifacts/mv_2/endoskeleton.rs"]
+pub mod endoskeleton;
 #[path = "creatures/mv_3/endurance.rs"]
 pub mod endurance;
 #[path = "enchantments/mv_4/enduring_renewal.rs"]
@@ -5427,6 +5461,8 @@ pub mod energizer;
 pub mod energy_arc;
 #[path = "sorceries/mv_2/energy_bolt.rs"]
 pub mod energy_bolt;
+#[path = "enchantments/mv_2/energy_field.rs"]
+pub mod energy_field;
 #[path = "enchantments/mv_3/energy_flux.rs"]
 pub mod energy_flux;
 #[path = "artifacts/mv_2/energy_refractor.rs"]
@@ -5681,6 +5717,8 @@ pub mod excoriate;
 pub mod execute;
 #[path = "artifacts/mv_1/executioner_s_capsule.rs"]
 pub mod executioner_s_capsule;
+#[path = "sorceries/mv_2/exhume.rs"]
+pub mod exhume;
 #[path = "instants/mv_3/exile.rs"]
 pub mod exile;
 #[path = "creatures/mv_2/exiled_boggart.rs"]
@@ -5811,6 +5849,8 @@ pub mod faerie_swarm;
 pub mod failed_conversion;
 #[path = "instants/mv_4/failed_inspection.rs"]
 pub mod failed_inspection;
+#[path = "creatures/mv_2/faith_healer.rs"]
+pub mod faith_healer;
 #[path = "creatures/mv_5/faithbearer_paladin.rs"]
 pub mod faithbearer_paladin;
 #[path = "creatures/mv_2/faithful_watchdog.rs"]
@@ -5853,6 +5893,8 @@ pub mod false_demise;
 pub mod false_orders;
 #[path = "instants/mv_2/false_summoning.rs"]
 pub mod false_summoning;
+#[path = "instants/mv_2/falter.rs"]
+pub mod falter;
 #[path = "enchantments/mv_3/familiar_ground.rs"]
 pub mod familiar_ground;
 #[path = "sorceries/mv_5/famine.rs"]
@@ -5953,6 +5995,8 @@ pub mod feast_of_the_unicorn;
 pub mod feast_or_famine;
 #[path = "enchantments/auras/mv_2/feather_of_flight.rs"]
 pub mod feather_of_flight;
+#[path = "enchantments/mv_3/fecundity.rs"]
+pub mod fecundity;
 #[path = "enchantments/auras/mv_2/feebleness.rs"]
 pub mod feebleness;
 #[path = "instants/mv_4/feed_the_flames.rs"]
@@ -6031,6 +6075,8 @@ pub mod feroz_s_ban;
 pub mod ferrous_lake;
 #[path = "creatures/mv_3/ferrovore.rs"]
 pub mod ferrovore;
+#[path = "enchantments/auras/mv_2/fertile_ground.rs"]
+pub mod fertile_ground;
 #[path = "lands/utility/fertile_thicket.rs"]
 pub mod fertile_thicket;
 #[path = "instants/mv_1/fervent_strike.rs"]
@@ -6101,6 +6147,8 @@ pub mod fiery_intervention;
 pub mod fiery_islet;
 #[path = "sorceries/mv_3/fiery_justice.rs"]
 pub mod fiery_justice;
+#[path = "enchantments/auras/mv_2/fiery_mantle.rs"]
+pub mod fiery_mantle;
 #[path = "instants/mv_1/fighting_chance.rs"]
 pub mod fighting_chance;
 #[path = "creatures/mv_4/fighting_drake.rs"]
@@ -6135,6 +6183,8 @@ pub mod fire;
 pub mod fire_ambush;
 #[path = "instants/mv_5/fire_and_brimstone.rs"]
 pub mod fire_and_brimstone;
+#[path = "creatures/mv_3/fire_ants.rs"]
+pub mod fire_ants;
 #[path = "creatures/mv_2/fire_belly_changeling.rs"]
 pub mod fire_belly_changeling;
 #[path = "instants/mv_3/fire_covenant.rs"]
