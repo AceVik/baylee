@@ -312,6 +312,7 @@ mod scars_of_the_veteran;
 mod second_thoughts;
 mod stonefury;
 mod strength_of_cedars;
+mod sunder;
 mod syphon_fuel;
 mod take_up_arms;
 mod thoughtflare;

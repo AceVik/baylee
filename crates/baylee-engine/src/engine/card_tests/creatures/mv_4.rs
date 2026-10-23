@@ -257,6 +257,7 @@ mod slinking_skirge;
 mod snapping_drake;
 mod sokka_tenacious_tactician;
 mod soltari_guerrillas;
+mod somnophore;
 mod soratami_mindsweeper;
 mod souldrinker;
 mod spirit_en_kor;

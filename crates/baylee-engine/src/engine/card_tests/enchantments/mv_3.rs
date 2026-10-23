@@ -116,6 +116,7 @@ mod thelon_s_chant;
 mod think_tank;
 mod tidal_control;
 mod tidal_influence;
+mod torch_song;
 mod tourach_s_chant;
 mod tribute_to_the_world_tree;
 mod underworld_dreams;

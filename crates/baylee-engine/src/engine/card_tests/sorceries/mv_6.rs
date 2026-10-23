@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-
 // ---- Helpers shared by the tests of this directory -------------------------
 //
 // A sibling module reaches nothing of this file's neighbours, so the few verbs
@@ -346,5 +345,6 @@ mod sip_of_hemlock;
 mod spectral_procession;
 mod thassa_s_bounty;
 mod their_name_is_death;
+mod time_spiral;
 mod vanquish_the_foul;
 mod zof_consumption;

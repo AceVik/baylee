@@ -59,6 +59,7 @@ mod shatterstorm;
 mod stench_of_evil;
 mod sunder_from_within;
 mod taste_of_paradise;
+mod titania_s_boon;
 mod touch_of_brilliance;
 mod tsunami;
 mod unyaro_bee_sting;

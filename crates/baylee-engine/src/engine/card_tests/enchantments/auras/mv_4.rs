@@ -21,4 +21,5 @@ mod serra_s_embrace;
 mod snowblind;
 mod steal_artifact;
 mod takklemaggot;
+mod vampiric_embrace;
 mod zephid_s_embrace;

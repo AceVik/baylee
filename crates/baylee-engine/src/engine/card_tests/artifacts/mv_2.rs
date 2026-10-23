@@ -83,6 +83,7 @@ mod talisman_of_unity;
 mod tarrian_s_journal;
 mod tawnos_s_weaponry;
 mod telim_tor_s_darts;
+mod temporal_aperture;
 mod thaumatic_compass;
 mod thopter_foundry;
 mod thought_vessel;

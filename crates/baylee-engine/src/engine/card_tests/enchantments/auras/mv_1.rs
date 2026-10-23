@@ -64,6 +64,7 @@ mod shimmering_wings;
 mod sicken;
 mod spider_climb;
 mod spirit_link;
+mod spreading_algae;
 mod swift_reconfiguration;
 mod tahngarth_s_rage;
 mod tangle_kelp;

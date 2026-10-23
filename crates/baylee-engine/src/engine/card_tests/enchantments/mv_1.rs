@@ -150,6 +150,7 @@ mod serra_s_hymn;
 mod storm_front;
 mod storm_world;
 mod sunspring_expedition;
+mod telepathy;
 mod thassa_s_ire;
 mod tidal_flats;
 mod tortured_existence;
