@@ -17,7 +17,7 @@ fn grizzly_bears() -> CardIndex {
 /// Soul Burn (063b0f5d-af27-4681-87b9-b553f6887061) — {X}{2}{B} Sorcery:
 /// "Soul Burn deals X damage to any target. You gain life equal to the damage dealt,
 /// but not more than ... the creature's toughness."
-/// (Coverage::Partial — X is paid with black mana only; printed black and/or red.)
+/// (`Coverage::Partial` — X is paid with black mana only; printed black and/or red.)
 #[test]
 fn soul_burn_deals_x_damage_and_caps_life_gain_at_target_creature_toughness() {
     let mut engine = Duel::new(SEED, swamp())

@@ -15,6 +15,33 @@ fn grizzly_bears() -> CardIndex {
     card_index("14c8f55d-d177-4c25-a931-ebeb9e6062a0")
 }
 
+fn shoot(
+    engine: &mut Engine<RegistryLookup>,
+    player: PlayerId,
+    arrows: ObjectId,
+    target: ObjectId,
+) {
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateAbility {
+                source: arrows,
+                ability_index: 1,
+            },
+        )
+        .unwrap();
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+}
+
 #[test]
 fn serrated_arrows_enters_with_three_counters_puts_m1m1_counters_and_sacrifices_at_zero() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -48,25 +75,7 @@ fn serrated_arrows_enters_with_three_counters_puts_m1m1_counters_and_sacrifices_
     );
 
     // Activate once to put a -1/-1 counter on the first Grizzly Bears (3 -> 2 arrowhead counters).
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: arrows,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears[0]],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    shoot(&mut engine, p0, arrows, bears[0]);
     assert_eq!(pt(&engine, bears[0]), (1, 1));
 
     // Next turn: remove the 2nd arrowhead counter to kill the first Grizzly Bears.
@@ -76,25 +85,7 @@ fn serrated_arrows_enters_with_three_counters_puts_m1m1_counters_and_sacrifices_
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
     });
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: arrows,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears[0]],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    shoot(&mut engine, p0, arrows, bears[0]);
     assert_eq!(
         engine.state().object(bears[0]).unwrap().zone,
         Zone::Graveyard
@@ -107,25 +98,7 @@ fn serrated_arrows_enters_with_three_counters_puts_m1m1_counters_and_sacrifices_
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
     });
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: arrows,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![bears[1]],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    shoot(&mut engine, p0, arrows, bears[1]);
     assert_eq!(
         engine
             .state()

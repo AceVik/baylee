@@ -35,7 +35,7 @@ fn midsummer_revel_uses_sacrificed_sources_last_counter_count_including_zero() {
     let p0 = PlayerId::new(0);
     for n in [0, 2] {
         let mut e = lk::game_with(SEED, &[midsummer_revel()], &[], &[], &[], |e| {
-            lk::yes_no(e, false)
+            lk::yes_no(e, false);
         });
         let revel = lk::obj(&e, p0, midsummer_revel());
         e.dev_state_mut(p0)

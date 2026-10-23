@@ -10,7 +10,7 @@ fn lhurgoyf() -> CardIndex {
 }
 
 /// Lhurgoyf (0fe76004-b2f4-4b11-abce-75fd76f68b4d) — {2}{G}{G} Creature — Lhurgoyf:
-/// Coverage::Partial — plays as a 0/1 creature.
+/// `Coverage::Partial` — plays as a 0/1 creature.
 #[test]
 fn lhurgoyf_casts_for_two_and_two_green_and_enters_as_a_zero_one_lhurgoyf() {
     let mut engine = Duel::new(SEED, forest())

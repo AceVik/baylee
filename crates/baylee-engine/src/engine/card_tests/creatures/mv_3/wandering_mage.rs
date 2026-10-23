@@ -4,10 +4,8 @@
 use super::*;
 use baylee_core::generated::index::HILL_GIANT;
 
-#[test]
-fn wandering_mage_prevents_damage_across_all_three_abilities() {
+fn mage_with_three_bolts(card: CardIndex) -> Engine<RegistryLookup> {
     let p0 = PlayerId::new(0);
-    let card = card_index("ac9c81a1-f444-4051-b309-f1af1b5df12a");
     let mut engine = Duel::new(SEED, plains())
         .hand(
             0,
@@ -37,6 +35,38 @@ fn wandering_mage_prevents_damage_across_all_three_abilities() {
     cast_from_hand(&mut engine, p0, card);
     pass_until(&mut engine, stack_is_empty);
 
+    engine
+}
+
+fn bolt_creature(engine: &mut Engine<RegistryLookup>, player: PlayerId, target: ObjectId) {
+    cast_from_hand(engine, player, lightning_bolt());
+    aim_at(engine, player, target);
+    pass_until(engine, stack_is_empty);
+}
+
+fn bolt_player(engine: &mut Engine<RegistryLookup>, player: PlayerId, target: PlayerId) {
+    let bolt = in_hand(engine, player, lightning_bolt()).unwrap();
+    engine
+        .apply(player, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseTargets {
+                objects: vec![],
+                players: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+}
+
+#[test]
+fn wandering_mage_prevents_damage_across_all_three_abilities() {
+    let p0 = PlayerId::new(0);
+    let card = card_index("ac9c81a1-f444-4051-b309-f1af1b5df12a");
+    let mut engine = mage_with_three_bolts(card);
+
     let mage = on_battlefield(&engine, p0, card).unwrap();
     let giant = on_battlefield(&engine, p0, HILL_GIANT).unwrap();
     let bear = on_battlefield(&engine, PlayerId::new(1), grizzly_bears()).unwrap();
@@ -48,9 +78,7 @@ fn wandering_mage_prevents_damage_across_all_three_abilities() {
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(engine.state().players[0].life, 19);
 
-    cast_from_hand(&mut engine, p0, lightning_bolt());
-    aim_at(&mut engine, p0, giant);
-    pass_until(&mut engine, stack_is_empty);
+    bolt_creature(&mut engine, p0, giant);
     assert_eq!(
         engine.state().object(giant).unwrap().damage,
         1,
@@ -68,9 +96,7 @@ fn wandering_mage_prevents_damage_across_all_three_abilities() {
     aim_at(&mut engine, p0, mage);
     pass_until(&mut engine, stack_is_empty);
 
-    cast_from_hand(&mut engine, p0, lightning_bolt());
-    aim_at(&mut engine, p0, mage);
-    pass_until(&mut engine, stack_is_empty);
+    bolt_creature(&mut engine, p0, mage);
     assert_eq!(
         engine.state().object(mage).unwrap().damage,
         2,
@@ -133,20 +159,7 @@ fn wandering_mage_prevents_damage_across_all_three_abilities() {
         1
     );
 
-    let bolt3 = in_hand(&engine, p0, lightning_bolt()).unwrap();
-    engine
-        .apply(p0, PlayerAction::CastSpell { card: bolt3 })
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![],
-                players: vec![p0],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    bolt_player(&mut engine, p0, p0);
     assert_eq!(
         engine.state().players[0].life,
         18,
@@ -187,9 +200,7 @@ fn wandering_mage_prevention_ends_with_the_turn() {
     // Lightning Bolt kills the 3/3.
     reach_their_main_phase(&mut engine, PlayerId::new(1));
     reach_their_main_phase(&mut engine, p0);
-    cast_from_hand(&mut engine, p0, lightning_bolt());
-    aim_at(&mut engine, p0, giant);
-    pass_until(&mut engine, stack_is_empty);
+    bolt_creature(&mut engine, p0, giant);
     assert!(
         in_graveyard(&engine, p0, HILL_GIANT).is_some(),
         "last turn's prevention did not carry over: 3 damage kills Hill Giant"

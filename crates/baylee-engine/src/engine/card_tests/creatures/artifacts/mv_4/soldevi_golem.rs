@@ -14,6 +14,31 @@ fn hill_giant() -> CardIndex {
     card_index("342199e0-15b6-4824-83da-25caef2592b3")
 }
 
+fn attack_unblocked(engine: &mut Engine<RegistryLookup>, player: PlayerId, attackers: &[ObjectId]) {
+    let defender = if player == P0 { P1 } else { P0 };
+    pass_until(
+        engine,
+        |e| matches!(e.pending(), Pending::ChooseAttackers { player: asked, .. } if *asked == player),
+    );
+    engine
+        .apply(
+            player,
+            PlayerAction::DeclareAttackers {
+                attackers: attackers
+                    .iter()
+                    .map(|&id| (id, Defender::Player(defender)))
+                    .collect(),
+            },
+        )
+        .unwrap();
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    engine
+        .apply(defender, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+}
+
 /// Soldevi Golem (cd444267-712c-450f-a349-e27faf4f4c7c) — {4} 5/3 Artifact Creature — Golem:
 /// - "This creature doesn't untap during your untap step."
 /// - "At the beginning of your upkeep, you may untap target tapped creature an opponent controls.
@@ -32,51 +57,14 @@ fn soldevi_golem_does_not_untap_normally_and_may_untap_with_tapped_opponent_crea
     let their_ogre = on_battlefield(&engine, P1, gray_ogre()).unwrap();
 
     // Turn 1: P0 attacks with Soldevi Golem and Grizzly Bears (both become tapped).
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P0),
-    );
-    engine
-        .apply(
-            P0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![
-                    (golem, Defender::Player(P1)),
-                    (my_bears, Defender::Player(P1)),
-                ],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
+    attack_unblocked(&mut engine, P0, &[golem, my_bears]);
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
     assert!(is_tapped(&engine, golem));
 
     // Turn 2: P1 attacks with Hill Giant (so Hill Giant is tapped, while Gray Ogre remains untapped).
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1),
-    );
-    engine
-        .apply(
-            P1,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(their_giant, Defender::Player(P0))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(P0, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
+    attack_unblocked(&mut engine, P1, &[their_giant]);
 
     // Turn 3 upkeep: Soldevi Golem did NOT untap during P0's untap step, while Grizzly Bears did.
     // Its upkeep trigger asks for a target tapped creature an opponent controls.
@@ -132,24 +120,7 @@ fn soldevi_golem_does_not_untap_normally_and_may_untap_with_tapped_opponent_crea
     );
 
     // Turn 4: P1 attacks with Hill Giant again so it stays tapped entering turn 5.
-    pass_until(
-        &mut engine,
-        |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == P1),
-    );
-    engine
-        .apply(
-            P1,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(their_giant, Defender::Player(P0))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseBlockers { .. })
-    });
-    engine
-        .apply(P0, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
+    attack_unblocked(&mut engine, P1, &[their_giant]);
 
     // 2. Second upkeep (turn 5): target Hill Giant, then accept the 'may' -> both untap!
     pass_until(&mut engine, |e| {

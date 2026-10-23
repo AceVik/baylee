@@ -27,7 +27,7 @@ card!(
                 Amount::Difference {
                     left: &Amount::ControlledCount {
                         who: PlayerRel::Chosen,
-                        filter: &Filter::LAND,
+                        filter: &Filter::And(&[Filter::LAND, Filter::ControlledByOpponent]),
                     },
                     right: &Amount::ControlledCount {
                         who: PlayerRel::You,

@@ -40,9 +40,7 @@ fn barrin_s_codex_accumulates_page_counters_and_sacrifices_to_draw() {
             .object(codex)
             .unwrap()
             .counters
-            .get(crate::object::CounterKind::from(
-                baylee_cards_dsl::counters::PAGE
-            )),
+            .get(baylee_cards_dsl::counters::PAGE),
         0
     );
     reach_their_main_phase(&mut engine, p0);
@@ -53,9 +51,7 @@ fn barrin_s_codex_accumulates_page_counters_and_sacrifices_to_draw() {
             .object(codex)
             .unwrap()
             .counters
-            .get(crate::object::CounterKind::from(
-                baylee_cards_dsl::counters::PAGE
-            )),
+            .get(baylee_cards_dsl::counters::PAGE),
         1
     );
 

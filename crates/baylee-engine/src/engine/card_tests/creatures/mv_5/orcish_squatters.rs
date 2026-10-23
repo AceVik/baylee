@@ -13,6 +13,25 @@ fn orcish_squatters() -> CardIndex {
     card_index("ce936736-915f-44bb-a709-b3bdcf90a3be")
 }
 
+fn declare_squatters_unblocked(engine: &mut Engine<RegistryLookup>, squatters: ObjectId) {
+    pass_until(engine, |e| e.state().turn.step == Step::DeclareAttackers);
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(squatters, Defender::Player(P1))],
+            },
+        )
+        .unwrap();
+    pass_until(engine, |e| e.state().turn.step == Step::DeclareBlockers);
+    engine
+        .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
+        .unwrap();
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+}
+
 /// Orcish Squatters (ce936736-915f-44bb-a709-b3bdcf90a3be) — {4}{R} 2/3 Creature — Orc:
 /// "Whenever this creature attacks and isn't blocked, you may gain control of target land
 /// defending player controls for as long as you control this creature. If you do, this
@@ -32,26 +51,7 @@ fn orcish_squatters_steals_defenders_land_for_as_long_as_you_control_it_or_deals
     let p0_mtn = on_battlefield(&engine, P0, mountain()).unwrap();
     let p1_forest = on_battlefield(&engine, P1, forest()).unwrap();
 
-    pass_until(&mut engine, |e| {
-        e.state().turn.step == Step::DeclareAttackers
-    });
-    engine
-        .apply(
-            P0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(squatters, Defender::Player(P1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.step == Step::DeclareBlockers
-    });
-    engine
-        .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseTargets { .. })
-    });
+    declare_squatters_unblocked(&mut engine, squatters);
     let options = aim_at(&mut engine, P0, p1_forest);
     assert!(
         !options.contains(&p0_mtn),
@@ -96,26 +96,7 @@ fn orcish_squatters_steals_defenders_land_for_as_long_as_you_control_it_or_deals
     let squatters2 = on_battlefield(&engine2, P0, orcish_squatters()).unwrap();
     let p1_forest2 = on_battlefield(&engine2, P1, forest()).unwrap();
 
-    pass_until(&mut engine2, |e| {
-        e.state().turn.step == Step::DeclareAttackers
-    });
-    engine2
-        .apply(
-            P0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(squatters2, Defender::Player(P1))],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine2, |e| {
-        e.state().turn.step == Step::DeclareBlockers
-    });
-    engine2
-        .apply(P1, PlayerAction::DeclareBlockers { blockers: vec![] })
-        .unwrap();
-    pass_until(&mut engine2, |e| {
-        matches!(e.pending(), Pending::ChooseTargets { .. })
-    });
+    declare_squatters_unblocked(&mut engine2, squatters2);
     aim_at(&mut engine2, P0, p1_forest2);
     pass_until(&mut engine2, |e| {
         matches!(e.pending(), Pending::YesNo { .. })

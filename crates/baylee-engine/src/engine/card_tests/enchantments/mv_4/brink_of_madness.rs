@@ -21,13 +21,7 @@ fn brink_of_madness_sacrifices_itself_and_makes_opponent_discard_hand_when_hellb
     cast_from_hand(&mut engine, p0, brink_of_madness());
     pass_until(&mut engine, stack_is_empty);
 
-    let hand_cards: Vec<_> = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Hand(p0))
-        .iter()
-        .copied()
-        .collect();
+    let hand_cards: Vec<_> = engine.state().zones.list(ZoneLocation::Hand(p0)).clone();
     for c in hand_cards {
         engine
             .dev_state_mut(p0)

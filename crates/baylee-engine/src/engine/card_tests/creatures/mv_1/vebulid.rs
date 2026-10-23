@@ -48,7 +48,7 @@ fn vebulid_may_decline_a_counter_and_is_destroyed_after_blocking() {
     let p1 = PlayerId::new(1);
     let ground_attacker = baylee_core::generated::index::CROOKSHANK_KOBOLDS;
     let mut engine = lk::game_with(SEED, &[vebulid()], &[ground_attacker], &[], &[], |e| {
-        lk::yes_no(e, false)
+        lk::yes_no(e, false);
     });
     let veb = lk::obj(&engine, p0, vebulid());
     assert_eq!(pt(&engine, veb), (1, 1), "upkeep counter is optional");

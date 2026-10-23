@@ -27,16 +27,8 @@ fn hill_giant() -> CardIndex {
     baylee_core::generated::index::HILL_GIANT
 }
 
-/// Urborg Panther (`{2}{B}`, `Coverage::Implemented`):
-/// - `{B}`, Sacrifice Urborg Panther: destroy target creature blocking it.
-/// - Sacrifice a creature named Feral Shadow, a creature named Breathstealer,
-///   and Urborg Panther: search your library for a card named Spirit of the
-///   Night and put it onto the battlefield.
-#[test]
-fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
+fn panther_blocked_by_giant() -> (Engine<RegistryLookup>, ObjectId, ObjectId, ObjectId) {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-
-    // Part 1: {B}, Sacrifice Urborg Panther to destroy target creature blocking it.
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[urborg_panther(), swamp()])
         .battlefield(1, &[hill_giant(), grizzly_bears()])
@@ -76,6 +68,21 @@ fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
         &mut engine,
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
     );
+
+    (engine, panther, giant, idle_bear)
+}
+
+/// Urborg Panther (`{2}{B}`, `Coverage::Implemented`):
+/// - `{B}`, Sacrifice Urborg Panther: destroy target creature blocking it.
+/// - Sacrifice a creature named Feral Shadow, a creature named Breathstealer,
+///   and Urborg Panther: search your library for a card named Spirit of the
+///   Night and put it onto the battlefield.
+#[test]
+fn urborg_panther_destroys_blocker_and_tutors_spirit_of_the_night() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+
+    // Part 1: {B}, Sacrifice Urborg Panther to destroy target creature blocking it.
+    let (mut engine, panther, giant, idle_bear) = panther_blocked_by_giant();
 
     tap_all_mana(&mut engine, p0);
     engine

@@ -10,7 +10,7 @@ fn orcish_librarian() -> CardIndex {
 }
 
 /// Orcish Librarian (3a05904d-5439-446d-a2a1-1475c9c7371d) — {1}{R} 1/1 Creature — Orc:
-/// Coverage::Partial — casts for {1}{R} as a 1/1 Orc.
+/// `Coverage::Partial` — casts for {1}{R} as a 1/1 Orc.
 #[test]
 fn orcish_librarian_casts_for_one_and_a_red_as_a_one_one_orc() {
     let mut engine = Duel::new(SEED, mountain())

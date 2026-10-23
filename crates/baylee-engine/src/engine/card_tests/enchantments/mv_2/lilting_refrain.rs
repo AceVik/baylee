@@ -73,10 +73,7 @@ fn lilting_refrain_offers_payment_to_the_target_spells_controller() {
         lk::yes_no(&mut e, pay);
         lk::settle(&mut e);
         assert_eq!(on_battlefield(&e, p1, grizzly_bears()).is_some(), pay);
-        assert_eq!(
-            lk::pool_of(&e, p1, ManaColor::Green),
-            if pay { 0 } else { 1 }
-        );
+        assert_eq!(lk::pool_of(&e, p1, ManaColor::Green), u32::from(!pay));
         assert!(in_graveyard(&e, p0, lilting_refrain()).is_some());
     }
 }

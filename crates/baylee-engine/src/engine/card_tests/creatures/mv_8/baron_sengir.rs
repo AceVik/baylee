@@ -16,9 +16,8 @@ fn sengir_vampire() -> CardIndex {
     card_index("749141aa-f6c4-4ad8-b146-406e68ae9b0b")
 }
 
-#[test]
-fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_vampire() {
-    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+fn board() -> Engine<RegistryLookup> {
+    let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, swamp())
         .hand(0, &[lightning_bolt(), lightning_bolt(), lightning_bolt()])
         .battlefield(
@@ -36,15 +35,16 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let baron = on_battlefield(&engine, p0, baron_sengir()).unwrap();
-    let ally_vampire = on_battlefield(&engine, p0, sengir_vampire()).unwrap();
-    let opp_vampire = on_battlefield(&engine, p1, sengir_vampire()).unwrap();
-    let opp_bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
-    assert_eq!(pt(&engine, baron), (5, 5));
-    assert!(keywords(&engine, baron).contains(KeywordSet::FLYING));
+    engine
+}
 
-    // Attack with Baron Sengir; p1 blocks with 4/4 Sengir Vampire.
-    pass_until(&mut engine, |e| {
+fn kill_blocking_vampire(
+    engine: &mut Engine<RegistryLookup>,
+    baron: ObjectId,
+    opp_vampire: ObjectId,
+) {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
     engine
@@ -55,7 +55,7 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
+    pass_until(engine, |e| {
         matches!(e.pending(), Pending::ChooseBlockers { .. })
     });
     engine
@@ -66,9 +66,42 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
+    pass_until(engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
+}
+
+fn bolt_target(engine: &mut Engine<RegistryLookup>, player: PlayerId, target: ObjectId) {
+    let bolt = in_hand(engine, player, lightning_bolt()).unwrap();
+    engine
+        .apply(player, PlayerAction::CastSpell { card: bolt })
+        .unwrap();
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseTargets {
+                objects: vec![target],
+                players: vec![],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+}
+
+#[test]
+fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_vampire() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = board();
+
+    let baron = on_battlefield(&engine, p0, baron_sengir()).unwrap();
+    let ally_vampire = on_battlefield(&engine, p0, sengir_vampire()).unwrap();
+    let opp_vampire = on_battlefield(&engine, p1, sengir_vampire()).unwrap();
+    let opp_bears = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    assert_eq!(pt(&engine, baron), (5, 5));
+    assert!(keywords(&engine, baron).contains(KeywordSet::FLYING));
+
+    // Attack with Baron Sengir; p1 blocks with 4/4 Sengir Vampire.
+    kill_blocking_vampire(&mut engine, baron, opp_vampire);
 
     // Opponent's 4/4 Sengir Vampire died after being dealt 5 damage by Baron Sengir -> +2/+2 counter!
     assert_eq!(
@@ -131,20 +164,7 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
     // Cast two Lightning Bolts (6 damage) at 4/4 ally_vampire: it regenerates!
     tap_all_mana(&mut engine, p0);
     for _ in 0..2 {
-        let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
-        engine
-            .apply(p0, PlayerAction::CastSpell { card: bolt })
-            .unwrap();
-        engine
-            .apply(
-                p0,
-                PlayerAction::ChooseTargets {
-                    objects: vec![ally_vampire],
-                    players: vec![],
-                },
-            )
-            .unwrap();
-        pass_until(&mut engine, stack_is_empty);
+        bolt_target(&mut engine, p0, ally_vampire);
     }
     assert_eq!(
         engine.state().object(ally_vampire).unwrap().zone,
@@ -155,20 +175,7 @@ fn baron_sengir_gains_plus_two_plus_two_counter_on_kill_and_regenerates_another_
 
     // A creature that Baron Sengir did not damage dies: no counter. Lightning
     // Bolt kills the opponent's Grizzly Bears; Baron Sengir is still 7/7.
-    let bolt = in_hand(&engine, p0, lightning_bolt()).unwrap();
-    engine
-        .apply(p0, PlayerAction::CastSpell { card: bolt })
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseTargets {
-                objects: vec![opp_bears],
-                players: vec![],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    bolt_target(&mut engine, p0, opp_bears);
     assert_eq!(
         engine.state().object(opp_bears).unwrap().zone,
         Zone::Graveyard

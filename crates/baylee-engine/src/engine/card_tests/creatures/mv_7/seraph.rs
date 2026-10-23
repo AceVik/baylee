@@ -9,7 +9,7 @@ fn seraph() -> CardIndex {
 
 /// Seraph (a1c50bd1-120d-44ac-af20-13a90fc991e6) — {6}{W} 4/4 Creature — Angel:
 /// "Flying"
-/// (Coverage::Partial — delayed end-step reanimation trigger not supported.)
+/// (`Coverage::Partial` — delayed end-step reanimation trigger not supported.)
 #[test]
 fn seraph_casts_as_four_four_flier_and_attacks_over_ground_blockers() {
     let mut engine = table7(&lots(plains(), 7), &[seraph()], &[grizzly_bears()]);

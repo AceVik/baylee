@@ -11,7 +11,7 @@ fn shyft() -> CardIndex {
 }
 
 /// Shyft (40c3007a-be6c-4400-9139-12b9ca098ac4) — {4}{U} 4/2 Creature — Shapeshifter:
-/// (Coverage::Partial — upkeep color-change ability not supported.)
+/// (`Coverage::Partial` — upkeep color-change ability not supported.)
 #[test]
 fn shyft_casts_for_four_and_blue_and_attacks_for_four() {
     let mut engine = Duel::new(SEED, island())

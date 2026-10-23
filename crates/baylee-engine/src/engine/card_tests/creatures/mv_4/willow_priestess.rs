@@ -18,6 +18,23 @@ fn terror() -> CardIndex {
     card_index("b81f041d-98db-4408-9472-c483e4a502bc")
 }
 
+fn activate_priestess(
+    engine: &mut Engine<RegistryLookup>,
+    player: PlayerId,
+    priestess: ObjectId,
+    ability_index: u32,
+) {
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateAbility {
+                source: priestess,
+                ability_index,
+            },
+        )
+        .unwrap();
+}
+
 #[test]
 fn willow_priestess_puts_faerie_from_hand_and_grants_green_creature_protection_from_black() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -36,15 +53,7 @@ fn willow_priestess_puts_faerie_from_hand_and_grants_green_creature_protection_f
     let ogre = on_battlefield(&engine, p1, gray_ogre()).unwrap();
 
     // Activate {T}: put Scryb Sprites from hand onto the battlefield.
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: priestess,
-                ability_index: 0,
-            },
-        )
-        .unwrap();
+    activate_priestess(&mut engine, p0, priestess, 0);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
@@ -83,15 +92,7 @@ fn willow_priestess_puts_faerie_from_hand_and_grants_green_creature_protection_f
 
     // Activate {2}{G}: target green creature (Scryb Sprites) gains protection from black until end of turn.
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: priestess,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
+    activate_priestess(&mut engine, p0, priestess, 1);
     // "Target green creature": the red Gray Ogre is not a target.
     assert!(
         engine
@@ -161,15 +162,7 @@ fn willow_priestess_protection_from_black_ends_with_the_turn() {
     let sprites = on_battlefield(&engine, p0, scryb_sprites()).unwrap();
 
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::ActivateAbility {
-                source: priestess,
-                ability_index: 1,
-            },
-        )
-        .unwrap();
+    activate_priestess(&mut engine, p0, priestess, 1);
     engine
         .apply(
             p0,

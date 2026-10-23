@@ -15,13 +15,7 @@ fn zephyr_falcon() -> CardIndex {
     baylee_core::generated::index::ZEPHYR_FALCON
 }
 
-/// Mudslide (ac1d7dfe-1454-46a9-acf6-66ae86b6a6c5) — {2}{R} Enchantment:
-/// - "Creatures without flying don't untap during their controllers' untap steps."
-/// - "At the beginning of each player's upkeep, that player may choose any number of tapped
-///   creatures without flying they control and pay {2} for each creature chosen this way. If
-///   the player does, untap those creatures."
-#[test]
-fn mudslide_keeps_non_fliers_tapped_while_fliers_untap_and_offers_two_mana_upkeep_untap() {
+fn tapped_creatures_fixture() -> (Engine<RegistryLookup>, [ObjectId; 5]) {
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(
             0,
@@ -55,6 +49,19 @@ fn mudslide_keeps_non_fliers_tapped_while_fliers_untap_and_offers_two_mana_upkee
         }
     }
     engine.refresh_offer();
+
+    (engine, [p0_bears, p0_ogre, p0_falcon, p1_bears, p1_falcon])
+}
+
+/// Mudslide (ac1d7dfe-1454-46a9-acf6-66ae86b6a6c5) — {2}{R} Enchantment:
+/// - "Creatures without flying don't untap during their controllers' untap steps."
+/// - "At the beginning of each player's upkeep, that player may choose any number of tapped
+///   creatures without flying they control and pay {2} for each creature chosen this way. If
+///   the player does, untap those creatures."
+#[test]
+fn mudslide_keeps_non_fliers_tapped_while_fliers_untap_and_offers_two_mana_upkeep_untap() {
+    let (mut engine, [p0_bears, p0_ogre, p0_falcon, p1_bears, p1_falcon]) =
+        tapped_creatures_fixture();
 
     // 1. Advance to P1's upkeep: P1's flying Zephyr Falcon untapped in P1's untap step,
     // while P1's non-flying Grizzly Bears stayed tapped and is offered to P1.

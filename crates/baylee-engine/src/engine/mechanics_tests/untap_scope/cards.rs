@@ -26,23 +26,7 @@ pub(in crate::engine) fn assert_untaps_after_control_change(printed: CardIndex) 
             Seat::with(&[STEWARD]),
         ],
     );
-    // Deep Spawn can ask for its upkeep mill while the initial board starts.
-    for _ in 0..100 {
-        if holds_priority_in(&engine, me(), Step::Main) {
-            break;
-        }
-        let pending = engine.pending().clone();
-        if let Pending::YesNo { player, .. } = pending {
-            assert_eq!(printed, index::DEEP_SPAWN);
-            engine.apply(player, PlayerAction::YesNo(true)).unwrap();
-        } else {
-            assert!(
-                walk_past(&mut engine, &pending),
-                "unexpected question: {pending:?}"
-            );
-        }
-    }
-    assert!(holds_priority_in(&engine, me(), Step::Main));
+    reach_initial_main(&mut engine, printed);
     let source = the(&engine, ZoneLocation::Battlefield, printed.get());
     let affected = if printed == index::SAMITE_ALCHEMIST {
         the(&engine, ZoneLocation::Battlefield, VICTIM)
@@ -112,4 +96,24 @@ pub(in crate::engine) fn assert_untaps_after_control_change(printed: CardIndex) 
         !tapped(&engine, affected),
         "the new controller's untap is not the ability controller's next untap"
     );
+}
+
+fn reach_initial_main(engine: &mut Bench, printed: CardIndex) {
+    // Deep Spawn can ask for its upkeep mill while the initial board starts.
+    for _ in 0..100 {
+        if holds_priority_in(engine, me(), Step::Main) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        if let Pending::YesNo { player, .. } = pending {
+            assert_eq!(printed, index::DEEP_SPAWN);
+            engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+        } else {
+            assert!(
+                walk_past(engine, &pending),
+                "unexpected question: {pending:?}"
+            );
+        }
+    }
+    assert!(holds_priority_in(engine, me(), Step::Main));
 }

@@ -53,7 +53,7 @@ fn torch_song_declined_counter_and_zero_damage_do_not_become_a_free_point() {
     use crate::engine::card_tests::legends_kit as lk;
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game_with(SEED, &[torch_song()], &[], &[], &[], |e| {
-        lk::yes_no(e, false)
+        lk::yes_no(e, false);
     });
     let song = lk::obj(&e, p0, torch_song());
     reach_their_main_phase(&mut e, p1);

@@ -9,6 +9,63 @@ fn ritual_of_subdual() -> CardIndex {
     card_index("e0587218-206e-41ed-af3c-f06b7a668e90")
 }
 
+fn pay_first_upkeep_with_plains_and_island(
+    engine: &mut Engine<RegistryLookup>,
+    ritual: ObjectId,
+) -> (ObjectId, ObjectId) {
+    // Upkeep 1 (turn 1): 1 age counter placed -> pay {2} by tapping Plains and Island
+    // (each produces {C} instead of {W}/{U}).
+    pass_until(engine, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    engine.apply(P0, PlayerAction::YesNo(true)).unwrap();
+    let pl = on_battlefield(engine, P0, plains()).unwrap();
+    let isl = on_battlefield(engine, P0, island()).unwrap();
+    tap_mana_where(engine, P0, |id| id == pl);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::White),
+        0,
+        "Plains produces no {{W}} under Ritual of Subdual"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "Plains produces {{C}} under Ritual of Subdual"
+    );
+    tap_mana_where(engine, P0, |id| id == isl);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        0,
+        "Island produces no {{U}} under Ritual of Subdual"
+    );
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        2,
+        "Island produces {{C}} under Ritual of Subdual"
+    );
+    engine.apply(P0, PlayerAction::PassPriority).unwrap();
+    pass_until(engine, |e| {
+        e.state().turn.step == Step::Upkeep && stack_is_empty(e)
+    });
+    assert_eq!(
+        engine
+            .state()
+            .object(ritual)
+            .unwrap()
+            .counters
+            .get(baylee_cards_dsl::counters::AGE),
+        1
+    );
+
+    (pl, isl)
+}
+
 /// Ritual of Subdual (e0587218-206e-41ed-af3c-f06b7a668e90) — {4}{G}{G} Enchantment:
 /// - "Cumulative upkeep {2}"
 /// - "If a land is tapped for mana, it produces colorless mana instead of any other type."
@@ -31,57 +88,7 @@ fn ritual_of_subdual_replaces_colored_land_mana_with_colorless_and_scales_cumula
 
     let ritual = on_battlefield(&engine, P0, ritual_of_subdual()).unwrap();
 
-    // Upkeep 1 (turn 1): 1 age counter placed -> pay {2} by tapping Plains and Island
-    // (each produces {C} instead of {W}/{U}).
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { .. })
-    });
-    engine.apply(P0, PlayerAction::YesNo(true)).unwrap();
-    let pl = on_battlefield(&engine, P0, plains()).unwrap();
-    let isl = on_battlefield(&engine, P0, island()).unwrap();
-    tap_mana_where(&mut engine, P0, |id| id == pl);
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::White),
-        0,
-        "Plains produces no {{W}} under Ritual of Subdual"
-    );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        1,
-        "Plains produces {{C}} under Ritual of Subdual"
-    );
-    tap_mana_where(&mut engine, P0, |id| id == isl);
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Blue),
-        0,
-        "Island produces no {{U}} under Ritual of Subdual"
-    );
-    assert_eq!(
-        engine.state().players[0]
-            .mana_pool
-            .available(ManaColor::Colorless),
-        2,
-        "Island produces {{C}} under Ritual of Subdual"
-    );
-    engine.apply(P0, PlayerAction::PassPriority).unwrap();
-    pass_until(&mut engine, |e| {
-        e.state().turn.step == Step::Upkeep && stack_is_empty(e)
-    });
-    assert_eq!(
-        engine
-            .state()
-            .object(ritual)
-            .unwrap()
-            .counters
-            .get(baylee_cards_dsl::counters::AGE),
-        1
-    );
+    let (pl, isl) = pay_first_upkeep_with_plains_and_island(&mut engine, ritual);
 
     // Main phase: verify Swamp, Mountain, and Forest also produce {C} instead of {B}, {R}, {G}.
     reach_main_phase(&mut engine, P0);

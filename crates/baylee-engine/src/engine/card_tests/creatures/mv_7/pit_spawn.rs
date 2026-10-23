@@ -7,6 +7,8 @@ fn pit_spawn() -> CardIndex {
 
 #[test]
 fn pit_spawn_has_first_strike_and_exiles_creatures_dealt_combat_damage() {
+    use crate::engine::card_tests::legends_kit as lk;
+
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(0, &[pit_spawn(), swamp(), swamp()])
@@ -26,7 +28,6 @@ fn pit_spawn_has_first_strike_and_exiles_creatures_dealt_combat_damage() {
     let ogre = on_battlefield(&engine, p1, index::WALL_OF_STONE).unwrap();
     assert_body(&engine, spawn, (6, 4), KeywordSet::FIRST_STRIKE);
 
-    use crate::engine::card_tests::legends_kit as lk;
     lk::attack(&mut engine, &[spawn]);
     lk::block(&mut engine, &[(ogre, spawn)]);
     lk::through_combat(&mut engine);

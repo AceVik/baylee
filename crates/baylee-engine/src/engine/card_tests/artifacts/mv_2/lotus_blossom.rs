@@ -11,7 +11,7 @@ use crate::engine::card_tests::legends_kit as lk;
 fn lotus_blossom_counts_only_accepted_own_upkeeps_and_makes_exact_mana() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = lk::game_with(SEED, &[lotus_blossom()], &[], &[], &[], |e| {
-        lk::yes_no(e, false)
+        lk::yes_no(e, false);
     });
     let blossom = lk::obj(&e, p0, lotus_blossom());
     assert_eq!(
@@ -46,7 +46,7 @@ fn lotus_blossom_counts_only_accepted_own_upkeeps_and_makes_exact_mana() {
 fn lotus_blossom_without_petals_makes_no_mana() {
     let p0 = PlayerId::new(0);
     let mut e = lk::game_with(SEED, &[lotus_blossom()], &[], &[], &[], |e| {
-        lk::yes_no(e, false)
+        lk::yes_no(e, false);
     });
     activate(&mut e, p0, lotus_blossom(), 1);
     if matches!(e.pending(), Pending::ChooseColor { .. }) {

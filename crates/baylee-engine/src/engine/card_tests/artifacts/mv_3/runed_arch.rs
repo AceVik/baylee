@@ -18,11 +18,7 @@ fn hill_giant() -> CardIndex {
     card_index("342199e0-15b6-4824-83da-25caef2592b3")
 }
 
-/// Runed Arch (32717625-46c6-45c5-ad0a-fb6a91f9878c) — {3} Artifact:
-/// - "This artifact enters tapped."
-/// - "{X}, {T}, Sacrifice this artifact: X target creatures with power 2 or less can't be blocked this turn."
-#[test]
-fn runed_arch_enters_tapped_and_makes_x_creatures_with_power_at_most_two_unblockable() {
+fn cast_arch() -> (Engine<RegistryLookup>, ObjectId) {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
@@ -49,6 +45,16 @@ fn runed_arch_enters_tapped_and_makes_x_creatures_with_power_at_most_two_unblock
         is_tapped(&engine, arch),
         "Runed Arch enters the battlefield tapped"
     );
+
+    (engine, arch)
+}
+
+/// Runed Arch (32717625-46c6-45c5-ad0a-fb6a91f9878c) — {3} Artifact:
+/// - "This artifact enters tapped."
+/// - "{X}, {T}, Sacrifice this artifact: X target creatures with power 2 or less can't be blocked this turn."
+#[test]
+fn runed_arch_enters_tapped_and_makes_x_creatures_with_power_at_most_two_unblockable() {
+    let (mut engine, arch) = cast_arch();
 
     // 2. Advance to P0's next turn (turn 3) so Runed Arch untaps.
     pass_until(&mut engine, |e| {

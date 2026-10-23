@@ -26,7 +26,7 @@ fn acidic_sliver_grants_sacrifice_two_damage_ability() {
     cast_from_hand(&mut engine, P0, acidic_sliver());
     pass_until(&mut engine, stack_is_empty);
 
-    let sliver = on_battlefield(&mut engine, P0, acidic_sliver()).unwrap();
+    let sliver = on_battlefield(&engine, P0, acidic_sliver()).unwrap();
     tap_all_mana(&mut engine, P0);
     let idx = kit::offered(&engine, sliver)[0];
     kit::activate_object(&mut engine, P0, sliver, idx);

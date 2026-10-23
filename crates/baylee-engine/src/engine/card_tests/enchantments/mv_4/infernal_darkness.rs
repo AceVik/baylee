@@ -12,23 +12,52 @@ fn infernal_darkness() -> CardIndex {
     card_index("dd821fca-79a0-48a9-b1cf-5a496bc04f65")
 }
 
+fn first_upkeep_paid(mine: &[CardIndex], theirs: &[CardIndex]) -> Engine<RegistryLookup> {
+    lk::game_with(SEED, mine, theirs, &[], &[], |e| {
+        // This fixture accepts both the black mana and life portions of the first upkeep.
+        lk::float(e, P0, &[(ManaColor::Black, 1)]);
+        lk::yes_no(e, true);
+    })
+}
+
+fn wait_for_mana_upkeep(engine: &mut Engine<RegistryLookup>, turn: u32) {
+    pass_until(engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::YesNo {
+                prompt: YesNoPrompt::PayMana { .. },
+                ..
+            }
+        )
+    });
+    assert_eq!(
+        (engine.state().turn.number, engine.state().turn.active),
+        (turn, P0),
+        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
+    );
+}
+
+fn tap_restored_land_colors(engine: &mut Engine<RegistryLookup>) {
+    tap_all_mana_but(engine, P0, None);
+    for (color, expected) in [
+        (ManaColor::Green, 1),
+        (ManaColor::White, 1),
+        (ManaColor::Blue, 1),
+        (ManaColor::Black, 0),
+    ] {
+        assert_eq!(lk::pool_of(engine, P0, color), expected);
+    }
+}
+
 /// Infernal Darkness (dd821fca-79a0-48a9-b1cf-5a496bc04f65) — {2}{B}{B} Enchantment:
 /// - "Cumulative upkeep—Pay {B} and 1 life." (Partial: asked as {B} per age counter, then 1 life
 ///   per age counter, as two payments in a row.)
 /// - "If a land is tapped for mana, it produces {B} instead of any other type."
 #[test]
 fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declined() {
-    let mut engine = lk::game_with(
-        SEED,
+    let mut engine = first_upkeep_paid(
         &[infernal_darkness(), forest(), plains(), island()],
         &[index::MOUNTAIN],
-        &[],
-        &[],
-        |e| {
-            // The upkeep asks twice: pay {B} (mana is floated for it), then pay 1 life.
-            lk::float(e, P0, &[(ManaColor::Black, 1)]);
-            lk::yes_no(e, true);
-        },
     );
     let darkness = lk::obj(&engine, P0, infernal_darkness());
     assert_eq!(
@@ -69,20 +98,7 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
     );
 
     // Second upkeep: 2 age counters, pay {B}{B} (produced by tapping two non-Swamp lands!).
-    pass_until(&mut engine, |e| {
-        matches!(
-            e.pending(),
-            Pending::YesNo {
-                prompt: YesNoPrompt::PayMana { .. },
-                ..
-            }
-        )
-    });
-    assert_eq!(
-        (engine.state().turn.number, engine.state().turn.active),
-        (3, P0),
-        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
-    );
+    wait_for_mana_upkeep(&mut engine, 3);
     assert_eq!(
         engine
             .state()
@@ -124,20 +140,7 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
     );
 
     // Third upkeep: decline -> Infernal Darkness is sacrificed, and lands produce their normal colors again.
-    pass_until(&mut engine, |e| {
-        matches!(
-            e.pending(),
-            Pending::YesNo {
-                prompt: YesNoPrompt::PayMana { .. },
-                ..
-            }
-        )
-    });
-    assert_eq!(
-        (engine.state().turn.number, engine.state().turn.active),
-        (5, P0),
-        "cumulative upkeep asks in its controller's own upkeep, not in the opponent's"
-    );
+    wait_for_mana_upkeep(&mut engine, 5);
     lk::yes_no(&mut engine, false);
     lk::settle(&mut engine);
     assert!(in_graveyard(&engine, P0, infernal_darkness()).is_some());
@@ -147,15 +150,7 @@ fn infernal_darkness_turns_all_land_mana_black_until_cumulative_upkeep_is_declin
         "declining the payment costs no life"
     );
 
-    tap_all_mana_but(&mut engine, P0, None);
-    for (color, expected) in [
-        (ManaColor::Green, 1),
-        (ManaColor::White, 1),
-        (ManaColor::Blue, 1),
-        (ManaColor::Black, 0),
-    ] {
-        assert_eq!(lk::pool_of(&engine, P0, color), expected);
-    }
+    tap_restored_land_colors(&mut engine);
 }
 
 #[test]
@@ -184,17 +179,7 @@ fn infernal_darkness_is_sacrificed_when_the_life_is_refused_after_the_mana() {
 
 #[test]
 fn infernal_darkness_changes_land_mana_only_not_an_artifacts() {
-    let mut engine = lk::game_with(
-        SEED,
-        &[infernal_darkness(), forest(), sol_ring()],
-        &[],
-        &[],
-        &[],
-        |e| {
-            lk::float(e, P0, &[(ManaColor::Black, 1)]);
-            lk::yes_no(e, true);
-        },
-    );
+    let mut engine = first_upkeep_paid(&[infernal_darkness(), forest(), sol_ring()], &[]);
     tap_all_mana_but(&mut engine, P0, None);
     assert_eq!(
         lk::pool_of(&engine, P0, ManaColor::Black),

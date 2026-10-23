@@ -18,7 +18,7 @@ fn hill_giant() -> CardIndex {
 /// Ray of Command (adf41d29-403d-4936-9689-3148d103e700) — {3}{U} Instant:
 /// "Untap target creature an opponent controls and gain control of it until end of turn.
 /// That creature gains haste until end of turn. When you lose control of the creature, tap it."
-/// (Coverage::Partial — untaps, gains control, and grants haste until end of turn.)
+/// (`Coverage::Partial` — untaps, gains control, and grants haste until end of turn.)
 #[test]
 fn ray_of_command_untaps_and_steals_opponents_creature_with_haste_until_end_of_turn() {
     let mut engine = Duel::new(SEED, island())

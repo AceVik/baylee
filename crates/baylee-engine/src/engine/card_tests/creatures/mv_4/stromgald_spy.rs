@@ -54,6 +54,7 @@ fn attack_with(engine: &mut Engine<RegistryLookup>, spy: ObjectId) {
 
 /// Stromgald Spy ({3}{B} 2/4 Creature — Human Rogue):
 /// - "Whenever this creature attacks and isn't blocked, you may have defending player play with their hand revealed ... If you do, this creature assigns no combat damage this turn."
+///
 /// The hand is revealed once (not for as long as the Spy stays out); the
 /// "may" and the "no combat damage" are played.
 #[test]

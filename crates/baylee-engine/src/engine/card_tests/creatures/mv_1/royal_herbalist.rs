@@ -10,7 +10,7 @@ fn royal_herbalist() -> CardIndex {
 
 /// Royal Herbalist ({W} 1/1 Creature — Human Cleric, Partial):
 /// "{2}, Exile the top card of your library: You gain 1 life." The cost has
-/// no CostPart, and the ability without it would be a free life gain, so the
+/// no `CostPart`, and the ability without it would be a free life gain, so the
 /// card offers none. A pinned limitation: this test moves when the cost is
 /// said.
 #[test]

@@ -34,7 +34,7 @@ fn war_dance_can_decline_the_counter_and_zero_pump_is_legal() {
     let p0 = PlayerId::new(0);
     let p1 = PlayerId::new(1);
     let mut engine = lk::game_with(SEED, &[war_dance()], &[gray_ogre()], &[], &[], |e| {
-        lk::yes_no(e, false)
+        lk::yes_no(e, false);
     });
     let ogre = lk::obj(&engine, p1, gray_ogre());
     activate(&mut engine, p0, war_dance(), 1);

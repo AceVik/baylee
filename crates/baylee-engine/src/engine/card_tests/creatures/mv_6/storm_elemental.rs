@@ -11,6 +11,7 @@ fn storm_elemental() -> CardIndex {
 /// - Flying
 /// - "{U}, Exile the top card of your library: Tap target creature with flying."
 /// - "{U}, Exile the top card of your library: If the exiled card is a snow land, this creature gets +1/+1 until end of turn."
+///
 /// No cost exiles the top card of a library and no condition reads a snow
 /// land, so the card keeps Flying and offers no ability: the first would tap
 /// a flyer for {U} alone, the second would pump unconditionally. A pinned

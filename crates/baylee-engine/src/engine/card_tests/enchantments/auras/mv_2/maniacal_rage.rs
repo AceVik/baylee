@@ -10,6 +10,8 @@ fn maniacal_rage() -> CardIndex {
 
 #[test]
 fn maniacal_rage_gives_plus_two_plus_two() {
+    use crate::engine::card_tests::legends_kit as lk;
+
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(1, forest())
         .battlefield(0, &[gray_ogre(), grizzly_bears(), mountain(), mountain()])
@@ -30,7 +32,6 @@ fn maniacal_rage_gives_plus_two_plus_two() {
     reach_their_main_phase(&mut engine, p1);
     let enemy = on_battlefield(&engine, p1, gray_ogre()).unwrap();
     let free = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
-    use crate::engine::card_tests::legends_kit as lk;
     let offer = lk::attack(&mut engine, &[enemy]);
     assert!(!lk::may_block(&offer, bears, enemy));
     assert!(lk::may_block(&offer, free, enemy));

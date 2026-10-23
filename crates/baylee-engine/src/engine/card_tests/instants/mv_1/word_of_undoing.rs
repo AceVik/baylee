@@ -18,6 +18,26 @@ fn unholy_strength() -> CardIndex {
     card_index("090d88a9-7f2d-4bd1-a30a-7c48d05068be")
 }
 
+fn cast_at_object(
+    engine: &mut Engine<RegistryLookup>,
+    player: PlayerId,
+    card: ObjectId,
+    target: ObjectId,
+) {
+    engine
+        .apply(player, PlayerAction::CastSpell { card })
+        .unwrap();
+    engine
+        .apply(
+            player,
+            PlayerAction::ChooseObjects {
+                objects: vec![target],
+            },
+        )
+        .unwrap();
+    pass_until(engine, stack_is_empty);
+}
+
 #[test]
 fn word_of_undoing_returns_target_creature_and_only_white_auras_you_own_attached_to_it() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
@@ -37,41 +57,9 @@ fn word_of_undoing_returns_target_creature_and_only_white_auras_you_own_attached
 
     // p0 attaches White Scarab (white Aura owned by p0) and Unholy Strength (black Aura owned by p0) to p1's Grizzly Bears.
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(
-            p0,
-            PlayerAction::CastSpell {
-                card: our_white_aura,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![target_bears],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    cast_at_object(&mut engine, p0, our_white_aura, target_bears);
 
-    engine
-        .apply(
-            p0,
-            PlayerAction::CastSpell {
-                card: our_black_aura,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![target_bears],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    cast_at_object(&mut engine, p0, our_black_aura, target_bears);
 
     // Advance to p1's main phase so p1 can attach their own White Scarab (white Aura owned by p1) to Grizzly Bears.
     pass_until(&mut engine, |e| {
@@ -79,41 +67,14 @@ fn word_of_undoing_returns_target_creature_and_only_white_auras_you_own_attached
     });
     let opp_white_aura = in_hand(&engine, p1, white_scarab()).unwrap();
     tap_all_mana(&mut engine, p1);
-    engine
-        .apply(
-            p1,
-            PlayerAction::CastSpell {
-                card: opp_white_aura,
-            },
-        )
-        .unwrap();
-    engine
-        .apply(
-            p1,
-            PlayerAction::ChooseObjects {
-                objects: vec![target_bears],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    cast_at_object(&mut engine, p1, opp_white_aura, target_bears);
 
     // Advance to p0's next main phase so p0's Island untaps, then cast Word of Undoing targeting p1's Grizzly Bears.
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && e.state().turn.phase == Phase::FirstMain
     });
     tap_all_mana(&mut engine, p0);
-    engine
-        .apply(p0, PlayerAction::CastSpell { card: spell })
-        .unwrap();
-    engine
-        .apply(
-            p0,
-            PlayerAction::ChooseObjects {
-                objects: vec![target_bears],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
+    cast_at_object(&mut engine, p0, spell, target_bears);
 
     assert_eq!(
         engine.state().object(target_bears).unwrap().zone,

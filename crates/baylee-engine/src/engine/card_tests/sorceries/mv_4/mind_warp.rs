@@ -12,7 +12,7 @@ fn mind_warp() -> CardIndex {
 
 /// Mind Warp (5109aa76-ca40-44d1-abb4-5e7a23a2c274) — {X}{3}{B} Sorcery:
 /// "Look at target player's hand and choose X cards from it. That player discards those cards."
-/// Coverage::Partial — looks at target player's hand without discarding.
+/// `Coverage::Partial` — looks at target player's hand without discarding.
 #[test]
 fn mind_warp_looks_at_target_players_hand() {
     let mut engine = Duel::new(SEED, swamp())

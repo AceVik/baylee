@@ -26,7 +26,7 @@ fn sabertooth_cobra_gives_damaged_player_a_poison_counter() {
 
     cast_from_hand(&mut engine, p0, sabertooth_cobra());
     pass_until(&mut engine, stack_is_empty);
-    let cobra = on_battlefield(&mut engine, p0, sabertooth_cobra()).unwrap();
+    let cobra = on_battlefield(&engine, p0, sabertooth_cobra()).unwrap();
 
     // Advance to p0's next turn so Sabertooth Cobra can attack.
     reach_their_main_phase(&mut engine, p1);

@@ -11,7 +11,7 @@ fn sacred_boon() -> CardIndex {
 
 /// Sacred Boon (32a8d49b-cdfb-4944-bfb5-afd704cc3658) — {1}{W} Instant:
 /// "Prevent the next 3 damage that would be dealt to target creature this turn."
-/// (Coverage::Partial — delayed end-step +0/+1 counters not supported.)
+/// (`Coverage::Partial` — delayed end-step +0/+1 counters not supported.)
 #[test]
 fn sacred_boon_prevents_the_next_three_damage_to_target_creature() {
     let mut engine = Duel::new(SEED, plains())
