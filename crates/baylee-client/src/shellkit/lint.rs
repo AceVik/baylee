@@ -28,6 +28,8 @@ pub const SHELL_MODULES: &[&str] = &[
     "buildui/draft",
     "buildui/retained",
     "buildui/virtual_rows",
+    // The update card (#326), drawn on the kit.
+    "update/card",
 ];
 
 /// The lines (1-based) of `source` that write a bare numeric `px(`.
@@ -147,14 +149,11 @@ mod tests {
     /// floors), so `hud/**` is not held to this.
     #[test]
     fn the_table_never_reads_the_shell_s_metrics() {
-        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
         let mut files = module_files("table");
-        files.extend(
-            ["feltmat.rs", "tabletop.rs", "cardmat.rs", "shellmat.rs"]
-                .iter()
-                .map(|f| src.join(f))
-                .filter(|p| p.exists()),
-        );
+        // A module's own file and the directory it was split into.
+        for module in ["feltmat", "tabletop", "cardmat", "shellmat"] {
+            files.extend(module_files(module));
+        }
         assert!(
             files.len() > 10,
             "the table's files not found: {}",

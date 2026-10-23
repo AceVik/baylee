@@ -26,6 +26,7 @@ mod mail;
 mod metrics;
 mod moderation;
 mod namebook;
+mod openapi;
 mod pool;
 mod presence;
 mod record;
@@ -852,8 +853,15 @@ fn spawn_ticket_sweep(state: Shared) {
 
 // ------------------------------------------------------------------- auth
 
+/// A refusal.
+///
+/// @description A refusal: one English sentence in `error`, and the parts
+/// a client words itself where a refusal has them.
+/// @openapi
 #[derive(Serialize)]
 struct ErrorBody {
+    /// @description What went wrong, as one sentence for a person.
+    /// @internal
     /// Borrowed for the constant messages, owned for the few that have to
     /// name a value back to the caller.
     ///
@@ -871,6 +879,7 @@ struct ErrorBody {
     password_change: bool,
     /// Whose terms of use the account has to accept first (`central` or
     /// `gateway`): only on the `403` of a session that has not (`terms_admit`).
+    /// @openapi enum: [central, gateway]
     #[serde(skip_serializing_if = "Option::is_none")]
     terms_required: Option<&'static str>,
 }

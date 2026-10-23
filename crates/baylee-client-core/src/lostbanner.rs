@@ -150,7 +150,7 @@ mod tests {
         let first = seats.banner(Some(&statics), me).expect("Mia is lost");
         assert_eq!(
             first.line(Lang::De, Some(&statics)),
-            "Mia hat die Verbindung verloren – warte 2:41"
+            "Mia hat die Verbindung verloren – der Tisch wartet 2:41"
         );
         assert_eq!(
             first.line(Lang::En, Some(&statics)),

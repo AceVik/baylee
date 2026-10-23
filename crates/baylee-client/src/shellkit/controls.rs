@@ -480,7 +480,7 @@ fn nav_glyph(text: &str) -> Option<char> {
     match text {
         "Lobby" | "Play" | "Spielen" => Some(crate::hud::glyph::VIEW_GRID),
         "Decks" => Some(crate::hud::glyph::LIBRARY),
-        "Replays" | "Wiederholungen" => Some(crate::hud::glyph::CLOCK),
+        "Replays" => Some(crate::hud::glyph::CLOCK),
         _ => None,
     }
 }

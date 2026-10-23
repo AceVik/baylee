@@ -137,7 +137,7 @@ describe("the report list", () => {
     expect(second.getByText("crash")).toBeTruthy();
     expect(second.getByText("High")).toBeTruthy();
     expect(second.getByRole("button", { name: ME })).toBeTruthy();
-    expect(second.getByTitle("2 note(s)")).toBeTruthy();
+    expect(second.getByTitle("2 notes")).toBeTruthy();
     expect(second.getByText("2.0 KiB")).toBeTruthy();
     expect(second.getByRole("link", { name: "#311" }).getAttribute("href")).toBe(
       "https://github.com/AceVik/baylee/issues/311",
@@ -299,7 +299,7 @@ describe("the report list", () => {
     await userEvent.keyboard("a");
     expect(screen.getByRole("toolbar", { name: "3 selected" })).toBeTruthy();
     await userEvent.selectOptions(screen.getByLabelText("Set status"), "triaged");
-    expect(await screen.findByText("3 report(s) changed.")).toBeTruthy();
+    expect(await screen.findByText("3 reports changed.")).toBeTruthy();
 
     await userEvent.selectOptions(screen.getByLabelText("Assign"), ME);
     await waitFor(() => {
@@ -338,10 +338,10 @@ describe("the report list", () => {
     render(<Page />);
     await screen.findAllByRole("row");
     await userEvent.keyboard("#");
-    expect(await screen.findByText("1 report(s) moved to the trash.")).toBeTruthy();
+    expect(await screen.findByText("1 report moved to the trash.")).toBeTruthy();
     expect(bulks(calls)).toEqual([{ ids: ["id-1"], action: "trash" }]);
     await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-    expect(await screen.findByText("1 report(s) restored.")).toBeTruthy();
+    expect(await screen.findByText("1 report restored.")).toBeTruthy();
     expect(bulks(calls)).toEqual([
       { ids: ["id-1"], action: "trash" },
       { ids: ["id-1"], action: "restore" },
@@ -402,7 +402,7 @@ describe("the report list", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(LIST_REFRESH_MS + 50);
     });
-    expect(await screen.findByText("1 new report(s) since you looked")).toBeTruthy();
+    expect(await screen.findByText("1 new report since you looked")).toBeTruthy();
     expect(screen.getAllByRole("row")).toHaveLength(4);
     await userEvent.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getAllByRole("row")).toHaveLength(5);

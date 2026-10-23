@@ -11,7 +11,8 @@ use std::{collections::BTreeSet, fs, path::Path};
 /// out loud rather than skipped in silence.
 const SCRYFALL_CACHE: &str = "data/scryfall-cache";
 
-/// fmt, clippy, every test through nextest, and `validate`, as CI runs them.
+/// fmt, clippy, every test through nextest, `validate` and the API
+/// documents (`api`), as CI runs them.
 /// Every phase runs even when an earlier one failed. Needs Postgres for the
 /// catalog and gateway tests (`DATABASE_URL`).
 pub fn full() -> Result<i32> {
@@ -51,6 +52,8 @@ pub fn full() -> Result<i32> {
     } else {
         println!("STEP validate SKIPPED - no {SCRYFALL_CACHE}");
     }
+    steps.run("api", &mut crate::api::command("check"));
+    steps.run("api-tests", &mut crate::api::tests());
     Ok(steps.finish())
 }
 

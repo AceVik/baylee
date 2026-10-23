@@ -12,6 +12,39 @@ use crate::{
 /// in the lobby, because nothing could tell them a chair had moved. This can:
 /// it sends the listing on connect and again whenever anything in the lobby
 /// changes, rendered for *this* reader with *their* search.
+///
+/// @channel lobby /lobby/ws
+/// @scope public
+/// @summary The lobby feed
+/// @description The lobby listing, pushed: the page this socket asked for,
+/// sent as the socket opens and again, whole, whenever anything in the lobby
+/// changes (a table opened or closed, a chair taken, freed, arranged or
+/// readied, a game started or ended, the first engine agent arriving or the
+/// last one leaving). It is the object `GET /lobby/games` answers for the
+/// same query, rendered for the caller. A reader that falls behind is sent
+/// the newest page, never the ones it missed. A change of search or page is
+/// a new subscription, so close the socket and open another with the new
+/// query. Buy a ticket with the session (`POST /ws-ticket` with
+/// `{"socket":"lobby"}`) and open the socket with it and the search of
+/// `GET /lobby/games` (`q`, `offset`, `limit`, `waiting_only`). The
+/// upgrade is refused as an HTTP answer, not a frame: with `401` and
+/// `ticket expired or used` for a ticket that is unknown, spent, expired or
+/// for another socket, or whose session has since signed out, lapsed, been
+/// banned or must accept new terms, and with `503` when the account store
+/// or Baylee Central cannot be asked. The client sends nothing: the gateway
+/// reads the socket only to notice it closing. It pings every 20 seconds
+/// and drops a socket that has said nothing for 50 (a pong counts). It
+/// checks the session again every 5 seconds, and once it is signed out,
+/// lapsed or banned, or the account is deleted, it sends a close frame
+/// without a code. An open lobby socket counts its account as online
+/// (`GET /lobby/stats`) and keeps its waiting-room chairs.
+/// @ws-query ticket: String required "A single-use ticket bought for the lobby feed with `POST /ws-ticket`"
+/// @ws-query token: String deprecated "Instead of a ticket, the session token itself, as clients from before tickets send it; accepted until 2026-10-31 (UTC) and then refused with `401`. A ticket wins when both are sent."
+/// @ws-query q: String "Text to find, case-insensitively and anywhere, in a table's name or its host's display name; a table's exact id also matches. Blank matches every table."
+/// @ws-query offset: u32 "How many matching tables to skip; 0 when absent."
+/// @ws-query limit: u32 default=25 "How many tables the page holds: 25 when absent, and anything outside 1 to 100 is taken as the nearer of the two."
+/// @ws-query `waiting_only`: bool "Whether to leave out the games already being played; `true`, `1` and `yes` say so."
+/// @send Page: `$LobbyPage` application/json "The page this socket asked for, whole: on connect and after every change to the lobby"
 pub(crate) async fn lobby_ws(
     State(state): State<Shared>,
     Query(params): Query<LobbyWsParams>,

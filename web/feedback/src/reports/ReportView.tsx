@@ -178,7 +178,7 @@ export function TableSummary({ lang, game }: { lang: Lang; game: GameSummary }) 
     if (bits.length > 0) rows.push([t(lang, "rep.holding"), bits.join(" · ")]);
     if (game.holding.lastError !== null) rows.push([t(lang, "rep.lastError"), <code key="e">{game.holding.lastError}</code>]);
   }
-  if (game.seq !== null) rows.push([t(lang, "rep.view"), t(lang, "rep.viewSeq", { n: game.seq })]);
+  if (game.seq !== null) rows.push([t(lang, "rep.view"), t(lang, "rep.viewSeq", { n: String(game.seq) })]);
   return (
     <dl className="facts">
       {rows.map(([term, value]) => (
@@ -315,7 +315,7 @@ export function ReportView({
       return;
     }
     setIssueDraft("");
-    void change({ issue: number }, t(lang, "rep.linked", { n: number }));
+    void change({ issue: number }, t(lang, "rep.linked", { n: String(number) }));
   };
 
   /** Into the trash, with an undo; the page stays, showing it there. */
@@ -622,7 +622,7 @@ export function ReportView({
                 <CardChip lang={lang} name={card.text} scryfallId={card.scryfallId} />
                 {card.zone !== null && <span className="muted"> · {card.zone.replace("_", " ")}</span>}
                 {card.owner !== null && <span className="muted"> · {t(lang, "rep.seatN", { n: card.owner })}</span>}
-                {card.card !== null && <span className="muted mono"> · {t(lang, "rep.card", { n: card.card })}</span>}
+                {card.card !== null && <span className="muted mono"> · {t(lang, "rep.card", { n: String(card.card) })}</span>}
                 {card.scryfall !== null && (
                   <>
                     {" · "}

@@ -189,7 +189,7 @@ fn prompt_headlines_are_written_for_a_player_not_a_developer() {
     );
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Replikation {U}: wie oft zahlen? (0–2)"
+        "Reproduktion {U}: wie oft zahlen? (0–2)"
     );
 
     let i = interaction(Pending::YesNo {
@@ -246,7 +246,7 @@ fn the_two_lines_about_another_seat_say_whose_seat_it_is() {
     );
     assert_eq!(
         offer.headline(Lang::De, Turn::Mine, Some(&roster), false),
-        "AceVik bietet ein Remis an. Annehmen?"
+        "AceVik bietet ein Unentschieden an. Annehmen?"
     );
 
     // A frame drawn before `GameStatic` arrives numbers the seat rather
@@ -351,7 +351,7 @@ fn a_held_chair_says_the_house_is_answering_for_it() {
     );
     assert_eq!(
         waiting.headline(Lang::De, Turn::Theirs, Some(&roster), false),
-        "Warte auf das Haus — AceVik ist abwesend"
+        "Warte auf das Haus – AceVik ist abwesend"
     );
 
     roster.seats[1].away = false;
@@ -414,7 +414,7 @@ fn four_card_choices_read_as_four_different_decisions() {
     );
     assert_eq!(
         line(ChoicePrompt::CostSacrifice, 1, 1, Lang::De),
-        "Wähle 1 bleibende Karte, die geopfert wird"
+        "Wähle 1 Permanent, das geopfert wird"
     );
     assert_eq!(
         line(ChoicePrompt::CostDiscard, 1, 1, Lang::En),
@@ -434,7 +434,7 @@ fn four_card_choices_read_as_four_different_decisions() {
     );
     assert_eq!(
         line(ChoicePrompt::CostTap, 1, 1, Lang::De),
-        "Wähle 1 ungetappte bleibende Karte, die getappt wird"
+        "Wähle 1 ungetapptes Permanent, das getappt wird"
     );
     assert_eq!(
         line(ChoicePrompt::CostReturn, 1, 1, Lang::En),
@@ -442,7 +442,7 @@ fn four_card_choices_read_as_four_different_decisions() {
     );
     assert_eq!(
         line(ChoicePrompt::CostReturn, 1, 1, Lang::De),
-        "Wähle 1 bleibende Karte, die auf die Hand ihres Besitzers zurückgenommen wird"
+        "Wähle 1 Permanent, das auf die Hand seines Besitzers zurückgebracht wird"
     );
     // And the pile the card leaves, which delve's plain noun never had to
     // say: Mines of Moria asks three times, one card at a time.
@@ -521,7 +521,7 @@ fn the_questions_a_card_draw_raises_are_each_said_in_both_languages() {
     );
     assert_eq!(
         line(ChoicePrompt::Dredge, 0, 1, Lang::De),
-        "Statt zu ziehen eine Karte ausgraben? Wähle sie aus deinem Friedhof oder bestätige \
+        "Eine Karte ausgraben, statt zu ziehen? Wähle eine aus deinem Friedhof oder bestätige \
          ohne Auswahl, um normal zu ziehen."
     );
     assert_eq!(
@@ -946,7 +946,7 @@ fn life_ward_is_a_localized_explicit_payment_and_only_the_payer_may_answer() {
     );
     assert_eq!(
         prompt.headline(Lang::De, Turn::Theirs, None, false),
-        "7 Lebenspunkte bezahlen?"
+        "7 Lebenspunkte zahlen?"
     );
     assert!(!YesNoPrompt::PayLife { amount: 7 }.automatable());
 }
@@ -973,7 +973,7 @@ fn skipping_a_turn_names_the_cost_and_only_the_turn_owner_may_answer() {
     );
     assert_eq!(
         mine.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Diesen Zug überspringen, um diese bleibende Karte zu enttappen?"
+        "Diesen Zug überspringen, um dieses Permanent zu enttappen?"
     );
     assert!(!question.automatable());
 }
@@ -1014,7 +1014,7 @@ fn crew_question_names_the_total_power() {
     });
     for (lang, crew, total) in [
         (Lang::En, "Crew 2", "total power 2 or more"),
-        (Lang::De, "Besatzung 2", "Gesamtstärke von 2 oder mehr"),
+        (Lang::De, "Bemannen 2", "Gesamtstärke von 2 oder mehr"),
     ] {
         let text = i.prompt().headline(lang, Turn::Mine, None, false);
         assert!(text.contains(crew), "{text}");
@@ -1067,7 +1067,7 @@ fn division_and_band_questions_name_their_creatures() {
         .headline_naming(Lang::De, Turn::Mine, None, false, &names);
     assert_eq!(
         line,
-        "Wähle bis zu 2 Angreifer, die mit Craw Wurm eine Gruppe bilden"
+        "Wähle bis zu 2 Angreifer, die mit Craw Wurm ein Bündnis bilden"
     );
     let i = interaction(Pending::ChooseNumber {
         player: me(),
@@ -1282,7 +1282,7 @@ fn an_effects_sacrifice_choice_names_the_player_who_loses_the_cards() {
     assert!(
         i.prompt()
             .headline(Lang::De, Turn::Mine, None, false)
-            .starts_with("Platz 1 opfert die gewählten bleibenden Karten.")
+            .starts_with("Platz 1 opfert die gewählten Permanents.")
     );
 }
 
@@ -1398,7 +1398,7 @@ fn a_river_label_names_the_attacker_it_is_for() {
     assert_eq!(
         i.prompt()
             .headline_naming(Lang::De, Turn::Mine, None, false, &names),
-        "Hill Giant: wähle \"links\" oder \"rechts\"; nur dieser Stapel und Flieger dürfen blocken"
+        "Hill Giant: wähle „links“ oder „rechts“; nur dieser Haufen und Flieger dürfen ihn blocken"
     );
     assert_eq!(
         i.prompt()
@@ -1430,7 +1430,7 @@ fn saddle_question_names_its_power_cost_in_both_languages() {
     });
     for (lang, name, power) in [
         (Lang::En, "Saddle 3", "total power 3 or more"),
-        (Lang::De, "Satteln 3", "Gesamtstärke von 3 oder mehr"),
+        (Lang::De, "Aufsatteln 3", "Gesamtstärke von 3 oder mehr"),
     ] {
         let text = i.prompt().headline(lang, Turn::Mine, None, false);
         assert!(text.contains(name) && text.contains(power), "{text}");
@@ -1472,7 +1472,7 @@ fn energy_payment_allows_zero_and_overpayment_and_names_both_bounds() {
     );
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Energie bezahlen (0–9); bis zu 2 getappte bleibende Karten können Marken erhalten"
+        "Energie bezahlen (0–9); bis zu 2 getappte Permanents können Marken erhalten"
     );
     assert_eq!(i.confirm(), Some(PlayerAction::ChooseNumber(0)));
     assert_eq!(i.set_number(u32::MAX), 9);
@@ -1532,7 +1532,7 @@ fn damage_clearing_choice_round_trips_and_names_both_outcomes() {
     );
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Zerstörung durch Entfernen allen markierten Schadens ersetzen? Nein nutzt einen anderen anwendbaren Ersatzeffekt."
+        "Zerstörung ersetzen und stattdessen allen markierten Schaden entfernen? „Nein“ nutzt einen anderen anwendbaren Ersatzeffekt."
     );
 }
 
@@ -1549,7 +1549,7 @@ fn regeneration_choice_explains_that_no_preserves_the_shield_and_still_regenerat
     );
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Einen Regenerationsschild verbrauchen? Nein nutzt die eigene Regeneration der bleibenden Karte und bewahrt den Schild."
+        "Einen Regenerationsschild verbrauchen? „Nein“ nutzt die eigene Regeneration des Permanents und bewahrt den Schild."
     );
 }
 
@@ -1579,7 +1579,7 @@ fn large_life_payment_round_trips_and_labels_the_exact_amount() {
         );
         assert_eq!(
             prompt.headline(Lang::De, Turn::Mine, None, false),
-            format!("{amount} Lebenspunkte bezahlen?")
+            format!("{amount} Lebenspunkte zahlen?")
         );
     }
 }
@@ -1620,6 +1620,6 @@ fn optional_exact_tap_payment_states_both_legal_counts_in_both_languages() {
     );
     assert_eq!(
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
-        "Wähle genau 5 bleibende Karten zum Tappen oder keine"
+        "Wähle genau 5 Permanents zum Tappen oder keine"
     );
 }

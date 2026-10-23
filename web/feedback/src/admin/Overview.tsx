@@ -39,6 +39,7 @@ import {
   useVisibleInterval,
 } from "./shared";
 import { TableCard } from "./Live";
+import { releasesUrl } from "./releases";
 
 /** The kinds the error-rate chart counts as a defect. */
 const DEFECTS = new Set(["bug", "crash"]);
@@ -145,6 +146,13 @@ function Services({
           <p className="mono small build" data-testid="feedback-version">
             {health.version}
           </p>
+          {releasesUrl(health.source) !== null && (
+            <p className="small">
+              <a href={releasesUrl(health.source) ?? undefined} target="_blank" rel="noreferrer noopener">
+                {t(lang, "sets.latestClient")} ↗
+              </a>
+            </p>
+          )}
         </>
       )}
     </Panel>
@@ -205,7 +213,7 @@ function Headline({
         value={n(stats.games.running)}
         testId="running"
         to={adminPath("live")}
-        sub={t(lang, "kpi.gamesSub", { waiting: n(stats.games.waiting) })}
+        sub={t(lang, "kpi.gamesSub", { waiting: stats.games.waiting })}
       />
       {offline !== null && (
         <Kpi
@@ -337,7 +345,7 @@ function Details({
       ? t(lang, "stats.noCap")
       : t(lang, "stats.guestCap", { cap: n(stats.guests.cap) });
   return (
-    <div className="panels">
+    <div className="panels stat-panels">
       <Panel id="st-players" title={t(lang, "stats.players")}>
         <p className="big" data-testid="registered">
           <span className="big-number">{n(stats.accounts.registered)}</span>{" "}

@@ -100,7 +100,7 @@ const DASHES: f32 = 7.0;
 /// How many of them pass a fixed point each second.
 ///
 /// The table's own tempo, and the same number `BEAT` is — one dash per beat.
-/// `docs/design.md` §1.6 is why it is not a rate of its own: the current is
+/// `docs/proposals/design.md` §1.6 is why it is not a rate of its own: the current is
 /// on the felt beside the keyword marks and the focus ring, and a third clock
 /// among them is the fairground that section exists to prevent.
 const CURRENT: f32 = BEAT;
@@ -391,7 +391,7 @@ const RING_SWELL: f32 = 0.08;
 /// The tempo every "is" breath on this table shares.
 ///
 /// The same number as `BEAT` in `shaders/card_common.wesl`, and a test holds
-/// the two together. `docs/design.md` §1.6 is the reason it is not a rate of
+/// the two together. `docs/proposals/design.md` §1.6 is the reason it is not a rate of
 /// its own: six unrelated tempos is the fairground that section exists to
 /// prevent, and a ring pulsing against the rail marks would be the sixth.
 const BEAT: f32 = 1.15;
@@ -532,7 +532,7 @@ mod tests {
 
     #[test]
     fn the_ring_breathes_at_the_shaders_tempo() {
-        // One tempo for the whole table (`docs/design.md` §1.6). The shader
+        // One tempo for the whole table (`docs/proposals/design.md` §1.6). The shader
         // is a text file nothing but the GPU parses, so a drift between the
         // two is silent — and would show up as a ring pulsing against the
         // rail marks it sits beside.
@@ -547,7 +547,7 @@ mod tests {
     /// The shader has no clock of its own, and stops when the table does.
     ///
     /// Two rules in one text assertion, because both are invisible from Rust:
-    /// `docs/design.md` §1.6 allows this table one tempo, and every animation
+    /// `docs/proposals/design.md` §1.6 allows this table one tempo, and every animation
     /// here has to land on `reduce_motion`. `globals.time` reaching a fragment
     /// unmultiplied would break the second silently — the arrow would keep
     /// running for a player who asked the table to hold still, and no test

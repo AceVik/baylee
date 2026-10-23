@@ -38,7 +38,7 @@ import {
 } from "./api";
 import { firstLine } from "./github";
 import { formatBytes } from "./format";
-import { formatCount, kindLabel, sortLabel, statusLabel, t, type Key, type Lang } from "./i18n";
+import { formatCount, kindLabel, localeOf, sortLabel, statusLabel, t, type Key, type Lang } from "./i18n";
 import { BulkBar } from "./reports/BulkBar";
 import { CrashGroups } from "./reports/CrashGroups";
 import { Drawer } from "./reports/Drawer";
@@ -674,8 +674,9 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
   };
 
   return (
-    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`}>
+    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`} id="main">
       <div className="list-main">
+        <h1 className="sr-only">{t(lang, "nav.reports")}</h1>
         <div className="list-toolbar">
           <fieldset className="views segmented">
             <legend className="sr-only">{t(lang, "rep.views")}</legend>
@@ -726,7 +727,7 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
           <span className="freshness muted small" aria-live="polite">
             {updatedAt !== null &&
               t(lang, "rep.updated", {
-                time: new Intl.DateTimeFormat(lang === "de" ? "de-DE" : "en-GB", { timeStyle: "short" }).format(
+                time: new Intl.DateTimeFormat(localeOf(lang), { timeStyle: "short" }).format(
                   new Date(updatedAt),
                 ),
               })}

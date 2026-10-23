@@ -11,6 +11,7 @@ import {
   formatBytes,
   formatCount,
   formatDuration,
+  localeOf,
   t,
   type Lang,
 } from "../i18n";
@@ -22,7 +23,7 @@ const HEIGHT = 36;
 /** A number as a percentage with no decimals, or a dash. */
 function percent(lang: Lang, share: number | null): string {
   if (share === null) return "—";
-  return `${new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", { maximumFractionDigits: 0 }).format(share * 100)} %`;
+  return `${new Intl.NumberFormat(localeOf(lang), { maximumFractionDigits: 0 }).format(share * 100)} %`;
 }
 
 /** A rate of bytes a second, or a dash. */
@@ -34,7 +35,7 @@ function rate(lang: Lang, bytesPerSecond: number | null): string {
 /** A float with up to `digits` decimals, or a dash. */
 function fixed(lang: Lang, n: number | null, digits = 2): string {
   if (n === null) return "—";
-  return new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", {
+  return new Intl.NumberFormat(localeOf(lang), {
     maximumFractionDigits: digits,
   }).format(n);
 }

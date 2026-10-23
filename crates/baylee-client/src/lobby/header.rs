@@ -41,8 +41,8 @@ pub(crate) enum HeaderPress {
     Account,
     /// Click outside an open header popover to close it.
     CloseMenu,
-    /// Dismiss a toast by index in `ToastLane`.
-    DismissToast(usize),
+    /// A toast's cross: the toast it stands on.
+    DismissToast(ToastId),
     /// The seated strip's Return, and the Phone header's Return pill.
     Return,
     /// The seated strip's Leave (waiting tables only).
@@ -78,7 +78,7 @@ pub(crate) enum ShellAsk {
     /// The chat's privacy sheet.
     ChatPrivacy,
     /// Dismiss a toast in `Toasts`.
-    DismissToast(usize),
+    DismissToast(ToastId),
     /// Quit the client application.
     Quit,
 }
@@ -208,12 +208,12 @@ pub(super) fn draw(
     state: &LobbyState,
     kit: Kit,
     metrics: Metrics,
-    retained: Option<Entity>,
+    retained: Option<&crate::shellkit::retain::Kept>,
 ) {
     let seated = seated(state);
     if wears_header(state) {
-        if let Some(bar) = retained {
-            commands.entity(root).add_child(bar);
+        if let Some(kept) = retained {
+            kept.attach(commands, root);
         } else {
             bar(commands, root, state, kit, seated.is_some());
         }
@@ -753,11 +753,7 @@ fn popover(commands: &mut Commands, state: &LobbyState, kit: Kit, menu: HeaderMe
                     action: Press::Header(HeaderPress::SignOut),
                 },
                 MenuItem {
-                    text: if lang == Lang::De {
-                        "Schließen"
-                    } else {
-                        "Quit"
-                    },
+                    text: Phrase::ShellQuit.text(lang),
                     keys: None,
                     destructive: true,
                     action: Press::Header(HeaderPress::Quit),
@@ -950,13 +946,8 @@ impl HeaderPress {
             HeaderPress::CloseMenu => {
                 cx.state.header_menu = None;
             }
-            HeaderPress::DismissToast(idx) => {
-                if idx == 0 && cx.state.undo.is_some() {
-                    cx.state.undo = None;
-                } else {
-                    cx.state.shell_asks.push(ShellAsk::DismissToast(idx));
-                }
-            }
+            HeaderPress::DismissToast(ToastId::Undo) => cx.state.undo = None,
+            HeaderPress::DismissToast(id) => cx.state.shell_asks.push(ShellAsk::DismissToast(id)),
             HeaderPress::Shortcuts => {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Shortcuts);
@@ -1235,13 +1226,38 @@ enum ToastKind {
     Undo,
 }
 
-/// The toasts on show: each sentence, its kind, and the seconds it has left.
+/// Which toast a cross takes away: the Undo, or one of [`Toasts`] by the
+/// number it was given when it came. Never by where it stands in the lane: a
+/// status arrives at the front, so a place read when the cross was drawn can
+/// name its neighbour by the time the press is carried out.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum ToastId {
+    /// The Decks screen's Undo (`LobbyState::undo`).
+    Undo,
+    /// A status or bell toast.
+    Shown(u64),
+}
+
+/// The toasts on show: each one's number, kind, sentence, and the seconds it
+/// has left.
 #[derive(Resource, Default)]
 pub(super) struct Toasts {
-    shown: Vec<(ToastKind, String, f32)>,
+    shown: Vec<(u64, ToastKind, String, f32)>,
+    next: u64,
     rung: u64,
     last_status: String,
-    drawn: Vec<(ToastKind, String)>,
+    drawn: Vec<(ToastId, ToastKind, String)>,
+}
+
+impl Toasts {
+    /// Gives a toast its number and stands it at `at`.
+    fn stand(&mut self, at: usize, kind: ToastKind, said: String) {
+        self.next += 1;
+        self.shown.insert(
+            at.min(self.shown.len()),
+            (self.next, kind, said, TOAST_SECS),
+        );
+    }
 }
 
 /// How long a toast stays (15 s), and how many show at once (≤ 4).
@@ -1271,35 +1287,27 @@ pub(super) fn toast_lane(
         toasts.last_status.clear();
         toasts
             .shown
-            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+            .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
     } else if current_status != toasts.last_status {
         toasts.last_status = current_status.to_string();
         toasts
             .shown
-            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
-        toasts.shown.insert(
-            0,
-            (
-                ToastKind::Status(state.lobby.tone()),
-                toasts.last_status.clone(),
-                TOAST_SECS,
-            ),
-        );
+            .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+        let said = toasts.last_status.clone();
+        toasts.stand(0, ToastKind::Status(state.lobby.tone()), said);
     }
     if state.bell.rung() > toasts.rung {
         let new = usize::try_from(state.bell.rung() - toasts.rung).unwrap_or(usize::MAX);
         for item in state.bell.latest(new.min(TOASTS_AT_ONCE)) {
-            toasts
-                .shown
-                .push((ToastKind::Bell, item.sentence(lang), TOAST_SECS));
+            toasts.stand(usize::MAX, ToastKind::Bell, item.sentence(lang));
         }
         toasts.rung = state.bell.rung();
     }
     let dt = time.delta_secs();
-    for (_, _, left) in &mut toasts.shown {
+    for (_, _, _, left) in &mut toasts.shown {
         *left -= dt;
     }
-    toasts.shown.retain(|(_, _, left)| *left > 0.0);
+    toasts.shown.retain(|(_, _, _, left)| *left > 0.0);
     while toasts.shown.len() > TOASTS_AT_ONCE {
         toasts.shown.remove(0);
     }
@@ -1310,10 +1318,15 @@ pub(super) fn toast_lane(
         super::decks::UndoKind::ToursOff => Phrase::TourOffToast.text(lang).to_string(),
         super::decks::UndoKind::ToursRestarted => Phrase::TourRestartedToast.text(lang).to_string(),
     });
-    let now: Vec<(ToastKind, String)> = undo
+    let now: Vec<(ToastId, ToastKind, String)> = undo
         .iter()
-        .map(|t| (ToastKind::Undo, t.clone()))
-        .chain(toasts.shown.iter().map(|(k, t, _)| (*k, t.clone())))
+        .map(|t| (ToastId::Undo, ToastKind::Undo, t.clone()))
+        .chain(
+            toasts
+                .shown
+                .iter()
+                .map(|(n, k, t, _)| (ToastId::Shown(*n), *k, t.clone())),
+        )
         .collect();
     if now == toasts.drawn && (now.is_empty() || !lanes.is_empty()) {
         return;
@@ -1357,8 +1370,8 @@ pub(super) fn toast_lane(
             Pickable::IGNORE,
         ))
         .id();
-    for (i, (kind, text)) in now.iter().enumerate() {
-        let action = (i == 0 && undo.is_some()).then(|| {
+    for (id, kind, text) in &now {
+        let action = (*id == ToastId::Undo).then(|| {
             controls::button_compact(
                 &mut commands,
                 kit,
@@ -1389,7 +1402,7 @@ pub(super) fn toast_lane(
             accent,
             title,
             text,
-            Press::Header(HeaderPress::DismissToast(i)),
+            Press::Header(HeaderPress::DismissToast(*id)),
             action,
         );
         commands.entity(lane).add_child(toast);
@@ -1399,6 +1412,29 @@ pub(super) fn toast_lane(
 /// The toast lane's root.
 #[derive(Component)]
 pub(crate) struct ToastLane;
+
+/// Takes the lobby's toasts away as a table opens (owner, 22.10.2026: "they
+/// don't go away, and their X doesn't close them").
+///
+/// The lane is a root of its own, not part of the lobby's screen, so the
+/// lobby's teardown leaves it standing; and [`toast_lane`], which ages it,
+/// and [`carry_out`], which answers its cross, both run only while the lobby
+/// does. A toast that stood when the table opened stayed over the whole game,
+/// as old as it was and with a cross that answered nothing. What it said is
+/// the lobby's news, stale by the time the player is back, so it does not
+/// come back either: the last status stays remembered, and only a new one is
+/// news again.
+fn put_the_toasts_away(
+    mut commands: Commands,
+    mut toasts: ResMut<Toasts>,
+    lanes: Query<Entity, With<ToastLane>>,
+) {
+    for lane in &lanes {
+        commands.entity(lane).despawn();
+    }
+    toasts.shown.clear();
+    toasts.drawn.clear();
+}
 
 /// Carries out what header presses asked of systems they cannot reach: the
 /// `?` overlay (through the shell keymap's own message), the report form,
@@ -1416,7 +1452,6 @@ pub(super) fn carry_out(
         return;
     }
     let mut desk = desk;
-    let has_undo = state.undo.is_some();
     for ask in std::mem::take(&mut state.shell_asks) {
         match ask {
             ShellAsk::Shortcuts => {
@@ -1432,14 +1467,10 @@ pub(super) fn carry_out(
             ShellAsk::Quit => {
                 exit.write(bevy::app::AppExit::Success);
             }
-            ShellAsk::DismissToast(idx) => {
-                let offset = usize::from(has_undo);
-                if let Some(pos) = idx.checked_sub(offset)
-                    && pos < toasts.shown.len()
-                {
-                    toasts.shown.remove(pos);
-                }
+            ShellAsk::DismissToast(ToastId::Shown(gone)) => {
+                toasts.shown.retain(|(n, _, _, _)| *n != gone);
             }
+            ShellAsk::DismissToast(ToastId::Undo) => state.undo = None,
             ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {
                 if let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut()) {
                     crate::social::header_ask(host, ui, ask);
@@ -1465,6 +1496,7 @@ pub(super) fn install(app: &mut App) {
             )
                 .run_if(in_state(DuelPhase::Closed)),
         )
+        .add_systems(OnExit(DuelPhase::Closed), put_the_toasts_away)
         .add_systems(
             PostUpdate,
             (discard_detached, place_header_popovers)

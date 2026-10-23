@@ -926,3 +926,72 @@ fn malformed_bulk_and_invalid_printing_identifiers_fail() {
         assert!(choose(Cursor::new(body), &BTreeSet::from([OID1.into()]), None).is_err());
     }
 }
+
+/// A throwaway repository with the four card-status inputs and a measured
+/// `web/site/data/sets.json`: a commit that changes no input keeps the status
+/// fresh, one that changes a card makes it stale, and a status measured
+/// on another line of history is refused.
+#[test]
+fn test_the_card_status_is_fresh_until_an_input_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .current_dir(root)
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+            ])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8(out.stdout).unwrap().trim().to_owned()
+    };
+    let put = |path: &str, text: &str| {
+        let file = root.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(file, text).unwrap();
+    };
+    git(&["init", "-q", "-b", "main"]);
+    for input in catalog::INPUTS {
+        let is_file = std::path::Path::new(input)
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("rs") || e.eq_ignore_ascii_case("tsv"));
+        let file = if is_file {
+            input.to_owned()
+        } else {
+            format!("{input}/a.rs")
+        };
+        put(&file, "// a\n");
+    }
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "pool"]);
+    let measured = git(&["rev-parse", "HEAD"]);
+    put(
+        "web/site/data/sets.json",
+        &json!({ "rev": measured }).to_string(),
+    );
+    put("README.md", "unrelated\n");
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "status and an unrelated file"]);
+    card_status::fresh(root, "HEAD").expect("no input changed");
+
+    put("crates/baylee-cards/src/cards/a.rs", "// b\n");
+    git(&["commit", "-qam", "a card changed"]);
+    let stale = card_status::fresh(root, "HEAD").unwrap_err().to_string();
+    assert!(stale.contains("1 card file(s) changed"), "{stale}");
+
+    git(&["checkout", "-q", "--orphan", "elsewhere"]);
+    git(&["commit", "-qam", "another history"]);
+    let foreign = card_status::fresh(root, "HEAD").unwrap_err().to_string();
+    assert!(foreign.contains("not an ancestor"), "{foreign}");
+}

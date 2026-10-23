@@ -1086,6 +1086,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
                 registration: Registration::Open,
                 art_cache: false,
                 guests: false,
+                central: false,
             }),
         ));
     app.update();

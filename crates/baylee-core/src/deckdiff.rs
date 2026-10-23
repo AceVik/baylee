@@ -139,20 +139,43 @@ pub struct ZoneDiff {
 
 /// How much changed, counted: copies for `added` / `removed`, rows for the
 /// rest. What a version row in the history says in one line.
+///
+/// @description How much one state of a deck changed against the state
+/// before it, over its main deck, sideboard and commanders: copies for
+/// `added` and `removed`, card rows for the rest.
+/// @openapi
+/// @openapi rename `DeckDelta`
 #[derive(Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Delta {
+    /// @description Copies added: new cards, and higher counts of a card
+    /// already there.
+    /// @internal
     /// Copies added (new names, and count increases).
     pub added: u32,
+    /// @description Copies removed: cards cut, and lower counts of a card
+    /// that stays.
+    /// @internal
     /// Copies removed (cut names, and count decreases).
     pub removed: u32,
+    /// @description Card rows whose count changed.
+    /// @internal
     /// Rows whose count changed.
     pub count: u32,
+    /// @description Card rows that changed printing (set, collector number
+    /// or exact printing).
+    /// @internal
     /// Rows that changed printing.
     pub printing: u32,
+    /// @description Card rows that changed finish.
+    /// @internal
     /// Rows that changed finish.
     pub finish: u32,
+    /// @description Card rows that changed language.
+    /// @internal
     /// Rows that changed language.
     pub language: u32,
+    /// @description Card rows whose note changed.
+    /// @internal
     /// Rows whose note changed.
     pub note: u32,
 }

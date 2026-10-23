@@ -59,7 +59,13 @@ counter back for a threat that has not been cast. So a Counterspell is
 traded for a lone Dark Ritual whose caster has nothing left to spend the
 mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
-Removal needs something opposing on the battlefield, and a deferred pay-or-lose
+Removal needs something opposing on the battlefield, and a permanent this
+seat's own instant or sorcery on the stack already destroys, exiles or tucks
+is nothing to aim a second one at (`worth::answered`, the mirror of
+`doomed`): the house used to cast Swords to Plowshares at the commander its
+own Path to Exile was taking, and Path lost its target
+(`removal_is_not_cast_at_what_this_seats_own_removal_is_taking`). An ability
+on the stack is not read this way yet. A deferred pay-or-lose
 obligation (a pact) is cast only as described under "A pact is a counter paid
 for next turn" below. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the

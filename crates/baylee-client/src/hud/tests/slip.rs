@@ -43,7 +43,7 @@ fn the_question_stands_in_the_middle_and_on_the_shelf() {
 /// which is what "the background still looks strange" was.
 ///
 /// The browser is a dark panel now and carries no parchment at all
-/// (`docs/redesign-proposal.md` §1.3), and the prompt slip went with AX
+/// (`docs/proposals/redesign-proposal.md` §1.3), and the prompt slip went with AX
 /// §10.2 step 6 — the question is asked on the shelf and the drawer, both
 /// of them dialog rather than paper. What is still written on parchment is
 /// the hover preview's card text, the ability sheet and the end screen, so
@@ -99,13 +99,25 @@ fn the_parchment_covers_the_padding_it_lies_under() {
         );
     }
     assert!(
-        !include_str!("../sheet.rs").contains("sheet_surface("),
+        !concat!(
+            include_str!("../sheet.rs"),
+            include_str!("../sheet/tests.rs"),
+            include_str!("../sheet/running.rs"),
+            include_str!("../sheet/spawn.rs"),
+        )
+        .contains("sheet_surface("),
         "the abilities use the table glass surface"
     );
     // And the browser stays a panel: a sheet put back on it is the
     // material decision of §1.3 being undone by accident.
     assert!(
-        !include_str!("../tray.rs").contains("sheet_surface("),
+        !concat!(
+            include_str!("../tray.rs"),
+            include_str!("../tray/spawn.rs"),
+            include_str!("../tray/footer.rs"),
+            include_str!("../tray/rows.rs"),
+        )
+        .contains("sheet_surface("),
         "the zone browser is parchment again, and it is a place you work"
     );
 }

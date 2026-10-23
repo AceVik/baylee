@@ -1,3 +1,5 @@
+use super::footer::spawn_footer;
+use super::rows::zone_label;
 use super::*;
 use baylee_client_core::prose::bracketed;
 use baylee_client_core::test_support::{ViewBuilder, printed};
@@ -123,7 +125,12 @@ fn the_head_is_cut_concentrically_with_the_panel() {
         "the head's radius is {TRAY_HEAD_R} inside a {TRAY_RADIUS} panel with \
          a 1 px border, so the two curves are not concentric"
     );
-    let source = include_str!("../tray.rs");
+    let source = concat!(
+        include_str!("../tray.rs"),
+        include_str!("spawn.rs"),
+        include_str!("footer.rs"),
+        include_str!("rows.rs"),
+    );
     for band in [
         "border_radius: BorderRadius::top(px(TRAY_HEAD_R))",
         "border_radius: BorderRadius::bottom(px(TRAY_HEAD_R))",
@@ -603,7 +610,13 @@ fn the_dialog_says_nothing_in_teal() {
     // Assembled rather than written out, or the needle is in the
     // haystack and this test fails on its own source line.
     let teal = format!("palette::{}", "ACCENT");
-    for line in include_str!("../tray.rs").lines() {
+    let dialog = concat!(
+        include_str!("../tray.rs"),
+        include_str!("spawn.rs"),
+        include_str!("footer.rs"),
+        include_str!("rows.rs"),
+    );
+    for line in dialog.lines() {
         let code = line.split("//").next().unwrap_or(line);
         assert!(
             !code.contains(&teal),

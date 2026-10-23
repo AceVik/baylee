@@ -3,7 +3,7 @@
 **Status: [Implemented]** for every handle described here; the open questions
 are marked as such where they come up. This file is normative on card
 identity — `docs/card-dsl.md` points here rather than repeating it, and
-`CLAUDE.md` summarises it.
+`docs/cards.md` summarises it.
 
 A card has four names in this system and they are not interchangeable. Most of
 the bugs this document exists to prevent are one of them standing in for

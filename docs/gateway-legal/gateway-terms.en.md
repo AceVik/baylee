@@ -1,5 +1,5 @@
-<!-- version: 2026-10-2 -->
-<!-- updated: 2026-10-20 -->
+<!-- version: 2026-10-21 -->
+<!-- updated: 2026-10-21 -->
 
 # Terms of use of this gateway
 
@@ -42,6 +42,11 @@ You agree
 - **If you report a message**, your device sends its content to this
   gateway's moderators so they can review the report. Only then does anyone
   besides the people in the conversation see a message's content.
+- The **lobby chat** is public and **not encrypted**: everyone connected
+  to this gateway at the time reads it, and the gateway can read its
+  content. It keeps the last 50 messages in memory until it restarts and
+  does not store them permanently. Write nothing there that not everyone
+  should read.
 - Computer opponents and spectators take no part in chat.
 
 ## 4. Your content

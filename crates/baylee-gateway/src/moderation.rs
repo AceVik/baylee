@@ -52,9 +52,13 @@ const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /// How a ban reads on a refusal: `{"reason", "until"}`, `until` an RFC 3339
 /// moment in UTC or `null` for good.
+/// @openapi
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct BanBody {
+    /// Why, in the moderator's words.
     reason: String,
+    /// When it ends, an RFC 3339 moment in UTC; `null` for good.
+    /// @openapi format: date-time
     until: Option<String>,
 }
 
@@ -116,13 +120,24 @@ pub(crate) fn admit(session: &store::Session) -> Result<(), Refusal> {
 
 /// What `POST /auth/password` takes: the sign-in, and the password to have
 /// from now on. No `Debug`: nothing may print it.
+///
+/// @description What `POST /auth/password` takes: the sign-in, and the
+/// password to have from now on.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct NewPassword {
+    /// @description The account's username, as `POST /auth/login` takes
+    /// it; `email` is read as the same field.
+    /// @internal
     /// As `POST /auth/login` takes it.
     #[serde(alias = "email")]
     username: String,
-    /// The password it has now: an admin's reset one, or its own.
+    /// @description The password it has now: an admin's reset one, or its
+    /// own.
     password: String,
+    /// @description The password it chose, under the registration rule
+    /// and other than the one it has.
+    /// @internal
     /// The one it chose.
     #[serde(rename = "new_password")]
     chosen: String,
@@ -133,10 +148,24 @@ pub(crate) struct NewPassword {
 /// same tries, the same refusals). What an account an admin reset must do
 /// before anything else; any account may. Every session it had is signed
 /// out, and it is answered a new one, as a sign-in is.
+///
+/// @route POST /auth/password
+/// @scope public
+/// @summary Choose a new password
+/// @description Proves the account's password as a sign-in does (the same eight tries, the same `401`), stores the new one, signs every session of the account out and answers a new session, as `POST /auth/login` does. What an account whose password an admin reset must do before anything else; any account may use it.
+/// @tag Accounts
+/// @security none
+/// @return 400: `$ErrorBody` "The new password breaks the registration rule (`invalid password`), or is the one the account has"
+/// @return 401: `$ErrorBody` "The name or password is wrong (`invalid credentials`), or the account signs in at Baylee Central (`use central sign-in`)"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`)"
+/// @return 409: `$ErrorBody` "The account was linked to Baylee Central meanwhile"
+/// @return 429: `$ErrorBody` "Eight tries in five minutes are spent, or the gateway is checking too many passwords at once"
+/// @return 500: `$ErrorBody` "A password could not be checked or hashed"
+/// @return 503: `$ErrorBody` "The gateway's database or Baylee Central is unavailable"
 pub(crate) async fn change_password(
     State(state): State<Shared>,
     Json(body): Json<NewPassword>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<crate::routes::signin::SignedIn>, (StatusCode, Json<ErrorBody>)> {
     let account = crate::routes::signin::proven(&state, &body.username, &body.password).await?;
     if let Some(ban) = account.ban_in_force(auth::now_secs()) {
         return Err(ban_refusal(ban));
@@ -168,7 +197,9 @@ pub(crate) async fn change_password(
         must_change_password: false,
         ..account
     };
-    crate::routes::signin::signed_in(&state, &changed).await
+    crate::routes::signin::session_for(&state, &changed)
+        .await
+        .map(Json)
 }
 
 // ------------------------------------------------------------ the console
@@ -218,14 +249,46 @@ fn audit(actor: &str, action: &str, account: &str) {
     );
 }
 
+/// `POST /admin/accounts/{id}/password`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ResetPassword {
+    /// @description The new password, `XXXX-XXXX-XXXX-XXXX` in Crockford's
+    /// base 32, for the admin to hand on: shown this once, stored only as
+    /// its hash.
+    password: String,
+}
+
 /// `POST /admin/accounts/{id}/password`: a registered account's password
 /// reset; `200 {"password"}`, the one time it is shown. `404` for no such
 /// account, `409` for a guest's, which has none.
+///
+/// @route POST /admin/accounts/{id}/password
+/// @scope admin
+/// @summary Reset a registered account's password
+/// @description Gives a registered account a random password, answered
+/// once for the admin to hand on. The account must choose its own at its
+/// next sign-in (`POST /auth/password`); every session it had is signed
+/// out and its lobby sockets close. A game it sits in plays on. No body.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The account's id"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such account"
+/// @return 409: `$ErrorBody` "A guest's account, which has no password, or one linked to Baylee Central"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 500: `$ErrorBody` "The password could not be hashed"
+/// @return 503: `$ErrorBody` "The gateway's database or Baylee Central is unavailable, or a move of accounts to Central holds credential changes"
 async fn reset_password(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ResetPassword>, Refusal> {
     let id = account_id(&id)?;
     let app = &console.app;
     let _migration_guard = tokio::time::timeout(
@@ -266,18 +329,34 @@ async fn reset_password(
     // Its sessions are gone; its lobby sockets go with them.
     let _ = app.departed.send(id.clone());
     audit(&actor, "account.password.reset", &id);
-    Ok(Json(serde_json::json!({ "password": password })))
+    Ok(Json(ResetPassword { password }))
 }
 
 /// What `PUT /admin/accounts/{id}/ban` takes.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BanOrder {
+    /// @description Why, in the admin's words, which the player is shown:
+    /// 1 to 500 characters after trimming, one line.
+    /// @internal
     /// The admin's words, which the player is shown.
     reason: String,
+    /// @description When the ban ends, an RFC 3339 moment in the future;
+    /// absent or `null` for good.
+    /// @openapi format: date-time
+    /// @internal
     /// An RFC 3339 moment, or absent/`null` for good.
     #[serde(default)]
     until: Option<String>,
+}
+
+/// `PUT /admin/accounts/{id}/ban`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct AccountBanned {
+    /// @description The ban now in force.
+    ban: BanBody,
 }
 
 /// A ban's reason or a game's, trimmed, or why not.
@@ -320,12 +399,36 @@ fn until_of(until: Option<&str>, now: u64) -> Result<Option<u64>, Refusal> {
 
 /// `PUT /admin/accounts/{id}/ban {"reason", "until"?}`: bans an account,
 /// replacing any ban it had; `200 {"ban": {"reason", "until"}}`.
+///
+/// @route PUT /admin/accounts/{id}/ban
+/// @scope admin
+/// @summary Ban an account
+/// @description Bans an account, registered or guest, for good or until a
+/// moment, replacing any ban it had. It leaves every room and game, its
+/// sockets close and its chair tickets are spent; a registered account's
+/// sessions are signed out. A guest keeps its session, which is refused
+/// while the ban holds. Its sign-in and requests are refused with the
+/// reason.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the ban's `by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The account's id"
+/// @body `$BanOrder`
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, an id that is not a UUID, not a ban (an unknown field included), no reason or one over 500 characters or of two lines, or an `until` that is not RFC 3339 or has passed"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such account"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn ban(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<AccountBanned>, Refusal> {
     let id = account_id(&id)?;
     let order: BanOrder = serde_json::from_slice(&body).map_err(|_| {
         err(
@@ -355,13 +458,32 @@ async fn ban(
         until = %until.as_deref().unwrap_or("never"),
         "admin console: an account banned"
     );
-    Ok(Json(serde_json::json!({
-        "ban": { "reason": reason, "until": until }
-    })))
+    Ok(Json(AccountBanned {
+        ban: BanBody { reason, until },
+    }))
 }
 
 /// `DELETE /admin/accounts/{id}/ban`: lifts a ban; `204`, `404` for an
 /// account with none.
+///
+/// @route DELETE /admin/accounts/{id}/ban
+/// @scope admin
+/// @summary Lift an account's ban
+/// @description Lifts the ban on an account; one whose end has passed
+/// counts as none.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The account's id"
+/// @return 204: "Lifted"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No banned account by that id"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn unban(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -382,6 +504,28 @@ async fn unban(
 /// `GET`): deletes an account and everything
 /// it owns, as `DELETE /account` does (`account::depart`); `204`, `404`
 /// for none.
+///
+/// @route DELETE /admin/accounts/{id}
+/// @scope admin
+/// @operation-id `admin_delete_account`
+/// @summary Delete an account
+/// @description Deletes an account, registered or guest, and everything
+/// it owns, exactly as the player's own `DELETE /account` does: its decks,
+/// sessions and settings, the pictures nobody else claims, its chairs and
+/// sockets.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The account's id"
+/// @return 204: "Deleted"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such account"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 pub(crate) async fn delete_account(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -400,9 +544,13 @@ pub(crate) async fn delete_account(
 }
 
 /// What `POST /admin/games/{id}/close` takes.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CloseOrder {
+    /// @description Why, in the admin's words, which the players are
+    /// shown: 1 to 200 characters after trimming, one line.
+    /// @internal
     /// The admin's words, which the players are shown.
     reason: String,
 }
@@ -411,6 +559,30 @@ struct CloseOrder {
 /// its engine (`CloseGame`); `202`. `404` for no such table, `409` for one
 /// that is not being played. An engine that has not ended the game after
 /// [`CLOSE_WAIT`] is let go and the game marked over, as a lost engine's is.
+///
+/// @route POST /admin/games/{id}/close
+/// @scope admin
+/// @summary End a running game
+/// @description Ends a running game the way games end, through its
+/// engine: every seat is told why, nobody wins or loses, and the record
+/// ends there. An engine that has not ended it after 10 seconds, or a game
+/// with no engine attached, is ended by the gateway itself.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String "The game's id"
+/// @body `$CloseOrder`
+/// @return 202: "The engine was told, or the game ended"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a reason to close (an unknown field included), or no reason, one over 200 characters or of two lines"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such table"
+/// @return 409: `$ErrorBody` "The table is not being played"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
 async fn close_game(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,

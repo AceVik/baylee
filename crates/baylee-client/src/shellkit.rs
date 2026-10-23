@@ -23,6 +23,8 @@
 //!   resolver over the context stack, the text-size chords (§2, §7.1).
 //! - [`overlay`]: the `?` overlay (§4.1).
 //! - [`header`]: the header and its strips (§2.1).
+//! - [`retain`]: a subtree kept across a rebuild, moved without a frame of
+//!   it going undrawn.
 //! - `gallery` (dev-control builds only): every component in every state,
 //!   the screen WP0b-1 is accepted on.
 
@@ -38,6 +40,7 @@ pub mod lint;
 pub mod metrics;
 pub mod overlay;
 pub mod pointer;
+pub mod retain;
 pub mod role;
 pub mod sheen;
 pub mod size;

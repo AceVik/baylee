@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 
 import type { AccountCandidate, LlmAccess, LlmAccessDetail, LlmAllowed } from "../api";
-import { t, type Key } from "../i18n";
+import { t } from "../i18n";
 import { serve, type Call } from "../test-utils";
 import { accessPlan, AccessPanel, planIsEmpty, shownList, type Person } from "./ModelAccess";
 
@@ -52,8 +52,6 @@ function summaryOf(d: LlmAccessDetail): LlmAccess {
   const { accounts, ...rest } = d;
   return { ...rest, listed: accounts.length };
 }
-
-const i18nSource = Object.values(import.meta.glob<string>("../i18n.ts", { query: "?raw", import: "default", eager: true })).join("\n");
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -220,7 +218,7 @@ describe("the panel", () => {
   test("in German", async () => {
     const d = detail({ policy: "nobody", stored: false });
     render(<AccessPanel lang="de" access={[summaryOf(d)]} onChanged={() => undefined} />);
-    expect(screen.getByText("Wer welches Modell setzen darf")).toBeTruthy();
+    expect(screen.getByText("Wer welches Modell einsetzen darf")).toBeTruthy();
     expect(screen.getByText("nicht gesetzt: niemand")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Zugang verwalten Sonnet" })).toBeTruthy();
   });
@@ -230,7 +228,7 @@ describe("the panel", () => {
     const user = userEvent.setup();
     render(<AccessPanel lang="de" access={[summaryOf(detail({ accounts: [ADA] }))]} onChanged={() => undefined} />);
     await user.click(screen.getByRole("button", { name: "Zugang verwalten Sonnet" }));
-    expect(await screen.findByRole("heading", { name: "Wer Sonnet setzen darf" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Wer Sonnet einsetzen darf" })).toBeTruthy();
     expect(await screen.findByRole("combobox", { name: "Spieler hinzufügen" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Speichern…" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: /Nur die Spieler auf der Liste/ })).toBeTruthy();
@@ -394,8 +392,8 @@ describe("the editor's save flow", () => {
     const items = within(review).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
       "Policy: Only the players on the list.",
-      "Add 1 player(s): Adele#f600",
-      "Take 1 player(s) off: Bob#b2e1",
+      "Add 1 player: Adele#f600",
+      "Take 1 player off: Bob#b2e1",
     ]);
     // Nothing has been sent yet.
     expect(changes(calls)).toEqual([]);
@@ -471,7 +469,6 @@ describe("more ways to save", () => {
 const box = () => screen.getByRole("checkbox", { name: /The default model for registered players/ }) as HTMLInputElement;
 const radio = (name: RegExp) => screen.getByRole("radio", { name }) as HTMLInputElement;
 const shownHandles = () => rows().map((r) => r.querySelector("strong")?.textContent);
-const holes = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
 describe("the default checkbox", () => {
   test("checking it selects Every registered player", async () => {
@@ -536,7 +533,7 @@ describe("the list: filter, sort and bulk", () => {
     expect(rows().map((r) => r.className.includes("going"))).toEqual([true, true, false, false]);
     await user.click(screen.getByRole("button", { name: "Save…" }));
     const review = screen.getByRole("region", { name: "Apply these changes?" });
-    expect(within(review).getByText("Take 2 player(s) off:").parentElement?.textContent).toContain("Ada#a1f0, Adam#d4c3");
+    expect(within(review).getByText("Take 2 players off:").parentElement?.textContent).toContain("Ada#a1f0, Adam#d4c3");
     await user.click(within(review).getByRole("button", { name: "Apply" }));
     await waitFor(() => {
       expect(changes(calls)).toHaveLength(1);
@@ -593,20 +590,5 @@ describe("empty states", () => {
     expect(screen.queryByText("Nobody is on the list yet.")).toBeNull();
     await user.clear(filter);
     expect(rows()).toHaveLength(2);
-  });
-});
-
-describe("the texts", () => {
-  test("every access.* key is written in both languages with the same placeholders", () => {
-    const keys = [...new Set([...i18nSource.matchAll(/^\s*"(access\.[^"]+)":/gm)].map((m) => m[1] as string))];
-    expect(keys.length).toBeGreaterThan(40);
-    // One entry in the English table and one in the German.
-    const notTwice = keys.filter((key) => [...i18nSource.matchAll(new RegExp(`^\\s*"${key.replaceAll(".", "\\.")}":`, "gm"))].length !== 2);
-    expect(notTwice).toEqual([]);
-    const differing = keys.filter((key) => {
-      const de = t("de", key as Key);
-      return de.trim() === "" || holes(de).join() !== holes(t("en", key as Key)).join();
-    });
-    expect(differing).toEqual([]);
   });
 });

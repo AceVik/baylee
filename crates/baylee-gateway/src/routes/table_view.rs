@@ -4,11 +4,20 @@ use crate::{
     Deserialize, ErrorBody, HeaderMap, Json, Path, Query, Shared, State, StatusCode, bearer_token,
     cosmetics, err, legacy_token, seat_of_token, store,
 };
+use std::collections::BTreeMap;
 
 /// What `GET /games/{id}/cosmetics` may still carry in its query: the seat
 /// token, from a client older than #294.
+///
+/// @description The seat token in the address, as clients from before
+/// tickets send it.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct CosmeticsParams {
+    /// @description The seat token, for a client that cannot send
+    /// `Authorization`; accepted until 2026-10-31 (UTC) and then refused.
+    /// `Authorization` wins when both are sent.
+    /// @openapi deprecated: true
     #[serde(default)]
     token: Option<String>,
 }
@@ -27,12 +36,28 @@ pub(crate) struct CosmeticsParams {
 /// bound: this says nothing a player will not see the moment the first card is
 /// drawn face-down in front of them, and nothing at all about a deck's
 /// contents.
+///
+/// @route GET /games/{id}/cosmetics
+/// @scope public
+/// @summary What every seat at a table wears
+/// @description Every seat's sleeve and playmat (image ids for
+/// `GET /images/{id}`), keyed by seat number, for the holder of one of the
+/// table's seat tokens. A seat that set neither is left out, so a table
+/// where nobody uploaded anything answers `{}` and the client draws the
+/// generated card back.
+/// @tag Lobby
+/// @operation-id `game_cosmetics`
+/// @security `seatToken`
+/// @path-param id: String "The game's id"
+/// @query-params `$CosmeticsParams`
+/// @return 401: `$ErrorBody` "No seat token, one that is not this game's (`invalid seat token`, `ticket expired or used`), or a token in the address after its end"
+/// @return 404: `$ErrorBody` "No such game"
 pub(crate) async fn game_cosmetics(
     State(state): State<Shared>,
     Path(id): Path<String>,
     headers: HeaderMap,
     Query(params): Query<CosmeticsParams>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<BTreeMap<usize, cosmetics::SeatCosmetics>>, (StatusCode, Json<ErrorBody>)> {
     // A header since #294: this is an ordinary request, so nothing forces
     // the secret into its address.
     let token = match (bearer_token(&headers), params.token.as_deref()) {
@@ -66,7 +91,8 @@ pub(crate) async fn game_cosmetics(
             seats.insert(seat.seat, worn);
         }
     }
-    Ok(Json(serde_json::json!(seats)))
+    // By seat number, as the `json!` this replaced wrote them.
+    Ok(Json(seats.into_iter().collect()))
 }
 
 /// The names shown at each seat of a game, in seat order.

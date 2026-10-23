@@ -149,9 +149,10 @@ Two independent things, both stored per account:
   row where *this* seat is the one declaring: red is `DeclareNoAttackers` /
   `DeclareNoBlockers` there, not a pass, and a preset that skipped a
   declaration step would be answering it.
-- **`AutoRules`** — four switches, all off by default: pass a window that
-  offers nothing at all; pass through opponents' turns (priority only, never a
-  block); answer "no attackers" when nothing can attack; the same for blocks.
+- **`AutoRules`** — four switches (`prefs::AutoRules`): pass a window that
+  offers nothing at all (on by default); pass through opponents' turns
+  (priority only, never a block; off by default); answer "no attackers" when
+  nothing can attack (on); the same for blocks (on).
 - **Priority holds** — `F6` and `F7`, and the only automation that lives in
   the *engine* rather than in the client. The rail and `AutoRules` answer for
   a player who is still being asked; a hold tells the engine not to ask, which
@@ -159,7 +160,7 @@ Two independent things, both stored per account:
   binding on a client that has been closed and reopened.
 
 Three things about holds are load-bearing. Every one of them **cancels
-itself** (`PriorityHold` in `crates/baylee-engine/src/choice.rs`): `F6` ends
+itself** (`PriorityHold` in `crates/baylee-engine/src/choice/automation.rs`): `F6` ends
 when the stack empties *or* when anything is added to it, because the moment
 somebody responds to what was being let through is exactly the moment a player
 wants the question back. There is deliberately no "never ask me again" — a

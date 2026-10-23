@@ -3,51 +3,120 @@
 
 use crate::{
     AppState, Confirmation, ConnectInfo, Deserialize, ErrorBody, HeaderMap, Json, Path, Query,
-    Router, Shared, SocketAddr, State, StatusCode, StoredToken, account, auth, auth_config, authed,
-    db_down, delete, err, get, get_settings, handle, invite, names, post, put_settings,
-    rate_limit_ip, store,
+    Router, Serialize, Shared, SocketAddr, State, StatusCode, StoredToken, account, auth,
+    auth_config, authed, db_down, delete, err, get, get_settings, handle, invite, names, post,
+    put_settings, rate_limit_ip, store,
 };
 
-use super::terms::{accept_terms, mark_stale, terms};
+use super::terms::{accept_terms, terms, terms_stale};
 
+/// What `POST /auth/register` takes.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct RegisterBody {
+    /// @description The name to sign in with, private to its owner: three
+    /// to twenty-four ASCII letters, digits and `_ - .`, beginning and
+    /// ending on a letter or a digit, unique regardless of case.
+    /// @internal
     /// The name to sign in with (#269). Defaulted so that a client from
     /// before usernames, which sends an address instead, is told what is
     /// missing rather than handed a deserialiser's error.
     #[serde(default)]
     username: String,
+    /// @description The name other players see, beside the tag the gateway
+    /// hands out: three to sixteen ASCII letters and digits with `_` and `-`
+    /// between them.
     display_name: String,
+    /// @description The password: 8 to 256 bytes, neither name in any case,
+    /// and none of the commonest passwords.
     password: String,
+    /// @description The language to write to this account in (`de`, `en`).
+    /// @internal
     /// The language to write to this account in. Defaulted, because a client
     /// written before this field existed still registers.
     #[serde(default)]
     lang: String,
+    /// @description The closed-beta key, as typed; read only where
+    /// registration is `invite`, ignored elsewhere.
+    /// @internal
     /// The closed-beta key, as typed (#317). Read only on a gateway with
     /// `BAYLEE_REGISTRATION=invite`, ignored elsewhere.
     #[serde(default)]
     invite_key: Option<String>,
 }
 
+/// What `POST /auth/register` answers.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Registered {
+    /// @description Always `true`: the account is made, and signs in with
+    /// its username.
+    ok: bool,
+    /// @description Always `true` for a new account, which has accepted no
+    /// terms yet; absent on a gateway without terms.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terms_stale: Option<bool>,
+}
+
+/// What `GET /auth/confirm` and `POST /auth/confirm/resend` answer.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Acknowledged {
+    /// @description Always `true`.
+    ok: bool,
+}
+
 /// What `POST /auth/confirm/resend` takes.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct ResendBody {
+    /// @description The address an account registered with before
+    /// usernames.
     email: String,
 }
 
 /// What `GET /auth/confirm` takes.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct ConfirmQuery {
+    /// @description The token of the link in the mail.
     token: String,
 }
 
+/// What `POST /auth/login` takes.
+/// @openapi
 #[derive(Deserialize)]
-pub(crate) struct Credentials {
+pub(crate) struct LoginBody {
+    /// @description The username, or until the end of 2026 the address an
+    /// account registered with before usernames; also accepted as `email`.
+    /// @internal
     /// A username, or until the end of 2026 an address (#269, #280). `email`
     /// is what a client from before usernames calls the same field.
     #[serde(alias = "email")]
     username: String,
+    /// @description The password.
     password: String,
+}
+
+/// What a sign-in answers: `POST /auth/login`, and `POST /auth/password`
+/// after a new password was chosen.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct SignedIn {
+    /// @description The session token, sent as `Authorization: Bearer`.
+    token: String,
+    /// @description When the session lapses unless it is used before, in
+    /// Unix seconds.
+    expires_at: u64,
+    /// @description The account's username, shown to nobody but its owner
+    /// (a player who signed in with an address learns it here); `null` for
+    /// an account without one.
+    username: Option<String>,
+    /// @description `true` when the account has not accepted the terms of
+    /// use in force, and the client shows them; absent on a gateway without
+    /// terms.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terms_stale: Option<bool>,
 }
 
 /// How long a confirmation link is good for.
@@ -102,10 +171,23 @@ pub(crate) async fn mail_confirmation(state: &Shared, account_id: &str) {
 /// Plain text rather than a redirect into the client: the gateway does not
 /// know where a client is served from — a native build is not served at all —
 /// and a redirect target read off a header is how an open redirect happens.
+///
+/// @route GET /auth/confirm
+/// @scope public
+/// @summary Confirm an e-mail address
+/// @description The link a confirmation mail carries: confirms the
+/// account's address. A link lasts 24 hours, works once, and a newer one
+/// replaces it. An address is optional and keeps nobody out; it is only a
+/// way to reach the player.
+/// @tag Accounts
+/// @security none
+/// @query-params `$ConfirmQuery`
+/// @return 400: `$ErrorBody` "The link is not valid, or has expired"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 pub(crate) async fn confirm(
     State(state): State<Shared>,
     Query(query): Query<ConfirmQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<Acknowledged>, (StatusCode, Json<ErrorBody>)> {
     let now = auth::now_secs();
     // Read and removed in one step, so a link followed twice works once —
     // including when the second request is a mail client prefetching it.
@@ -121,7 +203,7 @@ pub(crate) async fn confirm(
     store::confirm_account(&state.db, &found.account_id, now)
         .await
         .map_err(|e| db_down(&e))?;
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(Acknowledged { ok: true }))
 }
 
 /// Sends the link again.
@@ -129,12 +211,24 @@ pub(crate) async fn confirm(
 /// Answers `{"ok":true}` whatever happened, for the same reason registration
 /// does: a route that said "no such account" would be an address oracle, and
 /// this one needs no password to call.
+///
+/// @route POST /auth/confirm/resend
+/// @scope public
+/// @summary Mail the confirmation link again
+/// @description Mails a new confirmation link to an address not yet
+/// confirmed, invalidating the last one. Answers `{"ok": true}` whatever
+/// happened, so that it says nothing about which addresses have accounts;
+/// a gateway that sends no mail sends none.
+/// @tag Accounts
+/// @security none
+/// @return 429: `$ErrorBody` "Too many attempts from this address"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 pub(crate) async fn resend_confirmation(
     State(state): State<Shared>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<ResendBody>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<Acknowledged>, (StatusCode, Json<ErrorBody>)> {
     if !state
         .limiter
         .allow(&rate_limit_ip(&state.trusted_proxies, addr.ip(), &headers))
@@ -149,15 +243,32 @@ pub(crate) async fn resend_confirmation(
     if let Some(account_id) = account_id {
         mail_confirmation(&state, &account_id).await;
     }
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(Acknowledged { ok: true }))
 }
 
+/// `POST /auth/register`: makes an account that signs in with its username.
+///
+/// @route POST /auth/register
+/// @scope public
+/// @summary Make an account
+/// @description Makes an account with a username, a display name and a
+/// password; no address is asked. A taken username is said openly (`409`).
+/// On a closed beta (`registration` is `invite` in `GET /auth/config`) it
+/// needs a key. The answer makes no session: the client signs in next.
+/// @tag Accounts
+/// @security none
+/// @return 400: `$ErrorBody` "The username, display name or password breaks its rule (`invalid username`, `invalid display name`, `invalid password`)"
+/// @return 403: `$ErrorBody` "Registration is off here, or a closed beta's key is missing or not valid"
+/// @return 409: `$ErrorBody` "The username is taken"
+/// @return 429: `$ErrorBody` "Too many attempts from this address, or too many keys tried"
+/// @return 500: `$ErrorBody` "The password could not be hashed"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 pub(crate) async fn register(
     State(state): State<Shared>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<RegisterBody>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<Registered>, (StatusCode, Json<ErrorBody>)> {
     if !state.registration.takes_sign_ups() {
         return Err(err(StatusCode::FORBIDDEN, "registration is disabled"));
     }
@@ -207,10 +318,11 @@ pub(crate) async fn register(
     {
         store::Admitted::Made => {
             admitted(&state, &ip, key.as_deref());
-            let mut answer = serde_json::json!({ "ok": true });
-            // A new account has accepted nothing yet.
-            mark_stale(&state, None, &mut answer);
-            Ok(Json(answer))
+            Ok(Json(Registered {
+                ok: true,
+                // A new account has accepted nothing yet.
+                terms_stale: terms_stale(&state, None),
+            }))
         }
         store::Admitted::Taken => Err(err(StatusCode::CONFLICT, "that username is taken")),
         store::Admitted::KeyRefused => Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID)),
@@ -259,10 +371,28 @@ pub(crate) fn invite_budget(ip: &str) -> String {
     format!("invite:{ip}")
 }
 
+/// `POST /auth/login`: a session for a username and its password.
+///
+/// @route POST /auth/login
+/// @scope public
+/// @summary Sign in
+/// @description Signs in with a username (until the end of 2026 also the
+/// address of an account from before usernames) and its password, and
+/// answers a new session. Eight tries in five minutes are counted against
+/// the account however it was named; an unknown name and a wrong password
+/// are the same `401`. A banned account and one whose password an admin
+/// reset are refused after the right password, and only then.
+/// @tag Accounts
+/// @security none
+/// @return 401: `$ErrorBody` "The name or password is wrong (`invalid credentials`), or the account signs in at Baylee Central (`use central sign-in`)"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`), or must choose a new password at `POST /auth/password` first (`password_change`)"
+/// @return 429: `$ErrorBody` "Eight tries in five minutes are spent, or the gateway is checking too many passwords at once"
+/// @return 500: `$ErrorBody` "The password could not be checked"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 pub(crate) async fn login(
     State(state): State<Shared>,
-    Json(creds): Json<Credentials>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+    Json(creds): Json<LoginBody>,
+) -> Result<Json<SignedIn>, (StatusCode, Json<ErrorBody>)> {
     let account = proven(&state, &creds.username, &creds.password).await?;
     // Only to the one who proved who they are: a ban's reason and a reset
     // are nobody else's business (beta.8, `moderation.rs`).
@@ -274,7 +404,7 @@ pub(crate) async fn login(
     }
     // An unconfirmed address no longer keeps anyone out (#269): the account
     // signs in with its name, and the address is only a way to reach them.
-    signed_in(&state, &account).await
+    session_for(&state, &account).await.map(Json)
 }
 
 /// The account `typed` names whose password is `password`, or the refusal
@@ -366,10 +496,10 @@ pub(crate) async fn proven(
 /// # Errors
 ///
 /// `503` when the database refuses.
-pub(crate) async fn signed_in(
+pub(crate) async fn session_for(
     state: &Shared,
     account: &store::Account,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<SignedIn, (StatusCode, Json<ErrorBody>)> {
     let issued = auth::IssuedToken::new();
     store::put_token(
         &state.db,
@@ -381,31 +511,63 @@ pub(crate) async fn signed_in(
     )
     .await
     .map_err(|e| db_down(&e))?;
-    let mut answer = serde_json::json!({
-        "token": issued.token,
-        "expires_at": issued.expires_at,
+    Ok(SignedIn {
+        token: issued.token,
+        expires_at: issued.expires_at,
         // Its own name, to the one player who may see it: a player who signed
         // in with an address is told the username they were given (#269).
-        "username": account.username,
-    });
-    mark_stale(state, account.terms_version.as_deref(), &mut answer);
-    Ok(Json(answer))
+        username: account.username.clone(),
+        terms_stale: terms_stale(state, account.terms_version.as_deref()),
+    })
 }
 
 /// What `POST /auth/guest` takes (#269). Every field is optional, and an
 /// empty body is a guest called `Guest`.
+///
+/// @description What `POST /auth/guest` takes. Every field is optional:
+/// `{}` is a guest called `Guest`.
+/// @openapi
 #[derive(Deserialize, Default)]
 pub(crate) struct GuestBody {
+    /// @description The name other players see, under the display-name
+    /// rule; `Guest` when absent or empty.
+    /// @internal
     /// The name other players see, under the display-name rule.
     #[serde(default)]
     display_name: Option<String>,
+    /// @description The language it asks in (`de`, `en`).
+    /// @internal
     /// The language it asks in.
     #[serde(default)]
     lang: String,
+    /// @description The closed-beta key a new guest needs where
+    /// registration is `invite`; ignored elsewhere.
+    /// @internal
     /// The closed-beta key a new guest needs on a gateway with
     /// `BAYLEE_REGISTRATION=invite` (#317).
     #[serde(default)]
     invite_key: Option<String>,
+}
+
+/// What `POST /auth/guest` answers.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct GuestSignedIn {
+    /// @description The session token, sent as `Authorization: Bearer`: the
+    /// only way back to this guest, so the client keeps it.
+    token: String,
+    /// @description When the session lapses unless it is used before, in
+    /// Unix seconds; a guest whose session lapsed is deleted.
+    expires_at: u64,
+    /// @description Always `true`.
+    guest: bool,
+    /// @description The guest's handle as other players see it, its display
+    /// name and tag (`Guest#1a2b`).
+    handle: String,
+    /// @description Always `true` for a new guest, which has accepted no
+    /// terms yet; absent on a gateway without terms.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terms_stale: Option<bool>,
 }
 
 /// The name a guest is seen by when it chose none.
@@ -421,12 +583,27 @@ pub(crate) const GUEST_NAME: &str = "Guest";
 /// by [`AppState::guest_cap`]. The count is read before the write, so a
 /// burst of requests at the edge can pass it by as many as are in flight;
 /// the cap bounds a flood, not a queue.
+///
+/// @route POST /auth/guest
+/// @scope public
+/// @summary Play as a guest
+/// @description An account with no username, address or password, and its
+/// session, in one answer: the session is the guest. It lasts 29 to 30 days
+/// past the last call made with its token, and the guest is deleted with
+/// its decks and preferences when it lapses or signs out. A guest may not
+/// upload pictures. On a closed beta a new guest needs a key.
+/// @tag Accounts
+/// @security none
+/// @return 400: `$ErrorBody` "The display name breaks its rule"
+/// @return 403: `$ErrorBody` "This gateway takes no guests, or a closed beta's key is missing or not valid"
+/// @return 429: `$ErrorBody` "Too many attempts from this address, or too many keys tried"
+/// @return 503: `$ErrorBody` "No guest seats are free (`BAYLEE_GUEST_CAP`), or the gateway's database is unavailable"
 pub(crate) async fn guest(
     State(state): State<Shared>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<GuestBody>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<GuestSignedIn>, (StatusCode, Json<ErrorBody>)> {
     if !state.guests_enabled {
         return Err(err(StatusCode::FORBIDDEN, "this gateway takes no guests"));
     }
@@ -473,17 +650,30 @@ pub(crate) async fn guest(
         return Err(err(StatusCode::FORBIDDEN, invite::KEY_INVALID));
     };
     admitted(&state, &ip, key.as_deref());
-    let mut answer = serde_json::json!({
-        "token": issued.token,
-        "expires_at": issued.expires_at,
-        "guest": true,
-        "handle": handle::handle(&account.display_name, account.tag),
-    });
-    // A new guest has accepted nothing yet.
-    mark_stale(&state, None, &mut answer);
-    Ok(Json(answer))
+    Ok(Json(GuestSignedIn {
+        token: issued.token,
+        expires_at: issued.expires_at,
+        guest: true,
+        handle: handle::handle(&account.display_name, account.tag),
+        // A new guest has accepted nothing yet.
+        terms_stale: terms_stale(&state, None),
+    }))
 }
 
+/// `POST /auth/logout`: ends the session the bearer token names.
+///
+/// @route POST /auth/logout
+/// @scope public
+/// @summary Sign out
+/// @description Ends the session the bearer token names; a token that names
+/// no session is answered the same. A guest's session is the guest, so a
+/// guest signing out is deleted with its decks and preferences. Open to a
+/// session that has not accepted the terms in force.
+/// @tag Accounts
+/// @security bearer
+/// @return 204: "Signed out"
+/// @return 401: `$ErrorBody` "No bearer token"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable"
 pub(crate) async fn logout(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -535,31 +725,67 @@ pub(crate) fn account_routes() -> Router<Shared> {
 }
 
 /// The authenticated account's profile.
+///
+/// @route GET /me
+/// @scope public
+/// @summary Who am I
+/// @description The signed-in account as its owner sees it: its id, its
+/// address and username (shown to nobody else), whether it is a guest, and
+/// its display name, tag and handle.
+/// @tag Accounts
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "The account is gone"
 pub(crate) async fn me(
     State(state): State<Shared>,
     headers: HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<Profile>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let account = store::account(&state.db, &account_id)
         .await
         .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "account gone"))?;
-    Ok(Json(serde_json::json!({
-        "id": account.id,
-        "email": account.email,
+    Ok(Json(Profile {
+        handle: handle::handle(&account.display_name, account.tag),
+        id: account.id,
+        email: account.email,
         // Only ever to its owner: nothing that shows one player to another
         // carries it (#269).
-        "username": account.username,
+        username: account.username,
         // A guest's client says what a guest is (#269): gone about thirty
         // days after its last visit.
-        "guest": account.guest,
-        "display_name": account.display_name,
+        guest: account.guest,
+        display_name: account.display_name,
         // The two halves separately, because this is the one caller that
         // wants them apart: a settings screen shows the name in a field a
         // player can edit and the tag beside it as something they cannot.
-        "tag": handle::tag_text(account.tag),
-        "handle": handle::handle(&account.display_name, account.tag),
-    })))
+        tag: handle::tag_text(account.tag),
+    }))
+}
+
+/// What `GET /me` answers.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Profile {
+    /// @description The account's id (a UUID).
+    id: String,
+    /// @description The address it registered with before usernames, `null`
+    /// when it has none.
+    email: Option<String>,
+    /// @description The name it signs in with, shown to nobody but its
+    /// owner; `null` for a guest.
+    username: Option<String>,
+    /// @description Whether it is a guest, deleted about thirty days after
+    /// its last visit.
+    guest: bool,
+    /// @description The name other players see.
+    display_name: String,
+    /// @description The tag that tells two of a name apart: lowercase hex,
+    /// at least four digits (`af03`).
+    tag: String,
+    /// @description The display name and tag as other players see them
+    /// (`Alice#af03`).
+    handle: String,
 }
 
 /// The account a handle names.
@@ -573,11 +799,24 @@ pub(crate) async fn me(
 /// -in player can still walk them, which is the cost of a tag a person can
 /// type; it is the same cost a `BattleTag` has, and the reason this answers
 /// nothing an opponent could not read off a lobby row.
+///
+/// @route GET /players/{handle}
+/// @scope public
+/// @summary Find a player by handle
+/// @description What one player may know about another, found by handle:
+/// the id, display name, tag and handle, never an address or username. The
+/// tag decides; a handle without `#` is refused rather than guessed at.
+/// @tag Accounts
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param handle: String "A handle, `Alice#af03`, or only its tag, `#af03`; the `#` URL-encoded as `%23`"
+/// @return 400: `$ErrorBody` "The handle carries no `#tag`"
+/// @return 404: `$ErrorBody` "No player has that tag"
 pub(crate) async fn player(
     State(state): State<Shared>,
     headers: HeaderMap,
     Path(typed): Path<String>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<PublicPlayer>, (StatusCode, Json<ErrorBody>)> {
     let _ = authed(&state, &headers).await?;
     let tag = handle::parse_tag(&typed)
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "a handle carries a #tag"))?;
@@ -585,10 +824,25 @@ pub(crate) async fn player(
         .await
         .map_err(|e| db_down(&e))?
         .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such player"))?;
-    Ok(Json(serde_json::json!({
-        "id": found.id,
-        "display_name": found.display_name,
-        "tag": handle::tag_text(found.tag),
-        "handle": handle::handle(&found.display_name, found.tag),
-    })))
+    Ok(Json(PublicPlayer {
+        handle: handle::handle(&found.display_name, found.tag),
+        tag: handle::tag_text(found.tag),
+        id: found.id,
+        display_name: found.display_name,
+    }))
+}
+
+/// What `GET /players/{handle}` answers.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct PublicPlayer {
+    /// @description The account's id (a UUID).
+    id: String,
+    /// @description The name other players see.
+    display_name: String,
+    /// @description The tag that tells two of a name apart: lowercase hex,
+    /// at least four digits (`af03`).
+    tag: String,
+    /// @description The display name and tag (`Alice#af03`).
+    handle: String,
 }

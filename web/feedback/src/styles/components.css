@@ -1,0 +1,1314 @@
+/* The pieces every page is built from: controls, panels, tiles, tables,
+   badges, and the states a page can be in (empty, failed, loading). Each is
+   defined once, here, from the tokens only. */
+
+/* ------------------------------------------------------------- controls */
+
+input,
+select,
+textarea,
+button,
+.button {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+button,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--control-h);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+button:hover:not(:disabled),
+.button:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+button:active:not(:disabled),
+.button:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+button.primary,
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+button.primary:hover:not(:disabled),
+.button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+button.quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+button.quiet:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: transparent;
+  color: var(--text);
+}
+
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+
+button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--danger) 88%, var(--text));
+  color: var(--on-danger);
+}
+
+button.danger-quiet {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+  box-shadow: none;
+}
+
+button.danger-quiet:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.18em;
+  white-space: normal;
+}
+
+button.link:hover:not(:disabled) {
+  background: none;
+  color: var(--accent-hover);
+  text-decoration-color: currentColor;
+}
+
+/* A smaller action beside a title or in a row; beside a page's title it
+   stands as high as the page's other actions. */
+.small-button {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.page-head .small-button {
+  min-height: var(--control-h);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-md);
+}
+
+/* A field's own size, also inside a <label> that wraps it. */
+input,
+select,
+textarea {
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-subtle);
+  opacity: 1;
+}
+
+input:hover:not(:disabled, :focus),
+select:hover:not(:disabled, :focus),
+textarea:hover:not(:disabled, :focus) {
+  border-color: var(--text-muted);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+  border-color: var(--focus);
+  border-radius: var(--r-md);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--surface-alt);
+}
+
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  padding: 0 var(--sp-2);
+}
+
+/* One chevron for both schemes: its grey holds 3:1 on either surface. */
+select {
+  appearance: none;
+  padding-right: var(--sp-8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%237a8396' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--sp-3) center;
+  background-size: 14px;
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  padding: var(--sp-2) var(--sp-3);
+  line-height: var(--lh);
+  resize: vertical;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+label {
+  display: block;
+  margin-bottom: var(--sp-1);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+fieldset {
+  min-width: 0;
+}
+
+.field {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.field label {
+  margin: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: var(--sp-4);
+}
+
+.form-grid .field.wide {
+  grid-column: 1 / -1;
+}
+
+.form-grid input,
+.form-grid select,
+input.full {
+  width: 100%;
+}
+
+input.full {
+  margin-bottom: var(--sp-3);
+}
+
+.select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.select-label select {
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+
+.inline {
+  display: flex;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0;
+}
+
+.inline input {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.row-actions:first-child,
+.page-head .row-actions {
+  margin-top: 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.toolbar .grow {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+/* A question asked inline before something that cannot be undone. */
+.confirm {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+}
+
+.confirm legend:not(.sr-only) {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--sp-1);
+  padding: 0;
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+
+/* Segmented controls: one pressed among siblings. The track is a ring, not
+   a border, so it stands exactly a control high. */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  box-shadow: inset 0 0 0 1px var(--border);
+  min-width: 0;
+}
+
+.segmented button {
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+}
+
+.segmented button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--shadow-xs);
+}
+
+.segmented.chips {
+  margin-top: var(--sp-3);
+}
+
+.seg-count {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-full);
+  background: var(--neutral-soft);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.segmented button[aria-pressed="true"] .seg-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* A switch shown as a button with a dot. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.toggle[aria-pressed="false"] .presence-dot {
+  background: var(--border-strong);
+}
+
+.toggle[aria-pressed="true"],
+.toggle[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+.spin {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.spin:not(.on) {
+  border-right-color: currentColor;
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spin.on {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+/* ---------------------------------------------------------- page header */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-4);
+  margin: 0 0 var(--sp-6);
+}
+
+.page-head > :first-child {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.page-head > :not(:first-child) {
+  flex: none;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  overflow-wrap: anywhere;
+}
+
+.page-head p {
+  margin: var(--sp-1) 0 0;
+}
+
+.crumbs {
+  margin: 0 0 var(--sp-1);
+}
+
+.crumbs a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--control-h);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  color: var(--accent);
+}
+
+.freshness {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.pulse,
+.presence-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.presence-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pulse {
+    animation: pulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 0.3rem color-mix(in srgb, var(--ok) 0%, transparent);
+  }
+}
+
+/* ------------------------------------------------------ cards and panels */
+
+.card,
+.panel {
+  min-width: 0;
+  padding: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.panel {
+  margin-bottom: var(--sp-4);
+}
+
+.card > :first-child,
+.panel > :first-child {
+  margin-top: 0;
+}
+
+.card > :last-child,
+.panel > :last-child {
+  margin-bottom: 0;
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  min-height: var(--control-h-sm);
+  margin-bottom: var(--sp-4);
+}
+
+.panel-head h2,
+.panel-head h3 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* A sub-heading inside a panel: a quiet label over what follows. */
+.panel h3 {
+  margin: var(--sp-5) 0 var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+/* Panels side by side: two equal columns, one on a narrow screen. */
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+  margin-bottom: var(--sp-4);
+}
+
+.panels .panel {
+  margin-bottom: 0;
+}
+
+@media (min-width: 720px) {
+  .panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Many panels of unequal height: laid as columns of even height, so no
+   panel stands alone and none leaves a gap under it. */
+.panels.stat-panels {
+  display: block;
+  columns: 1;
+  column-gap: var(--sp-4);
+}
+
+.panels.stat-panels > .panel {
+  break-inside: avoid;
+  margin-bottom: var(--sp-4);
+}
+
+@media (min-width: 720px) {
+  .panels.stat-panels {
+    columns: 2;
+  }
+}
+
+@media (min-width: 1180px) {
+  .panels.stat-panels {
+    columns: 3;
+  }
+}
+
+.wide-panel {
+  grid-column: 1 / -1;
+}
+
+.list-head {
+  margin-top: var(--sp-6);
+}
+
+/* ------------------------------------------------------- headline tiles */
+
+/* Every row of tiles is full: a short last row stretches across. */
+.kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.kpi {
+  flex: 1 1 9rem;
+  display: grid;
+  align-content: start;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.kpi-link:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+
+.kpi-link:active {
+  transform: translateY(1px);
+}
+
+.kpi-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.kpi-value {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-value.kpi-text {
+  font-size: var(--fs-xl);
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+
+.kpi-sub {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* A big number with its word, inside a panel. */
+.big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  margin: 0 0 var(--sp-3);
+}
+
+.big-number {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.big-label {
+  color: var(--text-muted);
+}
+
+.build {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------ term and value */
+
+/* Rows: the term left, the value right. */
+.kv {
+  display: grid;
+  margin: 0;
+}
+
+.kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.kv-row:last-child {
+  border-bottom: 0;
+}
+
+.kv dt {
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.kv dd {
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A grid of terms and values, the term in its own column. */
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.facts .fact {
+  display: contents;
+}
+
+/* Number columns: the term left, the number right, never broken. */
+.facts.stat-facts,
+.facts.invite-facts,
+.facts.llm-facts {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.facts.stat-facts dd,
+.facts.invite-facts dd,
+.facts.llm-facts dd {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------- badges */
+
+/* A tone and always a word: the colour never says it alone. */
+.badge,
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 1.6rem;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-full);
+  background: var(--neutral-soft);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.badge-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tone-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.tone-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.tone-info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.tone-accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tone-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tone-muted {
+  background: var(--neutral-soft);
+  color: var(--text-muted);
+}
+
+.kind-bug {
+  color: var(--bug);
+}
+
+.kind-crash {
+  color: var(--crash);
+}
+
+.kind-improvement {
+  color: var(--improvement);
+}
+
+.kind-feedback {
+  color: var(--feedback);
+}
+
+.kind-other {
+  color: var(--other);
+}
+
+.warn-text {
+  color: var(--warn);
+}
+
+/* ----------------------------------------------------------------- tables */
+
+/* Positioned, so a hidden label inside (an absolute .sr-only) scrolls with
+   the table instead of widening the page. */
+.table-wrap,
+.sets-scroll {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.table-wrap + p,
+.sets-scroll + p {
+  margin-top: var(--sp-3);
+}
+
+table.reports,
+table.accounts,
+table.sets {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.reports th,
+table.reports td,
+table.accounts th,
+table.accounts td,
+table.sets th,
+table.sets td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+table.reports th,
+table.accounts th,
+table.sets th {
+  padding-top: var(--sp-2);
+  padding-bottom: var(--sp-2);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  white-space: nowrap;
+}
+
+table.reports tbody tr,
+table.accounts tbody tr,
+table.sets tbody tr {
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+table.reports tbody tr:hover,
+table.accounts tbody tr:hover,
+table.sets tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+table.reports tbody tr:last-child td,
+table.accounts tbody tr:last-child td,
+table.sets tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+table .num,
+table td.num,
+table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pages of a list. */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-4) 0;
+}
+
+/* ------------------------------------------------------------- the states */
+
+/* Nothing to show: a quiet box that says so. */
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-6) var(--sp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty + p {
+  margin-top: var(--sp-3);
+}
+
+.empty::before {
+  content: "";
+  width: 1.5rem;
+  height: 1.5rem;
+  background: currentColor;
+  opacity: 0.7;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 13h3.5l1.5 3h6l1.5-3H20M5.5 5h13L21 13v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.empty.warn-text {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.empty.warn-text::before {
+  opacity: 1;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 3.5 21.5 20h-19z' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M12 10v4.5M12 17.2v.3' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Something failed: said in a box, with the service's own words. */
+.error {
+  color: var(--danger);
+}
+
+.error[role="alert"]:not(.small) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  overflow-wrap: anywhere;
+}
+
+.error[role="alert"]:not(.small)::before {
+  content: "";
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.1rem;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M12 7.5v5.5M12 16.2v.3' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
+.notice {
+  display: block;
+  margin: var(--sp-2) 0;
+  color: var(--ok);
+  font-weight: var(--fw-medium);
+}
+
+/* Still loading: the shape of what comes, breathing. */
+.skeleton {
+  height: 14rem;
+  border-radius: var(--r-lg);
+  background: linear-gradient(90deg, var(--surface-alt) 25%, var(--surface-hover) 50%, var(--surface-alt) 75%) 0 0 / 200% 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ----------------------------------------------------- progress, legends */
+
+.progress {
+  display: flex;
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--r-full);
+  overflow: hidden;
+  background: var(--surface-alt);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+}
+
+.progress-implemented,
+.swatch.progress-implemented {
+  background: var(--ok);
+}
+
+.progress-generated,
+.swatch.progress-generated {
+  background: var(--c1);
+}
+
+.progress-partial,
+.swatch.progress-partial {
+  background: var(--c2);
+}
+
+.progress-unimplemented,
+.swatch.progress-unimplemented {
+  background: var(--info);
+}
+
+.progress-absent,
+.swatch.progress-absent {
+  background: var(--border-strong);
+}
+
+.legend,
+.legend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.legend-list {
+  list-style: none;
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+}
+
+.legend-item,
+.legend-list li,
+.tip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+
+.swatch.c1 {
+  background: var(--c1);
+}
+
+.swatch.c2 {
+  background: var(--c2);
+}
+
+/* ------------------------------------------------- dialogs, menus, toasts */
+
+/* The browser's own modal <dialog>: focus kept inside, Escape cancels. */
+dialog.llm-dialog {
+  inline-size: min(calc(100% - 2rem), 30rem);
+  max-block-size: calc(100% - 2rem);
+  padding: var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+}
+
+dialog.llm-dialog[open] {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+dialog.llm-dialog::backdrop {
+  background: var(--overlay);
+  backdrop-filter: blur(2px);
+}
+
+/* A dialog's title, also when the dialog opens from inside a panel. */
+dialog.llm-dialog h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+dialog.llm-dialog > form {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+dialog.llm-dialog fieldset.field:not(.llm-pair-field) {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+dialog.llm-dialog fieldset.field:not(.llm-pair-field) > label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+
+dialog.llm-dialog .row-actions {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  dialog.llm-dialog {
+    padding: var(--sp-4);
+  }
+}
+
+dialog.llm-dialog p {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  dialog.llm-dialog::backdrop {
+    animation: fade-in var(--dur) var(--ease);
+  }
+  dialog.llm-dialog {
+    animation: rise-in var(--dur) var(--ease);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+  }
+}
+
+.toasts {
+  position: fixed;
+  z-index: var(--z-toast);
+  left: 50%;
+  bottom: max(var(--sp-6), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: grid;
+  gap: var(--sp-2);
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 2rem));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--control-h);
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.toast button {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--sp-3);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.toast button:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
+}
+
+.toast .toast-action {
+  font-weight: var(--fw-semibold);
+  text-decoration: underline;
+}
+
+.toast.tone-error {
+  background: var(--danger);
+  color: var(--on-danger);
+}
+
+.toast.tone-ok {
+  background: var(--ok);
+  color: var(--on-ok);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: rise-in var(--dur) var(--ease);
+  }
+}
+
+/* Pointer devices with a finger: every control a finger can hit. */
+@media (pointer: coarse) {
+  .small-button,
+  .toast button {
+    min-height: var(--control-h);
+  }
+}

@@ -688,18 +688,18 @@ describe("the editor in German", () => {
     const user = userEvent.setup();
     render(<Admin lang="de" section="models" />);
     const editor = await openEdit(user, "Bearbeiten primary @ alpha", "primary auf alpha bearbeiten");
-    for (const name of ["Profil", "Partien und Ausweichprofil", "Budget je Partie", "Obergrenzen seines Ausgabenbuchs", "Modell"]) {
+    for (const name of ["Profil", "Partien und Ausweichprofil", "Budget pro Partie", "Ausgabengrenzen", "Modell"]) {
       expect(within(editor).getByRole("group", { name })).toBeTruthy();
     }
     const fallback = select(editor, "Ausweichprofil");
-    expect(optionsOf(fallback)).toEqual(["keins", "Model B · backup", "Model C · spare"]);
+    expect(optionsOf(fallback)).toEqual(["keines", "Model B · backup", "Model C · spare"]);
 
-    await user.type(input(editor, "Preis ein (USD / Mio. Tokens)"), "3");
+    await user.type(input(editor, "Preis Input (USD / Mio. Tokens)"), "3");
     await user.click(within(editor).getByRole("button", { name: "Speichern" }));
-    expect(within(editor).getByRole("alert").textContent).toBe("Ein Preis braucht beides: ein und aus.");
+    expect(within(editor).getByRole("alert").textContent).toBe("Ein Preis braucht beides: Input und Output.");
     expect(changes(calls)).toEqual([]);
 
-    await user.type(input(editor, "Preis aus (USD / Mio. Tokens)"), "15");
+    await user.type(input(editor, "Preis Output (USD / Mio. Tokens)"), "15");
     await user.selectOptions(fallback, "backup");
     await user.click(within(editor).getByRole("button", { name: "Speichern" }));
     const question = screen.getByRole("alertdialog", { name: "primary @ alpha speichern? Laufende Partien behalten, womit sie begonnen haben." });

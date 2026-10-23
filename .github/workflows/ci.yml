@@ -150,7 +150,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/linux-deps
@@ -379,6 +379,12 @@ jobs:
       # payloads in about 30 s (run 37787880265).
       - run: cargo run --locked -p xtask -- scryfall-cache
       - run: cargo run --locked -p xtask -- validate
+      # The API documents (docs/api/): current, and every route a service
+      # registers is in one of them (`cargo dev api check`). The tool is a
+      # workspace of its own (tools/api-docs/Cargo.toml says why), so no
+      # `--workspace` job runs its tests.
+      - run: cargo run --locked -q --manifest-path tools/api-docs/Cargo.toml -- check
+      - run: cargo test --locked -q --manifest-path tools/api-docs/Cargo.toml
       # Saved even when the comparison fails (`actions/cache`'s own post step
       # is skipped on a failed job). `!cancelled()` and deliberately not
       # `always()`: `actions/cache/save` never overwrites a key, so a run

@@ -1100,7 +1100,8 @@ fn redirect(effect: &Effect) -> bool {
         Effect::ChangeTarget { .. } | Effect::ChooseNewTargets
     )
 }
-fn removal(effect: &Effect) -> bool {
+/// An effect that takes a permanent off the battlefield for good.
+pub(crate) fn removal(effect: &Effect) -> bool {
     matches!(
         effect,
         Effect::Destroy { .. } | Effect::Exile { .. } | Effect::PutTargetOnBottomOfLibrary

@@ -37,13 +37,25 @@ pub(crate) async fn connect_catalog(
 }
 
 /// Query for `/catalog/text`.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct CatalogTextQuery {
+    /// @description Comma-separated Scryfall oracle ids: text by card. The
+    /// first 500 well-formed ids are read; a malformed one is dropped.
+    /// Wins over `ids` when both are given.
+    /// @internal
     /// Comma-separated Scryfall oracle ids: text by card.
     oracle_ids: Option<String>,
+    /// @description Comma-separated Scryfall printing ids: text by printing,
+    /// each answered under the id asked for. Kept for clients that predate
+    /// `oracle_ids`.
+    /// @internal
     /// Comma-separated Scryfall printing ids: text by printing, answered
     /// under the id asked for. Kept for clients that predate `oracle_ids`.
     ids: Option<String>,
+    /// @description The language to answer in (`en` when absent); English
+    /// where the catalog has no text in it.
+    /// @internal
     /// Preferred language; English is the fallback.
     lang: Option<String>,
 }
@@ -78,6 +90,21 @@ pub(crate) fn text_ids(list: &str) -> Vec<String> {
 /// printing, the gateway used to fetch a missing one from Scryfall and keep
 /// it; that made it a proxy for whoever asked, and nothing asked it any
 /// more, so it asks Scryfall on nobody's behalf (#270).
+///
+/// @route GET /catalog/text
+/// @scope public
+/// @summary Card text in a player's language
+/// @description The text of the cards (`oracle_ids`) or printings (`ids`)
+/// asked for, in `lang` with English as the fallback, one entry per card or
+/// printing the catalog knows; one it lacks is left out, and a request with
+/// neither list is answered `[]`. For a signed-in session, a guest's
+/// included.
+/// @tag Catalog
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @query-params `$CatalogTextQuery`
+/// @return 502: `$ErrorBody` "The card catalog failed to answer"
+/// @return 503: `$ErrorBody` "This gateway has no card catalog, or its account store is unavailable"
 pub(crate) async fn catalog_text(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -160,12 +187,20 @@ pub(crate) async fn card_text(
 }
 
 /// Query for `/catalog/search`.
+/// @openapi
 #[derive(Deserialize)]
 pub(crate) struct CatalogSearchQuery {
+    /// @description What to search for: names first, then rules text.
+    /// @internal
     /// Search terms.
     q: String,
+    /// @description The language to search and answer in (`en` when
+    /// absent).
+    /// @internal
     /// Preferred language.
     lang: Option<String>,
+    /// @description How many hits at most: 50 when absent, held to 1–200.
+    /// @internal
     /// Maximum hits.
     limit: Option<u64>,
 }
@@ -174,6 +209,19 @@ pub(crate) struct CatalogSearchQuery {
 ///
 /// For a signed-in session only, for the reason `catalog_text` gives: open,
 /// it was a search over Scryfall's data for anyone who asked (#270).
+///
+/// @route GET /catalog/search
+/// @scope public
+/// @summary Search the card catalog
+/// @description Printings whose name or rules text matches `q`, in `lang`,
+/// at most `limit` of them. For a signed-in session, a guest's included.
+/// @tag Catalog
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @query-params `$CatalogSearchQuery`
+/// @return 400: String text/plain "A query without `q`, or a `limit` that is not a number (axum's rejection)"
+/// @return 502: `$ErrorBody` "The card catalog failed to answer"
+/// @return 503: `$ErrorBody` "This gateway has no card catalog, or its account store is unavailable"
 pub(crate) async fn catalog_search(
     State(state): State<Shared>,
     headers: HeaderMap,

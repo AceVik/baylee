@@ -3,8 +3,18 @@
 #[path = "e2e_central/chat.rs"]
 mod chat;
 mod common;
+#[path = "central/fresh.rs"]
+mod fresh;
+#[path = "central/held.rs"]
+mod held;
+#[path = "central/official.rs"]
+mod official;
+#[path = "central/profiles.rs"]
+mod profiles;
 #[path = "central/registered.rs"]
 mod registered;
+#[path = "central/renewal.rs"]
+mod renewal;
 #[path = "central/terms.rs"]
 mod terms;
 #[path = "central/upgrade.rs"]
@@ -22,8 +32,14 @@ use central_http::DevelopmentServer;
 use central_identity::IdentityService;
 use central_postgres::{AccountStore, DevConfig};
 use sea_orm::ConnectionTrait;
-use std::{io::Write, net::TcpStream, path::PathBuf, sync::Arc, time::Duration};
-use tokio::{runtime::Runtime, sync::oneshot};
+use std::{
+    io::Write,
+    net::{SocketAddr, TcpStream},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
+use tokio::{runtime::Runtime, sync::oneshot, task::JoinHandle};
 
 struct BridgeFile(PathBuf);
 impl Drop for BridgeFile {
@@ -69,7 +85,8 @@ fn database(role: &str, password: &str) -> DevConfig {
     .unwrap()
 }
 
-/// What Central's runtime role may do, as `docs/operations.md` there grants it.
+/// What Central's runtime role may do: Central's `ops/grants.sql` at the pinned
+/// revision, statement for statement.
 const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.pending_accounts TO central_runtime;
             GRANT SELECT, INSERT, UPDATE, DELETE ON central_identity.accounts, central_identity.sessions,
@@ -78,8 +95,35 @@ const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_
             GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
             GRANT SELECT ON central_identity.gateway_approvals TO central_runtime;
             GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime;
+            GRANT UPDATE (expires_at) ON central_identity.gateway_leases TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
-                central_identity.terms_acceptances TO central_runtime";
+                central_identity.terms_acceptances TO central_runtime;
+            GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime";
+
+/// `/auth/config` says whether the gateway takes Central sign-ins: a native
+/// client signs in through Central only where it does, and with the
+/// gateway's own routes everywhere else. No Central answers here; the
+/// gateway is bound by its configuration alone.
+#[test]
+fn auth_config_says_whether_the_gateway_takes_central_sign_ins() {
+    let plain = common::spawn_gateway("central_unbound");
+    let (status, config) = common::http(plain.port, "GET", "/auth/config", None, "");
+    assert_eq!(status, 200, "{config}");
+    assert!(config.contains("\"central\":false"), "{config}");
+
+    let endpoint = Endpoint::development("http://127.0.0.1:9").unwrap();
+    let file = bridge_file(&endpoint, &Token::generate().unwrap());
+    let bound = common::spawn_gateway_with(
+        "central_bound",
+        &[(
+            "BAYLEE_CENTRAL_CONFIG_FILE",
+            file.0.to_string_lossy().into_owned(),
+        )],
+    );
+    let (status, config) = common::http(bound.port, "GET", "/auth/config", None, "");
+    assert_eq!(status, 200, "{config}");
+    assert!(config.contains("\"central\":true"), "{config}");
+}
 
 #[test]
 #[ignore = "requires owned PostgreSQL fixture from cargo dev central integration"]
@@ -101,6 +145,54 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
             "CENTRAL_TEST_RUNTIME_PASSWORD",
         )))
         .unwrap();
+    let served = serve(&runtime, &store, "central", None);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let (gateway, endpoint, origin) = (&served.gateway, &served.endpoint, &served.origin);
+        run(gateway, endpoint, origin);
+        profiles::run(&runtime, &operator, gateway, endpoint, origin);
+        changed_legacy_password_invalidates_pending_enrollment(gateway, endpoint, origin);
+        upgrade::run(gateway, endpoint, origin);
+        renewal::run(gateway, endpoint, origin);
+        fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
+        registered::run(&runtime, &operator, endpoint);
+        terms::run(&runtime, &operator, endpoint);
+        official::run(&runtime, &operator, endpoint, &served.bridge, origin);
+        held::run(&runtime, &store);
+        ui_fixture(endpoint, origin);
+    }));
+    served.close(&runtime);
+    runtime.block_on(async {
+        store.close().await.unwrap();
+        operator.close().await.unwrap();
+    });
+    if let Err(failure) = result {
+        std::panic::resume_unwind(failure);
+    }
+}
+
+/// A Central development server over the fixture's store, its identity
+/// service (with `terms` in force) and a gateway bridged to it.
+struct Served {
+    endpoint: Endpoint,
+    gateway: common::Gateway,
+    origin: String,
+    service: Arc<IdentityService>,
+    /// The bridge credential the gateway holds, for a second bridge-mode
+    /// gateway (`central/official.rs`).
+    bridge: Token,
+    secret_file: BridgeFile,
+    stop: oneshot::Sender<()>,
+    serving: JoinHandle<()>,
+    address: SocketAddr,
+    gateway_address: SocketAddr,
+}
+
+fn serve(
+    runtime: &Runtime,
+    store: &AccountStore,
+    label: &str,
+    terms: Option<baylee_account::terms::TermsDocument>,
+) -> Served {
     let server = runtime
         .block_on(DevelopmentServer::bind(
             central_policy::config::Config::from_pairs([
@@ -115,7 +207,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
     let bridge = Token::generate().unwrap();
     let secret_file = bridge_file(&endpoint, &bridge);
     let gateway = common::spawn_gateway_with(
-        "central",
+        label,
         &[
             (
                 "BAYLEE_CENTRAL_CONFIG_FILE",
@@ -126,59 +218,62 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         ],
     );
     let gateway_address = format!("127.0.0.1:{}", gateway.port).parse().unwrap();
-    let gateway_origin = format!("http://{gateway_address}");
+    let origin = format!("http://{gateway_address}");
     let service = Arc::new(
         IdentityService::new(
             store.clone(),
             &endpoint,
             ServerKeys::generate(),
             &bridge,
-            &gateway_origin,
+            &origin,
         )
-        .unwrap(),
+        .unwrap()
+        .with_terms(terms),
     );
     let (stop, stopped) = oneshot::channel();
     let served_endpoint = endpoint.clone();
+    let identity = Arc::clone(&service);
     let serving = runtime.spawn(async move {
         server
-            .run_with_identity(&served_endpoint, service, async {
+            .run_with_identity(&served_endpoint, identity, async {
                 let _ = stopped.await;
             })
             .await
             .unwrap();
     });
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        run(&gateway, &endpoint, &gateway_origin);
-        changed_legacy_password_invalidates_pending_enrollment(
-            &gateway,
-            &endpoint,
-            &gateway_origin,
-        );
-        upgrade::run(&gateway, &endpoint, &gateway_origin);
-        registered::run(&runtime, &operator, &endpoint);
-        terms::run(&runtime, &operator, &endpoint);
-        ui_fixture(&endpoint, &gateway_origin);
-    }));
-    drop(gateway);
-    drop(secret_file);
-    let _ = stop.send(());
-    runtime.block_on(async {
-        tokio::time::timeout(Duration::from_secs(5), serving)
-            .await
-            .unwrap()
-            .unwrap();
-        store.close().await.unwrap();
-        operator.close().await.unwrap();
-    });
-    for closed in [address, gateway_address] {
-        // Windows may report loopback refusal after about two seconds; a
-        // shorter timeout is not evidence that a listener remains or closed.
-        let error = TcpStream::connect_timeout(&closed, Duration::from_secs(5))
-            .expect_err("owned service listener must be closed");
-        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    Served {
+        endpoint,
+        gateway,
+        origin,
+        service,
+        bridge,
+        secret_file,
+        stop,
+        serving,
+        address,
+        gateway_address,
     }
-    if let Err(failure) = result {
-        std::panic::resume_unwind(failure);
+}
+
+impl Served {
+    /// Stops the gateway and Central, and checks both listeners are gone.
+    fn close(self, runtime: &Runtime) {
+        drop(self.gateway);
+        drop(self.secret_file);
+        let _ = self.stop.send(());
+        runtime.block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), self.serving)
+                .await
+                .unwrap()
+                .unwrap();
+        });
+        for closed in [self.address, self.gateway_address] {
+            // Windows may report loopback refusal after about two seconds; a
+            // shorter timeout is not evidence that a listener remains or closed.
+            let error = TcpStream::connect_timeout(&closed, Duration::from_secs(5))
+                .expect_err("owned service listener must be closed");
+            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+        }
     }
 }
 

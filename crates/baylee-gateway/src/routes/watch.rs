@@ -27,6 +27,48 @@ pub(crate) fn may_watch(game: &lobby::LobbyGame) -> Result<(), (StatusCode, Json
     Ok(())
 }
 
+/// `GET /games/{id}/watch`: one spectator's socket.
+///
+/// @channel watch /games/{id}/watch
+/// @scope public
+/// @summary A spectator's socket
+/// @description A spectator's socket at a running table whose host allows
+/// spectators. It carries the game's public stream, the same for every
+/// spectator, as one protobuf `Envelope` (`baylee.v1`) per binary frame,
+/// which the gateway hands on without decoding; nothing a spectator sends
+/// reaches the engine. Buy a ticket with the session (`POST /ws-ticket`
+/// with `{"socket":"watch","game":"<id>"}`), then open the socket with it
+/// and the protocol the client speaks (`baylee_protocol::watch_socket_path`
+/// builds the address). The upgrade asks the ticket's questions again and
+/// is refused as an HTTP answer, not a frame: with `401` for no ticket, or
+/// with `ticket expired or used` for one that is unknown, spent, expired
+/// or for another socket or game, or whose session has since signed out or
+/// lapsed; with `404` and `no such game`; with `403` when the table allows
+/// no spectators (any more) and `409` when it is not being played; with
+/// `403` and `ban` or `terms_required` when the account is banned or must
+/// accept new terms, `401` when it must choose a new password, and `503`
+/// when the account store or Baylee Central cannot be asked. A client of
+/// another protocol is let in, sent one `HelloAck` and closed. Otherwise
+/// the socket waits up to 30 seconds for the game's engine (and closes if
+/// none attaches), the engine is told the spectator count, and every
+/// spectator is sent a whole snapshot (`GameStaticMsg`, `StateDelta` with
+/// the whole public log, and `Curtain`); a socket that falls behind asks for
+/// the same. A spectator is never waited for by the curtain, never on a
+/// clock, and may leave at any time. A frame the spectator sends is dropped,
+/// and one over 64 KiB ends the connection; there is no rate bound. The session is checked again
+/// every 5 seconds; once it is signed out, lapsed or banned, or the game
+/// ends, the socket closes with a close frame without a code.
+/// @ws-query ticket: String required "A single-use ticket bought for watching this game with `POST /ws-ticket` and the session"
+/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
+/// parameters:
+///   id:
+///     description: The game's id, as the lobby lists it.
+/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the gateway's. `compatible` is false, `protocol_version` is the gateway's and `message` is a sentence naming both. The only frame; the socket closes after it."
+/// @send `GameStaticMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_static`: the public opening payload, first in every snapshot and sent again before a view that shows a printing for the first time. `static_json` is a `GameStatic` as JSON whose print table holds only what was shown in public, never a decklist; `your_seat` is seat 0, the side the table is drawn from."
+/// @send `StateDelta`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `state_delta`: the public table. `view_json` is a `SpectatorView` as JSON (no private hand, question, looked-at card, clock or policy, and a face-down card is a blank); `log_json` is a `LogTail` as JSON, the game log as nobody in particular may know it, appended by its `from`."
+/// @send `ChoiceRequest`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `choice_request`, only at the end: `pending_json` is a `Pending` of `GameOver` as JSON."
+/// @send `Curtain`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `curtain`, empty: sent after every snapshot, so a spectator's table is open at once."
+/// @send `GameClosed`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_closed`: an admin ended the game, and nobody won or lost; `reason` is the admin's words. The last frame of the game."
 pub(crate) async fn watch_ws(
     State(state): State<Shared>,
     Path(id): Path<String>,

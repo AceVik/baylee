@@ -768,7 +768,7 @@ fn a_table_with_nobody_at_it_frames_nothing_rather_than_dividing_by_zero() {
     assert!(rig.distance.is_finite());
 }
 
-/// `docs/design.md` §1.1: the middle of the table is atmosphere, the mats
+/// `docs/proposals/design.md` §1.1: the middle of the table is atmosphere, the mats
 /// are the game. The bound is measurable, so it is measured — and it goes
 /// both ways.
 ///

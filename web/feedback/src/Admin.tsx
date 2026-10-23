@@ -4,6 +4,8 @@
 // behind one section bar that sits on top on a wide screen and at the
 // bottom of a phone, under the thumb.
 
+import { useEffect } from "react";
+
 import { AccountDetail } from "./admin/AccountDetail";
 import { Accounts } from "./admin/Accounts";
 import { Cards } from "./admin/Cards";
@@ -13,6 +15,7 @@ import { Models } from "./admin/Models";
 import { Overview } from "./admin/Overview";
 import { SetPage, Sets } from "./admin/Sets";
 import { go } from "./admin/shared";
+import { BRAND } from "./Brand";
 import { t, type Key, type Lang } from "./i18n";
 import { adminPath, ADMIN_SECTIONS, type AdminSection } from "./router";
 
@@ -23,7 +26,8 @@ const ICONS: Record<AdminSection, string> = {
   live: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm-8.5 4a8.5 8.5 0 0 1 2.5-6l1.4 1.4a6.5 6.5 0 0 0 0 9.2L6 18a8.5 8.5 0 0 1-2.5-6zm17 0a8.5 8.5 0 0 1-2.5 6l-1.4-1.4a6.5 6.5 0 0 0 0-9.2L18 6a8.5 8.5 0 0 1 2.5 6z",
   accounts:
     "M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13zm8 0c-.3 0-.6 0-1 .1a4.2 4.2 0 0 1 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z",
-  sets: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z",
+  // Layers, not squares: on a phone the icons stand without their words.
+  sets: "M12 3 2 8l10 5 10-5zm-7.6 8.2L2 12.4l10 5 10-5-2.4-1.2L12 15zm0 4.6L2 17l10 5 10-5-2.4-1.2L12 19.6z",
   cards:
     "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z",
   models: "M9 2v2H7a3 3 0 0 0-3 3v2H2v2h2v2H2v2h2v2a3 3 0 0 0 3 3h2v2h2v-2h2v2h2v-2h2a3 3 0 0 0 3-3v-2h2v-2h-2v-2h2V9h-2V7a3 3 0 0 0-3-3h-2V2h-2v2h-2V2zm0 6h6v8H9z",
@@ -71,6 +75,12 @@ export function Admin({
   id?: string | undefined;
   search?: string | undefined;
 }) {
+  // The window's title names the section (WCAG 2.4.2), and one set its code.
+  useEffect(() => {
+    const name = t(lang, LABELS[section]);
+    const set = section === "sets" && id !== undefined ? `${id.toUpperCase()} · ` : "";
+    document.title = `${set}${name} · ${BRAND}`;
+  }, [lang, section, id]);
   return (
     <div className="admin-shell">
       <SectionBar lang={lang} section={section} />

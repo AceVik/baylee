@@ -452,7 +452,7 @@ describe("in German", () => {
     await user.click(screen.getByRole("button", { name: "Sperren… Shock" }));
     await user.type(screen.getByLabelText("Grund (Spieler sehen ihn)"), "x");
     await user.click(screen.getByRole("button", { name: "Sperren…" }));
-    expect(screen.getByText(/^Shock ohne Ende sperren\?/)).toBeTruthy();
+    expect(screen.getByText(/^Shock unbefristet sperren\?/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sperren" })).toBeTruthy();
   });
 });

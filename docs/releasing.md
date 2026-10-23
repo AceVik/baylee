@@ -40,10 +40,28 @@ While the version is `0.x`:
   (decks, preferences, replays, `CardIndex`).
 - **patch** (`0.1.0 → 0.1.1`): everything else.
 
+Pre-release names follow SemVer §11, and the updater compares by it
+(`baylee_update::version`): a purely numeric identifier sorts **below** any
+alphanumeric one, and alphanumeric ones compare as text. So after
+`0.1.0-beta.8a` and `0.1.0-beta.8b`, a `0.1.0-beta.9` would be older than both
+and never offered to those installs, and lettered names break at ten
+(`10a` sorts below `9a`). The release after `0.1.0-beta.8b` therefore raises
+the patch: `0.1.1-beta.1`, and pre-releases stay plain numbers from then on.
+
 ## Cutting one
 
-1. On `main`, bump `version` in `[workspace.package]` in its own commit
-   (`chore(release): 0.2.0`) and push it.
+1. On `main`, bump `version` in `[workspace.package]`, rewrite the API
+   documents (`cargo dev api`: they name the version, and the gate's `api`
+   step refuses stale ones) and measure the card status
+   (`cargo tools site card-status`, which rewrites `web/site/data`), all in
+   one commit (`chore(release): 0.2.0`), and push it. The website
+   (Central's `web/`) reads the card status of the newest release from that
+   release's tag, as it reads the downloads from its assets, so the numbers a
+   visitor sees are always those of the client the release ships. The release
+   workflow refuses a tag whose status was measured at another pool
+   (`cargo tools site card-status-fresh`: the measured commit must be an
+   ancestor of the tag, and no card, ledger, core index or
+   `data/unplayable.tsv` may have changed since).
 2. Wait for `ci` to go green on that commit, including `packages`. The workflow
    refuses a tag without a successful **push to this repository's main** CI run
    at that exact SHA in which every job of `REQUIRED_JOBS`
@@ -167,13 +185,82 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
-The `x86_64-apple-darwin` package row (added 12.10.2026) has no measurement
-yet; it is the arm row's work cross-compiled, so it starts with the arm row's
-105-minute timeout.
+The `x86_64-apple-darwin` package row (added 12.10.2026) is the arm row's
+work cross-compiled on the same runner: 42–82 minutes over ten main pushes
+(20.–21.10.2026), against 32–88 for the arm row. Both have 150 minutes, enough
+for a cold cache (§"The macOS runner").
 
 Three jobs (bench, msrv, features) hung on 07.10.2026 for 228, 361 and 360
 minutes, all in `apt-get update` against a mirror that stopped answering; apt
 is now bounded in `.github/actions/linux-deps` and every job has a timeout.
+
+### The macOS runner
+
+The two macOS package rows can build on the owner's MacBook (M1 Max, ten
+cores, 64 GB) instead of GitHub's three-core macOS image. While the
+repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
+dispatch, which only someone with write access can start) sends them to the
+label `baylee-vm`. Every other run, a `ci:full` pull request included, and
+every other macOS job (`macos-intel`, the nightly `build` row) stays on
+GitHub; with the variable unset, nothing differs from before.
+
+Measured over ten main pushes (20.–21.10.2026, minutes), GitHub's rows took
+32–88 (aarch64) and 42–82 (x86_64), 27–54 of it the `dist` build with
+dependencies restored from the cache. On the MacBook the same build took 19
+cold and 16 with every workspace crate rebuilt (22.10.2026, with about two and
+a half cores busy elsewhere; 9.6 GB at its peak). The rest of a main push then
+ends with `test-release` (37–44).
+
+Each job runs in a throwaway Tart VM (`scripts/macos-runner/runner.sh`):
+
+- **Who can reach it.** A personal repository has no runner groups, so
+  nothing on GitHub's side ties the runner to main's workflow: a fork's pull
+  request brings its own YAML and could name the label. What keeps it off is
+  the repository's fork policy, **approval required for all external
+  contributors** (set 22.10.2026). Approve a fork's run only after reading it,
+  and never one that changes `.github/` unread.
+- **No secrets.** The package jobs hold only the read-only `github.token`, and
+  release signing stays on GitHub's Ubuntu runner, so no key touches the Mac.
+  The runner registers with a fine-grained token of its own (this repository;
+  Administration read and write, Actions read) from the owner's login keychain
+  (service `baylee-macos-runner`); the just-in-time registration it buys
+  reaches the VM on stdin and is good for one job.
+- **Nothing stays.** Every job gets a fresh clone of the image `baylee-runner`,
+  deleted afterwards. Softnet (`--net-softnet`) lets the VM reach the internet
+  and not the home network.
+- **The cargo lock.** The runner holds `with-cargo-lock.sh` while jobs are
+  queued for it, so a CI build and a `cargo dev land` never share the CPU
+  (under load the e2e timing tests fail): a land waits for both packages of a
+  main push, and a job waits queued, which does not count against its
+  timeout. Giving the lock back after each job, as first written, let a land
+  in between the two (22.10.2026), and the second package waited for the
+  whole land. Every `tart exec` under the lock is bounded and no job outlives
+  three hours, since a wedged guest's exec never returns.
+- **One VM at a time.** macOS allows two per Mac, and `MAX_VMS=2` would build
+  both packages at once, but on 22.10.2026 the second of two VMs started
+  together got no name resolution and then an exec that never returned, so
+  the runner builds them one after the other until that is understood.
+- **Release trust.** The macOS archives a release promotes were built on that
+  Mac. `release verify-run` checks that they come from a main push run, not
+  where the run built them.
+
+When the Mac is away, `gh variable delete MACOS_RUNNER`. A job already queued
+for `baylee-vm` keeps waiting (up to 24 hours, and a push run is never
+cancelled), so cancel the run and re-run it: a re-run reads the variable anew.
+Back with `gh variable set MACOS_RUNNER --body self-hosted`.
+
+Setting it up, once: `brew trust --formula openai/tools/softnet && brew install
+openai/tools/tart`; Softnet's SUID bit (`sudo chown root:wheel` and `chmod
+u+s` on the binary); the token in the keychain (`security
+add-generic-password -s baylee-macos-runner -a AceVik -w`, which prompts for
+it); then `scripts/macos-runner/runner.sh prepare`, which clones
+`ghcr.io/cirruslabs/macos-tahoe-base` (about 25 GB) into `baylee-runner` and
+adds rustup and the pinned actions runner, and `runner.sh install`, which
+copies the script to `~/baylee-ci` and loads the LaunchAgent
+`org.baylee.macos-runner` (log: `~/Library/Logs/baylee-macos-runner.log`).
+When the pinned actions runner is a month old, `tart delete baylee-runner`,
+raise the pin and `prepare` again: an older runner downloads its update at the
+start of every job.
 
 ## Installers
 
@@ -414,7 +501,7 @@ permanent in every package, so a runtime must read a session from every
 older launcher. A directly started runtime also cannot auto-install; use the
 normal packaged launch path.
 
-"Restart now" (`baylee_update::relaunch`, `docs/client.md` §"Restarting
+"Restart to update" (`baylee_update::relaunch`, `docs/client.md` §"Restarting
 into an update") needs no launcher change: the runtime leaves its own
 executable behind as a helper that waits for the old runtime (the end of
 its stdin) and the old launcher (the lifetime lock) before it starts the
@@ -456,3 +543,25 @@ same machine in lockstep, and can require release tags to be signed by a key
 of their choosing: `docs/deploy-hooks.md` is the contract, including the
 admission hold (`BAYLEE_ADMISSION_HOLD`) a deploy with hooks drains every
 agent's games under, and the dispatcher's exit codes.
+
+### What the server builds with
+
+The server builds each release itself, as the deploy user, in its checkout
+(`baylee-deploy stage`). It needs:
+
+- `rustup`'s `stable` at least the workspace's `rust-version` (`Cargo.toml`).
+  A release that raises it needs `rustup update stable` there first; the
+  deploy otherwise stops at "is not supported by the following packages"
+  (22.10.2026).
+- A C toolchain, `pkg-config` and the headers of `libsecret-1` (Debian and
+  Ubuntu: `libsecret-1-dev`, which brings GLib's). `baylee-keyring` links
+  libsecret on Linux, and the engine server, the seat bridge and the seat
+  agent reach it through `baylee-client-core`. CI installs the same package
+  in `.github/actions/linux-deps`, beside the client's audio, udev and
+  Wayland headers, which the server does not need.
+- For the browser client at `/play`: `trunk` (0.21.14) and the
+  `wasm32-unknown-unknown` target. Without them the installed client stays.
+- For the feedback service's UI: `npm`. Without it the installed UI stays.
+
+A build that fails shows its first error, and for the first two causes
+one sentence on what to do.

@@ -11,7 +11,7 @@ use super::*;
 /// next press answered it with "nothing found", with no trace and no
 /// undo, and the land the search was for never entered play.
 ///
-/// `docs/redesign-proposal.md` §6 says Space toggles in this dialog, and
+/// `docs/proposals/redesign-proposal.md` §6 says Space toggles in this dialog, and
 /// that is also the fix: a stray press now does something visible that
 /// the same key takes back.
 #[test]

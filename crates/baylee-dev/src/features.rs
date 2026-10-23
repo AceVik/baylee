@@ -34,7 +34,7 @@ use std::{process::Command, time::Instant};
 /// failure. Raise it when `devctl.rs` grows; never lower it to what came out.
 const DEVCTL_TEST_FLOOR: usize = 15;
 
-/// `dev-control` and `dev-reload` in one build: the configuration CLAUDE.md
+/// `dev-control` and `dev-reload` in one build: the configuration docs/dev/commands.md
 /// documents for editing a shader in a running client, so a build somebody
 /// makes. `dev-reload` forwards a bevy feature, so every distinct client
 /// feature set is its own bevy compile; the union covers both `cfg` sites.
@@ -273,7 +273,9 @@ fn client_tests(steps: &mut Steps) {
     }
 }
 
-/// The passed total over every `test result:` line and the `devctl::` tests.
+/// The passed total over every `test result:` line and the `devctl::` tests
+/// that passed: an ignored one is named in the log as readily as one that
+/// ran, and the floor witnesses tests that ran (#171).
 fn count_tests(log: &str) -> (usize, usize) {
     let passed = log
         .lines()
@@ -282,7 +284,7 @@ fn count_tests(log: &str) -> (usize, usize) {
         .sum();
     let devctl = log
         .lines()
-        .filter(|l| l.starts_with("test devctl::"))
+        .filter(|l| l.starts_with("test devctl::") && l.trim_end().ends_with("... ok"))
         .count();
     (passed, devctl)
 }
@@ -367,5 +369,15 @@ mod tests {
             count_tests("test result: ok. 400 passed; 0 failed\n"),
             (400, 0)
         );
+    }
+
+    /// An ignored test is named in the log too; the floor counts only the
+    /// ones that ran and passed (#171).
+    #[test]
+    fn an_ignored_devctl_test_does_not_count() {
+        let log = "test devctl::a ... ignored\ntest devctl::b ... ok\n\
+                   test devctl::c ... ignored, needs a window\n\
+                   test result: ok. 1 passed; 0 failed; 2 ignored\n";
+        assert_eq!(count_tests(log), (1, 1));
     }
 }

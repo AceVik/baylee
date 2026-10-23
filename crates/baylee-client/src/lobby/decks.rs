@@ -856,14 +856,12 @@ fn house(
         let mut badges = vec![(shelf::format_label(lang, &deck.format), tokens::ACCENT)];
         // A playable badge only on a deck under 100 % (§6).
         if deck.unplayable > 0 {
-            let n = deck.unplayable.to_string();
             badges.push((
-                Phrase::counted(
+                Phrase::DecksUnplayable.fill_count(
+                    lang,
                     usize::try_from(deck.unplayable).unwrap_or(usize::MAX),
-                    Phrase::DecksUnplayableOne,
-                    Phrase::DecksUnplayableMany,
-                )
-                .fill(lang, &[&n]),
+                    &[],
+                ),
                 tokens::GOLD,
             ));
         }

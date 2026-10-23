@@ -32,7 +32,7 @@ Gloom, Cyclopean Tomb, Creature Bond, Consecrate Land, Animate Artifact,
 Nether Shadow, Sunglasses of Urza, Sengir Vampire, Earthbind, Personal Incarnation,
 Channel and Guardian Angel are included in the Implemented count. Their
 dedicated behavioral tests replace the earlier cast-only evidence; milestone
-validation and native screenshots are in `docs/feedback-fixes-2026-10-01.md`.
+validation and native screenshots are in `docs/history/feedback-fixes-2026-10-01.md`.
 
 Excluded cards: Chaos Orb (dexterity); Contract from Below, Darkpact and Demonic
 Attorney (ante). These are explicit scope exclusions, never counted as implemented.
@@ -413,7 +413,7 @@ Leak paid three mana from Sol Ring plus Forest, reduced the pool from three to
 zero while remaining in upkeep, and lost no life; on the next own upkeep,
 payment zero caused exactly two damage. This ordinary live flow does not
 resolve the separate prevention-order blocker. Final client findings and
-screenshot paths are recorded in `docs/feedback-fixes-2026-10-01.md`.
+screenshot paths are recorded in `docs/history/feedback-fixes-2026-10-01.md`.
 
 
 Second-batch working milestone: `34f5bb65` (2026-10-03). Fresh inventory of

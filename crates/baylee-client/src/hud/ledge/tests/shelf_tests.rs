@@ -10,7 +10,7 @@ use super::*;
 /// to `sheet.rs` and `overlay.rs` by name and would never have looked at
 /// a new file. Three things are forbidden and each for its own reason:
 ///
-/// - `palette::ACCENT` is the teal `docs/design.md` §1.2 retires. Candle
+/// - `palette::ACCENT` is the teal `docs/proposals/design.md` §1.2 retires. Candle
 ///   is what replaces it, and a shelf that kept one teal control would be
 ///   the retirement half-done in the most visible place there is.
 /// - `BRASS` as a **letter** is gilt, which on this client means a thing

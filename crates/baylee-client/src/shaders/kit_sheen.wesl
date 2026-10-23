@@ -2,7 +2,7 @@
 // glow from the top edge at rest, and while the pointer is on the button a
 // soft band of light that sweeps across it, left to right, every 2.4 s.
 //
-// Uniforms only (the GL budget, CLAUDE.md): one small block per button. At
+// Uniforms only (the GL budget, docs/dev/commands.md): one small block per button. At
 // rest (`hover` 0) nothing here reads the clock, so a still screen draws the
 // same pixels every frame and asks for none; `sweep` 0 (reduce_motion) holds
 // the band in the middle instead of moving it. Drawn over the button's own

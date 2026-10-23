@@ -17,7 +17,7 @@ import {
   type LlmState,
   type SeatHost,
 } from "../api";
-import { formatAgo, formatCount, formatDuration, formatWhen, t, type Key, type Lang } from "../i18n";
+import { formatAgo, formatCount, formatDuration, formatWhen, localeOf, t, type Key, type Lang } from "../i18n";
 import { AccessPanel } from "./ModelAccess";
 import { Badge, describe, Freshness, LIVE_MS, Panel, useNow, useVisibleInterval, type Tone } from "./shared";
 
@@ -58,13 +58,12 @@ export function groupProfiles(hosts: SeatHost[]): ProfileGroup[] {
 export function formatUntil(lang: Lang, unix: number, now: number = Date.now()): string {
   const at = new Date(unix * 1000);
   const sameDay = new Date(now).toDateString() === at.toDateString();
-  const locale = lang === "de" ? "de-DE" : "en-GB";
-  const when = new Intl.DateTimeFormat(locale, sameDay ? { timeStyle: "short" } : { dateStyle: "short", timeStyle: "short" }).format(at);
+  const when = new Intl.DateTimeFormat(localeOf(lang), sameDay ? { timeStyle: "short" } : { dateStyle: "short", timeStyle: "short" }).format(at);
   return t(lang, "llm.until", { when });
 }
 
 function usd(lang: Lang, n: number): string {
-  return new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", {
+  return new Intl.NumberFormat(localeOf(lang), {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
@@ -1169,9 +1168,9 @@ export function Models({ lang }: { lang: Lang }) {
           {hosts !== null && (
             <p className="muted small">
               {t(lang, "llm.summary", {
-                hosts: formatCount(lang, hosts.length),
-                profiles: formatCount(lang, groups.length),
-                games: formatCount(lang, games),
+                hosts: hosts.length,
+                profiles: groups.length,
+                games,
               })}
             </p>
           )}

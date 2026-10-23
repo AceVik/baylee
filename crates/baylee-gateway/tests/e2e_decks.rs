@@ -269,7 +269,7 @@ fn the_gateway_refuses_exactly_what_the_builder_calls_blocking() {
     assert_eq!(status, 200, "{answer}");
 
     // Each list is counted on its own, which is what `DeckBuilder::add_print`
-    // does — see the note in `docs/design.md` about whether it should.
+    // does — see the note in `docs/proposals/design.md` about whether it should.
     let body = r#"{"name":"Both","cards":["4 Baleful Strix"],"sideboard":["4 Baleful Strix"],"commander":null}"#;
     let (status, answer) = http(gateway.port, "POST", "/decks", Some(&token), body);
     assert_eq!(status, 200, "{answer}");

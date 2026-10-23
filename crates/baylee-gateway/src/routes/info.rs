@@ -1,7 +1,9 @@
 //! What the gateway says about itself: its source (AGPL §13), its build,
 //! its health, and how it signs people in.
 
-use crate::{Json, Shared, State, StatusCode, clock};
+use serde::Serialize;
+
+use crate::{Json, Shared, State, StatusCode, admission::Admission, clock, invite::Registration};
 
 /// What this gateway is, and where the source for exactly this build lives.
 ///
@@ -13,12 +15,36 @@ use crate::{Json, Shared, State, StatusCode, clock};
 /// because "the source is on GitHub" does not say *which* source — a build
 /// running a patch nobody published would answer that sentence truthfully
 /// and still be hiding what it runs.
-pub(crate) async fn source(State(state): State<Shared>) -> Json<serde_json::Value> {
-    let mut body = build_fields();
-    body.insert("name".into(), "baylee".into());
-    body.insert("license".into(), "AGPL-3.0-only".into());
-    body.insert("source".into(), state.source_url.clone().into());
-    Json(body.into())
+///
+/// @route GET /source
+/// @scope public
+/// @summary The source of exactly this build
+/// @description The offer of this gateway's Corresponding Source (AGPL
+/// §13): the program, its licence, the build, and where its source is.
+/// @tag Gateway
+/// @security none
+pub(crate) async fn source(State(state): State<Shared>) -> Json<SourceOffer> {
+    Json(SourceOffer {
+        build: Build::CURRENT,
+        name: "baylee",
+        license: "AGPL-3.0-only",
+        source: state.source_url.clone(),
+    })
+}
+
+/// `GET /source`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct SourceOffer {
+    #[serde(flatten)]
+    build: Build,
+    /// @description The program: `baylee`.
+    name: &'static str,
+    /// @description Its licence, an SPDX identifier.
+    license: &'static str,
+    /// @description Where this build's source is (`BAYLEE_SOURCE_URL`, else
+    /// the repository it was built from).
+    source: String,
 }
 
 /// The longest `BAYLEE_SOURCE_URL` may be, in characters.
@@ -103,17 +129,39 @@ pub(crate) fn impressum_url(raw: Option<&str>) -> Result<Option<String>, String>
 /// here from the same `baylee_build` constants, so "I rebuilt it" is
 /// checkable against any of them and no two can drift into disagreeing about
 /// one binary.
-pub(crate) fn build_fields() -> serde_json::Map<String, serde_json::Value> {
-    let mut fields = serde_json::Map::new();
-    fields.insert("version".into(), baylee_build::short().into());
-    fields.insert("commit".into(), baylee_build::COMMIT.into());
-    fields.insert("build".into(), baylee_build::BUILD_NUMBER.into());
-    fields.insert("built_at".into(), baylee_build::BUILT_AT.into());
-    // Stated rather than implied: a reader who finds `dirty` true knows the
-    // commit above does not fully describe what is running, which is the one
-    // case where the §13 offer would otherwise mislead.
-    fields.insert("dirty".into(), baylee_build::DIRTY.into());
-    fields
+///
+/// @description Which binary answers: the same five fields in `/source`,
+/// `/info` and `/health`.
+/// @openapi
+#[derive(Clone, Copy, Serialize)]
+pub(crate) struct Build {
+    /// @description The release, e.g. `0.1.0-beta.8a`.
+    version: &'static str,
+    /// @description The commit it was built from.
+    commit: &'static str,
+    /// @description The build's number.
+    #[serde(rename = "build")]
+    number: &'static str,
+    /// @description When it was built.
+    built_at: &'static str,
+    /// @description Whether the tree it was built from had changes the
+    /// commit does not hold.
+    /// @internal
+    /// Stated rather than implied: a reader who finds `dirty` true knows the
+    /// commit above does not fully describe what is running, which is the one
+    /// case where the §13 offer would otherwise mislead.
+    dirty: bool,
+}
+
+impl Build {
+    /// This binary.
+    pub(crate) const CURRENT: Self = Self {
+        version: baylee_build::short(),
+        commit: baylee_build::COMMIT,
+        number: baylee_build::BUILD_NUMBER,
+        built_at: baylee_build::BUILT_AT,
+        dirty: baylee_build::DIRTY,
+    };
 }
 
 /// What a client asks before it saves this gateway: the name to show, the
@@ -129,64 +177,80 @@ pub(crate) fn build_fields() -> serde_json::Map<String, serde_json::Value> {
 /// its protocol when it attaches (#271). A deployment runs one build on both sides, so
 /// the number is the right early warning; the check that decides is still
 /// the client's own, on the first `GameStatic` of a game.
-pub(crate) async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
-    let mut body = build_fields();
-    if let Some(name) = &state.display_name {
-        body.insert("name".into(), name.clone().into());
-    }
-    body.insert(
-        "protocol_version".into(),
-        baylee_protocol::PROTOCOL_VERSION.into(),
-    );
-    body.insert("view_version".into(), baylee_view::VIEW_VERSION.into());
-    body.insert("source".into(), state.source_url.clone().into());
-    // The operator's legal notice (Impressum), `null` when it has none.
-    body.insert(
-        "impressum".into(),
-        state
-            .impressum_url
-            .as_ref()
-            .map_or(serde_json::Value::Null, |url| url.clone().into()),
-    );
-    // Who may come in (#317): `open`, `invite` (a closed-beta key for a new
-    // account or guest) or `off`, and whether guests are taken at all.
-    body.insert("registration".into(), state.registration.wire().into());
-    body.insert("guests".into(), state.guests_enabled.into());
-    // Whether a host may seat a model this gateway's seat agents run
-    // (`docs/protocol.md` §"Hosted language-model seats").
-    body.insert(
-        "hosted_llm".into(),
-        (state.seathost_token.is_some() && !state.seathosts.lock().hosts.is_empty()).into(),
-    );
-    // Friends and chat (beta.8): the social version and how many days an
-    // undelivered message is kept, which the client's notice says; `null`
-    // when the gateway has none (`BAYLEE_SOCIAL=off`).
-    body.insert(
-        "social".into(),
-        serde_json::to_value(state.social.info()).unwrap_or(serde_json::Value::Null),
-    );
-    // Replays of the hosted games an account sat at (`docs/protocol.md`
-    // §"Replays"): the tape's version, `null` when `BAYLEE_REPLAY_JOBS=0`.
-    body.insert(
-        "replays".into(),
-        if state.replay_jobs.on() {
-            serde_json::json!({ "version": baylee_protocol::tape::TAPE_VERSION })
-        } else {
-            serde_json::Value::Null
-        },
-    );
-    // The version of the terms a player accepts here (WG-1), `null` when
-    // the gateway has none; `GET /terms` has the text.
-    body.insert(
-        "terms".into(),
-        state
-            .terms
-            .current()
-            .map_or(serde_json::Value::Null, |terms| {
-                terms.version.clone().into()
-            }),
-    );
-    Json(body.into())
+///
+/// @route GET /info
+/// @scope public
+/// @summary What this gateway is
+/// @description What a client asks before it saves a gateway: the name to
+/// show, the build, the versions that decide whether the two can talk, the
+/// source (AGPL §13), the operator's legal notice, who may come in, and
+/// which of the optional parts this gateway runs.
+/// @tag Gateway
+/// @security none
+pub(crate) async fn info(State(state): State<Shared>) -> Json<Info> {
+    Json(Info {
+        build: Build::CURRENT,
+        name: state.display_name.clone(),
+        protocol_version: baylee_protocol::PROTOCOL_VERSION,
+        view_version: baylee_view::VIEW_VERSION,
+        source: state.source_url.clone(),
+        impressum: state.impressum_url.clone(),
+        registration: state.registration,
+        guests: state.guests_enabled,
+        hosted_llm: state.seathost_token.is_some() && !state.seathosts.lock().hosts.is_empty(),
+        social: state.social.info(),
+        replays: state.replay_jobs.on().then_some(Replays {
+            version: baylee_protocol::tape::TAPE_VERSION,
+        }),
+        terms: state.terms.current().map(|terms| terms.version.clone()),
+    })
+}
+
+/// `GET /info`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Info {
+    #[serde(flatten)]
+    build: Build,
+    /// @description The name to show for this gateway
+    /// (`BAYLEE_GATEWAY_NAME`); absent when it has none, and the client
+    /// shows its address.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    /// @description The protocol a seat socket speaks; a client of another
+    /// cannot talk to this gateway.
+    protocol_version: u32,
+    /// @description The view shape this build was compiled with.
+    view_version: u32,
+    /// @description Where this build's source is (AGPL §13).
+    source: String,
+    /// @description The operator's legal notice (Impressum), `null` when it
+    /// has none.
+    impressum: Option<String>,
+    /// @description Who may make an account: anybody, somebody with a beta
+    /// key, or nobody.
+    registration: Registration,
+    /// @description Whether guests are let in.
+    guests: bool,
+    /// @description Whether a host may seat a language model this gateway's
+    /// seat agents run.
+    hosted_llm: bool,
+    /// @description Friends and chat, `null` when the gateway has none.
+    social: Option<baylee_protocol::social::SocialInfo>,
+    /// @description Replays of the hosted games an account sat at, `null`
+    /// when the gateway makes none.
+    replays: Option<Replays>,
+    /// @description The version of the terms a player accepts here, `null`
+    /// when the gateway has none (`GET /terms` has the text).
+    terms: Option<String>,
+}
+
+/// `GET /info`'s `replays`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Replays {
+    /// @description The tape's version.
+    version: u32,
 }
 
 /// The longest name `BAYLEE_GATEWAY_NAME` may set, in characters.
@@ -270,7 +334,18 @@ pub(crate) const HEALTH_PROBE: std::time::Duration = std::time::Duration::from_s
 /// `agents.connected: 0` is reported rather than escalated. The same goes for
 /// a catalog that was never ingested: no card text is a thinner client, not a
 /// broken gateway.
-pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<serde_json::Value>) {
+///
+/// @route GET /health
+/// @scope public
+/// @summary Whether this gateway can do its job
+/// @description `200` while its database answers, `503` when it does not.
+/// Everything else (the catalog, agents, seat agents, admission, games) is
+/// a field and never a status: a gateway without an agent hosts no games
+/// and is still running as it should.
+/// @tag Gateway
+/// @security none
+/// @return 503: `$Health` "The database does not answer"
+pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<Health>) {
     let database = matches!(
         tokio::time::timeout(HEALTH_PROBE, state.db.ping()).await,
         Ok(Ok(()))
@@ -283,18 +358,17 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
     // and `unreachable` is the database being gone — already in the code
     // above, repeated here so one field is not read as covering for another.
     let catalog = match state.catalog.as_ref() {
-        None => serde_json::json!({ "state": "off" }),
+        None => CatalogHealth::Off,
         Some(catalog) => match tokio::time::timeout(HEALTH_PROBE, catalog.readiness()).await {
-            Ok(Ok(found)) => serde_json::json!({
-                "state": match (found.cards, found.projection) {
-                    (true, true) => "ready",
-                    (true, false) => "projection_missing",
-                    _ => "empty",
-                },
-                "cards": found.cards,
-                "projection": found.projection,
-            }),
-            _ => serde_json::json!({ "state": "unreachable" }),
+            Ok(Ok(found)) => {
+                let (cards, projection) = (found.cards, found.projection);
+                match (cards, projection) {
+                    (true, true) => CatalogHealth::Ready { cards, projection },
+                    (true, false) => CatalogHealth::ProjectionMissing { cards, projection },
+                    _ => CatalogHealth::Empty { cards, projection },
+                }
+            }
+            _ => CatalogHealth::Unreachable,
         },
     };
 
@@ -336,17 +410,6 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
     } else {
         StatusCode::SERVICE_UNAVAILABLE
     };
-    let mut body = build_fields();
-    body.insert("ok".into(), database.into());
-    body.insert("database".into(), database.into());
-    body.insert("catalog".into(), catalog);
-    body.insert(
-        "agents".into(),
-        serde_json::json!({
-            "connected": agents_connected,
-            "games": agent_games,
-        }),
-    );
     // Seat agents (`seathost.rs`): how many, and the bridges they run.
     let (seathosts, hosted_games) = {
         let registry = state.seathosts.lock();
@@ -360,55 +423,175 @@ pub(crate) async fn health(State(state): State<Shared>) -> (StatusCode, Json<ser
                 .sum::<u32>(),
         )
     };
-    body.insert(
-        "seathosts".into(),
-        serde_json::json!({ "connected": seathosts, "games": hosted_games }),
-    );
-    // Whether a new game may start (`admission.rs`): what a deploy that
-    // drains every agent's games checks before it relies on the hold.
-    body.insert(
-        "admission".into(),
-        state.admission.admission().wire().into(),
-    );
-    body.insert(
-        "games".into(),
-        serde_json::json!({
-            "running": games_running,
-            "local_running": games_local,
-            "waiting": games_waiting,
-            "seats_awaiting_engine": seats_awaiting_engine,
-        }),
-    );
-    (code, Json(body.into()))
+    let body = Health {
+        build: Build::CURRENT,
+        ok: database,
+        database,
+        catalog,
+        agents: Counted {
+            connected: agents_connected,
+            games: agent_games,
+        },
+        seathosts: Counted {
+            connected: seathosts,
+            games: usize::try_from(hosted_games).unwrap_or(usize::MAX),
+        },
+        // Whether a new game may start (`admission.rs`): what a deploy that
+        // drains every agent's games checks before it relies on the hold.
+        admission: state.admission.admission(),
+        games: Games {
+            running: games_running,
+            local_running: games_local,
+            waiting: games_waiting,
+            seats_awaiting_engine,
+        },
+    };
+    (code, Json(body))
+}
+
+/// `GET /health`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Health {
+    #[serde(flatten)]
+    build: Build,
+    /// @description Whether the gateway can do its job: its database answers.
+    ok: bool,
+    /// @description Whether its database answers.
+    database: bool,
+    /// @description The card catalog.
+    catalog: CatalogHealth,
+    /// @description Engine agents connected, and the games they run.
+    agents: Counted,
+    /// @description Seat agents connected, and the model seats they run.
+    seathosts: Counted,
+    /// @description Whether a new game may start (`BAYLEE_ADMISSION_HOLD`).
+    admission: Admission,
+    /// @description The lobby's games.
+    games: Games,
+}
+
+/// `GET /health`'s card catalog, by `state`.
+///
+/// @description The card catalog: `off` (none configured), `ready`,
+/// `projection_missing` (the search projection wants a rebuild), `empty`
+/// (no ingest yet) or `unreachable`.
+/// @openapi
+#[derive(Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub(crate) enum CatalogHealth {
+    Off,
+    Ready { cards: bool, projection: bool },
+    ProjectionMissing { cards: bool, projection: bool },
+    Empty { cards: bool, projection: bool },
+    Unreachable,
+}
+
+/// How many are connected, and the games they run.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Counted {
+    connected: usize,
+    games: usize,
+}
+
+/// `GET /health`'s games.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct Games {
+    /// @description Games being played.
+    running: usize,
+    /// @description Of those, games whose engine runs on this machine (an
+    /// agent on the unix socket).
+    local_running: usize,
+    /// @description Rooms waiting for players.
+    waiting: usize,
+    /// @description Seats of running games whose engine has not dialled back
+    /// yet.
+    seats_awaiting_engine: usize,
 }
 
 /// Public auth configuration (clients check this before offering
 /// registration).
-pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        // True for `invite` too: a client from before keys offers the form,
-        // and the refusal it gets tells it to update (#317).
-        "registration_enabled": state.registration.takes_sign_ups(),
-        // `open`, `invite` or `off` (#317); a client that knows keys reads
-        // this one.
-        "registration": state.registration.wire(),
-        // Whether "play as a guest" is offered (#269).
-        "guests_enabled": state.guests_enabled,
-        // Whether `GET /art/…` mirrors card images. A client that pointed at a
-        // gateway with the mirror switched off would get a 404 for every card
-        // and draw a whole table of constructed faces, so it is told here
-        // rather than discovering it one blank card at a time.
-        "art_cache": state.art.enabled(),
-        "deck_images": state.deck_images.enabled(),
-        // The clocks a room may be opened at, so a client builds its picker
-        // from what this gateway actually accepts instead of hard-coding a
-        // list that goes stale the day one is added. The first is the
-        // default, which is what a room gets by saying nothing.
-        "clocks": clock::PRESETS.iter().map(|preset| serde_json::json!({
-            "name": preset.name,
-            "decide_secs": preset.decision_timeout_secs,
-            "reconnect_secs": state.reconnect_secs,
-            "blurb": preset.blurb,
-        })).collect::<Vec<_>>(),
-    }))
+///
+/// @route GET /auth/config
+/// @scope public
+/// @summary How this gateway signs people in
+/// @description What a client checks before it offers registration or a
+/// guest seat, whether card images and deck pictures are served, and the
+/// clocks a room may be opened at.
+/// @tag Accounts
+/// @security none
+pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig> {
+    Json(AuthConfig {
+        registration_enabled: state.registration.takes_sign_ups(),
+        registration: state.registration,
+        guests_enabled: state.guests_enabled,
+        central: state.central.is_some(),
+        art_cache: state.art.enabled(),
+        deck_images: state.deck_images.enabled(),
+        clocks: clock::PRESETS
+            .iter()
+            .map(|preset| ClockOffer {
+                name: preset.name,
+                decide_secs: preset.decision_timeout_secs,
+                reconnect_secs: state.reconnect_secs,
+                blurb: preset.blurb,
+            })
+            .collect(),
+    })
+}
+
+/// `GET /auth/config`.
+/// @openapi
+#[derive(Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the answer's shape: each bool is a switch a client reads"
+)]
+pub(crate) struct AuthConfig {
+    /// @description Whether a sign-up form may be offered: true for
+    /// `invite` too, where the refusal tells a client without keys to
+    /// update.
+    registration_enabled: bool,
+    /// @description Who may make an account.
+    registration: Registration,
+    /// @description Whether "play as a guest" is offered.
+    guests_enabled: bool,
+    /// @description Whether this gateway takes Baylee Central sign-ins
+    /// (`POST /auth/central/login`). A native client signs in through
+    /// Central only where this is true, and with the gateway's own routes
+    /// everywhere else.
+    /// @internal
+    /// True when `BAYLEE_CENTRAL_CONFIG_FILE` configured the bridge or a
+    /// registration (`central.rs`).
+    central: bool,
+    /// @description Whether `GET /art/…` serves card images.
+    /// @internal
+    /// A client that pointed at a gateway with the mirror switched off would
+    /// get a 404 for every card and draw a whole table of constructed faces,
+    /// so it is told here rather than discovering it one blank card at a time.
+    art_cache: bool,
+    /// @description Whether decks may carry uploaded pictures.
+    deck_images: bool,
+    /// @description The clocks a room may be opened at; the first is the
+    /// default.
+    /// @internal
+    /// So a client builds its picker from what this gateway actually accepts
+    /// instead of hard-coding a list that goes stale the day one is added.
+    clocks: Vec<ClockOffer>,
+}
+
+/// One clock a room may be opened at.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ClockOffer {
+    /// @description Its name, which `POST /lobby/games` takes.
+    name: &'static str,
+    /// @description Seconds a player has for each decision.
+    decide_secs: u32,
+    /// @description Seconds a seat that lost its connection is held.
+    reconnect_secs: u32,
+    /// @description One line saying what it is.
+    blurb: &'static str,
 }

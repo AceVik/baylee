@@ -383,12 +383,14 @@ and tests are written. It preserves the generated identity and printing data
 and refuses finished or already hand-owned cards. Do not remove a generated
 marker by hand.
 
-`xtask validate` reports the split, which is the number to watch: **1365
-cards, 590 finished — 207 hand-owned, 383 machine-owned — and 775 stubs.**
+`xtask validate` reports the split (hand-owned, machine-owned, stubs), which
+is the number to watch; it moves with every batch, so it is read off the
+run, never off this page (`docs/set-progress.md` keeps the dated counts).
 
-It also holds a card against its **printing** — Scryfall's own payload in
-`data/scryfall-cache`, which is tracked, so a fresh checkout checks exactly
-what CI does. Four comparisons, and each is a mistake a header cannot catch
+It also holds a card against its **printing**: Scryfall's own payload in
+`data/scryfall-cache`, which is not tracked (`.gitignore`); `xtask
+scryfall-cache` fills it in one bulk download, and CI does the same before
+`validate`, so both check the same payloads. Four comparisons, and each is a mistake a header cannot catch
 because a header is the other thing a person wrote: the front face's cost,
 P/T and starting loyalty; the card's colour identity (CR 903.4, which counts a
 mana symbol in the rules text — a `{4}` artifact that taps for `{U}` is blue);

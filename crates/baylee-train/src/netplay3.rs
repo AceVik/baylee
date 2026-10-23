@@ -241,7 +241,8 @@ impl NetPlayer3 {
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok());
         let open = |path: &Path| -> anyhow::Result<Session> {
-            let builder = Session::builder().map_err(ort_error)?;
+            let builder = Session::builder(crate::onnx::environment().map_err(ort_error)?)
+                .map_err(ort_error)?;
             let builder = builder
                 .with_optimization_level(GraphOptimizationLevel::Level3)
                 .map_err(ort_error)?;

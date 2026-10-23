@@ -306,13 +306,44 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
 /// at row size, the version whole and right-aligned).
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
     if state.central_pending() {
-        return controls::label(
+        let label = controls::label(
             commands,
             kit,
             "Baylee Central · central.baylee.app",
             kit.m.text,
             tokens::INK,
         );
+        if !state.central_bound() {
+            return label;
+        }
+        // A gateway asked for Central: `‹` goes back to the device's own.
+        let back = glyph_button(
+            commands,
+            kit,
+            '\u{f053}',
+            Phrase::ChooseGateway.text(state.lobby.lang()),
+            (
+                Press::Front(if state.lobby.busy() {
+                    FrontPress::Nothing
+                } else {
+                    FrontPress::LeaveGateway
+                }),
+                keys::stop(state, "back"),
+            ),
+        );
+        let head = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    column_gap: kit.m.px(10.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(head).add_children(&[back, label]);
+        return head;
     }
     let lang = state.lobby.lang();
     let words =
@@ -674,7 +705,23 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             ),
         )
     });
-    let doors: Vec<Entity> = create.into_iter().chain(guest).collect();
+    // Central's sign-in has no sign-up of its own yet: an account is made on
+    // the website (baylee-central `docs/web-accounts.md`).
+    let register = state.central_pending().then(|| {
+        controls::wide_button(
+            commands,
+            kit,
+            Phrase::CentralRegister.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (
+                Press::Front(FrontPress::OpenCentralRegister),
+                keys::stop(state, "register"),
+            ),
+        )
+    });
+    let doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
     if !doors.is_empty() {
         let line = rule(commands);
         let row = pair_if(
@@ -864,11 +911,7 @@ fn central_sign_out(commands: &mut Commands, card: Entity, state: &LobbyState, k
     if !state.central_ready() {
         return;
     }
-    let text = if state.lobby.lang() == Lang::De {
-        "Vom Baylee-Konto abmelden"
-    } else {
-        "Sign out of Baylee account"
-    };
+    let text = Phrase::CentralSignOut.text(state.lobby.lang());
     let logout = controls::button(
         commands,
         kit,
@@ -903,11 +946,7 @@ pub(super) fn gateway(
         ))
         .id();
     let explanation = if state.central_ready() {
-        if lang == Lang::De {
-            "Wähle ein Gateway für deine Spiele. Dein Konto wird zentral verwaltet."
-        } else {
-            "Choose a gateway for your games. Your account is managed centrally."
-        }
+        Phrase::GatewayHintCentral.text(lang)
     } else {
         Phrase::GatewayHint.text(lang)
     };

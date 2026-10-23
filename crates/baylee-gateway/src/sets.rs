@@ -9,7 +9,7 @@
 //! pool row is a card nothing has been written for ("absent"); for the rest
 //! the pool says `implemented`, `generated`, `partial` or `unimplemented` (a stub). Sets
 //! come in the ledger's order, which is release order by first printing, the
-//! order the owner implements them in (CLAUDE.md §"Cards"), with promo sets
+//! order the owner implements them in (`docs/cards.md`), with promo sets
 //! where their first card falls. Nothing is written or committed to say
 //! any of this: the numbers are whatever this binary was built with.
 //!
@@ -24,23 +24,46 @@ use baylee_cards::pool::PoolCard;
 use baylee_cards_index::ROWS;
 
 /// One set's progress, in cards first printed there.
+///
+/// @description How far this build's pool is through one set, counted in
+/// the cards first printed there (fewer than Scryfall's count for a set
+/// with reprints).
+/// @openapi
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SetProgress {
+    /// @description Scryfall's set code, lower case; empty for the pool as a
+    /// whole.
+    /// @internal
     /// Scryfall's set code, lower case.
     pub code: &'static str,
+    /// @description Where it falls in release order by first printing, from
+    /// 0.
+    /// @internal
     /// Where it falls in release order, from 0.
     pub position: usize,
-    /// Cards first printed in this set.
+    /// @description Cards first printed in this set.
     pub total: usize,
+    /// @description Of those, cards this build plays in full and a card test
+    /// plays.
+    /// @internal
     /// Pool cards rules-complete and played by a card test.
     pub implemented: usize,
+    /// @description Cards read in full from their scripts that no card test
+    /// plays yet; playable.
+    /// @internal
     /// Pool cards codegen read in full that no card test plays yet
     /// (`Coverage::Generated`); playable, counted apart from `implemented`.
     pub generated: usize,
+    /// @description Cards this build plays only in part.
+    /// @internal
     /// Pool cards with a `Coverage::Partial` note.
     pub partial: usize,
+    /// @description Cards this build holds only as stubs, which do not play.
+    /// @internal
     /// Pool cards that compile as stubs.
     pub unimplemented: usize,
+    /// @description Cards this build has nothing for.
+    /// @internal
     /// Ledger rows with no pool card at all.
     pub absent: usize,
 }
@@ -72,23 +95,43 @@ impl SetProgress {
 }
 
 /// One card of a set, as the drill-down lists it.
+/// @openapi
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SetCard {
+    /// @description The card's `CardIndex`.
+    /// @internal
     /// The ledger index (`CardIndex`).
     pub index: u32,
+    /// @description Its English name.
+    /// @internal
     /// The English name, as the ledger has it.
     pub name: &'static str,
+    /// @description How far this build plays it: `implemented`, `generated`,
+    /// `partial`, `unimplemented`, or `absent` for a card it has nothing
+    /// for.
+    /// @internal
     /// `implemented`, `generated`, `partial`, `unimplemented`, or `absent` for a card
     /// with no pool row.
+    /// @openapi enum: [implemented, generated, partial, unimplemented, absent]
     pub coverage: &'static str,
+    /// @description Why a partial card is only partly there, in its author's
+    /// words; `null` otherwise.
+    /// @internal
     /// Why a partial card is only partly there, in its author's words.
     pub note: Option<&'static str>,
+    /// @description Its printed type line; empty for an absent card.
+    /// @internal
     /// The printed type line; empty for an absent card.
     pub type_line: String,
+    /// @description The Scryfall id of the printing the pool card was built
+    /// from, `null` for an absent card.
+    /// @internal
     /// The Scryfall id of the printing the pool card was generated from, or
     /// `None` for an absent card. The admin's browser builds the picture's
     /// address from it itself (`docs/legal.md` §3).
     pub scryfall_id: Option<&'static str>,
+    /// @description Its Scryfall oracle id.
+    /// @internal
     /// The oracle id, which an absent card is still found by.
     pub oracle_id: &'static str,
 }

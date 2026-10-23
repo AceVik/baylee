@@ -540,20 +540,49 @@ async fn no_such_route() -> Refusal {
     refuse(StatusCode::NOT_FOUND, "no such route")
 }
 
+/// `POST /ui/api/login`.
+/// @openapi
 #[derive(Deserialize)]
 struct Credentials {
+    /// @description The admin's name.
     name: String,
+    /// @description The admin's password.
+    /// @openapi format: password
     password: String,
 }
 
+/// The signed-in admin.
+/// @openapi
 #[derive(Serialize)]
 struct Me {
+    /// @description The admin's name.
     name: String,
+    /// @description Whether a gateway's admin console is configured, so the
+    /// UI shows its admin pages (`/ui/api/admin/…`).
+    /// @internal
     /// Whether a gateway's admin console is configured, so the UI shows
     /// its admin pages (`/ui/api/admin/…`).
     gateway_admin: bool,
 }
 
+/// @route POST /ui/api/login
+/// @scope feedback
+/// @summary Sign in to the web UI
+/// @description Signs an admin in and sets the session cookie. A wrong
+/// password and an unknown name get the same `401`. Past 10 failed
+/// sign-ins from one address or 5 for one name in 15 minutes, every
+/// sign-in is `429`, the right password included.
+/// @tag Sessions
+/// @security csrf
+/// @body `$Credentials`
+/// @return 200: `$Me` "Signed in"
+/// @return-header 200 Set-Cookie: String "The session: `__Host-baylee-feedback=<token>; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`"
+/// @return 400: `$ErrorBody` "Not a sign-in"
+/// @return 401: `$ErrorBody` "Wrong name or password"
+/// @return 403: `$ErrorBody` "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+/// @return 429: `$ErrorBody` "Too many failed sign-ins; try again later"
+/// @return-header 429 Retry-After: u32 "Seconds to wait: 900"
+/// @return 503: `$ErrorBody` "The database is unavailable"
 async fn login(
     State(shared): State<Shared>,
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
@@ -645,6 +674,16 @@ async fn login(
     Ok(response)
 }
 
+/// @route POST /ui/api/logout
+/// @scope feedback
+/// @summary Sign out of the web UI
+/// @description Ends the session in the database and clears the cookie. A
+/// request without a live session is `401` and clears the cookie too.
+/// @tag Sessions
+/// @security session + csrf
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Signed out"
+/// @return-header 204 Set-Cookie: String "The cleared session cookie (`Max-Age=0`)"
 async fn logout(State(shared): State<Shared>, headers: HeaderMap) -> Response {
     let cleared = |mut response: Response| {
         response
@@ -674,6 +713,14 @@ async fn logout(State(shared): State<Shared>, headers: HeaderMap) -> Response {
     cleared(StatusCode::NO_CONTENT.into_response())
 }
 
+/// @route GET /ui/api/me
+/// @scope feedback
+/// @summary Who is signed in
+/// @description The signed-in admin, and whether the admin console is
+/// configured. Each request with the session moves its idle clock.
+/// @tag Sessions
+/// @security session
+/// @insert `SessionRefusals`
 async fn me(State(shared): State<Shared>, headers: HeaderMap) -> Result<Json<Me>, Refusal> {
     let signed_in = session(&shared.state, &shared.ui, &headers).await?;
     Ok(Json(Me {
@@ -694,6 +741,18 @@ fn body_of<T: serde::de::DeserializeOwned>(body: &Bytes, what: &'static str) -> 
     serde_json::from_slice(body).map_err(|_| refuse(StatusCode::BAD_REQUEST, what))
 }
 
+/// @route GET /ui/api/reports
+/// @scope feedback
+/// @summary List reports
+/// @description The reports the filter matches, a page at a time, with
+/// how many match in all and whether this admin has opened each. The trash
+/// is swept first.
+/// @tag Triage
+/// @operation-id `uiListReports`
+/// @security session
+/// @query-params `$Filter`
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn reports(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -706,6 +765,20 @@ async fn reports(
         .map(Json)
 }
 
+/// @route GET /ui/api/reports.csv
+/// @scope feedback
+/// @summary Export reports as CSV
+/// @description The reports the filter matches as a spreadsheet, at most
+/// 5000 rows in the filter's order (`limit` and `offset` are not read).
+/// The `client` part is left out but for its build; a cell that would
+/// start a formula is prefixed with `'`.
+/// @tag Triage
+/// @security session
+/// @query-params `$Filter`
+/// @return 200: String text/csv "The reports, a header row first"
+/// @return-header 200 Content-Disposition: String "An attachment named `reports.csv`"
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn reports_csv(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -729,6 +802,17 @@ async fn reports_csv(
     Ok(response)
 }
 
+/// @route GET /ui/api/reports/{id}
+/// @scope feedback
+/// @summary One report
+/// @description One report with its `client` object and its notes, in the
+/// trash or not.
+/// @tag Triage
+/// @operation-id `uiGetReport`
+/// @security session
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "No such report"
 async fn report(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -738,6 +822,21 @@ async fn report(
     triage::fetch(&shared.state.db, report_id(&id)?, Some(signed_in.id), true).await
 }
 
+/// @route GET /ui/api/reports/{id}/record
+/// @scope feedback
+/// @summary A report's game record
+/// @description The record attached to a report, as stored: gzip of JSON
+/// Lines, a download named `<id>.jsonl.gz`, its writer in
+/// `X-Record-Origin`.
+/// @tag Triage
+/// @operation-id `uiGetReportRecord`
+/// @security session
+/// @path-param id: String format=uuid "The report's id"
+/// @return 200: { type: string, format: binary } application/gzip "The record"
+/// @return-header 200 X-Record-Origin: String "Who wrote the record: `gateway`, or `client` (unverified)"
+/// @return-header 200 Content-Disposition: String "An attachment named `<id>.jsonl.gz`"
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "No such report, or it has no record"
 async fn record(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -747,6 +846,22 @@ async fn record(
     record_of(&shared.state.db, report_id(&id)?).await
 }
 
+/// @route PATCH /ui/api/reports/{id}
+/// @scope feedback
+/// @summary Change a report
+/// @description Changes what the body names and answers the report as it
+/// is now, with its notes. Only what differs is written, each part with an
+/// audit line under this admin's name; a change that changes nothing writes
+/// nothing. A report in the trash is not changed (`404`).
+/// @tag Triage
+/// @operation-id `uiChangeReport`
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @body `$Change`
+/// @insert `SessionChangeRefusals`
+/// @return 400: `$ErrorBody` "Not a change, nothing to change, or a part that is refused: an issue number below 1, no admin of that name, a malformed label or more than 16, or a duplicate of itself, of no report, or of a duplicate"
+/// @return 404: `$ErrorBody` "No such report, or it is in the trash"
+/// @return 409: `$ErrorBody` "The report changed meanwhile (another `expected_revision`); read it again"
 async fn change(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -779,6 +894,17 @@ async fn act(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// @route DELETE /ui/api/reports/{id}
+/// @scope feedback
+/// @summary Move a report into the trash
+/// @description The report leaves every list but the trash; it can be
+/// restored, and is purged from there after 30 days.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Moved into the trash"
+/// @return 404: `$ErrorBody` "No such report, or it is in the trash already"
 async fn trash(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -787,6 +913,17 @@ async fn trash(
     act(&shared, &headers, &id, Action::Trash).await
 }
 
+/// @route POST /ui/api/reports/{id}/restore
+/// @scope feedback
+/// @summary Take a report out of the trash
+/// @description The report returns to the lists, as it was before it went
+/// into the trash.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Restored"
+/// @return 404: `$ErrorBody` "No such report in the trash"
 async fn restore(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -795,6 +932,17 @@ async fn restore(
     act(&shared, &headers, &id, Action::Restore).await
 }
 
+/// @route POST /ui/api/reports/{id}/purge
+/// @scope feedback
+/// @summary Delete a report from the trash for good
+/// @description Deletes a report in the trash, its record and its notes;
+/// its audit lines stay.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Deleted"
+/// @return 404: `$ErrorBody` "No such report in the trash"
 async fn purge(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -803,6 +951,18 @@ async fn purge(
     act(&shared, &headers, &id, Action::Purge).await
 }
 
+/// @route POST /ui/api/reports/bulk
+/// @scope feedback
+/// @summary Change many reports at once
+/// @description One change or one action for up to 200 reports, in one
+/// transaction: all of it or none of it, an audit line per report and
+/// part. A report that is not there, or already as asked, is passed over
+/// and not counted.
+/// @tag Triage
+/// @security session + csrf
+/// @body `$Bulk`
+/// @insert `SessionChangeRefusals`
+/// @return 400: `$ErrorBody` "Not a bulk change, not 1 to 200 reports, neither or both of `change` and `action`, nothing to change, or a part that is refused (as one report's change)"
 async fn bulk(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -814,6 +974,20 @@ async fn bulk(
     triage::bulk(&shared.state.db, &signed_in.name, bulk).await
 }
 
+/// @route GET /ui/api/reports/{id}/neighbours
+/// @scope feedback
+/// @summary Where a report stands in a list
+/// @description The reports above and below this one in the list the
+/// filter makes, its place and the list's length. A report the filter does
+/// not match, or that is not there, has no place (`position` `null`,
+/// `total` 0).
+/// @tag Triage
+/// @security session
+/// @path-param id: String format=uuid "The report's id"
+/// @query-params `$Filter`
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
+/// @return 404: `$ErrorBody` "Not a report's id"
 async fn neighbours(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -832,12 +1006,27 @@ async fn neighbours(
     .map(Json)
 }
 
+/// `POST /ui/api/reports/{id}/notes`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NoteIn {
+    /// @description What the note says: 1 to 4000 characters after trimming.
     text: String,
 }
 
+/// @route POST /ui/api/reports/{id}/notes
+/// @scope feedback
+/// @summary Add a note to a report
+/// @description An internal note, under this admin's name; answers the
+/// report's notes, oldest first. Not for a report in the trash.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @body `$NoteIn`
+/// @insert `SessionChangeRefusals`
+/// @return 400: `$ErrorBody` "Not a note, or not 1 to 4000 characters"
+/// @return 404: `$ErrorBody` "No such report, or it is in the trash"
 async fn add_note(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -856,6 +1045,17 @@ async fn add_note(
     .await
 }
 
+/// @route DELETE /ui/api/reports/{id}/notes/{note}
+/// @scope feedback
+/// @summary Remove a note
+/// @description Removes one of this admin's own notes; answers the
+/// report's notes left.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The report's id"
+/// @path-param note: String format=uuid "The note's id"
+/// @insert `SessionChangeRefusals`
+/// @return 404: `$ErrorBody` "No such report, or no note of this admin's there"
 async fn remove_note(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -867,13 +1067,37 @@ async fn remove_note(
     triage::remove_note(&shared.state.db, report_id(&id)?, note, &signed_in.name).await
 }
 
+/// `POST /ui/api/seen`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SeenIn {
+    /// @description The reports, 1 to 500; an id that is no report is passed
+    /// over.
+    /// @openapi
+    /// ```yaml
+    /// minItems: 1
+    /// ```
+    /// @openapi
+    /// ```yaml
+    /// maxItems: 500
+    /// ```
     ids: Vec<Uuid>,
+    /// @description Opened (`true`) or not (`false`).
     seen: bool,
 }
 
+/// @route POST /ui/api/seen
+/// @scope feedback
+/// @summary Mark reports as opened or not
+/// @description Marks reports as opened by this admin, or as not opened,
+/// for the unread marker and `unseen=true`.
+/// @tag Triage
+/// @security session + csrf
+/// @body `$SeenIn`
+/// @insert `SessionChangeRefusals`
+/// @return 204: "Marked"
+/// @return 400: `$ErrorBody` "Not a list of reports, or not 1 to 500 of them"
 async fn seen(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -886,6 +1110,16 @@ async fn seen(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// @route GET /ui/api/crashes
+/// @scope feedback
+/// @summary Crash reports grouped by signature
+/// @description The crashes the filter matches, grouped by signature, most
+/// reports first, at most 100 groups. `limit` and `offset` are not read.
+/// @tag Triage
+/// @security session
+/// @query-params `$Filter`
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn crashes(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -898,6 +1132,13 @@ async fn crashes(
         .map(Json)
 }
 
+/// @route GET /ui/api/views
+/// @scope feedback
+/// @summary This admin's saved views
+/// @description This admin's saved lists, by name.
+/// @tag Triage
+/// @security session
+/// @insert `SessionRefusals`
 async fn views(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -908,13 +1149,29 @@ async fn views(
         .map(Json)
 }
 
+/// `POST /ui/api/views`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ViewIn {
+    /// @description Its name: 1 to 60 characters after trimming, no control
+    /// character. A name saved again replaces its query.
     name: String,
+    /// @description The list's query string (a leading `?` is dropped), at
+    /// most 2000 characters, read as the list reads it.
     query: String,
 }
 
+/// @route POST /ui/api/views
+/// @scope feedback
+/// @summary Save a view
+/// @description Saves a named list for this admin (at most 50), replacing
+/// one of the same name; answers this admin's views.
+/// @tag Triage
+/// @security session + csrf
+/// @body `$ViewIn`
+/// @insert `SessionChangeRefusals`
+/// @return 400: `$ErrorBody` "Not a view, a name that is not 1 to 60 characters, a query over 2000 characters or one the list does not take, or 50 views already"
 async fn save_view(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -928,6 +1185,15 @@ async fn save_view(
         .map(Json)
 }
 
+/// @route DELETE /ui/api/views/{id}
+/// @scope feedback
+/// @summary Remove a saved view
+/// @description Removes one of this admin's views; answers the views left.
+/// @tag Triage
+/// @security session + csrf
+/// @path-param id: String format=uuid "The view's id"
+/// @insert `SessionChangeRefusals`
+/// @return 404: `$ErrorBody` "No view of this admin's there"
 async fn remove_view(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -941,6 +1207,13 @@ async fn remove_view(
         .map(Json)
 }
 
+/// @route GET /ui/api/admins
+/// @scope feedback
+/// @summary Every admin's name
+/// @description Every admin's name, sorted, for assigning a report.
+/// @tag Triage
+/// @security session
+/// @insert `SessionRefusals`
 async fn admins(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -949,14 +1222,33 @@ async fn admins(
     triage::admins(&shared.state.db).await.map(Json)
 }
 
+/// One line of a report's audit.
+/// @openapi
 #[derive(Serialize)]
 struct AuditEntry {
+    /// @description When, RFC 3339 in UTC.
+    /// @openapi format: date-time
     at: String,
+    /// @description Who: an admin's name, `token` for the admin token, or
+    /// `sweep` for the trash's own purge.
     actor: String,
+    /// @description What: `status`, `issue`, `assign`, `priority`, `labels`,
+    /// `duplicate`, `trash`, `restore` or `delete`.
     action: String,
+    /// @description The new value, where the action has one.
     detail: Option<String>,
 }
 
+/// @route GET /ui/api/reports/{id}/audit
+/// @scope feedback
+/// @summary A report's audit
+/// @description Every change to a report and who made it, oldest first;
+/// kept after the report is purged. An id with no lines answers `[]`.
+/// @tag Triage
+/// @security session
+/// @path-param id: String format=uuid "The report's id"
+/// @insert `SessionRefusals`
+/// @return 404: `$ErrorBody` "Not a report's id"
 async fn audit_trail(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -989,6 +1281,17 @@ async fn audit_trail(
         .map_err(|e| db_down(&e))
 }
 
+/// @route GET /ui/api/facets
+/// @scope feedback
+/// @summary Counts beside the list
+/// @description For each dimension, how many reports have each value
+/// under the filter without that dimension, so picking one value still
+/// shows the others; and what the whole filter matches.
+/// @tag Triage
+/// @security session
+/// @query-params `$Filter`
+/// @insert `SessionRefusals`
+/// @return 400: `$ErrorBody` "A filter is malformed"
 async fn facets(
     State(shared): State<Shared>,
     headers: HeaderMap,
@@ -1005,22 +1308,43 @@ async fn facets(
 const STATS_DAYS: u32 = 30;
 
 /// One day's reports of one kind.
+/// @openapi
 #[derive(Serialize)]
 struct DayKind {
+    /// @description The day, `YYYY-MM-DD` in UTC.
+    /// @internal
     /// `YYYY-MM-DD`, UTC.
+    /// @openapi format: date
     day: String,
+    /// @description The reports' kind.
+    /// @openapi enum: [bug, improvement, feedback, crash, other, chat]
     kind: String,
+    /// @description How many came.
     count: i64,
 }
 
 /// `GET /ui/api/stats`: reports per UTC day and kind over the last
 /// [`STATS_DAYS`] days, for the overview's error-rate chart. Counts only.
+///
+/// @description Reports per UTC day and kind, counts only.
+/// @openapi
 #[derive(Serialize)]
 struct ReportStats {
+    /// @description How many days back it counts: 30.
     days: u32,
+    /// @description Each day and kind that had reports, by day then kind.
     rows: Vec<DayKind>,
 }
 
+/// @route GET /ui/api/stats
+/// @scope feedback
+/// @summary Reports per day and kind
+/// @description Reports per UTC day and kind over the last 30 days, by day
+/// then kind, for the overview's chart; days without reports have no row.
+/// @tag Triage
+/// @operation-id `uiReportStats`
+/// @security session
+/// @insert `SessionRefusals`
 async fn stats(
     State(shared): State<Shared>,
     headers: HeaderMap,

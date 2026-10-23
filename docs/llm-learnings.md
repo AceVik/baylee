@@ -849,8 +849,9 @@ Open milestones discovered tonight:
 
 ## State after M2.S8 (2026-08-29)
 
-- DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lives in
-  `crates/baylee-cards/AGENTS.md`.
+- DSL frozen (`docs/card-dsl.md`); the cards `AGENTS.md` playbook lived in
+  `crates/baylee-cards/AGENTS.md` (folded into `docs/card-agent-brief.md`
+  on 20.10.2026).
 - `cargo run -p xtask -- card-batch` prepares per-card task packages in
   `target/card-batch/<slug>/` (STUB + SCRIPT + SCRYFALL + EXEMPLAR + PROMPT).
   `--cards "A,B"` restricts to a list; default = all unimplemented
@@ -4697,7 +4698,7 @@ land type"; both are convention tests that fire on a first try.
 
 ### Oracle-blind Luna trial: 32 Generated cards (2026-10-15)
 
-- Four fresh Luna authors wrote eight cards each: spells, triggers, activations and statics. All expectations came from cached Oracle text/rulings; target implementations were withheld. Sol reviewed every card; authors corrected their own tests. The per-card evidence and limitations are in `docs/luna-generated-trial.json`.
+- Four fresh Luna authors wrote eight cards each: spells, triggers, activations and statics. All expectations came from cached Oracle text/rulings; target implementations were withheld. Sol reviewed every card; authors corrected their own tests. The per-card evidence and limitations are in `docs/history/luna-generated-trial.json`.
 - Final card gates: **32/32 cards, 35/35 tests, 34/34 recorded ability firings, 34/34 whole-ability mutants killed**. Review required several rounds; initial compilation reported 15 errors and the first runtime had 25 passing/10 failing tests. Some reviewer API advice was also wrong and retracted. This is evidence for supervised use, not unattended promotion, sampling-only approval, or demonstrated token savings.
 - The independent tests exposed a real transcoder defect: repeated identical target restrictions were collapsed, so Agony Warp could not select two independent targets. Astra added explicit second-slot pump resolution and generation, with same-target/different-target/partial-legality tests and parser refusal regressions. Martial Glory receives the same repair but remains Generated. Bounty of Might, Seeds of Strength and Common Bond now fail closed as Unimplemented instead of silently playing incorrectly; they are outside the original 540 and outside this trial's 32.
 - The local rules skill's blanket distinct-target statement is overbroad. Separate occurrences of “target” may choose the same object. Wizards' Modern Masters 2015 release notes explicitly state for Agony Warp: “The two target creatures may be the same creature or they may be different creatures.” Source: https://magic.wizards.com/en/news/feature/modern-masters-2015-edition-release-notes-2015-05-12 . Do not replace official rules with simplified skill summaries.
@@ -4709,7 +4710,7 @@ land type"; both are convention tests that fire on a first try.
 
 ### Matched Generated-card workflow comparison (2026-10-15)
 
-- Tested the proposed workflow instead of assuming it saves tokens: A used Luna authors followed by Sol 6.1 review; B added an upfront Sol 6.1 Oracle scenario matrix; C used Sol 6.1 authors and independent Sol 6.1 review. Each arm had 32 cards, split across spells, triggers, activated abilities and static effects. Authors worked in two 16-card groups, blind to target implementations. The owner then requested a fourth 32-card arm with GPT-6 Sol authors. Results and measurement caveats are recorded in `docs/card-test-workflow-comparison.json`.
+- Tested the proposed workflow instead of assuming it saves tokens: A used Luna authors followed by Sol 6.1 review; B added an upfront Sol 6.1 Oracle scenario matrix; C used Sol 6.1 authors and independent Sol 6.1 review. Each arm had 32 cards, split across spells, triggers, activated abilities and static effects. Authors worked in two 16-card groups, blind to target implementations. The owner then requested a fourth 32-card arm with GPT-6 Sol authors. Results and measurement caveats are recorded in `docs/history/card-test-workflow-comparison.json`.
 - On the original 96 cards, the first semantic review required revisions on 19 A cards, 18 B cards and 2 C cards. All 99 whole-ability mutants had already been killed: mutation sensitivity does not establish clause completeness. The scenario matrix did not remove the need for full semantic review. This supersedes the unmeasured recommendation above; do not adopt matrix-plus-Luna on assumed savings.
 - After corrections, all 96 test suites were accepted, with 143 passing tests and all 99 abilities exercised. Only 88 cards qualify for Implemented. Eight any-target cards remain Generated because the engine offers battles but lacks defense-counter damage resolution. Useful tests remain enabled; asserting ordinary marked damage on a battle would encode the bug. `data/card-test-holds.tsv` now preserves these explicit gaps consistently in codegen, its reproducibility check, the coverage invariant and tool hooks.
 - Costs include author repairs, planning and independent review. Cached input is a subset of input; reasoning output is a subset of output. Local response-level telemetry is deduplicated by response ID and restricted to this experiment's root and direct children. Agent turn durations overlap and include waiting; they are not isolated model latency. Report shared coordination and integration separately. Different matched cards, weaker matches and one disclosed cross-arm exposure limit causal conclusions; batch-level usage cannot honestly be split into exact per-card costs.

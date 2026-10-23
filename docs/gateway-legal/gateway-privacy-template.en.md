@@ -1,5 +1,5 @@
-<!-- version: 2026-10-2 -->
-<!-- updated: 2026-10-20 -->
+<!-- version: 2026-10-21 -->
+<!-- updated: 2026-10-21 -->
 
 # Privacy notice of this gateway
 
@@ -23,9 +23,11 @@ legal notice]**.
 - **Playing:** tables and the lobby (in memory), your decks and their
   versions, your settings, uploaded sleeves and playmats. *Art. 6(1)(b) GDPR*
 - **Friends and chat:** friendships, requests, blocks, groups, your devices'
-  public keys and your chat settings. Messages are end-to-end encrypted; the
-  gateway holds messages not yet delivered in encrypted form and cannot read
-  them. *Art. 6(1)(b) GDPR*
+  public keys and your chat settings. Messages to friends, groups and tables
+  are end-to-end encrypted; the gateway holds messages not yet delivered in
+  encrypted form and cannot read them. The lobby chat is public and not
+  encrypted: the gateway passes it to everyone connected and keeps the last
+  50 messages in memory until it restarts. *Art. 6(1)(b) GDPR*
 - **Game records:** every game played here with all actions and cards,
   beside it which account sat in which seat and whether you show your hidden
   cards in replays. For replays and finding bugs. *Art. 6(1)(b) GDPR*

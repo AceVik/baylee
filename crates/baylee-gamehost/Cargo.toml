@@ -18,6 +18,7 @@ baylee-protocol.workspace = true
 baylee-view.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

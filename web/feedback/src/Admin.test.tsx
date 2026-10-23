@@ -108,7 +108,7 @@ describe("the overview", () => {
     expect(server.getByText("unlimited")).toBeTruthy();
     unmount();
     render(<Admin lang="de" />);
-    expect((await screen.findByTestId("registered")).textContent).toBe("1.234 Registrierte Konten");
+    expect((await screen.findByTestId("registered")).textContent).toBe("1.234 Registrierte Accounts");
     expect(screen.getByRole("region", { name: "Jetzt online" })).toBeTruthy();
   });
 
@@ -122,7 +122,7 @@ describe("the overview", () => {
     await userEvent.type(screen.getByLabelText("Note (who it is for)"), "  for Ana ");
     await userEvent.click(screen.getByRole("button", { name: "Make keys" }));
 
-    const made = await screen.findByRole("region", { name: "2 new key(s): shown only now" });
+    const made = await screen.findByRole("region", { name: "2 new keys: shown only now" });
     expect(within(made).getByDisplayValue("BAYLEE-AAAA-BBBB-CCCC-DDDD")).toBeTruthy();
     expect(within(made).getByDisplayValue("BAYLEE-EEEE-FFFF-GGGG-HHHH")).toBeTruthy();
     const post = calls.find((c) => c.method === "POST");
@@ -286,7 +286,7 @@ describe("the people pages", () => {
   test("a gone account says so", async () => {
     serve(() => ({ status: 404, body: { error: "no such account" } }));
     render(<Admin lang="de" section="accounts" id="0199cccc-0000-7000-8000-000000000009" />);
-    expect((await screen.findByRole("alert")).textContent).toBe("Dieses Konto gibt es nicht (mehr).");
+    expect((await screen.findByRole("alert")).textContent).toBe("Diesen Account gibt es nicht (mehr).");
   });
 
   test("live shows who is where and every table's chairs", async () => {
@@ -410,5 +410,6 @@ test("the language is the browser's when it is German, English otherwise", () =>
   expect(pickLang(["en-US", "de"])).toBe("en");
   expect(pickLang(["fr"])).toBe("en");
   expect(pickLang([])).toBe("en");
-  expect(t("de", "invites.made", { n: 3 })).toBe("3 neue(r) Schlüssel: nur jetzt sichtbar");
+  expect(t("de", "invites.made", { n: 1 })).toBe("1 neuer Schlüssel: nur jetzt sichtbar");
+  expect(t("de", "invites.made", { n: 3 })).toBe("3 neue Schlüssel: nur jetzt sichtbar");
 });

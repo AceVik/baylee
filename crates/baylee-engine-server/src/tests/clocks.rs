@@ -444,6 +444,29 @@ fn the_last_player_leaving_on_purpose_ends_the_game() {
     ));
 }
 
+/// The last player leaving a duel whose other chair the house already
+/// holds: the house concedes for the leaver, and that ends the game before
+/// it comes to the other chair, which has won. Conceding for that one as
+/// well was put to a game that was over, and it aborted the engine process
+/// (a hosted duel on 22.10.2026, whose seat bridge had lost its
+/// connection).
+#[test]
+fn the_last_player_leaving_a_duel_the_house_half_holds_ends_it_once() {
+    let mut runner = EngineRunner::new();
+    setup(&mut runner, &two_humans_window(60, 30));
+    sit_both(&mut runner);
+    leave(&mut runner, 1);
+    assert!(!runner.finished(), "seat 0 is still at the table");
+    let out = leave(&mut runner, 0);
+    assert!(runner.finished());
+    assert!(
+        out.iter().any(
+            |e| matches!(&e.msg, Some(v1::envelope::Msg::GameEnded(ended)) if ended.winners == [1])
+        ),
+        "the chair the house holds wins"
+    );
+}
+
 /// One seat's expired clock must never take another seat's decision, and
 /// a deadline that fired after the game moved on must take none at all.
 #[test]

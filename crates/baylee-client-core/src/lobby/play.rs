@@ -577,14 +577,7 @@ impl TableDraft {
     pub fn summary(&self, lang: Lang) -> String {
         let mut line = Phrase::RulesLife.fill(lang, &[&self.life.to_string()]);
         line.push_str(" · ");
-        line.push_str(
-            &Phrase::counted(
-                usize::from(self.mulligans),
-                Phrase::RulesMulliganOne,
-                Phrase::RulesMulliganMany,
-            )
-            .fill(lang, &[&self.mulligans.to_string()]),
-        );
+        line.push_str(&Phrase::RulesMulligans.fill_count(lang, usize::from(self.mulligans), &[]));
         if self.template == Template::FiveLand {
             line.push_str(" · ");
             line.push_str(Phrase::RulesFiveLands.text(lang));

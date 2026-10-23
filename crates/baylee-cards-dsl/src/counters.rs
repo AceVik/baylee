@@ -29,7 +29,7 @@
 //!
 //! What a client draws for one of these is still a bare dot — the view
 //! carries the id and has no table to turn it into a name. That is a real
-//! hole and it is named in `docs/engine-gaps.md`; the answer is a counter
+//! hole and it is named in `docs/history/engine-gaps.md`; the answer is a counter
 //! name table in `GameStatic`, not a variant per word.
 
 use crate::effect::CounterKind;

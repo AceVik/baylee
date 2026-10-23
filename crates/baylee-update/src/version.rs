@@ -57,6 +57,18 @@ mod tests {
         assert!(!is_offered(&v("0.1.0-beta.9"), &v("0.1.0-beta.10")));
     }
 
+    /// The lettered betas (8a, 8b) sort above every numbered one, so the
+    /// release after them raises the patch (`docs/releasing.md` §"Version
+    /// numbers"): a `beta.9` would never reach their installs.
+    #[test]
+    fn the_release_after_a_lettered_beta_raises_the_patch() {
+        assert!(is_offered(&v("0.1.0-beta.8b"), &v("0.1.0-beta.8a")));
+        assert!(!is_offered(&v("0.1.0-beta.9"), &v("0.1.0-beta.8b")));
+        assert!(!is_offered(&v("0.1.0-beta.10a"), &v("0.1.0-beta.9a")));
+        assert!(is_offered(&v("0.1.1-beta.1"), &v("0.1.0-beta.8b")));
+        assert!(is_offered(&v("0.1.1-beta.2"), &v("0.1.1-beta.1")));
+    }
+
     #[test]
     fn precedence_follows_semver_eleven() {
         // The chain semver.org §11 gives, each newer than the one before.

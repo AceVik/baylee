@@ -1298,6 +1298,8 @@ pub(crate) enum FrontPress {
     OpenSource,
     /// Open the community's Discord invitation in the browser.
     OpenDiscord,
+    /// Open the website's registration page, from Central's sign-in form.
+    OpenCentralRegister,
     /// Open the gateway's legal notice (Impressum, `/info` `impressum`) in
     /// the browser.
     OpenImpressum,
@@ -1399,6 +1401,7 @@ impl FrontPress {
             }
             press @ (FrontPress::OpenSource
             | FrontPress::OpenDiscord
+            | FrontPress::OpenCentralRegister
             | FrontPress::OpenImpressum) => {
                 super::source::open(press, state);
             }

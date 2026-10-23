@@ -43,7 +43,7 @@ pub fn classify<'a>(paths: impl IntoIterator<Item = &'a str>) -> Classes {
             classes.ci = true;
         } else if path.starts_with("web/feedback/") {
             classes.web = true;
-        } else if [".claude/", ".agents/", ".codex/", ".junie/", "web/"]
+        } else if [".claude/", "web/"]
             .iter()
             .any(|prefix| path.starts_with(prefix))
         {
@@ -130,15 +130,7 @@ mod tests {
 
     #[test]
     fn scratch_directories_and_other_web_pages_set_nothing() {
-        let quiet = [
-            ".claude/x.md",
-            ".agents/skills/a.md",
-            ".codex/c",
-            ".junie/j",
-            "web/site/index.html",
-            "",
-            "  ",
-        ];
+        let quiet = [".claude/x.md", "web/site/index.html", "", "  "];
         assert_eq!(of(&quiet), Classes::default());
     }
 

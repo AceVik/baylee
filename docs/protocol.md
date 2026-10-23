@@ -1007,7 +1007,7 @@ sent, and draws the countdown on the button that sends that action.
 
 Two things this does not do. **A replay does not carry it**: a replay
 re-applies actions, and who produced an action is not in the journal. That
-comes with the game log (`docs/game-log-design.md`). **Nothing escalates**: the
+comes with the game log (`docs/proposals/game-log-design.md`). **Nothing escalates**: the
 clock answers one question at a time, as often as the seat keeps timing out,
 and a player who never answers is answered for until the game ends. Whether a
 run of clock answers should become a stand-in or a concession is a table
@@ -2458,6 +2458,13 @@ so a guest is `Guest#1a2b` to the other players.
   guests`), read the way `BAYLEE_REGISTRATION` is; `GET /auth/config` says
   `guests_enabled`, so a client offers what the gateway takes. The two
   switches are independent.
+- **`central`** in `GET /auth/config` says whether the gateway takes Baylee
+  Central sign-ins (`POST /auth/central/login`, set up by
+  `BAYLEE_CENTRAL_CONFIG_FILE`, `docs/central-login.md`). A native client
+  turns its account form into Central's only where it is `true`; everywhere
+  else it signs in, signs up and seats guests with the gateway's own routes,
+  as the browser client does. A gateway older than the field sends none,
+  which reads as `false`.
 - The database holds a guest to all of this (migration
   `m20260925_000007_guests`): a guest has no username, address or password,
   and an account that is not a guest has a password and a username or,
@@ -3182,7 +3189,8 @@ as where the game data goes, and the fallback plays on in that chair.
 ## Friends and chat (beta.8)
 
 Friends, presence for friends, whispers, groups and table chat, every
-message body end-to-end encrypted. The types are
+message body end-to-end encrypted, and one public lobby chat that is not
+(below). The types are
 `baylee_protocol::social` (`crates/baylee-protocol/src/social.rs`), the
 gateway's side `crates/baylee-gateway/src/social/`, the crypto
 `crates/baylee-seal`.
@@ -3193,10 +3201,19 @@ gateway's side `crates/baylee-gateway/src/social/`, the crypto
   `social::SOCIAL_VERSION` (1) too.
 - **The public identifier is the tag** (`af03`). Account ids never leave the
   gateway.
-- **The gateway never sees plaintext.** It carries sealed bodies as opaque
-  base64url, checks only shapes, sizes, membership and that a send wraps the
-  message key for exactly the current devices of every recipient, and never
-  logs a frame, ticket, ciphertext, key, tag or handle.
+- **The gateway never sees plaintext** of a whisper, group or table
+  message. It carries sealed bodies as opaque base64url, checks only shapes,
+  sizes, membership and that a send wraps the message key for exactly the
+  current devices of every recipient, and never logs a frame, ticket,
+  ciphertext, key, tag or handle.
+- **The lobby chat is public and not encrypted** (`Up::Global` →
+  `Down::Global`, `Conv::Global`, `global` in a report). Its body is plain
+  text (at most `MAX_BODY_BYTES`, under the same send allowance as a
+  message); the gateway passes it to every other open social socket, keeps
+  the last 50 in memory (never on disk, gone with a restart) and sends them
+  after `snapshot` to a socket that opens. The default terms and the privacy
+  template say so (`docs/gateway-legal/`); the client says it where the lobby
+  chat is empty.
 - `GET /info` says `"social": {"version": 1, "keep_days": 14}`, or `null`
   when the gateway has `BAYLEE_SOCIAL=off`. An older gateway sends no key,
   which means no chat.
@@ -3488,7 +3505,14 @@ raises the sheet and `GET /terms?lang=` in the interface's language
 (`terms::url`); `false` with `/info.terms` named keeps that version as the
 device's copy (`ClientSettings.terms`, by gateway address). A kept guest,
 which signs in to nothing, is asked when `/info.terms` differs from that
-copy. A Central sign-in's `"central_terms_stale": true` shows Baylee
+copy. Central gives no gateway ticket and keeps no write while its own
+terms in force wait for the account (`TermsRequired`), so the native client
+asks before any gateway: a Central sign-in that finds them unaccepted
+(`TermsStatus`) shows Baylee Central's own terms with no gateway session
+yet, and admits only after they are accepted; Later ends the Central
+sign-in. A gateway account's migration waits for them the same way
+(`Account::migration_held`; `Account::finish_migration` after the
+acceptance). A Central sign-in's `"central_terms_stale": true` shows Baylee
 Central's own terms first (fetched and accepted through the account worker,
 `Account::central_terms`, `accept_terms`), then admits again, which brings
 the gateway's own answer. The sheet renders the Markdown subset (`#`/`##`,

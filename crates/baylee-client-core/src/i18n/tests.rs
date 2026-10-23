@@ -50,132 +50,90 @@ fn a_seat_named_for_the_pronoun_is_not_named_twice() {
     assert_eq!(own_seat_name(Lang::En, "you"), "You");
 }
 
-/// Word order is the translator's; the values are not. A `{0}` that is
-/// dropped in one language is a name or a count the player never sees.
-#[test]
-fn a_translation_keeps_every_placeholder_it_was_given() {
-    for phrase in Phrase::ALL {
-        let english = phrase.slots(Lang::En);
-        for lang in Lang::ALL {
-            assert_eq!(
-                phrase.slots(lang),
-                english,
-                "{phrase:?} loses or invents a placeholder in {lang:?}"
-            );
-        }
-    }
-}
-
 /// `card(s)` is not a plural in any language, and the sheet greys what a
 /// sentence says in brackets — so the broken form was drawn as an
 /// editorial aside, in grey, right beside the number it disagreed with.
-/// [`Phrase::counted`] is the way to say this; a bracketed suffix is not.
+/// A selector on `$count` is the way to say this; a bracketed suffix is
+/// not. Both forms of a counted phrase are read.
 #[test]
 fn no_phrase_fakes_a_plural_with_a_bracket() {
     for phrase in Phrase::ALL {
         for lang in Lang::ALL {
-            let text = phrase.text(lang);
-            for fake in ["(s)", "(n)", "(e)", "(en)", "(er)"] {
-                assert!(
-                    !text.contains(fake),
-                    "{phrase:?} says {fake} in {lang:?} instead of being written twice"
-                );
+            let forms = if Phrase::ARGS[*phrase as usize].contains(&"count") {
+                vec![phrase.text_count(lang, 1), phrase.text_count(lang, 2)]
+            } else {
+                vec![phrase.text(lang).to_owned()]
+            };
+            for text in forms {
+                for fake in ["(s)", "(n)", "(e)", "(en)", "(er)"] {
+                    assert!(
+                        !text.contains(fake),
+                        "{phrase:?} says {fake} in {lang:?} instead of choosing a form"
+                    );
+                }
             }
         }
     }
 }
 
-/// A counted phrase is two literals, and the pair has to stay one
-/// sentence: the same values in the same slots, or the singular quietly
-/// drops the number it is counting.
+/// A counted phrase is one message, and its number picks the form:
+/// exactly one takes `[one]`, and **zero takes the plural** in both
+/// languages ("Discard 0 cards"). A number that is shown and also picks is
+/// passed once, as a number.
 #[test]
-fn both_forms_of_a_counted_phrase_carry_the_same_values() {
-    let pairs = [
-        (Phrase::ShakyCard, Phrase::ShakyCards),
-        (Phrase::PutCardOnBottom, Phrase::PutOnBottom),
-        (Phrase::DiscardCard, Phrase::DiscardCards),
-        (Phrase::NounCard, Phrase::NounCards),
-        (Phrase::ReportConfirmCardRef, Phrase::ReportConfirmCardRefs),
-        (
-            Phrase::ReportConfirmPlayerName,
-            Phrase::ReportConfirmPlayerNames,
-        ),
-        (Phrase::NounTarget, Phrase::NounTargets),
-        (Phrase::NounCardFromLibrary, Phrase::NounCardsFromLibrary),
-        (Phrase::NounCardToTop, Phrase::NounCardsToTop),
-        (Phrase::NounCardOutside, Phrase::NounCardsOutside),
-        (
-            Phrase::NounPermanentToSacrifice,
-            Phrase::NounPermanentsToSacrifice,
-        ),
-        (Phrase::NounCardToKeep, Phrase::NounCardsToKeep),
-        (Phrase::NounLandToKeep, Phrase::NounLandsToKeep),
-        (Phrase::NounCreatureToKeep, Phrase::NounCreaturesToKeep),
-        (Phrase::NounPermanentToKeep, Phrase::NounPermanentsToKeep),
-        (Phrase::NounCardToDiscard, Phrase::NounCardsToDiscard),
-        (Phrase::NounPermanentToTap, Phrase::NounPermanentsToTap),
-        (
-            Phrase::NounPermanentToReturn,
-            Phrase::NounPermanentsToReturn,
-        ),
-        (Phrase::NounCardToExile, Phrase::NounCardsToExile),
-        (
-            Phrase::NounPermanentToLeaveTapped,
-            Phrase::NounPermanentsToLeaveTapped,
-        ),
-        (Phrase::NounPermanentToUntap, Phrase::NounPermanentsToUntap),
-        (Phrase::NounCardToReveal, Phrase::NounCardsToReveal),
-        (Phrase::NounAttackerToBand, Phrase::NounAttackersToBand),
-        (
-            Phrase::NounAttackerToBandWith,
-            Phrase::NounAttackersToBandWith,
-        ),
-        (Phrase::NounCardToHand, Phrase::NounCardsToHand),
-        (Phrase::NounCardToBottom, Phrase::NounCardsToBottom),
-        (Phrase::NounCardToPlay, Phrase::NounCardsToPlay),
-        (
-            Phrase::NounCardToBattlefield,
-            Phrase::NounCardsToBattlefield,
-        ),
-        (Phrase::NounCardToGraveyard, Phrase::NounCardsToGraveyard),
-        (Phrase::NounCardForFirstPile, Phrase::NounCardsForFirstPile),
-        (
-            Phrase::NounCardFromGraveyard,
-            Phrase::NounCardsFromGraveyard,
-        ),
-        (Phrase::LogKeptCardYou, Phrase::LogKeptCardsYou),
-        (Phrase::LogKeptCard, Phrase::LogKeptCards),
-        (Phrase::LogDrewCardYou, Phrase::LogDrewCardsYou),
-        (Phrase::LogDrewCard, Phrase::LogDrewCards),
-        (Phrase::LogLifePointYou, Phrase::LogLifePointsYou),
-        (Phrase::LogLifePoint, Phrase::LogLifePoints),
-        (Phrase::LogCounterPlus, Phrase::LogCountersPlus),
-        (Phrase::LogCounterMinus, Phrase::LogCountersMinus),
-        (Phrase::LogCounterLoyalty, Phrase::LogCountersLoyalty),
-        (Phrase::LogCounterLore, Phrase::LogCountersLore),
-        (Phrase::LogCounterTime, Phrase::LogCountersTime),
-        (Phrase::LogCounterAge, Phrase::LogCountersAge),
-        (Phrase::LogCounterCharge, Phrase::LogCountersCharge),
-        (Phrase::LogCounterPoison, Phrase::LogCountersPoison),
-        (Phrase::LogCounterEnergy, Phrase::LogCountersEnergy),
-        (Phrase::LogCounterRad, Phrase::LogCountersRad),
-        (Phrase::LogCounterLifelink, Phrase::LogCountersLifelink),
-        (Phrase::LogCounterLevel, Phrase::LogCountersLevel),
-        (Phrase::LogCounterOther, Phrase::LogCountersOther),
-    ];
-    for (one, many) in pairs {
-        for lang in Lang::ALL {
-            assert_eq!(
-                one.slots(lang),
-                many.slots(lang),
-                "{one:?} and {many:?} disagree about their values in {lang:?}"
-            );
-        }
-        assert_eq!(Phrase::counted(1, one, many), one);
-        for n in [0, 2, 7] {
-            assert_eq!(Phrase::counted(n, one, many), many);
-        }
-    }
+fn a_counted_phrase_takes_the_form_its_number_asks_for() {
+    let discard = |lang, n| Phrase::DiscardCards.fill_count(lang, n, &[]);
+    assert_eq!(discard(Lang::En, 1), "Discard 1 card");
+    assert_eq!(discard(Lang::En, 3), "Discard 3 cards");
+    assert_eq!(discard(Lang::En, 0), "Discard 0 cards");
+    assert_eq!(discard(Lang::De, 1), "Wirf 1 Karte ab");
+    assert_eq!(discard(Lang::De, 3), "Wirf 3 Karten ab");
+    // A noun whose number is said by another phrase.
+    assert_eq!(Phrase::NounCards.fill_count(Lang::En, 1, &[]), "card");
+    assert_eq!(Phrase::NounCards.fill_count(Lang::En, 2, &[]), "cards");
+    // With slots: the count is written, every other argument stays a slot.
+    assert_eq!(
+        Phrase::LogCountersPlus.text_count(Lang::En, 1),
+        "+{0}/+{1} counter"
+    );
+    // `text` alone (no number) reads as the plural, as a label does.
+    assert_eq!(Phrase::NounCards.text(Lang::En), "cards");
+}
+
+/// Most callers pass a count as text (`n.to_string()`); a whole number
+/// reaches Fluent as a number all the same, so every selector picks, and it
+/// reads back as the same digits. Text that only looks like a number stays
+/// text (`03` keeps its zero).
+#[test]
+fn a_count_passed_as_text_still_picks_its_form() {
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["1"]),
+        "Discard 1 card"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["12"]),
+        "Discard 12 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::De, &["1"]),
+        "Wirf 1 Karte ab"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["03"]),
+        "Discard 03 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["-0"]),
+        "Discard -0 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["-4"]),
+        "Discard -4 cards"
+    );
+    assert_eq!(
+        Phrase::DiscardCards.fill(Lang::En, &["123456789012345"]),
+        "Discard 123456789012345 cards"
+    );
 }
 
 /// Two languages that say exactly the same thing everywhere would mean
@@ -265,4 +223,108 @@ fn the_report_attachments_are_a_choice_and_not_a_consent() {
         de.contains("heraus") && de.contains("vor dem senden"),
         "{de}"
     );
+}
+
+/// Every table's files: each parses whole, holds every English id once and
+/// nothing else, and each message uses the same arguments as its English
+/// one, all of them among those its `# Arguments` line names. This is the
+/// guarantee the `messages!` macro gave as a compile error: a phrase with no
+/// German, or a German that drops a number. (A selector's variants count
+/// together: a `[one]` that says no number is fine while `*[other]` does.)
+#[test]
+fn every_language_says_every_phrase_with_the_same_arguments() {
+    use fluent_syntax::ast;
+    use std::collections::BTreeSet;
+
+    fn variables<'a>(pattern: &'a ast::Pattern<&'a str>, into: &mut BTreeSet<&'a str>) {
+        for element in &pattern.elements {
+            if let ast::PatternElement::Placeable { expression } = element {
+                expression_variables(expression, into);
+            }
+        }
+    }
+    fn expression_variables<'a>(
+        expression: &'a ast::Expression<&'a str>,
+        into: &mut BTreeSet<&'a str>,
+    ) {
+        match expression {
+            ast::Expression::Select { selector, variants } => {
+                inline_variables(selector, into);
+                for variant in variants {
+                    variables(&variant.value, into);
+                }
+            }
+            ast::Expression::Inline(inline) => inline_variables(inline, into),
+        }
+    }
+    fn inline_variables<'a>(
+        inline: &'a ast::InlineExpression<&'a str>,
+        into: &mut BTreeSet<&'a str>,
+    ) {
+        match inline {
+            ast::InlineExpression::VariableReference { id } => {
+                into.insert(id.name);
+            }
+            ast::InlineExpression::Placeable { expression } => {
+                expression_variables(expression, into);
+            }
+            ast::InlineExpression::FunctionReference { arguments, .. } => {
+                for argument in &arguments.positional {
+                    inline_variables(argument, into);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for table in [&INTERFACE_TABLE, &REPLAY_TABLE, &CHAT_TABLE, &SERVER_TABLE] {
+        let ids = table.ids();
+        let mut by_language = Vec::new();
+        for (code, source) in table.sources() {
+            let resource = fluent_syntax::parser::parse(*source)
+                .unwrap_or_else(|(_, errors)| panic!("{code}: {errors:?}"));
+            let mut uses: Vec<Option<BTreeSet<String>>> = vec![None; ids.len()];
+            for entry in &resource.body {
+                let ast::Entry::Message(message) = entry else {
+                    continue;
+                };
+                let id = message.id.name;
+                let Some(index) = ids.iter().position(|e| *e == id) else {
+                    panic!("{code}: {id} is no English phrase");
+                };
+                assert!(uses[index].is_none(), "{code}: {id} twice");
+                let mut used = BTreeSet::new();
+                if let Some(value) = &message.value {
+                    variables(value, &mut used);
+                }
+                uses[index] = Some(used.into_iter().map(str::to_owned).collect());
+            }
+            by_language.push((*code, uses));
+        }
+        let (_, english) = by_language
+            .iter()
+            .find(|(code, _)| *code == "en")
+            .expect("an English file");
+        for (code, uses) in &by_language {
+            for (index, used) in uses.iter().enumerate() {
+                let id = ids[index];
+                let Some(used) = used else {
+                    panic!("{code} lacks {id}");
+                };
+                let named: BTreeSet<String> = table.args()[index]
+                    .iter()
+                    .map(|a| (*a).to_owned())
+                    .collect();
+                assert!(
+                    used.is_subset(&named),
+                    "{code}: {id} uses {used:?}, its `# Arguments` line names {named:?}"
+                );
+                assert_eq!(
+                    Some(used),
+                    english[index].as_ref(),
+                    "{code}: {id} says other arguments than English"
+                );
+            }
+        }
+    }
 }

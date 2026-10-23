@@ -380,34 +380,68 @@ impl Watch {
 // ------------------------------------------------------------------ puzzles
 
 /// A challenge as the page gets it.
+///
+/// @description A proof-of-work puzzle: for each part `p` in `0..parts`,
+/// the smallest counter `c` with `SHA-256(nonce + ":" + p + ":" + c)`
+/// (UTF-8, decimal numbers) starting with `difficulty` zero bits.
+/// @openapi
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Challenge {
+    /// @description 16 random bytes, base64url.
+    /// @internal
     /// 16 random bytes, base64url.
     pub nonce: String,
+    /// @description How many parts: 8.
+    /// @internal
     /// How many parts ([`PARTS`]).
     pub parts: u32,
+    /// @description Zero bits each part needs: 17 for an ordinary request,
+    /// up to 4 more for a suspicious one.
+    /// @internal
     /// Zero bits each part needs.
     pub difficulty: u32,
+    /// @description Unix seconds after which it is not taken: 5 minutes from
+    /// now.
+    /// @internal
     /// Unix seconds after which it is not taken.
     pub expires: i64,
+    /// @description This service's signature over the rest, base64url; sent
+    /// back unchanged.
+    /// @internal
     /// HMAC-SHA256 over the rest and what the answer will be, base64url.
     pub sig: String,
 }
 
 /// A solved challenge as the page sends it.
+///
+/// @description A solved challenge: its five fields unchanged, and one
+/// counter per part.
+/// @openapi
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Solution {
+    /// @description The challenge's nonce.
+    /// @internal
     /// The challenge's nonce.
     pub nonce: String,
+    /// @description The challenge's parts.
+    /// @internal
     /// The challenge's parts.
     pub parts: u32,
+    /// @description The challenge's difficulty.
+    /// @internal
     /// The challenge's difficulty.
     pub difficulty: u32,
+    /// @description The challenge's expiry.
+    /// @internal
     /// The challenge's expiry.
     pub expires: i64,
+    /// @description The challenge's signature.
+    /// @internal
     /// The challenge's signature.
     pub sig: String,
+    /// @description One counter per part, in order.
+    /// @internal
     /// One counter per part.
     pub counters: Vec<u64>,
 }
@@ -792,11 +826,43 @@ fn peer_address(
 
 /// `OPTIONS /site/impressum`: the preflight of the page's `POST` from a
 /// contact origin.
+///
+/// @route OPTIONS /site/impressum
+/// @scope feedback
+/// @summary A browser's preflight for the Impressum
+/// @description The contact form's preflight: yes only to an `Origin` in
+/// `FEEDBACK_CONTACT_ORIGINS`, for a page tried on another origin than the
+/// site's own.
+/// @tag Site
+/// @operation-id `preflightImpressum`
+/// @security none
+/// @header-param Origin: String required "The page's origin"
+/// @return 204: "Allowed"
+/// @return-header 204 Access-Control-Allow-Origin: String "The asking origin"
+/// @return 403: "The `Origin` is missing or not a configured one"
 pub(crate) async fn preflight(State(shared): State<Shared>, headers: HeaderMap) -> Response {
     crate::contact::preflight(State(shared), headers).await
 }
 
 /// `GET /site/impressum/challenge`.
+///
+/// @route GET /site/impressum/challenge
+/// @scope feedback
+/// @summary A puzzle for the Impressum
+/// @description A signed proof-of-work puzzle, valid 5 minutes. A request
+/// is never refused one for how it looks: a suspicious one only gets up to
+/// 4 more bits, each doubling the work. Every
+/// answer says `Cache-Control: no-store`, `X-Robots-Tag: noindex, noarchive,
+/// nosnippet` and `Vary: Origin`, and names a configured origin in
+/// `Access-Control-Allow-Origin`. Off until `FEEDBACK_IMPRESSUM_KEY` and
+/// `FEEDBACK_IMPRESSUM_BLOB` are set.
+/// @tag Site
+/// @operation-id `getImpressumChallenge`
+/// @security none
+/// @query-param s: Option<u32> "What the page saw of its browser, as bits: 1 `navigator.webdriver`, 2 no `navigator.languages`, 4 a software WebGL renderer"
+/// @return 200: `$Challenge` "The puzzle"
+/// @return 403: `$ErrorBody` "From another site: marked `Sec-Fetch-Site: same-site` or `cross-site` without a configured `Origin`, or carrying an `Origin` that is not one of `FEEDBACK_CONTACT_ORIGINS` without being marked `same-origin`"
+/// @return 503: `$ErrorBody` "No Impressum here (it is not configured)"
 pub(crate) async fn get_challenge(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,
@@ -838,6 +904,22 @@ pub(crate) async fn get_challenge(
 }
 
 /// `POST /site/impressum`.
+///
+/// @route POST /site/impressum
+/// @scope feedback
+/// @summary The Impressum for a solved puzzle
+/// @description Answers the Impressum's blob for a solved challenge, once,
+/// before it expires; the page decodes it. Headers as for the challenge.
+/// @tag Site
+/// @operation-id `postImpressum`
+/// @security none
+/// @body `$Solution`
+/// @return 200: String text/plain "The blob, `text/plain; charset=us-ascii`"
+/// @return 400: `$ErrorBody` "Not a solution: malformed, over 4 KiB, the wrong number of counters, or a counter that does not solve its part"
+/// @return 403: `$ErrorBody` "From another site (as for the challenge), or a challenge this service did not sign or one changed since"
+/// @return 409: `$ErrorBody` "That challenge was answered already"
+/// @return 410: `$ErrorBody` "The challenge expired"
+/// @return 503: `$ErrorBody` "No Impressum here (not configured), or its blob file is gone"
 pub(crate) async fn post(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,
@@ -916,6 +998,18 @@ fn seed(key: &[u8; 32], address: &str) -> [u8; 32] {
 }
 
 /// `GET /site/impressum/kontakt`: the honeypot.
+///
+/// @route GET /site/impressum/kontakt
+/// @scope feedback
+/// @summary The Impressum's honeypot
+/// @description A link on the Impressum page no person sees. It answers an
+/// invented Impressum, and the asking address gets the decoy and the
+/// hardest puzzle for 24 hours.
+/// @tag Site
+/// @operation-id `impressumHoneypot`
+/// @security none
+/// @return 200: String text/html "An invented Impressum"
+/// @return-header 200 X-Robots-Tag: String "`noindex, noarchive, nosnippet`"
 pub(crate) async fn honeypot(
     State(shared): State<Shared>,
     peer: Option<axum::Extension<ConnectInfo<std::net::SocketAddr>>>,

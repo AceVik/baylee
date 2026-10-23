@@ -11,7 +11,7 @@
 //! rest now, under its own scrollbar, and the row's height does not follow
 //! the hover, so the oscillation below cannot start from it.) The place that
 //! reads it at size is still the hover preview, because
-//! `docs/redesign-proposal.md` §8.2 already decided that the preview "is a
+//! `docs/proposals/redesign-proposal.md` §8.2 already decided that the preview "is a
 //! description of the card and is the only place rules text is read at size".
 //! A second such place inside the panel would be two answers to one question,
 //! and it has a concrete failure besides: the panel is rebuilt on every hover

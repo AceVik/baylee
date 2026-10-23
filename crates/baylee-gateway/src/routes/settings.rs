@@ -1,6 +1,8 @@
 //! A player's stored preferences.
 
-use crate::{ErrorBody, HeaderMap, Json, Shared, State, StatusCode, authed, db_down, err, store};
+use crate::{
+    ErrorBody, HeaderMap, Json, Serialize, Shared, State, StatusCode, authed, db_down, err, store,
+};
 
 /// Upper bound on a stored preferences blob.
 ///
@@ -15,6 +17,17 @@ pub(crate) const MAX_SETTINGS_BYTES: usize = 16 * 1024;
 ///
 /// `{}` for an account that has never saved any, which is the same thing the
 /// client would do with them: fall back to its own defaults.
+///
+/// @route GET /settings
+/// @scope public
+/// @summary The account's client preferences
+/// @description The preferences the account's clients stored, as every save
+/// so far has merged them: an object the gateway keeps without reading it.
+/// `{}` for an account that has never saved any, never a `404`.
+/// @tag Accounts
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @return 200: `{ type: object, additionalProperties: true }` "The stored preferences, `{}` when there are none"
 pub(crate) async fn get_settings(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -37,11 +50,26 @@ pub(crate) async fn get_settings(
 /// checks only what it can check without knowing what a keymap is: that the
 /// body is an object, and that neither it nor the merged document is being
 /// used as free storage. The answer names the merged document's size.
+///
+/// @route PUT /settings
+/// @scope public
+/// @summary Merge into the account's client preferences
+/// @description Merges an object of top-level keys into the stored
+/// preferences: each key named replaces that key's value whole, a key set
+/// to `null` is removed, and a key not named is kept. The patch and the
+/// merged object must each stay within 16 KiB of JSON. The answer names the
+/// merged object's size.
+/// @tag Accounts
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @body `{ type: object, additionalProperties: true }` "Top-level keys to replace; `null` removes a key"
+/// @return 400: `$ErrorBody` "The body is not a JSON object"
+/// @return 413: `$ErrorBody` "The patch or the merged preferences are over 16 KiB"
 pub(crate) async fn put_settings(
     State(state): State<Shared>,
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<SettingsStored>, (StatusCode, Json<ErrorBody>)> {
     let account_id = authed(&state, &headers).await?;
     let serde_json::Value::Object(patch) = body else {
         return Err(err(StatusCode::BAD_REQUEST, "settings must be an object"));
@@ -56,7 +84,15 @@ pub(crate) async fn put_settings(
         .await
         .map_err(|e| db_down(&e))?
     {
-        store::SettingsMerge::Stored(stored) => Ok(Json(serde_json::json!({ "stored": stored }))),
+        store::SettingsMerge::Stored(stored) => Ok(Json(SettingsStored { stored })),
         store::SettingsMerge::TooLarge => Err(too_large()),
     }
+}
+
+/// What `PUT /settings` answers.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct SettingsStored {
+    /// @description The merged preferences' size, in bytes of JSON.
+    stored: usize,
 }

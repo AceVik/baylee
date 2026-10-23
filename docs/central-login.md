@@ -1,7 +1,16 @@
 # Central native login integration
 
-The native client authenticates against `https://central.baylee.app` before it
-loads saved gateways. `baylee-account` wraps the pinned Central SDK using a
+The native client signs in at `https://central.baylee.app` for a gateway that
+takes Central sign-ins: `central: true` in its `GET /auth/config`, which a
+gateway with `BAYLEE_CENTRAL_CONFIG_FILE` answers. Choosing one turns the
+account form into Central's; the sign-in restores the account's gateways and
+admits the player to the one chosen. Every other gateway signs people in
+itself, with sign-up and guests where it offers them. `‹` on Central's form
+goes back to the device's own gateways, and so does the end of a Central
+session. The official gateway is bound to Central through its bridge since
+beta.8a (22.10.2026): new accounts register at baylee.app, and an account from
+before moves to Central at its first sign-in in the client (§"Legacy
+migration"). `baylee-account` wraps the pinned Central SDK using a
 transport that always verifies TLS, rejects redirects, bounds responses and
 discards remote diagnostics. Passwords and central sessions are never forwarded
 to arbitrary saved gateways. OPAQUE and authenticated client encryption are in
@@ -40,6 +49,13 @@ account ID. This reestablishes the source proof without replacing Central creden
 Network errors, ordinary conflicts, revoked sessions and completed migrations do
 not trigger that fallback. Once Central confirms migration closure, future logins
 do not contact the legacy gateway.
+
+Link and export capabilities are gateway tickets, which Central refuses until
+its own terms in force are accepted. A sign-in that finds them unaccepted
+therefore succeeds with the migration held; the client shows those terms, and
+their acceptance resumes the migration before any gateway admission
+(`docs/protocol.md` §"Terms of use (WG-1)"). A migration that fails then ends
+the Central sign-in, as at sign-in; the next one resumes it.
 
 Cutover is serialized against ordinary gateway requests, reconciles the source,
 fixes the legacy-to-central mapping and revokes legacy HTTP sessions atomically.
@@ -128,12 +144,42 @@ JSON has `endpoint` (`"live"` or a numeric-loopback development origin) and
 it outside the repository, readable only by the service identity. Never put
 the value in arguments, logs or client configuration. Unknown settings fail
 startup. Without this file the migration routes reject requests.
+The official gateway admits a migrated account as the legacy account it was
+linked to, and an account registered at Central (no legacy account) as a new
+local projection, as a registered gateway does; Central's beta key stood in for
+the gateway's at sign-up, so only `BAYLEE_REGISTRATION=off` refuses it
+(baylee-central `docs/web-accounts.md`).
+A moved account keeps its display name and tag at Central (baylee-central
+`docs/native-login.md` §"The bridge's reservation carries the name and
+tag"): the bridge sends both with `LegacyReserve` at the move, the name only
+when it keeps `auth::valid_display_name` (a name from before that rule, or
+from `gateway-store.json`, stays behind, and the account chooses one on the
+website), and the tag always. An account that moved before Central kept them
+gets them at its next Central sign-in here: `login_for` sends
+`LegacyProfile` for a linked legacy account at every such sign-in, since
+this side records nothing about it; Central sets name and tag only while the
+account has no tag, answers `Conflict` after that, and any answer leaves the
+sign-in as it is. No background job: every moved account that still plays
+signs in here. Showing Central's names on gateways is the accounts design's
+step 4; until then a gateway shows its own.
+The official gateway is listed in Central's directory (`baylee.app/gateways`,
+marked "Official") once Central's operator has listed it (baylee-central
+`docs/operations.md` §"The official gateway"). Its bridge file then gains
+`metadata` (`name`, `version`, `website`) beside `bridge`, for example
+`"metadata": {"name": "Baylee", "version": "0", "website":
+"https://baylee.acevik.de/"}`: the gateway sends `GatewayHeartbeat` with the
+bridge credential every 30 seconds, Central updates the official entry and no
+other, and the entry shows online. The website must lie on the bridge's origin,
+the compiled `https://baylee.acevik.de` live; in development that is `origin`,
+which a bridge file with `metadata` must then name. `version` is replaced with
+the running binary's version. Without `metadata` the bridge sends no heartbeat
+and the entry stays listed and offline.
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,
 `heartbeat` and `metadata` (`name`, `version`, `website`). Both credentials are
 independent random 32-byte JSON arrays returned once by registration. Their
 purpose is enforced centrally; `version` is replaced with the running binary's
-version. Never combine these settings with `bridge`: the official legacy bridge
-alone may reserve/export/close old account migrations. The reusable Central SDK
+version. Never combine `credential` or `heartbeat` with `bridge`: the official
+legacy bridge alone may reserve/export/close old account migrations. The reusable Central SDK
 offers registration, directory paging and versioned admin-list management; no
 registration or admin-management UI is implied by these server APIs.
 Use `BAYLEE_BIND=127.0.0.1` for local gateway fixtures; the existing default
@@ -142,7 +188,8 @@ remains `0.0.0.0`. All test services must bind only loopback.
 Deploy in order: Central with persistent OPAQUE setup and PostgreSQL 18+; the
 official gateway bridge and schema; synthetic end-to-end validation; the native
 client. Do not release a mandatory Central login while its live endpoint is
-unavailable. Production TLS/provisioning, account recovery/reset and the large
+unavailable; a gateway turns Central sign-in on for itself by its
+configuration, so the official one turns it on only once the rest is ready. Production TLS/provisioning, account recovery/reset and the large
 object migration gates remain required; the development listener is not a
 production launch procedure.
 
@@ -162,8 +209,9 @@ skill, use the extra left monitor, and close the exact owned client afterward.
 `cargo dev central integration` additionally runs a real gateway and
 Central against that isolated database: source edits during enrollment,
 operation-bound capabilities, cutover, upgrade-era source-proof recovery,
-old-login and game-seat revocation, fresh-device restore, preference reconciliation
-and registered-gateway admission. Its optional
+old-login and game-seat revocation, fresh-device restore, preference reconciliation,
+registered-gateway admission and the official gateway's heartbeat in bridge
+mode. Its optional
 `BAYLEE_CENTRAL_UI_READY` path exposes only synthetic fixture addresses for at
 most 180 seconds, until the sibling `.stop` file is written. Never use it with
 production configuration.
@@ -188,8 +236,18 @@ from application state, not from a transitional frame. The harness reports
 front-panel motion so the script waits until controls accept input. Exact
 owned client PIDs, HTTP listeners and backend containers were closed/verified.
 
-Current operational limits: Central sessions expire after 30 minutes without
-background renewal; sign in again to resume synchronization. New account
+Sessions renew (since beta.8b): the account worker renews its Central session
+every ten minutes (`Account::renew`; a failure is retried a minute later and
+ends nothing), so it, and every gateway session admitted from it, lasts while
+the client runs, up to 12 hours after the password sign-in (baylee-central
+`docs/operations.md` §"Sessions"). The gateway takes the later lease expiry
+Central reports on its next check and stores it on the lease, which bounds
+the session (`central::authorize`, `baylee_db::central::extend_session`); an
+earlier one is refused. A gateway
+built before this compares the expiry exactly and so ends a session at its
+first renewal: gateways update together with Central.
+
+Current operational limits: after the 12 hours, sign in again. New account
 registration and password changes/recovery are not exposed by this native UI.
 Gateway registration/admin APIs are available in the reusable Central SDK, with
 operator approval still required. Never substitute the old gateway
@@ -201,7 +259,8 @@ The owner chose on 19 October 2026 to continue production provisioning from the
 MacBook, where the SSH identity for `viktor@acevik.de` is configured. This Windows
 review performs no production deployment or live-user migration. Central's
 reviewed integration is on public `main` at
-`b1f9292e4b6795600bf87e67c434a3832546fdb6`; Baylee pins that exact revision.
+`21d7e120120c1e5f5e4bdd2b487519384fabaac6` (registration with beta keys and the
+browser listener, 21.10.2026); Baylee pins that exact revision.
 
 Before publishing a client release, implement and review the production account
 launcher and database connector. Central currently exposes the isolated
@@ -217,7 +276,7 @@ See Central's `docs/status.md`, `docs/native-login.md`, `docs/postgresql.md` and
 The private deck/replay library is a separate unfinished requirement; the
 encrypted legacy deck snapshot is not a replacement for its operational CRUD.
 The next implementation contract and source-size migration gap are recorded in
-[the private library plan](central-private-library-plan.md).
+[the private library plan](proposals/central-private-library-plan.md).
 
 ## Follow-up review, 19 October 2026
 

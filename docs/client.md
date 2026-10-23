@@ -3691,9 +3691,22 @@ only thing that knows the language.
 
 #### What the banner may claim, and why it cannot count
 
+*Since 22.10.2026* the schedule also dials on until the table's window has
+passed (`Retry::hold_for`; the window has been 180 s by default since
+10.10.2026, longer than the twelve dials below). A client that stopped at
+120.5 s gave up a chair the table was still holding for it, which the owner
+met as a connection that was lost and never came back. When it does run out,
+`reconnect::gave_up` picks the sentence: a seat whose ticket was refused
+(`401`) on every dial is told its sign-in ended or the seat was taken up on
+another device, and to sign in again in the lobby (`LinkSignInEnded`); a
+Central session lives 30 minutes and is never renewed
+(`docs/central-login.md`), and the gateway then refuses the seat. A single
+refusal says nothing: the gateway answers a failed Central check `401` too.
+The rest of this section is the reasoning as it stood before.
+
 The schedule outlives the thing it was reassuring the player about. Twelve
 dials land at t = 0.5, 1.5, 3.5, 7.5, 15.5 and then every fifteen seconds to
-**120.5 s**. `HouseRules::reconnect_window_secs` is shorter than that on all
+**120.5 s**. `HouseRules::reconnect_window_secs` was shorter than that on all
 four presets — 30 s or 60 s — though not on every table that can be opened,
 since a room may ask for anything up to an hour. When it does expire,
 `Session::stand_in` gives the chair to the house, and for the rest of that
@@ -4216,9 +4229,16 @@ folds into the header as the gold Return pill in the gateway dot's place.
 `r` is its Return. The reconnecting strip stands while a feed that was
 live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
-table filling (`strips::table_news`); each ring is a toast for six seconds,
-at most three, bottom-right (from the top on a Phone), in a lane of its own
-outside the lobby's tree. A `401` lands on the front door with "Signed out
+table filling (`strips::table_news`); each ring is a toast for fifteen
+seconds, beside the lobby's own notices (`Lobby::status`), at most four,
+top-left under the header (`header::toast_lane`), in a lane of its own
+outside the lobby's tree. Each toast's cross takes that toast away, named by
+the number it came with (`header::ToastId`), never by its place in the lane.
+The lane is put away when a table opens (`put_the_toasts_away`), and what it
+said does not come back after the game: it ages and answers its cross only
+while the lobby runs, so the toasts of the last rings before a game, which
+is when a table fills, stood over the whole game with a cross that did
+nothing (owner, 22.10.2026). A `401` lands on the front door with "Signed out
 — your session ended · Sign in again", and the builder's draft and pool are
 kept for the next sign-in.
 
@@ -4405,7 +4425,7 @@ been in view (scroll, `End`, `Space`/`PageDown`, or a text that fits); Enter
 in the text accepts once it may. **Escape never signs out or accepts**: it
 returns focus to the text, or to Retry after a failed fetch.
 **Decline and delete account** ("Ablehnen
-und Konto löschen"; for a Baylee account "Delete my data on this gateway"),
+und Account löschen"; for a Baylee account "Delete my data on this gateway"),
 drawn while the text is up (not on a sheet still loading or failed), opens
 the account deletion's own confirmation (#292, `confirm::draw_deletion`) over
 the sheet: the password again for a local account, nothing for a guest or a
@@ -6238,7 +6258,7 @@ their hand and their name, and it lives on the pod because three surfaces ask
 it: the bar, the mat's rim, and the seat sheet after them.
 
 **The role is said as a mark in the name cell, and that is arithmetic rather
-than taste.** `docs/game-log-design.md` §"The seat that stepped away" asked for
+than taste.** `docs/proposals/game-log-design.md` §"The seat that stepped away" asked for
 a `MUTED` role line under the name, written for a strip of seat tabs that no
 longer exists. The identity plaque that replaced it is `HEADER_H` = 60 logical
 pixels and its two rows already spend 56 of them, and the plaque's size is what
@@ -6785,7 +6805,7 @@ card's printed text and the button beside it the same voice, and a card's
 rules text is a **quotation**. `hud::UiFonts` carries seven files — five
 static Alegreya Sans cuts (Regular, Medium, Bold, and the italic of the first
 two) and Faustina upright and italic, variable on `wght` 300–800 — beside the
-icon and mana faces. This **overrides `docs/design.md` §1.2**, which shipped
+icon and mana faces. This **overrides `docs/proposals/design.md` §1.2**, which shipped
 three cuts of Inter and said there was no fourth; the override is recorded
 there.
 
@@ -6924,7 +6944,7 @@ way out, and never touched in between.
 **Won, lost and drawn are the same sheet.** Every hue in this palette already
 carries a claim — `INK_DANGER` is damage, `HEAL` is life gained, `BRASS` is a
 thing already taken, `CANDLE` is an offer — so a red loss would read as
-damage and a gold win as something taken, and `docs/redesign-proposal.md` §1
+damage and a gold win as something taken, and `docs/proposals/redesign-proposal.md` §1
 retires hues rather than handing out new ones. Only the sentence differs.
 Size carries the feeling instead: **forty pixels**, against the twenty this
 overlay had never gone above.
@@ -6955,7 +6975,7 @@ poison — is **not in that line**, because it is not about the table: it is
 one seat's, and the view carries it per seat (`SeatView::loss`, with
 `SeatView::house_answered` telling a loss to the clock from one played out;
 #83). Deriving it from the last view's life totals instead would be the
-client deciding a rules fact, which is the line `CLAUDE.md` draws.
+client deciding a rules fact, which is the line `docs/architecture.md` draws.
 
 ### Under both, why each seat went out (#83)
 
@@ -7160,7 +7180,7 @@ across the table means, so the mallet is the same and what changes is a dulled
 direct sound and a reflection that arrives almost with it. The three endings
 are the only sounds longer than a blink and all three peak **below** a life
 cue; all three come to rest on A and never on the tonic, because a cadence
-left open is what keeps a win from being a fanfare. `docs/design.md` retires
+left open is what keeps a win from being a fanfare. `docs/proposals/design.md` retires
 hues rather than handing out new ones and this is the same restraint.
 
 **Three of them count, and that is a change to the model.** The owner asked
@@ -7441,7 +7461,7 @@ composition/refinement record and listening workflow.
 
 ## The zone browser is a dialog, which is a different material
 
-`docs/redesign-proposal.md` §1.3 draws the line and §6 applies it:
+`docs/proposals/redesign-proposal.md` §1.3 draws the line and §6 applies it:
 **parchment is a sheet you read from, a panel is a place you work in.** The
 browser was parchment, and a grid of ten card columns, on the argument that a
 graveyard is something a player *reads*. It is not — §6 puts a checkbox, a
@@ -8438,38 +8458,50 @@ per field rather than per card. The *interface* was English and only English,
 every button and status line a literal at the point it was drawn.
 `baylee-client-core/src/i18n.rs` is the other half.
 
-A `Phrase` is an enum variant, not a key into a table read at runtime, and the
-`messages!` macro writes one arm per language for each: **a phrase with no
-German fails the build**. A file of strings — RON, JSON, Fluent — answers a
-missing key with a fallback, and a fallback is a screen that is half English.
-The cost is that a third language is a sweep through one file rather than a new
-file beside it, which is the right way round: the sweep *is* the work, and a
-build that ships half of it is what makes it never get finished. `Phrase::fill`
-substitutes `{0}`, `{1}` … left to right and leaves an unfilled placeholder
-standing, because a visible `{2}` is a bug report and a silently dropped one is
-a sentence that means something else.
+The words live in Project Fluent files, one per table and language:
+`crates/baylee-client-core/locales/<lang>/interface.ftl` (`Phrase`),
+`replay.ftl` (`ReplayPhrase`), `chat.ftl` (`ChatPhrase`) and `server.ftl`
+(`ServerPhrase`: the gateway's and engine's refusals, matched by their
+English text), all embedded at build time. The English files decide what exists: `build.rs` makes each
+message a variant of its table's enum, named by its id, documented by its `#`
+comment, and its `# Arguments: a, b` line is the order a caller passes
+`fill`'s arguments in (`Phrase::Hello.fill(lang, &[name])` sets `$name`).
+Another language only translates; a new one is a new directory of three
+files beside `en` and `de`, and a line in `Lang`.
 
-Three rules are tests rather than conventions: every phrase answers in every
-language, a phrase's placeholder *set* is the same in all of them — `{0}`
-moving is what translation is, `{0}` vanishing is a bug — and **no phrase
-fakes a plural with a bracket**.
+A runtime table answers a missing key with a fallback, and a fallback is a
+screen that is half English, so the guarantee the old compiled tables gave
+is now a test, `every_language_says_every_phrase_with_the_same_arguments`:
+every file parses whole, says every English id once and nothing else, and
+uses the same arguments as English — `$count` moving is what translation is,
+`$count` vanishing is a bug. At runtime a missing message still reads in
+English rather than as an id. `fill` leaves an argument a caller did not pass
+standing as `{N}`, because a visible `{2}` is a bug report and a silently
+dropped one is a sentence that means something else, and `text` gives the
+phrase with every argument as `{0}`, `{1}`, ….
 
-A sentence whose subject is counted is written **twice** — once for exactly
-one thing, once for everything else — and `Phrase::counted(n, one, many)`
-picks between them; both languages split in the same place, so the number
-decides and the language is never asked, and zero takes the plural in both.
-`card(s)` and `Karte(n)` are not plurals, and the sheet's own typography
-greys what a sentence says in brackets (`prose::bracketed`), so the broken
-form was drawn as an editorial aside, in grey, beside the number it
-disagreed with. A suffix would not have been enough either: German wants a
-relative clause here — "Karte, die nach unten geht" against "Karten, die
-nach unten gehen" — and the verb inside it agrees too, which only a whole
-second literal can say.
+**No phrase fakes a plural with a bracket** (a test as well).
+
+A sentence whose subject is counted is **one message with a selector** on
+`$count`, and `Phrase::fill_count(lang, n, args)` passes the number, so each
+language picks its own forms by its CLDR plural rules — English and German
+split at exactly one, and zero takes the plural in both; Polish has three
+forms, Japanese one, and neither needs a line of code. A caller that fills the
+slots itself (the game log) asks `Phrase::text_count(lang, n)`, which writes
+the count and leaves every other argument a slot. Where the number shown is
+not the number that picks (life can be negative), the message has both: the
+shown one under its own name, `$count` only selecting. `card(s)` and
+`Karte(n)` are not plurals, and the sheet's own typography greys what a
+sentence says in brackets (`prose::bracketed`), so the broken form was drawn
+as an editorial aside, in grey, beside the number it disagreed with. A suffix
+would not have been enough either: German wants a relative clause here —
+"Karte, die nach unten geht" against "Karten, die nach unten gehen" — and the
+verb inside it agrees too, which only a whole variant can say.
 
 The noun is also where a card choice says what it is **for**. `ChoicePrompt`
 has six variants; the prompt bar read one, so a library search, a scry, a
 put-back and a wish were four copies of "Choose 1 card". `choice_noun` gives
-each its own counted pair, which fits inside the counting frame without a
+each its own counted noun, which fits inside the counting frame without a
 second sentence: "Wähle bis zu 2 Karten, die nach unten gehen". `Delve` is
 answered a line earlier (it is part of a cost, not a selection) and
 `Generic` stays the plain noun, which is honest — the engine did not say
@@ -9225,6 +9257,17 @@ and every six hours: no account, `User-Agent: Baylee/<version>`, the last
 build is offered stable releases only, a pre-release build both, ordered by
 semver precedence (`0.1.0-beta.10` after `beta.9`).
 
+The first check leaves as early as the client can (owner, 22.10.2026:
+"check as quickly as possible"): `update::native::begin` runs in
+`standalone::run` right after the settings store opens, before the window,
+the renderer and the lobby are built, and starts the thread, whose first
+request leaves at once. The log says how soon: in the live check of
+22.10.2026, a debug build, "begun 3 ms after the process started" and "first
+check asked 5 ms after", where the plugin's build (the old start) came at
+317–356 ms. `begin` runs before Bevy's logger exists, so what it says is kept
+and logged once the plugin is built. With automatic checks off it still
+makes no request at all.
+
 **Staging.** For a newer release it downloads the archive for its own target
 into its per-user state directory, checks the size, the `.sha256` (a
 sanity check against a broken download, nothing more) and then the Ed25519
@@ -9235,6 +9278,18 @@ the signed internal folder must name the exact offered version and target;
 only then is `staged.json` written. An unsigned archive is never
 downloaded, and a refused one is deleted; the notice then only links to the
 release page.
+
+**Reporting.** The thread says how far it has got (`service::Report`):
+a check begun (with when), found (version, page, the archive's size), the
+download as it arrives, verifying, unpacking, and the check's end
+(`Report::Done(Outcome)`, as before). `progress::Meter` turns the 64 KiB
+reads into at most four readings a second, always the first and the last,
+so the readings a client sees add up to the archive; its rate is smoothed
+over a 3 s time constant and said only after 0.75 s of download, and the
+time left follows it. A client that has gone stops a download in the
+middle, leaving no part of it behind. A download that fails is said as
+such ("tried again at the next check"); the next check, or "Try again",
+downloads it anew.
 
 **Installing on exit.** The public executable is a permanent launcher; the
 real client is `baylee-runtime`. On exit the updater places the verified
@@ -9321,16 +9376,58 @@ folder it runs from is `target/release`, not an installation. Under
 `BAYLEE_UPDATE_KEY` point it at a stub, make it pretend to be an older
 version and make it trust a test key.
 
-**The face.** `update::UpdateNotice` is what is shown: a small panel in the
-lobby's bottom-left corner (hidden for the session by its own button, back
-on news) and a line in the table's menu, both opening the release page
-(`https` only, or a loopback stub). The settings screen has "Update
-automatically", "Check for updates automatically" (off: no request at all,
-until "Check for updates" is pressed) and that button, kept per device in
-`update.json`.
+**The card.** `update::UpdateNotice` is what is shown, and `update::card`
+draws it on the shell's kit: one card in the lobby's bottom-left corner,
+above the front door's colophon, 336 px wide at the default text step and
+opaque, with an accent edge on its left. Its title names the version beside
+a mark in the accent; under it:
 
-A ready update (staged and verified) also offers "Restart now" and "Later"
-on that panel, and at a table (§"Restarting into an update").
+- **Downloading**: a slim bar, the share beside "Downloading…" ("45%",
+  German "45 %"), and "45 of 150 MB · 3.2 MB/s · about 30 s left" under it
+  (SI megabytes; what has arrived rounded down, so it never reads the whole
+  early; the time left in steps of 5 s, then whole minutes, then "more than
+  an hour"; `update/words.rs`).
+- **Verifying**, **unpacking**: the full bar, "Verifying…" over "150 MB
+  downloaded", then "Unpacking…" over "Signature verified".
+- **Ready**: "Update X is ready", "Restart now and carry on right where you
+  are – or later: it installs when you quit", **Restart to update** (the
+  screen's one primary) and **Later**.
+- **Failed**: why, in the system's words, that the next check tries again,
+  and **Try again** with the release notes.
+- **Only a link** (installing off, a development build, a folder this user
+  cannot write, a refused signature): why, the moves where one helps
+  ("Moving the app", above), and the release notes; **Updated to X** after an
+  update, with its release notes.
+
+Every card but the ready one has a close mark, which hides it for the
+session; "Later" does that for the ready one. It comes back only for news:
+another version, or one that has become ready (`UpdateNotice::show`), so a
+card hidden during the download stays hidden through its stages and
+returns once there is something to restart into. Nothing plays a sound,
+takes the keyboard or covers the screen. At a table no card stands but the
+ready one (§"Restarting into an update"); the table menu's line says the
+rest and follows a download's share ("Downloading update X · 45%"), and the
+settings' status line says the whole download line. The pages open only
+over `https`, or a loopback stub.
+
+A reading writes only the bar's width (in tenths of a percent) and the two
+numbers, compared before writing; `UpdateNotice::progress` stands beside
+`shown`, so the card, the table menu and its revision rebuild only when the
+stage changes, and a download relays nothing else out. The settings screen
+has "Update automatically", "Check for updates automatically" (off: no
+request at all, until "Check for updates" is pressed) and that button, kept
+per device in `update.json`.
+
+**Showing every state without a release** (`dev-control` only):
+`POST /shell {"update":{"stage":…}}` feeds the card the reports the thread
+would send, by the same path (`update/native/dev.rs`): `found`,
+`downloading` (`received`, `total`, `rate`, `left`), `verifying`,
+`unpacking`, `staged`, `failed` (`reason`), `available` (`why`: `dev`,
+`off`, `unsigned`, `folder`, `other`), `updated`, `moved` and `kept` (the
+start's own cards, set directly), and `simulate` (`size`, `ms`): a whole
+download in real time through the updater's own meter on a line whose speed
+wanders, then verifying, unpacking and ready. Point `BAYLEE_UPDATE_API` at
+a closed loopback port, and the real check makes no request off the machine.
 
 **macOS quarantine.** Files the client writes are not quarantined: macOS
 marks a download with `com.apple.quarantine` only when the program that
@@ -9352,20 +9449,21 @@ The owner, 09.10.2026 (beta.6): when an update is ready, the client
 suggests a restart, and after it the player goes on at exactly the same
 point, in a game too.
 
-**The offer.** `Shown::Ready` (staged and verified) draws "Update ready –
-restart now and continue where you are" with **Restart now**, **Later**
-and the release notes: in the lobby's corner panel, and at a table at the
-top of the window. At a table it never appears in the middle of a question
+**The offer.** `Shown::Ready` (staged and verified) draws the ready card
+("Restart now and carry on right where you are – or later: it installs when
+you quit", **Restart to update** and **Later**; §"Updating"): in the
+lobby's corner, and at a table at the top of the window. At a table it never appears in the middle of a question
 of this player's (`client-core::resume::RestartOffer`): an update that
 becomes ready while the player owes an answer is held until that question
 is answered, and appears then, between that answer and whatever comes
 next, or at once while nothing is asked. Against the house the player is
 asked almost every frame, so "only while nothing is asked" would never show
 it. Once it stands it stays (a panel, never a question, and it takes no
-key) until "Later", which puts it away for the session. The table's menu
-line is unchanged.
+key) until "Later", which puts it away for the session. A download, a
+failure or a link never stands over a table; the table's menu line says
+them (§"Updating").
 
-**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart now"
+**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart to update"
 writes where the player is to `resume.json` beside the settings (`0600`,
 atomically), leaves the relaunch helper behind with the handoff on its
 pipe (`update::native::restart`, `baylee_update::relaunch`), and quits; the
@@ -10618,7 +10716,7 @@ Card interaction and image notices remain unobstructed.
 The empty offline play area provides the single direct house-AI start action
 and explains the alternative room setup; it does not ask for online invites.
 An empty table list no longer creates a scrollbar. UX evidence and follow-up
-observations live in `docs/ux-review-2026-10-02.md`.
+observations live in `docs/history/ux-review-2026-10-02.md`.
 
 ### Compact room preparation (2026-10-02)
 
@@ -10753,7 +10851,15 @@ chosen").
   /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
   so the house takes the chair at once rather than after the reconnect
   window, and the lobby says "You left the table". Offline the game this
-  client hosts ends with it, which its armed words say. A spectator's way
+  client hosts ends with it. Armed, the row says only *Leave? Press again*,
+  as short as the concession's, and what leaving costs stands in a quiet
+  line under the row (*The house plays on for you.* / *This game ends.*),
+  armed or not, as the host's Leave says it under its question (owner,
+  22.10.2026: the armed words were too long for the row;
+  `the_panel_is_wide_enough_for_everything_it_can_ever_say` now measures
+  every row the menu draws). Arming adds no row: the panel grows upward
+  from the burger, and a line that came with the arming slid the armed row
+  out from under the pointer. A spectator's way
   out stays *Stop watching*; a finished game's stays the end screen's.
 
 The October 14 real-client check recorded five seconds at 20 samples/s,

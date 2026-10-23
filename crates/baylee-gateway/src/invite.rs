@@ -22,7 +22,12 @@ use std::fmt::Write as _;
 use time::OffsetDateTime;
 
 /// Who may make an account here (`BAYLEE_REGISTRATION`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// @description Who may make an account: `open` (anybody), `invite`
+/// (somebody with a beta key; a new guest needs one too) or `off`.
+/// @openapi
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Registration {
     /// Anybody.
     Open,
@@ -47,16 +52,6 @@ impl Registration {
             Some("invite") => Self::Invite,
             Some("off" | "0" | "false") => Self::Off,
             _ => Self::Open,
-        }
-    }
-
-    /// How `GET /info` and `GET /auth/config` spell it.
-    #[must_use]
-    pub fn wire(self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Invite => "invite",
-            Self::Off => "off",
         }
     }
 
@@ -652,8 +647,10 @@ mod tests {
         ] {
             assert_eq!(Registration::from_env(open), Registration::Open, "{open:?}");
         }
+        // How `GET /info` and `GET /auth/config` spell it.
         assert_eq!(
-            [Registration::Open, Registration::Invite, Registration::Off].map(Registration::wire),
+            [Registration::Open, Registration::Invite, Registration::Off]
+                .map(|r| serde_json::to_value(r).unwrap()),
             ["open", "invite", "off"]
         );
         assert!(

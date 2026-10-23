@@ -22,8 +22,12 @@ use axum::response::Json;
 use serde::Deserialize;
 
 /// What `DELETE /account` takes.
+/// @openapi
 #[derive(Deserialize, Default)]
 pub struct Farewell {
+    /// @description The account's password, asked again of a registered
+    /// account; a guest, or a session of Baylee Central, sends `{}`.
+    /// @internal
     /// The account's password, asked again: a session left signed in on
     /// somebody else's machine must not be enough to delete the account. A
     /// guest has none and sends none.
@@ -38,6 +42,23 @@ pub struct Farewell {
 /// eight tries a sign-in is ([`crate::AppState::sign_in_limiter`]), and a
 /// wrong one is 403, not 401: a 401 tells a client its session is spent, and
 /// this one is not.
+///
+/// @route DELETE /account
+/// @scope public
+/// @summary Delete one's own account
+/// @description Deletes the caller's account here and everything it owns:
+/// its sessions, decks and their history, preferences and the pictures no
+/// other account claims; its chairs and sockets close. A registered account
+/// names its password again, counted against the sign-in's eight tries; a
+/// guest, or a session of Baylee Central, sends `{}`. Open to a session that
+/// has not accepted the terms in force.
+/// @tag Accounts
+/// @security bearer
+/// @insert `SessionRefusalsAnyTerms`
+/// @return 204: "The account is deleted"
+/// @return 403: `$ErrorBody` "The password is wrong (`wrong password`), or the account is banned (`ban`)"
+/// @return 429: `$ErrorBody` "Eight tries in five minutes are spent"
+/// @return 500: `$ErrorBody` "The password could not be checked"
 pub async fn delete_account(
     State(state): State<Shared>,
     headers: HeaderMap,

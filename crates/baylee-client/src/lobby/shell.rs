@@ -233,7 +233,16 @@ fn eighths(scale: f32) -> u8 {
 
 type LobbyRoots<'w, 's> = (
     Query<'w, 's, Entity, With<LobbyRoot>>,
-    Query<'w, 's, (Entity, &'static super::header::RetainedHeader)>,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static super::header::RetainedHeader,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiTargetCamera>>,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiRenderTargetInfo>>,
+        ),
+    >,
 );
 
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
@@ -397,11 +406,17 @@ pub(super) fn ui(
     rebuilds.frame += u64::from(root.is_empty() || drawn.0 != Some(metrics.frame) || !kit_same);
     *builder_drawn = None;
     let header_key = super::header::identity(&state, kit);
+    // Kept with what it inherited where it stood, which its new parent is
+    // given before it is attached: moved under a parent built this frame, a
+    // bar went undrawn but for its own panel for a frame, on nearly every
+    // click (`shellkit::retain`).
     let retained_header = headers
         .iter()
-        .find(|(_, stored)| stored.0 == header_key)
-        .map(|(entity, _)| entity);
-    for (entity, _) in &headers {
+        .find(|(_, stored, _, _)| stored.0 == header_key)
+        .map(|(entity, _, camera, target)| {
+            crate::shellkit::retain::Kept::of(entity, camera, target)
+        });
+    for (entity, ..) in &headers {
         commands.entity(entity).remove::<ChildOf>();
     }
     for entity in &root {
@@ -456,7 +471,14 @@ pub(super) fn ui(
     // account's, not the gateway's, and coming back has to land exactly where
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
-        super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
+        super::header::draw(
+            &mut commands,
+            root,
+            &state,
+            kit,
+            metrics,
+            retained_header.as_ref(),
+        );
         let (_, _, in_use, trial, monitors) = &kit_inputs;
         let settings = kit_inputs.1.as_deref();
         let view = crate::settingsui::View {
@@ -508,12 +530,19 @@ pub(super) fn ui(
             &scrolled_to,
             kit,
             prefs.all(),
-            retained_header,
+            retained_header.as_ref(),
         ),
         Screen::Build => {
             // The builder keeps its own header; the seated strip stands
             // above it.
-            super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
+            super::header::draw(
+                &mut commands,
+                root,
+                &state,
+                kit,
+                metrics,
+                retained_header.as_ref(),
+            );
             *builder_drawn = Some(crate::buildui::builder(
                 &mut commands,
                 root,

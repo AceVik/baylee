@@ -45,59 +45,110 @@ const FORMER: &str = "Former player";
 type Refusal = (StatusCode, Json<ErrorBody>);
 
 /// `GET /replays`'s query.
+/// @openapi
 #[derive(Deserialize)]
-pub(crate) struct Page {
+pub(crate) struct ReplayPage {
+    /// @description How many games to skip, from the newest; 0 when absent.
     #[serde(default)]
     offset: u64,
+    /// @description How many games to list: 20 when absent, at most 50.
     limit: Option<u64>,
+    /// @description `true` lists the games the account archived instead of
+    /// the others.
+    /// @internal
     /// The archived games instead of the others.
     #[serde(default)]
     archived: bool,
 }
 
 /// One seat of a listed game.
+/// @openapi
 #[derive(Serialize)]
-struct SeatOut {
+struct ReplaySeat {
+    /// @description The seat's number.
     seat: u8,
+    /// @description Who sat there, to the asking account: `you`, `player`,
+    /// `former` (a player whose account is gone), `house` (the house AI) or
+    /// `model` (a seat bridge).
+    /// @internal
     /// `you`, `player`, `former`, `house` or `model`.
+    /// @openapi enum: [you, player, former, house, model]
     who: &'static str,
+    /// @description What the seat is called: a player's handle (`Name#tag`),
+    /// `House AI`, `Language model` or `Former player`.
     name: String,
+    /// @description The deck's colour identity as `WUBRG` letters, for the
+    /// asking account's own seat only.
+    /// @internal
     /// The deck's colours, for the asking account's own seat only.
     #[serde(skip_serializing_if = "Option::is_none")]
     colours: Option<String>,
+    /// @description The deck's commander as a `CardIndex`, `null` for none;
+    /// public at the table.
     commander: Option<u32>,
+    /// @description Whether the seat's hidden cards may be shown in this
+    /// game's replays: its player shared them (or did not say, in a game
+    /// recorded from the beta.7 deploy on), or it is an AI seat.
+    /// @internal
     /// Whether the seat's hidden cards may be shown in this game's replays:
     /// its player shared them, or it is an AI seat.
     shared: bool,
-    /// Whether the asking account played this seat.
+    /// @description Whether the asking account played this seat.
     mine: bool,
 }
 
 /// One listed game.
+/// @openapi
 #[derive(Serialize)]
-struct GameOut {
+struct ReplayGame {
+    /// @description The game's id.
     game: String,
+    /// @description When it started (RFC 3339, UTC).
+    /// @openapi format: date-time
     started_at: String,
+    /// @description When its record ended (RFC 3339, UTC), `null` while it
+    /// has not.
+    /// @openapi format: date-time
     ended_at: Option<String>,
+    /// @description Whether its record is complete.
     complete: bool,
+    /// @description The seat the asking account played.
     seat: u8,
+    /// @description How many turns it lasted, `null` when unknown.
     turn: Option<u32>,
+    /// @description How it went for the asking account's seat: `won`,
+    /// `lost`, `draw`, `unfinished` (the record has no end) or `unknown` (a
+    /// game that ended before the gateway noted how).
+    /// @internal
     /// `won`, `lost`, `draw`, `unfinished`, or `unknown` for a game that
     /// ended before the gateway noted how.
+    /// @openapi enum: [won, lost, draw, unfinished, unknown]
     result: &'static str,
+    /// @description Whether the account may ask for the public perspective;
+    /// every seated account may.
     public: bool,
-    /// Whether the asking account archived it.
+    /// @description Whether the asking account archived it.
     archived: bool,
+    /// @description How far today's build is known to replay it as played:
+    /// `exact` (the same build), `checked` (checked against what the table
+    /// showed) or `unverified` (ask its tape with `verify: note`).
+    /// @internal
     /// `exact`, `checked` or `unverified`.
+    /// @openapi enum: [exact, checked, unverified]
     check: &'static str,
+    /// @description The build its engine was, `null` when not recorded.
     build: Option<String>,
-    seats: Vec<SeatOut>,
+    /// @description Every seat at the table.
+    seats: Vec<ReplaySeat>,
 }
 
 /// `GET /replays`'s answer.
+/// @openapi
 #[derive(Serialize)]
-pub(crate) struct Listing {
-    games: Vec<GameOut>,
+pub(crate) struct ReplayListing {
+    /// @description One page of the games, newest first.
+    games: Vec<ReplayGame>,
+    /// @description How many games the whole list holds.
     total: u64,
 }
 
@@ -159,7 +210,7 @@ fn result_of(game: &SeatedGame, seat: u8) -> &'static str {
     }
 }
 
-fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
+fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> ReplayGame {
     let seat = game
         .seats
         .iter()
@@ -170,7 +221,7 @@ fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
         .iter()
         .map(|s| {
             let who = who(s, me);
-            SeatOut {
+            ReplaySeat {
                 seat: s.seat,
                 who,
                 name: name_of(s, who),
@@ -181,7 +232,7 @@ fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
             }
         })
         .collect();
-    GameOut {
+    ReplayGame {
         result: result_of(&game, seat),
         check: check_of(&game),
         game: game.game_id,
@@ -199,11 +250,24 @@ fn game_out(game: SeatedGame, me: Uuid, archived: bool) -> GameOut {
 
 /// `GET /replays?offset=0&limit=20`: the games the account sat at, newest
 /// first. Guests too.
+///
+/// @route GET /replays
+/// @scope public
+/// @summary The hosted games the account sat at
+/// @description The games on this gateway the signed-in account played a
+/// seat of (guests too), newest first, a page at a time: the ones it has
+/// not archived, or with `archived=true` only the ones it has. Each says
+/// how it went, who sat where, and how far this build can replay it.
+/// @tag Replays
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @query-params `$ReplayPage`
+/// @return 400: String text/plain "A query value of the wrong type (axum's rejection)"
 pub(crate) async fn list_replays(
     State(state): State<Shared>,
     headers: HeaderMap,
-    Query(page): Query<Page>,
-) -> Result<Json<Listing>, Refusal> {
+    Query(page): Query<ReplayPage>,
+) -> Result<Json<ReplayListing>, Refusal> {
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
     let limit = page.limit.unwrap_or(DEFAULT_PAGE).clamp(1, MAX_PAGE);
@@ -211,7 +275,7 @@ pub(crate) async fn list_replays(
         baylee_db::records::seated_games(&state.db, me, page.archived, page.offset, limit)
             .await
             .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
-    Ok(Json(Listing {
+    Ok(Json(ReplayListing {
         games: games
             .into_iter()
             .map(|g| game_out(g, me, page.archived))
@@ -221,18 +285,27 @@ pub(crate) async fn list_replays(
 }
 
 /// Whose view a tape is asked for.
+///
+/// @description Whose view the tape shows: `seat` (what a seat was sent),
+/// `public` (what spectators were sent) or `all_hands` (a seat's view and
+/// every shown seat's hand).
+/// @openapi
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-enum PerspectiveArg {
+enum TapePerspective {
     Seat,
     Public,
     AllHands,
 }
 
 /// What a check that fails does.
+///
+/// @description What a replay that departs from the record does: `stop`
+/// there, or `note` it and go on unverified.
+/// @openapi
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
-enum VerifyArg {
+enum TapeVerify {
     #[default]
     Stop,
     Note,
@@ -241,14 +314,24 @@ enum VerifyArg {
 /// `POST /replays/{game}/tape`'s body. `seat` is the seat the table is
 /// drawn from (default: the asking account's own); whose hidden cards the
 /// tape may hold the gateway decides from consent, never the request.
+///
+/// @description What tape to make. Whose hidden cards it may hold the
+/// gateway decides from each seat's consent, never the request; any other
+/// field is refused.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct TapeAsk {
-    perspective: PerspectiveArg,
+    /// @description Whose view the tape shows.
+    perspective: TapePerspective,
+    /// @description The seat the table is drawn from, the asking account's
+    /// own when absent; ignored for `public`.
     #[serde(default)]
     seat: Option<u8>,
+    /// @description What a departure from the record does; `stop` when
+    /// absent.
     #[serde(default)]
-    verify: VerifyArg,
+    verify: TapeVerify,
 }
 
 /// What a tape shows, decided here from the table and each seat's consent,
@@ -278,9 +361,9 @@ impl Lens {
             .map(|s| s.seat)
             .collect();
         let perspective = match ask.perspective {
-            PerspectiveArg::Seat => Perspective::Seat,
-            PerspectiveArg::Public => Perspective::Public,
-            PerspectiveArg::AllHands => Perspective::AllHands,
+            TapePerspective::Seat => Perspective::Seat,
+            TapePerspective::Public => Perspective::Public,
+            TapePerspective::AllHands => Perspective::AllHands,
         };
         if perspective == Perspective::Public {
             return Ok(Self {
@@ -347,6 +430,32 @@ fn just_ended(state: &Shared, game_id: &str) -> bool {
 /// `POST /replays/{game}/tape`: the game played again for the asking
 /// account, `200 application/gzip`, the tape. A tape that stops early
 /// (diverged, refused) is still `200`: its `stop` line says why.
+///
+/// @route POST /replays/{game}/tape
+/// @scope public
+/// @summary Play a game again as a tape
+/// @description An engine plays the game again on this build from its
+/// record and answers what the asked perspective was sent, as gzip JSON
+/// Lines (`baylee_protocol::tape`): a header, the frames, and a closing
+/// `stop` line saying how far it is the recorded game. A tape that stops
+/// early is still `200`. For an account that sat at the game; a client
+/// retries a `502` once.
+/// @tag Replays
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @no-infer
+/// @path-param game: String "The game's id"
+/// @body `$TapeAsk`
+/// @return 200: { type: string, format: binary } application/gzip
+/// @return 400: `$ErrorBody` "The body is not a tape request, or names a seat the table lacks"
+/// @return 403: `$ErrorBody` "The account sat at no seat of that game; or it is banned (`ban`) or must accept the terms in force first (`terms_required`)"
+/// @return 404: `$ErrorBody` "No record of that game"
+/// @return 409: `$ErrorBody` "The game is still being played"
+/// @return 413: `$ErrorBody` "The game's record is over 8 mebibytes compressed"
+/// @return 429: `$ErrorBody` "More than 6 tapes a minute, or 2 at once, for the account"
+/// @return 502: `$ErrorBody` "The tape passed 32 mebibytes compressed, or its engine failed or went away"
+/// @return 503: `$ErrorBody` "Replays are off (`BAYLEE_REPLAY_JOBS=0`), as many are being made as the gateway allows, no agent has room, admission is held, or the account store or Baylee Central is unavailable"
+/// @return 504: `$ErrorBody` "No tape within the job's time (`BAYLEE_REPLAY_JOB_SECS`, 60 s by default)"
 pub(crate) async fn replay_tape(
     State(state): State<Shared>,
     Path(game_id): Path<String>,
@@ -427,7 +536,7 @@ pub(crate) async fn replay_tape(
             own: lens.own,
             hands: lens.hands,
             others: lens.others,
-            note: ask.verify == VerifyArg::Note,
+            note: ask.verify == TapeVerify::Note,
             names: lens.names,
         },
     )
@@ -452,16 +561,23 @@ pub(crate) async fn replay_tape(
 }
 
 /// `PUT /replays/{game}/share`'s body.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ShareAsk {
+pub(crate) struct ReplayShareAsk {
+    /// @description Whether the other players may see this seat's hidden
+    /// cards in the game's replays.
     shared: bool,
 }
 
 /// `PUT /replays/{game}/share`'s answer.
+/// @openapi
 #[derive(Serialize)]
-pub(crate) struct ShareOut {
+pub(crate) struct ReplayShare {
+    /// @description The asking account's seat at the game.
     seat: u8,
+    /// @description Whether its hidden cards are shown in the game's
+    /// replays now.
     shared: bool,
 }
 
@@ -486,30 +602,48 @@ async fn own_seat(state: &Shared, game_id: &str, me: Uuid) -> Result<u8, Refusal
 /// account's own seat shows its hidden cards in this game's replays. The
 /// seat is the table's, never the request's. Any time, also while the game
 /// is played (once its record has begun).
+///
+/// @route PUT /replays/{game}/share
+/// @scope public
+/// @summary Share a seat's hidden cards in replays
+/// @description Sets whether the other players may see the asking
+/// account's own seat's hidden cards in that game's replays. The seat is
+/// the one the table says the account played. Any time, also while the
+/// game is played.
+/// @tag Replays
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param game: String "The game's id"
+/// @body `$ReplayShareAsk`
+/// @return 400: `$ErrorBody` "The body is not a sharing choice"
+/// @return 403: `$ErrorBody` "The account sat at no seat of that game; or it is banned (`ban`) or must accept the terms in force first (`terms_required`)"
+/// @return 404: `$ErrorBody` "No record of that game"
 pub(crate) async fn share_replay(
     State(state): State<Shared>,
     Path(game_id): Path<String>,
     headers: HeaderMap,
     body: axum::body::Bytes,
-) -> Result<Json<ShareOut>, Refusal> {
+) -> Result<Json<ReplayShare>, Refusal> {
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
-    let ask: ShareAsk = serde_json::from_slice(&body)
+    let ask: ReplayShareAsk = serde_json::from_slice(&body)
         .map_err(|_| err(StatusCode::BAD_REQUEST, "the body is not a sharing choice"))?;
     let seat = own_seat(&state, &game_id, me).await?;
     baylee_db::records::set_share(&state.db, &game_id, seat, ask.shared)
         .await
         .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
-    Ok(Json(ShareOut {
+    Ok(Json(ReplayShare {
         seat,
         shared: ask.shared,
     }))
 }
 
 /// `PUT /replays/{game}/archived`'s body and answer.
+/// @openapi
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Archived {
+pub(crate) struct ReplayArchived {
+    /// @description Whether the game is on the account's archived list.
     archived: bool,
 }
 
@@ -517,15 +651,31 @@ pub(crate) struct Archived {
 /// the asking account's archived list (`GET /replays?archived=true`), or
 /// back. The record is never deleted (it trains the house AI); nothing else
 /// changes, and an archived game's tapes are answered as before.
+///
+/// @route PUT /replays/{game}/archived
+/// @scope public
+/// @summary Archive a game, or bring it back
+/// @description Moves the game to the asking account's archived list
+/// (`GET /replays?archived=true`) or back, and nothing else: the record is
+/// kept, other players' lists stay as they are, and its tapes are answered
+/// as before. Answers the choice, also when it already was so.
+/// @tag Replays
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param game: String "The game's id"
+/// @body `$ReplayArchived`
+/// @return 400: `$ErrorBody` "The body is not an archive choice"
+/// @return 403: `$ErrorBody` "The account sat at no seat of that game; or it is banned (`ban`) or must accept the terms in force first (`terms_required`)"
+/// @return 404: `$ErrorBody` "No record of that game"
 pub(crate) async fn archive_replay(
     State(state): State<Shared>,
     Path(game_id): Path<String>,
     headers: HeaderMap,
     body: axum::body::Bytes,
-) -> Result<Json<Archived>, Refusal> {
+) -> Result<Json<ReplayArchived>, Refusal> {
     let session = crate::authed_session(&state, &headers).await?;
     let me = account_of(&session)?;
-    let ask: Archived = serde_json::from_slice(&body)
+    let ask: ReplayArchived = serde_json::from_slice(&body)
         .map_err(|_| err(StatusCode::BAD_REQUEST, "the body is not an archive choice"))?;
     own_seat(&state, &game_id, me).await?;
     baylee_db::records::set_archived(&state.db, me, &game_id, ask.archived)

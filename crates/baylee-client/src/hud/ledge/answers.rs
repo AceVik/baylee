@@ -243,12 +243,7 @@ fn question_row(duel: &Duel, lang: Lang, elsewhere: bool) -> Vec<(Says, String)>
         {
             vec![(
                 Says::Answer(PromptAction::Confirm),
-                Phrase::counted(
-                    usize::from(*count),
-                    Phrase::DiscardCard,
-                    Phrase::DiscardCards,
-                )
-                .fill(lang, &[&count.to_string()]),
+                Phrase::DiscardCards.fill_count(lang, usize::from(*count), &[]),
             )]
         }
         Some(_)

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.0-beta.7b"
+version = "0.1.0-beta.8b"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -22,9 +22,14 @@ description = "An unofficial, non-commercial fan implementation of a trading car
 # Dependency policy: newest stable, pinned here once for the whole workspace.
 # Refresh with `cargo upgrade` (cargo-edit) + full CI run.
 [workspace.dependencies]
+# The interface's phrases (`crates/baylee-client-core/locales`): Project
+# Fluent, CLDR plural rules per language.
+fluent-bundle = "0.16"
+fluent-syntax = "0.12"
+unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "efc6731164add14094c11725a01b1f01facdaf9e" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "efc6731164add14094c11725a01b1f01facdaf9e" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
@@ -112,7 +117,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # baylee-update): compiles a one-line `.rc` with the SDK's `rc.exe` and links
 # it. Only ever a build-dependency for a Windows *target*; without `toml` it
 # adds only `version_check`, which the lockfile already has.
-winresource = { version = "0.1.31", default-features = false }
+winresource = { version = "0.1.34", default-features = false }
 # `winit::window::Icon` for the window icon (`baylee-client` `window_icon.rs`):
 # bevy_winit re-exports no icon type. The same 0.30 bevy resolves, no
 # features of its own, so it is the one copy bevy already builds.
@@ -167,7 +172,7 @@ flate2 = "1"
 # ONNX Runtime for the trained AI's own player (`baylee-train`, feature
 # `onnx`, trainer-only). Pinned exactly: 2.0 is still a release candidate.
 # Nothing builds it by default, so CI never downloads the runtime.
-ort = { version = "=2.0.0-rc.13", default-features = false }
+ort = { version = "=2.0.0-rc.15", default-features = false }
 base64 = "0.23"
 # The client's updater (`baylee-update`, #326). `semver` orders release tags,
 # pre-releases included, and was already in the tree. `ed25519-dalek` checks

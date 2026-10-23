@@ -33,9 +33,39 @@ second schema as a closed beta with its admin console on a loopback port
 (two players let in with keys its `invite create` made), starts the service
 with `FEEDBACK_WEB_DIR=dist` and that console, hands reports in through
 `/intake/reports` as a gateway does, and drops both schemas afterwards.
-`e2e/admin.spec.ts` drives the console at 360×740 and 740×360 (touch, the
-first in German) and 1280×800, and fails on a page or a card wider than its
-screen and on a control under 44 px; with `SCREENSHOTS_DIR` it saves each.
+`e2e/admin.spec.ts` drives the reports list, a report and the console at
+320×640 (dark), 360×740 and 740×360 (touch, the first two in German) and
+1280×800, and fails on
+a page or a card wider than its screen, on a control under 44 px and on
+visible text under 12 px; with `SCREENSHOTS_DIR` it saves each.
+
+## Its look
+
+One design system, in `src/styles/`, each selector defined once:
+
+- `tokens.css`: every colour (light, and dark as a blue hour), the type
+  scale (12 px at the least), the spacing grid of 4 px, radii, shadows,
+  durations, the layout's sizes and stacking. No other file names a raw
+  colour or size, so the look can move with the console into baylee.app
+  (M5) by carrying this file and the next.
+- `base.css`, `components.css`: type, links and focus; buttons, fields,
+  panels, headline tiles, tables, badges, segmented controls, dialogs,
+  toasts, and the states a page can be in (empty, failed, loading).
+- `shell.css`: the bar, the console's sections (a sidebar on a wide screen,
+  a tab bar at the bottom of a tablet or phone, its icons alone under
+  480 px) and a page's column.
+- `admin.css`, `reports.css`, `contact.css`, `models.css`: each page's own
+  parts, built from the above.
+
+The rules it keeps: text holds 4.5:1 and a control's edge, a chart's mark
+and the focus ring 3:1 against every surface they are drawn on, in both
+schemes (`src/styles/contrast.test.ts` measures `tokens.css`); a control is
+44 px high in the console, on the bar and under a finger; motion is short
+(120–180 ms) and stops when the system asks for reduced motion; the root is
+87.5 %, so the reader's own font size scales the page. Every page has a skip
+link to its content, names itself in the window's title and tells the
+browser its language. The mark (`src/Brand.tsx`, and `public/favicon.svg`,
+served by the service like the rest) is drawn, not fetched.
 
 ## TypeScript
 
@@ -51,7 +81,10 @@ are the strictest there are (`strict`, `noUncheckedIndexedAccess`,
 ## What it may load
 
 Everything is bundled and served from the service's own origin: no CDN, no
-web font (system fonts only), no analytics or telemetry. The one thing the
+web font (system fonts only), no analytics or telemetry. The stylesheets'
+few icons (a select's chevron, the search glass, the empty and failed
+states) are `data:` SVG in the CSS, which the policy's `img-src data:`
+allows. The one thing the
 page loads from anywhere else is the picture of a card: a card a report
 names, or a card on the set progress page, is fetched by the admin's
 browser straight from Scryfall's image host (`src/reports/scryfall.ts`,
@@ -64,11 +97,12 @@ holds the page to that.
 ## Dependencies and their licences
 
 Every version is exact, and `package-lock.json` is committed so `npm ci`
-installs the same tree. What ships to the browser is only React:
+installs the same tree. What ships to the browser is React and Fluent:
 
 | package | version | licence | why |
 | --- | --- | --- | --- |
-| react, react-dom | 19.3.0 | MIT | the UI (with `scheduler`, MIT) |
+| react, react-dom | 19.3.1 | MIT | the UI (with `scheduler`, MIT) |
+| @fluent/bundle | 0.19.1 | Apache-2.0 | the UI's words in each language (§"Its words"); no dependencies |
 
 Build and test only, never shipped:
 
@@ -80,8 +114,8 @@ Build and test only, never shipped:
 | jsdom | 29.1.1 | MIT | the DOM for those tests |
 | @testing-library/react | 16.3.3 | MIT | component tests |
 | @testing-library/user-event | 14.6.8 | MIT | typing and clicking in them |
-| oxlint | 1.88.0 | MIT | lint |
-| @playwright/test | 1.64.0 | Apache-2.0 | end-to-end tests |
+| oxlint | 1.89.0 | MIT | lint |
+| @playwright/test | 1.64.1 | Apache-2.0 | end-to-end tests |
 | postgres | 3.4.9 | Unlicense | the e2e harness's schema, nothing else |
 | @types/react, @types/react-dom | 19.3.0 | MIT | types |
 | @types/node | 24.19.2 | MIT | types for the e2e harness |
@@ -91,11 +125,11 @@ On the Node 22 line, jsdom 30 and some of its dependencies require at
 least 22.22.2. The complete lockfile, including optional platform packages,
 was checked against 22.22.1, and `npm ci --engine-strict` succeeds on it.
 
-The whole locked tree (14.10.2026): 116 MIT, 28 Apache-2.0, 12 MPL-2.0
+The whole locked tree (20.10.2026): 116 MIT, 29 Apache-2.0, 12 MPL-2.0
 (lightningcss and its platform builds), 2 each of ISC, BSD-2-Clause,
 BSD-3-Clause and MIT-0, and one each of BlueOak-1.0.0, CC0-1.0 and
-Unlicense. All are compatible with AGPL-3.0; none of the non-MIT ones
-reaches the built page.
+Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
+`@fluent/bundle` (Apache-2.0) reaches the built page.
 
 ## Using it
 
@@ -167,7 +201,7 @@ reaches the built page.
   change is in the report's history, under the admin's name.
 - Admin (`/admin/…`, shown when the service has a gateway's console,
   `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
-  a tab bar under the thumb on a phone:
+  a tab bar under the thumb on a phone (its icons alone under 480 px):
   - Overview (`/admin`): headline tiles (online, games running, accounts,
     new today, games today, new reports, and "Offline now": the anonymous
     count of offline games this service hears beat, `/ui/api/admin/offline`), four 30-day bar charts (reports,
@@ -225,3 +259,27 @@ reaches the built page.
 
   The admin area and the reports (since beta.7) are in German when the
   browser asks for German, else English; the sign-in form is English only.
+
+## Its words
+
+The UI's words are Project Fluent files, `locales/<lang>/feedback.ftl`, one
+per language, held to the rules and the glossary of `docs/translations.md`.
+English decides which messages exist and which arguments each takes; another
+language only translates. `src/i18n.ts` parses each file once into a
+`FluentBundle` (without bidi isolation marks, which would reach the DOM) and
+keeps the call sites' API: `t(lang, "contact.summary", { open: 3 })` names
+the message `contact-summary`, because a Fluent id takes no dot, and a
+message a language lacks reads in English, a key English lacks as itself.
+`src/i18n-keys.ts` lists every id as call sites spell it, so a misspelt key
+does not compile. A number passed as an argument is written as the language
+writes it (1,234, 1.234) and picks the plural form by CLDR's rules
+(`{ $n -> [one] … *[other] … }`), so a count is passed as a number and an
+identifier (an issue number, a version) as a string.
+
+`src/i18n.test.ts` refuses a file the parser skipped a line of, an id written
+twice, a language without a file (or a file without a language), a message
+missing from a language or not in English, a message reading other arguments
+than its English one, a plural form the language does not have, and a
+message that fails to format; it also holds `src/i18n-keys.ts` to the English
+file. A language is added in `src/i18n.ts` (an import of its file and an
+entry in `LANGS` with its locale) and nowhere else in the code.

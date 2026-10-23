@@ -65,6 +65,12 @@ pub fn run() {
             return;
         }
     };
+    // The updater (#326) starts here, before the window, the renderer and
+    // the lobby are built: its first check leaves at once, and is answered
+    // while the rest starts. A browser or phone build has none
+    // (`docs/client.md` §"Updating").
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    let updater = crate::update::native::begin();
 
     // Before any window: Windows reads a process's AppUserModelID when its
     // first window appears.
@@ -199,10 +205,9 @@ pub fn run() {
             app.add_plugins(crate::tablellm::TableLlmPlugin);
         }
     }
-    // The updater (#326): after the lobby, so its notice stands over it.
-    // A browser or phone build has none (`docs/client.md` §"Updating").
+    // The updater's face, after the lobby, so its card stands over it.
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
-    app.add_plugins(crate::update::native::NativeUpdatePlugin);
+    app.add_plugins(updater);
     app.run();
 }
 

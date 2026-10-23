@@ -25,8 +25,10 @@
 //!   once the old one and its launcher have ended.
 //! - [`check`]: the HTTP half: asking GitHub, downloading, verifying,
 //!   staging.
+//! - [`progress`]: how far staging has got, and the meter that turns a
+//!   download's bytes into a few readings a second.
 //! - [`service`]: the thread that checks at start and every six hours, and
-//!   never with automatic checks off.
+//!   never with automatic checks off, and reports as it goes.
 //!
 //! The client (`baylee-client/src/update/`) runs [`check`] on a thread of
 //! its own and [`launch::activate`] after its window has closed. `docs/client.md`
@@ -43,6 +45,7 @@ pub mod archive;
 pub mod check;
 pub mod launch;
 pub mod plan;
+pub mod progress;
 pub mod relaunch;
 pub mod release;
 pub mod relocate;

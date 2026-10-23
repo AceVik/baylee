@@ -90,16 +90,14 @@ fn words(object: &baylee_view::PublicObject, lang: Lang, detail: bool) -> Option
         if counter.count == 0 {
             continue;
         }
-        let (one, many) = match counter.kind {
-            baylee_view::CounterKind::Charge => {
-                (Phrase::LogCounterCharge, Phrase::LogCountersCharge)
-            }
-            AGE_COUNTER => (Phrase::LogCounterAge, Phrase::LogCountersAge),
+        let noun = match counter.kind {
+            baylee_view::CounterKind::Charge => Phrase::LogCountersCharge,
+            AGE_COUNTER => Phrase::LogCountersAge,
             _ => continue,
         };
-        let noun = Phrase::counted(usize::from(counter.count), one, many);
         parts.push(if detail {
-            format!("{} {}", counter.count, noun.text(lang))
+            let noun = noun.fill_count(lang, usize::from(counter.count), &[]);
+            format!("{} {noun}", counter.count)
         } else {
             format!("{} ", counter.count)
         });
@@ -620,7 +618,7 @@ mod tests {
         );
         assert_eq!(
             words(&object, Lang::De, false).as_deref(),
-            Some("Verschlossen: Forgotten Cellar")
+            Some("Versperrt: Forgotten Cellar")
         );
         object.unlocked_doors = Some([false, false]);
         assert_eq!(

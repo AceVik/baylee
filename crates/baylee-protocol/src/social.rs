@@ -349,59 +349,115 @@ pub const HEADER_VERSION: u32 = 1;
 // ---------------------------------------------------------------------------
 
 /// Client → gateway.
+///
+/// @description A frame the client sends on the social socket, one JSON
+/// object per text frame, tagged by `t`: `hello` first, then `send`,
+/// `global`, `ack` and `presence`.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Up {
-    /// First, always: which of this account's devices this is, and the
-    /// status it starts in. Nothing else is accepted before it.
+    /// @description First, always: which of this account's chat devices
+    /// this socket speaks for, and the status it starts in. Nothing else is
+    /// accepted before it.
     Hello {
+        /// @description The device id, as `POST /social/devices` registered
+        /// it for this account.
+        /// @internal
         /// The device id (§4.1), registered with `POST /social/devices`.
         device: String,
-        /// The status to start in.
+        /// @description The status to start in.
         presence: PresenceSet,
     },
+    /// @description A sealed message to a conversation, answered `sent` or
+    /// `refused` with the same `req`.
+    /// @internal
     /// A sealed message to a conversation. Answered [`Down::Sent`] or
     /// [`Down::Refused`] with the same `req`.
     Send {
-        /// The client's number for this send, echoed in the answer.
+        /// @description The client's number for this send, echoed in the
+        /// answer.
         req: u32,
+        /// @description The conversation's id (`dm:<tag>:<tag>`,
+        /// `grp:<uuid>`, `tbl:<game>` or `team:<game>:<n>`); it must equal
+        /// the header's.
+        /// @internal
         /// The conversation; must equal the header's.
         conv: String,
+        /// @description The message, with its key wrapped once for every
+        /// current device of every recipient (and optionally the sending
+        /// device).
+        /// @internal
         /// The message, with one wrap per recipient device.
         sealed: Sealed,
     },
+    /// @description Every delivery up to and including `upto` is stored or
+    /// shown: the gateway deletes the slots up to it that it sent this
+    /// socket. A `seq` may arrive below one already seen, so de-duplicate by
+    /// the message id, never by `seq`.
+    /// @internal
     /// Every delivery up to and including `upto` is stored or shown; the
     /// gateway deletes the slots up to it that it sent this socket. A
     /// `seq` may arrive below one already seen (messages committed out of
     /// order): de-duplicate by the message id, never by `seq`.
     Ack {
+        /// @description The highest `msg` `seq` the client has.
+        /// @internal
         /// The highest [`Down::Msg`] `seq` the client has.
         upto: u64,
     },
+    /// @description A new status or activity: `status` and `activity` sit
+    /// beside `t`.
+    /// @internal
     /// A new status or activity.
     Presence(PresenceSet),
+    /// @description A public message to every online player in the lobby
+    /// chat (`global`). It is not sealed: the gateway relays the body as it
+    /// is to every other open social socket. Answered `sent` or `refused`
+    /// with the same `req`.
+    /// @internal
     /// A public message to all online players in the lobby chat (`Conv::Global`).
     Global {
+        /// @description The client's number for this send, echoed in the
+        /// answer.
+        /// @internal
         /// The client's number for this send, echoed in [`Down::Sent`] or [`Down::Refused`].
         req: u32,
+        /// @description The message's id, a version 7 UUID the sender makes.
+        /// @internal
         /// The message's id, a `UUIDv7` the sender makes.
         id: String,
+        /// @description The message body as JSON text, 1 to 4096 bytes.
+        /// @internal
         /// The JSON-encoded message body, at most [`MAX_BODY_BYTES`].
         body: String,
     },
 }
 
 /// The status a client sets for itself.
+///
+/// @description The status a client sets for itself, and what it says it
+/// is doing.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PresenceSet {
-    /// What friends are shown (`invisible` reads as offline).
+    /// @description What friends are shown (`invisible` reads as
+    /// `offline`).
     pub status: Status,
+    /// @description What the client says it is doing, where the gateway
+    /// cannot see it; absent otherwise.
+    /// @internal
     /// What the client says it is doing, when the gateway cannot see it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub activity: Option<Activity>,
 }
 
 /// The status a client chooses.
+///
+/// @description The status a client chooses: `online`, `away` (the client
+/// sets it after ten idle minutes), `dnd` (do not disturb) or `invisible`
+/// (friends see `offline`).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {
@@ -416,6 +472,11 @@ pub enum Status {
 }
 
 /// What a client says it is doing, which the gateway cannot see itself.
+///
+/// @description What a client says it is doing, which the gateway cannot
+/// see itself: `building` (in the deck builder) or `house` (playing the
+/// house AI in a local game).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Activity {
@@ -427,201 +488,330 @@ pub enum Activity {
 
 /// A message as it is sent: the sealed body, and one wrap of its key per
 /// recipient device. Every field is base64url without padding.
+///
+/// @description A message as it is sent: the sealed body, and one wrap of
+/// its key per recipient device. Every value is base64url without padding;
+/// the gateway checks shapes and sizes and cannot open it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sealed {
+    /// @description The header's JSON bytes (`v`, `id`, `conv`, `from`,
+    /// `dev`, `ts`, `kind`) exactly as the sender signs them, at most 512
+    /// bytes.
+    /// @internal
     /// The header's JSON bytes ([`Header`]), at most [`MAX_HEADER_BYTES`].
     pub hdr: String,
-    /// The body's nonce, 24 bytes.
+    /// @description The body's nonce, 24 bytes.
     pub n: String,
+    /// @description The body's ciphertext (XChaCha20-Poly1305 under the
+    /// message key), at most 4112 bytes.
+    /// @internal
     /// The body's ciphertext (XChaCha20-Poly1305 under the message key).
     pub ct: String,
-    /// The message's ephemeral X25519 public key, 32 bytes.
+    /// @description The message's ephemeral X25519 public key, 32 bytes.
     pub epk: String,
-    /// The sending device's Ed25519 signature, 64 bytes.
+    /// @description The sending device's Ed25519 signature, 64 bytes.
     pub sig: String,
+    /// @description One wrap per current device of every recipient,
+    /// optionally one for the sending device too (to recover the message
+    /// from its own inbox); no device twice.
+    /// @internal
     /// One per recipient device, optionally including the sender for inbox recovery.
     pub wraps: Vec<Wrap>,
 }
 
 /// The message key wrapped for one device.
+///
+/// @description The message key wrapped for one device.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Wrap {
+    /// @description The device id: 16 lowercase hex characters.
+    /// @internal
     /// The device id.
     pub d: String,
+    /// @description The wrapped key, 48 bytes, base64url without padding.
+    /// @internal
     /// The wrapped key, [`WRAP_BYTES`] bytes.
     pub k: String,
 }
 
 /// A message as one device receives it: [`Sealed`] with only that device's
 /// wrap.
+///
+/// @description A sealed message as one device received it: the sender's
+/// header, the sealed body and its signature, and the message key wrapped
+/// for that device. Every field is base64url without padding; the gateway
+/// cannot open it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Delivered {
+    /// @description The header's JSON bytes exactly as the sender signed
+    /// them, at most 512 bytes.
+    /// @internal
     /// As [`Sealed::hdr`].
     pub hdr: String,
+    /// @description The body's nonce, 24 bytes.
+    /// @internal
     /// As [`Sealed::n`].
     pub n: String,
+    /// @description The body's ciphertext (XChaCha20-Poly1305 under the
+    /// message key), at most 4112 bytes.
+    /// @internal
     /// As [`Sealed::ct`].
     pub ct: String,
+    /// @description The message's ephemeral X25519 public key, 32 bytes.
+    /// @internal
     /// As [`Sealed::epk`].
     pub epk: String,
+    /// @description The sending device's Ed25519 signature, 64 bytes.
+    /// @internal
     /// As [`Sealed::sig`].
     pub sig: String,
+    /// @description The message key wrapped for this device, 48 bytes.
+    /// @internal
     /// This device's wrap.
     pub k: String,
 }
 
 /// Gateway → client.
+///
+/// @description A frame the gateway sends on the social socket, one JSON
+/// object per text frame, tagged by `t`.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Down {
+    /// @description The answer to `hello`: who this socket is. A `snapshot`
+    /// follows.
+    /// @internal
     /// The answer to [`Up::Hello`].
     Welcome {
-        /// This account's tag.
+        /// @description This account's tag.
         tag: String,
-        /// This account's handle (`Alice#af03`).
+        /// @description This account's handle (`Alice#af03`).
         handle: String,
-        /// The device the socket speaks for.
+        /// @description The device the socket speaks for.
         device: String,
-        /// Whether the account is a guest.
+        /// @description Whether the account is a guest.
         guest: bool,
     },
+    /// @description The whole social state, its fields beside `t`: sent
+    /// after `welcome`, and again after any change the gateway cannot say
+    /// as one event.
+    /// @internal
     /// The whole social state; after `Welcome`, and after any change the
     /// gateway cannot say as one event.
     Snapshot(Snapshot),
+    /// @description A delivery, carrying only this device's wrap; acked
+    /// with `ack`. Sent again on the next connection until acked.
+    /// @internal
     /// A delivery, acked with [`Up::Ack`].
     Msg {
+        /// @description The slot's number, rising per device; slots may
+        /// arrive out of order.
+        /// @internal
         /// The slot's number, rising per device.
         seq: u64,
+        /// @description When the gateway received it, Unix milliseconds:
+        /// the order to show it in.
+        /// @internal
         /// When the gateway received it, Unix milliseconds: the order.
         at: u64,
+        /// @description The conversation's id.
+        /// @internal
         /// The conversation.
         conv: String,
+        /// @description Who sent it, as the gateway attests; check the
+        /// header's `from` and `dev` against it.
+        /// @internal
         /// Who sent it, as the gateway attests.
         from: Sender,
-        /// The message.
+        /// @description The message.
         sealed: Delivered,
     },
+    /// @description A public message in the lobby chat (`global`), relayed
+    /// as it was sent, not sealed. After `snapshot` the gateway sends the
+    /// last 50 it holds in memory.
+    /// @internal
     /// A public message in the global lobby chat (`Conv::Global`).
     Global {
+        /// @description The message's id, a version 7 UUID.
+        /// @internal
         /// The message's id (`UUIDv7`).
         id: String,
-        /// When the gateway received it, Unix milliseconds.
+        /// @description When the gateway received it, Unix milliseconds.
         at: u64,
-        /// Who sent it, as the gateway attests.
+        /// @description Who sent it, as the gateway attests.
         from: Sender,
+        /// @description The message body as JSON text.
+        /// @internal
         /// The JSON-encoded message body.
         body: String,
     },
+    /// @description A `send` or `global` was taken.
+    /// @internal
     /// A send was stored.
     Sent {
-        /// The send's `req`.
+        /// @description The send's `req`.
         req: u32,
-        /// The message's id.
+        /// @description The message's id.
         id: String,
-        /// When the gateway received it, Unix milliseconds.
+        /// @description When the gateway received it, Unix milliseconds.
         at: u64,
     },
+    /// @description A send, a hello or the socket was refused. A refused
+    /// `hello` (`device`) or socket (`protocol`) is the last frame before
+    /// the socket closes.
+    /// @internal
     /// A send, a hello or the socket was refused.
     Refused {
-        /// The send's `req`, when a send was refused.
+        /// @description The send's `req`, when a send was refused.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         req: Option<u32>,
-        /// Why.
+        /// @description Why.
         why: Why,
+        /// @description With `devices`: the device ids the wraps left out.
+        /// @internal
         /// With [`Why::Devices`]: device ids the wraps left out.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         missing: Vec<String>,
+        /// @description With `devices`: the device ids the wraps named that
+        /// are not recipients.
+        /// @internal
         /// With [`Why::Devices`]: device ids the wraps named that are not
         /// recipients.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         extra: Vec<String>,
+        /// @description A sentence for a person, when there is one (a
+        /// version refusal names both versions).
+        /// @internal
         /// A sentence for a person, when there is one (a version refusal).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         message: Option<String>,
     },
+    /// @description A friend's presence changed; pushed at most once a
+    /// second per account.
+    /// @internal
     /// A friend's presence changed.
     Presence {
-        /// The friend's tag.
+        /// @description The friend's tag.
         tag: String,
-        /// What it is now.
+        /// @description What it is now.
         presence: Presence,
     },
-    /// A friend, request or block changed.
+    /// @description A friend, request or block changed.
     Friend {
-        /// What happened.
+        /// @description What happened.
         event: FriendEvent,
-        /// To whom.
+        /// @description To whom.
         person: Person,
-        /// Their presence, when they are now a friend.
+        /// @description Their presence, when they are now a friend.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         presence: Option<Presence>,
     },
-    /// A group this account is in, or was invited to, changed.
+    /// @description A group this account is in, or was invited to,
+    /// changed.
     Group {
-        /// What happened.
+        /// @description What happened.
         event: GroupEvent,
-        /// The group as it is now.
+        /// @description The group as it is now.
         group: GroupInfo,
     },
+    /// @description The members of a table or team conversation, whenever
+    /// they change (and to an account that left it).
+    /// @internal
     /// The members of a table or team conversation, whenever they change.
     Members {
+        /// @description The conversation's id.
+        /// @internal
         /// The conversation.
         conv: String,
-        /// Its members now.
+        /// @description Its members now.
         members: Vec<Person>,
     },
+    /// @description The devices of `tag` changed: fetch its keys again
+    /// (`GET /social/keys`).
+    /// @internal
     /// The devices of `tag` changed: fetch its keys again.
     KeysChanged {
+        /// @description Whose devices.
+        /// @internal
         /// Whose.
         tag: String,
     },
+    /// @description An invite to a table, its fields beside `t`.
+    /// @internal
     /// An invite to a table.
     Invite(TableInvite),
+    /// @description A table invite is no longer open.
+    /// @internal
     /// An invite is no longer open.
     InviteGone {
-        /// The invite's id.
+        /// @description The invite's id.
         id: String,
+        /// @description How it was answered; absent when it lapsed or was
+        /// withdrawn unanswered.
+        /// @internal
         /// How it was answered; `None` when it lapsed or was withdrawn
         /// unanswered.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         answer: Option<InviteAnswer>,
     },
+    /// @description A line the gateway writes into a conversation, drawn as
+    /// a server notice.
+    /// @internal
     /// A line the gateway writes into a conversation (drawn as a server
     /// notice).
     Notice {
+        /// @description The conversation's id.
+        /// @internal
         /// The conversation.
         conv: String,
-        /// What it says.
+        /// @description What it says.
         notice: Notice,
     },
 }
 
 /// An account as another one sees it.
+///
+/// @description An account as another one sees it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Person {
+    /// @description The account's tag.
+    /// @internal
     /// The tag.
     pub tag: String,
+    /// @description Its handle (`Alice#af03`).
+    /// @internal
     /// The handle (`Alice#af03`).
     pub handle: String,
 }
 
 /// Who sent a delivered message, as the gateway attests it.
+///
+/// @description Who sent a message, as the gateway attests it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Sender {
-    /// The sender's tag; the header's `from` must equal it.
+    /// @description The sender's tag; the header's `from` must equal it.
     pub tag: String,
-    /// The sender's handle.
+    /// @description The sender's handle.
     pub handle: String,
-    /// The sending device; the header's `dev` must equal it.
+    /// @description The sending device; the header's `dev` must equal it.
     pub device: String,
 }
 
 /// A friend's presence, as shown to friends only.
+///
+/// @description A friend's presence, as shown to friends only.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Presence {
-    /// Their status; `invisible` is shown as `offline`.
+    /// @description Their status; `invisible` is shown as `offline`.
     pub status: Shown,
-    /// Where they are, when they are not offline.
+    /// @description Where they are, when they are not offline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<Place>,
 }
@@ -638,6 +828,10 @@ impl Presence {
 }
 
 /// A status as a friend is shown it.
+///
+/// @description A status as a friend is shown it: `offline` (no social
+/// socket open, or appearing offline), `online`, `away` or `dnd`.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Shown {
@@ -653,149 +847,201 @@ pub enum Shown {
 
 /// Where a friend is (§6). `game` is there only when they share it and the
 /// room is not locked.
+///
+/// @description Where a friend is, tagged by `kind`. `game` is there only
+/// when they share their table and it has no password.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Place {
-    /// In the lobby.
+    /// @description In the lobby.
     Lobby,
-    /// In a waiting room.
+    /// @description In a waiting room.
     Room {
-        /// The lobby game, when shared.
+        /// @description The lobby game, when shared.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         game: Option<String>,
-        /// The room's name.
+        /// @description The room's name.
         name: String,
-        /// Its chairs.
+        /// @description Its chairs.
         seats: u8,
+        /// @description How many of its chairs are taken.
+        /// @internal
         /// Its chairs taken.
         taken: u8,
-        /// Whether it has a password.
+        /// @description Whether it has a password.
         locked: bool,
     },
-    /// Seated at a running table.
+    /// @description Seated at a running table.
     Playing {
-        /// The lobby game, when shared.
+        /// @description The lobby game, when shared.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         game: Option<String>,
-        /// The table's name.
+        /// @description The table's name.
         name: String,
-        /// Its chairs.
+        /// @description Its chairs.
         seats: u8,
-        /// How long it has been running, in seconds.
+        /// @description How long it has been running, in seconds.
         running_secs: u32,
     },
-    /// Watching a table.
+    /// @description Watching a table.
     Watching {
-        /// The lobby game, when shared.
+        /// @description The lobby game, when shared.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         game: Option<String>,
-        /// The table's name.
+        /// @description The table's name.
         name: String,
     },
-    /// In the deck builder (the client says so).
+    /// @description In the deck builder (the client says so).
     Building,
-    /// Playing the house AI in a local game (the client says so).
+    /// @description Playing the house AI in a local game (the client says
+    /// so).
     House,
 }
 
 /// The whole social state of one account, as its device is sent it.
+///
+/// @description The whole social state of one account, as its device is
+/// sent it.
+/// @openapi
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {
+    /// @description Accepted friends, with their presence.
+    /// @internal
     /// Accepted friends.
     pub friends: Vec<Friend>,
+    /// @description Friend requests to this account.
+    /// @internal
     /// Requests to this account.
     pub incoming: Vec<Person>,
+    /// @description Friend requests from this account.
+    /// @internal
     /// Requests from this account.
     pub outgoing: Vec<Person>,
-    /// Accounts this account blocked.
+    /// @description Accounts this account blocked.
     pub blocked: Vec<Person>,
-    /// Groups this account is in.
+    /// @description Groups this account is in.
     pub groups: Vec<GroupInfo>,
-    /// Groups this account is invited to.
+    /// @description Groups this account is invited to.
     pub group_invites: Vec<GroupInvite>,
+    /// @description The table and team conversations this account is in
+    /// now.
+    /// @internal
     /// Table and team conversations this account is in now.
     pub tables: Vec<TableConv>,
-    /// Open table invites to this account.
+    /// @description Open table invites to this account.
     pub invites: Vec<TableInvite>,
-    /// The account's social settings.
+    /// @description The account's social settings.
     pub settings: SocialSettings,
 }
 
 /// A friend.
+///
+/// @description A friend.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Friend {
-    /// Who.
+    /// @description Who.
     pub person: Person,
+    /// @description Friends since when, Unix milliseconds.
+    /// @internal
     /// Since when, Unix milliseconds.
     pub since: u64,
-    /// Their presence now.
+    /// @description Their presence now.
     pub presence: Presence,
 }
 
 /// A group, with its members and pending invites.
+///
+/// @description A group, with its members and pending invites.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupInfo {
-    /// The group's id (a UUID); its conversation is `grp:<id>`.
+    /// @description The group's id (a UUID); its conversation is
+    /// `grp:<id>`.
     pub id: String,
-    /// Its name.
+    /// @description Its name.
     pub name: String,
-    /// Its members, in the order they joined.
+    /// @description Its members, in the order they joined.
     pub members: Vec<Member>,
-    /// Accounts invited and not yet answered.
+    /// @description Accounts invited and not yet answered.
     pub invited: Vec<Person>,
 }
 
 /// A member of a group.
+///
+/// @description A member of a group.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Member {
-    /// Who.
+    /// @description Who.
     pub person: Person,
-    /// Whether they own the group.
+    /// @description Whether they own the group.
     pub owner: bool,
 }
 
 /// An invite to a group, as the invitee sees it.
+///
+/// @description An invite to a group, as the invitee sees it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupInvite {
-    /// The group's id.
+    /// @description The group's id.
     pub group: String,
-    /// Its name.
+    /// @description Its name.
     pub name: String,
-    /// Who invited.
+    /// @description Who invited.
     pub inviter: Person,
-    /// When, Unix milliseconds.
+    /// @description When, Unix milliseconds.
     pub at: u64,
 }
 
 /// A table or team conversation this account is in.
+///
+/// @description A table or team conversation this account is in.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableConv {
+    /// @description The conversation's id: `tbl:<game>` or
+    /// `team:<game>:<n>`.
+    /// @internal
     /// `tbl:<game>` or `team:<game>:<n>`.
     pub conv: String,
-    /// The table's name.
+    /// @description The table's name.
     pub name: String,
-    /// Its members now.
+    /// @description Its members now.
     pub members: Vec<Person>,
 }
 
 /// An invite to sit at, or watch, a table.
+///
+/// @description An invite to sit at, or watch, a table. It lives ten
+/// minutes.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableInvite {
+    /// @description The invite's id; `POST /lobby/games/{id}/join` takes
+    /// it as `invite`.
+    /// @internal
     /// The invite's id; `POST /lobby/games/{game}/join` takes it as `invite`.
     pub id: String,
-    /// Who invited.
+    /// @description Who invited.
     pub from: Person,
-    /// The lobby game.
+    /// @description The lobby game.
     pub game: String,
-    /// Join a waiting room, or watch a running table.
+    /// @description Join a waiting room, or watch a running table.
     pub kind: InviteKind,
-    /// The table as it was when invited.
+    /// @description The table as it was when invited.
     pub table: TableBrief,
-    /// Seconds until it lapses.
+    /// @description Seconds until it lapses.
     pub expires_in: u32,
 }
 
 /// What a table invite is for.
+///
+/// @description What a table invite is for: `join` (sit down in a waiting
+/// room) or `watch` (watch a running table).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteKind {
@@ -806,6 +1052,10 @@ pub enum InviteKind {
 }
 
 /// How a table invite was answered.
+///
+/// @description How a table invite was answered: `accepted` (the invitee
+/// joined with it) or `declined`.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteAnswer {
@@ -816,28 +1066,38 @@ pub enum InviteAnswer {
 }
 
 /// A table, briefly.
+///
+/// @description A table, briefly.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TableBrief {
-    /// Its name.
+    /// @description Its name.
     pub name: String,
-    /// Its chairs.
+    /// @description Its chairs.
     pub seats: u8,
+    /// @description How many of its chairs are taken.
+    /// @internal
     /// Its chairs taken.
     pub taken: u8,
+    /// @description Where it stands: `waiting`, `playing` or `over`.
+    /// @openapi enum: [waiting, playing, over]
+    /// @internal
     /// `waiting`, `playing` or `over`.
     pub state: String,
-    /// Whether it has a password.
+    /// @description Whether it has a password.
     pub locked: bool,
 }
 
 /// The settings the gateway enforces for an account.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SocialSettings {
-    /// Who may whisper this account.
+    /// @description Who may whisper this account.
     pub whispers_from: WhispersFrom,
-    /// Whether others may send this account a friend request.
+    /// @description Whether others may send this account a friend request.
     pub requests_open: bool,
-    /// Whether friends are shown which table this account is at.
+    /// @description Whether friends are shown which table this account is
+    /// at (never a table with a password).
     pub share_table: bool,
 }
 
@@ -852,6 +1112,11 @@ impl Default for SocialSettings {
 }
 
 /// Who may whisper an account (§5.2).
+///
+/// @description Who may whisper an account: `friends`, or
+/// `friends_and_tables` (also the players with a chair at a table it sits
+/// at; the default).
+/// @openapi
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WhispersFrom {
@@ -884,6 +1149,14 @@ impl WhispersFrom {
 }
 
 /// What happened to a friend, a request or a block.
+///
+/// @description What happened to a friend, a request or a block:
+/// `request_in` (they asked to be friends), `request_out` (this account
+/// asked them, from another of its devices), `accepted` (a request was
+/// accepted, either way), `removed` (the friendship ended), `request_gone`
+/// (a request was declined, cancelled or withdrawn), `blocked` or
+/// `unblocked` (by this account).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FriendEvent {
@@ -904,6 +1177,13 @@ pub enum FriendEvent {
 }
 
 /// What happened to a group.
+///
+/// @description What happened to a group: `joined` (this account is now a
+/// member), `updated` (its name, members, owner or invites changed), `left`
+/// (this account left or was removed), `invited` (this account was
+/// invited), `invite_gone` (this account's invite is no longer open) or
+/// `deleted`.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GroupEvent {
@@ -922,32 +1202,49 @@ pub enum GroupEvent {
 }
 
 /// A line the gateway writes into a conversation.
+///
+/// @description A line the gateway writes into a group's conversation,
+/// tagged by `kind`.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Notice {
-    /// Someone joined the group.
+    /// @description Someone joined the group.
     MemberJoined {
-        /// Who.
+        /// @description Who.
         person: Person,
     },
-    /// Someone left the group or was removed.
+    /// @description Someone left the group or was removed.
     MemberLeft {
-        /// Who.
+        /// @description Who.
         person: Person,
     },
-    /// The group was renamed.
+    /// @description The group was renamed.
     Renamed {
-        /// Its new name.
+        /// @description Its new name.
         name: String,
     },
-    /// The group has a new owner.
+    /// @description The group has a new owner.
     OwnerNow {
-        /// Who.
+        /// @description Who.
         person: Person,
     },
 }
 
 /// Why something was refused.
+///
+/// @description Why something was refused: `protocol` (the socket states
+/// another protocol or chat version; it closes), `device` (the hello names
+/// a device that is not this account's; register again), `not_member` (the
+/// sender may not write to this conversation, for whatever reason),
+/// `devices` (the wraps do not name exactly the recipients' devices; see
+/// `missing` and `extra`), `rate` (over the send allowance; retry in a
+/// second), `too_large`, `bad_sealed` (malformed: base64, sizes, the
+/// header), `stale` (the header's `ts` is more than ten minutes from the
+/// gateway's clock), `duplicate` (a message with this id is stored
+/// already), `recipient_full` (a recipient device holds 5000 undelivered
+/// messages) or `off` (this gateway has no chat).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Why {
@@ -971,6 +1268,8 @@ pub enum Why {
     Stale,
     /// A message with this id was already stored.
     Duplicate,
+    /// @description A recipient device holds 5000 undelivered messages.
+    /// @internal
     /// A recipient device holds [`SLOTS_PER_DEVICE`] undelivered messages.
     RecipientFull,
     /// This gateway has no chat.
@@ -982,115 +1281,158 @@ pub enum Why {
 // ---------------------------------------------------------------------------
 
 /// `POST /social/devices`.
+///
+/// @description A chat device to register: its two public keys, the
+/// identity key's statement over them for the account's tag, and its OS
+/// family.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceRegistration {
-    /// The Ed25519 identity key, 32 bytes, base64url.
+    /// @description The device's Ed25519 identity key, 32 bytes, base64url
+    /// without padding.
     pub ik: String,
-    /// The X25519 key, 32 bytes, base64url.
+    /// @description The device's X25519 key, 32 bytes, base64url without
+    /// padding.
     pub dk: String,
+    /// @description The identity key's signature over the device statement
+    /// for the account's tag, 64 bytes, base64url without padding.
+    /// @internal
     /// The statement's signature (§4.1), 64 bytes, base64url.
     pub dsig: String,
+    /// @description The device's OS family (`macOS`), 1 to 24 characters,
+    /// none of them a control, bidirectional or invisible character.
+    /// @internal
     /// The OS family (`macOS`), at most [`MAX_DEVICE_LABEL`] characters.
     pub label: String,
 }
 
 /// The answer to `POST /social/devices` (`201`), and to anything else that
 /// creates something with an id.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Created {
-    /// The new thing's id.
+    /// @description The new thing's id: a device id, a group's UUID or a
+    /// table invite's id.
     pub id: String,
 }
 
 /// One of this account's devices, as `GET /social/devices` lists it.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceRow {
+    /// @description The device id, its fingerprint: 16 lowercase hex
+    /// characters derived from its identity key.
+    /// @internal
     /// The device id (its fingerprint).
     pub id: String,
-    /// The OS family.
+    /// @description The device's OS family.
     pub label: String,
-    /// When it was registered, Unix milliseconds.
+    /// @description When it was registered, Unix milliseconds.
     pub added_at: u64,
-    /// When it last opened the socket, Unix milliseconds.
+    /// @description When it last opened the social socket, Unix
+    /// milliseconds.
     pub seen_at: u64,
 }
 
 /// `GET /social/devices`.
+///
+/// @description The account's chat devices.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceList {
-    /// This account's devices, oldest first.
+    /// @description This account's devices, oldest first.
     pub devices: Vec<DeviceRow>,
 }
 
 /// One device's public keys, as `GET /social/keys` gives them.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceKey {
-    /// The device id.
+    /// @description The device id.
     pub id: String,
-    /// The Ed25519 identity key, base64url.
+    /// @description Its Ed25519 identity key, 32 bytes, base64url without
+    /// padding.
     pub ik: String,
-    /// The X25519 key, base64url.
+    /// @description Its X25519 key, 32 bytes, base64url without padding.
     pub dk: String,
+    /// @description The identity key's signature over the device statement,
+    /// base64url without padding: check it against the account's tag
+    /// before trusting the keys.
+    /// @internal
     /// The statement's signature, base64url: check it (§4.1).
     pub dsig: String,
-    /// The OS family.
+    /// @description Its OS family.
     pub label: String,
-    /// When it was registered, Unix milliseconds.
+    /// @description When it was registered, Unix milliseconds.
     pub added_at: u64,
 }
 
 /// One account's devices.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountKeys {
-    /// The tag.
+    /// @description The account's tag.
     pub tag: String,
-    /// The handle.
+    /// @description Its handle (`Alice#af03`).
     pub handle: String,
-    /// Its devices.
+    /// @description Its devices.
     pub devices: Vec<DeviceKey>,
 }
 
 /// `GET /social/keys?tag=…`: only the tags this account may write to; any
 /// other tag is left out rather than refused.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeysAnswer {
-    /// One entry per tag that may be written to.
+    /// @description One entry per tag asked for that the caller may write
+    /// to.
     pub keys: Vec<AccountKeys>,
 }
 
 /// `GET /social/players/{handle}`.
+///
+/// @description A player as the caller sees them, and how the two stand.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct PlayerLookup {
-    /// The tag.
+    /// @description Their tag.
     pub tag: String,
-    /// The handle.
+    /// @description Their handle (`Alice#af03`).
     pub handle: String,
-    /// Whether they are this account's friend.
+    /// @description Whether they are the caller's friend.
     pub friend: bool,
-    /// Whether they asked this account.
+    /// @description Whether they asked the caller to be friends.
     pub incoming: bool,
-    /// Whether this account asked them.
+    /// @description Whether the caller asked them.
     pub outgoing: bool,
-    /// Whether this account blocked them.
+    /// @description Whether the caller blocked them.
     pub blocked: bool,
 }
 
 /// `POST /social/friends/requests`.
+///
+/// @description A friend request.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FriendRequest {
-    /// `Name#tag`.
+    /// @description Whom to ask, by handle: `Name#tag`.
     pub handle: String,
 }
 
 /// The answer to a friend request (`201`).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestAnswer {
-    /// `pending`, or `friends` when they had asked already.
+    /// @description `pending`, or `friends` when they had asked already.
     pub state: RequestState,
 }
 
 /// Where a friend request stands.
+///
+/// @description Where a friend request stands: `pending` (sent,
+/// unanswered) or `friends` (they had asked already).
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RequestState {
@@ -1102,63 +1444,107 @@ pub enum RequestState {
 
 /// A body that names one account by tag (`POST /social/blocks`,
 /// `POST /social/groups/{id}/invites`, `…/owner`).
+///
+/// @description One account, by tag.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TagBody {
-    /// The tag.
+    /// @description The account's tag: lowercase hex, four to eight digits.
     pub tag: String,
 }
 
 /// A body that names a group (`POST /social/groups`, `PATCH …/{id}`).
+///
+/// @description A group's name.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupName {
+    /// @description The name: 1 to 48 characters, none of them hidden.
+    /// @internal
     /// The name ([`crate::names::group_name`]).
     pub name: String,
 }
 
 /// `POST /social/invites`.
+///
+/// @description An invite to the caller's table.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InviteRequest {
-    /// The friend to invite.
+    /// @description The friend to invite, by tag.
     pub tag: String,
-    /// The lobby game the caller sits in.
+    /// @description The lobby game the caller sits in.
     pub game: String,
 }
 
 /// `DELETE /social/invites/{id}`'s optional body.
+///
+/// @description What the invitee says when it closes an invite.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InviteDecline {
+    /// @description `declined`; anything else, or no body, lets the invite
+    /// go unanswered.
+    /// @internal
     /// `declined`.
     pub answer: InviteAnswer,
 }
 
 /// `POST /social/reports`: one delivered message, revealed (§4.7).
+///
+/// @description One delivered message, revealed by its recipient: the
+/// message as it arrived, its message key and the body it decrypted to.
+/// Revealing the key reveals this one message and nothing else.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatReport {
+    /// @description The conversation it was delivered in, by id
+    /// (`dm:<tag>:<tag>`, `grp:<uuid>`, `tbl:<game>`, `team:<game>:<n>` or
+    /// `global`); the message's header must name the same.
+    /// @internal
     /// The conversation it was delivered in.
     pub conv: String,
-    /// The message as it was delivered.
+    /// @description The message as it was delivered.
     pub sealed: Delivered,
-    /// Its message key, 32 bytes, base64url.
+    /// @description Its message key, 32 bytes, base64url without padding.
     pub mk: String,
+    /// @description The body it decrypted to, the exact bytes (at most
+    /// 4096), base64url without padding.
+    /// @internal
     /// Its decrypted body, base64url of the exact bytes.
     pub body: String,
+    /// @description What the reporter says, at most 2000 characters; empty
+    /// when left out.
+    /// @internal
     /// What the reporter says, at most [`MAX_REPORT_NOTE`] characters.
     #[serde(default)]
     pub note: String,
 }
 
 /// The answer to `POST /social/reports` (`201`).
+///
+/// @description What a report route answers when the feedback service took
+/// the report (`POST /social/reports`, and `POST /reports` in the same
+/// shape).
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReportReceipt {
-    /// The feedback service's id for it.
+    /// @description The feedback service's id for the report.
     pub report_id: String,
 }
 
 /// `GET /info`'s `social`, or `null` when the gateway has no chat.
+/// @openapi
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SocialInfo {
+    /// @description The chat protocol the social socket speaks.
+    /// @internal
     /// [`SOCIAL_VERSION`].
     pub version: u32,
+    /// @description How many days an undelivered message is kept for a
+    /// registered account's device (`BAYLEE_SOCIAL_KEEP_DAYS`, 1 to 30); a
+    /// guest's device keeps it one day.
+    /// @internal
     /// How many days undelivered messages are kept
     /// (`BAYLEE_SOCIAL_KEEP_DAYS`); the notice says it.
     pub keep_days: u32,

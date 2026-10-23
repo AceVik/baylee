@@ -140,124 +140,258 @@ pub struct Lifetimes {
 }
 
 /// One account as the console lists it.
+///
+/// @description One account as the admin console lists it: never a
+/// password, a token, an e-mail address or a deck's cards.
+/// @openapi
+/// @openapi rename `ConsoleAccountRow`
 #[expect(
     clippy::struct_excessive_bools,
     reason = "a row of facts the console shows side by side, each a yes or no"
 )]
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Account {
+    /// @description The account's id.
+    /// @internal
     /// Its id.
     pub id: Uuid,
+    /// @description Its username, the name it signs in with; `null` for a
+    /// guest, which has none.
+    /// @internal
     /// The login, for an account that has one.
     pub username: Option<String>,
+    /// @description The name other players see.
+    /// @internal
     /// What other players see.
     pub display_name: String,
+    /// @description The number that tells two accounts of one name apart,
+    /// shown in hex in its handle (`Alice#af03`).
+    /// @internal
     /// The tag that tells two of a name apart.
     pub tag: i32,
+    /// @description Whether it is a guest.
+    /// @internal
     /// Whether it is a guest.
     pub guest: bool,
+    /// @description When it was made, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    /// @internal
     /// When it was made.
     pub created_at: String,
+    /// @description Whether it has an e-mail address (never the address).
+    /// @internal
     /// Whether it has an e-mail address (never the address).
     pub has_email: bool,
+    /// @description Whether that address was confirmed.
+    /// @internal
     /// Whether that address was confirmed.
     pub confirmed: bool,
+    /// @description The language code it registered in.
+    /// @internal
     /// The language it registered in.
     pub lang: String,
+    /// @description Whether a closed-beta key admitted it.
+    /// @internal
     /// Whether a closed-beta key admitted it.
     pub by_key: bool,
+    /// @description The note of the key that admitted it; `null` when no
+    /// key did, or the key is gone or has no note.
+    /// @internal
     /// The note of that key, if it still exists and has one.
     pub key_note: Option<String>,
+    /// @description The version of the terms it last accepted, `null` for
+    /// none.
+    /// @internal
     /// The version of the terms it last accepted.
     pub terms_version: Option<String>,
+    /// @description How many decks it has.
+    /// @internal
     /// Its decks.
     pub decks: i64,
+    /// @description How many recorded games it sat in.
+    /// @internal
     /// The recorded games it sat in.
     pub games: i64,
+    /// @description How many of its sessions have not lapsed.
+    /// @internal
     /// Sessions that have not lapsed.
     pub sessions: i64,
+    /// @description When its latest live session was last renewed, RFC 3339
+    /// in UTC: it was active then, or up to a renewal interval (6 hours, a
+    /// guest's a day) later. `null` without a live session.
+    /// @openapi format: date-time
+    /// @internal
     /// When its latest session was last renewed: it was active then, or up
     /// to a renewal interval later. `None` without a live session.
     pub active_at: Option<String>,
+    /// @description Whether an admin reset its password and it has not
+    /// chosen its own yet.
+    /// @internal
     /// An admin reset its password and it has not chosen its own yet
     /// (beta.8).
     pub reset_pending: bool,
+    /// @description The ban in force on it, `null` when none is (a lapsed
+    /// ban is none).
+    /// @internal
     /// The ban in force on it, if one is (beta.8); a lapsed one is none.
     pub ban: Option<Ban>,
 }
 
 /// A ban in force, as the console shows it (beta.8).
+///
+/// @description A ban in force on an account.
+/// @openapi
+/// @openapi rename `ConsoleBan`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Ban {
+    /// @description Why, in the admin's words, which its player is shown.
+    /// @internal
     /// The admin's words, which its player is shown.
     pub reason: String,
+    /// @description When it ends, RFC 3339 in UTC; `null` for a ban for
+    /// good.
+    /// @openapi format: date-time
+    /// @internal
     /// Until when; `None` for good.
     pub until: Option<String>,
+    /// @description Since when, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    /// @internal
     /// Since when.
     pub at: String,
+    /// @description The admin who banned it.
+    /// @internal
     /// The admin who banned it.
     pub by: String,
 }
 
 /// One of an account's decks, without its cards.
+///
+/// @description One of an account's decks, without its cards.
+/// @openapi
+/// @openapi rename `ConsoleDeck`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Deck {
+    /// @description The deck's id.
+    /// @internal
     /// Its id.
     pub id: Uuid,
+    /// @description Its name.
+    /// @internal
     /// Its name.
     pub name: String,
+    /// @description Its format (`commander`, `freeform`, …).
+    /// @internal
     /// Its format.
     pub format: String,
+    /// @description How many cards its main deck holds: each line's count
+    /// (`40 Forest`), a line without one counting once.
+    /// @internal
     /// How many cards its main deck holds: each line's count (`40 Forest`),
     /// a line without one counting once.
     pub cards: i64,
+    /// @description Its version: how many versions it has had.
+    /// @internal
     /// How many versions it has had.
     pub version: i32,
+    /// @description When it last changed, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    /// @internal
     /// When it last changed.
     pub updated_at: String,
 }
 
 /// A chair of a recorded game.
+///
+/// @description One chair of a recorded game.
+/// @openapi
+/// @openapi rename `ConsoleChair`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Chair {
+    /// @description The chair's seat number.
+    /// @internal
     /// Its number.
     pub seat: i32,
+    /// @description Who sat there, by handle (`Alice#af03`); `null` for a
+    /// chair no account held (the house's) or whose account is gone.
+    /// @internal
     /// Who sat there, as `Name#tag`; `None` for a chair no account held
     /// (the house) or whose account is gone.
     pub player: Option<String>,
+    /// @description Whether that account is a guest; `null` when `player`
+    /// is.
+    /// @internal
     /// Whether that account is a guest.
     pub guest: Option<bool>,
 }
 
 /// One game an account sat in.
+///
+/// @description One recorded game an account sat in.
+/// @openapi
+/// @openapi rename `ConsoleGame`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Game {
+    /// @description The game's id.
+    /// @internal
     /// The game's id.
     pub game_id: String,
+    /// @description When it started, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    /// @internal
     /// When it started.
     pub started_at: String,
+    /// @description When its record ended, RFC 3339 in UTC; `null` while
+    /// it has not.
+    /// @openapi format: date-time
+    /// @internal
     /// When its record ended, if it did.
     pub ended_at: Option<String>,
+    /// @description Whether its record is complete.
+    /// @internal
     /// Whether its record is complete.
     pub complete: bool,
+    /// @description The seat number of the account's chair.
+    /// @internal
     /// Which chair the account had.
     pub seat: i32,
+    /// @description Every chair, in seat order.
+    /// @internal
     /// Every chair.
     pub chairs: Vec<Chair>,
 }
 
 /// One account in full: its row, decks and latest games.
+///
+/// @description One account in full: its row as the console lists it,
+/// its decks and its latest games.
+/// @openapi
+/// @openapi rename `ConsoleDetail`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Detail {
+    /// @description The account's row, as `GET /admin/accounts` lists it.
+    /// @internal
     /// The row a listing shows.
     #[serde(flatten)]
     pub account: Account,
+    /// @description When it last accepted the terms, RFC 3339 in UTC;
+    /// `null` if it never did.
+    /// @openapi format: date-time
+    /// @internal
     /// When it last accepted the terms.
     pub terms_accepted_at: Option<String>,
+    /// @description When its e-mail address was confirmed, RFC 3339 in
+    /// UTC; `null` when it was not.
+    /// @openapi format: date-time
+    /// @internal
     /// When its address was confirmed.
     pub confirmed_at: Option<String>,
+    /// @description Its decks, the latest changed first.
+    /// @internal
     /// Its decks, the latest changed first.
     pub deck_list: Vec<Deck>,
+    /// @description Its latest 25 recorded games, newest first.
+    /// @internal
     /// Its latest [`RECENT_GAMES`] games, newest first.
     pub recent_games: Vec<Game>,
 }
@@ -274,18 +408,35 @@ pub struct Named {
 }
 
 /// One day of [`daily`].
+///
+/// @description One UTC day of the admin console's statistics.
+/// @openapi
+/// @openapi rename `ConsoleDay`
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Day {
+    /// @description The day, `YYYY-MM-DD` in UTC.
+    /// @openapi format: date
+    /// @internal
     /// `2026-10-09`, a UTC day.
     pub day: String,
+    /// @description Registered accounts made that day that still exist.
+    /// @internal
     /// Registered accounts made that day that still exist.
     pub registered: i64,
+    /// @description Guests made that day that still exist.
+    /// @internal
     /// Guests made that day that still exist.
     pub guests: i64,
+    /// @description Recorded games started that day.
+    /// @internal
     /// Recorded games started.
     pub started: i64,
+    /// @description Recorded games finished that day.
+    /// @internal
     /// Recorded games finished.
     pub finished: i64,
+    /// @description Accounts that sat in a game started that day.
+    /// @internal
     /// Accounts that sat in a game started that day.
     pub players: i64,
 }

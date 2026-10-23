@@ -29,6 +29,10 @@ pub enum LobbyState {
 /// chair waiting for someone, and an AI seat is filled the moment it is
 /// configured. Collapsing the two would make "is this table full?" ask the
 /// wrong question.
+///
+/// @description What a chair is for: a person (`human`), once one takes
+/// it, or the house AI (`ai`), which fills it the moment it is configured.
+/// @openapi
 #[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SeatKind {
@@ -652,17 +656,35 @@ impl LobbyGame {
 /// Every field has a sane absence, so a client that asks for nothing gets the
 /// first page of everything — which is what `GET /lobby/games` did before any
 /// of this existed.
+///
+/// @description Which page of the lobby, and what to search it for. Every
+/// parameter may be left out; a value that does not read as a number or a
+/// flag counts as left out rather than being refused.
+/// @openapi
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct LobbyQuery {
+    /// @description Text to find, case-insensitively and anywhere, in a
+    /// table's name or its host's display name; a table's exact id also
+    /// matches. Blank matches every table.
+    /// @internal
     /// Free text matched against the table's name and its host's name.
     #[serde(default)]
     pub q: String,
+    /// @description How many matching tables to skip; 0 when absent.
+    /// @internal
     /// How many rows to skip.
     #[serde(default, deserialize_with = "loose_usize")]
     pub offset: usize,
+    /// @description How many tables the page holds: 25 when absent, and
+    /// anything outside 1 to 100 is taken as the nearer of the two.
+    /// @internal
     /// How many rows to return. Clamped to [`LobbyQuery::MAX_LIMIT`].
+    /// @openapi default: 25
     #[serde(default, deserialize_with = "loose_opt_usize")]
     pub limit: Option<usize>,
+    /// @description Whether to leave out the games already being played;
+    /// `true`, `1` and `yes` say so.
+    /// @internal
     /// Whether to leave out rooms that are already playing.
     #[serde(default, deserialize_with = "loose_bool")]
     pub waiting_only: bool,
@@ -899,12 +921,12 @@ impl Lobby {
     /// about), then the newest, and the id breaks a tie so two rooms opened
     /// in the same second never swap places between requests.
     #[must_use]
-    pub fn page_for(
+    pub fn page(
         &self,
         me: &str,
         names: &HashMap<String, String>,
         query: &LobbyQuery,
-    ) -> (Vec<serde_json::Value>, usize) {
+    ) -> (Vec<LobbyTable>, usize) {
         let mut matched: Vec<&LobbyGame> = self
             .games
             .values()
@@ -936,12 +958,26 @@ impl Lobby {
         (rows, total)
     }
 
+    /// [`Lobby::page`] as the JSON it is sent as, which this module's tests
+    /// read.
+    #[cfg(test)]
+    #[must_use]
+    pub fn page_for(
+        &self,
+        me: &str,
+        names: &HashMap<String, String>,
+        query: &LobbyQuery,
+    ) -> (Vec<serde_json::Value>, usize) {
+        let (rows, total) = self.page(me, names, query);
+        (as_json(rows), total)
+    }
+
     /// At most 32 of this account's own resumable chairs, independent of any
     /// public search or page. Running games precede waiting rooms, then newer
     /// games first and IDs as a stable tie-breaker. The temporary collection
     /// stays bounded even if a legacy account owns many rooms.
     #[must_use]
-    pub fn resumable_for(&self, account: &str) -> Vec<serde_json::Value> {
+    pub fn resumable(&self, account: &str) -> Vec<ResumableSeat> {
         const LIMIT: usize = 32;
         let mut games: Vec<(&LobbyGame, usize)> = Vec::with_capacity(LIMIT + 1);
         for game in self.games.values() {
@@ -964,24 +1000,38 @@ impl Lobby {
         }
         games
             .into_iter()
-            .map(|(game, seat)| {
-                serde_json::json!({
-                    "game_id": game.id,
-                    "seat": seat,
-                    "playing": game.state == LobbyState::Playing,
-                })
+            .map(|(game, seat)| ResumableSeat {
+                game_id: game.id.clone(),
+                seat,
+                playing: game.state == LobbyState::Playing,
             })
             .collect()
     }
 
+    /// [`Lobby::resumable`] as the JSON it is sent as, which this module's
+    /// tests read.
+    #[cfg(test)]
+    #[must_use]
+    pub fn resumable_for(&self, account: &str) -> Vec<serde_json::Value> {
+        as_json(self.resumable(account))
+    }
+
     /// Every visible game, for a caller that wants no paging at all.
     #[must_use]
-    pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
+    pub fn tables(&self, me: &str, names: &HashMap<String, String>) -> Vec<LobbyTable> {
         self.games
             .values()
             .filter(|g| g.state != LobbyState::Over)
             .map(|g| self.row(g, me, names))
             .collect()
+    }
+
+    /// [`Lobby::tables`] as the JSON it is sent as, which this module's
+    /// tests read.
+    #[cfg(test)]
+    #[must_use]
+    pub fn list_for(&self, me: &str, names: &HashMap<String, String>) -> Vec<serde_json::Value> {
+        as_json(self.tables(me, names))
     }
 
     /// One row of the listing.
@@ -991,95 +1041,248 @@ impl Lobby {
                   render it, rather than a free function reachable from \
                   anywhere in the crate"
     )]
-    fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> serde_json::Value {
+    fn row(&self, g: &LobbyGame, me: &str, names: &HashMap<String, String>) -> LobbyTable {
         let now = crate::auth::now_secs();
-        serde_json::json!({
-                    "id": g.id,
-                    "name": g.name,
-                    "setup": g.setup,
-                    "host": g.host.as_ref().and_then(|h| names.get(h)),
-                    "yours": g.host.as_deref() == Some(me),
-                    // Whether, never what: a client needs to know to ask for
-                    // a password, and nothing else about it belongs on a
-                    // listing every signed-in player can read.
-                    "locked": g.password_hash.is_some(),
-                    // Whether a player may watch it, and how many do.
-                    "spectators_allowed": g.allow_spectators,
-                    "spectators": g.watching,
-                    // Whether the room could start if the host said so. It is
-                    // the host's button, but every player can see why it is
-                    // not lit yet.
-                    "startable": g.state == LobbyState::Waiting
-                        && g.all_ready(),
-                    "state": match g.state {
-                        LobbyState::Waiting => "waiting",
-                        LobbyState::Playing => "playing",
-                        LobbyState::Over => "over",
-                    },
-                    // Whether this room is the next table of one that
-                    // finished. A player takes their chair here by pressing
-                    // rematch, not ready: the chair is *reserved* until they
-                    // do, because that is the only reply their seat token can
-                    // be minted into. A client that could not tell the two
-                    // rooms apart would send the wrong one, be answered
-                    // `200`, and leave the player looking at a chair that
-                    // still says it is not ready.
-                    "rematch": g.parent.is_some(),
-                    // How long a running table has been going, in seconds as
-                    // of this answer; `null` for a room still waiting. A
-                    // span rather than the start instant, so a client whose
-                    // clock is off still reads the right number.
-                    "running_secs": g.started_at
-                        .filter(|_| g.state == LobbyState::Playing)
-                        .map(|at| now.saturating_sub(at)),
-                    // What pace this table plays at, stated once, here.
-                    //
-                    // The limit is *not* sent to a seat during a game — see
-                    // `#69`, which draws its warning from the remaining time
-                    // alone so that a thirty-second table does not get a
-                    // clock for three seconds. But the same design asks for
-                    // the limit to be said once in the room, and this is the
-                    // room: a player choosing a table is choosing a pace,
-                    // and finding out by losing a decision is not a choice.
-                    "clock": {
-                        "decide_secs": g.house_rules.decision_timeout_secs,
-                        "reconnect_secs": g.house_rules.reconnect_window_secs,
-                    },
-                    // Everything a player needs to decide whether to sit
-                    // down: how many chairs, which are people, which are the
-                    // AI and how hard, and what everyone brought. A room is
-                    // configured in the open — that is what makes it a room
-                    // rather than a matchmaking queue.
-                    "seats": g.seats.iter().map(|s| {
-                        serde_json::json!({
-                            "seat": s.seat,
-                            "kind": s.kind,
-                            "ai": s.ai,
-                            "taken": s.occupied(),
-                            // A name, never an account id: the listing is
-                            // public to every signed-in player, and knowing
-                            // who is at a table does not require knowing
-                            // their account.
-                            "player": s.account_id.as_ref().and_then(|a| names.get(a))
-                                .or_else(|| s.delegate.as_ref().map(|d| &d.name)),
-                            // Whose seat bridge sits here (`chair.rs`), by
-                            // handle; `null` for every other chair.
-                            "delegated_by": s.delegate.as_ref().and_then(|d| names.get(&d.by)),
-                            // A model a seat agent runs for this chair
-                            // (`seathost.rs`); `null` for every other chair.
-                            "hosted": crate::seathost::chair_json(s),
-                            "you": s.account_id.as_deref() == Some(me),
-                            "host": s.account_id.is_some() && s.account_id == g.host,
-                            "deck": s.deck_name,
-                            "format": s.deck.as_ref().map_or("commander", |d| d.format.as_str()),
-                            "ready": g.seat_ready(s),
-                            // `null` for a chair that plays for itself, which
-                            // is every chair at a table with no teams on it.
-                            "team": s.team,
-                        })
-                    }).collect::<Vec<_>>(),
-        })
+        LobbyTable {
+            id: g.id.clone(),
+            name: g.name.clone(),
+            setup: g.setup.clone(),
+            host: g.host.as_ref().and_then(|h| names.get(h)).cloned(),
+            yours: g.host.as_deref() == Some(me),
+            // Whether, never what: a client needs to know to ask for
+            // a password, and nothing else about it belongs on a
+            // listing every signed-in player can read.
+            locked: g.password_hash.is_some(),
+            // Whether a player may watch it, and how many do.
+            spectators_allowed: g.allow_spectators,
+            spectators: g.watching,
+            // Whether the room could start if the host said so. It is
+            // the host's button, but every player can see why it is
+            // not lit yet.
+            startable: g.state == LobbyState::Waiting && g.all_ready(),
+            state: match g.state {
+                LobbyState::Waiting => "waiting",
+                LobbyState::Playing => "playing",
+                LobbyState::Over => "over",
+            },
+            // Whether this room is the next table of one that
+            // finished. A player takes their chair here by pressing
+            // rematch, not ready: the chair is *reserved* until they
+            // do, because that is the only reply their seat token can
+            // be minted into. A client that could not tell the two
+            // rooms apart would send the wrong one, be answered
+            // `200`, and leave the player looking at a chair that
+            // still says it is not ready.
+            rematch: g.parent.is_some(),
+            // How long a running table has been going, in seconds as
+            // of this answer; `null` for a room still waiting. A
+            // span rather than the start instant, so a client whose
+            // clock is off still reads the right number.
+            running_secs: g
+                .started_at
+                .filter(|_| g.state == LobbyState::Playing)
+                .map(|at| now.saturating_sub(at)),
+            // What pace this table plays at, stated once, here.
+            //
+            // The limit is *not* sent to a seat during a game — see
+            // `#69`, which draws its warning from the remaining time
+            // alone so that a thirty-second table does not get a
+            // clock for three seconds. But the same design asks for
+            // the limit to be said once in the room, and this is the
+            // room: a player choosing a table is choosing a pace,
+            // and finding out by losing a decision is not a choice.
+            clock: TableClock {
+                decide_secs: g.house_rules.decision_timeout_secs,
+                reconnect_secs: g.house_rules.reconnect_window_secs,
+            },
+            // Everything a player needs to decide whether to sit
+            // down: how many chairs, which are people, which are the
+            // AI and how hard, and what everyone brought. A room is
+            // configured in the open — that is what makes it a room
+            // rather than a matchmaking queue.
+            seats: g
+                .seats
+                .iter()
+                .map(|s| LobbyChair {
+                    seat: s.seat,
+                    kind: s.kind,
+                    ai: s.ai.clone(),
+                    taken: s.occupied(),
+                    // A name, never an account id: the listing is
+                    // public to every signed-in player, and knowing
+                    // who is at a table does not require knowing
+                    // their account.
+                    player: s
+                        .account_id
+                        .as_ref()
+                        .and_then(|a| names.get(a))
+                        .or_else(|| s.delegate.as_ref().map(|d| &d.name))
+                        .cloned(),
+                    // Whose seat bridge sits here (`chair.rs`), by
+                    // handle; `null` for every other chair.
+                    delegated_by: s.delegate.as_ref().and_then(|d| names.get(&d.by)).cloned(),
+                    // A model a seat agent runs for this chair
+                    // (`seathost.rs`); `null` for every other chair.
+                    hosted: crate::seathost::hosted_seat(s),
+                    you: s.account_id.as_deref() == Some(me),
+                    host: s.account_id.is_some() && s.account_id == g.host,
+                    deck: s.deck_name.clone(),
+                    format: s
+                        .deck
+                        .as_ref()
+                        .map_or("commander", |d| d.format.as_str())
+                        .to_owned(),
+                    ready: g.seat_ready(s),
+                    // `null` for a chair that plays for itself, which
+                    // is every chair at a table with no teams on it.
+                    team: s.team,
+                })
+                .collect(),
+        }
     }
+}
+
+/// Rows as the JSON they are sent as, for the tests that read them so.
+#[cfg(test)]
+fn as_json<T: serde::Serialize>(rows: Vec<T>) -> Vec<serde_json::Value> {
+    rows.into_iter()
+        .map(|row| serde_json::to_value(row).unwrap_or_default())
+        .collect()
+}
+
+/// One table of the lobby listing, as one account sees it.
+///
+/// @description One table of the lobby listing, as the caller sees it: a
+/// room completely, because deciding whether to sit down means seeing what
+/// is at the table. Never an account id: players are named by handle, and
+/// `yours`, `you` say what is the caller's.
+/// @openapi
+#[derive(serde::Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a table's facts the listing states side by side"
+)]
+pub struct LobbyTable {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description The pace the table plays at.
+    clock: TableClock,
+    /// @description The host's handle (`Alice#af03`), `null` for a table
+    /// with no host.
+    host: Option<String>,
+    /// @description The game's id, which every `/lobby/games/{id}/…` route
+    /// takes.
+    id: String,
+    /// @description Whether joining needs a password.
+    locked: bool,
+    /// @description What the table is called; empty when its host named
+    /// it nothing, and a client then shows the host's name.
+    name: String,
+    /// @description Whether this room is the next table of one that
+    /// finished: its players take their reserved chairs with
+    /// `POST /lobby/games/{id}/rematch`, not `…/ready`.
+    rematch: bool,
+    /// @description How long a running game has been going, in seconds as
+    /// of this answer; `null` for a room still waiting.
+    running_secs: Option<u64>,
+    /// @description Every chair, in seat order.
+    seats: Vec<LobbyChair>,
+    /// @description The room's shared rules (starting life, free
+    /// mulligans, each seat's own start, the table format), as
+    /// `POST /lobby/games/{id}/configure` sets them.
+    setup: baylee_core::preset::RoomSetup,
+    /// @description How many spectators watch it now.
+    spectators: u32,
+    /// @description Whether players who hold no chair may watch it.
+    spectators_allowed: bool,
+    /// @description Whether the room could start if its host pressed Start:
+    /// it is waiting and every chair is ready.
+    startable: bool,
+    /// @description `waiting` for a room, `playing` for a running game. A
+    /// finished table (`over`) is in no listing.
+    /// @openapi enum: [waiting, playing, over]
+    state: &'static str,
+    /// @description Whether the caller hosts it.
+    yours: bool,
+}
+
+/// A table's pace, as its listing row states it.
+///
+/// @description The pace a table plays at.
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct TableClock {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Seconds a player has for each decision; 0 for no
+    /// decision clock.
+    decide_secs: u32,
+    /// @description Seconds a seat that lost its connection is held before
+    /// the house answers for it.
+    reconnect_secs: u32,
+}
+
+/// One chair of a listing row.
+///
+/// @description One chair of a table, as the caller sees it.
+/// @openapi
+#[derive(serde::Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a chair's facts the listing states side by side"
+)]
+pub struct LobbyChair {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description The AI's difficulty, for an AI chair; `null` for a
+    /// person's.
+    /// @openapi enum: [novice, casual, steady, sharp, expert, null]
+    ai: Option<String>,
+    /// @description The name of the deck the chair plays; empty while it
+    /// has none.
+    deck: String,
+    /// @description The handle of the player whose seat bridge sits here;
+    /// `null` for every other chair.
+    delegated_by: Option<String>,
+    /// @description The format of that deck; `commander` while it has
+    /// none.
+    format: String,
+    /// @description Whether the room's host sits here.
+    host: bool,
+    /// @description The hosted model ordered for this chair; `null` for
+    /// every other chair.
+    hosted: Option<crate::seathost::HostedSeat>,
+    /// @description Whether it is a person's chair or the house AI's.
+    kind: SeatKind,
+    /// @description Who sits there: a player's handle, or the name a seat
+    /// bridge sat down under (`LLM-…`); `null` for an open or AI chair.
+    player: Option<String>,
+    /// @description Whether the chair is ready to start.
+    ready: bool,
+    /// @description The chair's seat number, counted from 0.
+    seat: usize,
+    /// @description Whether somebody (a player, a seat bridge, or a hosted
+    /// model on its way) holds it.
+    taken: bool,
+    /// @description The side it plays for, from 1; `null` for a chair
+    /// playing for itself.
+    team: Option<u8>,
+    /// @description Whether it is the caller's chair.
+    you: bool,
+}
+
+/// A chair of the caller's own that it may open again.
+///
+/// @description A chair the caller holds and may take back
+/// (`POST /lobby/games/{id}/seat`).
+/// @openapi
+#[derive(serde::Serialize)]
+pub struct ResumableSeat {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description The game it is at.
+    game_id: String,
+    /// @description Whether the game is running (`false`: a room still
+    /// waiting).
+    playing: bool,
+    /// @description The chair's seat number, counted from 0.
+    seat: usize,
 }
 
 #[cfg(test)]

@@ -268,7 +268,7 @@ pub(super) fn aim_and_declare(fired: Fired, duel: &mut Duel) -> bool {
 
 /// The dialog's own keyboard, for the two keys that meant something else.
 ///
-/// `docs/redesign-proposal.md` §6 is the spec: "Tab moves through rows, Space
+/// `docs/proposals/redesign-proposal.md` §6 is the spec: "Tab moves through rows, Space
 /// toggles, Enter confirms". [`Action::CombatFocusNext`] was already the first
 /// of those — its own doc says walking a `Mode::Objects` offer is the same
 /// gesture as aiming at a blocker — and the other two both belonged to

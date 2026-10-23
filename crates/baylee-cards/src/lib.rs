@@ -543,7 +543,7 @@ mod tests {
     /// `cards/` is a tree — `<type>/<subtype>/mv_<n>/<slug>.rs` — and the two
     /// lints below used to read it with a bare `read_dir`, which sees six
     /// folders and a `mod.rs`. Both had been passing on an empty worklist
-    /// ever since the files moved, which is the failure mode `CLAUDE.md`
+    /// ever since the files moved, which is the failure mode `docs/cards.md`
     /// names for anything that reads card files: a non-recursive read of a
     /// tree finds nothing and reports it as an answer.
     ///

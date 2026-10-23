@@ -10,6 +10,81 @@ use crate::{
 mod ownership;
 use ownership::{Connection, Ownership};
 
+/// `GET /games/{id}/ws`: one chair's socket at a running game.
+///
+/// @channel seat /games/{id}/ws
+/// @scope public
+/// @summary A seat's socket
+/// @description One chair's socket at a running game. Every frame is one
+/// protobuf `Envelope` (`baylee.v1`) in a binary frame: the gateway wraps
+/// each frame the client sends in a `SeatFrame` with this seat's number for
+/// the game's engine, and hands back each frame the engine addresses to the
+/// seat, decoding neither. Buy a ticket with the seat token
+/// (`POST /ws-ticket` with `{"socket":"seat","game":"<id>"}` and the seat
+/// token as `Authorization: Bearer`), then open the socket with it and the
+/// protocol the client speaks (`baylee_protocol::seat_socket_path` builds
+/// the address). The upgrade is refused as an HTTP answer, not a frame:
+/// with `404` and `no such game`, and with `401` and
+/// `ticket expired or used` for a ticket that is unknown, spent, expired or
+/// for another socket or game, one bought by a seat token that is not the
+/// chair's any more, and a chair whose player is out of the game or whose
+/// authorization no longer holds. A client of another protocol is let in,
+/// sent one `HelloAck` and closed, and the engine never hears of it.
+/// Otherwise the socket waits up to 30 seconds for the game's engine (and
+/// closes if none attaches), and the engine is told the seat is here. Its
+/// first frames are the opening payload (`GameStaticMsg`) and the seat's
+/// view (`StateDelta`). Until the table opens nothing is asked, no clock
+/// runs and actions are dropped (the curtain): the client sends
+/// `SeatReady` once its table is drawn, the engine counts the human seats
+/// that are in `TableLoading`, and when the last is ready it names a shared
+/// departure 1.5 seconds ahead for a 1.65-second entrance, after which each
+/// seat is sent its view and question and `Curtain` last. A table not ready
+/// within 120 seconds is sent an `Error` and ends; a socket that drops
+/// while the table loads cancels the departure for everyone. From then on
+/// the engine asks with `ChoiceRequest`, shows with `StateDelta`, and the
+/// client answers with `PlayerActionMsg`; a refused answer is sent an
+/// `Error` and the question again. The end of the game is a `ChoiceRequest`
+/// whose `Pending` is `GameOver` (or a `GameClosed` when an admin ended
+/// it), and then the socket closes; `GameEnded` never reaches a seat. A
+/// frame the client sends is at most 64 KiB (`MAX_SEAT_FRAME`), and a
+/// larger one ends the connection. A socket may send 512 frames at once
+/// and 240 a second after that (`seatrate`, frames of every kind counted),
+/// and past that it is closed with 1008 and `too many frames`. Text frames
+/// are passed over. A socket that falls behind the engine is not dropped:
+/// the engine is asked to send it a fresh snapshot. A newer socket for the
+/// same chair replaces this one, which closes. The chair's authorization is
+/// checked again every 5 seconds and before each frame is forwarded, and
+/// the socket closes, with a close frame without a code, once it no longer
+/// holds (the seat token was replaced or ended, or the Central session
+/// behind it lapsed or was banned), once the engine's link ends, and at the
+/// first frame the client sends after the engine said the seat is out of
+/// the game. While a chair has no socket, its frames are dropped and the
+/// engine holds its place for the reconnect window (`docs/protocol.md`,
+/// Leaving, and losing the connection).
+/// @ws-query ticket: String required "A single-use ticket bought for this seat with `POST /ws-ticket` and the seat token"
+/// @ws-query protocol: u32 required "The protocol the client speaks (`PROTOCOL_VERSION`, as `GET /info` answers it); another, or none, is answered with a `HelloAck` that is not compatible"
+/// @ws-query token: String deprecated "Instead of a ticket, the seat token itself, as clients from before tickets send it; accepted until 2026-10-31 (UTC) and then refused with `401`. A ticket wins when both are sent."
+/// parameters:
+///   id:
+///     description: The game's id, as the lobby lists it.
+/// @send `HelloAck`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `hello_ack`, from the gateway itself: the client's protocol is not the gateway's. `compatible` is false, `protocol_version` is the gateway's and `message` is a sentence naming both. The only frame; the socket closes after it."
+/// @send `GameStaticMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_static`: the opening payload, always first on the socket, and sent again before a view that shows a printing the seat had not been shown. `view_version` is the view schema's version, outside the payload so a client that cannot render it can say so; `static_json` is a `GameStatic` (the roster and the seat's print table) as JSON, see `docs/protocol.md`."
+/// @send `StateDelta`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `state_delta`: the seat's view after something changed. `seq` is what a `ResumeGame` names; `view_json` is a `PlayerView` as JSON; `log_json` is a `LogTail` as JSON (the seat's game log lines since the last tail, appended by its `from`), empty when there is none. Several frames may repeat a view and `seq` to carry a long log, so read `log_json` from every frame."
+/// @send `ChoiceRequest`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `choice_request`: a question to this seat. `seq` as in `StateDelta`; `pending_json` is the engine's `Pending` as JSON, which names every answer the engine takes. A `Pending` of `GameOver` is the end of the game."
+/// @send `TableLoading`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `table_loading`, before the curtain: how many human seats are ready (`ready` of `total`) and, once every one is, the shared departure `enter_at_ms` in server Unix milliseconds; 0 cancels a departure."
+/// @send `Curtain`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `curtain`, empty: the entrance has finished and play may begin. Sent after each seat's view and question; a seat that attaches later is sent it with its snapshot."
+/// @send `ClockProbeReply`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `clock_probe`: the engine's echo of a `ClockProbe`, with `client_time_ms` as it was sent and `server_time_ms` the server's Unix milliseconds."
+/// @send `Spectators`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `spectators`: how many people watch the table (`count`), sent when it moves and when the seat attaches."
+/// @send `Error`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `error` (`code` 1, `message` a sentence): an answer or a seat setting the engine refused, followed by the question again when the seat holds one, or a table that could not start because not every player finished loading in 120 seconds."
+/// @send `GameClosed`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `game_closed`: an admin ended the game, and nobody won or lost; `reason` is the admin's words. The last frame of the game."
+/// @send `AiLogForwarded`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `ai_log`, from a debug engine only: what another seat's language model said beside an answer (`note`, `thinking`, and the `seat` that said it). A release engine forwards none."
+/// @receive `PlayerActionMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `player_action`: the seat's answer. `action_json` is a `PlayerAction` as JSON, one the question's `Pending` names; `game_id` and `seat_token` are not read, since the socket is bound to its seat. Dropped before the curtain."
+/// @receive `ResumeGame`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `resume`: send what this seat missed after `last_seq`. Read-only, it moves nothing in the game; a seat that is current is sent nothing, and before the curtain the seat is sent its table without a question."
+/// @receive `SeatReady`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_ready`, empty: this seat's opening table, art and render pipelines are prepared. Counts once per attach; a repeat, or one after the curtain, changes nothing."
+/// @receive `SeatSettingMsg`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_setting`: a setting about the seat itself rather than a move, such as showing its hand to a teammate or asking to be shown one. `setting_json` is a `SeatSetting` as JSON; a refusal is an `Error`. Taken before the curtain too."
+/// @receive `ClockProbe`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `clock_probe` with the client's monotonic `client_time_ms` and `server_time_ms` 0: asks for the server's time, answered by a `ClockProbeReply`."
+/// @receive `SeatMind`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `seat_mind`: what answers this seat, as its own client declares it (a person, the house, a script, a language model by API or CLI), for the game's record only. Sent once on every socket before the seat's first answer and again when it changes; shown to no seat, and one that is malformed is dropped without a word."
+/// @receive `AiLog`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `ai_log`, from a seat bridge in a debug build: what its model said beside an answer. A debug engine forwards it to every other attached seat; a release engine drops it."
 pub(crate) async fn game_ws(
     State(state): State<Shared>,
     Path(id): Path<String>,

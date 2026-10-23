@@ -1,4 +1,5 @@
 //! Temporary player actions on the existing ability-sheet surface.
+use super::spawn::{digit_of, spawn_row};
 #[allow(clippy::wildcard_imports)] // the shared sheet vocabulary
 use super::*;
 use baylee_cards_dsl::SpecialActionCost;

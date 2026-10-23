@@ -29,25 +29,44 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// The answer to `GET /pool`.
+/// @openapi
 #[derive(Clone, Debug, Serialize)]
 pub struct PoolBody {
+    /// @description How many cards the pool holds, which is how many rows
+    /// follow.
+    /// @internal
     /// How many cards the registry holds, which is how many rows follow.
     pub total: usize,
+    /// @description The compiled pool's hash (16 hex digits), so a client can
+    /// keep the rows and ask again only when the pool changed.
+    /// @internal
     /// The compiled card pool's hash, so a client can cache the rows and ask
     /// again only when the pool itself changed.
     pub pool_hash: String,
+    /// @description The language the rows are in: `lang` as asked, or `en`
+    /// for a language the catalog does not hold.
+    /// @internal
     /// The language the rows were served in.
     pub lang: String,
+    /// @description Whether rules text came with the rows: `false` without a
+    /// catalog, or while it is down.
+    /// @internal
     /// Whether rules text is available at all. A client that knows the answer
     /// is "no" can say so once, rather than drawing every card as textless.
     pub has_text: bool,
+    /// @description Every card a deck may be built from, one row per card.
+    /// @internal
     /// The cards.
     pub cards: Vec<PoolCard>,
 }
 
 /// Query for `GET /pool`.
+/// @openapi
 #[derive(Deserialize)]
 pub struct PoolQuery {
+    /// @description The language for names and rules text (`en` when
+    /// absent), English where the catalog has none.
+    /// @internal
     /// Preferred language for names and rules text.
     lang: Option<String>,
 }
@@ -66,6 +85,21 @@ pub struct PoolQuery {
 /// The answer is built once per language and catalog version and sent as
 /// the bytes it was serialized to ([`crate::texts`]): it is a few hundred
 /// rows that are the same for every reader until an ingest changes them.
+///
+/// @route GET /pool
+/// @scope public
+/// @summary Every card a deck may be built from
+/// @description The whole compiled card pool, sent at once: each card's
+/// registry index (what a deck line resolves to), its printed
+/// characteristics, whether this build plays it (`coverage`), and the
+/// catalog's names and rules text in `lang` when this gateway has a
+/// catalog, English field by field otherwise. A catalog that is down costs
+/// the text, never the answer. For a signed-in session, a guest's included.
+/// @tag Catalog
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @query-params `$PoolQuery`
+/// @return 200: `$PoolBody`
 pub async fn pool(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -173,24 +207,37 @@ fn name_cards(cards: &mut [PoolCard], names: &[baylee_catalog::LocalName]) {
 }
 
 /// Query for `GET /printings`.
+/// @openapi
 #[derive(Deserialize)]
 pub struct PrintingsQuery {
+    /// @description The registry index of the card (a `/pool` row's
+    /// `index`).
+    /// @internal
     /// Registry index of the card being picked for.
     card: u32,
 }
 
 /// The answer to `GET /printings`.
+/// @openapi
 #[derive(Clone, Debug, Serialize)]
 pub struct PrintingsBody {
-    /// The card that was asked about.
+    /// @description The card that was asked about.
     pub card: u32,
+    /// @description Its English name.
+    /// @internal
     /// Its English name, so a client can label the dialog before its own pool
     /// row is to hand.
     pub english_name: String,
+    /// @description Whether the printings came from the catalog. `false`:
+    /// the one printing listed is the one this build references, and the
+    /// card may well have others.
+    /// @internal
     /// Whether these came from the catalog. `false` means the one printing
     /// below is the registry's own reference, and a picker should say so
     /// rather than implying the card was printed exactly once.
     pub from_catalog: bool,
+    /// @description Every printing, newest set first; at least one.
+    /// @internal
     /// Every printing, newest set first.
     pub printings: Vec<baylee_catalog::Printing>,
 }
@@ -205,6 +252,21 @@ pub struct PrintingsBody {
 /// here would have to grow a second code path for a gateway with no database;
 /// one that always gets at least one printing does not, and the deck row it
 /// writes is the same row either way.
+///
+/// @route GET /printings
+/// @scope public
+/// @summary Every printing of one card
+/// @description Every printing of one pool card the catalog knows (set,
+/// collector number, language, rarity, artist, finishes, …), newest set
+/// first. Without a catalog, or for a card it lacks, the one printing this
+/// build references, in English, with `from_catalog: false`. For a
+/// signed-in session, a guest's included.
+/// @tag Catalog
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @query-params `$PrintingsQuery`
+/// @return 400: String text/plain "No `card`, or one that is not a number (axum's rejection)"
+/// @return 404: `$ErrorBody` "No such card in this build's pool"
 pub async fn printings(
     State(state): State<Shared>,
     headers: HeaderMap,

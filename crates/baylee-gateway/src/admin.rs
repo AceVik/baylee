@@ -44,6 +44,7 @@ use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Json, Response};
 use axum::routing::{delete, get, post, put};
+use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq as _;
 use time::OffsetDateTime;
@@ -400,12 +401,24 @@ pub(crate) fn iso(at: OffsetDateTime) -> String {
     )
 }
 
-fn since(counts: baylee_db::stats::Since) -> serde_json::Value {
-    serde_json::json!({
-        "today_utc": counts.today_utc,
-        "last_7d": counts.last_7d,
-        "last_30d": counts.last_30d,
-    })
+/// How many of something there were since three moments.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleSince {
+    /// @description Since midnight UTC today.
+    today_utc: i64,
+    /// @description In the last 7 × 24 hours.
+    last_7d: i64,
+    /// @description In the last 30 × 24 hours.
+    last_30d: i64,
+}
+
+fn since(counts: baylee_db::stats::Since) -> ConsoleSince {
+    ConsoleSince {
+        today_utc: counts.today_utc,
+        last_7d: counts.last_7d,
+        last_30d: counts.last_30d,
+    }
 }
 
 fn db_failed(e: &sea_orm::DbErr) -> Refusal {
@@ -416,28 +429,61 @@ fn db_failed(e: &sea_orm::DbErr) -> Refusal {
     )
 }
 
+/// `GET /admin/stats`'s engine agents.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleAgentCounts {
+    /// @description Engine agents connected now.
+    connected: usize,
+    /// @description Of those, the ones on this machine's unix socket.
+    local: usize,
+    /// @description How many games they may run together; `null` when one
+    /// of them has no bound.
+    capacity: Option<u64>,
+    /// @description The games they were asked to run.
+    games: usize,
+}
+
 /// The agents connected now: how many, how many on this machine's unix
 /// socket, how many games they may run together (`null` when one of them
 /// has no bound) and how many they were asked to.
-fn agents(app: &crate::AppState) -> serde_json::Value {
+fn agents(app: &crate::AppState) -> ConsoleAgentCounts {
     let agents = app.agents.lock();
     let connected = agents.connected.values();
     let unlimited = connected.clone().any(|agent| agent.capacity == 0);
-    serde_json::json!({
-        "connected": agents.connected.len(),
-        "local": connected.clone().filter(|agent| agent.local).count(),
-        "capacity": (!unlimited).then(|| {
-            connected.clone().map(|agent| u64::from(agent.capacity)).sum::<u64>()
+    ConsoleAgentCounts {
+        connected: agents.connected.len(),
+        local: connected.clone().filter(|agent| agent.local).count(),
+        capacity: (!unlimited).then(|| {
+            connected
+                .clone()
+                .map(|agent| u64::from(agent.capacity))
+                .sum::<u64>()
         }),
-        "games": connected.map(|agent| agent.games.len()).sum::<usize>(),
-    })
+        games: connected.map(|agent| agent.games.len()).sum::<usize>(),
+    }
 }
 
 /// How many days `GET /admin/stats` answers in `daily`.
 const DAILY_DAYS: u32 = 30;
 
 /// `GET /admin/stats`: counts, and nothing that names anybody.
-async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/stats
+/// @scope admin
+/// @summary How busy this gateway is, in counts
+/// @description Counts and sums only, no field naming a person: accounts,
+/// guests, who is online, games, engine agents, friends and chat, beta
+/// keys, and the last 30 UTC days.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn stats(State(console): State<Admin>) -> Result<Json<ConsoleStats>, Refusal> {
     let app = &console.app;
     let now = OffsetDateTime::now_utc();
     let stored = baylee_db::stats::read(&app.db, now)
@@ -466,75 +512,226 @@ async fn stats(State(console): State<Admin>) -> Result<Json<serde_json::Value>, 
                 .sum::<usize>(),
         )
     };
-    let mut gateway = crate::routes::build_fields();
-    gateway.insert(
-        "name".into(),
-        app.display_name
-            .clone()
-            .map_or(serde_json::Value::Null, Into::into),
-    );
-    gateway.insert("registration".into(), app.registration.wire().into());
-    gateway.insert(
-        "uptime_secs".into(),
-        crate::auth::now_secs()
-            .saturating_sub(app.started_at)
-            .into(),
-    );
-    gateway.insert("terms".into(), app.terms.current().is_some().into());
+    let gateway = ConsoleGateway {
+        build: crate::routes::Build::CURRENT,
+        name: app.display_name.clone(),
+        registration: app.registration,
+        uptime_secs: crate::auth::now_secs().saturating_sub(app.started_at),
+        terms: app.terms.current().is_some(),
+        mail: !matches!(app.mail, crate::mail::Mailer::Off),
+    };
     let social = crate::social::console_counts(app).await;
-    gateway.insert(
-        "mail".into(),
-        (!matches!(app.mail, crate::mail::Mailer::Off)).into(),
-    );
-    Ok(Json(serde_json::json!({
-        "at": iso(now),
-        "gateway": gateway,
-        "accounts": {
-            "registered": stored.registered,
-            "with_email": stored.with_email,
-            "confirmed_email": stored.confirmed_email,
-            "admitted_by_key": stored.admitted_by_key,
-            "created": since(stored.registered_since),
-            "decks": stored.decks,
+    Ok(Json(ConsoleStats {
+        at: iso(now),
+        gateway,
+        accounts: ConsoleAccountCounts {
+            registered: stored.registered,
+            with_email: stored.with_email,
+            confirmed_email: stored.confirmed_email,
+            admitted_by_key: stored.admitted_by_key,
+            created: since(stored.registered_since),
+            decks: stored.decks,
         },
-        "guests": {
-            "enabled": app.guests_enabled,
-            "live": stored.guests,
-            "cap": app.guest_cap,
-            "created": since(stored.guests_since),
+        guests: ConsoleGuestCounts {
+            enabled: app.guests_enabled,
+            live: stored.guests,
+            cap: app.guest_cap,
+            created: since(stored.guests_since),
         },
-        "online": {
-            "players": players,
-            "in_lobby": in_lobby,
-            "seated": seated,
-            "sessions_live": stored.sessions_live,
-            "accounts_signed_in": stored.accounts_signed_in,
+        online: ConsoleOnline {
+            players,
+            in_lobby,
+            seated,
+            sessions_live: stored.sessions_live,
+            accounts_signed_in: stored.accounts_signed_in,
         },
-        "games": {
-            "running": running,
-            "local_running": local_running,
-            "waiting": waiting,
-            "seats_awaiting_engine": awaiting_engine,
-            "recorded": stored.games_recorded,
-            "started": since(stored.games_started),
-            "finished": stored.games_finished,
-            "finished_since": since(stored.games_finished_since),
-            "record_bytes": stored.record_bytes,
-            "avg_secs_30d": stored.avg_game_secs_30d,
+        games: ConsoleGameCounts {
+            running,
+            local_running,
+            waiting,
+            seats_awaiting_engine: awaiting_engine,
+            recorded: stored.games_recorded,
+            started: since(stored.games_started),
+            finished: stored.games_finished,
+            finished_since: since(stored.games_finished_since),
+            record_bytes: stored.record_bytes,
+            avg_secs_30d: stored.avg_game_secs_30d,
         },
-        "agents": agents(app),
-        "social": social,
-        "invites": {
-            "total": stored.invites_total,
-            "active": stored.invites_active,
-            "used_up": stored.invites_used_up,
-            "expired": stored.invites_expired,
-            "revoked": stored.invites_revoked,
-            "uses_left": stored.invite_uses_left,
-            "admitted": stored.admitted_by_key,
+        agents: agents(app),
+        social,
+        invites: ConsoleInviteCounts {
+            total: stored.invites_total,
+            active: stored.invites_active,
+            used_up: stored.invites_used_up,
+            expired: stored.invites_expired,
+            revoked: stored.invites_revoked,
+            uses_left: stored.invite_uses_left,
+            admitted: stored.admitted_by_key,
         },
-        "daily": daily,
-    })))
+        daily,
+    }))
+}
+
+/// `GET /admin/stats`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleStats {
+    /// @description When the counts were taken, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    at: String,
+    /// @description This gateway and its build.
+    gateway: ConsoleGateway,
+    /// @description Registered accounts.
+    accounts: ConsoleAccountCounts,
+    /// @description Guest accounts.
+    guests: ConsoleGuestCounts,
+    /// @description Who is online now.
+    online: ConsoleOnline,
+    /// @description Games, in the lobby now and as recorded.
+    games: ConsoleGameCounts,
+    /// @description The engine agents connected now.
+    agents: ConsoleAgentCounts,
+    /// @description Friends and chat: `devices`, `friendships`, `groups`,
+    /// `pending_slots` and `sockets`, all counts; `null` when the gateway
+    /// has none or its counts could not be read.
+    /// @openapi
+    /// ```yaml
+    /// type: [object, 'null']
+    /// properties:
+    ///   devices: { type: integer }
+    ///   friendships: { type: integer }
+    ///   groups: { type: integer }
+    ///   pending_slots: { type: integer }
+    ///   sockets: { type: integer }
+    /// ```
+    social: serde_json::Value,
+    /// @description The closed-beta keys.
+    invites: ConsoleInviteCounts,
+    /// @description The last 30 UTC days, oldest first, today last.
+    daily: Vec<baylee_db::console::Day>,
+}
+
+/// `GET /admin/stats`'s gateway.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleGateway {
+    #[serde(flatten)]
+    build: crate::routes::Build,
+    /// @description The name it shows (`BAYLEE_GATEWAY_NAME`), `null` for
+    /// none.
+    name: Option<String>,
+    /// @description Who may make an account.
+    registration: crate::invite::Registration,
+    /// @description Seconds this process has served.
+    uptime_secs: u64,
+    /// @description Whether it has terms of use.
+    terms: bool,
+    /// @description Whether it sends mail (`BAYLEE_SMTP_URL`).
+    mail: bool,
+}
+
+/// `GET /admin/stats`'s registered accounts.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleAccountCounts {
+    /// @description Accounts that are not guests.
+    registered: i64,
+    /// @description Of those, the ones with an e-mail address.
+    with_email: i64,
+    /// @description Of those, the ones whose address was confirmed.
+    confirmed_email: i64,
+    /// @description Registered accounts a closed-beta key let in, that
+    /// still exist.
+    admitted_by_key: i64,
+    /// @description Registered accounts made in each window that still
+    /// exist.
+    created: ConsoleSince,
+    /// @description Players' own decks.
+    decks: i64,
+}
+
+/// `GET /admin/stats`'s guests.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleGuestCounts {
+    /// @description Whether guests are let in (`BAYLEE_GUESTS`).
+    enabled: bool,
+    /// @description Guest accounts now, each one a live session leads to
+    /// until the next sweep.
+    live: i64,
+    /// @description How many guests may be live at once
+    /// (`BAYLEE_GUEST_CAP`); `null` for no cap.
+    cap: Option<u64>,
+    /// @description Guests made in each window that still exist.
+    created: ConsoleSince,
+}
+
+/// `GET /admin/stats`'s presence.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleOnline {
+    /// @description Accounts with a lobby socket open or a chair at a
+    /// running game (`GET /lobby/stats`'s `players_online`).
+    players: usize,
+    /// @description Accounts with a lobby socket open.
+    in_lobby: usize,
+    /// @description Accounts in a chair of a running game.
+    seated: usize,
+    /// @description Sessions that have not lapsed, which is not presence:
+    /// a guest's lasts 30 days.
+    sessions_live: i64,
+    /// @description Accounts with at least one such session.
+    accounts_signed_in: i64,
+}
+
+/// `GET /admin/stats`'s games.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleGameCounts {
+    /// @description Games being played (as `/health` counts them).
+    running: usize,
+    /// @description Of those, games whose engine runs on this machine.
+    local_running: usize,
+    /// @description Rooms waiting for players.
+    waiting: usize,
+    /// @description Seats of running games whose engine has not dialled
+    /// back yet.
+    seats_awaiting_engine: usize,
+    /// @description Games with a record: every hosted game whose engine
+    /// sent the first piece of it.
+    recorded: i64,
+    /// @description Recorded games started in each window.
+    started: ConsoleSince,
+    /// @description Recorded games whose record is complete.
+    finished: i64,
+    /// @description Of those, the ones finished in each window.
+    finished_since: ConsoleSince,
+    /// @description The bytes every record holds together.
+    record_bytes: i64,
+    /// @description The mean length in seconds of the games finished in
+    /// the last 30 days; `0` for none.
+    avg_secs_30d: i64,
+}
+
+/// `GET /admin/stats`'s closed-beta keys.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleInviteCounts {
+    /// @description Keys ever made.
+    total: i64,
+    /// @description Keys that admit somebody now: not revoked, not
+    /// expired, a use left.
+    active: i64,
+    /// @description Keys not revoked and not expired, with no use left.
+    used_up: i64,
+    /// @description Keys not revoked whose expiry has passed.
+    expired: i64,
+    /// @description Keys revoked.
+    revoked: i64,
+    /// @description The uses the active keys have left, together.
+    uses_left: i64,
+    /// @description The existing accounts a key let in.
+    admitted: i64,
 }
 
 /// The session lifetimes, as the store's console reads want them.
@@ -661,7 +858,24 @@ fn tables_now(app: &crate::AppState) -> Vec<TableNow> {
 
 /// `GET /admin/metrics`: the last hour of server samples (`metrics.rs`),
 /// nothing per person.
-async fn metrics(State(console): State<Admin>) -> Json<serde_json::Value> {
+///
+/// @route GET /admin/metrics
+/// @scope admin
+/// @summary The last hour of server samples
+/// @description What the machine is doing, sampled every 5 seconds into
+/// a ring of the last hour (720 samples) in memory: the host's CPU, load,
+/// memory, disk and network, this process's sockets and request rate, and
+/// the CPU and memory of each engine process on this machine. The host's
+/// fields are read off `/proc` and are `null` off Linux.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+async fn metrics(State(console): State<Admin>) -> Json<crate::metrics::MetricsSnapshot> {
     let app = &console.app;
     let uptime = crate::auth::now_secs().saturating_sub(app.started_at);
     Json(
@@ -670,39 +884,135 @@ async fn metrics(State(console): State<Admin>) -> Json<serde_json::Value> {
     )
 }
 
+/// `GET /admin/sets`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleSets {
+    /// @description When it was read, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    at: String,
+    /// @description The release this build is.
+    version: &'static str,
+    /// @description The cards of the corpus: every row of the ledger.
+    corpus: usize,
+    /// @description The pool this build plays, over every set.
+    pool: PoolTotals,
+    /// @description Every set, in the ledger's order (release order by
+    /// first printing); a set counts the cards first printed in it.
+    sets: Vec<crate::sets::SetProgress>,
+}
+
+/// `GET /admin/sets`'s pool.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct PoolTotals {
+    /// @description The pool's cards: implemented, generated, partial and
+    /// unimplemented together.
+    cards: usize,
+    /// @description Cards rules-complete and played by a card test.
+    implemented: usize,
+    /// @description Cards read in full that no card test plays yet;
+    /// playable.
+    generated: usize,
+    /// @description Cards only partly there.
+    partial: usize,
+    /// @description Cards that compile as stubs.
+    unimplemented: usize,
+    /// @description Ledger rows with no pool card at all.
+    absent: usize,
+}
+
 /// `GET /admin/sets`: how far the pool is through each set, in release
 /// order (`sets.rs`).
-async fn sets() -> Json<serde_json::Value> {
+///
+/// @route GET /admin/sets
+/// @scope admin
+/// @summary How far the pool is through each set
+/// @description How far this build is through each set, in release order
+/// by first printing, from the ledger and the compiled pool; the numbers
+/// are whatever this binary was built with.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+async fn sets() -> Json<ConsoleSets> {
     let whole = crate::sets::pool_totals();
-    Json(serde_json::json!({
-        "at": iso(OffsetDateTime::now_utc()),
-        "version": baylee_build::short(),
-        "corpus": whole.total,
-        "pool": {
-            "cards": whole.implemented + whole.generated + whole.partial + whole.unimplemented,
-            "implemented": whole.implemented,
-            "generated": whole.generated,
-            "partial": whole.partial,
-            "unimplemented": whole.unimplemented,
-            "absent": whole.absent,
+    Json(ConsoleSets {
+        at: iso(OffsetDateTime::now_utc()),
+        version: baylee_build::short(),
+        corpus: whole.total,
+        pool: PoolTotals {
+            cards: whole.implemented + whole.generated + whole.partial + whole.unimplemented,
+            implemented: whole.implemented,
+            generated: whole.generated,
+            partial: whole.partial,
+            unimplemented: whole.unimplemented,
+            absent: whole.absent,
         },
-        "sets": crate::sets::all(),
-    }))
+        sets: crate::sets::all().to_vec(),
+    })
+}
+
+/// `GET /admin/sets/{code}`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleSet {
+    #[serde(flatten)]
+    set: crate::sets::SetProgress,
+    /// @description The set's cards, in ledger order.
+    cards: Vec<crate::sets::SetCard>,
 }
 
 /// `GET /admin/sets/{code}`: one set's cards and how far each is.
-async fn one_set(Path(code): Path<String>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/sets/{code}
+/// @scope admin
+/// @summary One set's cards
+/// @description One set's row as `GET /admin/sets` lists it, and its
+/// cards with how far each is. The gateway serves no card image here.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @path-param code: String "Scryfall's set code, any case"
+/// @return 400: `$ErrorBody` "Not a set code: more than 8 characters, or not letters and digits"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such set in the ledger"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+async fn one_set(Path(code): Path<String>) -> Result<Json<ConsoleSet>, Refusal> {
     if code.len() > 8 || !code.bytes().all(|b| b.is_ascii_alphanumeric()) {
         return Err(err(StatusCode::BAD_REQUEST, "not a set code"));
     }
     let set = crate::sets::one(&code).ok_or_else(|| err(StatusCode::NOT_FOUND, "no such set"))?;
-    let mut json = serde_json::to_value(set).unwrap_or_default();
-    json["cards"] = serde_json::to_value(crate::sets::cards(set)).unwrap_or_default();
-    Ok(Json(json))
+    Ok(Json(ConsoleSet {
+        cards: crate::sets::cards(set),
+        set: set.clone(),
+    }))
 }
 
 /// `GET /admin/live`: who is here now and at which table, by handle.
-async fn live(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/live
+/// @scope admin
+/// @summary Who is here now, and at which table
+/// @description Every account with a lobby socket open or a chair at a
+/// table, by handle; the waiting rooms and then the running games, newest
+/// first, with their chairs; and the engine agents connected.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn live(State(console): State<Admin>) -> Result<Json<ConsoleLive>, Refusal> {
     let app = &console.app;
     let tables = tables_now(app);
     let mut whereabouts: std::collections::BTreeMap<String, Whereabouts> = app
@@ -761,30 +1071,165 @@ async fn live(State(console): State<Admin>) -> Result<Json<serde_json::Value>, R
     };
     let guest = |id: &str| names.get(id).map(|n| n.guest);
 
-    let players: Vec<serde_json::Value> = whereabouts
+    let players: Vec<LivePlayer> = whereabouts
         .iter()
         .filter(|(id, _)| names.contains_key(*id))
-        .map(|(id, at)| {
-            serde_json::json!({
-                "id": id,
-                "handle": handle(id),
-                "guest": guest(id),
-                "in_lobby": at.lobby,
-                "playing": at.playing,
-                "waiting": at.waiting,
-            })
+        .map(|(id, at)| LivePlayer {
+            id: id.clone(),
+            handle: handle(id),
+            guest: guest(id),
+            in_lobby: at.lobby,
+            playing: at.playing.clone(),
+            waiting: at.waiting.clone(),
         })
         .collect();
-    let tables: Vec<serde_json::Value> = tables
+    let tables: Vec<LiveTable> = tables
         .iter()
         .map(|t| table_json(t, &handle, &guest))
         .collect();
-    Ok(Json(serde_json::json!({
-        "at": iso(OffsetDateTime::now_utc()),
-        "players": players,
-        "tables": tables,
-        "agents": agent_list(app),
-    })))
+    Ok(Json(ConsoleLive {
+        at: iso(OffsetDateTime::now_utc()),
+        players,
+        tables,
+        agents: agent_list(app),
+    }))
+}
+
+/// `GET /admin/live`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleLive {
+    /// @description When it was read, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    at: String,
+    /// @description Every account with a lobby socket open or a chair at a
+    /// waiting or running table.
+    players: Vec<LivePlayer>,
+    /// @description The waiting rooms first, then the running games,
+    /// newest first.
+    tables: Vec<LiveTable>,
+    /// @description The engine agents connected now, by id.
+    agents: Vec<LiveAgent>,
+}
+
+/// An account that is here now.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct LivePlayer {
+    /// @description The account's id.
+    /// @openapi format: uuid
+    id: String,
+    /// @description Its handle, `Name#tag`.
+    handle: Option<String>,
+    /// @description Whether it is a guest.
+    guest: Option<bool>,
+    /// @description Whether a lobby socket of it is open.
+    in_lobby: bool,
+    /// @description The id of the running game it sits in, or `null`.
+    playing: Option<String>,
+    /// @description The id of the waiting room it sits in, or `null`.
+    waiting: Option<String>,
+}
+
+/// A table of the live view.
+/// @openapi
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a table's facts the console shows side by side"
+)]
+#[derive(Serialize)]
+pub(crate) struct LiveTable {
+    /// @description The game's id.
+    id: String,
+    /// @description The room's name.
+    name: String,
+    /// @description Whether it is waiting for players or being played.
+    /// @openapi enum: [waiting, playing]
+    state: &'static str,
+    /// @description The host's handle, or `null`.
+    host: Option<String>,
+    /// @description The host's account id, or `null`.
+    host_id: Option<String>,
+    /// @description When the room was opened, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    created_at: String,
+    /// @description Whether the room has a password (never what).
+    locked: bool,
+    /// @description Whether it is a rematch of an earlier game.
+    rematch: bool,
+    /// @description Seconds a player has for each decision.
+    decide_secs: u32,
+    /// @description Whether its engine is attached.
+    engine: bool,
+    /// @description Whether its engine runs on this machine.
+    engine_local: bool,
+    /// @description The engine agent running it, by name (its id when the
+    /// agent is gone), or `null`.
+    agent: Option<String>,
+    /// @description Its chairs.
+    seats: Vec<LiveSeat>,
+}
+
+/// A chair of a table in the live view.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct LiveSeat {
+    /// @description The chair's number.
+    seat: usize,
+    /// @description Whether the chair is for a person or the house AI.
+    kind: crate::lobby::SeatKind,
+    /// @description The house AI's profile, `null` for a person's chair.
+    ai: Option<String>,
+    /// @description The account in it, or that handed it to a seat bridge;
+    /// `null` for none.
+    account_id: Option<String>,
+    /// @description The handle of the account in it, or `null`.
+    player: Option<String>,
+    /// @description Whether that account is a guest.
+    guest: Option<bool>,
+    /// @description The name a seat bridge sits under (`LLM-…`), or
+    /// `null`.
+    bridge: Option<String>,
+    /// @description The handle of the account that handed the chair to the
+    /// bridge, or `null`.
+    bridged_by: Option<String>,
+    /// @description The hosted model ordered for this chair, or `null`.
+    /// @openapi
+    /// ```yaml
+    /// type: [object, 'null']
+    /// properties:
+    ///   profile: { type: string }
+    ///   label: { type: string }
+    ///   vendor: { type: string }
+    ///   model: { type: string }
+    ///   state: { type: string, enum: [starting, ready, failed] }
+    ///   note: { type: [string, 'null'] }
+    /// ```
+    hosted: serde_json::Value,
+    /// @description The deck's name.
+    deck: String,
+    /// @description The deck's format, or `null`.
+    format: Option<String>,
+    /// @description Whether the chair is ready.
+    ready: bool,
+    /// @description The chair's team, `null` for none.
+    team: Option<u8>,
+}
+
+/// An engine agent in the live view.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct LiveAgent {
+    /// @description The agent's id.
+    id: String,
+    /// @description Its name (`BAYLEE_AGENT_NAME`).
+    name: String,
+    /// @description Whether it came in on this machine's unix socket.
+    local: bool,
+    /// @description How many games it may run at once; `0` for no bound.
+    capacity: u32,
+    /// @description How many it runs.
+    games: usize,
 }
 
 /// One table of the live view, its chairs named by `handle`.
@@ -792,8 +1237,8 @@ fn table_json(
     t: &TableNow,
     handle: &impl Fn(&str) -> Option<String>,
     guest: &impl Fn(&str) -> Option<bool>,
-) -> serde_json::Value {
-    let seats: Vec<serde_json::Value> = t
+) -> LiveTable {
+    let seats: Vec<LiveSeat> = t
         .chairs
         .iter()
         .map(|c| {
@@ -801,70 +1246,92 @@ fn table_json(
                 .account
                 .as_deref()
                 .or_else(|| c.delegate.as_ref().map(|(_, by)| by.as_str()));
-            serde_json::json!({
-                "seat": c.seat,
-                "kind": c.kind,
-                "ai": c.ai,
-                "account_id": sitter,
-                "player": c.account.as_deref().and_then(handle),
-                "guest": sitter.and_then(guest),
-                "bridge": c.delegate.as_ref().map(|(name, _)| name),
-                "bridged_by": c.delegate.as_ref().and_then(|(_, by)| handle(by)),
-                "hosted": c.hosted,
-                "deck": c.deck,
-                "format": c.format,
-                "ready": c.ready,
-                "team": c.team,
-            })
+            LiveSeat {
+                seat: c.seat,
+                kind: c.kind,
+                ai: c.ai.clone(),
+                account_id: sitter.map(str::to_owned),
+                player: c.account.as_deref().and_then(handle),
+                guest: sitter.and_then(guest),
+                bridge: c.delegate.as_ref().map(|(name, _)| name.clone()),
+                bridged_by: c.delegate.as_ref().and_then(|(_, by)| handle(by)),
+                hosted: c.hosted.clone(),
+                deck: c.deck.clone(),
+                format: c.format.clone(),
+                ready: c.ready,
+                team: c.team,
+            }
         })
         .collect();
-    serde_json::json!({
-        "id": t.id,
-        "name": t.name,
-        "state": if t.playing { "playing" } else { "waiting" },
-        "host": t.host.as_deref().and_then(handle),
-        "host_id": t.host,
-        "created_at": iso_secs(t.created_at),
-        "locked": t.locked,
-        "rematch": t.rematch,
-        "decide_secs": t.decide_secs,
-        "engine": t.engine,
-        "engine_local": t.engine_local,
-        "agent": t.agent,
-        "seats": seats,
-    })
+    LiveTable {
+        id: t.id.clone(),
+        name: t.name.clone(),
+        state: if t.playing { "playing" } else { "waiting" },
+        host: t.host.as_deref().and_then(handle),
+        host_id: t.host.clone(),
+        created_at: iso_secs(t.created_at),
+        locked: t.locked,
+        rematch: t.rematch,
+        decide_secs: t.decide_secs,
+        engine: t.engine,
+        engine_local: t.engine_local,
+        agent: t.agent.clone(),
+        seats,
+    }
 }
 
 /// The agents connected now, one row each.
-fn agent_list(app: &crate::AppState) -> Vec<serde_json::Value> {
+fn agent_list(app: &crate::AppState) -> Vec<LiveAgent> {
     let agents = app.agents.lock();
     let mut list: Vec<_> = agents.connected.iter().collect();
     list.sort_by(|a, b| a.0.cmp(b.0));
     list.into_iter()
-        .map(|(id, agent)| {
-            serde_json::json!({
-                "id": id,
-                "name": agent.name,
-                "local": agent.local,
-                "capacity": agent.capacity,
-                "games": agent.games.len(),
-            })
+        .map(|(id, agent)| LiveAgent {
+            id: id.clone(),
+            name: agent.name.clone(),
+            local: agent.local,
+            capacity: agent.capacity,
+            games: agent.games.len(),
         })
         .collect()
 }
 
 /// What `GET /admin/accounts` reads from its query string.
+/// @openapi
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
 struct AccountsQuery {
+    /// @description Part of a username or display name, a `#tag` in hex,
+    /// or an account's id; at most 100 characters. Empty finds every
+    /// account.
     q: String,
+    /// @description Exactly one account by its tag: `af03`, `#af03` or a
+    /// whole handle `Alice#af03` (the name is not checked); registered or
+    /// guest. At most 100 characters.
+    /// @internal
     /// Exactly one tag (`af03`, `#af03` or a whole handle `Alice#af03`):
     /// the sender of a reported chat message, whose tag the report names.
     tag: String,
+    /// @description Which accounts: `all` (the default), `registered` or
+    /// `guest`.
+    /// @openapi enum: [all, registered, guest]
     kind: String,
+    /// @description The order: `newest` (the default), `oldest`, `name`,
+    /// `games` or `active`.
+    /// @openapi enum: [newest, oldest, name, games, active]
     sort: String,
+    /// @description Only accounts with a lobby socket open or a chair at a
+    /// table.
     online: bool,
+    /// @description How many accounts of the order to skip.
     offset: u32,
+    /// @description How many to answer, 1 to 200 (a number outside is
+    /// taken as the nearest bound); 50 when absent.
+    /// @openapi
+    /// ```yaml
+    /// minimum: 1
+    /// maximum: 200
+    /// ```
     limit: Option<u32>,
 }
 
@@ -890,10 +1357,27 @@ fn exact_tag(typed: &str) -> Option<i32> {
 /// `GET /admin/accounts?q=&tag=&kind=&sort=&online=&offset=&limit=`: a page
 /// of accounts, each with whether it is online now. `tag` narrows it to the
 /// one account with that tag, registered or guest.
+///
+/// @route GET /admin/accounts
+/// @scope admin
+/// @summary A page of accounts
+/// @description A page of accounts, registered and guests, each with
+/// whether it is online now, and how many match in all. Never a password
+/// hash, a token or an e-mail address (only whether there is one).
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @query-params `$AccountsQuery`
+/// @return 400: `$ErrorBody` "A `kind`, `sort` or `tag` it does not know, or a search over 100 characters (a parameter of the wrong type is refused in plain text)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn list_accounts(
     State(console): State<Admin>,
     axum::extract::Query(query): axum::extract::Query<AccountsQuery>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ConsoleAccounts>, Refusal> {
     let app = &console.app;
     let kind = baylee_db::console::Kind::parse(&query.kind)
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "kind is all, registered or guest"))?;
@@ -941,35 +1425,78 @@ async fn list_accounts(
     )
     .await
     .map_err(|e| db_failed(&e))?;
-    let accounts: Vec<serde_json::Value> = rows
+    let accounts: Vec<ConsoleAccount> = rows
         .into_iter()
         .map(|row| {
             let id = row.id.to_string();
-            let mut value = serde_json::to_value(&row).unwrap_or_default();
-            if let Some(map) = value.as_object_mut() {
-                map.insert(
-                    "handle".into(),
-                    crate::handle::handle(&row.display_name, row.tag).into(),
-                );
-                map.insert("in_lobby".into(), in_lobby.contains(&id).into());
-                map.insert("playing".into(), playing.contains(&id).into());
-                map.insert("online".into(), online.contains(&id).into());
+            ConsoleAccount {
+                handle: crate::handle::handle(&row.display_name, row.tag),
+                in_lobby: in_lobby.contains(&id),
+                playing: playing.contains(&id),
+                online: online.contains(&id),
+                account: row,
             }
-            value
         })
         .collect();
-    Ok(Json(serde_json::json!({
-        "total": total,
-        "online": online.len(),
-        "accounts": accounts,
-    })))
+    Ok(Json(ConsoleAccounts {
+        total,
+        online: online.len(),
+        accounts,
+    }))
+}
+
+/// `GET /admin/accounts`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleAccounts {
+    /// @description How many accounts match, over every page.
+    total: i64,
+    /// @description How many accounts are online now, matching or not.
+    online: usize,
+    /// @description This page of them.
+    accounts: Vec<ConsoleAccount>,
+}
+
+/// One account as the console lists it.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleAccount {
+    #[serde(flatten)]
+    account: baylee_db::console::Account,
+    /// @description Its handle, `Name#tag`.
+    handle: String,
+    /// @description Whether a lobby socket of it is open.
+    in_lobby: bool,
+    /// @description Whether it sits in a running game.
+    playing: bool,
+    /// @description Whether it has a lobby socket open or a chair at a
+    /// table.
+    online: bool,
 }
 
 /// `GET /admin/accounts/{id}`: one account with its decks and latest games.
+///
+/// @route GET /admin/accounts/{id}
+/// @scope admin
+/// @summary One account, its decks and latest games
+/// @description The account's row as `GET /admin/accounts` lists it, the
+/// table it sits at, its decks (without their cards) and its latest 25
+/// games.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @path-param id: String format=uuid "The account's id"
+/// @return 400: `$ErrorBody` "The id is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such account"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn one_account(
     State(console): State<Admin>,
     Path(id): Path<String>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ConsoleAccountDetail>, Refusal> {
     let app = &console.app;
     let uuid = uuid::Uuid::parse_str(&id)
         .map_err(|_| err(StatusCode::BAD_REQUEST, "not an account's id"))?;
@@ -990,37 +1517,89 @@ async fn one_account(
                         || seat.delegate.as_ref().is_some_and(|d| d.by == id)
                 })
             })
-            .map(|game| {
-                serde_json::json!({
-                    "id": game.id,
-                    "name": game.name,
-                    "state": if game.state == crate::lobby::LobbyState::Playing {
-                        "playing"
-                    } else {
-                        "waiting"
-                    },
-                })
+            .map(|game| AccountTable {
+                id: game.id.clone(),
+                name: game.name.clone(),
+                state: if game.state == crate::lobby::LobbyState::Playing {
+                    "playing"
+                } else {
+                    "waiting"
+                },
             })
     };
-    let mut value = serde_json::to_value(&detail).unwrap_or_default();
-    if let Some(map) = value.as_object_mut() {
-        map.insert(
-            "handle".into(),
-            crate::handle::handle(&detail.account.display_name, detail.account.tag).into(),
-        );
-        map.insert("in_lobby".into(), in_lobby.into());
-        map.insert("table".into(), table.unwrap_or_default());
-        map.insert(
-            "online".into(),
-            (in_lobby || map.get("table").is_some_and(|t| !t.is_null())).into(),
-        );
-    }
-    Ok(Json(value))
+    Ok(Json(ConsoleAccountDetail {
+        handle: crate::handle::handle(&detail.account.display_name, detail.account.tag),
+        in_lobby,
+        online: in_lobby || table.is_some(),
+        table,
+        detail,
+    }))
+}
+
+/// `GET /admin/accounts/{id}`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ConsoleAccountDetail {
+    #[serde(flatten)]
+    detail: baylee_db::console::Detail,
+    /// @description Its handle, `Name#tag`.
+    handle: String,
+    /// @description Whether a lobby socket of it is open.
+    in_lobby: bool,
+    /// @description The table it sits at, or `null`.
+    table: Option<AccountTable>,
+    /// @description Whether it has a lobby socket open or sits at a table.
+    online: bool,
+}
+
+/// The table an account sits at.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct AccountTable {
+    /// @description The game's id.
+    id: String,
+    /// @description The room's name.
+    name: String,
+    /// @description Whether it is waiting for players or being played.
+    /// @openapi enum: [waiting, playing]
+    state: &'static str,
+}
+
+/// One closed-beta key as the console lists it: never the key, which is
+/// not kept.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ListedInvite {
+    /// @description The key's id, which `DELETE /admin/invites/{id}` takes.
+    id: uuid::Uuid,
+    /// @description When it was made, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    created_at: String,
+    /// @description Who it is for, or `null`.
+    note: Option<String>,
+    /// @description How many more accounts it may admit.
+    uses_left: i32,
+    /// @description When it stops admitting anybody, RFC 3339 in UTC;
+    /// `null` for never.
+    /// @openapi format: date-time
+    expires_at: Option<String>,
+    /// @description When it was revoked, RFC 3339 in UTC, or `null`.
+    /// @openapi format: date-time
+    revoked_at: Option<String>,
+    /// @description How many accounts that still exist it admitted.
+    admitted: i64,
+    /// @description What it can still do: `revoked`, `expired`, `used_up`
+    /// (no use left) or `active`.
+    /// @openapi
+    /// ```yaml
+    /// enum: [active, used_up, expired, revoked]
+    /// ```
+    state: &'static str,
 }
 
 /// One key as the console lists it: what `invite list` shows, never the
 /// key, which is not kept.
-fn listed(row: &baylee_db::invites::Invite, now: OffsetDateTime) -> serde_json::Value {
+fn listed(row: &baylee_db::invites::Invite, now: OffsetDateTime) -> ListedInvite {
     let state = if row.revoked_at.is_some() {
         "revoked"
     } else if row.expires_at.is_some_and(|at| at <= now) {
@@ -1030,41 +1609,118 @@ fn listed(row: &baylee_db::invites::Invite, now: OffsetDateTime) -> serde_json::
     } else {
         "active"
     };
-    serde_json::json!({
-        "id": row.id,
-        "created_at": iso(row.created_at),
-        "note": row.note,
-        "uses_left": row.uses_left,
-        "expires_at": row.expires_at.map(iso),
-        "revoked_at": row.revoked_at.map(iso),
-        "admitted": row.admitted,
-        "state": state,
-    })
+    ListedInvite {
+        id: row.id,
+        created_at: iso(row.created_at),
+        note: row.note.clone(),
+        uses_left: row.uses_left,
+        expires_at: row.expires_at.map(iso),
+        revoked_at: row.revoked_at.map(iso),
+        admitted: row.admitted,
+        state,
+    }
 }
 
 /// `GET /admin/invites`: every key but the keys, newest first.
-async fn list_invites(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/invites
+/// @scope admin
+/// @summary Every closed-beta key, never the keys
+/// @description Every key made, newest first, with what it can still do.
+/// Never a key: only its hash is stored, so no route can show one again.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn list_invites(State(console): State<Admin>) -> Result<Json<Vec<ListedInvite>>, Refusal> {
     let now = OffsetDateTime::now_utc();
     let rows = baylee_db::invites::list(&console.app.db)
         .await
         .map_err(|e| db_failed(&e))?;
-    Ok(Json(serde_json::Value::Array(
+    Ok(Json(
         rows.iter().rev().map(|row| listed(row, now)).collect(),
-    )))
+    ))
 }
 
 /// What `POST /admin/invites` reads: `invite create`'s flags as fields.
+///
+/// @description `baylee-gateway invite create`'s flags as fields, read by
+/// the command's own parser: the same defaults, bounds and refusals.
+/// Every field may be left out.
+/// @openapi
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CreateBody {
+    /// @description How many accounts each key admits, 1 to 1000; 1 when
+    /// absent.
+    /// @openapi minimum: 1
+    /// @openapi maximum: 1000
     uses: Option<i64>,
+    /// @description How long the keys admit anybody, in days or hours, 1
+    /// to 3650 of them: `30d`, `12h`; for ever when absent.
+    /// @openapi example: 30d
     expires: Option<String>,
+    /// @description Who the keys are for: one line, at most 100
+    /// characters.
     note: Option<String>,
+    /// @description How many keys, 1 to 100; 1 when absent.
+    /// @openapi minimum: 1
+    /// @openapi maximum: 100
     count: Option<i64>,
+}
+
+/// `POST /admin/invites`: the keys made, the one time they are shown.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct MadeInvites {
+    /// @description Each key and its id.
+    keys: Vec<MadeInvite>,
+    /// @description How many accounts each key admits.
+    uses: i32,
+    /// @description When they stop admitting anybody, RFC 3339 in UTC;
+    /// `null` for never.
+    /// @openapi format: date-time
+    expires_at: Option<String>,
+    /// @description Who they are for, `null` for nobody named.
+    note: Option<String>,
+}
+
+/// One key made.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct MadeInvite {
+    /// @description Its id.
+    id: uuid::Uuid,
+    /// @description The key, to hand on: it is never shown again.
+    key: String,
 }
 
 /// `POST /admin/invites`: makes keys as `invite create` does, and answers
 /// them, the one time they are shown.
+///
+/// @route POST /admin/invites
+/// @scope admin
+/// @summary Make closed-beta keys
+/// @description Makes keys as `baylee-gateway invite create` does, in one
+/// transaction, and answers them: the one time they exist outside the hand
+/// they are given to.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @body `$CreateBody`
+/// @return 201: `$MadeInvites` "The keys, shown this once"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a request for keys (an unknown field included), or a value `invite create` refuses, in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn create_invites(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1106,24 +1762,43 @@ async fn create_invites(
         ids = %ids.join(","),
         "admin console: closed beta keys made"
     );
-    let keys: Vec<serde_json::Value> = made
+    let keys: Vec<MadeInvite> = made
         .into_iter()
-        .map(|(id, key)| serde_json::json!({ "id": id, "key": key }))
+        .map(|(id, key)| MadeInvite { id, key })
         .collect();
     Ok((
         StatusCode::CREATED,
-        Json(serde_json::json!({
-            "keys": keys,
-            "uses": order.uses,
-            "expires_at": expires_at.map(iso),
-            "note": order.note.filter(|n| !n.is_empty()),
-        })),
+        Json(MadeInvites {
+            keys,
+            uses: order.uses,
+            expires_at: expires_at.map(iso),
+            note: order.note.filter(|n| !n.is_empty()),
+        }),
     )
         .into_response())
 }
 
 /// `DELETE /admin/invites/{id}`: revokes a key as `invite revoke` does.
 /// The row stays, as it does there: a revoked key is still listed.
+///
+/// @route DELETE /admin/invites/{id}
+/// @scope admin
+/// @summary Revoke a closed-beta key
+/// @description Revokes a key as `baylee-gateway invite revoke` does; it
+/// admits nobody from now on and stays listed, revoked.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The key's id"
+/// @return 204: "Revoked"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No key by that id that is not revoked already"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn revoke_invite(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1163,26 +1838,92 @@ const SEARCH_LIMIT: usize = 25;
 const MAX_BLOCK_DAYS: i64 = 3650;
 
 /// What `GET /admin/cards/search` reads.
+/// @openapi
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
 struct CardQuery {
+    /// @description Part of a card's English name (any case), or its
+    /// index; at most 100 characters. Empty finds nothing.
     q: String,
+}
+
+/// `GET /admin/cards/search`.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct FoundCards {
+    /// @description The cards found, at most 25.
+    cards: Vec<FoundCard>,
+}
+
+/// A card of the pool `GET /admin/cards/search` found.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct FoundCard {
+    /// @description Its `CardIndex`, which a block takes.
+    index: u32,
+    /// @description Its English name.
+    name: String,
+    /// @description Its printed type line.
+    type_line: String,
+    /// @description Its mana cost (`docs/mana-notation.md`), empty for a
+    /// land.
+    mana_cost: String,
+    /// @description How far this build plays it.
+    /// @openapi enum: [implemented, generated, partial, unimplemented]
+    coverage: &'static str,
+    /// @description The Scryfall id of its printing in the pool.
+    scryfall_id: &'static str,
+    /// @description The block in force on it, or `null`.
+    blocked: Option<BlockInForce>,
+}
+
+/// A block in force, as a player is told it.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct BlockInForce {
+    /// @description The card's `CardIndex`.
+    index: u32,
+    /// @description The card's English name.
+    name: String,
+    /// @description Why, in the admin's words, which the players are told.
+    reason: String,
+    /// @description When it ends by itself, RFC 3339 in UTC; `null` for
+    /// never.
+    /// @openapi format: date-time
+    until: Option<String>,
 }
 
 /// `GET /admin/cards/search?q=`: the pool's cards whose English name holds
 /// `q` (any case), or whose index is `q`; those starting with it first,
 /// then by name; at most [`SEARCH_LIMIT`]. Each says whether it is blocked
 /// now. Only the pool: a card this build cannot play is in no deck here.
+///
+/// @route GET /admin/cards/search
+/// @scope admin
+/// @summary Find cards of the pool to block
+/// @description The pool's cards whose English name holds `q` (any case)
+/// or whose index is `q`, those starting with it first, then by name, at
+/// most 25; each with the block in force on it, if any.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @query-params `$CardQuery`
+/// @return 400: `$ErrorBody` "The search is over 100 characters"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
 async fn search_cards(
     State(console): State<Admin>,
     axum::extract::Query(query): axum::extract::Query<CardQuery>,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<FoundCards>, Refusal> {
     let q = query.q.trim();
     if q.chars().count() > 100 {
         return Err(err(StatusCode::BAD_REQUEST, "the search is too long"));
     }
     if q.is_empty() {
-        return Ok(Json(serde_json::json!({ "cards": [] })));
+        return Ok(Json(FoundCards { cards: Vec::new() }));
     }
     let needle = q.to_lowercase();
     let by_index = q.parse::<u32>().ok();
@@ -1205,26 +1946,65 @@ async fn search_cards(
             .then(a.1.index.cmp(&b.1.index))
     });
     let now = OffsetDateTime::now_utc();
-    let cards: Vec<serde_json::Value> = found
+    let cards: Vec<FoundCard> = found
         .into_iter()
         .take(SEARCH_LIMIT)
-        .map(|(_, card)| {
-            serde_json::json!({
-                "index": card.index,
-                "name": card.english_name,
-                "type_line": card.type_line,
-                "mana_cost": card.mana_cost,
-                "coverage": card.coverage,
-                "scryfall_id": card.scryfall_id,
-                "blocked": console.app.blocks.of(card.index, now).map(|b| b.json()),
-            })
+        .map(|(_, card)| FoundCard {
+            index: card.index,
+            name: card.english_name.clone(),
+            type_line: card.type_line.clone(),
+            mana_cost: card.mana_cost.clone(),
+            coverage: card.coverage,
+            scryfall_id: card.scryfall_id,
+            blocked: console
+                .app
+                .blocks
+                .of(card.index, now)
+                .map(|b| BlockInForce {
+                    index: b.index,
+                    name: b.name,
+                    reason: b.reason,
+                    until: b.until.map(crate::blocks::iso),
+                }),
         })
         .collect();
-    Ok(Json(serde_json::json!({ "cards": cards })))
+    Ok(Json(FoundCards { cards }))
+}
+
+/// One card block as the console lists it.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ListedBlock {
+    /// @description The block's id, which lifting it takes.
+    id: uuid::Uuid,
+    /// @description The card's `CardIndex`.
+    index: u32,
+    /// @description The card's English name: this build's, else the one
+    /// stored with the block.
+    name: String,
+    /// @description Why, in the admin's words, which the players are told.
+    reason: String,
+    /// @description When it was made, RFC 3339 in UTC.
+    /// @openapi format: date-time
+    created_at: String,
+    /// @description The admin who made it.
+    created_by: String,
+    /// @description When it ends by itself, RFC 3339 in UTC; `null` for
+    /// never.
+    /// @openapi format: date-time
+    until: Option<String>,
+    /// @description When it was lifted, RFC 3339 in UTC, or `null`.
+    /// @openapi format: date-time
+    lifted_at: Option<String>,
+    /// @description The admin who lifted it, or `null`.
+    lifted_by: Option<String>,
+    /// @description `active`, `expired` (its `until` passed) or `lifted`.
+    /// @openapi enum: [active, expired, lifted]
+    state: &'static str,
 }
 
 /// One block as the console lists it.
-fn block_listed(row: &baylee_db::card_blocks::CardBlock, now: OffsetDateTime) -> serde_json::Value {
+fn block_listed(row: &baylee_db::card_blocks::CardBlock, now: OffsetDateTime) -> ListedBlock {
     let state = if row.lifted_at.is_some() {
         "lifted"
     } else if row.in_force(now) {
@@ -1232,38 +2012,62 @@ fn block_listed(row: &baylee_db::card_blocks::CardBlock, now: OffsetDateTime) ->
     } else {
         "expired"
     };
-    serde_json::json!({
-        "id": row.id,
-        "index": row.card_index,
-        "name": crate::blocks::pool_name(row.card_index).unwrap_or(&row.card_name),
-        "reason": row.reason,
-        "created_at": iso(row.created_at),
-        "created_by": row.created_by,
-        "until": row.until.map(iso),
-        "lifted_at": row.lifted_at.map(iso),
-        "lifted_by": row.lifted_by,
-        "state": state,
-    })
+    ListedBlock {
+        id: row.id,
+        index: row.card_index,
+        name: crate::blocks::pool_name(row.card_index)
+            .unwrap_or(&row.card_name)
+            .to_owned(),
+        reason: row.reason.clone(),
+        created_at: iso(row.created_at),
+        created_by: row.created_by.clone(),
+        until: row.until.map(iso),
+        lifted_at: row.lifted_at.map(iso),
+        lifted_by: row.lifted_by.clone(),
+        state,
+    }
 }
 
 /// `GET /admin/cards/blocks`: every block made, newest first, with its
 /// `state`: `active`, `expired` or `lifted`.
-async fn list_blocks(State(console): State<Admin>) -> Result<Json<serde_json::Value>, Refusal> {
+///
+/// @route GET /admin/cards/blocks
+/// @scope admin
+/// @summary Every card block made
+/// @description Every card block made, newest first, in force or not:
+/// the list is also the history.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
+async fn list_blocks(State(console): State<Admin>) -> Result<Json<Vec<ListedBlock>>, Refusal> {
     let now = OffsetDateTime::now_utc();
     let rows = baylee_db::card_blocks::list(&console.app.db)
         .await
         .map_err(|e| db_failed(&e))?;
-    Ok(Json(serde_json::Value::Array(
+    Ok(Json(
         rows.iter().map(|row| block_listed(row, now)).collect(),
-    )))
+    ))
 }
 
 /// What `POST /admin/cards/blocks` reads.
+/// @openapi
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BlockBody {
+    /// @description The card's `CardIndex`; a card of this build's pool.
     index: u32,
+    /// @description Why, which the players are told: 1 to 200 characters
+    /// after trimming, one line.
     reason: String,
+    /// @description When the block ends, RFC 3339, in the future and at
+    /// most ten years ahead; absent or `null` for a block without an end.
+    /// @openapi format: date-time
+    /// @internal
     /// RFC 3339; absent or `null` for a block without an end.
     #[serde(default)]
     until: Option<String>,
@@ -1321,6 +2125,28 @@ fn block_until(
 /// `POST /admin/cards/blocks`: blocks a card of the pool, for good or until
 /// a moment. `201` with the block as listed; `409` when the card is blocked
 /// already (lift that one first); `404` for an index the pool has not.
+///
+/// @route POST /admin/cards/blocks
+/// @scope admin
+/// @summary Block a card on this gateway
+/// @description Blocks a card of the pool, for good or until a moment: a
+/// deck holding it does not sit down at a table here, and its players are
+/// told the reason. A game already running is not touched.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the block's `created_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @body `$BlockBody`
+/// @return 201: `$ListedBlock` "The block, as listed"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a block (an unknown field included), a reason outside 1-200 characters or of two lines, or an `until` that is not RFC 3339, has passed or is over ten years ahead"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No card of this pool has that index"
+/// @return 409: `$ErrorBody` "The card has a block in force already; lift it first"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn block_card(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1369,6 +2195,25 @@ async fn block_card(
 
 /// `DELETE /admin/cards/blocks/{id}`: lifts a block in force. `204`; `404`
 /// for no such block, or one lifted or ended already. The row stays.
+///
+/// @route DELETE /admin/cards/blocks/{id}
+/// @scope admin
+/// @summary Lift a card block
+/// @description Lifts a block in force; its decks may sit down again at
+/// once. The block stays listed, lifted.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line and the block's `lifted_by`; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param id: String format=uuid "The block's id"
+/// @return 204: "Lifted"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No block by that id that is still in force"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The gateway's database is unavailable (or Baylee Central, while an admin lease is checked)"
 async fn unblock_card(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1411,11 +2256,41 @@ async fn reload_blocks(app: &crate::AppState) {
 
 /// `GET /admin/llm/seathosts`: every seat agent connected, and what it
 /// reported (`docs/protocol.md` §"Hosted language-model seats").
+///
+/// @route GET /admin/llm/seathosts
+/// @scope admin
+/// @summary Every seat agent connected
+/// @description Every seat agent connected, with the profiles it
+/// reported, as it reported them: the gateway derives none of it.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 200: `{ type: object, required: [seathosts], properties: { seathosts: { type: array, items: { type: object, required: [name, local, capacity, games, connected_secs, profiles], properties: { name: { type: string, description: "The seat agent's name" }, local: { type: boolean, description: "Whether it came in on this machine's unix socket" }, capacity: { type: integer, minimum: 0, description: "How many hosted games it may run at once" }, games: { type: integer, minimum: 0, description: "How many it runs" }, connected_secs: { type: integer, minimum: 0, description: "Seconds since it connected" }, profiles: { type: array, description: "Its profiles, as it reported them", items: { type: object } } } } } } }`
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
 async fn llm_seathosts(State(console): State<Admin>) -> Json<serde_json::Value> {
     Json(crate::seathost::seathosts_json(&console.app))
 }
 
 /// `GET /admin/llm/profiles`: one row per profile, over every seat agent.
+///
+/// @route GET /admin/llm/profiles
+/// @scope admin
+/// @summary Every hosted profile, over every seat agent
+/// @description One row per profile id, ordered as the players' list,
+/// with the state of each seat agent that holds it, as they reported it.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @return 200: `{ type: object, required: [profiles], properties: { profiles: { type: array, items: { allOf: [ { $ref: "#/components/schemas/HostedProfile" }, { type: object, required: [hosts], properties: { hosts: { type: array, description: "Each seat agent that holds the profile, and what it reported", items: { type: object, properties: { host: { type: string, description: "The seat agent's name" }, state: { type: string, enum: [available, busy, probing, exhausted, needs_login, failing, disabled] }, until_unix: { type: [integer, "null"], description: "When that state is expected to end, Unix seconds" }, games: { type: integer, minimum: 0 }, max_games: { type: [integer, "null"], minimum: 0 }, enabled: { type: boolean }, canary: { type: boolean }, caps: { description: "The profile's spend caps, as reported" }, spent: { description: "What it spent, as reported" }, key: { type: string, enum: [kept, absent, none_needed, unavailable], description: "Whether a key is kept; never the key" }, last_error: { type: [string, "null"] }, last_ok_unix: { type: [integer, "null"] }, fallback: { type: [string, "null"], description: "The definition's fallback profile" }, diverts: { type: [string, "null"], description: "The fallback new games start on while the profile is not available" } } } } } } ] } } } }`
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
 async fn llm_profiles(State(console): State<Admin>) -> Json<serde_json::Value> {
     Json(crate::seathost::profiles_json(&console.app))
 }
@@ -1433,13 +2308,45 @@ fn llm_audit(actor: &str, action: &str, host: &str, id: &str) {
     );
 }
 
+/// `PUT /admin/llm/seathosts/{host}/profiles/{id}`: written.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct ProfileWritten {
+    /// @description Always `true`: the seat agent wrote the definition.
+    ok: bool,
+}
+
 /// `PUT /admin/llm/seathosts/{host}/profiles/{id}`: a profile's definition.
+///
+/// @route PUT /admin/llm/seathosts/{host}/profiles/{id}
+/// @scope admin
+/// @summary Write a hosted profile's definition
+/// @description Hands a profile's definition to the seat agent, which
+/// checks and writes it; answered once it did. Nothing secret is in a
+/// definition: a key goes to `…/key`.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param host: String "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$Definition`
+/// @return 200: `$ProfileWritten` "The seat agent wrote it"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a profile, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such seat agent connected"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+/// @return 504: `$ErrorBody` "The seat agent did not answer within 10 seconds"
 async fn llm_write(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
     Path((host, id)): Path<(String, String)>,
     body: Bytes,
-) -> Result<Json<serde_json::Value>, Refusal> {
+) -> Result<Json<ProfileWritten>, Refusal> {
     let definition: baylee_protocol::seathost::Definition = serde_json::from_slice(&body)
         .map_err(|e| err_saying(StatusCode::BAD_REQUEST, format!("not a profile: {e}")))?;
     crate::seathost::ask(
@@ -1451,10 +2358,31 @@ async fn llm_write(
     )
     .await?;
     llm_audit(&actor, "llm.profile.write", &host, &id);
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(ProfileWritten { ok: true }))
 }
 
 /// `DELETE /admin/llm/seathosts/{host}/profiles/{id}`.
+///
+/// @route DELETE /admin/llm/seathosts/{host}/profiles/{id}
+/// @scope admin
+/// @summary Forget a hosted profile
+/// @description The seat agent forgets the profile's definition; a key
+/// kept for it stays in its store.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param host: String "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @return 204: "Forgotten"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such seat agent connected"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+/// @return 504: `$ErrorBody` "The seat agent did not answer within 10 seconds"
 async fn llm_delete(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1473,13 +2401,37 @@ async fn llm_delete(
 }
 
 /// What `…/enabled` takes.
+/// @openapi
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EnabledBody {
+    /// @description Whether the profile is offered.
     enabled: bool,
 }
 
 /// `POST /admin/llm/seathosts/{host}/profiles/{id}/enabled`.
+///
+/// @route POST /admin/llm/seathosts/{host}/profiles/{id}/enabled
+/// @scope admin
+/// @summary Switch a hosted profile on or off
+/// @description Tells the seat agent to offer the profile, or not.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param host: String "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$EnabledBody`
+/// @return 204: "Done"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a body with one boolean `enabled`, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such seat agent connected"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+/// @return 504: `$ErrorBody` "The seat agent did not answer within 10 seconds"
 async fn llm_enabled(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1512,6 +2464,28 @@ async fn llm_enabled(
 }
 
 /// `POST /admin/llm/seathosts/{host}/profiles/{id}/probe`.
+///
+/// @route POST /admin/llm/seathosts/{host}/profiles/{id}/probe
+/// @scope admin
+/// @summary Check a hosted profile now
+/// @description Asks the seat agent to run the profile's check now, and
+/// its paid canary where the profile has one; the result shows in the
+/// profile's state later. No body.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param host: String "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @return 202: "The seat agent took the order"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such seat agent connected"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "Baylee Central or the gateway's database is unavailable while an admin lease is checked"
+/// @return 504: `$ErrorBody` "The seat agent did not answer within 10 seconds"
 async fn llm_probe(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1531,15 +2505,45 @@ async fn llm_probe(
 
 /// What `…/key` takes: a key, or `null` to forget it. No `Debug`: nothing
 /// may print it.
+///
+/// @description A provider's API key for a hosted profile, or `null` to
+/// forget the one kept.
+/// @openapi
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct KeyBody {
+    /// @description The key, trimmed; `null` forgets it. Never empty.
     key: Option<String>,
 }
 
 /// `POST /admin/llm/seathosts/{host}/profiles/{id}/key`: write-only. The
 /// key goes to the seat agent over the unix socket and nowhere else; no
 /// route answers it, the audit line names only that it was set.
+///
+/// @route POST /admin/llm/seathosts/{host}/profiles/{id}/key
+/// @scope admin
+/// @summary Set or forget a hosted profile's key
+/// @description Write-only: the key goes to the seat agent, which keeps
+/// it in its key store, and nowhere else; no route answers it, only
+/// whether one is kept. Only for a seat agent on this machine's unix
+/// socket.
+/// @tag Admin
+/// @security `adminToken`
+/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
+/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
+/// @path-param host: String "The seat agent's name: 1-64 of A-Z a-z 0-9 . - _"
+/// @path-param id: String "The profile's id: 1-64 of A-Z a-z 0-9 . - _"
+/// @body `$KeyBody`
+/// @return 204: "Set, or forgotten"
+/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, not a body with one `key`, an empty key, a name or id outside 1-64 of A-Z a-z 0-9 . - _, or the seat agent's refusal in its words"
+/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
+/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
+/// @return 404: `$ErrorBody` "No such seat agent connected"
+/// @return 413: "The body is over 16 KiB"
+/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
+/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
+/// @return 503: `$ErrorBody` "The seat agent is not on this machine's unix socket (keys travel only over it), or Baylee Central or the database is unavailable while an admin lease is checked"
+/// @return 504: `$ErrorBody` "The seat agent did not answer within 10 seconds"
 async fn llm_key(
     State(console): State<Admin>,
     axum::Extension(Actor(actor)): axum::Extension<Actor>,
@@ -1734,13 +2738,18 @@ mod tests {
             admitted: 0,
         };
         let later = at + time::Duration::days(1);
-        let state = |r| listed(&r, at)["state"].as_str().unwrap().to_owned();
+        let state = |r| {
+            serde_json::to_value(listed(&r, at)).unwrap()["state"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
         assert_eq!(state(row(1, None, None)), "active");
         assert_eq!(state(row(1, Some(later), None)), "active");
         assert_eq!(state(row(0, None, None)), "used_up");
         assert_eq!(state(row(1, Some(at), None)), "expired");
         assert_eq!(state(row(1, None, Some(at))), "revoked");
-        let shown = listed(&row(2, Some(later), None), at);
+        let shown = serde_json::to_value(listed(&row(2, Some(later), None), at)).unwrap();
         assert_eq!(shown["created_at"], "2026-09-21T14:13:20Z");
         assert_eq!(shown["expires_at"], "2026-09-22T14:13:20Z");
         assert_eq!(shown["note"], "for Max");

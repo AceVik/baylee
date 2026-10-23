@@ -269,9 +269,14 @@ impl Session {
     /// held paused for as long as a game is held. The chair is stood in for
     /// first, so the record says the house answered, never the player.
     ///
-    /// `None` when the seat is not a player's chair, or has left the game.
+    /// `None` when the seat is not a player's chair, has left the game, or
+    /// the game is over. A host concedes chair after chair, and the first
+    /// concession of a duel ends it (CR 104.2a): the next chair has won,
+    /// and the engine refuses every answer to a game that is over.
     pub fn concede_for_absent(&mut self, seat: PlayerId) -> Option<Vec<(PlayerId, Envelope)>> {
-        if self.engine.state().has_left(seat) {
+        if self.engine.state().has_left(seat)
+            || matches!(self.engine.pending(), Pending::GameOver(_))
+        {
             return None;
         }
         match self.seat_kind(seat)? {

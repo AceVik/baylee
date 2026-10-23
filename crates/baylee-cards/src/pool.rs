@@ -25,6 +25,11 @@ use serde::Serialize;
 use std::sync::OnceLock;
 
 /// One card, as a deck builder needs to see it.
+///
+/// @description One card of the pool a deck may be built from: its
+/// registry index, its printed characteristics, how much of it this build
+/// plays, and its names and rules text in the served language.
+/// @openapi
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 // Five flags, and clippy would rather have a state machine. They are not
 // states: a pool row is a *wire record* of independent printed facts, and
@@ -34,49 +39,103 @@ use std::sync::OnceLock;
 // two of these are folded into one.
 #[allow(clippy::struct_excessive_bools)]
 pub struct PoolCard {
+    /// @description The card's registry index (`CardIndex`): its rules
+    /// identity in this build, which `GET /printings?card=` takes.
+    /// @internal
     /// Registry index — the rules identity, and what a saved deck names.
     pub index: u32,
+    /// @description The name in the served language; the English name where
+    /// the catalog has none.
+    /// @internal
     /// Name in the served language, which is the English name until a catalog
     /// says otherwise.
     pub name: String,
+    /// @description The English name, always: the name a deck line stores
+    /// it under, whatever language the player reads.
+    /// @internal
     /// English name, always. A deck is stored by name, and the name it is
     /// stored under is this one whatever language the player reads in.
     pub english_name: String,
+    /// @description The front face's mana cost in Scryfall's notation
+    /// (`{2}{W/U}`); empty for a card without one, such as a land.
+    /// @internal
     /// Mana cost in the notation `docs/mana-notation.md` describes; empty for
     /// a land.
     pub mana_cost: String,
+    /// @description The mana value of that cost.
+    /// @internal
     /// Mana value (CR 202.3).
     pub cmc: u32,
+    /// @description The colours of that cost as `WUBRG` letters, empty for
+    /// colourless.
+    /// @internal
     /// Colors of the card itself, as `WUBRG` letters.
     pub colors: String,
+    /// @description The card's colour identity as `WUBRG` letters, empty for
+    /// colourless: what a commander deck is bounded by.
+    /// @internal
     /// Color identity (CR 903.4) — what a commander deck is bounded by.
     pub identity: String,
+    /// @description The front face's whole type line, supertypes through
+    /// subtypes, in the served language where the catalog has it.
+    /// @internal
     /// Full printed type line, supertypes through subtypes, in the served
     /// language.
     pub type_line: String,
+    /// @description The front face's card types as English words
+    /// (`Creature`, `Land`, …), whatever the served language.
+    /// @internal
     /// The card types as English words (`Creature`, `Land`, …).
     ///
     /// Separate from `type_line` because a builder groups and filters on
     /// these, and a localized type line is not something to parse: the words
     /// move, and in German they are not even the same words.
     pub kinds: Vec<&'static str>,
+    /// @description The front face's power/toughness (`2/3`) or starting
+    /// loyalty (`4`); `null` for a card that prints neither.
+    /// @internal
     /// Power/toughness, or a planeswalker's loyalty. `None` for everything
     /// that prints neither.
     pub stats: Option<String>,
+    /// @description The rules text of every face, in printed order, joined
+    /// by a line `//`; empty without a catalog, while it is down, or for a
+    /// card it lacks.
+    /// @internal
     /// Rules text, when a catalog is configured. Empty otherwise — the engine
     /// never carries card text.
     pub oracle_text: String,
+    /// @description How much of the card this build plays: `implemented`
+    /// (all of it, and tested), `generated` (all of it, read from a card
+    /// script and not yet tested), `partial` (some of it; `note` says what
+    /// is missing) or `unimplemented` (none of it: it cannot be played).
+    /// @openapi enum: [implemented, generated, partial, unimplemented]
+    /// @internal
     /// `implemented`, `partial` or `unimplemented`.
     pub coverage: &'static str,
+    /// @description Why a `partial` card is only partly there, in its
+    /// author's words; `null` for every other card.
+    /// @internal
     /// Why a `partial` card is only partly there, in its author's words.
     pub note: Option<&'static str>,
+    /// @description Whether the card may lead a commander deck.
+    /// @internal
     /// Whether the card may lead a commander deck.
     pub commander: bool,
+    /// @description The registry indexes of the commanders this one may
+    /// lead a deck together with; left out when there are none.
+    /// @internal
     /// Registry identities this card may legally partner with, from the shared rules.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub partners: Vec<u32>,
+    /// @description Whether it is a basic land, the one card a deck may hold
+    /// any number of.
+    /// @internal
     /// Basic lands are the one card a deck may hold any number of.
     pub basic_land: bool,
+    /// @description Whether its printing has a second picture (a back
+    /// face) to turn to; left out when it has none. Not the same as
+    /// `double_faced`: a meld card is double-faced with no back picture.
+    /// @internal
     /// Whether there is a second picture to show.
     ///
     /// The client cannot work this out for itself: a back-face image URL can
@@ -91,6 +150,9 @@ pub struct PoolCard {
     /// empty: it is true for about one card in twenty-five.
     #[serde(skip_serializing_if = "is_false")]
     pub has_back_image: bool,
+    /// @description Whether it is a double-faced card (an adventurer or
+    /// split card is not); left out when it is not.
+    /// @internal
     /// Whether the card is a double-faced card under CR 712.1.
     ///
     /// What the builder's `double-faced` filter means — a claim about the
@@ -99,14 +161,25 @@ pub struct PoolCard {
     /// of a split card is the normal Magic card back, so neither is one.
     #[serde(skip_serializing_if = "is_false")]
     pub double_faced: bool,
+    /// @description The Scryfall id of the printing this build references,
+    /// for its picture.
+    /// @internal
     /// The printing codegen referenced, for art and for the catalog.
     pub scryfall_id: &'static str,
+    /// @description The card's Scryfall oracle id, shared by every printing
+    /// in every language.
+    /// @internal
     /// Rules identity, shared by every printing and every language.
     ///
     /// This is what a printing lookup is keyed on: a player picking the art
     /// they own is asking about the *card*, and the answer crosses every set
     /// it was ever printed in.
     pub oracle_id: &'static str,
+    /// @description Every other name it is printed under, to search by:
+    /// its names in other languages the catalog holds, and the whole
+    /// `A // B` spelling of a card with two faces. Left out when there are
+    /// none.
+    /// @internal
     /// Every other name this card is printed under — other languages, and
     /// the whole `A // B` spelling of a card with two faces.
     ///
@@ -125,6 +198,10 @@ pub struct PoolCard {
     /// largest field in the answer.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub alt_names: Vec<String>,
+    /// @description The kinds of mana its printed mana abilities make, as
+    /// `WUBRGC` letters: what a deck's colour sources are counted by. Left
+    /// out when there are none.
+    /// @internal
     /// The kinds of mana its printed mana abilities name, as `WUBRGC`
     /// letters ([`crate::produces`], WG-4): what a deck's colour sources are
     /// counted by. Omitted from the wire when empty, which is most cards.

@@ -355,6 +355,30 @@ fn well_formed(id: &str) -> bool {
 /// For a signed-in session only (see the module's "Only for this gateway's
 /// players"), and asked before the path is read: a caller without one learns
 /// nothing about the route and starts no trip to the origin.
+///
+/// @route GET /art/{size}/{face}/{a}/{b}/{file}
+/// @scope public
+/// @summary One card image, from this gateway's mirror
+/// @description A printing's image in Scryfall's own path shape, served
+/// from this gateway's mirror and fetched from Scryfall the first time
+/// anyone asks. `backs` is the shelf the printed card back stands on, not
+/// a face. For a signed-in session only (a guest's counts); each account
+/// may have 300 images a minute fetched from Scryfall, and what the mirror
+/// already holds costs nothing.
+/// @tag Catalog
+/// @operation-id `get_art`
+/// @security bearer
+/// @insert `SessionRefusals`
+/// @path-param size: String enum=[small, normal, `art_crop`] "The image size, as Scryfall names it"
+/// @path-param face: String enum=[front, back, backs] "The printing's front or back, or `backs` for the card back"
+/// @path-param a: String "The id's first character"
+/// @path-param b: String "The id's second character"
+/// @path-param file: String `pattern=^[0-9a-f-]{36}\.jpg$` "The printing's Scryfall id, lower case, and `.jpg`"
+/// @return 200: { type: string, format: binary } image/jpeg
+/// @return-header 200 Cache-Control: String "`private, max-age=31536000, immutable`: a printing's image never changes"
+/// @return 404: "No such image: a malformed path, the mirror switched off (`BAYLEE_ART_PATH=off`; fetch from Scryfall instead), or Scryfall has none"
+/// @return 429: "The account has had its 300 images a minute fetched from Scryfall"
+/// @return 502: "Scryfall could not be reached"
 pub async fn art(
     State(state): State<Shared>,
     headers: HeaderMap,

@@ -331,7 +331,7 @@ not by the order they were told, and nothing here is fixed yet.
 20. **Target selection needs a real design.** Attacking and every other
     "choose a target" step.
 
-    *Designed, not yet built.* `docs/redesign-proposal.md` §10 is the design
+    *Designed, not yet built.* `docs/proposals/redesign-proposal.md` §10 is the design
     and §10.7 the six commits it lands in. One model carries all of it: a
     pick is a pair — a thing, and what it is pointed at — so an attacker
     against a defender, a blocker against an attacker and a target against
@@ -3706,3 +3706,12 @@ cast; it handed priority on before). The client is `ManaRun::cast_first`.
 (Living Artifact on a Sol Ring), and the Khalni Ambush cast-mode test now
 follows the cast through its targets and window.
 
+
+## Seen while recording the beta.8b pictures, 2026-10-22
+
+Seen by the agent that recorded the README and website loops, on a local test
+stack (passive, silent client at 1600×900); not yet reproduced on purpose.
+
+- **The "Lock chat" pill sits over the hand** at a table on a gateway with chat.
+- **The "Ring" pill stays over the lobby's logo** after leaving a table.
+- **A lobby notice covers the room's title** while a table is being arranged.

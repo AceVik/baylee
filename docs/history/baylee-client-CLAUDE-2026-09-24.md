@@ -555,7 +555,7 @@ confirmed one are the same claim drawn at different weights.
 `bevy_gizmos` is not in the workspace's bevy features) recomputed each frame
 from the cards' live `Transform`s, because a line built from `Motion::target`
 snaps to the destination while the card it belongs to is still gliding there.
-`Combat::tally` is the one arithmetic §6 of `docs/design.md` allows, and it
+`Combat::tally` is the one arithmetic §6 of `docs/proposals/design.md` allows, and it
 counts a block this seat has only *proposed* — the number answers "what still
 reaches me if I block here", so a block that has not been sent has to count.
 Both systems are *run* in `combatlines::running` — an `App` with the resources
@@ -808,7 +808,7 @@ to grey an unclosed bracket.
 **The interface is two families, not one.** Alegreya Sans carries the
 interface and Faustina carries what a card *says* — a rules paragraph is a
 quotation and should not share a voice with the button beside it. That
-overrides `docs/design.md` §1.2, which shipped three cuts of Inter and said
+overrides `docs/proposals/design.md` §1.2, which shipped three cuts of Inter and said
 there was no fourth; the override is recorded in both files. `hud::UI_SCALE`
 (1.2) and `hud::SERIF_SCALE` (1.1) multiply a caller's nominal size on the
 way into `TextFont`, because every size here was chosen against Inter's

@@ -170,11 +170,11 @@ describe("the models page", () => {
     render(<Admin lang="de" section="models" />);
     await user.click(await screen.findByRole("button", { name: "Profil hinzufügen" }));
     const form = screen.getByRole("dialog");
-    await user.selectOptions(within(form).getByLabelText("Sitz-Agent"), "beta");
-    await user.type(within(form).getByLabelText("Kennung"), "opus");
+    await user.selectOptions(within(form).getByLabelText("Seat-Agent"), "beta");
+    await user.type(within(form).getByLabelText("ID"), "opus");
     await user.type(within(form).getByLabelText("Name"), "Opus");
-    await user.type(within(form).getByLabelText("Anbieter (Spieldaten gehen an)"), "Anthropic");
-    await user.type(within(form).getByLabelText("Spiele gleichzeitig"), "2");
+    await user.type(within(form).getByLabelText("Anbieter (erhält die Spieldaten)"), "Anthropic");
+    await user.type(within(form).getByLabelText("Partien gleichzeitig"), "2");
     await user.click(within(form).getByRole("button", { name: "Speichern" }));
     // A save asks first.
     expect(changes(calls)).toEqual([]);

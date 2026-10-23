@@ -2,7 +2,7 @@
 //! (#294), and the old token in the address until its end.
 
 use crate::{
-    AppState, Deserialize, ErrorBody, HeaderMap, Json, Shared, State, StatusCode, auth,
+    AppState, Deserialize, ErrorBody, HeaderMap, Json, Serialize, Shared, State, StatusCode, auth,
     authed_session, err, lobby, seat_of_token, wsticket,
 };
 
@@ -49,6 +49,9 @@ pub(crate) struct LobbyWsParams {
 pub(crate) const TICKET_REFUSED: &str = baylee_protocol::TICKET_REFUSED;
 
 /// Which socket a ticket is asked for (`POST /ws-ticket`).
+///
+/// @description Which socket the ticket opens, by `socket`.
+/// @openapi
 #[derive(Deserialize)]
 #[serde(tag = "socket", rename_all = "snake_case")]
 pub(crate) enum TicketFor {
@@ -56,6 +59,8 @@ pub(crate) enum TicketFor {
     Lobby,
     /// `/games/{game}/ws`, proven by that seat's token in `Authorization`.
     Seat {
+        /// @description The game the seat is at.
+        /// @internal
         /// The game.
         game: String,
     },
@@ -65,9 +70,26 @@ pub(crate) enum TicketFor {
     /// `/games/{game}/watch`, proven by the session; refused `403` at a
     /// table that allows no spectators.
     Watch {
+        /// @description The game to watch.
+        /// @internal
         /// The game.
         game: String,
     },
+}
+
+/// A single-use ticket: what `POST /ws-ticket` and a host's chair ticket
+/// answer.
+///
+/// @description A single-use ticket and how long it lives.
+/// @openapi
+#[derive(Serialize)]
+pub(crate) struct TicketGrant {
+    // In key order: the bytes the `json!` it replaced wrote (serde_json sorts keys).
+    /// @description Seconds it lives unspent.
+    pub(crate) expires_in: u64,
+    /// @description The ticket: random, single use, and spent the moment
+    /// it is shown, whether or not what it opens is still there.
+    pub(crate) ticket: String,
 }
 
 /// `POST /ws-ticket` — trade a bearer token for a ticket to open one socket
@@ -77,11 +99,30 @@ pub(crate) enum TicketFor {
 /// feed, the seat token for a seat. The ticket is bound to it and to the
 /// socket it names; see `wsticket.rs`. Neither the bearer nor the ticket is
 /// ever logged.
+///
+/// @route POST /ws-ticket
+/// @scope public
+/// @summary Buy a ticket to open a socket
+/// @description A browser cannot put a header on a WebSocket, and a secret
+/// must not ride in an address, so a socket is opened with a single-use
+/// ticket bought here (`?ticket=`). The lobby feed, the social socket and a
+/// spectator's socket are bought with the session; a seat's socket with
+/// that seat's token, as `Authorization: Bearer`. A ticket opens only the
+/// socket it was bought for, and only while what bought it still stands.
+/// @tag Lobby
+/// @security bearer
+/// @security `seatToken`
+/// @insert `SessionRefusals`
+/// @return 401: `$ErrorBody` "No bearer, or one that opens nothing: an invalid or expired session, or a seat token that is not this game's (`invalid seat token`, `ticket expired or used`)"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`) or must accept the terms first (`terms_required`); this gateway has no chat (`social`), or the table allows no spectators (`watch`)"
+/// @return 404: `$ErrorBody` "No such game (`seat`, `watch`)"
+/// @return 409: `$ErrorBody` "The table is not playing (`watch`)"
+/// @return 503: `$ErrorBody` "The account store or Baylee Central is unavailable, or too many sockets are being opened"
 pub(crate) async fn ws_ticket(
     State(state): State<Shared>,
     headers: HeaderMap,
     Json(body): Json<TicketFor>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorBody>)> {
+) -> Result<Json<TicketGrant>, (StatusCode, Json<ErrorBody>)> {
     let grant = match body {
         TicketFor::Lobby => {
             let session = authed_session(&state, &headers).await?;
@@ -159,10 +200,10 @@ pub(crate) async fn ws_ticket(
                 "too many sockets are being opened",
             )
         })?;
-    Ok(Json(serde_json::json!({
-        "ticket": ticket,
-        "expires_in": state.tickets.ttl().as_secs(),
-    })))
+    Ok(Json(TicketGrant {
+        ticket,
+        expires_in: state.tickets.ttl().as_secs(),
+    }))
 }
 
 /// The bearer token of a request, if it names one.

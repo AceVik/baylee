@@ -1,17 +1,27 @@
-//! Native login precedes gateway selection. Account secrets live on one bounded worker.
+//! Baylee Central sign-in, for a gateway that takes it (`central` in its
+//! `GET /auth/config`): choosing one turns the account form into Central's,
+//! and the sign-in admits the player to that gateway. Every other gateway
+//! signs people in itself. Account secrets live on one bounded worker.
 #![forbid(unsafe_code)]
 
 use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
 use baylee_account::{Account, Endpoint, Error};
-use baylee_client_core::{i18n::Lang, prefs::Preferences};
+use baylee_client_core::{Phrase, i18n::Lang, prefs::Preferences};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
     mpsc,
 };
 
-type Job = Box<dyn FnOnce(&mut Account) + Send>;
+pub(crate) type Job = Box<dyn FnOnce(&mut Account) + Send>;
 type SaveResult = Arc<Mutex<Option<Result<(), Error>>>>;
+
+/// How often the account worker renews its Central session: well inside the
+/// 30 minutes one renewal grants.
+const RENEW_EVERY: std::time::Duration = std::time::Duration::from_mins(10);
+/// How soon a failed renewal is tried again (a Central restarting, or not
+/// renewing yet).
+const RENEW_RETRY: std::time::Duration = std::time::Duration::from_mins(1);
 
 struct PendingSave {
     gateways: Vec<String>,
@@ -34,6 +44,16 @@ impl Handle {
             send,
             active: Arc::new(AtomicBool::new(true)),
         }
+    }
+    /// A handle whose jobs the test receives, instead of a worker.
+    #[cfg(test)]
+    pub(crate) fn queued_for_test() -> (Self, mpsc::Receiver<Job>) {
+        let (send, receive) = mpsc::sync_channel(4);
+        let handle = Self {
+            send,
+            active: Arc::new(AtomicBool::new(true)),
+        };
+        (handle, receive)
     }
     pub(crate) fn is_active(&self) -> bool {
         self.active.load(Ordering::Acquire)
@@ -113,6 +133,7 @@ impl Handle {
             .spawn(move || {
                 let interval = std::time::Duration::from_secs(10);
                 let mut checked = std::time::Instant::now();
+                let mut renew_at = std::time::Instant::now() + RENEW_EVERY;
                 loop {
                     if checked.elapsed() >= interval {
                         if matches!(account.check_active(), Err(Error::Rejected)) {
@@ -120,6 +141,18 @@ impl Handle {
                             break;
                         }
                         checked = std::time::Instant::now();
+                    }
+                    // The session, and every game admitted from it, lasts while
+                    // the client runs (Central caps it at 12 hours). A failed
+                    // renewal is tried again a minute later and ends nothing:
+                    // the check above says whether the session lives.
+                    if std::time::Instant::now() >= renew_at {
+                        let next = if account.renew().is_ok() {
+                            RENEW_EVERY
+                        } else {
+                            RENEW_RETRY
+                        };
+                        renew_at = std::time::Instant::now() + next;
                     }
                     match receive.recv_timeout(interval.saturating_sub(checked.elapsed())) {
                         Ok(job) => job(&mut account),
@@ -158,6 +191,13 @@ pub(super) struct State {
     saving: Option<PendingSave>,
     sync_failed: bool,
     chat_unlock: Arc<Mutex<Option<crate::social::vault_access::Login>>>,
+    /// The gateway that asked for Central sign-in, admitted to once it is
+    /// done; `None` when Central was turned on without one.
+    bound: Option<String>,
+    /// Central's own terms wait for the signed-in account: their sheet is
+    /// up before any gateway, nothing is admitted or synced (Central
+    /// refuses tickets and writes until they are accepted).
+    pub(super) terms_pending: bool,
 }
 
 pub(super) struct Restored {
@@ -165,6 +205,9 @@ pub(super) struct Restored {
     gateways: Vec<String>,
     preferences: Preferences,
     chat_unlock: Option<crate::social::vault_access::Login>,
+    /// The sign-in found Central's terms in force unaccepted (and a gateway
+    /// account's move, if any, waiting for them).
+    terms_pending: bool,
 }
 
 pub(super) fn enable(state: &mut LobbyState) {
@@ -177,6 +220,8 @@ pub(super) fn enable(state: &mut LobbyState) {
         saving: None,
         sync_failed: false,
         chat_unlock: Arc::new(Mutex::new(None)),
+        bound: None,
+        terms_pending: false,
     });
     state.gateway_selected = false;
     state.gateway_cursor = None;
@@ -184,6 +229,52 @@ pub(super) fn enable(state: &mut LobbyState) {
     state.lobby.set_gateway_ready(true);
     state.lobby.set_registration(Registration::Off);
     state.lobby.set_guests_enabled(false);
+}
+
+impl State {
+    /// The gateway that asked for this sign-in, if one did.
+    pub(super) fn bound_gateway(&self) -> Option<&str> {
+        self.bound.as_deref()
+    }
+}
+
+/// The chosen gateway takes Central sign-ins: the account form becomes
+/// Central's, and the sign-in admits the player to that gateway. Nothing
+/// when Central is on already, or a session on the gateway is.
+pub(super) fn bound(state: &mut LobbyState) {
+    if state.central.is_some() || !state.gateway_selected || state.lobby.token().is_some() {
+        return;
+    }
+    let gateway = state.gateway.clone();
+    enable(state);
+    if let Some(central) = &mut state.central {
+        central.bound = Some(gateway);
+    }
+}
+
+/// Back from Central's sign-in that a gateway asked for: Central is off
+/// again and the device's own gateways are back. Central turned on without
+/// a gateway has no way back.
+pub(super) fn leave(state: &mut LobbyState) {
+    if state
+        .central
+        .as_ref()
+        .is_some_and(|central| central.bound.is_some())
+    {
+        close(state);
+    }
+}
+
+/// Central off, the device's own gateways back, the gateway form shown.
+fn close(state: &mut LobbyState) {
+    let Some(central) = state.central.take() else {
+        return;
+    };
+    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    state.gateways = central.local_gateways;
+    state.gateway_selected = false;
+    state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
+    state.lobby.set_gateway_ready(false);
 }
 
 #[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
@@ -229,11 +320,15 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     return Err(Error::Rejected);
                 };
                 let gateways = account.data().gateways.clone();
+                // Central's own terms come before any gateway: a sign-in
+                // that finds them unaccepted shows them first.
+                let terms_pending = account.central_terms_open();
                 Ok(Restored {
                     handle: Handle::start(account)?,
                     gateways,
                     preferences,
                     chat_unlock,
+                    terms_pending,
                 })
             })();
             if let Ok(mut messages) = target.0.lock() {
@@ -264,6 +359,7 @@ pub(super) fn receive(
             };
             central.saved_gateways.clone_from(&restored.gateways);
             central.handle = Some(restored.handle.clone());
+            central.terms_pending = restored.terms_pending;
             central.chat_unlock = Arc::new(Mutex::new(restored.chat_unlock));
             prefs.attach_central(restored.handle, restored.preferences);
             let lang = state.lobby.lang();
@@ -277,6 +373,26 @@ pub(super) fn receive(
             state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
             for url in state.unasked_gateways() {
                 http::probe_gateway(url, mailbox);
+            }
+            // The gateway that asked for this sign-in is where the player
+            // was going: it joins the account's list and is entered, after
+            // Central's own terms where they wait (`front::terms`).
+            let bound = state
+                .central
+                .as_ref()
+                .and_then(|central| central.bound.clone());
+            if let Some(gateway) = bound {
+                if !state.gateways.contains(&gateway) {
+                    state.gateways.push(gateway.clone());
+                }
+                if let Some(index) = state.gateways.iter().position(|g| g == &gateway)
+                    && state.select_gateway(index)
+                {
+                    http::probe_registration(state, mailbox);
+                    if !restored.terms_pending {
+                        admit(state, mailbox);
+                    }
+                }
             }
         }
         Err(_) => {
@@ -382,7 +498,8 @@ pub(super) fn sync_gateways(
     let Some(handle) = &central.handle else {
         return;
     };
-    if central.sync_failed {
+    // Central refuses writes until its own terms are accepted.
+    if central.sync_failed || central.terms_pending {
         return;
     }
     if prefs.central_save_failed {
@@ -431,19 +548,47 @@ pub(super) fn sync_gateways(
 }
 
 fn message(lang: Lang) -> &'static str {
-    if lang == Lang::De {
-        "Anmeldung oder Wiederherstellung fehlgeschlagen. Bitte Zugangsdaten und Verbindung prüfen."
-    } else {
-        "Sign-in or restore failed. Please check your credentials and connection."
-    }
+    Phrase::CentralSignInFailed.text(lang)
 }
 
 fn sync_message(lang: Lang) -> &'static str {
-    if lang == Lang::De {
-        "Kontodaten konnten nicht synchronisiert werden. Deine lokalen Änderungen bleiben erhalten. Bitte melde dich erneut an."
-    } else {
-        "Account synchronization failed. Your local changes are retained; please sign in again."
+    Phrase::CentralSyncFailed.text(lang)
+}
+
+/// Whether Central's own terms wait for the signed-in account, before any
+/// gateway: their sheet stands until they are accepted or put off.
+pub(super) fn terms_pending(state: &LobbyState) -> bool {
+    state
+        .central
+        .as_ref()
+        .is_some_and(|central| central.terms_pending)
+}
+
+/// Central's own terms accepted (and a move that waited for them done):
+/// nothing waits any more, and the account's list syncs again.
+pub(super) fn terms_accepted(state: &mut LobbyState) {
+    if let Some(central) = &mut state.central {
+        central.terms_pending = false;
     }
+}
+
+/// Terms accepted at Central, its own or a gateway's: the chosen gateway is
+/// signed in to afresh, which finds them accepted. Nothing to enter when no
+/// gateway is chosen yet.
+pub(super) fn readmit(state: &mut LobbyState, mailbox: &Mailbox) {
+    if state.gateway_selected {
+        admit(state, mailbox);
+    }
+}
+
+/// A gateway account's move, held for Central's terms, failed once they
+/// were accepted: signed out of Central as a failed sign-in is, and said
+/// so. Signing in again resumes the move.
+pub(super) fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
+    logout(state, prefs);
+    state
+        .lobby
+        .apply(LobbyEvent::Failed(message(state.lobby.lang()).into()));
 }
 
 pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
@@ -452,9 +597,8 @@ pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
     state.lobby = Lobby::new();
     state.lobby.set_lang(lang);
     state.offline = None;
-    state.gateway_selected = false;
     prefs.detach_central();
-    enable(state);
+    close(state);
 }
 
 #[cfg(test)]
@@ -510,6 +654,7 @@ mod tests {
     #[test]
     fn restored_gateways_replace_local_defaults_and_signout_closes_account_access() {
         let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        let device = state.gateways.clone();
         enable(&mut state);
         let source = "http://127.0.0.1:28766".to_string();
         // No real HTTP work: this synthetic public probe has already completed.
@@ -524,6 +669,7 @@ mod tests {
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
             chat_unlock: None,
+            terms_pending: false,
         };
         receive(
             &mut state,
@@ -536,11 +682,108 @@ mod tests {
         assert_eq!(state.gateways, vec![source]);
         let previous = state.gateway_epoch;
         logout(&mut state, &mut prefs);
-        assert!(state.central_pending());
+        assert!(
+            state.central.is_none(),
+            "Central is off once its session ends"
+        );
+        assert!(!state.lobby.gateway_chosen());
         assert!(
             state.gateway_epoch > previous,
             "late gateway replies must be invalidated"
         );
-        assert_eq!(state.gateways, Vec::<String>::new());
+        assert_eq!(
+            state.gateways, device,
+            "the device's own gateways, not the account's"
+        );
+    }
+
+    #[test]
+    fn a_central_sign_in_a_gateway_asked_for_enters_that_gateway() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        // An address no request can be built from, as the lobby's headless
+        // tests use: entering the gateway asks its `/auth/config`.
+        state.gateway.clear();
+        state.gateway_selected = true;
+        bound(&mut state);
+        assert!(state.central_bound());
+        let (send, jobs) = mpsc::sync_channel::<Job>(4);
+        let mut prefs = crate::prefs::Prefs::default();
+        let other = "http://127.0.0.1:28766".to_string();
+        state.probes.insert(other.clone(), Probe::Older);
+        let restored = Restored {
+            handle: Handle {
+                send,
+                active: Arc::new(AtomicBool::new(true)),
+            },
+            gateways: vec![other.clone()],
+            preferences: Preferences::default(),
+            chat_unlock: None,
+            terms_pending: false,
+        };
+        receive(
+            &mut state,
+            &mut prefs,
+            &Mailbox::default(),
+            Ok(Box::new(restored)),
+        );
+        assert!(state.central_ready());
+        assert!(state.lobby.gateway_chosen(), "the gateway is entered");
+        assert_eq!(state.gateway, "");
+        assert_eq!(state.gateways, vec![other, String::new()]);
+        assert!(jobs.try_recv().is_ok(), "and admitted to");
+    }
+
+    /// Central's own terms wait for the account (the owner's sign-in,
+    /// 22.10.2026): the gateway is chosen but not entered, the account's
+    /// list is not written while Central refuses writes, and accepting the
+    /// terms enters the gateway.
+    #[test]
+    fn central_terms_that_wait_come_before_the_gateway() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.gateway.clear();
+        state.gateway_selected = true;
+        bound(&mut state);
+        let (send, jobs) = mpsc::sync_channel::<Job>(4);
+        let restored = Restored {
+            handle: Handle {
+                send,
+                active: Arc::new(AtomicBool::new(true)),
+            },
+            gateways: Vec::new(),
+            preferences: Preferences::default(),
+            chat_unlock: None,
+            terms_pending: true,
+        };
+        let mailbox = Mailbox::default();
+        let mut prefs = crate::prefs::Prefs::default();
+        receive(&mut state, &mut prefs, &mailbox, Ok(Box::new(restored)));
+        assert!(state.lobby.gateway_chosen(), "the gateway is chosen");
+        assert!(terms_pending(&state));
+        assert!(jobs.try_recv().is_err(), "but not entered");
+        assert_ne!(
+            state.central.as_ref().unwrap().saved_gateways,
+            state.gateways,
+            "the gateway joined the account's list"
+        );
+        let mut world = bevy::prelude::World::new();
+        world.insert_resource(state);
+        world.insert_resource(prefs);
+        world.run_system_once(sync_gateways).unwrap();
+        assert!(jobs.try_recv().is_err(), "which is not written yet");
+        let mut state = world.resource_mut::<LobbyState>();
+        terms_accepted(&mut state);
+        assert!(!terms_pending(&state));
+        readmit(&mut state, &mailbox);
+        assert!(jobs.try_recv().is_ok(), "accepted, the gateway is entered");
+    }
+
+    #[test]
+    fn central_turned_on_without_a_gateway_has_no_way_back() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        enable(&mut state);
+        assert!(!state.central_bound());
+        leave(&mut state);
+        assert!(state.central_pending());
     }
 }

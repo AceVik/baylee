@@ -479,3 +479,42 @@ fn search_is_repeatable_bounded_and_preserves_unseen_identities() {
         search::attackers(&v, &squad, victim, AIProfile::EXPERT).attackers
     );
 }
+
+/// A second removal spell at a permanent this seat's own removal on the
+/// stack is already taking is a card thrown away: the house cast Path to
+/// Exile at an opponent's commander, was asked again as its caster, and
+/// cast Swords to Plowshares at the same commander. Swords resolved and
+/// Path had no target left (22.10.2026). The agent passes instead, and
+/// with its own Path gone from the stack it casts Swords as before.
+#[test]
+fn removal_is_not_cast_at_what_this_seats_own_removal_is_taking() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut v = view(0, &[20, 20], vec![permanent(obj(7), them, 5)]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.seats[0].mana_pool.white = 1;
+    v.hand = vec![hand_card(1, "Swords to Plowshares")];
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(1) },
+            "{name}: the 5/5 is worth Swords while nothing is aimed at it"
+        );
+    }
+    v.stack = vec![stack_spell(6, "Path to Exile", me, obj(7))];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::PassPriority,
+            "{name}: its own Path is already taking the 5/5"
+        );
+    }
+}
