@@ -12,6 +12,7 @@ mod aggressive_urge;
 mod agony_warp;
 mod alarum;
 mod aleatory;
+mod allay;
 mod arcane_denial;
 mod assassin_s_trophy;
 mod aura_blast;

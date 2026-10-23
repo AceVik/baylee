@@ -23,6 +23,7 @@ mod circle_of_protection_red;
 mod circle_of_protection_shadow;
 mod circle_of_protection_white;
 mod compulsion;
+mod convalescence;
 mod copy_artifact;
 mod coral_reef;
 mod crusade;

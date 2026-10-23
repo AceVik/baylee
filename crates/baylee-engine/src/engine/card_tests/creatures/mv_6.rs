@@ -22,6 +22,8 @@ mod disciple_of_freyalise;
 mod dread_reaper;
 mod dread_rider;
 mod ebon_praetor;
+mod ephemeron;
+mod exalted_dragon;
 mod feral_thallid;
 mod firestorm_hellkite;
 mod firestorm_phoenix;

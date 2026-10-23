@@ -16,6 +16,7 @@ mod avalanche;
 mod baki_s_curse;
 mod bee_sting;
 mod break_asunder;
+mod cataclysm;
 mod channel_the_suns;
 mod concentrate;
 mod creeping_mold;

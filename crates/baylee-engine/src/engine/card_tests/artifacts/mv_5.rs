@@ -36,3 +36,4 @@ fn set_counters(engine: &mut Engine<RegistryLookup>, id: ObjectId, kind: Counter
     state.invalidate_projections();
     engine.refresh_offer();
 }
+mod coat_of_arms;

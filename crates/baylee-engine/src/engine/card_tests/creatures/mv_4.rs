@@ -57,6 +57,7 @@ mod carnivorous_plant;
 mod carrier_pigeons;
 mod carrion_ants;
 mod carrion_howler;
+mod cat_burglar;
 mod chaos_harlequin;
 mod chaotic_goo;
 mod cinder_giant;

@@ -18,6 +18,7 @@ mod consuming_ferocity;
 mod contempt;
 mod conviction;
 mod creature_bond;
+mod cunning;
 mod dance_of_the_dead;
 mod decomposition;
 mod diplomatic_immunity;

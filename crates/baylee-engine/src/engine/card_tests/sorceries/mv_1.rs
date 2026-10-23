@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod aether_tide;
 mod blaze;
 mod bloodcurdling_scream;
 mod builder_s_bane;

@@ -20,6 +20,7 @@ mod consecrate_land;
 mod crackling_club;
 mod crown_of_flames;
 mod death_watch;
+mod dizzying_gaze;
 mod dream_coat;
 mod earthbind;
 mod endless_scream;

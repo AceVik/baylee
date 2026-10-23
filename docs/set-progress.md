@@ -707,3 +707,5 @@ no-engine-change contract:
   - Batch 2 (`Gliding Licid` to `Mogg Maniac`, 25 cards): **12 Implemented, 13 Partial**.
   - Batch 3 (`Mortuary` to `Verdant Touch`, 25 cards): **8 Implemented, 17 Partial**.
   - Batch 4 (`Volrath's Gardens` to `Warrior en-Kor`, 9 cards): **4 Implemented, 5 Partial**.
+- **Exodus (`exo`)** — in progress:
+  - Batch 1 (`Aether Tide` to `Fighting Chance`, 25 cards): **15 Implemented, 10 Partial**.
