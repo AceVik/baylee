@@ -520,6 +520,19 @@ pub static JACE_PLANESWALKER_BLUE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/2 black Zombie, M20 #6 — the ordinary token made by Field of the Dead
+/// and by every later effect with the same body, not a card-specific variant.
+pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    power: Some(2),
+    toughness: Some(2),
+    scryfall_id: "18f0436e-9328-4266-9cf8-80b557a0c17c",
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is; the index IS the stable token id (art key).
 ///
 /// Append only — an insertion in the middle renumbers every token after it,

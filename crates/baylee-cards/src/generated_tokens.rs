@@ -33,7 +33,7 @@ pub use crate::tokens::{
     SHAPESHIFTER_2_2_BLUE_CHANGELING, SNAKE_1_1_ARTIFACT_POISON, SOLDIER_1_1_WHITE,
     SPIRIT_1_1_COLORLESS, SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT,
     TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING, TREASURE, VIBRANIUM, WIZARD_0_1_BLACK,
-    WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+    WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF, ZOMBIE_2_2_BLACK,
 };
 use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
@@ -74,17 +74,6 @@ pub static RAT_1_1_BLACK: TokenDef = TokenDef {
     subtypes: &[creature::RAT],
     power: Some(1),
     toughness: Some(1),
-    ..TokenDef::DEFAULT
-};
-
-/// 2/2 black Zombie.
-pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
-    name: "Zombie",
-    colors: ColorSet::from_slice(&[Color::Black]),
-    types: TypeSet::CREATURE,
-    subtypes: &[creature::ZOMBIE],
-    power: Some(2),
-    toughness: Some(2),
     ..TokenDef::DEFAULT
 };
 
@@ -2551,7 +2540,7 @@ pub static ALL: &[&TokenDef] = &[
     &BAT_1_1_BLACK_FLYING,
     &INSECT_1_1_BLACK_FLYING,
     &RAT_1_1_BLACK,
-    &ZOMBIE_2_2_BLACK,
+    &tokens::ZOMBIE_2_2_BLACK,
     &INSECT_1_1_BLACK_GREEN,
     &THOPTER_ARTIFACT_1_1_FLYING,
     &HERO_1_1,
@@ -2791,7 +2780,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &BAT_1_1_BLACK_FLYING,
     &INSECT_1_1_BLACK_FLYING,
     &RAT_1_1_BLACK,
-    &ZOMBIE_2_2_BLACK,
     &INSECT_1_1_BLACK_GREEN,
     &THOPTER_ARTIFACT_1_1_FLYING,
     &HERO_1_1,

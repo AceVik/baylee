@@ -5567,3 +5567,19 @@ final validation are in `docs/history/2026-10-23-argon-review.md`.
   not all attacks this turn, and an unannounced X is not a candidate's mana
   value. Keep the client's conservative unknown answer, pin known gaps by exact
   membership, and test the genuinely empty candidate population separately.
+
+## 2026-10-24 — Feedback regressions and token art adoption
+
+- Replayed the report shapes for Umara Raptor, Field of the Dead and Tireless
+  Provisioner: a returned Earth King's Lieutenant produces exactly the two
+  counters that take the Raptor to 4/4; two lands entering together each see
+  the seven-name condition; a land played from the graveyard still triggers
+  Landfall. Keep those joins in the tests, not only the final token or P/T.
+- A token's id and its definition are different commitments. `tokenledger`
+  must let a generated entry become hand-written in place when a person chooses
+  a printing, while refusing collisions and preserving every other id. The M20
+  Zombie is the regression: `codegen --tables` moves only its body and reexport.
+- Test setups need the whole casting sequence. A Raptor plus Ephemerate needs
+  four lands, Primeval Titan needs two green sources, and library searches need
+  the offered ObjectIds asserted before `ChooseObjects`; otherwise a report test
+  fails on setup rather than on the rule it is meant to prove.
