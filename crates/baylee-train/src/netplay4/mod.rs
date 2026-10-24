@@ -298,6 +298,11 @@ impl NetPlayer4 {
         let seat_u8 = view.seat.get();
         let p_kind = PendingKind4::of(pending);
 
+        if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
+            self.coverage.record(p_kind, SourceKind4::House);
+            return answer;
+        }
+
         // The host calls observe() for every neural seat before each table action.
         // Decision inference is read-only with respect to persistent memory.
         let h_in = self

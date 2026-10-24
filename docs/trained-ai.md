@@ -17,6 +17,12 @@ CUDA inference is measured and rollout-probability audited on the 4070 Ti;
 see the log for whole-game CPU/GPU comparisons. v4 fallbacks use legal offered
 answers, valid clock defaults, or the ordinary view-only house AI. A question
 without a clock default must never be answered with an invented priority pass.
+Band formation currently uses an explicit house fallback that declines the
+optional band. The neural subset sampler represents cardinality, but not the
+banding/bands-with-other membership restriction; such decisions carry house
+provenance, no behavior probability and no neural policy target. This avoids
+invalid multi-member bands without changing sampling version 2. It sacrifices
+band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
 `tools/trainer/watch_run4.py` provides an optional local completion wake-up for
