@@ -65,6 +65,13 @@ Commander hat nur acht unabhängige Tische und drei unaufgelöste Cap-Paare.
 Das belegt keine Verbesserung, aber auch keine präzise geschätzte allgemeine
 Verschlechterung. Der Kandidat wird nicht promoviert.
 
+Ein zusätzlicher Kontrolllauf auf 52 weiteren Partien mit unverändertem Code
+erreichte danach 23/64 Duellsiege, aber nur 1/32 Commander-Siege und dort mehr
+Stalls/Fallbacks. Auch er wird nicht übernommen. Der positive Duellpunktwert
+ist noch unsicher (Table-Bootstrap-95-%-Intervall der Differenz −3,1 bis
++17,2 Prozentpunkte). Formatbezogene Zuverlässigkeit bleibt eine eigene
+Voraussetzung; eine aggregierte Siegzahl darf Commander-Probleme nicht verdecken.
+
 Der Value-MSE fiel von 0,1530 auf 0,1176; die vorhandene Kennzahl
 `val_active_top1_acc` fiel leicht von 59,28 % auf 59,03 %. Diese Kennzahl
 bedeutet **Nicht-Pass-Labels** und lässt freiwilliges Passen bei vorhandenen
@@ -212,8 +219,9 @@ SSH-Angaben des ersten Entwurfs sind keine Messung dieses Reviews.
 
 ### 3.1 Karten, Decks und Generatoren
 
-- `data/decks/precon/STATUS.tsv`: **50** Zeilen mit `playable == yes`.
-  39 enthalten laut `cards` mindestens 60 Karten, elf enthalten 26–33.
+- `data/decks/precon/STATUS.tsv`, nachgezählt am 24. Oktober: **53** Zeilen
+  mit `playable == yes`. 40 enthalten laut `cards` mindestens 60 Karten,
+  13 enthalten 26–40.
   Die TSV-Zahl allein belegt keine 60-Karten-Hauptdeckstruktur; Sideboards und
   Sonderzusammenstellungen müssen beim Import getrennt gelesen werden.
 - `data/decks/eval/`: **15** Decks, darunter `white-weenie`, `red-burn`,
@@ -222,10 +230,11 @@ SSH-Angaben des ersten Entwurfs sind keine Messung dieses Reviews.
   Die Dateinamen `01_white_weenie` bis `15_grixis_control` existieren hier nicht.
 - Neun Hausdecklisten: `allytifact`, `victory`, `schwarzrand`, `weltenbaum`,
   `maik`, `kenrith`, `breya`, `tayam`, `kess`.
-- Eine Quellzählung über die eindeutigen registrierten Kartenmodule ergibt
-  **9.343 registrierte Definitionen, davon 9.265 mit
-  `Coverage::Implemented`**. Das ist keine erneute Ausführung ihrer Tests.
-  Der Trainingspool muss weiterhin durch
+- Der aktuelle `Working::scan`-Report ergibt **10.693 registrierte Definitionen,
+  10.058 mit `Coverage::Implemented`, 10.358 mit Testreferenz und 10.058 im
+  Working-Schnitt**. Die alte Reviewbasis hatte 9.343/9.265; sie ist kein
+  aktuelles Inventar mehr. Eine Testreferenz ist keine erneute Ausführung
+  aller Kartentests. Der Trainingspool muss weiterhin durch
   [Working::scan](../../crates/baylee-train/src/working.rs) bestimmt werden:
   Implementierungsstatus **und** Testreferenz. „> 2.300“ ist als Untergrenze
   richtig, als aktuelles Inventar überholt.

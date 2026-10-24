@@ -60,7 +60,7 @@ pub struct CardIdentity {
     pub face: u8,
 }
 
-/// The card and face whose printed ability list an object's abilities are.
+/// The primary printed rules face of an object.
 ///
 /// For an ordinary card it is the card and the face it shows. It differs from
 /// [`PublicObject::card`] exactly where a player would be misled by reading
@@ -70,9 +70,9 @@ pub struct CardIdentity {
 /// text names nothing, or the wrong thing. A token copy has no card at all
 /// and still has a face here.
 ///
-/// A client draws every ability row and every stack entry out of this card's
-/// text, and reads the ability an offered index names out of this card's
-/// list, which is what makes a copy need no special treatment anywhere.
+/// A composed copy can retain clauses from other printed faces. For such
+/// lists, [`PublicObject::ability_sources`] resolves individual runtime indices;
+/// they must not be treated as indices into this primary face's printed list.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct RulesFace {
     /// The card the abilities are printed on.

@@ -47,6 +47,33 @@ Quellen liegen neben der Runtime: `evaluation/{reference,bootstrap}-*.json`,
 `models/bootstrap/meta.json`. Die Auswertung ist eine wiederholt verwendete
 Entwicklungssuite, kein unberührter finaler Test.
 
+## Zusätzlicher Kontrolllauf während des Reviews
+
+`concept-review-20261024` trainierte vom gleichen Startmodell aus auf 52
+weiteren geprüften Spielen (554.500 Frames), mit unverändertem alten Code.
+2.178 Updates einschließlich Validierung dauerten 2.049,7 Sekunden;
+allokierter Peak 8,12 GB, kein OOM. Policy-Loss 0,29349, Value-MSE 0,11444,
+Nicht-Pass-Top-1 59,446 %, ECE 0,07077.
+
+| K=1 gegen Sharp, gleiche Bedingungen | Start | Erster Lauf | Kontrolllauf |
+| --- | ---: | ---: | ---: |
+| Duell | 18/64 | 15/64 | 23/64 |
+| Commander | 3/32 | 2/32 | 1/32 |
+
+Duell: 8 verbesserte, 3 schlechtere, 53 gleiche Fälle;
+Table-Bootstrap-95-%-Intervall der Differenz [−3,125; +17,1875] Prozentpunkte.
+Commander: 1 besser, 4 schlechter, 24 gleich, 3 ungeklärte Cap-Paare;
+Intervall [−34,375; +25] Prozentpunkte. Gegenüber dem Startmodell steigen
+Commander-Fallbacks von 24 auf 57 und Stalls von 11 auf 24. Beide Modelle
+haben dort null zurückgewiesene Antworten; die neuralen Entscheidungen können
+trotzdem in Schleifen führen. **Keine Promotion**: Ein positiver Duellpunktwert
+kompensiert die Commander-Schwäche nicht. Die Haus-Baseline bleibt 30/64 bzw.
+6/32. Das unterstreicht den Bedarf an getrennten Formatmetriken und künftigem
+Training auf vom Schüler selbst erzeugten Fehlersituationen.
+
+Die vollständigen Resultate stehen unter
+`/home/ace/baylee-data/v4/experiments/concept-review-20261024/evaluation/`.
+
 ## Gefundene Fehler und methodische Korrekturen
 
 1. **Kopierausnahmen verloren ihre strukturelle Fähigkeitsreferenz.**
@@ -106,7 +133,8 @@ Entwicklungssuite, kein unberührter finaler Test.
    blieben erhalten. Der begrenzte Kontrolllauf `concept-review-20261024`
    verwendet 52 gesondert geprüfte, bislang nicht trainierte Spiele mit
    554.500 Frames, eingefrorenem altem Code und unverändertem Startmodell.
-   Er läuft unabhängig von der Korrektur und wird nicht automatisch übernommen.
+   Er lief unabhängig von der Korrektur; die obigen Vergleiche begründen keine
+   Übernahme seiner Gewichte.
 
 Reproduktionen und Logs:
 `/home/ace/baylee-data/v4/experiments/concept-fixed-20261024/{copy-replay,detonate-repro,jobs}`.
@@ -160,6 +188,14 @@ keine universelle Magic-Spielstärke oder Phoenix-NPU-Tauglichkeit.
 ## Nächster Lauf
 
 Experiment: `/home/ace/baylee-data/v4/experiments/concept-fixed-20261024`.
+Runtime eingefroren auf `8bb208a49`, Controller-PID beim Start 427933.
+Die GPU hat nach Abschluss des Kontrollvergleichs diesen Lauf übernommen.
+Das erste fertige Paket enthält 59 Partien/506.954 Frames, das zweite
+61 Partien/520.184 Frames. Alle 32 festen Validierungspartien sind neu
+hashgeprüft: 475.248 Frames, null Abweisungen oder unkodierte Entscheidungen.
+Ihr CPU-Cache wurde parallel zum vorherigen GPU-Spielvergleich vorbereitet.
+Der komplette Bestand umfasst 240 Trainingspartien; längere Rest-Replays
+und die auf zwei Pakete begrenzte CPU-Vorbereitung laufen unabhängig weiter.
 
 1. Getesteten Quellstand, Binaries, Pythonmodule und Katalog einfrieren.
    Startgewichte vom bisherigen Referenzmodell übernehmen, nicht vom im
@@ -192,8 +228,8 @@ Copy-of-copy, exakter DSL-Klausel und X-Zielwahl bestanden. Die Wire-Shape-
 Prüfung berücksichtigt das kompatible optionale Herkunftsfeld.
 698 Rust-Tests bestanden, zwei bestehende Tests waren ignoriert. Clippy für
 alle Targets der vier betroffenen Crates einschließlich ONNX-CUDA ist sauber.
-52 Python-Tests bestanden mit drei hardwareabhängigen Auslassungen beim
-CPU-Testlauf; Referenz-/Geräte-Lossgleichheit, erzwungene Zeilen, Resume und
+Der CPU-Python-Testlauf umfasste 52 Tests: 49 bestanden, drei hardwareabhängige
+Tests wurden ausgelassen. Referenz-/Geräte-Lossgleichheit, erzwungene Zeilen, Resume und
 Paketintegrität sind abgedeckt. Der Live-Kontrolllauf verwendet die GPU.
 Die vollständigen drei Repository-Landegates sind für diesen neuen Stand
 noch nicht ausgeführt; ohne sie erfolgt kein Push.
