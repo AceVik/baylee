@@ -54,9 +54,10 @@ noch seine VRAM-Schätzung.
 
 ## 0. Korrektur nach dem ersten Lauf auf dem erweiterten `main`
 
-Der Lauf vom 24. Oktober trainierte **534.934 Frames aus 42 Spielen**;
-Frames sind Beobachtungen und Entscheidungen, keine gleich große Zahl
-strategischer Lernbeispiele. Im identischen K=1-Vergleich gegen Sharp sank
+Der Lauf vom 24. Oktober trainierte **534.934 Frames aus 42 Spielen**,
+darunter **74.418 Policyentscheidungen** (72.534 SingleChoice, 1.458 Subset,
+339 Blocker, 87 Zahlen). Frames sind überwiegend Beobachtungen, keine gleich
+große Zahl strategischer Lernbeispiele. Im identischen K=1-Vergleich gegen Sharp sank
 die Duell-Siegzahl von **18/64 auf 15/64**, Commander von **3/32 auf 2/32**.
 Duell-Paare: 3 Verbesserungen, 6 Verschlechterungen, 55 Gleichstände;
 95-%-Table-Bootstrap für die Utility-Differenz etwa **−15,6 bis +4,7 Prozentpunkte**.
@@ -66,9 +67,12 @@ Verschlechterung. Der Kandidat wird nicht promoviert.
 
 Der Value-MSE fiel von 0,1530 auf 0,1176; die vorhandene Kennzahl
 `val_active_top1_acc` fiel leicht von 59,28 % auf 59,03 %. Diese Kennzahl
-bedeutet **Nicht-Pass-Labels**, nicht ausschließlich echte Wahlentscheidungen.
-Auch erzwungene Nicht-Pass-Antworten können darin enthalten sein. Rund 90 %
-Gesamtgenauigkeit dürfen deshalb keine behauptete Zugpräzision begründen.
+bedeutet **Nicht-Pass-Labels** und lässt freiwilliges Passen bei vorhandenen
+Alternativen weg. Der aktuelle Konverter schließt erzwungene Entscheidungen
+bereits aus; alle 72.534 SingleChoice-Trainingszeilen hatten mindestens zwei
+Kandidaten. Rund 90 % Gesamtgenauigkeit sind dennoch keine Zugpräzision eines
+erfahrenen Spielers: Lehrerübereinstimmung und die vielen Pass-Labels ersetzen
+weder Taktiktests noch Spielergebnisse.
 
 Konkrete Konsequenzen für die nächste Stufe:
 
@@ -78,16 +82,23 @@ Konkrete Konsequenzen für die nächste Stufe:
    Bereits einzeln vollständig geprüfte Spiele können nach dokumentierter,
    konkret abgegrenzter Fehlerprüfung unabhängig genutzt werden. Ein bekannter
    Datenfehler darf keinen unabhängigen validen GPU-Job pauschal abbrechen.
-2. **Wahlmöglichkeiten richtig gewichten.** SingleChoice-Zeilen mit nur einer
-   gültigen Option gehören nicht in den Nenner des Policy-Losses. Sie bleiben
-   vollständig im Gedächtnisstream sowie im Value-/Hilfstraining. Lossversion 2
-   korrigiert diese Verdünnung. Zusätzlich NLL, Top-1 und Anzahl für tatsächliche
-   Wahlfragen berichten; ein Pass mit Alternativen zählt ausdrücklich mit.
+2. **Loss defensiv absichern, Ursache korrekt benennen.** SingleChoice-Zeilen
+   mit nur einer gültigen Option gehören nicht in den Nenner des Policy-Losses.
+   Lossversion 2 schützt davor auch bei anderen/älteren Datenproduzenten.
+   Der aktuelle Konverter emittiert solche Policyzeilen aber bereits nicht;
+   ihr Ausschluss erklärt **keine Verbesserung dieses bisherigen Datensatzes**.
+   Die zugehörigen Beobachtungen bleiben im Gedächtnis-/Value-Stream.
+   Zusätzlich NLL, Top-1 und Anzahl für tatsächliche
+   SingleChoice-Wahlfragen berichten; ein Pass mit Alternativen zählt mit.
+   Subset-, Blocker- und Zahlenköpfe brauchen eigene Qualitätskennzahlen und
+   sind in dieser Top-1-Zahl nicht enthalten.
 3. **Policy-Auswahl und Value-Diagnose trennen.** Standardmäßig wählt der
    BC-Trainer nach Policy-Loss, nicht `Policy + 2×Value`. Der unveränderte
    Startcheckpoint kann mit `--validate-initial` mitbewertet werden. Das ist
    weiterhin nur Snapshotauswahl; die Freigabe braucht gepaarte Spiele und
    Taktiktests. `last.pt` behält den tatsächlichen Lernfortschritt separat.
+   Im ersten Paket verbesserten sich beide Lossgrößen; das alte Kriterium ist
+   daher ebenfalls keine nachgewiesene Ursache des schwachen Spielergebnisses.
 4. **Breitere Erfahrungen vor mehr Parametern.** 10.058 Karten erfüllen das
    aktuelle Working-Kriterium, aber 42 Partien decken ihre Interaktionen nicht
    ab. Unverbrauchte, gesunde Partien verschiedener Tischformen zuerst nutzen;

@@ -94,8 +94,10 @@ reports `val_choice_nll`, `val_choice_top1_acc` and `val_choices` over supervise
 single-choice questions with at least two legal candidates. Optional passes count;
 forced non-pass answers do not. The historical `val_active_top1_acc` means
 non-pass labels and is retained only as a separately named comparison metric.
-Older policy-loss numbers use a different denominator and are not comparable
-to loss version 2. Re-evaluate both checkpoints with the same validator.
+The current converter already omits forced policy rows; the full 24 October
+bootstrap audit found none. This is defensive loss validation, not an explanation
+of that run's weak match results. Older/other producers can differ; re-evaluate
+both checkpoints with the same validator for a versioned comparison.
 Evaluate unique parameter sets: a resumed run may keep the same earlier best
 checkpoint while `last.pt` contains newer weights worth a separate diagnostic.
 

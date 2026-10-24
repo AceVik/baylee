@@ -9,7 +9,9 @@ zehn Heads, H mit neun Slots, getrennter Arbeitszustand Z).
 Der neue Arbeitskartenpool umfasst 10.058 Karten. Das versionierte
 Deckmanifest enthält 1.958 Listen; Listenabdeckung ist keine Spielabdeckung.
 
-Trainiert wurden 534.934 Frames aus 42 vollständigen Spielen, 2.103 Updates
+Trainiert wurden 534.934 Frames aus 42 vollständigen Spielen, darunter
+74.418 Policyentscheidungen: 72.534 SingleChoice, 1.458 Subset, 339 Blocker,
+87 Zahlen. Der Lauf machte 2.103 Updates
 mit B=8/U=32, Lernrate 1e-5 und K-Curriculum 1/2/4/8. Training einschließlich
 Validierung dauerte 2.002 Sekunden, allokierter VRAM-Peak 8,33 GB, kein OOM.
 Die feste Validierung umfasst 475.248 Frames aus 32 Partien.
@@ -25,9 +27,11 @@ Die feste Validierung umfasst 475.248 Frames aus 32 Partien.
 | Siege gegen Sharp, Vierer-Commander | 3/32 | 2/32 |
 
 Der uniforme sitz-/teambezogene Value-Baseline-MSE beträgt 0,12195. Ein besserer
-Value ist kein Beleg für bessere Züge. Nicht-Pass-Top-1 enthält auch Antworten
-ohne Alternative; die 90-%-Gesamtzahl misst ebenfalls keine Zugpräzision wie
-bei einem erfahrenen Menschen.
+Value ist kein Beleg für bessere Züge. Nicht-Pass-Top-1 schließt freiwillige
+Pass-Entscheidungen aus. Der aktuelle Konverter emittiert keine erzwungenen
+Policyentscheidungen: Alle 72.534 SingleChoice-Zeilen hatten Alternativen.
+Die 90-%-Gesamtzahl misst Lehrerübereinstimmung mit vielen Pass-Labels,
+keine Zugpräzision wie bei einem erfahrenen Menschen.
 
 Der gepaarte Duellvergleich ergibt 3 Verbesserungen, 6 Verschlechterungen und
 55 Gleichstände auf 32 unabhängigen Tischen. Utility-Differenz −4,6875
@@ -43,7 +47,7 @@ Quellen liegen neben der Runtime: `evaluation/{reference,bootstrap}-*.json`,
 `models/bootstrap/meta.json`. Die Auswertung ist eine wiederholt verwendete
 Entwicklungssuite, kein unberührter finaler Test.
 
-## Aufgedeckte Ursachen und Korrekturen
+## Gefundene Fehler und methodische Korrekturen
 
 1. **Kopierausnahmen verloren ihre strukturelle Fähigkeitsreferenz.**
    Machine God's Effigy behält seine Manafähigkeit als kopierbare Fähigkeit.
@@ -69,14 +73,20 @@ Entwicklungssuite, kein unberührter finaler Test.
    keine Änderung der Spielregeln und kein allgemeiner Ersatz für den
    Legalitätsprüfer. Die alten Cap-Daten bleiben unverändert und ungelabelt.
 
-3. **Erzwungene SingleChoice-Antworten verdünnten den Policy-Loss.**
-   Ihr NLL ist null, ihr Gewicht stand aber im Nenner und schwächte echte
-   Entscheidungen ab. Lossversion 2 nimmt nur Zeilen mit mindestens zwei
-   Kandidaten in diese Policy-Normierung. Alle Beobachtungen bleiben im
+3. **Defensive Loss-Absicherung; kein Fehler im geprüften Paket.**
+   Die ursprüngliche Reviewhypothese einer Verdünnung durch erzwungene
+   SingleChoice-Zeilen trifft auf den aktuellen Datenproduzenten **nicht zu**:
+   `convert4/replay.rs` schließt sie bereits vor dem Emittieren aus. Das
+   vollständige Daten-Audit bestätigt null solche Trainingszeilen. Lossversion 2
+   schützt den Trainer zusätzlich bei anderen Datenproduzenten, indem nur
+   Zeilen mit mindestens zwei Kandidaten in die SingleChoice-Normierung kommen.
+   Daraus ist hier kein Lerngewinn zu erwarten. Alle Beobachtungen bleiben im
    Gedächtnisstream und im Value-/Hilfstraining. Neue Kennzahlen
    `val_choice_nll`, `val_choice_top1_acc`, `val_choices` zählen tatsächliche
-   Wahlfragen, einschließlich freiwilligem Passen. Sie sind ungewichtet.
-   Alte und neue Losszahlen sind nicht unmittelbar vergleichbar.
+   SingleChoice-Wahlfragen, einschließlich freiwilligem Passen. Sie sind
+   ungewichtet und bewerten nicht die Subset-/Blocker-/Zahlenköpfe.
+   Versionsübergreifende Vergleiche benutzen denselben Validator. Das Audit
+   liegt in `concept-fixed-20261024/initial-decision-audit.json`.
 
 4. **Checkpoint-Auswahl vermischte Policy und Value.**
    Der Standard verwendet nun Policy-Loss statt `Policy + 2×Value`.
@@ -85,6 +95,10 @@ Entwicklungssuite, kein unberührter finaler Test.
    Snapshot. Verlustversion und Auswahlverfahren stehen im Checkpoint;
    inkompatibles exaktes Resume wird abgewiesen. Promotion bleibt eine
    getrennte Entscheidung anhand gepaarter Spiele und Taktiktests.
+   Im ersten Paket wurden Policy und Value beide besser; hier hat das alte
+   Kriterium also keine schlechtere Policy durch einen besseren Value bevorzugt.
+   Die Änderung verhindert diesen Konflikt in künftigen Auswahlen, erklärt
+   aber ebenfalls nicht das schwache bisherige Spielergebnis.
 
 5. **Ein fehlerhaftes Folgepaket darf unabhängiges Training nicht vernichten.**
    Der alte Controller endete nach dem ersten Vergleich wegen der beiden
