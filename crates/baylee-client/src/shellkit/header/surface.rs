@@ -3,6 +3,9 @@
 #[allow(clippy::wildcard_imports)] // the header module's shared vocabulary
 use super::*;
 
+/// A restrained view of the ambient scene through every header and strip.
+pub(super) const OPACITY: f32 = 0.92;
+
 /// Marks the top header bar (`false`) or seated strip (`true`) to receive a
 /// continuously animated silk-aurora background shader surface.
 #[derive(Component, Clone, Copy, Debug)]
@@ -32,15 +35,15 @@ fn dress_header_surfaces(
         let is_strip = kind.0;
         let (low, high, pad, seed) = if is_strip {
             (
-                Color::srgba(0.08, 0.13, 0.19, 0.95),
-                Color::srgba(0.19, 0.32, 0.43, 0.97),
+                Color::srgba(0.08, 0.13, 0.19, OPACITY),
+                Color::srgba(0.19, 0.32, 0.43, OPACITY),
                 2.2,
                 2.1,
             )
         } else {
             (
-                Color::srgba(0.08, 0.12, 0.17, 0.96),
-                Color::srgba(0.18, 0.31, 0.42, 0.98),
+                Color::srgba(0.08, 0.12, 0.17, OPACITY),
+                Color::srgba(0.18, 0.31, 0.42, OPACITY),
                 2.0,
                 1.7,
             )
@@ -77,7 +80,7 @@ fn dress_header_surfaces(
                         .id()
                 });
                 bar_ent
-                    .insert(HeaderSurfaceDressed)
+                    .insert((HeaderSurfaceDressed, BackgroundColor(Color::NONE)))
                     .insert_children(0, &[surface]);
             });
     }
@@ -94,4 +97,47 @@ pub(crate) fn install(app: &mut App) {
         dress_header_surfaces.before(bevy::ui::UiSystems::Layout),
     )
     .add_systems(PostUpdate, sharpen_brand.after(bevy::ui::UiSystems::Layout));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drawing_a_header_or_strip_does_not_stack_opaque_backing_under_the_shader() {
+        let mut app = App::new();
+        app.init_resource::<Assets<crate::ambience::AmbienceMaterial>>()
+            .add_systems(Update, dress_header_surfaces);
+        let bars = [false, true].map(|strip| {
+            app.world_mut()
+                .spawn((HeaderSurface(strip), BackgroundColor(tokens::PANEL)))
+                .id()
+        });
+        app.update();
+        for bar in bars {
+            let world = app.world();
+            assert_eq!(world.get::<BackgroundColor>(bar).unwrap().0, Color::NONE);
+            let child = world.get::<Children>(bar).unwrap()[0];
+            let material = world
+                .get::<MaterialNode<crate::ambience::AmbienceMaterial>>(child)
+                .unwrap();
+            let assets = world.resource::<Assets<crate::ambience::AmbienceMaterial>>();
+            let alpha = assets.get(&material.0).unwrap().params.low.w;
+            assert!(
+                (0.90..=0.95).contains(&alpha),
+                "slight transparency: {alpha}"
+            );
+        }
+        // A retained header must keep its material and child on idle frames.
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<Assets<crate::ambience::AmbienceMaterial>>()
+                .len(),
+            2
+        );
+        for bar in bars {
+            assert_eq!(app.world().get::<Children>(bar).unwrap().len(), 1);
+        }
+    }
 }

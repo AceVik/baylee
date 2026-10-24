@@ -43,22 +43,10 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     let deck = env.deck();
     let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
     let phone = m.frame == Frame::Phone;
-    let bar = commands
-        .spawn((
-            Role::Header,
-            Node {
-                width: Val::Percent(100.0),
-                min_height: px_fixed(m.header),
-                padding: UiRect::axes(px_fixed(m.body), px_fixed(0.0)),
-                column_gap: px_fixed(m.gap),
-                align_items: AlignItems::Center,
-                flex_shrink: 0.0,
-                ..default()
-            },
-            BackgroundColor(tokens::PANEL),
-            crate::tour::TourAnchor(baylee_client_core::tour::Anchor::BuildHeader),
-        ))
-        .id();
+    let bar = kit_header::frame(commands, kit);
+    commands.entity(bar).insert(crate::tour::TourAnchor(
+        baylee_client_core::tour::Anchor::BuildHeader,
+    ));
     commands.entity(holder).add_child(bar);
     let mut kids: Vec<Entity> = Vec::new();
 
@@ -68,37 +56,22 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         let brand =
             crate::shellkit::header::brand_mark(commands, m.header, Phrase::AppName.text(lang));
         kids.push(brand);
-        if roomy {
-            kids.push(words(
-                commands,
-                kit,
-                baylee_build::VERSION,
-                m.small,
-                tokens::MUTED,
-            ));
-        }
     }
 
     // ‹ Decks › name ✎
-    let back = if roomy {
-        controls::button(
-            commands,
-            kit,
-            Phrase::BackToDecks.text(lang),
-            Weight::Ghost,
-            Live::Yes,
-            None,
-            (Press::Build(BuildPress::CloseBuilder), stop("back")),
-        )
-    } else {
-        icon_button(
-            commands,
-            kit,
-            mark::BACK,
-            false,
-            (Press::Build(BuildPress::CloseBuilder), stop("back")),
-        )
-    };
+    let back = controls::button_compact(
+        commands,
+        kit,
+        Some(mark::BACK),
+        if roomy {
+            Phrase::ShellDecks.text(lang)
+        } else {
+            ""
+        },
+        Weight::Ghost,
+        Live::Yes,
+        (Press::Build(BuildPress::CloseBuilder), stop("back")),
+    );
     kids.push(back);
     if roomy {
         kids.push(words(commands, kit, "\u{203a}", m.text, tokens::MUTED));
@@ -136,21 +109,24 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
 
     if roomy {
         let busy = env.state.lobby.busy();
-        for (text, press, id) in [
+        for (text, icon, press, id) in [
             (
                 Phrase::ImportDeck,
+                '\u{f56f}',
                 Press::Build(BuildPress::OpenImport),
                 "import",
             ),
             (
                 Phrase::ExportDeck,
+                '\u{f56e}',
                 Press::Build(BuildPress::OpenExport),
                 "export",
             ),
         ] {
-            kids.push(controls::button(
+            kids.push(controls::button_compact(
                 commands,
                 kit,
+                Some(icon),
                 text.text(lang),
                 Weight::Secondary,
                 if busy {
@@ -158,7 +134,6 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
                 } else {
                     Live::Yes
                 },
-                None,
                 (press, stop(id)),
             ));
         }
@@ -168,9 +143,10 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         } else {
             Phrase::HistorySaveHint
         };
-        kids.push(controls::button(
+        kids.push(controls::button_compact(
             commands,
             kit,
+            Some(crate::hud::glyph::CLOCK),
             Phrase::DeckHistory.text(lang),
             Weight::Secondary,
             if history && !busy {
@@ -178,18 +154,23 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
             } else {
                 Live::No(why.text(lang))
             },
-            None,
             (Press::Library(LibraryPress::BrowseHistory), stop("history")),
         ));
     }
 
     kids.push(save_button(commands, env));
     kids.push(save_state(commands, env));
-    let menu = icon_button(
+    let menu = controls::button_compact(
         commands,
         kit,
-        mark::MORE,
-        env.ui().menu == Some(BuildMenu::Header),
+        Some(mark::MORE),
+        "",
+        if env.ui().menu == Some(BuildMenu::Header) {
+            Weight::Secondary
+        } else {
+            Weight::Ghost
+        },
+        Live::Yes,
         (
             Press::Build(BuildPress::ToggleHeaderMenu),
             stop("menu"),
@@ -198,47 +179,40 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
     );
     kids.push(menu);
 
-    // The shell's right end: the gateway's dot, the bell, the account.
-    let reach = if env.state.lobby.offline() {
-        tokens::MUTED
-    } else if env.state.feed_down {
-        tokens::DANGER
-    } else {
-        tokens::ACCENT
-    };
-    let dot = commands
-        .spawn((
-            Node {
-                width: m.px(10.0),
-                height: m.px(10.0),
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                ..default()
-            },
-            BackgroundColor(reach),
-        ))
-        .id();
-    kids.push(controls::hit(
-        commands,
-        kit,
-        dot,
-        Press::Header(HeaderPress::Gateway),
-    ));
-    kids.push(kit_header::bell(
-        commands,
-        kit,
-        env.state.bell.unread(),
-        Press::Header(HeaderPress::Bell),
-    ));
-    if let Some(handle) = handle(env.state) {
-        kids.push(kit_header::avatar(
-            commands,
-            kit,
-            &handle,
-            Press::Header(HeaderPress::Account),
-        ));
-    }
     commands.entity(bar).add_children(&kids);
-    let _ = deck;
+    let reach = if env.state.lobby.offline() {
+        kit_header::Reach::Offline
+    } else if env.state.feed_down {
+        kit_header::Reach::Down
+    } else {
+        kit_header::Reach::Up
+    };
+    let handle = handle(env.state);
+    kit_header::status(
+        commands,
+        kit,
+        bar,
+        &kit_header::HeaderLook {
+            brand: Phrase::AppName.text(lang),
+            build: baylee_build::VERSION,
+            nav: &[],
+            active: None,
+            reach,
+            gateway: "",
+            counts: "",
+            unread: env.state.bell.unread(),
+            handle: handle.as_deref(),
+            return_pill: None,
+            tools: &[],
+        },
+        kit_header::StatusActions {
+            gateway: Press::Header(HeaderPress::Gateway),
+            bell: Press::Header(HeaderPress::Bell),
+            account: Press::Header(HeaderPress::Account),
+            back: Press::Header(HeaderPress::Return),
+        },
+        true,
+    );
 }
 
 /// The deck's name, or its box while it is being renamed (F2, the pen).

@@ -76,14 +76,10 @@ pub(crate) fn deck_row(
     if let Some(cost) =
         crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 1.15)
     {
-        commands.entity(cost).insert(Node {
-            flex_shrink: 0.0,
-            align_items: AlignItems::Center,
-            ..default()
-        });
+        // Keep the mana renderer's scaled gap between complete symbols.
         kids.push(cost);
     }
-    kids.push(controls::stepper(
+    kids.push(quantity::stepper(
         commands,
         kit,
         &entry.count.to_string(),

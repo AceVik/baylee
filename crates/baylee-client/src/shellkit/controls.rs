@@ -17,8 +17,8 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 mod compact;
-pub use compact::button_compact;
 use compact::tooltip;
+pub use compact::{button_compact, button_compact_with};
 
 /// What every maker needs: the fonts, the sizes, and whether the labels are
 /// German (which takes 10 px of side padding instead of 12, §2.3).

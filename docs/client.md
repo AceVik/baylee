@@ -4214,9 +4214,14 @@ count and the actions it fired; `/key` takes a `"char"` to play a layout.
 
 ### The shell's header and strips
 
-Every signed-in lobby screen but the builder wears the shell's header
-(`lobby/header.rs` over `shellkit::header`; the builder keeps its own and
-gets only the strips): Play · Decks · Settings, the gateway pill (its reach
+Every signed-in lobby screen and the builder use the shell's shared header
+frame and status controls (`shellkit::header`). The builder replaces the
+navigation with its breadcrumb, editable deck name, compact icon actions
+(Import, Export, History, Save), save state and overflow menu; the existing
+unsaved-draft confirmation and shortcuts still apply. Both headers and the
+seated strip use the same subtly translucent animated surface, with no opaque
+backing behind it. The lobby adds Play · Decks · Replays. The right end
+carries the gateway pill (its reach
 dot, `/info`'s name, and `GET /lobby/stats`'s tables and players, or the
 listing's waiting tables until it answers), the quick-settings gear, the
 bell, and the account pill (`GET /me`'s handle; offline, no account: the
@@ -4733,7 +4738,14 @@ search understands, a press inserting the example. The deck side has its
 commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
 value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
 with one type lit, the colour pips' shares, the type counts, the land share
-and Draw seven (a fresh shuffle, nothing leaves the deck). The header holds
+and Draw seven (a fresh shuffle, nothing leaves the deck). Pool-row `+`,
+deck-row `−` / `+` and the adjacent `⋯` use the same square icon-button
+helper, with identical face and hit-area dimensions at every text size and
+input mode. The card window's quantity controls use the same helper.
+A centred box holds the quantity between the two square faces. Cost rows
+retain `manaui::spawn_cost`'s scaled spacing between complete symbols;
+hybrid and Phyrexian symbols stay intact.
+The header holds
 the one save state ("Unsaved · n changes", "Saved ✓ · n min ago", "Couldn't
 save · Retry"). The tree is retained section by section (`buildui::retained`):
 a key typed into the search patches the toolbar and the list, and nothing is

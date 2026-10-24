@@ -10,6 +10,7 @@ use baylee_client_core::deckbuilder::PoolCard;
 
 mod deck;
 mod pool;
+pub(super) mod quantity;
 pub(crate) use deck::deck_row;
 pub(crate) use pool::pool_row;
 
@@ -145,4 +146,59 @@ pub(crate) fn section_head(
     );
     commands.entity(row).add_children(&[caret, name]);
     row
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    #[test]
+    fn pool_and_deck_rows_keep_space_between_complete_mana_symbols() {
+        let mut world = World::new();
+        let fonts = crate::hud::UiFonts::default();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1600.0, 900.0), TextSize::M),
+            german: false,
+        };
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.lobby.builder_mut().set_pool(
+            vec![PoolCard {
+                name: "Mana spacing fixture".into(),
+                mana_cost: "{1}{W/U}{G/P}".into(),
+                oracle_text: "Fixture".into(),
+                ..PoolCard::default()
+            }],
+            true,
+        );
+        assert!(state.lobby.builder_mut().add(0, Zone::Main));
+        let mut commands = world.commands();
+        let pool = pool_row(&mut commands, kit, &state, 0, 0, 72.0).unwrap();
+        let deck = deck_row(&mut commands, kit, &state, Zone::Main, 0, 0, 0.0, 72.0).unwrap();
+        world.flush();
+        for row in [pool, deck] {
+            let cost = world
+                .get::<Children>(row)
+                .unwrap()
+                .iter()
+                .find(|child| {
+                    world.get::<Children>(*child).is_some_and(|pips| {
+                        pips.len() == 3
+                            && pips.iter().all(|pip| {
+                                world.get::<Node>(pip).is_some_and(|node| {
+                                    matches!(node.width, Val::Px(side) if side > 0.0)
+                                        && node.width == node.height
+                                })
+                            })
+                    })
+                })
+                .expect("generic, hybrid and Phyrexian remain three complete pips");
+            let node = world.get::<Node>(cost).unwrap();
+            assert!(
+                matches!(node.column_gap, Val::Px(gap) if (1.0..4.0).contains(&gap)),
+                "rows must preserve the mana renderer's small scaled gap"
+            );
+        }
+    }
 }

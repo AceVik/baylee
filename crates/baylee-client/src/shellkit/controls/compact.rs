@@ -15,6 +15,22 @@ pub fn button_compact(
     live: Live,
     action: impl Bundle,
 ) -> Entity {
+    button_compact_with(commands, kit, icon, text, weight, live, &[], action)
+}
+
+/// A compact button with caller-provided decorations after its label, such
+/// as the builder's unsaved mark and keyboard shortcut.
+#[allow(clippy::too_many_arguments)] // same control plus optional trailing decorations
+pub fn button_compact_with(
+    commands: &mut Commands,
+    kit: Kit,
+    icon: Option<char>,
+    text: &str,
+    weight: Weight,
+    live: Live,
+    trailing: &[Entity],
+    action: impl Bundle,
+) -> Entity {
     let dead = matches!(live, Live::No(_));
     let ink = if dead { tokens::DISABLED } else { weight.ink() };
     let ground = if dead {
@@ -59,17 +75,27 @@ pub fn button_compact(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(face).add_child(words);
+    commands
+        .entity(face)
+        .add_child(words)
+        .add_children(trailing);
     if !dead {
         let feel = if ground.alpha() < 0.01 {
             crate::ambience::Feel::rising_to(ground, tokens::HOVER)
         } else {
             crate::ambience::Feel::new(ground)
         };
-        commands.entity(face).insert((feel, crate::shellkit::sheen::Sheen));
+        commands
+            .entity(face)
+            .insert((feel, crate::shellkit::sheen::Sheen));
         return hit(commands, kit, face, action);
     }
-    hit(commands, kit, face, (action, Disabled))
+    let wrapper = hit(commands, kit, face, (action, Disabled));
+    if let Live::No(reason) = live {
+        let tip = tooltip(commands, kit, reason);
+        commands.entity(wrapper).add_child(tip).insert(Tooltip(tip));
+    }
+    wrapper
 }
 
 /// A tooltip's box, hidden until the pointer rests on its owner.
@@ -95,4 +121,49 @@ pub(super) fn tooltip(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
         .id();
     commands.entity(tip).add_child(words);
     tip
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Component)]
+    struct Action;
+
+    #[test]
+    fn compact_disabled_actions_keep_their_reason_and_trailing_shortcut() {
+        let mut world = World::new();
+        let fonts = UiFonts::default();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(
+                super::super::super::Viewport::desktop(1280.0, 800.0),
+                crate::shellkit::TextSize::default(),
+            ),
+            german: false,
+        };
+        let mut commands = world.commands();
+        let key = commands.spawn(Text::new("Cmd+S")).id();
+        let button = button_compact_with(
+            &mut commands,
+            kit,
+            Some('\u{f0c7}'),
+            "Save",
+            Weight::Primary,
+            Live::No("Add a name first"),
+            &[key],
+            Action,
+        );
+        world.flush();
+        assert!(world.get::<Action>(button).is_some());
+        assert!(world.get::<Disabled>(button).is_some());
+        let tip = world
+            .get::<Tooltip>(button)
+            .expect("the disabled reason stays reachable")
+            .0;
+        let words = world.get::<Children>(tip).unwrap()[0];
+        assert_eq!(world.get::<Text>(words).unwrap().0, "Add a name first");
+        let face = world.get::<Children>(button).unwrap()[0];
+        assert!(world.get::<Children>(face).unwrap().contains(&key));
+    }
 }

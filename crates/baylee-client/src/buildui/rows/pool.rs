@@ -105,21 +105,15 @@ pub(crate) fn pool_row(
     if let Some(cost) =
         crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 1.25)
     {
-        commands.entity(cost).insert(Node {
-            flex_shrink: 0.0,
-            align_items: AlignItems::Center,
-            ..default()
-        });
+        // Keep the mana renderer's scaled gap between complete symbols.
         kids.push(cost);
     }
     kids.push(badge(commands, kit, slot, deck));
-    kids.push(controls::button(
+    kids.push(icon_button(
         commands,
         kit,
-        "+",
-        Weight::Secondary,
-        Live::Yes,
-        None,
+        '\u{f067}',
+        false,
         Press::Build(BuildPress::AddFromPool(slot, false)),
     ));
     if card.commander && state.commander_pick.is_some() {

@@ -23,7 +23,7 @@ pub(super) fn counts(commands: &mut Commands, env: &Env, slot: usize) -> Entity 
         (Zone::Side, Phrase::CardSide, "side"),
     ] {
         let label = cell(commands, kit, label.text(lang), m.small, tokens::INK, false);
-        let stepper = controls::stepper(
+        let stepper = crate::buildui::rows::quantity::stepper(
             commands,
             kit,
             &deck.count_of(slot, zone).to_string(),

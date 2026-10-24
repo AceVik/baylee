@@ -31,8 +31,10 @@ use super::{Frame, tokens};
 use crate::hud::{icon_tf, tf_bold};
 
 mod brand;
+mod status;
 mod surface;
 pub use brand::*;
+pub use status::{StatusActions, status};
 pub(super) use surface::install;
 pub use surface::{HeaderSurface, HeaderSurfaceDressed};
 
@@ -115,6 +117,51 @@ pub enum HeaderTrigger {
     Gateway,
 }
 
+/// The shared navigation frame: spacing, wrapping, surface and elevation.
+/// Screen-specific controls are attached by the caller.
+pub fn frame(commands: &mut Commands, kit: Kit) -> Entity {
+    let m = kit.m;
+    let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
+    let desktop = super::Platform::current() == super::Platform::Desktop;
+    commands
+        .spawn((
+            Role::Header,
+            HeaderSurface(false),
+            Node {
+                width: Val::Percent(100.0),
+                // Large text at a narrow desktop keeps all actions reachable
+                // on a second row rather than placing them beyond the window.
+                flex_wrap: if !roomy && desktop {
+                    FlexWrap::Wrap
+                } else {
+                    FlexWrap::NoWrap
+                },
+                min_height: px_fixed(m.header),
+                padding: UiRect::axes(px_fixed(m.body), px_fixed(0.0)),
+                column_gap: if roomy && desktop {
+                    m.px(8.0)
+                } else {
+                    px_fixed(m.gap)
+                },
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                border: UiRect::bottom(px_fixed(1.0)),
+                ..default()
+            },
+            BackgroundColor(tokens::PANEL.with_alpha(surface::OPACITY)),
+            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
+            GlobalZIndex(tokens::z::POPOVER - 1),
+            BoxShadow(vec![ShadowStyle {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.36),
+                x_offset: px_fixed(0.0),
+                y_offset: px_fixed(4.0),
+                spread_radius: px_fixed(0.0),
+                blur_radius: px_fixed(12.0),
+            }]),
+        ))
+        .id()
+}
+
 /// The header bar.
 #[allow(clippy::too_many_lines)] // one bar, read left to right
 pub fn header<NB, N, G, B, A, R>(
@@ -133,42 +180,7 @@ where
 {
     let _ = look.build;
     let m = kit.m;
-    let phone = m.frame == Frame::Phone;
-    let roomy = matches!(m.frame, Frame::Wide | Frame::Vast);
-    let desktop = roomy && super::Platform::current() == super::Platform::Desktop;
-    let bar = commands
-        .spawn((
-            Role::Header,
-            HeaderSurface(false),
-            Node {
-                width: Val::Percent(100.0),
-                // Large text at a narrow desktop keeps all actions reachable
-                // on a second row rather than placing them beyond the window.
-                flex_wrap: if !roomy && super::Platform::current() == super::Platform::Desktop {
-                    FlexWrap::Wrap
-                } else {
-                    FlexWrap::NoWrap
-                },
-                min_height: px_fixed(m.header),
-                padding: UiRect::axes(px_fixed(m.body), px_fixed(0.0)),
-                column_gap: if desktop { m.px(8.0) } else { px_fixed(m.gap) },
-                align_items: AlignItems::Center,
-                flex_shrink: 0.0,
-                border: UiRect::bottom(px_fixed(1.0)),
-                ..default()
-            },
-            BackgroundColor(tokens::PANEL),
-            BorderColor::all(tokens::BORDER.with_alpha(0.65)),
-            GlobalZIndex(tokens::z::POPOVER - 1),
-            BoxShadow(vec![ShadowStyle {
-                color: Color::srgba(0.0, 0.0, 0.0, 0.36),
-                x_offset: px_fixed(0.0),
-                y_offset: px_fixed(4.0),
-                spread_radius: px_fixed(0.0),
-                blur_radius: px_fixed(12.0),
-            }]),
-        ))
-        .id();
+    let bar = frame(commands, kit);
     let brand = brand_mark(commands, m.header, look.brand);
     commands.entity(bar).add_child(brand);
     for (i, text) in look.nav.iter().enumerate() {
@@ -194,52 +206,19 @@ where
         ))
         .id();
     commands.entity(bar).add_child(gap);
-    if let Some(back) = look.return_pill.filter(|_| phone) {
-        let pill = controls::button(
-            commands,
-            kit,
-            back,
-            Weight::Gold,
-            Live::Yes,
-            None,
-            actions.back,
-        );
-        commands.entity(bar).add_child(pill);
-    } else if roomy {
-        let pill = gateway_pill(commands, kit, look, actions.gateway);
-        commands.entity(pill).insert(HeaderTrigger::Gateway);
-        commands.entity(bar).add_child(pill);
-    } else {
-        let dot = commands
-            .spawn((
-                Node {
-                    width: kit.m.px(10.0),
-                    height: kit.m.px(10.0),
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(look.reach.colour()),
-                UiTransform::default(),
-                crate::ambience::Feel::new(look.reach.colour()),
-            ))
-            .id();
-        let pill = hit(commands, kit, dot, actions.gateway);
-        commands.entity(pill).insert(HeaderTrigger::Gateway);
-        commands.entity(bar).add_child(pill);
-    }
-    commands.entity(bar).add_children(look.tools);
-    let bell = bell(commands, kit, look.unread, actions.bell);
-    commands.entity(bell).insert(HeaderTrigger::Bell);
-    commands.entity(bar).add_child(bell);
-    if let Some(handle) = look.handle {
-        let account = if roomy {
-            controls::pill(commands, kit, None, handle, true, actions.account)
-        } else {
-            avatar(commands, kit, handle, actions.account)
-        };
-        commands.entity(account).insert(HeaderTrigger::Account);
-        commands.entity(bar).add_child(account);
-    }
+    status(
+        commands,
+        kit,
+        bar,
+        look,
+        StatusActions {
+            gateway: actions.gateway,
+            bell: actions.bell,
+            account: actions.account,
+            back: actions.back,
+        },
+        false,
+    );
     bar
 }
 
@@ -487,7 +466,7 @@ pub fn strip(commands: &mut Commands, kit: Kit, sentence: &str, actions: &[Entit
                 border: UiRect::bottom(px_fixed(1.0)),
                 ..default()
             },
-            BackgroundColor(tokens::PANEL),
+            BackgroundColor(tokens::PANEL.with_alpha(surface::OPACITY)),
             BorderColor::all(tokens::PRIMARY_EDGE.with_alpha(0.45)),
             BoxShadow(vec![ShadowStyle {
                 color: Color::srgba(0.0, 0.0, 0.0, 0.32),
@@ -539,4 +518,4 @@ pub struct SeatStrip;
     test,
     not(any(target_arch = "wasm32", target_os = "android", target_os = "ios"))
 ))]
-mod tests;
+pub(crate) mod tests;
