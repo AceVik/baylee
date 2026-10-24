@@ -185,6 +185,13 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
+The feature job now has 60 minutes (24.10.2026). Run `39966346270` passed in
+32 minutes, including 795 seconds for `dev-table-test`; run `40019996413`
+spent almost seven minutes installing Linux dependencies and reached the
+old 35-minute limit during that same test step. Its completed feature
+checks had passed. The larger limit covers setup and the remaining checks;
+the feature matrix and test requirements stay the same.
+
 The `x86_64-apple-darwin` package row (added 12.10.2026) is the arm row's
 work cross-compiled on the same runner: 42–82 minutes over ten main pushes
 (20.–21.10.2026), against 32–88 for the arm row. Both have 150 minutes, enough

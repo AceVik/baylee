@@ -427,7 +427,10 @@ jobs:
     needs: changes
     if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Run 39966346270 passed in 32 min; 40019996413 spent almost seven
+    # minutes installing Linux dependencies and hit the old 35 min limit
+    # during dev-table-test. Leave room for setup and the remaining checks.
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:18-alpine
