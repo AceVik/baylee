@@ -80,6 +80,29 @@ measured, not inferred from depth. The
 [depth-pilot plan](history/trained-ai-v4-depth-pilot-2026-10-24.md) also records
 the subsequent learner-game/critic work and the house-AI improvement loop.
 
+`calibrate_value4.py` fits only `seat_value_head` from complete games visited by
+the frozen source actor. Its `value_calibration4/` package advances recurrent
+memory through every chronological observation in float32, then caches sampled
+readout features outside the repository. First/terminal states and every 64th
+cursor are retained by default. Only trajectories containing genuine stochastic
+neural decisions enter fitting; earlier passive observations of those trajectories
+remain eligible. Each trajectory has equal loss weight, with equal weights among
+its sampled states, so long losing games cannot dominate merely by length.
+Training and validation game IDs must be disjoint. Epoch zero is a selection
+candidate, and reports compare held-out MSE/calibration with the original head,
+uniform side prior and training-derived seat-count prior. Selection does not
+establish improvement on an untouched test set or in playing strength.
+
+The new checkpoint verifies every non-value tensor bit-for-bit and carries no
+stale optimizer, recurrent lanes or validation metrics. Cache identity includes
+source/data/implementation hashes and device type; record content is hash-checked.
+`--collection-plan plan.json` additionally requires the collecting model's hash
+to match `--model`. The experiment controller must still verify the actual
+collection job manifests: a plan alone is not proof of who produced the games.
+Output is published atomically to a new directory. This is an isolated critic
+experiment, not a policy update or automatic promotion. See the
+[own-game critic pilot](history/trained-ai-v4-own-critic-2026-10-24.md).
+
 The v4 Python CLI remains `tools/trainer/train4.py`; its implementation is split
 into `training4/` (driver, losses, validation and execution planning), and the
 network into the `model4/` package. `--board-chunk 8` batches independent spatial
