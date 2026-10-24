@@ -15,6 +15,7 @@ mod land;
 mod mobile;
 mod run;
 mod secret;
+mod shipping;
 
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, process::ExitCode};
