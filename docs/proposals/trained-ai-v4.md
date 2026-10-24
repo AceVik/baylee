@@ -126,6 +126,14 @@ GPU-Stunden erfüllen sie nicht automatisch. Engineinterne Zwischenereignisse
 ohne eigene autorisierte Beobachtung dürfen nicht als bereits vollständig
 abgedeckt bezeichnet werden.
 
+Auch `SeatKnowledge4` ist noch keine exakte Knowledge-Implementierung des
+Entwurfs: `looking_at` enthält laut Protokoll auch Bibliothekskarten, wird aber
+derzeit als Handherkunft gespeichert und entsprechend gezählt. Historisches
+Sehen, aktueller gesicherter Ort und Unsicherheit müssen vor Suchrekonstruktion
+getrennt werden; Sichtungsalter und Verlust des Trackingrechts brauchen eigene
+Features/Tests. Dieses offene Featureproblem darf nicht durch Zugriff auf
+verdeckten Enginezustand „repariert“ werden. Siehe den Ergebnisbericht.
+
 ## 1. Ziele und Grenzen
 
 Experte 1 soll mit beliebigen unterstützten Karten und Decks, in Duellen,

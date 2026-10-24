@@ -125,6 +125,18 @@ neu erzeugt, wie viel Latenz entsteht? Der Snapshot-Observer belegt weder
 vollständige interne Ereignisabdeckung noch Reconnect-Korrektheit. Das bleibt
 ein eigener Vertrag mit Tests an der `PlayerView`-Grenze.
 
+Eine konkrete noch offene Knowledge-Grenze: `features4/knowledge.rs` behandelt
+gegnerische `looking_at`-Karten derzeit mit `origin_zone=1`, obwohl das Wire-Feld
+auch Bibliothekssuchen enthält. `features4/state.rs` zählt diese Herkunft als
+bekannte Handkarten; historische Erinnerung und gesicherter aktueller Ort sind
+damit nicht sauber getrennt. `push_remembered_card` überträgt außerdem das
+gespeicherte Sichtungsalter nicht. Das greift auf keine verborgene Enginewelt zu,
+ist aber eine unzuverlässige Wissensrepräsentation. Vor der geplanten exakten
+Suchrekonstruktion braucht sie eindeutige Entitlement-/Zoneninformation,
+Unsicherheit und Invalidationstests für Shuffle und verdeckte Zonenwechsel.
+Der eingefrorene BC-Lauf ist kein Nachweis, dass dieser Vertrag bereits erfüllt
+ist; eine Änderung dieser Features erfordert einen eigenen Replay-/Exportstand.
+
 Weiterer Lernhorizont: U=32 meint Beobachtungen. An einem großen Tisch können
 dazwischen nur wenige eigene Entscheidungen liegen. H läuft zwar weiter,
 aber K-Denkschleifen verlängern die zeitliche Gradientenstrecke nicht. Nach
