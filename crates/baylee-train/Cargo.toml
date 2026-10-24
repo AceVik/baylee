@@ -131,7 +131,7 @@ required-features = ["onnx"]
 
 [[bin]]
 name = "import_decks"
-path = "src/bin/import_decks.rs"
+path = "src/bin/import_decks/main.rs"
 required-features = ["play"]
 
 [[bin]]
