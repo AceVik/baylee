@@ -2,26 +2,37 @@
 
 **Reviewstand:** 22. Oktober 2026; Codebasis `main` / `HEAD` @ `30779bc920147a2a2acc713ebcb784badceced4a`.
 
-**Status am 23. Oktober 2026:** Proposal mit laufender Implementierung auf
-`c42/trained-ai`. Der [Implementierungs- und Trainingsbericht](../history/trained-ai-v4-codex-run-2026-10-22.md)
-ist für tatsächlich implementierte Verträge, Korrekturen, Messungen und Grenzen
+**Status am 24. Oktober 2026:** Die Implementierung ist bis `88bc2b07f` auf
+`main`; die folgende Korrekturrunde liegt auf `c42/trained-ai`. Der
+[aktuelle Ergebnis- und Korrekturbericht](../history/trained-ai-v4-review-2026-10-24.md)
+und der [Implementierungs- und Trainingsbericht](../history/trained-ai-v4-codex-run-2026-10-22.md)
+sind für tatsächlich implementierte Verträge, Korrekturen, Messungen und Grenzen
 maßgeblich. Die ursprünglichen Reviewangaben unten beziehen sich auf die oben
 genannte `main`-Basis, nicht auf den aktuellen Branch.
 
 **Gemessene Modellwahl:** Der erste größere Trainingslauf verwendet `d=640`,
-acht Schichten, zehn Heads und rund 54,28 Millionen Parameter. Der reale
+acht Schichten, zehn Heads und mit dem strukturellen Encoder rund **54,83 Millionen Parameter**. Der frühere
 Trainingsbenchmark mit `B=8, U=32, K=1` benötigte etwa 3,3 GB VRAM;
 der erste Vorlauf mit `K=1/2/4/8` erreichte etwa 5,2 GB. Die H-Schnittstelle
 bleibt `9 × d`; Arbeitszustand Z und persistentes Gedächtnis H sind getrennt.
+Der neue Karten-/Brettmix erreichte **8,33 GB allokierten Peak-VRAM**;
+die früheren kleineren Messwerte sind keine Obergrenze.
 
-**Neue Implementierungsgrenze:** Der aktuelle 160-dimensionale DSL-Summary
-verliert relevante Regelunterschiede (unter anderem Mana Leak/Negate).
+**Repräsentationsstand:** Der frühere 160-dimensionale DSL-Summary
+verlor relevante Regelunterschiede (unter anderem Mana Leak/Negate).
 Der [Repräsentationsaudit](../history/trained-ai-v4-codex-run-2026-10-22.md#representation-audit-next-architecture-priority)
-macht einen hierarchischen AST-Encoder mit expliziten Identitäts-/Fähigkeitsbezügen
-zur nächsten Architekturpriorität. Der laufende 54M-Versuch ist eine überprüfbare
+führte zum bereits implementierten hierarchischen AST-Encoder mit expliziten
+Identitäts-/Fähigkeitsbezügen (Encoder 6 / Modell 3). Die neue Gegenprobe
+fand eine weitere Grenze: Laufzeitindizes zusammengesetzter Kopierfähigkeiten
+sind keine gedruckten Indizes der primären kopierten Karte. Dafür wird die
+öffentliche Provenienz jeder zusammengesetzten Fähigkeit einschließlich der
+exakten zitierten `CopyMod::GrantAbility`-Definition projiziert. Der 54M-Versuch ist eine überprüfbare
 Vergleichsbasis, nicht bereits die endgültige universelle Spiel-KI.
 
-**Prüfmethode:** Quellcodevergleich, Bestandszählungen, kleine CPU-Python-Proben am bestehenden Encoder/Modell sowie Recherche in Originalpublikationen und Herstellerdokumentation. Keine v4-VRAM- oder `acenb`-Latenzmessung; kein neuer Trainingslauf.
+**Prüfmethode des ursprünglichen Reviews vom 22. Oktober:** Quellcodevergleich,
+Bestandszählungen, CPU-Python-Proben und Primärquellen. Die damalige Aussage
+„kein neuer Trainingslauf“ gilt nicht für die inzwischen verlinkten Messberichte.
+Ein Benchmark auf `acenb` steht weiterhin aus.
 
 Bezugsdokumente: [trained-ai](../trained-ai.md), [house-ai](../house-ai.md),
 [Lookahead-Design](lookahead-design.md), [Architektur](../architecture.md),
@@ -32,7 +43,7 @@ Bezugsdokumente: [trained-ai](../trained-ai.md), [house-ai](../house-ai.md),
 beobachtende Spiel-KI sind sinnvoll. v4 darf **von Grund auf und größer als v3**
 trainiert werden; Architekturqualität und Spielstärke haben Vorrang vor einer
 möglichst kleinen Parameterzahl. Zielprofil ist ein moderner dichter
-rekurrenter Agent mit `d=512`, acht Layern, strukturellen Aktionsmerkmalen
+rekurrenter Agent mit aktuell `d=640`, acht Layern, strukturellen Aktionsmerkmalen
 und einem trainierten iterativen Denkblock mit eigenem Arbeitszustand.
 Zuerst brauchen wir dafür korrekte Beobachtungs- und Aktionsdaten. Relationen und
 fähigkeitsbezogene Aktionsmerkmale gehören in diese erste Version. Diff-Attention,
@@ -40,6 +51,69 @@ MoE, SPO, Muon und gelernte Suchdynamik sind einzeln zu prüfende Erweiterungen.
 CPU-Inferenz ist der verbindliche Deploymentpfad; Phoenix-NPU-Inferenz ist ein
 separates Experiment. Der bisherige Entwurf rechtfertigt weder 3–6 ms Latenz
 noch seine VRAM-Schätzung.
+
+## 0. Korrektur nach dem ersten Lauf auf dem erweiterten `main`
+
+Der Lauf vom 24. Oktober trainierte **534.934 Frames aus 42 Spielen**;
+Frames sind Beobachtungen und Entscheidungen, keine gleich große Zahl
+strategischer Lernbeispiele. Im identischen K=1-Vergleich gegen Sharp sank
+die Duell-Siegzahl von **18/64 auf 15/64**, Commander von **3/32 auf 2/32**.
+Duell-Paare: 3 Verbesserungen, 6 Verschlechterungen, 55 Gleichstände;
+95-%-Table-Bootstrap für die Utility-Differenz etwa **−15,6 bis +4,7 Prozentpunkte**.
+Commander hat nur acht unabhängige Tische und drei unaufgelöste Cap-Paare.
+Das belegt keine Verbesserung, aber auch keine präzise geschätzte allgemeine
+Verschlechterung. Der Kandidat wird nicht promoviert.
+
+Der Value-MSE fiel von 0,1530 auf 0,1176; die vorhandene Kennzahl
+`val_active_top1_acc` fiel leicht von 59,28 % auf 59,03 %. Diese Kennzahl
+bedeutet **Nicht-Pass-Labels**, nicht ausschließlich echte Wahlentscheidungen.
+Auch erzwungene Nicht-Pass-Antworten können darin enthalten sein. Rund 90 %
+Gesamtgenauigkeit dürfen deshalb keine behauptete Zugpräzision begründen.
+
+Konkrete Konsequenzen für die nächste Stufe:
+
+1. **Datenintegrität und Provenienz reparieren.** Zwei abgeschlossene Spiele
+   scheiterten an Kopierfähigkeits-Referenzen. Sie bleiben bis erfolgreichem
+   Neu-Replay in Quarantäne; kein Unknown-Embedding als stiller Ersatz.
+   Bereits einzeln vollständig geprüfte Spiele können nach dokumentierter,
+   konkret abgegrenzter Fehlerprüfung unabhängig genutzt werden. Ein bekannter
+   Datenfehler darf keinen unabhängigen validen GPU-Job pauschal abbrechen.
+2. **Wahlmöglichkeiten richtig gewichten.** SingleChoice-Zeilen mit nur einer
+   gültigen Option gehören nicht in den Nenner des Policy-Losses. Sie bleiben
+   vollständig im Gedächtnisstream sowie im Value-/Hilfstraining. Lossversion 2
+   korrigiert diese Verdünnung. Zusätzlich NLL, Top-1 und Anzahl für tatsächliche
+   Wahlfragen berichten; ein Pass mit Alternativen zählt ausdrücklich mit.
+3. **Policy-Auswahl und Value-Diagnose trennen.** Standardmäßig wählt der
+   BC-Trainer nach Policy-Loss, nicht `Policy + 2×Value`. Der unveränderte
+   Startcheckpoint kann mit `--validate-initial` mitbewertet werden. Das ist
+   weiterhin nur Snapshotauswahl; die Freigabe braucht gepaarte Spiele und
+   Taktiktests. `last.pt` behält den tatsächlichen Lernfortschritt separat.
+4. **Breitere Erfahrungen vor mehr Parametern.** 10.058 Karten erfüllen das
+   aktuelle Working-Kriterium, aber 42 Partien decken ihre Interaktionen nicht
+   ab. Unverbrauchte, gesunde Partien verschiedener Tischformen zuerst nutzen;
+   Entscheidungen, einzigartige Spiele und Mechanikabdeckung getrennt zählen.
+   Eine Verdoppelung des 54,83M-Modells ist derzeit kein belegter Engpass-Fix.
+5. **Eigene Fehlerzustände lernen.** Reine Haus-Imitation sieht die von der
+   Haus-KI besuchten Zustände. Eigene Fehlzüge verschieben diese Verteilung.
+   Als nächste eigenständige Etappe Lehrerlabels auf vom Schüler besuchten
+   erlaubten Zuständen sammeln (DAgger-artig), mit vollständigem H-Verlauf,
+   aufgezeichneter Verhalten-/Lehrerherkunft und getrennten Outcome-Labels.
+   Keine fingierten Lehrer-Logprobs für PPO. Die Motivation folgt
+   [Ross et al., AISTATS 2011](https://arxiv.org/abs/1011.0686); ein Gewinn für
+   unser Mehrspielerproblem bleibt zu messen.
+6. **Denkstufen behalten, Nutzen nachweisen.** K=1/2/4/8 bleiben trainier- und
+   exportierbar. Dieselbe Lehrerantwort bei wechselndem K ist noch kein
+   Revisionsziel. K=1 und K=4 zuerst auf denselben schwierigen Fällen prüfen;
+   korrigierte und neu erzeugte Fehler zählen. Ein selbstsicherer Value und
+   zusätzliche Schleifen sind kein Nachweis einer besseren Entscheidung.
+
+Die H/Z-Trennung, der typisierte Encoder und die reine `PlayerView`-Grenze
+bleiben sinnvoll. Exakte Ereignis-/Reconnect-Verträge, langes Gedächtnis,
+DAgger/Szenarientraining und 15–45-s-Suche sind unterschiedliche Nachweise.
+Der aktuelle Snapshot-Observer, ein trainierter Denkblock und viele
+GPU-Stunden erfüllen sie nicht automatisch. Engineinterne Zwischenereignisse
+ohne eigene autorisierte Beobachtung dürfen nicht als bereits vollständig
+abgedeckt bezeichnet werden.
 
 ## 1. Ziele und Grenzen
 
@@ -728,10 +802,12 @@ werden mit Regelstand, Spielabsicht und Unsicherheit gespeichert. Aus
 
 ### 5.5 Größeres Zielnetz, Vergleichsmodelle, Speicher und Export
 
-**Zielprofil für einen frischen Trainingslauf:** `d=512`, acht Layer, acht
+**Ursprüngliches Vergleichsprofil:** `d=512`, acht Layer, acht
 Heads mit je 64 Dimensionen, SwiGLU-FFN 1536, Pre-RMSNorm, relationale
 Mehrfachkanten, struktureller Card-/Ability-Encoder, neun rekurrente Slots,
 kandidatengestützte autoregressive Policy und konsistente Seitenwerte.
+Der gemessene aktuelle Hauptlauf nutzt `d=640`, acht Layer und zehn Heads;
+das 512er-Profil und die folgende Rechnung bleiben Vergleichswerte.
 QK-Norm wird als konfigurierbare Normierung mitgetestet. Positionen nur dort
 kodieren, wo sie Spielbedeutung haben, etwa Stackreihenfolge oder Zielgruppe;
 eine zufällige Entity-Zeilennummer darf keine Brettsemantik vortäuschen.
@@ -1126,7 +1202,8 @@ wird nicht zum Tuning jeder Ablation verwendet. Architekturgewinn und mehr
 Trainingsrechenzeit müssen unterscheidbar bleiben.
 
 Codeänderungen folgen den Repository-Gates und den nötigen normativen
-Dokumentationsänderungen; dieses Review ändert nur das Proposal.
+Dokumentationsänderungen; §0 und die verlinkten Berichte dokumentieren die
+inzwischen tatsächlich implementierten Korrekturen.
 
 ### 7.4 Konkreter Trainingsplan
 
@@ -1470,7 +1547,7 @@ tragen, aber weder Hardwaredaten noch Parameterzahl garantieren das Ziel.
    Repräsentationen vorbereiten; Legalität deterministisch halten und
    Brackets mit extern versionierten Kriterien und Kontext modellieren.
 
-## 9. Umfang der tatsächlichen Reviewprüfung
+## 9. Umfang der ursprünglichen Reviewprüfung vom 22. Oktober
 
 Geprüft wurden die betroffenen Rust-/Python-Pfade und die oben verlinkten
 Designs; `main` und `HEAD` zeigten den vereinbarten Commit. Kleine

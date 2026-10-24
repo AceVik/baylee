@@ -398,6 +398,12 @@ impl PlayerView {
                 .chain(ability)
                 .chain(object.prepared_spell)
                 .chain(granted)
+                .chain(
+                    object
+                        .ability_sources
+                        .iter()
+                        .filter_map(|source| source.rules),
+                )
                 .map(|r| r.card)
         });
         self.identities()

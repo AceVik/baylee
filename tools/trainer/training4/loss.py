@@ -45,7 +45,8 @@ def compute_step_loss(
         ce_per_sample = F.cross_entropy(logits0, tgt0, reduction="none")
         chosen_features = step_batch["cand_feat"][:, t].to(device)[m0]
         is_pass = chosen_features.gather(1, tgt0[:, None, None].expand(-1, 1, M.CAND_FEAT_WIDTH))[:, 0, 0] > 0.5
-        sample_w = torch.where(is_pass, 1.0, 3.0) * w0
+        choice = step_batch["cand_mask"][:, t, :cand_logits.shape[1]].to(device)[m0].sum(-1) > 1
+        sample_w = torch.where(is_pass, 1.0, 3.0) * w0 * choice
         pol_loss = pol_loss + (ce_per_sample * sample_w).sum() / sample_w.sum().clamp(min=1e-6)
         correct_single = int((logits0.argmax(dim=-1) == tgt0).sum().item())
         total_single = int(m0.sum().item())

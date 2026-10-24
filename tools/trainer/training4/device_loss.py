@@ -32,7 +32,8 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
         # indices for this frame. They must never enter gather/cross_entropy.
         target = torch.where(chosen, at("single_idx"), 0)
         is_pass = at("cand_feat")[:, :, 0].gather(1, target[:, None])[:, 0] > 0.5
-        weights = torch.where(is_pass, 1.0, 3.0) * weight * chosen
+        choice = at("cand_mask")[:, :cand.shape[1]].sum(-1) > 1
+        weights = torch.where(is_pass, 1.0, 3.0) * weight * chosen * choice
         ce = F.cross_entropy(cand, target, reduction="none")
         policy = policy + (ce * weights).sum() / weights.sum().clamp(min=1e-6)
         correct = ((cand.argmax(-1) == target) & chosen).sum()

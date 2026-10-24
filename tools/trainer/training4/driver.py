@@ -37,6 +37,7 @@ from .execution import plan_batch, transfer_batch, encode_boards, compile_region
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
+from .objective import LOSS_VERSION, selection_score, check_resume_objective
 
 
 def main() -> None:
@@ -69,6 +70,9 @@ def main() -> None:
     ap.add_argument("--resume", default="", help="Resume an atomic last.pt checkpoint")
     ap.add_argument("--checkpoint-every", type=int, default=100)
     ap.add_argument("--validation-every", type=int, default=1000)
+    ap.add_argument("--checkpoint-selection", choices=("policy", "combined"), default="policy",
+                    help="Supervised snapshot criterion; match evaluation is still required for promotion")
+    ap.add_argument("--validate-initial", action="store_true", help="Include the untouched initial policy in checkpoint selection")
     ap.add_argument("--activation-checkpointing", action="store_true")
     ap.add_argument("--saved-activation-layers", type=int, default=0, help="Keep the last N trunk layers' activations instead of recomputing them; uses more VRAM")
     ap.add_argument("--async-checkpoint", action="store_true", help="Stage one immutable last.pt snapshot and write it in the background")
@@ -218,6 +222,7 @@ def main() -> None:
     resume_epoch, resume_batch, resume_h = 1, 0, None
     if args.resume:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
+        check_resume_objective(saved, args.checkpoint_selection)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
             raise ValueError("Resume training sampler version/seed differs; use --init-state for fresh lanes")
@@ -260,6 +265,7 @@ def main() -> None:
                      "validation_fingerprint": val_ds.fingerprint,
                      "package_parent": package_parent,
                      "training_sampler_version": D4.StatefulBatchSampler4.VERSION,
+                     "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
                      "sampler_seed": args.seed,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
@@ -282,12 +288,13 @@ def main() -> None:
         metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
                    else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk, progress_every=500))
         net.train(was_training)
-        score = metrics["val_pol_loss"] + 2.0 * metrics["val_mse"]
+        score = selection_score(metrics, args.checkpoint_selection)
         if score < best_score:
             best_score, best_step = score, step_num
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
             atomic_save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+                         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
                          "validation_batch_size": args.validation_batch_size,
@@ -303,6 +310,8 @@ def main() -> None:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
         return
     with checkpoint_writer:
+        if args.validate_initial and not args.resume:
+            validate_and_save()
         for epoch in range(resume_epoch, args.epochs + 1):
             net.train()
             ep_pol = 0.0
@@ -441,6 +450,7 @@ def main() -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
+        "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
@@ -454,6 +464,7 @@ def main() -> None:
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
+        "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,

@@ -37,6 +37,7 @@ fn permanent(types: baylee_core::types::TypeSet) -> baylee_view::PublicObject {
     baylee_view::PublicObject {
         battle_protector: None,
         prepared_spell: None,
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
         mana_value: 0,
         id: ObjectId::new(1, 0),

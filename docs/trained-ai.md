@@ -1,7 +1,9 @@
 # The trained AI
 
-**Current v4 work (23 October 2026):** implementation and experiments are on
-`c42/trained-ai`. The [takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
+**Current v4 work (24 October 2026):** implementation through `88bc2b07f` is on
+`main`; subsequent corrections are on `c42/trained-ai`. The
+[latest review and run results](history/trained-ai-v4-review-2026-10-24.md) and
+[takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
 records the repaired observation clock, contract versions, measured model size,
 checks and remaining limitations. v4 uses structural card features and
 persistent seat memory; the older pipeline below describes v1–v3.
@@ -80,7 +82,20 @@ Full optimized validation logs progress every 500 batches without per-frame
 device synchronization.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
-`net.pt` remains the checkpoint selected by the combined validation score.
+`net.pt` is now selected by validation policy loss by default. The previous
+`policy + 2*value` criterion remains explicit `--checkpoint-selection combined`
+for controlled comparisons; it is not a playing-strength criterion.
+`--validate-initial` includes the unchanged initial weights in snapshot selection.
+Loss version 2 removes forced single-option rows from the policy denominator,
+while retaining their observations and value/auxiliary targets. Exact resume
+rejects a different loss or selection protocol. `--init` starts a new experiment
+with transferred weights and fresh optimizer/memory. Validation additionally
+reports `val_choice_nll`, `val_choice_top1_acc` and `val_choices` over supervised
+single-choice questions with at least two legal candidates. Optional passes count;
+forced non-pass answers do not. The historical `val_active_top1_acc` means
+non-pass labels and is retained only as a separately named comparison metric.
+Older policy-loss numbers use a different denominator and are not comparable
+to loss version 2. Re-evaluate both checkpoints with the same validator.
 Evaluate unique parameter sets: a resumed run may keep the same earlier best
 checkpoint while `last.pt` contains newer weights worth a separate diagnostic.
 
@@ -122,9 +137,20 @@ consecutive winner-only updates; balancing reduced its 4,683 batches to 4,031,
 with 99.93% lane occupancy. This is a batching correction, not a measured gain
 in playing strength. Exact resume requires the same sampler version and seed;
 older checkpoints can transfer weights/Adam via `--init-state` with fresh lanes.
+This sampler transfer does not imply that an old loss version can resume exactly.
 `deck_catalog4` also exports held-out-card presence across all deck sections,
 including the sideboard and commanders, so new imports cannot silently move
 held-out cards into training.
+
+Composed copy abilities now use `PublicObject.ability_sources`: runtime ability
+indices are mapped to their original printed/token source and exact quoted copy
+modifier. A copied Effigy mana ability must not select a nonexistent ability of
+the copied Goblin Striker or Thrun. The card catalog exports `/copy/N` roots for
+quoted `CopyOnEnter` abilities. Its changed digest requires catalog refresh,
+fresh export and replayed feature data; old frozen experiments stay unchanged.
+Unresolved future provenance still rejects a game instead of silently discarding
+the ability. Both the whole copied object and its selected action carry these
+public references; unknown/face-down objects do not expose them.
 
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,

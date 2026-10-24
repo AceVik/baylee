@@ -16,7 +16,17 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod x_exact;
 mod x_targets;
+
+fn own_main_phase(view: &PlayerView) -> bool {
+    view.active == view.seat
+        && view.stack.is_empty()
+        && matches!(
+            view.phase,
+            baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+        )
+}
 
 pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
     baylee_cards::by_index(card.index)?
@@ -267,6 +277,16 @@ impl HeuristicAgent {
             } else {
                 upper = x - 1;
             }
+        }
+        if let (Some(source), Some(printed)) = (context.source, context.printed)
+            && context.whole_spell
+            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
+        {
+            return values
+                .into_iter()
+                .filter(|&x| x >= min && x <= lower)
+                .max()
+                .unwrap_or(min);
         }
         lower
     }
@@ -754,12 +774,7 @@ impl HeuristicAgent {
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
         let plain = usable(plain);
-        let main = view.active == view.seat
-            && view.stack.is_empty()
-            && matches!(
-                view.phase,
-                baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
-            );
+        let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
@@ -801,6 +816,9 @@ impl HeuristicAgent {
                 &plain,
                 u32::try_from(budget).unwrap_or(u32::MAX),
             );
+            let Some(cost) = self.exact_x_cost(view, id, card, &printed, cost) else {
+                continue;
+            };
             if stillborn(f, &printed, &cost)
                 || self.unreachable_x_graveyard_target(view, id, card, &printed, &cost)
             {

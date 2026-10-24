@@ -8,6 +8,9 @@ use baylee_core::mana::ManaCost;
 use baylee_core::types::{SubtypeSet, SupertypeSet, TypeSet};
 use serde::{Deserialize, Serialize};
 
+mod ability;
+pub use ability::AbilitySource;
+
 // ------------------------------------------------------------------- objects
 
 /// An offered damage source, described as the exact rules incarnation that
@@ -230,6 +233,11 @@ pub struct PublicObject {
     /// The existing exiled prepare copy, frozen even if this permanent changes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prepared_spell: Option<RulesFace>,
+    /// Composed rules provenance. Empty for ordinary printed lists. On an
+    /// ability on the stack, contains only the captured selected entry.
+    /// Face-down objects expose none, even to a seat allowed to see their card.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ability_sources: Vec<AbilitySource>,
     /// Projected name. Present even when `card` is `None`, so tokens and
     /// face-down permanents still render a label ("Soldier", "Face-down").
     pub name: String,
@@ -622,6 +630,7 @@ impl PublicObject {
             granted_mana: self.granted_mana.clone(),
             board_mana: self.board_mana.clone(),
             grants: self.grants.clone(),
+            ability_sources: self.ability_sources.clone(),
             ability_mana_spending: self.ability_mana_spending,
         }
     }
@@ -683,6 +692,7 @@ pub struct ObjectSummaryKey {
     granted_mana: Option<GrantedMana>,
     board_mana: Option<BoardMana>,
     grants: Vec<GrantSource>,
+    ability_sources: Vec<AbilitySource>,
     ability_mana_spending: baylee_core::mana::ManaSpending,
 }
 
@@ -715,6 +725,7 @@ impl core::hash::Hash for ObjectSummaryKey {
         self.granted_mana.hash(state);
         self.board_mana.hash(state);
         self.grants.hash(state);
+        self.ability_sources.hash(state);
         self.ability_mana_spending.hash(state);
     }
 }

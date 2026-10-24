@@ -51,6 +51,7 @@ fn obj(id: u32, controller: u8) -> PublicObject {
         board_mana: None,
         flashback: None,
         grants: Vec::new(),
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
     }
 }

@@ -15,6 +15,13 @@ impl Forest {
     fn ability(&mut self, key: &str, ability: &AbilityDef) {
         let root = ability.tree(self);
         self.roots.insert(key.into(), root);
+        if let AbilityDef::CopyOnEnter { mods, .. } = ability {
+            for (i, modifier) in mods.iter().enumerate() {
+                if let baylee_cards_dsl::CopyMod::GrantAbility(definition) = modifier {
+                    self.ability(&format!("{key}/copy/{i}"), definition);
+                }
+            }
+        }
         let modes = match ability {
             AbilityDef::ModalSpell { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }

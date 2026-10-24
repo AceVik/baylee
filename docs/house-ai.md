@@ -24,6 +24,15 @@ the seat's public graveyards and treats unknown filter clauses as possible,
 not impossible. The regression is in `baylee-ai/src/tests/x_target_tests.rs`;
 six-seat training seed 891015 now finishes instead of looping on turn 118.
 
+An exact mana-value X target is not monotone in the amount paid. The house
+planner and its subsequent number answer restrict ordinary object-targeting
+X spells to matching visible mana values at or below the payable bound,
+including zero. They do not repeatedly cast Detonate at X=6 when only an
+artifact of mana value 3 is available. Shroud, opposing hexproof and phased-out
+objects are excluded; the engine still makes the authoritative target check.
+`x_target_tests.rs` covers affordable, zero, unaffordable and protected targets.
+The reproduced training fault is duel seed 1400020 (`next-duels-0000019`).
+
 **One source per permanent is a rule with a consequence**, and it is the
 reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
 keys on `ObjectId`, so the dedup in `policy::sources` is the only thing

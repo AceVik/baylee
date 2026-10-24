@@ -11,6 +11,7 @@ from .device_loss import compute_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
+from .objective import choice_statistics
 
 
 @torch.no_grad()
@@ -20,6 +21,7 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress
     net.prepare_structure()
     totals = torch.zeros(11, dtype=torch.float64, device=device)
     calibration = torch.zeros(3, 10, dtype=torch.float64, device=device)
+    choices = torch.zeros(3, dtype=torch.float64, device=device)
     h = None
     bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
     started = time.perf_counter()
@@ -60,6 +62,8 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress
             prior = (alive & allied).sum(-1) / alive.sum(-1).clamp_min(1)
             single = valid & at("is_decision") & (at("head") == 0)
             target = torch.where(single, at("single_idx"), 0)
+            choices += choice_statistics(output[1], at("cand_mask")[:, :output[1].shape[1]],
+                                         single, target, at("loss_weight")).double()
             is_pass = at("cand_feat")[:, :, 0].gather(1, target[:, None])[:, 0] > .5
             active = single & ~is_pass
             correct = ((output[1].argmax(-1) == target) & active).sum()
@@ -77,7 +81,11 @@ def evaluate_device(net, loader, device, thinking_steps, board_chunk=8, progress
     values = totals.cpu().tolist()
     pol, val, aux, frames, correct, singles, baseline, predicted, truth, active, active_correct = values
     denominator = max(frames, 1)
+    choice_nll, choice_correct, choice_count = choices.cpu().tolist()
     return {
+        "val_choice_nll": choice_nll / max(choice_count, 1),
+        "val_choice_top1_acc": choice_correct / max(choice_count, 1),
+        "val_choices": int(choice_count),
         "val_pol_loss": pol / max(len(loader)*loader.dataset.unroll_len,1),
         "val_mse": val/denominator, "val_aux_mse": aux/denominator,
         "val_top1_acc": correct/max(singles,1),

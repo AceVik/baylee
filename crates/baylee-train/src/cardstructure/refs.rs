@@ -4,6 +4,7 @@ use crate::carddsl::UNKNOWN_CARD;
 use crate::features4::{Candidate4, EncodedState4};
 use baylee_view::{PublicObject, StackItem};
 use serde::{Deserialize, Serialize};
+use std::fmt::Write as _;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RuleRef {
@@ -12,12 +13,16 @@ pub struct RuleRef {
     /// Public grant handle, used only to select the referenced ability.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
+    /// Runtime index in a composed ordinary ability list, not a grant slot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ability: Option<u32>,
 }
 fn push(out: &mut Vec<RuleRef>, role: u8, key: String) {
     out.push(RuleRef {
         key,
         role,
         slot: None,
+        ability: None,
     });
 }
 pub fn card_refs(cid: u32, face: u8, token: u16) -> Vec<RuleRef> {
@@ -36,7 +41,14 @@ pub fn public_refs(obj: &PublicObject, cid: u32, face: u8, token: u16) -> Vec<Ru
         push(&mut out, 3, format!("c/{}/{}", name.card.get(), name.face));
         push(&mut out, 4, format!("i/{}/{}", name.card.get(), name.face));
     }
-    if let Some(StackItem::Ability {
+    if matches!(obj.stack_item, Some(StackItem::Ability { .. })) && !obj.ability_sources.is_empty()
+    {
+        for source in &obj.ability_sources {
+            if let Some(key) = source_key(source) {
+                push(&mut out, 5, key);
+            }
+        }
+    } else if let Some(StackItem::Ability {
         ability,
         rules,
         token,
@@ -67,10 +79,36 @@ pub fn public_refs(obj: &PublicObject, cid: u32, face: u8, token: u16) -> Vec<Ru
                 key,
                 role: 6,
                 slot: Some(grant.slot),
+                ability: None,
             });
         }
     }
+    if obj.stack_item.is_none() {
+        for source in &obj.ability_sources {
+            if let Some(key) = source_key(source) {
+                out.push(RuleRef {
+                    key,
+                    role: 6,
+                    slot: None,
+                    ability: Some(source.index),
+                });
+            }
+        }
+    }
     out
+}
+
+fn source_key(source: &baylee_view::AbilitySource) -> Option<String> {
+    let mut key = if let Some(rules) = source.rules {
+        format!("a/{}/{}/{}", rules.card.get(), rules.face, source.ability)
+    } else {
+        let token = source.token?;
+        format!("ta/{}/{}", token.token, token.index)
+    };
+    if let Some(modifier) = source.copy_modifier {
+        let _ = write!(key, "/copy/{modifier}");
+    }
+    Some(key)
 }
 pub fn candidate_refs(c: &Candidate4, state: &EncodedState4) -> Vec<RuleRef> {
     let face = c.named_face();
@@ -94,6 +132,13 @@ pub fn candidate_refs(c: &Candidate4, state: &EncodedState4) -> Vec<RuleRef> {
             }
         } else if c.ability_idx >= i64::from(u32::MAX - 11) {
             push(&mut out, 7, format!("q/{}", c.ability_idx));
+        } else if let Some(source) = state.entity_rule_refs[e]
+            .iter()
+            .find(|r| r.ability.map(i64::from) == Some(c.ability_idx))
+        {
+            let mut selected = source.clone();
+            selected.role = 7;
+            out.push(selected);
         } else if cid != UNKNOWN_CARD {
             // Legal offers use the active concatenated door list; catalog
             // roots and captured stack provenance use per-face indices.

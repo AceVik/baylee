@@ -4,6 +4,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import model4 as M
 from .loss import compute_step_loss
+from .objective import choice_statistics
 
 
 @torch.no_grad()
@@ -23,6 +24,7 @@ def evaluate(
     corr = 0
     tot_single = 0
     active_correct = active_count = 0
+    choices = torch.zeros(3, dtype=torch.float64, device=device)
     baseline_squared_error = prediction_sum = outcome_sum = 0.0
     calibration_count = np.zeros(10)
     calibration_prediction = np.zeros(10)
@@ -108,7 +110,9 @@ def evaluate(
             np.add.at(calibration_prediction, bins, predictions)
             np.add.at(calibration_outcome, bins, targets)
             single = valid_t & batch["is_decision"][:, t].to(device) & (batch["head"][:, t].to(device) == 0)
-            target_idx = batch["single_idx"][:, t].to(device)
+            target_idx = torch.where(single, batch["single_idx"][:, t].to(device), 0)
+            choices += choice_statistics(cand_l, batch["cand_mask"][:, t, :cand_l.shape[1]].to(device),
+                                         single, target_idx, batch["loss_weight"][:, t].to(device)).double()
             features = batch["cand_feat"][:, t].to(device)
             pass_target = features.gather(1, target_idx[:, None, None].expand(-1, 1, M.CAND_FEAT_WIDTH))[:, 0, 0] > .5
             active = single & ~pass_target
@@ -116,7 +120,11 @@ def evaluate(
             active_correct += int(((cand_l.argmax(-1) == target_idx) & active).sum())
 
     denom = max(tot_steps, 1)
+    choice_nll, choice_correct, choice_count = choices.cpu().tolist()
     return {
+        "val_choice_nll": choice_nll / max(choice_count, 1),
+        "val_choice_top1_acc": choice_correct / max(choice_count, 1),
+        "val_choices": int(choice_count),
         "val_pol_loss": tot_pol / max(len(loader) * loader.dataset.unroll_len, 1),
         "val_mse": tot_val / denom,
         "val_aux_mse": tot_aux / denom,

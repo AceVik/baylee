@@ -11,6 +11,8 @@ use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::{CardIdentity, CounterEntry, ObjectStatus, PublicObject, TargetRef};
 
+mod abilities;
+
 pub(super) type SourceReferences =
     std::collections::BTreeMap<baylee_core::ids::DamageSourceRef, Vec<ObjectId>>;
 
@@ -247,6 +249,7 @@ pub(super) fn public_object(
     let chars = obj.characteristics();
     let known = may_know_card(obj, seat);
     Some(PublicObject {
+        ability_sources: abilities::sources(state, obj, known),
         word_changes: word_changes(state, id),
         id,
         card: visible_printing(state.merged_top(obj), known),
