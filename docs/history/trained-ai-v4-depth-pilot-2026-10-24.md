@@ -88,6 +88,35 @@ wie der aktuelle v3-Vergleich; sie sind kein unberührter Abschlusstest.
 Der Pilot verändert zunächst nur Tiefe und ist noch kein Training aus
 eigenen Ligapartien. Ergebnisse und eine Stärkeverbesserung stehen aus.
 
+### Automatische Wiedervorlage (20:02 CEST)
+
+Auf Wunsch des Besitzers überwacht der aktivierte Benutzertimer
+`baylee-training-watch@depth12-20261024.timer` den gesamten Controller alle
+30 Sekunden. Er erwartet die Phase `depth-pilot-and-comparisons-complete`
+und alle zwölf gepaarten JSON-Ergebnisdateien. Fehler und ein bestätigtes
+Controllerende ohne Abschluss lösen ebenfalls eine Nachricht an die bestehende
+Codex-Sitzung aus. Die Prozessidentität enthält Boot-ID und Startticks;
+übernommene PIDs nach einem Neustart zählen nicht als laufender Versuch.
+
+Konfiguration und Zustellstatus liegen im Experiment unter `watchdog/`.
+Die installierte eigenständige Datei
+`~/.local/lib/baylee-training-watch/watch_run4.py` hat SHA-256
+`1531e20d805589f9b35ccdcbb8fac87833c5f3b60bce9508b24cdb20ff22feaf`.
+Zwölf isolierte Tests und die systemd-Unit-Prüfung bestanden. Der erste echte
+Check endete erfolgreich mit `running`, 48 ms CPU und 10,2 MiB Spitzenverbrauch.
+Ein Benutzerdienst konnte den vorhandenen Codex-Daemon erreichen; eine
+Testnachricht an genau diese Sitzungs-UUID wurde von `codex queue` angenommen.
+Ihre Verarbeitung im Folgeturn steht bei dieser Notiz noch aus.
+
+Normale Checks verursachen keinen Modellaufruf; ein erfolgreicher Queue-Beleg
+unterdrückt weitere Zustellungen. Bei nicht erreichbarem Codex folgt nach
+60 Sekunden ein erneuter Versuch. Ein Absturz direkt nach Annahme durch die
+Queue kann dieselbe Ereignis-ID erneut zustellen; der Folgeagent muss sie
+deduplizieren. Kein Linger aktiviert: Nach einem Reboot wird der Timer mit
+dem Benutzer-Manager erneut aktiv, und der Agent prüft den tatsächlichen
+Trainingsstand vor einer Fortsetzung. Laufender Trainer und eingefrorene
+Runtimes wurden durch die Einrichtung nicht verändert.
+
 ## Was sich aus dem alten Modell tatsächlich übertragen lässt
 
 Der geprüfte `model3.py`-/`netplay3.rs`-Pfad besitzt keine neuronale

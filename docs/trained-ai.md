@@ -19,6 +19,46 @@ answers, valid clock defaults, or the ordinary view-only house AI. A question
 without a clock default must never be answered with an invented priority pass.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+`tools/trainer/watch_run4.py` provides an optional local completion wake-up for
+long experiments. It reads `status.json` and checks the controller's Linux boot
+ID and process start ticks; PID reuse cannot make a dead run look live. A
+30-second user timer checks the entire experiment, including comparisons.
+Unchanged running state makes no model call. A declared failure wakes immediately
+on the next check; unexpected controller exit needs two checks, unreadable status
+three. Successful terminal phases require the explicitly listed result artifacts
+(JSON files must parse). Existing per-job timeouts remain responsible for live
+but stuck jobs. The watcher never stops or starts training.
+
+Install the standalone script in `~/.local/lib/baylee-training-watch/` and both
+`scripts/systemd/baylee-training-watch@.*` units in `~/.config/systemd/user/`.
+Arm a live run before enabling its timer, using the **exact** destination thread
+UUID and the controller's actual terminal phase:
+
+```sh
+python3 tools/trainer/watch_run4.py arm \
+  --root "$RUN_ROOT" --thread "$THREAD_UUID" \
+  --success-phase depth-pilot-and-comparisons-complete \
+  --require-artifact evaluation/paired-depth12-k4-vs-k1-commander.json
+systemctl --user daemon-reload
+systemctl --user enable --now baylee-training-watch@depth12-20261024.timer
+```
+
+The unit instance is the directory name below `~/baylee-data/v4/experiments/`;
+adjust paths for another layout. The installed script uses `/usr/local/bin/codex
+queue --thread UUID --message TEXT`, the supported
+[existing-session queue](https://learn.chatgpt.com/docs/developer-commands#codex-queue).
+This is a local user timer, not a cloud scheduled task. It needs the computer and
+user manager running and a usable local Codex session. No linger setting changes;
+after a reboot checks resume at the next user-manager start. Queue failures retry
+after 60 seconds. `watchdog/state.json` records intent and the CLI queue receipt;
+`watchdog/delivered.json` suppresses further checks after accepted delivery.
+Acceptance by the queue is not proof that the model has processed the message.
+An ambiguous crash/timeout around enqueue can repeat a wake: the prompt carries
+a stable event ID for deduplication. Stop an old timer with
+`systemctl --user disable --now baylee-training-watch@depth12-20261024.timer`.
+Use a fresh experiment directory for a fresh run; arming is idempotent and refuses
+to overwrite a different controller/thread configuration.
+
 `deepen4.py --model SOURCE --out NEW --layers 12` grows the eight-layer v4
 trunk without discarding its learned behavior. Existing layers retain their
 order; inserted pre-norm residual blocks start with zero attention/FFN output
