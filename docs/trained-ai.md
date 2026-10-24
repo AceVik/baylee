@@ -129,6 +129,12 @@ execution change: saved recurrent state and sampler cursors cannot be reassigned
 to a new batch size. The benchmark's `--fresh-trajectories --batch-size N` resets
 both at trajectory boundaries and reports valid frames/decisions per second;
 its results alone do not justify a production batch-size change.
+Benchmark continuation restores the checkpoint's sampler version, seed, epoch
+and cursor before reusing its saved H. The old helper hardcoded seed 42, which
+assigned that H to different trajectories for checkpoints trained with another
+seed. Such a benchmark was not a valid continuation. `--sampler-seed` overrides
+require `--fresh-trajectories`; incompatible or missing resume metadata is
+rejected. Frozen trainers already checked their actual saved seed.
 For learning pilots, `--validation-batch-size 8` keeps validation lanes and
 per-head normalization fixed even when the training batch size changes. The
 default follows the training batch size for compatibility. Resume checks this

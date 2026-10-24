@@ -120,6 +120,65 @@ dem Benutzer-Manager erneut aktiv, und der Agent prüft den tatsächlichen
 Trainingsstand vor einer Fortsetzung. Laufender Trainer und eingefrorene
 Runtimes wurden durch die Einrichtung nicht verändert.
 
+### CUDA-OOM erkannt und Fortsetzung vorbereitet (20:12–20:19 CEST)
+
+Der Wecker meldete Ereignis `6f5dff3f629ff8b46bf37516`: Der Zwölf-Layer-
+Trainer scheiterte im Backward nach dem letzten Logeintrag bei Schritt 925
+an einer weiteren 72-MiB-Allokation. Der Job bleibt als `quarantined` samt
+Fehlerlog erhalten. Zu diesem Zeitpunkt waren laut Fehlermeldung 9,99 GiB
+allokiert und weitere 1,23 GiB reserviert, aber unbenutzt. Der atomare
+Checkpoint **900** enthält passende Gewichte, Adam, RNG, B=8/U=32,
+Sampler-Seed 31423, Cursor 900 und H. Unveränderliche Hardlinks von `last.pt`
+und dem bei Schritt 0 ausgewählten `net.pt` liegen unter `recovery-oom/`.
+SHA-256 von `last.pt`:
+`07cdb83ae31b691c269d0530d0834104514e5e80720e172abe487402b78a8fc8`.
+
+Zwei Sol-Prüfungen untersuchten parallel Speicherhaltung und tatsächliche
+Samplerformen. `shape-audit.json` bestätigt: Im ersten 100-Batch-Abschnitt
+liegt die mittlere gepaddete Entitätszahl bei 64,65; bei Schritten 926–1.000
+bei 417,8, maximal **430**. Haupttreiber ist die lange Partie 239, Sitz 5.
+Die frühe Stichprobe mit maximal 354 Entitäten hatte diese Last nicht erfasst.
+Der Trainer loggt einen kumulativen Höchststand in dezimalen GB; dessen Anstieg
+belegt für sich kein Speicherleck. Die Codeprüfung fand keine kumulative
+Graph-Haltung: Statistiken sind detached, H wird zwischen Unrolls getrennt,
+Struktur-/Thinking-Caches sind begrenzt und CUDA-Graph-Capture ist ausgeschaltet.
+
+Ein separater GPU-Test spielte mit einer temporären Kopie des Zustands exakt
+die nächsten **100 Updates (901–1.000)** einschließlich passender Samplerbahnen
+und H durch. Einzige Ausführungsänderung:
+`PYTORCH_ALLOC_CONF=expandable_segments:True`. Diese experimentelle
+[PyTorch-Speicheroption](https://docs.pytorch.org/docs/2.14/notes/cuda.html#optimizing-memory-usage-with-pytorch-alloc-conf)
+soll unbrauchbare Reststücke bei wechselnden Allokationsgrößen reduzieren.
+Ergebnis hier: **10,674 GiB** maximal allokiert, **10,844 GiB** maximal
+reserviert, **null Allokations-Retries**; nach jedem Update 1,142–1,150 GiB
+belegt. Alle 100 Updates liefen durch. Probegewichte wurden verworfen.
+Das belegt Eignung für diesen begrenzten Abschnitt, keine Speicherobergrenze
+für den vollständigen Bestand oder beliebig große Spielsituationen.
+
+`resume_after_oom.py`, Controller **12863**, setzt seit 20:19 CEST den echten
+Lauf von Checkpoint 900 fort. Er überprüft dessen Hash, den bestandenen Test
+und die unveränderte `runtime-v2`. B/U, Curriculum, Modell, Optimierer,
+Datenreihenfolge und Lernrate bleiben erhalten; derselbe Allocator gilt danach
+auch für die Acht-Layer-Kontrolle. `resume-plan.json` dokumentiert die Umgebung
+zusätzlich, weil der eingefrorene Job-Runner diese neue Variable noch nicht
+in seine Environment-Auswahl aufnimmt. Der neue Job heißt
+`train-depth12-resume-oom`; ursprüngliche Fehlversuche bleiben erhalten.
+Alle Exporte und gepaarten Vergleiche bleiben Teil desselben Controllers.
+
+Der ursprüngliche Wecker samt Zustellbeleg wurde nach
+`recovery-oom/first-watchdog/` archiviert; der Timer überwacht jetzt die
+verifizierte neue Prozessidentität. `handled-wake.json` dokumentiert die
+Bearbeitung des alten Ereignisses. Vor einem längeren Lauf müssen tatsächliche
+späte Formen und größere Blocker-/Kandidatenmengen erneut geprüft werden;
+eine kleine frühe Stichprobe genügt nicht.
+
+Nebenfund: `bench_training4.py` verwendete beim Fortsetzen immer Seed 42,
+obwohl H aus einem anderen Sampler stammen konnte. Commit `26694ed87`
+stellt Seed, Version, Epoche und Cursor aus dem Checkpoint wieder her und
+weist inkompatible Fortsetzungen ab. Drei CPU-Tests bestanden. Der echte
+Trainer hatte diese Prüfung bereits; der GPU-Test oben verwendete ausdrücklich
+den gespeicherten Seed 31423. Eingefrorene Trainer wurden nicht verändert.
+
 ## Was sich aus dem alten Modell tatsächlich übertragen lässt
 
 Der geprüfte `model3.py`-/`netplay3.rs`-Pfad besitzt keine neuronale
