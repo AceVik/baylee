@@ -632,13 +632,28 @@ impl Tx<'_> {
                 if target.is_some() {
                     return None;
                 }
-                let filter = self.filter_expr(&p.take("ValidCards")?)?;
-                let verb = match p.take("NoRegen").as_deref() {
-                    None => "destroy_all",
-                    Some("True") => "destroy_all_no_regen",
-                    Some(_) => return None,
-                };
-                vec![format!("Effect::{verb}(&{filter})")]
+                let valid = p.take("ValidCards")?;
+                let no_regen = p.take("NoRegen");
+                if let Some(filter) = self.filter_expr(&valid) {
+                    let verb = match no_regen.as_deref() {
+                        None => "destroy_all",
+                        Some("True") => "destroy_all_no_regen",
+                        Some(_) => return None,
+                    };
+                    vec![format!("Effect::{verb}(&{filter})")]
+                } else if no_regen.is_none() {
+                    let stripped: Option<Vec<&str>> = valid
+                        .split(',')
+                        .map(|alt| alt.trim().strip_suffix(".cmcEQX"))
+                        .collect();
+                    let filter = self.filter_expr(&stripped?.join(","))?;
+                    let value = amount("X", self.svars, self.has_x)?;
+                    vec![format!(
+                        "Effect::DestroyAllWithManaValue {{ filter: &{filter}, value: {value} }}"
+                    )]
+                } else {
+                    return None;
+                }
             }
             // "X damage to each creature without flying and each player"
             // (Earthquake): `DealDamageEach` for the permanents and a

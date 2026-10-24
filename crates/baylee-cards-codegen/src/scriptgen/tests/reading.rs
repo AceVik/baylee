@@ -1451,4 +1451,21 @@ fn echo_keyword_defined_graveyard_controller_and_each_end_step_oracle_read() {
         "{}",
         mark.abilities[0]
     );
+
+    let keg = read(
+        "A:AB$ DestroyAll | Cost$ T Sac<1/CARDNAME> | ValidCards$ Artifact.cmcEQX,Creature.cmcEQX\n\
+         SVar:X:Count$CardCounters.FUSE",
+    );
+    assert!(
+        keg.abilities[0].contains("Effect::DestroyAllWithManaValue")
+            && keg.abilities[0].contains("Amount::CountersOnSource(counters::FUSE)"),
+        "{}",
+        keg.abilities[0]
+    );
+
+    let taunting = read("K:All creatures able to block CARDNAME do so.");
+    assert_eq!(
+        taunting.abilities,
+        ["static_ability!(Filter::This, Modifier::MustBeBlockedByAllAble)"]
+    );
 }
