@@ -186,6 +186,10 @@ The same job validates the exact dependency scope of the reviewed
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
 `timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
 nextest partitions (`--partition count:i/2`), each compiling for itself.
+The owner excluded offline neural-training tests from both CI test profiles on
+24.10.2026 (`--exclude baylee-train`). The engine, house AI and gamehost remain
+covered. Trainer Rust/Python checks stay available on the training workstation;
+the local full gate still includes the trainer. CI continues to compile/lint it.
 
 Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026,
 minutes; queueing was under 3 min at p95):

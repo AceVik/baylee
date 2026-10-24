@@ -227,8 +227,11 @@ jobs:
       # workspace (`cargo test --doc` finds zero), so nextest not running them
       # costs nothing. `--no-fail-fast`: a run that stops at the first failure
       # hides how much else is broken.
+      # Offline neural-training tests run on the training workstation (owner,
+      # 24.10.2026). Keep engine, house-AI and gamehost coverage in CI.
       - run: >-
           cargo nextest run --locked --workspace --all-targets --no-fail-fast
+          --exclude baylee-train
           --partition count:${{ matrix.partition }}/2
       - name: Isolated Linux credential-store round trip
         if: matrix.partition == 1
@@ -275,7 +278,7 @@ jobs:
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast --cargo-profile ci-release
+      - run: cargo nextest run --locked --workspace --all-targets --exclude baylee-train --no-fail-fast --cargo-profile ci-release
 
   # Main builds the actual dist packages once. Tags promote those exact
   # artifacts. A dispatched or `ci:full` run builds them too, but only a main

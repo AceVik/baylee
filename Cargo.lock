@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-monitor"
-version = "0.1.0-beta.8a"
+version = "0.1.0-beta.8b"
 dependencies = [
  "anyhow",
  "axum",
