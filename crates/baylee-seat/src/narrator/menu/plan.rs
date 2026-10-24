@@ -14,7 +14,7 @@ use super::{Ask, Decision, Menu, normal, object};
 use crate::mind::Request;
 use crate::narrator::Table;
 use baylee_core::ids::{CardIndex, ObjectId};
-use baylee_engine::choice::{Pending, PlayerAction};
+use baylee_engine::choice::{Pending, PlayerAction, YesNoPrompt};
 use std::fmt;
 
 /// The steps a plan may hold, as the schema and the system prompt state
@@ -402,6 +402,10 @@ impl Stop {
 pub fn asked(pending: &Pending) -> &'static str {
     match pending {
         Pending::Priority { .. } => "priority",
+        Pending::YesNo {
+            prompt: YesNoPrompt::DrawOffer { .. },
+            ..
+        } => "a decision about an offered draw",
         Pending::YesNo { .. } => "a yes or a no",
         Pending::ChooseColor { .. } => "a colour",
         Pending::ChooseCastMode { .. } => "how to cast it",

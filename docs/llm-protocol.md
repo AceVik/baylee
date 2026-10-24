@@ -237,7 +237,7 @@ each (`narrator::GRAMMAR`, parsed by `narrator::Step::parse`):
 | `cast #id [-> targets]` | priority, then the targets the cast asks | the spells castable now, or an option whose taps the seat plans; the targets as `then.targets` |
 | `activate #id[:n] [-> targets]` | priority | the abilities offered; `:n` the ability's number as the menu prints it, needed when the object offers several |
 | `choose <name or #id>[, …]` | cards, piles, a legend, targets, cards to the bottom | the options; a name only when every option it names shares one card (a search shows fresh ids), and each use of a name takes the next one |
-| `yes`, `no` | a yes or a no | |
+| `yes`, `no` | a card's yes or no; never a draw offer | |
 | `color W/U/B/R/G` | a colour | |
 | `mode m<n>` | how to cast it | the modes offered |
 | `n <number>` | a number | its range |
@@ -263,6 +263,7 @@ It stops, and the question is the model's, at anything it does not answer
 exactly; nothing of a plan is ever guessed (`narrator::Stop`):
 
 - the question is not the kind the next step answers;
+- another player offers a draw, even when the next step is `yes` or `no`;
 - the step's id or name is not in the offer, or a name means two cards;
 - something of another player's is on the stack;
 - a payment is owed;
@@ -271,6 +272,14 @@ exactly; nothing of a plan is ever guessed (`narrator::Stop`):
 - the taps of a cast were interrupted by another question;
 - the targets named ahead are not legal now;
 - the attack step passed without the attack the plan names.
+
+A draw offer always reaches the model as its own question: `P2 offers a
+draw. Accept?`, with `y` (accept the draw) and `n` (play on). Both API and
+CLI seats answer through `decide` / the JSON answer's `pick`, not `concede`.
+An offer cancels an in-flight older question; a late answer to that older
+question cannot answer the offer. Passing orders do not suppress it, and
+a queued card decision cannot supply consent. Agreement ends the game in
+a draw only when all remaining players accept, as enforced by the engine.
 
 The design also proposed stopping when the seat's life fell; that is left
 out, because a fetchland's own life payment would trip it in the very plan

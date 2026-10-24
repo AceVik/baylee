@@ -39,6 +39,9 @@ Add say: one short sentence for the people watching, about your plan. Keep it to
 To change when you are asked, add stops: {\"mine\": [\"main1\", \"main2\", \"attackers\"], \"theirs\": [\"upkeep\", \"attackers\", \"end_step\"]}.
 To see the whole board in the next message rather than what changed, add board: \"full\".
 If the table refuses an answer, the tool result says why: answer the same question again.
+When another player offers a draw, answer that question with pick=[\"y\"] to accept or \
+pick=[\"n\"] to reject and play on. Acceptance agrees to end the game in a draw if everyone \
+accepts; it is not a concession or an instruction to draw cards.
 Call concede instead only when you are certain to lose and want the game to end.
 
 PLANS: SEVERAL STEPS IN ONE ANSWER
@@ -50,8 +53,9 @@ answers exactly one question. pass passes priority once: the stack resolves, or 
 empty the game moves on. While only your own spells and abilities are on the stack, a step that \
 answers what they will ask waits for them; an attack step waits through your main phase. The table \
 runs the plan without asking you, and stops it and asks you at anything it does not answer \
-exactly: another question, an id that is gone, an opponent's spell or ability on the stack, a \
-payment, the end of the turn. The next message says what ran and why it stopped.
+exactly: another question, a draw offer (even with yes or no queued), an id that is gone, an \
+opponent's spell or ability on the stack, a payment, the end of the turn. The next message says \
+what ran and why it stopped.
 To go on passing afterwards, add until: my_turn, my_main2, my_end, or end_of_turn (this turn's); an \
 answer without until ends it. You are still asked every other question, every attack or block \
 with something to declare, and every payment. Add react for an opponent's spell or ability on the \

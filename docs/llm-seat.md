@@ -13,6 +13,10 @@ decision tells the model and what its answer may say (plans, `until`,
 `react`, the deck as the provider reads it, the cache) is
 `docs/llm-protocol.md`.
 
+Both hosted and local language-model seats can accept or reject another
+player's draw offer. The offer is a fresh decision with explicit yes/no
+options, interrupting queued card choices. It never counts as conceding.
+
 **No player is named to a model** (owner, 13.10.2026). Every bridge, a
 hosted one on the operator's machine and a player's own `baylee-seat` on
 their device, with every provider (an API or an agent CLI), names the

@@ -13,6 +13,9 @@ mod common;
 #[path = "cli_mind/agy.rs"]
 mod agy;
 
+#[path = "cli_mind/draw.rs"]
+mod draw;
+
 use baylee_client_core::llmseat::SeatSettings;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_seat::cli::{CliMind, Limits};

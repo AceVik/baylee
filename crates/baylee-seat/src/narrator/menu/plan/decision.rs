@@ -5,6 +5,7 @@ use super::{
     Ask, CardIndex, Decision, Menu, ObjectId, Pending, PlayerAction, Request, Step, Stop, Table,
     asked, is_id, is_player, normal, object,
 };
+use baylee_engine::choice::YesNoPrompt;
 
 impl Menu {
     /// The answer `step` gives this question, read against its offer as a
@@ -18,6 +19,17 @@ impl Menu {
         let kind = || Stop::Kind {
             asked: asked(&request.pending),
         };
+        // A queued yes/no describes an expected card choice. An opponent's
+        // offer to end the game needs the model's own, current consent.
+        if matches!(
+            request.pending,
+            Pending::YesNo {
+                prompt: YesNoPrompt::DrawOffer { .. },
+                ..
+            }
+        ) {
+            return Err(kind());
+        }
         let decision = |pick: Vec<String>| Decision {
             ask: Some(format!("q{}", self.question)),
             pick,
