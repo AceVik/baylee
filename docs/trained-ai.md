@@ -113,6 +113,19 @@ distills recorded house games; fresh on-policy RL additionally needs policy
 generation barriers and verified behavior probabilities, not arbitrary stale
 packages. See the structured-encoder log for active jobs and measurements.
 
+Training sampler version 2 balances whole trajectories by segment count across
+persistent lanes, then shuffles their order independently within each lane.
+It never reads outcome labels, drops tails or moves a live recurrent state to
+another lane. Validation retains its existing fixed grouping. A measured
+1,025,727-frame package previously ended with 637 single-lane updates and 500
+consecutive winner-only updates; balancing reduced its 4,683 batches to 4,031,
+with 99.93% lane occupancy. This is a batching correction, not a measured gain
+in playing strength. Exact resume requires the same sampler version and seed;
+older checkpoints can transfer weights/Adam via `--init-state` with fresh lanes.
+`deck_catalog4` also exports held-out-card presence across all deck sections,
+including the sideboard and commanders, so new imports cannot silently move
+held-out cards into training.
+
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,
 protocol, complete seed/deck/focal-seat set and repeated house-baseline outcomes.

@@ -65,7 +65,13 @@ fn main() -> anyhow::Result<()> {
             for card in &deck.deck.main {
                 *main.entry(card.index.get()).or_default() += 1;
             }
-            existing_decks.push(json!({"id": key, "main": main, "split": entry["split"]}));
+            existing_decks.push(json!({
+                "id": key, "main": main, "split": entry["split"],
+                "contains_held_out_cards": deck.cards().any(|card| held.contains(&card)),
+                "main_count": deck.deck.main.len(),
+                "sideboard_count": deck.deck.sideboard.len(),
+                "commanders": deck.deck.commanders.iter().map(|card| card.index.get()).collect::<Vec<_>>()
+            }));
         }
     }
     fs::write(

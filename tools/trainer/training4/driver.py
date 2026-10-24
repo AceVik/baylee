@@ -218,6 +218,9 @@ def main() -> None:
     resume_epoch, resume_batch, resume_h = 1, 0, None
     if args.resume:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
+        if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
+                or saved.get("sampler_seed") != args.seed):
+            raise ValueError("Resume training sampler version/seed differs; use --init-state for fresh lanes")
         if saved.get("dataset_fingerprint") != train_ds.fingerprint:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
@@ -256,6 +259,8 @@ def main() -> None:
                      "dataset_fingerprint": train_ds.fingerprint,
                      "validation_fingerprint": val_ds.fingerprint,
                      "package_parent": package_parent,
+                     "training_sampler_version": D4.StatefulBatchSampler4.VERSION,
+                     "sampler_seed": args.seed,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
                      "last_validation_step": last_validation_step,
