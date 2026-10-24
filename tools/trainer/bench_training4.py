@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 import dataset4 as D
 import model4 as M
 from checkpoint4 import move_optimizer, restore_rng
+from benchmark_state4 import checkpoint_sampler
 from run_guard4 import atomic_json
 from training4.execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from training4.loss import compute_step_loss
@@ -109,6 +110,7 @@ def main():
     ap.add_argument("--gradient-reference", default="reference", help="Variant whose first gradient is the parity baseline")
     ap.add_argument("--batch-size", type=int, default=0, help="Benchmark batch lanes (0=checkpoint). Changing lanes requires --fresh-trajectories")
     ap.add_argument("--fresh-trajectories", action="store_true", help="Start sampler and memory at trajectory beginnings; never resume old memory into different lanes")
+    ap.add_argument("--sampler-seed", type=int, default=None, help="Defaults to the checkpoint sampler seed; changing it requires --fresh-trajectories")
     ap.add_argument("--cuda-memory-fraction", type=float, default=1.0, help="Allocator ceiling; OOM rejects this benchmark variant")
     ap.add_argument("--profile", action="store_true")
     ap.add_argument("--validation-batches", type=int, default=0, help="Also audit a held-out prefix with fully optimized validation")
@@ -124,9 +126,7 @@ def main():
     ds = D.TrajectoryDataset4(Path(args.data), split="train", unroll_len=saved["unroll"])
     if ds.fingerprint != saved["dataset_fingerprint"]:
         raise ValueError("Dataset does not match the checkpoint")
-    sampler = D.StatefulBatchSampler4(ds, batch_size, shuffle=True, seed=42)
-    sampler.epoch = saved["epoch"] - 1
-    sampler.start_batch = 0 if args.fresh_trajectories else saved["next_batch"]
+    sampler = checkpoint_sampler(ds, saved, batch_size, args.fresh_trajectories, args.sampler_seed)
     loader = DataLoader(ds, batch_sampler=sampler, collate_fn=D.collate_trajectories,
                         num_workers=4, pin_memory=True)
     batches, waits = [], []
@@ -139,6 +139,8 @@ def main():
     report = {"gpu": torch.cuda.get_device_name(), "torch": torch.__version__,
               "checkpoint": args.checkpoint, "step": saved["step_num"], "batch_size": batch_size,
               "fresh_trajectories": args.fresh_trajectories,
+              "sampler_seed": sampler.seed, "training_sampler_version": sampler.VERSION,
+              "sampler_epoch": saved["epoch"] - 1, "sampler_start_batch": sampler.start_batch,
               "cuda_memory_fraction": args.cuda_memory_fraction,
               "cross_batch_size_caveat": "Different lane counts change trajectory mix and loss normalization; compare frames/s, then validate learning in a separate pilot, not as equivalent resume.",
               "unroll": saved["unroll"], "scope": __doc__, "gradient_reference": args.gradient_reference,
