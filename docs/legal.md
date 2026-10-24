@@ -1299,3 +1299,15 @@ were reread: “Tell the Community it’s unofficial.” The existing notice rem
 The [Scryfall API/image terms](https://scryfall.com/docs/api) returned HTTP 403
 in this check; no new image usage or distribution is introduced, and the
 existing decisions above continue to apply.
+
+### 2026-10-24 — Shared translucent navbar and compact deck controls
+
+The navbar and deck controls use original UI geometry and the existing
+unmodified Font Awesome font for action icons, under the bundled SIL OFL 1.1
+(`crates/baylee-client/assets/fonts/licenses/OFL-FontAwesome.txt`, `NOTICE`).
+No artwork, card-image treatment, corpus source or font asset is added.
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were reread: “Tell the Community it’s unofficial.” Existing notices and credits
+remain. The [Scryfall API/image terms](https://scryfall.com/docs/api) returned
+HTTP 403 during this check; this change introduces no new image or API usage,
+and the existing licensing decisions above remain applicable.
