@@ -333,7 +333,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // the evaluator cannot price: one readable row is lost, not an activation.
     // The other six cards add no activated/loyalty rows. The regression below
     // pins those exact members rather than widening a reader budget.
-    assert_eq!((read, of), (2782, 3492), "activated/loyalty reader census");
+    // Urza's Destiny (`uds`) Batch 2 adds 1 non-mana activated ability on
+    // Goblin Festival (0 of 1 read by the evaluator).
+    assert_eq!((read, of), (2782, 3493), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

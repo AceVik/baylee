@@ -18,6 +18,7 @@ mod improvised_armor;
 mod mammoth_harness;
 mod merseine;
 mod mind_whip;
+mod pattern_of_rebirth;
 mod serra_s_embrace;
 mod steal_artifact;
 mod takklemaggot;

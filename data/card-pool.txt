@@ -10582,3 +10582,28 @@ Flame Jet
 Fledgling Osprey
 Flicker
 Gamekeeper
+Goblin Festival
+Goblin Marshal
+Hulking Ogre
+Hunting Moa
+Impatience
+Incendiary
+Iridescent Drake
+Ivy Seer
+Jasmine Seer
+Junk Diver
+Keldon Champion
+Keldon Vandals
+Landslide
+Lurking Jackals
+Magnify
+Mark of Fury
+Metalworker
+Metathran Elite
+Metathran Soldier
+Momentum
+Multani's Decree
+Nightshade Seer
+Opalescence
+Pattern of Rebirth
+Phyrexian Negator

@@ -42,6 +42,7 @@ mod gate_to_phyrexia;
 mod ghostly_flame;
 mod goblin_bomb;
 mod goblin_bombardment;
+mod goblin_festival;
 mod goblin_kites;
 mod goblin_oriflamme;
 mod gossamer_chains;

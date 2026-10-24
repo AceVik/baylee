@@ -732,6 +732,7 @@ no-engine-change contract:
   - Batch 4 (`Treefolk Mystic` to `Yavimaya Granger`, 10 cards): **8 Implemented, 2 Partial**.
 - **Urza's Destiny (`uds`)** — in progress (every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Apprentice Necromancer` to `Gamekeeper`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Goblin Festival` to `Phyrexian Negator`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back)**.
 
 ## PR #394 review snapshot (2026-10-23)
 

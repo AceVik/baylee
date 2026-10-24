@@ -5598,6 +5598,7 @@ UI review lesson from the surrounding PR: asynchronous screenshot encoding
 must not remove the wait for GPU readback, and virtualized rows from an old
 log must never be measured against a replacement book. Tests need measured
 rows and lifecycle changes, not only initial mounting with empty layout data.
+<<<<<<< HEAD
 ## 2026-10-25 — First Partial-completion batch (eight cards)
 
 The first eight-card batch has 48 passing focused tests and its initial table
@@ -5670,3 +5671,19 @@ Completed instruction-draw history is not by itself a future rule input for
 loop detection. Active loot must still hash its normalized eligible hand
 positions; snapshot identity retains the complete ledger. Direct zone-mutation
 fixtures must settle characteristics before measuring a no-new-events boundary.
+
+## 2026-10-24 — Urza's Destiny Batch 2 (`Goblin Festival` through `Phyrexian Negator`)
+
+- **Cards**: Added the next 25 absent first-printing identities in `uds` ledger order (`Goblin Festival` through `Phyrexian Negator`): **15 `Coverage::Implemented`, 4 `Coverage::Partial`, 6 `Coverage::Unimplemented` (`--hold-back`)**.
+  - **Machine-owned (`Coverage::Implemented`, 5)**: `Incendiary`, `Junk Diver`, `Keldon Vandals`, `Magnify`, `Mark of Fury`.
+  - **Hand-owned (`Coverage::Implemented`, 10)**: `Goblin Festival`, `Goblin Marshal`, `Hulking Ogre`, `Hunting Moa`, `Keldon Champion`, `Metathran Elite`, `Metathran Soldier`, `Multani's Decree`, `Pattern of Rebirth`, `Phyrexian Negator`.
+  - **Hand-owned (`Coverage::Partial`, 4)**: `Ivy Seer`, `Jasmine Seer`, `Metalworker`, `Nightshade Seer` — each retains only its creature body with its optional reveal-any-number-of-hand-cards activated ability omitted because variable-count hand reveal is not yet in the DSL.
+  - **Held back (`Coverage::Unimplemented`, 6)**: `Impatience` (blank enchantment without per-turn spell-cast tracking per active player), `Iridescent Drake` (ETB Aura attachment from graveyard not supported), `Landslide` (sorcery with no effect without sacrifice-any-number-of-Mountains cost/resolution), `Lurking Jackals` (blank enchantment without opponent life-threshold trigger and permanent type replacement), `Momentum` (Aura with no effect without power-boost per growth counter on the Aura), `Opalescence` (blank enchantment without global non-Aura enchantment animation to MV/MV creatures).
+- **Engine (`crates/baylee-engine/src/resolve/immediate.rs`)**:
+  - `Effect::GainControlAll` with `Filter::This` now checks `subjects::source(state, res).filter(|s| subjects::on_battlefield(state, *s))` instead of matching any battlefield permanent with `res.source` (whose arena `ObjectId` slot is reused with an incremented `version` if the card leaves and re-enters the battlefield before resolution, CR 400.7). Tested via `goblin_festival_new_incarnation_is_not_given_away_when_flip_loses`.
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `keywords.rs`: Added `K:Echo:<cost>` transcoding to `AbilityDef::Echo { cost: mana!(...) }` (unblocking `Keldon Vandals` as machine-owned and future Echo creatures).
+  - `triggers.rs`: When a `Phase$ End of Turn` trigger script has `ValidPlayer$ You` (as on `Mark of Fury`), check the Oracle text for `"at the beginning of the end step"` (without `"your end step"`) and emit `PlayerRel::EachPlayer`.
+  - `chains.rs` / `targets.rs`: Claimed `TargetsWithDefinedController` on `ChangeZone` from `Graveyard` when it is `"You"` or when it is `"TriggeredCardController"` and the target filter already narrows to `PlayerRel::You` (unblocking `Junk Diver` as machine-owned).
+- **Tools**:
+  - `cargo tools hooks require-card-tests` reads a JSON hook payload from `stdin` (e.g., `echo '{}' | cargo tools hooks require-card-tests`); invoking it interactively without piping `stdin` blocks waiting for EOF.

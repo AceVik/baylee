@@ -11172,38 +11172,82 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Goblin Berserker
     &["First strike, haste"],
-    &[],
+    // Goblin Festival
+    &[
+        "{2}: This enchantment deals 1 damage to any target. Flip a coin. If you lose the flip, choose one of your opponents. That player gains control of this enchantment.",
+    ],
     // Goblin Gardener
     &["When this creature dies, destroy target land."],
-    &[],
+    // Goblin Marshal
+    &[
+        "Echo {4}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters or dies, create two 1/1 red Goblin creature tokens.",
+    ],
     // Goblin Masons
     &["When this creature dies, destroy target Wall."],
     // Goliath Beetle
     &["Trample"],
     // Heart Warden
     &["{T}: Add {G}.\n{2}, Sacrifice this creature: Draw a card."],
-    &[],
-    &[],
+    // Hulking Ogre
+    &["This creature can't block."],
+    // Hunting Moa
+    &[
+        "Echo {2}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters or dies, put a +1/+1 counter on target creature.",
+    ],
     // Illuminated Wings
     &["Enchant creature\nEnchanted creature has flying.\n{2}, Sacrifice this Aura: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Impatience
+    &[
+        "At the beginning of each player's end step, if that player didn't cast a spell this turn, this enchantment deals 2 damage to that player.",
+    ],
+    // Incendiary
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a fuse counter on this Aura.\nWhen enchanted creature dies, this Aura deals X damage to any target, where X is the number of fuse counters on this Aura.",
+    ],
+    // Iridescent Drake
+    &[
+        "Flying\nWhen this creature enters, put target Aura card from a graveyard onto the battlefield under your control attached to this creature.",
+    ],
+    // Ivy Seer
+    &[
+        "{2}{G}, {T}: Reveal any number of green cards in your hand. Target creature gets +X/+X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Jasmine Seer
+    &[
+        "{2}{W}, {T}: Reveal any number of white cards in your hand. You gain 2 life for each card revealed this way.",
+    ],
+    // Junk Diver
+    &[
+        "Flying\nWhen this creature dies, return another target artifact card from your graveyard to your hand.",
+    ],
+    // Keldon Champion
+    &[
+        "Haste\nEcho {2}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, it deals 3 damage to target player or planeswalker.",
+    ],
+    // Keldon Vandals
+    &[
+        "Echo {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, destroy target artifact.",
+    ],
     // Kingfisher
     &["Flying\nWhen this creature dies, draw a card."],
-    &[],
-    &[],
-    &[],
+    // Landslide
+    &[
+        "Sacrifice any number of Mountains. Landslide deals that much damage to target player or planeswalker.",
+    ],
+    // Lurking Jackals
+    &[
+        "When an opponent has 10 or less life, if this permanent is an enchantment, it becomes a 3/2 Jackal creature.",
+    ],
+    // Magnify
+    &["All creatures get +1/+1 until end of turn."],
     // Mantis Engine
     &[
         "{2}: This creature gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)\n{2}: This creature gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
     ],
-    &[],
+    // Mark of Fury
+    &[
+        "Enchant creature\nEnchanted creature has haste.\nAt the beginning of the end step, return this Aura to its owner's hand.",
+    ],
     // Marker Beetles
     &[
         "When this creature dies, target creature gets +1/+1 until end of turn.\n{2}, Sacrifice this creature: Draw a card.",
@@ -11218,19 +11262,38 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Mental Discipline
     &["{1}{U}, Discard a card: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Metalworker
+    &[
+        "{T}: Reveal any number of artifact cards in your hand. Add {C}{C} for each card revealed this way.",
+    ],
+    // Metathran Elite
+    &["This creature can't be blocked as long as it's enchanted."],
+    // Metathran Soldier
+    &["This creature can't be blocked."],
+    // Momentum
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a growth counter on this Aura.\nEnchanted creature gets +1/+1 for each growth counter on this Aura.",
+    ],
+    // Multani's Decree
+    &["Destroy all enchantments. You gain 2 life for each enchantment destroyed this way."],
+    // Nightshade Seer
+    &[
+        "{2}{B}, {T}: Reveal any number of black cards in your hand. Target creature gets -X/-X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Opalescence
+    &[
+        "Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness each equal to its mana value.",
+    ],
     // Opposition
     &["Tap an untapped creature you control: Tap target artifact, creature, or land."],
-    &[],
+    // Pattern of Rebirth
+    &[
+        "Enchant creature\nWhen enchanted creature dies, that creature's controller may search their library for a creature card, put that card onto the battlefield, then shuffle.",
+    ],
     // Phyrexian Monitor
     &["{B}: Regenerate this creature."],
-    &[],
+    // Phyrexian Negator
+    &["Trample\nWhenever this creature is dealt damage, sacrifice that many permanents."],
     &[],
     // Plated Spider
     &["Reach (This creature can block creatures with flying.)"],

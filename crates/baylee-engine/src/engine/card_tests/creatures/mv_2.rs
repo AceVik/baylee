@@ -166,6 +166,7 @@ mod merfolk_assassin;
 mod merfolk_looter;
 mod merfolk_raiders;
 mod mesa_pegasus;
+mod metathran_soldier;
 mod mire_shade;
 mod misshapen_fiend;
 mod mistfolk;

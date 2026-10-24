@@ -86,6 +86,7 @@ mod lifelace;
 mod lightning_bolt;
 mod lose_hope;
 mod magical_hack;
+mod magnify;
 mod malakir_rebirth;
 mod marsh_gas;
 mod mental_note;
