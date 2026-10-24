@@ -35,6 +35,59 @@ anschließenden Liga. Ganze Gedächtnisverläufe bleiben chronologisch erhalten.
 Die Auswertung prüft zusätzliche Denkschritte und echte gepaarte Partien;
 kein Modell wird allein wegen niedrigerem Loss oder mehr Parametern übernommen.
 
+### Umsetzung und Startnachweis
+
+Experiment: `/home/ace/baylee-data/v4/experiments/depth12-20261024`.
+Das erzeugte Modell hat **74.520.456 Parameter**, die Quelle 54.826.376.
+Die Übertragung ist in `initial-12/depth-transfer.json` samt Quellhash und
+Schichtzuordnung dokumentiert. GPU-Vorprüfung und Export verwenden die
+Runtime `3c87d5807`; die Trainings-Runtime `runtime-v2` ist auf `d4e1534c0`
+eingefroren. Nur Transferhelfer und zugehöriger Test unterscheiden sich:
+Die unabhängige Sol-Prüfung fand, dass `torch.manual_seed` neben der CPU
+auch Beschleuniger neu seedet. Der Helfer seedet jetzt ausschließlich den
+CPU-Generator; der Aufrufer behält alle Zufallszustände. Modell-, Trainer-,
+Encoder- und Evaluatorcode sind gegenüber der Vorprüfung identisch.
+Die Engine stammt unverändert aus dem vorherigen Lauf (`8bb208a49`).
+
+Elf fokussierte CPU-Tests bestanden (vier Tiefen-, sechs Gedächtnis- und ein
+Thinking-Cache-Test). Die unabhängige Prüfung bestätigt außerdem beim
+8→12-Transfer identische Ausgaben und Gradienten der übernommenen Parameter.
+Am echten Modell wurden 24 Frames aus großen Spielsituationen mit demselben
+Gedächtnis verglichen: maximale FP32-Abweichung **0**.
+159 reale U=32-Segmente aus langen Partien lieferten die Stichprobe für drei
+CUDA-Stressbatches mit B=8, bis zu 354 Entitäten und 350 Kandidaten.
+Training mit K-Curriculum und allen zusätzlichen Layern blieb endlich;
+Peak 8,18 GiB allokiert, 8,84 GiB reserviert, null Allocator-Retries.
+Das ist keine Obergrenze für alle möglichen Spielsituationen. Die als
+`largest_pairs` bezeichnete Stichprobe enthält hier nur den Paddingplatz;
+sie belegt keine besondere Belastung durch große Blockerzuordnungen.
+Alle vier neuen Blöcke hatten nach den Probeupdates endliche, von null
+verschiedene Ausgangsgewichte. Der Probeoptimierer wird nicht übernommen.
+ONNX K=0/1/2/4/8: 79 geprüfte Frames, maximaler Fehler 3,18e-5.
+
+Sol bereitete parallel den gemeinsamen Cache aus den sieben geprüften
+Paketen vor: 240 Spiele, 728 Sitzverläufe, 3.753.658 Frames, 21.541.330.775
+Cachebytes. Die Rohshards sind unveränderte Hardlinks; Metadaten, Katalog,
+disjunkte Spielabdeckung, Cursor und Endmarkierungen sind geprüft.
+`full-cache-audit.json` hält Herkunft und Prüfsummen fest. Der vollständige
+Bestand wird gemeinsam gesampelt, statt nacheinander separat nachtrainierte
+Pakete mit wechselndem Formatmix zu verwenden.
+
+Controller-PID beim Start: **8539**, `run.py`. Beide Varianten bekommen
+B=8/U=32, LR=1e-5, Seed 31423, BF16, dieselben ersten 1.000 Samplerbatches
+und jeweils frischen Adam. Dieser begrenzte Ausschnitt umfasst laut
+`prefix-exposure.json` **255.495 Frames, 30.814 Entscheidungsframes aus
+33 Spielen / 40 Sitzverläufen**; er ist keine vollständige Epoche über alle
+240 Spiele. Der 12-Layer-Trainer hat die Gewichte geladen und die vollständige
+Ausgangsvalidierung auf CUDA gestartet. Initial- und Endvalidierung behalten
+B=8 und die gleichen 475.248 Frames. Checkpoints entstehen alle 100 Updates.
+Anschließend läuft automatisch die Acht-Layer-Kontrolle, dann Export und
+128 Duell-/64 Commander-Fälle je Variante, plus K=4 für zwölf Layer.
+Die Vergleiche benutzen dieselben bereits untersuchten Development-Seeds
+wie der aktuelle v3-Vergleich; sie sind kein unberührter Abschlusstest.
+Der Pilot verändert zunächst nur Tiefe und ist noch kein Training aus
+eigenen Ligapartien. Ergebnisse und eine Stärkeverbesserung stehen aus.
+
 ## Was sich aus dem alten Modell tatsächlich übertragen lässt
 
 Der geprüfte `model3.py`-/`netplay3.rs`-Pfad besitzt keine neuronale
