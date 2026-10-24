@@ -278,6 +278,66 @@ der neue GPU-Auswertungsprozess ist aktiv. Auf ausdrücklichen Wunsch des
 Besitzers ignoriert logind nun dauerhaft die An/Aus-Taste, siehe
 [lokale Einstellung](../workstation-monitor.md#local-power-button-setting-24-october-2026).
 
+## Abgeschlossener Lauf und aktueller Vergleich mit v3
+
+Alle sieben Pakete wurden abgeschlossen: 240 Partien, 3.753.658 Frames,
+14.888 gespeicherte Lernupdates über die Pakete. Zusätzlich wurden nach dem
+ersten Ausschalten 69 verlorene Updates wiederholt. Die Auswertung der
+unveränderten Validierung wählte weiterhin den Snapshot nach Paket 0 mit
+Policy-Loss 0,28689335; der Start lag bei 0,29721552. Die sechs Folgepakete
+lieferten keinen besseren ausgewählten Policy-Snapshot. Das ausgewertete
+Modell enthält deshalb nicht sämtliche späteren Lernupdates.
+
+Die größere Vergleichssuite verwendet Seedbasis 1800001: 128 Duellfälle auf
+64 unabhängigen Tischen und 64 Commander-Fälle auf 16 Tischen. Jeder Spieler
+bekommt dieselben Decks, Startbedingungen und Sitzrotationen gegen Sharp.
+Nach Abschluss wurde das archivierte v3 `rl-23` mit exakt derselben
+eingefrorenen Engine und demselben Deckmanifest nachgemessen. Der gepaarte
+Prüfer bestätigt identische Fälle und reproduzierte Haus-Baseline-Ergebnisse.
+Es sind Vergleiche gegen gleiche Gegner, keine direkten v3-v4-Partien.
+
+| Policy am untersuchten Sitz | Siege Duell / 128 | Siege Commander / 64 |
+| --- | ---: | ---: |
+| Haus-KI Steady | 60 (46,9 %) | 15 (23,4 %) |
+| Archiviertes v3 rl-23, Expert-Profil | 42 (32,8 %) | 6 (9,4 %) |
+| v4 vor diesem Trainingslauf | 36 (28,1 %) | 3 (4,7 %) |
+| Ausgewähltes neues v4, K=1 | 30 (23,4 %) | 3 (4,7 %) |
+
+Das neue v4 hat im Duell gegenüber seinem Start 3 bessere und 9 schlechtere
+Ergebnisse; gegenüber v3 sind es 12 bessere und 24 schlechtere. Das
+Table-Bootstrap-95-%-Intervall der Utility-Differenz zu v3 ist [−18,75; 0]
+Prozentpunkte. Commander gegenüber v3: 4 bessere, 6 schlechtere, 52 gleiche
+und 2 ungeklärte Cap-Paare; Intervall [−16,41; +7,42] Prozentpunkte. Die zwei
+Caps von v4 sind keine Remis. Commander hat nur 16 unabhängige Tische;
+die Siegpunktwerte sind kein Beweis einer stabilen allgemeinen Rangfolge.
+Die Seeds sind neu, die Deckfamilien gehören zur bestehenden Validierung.
+
+Ausführungsqualität bleibt getrennt sichtbar: v4 benötigte 21/113
+Haus-Fallbacks (Duell/Commander), v3 103/221. Zurückgewiesene Aktionen:
+v4 1/0, v3 5/0. Erfasste Stalls: v4 2/37, v3 2/56. Beim v3-Duell protokolliert
+der Evaluator ungültige Banding-Auswahlen; diese bleiben als Befund erhalten.
+Der v3-Vergleich bewertet damit das archivierte Modell mit seinen bestehenden
+Haus-Fallbacks, nicht eine rein neuronale Policy ohne Hilfe.
+
+K=4 brachte auf der separaten Suite mit Seedbasis 1300001 keine besseren
+Endergebnisse als K=1: beide 15/64 Duellsiege und 0/32 Commander-Siege.
+Alle 64 Duellpaare und 29 auswertbaren Commander-Paare haben dieselbe Utility;
+drei Commander-Paare bleiben wegen Caps ungeklärt. Das schließt andere Züge
+nicht aus, belegt aber keinen Nutzen der zusätzlichen Denkschritte.
+
+**Keine Promotion.** Besserer Imitations-Loss hat hier keinen Spielstärkezuwachs
+gebracht. Die nächste Lernstufe sollte konkrete Fehlentscheidungen und vom
+Netz selbst erzeugte Zustände untersuchen, geeignete view-beschränkte
+Lehrer-/Suchziele ergänzen und Fortschritt zunächst an Taktikfällen prüfen.
+Größere Modelle oder weitere unveränderte BC-Pakete sind durch diesen Lauf
+nicht als Lösung belegt.
+
+Artefakte: `concept-fixed-20261024/evaluation/fresh-{candidate,reference,v3}-*.json`,
+`paired-fresh-v4-vs-v3-*.json`, `paired-fresh-*.json` und
+`paired-k4-vs-k1-*.json`. `compare_v3.py` sowie die zugehörigen Jobmanifeste
+halten Modell-, Engine- und Deckprüfsummen fest; beide v3-Auswertungen und
+ihre gepaarten Prüfungen sind vollständig abgeschlossen.
+
 ## Verifikation
 
 Betroffene Rust-Librarytests (`baylee-ai`, `baylee-gamehost`, `baylee-view`,
