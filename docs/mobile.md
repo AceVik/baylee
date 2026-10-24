@@ -1,4 +1,9 @@
-# The client on a phone
+# The client on a phone — coming soon
+
+Android and iOS are not currently supported release targets (owner,
+24.10.2026); the browser/wasm client is also coming soon. This document
+describes the experimental design and build scaffolding. Mobile and wasm
+checks do not run in CI or block desktop landing and release promotion.
 
 Three surfaces, one client, and one requirement that decided the whole shape:
 **dev-control has to reach the client while it runs on the phone.** That rules

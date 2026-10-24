@@ -1,4 +1,4 @@
-//! Lands the checked-out commit on main: the three local gates, then a
+//! Lands the checked-out commit on main: the two desktop gates, then a
 //! fast-forward push of exactly the commit they passed. The rule since
 //! 08.10.2026 (`docs/releasing.md` §"Landing on main"): a change lands after
 //! the local gates and does not wait for CI; CI runs on the main push, and a
@@ -122,7 +122,7 @@ fn under_lock(push: bool, branch: &str) -> Result<i32> {
     Ok(0)
 }
 
-/// The three gates; all run even when one fails, so one run reports every red.
+/// Both desktop gates run even when one fails, so one run reports every red.
 fn gates() -> Result<bool> {
     let timed = |name: &str, rc: i32, started: Instant| {
         println!("LAND {name} rc={rc} {}s", started.elapsed().as_secs());
@@ -132,9 +132,7 @@ fn gates() -> Result<bool> {
     let full = timed("gate", gate::full()?, started);
     let started = Instant::now();
     let features = timed("gate features", features::run(), started);
-    let started = Instant::now();
-    let wasm = timed("gate wasm", gate::wasm(), started);
-    Ok(full && features && wasm)
+    Ok(full && features)
 }
 
 fn lock_script() -> Option<PathBuf> {

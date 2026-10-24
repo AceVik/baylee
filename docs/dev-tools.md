@@ -48,6 +48,11 @@ reviewed by another (`docs/cards.md`). Python remains only in `tools/trainer`.
 Historical reports retain original command names as evidence of how their
 measurements were made; they are not current instructions.
 
+Current landing runs the full and desktop/server feature gates. Android,
+iOS and browser/wasm support are coming soon: mobile commands and
+`cargo dev gate wasm` remain opt-in experiments outside CI and release
+requirements (`docs/releasing.md`).
+
 ## Dev-control
 
 The protocol, isolation rules and input timing are in

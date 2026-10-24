@@ -149,8 +149,8 @@ actionlint
 
 `.github/workflows/ci.yml` runs on main pushes, pull requests, nightly and by
 hand. Since 08.10.2026 a change **lands on main after the local gates without
-waiting for CI**: `cargo dev land` runs `cargo dev gate`, `cargo dev gate features` and
-`cargo dev gate wasm` under the machine's cargo lock and then pushes the gated commit
+waiting for CI**: `cargo dev land` runs `cargo dev gate` and `cargo dev gate features`
+under the machine's cargo lock and then pushes the gated commit
 to main, only as a fast-forward, never forced. Landing is serial: under the
 lock it fetches main again, merges it into the branch if it moved (a conflict
 stops the run), gates that commit and pushes it, so a second lander waits and
@@ -160,12 +160,19 @@ push run of the tagged commit green (§"Cutting one").
 
 | Trigger | Runs |
 | --- | --- |
-| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, wasm, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
+| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
 | main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
-| pull request | fmt, and as their inputs changed: clippy, test ×2, wasm, validate, deny, web-feedback |
+| pull request | fmt, and as their inputs changed: clippy, test ×2, validate, deny, web-feedback |
 | pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
 | nightly | as a main push without packages, plus the five-platform `build` matrix |
 | `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
+
+Current client releases support Windows, macOS and Linux. Android, iOS and
+browser/wasm are **coming soon** (owner, 24.10.2026). Their target-specific
+checks are outside CI, landing and release promotion: the Android dev-control
+check and wasm job are removed, and wasm is no longer a required release job.
+`cargo dev gate wasm` remains an explicit experimental command. The desktop
+feature matrix still checks that `fuzz` and `mutate` cannot reach shipped builds.
 
 `cargo dev ci-changes` decides what a diff touches (try it with
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
@@ -189,8 +196,9 @@ The feature job now has 60 minutes (24.10.2026). Run `39966346270` passed in
 32 minutes, including 795 seconds for `dev-table-test`; run `40019996413`
 spent almost seven minutes installing Linux dependencies and reached the
 old 35-minute limit during that same test step. Its completed feature
-checks had passed. The larger limit covers setup and the remaining checks;
-the feature matrix and test requirements stay the same.
+checks had passed. The larger limit covers setup and the remaining desktop
+and server checks. Removing the Android shim's check, which took under a
+second in the green run, does not address this timeout by itself.
 
 The `x86_64-apple-darwin` package row (added 12.10.2026) is the arm row's
 work cross-compiled on the same runner: 42–82 minutes over ten main pushes
@@ -566,7 +574,7 @@ The server builds each release itself, as the deploy user, in its checkout
   agent reach it through `baylee-client-core`. CI installs the same package
   in `.github/actions/linux-deps`, beside the client's audio, udev and
   Wayland headers, which the server does not need.
-- For the browser client at `/play`: `trunk` (0.21.14) and the
+- For the experimental browser client at `/play` (coming soon): `trunk` (0.21.14) and the
   `wasm32-unknown-unknown` target. Without them the installed client stays.
 - For the feedback service's UI: `npm`. Without it the installed UI stays.
 

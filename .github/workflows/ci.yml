@@ -1,7 +1,7 @@
 name: ci
 
 # Who waits for what (owner, 08.10.2026: "CI green only matters when we
-# release"). A change lands on main after the three local gates
+# release"). A change lands on main after the two desktop gates
 # (`cargo dev land`) without waiting for CI. CI then has two jobs:
 #
 # - **main push**: everything that protects a release. `release.yml` promotes
@@ -10,7 +10,7 @@ name: ci
 #   REQUIRED_JOBS to have run and passed in that run, so nothing here can be
 #   skipped on a commit that is then released.
 # - **pull request**: the quick half (fmt, clippy, the debug suite in two
-#   partitions, wasm, validate, deny), each only when its inputs changed. The
+#   partitions, validate, deny), each only when its inputs changed. The
 #   label `ci:full` runs a PR as a main push would; so does any change to CI
 #   itself.
 # - **nightly**: the full set again plus the five-platform `build` matrix,
@@ -397,31 +397,17 @@ jobs:
           path: data/scryfall-cache
           key: ${{ steps.scryfall.outputs.key }}
 
-  # The browser client's crates for wasm32; `cargo dev gate wasm` (crates/baylee-dev/src/gate.rs) says why
-  # all eight are named.
-  wasm:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - run: cargo dev gate wasm
+  # Android, iOS and the wasm client are coming soon. Their target-specific
+  # checks are not part of desktop CI or release promotion.
 
-  # The eight features `--workspace` never builds (`cargo dev gate features`, crates/baylee-dev/src/features.rs
+  # The desktop features `--workspace` never builds (`cargo dev gate features`, crates/baylee-dev/src/features.rs
   # holds the matrix and says per feature why it gets the check it gets;
   # `--all-features` is deliberately not the shortcut). The hole runs both
   # ways: `devctl.rs` broke with every job green (#121), and a feature makes
   # code live that `-D warnings` then flags. Main pushes and the nightly: the
   # same script is a local gate before every landing.
   #
-  # PostgreSQL is here for one of the eight: `dev-table` is a gateway feature
+  # PostgreSQL is here for `dev-table`, a gateway feature
   # and a gateway with no database refuses to start.
   features:
     needs: changes

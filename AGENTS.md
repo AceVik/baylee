@@ -7,15 +7,17 @@ read its document. `CLAUDE.md` imports this file.
 
 Baylee plays Magic: The Gathering: a deterministic rules engine, the servers
 that host it (gateway, agent, one engine process per game, a feedback
-service) and a Bevy client for desktop, mobile and the browser. Accounts live
+service) and a Bevy desktop client. Android, iOS and browser/wasm support are
+coming soon and are not current release targets. Accounts live
 in Baylee Central, a separate repository (`docs/central-login.md`). It is an
 unofficial, non-commercial fan project.
 
 ## Always
 
-- **Gate before you push.** `cargo dev gate`, `cargo dev gate features` and
-  `cargo dev gate wasm` (with `DATABASE_URL`); `cargo dev land` runs all
-  three and fast-forwards `main`. A change lands after the local gates, not
+- **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
+  (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
+  fast-forwards `main`. Wasm is an optional experimental check until browser
+  support ships. A change lands after the local gates, not
   after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
 - **Determinism.** The engine and core use the seeded RNG only; no
   `std::time`, `std::random`, `algebraic_*` floats or `HashMap` iteration in

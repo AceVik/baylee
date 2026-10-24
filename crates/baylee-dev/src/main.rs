@@ -33,7 +33,7 @@ enum Task {
         #[command(subcommand)]
         which: Option<Gate>,
     },
-    /// The three local gates, then a fast-forward push to main.
+    /// The full and desktop feature gates, then a fast-forward push to main.
     Land {
         /// Gate HEAD as it is and push nothing.
         #[arg(long)]
@@ -166,7 +166,7 @@ enum Gate {
     },
     /// The non-default features `--workspace` never builds.
     Features,
-    /// The browser crates for wasm32.
+    /// Experimental browser crates for wasm32 (coming soon; not a landing gate).
     Wasm,
 }
 

@@ -6,7 +6,6 @@
 //! | crate | features |
 //! | --- | --- |
 //! | `baylee-client` | `dev-control`, `dev-reload`, `dev-dylink` |
-//! | `baylee-client-android` | `dev-control` |
 //! | `baylee-gateway` | `dev-table` |
 //! | `baylee-client-core` | `test-support` |
 //! | `baylee-engine` | `fuzz` |
@@ -43,13 +42,13 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 /// The checks that only have to pass, in the order they run. Each one's
 /// shape is the check its feature earns:
 ///
+/// Android and iOS are coming soon and have no feature-gate checks yet.
+///
 /// - `dev-dylink` gates no source at all (`["bevy/dynamic_linking"]`), so the
 ///   only thing it can break is the feature graph, which `cargo tree` answers
 ///   in half a second; forwarding to a `dynamic_linking_NOPE` exits 101. A
 ///   resolver error here once came from a year-stale local index cache
 ///   (`crates/baylee-client/Cargo.toml` tells it); suspect that first.
-/// - Off Android the shim has no dependencies; what its check earns is that
-///   `dev-control = ["baylee-client/dev-control"]` still resolves.
 /// - `test-support`, `fuzz` and `mutate` are `cfg(any(test, feature = …))`,
 ///   so `--all-targets` compiles them through `test` anyway; `--lib` checks
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
@@ -66,20 +65,6 @@ const CHECKS: &[(&str, &[&str])] = &[
             "dev-dylink",
             "-e",
             "features",
-        ],
-    ),
-    (
-        "android-dev-control",
-        &[
-            "clippy",
-            "-p",
-            "baylee-client-android",
-            "--features",
-            "dev-control",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
         ],
     ),
     (

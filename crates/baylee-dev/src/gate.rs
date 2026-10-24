@@ -98,9 +98,9 @@ pub fn rules() -> i32 {
     0
 }
 
-/// The browser build's crates checked for wasm32: CI's `wasm` job and the
-/// third local gate before landing. All eight are named, not the client
-/// alone: cargo unifies features across the members a command selects, so
+/// An opt-in check for the experimental browser build (coming soon), outside
+/// CI and landing. All eight crates are named: cargo unifies features across
+/// the members a command selects, so
 /// `-p baylee-client` would resolve the other seven with whatever the client
 /// asks for. Naming them checks each on its own default features.
 pub fn wasm() -> i32 {

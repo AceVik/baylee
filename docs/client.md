@@ -2,6 +2,11 @@
 
 Bevy 2.5D duel client. Three crates, split by what can be tested without a GPU.
 
+Current support is desktop: Windows, macOS and Linux. Android, iOS and
+browser/wasm are **coming soon** (owner, 24.10.2026). Platform-specific code
+and design notes below are experimental scaffolding, outside current CI and
+release requirements.
+
 | Crate | Contains | Depends on a renderer? |
 |---|---|---|
 | `baylee-view` | The wire view: projected characteristics, per-seat filtering | no — not even the rules kernel |
