@@ -231,6 +231,37 @@ nicht. Ab jetzt bleiben die Laufartefakte die Quelle für neue Ergebnisse.
    zusammen beurteilen. Nach wiederholter Auswahl ist eine neue gesperrte
    Testsuite erforderlich.
 
+## Fortsetzung nach dem Ausschalten des Rechners
+
+Am 24. Oktober wurde der Rechner laut Besitzer versehentlich über den
+physischen Einschaltknopf heruntergefahren. Die Wiederaufnahme verwendet
+dieselbe eingefrorene Runtime und dieselben Trainingsparameter.
+Alle 90 Runtime-Dateien wurden gegen `sources.json` geprüft; die sieben
+fertig vorbereiteten Pakete enthalten zusammen weiterhin 240 Spiele.
+Die ersten fünf Pakete sind vollständig trainiert und bleiben erhalten.
+
+Paket `package-0005` hatte 2.369 Updates erreicht und wurde während seiner
+Abschlussvalidierung unterbrochen. Sein vollständig lesbarer Checkpoint
+enthält Schritt/Batch 2.300, endliche Modellgewichte und das Gedächtnis H
+mit Form `[8, 9, 640]`. Nur die 69 noch nicht gespeicherten Updates und die
+Validierung werden wiederholt. `--resume` übernimmt Modell, Adam, RNG,
+Samplerposition und H; es ist kein neuer Trainingsstart mit frischem Adam.
+Die Fingerprints von Trainings- und Validierungsdaten werden beim Laden
+erneut abgeglichen.
+
+`resume_after_shutdown.py` im Experimentverzeichnis setzt den Ablauf fort
+(Controller-PID beim Neustart: 5404). Der ursprüngliche Job und seine Logs
+bleiben unverändert. `recovery-after-shutdown/` bewahrt beide ursprünglichen
+Checkpoints sowie ein Manifest mit Prüfsummen und dem Neustartgrund.
+Der neue Versuch protokolliert nach
+`jobs/resume-train-package-0005/`; der Trainer bestätigt
+`resumed epoch=1 batch=2300 step=2300` auf CUDA. Die ersten 25 weiteren
+Updates sind nachgewiesen (Schritt 2.325, endlicher Loss, allokierter
+VRAM-Peak 8,69 GB, null Allocator-Retries).
+Anschließend folgen automatisch Paket `package-0006`, die unveränderte
+Policy-Loss-Auswahl sowie die geplanten gepaarten K=1-/K=4- und
+Fresh-Seed-Vergleiche. Es gibt weiterhin keine automatische Promotion.
+
 ## Verifikation
 
 Betroffene Rust-Librarytests (`baylee-ai`, `baylee-gamehost`, `baylee-view`,
