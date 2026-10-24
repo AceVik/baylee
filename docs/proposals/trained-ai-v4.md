@@ -670,8 +670,9 @@ FP32 je Sitzinstanz. Der reine Zustand ist klein; teuer ist sein
 Trainingsgraph. Ein globaler Slot und acht relative Sitzslots sind eine
 brauchbare induktive Struktur. Die Benennung allein erzwingt weder einen
 „Plan“ noch kalibrierte Beliefs oder eine ausreichende Informationskapazität.
-Zum größeren 512er-Zielprofil passt auch `H ∈ R^(9 × 512)` mit nur **9 KiB
-BF16**. 384 ist kein hartes Limit; Slotbreite und Slotanzahl werden anhand
+Zum ursprünglichen 512er-Vergleichsprofil passt `H ∈ R^(9 × 512)` mit nur
+**9 KiB BF16**; der aktuelle 640er-Lauf verwendet **11,25 KiB BF16** je Sitz.
+384 ist kein hartes Limit; Slotbreite und Slotanzahl werden anhand
 der Gedächtnistests verglichen, nicht aus der alten Modellgröße abgeleitet.
 
 Drei getrennte Speicher haben unterschiedliche Aufgaben:
@@ -709,6 +710,16 @@ Detach-Grenzen berücksichtigen; veraltete Hidden States sind sonst eine
 weitere On-/Off-policy-Abweichung. Lange Erinnerung braucht Tests weit über
 die Chunklänge hinaus. Ein Nullzustand für jeden zufälligen Frame trainiert
 kein Matchgedächtnis.
+
+Im aktuellen Lauf zählt `U=32` **Beobachtungen**, nicht 32 eigene strategische
+Entscheidungen. Gerade an großen Tischen kann diese Gradientstrecke nur wenige
+eigene Entscheidungen umfassen. H bleibt vorwärts über die ganze Partie erhalten,
+aber das allein lernt keine beliebig weit zurückreichende Kreditzuweisung.
+Als eigene Ablation nach dem Integritätslauf U=64/128 mit kleinerem B und
+gleicher Zahl echter Policypositionen sowie Burn-in vergleichen. Dafür
+verzögerte Reveal-/Planaufgaben außerhalb der Trainingsfamilien verwenden;
+K erhöhen verlängert diese zeitliche Lernstrecke nicht. Zwischenbeobachtungen
+dürfen für diesen Vergleich nicht still entfernt werden.
 
 ### 5.3 Relationen und verlustarme Kandidaten
 
@@ -1215,7 +1226,7 @@ Rechenzeit erfasst. Lange Matches dürfen die Rechnung nicht verdecken.
 | Phase | Arbeit und Startumfang | Weiter erst wenn |
 | --- | --- | --- |
 | T0: Integrität | P0-Reparaturen, Crashpipeline aus §7.5, `features4`, Aktions-/Historyschema und Tests. Keine großen neuen Datensätze erzeugen. | Golden-Fälle, Behavior-Parität, Anti-Cheat und absichtlich ausgelöste Panic/Abort/Hang-Fälle bestehen. |
-| T1: Hardwarepilot | 256/4, 384/8, 512/8 einschließlich Denkblock; `B=2,4,8`, Beobachtungs-Unroll `U=16,32`, Denktiefe `K=1,2,4,8`. Kleine/mittlere/große Tokenmengen, z. B. 64/128/320; Overflow separat. Warmup plus vollständige Forward/Backward/Optimizersteps messen. | Ein größeres Zielprofil passt mit Reserve in 12 GB; CPU-Sofortpfad und Workerfristen sind nachgewiesen. Reserve ist gemessen, kein geschätzter freier Speicher. |
+| T1: Hardwarepilot | 256/4, 384/8, 512/8 und inzwischen 640/8 einschließlich Denkblock; `B=2,4,8`, Beobachtungs-Unroll `U=16,32`, Denktiefe `K=1,2,4,8`. Kleine/mittlere/große Tokenmengen, z. B. 64/128/320; Overflow separat. Warmup plus vollständige Forward/Backward/Optimizersteps messen. | Ein größeres Zielprofil passt mit Reserve in 12 GB; CPU-Sofortpfad und Workerfristen sind nachgewiesen. Reserve ist gemessen, kein geschätzter freier Speicher. |
 | T2: Datenpilot | Zunächst 200–500 vollständige gesunde Matches über alle unterstützten Tischgrößen; bei zu wenigen gültigen Entscheidungen erweitern. View-only-Lehrer, Parser-/Manifestkontrolle, zusammenhängende Sitzstreams und ca. 100–300 variierte Taktikfixtures. | Keine Herkunfts-/Sichtbarkeits-/Cursorfehler; Speicherbedarf pro Match/Beobachtung und tatsächlich neuronale Abdeckung bekannt. |
 | T3: Encoder + Imitation | Neuer Card-/Ability-Encoder mit DSL-Hilfszielen; Pilottraining auf etwa 100.000–300.000 gültigen Policyentscheidungen, danach zunächst 2–5 Mio. Entscheidungen aus neu generierten Matches. Alle zugehörigen Beobachtungen erhalten. Validierung nach festen Schritten. | Policy/Value generalisieren auf den Devsplit, Memorytests funktionieren; kein reines ID-Memorieren, keine NaNs oder wachsende Illegalitäts-/Fallbackquote. |
 | T4: Neuronales Nachdenken | Gleiches frisches Zielnetz, gemischte `K=1,2,4,8`; Aufgaben mit mehrschrittigen Lösungen, Ablenkungen und Gegenaktionen. Imitation, Szenario-Outcomes und später verbesserte Suchziele sauber unterscheiden. | Mehr Denktiefe verbessert schwierige zurückgehaltene Fälle; der Sofortpfad bleibt brauchbar. Revisionsgewinn übersteigt neu eingeführte Fehler. |
@@ -1223,13 +1234,17 @@ Rechenzeit erfasst. Lange Matches dürfen die Rechnung nicht verdecken.
 | T6: Suche und Distillation | Enge `SimulationPosition`-Formen implementieren, Teilchen-/Halvingvergleich, dann Planungsscheduler. Auswertungen mit/ohne Denkblock und mit/ohne Suche. | Zusätzliche Arbeit verbessert Resultate bei gleicher Hardware und fairem Informationszugriff. Suchaktionen werden als Suchdaten behandelt, nicht als gesampelte PPO-Aktionen ausgegeben. |
 | T7: Erweiterungen | Erst jetzt kontrollierte Vergleiche HL-Gauss, Muon, SPO, Diff-Attention V2, MoE und gelernte Dynamik; Denkblock ist bereits Bestandteil des Zielmodells. | Ein Zusatz gewinnt gegen die passende Referenz bei vergleichbaren Daten-/Rechenbudgets; sonst bleibt er ausgeschaltet. |
 
-**Startkonfiguration, anschließend abstimmen:**
+**Aktuelle Konfiguration und getrennte weitere Suchpunkte:**
 
-- Ziel `d=512/L=8/FFN=1536`, acht Heads, `H=9×512` gegen `9×384`,
-  `Z=16×512` und zwei gemeinsam genutzte Denk-Layer. Gesamte Parameterzahl
-  einschließlich Cross-Attention, Kartenfeatures und Tabellen ausgeben.
+- Lauf vom 24. Oktober: `d=640/L=8/FFN=2560`, zehn Heads, `H=9×640`,
+  `Z=9×640`, ein wiederholt verwendeter Denkblock, strukturelle Breite 128,
+  insgesamt 54,83M Parameter. Das ursprüngliche Profil
+  `d=512/L=8/FFN=1536`, `Z=16×512` mit zwei Denk-Layern ist ein anderer,
+  bisher nicht direkt vergleichbarer Entwurf. Mehr Z-Slots oder ein zweiter
+  Denk-Layer benötigen einen eigenen Versuch; nicht als implementiert ausgeben.
 - AdamW zunächst für alle geeigneten Parameter; BC-Lernrate als kleine
-  Auswahl `1e-4`/`3e-4`, RL `1e-5`/`3e-5`, Gradient-Clipping als
+  Auswahl bei vollständigem Neustart `1e-4`/`3e-4`; der aktuelle Fortsetzungslauf
+  verwendet `1e-5`. RL-Suchpunkte `1e-5`/`3e-5`, Gradient-Clipping als
   Startwert 1.0. Weight Decay, Norm-/Bias-/Embeddinggruppen explizit
   konfigurieren. Diese Werte sind Suchpunkte, keine Paper-Garantien.
 - PPO-Clip zunächst 0.1/0.2; `gamma=1`, Lambda 0.9/0.95 auf den klar

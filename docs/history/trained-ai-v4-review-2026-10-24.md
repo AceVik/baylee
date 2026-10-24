@@ -111,6 +111,14 @@ neu erzeugt, wie viel Latenz entsteht? Der Snapshot-Observer belegt weder
 vollständige interne Ereignisabdeckung noch Reconnect-Korrektheit. Das bleibt
 ein eigener Vertrag mit Tests an der `PlayerView`-Grenze.
 
+Weiterer Lernhorizont: U=32 meint Beobachtungen. An einem großen Tisch können
+dazwischen nur wenige eigene Entscheidungen liegen. H läuft zwar weiter,
+aber K-Denkschleifen verlängern die zeitliche Gradientenstrecke nicht. Nach
+diesem Versuch deshalb U=64/128/Burn-in bei angepasstem B mit verzögerten
+Gedächtnisaufgaben vergleichen, ohne Zwischenbeobachtungen zu verwerfen.
+Das tatsächliche Z hat derzeit neun Slots und einen wiederverwendeten
+Denkblock; die alten Angaben zu 16 Slots und zwei Layern waren Entwurfswerte.
+
 Nach der breiteren BC-Stufe folgen Lernzustände, die das Netz selbst besucht:
 view-beschränkte Lehrerlabels auf diesen Zuständen, komplette Gedächtnisverläufe,
 getrennte Lehrer-/Verhaltensherkunft und unverfälschte Outcome-Labels.
@@ -156,6 +164,8 @@ Betroffene Rust-Librarytests (`baylee-ai`, `baylee-gamehost`, `baylee-view`,
 `baylee-train`) einschließlich Kopierprovenienz, verdeckter Karten,
 Copy-of-copy, exakter DSL-Klausel und X-Zielwahl bestanden. Die Wire-Shape-
 Prüfung berücksichtigt das kompatible optionale Herkunftsfeld.
+698 Rust-Tests bestanden, zwei bestehende Tests waren ignoriert. Clippy für
+alle Targets der vier betroffenen Crates einschließlich ONNX-CUDA ist sauber.
 52 Python-Tests bestanden mit drei hardwareabhängigen Auslassungen beim
 CPU-Testlauf; Referenz-/Geräte-Lossgleichheit, erzwungene Zeilen, Resume und
 Paketintegrität sind abgedeckt. Der Live-Kontrolllauf verwendet die GPU.
