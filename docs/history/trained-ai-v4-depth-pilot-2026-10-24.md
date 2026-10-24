@@ -106,7 +106,10 @@ Zwölf isolierte Tests und die systemd-Unit-Prüfung bestanden. Der erste echte
 Check endete erfolgreich mit `running`, 48 ms CPU und 10,2 MiB Spitzenverbrauch.
 Ein Benutzerdienst konnte den vorhandenen Codex-Daemon erreichen; eine
 Testnachricht an genau diese Sitzungs-UUID wurde von `codex queue` angenommen.
-Ihre Verarbeitung im Folgeturn steht bei dieser Notiz noch aus.
+Die Testnachricht hat anschließend genau diese Sitzung automatisch im Folgeturn
+aktiviert; ihre Zustellung und Verarbeitung sind damit bestätigt. Der Timer war
+bei der erneuten Prüfung aktiv, ohne Status-Lesefehler oder verschwundenen
+Controller. Dieser Selbsttest hat keinen weiteren Trainingslauf gestartet.
 
 Normale Checks verursachen keinen Modellaufruf; ein erfolgreicher Queue-Beleg
 unterdrückt weitere Zustellungen. Bei nicht erreichbarem Codex folgt nach
