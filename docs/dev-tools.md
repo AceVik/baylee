@@ -36,7 +36,7 @@ contact production or run a release.
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
 | `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-invite`, `baylee-reboot` (crate baylee-ops) |
-| `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|wasm]`, `land`, `ci-changes`, `deploy` |
+| `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|shipped-features\|wasm]`, `land`, `ci-changes`, `deploy` |
 | `scripts/mobile/*.sh` | `cargo dev android [env]`, `ios-sim`, `serve-lan` |
 | `scripts/test-keyring-linux.sh`, `test-central-*.ps1` | `cargo dev keyring-linux`, `central db\|integration\|client` |
 
@@ -51,7 +51,9 @@ measurements were made; they are not current instructions.
 Current landing runs the full and desktop/server feature gates. Android,
 iOS and browser/wasm support are coming soon: mobile commands and
 `cargo dev gate wasm` remain opt-in experiments outside CI and release
-requirements (`docs/releasing.md`).
+requirements (`docs/releasing.md`). Development features run only locally;
+CI's `cargo dev gate shipped-features` only checks that test hooks cannot
+reach shipped feature graphs.
 
 ## Dev-control
 

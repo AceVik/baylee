@@ -165,8 +165,10 @@ enum Gate {
         /// Compare with this revision instead of the working tree.
         since: Option<String>,
     },
-    /// The non-default features `--workspace` never builds.
+    /// Local-only development features `--workspace` never builds.
     Features,
+    /// Ensures verification hooks are absent from shipped feature graphs.
+    ShippedFeatures,
     /// Experimental browser crates for wasm32 (coming soon; not a landing gate).
     Wasm,
 }
@@ -186,6 +188,9 @@ fn main() -> ExitCode {
             Task::Gate {
                 which: Some(Gate::Features),
             } => ("gate features", Ok(features::run())),
+            Task::Gate {
+                which: Some(Gate::ShippedFeatures),
+            } => ("gate shipped-features", Ok(shipping::run())),
             Task::Gate {
                 which: Some(Gate::Wasm),
             } => ("gate wasm", Ok(gate::wasm())),

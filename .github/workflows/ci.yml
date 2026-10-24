@@ -400,51 +400,23 @@ jobs:
   # Android, iOS and the wasm client are coming soon. Their target-specific
   # checks are not part of desktop CI or release promotion.
 
-  # The desktop features `--workspace` never builds (`cargo dev gate features`, crates/baylee-dev/src/features.rs
-  # holds the matrix and says per feature why it gets the check it gets;
-  # `--all-features` is deliberately not the shortcut). The hole runs both
-  # ways: `devctl.rs` broke with every job green (#121), and a feature makes
-  # code live that `-D warnings` then flags. Main pushes and the nightly: the
-  # same script is a local gate before every landing.
-  #
-  # PostgreSQL is here for `dev-table`, a gateway feature
-  # and a gateway with no database refuses to start.
-  features:
+  # Development-feature builds/tests run locally before landing, not in CI.
+  # Only the release-relevant graph check remains: neither verification hook
+  # may reach shipped builds. This resolves feature graphs, without building
+  # the Bevy client or running the gateway suite a second time.
+  shipped-features:
     needs: changes
-    if: needs.changes.outputs.full == 'true'
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
-    # Run 39966346270 passed in 32 min; 40019996413 spent almost seven
-    # minutes installing Linux dependencies and hit the old 35 min limit
-    # during dev-table-test. Leave room for setup and the remaining checks.
-    timeout-minutes: 60
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: baylee
-          POSTGRES_PASSWORD: baylee
-          POSTGRES_DB: baylee
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U baylee -d baylee"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/linux-deps
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: rui314/setup-mold@v1
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: tests-debug
           save-if: false
-      - run: cargo dev gate features
+      - run: cargo dev gate shipped-features
 
   # Benches run so they never silently rot; the numbers land in the job log
   # for comparison against docs/perf-baseline.md (manual check — runner timing

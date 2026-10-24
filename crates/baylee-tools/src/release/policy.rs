@@ -16,7 +16,7 @@ pub(super) const REQUIRED_JOBS: [&str; 12] = [
     "clippy",
     "test",
     "test-release",
-    "features",
+    "shipped-features",
     "validate",
     "web-feedback",
     "deny",

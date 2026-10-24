@@ -160,9 +160,9 @@ push run of the tagged commit green (§"Cutting one").
 
 | Trigger | Runs |
 | --- | --- |
-| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, features, validate, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
+| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, shipped-features, validate, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
 | main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
-| pull request | fmt, and as their inputs changed: clippy, test ×2, validate, deny, web-feedback |
+| pull request | fmt, and as their inputs changed: clippy, test ×2, shipped-features, validate, deny, web-feedback |
 | pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
 | nightly | as a main push without packages, plus the five-platform `build` matrix |
 | `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
@@ -171,8 +171,14 @@ Current client releases support Windows, macOS and Linux. Android, iOS and
 browser/wasm are **coming soon** (owner, 24.10.2026). Their target-specific
 checks are outside CI, landing and release promotion: the Android dev-control
 check and wasm job are removed, and wasm is no longer a required release job.
-`cargo dev gate wasm` remains an explicit experimental command. The desktop
-feature matrix still checks that `fuzz` and `mutate` cannot reach shipped builds.
+`cargo dev gate wasm` remains an explicit experimental command.
+
+Development-feature builds and tests run **only locally** through
+`cargo dev gate features` before landing (owner, 24.10.2026). CI and release
+promotion instead require `shipped-features`: `cargo dev gate shipped-features`
+checks the dependency graphs to keep `fuzz` and `mutate` out of shipped builds,
+with the engine's dev graph as a positive control. It builds no development
+client and reruns no gateway tests; it needs no PostgreSQL or Linux GUI headers.
 
 `cargo dev ci-changes` decides what a diff touches (try it with
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
@@ -192,13 +198,11 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
-The feature job now has 60 minutes (24.10.2026). Run `39966346270` passed in
-32 minutes, including 795 seconds for `dev-table-test`; run `40019996413`
-spent almost seven minutes installing Linux dependencies and reached the
-old 35-minute limit during that same test step. Its completed feature
-checks had passed. The larger limit covers setup and the remaining desktop
-and server checks. Removing the Android shim's check, which took under a
-second in the green run, does not address this timeout by itself.
+The former feature job passed in 32 minutes in run `39966346270`, including
+795 seconds for `dev-table-test`. Run `40019996413` spent almost seven minutes
+installing Linux dependencies and hit its 35-minute limit during that same
+test step. Its completed checks had passed. The development matrix is now
+local-only; the release graph check above remains in CI.
 
 The `x86_64-apple-darwin` package row (added 12.10.2026) is the arm row's
 work cross-compiled on the same runner: 42–82 minutes over ten main pushes

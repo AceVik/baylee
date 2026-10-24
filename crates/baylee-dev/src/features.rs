@@ -1,4 +1,5 @@
-//! Every feature this workspace declares and `--workspace` never builds.
+//! The development-feature matrix for current desktop and server support.
+//! This matrix runs locally before landing; CI checks only shipped graphs.
 //!
 //! `clippy --workspace` and `test --workspace` compile each crate with its
 //! default features, so the non-default ones were compiled by nobody:

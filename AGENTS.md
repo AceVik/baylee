@@ -19,6 +19,8 @@ unofficial, non-commercial fan project.
   fast-forwards `main`. Wasm is an optional experimental check until browser
   support ships. A change lands after the local gates, not
   after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
+- **Development features are local-only.** CI runs no dev-feature matrix;
+  `shipped-features` only verifies that test hooks cannot reach shipped builds.
 - **Determinism.** The engine and core use the seeded RNG only; no
   `std::time`, `std::random`, `algebraic_*` floats or `HashMap` iteration in
   hot paths; the engine is synchronous (`docs/dev/conventions.md`).

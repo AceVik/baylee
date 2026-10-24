@@ -2,6 +2,13 @@
 use crate::run::{self, Steps, cargo_with};
 use std::time::Instant;
 
+/// The release-relevant feature check, without building development features.
+pub fn run() -> i32 {
+    let mut steps = Steps::default();
+    verification_hooks_unshipped(&mut steps);
+    steps.finish()
+}
+
 /// Neither verification hook may reach a build that ships. `mutate` is
 /// enabled by `baylee-engine`'s dev-dependencies alone and `fuzz` by nothing,
 /// so the feature graph without dev edges names neither. The engine's graph
