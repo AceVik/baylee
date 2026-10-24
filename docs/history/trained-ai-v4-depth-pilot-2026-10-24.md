@@ -228,3 +228,77 @@ Verbesserte Haus-KIs werden als neue Version in die nächste Liga aufgenommen;
 neue Lehrerpartien tragen ihre tatsächliche Herkunft. Geänderte Engine-Regeln
 erfordern erneut hashgeprüfte Replays. Damit profitieren Netz und Haus-KI
 voneinander, ohne dass ein wechselnder Gegner den Fortschritt verfälscht.
+
+## Abschluss: Tiefenpilot und gepaarte Vergleiche (24.10.2026)
+
+Beide Arme haben **1.000 Updates** erreicht; der nach Validierungs-Policy-Loss
+gewählte Checkpoint liegt jeweils bei Schritt 1.000. Alle neuen Trainings-,
+Export-, Evaluations- und Vergleichsjobs sind abgeschlossen. Der ursprüngliche
+CUDA-OOM-Job bleibt unverändert als `quarantined` erhalten; der dokumentierte
+Resume ab Schritt 900 lief mit `expandable_segments:True` bis zum Ende.
+`~/baylee-data/v4/experiments/depth12-20261024/result.json` enthält die
+Quell-/Checkpoint-/Ergebnis-Hashes, vollständigen gepaarten Unsicherheiten,
+Validierungswerte und den Expositionsaudit. **Keine Promotion.**
+
+Die folgenden Ergebnisse sind Policy-Ersetzungen gegen dieselben festen
+`sharp`-Hausgegner, kein direkter Zweikampf zwischen den Netzen. Die Suite
+verwendet bereits betrachtete Entwicklungsfamilien und Seeds. Siege sind
+absichtlich durch alle Fälle geteilt; Caps bleiben unbekannte Ausgänge und
+werden nicht als Remis umgedeutet. Remis und Caps stehen getrennt daneben.
+
+| Modell | Duell-Siege / 128 | Remis / Caps | Commander-Siege / 64 | Remis / Caps |
+| --- | ---: | ---: | ---: | ---: |
+| 8 Layer, K=1 | 33 | 0 / 0 | 5 | 7 / 3 |
+| 12 Layer, K=1 | 34 | 0 / 0 | 4 | 4 / 4 |
+| 12 Layer, K=4 | 35 | 0 / 0 | 3 | 5 / 4 |
+| Initiales v4 | 36 | 0 / 0 | 3 | 5 / 1 |
+| Historisches v3 (`rl-23`) | 42 | 0 / 0 | 6 | 5 / 0 |
+| Haus-Baseline `steady` | 60 | 0 / 0 | 15 | 6 / 0 |
+
+12 gegen 8 Layer verbessert fünf Duellfälle und verschlechtert vier;
+119 bleiben gleich. Der gepaarte Utility-Unterschied beträgt **+0,0078125**,
+das nach Tabelle/Seed/Decks geclusterte Bootstrap-95-%-Intervall
+**[-0,0390625; +0,0546875]**. Commander enthält vier ungeklärte Cap-Paare;
+das entsprechende Intervall ist **[-0,1484375; +0,15234375]**.
+Damit ist **kein statistisch belastbarer Tiefenvorteil nachgewiesen**.
+K=4 gewinnt gegenüber K=1 genau einen zusätzlichen Duellfall, ohne Regression;
+das Bootstrap-Intervall [0; +0,0234375] stützt bei diesem einzelnen Fall,
+64 Tabellen und wiederholt betrachteter Suite keinen robusten Vorteil.
+Commander: ein besserer, ein schlechterer und vier ungeklärte Fälle,
+Intervall [-0,19921875; +0,1484375]. Gegen v3 liegen beide Duell-Arme zurück:
+12 Layer 13 besser/21 schlechter, Intervall [-0,15625; +0,03125];
+8 Layer 12 besser/21 schlechter, Intervall [-0,15625; +0,015625].
+
+Der Value-Head ist weiterhin unzureichend. Validierungs-MSE:
+**0,160539 (12)** und **0,161857 (8)** gegenüber **0,121955** für den
+formatabhängigen Gleichverteilungsprior und **0,153021** beim initialen Modell.
+Die mittleren Vorhersagen fallen auf **0,068471 / 0,069014**, während das
+Outcome-Mittel **0,250093** beträgt. Besserer Policy-Validierungs-Loss
+(0,285288 / 0,286003 statt initial 0,297216) bedeutet hier weder bessere
+Kalibrierung noch nachgewiesen stärkere Spielweise.
+
+`value-prefix-audit.json` zeigt eine wesentliche Einschränkung dieses kurzen
+Piloten: Die identischen ersten 1.000 Sampler-Batches (Seed 31423, B=8, U=32)
+sehen nur **33/240 Spiele, 40/728 Sitztrajektorien und 255.495 Frames**.
+**84,5 %** der Frames sind Verlustlabels; die fünf längsten gesehenen
+Verlusttrajektorien liefern **53,0 %** aller Frames. Updates 201–300 enthalten
+kein positives Outcome. Das gewichtete Outcome-Mittel liegt bei **0,151741**
+gegenüber **0,229019** im vollständigen Trainingsbestand; die tatsächliche
+Normierung nach gültigen Bahnen und Zeitschritt ergibt nahezu identisch
+**0,151751**. Padding ist damit keine wesentliche Erklärung.
+Acht-Sitz-Partien liefern **69,4 %** des Präfixes, Duelle nur **4,7 %**;
+im Gesamtbestand sind es 42,5 % beziehungsweise 7,0 %. Das belegt starken
+Verlust-/Formatdruck aus wenigen persistenten Bahnen, erklärt aber nicht
+allein kausal die noch stärkere Value-Untervorhersage.
+
+Der nächste getrennte Versuch liegt unter
+`~/baylee-data/v4/experiments/critic-own-games-20261024/`: Eigene stochastische
+Partien des **nicht promovierten** 12-Layer-Forschungskandidaten werden
+gegen `steady` und `sharp` gesammelt (Temperatur 0,6, K=1). Geplant sind
+**248 Spiele: 152 Training, 96 Validierung**, getrennte Deck-Splits und sechs
+Konfigurationen: Duelle, Commander, Teams sowie FFA mit 3/6/8 Sitzen.
+Die Wahl dieses Kandidaten ist keine Behauptung, dass er den Tiefenvergleich
+gewonnen habe. Separates Critic-Head-Training bei eingefrorenem Actor und
+anschließender Kalibrierungsprüfung folgt erst auf diese Sammlung; es wird
+hier noch nicht als laufend oder erfolgreich bezeichnet. Caps und Fehler
+bleiben Befunde und erhalten keine erfundenen terminalen Draw-Labels.
