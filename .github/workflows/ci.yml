@@ -401,8 +401,9 @@ jobs:
   # checks are not part of desktop CI or release promotion.
 
   # Development-feature builds/tests run locally before landing, not in CI.
-  # Only the release-relevant graph check remains: neither verification hook
-  # may reach shipped builds. This resolves feature graphs, without building
+  # Only release-relevant graph checks remain: neither verification hook may
+  # reach shipped builds, and the reviewed bigint advisory scope must hold.
+  # This resolves dependency graphs, without building
   # the Bevy client or running the gateway suite a second time.
   shipped-features:
     needs: changes
@@ -526,4 +527,4 @@ jobs:
           # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
           # warning it opens an issue this read-only token may not write, so
           # the job went red on a notice that is not a vulnerability.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0344
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0344,RUSTSEC-2026-0387

@@ -1,12 +1,20 @@
-//! Keeps verification hooks out of every shipped feature graph.
+//! Release-relevant dependency checks, without building development features.
 use crate::run::{self, Steps, cargo_with};
 use std::time::Instant;
+
+mod bigint;
 
 /// The release-relevant feature check, without building development features.
 pub fn run() -> i32 {
     let mut steps = Steps::default();
-    verification_hooks_unshipped(&mut steps);
+    check(&mut steps);
     steps.finish()
+}
+
+/// Checks shipped hooks and the exact scope of the reviewed advisory exception.
+pub fn check(steps: &mut Steps) {
+    verification_hooks_unshipped(steps);
+    bigint::check(steps);
 }
 
 /// Neither verification hook may reach a build that ships. `mutate` is

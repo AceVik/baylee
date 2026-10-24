@@ -187,7 +187,7 @@ pub fn run() -> i32 {
     for (label, args) in CHECKS {
         quiet_step(&mut steps, label, &mut cargo_with(*args));
     }
-    crate::shipping::verification_hooks_unshipped(&mut steps);
+    crate::shipping::check(&mut steps);
     steps.finish()
 }
 

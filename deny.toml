@@ -22,6 +22,14 @@ ignore = [
     # and 0.20 both ask `ruzstd = "0.8.0"` (checked at the 0.20 upgrade);
     # drop this line with the bevy release that moves (accepted 13.10.2026).
     "RUSTSEC-2026-0344",
+    # crypto-bigint's timing advisory is unreachable in the reviewed Central
+    # Ristretto255/SHA-512 suite: OPRF and DH use curve25519-dalek arithmetic;
+    # the elliptic-curve helper reached here only expands hashes into bytes.
+    # This is restricted to the exact SDK pin, upstream versions and reverse
+    # dependency graph documented in docs/central-login.md. The mandatory
+    # shipped-features job rejects changes to that scope. elliptic-curve0.13
+    # requires bigint0.5; the upstream fix>=0.7.6 needs a compatible SDK update.
+    "RUSTSEC-2026-0387",
 ]
 
 [licenses]

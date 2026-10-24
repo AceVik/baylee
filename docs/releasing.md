@@ -179,6 +179,8 @@ promotion instead require `shipped-features`: `cargo dev gate shipped-features`
 checks the dependency graphs to keep `fuzz` and `mutate` out of shipped builds,
 with the engine's dev graph as a positive control. It builds no development
 client and reruns no gateway tests; it needs no PostgreSQL or Linux GUI headers.
+The same job validates the exact dependency scope of the reviewed
+`crypto-bigint` advisory exception (`docs/central-login.md` §"Bigint advisory scope").
 
 `cargo dev ci-changes` decides what a diff touches (try it with
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a

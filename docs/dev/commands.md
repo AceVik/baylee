@@ -13,7 +13,7 @@ DATABASE_URL=… cargo dev gate                 # full gate as CI: fmt --check, 
 cargo dev gate rules                          # while working: fmt, lint-rules, test-rules, validate (if data/scryfall-cache)
 cargo dev gate touched [<rev>]                # fmt + clippy on changed files only; not a gate
 DATABASE_URL=… cargo dev gate features        # non-default desktop and server features
-cargo dev gate shipped-features               # release graph only: no fuzz/mutate in shipped builds
+cargo dev gate shipped-features               # release graphs: shipped hooks and reviewed advisory scope
 cargo dev gate wasm                           # optional experimental browser check (coming soon)
 DATABASE_URL=… cargo dev land [--check]       # full + features under the cargo lock, then ff-push to main
 cargo dev --help                              # every development task (crates/baylee-dev); `cargo tools --help` the release/asset tools

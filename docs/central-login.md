@@ -16,6 +16,43 @@ discards remote diagnostics. Passwords and central sessions are never forwarded
 to arbitrary saved gateways. OPAQUE and authenticated client encryption are in
 the reusable Central libraries, not a client-defined password hash scheme.
 
+## Bigint advisory scope
+
+[RUSTSEC-2026-0387](https://github.com/RustSec/advisory-db/blob/main/crates/crypto-bigint/RUSTSEC-2026-0387.md)
+reports variable-time arithmetic in `crypto-bigint`, fixed in 0.7.6. The
+current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
+`voprf` 0.5.0 and `opaque-ke` 4.0.1. The elliptic-curve dependency requires
+bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
+
+The specific Central revision
+`efc6731164add14094c11725a01b1f01facdaf9e` was reviewed independently by two
+models on 24.10.2026. Its private, fixed `central-crypto::opaque::Suite`
+selects Ristretto255 for OPRF and Triple-DH, with SHA-512. Both upstream
+Ristretto implementations use `curve25519-dalek` points and scalars for the
+secret arithmetic, including reduction and inversion. The reached
+`elliptic-curve::hash2curve::ExpandMsgXmd` helper and its domain handling use
+hashes, byte arrays, XOR and public lengths; they perform no bigint arithmetic.
+Its `U256` is a typenum length, not `crypto_bigint::U256`. The affected
+arithmetic is therefore unreachable through this reviewed fixed suite; this
+is not a general safety claim for bigint 0.5.5.
+
+`deny.toml` and the audit job exclude this advisory only under that reviewed
+scope. The required `shipped-features` job and local feature gate run
+`crypto-bigint-scope`: Cargo metadata resolves all features, including inactive
+optional consumers, without compiling them. It must name the exact registry versions
+above and the exact Central source revision. Reverse dependencies must remain
+`crypto-bigint ← elliptic-curve ← opaque-ke/voprf ← central-crypto`, with no
+additional consumers. Changed sources, versions or consumers fail the gate
+and require re-review or removal of the exception. The guard checks the
+resolved dependency graph without building the client or changing crypto.
+
+Sources reviewed: Central's pinned `crates/central-crypto/src/opaque.rs`;
+`opaque-ke`'s `key_exchange/group/ristretto255.rs`; `voprf`'s
+`group/ristretto.rs`; and `elliptic-curve`'s hash-to-field message-expansion
+and domain implementations. The lasting upgrade path is a compatible
+upstream SDK migration to a fixed bigint dependency, with protocol and
+stored-credential compatibility checked before changing the suite.
+
 ## Legacy migration
 
 Only an explicit live Central discovery response permits the last legacy proof
