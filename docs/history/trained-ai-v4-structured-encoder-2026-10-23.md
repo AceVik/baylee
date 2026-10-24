@@ -259,3 +259,72 @@ continuation, immutable cache reuse, rejection of validation/unverified games,
 truncated gzip members and broken trajectory cursors/terminal markers. The Rust
 streaming equivalence test compares every frame field against the collecting
 implementation on duel and team records and checks corrupted-hash/output errors.
+
+## Completed overnight run and follow-up — 24 October 2026
+
+The entire streaming conversion completed: **847 games, 6,620,782 training and
+3,072,672 validation frames, zero rejected games and zero unencoded decisions**.
+Six workers took **1,850.2 seconds** at **318,213,120 bytes peak PSS (303.5 MiB)**.
+The package consumer trained all **746 training games**, once across **13
+packages**, with **27,483 optimizer updates** in addition to the earlier bootstrap.
+Training ran from 22:34:37 to 04:31:09 local time; export and comparison finished
+at **04:38 on 24 October**. Every guarded package job completed successfully.
+The producer's five-hour wall time includes waiting behind its two-package
+queue; conversion itself was finished at 22:56.
+
+The combined validation score selected the first package's checkpoint, not the
+last. Its lower value MSE (**0.196719**, initial **0.270361**) outweighed worse
+policy loss (**0.466489**, initial **0.462767**) and lower active-choice accuracy
+(**40.80%**, initial **43.88%**). This is a useful calibration diagnostic, but
+an unsuitable sole proxy for playing strength. ONNX parity passed 143 frames
+at maximum absolute error **2.57e-5**.
+
+| Same-start K=1 games against Sharp | Previous v4 reference | Combined-score selection |
+| --- | ---: | ---: |
+| Duel wins / 128 | 31 | 19 |
+| Commander wins / 64 | 10 | 5 |
+
+Paired duels have **6 improvements, 18 regressions and 104 ties**. Commander has
+**4 improvements, 9 regressions, 49 ties and 2 unresolved capped pairs**. There
+were no refused actions, but fallback/stall events remain; the selected candidate
+has one capped Commander game, as does the reference. These are substitutions
+against fixed opponents, not direct games between the two networks. Neither
+policy is promoted, and this run establishes no playing-strength improvement.
+
+The review also found an unintended source-order curriculum in the package
+producer. After the converter got ahead, sorting ready game IDs overrode the
+shuffled replay schedule. Package 0002 was exclusively duels, 0004 exclusively
+2v2, 0006 exclusively 4-player FFA, and 0010/0011 exclusively eight-seat games.
+This can shift the training distribution substantially between packages; it is
+a plausible contributor, not yet an isolated causal explanation of the regression.
+
+Commit `134a2f565` fixes that ordering. Ready games are seeded within source runs;
+whole-game virtual finish times mix sources according to available frame shares.
+Including the upcoming game's length avoids front-loading long games at every
+package boundary. Unequal game sizes and readiness prevent exact per-package
+proportions. A complete planning pass preserves **all 746 games and 6,620,782
+frames exactly once**; `mixed-package-plan-v2.json` records its composition.
+The full Python suite passes **45 tests**, including source mixing, deterministic
+selection independent of input enumeration, and no dropped/duplicated games.
+
+`selection-diagnostic-v1/` now compares two prespecified additional checkpoints:
+the last package and package 0005, which has the lowest validation policy loss.
+Both use the same frozen engine, seeds, decks and K=1 protocol, with exports in
+separate directories. The last package's duel result is **24/128**, with 5 paired
+improvements, 12 regressions and 111 ties. Further results are written to
+`selection-diagnostic-v1/results.json`; checks still running are not counted as
+completed evidence. These repeated comparisons remain tuning diagnostics.
+
+While those GPU comparisons run, `mixed-pilot-v2/prepare.py` prepares a single
+mixed package targeting one million frames. Its continuation waits for both
+preparation and diagnostics, then trains one full epoch at **1e-5**, half the
+preceding rate. It starts from the migrated original reference unless a diagnosed
+checkpoint wins at least as many games in both modes, has no additional caps or
+refusals, and improves the combined win fraction. This chooses an experimental
+initialization only. Optimizer and trajectory state start fresh. The final pilot
+checkpoint is exported and tested directly in 128 duel / 64 Commander games;
+there is no selection among intermediate value scores and no automatic promotion.
+Changing mixture and learning rate together makes this a bounded corrective
+pilot, not a causal ablation. Runtime `package-runtime-v2/` freezes sources at
+`134a2f565`; preparation, training and comparisons have separate guarded jobs.
+`mixed-pilot-v2/status.json` and the shared active pointer track its continuation.
