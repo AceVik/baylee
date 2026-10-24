@@ -194,8 +194,19 @@ Das erste fertige Paket enthält 59 Partien/506.954 Frames, das zweite
 61 Partien/520.184 Frames. Alle 32 festen Validierungspartien sind neu
 hashgeprüft: 475.248 Frames, null Abweisungen oder unkodierte Entscheidungen.
 Ihr CPU-Cache wurde parallel zum vorherigen GPU-Spielvergleich vorbereitet.
-Der komplette Bestand umfasst 240 Trainingspartien; längere Rest-Replays
-und die auf zwei Pakete begrenzte CPU-Vorbereitung laufen unabhängig weiter.
+Der komplette Bestand ist nun ebenfalls fertig: **240 Trainingspartien,
+3.753.658 Frames, 531.888 Haus-Policyentscheidungen**, null abgewiesene Spiele,
+null unkodierte Entscheidungen. Weitere 146.459 erzwungene Entscheidungen
+werden als solche gezählt, nicht als Policylabels emittiert. Das Replay
+dauerte 1.247,5 Sekunden parallel zum GPU-Kontrolllauf. Die auf zwei Pakete
+begrenzte CPU-Vorbereitung läuft unabhängig vom GPU-Verbrauch weiter.
+Nach der vollständigen Ausgangsvalidierung sind die ersten 25 GPU-Lernupdates
+nachgewiesen, ohne OOM oder Allocator-Retry. Die neue Wahlmetrik erfasst
+68.498 SingleChoice-Fragen der Validierung (90,207 % Lehrerübereinstimmung);
+sie ist keine Spielstärkemessung. Der Policy-Loss des Startmodells bleibt
+mit 0,2972155 praktisch identisch zur alten Messung, passend zum Audit:
+die defensive Behandlung erzwungener Policyzeilen ändert diesen Datenbestand
+nicht. Ab jetzt bleiben die Laufartefakte die Quelle für neue Ergebnisse.
 
 1. Getesteten Quellstand, Binaries, Pythonmodule und Katalog einfrieren.
    Startgewichte vom bisherigen Referenzmodell übernehmen, nicht vom im
