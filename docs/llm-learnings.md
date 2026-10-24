@@ -5687,3 +5687,14 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   - `chains.rs` / `targets.rs`: Claimed `TargetsWithDefinedController` on `ChangeZone` from `Graveyard` when it is `"You"` or when it is `"TriggeredCardController"` and the target filter already narrows to `PlayerRel::You` (unblocking `Junk Diver` as machine-owned).
 - **Tools**:
   - `cargo tools hooks require-card-tests` reads a JSON hook payload from `stdin` (e.g., `echo '{}' | cargo tools hooks require-card-tests`); invoking it interactively without piping `stdin` blocks waiting for EOF.
+
+## 2026-10-24 — Urza's Destiny Batch 3 (`Plague Dogs` through `Telepathic Spies`)
+
+- **Cards**: Added the next 25 absent first-printing identities in `uds` ledger order (`Plague Dogs` through `Telepathic Spies`): **9 `Coverage::Implemented`, 7 `Coverage::Partial`, 9 `Coverage::Unimplemented` (stubs)**.
+  - **Machine-owned (`Coverage::Implemented`, 5)**: `Plague Dogs`, `Powder Keg`, `Private Research`, `Solidarity`, `Taunting Elf`.
+  - **Hand-owned (`Coverage::Implemented`, 4)**: `Reckless Abandon`, `Repercussion`, `Sigil of Sleep`, `Telepathic Spies`.
+  - **Hand-owned (`Coverage::Partial`, 7)**: `Quash`, `Rapid Decay`, `Rayne, Academy Chancellor`, `Replenish`, `Scour`, `Sowing Salt`, `Splinter`.
+  - **Unimplemented stubs (`Coverage::Unimplemented`, 9)**: `Plow Under` (putting two target lands on top of their owners' libraries not supported), `Rofellos's Gift`, `Scent of Brine`, `Scent of Cinder`, `Scent of Ivy`, `Scent of Jasmine`, `Scent of Nightshade` (variable-count hand reveal and revealed-card scaling not supported), `Scrying Glass` (choosing a number greater than 0 and a color and counting matching revealed hand cards not supported), `Storage Matrix` (untap-step type choice and untap restriction not supported).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `chains.rs`: Extended `"DestroyAll"` to transcode `.cmcEQX` across comma-separated alternatives of `ValidCards` into `Effect::DestroyAllWithManaValue { filter, value }` when `NoRegen` is absent (unblocking `Powder Keg` as machine-owned).
+  - `constants.rs`: Mapped `"All creatures able to block CARDNAME do so."` in `keyword_static` to `Modifier::MustBeBlockedByAllAble` (unblocking `Taunting Elf` as machine-owned).

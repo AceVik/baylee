@@ -60,6 +60,7 @@ mod mystic_compass;
 mod null_rod;
 mod pearl_medallion;
 mod phyrexian_splicer;
+mod powder_keg;
 mod relic_barrier;
 mod ruby_medallion;
 mod sapphire_medallion;

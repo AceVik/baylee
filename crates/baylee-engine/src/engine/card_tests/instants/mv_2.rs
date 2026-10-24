@@ -100,6 +100,7 @@ mod price_of_progress;
 mod provoke;
 mod raise_the_alarm;
 mod rally;
+mod rapid_decay;
 mod razorgrass_ambush;
 mod reality_anchor;
 mod reality_ripple;

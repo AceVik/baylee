@@ -162,6 +162,7 @@ mod striking_sliver;
 mod sunshower_druid;
 mod suntail_hawk;
 mod sylvan_safekeeper;
+mod taunting_elf;
 mod thallid;
 mod thornscape_apprentice;
 mod thunderscape_apprentice;

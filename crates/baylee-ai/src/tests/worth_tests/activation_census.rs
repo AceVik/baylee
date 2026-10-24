@@ -335,7 +335,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // pins those exact members rather than widening a reader budget.
     // Urza's Destiny (`uds`) Batch 2 adds 1 non-mana activated ability on
     // Goblin Festival (0 of 1 read by the evaluator).
-    assert_eq!((read, of), (2782, 3493), "activated/loyalty reader census");
+    // Urza's Destiny (`uds`) Batch 3 adds 3 non-mana activated abilities on
+    // Plague Dogs, Powder Keg, and Rapid Decay (2 of 3 read by the evaluator).
+    assert_eq!((read, of), (2784, 3496), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

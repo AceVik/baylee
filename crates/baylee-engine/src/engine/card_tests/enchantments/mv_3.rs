@@ -80,6 +80,7 @@ mod overgrown_estate;
 mod phyrexian_arena;
 mod prismatic_circle;
 mod raiding_party;
+mod repercussion;
 mod retaliation;
 mod retreat_to_kazandu;
 mod rhystic_study;

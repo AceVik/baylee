@@ -118,6 +118,7 @@ mod peregrine_drake;
 mod phyrexian_plaguelord;
 mod pinnacle_monk;
 mod pirate_ship;
+mod plague_dogs;
 mod plated_rootwalla;
 mod plated_spider;
 mod primaris_eliminator;

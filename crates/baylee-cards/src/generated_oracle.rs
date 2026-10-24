@@ -11294,51 +11294,118 @@ pub static ORACLE: &[&[&str]] = &[
     &["{B}: Regenerate this creature."],
     // Phyrexian Negator
     &["Trample\nWhenever this creature is dealt damage, sacrifice that many permanents."],
-    &[],
+    // Plague Dogs
+    &[
+        "When this creature dies, all creatures get -1/-1 until end of turn.\n{2}, Sacrifice this creature: Draw a card.",
+    ],
     // Plated Spider
     &["Reach (This creature can block creatures with flying.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Plow Under
+    &["Put two target lands on top of their owners' libraries."],
+    // Powder Keg
+    &[
+        "At the beginning of your upkeep, you may put a fuse counter on this artifact.\n{T}, Sacrifice this artifact: Destroy each artifact and creature with mana value equal to the number of fuse counters on this artifact.",
+    ],
+    // Private Research
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a page counter on this Aura.\nWhen enchanted creature dies, draw a card for each page counter on this Aura.",
+    ],
+    // Quash
+    &[
+        "Counter target instant or sorcery spell. Search its controller's graveyard, hand, and library for all cards with the same name as that spell and exile them. Then that player shuffles.",
+    ],
+    // Rapid Decay
+    &[
+        "Exile up to three target cards from a single graveyard.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Rayne, Academy Chancellor
+    &[
+        "Whenever you or a permanent you control becomes the target of a spell or ability an opponent controls, you may draw a card. You may draw an additional card if Rayne is enchanted.",
+    ],
+    // Reckless Abandon
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nReckless Abandon deals 4 damage to any target.",
+    ],
     // Reliquary Monk
     &["When this creature dies, destroy target artifact or enchantment."],
-    &[],
-    &[],
+    // Repercussion
+    &[
+        "Whenever a creature is dealt damage, this enchantment deals that much damage to that creature's controller.",
+    ],
+    // Replenish
+    &[
+        "Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)",
+    ],
     // Rescue
     &["Return target permanent you control to its owner's hand."],
-    &[],
+    // Rofellos's Gift
+    &[
+        "Reveal any number of green cards in your hand. Return an enchantment card from your graveyard to your hand for each card revealed this way.",
+    ],
     // Rofellos, Llanowar Emissary
     &["{T}: Add {G} for each Forest you control."],
     // Sanctimony
     &["Whenever an opponent taps a Mountain for mana, you may gain 1 life."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Scent of Brine
+    &[
+        "Reveal any number of blue cards in your hand. Counter target spell unless its controller pays {1} for each card revealed this way.",
+    ],
+    // Scent of Cinder
+    &[
+        "Reveal any number of red cards in your hand. Scent of Cinder deals X damage to any target, where X is the number of cards revealed this way.",
+    ],
+    // Scent of Ivy
+    &[
+        "Reveal any number of green cards in your hand. Target creature gets +X/+X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Scent of Jasmine
+    &[
+        "Reveal any number of white cards in your hand. You gain 2 life for each card revealed this way.",
+    ],
+    // Scent of Nightshade
+    &[
+        "Reveal any number of black cards in your hand. Target creature gets -X/-X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Scour
+    &[
+        "Exile target enchantment. Search its controller's graveyard, hand, and library for all cards with the same name as that enchantment and exile them. Then that player shuffles.",
+    ],
+    // Scrying Glass
+    &[
+        "{3}, {T}: Choose a number greater than 0 and a color. Target opponent reveals their hand. If that opponent reveals exactly the chosen number of cards of the chosen color, you draw a card.",
+    ],
     // Serra Advocate
     &["Flying\n{T}: Target attacking or blocking creature gets +2/+2 until end of turn."],
-    &[],
+    // Sigil of Sleep
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to a player, return target creature that player controls to its owner's hand.",
+    ],
     // Skittering Horror
     &["When you cast a creature spell, sacrifice this creature."],
     // Slinking Skirge
     &["Flying\n{2}, Sacrifice this creature: Draw a card."],
-    &[],
+    // Solidarity
+    &["Creatures you control get +0/+5 until end of turn."],
     // Soul Feast
     &["Target player loses 4 life and you gain 4 life."],
-    &[],
-    &[],
+    // Sowing Salt
+    &[
+        "Exile target nonbasic land. Search its controller's graveyard, hand, and library for all cards with the same name as that land and exile them. Then that player shuffles.",
+    ],
+    // Splinter
+    &[
+        "Exile target artifact. Search its controller's graveyard, hand, and library for all cards with the same name as that artifact and exile them. Then that player shuffles.",
+    ],
     // Squirming Mass
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
-    &[],
-    &[],
-    &[],
+    // Storage Matrix
+    &[
+        "As long as this artifact is untapped, each player chooses artifact, creature, or land during their untap step. That player can untap only permanents of the chosen type this step.",
+    ],
+    // Taunting Elf
+    &["All creatures able to block this creature do so."],
+    // Telepathic Spies
+    &["When this creature enters, look at target opponent's hand."],
     // Temporal Adept
     &["{U}{U}{U}, {T}: Return target permanent to its owner's hand."],
     // Tethered Griffin
