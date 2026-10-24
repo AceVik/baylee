@@ -310,13 +310,21 @@ selection independent of input enumeration, and no dropped/duplicated games.
 `selection-diagnostic-v1/` now compares two prespecified additional checkpoints:
 the last package and package 0005, which has the lowest validation policy loss.
 Both use the same frozen engine, seeds, decks and K=1 protocol, with exports in
-separate directories. The last package's duel result is **24/128**, with 5 paired
-improvements, 12 regressions and 111 ties. Further results are written to
-`selection-diagnostic-v1/results.json`; checks still running are not counted as
-completed evidence. These repeated comparisons remain tuning diagnostics.
+separate directories. The last package's results are **24/128 duels** and **9/64
+Commander wins**. Its paired duel changes are 5 improvements, 12 regressions and
+111 ties; Commander has 5 improvements, 7 regressions, 50 ties and 2 unresolved
+capped pairs. Package 0005 has **30/128 duel wins**, with 8 improvements,
+9 regressions and 111 ties; Commander has **6/64 wins**, one draw, zero capped
+games, and 2 paired improvements, 6 regressions, 55 ties and 1 unresolved pair.
+Both diagnostic comparisons completed without refused actions. Thus
+neither alternative qualifies to replace the original pilot initialization under
+the stated per-mode threshold. Complete results are in
+`selection-diagnostic-v1/results.json`. These repeated comparisons remain tuning
+diagnostics.
 
 While those GPU comparisons run, `mixed-pilot-v2/prepare.py` prepares a single
-mixed package targeting one million frames. Its continuation waits for both
+mixed package: **125 games / 1,025,727 frames**, including duels, teams, and
+3/4/6/8-seat FFA. Its continuation waits for both
 preparation and diagnostics, then trains one full epoch at **1e-5**, half the
 preceding rate. It starts from the migrated original reference unless a diagnosed
 checkpoint wins at least as many games in both modes, has no additional caps or
@@ -328,3 +336,6 @@ Changing mixture and learning rate together makes this a bounded corrective
 pilot, not a causal ablation. Runtime `package-runtime-v2/` freezes sources at
 `134a2f565`; preparation, training and comparisons have separate guarded jobs.
 `mixed-pilot-v2/status.json` and the shared active pointer track its continuation.
+Preparation completed in **155.1 seconds** at **88.3 MiB peak PSS**. The diagnostic
+finished, the controller selected `initial`, and the new GPU training job has
+started; its training and playing-strength results are still pending.
