@@ -387,7 +387,11 @@ impl Tx<'_> {
     /// graveyard unless the Oracle text explicitly scopes it to "your
     /// graveyard" (Misery Charm). The rest of the valid-string is the card's
     /// filter.
-    pub(super) fn graveyard_target(&mut self, valid: &str) -> Option<String> {
+    pub(super) fn graveyard_target(
+        &mut self,
+        valid: &str,
+        defined_controller: Option<&str>,
+    ) -> Option<String> {
         let mut whose = "PlayerRel::EachPlayer";
         let mut cleaned_alts = Vec::new();
         for alt in valid.split(',') {
@@ -427,6 +431,12 @@ impl Tx<'_> {
             {
                 whose = "PlayerRel::You";
             }
+        }
+        match defined_controller {
+            None => {}
+            Some("You") => whose = "PlayerRel::You",
+            Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+            Some(_) => return None,
         }
         let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
         let filter = self.body.filter_static("TARGET", &filter);

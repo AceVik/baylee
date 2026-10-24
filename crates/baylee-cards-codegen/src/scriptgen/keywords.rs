@@ -34,6 +34,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Cumulative upkeep:") {
             return self.cumulative_upkeep(rest);
         }
+        if let Some(rest) = line.strip_prefix("Echo:") {
+            return self.echo(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -204,6 +207,34 @@ impl Tx<'_> {
             }
         }
         self.deny(format!("cumulative upkeep `{raw}`"))
+    }
+
+    /// `K:Echo:<cost>` (CR 702.30a): "At the beginning of your upkeep, if this
+    /// permanent came under your control since the beginning of your last
+    /// upkeep, sacrifice it unless you pay its echo cost."
+    pub(super) fn echo(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let raw = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("echo `{rest}`"));
+        }
+        let tokens: Vec<String> = super::cost_parts(raw);
+        if !tokens.is_empty()
+            && tokens.iter().all(|t| {
+                t.chars().all(|c| c.is_ascii_digit())
+                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+            })
+        {
+            let (mana, parts) = self.cost_pieces(raw)?;
+            if parts.is_empty() && !mana.is_empty() {
+                self.body
+                    .abilities
+                    .push(format!("AbilityDef::Echo {{ cost: mana!(\"{mana}\") }}"));
+                return Some(());
+            }
+        }
+        self.deny(format!("echo `{raw}`"))
     }
 
     /// `K:Equip:<cost>` as the activated ability the keyword is.

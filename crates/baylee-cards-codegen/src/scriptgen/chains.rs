@@ -145,7 +145,8 @@ impl Tx<'_> {
         // different zones), so the zone the line moves *from* decides
         // the spec before the valid-string is read.
         let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
-            self.graveyard_target(valid)
+            let defined_ctrl = p.take("TargetsWithDefinedController");
+            self.graveyard_target(valid, defined_ctrl.as_deref())
         } else {
             // "Target spell or permanent" (the Laces): the stack is a
             // zone a target may be chosen in only where the line says

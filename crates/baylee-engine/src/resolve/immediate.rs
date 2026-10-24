@@ -1425,15 +1425,30 @@ pub(super) fn exec_immediate(
         }
         Effect::GainControlAll { filter, to } => {
             let player = players_of(to, state, you, res).first().copied()?;
-            let changes: Vec<(ObjectId, PlayerId)> = state
-                .battlefield_seen()
-                .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
-                })
-                .map(|id| (id, player))
-                .collect();
+            let changes: Vec<(ObjectId, PlayerId)> =
+                if matches!(filter, baylee_cards_dsl::Filter::This) {
+                    subjects::source(state, res)
+                        .filter(|s| subjects::on_battlefield(state, *s))
+                        .map(|s| (s.object, player))
+                        .into_iter()
+                        .collect()
+                } else {
+                    state
+                        .battlefield_seen()
+                        .filter(|id| {
+                            state.object(*id).is_some_and(|o| {
+                                eval::matches_with_context(
+                                    filter,
+                                    state,
+                                    o,
+                                    you,
+                                    res.rule_context(),
+                                )
+                            })
+                        })
+                        .map(|id| (id, player))
+                        .collect()
+                };
             super::gain_control(state, &changes);
             None
         }

@@ -246,6 +246,16 @@ impl Tx<'_> {
                 let valid = p.take("ValidPlayer");
                 let whose = match valid.as_deref() {
                     None => Some("PlayerRel::EachPlayer"),
+                    Some("You") if step == "StepKind::End" => {
+                        let lower = self.oracle.to_ascii_lowercase();
+                        if lower.contains("at the beginning of the end step")
+                            && !lower.contains("your end step")
+                        {
+                            Some("PlayerRel::EachPlayer")
+                        } else {
+                            Some("PlayerRel::You")
+                        }
+                    }
                     Some(who) => self.player_rel(Some(who)),
                 };
                 let Some(whose) = whose else {

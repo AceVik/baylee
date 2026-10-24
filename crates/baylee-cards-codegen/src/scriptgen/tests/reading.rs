@@ -1414,3 +1414,41 @@ fn pump_all_and_nonbasic_landwalk_and_graveyard_gain_control_read() {
         reanimate.abilities[0]
     );
 }
+
+#[test]
+fn echo_keyword_defined_graveyard_controller_and_each_end_step_oracle_read() {
+    let echo = read("K:Echo:2 R R");
+    assert_eq!(
+        echo.abilities,
+        ["AbilityDef::Echo { cost: mana!(\"{2}{R}{R}\") }"]
+    );
+    assert!(refused("K:Echo:PayLife<2>"));
+
+    let diver = read(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact.Other | TargetsWithDefinedController$ TriggeredCardController\n\
+         Oracle:When this creature dies, return another target artifact card from your graveyard to your hand.",
+    );
+    assert!(
+        diver.abilities[0].contains("TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)"),
+        "{}",
+        diver.abilities[0]
+    );
+    assert!(refused(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact.Other | TargetsWithDefinedController$ TriggeredCardController\n\
+         Oracle:When this creature dies, return another target artifact card from a graveyard to your hand.",
+    ));
+
+    let mark = read(
+        "T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigBounce\n\
+         SVar:TrigBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Defined$ Self\n\
+         Oracle:At the beginning of the end step, return this Aura to its owner's hand.",
+    );
+    assert!(
+        mark.abilities[0]
+            .contains("Trigger::StepBegin { step: StepKind::End, whose: PlayerRel::EachPlayer }"),
+        "{}",
+        mark.abilities[0]
+    );
+}
