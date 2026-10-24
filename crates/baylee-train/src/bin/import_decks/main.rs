@@ -79,6 +79,10 @@ struct CardAdaptation {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent properties in the existing deck manifest schema"
+)]
 struct ManifestDeckEntry {
     id: String,
     name: String,
@@ -125,6 +129,10 @@ struct RejectedDeckEntry {
 }
 
 #[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent validation and provenance properties mirror the manifest"
+)]
 struct CandidateDeck {
     id: String,
     name: String,
@@ -153,405 +161,14 @@ struct CandidateDeck {
     forced_split: Option<(String, String)>,
 }
 
-fn color_string(cs: ColorSet) -> String {
-    let mut s = String::new();
-    for (c, ch) in [
-        (Color::White, 'W'),
-        (Color::Blue, 'U'),
-        (Color::Black, 'B'),
-        (Color::Red, 'R'),
-        (Color::Green, 'G'),
-    ] {
-        if cs.contains(c) {
-            s.push(ch);
-        }
-    }
-    if s.is_empty() { "C".to_string() } else { s }
-}
-
-fn compute_multiset(main: &[CardIndex], commanders: &[CardIndex]) -> BTreeMap<CardIndex, u32> {
-    let mut m = BTreeMap::new();
-    for &c in main.iter().chain(commanders) {
-        *m.entry(c).or_insert(0) += 1;
-    }
-    m
-}
-
-fn compute_deck_hash(multiset: &BTreeMap<CardIndex, u32>, commanders: &[CardIndex]) -> String {
-    let mut hasher = Sha256::new();
-    for (&cid, &cnt) in multiset {
-        hasher.update(cid.get().to_le_bytes());
-        hasher.update(cnt.to_le_bytes());
-    }
-    hasher.update(0xFF_u32.to_le_bytes());
-    let mut cmds: Vec<u32> = commanders.iter().map(|c| c.get()).collect();
-    cmds.sort_unstable();
-    for c in cmds {
-        hasher.update(c.to_le_bytes());
-    }
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(32);
-    for b in &digest[..16] {
-        let _ = write!(hex, "{b:02x}");
-    }
-    hex
-}
-
-fn multiset_jaccard(a: &BTreeMap<CardIndex, u32>, b: &BTreeMap<CardIndex, u32>) -> f64 {
-    let mut inter = 0_u64;
-    let mut union = 0_u64;
-    let mut it_a = a.iter().peekable();
-    let mut it_b = b.iter().peekable();
-    while it_a.peek().is_some() || it_b.peek().is_some() {
-        match (it_a.peek(), it_b.peek()) {
-            (Some(&(&ka, &va)), Some(&(&kb, &vb))) => {
-                if ka == kb {
-                    inter += u64::from(va.min(vb));
-                    union += u64::from(va.max(vb));
-                    it_a.next();
-                    it_b.next();
-                } else if ka < kb {
-                    union += u64::from(va);
-                    it_a.next();
-                } else {
-                    union += u64::from(vb);
-                    it_b.next();
-                }
-            }
-            (Some(&(_, &va)), None) => {
-                union += u64::from(va);
-                it_a.next();
-            }
-            (None, Some(&(_, &vb))) => {
-                union += u64::from(vb);
-                it_b.next();
-            }
-            (None, None) => break,
-        }
-    }
-    if union == 0 {
-        0.0
-    } else {
-        inter as f64 / union as f64
-    }
-}
-
-/// Classifies a deck's primary archetype and multi-label strategy tags (§12)
-/// from its actual card definitions (`baylee_cards::by_index`).
-fn classify_deck_strategy(
-    main: &[CardIndex],
-    commanders: &[CardIndex],
-) -> (String, Vec<String>, ColorSet) {
-    let mut colors = ColorSet::EMPTY;
-    let mut nonland = 0_usize;
-    let mut creatures = 0_usize;
-    let mut artifacts = 0_usize;
-    let mut enchantments = 0_usize;
-    let mut instants_sorceries = 0_usize;
-    let mut lands = 0_usize;
-    let mut cmc_sum = 0_u32;
-    let mut low_cmc_creatures = 0_usize;
-    let mut big_drops = 0_usize;
-
-    let mut token_makers = 0_usize;
-    let mut counter_synergy = 0_usize;
-    let mut graveyard_reanim = 0_usize;
-    let mut sacrifice_cards = 0_usize;
-    let mut blink_etb = 0_usize;
-    let mut ramp_mana = 0_usize;
-    let mut subtype_counts: BTreeMap<u16, usize> = BTreeMap::new();
-
-    for &cid in main.iter().chain(commanders) {
-        let Some(def) = baylee_cards::by_index(cid) else {
-            continue;
-        };
-        colors = colors.union(def.color_identity);
-        let face = &def.faces[0];
-        if face.types.contains(TypeSet::LAND) {
-            lands += 1;
-            continue;
-        }
-        nonland += 1;
-        let cmc = face.mana_cost.cmc();
-        cmc_sum += cmc;
-        if cmc >= 6 {
-            big_drops += 1;
-        }
-        if face.types.contains(TypeSet::CREATURE) {
-            creatures += 1;
-            if cmc <= 2 {
-                low_cmc_cmc_inc(&mut low_cmc_creatures);
-            }
-            for st in face.subtypes {
-                *subtype_counts.entry(st.get()).or_insert(0) += 1;
-            }
-        }
-        if face.types.contains(TypeSet::ARTIFACT) {
-            artifacts += 1;
-        }
-        if face.types.contains(TypeSet::ENCHANTMENT) {
-            enchantments += 1;
-        }
-        if face.types.contains(TypeSet::INSTANT) || face.types.contains(TypeSet::SORCERY) {
-            instants_sorceries += 1;
-        }
-        inspect_def_mechanics(
-            def,
-            &mut token_makers,
-            &mut counter_synergy,
-            &mut graveyard_reanim,
-            &mut sacrifice_cards,
-            &mut blink_etb,
-            &mut ramp_mana,
-        );
-    }
-
-    let avg_cmc = if nonland > 0 {
-        f64::from(cmc_sum) / nonland as f64
-    } else {
-        3.0
-    };
-    let creature_share = if nonland > 0 {
-        creatures as f64 / nonland as f64
-    } else {
-        0.5
-    };
-
-    let primary = if avg_cmc <= 2.45 && creature_share >= 0.55 {
-        "aggro"
-    } else if creature_share <= 0.32 && instants_sorceries >= nonland / 3 {
-        "control"
-    } else if ramp_mana >= 6 && (big_drops >= 5 || avg_cmc >= 3.4) {
-        "ramp"
-    } else {
-        "midrange"
-    };
-
-    let mut tags = vec![primary.to_string()];
-    if low_cmc_creatures >= 10 && instants_sorceries >= 10 {
-        tags.push("tempo".to_string());
-    }
-    if instants_sorceries >= 16 {
-        tags.push("spellslinger".to_string());
-    }
-    if artifacts >= 10 {
-        tags.push("artifacts".to_string());
-    }
-    if enchantments >= 10 {
-        tags.push("enchantments".to_string());
-    }
-    if token_makers >= 4 {
-        tags.push("tokens".to_string());
-    }
-    if counter_synergy >= 4 {
-        tags.push("counters".to_string());
-    }
-    if graveyard_reanim >= 4 {
-        tags.push("graveyard".to_string());
-        if big_drops >= 3 {
-            tags.push("reanimator".to_string());
-        }
-    }
-    if sacrifice_cards >= 4 {
-        tags.push("sacrifice".to_string());
-    }
-    if blink_etb >= 5 {
-        tags.push("blink_etb".to_string());
-    }
-    if ramp_mana >= 6 {
-        if !tags.contains(&"ramp".to_string()) {
-            tags.push("ramp".to_string());
-        }
-    }
-    if lands >= (main.len() * 44) / 100 {
-        tags.push("lands".to_string());
-    }
-    if subtype_counts.values().copied().max().unwrap_or(0) >= 8 {
-        tags.push("tribal".to_string());
-    }
-    if !commanders.is_empty() && (artifacts + enchantments) >= 14 && creatures <= 22 {
-        tags.push("voltron".to_string());
-    }
-    tags.sort();
-    tags.dedup();
-    (primary.to_string(), tags, colors)
-}
-
-fn low_cmc_cmc_inc(cnt: &mut usize) {
-    *cnt += 1;
-}
-
-fn inspect_def_mechanics(
-    def: &CardDef,
-    token_makers: &mut usize,
-    counter_synergy: &mut usize,
-    graveyard_reanim: &mut usize,
-    sacrifice_cards: &mut usize,
-    blink_etb: &mut usize,
-    ramp_mana: &mut usize,
-) {
-    let dsl = encode_card_face(def, 0);
-    // Role tags live at summary[120..144] in carddsl.rs
-    let roles = &dsl.summary[120..144];
-    if roles[0] > 0.0 || roles[1] > 0.0 {
-        *ramp_mana += 1;
-    }
-    if roles[7] > 0.0 || roles[8] > 0.0 {
-        *graveyard_reanim += 1;
-    }
-    if roles[9] > 0.0 {
-        *token_makers += 1;
-    }
-    if roles[10] > 0.0 || roles[11] > 0.0 {
-        *sacrifice_cards += 1;
-    }
-    if roles[12] > 0.0 {
-        *counter_synergy += 1;
-    }
-    if roles[21] > 0.0 {
-        *blink_etb += 1;
-    }
-}
-
-/// Formats a normalized `[deck:Name]` text file from card indices and metadata.
-fn format_house_deck_text(
-    name: &str,
-    source_comment: &str,
-    license_comment: &str,
-    main: &[CardIndex],
-    side: &[CardIndex],
-    commanders: &[CardIndex],
-) -> String {
-    let mut out = String::new();
-    let _ = writeln!(out, "# {source_comment}");
-    let _ = writeln!(out, "# licence: {license_comment}");
-    let _ = writeln!(out, "[deck:{name}]");
-
-    let mut main_counts: BTreeMap<&'static str, u32> = BTreeMap::new();
-    for &cid in main.iter().chain(commanders) {
-        if let Some(def) = baylee_cards::by_index(cid) {
-            *main_counts.entry(def.name()).or_insert(0) += 1;
-        }
-    }
-    for (cname, cnt) in main_counts {
-        let _ = writeln!(out, "{cnt} {cname}");
-    }
-
-    if !side.is_empty() {
-        let _ = writeln!(out, "\n[sideboard]");
-        let mut side_counts: BTreeMap<&'static str, u32> = BTreeMap::new();
-        for &cid in side {
-            if let Some(def) = baylee_cards::by_index(cid) {
-                *side_counts.entry(def.name()).or_insert(0) += 1;
-            }
-        }
-        for (cname, cnt) in side_counts {
-            let _ = writeln!(out, "{cnt} {cname}");
-        }
-    }
-
-    if !commanders.is_empty() {
-        let _ = writeln!(out, "\n[commander]");
-        for &cid in commanders {
-            if let Some(def) = baylee_cards::by_index(cid) {
-                let _ = writeln!(out, "{}", def.name());
-            }
-        }
-    }
-    out
-}
-
-/// Checks if a card is a functional replacement candidate for a non-working card in an adapted precon.
-fn find_functional_replacement(
-    orig_name: &str,
-    deck_colors: ColorSet,
-    copy_limit: u32,
-    current_counts: &BTreeMap<CardIndex, u32>,
-    working_pool: &[CardIndex],
-) -> Option<(CardIndex, &'static str)> {
-    // Look up original card in baylee_cards or baylee_cards_index to match its characteristics
-    let orig_def = baylee_cards::decks::by_name(orig_name).and_then(baylee_cards::by_index);
-    let target_is_land = orig_def.map_or_else(
-        || {
-            let lower = orig_name.to_ascii_lowercase();
-            lower.contains("land")
-                || lower.contains("isle")
-                || lower.contains("haven")
-                || lower.contains("tower")
-                || lower.contains("ruin")
-                || lower.contains("temple")
-        },
-        |d| d.faces[0].types.contains(TypeSet::LAND),
-    );
-    let target_is_creature = orig_def.is_some_and(|d| d.faces[0].types.contains(TypeSet::CREATURE));
-    let target_is_artifact = orig_def.is_some_and(|d| d.faces[0].types.contains(TypeSet::ARTIFACT));
-    let target_is_enchantment =
-        orig_def.is_some_and(|d| d.faces[0].types.contains(TypeSet::ENCHANTMENT));
-    let target_cmc = orig_def.map_or(3, |d| d.faces[0].mana_cost.cmc());
-    let target_ci = orig_def
-        .map(|d| d.color_identity.intersection(deck_colors))
-        .unwrap_or(deck_colors);
-
-    // Deterministic tie-breaking hash from original card name
-    let mut name_hash = 0xcbf2_9ce4_8422_2325_u64;
-    for b in orig_name.bytes() {
-        name_hash ^= u64::from(b);
-        name_hash = name_hash.wrapping_mul(0x0100_0000_01b3);
-    }
-
-    let mut best: Option<((u32, u32, u64), CardIndex, &'static str)> = None;
-    for &cand in working_pool {
-        let Some(def) = baylee_cards::by_index(cand) else {
-            continue;
-        };
-        let face = &def.faces[0];
-        let is_basic =
-            face.types.contains(TypeSet::LAND) && face.supertypes.contains(SupertypeSet::BASIC);
-        // Never replace a non-land card with a basic land (§14)
-        if !target_is_land && face.types.contains(TypeSet::LAND) {
-            continue;
-        }
-        if target_is_land && !face.types.contains(TypeSet::LAND) {
-            continue;
-        }
-        // Must fit within the deck's color identity
-        if def.color_identity.union(deck_colors) != deck_colors {
-            continue;
-        }
-        let cur = current_counts.get(&cand).copied().unwrap_or(0);
-        if !is_basic && cur >= copy_limit {
-            continue;
-        }
-        // Prefer non-basic lands when replacing a non-basic land if available
-        let type_penalty: u32 = if target_is_land {
-            u32::from(is_basic) * 2
-        } else if target_is_creature {
-            u32::from(!face.types.contains(TypeSet::CREATURE)) * 4
-        } else if target_is_artifact {
-            u32::from(!face.types.contains(TypeSet::ARTIFACT)) * 4
-        } else if target_is_enchantment {
-            u32::from(!face.types.contains(TypeSet::ENCHANTMENT)) * 4
-        } else {
-            u32::from(
-                !(face.types.contains(TypeSet::INSTANT) || face.types.contains(TypeSet::SORCERY)),
-            ) * 3
-        };
-        let ci_penalty: u32 = if def.color_identity == target_ci {
-            0
-        } else if !def.color_identity.intersection(target_ci).is_empty() {
-            1
-        } else {
-            2
-        };
-        let cmc_diff = face.mana_cost.cmc().abs_diff(target_cmc);
-        let tie = name_hash.wrapping_add(u64::from(cand.get()).wrapping_mul(0x9e37_79b9_7f4a_7c15));
-        let score = (type_penalty + ci_penalty, cmc_diff, tie);
-        if best.is_none_or(|(b_score, _, _)| score < b_score) {
-            best = Some((score, cand, def.name()));
-        }
-    }
-    best.map(|(_, cid, name)| (cid, name))
-}
+mod document;
+mod replacement;
+mod similarity;
+mod strategy;
+use document::format_house_deck_text;
+use replacement::find_functional_replacement;
+use similarity::{compute_deck_hash, compute_multiset, find, multiset_jaccard};
+use strategy::{classify_deck_strategy, color_string};
 
 #[allow(clippy::too_many_lines)]
 fn main() -> anyhow::Result<()> {
@@ -601,7 +218,7 @@ fn main() -> anyhow::Result<()> {
             let hd = HouseDeck::parse_any(&stem, &text)?;
             let failing = hd.failing(&working);
             if !failing.is_empty() {
-                bail!("Eval deck {} has failing cards: {:?}", stem, failing);
+                bail!("Eval deck {stem} has failing cards: {failing:?}");
             }
             let main_cards: Vec<CardIndex> = hd.deck.main.iter().map(|c| c.index).collect();
             let side_cards: Vec<CardIndex> = hd.deck.sideboard.iter().map(|c| c.index).collect();
@@ -610,15 +227,15 @@ fn main() -> anyhow::Result<()> {
                 .iter()
                 .filter_map(|&c| baylee_cards::by_index(c).map(|d| d.name().to_string()))
                 .collect();
-            let fmt = if !cmd_cards.is_empty() {
-                "commander"
-            } else {
+            let fmt = if cmd_cards.is_empty() {
                 "constructed"
-            };
-            let shape = if !cmd_cards.is_empty() {
-                Shape::Commander
             } else {
+                "commander"
+            };
+            let shape = if cmd_cards.is_empty() {
                 Shape::Constructed
+            } else {
+                Shape::Commander
             };
             let shape_valid = formats::check(shape, &main_cards, &cmd_cards).is_empty();
             let (arch, tags, colors) = classify_deck_strategy(&main_cards, &cmd_cards);
@@ -687,15 +304,15 @@ fn main() -> anyhow::Result<()> {
             .iter()
             .filter_map(|&c| baylee_cards::by_index(c).map(|d| d.name().to_string()))
             .collect();
-        let fmt = if !cmd_cards.is_empty() {
-            "commander"
-        } else {
+        let fmt = if cmd_cards.is_empty() {
             "constructed"
-        };
-        let shape = if !cmd_cards.is_empty() {
-            Shape::Commander
         } else {
+            "commander"
+        };
+        let shape = if cmd_cards.is_empty() {
             Shape::Constructed
+        } else {
+            Shape::Commander
         };
         let shape_valid = formats::check(shape, &main_cards, &cmd_cards).is_empty();
         let (arch, tags, colors) = classify_deck_strategy(&main_cards, &cmd_cards);
@@ -1334,13 +951,6 @@ fn main() -> anyhow::Result<()> {
     let n = deduped.len();
     let mut sim_mat = vec![vec![0.0_f64; n]; n];
     let mut parent: Vec<usize> = (0..n).collect();
-    fn find(p: &mut [usize], mut x: usize) -> usize {
-        while p[x] != x {
-            p[x] = p[p[x]];
-            x = p[x];
-        }
-        x
-    }
     for i in 0..n {
         for j in (i + 1)..n {
             let jacc = multiset_jaccard(&deduped[i].multiset, &deduped[j].multiset);
@@ -1604,10 +1214,10 @@ fn main() -> anyhow::Result<()> {
         derived_count,
         max_observed_cross_jaccard
     );
-    println!("  by split: {:?}", by_split);
-    println!("  by format: {:?}", by_format);
-    println!("  by source: {:?}", by_source);
-    println!("  by holdout_tier: {:?}", by_tier);
+    println!("  by split: {by_split:?}");
+    println!("  by format: {by_format:?}");
+    println!("  by source: {by_source:?}");
+    println!("  by holdout_tier: {by_tier:?}");
     let _ = Rng::new(1);
     Ok(())
 }

@@ -8,8 +8,10 @@ mod tests {
         assert_eq!(def.name(), "Air Elemental");
         let expected = encode_card_face(def, 0).summary;
         assert!(expected.iter().any(|v| *v != 0.0));
-        let mut state = EncodedState4::default();
-        state.entity_card_ids = vec![0, UNKNOWN_CARD];
+        let state = EncodedState4 {
+            entity_card_ids: vec![0, UNKNOWN_CARD],
+            ..EncodedState4::default()
+        };
         assert_eq!(state.entity_dsl_summary(0), expected);
         assert_eq!(state.entity_dsl_summary(1), [0.0; CARD_DSL_WIDTH]);
         let mut candidate = Candidate4::default();
@@ -186,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn constrained_subset_and_pair_samplers_normalize_to_one_and_never_repair() {
+    fn constrained_subset_sampler_normalizes_to_one_and_never_repairs() {
         use crate::deckgen::Rng;
 
         let d1 = HouseDeck::named("allytifact").unwrap();
@@ -233,7 +235,7 @@ mod tests {
                 compute_subset_free_mask(&cands, &pending_subset, &mask, &seq),
                 free_mask
             );
-            unique_probs.insert(mask, (lp as f64).exp());
+            unique_probs.insert(mask, f64::from(lp).exp());
         }
         // There are C(4,2) = 6 valid subsets of size 2
         assert_eq!(unique_probs.len(), 6);
@@ -242,8 +244,20 @@ mod tests {
             (total_prob - 1.0).abs() < 1e-5,
             "constrained subset distribution must sum to 1.0, got {total_prob}"
         );
+    }
 
-        // 2. PairPick with 2 blockers and 2 attackers
+    #[test]
+    fn constrained_pair_sampler_normalizes_to_one_and_never_repairs() {
+        use crate::deckgen::Rng;
+        let d1 = HouseDeck::named("allytifact").unwrap();
+        let d2 = HouseDeck::named("victory").unwrap();
+        let preset = table_for(42, &[&d1, &d2], &[AIProfile::STEADY; 2], &[]);
+        let session = Session::new(&preset).unwrap();
+        let (_, view) = session.view_for(PlayerId::new(0)).unwrap();
+        let tau = 0.8_f32;
+        let mut rng = Rng::new(12345);
+
+        // PairPick with 2 blockers and 2 attackers.
         let b0 = ObjectId::new(20, 0);
         let b1 = ObjectId::new(21, 0);
         let a0 = ObjectId::new(30, 0);
@@ -296,7 +310,7 @@ mod tests {
                 "decode_action4 must never repair sampled pair mask"
             );
             assert_eq!(compute_pair_free_mask(&pair_cands, &mask, &seq), free_mask);
-            pair_probs.insert(mask, (lp as f64).exp());
+            pair_probs.insert(mask, f64::from(lp).exp());
         }
         // Valid assignments: 3 choices for b0 (none, a0, a1) * 3 choices for b1 (none, a0, a1) = 9
         assert_eq!(pair_probs.len(), 9);
@@ -310,7 +324,7 @@ mod tests {
     #[test]
     fn multi_defender_choose_attackers_and_log_scaled_choose_number_round_trip() {
         for &(lo, hi) in &[(0_u32, 5_u32), (0, 20), (0, 1000), (1, 50)] {
-            for v in [lo, (lo + hi) / 2, hi] {
+            for v in [lo, u32::midpoint(lo, hi), hi] {
                 let t = normalize_scalar_choice(v, lo, hi);
                 assert!((-1.0 - 1e-5..=1.0 + 1e-5).contains(&t));
                 let back = denormalize_scalar_choice(t, lo, hi);

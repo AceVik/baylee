@@ -52,13 +52,14 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
             .map(|line| serde_json::from_slice::<serde_json::Value>(line).unwrap())
             .collect::<Vec<_>>();
         lines[0]["hash"] = serde_json::json!("0000000000000000");
-        let bad = lines
-            .iter()
-            .map(|line| format!("{line}\n"))
-            .collect::<String>();
+        let mut bad = Vec::new();
+        for line in &lines {
+            serde_json::to_writer(&mut bad, line).unwrap();
+            bad.push(b'\n');
+        }
         let mut emitted = 0;
         assert!(
-            stream_game4(bad.as_bytes(), 17, true, None, |_| {
+            stream_game4(&bad, 17, true, None, |_| {
                 emitted += 1;
                 Ok(())
             })
