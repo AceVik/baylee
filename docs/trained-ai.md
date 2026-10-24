@@ -99,7 +99,12 @@ random-access caches on the CPU while `consume_packages4.py` trains on the GPU.
 `ready.json` follows gzip integrity, cursor continuity and terminal checks.
 The default queue holds two unconsumed packages (current and next); whole games
 may exceed the requested frame count. Raw shards are hard-linked, and no running
-dataset is modified. `--validation-data` reuses a separate fixed validation set
+dataset is modified. Package mixing uses available frame shares per source run,
+seeded game order (`--seed`) and whole-game virtual finish times. It must not
+re-sort a ready backlog by game ID: IDs follow source runs, producing blocks of
+duels followed by large tables. Source balance is approximate because games are
+indivisible and readiness can vary; manifests record the exact selected games.
+`--validation-data` reuses a separate fixed validation set
 with the same rule catalog. `--init-state last.pt` transfers weights and Adam
 state to a new package, resetting sampler lanes and recurrent memory because
 these are new games. Exact mid-package continuation remains `--resume`, which

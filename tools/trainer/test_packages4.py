@@ -7,12 +7,39 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from prepare_packages4 import publish
+from prepare_packages4 import publish, select_entries
 from test_recurrent4 import write_dataset
 from trajectory_store4 import TrajectoryStore4
 
 
 class PackagePublicationTests(unittest.TestCase):
+    def test_package_mixing_is_seeded_source_balanced_and_conserves_games(self):
+        # The old ID ordering put all small duels before the large table games.
+        entries = [{"game_id": i, "steps": 10, "source_shard": "/runs/duels/records/a.gz"}
+                   for i in range(100)]
+        entries += [{"game_id": 100+i, "steps": 100, "source_shard": "/runs/eight/records/a.gz"}
+                    for i in range(10)]
+        first = select_entries(entries, 500, 2718)
+        self.assertEqual(first, select_entries(entries[::-1], 500, 2718))
+        self.assertNotEqual(first, select_entries(entries, 500, 2719))
+        pending, seen, seed = entries, [], 2718
+        while pending:
+            selected = select_entries(pending, 500, seed)
+            frames = sum(row["steps"] for row in selected)
+            if sum(row["steps"] for row in pending) >= 500:
+                self.assertGreaterEqual(frames, 500)
+                self.assertLess(frames, 600)
+            duel_frames = sum(row["steps"] for row in selected if row["game_id"] < 100)
+            self.assertLessEqual(abs(duel_frames - (frames-duel_frames)), 110)
+            ids = {row["game_id"] for row in selected}
+            seen.extend(row["game_id"] for row in selected)
+            pending = [row for row in pending if row["game_id"] not in ids]
+            seed += 1
+        self.assertEqual(sorted(seen), list(range(110)))
+        self.assertEqual(select_entries([], 500, 1), [])
+        with self.assertRaisesRegex(ValueError, "nonempty"):
+            select_entries([{**entries[0], "steps": 0}], 500, 1)
+
     def fixture(self, directory):
         source = Path(directory) / "source"
         source.mkdir()

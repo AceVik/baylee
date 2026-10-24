@@ -7,6 +7,8 @@ Validation remains an independent fixed dataset and is never put in a package.
 """
 from __future__ import annotations
 import argparse
+from collections import defaultdict, deque
+from fractions import Fraction
 import hashlib
 import json
 import os
@@ -16,6 +18,39 @@ import time
 from recover_packages4 import verify_rows
 from run_guard4 import atomic_json
 from trajectory_store4 import TrajectoryStore4
+
+
+def select_entries(pending, frame_limit, seed):
+    """Mix source runs by their available frame share, keeping whole games.
+
+    Sorting all ready games by ID reintroduces source-order blocks once the CPU
+    is ahead: whole duel packages followed by whole eight-seat packages. Balance
+    the fraction consumed from each source instead; seeded game order removes
+    within-source ordering. Readiness can affect the available mix, never labels.
+    """
+    groups = defaultdict(list)
+    for entry in pending:
+        if entry["steps"] <= 0:
+            raise ValueError("Only nonempty completed games can enter a package")
+        groups[str(Path(entry["source_shard"]).parent.parent)].append(entry)
+    order = lambda key: hashlib.sha256(f"{seed}:{key}".encode()).digest()
+    queues = {key: deque(sorted(rows, key=lambda row: order(row["game_id"])))
+              for key, rows in groups.items()}
+    available = {key: sum(row["steps"] for row in rows) for key, rows in groups.items()}
+    consumed = {key: 0 for key in groups}
+    selected, frames = [], 0
+    while queues and frames < frame_limit:
+        # Compare virtual finish times, including the next whole game's size.
+        # Comparing only work already consumed would front-load every long game.
+        source = min(queues, key=lambda key: (
+            Fraction(consumed[key] + queues[key][0]["steps"], available[key]), order(key)))
+        entry = queues[source].popleft()
+        selected.append(entry)
+        frames += entry["steps"]
+        consumed[source] += entry["steps"]
+        if not queues[source]:
+            del queues[source]
+    return selected
 
 
 def publish(source, output, entries, header):
@@ -57,6 +92,7 @@ def main():
     ap.add_argument("--validation-data",type=Path,required=True)
     ap.add_argument("--frames",type=int,default=500000)
     ap.add_argument("--ahead",type=int,default=2)
+    ap.add_argument("--seed",type=int,default=2718,help="Deterministic source-balanced package mixing")
     ap.add_argument("--timeout",type=float,default=21600)
     args=ap.parse_args()
     if args.ahead<1 or args.frames<1: ap.error("Positive queue/size limits are required")
@@ -93,12 +129,12 @@ def main():
         if not pending and complete:
             atomic_json(args.out/"complete.json",{"packages":len(existing),"games":len(used)})
             return
-        selected=[]; frames=0
-        for entry in pending:
-            selected.append(entry);frames+=entry["steps"]
-            if frames>=args.frames:break
+        selected=select_entries(pending,args.frames,args.seed+len(existing))
+        frames=sum(entry["steps"] for entry in selected)
         if queued<args.ahead and (frames>=args.frames or complete and selected):
-            publish(args.source,args.out/f"package-{len(existing):04}",selected,header)
+            package_header={**header,"package_mixing":{"version":1,"seed":args.seed+len(existing),
+                "strategy":"available frame share per source run; complete games; seeded within-source order"}}
+            publish(args.source,args.out/f"package-{len(existing):04}",selected,package_header)
         else:time.sleep(2)
 
 
