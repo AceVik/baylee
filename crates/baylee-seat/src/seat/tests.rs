@@ -902,3 +902,33 @@ fn the_mind_receives_the_deck_selected_for_its_chair() {
     core.hear(&view(1));
     assert_eq!(core.context.as_ref().unwrap().deck, selected.list);
 }
+
+/// Report 01a16cec: one `until` order passes every priority of a long stack,
+/// while a genuine later question still wakes the model.
+#[test]
+fn a_long_stack_passes_under_one_until_order_until_a_real_question() {
+    let mut core = seated(BridgeConfig::default());
+    let question = ask_mind(&mut core, 2, &colour());
+    let mut decision = Answer::new(GREEN);
+    decision.orders = Some(crate::wake::Orders {
+        until: Some(crate::narrator::Until::EndOfTurn),
+        ..crate::wake::Orders::default()
+    });
+    core.answered(question, Ok(decision));
+
+    for seq in 3..=10 {
+        core.hear(&view(seq));
+        let steps = core.hear(&asked(seq, &nothing()));
+        assert!(
+            request(&steps).is_none(),
+            "the stack woke the mind at {seq}"
+        );
+        assert_eq!(
+            answer(&steps).map(|(_, by, _)| by),
+            Some(By::Standing),
+            "the standing order answers priority at {seq}"
+        );
+    }
+    let genuine = ask_mind(&mut core, 11, &colour());
+    assert_eq!(genuine, 10, "a real question is not silently passed");
+}

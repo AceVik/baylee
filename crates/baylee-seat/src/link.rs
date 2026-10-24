@@ -28,7 +28,7 @@
 
 use crate::lobby::{Chair, ChairAnswer, Lobby, Session};
 use anyhow::{anyhow, bail};
-use baylee_client_core::reconnect::Retry;
+use baylee_client_core::reconnect::{Retry, Window};
 use baylee_client_core::wsticket::{Step as DialStep, TicketDial};
 use std::time::Duration;
 use tokio::net::TcpStream;
@@ -75,6 +75,8 @@ pub struct SeatLink {
     refused_since: Option<Instant>,
     /// [`REFUSAL_PATIENCE`], or a test's.
     patience: Duration,
+    /// The table's reconnect window, once `GameStatic` has said it.
+    window: Window,
 }
 
 impl SeatLink {
@@ -89,6 +91,7 @@ impl SeatLink {
             dials: 0,
             refused_since: None,
             patience: REFUSAL_PATIENCE,
+            window: Window::Unknown,
         }
     }
 
@@ -98,6 +101,11 @@ impl SeatLink {
     pub const fn with_refusal_patience(mut self, patience: Duration) -> Self {
         self.patience = patience;
         self
+    }
+
+    /// Holds reconnection open at least until the table's window has passed.
+    pub const fn hold_for(&mut self, window: Window) {
+        self.window = window;
     }
 
     /// The chair this link opens.
@@ -135,11 +143,13 @@ impl SeatLink {
     ///
     /// # Errors
     /// When the seat's token is refused and cannot be traded with the
-    /// session for one it takes, or after [`Retry::GIVE_UP`] dials that
-    /// reached nothing or were not admitted. A chair taken on its host's
-    /// ticket ends on a refusal only through [`SeatLink::room_closed`].
+    /// session for one it takes, or after [`Retry::GIVE_UP`] dials and, once
+    /// known, the table's window. A chair taken on its host's ticket ends on
+    /// a refusal only through [`SeatLink::room_closed`].
     pub async fn connect(&mut self) -> anyhow::Result<Option<Socket>> {
         let mut retry = Retry::new();
+        retry.hold_for(self.window);
+        let mut since = Instant::now();
         loop {
             match self.dial().await {
                 Ok(socket) => {
@@ -154,6 +164,9 @@ impl SeatLink {
                         Missed::Unreachable(why) | Missed::Refused(why) => why,
                         Missed::NotAdmitted => "the table did not take the seat's token".to_owned(),
                     };
+                    let now = Instant::now();
+                    retry.stayed_down(now.duration_since(since).as_secs_f32());
+                    since = now;
                     if retry.exhausted() {
                         bail!(
                             "the table could not be reached after {} dials: {why}",

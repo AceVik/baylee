@@ -50,6 +50,7 @@ use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
 use crate::seat::{By, SeatCore, Stats, Step};
 use crate::transcript::Transcript;
+use baylee_client_core::reconnect::Window;
 use baylee_engine::win::GameResult;
 use baylee_protocol::v1::{Envelope, SeatMind};
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -291,6 +292,7 @@ async fn run(
     fallback: Option<Standby>,
 ) -> anyhow::Result<Played> {
     let mut bridge = Bridge::new(mind, options.clone(), swaps, fallback);
+    link.hold_for(Window::of(core.memory().statics()));
     let mut socket = link.connect().await?;
     if socket.is_none() {
         return Ok(bridge.closed(&mut core, transcript, link).await);
@@ -305,6 +307,7 @@ async fn run(
             socket = if link.room_closed().await {
                 None
             } else {
+                link.hold_for(Window::of(core.memory().statics()));
                 link.connect().await?
             };
             if socket.is_none() {
