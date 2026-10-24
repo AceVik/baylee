@@ -52,6 +52,7 @@
 mod anthropic;
 mod openai;
 pub mod prompt;
+mod response;
 pub(crate) mod seatstate;
 mod secret;
 mod sessions;
@@ -68,6 +69,7 @@ use baylee_client_core::llmseat::{
     address_fault, is_loopback, model_fault, worst_tokens, worst_usd,
 };
 use baylee_engine::choice::PlayerAction;
+use response::read;
 use seatstate::Seat;
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -1467,41 +1469,6 @@ struct Read {
     /// The call it came from, and the other calls, which are ignored.
     call: Option<String>,
     others: Vec<String>,
-}
-
-/// Reads a reply's first `decide` or `concede` call against `menu`.
-fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read, String> {
-    let mut chosen = None;
-    let mut others = Vec::new();
-    for call in &reply.calls {
-        let known = call.name == "decide" || call.name == "concede";
-        if known && chosen.is_none() {
-            chosen = Some(call);
-        } else if !call.id.is_empty() {
-            others.push(call.id.clone());
-        }
-    }
-    let Some(call) = chosen else {
-        return Err(match (mode, &reply.stop) {
-            (_, Stop::MaxTokens) => "the reply ran out of tokens before it answered".into(),
-            (AnswerMode::Tools, _) => "answer with one call of the decide tool".into(),
-            (AnswerMode::Json | AnswerMode::JsonSchema, _) => {
-                "answer with one JSON object and nothing else".into()
-            }
-        });
-    };
-    let decision = if call.name == "concede" {
-        Decision::from_concede(&call.input)
-    } else {
-        Decision::from_decide(&call.input)?
-    };
-    let resolved = menu.resolve(&decision)?;
-    Ok(Read {
-        resolved,
-        say: decision.say.filter(|s| !s.is_empty()),
-        call: (!call.id.is_empty()).then(|| call.id.clone()),
-        others,
-    })
 }
 
 /// A decision told and ready to send.
