@@ -23,7 +23,9 @@ pub(super) fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read,
             }
         });
     };
-    let decision = if call.name == "concede" {
+    let decision = if mode.is_json() && call.id.is_empty() {
+        Decision::from_json_answer(&call.input)?
+    } else if call.name == "concede" {
         Decision::from_concede(&call.input)
     } else {
         Decision::from_decide(&call.input)?

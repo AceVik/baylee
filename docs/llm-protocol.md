@@ -69,6 +69,23 @@ tool), it is 35–60 output tokens against thousands of thinking, and its
 814 recorded answers used `pick`, and none of the six games that wrote a
 summary had an answer refused; a name alone is ambiguous (two Treasures).
 
+JSON API answers and CLI answers share the same decision reader. A missing,
+null or blank `concede` field is no concession; an explicit reason carries
+the concession and its explanation. The tool-call form still uses the
+separate `concede` tool with its `reason` argument. Regression tests cover
+both JSON modes: the API path previously treated mere field presence as
+concession and lost a real concession's reason (24.10.2026).
+
+For tool conversations, a provider's `reasoning_content` is kept verbatim
+on its assistant messages, including an empty string. Current DeepSeek
+thinking models require this field on subsequent requests carrying tools;
+dropping it causes HTTP 400 errors
+([provider contract](https://api-docs.deepseek.com/guides/thinking_mode/)).
+The trimmed text shown to a player is separate from those protocol bytes.
+JSON modes do not replay this extension. A new conversation carries a full
+board and saved notes; the shared prompt no longer promises a reset on
+every own turn, because CLI and managed API conversations span turns.
+
 ## The deck
 
 The deck is told once, in the conversation's constant prefix, in one of

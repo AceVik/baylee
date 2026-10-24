@@ -3,8 +3,9 @@
 //! What `DeepSeek`, `OpenAI` and the local servers (llama.cpp, vLLM, Ollama)
 //! share: messages with roles, function tools whose arguments arrive as a
 //! JSON string, `role: tool` results. A model's `reasoning_content` is
-//! shown on the terminal and never sent back (`DeepSeek` refuses it in a
-//! request). For a server without tools, [`AnswerMode::Json`] asks for one
+//! retained verbatim in tool conversations: thinking endpoints such as
+//! `DeepSeek` require it on subsequent calls. For a server without tools,
+//! [`AnswerMode::Json`] asks for one
 //! JSON object instead, and [`AnswerMode::JsonSchema`] for one held to the
 //! answer's schema ([`answer_schema`]), which is what a server that refuses
 //! a bare `json_object` takes (LM Studio: "`'response_format.type' must be
@@ -142,14 +143,11 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
         && calls.is_empty()
         && let Some(object) = json_object(&text)
     {
-        let name = if object.get("concede").is_some() {
-            "concede"
-        } else {
-            "decide"
-        };
+        // A synthetic call, decoded by the same JSON reader as a CLI.
+        // The presence of an optional `concede` key is not a concession.
         calls.push(Call {
             id: String::new(),
-            name: name.into(),
+            name: "decide".into(),
             input: object,
         });
     }
@@ -173,11 +171,16 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
         Some("content_filter") => Stop::Refusal,
         Some(other) => Stop::Other(other.to_string()),
     };
-    // Replayed without the reasoning, which such endpoints refuse to be
-    // sent back.
     let mut assistant = json!({"role": "assistant", "content": message.get("content").cloned().unwrap_or(Value::Null)});
     if !raw_calls.is_empty() {
         assistant["tool_calls"] = Value::Array(raw_calls);
+    }
+    // Preserve the provider's exact protocol field, including whitespace and
+    // an empty string, independently of the trimmed text shown to a player.
+    if mode == AnswerMode::Tools
+        && let Some(reasoning) = message.get("reasoning_content").filter(|v| v.is_string())
+    {
+        assistant["reasoning_content"] = reasoning.clone();
     }
     Ok(Reply {
         assistant,

@@ -2,6 +2,89 @@
 
 use super::*;
 
+#[test]
+fn reasoning_replay_follows_the_answer_transport() {
+    for mode in [AnswerMode::Tools, AnswerMode::Json, AnswerMode::JsonSchema] {
+        let body = json!({"choices":[{"message":{
+            "role":"assistant", "content":"", "reasoning_content":""
+        }, "finish_reason":"stop"}]});
+        let reply = openai::parse(&body, mode).unwrap();
+        assert_eq!(
+            reply.assistant.get("reasoning_content"),
+            (mode == AnswerMode::Tools).then_some(&json!(""))
+        );
+    }
+}
+
+/// Optional JSON fields must not turn an ordinary action into a concession.
+#[tokio::test]
+async fn unused_concession_fields_do_not_concede() {
+    for mode in [AnswerMode::Json, AnswerMode::JsonSchema] {
+        for concede in [Value::Null, json!(""), json!("   ")] {
+            let (base, provider) = stand_in().await;
+            let answer = json!({"ask":"q12", "pick":["p"], "concede":concede});
+            provider.script(Scripted::ok(json!({
+                "choices":[{"message":{"role":"assistant", "content":answer.to_string()},
+                    "finish_reason":"stop"}]
+            })));
+            let answer = mind(&base, Provider::OpenAi, |s| s.answer = mode)
+                .decide(a_priority())
+                .await
+                .unwrap();
+            assert_eq!(answer.action, PlayerAction::PassPriority);
+        }
+    }
+}
+
+/// A real concession carries the reason the model actually supplied.
+#[tokio::test]
+async fn json_concessions_keep_their_reason() {
+    for mode in [AnswerMode::Json, AnswerMode::JsonSchema] {
+        let (base, provider) = stand_in().await;
+        provider.script(Scripted::ok(json!({
+            "choices":[{"message":{"role":"assistant", "content":
+                json!({"ask":"q12", "concede":"Lethal on board."}).to_string()},
+                "finish_reason":"stop"}]
+        })));
+        let answer = mind(&base, Provider::OpenAi, |s| s.answer = mode)
+            .decide(a_priority())
+            .await
+            .unwrap();
+        assert_eq!(answer.action, PlayerAction::Concede);
+        let note: Value = serde_json::from_str(answer.note.as_deref().unwrap()).unwrap();
+        assert_eq!(note["say"], "Lethal on board.");
+    }
+}
+
+/// Thinking tool endpoints require their reasoning bytes in the next request.
+#[tokio::test]
+async fn tool_conversations_preserve_reasoning_content() {
+    let (base, provider) = stand_in().await;
+    for question in [12, 13] {
+        provider.script(Scripted::ok(json!({
+            "choices":[{"message":{
+                "role":"assistant", "content":null, "reasoning_content":"  Keep the land.\n",
+                "tool_calls":[{"id":format!("call_{question}"), "type":"function", "function":{
+                    "name":"decide", "arguments":json!({"ask":format!("q{question}"), "pick":["p"]}).to_string()
+                }}]
+            }, "finish_reason":"tool_calls"}]
+        })));
+    }
+    let tools = mind(&base, Provider::OpenAi, |_| {});
+    tools.decide(a_priority()).await.unwrap();
+    let mut next = a_priority();
+    next.question = 13;
+    tools.decide(next).await.unwrap();
+    let seen = provider.seen();
+    let assistant = seen[1].body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|message| message["role"] == "assistant")
+        .unwrap();
+    assert_eq!(assistant["reasoning_content"], "  Keep the land.\n");
+}
+
 /// The OpenAI-compatible path: a function call whose arguments are a JSON
 /// string, the bearer key, and the JSON mode for a server without tools.
 #[tokio::test]

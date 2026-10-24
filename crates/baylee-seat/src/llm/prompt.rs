@@ -23,8 +23,8 @@ decision; the full text of cards you have not been shown yet; and the QUESTION w
 The first message of a turn shows the whole board. A later one may show only what changed since \
 the last whole board: \"Board as at q12, except:\", then each part that changed, either whole or \
 as its changed lines and the objects no longer in it; every part it does not name is as in q12. \
-The first message of each of your turns repeats the game setup and your deck list, and older \
-messages are dropped then.
+At the start of a new conversation, the game setup and your deck are repeated, together with \
+any saved notes. Decide from the current message and the conversation you can see.
 
 HOW TO ANSWER
 Answer every decision with exactly one call of the decide tool, naming the question in ask \
