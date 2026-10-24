@@ -73,9 +73,11 @@ fn codex_runs_exec_with_our_instructions_and_no_tools() {
     let files = Codex.files(&settings_for("codex", None), "SYSTEM");
     assert_eq!(files[0], ("instructions.md", "SYSTEM".to_string()));
     assert_eq!(files[1].0, "schema.json");
+    let schema: Value = serde_json::from_str(&files[1].1).unwrap();
+    assert_eq!(schema["additionalProperties"], false);
     assert_eq!(
-        serde_json::from_str::<Value>(&files[1].1).unwrap(),
-        prompt::answer_schema()
+        schema["properties"]["ask"],
+        prompt::answer_schema()["properties"]["ask"]
     );
     assert!(Codex.one_shot());
     assert_eq!(Codex.stdin_line("q1\nline two"), "q1\nline two");
@@ -213,4 +215,3 @@ fn codex_is_signed_in_by_its_status_on_stderr() {
     assert!(!Codex.probe_ok(b"", b"Not logged in\n"));
     assert!(!Codex.probe_ok(b"", b""));
 }
-

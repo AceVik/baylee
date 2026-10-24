@@ -529,6 +529,27 @@ only the fake CLI: 20 decisions across turns, output-only tool events,
 rejection of external tools and wrong/missing agent selection, private
 configuration permissions and process-directory cleanup.
 
+The Codex 0.164.0 live check on the same date found a separate startup
+failure: `--output-schema` is sent in strict mode, so the API rejected the
+common answer schema before the first answer. Codex now receives a strict
+variant: every object is closed with `additionalProperties: false`, all
+properties are required, and otherwise optional fields accept null.
+This includes objects inside attacks, blocks and prevention arrays and
+the nested targets/stops objects. The common schema for other transports
+stays compact. The requirements are in OpenAI's
+[structured-outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
+Regressions check the complete schema and that unused null fields preserve
+ordinary decisions, attacks and concessions. With this correction, Codex
+with `gpt-6-luna` and low effort played to game end at turn 15: 442 actions,
+54 model calls, 112 mind answers, no failure, fallback or restart. Its
+conversation resumed across all 54 CLI processes without a disconnect.
+
+opencode 1.19.4 with `deepseek/deepseek-flash` played a complete game
+through turn 14 (508 actions, 73 calls) in the live check. One call exceeded
+the probe's 58-second reply allowance; the existing recovery restarted the
+conversation and play continued to game end without `mind_down` or a
+disconnect. No opencode code change was needed for that run.
+
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the
 tool's help (`--help` of the installed version, 06.10.2026), documentation
