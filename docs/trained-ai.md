@@ -19,6 +19,21 @@ answers, valid clock defaults, or the ordinary view-only house AI. A question
 without a clock default must never be answered with an invented priority pass.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+`deepen4.py --model SOURCE --out NEW --layers 12` grows the eight-layer v4
+trunk without discarding its learned behavior. Existing layers retain their
+order; inserted pre-norm residual blocks start with zero attention/FFN output
+projections and initially compute the identity. Their output projections get
+gradients immediately and their internal projections learn after the first
+update. CPU float32 transfer requires dropout=0 and preserves the catalog,
+action heads and `h_out -> h_in` memory contract. It records source hashes and
+the layer mapping; source checkpoints are never overwritten. Start the new
+experiment with `--init NEW --layers 12`, fresh optimizer and trajectory lanes.
+This is inspired by function-preserving network growth
+([Net2Net](https://arxiv.org/abs/1511.05641)); greater playing strength must be
+measured, not inferred from depth. The
+[depth-pilot plan](history/trained-ai-v4-depth-pilot-2026-10-24.md) also records
+the subsequent learner-game/critic work and the house-AI improvement loop.
+
 The v4 Python CLI remains `tools/trainer/train4.py`; its implementation is split
 into `training4/` (driver, losses, validation and execution planning), and the
 network into the `model4/` package. `--board-chunk 8` batches independent spatial

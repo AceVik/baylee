@@ -18,6 +18,16 @@ bleibt `9 × d`; Arbeitszustand Z und persistentes Gedächtnis H sind getrennt.
 Der neue Karten-/Brettmix erreichte **8,33 GB allokierten Peak-VRAM**;
 die früheren kleineren Messwerte sind keine Obergrenze.
 
+**Vertiefung auf Wunsch des Besitzers (24. Oktober):** Der nächste Pilot
+erhöht den räumlichen Trunk von acht auf zwölf Schichten bei unverändertem
+`d=640`. Vier zusätzliche Residualblöcke beginnen als Identität; die
+vorhandenen Gewichte und der Gedächtnisvertrag bleiben erhalten. Die größere
+Variante muss Training auf 12 GB VRAM, ONNX-Parität und gepaarte Spiele
+bestehen. Mehr Tiefe verlängert weder automatisch den zeitlichen Lernhorizont
+U noch ersetzt sie Lernen aus eigenen Partien. Details und die anschließende
+Rater-/Liga- und Haus-KI-Arbeit stehen im
+[Tiefenpilot](../history/trained-ai-v4-depth-pilot-2026-10-24.md).
+
 **Repräsentationsstand:** Der frühere 160-dimensionale DSL-Summary
 verlor relevante Regelunterschiede (unter anderem Mana Leak/Negate).
 Der [Repräsentationsaudit](../history/trained-ai-v4-codex-run-2026-10-22.md#representation-audit-next-architecture-priority)

@@ -8,7 +8,7 @@ Implements the architecture specified in `docs/proposals/trained-ai-v4.md` and
 - 8-seat relative table representation (`RECURRENT_SLOTS = 9`: 1 Global + 8 Seats).
 - Typed relation message-passing (`edge_index`, `edge_type`, `edge_mask`) over
   `[Global(1), Seats(8), Entities(E)]`.
-- Spatial Pre-Norm Transformer trunk (`d_model` in {256, 384, 512}, `n_layers` in {4, 8}).
+- Configurable spatial Pre-Norm Transformer trunk; depth pilots use d=640 and 8/12 layers.
 - Per-seat recurrent belief memory (`h_in -> h_out`, shape `[B, 9, d_model]`)
   updated via a gated GRU cell across the game trajectory.
 - Latent Thinking Loop (`K` steps of shared-weight cross-attention refinement
