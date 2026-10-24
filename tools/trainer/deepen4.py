@@ -31,7 +31,9 @@ def deepen_network(source: M.PlayerNet4, layers: int, seed: int = 31421):
     inserted = sorted(set(range(layers)) - set(mapping.values()))
     # Initializing new blocks must not advance the caller's RNG state.
     with torch.random.fork_rng(devices=[]):
-        torch.manual_seed(seed)
+        # torch.manual_seed also reseeds CUDA/MPS/XPU. Construction is CPU-only;
+        # leave those generators (including deferred seeds) untouched.
+        torch.random.default_generator.manual_seed(seed)
         deeper = M.PlayerNet4(replace(source.cfg, n_layers=layers))
         deeper.attach_structure(source.rules.data)
     state = deeper.state_dict()

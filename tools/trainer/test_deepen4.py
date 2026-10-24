@@ -2,6 +2,7 @@
 import tempfile
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 import torch
 
@@ -15,6 +16,11 @@ class DepthTransfer(unittest.TestCase):
         torch.set_num_threads(1)
         torch.manual_seed(71)
         self.source = M.PlayerNet4(M.Config4(d_model=32, n_heads=4, n_layers=2, d_ff=64))
+
+    def test_cpu_growth_does_not_reseed_accelerators(self):
+        with patch("torch.cuda.manual_seed_all") as cuda_seed:
+            deepen_network(self.source, 3)
+        cuda_seed.assert_not_called()
 
     def test_memory_policy_value_and_aux_preserved_across_observations(self):
         before = torch.get_rng_state().clone()
