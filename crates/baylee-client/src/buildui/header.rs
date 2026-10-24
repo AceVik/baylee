@@ -56,6 +56,15 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         let brand =
             crate::shellkit::header::brand_mark(commands, m.header, Phrase::AppName.text(lang));
         kids.push(brand);
+        if roomy {
+            kids.push(words(
+                commands,
+                kit,
+                baylee_build::VERSION,
+                m.small,
+                tokens::MUTED,
+            ));
+        }
     }
 
     // ‹ Decks › name ✎

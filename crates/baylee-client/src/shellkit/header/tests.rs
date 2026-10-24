@@ -460,6 +460,19 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 .unwrap()
                 .0;
             let frame = bounds(app.world(), header);
+            let version = app
+                .world_mut()
+                .query::<(Entity, &Text)>()
+                .iter(app.world())
+                .find(|(_, text)| text.0 == baylee_build::VERSION)
+                .expect("the roomy builder visibly names its build")
+                .0;
+            let version = bounds(app.world(), version);
+            assert!(version.width() > 1.0 && version.height() > 1.0);
+            assert!(
+                frame.contains(version.min) && frame.contains(version.max),
+                "{lang:?} {width}: version {version:?} is outside {frame:?}"
+            );
             let mut previous = frame.min.x;
             for action in [
                 Press::Build(BuildPress::CloseBuilder),
