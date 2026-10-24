@@ -37,6 +37,27 @@ manager; installation does not enable lingering or change root permissions.
 After updates, reinstall the binary and restart the unit. Stop with
 `systemctl --user stop baylee-monitor`.
 
+## Local power-button setting (24 October 2026)
+
+At the owner's request, the training workstation ignores power-button events.
+This is an independent host setting, not a capability of the read-only monitor.
+`/etc/systemd/logind.conf.d/90-ignore-power-button.conf` contains:
+
+```ini
+[Login]
+HandlePowerKey=ignore
+HandlePowerKeyLongPress=ignore
+```
+
+`sudo systemctl reload systemd-logind` applied the setting without restarting
+logind or its sessions. Both live D-Bus properties were verified as `ignore`.
+The file persists across reboots. Removing this drop-in and reloading logind
+restores the remaining configuration's defaults. A firmware-enforced hard
+power-off from holding the button cannot be prevented by this OS setting.
+No graphical power manager or other power-button inhibitor was active when
+verified; a future desktop environment that takes over the key needs its own
+matching setting.
+
 ## Metric semantics
 
 - CPU overview is a percentage of all logical CPUs; process CPU uses 100% per

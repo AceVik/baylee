@@ -262,6 +262,22 @@ Anschließend folgen automatisch Paket `package-0006`, die unveränderte
 Policy-Loss-Auswahl sowie die geplanten gepaarten K=1-/K=4- und
 Fresh-Seed-Vergleiche. Es gibt weiterhin keine automatische Promotion.
 
+Ein zweiter Neustart unterbrach später `eval-final-duels`. Zu diesem Zeitpunkt
+waren **alle sieben Trainingspakete vollständig abgeschlossen**; weitere
+Lernupdates gingen nicht verloren. Die bereits gespeicherte Auswahl nach
+Policy-Loss bleibt Paket `package-0000` (0,28689335). Weitere Pakete lieferten
+nach diesem Kriterium keinen besseren Snapshot; Spielstärke ist damit noch
+nicht abschließend bewertet.
+`resume_comparisons_after_shutdown.py` setzt die geplante Auswertung fort
+(Controller-PID beim Start: 3695). Der unterbrochene Duellvergleich bekommt
+einen eigenen Versuch unter
+`jobs/eval-final-duels-resume-after-second-shutdown/`. Vollständige ältere
+Vergleiche und alle Checkpoints bleiben erhalten. Runtime- und
+Evaluationseingaben wurden erneut anhand ihrer Prüfsummen kontrolliert;
+der neue GPU-Auswertungsprozess ist aktiv. Auf ausdrücklichen Wunsch des
+Besitzers ignoriert logind nun dauerhaft die An/Aus-Taste, siehe
+[lokale Einstellung](../workstation-monitor.md#local-power-button-setting-24-october-2026).
+
 ## Verifikation
 
 Betroffene Rust-Librarytests (`baylee-ai`, `baylee-gamehost`, `baylee-view`,
