@@ -52,7 +52,7 @@
 //!
 //! The process is the resolved program run directly with an argument
 //! array, never through a shell (a shell function of the same name never
-//! runs); in a fresh, empty directory under the OS's temp directory that
+//! runs); in a fresh directory under the OS's temp directory that
 //! only this user can read, removed with it; with the environment cleared
 //! and only [`COMMON`], `TMPDIR` (the session's own), a fixed locale and
 //! terminal, the variables the tool's login lives in, and the tool's own
@@ -70,6 +70,9 @@
 //! not a question still waits on one ([`Reader`]). Where a tool names
 //! nothing at its start, a line that shows the model used a tool does the
 //! same ([`dialect::Event::Breach`]).
+//! agy's private working directory contains its restricted agent profile;
+//! other dialects leave it empty. The output function `finish` is allowed
+//! only for agy, as Claude Code's `StructuredOutput` is for its answer.
 //!
 //! # Spend
 //!

@@ -3,6 +3,18 @@
 use super::*;
 use crate::llm::Spec;
 
+/// An old CLI or an ignored agent flag must fail before an answer is used.
+#[test]
+fn agy_requires_the_restricted_agent_at_start() {
+    for agent in [Value::Null, json!("default"), json!("another-agent")] {
+        let line = json!({"event":"init", "init": {"agent":agent, "tools":["finish"]}});
+        let event = super::super::agy::Agy.read_event(&line.to_string(), &mut Wire::default());
+        assert!(
+            matches!(event, Event::Breach(why) if why.contains("restricted baylee-seat agent"))
+        );
+    }
+}
+
 /// The Agy dialect: arguments, stdin format, event parsing, and probes.
 #[test]
 fn agy_dialect_args_and_events() {
@@ -55,15 +67,13 @@ fn agy_dialect_args_and_events() {
     assert!(low_args.contains(&"gemini-3.8-flash-low".to_string()));
     assert!(low_args.contains(&"low".to_string()));
 
-    // Stdin lines: first line includes system prompt, subsequent does not.
+    // Instructions are in the restricted agent, never guessed from game text.
     let line1 = Agy.stdin_line("THE GAME\nYou are P1 at a table");
     let val1: Value = serde_json::from_str(&line1).unwrap();
     assert_eq!(val1["event"], "user");
-    assert!(
-        val1["message"]["content"]
-            .as_str()
-            .unwrap()
-            .contains("You are playing a game of Magic")
+    assert_eq!(
+        val1["message"]["content"],
+        "THE GAME\nYou are P1 at a table"
     );
     assert!(
         val1["message"]["content"]
@@ -82,6 +92,7 @@ fn agy_dialect_args_and_events() {
     let init_line = json!({
         "event": "init",
         "init": {
+            "agent": "baylee-seat",
             "model": "gemini-3.8-flash-high",
             "tools": ["finish", "run_command"]
         }

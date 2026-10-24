@@ -792,7 +792,7 @@ fn agy_names_its_tools_and_uses_none() {
         ..named.clone()
     };
     assert!(Agy.lockdown_fault(&served).unwrap().contains("github"));
-    let init = r#"{"event":"init","conversation_id":"c3b6","init":{"cwd":"/w","tools":["ask_permission","run_command","write_to_file"],"permission_mode":"request-review"}}"#;
+    let init = r#"{"event":"init","conversation_id":"c3b6","init":{"agent":"baylee-seat","cwd":"/w","tools":["ask_permission","run_command","write_to_file"],"permission_mode":"request-review"}}"#;
     let Event::Started(started) = &read_all(&Agy, &[init])[0] else {
         panic!();
     };

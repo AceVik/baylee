@@ -4,8 +4,8 @@
 use super::{CliTool, Dialect, Duration, Path, PathBuf, dialect};
 
 /// A session's own directory under the OS's temp directory, removed with
-/// it: `work`, the process's working directory, empty; `tmp`, its temp
-/// directory; and `support`, the files its dialect points it at
+/// it: `work`, empty apart from a dialect's own workspace configuration;
+/// `tmp`, its temp directory; and `support`, the files its dialect points it at
 /// ([`Dialect::files`]); all four readable by this user alone. Named by
 /// the seat and [`unique`] alone: a tool may tell its provider its working
 /// directory, so no part of the game's id is in it (owner, 13.10.2026).
@@ -38,19 +38,40 @@ impl SessionDir {
 
     /// Writes `files` into `support`, each readable by this user alone.
     pub(super) fn write(&self, files: &[(&'static str, String)]) -> std::io::Result<()> {
-        for (name, contents) in files {
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
+        write_files(&self.support(), files)
+    }
+
+    /// Writes the dialect's workspace configuration, before starting it.
+    pub(super) fn write_workspace(&self, files: &[(&'static str, String)]) -> std::io::Result<()> {
+        write_files(&self.work(), files)
+    }
+}
+
+/// Writes private configuration, including any private parent directories.
+fn write_files(root: &Path, files: &[(&'static str, String)]) -> std::io::Result<()> {
+    for (name, contents) in files {
+        let path = root.join(name);
+        if let Some(parent) = path.parent() {
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true);
             #[cfg(unix)]
             {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
             }
-            let mut file = options.open(self.support().join(name))?;
-            std::io::Write::write_all(&mut file, contents.as_bytes())?;
+            builder.create(parent)?;
         }
-        Ok(())
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(path)?;
+        std::io::Write::write_all(&mut file, contents.as_bytes())?;
     }
+    Ok(())
 }
 
 impl Drop for SessionDir {

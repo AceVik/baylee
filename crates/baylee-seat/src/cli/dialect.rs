@@ -45,6 +45,12 @@ pub(crate) trait Dialect: Send + Sync {
         Vec::new()
     }
 
+    /// Configuration a tool discovers only in its working directory.
+    /// Paths are fixed by the dialect, never supplied by a model or player.
+    fn workspace_files(&self, _system: &str) -> Vec<(&'static str, String)> {
+        Vec::new()
+    }
+
     /// The arguments of a session's process, after the program: `model` is
     /// the tool's own model id, where the profile names one, `system` the
     /// instructions, which replace the tool's own where it can, and

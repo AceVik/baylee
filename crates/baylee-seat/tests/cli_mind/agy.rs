@@ -2,6 +2,98 @@
 
 use super::*;
 
+/// A real CLI used to inherit its coding agent and call `run_command` after
+/// a few decisions. The selected agent must exist where agy discovers it,
+/// restrict capabilities, survive multiple turns and allow only its output.
+#[tokio::test]
+async fn agy_plays_many_decisions_with_its_restricted_agent() {
+    let base = a_priority().await;
+    let steps: Vec<_> = (1..=20)
+        .map(|q| {
+            let mut step = pass(q, "");
+            step["kind"] = json!("tool");
+            step["tool"] = json!("finish");
+            step
+        })
+        .collect();
+    let rig = Rig::new(
+        "agy-restricted",
+        json!({"provider": "cli", "model": "agy", "command": fake()}),
+        &json!({"steps": steps}),
+    );
+    let mind = rig.mind(Limits::default());
+    for question in 1..=20 {
+        let answer = mind
+            .decide(ask(
+                &base,
+                question,
+                base.view.turn + u32::try_from(question / 4).unwrap(),
+                20,
+            ))
+            .await
+            .unwrap();
+        assert_eq!(answer.action, PlayerAction::PassPriority);
+    }
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 1, "one conversation across game turns");
+    let work = Path::new(starts[0]["cwd"].as_str().unwrap());
+    let profile = work.join(".agents/agents/baylee-seat.md");
+    let text = std::fs::read_to_string(&profile).unwrap();
+    assert!(text.contains("tools: [finish]\n"));
+    assert!(text.contains("subagent: false\n"));
+    assert!(text.contains("commandExecutionPolicy: off\n"));
+    assert!(text.contains(prompt::SYSTEM));
+    assert!(!text.contains(&base.context.game_id));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&profile).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(
+            std::fs::metadata(profile.parent().unwrap())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+    }
+    assert_eq!(spent(&mind.tally()).calls, 20);
+    assert!(mind.ready().await);
+    drop(mind);
+    assert!(
+        rig.until(|_| !work.exists()).await,
+        "private agent removed with its process"
+    );
+}
+
+/// Output is allowed; an actual external tool still locks the seat out,
+/// including after it successfully answered earlier decisions.
+#[tokio::test]
+async fn agy_still_refuses_external_tools_after_successful_answers() {
+    let base = a_priority().await;
+    let mut tool = pass(2, "");
+    tool["kind"] = json!("tool");
+    tool["tool"] = json!("run_command");
+    let rig = Rig::new(
+        "agy-external-tool",
+        json!({"provider": "cli", "model": "agy", "command": fake()}),
+        &json!({"steps": [pass(1, ""), tool]}),
+    );
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, base.view.turn, 20))
+        .await
+        .unwrap();
+    let error = mind
+        .decide(ask(&base, 2, base.view.turn + 1, 20))
+        .await
+        .unwrap_err();
+    assert!(matches!(&error, MindError::Unavailable(why) if why.contains("run_command")));
+    assert!(!mind.ready().await);
+}
+
 /// A tool whose replies report the process's running count (agy does) is
 /// booked by the differences: two turns of one process count each call
 /// once, not the first one twice, and a new process counts from nothing

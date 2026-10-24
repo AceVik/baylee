@@ -1,6 +1,10 @@
 //! Starting CLI processes and sending their questions.
 
-use super::*;
+use super::{
+    Arc, CliMind, CliSeat, Command, Conversation, GameContext, Gone, Instant, MindError, Mutex,
+    Queue, Reader, Reply, Session, SessionDir, Stdio, Store, Usage, Waiter, Weak, Wire, collect,
+    lock, mpsc, oneshot, write,
+};
 
 impl CliMind {
     /// Starts a process for `context`'s seat; for a tool that resumes a
@@ -24,6 +28,7 @@ impl CliMind {
         let dialect = &self.launch.dialect;
         let model = self.launch.model.as_deref();
         dir.write(&dialect.files(&self.settings, &self.system))
+            .and_then(|()| dir.write_workspace(&dialect.workspace_files(&self.system)))
             .map_err(|e| format!("{tool}'s files could not be written: {e}"))?;
         let mut args = dialect.args(&self.settings, model, &self.system, &dir.support());
         let resumes = conversation.and_then(|going| going.id.as_deref());
