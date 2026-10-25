@@ -4,7 +4,8 @@
 4 Absorb
 4 Censor
 4 Daring Leap
-4 Dramatic Rescue
+2 Dramatic Rescue
+4 Energy Arc
 2 Field of Ruin
 2 Ipnu Rivulet
 4 Irrigated Farmland
@@ -12,6 +13,5 @@
 4 Offering to Asha
 4 Ojutai's Command
 4 Opt
-2 Overrule
 8 Plains
 4 Sphinx's Revelation

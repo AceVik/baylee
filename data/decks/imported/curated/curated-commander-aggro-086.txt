@@ -1,88 +1,85 @@
 # baylee curated commander aggro seed=20261109
 # licence: AGPL-3.0-only
-[deck:commander aggro WUBRG #20261109]
-1 Akoum Hellhound
-1 Alpine Grizzly
-1 Balduvian Shaman
-1 Bassara Tower Archer
-1 Benthic Djinn
-1 Blighted Gorge
-1 Brushfire Elemental
-1 Capital City
-1 Cascade Bluffs
-1 Ceta Disciple
-1 Chub Toad
-1 Cliffrunner Behemoth
-1 Cobbled Wings
-1 Counterspell
-1 Crackling Triton
-1 Dragon Sniper
-1 Dwalin, Weaponmaster
-1 Elas il-Kor, Sadistic Pilgrim
-1 Elfhame Palace
-1 Emergence Zone
-1 Emeritus of Ideation
-1 Eumidian Terrabotanist
-1 Fleetfoot Panther
-8 Forest
-1 Frankenstein's Monster
-1 Galerider Sliver
-1 Goblin Offensive
-1 Gore Swine
-1 Greenside Watcher
-1 Guttural Response
-1 Ifnir Deadlands
-1 Implode
-5 Island
-1 Kraul Raider
-1 Lay Waste
-1 Llanowar Mentor
-1 Magical Hack
-1 Mandible Justiciar
-1 Mardu Devotee
-1 Militant Monk
-1 Mm'menon, Uthros Exile
-1 Mobilized District
-1 Moonfolk Puzzlemaker
-5 Mountain
-1 Mountain Bandit
-1 Orzhov Guildgate
-1 Petrified Field
-4 Plains
-1 Pull from Tomorrow
-1 Puppeteer
-1 Rain-Slicked Copse
-1 Raucous Theater
-1 Rimewood Falls
-1 Ring of the Lucii
-1 Safehold Sentry
-1 Savannah
-1 Savannah Lions
-1 Scatter Ray
-1 Scavenger Folk
-1 Scouring Sands
-1 Shifting Wall
-1 Signpost Scarecrow
-1 Silvercoat Lion
-1 Skywhaler's Shot
-1 Sliver Hivelord
-1 Snarling Wolf
-1 Stalking Stones
-1 Stonybrook Angler
-1 Sun-Collared Raptor
-1 Swamp
-1 Take Heart
-1 Territorial Hammerskull
-1 Thrashing Brontodon
-1 Tony Stark
-1 Twisted Experiment
-1 Urn of Godfire
-1 Venerable Knight
-1 Vernal Fen
-1 Watcher of the Wayside
-1 Welding Jar
-1 Willow Elf
-1 Wind Dancer
+[deck:commander aggro UBR #20261109]
+1 Aether Sting
+1 Ancestral Vision
+1 Badlands
+1 Black Waltz No. 3
+1 Castle Sengir
+1 Chandra's Emberling
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Crystal Rod
+1 Dismal Backwater
+1 Dragon's Rage Channeler
+1 Drowner Initiate
+1 Eidolon of the Great Revel
+1 Electrostatic Field
+1 Electrostatic Infantry
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Eroded Canyon
+1 Etherium Spinner
+1 Fever Charm
+1 Firebrand Archer
+1 Firemind's Research
+1 Firespitter Whelp
+1 Glaring Fleshraker
+1 Guttersnipe
+1 Havoc
+1 Hesitation
+1 Hidden Lair
+1 Ice Tunnel
+1 In the Eye of Chaos
+1 Iron Star
+1 Ishi-Ishi, Akki Crackshot
+8 Island
+1 Ivory Cup
+1 Izzet Charm
+1 Jeskai Sage
+1 Juju Bubble
+1 Kessig Flamebreather
+1 Library
+1 Mai, Scornful Striker
+1 Mana Crypt
+1 Mana Vortex
+1 Mindsparker
+1 Molten Nursery
+1 Monastery Swiftspear
+1 Mount Doom
+14 Mountain
+1 Mystic Remora
+1 Onslaught
+1 Oscorp Industries
+1 Pyrostatic Pillar
+1 Quill-Slinger Boggart
+1 Rockslide Sorcerer
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Screamer-Killer
+1 Seething Landscape
+1 Serpent's Pass
+1 Shredded Sails
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Jolt
+1 Spark Spray
+1 Spellshock
+1 Sprite Dragon
+1 Stormkeld Prowler
+1 Straw Golem
+1 Sulfur Vent
+1 Veil of Birds
+1 Veiled Sentry
+1 Vertigo
+1 Walking Ballista
+1 Weaver of Lightning
+1 Winter Sky
+1 Xander's Lounge
+1 Yawgmoth's Edict
+1 Young Pyromancer
 
 [commander]
-Sliver Hivelord
+Gwendlyn Di Corci

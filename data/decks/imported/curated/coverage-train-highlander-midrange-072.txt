@@ -1,0 +1,85 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUBRG #20266073]
+1 Ashiok, Dream Render
+1 Aspect of Lamprey
+1 Baleful Force
+1 Bounding Krasis
+1 Breath of Malfegor
+1 Bronzebeak Moa
+1 Carnival of Souls
+1 Ceta Disciple
+1 Crystal Quarry
+1 Damn
+1 Deadshot Minotaur
+1 Dralnu's Crusade
+1 Druid of the Anima
+1 Elemental Augury
+1 Elves of Deep Shadow
+1 Emrakul's Influence
+1 Enchanted Evening
+1 Ferrous Lake
+1 Fill with Fright
+1 Fisk Tower
+1 Fleshformer
+7 Forest
+1 Foundry Champion
+1 Foxfire Oak
+1 Fulminator Mage
+1 Glaciers
+1 Glasswing Grace
+1 Grove Rumbler
+1 Highland Forest
+1 Ignoble Hierarch
+1 Imperious Inkmage
+1 Island
+1 Jagged Barrens
+1 Jeskai Brushmaster
+1 Keldon Mantle
+1 Kitchen
+1 Kitchen Finks
+1 Knotvine Mystic
+1 Leafdrake Roost
+1 Lord of Tresserhorn
+1 Maelstrom Wanderer
+1 Martyrs' Tomb
+1 Mawloc
+1 Morgue Toad
+1 Mountain
+1 Natural Emergence
+1 Nearby Planet
+1 Night of Souls' Betrayal
+1 Nocturnal Raid
+1 Nomad Outpost
+1 Ocular Halo
+1 Perilous Landscape
+7 Plains
+1 Power Taint
+1 Primal Visitation
+1 Profane Procession
+1 Restless Vents
+1 Righteous War
+1 Risen Reef
+1 Sacellum Archers
+1 Savage Gorilla
+1 Secluded Glen
+1 Shivan Oasis
+1 Shivan Wurm
+1 Skull Rend
+1 Spara's Headquarters
+1 Spectral Shield
+1 Sultai Devotee
+7 Swamp
+1 Temple of Malice
+1 The World Tree
+1 Torpor Dust
+1 Turbulent Springs
+1 Underworld Coinsmith
+1 Unearth
+1 Urborg Elf
+1 Vector, Imperial Capital
+1 Viashino Firstblade
+1 Void Grafter
+1 Whirlwind of Thought
+1 Woodwraith Corrupter
+1 Wormwood Treefolk

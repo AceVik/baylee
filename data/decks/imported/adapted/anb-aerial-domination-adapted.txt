@@ -2,7 +2,6 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Aerial Domination (Adapted)]
 3 Cloudkin Seer
-2 Force of Negation
 1 Frilled Sea Serpent
 2 Glint
 25 Island
@@ -13,6 +12,7 @@
 2 Relearn
 2 Riddlemaster Sphinx
 2 Sworn Guardian
+2 Tinker
 3 Unsummon
 2 Wall of Runes
 3 Waterkin Shaman

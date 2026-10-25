@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266109]
+1 All Hallow's Eve
+1 Ambush Gigapede
+1 Ambush Krotiq
+1 Apprentice Necromancer
+1 Ashen Powder
+1 Baloth Woodcrasher
+1 Barrier of Bones
+1 Bog Wreckage
+1 Bogardan Rager
+1 Boggart Birth Rite
+1 Bojuka Bog
+1 Bone Pit Brute
+1 Cadaver Imp
+1 Charnelhoard Wurm
+1 Crypt Angel
+1 Crypt of Agadeem
+1 Darigaaz's Caldera
+1 Dark Heart of the Wood
+1 Death's Duet
+1 Desert of the Glorified
+1 Desolation of Smaug
+1 Dormant Volcano
+1 Ebon Dragon
+1 Ebon Stronghold
+1 Elven Cache
+1 Fertile Thicket
+9 Forest
+1 Forsaken Drifters
+1 Geothermal Crevice
+1 Get the Point
+1 Glissa, the Traitor
+1 Graveshifter
+1 Hive of the Eye Tyrant
+1 Hulk, Always Angry
+1 Hundroog
+1 Koskun Keep
+1 Lava Serpent
+1 Lost Legion
+1 Lumra, Bellow of the Woods
+1 Macetail Hystrodon
+1 Mercadian Bazaar
+1 Mirri's Guile
+1 Mold Demon
+1 Morselhoarder
+2 Mountain
+1 Necromancer's Assistant
+1 Nissa, Vital Force
+1 Omen of the Dead
+1 Past in Flames
+1 Pharika's Mender
+1 Phyrexian Vivisector
+1 Ravaged Highlands
+1 Ravenous Lindwurm
+1 Ray of Ruin
+1 Reincarnation
+1 Return to Battle
+1 Returned Reveler
+1 Rise Again
+1 Savage Lands
+1 Seismic Spike
+1 Shower of Arrows
+1 Sibsig Host
+1 Snarling Gorehound
+1 Spinerock Knoll
+1 Spymaster's Vault
+1 Stir the Grave
+13 Swamp
+1 Sylvan Anthem
+1 Thoughtrender Lamia
+1 Tortured Existence
+1 Twisted Landscape
+1 Twists and Turns
+1 Venomous Hierophant
+1 Wailing Ghoul
+1 Wildwood Rebirth
+1 Woebearer
+1 Wrenn and Realmbreaker
+1 Ziatora's Proving Ground
+
+[commander]
+Vaevictis Asmadi

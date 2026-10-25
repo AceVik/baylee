@@ -1,79 +1,80 @@
-# baylee unseen-card holdout highlander seed=90000020
+# baylee unseen-card holdout highlander seed=90000027
 # licence: AGPL-3.0-only
-[deck:highlander control UR #90000020]
-1 Acid Rain
-1 Aether Sting
-1 Bellowing Crier
-1 Blue Elemental Blast
-1 Boil
-1 Brass's Tunnel-Grinder
-1 Brilliant Plan
-1 Darkslick Drake
-1 Devastation
-1 Dread Statuary
-1 Dwarven Ruins
-1 Earthquake
-1 Empowered Autogenerator
-1 Experimental Armor
-1 Field of Ruin
-1 Fire
-1 Fire Nation's Conquest
-1 Fireball
-1 Frontline War-Rager
-1 Ghirapur Gearcrafter
-1 Goblin Bully
-1 Goblin Burrows
-1 Goblin Snowman
-1 Gryff Vanguard
-1 Hidden Volcano
-1 Hobblefiend
-1 Hordeling Outburst
-11 Island
-1 Kher Keep
-1 Levitating Statue
-1 Lose Focus
-1 Majestic Metamorphosis
-1 Merfolk Assassin
-1 Miner's Bane
-1 Mirror Universe
-1 Mobilized District
-15 Mountain
-1 Mouth of Ronom
-1 Mox Ruby
+[deck:highlander control WG #90000027]
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Arctic Treeline
+1 Avacyn's Collar
+1 Beskir Shieldmate
+1 Bishop of Wings
+1 Blade Splicer
+1 Bretagard Stronghold
+1 Byway Courier
+1 Captain of the Watch
+1 Conclave Cavalier
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Doubling Season
+1 Elephant Guide
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Elvish Farmer
+1 Field of Souls
+1 Filigree Crawler
+9 Forest
+1 Gilded Goose
+1 Gleaming Barrier
+1 Golem Foundry
+1 Griffin Guide
+1 Grove of the Guardian
+1 Guardian of Cloverdell
+1 Haunted Library
+1 Hunted Witness
+1 Hushwood Verge
+1 Jinxed Ring
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Kyoshi Village
+1 Maja, Bretagard Protector
+1 Mantle of the Wolf
+1 Mausoleum Guard
+1 Most Wanted
 1 Myr Matrix
-1 Planar Bridge
-1 Pyramids
-1 Ravenous Giant
-1 Renegade Map
-1 Repulse
-1 Runesword
-1 Sandstone Needle
-1 Saprazzan Skerry
-1 Scour from Existence
-1 Scrap
-1 Shatterskull Giant
-1 Sheltered Valley
-1 Sonic Screwdriver
-1 Starlit Mantle
-1 Sterling Hound
-1 Stern Scolding
-1 Stonefury
-1 Storm's Wrath
-1 Sword of the Meek
-1 Tectonic Edge
-1 The Chase Is On
-1 The Whizzer, Classic Speedster
-1 Thriving Bluff
-1 Tolaria West
-1 Tormod's Crypt
-1 Tower of Eons
-1 Trenchpost
-1 Two-Headed Dragon
-1 Valgavoth's Lair
-1 Vampires' Vengeance
-1 Veteran's Sidearm
-1 Voldaren Estate
-1 Voodoo Doll
-1 Where Ancients Tread
-1 Worn Powerstone
-1 You Come to a River
+1 Myr Sire
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Pentavus
+16 Plains
+1 Primeval Bounty
+1 Prying Blade
+1 Radiant Grove
+1 Razorverge Thicket
+1 Redrock Sentinel
+1 Requiem Angel
+1 Restless Prairie
+1 Retrofitter Foundry
+1 Riftstone Portal
+1 Saltcrusted Steppe
+1 Scattered Groves
+1 Selesnya Guildgate
+1 Siege Veteran
+1 Slayer's Plate
+1 Spawning Pit
+1 Suburban Sanctuary
+1 Sunpetal Grove
+1 Temple Garden
+1 Temple of Plenty
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Voice of Resurgence
+1 Wand of the Elements
+1 Wurmweaver Coil

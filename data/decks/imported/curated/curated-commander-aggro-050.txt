@@ -1,86 +1,87 @@
 # baylee curated commander aggro seed=20261073
 # licence: AGPL-3.0-only
-[deck:commander aggro BRG #20261073]
-1 Angel's Tomb
-1 Bloodstained Mire
-1 Boggart Cursecrafter
-1 Castle Locthwain
-1 Centaur Courser
-1 Chocobo Camp
-1 Circle of Dreams Druid
-1 Clot Sliver
-1 Consumptive Goo
-1 Daring Demolition
-1 Dauthi Horror
-1 Deathknell Berserker
-1 Dire Fleet Neckbreaker
-1 Dowsing Device
-1 Dragon's Herald
-1 Dread Shade
+[deck:commander aggro WUBRG #20261073]
+1 Aether Sting
+1 Alela, Artful Provocateur
+1 Aragorn, the Uniter
+1 Black Waltz No. 3
+1 Callous Inspector
+1 Castle Sengir
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Deceptive Landscape
+1 Deeproot Champion
+1 Dream Beavers
 1 Eidolon of the Great Revel
-1 Elven Palisade
-1 Emerald Oryx
-1 Exploration
-1 Eyeless Watcher
-1 Festering Goblin
-1 Font of Fertility
-6 Forest
-1 Fourth Bridge Prowler
-1 Gamble
-1 Ghost Quarter
-1 Go Forth
-1 Goblin Burrows
-1 Hecatomb
-1 Hidden Grotto
-1 Incurable Ogre
-1 Journeyer's Kite
-1 Keldon Necropolis
-1 Kraken's Eye
-1 Leaf-Crowned Visionary
-1 Marshdrinker Giant
-1 Medicine Bag
-1 Mercadian Bazaar
-1 Millennial Gargoyle
-10 Mountain
-1 Need for Speed
-1 Nexus Wardens
-1 Phyrexian Tower
-1 Plague Beetle
-1 Plaza of Heroes
-1 Pyrotechnics
-1 Quarry Beetle
-1 Ragged Playmate
-1 Renowned Weaver
-1 Rhystic Cave
-1 Ridged Kusite
-1 Rishkar, Peema Renegade
-1 Roterothopter
-1 Signpost Scarecrow
-1 Spore Crawler
-1 Springjack Pasture
-1 Steel Wall
-1 Stone Giant
-1 Subdue
-7 Swamp
-1 Syndicate Trafficker
-1 Tendrils of Corruption
-1 Thallid
-1 Thrashing Brontodon
-1 Torch Gauntlet
-1 Trollhide
-1 Ulvenwald Observer
-1 Vault of Whispers
-1 Vicious Hunger
-1 Vindictive Vampire
-1 Wall of Dust
-1 Warship Scout
-1 Weatherseed Elf
-1 Wildwood Rebirth
-1 Witherbloom Campus
-1 Wooden Sphere
-1 Xira Arien
-1 Ydwen Efreet
-1 Zhalfirin Void
+1 Electrostatic Field
+1 Electrostatic Infantry
+1 Elvish Handservant
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Fear of Lost Teeth
+1 Firebrand Archer
+1 Firemind's Research
+1 Firespitter Whelp
+1 Generous Visitor
+1 Gilded Goose
+1 Glaring Fleshraker
+1 Guttersnipe
+1 Havoc
+1 Iron Man, Tony Stark
+1 Irrigation Ditch
+1 Ishi-Ishi, Akki Crackshot
+2 Island
+1 Izzet Charm
+1 Juju Bubble
+1 Jungle Shrine
+1 Kambal, Consul of Allocation
+1 Kessig Flamebreather
+1 Kheru Bloodsucker
+1 Koskun Keep
+1 Lead Pipe
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Mai, Scornful Striker
+1 Mana Crypt
+1 Mindsparker
+1 Mold Adder
+1 Molten Nursery
+1 Monastery Swiftspear
+13 Mountain
+1 Mystic Remora
+1 Nearby Planet
+1 Opulent Palace
+2 Plains
+1 Pyrostatic Pillar
+1 Quest for the Gravelord
+1 Rin and Seri, Inseparable
+1 Rith's Grove
+1 Sarcomancy
+1 Savage Lands
+1 Sawblade Scamp
+1 Screamer-Killer
+1 Seaside Citadel
+1 Soul Barrier
+1 Soul of Magma
+1 Spara's Headquarters
+1 Spark Jolt
+1 Spark Spray
+1 Spellshock
+1 Sprite Dragon
+1 Stormkeld Prowler
+5 Swamp
+1 Sythis, Harvest's Hand
+1 Tempting Witch
+1 The World Tree
+1 Three Steps Ahead
+1 Tournament Grounds
+1 Voldaren Epicure
+1 Walking Ballista
+1 Weaver of Lightning
+1 Winter Sky
+1 Yawgmoth's Edict
+1 Zagoth Triome
 
 [commander]
-Xira Arien
+Super-Skrull

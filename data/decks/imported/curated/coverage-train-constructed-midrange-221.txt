@@ -1,0 +1,26 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WB #20266222]
+2 Captain's Defense
+2 Catacomb Slug
+2 Dutiful Thrull
+4 Forsaken Sanctuary
+2 Gallant Strike
+2 Hematite Talisman
+2 Jade Idol
+2 Malachite Talisman
+2 Moriok Replica
+2 Nacre Talisman
+2 Ogre Jailbreaker
+2 Onyx Talisman
+2 Orzhov Cluestone
+2 Ostiary Thrull
+2 Petra Sphinx
+4 Plains
+2 Prakhata Club Security
+2 Python
+2 Salt Flats
+10 Swamp
+4 Tainted Field
+2 Talisman of Hierarchy
+2 Ukud Cobra

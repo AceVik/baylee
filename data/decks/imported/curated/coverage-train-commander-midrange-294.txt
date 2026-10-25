@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #20266295]
+1 Bladebrand
+1 Bleed Dry
+1 Blighted Fen
+1 Bog Smugglers
+1 Cabal Evangel
+1 Cabal Pit
+1 Cabal Slaver
+1 Cabal Trainee
+1 Dark Deed
+1 Davriel's Shadowfugue
+1 Death Wind
+1 Disciple of Tevesh Szat
+1 Eyes of the Beholder
+1 Fatal Fumes
+1 Fire Nation Ambushers
+1 Flatten
+1 Forbidden Ritual
+1 Funeral Charm
+1 Ghosts of the Damned
+1 Glamorous Grapplers
+1 Glyph of Doom
+1 Hagra Sharpshooter
+1 Hand of Silumgar
+1 Havengul Laboratory
+1 Hell Swarm
+1 Hellfire
+1 Hired Poisoner
+1 Hyalopterous Lemure
+1 Inkrise Infiltrator
+1 Juzám Djinn
+1 Kezzerdrix
+1 Mental Agony
+1 Mind Ravel
+1 Mudflat Village
+1 Nausea
+1 Nim Abomination
+1 Nim Replica
+1 Nimble Pilferer
+1 Onyx Mage
+1 Overkill
+1 Phyrexian Defiler
+1 Phyrexian Denouncer
+1 Plague Witch
+1 Pull Under
+1 Rabid Rats
+1 Reign of Terror
+1 Scorpion's Sting
+1 Shizo, Death's Storehouse
+1 Sick and Tired
+1 Smokespew Invoker
+1 Stab
+1 Stench of Decay
+31 Swamp
+1 Takenuma, Abandoned Mire
+1 Tar Snare
+1 The Fallen
+1 Thrashing Wumpus
+1 Throttle
+1 Unhinge
+1 Unholy Grotto
+1 Urborg
+1 Viscid Lemures
+1 Volrath's Stronghold
+1 Weed-Pruner Poplar
+1 Wei Infantry
+1 Wit's End
+1 Without Weakness
+1 Wring Flesh
+1 Zombie Master
+
+[commander]
+Grandmother Sengir

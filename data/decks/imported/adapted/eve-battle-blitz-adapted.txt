@@ -2,13 +2,12 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Battle Blitz (Adapted)]
 4 Arrows of Justice
-2 Boros Recruit
 3 Double Cleave
+4 Energy Bolt
+2 Goblin Legionnaire
 3 Hearthfire Hobgoblin
-1 Legion Leadership
 4 Lightning Helix
-4 Martial Glory
-2 Mechanized Ninja Cavalry
+1 Martial Glory
 13 Mountain
 1 Patrol Signaler
 11 Plains
@@ -16,4 +15,5 @@
 1 Safehold Sentry
 2 Scourge of the Nobilis
 4 Spirit Summoning
+2 Thor Odinson
 4 Warleader's Helix

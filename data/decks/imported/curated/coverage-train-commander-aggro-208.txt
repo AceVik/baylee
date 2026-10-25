@@ -1,0 +1,88 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266209]
+1 Acidic Sliver
+1 An-Havva Township
+1 Ana Disciple
+1 Aysen Abbey
+1 Bountiful Landscape
+1 Brokers Initiate
+1 Cabaretti Initiate
+1 Chained Brute
+1 Contaminated Landscape
+1 Crooked Custodian
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Darkling Stalker
+1 Dauthi Horror
+1 Dauthi Marauder
+1 Dauthi Mercenary
+1 Dauthi Trapper
+1 Deathbellow Raider
+1 Dega Disciple
+1 Deity of Scars
+1 Dreadwing
+1 Drowned
+1 Dutiful Servants
+1 Flame Blitz
+3 Forest
+1 Foul Familiar
+1 Galina's Knight
+1 Geothermal Crevice
+1 Gnarled Mass
+1 Goblin Outlander
+1 Hibernation Sliver
+1 Hollowhead Sliver
+2 Island
+1 Ketria Triome
+1 Loch Korrigan
+1 Marsh Goblins
+1 Merrow Grimeblotter
+1 Metathran Zombie
+1 Mirrorhall Mimic
+5 Mountain
+1 Mountain Goat
+1 Mtenda Lion
+1 Murmuring Bosk
+1 Murmuring Phantasm
+1 Naga Eternal
+1 Nath's Buffoon
+1 Nearby Planet
+1 Nobilis of War
+1 Olivia's Dragoon
+1 Oscorp Industries
+1 Perilous Landscape
+6 Plains
+1 Radjan Spirit
+1 Raka Disciple
+1 Ravenous Bloodseeker
+1 Riot Devils
+1 River Kaijin
+1 Roofstalker Wight
+1 Savage Lands
+1 Scuttling Sliver
+1 Seething Landscape
+1 Shifting Sliver
+1 Spectral Sliver
+1 Squirrelanoids
+1 Stillmoon Cavalier
+1 Stone Spirit
+1 Stone-Throwing Devils
+1 Stream Hopper
+1 Stromkirk Captain
+6 Swamp
+1 The World Tree
+1 Throatseeker
+1 Turn to Dust
+1 Unnerve
+1 Unraveling Mummy
+1 Vampire Hexmage
+1 Vampire Hounds
+1 Victual Sliver
+1 Vodalian Zombie
+1 Xander's Lounge
+1 Zodiac Goat
+1 Zombie Outlander
+
+[commander]
+Sliver Hivelord

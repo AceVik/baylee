@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266012]
+1 Ancient Amphitheater
+1 Arctic Treeline
+1 Asgardian Citadel
+1 Astral Cornucopia
+1 Axebane Guardian
+1 Bountiful Promenade
+1 Celestial Prism
+1 Citanul Hierophants
+1 Claws of Wirewood
+1 Conch Horn
+1 Copperline Gorge
+1 Cursed Mirror
+1 Darksteel Gargoyle
+1 Dimension X
+1 Dismissive Pyromancer
+1 Ember Shot
+1 Etched Cornfield
+1 Explosive Apparatus
+1 Farrelite Priest
+1 Fields of Strife
+1 Firdoch Core
+1 Flamecast Wheel
+1 Flowstone Thopter
+1 Fool's Tome
+13 Forest
+1 Fountain Watch
+1 Fountain of Ichor
+1 Gauntlet of Might
+1 Gene Pollinator
+1 Gigantomancer
+1 Gongaga, Reactor Town
+1 Great Divide Guide
+1 Heart of Ramos
+1 Horn of Ramos
+1 Implements of Sacrifice
+1 Imposing Vantasaur
+1 Intrepid Stablemaster
+1 Lady Caleria
+1 Lifespark Spellbomb
+1 Livonya Silone
+1 Lorehold Campus
+1 Los Diablos Missile Base
+1 Malachite Golem
+1 Mana Matrix
+1 Mana Prism
+1 Moggcatcher
+1 Moss Diamond
+7 Mountain
+1 Mox Jasper
+1 Oashra Cultivator
+1 Phyrexian Lens
+1 Pinecrest Ridge
+4 Plains
+1 Planar Gate
+1 Powerstone Shard
+1 Rabanastre, Royal City
+1 Rampaging Hippo
+1 Rith's Attendant
+1 Rockcaster Platoon
+1 Sapphire Medallion
+1 Scarab of the Unseen
+1 Skyshroud Poacher
+1 Slagwoods Bridge
+1 Somberwald Sage
+1 Spare Supplies
+1 Spire Garden
+1 Springjaw Trap
+1 Sunastian Falconer
+1 Sunset Strikemaster
+1 Swampbenders
+1 Talisman of Conviction
+1 Talisman of Unity
+1 Temple of Plenty
+1 Thunder Totem
+1 Timberline Ridge
+1 Troll-Horn Cameo
+1 Turbulent Steppe
+1 Whisperer of the Wilds
+
+[commander]
+Johan

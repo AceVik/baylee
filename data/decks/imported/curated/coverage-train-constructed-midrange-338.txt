@@ -1,0 +1,19 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WU #20266339]
+4 Abandoned Campground
+4 Angel's Feather
+2 Cloudblazer
+2 Cryptic Spires circles=WU
+4 Demon's Horn
+4 Hierophant's Chalice
+5 Island
+4 Isolation Cell
+4 Juju Bubble
+3 Machine Man, Model X-51
+4 Parasitic Strix
+8 Plains
+2 Study
+3 Sunscorch Regent
+3 Tundra
+4 Wurm's Tooth

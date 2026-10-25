@@ -1,82 +1,72 @@
 # baylee curated commander control seed=20261091
 # licence: AGPL-3.0-only
-[deck:commander control WG #20261091]
-1 Aether Shockwave
-1 Almost Perfect
-1 Angelic Edict
-1 Arcum's Sleigh
-1 Awaken the Bear
-1 Awaken the Woods
-1 Base Camp
-1 Blanchwood Treefolk
-1 Bring to Trial
-1 Cactus Preserve
-1 Capital City
-1 Charging Badger
-1 Clive's Hideaway
-1 Crumbling Vestige
-1 Day of Judgment
-1 Dispeller's Capsule
-1 Disruptor Pistol
-1 Dromoka Dunecaster
-1 Elite Cat Warrior
-1 Elspeth, Storm Slayer
-1 Elvish Regrower
-1 Eriette's Lullaby
-1 Force of Nature
-14 Forest
-1 Forethought Amulet
-1 Forsake the Worldly
-1 Fountainport
-1 Fungal Bloom
-1 Gaea's Anthem
-1 Gauntlets of Chaos
-1 Guardians of Meletis
-1 Halls of Mist
-1 Holy Mantle
-1 Horizon of Progress
-1 Huatli's Snubhorn
-1 Iron Lance
-1 Lapis Lazuli Talisman
+[deck:commander control U #20261091]
+1 Academy Ruins
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blighted Cataract
+1 Cephalid Coliseum
+1 Chimeric Egg
+1 Customs Depot
+1 Deduce
+1 Deeproot Waters
+1 Diamond Kaleidoscope
+1 Drowned Secrets
+1 Drowner of Hope
+1 Efficient Construction
+1 Energy Vortex
+1 Etherium Spinner
+1 Eyes of the Watcher
+1 Forced Fruition
+1 Glaring Fleshraker
+1 Hesitation
+1 Illusions of Grandeur
+1 In the Eye of Chaos
+1 Invoke Prejudice
+1 Ipnu Rivulet
+34 Island
+1 Isolation Cell
+1 Jeskai Sage
+1 Juju Bubble
+1 Kozilek's Unsealing
 1 Levitating Statue
-1 Lossarnach Captain
-1 Many Partings
-1 Meteorite
-1 Mountain Valley
-1 Mox Pearl
-1 Nature's Revolt
-1 Nimbus Wings
-12 Plains
-1 Quarry Beetle
-1 Rapid Fire
-1 Reverse Polarity
-1 Sacred Armory
-1 Sacred Wolf
-1 Sandstorm Verge
-1 Sarkhan's Resolve
-1 Scampering Surveyor
-1 Secluded Starforge
-1 Security Detail
-1 Selesnya Cluestone
-1 Sir Shandlar of Eberyn
-1 Soulscour
-1 Spare Supplies
-1 Sporecap Spider
-1 Stalking Stones
-1 Static Orb
-1 Sunlance
-1 Swift Response
-1 Team Transmitter
-1 Thaumaturge's Familiar
-1 Throne of the High City
-1 Tocasia's Dig Site
-1 Toil to Renown
-1 Tranquil Path
-1 Turntimber Symbiosis
-1 Unflinching Courage
-1 Unknown Shores
-1 Warped Landscape
-1 Yavimaya Hollow
+1 Lilypad Village
+1 Mana Crypt
+1 Mana Vortex
+1 Minamo, School at Water's Edge
+1 Murmuring Mystic
+1 Myr Matrix
+1 Mystic Remora
+1 Nim Deathmantle
+1 Oboro, Palace in the Clouds
+1 Ojer Pakpatiq, Deepest Epoch
+1 Pentavus
+1 Prescient Chimera
+1 Primal Amulet
+1 Prying Blade
+1 Retrofitter Foundry
+1 Riddleform
+1 Riptide Laboratory
+1 Riverwheel Aerialists
+1 Robotics Mastery
+1 Shipwreck Dowser
+1 Sire of the Storm
+1 Slayer's Plate
+1 Soul Barrier
+1 Spawning Pit
+1 Sphinx-Bone Wand
+1 Stormkeld Prowler
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Three Steps Ahead
+1 Tolarian Academy
+1 Trading Post
+1 Trail of Evidence
+1 Treasure Map
+1 Unifying Theory
+1 Veiled Serpent
+1 Walking Ballista
+1 Wand of the Elements
 
 [commander]
-Sir Shandlar of Eberyn
+The Mechanist, Aerial Artisan

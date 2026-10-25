@@ -3,10 +3,11 @@
 [deck:Black (Adapted)]
 2 Assembly-Worker
 2 Blood Pact
+1 Buried Alive
 1 Death Baron
 2 Diresight
 2 Doomed Dissenter
-3 Essence Extraction
+2 Essence Extraction
 1 Eyeblight's Ending
 1 Gravedigger
 1 Gruesome Fate

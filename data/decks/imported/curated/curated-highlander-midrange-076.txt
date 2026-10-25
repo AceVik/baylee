@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261099
 # licence: AGPL-3.0-only
 [deck:highlander midrange WB #20261099]
-1 Aerial Responder
-1 Akroma's Vengeance
-1 Ankh of Mishra
-1 Bag End Banquet
-1 Blighted Shaman
-1 Bone Saw
-1 Cave of Temptation
-1 Celestial Sword
-1 Certain Death
-1 Clergy of the Holy Nimbus
-1 Commander's Sphere
-1 Contested War Zone
-1 Cryptic Caves
-1 Cryptic Spires
-1 Dawnstrike Paladin
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Bishop of Wings
+1 Blade Splicer
+1 Blight Mound
+1 Brightclimb Pathway
+1 Callous Inspector
+1 Cirith Ungol Patrol
+1 Common Crook
+1 Criminal Enterprise
+1 Desolate Mire
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
 1 Doomed Traveler
-1 Dread of Night
-1 East Wind Avatar
-1 Edgewall Inn
-1 Eidolon of Inspiration
-1 Elephant Graveyard
-1 Endless Sands
-1 Expedition Map
-1 Eyeblight Assassin
-1 Farmstead
-1 Feldon's Cane
-1 Forgotten Sentinel
-1 Goldmeadow Lookout
-1 Goldmire Bridge
-1 Gond Gate
-1 Grasping Dunes
-1 Grotesque Mutation
-1 Guul Draz Mucklord
-1 Hive of the Eye Tyrant
-1 Hop to It
-1 Hunted Ghoul
-1 Icatian Skirmishers
-1 Indestructible Aura
+1 Drogskol Cavalry
+1 Eclipsed Steppe
+1 Elgaud Inquisitor
+1 Eyeblight Cullers
+1 Field of Souls
+1 Forlorn Flats
+1 Forsaken Sanctuary
+1 Forum of Amity
+1 Gleaming Barrier
+1 Great Hall of Starnheim
+1 Greedy Freebooter
+1 Griffin Guide
+1 Haunted Library
+1 Hunted Witness
+1 Isolated Chapel
+1 Kheru Bloodsucker
 1 Knight of Doves
-1 Leonin Scimitar
-1 Looming Altisaur
-1 Make Your Move
-1 Mana Matrix
-1 Memnite
-1 Nighthaze
-1 Ogre's Cleaver
-1 Olivia's Dragoon
-1 Orzhov Keyrune
-1 Phyrexian Hulk
-1 Phyrexian Rager
-14 Plains
-1 Predator, Flagship
-1 Ramosian Revivalist
-1 Ramosian Sergeant
-1 Rhystic Cave
-1 Risky Shortcut
-1 Savannah Lions
-1 Scepter of Dominance
-1 School of the Unseen
-1 Scorpion's Sting
-1 Scour from Existence
-1 Shimmering Grotto
-1 Spectral Procession
-1 Starlight Invoker
-1 Starry-Eyed Skyrider
-10 Swamp
-1 Tasseled Dromedary
-1 Tawnos's Weaponry
-1 Terminal Moraine
-1 Twisted Experiment
+1 Knight-Captain of Eos
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Mausoleum Guard
+1 Myr Sire
+1 Neva, Stalked by Nightmares
+1 Nim Deathmantle
+1 Ogre Slumlord
+1 Ojer Taq, Deepest Foundation
+1 Open the Graves
+1 Orzhov Basilica
+1 Orzhov Guildgate
+1 Pawn of Ulamog
+1 Pentavus
+1 Pitiless Plunderer
+8 Plains
+1 Pretending Poxbearers
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Restless Fortress
+1 Retrofitter Foundry
+1 Rotlung Reanimator
+1 Scoured Barrens
+1 Sengir Autocrat
+1 Shadowy Backstreet
+1 Siege Veteran
+1 Silverquill Campus
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Sparring Construct
+1 Spawning Pit
+15 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thopter Squadron
+1 Trading Post
+1 Turbulent Moor
 1 Umbral Expanse
-1 Vanquish the Weak
-1 Vermiculos
-1 Voice of Truth
-1 Vona, Butcher of Magan
-1 War Chariot
-1 Zhang Liao, Hero of Hefei
-1 Zulaport Cutthroat
+1 Vault of the Archangel
+1 Wand of the Elements
+1 Warren Soultrader
+1 Weirding Shaman
+1 Yahenni, Undying Partisan

@@ -3,7 +3,6 @@
 [deck:Heavy Duty (Adapted)]
 3 Advent of the Wurm
 1 Benalish Trapper
-1 Blor the Impervious
 4 Call of the Conclave
 2 Charging Troll
 4 Eladamri's Call
@@ -11,12 +10,14 @@
 11 Forest
 2 Geist-Honored Monk
 3 Heroes' Reunion
-1 Kyoshi Warrior Guard
+1 King Suleiman
 2 Llanowar Cavalry
 2 Llanowar Knight
-3 Nature's Chant
+1 Nature's Chant
 1 Noble Panther
 11 Plains
 2 Razorfoot Griffin
-4 Selesnya Charm
+2 Shackles
+1 Sporemound
 1 Treefolk Healer
+4 Vitalizing Cascade

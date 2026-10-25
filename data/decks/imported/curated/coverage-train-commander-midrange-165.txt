@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266166]
+1 Argothian Swine
+1 Ash Barrens
+1 Aspect of Wolf
+1 Aurochs
+1 Avoid Fate
+1 Axebane Stag
+1 Back to Nature
+1 Barbed Foliage
+1 Broken Fall
+1 Brown Ouphe
+1 Brushstrider
+1 Bull Aurochs
+1 Burgeoning
+1 Child of Gaea
+1 Crucible of the Spirit Dragon
+1 Darba
+1 Dense Foliage
+1 Earthlore
+1 Emergence Zone
+1 Endless Sands
+1 Essence Filter
+1 Faerie Noble
+1 Flailing Drake
+1 Forbidden Lore
+31 Forest
+1 Galewind Moose
+1 Garruk's Companion
+1 Gods' Eye, Gate to the Reikai
+1 Grounded
+1 Hot Springs
+1 Jibbirik Omnivore
+1 Jolrael's Favor
+1 Krakilin
+1 Leatherback Baloth
+1 Lumbering Satyr
+1 Lure
+1 Lurker
+1 Many Partings
+1 Mishra's Workshop
+1 Molder Beast
+1 Molting Skin
+1 Moopsy
+1 Mosscoat Goriak
+1 Nature's Wrath
+1 Pixie Queen
+1 Presence of Gond
+1 Pygmy Razorback
+1 Retaliation
+1 Revelation
+1 Root Cage
+1 Rust
+1 Scragnoth
+1 Serene Heart
+1 Sheltered Valley
+1 Shimmering Grotto
+1 Song of Serenity
+1 Spiked Baloth
+1 Squirrel Nest
+1 Stampeding Rhino
+1 Stampeding Serow
+1 Still Life
+1 Stomper Cub
+1 Storm Front
+1 Thicket Crasher
+1 Towering Indrik
+1 Tranquil Domain
+1 Ursapine
+1 Walk-In Closet
+1 Wooded Foothills
+
+[commander]
+Thrun, Breaker of Silence

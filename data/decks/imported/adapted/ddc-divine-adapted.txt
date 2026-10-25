@@ -3,7 +3,9 @@
 [deck:Divine (Adapted)]
 1 Akroma, Angel of Wrath
 1 Angel's Feather
+1 Angelic Protector
 1 Angelsong
+2 Armored Pegasus
 2 Blinding Light
 1 Bring to Trial
 2 Charging Paladin
@@ -12,11 +14,9 @@
 1 Healing Salve
 1 Hop to It
 2 Icatian Priest
-2 King Suleiman
-2 Legion's Judgment
 1 Luminous Angel
 2 Marble Diamond
-1 Metal Fatigue
+1 Pacifism
 24 Plains
 1 Reya Dawnbringer
 1 Righteous Cause
@@ -25,5 +25,5 @@
 1 Serra Angel
 1 Serra's Boon
 1 Serra's Embrace
-1 Split Up
+2 Sustainer of the Realm
 2 Venerable Monk

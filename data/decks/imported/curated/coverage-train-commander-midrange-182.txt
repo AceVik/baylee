@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266183]
+1 Accursed Duneyard
+1 Ambush
+1 Backdraft
+1 Bull Rush
+1 Canyon Drake
+1 Defense Force Aggressor
+1 Defiant Khenra
+1 Deranged Whelp
+1 Desert Drake
+1 Dwarven Song
+1 Eldrazi Linebreaker
+1 Falter
+1 Feral Ridgewolf
+1 Fervent Strike
+1 Fighting Chance
+1 Fire Drake
+1 Flameborn Hellion
+1 Flowstone Infusion
+1 Flowstone Kavu
+1 Flowstone Strike
+1 Flowstone Wyvern
+1 Forbidden Orchard
+1 Fork
+1 Gallifrey Council Chamber
+1 Granite Gargoyle
+1 Gray Ogre
+1 Headlong Rush
+1 Ice Floe
+1 Incurable Ogre
+1 Kobolds of Kher Keep
+1 Komodo Rhino
+1 Mikokoro, Center of the Sea
+1 Minotaur Warrior
+1 Misty Rainforest
+1 Mizzix's Mastery
+31 Mountain
+1 Ogre Berserker
+1 Ogre Errant
+1 Ogre Sentry
+1 Ogre Warrior
+1 Orcish Spy
+1 Pedal to the Metal
+1 Pensive Minotaur
+1 Precise Strike
+1 Quaketusk Boar
+1 Reckless Brute
+1 Reckless Ogre
+1 Resistance Skywarden
+1 Ripscale Predator
+1 Rise to the Challenge
+1 Rubblebelt Recluse
+1 Sabertooth Wyvern
+1 Satyr Rambler
+1 Secret Tunnel
+1 Sigiled Skink
+1 Spitting Drake
+1 Stampede Rider
+1 Sun-Collared Raptor
+1 Terminal Moraine
+1 Ticked Off
+1 Tyrox, Saurid Tyrant
+1 Unholy Citadel
+1 Unnatural Speed
+1 Viashino Runner
+1 Viashino Sandscout
+1 Viashino Slasher
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Wayward Giant
+
+[commander]
+Quicksilver, Pietro Maximoff

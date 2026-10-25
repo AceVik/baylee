@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Vampire Onslaught (Adapted)]
 4 Bloodthrone Vampire
+4 Carrion Feeder
 4 Dismember
 3 Essence Extraction
 2 Feeding Frenzy
@@ -10,7 +11,6 @@
 1 Kalastria Highborn
 4 Pawn of Ulamog
 1 Pelakka Predation
-4 Pharika's Chosen
 4 Rend Spirit
 23 Swamp
 1 Vampire Hexmage

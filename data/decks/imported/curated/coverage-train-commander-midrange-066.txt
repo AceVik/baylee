@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266067]
+1 Abbey Gargoyles
+1 Abbey Griffin
+1 Aegis of the Heavens
+1 Aether Shockwave
+1 Affa Guard Hound
+1 Alley Evasion
+1 Archon of Emeria
+1 Armored Griffin
+1 Avian Changeling
+1 Aviary Mechanic
+1 Beaming Defiance
+1 Blaze of Glory
+1 Blood of the Martyr
+1 Burst of Energy
+1 Cliffhaven Sell-Sword
+1 Conduit Pylons
+1 Cradle of the Accursed
+1 Dawn Gryff
+1 Dawnglare Invoker
+1 Ekundu Griffin
+1 Enforcer Griffin
+1 Ephemerate
+1 Everybody Lives!
+1 Exalted Dragon
+1 Fledgling Griffin
+1 Flicker
+1 Fountainport
+1 Ghost Town
+1 Gods' Eye, Gate to the Reikai
+1 Great Defender
+1 Heaven's Gate
+1 Holy Mantle
+1 Homeward Path
+1 Ice Floe
+1 Indestructible Aura
+1 Interjection
+1 Kinsbaile Balloonist
+1 Majestic Heliopterus
+1 Makindi Griffin
+1 Makindi Stampede
+1 Mistral Charger
+1 Moonwing Moth
+1 Noble Elephant
+1 Pearl Dragon
+1 Peregrine Griffin
+1 Phyrexian Pegasus
+31 Plains
+1 Rally
+1 Rapid Fire
+1 Redeem
+1 Reverse Damage
+1 Rimefur Reindeer
+1 Sejiri Shelter
+1 Sequestered Stash
+1 Silverclaw Griffin
+1 Spotted Griffin
+1 Stone Haven Pilgrim
+1 Stormfront Pegasus
+1 Sunmane Pegasus
+1 Sunspire Griffin
+1 Swift Justice
+1 Teremko Griffin
+1 Tethered Griffin
+1 Thaumatic Compass
+1 Tributary Vaulter
+1 Wild Griffin
+1 Wipe Clean
+1 Witch's Clinic
+1 You're Ambushed on the Road
+
+[commander]
+Worf, Chief Tactical Officer

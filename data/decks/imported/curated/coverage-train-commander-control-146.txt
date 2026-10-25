@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WU #20266147]
+1 Abandoned Campground
+1 Adarkar Wastes
+1 Altar's Light
+1 Ancestral Reminiscence
+1 Angelic Edict
+1 Blade Banish
+1 Blessed Light
+1 Brilliant Plan
+1 Calciform Pools
+1 Catastrophe
+1 Celestial Purge
+1 Cleanfall
+1 Cleansing Ray
+1 Cloudcrest Lake
+1 Coastal Tower
+1 Collar the Culprit
+1 Commander's Insight
+1 Crisis of Conscience
+1 Dark Maze
+1 Demystify
+1 Deserted Beach
+1 Dispatch
+1 Erase
+1 Excise
+1 Farewell
+1 Flash Flood
+1 Fortified Beachhead
+1 Fragmentize
+1 Glacial Fortress
+1 Glare of Heresy
+1 Hallowed Fountain
+1 Iceridge Serpent
+1 Immolating Glare
+1 Indicate
+8 Island
+1 Isolate
+1 Kami of Ancient Law
+1 Kami of the Crescent Moon
+1 Keening Apparition
+1 Land Cap
+1 Lawbringer
+1 Learn from the Past
+1 Lightbringer
+1 Meticulous Archive
+1 Moment of Valor
+1 Neck Snap
+1 Nimbus Maze
+1 Nine-Tail White Fox
+1 Nivix Barrier
+1 Not on My Watch
+1 Ondu Inversion
+1 Peace and Quiet
+17 Plains
+1 Port Town
+1 Prairie Stream
+1 Prismatic Ending
+1 Puncturing Light
+1 Rain of Revelation
+1 Razortide Bridge
+1 Repel Calamity
+1 Sandbar Serpent
+1 Sea of Clouds
+1 Searing Light
+1 Sejiri Refuge
+1 Selhoff Entomber
+1 Shimmering Barrier
+1 Silverchase Fox
+1 Smite
+1 Soulsworn Jury
+1 Sudden Strike
+1 Swift Response
+1 Temporal Mastery
+1 Thieving Otter
+1 Touch of Brilliance
+1 Tundra
+1 Vengeance
+
+[commander]
+Teferi, Time Raveler

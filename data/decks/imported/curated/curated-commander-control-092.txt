@@ -1,72 +1,72 @@
 # baylee curated commander control seed=20261115
 # licence: AGPL-3.0-only
-[deck:commander control G #20261115]
-1 Aladdin's Lamp
-1 Arbor Armament
-1 Arcane Signet
-1 Asceticism
-1 City of Brass
-1 Colossification
-1 Conch Horn
-1 Creeping Mold
-1 Custodian of the Trove
-1 Dragon Engine
-1 Energy Refractor
-1 Ensouled Scimitar
-1 Femeref Archers
-1 Feral Roar
-1 Fomori Vault
-35 Forest
-1 Fyndhorn Pollen
-1 Gale Force
-1 Gauntlets of Chaos
-1 Generous Visitor
-1 Glimmerlight
-1 Grasping Dunes
-1 Grinding Station
-1 HELIOS One
-1 Hedron Rover
-1 Hidden Nursery
-1 Hierophant's Chalice
-1 Horn of Deafening
-1 Isolation Cell
-1 Kessig Recluse
-1 Krakilin
-1 Krark-Clan Ironworks
-1 Life Matrix
-1 Lifegift
-1 Manakin
-1 Might Weaver
-1 Moss Kami
-1 Mox Opal
-1 Natural Connection
-1 Nine-Ringed Bo
-1 Norwood Ranger
-1 Oath of the Ancient Wood
-1 Path of Ancestry
-1 Primal Rage
-1 Prodigious Growth
-1 Prowler's Helm
-1 Radiant Fountain
-1 Root Cage
-1 Runesword
-1 Sacred Armory
-1 Serpent Generator
-1 Serpent's Gift
-1 Seshiro the Anointed
-1 Sheltering Boughs
-1 Silken Strength
-1 Spring of Eternal Peace
-1 Stream of Life
-1 Talon Gates of Madara
-1 Tawnos's Wand
+[deck:commander control B #20261115]
+1 Aclazotz, Deepest Betrayal
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Ayara, First of Locthwain
+1 Bastion of Remembrance
+1 Blight Mound
+1 Blighted Fen
+1 Cabal Pit
+1 Callous Inspector
+1 Cirith Ungol Patrol
+1 Criminal Enterprise
+1 Culling Dais
+1 Dalek Drone
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
+1 Filigree Crawler
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Greedy Freebooter
+1 Havengul Laboratory
+1 Ifnir Deadlands
+1 Infernal Idol
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Maalfeld Twins
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Minotaur, Roxxon CEO
+1 Myr Sire
+1 Nim Deathmantle
+1 Ogre Slumlord
+1 Open the Graves
+1 Pentavus
+1 Phyrexian Gargantua
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Retrofitter Foundry
+1 Sengir Autocrat
+1 Shizo, Death's Storehouse
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Solemn Simulacrum
+1 Spawning Pit
+34 Swamp
+1 Sweettooth Witch
+1 Takenuma, Abandoned Mire
+1 Tempting Witch
+1 The Black Gate
+1 The One Ring
+1 The Underworld Cookbook
+1 Thopter Squadron
 1 Thrór's Map
-1 Tiger Claws
-1 Timberland Guide
-1 Unyaro Bees
-1 Web
-1 Whirlermaker
-1 Winter Orb
+1 Titan Forge
+1 Tithebearer Giant
+1 Tomb of Urami
+1 Trading Post
+1 Treasure Map
+1 Triskelavus
+1 Unholy Grotto
+1 Vault Plunderer
+1 Wand of the Elements
+1 Yahenni, Undying Partisan
+1 Zuran Orb
 
 [commander]
-Seshiro the Anointed
+Kalakscion, Hunger Tyrant

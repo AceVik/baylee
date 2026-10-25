@@ -1,0 +1,73 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20266288]
+1 Adventuring Gear
+1 Angelic Armaments
+1 Ashaya, Soul of the Wild
+1 Avoid Fate
+1 Barbed Battlegear
+1 Big Apple, 3 a.m.
+1 Bramble Creeper
+1 Bramblesnap
+1 Brambleweft Behemoth
+1 Brown Ouphe
+1 Champion's Helm
+1 Child of Gaea
+1 Chitinous Cloak
+1 Collector Ouphe
+1 Command Bridge
+1 Conifer Strider
+1 Copper Host Crusher
+1 Creeperhulk
+1 Crumbling Vestige
+1 Cultist's Staff
+1 Darksteel Plate
+1 Dragonloft Idol
+1 Fireshrieker
+1 Force of Savagery
+33 Forest
+1 Gateway Plaza
+1 Gorgon Flail
+1 Grand Coliseum
+1 Guardian of the Great Conduit
+1 Haunted Cloak
+1 Helm of Chatzuk
+1 Hungry Mist
+1 Ivy Elemental
+1 Kitesail
+1 Lightning Greaves
+1 Llanowar Behemoth
+1 Locthwain Gargoyle
+1 Mask of Avacyn
+1 Millennial Gargoyle
+1 Moss Monster
+1 Mountain Valley
+1 No-Dachi
+1 Ogre's Cleaver
+1 Pit of Offerings
+1 Poison the Blade
+1 Ranger's Longbow
+1 Raven Wings
+1 Ruins of Oran-Rief
+1 Rust
+1 Shield of Kaldra
+1 Slagwurm Armor
+1 Stampeding Rhino
+1 Strider Harness
+1 Sword of Vengeance
+1 Temple of the Dragon Queen
+1 Terrain Elemental
+1 Thicket Crasher
+1 Thornling
+1 Veteran's Sidearm
+1 Vibrating Sphere
+1 Vine Mare
+1 Vorstclaw
+1 Vulshok Morningstar
+1 Warlord's Axe
+1 Warmonger's Chariot
+1 Witches' Eye
+1 Wood Elemental
+
+[commander]
+Silvos, Rogue Elemental

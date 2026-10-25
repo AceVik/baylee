@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266241]
+1 Abraded Bluffs
+1 Alloy Myr
+1 Augmenting Automaton
+1 Black Vise
+1 Bleachbone Verge
+1 Book of Rass
+1 Boros Keyrune
+1 Brass Man
+1 Bronze Horse
+1 Darksteel Gargoyle
+1 Dispeller's Capsule
+1 Feldon's Cane
+1 Fields of Strife
+1 Flowstone Thopter
+1 Font of Mythos
+1 Foot Headquarters
+1 Forethought Amulet
+1 Foriysian Totem
+1 Gauntlet of Might
+1 Glittering Massif
+1 Godless Shrine
+1 Graaz, Unstoppable Juggernaut
+1 Grapeshot Catapult
+1 Great Hall of Starnheim
+1 Hedron Rover
+1 Hedron Scrabbler
+1 Honor-Worn Shaku
+1 Jandor's Ring
+1 Jawbone Skulkin
+1 Jousting Dummy
+1 Kolaghan Monument
+1 Lightning-Core Excavator
+1 Lorehold Campus
+1 Lumengrid Gargoyle
+1 Marble Diamond
+1 Mardu Banner
+1 Monoskelion
+12 Mountain
+1 Nomad Outpost
+1 Opaline Unicorn
+1 Orzhov Keyrune
+1 Palladium Myr
+1 Phyrexian Walker
+5 Plains
+1 Prizefighter Construct
+1 Ring of Ma'rûf
+1 Rugged Prairie
+1 Sacred Foundry
+1 Savai Crystal
+1 Savai Triome
+1 Scalding Tongs
+1 Scarab of the Unseen
+1 Scarecrow
+1 Scarecrow Guide
+1 Seer's Sundial
+1 Shattered Landscape
+1 Shell Skulkin
+1 Shifting Wall
+1 Signpost Scarecrow
+1 Skull of Ramos
+1 Smuggler's Copter
+1 Snow Fortress
+1 Spectator Seating
+1 Squee's Toy
+1 Stone Quarry
+1 Sunhome, Fortress of the Legion
+7 Swamp
+1 Telim'Tor's Darts
+1 Throne of the God-Pharaoh
+1 Thumbscrews
+1 Thunder Totem
+1 Tournament Grounds
+1 Tower of Fortunes
+1 Turbulent Steppe
+1 Urza's Blueprints
+1 Welder Automaton
+1 Worn Powerstone
+1 Xanthic Statue
+
+[commander]
+Oros, the Avenger

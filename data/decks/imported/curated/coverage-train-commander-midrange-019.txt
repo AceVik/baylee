@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266020]
+1 A Realm Reborn
+1 Afiya Grove
+1 Ajani's Comrade
+1 Ant-Man, Scott Lang
+1 Arbor Armament
+1 Arid Mesa
+1 Arnjlot's Ascent
+1 Avengers Hangar
+1 Battlefield Promotion
+1 Big Bertha
+1 Blinkmoth Well
+1 Blizzard
+1 Brass-Talon Chimera
+1 Breath of Dreams
+1 Clockwork Steed
+1 Clockwork Swarm
+1 Cloudchaser Kestrel
+1 Cocoon
+1 Daring Mechanic
+1 Defiant Falcon
+1 Emergence Zone
+1 Eutropia the Twice-Favored
+1 Expanded Anatomy
+1 Fearless Fledgling
+13 Forest
+1 Forgotten Monument
+1 Fungus Elemental
+1 Gaea's Gift
+1 Glyph of Delusion
+1 Gods' Eye, Gate to the Reikai
+1 Gond Gate
+1 Guardian of the Halls
+1 Guild Thief
+1 Halls of Mist
+1 Haven of the Spirit Dragon
+1 Illusionary Forces
+1 Illusionary Wall
+1 Infinite Authority
+1 Innkeeper's Talent
+1 Iron-Heart Chimera
+5 Island
+1 Lightfoot Technique
+1 Lonely Arroyo
+1 Loxodon Battle Priest
+1 Maze of Ith
+1 Mightstone's Animation
+1 Mikokoro, Center of the Sea
+1 Mindbender Spores
+1 Mockingbird, Bobbi Morse
+1 Mystic Might
+1 Nasty Little Rabbit
+1 Nature's Blessing
+1 Nesting Grounds
+1 Oath of the Ancient Wood
+5 Plains
+1 Plaza of Harmony
+1 Plaza of Heroes
+1 Prismatic Circle
+1 Prowler, Misguided Mentor
+1 Rosa, Resolute White Mage
+1 Rushwood Elemental
+1 Rustvine Cultivator
+1 Sledding Otter-Penguin
+1 Slith Predator
+1 Soulstone Sanctuary
+1 Sphinx of Magosi
+1 Spike Hatcher
+1 Take Up the Shield
+1 Teyo's Lightshield
+1 Tidus, Blitzball Star
+1 Titania's Boon
+1 Trade Caravan
+1 Tranquil Path
+1 Urza's Factory
+1 Verdant Automaton
+1 Volunteer Reserves
+1 Wall of Resistance
+1 War Dance
+1 Xindi Surveyors
+
+[commander]
+Derevi, Empyrial Tactician

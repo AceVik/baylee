@@ -15,9 +15,9 @@
 2 Leonin Scimitar
 2 Leonin Skyhunter
 1 Loxodon Warhammer
-1 Master's Call
 22 Plains
 3 Radiant's Judgment
+1 Repentance
 2 Slith Ascendant
 2 Soldier Replica
 4 Solemn Offering

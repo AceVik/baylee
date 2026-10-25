@@ -1,0 +1,85 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #90010014]
+1 Aerial Engineer
+1 Affa Protector
+1 Akroan Jailer
+1 Alert Heedbonder
+1 Alpine Watchdog
+1 Angelic Page
+1 Appa, Aang's Companion
+1 Ashiok's Skulker
+1 Aysen Abbey
+1 Ayula's Influence
+1 Battlefield Raptor
+1 Benalish Knight
+1 Birthing Hulk
+1 Calciform Pools
+1 Capashen Unicorn
+1 Citywide Bust
+1 Creature Bond
+1 Deranged Hermit
+1 Divine Transformation
+1 Duskborne Skymarcher
+1 Earth King's Lieutenant
+1 Eldrazi Skyspawner
+1 Essence Flare
+1 Felidar Cub
+1 Forecasting Fortune Teller
+12 Forest
+1 Freyalise Supplicant
+1 Gabriel Angelfire
+1 Gavony Township
+1 Greater Good
+1 Incubator Drone
+1 Inner Sanctum
+1 Iona's Judgment
+1 Irrigation Ditch
+1 Island
+1 Keeneye Aven
+1 Keepers of the Faith
+1 Kiora's Follower
+1 Kjeldoran Warrior
+1 Kor Castigator
+1 Kor Line-Slinger
+1 Kujar Seedsculptor
+1 Land Cap
+1 Makindi Shieldmate
+1 Master of the Hunt
+1 Mtenda Herder
+1 Muse's Encouragement
+1 Orim, Samite Healer
+1 Oversoul of Dusk
+10 Plains
+1 Prahv, Spires of Order
+1 Precinct Captain
+1 Purify
+1 Ritual of Subdual
+1 Savage Hunger
+1 Savannah
+1 Seaside Citadel
+1 Seaside Haven
+1 Selesnya Locket
+1 Shield of the Oversoul
+1 Skyhunter Skirmisher
+1 Slayer of the Wicked
+1 Spara's Headquarters
+1 Spirit of the Labyrinth
+1 Steadfast Sentry
+1 Sylvan Hierophant
+1 Tangled Islet
+1 Tranquil Cove
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Trusty Packbeast
+1 University Campus
+1 Urban Retreat
+1 Urza's Miter
+1 Urza, Lord High Artificer
+1 Volunteer Militia
+1 Wanderwine Hub
+1 War Elephant
+1 Zendikar's Roil
+
+[commander]
+Jenara, Asura of War

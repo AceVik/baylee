@@ -3,15 +3,15 @@
 [deck:Storm of Blades (Adapted)]
 4 Arrows of Justice
 3 Double Cleave
+4 Energy Bolt
 1 Frontline Rush
 1 Imperial Oath
-4 Legion Leadership
+3 Legion Leadership
 4 Lightning Helix
 4 Martial Glory
 10 Mountain
 9 Plains
 2 Rabbit Battery
-3 Rip Apart
 4 Spirit Summoning
 1 Sun-Blessed Peak
 2 Valorous Stance

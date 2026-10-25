@@ -1,0 +1,84 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro UBG #20266085]
+1 Alesha's Legacy
+1 Amphin Pathmage
+1 Ana Disciple
+1 Ankle Biter
+1 Aquus Steed
+1 Bad Deal
+1 Barkchannel Pathway
+1 Battle-Rage Blessing
+1 Bleed Dry
+1 Blooming Marsh
+1 Bonders' Enclave
+1 Cabal Slaver
+1 Castle Doom
+1 Command Beacon
+1 Coral Commando
+1 Coralhelm Guide
+1 Death-Hood Cobra
+1 Deathlace
+1 Deeptread Merrow
+1 Devotee of Strength
+1 Drafna's Restoration
+1 Dread Warlock
+1 Elvenking's Halls
+1 Enchantment Alteration
+3 Forest
+1 Geier Reach Sanitarium
+1 Gemstone Caverns
+1 Ghost Hounds
+1 Ghosts of the Damned
+1 Gnarled Mass
+1 Grayscaled Gharial
+1 Haunter of Nightveil
+1 Headwater Sentries
+1 Hedge Maze
+1 Hidden Lair
+1 Hinterland Harbor
+1 Hornet Cobra
+1 Hyalopterous Lemure
+1 Infiltrate
+9 Island
+1 Jump
+1 Littjara Mirrorlake
+1 Marsh Boa
+1 Merfolk Raiders
+1 Merrow Grimeblotter
+1 Mind Bend
+1 Mind Knives
+1 Mindwarper
+1 Mire Boa
+1 Moopsy
+1 Moss Viper
+1 Muck Rats
+1 Murmuring Phantasm
+1 Offer Immortality
+1 Paradox Gardens
+1 Prismatic Lace
+1 Quandrix Campus
+1 Rabid Rats
+1 Rain of Filth
+1 River Darter
+1 River Merfolk
+1 Rootwater Commando
+1 Shoreline Raider
+1 Shriek of Dread
+1 Sivitri, Dragon Master
+1 Skeletal Snake
+1 Sky Weaver
+1 Skyshroud Forest
+1 Sleight of Mind
+1 Steeple Creeper
+10 Swamp
+1 Thoughtlace
+1 Transmutation
+1 Urza's Workshop
+1 Viscid Lemures
+1 Vivien's Crocodile
+1 Vodalian Knights
+1 Wanderbrine Rootcutters
+1 Wandering Ones
+1 Wilderness Hypnotist
+1 Zuran Enchanter

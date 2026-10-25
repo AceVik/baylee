@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266271]
+1 Aesthir Glider
+1 Anvilwrought Raptor
+1 Avacyn's Memorial
+1 Aven Mindcensor
+1 Aven Redeemer
+1 Aven Sentry
+1 Aven Skirmisher
+1 Aven Trooper
+1 Bayou Dragonfly
+1 Beacon Hawk
+1 Birnin Zana Plaza
+1 Blossoming Sands
+1 Branchloft Pathway
+1 Bretagard Stronghold
+1 Burrowguard Mentor
+1 Castle Raptors
+1 Caustic Caterpillar
+1 Cockatrice
+1 Colorful Feiyi Sparrow
+1 Combat Professor
+1 Commander Eesha
+1 Companion of the Trials
+1 Conservatory
+1 Courier Hawk
+1 Crash of Rhino Beetles
+1 Dauntless Aven
+1 Dragonstalker
+1 Duskrider Falcon
+1 Eagle of the Great Shelf
+1 Eagle of the Watch
+1 Emerald Dragonfly
+5 Forest
+1 Fortified Village
+1 Freewind Falcon
+1 Gaelicat
+1 Garruk's Companion
+1 Gathering Place
+1 Gemrazer
+1 Ghirapur Osprey
+1 Goliath Beetle
+1 Graypelt Refuge
+1 Grove of the Guardian
+1 Hawkeater Moth
+1 Ifh-Bíff Efreet
+1 Killer Bees
+1 Locust Swarm
+1 Mesa Falcon
+1 Moonwing Moth
+1 Mothrider Patrol
+18 Plains
+1 Plover Knights
+1 Razorverge Thicket
+1 Roc Charger
+1 Royal Falcon
+1 Rustwing Falcon
+1 Sabertooth Nishoba
+1 Sanctuary Raptor
+1 Savannah
+1 Scattered Groves
+1 Shrike Force
+1 Skyblade of the Legion
+1 Skyhunter Prowler
+1 Skyshroud Falcon
+1 Skyswirl Harrier
+1 Steeple Roc
+1 Stirring Wildwood
+1 Sunpetal Grove
+1 Suntail Hawk
+1 Tangle Mantis
+1 Territorial Roc
+1 Undergrowth Leopard
+1 Unyaro Bees
+1 Vec Townships
+1 Veldt
+1 Venomous Dragonfly
+1 Wild Aesthir
+1 Windurst, Federation Center
+1 Yavimaya Gnats
+
+[commander]
+Bast, Panther Goddess

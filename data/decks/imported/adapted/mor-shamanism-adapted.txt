@@ -3,7 +3,6 @@
 [deck:Shamanism (Adapted)]
 1 Anguished Unmaking
 3 Arasta of the Endless Web
-2 Blinding Light
 1 Confidence from Strength
 1 Eyeblight's Ending
 2 Fade into Antiquity
@@ -22,6 +21,7 @@
 5 Swamp
 1 Tempest of Light
 1 Thorntooth Witch
+2 Touch of Death
 2 Vivid Grove
 2 Wanderer's Twig
 3 Wildsize

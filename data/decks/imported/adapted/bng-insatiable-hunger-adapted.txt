@@ -6,7 +6,7 @@
 14 Forest
 2 Ground Assault
 2 Lightning Strike
-4 Manamorphose
+2 Manamorphose
 1 Messenger's Speed
 2 Mortal's Resolve
 12 Mountain
@@ -16,5 +16,6 @@
 4 Savage Twister
 1 Setessan Starbreaker
 4 Stump Stomp
+2 Surge of Strength
 2 Swordwise Centaur
 2 Voyaging Satyr

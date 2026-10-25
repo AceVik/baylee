@@ -19,5 +19,5 @@
 10 Swamp
 3 Tear Asunder
 2 Thallid
-1 Wildsize
+1 Thermokarst
 1 Wormwood Dryad

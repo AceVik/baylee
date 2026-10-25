@@ -3,8 +3,8 @@
 [deck:Into the Breach (Adapted)]
 1 Contested War Zone
 2 Darksteel Axe
-2 Deflecting Swat
 2 Flick a Coin
+2 Hammer of Bogardan
 1 Iron Myr
 4 Lightning Bolt
 4 Memnite

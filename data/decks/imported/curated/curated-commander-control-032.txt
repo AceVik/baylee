@@ -1,82 +1,72 @@
 # baylee curated commander control seed=20261055
 # licence: AGPL-3.0-only
-[deck:commander control WU #20261055]
-1 Akron Legionnaire
-1 Angelic Shield
-1 Baton of Morale
-1 Blood of the Martyr
-1 Builder's Blessing
-1 Cephalid Inkshrouder
-1 Darksteel Gargoyle
-1 Devoted Hero
-1 Diplomatic Immunity
-1 Drannith Ruins
-1 Drifter il-Dal
-1 Dromoka Dunecaster
-1 Earth Kingdom Protectors
-1 Elixir of Vitality
-1 Elspeth's Smite
-1 Faceless Haven
-1 Falcon, Winged Wonder
-1 False Defeat
-1 Fierce Guardianship
-1 Gargoyle Castle
-1 Glasspool Mimic
-1 Goldmeadow Harrier
-1 Guardian Idol
-1 Inkmoth Nexus
-15 Island
-1 Isolate
-1 Kiss of the Amesha
-1 Lay Claim
-1 Leonin Abunas
-1 Lotus Petal
-1 Mass Calcify
-1 Merchant Ship
-1 Midnight Haunting
-1 Mightstone
-1 Minamo, School at Water's Edge
-1 Mind Control
-1 Mishra's Factory
-1 Moorland Haunt
-1 Myr Retriever
-1 Necrogen Censer
-1 Obscura Storefront
-1 Persuasion
-1 Pili-Pala
-11 Plains
-1 Preening Champion
-1 Puppet Strings
-1 Razortide Bridge
-1 Recall
-1 Reverse Polarity
-1 Rogue's Passage
-1 Runaway Boulder
-1 Sanctify
-1 Scour from Existence
-1 Skillful Lunge
-1 Skyline Predator
-1 Soaring Seacliff
-1 Sol Grail
-1 Soulstone Sanctuary
-1 Spectral Flight
-1 Suppression Ray
-1 Take Up Arms
-1 Take Vengeance
-1 Terminal Moraine
-1 The Mycosynth Gardens
-1 Tidus, Blitzball Star
-1 Tormod's Crypt
-1 Touch of Invisibility
-1 Triumphant Surge
-1 Vivid Creek
-1 Warlord's Axe
-1 White Lotus Hideout
-1 Winter Soldier, Bucky Barnes
-1 Witch's Clinic
-1 Worldslayer
-1 Wrath of Marit Lage
-1 Zealous Strike
+[deck:commander control G #20261055]
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Blighted Woodland
+1 Blood Servitor
+1 Boseiju, Who Endures
+1 Bottle of Suleiman
+1 Byway Courier
+1 Centaur Garden
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Doubling Season
+1 Dowsing Dagger
+1 Elephant Guide
+1 Elvish Farmer
+1 Filigree Crawler
+34 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Goldvein Pick
+1 Guardian of Cloverdell
+1 Hashep Oasis
+1 Heart of Yavimaya
+1 Imperious Perfect
+1 Jewel-Eyed Cobra
+1 Magnifying Glass
+1 Mantle of the Wolf
+1 Maul Splicer
+1 Midsummer Revel
+1 Mongrel Pack
+1 Most Wanted
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Oakhollow Village
+1 Okina, Temple to the Grandfathers
+1 Orochi Hatchery
+1 Path of Annihilation
+1 Pentavus
+1 Primeval Bounty
+1 Prying Blade
+1 Rampaging Baloths
+1 Retrofitter Foundry
+1 Scrap Trawler
+1 Skullclamp
+1 Slayer's Plate
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Tree of Tales
+1 Turntimber Ranger
+1 Wand of the Elements
+1 Welcome to . . .
+1 Wirewood Lodge
+1 Wurmweaver Coil
 
 [commander]
-Tidus, Blitzball Star
+Bugenhagen, Wise Elder

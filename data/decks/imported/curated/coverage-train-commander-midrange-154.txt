@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266155]
+1 Adept Watershaper
+1 Aerial Predation
+1 Angel of Light
+1 Angel of Retribution
+1 Aura Shards
+1 Baneslayer Angel
+1 Birnin Zana Plaza
+1 Blunt the Assault
+1 Bountiful Harvest
+1 Choke
+1 Circle of Protection: Blue
+1 Circle of Protection: White
+1 Collective Blessing
+1 Conservatory
+1 Crazed Armodon
+1 Death Speakers
+1 Dryad of the Ilysian Grove
+1 Dune Diviner
+1 Elven Fortress
+1 Entangling Vines
+1 Exploration
+10 Forest
+1 Fortified Village
+1 Fruition
+1 Gathering Place
+1 Gerrard's Battle Cry
+1 Grove of the Guardian
+1 Hedge Troll
+1 Hidden Predators
+1 High Ground
+1 Humility
+1 Hushwood Verge
+1 Kinsbaile Cavalier
+1 Kudzu
+1 Kyoshi Village
+1 Lifegift
+1 Living Lands
+1 Loxodon Mender
+1 Mantle of Leadership
+1 Mask of Law and Grace
+1 Mesa Unicorn
+1 Natural Spring
+1 Nourish
+1 Orthodoxy Enforcer
+13 Plains
+1 Planar Collapse
+1 Privileged Position
+1 Ravenous Daggertooth
+1 Razorverge Thicket
+1 Riftstone Portal
+1 Root Maze
+1 Roots of Life
+1 Sacred White Deer
+1 Savannah
+1 Seraph of Dawn
+1 Seraph of the Suns
+1 Serenity
+1 Shopkeeper's Bane
+1 Soltari Lancer
+1 Springsage Ritual
+1 Stirring Wildwood
+1 Stone Haven Pilgrim
+1 Stonehorn Chanter
+1 Sythis, Harvest's Hand
+1 Tangle Asp
+1 Temple of Plenty
+1 Thermokarst
+1 Thornglint Bridge
+1 Tranquil Garden
+1 Tranquil Grove
+1 Unlikely Alliance
+1 Vec Townships
+1 Veldt
+1 Venom
+1 Wakandan Tusker
+1 Wizened Cenn
+1 Wooded Bastion
+1 Zebra Unicorn
+
+[commander]
+Kei Takahashi

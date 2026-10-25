@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266242]
+1 Advocate of the Beast
+1 Ajani's Comrade
+1 Aku Djinn
+1 Ancestral Vengeance
+1 Arbor Armament
+1 Arnjlot's Ascent
+1 Blizzard
+1 Blooming Marsh
+1 Bounty Hunter
+1 Breath of Dreams
+1 Darkbore Pathway
+1 Dimir Guildgate
+1 Dreadship Reef
+1 Druid Class
+1 Dystopia
+1 Elvenking's Halls
+1 Essence Infusion
+1 Expanded Anatomy
+1 Feral Thallid
+1 Flow of Maggots
+1 Foreboding Landscape
+16 Forest
+1 Fungal Shambler
+1 Fungus Elemental
+1 Gaea's Gift
+1 Gallowbraid
+1 Glyph of Delusion
+1 Golgari Rot Farm
+1 Grasping Shadows
+1 Guardian of the Halls
+1 Hadana's Climb
+1 Illusionary Forces
+1 Illusionary Wall
+1 Innkeeper's Talent
+2 Island
+1 Lotleth Troll
+1 Markov Dreadknight
+1 Maximum Overdrive
+1 Mind Harness
+1 Mindbender Spores
+1 Morinfen
+1 Mutant Town
+1 Nasty Little Rabbit
+1 Oath of the Ancient Wood
+1 Opulent Palace
+1 Origin of Metalbending
+1 Rain-Slicked Copse
+1 Restless Cottage
+1 Retreat to Kazandu
+1 Revitalizing Repast
+1 Rushwood Elemental
+1 Rustvine Cultivator
+1 Sab-Sunen, Luxa Embodied
+1 Salt Road Quartermasters
+1 Scute Mob
+1 Skyshroud Forest
+1 Slith Predator
+1 Snakeskin Veil
+1 Spike Colony
+1 Spike Drone
+1 Spike Hatcher
+1 Spike Soldier
+1 Spike Weaver
+1 Spirit Shackle
+1 Spore Flower
+1 Stromkirk Patrol
+1 Submerged Boneyard
+1 Sunken Hollow
+1 Sunken Ruins
+6 Swamp
+1 Swamp Mosquito
+1 Thorn Thallid
+1 Titania's Boon
+1 Underground River
+1 Unspeakable Symbol
+1 Woodland Cemetery
+1 Yavimaya Ants
+1 Zagoth Triome
+
+[commander]
+Vorosh, the Hunter

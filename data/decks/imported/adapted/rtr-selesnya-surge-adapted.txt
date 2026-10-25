@@ -10,7 +10,7 @@
 1 Centaur Healer
 2 Centaur's Herald
 2 Chorus of Might
-2 Eladamri's Call
+1 Eladamri's Call
 12 Forest
 4 Gerrard's Command
 1 Grove of the Guardian
@@ -24,3 +24,4 @@
 2 Selesnya Keyrune
 3 Seller of Songbirds
 1 Veldt
+1 Vitalizing Cascade

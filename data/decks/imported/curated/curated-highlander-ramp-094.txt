@@ -1,79 +1,81 @@
 # baylee curated highlander ramp seed=20261117
 # licence: AGPL-3.0-only
 [deck:highlander ramp WU #20261117]
-1 Aladdin's Lamp
-1 Altar of the Brood
-1 Aura Blast
-1 Avacyn's Memorial
-1 Azorius Signet
-1 Banishing Stroke
-1 Barrin, Master Wizard
-1 Battlewise Valor
-1 Blade of the Sixth Pride
-1 Blighted Steppe
-1 Boon of the Wish-Giver
-1 Cenn's Heir
-1 Clergy en-Vec
-1 Compassionate Healer
-1 Contradict
-1 Darksteel Forge
+1 Adarkar Wastes
+1 Angelic Renewal
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Azorius Chancery
+1 Bag End Banquet
+1 Bishop of Wings
+1 Blade Splicer
+1 Calciform Pools
+1 Captain of the Watch
+1 Cartouche of Solidarity
+1 Celestial Colonnade
+1 Cold Case Cracker
+1 Corsair Captain
+1 Deserted Beach
+1 Diamond Kaleidoscope
+1 Doomed Traveler
 1 Drogskol Cavalry
-1 Drown in Shapelessness
-1 Eclipsed Realms
-1 Eiganjo, Seat of the Empire
-1 Elvish Healer
-1 Encroaching Wastes
-1 Enhanced Awareness
-1 Flash Counter
-1 Font of Mythos
-1 Fountain of Youth
-1 Fugitive Wizard
-1 Giant Shark
-1 Grasslands
-1 Heap Gate
-1 Holy Armor
-1 Hoverguard Observer
-1 Humbling Elder
-1 Imperial Lancer
-1 Invisibility
-1 Invoke the Divine
-1 Ironclad Krovod
-12 Island
-1 Jace's Scrutiny
-1 Jeskai Barricade
-1 Jeskai Runemark
-1 Kabira Crossroads
-1 Kitsune Riftwalker
-1 Library of Alexandria
-1 Lightbringer
-1 Magosi, the Waterveil
-1 Mana Tithe
-1 Muraganda Raceway
-1 Night Market
-1 Phyrexian Hulk
-1 Pious Wayfarer
-14 Plains
-1 Planar Cleansing
-1 Radiant Fountain
-1 Rebellious Strike
-1 Retribution of the Meek
-1 Roving Harper
-1 Scour from Existence
-1 Sculpting Steel
-1 Secluded Steppe
-1 Sentinel
-1 Sharlayan, Nation of Scholars
-1 Shifting Sliver
-1 Shire Terrace
-1 Spindrift Drake
-1 Static Orb
-1 Staunch Shieldmate
-1 Tamiyo's Epiphany
-1 Trail of Evidence
-1 Treasure Cruise
-1 Trenchpost
-1 Twitch
-1 Unfathomable Truths
-1 Vodalian Arcanist
-1 Windreader Sphinx
-1 Windstorm Drake
+1 Drowner of Hope
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Emeria's Call
+1 False Demise
+1 Fear of Surveillance
+1 Field of Souls
+1 Filigree Crawler
+1 Gleaming Barrier
+1 Gleaming Bastion
+1 Griffin Guide
+1 Grinding Station
+1 Guarded Heir
+1 Hallowed Fountain
+1 Homarid Spawning Bed
+1 Hunted Witness
+1 Idyllic Beachfront
+4 Island
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Land Cap
+1 Lonely Arroyo
+1 Luminous Angel
+1 Meandering River
+1 Moorland Haunt
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Nimbus Maze
+1 Ojer Taq, Deepest Foundation
+1 Orochi Hatchery
+1 Oyobi, Who Split the Heavens
+1 Pentavus
+20 Plains
+1 Prahv, Spires of Order
+1 Prairie Stream
+1 Prying Blade
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Reveillark
+1 Robotics Mastery
+1 Scrap Trawler
+1 Sensor Splicer
+1 Siege Veteran
+1 Skittering Invasion
+1 Skullclamp
+1 Skycloud Expanse
+1 Slayer's Plate
+1 Spawning Pit
+1 Study
+1 Sylvok Lifestaff
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Triskelavus
+1 Urbis Protector
+1 Wand of the Elements
+1 Wanderwine Hub

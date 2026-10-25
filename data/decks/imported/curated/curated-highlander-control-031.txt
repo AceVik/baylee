@@ -1,79 +1,80 @@
 # baylee curated highlander control seed=20261054
 # licence: AGPL-3.0-only
 [deck:highlander control BG #20261054]
-1 Abstergo Entertainment
-1 Accorder's Shield
-1 Afflict
-1 Ancient Ziggurat
-1 Armageddon Clock
-1 Assassin's Trophy
-1 Bladebrand
-1 Certain Death
-1 Corrupted Roots
-1 Cryptic Caves
-1 Dark Nourishment
-1 Dark Sphere
-1 Death-Hood Cobra
-1 Defenestrate
-1 Deranged Outcast
-1 Diamond City
-1 Dream Beavers
-1 Dungeon Descent
-1 Eat to Extinction
-1 Essence Filter
-1 Feeding Frenzy
-1 Final Death
-1 Final Reward
-1 Flooded Strand
-1 Flying Carpet
-1 Fodder Cannon
-11 Forest
-1 Forge of Heroes
-1 Fountain of Youth
-1 Fungal Infection
-1 Gaea's Gift
-1 Glass Golem
-1 Grisly Ritual
-1 Harmonize
-1 Howlpack Resurgence
-1 Iridescent Blademaster
-1 Kozilek's Translator
-1 Larceny
-1 Lifegift
-1 Live or Die
-1 Llanowar Dead
+1 Aclazotz, Deepest Betrayal
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Ayara, First of Locthwain
+1 Bastion of Remembrance
+1 Bayou
+1 Callous Inspector
+1 Chimeric Egg
+1 Claws of Gix
+1 Criminal Enterprise
+1 Dalek Drone
+1 Damnable Pact
+1 Darkbore Pathway
+1 Darkmoss Bridge
+1 Diamond Kaleidoscope
+1 Elvish Farmer
+1 Elvish Lyrist
+1 Eye of Vecna
+1 Festering Thicket
+2 Forest
+1 Foul Orchard
+1 Gilded Goose
+1 Glaring Fleshraker
+1 Gohn, Town of Ruin
+1 Golgari Guildgate
+1 Grim Backwoods
+1 Haunted Mire
+1 Illegitimate Business
+1 Infernal Idol
+1 Isolation Cell
+1 Juju Bubble
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Levitating Statue
+1 Lifecrafter's Bestiary
 1 Llanowar Wastes
-1 Lurking Lizards
-1 Memnite
-1 Memorial to Folly
-1 Meteor Sword
-1 Meteorite
-1 Might of Oaks
-1 Moonglove Extract
-1 Mox Opal
-1 Nettlecyst
-1 Nova Pentacle
-1 Onyx Goblet
-1 Peat Bog
-1 Power Matrix
-1 Priest of Titania
-1 Raise Dead
-1 Reflecting Mirror
-1 Scavenger Grounds
-1 Scour from Existence
-1 Skeletal Kathari
-1 Sol Ring
-1 Spidery Grasp
-15 Swamp
-1 Swarmyard
-1 Tawnos's Coffin
-1 Terminal Moraine
-1 The Great Mound
-1 The Hive
-1 Three Tragedies
-1 Timberland Ruins
-1 Vault of Whispers
+1 Lys Alana Bowmaster
+1 Machine Man, Model X-51
+1 Mai, Scornful Striker
+1 Mantle of the Wolf
+1 Marionette Apprentice
+1 Metalspinner's Puzzleknot
+1 Necroblossom Snarl
+1 Night's Whisper
+1 Ob Nixilis, the Fallen
+1 Painful Quandary
+1 Path of Annihilation
+1 Primal Amulet
+1 Primeval Bounty
+1 Quest for the Gravelord
+1 Quill-Slinger Boggart
+1 Restless Cottage
+1 Runaway Boulder
+1 Shauku, Endbringer
+1 Sign in Blood
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Spawning Pit
+1 Sphinx-Bone Wand
+1 Strangled Cemetery
+1 Svogthos, the Restless Tomb
+23 Swamp
+1 Sweettooth Witch
+1 Tainted Wood
+1 Tangleroot
+1 Tempting Witch
+1 The One Ring
+1 Thopter Squadron
+1 Thragtusk
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Turbulent Fen
+1 Vampire's Kiss
 1 Walking Ballista
-1 War Chariot
-1 Winding Canyons
-1 Yawgmoth's Will
+1 Woodland Chasm
+1 Yawgmoth's Edict

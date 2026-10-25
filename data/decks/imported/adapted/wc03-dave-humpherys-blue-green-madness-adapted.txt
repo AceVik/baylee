@@ -11,8 +11,8 @@
 8 Forest
 4 Hydroform
 11 Island
-1 Majestic Metamorphosis
 4 Neoform
 4 Square Up
+1 Touch of Vitae
 3 Unsummon
 3 Wildsize

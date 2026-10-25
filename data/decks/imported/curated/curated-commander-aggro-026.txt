@@ -1,86 +1,85 @@
 # baylee curated commander aggro seed=20261049
 # licence: AGPL-3.0-only
-[deck:commander aggro BRG #20261049]
-1 Aether Hub
-1 Arcane Lighthouse
-1 Avalanche
-1 Blood Pet
-1 Burrog Banemaker
-1 Capital City
-1 Champion of the Perished
-1 Claws of Gix
-1 Coat with Venom
-1 Crimson Kobolds
-1 Crypt of Agadeem
-1 Cursed Rack
-1 Delighted Halfling
-1 Dining Room
-1 Direct Hit
-1 Dragon Hatchling
-1 Dwarven Pony
-1 Eldrazi Temple
+[deck:commander aggro BR #20261049]
+1 Aether Sting
+1 Badlands
+1 Billiard Room
+1 Boar-q-pine
+1 Callous Inspector
+1 Canyon Slough
+1 Chandra's Emberling
+1 Chimeric Egg
+1 Cinder Barrens
+1 Crystal Rod
+1 Damnable Pact
+1 Dragon's Rage Channeler
+1 Dream Beavers
+1 Drossforge Bridge
+1 Eidolon of the Great Revel
 1 Electrostatic Field
-1 Elvish Lookout
-1 Fear
-1 Fierce Witchstalker
-7 Forest
-1 Forge of Heroes
-1 Ghost Hounds
-1 Goblin Arsonist
-1 Goblin Burrows
-1 Goblin Picker
-1 Goblin Rock Sled
-1 Golgari Keyrune
-1 Harabaz Druid
-1 Haywire Mite
-1 Heir of the Wilds
-1 Hickory Woodlot
-1 Hurr Jackal
-1 Icy Manipulator
-1 Immolation
-1 Jaspera Sentinel
-1 Kessig Wolf Run
-1 Lotus Petal
-1 Makindi Sliderunner
-1 Manakin
-1 Marker Beetles
-1 Meekstone
-8 Mountain
-1 Muraganda Raceway
-1 Nezumi Shadow-Watcher
-1 Norwood Ranger
-1 Priest of Urabrask
-1 Rakshasa Deathdealer
-1 Ravenous Baboons
-1 Realm of Koh
-1 Regrowth
-1 Restless Cottage
-1 Rock Basilisk
-1 Rumbling Slum
-1 Setessan Skirmisher
-1 Sewer Rats
-1 Sokenzan, Crucible of Defiance
-1 Spirit of Malevolence
-1 Stonefury
-1 Sunset Strikemaster
-8 Swamp
-1 Sylvan Scrying
-1 Thallid
-1 Tunneling Geopede
+1 Electrostatic Infantry
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Fear of Lost Teeth
+1 Fever Charm
+1 Firebrand Archer
+1 Firespitter Whelp
+1 Flame Jet
+1 Glaring Fleshraker
+1 Guttersnipe
+1 Haunted Ridge
+1 Havoc
+1 Iron Star
+1 Ishi-Ishi, Akki Crackshot
+1 Isolation Cell
+1 Ivory Cup
+1 Juju Bubble
+1 Kessig Flamebreather
+1 Lava Tubes
+1 Lavaclaw Reaches
+1 Levitating Statue
+1 Magma Jet
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Mana Crypt
+1 Mindsparker
+1 Molten Nursery
+1 Monastery Swiftspear
+16 Mountain
+1 Night's Whisper
+1 Onslaught
+1 Pyrostatic Pillar
+1 Quill-Slinger Boggart
+1 Rakdos Carnarium
+1 Rakdos Guildgate
+1 Rockslide Sorcerer
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Shield Sphere
+1 Sign in Blood
+1 Smoldering Marsh
+1 Spark Jolt
+1 Spark Spray
+1 Spellgorger Weird
+1 Spellshock
+1 Straw Golem
+1 Sulfurous Mire
+6 Swamp
+1 Taurean Mauler
+1 Temple of Malice
+1 Tramway Station
 1 Ulcerate
-1 Ulvenwald Observer
-1 Undergrowth Stadium
-1 Underworld Connections
-1 Vampire Hexmage
-1 Village Elder
-1 Viridian Harvest
-1 Will-o'-the-Wisp
-1 Winter Blast
-1 Wirewood Savage
+1 Urborg Volcano
+1 Urza's Chalice
+1 Vector, Imperial Capital
+1 Vertigo
+1 Walking Ballista
+1 Weaver of Lightning
+1 Winter Sky
 1 Wooden Sphere
-1 Woodland Druid
-1 Xira Arien
-1 Zulaport Cutthroat
+1 Yawgmoth's Edict
+1 Young Pyromancer
 
 [commander]
-Xira Arien
+Black Waltz No. 3

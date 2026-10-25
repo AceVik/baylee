@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266275]
+1 Abraded Bluffs
+1 Alpine Meadow
+1 Ancient Amphitheater
+1 Angelsong
+1 Arborea Pegasus
+1 Aurora Griffin
+1 Bladed Bracers
+1 Boggart Brute
+1 Boots of Speed
+1 Boros Garrison
+1 Candelabra of Tawnos
+1 Charging Griffin
+1 Clifftop Retreat
+1 Concordia Pegasus
+1 Daraja Griffin
+1 Demystify
+1 Diving Griffin
+1 Drill Too Deep
+1 Duergar Hedge-Mage
+1 Ekundu Griffin
+1 Enforcer Griffin
+1 Fend Off
+1 Gale Swooper
+1 Garrison Griffin
+1 Goblin Trailblazer
+1 Griffin Protector
+1 Harrier Griffin
+1 Harvesttide Infiltrator
+1 Hedgewitch's Mask
+1 Impetuous Sunchaser
+1 Kitesail Scout
+1 Makindi Aeronaut
+1 Manifold Key
+1 Masterwork of Ingenuity
+1 Mesa Pegasus
+1 Mistral Charger
+2 Mountain
+1 Obelisk of Undoing
+1 Pegasus Charger
+1 Peregrine Griffin
+1 Peregrine Mask
+1 Phyrexian Pegasus
+20 Plains
+1 Plateau
+1 Pressure Point
+1 Priest of Iroas
+1 Rabanastre, Royal City
+1 Radiant Summit
+1 Raking Claws
+1 Raze
+1 Restoration Angel
+1 Roterothopter
+1 Rustvale Bridge
+1 Sacred Foundry
+1 Shadow Glider
+1 Shard Phoenix
+1 Silverbeak Griffin
+1 Silverclaw Griffin
+1 Slayers' Stronghold
+1 Spotted Griffin
+1 Stormfront Pegasus
+1 Sun-Blessed Peak
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Sunscorched Divide
+1 Sunspire Griffin
+1 Swiftblade Vindicator
+1 Swooping Lookout
+1 Teremko Griffin
+1 Tethered Griffin
+1 Thermal Glider
+1 Thorin Oakenshield
+1 Trusted Pegasus
+1 Unlicensed Hearse
+1 Unyaro Griffin
+1 Utvara Scalper
+1 Viashino Firstblade
+1 Wild Griffin
+1 Wind-Scarred Crag
+
+[commander]
+Dwalin, Weaponmaster

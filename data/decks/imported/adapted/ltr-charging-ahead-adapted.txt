@@ -10,10 +10,10 @@
 4 Guttural Response
 4 Manamorphose
 8 Mountain
-1 Revel of the Fallen God
 4 Rugged Highlands
-4 Sangrite Surge
+1 Sangrite Surge
 4 Savage Twister
 4 Stump Stomp
+4 Surge of Strength
 2 Volcanic Dragon
 4 Wooded Ridgeline

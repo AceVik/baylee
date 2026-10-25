@@ -3,15 +3,13 @@
 [deck:Sacred Assault (Adapted)]
 2 Alabaster Mage
 3 Assault Griffin
-2 Bastion Enforcer
 1 Call of the Conclave
 2 Cudgel Troll
 2 Divine Favor
-3 Eladamri's Call
 2 Elite Vanguard
-1 Feral Ferocity
 10 Forest
 1 Gladecover Scout
+2 Glider Kids
 2 Griffin Rider
 2 Griffin Sentinel
 2 Heroes' Reunion
@@ -19,8 +17,10 @@
 1 Lifelink
 1 Lure
 1 Mesa Enchantress
+3 Pacifism
 2 Peregrine Griffin
 14 Plains
+1 Plummet
 2 Sacred Wolf
 2 Spirit Mantle
 1 Trollhide

@@ -1,84 +1,75 @@
 # baylee curated commander midrange seed=20261052
 # licence: AGPL-3.0-only
-[deck:commander midrange UB #20261052]
-1 Advanced Hoverguard
-1 Alexi's Cloak
-1 Anurid Murkdiver
-1 Armored Galleon
-1 Bad River
-1 Bane Alley Blackguard
-1 Battle-Rage Blessing
-1 Baxter Building
-1 Bloodthrone Vampire
-1 Cathedral of War
-1 Cave of Temptation
-1 Cavernous Maw
-1 Chrome Cat
-1 Cradle of the Accursed
-1 Daring Thunder-Thief
-1 Darksteel Forge
-1 Desecrated Earth
-1 Dig Through Time
-1 Elephant Graveyard
-1 Endless One
-1 Envelop
-1 Escape Routes
-1 Essence Feed
-1 Fatal Fumes
-1 Feedback
-1 Fortress Crab
-1 Geier Reach Sanitarium
-1 Gitaxian Raptor
-1 Grasslands
-1 Hand of Silumgar
-11 Island
-1 Jace's Ingenuity
-1 Jawbone Skulkin
-1 Jousting Dummy
-1 Larceny
-1 Liquimetal Torque
-1 Mad Auntie
-1 Malevolent Hermit
-1 Manalith
-1 Masked Blackguard
-1 Merchant Ship
-1 Nim Replica
-1 Ogre's Cleaver
-1 Onyx Goblet
-1 Order of the Ebon Hand
-1 Overeager Apprentice
-1 Phyrexian Reclamation
-1 Pillar of the Paruns
-1 Prakhata Club Security
-1 Reverberation
-1 Ring of Renewal
-1 Sarcomite Myr
-1 Sinister Starfish
-1 Sivitri Scarzam
-1 Skirge Familiar
-1 Skull Collector
-1 Skymarch Bloodletter
-1 Sliversmith
-1 Snapping Drake
-1 Soulstone Sanctuary
-1 Spectral Sliver
-1 Supreme Phantom
-13 Swamp
-1 Thassa's Bounty
-1 The Surgical Bay
-1 Tower of Coireall
-1 Towering Viewpoint
-1 Unclaimed Territory
-1 Underdome
-1 Underground River
-1 Venser, Shaper Savant
-1 Warpath Ghoul
-1 Watchwing Scarecrow
-1 Whir of Invention
-1 Winged Sliver
-1 Witch's Cauldron
-1 Witch's Cottage
-1 Zombie Trailblazer
+[deck:commander midrange R #20261052]
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Blighted Gorge
+1 Blood Petal Celebrant
+1 Blood Servitor
+1 Claws of Gix
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dori, Bearer of Friends
+1 Dowsing Dagger
+1 Dragon Egg
+1 Enatu Golem
+1 Falkenrath Celebrants
+1 Filigree Crawler
+1 Flick a Coin
+1 Gimli of the Glittering Caves
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Goblin Burrows
+1 Goblin Engineer
+1 Goblin Warrens
+1 Gold Pan
+1 Goldvein Pick
+1 Great Furnace
+1 Gremlin Infestation
+1 Hammerheim
+1 Hanweir Battlements
+1 Hellion Crucible
+1 Iron Man, Tony Stark
+1 Kiora of Fire and Ashes
+1 Legion Extruder
+1 Magnifying Glass
+31 Mountain
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Pashalik Mons
+1 Pentavus
+1 Pia and Kiran Nalaar
+1 Piggy Bank
+1 Prying Blade
+1 Ramunap Ruins
+1 Redcap Thief
+1 Retrofitter Foundry
+1 Rukh Egg
+1 Scrap Trawler
+1 Shivan Gorge
+1 Siege-Gang Commander
+1 Skullclamp
+1 Slash, Reptile Rampager
+1 Slayer's Plate
+1 Sokenzan, Crucible of Defiance
+1 Solemn Simulacrum
+1 Sparring Construct
+1 Spawning Pit
+1 Sylvok Lifestaff
+1 Terrarion
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Tooth and Claw
+1 Trading Post
+1 Treasure Map
+1 Underfoot Underdogs
+1 Voldaren Epicure
+1 Wand of the Elements
 
 [commander]
-Sivitri Scarzam
+Pia, Determined Rebuilder

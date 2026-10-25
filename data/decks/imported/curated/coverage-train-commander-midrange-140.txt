@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266141]
+1 Ajani's Welcome
+1 Angelsong
+1 Assault Intercessor
+1 Auspicious Ancestor
+1 Ballroom
+1 Beloved Princess
+1 Blessed Spirits
+1 Blight Pile
+1 Brightclimb Pathway
+1 Bygone Bishop
+1 Cackling Imp
+1 Commissar Severina Raine
+1 Concealed Courtyard
+1 Contemplation
+1 Court Cleric
+1 Cursebreak
+1 Davriel's Shadowfugue
+1 Dawnhart Geist
+1 Dedicated Martyr
+1 Desolate Mire
+1 Desperate Lunge
+1 Drana's Emissary
+1 Dry Spell
+1 Eclipsed Steppe
+1 Eriette's Lullaby
+1 Fend Off
+1 Fisk Tower
+1 Flight-Deck Coordinator
+1 Foot Headquarters
+1 Forbidden Ritual
+1 Formation
+1 Forsaken Sanctuary
+1 Glyph of Life
+1 Godless Shrine
+1 Hasran Ogress
+1 Hellfire
+1 Illumination
+1 Imperial Seal
+1 Invoke the Divine
+1 Isolated Chapel
+1 Juzám Djinn
+1 Kambal, Consul of Allocation
+1 Kor Firewalker
+1 Lightning Blow
+1 Linden, the Steadfast Queen
+1 Lyra Dawnbringer
+1 Mental Agony
+1 Mesa Enchantress
+1 Moonrise Cleric
+1 Myrsmith
+1 Nether Void
+1 Nightsky Mimic
+1 Opal Caryatid
+1 Orzhov Guildgate
+1 Orzhova, the Church of Deals
+1 Ozai's Cruelty
+15 Plains
+1 Pressure Point
+1 Reign of Terror
+1 Serene Offering
+1 Shattered Sanctum
+1 Sigil of the Empty Throne
+1 Silent Attendant
+1 Silverquill Campus
+1 Snowfield Sinkhole
+1 Spiritual Sanctuary
+1 Student of Ojutai
+1 Sunscorch Regent
+1 Surge of Righteousness
+8 Swamp
+1 Tainted Field
+1 Take Heart
+1 Tethered Skirge
+1 Urborg Stalker
+1 Vault of the Archangel
+1 Warmth
+1 Yotian Medic
+1 Zealots en-Dal
+
+[commander]
+Selenia, Dark Angel

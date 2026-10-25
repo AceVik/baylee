@@ -1,17 +1,17 @@
 # baylee curated constructed midrange seed=20261086
 # licence: AGPL-3.0-only
 [deck:constructed midrange W #20261086]
-2 Beaming Defiance
-4 Bygone Bishop
-4 Crucible of Worlds
-2 Grand Coliseum
-2 Griffin Dreamfinder
-2 Mech Hangar
-2 Onyx Talisman
-20 Plains
-4 Razorgrass Ambush
-3 Reverse Damage
-4 Servo Exhibition
-4 Shell Skulkin
-4 Shepherd of the Lost
-3 Warded Battlements
+4 Avacyn's Collar
+4 Blessed Light
+1 Blighted Steppe
+3 Captain of the Watch
+4 Glaring Fleshraker
+4 Hall of Heliod's Generosity
+3 Lotus-Eye Mystics
+3 Monastery Mentor
+19 Plains
+3 Primal Amulet
+4 Retrofitter Foundry
+3 Slayer's Plate
+3 Spawning Pit
+2 Worthy Knight

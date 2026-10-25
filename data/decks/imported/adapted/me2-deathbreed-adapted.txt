@@ -10,19 +10,19 @@
 1 Derelor
 3 Drift of the Dead
 1 Ebon Praetor
-1 Entreat the Dead
 1 Feast or Famine
 2 Gangrenous Zombies
 1 Hymn to Tourach
+1 Kjeldoran Dead
 1 Knight of Stromgald
 2 Mindstab Thrull
+1 Minion of Leshrac
 2 Necrite
 2 Nether Shadow
-1 Ob Nixilis's Cruelty
 1 Oubliette
-1 Recover
+1 Phyrexian Boon
+1 Ritual of the Machine
+1 Sleeper's Guile
 24 Snow-Covered Swamp
 2 Soul Exchange
-1 Succumb to Temptation
 1 Thrull Retainer
-1 Yawgmoth's Will

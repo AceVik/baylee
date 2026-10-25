@@ -1,85 +1,75 @@
 # baylee curated commander midrange seed=20261112
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20261112]
-1 Alabaster Potion
-1 Bag End Banquet
-1 Birnin Zana Plaza
-1 Black Vise
-1 Celestial Purge
-1 Coastal Piracy
-1 Cryptic Command
-1 Dense Canopy
-1 Diabolic Machine
+[deck:commander midrange W #20261112]
+1 Allied Teamwork
+1 Arahbo, the First Fang
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bishop of Wings
+1 Blade Splicer
+1 Blighted Steppe
+1 Blood Servitor
+1 Cartouche of Solidarity
+1 Diamond Kaleidoscope
 1 Doomed Traveler
-1 Eager Cadet
-1 Endless One
-1 Ensoul Artifact
-1 Exorcise
-4 Forest
-1 Frostwalk Bastion
-1 Galestrike
-1 Gemstone Mine
-1 Grizzled Leotau
-1 Hada Freeblade
-1 Hedge Troll
-1 Herbal Poultice
-1 Hollow Trees
-10 Island
-1 Jeskai Runemark
-1 Jousting Dummy
-1 Katara, the Fearless
-1 King Suleiman
-1 Lance
-1 Lay Claim
-1 Library of Alexandria
-1 Magosi, the Waterveil
-1 Malach of the Dawn
-1 Mech Hangar
-1 Memnite
-1 Moat
-1 Molimo, Maro-Sorcerer
-1 Necrogen Censer
-1 Nighthawk, Dark Defender
-1 Nine-Tail White Fox
-1 North Star
-1 One With the Wind
-1 Overflowing Insight
-1 Panharmonicon
-1 Patagia Tiger
-1 Pegasus Refuge
-10 Plains
-1 Power Depot
-1 Primal Huntbeast
-1 Prodigious Growth
-1 Reconnaissance Mission
-1 Rhystic Cave
-1 River Hoopoe
-1 Rofellos, Llanowar Emissary
-1 Rowan Treefolk
-1 Sabertooth Nishoba
-1 Safewright Quest
-1 Scavenger Grounds
-1 Secluded Steppe
-1 Sentinel of the Eternal Watch
-1 Seshiro the Anointed
-1 Shrink
-1 Skateboard
-1 Skillful Lunge
-1 Soulstone Sanctuary
-1 Spined Megalodon
-1 Spoils of Victory
-1 Stalking Drone
-1 Steal Artifact
-1 Storm of Saruman
-1 Survivors' Encampment
-1 Temple of Mystery
-1 The Fair Basilica
-1 Tigereye Cameo
-1 Trusted Pegasus
-1 Unknown Shores
-1 Voodoo Doll
-1 Water Wings
-1 Welding Jar
+1 Dowsing Dagger
+1 Dwarven Castle Guard
+1 Eiganjo Castle
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Field of Souls
+1 Filigree Crawler
+1 Flagstones of Trokair
+1 Fortifying Provisions
+1 Gilded Pinions
+1 Gleaming Barrier
+1 Glimmerlight
+1 Griffin Guide
+1 Hall of Heliod's Generosity
+1 Haunted Library
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Kor Haven
+1 Lupinflower Village
+1 Magnifying Glass
+1 Martyr of Dusk
+1 Master Splicer
+1 Master Trinketeer
+1 Mausoleum Guard
+1 Mobilization
+1 Myr Matrix
+1 Myr Sire
+1 Nesting Dovehawk
+1 Nim Deathmantle
+1 Nomad Stadium
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Pentavus
+31 Plains
+1 Prying Blade
+1 Regal Caracal
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Scrap Trawler
+1 Sensor Splicer
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Siege Veteran
+1 Skullclamp
+1 Slayer's Plate
+1 Spawning Pit
+1 Squire's Devotion
+1 Sylvok Lifestaff
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Wand of the Elements
 
 [commander]
-Katara, the Fearless
+Reya Dawnbringer

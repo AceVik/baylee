@@ -3,6 +3,7 @@
 [deck:Draconic Fury (Adapted)]
 2 Abrade
 2 Blaze
+1 Boiling Blood
 1 Char
 1 Crucible of Fire
 1 Disharmony
@@ -13,7 +14,7 @@
 1 Flametongue Kavu
 2 Furnace Whelp
 1 Goblin Motivator
-2 Goblin Offensive
+1 Goblin Offensive
 3 Kargan Dragonrider
 2 Lightning Bolt
 1 Make Mischief

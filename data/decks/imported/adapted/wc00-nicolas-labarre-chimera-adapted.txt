@@ -7,17 +7,18 @@
 4 Brushland
 3 City of Brass
 1 Confiscate
+1 Drogskol Cavalry
 4 Enlightened Tutor
 1 Eyeblight's Ending
+4 Fecundity
 8 Forest
 4 Halt Order
 2 High Market
 4 Llanowar Elves
 2 Phyrexian Tower
 4 Priest of Titania
-1 Skywhaler's Shot
+1 Snake Basket
 1 Sphinx's Revelation
 2 Thran Quarry
 1 Whetstone
-4 Woodcutter's Grit
-2 Yawgmoth's Will
+1 Yawgmoth's Will

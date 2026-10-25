@@ -7,12 +7,12 @@
 2 Cosmic Horror
 2 Dark Ritual
 2 Drain Life
-2 Entreat the Dead
 4 Evil Presence
 4 Lost Soul
 2 Raise Dead
 4 Scathe Zombies
 22 Swamp
 2 Unholy Strength
+2 Victimize
 2 Zodiac Snake
 4 Zombie Master

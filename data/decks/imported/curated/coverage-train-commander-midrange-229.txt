@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266230]
+1 Badlands
+1 Baron, Airship Kingdom
+1 Black Mana Battery
+1 Bloodgift Demon
+1 Bloodstone Cameo
+1 Blue Mana Battery
+1 Brass-Talon Chimera
+1 Castle Sengir
+1 Celestial Prism
+1 Charcoal Diamond
+1 Chronomaton
+1 Clockwork Avian
+1 Coretapper
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Darkwater Catacombs
+1 Dimir Aqueduct
+1 Dimir Signet
+1 Donatello, Way with Machines
+1 Drake-Skull Cameo
+1 Dread Rider
+1 Dreadship Reef
+1 Explosive Apparatus
+1 Festering Wound
+1 Fire Diamond
+1 Frostburn Weird
+1 Gilded Lotus
+1 Goblin Bomb
+1 Gold-Forged Sentinel
+1 Goldhound
+1 Hooded Kavu
+1 Implements of Sacrifice
+1 Insight Engine
+1 Iron Giant
+1 Iron Man, Futurist Paragon
+8 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Lazotep Behemoth
+1 Lead-Belly Chimera
+1 Life Matrix
+1 Lim-Dûl's Paladin
+1 Living Armor
+1 Lord of the Pit
+1 Mana Prism
+1 Mindless Automaton
+1 Mm'menon, Uthros Exile
+1 Mount Doom
+8 Mountain
+1 Mountain Yeti
+1 Mox Ruby
+1 Myr Scrapling
+1 Necropolis
+1 Noggle Bandit
+1 Ornithopter of Paradise
+1 Oscorp Industries
+1 Pili-Pala
+1 Port of Karfell
+1 Rakdos Keyrune
+1 Rakdos Signet
+1 Relic of Sauron
+1 Seething Landscape
+1 Serpent's Pass
+1 Serrated Biskelion
+1 Shadow Rider
+1 Silent Dart
+1 Sol Grail
+1 Sulfur Vent
+7 Swamp
+1 Tainted Peak
+1 Talisman of Creativity
+1 Three Tree Mascot
+1 Tin-Wing Chimera
+1 Torch Song
+1 Trigon of Rage
+1 Trigon of Thought
+1 War-Spike Changeling
+1 Xander's Lounge
+
+[commander]
+Gwendlyn Di Corci

@@ -6,10 +6,10 @@
 1 Champion of the Parish
 1 Clifftop Retreat
 4 Doomed Traveler
+2 Energy Bolt
 4 Frontline Rush
 2 Legion Guildmage
 4 Lightning Helix
-2 Martial Glory
 8 Mountain
 10 Plains
 2 Rip Apart

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266182]
+1 Adventurers' Guildhouse
+1 Ageless Guardian
+1 Amrou Seekers
+1 Bladed Ambassador
+1 Blaze of Glory
+1 Blood of the Martyr
+1 Border Guard
+1 Cho-Arrim Alchemist
+1 Clergy en-Vec
+1 Clever Concealment
+1 Cliffhaven Sell-Sword
+1 Clive's Hideaway
+1 Contested War Zone
+1 Corrupted Crossroads
+1 Eagle of the Great Shelf
+1 Elvish Healer
+1 Ephemerate
+1 Everybody Lives!
+1 Eye for an Eye
+1 Festival
+1 Fleet-Footed Monk
+1 Flicker
+1 Foundry of the Consuls
+1 Fresh Volunteers
+1 Glorifier of Dusk
+1 Goldmeadow Dodger
+1 Guardian Angel
+1 Head of Security
+1 Holy Day
+1 Indomitable Ancients
+1 Iron Tusk Elephant
+1 King of the Pride
+1 Kinsbaile Balloonist
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Knight Errant
+1 Kor Sky Climber
+1 Loxodon Anchorite
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Loxodon Line Breaker
+1 Loxodon Wayfarer
+1 Majestic Heliopterus
+1 Makindi Stampede
+1 Mending Hands
+1 Mounted Archers
+1 Noble Elephant
+1 Pay No Heed
+1 Petrified Field
+31 Plains
+1 Rapid Fire
+1 Redeem
+1 Resistance Fighter
+1 Resplendent Mentor
+1 Reverse Damage
+1 Sacred Knight
+1 Scalding Tarn
+1 Scapegoat
+1 Sejiri Shelter
+1 Shield Bearer
+1 Shieldmate's Blessing
+1 Shining Aerosaur
+1 Soltari Emissary
+1 Split-Tail Miko
+1 Steadfast Guard
+1 Teferi's Protection
+1 The Biblioplex
+1 The Great Mound
+1 Worf, Chief Tactical Officer
+
+[commander]
+Sokka, Wolf Cove's Protector

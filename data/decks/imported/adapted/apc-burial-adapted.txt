@@ -16,8 +16,8 @@
 1 Phyrexian Arena
 1 Phyrexian Gargantua
 3 Plains
-2 Pulse of Murasa
 2 Quagmire Druid
+2 Repentance
 2 Shredder's Revenge
 4 Squall
 10 Swamp

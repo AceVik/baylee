@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #20266181]
+1 A.I.M. Synthoids
+1 Altar of Dementia
+1 Ashnod's Altar
+1 Automatic Librarian
+1 Barrow Witches
+1 Borg Queen, Perfection Manifest
+1 Brutal Nightstalker
+1 Buried Ruin
+1 Candy Trail
+1 Carnage Altar
+1 City of Traitors
+1 Crypt Angel
+1 Crystal Chimes
+1 Doom's Servo-Guards
+1 Dread Reaper
+1 Dreadwurm
+1 Dream Beavers
+1 Dross Crocodile
+1 Earsplitting Rats
+1 Etched Familiar
+1 Fill with Fright
+1 Flayed One
+1 Geier Reach Sanitarium
+1 Ghost Town
+1 Golden Guardian
+1 Grinding Station
+1 Guardian Beast
+1 Horrifying Revelation
+1 Instant Ramen
+1 Liliana's Specter
+1 Mana Geode
+1 Massacre Wurm
+1 Metalspinner's Puzzleknot
+1 Nim Replica
+1 Northampton Farm
+1 Ominous Cemetery
+1 Orc Sureshot
+1 Panharmonicon
+1 Phyrexia's Core
+1 Phyrexian Fleshgorger
+1 Phyrexian Vault
+1 Pierce Strider
+1 Plasmancer
+1 Prakhata Pillar-Bug
+1 Prophet of the Peak
+1 Rampart Hunter
+1 Rathi Assassin
+1 Recover
+1 Runed Servitor
+1 Sanitation Automaton
+1 Scampering Surveyor
+1 Sensei's Divining Top
+1 Shield-Wall Sentinel
+1 Skull of Orm
+1 Sonic Screwdriver
+1 Spined Fluke
+1 Springjack Pasture
+1 Stitcher's Supplier
+1 Strongarm Thug
+31 Swamp
+1 Sword of the Meek
+1 Tablet of Epityr
+1 Tarrian's Journal
+1 Unearth
+1 Urza's Power Plant
+1 Vermiculos
+1 Watcher of the Wayside
+1 Wreckage Wickerfolk
+1 Wretched Doll
+
+[commander]
+Kalakscion, Hunger Tyrant

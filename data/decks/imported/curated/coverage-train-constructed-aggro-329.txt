@@ -1,0 +1,31 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro BRG #20266330]
+2 Angrath's Ambusher
+1 Crypt Ripper
+1 Darigaaz's Caldera
+2 Desolation Prowler
+2 Dire Fleet Captain
+2 Drift of the Dead
+2 Fetid Horror
+2 Flinthoof Boar
+3 Forest
+1 Geothermal Crevice
+2 Giant Turtle
+2 Hoar Shade
+1 Koskun Keep
+2 Looming Shade
+2 Lurking Nightstalker
+1 Mountain
+2 Orcish Healer
+2 Orcish Veteran
+2 Primeval Shambler
+2 Rakshasa Deathdealer
+2 Ridged Kusite
+3 Savage Lands
+9 Swamp
+3 Twisted Landscape
+2 Veiled Shade
+2 Vintara Snapper
+2 Wall of Blood
+1 Ziatora's Proving Ground

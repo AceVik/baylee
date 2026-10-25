@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266280]
+1 Abzan Kin-Guard
+1 Accelerated Evolution
+1 An-Havva Constable
+1 Aspect of Wolf
+1 Battle Brawler
+1 Blessing of Leeches
+1 Blooming Marsh
+1 Charging Bandits
+1 Curse Artifact
+1 Darkmoss Bridge
+1 Deepwood Drummer
+1 Devkarin Dissident
+1 Dhund Operative
+1 Downdraft
+1 Earthlore
+1 Eladamri, Lord of Leaves
+1 Elder of Laurels
+1 Elven Fortress
+1 Embraal Bruiser
+1 Equestrian Skill
+1 Extinguish All Hope
+1 Festering Thicket
+1 Fleshgrafter
+1 Folk of An-Havva
+12 Forest
+1 Foul Orchard
+1 Gift of the Deity
+1 Gravblade Heavy
+1 Greenhilt Trainee
+1 Hardened-Scale Armor
+1 Hecatomb
+1 Heir of the Wilds
+1 Hissing Quagmire
+1 Hungry Spriggan
+1 Illegitimate Business
+1 Iridescent Blademaster
+1 Jungle Hollow
+1 Kraul Warrior
+1 Larceny
+1 Masked Blackguard
+1 Mind Whip
+1 Moment of Defiance
+1 Mortal Wound
+1 Narcissism
+1 Nature's Revolt
+1 Nezumi Shadow-Watcher
+1 Oran-Rief Invoker
+1 People of the Woods
+1 Pestilence
+1 Pillar Tombs of Aku
+1 Primal Frenzy
+1 Primaris Eliminator
+1 Restless Cottage
+1 Scarwood Bandits
+1 Seal of Strength
+1 Season of the Witch
+1 Silken Strength
+1 Simian Brawler
+1 Skemfar Elderhall
+1 Soul Bleed
+1 Soul Kiss
+1 Sudden Strength
+1 Svogthos, the Restless Tomb
+11 Swamp
+1 Temple of Malady
+1 Temur Runemark
+1 Titan's Grave
+1 Topan Ascetic
+1 Turbulent Fen
+1 Twilight Mire
+1 Undergrowth Stadium
+1 Underworld Dreams
+1 Vernal Fen
+1 Vile Deacon
+1 Web
+1 Wei Ambush Force
+1 Wild Nacatl
+1 Woodland Chasm
+
+[commander]
+Vhati il-Dal

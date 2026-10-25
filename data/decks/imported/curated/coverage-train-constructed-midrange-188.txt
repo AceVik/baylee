@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUBRG #20266189]
+2 Ancient Spring
+2 Angelfire Crusader
+2 Anointed Deacon
+2 Armorer Guildmage
+2 Beetleform Mage
+2 Breath of Malfegor
+4 Crystal Quarry
+2 Dragonsoul Knight
+2 Fireborn Knight
+2 Foot Elite
+2 Harbor Bandit
+2 High Priest of Penance
+1 Island
+8 Mountain
+2 Nearby Planet
+2 Order of the Ebon Hand
+2 Paragon of the Amesha
+2 Pardic Collaborator
+3 Plains
+2 Relentless Hunter
+2 Shaper Guildmage
+2 Stormscape Apprentice
+2 Stromgald Crusader
+2 Swamp
+2 The World Tree
+2 Viashino Slaughtermaster

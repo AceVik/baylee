@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266042]
+1 Abzan Runemark
+1 Angelic Renewal
+1 Ant Queen
+1 Anthem of Champions
+1 Archon of Justice
+1 Argoth, Sanctum of Nature
+1 Auratog
+1 Ba Sing Se
+1 Briar Shield
+1 Call to Serve
+1 Centaur's Herald
+1 Chocobo Camp
+1 Collective Blessing
+1 Daraja Griffin
+1 Dryad's Favor
+1 Emeria, the Sky Ruin
+1 Evendo, Waking Haven
+1 Excavation Mole
+1 Foratog
+14 Forest
+1 Fortified Area
+1 From Beyond
+1 Gaelicat
+1 Glimmer Bairn
+1 Glittermonger
+1 Goldmeadow Lookout
+1 Green Scarab
+1 Harrier Griffin
+1 Hollow Trees
+1 Ivory Guardians
+1 Join the Ranks
+1 Jungle Basin
+1 Kishla Village
+1 Kithkin Mourncaller
+1 Knighthood
+1 Lance
+1 Llanowar Mentor
+1 Luminarch Ascension
+1 Luminous Broodmoth
+1 Manor Gate
+1 Mantle of Webs
+1 Memorial to Glory
+1 Minas Tirith
+1 Mtenda Griffin
+1 Mythic Proportions
+1 Nimbus Wings
+1 Ojer Kaslem, Deepest Growth
+1 Overgrown Armasaur
+9 Plains
+1 Primal Rage
+1 Release the Dogs
+1 Rushwood Grove
+1 Safewright Quest
+1 Sandstone Bridge
+1 Sapseep Forest
+1 Serra's Blessing
+1 Silken Strength
+1 Spore Crawler
+1 Steely Resolve
+1 Stonybrook Schoolmaster
+1 Tattoo Ward
+1 Temur Runemark
+1 Thaumatog
+1 Thelonite Monk
+1 Tireless Provisioner
+1 Trenching Steed
+1 Turntimber Grove
+1 Turtle Power!
+1 Uktabi Wildcats
+1 Undergrowth Leopard
+1 Unyaro Griffin
+1 White Scarab
+1 Whiteout
+1 Windbrisk Heights
+1 Windbrisk Raptor
+1 Wolfkin Bond
+1 Wolfwillow Haven
+1 Zanarkand, Ancient Metropolis
+
+[commander]
+Bast, Panther Goddess

@@ -6,7 +6,6 @@
 1 Bishop of the Bloodstained
 1 Bloodcrazed Paladin
 2 Child of Night
-1 Clergy of the Holy Nimbus
 1 Day of Judgment
 1 Inkling Summoning
 3 Mortify
@@ -14,6 +13,7 @@
 9 Plains
 2 Prismatic Lens
 2 Queen's Bay Soldier
+1 Rustwing Falcon
 2 Skymarch Bloodletter
 13 Swamp
 4 Tainted Field

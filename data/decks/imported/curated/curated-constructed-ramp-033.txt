@@ -1,21 +1,21 @@
 # baylee curated constructed ramp seed=20261056
 # licence: AGPL-3.0-only
 [deck:constructed ramp UG #20261056]
-2 Avengers Tower
-1 Diamond City
-4 Forced Fruition
-8 Forest
-3 Gale Force
-3 Hurkyl's Recall
-3 Inventors' Fair
-7 Island
-4 Krosan Archer
-3 Liquimetal Torque
-4 Natural Spring
-3 Owl Familiar
-3 Pulse of Murasa
-4 Surgical Metamorph
-3 The Grey Havens
-3 Treasure Cruise
-1 Whiptail Wurm
-1 Wirewood Lodge
+3 Botanical Sanctum
+3 Dreamroot Cascade
+3 Fable of Wolf and Owl
+1 Flooded Grove
+2 Glaring Fleshraker
+3 Hesitation
+14 Island
+4 Jeskai Sage
+4 Jin-Gitaxias, Progress Tyrant
+1 Kozilek's Unsealing
+3 Metamorphosis
+2 Path of Annihilation
+4 Primeval Bounty
+1 Restless Vinestalk
+4 Shipwreck Dowser
+2 Sire of the Storm
+3 Sodden Verdure
+3 Three Steps Ahead

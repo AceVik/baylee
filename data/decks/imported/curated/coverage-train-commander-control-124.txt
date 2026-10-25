@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266125]
+1 Affa Guard Hound
+1 Ambrosia Whiteheart
+1 Ancient Spring
+1 Angelheart Protector
+1 Arcane Sanctum
+1 Aviary Mechanic
+1 Bandage
+1 Basilica Bell-Haunt
+1 Binding Mummy
+1 Blister Beetle
+1 Cackling Fiend
+1 Caustic Crawler
+1 Contaminated Landscape
+1 Corpse Knight
+1 Deputy of Acquittals
+1 Devout Lightcaster
+1 Dispersal Technician
+1 Dromar's Cavern
+1 East Wind Avatar
+1 Enter the Enigma
+1 Farbog Boneflinger
+1 Favored of Iroas
+1 Friendly Ghost
+1 Gitaxian Probe
+1 Grasping Thrull
+1 Great Hall of Starnheim
+1 Guardian of Pilgrims
+1 Haazda Officer
+1 Heavy Infantry
+1 Herald of the Fair
+1 Hydroelectric Specimen
+1 Island
+1 Keening Banshee
+1 Kor Entanglers
+1 Lake-town
+1 Leonin Snarecaster
+1 Lotusguard Disciple
+1 Marketwatch Phantom
+1 Miasmic Mummy
+1 Mummy Paramount
+1 Nebelgast Herald
+1 Niblis of the Mist
+1 Orzhov Guildgate
+1 Orzhov Guildmage
+1 Palace Jailer
+18 Plains
+1 Raffine's Tower
+1 Rambunctious Mutt
+1 Rank and File
+1 Rescuer Chwinga
+1 River Delta
+1 Shattered Sanctum
+1 Silent Clearing
+1 Skycloud Expanse
+1 Soldier of the Grey Host
+1 Somnomancer
+1 Sparring Mummy
+1 Starlit Sanctum
+1 Steppe Lynx
+1 Submerged Boneyard
+6 Swamp
+1 Temple of Deceit
+1 Temple of Enlightenment
+1 Tenth District Guard
+1 Thopter Architect
+1 Tivadar of Thorn
+1 Toucan-Puffin
+1 True Love's Kiss
+1 Ubul Sar Gatekeepers
+1 Umbral Expanse
+1 Vampiric Spirit
+1 Vault Plunderer
+1 Voracious Greatshark
+1 Voracious Vampire
+1 Wayward Servant
+1 Wizards' School
+1 Zhalfirin Lancer
+
+[commander]
+Aminatou, the Fateshifter

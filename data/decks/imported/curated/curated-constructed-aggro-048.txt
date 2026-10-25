@@ -1,22 +1,24 @@
 # baylee curated constructed aggro seed=20261071
 # licence: AGPL-3.0-only
 [deck:constructed aggro BR #20261071]
-2 Champion of the Perished
-4 Dune Beetle
-4 Ember-Eye Wolf
-4 Faceless Haven
-3 Grim Physician
-2 Heap Gate
-4 Magma Spray
-2 Malakir Cullblade
-3 Monastery Swiftspear
-8 Mountain
-4 Mountain Bandit
-2 Shield of Kaldra
-4 Spiteful Bully
-9 Swamp
-4 The Lonely Mountain
-4 Virulent Plague
-2 Watcher of the Wayside
-2 Whipstitched Zombie
-3 Wicker Witch
+2 Bloodfell Caves
+1 Boiling Rock Prison
+4 Cinder Barrens
+3 Cinder Marsh
+3 Embersmith
+4 Firebrand Archer
+1 Foreboding Ruins
+4 Glaring Fleshraker
+4 Guttersnipe
+2 Kessig Flamebreather
+4 Last Gasp
+3 Mai, Scornful Striker
+4 Monastery Swiftspear
+15 Mountain
+1 Rockslide Sorcerer
+2 Sawblade Scamp
+2 Spark Jolt
+4 Spark Spray
+1 Swamp
+2 Weaver of Lightning
+4 Winter Sky

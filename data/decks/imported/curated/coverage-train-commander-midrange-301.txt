@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266302]
+1 Advance Scout
+1 Ageless Guardian
+1 Alabaster Potion
+1 Alaborn Grenadier
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Ancient Den
+1 Angel's Mercy
+1 Ardent Militia
+1 Armory Guard
+1 Bastion Enforcer
+1 Benalish Infantry
+1 Bladed Ambassador
+1 Border Guard
+1 Cenn's Heir
+1 Combat Medic
+1 Daru Encampment
+1 Desperate Lunge
+1 Eager Cadet
+1 Earth Kingdom Protectors
+1 Eiganjo Castle
+1 Exultant Skymarcher
+1 Farewell
+1 Foriysian Brigade
+1 Foriysian Interceptor
+1 Glorifier of Dusk
+1 Haazda Shield Mate
+1 Hall of Heliod's Generosity
+1 Head of Security
+1 Icatian Infantry
+1 Icatian Phalanx
+1 Icatian Scout
+1 Icatian Skirmishers
+1 Illumination
+1 Karakas
+1 Kinsbaile Balloonist
+1 Kithkin Shielddare
+1 Kjeldoran Escort
+1 Kor Haven
+1 Kor Scythemaster
+1 Kor Sky Climber
+1 Longbow Archer
+1 Loxodon Gatekeeper
+1 Loxodon Line Breaker
+1 Lupinflower Village
+1 Mesa Unicorn
+1 Nightguard Patrol
+1 Nomad Stadium
+1 Phantom General
+31 Plains
+1 Resistance Fighter
+1 Rhox Pikemaster
+1 Righteous Avengers
+1 Sentinel of the Eternal Watch
+1 Shefet Dunes
+1 Shield Bearer
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Soltari Champion
+1 Soltari Foot Soldier
+1 Soltari Trooper
+1 Standing Troops
+1 Staunch Shieldmate
+1 Sun Sentinel
+1 Thraben Valiant
+1 Valiant Guard
+1 Veteran Bodyguard
+1 Whitesun's Passage
+1 Winter Soldier, Bucky Barnes
+
+[commander]
+Hawkeye, Clint Barton

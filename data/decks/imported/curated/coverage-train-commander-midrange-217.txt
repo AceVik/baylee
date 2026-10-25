@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266218]
+1 Alpha Kavu
+1 Amrou Scout
+1 Ancient Spider
+1 Ankh of Mishra
+1 Apes of Rath
+1 Armored Wolf-Rider
+1 Astral Cornucopia
+1 Bear Trap
+1 Beneath the Sands
+1 Botanical Plaza
+1 Bramblefort Fink
+1 Branchloft Pathway
+1 Brushland
+1 Changeling Sentinel
+1 Conifer Strider
+1 Daggerback Basilisk
+1 Defiant Falcon
+1 Elfhame Palace
+1 Emerald Oryx
+1 Endangered Armodon
+1 Ethereal Champion
+1 Faithful Watchdog
+1 Flamecast Wheel
+19 Forest
+1 Fyndhorn Brownie
+1 Gavony Township
+1 Gibbering Hyenas
+1 Glissa's Courier
+1 Gorilla Pack
+1 Grave Bramble
+1 Greater Basilisk
+1 Hillcomber Giant
+1 Horizon Canopy
+1 Hushwood Verge
+1 Karoo Meerkat
+1 Kyoshi Village
+1 Lady Caleria
+1 Land Leeches
+1 Moss Monster
+1 Mosstodon
+1 Niall Silvain
+4 Plains
+1 Ramosian Captain
+1 Ramosian Commander
+1 Ramosian Lieutenant
+1 Razorverge Thicket
+1 Restless Prairie
+1 Scalding Cauldron
+1 Selesnya Sanctuary
+1 Shelkin Brownie
+1 Silverback Ape
+1 Singing Tree
+1 Skyshroud Poacher
+1 Southern Elephant
+1 Springjaw Trap
+1 Steelshaper Apprentice
+1 Suburban Sanctuary
+1 Sunpetal Grove
+1 Thornling
+1 Trained Jackal
+1 Tree Monkey
+1 Triangle of War
+1 Triskelion
+1 Underdark Basilisk
+1 Vec Townships
+1 Vine Mare
+1 Vitu-Ghazi, the City-Tree
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Pine Needles
+1 Warthog
+1 Wary Okapi
+1 Watcher in the Web
+1 Windurst, Federation Center
+1 Wooded Bastion
+1 Woodland Changeling
+1 Zodiac Horse
+1 Zodiac Monkey
+
+[commander]
+Sir Shandlar of Eberyn

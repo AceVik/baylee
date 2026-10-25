@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro UBR #20266084]
+2 Accursed Horde
+3 Cinder Marsh
+2 Dreadwing
+2 Drowned
+2 Fire Nation Ambushers
+2 Goblin Mountaineer
+2 Hag of Twisted Visions
+4 Island
+2 Krovikan Elementalist
+3 Luxury Suite
+2 Misery Charm
+2 Morgue Thrull
+2 Naga Eternal
+2 One with Nothing
+2 Reanimate
+2 Roofstalker Wight
+2 Sheoldred's Edict
+2 Sire of Insanity
+4 Smoldering Marsh
+9 Swamp
+2 Unhallowed Phalanx
+2 Wanderwine Distracter
+1 Word of Command
+2 Zombie Outlander

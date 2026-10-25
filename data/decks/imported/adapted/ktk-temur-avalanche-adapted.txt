@@ -4,7 +4,6 @@
 2 Alpine Grizzly
 2 Brotherhood's End
 1 Divination
-2 Elvish Lookout
 8 Forest
 2 Frontier Bivouac
 3 Goblin Offensive
@@ -14,6 +13,7 @@
 1 Lightning Strike
 7 Mountain
 1 Orcish Cannonade
+2 Orochi Leafcaller
 1 Refute
 1 Rugged Highlands
 2 Runeclaw Bear

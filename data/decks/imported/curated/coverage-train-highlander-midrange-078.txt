@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266079]
+1 Akki Rockspeaker
+1 Akoum Boulderfoot
+1 April O'Neil, Kunoichi Trainee
+1 Ardent Elementalist
+1 Atzocan Seer
+1 Badgermole Cub
+1 Bugenhagen, Wise Elder
+1 Carrier Pigeons
+1 Cartographer
+1 Carven Caryatid
+1 Crater Hellion
+1 Diamond Valley
+1 Drumhunter
+1 Dundoolin Weaver
+1 Elvish Regrower
+1 Excavation Mole
+1 Firefist Adept
+1 Flamekin Harbinger
+8 Forest
+1 Galadhrim Guide
+1 Gallant Citizen
+1 Gladewalker Ritualist
+1 Gladiolus Amicitia
+1 Glittering Massif
+1 Gongaga, Reactor Town
+1 Helpful Hunter
+1 Highland Weald
+1 Iron Hills
+1 Ironclad Slayer
+1 Joraga Visionary
+1 Karmic Guide
+1 Kazandu Refuge
+1 Kindly Customer
+1 Leonin Squire
+1 Loran, Disciple of History
+1 Magma Giant
+1 Mogg Hollows
+1 Monk Idealist
+2 Mountain
+1 Nebula Dragon
+1 Nissa, Resurgent Animist
+1 Paleoloth
+1 Pillardrop Rescuer
+1 Pious Wayfarer
+13 Plains
+1 Pyknite
+1 Rabanastre, Royal City
+1 Rakeclaw Gargantuan
+1 Reckless Fireweaver
+1 Recruiter of the Guard
+1 Renegade Rallier
+1 Restless Ridgeline
+1 Rhox Meditant
+1 Rhox Oracle
+1 Ridge Rannet
+1 Roving Harper
+1 Rumbling Sentry
+1 Sanctum of Eternity
+1 Settlement Blacksmith
+1 Shaman of Spring
+1 Shocking Sharpshooter
+1 Shore Lurker
+1 Slagwoods Bridge
+1 Slumbering Keepguard
+1 Spire Garden
+1 Spire of Industry
+1 Spirited Companion
+1 Steel Leaf Paladin
+1 Stoic Builder
+1 Striped Bears
+1 Sunscorched Divide
+1 Taiga
+1 Tanglespan Lookout
+1 The Great Mound
+1 Training Compound
+1 Treasure Hunter
+1 Vagrant Plowbeasts
+1 Wall of Omens
+1 Wirewood Savage
+1 Woodland Liege

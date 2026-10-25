@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266030]
+1 Abduction
+1 Abstergo Entertainment
+1 Akroma's Memorial
+1 Ash Barrens
+1 Blighted Shaman
+1 Bog Naughty
+1 Brine Shaman
+1 Cabaretti Courtyard
+1 Carrion
+1 Cavernous Maw
+1 Citywatch Sphinx
+1 Coastal Hornclaw
+1 Codex Shredder
+1 Corpse Blockade
+1 Cradle of the Accursed
+1 Cyclopean Mummy
+1 Dai Li Censor
+1 Drainpipe Vermin
+1 Drider
+1 Elderfang Ritualist
+1 Elvish Doomsayer
+1 Encroaching Wastes
+1 Failed Conversion
+1 False Demise
+1 Floodchaser
+1 Floodgate
+1 Floodhound
+1 Fomori Vault
+1 Glacial Chasm
+1 Grim Bauble
+1 Guul Draz Mucklord
+1 Hag of Death's Legion
+1 He's Dead, Jim
+1 Hoard Robber
+1 Hobbit Hole
+1 Hullbreacher
+14 Island
+1 Merfolk Coralsmith
+1 Merfolk Seer
+1 Mishra's Foundry
+1 Mobilized District
+1 Nephalia Academy
+1 Opal Palace
+1 Peregrine Mask
+1 Pestered Wellguard
+1 Polluted Dead
+1 Prismatic Vista
+1 Promising Vein
+1 Puppet Master
+1 Ray of Ruin
+1 Rise of Eagles
+1 Rite of Replication
+1 Rootwater Diver
+1 Rotcrown Ghoul
+1 Rottenheart Ghoul
+1 Rumble Arena
+1 Rusted Slasher
+1 Screeching Buzzard
+1 Sepulcher Ghoul
+1 Serum Raker
+1 Short Sword
+1 Skeletal Kathari
+1 Skirk Ridge Exhumer
+1 Spellkeeper Weird
+1 Sphinx's Herald
+1 Spidersilk Net
+1 Splatter Goblin
+1 Stronghold Assassin
+1 Summit Sentinel
+1 Summoner's Bane
+10 Swamp
+1 Thallid Soothsayer
+1 The Mycosynth Gardens
+1 Thermal Navigator
+1 Throne of the High City
+1 Vampire Aristocrat
+1 Wall of Kelp
+
+[commander]
+Ur-Drago

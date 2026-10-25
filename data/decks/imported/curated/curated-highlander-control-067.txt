@@ -2,68 +2,69 @@
 # licence: AGPL-3.0-only
 [deck:highlander control W #20261090]
 1 Allied Teamwork
-1 Armed Response
-1 Beaming Defiance
-1 Big Apple, 3 a.m.
-1 Blood of the Martyr
-1 Bottle of Suleiman
-1 Bounty Agent
-1 Braidwood Cup
-1 Claws of Gix
-1 Conqueror's Galleon
-1 Crusade
-1 D'Avenant Archer
-1 Desert
+1 Ancient Den
+1 Arahbo, the First Fang
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bishop of Wings
+1 Blade Splicer
+1 Blighted Steppe
+1 Captain of the Watch
+1 Cartouche of Solidarity
+1 Culling Dais
 1 Diamond Kaleidoscope
-1 Divine Intervention
-1 Dungeon Descent
-1 Foundry of the Consuls
-1 Glory Seeker
-1 Grapeshot Catapult
-1 Hallowed Ground
-1 Hero's Resolve
-1 Honor-Worn Shaku
-1 Kami of Tattered Shoji
-1 Karn, the Great Creator
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Field of Souls
+1 Filigree Crawler
+1 Flagstones of Trokair
+1 Fortifying Provisions
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Griffin Guide
+1 Guarded Heir
+1 Hall of Heliod's Generosity
+1 Haunted Library
+1 Hunted Witness
+1 Knight of Doves
 1 Knight-Captain of Eos
-1 Leonin Scimitar
-1 Marked by Honor
-1 Mending Hands
-1 Moonglove Extract
-1 Mycosynth Lattice
-1 Nine-Ringed Bo
-1 North Star
-1 Panharmonicon
-1 Pardic Wanderer
-1 Pit Trap
-35 Plains
-1 Planar Bridge
-1 Plaza of Heroes
-1 Ray of Dissolution
-1 Recuperate
-1 Red Ward
-1 Righteous Avengers
-1 Rising Populace
-1 Rumble Arena
-1 Sanctimony
-1 Seeker
+1 Knightly Valor
+1 Kor Haven
+1 Lupinflower Village
+1 Magnifying Glass
+1 Master Splicer
+1 Mausoleum Guard
+1 Mobilization
+1 Myr Matrix
+1 Myr Sire
+1 Nesting Dovehawk
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Omen of the Sun
+1 Orochi Hatchery
+1 Pentavus
+34 Plains
+1 Prying Blade
+1 Requiem Angel
+1 Retrofitter Foundry
 1 Sensor Splicer
-1 Serum Tank
-1 Silver Knight
-1 Sonic Screwdriver
-1 Spatial Contortion
-1 Spirit Mantle
-1 Staff of Domination
-1 Static Orb
-1 Survive the Night
-1 Sylvok Lifestaff
-1 Thran Portal
-1 Tower of Eons
-1 U.S.S. Enterprise-D, Galaxy-Class
-1 Unholy Citadel
-1 Vanquish
-1 Wall of Spears
-1 War Chariot
-1 Winged Shepherd
-1 Winter Moon
-1 Worn Powerstone
+1 Shefet Dunes
+1 Siege Veteran
+1 Slayer's Plate
+1 Spawning Pit
+1 Squire's Devotion
+1 Sun Titan
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Wand of the Elements

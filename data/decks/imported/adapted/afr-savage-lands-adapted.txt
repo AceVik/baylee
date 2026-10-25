@@ -8,12 +8,12 @@
 4 Evolving Wilds
 8 Forest
 4 Ground Assault
-1 Guttural Response
 4 Highland Forest
 3 Hulking Bugbear
 1 Kazandu Mammoth
-4 Manamorphose
+1 Manamorphose
 9 Mountain
 3 Owlbear
 4 Savage Twister
 4 Stump Stomp
+4 Surge of Strength

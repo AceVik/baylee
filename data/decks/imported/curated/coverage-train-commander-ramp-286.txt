@@ -1,0 +1,73 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20266287]
+1 Abjure
+1 Arid Archway
+1 Balduvian Frostwaker
+1 Borne Upon a Wind
+1 Brawler's Plate
+1 Bribery
+1 Chariot of Victory
+1 Concentrate
+1 Cyclopean Snare
+1 Drifter il-Dal
+1 Dunes of the Dead
+1 Dungeon Descent
+1 Edgewall Inn
+1 Ensouled Scimitar
+1 Evasive Action
+1 Filigree Sages
+1 Floodbringer
+1 Fugitive Wizard
+1 Greataxe
+1 Harbinger of the Seas
+1 Heidar, Rimewind Master
+1 Hero's Heirloom
+1 Holdout Settlement
+1 Hydroblast
+1 Indicate
+33 Island
+1 Jund Panorama
+1 Labyrinth of Skophos
+1 Leviathan
+1 Lumengrid Warden
+1 Master of the Pearl Trident
+1 Merfolk Seastalkers
+1 Merfolk Sovereign
+1 Mightstone
+1 Minor Misstep
+1 Miscast
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Path of Ancestry
+1 Puppeteer
+1 Rimewind Taskmage
+1 Rishadan Dockhand
+1 Shadowspear
+1 Sharpened Pitchfork
+1 Shuko
+1 Silvergill Douser
+1 Silverskin Armor
+1 Soratami Mindsweeper
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Specter's Shroud
+1 Startling Development
+1 Stonybrook Angler
+1 Surgespanner
+1 Temporal Adept
+1 Tenza, Godo's Maul
+1 Tidings
+1 Time Warp
+1 Trusty Machete
+1 Vanguard's Shield
+1 Vedalken Entrancer
+1 Vedalken Mastermind
+1 Vibranium Energy Daggers
+1 Villainous Hideout
+1 Vodalian Illusionist
+1 Wind Strider
+1 Wizard Mentor
+
+[commander]
+Aboshan, Cephalid Emperor

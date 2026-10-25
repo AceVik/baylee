@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #20266039]
+1 Abandoned Air Temple
+1 Anaba Shaman
+1 Armed Response
+1 Balduvian Trading Post
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Boltwave
+1 Cori Mountain Monastery
+1 Country Roads
+1 Cunning Sparkmage
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Deadeye Duelist
+1 Deadshot
+1 Dwarven Hold
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Earth Tremor
+1 Elite Javelineer
+1 Expendable Troops
+1 Explosive Shot
+1 Fanged Flames
+1 Farrel's Zealot
+1 Feed the Flames
+1 Fire Ambush
+1 Fire Tempest
+1 Fire and Brimstone
+1 Flame Rift
+1 Flame Slash
+1 Flame-Blessed Bolt
+1 Flamekin Spitfire
+1 Frostling
+1 Gin'tak Charge
+1 Goblin Artillery
+1 Harpoon Sniper
+1 Heavy Ballista
+1 Impeccable Timing
+1 Jeska, Warrior Adept
+1 Junktown
+1 Kabira Crossroads
+1 Karplusan Yeti
+1 Kher Keep
+1 Lindblum, Industrial Regency
+1 Mines of Moria
+1 Mob Justice
+1 Mogg Maniac
+19 Mountain
+1 Needle Spires
+1 Obliterating Bolt
+1 Ogre Shaman
+1 Opportunist
+1 Outflank
+1 Penregon Strongbull
+4 Plains
+1 Razorgrass Ambush
+1 Ready to Rumble
+1 Reckless Embermage
+1 Retromancer
+1 Rockface Village
+1 Rockslide Ambush
+1 Rocky Roads
+1 Runebound Wolf
+1 Sandstone Needle
+1 Sawtooth Ogre
+1 Scorchmark
+1 Sear
+1 Searing Wind
+1 Shinka, the Bloodsoaked Keep
+1 Smoldering Efreet
+1 Strafe
+1 Sudden Impact
+1 Thriving Bluff
+1 Ultimate Alliance
+1 Unfriendly Fire
+1 Viashino Fangtail
+1 Vivid Crag
+1 Witch Hunter
+1 Zuko's Offense
+
+[commander]
+Dáin of the Ancient Halls

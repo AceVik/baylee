@@ -3,15 +3,17 @@
 [deck:Rakdos Revelry (Adapted)]
 4 Auger Spree
 4 Bedevil
-4 Dreadbore
+4 Delirium
+2 Dreadbore
 3 Gutter Skulk
 2 Guttersnipe
+1 Kaervek's Purge
 2 Minotaur Aggressor
 10 Mountain
 2 Rakdos Cluestone
 4 Rakdos Guildgate
 3 Riot Piker
 2 Spike Jester
+4 Spontaneous Combustion
 12 Swamp
-4 Terminate
-4 Wrecking Ball
+1 Terminate

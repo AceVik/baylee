@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266154]
+1 Adarkar Wastes
+1 Aether Channeler
+1 Air Bladder
+1 Air Nomad Legacy
+1 Alexi's Cloak
+1 Angel's Herald
+1 Angelic Shield
+1 Aquitect's Defenses
+1 Arcane Flight
+1 Aspiring Aeronaut
+1 Attended Knight
+1 Barrin, Master Wizard
+1 Buoyancy
+1 Calciform Pools
+1 Clarion Cathars
+1 Cloak of Mists
+1 Coastal Tower
+1 Daysquad Marshal
+1 Delney, Streetwise Lookout
+1 Deserted Beach
+1 Drownyard Explorers
+1 Enlightened Maniac
+1 Experimental Aviator
+1 Flight
+1 Floodgate
+1 Gallant Cavalry
+1 Gift of Granite
+1 Glacial Floodplain
+1 Glaring Aegis
+1 Gleaming Bastion
+1 Gravitational Shift
+1 Hengegate Pathway
+1 Invasion Reinforcements
+18 Island
+1 Jeskai Runemark
+1 Kjeldoran Pride
+1 Kyoshi Warriors
+1 Lake-town Lookout
+1 Lonely Arroyo
+1 Lossarnach Captain
+1 Meticulous Archive
+1 Military Discipline
+1 Oltec Cloud Guard
+1 Paragon of Gathering Mists
+5 Plains
+1 Prosperous Pirates
+1 Protector of Gondor
+1 Purple-Crystal Crab
+1 Razortide Bridge
+1 Resolute Reinforcements
+1 Riptide Crab
+1 River's Favor
+1 Robotics Mastery
+1 Sailor of Means
+1 Sanctifier of Souls
+1 Sea of Clouds
+1 Seachrome Coast
+1 Sejiri Refuge
+1 Seller of Songbirds
+1 Shimmering Wings
+1 Skybridge Towers
+1 Slimebind
+1 Slow Motion
+1 Snow Devil
+1 Spectral Shield
+1 Temple of Enlightenment
+1 Tranquil Cove
+1 Trenching Steed
+1 Tundra
+1 Tunnel Surveyor
+1 Ultimecia, Temporal Threat
+1 Virtue of Knowledge
+1 Viscerid Armor
+1 Vodalian Hexcatcher
+1 Vodalian War Machine
+1 Wakandan Shield Guard
+1 Wings of Aesthir
+1 Zephyr Net
+
+[commander]
+Tobias Andrion

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266276]
+1 Angelic Edict
+1 Arctic Treeline
+1 Arcum's Whistle
+1 Ark of Blight
+1 Bastion Mastodon
+1 Berserk
+1 Blossoming Sands
+1 Bountiful Promenade
+1 Brushland
+1 Canopy Vista
+1 Citanul Flute
+1 Clay Statue
+1 Coiled Tinviper
+1 Collar the Culprit
+1 Crazed Armodon
+1 Crystal Golem
+1 Custodian of the Trove
+1 Desecration Plague
+1 Divine Verdict
+1 Elf Replica
+1 Elvish Hexhunter
+1 Elvish Scrapper
+1 Emerald Charm
+1 Floral Spuzzem
+15 Forest
+1 Grove of the Guardian
+1 Guardians of Meletis
+1 Horizon Canopy
+1 Ice Storm
+1 Immolating Glare
+1 Lawbringer
+1 Leonin Abunas
+1 Lightbringer
+1 Lush Portico
+1 Marble Priest
+1 Mogg Cannon
+1 Narnam Cobra
+1 Neck Snap
+1 Oxidize
+1 Patagia Golem
+1 Peace and Quiet
+1 Pit Trap
+8 Plains
+1 Reclaiming Vines
+1 Return to the Earth
+1 Ronom Unicorn
+1 Rusted Sentinel
+1 Sarkhan's Resolve
+1 Savaen Elves
+1 Savannah
+1 Selesnya Guildgate
+1 Selesnya Sanctuary
+1 Smite
+1 Steelbane Hydra
+1 Stone Golem
+1 Stonework Puma
+1 Sudden Strike
+1 Sungrass Prairie
+1 Sunpetal Grove
+1 Swift Response
+1 Sylvok Replica
+1 Take Vengeance
+1 Tangle Asp
+1 Temple of Plenty
+1 Terashi's Verdict
+1 Tezzeret's Strider
+1 Thicket Basilisk
+1 Titanium Golem
+1 Tranquil Garden
+1 Vanquish
+1 Vec Townships
+1 Vengeance
+1 Venom
+1 Verdigris
+1 Vitu-Ghazi, the City-Tree
+1 Voracious Varmint
+1 Wing Snare
+1 Wirecat
+
+[commander]
+Jasmine Boreal

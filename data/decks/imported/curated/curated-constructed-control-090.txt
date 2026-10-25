@@ -1,22 +1,21 @@
 # baylee curated constructed control seed=20261113
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261113]
-3 Arcum's Whistle
-2 Blinkmoth Nexus
-4 Cloak of the Bat
-4 Diplomatic Immunity
-4 Fall of the Gavel
-4 Farewell
-1 Glimmerdust Nap
-4 Hall of Storm Giants
-8 Island
-1 Lotus Field
-4 Mana Leak
-2 Personal Incarnation
-8 Plains
-1 Ruins of Oran-Rief
-2 Serra's Embrace
-2 Talisman of Progress
-1 Tarnished Citadel
-4 Thermal Glider
-1 Turtle Lair
+3 Customs Depot
+4 Forced Fruition
+4 Frazzle
+1 Gleaming Bastion
+4 Hesitation
+3 In the Eye of Chaos
+3 Invoke Prejudice
+15 Island
+4 Mana Vortex
+2 Meticulous Archive
+3 Mystic Remora
+3 Prahv, Spires of Order
+1 Prairie Stream
+1 Sea of Clouds
+2 Sigil of the Empty Throne
+1 Three Steps Ahead
+3 Veiled Apparition
+3 Wanderwine Hub

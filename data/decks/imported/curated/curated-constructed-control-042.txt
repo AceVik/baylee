@@ -1,20 +1,21 @@
 # baylee curated constructed control seed=20261065
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261065]
-4 Enhanced Awareness
-4 Flight of Fancy
-3 Gearsmith Prodigy
-3 Holy Armor
+4 Ancestral Vision
+2 Coastal Tower
+4 Envelop
+2 Glacial Fortress
+4 Hesitation
+4 In the Eye of Chaos
 14 Island
-4 Misdirection
-2 Piranha Fly
-2 Pit of Offerings
-2 Plains
-1 Reliquary Tower
-2 Rishadan Airship
-3 Savannah Lions
-3 Silvergill Douser
-4 Stock Up
-4 Thawing Glaciers
-2 Umara Raptor
-3 Vivid Creek
+1 Jin-Gitaxias, Progress Tyrant
+2 Mana Vortex
+2 North Pole Gates
+4 Opal Archangel
+1 Plains
+4 Presence of the Master
+2 Razortide Bridge
+1 Sejiri Refuge
+3 Soul Barrier
+4 Unifying Theory
+2 Wanderwine Hub

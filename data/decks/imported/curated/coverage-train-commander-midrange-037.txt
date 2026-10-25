@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266038]
+1 Aardvark Sloth
+1 Alabaster Host Sanctifier
+1 Armistice
+1 Arvad the Cursed
+1 Aysen Highway
+1 Barad-dûr
+1 Beloved Princess
+1 Black Dragon Gate
+1 Brad Boimler, Eager Ensign
+1 Brightblade Stoat
+1 Caravan Hurda
+1 Castle Ardenvale
+1 Celestial Force
+1 Convalescence
+1 Cursebreak
+1 Desert of the Glorified
+1 Desperate Lunge
+1 Divine Offering
+1 Dromad Purebred
+1 Eriette's Lullaby
+1 Everglades
+1 Flight-Deck Coordinator
+1 Forbidding Watchtower
+1 Gerrard's Wisdom
+1 Glyph of Life
+1 Golden-Tail Disciple
+1 Great Arashin City
+1 Heliod's Intervention
+1 Hidden Necropolis
+1 Icatian Store
+1 Illumination
+1 Imperial Ceratops
+1 Invoke the Divine
+1 Ishgard, the Holy See
+1 Judge of Currents
+1 Karoo
+1 Koala-Sheep
+1 Lifeblood
+1 Linden, the Steadfast Queen
+1 Lucky Offering
+1 Mistmeadow Skulk
+1 Moonrise Cleric
+1 Nip Gwyllion
+1 Nyx-Fleece Ram
+1 Ondu War Cleric
+1 Orim's Prayer
+1 Peace of Mind
+22 Plains
+1 Prideful Feastling
+1 Radiant Strike
+1 Recuperate
+1 Remote Farm
+1 Reverse Polarity
+1 Rustic Clachan
+1 Sanctimony
+1 Serene Offering
+1 Sickbay Orderly
+1 Silent Attendant
+1 Soothing Balm
+1 Soul Shepherd
+1 Spiritual Sanctuary
+1 Starlight Invoker
+1 Steadfast Paladin
+1 Sunseed Nurturer
+1 Surge of Righteousness
+1 Susur Secundi, Void Altar
+1 Swamp
+1 Thriving Heath
+1 Tonic Peddler
+1 Trained Caracal
+1 Triumphant Surge
+1 Vivid Marsh
+1 Vivid Meadow
+1 Vizkopa Vampire
+1 Wanderbrine Preacher
+1 Yotian Medic
+1 Zarichi Tiger
+1 Zealots en-Dal
+
+[commander]
+Vona, Butcher of Magan

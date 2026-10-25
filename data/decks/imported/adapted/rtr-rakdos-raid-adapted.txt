@@ -5,8 +5,8 @@
 4 Auger Spree
 4 Bedevil
 1 Bellows Lizard
-1 Breath of Malfegor
 2 Canyon Minotaur
+4 Delirium
 1 Dralnu's Crusade
 4 Dreadbore
 1 Mind Rot
@@ -16,7 +16,7 @@
 2 Rakdos Keyrune
 2 Rakdos Shred-Freak
 1 Ravenous Rats
+4 Spontaneous Combustion
 12 Swamp
-4 Terminate
-4 Wrecking Ball
+1 Terminate
 2 Zombie Goliath

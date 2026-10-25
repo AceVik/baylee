@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266250]
+1 Affa Guard Hound
+1 Ancient Spring
+1 Annihilate
+1 Arcane Sanctum
+1 Azorius Guildgate
+1 Bandage
+1 Bigfin Bouncer
+1 Binding Mummy
+1 Blacklance Paragon
+1 Cackling Fiend
+1 Calciform Pools
+1 Captivating Unicorn
+1 Chrome Prowler
+1 Contaminated Landscape
+1 Corpse Knight
+1 Corrupt Court Official
+1 Cryptic Command
+1 Daybreak Charger
+1 Deadly Embrace
+1 Dig Through Time
+1 Dire Fleet Poisoner
+1 Dreadship Reef
+1 Dreadwurm
+1 Dream Stalker
+1 Dromar's Cavern
+1 Farbog Boneflinger
+1 Fledgling Griffin
+1 Glowing Anemone
+1 Gulf Squid
+1 Hecteyes
+1 Hidden Horror
+1 High Tide
+1 Hydroelectric Specimen
+1 Imperious Inkmage
+1 Irrigated Farmland
+7 Island
+1 Jeskai Barricade
+1 Kiss of the Amesha
+1 Koala-Sheep
+1 Liliana's Specter
+1 Lonely Arroyo
+1 Mercenary Knight
+1 Miasmic Mummy
+1 Mindculling
+1 Mirkwood Meditator
+1 Mistvault Bridge
+1 Mummy Paramount
+1 Neighborhood Guardian
+1 Nighthaze
+1 Nivix Barrier
+1 Ondu Greathorn
+1 Orc Sureshot
+1 Orzhov Guildgate
+8 Plains
+1 Raffine's Tower
+1 Rambunctious Mutt
+1 Rampart Hunter
+1 Rank and File
+1 Restless Fortress
+1 Sedraxis Alchemist
+1 Serpent's Pass
+1 Shipwreck Marsh
+1 Sparring Mummy
+1 Spined Fluke
+10 Swamp
+1 Thalakos Lowlands
+1 Theorist's Proxy
+1 Time Spiral
+1 True Love's Kiss
+1 Ubul Sar Gatekeepers
+1 Underground Sea
+1 Vermiculos
+1 Voracious Greatshark
+1 Voracious Vampire
+1 Waterkin Shaman
+1 Wizards' School
+1 Yarok's Wavecrasher
+
+[commander]
+Aminatou, the Fateshifter

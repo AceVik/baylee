@@ -5,14 +5,14 @@
 4 Daring Leap
 1 Deserted Beach
 4 Dramatic Rescue
+4 Energy Arc
 9 Island
 4 Offering to Asha
 4 Ojutai's Command
-4 Overrule
+2 Overrule
 9 Plains
 2 Skybridge Towers
 4 Sphinx's Revelation
-1 Suppression Ray
-4 Supreme Verdict
+3 Supreme Verdict
 4 Tranquil Cove
 2 Valorous Stance

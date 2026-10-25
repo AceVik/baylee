@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUR #20266192]
+2 Angelic Captain
+2 Azorius First-Wing
+2 Cat-Owl
+2 Cloud Manta
+2 Crimson Roc
+1 Elegant Parlor
+2 Flying Dolphin-Fish
+2 Glimmering Angel
+7 Island
+2 Jump
+2 Lightning Angel
+2 Lightning Stormkin
+2 Monster Mashup
+2 Mountain
+3 Mystic Monastery
+3 Perilous Landscape
+2 Piranha Fly
+5 Plains
+2 Plumeveil
+2 Raugrin Triome
+2 Senate Courier
+2 Shinechaser
+2 Silkbind Faerie
+2 Sky Terror
+1 Sunhome, Fortress of the Legion
+2 Talon Trooper

@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266076]
+1 Adult Gold Dragon
+1 Aeronaut Cavalry
+1 Atog
+1 Battlefield Forge
+1 Behemoth's Herald
+1 Bogardan Phoenix
+1 Brazen Freebooter
+1 Cinder Glade
+1 Clarion Cathars
+1 Clickslither
+1 Copperline Gorge
+1 Daysquad Marshal
+1 Delney, Streetwise Lookout
+1 Destructor Dragon
+1 Dining Room
+1 Dragon Trainer
+1 Extraction Specialist
+1 Ferrovore
+1 Fire-Lit Thicket
+1 Flamekin Gildweaver
+1 Fleetfoot Dancer
+2 Forest
+1 Fungal Reaches
+1 Gallant Cavalry
+1 Game Trail
+1 Gobbling Ooze
+1 Goblin Shrine
+1 Grove of the Burnwillows
+1 Guardian Kirin
+1 Hada Freeblade
+1 Hazezon Tamar
+1 Hobblefiend
+1 Invasion Reinforcements
+1 Jungleborn Pioneer
+1 Kessig Wolf Run
+1 Kronch Wrangler
+1 Kyoshi Warriors
+1 Kyscu Drake
+1 Lake-town Lookout
+1 Lithatog
+1 Los Diablos Missile Base
+1 Lossarnach Captain
+1 Mighty Mutanimals
+1 Mossfire Valley
+8 Mountain
+1 Odric's Outrider
+1 Ojer Axonil, Deepest Might
+1 Oltec Cloud Guard
+1 Outlaw Medic
+1 Pia, Determined Rebuilder
+1 Pinecrest Ridge
+13 Plains
+1 Protector of Gondor
+1 Raging Ravine
+1 Rapacious Dragon
+1 Resolute Reinforcements
+1 Returned Pastcaller
+1 Revered Unicorn
+1 Rinoa Heartilly
+1 Rising Populace
+1 Rockslide Elemental
+1 Rust Monster
+1 Ryusei, the Falling Star
+1 Sanctifier of Souls
+1 Savior of the Sleeping
+1 Scavenging Ooze
+1 Seller of Songbirds
+1 She-Hulk, Jennifer Walters
+1 Sheltered Thicket
+1 Slayers' Stronghold
+1 Soulcatcher
+1 Stark Industries Executive
+1 Thornspire Verge
+1 Timberline Ridge
+1 Treetop Freedom Fighters
+1 Utvara Hellkite
+1 Wakandan Shield Guard
+1 Weapons Trainer
+1 Wily Goblin
+1 Zebra Unicorn

@@ -6,13 +6,13 @@
 4 Azorius Guildgate
 4 Daring Leap
 4 Dramatic Rescue
-1 Fall of the Gavel
+4 Energy Arc
 1 Hallowed Fountain
 5 Island
-1 Mesa Unicorn
 4 Offering to Asha
 4 Ojutai's Command
-4 Overrule
+3 Overrule
+2 Pacifism
 14 Plains
 4 Sphinx's Revelation
-4 Supreme Verdict
+1 Worthy Knight

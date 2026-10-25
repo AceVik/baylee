@@ -4,14 +4,13 @@
 4 Auger Spree
 4 Bedevil
 1 Blightstep Pathway
-4 Breath of Malfegor
-2 Burnt Offering
+4 Delirium
 4 Dreadbore
-1 Get the Point
 2 Grim Bounty
+3 Kaervek's Purge
 10 Mountain
 1 Red Dragon
-4 Skull Rend
+4 Spontaneous Combustion
 2 Sudden Breakthrough
 4 Sulfurous Mire
 9 Swamp

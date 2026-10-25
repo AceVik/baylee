@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266221]
+1 Abraded Bluffs
+1 An-Havva Township
+1 Arc Runner
+1 Arcane Signet
+1 Ashen Firebeast
+1 Badgermole Cub
+1 Boros Cluestone
+1 Boros Locket
+1 Boros Signet
+1 Brass's Tunnel-Grinder
+1 Brazen Scourge
+1 Burning-Tree Emissary
+1 Coldsteel Heart
+1 Crater Hellion
+1 Dragon Moose
+1 Dromoka Monument
+1 Emerald Medallion
+1 Esper Sentinel
+1 Fire-Lit Thicket
+1 Flowstone Charger
+1 Flowstone Crusher
+1 Flowstone Hellion
+6 Forest
+1 Fountain of Ichor
+1 Fungal Reaches
+1 Furnace Brood
+1 Furnace Strider
+1 Gongaga, Reactor Town
+1 Goobbue Gardener
+1 Groundchuck & Dirtbag
+1 Gruul Cluestone
+1 Gruul Guildgate
+1 Gruul Locket
+1 Highland Forest
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Lava Serpent
+1 Lifespark Spellbomb
+1 Liquimetal Torque
+1 Lotus Petal
+1 Mana Cylix
+1 Manalith
+1 Moss Diamond
+15 Mountain
+1 Mox Opal
+1 Oxidda Scrapmelter
+1 Pearl Medallion
+1 Pillarfield Ox
+2 Plains
+1 Raging Bull
+1 Raging Kavu
+1 Razorverge Thicket
+1 Red Mana Battery
+1 Rith's Grove
+1 Rock Badger
+1 Rootbound Crag
+1 Ruby Medallion
+1 Sapphire Medallion
+1 Scoria Elemental
+1 Seer's Lantern
+1 Selesnya Signet
+1 Sheltering Landscape
+1 Sisay's Ring
+1 Slayers' Stronghold
+1 Slimy Kavu
+1 Suburban Sanctuary
+1 Talisman of Conviction
+1 Terror of the Fairgrounds
+1 The Rack
+1 Thought Vessel
+1 Thundering Tanadon
+1 Tinder Farm
+1 Tinder Wall
+1 Veldt
+1 White Mana Battery
+1 Wild Ox
+1 Windseeker Centaur
+1 Yoked Plowbeast
+1 Zodiac Ox
+
+[commander]
+Samut, Voice of Dissent

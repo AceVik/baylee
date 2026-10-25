@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266193]
+1 Abandoned Campground
+1 Advanced Hoverguard
+1 Afiya Grove
+1 Aysen Abbey
+1 Breezekeeper
+1 Cloaked Siren
+1 Cloudcrest Lake
+1 Cloudheath Drake
+1 Cocoon
+1 Curse of Chains
+1 Cyclone
+1 Dance of Many
+1 Drogskol Captain
+1 Druids' Repository
+1 Enchanted Evening
+1 Energy Vortex
+3 Forest
+1 Fungal Bloom
+1 Gaea's Skyfolk
+1 Glaciers
+1 Glare of Subdual
+1 Godhead of Awe
+1 Graypelt Refuge
+1 Hazerider Drake
+1 Hoverguard Observer
+1 Iceberg
+1 Idyllic Beachfront
+1 Ior Ruin Expedition
+1 Irrigation Ditch
+14 Island
+1 Kyscu Drake
+1 Leafdrake Roost
+1 Leering Gargoyle
+1 Lilting Refrain
+1 Living Airship
+1 Lonely Arroyo
+1 Merfolk of the Depths
+1 Mesmeric Trance
+1 Mind Bend
+1 Mystic Might
+1 Needlethorn Drake
+1 Nimbus Swimmer
+1 Ocular Halo
+1 Overgrown Farmland
+6 Plains
+1 Prismatic Lace
+1 Royal Decree
+1 Rune-Cervin Rider
+1 Sea of Clouds
+1 Seaside Citadel
+1 Seedpod Squire
+1 Serra Sphinx
+1 Serum Raker
+1 Setessan Griffin
+1 Sleight of Mind
+1 Soulherder
+1 Spara's Headquarters
+1 Spectral Shepherd
+1 Sphinx of Magosi
+1 Stoic Angel
+1 Strength of the Harvest
+1 Tempest Drake
+1 Temple Garden
+1 Thunderclap Wyvern
+1 Tower Drake
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tribute to the World Tree
+1 Urban Retreat
+1 Vaporous Djinn
+1 Vassal Soul
+1 Venomthrope
+1 Vineglimmer Snarl
+1 Wall of Denial
+1 War Dance
+1 Welkin Hawk
+1 Wellspring
+1 Winged Coatl
+1 Wizard Class
+1 Yavimaya Coast

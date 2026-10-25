@@ -1,76 +1,85 @@
 # baylee curated commander aggro seed=20261085
 # licence: AGPL-3.0-only
-[deck:commander aggro U #20261085]
-1 A.I.M. Synthoids
-1 Aether Vial
-1 Amulet of Kroog
-1 Angel's Feather
-1 Aven Envoy
-1 Blind Phantasm
-1 Blinkmoth Nexus
-1 Cathartic Adept
-1 Chrome Cat
-1 Claws of Gix
-1 Cloud Pirates
-1 Cloudkin Seer
-1 Coral Merfolk
-1 Cultist's Staff
-1 Cursecatcher
-1 Darkslick Drake
-1 Deeptread Merrow
-1 Devouring Deep
-1 Dewdrop Spy
-1 Drowner Initiate
-1 Escaped Experiment
-1 Excavated Wall
-1 Fireshrieker
-1 Floodbringer
-1 Flooded Strand
-1 Flying Men
-1 Ghoulcaller's Bell
-1 Gorgon Flail
-1 Grayscaled Gharial
-1 Guildmages' Forum
-1 Harrier Strix
-1 Ice Floe
-1 Introduction to Prophecy
-31 Island
-1 Jawbone Skulkin
-1 Kraken Hatchling
-1 Lingering Mirage
-1 Memnite
-1 Merfolk Seastalkers
-1 Metropolis Sprite
-1 Mindculling
-1 Minor Misstep
-1 Misty Rainforest
-1 Mothdust Changeling
-1 Myr Scrapling
-1 Neurok Commando
-1 Pendrell Drake
-1 Prophet of Distortion
-1 Quicksilver Fisher
-1 Riptide Turtle
-1 Sage of Epityr
-1 Scion of Oona
-1 Scorpion Sentinel
-1 Sea Sprite
-1 Shrieking Drake
-1 Silhouette
-1 Silvergill Peddler
-1 Solve the Equation
-1 Sparring Construct
-1 Spined Thopter
-1 Stinging Barrier
-1 Straw Golem
-1 Stunt Double
-1 Talrand, Sky Summoner
-1 Tarnished Citadel
-1 Thespian's Stage
-1 Thought Courier
-1 Treachery
-1 Wall of Shields
-1 Willow-Wind
+[deck:commander aggro WUB #20261085]
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Ancient Spring
+1 Angel's Herald
+1 Arcane Sanctum
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Ballroom
+1 Bastion of Remembrance
+1 Bishop of Wings
+1 Blight Mound
+1 Callous Inspector
+1 Cartouche of Solidarity
+1 Common Crook
+1 Concealed Courtyard
+1 Contaminated Landscape
+1 Criminal Enterprise
+1 Darkwater Catacombs
+1 Demon's Herald
+1 Dimir Guildgate
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
+1 Doomed Traveler
+1 Dromar's Cavern
+1 Dwarven Castle Guard
+1 Elgaud Inquisitor
+1 Fortified Beachhead
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Graf Harvest
+1 Greedy Freebooter
+1 Griffin Guide
+1 Homarid Spawning Bed
+1 Hunted Witness
+1 Kheru Bloodsucker
+1 Knight of Doves
+1 Lead Pipe
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Martyr of Dusk
+1 Morphic Pool
+1 Myr Sire
+1 Neva, Stalked by Nightmares
+1 Nim Deathmantle
+1 Novice Inspector
+1 Novice Occultist
+1 Ojer Taq, Deepest Foundation
+1 Orochi Hatchery
+1 Pitiless Plunderer
+9 Plains
+1 Pretending Poxbearers
+1 Prying Blade
+1 Quest for the Gravelord
+1 Raffine's Tower
+1 Retrofitter Foundry
+1 Sengir Autocrat
+1 Siege Veteran
+1 Skybridge Towers
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Spawning Pit
+13 Swamp
+1 Sweettooth Witch
+1 Sylvok Lifestaff
+1 Temple of Deceit
+1 Tempting Witch
+1 The Underworld Cookbook
+1 Thopter Foundry
+1 Thopter Squadron
+1 Thraben Inspector
+1 Thraben Standard Bearer
+1 Trading Post
+1 Umbral Expanse
+1 Venerable Knight
+1 Watery Grave
+1 Weirding Shaman
+1 Wizards' School
+1 Yahenni, Undying Partisan
+1 Zuran Orb
 
 [commander]
-Talrand, Sky Summoner
+Chromium

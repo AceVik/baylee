@@ -1,82 +1,83 @@
 # baylee curated highlander aggro seed=20261060
 # licence: AGPL-3.0-only
 [deck:highlander aggro WB #20261060]
-1 Bastion Enforcer
-1 Blade Splicer
-1 Bog Initiate
-1 Brawler's Plate
-1 Cabal Coffers
-1 Cabal Trainee
-1 Call to Serve
-1 Carrion Ants
-1 Darksteel Axe
-1 Dauntless Aven
-1 Dead Weight
-1 Desperate Bloodseeker
-1 Diamond City
-1 Dragon's Eye Sentry
-1 Dread Statuary
-1 Dreg Reaver
-1 Eidolon of Rhetoric
-1 Eldrazi Temple
-1 Flying Carpet
-1 Goblin Lyre
-1 Gods' Eye, Gate to the Reikai
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Ballroom
+1 Bastion of Remembrance
+1 Bishop of Wings
+1 Blight Mound
+1 Callous Inspector
+1 Carrier Thrall
+1 Carrion Feeder
+1 Cartouche of Solidarity
+1 Common Crook
+1 Criminal Enterprise
+1 Deathknell Berserker
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
+1 Doomed Traveler
+1 Dwarven Castle Guard
+1 Elgaud Inquisitor
+1 Fisk Tower
+1 Forlorn Flats
+1 Forsaken Sanctuary
+1 Gleaming Barrier
+1 Goldmire Bridge
+1 Graf Harvest
+1 Great Hall of Starnheim
 1 Greedy Freebooter
-1 Guard Duty
-1 Guided Strike
-1 Healer's Hawk
-1 Holy Light
-1 Honed Khopesh
-1 Invasion Reinforcements
-1 Judge Magister Gabranth
-1 Kami of False Hope
-1 King Suleiman
-1 Kinsbaile Cavalier
-1 Kitsune Diviner
-1 Levitating Statue
-1 Limestone Golem
-1 Miren, the Moaning Well
-1 Mortify
-1 Mothrider Patrol
-1 Mountain Stronghold
-1 Myr Scrapling
-1 Nath's Buffoon
-1 Nemesis Mask
-1 Nezumi Informant
-1 Nightwing Shade
-1 Nimble Pilferer
-1 Nykthos, Shrine to Nyx
-1 Ornithopter
-1 Orzhov Basilica
-1 Patagia Golem
-1 Pearl Dragon
-1 Petrified Hamlet
-1 Phyrexian Walker
-16 Plains
-1 Powerstone Shard
-1 Promising Vein
-1 Quicksand
-1 Ravenous Rats
-1 Salvage Scout
-1 Scourgemark
-1 Scrap Trawler
-1 Skull of Orm
-1 Sliver Construct
-1 Spirit Shield
-1 Stalking Stones
-1 Stern Constable
-1 Sudden Strike
-7 Swamp
-1 Syphon Soul
-1 Trained Caracal
-1 Trenchpost
-1 Vanquish the Weak
-1 Wakandan Drone Flock
-1 Walking Ballista
-1 Wall of Shadows
-1 Warlord's Axe
-1 Wintermoon Mesa
-1 Wolf Cove Villager
-1 Wooden Sphere
-1 World Map
+1 Griffin Guide
+1 Hunted Witness
+1 Kheru Bloodsucker
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Lead Pipe
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Martyr of Dusk
+1 Myr Sire
+1 Neva, Stalked by Nightmares
+1 Nim Deathmantle
+1 Novice Inspector
+1 Orochi Hatchery
+1 Orzhov Guildgate
+11 Plains
+1 Pretending Poxbearers
+1 Prowess of the Fair
+1 Prying Blade
+1 Quest for the Gravelord
+1 Reliquary Monk
+1 Retrofitter Foundry
+1 Salt Flats
+1 Scrubland
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shadowy Backstreet
+1 Shambling Vent
+1 Siege Veteran
+1 Silent Clearing
+1 Silverquill Campus
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Snowfield Sinkhole
+1 Sparring Construct
+1 Spawning Pit
+11 Swamp
+1 Sweettooth Witch
+1 Sylvok Lifestaff
+1 Tempting Witch
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thraben Inspector
+1 Thraben Standard Bearer
+1 Trading Post
+1 Turbulent Moor
+1 Umbral Expanse
+1 Venerable Knight
+1 Warren Soultrader
+1 Weirding Shaman
+1 Yahenni, Undying Partisan
+1 Zuran Orb

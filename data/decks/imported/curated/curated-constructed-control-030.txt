@@ -1,20 +1,21 @@
 # baylee curated constructed control seed=20261053
 # licence: AGPL-3.0-only
 [deck:constructed control UR #20261053]
-3 Coldsteel Heart
-11 Island
-1 Jace, the Mind Sculptor
-4 Jidoor, Aristocratic Capital
-5 Mountain
-3 Mox Opal
-2 Ornithopter
-4 Quick Study
-4 Rocky Roads
-4 Shivan Dragon
-3 Spawning Pit
-2 Specter's Shroud
-3 Spellgorger Weird
-4 Stealth Mission
-2 Team Transmitter
-3 Third Path Savant
-2 Urza's Factory
+4 Avacyn's Collar
+3 Coastal Peak
+2 Drowner of Hope
+2 Island
+4 Legion Extruder
+4 Mishra's War Machine
+13 Mountain
+1 Nivix, Aerie of the Firemind
+2 Orochi Hatchery
+4 Pashalik Mons
+2 Prismari Campus
+2 Scorched Geyser
+4 Slayer's Plate
+4 Spawning Pit
+1 Sulfur Falls
+3 Thopter Squadron
+3 Trading Post
+2 Volatile Fjord

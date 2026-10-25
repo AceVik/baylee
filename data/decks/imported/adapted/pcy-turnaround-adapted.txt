@@ -6,9 +6,9 @@
 4 Daring Leap
 1 Disenchant
 2 Diving Griffin
-3 Dramatic Rescue
+4 Energy Arc
 10 Island
-4 Offering to Asha
+3 Offering to Asha
 4 Ojutai's Command
 14 Plains
 1 Rhystic Study

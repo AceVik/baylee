@@ -4,7 +4,7 @@
 1 Advent of the Wurm
 1 Anointer of Champions
 2 Blossoming Sands
-4 Call of the Conclave
+2 Call of the Conclave
 1 Dragon Bell Monk
 1 Dromoka Warrior
 4 Eladamri's Call
@@ -14,11 +14,13 @@
 2 Gerrard's Command
 2 Mighty Leap
 4 Nature's Chant
+2 Pacifism
 11 Plains
 1 Pressure Point
-4 Reknit
+1 Reknit
 1 Seeker of the Way
 4 Selesnya Charm
 2 Titanic Growth
 1 Valorous Stance
+3 Vitalizing Cascade
 1 Windswept Heath

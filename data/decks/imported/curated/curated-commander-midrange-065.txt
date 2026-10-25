@@ -1,84 +1,75 @@
 # baylee curated commander midrange seed=20261088
 # licence: AGPL-3.0-only
-[deck:commander midrange UR #20261088]
-1 Aether Vial
-1 Akki Avalanchers
-1 Black Lotus
-1 Blood Knight
-1 Blood Rites
-1 Brawler's Plate
-1 Caldera Lake
-1 Careless Celebrant
-1 Cloud Elemental
-1 Countersculpt
-1 Cryptic Command
-1 Crystal Ball
-1 Desolate Lighthouse
-1 Disruptive Student
-1 Elder Spawn
-1 Flowstone Strike
-1 Forgotten Cave
-1 Fountain of Youth
-1 Frenzied Devils
-1 Glacial Chasm
-1 Goblin Rabblemaster
-1 Goblin Ski Patrol
-1 Goblin Tomb Raider
-1 Gods' Eye, Gate to the Reikai
-1 Gold-Forged Sentinel
-1 Hellion Crucible
-1 Helm of the Host
-1 Hobblefiend
-1 Hornswoggle
-1 Insight Engine
-1 Intruding Soulrager
-10 Island
-1 Lightning Strike
-1 Living Tsunami
-1 Micromancer
-1 Mm'menon, Uthros Exile
-14 Mountain
-1 Murmuring Volume
-1 Naga Eternal
-1 Oboro Breezecaller
-1 Ogre Gatecrasher
-1 Orcish Bloodpainter
-1 Pashalik Mons
+[deck:commander midrange G #20261088]
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blighted Woodland
+1 Blisterpod
+1 Blood Servitor
+1 Boseiju, Who Endures
+1 Bottle of Suleiman
+1 Brood Monitor
+1 Byway Courier
+1 Centaur Garden
+1 Chromatic Star
+1 Culling Dais
+1 Dauntless Survivor
+1 Deeproot Elite
+1 Diamond Kaleidoscope
+1 Elephant Guide
+1 Elvish Farmer
+1 Filigree Crawler
+31 Forest
+1 Gaea's Cradle
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Graypelt Hunter
+1 Heart of Yavimaya
+1 Iron Bully
+1 Jewel Thief
+1 Jewel-Eyed Cobra
+1 Kronch Wrangler
+1 Legolas Greenleaf
+1 Mantle of the Wolf
+1 Most Wanted
+1 Myr Sire
+1 Nim Deathmantle
+1 Oakhollow Village
+1 Orochi Hatchery
+1 Pelakka Wurm
 1 Pentavus
-1 Petrified Field
-1 Pin to the Earth
-1 Powerstone Shard
-1 Ravenous Giant
-1 Reef Roads
-1 Scion of Ugin
-1 Searing Wind
-1 Shivan Gorge
-1 Sky Weaver
-1 Skyraker Giant
-1 Sleep Paralysis
-1 Smash
-1 Spawning Kraken
-1 Spinning Wheel
-1 Spirebluff Canal
-1 Stardew Valley
-1 Steam Vents
-1 Stonework Puma
-1 Striking Sliver
-1 Summit Prowler
-1 Sword of the Ages
-1 Symbol of Unsummoning
-1 Terramorphic Expanse
-1 The Hive
-1 Thespian's Stage
-1 Tomb of the Spirit Dragon
-1 Touch of Invisibility
-1 Trail of Evidence
+1 Primeval Bounty
+1 Prying Blade
+1 Rampaging Baloths
+1 Retrofitter Foundry
+1 Rishkar, Peema Renegade
+1 Setessan Champion
+1 Skullclamp
+1 Slayer's Plate
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Thallid
+1 Thallid Devourer
+1 The One Ring
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
 1 Treasure Map
-1 Two-Headed Giant of Foriys
-1 Vendilion Clique
-1 Victorious Destruction
-1 Wartime Protestors
-1 Windswept Heath
+1 Tree of Tales
+1 Turntimber Ranger
+1 Valley Mightcaller
+1 Wand of the Elements
+1 Wirewood Lodge
+1 Yavimaya Hollow
 
 [commander]
-Mm'menon, Uthros Exile
+Blor the Impervious

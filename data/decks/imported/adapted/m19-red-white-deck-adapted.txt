@@ -10,7 +10,6 @@
 3 Knight of New Benalia
 1 Lightning Helix
 2 Lightning Strike
-1 Master's Call
 1 Moment of Triumph
 10 Mountain
 10 Plains
@@ -22,5 +21,6 @@
 2 Sky Terror
 2 Skyknight Legionnaire
 4 Spirit Summoning
+1 Split Up
 4 Stone Quarry
 2 Sun Sentinel

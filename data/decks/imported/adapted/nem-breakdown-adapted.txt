@@ -2,10 +2,11 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Breakdown (Adapted)]
 4 Auroral Procession
-2 Commander's Insight
+1 Commander's Insight
 1 Dehydration
 4 Double Major
 1 Eldritch Evolution
+1 False Demise
 10 Forest
 2 Frantic Search
 2 Hickory Woodlot

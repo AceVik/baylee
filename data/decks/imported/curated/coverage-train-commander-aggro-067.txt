@@ -1,0 +1,76 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266068]
+1 Air Marshal
+1 Armored Galleon
+1 Balduvian Conjurer
+1 Balduvian Shaman
+1 Balloon Peddler
+1 Buoyancy
+1 Castaway's Despair
+1 Cephalid Inkshrouder
+1 City of Shadows
+1 Crafty Pathmage
+1 Crucible of the Spirit Dragon
+1 Cunning
+1 Dance of Many
+1 Disappear
+1 Dragonstorm Forecaster
+1 Dream Prowler
+1 Drifter il-Dal
+1 Fae Flight
+1 Fishliver Oil
+1 Freed from the Real
+1 Giant Octopus
+1 Grasping Dunes
+1 Harbinger of the Seas
+1 Illusory Wrappings
+1 Invisibility
+30 Island
+1 Jasmine Dragon Tea Shop
+1 Jhessian Lookout
+1 Keen Glidemaster
+1 Levitation
+1 Lumengrid Warden
+1 Manta Riders
+1 Mech Hangar
+1 Oboro Envoy
+1 Paragon of Gathering Mists
+1 Piracy Charm
+1 Plaza of Heroes
+1 Red Cliffs Armada
+1 Retrieval Agent
+1 Rhystic Deluge
+1 Rishadan Dockhand
+1 Robotics Mastery
+1 Second Wind
+1 Short Circuit
+1 Silvergill Douser
+1 Slimebind
+1 Spectral Flight
+1 Starlight Snare
+1 Starlit Mantle
+1 Steam Frigate
+1 Stonybrook Angler
+1 Talas Merchant
+1 Temporal Adept
+1 The Grey Havens
+1 Thirst
+1 Tightening Coils
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Tractor Beam
+1 Trickster Mage
+1 Veiled Crocodile
+1 Venarian Gold
+1 Virtue of Knowledge
+1 Viscerid Armor
+1 Vodalian Illusionist
+1 Water Wurm
+1 White Lotus Hideout
+1 Wu Infantry
+1 Wu Warship
+1 Zephyr Net
+
+[commander]
+Caelorna, Coral Tyrant

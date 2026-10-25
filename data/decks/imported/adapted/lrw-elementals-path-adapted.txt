@@ -2,7 +2,6 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Elementals' Path (Adapted)]
 1 Bring to Trial
-1 Call the Scions
 1 Clear the Mind
 3 Consuming Bonfire
 2 Flamekin Brawler
@@ -10,6 +9,7 @@
 1 Forest
 3 Foxfire
 1 Grim Tutor
+1 Infuse
 2 Island
 2 Midnight Haunting
 2 Morale

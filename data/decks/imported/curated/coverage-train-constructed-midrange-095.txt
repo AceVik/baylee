@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WG #20266096]
+2 Armored Wolf-Rider
+2 Book of Rass
+2 Citadel Gate
+2 Desert of the Indomitable
+2 Emerald Oryx
+9 Forest
+2 Gnottvold Recluse
+2 Greenseeker
+2 Journeyer's Kite
+2 Lady Caleria
+2 Land Leeches
+2 Lifespark Spellbomb
+2 Lupinflower Village
+2 Mox Opal
+4 Okina, Temple to the Grandfathers
+5 Plains
+2 Raven's Run Dragoon
+2 Rogue's Gloves
+2 Root Spider
+2 Scarab of the Unseen
+2 Selesnya Cluestone
+2 Selesnya Sagittars
+2 Talisman of Unity
+2 Wary Okapi

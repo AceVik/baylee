@@ -11,7 +11,7 @@
 2 Infernal Grasp
 4 Jungle Hollow
 4 Maelstrom Pulse
+3 Mulch
 4 Pest Summoning
-3 Revitalizing Repast
 10 Swamp
 4 Tear Asunder

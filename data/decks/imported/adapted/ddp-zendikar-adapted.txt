@@ -3,10 +3,10 @@
 [deck:Zendikar (Adapted)]
 3 Advent of the Wurm
 1 Affa Guard Hound
-1 Bounding Wolf
 2 Call of the Conclave
 1 Daggerback Basilisk
-3 Eladamri's Call
+1 Eladamri's Call
+1 Elf Replica
 2 Evolving Wilds
 10 Forest
 1 Frontier Guide
@@ -14,6 +14,7 @@
 2 Graypelt Hunter
 2 Graypelt Refuge
 1 Grazing Gladehart
+1 Harrow
 3 Heroes' Reunion
 1 Makindi Griffin
 4 Nature's Chant
@@ -25,5 +26,6 @@
 1 Stonework Puma
 2 Territorial Baloth
 2 Turntimber Grove
+1 Vitalizing Cascade
 1 Wildheart Invoker
 1 Wooded Bastion

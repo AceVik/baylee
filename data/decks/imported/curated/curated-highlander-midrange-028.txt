@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261051
 # licence: AGPL-3.0-only
 [deck:highlander midrange WU #20261051]
-1 Aerial Maneuver
-1 Aether Vial
-1 Angry Mob
-1 Bad River
-1 Brainwash
-1 Burden of Guilt
-1 Castle
-1 Cleansing
-1 Collision Course
-1 Coral Eel
-1 Cosmium Blast
-1 Dehydration
-1 Despotic Scepter
-1 Drownyard Temple
-1 Dunes of the Dead
-1 Elite Vanguard
-1 Encroaching Wastes
-1 Erosion
-1 Feather of Flight
-1 Fleeting Distraction
-1 Foundry of the Consuls
-1 Gemstone Array
-1 Glimmering Angel
-1 Glory Seeker
+1 Allied Teamwork
+1 Arahbo, the First Fang
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bishop of Wings
+1 Blade Splicer
+1 Captain of the Watch
+1 Cartouche of Solidarity
+1 Cloudcrest Lake
+1 Corsair Captain
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Dowsing Dagger
+1 Drowner of Hope
+1 Dwarven Castle Guard
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Field of Souls
+1 Filigree Crawler
+1 Gilded Pinions
+1 Glacial Floodplain
+1 Gleaming Barrier
+1 Gleaming Bastion
+1 Gold Pan
 1 Goldvein Pick
-1 Great Hart
-1 Griffin Rider
-1 Haazda Exonerator
-1 Hall of Oracles
-1 Halls of Mist
-1 Homeward Path
-1 Icatian Scout
-1 Imperial Oath
-8 Island
-1 Kite Shield
+1 Griffin Guide
+1 Hallowed Fountain
+1 Hanna, Ship's Navigator
+1 Haunted Library
+1 Homarid Spawning Bed
+1 Hunted Witness
+1 Irrigated Farmland
+4 Island
+1 Knight of Doves
 1 Knight-Captain of Eos
-1 Library Larcenist
-1 Manta Riders
-1 Marauder's Axe
-1 Military Discipline
-1 Minister of Impediments
-1 Mobilized District
-1 Monastery Mentor
-1 Neutralize
-1 Noble Steeds
-1 Nykthos, Shrine to Nyx
-1 Opportunity
-1 Path of Ancestry
-1 Patrol Hound
-16 Plains
-1 Reflections of Littjara
-1 Research Assistant
-1 Rumble Arena
-1 Sanctum of Ugin
-1 Scatter Arc
-1 Scour from Existence
-1 Sea Gate Restoration
-1 Seasoned Marshal
-1 Sentinel Sliver
-1 Seraph Sanctuary
-1 Skillful Lunge
-1 Skycloud Expanse
-1 Sokka's Sword Training
-1 Soltari Foot Soldier
-1 Sorrow's Path
-1 Squee's Toy
-1 Supply-Line Cranes
-1 Sword of Hearth and Home
-1 Tempest of Light
-1 Teremko Griffin
-1 Thalakos Drifters
-1 The Mechanist, Aerial Artisan
-1 Trapmaker's Snare
-1 Unfathomable Truths
-1 Venser, the Sojourner
-1 Welkin Guide
-1 Yotian Soldier
-1 Zuran Orb
+1 Magnifying Glass
+1 Martyr of Dusk
+1 Master Splicer
+1 Master Trinketeer
+1 Mausoleum Guard
+1 Mobilization
+1 Moorland Haunt
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Nimbus Maze
+1 Norn's Wellspring
+1 North Pole Gates
+1 Ojer Taq, Deepest Foundation
+1 Pentavus
+19 Plains
+1 Port Town
+1 Prahv, Spires of Order
+1 Prying Blade
+1 Razortide Bridge
+1 Regal Caracal
+1 Retrofitter Foundry
+1 S.H.I.E.L.D. Deployment Drone
+1 Sea of Clouds
+1 Sensor Splicer
+1 Sharlayan, Nation of Scholars
+1 Siege Veteran
+1 Skullclamp
+1 Skybridge Towers
+1 Slayer's Plate
+1 Spawning Pit
+1 Squire's Devotion
+1 Study
+1 Sylvok Lifestaff
+1 Temple of Enlightenment
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Tranquil Cove
+1 Treasure Map
+1 Wand of the Elements
+1 Wing Splicer

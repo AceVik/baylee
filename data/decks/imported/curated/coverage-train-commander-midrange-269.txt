@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #20266270]
+1 Abraded Bluffs
+1 Aftershock
+1 Alpine Meadow
+1 Axgard Armory
+1 Bhaal's Invoker
+1 Blazing Effigy
+1 Bot Bashing Time
+1 Brand
+1 Burning Inquiry
+1 Burning Palm Efreet
+1 Collision Course
+1 Concentrated Fire
+1 Cosmium Blast
+1 Crash and Burn
+1 Crimson Manticore
+1 Deadshot
+1 Delete
+1 Dimension X
+1 Dogpile
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Dáin of the Ancient Halls
+1 Elspeth's Smite
+1 Engulfing Eruption
+1 Fault Line
+1 Fault Riders
+1 Feed the Flames
+1 Fields of Strife
+1 Fire and Brimstone
+1 Flame Elemental
+1 Flame Lash
+1 Flowstone Salamander
+1 Furycalm Snarl
+1 Goblin Legionnaire
+1 Goblin Sledder
+1 Heroism
+1 High Noon
+1 Hurler Cyclops
+1 Hurloon Shaman
+1 Impolite Entrance
+1 Inspiring Vantage
+1 Karplusan Hound
+1 Karplusan Yeti
+1 Magmasaur
+1 Mogg Raider
+22 Mountain
+1 Nahiri's Machinations
+1 Needle Spires
+1 Needleverge Pathway
+1 Orc General
+1 Parch
+1 Penregon Strongbull
+1 Pitchburn Devils
+1 Plains
+1 Plateau
+1 Radiant Summit
+1 Rain of Embers
+1 Rockslide Elemental
+1 Rugged Prairie
+1 Rumbling Rockslide
+1 Runebound Wolf
+1 Sawtooth Ogre
+1 Scorching Shot
+1 Seething Pathblazer
+1 Shivan Phoenix
+1 Slash of Talons
+1 Smoldering Efreet
+1 Spectator Seating
+1 Spitting Hydra
+1 Sudden Impact
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunscorched Divide
+1 Thor Odinson
+1 Tibalt's Rager
+1 Ultimate Alliance
+1 Wind-Scarred Crag
+1 Winds of Change
+
+[commander]
+Eivor, Battle-Ready

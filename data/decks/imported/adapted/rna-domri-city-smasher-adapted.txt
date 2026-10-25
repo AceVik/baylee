@@ -7,11 +7,12 @@
 2 Feral Maaka
 11 Forest
 2 Gravel-Hide Goblin
-4 Ground Assault
+1 Ground Assault
 4 Gruul Guildgate
 4 Manamorphose
 11 Mountain
 4 Ragefire
 4 Savage Twister
 4 Stump Stomp
+3 Surge of Strength
 2 Sylvan Brushstrider

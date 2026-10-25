@@ -2,8 +2,8 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Chandra, Flame's Fury (Adapted)]
 4 Bathe in Dragonfire
+4 Boiling Blood
 3 Ember Hauler
-4 Goblin Offensive
 3 Improvised Weaponry
 2 Infuriate
 1 Make Mischief

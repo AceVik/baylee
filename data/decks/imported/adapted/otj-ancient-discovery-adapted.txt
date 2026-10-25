@@ -4,7 +4,8 @@
 4 Abraded Bluffs
 4 Arrows of Justice
 2 Attentive Sunscribe
-4 Double Cleave
+2 Double Cleave
+4 Energy Bolt
 2 Hidden Courtyard
 2 Hidden Volcano
 1 Inspiring Vantage
@@ -14,7 +15,7 @@
 8 Mountain
 2 Oltec Cloud Guard
 8 Plains
-4 Rip Apart
+2 Rip Apart
 4 Spirit Summoning
 2 Tinker's Tote
 1 Warleader's Call

@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266046]
+1 Abraded Bluffs
+1 Adventuring Gear
+1 Amaranthine Wall
+1 Ancient Amphitheater
+1 Arcum's Sleigh
+1 Asgardian Citadel
+1 Assembly-Worker
+1 Baton of Morale
+1 Bloodtallow Candle
+1 Boros Garrison
+1 Candelabra of Tawnos
+1 Chimeric Staff
+1 City in a Bottle
+1 Clay Statue
+1 Clockwork Gnomes
+1 Consulate Skygate
+1 Copper Gnomes
+1 Crenellated Wall
+1 Crystal Golem
+1 Cursed Totem
+1 Defense Grid
+1 Dragon Engine
+1 Echo Circlet
+1 Elegant Parlor
+1 Ersatz Gnomes
+1 Fields of Strife
+1 Flamekin Village
+1 Forgotten Sentinel
+1 Fyndhorn Bow
+1 Glass Golem
+1 Guardians of Meletis
+1 Hopping Automaton
+1 Hotfoot Gnome
+1 Inspiring Vantage
+1 Jangling Automaton
+1 Lead Golem
+1 Leonin Bladetrap
+1 Living Wall
+1 Locthwain Gargoyle
+1 Manifold Key
+1 Marble Gargoyle
+1 Mishra's Groundbreaker
+8 Mountain
+1 Myr Landshaper
+1 Needle Spires
+1 Night Market Guard
+1 Null Brooch
+1 Null Rod
+1 Obelisk of Undoing
+1 Omega Myr
+1 One-Clown Band
+1 Pacification Array
+1 Patagia Golem
+1 Patchwork Gnomes
+14 Plains
+1 Prowler's Helm
+1 Ragged Playmate
+1 Reinforced Bulwark
+1 Runesword
+1 Rusted Sentinel
+1 Rustvale Bridge
+1 Saberclaw Golem
+1 Sacred Foundry
+1 Scabland
+1 Shield of the Ages
+1 Sliver Construct
+1 Soldevi Golem
+1 Spectator Seating
+1 Sphere of Resistance
+1 Stonework Puma
+1 Stuffed Bear
+1 Sun-Blessed Peak
+1 Sunbillow Verge
+1 Suspicious Bookcase
+1 Titanium Golem
+1 Valakut, the Molten Pinnacle
+1 Venser's Sliver
+1 Wall of Junk
+1 Wall of Shields
+
+[commander]
+Thorin Oakenshield

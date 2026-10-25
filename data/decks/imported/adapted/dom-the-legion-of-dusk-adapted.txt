@@ -6,7 +6,6 @@
 1 Anointed Deacon
 1 Bishop's Soldier
 1 Call to the Feast
-1 Clergy of the Holy Nimbus
 1 Desert of the Glorified
 1 Desert of the True
 2 Dusk Legion Zealot
@@ -19,6 +18,7 @@
 9 Plains
 2 Queen's Commission
 1 Reaver Ambush
+1 Rustwing Falcon
 1 Sanctum Seeker
 2 Shefet Dunes
 1 Skymarch Bloodletter

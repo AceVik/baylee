@@ -5,14 +5,14 @@
 1 Aether Adept
 2 Benalish Veteran
 2 Cancel
-2 Cobalt Golem
 3 Coral Merfolk
 4 Daring Leap
-3 Glasspool Mimic
+2 Ghost Ship
 14 Island
 1 Levitation
 1 Lord of the Unreal
 1 Mind Control
+3 Nebelgast Herald
 1 Negate
 10 Plains
 2 Rusted Sentinel

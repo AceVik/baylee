@@ -11,9 +11,9 @@
 1 Cephalid Retainer
 2 Cephalid Scout
 4 Daring Leap
-2 Dramatic Rescue
+3 Energy Arc
 9 Island
-4 Offering to Asha
+3 Offering to Asha
 4 Ojutai's Command
 1 Overrule
 10 Plains

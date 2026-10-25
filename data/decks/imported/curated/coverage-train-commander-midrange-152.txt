@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UB #20266153]
+1 Annex
+1 Aura Flux
+1 Bribery
+1 Ceremonious Rejection
+1 Chill
+1 Coma Veil
+1 Convincing Mirage
+1 Copy Artifact
+1 Countersculpt
+1 Creeping Tar Pit
+1 Darkslick Shores
+1 Darkwater Catacombs
+1 Dauthi Embrace
+1 Daxos's Torment
+1 Deathgrip
+1 Derelor
+1 Disdainful Stroke
+1 Dismal Backwater
+1 Douse
+1 Dream Tides
+1 Drowned Catacomb
+1 Envelop
+1 Evil Presence
+1 Flashfreeze
+1 Frozen Aether
+1 Gainsay
+1 Glimmerdust Nap
+1 Gloom
+1 Ice Over
+1 Ice Tunnel
+1 Irini Sengir
+21 Island
+1 Jwari Disruption
+1 Malfunction
+1 Mana Chains
+1 Mental Misstep
+1 Merseine
+1 Mind Over Matter
+1 Mirrormade
+1 Miscast
+1 Mistvault Bridge
+1 Morphic Pool
+1 Mystic Decree
+1 Nullify
+1 Opposition
+1 Oubliette
+1 Paralyzing Grasp
+1 Pendrell Mists
+1 Persuasion
+1 Quagmire
+1 Quench
+1 Restless Reef
+1 Riptide Chimera
+1 River Delta
+1 Salt Marsh
+1 Scatter Ray
+1 Serpent's Pass
+1 Sinister Hideout
+1 Soul Channeling
+1 Soured Springs
+1 Spell Pierce
+1 Spell Snare
+1 Stasis
+1 Steal Enchantment
+1 Storm of Saruman
+1 Stromgald Cabal
+1 Submerged Boneyard
+2 Swamp
+1 Tainted Isle
+1 Thrull Wizard
+1 Treachery
+1 Underground Sea
+1 Undertow
+1 Underworld Connections
+1 Vanishing
+1 Web of Inertia
+1 Wrath of Marit Lage
+1 Zephyr Charge
+
+[commander]
+Nebuchadnezzar

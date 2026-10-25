@@ -5,12 +5,12 @@
 2 Assault Griffin
 1 Bloodcrazed Neonate
 2 Elite Vanguard
+2 Energy Bolt
 1 Erdwal Ripper
 1 Forge Devil
 3 Frontline Rush
 2 Lightning Elemental
 2 Lightning Helix
-2 Martial Glory
 12 Mountain
 2 Niblis of the Mist
 2 Niblis of the Urn

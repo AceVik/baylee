@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUB #20266081]
+2 Anointed Deacon
+2 Chronatog
+1 Esper Panorama
+2 Ghost Warden
+2 Graceful Cat
+4 Island
+2 Loam Lion
+2 Loch Korrigan
+2 Orthodoxy Enforcer
+4 Orzhova, the Church of Deals
+2 Pestilence Rats
+2 Plague Rats
+7 Plains
+2 Regal Bunnicorn
+2 Sea Spirit
+2 Seasinger
+2 Sejiri Merfolk
+2 Stillmoon Cavalier
+2 Svyelunite Priest
+3 Swamp
+2 Thalakos Deceiver
+2 Undercity Sewers
+2 Utter End
+2 Wandering Mage
+3 Waterveil Cavern

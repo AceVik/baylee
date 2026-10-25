@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261087
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261087]
-1 Aesi, Tyrant of Gyre Strait
-1 Aquatic Incursion
-1 Aquus Steed
-1 Back to Basics
-1 Bad River
-1 Binding Grasp
-1 Bloodstained Mire
-1 Bonesplitter
-1 Borne Upon a Wind
-1 Captivating Cave
-1 Centaur Glade
-1 Cerulean Wyvern
-1 Claws of Wirewood
-1 Corridor Monitor
-1 Crash the Ramparts
-1 Cumber Stone
-1 Dark Depths
-1 Deep Spawn
-1 Deeptread Merrow
-1 Dispersing Orb
-1 Doubling Season
-1 Douse
-1 Elite Cat Warrior
-1 Fable of Wolf and Owl
-1 Flooded Strand
-12 Forest
-1 Fylamarid
-1 Galadhrim Guide
-1 Gargoyle Castle
-1 Gauntlets of Chaos
-1 Giant Shark
-1 Gladewalker Ritualist
-1 Grappler Spider
-1 Havenwood Battleground
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blisterpod
+1 Blood Servitor
+1 Botanical Sanctum
+1 Breeding Pool
+1 Byway Courier
+1 Cold Case Cracker
+1 Corsair Captain
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dowsing Dagger
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Farmer
+1 Enduring Vitality
+1 Etherium Spinner
+1 Filigree Crawler
+1 Flooded Grove
+13 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
 1 Homarid Spawning Bed
-1 Howlpack Resurgence
-1 Hullbreacher
-12 Island
-1 Joiner Adept
-1 Mana Matrix
-1 Maze's End
-1 Millstone
-1 Mirkwood Spider
-1 Mox Emerald
-1 Mystic Restraints
-1 Paragon of Gathering Mists
-1 Parcel Myr
-1 Petrified Field
-1 Pit of Offerings
-1 Prescient Chimera
-1 Primoc Escapee
-1 Prizefighter Construct
-1 Ravenous Daggertooth
-1 Reef Pirates
-1 Regeneration
-1 Reliquary Tower
-1 Reset
-1 Roterothopter
-1 Scavenging Ooze
-1 Secluded Courtyard
-1 Sejiri Merfolk
-1 Shadow Sliver
-1 Silver Erne
-1 Silver Myr
-1 Skateboard
-1 Sporecap Spider
-1 The One Ring
-1 The Rack
-1 Throne of the High City
-1 Tower of Eons
-1 Tranquility
+1 Illusions of Grandeur
+10 Island
+1 Jewel-Eyed Cobra
+1 Kozilek's Unsealing
+1 Mantle of the Wolf
+1 Midsummer Revel
+1 Mongrel Pack
+1 Most Wanted
+1 Mutant Town
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Path of Annihilation
+1 Pentavus
+1 Primeval Bounty
+1 Prying Blade
+1 Rain-Slicked Copse
+1 Rampaging Baloths
+1 Rejuvenating Springs
+1 Retrofitter Foundry
+1 S.H.I.E.L.D. Deployment Drone
+1 Simic Growth Chamber
+1 Slayer's Plate
+1 Slumbering Waterways
+1 Sodden Verdure
+1 Sparring Construct
+1 Spawning Pit
+1 Tanglepool Bridge
+1 Temple of Mystery
+1 Thallid
+1 Thallid Devourer
+1 The Mechanist, Aerial Artisan
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thornwood Falls
+1 Thragtusk
+1 Three Steps Ahead
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Tropical Island
 1 Turbulent Wilderness
-1 Vineglimmer Snarl
-1 Vulshok Battlegear
-1 Whirling Dervish
-1 White Lotus Hideout
-1 Woodcutter's Grit
-1 Zephyr Charge
+1 Turntimber Ranger
+1 Vodalian Hexcatcher
+1 Wand of the Elements
+1 Waterlogged Grove
+1 Wing Splicer
+1 Woodland Stream
+1 Yavimaya Coast

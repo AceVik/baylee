@@ -2,11 +2,11 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Hazoret Aggro (Adapted)]
 2 Abrade
+4 Acidic Soil
+4 Boiling Blood
 3 Breath Weapon
-4 Brotherhood's End
 4 Fanatical Firebrand
 1 Flare
-4 Goblin Offensive
 1 Improvised Weaponry
 4 Lightning Strike
 2 Magma Spray

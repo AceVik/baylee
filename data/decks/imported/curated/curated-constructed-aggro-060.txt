@@ -1,22 +1,22 @@
 # baylee curated constructed aggro seed=20261083
 # licence: AGPL-3.0-only
 [deck:constructed aggro RG #20261083]
-4 Angel's Feather
-2 Burning-Fist Minotaur
-3 Dawnhart Rejuvenator
-4 Devoted Druid
-4 Fanatic of Rhonas
-4 Fearful Villager
+4 Arcbound Ravager
+4 Avacyn's Collar
+2 Blood Petal Celebrant
+3 Cinder Glade
+2 Elvish Farmer
 3 Forest
-2 Frantic Confrontation
-4 Goblin Assailant
-2 Haven of the Spirit Dragon
-3 Liberated Dwarf
-1 Lindblum, Industrial Regency
-1 Mage-Ring Network
-11 Mountain
-1 Retrofitter Foundry
-4 Seafarer's Quay
-3 Shifting Wall
-3 Tectonic Hazard
-1 Tower of the Magistrate
+2 Game Trail
+3 Gilded Goose
+4 Iron Bully
+2 Kessig Wolf Run
+10 Mountain
+3 Pashalik Mons
+1 Pia and Kiran Nalaar
+4 Retrofitter Foundry
+2 Savage Mansion
+2 Slayer's Plate
+4 Spawning Pit
+1 Temple of Abandon
+4 Trading Post

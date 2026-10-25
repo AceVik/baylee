@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266170]
+1 Aladdin
+1 Ali from Cairo
+1 Ally Encampment
+1 Ambush Party
+1 An-Zerrin Ruins
+1 Artifact Blast
+1 Balduvian Barbarians
+1 Barbarian Horde
+1 Barbarian Outcast
+1 Battering Sliver
+1 Bedlam
+1 Berserkers of Blood Ridge
+1 Black Widow, Natasha Romanoff
+1 Blood Knight
+1 Blood Mist
+1 Bloodcrusher of Khorne
+1 Bloodlust Inciter
+1 Bloodthorn Taunter
+1 Buccaneer's Bravado
+1 Burrowing
+1 Capital Guard
+1 Cave People
+1 Crimson Mage
+1 Crown of Flames
+1 Crucible of Fire
+1 Crystal Slipper
+1 Defender of Chaos
+1 Desert Nomads
+1 Deserter's Disciple
+1 Eye of Ugin
+1 Fallaji Chaindancer
+1 Fire Nation Soldier
+1 Frontline Rebel
+1 Gimli's Axe
+1 Glimmervoid
+1 Gnat Alley Creeper
+1 Halberdier
+1 Happy Hogan, Dauntless Driver
+1 Hard-Won Jitte
+1 Hyperion Blacksmith
+1 Independent Troops
+1 Isolated Watchtower
+1 Jackhammer
+1 Lazotep Quarry
+1 Maelstrom of the Spirit Dragon
+1 Magus of the Moon
+1 Moggcatcher
+31 Mountain
+1 Mountain Bandit
+1 Nesting Grounds
+1 Pyroblast
+1 Rage Weaver
+1 Red Elemental Blast
+1 Reflexes
+1 Renegade Troops
+1 Roc Hunter
+1 Ruination
+1 Sanctum of Eternity
+1 Searing Spear Askari
+1 Soldier of Fortune
+1 Spire of Industry
+1 Tavern Ruffian
+1 Tenement Crasher
+1 The Whizzer, Classic Speedster
+1 Trailblazing Historian
+1 Trained Orgg
+1 Vulshok Refugee
+1 Warship Scout
+1 Whip Sergeant
+
+[commander]
+Eron the Relentless

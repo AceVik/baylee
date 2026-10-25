@@ -7,12 +7,12 @@
 2 Deadly Recluse
 2 Duskdale Wurm
 1 Evolving Wilds
-1 Feral Ferocity
 16 Forest
 2 Garruk's Packleader
 4 Gaze of Granite
 4 Maelstrom Pulse
 4 Pest Summoning
+1 Plummet
 1 Primal Huntbeast
 1 Rancor
 1 Sentinel Spider

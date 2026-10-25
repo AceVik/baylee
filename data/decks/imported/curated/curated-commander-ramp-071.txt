@@ -1,73 +1,73 @@
 # baylee curated commander ramp seed=20261094
 # licence: AGPL-3.0-only
-[deck:commander ramp R #20261094]
-1 Akroma's Memorial
-1 Barbarian Riftcutter
-1 Barrage Ogre
-1 Bellows Lizard
-1 Blaze
-1 Bloodrage Brawler
-1 Bonesplitter Sliver
-1 Brazen Freebooter
-1 Cascading Cataracts
-1 Cathar's Shield
-1 Command the Storm
-1 Conch Horn
-1 Darksteel Juggernaut
-1 Defense Force Aggressor
-1 Delete
-1 Devils' Playground
-1 Draconian Cylix
-1 Dragon Egg
-1 Dragon Mantle
-1 Dragon Whelp
-1 Dwarven Mine
-1 Eden, Seat of the Sanctum
-1 Ember Shot
-1 Erratic Portal
-1 Flamecast Wheel
-1 Ghitu War Cry
-1 Goblin Cavaliers
-1 Goblin Rock Sled
-1 Guardian Idol
-1 Hair-Strung Koto
-1 Hidden Volcano
-1 Hill Giant
-1 Jawbone Skulkin
-1 Jaya's Firenado
-1 Kher Keep
-1 Lumengrid Gargoyle
-1 Mana Vault
-1 Mech Hangar
-1 Metallic Sliver
-1 Meteor Sword
-1 Mijae Djinn
-1 Mirage Mesa
-1 Moggcatcher
-34 Mountain
-1 Munitions Enthusiast
-1 North Star
-1 Phyrexian Walker
-1 Prismite
-1 Ragefire
-1 Raging Cougar
-1 Reduce to Ashes
-1 Reinforced Bulwark
-1 Rhystic Cave
-1 Ring of Renewal
-1 Riot Devils
-1 Scion of Ugin
-1 Searing Wind
-1 Skycrash
-1 Slash, Reptile Rampager
-1 Slavering Nulls
-1 Su-Chi
-1 Sunstone
-1 Tower of Eons
-1 Toxic Iguanar
-1 Valakut Invoker
-1 Voldaren Stinger
-1 Witches' Eye
+[deck:commander ramp B #20261094]
+1 Aclazotz, Deepest Betrayal
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Baron Sengir
+1 Bastion of Remembrance
+1 Blight Mound
+1 Blighted Fen
+1 Cabal Coffers
+1 Callous Inspector
+1 Cirith Ungol Patrol
+1 Criminal Enterprise
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Essence Feed
+1 Eyeblight Cullers
+1 Filigree Crawler
+1 Gleaming Barrier
+1 Greedy Freebooter
+1 Havengul Laboratory
+1 Ifnir Deadlands
+1 Juju Bubble
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Levitating Statue
+1 Maalfeld Twins
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Massacre Wurm
+1 Minotaur, Roxxon CEO
+1 Mudflat Village
+1 Myr Sire
+1 Nim Deathmantle
+1 Ogre Slumlord
+1 Open the Graves
+1 Orochi Hatchery
+1 Pentavus
+1 Primal Amulet
+1 Prowess of the Fair
+1 Prying Blade
+1 Quest for the Gravelord
+1 Razaketh, the Foulblooded
+1 Retrofitter Foundry
+1 Serpent Generator
+1 Shauku, Endbringer
+1 Shizo, Death's Storehouse
+1 Skeletal Vampire
+1 Skittering Invasion
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Spawning Pit
+1 Sphinx-Bone Wand
+33 Swamp
+1 Sweettooth Witch
+1 Sword of the Ages
+1 Takenuma, Abandoned Mire
+1 Tempting Witch
+1 The Black Gate
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Trading Post
+1 Treasure Map
+1 Triskelavus
+1 Urborg
+1 Wand of the Elements
+1 Weirding Shaman
+1 Yahenni, Undying Partisan
 
 [commander]
-Slash, Reptile Rampager
+Morinfen

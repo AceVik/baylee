@@ -1,82 +1,83 @@
 # baylee curated highlander midrange seed=20261027
 # licence: AGPL-3.0-only
 [deck:highlander midrange UBR #20261027]
-1 Abstergo Entertainment
-1 Aegis Turtle
-1 Akroma's Memorial
-1 Aladdin's Lamp
-1 Arguel's Blood Fast
-1 Ark of Blight
-1 Barrels of Blasting Jelly
-1 Blighted Cataract
-1 Breathstealer
-1 Cabal Slaver
-1 Cartouche of Knowledge
-1 Celestial Sword
-1 Cephalid Inkshrouder
-1 Chains of Mephistopheles
-1 Consumptive Goo
-1 Control Magic
-1 Control of the Court
-1 Coralhelm Guide
-1 Crazed Goblin
-1 Crucible of the Spirit Dragon
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Arcbound Ravager
+1 Auntie's Hovel
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Blight Mound
+1 Blood Petal Celebrant
+1 Cabal Patriarch
+1 Callous Inspector
+1 Castle Sengir
+1 Claws of Gix
+1 Coastal Peak
+1 Common Crook
+1 Corsair Captain
+1 Criminal Enterprise
+1 Crosis's Catacombs
+1 Crumbling Necropolis
 1 Crypt of the Eternals
-1 Deathcurse Ogre
-1 Deep-Sea Serpent
-1 Defense Force Aggressor
-1 Den of the Bugbear
-1 Diplomatic Immunity
-1 Dismal Backwater
-1 Dreamstone Hedron
-1 Dwarven Miner
-1 Ebony Rhino
-1 Echoing Deeps
-1 Eidolon of Philosophy
-1 Enraged Flamecaster
-1 Explosive Apparatus
-1 Field Creeper
-1 Field of the Dead
-1 Flow of Maggots
-1 Frozen Aether
-1 Gemstone Caverns
-1 Gond Gate
-1 Gutless Ghoul
-1 Hedron Archive
-1 Howltooth Hollow
-1 Ifnir Deadlands
-1 Iron Man, Tony Stark
-7 Island
-1 Kobolds of Kher Keep
-1 Lazotep Behemoth
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
+1 Dragon Egg
+1 Dreadship Reef
+1 Drowner of Hope
+1 Geothermal Bog
+1 Gleaming Barrier
+1 Goblin Engineer
+1 Goblin Warrens
+1 Greedy Freebooter
+1 Gremlin Infestation
+1 Hearthcage Giant
+1 Homarid Spawning Bed
+3 Island
+1 Kheru Bloodsucker
 1 Lead Pipe
-1 Leering Emblem
-1 Loch Korrigan
-1 Mind Drain
-1 Mons's Goblin Raiders
-9 Mountain
-1 Necromaster Dragon
-1 Ogre Jailbreaker
+1 Legion Extruder
+1 Marionette Apprentice
+1 Marsh Flitter
+7 Mountain
+1 Myr Sire
+1 Nim Deathmantle
+1 Nivix, Aerie of the Firemind
+1 Ogre Slumlord
+1 Open the Graves
 1 Orochi Hatchery
-1 Raging Redcap
-1 Reflecting Pool
-1 Ryusei, the Falling Star
-1 Sawblade Scamp
-1 Scald
-1 Scroll Thief
-1 Sea Kings' Blessing
-1 Shimmering Grotto
-1 Slagstorm
-1 Slobad, Goblin Tinkerer
-1 Splatter Technique
-1 Steam Blast
-1 Stern Dismissal
-1 Sunken Palace
-8 Swamp
-1 Tomb of Urami
-1 True-Faith Censer
-1 Underworld Breach
-1 Unspeakable Symbol
-1 Vedalken Mastermind
-1 Voldaren Stinger
-1 Watcher in the Mist
+1 Oscorp Industries
+1 Pashalik Mons
+1 Pawn of Ulamog
+1 Pentavus
+1 Pia and Kiran Nalaar
+1 Pitiless Plunderer
+1 Prowess of the Fair
+1 Prying Blade
+1 Quest for the Gravelord
+1 Retrofitter Foundry
+1 River Delta
+1 Rotlung Reanimator
+1 Seething Landscape
+1 Sengir Autocrat
+1 Siege-Gang Commander
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Soured Springs
+1 Spawning Pit
+1 Sulfur Vent
+13 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Tooth and Claw
+1 Trading Post
+1 Undercity Sewers
+1 Underground Sea
+1 Wand of the Elements
+1 Warren Soultrader
+1 Xander's Lounge
+1 Yahenni, Undying Partisan

@@ -1,0 +1,76 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266310]
+1 Akroan Mastiff
+1 Alabaster Wall
+1 Amrou Seekers
+1 Armor Sliver
+1 Auratog
+1 Blade of the Sixth Pride
+1 Blaze of Glory
+1 Blighted Steppe
+1 Bonescythe Sliver
+1 Burst of Energy
+1 Cliff Threader
+1 Coeurl
+1 Daru Encampment
+1 Dazzling Ramparts
+1 Death Ward
+1 Eerie Interlude
+1 Eiganjo Castle
+1 Enter the Avatar State
+1 Ephemerate
+1 Everybody Lives!
+1 Eye for an Eye
+1 Fan Bearer
+1 Festival
+1 Flagstones of Trokair
+1 Flicker
+1 Fortified Rampart
+1 Goldmeadow Dodger
+1 Guardian Lions
+1 Hillcomber Giant
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Kithkin Rabble
+1 Kor Haven
+1 Lancer Sliver
+1 Lupinflower Village
+1 Maned Serval
+1 Marsh Threader
+1 Mending Hands
+1 Nomad Stadium
+1 Patrol Hound
+1 Pay No Heed
+30 Plains
+1 Plated Sliver
+1 Prowling Caracal
+1 Purelace
+1 Redeem
+1 Sanctuary Cat
+1 Savai Sabertooth
+1 Scapegoat
+1 Sejiri Shelter
+1 Selfless Savior
+1 Sentinel Sliver
+1 Shefet Dunes
+1 Shieldmate's Blessing
+1 Silence
+1 Sinew Sliver
+1 Snow Hound
+1 Steelform Sliver
+1 Talon Sliver
+1 Those Who Serve
+1 Thraben Purebloods
+1 Trenching Steed
+1 Tundra Wall
+1 Wall of Caltrops
+1 Wall of Faith
+1 Wall of Light
+1 Wanderbrine Trapper
+1 Warclamp Mastiff
+1 Warded Battlements
+1 Watcher Sliver
+
+[commander]
+Isamaru, Hound of Konda

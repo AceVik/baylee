@@ -1,76 +1,86 @@
 # baylee curated commander aggro seed=20261121
 # licence: AGPL-3.0-only
-[deck:commander aggro W #20261121]
-1 Abu Ja'far
-1 Alabaster Mage
-1 Alabaster Wall
-1 Ant-Man, Scott Lang
-1 Armor of Faith
-1 Armored Warhorse
-1 Benalish Hero
-1 Blighted Steppe
-1 Blood Servitor
-1 Boseiju, Who Shelters All
-1 Bounty Agent
-1 Cathodion
-1 Champion of the Parish
-1 Chimeric Egg
-1 Court Cleric
-1 Delney, Streetwise Lookout
-1 Demystify
-1 Destroy Evil
-1 Devoted Hero
-1 Disciple of Law
-1 Doomed Traveler
-1 Draconian Cylix
-1 Duskrider Falcon
-1 Eager Cadet
-1 Expose to Daylight
-1 Forgotten Sentinel
-1 Gale Swooper
-1 Gemstone Mine
-1 Goldmeadow Dodger
-1 Greataxe
-1 Healer's Hawk
-1 Hoof Skulkin
-1 Impostor of the Sixth Pride
-1 Inspired Insurgent
-1 Inspiring Commander
-1 Ironwright's Cleansing
-1 Kami of Old Stone
-1 Lightning-Core Excavator
-1 Longbow Archer
-1 Lotus Vale
-1 Luminarch Aspirant
-1 Magma Mine
-1 Manifold Key
-1 Metallurgeon
-1 Mummy Paramount
-1 Nacre Talisman
-1 Pit of Offerings
-31 Plains
-1 Retrofitter Foundry
-1 Runed Servitor
-1 Savannah Lions
-1 Segovian Angel
-1 Sentinel of the Eternal Watch
-1 Shifting Wall
-1 Soldevi Steam Beast
-1 Spawning Pit
-1 Sterling Hound
-1 Terashi's Verdict
-1 The Great Mound
-1 The Rack
-1 Thraben Valiant
-1 Tributary Vaulter
-1 Urza's Mine
-1 Veteran Armorer
-1 Voltaic Servant
-1 Wakandan Shield Guard
-1 War Priest of Thune
-1 Watcher of the Wayside
-1 Welding Jar
-1 Wild Aesthir
+[deck:commander aggro UBR #20261121]
+1 Aether Sting
+1 Ancestral Vision
+1 Badlands
+1 Black Waltz No. 3
+1 Caldera Lake
+1 Callous Inspector
+1 Castle Sengir
+1 Chandra's Emberling
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Crystal Rod
+1 Dragon's Rage Channeler
+1 Drowner Initiate
+1 Eidolon of the Great Revel
+1 Electrostatic Field
+1 Electrostatic Infantry
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Etherium Spinner
+1 Fever Charm
+1 Firebrand Archer
+1 Firemind's Research
+1 Firespitter Whelp
+1 Glaring Fleshraker
+1 Guttersnipe
+1 Havoc
+1 Hesitation
+1 In the Eye of Chaos
+1 Ishi-Ishi, Akki Crackshot
+7 Island
+1 Izzet Charm
+1 Juju Bubble
+1 Kessig Flamebreather
+1 Lantern-Lit Graveyard
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Mana Crypt
+1 Mindsparker
+1 Molten Nursery
+1 Monastery Swiftspear
+14 Mountain
+1 Mystic Remora
+1 Onslaught
+1 Oscorp Industries
+1 Pyrostatic Pillar
+1 Quill-Slinger Boggart
+1 Rockslide Sorcerer
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Seething Landscape
+1 Sire of the Storm
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Jolt
+1 Spark Spray
+1 Spellshock
+1 Sprite Dragon
+1 Stark Industries
+1 Stormkeld Prowler
+1 Straw Golem
+1 Sulfur Vent
+1 Swamp
+1 Taurean Mauler
+1 Tempest Angler
+1 Temple of Deceit
+1 Three Steps Ahead
+1 Tramway Station
+1 Veil of Birds
+1 Veiled Sentry
+1 Vertigo
+1 Volatile Fjord
+1 Walking Ballista
+1 Waterveil Cavern
+1 Weaver of Lightning
+1 Winter Sky
+1 Xander's Lounge
+1 Yawgmoth's Edict
+1 Young Pyromancer
 
 [commander]
-Delney, Streetwise Lookout
+Gwendlyn Di Corci

@@ -8,6 +8,7 @@
 1 Doom Blade
 4 Essence Vortex
 13 Island
+3 Jhoira's Toolbox
 1 Kiln Walker
 1 Necrogen Scudder
 4 Notion Rain
@@ -17,5 +18,4 @@
 11 Swamp
 2 Vapor Snag
 2 Viridian Claw
-3 Voltaic Servant
 2 Warlord's Axe

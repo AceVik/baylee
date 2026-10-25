@@ -7,7 +7,6 @@
 1 Darkwater Catacombs
 4 Essence Vortex
 3 Fact or Fiction
-3 Glimpse the Unthinkable
 10 Island
 4 Notion Rain
 4 Pilfered Plans
@@ -17,3 +16,4 @@
 3 Swamp
 4 Tyrant's Scorn
 4 Underground River
+3 Unexplained Disappearance

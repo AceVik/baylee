@@ -1,21 +1,23 @@
-# baylee unseen-card holdout constructed seed=90000031
+# baylee unseen-card holdout constructed seed=90000035
 # licence: AGPL-3.0-only
-[deck:constructed aggro R #90000031]
-4 Crookshank Kobolds
-4 Goblin Chariot
-4 Kessig Flamebreather
-3 Krark-Clan Shaman
-3 Mobilized District
-24 Mountain
-3 Puncturing Blow
-4 Quaketusk Boar
-4 Quarum Trench Gnomes
-1 Rishadan Port
-3 Sabretooth Tiger
-2 Scrap Trawler
-4 Shivan Devastator
-4 Slagstorm
-4 Tetravus
-1 The Lonely Mountain
-2 Voldaren Stinger
-1 Vulshok Berserker
+[deck:constructed aggro WUB #90000035]
+4 Alela, Artful Provocateur
+1 Ancient Spring
+4 Arcane Sanctum
+3 Bishop of Wings
+4 Callous Inspector
+4 Contaminated Landscape
+4 Frightful Delusion
+3 Icatian Moneychanger
+2 Island
+3 Kambal, Consul of Allocation
+4 Marionette Apprentice
+3 Plains
+1 Raffine's Tower
+3 Sling-Gang Lieutenant
+9 Swamp
+3 Three Steps Ahead
+4 Vampire's Kiss
+2 Walking Ballista
+1 Wizards' School
+4 Yawgmoth's Edict

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266063]
+1 A.I.M. Synthoids
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Acid Rain
+1 Adventurer's Inn
+1 Altar of Dementia
+1 Anodet Lurker
+1 Archaeomender
+1 Ashnod's Altar
+1 Aura Thief
+1 Automatic Librarian
+1 Aven Fateshaper
+1 Blinkmoth Well
+1 Carnage Altar
+1 Cathodion
+1 Codex Shredder
+1 Cryptic Caves
+1 Crystal Chimes
+1 Cumber Stone
+1 Dingus Staff
+1 Dreamwinder
+1 Excavator
+1 Exotic Orchard
+1 Extruder
+1 Flowstone Sculpture
+1 Fodder Cannon
+1 Forge of Heroes
+1 Friendly Teddy
+1 Geist of the Archives
+1 Goblin Boom Keg
+1 Goggles of Night
+1 Golden Guardian
+1 Grindclock
+1 Grinding Station
+1 Hobbit Hole
+1 Implement of Examination
+31 Island
+1 Jinxed Idol
+1 Knightfisher
+1 Krark-Clan Ironworks
+1 Magistrate's Scepter
+1 Magnetic Mine
+1 Malcator's Watcher
+1 Mindeye Drake
+1 Mindscour Dragon
+1 Mnemonic Wall
+1 Mouth of Ronom
+1 Panharmonicon
+1 Phyrexian Altar
+1 Phyrexian Vault
+1 Reconstruction
+1 Retributive Wand
+1 Saheeli's Silverwing
+1 Sanitation Automaton
+1 Scrapheap
+1 Scrivener
+1 Seer of the Last Tomorrow
+1 Silver Raven
+1 Skull of Orm
+1 Sphinx Mindbreaker
+1 Sterling Hound
+1 Su-Chi
+1 Tablet of Epityr
+1 Thaumaturge's Familiar
+1 The Unspeakable
+1 Tidepool Turtle
+1 Triassic Egg
+1 Watcher of the Wayside
+1 Whirlermaker
+
+[commander]
+Yargle, Goliath of Otaria

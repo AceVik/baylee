@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #20266187]
+1 Abzan Banner
+1 An-Havva Township
+1 Architects of Will
+1 Atraxa, Grand Unifier
+1 Aysen Abbey
+1 Baleful Strix
+1 Behemoth Sledge
+1 Bountiful Landscape
+1 Ceta Disciple
+1 Composite Golem
+1 Courier's Briefcase
+1 Crystal Quarry
+1 Darigaaz's Attendant
+1 Darklit Gargoyle
+1 Dragonback Assault
+1 Druid of the Anima
+1 Esper Battlemage
+1 Esper Cormorants
+1 Etched Monstrosity
+1 Ethersworn Adjudicator
+1 Foreboding Landscape
+1 Galazeth Prismari
+1 Geothermal Crevice
+1 Gruul War Plow
+1 Hedron Archive
+1 Hellkite Overlord
+1 Ignoble Hierarch
+1 Indatha Crystal
+1 Inspirit, Flagship Vessel
+8 Island
+1 Jeskai Banner
+1 Jeskai Shrinekeeper
+1 Kaleidostone
+1 Ketria Crystal
+1 Koskun Keep
+1 Mossfire Egg
+5 Mountain
+1 Murmuring Bosk
+1 Mystic Monastery
+1 Narset's Rebuke
+1 Nearby Planet
+1 Necra Disciple
+1 Obelisk of Jund
+1 Obelisk of Naya
+5 Plains
+1 Raffine's Tower
+1 Raugrin Crystal
+1 Reaper King
+1 Revitalizing Repast
+1 Rith's Attendant
+1 Scornful Aether-Lich
+1 Seaside Citadel
+1 Shadowblood Egg
+1 Sharuum the Hegemon
+1 Siege Rhino
+1 Skirmish Rhino
+1 Skycloud Egg
+1 Sphinx of the Steel Wind
+1 Splatter Technique
+1 Sungrass Egg
+6 Swamp
+1 Temur Ascendancy
+1 Temur Banner
+1 Temur Devotee
+1 The World Tree
+1 Tidehollow Strix
+1 Timeless Lotus
+1 Tinder Farm
+1 Tower Gargoyle
+1 Treva's Ruins
+1 Two-Headed Hellkite
+1 Unbender Tine
+1 Vectis Agents
+1 Vectis Silencers
+1 Vedalken Outlander
+1 Viashivan Dragon
+1 Winter's Night
+1 Wizards' School
+1 Xander's Lounge
+1 Zagoth Triome

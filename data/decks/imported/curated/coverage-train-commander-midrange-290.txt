@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266291]
+1 Aether Flash
+1 Bird Maiden
+1 Blazing Volley
+1 Bloodfire Dwarf
+1 Bloodshed Fever
+1 Bravado
+1 Canyon Drake
+1 Captive Flame
+1 Cathedral of War
+1 Crevasse
+1 Crossroads Village
+1 Curse of Marit Lage
+1 Deranged Whelp
+1 Desert Drake
+1 Desert Sandstorm
+1 Devastation
+1 Dragon Hatchling
+1 Dwarven Catapult
+1 Eldrazi Linebreaker
+1 Fearful Villager
+1 Feral Ridgewolf
+1 Fire Drake
+1 Firebreathing
+1 Firestorm Phoenix
+1 Flowstone Blade
+1 Flowstone Embrace
+1 Flowstone Kavu
+1 Flowstone Wyvern
+1 Gerrard's Irregulars
+1 Ghitu War Cry
+1 Goblin Kites
+1 Goblin Mutant
+1 Granite Gargoyle
+1 Granite Grip
+1 Gravity Sphere
+1 Hall of the Bandit Lord
+1 Horde of Boggarts
+1 Hurly-Burly
+1 Impending Disaster
+1 Lotus Field
+1 Magmaquake
+1 Maniacal Rage
+1 Meltdown
+1 Mirrorpool
+1 Monster Mashup
+31 Mountain
+1 Mudslide
+1 Nalathni Dragon
+1 Primal Beyond
+1 Roc of Kher Ridges
+1 Sabertooth Wyvern
+1 Satyr Rambler
+1 Scarlet Witch, Wanda Maximoff
+1 Seismic Shudder
+1 Shatterskull Recruit
+1 Skyship Stalker
+1 Smoke
+1 Spitting Drake
+1 Stampede Rider
+1 Sun-Collared Raptor
+1 Sunken Citadel
+1 Talons of Falkenrath
+1 Thran Portal
+1 Total War
+1 Tremor
+1 Untaidake, the Cloud Keeper
+1 Veteran's Voice
+1 Whipflare
+1 Wrecking Crew
+
+[commander]
+Zhao, the Seething Flame

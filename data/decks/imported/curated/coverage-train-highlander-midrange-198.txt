@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BRG #20266199]
+1 Akoum Boulderfoot
+1 Atrocious Experiment
+1 Bad Deal
+1 Battlewand Oak
+1 Bayou
+1 Blazemire Verge
+1 Blisterstick Shaman
+1 Blood-Toll Harpy
+1 Bloodhunter Bat
+1 Carnival of Souls
+1 Dakmor Ghoul
+1 Darigaaz's Caldera
+1 Darkbore Pathway
+1 Dining Room
+1 Dragonskull Summit
+1 Eidolon of Blossoms
+1 Emrakul's Influence
+1 Firefist Adept
+1 Forge Devil
+1 Forgeborn Oreads
+1 Foul Imp
+1 Geothermal Crevice
+1 Ghitu Slinger
+1 Glidedive Duo
+1 Goblin Chainwhirler
+1 Goblin Commando
+1 Goblin Recruiter
+1 Grim Guardian
+1 HYDRA Assault Robot
+1 Hagra Diabolist
+1 Howling Banshee
+1 Keldon Mantle
+1 Koskun Keep
+1 Maga, Traitor to Mortals
+1 Maggot Carrier
+1 Magma Giant
+1 Mirkwood
+1 Mogg Bombers
+1 Monstrous Carabid
+8 Mountain
+1 Necrogen Scudder
+1 Nightshade Harvester
+1 Northern Air Temple
+1 Ob Nixilis, the Fallen
+1 Orcish Bowmasters
+1 Pine Barrens
+1 Poisonbelly Ogre
+1 Pyrite Spellbomb
+1 Rakdos Carnarium
+1 Raphael, Tough Turtle
+1 Reckless Fireweaver
+1 Reverent Howl
+1 Savage Lands
+1 Serpent Warrior
+1 Shaman of the Pack
+1 Shocking Sharpshooter
+1 Shredder's Revenge
+1 Sleeper Agent
+1 Sneering Shadewriter
+1 Sparkmage Apprentice
+1 Spitfire Lagac
+1 Storm Caller
+1 Strangled Cemetery
+1 Sulfurous Springs
+15 Swamp
+1 Talisman of Indulgence
+1 Talisman of Resilience
+1 Touch of Death
+1 Toxic Abomination
+1 Tuktuk Scrapper
+1 Twisted Landscape
+1 Vampire Spawn
+1 Vampiric Spirit
+1 Viridescent Bog
+1 Volley Veteran
+1 Witty Roastmaster
+1 Wretched Anurid
+1 Ziatora's Proving Ground
+1 Zo-Zu the Punisher

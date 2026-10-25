@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UG #20266102]
+3 Argoth, Sanctum of Nature
+3 Desert of the Mindful
+2 Eerie Procession
+2 Force Void
+6 Forest
+2 Greater Sandwurm
+2 Groundchuck & Dirtbag
+8 Island
+2 Mana Breach
+2 Mungha Wurm
+2 Plated Wurm
+1 Sand Silos
+2 Sandbar Crocodile
+2 Shared Roots
+2 Simic Ragworm
+3 Thriving Isle
+2 Transmute Artifact
+2 Veiled Apparition
+2 Veiled Sentry
+2 Wardscale Crocodile
+2 Wild Ox
+2 Wilt
+2 Worldly Tutor
+2 Zodiac Ox

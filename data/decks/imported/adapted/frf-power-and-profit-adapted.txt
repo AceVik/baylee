@@ -12,6 +12,7 @@
 1 Font of Fertility
 8 Forest
 4 Frantic Search
+1 Gaea's Bounty
 2 Grim Tutor
 1 Hero's Downfall
 1 Icequake
@@ -20,7 +21,6 @@
 4 Opulent Palace
 2 Rakshasa's Secret
 1 Reaper of the Wilds
-1 Stealth Mission
 3 Stroke of Genius
 1 Stupor
 1 Sultai Ascendancy

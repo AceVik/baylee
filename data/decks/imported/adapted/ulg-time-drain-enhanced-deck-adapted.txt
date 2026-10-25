@@ -4,24 +4,26 @@
 3 Armageddon
 3 Birds of Paradise
 2 Brushland
-3 Call the Gatewatch
-2 Call the Scions
-3 Catalog
+2 Chant of the Skifsang
 2 City of Brass
+3 Cloud of Faeries
 2 Counterspell
 3 Disenchant
 1 Drifting Meadow
+2 Favorable Winds
 6 Forest
 4 Island
 2 Miscalculation
+3 Opt
+1 Palinchron
+3 Peregrine Drake
 2 Plains
 2 Reflecting Pool
 1 Remote Isle
-2 Retribution of the Meek
+1 Rewind
 2 Skyshroud Forest
-1 Solemn Offering
-2 Sphinx's Revelation
-1 Stroke of Genius
-4 Treva's Charm
+1 Snap
+1 Swan Song
+2 Swift Warden
+3 Tradewind Rider
 3 Wall of Blossoms
-4 Wargate

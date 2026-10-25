@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266156]
+1 Angelic Armaments
+1 Asphyxiate
+1 Assassin's Strike
+1 Battle Brawler
+1 Bayou
+1 Bloodcurdling Scream
+1 Blooming Marsh
+1 Boggart Loggers
+1 Brawler's Plate
+1 Champion's Helm
+1 Charging Bandits
+1 Chitinous Cloak
+1 Defenestrate
+1 Devkarin Dissident
+1 Dhund Operative
+1 Dragon Mask
+1 Druid of the Spade
+1 Elvish Berserker
+1 Elvish Scout
+1 Embraal Bruiser
+1 Ensouled Scimitar
+1 Erstwhile Trooper
+1 Feral Roar
+1 Fleshgrafter
+11 Forest
+1 Foul Orchard
+1 Gohn, Town of Ruin
+1 Gravblade Heavy
+1 Greenhilt Trainee
+1 Grim Backwoods
+1 Hunger of the Nim
+1 Illegitimate Business
+1 Iridescent Blademaster
+1 Jungle Hollow
+1 Kaysa
+1 Kraul Warrior
+1 Llanowar Wastes
+1 Lounge
+1 Lys Alana Scarblade
+1 Mask of Avacyn
+1 Masked Blackguard
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Monstrous Growth
+1 Mystic Compass
+1 Nantuko Mentor
+1 Nezumi Shadow-Watcher
+1 Nuclear Fallout
+1 Ogre's Cleaver
+1 Power Armor
+1 Primaris Eliminator
+1 Ranger's Longbow
+1 Ritual of the Machine
+1 Sarkhan's Resolve
+1 Scarblade Elite
+1 Scarred Vinebreeder
+1 Scattershot Archer
+1 Shield of Kaldra
+1 Simian Brawler
+1 Skemfar Elderhall
+1 Strider Harness
+1 Subterranean Cavern
+1 Svogthos, the Restless Tomb
+12 Swamp
+1 Tainted Wood
+1 Temple of Malady
+1 Tenza, Godo's Maul
+1 Thran Weaponry
+1 Timber Protector
+1 Titan's Grave
+1 Tower of Champions
+1 Turbulent Fen
+1 Vile Deacon
+1 Viridescent Bog
+1 Viridian Lorebearers
+1 Wei Ambush Force
+1 Wild Nacatl
+1 Wildheart Invoker
+
+[commander]
+Vhati il-Dal

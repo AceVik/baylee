@@ -1,18 +1,19 @@
 # baylee curated constructed midrange seed=20261038
 # licence: AGPL-3.0-only
 [deck:constructed midrange G #20261038]
-4 Axebane Guardian
-4 Conduit of Worlds
-2 Darksteel Myr
-4 Esper Panorama
-4 Ferocious Zheng
-20 Forest
-3 Invasive Species
-1 Manhole Cover
-4 Mirror Universe
-2 Ring of Immortals
-2 Ring of Three Wishes
-3 Seeker of Skybreak
-2 Squall Line
-2 Stuffed Bear
-3 Thelonite Druid
+3 Arcbound Ravager
+4 Avacyn's Collar
+2 Blighted Woodland
+2 Boseiju, Who Endures
+2 Diamond Kaleidoscope
+2 Elvish Farmer
+19 Forest
+1 Gaea's Cradle
+2 Gilded Goose
+2 Gleaming Barrier
+4 Rampaging Baloths
+3 Slayer's Plate
+4 Spawning Pit
+2 Thallid Devourer
+4 Trading Post
+4 Vulshok Battlegear

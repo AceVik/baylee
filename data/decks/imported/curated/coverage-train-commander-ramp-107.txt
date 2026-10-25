@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266108]
+1 Altar of the Brood
+1 Bone Devourer
+1 Boulderborn Dragon
+1 Bronze Horse
+1 Castle Sengir
+1 Celestial Prism
+1 Chardalyn Dragon
+1 Coal Golem
+1 Cogwork Wrestler
+1 Cori Mountain Monastery
+1 Courier's Capsule
+1 Crosis's Attendant
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Cursed Mirror
+1 Darksteel Gargoyle
+1 Darksteel Sentinel
+1 Den of the Bugbear
+1 Dimir Keyrune
+1 Dimir Locket
+1 Dragon Mage
+1 Eye of Ramos
+1 Fire Diamond
+1 Fire Nation Palace
+1 Firestorm Hellkite
+1 Flowstone Thopter
+1 Foriysian Totem
+1 Futurist Forge
+1 Gauntlet of Might
+1 Gold-Forged Sentinel
+1 Hexplate Golem
+1 Inkwell Leviathan
+1 Iron Giant
+1 Iron Man, Futurist Paragon
+12 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Liquimetal Torque
+1 Machine God's Effigy
+1 Mana Matrix
+1 Mimic
+1 Minas Morgul, Dark Fortress
+6 Mountain
+1 Opaline Unicorn
+1 Ornithopter of Paradise
+1 Oscorp Industries
+1 Parcel Myr
+1 Pardic Wanderer
+1 Pewter Golem
+1 Planar Gate
+1 Prismatic Lens
+1 Rakdos Keyrune
+1 Realm of Koh
+1 Red Mana Battery
+1 Relic of Sauron
+1 Ring of the Lucii
+1 Roterothopter
+1 Saberclaw Golem
+1 Sapphire Medallion
+1 Scrap Compactor
+1 Sea Gate
+1 Seething Landscape
+1 Silumgar Monument
+1 Sisay's Ring
+1 Skyline Cascade
+1 Sulfur Vent
+6 Swamp
+1 Talisman of Creativity
+1 The Everflowing Well
+1 The Surgical Bay
+1 Thunder Dragon
+1 Tribal Golem
+1 Universal Solvent
+1 Valakut, the Molten Pinnacle
+1 Vivid Crag
+1 Welding Jar
+1 Xander's Lounge
+
+[commander]
+Nicol Bolas

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266301]
+1 A.I.M. Bot
+1 Air Bladder
+1 Air Marshal
+1 Alexi's Cloak
+1 Arcane Laboratory
+1 Armored Galleon
+1 Avalanche Caller
+1 Balduvian Conjurer
+1 Balduvian Shaman
+1 Balloon Peddler
+1 Blighted Cataract
+1 Cephalid Coliseum
+1 Charmed Sleep
+1 Cloak of Mists
+1 Cobalt Golem
+1 Cumber Stone
+1 Cunning
+1 Dampening Pulse
+1 Deep Spawn
+1 Diplomatic Immunity
+1 Dream Fighter
+1 Dukhara Peafowl
+1 Ensoul Artifact
+1 Errant Minion
+1 Esperzoa
+1 Flight
+1 Gust-Skimmer
+1 Harmattan Efreet
+1 Hermitic Nautilus
+1 Ipnu Rivulet
+31 Island
+1 Jeskai Runemark
+1 Levitation
+1 Otawara, Soaring City
+1 Passwall Adept
+1 Rain of Revelation
+1 Rainbow Efreet
+1 Red Cliffs Armada
+1 Reduce in Stature
+1 Rhystic Deluge
+1 Riptide Laboratory
+1 Robe of Mirrors
+1 Sea Legs
+1 Seat of the Synod
+1 Sensory Deprivation
+1 Serra Sphinx
+1 Shimmering Wings
+1 Short Circuit
+1 Sinking Feeling
+1 Snow Devil
+1 Soldevi Excavations
+1 Starlight Snare
+1 Steam Frigate
+1 Stratozeppelid
+1 Stronghold Zeppelin
+1 Sunken City
+1 Talas Air Ship
+1 Talas Merchant
+1 Tolarian Academy
+1 Tolarian Scholar
+1 Tolarian Sentinel
+1 Trenzalore Clocktower
+1 Trickster Mage
+1 Veiled Crocodile
+1 Viscerid Armor
+1 Web of Inertia
+1 Wu Infantry
+1 Wu Warship
+1 Zephyr Net
+
+[commander]
+Sakashima of a Thousand Faces

@@ -1,0 +1,88 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266089]
+1 Access Tunnel
+1 Akki Drillmaster
+1 Archdemon of Paliano
+1 Armored Warhorse
+1 Bag End Porter
+1 Black Poplar Shaman
+1 Blinkmoth Nexus
+1 Breakneck Berserker
+1 Broodwarden
+1 Cabaretti Initiate
+1 Chained Brute
+1 Crooked Custodian
+1 Crystal Quarry
+1 Dakmor Scorpion
+1 Deathrite Shaman
+1 Deepfathom Skulker
+1 Dutiful Servants
+1 Dutiful Thrull
+1 Dwarven Berserker
+1 Dwarven Grunt
+1 Dwarven Nomad
+1 Dwarven Pony
+1 Dwarven Trader
+1 Ebony Treefolk
+1 Erstwhile Trooper
+1 Falkenrath Reaver
+1 Foreboding Ruins
+2 Forest
+1 Fugue
+1 Goblin Artisans
+1 Goblin Bird-Grabber
+1 Goblin Bully
+1 Goblin Cadets
+1 Goblin Cavaliers
+1 Goblin Lackey
+1 Goblin Outlander
+1 Goblin Striker
+1 Haunted Ridge
+1 Havoc Sower
+1 Hollowhead Sliver
+1 Homarid Shaman
+1 Island
+1 Kozilek's Shrieker
+1 Lava Tubes
+1 Lavaclaw Reaches
+1 Marsh Goblins
+1 Maw of Kozilek
+10 Mountain
+1 Mountain Goat
+1 Mountain Stronghold
+1 Nearby Planet
+1 Nightveil Predator
+1 Oggyar Battle-Seer
+1 Olivia's Dragoon
+1 Ominous Asylum
+3 Plains
+1 Putrid Leech
+1 Raging Redcap
+1 Rakshasa Deathdealer
+1 Riverpyre Verge
+1 Scalding Tarn
+1 Scuttling Sliver
+1 Secluded Starforge
+1 Sedge Scorpion
+1 Sewers of Estark
+1 Shattered Crypt
+1 Shifting Sliver
+1 Skirk Shaman
+1 Slaughter Drone
+1 Slavering Nulls
+1 Snapping Voidcraw
+1 Sneaking Guide
+1 Sootstoke Kindler
+1 Squirrelanoids
+1 Stensia Bloodhall
+1 Stone-Throwing Devils
+1 Sunscorched Desert
+6 Swamp
+1 Thalakos Sentry
+1 The World Tree
+1 Twinscroll Shaman
+1 Unraveling Mummy
+
+[commander]
+Sliver Hivelord

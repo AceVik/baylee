@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266120]
+1 Aphelia, Viper Whisperer
+1 Auntie's Hovel
+1 Bereavement
+1 Black Cat
+1 Boggart Cursecrafter
+1 Boris Devilboon
+1 Breeding Pit
+1 Carrion
+1 Chime of Night
+1 Cinder Glade
+1 Contract Killing
+1 Copperline Gorge
+1 Corpse Blockade
+1 Corpsehatch
+1 Creakwood Liege
+1 Cyclopean Mummy
+1 Darigaaz's Caldera
+1 Dark Fortress
+1 Deadly Derision
+1 Dying Wail
+1 Earthlink
+1 Eat to Extinction
+1 Elderfang Ritualist
+1 Elvish Doomsayer
+1 Facevaulter
+1 Feast or Famine
+1 Festering Gulch
+1 Fire-Lit Thicket
+5 Forest
+1 Foul Play
+1 Geothermal Crevice
+1 Glimmer Bairn
+1 Glissa, the Traitor
+1 Golgari Germination
+1 Golgari Rot Farm
+1 Golgari Rotwurm
+1 Grave Pact
+1 Gristle Grinner
+1 Groundskeeper
+1 Hana Kami
+1 He's Dead, Jim
+1 Hoard Robber
+1 Journey to Eternity
+1 Koskun Keep
+1 Lich
+1 Lightning Javelin
+1 Magmatic Force
+1 Moldervine Reclamation
+1 Morcant's Loyalist
+1 Mortuary
+1 Mountain
+1 Ominous Asylum
+1 Ophiomancer
+1 Plagued Rusalka
+1 Poison-Tip Archer
+1 Polluted Dead
+1 Quagmire Druid
+1 Restless Vents
+1 Rhys the Exiled
+1 Rottenheart Ghoul
+1 Rubble Reading
+1 Savage Lands
+1 Scarland Thrinax
+1 Sepulcher Ghoul
+1 Shambling Goblin
+1 Skirk Ridge Exhumer
+1 Soulreaper of Mogis
+1 Strands of Night
+1 Stronghold Assassin
+17 Swamp
+1 Taiga
+1 Temple of Malady
+1 Treasure Dredger
+1 Twisted Landscape
+1 Undead Executioner
+1 Vengeful Dead
+1 Violet Pall
+1 World Shaper
+1 Ziatora's Proving Ground
+
+[commander]
+Adun Oakenshield

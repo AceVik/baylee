@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266243]
+1 Aladdin's Lamp
+1 Alchemist's Refuge
+1 Alpha Myr
+1 Amulet of Kroog
+1 Amulet of Unmaking
+1 Basalt Monolith
+1 Bootleggers' Stash
+1 Copper Myr
+1 Dark Sphere
+1 Darksteel Relic
+1 Didgeridoo
+1 Dimir Keyrune
+1 Diversion Unit
+1 Dreadship Reef
+1 Dross Ripper
+1 Ebony Rhino
+1 Elvenking's Halls
+1 Escaped Experiment
+1 Executioner's Capsule
+1 Foreboding Landscape
+1 Forest
+1 Foul Orchard
+1 Futurist Forge
+1 Glasses of Urza
+1 Goblin Firebomb
+1 Grim Backwoods
+1 Hair-Strung Koto
+1 Horn of Ramos
+1 Inkwell Leviathan
+16 Island
+1 Jwar Isle Refuge
+1 Library of Leng
+1 Lodestone Myr
+1 Mechan Navigator
+1 Meekstone
+1 Mightstone's Animation
+1 Mirror Universe
+1 Monoist Sentry
+1 Omega Myr
+1 Opulent Palace
+1 Padeem, Consul of Innovation
+1 Parcel Myr
+1 Patriar's Seal
+1 Phyrexian Metamorph
+1 Pine Barrens
+1 Powerstone Shard
+1 Predator, Flagship
+1 Primal Clay
+1 Rejuvenating Springs
+1 Ring of Immortals
+1 Runesword
+1 Sarcomite Myr
+1 Scorpion Sentinel
+1 Sentinel
+1 Silumgar Monument
+1 Simic Keyrune
+1 Slumbering Waterways
+1 Soldevi Steam Beast
+1 Soured Springs
+1 Standing Stones
+1 Sultai Banner
+1 Surgical Metamorph
+1 Svogthos, the Restless Tomb
+7 Swamp
+1 Tainted Wood
+1 Tangle Hulk
+1 Thornwood Falls
+1 Transdimensional Bovine
+1 Twilight Mire
+1 Ultron, Machine Overlord
+1 Universal Automaton
+1 Urza's Avenger
+1 Vault Skirge
+1 Vial of Poison
+1 Woodland Stream
+1 Worldslayer
+1 Zagoth Crystal
+1 Zagoth Triome
+
+[commander]
+Muldrotha, the Gravetide

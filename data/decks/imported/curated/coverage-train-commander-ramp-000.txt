@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266001]
+1 Aang and Katara
+1 Air Nomad Legacy
+1 Altar of Dementia
+1 An-Havva Township
+1 Asgardian Citadel
+1 Bogardan Phoenix
+1 Broodmate Dragon
+1 Citywatch Sphinx
+1 Codex Shredder
+1 Courier's Briefcase
+1 Crystal Quarry
+1 Daily Bugle Newspaper
+1 Dark Privilege
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Etched Cornfield
+1 Failed Conversion
+1 Flamewright
+6 Forest
+1 From Beyond
+1 Galazeth Prismari
+1 Garna, the Bloodflame
+1 Ghen, Arcanum Weaver
+1 Glissa, the Traitor
+1 Go-Shintai of Life's Origin
+1 Goblin Trenches
+1 Golgari Germination
+1 Grinding Station
+1 Hazezon Tamar
+1 Hero of the Dunes
+1 Hopeless Nightmare
+6 Island
+1 Jetmir's Garden
+1 Journey to Eternity
+1 Jungle Patrol
+1 Kykar, Wind's Fury
+1 Late to Dinner
+1 Liliana the Repentant
+1 Living Lightning
+1 Los Diablos Missile Base
+1 Lumra, Bellow of the Woods
+1 Many Partings
+1 Morcant's Loyalist
+3 Mountain
+1 Nearby Planet
+1 Necromaster Dragon
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Ojer Pakpatiq, Deepest Epoch
+1 Omashu City
+1 Omen of the Dead
+1 Omnath, Locus of Rage
+1 Paleoloth
+1 Phyrexian Altar
+1 Piru, the Volatile
+4 Plains
+1 Puppet Master
+1 Radiant Summit
+1 Raucous Theater
+1 Returned Pastcaller
+1 Revive the Shire
+1 Rise of Eagles
+1 Savai Triome
+1 Sharuum the Hegemon
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Sokka, Tenacious Tactician
+1 Sphinx Mindbreaker
+5 Swamp
+1 The Balrog of Moria
+1 The Reaper, King No More
+1 The World Tree
+1 Time Sieve
+1 Tinder Farm
+1 Tourach's Gate
+1 Twisted Landscape
+1 Unearth
+1 Witherbloom Campus
+1 Yawgmoth, Thran Physician
+1 Ziatora's Proving Ground
+
+[commander]
+Reaper King

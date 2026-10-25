@@ -1,19 +1,22 @@
 # baylee curated constructed aggro seed=20261059
 # licence: AGPL-3.0-only
 [deck:constructed aggro UR #20261059]
-4 Barbarian Outcast
-2 Bloodtallow Candle
-4 City of Brass
-2 Enraged Flamecaster
-4 Foriysian Totem
-4 Goblin Piker
-3 Island
-3 Lavastep Raider
-11 Mountain
-4 Ornithopter
-4 Phyrexian Walker
-4 Silhouette
-1 Stalking Stones
-4 Tawnos's Weaponry
-4 Thran Quarry
-2 Wall of Razors
+2 Aether Sting
+1 Airship Engine Room
+2 Desolate Lighthouse
+4 Eidolon of the Great Revel
+4 Firemind's Research
+3 Frostboil Snarl
+2 Glaring Fleshraker
+4 Havoc
+13 Mountain
+4 Mystic Remora
+3 Mystical Tutor
+1 Nivix, Aerie of the Firemind
+1 Pyrostatic Pillar
+2 Riverpyre Verge
+3 Sarkhan's Unsealing
+2 Sawblade Scamp
+4 Spark Spray
+4 Spellshock
+1 Surtland Frostpyre

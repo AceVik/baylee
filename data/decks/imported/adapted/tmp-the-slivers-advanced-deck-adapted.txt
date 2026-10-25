@@ -5,13 +5,15 @@
 3 Counterspell
 1 Dismiss
 1 Drain Life
-2 Essence Vortex
+1 Fevered Convulsions
+3 Impulse
 8 Island
 4 Metallic Sliver
+1 Mindwhip Sliver
 3 Mnemonic Sliver
 2 Nevinyrral's Disk
-4 Notion Rain
-2 Pilfered Plans
+1 Opt
+1 Portent
 1 Power Sink
 2 Quicksand
 4 Rootwater Depths
@@ -19,4 +21,5 @@
 6 Swamp
 2 Terror
 4 Underground River
+1 Waterlogged Teachings
 4 Winged Sliver

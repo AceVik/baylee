@@ -2,10 +2,9 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Eerie (Adapted)]
 4 Absorb
-2 Daily Bugle Building
 4 Daring Leap
 4 Dramatic Rescue
-2 Fall of the Gavel
+4 Energy Arc
 2 Feather of Flight
 7 Island
 4 Offering to Asha
@@ -13,6 +12,7 @@
 4 Overrule
 9 Plains
 4 Sphinx's Revelation
-4 Supreme Verdict
+2 Supreme Verdict
 2 Temple of Enlightenment
 4 Tranquil Cove
+2 Urza's Saga

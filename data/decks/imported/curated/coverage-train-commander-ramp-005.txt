@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266006]
+1 Abandoned Air Temple
+1 Agent of Atlas
+1 Aggressive Urge
+1 Ant-Man, Reformed Rogue
+1 Archway of Innovation
+1 Barrels of Blasting Jelly
+1 Battlewand Oak
+1 Bog Gnarr
+1 Castle Garenbrig
+1 Chain to Memory
+1 Constricting Tendrils
+1 Contemplation
+1 Country Roads
+1 Dazzling Lights
+1 Desert of the Indomitable
+1 Desert of the True
+1 Drowned Secrets
+1 Elementalist Adept
+1 Elite Archers
+1 Emrakul's Influence
+1 Enchantress's Presence
+1 Evendo, Waking Haven
+1 Eyes of the Watcher
+1 Fleeting Distraction
+10 Forest
+1 Freyalise's Charm
+1 Go Forth
+1 Guardian of Solitude
+1 Halcyon Glaze
+1 Halimar Depths
+1 Hamato Guardian Stance
+1 Hematite Talisman
+1 Hidden Gibbons
+1 Hollow Trees
+1 Insight
+7 Island
+1 Jackalope Herd
+1 Jade Idol
+1 Jarvis, Earth's Mightiest Butler
+1 Jhessian Thief
+1 Jidoor, Aristocratic Capital
+1 Jinx
+1 Karn, the Great Creator
+1 Kree Commandos
+1 Kulrath Mystic
+1 Lunar Mystic
+1 Magosi, the Waterveil
+1 Mana Breach
+1 Merchant Scroll
+1 Mesa Enchantress
+1 Nylea's Intervention
+1 Onyx Talisman
+7 Plains
+1 Predatory Hunger
+1 Prescient Chimera
+1 Primordial Sage
+1 Provoke
+1 Rebellious Strike
+1 Rivendell
+1 Satyr Enchanter
+1 Sea Gate
+1 Shocking Grasp
+1 Storm Spirit
+1 Storyteller Pixie
+1 Stymied Hopes
+1 TVA Bureaucrat
+1 Tanufel Rimespeaker
+1 Teller of Tales
+1 The Fair Basilica
+1 The Hunter Maze
+1 Tranquil Landscape
+1 Umara Entangler
+1 Vedalken Archmage
+1 Vedalken Blademaster
+1 Veiled Serpent
+1 Warmth
+1 Windbrisk Heights
+1 Zanarkand, Ancient Metropolis
+
+[commander]
+Arcades Sabboth

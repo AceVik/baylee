@@ -5,8 +5,6 @@
 2 Beneath the Sands
 1 Broken Wings
 3 Confidence from Strength
-3 Copper Myr
-4 Dawntreader Elk
 1 Fade into Antiquity
 24 Forest
 1 Growth Spasm
@@ -18,6 +16,8 @@
 1 Sachi, Daughter of Seshiro
 1 Sensei's Divining Top
 2 Serpent Skin
+3 Silverglade Pathfinder
 2 Strength of Cedars
 1 Time of Need
 4 Verdigris
+4 Whisperer of the Wilds

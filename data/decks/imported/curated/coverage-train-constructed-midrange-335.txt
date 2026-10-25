@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange RG #20266336]
+2 Bloodrock Cyclops
+2 Bonebreaker Giant
+2 Cyclops of One-Eyed Pass
+2 Flowstone Giant
+4 Forest
+3 Fungal Reaches
+2 Furnace Strider
+2 Gruul Guildgate
+2 Highland Giant
+2 Jungle Troll
+2 Lowland Giant
+10 Mountain
+2 Mountain Yeti
+2 Obsidian Giant
+2 Orazca Raptor
+2 Rampart Smasher
+3 Rugged Highlands
+2 Scoria Elemental
+2 Scoria Wurm
+2 Skyraker Giant
+1 Slagwoods Bridge
+2 Streetbreaker Wurm
+2 Summit Prowler
+1 Timber Gorge
+2 Tor Giant

@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266320]
+1 Acidic Sliver
+1 Anaba Spirit Crafter
+1 Battle Sliver
+1 Belligerent Sliver
+1 Blade Sliver
+1 Bloodsoaked Insight
+1 Blur Sliver
+1 Boartusk Liege
+1 Bonesplitter Sliver
+1 Chaoslace
+1 Cleaving Sliver
+1 Cloudshredder Sliver
+1 Creeping Trailblazer
+1 Crystal Quarry
+1 Crystalline Sliver
+1 Dire Fleet Neckbreaker
+1 Enchantment Alteration
+1 Evil Eye of Orms-by-Gore
+1 Flowstone Infusion
+3 Forest
+1 Frontier Bivouac
+1 Giant Trap Door Spider
+1 Glen Elendra Liege
+1 Haunter of Nightveil
+1 Heart Sliver
+1 Hibernation Sliver
+1 Hollowhead Sliver
+1 Horned Sliver
+1 Irrigation Ditch
+4 Island
+1 Jungle Shrine
+1 Ketria Triome
+1 Khenra Charioteer
+1 Koskun Keep
+1 Madrush Cyclops
+1 Magical Hack
+1 Might Sliver
+1 Mindwhip Sliver
+1 Morgue Thrull
+10 Mountain
+1 Nearby Planet
+1 Nobilis of War
+1 Oggyar Battle-Seer
+1 Opulent Palace
+1 Part Water
+4 Plains
+1 Plated Slagwurm
+1 Predatory Sliver
+1 Raffine's Tower
+1 Rakdos Ringleader
+1 Reflex Sliver
+1 Ruination Wurm
+1 Sandsteppe Citadel
+1 Savage Lands
+1 Secret Identity
+1 Sheltering Landscape
+1 Shifting Sliver
+1 Sinister Starfish
+1 Sleight of Mind
+1 Spectral Sliver
+1 Spinneret Sliver
+1 Spitting Sliver
+1 Squirrel Sovereign
+1 Stormcaller of Keranos
+1 Striking Sliver
+1 Stronghold Taskmaster
+1 Sulfur Vent
+2 Swamp
+1 Syphon Sliver
+1 The World Tree
+1 Thrull Champion
+1 Tranquil Landscape
+1 Trench Wurm
+1 Tuktuk Rubblefort
+1 Twisted Landscape
+1 Two-Headed Sliver
+1 Urborg Shambler
+1 Venom Sliver
+1 Victual Sliver
+1 Woodwraith Corrupter
+1 Ziatora's Proving Ground
+
+[commander]
+Go-Shintai of Life's Origin

@@ -1,70 +1,71 @@
 # baylee curated highlander ramp seed=20261081
 # licence: AGPL-3.0-only
 [deck:highlander ramp G #20261081]
-1 A Realm Reborn
-1 Aeolipile
-1 Aisling Leprechaun
-1 Arasta of the Endless Web
-1 Archway Commons
-1 Aurochs
-1 Brass Man
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Blighted Woodland
+1 Blisterpod
+1 Boseiju, Who Endures
+1 Brood Monitor
 1 Byway Courier
-1 Celestial Sword
-1 Chocobo Racetrack
-1 Delif's Cube
+1 Centaur Garden
+1 Diamond Kaleidoscope
 1 Doubling Season
-1 Elven Lyre
-1 Emerald Dragonfly
-1 Enraged Ceratok
-1 Esper Panorama
-1 Excavated Wall
-1 Fangren Hunter
-34 Forest
-1 Havenwood Wurm
-1 Hobbit Hole
-1 Inkmoth Nexus
-1 Kithkin Daggerdare
-1 Lifecrafter's Bestiary
-1 Lurker
-1 Mana Matrix
-1 Marshdrinker Giant
-1 Mimic
-1 Mogg Cannon
-1 Natural Spring
-1 Needleshot Gourna
-1 Nissa, Vital Force
-1 Ornithopter
-1 Pacification Array
-1 Plated Crusher
-1 Plated Slagwurm
-1 Powerstone Shard
+1 Dowsing Dagger
+1 Dryad Arbor
+1 Elephant Guide
+1 Elvish Farmer
+1 Enatu Golem
+1 Enduring Vitality
+1 Filigree Crawler
+33 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Guardian of Cloverdell
+1 Hashep Oasis
+1 Heart of Yavimaya
+1 Hornet Queen
+1 Mantle of the Wolf
+1 Maul Splicer
+1 Midsummer Revel
+1 Most Wanted
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Oakhollow Village
+1 Orochi Hatchery
+1 Path of Annihilation
+1 Pelakka Wurm
+1 Pentavus
 1 Primeval Bounty
-1 Pristine Talisman
-1 Pyramids
-1 Quilled Slagwurm
-1 Ring of Immortals
-1 Ring of Ma'rûf
-1 Secluded Starforge
-1 Signpost Scarecrow
-1 Skycoach Waypoint
-1 Skyshroud Archer
-1 Spined Wurm
-1 Squall Line
-1 Staff of Nin
-1 Steady Aim
-1 Steelbane Hydra
-1 Strangleroot Geist
-1 Tajuru Pathwarden
-1 Terrain Elemental
+1 Prying Blade
+1 Rampaging Baloths
+1 Retrofitter Foundry
+1 Serpent Generator
+1 Skullclamp
+1 Slayer's Plate
+1 Spawning Pit
+1 Stoic Builder
+1 Sylvok Lifestaff
 1 Thallid
-1 Totem Speaker
-1 Trolls of Tel-Jilad
-1 Undiscovered Paradise
-1 Unnatural Predation
-1 Unstable Obelisk
-1 Urza's Factory
-1 Vulshok Morningstar
-1 Wanderlust
-1 Wolfwillow Haven
-1 Worldslayer
-1 Yavimaya Ancients
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Thundering Spineback
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Tree of Tales
+1 Triskelavus
+1 Turntimber Ranger
+1 Wand of the Elements
+1 Wirewood Lodge
+1 Wurmweaver Coil
+1 Zuran Orb

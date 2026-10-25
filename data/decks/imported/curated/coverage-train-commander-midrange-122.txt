@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266123]
+1 Aven of Enduring Hope
+1 Aysen Abbey
+1 Balm of Restoration
+1 Battlefield Promotion
+1 Birnin Zana Plaza
+1 Blossoming Wreath
+1 Celebrity Fencer
+1 Celestial Force
+1 Centaur Healer
+1 Chaplain's Blessing
+1 Cloudchaser Kestrel
+1 Courier Griffin
+1 Crumble
+1 Elite Guardmage
+1 Elixir of Vitality
+1 Emiel the Blessed
+1 Enlightened Ascetic
+1 Etched Cornfield
+2 Forest
+1 Glassdust Hulk
+1 Graypelt Refuge
+1 Healing Leaves
+1 Heliod's Intervention
+1 Hope Charm
+1 Horizon Canopy
+1 Irrigation Ditch
+1 Joyous Respite
+1 Kiss of the Amesha
+1 Kitchen Finks
+1 Koala-Sheep
+1 Kor Celebrant
+1 Last Breath
+1 Life Chisel
+1 Lifecreed Duo
+1 Lone Missionary
+1 Lucky Offering
+1 Marble Chalice
+1 Narrow Escape
+1 Nature's Claim
+1 Nighthawk, Dark Defender
+1 Nimbus Maze
+21 Plains
+1 Pym Technologies
+1 Radiant Grove
+1 Rain-Slicked Copse
+1 Respite
+1 Reverse Polarity
+1 Ritual of Rejuvenation
+1 River Hoopoe
+1 Sanguine Glorifier
+1 Savannah Sage
+1 Seaside Citadel
+1 Selkie Hedge-Mage
+1 Shattered Angel
+1 Shu Soldier-Farmers
+1 Skullmead Cauldron
+1 Solitude
+1 Soothing Balm
+1 Spara's Headquarters
+1 Spiritual Guardian
+1 Staunch Defenders
+1 Tamiyo's Safekeeping
+1 Tanglebloom
+1 Teyo's Lightshield
+1 Toil to Renown
+1 Tower of Eons
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tropical Island
+1 Urban Retreat
+1 Valkyrior Skyrider
+1 Walking Archive
+1 Warrior Angel
+1 Waterlogged Grove
+1 Werefox Bodyguard
+1 Whitesun's Passage
+1 Witch Enchanter
+1 Wylie Duke, Atiin Hero
+
+[commander]
+Derevi, Empyrial Tactician

@@ -1,82 +1,83 @@
 # baylee curated commander control seed=20261043
 # licence: AGPL-3.0-only
-[deck:commander control RG #20261043]
-1 Arcum's Astrolabe
-1 Arena of Glory
-1 Astral Cornucopia
-1 Baton of Morale
-1 Berserkers' Onslaught
-1 Bloodfire Dwarf
-1 Boseiju, Who Endures
-1 Brute Force
-1 Captive Flame
-1 Channel
-1 Char
-1 Cobbled Wings
-1 Creeping Mold
-1 Curse of Marit Lage
-1 Dwarven Trader
-1 Fireforger's Puzzleknot
-1 Flashfires
-14 Forest
-1 Furious Bellow
-1 Glimmerlight
-1 Goblin Boom Keg
-1 Gravity Sphere
-1 Hair-Strung Koto
-1 Hall of Oracles
-1 Hammerheim
-1 Highland Forest
-1 Highland Weald
-1 Hostile Desert
-1 Ichneumon Druid
-1 Ironclaw Orcs
-1 Isolation Cell
-1 Lifespark Spellbomb
-1 Lightning Talons
-1 Lurker
-1 Maestros Theater
-1 Memorial to War
-1 Might of the Masses
-1 Mirror Universe
-1 Mishra's Factory
-1 Molten-Tail Masticore
-12 Mountain
-1 Opal Palace
-1 Piggy Bank
-1 Power Surge
-1 Raking Claws
-1 Raven Wings
-1 Recollect
-1 Sanctum of Ugin
-1 Sarkhan's Unsealing
-1 Scrying Sheets
-1 Seal of Fire
-1 Secret Base
-1 Shatterskull Smashing
-1 Spatial Contortion
-1 Spawning Grounds
-1 Spidery Grasp
-1 Spike Drone
-1 Spring of Eternal Peace
-1 Stangg
-1 Stimulus Package
-1 Stingmoggie
-1 Sunglasses of Urza
-1 Sunscorched Desert
-1 Sword of the Ages
-1 Temple of the Dragon Queen
-1 Throne of Makindi
-1 Tower of Calamities
-1 Tranquil Path
-1 Troll-Horn Cameo
-1 Tumble Magnet
-1 Tunnel
-1 Tyrant's Machine
-1 Umezawa's Jitte
-1 Vance's Blasting Cannons
-1 Where Ancients Tread
-1 Yotian Soldier
+[deck:commander control WUB #20261043]
+1 Aclazotz, Deepest Betrayal
+1 Alela, Artful Provocateur
+1 Ancient Spring
+1 Arcane Sanctum
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Avengers Hangar
+1 Ayara, First of Locthwain
+1 Bastion of Remembrance
+1 Bishop of Wings
+1 Blight Mound
+1 Callous Inspector
+1 Cirith Ungol Patrol
+1 Claws of Gix
+1 Contaminated Landscape
+1 Criminal Enterprise
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Dromar's Cavern
+1 Drowner of Hope
+1 Elas il-Kor, Sadistic Pilgrim
+1 Elgaud Inquisitor
+1 Eyeblight Cullers
+1 Fortified Beachhead
+1 Forum of Amity
+1 Goldmire Bridge
+1 Greedy Freebooter
+1 Griffin Guide
+1 Hidden Lair
+1 Hierophant's Chalice
+1 Homarid Spawning Bed
+1 Honored Knight-Captain
+1 Idyllic Beachfront
+1 Infernal Idol
+6 Island
+1 Kheru Bloodsucker
+1 Knight-Captain of Eos
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Nephalia Drownyard
+1 Neva, Stalked by Nightmares
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ogre Slumlord
+1 Ojer Taq, Deepest Foundation
+1 Open the Graves
+1 Pentavus
+5 Plains
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Raffine's Tower
+1 Retrofitter Foundry
+1 Scrubland
+1 Sengir Autocrat
+1 Shipwreck Marsh
+1 Siege Veteran
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
+1 Solemn Simulacrum
+1 Soured Springs
+1 Spawning Pit
+1 Sunlit Marsh
+14 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 The Underworld Cookbook
+1 Thopter Foundry
+1 Thopter Squadron
+1 Tithebearer Giant
+1 Trading Post
+1 Treasure Map
+1 Wand of the Elements
+1 Watery Grave
+1 Wizards' School
+1 Yahenni, Undying Partisan
 
 [commander]
-Stangg
+Chromium

@@ -1,0 +1,84 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro BRG #20266331]
+1 Aisling Leprechaun
+1 Argothian Pixies
+1 Ashcoat Bear
+1 Balduvian Bears
+1 Bear Cub
+1 Blood Crypt
+1 Blooming Marsh
+1 Bramblefort Fink
+1 Canal Monitor
+1 Carnivorous Plant
+1 Carrion Wall
+1 Cavern Crawler
+1 Cemetery Gate
+1 Cinder Marsh
+1 Dakmor Scorpion
+1 Darigaaz's Caldera
+1 Dining Room
+1 Drudge Reavers
+1 Dune Beetle
+1 Dwarven Pony
+1 Forerunner of Slaughter
+8 Forest
+1 Forest Bear
+1 Frog-Squirrels
+1 Fyndhorn Brownie
+1 Geothermal Crevice
+1 Ghostly Changeling
+1 Giant Cockroach
+1 Gilacorn
+1 Goblin-town
+1 Grappling Sundew
+1 Grave Bramble
+1 Karoo Meerkat
+1 Koskun Keep
+1 Lagac Lizard
+1 Lathnu Sailback
+1 Leaping Lizard
+1 Lim-Dûl's High Guard
+1 Molten Slagheap
+1 Moonglove Changeling
+1 Mosstodon
+4 Mountain
+1 Nema Siltlurker
+1 Plague Beetle
+1 Restless Bones
+1 Restless Cottage
+1 Restless Dead
+1 Riveteers Initiate
+1 Savage Lands
+1 Sedge Scorpion
+1 Shelkin Brownie
+1 Singing Tree
+1 Skeletal Changeling
+1 Skittering Heartstopper
+1 Squirrelanoids
+1 Subterranean Cavern
+10 Swamp
+1 Taiga
+1 Tresserhorn Sinks
+1 Twisted Landscape
+1 Venomous Changeling
+1 Viashino Cutthroat
+1 Viashino Outrider
+1 Viashino Sandswimmer
+1 Viashino Skeleton
+1 Vug Lizard
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Pine Needles
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wall of Tombstones
+1 Wall of Vines
+1 Warship Flight Crew
+1 Whip Vine
+1 Woodland Changeling
+1 Woodwraith Strangler
+1 Ziatora's Proving Ground
+1 Zodiac Monkey
+1 Zodiac Rabbit
+1 Zodiac Rooster

@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUR #20266318]
+2 Angelic Captain
+2 Arctic Aven
+2 Azorius First-Wing
+2 Crimson Roc
+2 Empyrean Eagle
+2 Fatehold Chronologist
+2 Glimmering Angel
+2 Hazerider Drake
+1 Highland Lake
+8 Island
+2 Lightning Angel
+2 Lightning Stormkin
+2 Mountain
+4 Mystic Monastery
+1 Perilous Landscape
+4 Plains
+4 Raugrin Triome
+2 Roc Hatchling
+2 Seedpod Squire
+2 Senate Courier
+2 Talon Trooper
+2 Tempest Drake
+2 Thunderclap Wyvern
+2 Torch Drake
+2 Tower Drake

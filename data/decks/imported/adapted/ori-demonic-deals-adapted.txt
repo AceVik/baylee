@@ -4,17 +4,17 @@
 4 Auger Spree
 4 Bedevil
 2 Blazing Hellhound
-1 Burnt Offering
 1 Cobblebrute
+4 Delirium
 4 Dreadbore
 1 Evolving Wilds
 2 Fog of Gnats
+1 Kaervek's Purge
 2 Malakir Cullblade
 10 Mountain
 3 Nantuko Husk
 1 Reave Soul
 2 Returned Centaur
+4 Spontaneous Combustion
 14 Swamp
-4 Terminate
 1 Weight of the Underworld
-4 Wrecking Ball

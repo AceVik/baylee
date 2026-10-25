@@ -9,14 +9,15 @@
 1 Clone
 1 Cryptic Annelid
 4 Daring Leap
+2 Energy Arc
 1 Flood Plain
 11 Island
 1 Jedit's Dragoons
 1 New Benalia
-2 Offering to Asha
-3 Ojutai's Command
+2 Ojutai's Command
 2 Overrule
 1 Path to Exile
+1 Pelargir Survivor
 7 Plains
 2 Preordain
 1 Revoke Existence

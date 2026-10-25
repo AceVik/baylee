@@ -1,0 +1,84 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #90010011]
+1 Amateur Hero
+1 Aspect of Gorgon
+1 Auramancer
+1 Auriok Champion
+1 Aven Flock
+1 Bala Ged Scorpion
+1 Beskir Shieldmate
+1 Bleachbone Verge
+1 Blood-Cursed Knight
+1 Bloodline Necromancer
+1 Boggart Trawler
+1 Brotherhood Patriarch
+1 Concealed Courtyard
+1 Culling Sun
+1 Devout Monk
+1 Disciple of Malice
+1 Disrupting Scepter
+1 Dross Hopper
+1 Edge of the Divinity
+1 Elite Inquisitor
+1 Emergency Medical Hologram
+1 Emergency Weld
+1 Faith Healer
+1 Faithbearer Paladin
+1 Felhide Petrifier
+1 Fisk Tower
+1 Font of Vigor
+1 Gnawing Zombie
+1 Goldmire Bridge
+1 Great Hall of Starnheim
+1 Hag of Syphoned Breath
+1 Hagra Mauling
+1 Hardened Tactician
+1 Headless Rider
+1 Holy Cow
+1 Hour of Defeat
+1 Hovermyr
+1 Icatian Moneychanger
+1 Infantry Veteran
+1 Insomnia, Crown City
+1 Knight of Dusk
+1 Mage's Attendant
+1 Magus of the Disk
+1 Mesa Cavalier
+1 Minotaur Abomination
+1 Moorish Cavalry
+1 Nutrient Block
+1 Okoye, Dora Milaje Leader
+1 Omni-Cheese Pizza
+1 Orzhov Basilica
+1 Orzhov Guildgate
+1 Orzhova, the Church of Deals
+14 Plains
+1 Ranger-Captain of Eos
+1 Reprisal
+1 Restless Fortress
+1 Sacred Nectar
+1 Sadistic Glee
+1 Salt Flats
+1 Scrubland
+1 Shineshadow Snarl
+1 Sibsig Icebreakers
+1 Skyhunter Patrol
+1 Soulmender
+1 Spectral Reserves
+1 Stony-Voiced Goblins
+1 Street Wraith
+1 Sunspire Gatekeepers
+9 Swamp
+1 Temple of Silence
+1 Thran Forge
+1 Turbulent Moor
+1 Unburden
+1 Vault of Champions
+1 Vault of the Archangel
+1 Vebulid
+1 Watchful Giant
+1 Withering Boon
+
+[commander]
+Arvad the Cursed

@@ -5,17 +5,15 @@
 1 Aurora Griffin
 1 Broadside Barrage
 2 Broken Wings
-2 Cleansing
 2 Dismember
 1 Eladamri's Call
 1 Elfhame Palace
 1 Esper Charm
-1 Evaporate
-1 Fierce Guardianship
 1 Fleetfoot Panther
 11 Forest
 1 Geothermal Crevice
 2 Gerrard's Command
+1 Harrow
 1 Horned Kavu
 1 Irrigation Ditch
 2 Jovial Evil
@@ -24,7 +22,6 @@
 1 Pest Summoning
 3 Plains
 1 Quirion Elves
-1 Rakshasa's Secret
 1 Read the Bones
 1 Rend Spirit
 1 Rith's Charm
@@ -33,7 +30,10 @@
 1 Slingshot Goblin
 1 Steel Leaf Paladin
 3 Stone Kavu
+1 Sweltering Suns
+2 Sylvan Library
 1 Thornscape Apprentice
 2 Tranquility
 1 Viashino Grappler
 2 Vindicate
+1 Yare

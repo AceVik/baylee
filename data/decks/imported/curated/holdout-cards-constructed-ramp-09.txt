@@ -1,21 +1,24 @@
-# baylee unseen-card holdout constructed seed=90000022
+# baylee unseen-card holdout constructed seed=90000031
 # licence: AGPL-3.0-only
-[deck:constructed ramp WU #90000022]
-2 Aang, Air Nomad
-3 Adarkar Wastes
-3 Aerial Engineer
-4 Aladdin's Lamp
-2 Capashen Standard
-4 Divine Arrow
-4 Eternity Snare
-7 Island
-2 Legion's Landing
-1 Nephalia Academy
-8 Plains
-3 Rise of Eagles
-3 Ruins of Trokair
-4 Sheltering Light
-4 Spirit Away
-1 Throne of Makindi
-2 Throne of the High City
-3 Withstand
+[deck:constructed ramp R #90000031]
+4 Arcbound Ravager
+4 Avacyn's Collar
+2 Bag End Banquet
+3 Barbarian Ring
+2 Blighted Gorge
+2 Diamond Kaleidoscope
+2 Enatu Golem
+2 Hearthcage Giant
+25 Mountain
+2 Pashalik Mons
+2 Pentavus
+3 Redrock Sentinel
+4 Retrofitter Foundry
+1 Rockface Village
+1 Shivan Gorge
+4 Siege-Gang Commander
+2 Slayer's Plate
+2 Spawning Pit
+2 Thopter Squadron
+3 Trading Post
+3 Treasure Map

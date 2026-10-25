@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UR #20266041]
+1 Aliban's Tower
+1 Antagonize
+1 Arena of Glory
+1 Beyeen Veil
+1 Blue Elemental Blast
+1 Boar-q-pine
+1 Bull Rush
+1 Burning Prophet
+1 Cascade Bluffs
+1 Chandra's Emberling
+1 Chase Inspiration
+1 Crackling Cyclops
+1 Den of the Bugbear
+1 Desert of the Mindful
+1 Dormant Volcano
+1 Dragon-Style Twins
+1 Dwarven Song
+1 Earthshaker
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Emberwilde Caliph
+1 Fervent Strike
+1 Fighting Chance
+1 Fists of the Anvil
+1 Frantic Confrontation
+1 Furious Resistance
+1 Glyph of Destruction
+1 Halimar Depths
+1 Hydroblast
+1 Iguana Parrot
+13 Island
+1 Jidoor, Aristocratic Capital
+1 Kavaron, Memorial World
+1 Kulrath Mystic
+1 Madblind Mountain
+1 Mage-Ring Bully
+1 Mercurial Geists
+1 Merrow Reejerey
+1 Meticulous Artisan
+1 Mistfire Adept
+10 Mountain
+1 Murmuring Mystic
+1 Ore Gorger
+1 Pedal to the Metal
+1 Playful Shove
+1 Precise Strike
+1 Pyroblast
+1 Raze the Effigy
+1 Razorfin Hunter
+1 Rebuild
+1 Rig for War
+1 Scaldkin
+1 Sea Gate
+1 Sea Kings' Blessing
+1 Shelldock Isle
+1 Shredded Sails
+1 Silverbluff Bridge
+1 Smaug's Fury
+1 Smoldering Spires
+1 Soaring Seacliff
+1 Stock Up
+1 Stormchaser Mage
+1 Stormcloud Djinn
+1 Stormkeld Prowler
+1 Symbol of Unsummoning
+1 TVA Bureaucrat
+1 Talrand, Sky Summoner
+1 Teetering Peaks
+1 Teferi's Isle
+1 Teller of Tales
+1 Tempest Angler
+1 Thriving Isle
+1 Tibor and Lumia
+1 Umara Mystic
+1 Uncanny Speed
+1 Whirling Strike
+1 Whirlwind Adept
+1 You Come to a River
+
+[commander]
+Bria, Riptide Rogue

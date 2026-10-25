@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266278]
+1 Aardvark Sloth
+1 Abandoned Campground
+1 Ajani's Sunstriker
+1 Alabaster Host Sanctifier
+1 Altar's Light
+1 Azorius Guildgate
+1 Bishop's Soldier
+1 Blade Banish
+1 Blessed Light
+1 Brad Boimler, Eager Ensign
+1 Brightblade Stoat
+1 Calciform Pools
+1 Caravan Hurda
+1 Celestial Purge
+1 Champion of Arashin
+1 Commander's Insight
+1 Congregate
+1 Dark Maze
+1 Daybreak Chaplain
+1 Dispatch
+1 Dromad Purebred
+1 Erase
+1 Excise
+1 Excoriate
+1 Exorcise
+1 Gates of Istfell
+1 Gerrard's Wisdom
+1 Glacial Floodplain
+1 Glacial Fortress
+1 Glare of Heresy
+1 Hengegate Pathway
+1 Hieroglyphic Illumination
+1 Imperial Ceratops
+1 Irrigated Farmland
+2 Island
+1 Isolate
+1 Judge of Currents
+1 Knight of Meadowgrain
+1 Lake-town
+1 Land Cap
+1 Leonin Vanguard
+1 Meticulous Archive
+1 Mistmeadow Skulk
+1 Not on My Watch
+1 Ondu War Cleric
+1 Pillar of Light
+21 Plains
+1 Port Town
+1 Prairie Stream
+1 Prismatic Ending
+1 Puncturing Light
+1 Quiet Purity
+1 Razortide Bridge
+1 Recuperate
+1 Repel Calamity
+1 Revoke Existence
+1 Searing Light
+1 Sickbay Orderly
+1 Silundi Vision
+1 Silverchase Fox
+1 Silverstrike
+1 Skycloud Expanse
+1 Soul Shepherd
+1 Spirit Water Revival
+1 Starlight Invoker
+1 Steadfast Paladin
+1 Stone Haven Medic
+1 Stonehorn Chanter
+1 Story Seeker
+1 Temple of Enlightenment
+1 Thalakos Lowlands
+1 Trained Caracal
+1 Triumphant Surge
+1 Urgent Exorcism
+1 Wanderbrine Preacher
+1 Withstand
+1 Yotian Medic
+1 Zarichi Tiger
+
+[commander]
+Tobias Andrion

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange RG #20266145]
+1 Akoum Warrior
+1 Big Bertha
+1 Bird Maiden
+1 Boggart Brute
+1 Bristling Backwoods
+1 Centaur Archer
+1 Centaur Veteran
+1 Charging Badger
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Crimson Manticore
+1 Crossroads Watcher
+1 Defiant Elf
+1 Dragon Hatchling
+1 Emerald Dragonfly
+1 Fearful Villager
+1 Fire Sprites
+1 Firefly
+1 Flame Lash
+18 Forest
+1 Fungal Reaches
+1 Fungus Elemental
+1 Game Trail
+1 Goblin Rock Sled
+1 Goliath Beetle
+1 Gruul Guildgate
+1 Harvesttide Infiltrator
+1 Hawkeater Moth
+1 Haze of Pollen
+1 Hellkite Igniter
+1 Hungry Megasloth
+1 Hungry Spriggan
+1 Ifh-Bíff Efreet
+1 Impetuous Sunchaser
+1 Karplusan Forest
+1 Kazandu Refuge
+1 Khenra Charioteer
+1 Killer Bees
+1 Kookus
+1 Locust Swarm
+1 Lull
+1 Mogg Hollows
+1 Moon Sprite
+5 Mountain
+1 Mutant Town Musicians
+1 Nettletooth Djinn
+1 Raging Ravine
+1 Rathi Dragon
+1 Reality Anchor
+1 Rockfall Vale
+1 Rootbreaker Wurm
+1 Rorix Bladewing
+1 Rugged Highlands
+1 Sawback Manticore
+1 Scarlet Witch, Wanda Maximoff
+1 Scryb Ranger
+1 Segmented Wurm
+1 Shivan Devastator
+1 Shivan Oasis
+1 Shivan Wurm
+1 Shocker
+1 Slagwoods Bridge
+1 Spore Flower
+1 Stomping Ground
+1 Storm Seeker
+1 Tajuru Pathwarden
+1 Tangle Mantis
+1 Temple of Abandon
+1 Timber Gorge
+1 Uktabi Efreet
+1 Unyaro Bee Sting
+1 Unyaro Bees
+1 Utvara Scalper
+1 Willow Faerie
+1 Wolfsbane, Highland Hero
+1 Wrecking Crew
+1 Yavimaya Gnats
+1 Zhao, the Seething Flame
+
+[commander]
+Tuknir Deathlock

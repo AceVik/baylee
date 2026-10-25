@@ -1,79 +1,80 @@
 # baylee curated highlander control seed=20261102
 # licence: AGPL-3.0-only
 [deck:highlander control RG #20261102]
-1 Anaconda
-1 Arboria
-1 Argothian Enchantress
-1 Avishkar Raceway
-1 Black Lotus
-1 Blighted Gorge
-1 Bloodstained Mire
-1 Bootleggers' Stash
-1 Braidwood Cup
-1 Bristling Backwoods
-1 Chaoslace
-1 Command Tower
-1 Coral Helm
-1 Crawling Barrens
-1 Creeperhulk
-1 Cryptolith Rite
-1 Crystal Grotto
-1 Dosan's Oldest Chant
-1 Ember Shot
-1 Equestrian Skill
-1 Flora Colossus
-1 Flowstone Mauler
-1 Forbidden Orchard
-13 Forest
-1 Frostwalk Bastion
-1 Ghost Town
-1 Gilded Lotus
-1 Glissa's Scorn
-1 Goblin Hero
-1 Indicate
-1 Jandor's Ring
-1 Keldon Necropolis
-1 Khalni Ambush
-1 Labyrinth of Skophos
-1 Lothlórien Lookout
-1 Lotus Vale
-1 Magmaquake
-1 Mardu Runemark
-1 Mending Touch
-1 Mind Stone
-13 Mountain
-1 Mox Emerald
-1 Mox Opal
-1 Mox Ruby
-1 Open Fire
-1 Oran-Rief, the Vastwood
-1 Oread of Mountain's Blaze
-1 Planar Portal
-1 Precise Strike
-1 Pyre Spawn
-1 Raiding Party
-1 Rath's Edge
-1 Reduce to Ashes
-1 Revive
-1 Rocket Launcher
-1 Scald
-1 Scorched Ruins
-1 Serpent Generator
-1 Sharpened Pitchfork
-1 Skull Catapult
-1 Spark Spray
-1 Sporecrown Thallid
-1 Squall
-1 Squirrel Nest
-1 Surge Node
-1 Tavern Ruffian
-1 The One Ring
-1 Thornado
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Blisterpod
+1 Blood Petal Celebrant
+1 Byway Courier
+1 Claws of Gix
+1 Commercial District
+1 Cragcrown Pathway
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dragon Egg
+1 Elephant Guide
+1 Elvish Farmer
+1 Filigree Crawler
+1 Fire-Lit Thicket
+15 Forest
+1 Game Trail
+1 Gilded Goose
+1 Gimli of the Glittering Caves
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Goblin Engineer
+1 Goblin Warrens
+1 Goldvein Pick
+1 Gremlin Infestation
+1 Grove of the Burnwillows
+1 Gruul Guildgate
+1 Gruul Turf
+1 Highland Forest
+1 Iron Man, Tony Stark
+1 Jewel-Eyed Cobra
+1 Jungle Patrol
+1 Legion Extruder
+1 Mantle of the Wolf
+1 Mogg Hollows
+1 Most Wanted
+10 Mountain
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Pashalik Mons
+1 Pia and Kiran Nalaar
+1 Piggy Bank
+1 Pinecrest Ridge
+1 Primeval Bounty
+1 Prying Blade
+1 Racers' Ring
+1 Raging Ravine
+1 Rampaging Baloths
+1 Restless Ridgeline
+1 Retrofitter Foundry
+1 Rootbound Crag
+1 Rugged Highlands
+1 Siege-Gang Commander
+1 Skullclamp
+1 Slayer's Plate
+1 Spawning Pit
+1 Spire Garden
+1 Stangg
+1 Stimulus Package
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thornspire Verge
+1 Thragtusk
 1 Timberline Ridge
-1 Underworld Breach
-1 Universal Automaton
-1 Vampires' Vengeance
-1 Voodoo Doll
-1 Walk-In Closet
-1 Winter Moon
-1 Woodborn Behemoth
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Tooth and Claw
+1 Trading Post
+1 Treasure Map
+1 Turntimber Ranger
+1 Uktabi Orangutan
+1 Wand of the Elements
+1 Wurmweaver Coil

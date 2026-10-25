@@ -1,79 +1,82 @@
-# baylee unseen-card holdout highlander seed=90000024
+# baylee unseen-card holdout highlander seed=90000032
 # licence: AGPL-3.0-only
-[deck:highlander ramp RG #90000024]
-1 Aggressive Mammoth
-1 Aladdin's Lamp
-1 Axebane Beast
-1 Berserkers' Onslaught
-1 Black Vise
-1 Blockbuster
-1 Carnivorous Moss-Beast
-1 Caverns of Despair
-1 Collector's Vault
-1 Conquer
-1 Crenellated Wall
-1 Diabolic Machine
-1 Disintegrate
-1 Dosan's Oldest Chant
-1 Dread Statuary
-1 Ember Shot
-1 Field Creeper
-1 Flowstone Mauler
-13 Forest
-1 Foundry Street Denizen
-1 Gerrard's Irregulars
-1 Gilded Lotus
-1 Glimmervoid
-1 Go Forth
-1 Great Furnace
-1 Groundskeeper
-1 Guardian Automaton
-1 Hashep Oasis
-1 Hickory Woodlot
-1 Homeward Path
-1 Junktown
-1 Khenra Charioteer
-1 Lotus Petal
-1 Lunar Frenzy
-1 Magmatic Force
-1 Manabarbs
-1 Masticore
-1 Maze's End
-1 Meteor Sword
+[deck:highlander ramp URG #90000032]
+1 Avacyn's Collar
+1 Bountiful Landscape
+1 Contested Cliffs
+1 Diamond Kaleidoscope
+1 Dining Room
+1 Dragonlair Spider
+1 Drowner of Hope
+1 Eidolon of the Great Revel
+1 Elephant Guide
+1 Elvish Farmer
+1 Fable of Wolf and Owl
+1 Fire-Lit Thicket
+1 Firebrand Archer
+1 Firemind's Research
+4 Forest
+1 Forgeborn Oreads
+1 Frontier Bivouac
+1 Gilded Goose
+1 Glaring Fleshraker
+1 Golem Foundry
+1 Gremlin Infestation
+1 Guardian of Cloverdell
+1 Havoc
+1 Hearthcage Giant
+1 Iron Man, Tony Stark
+1 Ishi-Ishi, Akki Crackshot
+2 Island
+1 Izzet Charm
+1 Jinxed Ring
+1 Juju Bubble
+1 Ketria Triome
+1 Kozilek's Unsealing
+1 Legion Extruder
+1 Lightning Cloud
+1 Littjara Mirrorlake
+1 Lumbering Falls
+1 Maelstrom Wanderer
+1 Mana Crypt
 1 Molten Nursery
-13 Mountain
-1 Myr Landshaper
-1 Omashu City
-1 Omni-Cheese Pizza
-1 Orcish Cannonade
-1 Orcish Oriflamme
-1 Painted Bluffs
-1 Paragon of Eternal Wilds
-1 Planar Portal
-1 Primal Visitation
-1 Pyre Charger
-1 Radiant Fountain
-1 Raging Bull
-1 Rakalite
-1 Ready to Rumble
-1 Regenerate
-1 Relic of Legends
-1 Revelation
-1 Ring of Three Wishes
-1 Scour from Existence
-1 Shimmering Grotto
-1 Smoke
-1 Smoldering Crater
-1 Sudden Breakthrough
-1 Sure Strike
-1 Taiga
-1 Thrór's Map
-1 Thunder Strike
-1 Titan Forge
-1 Turntimber Symbiosis
-1 Twists and Turns
-1 Valakut, the Molten Pinnacle
-1 Vernal Bloom
-1 Watermarket
-1 Whippoorwill
-1 Xanthic Statue
+1 Most Wanted
+18 Mountain
+1 Mutant Town
+1 Mystic Remora
+1 Omnath, Locus of Rage
+1 Overflowing Basin
+1 Pashalik Mons
+1 Path of Annihilation
+1 Pentavus
+1 Pia and Kiran Nalaar
+1 Primeval Bounty
+1 Pyrostatic Pillar
+1 Rain-Slicked Copse
+1 Retrofitter Foundry
+1 Rite of the Dragoncaller
+1 Ruric Thar, the Unbowed
+1 Sawblade Scamp
+1 Screamer-Killer
+1 Siege-Gang Commander
+1 Simic Growth Chamber
+1 Spark Jolt
+1 Spawning Pit
+1 Spellshock
+1 Sphinx-Bone Wand
+1 The Immortal Weapons
+1 The Underworld Cookbook
+1 The Vision and Scarlet Witch
+1 Thopter Squadron
+1 Thragtusk
+1 Three Steps Ahead
+1 Thundering Falls
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Training Compound
+1 Tropical Island
+1 Vineglimmer Snarl
+1 Volcanic Island
+1 Walking Ballista
+1 Wandering Fumarole
+1 Wurmweaver Coil

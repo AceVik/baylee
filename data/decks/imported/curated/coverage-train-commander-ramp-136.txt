@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266137]
+1 Abyssal Gatekeeper
+1 Aeronaut's Wings
+1 Akroma's Memorial
+1 Army Ants
+1 Ashiok's Reaper
+1 Atog
+1 Badlands
+1 Bake into a Pie
+1 Barbed Battlegear
+1 Billiard Room
+1 Blazemire Verge
+1 Blood Bairn
+1 Bloodfell Caves
+1 Body Snatcher
+1 Bog Naughty
+1 Boots of Speed
+1 Bronze Sword
+1 Brood of Cockroaches
+1 Celestial Sword
+1 Clickslither
+1 Collector's Vault
+1 Colossus Hammer
+1 Daily Bugle Newspaper
+1 Daredevil's Billy Club
+1 Dark Fortress
+1 Darksteel Forge
+1 Deadbridge Shaman
+1 Demon's Herald
+1 Disease Carriers
+1 Dragon's Herald
+1 Drainpipe Vermin
+1 Drider
+1 Exiled Boggart
+1 Experimental Armor
+1 Fallen Angel
+1 Fire Snake
+1 Foreboding Ruins
+1 Geothermal Bog
+1 Gild
+1 Goblin-town
+1 Golgari Thug
+1 Gorgon's Head
+1 Graven Cairns
+1 Grim Bounty
+1 Hag of Death's Legion
+1 Hell's Kitchen
+1 Hero's Heirloom
+1 Honed Khopesh
+1 Hornet Harasser
+1 Insidious Bookworms
+1 Jagged Barrens
+1 Lava Tubes
+1 Lightning Spear
+1 Mahadi, Emporium Master
+1 Marauder's Axe
+1 Mindslicer
+6 Mountain
+1 Neurok Hoversail
+1 Noxious Toad
+1 Rakdos Carnarium
+1 Raucous Theater
+1 Raven Wings
+1 Ravenous Intruder
+1 Rix Maadi, Dungeon Palace
+1 Screeching Buzzard
+1 Servant of Volrath
+1 Skeletal Kathari
+1 Splatter Goblin
+1 Stensia Bloodhall
+18 Swamp
+1 Thallid Soothsayer
+1 Tramway Station
+1 Tresserhorn Sinks
+1 Vampire Aristocrat
+1 Vampire Warlord
+1 Vanquisher's Axe
+1 Vibranium Energy Daggers
+
+[commander]
+Rohgahh of Kher Keep

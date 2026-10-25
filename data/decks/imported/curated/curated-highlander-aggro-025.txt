@@ -1,73 +1,74 @@
 # baylee curated highlander aggro seed=20261048
 # licence: AGPL-3.0-only
 [deck:highlander aggro B #20261048]
-1 Aether Vial
-1 Agent of Shauku
+1 Aclazotz, Deepest Betrayal
 1 Agents of HYDRA
-1 Alley Strangler
-1 Ashiok's Reaper
-1 Basal Thrull
-1 Black Lotus
-1 Cabal Trainee
-1 Capital City
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Blight Mound
+1 Cabal Coffers
+1 Callous Inspector
+1 Carrier Thrall
 1 Carrion Feeder
-1 Chronomaton
-1 Cobbled Wings
-1 Culling Dais
-1 Dhund Operative
-1 Dread of Night
-1 Dross Crocodile
-1 Elephant Graveyard
-1 Endless One
-1 Field Creeper
-1 Forgotten Monument
-1 Gloom Pangolin
-1 Gloomhunter
-1 Grasping Scoundrel
-1 Graveshifter
+1 Choking Sands
+1 Claws of Gix
+1 Common Crook
+1 Criminal Enterprise
+1 Deathknell Berserker
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Discordant Piper
+1 Doomed Dissenter
+1 Fear of Lost Teeth
+1 Filigree Crawler
+1 Gleaming Barrier
+1 Graf Harvest
 1 Greedy Freebooter
-1 Guardian Beast
-1 Havengul Laboratory
-1 Initiates of the Ebon Hand
-1 Juzám Djinn
-1 Kaervek's Hex
-1 Lazotep Quarry
-1 Locthwain Gargoyle
-1 Mask of Avacyn
-1 Memnite
-1 Mishra's Groundbreaker
-1 Molting Harpy
-1 Nevinyrral's Disk
-1 Nim Abomination
-1 Nova Pentacle
+1 Ifnir Deadlands
+1 Jinxed Idol
+1 Kheru Bloodsucker
+1 Knucklebone Witch
+1 Lead Pipe
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Mintstrosity
+1 Moriok Replica
+1 Myr Moonvessel
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
 1 Pawn of Ulamog
-1 Phyrexian Walker
-1 Poisonbelly Ogre
-1 Pulse Tracker
-1 Rathi Assassin
-1 Ravenous Skirge
-1 Restless Bones
-1 Ring of Renewal
-1 Rotted Hulk
-1 Sanitation Automaton
-1 Scalding Cauldron
-1 Screams of the Damned
-1 Screeching Buzzard
-1 Shadow-Rite Priest
-1 Shifting Wall
-1 Slinking Skirge
-1 Slith Bloodletter
-1 Songbird, Sonic Screamer
+1 Phyrexian Tower
+1 Prowess of the Fair
+1 Prying Blade
+1 Quest for the Gravelord
+1 Retrofitter Foundry
+1 Rotlung Reanimator
+1 Sarcomancy
+1 Sengir Autocrat
+1 Skeletal Vampire
+1 Skullclamp
+1 Slayer's Plate
+1 Sling-Gang Lieutenant
 1 Sparring Construct
-31 Swamp
-1 Takklemaggot
-1 Thirsting Shade
-1 Urza's Saga
-1 Vampiric Rites
-1 Venomcrawler
-1 Voodoo Doll
-1 Walking Ballista
-1 Wasteland
-1 Wei Infantry
-1 Wretched Anurid
+1 Spawning Pit
+30 Swamp
+1 Sweettooth Witch
+1 Sylvok Lifestaff
+1 Tempting Witch
+1 Terrarion
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Tomb of Urami
+1 Trading Post
+1 Undercity Dire Rat
+1 Unholy Grotto
+1 Urborg
+1 Vault of Whispers
+1 Warren Soultrader
+1 Weirding Shaman
+1 Westvale Abbey
+1 Witch's Cauldron
 1 Wriggling Grub
+1 Yahenni, Undying Partisan

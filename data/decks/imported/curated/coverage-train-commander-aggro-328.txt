@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266329]
+1 Accursed Horde
+1 Ambush Viper
+1 Amphin Pathmage
+1 Ana Disciple
+1 Ancient Spring
+1 Ankle Biter
+1 Blockade Runner
+1 Bog Raiders
+1 Cadaverous Knight
+1 Castle Sengir
+1 Coral Commando
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Death-Hood Cobra
+1 Deathbellow Raider
+1 Deceptive Landscape
+1 Dega Disciple
+1 Demon's Grasp
+1 Dromar's Cavern
+1 Dross Prowler
+1 Drowned
+1 Feiyi Snake
+1 Felhide Minotaur
+7 Forest
+1 Frontier Bivouac
+1 Geothermal Crevice
+1 Ghazbán Ogre
+1 Goblin Outlander
+1 Headwater Sentries
+1 Hurr Jackal
+6 Island
+1 Krovikan Elementalist
+1 Lim-Dûl's Cohort
+1 Marsh Boa
+1 Marsh Goblins
+1 Merrow Grimeblotter
+1 Metathran Zombie
+1 Moss Viper
+1 Mountain
+1 Mystic Monastery
+1 Nafs Asp
+1 Naga Eternal
+1 Nearby Planet
+1 Noose Constrictor
+1 Odious Trow
+1 Opulent Palace
+1 Pharika's Chosen
+1 Prakhata Club Security
+1 Raffine's Tower
+1 Rakdos Shred-Freak
+1 Rime Dryad
+1 River Darter
+1 Roofstalker Wight
+1 Rotting Legion
+1 Sanguine Guard
+1 Seagraf Skaab
+1 Severed Legion
+1 Sheltering Landscape
+1 Shivan Zombie
+1 Skeletal Snake
+1 Skull Collector
+1 Spike Jester
+1 Spore Frog
+1 Stone-Throwing Devils
+1 Strangling Spores
+8 Swamp
+1 Sworn Guardian
+1 Talruum Piper
+1 Tar Pit Warrior
+1 The World Tree
+1 Tournament Grounds
+1 Trained Jackal
+1 Undead Minotaur
+1 Unraveling Mummy
+1 Unworthy Dead
+1 Urban Retreat
+1 Vodalian Knights
+1 Warpath Ghoul
+1 Wilderness Hypnotist
+1 Willow Dryad
+1 Zombie Outlander
+
+[commander]
+General Tazri

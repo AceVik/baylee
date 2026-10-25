@@ -1,85 +1,86 @@
 # baylee curated commander aggro seed=20261037
 # licence: AGPL-3.0-only
-[deck:commander aggro WG #20261037]
-1 Adanto Vanguard
-1 Adherent of Hope
-1 Aerial Maneuver
-1 Alabaster Kirin
-1 Alaborn Musketeer
-1 Alloy Animist
-1 Big Bertha
-1 Charging Badger
-1 Charging Paladin
-1 Charming Prince
-1 Circle of Dreams Druid
-1 Conch Horn
-1 Coordinated Maneuver
-1 Desecration Plague
-1 Drownyard Temple
-1 Dunes of the Dead
-1 Eiganjo Castle
-1 Elvish Lookout
-1 Evendo, Waking Haven
-15 Forest
-1 Friendly Teddy
-1 Fyndhorn Brownie
-1 Glimmer Bairn
-1 Glory Seeker
-1 Greataxe
-1 Inventors' Fair
-1 Jaddi Offshoot
-1 Jade Bearer
-1 Jeong Jeong's Deserters
-1 Kalonian Tusker
-1 Kei Takahashi
-1 Kiln Walker
-1 Land Tax
-1 Lantern Kami
-1 Loam Dryad
-1 Locthwain Gargoyle
-1 Makindi Griffin
-1 Manifold Key
-1 Marble Gargoyle
+[deck:commander aggro WUG #20261037]
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Aysen Abbey
+1 Bishop of Wings
+1 Blade Splicer
+1 Blisterpod
+1 Byway Courier
+1 Cartouche of Solidarity
+1 Claws of Gix
+1 Coastal Tower
+1 Corsair Captain
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Dowsing Dagger
+1 Dwarven Castle Guard
+1 Elephant Guide
+1 Elgaud Inquisitor
+1 Elvish Farmer
+1 Filigree Crawler
+5 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Griffin Guide
+1 Haunted Library
+1 Homarid Spawning Bed
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Irrigation Ditch
+1 Island
+1 Jewel-Eyed Cobra
+1 Knight of Doves
+1 Lumbering Falls
+1 Mantle of the Wolf
 1 Martyr of Dusk
-1 Mask of Law and Grace
-1 Mech Hangar
-1 Myrsmith
-1 Natural Connection
-1 Neighborhood Guardian
-1 Noble Elephant
+1 Mausoleum Guard
+1 Meticulous Archive
+1 Moorland Haunt
+1 Most Wanted
+1 Myr Sire
+1 Nim Deathmantle
 1 Novice Inspector
-1 Nyxborn Courser
-1 Okina, Temple to the Grandfathers
-1 Pay No Heed
-8 Plains
-1 Public Thoroughfare
-1 Rain of Blades
-1 Red Ward
-1 Revive
-1 Revoke Existence
-1 Rogue's Passage
-1 Salt Road Quartermasters
-1 Scrying Sheets
-1 Selfless Savior
-1 Sevinne's Reclamation
-1 Silt Crawler
-1 Sliver Construct
-1 Squire
-1 Stampeding Serow
-1 Sunlance
-1 Sylvan Safekeeper
-1 Tarnished Citadel
-1 Temple of Plenty
-1 Tranquil Garden
-1 Turtle Lair
-1 Typhoon
-1 Valley Mightcaller
-1 Vibranium Energy Daggers
-1 Village Elder
-1 Wall of Caltrops
-1 Winter Orb
-1 Wirewood Lodge
-1 Wolfir Avenger
+1 Ojer Taq, Deepest Foundation
+1 Orochi Hatchery
+16 Plains
+1 Prying Blade
+1 Renowned Weaver
+1 Retrofitter Foundry
+1 Rimewood Falls
+1 Sea of Clouds
+1 Seaside Citadel
+1 Sejiri Refuge
+1 Selesnya Guildgate
+1 Siege Veteran
+1 Skullclamp
+1 Slayer's Plate
+1 Spara's Headquarters
+1 Sparring Construct
+1 Spawning Pit
+1 Sylvok Lifestaff
+1 Thallid
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thraben Inspector
+1 Thraben Standard Bearer
+1 Three Steps Ahead
+1 Trading Post
+1 Tranquil Landscape
+1 Treasure Map
+1 Treva's Ruins
+1 Urban Retreat
+1 Venerable Knight
+1 Voice of Resurgence
+1 Wing Splicer
+1 Yavimaya Coast
 
 [commander]
-Kei Takahashi
+Katara, the Fearless

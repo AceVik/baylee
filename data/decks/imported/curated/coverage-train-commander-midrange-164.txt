@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266165]
+1 Aerathi Berserker
+1 Arcane Lighthouse
+1 Archaeological Dig
+1 Aspect of Manticore
+1 Balduvian War-Makers
+1 Bant Panorama
+1 Baxter Building
+1 Boggart Sprite-Chaser
+1 Boldwyr Aggressor
+1 Borderland Marauder
+1 Branch of Vitu-Ghazi
+1 Burning Shield Askari
+1 Cave Sense
+1 Cave of Temptation
+1 Cinder Giant
+1 Crash and Burn
+1 Devastation
+1 Fathom Fleet Firebrand
+1 Feed the Flames
+1 Ferocity of the Wilds
+1 Fervor
+1 Flame-Chain Mauler
+1 Flaming Sword
+1 Forge of Heroes
+1 Frenzied Rage
+1 Frost Giant
+1 Frostwalk Bastion
+1 Glyph of Destruction
+1 Goblin Caves
+1 Goblin Elite Infantry
+1 Goblin Flotilla
+1 Goblin War Drums
+1 Haradrim Spearmaster
+1 Imposing Visage
+1 Inventor's Apprentice
+1 Keeper of Kookus
+1 Keldon Warlord
+1 Lavakin Brawler
+1 Lavastep Raider
+1 Lightning Talons
+1 Madcap Skills
+1 Mardu Runemark
+1 Molten Ravager
+31 Mountain
+1 Márton Stromgald
+1 Orcish Captain
+1 Paragon of Fierce Defiance
+1 Pyre Charger
+1 Rampaging Classmate
+1 Ravenous Giant
+1 Renegade Firebrand
+1 Renegade Warlord
+1 Rising of the Day
+1 Rowan's Battleguard
+1 Sandstone Warrior
+1 Screaming Fury
+1 Shire Terrace
+1 Spitting Hydra
+1 Sunset Strikemaster
+1 Super Speed
+1 Swashbuckling
+1 Teeterpeak Ambusher
+1 Telim'Tor
+1 Tilonalli's Knight
+1 Unchained Berserker
+1 Varchild's Crusader
+1 Volcanic Strength
+1 Voldaren Stinger
+1 Weaselback Redcap
+
+[commander]
+Lovisa Coldeyes

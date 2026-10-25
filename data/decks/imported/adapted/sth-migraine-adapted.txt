@@ -2,20 +2,21 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Migraine (Adapted)]
 2 Bottomless Pit
-1 Cast Away Doubt
+3 Buried Alive
+2 Cateran Summons
+1 Custodian of the Trove
 1 Dark Banishing
 1 Dark Ritual
 4 Dauthi Horror
+1 Dauthi Mindripper
 4 Death Stroke
-2 Entreat the Dead
-3 Essence Extraction
+2 Diabolic Edict
 4 Foul Imp
-2 Mind Rot
-2 Phyrexian Denouncer
+3 Megrim
+1 Mindwarper
 2 Pit Imp
+2 Plaguebearer
 1 Rabid Rats
-3 Risky Shortcut
-2 Stupor
+1 Ring of the Lucii
 24 Swamp
-1 Syphon Soul
-1 Toxic Deluge
+1 Tower of Champions

@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UG #20266228]
+2 Aggressive Urge
+3 Alchemist's Refuge
+2 Altered Ego
+2 Ant-Man, Reformed Rogue
+2 Argothian Enchantress
+2 Beast Whisperer
+2 Chitinous Graspling
+2 Contradict
+3 Elvenking's Halls
+2 Feral Instinct
+14 Forest
+2 Hidden Ancients
+2 Hidden Gibbons
+2 Hidden Spider
+2 Hinterland Harbor
+2 Kami of the Hunt
+2 Lay of the Land
+2 Orbweaver Kumo
+1 Overflowing Basin
+2 Predatory Hunger
+2 Provoke
+2 Shorecrasher Mimic
+1 Temple of Mystery
+2 Verduran Enchantress

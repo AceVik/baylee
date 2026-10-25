@@ -1,76 +1,76 @@
-# baylee unseen-card holdout commander seed=90000033
+# baylee unseen-card holdout commander seed=90000037
 # licence: AGPL-3.0-only
-[deck:commander aggro B #90000033]
-1 Al Bhed Salvagers
-1 Arguel's Blood Fast
-1 Assembly-Worker
-1 Barony Vampire
-1 Battle Brawler
-1 Battlefly Swarm
-1 Blinkmoth Nexus
-1 Bog Witch
-1 Cabal Evangel
-1 Carrier Thrall
-1 Cemetery Gate
-1 Champion's Helm
-1 Chime of Night
-1 Corrupt Court Official
-1 Cultist's Staff
-1 Daggerdrome Imp
-1 Dakmor Plague
-1 Damnable Pact
-1 Dauthi Slayer
-1 Disciple of Malice
-1 Disciple of Tevesh Szat
-1 Dust Bowl
-1 Eater of the Dead
-1 Encroaching Wastes
-1 Facevaulter
-1 Gilacorn
-1 Gilded Sentinel
-1 Greedy Freebooter
-1 Greel's Caress
-1 Grim Monolith
-1 Grim Physician
-1 Gristle Grinner
-1 Gurmag Swiftwing
-1 Hecteyes
-1 Hovermyr
-1 Impale
-1 Initiates of the Ebon Hand
-1 Ivory Tower
-1 Kalastria Healer
-1 Lightning-Core Excavator
-1 Liliana the Repentant
-1 Mark of the Vampire
-1 Moaning Spirit
-1 Mudflat Village
-1 Necropolis
-1 Nezumi Shadow-Watcher
-1 Nimana Skydancer
-1 Oasis
-1 Omega Myr
-1 Plague Witch
-1 Rag Man
-1 Ravine Raider
-1 Ridged Kusite
-1 Roaming Throne
-1 Ruins of Oran-Rief
-1 Simulacrum
-1 Skittering Heartstopper
+[deck:commander aggro G #90000037]
+1 Arcbound Ravager
+1 Audacity
+1 Avacyn's Collar
+1 Blighted Woodland
+1 Blisterpod
+1 Blood Servitor
+1 Byway Courier
+1 Centaur Garden
+1 Centaur's Herald
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dowsing Dagger
+1 Dryad Arbor
+1 Elephant Guide
+1 Elvish Farmer
+1 Elvish Skysweeper
+1 Filigree Crawler
+1 Fists of Ironwood
+30 Forest
+1 Fortitude
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Golem Foundry
+1 Haywire Mite
+1 Heart of Yavimaya
+1 Imperious Perfect
+1 Jewel-Eyed Cobra
+1 Jinxed Ring
+1 Llanowar Mentor
+1 Mantle of the Wolf
+1 Mongrel Pack
+1 Most Wanted
+1 Myr Moonvessel
+1 Myr Retriever
+1 Myr Sire
+1 Nim Deathmantle
+1 Nutrient Block
+1 Oakhollow Village
+1 Orochi Hatchery
+1 Pendelhaven
+1 Primeval Bounty
+1 Prying Blade
+1 Rancor
+1 Redrock Sentinel
+1 Renowned Weaver
+1 Retrofitter Foundry
+1 Scrap Trawler
+1 Skullclamp
+1 Slayer's Plate
 1 Sliversmith
-1 Snarling Gorehound
-1 Squelching Leeches
-1 Squirrelanoids
-31 Swamp
-1 Tinybones, the Pickpocket
-1 Tomb of Urami
-1 Traveler's Amulet
-1 Tyrant's Machine
-1 Universal Solvent
-1 Vampire Hexmage
-1 Vesper Ghoul
-1 Zodiac Snake
+1 Sparring Construct
+1 Spawning Pit
+1 Sylvok Lifestaff
+1 Thallid
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Tough Cookie
+1 Trading Post
+1 Treasure Map
+1 Tree of Tales
+1 Walking Ballista
+1 Wand of the Elements
+1 Yavimaya Hollow
 
 [commander]
-Liliana the Repentant
+Ojer Kaslem, Deepest Growth

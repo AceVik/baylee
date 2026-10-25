@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266191]
+1 April O'Neil, Kunoichi Trainee
+1 Archaeomender
+1 Ardent Elementalist
+1 Ashiok, Dream Render
+1 Aven Fateshaper
+1 Aysen Abbey
+1 Boltwing Marauder
+1 Bounding Krasis
+1 Bronzebeak Moa
+1 Brushfire Elemental
+1 Cartographer
+1 Castle Sengir
+1 Centaur Nurturer
+1 Cloudblazer
+1 Contraband Kingpin
+1 Crystal Quarry
+1 Dawnhart Rejuvenator
+1 Deadshot Minotaur
+1 Desperate Bloodseeker
+1 Elas il-Kor, Sadistic Pilgrim
+1 Extraction Specialist
+1 Fleetfoot Panther
+1 Foreboding Landscape
+3 Forest
+1 Halimar Excavator
+1 Hero of the Dunes
+1 Highway Robber
+1 Imperious Inkmage
+1 Indatha Triome
+1 Ironclad Slayer
+1 Irrigation Ditch
+4 Island
+1 Jetmir's Garden
+1 Kalastria Healer
+1 Kenrith, the Returned King
+1 Lava Zombie
+1 Loran, Disciple of History
+1 Lord of Tresserhorn
+1 Mardu Devotee
+1 Marsh Crocodile
+1 Mawloc
+1 Migrating Ketradon
+1 Mire Triton
+1 Monk Idealist
+5 Mountain
+1 Nearby Planet
+1 Nebula Dragon
+1 Nucklavee
+1 Opulent Palace
+1 Oscorp Industries
+1 Overwhelmed Apprentice
+1 Paleoloth
+6 Plains
+1 Pondering Mage
+1 Raffine's Tower
+1 Renegade Rallier
+1 Restoration Gearsmith
+1 Returned Pastcaller
+1 Risen Reef
+1 Rith's Grove
+1 Sage of Epityr
+1 Sage of Mysteries
+1 Savage Gorilla
+1 Scarblade Scout
+1 Serum Visionary
+1 Shinra Reinforcements
+1 Slumbering Keepguard
+1 Soul of the Harvest
+1 Stoic Builder
+1 Stormcaller of Keranos
+1 Sulfur Vent
+5 Swamp
+1 The World Tree
+1 Tranquil Landscape
+1 Treasure Hunter
+1 Twisted Landscape
+1 Underworld Coinsmith
+1 Uro, Titan of Nature's Wrath
+1 Void Grafter
+1 Wayward Servant
+1 Ziatora's Proving Ground
+
+[commander]
+General Tazri

@@ -3,16 +3,16 @@
 [deck:Gruul Stompy (Adapted)]
 3 Abrade
 4 Colossal Might
-4 Elvish Lookout
 9 Forest
-2 Ground Assault
 4 Karplusan Forest
 4 Llanowar Elves
-4 Manamorphose
+2 Manamorphose
 7 Mountain
+4 Orochi Leafcaller
 2 Questing Beast
 4 Rockfall Vale
 4 Savage Twister
 4 Scavenging Ooze
 1 Stomping Ground
 4 Stump Stomp
+4 Surge of Strength

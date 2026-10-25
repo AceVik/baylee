@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266239]
+1 Agent of Stromgald
+1 Ambition's Cost
+1 Axebane Guardian
+1 Barktooth Warbeard
+1 Beastcaller Savant
+1 Blightsoil Druid
+1 Blood Celebrant
+1 Bloom Tender
+1 Boreal Druid
+1 Brightstone Ritual
+1 Bubbling Muck
+1 Canopy Tactician
+1 Circle of Dreams Druid
+1 Citanul Hierophants
+1 Darigaaz's Caldera
+1 Darkmoss Bridge
+1 Darkwatch Elves
+1 Deathbloom Gardener
+1 Deathcap Glade
+1 Devoted Druid
+1 Dragon's Desire
+1 Dragonskull Summit
+1 Dregs of Sorrow
+1 Drover of the Mighty
+1 Elvish Spirit Guide
+1 Foggy Bottom Swamp
+16 Forest
+1 Fyndhorn Elder
+1 Geosurge
+1 Geothermal Crevice
+1 Gigantomancer
+1 Great Divide Guide
+1 Great Forest Druid
+1 Greenweaver Druid
+1 Gruul Guildgate
+1 Hammerfist Giant
+1 Harabaz Druid
+1 Highland Weald
+1 Humble Naturalist
+1 Implode
+1 Jaspera Sentinel
+1 Joiner Adept
+1 Kessig Wolf Run
+1 Koskun Keep
+1 Lifespring Druid
+1 Llanowar Dead
+1 Llanowar Tribe
+1 Magus of the Coffers
+1 Mana Geyser
+1 Marhault Elsdragon
+1 Metamorphosis
+1 Moonglove Extractor
+6 Mountain
+1 Nantuko Elder
+1 Professor Dellian Fel
+1 Radha, Heir to Keld
+1 Rakdos Guildgate
+1 Rite of Flame
+1 Rofellos, Llanowar Emissary
+1 Savage Lands
+1 Silhana Starfletcher
+1 Strangled Cemetery
+1 Sulfurous Springs
+1 Sunastian Falconer
+2 Swamp
+1 Swampbenders
+1 Temple of Abandon
+1 Three Tree Rootweaver
+1 Thriss, Nantuko Primus
+1 Twisted Landscape
+1 Veldrane of Sengir
+1 Vesper Ghoul
+1 Viridian Acolyte
+1 Wild Cantor
+1 Wirewood Channeler
+1 Wirewood Elf
+1 Woodland Cemetery
+1 Ziatora's Proving Ground
+
+[commander]
+Bartel Runeaxe

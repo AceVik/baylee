@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266034]
+1 Balduvian Hydra
+1 Bazaar of Baghdad
+1 Belligerent Guest
+1 Boots of Speed
+1 Boris Devilboon
+1 Bronze Sword
+1 Cactus Preserve
+1 Cathedral of War
+1 Champion's Helm
+1 Chaotic Goo
+1 Chitinous Cloak
+1 Cinder Storm
+1 Cloak of the Bat
+1 Consumptive Goo
+1 Crypt Cobra
+1 Crystal Slipper
+1 Daily Bugle Building
+1 Darksteel Relic
+1 Discordant Spirit
+1 Dread Wight
+1 Drill Too Deep
+1 Dwarven Armorer
+1 Dwarven Weaponsmith
+1 Edgewall Inn
+1 Falkenrath Exterminator
+1 Feroz's Ban
+1 Flow of Maggots
+1 Frontline War-Rager
+1 Goblin Wizardry
+1 Gorgon Flail
+1 Gorgon's Head
+1 Greataxe
+1 Greater Werewolf
+1 Hall of the Bandit Lord
+1 Harbinger of Night
+1 Henge of Ramos
+1 Honed Khopesh
+1 Insolent Neonate
+1 Inventors' Fair
+1 Kazarov, Sengir Pureblood
+1 Khabál Ghoul
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Lesser Werewolf
+1 Lightning Reaver
+1 Lotus Blossom
+1 Mahadi, Emporium Master
+1 Markov Blademaster
+1 Mirage Mesa
+11 Mountain
+1 Mountain Valley
+1 Neurok Hoversail
+1 Night Market
+1 Pit of Offerings
+1 Primordial Ooze
+1 Public Thoroughfare
+1 Ragavan, Nimble Pilferer
+1 Ruins of Oran-Rief
+1 Scavenger Grounds
+1 Scavenging Ghoul
+1 Shield of Kaldra
+1 Shimmerdrift Vale
+1 Silverskin Armor
+1 Skyshroud Vampire
+1 Souldrinker
+1 Stalking Bloodsucker
+1 Starting Town
+1 Stromkirk Captain
+13 Swamp
+1 Thran Portal
+1 Throatseeker
+1 Ultron, Machine Overlord
+1 Vault Robber
+1 Voldaren Stinger
+1 War Horn
+1 Warmonger's Chariot
+
+[commander]
+Rohgahh of Kher Keep

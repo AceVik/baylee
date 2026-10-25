@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266188]
+1 Aang and Katara
+1 Anthem of Champions
+1 Arcane Sanctum
+1 Aysen Abbey
+1 Battle Sliver
+1 Belligerent Sliver
+1 Blade Historian
+1 Blade Sliver
+1 Blur Sliver
+1 Bonesplitter Sliver
+1 Castle Sengir
+1 Cleaving Sliver
+1 Cloudshredder Sliver
+1 Clout of the Dominus
+1 Coerced to Kill
+1 Creeping Trailblazer
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Crystalline Sliver
+1 Deceptive Landscape
+1 Draconic Disciple
+1 Dragonback Assault
+1 Dralnu's Crusade
+1 Dromar's Cavern
+1 Elemental Augury
+1 Fable of the Mirror-Breaker
+1 Favor of the Overbeing
+6 Forest
+1 Fusion Elemental
+1 Go-Shintai of Life's Origin
+1 Gruul War Chant
+1 Heart Sliver
+1 Inquisitor Greyfax
+1 Inspiring Veteran
+1 Jetmir's Garden
+1 Kargan Warleader
+1 Kjeldoran Frostbeast
+1 Mad Auntie
+1 Madrush Cyclops
+1 Magefire Wings
+1 Maja, Bretagard Protector
+1 Marsh Lurker
+10 Mountain
+1 Natural Emergence
+1 Nearby Planet
+1 Nomad Outpost
+1 Omen of the Sun
+1 Opulent Palace
+1 Oscorp Industries
+1 Overgrown Estate
+1 Path of Mettle
+6 Plains
+1 Primal Visitation
+1 Pursuit of Flight
+1 Reach for the Sky
+1 Reflex Sliver
+1 Runes of the Deus
+1 Sangrite Backlash
+1 Scourge of the Nobilis
+1 Shadow Lance
+1 Shattered Landscape
+1 Sidequest: Catch a Fish
+1 Sokka, Tenacious Tactician
+1 Spitting Sliver
+1 Storm the Vault
+1 Striking Sliver
+1 Suleiman's Legacy
+1 Sulfur Vent
+1 Swamp
+1 Syphon Sliver
+1 The World Tree
+1 Torpor Dust
+1 Trostani's Summoner
+1 Twisted Landscape
+1 Two-Headed Sliver
+1 Welcome to . . .
+1 Wild Research
+1 Wings of Hope
+1 Yavimaya's Embrace
+1 Zagoth Triome
+
+[commander]
+Child of Alara

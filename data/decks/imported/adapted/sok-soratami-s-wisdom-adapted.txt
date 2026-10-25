@@ -4,15 +4,16 @@
 4 Absorb
 2 Counsel of the Soratami
 4 Daring Leap
-4 Dramatic Rescue
+2 Dramatic Rescue
+4 Energy Arc
 1 Floodbringer
 1 Freed from the Real
 11 Island
 1 Kami of the Crescent Moon
 2 Oboro Envoy
-4 Offering to Asha
+3 Offering to Asha
 4 Ojutai's Command
-2 Overrule
+1 Overrule
 12 Plains
 2 Soratami Cloudskater
 1 Soratami Rainshaper

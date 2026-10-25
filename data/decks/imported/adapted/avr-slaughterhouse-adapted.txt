@@ -5,17 +5,17 @@
 4 Bedevil
 1 Blood Artist
 1 Bloodflow Connoisseur
-1 Burnt Offering
-4 Dreadbore
+4 Delirium
+2 Dreadbore
+2 Fling
 2 Goblin Arsonist
 1 Harvester of Souls
 1 Havengul Vampire
 1 Hunted Ghoul
+2 Kaervek's Purge
 1 Maalfeld Twins
 12 Mountain
 2 Raging Poltergeist
-1 Skull Rend
 3 Soulcage Fiend
+4 Spontaneous Combustion
 13 Swamp
-4 Terminate
-4 Wrecking Ball

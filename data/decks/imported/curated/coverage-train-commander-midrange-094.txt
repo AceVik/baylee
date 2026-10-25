@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266095]
+1 Aether Vial
+1 Ajani's Comrade
+1 Aku Djinn
+1 Ashnod's Transmogrant
+1 Assault Zeppelid
+1 Barrin's Codex
+1 Big Apple, 3 a.m.
+1 Black Mana Battery
+1 Blue Mana Battery
+1 Brass-Talon Chimera
+1 Cathedral of War
+1 Clockwork Swarm
+1 Coretapper
+1 Delif's Cube
+1 Dryad Arbor
+1 Ebon Praetor
+1 Empowered Autogenerator
+1 Energy Vortex
+1 Feral Thallid
+1 Foreboding Landscape
+9 Forest
+1 Forsaken Crossroads
+1 Gallowbraid
+1 Gemstone Array
+1 Grasslands
+1 Green Mana Battery
+1 Guardian of the Halls
+1 Hadana's Climb
+1 Illusionary Wall
+1 Insight Engine
+1 Iron-Heart Chimera
+6 Island
+1 Lead-Belly Chimera
+1 Life Matrix
+1 Lilting Refrain
+1 Living Armor
+1 Lotleth Troll
+1 Lux Cannon
+1 Maddening Wind
+1 Markov Dreadknight
+1 Minamo, School at Water's Edge
+1 Mind Harness
+1 Mindbender Spores
+1 Mindless Automaton
+1 Mirrorpool
+1 Myr Scrapling
+1 Mystic Might
+1 Necropolis
+1 Oath of the Ancient Wood
+1 Opulent Palace
+1 Origin of Metalbending
+1 Otherworld Atlas
+1 Pili-Pala
+1 Public Thoroughfare
+1 Rushwood Elemental
+1 Sab-Sunen, Luxa Embodied
+1 Sengir Bats
+1 Serrated Biskelion
+1 Serum Tank
+1 Shimmerdrift Vale
+1 Slith Predator
+1 Soldevi Excavations
+1 Soul Exchange
+1 Surge Node
+8 Swamp
+1 Swamp Mosquito
+1 Teeka's Dragon
+1 Thorn Thallid
+1 Time Bomb
+1 Tin-Wing Chimera
+1 Tolarian Academy
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Unspeakable Symbol
+1 Urborg
+1 Ventifact Bottle
+1 Verdant Automaton
+1 Wintermoon Mesa
+1 Yavimaya Hollow
+1 Zagoth Triome
+
+[commander]
+Vorosh, the Hunter

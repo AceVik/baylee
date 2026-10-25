@@ -1,0 +1,85 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #90010001]
+1 Amateur Hero
+1 Angel of Mercy
+1 Auramancer
+1 Auriok Champion
+1 Balamb Garden, SeeD Academy
+1 Battlegrowth
+1 Birthing Hulk
+1 Bog-Strider Ash
+1 Citanul Druid
+1 Cloak of Feathers
+1 Creosote Heath
+1 Cruel Witness
+1 Dalkovan Encampment
+1 Deny Entry
+1 Devout Monk
+1 Divine Arrow
+1 Divine Retribution
+1 Emergency Medical Hologram
+1 Enervate
+1 Floodfarm Verge
+1 Forecasting Fortune Teller
+6 Forest
+1 Fountain of Renewal
+1 Freyalise Supplicant
+1 Gallantry
+1 Glade Gnarr
+1 God-Pharaoh's Faithful
+1 Greater Good
+1 Holy Cow
+1 Icatian Moneychanger
+1 Idyllic Grange
+1 Incubator Drone
+10 Island
+1 Kabira Takedown
+1 Kemba's Skyguard
+1 Kjeldoran Outpost
+1 Kujar Seedsculptor
+1 Lakeside Shack
+1 Lifesmith
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mage's Attendant
+1 Makindi Shieldmate
+1 Mesa Cavalier
+1 Muse's Encouragement
+1 Nantuko Monastery
+1 Natural Selection
+1 Okoye, Dora Milaje Leader
+1 Omni-Cheese Pizza
+1 Piercing Light
+7 Plains
+1 Psychic Barrier
+1 Ranger-Captain of Eos
+1 Restless Anchorage
+1 Revitalize
+1 Ringwarden Owl
+1 Safe Haven
+1 Scaled Hulk
+1 Seaside Haven
+1 Selesnya Locket
+1 Sky Theater Strix
+1 Slippery Karst
+1 Spectral Reserves
+1 Spike Worker
+1 Steadfast Sentry
+1 Sunspire Gatekeepers
+1 Sylvan Hierophant
+1 Tajuru Archer
+1 The Seedcore
+1 Tranquil Expanse
+1 Treasure Vault
+1 Trusty Packbeast
+1 Umara Wizard
+1 University Campus
+1 Urza's Miter
+1 Uthros, Titanic Godcore
+1 Wanderer's Intervention
+1 Watchful Giant
+1 Zhalfirin Shapecraft
+
+[commander]
+Jenara, Asura of War

@@ -2,15 +2,16 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Teferi, Timebender (Adapted)]
 4 Absorb
+3 Aesthir Glider
 2 Befuddle
 4 Daring Leap
 1 Divination
+1 Energy Arc
 3 Gideon's Reproach
 11 Island
 2 Juggernaut
 3 Knight of New Benalia
 4 Meandering River
-4 Offering to Asha
 1 Ojutai's Command
 11 Plains
 1 Serra Angel

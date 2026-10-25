@@ -7,11 +7,11 @@
 2 Confidence from Strength
 4 Deconstruct
 22 Forest
+4 Gaea's Bounty
 1 Green Sun's Zenith
 1 Inkmoth Nexus
 4 Mutagenic Growth
 4 Overgrown Battlement
 4 Primal Bellow
-3 Serpent's Gift
-4 Squall
+3 Squall
 2 Wildsize

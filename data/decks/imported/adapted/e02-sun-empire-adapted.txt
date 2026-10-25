@@ -11,11 +11,12 @@
 4 Jungle Shrine
 1 Lightning Helix
 7 Mountain
-4 Naya Charm
+3 Naya Charm
 2 Nest Robber
 1 Path to Exile
 6 Plains
 2 Prismatic Lens
+1 Quicksilver Amulet
 2 Raptor Companion
 1 Raptor Hatchling
 1 Ravenous Daggertooth

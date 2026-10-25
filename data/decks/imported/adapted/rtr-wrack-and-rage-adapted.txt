@@ -3,15 +3,16 @@
 [deck:Wrack and Rage (Adapted)]
 4 Auger Spree
 4 Bedevil
-2 Breath of Malfegor
+4 Delirium
 1 Dragonskull Summit
 4 Dreadbore
+1 Kaervek's Purge
 13 Mountain
 2 Rakdos Guildgate
 4 Rakdos Shred-Freak
 4 Searing Spear
-4 Skull Rend
+4 Spontaneous Combustion
 2 Stromkirk Noble
 8 Swamp
-4 Terminate
-4 Wrecking Ball
+2 Terminate
+3 Wrecking Ball

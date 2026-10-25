@@ -1,0 +1,75 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #90010020]
+1 Aggression
+1 Arcbound Ravager
+1 Ashen Monstrosity
+1 Avacyn's Collar
+1 Balduvian Trading Post
+1 Barbarian Ring
+1 Barbed Sliver
+1 Blighted Gorge
+1 Blood Lust
+1 Blood Moon
+1 Blood Petal Celebrant
+1 Bold Impaler
+1 Claws of Gix
+1 Conquer
+1 Desert Cerodon
+1 Diamond Kaleidoscope
+1 Falkenrath Marauders
+1 Fire-Omen Crane
+1 Flowstone Overseer
+1 Fogwell's Gym
+1 Fomori Nomad
+1 Fuel the Flames
+1 Gleaming Barrier
+1 Goblin Engineer
+1 Goblin Spelunkers
+1 Goblin Wizard
+1 Greater Forgeling
+1 Gremlin Infestation
+1 Hammerheim
+1 Hanweir Battlements
+1 Hyena Pack
+1 Jinxed Ring
+1 Jokulhaups
+1 Junktown
+1 Karsus Depthguard
+1 Kher Keep
+1 Koth's Courier
+1 Legion Extruder
+1 Mage il-Vec
+1 Magnetic Mountain
+31 Mountain
+1 Nim Deathmantle
+1 Ogre Resister
+1 Orochi Hatchery
+1 Pashalik Mons
+1 Pathmaker Initiate
+1 Pia and Kiran Nalaar
+1 Plated Geopede
+1 Rearing Embermare
+1 Red Herring
+1 Retrofitter Foundry
+1 Sabotender
+1 Shadowstorm
+1 Shivan Gorge
+1 Skyclave Geopede
+1 Spawning Pit
+1 Spire Barrage
+1 Stonehands
+1 Talruum Minotaur
+1 The Underworld Cookbook
+1 Tooth and Claw
+1 Torch Courier
+1 Trading Post
+1 Treasure Map
+1 Viashino Heretic
+1 Volcanic Submersion
+1 Wall of Heat
+1 Wall of Lava
+1 Wand of the Elements
+
+[commander]
+Chandler

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #20266171]
+1 Blackbloom Rogue
+1 Bleed Dry
+1 Cabal Trainee
+1 Cathedral of Serra
+1 Conduit Pylons
+1 Consume the Meek
+1 Crux of Fate
+1 Dakmor Bat
+1 Damnation
+1 Dark Deed
+1 Death Wind
+1 Diamond Valley
+1 Disciple of Tevesh Szat
+1 Elephant-Rat
+1 Extinguish All Hope
+1 Faceless Haven
+1 Fatal Fumes
+1 Flatten
+1 Forced March
+1 Ghosts of the Damned
+1 Give In to Violence
+1 Glamorous Grapplers
+1 Glyph of Doom
+1 Grimclaw Bats
+1 Grotesque Mutation
+1 Gurmag Swiftwing
+1 Hagra Sharpshooter
+1 Haunted Fengraf
+1 Hell Swarm
+1 Hyalopterous Lemure
+1 Inkrise Infiltrator
+1 Kaervek's Hex
+1 Kelinore Bat
+1 Marrow Bats
+1 Midnight Assassin
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Nausea
+1 Nectar Faerie
+1 Nocturnal Raid
+1 Overkill
+1 Plague Witch
+1 Rabid Rats
+1 Ravine Raider
+1 Ritual of Soot
+1 Rush of Vitality
+1 Scorpion's Sting
+1 Screaming Phantom
+1 Searchlight Geist
+1 Secluded Starforge
+1 Shoreline Salvager
+1 Sick and Tired
+1 Skulking Ghost
+1 Smokespew Invoker
+1 Soulshriek
+1 Stab
+31 Swamp
+1 Tar Snare
+1 The Fallen
+1 The Grey Havens
+1 Their Name Is Death
+1 Throne of Makindi
+1 Touch of Darkness
+1 Vampire Revenant
+1 Virtue's Ruin
+1 Viscid Lemures
+1 Weed-Pruner Poplar
+1 Wring Flesh
+1 Zoetic Cavern
+
+[commander]
+Grandmother Sengir

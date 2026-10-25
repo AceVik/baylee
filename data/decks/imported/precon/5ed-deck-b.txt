@@ -1,0 +1,23 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, DeckB_5ED.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deck B]
+1 Bog Imp
+1 Bog Rats
+1 Bog Wraith
+1 Counterspell
+1 Erg Raiders
+1 Frozen Shade
+6 Island
+1 Merfolk of the Pearl Trident
+1 Mole Worms
+1 Phantom Monster
+1 Prodigal Sorcerer
+1 Rod of Ruin
+1 Scathe Zombies
+1 Soul Barrier
+1 Soul Net
+6 Swamp
+1 Terror
+1 Unholy Strength
+1 Vodalian Soldiers
+1 Zephyr Falcon

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266258]
+1 Akroma's Memorial
+1 Balm of Restoration
+1 Banehound
+1 Basilisk Collar
+1 Bog Witch
+1 Bone Saw
+1 Braidwood Cup
+1 Charity Extractor
+1 Choked Estuary
+1 Contract Killing
+1 Darkslick Shores
+1 Darksteel Axe
+1 Darksteel Forge
+1 Dragonborn Looter
+1 Dreadship Reef
+1 Drowned Rusalka
+1 Elixir of Vitality
+1 Ezio, Blade of Vengeance
+1 Frost Marsh
+1 Fungal Infection
+1 Gifted Aetherborn
+1 Gild
+1 Gloomlake Verge
+1 Grave Robbers
+1 Grollub
+1 Hoard Robber
+1 Jace's Scrutiny
+1 Jwar Isle Refuge
+1 Lich's Caress
+1 Life Chisel
+1 Locke Cole
+1 Looter il-Kor
+1 Maw of the Mire
+1 Merchant Ship
+1 Moment of Craving
+1 Morphic Pool
+1 Murderous Rider
+1 Murky Sewer
+1 Nephalia Drownyard
+1 Noxious Grasp
+1 Ophiomancer
+1 Overeager Apprentice
+1 Restless Reef
+1 Rootwater Depths
+1 Savor
+1 Scrounger of Souls
+1 Secluded Glen
+1 Secret Passage
+1 Sephiroth's Intervention
+1 Shadowmage Infiltrator
+1 Shelob's Ambush
+1 Shipwreck Marsh
+1 Silver-Inlaid Dagger
+1 Sinister Hideout
+1 Skateboard
+1 Skullmead Cauldron
+1 Songbird, Sonic Screamer
+1 Soothsayer Adept
+1 Soured Springs
+1 Sure-Footed Infiltrator
+24 Swamp
+1 Syphon Fuel
+1 Thanos, Death's Consort
+1 Thirsting Shade
+1 Tidy Conclusion
+1 Tower of Eons
+1 Treasure Dredger
+1 Treno, Dark City
+1 Tymora's Invoker
+1 Vampire Envoy
+1 Vanquisher's Axe
+1 Viridian Claw
+1 Visara the Dreadful
+1 Waterfront District
+1 Welding Jar
+1 Zhang Liao, Hero of Hefei
+
+[commander]
+Sivitri Scarzam

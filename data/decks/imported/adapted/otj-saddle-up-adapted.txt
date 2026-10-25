@@ -4,8 +4,9 @@
 4 Advent of the Wurm
 2 Ankle Biter
 3 Bristlepack Sentry
+4 Brushland
 4 Call of the Conclave
-4 Eladamri's Call
+3 Eladamri's Call
 10 Forest
 2 Gerrard's Command
 2 Intrepid Stablemaster
@@ -13,7 +14,6 @@
 2 Moment of Valor
 4 Nature's Chant
 10 Plains
-3 Reknit
 4 Selesnya Charm
-4 Sunpetal Grove
+4 Vitalizing Cascade
 1 Wylie Duke, Atiin Hero

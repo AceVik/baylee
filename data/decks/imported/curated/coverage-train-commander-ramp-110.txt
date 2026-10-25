@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266111]
+1 Agent of Stromgald
+1 Ambition's Cost
+1 Axebane Guardian
+1 Barktooth Warbeard
+1 Beastcaller Savant
+1 Blightsoil Druid
+1 Bloom Tender
+1 Boiling Rock Prison
+1 Brightstone Ritual
+1 Bubbling Muck
+1 Burnt Offering
+1 Canopy Tactician
+1 Circle of Dreams Druid
+1 Citanul Hierophants
+1 Claws of Wirewood
+1 Darigaaz's Caldera
+1 Deadly Embrace
+1 Deathbloom Gardener
+1 Devoted Druid
+1 Dread Rider
+1 Dregs of Sorrow
+1 Drover of the Mighty
+14 Forest
+1 Fyndhorn Elder
+1 Geosurge
+1 Geothermal Crevice
+1 Gigantomancer
+1 Gingerbread Cabin
+1 Great Forest Druid
+1 Greenweaver Druid
+1 Grove of the Burnwillows
+1 Gruul Guildgate
+1 Harabaz Druid
+1 Humble Naturalist
+1 Jaspera Sentinel
+1 Jerrard of the Closed Fist
+1 Joiner Adept
+1 Koskun Keep
+1 Lifespring Druid
+1 Lim-Dûl's Paladin
+1 Llanowar Dead
+1 Llanowar Tribe
+1 Lounge
+1 Magus of the Coffers
+1 Mana Geyser
+1 Maraxus of Keld
+1 Marhault Elsdragon
+1 Metamorphosis
+1 Molten Slagheap
+5 Mountain
+1 Nantuko Elder
+1 Omashu City
+1 Professor Dellian Fel
+1 Radha, Heir to Keld
+1 Rofellos, Llanowar Emissary
+1 Sacrifice
+1 Savage Lands
+1 Savage Mansion
+1 Silhana Starfletcher
+1 Somberwald Sage
+1 Songs of the Damned
+1 Stomping Ground
+1 Sulfurous Mire
+1 Sunastian Falconer
+5 Swamp
+1 Swampbenders
+1 Three Tree Rootweaver
+1 Thriss, Nantuko Primus
+1 Timberland Ruins
+1 Twisted Landscape
+1 Vector, Imperial Capital
+1 Veldrane of Sengir
+1 Vesper Ghoul
+1 Viridian Acolyte
+1 Whisperer of the Wilds
+1 Wild Cantor
+1 Wirewood Elf
+1 Ziatora's Proving Ground
+
+[commander]
+Bartel Runeaxe

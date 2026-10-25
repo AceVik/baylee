@@ -7,14 +7,18 @@
 3 Brainstorm
 4 Daring Leap
 1 Disenchant
-2 Dramatic Rescue
 1 Field Marshal
 11 Island
+2 Kjeldoran Elite Guard
+1 Kjeldoran Home Guard
 3 Kjeldoran Outrider
-4 Offering to Asha
-4 Ojutai's Command
+1 Kjeldoran Pride
 11 Plains
+2 Portent
+1 Saltblast
 4 Sphinx's Revelation
+1 Steelshaper's Gift
 1 Swords to Plowshares
+2 Transmute Artifact
 2 Wings of Aesthir
 2 Zuran Spellcaster

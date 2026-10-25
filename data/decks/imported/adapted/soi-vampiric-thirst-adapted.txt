@@ -3,16 +3,17 @@
 [deck:Vampiric Thirst (Adapted)]
 4 Auger Spree
 4 Bedevil
-4 Breath of Malfegor
-4 Dreadbore
+4 Delirium
+1 Dreadbore
+3 Kaervek's Purge
 1 Mad Prophet
 1 Markov Dreadknight
 12 Mountain
 2 Ravenous Bloodseeker
 2 Sanguinary Mage
-1 Skull Rend
+4 Spontaneous Combustion
 2 Stromkirk Mentor
 13 Swamp
 4 Terminate
 2 Vampire Noble
-4 Wrecking Ball
+1 Wrecking Ball

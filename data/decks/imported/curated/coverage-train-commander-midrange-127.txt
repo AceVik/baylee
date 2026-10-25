@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266128]
+1 Aladdin's Lamp
+1 Alpha Myr
+1 Ancient Spring
+1 Angel's Tomb
+1 Arcane Sanctum
+1 Boreal Shelf
+1 Chrome Prowler
+1 City in a Bottle
+1 Clay Statue
+1 Cobalt Golem
+1 Contaminated Landscape
+1 Crystal Golem
+1 Cursed Totem
+1 Custodian of the Trove
+1 Darksteel Myr
+1 Darksteel Relic
+1 Darkwater Catacombs
+1 Defense Grid
+1 Didgeridoo
+1 Dimir Aqueduct
+1 Drake-Skull Cameo
+1 Dromar's Attendant
+1 Dromar's Cavern
+1 Dross Ripper
+1 Escaped Experiment
+1 Executioner's Capsule
+1 Forgotten Sentinel
+1 Forsaken Sanctuary
+1 Glass Golem
+1 Glint Hawk Idol
+1 Guardians of Meletis
+1 Herbal Poultice
+1 Illusionary Mask
+8 Island
+1 Juntu Stakes
+1 Karn, Silver Golem
+1 Kiln Walker
+1 Lead Golem
+1 Mana Prism
+1 Mask of Riddles
+1 Meekstone
+1 Meticulous Archive
+1 Misty Palms Oasis
+1 Monoist Sentry
+1 Null Rod
+1 Obelisk of Esper
+1 Ojutai Monument
+1 Omega Myr
+1 Patagia Golem
+1 Phyrexian Metamorph
+1 Pithing Needle
+5 Plains
+1 Planar Bridge
+1 Planar Portal
+1 Port Town
+1 Raffine's Tower
+1 Rakalite
+1 Rusted Sentinel
+1 Sarcomite Myr
+1 Sea of Clouds
+1 Sejiri Refuge
+1 Sentinel
+1 Shield of the Ages
+1 Sinister Hideout
+1 Sol Grail
+1 Sphere of Resistance
+1 Squee's Toy
+1 Steel Golem
+1 Sunken Ruins
+1 Surgical Metamorph
+10 Swamp
+1 Teferi's Sentinel
+1 Tezzeret's Strider
+1 Titanium Golem
+1 Universal Automaton
+1 Veil of Assimilation
+1 Vial of Poison
+1 Waxen Shapethief
+1 Wizards' School
+
+[commander]
+Halfdane

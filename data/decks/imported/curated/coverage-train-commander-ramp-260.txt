@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266261]
+1 Abandoned Campground
+1 Abbey Matron
+1 Aeronaut Tinkerer
+1 Angry Mob
+1 Anointed Chorister
+1 Auriok Bladewarden
+1 Avengers Hangar
+1 Aysen Crusader
+1 Azorius Guildgate
+1 Beloved Princess
+1 Benalish Veteran
+1 Boon of the Wish-Giver
+1 Brotherhood Spy
+1 Burrenton Shield-Bearers
+1 Capashen Knight
+1 Capashen Templar
+1 Celestial Colonnade
+1 Charging Paladin
+1 Cloudcrest Lake
+1 Cloudreach Cavalry
+1 Court Cleric
+1 Dawnstrike Paladin
+1 Fall of the Gavel
+1 Femeref Knight
+1 Flight-Deck Coordinator
+1 Glacial Floodplain
+1 Glintwing Invoker
+1 Griffin Rider
+1 Hallowed Fountain
+1 Hardened Escort
+1 Hengegate Pathway
+1 Honor Guard
+1 Icatian Lieutenant
+1 Icatian Priest
+1 Imperial Lancer
+2 Island
+1 Kitesail Corsair
+1 Kjeldoran Elite Guard
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Lake-town
+1 Land Cap
+1 Linden, the Steadfast Queen
+1 Lionheart Maverick
+1 Lonely Arroyo
+1 Lord of the Unreal
+1 Loxodon Stalwart
+1 Marshal of Zhalfir
+1 Mass Calcify
+1 Meticulous Archive
+1 Moorland Haunt
+1 Mystic Gate
+1 Nova Cleric
+1 Ondu Inversion
+1 Order of Leitbur
+1 Paragon of Gathering Mists
+22 Plains
+1 Preacher
+1 Pterodon Knight
+1 Rashka the Slayer
+1 Razortide Bridge
+1 Serra Inquisitors
+1 Sharlayan, Nation of Scholars
+1 Shield Mate
+1 Silent Attendant
+1 Songstitcher
+1 Spirit Weaver
+1 Steadfast Cathar
+1 Study
+1 Tireless Tribe
+1 Tolarian Entrancer
+1 Tonic Peddler
+1 Vodalian Mage
+1 Wanderwine Hub
+1 White Shield Crusader
+1 Yotian Tactician
+1 Zealots en-Dal
+
+[commander]
+Hunding Gjornersen

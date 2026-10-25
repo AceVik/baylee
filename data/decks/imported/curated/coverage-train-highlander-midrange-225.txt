@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UB #20266226]
+1 Ancient Carp
+1 Blightcaster
+1 Catacomb Crocodile
+1 Clearwater Pathway
+1 Constricting Tendrils
+1 Contaminated Aquifer
+1 Crystacean
+1 Customs Depot
+1 Dauthi Mindripper
+1 Drowned Secrets
+1 Drowner Initiate
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Equilibrium
+1 Eyes of the Watcher
+1 Fleeting Distraction
+1 Fortress Crab
+1 Frost Marsh
+1 Giant Crab
+1 Gravelgill Duo
+1 Halcyon Glaze
+1 Headstone
+1 Insight
+18 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jhessian Thief
+1 Jinx
+1 Jwar Isle Refuge
+1 Kulrath Mystic
+1 Labyrinth Minotaur
+1 Locust Spray
+1 Lose Hope
+1 Lunar Mystic
+1 Malakir Rebirth
+1 Mana Breach
+1 Merrow Reejerey
+1 Mistfire Adept
+1 Mistvault Bridge
+1 Murky Sewer
+1 Oppression
+1 Painsmith
+1 Port of Karfell
+1 Putrefaction
+1 Reflections of Littjara
+1 Rhystic Study
+1 Riddleform
+1 Rootwater Depths
+1 Secret Passage
+1 Segovian Leviathan
+1 Shocking Grasp
+1 Sinister Hideout
+1 Spell Snip
+1 Storyteller Pixie
+1 Stymied Hopes
+1 Submerged Boneyard
+1 Sugar Rush
+1 Sunken Hollow
+5 Swamp
+1 TVA Bureaucrat
+1 Tanufel Rimespeaker
+1 Temple of Deceit
+1 Thorntooth Witch
+1 Transmute Artifact
+1 Ulcerate
+1 Umara Entangler
+1 Undercity Sewers
+1 Unifying Theory
+1 Vedalken Archmage
+1 Veil of Birds
+1 Veiled Apparition
+1 Veiled Sentry
+1 Veiled Serpent
+1 Wanderbrine Rootcutters
+1 Waterfront District
+1 Waterveil Cavern
+1 Watery Grave
+1 Wing Commando
+1 Wishcoin Crab
+1 Zodiac Pig

@@ -11,7 +11,6 @@
 2 Evolving Wilds
 2 Eyeless Watcher
 11 Forest
-3 Fortress Crab
 2 Hedron Archive
 1 Hydroform
 10 Island
@@ -20,4 +19,5 @@
 2 Scour from Existence
 2 Skyline Cascade
 2 Tide Drifter
+3 Windrider Eel
 3 Wing Commando

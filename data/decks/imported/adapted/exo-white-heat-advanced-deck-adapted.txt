@@ -2,21 +2,21 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:White Heat - Advanced Deck (Adapted)]
 2 Armageddon
-4 Arrows of Justice
 2 City of Brass
 2 Disenchant
-2 Double Cleave
 3 Gemstone Mine
-4 Martial Glory
+4 Iroh's Demonstration
+4 Kindle
+2 Monastery Mentor
 4 Mountain
 4 Order of the White Shield
 7 Plains
 2 Resolute Watchdog
-2 Rip Apart
+4 Serra Zealot
 3 Shock
 4 Soltari Foot Soldier
 2 Soltari Priest
-4 Spirit Summoning
+2 Tithe
 3 Undiscovered Paradise
 4 Welkin Hawk
 2 White Knight

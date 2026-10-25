@@ -7,13 +7,13 @@
 1 Black Lotus
 3 Bottle of Suleiman
 4 Circle of Protection: Artifacts
-2 Circle of Protection: Red
 3 Dingus Egg
 1 Disenchant
 1 Mishra's Workshop
 1 Mox Pearl
 2 Personal Incarnation
 22 Plains
+2 Planar Collapse
 3 Ray of Dissolution
 2 Serra Angel
 1 Sol Ring

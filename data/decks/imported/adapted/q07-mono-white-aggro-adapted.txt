@@ -8,11 +8,11 @@
 4 Ironwright's Cleansing
 4 Legion's Judgment
 4 Luminarch Aspirant
-3 Master's Call
 3 Metal Fatigue
+3 Repentance
 4 Sevinne's Reclamation
 2 Skyclave Apparition
 20 Snow-Covered Plains
-2 Sokka's Sword Training
+2 Sudden Strike
 2 Survive the Night
 1 Teferi's Protection

@@ -13,7 +13,8 @@
 1 Kamahl, Pit Fighter
 2 Kruin Striker
 1 Lovisa Coldeyes
-4 Manamorphose
+2 Manamorphose
+1 Meteorite
 11 Mountain
 1 Radha, Heir to Keld
 2 Rampant Growth
@@ -21,4 +22,5 @@
 4 Rugged Highlands
 4 Savage Twister
 4 Stump Stomp
+1 Surge of Strength
 1 Zo-Zu the Punisher

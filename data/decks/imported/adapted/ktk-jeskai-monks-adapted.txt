@@ -4,9 +4,9 @@
 1 Alabaster Kirin
 2 Bloodfire Expert
 1 Bloodfire Mentor
-1 Deflecting Swat
 1 Divination
 1 Flick a Coin
+1 Hammer of Bogardan
 1 Highspire Mantis
 8 Island
 2 Jeskai Banner
@@ -14,12 +14,12 @@
 2 Jeskai Windscout
 1 Leaping Master
 1 Lightning Strike
-1 Master's Call
 1 Monastery Swiftspear
 6 Mountain
 2 Mystic Monastery
 4 Narset's Rebuke
 7 Plains
+1 Repentance
 1 Repulse
 1 Riverwheel Aerialists
 2 Seeker of the Way

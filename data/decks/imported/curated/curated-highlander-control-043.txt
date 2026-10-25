@@ -1,80 +1,81 @@
 # baylee curated highlander control seed=20261066
 # licence: AGPL-3.0-only
 [deck:highlander control UBG #20261066]
-1 Academy Ruins
-1 Adventurers' Guildhouse
-1 Ancient Ziggurat
-1 Annex
-1 Annul
-1 Aquatic Incursion
-1 Bigfin Bouncer
-1 Boomerang
-1 Catacomb Crocodile
-1 Celestial Sword
-1 Claws of Gix
-1 Commander's Insight
-1 Corpsehatch
-1 Creeperhulk
-1 Crypt Ripper
-1 Cyclone
-1 Defensive Stance
-1 Deliberate
-1 Demolition Field
-1 Desecrated Earth
-1 Desert
-1 Deserted Temple
-1 Drownyard Temple
-1 Dying Wail
-1 Elven Passage
-1 Emeritus of Woe
-1 Evil Presence
-1 Eye of Ugin
-1 Field of the Dead
-1 Forced Fruition
-3 Forest
-1 Gauntlets of Chaos
-1 Glasses of Urza
-1 Go for the Throat
-1 Hickory Woodlot
-1 Homeward Path
-11 Island
-1 Isolation Cell
-1 Ithilien Kingfisher
-1 Liliana's Specter
-1 Mind Bomb
-1 Mogg Cannon
-1 Mountain Valley
-1 Mycosynth Lattice
-1 Natural Spring
-1 Night's Whisper
-1 Overflowing Insight
-1 Painful Quandary
-1 Predator, Flagship
-1 Profane Tutor
-1 Prosperous Pirates
-1 Scour from Existence
-1 Seafloor Debris
-1 Sephiroth's Intervention
-1 Sequestered Stash
-1 Sink into Stupor
-1 Skorpekh Destroyer
-1 Skull of Ramos
-1 Spell Snip
-1 Spike Soldier
-1 Spirit Shield
-1 Strength of Cedars
-1 Stymied Hopes
-12 Swamp
-1 Swarm of Bloodflies
-1 Talisman of Dominance
-1 Tear Asunder
-1 Temporal Manipulation
-1 Three Tragedies
-1 Treasure Cruise
-1 Underground Sea
-1 Unfathomable Truths
-1 Venarian Gold
-1 Verdant Catacombs
-1 Wilt
-1 Witch's Cauldron
-1 Zagoth Crystal
+1 Aclazotz, Deepest Betrayal
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Blight Mound
+1 Brood Butcher
+1 Callous Inspector
+1 Catacomb Sifter
+1 Chariot of Victory
+1 Cirith Ungol Patrol
+1 Criminal Enterprise
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Farmer
+1 Filigree Crawler
+1 Foreboding Landscape
+8 Forest
+1 Gilded Goose
+1 Gilt-Leaf Palace
+1 Gleaming Barrier
+1 Golgari Guildmage
+1 Greedy Freebooter
+1 Guardian of Cloverdell
+1 Haunted Mire
+1 Hedge Maze
+1 Homarid Spawning Bed
+2 Island
+1 Jungle Hollow
+1 Jwar Isle Refuge
+1 Kheru Bloodsucker
+1 Maalfeld Twins
+1 Mantle of the Wolf
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Minotaur, Roxxon CEO
+1 Morphic Pool
+1 Most Wanted
+1 Myr Sire
+1 Nim Deathmantle
+1 Nurturing Peatland
+1 Ogre Slumlord
+1 Opulent Palace
+1 Path of Annihilation
+1 Pentavus
+1 Pitiless Plunderer
+1 Primeval Bounty
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Retrofitter Foundry
+1 Rimewood Falls
+1 Sengir Autocrat
+1 Shipwreck Marsh
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Slimefoot, the Stowaway
+1 Sling-Gang Lieutenant
+1 Soured Springs
+1 Spawning Pit
+15 Swamp
+1 Sweettooth Witch
+1 Tangled Islet
+1 Tempting Witch
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Twilight Mire
+1 Vineglimmer Snarl
+1 Wand of the Elements
+1 Weirding Shaman
+1 Willowrush Verge
+1 Woodland Stream
+1 Zagoth Triome

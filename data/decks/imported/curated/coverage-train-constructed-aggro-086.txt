@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUR #20266087]
+2 Arctic Foxes
+2 Enter the Avatar State
+3 Faceless Haven
+2 Festival
+2 Goldmeadow Dodger
+2 Gond Gate
+2 Guardian Angel
+4 Island
+2 Jhessian Balmgiver
+2 Kithkin Billyrider
+2 Kithkin Healer
+2 Kitsune Diviner
+2 Kitsune Riftwalker
+2 Mending Hands
+2 Merfolk Seastalkers
+2 Merrow Wavebreakers
+2 Mirrex
+3 Mutavault
+2 Order of the Golden Cricket
+9 Plains
+2 Raka Disciple
+1 Secret Identity
+2 Split-Tail Miko
+2 Straw Soldiers
+2 Surgespanner

@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Arzakon (Adapted)]
 1 Aladdin's Ring
+2 Aleatory
 1 Ancestral Recall
 2 Animate Dead
 1 Berserk
@@ -35,6 +36,7 @@
 1 Hullcarver
 2 Hurr Jackal
 2 Immolation
+1 Infuse
 6 Island
 2 Lightning Bolt
 2 Mesa Pegasus
@@ -51,12 +53,11 @@
 2 Pikemen
 6 Plains
 2 Power Sink
+1 Pull from Tomorrow
 2 Pyrotechnics
 2 Raise Dead
-2 Ral's Reinforcements
 1 Red Mana Battery
 1 Regrowth
-1 Reshape
 2 Samite Healer
 2 Savannah Lions
 4 Scrap
@@ -65,7 +66,6 @@
 1 Sol Ring
 2 Spirit Link
 6 Swamp
-1 Teleport
 1 Tetravus
 2 The Hive
 1 Time Walk

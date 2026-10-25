@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266127]
+1 Abyssal Hunter
+1 Acolyte of Xathrid
+1 Aftershock
+1 Barbarian Lunatic
+1 Barbarian Riftcutter
+1 Blaster Mage
+1 Boltwave
+1 Breath of Fire
+1 Brothers of Fire
+1 Cabal Slaver
+1 Castle Sengir
+1 Chaos Charm
+1 Cinder Cloud
+1 Cinder Storm
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Cunning Sparkmage
+1 Deadeye Duelist
+1 Desolate Lighthouse
+1 Dogpile
+1 Earth Tremor
+1 Explosive Impact
+1 Explosive Shot
+1 Fanged Flames
+1 Fire Ambush
+1 Flame Slash
+1 Ghitu Fire-Eater
+1 Gin'tak Charge
+1 Highland Lake
+3 Island
+1 Jagged Barrens
+1 Jeska, Warrior Adept
+1 Joven
+1 Jwar Isle Refuge
+1 Kris Mage
+1 Lord of the Unreal
+1 Merfolk Assassin
+1 Mind Bomb
+1 Mob Justice
+15 Mountain
+1 Notorious Assassin
+1 Obliterating Bolt
+1 Opportunist
+1 Oscorp Industries
+1 Price of Progress
+1 Rag Man
+1 Rakdos Guildgate
+1 Reckless Air Strike
+1 Reckless Embermage
+1 River Delta
+1 Rockslide Ambush
+1 Scorchmark
+1 Searing Wind
+1 Seething Landscape
+1 Seismic Mage
+1 Shatterskull Smashing
+1 Shauku's Minion
+1 Sisters of the Flame
+1 Skirsdag Supplicant
+1 Skull Rend
+1 Spireside Infiltrator
+1 Stalking Assassin
+1 Starke of Rath
+1 Sulfur Falls
+1 Sulfur Vent
+5 Swamp
+1 Tony Stark
+1 Tor Wauki
+1 Tramway Station
+1 Unfriendly Fire
+1 Valakut Invoker
+1 Volatile Fjord
+1 Volcanic Hammer
+1 Xander's Lounge
+1 Zuko's Offense
+1 Zulaport Chainmage
+1 Zuran Enchanter
+1 Zuran Spellcaster
+
+[commander]
+Gwendlyn Di Corci

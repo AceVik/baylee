@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266172]
+1 Akki Drillmaster
+1 Aliban's Tower
+1 Anaba Spirit Crafter
+1 Antagonize
+1 Barreling Attack
+1 Battle-Rattle Shaman
+1 Bellows Lizard
+1 Brokers Hideout
+1 Brute Force
+1 Caterwauling Boggart
+1 Crazed Goblin
+1 Crimson Kobolds
+1 Ember Shot
+1 Encroaching Wastes
+1 Enslaved Scout
+1 Fists of the Anvil
+1 Frantic Confrontation
+1 Frost Ogre
+1 Furious Resistance
+1 Fury Sliver
+1 Goblin Assailant
+1 Goblin Berserker
+1 Goblin Bird-Grabber
+1 Goblin Brigand
+1 Goblin Bully
+1 Goblin Cadets
+1 Goblin Cavaliers
+1 Goblin Chariot
+1 Goblin Chieftain
+1 Goblin Hero
+1 Goblin King
+1 Goblin Lackey
+1 Goblin Mountaineer
+1 Goblin Patrol
+1 Goblin Ski Patrol
+1 Goblin Smuggler
+1 Goblin Striker
+1 Goblin Tomb Raider
+1 Goblins of the Flarg
+1 HELIOS One
+1 Horde of Boggarts
+1 Hulking Bugbear
+1 Mogg Squad
+31 Mountain
+1 Mouth of Ronom
+1 Nimble Birdsticker
+1 Raging Redcap
+1 Reckless One
+1 Rig for War
+1 Riot Piker
+1 Run Amok
+1 Scrying Sheets
+1 Sequestered Stash
+1 Skirk Outrider
+1 Skirk Shaman
+1 Slavering Nulls
+1 Smaug's Fury
+1 Sneaking Guide
+1 Sokenzan Bruiser
+1 Song-Mad Treachery
+1 Study Hall
+1 Swab Goblin
+1 Tendo Ice Bridge
+1 Thunder Strike
+1 Toxic Iguanar
+1 Uncanny Speed
+1 Viashino Weaponsmith
+1 Warped Landscape
+1 Whirling Strike
+
+[commander]
+Hivis of the Scale

@@ -12,7 +12,6 @@
 2 Exclude
 2 Facet Reader
 2 Favorable Winds
-1 Force of Negation
 1 Gearsmith Prodigy
 25 Island
 2 Launch Mishap
@@ -22,3 +21,4 @@
 2 Scholar of Stars
 2 Snare Thopter
 1 Stroke of Genius
+1 Tinker

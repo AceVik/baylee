@@ -1,0 +1,88 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266086]
+1 Anaba Spirit Crafter
+1 Ancestral Vengeance
+1 Auntie's Hovel
+1 Badlands
+1 Beetleback Chief
+1 Bloodcrusher of Khorne
+1 Boartusk Liege
+1 Bond Beetle
+1 Bristly Bill, Spine Sower
+1 Canyon Slough
+1 Caterwauling Boggart
+1 Champion of the Perished
+1 Creeping Trailblazer
+1 Crystal Quarry
+1 Dark Fortress
+1 Deeproot Elite
+1 Dega Disciple
+1 Donatello, Way with Machines
+1 Dragoon's Wyvern
+1 Dread Reaper
+1 Drossforge Bridge
+1 Druids' Repository
+1 Dwalin, Weaponmaster
+1 Elder Auntie
+1 Emeria Angel
+1 Evil Eye of Orms-by-Gore
+1 Fasting
+1 Fearless Fledgling
+1 Festering Wound
+7 Forest
+1 Fyndhorn Pollen
+1 Goblin Bomb
+1 Goblin Gang Leader
+1 Godtracker of Jund
+1 Graven Cairns
+1 Guardian Gladewalker
+1 Harrier Strix
+1 Hell's Kitchen
+1 Honor
+1 Iceberg
+4 Island
+1 Jade Bearer
+1 Jade Guardian
+1 Judge Magister Gabranth
+1 Katara, the Fearless
+1 Kavu Monarch
+1 Keen-Eyed Raven
+1 Krovikan Plague
+1 Machinesmith Automaton
+1 Mesmeric Trance
+1 Mm'menon, Uthros Exile
+1 Molten Slagheap
+1 Mount Doom
+5 Mountain
+1 Nearby Planet
+1 Nightshade Harvester
+1 Ob Nixilis, the Fallen
+1 Orcish Bowmasters
+1 Owl Familiar
+1 Pileated Provisioner
+2 Plains
+1 Plumecreed Mentor
+1 Plundering Pirate
+1 Raucous Theater
+1 Reckless Lackey
+1 Restless Fortress
+1 Satyr Grovedancer
+1 Sazh's Chocobo
+1 Sterling Supplier
+1 Supply-Line Cranes
+4 Swamp
+1 Territorial Scythecat
+1 The World Tree
+1 Thrull Champion
+1 Tidal Influence
+1 Tramway Station
+1 Tresserhorn Sinks
+1 Tribute to the World Tree
+1 Vinelasher Kudzu
+1 War Dance
+1 Wizard Class
+1 Youthful Valkyrie
+
+[commander]
+Sliver Queen

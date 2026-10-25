@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #20266263]
+1 Aerial Modification
+1 Allied Reinforcements
+1 Always Watching
+1 Ancient Brontodon
+1 Arctic Flats
+1 Armor of Faith
+1 Asceticism
+1 Auspicious Arrival
+1 Branchloft Pathway
+1 Briar Shield
+1 Call to Serve
+1 Canopy Vista
+1 Carnage Tyrant
+1 Colossification
+1 Concordant Crossroads
+1 Consecrate Land
+1 Curious Altisaur
+1 Elesh Norn, Grand Cenobite
+1 Elfhame Palace
+1 Faeburrow Elder
+1 Fanatical Devotion
+1 Festival of the Guildpact
+13 Forest
+1 Gathering Place
+1 Giant Caterpillar
+1 Gift of Strands
+1 Hidden Path
+1 Holy Armor
+1 Horizon Canopy
+1 Hymn of Rebirth
+1 Jumbo Cactuar
+1 Lifelink
+1 Lunarch Mantle
+1 Lush Portico
+1 Mantle of Webs
+1 Marker Beetles
+1 Marshdrinker Giant
+1 Noxious Newt
+1 Oakenform
+1 Oathsworn Giant
+1 Overgrown Armasaur
+1 Overgrown Battlement
+11 Plains
+1 Poison Dart Frog
+1 Privileged Position
+1 Quakestrider Ceratops
+1 Radiant Grove
+1 Razorverge Thicket
+1 Red Scarab
+1 Release the Dogs
+1 Riftstone Portal
+1 Ripjaw Raptor
+1 Roughshod Mentor
+1 Selesnya Sanctuary
+1 Shower of Arrows
+1 Spirit Mantle
+1 Spitting Spider
+1 Spore Crawler
+1 Spore Swarm
+1 Stirring Wildwood
+1 Sungrass Prairie
+1 Sunpetal Grove
+1 Sylvan Caryatid
+1 Tangled Florahedron
+1 Temple Garden
+1 Thrashing Brontodon
+1 Tyrranax
+1 Tyrranax Rex
+1 Utopia Tree
+1 Veldt
+1 Vigilance
+1 Vivify
+1 White Scarab
+1 Windurst, Federation Center
+1 Wooded Bastion
+1 Xenobotanist
+1 Zetalpa, Primal Dawn
+
+[commander]
+Lord Magnus

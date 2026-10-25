@@ -7,6 +7,7 @@
 2 Cockatrice
 2 Energy Flux
 7 Forest
+1 Infuse
 7 Island
 2 Junún Efreet
 2 Lord of the Pit
@@ -17,7 +18,6 @@
 2 Stream of Life
 4 Sultai Charm
 7 Swamp
-1 Teleport
 1 Time Walk
 2 Untamed Wilds
 2 Vampire Bats

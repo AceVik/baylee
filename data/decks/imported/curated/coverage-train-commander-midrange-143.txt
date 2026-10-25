@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266144]
+1 Akroma's Devoted
+1 Arctic Aven
+1 Aven Mindcensor
+1 Azorius Chancery
+1 Benalish Heralds
+1 Brotherhood Spy
+1 Calciform Pools
+1 Call to Heel
+1 Cloud Pirates
+1 Coastal Tower
+1 Cursecatcher
+1 Daring Apprentice
+1 Dawnglare Invoker
+1 Deserted Beach
+1 Disruptive Student
+1 Drannith Magistrate
+1 Emeritus of Ideation
+1 Enhanced Awareness
+1 Ertai, Wizard Adept
+1 Fall of the Gavel
+1 Fatehold Chronologist
+1 Field Marshal
+1 Floodbringer
+1 Flying Men
+1 Glacial Floodplain
+1 Glacial Fortress
+1 Gleaming Bastion
+1 Guan Yu's 1,000-Li March
+1 Icatian Lieutenant
+1 Imperial Lancer
+1 Indigo Faerie
+12 Island
+1 Juniper Order Advocate
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Knight Exemplar
+1 Kongming, "Sleeping Dragon"
+1 Leap
+1 Lionheart Maverick
+1 Malevolent Hermit
+1 Marshal of Zhalfir
+1 Meandering River
+1 Merchant Ship
+1 Moorland Haunt
+1 North Pole Gates
+1 Nova Cleric
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Order of the Sacred Torch
+1 Paragon of New Dawns
+1 Patron Wizard
+11 Plains
+1 Refocus
+1 Rishadan Airship
+1 Sea of Clouds
+1 Sejiri Refuge
+1 Serra Inquisitors
+1 Skycloud Expanse
+1 Songstitcher
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Soratami Savant
+1 Soraya the Falconer
+1 Soulscour
+1 Spirit Weaver
+1 Stronghold Machinist
+1 Study
+1 Talas Air Ship
+1 Talas Scout
+1 Temple of Enlightenment
+1 Tidings
+1 Tolarian Sentinel
+1 Tranquil Cove
+1 Tundra
+1 Twining Twins
+1 Vodalian Mage
+1 Wind Strider
+1 Yotian Tactician
+
+[commander]
+Ayesha Tanaka

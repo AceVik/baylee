@@ -7,7 +7,6 @@
 2 Elvish Visionary
 3 Elvish Warrior
 3 Eyeblight's Ending
-1 Feral Ferocity
 16 Forest
 4 Gaze of Granite
 4 Giant Growth
@@ -15,9 +14,10 @@
 1 Imperious Perfect
 1 Lys Alana Huntmaster
 4 Maelstrom Pulse
+1 Meteorite
 2 Moonglove Winnower
 1 Nature's Spiral
-1 Pest Summoning
+1 Plummet
 2 Spreading Rot
 8 Swamp
 2 Wurm's Tooth

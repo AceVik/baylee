@@ -1,0 +1,75 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #90010006]
+1 Affa Protector
+1 Akroan Jailer
+1 Alpine Watchdog
+1 Amateur Hero
+1 Ancient Den
+1 Angel of Mercy
+1 Auramancer
+1 Auriok Champion
+1 Aven Flock
+1 Battlefield Raptor
+1 Benalish Knight
+1 Blighted Steppe
+1 Capashen Unicorn
+1 Cathar Commando
+1 Cavalry Drillmaster
+1 Citywide Bust
+1 Crusader of Odric
+1 Dalkovan Encampment
+1 Devout Monk
+1 Duskborne Skymarcher
+1 Dust to Dust
+1 Eiganjo, Seat of the Empire
+1 Elite Inquisitor
+1 Emergency Medical Hologram
+1 Faith Healer
+1 Farrel's Mantle
+1 Felidar Cub
+1 Gallantry
+1 God-Pharaoh's Faithful
+1 Holy Cow
+1 Idyllic Grange
+1 Infantry Veteran
+1 Iona's Judgment
+1 Keepers of the Faith
+1 Kemba's Skyguard
+1 Kjeldoran Outpost
+1 Kjeldoran Warrior
+1 Kor Castigator
+1 Kor Haven
+1 Kor Line-Slinger
+1 Lupinflower Village
+1 Mage's Attendant
+1 Magus of the Disk
+1 Makindi Shieldmate
+1 Mesa Cavalier
+1 Moorish Cavalry
+1 Mtenda Herder
+1 Okoye, Dora Milaje Leader
+1 Orim, Samite Healer
+1 Phalanx Vanguard
+31 Plains
+1 Precinct Captain
+1 Purify
+1 Ranger-Captain of Eos
+1 Reprisal
+1 Resupply
+1 Revitalize
+1 Serra's Sanctum
+1 Silent Artisan
+1 Skyhunter Patrol
+1 Skyhunter Skirmisher
+1 Slayer of the Wicked
+1 Spectral Reserves
+1 Spirit of the Labyrinth
+1 Steadfast Sentry
+1 Sunspire Gatekeepers
+1 Veteran Swordsmith
+1 Volunteer Militia
+1 War Elephant
+
+[commander]
+Appa, Aang's Companion

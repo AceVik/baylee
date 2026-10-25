@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266056]
+1 Advanced Hoverguard
+1 Ally Encampment
+1 Aquitect's Defenses
+1 Arcane Flight
+1 Aven Envoy
+1 Aven Smokeweaver
+1 City of Traitors
+1 Cloudsculpt Technician
+1 Coast Watcher
+1 Coastal Drake
+1 Countersculpt
+1 Cradle of Safety
+1 Dampening Pulse
+1 Diplomatic Immunity
+1 Dread Statuary
+1 Erosion
+1 Escape Routes
+1 Ethereal Whiskergill
+1 Faerie Swarm
+1 Fighting Drake
+1 Flashfreeze
+1 Fylamarid
+1 Gitaxian Raptor
+1 Glimmerbell
+1 Gravitational Shift
+1 Great Hall of the Biblioplex
+1 Horizon Drake
+1 Hoverguard Observer
+31 Island
+1 It'll Quench Ya!
+1 Jeskai Runemark
+1 Living Tempest
+1 Living Tsunami
+1 Metropolis Sprite
+1 Mirrodin's Core
+1 Mirrormade
+1 Mists of Littjara
+1 Polluted Delta
+1 Pseudodragon Familiar
+1 Reduce in Stature
+1 Reliquary Tower
+1 Remove Soul
+1 River's Favor
+1 Robe of Mirrors
+1 Scrapskin Drake
+1 Sea Eagle
+1 Sea Sprite
+1 Sensory Deprivation
+1 Serra Sphinx
+1 Shimmer
+1 Shimmering Wings
+1 Silver Erne
+1 Skyshroud Condor
+1 Soaring Drake
+1 Spectral Cloak
+1 Spindrift Drake
+1 Storm Crow
+1 Stratozeppelid
+1 Sunken City
+1 Tolarian Drake
+1 Trained Condor
+1 Treetop Sentinel
+1 Underdark Rift
+1 Unholy Citadel
+1 Vexing Gull
+1 Web of Inertia
+1 Wind Dancer
+1 Wind Spirit
+1 Zephyr Gull
+
+[commander]
+Taniwha

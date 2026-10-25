@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266129]
+1 Aven Archer
+1 Aysen Abbey
+1 Breeding Pool
+1 Bullwhip
+1 Caltrops
+1 Collision Course
+1 Conservatory
+1 Coordinated Maneuver
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Disciple of Law
+1 Disruptor Pistol
+1 Dive Bomber
+1 Elite Javelineer
+1 Elspeth's Smite
+1 Elvenking's Halls
+1 Expendable Troops
+1 Farrel's Zealot
+1 Femeref Archers
+1 Fire and Brimstone
+10 Forest
+1 Gavony Township
+1 Gideon's Reproach
+1 Gleaming Bastion
+1 Glissa's Scorn
+1 Goblin Lyre
+1 Harpoon Sniper
+1 Heavy Ballista
+1 Ichneumon Druid
+1 Impeccable Timing
+1 Irrigation Ditch
+1 Leaf Arrow
+1 Lion Heart
+1 Littjara Mirrorlake
+1 Malachite Golem
+1 Mawcor
+1 Metallurgeon
+1 Misers' Cage
+1 Molten-Tail Masticore
+1 Moonglove Extract
+1 Necrogen Censer
+1 Nine-Ringed Bo
+1 Noble Hierarch
+1 Outflank
+1 Paupers' Cage
+1 Pierce the Sky
+13 Plains
+1 Psionic Entity
+1 Questing Beast
+1 Reroute Systems
+1 Reveka, Wizard Savant
+1 Rocket Launcher
+1 Samite Archer
+1 Seaside Citadel
+1 Simic Growth Chamber
+1 Sir Shandlar of Eberyn
+1 Skyway Sniper
+1 Sodden Verdure
+1 Soldier Replica
+1 Spara's Headquarters
+1 Squall Line
+1 Tangletrap
+1 Thornwood Falls
+1 Thumbscrews
+1 Tower of Calamities
+1 Tracker
+1 Tranquil Landscape
+1 Treva's Attendant
+1 Treva's Ruins
+1 Ultimate Alliance
+1 Unerring Sling
+1 Urban Retreat
+1 Viridian Scout
+1 Vitu-Ghazi, the City-Tree
+1 Wheel of Torture
+1 Winter Blast
+1 Witch Hunter
+1 Wose Pathfinder
+
+[commander]
+Angus Mackenzie

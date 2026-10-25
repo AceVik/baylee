@@ -2,7 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Massed Ranks (Adapted)]
 4 Advent of the Wurm
-4 Call of the Conclave
+2 Call of the Conclave
 2 Champion of Arashin
 1 Dromoka Dunecaster
 1 Dromoka Monument
@@ -13,8 +13,9 @@
 1 Gerrard's Command
 4 Heroes' Reunion
 4 Nature's Chant
+2 Pacifism
 13 Plains
 2 Salt Road Quartermasters
 1 Secure the Wastes
-4 Selesnya Charm
 1 Territorial Roc
+4 Vitalizing Cascade

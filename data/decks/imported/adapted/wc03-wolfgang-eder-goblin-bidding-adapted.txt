@@ -5,14 +5,15 @@
 4 Bedevil
 4 Bloodstained Mire
 1 City of Brass
-4 Dreadbore
+4 Delirium
+3 Dreadbore
 4 Goblin Sledder
+1 Kaervek's Purge
 10 Mountain
 3 Shadowblood Ridge
 4 Siege-Gang Commander
 3 Skirk Prospector
 3 Smother
 4 Sparksmith
+4 Spontaneous Combustion
 4 Swamp
-4 Terminate
-4 Wrecking Ball

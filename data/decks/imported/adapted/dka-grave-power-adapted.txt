@@ -12,9 +12,10 @@
 4 Double Major
 14 Forest
 2 Hollowhenge Beast
-4 Hydroform
+2 Hydroform
 10 Island
 2 Moon Heron
+2 Mulch
 2 Mutant Town
 4 Neoform
 1 Square Up

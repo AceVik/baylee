@@ -10,8 +10,9 @@
 4 Flooded Strand
 7 Island
 4 Mana Leak
-4 Ojutai's Command
+1 Ojutai's Command
 7 Plains
+3 Rewind
 4 Sphinx's Revelation
 3 Temple of the False God
 3 Wayfarer's Bauble

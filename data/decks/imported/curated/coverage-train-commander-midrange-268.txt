@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266269]
+1 Angel of Light
+1 Angel of Retribution
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Archangel
+1 Baneslayer Angel
+1 Bleachbone Verge
+1 Bloodied Ghost
+1 Caves of Koilos
+1 Chapel Geist
+1 Chaplain's Blessing
+1 Concealed Courtyard
+1 Cursebreak
+1 Deathless Angel
+1 Eriette's Lullaby
+1 Fisk Tower
+1 Foot Headquarters
+1 Forlorn Flats
+1 Geist of the Moors
+1 Godless Shrine
+1 Goldmire Bridge
+1 Great Hall of Starnheim
+1 Healer's Flock
+1 Heliod's Intervention
+1 Herald of Faith
+1 Herald of Serra
+1 Invoke the Divine
+1 Kabuto Moth
+1 Kami of Ancient Law
+1 Keening Apparition
+1 Lantern Kami
+1 Last Breath
+1 Lucky Offering
+1 Lyra Dawnbringer
+1 Malach of the Dawn
+1 Marble Chalice
+1 Melesse Spirit
+1 Moaning Spirit
+1 Moonrise Cleric
+1 Narrow Escape
+1 Niblis of the Urn
+1 Orzhov Basilica
+23 Plains
+1 Pteron Ghost
+1 Radiant, Archangel
+1 Reverse Polarity
+1 Salt Flats
+1 Screaming Phantom
+1 Segovian Angel
+1 Seraph of Dawn
+1 Serene Offering
+1 Serra Advocate
+1 Shepherd of the Lost
+1 Shinewend
+1 Silent Clearing
+1 Silverquill Campus
+1 Soothing Balm
+1 Starlit Angel
+1 Starlit Sanctum
+1 Stonerise Spirit
+1 Surge of Righteousness
+1 Sustainer of the Realm
+1 Suture Spirit
+1 Tainted Field
+1 Take Heart
+1 Thraben Watcher
+1 Thunder Spirit
+1 Tormented Angel
+1 Turbulent Moor
+1 Umbral Expanse
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 Voiceless Spirit
+
+[commander]
+Selenia, Dark Angel

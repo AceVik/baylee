@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266294]
+1 Aerathi Berserker
+1 Anarchy
+1 Antagonize
+1 Balduvian Trading Post
+1 Balduvian War-Makers
+1 Barbarian Outcast
+1 Blighted Gorge
+1 Bloodfire Kavu
+1 Boil
+1 Boiling Seas
+1 Borderland Marauder
+1 Brute Force
+1 Buccaneer's Bravado
+1 Burning Shield Askari
+1 Cinder Giant
+1 Fathom Fleet Firebrand
+1 Fervent Strike
+1 Fit of Rage
+1 Flameborn Hellion
+1 Flashfires
+1 Frenzied Rage
+1 Frontline Rebel
+1 Furious Resistance
+1 Furious Strength
+1 Gnat Alley Creeper
+1 Goblin Burrows
+1 Goblin Smuggler
+1 Goblin War Paint
+1 Granulate
+1 Hammerheim
+1 Happy Hogan, Dauntless Driver
+1 Haradrim Spearmaster
+1 Hellion Crucible
+1 Independent Troops
+1 Inventor's Apprentice
+1 Junktown
+1 Kargan Dragonrider
+1 Keldon Berserker
+1 Keldon Necropolis
+1 Lava Storm
+1 Lunar Frenzy
+1 Magus of the Moon
+1 Mardu Runemark
+31 Mountain
+1 Márton Stromgald
+1 Orcish Captain
+1 Orcish Spy
+1 Pyre Charger
+1 Renegade Firebrand
+1 Renegade Warlord
+1 Rig for War
+1 Rising of the Day
+1 Rockface Village
+1 Rowan's Battleguard
+1 Ruination
+1 Run Amok
+1 Screaming Fury
+1 Shatterstorm
+1 Shivan Gorge
+1 Siege Modification
+1 Slaughter Cry
+1 Storm Shaman
+1 Storm's Wrath
+1 Telim'Tor
+1 Tilonalli's Knight
+1 Trained Orgg
+1 Uncanny Speed
+1 Valley Dasher
+1 Varchild's Crusader
+
+[commander]
+Eron the Relentless

@@ -10,7 +10,6 @@
 4 Hydroform
 1 Indrik Stomphowler
 11 Island
-3 Majestic Metamorphosis
 4 Neoform
 1 Novijen, Heart of Progress
 2 Shredding Winds
@@ -19,3 +18,4 @@
 2 Simic Ragworm
 4 Square Up
 1 Starved Rusalka
+3 Touch of Vitae

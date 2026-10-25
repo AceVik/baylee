@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266235]
+1 Ambush Gigapede
+1 Arguel's Blood Fast
+1 Artificer's Intuition
+1 Attunement
+1 Badlands
+1 Barrier of Bones
+1 Betrayal
+1 Bone Pit Brute
+1 Captain Storm, Cosmium Raider
+1 Castle Sengir
+1 Choked Estuary
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Curiosity
+1 Desolation of Smaug
+1 Dictate of Kruphix
+1 Dire Undercurrents
+1 Dragon Mantle
+1 Eternity Snare
+1 Font of Fortunes
+1 Fourth Bridge Prowler
+1 Granitic Titan
+1 Greed
+1 Grey Havens Navigator
+1 Hulk, Always Angry
+13 Island
+1 Izzet Chronarch
+1 Lay Claim
+1 Lingering Mirage
+1 Lost Legion
+1 Macetail Hystrodon
+1 Mental Discipline
+6 Mountain
+1 Necromancer's Assistant
+1 Noggle Ransacker
+1 Octoprophet
+1 Omen of the Forge
+1 Oscorp Industries
+1 Power Artifact
+1 Professor Zei, Anthropologist
+1 Reconnaissance Mission
+1 Ridge Rannet
+1 River Delta
+1 Riverglide Pathway
+1 Scourgemark
+1 Seething Landscape
+1 Seismic Spike
+1 Sibsig Host
+1 Sicken
+1 Sleeper's Robe
+1 Spreading Seas
+1 Stir the Grave
+1 Sulfur Falls
+1 Sulfur Vent
+1 Super Intelligence
+1 Surtland Frostpyre
+5 Swamp
+1 Tainted Peak
+1 Tainted Well
+1 Tamiyo's Epiphany
+1 Temple of Deceit
+1 Thassa's Bounty
+1 Thoughtrender Lamia
+1 Thunder Dragon
+1 Thundermaw Hellkite
+1 Trade Routes
+1 Treasure Trove
+1 Tuktuk Grunts
+1 Underground River
+1 Underground Sea
+1 Venomous Hierophant
+1 Wartime Protestors
+1 Weight of Memory
+1 Whisper Agent
+1 Whitewater Naiads
+1 Xander's Lounge
+1 Yellowjacket, Heartless Marauder
+
+[commander]
+Nicol Bolas

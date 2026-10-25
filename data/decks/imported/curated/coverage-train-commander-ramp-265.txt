@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266266]
+1 Akoum Warrior
+1 Ancient Runes
+1 Artisan's Sorrow
+1 Axegrinder Giant
+1 Bloodshot Trainee
+1 Burning Earth
+1 Cinder Cloud
+1 Cinder Glade
+1 Cleansing Screech
+1 Cragcrown Pathway
+1 End the Festivities
+1 Falkenrath Exterminator
+1 Fiery Intervention
+1 Fire Ambush
+1 Fire Whip
+2 Forest
+1 Frost Giant
+1 Game Trail
+1 Gnottvold Slumbermound
+1 Goblin Artillery
+1 Goblin Medics
+1 Goblin Picker
+1 Goblin Snowman
+1 Goblin Tinkerer
+1 Grove of the Burnwillows
+1 Gruul Guildgate
+1 Guerrilla Tactics
+1 Heat of Battle
+1 Highland Weald
+1 Honden of Infinite Rage
+1 Impact Tremors
+1 Insolence
+1 Jackal Pup
+1 Karplusan Forest
+1 Karplusan Giant
+1 Kazandu Refuge
+1 Kessig Wolf Run
+1 Kookus
+1 Land's Edge
+1 Loamdragger Giant
+1 Lust for War
+1 Mogg Hollows
+1 Monsoon
+1 Mossfire Valley
+22 Mountain
+1 Needletooth Raptor
+1 Oakgnarl Warrior
+1 Omashu City
+1 Orcish Artillery
+1 Orcish Cannoneers
+1 Panicked Altisaur
+1 Power Surge
+1 Primordial Ooze
+1 Pyrohemia
+1 Ravenous Giant
+1 Rock Basilisk
+1 Savage Mansion
+1 Scald
+1 Scorching Spear
+1 Seal of Fire
+1 Seismic Assault
+1 Shattered Wings
+1 Skarrg, the Rage Pits
+1 Slingshot Goblin
+1 Spikefield Hazard
+1 Spire Garden
+1 Stormbind
+1 Taiga
+1 Tectonic Hazard
+1 Temple of Abandon
+1 Thelon's Chant
+1 Timber Protector
+1 Unfriendly Fire
+1 Viashino Fangtail
+1 Victorious Destruction
+1 Viridian Zealot
+1 Word of Blasting
+
+[commander]
+The Lady of the Mountain

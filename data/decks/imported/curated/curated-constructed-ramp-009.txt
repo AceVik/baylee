@@ -1,16 +1,18 @@
 # baylee curated constructed ramp seed=20261032
 # licence: AGPL-3.0-only
 [deck:constructed ramp B #20261032]
-2 Boon of Emrakul
-4 Burrog Banemaker
-4 Environmental Sciences
-2 Glacial Chasm
-3 Goldvein Pick
-4 Jandor's Ring
-2 Kry Shield
-4 Massacre Wurm
-4 Ray of Ruin
-20 Swamp
-4 Triassic Egg
-3 Underdark Rift
-4 Vicious Hunger
+3 Arcum's Astrolabe
+2 Chromatic Sphere
+2 Havengul Laboratory
+2 Hostile Hostel
+4 Infernal Idol
+4 Lotus Guardian
+4 Meteorite
+4 Mind Stone
+3 Mishra's War Machine
+3 Primal Clay
+4 Prophetic Prism
+19 Swamp
+2 The Black Gate
+2 Three Tree Mascot
+2 Workhorse

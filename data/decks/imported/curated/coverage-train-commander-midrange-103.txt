@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266104]
+1 Altered Ego
+1 Armed Response
+1 Aysen Abbey
+1 Blessed Wine
+1 Bog Gnarr
+1 Bulwark Giant
+1 Call the Gatewatch
+1 Chitinous Graspling
+1 Compelling Argument
+1 Cosmium Blast
+1 Crop Rotation
+1 Curate
+1 Deadly Riposte
+1 Deliberate
+1 Dewdrop Spy
+1 Elder Spawn
+1 Endangered Armodon
+1 Farseek
+1 Fascination
+5 Forest
+1 Grey Havens Navigator
+1 Griffin Dreamfinder
+1 Hall of Storm Giants
+1 Hand of Justice
+1 Heartwood Treefolk
+1 Hill Giant Herdgorger
+1 Hithlain Knots
+1 Honey Mammoth
+1 Icatian Store
+1 Introduction to Prophecy
+1 Irrigation Ditch
+17 Island
+1 Jackalope Herd
+1 Joust Through
+1 Khalni Garden
+1 Kishla Village
+1 Lair of the Hydra
+1 Lost in a Labyrinth
+1 Lotus-Eye Mystics
+1 Marjhan
+1 Mental Note
+1 Merchant Scroll
+1 Minas Tirith
+1 Momo, Rambunctious Rascal
+1 Mosswort Bridge
+1 Nettle Swine
+1 Omen
+1 Plains
+1 Ponder
+1 Prescient Chimera
+1 Quarry Beetle
+1 Ray of Erasure
+1 Razorgrass Ambush
+1 Relic Bind
+1 Reshape
+1 Rowan Treefolk
+1 Rushwood Grove
+1 Safehold Duo
+1 Safewright Quest
+1 Satyr Enchanter
+1 Seaside Citadel
+1 Serum Visions
+1 Shorecrasher Mimic
+1 Silverback Ape
+1 Slash of Talons
+1 Soaring Show-Off
+1 Solarium Sentry
+1 Southern Elephant
+1 Spara's Headquarters
+1 Storm Spirit
+1 Sunken Palace
+1 Thought Scour
+1 Tranquil Landscape
+1 Tranquil Path
+1 Treva's Ruins
+1 Turntimber Grove
+1 Urban Retreat
+1 Volcanic Eruption
+1 Zodiac Horse
+
+[commander]
+Ragnar

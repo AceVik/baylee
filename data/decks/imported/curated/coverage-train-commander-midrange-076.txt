@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266077]
+1 Abandoned Campground
+1 Academy Rector
+1 Aether Channeler
+1 An Offer You Can't Refuse
+1 Aspiring Aeronaut
+1 Bladestitched Skaab
+1 Brightclimb Pathway
+1 Cabal Patriarch
+1 Call the Bloodline
+1 Clachan Festival
+1 Cogworker's Puzzleknot
+1 Coral Barrier
+1 Creeping Tar Pit
+1 Deepchannel Duelist
+1 Dread Drone
+1 Drownyard Explorers
+1 Drunau Corpse Trawler
+1 Eager Glyphmage
+1 Emeria's Call
+1 Enlightened Maniac
+1 Esper Battlemage
+1 Esper Sentinel
+1 Etherium Astrolabe
+1 Fate Foretold
+1 Fetid Heath
+1 Fetid Pools
+1 Foot Headquarters
+1 Fountain Watch
+1 Glimmerburst
+1 Grisly Ritual
+1 Hatching Plans
+1 Hero of the Dunes
+1 Imperial Oath
+1 Inheritance
+1 Insomnia, Crown City
+7 Island
+1 Launch
+1 Legion's Landing
+1 Loran of the Third Path
+1 Master of Dark Rites
+1 Minister of Impediments
+1 Mistvault Bridge
+1 Nimble Thopterist
+1 Noxious Toad
+1 Paladin of the Bloodstained
+1 Phantatog
+1 Pirate's Prize
+9 Plains
+1 Prideful Parent
+1 Priest of Yawgmoth
+1 Prosperous Pirates
+1 River Delta
+1 River of Tears
+1 Sacred Mesa
+1 Sage of Lat-Nam
+1 Sailor of Means
+1 Security Blockade
+1 Security Detail
+1 Serpent's Pass
+1 Shambling Vent
+1 Shattered Sanctum
+1 Sidequest: Catch a Fish
+1 Silverquill Campus
+1 Sleeper's Guile
+1 Smothering Tithe
+1 Soldevi Adnate
+1 Spirit Mirror
+1 Starlit Sanctum
+1 Stitcher's Supplier
+7 Swamp
+1 Tainted Field
+1 Tarrian's Journal
+1 Tunnel Surveyor
+1 Undead Augur
+1 Unfathomable Truths
+1 Vault of the Archangel
+1 Vectis Agents
+1 Vectis Silencers
+1 Vodalian Hexcatcher
+
+[commander]
+Inquisitor Greyfax

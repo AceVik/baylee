@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUR #20266204]
+2 Bouncing Beebles
+2 Bubbling Beebles
+2 Chronatog
+2 Deflection
+4 Gleaming Bastion
+2 Infiltrate
+11 Island
+2 Kavu Glider
+2 Moon-Eating Dog
+2 Mountain
+1 Mystic Monastery
+2 Old Man of the Sea
+2 Parapet Watchers
+1 Perilous Landscape
+2 Phantatog
+1 Plains
+2 Rapturous Moment
+4 Raugrin Triome
+2 Reality Ripple
+2 Sea Spirit
+2 Secret Identity
+2 Silhouette
+2 Thistledown Liege
+2 Water Wings
+2 Water Wurm

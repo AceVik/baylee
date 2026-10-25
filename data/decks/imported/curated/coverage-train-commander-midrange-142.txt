@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #20266143]
+1 Abraded Bluffs
+1 Animate Wall
+1 Artifact Ward
+1 Asgardian Citadel
+1 Aura of Silence
+1 Boros Guildgate
+1 Boros Keyrune
+1 Bot Bashing Time
+1 Burning Palm Efreet
+1 Captive Flame
+1 Clifftop Retreat
+1 Concentrated Fire
+1 Consuming Bonfire
+1 Crevasse
+1 Cyclops of Eternal Fury
+1 Damping Field
+1 Deadshot
+1 Delete
+1 Dáin of the Ancient Halls
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Electrify
+1 End the Festivities
+1 Engulfing Eruption
+1 Epiphany Storm
+1 Eternal Flame
+1 Fields of Strife
+1 Flowstone Salamander
+1 Frostling
+1 Goblin Legionnaire
+1 Granite Grip
+1 Green Ward
+1 High Noon
+1 Iron Hills
+1 Karplusan Hound
+1 Karplusan Yeti
+1 Lorehold Campus
+1 Might of the Ancestors
+13 Mountain
+1 Mudslide
+1 Nahiri's Machinations
+1 Needleverge Pathway
+1 Noble Steeds
+1 Nyxborn Brute
+1 Nyxborn Courser
+1 Oread of Mountain's Blaze
+10 Plains
+1 Pyrohemia
+1 Rabanastre, Royal City
+1 Rage Reflection
+1 Rain of Embers
+1 Ready to Rumble
+1 Restless Bivouac
+1 Rule of Law
+1 Rumbling Rockslide
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Black
+1 Rune of Protection: Blue
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Runebound Wolf
+1 Rustvale Bridge
+1 Sawtooth Ogre
+1 Scabland
+1 Stone Quarry
+1 Sudden Impact
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Swift Reconfiguration
+1 Tectonic Hazard
+1 Temple of Triumph
+1 True Conviction
+1 Vigilante Justice
+1 Warleader's Call
+1 White Ward
+
+[commander]
+Eivor, Battle-Ready

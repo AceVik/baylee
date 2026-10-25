@@ -3,11 +3,12 @@
 [deck:Reign of Vampirism (Adapted)]
 3 Barony Vampire
 3 Bloodthrone Vampire
+3 Carrion Feeder
 3 Child of Night
+2 Corrupt
 1 Cultivate
 2 Diabolic Tutor
 2 Doom Blade
-1 Feral Ferocity
 9 Forest
 4 Gaze of Granite
 1 Giant Growth
@@ -15,8 +16,7 @@
 2 Howling Banshee
 4 Maelstrom Pulse
 1 Nature's Spiral
-2 Pest Summoning
-3 Pharika's Chosen
+1 Plummet
 1 Royal Assassin
 1 Spined Wurm
 16 Swamp

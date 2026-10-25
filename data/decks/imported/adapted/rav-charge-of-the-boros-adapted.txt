@@ -8,9 +8,9 @@
 2 Boros Swiftblade
 1 Cyclopean Snare
 2 Dogpile
+3 Energy Bolt
 1 Frontline Rush
 4 Lightning Helix
-3 Martial Glory
 10 Mountain
 2 Nightguard Patrol
 10 Plains

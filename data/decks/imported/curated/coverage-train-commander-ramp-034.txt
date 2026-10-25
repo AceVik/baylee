@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266035]
+1 Alpha Tyrranax
+1 Ancient Brontodon
+1 Anurid Murkdiver
+1 Appendage Amalgam
+1 Arboria
+1 Archway Commons
+1 Arid Archway
+1 Artifact Possession
+1 Barkhide Mauler
+1 Base Camp
+1 Big Apple, 3 a.m.
+1 Blanket of Night
+1 Blooming Marsh
+1 Bogstomper
+1 Boseiju, Who Shelters All
+1 Bower Passage
+1 Brink of Madness
+1 Burgeoning
+1 Chains of Mephistopheles
+1 Choke
+1 Clutch of Undeath
+1 Command Bridge
+1 Crumbling Vestige
+1 Cryptic Spires circles=BG
+1 Curious Altisaur
+1 Curse Artifact
+1 Death Pits of Rath
+1 Delighted Halfling
+1 Dense Canopy
+1 Drop of Honey
+1 Dungeon Descent
+1 Earthlore
+1 Elven Fortress
+1 Entangling Vines
+1 Exploration
+1 Festering Evil
+1 Field of the Dead
+8 Forest
+1 Frog Butler
+1 Gang of Elk
+1 Great Forest Druid
+1 Grounded
+1 Guildless Commons
+1 Hot Springs
+1 Kezzerdrix
+1 Kindercatch
+1 Kuro, Pitlord
+1 Manaweft Sliver
+1 Master of the Feast
+1 Mindwrack Harpy
+1 Nature's Revolt
+1 Needleshot Gourna
+1 Pillar Tombs of Aku
+1 Plated Crusher
+1 Poison Dart Frog
+1 Power Depot
+1 Quagmire
+1 Revelation
+1 Rocky Tar Pit
+1 Root Cage
+1 Root Maze
+1 Spearbreaker Behemoth
+1 Storm Front
+16 Swamp
+1 Tangled Florahedron
+1 Tarnation Vista
+1 Temple of the Dragon Queen
+1 Three Tree Rootweaver
+1 Torture
+1 Tourach's Chant
+1 Tyrranax Rex
+1 Underworld Connections
+1 Untaidake, the Cloud Keeper
+1 Walk-In Closet
+1 Wintermoon Mesa
+1 Worms of the Earth
+1 Xenobotanist
+
+[commander]
+Yargle and Multani

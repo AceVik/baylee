@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261039
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261039]
-1 Aeronaut's Wings
-1 Agna Qel'a
-1 Ancient Tomb
-1 Archaeomender
-1 Aven Reedstalker
-1 Bond Beetle
-1 Capture Sphere
-1 Cloudpost
-1 Compulsion
-1 Consulate Skygate
-1 Darksteel Brute
-1 Dismiss
-1 Druid Lyrist
-1 Energy Tap
-1 Erratic Visionary
-1 Fleeting Distraction
-1 Flooded Grove
-11 Forest
-1 Gaea's Skyfolk
-1 Gladecover Scout
-1 Greenseeker
-1 Groundskeeper
-1 Hollow Trees
-1 Hornet Cobra
-1 Hullbreacher
-1 Hydrosurge
-13 Island
-1 Isolated Watchtower
-1 Kitchen
-1 Krark-Clan Ironworks
-1 Kraul Stinger
-1 Leaping Lizard
-1 Living Tsunami
-1 Lotus Vale
-1 Maestros Theater
-1 Mana Matrix
-1 Merfolk Coralsmith
-1 Mikokoro, Center of the Sea
-1 Mold Adder
-1 Network Disruptor
-1 Nissa, Resurgent Animist
-1 Oashra Cultivator
-1 Order of the Sacred Bell
-1 Ornery Dilophosaur
-1 Patriar's Seal
-1 Pestered Wellguard
-1 Pradesh Gypsies
-1 Prophet of Distortion
-1 Pull from Tomorrow
-1 Quirion Sentinel
-1 Ramunap Excavator
-1 Repulse
-1 Reset
-1 Rupture Spire
-1 Scholar of Stars
-1 Scribe of the Mindful
-1 Scythe Tiger
-1 Setessan Skirmisher
-1 Shrink
-1 Sisay's Ring
-1 Spike Drone
-1 Standing Stones
-1 Taigam's Scheming
-1 Thalakos Sentry
-1 The Great Mound
-1 The Mycosynth Gardens
-1 Thran Dynamo
-1 Throne of the God-Pharaoh
-1 Toil to Renown
-1 Trenchpost
-1 Undiscovered Paradise
-1 Unsummon
-1 Virtue of Knowledge
-1 Vision Skeins
-1 Watchwing Scarecrow
-1 Wetland Sambar
+1 Alchemist's Refuge
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blisterpod
+1 Botanical Sanctum
+1 Brood Weaver
+1 Byway Courier
+1 Cold Case Cracker
+1 Corsair Captain
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dowsing Dagger
+1 Dreamroot Cascade
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Farmer
+1 Filigree Crawler
+19 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Guadosalam, Farplane Gateway
+1 Guardian of Cloverdell
+1 Homarid Spawning Bed
+4 Island
+1 Jewel-Eyed Cobra
+1 Magnifying Glass
+1 Mantle of the Wolf
+1 Mongrel Pack
+1 Most Wanted
+1 Mutant Town
+1 Myr Matrix
+1 Myr Retriever
+1 Myr Sire
+1 Nim Deathmantle
+1 Novijen, Heart of Progress
+1 Orochi Hatchery
+1 Overflowing Basin
+1 Pentavus
+1 Primeval Bounty
+1 Prying Blade
+1 Pym Technologies
+1 Rampaging Baloths
+1 Rejuvenating Springs
+1 Restless Vinestalk
+1 Retrofitter Foundry
+1 S.H.I.E.L.D. Deployment Drone
+1 Scrap Trawler
+1 Simic Growth Chamber
+1 Simulacrum Synthesizer
+1 Skullclamp
+1 Slayer's Plate
+1 Slumbering Waterways
+1 Spawning Pit
+1 Sylvok Lifestaff
+1 Thallid
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thornwood Falls
+1 Thragtusk
+1 Thranduil the Strategist
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Tower of Murmurs
+1 Trading Post
+1 Treasure Map
+1 Tropical Island
+1 Turbulent Wilderness
+1 Turntimber Ranger
+1 Vineglimmer Snarl
+1 Walking Ballista
+1 Wand of the Elements
+1 Willowrush Verge
 1 Wing Splicer
-1 Wooded Foothills

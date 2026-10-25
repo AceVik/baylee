@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange RG #20266334]
+1 Alpha Kavu
+1 Alpine Grizzly
+1 Anaba Bodyguard
+1 Anaconda
+1 Bleeding Woods
+1 Blossom Dryad
+1 Boa Constrictor
+1 Brassclaw Orcs
+1 Brazen Scourge
+1 Brushwagg
+1 Charging War Boar
+1 Cinder Glade
+1 Citanul Centaurs
+1 Colossapede
+1 Commercial District
+1 Cragcrown Pathway
+1 Daggerback Basilisk
+1 Dining Room
+1 Emerald Oryx
+1 Endangered Armodon
+1 Fire-Lit Thicket
+1 Folk of the Pines
+16 Forest
+1 Gigantoad
+1 Gnottvold Slumbermound
+1 Golden Bear
+1 Gore Swine
+1 Gorilla Pack
+1 Greater Basilisk
+1 Hurloon Minotaur
+1 Ironclaw Buzzardiers
+1 Kavu Recluse
+1 Kazandu Refuge
+1 Kessig Recluse
+1 Krosan Constrictor
+1 Land Leeches
+1 Lightning Hounds
+1 Lithophage
+1 Los Diablos Missile Base
+1 Mammoth Spider
+1 Mijae Djinn
+7 Mountain
+1 Needlepeak Spider
+1 Nettle Swine
+1 Niall Silvain
+1 Omashu City
+1 Ordinary Bear
+1 Outland Boar
+1 Pale Bears
+1 Pinecrest Ridge
+1 Plated Spider
+1 Raging Bull
+1 Raging Kavu
+1 Reckless Pangolin
+1 Restless Ridgeline
+1 Riot Devils
+1 River Bear
+1 Sentinel Spider
+1 Serpentine Kavu
+1 Sheltered Thicket
+1 Slagwoods Bridge
+1 Slimy Kavu
+1 Southern Elephant
+1 Steam Spitter
+1 Swift Spinner
+1 Temple of Abandon
+1 Terror of the Fairgrounds
+1 Thornspire Verge
+1 Warthog
+1 Wary Okapi
+1 Watcher in the Web
+1 Wild Ox
+1 Willow Satyr
+1 Windseeker Centaur
+1 Wooded Ridgeline
+1 Woolly Mammoths
+1 Ydwen Efreet
+1 Zodiac Dog
+1 Zodiac Ox

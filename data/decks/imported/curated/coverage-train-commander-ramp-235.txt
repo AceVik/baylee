@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266236]
+1 A Realm Reborn
+1 An-Havva Township
+1 Blockbuster
+1 Boros Guildgate
+1 Botanical Plaza
+1 Branchloft Pathway
+1 Bulwark
+1 Chosen by Heliod
+1 Craw Giant
+1 Cryptolith Rite
+1 Cyclops of Eternal Fury
+1 Defense of the Heart
+1 Dryad of the Ilysian Grove
+1 Earthbind
+1 Eidolon of Astral Winds
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Eladamri's Vineyard
+1 Elemental Bond
+1 Fang of Shigeki
+1 Fastbond
+1 Fear of Surveillance
+12 Forest
+1 Furycalm Snarl
+1 Gaea's Touch
+1 Garruk's Uprising
+1 Gladiolus Amicitia
+1 Improvised Armor
+1 Into the North
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Kavu Lair
+1 Kazandu Refuge
+1 Keen Sense
+1 Loam Dryad
+1 Lucent Liminid
+1 Magmatic Force
+1 Manabarbs
+1 Morselhoarder
+7 Mountain
+1 Multani's Harmony
+1 Nyxborn Brute
+1 Nyxborn Colossus
+1 Oakheart Dryads
+1 Oread of Mountain's Blaze
+1 Overgrown Farmland
+1 Overgrowth
+5 Plains
+1 Primeval Titan
+1 Radiant Summit
+1 Rampaging Hippo
+1 Rith's Grove
+1 Rugged Prairie
+1 Rumbling Sentry
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Black
+1 Rune of Protection: Blue
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Savannah
+1 Selesnya Guildgate
+1 Seshiro the Anointed
+1 Setessan Training
+1 Sheltering Boughs
+1 Sheltering Landscape
+1 Shivan Hellkite
+1 Stomping Ground
+1 Taiga
+1 Tinder Farm
+1 Unquestioned Authority
+1 Vernal Bloom
+1 Vigilante Justice
+1 Where Ancients Tread
+1 Winter's Night
+
+[commander]
+Palladia-Mors

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #20266135]
+1 Accorder's Shield
+1 Adventuring Gear
+1 Alpha Tyrranax
+1 Amulet of Unmaking
+1 Arctic Flats
+1 Arctic Treeline
+1 Arcum's Whistle
+1 Barkhide Mauler
+1 Birnin Zana Plaza
+1 Bountiful Promenade
+1 Branchloft Pathway
+1 Candelabra of Tawnos
+1 Conservatory
+1 Curious Altisaur
+1 Earthshaking Si
+1 Elfhame Palace
+1 Enormous Baloth
+1 Faeburrow Elder
+1 Festival of the Guildpact
+24 Forest
+1 Frog Butler
+1 Gang of Elk
+1 Gathering Place
+1 Gemrazer
+1 Golden Hind
+1 Goobbue Gardener
+1 Gumato
+1 Horizon Canopy
+1 Hymn of Rebirth
+1 Imi Statue
+1 Kalonian Behemoth
+1 Krosan Groundshaker
+1 Kyoshi Village
+1 Leonin Bladetrap
+1 Library of Leng
+1 Manifold Key
+1 Needleshot Gourna
+1 Obelisk of Undoing
+1 Pentagram of the Ages
+1 Peregrine Mask
+1 Pit Trap
+1 Plated Crusher
+1 Poison Dart Frog
+1 Quicksilver Amulet
+1 Riftstone Portal
+1 Ring of Immortals
+1 Ripjaw Raptor
+1 Rootrider Faun
+1 Runed Arch
+1 Sabertooth Nishoba
+1 Sandals of Abdallah
+1 Sculpting Steel
+1 Selesnya Sanctuary
+1 Skyscythe Engulfer
+1 Soldevi Steam Beast
+1 Spearbreaker Behemoth
+1 Spidersilk Net
+1 Steward of Valeron
+1 Stuffed Bear
+1 Suburban Sanctuary
+1 Sungrass Prairie
+1 Sylvan Caryatid
+1 Tangle Hulk
+1 Thornglint Bridge
+1 Tigereye Cameo
+1 Touch of Vitae
+1 Tranquil Garden
+1 Tusked Colossodon
+1 Tyrranax
+1 Utopia Tree
+1 Vagrant Plowbeasts
+1 Vec Townships
+1 War Barge
+1 Witches' Eye
+1 Wooded Bastion
+1 Xenobotanist
+
+[commander]
+Lord Magnus

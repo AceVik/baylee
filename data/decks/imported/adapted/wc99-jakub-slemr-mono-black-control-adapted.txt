@@ -4,19 +4,19 @@
 4 Assassinate
 1 Bottle Gnomes
 1 Cruel Finality
+3 Cursed Scroll
 4 Dark Ritual
-4 Diresight
-1 Entreat the Dead
-3 Hideous End
+4 Diabolic Edict
+4 Duress
 1 Howling Fury
 3 Phyrexian Plaguelord
 3 Ravenous Rats
 2 Spawning Pool
-4 Stupor
+2 Stupor
 15 Swamp
-2 Syphon Soul
+2 Ticking Gnomes
 1 Vampiric Tutor
+1 Victimize
 1 Volrath's Stronghold
-2 Waking Nightmare
 4 Wasteland
 4 Yawgmoth's Will

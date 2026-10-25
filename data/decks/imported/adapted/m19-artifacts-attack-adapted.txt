@@ -7,13 +7,13 @@
 4 Daring Leap
 2 Disperse
 3 Elite Guardmage
+2 Energy Arc
 4 Field Creeper
 3 Gearsmith Prodigy
 1 Glacial Fortress
 11 Island
 2 Juggernaut
 4 Meandering River
-2 Offering to Asha
 1 Ojutai's Command
 9 Plains
 4 Sphinx's Revelation

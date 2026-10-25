@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UB #20266220]
+1 Aether Spellbomb
+1 Black Poplar Shaman
+1 Bog Elemental
+1 Bog Tatters
+1 Breathstealer
+1 Choked Estuary
+1 Cinderhaze Wretch
+1 Clearwater Pathway
+1 Clever Impersonator
+1 Crowd of Cinders
+1 Darkwater Catacombs
+1 Dimir Aqueduct
+1 Dimir Guildgate
+1 Dirtwater Wraith
+1 Elvenking's Harper
+1 Emeritus of Woe
+1 Felhide Minotaur
+1 Feroz's Ban
+1 Glacial Wall
+1 Gloom Pangolin
+1 Gloomlake Verge
+1 Grayscaled Gharial
+1 Hag of Dark Duress
+1 Halt Order
+1 Hammerhead Shark
+14 Island
+1 Jorubai Murk Lurker
+1 Jwari Shapeshifter
+1 Kolinahr Priest
+1 Long-Finned Skywhale
+1 Mana Matrix
+1 Mirror Image
+1 Mischievous Sneakling
+1 Mole Worms
+1 Morphic Pool
+1 Narwhal
+1 Necrogen Spellbomb
+1 Noxious Groodion
+1 Odylic Wraith
+1 Paradise Mantle
+1 Phase Dolphin
+1 Prowling Nightstalker
+1 Raiding Nightstalker
+1 River Delta
+1 Rootwater Depths
+1 Rotted Hulk
+1 Sandbar Crocodile
+1 Scion of Glaciers
+1 Secluded Glen
+1 Secret Passage
+1 Serpent of the Endless Sea
+1 Shore Snapper
+1 Slinking Serpent
+1 Soul Rend
+1 Soured Springs
+1 Springleaf Drum
+1 Straw Soldiers
+1 Stunt Double
+1 Sunken Ruins
+9 Swamp
+1 Tainted Isle
+1 Temple of Deceit
+1 Thalakos Drifters
+1 Thalakos Sentry
+1 Trapmaker's Snare
+1 Universal Solvent
+1 Vampire Champion
+1 Walking Sponge
+1 Water Elemental
+1 Watercourser
+1 Waterfront District
+1 Watery Grave
+1 Wetland Sambar
+1 Whimwader
+1 Wishclaw Talisman
+1 Witch's Familiar
+1 Woodlot Crawler
+1 Wormhole Serpent
+1 You Find the Villains' Lair

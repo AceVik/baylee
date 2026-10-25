@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BR #20266100]
+1 Anaba Bodyguard
+1 Ankh of Mishra
+1 Audacious Thief
+1 Bishop of the Bloodstained
+1 Black Widow, Deadly Hunter
+1 Blood Celebrant
+1 Bog Initiate
+1 Bog Tatters
+1 Catacomb Slug
+1 Cateran Persuader
+1 Cruel Truths
+1 Demon's Due
+1 Demonic Tutor
+1 Dirtwater Wraith
+1 Dwarven Mine
+1 Emeritus of Woe
+1 Everglades
+1 Explosive Apparatus
+1 Fen Stalker
+1 Fire Imp
+1 Fireforger's Puzzleknot
+1 Flamekin Village
+1 Flayer Drone
+1 Foul Imp
+1 Ghitu Encampment
+1 Ghitu Slinger
+1 Great Arashin City
+1 Grim Guardian
+1 HYDRA Assault Robot
+1 Hagra Diabolist
+1 Hidden Volcano
+1 Hoar Shade
+1 Howltooth Hollow
+1 Hulking Devil
+1 Infernal Contract
+1 Lathnu Sailback
+1 Leechridden Swamp
+1 Lord of the Pit
+1 Maga, Traitor to Mortals
+1 Maggot Carrier
+1 Malakir Soothsayer
+1 Mines of Moria
+1 Minion of Tevesh Szat
+1 Moonglove Extractor
+1 Moriok Replica
+1 Mortuary Mire
+4 Mountain
+1 Mountain Titan
+1 Mountain Yeti
+1 Necrogen Spellbomb
+1 Nirkana Revenant
+1 Odylic Wraith
+1 Paradise Mantle
+1 Pierce Strider
+1 Piranha Marsh
+1 Prowling Nightstalker
+1 Raging Minotaur
+1 Raiding Nightstalker
+1 Raphael, Tough Turtle
+1 Sandstone Needle
+1 Shimian Night Stalker
+1 Shredder's Revenge
+1 Sleeper Agent
+1 Storm Caller
+1 Subterranean Hangar
+19 Swamp
+1 Telim'Tor's Darts
+1 The Autonomous Furnace
+1 The Lonely Mountain
+1 The Rack
+1 Thief of Blood
+1 Thriving Bluff
+1 Toxic Abomination
+1 Tunneling Geopede
+1 Vial of Dragonfire
+1 Vivid Marsh
+1 Witty Roastmaster
+1 Wretched Anurid
+1 Yawgmoth Demon

@@ -5,15 +5,15 @@
 2 Anointed Chorister
 2 Bake into a Pie
 1 Baneslayer Angel
-3 Errand of Duty
+1 Forum of Amity
 3 Harsh Sustenance
 4 Inkling Summoning
 4 Mortify
 10 Plains
 3 Resolute Rider
+3 Sanctify
 4 Scoured Barrens
 1 Shadowspear
 10 Swamp
 4 Unmake
-1 Vault of the Archangel
 4 Vindicate

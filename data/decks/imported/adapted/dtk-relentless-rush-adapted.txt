@@ -4,18 +4,18 @@
 4 Auger Spree
 4 Bedevil
 1 Boltwing Marauder
-2 Breath of Malfegor
 1 Defeat
-4 Dreadbore
+4 Delirium
+3 Dreadbore
+1 Duress
 1 Evolving Wilds
 2 Flatten
 1 Foul-Tongue Shriek
-2 Get the Point
 2 Impact Tremors
+4 Kaervek's Purge
 1 Kolaghan Monument
 13 Mountain
-2 Skull Rend
+4 Spontaneous Combustion
 11 Swamp
-4 Terminate
+2 Terminate
 1 Vial of Dragonfire
-4 Wrecking Ball

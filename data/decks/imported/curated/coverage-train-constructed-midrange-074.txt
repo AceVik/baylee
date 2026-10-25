@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange BRG #20266075]
+2 About Face
+4 Akoum Refuge
+2 Canal Monitor
+2 Cavern Thoctar
+2 Crimson Muckwader
+6 Forest
+2 Frilled Sandwalla
+2 Gravkill
+2 Lagac Lizard
+2 Leaping Lizard
+2 Madrush Cyclops
+7 Mountain
+2 Nema Siltlurker
+2 Omashu City
+2 Plated Rootwalla
+2 Profane Tutor
+2 Riveteers Initiate
+1 Swamp
+2 Viashino Outrider
+2 Viashino Sandswimmer
+2 Viashino Skeleton
+2 Viashino Slaughtermaster
+2 Vug Lizard
+4 Wooded Ridgeline

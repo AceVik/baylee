@@ -18,5 +18,5 @@
 1 Simic Guildgate
 2 Simic Keyrune
 1 Skyshroud Forest
-2 Snapping Voidcraw
 4 Square Up
+2 Winged Coatl

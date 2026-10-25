@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/HOP/zombie-empire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ZombieEmpire_HOP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zombie Empire (Adapted)]
+1 Ascendant Evincar
+2 Buried Alive
+1 Cabal Coffers
+2 Cadaverous Knight
+1 Complete Disregard
+2 Dark Ritual
+1 Death Baron
+3 Essence Extraction
+2 Festering Goblin
+1 Grave Pact
+1 Gravedigger
+3 Hideous End
+2 Last Caress
+2 Leechridden Swamp
+1 Mind Rot
+1 Perish
+1 Phyrexian Arena
+2 Phyrexian Ghoul
+2 Reckless Spite
+1 Rend Flesh
+1 Shepherd of Rot
+1 Stupor
+23 Swamp
+1 Syphon Soul
+2 Victimize

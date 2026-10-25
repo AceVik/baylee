@@ -1,0 +1,85 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUBRG #90010022]
+1 A.I.M. Labs
+1 Aerial Engineer
+1 Ashiok's Skulker
+1 Aven Fleetwing
+1 Bear's Companion
+1 Blood-Cursed Knight
+1 Bountiful Landscape
+1 Brine Hag
+1 Caller of Gales
+1 Change the Equation
+1 Channel the Suns
+1 Colossodon Yearling
+1 Crystal Quarry
+1 Culling Sun
+1 Darkheart Sliver
+1 Darkwater Egg
+1 Deceptive Landscape
+1 Deviant Glee
+1 Drakewing Krasis
+1 Duergar Assailant
+1 Duskmantle, House of Shadow
+1 Edge of the Divinity
+1 Fable of Wolf and Owl
+1 Firemind's Research
+7 Forest
+1 Geothermal Crevice
+1 Ghor-Clan Bloodscale
+1 Giant Solifuge
+1 Golem Foundry
+1 Gorilla Warrior
+1 Iron Man, Tony Stark
+10 Island
+1 Izzet Signet
+1 Jwari Scuttler
+1 Ketria Triome
+1 Kin-Tree Severance
+1 Kiora's Follower
+1 Koskun Keep
+1 Kukemssa Pirates
+1 Leaf Dancer
+1 Legerdemain
+1 Legion Extruder
+1 Lose Focus
+1 Manaforge Cinder
+1 Merfolk Mistbinder
+3 Mountain
+1 Nacatl Outlander
+1 Nearby Planet
+1 Nomad Outpost
+1 Orochi Hatchery
+1 Path of Annihilation
+1 Pawpatch Formation
+1 Peculiar Lighthouse
+1 Pentavus
+2 Plains
+1 Primeval Bounty
+1 Putrefy
+1 Quest for the Gravelord
+1 Reminisce
+1 Riot Spikes
+1 Sandsteppe Citadel
+1 Savai Triome
+1 Seaside Citadel
+1 Shattering Blow
+1 Silent Artisan
+1 Simian Grunts
+1 Skywinder Drake
+1 Spawning Pit
+1 Spined Karok
+1 Stalker Hag
+1 Sulfur Vent
+1 Swamp
+1 Thalakos Dreamsower
+1 The World Tree
+1 Third Path Iconoclast
+1 Truefire Paladin
+1 Unfulfilled Desires
+1 Vesuvan Doppelganger
+1 Wall of Mist
+1 Wandering Wolf
+1 Waterspout Djinn
+1 Wizards' School

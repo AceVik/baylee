@@ -4,8 +4,7 @@
 2 Advent of the Wurm
 1 Altar of Bone
 4 Call of the Conclave
-2 Copper Myr
-4 Eladamri's Call
+3 Eladamri's Call
 1 Fog
 10 Forest
 4 Gerrard's Command
@@ -25,8 +24,9 @@
 1 Rancor
 1 Razorverge Thicket
 1 Secluded Steppe
-1 Selesnya Charm
+2 Silverglade Pathfinder
 1 Tranquil Thicket
+2 Vitalizing Cascade
 1 Vitu-Ghazi, the City-Tree
 2 Wall of Roots
 1 Watchwolf

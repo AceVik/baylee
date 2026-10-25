@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261111
 # licence: AGPL-3.0-only
 [deck:highlander midrange BG #20261111]
-1 Abundant Countryside
-1 Alchor's Tomb
-1 Back to Nature
-1 Barkhide Troll
-1 Bile Urchin
-1 Birthing Pod
-1 Bishop of the Bloodstained
-1 Black Lotus
-1 Blacklance Paragon
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Bayou
+1 Blight Mound
 1 Brood Butcher
-1 Cat-Gator
-1 Cavern of Souls
-1 Coastal Bulwark
-1 Conqueror's Galleon
-1 Cruel Truths
-1 Darksteel Ingot
-1 Demon's Due
-1 Demon's Herald
-1 Desert Twister
-1 Eastern Paladin
-1 Emmessi Tome
-1 Extinguish All Hope
-1 Feast or Famine
-1 Flood Plain
-7 Forest
-1 Gemstone Mine
-1 Gloomwidow
-1 Golden Urn
-1 Gorgon Flail
-1 Grimclaw Bats
-1 Hidden Path
-1 Hungry Mist
-1 Illness in the Ranks
-1 Inkmoth Nexus
-1 Intimidation
-1 Island of Wak-Wak
-1 Liliana's Mastery
-1 Lion Heart
-1 Lotus Field
-1 Magma Mine
-1 Meteorite
-1 Mind Twist
-1 Mirror Universe
-1 Moldervine Reclamation
-1 Nacatl Savage
-1 Needlebug
-1 Oakhollow Village
-1 Ob Nixilis, the Fallen
-1 Open the Graves
-1 Oran-Rief, the Vastwood
-1 Phyrexian Vault
-1 Phyrexian Walker
-1 Prophetic Prism
-1 Renegade Map
-1 Sapseep Forest
-1 Sorrow's Path
-1 Soul Exchange
-1 Sprout
-1 Sunscorched Desert
-17 Swamp
-1 Tablet of Epityr
-1 Tainted Wood
-1 Team Transmitter
-1 The Grey Havens
-1 Thermal Navigator
-1 Torment
-1 Touch of Darkness
+1 Callous Inspector
+1 Catacomb Sifter
+1 Common Crook
+1 Criminal Enterprise
+1 Dark Prophecy
+1 Death Watch
+1 Deathcap Glade
+1 Diamond Kaleidoscope
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
+1 Elderfang Venom
+1 Elephant Guide
+1 Elvish Farmer
+1 Essence Feed
+1 Festering Gulch
+1 Filigree Crawler
+5 Forest
+1 Foul Orchard
+1 Gilded Goose
+1 Gleaming Barrier
+1 Golgari Germination
+1 Golgari Guildgate
+1 Greedy Freebooter
+1 Kheru Bloodsucker
+1 Llanowar Wastes
+1 Lounge
+1 Mantle of the Wolf
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Mirkwood
+1 Most Wanted
+1 Myr Sire
+1 Necroblossom Snarl
+1 Nim Deathmantle
+1 Nurturing Peatland
+1 Ogre Slumlord
+1 Path of Annihilation
+1 Pentavus
+1 Pine Barrens
+1 Pitiless Plunderer
+1 Primeval Bounty
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Restless Cottage
+1 Retrofitter Foundry
+1 Sarcomancy
+1 Sengir Autocrat
+1 Sifter of Skulls
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Slimefoot, the Stowaway
+1 Sling-Gang Lieutenant
+1 Soul Bleed
+1 Spawning Pit
+1 Strangled Cemetery
+1 Subterranean Cavern
+18 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thallid Devourer
+1 Thopter Squadron
+1 Thragtusk
+1 Titania, Protector of Argoth
 1 Trading Post
-1 Uktabi Faerie
-1 Underworld Connections
-1 Unholy Citadel
-1 Warden of Geometries
-1 Watcher in the Web
-1 Whetstone
-1 Whirlermaker
-1 Wirewood Elf
-1 Wolfwillow Haven
-1 Zoetic Cavern
+1 Treasure Map
+1 Twilight Mire
+1 Viridescent Bog
+1 Wand of the Elements
+1 Weirding Shaman
+1 Woodland Cemetery
+1 Zuran Orb

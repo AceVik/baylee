@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266251]
+1 Abstruse Interference
+1 Algae Gharial
+1 Aven Archer
+1 Aven Brigadier
+1 Avengers Hangar
+1 Aysen Abbey
+1 Birnin Zana Plaza
+1 Boreal Shelf
+1 Call the Cavalry
+1 Captain's Call
+1 Cephalid Scout
+1 Dive Bomber
+1 Faerie Invaders
+1 Faerie Mastermind
+1 Faerie Noble
+1 Faerie Swarm
+4 Forest
+1 Gavony Township
+1 Geist Snatch
+1 Glacial Fortress
+1 Gobbling Ooze
+1 Hengegate Pathway
+1 Hinterland Harbor
+1 Hornswoggle
+1 Hushwood Verge
+1 Il Mheg Pixie
+1 Indigo Faerie
+1 Invasion of Belenon
+1 Irrigation Ditch
+10 Island
+1 Ithilien Kingfisher
+1 Join the Ranks
+1 Judge's Familiar
+1 Kingfisher
+1 Knight Watch
+1 Land Cap
+1 Lieutenant Kirtar
+1 Mass Production
+1 Master's Call
+1 Meloku the Clouded Mirror
+1 Metropolis Sprite
+1 Moon Sprite
+1 Nightveil Sprite
+1 Oko's Accomplices
+1 Oko, Thief of Crowns
+1 Osai Vultures
+1 Palace Familiar
+1 Pixie Queen
+9 Plains
+1 Queen's Commission
+1 Rite of Replication
+1 Rot Shambler
+1 Runewing
+1 Scion of Oona
+1 Scryb Ranger
+1 Scryb Sprites
+1 Sea Sprite
+1 Seaside Citadel
+1 Sentinels of Glen Elendra
+1 Servo Exhibition
+1 Shinechaser
+1 Silkbind Faerie
+1 Sokka's Sword Training
+1 Spara's Headquarters
+1 Summoner's Bane
+1 Syphon Essence
+1 Take Up Arms
+1 Temple Garden
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Twining Twins
+1 Uktabi Faerie
+1 Urban Retreat
+1 Weatherseed Faeries
+1 Willow Faerie
+1 Willow Priestess
+1 Wind Dancer
+1 Windbrisk Raptor
+1 Zephyr Sprite
+
+[commander]
+Rubinia Soulsinger

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266050]
+1 Aegis of the Meek
+1 Arcane Lighthouse
+1 Arena of the Ancients
+1 Arid Mesa
+1 Avoid Fate
+1 Bastion Mastodon
+1 Bootleggers' Stash
+1 Boulderborn Dragon
+1 Brown Ouphe
+1 Bubble Matrix
+1 Bucolic Ranch
+1 Canopy Vista
+1 Celestial Sword
+1 Chariot of the Sun
+1 Collector Ouphe
+1 Conqueror's Galleon
+1 Coral Helm
+1 Crawling Barrens
+1 Crown of the Ages
+1 Crucible of Worlds
+1 Cursed Rack
+1 Draconian Cylix
+1 Ebony Horse
+1 Forcefield
+11 Forest
+1 Galvanic Key
+1 Gargoyle Castle
+1 Glint Hawk Idol
+1 Imi Statue
+1 Iron Lance
+1 Jabari's Banner
+1 Jandor's Saddlebags
+1 Jund Panorama
+1 Juntu Stakes
+1 Kry Shield
+1 Kyoshi Village
+1 Lotus Vale
+1 Lush Portico
+1 Mana Tithe
+1 Maze of Shadows
+1 Millennial Gargoyle
+1 Mishra's Foundry
+1 Narnam Cobra
+1 Needlebug
+1 Nemesis Mask
+1 Nova Pentacle
+1 Pentagram of the Ages
+12 Plains
+1 Quicksilver Amulet
+1 Reflecting Mirror
+1 Relic Barrier
+1 Restless Prairie
+1 Riftstone Portal
+1 Rust
+1 Scepter of Dominance
+1 Sculpting Steel
+1 Sentinel
+1 Shell Skulkin
+1 Skyshaper
+1 Spirit Shield
+1 Sunglasses of Urza
+1 Sword of the Chosen
+1 Tangle Hulk
+1 Tectonic Edge
+1 Teferi's Sentinel
+1 Tek
+1 Telethopter
+1 Touchstone
+1 Tower of Coireall
+1 Tower of the Magistrate
+1 Tumble Magnet
+1 Urza's Engine
+1 Veil of Assimilation
+1 Wall of Tanglecord
+1 War Chariot
+1 Winding Canyons
+1 Wirecat
+1 Zelyon Sword
+
+[commander]
+Kei Takahashi

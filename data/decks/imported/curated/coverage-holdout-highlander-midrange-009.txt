@@ -1,0 +1,82 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WU #90010010]
+1 Abandoned Campground
+1 Aerial Engineer
+1 Al-abara's Carpet
+1 Ashiok's Skulker
+1 Azorius Keyrune
+1 Boreal Shelf
+1 Braingeyser
+1 Calciform Pools
+1 Caller of Gales
+1 Captain of Umbar
+1 Cathar Commando
+1 Change the Equation
+1 Cloak of Feathers
+1 Cruel Witness
+1 Deny Entry
+1 Dispel
+1 Divine Arrow
+1 Divine Retribution
+1 Eldrazi Skyspawner
+1 Enervate
+1 Essence Flare
+1 Farmstead Gleaner
+1 Farrel's Mantle
+1 Floodfarm Verge
+1 Flusterstorm
+1 Frightful Delusion
+1 Hengegate Pathway
+1 Hydro-Channeler
+1 Idyllic Beachfront
+1 Incubator Drone
+22 Island
+1 Jwari Scuttler
+1 Kabira Takedown
+1 Keeneye Aven
+1 Knight's Pledge
+1 Kukemssa Pirates
+1 Land Cap
+1 Legerdemain
+1 Lightshell Duo
+1 Lose Focus
+1 Lotus Path Djinn
+1 Memory Drain
+1 Merfolk Traders
+1 Merrow Witsniper
+1 Mist Dragon
+1 Muse's Encouragement
+1 North Pole Gates
+1 Plains
+1 Plumecreed Escort
+1 Psychic Barrier
+1 Restless Anchorage
+1 Ringwarden Owl
+1 Sage's Knowledge
+1 Saltwater Stalwart
+1 Sandbar Merfolk
+1 Sea of Clouds
+1 Seashell Cameo
+1 Seaside Haven
+1 Second Chance
+1 Shield of Duty and Reason
+1 Sky Diamond
+1 Sky Theater Strix
+1 Skybridge Towers
+1 Soldevi Machinist
+1 Sphinx of the Final Word
+1 Thalakos Dreamsower
+1 Thoughtbind
+1 Timetwister
+1 Tolaria
+1 Tolaria West
+1 Umara Wizard
+1 University Campus
+1 Uthros, Titanic Godcore
+1 Veteran Swordsmith
+1 Wall of Mist
+1 Wanderer's Intervention
+1 Wanderwine Hub
+1 Waterspout Djinn
+1 Zhalfirin Shapecraft

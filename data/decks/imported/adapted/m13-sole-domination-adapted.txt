@@ -4,14 +4,13 @@
 4 Anguished Unmaking
 2 Bloodhunter Bat
 1 Evolving Wilds
-1 Fracture
 4 Harsh Sustenance
 4 Inkling Summoning
 1 Mark of the Vampire
 4 Mortify
 2 Murder
+2 Pacifism
 8 Plains
-1 Purge the Profane
 15 Swamp
 4 Unmake
 1 Vampire Nighthawk

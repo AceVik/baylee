@@ -1,23 +1,23 @@
 # adapted from data/decks/precon/GN2/glorious-combat.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GloriousCombat_GN2.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Glorious Combat (Adapted)]
+4 Afterlife
 1 Army of Allah
 2 Blinding Light
 2 Bring to Trial
-3 Defender of Law
+1 Exile
+3 Gideon's Avenger
 1 Griffin Protector
 1 Hop to It
 2 Legion's Judgment
 2 Make Your Move
 2 Mighty Leap
-1 Piety
+2 Pacifism
 26 Plains
-2 Radiant's Judgment
 3 Raise the Alarm
-4 Rebuke
 2 Skywhaler's Shot
-2 Split Up
 1 Survive the Night
 1 Take Vengeance
 1 Tempest of Light
+2 Warrior's Honor
 1 Zetalpa, Primal Dawn

@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange BG #20266231]
+4 Blooming Marsh
+2 Bull Hippo
+2 Claws of Wirewood
+2 Ebony Treefolk
+2 Fauna Shaman
+2 Festering Gulch
+1 Foggy Bottom Swamp
+5 Forest
+2 Golgari Cluestone
+2 Golgari Keyrune
+2 Golgari Locket
+3 Golgari Rot Farm
+2 Golgari Signet
+2 Malakir Soothsayer
+2 Minion of Leshrac
+2 Nirkana Revenant
+2 Paradise Druid
+2 Pitiless Gorgon
+2 Ring of the Lucii
+2 Scrap Compactor
+9 Swamp
+2 Time Vault
+2 Trestle Troll
+2 Ur-Golem's Eye

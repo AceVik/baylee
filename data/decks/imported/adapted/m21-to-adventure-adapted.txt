@@ -9,8 +9,9 @@
 10 Forest
 4 Gerrard's Command
 4 Heroes' Reunion
-4 Nature's Chant
+1 Nature's Chant
 10 Plains
-3 Reknit
+2 Reknit
 4 Selesnya Charm
 1 Temple of Plenty
+4 Vitalizing Cascade

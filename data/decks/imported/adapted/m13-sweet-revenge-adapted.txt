@@ -13,9 +13,9 @@
 4 Faithless Looting
 1 Goblin Offensive
 7 Island
+3 Jolt
 9 Mountain
-1 Rend Spirit
-3 Sinister Sabotage
+1 Rack and Ruin
 2 Slagstorm
 1 Stroke of Genius
 1 Sulfur Falls

@@ -1,75 +1,84 @@
 # baylee curated commander midrange seed=20261028
 # licence: AGPL-3.0-only
-[deck:commander midrange R #20261028]
-1 Akki Avalanchers
-1 Astral Cornucopia
-1 Barrels of Blasting Jelly
-1 Basilisk Gate
-1 Bolt of Keranos
-1 Book of Rass
-1 Bot Bashing Time
-1 Brass Man
-1 Consulate Skygate
-1 Coretapper
-1 Crookshank Kobolds
-1 Crumbling Vestige
-1 Darksteel Forge
-1 Deadeye Duelist
-1 Dungeon Descent
-1 Dwarven Song
-1 Explosive Apparatus
-1 Fiery Intervention
-1 Firespitter Whelp
-1 Frost Giant
-1 Furnace Strider
-1 Gallifrey Council Chamber
-1 Ghirapur Gearcrafter
-1 Hollowhead Sliver
-1 Impetuous Sunchaser
-1 Kry Shield
-1 Limestone Golem
-1 Loxodon Warhammer
-1 Mad Prophet
-1 Messenger's Speed
-32 Mountain
-1 Mox Diamond
-1 Murmuring Volume
-1 Myriad Landscape
-1 Obelisk of Undoing
-1 Ogre Arsonist
-1 One-Clown Band
-1 Panicked Altisaur
-1 Pitchburn Devils
-1 Rain of Embers
-1 Rapacious Dragon
-1 Raphael, Tough Turtle
-1 Red Elemental Blast
-1 Red Mana Battery
-1 Rust Monster
-1 Sandals of Abdallah
-1 Scarlet Witch, Wanda Maximoff
-1 Secluded Courtyard
-1 Seismic Shudder
-1 Shatterskull Recruit
-1 Shivan Hellkite
-1 Shock Troops
-1 Skittering Invasion
-1 Skullclamp
-1 Skullmead Cauldron
-1 Slaughter Cry
-1 Spare Supplies
-1 Sparkmage Apprentice
-1 Spellshock
-1 Storm's Wrath
-1 Tezzeret's Strider
-1 Thaumatic Compass
-1 Tocasia's Dig Site
-1 Torch Gauntlet
+[deck:commander midrange WG #20261028]
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bishop of Wings
+1 Blade Splicer
+1 Blisterpod
+1 Blossoming Sands
+1 Branchloft Pathway
+1 Byway Courier
+1 Canopy Vista
+1 Captain of the Watch
+1 Cartouche of Solidarity
+1 Claws of Gix
+1 Conclave Cavalier
+1 Conservatory
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Dwarven Castle Guard
+1 Elephant Guide
+1 Elfhame Palace
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
+1 Elvish Farmer
+1 Field of Souls
+1 Filigree Crawler
+8 Forest
+1 Fortifying Provisions
+1 Gilded Goose
+1 Gilded Pinions
+1 Gleaming Barrier
+1 Goldvein Pick
+1 Griffin Guide
+1 Grove of the Guardian
+1 Haunted Library
+1 Hunted Witness
+1 Jewel-Eyed Cobra
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Mantle of the Wolf
+1 Martyr of Dusk
+1 Mausoleum Guard
+1 Mobilization
+1 Most Wanted
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Orochi Hatchery
+1 Pentavus
+15 Plains
+1 Prying Blade
+1 Radiant Grove
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Saltcrusted Steppe
+1 Scattered Groves
+1 Selesnya Sanctuary
+1 Siege Veteran
+1 Slayer's Plate
+1 Spawning Pit
+1 Squire's Devotion
+1 Stirring Wildwood
+1 Suburban Sanctuary
+1 Sungrass Prairie
+1 Sunpetal Grove
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Veldt
 1 Wand of the Elements
-1 War Chariot
-1 Whirling Strike
-1 Windswept Heath
-1 Witches' Eye
+1 Windurst, Federation Center
+1 Wooded Bastion
 
 [commander]
-Raphael, Tough Turtle
+Emmara, Soul of the Accord

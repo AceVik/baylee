@@ -1,0 +1,84 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUG #20266088]
+1 Aegis Turtle
+1 Agent of Horizons
+1 Argothian Swine
+1 Ashcoat Bear
+1 Baxter Building
+1 Bear Cub
+1 Blossom Dryad
+1 Brokers Initiate
+1 Brushwagg
+1 Camel
+1 Cave Tiger
+1 Chub Toad
+1 Cloaked Siren
+1 Dawnstrider
+1 Death Ward
+1 Desert
+1 Diamond City
+1 Dragon-Cursed Halls
+1 Echoing Deeps
+1 Elephant Graveyard
+1 Elvenking's Harper
+11 Forest
+1 Forest Bear
+1 Frog-Squirrels
+1 Gallant Strike
+1 Giant Turtle
+1 Gigantoad
+1 Great Hall of the Citadel
+1 Grizzled Leotau
+1 Guardian Lions
+1 Hippo-Cows
+1 Hostile Desert
+1 Interplanar Beacon
+4 Island
+1 Joven's Ferrets
+1 Kami of False Hope
+1 Leering Gargoyle
+1 Living Airship
+1 Llanowar Vanguard
+1 Lynx
+1 Maned Serval
+1 Mirkwood Spider
+1 Mist Leopard
+1 Mtenda Lion
+1 Phase Dolphin
+7 Plains
+1 Plumeveil
+1 Rabid Wolverines
+1 Radiant Essence
+1 Rime Dryad
+1 Riptide Turtle
+1 Rune-Cervin Rider
+1 Rushwood Dryad
+1 Sandstorm Verge
+1 Savai Sabertooth
+1 Scarwood Hag
+1 Shorecomber Crab
+1 Sorrow's Path
+1 Spitting Slug
+1 Starfleet Crew
+1 Suppression Ray
+1 Tangled Islet
+1 Tasseled Dromedary
+1 Teferi's Honor Guard
+1 Thespian's Stage
+1 Throne of Makindi
+1 Trained Jackal
+1 Tree Monkey
+1 Turn to Dust
+1 Unseen Walker
+1 Urza's Cave
+1 Vintara Snapper
+1 Volatile Fault
+1 Warthog
+1 Whiptongue Frog
+1 Wild Leotau
+1 Willow Dryad
+1 Wily Bandar
+1 Zodiac Monkey
+1 Zodiac Rabbit
+1 Zodiac Tiger

@@ -8,12 +8,12 @@
 1 Bonesplitter
 3 Chromatic Sphere
 4 Daring Leap
+3 Energy Arc
 1 Griffin Sentinel
 7 Island
 2 Leonin Elder
 3 Leonin Squire
 1 Myr Moonvessel
-3 Offering to Asha
 1 Ojutai's Command
 1 Ornithopter
 12 Plains

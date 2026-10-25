@@ -1,20 +1,22 @@
 # baylee curated constructed control seed=20261125
 # licence: AGPL-3.0-only
 [deck:constructed control UG #20261125]
-4 Botanical Sanctum
-4 Catalog
-4 Dawntreader Elk
-2 Epic Proportions
-2 Eye of Malcator
-9 Forest
-4 Frog Tongue
-4 Gobbling Ooze
-1 Hollow Trees
-7 Island
-4 Lay Claim
-2 Marble Priest
-4 Mightstone
-2 Predator, Flagship
-2 Serpent Generator
-4 Tree of Tales
+4 Alchemist's Refuge
+2 Drowner of Hope
+1 Elephant Guide
+13 Forest
+4 Gilded Goose
+2 Island
+4 Mantle of the Wolf
+2 Most Wanted
+2 Overflowing Basin
+2 Simic Guildgate
+4 Slayer's Plate
+4 Spawning Pit
+1 Temple of Mystery
+4 Thopter Squadron
+2 Titania, Protector of Argoth
+4 Trading Post
 1 Tropical Island
+3 Vessel of Paramnesia
+1 Waterlogged Grove

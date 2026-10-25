@@ -1,83 +1,84 @@
 # baylee curated highlander aggro seed=20261120
 # licence: AGPL-3.0-only
 [deck:highlander aggro BRG #20261120]
-1 Abomination
-1 Akki Avalanchers
-1 Ali Baba
-1 Barrier of Bones
-1 Bee Sting
-1 Blightstep Pathway
-1 Bottle Gnomes
-1 Brotherhood Headquarters
-1 Brute Strength
-1 Civic Gardener
-1 Codex Shredder
-1 Coretapper
-1 Crimson Kobolds
-1 Crypt of Agadeem
-1 Custodian of the Trove
-1 Daily Bugle Building
-1 Darigaaz's Charm
-1 Deeproot Elite
-1 Desert Drake
+1 Aclazotz, Deepest Betrayal
+1 Agents of HYDRA
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bastion of Remembrance
+1 Blazemire Verge
+1 Blight Mound
+1 Blisterpod
+1 Blood Petal Celebrant
+1 Blooming Marsh
+1 Callous Inspector
+1 Carrier Thrall
+1 Catacomb Sifter
+1 Claws of Gix
+1 Common Crook
+1 Copperline Gorge
+1 Criminal Enterprise
+1 Darigaaz's Caldera
+1 Deathknell Berserker
+1 Dire Fleet Hoarder
+1 Doomed Dissenter
 1 Dragonmaster Outcast
-1 Dwarven Miner
-1 Elvish Lyrist
-1 Femeref Archers
-1 Festering Evil
-1 Fill with Fright
-1 Flesh Burrower
-1 Flowstone Blade
-1 Fomori Vault
-7 Forest
-1 Forge of Heroes
-1 Furious Strength
-1 Ghazbán Ogre
-1 Gladewalker Ritualist
-1 Goblin Artisans
-1 Henge Guardian
-1 Hickory Woodlot
-1 Horizon of Progress
-1 Hulking Devil
-1 Imperial Seal
-1 Imperious Perfect
-1 Kindled Heroism
-1 Lion Heart
-1 Mintstrosity
-1 Molten Vortex
+1 Elephant Guide
+1 Elvish Farmer
+5 Forest
+1 Geothermal Crevice
+1 Gilded Goose
+1 Gleaming Barrier
+1 Goblin-town
+1 Golgari Guildmage
+1 Graf Harvest
+1 Greedy Freebooter
+1 Grim Backwoods
+1 Jungle Patrol
+1 Karplusan Forest
+1 Kheru Bloodsucker
+1 Koskun Keep
+1 Lead Pipe
+1 Legion Extruder
+1 Mantle of the Wolf
+1 Marionette Apprentice
+1 Marsh Flitter
+1 Most Wanted
 5 Mountain
-1 Nasty Little Rabbit
-1 Phyrexian Battleflies
-1 Phyrexian Walker
-1 Primordial Ooze
-1 Rise Again
-1 Riveteers Initiate
-1 Sardian Avenger
-1 Scalding Cauldron
-1 Seafarer's Quay
-1 Shifting Wall
-1 Shivan Zombie
-1 Slith Predator
-1 Snapping Gnarlid
-1 Snarling Wolf
-1 Spawning Bed
-1 Spidersilk Armor
-11 Swamp
-1 Tanglespan Lookout
-1 Temple of Abandon
-1 The Hunter Maze
-1 Thundering Rebuke
-1 Torment
-1 Tower of the Magistrate
-1 Trusty Machete
-1 Underdark Basilisk
-1 Unlikely Aid
-1 Vampire Neonate
-1 Viashino Spearhunter
+1 Myr Sire
+1 Orochi Hatchery
+1 Pashalik Mons
+1 Pia and Kiran Nalaar
+1 Piggy Bank
+1 Prowess of the Fair
+1 Prying Blade
+1 Quest for the Gravelord
+1 Raucous Theater
+1 Reckless Lackey
+1 Retrofitter Foundry
+1 Savage Lands
+1 Skeletal Vampire
+1 Skullclamp
+1 Slayer's Plate
+1 Slimefoot, the Stowaway
+1 Sling-Gang Lieutenant
+1 Sparring Construct
+1 Spawning Pit
+1 Stark Industries Executive
+12 Swamp
+1 Sweettooth Witch
+1 Sylvok Lifestaff
+1 Tainted Wood
+1 Tempting Witch
+1 Thallid
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Trading Post
+1 Tramway Station
+1 Twisted Landscape
+1 Viridescent Bog
+1 Volcanic Strength
 1 Voldaren Epicure
-1 Walking Ballista
-1 Wall of Wood
-1 Westvale Abbey
-1 Wolfsbane, Highland Hero
-1 Wooded Ridgeline
-1 Zodiac Goat
+1 Weirding Shaman
+1 Ziatora's Proving Ground

@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266254]
+1 Adherent of Hope
+1 Aeronaut Admiral
+1 Ant-Man, Scott Lang
+1 Ayesha Tanaka
+1 Aysen Abbey
+1 Big Bertha
+1 Breeding Pool
+1 Celestial Colonnade
+1 Clockwork Steed
+1 Clockwork Swarm
+1 Cloud Pirates
+1 Cursecatcher
+1 Daring Apprentice
+1 Daring Mechanic
+1 Disruptive Student
+1 Drannith Magistrate
+1 Emeritus of Ideation
+1 Ertai, Wizard Adept
+1 Flying Men
+1 Forest
+1 Gideon's Avenger
+1 Grove of the Guardian
+1 Guild Thief
+1 Herbal Poultice
+1 Homarid
+1 Hungry Megasloth
+1 Idyllic Beachfront
+1 Iron-Heart Chimera
+1 Irrigation Ditch
+14 Island
+1 Jhovall Rider
+1 Kjeldoran Skycaptain
+1 Lightfoot Technique
+1 Loxodon Battle Priest
+1 Malevolent Hermit
+1 Mockingbird, Bobbi Morse
+1 Nature's Blessing
+1 Nightwind Glider
+1 Order of the Sacred Torch
+1 Overgrown Farmland
+1 Patron Wizard
+8 Plains
+1 Planar Bridge
+1 Planar Portal
+1 Prismatic Circle
+1 Prowler, Misguided Mentor
+1 Ramosian Sky Marshal
+1 Rampaging Brontodon
+1 Razortide Bridge
+1 Rejuvenating Springs
+1 Rosa, Resolute White Mage
+1 Ruins Recluse
+1 Seaside Citadel
+1 Siegehorn Ceratops
+1 Sledding Otter-Penguin
+1 Snapping Sailback
+1 Soldevi Simulacrum
+1 Soratami Savant
+1 Soulherder
+1 Spara's Headquarters
+1 Stronghold Machinist
+1 Suburban Sanctuary
+1 Sustaining Spirit
+1 Take Up the Shield
+1 Talas Scout
+1 Temple Garden
+1 Trade Caravan
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Uktabi Efreet
+1 Unholy Officiant
+1 Urban Retreat
+1 Vedalken Infuser
+1 Verdant Automaton
+1 Veteran of the Depths
+1 Volunteer Reserves
+1 Wall of Resistance
+1 Windurst, Federation Center
+1 Wizard Replica
+
+[commander]
+Ragnar

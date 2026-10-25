@@ -1,69 +1,70 @@
 # baylee curated highlander control seed=20261078
 # licence: AGPL-3.0-only
 [deck:highlander control W #20261078]
-1 Aladdin's Lamp
-1 Arid Archway
-1 Balm of Restoration
-1 Basilisk Gate
-1 Bone Saw
-1 Caribou Range
+1 Allied Teamwork
+1 Ancient Den
+1 Arahbo, the First Fang
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Bishop of Wings
+1 Blade Splicer
+1 Captain of the Watch
 1 Cartouche of Solidarity
-1 Cathedral of Serra
-1 Cursed Rack
-1 Darksteel Gargoyle
-1 Dreamstone Hedron
-1 Dub
-1 Ebony Horse
-1 Eclipsed Realms
-1 Elephant Graveyard
-1 Fearless Fledgling
+1 Daru Encampment
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Eiganjo Castle
+1 Elgaud Inquisitor
+1 Elspeth, Storm Slayer
 1 Field of Souls
+1 Filigree Crawler
+1 Fortifying Provisions
+1 Gleaming Barrier
 1 Glimmerlight
-1 Glory Seeker
-1 Guan Yu's 1,000-Li March
-1 Inspiring Commander
-1 Iron Lance
-1 Keening Apparition
-1 Kjeldoran Outrider
-1 Marsh Threader
-1 Mishra's Groundbreaker
-1 Moonlit Wake
+1 Gold Pan
+1 Goldvein Pick
+1 Griffin Guide
+1 Hall of Heliod's Generosity
+1 Haunted Library
+1 Hunted Witness
+1 Karakas
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Knightly Valor
+1 Kor Haven
+1 Lupinflower Village
+1 Magnifying Glass
+1 Master Splicer
+1 Mausoleum Guard
+1 Mobilization
 1 Myr Matrix
-1 Myriad Landscape
-1 Neck Snap
-1 Nine-Ringed Bo
-1 North Star
-1 Novice Inspector
-1 Opal Palace
-1 Otherworld Atlas
-1 Paradise Mantle
-1 Pious Wayfarer
-35 Plains
-1 Qilin's Blessing
-1 Queen's Commission
-1 Rakalite
-1 Rescuer Chwinga
-1 Ring of Ma'rûf
-1 Sculpting Steel
-1 Second Thoughts
-1 Serra's Blessing
-1 Short Bow
-1 Skullclamp
-1 Slagwurm Armor
+1 Myr Sire
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Omen of the Sun
+1 Orochi Hatchery
+1 Pentavus
+34 Plains
+1 Prying Blade
+1 Regal Caracal
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Sensor Splicer
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Siege Veteran
 1 Slayer's Plate
-1 Spirit of the Spires
-1 Staff of Nin
-1 Starfleet Crew
-1 Stone Haven Medic
-1 Sunblast Angel
-1 Sword of Vengeance
-1 Sword of the Ages
-1 The Hive
-1 Thran Quarry
-1 Ur-Golem's Eye
-1 Vanquish the Foul
-1 Vengeance
-1 Wanderbrine Trapper
-1 Warden of Geometries
-1 Witches' Eye
-1 Workhorse
+1 Spawning Pit
+1 Squire's Devotion
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Unruly Mob
+1 Wand of the Elements
+1 Zuran Orb

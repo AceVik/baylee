@@ -9,7 +9,6 @@
 1 Evolving Wilds
 12 Forest
 4 Ground Assault
-4 Guttural Response
 4 Manamorphose
 12 Mountain
 2 Rishkar, Peema Renegade
@@ -19,4 +18,5 @@
 1 Seismic Rupture
 4 Stump Stomp
 1 Summit Prowler
+4 Surge of Strength
 1 Tread Upon

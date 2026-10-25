@@ -1,76 +1,76 @@
 # baylee curated commander aggro seed=20261097
 # licence: AGPL-3.0-only
-[deck:commander aggro G #20261097]
-1 Airship Crash
-1 Aisling Leprechaun
-1 Alloy Myr
-1 Armageddon Clock
-1 Assembly-Worker
-1 Avishkar Raceway
-1 Barbed Battlegear
-1 Base Camp
-1 Behemoth's Herald
-1 Blessed Respite
-1 Bramblefort Fink
-1 Canopy Baloth
-1 Cathodion
-1 Coretapper
-1 Crystal Ball
-1 Crystal Rod
-1 Defiant Elf
-1 Dune Diviner
-1 Eidolon of Blossoms
-1 Endurance
-1 Eye of Ugin
-31 Forest
-1 Galadhrim Guide
-1 Goobbue Gardener
-1 Grand Coliseum
-1 Grazing Gladehart
-1 Henge Guardian
-1 Ice Storm
-1 Implements of Sacrifice
-1 Ivy Elemental
-1 Jade Bearer
-1 Mana Cylix
-1 Memnite
-1 Might Weaver
-1 Mightstone
-1 Mind Stone
-1 Mirri's Guile
-1 Nettlecyst
-1 Nova Pentacle
-1 Oasis
+[deck:commander aggro U #20261097]
+1 An Offer You Can't Refuse
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blighted Cataract
+1 Blood Servitor
+1 Buzz Bots
+1 Cephalid Coliseum
+1 Chromatic Star
+1 Claws of Gix
+1 Cold Case Cracker
+1 Collector's Vault
+1 Corsair Captain
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Dowsing Dagger
+1 Dragoon's Wyvern
+1 Drowner of Hope
+1 Etherium Spinner
+1 Filigree Crawler
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Homarid Spawning Bed
+1 Ipnu Rivulet
+30 Island
+1 Juju Bubble
+1 Kozilek's Unsealing
+1 Lilypad Village
+1 Magma Mine
+1 Malcator's Watcher
+1 Minamo, School at Water's Edge
+1 Myr Moonvessel
+1 Myr Retriever
+1 Myr Sire
+1 Mystic Remora
+1 Network Disruptor
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Otawara, Soaring City
+1 Parasitic Strix
 1 Perilous Myr
-1 Pierce Strider
-1 Promising Vein
-1 Renowned Weaver
-1 Ripjaw Raptor
-1 Roughshod Mentor
-1 Rusted Slasher
-1 Scampering Surveyor
-1 Scattershot Archer
-1 Sculptor of Winter
-1 Smuggler's Copter
-1 Spike Drone
-1 Spore Swarm
-1 Starved Rusalka
-1 Thrun, Breaker of Silence
-1 Tranquil Path
-1 Turtle Lair
-1 Unlicensed Hearse
-1 Viridian Harvest
-1 Viridian Scout
-1 Vitality Charm
-1 Wall of Roots
-1 Wall of Vines
-1 Wall of Wood
-1 Watcher of the Wayside
-1 Weatherseed Elf
-1 Whippoorwill
-1 Whirling Dervish
-1 Wildwood Patrol
-1 Wirewood Symbiote
+1 Preening Champion
+1 Prying Blade
+1 Retrofitter Foundry
+1 Riptide Laboratory
+1 S.H.I.E.L.D. Deployment Drone
+1 Scrap Trawler
+1 Silver Raven
+1 Skullclamp
+1 Slayer's Plate
+1 Sparring Construct
+1 Spawning Pit
+1 Sphinx's Herald
+1 Sylvok Lifestaff
+1 Terrarion
+1 The Mechanist, Aerial Artisan
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Three Steps Ahead
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Trenzalore Clocktower
+1 Walking Ballista
+1 Wan Shi Tong, Librarian
+1 Wand of the Elements
+1 Wing Splicer
 
 [commander]
-Thrun, Breaker of Silence
+Venser, Shaper Savant

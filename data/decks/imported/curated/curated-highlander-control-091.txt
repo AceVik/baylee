@@ -1,79 +1,80 @@
 # baylee curated highlander control seed=20261114
 # licence: AGPL-3.0-only
 [deck:highlander control UG #20261114]
-1 Accelerated Evolution
-1 Ally Encampment
-1 Ark of Blight
-1 Betrayal
-1 Black Lotus
-1 Book of Rass
-1 Bower Passage
-1 Bramblesnap
-1 Centaur Glade
-1 Chromatic Star
-1 Chrome Prowler
-1 Conduit Pylons
-1 Confirm Suspicions
-1 Contradict
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blood Servitor
+1 Breeding Pool
+1 Byway Courier
+1 Culling Dais
+1 Diamond Kaleidoscope
 1 Doubling Season
-1 Dreamstone Hedron
-1 Eden, Seat of the Sanctum
-1 Elven Lyre
-1 Energy Refractor
-1 Eye of Nowhere
-1 Fallowsage
-1 Flooded Strand
-1 Font of Fortunes
-12 Forest
-1 Frazzle
-1 Frostwalk Bastion
-1 Goggles of Night
-1 Golden Egg
-1 Grand Coliseum
-1 Green Mana Battery
-1 Grounded
-1 Hydroelectric Specimen
-14 Island
-1 Island of Wak-Wak
-1 Jandor's Ring
-1 Jwari Shapeshifter
-1 Kalonian Behemoth
-1 Krosan Verge
-1 Lunar Mystic
-1 Managorger Hydra
-1 Mirkwood Meditator
-1 Natural Spring
-1 Oran-Rief Survivalist
-1 Pact of Negation
-1 Phantasmal Terrain
-1 Reflecting Mirror
-1 Robotics Mastery
-1 Rumble Arena
-1 Sand Silos
-1 Sculptor of Winter
-1 Shattered Wings
-1 Short Bow
-1 Silken Strength
-1 Skyscythe Engulfer
-1 Soldevi Excavations
-1 Springjack Pasture
-1 Sprout
-1 Staff of Zegon
-1 Stone Calendar
-1 Temporal Manipulation
-1 Temporal Mastery
-1 The Hive
-1 The Monumental Facade
-1 The Shire
+1 Dreamroot Cascade
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvenking's Halls
+1 Elvish Farmer
+1 Filigree Crawler
+16 Forest
+1 Geistcatcher's Rig
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Gold Pan
+1 Goldvein Pick
+1 Guardian of Cloverdell
+1 Homarid Spawning Bed
+1 Illusions of Grandeur
+1 Iron Bully
+9 Island
+1 Juju Bubble
+1 Kozilek's Unsealing
+1 Magma Mine
+1 Magnifying Glass
+1 Mantle of the Wolf
+1 Meditation Pools
+1 Most Wanted
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Parasitic Strix
+1 Pentavus
+1 Primeval Bounty
+1 Rain-Slicked Copse
+1 Rampaging Baloths
+1 Rejuvenating Springs
+1 Retrofitter Foundry
+1 Rimewood Falls
+1 S.H.I.E.L.D. Deployment Drone
+1 Simic Growth Chamber
+1 Slayer's Plate
+1 Slumbering Waterways
+1 Sodden Verdure
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Tangled Islet
+1 Tanglepool Bridge
+1 Temple of Mystery
+1 Thallid Devourer
+1 The One Ring
 1 The Theorist, Jace Beleren
-1 Tranquil Thicket
-1 Treasure Cruise
-1 Viridian Lorebearers
-1 Virtue of Knowledge
-1 Vivify
-1 Voyage's End
-1 Weaver of Currents
-1 White Lotus Hideout
-1 Wooded Foothills
-1 Wrenn and Realmbreaker
-1 Wretched Throng
+1 Thopter Squadron
+1 Thragtusk
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Trigon of Thought
+1 Tropical Island
+1 Turbulent Wilderness
+1 Turntimber Ranger
+1 Voodoo Doll
+1 Wan Shi Tong, Librarian
+1 Wand of the Elements
+1 Waterlogged Grove
+1 Woodland Stream
+1 Yavimaya Coast
+1 Zephyr Sprite

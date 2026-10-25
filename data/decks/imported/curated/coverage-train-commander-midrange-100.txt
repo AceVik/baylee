@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266101]
+1 An-Havva Township
+1 Ancient Spider
+1 Arms Dealer
+1 Aura Fracture
+1 Barrage Ogre
+1 Bequeathal
+1 Betrothed of Fire
+1 Birthing Pod
+1 Blazing Effigy
+1 Bogardan Firefiend
+1 Careless Celebrant
+1 Caribou Range
+1 Castle Ardenvale
+1 Elven Palisade
+1 Embraal Gear-Smasher
+1 Evendo, Waking Haven
+1 Fanatical Devotion
+1 Fecundity
+1 Fiery Mantle
+1 Forbidding Watchtower
+5 Forest
+1 Gimli, Counter of Kills
+1 Glacial Crevasses
+1 Goblin Assault
+1 Goblin Trenches
+1 Heartwood Giant
+1 Heroism
+1 Hidden Nursery
+1 Jetmir's Garden
+1 Jungle Basin
+1 Jungle Shrine
+1 Kabira Crossroads
+1 Klingon Strike Force
+1 Krark-Clan Stoker
+1 Living Lightning
+1 Magma Vein
+1 Magus of the Order
+1 Manor Gate
+1 Memorial to Unity
+1 Moggcatcher
+1 Moonlit Wake
+12 Mountain
+1 Munitions Enthusiast
+1 Naya Charm
+1 Need for Speed
+1 Night Soil
+1 Oashra Cultivator
+1 Oran-Rief, the Vastwood
+1 Orcish Bloodpainter
+1 Orcish Mechanics
+1 Orcish Vandal
+1 Pegasus Refuge
+1 Penregon Strongbull
+1 Personal Incarnation
+1 Pitchburn Devils
+6 Plains
+1 Pyre Spawn
+1 Raiding Party
+1 Reach for the Sky
+1 Reya Dawnbringer
+1 Rith's Grove
+1 Sardian Avenger
+1 Sell-Sword Brute
+1 Sheltering Landscape
+1 Shivan Harvest
+1 Silent Sentinel
+1 Skirsdag Cultist
+1 Sluggishness
+1 Smaug the Magnificent
+1 Spreading Algae
+1 Sustenance
+1 Tar Pitcher
+1 The Shire
+1 Tibalt's Rager
+1 Tinder Farm
+1 Ulvenwald Observer
+1 Viridian Harvest
+1 Vivid Meadow
+1 Welcome to . . .
+
+[commander]
+Johan

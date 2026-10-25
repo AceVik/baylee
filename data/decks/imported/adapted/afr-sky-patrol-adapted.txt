@@ -4,6 +4,7 @@
 4 Absorb
 4 Daring Leap
 4 Dramatic Rescue
+4 Energy Arc
 3 Expel
 4 Glacial Floodplain
 1 Hengegate Pathway
@@ -11,7 +12,6 @@
 1 Luminarch Aspirant
 4 Offering to Asha
 4 Ojutai's Command
-4 Overrule
+3 Overrule
 11 Plains
 4 Sphinx's Revelation
-3 Supreme Verdict

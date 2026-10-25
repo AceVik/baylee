@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266176]
+1 Amnesia
+1 Anti-Magic Aura
+1 Apathy
+1 Aven Reedstalker
+1 Aven Smokeweaver
+1 Avengers Tower
+1 Battleground Geist
+1 Castaway's Despair
+1 Cavern of Souls
+1 Celestial Messenger
+1 Cloud Spirit
+1 Cloudsculpt Technician
+1 Containment Protocol
+1 Controlled Instincts
+1 Crawling Barrens
+1 Dark Depths
+1 Defensive Stance
+1 Elven Passage
+1 Errant Minion
+1 Ethereal Whiskergill
+1 Evasive Action
+1 Extinguish
+1 Faerie Invaders
+1 Faerie Swarm
+1 Field of Dreams
+1 Flash Counter
+1 Fog Elemental
+1 Geist of the Archives
+1 Ghost Ship
+1 Glimmerbell
+1 Grasping Dunes
+1 Guildmages' Forum
+1 Hidden Grotto
+1 Il Mheg Pixie
+1 Invisibility
+31 Island
+1 It'll Quench Ya!
+1 Living Tempest
+1 Living Tsunami
+1 Metathran Transport
+1 Metropolis Sprite
+1 Mistwalker
+1 Nephalia Seakite
+1 Niblis of the Breath
+1 Nightveil Sprite
+1 Nimbus of the Isles
+1 Oko's Accomplices
+1 Pseudodragon Familiar
+1 Sea Sprite
+1 Sentinels of Glen Elendra
+1 Shriekgeist
+1 Soul of the Rapids
+1 Stormcloud Spirit
+1 Supreme Phantom
+1 Tangle Kelp
+1 Tattered Haunter
+1 Teardrop Kami
+1 Thassa's Ire
+1 The Unspeakable
+1 Troublesome Spirit
+1 Unknown Shores
+1 Updraft Elemental
+1 Vaporkin
+1 Wandering Ones
+1 Wanderlight Spirit
+1 Weatherseed Faeries
+1 Wind Dancer
+1 Wind Spirit
+1 Zephyr Sprite
+
+[commander]
+Yargle, Goliath of Otaria

@@ -1,12 +1,11 @@
 # adapted from data/decks/precon/APC/pandemonium.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Pandemonium_APC.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Pandemonium (Adapted)]
-3 Arrows of Justice
 2 Befuddle
-2 Cleansing
 1 Deluge
 2 Evasive Action
 12 Forest
+3 Harrow
 1 Helionaut
 1 Hornswoggle
 1 Inquisition
@@ -16,14 +15,15 @@
 1 Nomadic Elf
 3 Plains
 2 Quirion Elves
-3 Rakshasa's Secret
+1 Rack and Ruin
 1 Refute
-1 Rend Spirit
+3 Renewal
 1 Skywhaler's Shot
 2 Spin Out
 3 Stealth Mission
 2 Sungold Barrage
 3 Swamp
+2 Sylvan Library
 2 Urborg Elf
 1 Winter's Grasp
 2 Wistful Thinking

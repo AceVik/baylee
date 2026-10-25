@@ -5,10 +5,10 @@
 2 Child of Night
 4 Consult the Necrosages
 1 Countersquall
-1 Dark Nourishment
 1 Demonic Hordes
 4 Essence Vortex
 1 Glimpse the Unthinkable
+1 Hatred
 2 Horizon Scholar
 2 Insatiable Harpy
 9 Island

@@ -4,10 +4,12 @@
 4 Auger Spree
 4 Bedevil
 2 Borderland Minotaur
+1 Death Baron
 3 Deathbellow Raider
-4 Dreadbore
+4 Delirium
 2 Flurry of Horns
 1 Insatiable Harpy
+1 Kaervek's Purge
 1 Lightning Diadem
 2 Magma Spray
 1 Minotaur Skullcleaver
@@ -15,7 +17,5 @@
 3 Pensive Minotaur
 1 Pharika's Chosen
 1 Rageblood Shaman
-1 Stromgald Cabal
+4 Spontaneous Combustion
 11 Swamp
-4 Terminate
-1 Wrecking Ball

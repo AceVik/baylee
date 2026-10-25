@@ -6,10 +6,10 @@
 4 Bedevil
 1 Buccaneer's Bravado
 2 Cinder Barrens
+4 Delirium
 2 Dire Fleet Captain
 2 Dire Fleet Neckbreaker
 1 Dire Fleet Poisoner
-4 Dreadbore
 2 Fanatical Firebrand
 1 Fathom Fleet Firebrand
 2 Fiery Cannonade
@@ -20,6 +20,6 @@
 2 Magma Spray
 12 Mountain
 1 Reaver Ambush
+4 Spontaneous Combustion
 9 Swamp
-4 Terminate
 1 Walk the Plank

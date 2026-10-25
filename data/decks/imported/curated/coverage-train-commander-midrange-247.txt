@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266248]
+1 Acid Web Spider
+1 Ambrosia Whiteheart
+1 Aven Fogbringer
+1 Aysen Abbey
+1 Battleflight Eagle
+1 Bone to Ash
+1 Brinebarrow Intruder
+1 Bronzebeak Moa
+1 Burrog Befuddler
+1 Conclave Naturalists
+1 Crossroads Watcher
+1 Deputy of Acquittals
+1 Deserted Beach
+1 Devout Lightcaster
+1 East Wind Avatar
+1 Elfhame Palace
+1 Emancipation Angel
+1 Eutropia the Twice-Favored
+1 Exclusion Mage
+1 Faerie Duelist
+1 Fleetfoot Panther
+1 Forest
+1 Fortified Beachhead
+1 Friendly Ghost
+1 Frilled Mystic
+1 Gilded Drake
+1 Glacial Fortress
+1 Guadosalam, Farplane Gateway
+1 Guardian of Pilgrims
+1 Humbling Elder
+1 Irrigated Farmland
+1 Irrigation Ditch
+15 Island
+1 Kor Skyfisher
+1 Ledger Shredder
+1 Leonin Snarecaster
+1 Lotusguard Disciple
+1 Lumengrid Sentinel
+1 Marketwatch Phantom
+1 Mist Raven
+1 Mystic Snake
+1 Nebelgast Herald
+1 Niblis of the Mist
+1 Patagia Tiger
+1 Peregrine Drake
+1 Pestermite
+7 Plains
+1 Prying Eyes
+1 Razortide Bridge
+1 Rescuer Chwinga
+1 Restless Prairie
+1 Risen Reef
+1 Scattered Groves
+1 Seaside Citadel
+1 Separatist Voidmage
+1 Shrieking Drake
+1 Silver Drake
+1 Snapcaster Mage
+1 Soldier of the Grey Host
+1 Somnomancer
+1 Spara's Headquarters
+1 Steppe Lynx
+1 Stern Proctor
+1 Strix Lookout
+1 Subtlety
+1 Suburban Sanctuary
+1 Timid Drake
+1 Toucan-Puffin
+1 Tranquil Landscape
+1 Treasure Cruise
+1 Treva's Ruins
+1 Triton Waverider
+1 Urban Retreat
+1 Venser, Shaper Savant
+1 Voidwielder
+1 Weldfast Wingsmith
+1 Welkin Guide
+1 Whitemane Lion
+1 Zhalfirin Lancer
+
+[commander]
+Derevi, Empyrial Tactician

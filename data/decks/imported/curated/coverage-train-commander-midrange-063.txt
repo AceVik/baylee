@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266064]
+1 Accursed Duneyard
+1 Arch of Orazca
+1 Archers of Qarsi
+1 Argothian Elder
+1 Axebane Stag
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Bitterbow Sharpshooters
+1 Civic Gardener
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Dragon Sniper
+1 Elder Druid
+1 Elvish Clancaller
+1 Elvish Herder
+1 Elvish Hunter
+1 Elvish Lookout
+1 Elvish Piper
+1 Elvish Ranger
+1 Ember Weaver
+1 Endless Sands
+1 Fauna Shaman
+31 Forest
+1 Frontier Guide
+1 Game-Trail Changeling
+1 Goliath Spider
+1 Gorn Captain
+1 Grappler Spider
+1 Heart Warden
+1 Humble Budoka
+1 Ivy Dancer
+1 Jukai Messenger
+1 Kessig Recluse
+1 Mammoth Spider
+1 Maze of Ith
+1 Meng Huo's Horde
+1 Might Weaver
+1 Norwood Archers
+1 Norwood Ranger
+1 Order of the Sacred Bell
+1 Pradesh Gypsies
+1 Prismatic Vista
+1 Rib Cage Spider
+1 Runaway Boulder
+1 Rushwood Herbalist
+1 Scorched Ruins
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+1 Spire Tracer
+1 Sporecap Spider
+1 Staff of Nin
+1 Steel Leaf Champion
+1 Swift Spinner
+1 Tajuru Snarecaster
+1 Talarian Hook Spider
+1 Talon Gates of Madara
+1 Taoist Hermit
+1 Tarnished Citadel
+1 The Fabulous Frog-Man
+1 Tireless Hauler
+1 Trailblazer
+1 Treetop Rangers
+1 Urborg, Tomb of Yawgmoth
+1 Vulpine Goliath
+1 Weatherseed Elf
+1 Willow Elf
+1 Woodland Druid
+1 Woodland Patrol
+
+[commander]
+Thrun, the Last Troll

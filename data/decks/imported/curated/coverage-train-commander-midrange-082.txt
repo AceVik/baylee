@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266083]
+1 Aesi, Tyrant of Gyre Strait
+1 Avatar Enthusiasts
+1 Backup Agent
+1 Bant Battlemage
+1 Barrow Witches
+1 Bazaar Trademage
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Boiling Rock Prison
+1 Captain Storm, Cosmium Raider
+1 Cat-Gator
+1 Commander Greven il-Vec
+1 Contraband Kingpin
+1 Council of Advisors
+1 Crystal Quarry
+1 Desperate Bloodseeker
+1 Dimir Informant
+1 EPF Point Squad
+1 Elite Instructor
+1 Emry, Lurker of the Loch
+1 Eutropia the Twice-Favored
+1 Faerie Seer
+1 Fire Dragon
+2 Forest
+1 Garna, the Bloodflame
+1 Geothermal Bog
+1 Goblin-town
+1 Graypelt Hunter
+1 Halimar Excavator
+1 Highway Robber
+9 Island
+1 Izzet Chronarch
+1 Jeong Jeong's Deserters
+1 Kalastria Healer
+1 Kazandu Blademaster
+1 Lantern-Lit Graveyard
+1 Liliana the Repentant
+1 Lumbering Falls
+1 Mardu Devotee
+1 Merchant of Secrets
+1 Mire Triton
+5 Mountain
+1 Murasa Ranger
+1 Nearby Planet
+1 Nimana Sell-Sword
+1 Novijen, Heart of Progress
+1 Nucklavee
+1 Oran-Rief Survivalist
+1 Overflowing Basin
+1 Overwhelmed Apprentice
+4 Plains
+1 Priest of Gix
+1 Professor Zei, Anthropologist
+1 Pym Technologies
+1 Rasputin Dreamweaver
+1 Razortrap Gorge
+1 Reclusive Artificer
+1 Restoration Gearsmith
+1 Sage Aven
+1 Sage of Mysteries
+1 Sage's Row Denizen
+1 Sage's Row Savant
+1 Sanctum Gargoyle
+1 Scarblade Scout
+1 Serum Visionary
+1 Shadowblood Ridge
+1 Shinra Reinforcements
+1 Sneering Shadewriter
+1 Sulfurous Mire
+3 Swamp
+1 Temur Tawnyback
+1 The World Tree
+1 Tidus, Blitzball Star
+1 Timberland Guide
+1 Umara Raptor
+1 Vendilion Clique
+1 Wartime Protestors
+1 Whisper Agent
+1 Windgrace Acolyte
+1 Yotian Dissident
+
+[commander]
+General Tazri

@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266323]
+1 Archdemon of Paliano
+1 Assault Strobe
+1 Assault Zeppelid
+1 Atog
+1 Black Carriage
+1 Blistering Dieflyn
+1 Chronatog
+1 Contaminated Landscape
+1 Crookshank Kobolds
+1 Crystal Quarry
+1 Deathgaze Cockatrice
+1 Deity of Scars
+1 Discordant Spirit
+1 Flailing Drake
+1 Foratog
+12 Forest
+1 Game-Trail Changeling
+1 Gangly Stompling
+1 Geothermal Crevice
+1 Goliath Spider
+1 Grizzly Ghoul
+1 Hippo-Cows
+1 Holy Day
+1 Horned Kavu
+1 Indatha Triome
+2 Island
+1 Kavu Mauler
+1 Ketria Triome
+1 Large Bear
+1 Lithatog
+1 Living Airship
+1 Lurking Green Dragon
+1 Mana Clash
+1 Mind Bend
+1 Mordenkainen's Polymorph
+1 Mountain
+1 Murmuring Bosk
+1 Mystic Monastery
+1 Nameless Race
+1 Nearby Planet
+1 Needlethorn Drake
+1 Nightveil Predator
+1 Nimbus Swimmer
+1 Nomad Outpost
+1 Obscura Initiate
+1 Opulent Palace
+1 Phantatog
+1 Plains
+1 Prismatic Lace
+1 Raugrin Triome
+1 Recall
+1 Reclaim
+1 Sandsteppe Citadel
+1 Sanity Gnawers
+1 Screeching Harpy
+1 Segmented Wurm
+1 Sentry of the Underworld
+1 Setessan Griffin
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Sheoldred's Edict
+1 Shivan Wurm
+1 Shriek of Dread
+1 Skysnare Spider
+1 Snarling Warg
+1 Stenchskipper
+7 Swamp
+1 Thaumatog
+1 The World Tree
+1 Transmutation
+1 Treva's Ruins
+1 Twisted Landscape
+1 Ulrich's Kindred
+1 Venomthrope
+1 Volcano Imp
+1 Vulpine Goliath
+1 Waking Nightmare
+1 War Mammoth
+1 Wild Elephant
+1 Windreaper Falcon
+1 Winged Coatl
+
+[commander]
+Kenrith, the Returned King

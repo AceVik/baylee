@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266203]
+1 Air Marshal
+1 Ancient Spring
+1 Arcane Sanctum
+1 Armored Galleon
+1 Bane Alley Blackguard
+1 Black Widow, Deadly Hunter
+1 Bladestitched Skaab
+1 Bog Smugglers
+1 Cabal Evangel
+1 Cat Burglar
+1 Contaminated Landscape
+1 Creeping Tar Pit
+1 Dakmor Lancer
+1 Dauntless River Marshal
+1 Deathcult Rogue
+1 Deathlace
+1 Deepchannel Duelist
+1 Deft Duelist
+1 Dismal Backwater
+1 Disorient
+1 Dread Warlock
+1 Dromar's Cavern
+1 Duskmantle Operative
+1 Elite Arrester
+1 Ertai Resurrected
+1 Fetid Pools
+1 Fire Nation Ambushers
+1 Glasspool Mimic
+1 Great Hall of Starnheim
+1 Hallowed Fountain
+1 Hand of Silumgar
+1 Harbor Guardian
+1 Hengegate Pathway
+1 Hired Poisoner
+1 Hussar Patrol
+1 Irradiate
+4 Island
+1 Jhessian Balmgiver
+1 Krovikan Scoundrel
+1 Magical Hack
+1 Marsh Gas
+1 Martyrs' Tomb
+1 Minister of Impediments
+1 Moriok Reaver
+1 Nimble Pilferer
+1 Onyx Mage
+1 Opposition Agent
+6 Plains
+1 Poison-Blade Mentor
+1 Port of Karfell
+1 Prairie Stream
+1 Prickly Boggart
+1 Princess Lucrezia
+1 Raffine's Tower
+1 Rathi Trapper
+1 Red Cliffs Armada
+1 Relic's Roar
+1 Resolute Rider
+1 Righteous War
+1 Riven Turnbull
+1 Sewers of Estark
+1 Sivitri, Dragon Master
+1 Snowfield Sinkhole
+1 Suppression Ray
+13 Swamp
+1 Tainted Field
+1 Talas Merchant
+1 Teferi's Honor Guard
+1 Thalakos Lowlands
+1 Three Tragedies
+1 Trespasser il-Vec
+1 Uncle Istvan
+1 Unhallowed Phalanx
+1 Venser, the Sojourner
+1 Wandering Mage
+1 Wei Infantry
+1 Whisper Squad
+1 Wizards' School
+1 Zealous Guardian
+
+[commander]
+Lady Evangela

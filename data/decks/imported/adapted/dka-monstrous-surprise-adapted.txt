@@ -2,15 +2,16 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Monstrous Surprise (Adapted)]
 4 Colossal Might
-1 Feral Ferocity
+2 Fling
 13 Forest
 2 Goblin Arsonist
-2 Ground Assault
 1 Lumberknot
-3 Manamorphose
+2 Manamorphose
 11 Mountain
 2 Orchard Spirit
+1 Overrun
 1 Pitchburn Devils
+1 Plummet
 2 Rampant Growth
 2 Russet Wolves
 4 Savage Twister

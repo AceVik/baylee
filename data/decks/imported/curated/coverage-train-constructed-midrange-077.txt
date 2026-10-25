@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266078]
+2 Arashin Cleric
+2 Aven Battle Priest
+2 Centaur Peacemaker
+1 Forest
+1 Guadosalam, Farplane Gateway
+2 Healer of the Pride
+1 Island
+2 Jaddi Offshoot
+4 Meditation Pools
+2 Ondu Cleric
+12 Plains
+2 Radiant's Dragoons
+2 Rashida Scalebane
+2 Restless Vinestalk
+2 Rhox War Monk
+2 Senate Guildmage
+2 Shu Grain Caravan
+2 Skyclave Cleric
+2 Social Climber
+2 Soul's Attendant
+2 Tatyova, Benthic Druid
+2 Temple Acolyte
+2 Teroh's Faithful
+2 Uro, Titan of Nature's Wrath
+3 Willowrush Verge

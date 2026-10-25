@@ -6,9 +6,9 @@
 2 Azorius Cluestone
 4 Azorius Guildgate
 4 Daring Leap
-2 Flanking Troops
+3 Energy Arc
 10 Island
-3 Offering to Asha
+2 Loran, Disciple of History
 4 Ojutai's Command
 1 Overrule
 12 Plains

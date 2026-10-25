@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266196]
+1 Alchemist's Refuge
+1 Arashin Cleric
+1 Aven Battle Priest
+1 Aven of Enduring Hope
+1 Aysen Abbey
+1 Bulwark Giant
+1 Cathedral Sanctifier
+1 Centaur Healer
+1 Centaur Peacemaker
+1 Courier Griffin
+1 Divine Offering
+1 Dwarven Priest
+1 Eumidian Terrabotanist
+3 Forest
+1 Fountain of Youth
+1 Gates of Istfell
+1 Gathering Place
+1 Healer of the Glade
+1 Healer of the Pride
+1 Hill Giant Herdgorger
+1 Hope Charm
+1 Idyllic Beachfront
+1 Implement of Improvement
+1 Inspiring Cleric
+1 Irrigation Ditch
+1 Jedit's Dragoons
+1 Kazandu Nectarpot
+1 Kor Celebrant
+1 Lagonna-Band Elder
+1 Leonin Elder
+1 Lifecreed Duo
+1 Lone Missionary
+1 Lonely Arroyo
+1 Lumbering Falls
+1 Lush Oasis
+1 Mandible Justiciar
+1 Mandroid Squadron
+1 Mindful Biomancer
+1 Mossbeard Ancient
+1 Mystic Gate
+1 Ondu Cleric
+1 Peace Strider
+20 Plains
+1 Potion of Healing
+1 Pristine Talisman
+1 Radiant Strike
+1 Radiant's Dragoons
+1 Rashida Scalebane
+1 Rhox War Monk
+1 Saruli Gatekeepers
+1 Savannah Sage
+1 Scattered Groves
+1 Seaside Citadel
+1 Selkie Hedge-Mage
+1 Senate Guildmage
+1 Shu Grain Caravan
+1 Shu Soldier-Farmers
+1 Skybridge Towers
+1 Skyclave Cleric
+1 Social Climber
+1 Solitude
+1 Soul Warden
+1 Soul's Attendant
+1 Spara's Headquarters
+1 Staff of Domination
+1 Staunch Defenders
+1 Sunbeam Spellbomb
+1 Sunseed Nurturer
+1 Tatyova, Benthic Druid
+1 Team Transmitter
+1 Temple Acolyte
+1 Teroh's Faithful
+1 Tireless Missionaries
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Turntimber Ascetic
+1 Urban Retreat
+1 Werefox Bodyguard
+1 Wylie Duke, Atiin Hero

@@ -1,73 +1,83 @@
 # baylee curated commander ramp seed=20261034
 # licence: AGPL-3.0-only
-[deck:commander ramp U #20261034]
-1 Agatha's Soul Cauldron
-1 Akroma's Memorial
-1 Aladdin's Lamp
-1 Aven Envoy
-1 Beast of Burden
-1 Burrog Befuddler
-1 Cache Raiders
-1 Chromatic Sphere
-1 Coastal Hornclaw
-1 Coretapper
-1 Dark Depths
-1 Deepfathom Skulker
-1 Erosion
-1 Facet Reader
-1 Fallowsage
-1 Fleetfeather Sandals
-1 Fountain of Youth
-1 Geist of Saint Thalia
-1 Grand Coliseum
-1 Gravitational Shift
-1 Gryff Vanguard
-1 Guildmages' Forum
-1 Illusory Wrappings
-34 Island
-1 Ithilien Kingfisher
-1 Mana Cylix
-1 Mana Matrix
-1 Meteor Sword
-1 Mindculling
-1 Mirage Mesa
-1 Mistfire Adept
-1 Narwhal
-1 Network Disruptor
-1 Numbing Dose
-1 Opal Palace
-1 Phyrexian Walker
-1 Rakalite
-1 Rite of Replication
-1 River Merfolk
-1 Rusted Slasher
-1 Sage's Row Savant
-1 Scavenger Grounds
-1 Seacoast Drake
-1 Shimmering Grotto
-1 Shriekhorn
-1 Skull of Orm
+[deck:commander ramp WU #20261034]
+1 Adarkar Wastes
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Azorius Chancery
+1 Bishop of Wings
+1 Blood Servitor
+1 Bronze Walrus
+1 Calciform Pools
+1 Captain of the Watch
+1 Chromatic Star
+1 Cloudcrest Lake
+1 Coastal Tower
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Drowner of Hope
+1 Elspeth, Storm Slayer
+1 Energy Refractor
+1 Gates of Istfell
+1 Geistcatcher's Rig
+1 Gleaming Barrier
+1 Gleaming Bastion
+1 Griffin Guide
+1 Guarded Heir
+1 Hengegate Pathway
+1 Homarid Spawning Bed
+1 Irrigated Farmland
+5 Island
+1 Knight-Captain of Eos
+1 Limestone Golem
+1 Lotus Guardian
+1 Meteor Golem
+1 Meticulous Archive
+1 Mind Stone
+1 Myr Matrix
+1 Myr Sire
+1 Mystic Gate
+1 Nim Deathmantle
+1 Nimbus Maze
+1 Norn's Wellspring
+1 North Pole Gates
+1 Ojer Taq, Deepest Foundation
+1 Pentavus
+19 Plains
+1 Prahv, Spires of Order
+1 Prairie Stream
+1 Prophetic Prism
+1 Prying Blade
+1 Regal Caracal
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Reveillark
+1 S.H.I.E.L.D. Deployment Drone
+1 Sanctum Gargoyle
+1 Scrap Trawler
+1 Sensor Splicer
+1 Sharlayan, Nation of Scholars
+1 Siege Veteran
+1 Skullclamp
+1 Skycloud Egg
+1 Slayer's Plate
 1 Solemn Simulacrum
-1 Spellseeker
-1 Sphinx's Herald
-1 Sphinx-Bone Wand
-1 Spindrift Drake
-1 Stern Dismissal
-1 Stormkeld Prowler
-1 Straw Golem
-1 Temporal Mastery
-1 The Unspeakable
-1 Trickster Mage
-1 Trigon of Thought
-1 Universal Automaton
-1 Universal Solvent
-1 Urza's Avenger
-1 Vibrant Cityscape
-1 Wan Shi Tong, Librarian
-1 Warmonger's Chariot
-1 Weight of Memory
-1 Witness of Tomorrows
-1 Wrath of Marit Lage
+1 Spawning Pit
+1 Study
+1 Terrarion
+1 Thalakos Lowlands
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thought Monitor
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Triskelavus
+1 Voice of the Provinces
+1 Wand of the Elements
 
 [commander]
-Geist of Saint Thalia
+Jedit Ojanen

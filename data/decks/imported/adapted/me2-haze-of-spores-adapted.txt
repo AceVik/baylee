@@ -2,8 +2,6 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Haze of Spores (Adapted)]
 2 Aeolipile
-2 Bala Ged Recovery
-1 Eldritch Evolution
 1 Elvish Farmer
 3 Feral Thallid
 1 Folk of the Pines
@@ -18,11 +16,13 @@
 1 Night Soil
 1 Singing Tree
 2 Skull Catapult
+1 Skullmead Cauldron
+1 Spectral Bears
 1 Spore Cloud
 2 Spore Flower
 4 Thallid
 3 Thallid Devourer
 3 Thorn Thallid
-1 Verdigris
+2 Woolly Spider
 1 Wyluli Wolf
 1 Yavimaya Ancients

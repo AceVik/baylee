@@ -1,79 +1,80 @@
 # baylee curated highlander control seed=20261126
 # licence: AGPL-3.0-only
-[deck:highlander control WG #20261126]
-1 Angelic Blessing
-1 Arborback Stomper
-1 Arid Archway
-1 Automatic Librarian
-1 Avacyn's Memorial
-1 Ba Sing Se
-1 Base Camp
-1 Bast, Panther Goddess
-1 Braidwood Sextant
-1 Broken Fall
-1 Captain's Call
-1 Cathar's Companion
-1 Cathedral of War
-1 Celestial Sword
-1 Cleansing Nova
-1 Cobbled Wings
-1 Colossification
-1 Conduit of Worlds
-1 Cryptic Caves
-1 Cryptic Spires
-1 Disruptor Pistol
-1 Divine Verdict
-1 Dryad Arbor
-1 Eerie Interlude
-1 Enchantress's Presence
-7 Forest
-1 Frontier Guide
-1 Gallifrey Council Chamber
-1 Gilt-Leaf's Embrace
-1 Goblin Cannon
-1 Hana Kami
-1 Horizon of Progress
-1 Hornet Sting
-1 Idyllic Tutor
-1 Invasion of Belenon
-1 Iron Will
-1 Ironwright's Cleansing
-1 Join the Ranks
-1 Kite Shield
-1 Living Lands
-1 Make Your Move
-1 Manor Gate
-1 Mirror Universe
-1 Monumental Henge
-1 Natural Connection
-1 Obscura Storefront
-1 Omen of the Sun
-1 Ominous Cemetery
-1 Pegasus Refuge
-19 Plains
-1 Planar Gate
-1 Privileged Position
-1 Reach for the Sky
-1 Recollect
-1 Reliquary Tower
-1 Righteous Cause
-1 Rogue's Passage
-1 Sarkhan's Resolve
-1 Sejiri Shelter
-1 Sidequest: Catch a Fish
-1 Simian Brawler
-1 Soulbound Guardians
-1 Spawning Grounds
-1 Spike-Tailed Ceratops
-1 Spotted Griffin
-1 Stoneskin
-1 Terramorphic Expanse
-1 Thrór's Map
-1 Urza's Cave
-1 Wall of Light
-1 Wanderer's Twig
-1 War Horn
-1 Wayfarer's Bauble
-1 Whisperer of the Wilds
-1 Wirewood Elf
-1 Zuran Orb
+[deck:highlander control UG #20261126]
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Barkchannel Pathway
+1 Blood Servitor
+1 Breeding Pool
+1 Byway Courier
+1 Corsair Captain
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Doubling Season
+1 Dreamroot Cascade
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Farmer
+1 Etherium Spinner
+1 Eye of Vecna
+1 Filigree Crawler
+15 Forest
+1 Gilded Goose
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Goldvein Pick
+1 Homarid Spawning Bed
+1 Illusions of Grandeur
+10 Island
+1 Jewel-Eyed Cobra
+1 Kitchen
+1 Kozilek's Unsealing
+1 Lush Oasis
+1 Mantle of the Wolf
+1 Meteorite
+1 Most Wanted
+1 Mutant Town
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Orochi Hatchery
+1 Paradox Gardens
+1 Path of Annihilation
+1 Pentavus
+1 Primeval Bounty
+1 Prying Blade
+1 Pym Technologies
+1 Quandrix Campus
+1 Rain-Slicked Copse
+1 Rampaging Baloths
+1 Rejuvenating Springs
+1 Retrofitter Foundry
+1 S.H.I.E.L.D. Deployment Drone
+1 Simic Growth Chamber
+1 Skullclamp
+1 Slayer's Plate
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Talisman of Curiosity
+1 Tangled Islet
+1 Tanglepool Bridge
+1 Thallid Devourer
+1 The One Ring
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thragtusk
+1 Three Steps Ahead
+1 Three Tree Mascot
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Turbulent Wilderness
+1 Turntimber Ranger
+1 Vineglimmer Snarl
+1 Walking Ballista
+1 Wand of the Elements
+1 Willowrush Verge
+1 Yavimaya Coast

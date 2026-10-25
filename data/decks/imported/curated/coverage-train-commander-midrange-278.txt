@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266279]
+1 Adept Watershaper
+1 Alaborn Cavalier
+1 Arctic Flats
+1 Arena of the Ancients
+1 Auriok Transfixer
+1 Austere Command
+1 Avacynian Priest
+1 Aysen Bureaucrats
+1 Barrenton Medic
+1 Benalish Trapper
+1 Blinding Mage
+1 Bountiful Promenade
+1 Bretagard Stronghold
+1 Canopy Vista
+1 Catastrophe
+1 Celestial Enforcer
+1 Checkpoint Officer
+1 Civic Gardener
+1 Cleansing Nova
+1 Dromoka Dunecaster
+1 Elder Druid
+1 Ephara's Warden
+1 Errant Doomsayers
+1 Etched Cornfield
+1 Flanking Troops
+3 Forest
+1 Formation
+1 Frostbridge Guard
+1 Gale Force
+1 Gavony Township
+1 Gavony Trapper
+1 Goldmeadow Harrier
+1 Guan Yu's 1,000-Li March
+1 Half-Elf Monk
+1 Hedge Troll
+1 Hushwood Verge
+1 Juniper Order Druid
+1 Kinsbaile Cavalier
+1 Kitsune Diviner
+1 Kjeldoran Skyknight
+1 Law-Rune Enforcer
+1 Leonin Bladetrap
+1 Ley Druid
+1 Lightning Blow
+1 Loxodon Mystic
+1 Master of Arms
+1 Metallurgeon
+1 Orthodoxy Enforcer
+20 Plains
+1 Razorverge Thicket
+1 Rime Tender
+1 Ring of Gix
+1 Saltcrusted Steppe
+1 Samite Alchemist
+1 Seasoned Marshal
+1 Selesnya Guildgate
+1 Selesnya Sanctuary
+1 Sidar Jabari
+1 Sigardian Priest
+1 Skyspear Cavalry
+1 Soltari Lancer
+1 Soulscour
+1 Spawnbinder Mage
+1 Spore Cloud
+1 Sterling Keykeeper
+1 Stern Constable
+1 Stirring Wildwood
+1 Stone Haven Pilgrim
+1 Sungrass Prairie
+1 Temple of Plenty
+1 Tenth District Veteran
+1 Thelonite Druid
+1 Thelonite Monk
+1 Thornglint Bridge
+1 Tranquil Garden
+1 Vitalize
+1 Windurst, Federation Center
+1 Wizened Cenn
+
+[commander]
+Kei Takahashi

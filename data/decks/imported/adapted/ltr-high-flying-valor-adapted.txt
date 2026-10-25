@@ -4,15 +4,15 @@
 4 Absorb
 2 Aeronaut Cavalry
 4 Daring Leap
-4 Dramatic Rescue
+1 Dramatic Rescue
 2 Elspeth's Smite
+4 Energy Arc
 1 Fortified Beachhead
 4 Idyllic Beachfront
 6 Island
 1 Mass Production
 4 Offering to Asha
 4 Ojutai's Command
-1 Overrule
 10 Plains
 2 Resolute Reinforcements
 1 Siege Veteran

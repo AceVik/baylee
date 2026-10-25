@@ -1,82 +1,73 @@
-# baylee unseen-card holdout commander seed=90000025
+# baylee unseen-card holdout commander seed=90000033
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #90000025]
-1 Accursed Duneyard
-1 Akroma's Memorial
-1 Ancient Ziggurat
-1 Ashen Firebeast
-1 Barren Moor
-1 Berserkers' Onslaught
-1 Blaze
-1 Blood Host
-1 Bloodsoaked Insight
-1 Bog Serpent
-1 Boiling Rock Prison
-1 Boiling Seas
-1 Castle Embereth
-1 Caterwauling Boggart
-1 City of Shadows
-1 Cloudpost
-1 Conduit Pylons
-1 Cosmic Horror
-1 Desert of the Fervent
-1 Douse in Gloom
-1 Dowsing Dagger
-1 Ebon Praetor
-1 Experimental Armor
-1 Fire Tempest
-1 Flameborn Viron
-1 Giant Slug
-1 Harrowing Journey
-1 Harvesttide Infiltrator
-1 Heart of Ramos
-1 Helm of the Host
-1 High Market
-1 Iroas's Blessing
-1 Kobold Taskmaster
-1 Mahadi, Emporium Master
-1 Mana Vault
-1 Mikokoro, Center of the Sea
-1 Mirror Universe
-1 Mishra's Foundry
-1 Mold Demon
-16 Mountain
-1 Mox Diamond
-1 Mycosynth Lattice
-1 Nebula Dragon
-1 Nezumi Shadow-Watcher
-1 Noxious Grasp
-1 Obsianus Golem
-1 Orcish Spy
-1 Phyrexian Tower
-1 Plagued Rusalka
-1 Ravenous Rats
-1 Razorfield Thresher
-1 Rearing Embermare
-1 Ring of Ma'rûf
-1 Ritual of Soot
-1 Rorix Bladewing
-1 Rust Monster
-1 Sanctum Seeker
-1 Sawblade Scamp
-1 Scream Puff
-1 Sell-Sword Brute
-1 Sneaking Guide
-1 Sparkmage Apprentice
-1 Steel Wall
-10 Swamp
-1 Tarfire
-1 Thunder Strike
-1 Thundermaw Hellkite
-1 Tremor
-1 Urza's Power Plant
-1 Vivid Crag
-1 Vivid Marsh
-1 Voldaren Stinger
-1 Western Paladin
-1 Wit's End
-1 Woebearer
-1 Zodiac Rat
+[deck:commander ramp U #90000033]
+1 Academy Ruins
+1 Arcbound Ravager
+1 Arcum's Astrolabe
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Barbed Sextant
+1 Blighted Cataract
+1 Blood Servitor
+1 Bronze Walrus
+1 Cephalid Coliseum
+1 Chromatic Star
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Drowner of Hope
+1 Enatu Golem
+1 Energy Refractor
+1 Experimental Aviator
+1 Faerie Formation
+1 Falcon, Winged Wonder
+1 Filigree Familiar
+1 Five Hundred Year Diary
+1 Geistcatcher's Rig
+1 Gleaming Barrier
+1 Golem Foundry
+1 Ipnu Rivulet
+33 Island
+1 Jinxed Ring
+1 Knightfisher
+1 Lotus Guardian
+1 Meteor Golem
+1 Minamo, School at Water's Edge
+1 Mind Stone
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Oboro, Palace in the Clouds
+1 Orochi Hatchery
+1 Otawara, Soaring City
+1 Pentavus
+1 Prophet of the Peak
+1 Prophetic Prism
+1 Redrock Sentinel
+1 Retrofitter Foundry
+1 Serpent Generator
+1 Shield-Wall Sentinel
+1 Skullclamp
+1 Slayer's Plate
+1 Soldevi Excavations
+1 Solemn Simulacrum
+1 Sparring Construct
+1 Spawning Pit
+1 Sphinx-Bone Wand
+1 Terrarion
+1 The Hive
+1 The One Ring
+1 The Underworld Cookbook
+1 The Walls of Ba Sing Se
+1 Thopter Squadron
+1 Thought Monitor
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Trenzalore Clocktower
+1 Trigon of Thought
+1 Triskelavus
+1 Walking Ballista
+1 Wand of the Elements
 
 [commander]
-Mahadi, Emporium Master
+Caelorna, Coral Tyrant

@@ -2,6 +2,8 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Forest's Might (Adapted)]
 1 Aggressive Mammoth
+1 An-Havva Inn
+2 Blanchwood Armor
 3 Centaur Courser
 3 Chord of Calling
 2 Crushing Canopy
@@ -12,11 +14,9 @@
 2 Greenwood Sentinel
 3 Highland Game
 3 Khalni Ambush
-1 Lace with Moonglove
 2 Llanowar Elves
 1 Meteor Golem
 2 Plummet
 1 Prodigious Growth
 3 Titanic Growth
-2 Tranquility
 2 Vigilant Baloth

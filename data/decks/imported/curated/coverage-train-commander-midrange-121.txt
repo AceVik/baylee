@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266122]
+1 Attended Socialite
+1 Axiom Engraver
+1 Beast-Kin Ranger
+1 Blooming Marsh
+1 Bogwater Lumaret
+1 Canopy Baloth
+1 Conclave Naturalists
+1 Darigaaz's Caldera
+1 Dawnhart Disciple
+1 Dining Room
+1 Disciple of Freyalise
+1 Dosan's Oldest Chant
+1 Duskwatch Hunter
+1 Elderfang Disciple
+1 Eumidian Terrabotanist
+1 Eyeblight Assassin
+1 Fang Guardian
+1 Finale of Devastation
+1 Fire-Lit Thicket
+18 Forest
+1 Game Trail
+1 Geothermal Crevice
+1 Grazing Gladehart
+1 Grove Rumbler
+1 Haunted Ridge
+1 Healer of the Glade
+1 Hyrax Tower Scout
+1 Icecave Crasher
+1 Intrepid Provisioner
+1 Invasive Species
+1 Kazandu Nectarpot
+1 Koskun Keep
+1 Kraul Whipcracker
+1 Lay Waste
+1 Loam Dryad
+1 Lounge
+1 Magus of the Wheel
+1 Makindi Sliderunner
+1 Mindful Biomancer
+1 Mountain
+1 Nexus Wardens
+1 Nightshade Dryad
+1 Nurturing Peatland
+1 Perimeter Patrol
+1 Qasali Slingers
+1 Raging Ravine
+1 Razortrap Gorge
+1 Rejuvenate
+1 Rock Basilisk
+1 Rogue Elephant
+1 Saruli Caretaker
+1 Saruli Gatekeepers
+1 Savage Lands
+1 Scourge of the Undercity
+1 Scythe Leopard
+1 Scythe Tiger
+1 Serpent Assassin
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Sheoldred
+1 Silt Crawler
+1 Skirge Familiar
+1 Slice in Twain
+1 Slinking Skirge
+1 Snapping Gnarlid
+1 Spire Mangler
+1 Springmane Cervin
+4 Swamp
+1 Sylvan Brushstrider
+1 Tainted Peak
+1 Temple of Malice
+1 Totem Speaker
+1 Transdimensional Bovine
+1 Tsabo Tavoc
+1 Turntimber Ascetic
+1 Twisted Landscape
+1 Visara the Dreadful
+1 Vithian Renegades
+1 Ziatora's Proving Ground
+
+[commander]
+Xira Arien

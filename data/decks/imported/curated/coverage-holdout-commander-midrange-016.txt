@@ -1,0 +1,87 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #90010017]
+1 A.I.M. Labs
+1 Ancient Spring
+1 Archangel Avacyn
+1 Argivian Archaeologist
+1 Attrition
+1 Azorius Keyrune
+1 Bear's Companion
+1 Blood-Cursed Knight
+1 Bountiful Landscape
+1 Braingeyser
+1 Channel the Suns
+1 Chromatic Lantern
+1 Cloak of Feathers
+1 Cruel Witness
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Darkwater Egg
+1 Deny Entry
+1 Deviant Glee
+1 Duskmantle, House of Shadow
+1 Earthblighter
+1 Energizer
+1 Enervate
+1 Farmstead Gleaner
+1 Fomori Nomad
+4 Forest
+1 Ghor-Clan Bloodscale
+1 Giant Solifuge
+1 Goblin Assault Team
+1 Greatsword
+1 Gruul Signet
+1 Hapatra, Vizier of Poisons
+1 Hardened Tactician
+1 Heavy Mattock
+1 Horn of Greed
+8 Island
+1 Izzet Signet
+1 Kin-Tree Severance
+1 Knowledge Vault
+1 Krark-Clan Shaman
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Lunatic Pandora
+1 Magmaw
+1 Manaforge Cinder
+1 Memory Drain
+1 Mikaeus, the Unhallowed
+1 Molten Tributary
+2 Mountain
+1 Munitions Expert
+1 Nacatl Outlander
+1 Nearby Planet
+1 Noxious Dragon
+1 Peculiar Lighthouse
+4 Plains
+1 Psychic Barrier
+1 Raffine's Tower
+1 Raugrin Triome
+1 Ringwarden Owl
+1 Riot Spikes
+1 Sage's Knowledge
+1 Seashell Cameo
+1 Second Chance
+1 Shineshadow Snarl
+1 Silent Artisan
+1 Skull Prophet
+1 Sky Diamond
+1 Sky Theater Strix
+1 Sphinx of the Final Word
+5 Swamp
+1 Temple of Silence
+1 The World Tree
+1 Third Path Iconoclast
+1 Tinder Farm
+1 Unfulfilled Desires
+1 Wake of Vultures
+1 Wizards' School
+1 Worry Beads
+1 Xander's Lounge
+1 Zendikar Farguide
+1 Zhalfirin Shapecraft
+
+[commander]
+Reaper King

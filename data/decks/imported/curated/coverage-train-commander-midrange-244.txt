@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266245]
+1 Aang, Air Nomad
+1 Akki War Paint
+1 Akroma's Devoted
+1 An-Havva Township
+1 Angelic Gift
+1 Awaken the Woods
+1 Birnin Zana Plaza
+1 Blade Historian
+1 Blessed Orator
+1 Blue Scarab
+1 Botanical Plaza
+1 Bristling Backwoods
+1 Cathar's Shield
+1 Confront the Unknown
+1 Consuming Ferocity
+1 Crackling Club
+1 Crib Swap
+1 Daredevil's Billy Club
+1 Devils' Playground
+1 Dragon Roost
+1 Errand of Duty
+1 Field Marshal
+1 Fire-Lit Thicket
+1 Flurry of Horns
+5 Forest
+1 Fountain Watch
+1 Galvanic Arc
+1 Gathering Place
+1 Goblin Rabblemaster
+1 Graypelt Refuge
+1 Guard Duty
+1 Hanna's Custody
+1 Hanweir Garrison
+1 Herald of Dromoka
+1 Inspiring Veteran
+1 Iroas's Blessing
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 Knight Exemplar
+1 Kongming, "Sleeping Dragon"
+1 Lightning Spear
+1 Lovisa Coldeyes
+1 Luke Cage, Hero for Hire
+1 Luxurious Libation
+1 Meng Huo, Barbarian King
+9 Mountain
+1 Mythic Proportions
+1 Needleverge Pathway
+1 Paragon of Eternal Wilds
+1 Paragon of Fierce Defiance
+1 Paragon of New Dawns
+9 Plains
+1 Rakka Mar
+1 Revel of the Fallen God
+1 Rith's Grove
+1 Rockfall Vale
+1 Rugged Highlands
+1 Saryth, the Viper's Fang
+1 Sheltering Landscape
+1 Soraya the Falconer
+1 Spectral Procession
+1 Sprout
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Stone Quarry
+1 Survey the Wreckage
+1 Tinder Farm
+1 Unchained Berserker
+1 Unforgiving Aim
+1 Vampires' Vengeance
+1 Veldt
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Vitality Charm
+1 Warleader's Call
+1 Weapons Trainer
+1 White Lotus Reinforcements
+
+[commander]
+Jacques le Vert

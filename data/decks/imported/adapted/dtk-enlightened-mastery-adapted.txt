@@ -6,11 +6,11 @@
 2 Cunning Breezedancer
 4 Daring Leap
 1 Dragon's Eye Sentry
-3 Dramatic Rescue
 3 Elusive Spellfist
+4 Energy Arc
 1 Evolving Wilds
 13 Island
-4 Offering to Asha
+3 Offering to Asha
 1 Ojutai Monument
 4 Ojutai's Command
 11 Plains

@@ -1,22 +1,20 @@
 # baylee curated constructed ramp seed=20261080
 # licence: AGPL-3.0-only
 [deck:constructed ramp UG #20261080]
-2 Aisling Leprechaun
-3 Automatic Librarian
-1 Bog Gnarr
-3 Bonds of Quicksilver
-3 Centaur Veteran
-4 Dispersing Orb
-3 Druid Lyrist
-1 Endless Sands
-7 Forest
-1 Gemstone Caverns
-8 Island
-1 Mystic Sanctuary
-4 Radiant Fountain
-4 Rotted Hystrix
-3 Surgical Metamorph
-2 Sword of the Chosen
-3 Terrain Generator
-3 Treasure Cruise
-4 Willow Dryad
+2 Alchemist's Refuge
+4 Avacyn's Collar
+4 Drowner of Hope
+2 Elvish Farmer
+11 Forest
+3 Gilded Goose
+3 Island
+2 Kitchen
+3 Lumberknot
+1 Pentavus
+2 Primeval Bounty
+4 Slayer's Plate
+4 Spawning Pit
+4 Thopter Squadron
+4 Trading Post
+3 Tropical Island
+4 Waterlogged Grove

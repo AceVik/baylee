@@ -1,81 +1,82 @@
 # baylee curated highlander midrange seed=20261075
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261075]
-1 Accorder's Shield
-1 Akroma's Memorial
-1 Ancient Tomb
-1 Aven Wind Mage
-1 Balduvian Frostwaker
-1 Basilisk Collar
-1 Blighted Cataract
-1 Blor the Impervious
-1 Boreal Druid
-1 Bountiful Harvest
-1 Brokers Hideout
-1 Carnage Tyrant
-1 Carven Caryatid
-1 Cavern of Souls
-1 Colossadactyl
-1 Colossification
-1 Corridor Monitor
-1 Customs Depot
-1 Depths of Desire
-1 Devouring Deep
-1 Dewdrop Spy
-1 Diamond City
-1 Drowned Rusalka
-1 Elfhame Wurm
-1 Enormous Baloth
-1 Equilibrium
-1 Erosion
-1 Field of Ruin
-11 Forest
-1 Friendly Teddy
-1 Fyndhorn Bow
-1 Giant Shark
-1 Great Forest Druid
-1 Herbal Poultice
-1 Hermitic Herbalist
-1 Hidden Nursery
-1 Iron Lance
-13 Island
-1 Lay Claim
-1 Manhole Cover
-1 Mouth of Ronom
-1 Nasty Little Rabbit
-1 Negate
-1 Noxious Newt
-1 Obscura Storefront
-1 Onyx Talisman
-1 Pact of Negation
-1 Paleoloth
-1 Palladium Myr
-1 Phyrexian Walker
-1 Pithing Needle
-1 Polluted Delta
-1 Puppeteer
-1 Rakalite
-1 Regenerate
-1 Rib Cage Spider
-1 Ring of Immortals
-1 Ring of Renewal
-1 Roadside Reliquary
-1 Runaway Boulder
-1 Sanctum Weaver
-1 Separatist Voidmage
-1 Shifting Wall
-1 Siren's Call
-1 Sliver Hive
-1 Steam Frigate
-1 Study Hall
-1 Tamiyo, Inquisitive Student
-1 Temporal Manipulation
-1 Thespian's Stage
-1 Timber Wolves
-1 Urza's Mine
-1 Wan Shi Tong, Librarian
-1 Wilderness Hypnotist
-1 Willow Elf
-1 Wind Strider
-1 Witch's Clinic
-1 Wyluli Wolf
+1 Alchemist's Refuge
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Barkchannel Pathway
+1 Blisterpod
+1 Blood Servitor
+1 Brood Weaver
+1 Byway Courier
+1 Chromatic Star
+1 Cold Case Cracker
+1 Corsair Captain
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Farmer
+1 Energy Refractor
+1 Etherium Spinner
+1 Eye of Vecna
+1 Filigree Crawler
+1 Flooded Grove
+14 Forest
+1 Gilded Goose
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Golden Egg
+1 Goldvein Pick
+1 Hierophant's Chalice
+1 Homarid Spawning Bed
+9 Island
+1 Jewel-Eyed Cobra
+1 Littjara Mirrorlake
+1 Lumbering Falls
+1 Lush Oasis
+1 Mantle of the Wolf
+1 Mongrel Pack
+1 Most Wanted
+1 Myr Matrix
+1 Myr Sire
+1 Nim Deathmantle
+1 Novijen, Heart of Progress
+1 Orochi Hatchery
+1 Paradox Gardens
+1 Pentavus
+1 Prying Blade
+1 Rain-Slicked Copse
+1 Rejuvenating Springs
+1 Retrofitter Foundry
+1 Rimewood Falls
+1 S.H.I.E.L.D. Deployment Drone
+1 Scrap Trawler
+1 Simic Growth Chamber
+1 Simic Guildgate
+1 Skullclamp
+1 Slayer's Plate
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Talisman of Curiosity
+1 Terrarion
+1 Thallid Devourer
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thornwood Falls
+1 Thought Monitor
+1 Thragtusk
+1 Thran Dynamo
+1 Thranduil the Strategist
+1 Titan Forge
+1 Titania, Protector of Argoth
+1 Trading Post
+1 Treasure Map
+1 Turbulent Wilderness
+1 Turntimber Ranger
+1 Wand of the Elements
+1 Wing Splicer
+1 Woodland Stream
+1 Yavimaya Coast

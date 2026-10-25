@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266260]
+1 Anurid Murkdiver
+1 Assassin's Strike
+1 Bladestitched Skaab
+1 Blue Elemental Blast
+1 Bogstomper
+1 Capture of Jingzhou
+1 Cast Down
+1 Clearwater Pathway
+1 Contaminated Aquifer
+1 Cursed Minotaur
+1 Darkslick Shores
+1 Deadly Visit
+1 Deathmark
+1 Defeat
+1 Desecrated Earth
+1 Dimir Aqueduct
+1 Dimir Guildgate
+1 Dread Wight
+1 Eastern Paladin
+1 Eat to Extinction
+1 Eliminate
+1 Enter the Enigma
+1 Fatal Blow
+1 Fell
+1 Festerleech
+1 Flash Flood
+1 Gangrenous Zombies
+1 Gravebind
+1 Havengul Skaab
+1 He's Dead, Jim
+1 Hero's Demise
+1 Hidden Lair
+1 Horrifying Revelation
+1 Human Frailty
+1 Ice Tunnel
+6 Island
+1 Jwar Isle Refuge
+1 Khabál Ghoul
+1 Lurching Rotbeast
+1 Merfolk Assassin
+1 Mistvault Bridge
+1 Moaning Wall
+1 Murky Sewer
+1 Notorious Assassin
+1 Overflowing Insight
+1 Pact of Negation
+1 Port of Karfell
+1 Ramirez DePietro
+1 Ray of Ruin
+1 Reave Soul
+1 Reef Pirates
+1 Royal Assassin
+1 Scarblade Elite
+1 Scavenging Ghoul
+1 Scour from Existence
+1 Scrapskin Drake
+1 Sea Gate Restoration
+1 Secluded Glen
+1 Secret Passage
+1 Selhoff Entomber
+1 Shipwreck Marsh
+1 Shriekdiver
+1 Sinister Hideout
+1 Sinkhole
+1 Skyline Predator
+1 Stalking Assassin
+18 Swamp
+1 Taigam's Scheming
+1 Tainted Isle
+1 Tattered Drake
+1 Temporal Manipulation
+1 Time Walk
+1 Underground River
+1 Unliving Psychopath
+1 Vizzerdrix
+1 Waterveil Cavern
+1 Western Paladin
+
+[commander]
+Doc Ock, Evil Inventor

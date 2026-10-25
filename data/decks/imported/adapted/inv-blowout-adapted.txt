@@ -4,26 +4,26 @@
 1 Afflict
 2 Airship Crash
 1 Annihilate
-1 Awaken the Bear
 4 Darigaaz's Charm
 2 Direct Hit
-1 Evaporate
+1 Douse in Gloom
 1 Firescreamer
 1 Funeral Rites
 1 Grim Tutor
+1 Hammer of Bogardan
 1 Hate Weaver
 2 Hooded Kavu
-1 Howling Fury
 1 Inquisition
 1 Khalni Ambush
+1 Maniacal Rage
 10 Mountain
 1 Precision Bolt
 4 Ravenous Rats
 1 Recollect
-1 Sarkhan's Triumph
 2 Shivan Zombie
 12 Swamp
 1 Swat
+1 Sweltering Suns
 2 Thunderscape Apprentice
 1 Trench Wurm
 2 Urborg Volcano

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266308]
+1 Aether Shockwave
+1 Alabaster Mage
+1 Alaborn Musketeer
+1 Argivian Blacksmith
+1 Beloved Chaplain
+1 Benalish Hero
+1 Blighted Steppe
+1 Border Patrol
+1 Cho-Arrim Alchemist
+1 Clergy en-Vec
+1 Clergy of the Holy Nimbus
+1 Cliffhaven Sell-Sword
+1 Death Speakers
+1 Defender of Law
+1 Dragon's Eye Sentry
+1 Dromoka Warrior
+1 Eiganjo Castle
+1 Enchanted Being
+1 Expedition Envoy
+1 Farbog Explorer
+1 Femeref Healer
+1 Femeref Scouts
+1 Field Surgeon
+1 Flagstones of Trokair
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Fresh Volunteers
+1 Imperial Outrider
+1 Indomitable Ancients
+1 Ivory Charm
+1 Karakas
+1 Kelsinko Ranger
+1 Knight of New Benalia
+1 Knight of Valor
+1 Knight of the Keep
+1 Knights of Thorn
+1 Kor Haven
+1 Kyoshi Warrior Guard
+1 Lupinflower Village
+1 Makindi Stampede
+1 Martyrs of Korlis
+1 Master Apothecary
+1 Master Healer
+1 Midnight Duelist
+1 Militant Monk
+1 Mounted Archers
+1 Nomad Stadium
+1 Paladin en-Vec
+1 Peacekeeper
+31 Plains
+1 Rapid Fire
+1 Repentant Blacksmith
+1 Resplendent Mentor
+1 Sacred Knight
+1 Saltfield Recluse
+1 Sanctum Custodian
+1 Serra Paladin
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Shrine Keeper
+1 Silver Knight
+1 Skyline Scout
+1 Squire
+1 Sword Dancer
+1 Traveling Philosopher
+1 Trokin High Guard
+1 Veteran Cavalier
+1 Wolf Cove Villager
+1 Zhalfirin Knight
+
+[commander]
+Worf, Chief Tactical Officer

@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266164]
+1 Abbey Griffin
+1 Adamant Will
+1 Aerial Maneuver
+1 Alarum
+1 Alley Evasion
+1 Angelic Overseer
+1 Angelic Protector
+1 Archon of Emeria
+1 Arid Mesa
+1 Avian Changeling
+1 Banishing Stroke
+1 Beaming Defiance
+1 Blinkmoth Nexus
+1 Cleanse
+1 Cleansing Nova
+1 Crackdown
+1 Dawn Gryff
+1 Ekundu Griffin
+1 Flooded Strand
+1 Garrison Griffin
+1 Great Defender
+1 Great Hall of the Biblioplex
+1 Heaven's Gate
+1 Heavenly Qilin
+1 Herald of Serra
+1 Hope and Glory
+1 Indestructible Aura
+1 Ivory Charm
+1 Makindi Aeronaut
+1 Malach of the Dawn
+1 Mana Tithe
+1 Maze of Shadows
+1 Mesa Pegasus
+1 Mistral Charger
+1 Moonwing Moth
+1 Muraganda Raceway
+1 Phyrexian Pegasus
+1 Piety
+31 Plains
+1 Plover Knights
+1 Qilin's Blessing
+1 Rally
+1 Rath's Edge
+1 Ravages of War
+1 Seize the Initiative
+1 Serra Advocate
+1 Shepherd of the Lost
+1 Shield Wall
+1 Skillful Lunge
+1 Starlit Angel
+1 Stormfront Pegasus
+1 Sunmane Pegasus
+1 Sunspire Griffin
+1 Swift Justice
+1 Terrain Generator
+1 Tormented Angel
+1 Tributary Vaulter
+1 Trusted Pegasus
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 Warning
+1 Wild Griffin
+1 Winds of Rath
+1 Yavimaya, Cradle of Growth
+1 You're Ambushed on the Road
+1 Zealous Strike
+
+[commander]
+Radiant, Archangel

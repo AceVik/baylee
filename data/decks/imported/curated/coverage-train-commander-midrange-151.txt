@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266152]
+1 Abbey Matron
+1 Abzan Kin-Guard
+1 Adanto Vanguard
+1 Almost Perfect
+1 An-Havva Constable
+1 Arctic Flats
+1 Arctic Treeline
+1 Armory Guard
+1 Auriok Bladewarden
+1 Austere Command
+1 Aysen Crusader
+1 Berserk
+1 Bountiful Promenade
+1 Brushland
+1 Burrenton Shield-Bearers
+1 Capashen Knight
+1 Capashen Templar
+1 Castle Raptors
+1 Cenn's Heir
+1 Charging Paladin
+1 Cloudreach Cavalry
+1 Conservatory
+1 Downdraft
+1 Drop of Honey
+1 Elder of Laurels
+1 Elemental Bond
+1 Emerald Charm
+1 Femeref Knight
+1 Final Showdown
+1 Folk of An-Havva
+11 Forest
+1 Gavony Township
+1 Griffin Rider
+1 Hardened Escort
+1 Honor Guard
+1 Hushwood Verge
+1 Icatian Priest
+1 Kithkin Daggerdare
+1 Kithkin Shielddare
+1 Knight of the Skyward Eye
+1 Knotvine Paladin
+1 Kor Scythemaster
+1 Loxodon Stalwart
+1 Mortal Wound
+1 Narcissism
+1 Nature's Revolt
+1 Order of Leitbur
+1 Paragon of Eternal Wilds
+1 People of the Woods
+1 Phantom General
+12 Plains
+1 Planar Cleansing
+1 Preacher
+1 Pterodon Knight
+1 Rashka the Slayer
+1 Restless Prairie
+1 Rhox Pikemaster
+1 Riftstone Portal
+1 Saryth, the Viper's Fang
+1 Scarwood Bandits
+1 Scattered Groves
+1 Selesnya Guildgate
+1 Selesnya Sanctuary
+1 Shield Mate
+1 Soltari Crusader
+1 Soltari Trooper
+1 Spawning Grounds
+1 Steadfast Cathar
+1 Sudden Strength
+1 Sungrass Prairie
+1 Temple of Plenty
+1 Thornglint Bridge
+1 Topan Ascetic
+1 Unflinching Courage
+1 Vitu-Ghazi, the City-Tree
+1 White Lotus Reinforcements
+1 White Shield Crusader
+1 Windurst, Federation Center
+
+[commander]
+Jasmine Boreal

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266017]
+1 Akoum Refuge
+1 Audacious Thief
+1 Badgey, Malicious Glitch
+1 Black Widow, Deadly Hunter
+1 Blight Keeper
+1 Consuming Corruption
+1 Contaminated Aquifer
+1 Contraband Kingpin
+1 Dagger Caster
+1 Dakmor Ghoul
+1 Dark Fortress
+1 Dark Nourishment
+1 Death Cultist
+1 Delif's Cone
+1 Desiccated Naga
+1 Dogged Pursuit
+1 Drossforge Bridge
+1 Electric Eel
+1 Etched Familiar
+1 Eviscerator
+1 Fiery Islet
+1 Fire Imp
+1 Firefist Adept
+1 Flayer Drone
+1 Forgeborn Oreads
+1 Fury
+1 Glidedive Duo
+1 Goblin Bomb
+1 Goblin Commando
+1 Goblin-town
+1 Hagra Diabolist
+1 Hidden Lair
+1 Ill-Gotten Inheritance
+1 Jagged Barrens
+1 Last Kiss
+1 Library
+1 Maga, Traitor to Mortals
+1 Merciless Enforcers
+1 Midnight Charm
+1 Mogg Bombers
+5 Mountain
+1 Murky Sewer
+1 Night Market Lookout
+1 Northern Air Temple
+1 Polluted Bonds
+1 Pyrogoyf
+1 Raphael, Tough Turtle
+1 Rapturous Moment
+1 Reckless Fireweaver
+1 Restless Vents
+1 Sanguine Syphoner
+1 Scourge of the Undercity
+1 Serpent Warrior
+1 Shocking Sharpshooter
+1 Simulacrum
+1 Sleeper Agent
+1 Spitfire Lagac
+1 Staff of Domination
+1 Stark Industries
+1 Stormfist Crusader
+1 Sunken Hollow
+18 Swamp
+1 TCRI Building
+1 Team Transmitter
+1 Temple of Epiphany
+1 Toxic Abomination
+1 Tuktuk Scrapper
+1 Tunneling Geopede
+1 Turbulent Springs
+1 Vampire Neonate
+1 Vampiric Feast
+1 Vampiric Spirit
+1 Volcanic Island
+1 Whiptail Moloch
+1 Winter's Intervention
+1 Witty Roastmaster
+1 Wretched Anurid
+1 Zof Consumption
+
+[commander]
+Kess, Dissident Mage

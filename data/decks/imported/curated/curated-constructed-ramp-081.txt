@@ -1,19 +1,18 @@
 # baylee curated constructed ramp seed=20261104
 # licence: AGPL-3.0-only
 [deck:constructed ramp R #20261104]
-2 Ash Barrens
-4 Beast of Burden
-1 Blast Zone
-3 Cathar's Shield
-2 Cinder Storm
-2 Dwarven Armorer
-4 Halberdier
-2 Kazuul's Fury
-20 Mountain
-2 Rubblebelt Boar
-4 Spider-Man, Hometown Hero
-2 Stromkirk Noble
-2 Talon Gates of Madara
-4 Tower of Fortunes
-2 Trip Noose
-4 Urza's Avenger
+3 Aladdin's Ring
+2 Avacyn's Collar
+4 Bag End Banquet
+1 Fogwell's Gym
+2 Glaring Fleshraker
+3 Legion Extruder
+19 Mountain
+4 Pashalik Mons
+1 Pentavus
+4 Ramunap Ruins
+4 Retrofitter Foundry
+1 Rockface Village
+4 Siege-Gang Commander
+4 Spawning Pit
+4 Trading Post

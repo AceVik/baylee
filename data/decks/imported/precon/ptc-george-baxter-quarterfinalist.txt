@@ -19,3 +19,12 @@
 2 Sulfurous Springs
 12 Swamp
 1 Zuran Orb
+
+[sideboard]
+2 Dark Banishing
+2 Ihsan's Shade
+2 Nevinyrral's Disk
+3 Red Elemental Blast
+2 Serrated Arrows
+2 Shatter
+2 Tranquility

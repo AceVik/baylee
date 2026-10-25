@@ -1,0 +1,84 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #90010015]
+1 Abraded Bluffs
+1 Aggression
+1 Alpine Meadow
+1 Amrou Kithkin
+1 Axgard Armory
+1 Barbed Sliver
+1 Battlefield Forge
+1 Battlegate Mimic
+1 Blood Moon
+1 Boros Garrison
+1 Carbonize
+1 Conquer
+1 Conscripted Infantry
+1 Copper Tablet
+1 Corrupt Eunuchs
+1 Crackling Perimeter
+1 Divine Arrow
+1 Divine Retribution
+1 Falkenrath Marauders
+1 Farrel's Mantle
+1 Fire-Omen Crane
+1 Flowstone Overseer
+1 Fountain of Renewal
+1 Gallantry
+1 Goblin Assault Team
+1 Goblin Spelunkers
+1 God-Pharaoh's Faithful
+1 Greater Forgeling
+1 Hall
+1 Hyena Pack
+1 Inferno Fist
+1 Jokulhaups
+1 Kabira Takedown
+1 Karsus Depthguard
+1 Koth's Courier
+1 Krark-Clan Shaman
+1 Looming Spires
+1 Lorehold Campus
+1 Magmaw
+1 Magnetic Mountain
+1 Mogg Sentry
+20 Mountain
+1 Ogre Resister
+1 Pathmaker Initiate
+3 Plains
+1 Plated Geopede
+1 Puncturing Blow
+1 Rabanastre, Royal City
+1 Radiant Summit
+1 Reality Hemorrhage
+1 Rearing Embermare
+1 Resupply
+1 Revitalize
+1 Rugged Prairie
+1 Sacred Foundry
+1 Sacred Peaks
+1 Sarpadian Simulacrum
+1 Skyclave Geopede
+1 Spicy Oatmeal Pizza
+1 Stonehands
+1 Storm World
+1 Storm-Kiln Artist
+1 Sunbaked Canyon
+1 Sundown Pass
+1 Sunscorched Divide
+1 Talruum Minotaur
+1 Temple of Triumph
+1 The Chase Is On
+1 Thorned Moloch
+1 Thran Turbine
+1 Throne of Bone
+1 Torch Courier
+1 Truefire Paladin
+1 Vessel of Volatility
+1 Wall of Heat
+1 Wall of Lava
+1 Wanderer's Intervention
+1 Zap
+
+[commander]
+Archangel Avacyn

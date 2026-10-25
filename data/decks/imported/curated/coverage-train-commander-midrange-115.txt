@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266116]
+1 An-Havva Township
+1 Ancient Amphitheater
+1 Angelic Gift
+1 Auspicious Arrival
+1 Awaken the Woods
+1 Butterbur, Bree Innkeeper
+1 Call the Cavalry
+1 Capashen Standard
+1 Captain's Call
+1 Centaur's Herald
+1 Confront the Unknown
+1 Crib Swap
+1 Darling of the Masses
+1 Dimension X
+1 Elderleaf Mentor
+1 Elesh Norn, Mother of Machines
+1 Elfhame Palace
+1 Elfsworn Giant
+1 Emrakul's Hatcher
+1 Errand of Duty
+1 Feather of Flight
+1 Femeref Enchantress
+1 Ferocious Pup
+1 Fire-Lit Thicket
+9 Forest
+1 Frog Tongue
+1 Glittering Massif
+1 Glittermonger
+1 Greensleeves, Maro-Sorcerer
+1 Hanweir Garrison
+1 Head of the Homestead
+1 Humble the Brute
+1 Icatian Crier
+1 Invasion of Belenon
+1 Irregular Cohort
+1 Jade Mage
+1 Jetmir's Garden
+1 Jungle Patrol
+1 Jungle Shrine
+1 Kozilek's Predator
+1 Llanowar Mentor
+1 Lush Portico
+1 Mass Production
+3 Mountain
+1 Nest Invader
+1 Patrol Signaler
+11 Plains
+1 Professor of Zoomancy
+1 Queen's Commission
+1 Rakka Mar
+1 Ral's Reinforcements
+1 Reliquary Monk
+1 Revel of the Fallen God
+1 Ripchain Razorkin
+1 Rith's Grove
+1 Ritual of Steel
+1 Scion Summoner
+1 Secure the Wastes
+1 Servo Exhibition
+1 Setessan Training
+1 Sheltering Boughs
+1 Sheltering Landscape
+1 Shivan Oasis
+1 Skyclave Apparition
+1 Sokka's Sword Training
+1 Spectral Procession
+1 Sprout
+1 Sunbaked Canyon
+1 Sungrass Prairie
+1 Supply Caravan
+1 Temple of Triumph
+1 Tinder Farm
+1 Tireless Provisioner
+1 Twin-Silk Spider
+1 Unforgiving Aim
+1 Valorous Steed
+1 Vitality Charm
+1 Wind-Scarred Crag
+1 Yavimaya Sapherd
+
+[commander]
+Samut, Voice of Dissent

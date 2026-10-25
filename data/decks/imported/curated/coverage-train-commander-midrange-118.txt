@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266119]
+1 Akki Avalanchers
+1 Akki Raider
+1 Algae Gharial
+1 An-Havva Township
+1 Angelic Renewal
+1 Archon of Justice
+1 Arctic Flats
+1 Auratog
+1 Burrowing Razormaw
+1 Cyclopean Tomb
+1 Eager Trufflesnout
+1 Envoy of Okinec Ahau
+1 Feral Prowler
+1 Ferrovore
+1 Flurry of Horns
+9 Forest
+1 Fortitude
+1 Game Trail
+1 Gavony Township
+1 Giant Caterpillar
+1 Goblin Chirurgeon
+1 Goblin Clearcutter
+1 Goblin Gardener
+1 Goblin Masons
+1 Goblin Rabblemaster
+1 Goblin Rally
+1 Goblin Soothsayer
+1 Goblin Wizardry
+1 Godsire
+1 Goldmeadow Lookout
+1 Grove of the Burnwillows
+1 Grove of the Guardian
+1 Hurler Cyclops
+1 Hurloon Shaman
+1 Iron Hills
+1 Jetmir's Garden
+1 Join the Ranks
+1 Jungle Shrine
+1 Kiki-Jiki, Mirror Breaker
+1 Kithkin Mourncaller
+1 Krark-Clan Grunt
+1 Late to Dinner
+1 Marker Beetles
+1 Mogg Raider
+12 Mountain
+1 Orc General
+1 Oxidda Daredevil
+2 Plains
+1 Portcullis Vine
+1 Ragavan, Nimble Pilferer
+1 Release the Dogs
+1 Revive the Shire
+1 Rith's Grove
+1 Rust Monster
+1 Scattered Groves
+1 Seething Pathblazer
+1 Sheltered Thicket
+1 Sheltering Landscape
+1 Skarrg, the Rage Pits
+1 Slobad, Goblin Tinkerer
+1 Smoldering Efreet
+1 Spore Crawler
+1 Stangg
+1 Stimulus Package
+1 Stomping Ground
+1 Survey the Wreckage
+1 Sylvan Safekeeper
+1 Tel-Jilad Lifebreather
+1 Temple Garden
+1 Thelonite Druid
+1 Tinder Farm
+1 Tolsimir Wolfblood
+1 Troubled Healer
+1 Uktabi Wildcats
+1 Vault Robber
+1 Village Elder
+1 Whiteout
+1 Wolfwillow Haven
+1 Zeriam, Golden Wind
+
+[commander]
+Jetmir, Nexus of Revels

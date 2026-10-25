@@ -1,0 +1,84 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUBRG #20266190]
+1 Archers' Parapet
+1 Benthic Djinn
+1 Beyeen Veil
+1 Boar-q-pine
+1 Briarknit Kami
+1 Castle Sengir
+1 Chandra's Emberling
+1 Choco-Comet
+1 Crackling Triton
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Cunning Breezedancer
+1 Damnable Pact
+1 Darigaaz's Caldera
+1 Deathrite Shaman
+1 Deeproot Champion
+1 Dragonlair Spider
+1 Elves of Deep Shadow
+1 Elvish Handservant
+1 Emberwilde Caliph
+1 Fable of Wolf and Owl
+1 Fell the Pheasant
+1 Flame Jet
+1 Fleshformer
+5 Forest
+1 Generous Visitor
+1 Glint
+1 Grist, the Hunger Tide
+1 Hydrosurge
+1 Infested Roothold
+1 Invoke Prejudice
+11 Island
+1 Jeskai Brushmaster
+1 Jeskai Sage
+1 Knotvine Mystic
+1 Leaf-Crowned Visionary
+1 Maelstrom Wanderer
+1 Medusa, Inhuman Queen
+1 Mold Adder
+5 Mountain
+1 Nearby Planet
+1 Nightfire Giant
+1 Nightscape Master
+1 Nomad Outpost
+1 Omnath, Locus of Creation
+1 Perilous Landscape
+1 Piracy Charm
+1 Playful Shove
+1 Pyroceratops
+1 Raffine's Tower
+1 Raging Regisaur
+1 Rakdos Ickspitter
+1 Razorfin Hunter
+1 Rin and Seri, Inseparable
+1 Rith's Grove
+1 Sacellum Archers
+1 Scaldkin
+1 Sea Kings' Blessing
+1 Seaside Citadel
+1 Shattered Landscape
+1 Shredded Sails
+1 Skybeast Tracker
+1 Spara's Headquarters
+1 Spiteflame Witch
+1 Sprite Dragon
+1 Stormcloud Djinn
+1 Stormkeld Prowler
+2 Swamp
+1 Taurean Mauler
+1 Tempest Angler
+1 The World Tree
+1 Tidespout Tyrant
+1 Titania's Chosen
+1 Tournament Grounds
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tura Kennerüd, Skyknight
+1 Wormwood Dryad
+1 Wormwood Treefolk
+1 You Come to a River

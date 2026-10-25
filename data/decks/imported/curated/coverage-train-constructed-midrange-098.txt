@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UG #20266099]
+2 Astral Cornucopia
+2 Castle Garenbrig
+6 Forest
+2 Gene Pollinator
+2 Guardian Idol
+2 Humongulus
+8 Island
+2 Jet Medallion
+2 Kolinahr Priest
+3 Lonely Sandbar
+2 Mana Cylix
+2 Omnibian
+1 Rivendell
+4 Sapseep Forest
+2 Seshiro the Anointed
+2 Shire Scarecrow
+2 Simic Cluestone
+2 Simic Locket
+2 Slipstream Eel
+2 Species Gorger
+2 Standing Stones
+2 Talisman of Curiosity
+2 Turtle-Seals
+2 Ur-Golem's Eye

@@ -3,8 +3,8 @@
 [deck:Back for More (Adapted)]
 3 Abrupt Decay
 1 Arasta of the Endless Web
-3 Archers' Parapet
 2 Assassin's Trophy
+3 Blightsoil Druid
 3 Dead Weight
 10 Forest
 4 Gaze of Granite

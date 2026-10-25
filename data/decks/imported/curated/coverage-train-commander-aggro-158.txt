@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266159]
+1 Abraded Bluffs
+1 Active Volcano
+1 Akroan Hoplite
+1 Avalanche
+1 Axgard Cavalry
+1 Balthor the Stout
+1 Bastion Enforcer
+1 Battlefield Forge
+1 Benalish Trapper
+1 Blood Frenzy
+1 Boggart Arsonists
+1 Breakneck Berserker
+1 Checkpoint Officer
+1 Cinder Wall
+1 Clear a Path
+1 Craterize
+1 Crookshank Kobolds
+1 Crush
+1 Deface
+1 Demolish
+1 Devoted Hero
+1 Dimension X
+1 Dwarven Berserker
+1 Dwarven Bloodboiler
+1 Dwarven Demolition Team
+1 Dwarven Grunt
+1 Dwarven Lieutenant
+1 Dwarven Miner
+1 Dwarven Nomad
+1 Dwarven Soldier
+1 Dwarven Thaumaturgist
+1 Dwarven Trader
+1 Dwarven Warriors
+1 Eager Cadet
+1 Earth Kingdom Protectors
+1 Enslaved Dwarf
+1 Fields of Strife
+1 Frostbridge Guard
+1 Furycalm Snarl
+1 Garrison Sergeant
+1 Glittering Massif
+1 Goblin Sappers
+1 Goldmeadow Harrier
+1 Hall
+1 Hearth Charm
+1 Keldon Berserker
+1 Kobold Drill Sergeant
+1 Lava Flow
+1 Law-Rune Enforcer
+1 Liberated Dwarf
+1 Miner's Bane
+18 Mountain
+1 Perils of the Past
+4 Plains
+1 Radiant Summit
+1 Raucous Carnival
+1 Raze
+1 Raze the Effigy
+1 Rugged Prairie
+1 Rustvale Bridge
+1 Sacred Foundry
+1 Skyblade of the Legion
+1 Smash to Dust
+1 Spinal Villain
+1 Staunch Shieldmate
+1 Stern Constable
+1 Stingmoggie
+1 Stone Quarry
+1 Sunbillow Verge
+1 Sunder from Within
+1 Sunscorched Divide
+1 Swiftblade Vindicator
+1 Tenth District Veteran
+1 Tunnel
+1 Turbulent Steppe
+1 Twinscroll Shaman
+1 Victorious Destruction
+1 Volcanic Upheaval
+1 Weapons Trainer
+
+[commander]
+Nori, Teller of Tales

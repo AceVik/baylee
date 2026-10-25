@@ -1,0 +1,85 @@
+# baylee synergistic holdout coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BG #90010016]
+1 Battlegrowth
+1 Blighted Bat
+1 Blood Seeker
+1 Bog-Strider Ash
+1 Coercion
+1 Cunning Lethemancer
+1 Cutthroat Contender
+1 Dark Betrayal
+1 Darkheart Sliver
+1 Dauthi Slayer
+1 Davvol, Evincar of Rath
+1 Deathgazer
+1 Deception
+1 Dungeon Shade
+1 Encroach
+1 Essence Warden
+1 Fanatical Strength
+1 Festering Gulch
+1 Fevered Strength
+1 Fiend Artisan
+1 Fledgling Djinn
+4 Forest
+1 Gateway Shade
+1 Generous Stray
+1 Ghoul's Feast
+1 Glade Gnarr
+1 Gohn, Town of Ruin
+1 Golgari Guildgate
+1 Grendel, Spawn of Knull
+1 Grim Monolith
+1 Hag of Syphoned Breath
+1 Jungle Hollow
+1 Lash of the Whip
+1 Lifesmith
+1 Manor Skeleton
+1 Mindlash Sliver
+1 Mox Jet
+1 Natural Selection
+1 Nature's Ruin
+1 Necroblossom Snarl
+1 Nimana Skydancer
+1 Nurturing Peatland
+1 Open the Gates
+1 Pine Barrens
+1 Purraj of Urborg
+1 Putrefy
+1 Rampart Crawler
+1 Razortooth Rats
+1 Reclusive Wight
+1 Rotting Mastodon
+1 Scaled Hulk
+1 Seizan, Perverter of Truth
+1 Shambling Ghoul
+1 Skemfar Avenger
+1 Skull Prophet
+1 Skyscanner
+1 Soot Imp
+1 Stalker Hag
+1 Stronghold Rats
+1 Subterranean Cavern
+1 Svogthos, the Restless Tomb
+18 Swamp
+1 Tainted Wood
+1 Tajuru Archer
+1 Temple of Malady
+1 The Wretched
+1 Three Visits
+1 Titan's Grave
+1 Turbulent Fen
+1 Unburden
+1 Underground Mortuary
+1 Undergrowth Stadium
+1 Vampire Opportunist
+1 Vastwood Fortification
+1 Vebulid
+1 Viridescent Bog
+1 Viscera Seer
+1 Walking Dead
+1 Wicked Visitor
+
+[commander]
+Hapatra, Vizier of Poisons

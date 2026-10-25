@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UB #20266217]
+1 Abyssal Horror
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Cadaver Imp
+1 Cateran Brute
+1 Cateran Persuader
+1 Choked Estuary
+1 Clearwater Pathway
+1 Cloistered Telepath
+1 Council of Advisors
+1 Creeping Tar Pit
+1 Cruel Truths
+1 Dark Hatchling
+1 Darkslick Shores
+1 Demon's Due
+1 Dimir Cluestone
+1 Dimir Locket
+1 Donatello, Turtle Techie
+1 Douser of Lights
+1 Drowned Catacomb
+1 Ebon Dragon
+1 Elite Instructor
+1 Faerie Seer
+1 Frost Marsh
+1 Gateway Sneak
+1 Gloomlake Verge
+1 Goggles of Night
+1 Graveshifter
+1 Gryff Vanguard
+1 Harrier Strix
+1 Horizon Scholar
+1 Horror of the Dim
+1 Ice Tunnel
+1 Icewind Elemental
+16 Island
+1 Jwar Isle Refuge
+1 Merchant of Secrets
+1 Merfolk Observer
+1 Mistvault Bridge
+1 Moor Fiend
+1 Muse Drake
+1 Nether Horror
+1 Network Disruptor
+1 Nimble Innovator
+1 Opal Lake Gatekeepers
+1 Owl Familiar
+1 Priest of Gix
+1 Psychic Symbiont
+1 Quicksilver Fisher
+1 Rathi Intimidator
+1 Rootwater Depths
+1 Rustspore Ram
+1 Sage Owl
+1 Sage's Row Savant
+1 Saheeli's Silverwing
+1 Salvager of Secrets
+1 Screeching Drake
+1 Scrivener
+1 Serpent's Pass
+1 Silver Raven
+1 Sky-Eel School
+1 Snarling Gorehound
+1 Soaring Show-Off
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Spire Owl
+1 Sterling Hound
+1 Submerged Boneyard
+1 Sunken Hollow
+7 Swamp
+1 Thaumaturge's Familiar
+1 Tome Raider
+1 Vendilion Clique
+1 Vodalian Merchant
+1 Wailing Ghoul
+1 Waterfront District
+1 Waterveil Cavern
+1 Watery Grave
+1 Witching Well

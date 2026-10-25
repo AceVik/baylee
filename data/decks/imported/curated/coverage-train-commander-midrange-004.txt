@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266005]
+1 An-Havva Township
+1 Architects of Will
+1 Atraxa, Grand Unifier
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Bountiful Landscape
+1 Carrier Pigeons
+1 Carven Caryatid
+1 Cat-Gator
+1 Centaur Nurturer
+1 Cloistered Telepath
+1 Council of Advisors
+1 Deadshot Minotaur
+1 Disciple of Freyalise
+1 Elegant Parlor
+1 Elite Instructor
+3 Forest
+1 Gallant Citizen
+1 Gateway Sneak
+1 Gladewalker Ritualist
+1 Glassdust Hulk
+1 Glittering Massif
+1 Harrier Strix
+1 Hell's Kitchen
+1 Helpful Hunter
+1 Icewind Elemental
+1 Indatha Triome
+12 Island
+1 Kalastria Healer
+1 Ketria Triome
+1 Kindly Customer
+1 Koskun Keep
+1 Lord of Tresserhorn
+1 Mardu Devotee
+1 Mawloc
+1 Merchant of Secrets
+1 Messenger Falcons
+1 Micromancer
+1 Migrating Ketradon
+1 Mossfire Egg
+1 Multani's Acolyte
+1 Murmuring Bosk
+1 Nimble Innovator
+1 Noggle Ransacker
+1 Nomad Outpost
+1 Omnath, Locus of Creation
+1 Opal Lake Gatekeepers
+1 Owl Familiar
+4 Plains
+1 Plasmancer
+1 Pond Prophet
+1 Psychic Symbiont
+1 Pyknite
+1 Quicksilver Fisher
+1 Recruiter of the Guard
+1 Rhox Meditant
+1 Rhox Oracle
+1 Roving Harper
+1 Scarblade Scout
+1 Screeching Drake
+1 Serum Visionary
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Soaring Show-Off
+1 Soul of the Harvest
+1 Soul's Attendant
+1 Spellseeker
+1 Sungrass Egg
+4 Swamp
+1 Tanglespan Lookout
+1 Tatyova, Benthic Druid
+1 Titan's Grave
+1 Tranquil Garden
+1 Twisted Landscape
+1 Urban Retreat
+1 Uro, Titan of Nature's Wrath
+1 Vendilion Clique
+1 Wayward Servant
+1 Woodland Liege
+1 Ziatora's Proving Ground
+
+[commander]
+General Tazri

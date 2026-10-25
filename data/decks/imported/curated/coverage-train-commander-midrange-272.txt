@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266273]
+1 Adanto Vanguard
+1 Angelic Voices
+1 Archon of Justice
+1 Asha's Favor
+1 Assault Intercessor
+1 Battle Mastery
+1 Black Scarab
+1 Blood Bairn
+1 Boon of Emrakul
+1 Brave the Sands
+1 Brightclimb Pathway
+1 Call to the Feast
+1 Castle
+1 Chief of the Edge
+1 Chief of the Scale
+1 Cooperation
+1 Cursed Flesh
+1 Day of Destiny
+1 Death Pits of Rath
+1 Demonic Torment
+1 Dictate of Heliod
+1 Dub
+1 Eclipsed Steppe
+1 Fear
+1 Feast of the Unicorn
+1 Fisk Tower
+1 Fortified Area
+1 Forum of Amity
+1 Gift of Granite
+1 Gift of Orzhova
+1 Glasswing Grace
+1 Godless Shrine
+1 Hero's Resolve
+1 Holy Mantle
+1 Honor of the Pure
+1 Indestructibility
+1 Indomitable Will
+1 Intangible Virtue
+1 Jihad
+1 Kaervek, the Spiteful
+1 Knighthood
+1 Lance
+1 Legion Lieutenant
+1 Leshrac's Rite
+1 Mageta's Boon
+1 Military Discipline
+1 Misty Palms Oasis
+1 Moat
+1 Phyrexian Boon
+1 Pitiless Pontiff
+13 Plains
+1 Restless Fortress
+1 Salt Flats
+1 Scrubland
+1 Serra's Blessing
+1 Shadow Lance
+1 Shadowy Backstreet
+1 Shattered Sanctum
+1 Silent Clearing
+1 Silverquill Campus
+1 Sinister Strength
+1 Skeletal Grimace
+1 Sky Tether
+1 Snowfield Sinkhole
+1 Spiritual Asylum
+1 Starlit Sanctum
+1 Sultai Runemark
+10 Swamp
+1 Tainted Field
+1 Terra Eternal
+1 Thrull Retainer
+1 Triclopean Sight
+1 Twisted Embrace
+1 Twisted Experiment
+1 Vampire Aristocrat
+1 Vault of the Archangel
+1 Zeriam, Golden Wind
+1 Zuberi, Golden Feather
+
+[commander]
+Rufus Shinra

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266110]
+1 Abandoned Air Temple
+1 Abu Ja'far
+1 Agent of Shauku
+1 Altac Bloodseeker
+1 Angel of Flight Alabaster
+1 Argivian Find
+1 Auriok Salvagers
+1 Bishop of Rebirth
+1 Blighted Shaman
+1 Bloodfell Caves
+1 Bloodflow Connoisseur
+1 Breath of Life
+1 Caregiver
+1 Cateran Overlord
+1 Cave of the Frost Dragon
+1 Charming Prince
+1 Compassionate Healer
+1 Corrupted Harvester
+1 Cruel Celebrant
+1 Dai Li Censor
+1 Dauthi Ghoul
+1 Deathcurse Ogre
+1 Deathgreeter
+1 Doomed Necromancer
+1 Dragonmaster Outcast
+1 Drossforge Bridge
+1 Emerge from the Cocoon
+1 False Defeat
+1 Fault Riders
+1 Fetid Heath
+1 Foot Headquarters
+1 Ghen, Arcanum Weaver
+1 Gnathosaur
+1 Goblin-town
+1 Harnessed Snubhorn
+1 Hell's Caretaker
+1 Horror of Horrors
+1 Hungry Ghoul
+1 Icatian Town
+1 Ishgard, the Holy See
+1 Jaya's Firenado
+1 Karoo
+1 Koma's Faithful
+1 Lord of the Undead
+1 Luke Cage, Hero for Hire
+1 Megatog
+1 Mire Shade
+1 Mistveil Plains
+1 Monumental Henge
+1 Mountain
+1 Nomad Outpost
+1 Obzedat's Aid
+1 Order of Whiteclay
+1 Peat Bog
+11 Plains
+1 Ramosian Revivalist
+1 Refurbish
+1 Ritual of Restoration
+1 Salvage Scout
+1 Samite Herbalist
+1 Savai Triome
+1 Scrapyard Steelbreaker
+1 Shadewing Laureate
+1 Shadowblood Ridge
+1 Shattered Landscape
+1 Shivan Phoenix
+1 Skirsdag Flayer
+1 Skywhaler's Shot
+1 Starfighter Pilot
+12 Swamp
+1 Takklemaggot
+1 The Balrog of Moria
+1 Thriving Moor
+1 Tinker's Tote
+1 Tournament Grounds
+1 Tragic Poet
+1 Warteye Witch
+1 Wort, Boggart Auntie
+
+[commander]
+Piru, the Volatile

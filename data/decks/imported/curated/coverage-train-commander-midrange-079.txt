@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266080]
+1 Aether Hub
+1 Ageless Guardian
+1 Ambush
+1 Archaeological Dig
+1 Atalan Jackal
+1 Barreling Attack
+1 Beast Walkers
+1 Bladed Ambassador
+1 Bristling Backwoods
+1 Buried Ruin
+1 Cabaretti Courtyard
+1 Cathedral of Serra
+1 Cave of Temptation
+1 Cho-Arrim Alchemist
+1 Cliff Threader
+1 Crookshank Kobolds
+1 Devoted Hero
+1 Disciple of the Old Ways
+1 Eager Cadet
+1 Earth Kingdom Protectors
+1 Elite Archers
+1 Elvish Healer
+1 Enslaved Scout
+3 Forest
+1 Frostbridge Guard
+1 Frostwalk Bastion
+1 Furycalm Snarl
+1 Garrison Sergeant
+1 Glimmervoid
+1 Glorifier of Dusk
+1 Head of Security
+1 Hedge Troll
+1 Indomitable Ancients
+1 Iroas's Champion
+1 Ironclaw Buzzardiers
+1 Keen-Eyed Archers
+1 Kelsinko Ranger
+1 Kobolds of Kher Keep
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Loxodon Line Breaker
+1 Loxodon Mystic
+1 Loxodon Wayfarer
+1 Maestros Theater
+1 Marisi's Twinclaws
+1 Marsh Threader
+1 Mosstodon
+4 Mountain
+1 Naya Battlemage
+1 Northampton Farm
+16 Plains
+1 Prized Elephant
+1 Rath's Edge
+1 Rhox Brute
+1 Roadside Reliquary
+1 Rockcaster Platoon
+1 Rubble Slinger
+1 Sacred Knight
+1 Safehold Elite
+1 Scalebane's Elite
+1 Selesnya Sentry
+1 Serra Paladin
+1 Sheltered Valley
+1 Shrine of the Forsaken Gods
+1 Skyline Scout
+1 Soltari Emissary
+1 Squire
+1 Staunch Shieldmate
+1 Steelshaper Apprentice
+1 Tattermunge Maniac
+1 Towering Thunderfist
+1 Unnatural Speed
+1 Urza's Tower
+1 Valeron Outlander
+1 Veteran Cathar
+1 Votary of the Conclave
+1 Wanderbrine Trapper
+1 Wild Elephant
+1 Wolf Cove Villager
+
+[commander]
+Jacques le Vert

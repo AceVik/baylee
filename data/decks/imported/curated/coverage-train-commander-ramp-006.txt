@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266007]
+1 Astrolabe
+1 Baleful Force
+1 Beast of Burden
+1 Borg Queen, Perfection Manifest
+1 Carnival of Souls
+1 Cliffgate
+1 Commander's Sphere
+1 Crosis's Attendant
+1 Dakmor Salvage
+1 Dimir Cluestone
+1 Dimir Locket
+1 Dragon Mage
+1 Dread Reaper
+1 Dreamstone Hedron
+1 Dwarven Mine
+1 Five Hundred Year Diary
+1 Flamekin Village
+1 Giant's Boulder
+1 Goggles of Night
+1 Goldhound
+1 Granitic Titan
+1 Guardian Idol
+1 Hedron Crawler
+1 Hexplate Golem
+1 Hidden Necropolis
+1 Imperial Seal
+7 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Lava Serpent
+1 Mana Geode
+1 Minas Morgul, Dark Fortress
+1 Mindless Automaton
+1 Mistrise Village
+4 Mountain
+1 Mox Diamond
+1 Necrogen Spellbomb
+1 Network Terminal
+1 Paradise Mantle
+1 Pardic Wanderer
+1 Pilgrim of the Fires
+1 Power Taint
+1 Prismite
+1 Prophet of the Peak
+1 Rakdos Locket
+1 Ravaged Highlands
+1 Razorfield Thresher
+1 Relic of Sauron
+1 Ring of Renewal
+1 Rockface Village
+1 Rocky Roads
+1 Scampering Surveyor
+1 Scarecrow Guide
+1 Seer's Lantern
+1 Sensei's Divining Top
+1 Shadowblood Egg
+1 Shire Scarecrow
+1 Signpost Scarecrow
+1 Sisay's Ring
+1 Sivitri, Dragon Master
+1 Sonic Screwdriver
+1 Spymaster's Vault
+1 Striped Riverwinder
+13 Swamp
+1 Talisman of Creativity
+1 Teeka's Dragon
+1 The Autonomous Furnace
+1 The Dross Pits
+1 The Lonely Mountain
+1 The Surgical Bay
+1 Thriving Moor
+1 Time Vault
+1 Tribal Golem
+1 Urn of Godfire
+1 Valakut, the Molten Pinnacle
+1 Witch Engine
+1 Witch's Cottage
+1 Wreckage Wickerfolk
+
+[commander]
+Nicol Bolas

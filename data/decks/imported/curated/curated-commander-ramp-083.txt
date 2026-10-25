@@ -1,73 +1,83 @@
 # baylee curated commander ramp seed=20261106
 # licence: AGPL-3.0-only
-[deck:commander ramp G #20261106]
-1 A Realm Reborn
-1 Abzan Kin-Guard
-1 Accursed Duneyard
-1 Archway Commons
-1 Birds of Paradise
-1 Blor the Impervious
-1 Blossoming Defense
-1 Bootleggers' Stash
-1 Boseiju, Who Shelters All
-1 Chardalyn Dragon
-1 Colossus of Sardia
-1 Conduit Pylons
-1 Conduit of Worlds
-1 Crawling Barrens
-1 Cursed Rack
-1 Desert of the Indomitable
-1 Dosan's Oldest Chant
-1 Dreamstone Hedron
-1 Enchantress's Presence
-1 Evolving Wilds
-1 Feldon's Cane
-1 Feral Thallid
-34 Forest
-1 Fungal Bloom
-1 Hedron Crawler
-1 Helm of Chatzuk
-1 Ifh-Bíff Efreet
-1 Jungleborn Pioneer
-1 Kalonian Behemoth
-1 Kalonian Tusker
-1 Life Matrix
-1 Memnite
-1 Mishra's Groundbreaker
-1 Multani's Harmony
-1 Nissa, Vital Force
-1 Peace Strider
-1 Quakestrider Ceratops
-1 Rakalite
+[deck:commander ramp WU #20261106]
+1 Arcane Spyglass
+1 Arcbound Ravager
+1 Arcum's Astrolabe
+1 Avacyn's Collar
+1 Azorius Cluestone
+1 Azorius Guildgate
+1 Bishop of Wings
+1 Blade Splicer
+1 Blood Servitor
+1 Boreal Shelf
+1 Bronze Walrus
+1 Calciform Pools
+1 Captain of the Watch
+1 Chromatic Sphere
+1 Chromatic Star
+1 Claws of Gix
+1 Cloudblazer
+1 Cloudcrest Lake
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Drogskol Cavalry
+1 Drowner of Hope
+1 Elspeth, Storm Slayer
+1 Energy Refractor
+1 Falcon, Winged Wonder
+1 Gates of Istfell
+1 Geistcatcher's Rig
+1 Golden Egg
+1 Griffin Guide
+1 Hallowed Fountain
+1 Idyllic Beachfront
+1 Implement of Improvement
+8 Island
+1 Knight-Captain of Eos
+1 Lake-town
+1 Meandering River
+1 Meteor Golem
+1 Meticulous Archive
+1 Mind Stone
+1 Myr Matrix
+1 Nesting Dovehawk
+1 Nim Deathmantle
+1 Norn's Wellspring
+1 Ojer Taq, Deepest Foundation
+1 Operations Officer
+1 Orochi Hatchery
+1 Oyobi, Who Split the Heavens
+1 Pentavus
+16 Plains
+1 Port Town
+1 Prairie Stream
+1 Prophetic Prism
+1 Razortide Bridge
+1 Requiem Angel
 1 Retrofitter Foundry
-1 Ring of Ma'rûf
-1 Ring of Renewal
-1 Scrap Compactor
-1 Setessan Starbreaker
-1 Skull Catapult
-1 Slith Predator
-1 Snakeskin Veil
-1 Spawning Grounds
-1 Specter's Shroud
-1 Springmane Cervin
-1 Staff of Zegon
-1 Steel Wall
-1 Strider Harness
-1 The Biblioplex
-1 The One Ring
-1 Tree Monkey
-1 Turtle Power!
-1 Unlicensed Hearse
-1 Viridian Scout
-1 Voltaic Key
-1 Voltaic Servant
-1 Wielding the Green Dragon
-1 Willow Faerie
-1 Wing Snare
-1 Winter's Grasp
-1 Wolfwillow Haven
-1 Woodborn Behemoth
-1 Yavimaya Gnats
+1 Reveillark
+1 Siege Veteran
+1 Skullclamp
+1 Skybridge Towers
+1 Slayer's Plate
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Sphinx of Enlightenment
+1 Temple of Enlightenment
+1 Terrarion
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Thought Monitor
+1 Titan Forge
+1 Trading Post
+1 Tranquil Cove
+1 Treasure Map
+1 Triskelavus
+1 Tundra
+1 Wan Shi Tong, Librarian
+1 Wand of the Elements
+1 Wanderwine Hub
 
 [commander]
-Blor the Impervious
+Rasputin Dreamweaver

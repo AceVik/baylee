@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266205]
+1 Aegis Turtle
+1 Agent of Horizons
+1 Alchemist's Refuge
+1 Amphin Cutthroat
+1 Amphin Pathmage
+1 Ancient Crab
+1 Aquus Steed
+1 Armored Whirl Turtle
+1 Assault Zeppelid
+1 Axebane Beast
+1 Aysen Abbey
+1 Azorius Cluestone
+1 Azorius Locket
+1 Bant Battlemage
+1 Beacon Behemoth
+1 Botanical Plaza
+1 Coastal Hornclaw
+1 Coral Eel
+1 Curio Vendor
+1 Dandân
+1 Daring Thunder-Thief
+1 Devouring Deep
+1 Drafna's Restoration
+1 Fade Away
+1 Feral Krushok
+4 Forest
+1 Frog-Squirrels
+1 Garruk's Gorehorn
+1 Ghazbán Ogre
+1 Great-Horn Krushok
+1 Grove of the Guardian
+1 Horned Turtle
+1 Hundroog
+1 Irrigation Ditch
+19 Island
+1 Juxtapose
+1 Lumbering Falls
+1 Manta Ray
+1 Mirkwood Spider
+1 Misdirection
+1 Mistford River Turtle
+1 Mnemonic Nexus
+1 Moat Piranhas
+1 Nimbus Maze
+1 Omnibian
+1 Oraxid
+1 Planar Gate
+1 Plated Seastrider
+1 Political Trickery
+1 Power Taint
+1 Reverberation
+1 Riptide Turtle
+1 Rotted Hystrix
+1 School of Piranha
+1 Seaside Citadel
+1 Sejiri Refuge
+1 Selesnya Cluestone
+1 Simic Guildgate
+1 Sky Weaver
+1 Skycloud Expanse
+1 Slippery Bogle
+1 Spara's Headquarters
+1 Species Gorger
+1 Spore Frog
+1 Steeple Creeper
+1 Suburban Sanctuary
+1 Talisman of Curiosity
+1 Talisman of Progress
+1 Tanglepool Bridge
+1 Thoughtlace
+1 Tormod's Crypt
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Turtle-Seals
+1 Urban Retreat
+1 Vedalken Mesmerist
+1 Vivid Flying Fish
+1 Whiptongue Frog
+1 Zodiac Rooster

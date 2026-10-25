@@ -1,6 +1,7 @@
 # adapted from data/decks/precon/M19/sarkhan.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Sarkhan_M19.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Sarkhan (Adapted)]
+2 Arc Lightning
 2 Breath Weapon
 2 Electrify
 3 Fiery Cannonade
@@ -19,5 +20,4 @@
 1 Seismic Rupture
 1 Shivan Dragon
 2 Shock
-2 Steam Blast
 2 Volcanic Dragon

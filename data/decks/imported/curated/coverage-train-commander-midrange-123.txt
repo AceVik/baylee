@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266124]
+1 Alchemist's Apprentice
+1 Archivist
+1 Azami, Lady of Scrolls
+1 Azure Mage
+1 Barkchannel Pathway
+1 Bone to Ash
+1 Boon of the Wish-Giver
+1 Charge Through
+1 Contradict
+1 Creeping Tar Pit
+1 Cryptic Command
+1 Dimir Guildgate
+1 Elvenking's Halls
+1 Elvish Spirit Guide
+1 Erratic Visionary
+1 Ezio, Blade of Vengeance
+1 Facet Reader
+1 Failed Inspection
+1 Fallowsage
+1 Foggy Bottom Swamp
+1 Foreboding Landscape
+4 Forest
+1 Furtive Analyst
+1 Great Divide Guide
+1 Hapless Researcher
+1 Hermitic Herbalist
+1 Historian of Zhalfir
+1 Ice Tunnel
+1 Intrepid Stablemaster
+18 Island
+1 Locke Cole
+1 Lore Broker
+1 Magus of the Bazaar
+1 Mirkwood Meditator
+1 Murky Sewer
+1 Mystic Archaeologist
+1 Mystic Snake
+1 Neurok Commando
+1 Ohran Frostfang
+1 Open Communications
+1 Opulent Palace
+1 Overeager Apprentice
+1 Overgrown Tomb
+1 Prosperity
+1 Prying Eyes
+1 Pym Particles
+1 Reach Through Mists
+1 Research Assistant
+1 Sachi, Daughter of Seshiro
+1 Scatter Arc
+1 Sea Gate Loremaster
+1 Seafloor Oracle
+1 Shadow Rift
+1 Shadowmage Infiltrator
+1 Shipwreck Marsh
+1 Silundi Vision
+1 Slip Through Space
+1 Soothsayer Adept
+1 Soul Read
+1 Soulknife Spy
+1 Spock, Logical Choice
+1 Stealer of Secrets
+1 Suit Up
+1 Sultai Devotee
+1 Swamp
+1 Teferi's Protege
+1 Third Path Savant
+1 Thought Courier
+1 Time Spiral
+1 Titan's Grave
+1 Treasure Cruise
+1 Turntimber Symbiosis
+1 Urborg Elf
+1 Vernal Fen
+1 Wastewood Verge
+1 Watery Grave
+1 Weaver of Currents
+1 Yavimaya Coast
+1 Zagoth Triome
+
+[commander]
+Leovold, Emissary of Trest

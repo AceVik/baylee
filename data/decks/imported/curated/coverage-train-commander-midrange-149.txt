@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266150]
+1 Accelerated Evolution
+1 Arasta of the Endless Web
+1 Asceticism
+1 Audacity
+1 Bitterblossom
+1 Blooming Marsh
+1 Briar Shield
+1 Brood Butcher
+1 Brood Weaver
+1 Carapace
+1 Concordant Crossroads
+1 Crosswinds
+1 Dark Prophecy
+1 Dryad's Favor
+1 Eladamri, Lord of Leaves
+1 Elderfang Venom
+1 Epic Proportions
+1 Equestrian Skill
+1 Feral Invocation
+1 Festering Gulch
+1 Fists of Ironwood
+1 Foggy Bottom Swamp
+18 Forest
+1 Frantic Strength
+1 From Beyond
+1 Gaea's Anthem
+1 Gaea's Embrace
+1 Ghoulflesh
+1 Gift of the Deity
+1 Gilt-Leaf's Embrace
+1 Hardened-Scale Armor
+1 Hidden Path
+1 Hissing Quagmire
+1 Howlpack Resurgence
+1 Illness in the Ranks
+1 Leshrac's Rite
+1 Liliana's Mastery
+1 Llanowar Wastes
+1 Lounge
+1 Mantle of Webs
+1 Midnight Entourage
+1 Mythic Proportions
+1 Necroblossom Snarl
+1 Night Soil
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Pawpatch Formation
+1 Primal Frenzy
+1 Primal Rage
+1 Prodigious Growth
+1 Return from the Wilds
+1 Rotwidow Pack
+1 Savage Silhouette
+1 Serpent Skin
+1 Sifter of Skulls
+1 Silken Strength
+1 Snake Pit
+1 Spidersilk Armor
+1 Spitting Spider
+1 Sporecrown Thallid
+1 Stamina
+1 Steely Resolve
+5 Swamp
+1 Tainted Wood
+1 Tall as a Beanstalk
+1 Temple of Malady
+1 Temur Runemark
+1 Tiger Claws
+1 Trollhide
+1 Turbulent Fen
+1 Turtle Power!
+1 Twilight Mire
+1 Undergrowth Stadium
+1 Viridescent Bog
+1 Weakness
+1 Witherbloom Campus
+1 Wolfkin Bond
+1 Woodland Chasm
+
+[commander]
+The Serpent Society

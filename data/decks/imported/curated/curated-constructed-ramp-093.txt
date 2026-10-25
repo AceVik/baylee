@@ -1,20 +1,22 @@
 # baylee curated constructed ramp seed=20261116
 # licence: AGPL-3.0-only
-[deck:constructed ramp BG #20261116]
-2 Charcoal Diamond
-1 Dungeon Descent
-2 Emrakul's Influence
-4 Firdoch Core
-3 Forest
-4 Gaea's Cradle
-2 Green Sun's Zenith
-4 Megantic Sliver
-4 Meteor Sword
-4 Painful Lesson
-4 Peat Bog
-2 Skittering Invasion
-4 Supply Drop
-12 Swamp
-1 Tainted Wood
-3 Thorntooth Witch
-4 Wit's End
+[deck:constructed ramp BR #20261116]
+2 Arcum's Astrolabe
+1 Blightstep Pathway
+4 Blood Crypt
+4 Coal Golem
+3 Commander's Sphere
+4 Energy Refractor
+3 Geothermal Bog
+2 Infernal Idol
+2 Lantern-Lit Graveyard
+4 Limestone Golem
+3 Mana Crypt
+1 Meteor Golem
+2 Mind Stone
+9 Mountain
+3 Prophetic Prism
+3 Shadowblood Egg
+1 Shadowblood Ridge
+4 Solemn Simulacrum
+5 Swamp

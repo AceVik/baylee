@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266126]
+1 Acid Web Spider
+1 Aysen Abbey
+1 Basalt Monolith
+1 Bountiful Promenade
+1 Calciform Pools
+1 Clairvoyance
+1 Corridor Monitor
+1 Craw Giant
+1 Dark Sphere
+1 Delighted Halfling
+1 Despotic Scepter
+1 Dispeller's Capsule
+1 Dragonborn Looter
+1 Dromoka Monument
+1 Faerie Mastermind
+1 Feroz's Ban
+1 Firdoch Core
+1 Fledgling Griffin
+5 Forest
+1 Gale Swooper
+1 Gathering Place
+1 Glowing Anemone
+1 Gulf Squid
+1 Gyre Engineer
+1 Heal
+1 Herd Gnarr
+1 High Tide
+1 Honor-Worn Shaku
+1 Illvoi Galeblade
+1 Irrigation Ditch
+15 Island
+1 Jadecraft Artisan
+1 Library Larcenist
+1 Looter il-Kor
+1 Lush Oasis
+1 Majestic Metamorphosis
+1 Marshdrinker Giant
+1 Mechan Navigator
+1 Mightstone's Animation
+1 Moss Diamond
+1 Mystic Gate
+1 Nimbus Maze
+1 Obelisk of Bant
+1 Ondu Greathorn
+1 Padeem, Consul of Innovation
+1 Patriar's Seal
+1 Pestermite
+3 Plains
+1 Predator, Flagship
+1 Razortide Bridge
+1 Rebuild
+1 Scepter of Insight
+1 Scion of Oona
+1 Sea Scryer
+1 Seaside Citadel
+1 Selesnya Keyrune
+1 Senate Griffin
+1 Silvergill Peddler
+1 Simic Keyrune
+1 Soratami Cloudskater
+1 Spara's Headquarters
+1 Spinning Wheel
+1 Stock Up
+1 Sure-Footed Infiltrator
+1 Symbol of Unsummoning
+1 Temple of Enlightenment
+1 Territorial Baloth
+1 Thalakos Lowlands
+1 Thundering Tanadon
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Turbulent Wilderness
+1 Tymora's Invoker
+1 Uktabi Faerie
+1 Undersea Invader
+1 Urban Retreat
+1 Vedalken Heretic
+1 Vodalian Arcanist
+1 Wakandan Drone Flock
+
+[commander]
+Rubinia Soulsinger

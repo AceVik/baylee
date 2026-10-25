@@ -4,16 +4,16 @@
 4 Auger Spree
 4 Bedevil
 3 Deadeye Duelist
-4 Dreadbore
+4 Delirium
 2 Greedy Freebooter
+2 Kaervek's Purge
 10 Mountain
 2 Murder
 2 Plundering Pirate
 1 Raucous Theater
 1 Scorching Shot
-2 Skull Rend
+4 Spontaneous Combustion
 14 Swamp
 4 Terminate
 1 Tinybones, the Pickpocket
 2 Vault Plunderer
-4 Wrecking Ball

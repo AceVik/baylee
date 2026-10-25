@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266033]
+1 Aether Flash
+1 Amok
+1 Ancient Runes
+1 Barbed Foliage
+1 Blockbuster
+1 Bloodshed Fever
+1 Bristling Backwoods
+1 Brotherhood Headquarters
+1 Bulwark
+1 Burning Earth
+1 City of Shadows
+1 Conclave Naturalists
+1 Craw Giant
+1 Cyclops of Eternal Fury
+1 Detection Tower
+1 Downdraft
+1 Dryad of the Ilysian Grove
+1 Earthbind
+1 Fastbond
+1 Flame Blitz
+13 Forest
+1 Frost Giant
+1 Goobbue Gardener
+1 Grasping Dunes
+1 Gruul Keyrune
+1 Gumato
+1 Heap Gate
+1 Heat of Battle
+1 Holdout Settlement
+1 Honden of Infinite Rage
+1 Impolite Entrance
+1 Insolence
+1 Iroas's Blessing
+1 Krosan Groundshaker
+1 Land's Edge
+1 Loam Dryad
+1 Loamdragger Giant
+1 Lust for War
+1 Molten Vortex
+1 Monsoon
+11 Mountain
+1 Neverwinter Dryad
+1 Noxious Newt
+1 Nyxborn Brute
+1 Nyxborn Colossus
+1 Ohran Frostfang
+1 Ominous Cemetery
+1 Oread of Mountain's Blaze
+1 Pillar of the Paruns
+1 Planar Nexus
+1 Primal Order
+1 Pyrohemia
+1 Rock Basilisk
+1 Sachi, Daughter of Seshiro
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Scald
+1 Scouring Sands
+1 Scrying Sheets
+1 Seafarer's Quay
+1 Setessan Training
+1 Shaleskin Bruiser
+1 Skycoach Waypoint
+1 Spawning Grounds
+1 Springjack Pasture
+1 Sylvan Caryatid
+1 Talon Gates of Madara
+1 The Great Mound
+1 The Lady of the Mountain
+1 Thelon's Chant
+1 Titania's Song
+1 Tower of the Magistrate
+1 Transdimensional Bovine
+1 Trolls of Tel-Jilad
+1 Utopia Tree
+1 Vibrant Cityscape
+1 Where Ancients Tread
+
+[commander]
+Jerrard of the Closed Fist

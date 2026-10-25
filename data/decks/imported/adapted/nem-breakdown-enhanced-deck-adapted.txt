@@ -6,15 +6,18 @@
 1 Creeping Mold
 3 Dehydration
 3 Double Major
+1 Emperor Crocodile
 10 Forest
 2 Hickory Woodlot
 4 Hydroform
 10 Island
 4 Neoform
+1 Palinchron
+1 Raven Familiar
 2 River Boa
 2 Saprazzan Skerry
-4 Square Up
 3 Stronghold Zeppelin
+1 Symbiosis
 2 Uktabi Orangutan
 1 Vine Trellis
 2 Waterfront Bouncer

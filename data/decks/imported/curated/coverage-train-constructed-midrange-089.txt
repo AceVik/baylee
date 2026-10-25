@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UR #20266090]
+2 Arc Runner
+2 Artificer's Intuition
+2 Breezekeeper
+2 Cavern of Souls
+2 Deer-Dog
+2 Demolition Field
+2 Dragon Moose
+2 Flame Blitz
+2 Frostburn Weird
+2 Furnace Brood
+2 Guma
+3 Haunted Fengraf
+2 Island
+2 Lightning Diadem
+2 Mijae Djinn
+12 Mountain
+2 Raging Bull
+2 Regathan Firecat
+3 Shire Terrace
+2 Stone Spirit
+2 Talonrend
+2 Wave Elemental
+2 Wetland Sambar
+2 Whimwader

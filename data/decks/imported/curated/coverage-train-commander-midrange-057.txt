@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266058]
+1 Arlinn's Wolf
+1 Awakening
+1 Blessed Respite
+1 Bramble Creeper
+1 Bristlepack Sentry
+1 Call of the Wild
+1 Canopy Dragon
+1 Charging Badger
+1 Chorus of Might
+1 Cliffrunner Behemoth
+1 Conifer Strider
+1 Creeperhulk
+1 Darkthicket Wolf
+1 Deserted Temple
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Drownyard Temple
+1 Dungrove Elder
+1 Flora Colossus
+1 Fomori Vault
+1 Force of Savagery
+31 Forest
+1 Gaea's Avenger
+1 Gaea's Embrace
+1 Gaea's Liege
+1 Get a Leg Up
+1 Giant Badger
+1 Grappling Sundew
+1 Grave Bramble
+1 Guildmages' Forum
+1 Halls of Mist
+1 Heroic Intervention
+1 Jumbo Cactuar
+1 Kavu Mauler
+1 Legolas's Quick Reflexes
+1 Library of Alexandria
+1 Living Lands
+1 Lurking Green Dragon
+1 Massive Might
+1 Moss Monster
+1 Nylea's Intervention
+1 Phytoburst
+1 Pygmy Troll
+1 Ranger's Guile
+1 Realms Uncharted
+1 Regenerate
+1 Retaliation
+1 Roots
+1 Silk Net
+1 Subdue
+1 Survival of the Fittest
+1 Sylvan Paradise
+1 Tall as a Beanstalk
+1 The Gold Saucer
+1 Thicket Crasher
+1 Thornling
+1 Treefolk Seedlings
+1 Tyvar's Stand
+1 Underdome
+1 Unnatural Predation
+1 Urza's Factory
+1 Vine Mare
+1 Wall of Pine Needles
+1 Wall of Vines
+1 Whip Vine
+1 Whippoorwill
+1 Wielding the Green Dragon
+1 Wolfsbane, Highland Hero
+1 Wood Elemental
+
+[commander]
+Thrun, Breaker of Silence

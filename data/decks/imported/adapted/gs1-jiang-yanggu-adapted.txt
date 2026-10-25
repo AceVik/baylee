@@ -15,6 +15,7 @@
 9 Mountain
 4 Reckless Pangolin
 3 Sacred White Deer
-2 Stone Spirit
-4 Stump Stomp
+2 Shatterskull Recruit
+3 Stump Stomp
+1 Surge of Strength
 4 Timber Gorge

@@ -16,8 +16,8 @@
 1 Narrow Escape
 23 Plains
 3 Queen's Commission
-4 Radiant's Judgment
-2 Rebuke
+1 Radiant's Judgment
 2 Sworn Companions
-1 Tempest of Light
 2 Thunder Totem
+4 Warrior's Honor
+2 Zhalfirin Commander

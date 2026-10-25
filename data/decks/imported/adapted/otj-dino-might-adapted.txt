@@ -5,15 +5,15 @@
 4 Colossal Might
 1 Commercial District
 3 Dinotomaton
+2 Feral Instinct
 11 Forest
-4 Ground Assault
-3 Guttural Response
+3 Ground Assault
 4 Manamorphose
 9 Mountain
-2 Nylea's Intervention
 2 Panicked Altisaur
 2 Rumbling Rockslide
 4 Savage Twister
 4 Stump Stomp
+4 Surge of Strength
 2 They Went This Way
 1 Volcanic Dragon

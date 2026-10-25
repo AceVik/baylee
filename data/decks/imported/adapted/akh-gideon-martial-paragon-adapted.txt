@@ -4,13 +4,13 @@
 4 Arrows of Justice
 3 Companion of the Trials
 2 Electrify
+4 Energy Bolt
 1 Frontline Rush
 4 Graceful Cat
 1 Impeccable Timing
 1 Kiln Fiend
-1 Legion Leadership
 4 Lightning Helix
-4 Martial Glory
+1 Martial Glory
 10 Mountain
 10 Plains
 2 Sparring Mummy

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266262]
+1 Alpha Tyrranax
+1 Atarka Monument
+1 Barkhide Mauler
+1 Barl's Cage
+1 Battering Sliver
+1 Bleeding Woods
+1 Bristling Backwoods
+1 Bronze Sword
+1 Bubble Matrix
+1 Caltrops
+1 Cinder Glade
+1 Colossus Hammer
+1 Cragcrown Pathway
+1 Delighted Halfling
+1 Dining Room
+1 Dosan's Oldest Chant
+1 Enormous Baloth
+1 Fire Sprites
+1 Fire-Lit Thicket
+1 Fireforger's Puzzleknot
+22 Forest
+1 Fungal Reaches
+1 Fury Sliver
+1 Fíli and Kíli, Joyous
+1 Game Trail
+1 Gang of Elk
+1 Gauntlets of Chaos
+1 Gemhide Sliver
+1 Goblin Artisans
+1 Golden Hind
+1 Gorgon's Head
+1 Groundshaker Sliver
+1 Gruul Guildgate
+1 Gruul Keyrune
+1 Gruul Nodorog
+1 Gumato
+1 Highland Weald
+1 Honed Khopesh
+1 Kalonian Behemoth
+1 Kazandu Refuge
+1 Kessig Wolf Run
+1 Krosan Groundshaker
+1 Manaweft Sliver
+1 Matzalantli, the Great Door
+1 Megantic Sliver
+1 Mishra's Helix
+1 Mossfire Valley
+2 Mountain
+1 Needleshot Gourna
+1 Neurok Hoversail
+1 Nightshade Dryad
+1 Null Brooch
+1 Panic
+1 Plated Crusher
+1 Questing Beast
+1 Ring of Three Wishes
+1 Riot Gear
+1 Rootbound Crag
+1 Rootrider Faun
+1 Rubble Reading
+1 Sandals of Abdallah
+1 Satyr Hedonist
+1 Shake the Foundations
+1 Shaleskin Bruiser
+1 Short Bow
+1 Short Sword
+1 Slagwoods Bridge
+1 Spearbreaker Behemoth
+1 Spire Garden
+1 Taiga
+1 Temple of Abandon
+1 Tenement Crasher
+1 Torch Gauntlet
+1 Troll-Horn Cameo
+1 Tusked Colossodon
+1 War Barge
+1 Well of Knowledge
+
+[commander]
+Jerrard of the Closed Fist

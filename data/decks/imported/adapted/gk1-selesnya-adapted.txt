@@ -6,13 +6,13 @@
 1 Centaur Healer
 1 Conclave Cavalier
 1 Desert Twister
-4 Eladamri's Call
+2 Eladamri's Call
 8 Forest
 2 Gerrard's Command
 1 Glare of Subdual
 1 Grove of the Guardian
 1 Heroes' Reunion
-3 Nature's Chant
+1 Nature's Chant
 8 Plains
 1 Privileged Position
 4 Selesnya Charm
@@ -22,4 +22,5 @@
 2 Selesnya Signet
 1 Tolsimir Wolfblood
 1 Vernadi Shieldmate
+4 Vitalizing Cascade
 2 Watchwolf

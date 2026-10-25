@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266281]
+1 Absolute Grace
+1 Almost Perfect
+1 Arboria
+1 Arctic Flats
+1 Aura Shards
+1 Barbed Foliage
+1 Birnin Zana Plaza
+1 Black Ward
+1 Botanical Plaza
+1 Bower Passage
+1 Bramblecrush
+1 Branchloft Pathway
+1 Broken Fall
+1 Burgeoning
+1 Circle of Protection: Blue
+1 Circle of Protection: Green
+1 Circle of Protection: Red
+1 Circle of Protection: Shadow
+1 Cleansing Ray
+1 Collective Blessing
+1 Conservatory
+1 Conversion
+1 Crackdown
+1 Deadfall
+1 Dense Foliage
+1 Destroy Evil
+1 Entangling Vines
+1 Ephara's Radiance
+1 Equinox
+1 Etched Cornfield
+1 Exploration
+1 Farmstead
+5 Forest
+1 Fragmentize
+1 Gavony Township
+1 Gerrard's Battle Cry
+1 Graypelt Refuge
+1 Great Wall
+1 Greater Realm of Preservation
+1 Hot Springs
+1 Humility
+1 Hushwood Verge
+1 Island Sanctuary
+1 Kismet
+1 Kudzu
+1 Light of Day
+1 Living Lands
+1 Lush Portico
+1 Might of the Ancestors
+1 Noble Steeds
+1 Opal Avenger
+1 Overgrown Farmland
+1 Pariah
+18 Plains
+1 Planar Collapse
+1 Prismatic Ward
+1 Retaliation
+1 Righteous Aura
+1 Rolling Stones
+1 Root Maze
+1 Rule of Law
+1 Safeguard
+1 Seeker
+1 Selesnya Sanctuary
+1 Shoot Down
+1 Squirrel Nest
+1 Still Life
+1 Swift Reconfiguration
+1 Temple Garden
+1 Temple of Plenty
+1 Unlikely Alliance
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Walk-In Closet
+1 Wallop
+1 White Ward
+1 Wooded Bastion
+1 Worship
+
+[commander]
+Trostani, Three Whispers

@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #20266223]
+1 Aesi, Tyrant of Gyre Strait
+1 Alchemist's Refuge
+1 Arcane Encyclopedia
+1 Barkchannel Pathway
+1 Broodhunter Wurm
+1 Cogwork Wrestler
+1 Conch Horn
+1 Courier's Capsule
+1 Delif's Cone
+1 Despotic Scepter
+1 Emperor Crocodile
+1 Enraged Ceratok
+1 Fool's Tome
+1 Force Void
+9 Forest
+1 Frilled Oculus
+1 Gene Pollinator
+1 Greater Sandwurm
+1 Guardian Idol
+1 Helm of Awakening
+1 Hinterland Harbor
+1 Honey Mammoth
+1 Humongulus
+14 Island
+1 Jalum Tome
+1 Jet Medallion
+1 Jungle Barrier
+1 Knight of the Mists
+1 Lotus Cobra
+1 Lumbering Falls
+1 Lush Oasis
+1 Machine God's Effigy
+1 Manhole Cover
+1 Mimic
+1 Mungha Wurm
+1 Ordinary Bear
+1 Phyrexian Lens
+1 Pithing Needle
+1 Plated Wurm
+1 Pond Prophet
+1 Prismatic Lens
+1 Rain-Slicked Copse
+1 Ravenous Lindwurm
+1 Relic of Legends
+1 Ring of Renewal
+1 Rubbleback Rhino
+1 Runeboggle
+1 Scepter of Insight
+1 Shire Scarecrow
+1 Simic Cluestone
+1 Simic Growth Chamber
+1 Simic Guildgate
+1 Simic Locket
+1 Simic Ragworm
+1 Simic Signet
+1 Slumbering Waterways
+1 Snapping Voidcraw
+1 Sodden Verdure
+1 Spare Supplies
+1 Spinning Wheel
+1 Stone Calendar
+1 Supply Drop
+1 Tangled Islet
+1 Temple Bell
+1 The Everflowing Well
+1 Tishana's Tidebinder
+1 Tropical Island
+1 Turbulent Wilderness
+1 Vineglimmer Snarl
+1 Wall of Lost Thoughts
+1 Wall of Vapor
+1 Wall of Wonder
+1 Wardscale Crocodile
+1 Waterlogged Grove
+1 Wild Ceratok
+1 Willowrush Verge
+1 Winding Wurm
+1 Wistful Selkie
+1 Yavimaya Coast

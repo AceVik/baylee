@@ -1,85 +1,75 @@
 # baylee curated commander midrange seed=20261040
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20261040]
-1 Abzan Runemark
-1 Accursed Horde
-1 Adagia, Windswept Bastion
-1 Ajani's Mantra
-1 Ajani's Welcome
-1 Angelic Reward
-1 Arid Mesa
-1 Artifact Possession
-1 Aspect of Lamprey
-1 Baldur's Gate
-1 Blade Banish
-1 Blighted Fen
-1 Blood Vassal
-1 Bog Wraith
-1 Call to Mind
-1 Capashen Standard
-1 Capture of Jingzhou
-1 Chromium
-1 Daily Bugle Newspaper
-1 Damnable Pact
-1 Desert
-1 Desiccated Naga
-1 Doom Whisperer
-1 Dragon-Cursed Halls
-1 Drainpipe Vermin
-1 Drake-Skull Cameo
-1 Dunes of the Dead
-1 Dungeon Descent
-1 Faceless Haven
-1 Feral Abomination
-1 Fleet-Footed Monk
-1 Flow of Maggots
-1 Gargoyle Castle
-1 Glorious Anthem
-1 Gravitational Shift
-1 HELIOS One
-1 Halt Order
-1 Hexplate Golem
-9 Island
-1 Jace, the Mind Sculptor
-1 Jade Monolith
-1 Juxtapose
-1 Kite Shield
-1 Leonin Bladetrap
-1 Lightbringer
-1 Liturgy of Blood
-1 Manta Ray
-1 Marsh Threader
-1 Nectar Faerie
-1 Nightwing Shade
-1 Nim Replica
-1 Nuclear Fallout
-1 Pawn of Ulamog
-9 Plains
-1 Power Artifact
-1 Razortide Bridge
-1 Refute
-1 Ridged Kusite
-1 Rotting Regisaur
-1 Sanguine Syphoner
-1 Secret Passage
-1 Sejiri Refuge
-1 Short Circuit
-1 Silver Drake
-1 Spawning Pool
-1 Sterling Hound
-6 Swamp
-1 Thermal Navigator
-1 Trenching Steed
-1 Underdark Rift
-1 Valorous Stance
-1 Vampire Bats
-1 Vial of Poison
-1 Viscerid Drone
-1 Wall of Denial
-1 White Ward
-1 Windbrisk Raptor
-1 Wit's End
-1 Zombie Outlander
+[deck:commander midrange W #20261040]
+1 Allied Teamwork
+1 Ancient Den
+1 Arahbo, the First Fang
+1 Arcbound Ravager
+1 Archon of Sun's Grace
+1 Avacyn's Collar
+1 Bishop of Wings
+1 Blade Splicer
+1 Captain of the Watch
+1 Cartouche of Solidarity
+1 Claws of Gix
+1 Culling Dais
+1 Diamond Kaleidoscope
+1 Doomed Traveler
+1 Dwarven Castle Guard
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Elgaud Inquisitor
+1 Field of Souls
+1 Filigree Crawler
+1 Flagstones of Trokair
+1 Gilded Pinions
+1 Glaring Fleshraker
+1 Gleaming Barrier
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Griffin Guide
+1 Hall of Heliod's Generosity
+1 Haunted Library
+1 Hunted Witness
+1 Karakas
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Kor Haven
+1 Magnifying Glass
+1 Martyr of Dusk
+1 Master Splicer
+1 Master Trinketeer
+1 Mausoleum Guard
+1 Mobilization
+1 Myr Matrix
+1 Myr Sire
+1 Nesting Dovehawk
+1 Nim Deathmantle
+1 Nomad Stadium
+1 Novice Inspector
+1 Ojer Taq, Deepest Foundation
+1 Orochi Hatchery
+1 Pentavus
+31 Plains
+1 Prying Blade
+1 Regal Caracal
+1 Requiem Angel
+1 Retrofitter Foundry
+1 Sensor Splicer
+1 Shefet Dunes
+1 Siege Veteran
+1 Skullclamp
+1 Slayer's Plate
+1 Spawning Pit
+1 Squire's Devotion
+1 The Underworld Cookbook
+1 Thopter Squadron
+1 Titan Forge
+1 Trading Post
+1 Treasure Map
+1 Wand of the Elements
+1 Zuran Orb
 
 [commander]
-Chromium
+Momo, Rambunctious Rascal

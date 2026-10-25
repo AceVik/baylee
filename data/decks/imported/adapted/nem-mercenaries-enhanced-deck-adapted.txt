@@ -7,10 +7,10 @@
 2 Cateran Persuader
 3 Cateran Summons
 4 Dark Ritual
-2 Diresight
-1 Grim Tutor
+2 Duress
 1 Highway Robber
 2 Jovial Evil
+1 Maggot Therapy
 2 Polluted Mire
 1 Primeval Shambler
 2 Rathi Fiend

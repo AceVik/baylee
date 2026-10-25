@@ -1,82 +1,83 @@
 # baylee curated highlander aggro seed=20261072
 # licence: AGPL-3.0-only
 [deck:highlander aggro WG #20261072]
-1 Abu Ja'far
-1 Aisling Leprechaun
-1 Angelic Armaments
-1 Animate Land
-1 April O'Neil, Kunoichi Trainee
-1 Arboria
-1 Arch of Orazca
-1 Attentive Sunscribe
-1 Attercop
-1 Bear Cub
-1 Bloodstained Mire
-1 Bonders' Enclave
-1 Bountiful Harvest
-1 Cathedral of Serra
-1 Cavernous Maw
-1 Chitinous Cloak
-1 Coordinated Maneuver
-1 Corrosive Gale
-1 Defiant Falcon
-1 Detection Tower
-1 Divine Offering
-1 Elite Vanguard
-1 Elven Lyre
-1 Erhnam Djinn
-1 Fang of Shigeki
-1 Field Marshal
-11 Forest
-1 Foxfire
-1 Gaea's Avenger
-1 Gallows Warden
-1 Gideon's Reproach
-1 Golden Bear
-1 Goldmeadow Dodger
-1 Healer of the Glade
-1 Hematite Talisman
+1 Aang's Defense
+1 Angel's Feather
+1 Arctic Flats
+1 Auspicious Ancestor
+1 Bayou Dragonfly
+1 Birnin Zana Plaza
+1 Blessed Spirits
+1 Botanical Plaza
+1 Branchloft Pathway
+1 Briarknit Kami
+1 Brushland
+1 Bygone Bishop
+1 Captain's Defense
+1 Chimeric Egg
+1 Crystal Rod
+1 Dawnhart Geist
+1 Deeproot Champion
+1 Defiant Strike
+1 Demon's Horn
+1 Dragon's Claw
+1 Elfhame Palace
+1 Elvish Farmer
+1 Elvish Handservant
+10 Forest
+1 Fortified Village
+1 Gavony Township
+1 Generous Visitor
+1 Gilded Goose
+1 Glaring Fleshraker
+1 Golem's Heart
+1 Honor
+1 Iron Bully
 1 Iron Star
-1 Ironpaw Aspirant
-1 Jade Guardian
-1 Jeong Jeong's Deserters
-1 Joiner Adept
-1 Kalonian Tusker
-1 Kami of False Hope
-1 Karn's Bastion
-1 Knight of the Keep
-1 Lotus Petal
-1 Loxodon Wayfarer
-1 Mana Prism
-1 Mandible Justiciar
-1 Mandroid Squadron
-1 Mirrorpool
-1 Nantuko Mentor
-1 Nesting Dovehawk
-1 Nuisance Engine
-1 Okina, Temple to the Grandfathers
-1 Oran-Rief, the Vastwood
-1 Order of Whiteclay
-1 Perimeter Patrol
-1 Phyrexian Walker
-1 Pili-Pala
+1 Iron Will
+1 Isolation Cell
+1 Ivory Cup
+1 Juju Bubble
+1 Kor Firewalker
+1 Kraken's Eye
+1 Leaf-Crowned Visionary
+1 Levitating Statue
+1 Lifecrafter's Bestiary
+1 Lightshield Parry
+1 Lurking Lizards
+1 Lush Portico
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Machine Man, Model X-51
+1 Magma Mine
+1 Managorger Hydra
+1 Medusa, Inhuman Queen
+1 Mold Adder
+1 Monastery Mentor
+1 Overgrown Farmland
+1 Path of Annihilation
 12 Plains
 1 Primal Amulet
-1 Rishkar, Peema Renegade
-1 Selfless Savior
-1 Shimmering Barrier
-1 Shimmering Grotto
-1 Shredding Winds
-1 Social Climber
-1 Student of Ojutai
-1 Swordwise Centaur
-1 Throne of Makindi
+1 Quirion Dryad
+1 Radiant Grove
+1 Razorverge Thicket
+1 Selesnya Guildgate
+1 Shield Sphere
+1 Siege Veteran
+1 Skybeast Tracker
+1 Solarium Sentry
+1 Straw Golem
+1 Suburban Sanctuary
+1 Sunscorch Regent
+1 Sunshower Druid
+1 Suture Priest
+1 Sythis, Harvest's Hand
+1 Temple Garden
+1 The One Ring
 1 Titania's Chosen
-1 Treetop Scout
-1 Unclaimed Territory
-1 Underdark Rift
-1 Universal Solvent
-1 Valorous Stance
-1 Willow Dryad
-1 Woodland Druid
-1 Yavimaya, Cradle of Growth
+1 Urza's Chalice
+1 Veldt
+1 Voice of Resurgence
+1 Walking Ballista
+1 Wooden Sphere
+1 Wurm's Tooth

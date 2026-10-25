@@ -11,8 +11,8 @@
 2 Racers' Ring
 1 Rockfall Vale
 4 Rugged Highlands
-4 Sangrite Surge
 4 Savage Twister
 2 Sheltered Thicket
 3 Snarling Wolf
 4 Stump Stomp
+4 Surge of Strength

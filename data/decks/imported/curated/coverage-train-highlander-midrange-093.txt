@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BR #20266094]
+1 Agatha's Soul Cauldron
+1 Barbed-Back Wurm
+1 Base Camp
+1 Bog Elemental
+1 Boseiju, Who Shelters All
+1 Braidwood Sextant
+1 Burnout
+1 Cat Burglar
+1 Catacomb Crocodile
+1 Cemetery Gate
+1 Cinderhaze Wretch
+1 Crazed Skirge
+1 Crumbling Vestige
+1 Drudge Reavers
+1 Easy Prey
+1 Expedition Map
+1 Fever Charm
+1 Fledgling Imp
+1 Flood Plain
+1 Granitic Titan
+1 Hag of Dark Duress
+1 Headstone
+1 Hematite Talisman
+1 Hidden Hideout
+1 Jade Idol
+1 Lapis Lazuli Talisman
+1 Leering Emblem
+1 Locust Spray
+1 Lotus Field
+1 Lotus Petal
+1 Malachite Talisman
+1 Malakir Rebirth
+1 Mana Leech
+1 Maze's End
+1 Meteor Sword
+7 Mountain
+1 Mountain Valley
+1 Nacre Talisman
+1 Night Market
+1 Ogre Berserker
+1 Ogre Errant
+1 Ogre Jailbreaker
+1 Onyx Talisman
+1 Opposition Agent
+1 Oppression
+1 Phyrexian Gremlins
+1 Power Depot
+1 Putrefaction
+1 Rakdos Cluestone
+1 Rakdos Locket
+1 Renegade Map
+1 Restless Bones
+1 Riot Devils
+1 Rotted Hulk
+1 Scoria Wurm
+1 Skeletal Changeling
+1 Skeletal Crocodile
+1 Skycrash
+1 Sootwalkers
+1 Soul Rend
+1 Starting Town
+1 Stenchskipper
+1 Stun
+1 Sugar Rush
+16 Swamp
+1 Tarnation Vista
+1 Temple of the Dragon Queen
+1 Terror of the Fairgrounds
+1 Thawing Glaciers
+1 Thran Portal
+1 Transguild Promenade
+1 Untaidake, the Cloud Keeper
+1 Unworthy Dead
+1 Venomous Changeling
+1 Volcano Imp
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 War-Spike Changeling
+1 Whisper Squad

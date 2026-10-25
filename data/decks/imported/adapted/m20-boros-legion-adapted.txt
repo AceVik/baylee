@@ -4,11 +4,11 @@
 4 Arrows of Justice
 4 Boros Guildgate
 4 Double Cleave
+4 Energy Bolt
 3 Healer's Hawk
 2 Lava Coil
 2 Legion Guildmage
 4 Lightning Helix
-4 Martial Glory
 10 Mountain
 10 Plains
 2 Roc Charger

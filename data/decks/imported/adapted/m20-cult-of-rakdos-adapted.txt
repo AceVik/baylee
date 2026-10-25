@@ -4,16 +4,15 @@
 4 Auger Spree
 4 Bedevil
 1 Blood Crypt
-2 Burnt Offering
-4 Dreadbore
+4 Delirium
 3 Footlight Fiend
 2 Get the Point
 1 Judith, the Scourge Diva
+4 Kaervek's Purge
 10 Mountain
 4 Rakdos Guildgate
 3 Shock
-2 Skull Rend
 2 Spear Spewer
+4 Spontaneous Combustion
 10 Swamp
-4 Terminate
 4 Wrecking Ball

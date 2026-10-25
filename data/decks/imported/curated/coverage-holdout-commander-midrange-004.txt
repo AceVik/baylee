@@ -1,0 +1,75 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #90010005]
+1 Anchovy & Banana Pizza
+1 Arachnoid
+1 Attrition
+1 Blighted Bat
+1 Blood Seeker
+1 Boggart Trawler
+1 Brotherhood Patriarch
+1 Chromatic Lantern
+1 Coercion
+1 Cunning Lethemancer
+1 Cutthroat Contender
+1 Dauthi Slayer
+1 Deathgazer
+1 Deception
+1 Dungeon Shade
+1 Earthblighter
+1 Emergency Weld
+1 Energizer
+1 Essence Drain
+1 Eumidian Hatchery
+1 Felhide Petrifier
+1 Fevered Strength
+1 Fountain of Renewal
+1 Gateway Shade
+1 Gnawing Zombie
+1 Greatsword
+1 Headless Rider
+1 Heavy Mattock
+1 Horn of Greed
+1 Knowledge Vault
+1 Lake of the Dead
+1 Lunatic Pandora
+1 Manor Skeleton
+1 Mariposa Military Base
+1 Midgar, City of Mako
+1 Mikaeus, the Unhallowed
+1 Mindlash Sliver
+1 Mire's Grasp
+1 Nature's Ruin
+1 Nimana Skydancer
+1 Noxious Dragon
+1 Purraj of Urborg
+1 Rainbow Vale
+1 Rampart Crawler
+1 Razortooth Rats
+1 Reclusive Wight
+1 Rotting Mastodon
+1 Sadistic Glee
+1 Scene of the Crime
+1 Seizan, Perverter of Truth
+1 Shambling Ghoul
+1 Skemfar Avenger
+1 Skyscanner
+1 Soot Imp
+1 Soul Feast
+1 Stony-Voiced Goblins
+1 Street Wraith
+1 Stronghold Rats
+31 Swamp
+1 The Seedcore
+1 The Wretched
+1 Valgavoth's Lair
+1 Vampire Opportunist
+1 Vault of Whispers
+1 Wake of Vultures
+1 Walking Dead
+1 Wand of Ith
+1 Wicked Visitor
+1 Worry Beads
+
+[commander]
+Grendel, Spawn of Knull

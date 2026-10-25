@@ -9,11 +9,12 @@
 3 Ground Assault
 3 Karplusan Hound
 2 Llanowar Elves
-3 Manamorphose
+2 Manamorphose
 11 Mountain
 1 Pierce the Sky
 1 Primordial Wurm
 4 Pyromantic Pilgrim
 4 Savage Twister
 4 Stump Stomp
+1 Surge of Strength
 4 Timber Gorge

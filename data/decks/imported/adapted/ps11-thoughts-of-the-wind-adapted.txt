@@ -6,10 +6,10 @@
 2 Cancel
 4 Cloud Sprite
 2 Deluge
-2 Dream Fracture
+1 Dream Fracture
 3 Essence Scatter
+1 Evacuation
 1 Exclude
-1 Force of Negation
 25 Island
 2 Kraken's Eye
 1 Mahamoti Djinn
@@ -18,5 +18,6 @@
 2 Negate
 3 Snapping Drake
 2 Thieving Magpie
+1 Tinker
 2 Unsummon
 2 Wall of Spears

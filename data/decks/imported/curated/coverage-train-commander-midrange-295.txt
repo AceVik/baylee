@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266296]
+1 Acidic Dagger
+1 Aeronaut's Wings
+1 Amber Prison
+1 Anaba Ancestor
+1 Balduvian Trading Post
+1 Battle Squadron
+1 Battle-Rattle Shaman
+1 Bellows Lizard
+1 Bladed Pinions
+1 Caterwauling Boggart
+1 Char-Rumbler
+1 Cloak of the Bat
+1 Conservator
+1 Crystal Slipper
+1 Cursed Rack
+1 Demolish
+1 Dwarven Bloodboiler
+1 Dwarven Lieutenant
+1 Dwarven Soldier
+1 Dwarven Thaumaturgist
+1 Enslaved Dwarf
+1 Experimental Armor
+1 Fiery Hellhound
+1 Fissure
+1 Flame Spirit
+1 Flame-Chain Mauler
+1 Fleetfeather Sandals
+1 Furnace Spirit
+1 Gimli's Axe
+1 Goblin Ski Patrol
+1 Hammerheim
+1 Hanweir Battlements
+1 Hard-Won Jitte
+1 Hellion Crucible
+1 Hotfoot Gnome
+1 Igneous Cur
+1 Jackhammer
+1 Kher Keep
+1 Kormus Bell
+1 Lavakin Brawler
+1 Liberated Dwarf
+1 Marauder's Axe
+1 Minotaur Sureshot
+1 Mogg Squad
+1 Molten Ravager
+31 Mountain
+1 Nova Pentacle
+1 Power Armor
+1 Power Matrix
+1 Rampaging Classmate
+1 Ramunap Ruins
+1 Raze the Effigy
+1 Reckless One
+1 Saberclaw Golem
+1 Sandstone Warrior
+1 Scrapyard Mongrel
+1 Shinka, the Bloodsoaked Keep
+1 Shivan Gorge
+1 Skirk Outrider
+1 Slash Panther
+1 Sokenzan, Crucible of Defiance
+1 Tawnos's Coffin
+1 Thran Weaponry
+1 Tower of Champions
+1 Toxic Iguanar
+1 True-Faith Censer
+1 Viashino Weaponsmith
+1 War Horn
+1 Weaselback Redcap
+
+[commander]
+Hivis of the Scale

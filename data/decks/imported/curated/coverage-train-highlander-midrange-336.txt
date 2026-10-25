@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BG #20266337]
+1 Arcbound Ravager
+1 Avacyn's Collar
+1 Blooming Marsh
+1 Bog Elemental
+1 Breathstealer
+1 Callous Inspector
+1 Catacomb Slug
+1 Collector's Vault
+1 Culling Dais
+1 Darkmoss Bridge
+1 Douser of Lights
+1 Dowsing Dagger
+1 Dreg Reaver
+1 Elephant Guide
+1 Elvish Farmer
+1 Fen Stalker
+1 Festering Gulch
+1 Fledgling Imp
+4 Forest
+1 Foul Orchard
+1 Giant Scorpion
+1 Gilded Goose
+1 Gilt-Leaf Palace
+1 Gleaming Barrier
+1 Gloom Pangolin
+1 Gluttonous Zombie
+1 Goldvein Pick
+1 Golgari Longlegs
+1 Grim Backwoods
+1 Jungle Hollow
+1 Lazotep Behemoth
+1 Lead Pipe
+1 Mana Leech
+1 Marionette Apprentice
+1 Mole Worms
+1 Moor Fiend
+1 Myr Sire
+1 Nether Horror
+1 Nim Deathmantle
+1 Noxious Groodion
+1 Nurturing Peatland
+1 Orochi Hatchery
+1 Phyrexian Monitor
+1 Pine Barrens
+1 Pitiless Gorgon
+1 Pointed Discussion
+1 Prowess of the Fair
+1 Prowling Nightstalker
+1 Quest for the Gravelord
+1 Raiding Nightstalker
+1 Renegade Demon
+1 Restless Cottage
+1 Retrofitter Foundry
+1 Rotting Fensnake
+1 Shadow Rider
+1 Shimian Night Stalker
+1 Skeletal Vampire
+1 Slayer's Plate
+1 Slimy Dualleech
+1 Spawning Pit
+1 Squelching Leeches
+1 Stonefare Crocodile
+1 Strangled Cemetery
+19 Swamp
+1 Sweettooth Witch
+1 Terrarion
+1 Titan's Grave
+1 Treasure Map
+1 Trestle Troll
+1 Turbulent Fen
+1 Twilight Mire
+1 Ukud Cobra
+1 Underground Mortuary
+1 Undergrowth Stadium
+1 Unhallowed Phalanx
+1 Viridescent Bog
+1 Wandering Tombshell
+1 Whispering Shade
+1 Zodiac Pig

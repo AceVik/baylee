@@ -11,8 +11,9 @@
 3 Disenchant
 4 Drifting Djinn
 2 Drifting Meadow
-1 Growth Spasm
+3 Haunting Wind
 2 Island
+1 Live or Die
 2 Mana Leak
 3 Merfolk Looter
 2 Plains
@@ -21,9 +22,8 @@
 3 Reflecting Pool
 2 Remote Isle
 2 Rootwater Depths
-1 Solemn Offering
-3 Sphinx's Revelation
 2 Swamp
 2 Thalakos Lowlands
 3 Underground River
 2 Verdant Force
+1 Warrior Angel

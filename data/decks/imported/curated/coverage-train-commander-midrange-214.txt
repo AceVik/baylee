@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266215]
+1 An Offer You Can't Refuse
+1 Aphelia, Viper Whisperer
+1 Belligerent Guest
+1 Birthing Boughs
+1 Bloodflow Connoisseur
+1 Bone Devourer
+1 Boris Devilboon
+1 Castle Sengir
+1 Cateran Overlord
+1 Chocobo Racetrack
+1 Cogworker's Puzzleknot
+1 Creakwood Liege
+1 Crystal Quarry
+1 Dauthi Ghoul
+1 Deceptive Landscape
+1 Deduce
+1 Despondency
+1 Diregraf Captain
+1 Drowner of Truth
+1 Drunau Corpse Trawler
+1 Etherium Astrolabe
+4 Forest
+1 Gavony Unhallowed
+1 Glimmerburst
+1 Golgari Rotwurm
+1 Hard Evidence
+1 Hungry Ghoul
+1 Imperial Oath
+1 Indatha Triome
+1 Infectious Host
+4 Island
+1 Krark-Clan Ironworks
+1 Launch
+1 Legion's Landing
+1 Lord of the Undead
+1 Luminous Broodmoth
+1 Maskwood Nexus
+1 Master of Dark Rites
+1 Mechanized Ninja Cavalry
+1 Midnight Reaper
+1 Mountain
+1 Mystic Monastery
+1 Nearby Planet
+1 Necromaster Dragon
+1 Nettlecyst
+1 Nuisance Engine
+1 Oscorp Industries
+1 Phyrexian Broodlings
+2 Plains
+1 Raugrin Triome
+1 Returned Reveler
+1 Rise of Eagles
+1 Rotwidow Pack
+1 Security Blockade
+1 Seething Landscape
+1 Shattered Landscape
+1 Skirk Ridge Exhumer
+1 Sleeper's Guile
+1 Snake Basket
+1 Spawning Kraken
+1 Streetbreaker Wurm
+1 Stronghold Taskmaster
+12 Swamp
+1 Tamiyo, Inquisitive Student
+1 Tattered Mummy
+1 The World Tree
+1 Thousand Moons Smithy
+1 Time Sieve
+1 Tinder Farm
+1 Tinker's Tote
+1 Tournament Grounds
+1 Toxin Analysis
+1 Twisted Landscape
+1 Unfathomable Truths
+1 Urborg Shambler
+1 Vengeful Dead
+1 Whirlermaker
+1 Wizards' School
+1 Wretched Throng
+1 Zagoth Triome
+1 Ziatora's Proving Ground
+
+[commander]
+Sliver Queen

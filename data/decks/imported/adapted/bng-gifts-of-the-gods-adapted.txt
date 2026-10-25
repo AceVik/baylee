@@ -4,6 +4,7 @@
 4 Absorb
 4 Daring Leap
 1 Divination
+4 Energy Arc
 1 Eternity Snare
 1 Excoriate
 2 Great Hart
@@ -11,7 +12,6 @@
 1 Hold at Bay
 10 Island
 1 Lagonna-Band Elder
-4 Offering to Asha
 4 Ojutai's Command
 16 Plains
 1 Silent Sentinel

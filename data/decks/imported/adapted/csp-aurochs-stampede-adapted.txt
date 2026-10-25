@@ -7,14 +7,17 @@
 4 Colossal Might
 1 Deadly Insect
 1 Giant Trap Door Spider
+1 Gorilla Shaman
 4 Ground Assault
-1 Guttural Response
 2 Highland Weald
-4 Manamorphose
+2 Iroh's Demonstration
 1 Orcish Lumberjack
 4 Savage Twister
 14 Snow-Covered Forest
 8 Snow-Covered Mountain
-4 Stump Stomp
+1 Spring of Eternal Peace
+2 Stump Stomp
+1 Surge of Strength
+2 Tinder Wall
 1 Whalebone Glider
 2 Woolly Mammoths

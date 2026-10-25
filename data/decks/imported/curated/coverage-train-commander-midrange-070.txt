@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266071]
+1 Aang and Katara
+1 Air Nomad Legacy
+1 Al Bhed Salvagers
+1 Angel's Herald
+1 Aragorn, the Uniter
+1 Auspicious Ancestor
+1 Axelrod Gunnarson
+1 Aysen Abbey
+1 Barrage of Expendables
+1 Blood Rites
+1 Bygone Bishop
+1 Cabal Archon
+1 Choco-Comet
+1 Commissar Severina Raine
+1 Crystal Quarry
+1 Darigaaz's Caldera
+1 Dark Privilege
+1 Dark Prophecy
+1 Deadapult
+1 Death Watch
+1 Decomposition
+1 Deduce
+1 Delusions of Mediocrity
+1 Diregraf Captain
+1 Disciple of the Vault
+1 Draconic Disciple
+1 Dragonlair Spider
+1 Elas il-Kor, Sadistic Pilgrim
+1 Elderfang Venom
+1 Fell the Pheasant
+1 Fire Nation Archers
+1 Flamewright
+1 Foreboding Landscape
+2 Forest
+1 Fusion Elemental
+1 Ghen, Arcanum Weaver
+1 Grim Feast
+1 Haunt the Network
+1 High Noon
+1 Huntmaster of the Fells
+2 Island
+1 Judith, the Scourge Diva
+1 Jund Battlemage
+1 Kalastria Highborn
+1 Kenrith, the Returned King
+1 Ketria Triome
+1 Kykar, Wind's Fury
+1 Late to Dinner
+1 Madame Hydra
+3 Mountain
+1 Nearby Planet
+1 Oko, Thief of Crowns
+1 Omnath, Locus of Rage
+1 Oscorp Industries
+2 Plains
+1 Raugrin Triome
+1 Reckless Assault
+1 Rin and Seri, Inseparable
+1 Sangrite Backlash
+1 Savage Lands
+1 Savai Triome
+1 Seething Landscape
+1 Sek'Kuar, Deathkeeper
+1 Sheltering Landscape
+1 Sokka, Tenacious Tactician
+1 Spawning Breath
+1 Spiteflame Witch
+1 Stangg
+1 Storm God's Oracle
+14 Swamp
+1 Tegwyll, Duke of Splendor
+1 The Meathook Massacre
+1 The World Tree
+1 Tinder Farm
+1 Tournament Grounds
+1 Tura Kennerüd, Skyknight
+1 Urban Retreat
+1 Urbis Protector
+1 Vermin Gorger
+1 Weaponize the Monsters
+1 Ziatora's Proving Ground
+
+[commander]
+Super-Skrull

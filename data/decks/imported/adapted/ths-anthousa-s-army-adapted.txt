@@ -4,18 +4,20 @@
 2 Advent of the Wurm
 1 Artisan's Sorrow
 2 Battlewise Valor
-4 Call of the Conclave
+3 Call of the Conclave
 2 Deadly Recluse
-4 Eladamri's Call
-2 Elvish Lookout
+2 Eladamri's Call
 13 Forest
 2 Gerrard's Command
 2 Giant Growth
 2 Heroes' Reunion
-3 Nature's Chant
+2 Nature's Chant
+2 Orochi Leafcaller
+2 Pacifism
 1 Pheres-Band Centaurs
 12 Plains
 2 Rumbling Baloth
-4 Selesnya Charm
+3 Selesnya Charm
 1 Setessan Griffin
 1 Vanquish the Foul
+3 Vitalizing Cascade

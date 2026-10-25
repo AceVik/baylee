@@ -4,16 +4,16 @@
 4 Auger Spree
 4 Bedevil
 2 Bile Urchin
-2 Breath of Malfegor
-4 Burnt Offering
 1 Deathcurse Ogre
+4 Delirium
 4 Dreadbore
 2 Frost Ogre
+3 Kaervek's Purge
 1 Mark of the Oni
 10 Mountain
-1 Skull Rend
 1 Sokenzan Bruiser
+4 Spontaneous Combustion
 2 Swallowing Plague
 14 Swamp
-4 Terminate
-4 Wrecking Ball
+3 Terminate
+1 Wrecking Ball

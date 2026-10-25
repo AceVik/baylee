@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266114]
+1 Alchemist's Refuge
+1 Bayou
+1 Bellowing Crier
+1 Brinebarrow Intruder
+1 Clearwater Pathway
+1 Cloistered Telepath
+1 Cloudreader Sphinx
+1 Cosmic Horror
+1 Donatello, Turtle Techie
+1 Drownyard Amalgam
+1 Embodiment of Spring
+1 Eviscerator
+1 Festering Thicket
+1 Foggy Bottom Swamp
+1 Foreboding Landscape
+3 Forest
+1 Fourth Bridge Prowler
+1 Fungal Shambler
+1 Gateway Sneak
+1 Great Whale
+1 Grim Backwoods
+1 Guadosalam, Farplane Gateway
+1 Hedron Crab
+1 Hidden Lair
+1 Homarid Explorer
+1 Humbling Elder
+1 Iceberg Cancrix
+16 Island
+1 Jungle Barrier
+1 Kapsho Kitefins
+1 Keeper of Tresserhorn
+1 Laboratory Brute
+1 Llanowar Stalker
+1 Merfolk Observer
+1 Minion of Leshrac
+1 Mirkwood
+1 Moonlit Scavengers
+1 Naga Oracle
+1 Natural Order
+1 Nature's Lore
+1 Neverwinter Dryad
+1 Nimble Innovator
+1 Opal Lake Gatekeepers
+1 Opulent Palace
+1 Pestilence Demon
+1 Pine Barrens
+1 Poisonbelly Ogre
+1 Pond Prophet
+1 Rabid Bloodsucker
+1 Rain-Slicked Copse
+1 Restless Vinestalk
+1 Ruin Crab
+1 Rune-Scarred Demon
+1 Sage Owl
+1 Screeching Drake
+1 Screeching Skaab
+1 Serpent Warrior
+1 Shaman of the Pack
+1 Silkwing Scout
+1 Skemfar Elderhall
+1 Sky-Eel School
+1 Spire Owl
+1 Sultai Banner
+1 Sultai Skullkeeper
+5 Swamp
+1 Sylvan Scrying
+1 Thassa's Bounty
+1 Time of Need
+1 Tithebearer Giant
+1 Tome Raider
+1 Undercity Sewers
+1 Underground Sea
+1 Wall of Lost Thoughts
+1 Willow-Wind
+1 Wistful Selkie
+1 Xindi Surveyors
+1 Zagoth Crystal
+1 Zagoth Triome
+
+[commander]
+Muldrotha, the Gravetide

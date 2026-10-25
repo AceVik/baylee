@@ -1,20 +1,19 @@
 # baylee curated constructed aggro seed=20261107
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261107]
-4 Convolute
-4 Dedicated Martyr
-2 Deduce
-4 Dimir Informant
-4 Eager Glyphmage
-2 Escape Tunnel
-4 Guardian of Solitude
-2 Hallowed Fountain
-2 Humbling Elder
-4 Indomitable Ancients
-5 Island
-9 Plains
-4 Serra Zealot
-4 Soulcatcher
-3 Springjack Pasture
-2 Sunscorched Desert
-1 Wurm's Tooth
+3 Arcbound Ravager
+4 Avacyn's Collar
+4 Coastal Tower
+3 Glacial Floodplain
+4 Glaring Fleshraker
+4 Golden Guardian
+10 Island
+4 Mana Crypt
+3 Misers' Cage
+2 Myr Retriever
+3 Perilous Myr
+3 Plains
+3 Retrofitter Foundry
+3 Spawning Pit
+4 Thopter Squadron
+3 Tundra

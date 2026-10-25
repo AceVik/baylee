@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266003]
+1 Agatha's Soul Cauldron
+1 Ancient Amphitheater
+1 Bog Glider
+1 Brass's Tunnel-Grinder
+1 Contaminated Aquifer
+1 Dauthi Ghoul
+1 Deranged Outcast
+1 Empowered Autogenerator
+1 Extruder
+1 Fasting
+1 Firestorm Hellkite
+2 Forest
+1 Furycalm Snarl
+1 Gemstone Array
+1 Golden Urn
+1 Gongaga, Reactor Town
+1 Grindclock
+1 Grist, the Hunger Tide
+1 Guardian Kirin
+1 Hobblefiend
+1 Hungry Ghoul
+1 Insight Engine
+1 Iron Hills
+2 Island
+1 Judge Magister Gabranth
+1 Kazarov, Sengir Pureblood
+1 Lawless Broker
+1 Long Feng, Grand Secretariat
+1 Lorehold Campus
+1 Lotus Blossom
+1 Magistrate's Scepter
+1 Mighty Mutanimals
+1 Mire Shade
+1 Moriok Rigger
+3 Mountain
+1 Needle Spires
+1 Odric's Outrider
+1 Ominous Asylum
+1 Otherworld Atlas
+1 Pileated Provisioner
+6 Plains
+1 Plumecreed Mentor
+1 Quandrix Campus
+1 Rabanastre, Royal City
+1 Rapacious Dragon
+1 Ravenous Harpy
+1 Restless Spire
+1 Restless Vents
+1 Revered Unicorn
+1 Rising Populace
+1 Sab-Sunen, Luxa Embodied
+1 Savior of the Sleeping
+1 Scarland Thrinax
+1 Scavenger Drake
+1 Sengir Bats
+1 Shadewing Laureate
+1 She-Hulk, Jennifer Walters
+1 Slagwoods Bridge
+1 Smaug the Magnificent
+1 Soulcatcher
+1 Spectator Seating
+1 Sphinx of Magosi
+1 Stensia Bloodhall
+1 Sterling Supplier
+1 Sunscorched Divide
+1 Supply-Line Cranes
+1 Surge Node
+10 Swamp
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 Takklemaggot
+1 The Reaper, King No More
+1 Training Compound
+1 Triassic Egg
+1 Umara Raptor
+1 Unburied Earthcarver
+1 Venomcrawler
+1 Ventifact Bottle
+1 Village Cannibals
+1 Vorosh, the Hunter
+1 Wizard Class
+
+[commander]
+Child of Alara

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266140]
+1 Anurid Murkdiver
+1 Artifact Possession
+1 Banshee
+1 Barbtooth Wurm
+1 Bile Urchin
+1 Blessing of Leeches
+1 Bogstomper
+1 Cowl Prowler
+1 Craw Wurm
+1 Curse Artifact
+1 Dakmor Plague
+1 Darkest Hour
+1 Deathcap Glade
+1 Engine Rat
+1 Famine
+1 Festering Gulch
+1 Festerleech
+9 Forest
+1 Garruk's Uprising
+1 Gemhide Sliver
+1 Giant Warthog
+1 Gift of Strands
+1 Gilt-Leaf Palace
+1 Gohn, Town of Ruin
+1 Golgari Guildgate
+1 Golgari Rot Farm
+1 Golgari Signet
+1 Grim Backwoods
+1 Groundshaker Sliver
+1 Havenwood Wurm
+1 Hecatomb
+1 Hissing Quagmire
+1 Infectious Horror
+1 Johtull Wurm
+1 Kavu Lair
+1 Kezzerdrix
+1 Larceny
+1 Leyline Prowler
+1 Lounge
+1 Lurching Rotbeast
+1 Manaweft Sliver
+1 Megantic Sliver
+1 Mind Whip
+1 Mirkwood
+1 Moaning Wall
+1 Necroblossom Snarl
+1 Necrologia
+1 Nim Abomination
+1 Noxious Newt
+1 Ominous Parcel
+1 Onyx Goblet
+1 Parasitic Bond
+1 Plated Slagwurm
+1 Poison the Blade
+1 Powerleech
+1 Primordial Wurm
+1 Quilled Slagwurm
+1 Razaketh's Rite
+1 Roaring Slagwurm
+1 Scaled Wurm
+1 Skeletal Wurm
+1 Soul Bleed
+1 Spiteful Bully
+1 Strangled Cemetery
+15 Swamp
+1 Tainted Wood
+1 Thoughtleech
+1 Thoughtseize
+1 Titan's Grave
+1 Tourach's Chant
+1 Underground Mortuary
+1 Underworld Dreams
+1 Volrath's Gardens
+1 Wastewood Verge
+1 Whiptail Wurm
+1 Witherbloom Campus
+1 Woodland Cemetery
+
+[commander]
+Yargle and Multani

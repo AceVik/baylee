@@ -1,0 +1,75 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266299]
+1 Acid Rain
+1 Air Servant
+1 Arcane Flight
+1 Aven Envoy
+1 Aven Reedstalker
+1 Aven Smokeweaver
+1 Battleground Geist
+1 Bay Falcon
+1 Blighted Cataract
+1 Blizzard Elemental
+1 Celestial Messenger
+1 Cloak of Invisibility
+1 Cloud Manta
+1 Cloudsculpt Technician
+1 Coast Watcher
+1 Defensive Stance
+1 Ethereal Whiskergill
+1 Fledgling Osprey
+1 Fleeting Image
+1 Floodchaser
+1 Flying Dolphin-Fish
+1 Fog Elemental
+1 Fylamarid
+1 Gitaxian Raptor
+1 Glimmerbell
+1 Goliath Sphinx
+1 Hover Barrier
+1 Ipnu Rivulet
+31 Island
+1 Krovikan Mist
+1 Lilypad Village
+1 Living Tempest
+1 Living Tsunami
+1 Metathran Transport
+1 Mirozel
+1 Mistwalker
+1 Nephalia Seakite
+1 Nimbus of the Isles
+1 Oboro, Palace in the Clouds
+1 Otawara, Soaring City
+1 Phantasmal Forces
+1 Phantasmal Mount
+1 Piranha Fly
+1 Pseudodragon Familiar
+1 Riptide Laboratory
+1 Rishadan Airship
+1 River's Favor
+1 Sea Eagle
+1 Silver Erne
+1 Skyshroud Condor
+1 Soldevi Excavations
+1 Somnophore
+1 Soul of the Rapids
+1 Storm Crow
+1 Stormcloud Spirit
+1 Stormrider Spirit
+1 Thunder Wall
+1 Tolarian Academy
+1 Trained Condor
+1 Treetop Sentinel
+1 Trenzalore Clocktower
+1 Troublesome Spirit
+1 Updraft Elemental
+1 Vaporkin
+1 Vexing Gull
+1 Walking Dream
+1 Wall of Air
+1 Wind Spirit
+1 Zephyr Gull
+
+[commander]
+Yargle, Goliath of Otaria

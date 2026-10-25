@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange BG #20266216]
+2 Barbary Apes
+2 Cateran Summons
+2 Colossapede
+4 Darkbore Pathway
+12 Forest
+2 Giant Mantis
+2 Gloomwidow
+2 Gnottvold Recluse
+2 Golgari Longlegs
+3 Golgari Rot Farm
+2 Gorilla Chieftain
+2 Grappler Spider
+2 Hitchclaw Recluse
+2 Kessig Recluse
+2 Mammoth Spider
+2 Odious Trow
+2 Restless Cottage
+2 Rib Cage Spider
+2 Sporecap Spider
+2 Swamp
+2 Swift Spinner
+2 Talarian Hook Spider
+2 Wilt
+1 Woodland Chasm

@@ -1,19 +1,20 @@
 # baylee curated constructed control seed=20261101
 # licence: AGPL-3.0-only
 [deck:constructed control UG #20261101]
-2 Big Apple, 3 a.m.
-1 Command Tower
-4 Concentrate
-3 Forest
-13 Island
-4 Kraul Warrior
-4 Leonin Scimitar
-4 Medicine Bag
-3 Nimbus of the Isles
-4 Pact of Negation
-1 Sudden Strength
-2 Tajuru Snarecaster
-4 Terminal Moraine
-4 Treachery
-3 Trenzalore Clocktower
-4 Unauthorized Exit
+2 Dreamroot Cascade
+3 Elvish Farmer
+3 Energy Vortex
+7 Forest
+8 Island
+4 Juju Bubble
+4 Kitchen
+2 Lurking Lizards
+4 Lush Oasis
+1 Mutant Town
+3 Mystic Remora
+3 Path of Annihilation
+3 Primeval Bounty
+4 Quirion Dryad
+4 Soul Barrier
+2 Sphinx-Bone Wand
+3 Wanderlust

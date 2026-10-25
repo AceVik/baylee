@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266021]
+1 Accursed Duneyard
+1 Animal Sanctuary
+1 Ant-Man, Reformed Rogue
+1 Battlewand Oak
+1 Bladebrand
+1 Borne Upon a Wind
+1 Call to Heel
+1 Cascading Cataracts
+1 Clairvoyance
+1 Consult the Star Charts
+1 Dissenter's Deliverance
+1 Easy Prey
+1 Echoing Deeps
+1 Enter the Enigma
+1 Ertai Resurrected
+1 Force Void
+6 Forest
+1 Forge of Heroes
+1 Forget
+1 Frostwalk Bastion
+1 Gitaxian Probe
+1 Gravebind
+1 Gravelgill Duo
+1 Haze of Pollen
+1 Headstone
+1 Iguana Parrot
+14 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jhessian Thief
+1 Kozilek's Translator
+1 Leap
+1 Lull
+1 Lunar Mystic
+1 Mage's Guile
+1 Magus of the Coffers
+1 Mirran Spy
+1 Mistral Singer
+1 Mistvault Bridge
+1 Misty Rainforest
+1 Mystic Snake
+1 Nighthaze
+1 Open Communications
+1 Painsmith
+1 Petrified Field
+1 Port of Karfell
+1 Prosperity
+1 Pym Particles
+1 Reach Through Mists
+1 Reality Anchor
+1 Sanctum of Eternity
+1 School of the Unseen
+1 Sequestered Stash
+1 Serpent's Pass
+1 Shadow Rift
+1 Skirge Familiar
+1 Sky Scourer
+1 Slip Through Space
+1 Sorrow's Path
+1 Soul Rend
+1 Soulknife Spy
+1 Startling Development
+1 Storyteller Pixie
+3 Swamp
+1 Tangleroot
+1 Tanufel Rimespeaker
+1 Thorntooth Witch
+1 Thunderous Snapper
+1 Tishana's Tidebinder
+1 Turn to Dust
+1 Updraft
+1 Vedalken Archmage
+1 Verduran Enchantress
+1 Viridescent Bog
+1 Voidwielder
+1 Voracious Greatshark
+1 Waterveil Cavern
+1 Weldfast Wingsmith
+1 Wilt
+1 Without Weakness
+
+[commander]
+Leovold, Emissary of Trest

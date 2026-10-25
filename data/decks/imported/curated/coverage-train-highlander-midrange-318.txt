@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266319]
+1 Agent of Horizons
+1 Aysen Abbey
+1 Bant Battlemage
+1 Beast Walkers
+1 Birnin Zana Plaza
+1 Blinking Spirit
+1 Botanical Sanctum
+1 Clever Concealment
+1 Crafty Pathmage
+1 Curfew
+1 Deepchannel Duelist
+1 Deft Duelist
+1 Drafna's Restoration
+1 Drogskol Captain
+1 Elite Arrester
+1 Evacuation
+3 Forest
+1 Gaea's Skyfolk
+1 Glacial Fortress
+1 Glory Seeker
+1 Gnarled Mass
+1 Godhead of Awe
+1 Hushwood Verge
+1 Hussar Patrol
+1 Irrigation Ditch
+9 Island
+1 Jhessian Balmgiver
+1 Jhessian Lookout
+1 Kami of Old Stone
+1 Keen Glidemaster
+1 Kindercatch
+1 Knight Errant
+1 Llanowar Cavalry
+1 Loxodon Convert
+1 Merfolk Raiders
+1 Merrow Wavebreakers
+1 Meticulous Archive
+1 Minister of Impediments
+1 Mutant Town
+1 Nebelgast Beguiler
+1 Orchard Spirit
+1 Overgrown Farmland
+11 Plains
+1 Radiant Essence
+1 Radjan Spirit
+1 Ranger en-Vec
+1 Rescue
+1 Retrieval Agent
+1 Revered Dead
+1 Rune-Cervin Rider
+1 Scalebane's Elite
+1 Seaside Citadel
+1 Selesnya Sanctuary
+1 Selesnya Sentry
+1 Simic Sky Swallower
+1 Sindbad
+1 Soltari Emissary
+1 Spara's Headquarters
+1 Spectral Shepherd
+1 Stern Dismissal
+1 Stoic Angel
+1 Strangleroot Geist
+1 Straw Soldiers
+1 Sunder
+1 Sunpetal Grove
+1 Teferi's Honor Guard
+1 Thalakos Scout
+1 Thalakos Sentry
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Turbulent Wilderness
+1 Undersea Invader
+1 Urban Retreat
+1 Valeron Outlander
+1 Vassal Soul
+1 Vernadi Shieldmate
+1 Veteran Cathar
+1 Vodalian Soldiers
+1 Votary of the Conclave
+1 Zealous Guardian

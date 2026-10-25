@@ -2,12 +2,11 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Growing Hope (Adapted)]
 4 Advent of the Wurm
-2 Altar of Bone
 4 Blossoming Sands
 4 Call of the Conclave
 4 Eladamri's Call
 8 Forest
-4 Gerrard's Command
+2 Gerrard's Command
 3 Heroes' Reunion
 4 Nature's Chant
 8 Plains
@@ -16,3 +15,4 @@
 4 Reknit
 2 Ruins Recluse
 4 Selesnya Charm
+4 Vitalizing Cascade

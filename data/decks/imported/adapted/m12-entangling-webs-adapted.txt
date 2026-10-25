@@ -5,19 +5,21 @@
 4 Colossal Might
 2 Crimson Mage
 1 Fireball
+1 Fling
 18 Forest
 1 Garruk's Companion
 3 Giant Spider
 1 Lightning Elemental
 3 Llanowar Elves
 7 Mountain
+1 Overrun
 3 Rampant Growth
 1 Runeclaw Bear
-3 Savage Twister
+2 Savage Twister
 1 Slaughter Cry
 2 Stampeding Rhino
 2 Stingerfling Spider
-2 Stump Stomp
+1 Stump Stomp
 1 Titanic Growth
 1 Vastwood Gorger
 2 Vulshok Battlegear

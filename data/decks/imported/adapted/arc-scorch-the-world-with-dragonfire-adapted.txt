@@ -10,12 +10,13 @@
 2 Furnace Whelp
 4 Ground Assault
 2 Kazandu Refuge
-4 Manamorphose
+1 Manamorphose
 17 Mountain
 1 Ryusei, the Falling Star
 4 Savage Twister
 2 Seething Song
 4 Stump Stomp
+3 Surge of Strength
 2 Talisman of Impulse
 1 Taurean Mauler
 1 Thran Dynamo
