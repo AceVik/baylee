@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import time
 
-from publish_live_model4 import publish
+from publish_live_model4 import confirmation_status_path, publish
 from run_guard4 import atomic_json
 
 
@@ -53,6 +53,9 @@ def main():
             try:
                 if publish(args.experiment, args.selection):
                     state["selection_updated_unix"] = time.time()
+                confirmation = confirmation_status_path(args.selection)
+                state["selection_review"] = (json.loads(confirmation.read_text())
+                                             if confirmation.exists() else None)
                 state["errors"].pop("selection", None)
             except Exception as error:
                 state["errors"]["selection"] = str(error)
