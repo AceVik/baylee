@@ -121,6 +121,12 @@ impl TreeEncode for bool {
         b.node("bool", &[u8::from(*self)], vec![])
     }
 }
+impl TreeEncode for std::num::NonZeroU32 {
+    fn tree(&self, b: &mut Forest) -> u32 {
+        b.node("NonZeroU32", &self.get().to_le_bytes(), vec![])
+    }
+}
+
 macro_rules! integers { ($($t:ty),*) => { $(impl TreeEncode for $t { fn tree(&self, b: &mut Forest) -> u32 { b.node(stringify!($t), &self.to_le_bytes(), vec![]) } })* }; }
 integers!(u8, u16, u32, u64, u128, i8, i16, i32, i64);
 macro_rules! bits { ($($t:ty),*) => { $(impl TreeEncode for $t { fn tree(&self, b: &mut Forest) -> u32 { b.node(stringify!($t), &self.bits().to_le_bytes(), vec![]) } })* }; }

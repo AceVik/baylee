@@ -1000,11 +1000,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "cast it and pay".into(),
             "don't cast it".into(),
         ),
-        YesNoPrompt::MayDo => (
-            "Do what the ability says you may do?".into(),
-            "do it".into(),
-            "don't".into(),
-        ),
+        YesNoPrompt::MayDo => may_do_words(),
         YesNoPrompt::TopOfLibrary { card } => (
             format!(
                 "Put {} on the top of its owner's library? (No puts it on the bottom.)",
@@ -1028,6 +1024,14 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn may_do_words() -> (String, String, String) {
+    (
+        "Do what the ability says you may do?".into(),
+        "do it".into(),
+        "don't".into(),
+    )
 }
 
 fn mixed_payment_words(cost: &ManaCost, life: u32) -> (String, String, String) {

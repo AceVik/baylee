@@ -164,6 +164,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::DealDamageDivided { amount, .. } => {
             let v = match amount {
                 DivisionAmount::Fixed(n) => (*n as f32).clamp(1.0, 10.0),
+                DivisionAmount::XPlus(offset) => (3.0 + *offset as f32).clamp(1.0, 10.0),
                 DivisionAmount::XDoubleFrom(_) => 3.0,
             };
             ch.damage_any += v;
