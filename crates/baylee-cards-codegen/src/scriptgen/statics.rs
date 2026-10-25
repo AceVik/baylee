@@ -1,6 +1,6 @@
 //! Reading static abilities and the modifiers they apply.
 
-use super::{Chain, Params, Tx, card_type_const, keyword_const};
+use super::{Chain, Params, Tx, animation::supertype_const, card_type_const, keyword_const};
 
 impl Tx<'_> {
     /// `R:Event$ BeginPhase | Phase$ Untap | Skip$ True` — "players skip
@@ -632,9 +632,9 @@ impl Tx<'_> {
     /// `AddType`/`RemoveType` (layer 4) as static abilities.
     ///
     /// The corpus writes card types and subtypes in one list and the engine
-    /// keeps them apart — a `TypeSet` is a bitmask the rules read, a
-    /// subtype is an interned id — so `AddType$ Artifact Goblin` becomes
-    /// two modifiers on the same layer.
+    /// keeps them apart — card types and supertypes have independent
+    /// bitmasks, a subtype is an interned id — so a mixed list becomes
+    /// separate modifiers on the same layer.
     ///
     /// `RemoveLandTypes$ True` beside an `AddType$` of one basic land type
     /// is "enchanted land is a Swamp" (Evil Presence, Conversion): CR 305.7's
@@ -691,6 +691,18 @@ impl Tx<'_> {
             for word in raw.split_whitespace() {
                 if let Some(t) = card_type_const(word) {
                     types.push(t);
+                } else if let Some(supertype) = supertype_const(word) {
+                    let modifier = if modifier == "AddType" {
+                        "AddSupertype"
+                    } else {
+                        "RemoveSupertype"
+                    };
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::{modifier}({supertype})"),
+                    ));
+                } else if baylee_core::types::SupertypeSet::from_word(word).is_some() {
+                    return self.deny(format!("`{key}$` changing unsupported supertype `{word}`"));
                 } else if modifier == "AddType" {
                     subtypes.push(self.cats.const_path(word)?);
                 } else {

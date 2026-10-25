@@ -226,7 +226,7 @@ impl Tx<'_> {
 }
 
 /// A printed supertype's existing core constant, not a subtype catalog entry.
-fn supertype_const(word: &str) -> Option<String> {
+pub(super) fn supertype_const(word: &str) -> Option<String> {
     baylee_core::types::SupertypeSet::from_word(word)
         // A temporary removal also regains World when it ends. The engine
         // does not track continuous World tenure, so neither direction reads.
