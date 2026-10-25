@@ -60,12 +60,13 @@ fn the_drawn_only_discard_cannot_charge_existing_hand_cards() {
 
 #[test]
 fn an_observer_does_not_value_its_future_subject_as_the_current_target() {
+    static OBSERVER_EFFECTS: &[Effect] = &[Effect::destroy(TargetSpec::EventObject)];
     let v = view(0, &[20, 20], vec![permanent(obj(1), PlayerId::new(0), 2)]);
     let effects = [Effect::CreateDelayedObserver {
         watch: TargetSpec::ThisObject,
         when: DelayedObservation::YouLoseControl,
         about: TargetSpec::Object(&Filter::CREATURE),
-        effects: &[Effect::destroy(TargetSpec::EventObject)],
+        effects: OBSERVER_EFFECTS,
     }];
     assert_eq!(
         agent().effects_worth(&v, Origin::of(&v, obj(1)), &effects, Aim::Source, 0),

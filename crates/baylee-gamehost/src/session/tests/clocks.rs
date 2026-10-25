@@ -188,6 +188,8 @@ fn a_refused_answer_that_does_nothing_falls_back_to_the_house() {
         attackers: vec![attacker],
         defenders: vec![Defender::Player(PlayerId::new(1))],
         required: Vec::new(),
+        alone: Vec::new(),
+        minimum_required: None,
         limits: Vec::new(),
     };
     let nothing = PlayerAction::DeclareAttackers {

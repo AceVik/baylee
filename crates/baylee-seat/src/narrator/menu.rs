@@ -955,30 +955,12 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {cost}"),
             "don't pay".into(),
         ),
-        YesNoPrompt::PayManaAndLife { cost, life } => (
-            format!("Pay {cost} and {life} life as one price?"),
-            format!("pay {cost} and {life} life"),
-            "pay neither part".into(),
-        ),
+        YesNoPrompt::PayManaAndLife { cost, life } => mixed_payment_words(cost, *life),
         YesNoPrompt::RemoveCountersInsteadOfUntapping {
             permanent,
             kind,
             count,
-        } => {
-            let counters = baylee_client_core::interaction::counter_label_counted(
-                *kind,
-                baylee_client_core::Lang::En,
-                usize::from(*count),
-            );
-            (
-                format!(
-                    "Remove {count} {counters} from {} instead of untapping?",
-                    table.named(*permanent)
-                ),
-                format!("remove {count} {counters} and leave it tapped"),
-                "choose another applicable untap replacement; this does not untap it".into(),
-            )
-        }
+        } => counter_untap_words(table, *permanent, *kind, *count),
         YesNoPrompt::PayPact { cost } => pact_words(cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
@@ -1046,6 +1028,35 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn mixed_payment_words(cost: &ManaCost, life: u32) -> (String, String, String) {
+    (
+        format!("Pay {cost} and {life} life as one price?"),
+        format!("pay {cost} and {life} life"),
+        "pay neither part".into(),
+    )
+}
+
+fn counter_untap_words(
+    table: &Table<'_>,
+    permanent: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    count: u16,
+) -> (String, String, String) {
+    let counters = baylee_client_core::interaction::counter_label_counted(
+        kind,
+        baylee_client_core::Lang::En,
+        usize::from(count),
+    );
+    (
+        format!(
+            "Remove {count} {counters} from {} instead of untapping?",
+            table.named(permanent)
+        ),
+        format!("remove {count} {counters} and leave it tapped"),
+        "choose another applicable untap replacement; this does not untap it".into(),
+    )
 }
 
 fn pact_words(cost: &baylee_core::mana::ManaCost) -> (String, String, String) {
