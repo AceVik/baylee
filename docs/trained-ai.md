@@ -36,7 +36,8 @@ An engine agent and a gateway accepting guests must already be running.
 Use a frozen exported checkpoint; this is a playtest, not model promotion.
 The guest keeps a ticketed lobby socket open across games, answering heartbeats
 so the gateway retains its next waiting room after the previous game socket
-closes. Losing either live connection stops the adapter; it does not reconnect
+closes, and `--games 0` opens a fresh waiting room if an idle room expires
+before play starts. Losing either live connection stops the adapter; it does not reconnect
 over missing game history. Local aggregate reports are retained on failure too.
 
 This adapter uses `baylee-seat`'s lobby, ticketed socket and `TableMemory`

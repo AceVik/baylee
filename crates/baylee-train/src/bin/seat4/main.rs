@@ -134,8 +134,14 @@ async fn run(
         // Ctrl-C retain the counters accumulated before the failure.
         let seat = PlayerId::new(u8::try_from(chair.seat).context("invalid seat")?);
         let mut core = None;
+        let reopen_expired = args.join.is_none() && args.games == 0;
         let game = async {
-            wait_for_player(lobby, session, &chair, args.join.is_none()).await?;
+            match wait_for_player(lobby, session, &chair, args.join.is_none(), reopen_expired)
+                .await?
+            {
+                WaitOutcome::Playing => {}
+                WaitOutcome::ExpiredBeforePlay => return Ok(false),
+            }
             let brain = select_brain(args, &mut selected, &mut first_brain)?;
             println!(
                 "{}",
@@ -148,11 +154,12 @@ async fn run(
             );
             core = Some(LiveSeat4::new(brain, deck.list.clone(), seat));
             let mut link = SeatLink::new(lobby.clone(), chair.clone(), Some(session.clone()));
-            play::play(&mut link, core.as_mut().context("missing pinned brain")?).await
+            play::play(&mut link, core.as_mut().context("missing pinned brain")?).await?;
+            Ok(true)
         };
         let result = tokio::select! {
             result = game => result,
-            result = presence.lost() => result,
+            result = presence.lost() => result.map(|()| true),
             signal = tokio::signal::ctrl_c() => {
                 match signal {
                     Ok(()) => Err(anyhow::anyhow!("seat stopped by operator")),
@@ -160,6 +167,17 @@ async fn run(
                 }
             }
         };
+        if matches!(result, Ok(false)) {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "phase": "waiting-room-expired",
+                    "game": chair.game_id,
+                    "gateway": lobby.base(),
+                })
+            );
+            continue;
+        }
         let reporting = write_report(args, &chair, &selected, core.as_ref(), result.is_err());
         // A failed inference or interrupted connection must not leave a claimed
         // neural chair silently being played by a stand-in.
@@ -256,23 +274,37 @@ fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4
         .with_thinking_steps(args.thinking_steps))
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WaitOutcome {
+    Playing,
+    ExpiredBeforePlay,
+}
+
+fn missing_room_outcome(reopen_expired: bool) -> anyhow::Result<WaitOutcome> {
+    if reopen_expired {
+        Ok(WaitOutcome::ExpiredBeforePlay)
+    } else {
+        bail!("room no longer exists")
+    }
+}
+
 async fn wait_for_player(
     lobby: &Lobby,
     session: &Session,
     chair: &Chair,
     host: bool,
-) -> anyhow::Result<()> {
+    reopen_expired: bool,
+) -> anyhow::Result<WaitOutcome> {
     loop {
-        let room = lobby
-            .room(session, &chair.game_id)
-            .await?
-            .context("room no longer exists")?;
+        let Some(room) = lobby.room(session, &chair.game_id).await? else {
+            return missing_room_outcome(reopen_expired);
+        };
         ensure!(
             room.seats.len() == 2 && room.seats.iter().all(|seat| seat.kind == "human"),
             "this preview requires two socket seats and no house-AI chairs"
         );
         if room.playing() {
-            return Ok(());
+            return Ok(WaitOutcome::Playing);
         }
         if !room.waiting() {
             bail!("room ended before play");
@@ -289,5 +321,22 @@ async fn wait_for_player(
             lobby.start(session, &chair.game_id).await?;
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{WaitOutcome, missing_room_outcome};
+
+    #[test]
+    fn continuous_hosting_reopens_reaped_waiting_rooms_while_single_runs_fail() {
+        assert_eq!(
+            missing_room_outcome(true).unwrap(),
+            WaitOutcome::ExpiredBeforePlay
+        );
+        assert_eq!(
+            missing_room_outcome(false).unwrap_err().to_string(),
+            "room no longer exists"
+        );
     }
 }
