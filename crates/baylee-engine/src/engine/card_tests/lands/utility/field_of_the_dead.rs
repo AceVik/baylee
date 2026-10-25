@@ -91,6 +91,8 @@ fn field_of_the_dead_makes_nothing_while_two_lands_share_a_name() {
 /// each see the condition independently, so both make a Zombie.
 #[test]
 fn field_of_the_dead_triggers_for_both_lands_arriving_together() {
+    use baylee_core::generated::index;
+
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
@@ -102,6 +104,7 @@ fn field_of_the_dead_triggers_for_both_lands_arriving_together() {
                 swamp(),
                 mountain(),
                 field_of_the_dead(),
+                index::MOX_EMERALD,
             ],
         )
         .hand(
@@ -121,11 +124,18 @@ fn field_of_the_dead_triggers_for_both_lands_arriving_together() {
     let spell = in_hand(&engine, p0, primeval_titan()).expect("the Titan is in hand");
     let pending = engine.pending().clone();
     assert!(
-        matches!(pending, Pending::Priority { ref legal, .. } if legal.castable.contains(&spell)),
-        "the Titan is castable before tapping: {pending:?}, pool {:?}",
+        matches!(pending, Pending::Priority { ref legal, .. } if legal.payable.contains(&spell)),
+        "the Titan is payable before tapping: {pending:?}, pool {:?}",
         engine.state().players[0].mana_pool
     );
-    cast_from_hand(&mut engine, p0, primeval_titan());
+    tap_all_mana(&mut engine, p0);
+    let pending = engine.pending().clone();
+    assert!(
+        matches!(pending, Pending::Priority { ref legal, .. } if legal.castable.contains(&spell)),
+        "the Titan is castable after tapping: {pending:?}, pool {:?}",
+        engine.state().players[0].mana_pool
+    );
+    cast_with_floating(&mut engine, p0, primeval_titan());
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });

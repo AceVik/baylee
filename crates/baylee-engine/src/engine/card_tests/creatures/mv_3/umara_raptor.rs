@@ -116,7 +116,7 @@ fn a_returned_lieutenant_raises_the_raptor_to_four_four() {
             &[
                 earth_king_s_lieutenant(),
                 island(),
-                island(),
+                plains(),
                 plains(),
                 plains(),
             ],
