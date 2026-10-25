@@ -122,6 +122,8 @@ pub enum Modifier {
     },
     /// Regenerate the matching permanent whenever destruction would occur.
     RegenerateInsteadOfDestroy,
+    /// Regeneration replacements cannot apply to matching permanents.
+    CantBeRegenerated,
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
     /// Animate Artifact: if the affected object is not a creature in layer
@@ -1084,6 +1086,7 @@ impl Modifier {
             | Self::ReplaceTappedMana { .. }
             | Self::AbilitiesCostLess { .. }
             | Self::RegenerateInsteadOfDestroy
+            | Self::CantBeRegenerated
             | Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
             | Self::CastPermanentSpellsFromGraveyard

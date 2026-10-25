@@ -37,6 +37,7 @@ mod modal_activated;
 mod names;
 mod powerstone;
 mod preparation;
+mod regeneration_prohibitions;
 mod tokens;
 mod transforms;
 mod triggers;

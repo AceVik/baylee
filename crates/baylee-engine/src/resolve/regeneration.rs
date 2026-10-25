@@ -16,3 +16,21 @@ pub(super) fn prevent_for_targets(state: &mut GameState, res: &Resolution, targe
         }
     }
 }
+
+/// CR 701.19c: a shield may still be created, but it cannot replace destruction.
+pub(super) fn prevent_for_damaged(state: &mut GameState, res: &Resolution) {
+    for id in super::this_way::damaged_permanents(state, res) {
+        if let Some(object) = state.object(id)
+            && object.zone == crate::zone::Zone::Battlefield
+            && object
+                .characteristics()
+                .types
+                .contains(baylee_core::types::TypeSet::CREATURE)
+        {
+            let named = (id, object.version);
+            if !state.per_turn.cant_regenerate.contains(&named) {
+                state.per_turn.cant_regenerate.push(named);
+            }
+        }
+    }
+}

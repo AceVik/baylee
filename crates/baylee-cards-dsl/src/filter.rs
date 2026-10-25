@@ -344,6 +344,9 @@ pub enum Filter {
     /// the battlefield, and is the same object that dealt it (Brine Hag:
     /// "all creatures that dealt damage to it this turn").
     DealtDamageToSourceThisTurn,
+    /// Was dealt positive damage by this source this turn; both objects
+    /// must retain the battlefield incarnations involved in that damage.
+    DealtDamageBySourceThisTurn,
     /// Currently blocked by the reference object (Sewers of Estark:
     /// "if it's blocking, creatures blocked by it").
     BlockedByReference,

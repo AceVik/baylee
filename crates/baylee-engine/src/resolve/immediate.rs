@@ -892,6 +892,10 @@ pub(super) fn exec_immediate(
             });
             None
         }
+        Effect::DamagedThisWayCantBeRegenerated => {
+            super::regeneration::prevent_for_damaged(state, res);
+            None
+        }
         Effect::CantBeRegeneratedThisTurn { target } => {
             super::regeneration::prevent_for_targets(state, res, target);
             None

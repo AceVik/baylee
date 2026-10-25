@@ -910,6 +910,7 @@ impl Effect {
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
             | Effect::CantBeRegeneratedThisTurn { .. }
+            | Effect::DamagedThisWayCantBeRegenerated
             | Effect::Discover { .. }
             | Effect::RevealTopOnePerType { .. }
             | Effect::DealDamageDivided { .. }

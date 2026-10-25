@@ -856,6 +856,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::DealtDamageBySourceThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
@@ -1319,6 +1320,7 @@ fn apply(
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostLess { .. }
         | Modifier::RegenerateInsteadOfDestroy
+        | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
         | Modifier::CastPermanentSpellsFromGraveyard

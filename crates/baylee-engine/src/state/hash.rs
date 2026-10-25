@@ -2169,6 +2169,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         F::TappedToPayForSourceThisTurn => h.u8(140),
         F::HasCumulativeUpkeep => h.u8(141),
+        F::DealtDamageBySourceThisTurn => h.u8(142),
     }
 }
 

@@ -213,9 +213,14 @@ mod tests {
     }
 }
 
-/// Whether a resolution has prohibited regeneration for this incarnation.
+/// Both resolved prohibitions and live static abilities prevent regeneration.
 pub(super) fn allowed(state: &GameState, id: baylee_core::ids::ObjectId) -> bool {
-    state
-        .object(id)
-        .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)))
+    state.object(id).is_none_or(|object| {
+        !state.per_turn.cant_regenerate.contains(&(id, object.version))
+            && (!state.effects.may_change_player_or_sba_rules()
+                || !state.effects.iter().any(|effect| {
+                    effect.modifier == baylee_cards_dsl::Modifier::CantBeRegenerated
+                        && crate::effects::applies_to(state, effect, object)
+                }))
+    })
 }

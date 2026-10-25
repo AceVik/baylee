@@ -1241,6 +1241,9 @@ pub enum Effect {
         /// Which permanent.
         target: TargetSpec,
     },
+    /// Creatures actually dealt damage by this resolving source so far
+    /// cannot be regenerated this turn, including redirected recipients.
+    DamagedThisWayCantBeRegenerated,
     /// Discover N (CR 701.57a): "Exile cards from the top of your library
     /// until you exile a nonland card with mana value N or less. You may
     /// cast that card without paying its mana cost if the resulting spell's

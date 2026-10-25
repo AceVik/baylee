@@ -166,6 +166,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
             | Modifier::RegenerateInsteadOfDestroy
+                    | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
         // that changes characteristics or control. These change what their
@@ -679,6 +680,7 @@ impl EffectTable {
                     | Modifier::SkipUntapStep { .. }
                     | Modifier::LegendRuleOff
                     | Modifier::RegenerateInsteadOfDestroy
+                    | Modifier::CantBeRegenerated
             ),
         );
         self.effects.push(fx);
