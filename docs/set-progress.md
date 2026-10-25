@@ -762,3 +762,29 @@ Within the 1,350 reviewed identities: **793 Implemented, 260 Partial,
 294 Partial, 341 Unimplemented; no Generated cards. The remaining corpus is
 22,986 Absent and 15 Excluded. Full findings and final verification belong to
 `docs/history/2026-10-23-argon-review.md`.
+
+## Partial completion, first batch (2026-10-25)
+
+Eight Ice Age cards are fully implemented in this batch:
+Arcum's Weathervane, Bone Shaman, Energy Storm, Fire Covenant, Incinerate,
+Lhurgoyf, Lost Order of Jarkeld and Shyft. The 48 focused card/rule tests and
+initial table-generation pipeline pass. Four generic reader forms pass all
+382 codegen tests (191 scriptgen), and selective reclaim passes 98 xtask tests.
+Fresh post-reclaim source/native measurements and table/hook checks pass.
+The final rules gate passes (20,872 tests, 17 skipped), including the corrected
+modifier population. Full `cargo dev gate` passes (23,109 workspace tests,
+25 skipped, plus 4 API tests); both commands exit 0. Feature gate was not run,
+and no push or land was performed.
+
+The current read-only join of all 346 first-printing Ice Age identities to
+source coverage and exclusions measures **265 Implemented, 49 Partial,
+31 Unimplemented, 0 Absent and 1 Excluded**. Current whole-pool coverage is
+**10,066 Implemented, 286 Partial and 341 Unimplemented** (10,693 definitions).
+Pre-reclaim validation measured 2,582 hand-owned, 7,770 machine-owned and 341
+stubs. The four completed, fully read Arcum/Bone Shaman/Energy Storm/Incinerate
+definitions return to generator ownership; fresh source measurement and native
+validation confirm 2,578/7,774/341. Coverage is preserved by these ownership transfers;
+no additional reader-driven promotion is claimed. The remaining Partial
+backlog is open; the 49 remaining Ice Age Partials are being inventoried.
+See `docs/history/2026-10-25-partial-completion.md` for the batch boundaries
+and validation evidence. The older dated snapshots above remain historical.

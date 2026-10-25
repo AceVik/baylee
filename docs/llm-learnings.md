@@ -5598,3 +5598,58 @@ UI review lesson from the surrounding PR: asynchronous screenshot encoding
 must not remove the wait for GPU readback, and virtualized rows from an old
 log must never be measured against a replacement book. Tests need measured
 rows and lifecycle changes, not only initial mounting with empty layout data.
+## 2026-10-25 — First Partial-completion batch (eight cards)
+
+The first eight-card batch has 48 passing focused tests and its initial table
+pipeline is green. Four generic reader forms pass 382 codegen tests (191
+scriptgen); selective reclaim passes 98 xtask tests. Fresh post-reclaim
+measurement, table/hook validation and the rules gate pass (20,872 tests,
+17 skipped). The corrected modifier population passes all 13 effects tests.
+Full `cargo dev gate` also passes: 23,109 workspace tests (8 slow), 25 skipped,
+plus 4 API tests; both gates exit 0. Feature gate was not run, and neither
+push nor land was performed. The remaining 286 Partial cards remain separate
+work; four returns to generator ownership do not enlarge this eight-card batch.
+
+- **Mutate the rule to test the assertion.** A no-op supertype application
+  initially passed because `SupertypeSet::contains(BASIC.union(SNOW))`
+  accepts either matching bit. Exact set equality detects Basic without Snow.
+  Nine targeted mutations were ultimately detected. A green regression needs
+  a failing counterexample before its asserted boundary is trusted.
+- **Snapshot a simultaneous rule before any object leaves.** A no-regeneration
+  static must apply to every affected victim of one destroy-all or lethal SBA
+  event even when its source is processed first. Test both object orders;
+  source departure in an earlier instruction is a different boundary.
+- **Exercise the real choice before measuring a count.** Directly setting a
+  chosen-opponent field missed the projection-cache bug at the entry decision.
+  The real action must invalidate projections before count-dependent P/T is
+  read. Include an opponent whose board gives a distinct answer.
+- **Keep history authoritative and scans conditional.** Damage-source and
+  recipient versions distinguish current incarnations; marked damage cannot
+  reconstruct those facts in a public view. Keep public readers unknown and
+  use an effect-table hint to avoid scanning every battlefield on ordinary
+  SBA passes with no regeneration prohibition.
+- **Name unsupported timing separately from supported characteristic edits.**
+  Adding/removing Snow is a layer-four supertype change. General World
+  tenure requires its own timing history; the primitive alone is not proof
+  that every rule about every supertype is complete.
+- **Match the reader's memory boundary to runtime facts.** A runtime that
+  records damage recipients across a resolution cannot safely implement a
+  script that resets damage memory after an earlier instruction. Accept the
+  initial damage instruction and refuse later memory resets explicitly.
+  Keep source-static no-regeneration predicates exact, and refuse World
+  supertype changes until the world rule tracks continuous tenure.
+- **Source identity determines prevention.** Energy Storm cares whether the
+  damage source is an instant or sorcery spell. “Ability damage is never
+  prevented” is too broad: an ability can attribute damage to a spell.
+  Negative controls need a nonspell source, not only an ability on the stack.
+- **Reader completion and coverage promotion are separate events.** Reclaim
+  only the explicitly named, already implemented definitions after fully
+  reading their real upstream scripts. Preserve each identity, printing pin,
+  path and tested coverage; prove a preview leaves every relevant file hash
+  unchanged. Four ownership transfers do not mean four additional cards were
+  implemented, and an extended reader does not justify a broad regeneration.
+- **New modifier variants belong in the verification census too.** An
+  exhaustive production match does not update the independent test population.
+  Add each new modifier to the enum-vs-list check and reconcile the locking
+  classification by behavior: supertype edits lock their sets; regeneration
+  prohibition changes a rule. Preserve membership checks alongside exact totals.
