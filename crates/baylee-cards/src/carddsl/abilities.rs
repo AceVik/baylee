@@ -118,8 +118,8 @@ pub fn encode_ability_def(ab: &AbilityDef) -> [f32; ABILITY_DSL_WIDTH] {
             ..
         } => {
             let is_mana = ab.is_mana_ability()
-                || baylee_cards::dsl::simple_mana(cost, effects).is_some()
-                || baylee_cards::dsl::mana_offer(cost, effects).is_some();
+                || crate::dsl::simple_mana(cost, effects).is_some()
+                || crate::dsl::mana_offer(cost, effects).is_some();
             out[0] = f32::from(u8::from(!is_mana));
             out[1] = f32::from(u8::from(is_mana));
             out[8] = f32::from(u8::from(matches!(timing, ActivationTiming::SorcerySpeed)));

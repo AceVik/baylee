@@ -3,12 +3,11 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::Context as _;
-use baylee_cards::decks::basic_lands;
+use crate::decks::basic_lands;
 use baylee_core::color::ColorSet;
 use baylee_core::ids::CardIndex;
 
-use super::{COLORS, Entry, Rng};
+use super::{COLORS, DeckGenError, Entry, Rng};
 
 /// Hypergeometric probability $\mathbb{P}(X \ge k)$ when drawing `n_drawn` cards
 /// without replacement from a deck of `deck_size` containing `sources` mana sources.
@@ -148,7 +147,7 @@ pub fn build_manabase(
     taken: &mut BTreeSet<CardIndex>,
     deficits: Option<&BTreeMap<CardIndex, usize>>,
     rng: &mut Rng,
-) -> anyhow::Result<Vec<CardIndex>> {
+) -> Result<Vec<CardIndex>, DeckGenError> {
     let basics = basic_lands();
     let targets = compute_color_source_targets(pool_by_id, spells, leaders, colors, deck_size);
     let mut have_sources = [0.0_f64; 5];
@@ -317,7 +316,9 @@ pub fn build_manabase(
         let basic = if wants_snow && pool_by_id.contains_key(&snow_cid) {
             snow_cid
         } else {
-            basics[colour].context("the five basic lands are in the pool")?
+            basics[colour].ok_or_else(|| {
+                DeckGenError("the five basic lands are in the pool".to_string())
+            })?
         };
         land_cards.push(basic);
         have_sources[colour] += 1.0;

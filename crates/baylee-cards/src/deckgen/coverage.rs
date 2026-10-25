@@ -4,8 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use anyhow::bail;
-use baylee_cards::formats::{self, Shape};
+use crate::formats::{self, Shape};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::index::CRYPTIC_SPIRES;
 use baylee_core::ids::CardIndex;
@@ -13,7 +12,9 @@ use baylee_core::ids::CardIndex;
 use super::manabase::build_manabase;
 use super::strategy::{MultisetSimilarityIndex, compute_multiset};
 use super::synergy::{DeckThemeAccumulator, pair_synergy};
-use super::{Archetype, COLORS, Entry, Generated, Pool, Rng, colour_letters, shape_name};
+use super::{
+    Archetype, COLORS, DeckGenError, Entry, Generated, Pool, Rng, colour_letters, shape_name,
+};
 
 /// Request parameters for building a single synergistic deck from a [`Pool`].
 #[derive(Clone, Debug)]
@@ -99,14 +100,17 @@ pub struct CoverageReport {
 ///
 /// # Errors
 /// Returns an error if the pool has too few spells in the chosen colours or if
-/// the resulting deck fails [`baylee_cards::formats::check`].
+/// the resulting deck fails [`crate::formats::check`].
 #[allow(
     clippy::too_many_lines,
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )]
-pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Result<Generated> {
+pub fn build_synergistic(
+    pool: &Pool,
+    req: &DeckBuildRequest<'_>,
+) -> Result<Generated, DeckGenError> {
     let mut rng = Rng::new(req.seed ^ 0x5eed_dec5);
     let shape = req.shape;
     let archetype = req.archetype;
@@ -145,7 +149,9 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
                 })
                 .collect();
             if candidates.is_empty() {
-                bail!("no working commander covers required identity");
+                return Err(DeckGenError(
+                    "no working commander covers required identity".to_string(),
+                ));
             }
             let leader = choose_commander(&candidates, anchor_entry, req.deficits, &mut rng);
             leaders.push(leader.card);
@@ -182,11 +188,11 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
         .filter(fits)
         .collect();
     if spell_pool.len() < 12 {
-        bail!(
+        return Err(DeckGenError(format!(
             "only {} working spells in {}",
             spell_pool.len(),
             colour_letters(colors)
-        );
+        )));
     }
 
     // 2. Initialize DeckThemeAccumulator with leaders and/or anchor spell
@@ -290,10 +296,10 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
     while main.len() < spells {
         guard += 1;
         if guard > 10 * library {
-            bail!(
+            return Err(DeckGenError(format!(
                 "the pool in {} cannot fill {spells} spells",
                 colour_letters(colors)
-            );
+            )));
         }
         // Choose target CMC bucket weighted by remaining curve demand
         let bucket_weights: [f64; 8] = std::array::from_fn(|b| {
@@ -460,11 +466,11 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
     }
 
     if main.len() < spells {
-        bail!(
+        return Err(DeckGenError(format!(
             "the pool in {} filled only {}/{spells} spells",
             colour_letters(colors),
             main.len()
-        );
+        )));
     }
 
     // 4. Local 1-swap refinement pass: swap weak non-protected spells for stronger
@@ -540,10 +546,10 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
     };
     let problems = formats::check(shape, &generated.main, &generated.leaders);
     if !problems.is_empty() {
-        bail!(
+        return Err(DeckGenError(format!(
             "a generated {} deck is not one: {problems:?}",
             shape_name(shape)
-        );
+        )));
     }
     Ok(generated)
 }
@@ -730,7 +736,7 @@ pub fn build_coverage_corpus(
     pool: &Pool,
     existing_multisets: &[BTreeMap<CardIndex, u32>],
     config: &CoverageConfig,
-) -> anyhow::Result<(Vec<Generated>, CoverageReport)> {
+) -> Result<(Vec<Generated>, CoverageReport), DeckGenError> {
     build_coverage_corpus_scoped(pool, None, existing_multisets, &[], config)
 }
 
@@ -748,7 +754,7 @@ pub fn build_coverage_corpus_scoped(
     existing_multisets: &[BTreeMap<CardIndex, u32>],
     avoid_multisets: &[BTreeMap<CardIndex, u32>],
     config: &CoverageConfig,
-) -> anyhow::Result<(Vec<Generated>, CoverageReport)> {
+) -> Result<(Vec<Generated>, CoverageReport), DeckGenError> {
     let mut coverage: BTreeMap<CardIndex, usize> = pool
         .entries
         .iter()

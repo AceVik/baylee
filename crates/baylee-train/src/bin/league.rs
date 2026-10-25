@@ -514,7 +514,7 @@ fn main() -> anyhow::Result<()> {
             bail!("--shapes names none");
         }
         let held = deckgen::held_out(&working, args.held_out_every);
-        let pool = deckgen::Pool::new(&working, &held);
+        let pool = deckgen::pool_for_working(&working, &held);
         let mut attempt = 0_u64;
         let mut made = 0;
         while made < args.generated && attempt < args.generated as u64 * 4 {

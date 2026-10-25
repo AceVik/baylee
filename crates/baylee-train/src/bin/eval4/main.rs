@@ -86,9 +86,9 @@ fn main() -> anyhow::Result<()> {
     let empty_held = BTreeSet::new();
     let pool = if args.held_out_cards {
         // Include all working cards (including the held-out 5%) and seed from the held-out region
-        deckgen::Pool::new(&working, &empty_held)
+        deckgen::pool_for_working(&working, &empty_held)
     } else {
-        deckgen::Pool::new(&working, &held)
+        deckgen::pool_for_working(&working, &held)
     };
 
     let mut decks: Vec<HouseDeck> = Vec::new();

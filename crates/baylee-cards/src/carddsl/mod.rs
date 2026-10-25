@@ -21,7 +21,7 @@
 // The versioned model interface intentionally normalizes counts into f32.
 #![allow(clippy::cast_precision_loss)]
 
-use baylee_cards::dsl::{
+use crate::dsl::{
     AbilityDef, ActivationLimit, ActivationTiming, ActivationZone, Amount, CardDef, CommanderRule,
     Cost, CostPart, DivisionAmount, Effect, EnterModifier, FaceDef, Filter, KeywordSet, Modifier,
     PartnerKind, ReplacementRule, StaticAbility, TargetReq, TargetSpec, TokenDef, Trigger,

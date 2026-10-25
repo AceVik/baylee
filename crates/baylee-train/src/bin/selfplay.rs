@@ -436,7 +436,7 @@ fn main() -> anyhow::Result<()> {
             .collect::<anyhow::Result<_>>()?;
         let held = deckgen::held_out(&working, args.held_out_every);
         held_cards = held.iter().map(|c| c.get()).collect();
-        let pool = deckgen::Pool::new(&working, &held);
+        let pool = deckgen::pool_for_working(&working, &held);
         let house_count = decks.len();
         let mut shape_of: Vec<(Shape, bool)> = decks
             .iter()

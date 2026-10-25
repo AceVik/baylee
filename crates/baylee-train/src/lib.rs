@@ -12,7 +12,7 @@
 
 #[cfg(feature = "onnx")]
 pub mod batchnet;
-pub mod carddsl;
+pub use baylee_cards::carddsl;
 #[cfg(feature = "play")]
 pub mod cardstructure;
 pub mod cardwalk;

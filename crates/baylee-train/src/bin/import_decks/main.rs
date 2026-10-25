@@ -785,8 +785,8 @@ fn main() -> anyhow::Result<()> {
     //    all 4 archetypes and color combinations, plus dedicated unseen-card test decks!
     // -------------------------------------------------------------------------
     let empty_set = BTreeSet::new();
-    let train_pool = deckgen::Pool::new(&working, &held_out_set);
-    let full_pool = deckgen::Pool::new(&working, &empty_set);
+    let train_pool = deckgen::pool_for_working(&working, &held_out_set);
+    let full_pool = deckgen::pool_for_working(&working, &empty_set);
 
     let shapes = [Shape::Constructed, Shape::Highlander, Shape::Commander];
     let mut curated_usage: BTreeMap<CardIndex, usize> = BTreeMap::new();

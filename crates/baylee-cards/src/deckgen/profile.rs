@@ -1,8 +1,8 @@
 //! Semantic card profile for synergistic deck construction, mana-base pip math,
 //! and functional replacement.
 
-use baylee_cards::decks::leader_of;
-use baylee_cards::dsl::{AbilityDef, CardDef, Effect, EnterModifier, Filter};
+use crate::decks::leader_of;
+use crate::dsl::{AbilityDef, CardDef, Effect, EnterModifier, Filter};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaCost, ManaSymbol};
@@ -173,13 +173,25 @@ impl CardProfile {
         }
 
         let pips = count_mana_pips(&face.mana_cost);
-        let produced_colors = if land || (roles & ROLE_MANA_PRODUCER != 0) {
+        let prod_letters = crate::produces::produces(def);
+        let mut produced_colors = if land || (roles & ROLE_MANA_PRODUCER != 0) {
             def.color_identity
         } else {
             ColorSet::EMPTY
         };
-        let produces_colorless =
-            (land || (roles & ROLE_MANA_PRODUCER != 0)) && def.color_identity.is_empty();
+        for (ch, col) in [
+            ('W', Color::White),
+            ('U', Color::Blue),
+            ('B', Color::Black),
+            ('R', Color::Red),
+            ('G', Color::Green),
+        ] {
+            if prod_letters.contains(ch) {
+                produced_colors = produced_colors.union(ColorSet::of(col));
+            }
+        }
+        let produces_colorless = prod_letters.contains('C')
+            || ((land || (roles & ROLE_MANA_PRODUCER != 0)) && def.color_identity.is_empty());
         let enters_tapped = face.enter_modifiers.iter().any(|em| {
             matches!(
                 em,
@@ -341,7 +353,7 @@ fn extract_named_partners_and_snow(def: &CardDef) -> (Vec<CardIndex>, bool, bool
             continue;
         }
         has_ext = true;
-        if let Some(cid) = baylee_cards::decks::by_name(name)
+        if let Some(cid) = crate::decks::by_name(name)
             && cid != def.index
             && !partners.contains(&cid)
         {

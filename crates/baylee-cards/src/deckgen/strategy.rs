@@ -5,11 +5,10 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use baylee_cards::dsl::CardDef;
+use crate::dsl::CardDef;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::types::{SupertypeSet, TypeSet};
-use sha2::{Digest, Sha256};
 
 use super::profile::CardProfile;
 use crate::carddsl::encode_card_face;
@@ -33,7 +32,7 @@ pub fn color_string(cs: ColorSet) -> String {
 }
 
 /// Classifies a deck's primary archetype and multi-label strategy tags from its
-/// actual card definitions (`baylee_cards::by_index`).
+/// actual card definitions (`crate::by_index`).
 #[must_use]
 #[allow(
     clippy::too_many_lines,
@@ -66,7 +65,7 @@ pub fn classify_deck_strategy(
     let mut subtype_counts: BTreeMap<u16, usize> = BTreeMap::new();
 
     for &cid in main.iter().chain(commanders) {
-        let Some(def) = baylee_cards::by_index(cid) else {
+        let Some(def) = crate::by_index(cid) else {
             continue;
         };
         colors = colors.union(def.color_identity);
@@ -238,7 +237,7 @@ pub fn find_functional_replacement(
     current_counts: &BTreeMap<CardIndex, u32>,
     working_pool: &[CardIndex],
 ) -> Option<(CardIndex, &'static str)> {
-    let orig_def = baylee_cards::decks::by_name(orig_name).and_then(baylee_cards::by_index);
+    let orig_def = crate::decks::by_name(orig_name).and_then(crate::by_index);
     let orig_profile = orig_def.map(CardProfile::from_def);
     let target_is_land = orig_def.map_or_else(
         || {
@@ -268,7 +267,7 @@ pub fn find_functional_replacement(
 
     let mut best: Option<((u32, u32, u64), CardIndex, &'static str)> = None;
     for &cand in working_pool {
-        let Some(def) = baylee_cards::by_index(cand) else {
+        let Some(def) = crate::by_index(cand) else {
             continue;
         };
         let face = &def.faces[0];
@@ -333,29 +332,37 @@ pub fn compute_multiset(main: &[CardIndex], commanders: &[CardIndex]) -> BTreeMa
     m
 }
 
-/// Computes a deterministic 32-hex-char SHA-256 fingerprint of a deck's card
+/// Computes a deterministic 32-hex-char (128-bit) fingerprint of a deck's card
 /// multiset and commanders.
 #[must_use]
 pub fn compute_deck_hash(
     multiset: &BTreeMap<CardIndex, u32>,
     commanders: &[CardIndex],
 ) -> String {
-    let mut hasher = Sha256::new();
+    let mut h1 = 0xcbf2_9ce4_8422_2325_u64;
+    let mut h2 = 0x8422_2325_cbf2_9ce4_u64;
+    let feed = |h1: &mut u64, h2: &mut u64, bytes: [u8; 4]| {
+        for b in bytes {
+            *h1 ^= u64::from(b);
+            *h1 = h1.wrapping_mul(0x0100_0000_01b3);
+            *h2 = h2
+                .wrapping_add(u64::from(b).wrapping_mul(0x9e37_79b9_7f4a_7c15))
+                .rotate_left(13)
+                .wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        }
+    };
     for (&cid, &cnt) in multiset {
-        hasher.update(cid.get().to_le_bytes());
-        hasher.update(cnt.to_le_bytes());
+        feed(&mut h1, &mut h2, cid.get().to_le_bytes());
+        feed(&mut h1, &mut h2, cnt.to_le_bytes());
     }
-    hasher.update(0xFF_u32.to_le_bytes());
+    feed(&mut h1, &mut h2, 0xFF_u32.to_le_bytes());
     let mut cmds: Vec<u32> = commanders.iter().map(|c| c.get()).collect();
     cmds.sort_unstable();
     for c in cmds {
-        hasher.update(c.to_le_bytes());
+        feed(&mut h1, &mut h2, c.to_le_bytes());
     }
-    let digest = hasher.finalize();
     let mut hex = String::with_capacity(32);
-    for b in &digest[..16] {
-        let _ = write!(hex, "{b:02x}");
-    }
+    let _ = write!(hex, "{h1:016x}{h2:016x}");
     hex
 }
 

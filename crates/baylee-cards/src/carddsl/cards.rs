@@ -372,7 +372,7 @@ pub fn card_summary_table(cards: &[u32]) -> Vec<f32> {
         if card_id == UNKNOWN_CARD {
             continue;
         }
-        let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {
+        let Some(def) = crate::by_index(CardIndex::new(card_id)) else {
             continue;
         };
         let encoded = encode_card_face(def, 0);
@@ -392,7 +392,7 @@ pub fn card_back_summary_table(cards: &[u32]) -> Vec<f32> {
         if card_id == UNKNOWN_CARD {
             continue;
         }
-        let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {
+        let Some(def) = crate::by_index(CardIndex::new(card_id)) else {
             continue;
         };
         let encoded = encode_card_face(def, 1);
@@ -407,9 +407,9 @@ pub fn card_back_summary_table(cards: &[u32]) -> Vec<f32> {
 /// `encode_token_def(ALL[token_id]).summary`.
 #[must_use]
 pub fn token_summary_table() -> Vec<f32> {
-    let n = baylee_cards::tokens::ALL.len() + 1;
+    let n = crate::tokens::ALL.len() + 1;
     let mut out = vec![0.0_f32; n * CARD_DSL_WIDTH];
-    for (idx, &tok) in baylee_cards::tokens::ALL.iter().enumerate() {
+    for (idx, &tok) in crate::tokens::ALL.iter().enumerate() {
         let encoded = encode_token_def(tok);
         let start = (idx + 1) * CARD_DSL_WIDTH;
         out[start..start + CARD_DSL_WIDTH].copy_from_slice(&encoded.summary);
@@ -427,7 +427,7 @@ pub fn card_ability_table(cards: &[u32]) -> Vec<f32> {
         if card_id == UNKNOWN_CARD {
             continue;
         }
-        let Some(def) = baylee_cards::by_index(CardIndex::new(card_id)) else {
+        let Some(def) = crate::by_index(CardIndex::new(card_id)) else {
             continue;
         };
         let encoded = encode_card_face(def, 0);

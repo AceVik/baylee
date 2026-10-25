@@ -8,7 +8,7 @@ mod tests {
         // summary and ability vectors.
         let mut non_zero = 0_usize;
         for id in 1..500_u32 {
-            let Some(def) = baylee_cards::by_index(CardIndex::new(id)) else {
+            let Some(def) = crate::by_index(CardIndex::new(id)) else {
                 continue;
             };
             if !def.is_fully_read() {
