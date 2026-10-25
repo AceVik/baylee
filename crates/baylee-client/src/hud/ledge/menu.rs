@@ -619,9 +619,9 @@ pub fn grow_the_menu(
 }
 
 mod switches;
-use switches::priority_switch;
 #[cfg(test)]
 use switches::PrioritySwitch;
+use switches::priority_switch;
 pub use switches::show_priority_switch;
 
 #[cfg(test)]

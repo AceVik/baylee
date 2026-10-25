@@ -96,7 +96,7 @@ pub(super) fn draw<'a>(
         MenuAnchor(anchor),
         Unplaced,
         Opening::default(),
-        UiTransform::default(),
+        UiTransform::from_translation(Val2::px(0.0, -5.0)),
         Visibility::Hidden,
     ));
     commands.entity(root).add_children(&[scrim, menu]);
@@ -107,8 +107,6 @@ pub(super) fn draw<'a>(
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn place(
     mut commands: Commands,
-    state: Res<LobbyState>,
-    mut memory: ResMut<MenuMemory>,
     (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
     mut menus: Query<
         (
@@ -117,8 +115,7 @@ pub(super) fn place(
             &ComputedNode,
             &mut Node,
             &mut Visibility,
-            &mut Opening,
-            &mut UiTransform,
+            &UiTransform,
         ),
         With<Unplaced>,
     >,
@@ -128,15 +125,11 @@ pub(super) fn place(
         Query<&mut UiGlobalTransform>,
     )>,
 ) {
-    if state.menu.is_none() {
-        memory.menu = None;
-        memory.opening = 0.0;
-    }
     let Some(window) = windows.iter().next() else {
         return;
     };
     let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
-    for (entity, anchor, computed, mut node, mut shown, mut opening, mut transform) in &mut menus {
+    for (entity, anchor, computed, mut node, mut shown, transform) in &mut menus {
         let anchor_info = {
             let anchors = tree.p0();
             anchors.get(anchor.0).ok().map(|(at, place)| {
@@ -172,7 +165,11 @@ pub(super) fn place(
                 let mut transforms = tree.p1();
                 if let Ok(cur_at) = transforms.get(entity) {
                     let cur_min = cur_at.translation * scale - size * 0.5;
-                    let delta = (Vec2::new(left, top) - cur_min) / scale;
+                    let arrival = match transform.translation.y {
+                        Val::Px(y) => y,
+                        _ => 0.0,
+                    };
+                    let delta = (Vec2::new(left, top + arrival) - cur_min) / scale;
                     for target in std::iter::once(entity).chain(children.iter_descendants(entity)) {
                         if let Ok(mut t) = transforms.get_mut(target) {
                             *t = UiGlobalTransform::from(bevy::math::Affine2 {
@@ -183,13 +180,6 @@ pub(super) fn place(
                     }
                 }
             }
-        }
-        if state.menu.is_some() && memory.menu == state.menu {
-            opening.0 = memory.opening;
-            transform.translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
-        } else {
-            memory.menu = state.menu;
-            memory.opening = opening.0;
         }
         *shown = Visibility::Inherited;
         commands.entity(entity).remove::<Unplaced>();
@@ -220,21 +210,31 @@ pub(super) fn danger(text: &str, press: Press) -> MenuItem<'_, Press> {
 pub(super) fn animate(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
+    state: Res<LobbyState>,
     mut memory: ResMut<MenuMemory>,
     mut menus: Query<(&mut Opening, &mut UiTransform, &Visibility)>,
 ) {
+    if memory.menu != state.menu {
+        memory.menu = state.menu;
+        memory.opening = 0.0;
+    }
     for (mut opening, mut transform, visible) in &mut menus {
-        if *visible == Visibility::Hidden || opening.0 >= 1.0 {
-            continue;
+        if *visible == Visibility::Hidden {
+            opening.0 = memory.opening;
         }
         let next = if prefs.all().reduce_motion {
             1.0
+        } else if *visible == Visibility::Hidden {
+            opening.0
         } else {
             opening.0 + (1.0 - opening.0) * (1.0 - (-24.0 * time.delta_secs()).exp())
         };
         opening.0 = if next > 0.995 { 1.0 } else { next };
         memory.opening = opening.0;
-        transform.translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
+        let translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
     }
 }
 
@@ -265,3 +265,6 @@ pub(super) fn selected(commands: &mut Commands, wanted: Press) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests;

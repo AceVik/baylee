@@ -53,6 +53,7 @@ pub(crate) mod header;
 pub(crate) mod pool;
 mod retained;
 mod rows;
+pub(crate) mod sample_hand;
 mod sheets;
 mod stats;
 
@@ -229,6 +230,8 @@ pub(crate) struct BuildUi {
     pub(crate) lit: Option<Group>,
     /// The last sample hand, as pool slots.
     pub(crate) hand: Vec<usize>,
+    /// One requested scroll after Draw seven, consumed once geometry is ready.
+    pub(crate) reveal_hand: bool,
     /// The header's save state.
     pub(crate) save: SaveState,
     /// Whether the phone's Stats sheet is up.

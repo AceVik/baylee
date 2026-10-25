@@ -39,6 +39,9 @@ pub(super) fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entit
         .observe(
             |mut click: On<PointerClick>, mut settings: ResMut<crate::settings::ClientSettings>| {
                 click.propagate(false);
+                if click.button != bevy::picking::pointer::PointerButton::Primary {
+                    return;
+                }
                 settings.audio.priority_cue = !settings.audio.priority_cue;
                 settings.save();
             },
@@ -66,6 +69,9 @@ pub(super) fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entit
         .observe(
             |mut click: On<PointerClick>, mut settings: ResMut<crate::settings::ClientSettings>| {
                 click.propagate(false);
+                if click.button != bevy::picking::pointer::PointerButton::Primary {
+                    return;
+                }
                 settings.prefer_text_view = !settings.prefer_text_view;
                 settings.save();
             },
@@ -107,16 +113,15 @@ pub fn show_priority_switch(
             text.0 = words.to_string();
         }
     }
-    let view_words = match (lang, settings.prefer_text_view) {
-        (Lang::De, true) => "Kartenansicht: Text (V)",
-        (Lang::De, false) => "Kartenansicht: Bild (V)",
-        (Lang::En, true) => "Card view: Text (V)",
-        (Lang::En, false) => "Card view: Art (V)",
-    };
+    let view_words = if settings.prefer_text_view {
+        Phrase::CardViewText
+    } else {
+        Phrase::CardViewArt
+    }
+    .text(lang);
     for mut text in &mut view_labels {
         if text.0 != view_words {
             text.0 = view_words.to_string();
         }
     }
 }
-

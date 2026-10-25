@@ -2759,3 +2759,8 @@ PickerAllLanguages = Alle Sprachen
 PickerForceFinish = Foil / Etched erzwingen
 PickerHint = Shift halten: Rückseite · ← → Artwork wechseln
 PickerSetSearch = Set · Kürzel oder Name suchen
+
+# Table status and device display switches.
+SeatEliminated = Du bist ausgeschieden · Der Tisch spielt weiter
+CardViewText = Kartenansicht: Text
+CardViewArt = Kartenansicht: Bild

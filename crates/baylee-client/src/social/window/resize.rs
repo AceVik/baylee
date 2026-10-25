@@ -11,9 +11,9 @@ use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 const MIN_W: f32 = 320.0;
 const MIN_H: f32 = 240.0;
 const MARGIN: f32 = 24.0;
-const HANDLE: f32 = 18.0;
+pub(super) const HANDLE: f32 = 18.0;
 
-/// The bottom-right corner the player drags.
+/// The top-right corner the player drags.
 #[derive(Component)]
 pub(crate) struct ResizeHandle;
 
@@ -58,12 +58,12 @@ pub(super) fn handle(commands: &mut Commands) -> Entity {
             Node {
                 position_type: PositionType::Absolute,
                 right: zpx(4.0),
-                bottom: zpx(4.0),
+                top: zpx(4.0),
                 width: zpx(8.0),
                 height: zpx(8.0),
                 border: UiRect {
                     right: zpx(2.0),
-                    bottom: zpx(2.0),
+                    top: zpx(2.0),
                     ..UiRect::ZERO
                 },
                 ..default()
@@ -79,7 +79,7 @@ pub(super) fn handle(commands: &mut Commands) -> Entity {
             Node {
                 position_type: PositionType::Absolute,
                 right: zpx(0.0),
-                bottom: zpx(0.0),
+                top: zpx(0.0),
                 width: zpx(HANDLE),
                 height: zpx(HANDLE),
                 ..default()
@@ -128,7 +128,7 @@ pub(super) fn resize(
         let scale = scale.as_deref().map_or(1.0, |scale| scale.0) * zoom.0;
         let asked = ChatWindowSize {
             width: start.width + drag.distance.x / scale,
-            height: start.height + drag.distance.y / scale,
+            height: start.height - drag.distance.y / scale,
         };
         let next = lobby_panel_size(Some(asked), window, zoom.0);
         sizing.resized = Some(next);
@@ -164,10 +164,13 @@ pub(super) fn cursor(
     if !over {
         return;
     }
-    let want = CursorIcon::System(SystemCursorIcon::NwseResize);
+    let want = CursorIcon::System(SystemCursorIcon::NeswResize);
     for (window, now) in &windows {
         if now != Some(&want) {
             commands.entity(window).insert(want.clone());
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

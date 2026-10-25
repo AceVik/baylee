@@ -4738,7 +4738,9 @@ search understands, a press inserting the example. The deck side has its
 commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
 value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
 with one type lit, the colour pips' shares, the type counts, the land share
-and Draw seven (a fresh shuffle, nothing leaves the deck). Pool-row `+`,
+and Draw seven (a fresh shuffle, nothing leaves the deck). Each draw scrolls
+the sample into view once its geometry is ready, even when it draws the same
+cards again; subsequent manual scrolling is left alone. Pool-row `+`,
 deck-row `−` / `+` and the adjacent `⋯` use the same square icon-button
 helper, with identical face and hit-area dimensions at every text size and
 input mode. The card window's quantity controls use the same helper.
@@ -9056,10 +9058,13 @@ preview is the same fitted submission pretty-printed, the picture written
 as its size and the text cut at 20 000 characters on screen.
 
 The screenshot is asked for as the form opens and the form waits up to
-`SHOT_PATIENCE` frames to draw itself, so the picture is of the screen and
-not of the form. It is encoded as PNG at most 1280 pixels wide, smaller
-until it is under 900 kB, and dropped if it never is. A browser build links
-no encoder and takes none.
+30 frames for renderer readback before drawing itself, so the picture is of
+the screen and not of the form. A timed-out request is cancelled and its late
+answer ignored. PNG encoding and local-record compression run on the compute
+pool; encoding does not delay drawing the form. Send waits for record
+preparation and, when selected, screenshot preparation. The PNG is at most
+1280 pixels wide, smaller until it is under 900 kB, and dropped if it never
+is. A browser build links no encoder and takes none.
 
 **A game hosted here, and a client signed in nowhere.** `LocalHost` plays
 through `Session::new_recorded`, so a game against the house is recorded
@@ -9210,9 +9215,10 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   count outside its corner (rose for a whisper or a mention). The scroll and
   `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
   closes it. Shut, new chat lines peek above the strip for 10 s and fade.
-  In the lobby the same window docks bottom-right (560 × 38 % of the height,
-  320–520), beside the friends drawer, minimises to its tab row or hides to
-  the chat pill. It grows from its corner and shrinks back before the pill
+  In the lobby the same window docks bottom-left (default 560 × 38 % of the
+  height, 320–520), beside the friends drawer, minimises to its tab row or
+  hides to the chat pill. Its top-right corner resizes it upward and right;
+  the chosen size is saved per device and clamped to the available window. It grows from its corner and shrinks back before the pill
   takes its place (`window::Pop`, `hud::motion`'s curve); a line more is
   appended rather than the list redrawn, and a row newer than the list
   showed rises 10 px into place (`window::Arrive`, 0.18 s). A line is drawn

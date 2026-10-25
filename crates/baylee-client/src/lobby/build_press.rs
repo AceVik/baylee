@@ -574,6 +574,7 @@ impl BuildPress {
             }
             BuildPress::DrawSeven => {
                 state.build.hand = state.lobby.builder().sample_hand(crate::host::fresh_seed());
+                state.build.reveal_hand = true;
             }
             BuildPress::OpenStatsSheet => state.build.stats_sheet = true,
             BuildPress::CloseStatsSheet => {

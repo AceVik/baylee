@@ -1439,3 +1439,74 @@ fn window_clip(visible: Rect) -> bevy::ui::CalculatedClip {
     clip.push_rect(visible, bevy::math::Affine2::IDENTITY);
     clip
 }
+
+#[test]
+fn the_retained_builder_header_tracks_chat_availability() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::Header(HeaderPress::Chat)));
+    let (machine, _) = baylee_client_core::social::Social::start(
+        baylee_client_core::social::Me {
+            tag: "test".into(),
+            handle: "Review#test".into(),
+            guest: false,
+            gateway: "http://127.0.0.1:1".into(),
+        },
+        None,
+        None,
+        baylee_client_core::social::ChatPrefs::default(),
+        1000,
+        &mut crate::social::OsEntropy,
+    );
+    app.world_mut()
+        .resource_mut::<crate::social::SocialHost>()
+        .machine = Some(machine);
+    app.update();
+    app.update();
+    assert!(
+        presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
+        "unlocking chat did not update the retained builder header"
+    );
+    app.world_mut()
+        .resource_mut::<crate::social::SocialHost>()
+        .machine = None;
+    app.update();
+    app.update();
+    assert!(
+        !presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
+        "locking chat left its old control behind"
+    );
+}
+
+#[test]
+fn draw_seven_requests_reveal_even_when_it_draws_the_same_cards_again() {
+    use baylee_client_core::deckbuilder::Zone;
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.build.tab = crate::buildui::DeckTab::Stats;
+        state.lobby.builder_mut().add(0, Zone::Main);
+    }
+    app.update();
+    for _ in 0..2 {
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .build
+            .reveal_hand = false;
+        press(&mut app, Press::Build(BuildPress::DrawSeven));
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.build.hand, vec![0]);
+        assert!(
+            state.build.reveal_hand,
+            "each draw asks to reveal its result"
+        );
+    }
+}

@@ -331,6 +331,11 @@ impl VirtualLog {
     /// Measures mounted rows and rebuilds only the changed tail of the prefix
     /// offsets. At rest this only reads the bounded mounted window.
     fn measure(&mut self, nodes: &Query<&ComputedNode>) {
+        // Replaced entries do not belong to the old mounted rows. A replay
+        // seek can also shorten the book below those rows' indices.
+        if self.dirty {
+            return;
+        }
         let mut first_changed = None;
         for (index, entity) in &self.mounted {
             let Ok(node) = nodes.get(*entity) else {
@@ -395,7 +400,17 @@ impl VirtualLog {
             follow.set = scroll.y;
         }
 
+        // Measured overscan can grow above the reading position. Keep the
+        // visible row and its intra-row offset, not an obsolete pixel offset.
+        let anchor = self
+            .offsets
+            .partition_point(|top| *top <= scroll.y)
+            .saturating_sub(1);
+        let within = scroll.y - self.offset(anchor);
         self.measure(nodes);
+        if !follow.stuck {
+            Self::move_to((self.offset(anchor) + within).max(0.0), follow, scroll);
+        }
         let end = (self.total() - self.viewport).max(0.0);
         if follow.stuck || scroll.y > end {
             Self::move_to(end, follow, scroll);

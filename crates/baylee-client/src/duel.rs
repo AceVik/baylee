@@ -41,15 +41,11 @@ impl Duel {
             return None;
         }
         if self.my_seat_eliminated() {
-            let line = match lang {
-                baylee_client_core::i18n::Lang::De => {
-                    "Du bist ausgeschieden \u{b7} Tisch spielt weiter"
-                }
-                baylee_client_core::i18n::Lang::En => {
-                    "You are out of the game \u{b7} Table plays on"
-                }
-            };
-            return Some(line.to_string());
+            return Some(
+                baylee_client_core::i18n::Phrase::SeatEliminated
+                    .text(lang)
+                    .to_string(),
+            );
         }
         let prompt = self
             .cast_menu

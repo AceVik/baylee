@@ -189,7 +189,7 @@ impl Plugin for AmbiencePlugin {
         // The button animation is arithmetic over components and runs
         // anywhere, including in the headless tests that build the lobby's
         // node tree without a renderer.
-        app.add_systems(Update, (breathe, feel))
+        app.add_systems(Update, feel)
             .add_systems(PostUpdate, breathe.after(bevy::ui::UiSystems::Layout));
         // The surface is not: embedding a shader needs an asset server, and a
         // UI material needs a render world. A test app has neither, and

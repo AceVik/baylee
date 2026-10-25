@@ -250,6 +250,11 @@ fn the_resize_corner_stays_above_the_composer() {
     let composer = app.world().get::<ZIndex>(ids.composer).unwrap().0;
     let corner = app.world().get::<ZIndex>(handle).unwrap().0;
     assert!(corner > composer, "{corner} must exceed {composer}");
+    assert_eq!(
+        app.world().get::<Node>(ids.head).unwrap().padding.right,
+        zpx(3.0 + resize::HANDLE),
+        "the header reserves the resize corner beside Close"
+    );
 }
 
 fn identity(index: u32) -> baylee_view::CardIdentity {

@@ -363,6 +363,9 @@ pub(super) fn draw(
     mut last: Local<Option<u64>>,
     mut last_foot: Local<Option<u64>>,
 ) {
+    if super::shot::awaiting_frame(&mut commands, &mut desk) {
+        return;
+    }
     let Some(fonts) = fonts else {
         return;
     };

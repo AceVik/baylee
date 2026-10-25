@@ -95,6 +95,8 @@ pub struct ReportDesk {
     gathered: Gathered,
     /// Whether the screenshot is still being taken or encoded.
     shooting: bool,
+    /// Readback must finish before the dialog may enter the captured frame.
+    capture: Option<shot::Capture>,
     /// The screenshot's CPU-side encoding, off the render thread.
     shot_encoding: Option<bevy::tasks::Task<(u64, Option<bugreport::Screenshot>)>>,
     /// The local record's compression, off the render thread.
@@ -145,6 +147,10 @@ pub struct ReportDesk {
 }
 
 impl ReportDesk {
+    fn preparing(&self, consent: &Consent) -> bool {
+        self.record_packing.is_some() || (self.shooting && consent.allows(Category::Screenshot))
+    }
+
     /// Whether the keyboard belongs to the form (or the crash question)
     /// this frame. Every other key handler asks this first.
     #[must_use]
@@ -470,7 +476,9 @@ fn open_when_asked(
         bevy::tasks::AsyncComputeTaskPool::get()
             .spawn(async move { (opening, LocalRecord::pack(&jsonl)) })
     });
-    desk.shooting = shot::take(&mut commands, opening);
+    shot::cancel(&mut commands, &mut desk);
+    desk.capture = shot::take(&mut commands, opening);
+    desk.shooting = desk.capture.is_some();
 }
 
 /// Installs attachments whose CPU-side preparation finished, but never one
@@ -865,7 +873,7 @@ fn ask_to_send(
     answers: &Answers,
 ) {
     let route = route(holders.lobby.as_deref(), settings);
-    if desk.record_packing.is_some() || !route.sends() {
+    if desk.preparing(&settings.reports) || !route.sends() {
         return;
     }
     let device = settings.report_device.clone().unwrap_or_default();
@@ -906,7 +914,7 @@ fn send(
     settings: &mut ClientSettings,
     answers: &Answers,
 ) {
-    if desk.record_packing.is_some() {
+    if desk.preparing(&settings.reports) {
         return;
     }
     let keyring = holders.keyring(settings);

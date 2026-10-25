@@ -101,6 +101,7 @@ struct HeaderKey {
     feed_down: bool,
     unread: usize,
     handle: Option<String>,
+    chat_header: Option<bool>,
     menu: bool,
     pane: Pane,
 }
@@ -463,6 +464,7 @@ fn header_key(env: &Env) -> HeaderKey {
         feed_down: state.feed_down,
         unread: state.bell.unread(),
         handle: crate::lobby::handle(state),
+        chat_header: state.chat_header,
         menu: env.ui().menu == Some(BuildMenu::Header),
         pane: env.ui().pane,
     }

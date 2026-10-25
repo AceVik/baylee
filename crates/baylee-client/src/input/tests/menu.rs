@@ -658,3 +658,34 @@ fn a_press_outside_the_panel_puts_it_away_and_three_presses_do_not() {
         );
     }
 }
+
+/// A menu remains dismissible while the engine is waiting on another seat.
+#[test]
+fn escape_closes_menu_and_log_between_questions_without_sending_an_action() {
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .init_resource::<crate::Duel>()
+        .add_message::<KeyboardInput>()
+        .add_systems(Update, keyboard);
+    for menu in [true, false] {
+        {
+            let mut duel = app.world_mut().resource_mut::<crate::Duel>();
+            duel.game_menu = menu;
+            duel.log_open = !menu;
+        }
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+        let duel = app.world().resource::<crate::Duel>();
+        assert!(!duel.game_menu && !duel.log_open);
+        assert!(duel.outbox().is_empty());
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset_all();
+    }
+}

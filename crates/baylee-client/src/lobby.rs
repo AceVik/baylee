@@ -204,6 +204,10 @@ impl Plugin for LobbyPlugin {
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
             )
+            .add_systems(
+                Update,
+                menus::animate.after(ui).run_if(in_state(DuelPhase::Closed)),
+            )
             // After `Update` and layout, so that newly built panels have their
             // computed width and whatever else wrote a colour this frame has
             // written it first.
@@ -320,10 +324,13 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    (menus::place, menus::animate)
-                        .chain()
-                        .after(bevy::ui::UiSystems::Layout),
-                    crate::buildui::focus::place_menus.after(bevy::ui::UiSystems::Layout),
+                    menus::place
+                        .after(bevy::ui::UiSystems::Layout)
+                        .before(bevy::ui::UiSystems::PostLayout),
+                    crate::buildui::focus::place_menus
+                        .after(bevy::ui::UiSystems::Layout)
+                        .before(bevy::ui::UiSystems::PostLayout),
+                    crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
                     focusing::follow_focus,
                 )
                     .run_if(in_state(DuelPhase::Closed)),

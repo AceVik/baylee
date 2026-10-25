@@ -161,3 +161,51 @@ fn spacers_reproduce_the_full_height_without_double_flex_gaps() {
     let occupied = before + mounted + internal_gaps + after + spacer_gaps;
     assert!((occupied - rows.total()).abs() < 0.01);
 }
+
+#[test]
+fn measuring_overscan_keeps_the_visible_line_at_the_same_offset() {
+    let mut app = App::new();
+    let list = list(&mut app);
+    let mut rows = VirtualLog::default();
+    rows.replace(lines(500));
+    app.world_mut().get_mut::<LogFollow>(list).unwrap().stuck = false;
+    app.world_mut().get_mut::<ScrollPosition>(list).unwrap().y = rows.offset(42) + 7.0;
+    sync(&mut app, &mut rows, list);
+    let above = rows.mounted[&40];
+    app.world_mut().entity_mut(above).insert(ComputedNode {
+        size: Vec2::new(300.0, 80.0),
+        ..ComputedNode::default()
+    });
+    sync(&mut app, &mut rows, list);
+    let scroll = app.world().get::<ScrollPosition>(list).unwrap().y;
+    assert!(
+        (scroll - rows.offset(42) - 7.0).abs() < 0.01,
+        "measuring an offscreen row moved the visible text: {scroll}"
+    );
+}
+
+#[test]
+fn replacing_a_measured_log_with_a_shorter_book_discards_the_old_rows() {
+    let mut app = App::new();
+    let list = list(&mut app);
+    let mut rows = VirtualLog::default();
+    rows.replace(lines(500));
+    sync(&mut app, &mut rows, list);
+    for entity in rows.mounted.values() {
+        app.world_mut().entity_mut(*entity).insert(ComputedNode {
+            size: Vec2::new(300.0, 80.0),
+            ..default()
+        });
+    }
+    for count in [2, 0] {
+        rows.replace(lines(count));
+        sync(&mut app, &mut rows, list);
+        assert_eq!(rows.mounted.len(), count);
+        assert!(
+            rows.heights
+                .iter()
+                .all(|height| *height == ESTIMATED_HEIGHT)
+        );
+        assert_eq!(app.world().get::<ScrollPosition>(list).unwrap().y, 0.0);
+    }
+}

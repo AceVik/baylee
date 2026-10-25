@@ -5583,3 +5583,18 @@ final validation are in `docs/history/2026-10-23-argon-review.md`.
   four lands, Primeval Titan needs two green sources, and library searches need
   the offered ObjectIds asserted before `ChooseObjects`; otherwise a report test
   fails on setup rather than on the rule it is meant to prove.
+
+## Desktop feedback card review (25 October 2026)
+
+Reviewed Kimi's `29fde2893624af5aa311a4fa971a42932a106f11` and
+`fdd79c1b93a55d5e83af188e05ac530e004dbaaf` from PR #395. Adopting an
+existing generated token preserves its stable token slot, so saved print
+identity remains valid. The black 2/2 Zombie art UUID resolves to tm20 #6.
+The Umara Raptor, Field of the Dead and Tireless Provisioner regression
+fixtures exercise their triggers through engine actions; the follow-up corrects
+the fixtures' actual mana costs. No further card-rule defect was found.
+
+UI review lesson from the surrounding PR: asynchronous screenshot encoding
+must not remove the wait for GPU readback, and virtualized rows from an old
+log must never be measured against a replacement book. Tests need measured
+rows and lifecycle changes, not only initial mounting with empty layout data.

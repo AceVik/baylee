@@ -222,12 +222,16 @@ fn arrangement_menu_keys(
 }
 
 /// `Esc` between two questions, innermost first: a reveal another seat
-/// made, then a visit.
+/// made, a menu or log, then a visit.
 fn between_questions(fired: Fired, duel: &mut Duel) {
     if fired.has(Action::Cancel) && duel.reveals.current().is_some() {
         // A reveal stands between two questions as well, and is put away
         // first, as it is in front of one (`answer_the_question`).
         duel.reveals.dismiss();
+    } else if fired.has(Action::Cancel) && duel.game_menu {
+        duel.game_menu = false;
+    } else if fired.has(Action::Cancel) && duel.log_open && !duel.chat_panel {
+        duel.log_open = false;
     } else if fired.has(Action::Cancel) && duel.visiting.is_some() {
         // Between two questions there is nothing to take back: `Esc` is
         // "back" to the home shot (DESIGN-v7 §2.4).

@@ -1224,7 +1224,18 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Stretch,
-                padding: UiRect::new(zpx(4.0), zpx(3.0), zpx(0.0), zpx(0.0)),
+                // Leave the top-right resize corner clear of Close.
+                padding: UiRect::new(
+                    zpx(4.0),
+                    zpx(3.0
+                        + if frame == Frame::Lobby {
+                            resize::HANDLE
+                        } else {
+                            0.0
+                        }),
+                    zpx(0.0),
+                    zpx(0.0),
+                ),
                 border: UiRect::bottom(zpx(1.0)),
                 border_radius: BorderRadius::top(zpx(6.0)),
                 ..default()

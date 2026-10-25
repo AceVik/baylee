@@ -15,6 +15,16 @@ card art, symbols, fonts, music or other third-party assets. Existing asset and
 Scryfall requirements below still apply; the API page returned HTTP 403 during
 this check, so no claim of newly verified Scryfall wording is made here.
 
+Desktop feedback review (25 October 2026, PRs #395/#396): the
+[Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was checked, including “Tell the Community it’s unofficial.” The retained
+headers keep the existing notice and access to About. The changes use existing
+licensed icon fonts and procedural surfaces; no third-party assets or corpus
+files were added. The Zombie token UUID resolves through Scryfall to the black
+2/2 Zombie from tm20, collector number 6. Scryfall’s API documentation returned
+HTTP 403 during this review; the existing image terms and recorded decisions
+below remain the basis for runtime card images and finishes.
+
 ## Guardrails for every change
 
 - Unofficial non-commercial fan project. No WotC assets in the repo, except

@@ -37,13 +37,19 @@ fn tap_key(app: &mut App, code: KeyCode) {
     keys.clear();
 }
 
-/// The form open and drawn on the first update that opens it, even though a
-/// headless app's screenshot has not arrived.
+/// Headless rendering cannot return a screenshot: exercise the bounded
+/// readback timeout before using the form.
 fn open_form(app: &mut App) {
     tap_key(app, KeyCode::F8);
     app.update();
     assert!(desk(app).open, "F8 opened the form");
-    assert!(drawn(app), "the form is drawn on its first frame");
+    for _ in 0..32 {
+        app.update();
+    }
+    assert!(
+        drawn(app),
+        "the form appears when screenshot readback times out"
+    );
     settle_record(app);
 }
 
@@ -1589,5 +1595,24 @@ fn the_sheet_keeps_the_tours_anchors() {
             "report_record_row",
             "report_route"
         ]
+    );
+}
+
+#[test]
+fn the_report_stays_out_of_the_frame_being_captured() {
+    let mut app = with_settings();
+    tap_key(&mut app, KeyCode::F8);
+    app.update();
+    assert!(desk(&app).open);
+    assert!(
+        !drawn(&mut app),
+        "the report itself would obscure its screenshot"
+    );
+    for _ in 0..32 {
+        app.update();
+    }
+    assert!(
+        drawn(&mut app),
+        "a missing renderer must not hide the form forever"
     );
 }

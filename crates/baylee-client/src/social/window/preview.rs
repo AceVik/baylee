@@ -168,14 +168,20 @@ pub(super) fn hover(
         });
     }
     for out in outs.read() {
-        if links.contains(out.entity)
-            && hovered
-                .0
-                .as_ref()
-                .is_some_and(|hover| hover.span == out.entity)
+        if hovered
+            .0
+            .as_ref()
+            .is_some_and(|hover| hover.span == out.entity)
         {
             hovered.0 = None;
         }
+    }
+    if hovered
+        .0
+        .as_ref()
+        .is_some_and(|hover| !links.contains(hover.span))
+    {
+        hovered.0 = None;
     }
 }
 
@@ -333,3 +339,6 @@ pub(super) fn sync(
         );
     }
 }
+
+#[cfg(test)]
+mod tests;

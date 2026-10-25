@@ -84,13 +84,18 @@ fn footer_button(
 }
 
 /// Why Send is unavailable, if it is.
-fn send_reason(desk: &ReportDesk, route: &Route, lang: Lang) -> Option<String> {
+fn send_reason(
+    desk: &ReportDesk,
+    route: &Route,
+    consent: &baylee_client_core::bugreport::Consent,
+    lang: Lang,
+) -> Option<String> {
     match route {
         Route::Nowhere => Some(Phrase::ReportNowhere.text(lang).to_string()),
         _ if desk.form.status == Status::Sending => {
             Some(Phrase::ReportSending.text(lang).to_string())
         }
-        _ if desk.record_packing.is_some() => Some(Phrase::ReportPreparing.text(lang).to_string()),
+        _ if desk.preparing(consent) => Some(Phrase::ReportPreparing.text(lang).to_string()),
         _ if desk.form.over_limit() => {
             Some(Phrase::ReportTextTooLong.fill(lang, &[&MAX_TEXT_CHARS.to_string()]))
         }
@@ -220,7 +225,10 @@ pub(in crate::report) fn lock_while_sending(
 ) {
     let sending = desk.open && desk.form.status == Status::Sending;
     for (entity, press, disabled) in &mut controls {
-        let lock = sending && press.locked_while_sending() && !matches!(press, DeskPress::Send);
+        if matches!(press, DeskPress::Send) {
+            continue; // sync_footer owns Send, including its preparation/validation state.
+        }
+        let lock = sending && press.locked_while_sending();
         match (lock, disabled) {
             (true, false) => {
                 commands.entity(entity).insert(Disabled);
@@ -273,7 +281,7 @@ pub(in crate::report) fn sync_footer(
     };
     let lang = Lang::of(&settings.lang);
     let route = crate::report::route(lobby.as_deref(), &settings);
-    let reason = send_reason(&desk, &route, lang);
+    let reason = send_reason(&desk, &route, &settings.reports, lang);
     let sending = desk.form.status == Status::Sending;
     let window = windows.single().map_or(Vec2::new(1280.0, 800.0), |w| {
         Vec2::new(w.width(), w.height())
@@ -389,7 +397,12 @@ pub(in crate::report) fn sync_touch_reason(
         return;
     }
     let lang = Lang::of(&settings.lang);
-    let reason = send_reason(&desk, &crate::report::route(lobby.as_deref(), &settings), lang);
+    let reason = send_reason(
+        &desk,
+        &crate::report::route(lobby.as_deref(), &settings),
+        &settings.reports,
+        lang,
+    );
     for (mut text, mut shown) in &mut reasons {
         let said = reason.as_deref().unwrap_or_default();
         if text.0 != said {
@@ -400,5 +413,34 @@ pub(in crate::report) fn sync_touch_reason(
         } else {
             Visibility::Hidden
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce;
+
+    #[test]
+    fn the_send_buttons_disabled_state_belongs_to_the_footer() {
+        let mut world = World::new();
+        world.insert_resource(ReportDesk::default());
+        let send = world.spawn((DeskPress::Send, Disabled)).id();
+        world.run_system_once(lock_while_sending).unwrap();
+        assert!(
+            world.get::<Disabled>(send).is_some(),
+            "the generic lock unlocked Send"
+        );
+    }
+    #[test]
+    fn sending_waits_for_a_selected_screenshot_but_not_an_excluded_one() {
+        let desk = ReportDesk {
+            shooting: true,
+            ..default()
+        };
+        let mut consent = baylee_client_core::bugreport::Consent::nothing();
+        assert!(!desk.preparing(&consent));
+        consent.set(Category::Screenshot, true);
+        assert!(desk.preparing(&consent));
     }
 }

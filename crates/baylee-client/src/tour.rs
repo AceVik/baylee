@@ -440,6 +440,7 @@ pub(crate) fn install(app: &mut App) {
             PostUpdate,
             draw::place
                 .after(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::PostLayout)
                 .run_if(settled),
         );
     #[cfg(not(target_arch = "wasm32"))]

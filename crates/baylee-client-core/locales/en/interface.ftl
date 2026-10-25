@@ -8366,3 +8366,8 @@ PickerHint = Hold Shift: reverse side · ← → change artwork
 
 # The print picker's set search field.
 PickerSetSearch = Set · search code or name
+
+# Table status and device display switches.
+SeatEliminated = You are out of the game · The table plays on
+CardViewText = Card view: Text
+CardViewArt = Card view: Art
