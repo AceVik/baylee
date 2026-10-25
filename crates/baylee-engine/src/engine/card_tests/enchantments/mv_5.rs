@@ -110,6 +110,7 @@ fn may_block(
 }
 mod asceticism;
 mod berserkers_onslaught;
+mod black_market;
 mod blockbuster;
 mod blood_rites;
 mod bulwark;

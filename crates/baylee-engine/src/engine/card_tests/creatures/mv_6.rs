@@ -5,6 +5,7 @@ use super::*;
 
 mod aang_and_katara;
 mod aboroth;
+mod aerial_caravan;
 mod aesi_tyrant_of_gyre_strait;
 mod aggressive_mammoth;
 mod akoum_boulderfoot;
@@ -15,6 +16,7 @@ mod bloodshot_cyclops;
 mod canopy_dragon;
 mod carnage_tyrant;
 mod catacomb_dragon;
+mod cho_arrim_bruiser;
 mod commander_greven_il_vec;
 mod crater_hellion;
 mod craw_wurm;

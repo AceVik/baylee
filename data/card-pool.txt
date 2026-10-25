@@ -10642,3 +10642,28 @@ Wall of Glare
 Yavimaya Elder
 Yavimaya Enchantress
 Yawgmoth's Bargain
+Aerial Caravan
+Alley Grifters
+Ancestral Mask
+Arrest
+Assembly Hall
+Ballista Squad
+Barbed Wire
+Bargaining Table
+Bifurcate
+Black Market
+Blood Hound
+Blood Oath
+Brawl
+Briar Patch
+Cackling Witch
+Caller of the Hunt
+Caustic Wasps
+Cave-In
+Ceremonial Guard
+Chambered Nautilus
+Chameleon Spirit
+Charisma
+Charm Peddler
+Charmed Griffin
+Cho-Arrim Bruiser

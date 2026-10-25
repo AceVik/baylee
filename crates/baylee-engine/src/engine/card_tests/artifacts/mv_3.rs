@@ -9,6 +9,7 @@ mod arcane_encyclopedia;
 mod arcum_s_whistle;
 mod ashnod_s_altar;
 mod astrolabe;
+mod barbed_wire;
 mod basalt_monolith;
 mod bloodstone_cameo;
 mod bone_flute;

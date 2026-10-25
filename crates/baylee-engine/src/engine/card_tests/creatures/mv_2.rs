@@ -42,6 +42,7 @@ mod brad_boimler_eager_ensign;
 mod brine_shaman;
 mod bristly_bill_spine_sower;
 mod brood_of_cockroaches;
+mod cackling_witch;
 mod canopy_spider;
 mod capashen_knight;
 mod capashen_unicorn;

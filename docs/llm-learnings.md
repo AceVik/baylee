@@ -6,6 +6,19 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 1 (`Aerial Caravan` through `Cho-Arrim Bruiser`, 25 cards)
+
+Adding the first 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `2 Partial`, `9 Unimplemented`) extended `scriptgen` to cover five recurring patterns (`Alley Grifters`, `Ancestral Mask`, `Arrest`, `Ballista Squad`, `Briar Patch`, `Cackling Witch`, `Caustic Wasps`, `Chambered Nautilus`):
+
+1. **`T:Mode$ AttackerBlocked` on `Card.Self` and `TriggeredDefendingPlayer`.**
+   `triggers.rs` now maps `T:Mode$ AttackerBlocked` with `ValidCard$ Card.Self` to `Trigger::BecomesBlocked` (or `Trigger::BecomesBlockedBy(&{filter})` when `ValidBlocker$` is present), and `targets.rs` maps `Defined$ TriggeredDefendingPlayer` under `"Attacks" | "AttackerBlocked"` to `PlayerRel::DefendingPlayer` (`Alley Grifters`, `Chambered Nautilus`).
+2. **`T:Mode$ Attacks | Attacked$ You` with `Defined$ TriggeredAttackerLKICopy`.**
+   When `T:Mode$ Attacks` specifies `Attacked$ You` on a non-`Card.Self` filter, `triggers.rs` appends `.attackingYou` (`Filter::AttackingYou` in `targets.rs`), and `pump_effect` maps `Defined$ TriggeredAttackerLKICopy` / `TriggeredAttacker` under `Attacks` to `Filter::Reference` (`Briar Patch`).
+3. **`Count$Valid .../Times.<n>` in static P/T modifiers.**
+   `statics.rs` now strips an optional `/Times.<n>` suffix (`n` in `1..=4`) on symmetric `AddPower$`/`AddToughness$` `Count$Valid ` expressions and emits `Modifier::ModifyPTByCount` `n` times (`Ancestral Mask`: +2/+2 for each other enchantment).
+4. **Composite `S:Mode$ CantAttack,CantBlock,CantBeActivated` and `TargetSpec::ObjectOfEventPlayer`.**
+   `statics.rs` now lowers `Mode$ CantAttack,CantBlock,CantBeActivated` on `Creature.AttachedBy` into `Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))` plus `Modifier::CantActivate` (`Arrest`), and `targets.rs` lowers `.ControlledBy TriggeredTarget` under `T:Mode$ DamageDone` to `TargetSpec::ObjectOfEventPlayer` (`Caustic Wasps`).
+
 ## 2026-10-19 — *Fallen Empires* (`fem`, 102/102) and retroactive DSL decomposition (*The Dark* / *Legends*)
 
 Completing all 67 remaining cards of *Fallen Empires* (`16 Coverage::Generated` via `scriptgen` + `51 Coverage::Implemented`) alongside retroactively decomposing single-card variants from *The Dark* and *Legends* surfaced five durable rules:

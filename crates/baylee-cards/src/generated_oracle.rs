@@ -11509,54 +11509,92 @@ pub static ORACLE: &[&[&str]] = &[
     &[""],
     &[],
     &[],
-    &[],
+    // Aerial Caravan
+    &[
+        "Flying\n{1}{U}{U}: Exile the top card of your library. Until end of turn, you may play that card. (Reveal the card as you exile it.)",
+    ],
     // Alabaster Wall
     &[
         "Defender (This creature can't attack.)\n{T}: Prevent the next 1 damage that would be dealt to any target this turn.",
     ],
-    &[],
-    &[],
+    // Alley Grifters
+    &["Whenever this creature becomes blocked, defending player discards a card."],
+    // Ancestral Mask
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 for each other enchantment on the battlefield.",
+    ],
     // Armistice
     &["{3}{W}{W}: You draw a card and target opponent gains 3 life."],
     // Arms Dealer
     &["{1}{R}, Sacrifice a Goblin: This creature deals 4 damage to target creature."],
-    &[],
-    &[],
-    &[],
+    // Arrest
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated.",
+    ],
+    // Assembly Hall
+    &[
+        "{4}, {T}: Reveal a creature card in your hand. Search your library for a card with the same name as that card, reveal it, put it into your hand, then shuffle.",
+    ],
+    // Ballista Squad
+    &["{X}{W}, {T}: This creature deals X damage to target attacking or blocking creature."],
     // Balloon Peddler
     &["{U}, {T}, Discard a card: Target creature gains flying until end of turn."],
-    &[],
-    &[],
+    // Barbed Wire
+    &[
+        "At the beginning of each player's upkeep, this artifact deals 1 damage to that player.\n{2}: Prevent the next 1 damage that would be dealt by this artifact this turn.",
+    ],
+    // Bargaining Table
+    &["{X}, {T}: Draw a card. X is the number of cards in an opponent's hand."],
     // Battle Rampart
     &["Defender\n{T}: Target creature gains haste until end of turn."],
     // Battle Squadron
     &[
         "Flying\nBattle Squadron's power and toughness are each equal to the number of creatures you control.",
     ],
-    &[],
-    &[],
+    // Bifurcate
+    &[
+        "Search your library for a permanent card with the same name as target nontoken creature, put that card onto the battlefield, then shuffle.",
+    ],
+    // Black Market
+    &[
+        "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+    ],
     // Blaster Mage
     &["{R}, {T}, Discard a card: Destroy target Wall."],
     // Blockade Runner
     &["{U}: This creature can't be blocked this turn."],
-    &[],
-    &[],
+    // Blood Hound
+    &[
+        "Whenever you're dealt damage, you may put that many +1/+1 counters on this creature.\nAt the beginning of your end step, remove all +1/+1 counters from this creature.",
+    ],
+    // Blood Oath
+    &[
+        "Choose a card type. Target opponent reveals their hand. Blood Oath deals 3 damage to that player for each card of the chosen type revealed this way. (Artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery are card types.)",
+    ],
     // Boa Constrictor
     &["{T}: This creature gets +3/+3 until end of turn."],
     // Bog Smugglers
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
     // Bog Witch
     &["{B}, {T}, Discard a card: Add {B}{B}{B}."],
-    &[],
-    &[],
+    // Brawl
+    &[
+        "Until end of turn, all creatures gain \"{T}: This creature deals damage equal to its power to target creature.\"",
+    ],
+    // Briar Patch
+    &["Whenever a creature attacks you, it gets -1/-0 until end of turn."],
     // Bribery
     &[
         "Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then that player shuffles.",
     ],
     // Buoyancy
     &["Flash\nEnchant creature\nEnchanted creature has flying."],
-    &[],
-    &[],
+    // Cackling Witch
+    &["{X}{B}, {T}, Discard a card: Target creature gets +X/+0 until end of turn."],
+    // Caller of the Hunt
+    &[
+        "As an additional cost to cast this spell, choose a creature type.\nCaller of the Hunt's power and toughness are each equal to the number of creatures of the chosen type on the battlefield.",
+    ],
     // Cateran Brute
     &[
         "{2}, {T}: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
@@ -11585,27 +11623,48 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Search your library for a Mercenary card, reveal that card, put it into your hand, then shuffle.",
     ],
-    &[],
+    // Caustic Wasps
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player, you may destroy target artifact that player controls.",
+    ],
     // Cave Sense
     &[
         "Enchant creature\nEnchanted creature gets +1/+1 and has mountainwalk. (It can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Cave-In
+    &[
+        "You may exile a red card from your hand rather than pay this spell's mana cost.\nCave-In deals 2 damage to each creature and each player.",
+    ],
     // Cavern Crawler
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)\n{R}: This creature gets +1/-1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ceremonial Guard
+    &["When this creature attacks or blocks, destroy it at end of combat."],
+    // Chambered Nautilus
+    &["Whenever this creature becomes blocked, you may draw a card."],
+    // Chameleon Spirit
+    &[
+        "As this creature enters, choose a color.\nChameleon Spirit's power and toughness are each equal to the number of permanents of the chosen color your opponents control.",
+    ],
+    // Charisma
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to a creature, gain control of the other creature for as long as this Aura remains on the battlefield.",
+    ],
+    // Charm Peddler
+    &[
+        "{W}, {T}, Discard a card: The next time a source of your choice would deal damage to target creature this turn, prevent that damage.",
+    ],
+    // Charmed Griffin
+    &[
+        "Flying\nWhen this creature enters, each other player may put an artifact or enchantment card onto the battlefield from their hand.",
+    ],
     // Cho-Arrim Alchemist
     &[
         "{1}{W}{W}, {T}, Discard a card: The next time a source of your choice would deal damage to you this turn, prevent that damage. You gain life equal to the damage prevented this way.",
     ],
-    &[],
+    // Cho-Arrim Bruiser
+    &["Whenever this creature attacks, you may tap up to two target creatures."],
     &[],
     &[],
     &[],

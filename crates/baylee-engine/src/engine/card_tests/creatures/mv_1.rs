@@ -30,6 +30,7 @@ mod carrion_beetles;
 mod carrion_feeder;
 mod cathedral_sanctifier;
 mod ceta_disciple;
+mod charm_peddler;
 mod child_of_thorns;
 mod cinder_wall;
 mod civic_guildmage;

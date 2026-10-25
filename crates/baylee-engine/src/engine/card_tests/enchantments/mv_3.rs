@@ -14,6 +14,7 @@ mod aura_shards;
 mod back_to_basics;
 mod blanket_of_night;
 mod bottomless_pit;
+mod briar_patch;
 mod captive_flame;
 mod choke;
 mod circle_of_despair;

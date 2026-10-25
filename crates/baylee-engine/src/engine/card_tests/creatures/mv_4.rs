@@ -42,6 +42,7 @@ mod aysen_crusader;
 mod azure_drake;
 mod balduvian_dead;
 mod balduvian_horde;
+mod ballista_squad;
 mod balshan_collaborator;
 mod banshee;
 mod barishi;

@@ -320,6 +320,9 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// hand-reveal mana ability is omitted), adding 1 non-fully-read eligible
 /// face, 1 creature, and 1 unparsed mana line.
 ///
+/// Mercadian Masques (`mmq`) Batch 1 adds `Black Market` (`Coverage::Implemented`),
+/// adding 1 wholly readable face and 1 triggered mana line.
+///
 /// This remains the existing reader's population: it recognizes "add", not
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
 /// Aura fixtures needed to close it are recorded in observed-faults #65.
@@ -329,9 +332,9 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     promises: 212..=212,
     creature_promises: 90..=90,
     unparsed: 59..=59,
-    fully_read: 379,
+    fully_read: 380,
     costly_lines: 143..=143,
-    triggered_lines: 24..=24,
+    triggered_lines: 25..=25,
     granted_lines: 41..=41,
     self_granted: 7..=7,
     busy: 0,
@@ -368,13 +371,13 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [436, 0, 11],
+        [437, 0, 11],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [379, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(readable, [380, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 379,
+        expected, 380,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -393,7 +396,7 @@ fn check_other_permanent_population(tally: &Tally) {
         (469, 213, 212, 1)
     );
     assert_eq!((tally.creatures, tally.creature_promises), (238, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (24, 59));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (25, 59));
     assert_eq!(
         (
             tally.conditional,

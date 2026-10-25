@@ -339,7 +339,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Plague Dogs, Powder Keg, and Rapid Decay (2 of 3 read by the evaluator).
     // Urza's Destiny (`uds`) Batch 4 adds 2 non-mana activated abilities on
     // Thran Foundry and Yavimaya Elder (1 of 2 read by the evaluator).
-    assert_eq!((read, of), (2785, 3498), "activated/loyalty reader census");
+    // Mercadian Masques (`mmq`) Batch 1 adds 3 non-mana activated abilities on
+    // Aerial Caravan, Ballista Squad, and Cackling Witch (2 of 3 read by the evaluator).
+    assert_eq!((read, of), (2787, 3501), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

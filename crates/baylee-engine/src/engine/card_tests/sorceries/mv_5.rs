@@ -7,6 +7,7 @@ mod angelic_edict;
 mod apocalypse;
 mod bribery;
 mod brilliant_plan;
+mod cave_in;
 mod demon_s_grasp;
 mod dosan_s_oldest_chant;
 mod dregs_of_sorrow;

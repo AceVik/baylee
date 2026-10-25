@@ -735,6 +735,8 @@ no-engine-change contract:
   - Batch 2 (`Goblin Festival` to `Phyrexian Negator`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back)**.
   - Batch 3 (`Plague Dogs` to `Telepathic Spies`, 25 cards): **9 Implemented, 7 Partial, 9 Unimplemented (held back)**.
   - Batch 4 (`Thorn Elemental` to `Yawgmoth's Bargain`, 10 cards): **7 Implemented, 1 Partial, 2 Unimplemented (held back)**.
+- **Mercadian Masques (`mmq`)** — in progress:
+  - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 
