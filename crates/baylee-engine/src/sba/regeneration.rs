@@ -212,3 +212,10 @@ mod tests {
         }
     }
 }
+
+/// Whether a resolution has prohibited regeneration for this incarnation.
+pub(super) fn allowed(state: &GameState, id: baylee_core::ids::ObjectId) -> bool {
+    state
+        .object(id)
+        .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)))
+}

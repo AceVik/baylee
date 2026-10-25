@@ -893,16 +893,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::CantBeRegeneratedThisTurn { target } => {
-            for id in zones::spec_objects(state, res, target) {
-                if let Some(obj) = state.object(id)
-                    && obj.zone == crate::zone::Zone::Battlefield
-                {
-                    let named = (id, obj.version);
-                    if !state.per_turn.cant_regenerate.contains(&named) {
-                        state.per_turn.cant_regenerate.push(named);
-                    }
-                }
-            }
+            super::regeneration::prevent_for_targets(state, res, target);
             None
         }
         Effect::Discover { mana_value } => discover(state, res, u32::from(mana_value)),

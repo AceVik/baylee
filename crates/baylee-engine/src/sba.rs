@@ -854,10 +854,7 @@ fn destroy_with_replacements(
     }
     // "It can't be regenerated this turn" (Disintegrate): the shield
     // stands and is not applied (CR 701.19c), for this object only.
-    let regeneratable = regeneratable
-        && state
-            .object(id)
-            .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
+    let regeneratable = regeneratable && regeneration::allowed(state, id);
     let standing_regeneration = state.effects.may_change_player_or_sba_rules()
         && state.object(id).is_some_and(|object| {
             state.effects.iter().any(|effect| {

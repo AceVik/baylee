@@ -53,6 +53,7 @@ pub mod loot;
 mod mana;
 mod milling;
 mod reanimation;
+mod regeneration;
 mod reflexive;
 mod retarget;
 mod reveal_put;
