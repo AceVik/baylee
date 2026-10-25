@@ -1,11 +1,13 @@
 use super::*;
 
 mod affected_defined;
+mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
 mod effects;
 mod imprison;
+mod prevention_rules;
 mod reading;
 mod tokens_and_zones;
 

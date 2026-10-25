@@ -726,8 +726,8 @@ fn a_tapped_trigger_reads_any_permanent_and_its_controller() {
 /// Disintegrate and Magma Spray: "if it's a creature, it can't be
 /// regenerated this turn, and if it would die this turn, exile it
 /// instead", on an any-target and on a creature target. "A creature
-/// dealt damage this way" (`Remembered`), a condition on the rider and
-/// a player target are refused.
+/// dealt damage this way" uses actual recipient memory instead; an unread
+/// condition on the older target-based rider and a player target are refused.
 #[test]
 fn exile_if_it_dies_and_no_regeneration_read_the_lines_target() {
     let disintegrate = read(
@@ -777,15 +777,17 @@ fn exile_if_it_dies_and_no_regeneration_read_the_lines_target() {
             "{refused_line}"
         );
     }
-    // "A creature dealt damage this way can't be regenerated"
-    // (Incinerate) asks whether damage was dealt.
-    assert!(refused(
+    // Actual recipients differ from original targets when damage redirects.
+    let recipient_restriction = read(
         "Name:X\nTypes:Instant\n\
          A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SubAbility$ E | RememberDamaged$ True\n\
          SVar:E:DB$ Effect | RememberObjects$ Remembered.Creature | ForgetOnMoved$ Battlefield | \
          StaticAbilities$ NoRegen | IsCurse$ True\n\
-         SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered"
-    ));
+         SVar:NoRegen:Mode$ CantRegenerate | ValidCard$ Card.IsRemembered",
+    );
+    let effects = recipient_restriction.abilities.join("");
+    assert!(effects.contains("Effect::DamagedThisWayCantBeRegenerated"));
+    assert!(!effects.contains("Effect::CantBeRegeneratedThisTurn"));
 }
 
 /// Wheel of Fortune, Timetwister and Natural Selection: whose hand,
