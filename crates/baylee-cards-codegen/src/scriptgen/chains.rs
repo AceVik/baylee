@@ -339,9 +339,9 @@ impl Tx<'_> {
     pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
         // "Unless its controller pays {X}" (Power Sink): the X announced
         // for the source, and only where the card says that is what X is.
-        if raw == "X" {
+        if matches!(raw, "X" | "Y" | "Z") {
             let Some(x) = amount(raw, self.svars, self.has_x) else {
-                return self.deny("an unless-cost of `X`".to_string());
+                return self.deny(format!("an unless-cost of `{raw}`"));
             };
             return Some(Price::Generic(x));
         }
@@ -636,6 +636,15 @@ impl Tx<'_> {
                 let valid = p.take("ValidCards")?;
                 let no_regen = p.take("NoRegen");
                 if let Some(filter) = self.filter_expr(&valid) {
+                    // `Filter::CmcAtMostX` and `Filter::CmcExactlyX` read
+                    // `this.x_value`, which is the announced X on a spell on
+                    // the stack (`SP$`) and 0 on a permanent activating `AB$`.
+                    if !self.on_a_spell
+                        && (filter.contains("Filter::CmcAtMostX")
+                            || filter.contains("Filter::CmcExactlyX"))
+                    {
+                        return None;
+                    }
                     let verb = match no_regen.as_deref() {
                         None => "destroy_all",
                         Some("True") => "destroy_all_no_regen",

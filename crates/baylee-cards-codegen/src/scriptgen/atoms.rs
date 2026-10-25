@@ -43,6 +43,12 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     {
         return super::counter_kind(kind).map(|kind| format!("Amount::CountersOnSource({kind})"));
     }
+    if svars.get(raw).map(|def| def.trim()) == Some("Count$ValidHand Card.YouOwn") {
+        return Some("Amount::HandSize(PlayerRel::You)".to_string());
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("Exiled$CardManaCost/Plus.1") {
+        return Some("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());

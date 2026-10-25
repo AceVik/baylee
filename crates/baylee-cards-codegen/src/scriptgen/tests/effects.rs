@@ -1443,3 +1443,72 @@ fn bore_counter_generic_reader_preserves_the_verified_exact_counter_word() {
         assert!(refused(&script.replace("BORE", wrong)), "{wrong}");
     }
 }
+
+#[test]
+fn extravagant_spirit_food_chain_flailing_and_haunted_crossroads_shapes_read() {
+    let spirit = "Name:Extravagant Spirit\nManaCost:3 U\nTypes:Creature Spirit\nPT:4/4\nK:Flying\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigUpkeep\n\
+        SVar:TrigUpkeep:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ Y\n\
+        SVar:Y:Count$ValidHand Card.YouOwn";
+    let body = read(spirit);
+    assert!(
+        body.abilities[0].contains("Amount::HandSize(PlayerRel::You)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let flailing = "Name:Flailing Soldier\nManaCost:R\nTypes:Creature Human Soldier\nPT:2/2\n\
+        A:AB$ Pump | Cost$ 1 | Defined$ Self | NumAtt$ +1 | NumDef$ +1 | Activator$ Player";
+    let body = read(flailing);
+    assert!(
+        body.abilities[0].contains("zone = ActivationZone::BattlefieldAnyPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let food_chain = "Name:Food Chain\nManaCost:2 G\nTypes:Enchantment\n\
+        A:AB$ Mana | Cost$ Exile<1/Creature> | Produced$ Any | Amount$ X | RestrictValid$ Spell.Creature\n\
+        SVar:X:Exiled$CardManaCost/Plus.1";
+    let body = read(food_chain);
+    assert!(
+        body.abilities[0].contains("ExilePermanent(&Filter::YOUR_CREATURE)")
+            && body.abilities[0]
+                .contains("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let crossroads = "Name:Haunted Crossroads\nManaCost:2 B\nTypes:Enchantment\n\
+        A:AB$ ChangeZone | Cost$ B | ValidTgts$ Creature.YouCtrl | Origin$ Graveyard | Destination$ Library";
+    let body = read(crossroads);
+    assert!(
+        body.abilities[0].contains("Effect::GraveyardToTop"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let furious = "Name:Furious Assault\nManaCost:2 R\nTypes:Enchantment\n\
+        T:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDealDamage\n\
+        SVar:TrigDealDamage:DB$ DealDamage | ValidTgts$ Player,Planeswalker | NumDmg$ 1";
+    let body = read(furious);
+    assert!(
+        body.abilities[0].contains("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let high_seas = "Name:High Seas\nManaCost:2 U\nTypes:Enchantment\n\
+        S:Mode$ RaiseCost | ValidCard$ Creature.Red,Creature.Green | Type$ Spell | Amount$ 1";
+    let body = read(high_seas);
+    assert!(
+        body.abilities[0].contains("Modifier::SpellsCostMore(1)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:Hammer Mage\nManaCost:1 R\nTypes:Creature Human Spellshaper\nPT:1/1\n\
+         A:AB$ DestroyAll | Cost$ X R T Discard<1/Card> | ValidCards$ Artifact.cmcLEX\n\
+         SVar:X:Count$xPaid"
+    ));
+}

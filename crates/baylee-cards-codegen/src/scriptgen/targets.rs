@@ -415,6 +415,12 @@ impl Tx<'_> {
         if valid == "Opponent" {
             return Some("TargetSpec::AnyOpponent".to_string());
         }
+        if matches!(valid, "Player,Planeswalker" | "Planeswalker,Player") {
+            return Some("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)".to_string());
+        }
+        if matches!(valid, "Opponent,Planeswalker" | "Planeswalker,Opponent") {
+            return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
+        }
         // "Any target" (CR 115.4) spans objects and players, which is why it
         // is a spec and not a filter — there is nothing on a player for a
         // `Filter` to match.

@@ -4,6 +4,23 @@ impl Tx<'_> {
     /// A self mana-ability surcharge, only from the ordinary battlefield zone.
     pub(super) fn mana_life_tax(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        if p.peek("Type") == Some("Spell") {
+            p.take("Type");
+            if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
+                return None;
+            }
+            let amount: u8 = p.take("Amount")?.parse().ok()?;
+            let valid = p.take("ValidCard")?;
+            if !p.exhausted() {
+                return None;
+            }
+            let filter = self.filter_expr(&valid)?;
+            self.body.abilities.push(Self::static_expr(
+                &filter,
+                &format!("Modifier::SpellsCostMore({amount})"),
+            ));
+            return Some(());
+        }
         if p.take("Type").as_deref() != Some("Ability")
             || p.take("ValidSpell").as_deref() != Some("Activated.ManaAbility")
             || p.take("ValidCard").as_deref() != Some("Card.Self")

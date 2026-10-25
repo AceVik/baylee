@@ -511,6 +511,11 @@ impl Tx<'_> {
             ("Graveyard", "Hand", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
                 vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
             }
+            ("Graveyard", "Library", false)
+                if target.starts_with("TargetSpec::CardInGraveyard") =>
+            {
+                vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+            }
             // "Return target creature card from your graveyard to the
             // battlefield" (Resurrection): it enters under the control of
             // the player whose effect put it there (CR 110.2a), which is

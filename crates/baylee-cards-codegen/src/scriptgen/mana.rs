@@ -519,6 +519,7 @@ impl Tx<'_> {
             "Discard" => ("Discard", false),
             "tapXType" => ("TapOther", true),
             "ExileFromGrave" => ("ExileFromGraveyard", false),
+            "Exile" => ("ExilePermanent", true),
             _ => ("ReturnToHand", true),
         };
         if spec == "CARDNAME" {
