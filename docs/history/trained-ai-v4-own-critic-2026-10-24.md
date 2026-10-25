@@ -90,3 +90,71 @@ KL-Grenze bleibt aktiv. Ein neuer gepaarter Vergleich gegen eingefrorene
 Hausgegner, v3 und den bisherigen v4-Stand entscheidet über Spielstärkefortschritt.
 Historische neuronale Gegner und echtes Selbstspiel erfordern weiterhin eine
 Erweiterung des Collectors; sie sind noch kein Bestandteil dieses Piloten.
+
+## Ergebnis und Review am 25.10.2026
+
+Die Sammlung und die Kalibrierung sind abgeschlossen. 247 von 248 Spielen wurden
+beendet und ohne Replay-Ablehnung konvertiert; ein Sechser-FFA der Validierung
+gegen Sharp erreichte das Limit und bleibt ausgeschlossen. Das Training nutzte
+10.311 gecachte Zustände aus 168 Lerntrajektorien. Die Validierung umfasst
+6.273 Zustände aus 103 Lerntrajektorien in 95 Spielen. Zusätzliche Trajektorien
+stammen von neuronalen Teamkollegen. Die Validierung enthält nur acht gewinnende
+Lerntrajektorien, 85 verlorene und zehn mit anteiliger Remis-Utility; entsprechend
+unsicher bleiben Aussagen über seltene positive Ausgänge.
+
+Epoche 20 wurde anhand des vorab festgelegten Gesamt-MSE ausgewählt. Alle Zahlen
+unten gewichten zunächst jede Trajektorie gleich und dann deren Stichproben;
+die Teilgruppen haben jeweils ihre eigene Normalisierung.
+
+| Validierungsgruppe | Quell-Head MSE | Neuer Head MSE | Prior aus Trainings-Sitzanzahl |
+| --- | ---: | ---: | ---: |
+| Alle Zustände, 6.273 Stichproben | 0,065756 | 0,053246 | 0,069596 |
+| Entscheidungszustände, 733 Stichproben | 0,060437 | 0,064344 | 0,073615 |
+| Passive Zustände, 5.540 Stichproben | 0,068344 | 0,052507 | 0,069596 |
+
+Der Gesamtfehler sinkt um 19,0 %. An Entscheidungsstellen steigt der gemessene
+Fehler dagegen um 6,5 %; deren ECE verschlechtert sich von 0,065919 auf 0,090678.
+Das ist kein nachgewiesen besserer Zugbewerter. Insbesondere bei Team- und
+Commander-Zuständen schlägt der neue Head den einfachen Trainingsprior nicht
+durchgehend. Die MSE-Zahlen des früheren Tiefenpiloten stammen aus anderen
+Lehrer-/Validierungsdaten und dürfen nicht direkt mit diesen Zahlen verglichen
+werden.
+
+Ein unabhängiger CPU-Audit wiederholte die Head-Vorhersagen und ermittelte
+gepaarte Intervalle mit 20.000 Bootstrap-Stichproben ganzer Spiele. Dabei bleiben
+Teamtrajektorien zusammen. Für die MSE-Differenz neuer minus alter Head ergeben
+sich insgesamt −0,012510 mit 95-%-Intervall [−0,024421; −0,001580], an
+Entscheidungsstellen +0,003908 mit [−0,007609; +0,013739]. Die beobachtete
+Decision-Regression ist damit statistisch nicht eindeutig. Auch ein Vorsprung
+gegenüber dem Trainingsprior ist nicht abgesichert. Diese Intervalle sind
+Diagnostik auf den bereits zur Epochenwahl genutzten Entwicklungsdaten; sie
+berücksichtigen den Auswahlvorteil nicht und ersetzen keinen unabhängigen Test.
+Die kleinere Gruppe mit neuronaler Entscheidungsprovenienz zeigt dieselbe
+Tendenz; der Feature-Cache enthält jedoch keine vollständigen Auswahlmasken,
+um dort erzwungene Entscheidungen erneut strukturell auszuschließen.
+
+Nur `seat_value_head.*` wurde verändert. Policy, gemeinsamer Encoder und
+Gedächtnis blieben bitidentisch. Der Export prüfte 79 Frames für K=0/1/2/4/8;
+die maximale ONNX-Abweichung beträgt 0,00001812. Kalibrierung einschließlich
+chronologischer Feature-Extraktion dauerte rund 4 Stunden 21 Minuten. Es gab
+keine Promotion und keinen durch dieses Value-only-Training nachgewiesenen
+Spielstärkegewinn. Die vollständigen Befunde stehen lokal in `result.json`,
+`model/report.json` und `review-statistics.json` des Critic-Experiments.
+
+Der inzwischen ausdrücklich beauftragte
+[Sharp-Lauf](trained-ai-v4-sharp-intensive-2026-10-25.md) läuft weiter. Er nutzt
+vollständige terminale Monte-Carlo-Returns; der eingefrorene Critic ist lediglich
+eine aktionsunabhängige Zustandsbaseline. Seine begrenzte Güte kann die Varianz
+der Updates erhöhen, ersetzt aber keine echten Ergebnisse durch geschätzte
+TD-Ziele. Die gemischte Kalibrierung blockiert diesen kontrollierten Versuch
+daher nicht. Sie rechtfertigt weiterhin weder Value-basierte Suche noch eine
+Behauptung über die Qualität einzelner Züge. Quelle und Versuchsplan werden
+während der laufenden Runde nicht nachträglich ausgetauscht.
+
+Für den nächsten Critic-Versuch muss die Auswahlmetrik gezielt die echten
+Lernentscheidungen abbilden, zusätzlich zum Gesamt-MSE. Entscheidungsmasken
+sollen im Cache eine erneute Prüfung erzwungener Entscheidungen erlauben.
+Ein vergrößerter, vorab festgelegter Datensatz und eine separate Bestätigung
+müssen klären, ob eine solche Auswahl den Quell-Head und den Trainingsprior
+übertrifft. Weitere Epochen auf derselben kleinen Validierung lösen diese
+Unsicherheit nicht.

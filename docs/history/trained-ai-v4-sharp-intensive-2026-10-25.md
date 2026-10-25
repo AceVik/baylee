@@ -118,3 +118,19 @@ Nach dessen tatsächlichem Ende folgen Sammlung und Policy-Training ohne
 weitere Benutzerfreigabe. Die Python-Runtime ist bei `da10b2133` eingefroren,
 die Rust-Binaries wurden bei `6afb09c7d` gebaut und separat gehasht. Es wurde
 kein laufender Versuch umgeschrieben und kein Push ohne lokale Gates ausgeführt.
+
+## Übergang nach dem Critic-Abschluss
+
+Der Critic-Lauf ist abgeschlossen; der bereits gestartete Controller hat ohne
+weiteren Start die erste Sharp-Sammlung begonnen. Die 96 Duell- und 32
+Commander-Fälle der ersten Runde sind fertig; die weiteren Formate folgen.
+Alle acht geplanten Runden bleiben unverändert; ein zusätzlicher Controller
+wurde nicht gestartet.
+
+Der [Critic-Review](trained-ai-v4-own-critic-2026-10-24.md#ergebnis-und-review-am-25102026)
+findet einen besseren Gesamt-MSE, aber keine belastbare Verbesserung an
+Entscheidungsstellen. Der neue Head bleibt deshalb ausschließlich eingefrorene
+Zustandsbaseline für vollständige Monte-Carlo-Returns. Die echten Spielausgänge
+liefern das Lernziel. Es gibt weiterhin keine Value-basierte Suche oder
+automatische Promotion. Die anschließenden gepaarten Spielvergleiche müssen
+zeigen, ob die Policy-Updates tatsächlich helfen.
