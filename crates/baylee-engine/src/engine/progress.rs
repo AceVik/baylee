@@ -186,7 +186,18 @@ impl<L: CardLookup> Engine<L> {
                 PriorityHold::Always | PriorityHold::PassWhenNothingToDo => false,
                 // Empty, or somebody responded to what was being let through.
                 PriorityHold::UntilStackEmpty { depth } => {
-                    stack_depth == 0 || stack_depth > depth as usize
+                    let expired = stack_depth == 0 || stack_depth > usize::from(depth);
+                    if !expired && stack_depth < usize::from(depth) {
+                        // The stack has made progress. The next addition must
+                        // wake this seat even when it only restores the depth
+                        // that was present when the hold was first requested.
+                        // This is strictly smaller than the existing u16 depth.
+                        seat.hold = PriorityHold::UntilStackEmpty {
+                            depth: u16::try_from(stack_depth)
+                                .expect("stack shrank below u16 depth"),
+                        };
+                    }
+                    expired
                 }
                 // Reached the top, or left the stack without ever doing so.
                 PriorityHold::UntilTopOfStack { object } => {

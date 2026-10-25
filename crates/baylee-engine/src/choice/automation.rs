@@ -32,7 +32,8 @@ pub enum PriorityHold {
     /// exactly the moment a player wants to be asked again, because
     /// somebody just responded to what they were letting through.
     UntilStackEmpty {
-        /// Stack depth when the hold was set; anything above it is new.
+        /// Current response boundary, initialized from the depth when set.
+        /// Lowered as the stack shrinks; anything above it is a new response.
         depth: u16,
     },
     /// Don't offer priority until a specific spell or ability is the next

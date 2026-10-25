@@ -565,6 +565,12 @@ a stale client safe: a view is a snapshot, so a client that sends the depth it
 last saw is sending a number the engine may already have passed — and the
 engine reading a larger depth cancels the hold, which is exactly the right
 answer, because somebody just responded to what was being let through.
+As the engine observes the stack shrink, it lowers this boundary. A response
+that restores the original depth after one object resolves therefore also
+ends the hold. This remains a depth-based check: a resolution that replaces
+itself with a trigger before the next check need not expose an intermediate
+smaller depth. Neural seats currently use individual priority passes, keeping
+their observation and decision loop active, rather than these client holds.
 
 A hold or a per-ability yield passes **priority** and nothing that only looks
 like it. A payment window (CR 601.2g, 605.3a: the seat said yes to a tax, owes

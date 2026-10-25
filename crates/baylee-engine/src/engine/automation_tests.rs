@@ -932,3 +932,59 @@ fn a_stack_hold_does_not_pass_the_payment_window_a_tax_yes_opens() {
         "paid, so the Study's controller drew nothing"
     );
 }
+
+/// Resolving part of a held stack must lower the response boundary: a new
+/// spell can restore the original depth without exceeding that original depth.
+#[test]
+fn a_stack_hold_breaks_when_a_response_restores_its_original_depth() {
+    use crate::zone::ZoneLocation;
+    let ritual = card_index("53f7c868-b03e-4fc2-8dcf-a75bbfa3272b");
+    let swamp = card_index("56719f6a-1a6c-4c0a-8d21-18f7d7350b68");
+    let mut engine = started(
+        Duel::new(43, plains())
+            .battlefield(0, &[plains(), plains(), ondu_cleric(), ondu_cleric()])
+            .battlefield(1, &[swamp])
+            .hand(0, &[ondu_cleric()])
+            .hand(1, &[ritual]),
+    );
+    assert!(walk_to_own_main(&mut engine, P0));
+    cast_from_hand(&mut engine, P0, ondu_cleric());
+    pass_until(&mut engine, |engine| {
+        engine.state().zones.list(ZoneLocation::Stack).len() == 3
+            && engine
+                .state()
+                .zones
+                .list(ZoneLocation::Stack)
+                .iter()
+                .all(|id| engine.state().object(*id).unwrap().ability.is_some())
+    });
+    engine
+        .apply(
+            P0,
+            PlayerAction::SetPriorityHold(PriorityHold::UntilStackEmpty { depth: 3 }),
+        )
+        .unwrap();
+    pass_until(&mut engine, |engine| {
+        engine.state().zones.list(ZoneLocation::Stack).len() == 2
+            && matches!(engine.pending(), Pending::Priority { player: P1, .. })
+    });
+    assert_eq!(
+        engine.automation(P0).hold,
+        PriorityHold::UntilStackEmpty { depth: 2 }
+    );
+    // The existing automation field, including its updated boundary, remains
+    // part of the deterministic checkpoint/hash; no extra hidden state exists.
+    let current_hash = engine.snapshot_hash();
+    engine.automation[0].hold = PriorityHold::UntilStackEmpty { depth: 3 };
+    assert_ne!(current_hash, engine.snapshot_hash());
+    engine.automation[0].hold = PriorityHold::UntilStackEmpty { depth: 2 };
+    cast_from_hand(&mut engine, P1, ritual);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 3);
+    assert_eq!(engine.automation(P0).hold, PriorityHold::Always);
+    engine.apply(P1, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player: P0, .. }),
+        "the held seat must get its response window before the new spell resolves"
+    );
+    assert_eq!(engine.state().zones.list(ZoneLocation::Stack).len(), 3);
+}
