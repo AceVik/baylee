@@ -198,6 +198,8 @@ pub struct MenuRevision {
     replay: bool,
     /// Whether *Leave the table* is waiting for its second press.
     leaving: bool,
+    /// Whether this seat has already been eliminated in a multi-seat game.
+    eliminated: bool,
 }
 
 /// Where the panel stands.
@@ -341,6 +343,7 @@ pub fn sync_menu(
         watching: duel.watching,
         replay: duel.replay.is_some(),
         leaving: duel.leave_armed,
+        eliminated: duel.my_seat_eliminated(),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -404,15 +407,19 @@ pub fn sync_menu(
         (leave_replay, Weight::Secondary)
     } else if next.watching {
         (Phrase::StopWatching.text(lang), Weight::Secondary)
+    } else if next.eliminated {
+        (Phrase::Concede.text(lang), Weight::Dead)
     } else if next.armed {
         (Phrase::ConcedeConfirm.text(lang), Weight::Danger)
     } else {
         (Phrase::Concede.text(lang), Weight::Secondary)
     };
     let concede = answer(&mut commands, &fonts, words, weight, None);
-    commands.entity(concede).insert(MenuButton {
-        action: MenuAction::Concede,
-    });
+    if weight != Weight::Dead {
+        commands.entity(concede).insert(MenuButton {
+            action: MenuAction::Concede,
+        });
+    }
     commands.entity(panel).add_child(concede);
 
     // Getting up without conceding (report 33): a spectator's *Stop
@@ -617,9 +624,14 @@ pub fn grow_the_menu(
 #[derive(Component)]
 pub struct PrioritySwitch;
 
+/// Quick toggle for card text vs. art view (`ClientSettings::prefer_text_view`)
+/// directly inside the in-game menu.
+#[derive(Component)]
+pub struct TextViewSwitch;
+
 fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
     let metrics = crate::lobby::Metrics::of(MENU_W);
-    let id = crate::lobby::button(
+    let sound = crate::lobby::button(
         commands,
         fonts,
         metrics,
@@ -629,7 +641,7 @@ fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
         true,
     );
     commands
-        .entity(id)
+        .entity(sound)
         .remove::<crate::lobby::Press>()
         .insert(UiButton)
         .with_child((
@@ -646,13 +658,54 @@ fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
                 settings.save();
             },
         );
-    id
+    let view = crate::lobby::button(
+        commands,
+        fonts,
+        metrics,
+        "",
+        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
+        palette::PANEL,
+        true,
+    );
+    commands
+        .entity(view)
+        .remove::<crate::lobby::Press>()
+        .insert(UiButton)
+        .with_child((
+            Text::new(""),
+            crate::hud::tf(fonts, metrics.text),
+            TextColor(palette::INK),
+            TextViewSwitch,
+            Pickable::IGNORE,
+        ))
+        .observe(
+            |mut click: On<PointerClick>, mut settings: ResMut<crate::settings::ClientSettings>| {
+                click.propagate(false);
+                settings.prefer_text_view = !settings.prefer_text_view;
+                settings.save();
+            },
+        );
+    let row = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                row_gap: px(MENU_ROW_GAP),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(row).add_children(&[sound, view]);
+    row
 }
 
-/// Writes the switch's words when the setting or the language changed.
+/// Writes the switches' words when the setting or the language changed.
 pub fn show_priority_switch(
     settings: Option<Res<crate::settings::ClientSettings>>,
-    mut labels: Query<&mut Text, With<PrioritySwitch>>,
+    mut labels: Query<&mut Text, (With<PrioritySwitch>, Without<TextViewSwitch>)>,
+    mut view_labels: Query<&mut Text, (With<TextViewSwitch>, Without<PrioritySwitch>)>,
 ) {
     let Some(settings) = settings else {
         return;
@@ -667,6 +720,17 @@ pub fn show_priority_switch(
     for mut text in &mut labels {
         if text.0 != words {
             text.0 = words.to_string();
+        }
+    }
+    let view_words = match (lang, settings.prefer_text_view) {
+        (Lang::De, true) => "Kartenansicht: Text (V)",
+        (Lang::De, false) => "Kartenansicht: Bild (V)",
+        (Lang::En, true) => "Card view: Text (V)",
+        (Lang::En, false) => "Card view: Art (V)",
+    };
+    for mut text in &mut view_labels {
+        if text.0 != view_words {
+            text.0 = view_words.to_string();
         }
     }
 }

@@ -109,6 +109,8 @@ pub(super) fn remember(
                 | List::Table
                 | List::Settings
                 | List::SettingsNav
+                | List::Terms
+                | List::About
         ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

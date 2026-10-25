@@ -305,7 +305,8 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
 /// right its version with the verdict, and this client's (A2, A3: the name
 /// at row size, the version whole and right-aligned).
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
-    if state.central_pending() {
+    let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
+    if state.central_pending() || leaving_central {
         let label = controls::label(
             commands,
             kit,
@@ -313,7 +314,7 @@ fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity
             kit.m.text,
             tokens::INK,
         );
-        if !state.central_bound() {
+        if !state.central_bound() && !leaving_central {
             return label;
         }
         // A gateway asked for Central: `‹` goes back to the device's own.
@@ -707,7 +708,8 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
     });
     // Central's sign-in has no sign-up of its own yet: an account is made on
     // the website (baylee-central `docs/web-accounts.md`).
-    let register = state.central_pending().then(|| {
+    let leaving_central = !lobby.gateway_chosen() && state.left_central_bound;
+    let register = (state.central_pending() || leaving_central).then(|| {
         controls::wide_button(
             commands,
             kit,
@@ -954,7 +956,7 @@ pub(super) fn gateway(
     commands.entity(card).add_children(&[title, hint]);
     #[cfg(not(target_arch = "wasm32"))]
     central_sign_out(commands, card, state, kit);
-    if !state.gateways.is_empty() {
+    if !state.displayed_gateways().is_empty() {
         let list = super::super::gateway::list(
             commands,
             state,

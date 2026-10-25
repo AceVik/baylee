@@ -40,6 +40,17 @@ impl Duel {
         if self.ending().is_some() {
             return None;
         }
+        if self.my_seat_eliminated() {
+            let line = match lang {
+                baylee_client_core::i18n::Lang::De => {
+                    "Du bist ausgeschieden \u{b7} Tisch spielt weiter"
+                }
+                baylee_client_core::i18n::Lang::En => {
+                    "You are out of the game \u{b7} Table plays on"
+                }
+            };
+            return Some(line.to_string());
+        }
         let prompt = self
             .cast_menu
             .as_ref()
@@ -920,10 +931,23 @@ impl Duel {
             .and_then(|s| s.team)
     }
 
-    /// Whether the local seat is being asked something right now.
+    /// Whether this seat is being asked something right now.
     #[must_use]
     pub fn is_my_turn_to_act(&self) -> bool {
         self.interaction.as_ref().is_some_and(Interaction::is_mine)
+    }
+
+    /// Whether this player's own seat has been eliminated while the game
+    /// goes on for the remaining seats (a multi-player table).
+    #[must_use]
+    pub fn my_seat_eliminated(&self) -> bool {
+        !self.watching
+            && self.replay.is_none()
+            && self
+                .view
+                .as_ref()
+                .and_then(|v| v.seat(v.seat))
+                .is_some_and(baylee_view::SeatView::has_lost)
     }
 
     /// Whether this seat's own standing order is currently withholding its

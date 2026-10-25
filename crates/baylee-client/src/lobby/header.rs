@@ -1370,15 +1370,24 @@ pub(super) fn toast_lane(
         m: kit_metrics(width, height, step, *input),
         german: lang == Lang::De,
     };
+    let phone = kit.m.frame == Frame::Phone;
     let lane = commands
         .spawn((
             ToastLane,
             Node {
                 position_type: PositionType::Absolute,
-                left: px_fixed(kit.m.body),
-                right: Val::Auto,
-                top: px_fixed(kit.m.header + kit.m.gap),
-                bottom: Val::Auto,
+                left: Val::Auto,
+                right: px_fixed(kit.m.body),
+                top: if phone {
+                    px_fixed(kit.m.header + kit.m.gap)
+                } else {
+                    Val::Auto
+                },
+                bottom: if phone {
+                    Val::Auto
+                } else {
+                    px_fixed(kit.m.body)
+                },
                 width: kit.m.px(290.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px_fixed(kit.m.gap),

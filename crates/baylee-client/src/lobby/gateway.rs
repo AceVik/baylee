@@ -35,12 +35,15 @@ impl LobbyState {
         // convenience the sign-in form has was gone the moment a gateway was
         // chosen, which is now always before the form is seen.
         let username = self.lobby.field(Field::Username).to_string();
+        let gateway_field = self.lobby.field(Field::Gateway).to_string();
         self.lobby = Lobby::new();
         self.lobby.set_lang(lang);
         self.lobby.set_field(Field::Username, &username);
+        self.lobby.set_field(Field::Gateway, &gateway_field);
         self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;
+        self.left_central_bound = false;
         self.gateway_cursor = None;
         self.front_menu = false;
         self.lobby
@@ -87,6 +90,7 @@ impl LobbyState {
         }
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);
         self.gateway_selected = false;
+        self.left_central_bound = false;
         self.front_menu = false;
         self.lobby.set_gateway_ready(false);
         // The list is off screen until now, so this is when a sign-in made
@@ -308,10 +312,11 @@ pub(super) fn list(
     metrics: Metrics,
     scrolled_to: &Scrolled,
 ) -> Entity {
+    let gateways = state.displayed_gateways();
     let row = row_height(metrics);
     let in_sight = ROWS_IN_SIGHT as f32;
     let height = in_sight * row + (in_sight - 1.0) * ROW_GAP;
-    let scrolls = state.gateways.len() > ROWS_IN_SIGHT;
+    let scrolls = gateways.len() > ROWS_IN_SIGHT;
     let offset = in_view(
         scrolled_to.get(List::Gateways),
         state.gateway_cursor,
@@ -333,7 +338,7 @@ pub(super) fn list(
             },
         ))
         .id();
-    for (index, url) in state.gateways.iter().enumerate() {
+    for (index, url) in gateways.iter().enumerate() {
         let row = gateway_row(commands, state, fonts, metrics, index, url);
         commands.entity(list).add_child(row);
     }

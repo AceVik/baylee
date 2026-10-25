@@ -134,6 +134,12 @@ pub(super) fn answers_for(
             Phrase::HoldRelease.text(lang).to_string(),
         )];
     }
+    if !over && duel.my_seat_eliminated() {
+        return vec![(
+            Says::Command(super::MenuAction::LeaveGame),
+            Phrase::LeaveTable.text(lang).to_string(),
+        )];
+    }
     if over || waiting {
         return Vec::new();
     }

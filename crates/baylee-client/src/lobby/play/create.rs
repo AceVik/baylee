@@ -76,11 +76,7 @@ pub(super) fn create_sheet(
             },
             Phrase::AllowSpectators.text(lang)
         ),
-        if draft.spectators {
-            Weight::Gold
-        } else {
-            Weight::Secondary
-        },
+        Weight::Secondary,
         Live::Yes,
         None,
         Press::Play(PlayPress::Spectators),
@@ -91,6 +87,7 @@ pub(super) fn create_sheet(
     let cards = parts::row(commands, kit, true);
     for template in Template::ALL {
         let on = draft.template == template;
+        let extra = if on { 1.0 } else { 0.0 };
         let face = commands
             .spawn((
                 Role::Segment,
@@ -98,7 +95,10 @@ pub(super) fn create_sheet(
                     min_height: px_fixed(kit.m.control),
                     min_width: kit.m.px(140.0),
                     flex_grow: 1.0,
-                    padding: UiRect::axes(kit.m.px(12.0), kit.m.px(8.0)),
+                    padding: UiRect::axes(
+                        px_fixed((kit.m.scaled(12.0) - extra).max(0.0)),
+                        px_fixed((kit.m.scaled(8.0) - extra).max(0.0)),
+                    ),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceBetween,
                     border: UiRect::all(px_fixed(if on { 2.0 } else { 1.0 })),
@@ -120,18 +120,15 @@ pub(super) fn create_sheet(
             kit.m.text,
             tokens::INK,
         );
-        commands.entity(face).add_child(words);
-        if on {
-            let tick = commands
-                .spawn((
-                    Text::new(crate::hud::glyph::CHECK.to_string()),
-                    crate::hud::icon_tf(kit.fonts, kit.m.small),
-                    TextColor(tokens::ACCENT),
-                    Pickable::IGNORE,
-                ))
-                .id();
-            commands.entity(face).add_child(tick);
-        }
+        let tick = commands
+            .spawn((
+                Text::new(crate::hud::glyph::CHECK.to_string()),
+                crate::hud::icon_tf(kit.fonts, kit.m.small),
+                TextColor(if on { tokens::ACCENT } else { Color::NONE }),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(face).add_children(&[words, tick]);
         let hit = controls::hit(
             commands,
             kit,

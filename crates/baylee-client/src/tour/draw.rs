@@ -66,7 +66,7 @@ struct Drawn {
     held: bool,
     lang: Lang,
     phone: bool,
-    setting: (i32, bool, bool),
+    setting: (i32, bool, bool, u32),
     width: u32,
 }
 
@@ -153,7 +153,12 @@ pub(super) fn draw(
         held: run.held,
         lang,
         phone: desk.setting.phone,
-        setting: (desk.setting.z, desk.setting.pending, desk.setting.at_table),
+        setting: (
+            desk.setting.z,
+            desk.setting.pending,
+            desk.setting.at_table,
+            desk.setting.top.to_bits(),
+        ),
         // The bubble's width follows the window's class; a resize within a
         // class is the placement's.
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -665,8 +670,9 @@ fn never_again(commands: &mut Commands, kit: Kit, lang: Lang) -> Entity {
     row
 }
 
-/// The folded bubble: a pill at the top centre with the step's title, a
-/// press away (no key: in folded mode the keys are the screen's, §1.3).
+/// The folded bubble: a pill at the top centre on the table, or at the top
+/// right in the lobby so it does not cover centred screen titles, a press
+/// away (no key: in folded mode the keys are the screen's, §1.3).
 fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: Lang) {
     let lane = commands
         .spawn((
@@ -677,7 +683,12 @@ fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: L
                 left: px_fixed(0.0),
                 width: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
+                align_items: if setting.at_table {
+                    AlignItems::Center
+                } else {
+                    AlignItems::FlexEnd
+                },
+                padding: UiRect::right(px_fixed(if setting.at_table { 0.0 } else { kit.m.body })),
                 row_gap: px_fixed(4.0),
                 ..default()
             },
@@ -685,11 +696,16 @@ fn pill(commands: &mut Commands, kit: Kit, run: &Run, setting: &Setting, lang: L
             Pickable::IGNORE,
         ))
         .id();
-    let words = run.current().title.text(lang);
+    let words = format!(
+        "{} ({}/{}) \u{25be}",
+        run.current().title.text(lang),
+        run.step + 1,
+        run.current_chapter().steps.len()
+    );
     let button = controls::button(
         commands,
         kit,
-        words,
+        &words,
         Weight::Secondary,
         Live::Yes,
         None,
@@ -810,6 +826,21 @@ type Controls<'w, 's> = Query<
     ),
 >;
 
+type Strips<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ComputedNode,
+        &'static UiGlobalTransform,
+        &'static InheritedVisibility,
+    ),
+    (
+        With<crate::shellkit::header::SeatStrip>,
+        Without<Scrim>,
+        Without<Ring>,
+    ),
+>;
+
 /// Moves the scrim, the hairline and the bubble to the anchor, after
 /// layout; writes a node only when its rectangle moved.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)] // a Bevy system: the layer, the anchor, the controls
@@ -818,7 +849,6 @@ pub(super) fn place(
     mut spot: ResMut<Spotlight>,
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
-    anchors: Anchors,
     mut scrims: Query<
         (&Scrim, &mut Node, &mut ComputedNode, &mut UiGlobalTransform),
         (Without<Ring>, Without<Bubble>),
@@ -830,18 +860,14 @@ pub(super) fn place(
     leaving: Query<Entity, With<Leaving>>,
     mut commands: Commands,
     mut bubbles: Query<
-        (&mut Node, &ComputedNode, &mut Visibility),
+        (Entity, &mut Node, &ComputedNode, &mut Visibility),
         (With<Bubble>, Without<Scrim>, Without<Ring>),
     >,
-    controls: Controls,
-    strips: Query<
-        (&ComputedNode, &UiGlobalTransform, &InheritedVisibility),
-        (
-            With<crate::shellkit::header::SeatStrip>,
-            Without<Scrim>,
-            Without<Ring>,
-        ),
-    >,
+    children: Query<&Children>,
+    mut tree: ParamSet<(
+        (Anchors, Controls, Strips),
+        Query<&mut UiGlobalTransform, (Without<Scrim>, Without<Ring>)>,
+    )>,
 ) {
     let Some(run) = desk.shown() else {
         if spot.bubble.is_some() {
@@ -854,10 +880,13 @@ pub(super) fn place(
     };
     let (w, h) = crate::hud::scale::space(window, ui.as_deref()).into();
     let wants_anchor = run.current().anchor_on(desk.setting.phone).is_some();
-    let hole = anchor_rect(run, desk.setting.phone, &anchors).map(|r| {
-        Rect::new(r.min.x - PAD, r.min.y - PAD, r.max.x + PAD, r.max.y + PAD)
-            .intersect(Rect::new(0.0, 0.0, w, h))
-    });
+    let hole = {
+        let (anchors, _, _) = tree.p0();
+        anchor_rect(run, desk.setting.phone, &anchors).map(|r| {
+            Rect::new(r.min.x - PAD, r.min.y - PAD, r.max.x + PAD, r.max.y + PAD)
+                .intersect(Rect::new(0.0, 0.0, w, h))
+        })
+    };
     if wants_anchor && hole.is_none() {
         // The anchor's screen is rebuilding (or the step is about to be
         // passed over): everything holds where it stood, rather than the
@@ -885,41 +914,44 @@ pub(super) fn place(
             }
         }
     }
-    for (mut node, computed, mut shown) in &mut bubbles {
+    for (bubble_entity, mut node, computed, mut shown) in &mut bubbles {
         let size = computed.size() * computed.inverse_scale_factor;
         if size == Vec2::ZERO {
             continue;
         }
-        // The anchor's own buttons, which the bubble must not cover.
-        let pressable: Vec<Rect> = hole.map_or_else(Vec::new, |hole| {
-            controls
-                .iter()
-                .filter(|(_, _, shown, role, button)| {
-                    shown.get()
-                        && (*button || role.is_some_and(|r| *r == crate::shellkit::Role::Hit))
-                })
-                .map(|(node, at, ..)| logical(node, at))
-                .filter(|r| !r.intersect(hole).is_empty())
-                .collect()
-        });
-        // The shell's strips ("Seated at …") are never covered either
-        // (09.10.: L4's bubble lay on the seated strip).
-        let pressable: Vec<Rect> = pressable
-            .into_iter()
-            .chain(
-                strips
+        let at = {
+            let (anchors, controls, strips) = tree.p0();
+            // The anchor's own buttons, which the bubble must not cover.
+            let pressable: Vec<Rect> = hole.map_or_else(Vec::new, |hole| {
+                controls
                     .iter()
-                    .filter(|(node, _, shown)| shown.get() && node.size() != Vec2::ZERO)
-                    .map(|(node, at, _)| logical(node, at))
-                    .filter(|r| hole.is_none_or(|hole| r.intersect(hole).is_empty())),
-            )
-            .collect();
-        // A part of the report form (T32's attachments): beside the form,
-        // level with the part, never over the form's other rows.
-        let at = match (hole, sheet_beside(run, &anchors)) {
-            (Some(part), Some(sheet)) => spot_beside(part, sheet, size, (w, h))
-                .unwrap_or_else(|| spot_for(hole, size, (w, h), desk.setting.top, &pressable)),
-            _ => spot_for(hole, size, (w, h), desk.setting.top, &pressable),
+                    .filter(|(_, _, shown, role, button)| {
+                        shown.get()
+                            && (*button || role.is_some_and(|r| *r == crate::shellkit::Role::Hit))
+                    })
+                    .map(|(node, at, ..)| logical(node, at))
+                    .filter(|r| !r.intersect(hole).is_empty())
+                    .collect()
+            });
+            // The shell's strips ("Seated at …") are never covered either
+            // (09.10.: L4's bubble lay on the seated strip).
+            let pressable: Vec<Rect> = pressable
+                .into_iter()
+                .chain(
+                    strips
+                        .iter()
+                        .filter(|(node, _, shown)| shown.get() && node.size() != Vec2::ZERO)
+                        .map(|(node, at, _)| logical(node, at))
+                        .filter(|r| hole.is_none_or(|hole| r.intersect(hole).is_empty())),
+                )
+                .collect();
+            // A part of the report form (T32's attachments): beside the form,
+            // level with the part, never over the form's other rows.
+            match (hole, sheet_beside(run, &anchors)) {
+                (Some(part), Some(sheet)) => spot_beside(part, sheet, size, (w, h))
+                    .unwrap_or_else(|| spot_for(hole, size, (w, h), desk.setting.top, &pressable)),
+                _ => spot_for(hole, size, (w, h), desk.setting.top, &pressable),
+            }
         };
         let placed = Some(Rect::from_corners(at, at + size));
         if spot.bubble != placed {
@@ -935,14 +967,37 @@ pub(super) fn place(
         if !placed {
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
-            // Not shown in a frame whose layout has not seen where it
-            // stands: it would be drawn a frame at the old place.
-            continue;
+            shift_bubble(bubble_entity, computed, at, &children, &mut tree.p1());
         }
         if shown.set_if_neq(Visibility::Inherited) {
             for old in &leaving {
                 commands.entity(old).despawn();
             }
+        }
+    }
+}
+
+fn shift_bubble(
+    bubble_entity: Entity,
+    computed: &ComputedNode,
+    at: Vec2,
+    children: &Query<&Children>,
+    transforms: &mut Query<&mut UiGlobalTransform, (Without<Scrim>, Without<Ring>)>,
+) {
+    let scale = computed.inverse_scale_factor;
+    if scale <= 0.0 {
+        return;
+    }
+    let Ok(cur_at) = transforms.get(bubble_entity) else {
+        return;
+    };
+    let delta = (at - logical(computed, cur_at).min) / scale;
+    for entity in std::iter::once(bubble_entity).chain(children.iter_descendants(bubble_entity)) {
+        if let Ok(mut t) = transforms.get_mut(entity) {
+            *t = UiGlobalTransform::from(bevy::math::Affine2 {
+                matrix2: t.matrix2,
+                translation: t.translation + delta,
+            });
         }
     }
 }

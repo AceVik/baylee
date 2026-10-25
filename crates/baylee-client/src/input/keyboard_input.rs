@@ -292,6 +292,9 @@ pub(super) fn look_around(
     if fired.has(Action::ToggleLog) {
         // A latch for the browser's reason: a log is read, not glanced at.
         duel.log_open = !duel.log_open;
+        if duel.log_open {
+            duel.game_menu = false;
+        }
         duel.chat_door = Some(crate::ChatDoor::Log);
     }
     // Here rather than beside the other answers, because a hold is the one

@@ -527,13 +527,14 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
     {
         let deck = &lobby.decks()[index];
         let chosen = lobby.selected() == Some(index);
+        let extra = if chosen { 1.0 } else { 0.0 };
         let tile = commands
             .spawn((
                 Role::Tile,
                 Node {
                     column_gap: kit.m.px(10.0),
                     align_items: AlignItems::Center,
-                    padding: UiRect::all(kit.m.px(8.0)),
+                    padding: UiRect::all(px_fixed((kit.m.scaled(8.0) - extra).max(0.0))),
                     border: UiRect::all(px_fixed(if chosen { 2.0 } else { 1.0 })),
                     border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                     ..default()

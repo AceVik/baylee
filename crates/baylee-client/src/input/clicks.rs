@@ -12,7 +12,7 @@ use super::*;
 /// the house takes the chair now and not when the reconnect window runs
 /// out. Nothing is conceded: the seat plays on.
 pub(crate) fn leave_click(duel: &mut Duel, was_leaving: bool) {
-    if was_leaving {
+    if was_leaving || duel.my_seat_eliminated() {
         duel.departing = true;
         duel.leave_asked = true;
         duel.game_menu = false;
@@ -53,9 +53,17 @@ pub(crate) fn menu_click(duel: &mut Duel, action: MenuAction, was_armed: bool) {
         // game. The panel it opens keeps its own state in `Duel` for the
         // reason `ability_menu` does: what is open is the client's business,
         // and the renderer reads it rather than owning it.
-        MenuAction::ToggleGameMenu => duel.game_menu = !duel.game_menu,
+        MenuAction::ToggleGameMenu => {
+            duel.game_menu = !duel.game_menu;
+            if duel.game_menu {
+                duel.log_open = false;
+            }
+        }
         MenuAction::ToggleLog => {
             duel.log_open = !duel.log_open;
+            if duel.log_open {
+                duel.game_menu = false;
+            }
             duel.chat_door = Some(crate::ChatDoor::Log);
         }
         // The chat decides (`social::window::doors`): it knows the tabs.

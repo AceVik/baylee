@@ -663,7 +663,7 @@ pub(crate) fn read_the_terms(
         }
     }
     let read = matches!(state.terms.sheet(), Sheet::Reading(r) if r.read_to_end);
-    if !read && at.y + seen >= whole - 2.0 && matches!(state.terms.sheet(), Sheet::Reading(_)) {
+    if !read && at.y + seen >= whole - 8.0 && matches!(state.terms.sheet(), Sheet::Reading(_)) {
         state.terms.reached_end();
     }
 }
@@ -752,6 +752,11 @@ fn block_text(
 ) -> Entity {
     let root = commands
         .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
             Text::new(""),
             tf(fonts, size),
             TextColor(tokens::INK),
@@ -791,6 +796,8 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                 };
                 let text = block_text(commands, kit.fonts, size, spans, *level > 1);
                 commands.entity(text).insert(Node {
+                    width: Val::Percent(100.0),
+                    flex_shrink: 0.0,
                     margin: UiRect::top(kit.m.px(if *level == 1 { 0.0 } else { 6.0 })),
                     ..default()
                 });
@@ -802,6 +809,7 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                     .spawn((
                         Node {
                             width: Val::Percent(100.0),
+                            flex_shrink: 0.0,
                             column_gap: kit.m.px(8.0),
                             padding: UiRect::left(kit.m.px(8.0)),
                             ..default()

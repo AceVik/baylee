@@ -185,7 +185,7 @@ impl Handle {
 
 pub(super) struct State {
     endpoint: Result<Endpoint, Error>,
-    local_gateways: Vec<String>,
+    pub(super) local_gateways: Vec<String>,
     pub(super) handle: Option<Handle>,
     saved_gateways: Vec<String>,
     saving: Option<PendingSave>,
@@ -246,7 +246,9 @@ pub(super) fn bound(state: &mut LobbyState) {
         return;
     }
     let gateway = state.gateway.clone();
+    let probes = std::mem::take(&mut state.probes);
     enable(state);
+    state.probes = probes;
     if let Some(central) = &mut state.central {
         central.bound = Some(gateway);
     }
@@ -273,6 +275,7 @@ fn close(state: &mut LobbyState) {
     state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
     state.gateways = central.local_gateways;
     state.gateway_selected = false;
+    state.left_central_bound = true;
     state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
     state.lobby.set_gateway_ready(false);
 }

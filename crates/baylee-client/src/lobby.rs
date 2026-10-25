@@ -132,6 +132,8 @@ impl Plugin for LobbyPlugin {
             .init_resource::<front::RowPlaces>()
             .init_resource::<front::terms::SheetFocus>()
             .init_resource::<front::keys::MovedByTheLobby>()
+            .init_resource::<menus::MenuMemory>()
+            .configure_sets(Update, crate::tour::TourSystems::Draw.after(ui))
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
             .add_systems(
                 Update,
@@ -179,6 +181,7 @@ impl Plugin for LobbyPlugin {
                     blink,
                     dock::materialize,
                     button_style::materialize,
+                    crate::shellkit::sheen::dress,
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
                     (preview, hint::hint_panel, crate::face::show_scrollbars),
@@ -201,11 +204,19 @@ impl Plugin for LobbyPlugin {
                     .chain()
                     .run_if(in_state(DuelPhase::Closed)),
             )
-            // After `Update`, so that whatever else wrote a colour this frame
-            // (a button warming under the pointer) has written it first.
+            // After `Update` and layout, so that newly built panels have their
+            // computed width and whatever else wrote a colour this frame has
+            // written it first.
             .add_systems(
                 PostUpdate,
-                (front::fade_front, front::fade_primary_surfaces)
+                (
+                    front::pose_front,
+                    front::fade_front,
+                    front::fade_primary_surfaces,
+                    front::terms::read_the_terms,
+                )
+                    .chain()
+                    .after(bevy::ui::UiSystems::Layout)
                     .run_if(in_state(DuelPhase::Closed)),
             )
             // After layout, which is what says whether a page runs over.
@@ -239,6 +250,7 @@ impl Plugin for LobbyPlugin {
                     .chain()
                     .after(crate::shellkit::focus::FocusSystems)
                     .after(poll)
+                    .after(scrollbars::remember)
                     .before(ui)
                     .run_if(in_state(DuelPhase::Closed)),
             )
@@ -284,7 +296,14 @@ impl Plugin for LobbyPlugin {
                 Update,
                 (
                     decks::undo_clock,
-                    touring::tours,
+                    touring::tours
+                        .after(crate::tour::TourSystems::Input)
+                        .after(poll)
+                        .after(clicks)
+                        .after(keyboard)
+                        .after(shortcuts::run_fired)
+                        .after(play::follow_the_room)
+                        .before(ui),
                     decks::write_clipboard,
                     #[cfg(not(target_arch = "wasm32"))]
                     decks::paste_or_drop,
@@ -304,6 +323,7 @@ impl Plugin for LobbyPlugin {
                     (menus::place, menus::animate)
                         .chain()
                         .after(bevy::ui::UiSystems::Layout),
+                    crate::buildui::focus::place_menus.after(bevy::ui::UiSystems::Layout),
                     focusing::follow_focus,
                 )
                     .run_if(in_state(DuelPhase::Closed)),
@@ -392,6 +412,7 @@ pub struct LobbyState {
     pub gateway: String,
     pub(crate) gateways: Vec<String>,
     pub(crate) gateway_selected: bool,
+    pub(super) left_central_bound: bool,
     gateway_epoch: u64,
     /// What each address said when asked about itself, by address.
     ///
@@ -758,6 +779,7 @@ impl LobbyState {
             discord_code: None,
             art_cache: false,
             gateway_selected: false,
+            left_central_bound: false,
             gateway_epoch: 0,
             auth_probes: Arc::default(),
             probes: std::collections::HashMap::new(),
@@ -816,6 +838,17 @@ impl Default for LobbyState {
 }
 
 impl LobbyState {
+    pub(crate) fn displayed_gateways(&self) -> &[String] {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(central) = &self.central
+            && self.gateways.is_empty()
+            && !central.local_gateways.is_empty()
+        {
+            return &central.local_gateways;
+        }
+        &self.gateways
+    }
+
     pub(crate) fn central_pending(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {

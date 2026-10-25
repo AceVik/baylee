@@ -37,7 +37,7 @@ fn anti_aliasing_names(lang: Lang) -> [&'static str; 4] {
     [Phrase::SwitchOff.text(lang), "FXAA", "2\u{d7}", "4\u{d7}"]
 }
 
-/// Segment labels include their identifying letter in the text budget.
+/// Segment labels for the built arrangements.
 fn arrangement_names(lang: Lang) -> Vec<String> {
     Arrangement::ALL
         .iter()
@@ -47,7 +47,7 @@ fn arrangement_names(lang: Lang) -> Vec<String> {
             } else {
                 a.name()
             };
-            format!("{} {}", a.letter(), phrase.text(lang))
+            phrase.text(lang).to_string()
         })
         .collect()
 }
@@ -770,11 +770,7 @@ mod tests {
                 );
             }
         }
-        assert!(
-            arrangement_names(Lang::De)
-                .iter()
-                .any(|s| s == "B Aufrecht")
-        );
+        assert!(arrangement_names(Lang::De).iter().any(|s| s == "Aufrecht"));
         assert_eq!(Phrase::ArrUprightRing.text(Lang::De), "Aufrechter Ring");
     }
 
