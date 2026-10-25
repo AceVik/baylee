@@ -1435,6 +1435,13 @@ where the oracle sentence it encodes is a line above it.
 
 ### Effects (ops)
 
+`Effect::ChooseColors { subject, max, duration }` lets the controller choose
+one to `max` colors during resolution, then replaces the exact subject's
+colors for the duration. `ColorSubject::Source` names the resolving ability's
+source incarnation independently of its targets (Shyft); `Target` names the
+first target, and `Attached` names the source's host. A source that has left
+and returned is a different subject and is not recolored.
+
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
 `destroy_no_regen(t)`, `regenerate(t)`, `exile(t)`,
@@ -1970,6 +1977,12 @@ on the object. With `Filter::DealtDamageBySourceThisTurn`, the prohibition
 applies to the exact current objects that source damaged this turn and
 continues only while the continuous effect applies.
 
+`Modifier::AddSupertype(SupertypeSet)` and
+`Modifier::RemoveSupertype(SupertypeSet)` add or remove only the named
+supertypes in layer 4. Card types, subtypes and other supertypes stay.
+Arcum's Weathervane uses these to add or remove `SupertypeSet::SNOW`; these
+are characteristic changes, so a resolving effect locks its affected set.
+
 `Filter::NamedBySource` reads a name chosen during the current resolution
 first. `ChooseCardName` supplies that local choice whether or not `remember`
 is set and whether or not the source remains on the battlefield (CR 113.7a,
@@ -2328,6 +2341,12 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`
+  - `InAllGraveyards(filter)`: matching cards in every player's graveyard,
+    excluding tokens (Lhurgoyf). This counts cards, while
+    `CardTypesInAllGraveyards` counts distinct card types.
+  - `ChosenPlayerControls(filter)`: matching battlefield permanents the
+    opponent chosen for this incarnation controls (Lost Order of Jarkeld).
+    It is zero without a choice, and updates as that player's board changes.
   - `CardTypesInAllGraveyards`
   - `ExiledWithThis`: the cards in exile exiled with this object as it is now
     (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
