@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266144]
+1 Abomination
+1 Arena
+1 Armor of Shadows
+1 Asphodel Wanderer
+1 Blast Zone
+1 Carnophage
+1 Carrionette
+1 Cascading Cataracts
+1 Caustic Rain
+1 Clutch of Undeath
+1 Command Tower
+1 Cruel Cut
+1 Cursed Minotaur
+1 Dauthi Cutthroat
+1 Dauthi Jackal
+1 Daxos's Torment
+1 Defeat
+1 Defile
+1 Dread Specter
+1 Eastern Paladin
+1 Eater of the Dead
+1 Elephant-Rat
+1 Eliminate
+1 Esper Panorama
+1 Feebleness
+1 Fell
+1 Gravkill
+1 Greel's Caress
+1 Hatred
+1 Hell Swarm
+1 Hidden Grotto
+1 Infernal Medusa
+1 Lash of Thorns
+1 Mark of the Oni
+1 Marrow Bats
+1 Midnight Covenant
+1 Minion of the Wastes
+1 Necrite
+1 Necrogen Mists
+1 Nectar Faerie
+1 Nettling Imp
+1 Norritt
+1 Oblivion Strike
+1 Primaris Eliminator
+1 Rats of Rath
+1 Ravenous Skirge
+1 Ravine Raider
+1 Ridged Kusite
+1 Rush of Vitality
+1 Scare Tactics
+1 Shriekdiver
+1 Sick and Tired
+1 Skeletal Grimace
+1 Soul Kiss
+1 Soulshriek
+1 Stab
+1 Strands of Undeath
+1 Sultai Runemark
+35 Swamp
+1 Tainted Aether
+1 Tinybones, the Pickpocket
+1 Two-Headed Zombie
+1 Wander Off
+1 White Lotus Hideout
+1 Wit's End
+
+[commander]
+Grandmother Sengir

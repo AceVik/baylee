@@ -1,82 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BG #20266044]
-1 Abstergo Entertainment
-1 Anointed Deacon
-1 Avoid Fate
-1 Barbed-Back Wurm
-1 Blast Zone
-1 Bloodcurdling Scream
-1 Brokers Hideout
-1 Brushwagg
-1 Burrog Banemaker
-1 Carrion Howler
-1 Charging Bandits
-1 Conduit Pylons
-1 Creeping Corrosion
-1 Crux of Fate
-1 Damnation
-1 Darkthicket Wolf
-1 Dauthi Mercenary
-1 Dauthi Warlord
-1 Desolation Prowler
-1 Dire Wolf Prowler
-1 Dire Wolves
-1 Elvish Berserker
-1 Elvish Scout
-1 Embraal Bruiser
-1 Emergence Zone
-1 Erstwhile Trooper
-1 Extinguish All Hope
-1 Fanatical Fever
-1 Feral Roar
-1 Fleshgrafter
-1 Forced March
-10 Forest
-1 Gaea's Liege
-1 Gale Force
-1 Get a Leg Up
-1 Gravblade Heavy
-1 Great Hall of the Citadel
-1 Greenhilt Trainee
-1 Hidden Grotto
-1 Hunger of the Nim
-1 Jasmine Dragon Tea Shop
-1 Jumbo Cactuar
-1 Jungle Wurm
-1 Karn's Bastion
-1 Kithkin Daggerdare
-1 Larger Than Life
-1 Legolas's Quick Reflexes
-1 Mage-Ring Network
-1 Massive Might
-1 Mikokoro, Center of the Sea
-1 Mirkwood Channeler
-1 Mirkwood Pathmaker
-1 Monstrous Growth
-1 Nuclear Fallout
+[deck:commander midrange G #20266044]
+1 Aisling Leprechaun
+1 Alloy Myr
+1 Archweaver
+1 Arcum's Whistle
+1 Argothian Pixies
+1 Argothian Swine
+1 Blinkmoth Well
+1 Bramblesnap
+1 Charging Badger
+1 Child of Gaea
+1 Conifer Wurm
+1 Crawling Barrens
+1 Creeperhulk
+1 Cryptic Caves
+1 Despotic Scepter
+1 Dowsing Dagger
+1 Entangling Vines
+1 Faerie Noble
+1 Feral Invocation
+1 Flailing Drake
+1 Force of Savagery
+1 Gemstone Caverns
+1 Gilt-Leaf's Embrace
+1 Gorn Captain
+1 Hawkeater Moth
+1 Hippo-Cows
+1 Hot Springs
+1 Introduction to Prophecy
+1 Kavu Mauler
+1 Lion Heart
+1 Living Lands
+1 Lurking Green Dragon
+1 Moon Sprite
+1 Moss Kami
+1 Narnam Cobra
+1 Nature's Chosen
+1 Null Rod
 1 Ornamental Courage
-1 Pestilence Rats
-1 Phytoburst
-1 Plague Rats
-1 Putrid Leech
-1 Sarkhan's Resolve
-1 Simian Brawler
-1 Skycoach Waypoint
-1 Sliver Hive
-1 Soulstone Sanctuary
-1 Staggering Size
-1 Stromgald Crusader
-15 Swamp
-1 Tendo Ice Bridge
-1 The Fallen
-1 Tyvar's Stand
-1 Vile Deacon
-1 Virtue's Ruin
-1 Wall of Blood
-1 Wei Ambush Force
-1 Wielding the Green Dragon
-1 Wit's End
+1 Pixie Queen
+1 Prismite
+1 Regal Imperiosaur
+1 Roots
+1 Scarecrow Guide
+1 Scryb Ranger
+1 Seedling Charm
+1 Shire Scarecrow
+1 Shoot Down
+34 Snow-Covered Forest
+1 Spidersilk Net
+1 Sporecrown Thallid
+1 Squirrel Sovereign
+1 Stamina
+1 Stampeding Serow
+1 Swarmyard
+1 Tajuru Pathwarden
+1 Tangle Mantis
+1 Thicket Crasher
+1 Thrun, Breaker of Silence
+1 Trollhide
+1 Trolls of Tel-Jilad
+1 Unnatural Predation
+1 Unstable Frontier
+1 Vulpine Goliath
+1 Warriors of Wakanda
+1 Willow Faerie
+1 Yavimaya Gnats
 
 [commander]
-Vhati il-Dal
+Kodama of the North Tree

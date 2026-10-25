@@ -1,71 +1,71 @@
-# baylee unseen-card holdout commander seed=90000023
+# baylee unseen-card holdout commander seed=90000017
 # licence: AGPL-3.0-only
-[deck:commander ramp U #90000023]
+[deck:commander ramp U #90000017]
 1 Academy Ruins
-1 Aether Spellbomb
+1 Aether Channeler
 1 Angler Drake
-1 Arcum's Astrolabe
-1 Bellowing Crier
-1 Blighted Cataract
+1 Archaeomancer
+1 Aven Fateshaper
+1 Bazaar Trademage
 1 Cephalid Coliseum
-1 Chrome Prowler
-1 Cloud of Faeries
-1 Cogwork Wrestler
-1 Courier's Capsule
-1 Deepfathom Skulker
-1 Dig Through Time
-1 Eye of Ramos
-1 Font of Progress
-1 Futurist Forge
-1 Goggles of Night
-1 Golden Egg
-1 Icewind Elemental
-1 Inkwell Leviathan
-1 Insight Engine
+1 Cephalid Scout
+1 Citywatch Sphinx
+1 Cloudreader Sphinx
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Faerie Seer
+1 Glimmerburst
+1 Hapless Researcher
+1 Horizon Scholar
+1 Hydro-Channeler
+1 Iceberg
 35 Island
 1 Lay Claim
-1 Lilypad Village
-1 Malcator's Watcher
-1 Mana Vault
-1 Memory Deluge
+1 Mana Drain
 1 Merfolk Traders
-1 Meteorite
-1 Mightstone's Animation
-1 Minamo, School at Water's Edge
+1 Micromancer
+1 Moonlit Scavengers
 1 Mox Sapphire
-1 Mulldrifter
 1 Muse Drake
-1 Network Disruptor
-1 Ominous Parcel
-1 Opal Lake Gatekeepers
-1 Padeem, Consul of Innovation
-1 Paradise Mantle
-1 Parasitic Strix
-1 Parcel Myr
+1 Nimble Innovator
+1 Oboro, Palace in the Clouds
+1 Otawara, Soaring City
 1 Pondering Mage
 1 Primoc Escapee
 1 Quicksilver Fisher
-1 Runaway Boulder
-1 Sarcomite Myr
+1 Riptide Laboratory
+1 Sage Aven
+1 Sage of Epityr
+1 Sage's Row Savant
+1 Salvager of Secrets
+1 Screeching Drake
+1 Seat of the Synod
 1 Serum Visionary
+1 Shipwreck Dowser
 1 Sibilant Spirit
-1 Silver Myr
-1 Silver Raven
-1 Sky Diamond
-1 Sky-Eel School
-1 Soaring Show-Off
-1 Staff of Nin
-1 Striped Riverwinder
-1 Thassa's Bounty
-1 The Everflowing Well
-1 Time Spiral
-1 Tolarian Academy
-1 Trenzalore Clocktower
-1 Trigon of Thought
-1 Urza, Lord High Artificer
+1 Slipstream Eel
+1 Soldevi Excavations
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Sphinx of Magosi
+1 Super Intelligence
+1 Terrarion
+1 Thalakos Seer
+1 The Unspeakable
+1 Three Steps Ahead
+1 Tishana's Tidebinder
+1 Tome Raider
+1 Unfathomable Truths
+1 Vendilion Clique
+1 Virtue of Knowledge
+1 Vodalian Hexcatcher
 1 Vodalian Merchant
-1 Windreader Sphinx
+1 Voracious Greatshark
+1 Wan Shi Tong, Librarian
+1 Wave-Wing Elemental
 1 Witching Well
+1 Wizard Class
 
 [commander]
-Reveka, Wizard Savant
+Kami of the Crescent Moon

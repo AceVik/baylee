@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266202]
-1 Alchemist's Refuge
-1 Bladebrand
-1 Breeding Pool
-1 Bubbling Muck
-1 Call to Heel
-1 Clairvoyance
-1 Cryptic Command
-1 Darkwater Catacombs
-1 Deeproot Champion
-1 Embodiment of Spring
-1 Energy Tap
-1 Equilibrium
-1 Eviscerator
-1 Failed Inspection
-1 Force Void
-1 Foreboding Landscape
-10 Forest
-1 Forget
-1 Gitaxian Probe
+[deck:commander ramp UBR #20266202]
+1 Abduction
+1 Abyssal Horror
+1 Anurid Murkdiver
+1 Apprentice Necromancer
+1 Artificer's Intuition
+1 Blood Celebrant
+1 Bog Initiate
+1 Boggart Birth Rite
+1 Boris Devilboon
+1 Castle Sengir
+1 Cateran Brute
+1 Cateran Kidnappers
+1 Cateran Slaver
+1 Cephalid Scout
+1 Champion of the Perished
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Dauthi Ghoul
+1 Deathbringer Thoctar
+1 Diregraf Captain
+1 Drowner of Hope
+1 Drownyard Amalgam
+1 Drunau Corpse Trawler
+1 Ertai Resurrected
+1 Fable of the Mirror-Breaker
+1 False Demise
+1 Fiery Islet
+1 Forsaken Drifters
 1 Gloomlake Verge
-1 Gravebind
-1 Gravelgill Duo
-1 Grim Backwoods
-1 Guardian of Solitude
-1 High Tide
-1 Howling Banshee
-1 Iguana Parrot
-16 Island
-1 Jeskai Windscout
-1 Jinx
-1 Kami of the Waning Moon
-1 Keeper of Tresserhorn
-1 Leap
-1 Lose Hope
-1 Lull
-1 Lurking Lizards
-1 Mage's Guile
-1 Medusa, Inhuman Queen
-1 Mirran Spy
-1 Mistral Singer
-1 Mold Adder
-1 Nurturing Peatland
-1 Open Communications
-1 Oppression
-1 Opulent Palace
-1 Overflowing Basin
-1 Pestilence Demon
-1 Poison the Blade
-1 Poisonbelly Ogre
-1 Prosperity
-1 Pym Particles
-1 Quirion Dryad
-1 Reach Through Mists
-1 Reality Anchor
-1 Rootwater Depths
-1 Runeboggle
-1 Shadow Rift
-1 Shocking Grasp
-1 Shorecrasher Mimic
-1 Skittering Horror
-1 Sky Scourer
-1 Spell Snip
-1 Svogthos, the Restless Tomb
-1 TVA Bureaucrat
-1 Tangled Florahedron
-1 Thunderous Snapper
-1 Tropical Island
-1 Twilight Mire
-1 Umara Entangler
+1 Gristle Grinner
+1 Hatching Plans
+1 Hulk, Always Angry
+1 Hungry Ghoul
+1 Iceberg
+14 Island
+1 Laboratory Brute
+1 Lantern-Lit Graveyard
+1 Lord of Tresserhorn
+1 Lord of the Undead
+1 Mindscour Dragon
+1 Moggcatcher
+4 Mountain
+1 Necromancer's Assistant
+1 Need for Speed
+1 Nephalia Drownyard
+1 Nucklavee
+1 Obsessive Stitcher
+1 Oscorp Industries
+1 Puppet Master
+1 Ramses Overdark
+1 Rathi Intimidator
+1 Returned Reveler
+1 Riverpyre Verge
+1 Rotcrown Ghoul
+1 Screeching Skaab
+1 Seething Landscape
+1 Sibsig Host
+1 Slash, Reptile Rampager
+1 Sluggishness
+1 Sphinx Mindbreaker
+1 Sphinx's Herald
+1 Stensia Bloodhall
+1 Sulfur Vent
+1 Sunken Ruins
+8 Swamp
+1 The Unspeakable
+1 Tsabo Tavoc
 1 Underground River
-1 Underground Sea
-1 Updraft
-1 Vedalken Blademaster
-1 Without Weakness
-1 Zagoth Triome
+1 Vessel of Paramnesia
+1 Wailing Ghoul
+1 Warren Soultrader
+1 Wizard Class
+1 Woebearer
+1 Wretched Throng
+1 Xander's Lounge
 
 [commander]
-Muldrotha, the Gravetide
+Nicol Bolas

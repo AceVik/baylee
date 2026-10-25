@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266029]
-1 Adventurer's Inn
-1 Aquitect's Defenses
-1 Arcane Flight
-1 Arena
-1 Aspect of Lamprey
-1 Aura Flux
-1 Buoyancy
-1 Castaway's Despair
-1 Chains of Mephistopheles
-1 Chill
-1 Controlled Instincts
-1 Convincing Mirage
-1 Cradle of the Accursed
-1 Darkest Hour
-1 Daxos's Torment
-1 Diamond Valley
-1 Diplomatic Immunity
-1 Disappear
-1 Douse
-1 Drannith Ruins
-1 Dream Tides
-1 Drider
-1 Elephant Graveyard
-1 Elven Passage
-1 Erosion
-1 Errant Minion
-1 Fishliver Oil
-1 Floodchaser
-1 Gargoyle Castle
-1 Ghoulflesh
-1 Glimmerdust Nap
-1 Gloom
-1 Gravitational Shift
-1 Greel's Caress
-1 Haunter of Nightveil
-1 Illness in the Ranks
-21 Island
-1 Jeskai Runemark
-1 Lazotep Quarry
-1 Levitation
-1 Melancholy
-1 Merseine
-1 Molting Snakeskin
-1 Nyxborn Marauder
-1 Painted Bluffs
-1 Paralyzing Grasp
-1 Phyrexia's Core
-1 Pillar of the Paruns
-1 Pride of the Perfect
-1 River's Favor
-1 Robe of Mirrors
-1 Runner's Bane
-1 Scalding Tarn
-1 Secluded Starforge
-1 Short Circuit
-1 Sinister Strength
-1 Sinking Feeling
-1 Sleep Magic
-1 Slimebind
-1 Spectral Flight
-1 Starlit Mantle
-5 Swamp
-1 Tangle Kelp
-1 Thassa's Ire
-1 Thrull Champion
-1 Tidal Force
-1 Torment
-1 Torpor Dust
-1 Torture
-1 Tractor Beam
-1 Unstable Frontier
-1 Urza's Mine
-1 Venarian Gold
-1 Web of Inertia
-1 Zephyr Net
+[deck:commander ramp BG #20266029]
+1 Abomination
+1 Ancient Brontodon
+1 Anurid Murkdiver
+1 Asphyxiate
+1 Barbtooth Wurm
+1 Bilbo's Deadly Slice
+1 Blooming Marsh
+1 Burgeoning
+1 Carrion Beetles
+1 Caustic Caterpillar
+1 Cowl Prowler
+1 Crumble
+1 Daring Demolition
+1 Darkmoss Bridge
+1 Dauthi Cutthroat
+1 Deathmark
+1 Defenestrate
+1 Desecrated Earth
+1 Desecration Plague
+1 Dread Specter
+1 Earthlore
+1 Eastern Paladin
+1 Eater of the Dead
+1 Eliminate
+1 Epic Downfall
+1 Exploration
+1 Fatal Blow
+1 Fell
+1 Festering Gulch
+1 Festering Thicket
+1 Final Death
+1 Floral Spuzzem
+1 Foggy Bottom Swamp
+13 Forest
+1 Haunted Mire
+1 Hero's Demise
+1 Illegitimate Business
+1 Infernal Medusa
+1 Jasmine Dragon Tea Shop
+1 Kudzu
+1 Lounge
+1 Nature's Revolt
+1 Nettling Imp
+1 No Mercy
+1 Norritt
+1 Prismatic Vista
+1 Quilled Slagwurm
+1 Rats of Rath
+1 Reclaiming Vines
+1 Restless Cottage
+1 Roaring Slagwurm
+1 Root Maze
+1 Roots of Life
+1 Scarblade Elite
+1 Skemfar Elderhall
+1 Springjack Pasture
+1 Steelbane Hydra
+1 Storm Front
+1 Stream of Acid
+1 Subterranean Cavern
+13 Swamp
+1 The Abyss
+1 Thicket Basilisk
+1 Thoughtleech
+1 Undergrowth Leopard
+1 Undergrowth Stadium
+1 Unliving Psychopath
+1 Venom
+1 Volrath's Gardens
+1 Voracious Varmint
+1 Wall of Corpses
+1 Wallop
+1 Wasteland Scorpion
+1 Wing Snare
+1 Woodland Chasm
 
 [commander]
-Ur-Drago
+Yargle and Multani

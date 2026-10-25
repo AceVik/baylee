@@ -154,10 +154,14 @@ pub fn build_manabase(
     let mut have_sources = [0.0_f64; 5];
     let mut c_pips_needed = 0_usize;
     let mut have_c_sources = 0_usize;
+    let mut wants_snow = false;
 
-    // Count non-land mana sources (dorks/rocks) and {C} pip requirements
+    // Count non-land mana sources (dorks/rocks), {C} pip requirements, and snow synergy
     for &cid in spells.iter().chain(leaders) {
         if let Some(e) = pool_by_id.get(&cid) {
+            if e.profile.cares_about_snow {
+                wants_snow = true;
+            }
             if e.profile.pips[5] > 0 {
                 let req_c = karsten_sources_for_spell(
                     deck_size,
@@ -273,6 +277,14 @@ pub fn build_manabase(
         }
     }
 
+    let snow_basics = [
+        baylee_core::generated::index::SNOW_COVERED_PLAINS,
+        baylee_core::generated::index::SNOW_COVERED_ISLAND,
+        baylee_core::generated::index::SNOW_COVERED_SWAMP,
+        baylee_core::generated::index::SNOW_COVERED_MOUNTAIN,
+        baylee_core::generated::index::SNOW_COVERED_FOREST,
+    ];
+
     // Allocate basic lands to satisfy remaining Karsten colour-source deficits
     while land_cards.len() < lands_needed {
         let best_deficit = (0..5_usize)
@@ -301,7 +313,12 @@ pub fn build_manabase(
                 rng.below(5)
             }
         };
-        let basic = basics[colour].context("the five basic lands are in the pool")?;
+        let snow_cid = snow_basics[colour];
+        let basic = if wants_snow && pool_by_id.contains_key(&snow_cid) {
+            snow_cid
+        } else {
+            basics[colour].context("the five basic lands are in the pool")?
+        };
         land_cards.push(basic);
         have_sources[colour] += 1.0;
     }

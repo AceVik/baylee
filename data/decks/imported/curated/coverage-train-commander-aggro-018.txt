@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266019]
+1 Ambrosia Whiteheart
+1 Attercop
+1 Axgard Armory
+1 Aysen Highway
+1 Batterhorn
+1 Belligerent Whiptail
+1 Binding Mummy
+1 Black Scarab
+1 Bloodrage Brawler
+1 Bristling Backwoods
+1 Canopy Baloth
+1 Canopy Vista
+1 Chosen by Heliod
+1 Conservatory
+1 Crossroads Watcher
+1 Daybreak Charger
+1 Devout Lightcaster
+1 Drop of Honey
+1 Dryad's Favor
+1 Elegant Parlor
+1 Emeria Angel
+1 Emiel the Blessed
+1 Endurance
+1 Fallow Wurm
+1 Fledgling Griffin
+8 Forest
+1 Formation
+1 Furycalm Snarl
+1 Glaring Aegis
+1 Goblin Settler
+1 Godtracker of Jund
+1 Grove Rumbler
+1 Guardian of Pilgrims
+1 Hall
+1 Icecave Crasher
+1 Jeskai Barricade
+1 Kithkin Mourncaller
+1 Lance
+1 Leonin Snarecaster
+1 Loporrit Scout
+1 Los Diablos Missile Base
+1 Lotusguard Disciple
+1 Makindi Sliderunner
+1 Mass Hysteria
+1 Mechanized Ninja Cavalry
+3 Mountain
+1 Mummy Paramount
+1 Mutant Town Musicians
+1 Needleverge Pathway
+1 Patagia Tiger
+13 Plains
+1 Planetary Patrol
+1 Plant Elemental
+1 Prideful Parent
+1 Primal Frenzy
+1 Prowling Felidar
+1 Quiet Purity
+1 Reflexes
+1 Remnant Elemental
+1 Rescuer Chwinga
+1 Restless Ridgeline
+1 Rustvale Bridge
+1 Scabland
+1 Silt Crawler
+1 Snapping Creeper
+1 Snapping Gnarlid
+1 Spitfire Lagac
+1 Sunbillow Verge
+1 Territorial Baloth
+1 Territorial Boar
+1 Thornglint Bridge
+1 Thundering Wurm
+1 Valakut Predator
+1 Viashino Bladescout
+1 Viashino Firstblade
+1 Whiptail Moloch
+1 White Scarab
+1 World Map
+
+[commander]
+Jetmir, Nexus of Revels

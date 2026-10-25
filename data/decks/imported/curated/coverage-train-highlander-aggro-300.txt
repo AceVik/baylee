@@ -1,81 +1,82 @@
 # baylee synergistic coverage highlander aggro
 # licence: AGPL-3.0-only
-[deck:highlander aggro WRG #20266301]
-1 Aisling Leprechaun
-1 An-Havva Township
-1 Ancient Spider
-1 Argothian Pixies
-1 Bag End Porter
+[deck:highlander aggro BRG #20266301]
+1 Acidic Sliver
+1 Acridian
+1 Balduvian Bears
 1 Barbary Apes
-1 Barkhide Troll
-1 Blossom Dryad
-1 Branchloft Pathway
-1 Brushland
-1 Cabaretti Initiate
-1 Canopy Spider
-1 Elvish Piper
-1 Emerald Oryx
-1 Faithful Watchdog
-1 Folk of the Pines
-18 Forest
-1 Frog-Squirrels
-1 Gavony Township
-1 Giant Badger
-1 Gibbering Hyenas
-1 Gloomwidow
-1 Gnottvold Recluse
-1 Grappler Spider
-1 Grappling Sundew
-1 Grove of the Guardian
-1 Hedge Troll
-1 Hitchclaw Recluse
-1 Ivy Dancer
-1 Jetmir's Garden
-1 Joven's Ferrets
-1 Jungle Shrine
-1 Jungle Troll
-1 Karoo Meerkat
-1 Kessig Recluse
-1 Llanowar Knight
-1 Mammoth Spider
-1 Needlepeak Spider
-6 Plains
-1 Plated Spider
-1 Prized Elephant
-1 Raven's Run Dragoon
-1 Reckless Pangolin
-1 Rib Cage Spider
-1 Rith's Grove
-1 Safehold Elite
-1 Savannah
-1 Scion of the Wild
-1 Scurrid Colony
-1 Sedge Scorpion
-1 Sentinel Spider
-1 Sheltering Landscape
-1 Skyshroud Troll
-1 Spitting Slug
-1 Sporecap Spider
-1 Stalking Drone
-1 Steel Leaf Champion
-1 Sungrass Prairie
-1 Swift Spinner
-1 Talarian Hook Spider
-1 Terrain Elemental
-1 Tinder Farm
-1 Tree Monkey
-1 Troll Ascetic
+1 Barony Vampire
+1 Bladed Pinions
+1 Bleed Dry
+1 Brassclaw Orcs
+1 Cadaverous Knight
+1 Carnivorous Plant
+1 Carrion Wall
+1 Cemetery Gate
+1 Dakmor Scorpion
+1 Darigaaz's Caldera
+1 Dark Fortress
+1 Deathbellow Raider
+1 Demon's Grasp
+1 Dire Fleet Neckbreaker
+1 Douser of Lights
+1 Drift of the Dead
+1 Dune Beetle
+1 Erstwhile Trooper
+1 Flesh Burrower
+1 Flowstone Wall
+6 Forest
+1 Furnace Strider
+1 Geothermal Crevice
+1 Giant Slug
+1 Glissa's Courier
+1 Grave Bramble
+1 Ironclaw Buzzardiers
+1 Koskun Keep
+1 Mindslicer
+1 Moor Fiend
+1 Mount Doom
+6 Mountain
+1 Nether Horror
+1 Noxious Groodion
+1 Nurturing Peatland
+1 Ogre's Cleaver
+1 Orcish Healer
+1 Orcish Veteran
+1 Phyrexian Gremlins
+1 Pincher Beetles
+1 Primeval Shambler
+1 Putrid Leech
+1 Queen's Bay Soldier
+1 Rakshasa Deathdealer
+1 Ritual of the Machine
+1 Savage Lands
+1 Sewers of Estark
+1 Shelkin Brownie
+1 Shivan Zombie
+1 Silverskin Armor
+1 Singing Tree
+1 Skarrg, the Rage Pits
+1 Skirk Shaman
+1 Sootstoke Kindler
+1 Sulfurous Springs
+1 Svogthos, the Restless Tomb
+12 Swamp
+1 Thirsting Bloodlord
+1 Thornspire Verge
+1 Twisted Landscape
 1 Underdark Basilisk
-1 Unseen Walker
-1 Valeron Outlander
-1 Victual Sliver
-1 Viridian Lorebearers
-1 Vitu-Ghazi, the City-Tree
-1 Warthog
-1 Wary Okapi
-1 Watcher in the Web
-1 Wilt-Leaf Cavaliers
-1 Wooded Bastion
-1 Woolly Mammoths
+1 Urborg Shambler
+1 Vampire Hexmage
+1 Vampire Noble
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wastewood Verge
+1 Whip Vine
+1 Winter Orb
+1 Woodland Changeling
+1 Woodwraith Strangler
+1 Ziatora's Proving Ground
 1 Zodiac Monkey
-1 Zodiac Rooster

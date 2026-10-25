@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20266054]
-1 Acidic Dagger
-1 Adventuring Gear
-1 Ancestral Statue
-1 Arena of the Ancients
-1 Automatic Librarian
-1 Ba Sing Se
-1 Baton of Morale
-1 Beast of Burden
-1 Bloodtallow Candle
-1 Boseiju, Who Endures
-1 Cacophodon
-1 Candelabra of Tawnos
-1 Chocobo Camp
-1 Clay Statue
-1 Crystal Golem
-1 Cyclopean Tomb
-1 Didgeridoo
-1 Dragon Engine
-1 Ebony Horse
-1 Echo Circlet
-1 Eel-Hounds
-34 Forest
-1 Gauntlets of Chaos
-1 Glass Golem
-1 Glasses of Urza
-1 Grappling Sundew
-1 Grave Bramble
-1 Grinding Station
-1 Guardians of Meletis
-1 Hedron Rover
-1 Hedron Scrabbler
-1 Hidden Nursery
-1 Iron Giant
-1 Iron Lance
-1 Jabari's Banner
-1 Juntu Stakes
-1 Lead Golem
-1 Manor Gate
-1 Masterwork of Ingenuity
-1 North Star
-1 Orazca Frillback
-1 Pardic Wanderer
-1 Pygmy Allosaurus
-1 Quicksilver Amulet
-1 Ravenous Daggertooth
-1 Regal Imperiosaur
-1 Relic Barrier
-1 Rustspore Ram
-1 Sanitation Automaton
-1 Sapseep Forest
-1 Shield of the Ages
-1 Skateboard
-1 Skyshaper
-1 Spike-Tailed Ceratops
-1 Sterling Hound
-1 Stuffed Bear
-1 Teferi's Sentinel
-1 Thaumaturge's Familiar
-1 Touchstone
-1 Tower of Coireall
-1 Treeguard Duo
-1 Voltaic Servant
-1 War Chariot
-1 Watcher of the Wayside
-1 Zelyon Sword
-1 Zodiac Rabbit
+[deck:commander midrange W #20266054]
+1 Advance Scout
+1 Aether Shockwave
+1 Alaborn Musketeer
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Animate Wall
+1 Ardent Militia
+1 Argivian Blacksmith
+1 Artifact Ward
+1 Aysen Bureaucrats
+1 Banishing Stroke
+1 Benalish Infantry
+1 Bladed Ambassador
+1 Blue Scarab
+1 Border Guard
+1 Border Patrol
+1 Brainwash
+1 Burst of Energy
+1 Celestial Enforcer
+1 Clergy en-Vec
+1 Clergy of the Holy Nimbus
+1 Coeurl
+1 Death Speakers
+1 Defender of Law
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Enchanted Being
+1 Ephara's Warden
+1 Farbog Explorer
+1 Farmstead
+1 Field Surgeon
+1 Flanking Troops
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Forbidding Watchtower
+1 Foriysian Interceptor
+1 Frostbridge Guard
+1 Haazda Shield Mate
+1 Half-Elf Monk
+1 Kelsinko Ranger
+1 Kitsune Diviner
+1 Kjeldoran Escort
+1 Knights of Thorn
+1 Kor Haven
+1 Loxodon Mystic
+1 Martyrs of Korlis
+1 Master of Arms
+1 Memorial to Glory
+1 Peacekeeper
+34 Plains
+1 Repentant Blacksmith
+1 Righteous Avengers
+1 Sacred Knight
+1 Saltfield Recluse
+1 Samite Alchemist
+1 Serra Paladin
+1 Serra's Sanctum
+1 Shrine Keeper
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Spawnbinder Mage
+1 Split-Tail Miko
+1 Sterling Keykeeper
+1 Trokin High Guard
+1 Veteran Bodyguard
+1 White Ward
 
 [commander]
-Terrian, World Tyrant
+Hawkeye, Clint Barton

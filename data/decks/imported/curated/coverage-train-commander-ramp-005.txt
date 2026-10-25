@@ -1,81 +1,80 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WUG #20266006]
-1 Aggressive Urge
-1 Ant-Man, Reformed Rogue
+1 Arctic Flats
+1 Arnjlot's Ascent
+1 Aven Archer
+1 Ba Sing Se
+1 Bandage
+1 Battlefield Promotion
 1 Birnin Zana Plaza
-1 Bone to Ash
+1 Bountiful Promenade
 1 Canopy Dragon
-1 Capture of Jingzhou
-1 Circle of Dreams Druid
+1 Canopy Vista
+1 Centaur Glade
 1 Clairvoyance
 1 Cloud Dragon
 1 Conservatory
-1 D'Avenant Healer
 1 Defense of the Heart
-1 Druids' Repository
-1 Enter the Enigma
+1 Elder Spawn
 1 Exalted Dragon
-1 Failed Inspection
 1 Farseek
-1 Fauna Shaman
 1 Finale of Devastation
-10 Forest
-1 Forget
-1 Frontier Guide
-1 Gigantomancer
-1 Gitaxian Probe
-1 Gosta Dirk
-1 Guadosalam, Farplane Gateway
-1 Halcyon Glaze
-1 Hidden Gibbons
-1 Into the North
-10 Island
-1 Kasimir the Lone Wolf
+14 Forest
+1 Fortified Village
+1 Fungus Elemental
+1 Fyndhorn Pollen
+1 Gates of Istfell
+1 Glyph of Delusion
+1 Goliath Sphinx
+1 Helionaut
+1 High Tide
+1 Iguana Parrot
+1 Illusionary Forces
+1 Illusionary Wall
+12 Island
+1 Judge's Familiar
+1 Juju Bubble
+1 Karn, the Great Creator
 1 Kyoshi Village
-1 Lady Caleria
-1 Lotus Guardian
-1 Marjhan
+1 Leap
+1 Lightfoot Technique
+1 Lumbering Falls
 1 Meditation Pools
-1 Merchant Scroll
-1 Mesmeric Trance
-1 Mindscour Dragon
+1 Mind Bomb
+1 Mindbender Spores
+1 Nature's Blessing
 1 Neverwinter Dryad
-1 Oashra Cultivator
+1 Oath of the Ancient Wood
+1 Omen of the Sun
 1 Pearl Dragon
-6 Plains
-1 Prairie Stream
-1 Psionic Entity
-1 Pym Particles
+1 Pirate's Prize
+1 Prismatic Circle
+1 Psychic Allergy
 1 Pym Technologies
-1 Razortide Bridge
-1 Rejuvenating Springs
 1 Reshape
-1 Rockcaster Platoon
-1 Safewright Quest
-1 Samite Archer
-1 Seahunter
-1 Shadow Rift
+1 Rushwood Elemental
+1 Sab-Sunen, Luxa Embodied
 1 Shared Roots
 1 Sharlayan, Nation of Scholars
 1 Silkwing Scout
-1 Skyshroud Poacher
-1 Slip Through Space
-1 Sodden Verdure
-1 Steelshaper Apprentice
-1 Stirring Wildwood
+1 Sphinx of Magosi
+1 Spike Hatcher
+1 Storm Spirit
 1 Suburban Sanctuary
-1 Tangled Islet
-1 Temporal Manipulation
-1 Time Warp
+1 Sunpetal Grove
+1 Take Up the Shield
+1 Teyo's Lightshield
+1 Tidal Influence
 1 Time of Need
-1 Tranquil Landscape
+1 Titania's Boon
+1 Trade Caravan
 1 Trapmaker's Snare
+1 Trigon of Mending
 1 Turbulent Wilderness
-1 Vernal Bloom
-1 Weight of Memory
-1 Whisperer of the Wilds
-1 Worldly Tutor
+1 Veiled Apparition
+1 Volunteer Reserves
+1 Wall of Resistance
 1 Zephid
 
 [commander]

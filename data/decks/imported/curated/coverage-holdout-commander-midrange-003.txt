@@ -5,12 +5,12 @@
 1 Ashen Monstrosity
 1 Barbarian Ring
 1 Barbed Sextant
+1 Barbed Sliver
 1 Blood Moon
 1 Bold Impaler
 1 Carbonize
 1 Castle Embereth
 1 Conquer
-1 Corrupt Eunuchs
 1 Crackling Perimeter
 1 Desert Cerodon
 1 Disrupting Scepter
@@ -19,41 +19,42 @@
 1 Farmstead Gleaner
 1 Fire-Omen Crane
 1 Flowstone Overseer
-1 Fomori Nomad
 1 Fuel the Flames
+1 Gearsmith Guardian
+1 Goblin Assault Team
 1 Goblin Spelunkers
 1 Goblin Wizard
 1 Greater Forgeling
 1 Greatsword
 1 Hall of Tagsin
 1 Heavy Mattock
-1 Horn of Greed
 1 Hovermyr
 1 Hyena Pack
-1 Inferno Fist
+1 Igneous Golem
 1 Jokulhaups
 1 Karsus Depthguard
 1 Keldon Megaliths
 1 Koth's Courier
+1 Krark-Clan Shaman
 1 Looming Spires
 1 Mage il-Vec
-1 Magmaw
 1 Magnetic Mountain
 34 Mountain
+1 Narstad Scrapper
 1 Ogre Resister
 1 Pathmaker Initiate
 1 Plated Geopede
 1 Puncturing Blow
-1 Reality Hemorrhage
+1 Rearing Embermare
 1 Red Herring
-1 Sabotender
+1 Sarpadian Simulacrum
 1 Shadowstorm
 1 Skyclave Geopede
-1 Skyscanner
 1 Spicy Oatmeal Pizza
 1 Spire Barrage
 1 Stonehands
 1 Storm World
+1 Storm-Kiln Artist
 1 Talruum Minotaur
 1 The Chase Is On
 1 The Seedcore
@@ -66,7 +67,6 @@
 1 Wall of Lava
 1 Wand of Ith
 1 Worry Beads
-1 Zap
 
 [commander]
 Chandler

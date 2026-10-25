@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20266102]
+1 Accelerate
+1 Acid Web Spider
+1 Ambush Gigapede
+1 Attercop
+1 Baxter Building
+1 Blacklance Paragon
+1 Blister Beetle
+1 Blood-Toll Harpy
+1 Brand
+1 Burglar Rat
+1 Burning Inquiry
+1 Canopy Baloth
+1 Corrupt Court Official
+1 Crawling Barrens
+1 Crucible of the Spirit Dragon
+1 Dagger Caster
+1 Drekavac
+1 Duskwatch Hunter
+1 Earsplitting Rats
+1 Elderfang Disciple
+1 Expedite
+1 Eyeblight Assassin
+4 Forest
+1 Geyser Glider
+1 Godtracker of Jund
+1 Gond Gate
+1 Gravebind
+1 Graveshifter
+1 Grixis Panorama
+1 Haven of the Spirit Dragon
+1 Haze of Pollen
+1 Hecteyes
+1 Herd Gnarr
+1 Hyrax Tower Scout
+1 Impolite Entrance
+1 Invasive Species
+1 Jadecraft Artisan
+1 Kraul Whipcracker
+1 Lava Zombie
+1 Locust Spray
+1 Lotus Vale
+1 Mercenary Knight
+1 Miasmic Mummy
+10 Mountain
+1 Nezumi Informant
+1 Nighthaze
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Ominous Cemetery
+1 Planetary Patrol
+1 Raking Claws
+1 Rank and File
+1 Ravenous Baboons
+1 Romantic Rendezvous
+1 Sanctum of Ugin
+1 Sanity Gnawers
+1 Scampering Surveyor
+1 Serpent Assassin
+1 Serpent Warrior
+1 Shaman of the Pack
+1 Silt Crawler
+1 Snapping Gnarlid
+1 Spiderwig Boggart
+1 Spire Mangler
+1 Spire of Industry
+1 Spitfire Lagac
+1 Study Hall
+10 Swamp
+1 Swarmyard
+1 Territorial Boar
+1 Tunneling Geopede
+1 Viashino Bladescout
+1 Vicious Clown
+1 Voracious Vampire
+1 Vulshok War Boar
+1 War Room
+1 Yellowjacket, Heartless Marauder
+1 Zhalfirin Void
+
+[commander]
+Xira Arien

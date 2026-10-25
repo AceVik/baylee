@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WBR #20266192]
+1 Brightclimb Pathway
+2 Charcoal Diamond
+1 Coal Golem
+2 Drudge Reavers
+2 Esper Sentinel
+1 Fetid Heath
+2 Fire Diamond
+2 Heart of Ramos
+2 Imposing Vantasaur
+2 Liturgy of Blood
+2 Mardu Banner
+1 Mountain
+2 Nomad Outpost
+2 Orzhov Signet
+2 Phyrexian Fleshgorger
+7 Plains
+2 Rakdos Signet
+2 Savai Crystal
+3 Savai Triome
+1 Shattered Landscape
+7 Swamp
+2 Telethopter
+2 Terror of the Fairgrounds
+2 Thran War Machine
+2 Tournament Grounds
+2 Viashino Skeleton
+2 Wishclaw Talisman

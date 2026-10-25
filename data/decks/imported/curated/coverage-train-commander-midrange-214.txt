@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266215]
-1 Adarkar Wastes
-1 Alchemist's Refuge
-1 Aysen Abbey
-1 Branchloft Pathway
-1 Calciform Pools
-1 Celebrity Fencer
-1 Cloudcrest Lake
-1 Confirm Suspicions
-1 Dewdrop Spy
-1 Donatello, Way with Machines
+[deck:commander midrange UBR #20266215]
+1 Abyssal Hunter
+1 Agent of Stromgald
+1 Ambush Gigapede
+1 Balduvian Horde
+1 Blacklance Paragon
+1 Blaster Mage
+1 Burning-Yard Trainer
+1 Burnt Offering
+1 Castle Sengir
+1 Clearwater Pathway
+1 Corrupt Court Official
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Daybreak Combatants
+1 Dimir Informant
+1 Dire Fleet Poisoner
+1 Dualcaster Mage
+1 Electric Eel
+1 Exclusion Mage
+1 Eye of Ramos
 1 Faerie Duelist
-1 Faerie Invaders
-1 Faerie Mastermind
-1 Faerie Noble
-1 Faerie Swarm
-10 Forest
-1 Griffin Dreamfinder
-1 Guardian of the Halls
-1 Hallowed Fountain
-1 Harrier Griffin
-1 Il Mheg Pixie
-1 Illusionary Forces
-1 Illusionary Wall
-1 Indigo Faerie
-1 Irrigation Ditch
-12 Island
-1 Jaspera Sentinel
-1 Mawcor
-1 Merfolk Observer
-1 Metropolis Sprite
-1 Mindbender Spores
-1 Moon Sprite
-1 Moorland Haunt
-1 Mtenda Griffin
-1 Nightveil Sprite
-1 Oath of the Ancient Wood
-1 Oko's Accomplices
-1 Pestermite
-1 Pixie Queen
-3 Plains
-1 Plated Crusher
-1 Rampaging Hippo
-1 Retreat to Kazandu
-1 Savannah
-1 Scion of Oona
-1 Scryb Ranger
-1 Scryb Sprites
-1 Sea Sprite
-1 Seaside Citadel
-1 Selesnya Keyrune
-1 Senate Griffin
-1 Sentinels of Glen Elendra
-1 Shinechaser
-1 Silkbind Faerie
-1 Simic Keyrune
-1 Simulacrum Synthesizer
-1 Sinister Sabotage
-1 Snakeskin Veil
-1 Soratami Cloudskater
-1 Spara's Headquarters
-1 Tamiyo, Inquisitive Student
-1 The One Ring
-1 Thundering Tanadon
-1 Tigereye Cameo
-1 Tranquil Landscape
-1 Treva's Ruins
-1 True Love's Kiss
-1 Turntimber Symbiosis
-1 Twining Twins
-1 Uktabi Faerie
-1 Unyaro Griffin
-1 Urban Retreat
-1 Wakandan Drone Flock
-1 Weatherseed Faeries
-1 Willow Faerie
-1 Wind Dancer
-1 Zephyr Sprite
+1 Fourth Bridge Prowler
+1 Graven Cairns
+1 Great Whale
+1 Hagra Diabolist
+1 Hidden Lair
+1 Historian of Zhalfir
+9 Island
+1 Joven
+1 Kapsho Kitefins
+1 Kjeldoran Dead
+1 Lumengrid Sentinel
+1 Magus of the Wheel
+1 Mercenary Knight
+1 Mount Doom
+7 Mountain
+1 Mystic Archaeologist
+1 Network Disruptor
+1 Nezumi Informant
+1 Nimana Sell-Sword
+1 Nivix, Aerie of the Firemind
+1 Noggle Ransacker
+1 Notorious Assassin
+1 Oscorp Industries
+1 Prying Eyes
+1 Pyretic Ritual
+1 Research Assistant
+1 River of Tears
+1 Riverpyre Verge
+1 Scarblade Elite
+1 Seething Landscape
+1 Seismic Mage
+1 Separatist Voidmage
+1 Serpent Assassin
+1 Shadow Rift
+1 Shauku's Minion
+1 Spider-Man, Hometown Hero
+1 Spiteful Bully
+1 Stalking Assassin
+1 Stingcaster Mage
+1 Sulfur Vent
+9 Swamp
+1 Teferi's Protege
+1 Thought Courier
+1 Tony Stark
+1 Tor Wauki
+1 Treasure Cruise
+1 Triton Waverider
+1 Tuktuk Scrapper
+1 Unliving Psychopath
+1 Venser, Shaper Savant
+1 Vicious Clown
+1 Weldfast Wingsmith
+1 Whisper Agent
+1 Xander's Lounge
+1 Yellowjacket, Heartless Marauder
 
 [commander]
-Rubinia Soulsinger
+Tetsuo Umezawa

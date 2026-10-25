@@ -1,74 +1,74 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
 [deck:commander aggro G #20266142]
-1 Argothian Elder
-1 Ark of Blight
-1 Camouflage
-1 City in a Bottle
-1 Crossbow Ambush
-1 Cursed Totem
-1 Cylian Elf
-1 Dawn's Light Archer
-1 Devkarin Dissident
-1 Druid of the Spade
-1 Dungrove Elder
-1 Elvish Bard
-1 Elvish Berserker
+1 Aim High
+1 Arid Mesa
+1 Arlinn's Wolf
+1 Blitzball Shot
+1 Bounding Wolf
+1 Bristlepack Sentry
+1 Brushwagg
+1 Cacophodon
+1 Centaur Veteran
+1 Chorus of Might
+1 Crawling Barrens
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Drowsing Tyrannodon
 1 Elvish Herder
-1 Elvish Hunter
 1 Elvish Lookout
-1 Elvish Pathcutter
-1 Elvish Piper
-1 Elvish Ranger
-1 Elvish Scout
-1 Feroz's Ban
-32 Forest
-1 Gaea's Avenger
+1 Feral Ferocity
+1 Geier Reach Sanitarium
+1 Get a Leg Up
 1 Gladecover Scout
 1 Grasping Dunes
-1 Greenhilt Trainee
+1 Grazing Whiptail
 1 Greenside Watcher
-1 Grizzled Outrider
-1 Henge of Ramos
-1 Iridescent Blademaster
-1 Kraul Warrior
-1 Llanowar Druid
+1 Jolrael's Centaur
+1 Machine Man, Model X-51
+1 Massive Might
+1 Megantic Sliver
 1 Mirkwood Channeler
-1 Mirkwood Pathmaker
-1 Norwood Archers
-1 Null Rod
-1 Quirion Druid
-1 Realms Uncharted
-1 Reclaim
+1 Mortal's Resolve
+1 Narcissism
+1 Norwood Ranger
+1 Orazca Frillback
+1 Ornery Dilophosaur
+1 Overprotect
+1 Pestilent Wolf
+1 Primal Bellow
+1 Pygmy Allosaurus
+1 Regal Imperiosaur
+1 Resuscitate
+1 Scarwood Hag
 1 Sculptor of Winter
-1 Secret Tunnel
+1 Seedling Charm
 1 Seeker of Skybreak
-1 Silhana Ledgewalker
-1 Simian Brawler
+1 Silk Net
 1 Skyshroud Archer
 1 Skyshroud Ranger
-1 Spellbook
-1 Spire Tracer
-1 Spore Cloud
-1 Steel Leaf Champion
-1 Swordwise Centaur
-1 Tajuru Snarecaster
-1 Tel-Jilad Archers
-1 Tel-Jilad Chosen
-1 Tel-Jilad Outrider
-1 Terminal Moraine
-1 Throne of Makindi
-1 Timber Protector
-1 Treetop Rangers
+1 Snapping Sailback
+32 Snow-Covered Forest
+1 Soulstone Sanctuary
+1 Spike-Tailed Ceratops
+1 Steady Aim
+1 Steel Golem
+1 Strength in Numbers
+1 Study Hall
+1 Subdue
+1 Sylvan Paradise
+1 Terrian, World Tyrant
+1 Tread Upon
 1 Treetop Scout
-1 Treetop Warden
-1 Urza's Saga
-1 Viridian Lorebearers
-1 Vitalize
+1 Uktabi Efreet
+1 Unnatural Predation
+1 Wall of Vines
 1 Warren-Scourge Elf
+1 Wayward Swordtooth
 1 Weatherseed Elf
-1 Wildheart Invoker
 1 Willow Elf
+1 Wolfir Avenger
+1 Wyluli Wolf
 
 [commander]
-Eladamri, Lord of Leaves
+Devil Dinosaur

@@ -3,23 +3,23 @@
 [deck:constructed aggro BR #20261071]
 4 Aether Sting
 3 Cinder Marsh
+4 Crackling Cyclops
+2 Eidolon of the Great Revel
 3 Electrostatic Field
-4 Emberstrike Duo
-4 Firebrand Archer
-3 Goblin Arsonist
+2 Firespitter Whelp
 2 Graven Cairns
-2 Judith, the Scourge Diva
-2 Kessig Flamebreather
+2 Ishi-Ishi, Akki Crackshot
 1 Lava Tubes
 4 Malakir Rebirth
-4 Monastery Swiftspear
+2 Monastery Swiftspear
 1 Mount Doom
-12 Mountain
+16 Mountain
+4 Nimble-Blade Khenra
 2 Profane Tutor
 1 Rix Maadi, Dungeon Palace
-2 Spark Spray
-5 Swamp
+4 Sanguinary Mage
+3 Sawblade Scamp
+3 Soul of Magma
+4 Spark Spray
+1 Swamp
 2 Tainted Peak
-4 Weaver of Lightning
-2 Young Pyromancer
-3 Zuko, Avatar Hunter

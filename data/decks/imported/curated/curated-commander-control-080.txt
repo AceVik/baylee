@@ -1,80 +1,80 @@
 # baylee curated commander control seed=20261103
 # licence: AGPL-3.0-only
 [deck:commander control UB #20261103]
-1 Aether Spellbomb
-1 Architects of Will
-1 Aspiring Aeronaut
+1 Ambition's Cost
+1 Ancestral Vision
+1 Ancient Craving
+1 Audacious Thief
 1 Bad Deal
-1 Baleful Force
-1 Baleful Strix
-1 Bitterbloom Bearer
-1 Black Mana Battery
-1 Blood Pact
-1 Borg Queen, Perfection Manifest
-1 Chromatic Star
+1 Blightspeaker
+1 Boomerang, Blade Flinger
 1 Clearwater Pathway
-1 Cloud of Faeries
+1 Consuming Corruption
+1 Corrupted Roots
 1 Crushing Disappointment
-1 Dark Prophecy
-1 Darkwater Catacombs
-1 Deathcurse Ogre
-1 Dimir Cluestone
-1 Dimir Locket
+1 Delusions of Mediocrity
+1 Dismal Backwater
+1 Dogged Pursuit
 1 Dreadship Reef
-1 Drownyard Explorers
-1 Faerie Formation
-1 Fate Foretold
-1 Gateway Sneak
+1 Dusk Legion Zealot
+1 Efficient Construction
+1 Eternity Snare
+1 Fetid Pools
+1 Foul Imp
 1 Gloomlake Verge
-1 Goggles of Night
+1 Harrowing Journey
+1 Haunt the Network
 1 Hidden Lair
-1 Homarid Spawning Bed
-11 Island
-1 Kozilek's Unsealing
-1 Liliana's Mastery
-1 Mana Crypt
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Memory Deluge
-1 Moriok Replica
+1 Highway Robber
+1 Illusions of Grandeur
+1 Infernal Contract
+1 Insight
+1 Invoke Prejudice
+12 Island
+1 Jhessian Thief
+1 Last Caress
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Malakir Soothsayer
+1 Micromancer
 1 Nephalia Drownyard
-1 Network Disruptor
-1 Owl Familiar
-1 Phyrexian Rager
-1 Pirate's Prize
-1 Plasmancer
-1 Port of Karfell
-1 Primoc Escapee
-1 Prowess of the Fair
+1 Northern Air Temple
+1 Novice Occultist
+1 Numbing Dose
+1 Painful Lesson
+1 Painful Quandary
+1 Pharika's Cure
+1 Profane Tutor
+1 Pulse Tracker
+1 Putrefaction
+1 Read the Bones
+1 Reverent Howl
+1 Riddleform
+1 Risky Shortcut
 1 River Delta
 1 River of Tears
-1 Robotics Mastery
 1 Rootwater Depths
-1 Scourgemark
-1 Serpent Warrior
-1 Sicken
-1 Simulacrum Synthesizer
-1 Soured Springs
-1 Sphinx of Magosi
+1 Shredder's Revenge
+1 Simulacrum
+1 Sire of the Storm
+1 Soul Barrier
+1 Sovereign's Bite
+1 Succumb to Temptation
 1 Sunken Ruins
-16 Swamp
+15 Swamp
 1 Tainted Isle
-1 Tarrian's Journal
-1 Tegwyll, Duke of Splendor
-1 The Theorist, Jace Beleren
-1 Thought Monitor
-1 Tithebearer Giant
-1 Tome Raider
-1 Trigon of Thought
-1 Undead Augur
+1 Thoughtseize
 1 Underground River
 1 Underground Sea
-1 Unfathomable Truths
-1 Vendilion Clique
-1 Virtue of Knowledge
+1 Unifying Theory
+1 Vampire Sovereign
+1 Vampiric Feast
+1 Veil of Birds
+1 Veiled Sentry
+1 Veiled Serpent
 1 Waterveil Cavern
-1 Witch's Cauldron
-1 Witching Well
+1 Watery Grave
+1 Yawgmoth's Edict
 
 [commander]
-Obyra, Dreaming Duelist
+Sivitri Scarzam

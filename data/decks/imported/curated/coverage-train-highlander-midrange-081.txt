@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266082]
+1 A Realm Reborn
+1 Ant-Man, Reformed Rogue
+1 Avengers Hangar
+1 Avoid Fate
+1 Azorius Chancery
+1 Bog Gnarr
+1 Bone to Ash
+1 Borne Upon a Wind
+1 Call to Heel
+1 Canopy Vista
+1 Centaur Nurturer
+1 Ceremonious Rejection
+1 Chain to Memory
+1 Consult the Star Charts
+1 Cunning Breezedancer
+1 Dawnhart Geist
+1 Elvenking's Halls
+1 Equilibrium
+1 Eyes of the Watcher
+1 Failed Inspection
+1 Fend Off
+1 Fleeting Distraction
+1 Force Void
+1 Forget
+1 Formation
+1 Fortified Village
+1 Giant Octopus
+1 Guardian of Solitude
+1 Halcyon Glaze
+1 Heal
+1 Iguana Parrot
+1 Ingenious Skaab
+1 Into the North
+1 Jackalope Herd
+1 Jinx
+1 Karmic Guide
+1 Kree Commandos
+1 Kulrath Mystic
+1 Leap
+1 Lush Portico
+1 Mana Breach
+1 Meticulous Archive
+1 Mirran Spy
+1 Mistral Singer
+1 Mossbeard Ancient
+1 Paradox Gardens
+1 Pillardrop Rescuer
+1 Poison the Blade
+1 Quandrix Campus
+1 Rain-Slicked Copse
+1 Reach Through Mists
+1 Rejuvenating Springs
+1 Reveillark
+1 Rust
+1 Sachi, Daughter of Seshiro
+1 Safehold Duo
+1 Seachrome Coast
+1 Shorecrasher Mimic
+1 Sinister Sabotage
+1 Slip Through Space
+1 Slipstream Eel
+1 Slumbering Waterways
+8 Snow-Covered Forest
+17 Snow-Covered Island
+1 Solarium Sentry
+1 Solitude
+1 Stymied Hopes
+1 TVA Bureaucrat
+1 Temple of Plenty
+1 Thalakos Drifters
+1 Thornglint Bridge
+1 Thunderous Snapper
+1 Trail of Evidence
+1 Umara Entangler
+1 Updraft
+1 Vedalken Blademaster
+1 Wave-Wing Elemental

@@ -831,7 +831,12 @@ pub fn build_coverage_corpus_scoped(
             .iter()
             .filter_map(|p| pool_by_id.get(p).map(|pe| pe.identity))
             .fold(anchor_entry.identity, ColorSet::union);
-        let archetype = anchor_entry.profile.preferred_archetype();
+        let pref_arch = anchor_entry.profile.preferred_archetype();
+        let archetype = if pref_arch == Archetype::Midrange && anchor_entry.profile.roles == 0 {
+            Archetype::ALL[generated_decks.len() % Archetype::ALL.len()]
+        } else {
+            pref_arch
+        };
         let can_use_commander = commander_identities.iter().any(|&ci| {
             anchor_ci.difference(ci).is_empty()
                 && (anchor_cid != CRYPTIC_SPIRES || ci.len() >= 2)

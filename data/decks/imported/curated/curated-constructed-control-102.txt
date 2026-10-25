@@ -1,22 +1,22 @@
 # baylee curated constructed control seed=20261125
 # licence: AGPL-3.0-only
 [deck:constructed control UG #20261125]
-1 Aesi, Tyrant of Gyre Strait
+1 A Realm Reborn
 2 Barkchannel Pathway
-4 Coastal Piracy
-4 Colossal Majesty
 3 Eidolon of Blossoms
 2 Eidolon of Philosophy
 3 Flooded Grove
-7 Forest
-9 Island
-4 Keen Sense
-4 Llanowar Visionary
+5 Forest
+4 Ior Ruin Expedition
+11 Island
+4 Kavu Lair
+4 Maddening Wind
 2 Mana Crypt
 1 Overflowing Basin
 4 Power Taint
-4 Sylvan Library
-2 Thassa's Devourer
+4 Spectral Sailor
+4 Treasure Trove
 1 Tropical Island
+2 Virtue of Knowledge
 2 Waterlogged Grove
 1 Willowrush Verge

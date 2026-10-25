@@ -1,82 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WU #20266042]
-1 Access Tunnel
-1 Angelic Edict
+[deck:commander midrange U #20266042]
+1 Acid Rain
+1 Adventurers' Guildhouse
 1 Anti-Magic Aura
-1 Ash Barrens
-1 Blade Banish
-1 Blessed Light
-1 Burden of Guilt
-1 Cascading Cataracts
-1 Cat-Owl
-1 Cavern of Souls
-1 Cavernous Maw
-1 Cunning
-1 Dawnglare Invoker
-1 Day of Destiny
-1 Demystify
-1 Destroy Evil
-1 Drogskol Captain
-1 Eclipsed Realms
-1 Esper Cormorants
-1 Fae Flight
-1 Faerie Swarm
-1 Fatehold Chronologist
-1 Fomori Vault
-1 Gaelicat
-1 Geist of the Archives
-1 Ghost Warden
-1 Ghostly Sentinel
-1 Glare of Heresy
-1 Glaring Aegis
-1 Godhead of Awe
-1 Great Wall
-1 Griffin Canyon
-1 Hover Barrier
-1 Illusory Wrappings
-10 Island
-1 Isolate
-1 Jhovall Queen
-1 Keening Apparition
-1 Kinsbaile Balloonist
-1 Lawbringer
-1 Lightbringer
-1 Lotus Vale
-1 Mantle of Leadership
-1 Mirrex
-1 Mists of Littjara
-1 Misty Rainforest
-1 Neck Snap
-1 Not on My Watch
-1 Opal Palace
-1 Peace and Quiet
-1 Phantasmal Mount
-15 Plains
-1 Planar Cleansing
-1 Quiet Purity
-1 Red Ward
-1 Reduce in Stature
-1 Ronom Unicorn
-1 Searing Light
-1 Seedpod Squire
-1 Shinechaser
-1 Soulbound Guardians
-1 Soulherder
-1 Soulsworn Jury
-1 Spectral Shield
-1 Talon Trooper
-1 Tightening Coils
+1 Arcane Laboratory
+1 Aven Smokeweaver
+1 Bribery
+1 Cabaretti Courtyard
+1 Cathedral of Serra
+1 Cerulean Wyvern
+1 Cloud Manta
+1 Cloudsculpt Technician
+1 Coastal Drake
+1 Cradle of the Accursed
+1 Defensive Stance
+1 Douse
+1 Dream Coat
+1 Erosion
+1 Ethereal Whiskergill
+1 False Summoning
+1 Field of Dreams
+1 Flashfreeze
+1 Floodbringer
+1 Flying Dolphin-Fish
+1 Fylamarid
+1 Gitaxian Raptor
+1 Glimmerbell
+1 Hisoka's Defiance
+1 Horizon Drake
+1 Ice Floe
+1 Indigo Faerie
+34 Island
+1 It'll Quench Ya!
+1 Living Tempest
+1 Living Tsunami
+1 Mana Chains
+1 Metathran Transport
+1 Metropolis Sprite
+1 Mistwalker
+1 Niblis of the Breath
+1 Nyxborn Seaguard
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Pendrell Mists
+1 Polluted Delta
+1 Riptide Chimera
+1 Sea Eagle
+1 Sea Sprite
+1 Sea's Claim
+1 Silver Erne
+1 Skyshroud Condor
+1 Sleep Magic
+1 Steal Enchantment
+1 Storm Crow
+1 Stratozeppelid
+1 Tidal Flats
+1 Tolarian Drake
+1 Trained Condor
 1 Treetop Sentinel
-1 Turtle Lair
-1 Twining Twins
-1 Unholy Citadel
-1 Vassal Soul
-1 Venerable Lammasu
-1 Vengeance
-1 Watermarket
-1 White Ward
-1 Wings of Hope
+1 Troublesome Spirit
+1 Vexing Gull
+1 Wanderlight Spirit
+1 Wind Dancer
+1 Wind Spirit
+1 Wrath of Marit Lage
+1 Zephyr Gull
+1 Zephyr Sprite
 
 [commander]
-Tobias Andrion
+Taniwha

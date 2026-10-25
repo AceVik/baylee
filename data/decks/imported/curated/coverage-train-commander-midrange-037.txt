@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266038]
-1 Abbey Griffin
-1 Adventurers' Guildhouse
-1 Anthem of Champions
-1 Arborea Pegasus
-1 Archon of Emeria
-1 Armor of Faith
-1 Armored Griffin
-1 Asha's Favor
-1 Avian Changeling
-1 Baldur's Gate
-1 Blue Ward
-1 Brave the Sands
-1 Burrowguard Mentor
-1 Call to Serve
-1 Catastrophe
-1 Celestial Purge
-1 Cleansing Ray
-1 Consecrate Land
-1 Conviction
-1 Creeperhulk
-1 Daraja Griffin
-1 Dense Canopy
-1 Drownyard Temple
-1 Ekundu Griffin
-1 Enforcer Griffin
-1 Fledgling Griffin
-1 Force of Savagery
-2 Forest
-1 Fortified Area
-1 Fragmentize
+[deck:commander midrange BG #20266038]
+1 Abzan Kin-Guard
+1 Accelerated Evolution
+1 Aspect of Lamprey
+1 Blast Zone
+1 Bloodcurdling Scream
+1 Charging Bandits
+1 Crux of Fate
+1 Dauthi Mercenary
+1 Dauthi Warlord
+1 Detection Tower
+1 Dungrove Elder
+1 Ebony Treefolk
+1 Elven Passage
+1 Elvish Berserker
+1 Elvish Scout
+1 Embraal Bruiser
+1 Erstwhile Trooper
+1 Feral Ferocity
+1 Feral Roar
+1 Fleshgrafter
+1 Flora Colossus
+1 Forced March
+10 Forest
 1 Frantic Strength
-1 Gorn Captain
-1 Halls of Mist
-1 Harrier Griffin
-1 Hobbit Hole
-1 Horizon of Progress
-1 Hostile Desert
-1 Inventors' Fair
-1 Jihad
-1 Kjeldoran Skyknight
-1 Knighthood
-1 Maelstrom of the Spirit Dragon
-1 Makindi Griffin
+1 Frilled Sandwalla
+1 Gaea's Avenger
+1 Gaea's Embrace
+1 Glyph of Doom
+1 Grasping Dunes
+1 Gravblade Heavy
+1 Greenhilt Trainee
+1 Hunger of the Nim
+1 Hungry Spriggan
+1 Isolated Watchtower
+1 Kaervek's Hex
+1 Kithkin Daggerdare
+1 Larger Than Life
+1 Lotus Vale
 1 Maze of Ith
-1 Military Discipline
-1 Mistral Charger
-1 Moonwing Moth
-1 Nature's Blessing
-1 Ondu Inversion
-1 Peregrine Griffin
-1 Phyrexian Pegasus
-23 Plains
-1 Primal Rage
-1 Prismatic Ending
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Mishra's Foundry
+1 Monstrous Growth
+1 Nuclear Fallout
+1 Overprotect
+1 Petrified Field
+1 Phytoburst
+1 Plated Rootwalla
 1 Radiant Fountain
-1 Repel Calamity
-1 Sandstorm
-1 Serra's Blessing
+1 Sanctum of Eternity
+1 Sarkhan's Resolve
+1 Savage Silhouette
+1 Scarwood Bandits
 1 Silken Strength
-1 Silverclaw Griffin
-1 Sky Tether
-1 Spotted Griffin
-1 Stormfront Pegasus
-1 Sunspire Griffin
+1 Simian Brawler
+1 Soul Kiss
+1 Stromgald Cabal
+1 Stromgald Crusader
+15 Swamp
+1 Tall as a Beanstalk
 1 Tectonic Edge
 1 Temur Runemark
-1 Teremko Griffin
-1 Tethered Griffin
-1 Tomb of the Spirit Dragon
-1 Tranquil Grove
+1 Tendo Ice Bridge
+1 The Great Mound
+1 Their Name Is Death
+1 Timber Protector
+1 Torture
+1 Treefolk Seedlings
+1 Tyvar's Stand
 1 Underdark Rift
-1 Unflinching Courage
-1 Unyaro Griffin
-1 White Lotus Hideout
-1 Wild Griffin
-1 Zuberi, Golden Feather
+1 Vile Deacon
+1 Virtue's Ruin
+1 Wei Ambush Force
+1 Wielding the Green Dragon
+1 Wild Nacatl
+1 Wormwood Treefolk
 
 [commander]
-Bast, Panther Goddess
+Vhati il-Dal

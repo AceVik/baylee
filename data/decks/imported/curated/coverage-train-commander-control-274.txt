@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control U #20266275]
+1 Binding Grasp
+1 Blockade Runner
+1 Capture Sphere
+1 Coma Veil
+1 Command Bridge
+1 Coral Commando
+1 Coral Merfolk
+1 Coralhelm Guide
+1 Deeptread Merrow
+1 Disappear
+1 Dream Fighter
+1 Dungeon Descent
+1 Errant Minion
+1 Grand Coliseum
+1 Guildless Commons
+1 Headwater Sentries
+1 Homarid Explorer
+1 Homarid Warrior
+1 Illusory Wrappings
+36 Island
+1 Jhessian Lookout
+1 Keen Glidemaster
+1 Lord of Atlantis
+1 Manta Riders
+1 Master of the Pearl Trident
+1 Merfolk Raiders
+1 Merfolk Seastalkers
+1 Merfolk Sovereign
+1 Merrow Wavebreakers
+1 Mind Bend
+1 Mirrorpool
+1 Misdirection
+1 Persuasion
+1 Rain of Revelation
+1 Ransack
+1 Red Cliffs Armada
+1 Reduce in Stature
+1 Rescue
+1 Rishadan Dockhand
+1 River Darter
+1 River Merfolk
+1 Rootwater Commando
+1 Seasinger
+1 Secret Identity
+1 Sejiri Merfolk
+1 Shoreline Raider
+1 Sink into Stupor
+1 Sleep Paralysis
+1 Starting Town
+1 Straw Soldiers
+1 Streambed Aquitects
+1 Svyelunite Priest
+1 Sworn Guardian
+1 Thalakos Scout
+1 Thalakos Sentry
+1 Threads of Disloyalty
+1 Tidal Warrior
+1 Tractor Beam
+1 Transguild Promenade
+1 Treachery
+1 Triton Shorethief
+1 Vodalian Knights
+1 Vodalian Soldiers
+1 Word of Undoing
+
+[commander]
+Sakashima of a Thousand Faces

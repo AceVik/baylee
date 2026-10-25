@@ -1,78 +1,78 @@
 # baylee curated highlander control seed=20261114
 # licence: AGPL-3.0-only
 [deck:highlander control UG #20261114]
-1 Aggressive Urge
+1 Abstruse Interference
 1 Alchemist's Refuge
-1 Ant-Man, Reformed Rogue
 1 Arasta of the Endless Web
 1 Barkchannel Pathway
-1 Beast Whisperer
 1 Bog Gnarr
 1 Breeding Pool
 1 Briarknit Kami
-1 Censor
-1 Crop Rotation
-1 Cyclone
+1 Chain to Memory
+1 Compelling Argument
+1 Condescend
+1 Contingency Plan
+1 Curate
+1 Deeproot Waters
 1 Disrupt
+1 Drowned Secrets
 1 Efficient Construction
-1 Elementalist Adept
 1 Elvenking's Halls
-1 Emrakul's Influence
-1 Energy Vortex
 1 Equilibrium
+1 Evolution Charm
+1 Eyes of the Watcher
 1 Fable of Wolf and Owl
-1 Feral Instinct
+1 Fleeting Distraction
 1 Flooded Grove
-14 Forest
-1 Freyalise's Charm
+1 Forced Fruition
+10 Forest
+1 From Beyond
 1 Go Forth
 1 Guadosalam, Farplane Gateway
-1 Halt Order
-1 Haze of Pollen
+1 Halcyon Glaze
 1 Hesitation
-1 Hidden Ancients
-1 Hidden Gibbons
 1 Hidden Guerrillas
-1 Hidden Spider
+1 Hithlain Knots
+1 Hornswoggle
 1 Hydroblast
-1 Insight
-13 Island
+1 In the Eye of Chaos
+1 Infested Roothold
+1 Invoke Prejudice
+17 Island
 1 Jackalope Herd
 1 Jin-Gitaxias, Progress Tyrant
-1 Jinx
-1 Kami of the Hunt
-1 Kurgadon
-1 Lay Claim
-1 Leap
+1 Launch Mishap
 1 Lush Oasis
-1 Lys Alana Bowmaster
 1 Mana Vortex
-1 Medusa, Inhuman Queen
+1 Maul Splicer
 1 Novijen, Heart of Progress
-1 Nylea's Intervention
+1 Ojer Pakpatiq, Deepest Epoch
 1 Orbweaver Kumo
 1 Overflowing Basin
 1 Path of Annihilation
-1 Primordial Sage
-1 Provoke
+1 Predatory Hunger
+1 Prescient Chimera
 1 Reflections of Littjara
-1 Refute
 1 Restless Vinestalk
-1 Runeboggle
-1 Shocking Grasp
+1 Rhystic Study
+1 Riddleform
 1 Skybeast Tracker
 1 Snake Pit
-1 Spell Snip
+1 Soilshaper
+1 Stymied Hopes
+1 Syphon Essence
 1 Tangled Islet
+1 Tel-Jilad Justice
 1 Teller of Tales
 1 Thornwood Falls
 1 Thunderous Snapper
 1 Tidespout Tyrant
 1 Trail of Evidence
 1 Tropical Island
+1 Unauthorized Exit
+1 Veiled Apparition
 1 Veiled Serpent
 1 Waterlogged Grove
 1 Whirlwind Adept
 1 Willowrush Verge
-1 Wilt
 1 Yavimaya Coast

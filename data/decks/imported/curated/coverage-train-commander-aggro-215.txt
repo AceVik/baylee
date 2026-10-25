@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #20266216]
+1 Ambush Krotiq
+1 Arctic Aven
+1 Aven Envoy
+1 Aven Fogbringer
+1 Aven Mindcensor
+1 Aven Redeemer
+1 Aven Skirmisher
+1 Aysen Abbey
+1 Battleflight Eagle
+1 Bay Falcon
+1 Beacon Hawk
+1 Bronzebeak Moa
+1 Cloudcrest Lake
+1 Coast Watcher
+1 Colorful Feiyi Sparrow
+1 Commander Eesha
+1 Courier Hawk
+1 Dauntless Aven
+1 Duskrider Falcon
+1 East Wind Avatar
+1 Empyrean Eagle
+1 Fatehold Chronologist
+1 Forest
+1 Freewind Falcon
+1 Ghirapur Osprey
+1 Gitaxian Raptor
+1 Gleaming Bastion
+1 Glyph of Delusion
+1 Hallowed Fountain
+1 Infinite Authority
+1 Irrigation Ditch
+7 Island
+1 Ithilien Kingfisher
+1 Judge's Familiar
+1 Kingfisher
+1 Knightfisher
+1 Ledger Shredder
+1 Lieutenant Kirtar
+1 Lilting Refrain
+1 Mesa Falcon
+1 Messenger Falcons
+1 Mind Harness
+1 Mist Raven
+1 Mystic Gate
+1 Nimbus Maze
+1 Osai Vultures
+1 Palace Familiar
+16 Plains
+1 Plumecreed Mentor
+1 Preening Champion
+1 Royal Falcon
+1 Runewing
+1 Rustwing Falcon
+1 Sea Eagle
+1 Seaside Citadel
+1 Senate Courier
+1 Silver Erne
+1 Skycloud Expanse
+1 Skyshroud Condor
+1 Skyshroud Falcon
+1 Sledding Otter-Penguin
+1 Spara's Headquarters
+1 Stonerise Spirit
+1 Storm Crow
+1 Strix Lookout
+1 Suntail Hawk
+1 Talon Trooper
+1 Territorial Roc
+1 Toucan-Puffin
+1 Trained Condor
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tundra
+1 Umara Raptor
+1 Urban Retreat
+1 Vexing Gull
+1 Welkin Guide
+1 Zephyr Gull
+
+[commander]
+Derevi, Empyrial Tactician

@@ -1,83 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WUBRG #20266188]
-1 Aang and Katara
+[deck:commander ramp WUB #20266188]
+1 Abu Ja'far
 1 Aether Channeler
-1 Angel of Despair
+1 Air Nomad Legacy
+1 Allied Teamwork
+1 An Offer You Can't Refuse
+1 Ancient Spring
 1 Angel's Herald
-1 April O'Neil, Kunoichi Trainee
-1 Aysen Abbey
+1 Arcane Sanctum
 1 Azorius Skyguard
-1 Barrow Witches
-1 Bountiful Landscape
-1 Brazen Freebooter
-1 Captain Storm, Cosmium Raider
-1 Castle Sengir
-1 Cha'DIch Investigator
-1 Clarion Cathars
-1 Commander Greven il-Vec
+1 Baron Sengir
+1 Brine Shaman
+1 Catacomb Slug
+1 Cateran Persuader
+1 Cloudcrest Lake
+1 Cogworker's Puzzleknot
 1 Contaminated Landscape
-1 Corsair Captain
-1 Courier's Briefcase
-1 Crystal Quarry
-1 Dakmor Lancer
-1 Darigaaz's Caldera
-1 Draconic Disciple
-1 Dragonmaster Outcast
-1 Enlightened Maniac
-1 Experimental Aviator
-1 Femeref Enchantress
-1 Flamewright
-1 Foreboding Landscape
-1 Fourth Bridge Prowler
-1 Garna, the Bloodflame
-1 Gladiolus Amicitia
-1 Hazezon Tamar
-1 Huntmaster of the Fells
-1 Indatha Crystal
+1 Darkwater Catacombs
+1 Delney, Streetwise Lookout
+1 Demon's Herald
+1 Dromar's Cavern
+1 Emeria's Call
+1 Exultant Cultist
+1 Field of Souls
+1 Fungal Infection
+1 Gleaming Bastion
+1 Glimmerburst
+1 Grisly Ritual
+1 Hard Evidence
+1 Haunt the Network
+1 Hidden Lair
+1 Homarid Spawning Bed
+1 Icatian Crier
+1 Icatian Town
+1 Imperial Oath
 6 Island
-1 Izzet Chronarch
-1 Jeskai Banner
 1 Judge Magister Gabranth
-1 Jungle Patrol
-1 Kaleidostone
-1 Koskun Keep
+1 Knight of Doves
 1 Kyoshi Warriors
+1 Land Cap
 1 Lossarnach Captain
-1 Maja, Bretagard Protector
-1 Mardu Devotee
-8 Mountain
-1 Nearby Planet
-1 Oasis Gardener
-1 Pili-Pala
-6 Plains
-1 Priest of Yawgmoth
-1 Professor Zei, Anthropologist
-1 Rakdos Cluestone
-1 Relic of Sauron
-1 Renegade Rallier
-1 Rinoa Heartilly
+1 Luminarch Ascension
+1 Mass Production
+1 Merrow Grimeblotter
+1 Mystic Gate
+1 Ophiomancer
+1 Ostiary Thrull
+1 Phyrexian Monitor
+9 Plains
+1 Pretending Poxbearers
+1 Princess Lucrezia
+1 Prosperous Pirates
+1 Raffine's Tower
+1 Rise of Eagles
+1 Riven Turnbull
+1 Robotics Mastery
+1 Rootwater Depths
+1 Rufus Shinra
+1 Sage of Lat-Nam
 1 Sailor of Means
-1 Seething Landscape
-1 Sheltering Landscape
-1 Signpost Scarecrow
-1 Stangg
-1 Stark Industries Executive
-1 Stoic Builder
-1 Sultai Banner
-6 Swamp
-1 The Reaper, King No More
-1 The World Tree
-1 Tranquil Landscape
-1 Treetop Freedom Fighters
-1 Treva's Ruins
-1 Twisted Landscape
-1 Unburied Earthcarver
-1 Urn of Godfire
+1 Shelob's Ambush
+1 Skirsdag Flayer
+1 Skycloud Expanse
+11 Swamp
+1 Take Up Arms
+1 Tegwyll, Duke of Splendor
+1 Thopter Foundry
+1 Toxin Analysis
+1 Treasure Dredger
+1 Tunnel Surveyor
+1 Underground River
+1 Unfathomable Truths
+1 Violet Pall
+1 Watery Grave
+1 Whisper Squad
 1 Wing Splicer
 1 Wizards' School
-1 Wreckage Wickerfolk
-1 Yotian Dissident
 
 [commander]
-Reaper King
+Inquisitor Greyfax

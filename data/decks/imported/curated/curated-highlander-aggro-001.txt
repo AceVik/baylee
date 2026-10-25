@@ -2,80 +2,80 @@
 # licence: AGPL-3.0-only
 [deck:highlander aggro WG #20261024]
 1 Abu Ja'far
+1 Allied Teamwork
 1 Attended Knight
-1 Audacity
-1 Avatar Enthusiasts
 1 Bishop of Wings
 1 Blade Splicer
 1 Blisterpod
 1 Branchloft Pathway
+1 Briarbridge Tracker
 1 Brushland
 1 Byway Courier
-1 Capashen Standard
-1 Cartouche of Solidarity
-1 Champion of the Parish
-1 Decomposition
-1 Delney, Streetwise Lookout
+1 Caregiver
+1 Cathedral Sanctifier
+1 Clarion Cathars
+1 Daysquad Marshal
 1 Deranged Outcast
 1 Doomed Traveler
 1 Downdraft
-1 Dwarven Castle Guard
-1 Elephant Guide
 1 Elturgard Ranger
+1 Elven Palisade
 1 Fastbond
-1 Feather of Flight
-1 Fists of Ironwood
-8 Forest
+1 Fell the Pheasant
+10 Forest
+1 From Beyond
 1 Gallant Cavalry
 1 Gathering Place
 1 Gavony Township
 1 Grove of the Guardian
 1 Guarded Heir
+1 Hada Freeblade
 1 Honored Knight-Captain
 1 Horizon Canopy
 1 Hunted Witness
+1 Inheritance
 1 Invasion Reinforcements
 1 Jade Mage
 1 Keen Sense
 1 Knight of Doves
-1 Lake-town Lookout
-1 Lance
+1 Kronch Wrangler
+1 Land Tax
 1 Loran of the Third Path
 1 Martyr of Dusk
-1 Mausoleum Guard
-1 Monastery Mentor
-1 Mox Emerald
+1 Master Splicer
+1 Mobilization
 1 Mox Pearl
 1 Myrsmith
+1 Night Soil
 1 Novice Inspector
-1 Oltec Cloud Guard
-1 Path of Annihilation
+1 Orochi Hatchery
+1 Outlaw Medic
 1 Pawpatch Formation
-16 Plains
-1 Primal Frenzy
-1 Protector of Gondor
+14 Plains
 1 Renowned Weaver
 1 Resolute Reinforcements
 1 Riftstone Portal
+1 Rising Populace
+1 Rune of Protection: Blue
 1 Saltcrusted Steppe
-1 Sanctifier of Souls
 1 Savannah
+1 Seller of Songbirds
 1 Siege Veteran
-1 Spirited Companion
-1 Squire's Devotion
+1 Soul's Attendant
 1 Sterling Grove
 1 Sungrass Prairie
+1 Survival of the Fittest
+1 Sylvan Safekeeper
 1 Thraben Inspector
 1 Thraben Standard Bearer
-1 Timberland Guide
 1 Tranquil Garden
 1 Unruly Mob
 1 Veldt
 1 Venerable Knight
-1 Village Elder
+1 Vital Splicer
 1 Vitu-Ghazi, the City-Tree
 1 Wakandan Shield Guard
-1 Walking Ballista
 1 Welcome to . . .
 1 Wooded Bastion
 1 Worthy Knight
+1 Zuran Orb

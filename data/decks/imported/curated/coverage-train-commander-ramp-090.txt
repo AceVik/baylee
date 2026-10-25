@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266091]
-1 Ajani's Comrade
-1 Aku Djinn
-1 Ancestral Vengeance
-1 Arbor Armament
-1 Armageddon Clock
-1 Arnjlot's Ascent
-1 Big Bertha
-1 Bounty Hunter
-1 Breath of Dreams
-1 Contract Killing
-1 Darkslick Shores
-1 Donatello, Way with Machines
-1 Dragon-Cursed Halls
-1 Drifting Djinn
-1 Dystopia
-1 Empowered Autogenerator
-1 Feral Thallid
-18 Forest
-1 Fungal Bloom
-1 Fungal Shambler
-1 Fungus Elemental
-1 Gaea's Gift
-1 Gallowbraid
-1 Geist of Saint Thalia
-1 Glyph of Delusion
-1 Grasping Shadows
-1 Grixis Panorama
-1 Guardian of the Halls
-1 Hadana's Climb
-1 Hinterland Harbor
-1 Ice Tunnel
+[deck:commander ramp BRG #20266091]
+1 Anaba Shaman
+1 Ben-Ben, Akki Hermit
+1 Blooming Marsh
+1 Boar-q-pine
+1 Boiling Rock Prison
+1 Boltwave
+1 Chaos Charm
+1 Choking Sands
+1 Cinder Storm
+1 Copperline Gorge
+1 Cosmic Horror
+1 Daring Escape
+1 Death's Duet
+1 Dragonskull Summit
+1 Elven Cache
+1 Emberstrike Duo
+1 Explosive Shot
+1 Festival Crasher
+1 Fire Imp
+1 Flame-Blessed Bolt
+1 Flamekin Spitfire
+4 Forest
+1 Frenzied Devils
+1 Furious Bellow
+1 Goblin-town
+1 Gohn, Town of Ruin
+1 Hagra Diabolist
+1 Hell's Kitchen
+1 Highland Weald
+1 Hissing Quagmire
 1 Illegitimate Business
-1 Illusionary Forces
-1 Illusionary Wall
-1 Kitchen
-1 Lilting Refrain
-1 Lumbering Falls
-1 Markov Dreadknight
-1 Maximum Overdrive
-1 Meditation Pools
-1 Mind Harness
-1 Mindbender Spores
-1 Mirkwood
-1 Mistvault Bridge
-1 Mystic Might
-1 Nasty Little Rabbit
-1 Oath of the Ancient Wood
-1 Origin of Metalbending
-1 Psychic Frog
-1 Ravenous Harpy
-1 Restless Vinestalk
-1 Revitalizing Repast
-1 Rushwood Elemental
-1 Sab-Sunen, Luxa Embodied
-1 Scute Mob
-1 Sea Gate Restoration
-1 Simic Guildgate
-1 Slith Predator
-1 Snakeskin Veil
-1 Soured Springs
-1 Spike Soldier
-1 Spirit Shackle
-1 Spore Flower
+1 Infectious Horror
+1 Isolation Cell
+1 Jaya's Firenado
+1 Kami of the Waning Moon
+1 Karplusan Yeti
+1 Kazuul's Fury
+1 Keeper of Tresserhorn
+1 Lightning Javelin
+1 Lightning Visionary
+1 Los Diablos Missile Base
+1 Lose Hope
+14 Mountain
+1 Ogre Shaman
+1 Omen of the Forge
+1 Ominous Asylum
+1 Onslaught
+1 Oppression
+1 Ozai's Cruelty
+1 Putrefaction
+1 Pyroclastic Elemental
+1 Razortrap Gorge
+1 Reincarnation
+1 Restless Cottage
+1 Retromancer
+1 Rockslide Ambush
+1 Scorching Shot
+1 Scorching Spear
+1 Scouring Sands
+1 Searing Wind
+1 Shatterskull Smashing
+1 Skittering Horror
+1 Skittering Monstrosity
+1 Skittering Skirge
+1 Sky Scourer
+1 Spikefield Hazard
+1 Spire Garden
+1 Stature, Young Avenger
+1 Strangled Cemetery
+1 Sugar Rush
 8 Swamp
-1 Swamp Mosquito
-1 Swarm of Bloodflies
-1 Tangled Islet
-1 Tanglepool Bridge
-1 Thorn Thallid
-1 Tidal Influence
-1 Titania's Boon
-1 Transdimensional Bovine
-1 Unspeakable Symbol
-1 Ventifact Bottle
-1 Yavimaya Ants
+1 Thorntooth Witch
+1 Thoughtseize
+1 Titan's Strength
+1 Volcanic Hammer
+1 Wort, Boggart Auntie
 
 [commander]
-Vorosh, the Hunter
+Bartel Runeaxe

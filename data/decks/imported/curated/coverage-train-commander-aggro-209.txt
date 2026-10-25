@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266210]
+1 Aang, Air Nomad
+1 Adanto Vanguard
+1 Adherent of Hope
+1 Aeronaut Admiral
+1 Ajani's Comrade
+1 An-Havva Township
+1 Angelic Gift
+1 Ant-Man, Scott Lang
+1 Avatar Enthusiasts
+1 Aven Brigadier
+1 Blade Historian
+1 Blessed Orator
+1 Butterbur, Bree Innkeeper
+1 Daring Mechanic
+1 Disciple of Grace
+1 Disciple of Law
+1 Druid Lyrist
+1 Dwalin, Weaponmaster
+1 EPF Point Squad
+1 Farrel's Zealot
+1 Field Marshal
+1 Gathering Place
+1 Glaring Aegis
+1 Granger Guildmage
+1 Grove of the Burnwillows
+1 Guard Duty
+1 Haazda Exonerator
+1 Hanweir Garrison
+1 Herald of Dromoka
+1 Inspiring Veteran
+1 Jacques le Vert
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 Karplusan Forest
+1 Knight Exemplar
+1 Kobold Drill Sergeant
+1 Kongming, "Sleeping Dragon"
+1 Lovisa Coldeyes
+1 Meng Huo, Barbarian King
+1 Miracle Worker
+8 Mountain
+1 Murasa Ranger
+1 Needleverge Pathway
+1 Paragon of Eternal Wilds
+1 Paragon of New Dawns
+1 Patrol Signaler
+16 Plains
+1 Priest of Iroas
+1 Prowler, Misguided Mentor
+1 Rith's Grove
+1 Rogue Skycaptain
+1 Rosa, Resolute White Mage
+1 Rugged Prairie
+1 Salt Road Quartermasters
+1 Saltcrusted Steppe
+1 Saryth, the Viper's Fang
+1 Scavenger Folk
+1 Sheltering Landscape
+1 Sisters of the Flame
+1 Soraya the Falconer
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Sunbaked Canyon
+1 Taiga
+1 Tinder Farm
+1 Tracker
+1 Trade Caravan
+1 Unchained Berserker
+1 Unholy Officiant
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Volunteer Reserves
+1 Wartime Protestors
+1 Weapons Trainer
+1 White Lotus Reinforcements
+
+[commander]
+Samut, Voice of Dissent

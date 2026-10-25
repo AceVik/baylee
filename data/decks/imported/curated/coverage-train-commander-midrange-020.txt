@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266021]
-1 Aang, Air Nomad
-1 Abzan Runemark
-1 Aerial Modification
-1 Aeronaut Admiral
-1 Algae Gharial
-1 Ant-Man, Scott Lang
-1 Archon of Justice
-1 Arctic Flats
-1 Arctic Treeline
-1 Avengers Hangar
-1 Aysen Highway
-1 Benalish Heralds
-1 Birnin Zana Plaza
-1 Black Scarab
-1 Boreal Shelf
+[deck:commander midrange UBG #20266021]
+1 Ancestral Reminiscence
+1 Arcane Flight
+1 Astrolabe
+1 Aven Fogbringer
+1 Bogwater Lumaret
 1 Botanical Sanctum
-1 Bountiful Promenade
-1 Castle Raptors
-1 Collector's Vault
-1 Cradle of Safety
-1 Crosswinds
-1 Daring Mechanic
-1 Dowsing Dagger
-1 Etched Cornfield
-1 Fanatical Devotion
-1 Fierce Witchstalker
-1 Floodgate
-5 Forest
-1 Gates of Istfell
-1 Gift of Granite
-1 Gold Pan
-1 Head of the Homestead
-1 Heartwood Giant
-10 Island
-1 Ithilien Kingfisher
-1 Join the Ranks
-1 Judge's Familiar
-1 Kyoshi Village
-1 Lumengrid Sentinel
-1 Mantle of Webs
-1 Moat
-1 Mockingbird, Bobbi Morse
-1 Nest Invader
-1 Nimbus Wings
-1 Noble Hierarch
-1 North Pole Gates
-1 Oko, Thief of Crowns
-1 Palace Familiar
-10 Plains
-1 Prairie Stream
-1 Prying Blade
+1 Burrog Befuddler
+1 Cartouche of Knowledge
+1 Chill
+1 Contaminated Aquifer
+1 Cursecatcher
+1 Dictate of Kruphix
+1 Disruptive Student
+1 Dreadwurm
+1 Dream Stalker
+1 Elemental Bond
+1 Enhanced Awareness
+1 Envelop
+1 Fallowsage
+4 Forest
+1 Furtive Analyst
+1 Guadosalam, Farplane Gateway
+1 Hecteyes
+19 Island
+1 Jadecraft Artisan
+1 Library Larcenist
+1 Magus of the Bazaar
+1 Meditation Pools
+1 Mortal Wound
+1 Murky Sewer
+1 Network Terminal
+1 Nimble Thopterist
+1 Noxious Newt
+1 Nyxborn Colossus
+1 Patron Wizard
+1 Pym Technologies
+1 Rampart Hunter
+1 Rejuvenating Springs
 1 Restless Vinestalk
-1 Retrofitter Foundry
-1 Riptide Crab
-1 Rite of Replication
-1 Rosa, Resolute White Mage
-1 Scion Summoner
+1 Rimewood Falls
+1 Sea Gate Loremaster
+1 Shadowmage Infiltrator
 1 Shimmering Wings
+1 Shore Keeper
+1 Shoreline Salvager
+1 Silvergill Peddler
+1 Sleeper's Robe
 1 Sodden Verdure
-1 Sphinx's Herald
-1 Starry-Eyed Skyrider
-1 Steely Resolve
-1 Stonybrook Schoolmaster
-1 Sword of the Ages
+1 Soothsayer Adept
+1 Soratami Savant
+1 Spirit Away
+1 Spreading Seas
+1 Stock Up
+1 Sunken Hollow
+1 Sure-Footed Infiltrator
+2 Swamp
+1 Tainted Well
 1 Tangled Islet
+1 Teferi's Protege
+1 Theorist's Proxy
 1 Third Path Savant
-1 Thrór's Map
-1 Tireless Provisioner
-1 Trade Caravan
-1 Twin-Silk Spider
-1 Viscerid Armor
-1 Vodalian War Machine
-1 Volunteer Reserves
-1 Wall of Kelp
-1 Wall of Resistance
+1 Thought Courier
+1 Thrull Wizard
+1 Tidings
+1 Titan's Grave
+1 Touch of Brilliance
+1 Touch of Invisibility
+1 Trade Routes
+1 Treeguard Duo
+1 Triton Waverider
+1 Vedalken Heretic
+1 Vermiculos
+1 Vernal Fen
+1 Void Grafter
+1 Voracious Greatshark
+1 Witherbloom Campus
 1 Yavimaya's Embrace
-1 Zeriam, Golden Wind
 
 [commander]
-Derevi, Empyrial Tactician
+Leovold, Emissary of Trest

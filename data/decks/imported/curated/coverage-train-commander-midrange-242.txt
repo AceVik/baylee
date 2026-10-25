@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266243]
+1 Affa Guard Hound
+1 Arborea Pegasus
+1 Arcane Encyclopedia
+1 Attercop
+1 Austere Command
+1 Binding Mummy
+1 Blooming Stinger
+1 Blue Scarab
+1 Branchloft Pathway
+1 Brave the Sands
+1 Briarpack Alpha
+1 Captivating Unicorn
+1 Celebrity Fencer
+1 Chocobo Racetrack
+1 Corrosive Gale
+1 Crisis of Conscience
+1 Daybreak Charger
+1 Etched Cornfield
+1 Fallow Wurm
+1 Fledgling Griffin
+11 Forest
+1 Fragmentize
+1 Gale Swooper
+1 Gathering Place
+1 Gift of Granite
+1 Glyph of Reincarnation
+1 Grove of the Guardian
+1 Hanna's Custody
+1 Herd Gnarr
+1 Horizon Canopy
+1 Hushwood Verge
+1 Invasive Species
+1 Jalum Tome
+1 Jandor's Ring
+1 Jeskai Barricade
+1 Kazandu Mammoth
+1 Kitchen Finks
+1 Kor Entanglers
+1 Lifelink
+1 Loporrit Scout
+1 Makindi Ox
+1 Mummy Paramount
+1 Nature's Blessing
+1 Neighborhood Guardian
+1 Nexus Wardens
+1 Ondu Greathorn
+1 Ondu Inversion
+14 Plains
+1 Rain of Blades
+1 Riftstone Portal
+1 Rimefur Reindeer
+1 Rogue's Gloves
+1 Rumbling Sentry
+1 Saltcrusted Steppe
+1 Selesnya Keyrune
+1 Shimmering Barrier
+1 Silken Strength
+1 Snapping Creeper
+1 Sparring Mummy
+1 Spirit Mantle
+1 Springmane Cervin
+1 Stirring Wildwood
+1 Temple Garden
+1 Territorial Boar
+1 Thundering Wurm
+1 Tigereye Cameo
+1 Tranquil Garden
+1 Treeguard Duo
+1 Triclopean Sight
+1 Trollhide
+1 Tropical Storm
+1 Valorous Steed
+1 Vec Townships
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Wooded Bastion
+
+[commander]
+Emiel the Blessed

@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20266272]
+1 Amnesia
+1 Aura Flux
+1 Aura of Dominion
+1 Aven Reedstalker
+1 Aven Smokeweaver
+1 Celestial Messenger
+1 Chain Stasis
+1 Clammy Prowler
+1 Clockwork Avian
+1 Cloud Spirit
+1 Contempt
+1 Convincing Mirage
+1 Dream Coat
+1 Dream Tides
+1 Fledgling Osprey
+1 Frozen Aether
+1 Geist of the Archives
+1 Ghost Ship
+1 Grasslands
+1 Gravitational Shift
+1 Hermetic Study
+1 Ice Over
+1 Intruder Alarm
+35 Island
+1 Levitation
+1 Metathran Transport
+1 Mirrormade
+1 Mistwalker
+1 Moon Heron
+1 Murmuring Phantasm
+1 Nephalia Seakite
+1 Night Market
+1 Nimbus of the Isles
+1 Opposition
+1 Phantasmal Terrain
+1 Pin to the Earth
+1 Riptide
+1 Riptide Chimera
+1 Ruins of Oran-Rief
+1 Scion of Ugin
+1 Sentinels of Glen Elendra
+1 Serra Sphinx
+1 Shimmerdrift Vale
+1 Short Circuit
+1 Sinking Feeling
+1 Snow Devil
+1 Starlit Mantle
+1 Stormcloud Spirit
+1 Stormrider Spirit
+1 Stratozeppelid
+1 Sunken Citadel
+1 Teardrop Kami
+1 Thieving Otter
+1 Treetop Sentinel
+1 Troublesome Spirit
+1 Uncharted Haven
+1 Undertow
+1 Untaidake, the Cloud Keeper
+1 Updraft Elemental
+1 Vanishing
+1 Veiled Crocodile
+1 Venarian Gold
+1 Wandering Ones
+1 Wayward Soul
+1 You See a Guard Approach
+
+[commander]
+Yargle, Goliath of Otaria

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266098]
+1 Accursed Duneyard
+1 Adanto Vanguard
+1 Aeronaut Admiral
+1 Akki War Paint
+1 Akroma's Devoted
+1 Armor of Faith
+1 Aven Brigadier
+1 Blade Historian
+1 Butterbur, Bree Innkeeper
+1 Cave Sense
+1 Consecrate Land
+1 Consuming Ferocity
+1 Desert
+1 Detection Tower
+1 Disciple of Law
+1 Eladamri, Lord of Leaves
+1 Elephant Graveyard
+1 Expendable Troops
+1 Femeref Archers
+1 Field Marshal
+1 Flowstone Surge
+1 Garruk's Uprising
+1 Goblin Rabblemaster
+1 Great Hall of the Citadel
+1 Guard Duty
+1 HELIOS One
+1 Herald of Dromoka
+1 Inspiring Veteran
+1 Jacques le Vert
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 King Suleiman
+1 Knight Exemplar
+1 Kobold Drill Sergeant
+1 Kongming, "Sleeping Dragon"
+1 Leonin Squire
+1 Lovisa Coldeyes
+1 Magus of the Wheel
+1 Mass Hysteria
+1 Meng Huo, Barbarian King
+1 Military Discipline
+1 Miren, the Moaning Well
+1 Misty Rainforest
+10 Mountain
+1 Nova Cleric
+1 Oathsworn Giant
+1 Paragon of Fierce Defiance
+1 Paragon of New Dawns
+14 Plains
+1 Plaza of Heroes
+1 Priest of Iroas
+1 Prophetic Ravings
+1 Prying Blade
+1 Reliquary Monk
+1 Sanctum Weaver
+1 Saryth, the Viper's Fang
+1 Savior of the Sleeping
+1 Scavenger Folk
+1 Security Blockade
+1 Soraya the Falconer
+1 Sorrow's Path
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Super Speed
+1 Sylvan Anthem
+1 The Gold Saucer
+1 Throne of Makindi
+1 Unchained Berserker
+1 Urborg, Tomb of Yawgmoth
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Vigilance
+1 Warleader's Call
+1 Weapons Trainer
+1 White Lotus Reinforcements
+1 White Scarab
+1 Winding Canyons
+
+[commander]
+Samut, Voice of Dissent

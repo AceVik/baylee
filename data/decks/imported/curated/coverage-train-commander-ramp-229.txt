@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #20266230]
-1 Agility
-1 Akki War Paint
-1 Anaba Spirit Crafter
-1 Aspect of Lamprey
-1 Badlands
-1 Berserkers' Onslaught
-1 Blazemire Verge
-1 Blightstep Pathway
-1 Boggart Arsonists
-1 Boggart Loggers
-1 Burrowing
-1 Caterwauling Boggart
-1 Cave Sense
-1 Chaosphere
-1 Cinder Barrens
-1 Cinder Marsh
-1 Clutch of Undeath
-1 Collector's Vault
-1 Crucible of Fire
-1 Cursed Flesh
-1 Dance with Devils
-1 Dark Fortress
-1 Demonic Torment
-1 Drider
-1 Emrakul's Hatcher
-1 Feast of the Unicorn
-1 Feebleness
-1 Ferocity of the Wilds
-1 Footlight Fiend
-1 Ghoulflesh
-1 Giant Spectacle
-1 Goblin Chieftain
-1 Goblin Digging Team
-1 Goblin King
-1 Goblin Oriflamme
-1 Goblin Picker
-1 Goblin Replica
-1 Goblin Sappers
-1 Goblin Swine-Rider
-1 Goblin War Paint
-1 Graven Cairns
-1 Greel's Caress
-1 Immolation
-1 Kobold Drill Sergeant
-1 Kobold Overlord
-1 Kobold Taskmaster
-1 Kobolds of Kher Keep
-1 Lantern-Lit Graveyard
-1 Lava Tubes
-1 Luxury Suite
-1 Mad Auntie
-1 Mahadi, Emporium Master
-1 Mardu Runemark
-1 Mark of the Vampire
-1 Molten Slagheap
-1 Molting Snakeskin
-1 Mount Doom
-19 Mountain
-1 Orcish Oriflamme
-1 Plundering Pirate
-1 Ragavan, Nimble Pilferer
-1 Rage Reflection
-1 Rakdos Guildgate
-1 Raze the Effigy
-1 Rukh Egg
-1 Scream Puff
-1 Shadowblood Ridge
-1 Skeletal Kathari
-1 Stensia Bloodhall
-7 Swamp
-1 Swashbuckling
-1 Tainted Peak
-1 Thrull Retainer
-1 Twisted Experiment
-1 Vault Robber
+[deck:commander ramp UB #20266230]
+1 Aether Vial
+1 Arcane Spyglass
+1 Arnjlot's Ascent
+1 Ashnod's Transmogrant
+1 Blizzard Elemental
+1 Bounty Hunter
+1 Breath of Dreams
+1 Bronze Walrus
+1 Capture of Jingzhou
+1 Clearwater Pathway
+1 Cloud Djinn
+1 Cloud Dragon
+1 Darkwater Catacombs
+1 Deep Spawn
+1 Delif's Cube
+1 Djinn of the Lamp
+1 Dreadship Reef
+1 Empowered Autogenerator
+1 Ephemeron
+1 Eye Collector
+1 Faerie Mastermind
+1 Fountain of Youth
+1 Gloomlake Verge
+1 Golden Urn
+1 Goliath Sphinx
+1 Grasping Shadows
+1 Grave Robbers
+1 Hidden Lair
+1 Ice Tunnel
+1 Il Mheg Pixie
+1 Illusionary Forces
+1 Illusionary Wall
+1 Instant Ramen
+16 Island
+1 Leviathan
+1 Lich's Caress
+1 Liquimetal Torque
+1 Looter il-Kor
+1 Magistrate's Scepter
+1 Maw of the Mire
+1 Mimic
+1 Minion of the Wastes
+1 Nephalia Drownyard
+1 Noxious Grasp
+1 Ornithopter of Paradise
+1 Pearl Medallion
+1 Pendrell Drake
+1 Pristine Talisman
+1 Psychic Frog
+1 Ramirez DePietro
+1 River of Tears
+1 Rootwater Depths
+1 Scampering Surveyor
+1 Scrounger of Souls
+1 Sephiroth's Intervention
+1 Serum Tank
+1 Shimmerscale Drake
+1 Shore Keeper
+1 Sinister Hideout
+1 Stalking Bloodsucker
+1 Stock Up
+1 Sunken Ruins
+1 Suq'Ata Assassin
+10 Swamp
+1 Tainted Isle
+1 Team Transmitter
+1 Thanos, Death's Consort
+1 Tidy Conclusion
+1 Time Walk
+1 Umezawa's Jitte
+1 Underground River
+1 Underground Sea
+1 Waterveil Cavern
+1 Watery Grave
+1 Zephid
 
 [commander]
-Rohgahh of Kher Keep
+Doc Ock, Evil Inventor

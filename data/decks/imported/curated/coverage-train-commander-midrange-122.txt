@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange RG #20266123]
-1 Barbed Foliage
-1 Bayou Dragonfly
-1 Bloodshed Fever
-1 Bower Passage
-1 Captive Flame
-1 Caustic Caterpillar
-1 Centaur Archer
-1 Charging Badger
-1 Choke
-1 Cori Mountain Monastery
-1 Crash of Rhino Beetles
-1 Crown of Flames
-1 Curse of Marit Lage
-1 Deadfall
-1 Defiant Elf
-1 Dense Canopy
-1 Deranged Whelp
-1 Dwarven Hold
-1 Dwarven Mine
-1 Earthcraft
-1 Emerald Dragonfly
-1 Endless Wurm
-1 Evendo, Waking Haven
-1 Fire Ants
-1 Fire Drake
-1 Firefly
-1 Flowstone Mauler
-1 Forbidden Lore
-15 Forest
-1 Ghitu War Cry
-1 Goblin Kites
-1 Goliath Beetle
-1 Grounded
-1 Havenwood Wurm
-1 Hawkeater Moth
+[deck:commander midrange WG #20266123]
+1 Abandoned Outpost
+1 Absolute Grace
+1 Abzan Runemark
+1 Archweaver
+1 Argoth, Sanctum of Nature
+1 Aura Shards
+1 Blor the Impervious
+1 Blue Scarab
+1 Bootleggers' Stash
+1 Candlelight Vigil
+1 Carapace
+1 Castle Ardenvale
+1 Castle Garenbrig
+1 Cleansing Ray
+1 Conviction
+1 Crystal Chimes
+1 Cylian Elf
+1 Dauntless Aven
+1 Devkarin Dissident
+1 Elf Replica
+1 Elvish Hexhunter
+1 Elvish Hunter
+1 Elvish Scrapper
+1 Epic Proportions
+1 Fertile Thicket
+14 Forest
+1 Gaelicat
+1 Gift of Strands
+1 Gilded Lotus
+1 Glorious Anthem
+1 Greenhilt Trainee
 1 Hidden Nursery
-1 Hollow Trees
-1 Hot Springs
-1 Ifh-Bíff Efreet
-1 Instill Energy
-1 Killer Bees
-1 Kudzu
+1 Hungry Spriggan
+1 Hymn of Rebirth
+1 Island Sanctuary
+1 Karoo
+1 Kaysa
+1 King of the Pride
+1 Krark-Clan Ironworks
 1 Lair of the Hydra
-1 Locust Swarm
-1 Lure
-1 Manor Gate
-1 Mardu Runemark
-1 Monsoon
-1 Moon Sprite
-10 Mountain
-1 Nature's Chosen
-1 Nature's Wrath
+1 Loam Lion
+1 Lothlórien Lookout
+1 Lunarch Mantle
+1 Mirkwood Pathmaker
+1 Mistveil Plains
+1 New Benalia
+1 Ondu Inversion
 1 Oran-Rief, the Vastwood
-1 Presence of Gond
-1 Pygmy Razorback
-1 Raging River
-1 Revelation
-1 Rocky Roads
-1 Roots
-1 Satyr Rambler
-1 Sawback Manticore
-1 Shivan Wurm
-1 Shocker
-1 Squall Line
-1 Stormbind
-1 Talons of Falkenrath
-1 Tangle Mantis
-1 The Hunter Maze
-1 Thriving Grove
+1 Pheres-Band Warchief
+11 Plains
+1 Privileged Position
+1 Rune-Cervin Rider
+1 Rustic Clachan
+1 Sabertooth Nishoba
+1 Sapphire Medallion
+1 Savaen Elves
+1 Scattershot Archer
+1 Sejiri Steppe
+1 Shifting Woodland
+1 Silken Strength
+1 Simian Brawler
+1 Skull of Orm
+1 Skyhunter Prowler
+1 Spidersilk Armor
+1 Stoneskin
+1 Sword of the Meek
+1 Sylvok Replica
+1 Tajuru Pathwarden
 1 Timberland Ruins
-1 Turntimber Grove
-1 Unyaro Bee Sting
-1 Unyaro Bees
-1 Venomous Dragonfly
-1 Yavimaya Gnats
-1 Zanarkand, Ancient Metropolis
+1 Titania's Song
+1 Tributary Vaulter
+1 Undergrowth Leopard
+1 Viridian Lorebearers
+1 Viridian Zealot
+1 Wild Nacatl
+1 Wildheart Invoker
 
 [commander]
-Tuknir Deathlock
+Bast, Panther Goddess

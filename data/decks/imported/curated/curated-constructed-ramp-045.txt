@@ -2,20 +2,20 @@
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261068]
 3 Brightclimb Pathway
-3 Carnival of Souls
+3 Champion of the Parish
 4 Cold Snap
-3 Cruel Truths
-3 Dream Beavers
-3 Grim Tutor
-4 Lord of the Pit
-4 Misery Charm
-4 Neva, Stalked by Nightmares
+2 Festering Wound
+3 Krovikan Plague
+3 Nightshade Harvester
 2 Ob Nixilis, the Fallen
+3 Orcish Bowmasters
 3 Orzhova, the Church of Deals
-3 Plains
+8 Plains
+4 Royal Decree
+4 Shauku, Endbringer
 1 Silent Clearing
 1 Starlit Sanctum
-3 Sunscorch Regent
-12 Swamp
+3 Sterling Supplier
+7 Swamp
+4 Vampiric Tutor
 2 Vault of the Archangel
-2 Yawgmoth's Edict

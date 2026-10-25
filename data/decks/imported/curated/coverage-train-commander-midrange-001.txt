@@ -1,85 +1,85 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266002]
-1 Altac Bloodseeker
+1 Aether Channeler
+1 Air Nomad Legacy
+1 Alela, Artful Provocateur
 1 Ancestors' Aid
 1 Angel's Herald
+1 Aragorn, the Uniter
 1 Atzocan Seer
+1 Auntie's Hovel
+1 Avengers Hangar
 1 Blighted Shaman
-1 Blood Rites
-1 Brine Shaman
-1 Butterbur, Bree Innkeeper
-1 Cirith Ungol Patrol
+1 Blur Sliver
+1 Caldera Lake
+1 Carrion
+1 Clachan Festival
+1 Contract Killing
 1 Crystal Quarry
 1 Cunning Maneuver
-1 Dai Li Censor
 1 Demon's Herald
-1 Dimir Guildgate
-1 Dragonback Assault
-1 Embraal Gear-Smasher
-1 Fable of the Mirror-Breaker
-1 Failed Conversion
-1 Fault Riders
-7 Forest
-1 Fortified Village
+1 Drossforge Bridge
+1 Drowner of Truth
+1 Errand of Duty
+1 Femeref Enchantress
+2 Forest
 1 Foul Play
+1 Furycalm Snarl
+1 Geist Snatch
 1 Ghen, Arcanum Weaver
-1 Go-Shintai of Life's Origin
-1 Goblin Shrine
-1 Goblin Trenches
-1 Golgari Germination
-1 Grisly Ritual
-1 Grist, the Hunger Tide
-1 Hazezon Tamar
-1 Huntmaster of the Fells
-1 Immersturm Skullcairn
+1 Hanweir Garrison
+1 Hard Evidence
+1 Icatian Town
 1 Inquisitor Greyfax
 1 Intruding Soulrager
-3 Island
+9 Island
+1 Jund Battlemage
+1 Kiki-Jiki, Mirror Breaker
 1 Knight Watch
 1 Kykar, Wind's Fury
-1 Long Feng, Grand Secretariat
-1 Lorehold Campus
-1 Lossarnach Captain
+1 Lavaclaw Reaches
 1 Luke Cage, Hero for Hire
-1 Magus of the Order
-1 Mistvault Bridge
-9 Mountain
+1 Moriok Rigger
+1 Mountain
 1 Mouser Attack!
-1 Need for Speed
-1 Neglected Manor
-1 Obsessive Stitcher
-1 Odric's Outrider
-1 Ogre Slumlord
-1 Ominous Asylum
-1 Phyrexian Vivisector
-1 Plains
+1 Ophiomancer
+4 Plains
+1 Princess Lucrezia
 1 Professor Zei, Anthropologist
-1 Rakka Mar
+1 Radiant Summit
 1 Reckless Ransacking
-1 Reliquary Monk
-1 Restless Vinestalk
+1 Release the Dogs
+1 Restless Vents
 1 Revel of the Fallen God
-1 Revive the Shire
-1 Ripchain Razorkin
-1 Ritual of Restoration
+1 Rise of Eagles
+1 Robotics Mastery
+1 Rufus Shinra
 1 Savor
-1 Seachrome Coast
-1 Selhoff Occultist
-1 Serpent's Pass
+1 Security Blockade
 1 Servo Exhibition
-1 Sokka's Sword Training
+1 Shadewing Laureate
+1 Shelob's Ambush
+1 Smothering Tithe
 1 Sokka, Tenacious Tactician
+1 Squire's Devotion
 1 Storm God's Oracle
-5 Swamp
+1 Sunbillow Verge
+1 Super-Skrull
+1 Survey the Wreckage
+9 Swamp
+1 Symbiote Spawn
 1 The Serpent Society
 1 The World Tree
-1 Thelonite Druid
-1 Tooth and Claw
-1 Troubled Healer
-1 Vineglimmer Snarl
-1 Volatile Fjord
-1 Wandering Fumarole
+1 Thopter Foundry
+1 Training Center
+1 Treasure Dredger
+1 Tresserhorn Sinks
+1 Turbulent Steppe
+1 Umbral Expanse
+1 Vodalian Hexcatcher
+1 Voice of Resurgence
+1 Youthful Scholar
 
 [commander]
 Sliver Queen

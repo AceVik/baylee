@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266094]
+1 Akroma, Angel of Wrath
+1 Amok
+1 Angel of Retribution
+1 Archangel
+1 Arguel's Blood Fast
+1 Armistice
+1 Astrolabe
+1 Avaricious Dragon
+1 Basal Thrull
+1 Battle Hymn
+1 Battlefield Promotion
+1 Billiard Room
+1 Blight Keeper
+1 Blood Pet
+1 Blood Vassal
+1 Brimstone Dragon
+1 Burnt Offering
+1 Cabal Ritual
+1 Canyon Slough
+1 Catalyst Elemental
+1 Celestial Force
+1 Certain Death
+1 Chosen by Heliod
+1 Corpse Knight
+1 Crypt Angel
+1 Deathless Angel
+1 Dragon's Desire
+1 Drossforge Bridge
+1 Dystopia
+1 Earthbind
+1 Emeria Angel
+1 Fisk Tower
+1 Foreboding Ruins
+1 Fíli and Kíli, Joyous
+1 Glidedive Duo
+1 Grasping Shadows
+1 Grasping Thrull
+1 Heap Gate
+1 Herald of the Sun
+1 Isolated Chapel
+1 Juju Bubble
+1 Kozilek's Translator
+1 Lifecreed Duo
+1 Lyra Dawnbringer
+1 Misty Palms Oasis
+1 Momo, Rambunctious Rascal
+1 Moonglove Extractor
+8 Mountain
+1 Orzhov Basilica
+1 Orzhov Guildgate
+1 Orzhov Keyrune
+13 Plains
+1 Rakdos Carnarium
+1 Rhox Meditant
+1 Rune of Protection: Artifacts
+1 Sacrifice
+1 Sanctum Gargoyle
+1 Seraph of the Suns
+1 Shambling Vent
+1 Shattered Angel
+1 She-Hulk, Jennifer Walters
+1 Shrine of the Forsaken Gods
+1 Silverquill Campus
+1 Simulacrum
+1 Snowfield Sinkhole
+1 Soul Shred
+1 Spirit Shackle
+1 Springjack Pasture
+1 Sunblade Angel
+5 Swamp
+1 Thoughtrender Lamia
+1 Torch Song
+1 Warrior Angel
+1 Wayward Servant
+1 Werefox Bodyguard
+1 Winds of Change
+
+[commander]
+Oros, the Avenger

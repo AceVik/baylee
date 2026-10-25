@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control W #20266151]
+1 Advance Scout
+1 Alabaster Mage
+1 Alaborn Cavalier
+1 Alaborn Grenadier
+1 Alaborn Musketeer
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Ardent Militia
+1 Argivian Blacksmith
+1 Ash Barrens
+1 Banishing Stroke
+1 Benalish Infantry
+1 Border Guard
+1 Border Patrol
+1 Clergy en-Vec
+1 Clergy of the Holy Nimbus
+1 Death Speakers
+1 Defender of Law
+1 Earth Kingdom Protectors
+1 Enchanted Being
+1 Farbog Explorer
+1 Femeref Healer
+1 Femeref Scouts
+1 Flanking Troops
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Forbidden Orchard
+1 Foriysian Interceptor
+1 Haazda Shield Mate
+1 Half-Elf Monk
+1 Icatian Phalanx
+1 Icatian Scout
+1 Icatian Skirmishers
+1 Inkmoth Nexus
+1 Knight Errant
+1 Knight of Valor
+1 Knights of Thorn
+1 Kyoshi Warrior Guard
+1 Longbow Archer
+1 Martyrs of Korlis
+1 Nightguard Patrol
+1 Peacekeeper
+1 Phantom General
+36 Plains
+1 Plaza of Heroes
+1 Resistance Fighter
+1 Righteous Avengers
+1 Sacred Knight
+1 Samite Alchemist
+1 Secret Base
+1 Serra Paladin
+1 Shield Bearer
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Silver Knight
+1 Skyline Scout
+1 Squire
+1 Standing Troops
+1 Stardew Valley
+1 Steadfast Guard
+1 Sun Sentinel
+1 Tarnished Citadel
+1 Valiant Guard
+1 Veteran Bodyguard
+
+[commander]
+Hawkeye, Clint Barton

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266108]
+1 Adarkar Unicorn
+1 Animal Sanctuary
+1 Appendage Amalgam
+1 Arch of Orazca
+1 Artifact Possession
+1 Aysen Highway
+1 Bant Panorama
+1 Blasted Landscape
+1 Blessing of Leeches
+1 Blizzard Elemental
+1 Brokers Hideout
+1 Chains of Mephistopheles
+1 Circle of Protection: Shadow
+1 Clammy Prowler
+1 Copy Artifact
+1 Darkest Hour
+1 Diamond City
+1 Divine Intervention
+1 Dream Coat
+1 Eidolon of Astral Winds
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Embargo
+1 Enchanted Evening
+1 Eye of Ugin
+1 Fear of Surveillance
+1 Field of Dreams
+1 Flood
+1 Forgotten Monument
+1 Gerrard's Battle Cry
+1 Golden-Tail Disciple
+1 Greater Realm of Preservation
+1 Havengul Skaab
+1 Hecatomb
+1 High Ground
+1 Imprison
+1 Karma
+1 Lucent Liminid
+1 Master of the Feast
+1 Mind Over Matter
+1 Mindwrack Harpy
+1 Muraganda Raceway
+1 Nyx-Fleece Ram
+1 Nyxborn Courser
+1 Nyxborn Marauder
+1 Nyxborn Seaguard
+1 Reconnaissance
+1 Ronom Serpent
+1 Rune of Protection: Black
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Sanctum of Eternity
+1 Sandbar Serpent
+1 Screams of the Damned
+1 Serpent of Yawning Depths
+1 Sheltered Valley
+13 Snow-Covered Island
+8 Snow-Covered Plains
+5 Snow-Covered Swamp
+1 Stock Up
+1 Storm of Saruman
+1 Terrain Generator
+1 The Grey Havens
+1 The Tabernacle at Pendrell Vale
+1 The Terror of Serpent's Pass
+1 Tidal Flats
+1 Unknown Shores
+1 Unquestioned Authority
+1 Ur-Drago
+1 Urza's Power Plant
+1 Waxen Shapethief
+1 Whitewater Naiads
+1 Witness of Tomorrows
+1 Wrath of Marit Lage
+
+[commander]
+Halfdane

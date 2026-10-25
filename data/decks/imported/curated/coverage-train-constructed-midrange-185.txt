@@ -1,27 +1,28 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
-[deck:constructed midrange WUG #20266186]
-2 Adaptive Shimmerer
-2 Altered Ego
-3 Aysen Abbey
-2 Chitinous Graspling
-2 Clockwork Gnomes
-2 Dromoka Monument
-7 Forest
-2 Gene Pollinator
-2 Hand of Justice
-8 Island
-2 Mechan Navigator
-2 Moss Diamond
-2 Obelisk of Bant
-2 Second Thoughts
-2 Selesnya Signet
-2 Simic Locket
-2 Snapping Voidcraw
-2 Sylvan Scrying
-2 The Everflowing Well
-2 Thunder Totem
-3 Tranquil Landscape
-2 Treva's Ruins
-1 Urban Retreat
-2 Yoked Plowbeast
+[deck:constructed midrange WUB #20266186]
+2 Blight Mound
+2 Canal Monitor
+2 Contaminated Landscape
+2 Dromar's Cavern
+2 Executioner's Capsule
+2 Guardian Lions
+2 Highborn Vampire
+1 Island
+2 Moriok Replica
+2 Orzhov Cluestone
+9 Plains
+2 Prakhata Club Security
+3 Raffine's Tower
+2 Shadowcloak Vampire
+2 Simulacrum Synthesizer
+2 Slinking Serpent
+2 Spark Double
+2 Spectral Procession
+5 Swamp
+2 Talisman of Hierarchy
+2 Tarrian's Journal
+2 Unyielding Krumar
+2 Vampire Champion
+2 Weakstone
+2 Wizards' School

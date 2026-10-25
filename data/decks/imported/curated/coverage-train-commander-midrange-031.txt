@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266032]
+1 +2 Mace
+1 Accorder's Shield
+1 Aegis Automaton
+1 Anodet Lurker
+1 Archon of Justice
+1 Arctic Flats
+1 Arctic Treeline
+1 Auratog
+1 Basilisk Gate
+1 Baxter Building
+1 Behemoth Sledge
+1 Birnin Zana Plaza
+1 Birthing Boughs
+1 Bladed Sentinel
+1 Blood Servitor
+1 Bootleggers' Stash
+1 Bountiful Promenade
+1 Brass Secretary
+1 Clockwork Drawbridge
+1 Enatu Golem
+1 Envoy of Okinec Ahau
+1 Etched Cornfield
+8 Forest
+1 Fragmentize
+1 Friendly Teddy
+1 Gilded Pinions
+1 Gleaming Barrier
+1 Glint Hawk Idol
+1 Gold Pan
+1 Goldmeadow Lookout
+1 Goldvein Pick
+1 Graypelt Refuge
+1 Great Hall of the Citadel
+1 Green Scarab
+1 Guardian Kirin
+1 Hedron Crawler
+1 Hymn of Rebirth
+1 Irregular Cohort
+1 Join the Ranks
+1 Lawbringer
+1 Leonin Abunas
+1 Lightbringer
+1 Maskwood Nexus
+1 Meteor Sword
+1 Military Discipline
+1 Mountain Stronghold
+1 Mycoid Shepherd
+1 Nuisance Engine
+1 Pillar of the Paruns
+17 Plains
+1 Radiant Grove
+1 Razorfield Thresher
+1 Restless Prairie
+1 Scrap Trawler
+1 Selesnya Keyrune
+1 Serpent Generator
+1 Shimmering Barrier
+1 Slayer's Plate
+1 Sliversmith
+1 Soulstone Sanctuary
+1 Spectral Guardian
+1 Su-Chi
+1 Sundial, Dawn Tyrant
+1 Tattoo Ward
+1 Temple of Plenty
+1 Thaumatog
+1 Thermal Navigator
+1 Thousand Moons Smithy
+1 Tireless Provisioner
+1 Titanium Golem
+1 Trenching Steed
+1 Uktabi Faerie
+1 Venomous Dragonfly
+1 Wall of Tanglecord
+1 Wand of the Elements
+1 Whirlermaker
+
+[commander]
+Bast, Panther Goddess

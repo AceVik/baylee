@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange U #20266263]
-1 Akroma's Memorial
-1 Birthing Boughs
-1 Blinding Drone
-1 Blockade Runner
-1 Bottle of Suleiman
-1 Cathar's Shield
-1 Citanul Flute
-1 City of Shadows
-1 Coral Commando
-1 Coralhelm Guide
-1 Cursed Totem
-1 Dingus Egg
-1 Dingus Staff
-1 Feroz's Ban
-1 Fodder Cannon
-1 Glimmerlight
-1 Goblin Boom Keg
-1 Harbinger of the Seas
-1 Headwater Sentries
-1 Homarid Shaman
-1 Horseshoe Crab
-1 Inkmoth Nexus
-34 Island
-1 Kelpie Guide
-1 Lapis Lazuli Talisman
-1 Lion Heart
-1 Mana Short
-1 Manta Riders
-1 Merfolk Raiders
-1 Merfolk Seastalkers
-1 Merrow Wavebreakers
-1 Mirrorhall Mimic
-1 Murmuring Phantasm
-1 Nettlecyst
-1 Nuisance Engine
-1 Opal Palace
-1 Planar Bridge
-1 Ring of Immortals
-1 Ring of Three Wishes
-1 Riptide
-1 Rishadan Dockhand
-1 River Darter
-1 River Kaijin
-1 River Merfolk
-1 Rootwater Commando
-1 Sandstorm Verge
-1 Sea Spirit
-1 Seasinger
-1 Sejiri Merfolk
-1 Shoreline Raider
-1 Stonybrook Angler
-1 Streambed Aquitects
-1 Svyelunite Priest
-1 Sworn Guardian
-1 Teardrop Kami
-1 Telekinesis
-1 The Gold Saucer
-1 Tidal Warrior
-1 Tide Drifter
-1 Vodalian Knights
+[deck:commander midrange G #20266263]
+1 Access Tunnel
+1 Ancient Tomb
+1 Arbor Elf
+1 Argothian Elder
+1 Argothian Swine
+1 Aurochs
+1 Bountiful Harvest
+1 Bull Aurochs
+1 Centaur Veteran
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Dust Bowl
+1 Eel-Hounds
+1 Elder Druid
+1 Elvish Bard
+1 Elvish Hunter
+1 Entangling Vines
+1 Feral Invocation
+1 Forbidden Lore
+1 Frantic Strength
+1 Gaea's Embrace
+1 Game-Trail Changeling
+1 Greenside Watcher
+1 Greenwood Sentinel
+1 Grounded
+1 Instill Energy
+1 Inventors' Fair
+1 Joyous Respite
+1 Kalonian Behemoth
+1 Kavu Mauler
+1 Ley Druid
+1 Llanowar Druid
+1 Lure
+1 Moopsy
+1 Nature's Chosen
+1 Norwood Archers
+1 Norwood Ranger
+1 Oakenform
+1 Pixie Queen
+1 Presence of Gond
+1 Quirion Druid
+1 Ravenous Daggertooth
+1 Regeneration
+1 Rime Tender
+1 Sacred White Deer
+1 Sculptor of Winter
+1 Seeker of Skybreak
+1 Shopkeeper's Bane
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+34 Snow-Covered Forest
+1 Stampeding Rhino
+1 Steel Leaf Champion
+1 Tajuru Pathwarden
+1 Tajuru Snarecaster
+1 Tel-Jilad Chosen
+1 Tiger Claws
+1 Treetop Rangers
+1 Treetop Scout
+1 Treetop Warden
+1 Tyrite Sanctum
 1 Voldaren Estate
-1 Wandering Ones
-1 Wanderwine Distracter
-1 Wave Elemental
-1 Whirlermaker
-1 Wilderness Hypnotist
+1 War Mammoth
+1 Weatherseed Elf
+1 Wild Elephant
 
 [commander]
-Yargle, Goliath of Otaria
+Kodama of the North Tree

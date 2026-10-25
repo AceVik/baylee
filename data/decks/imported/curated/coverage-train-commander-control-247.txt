@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control BG #20266248]
+1 Arcbound Ravager
+1 Archers' Parapet
+1 Bayou
+1 Blood Bairn
+1 Bottle of Suleiman
+1 Burgeoning
+1 Clinging Darkness
+1 Crystal Chimes
+1 Darkbore Pathway
+1 Deadbridge Shaman
+1 Devouring Swarm
+1 Dingus Staff
+1 Downdraft
+1 Fallen Angel
+1 Festering Thicket
+1 Filigree Crawler
+1 Foratog
+16 Forest
+1 Foul Orchard
+1 Gift of the Deity
+1 Gilded Pinions
+1 Glimmer Bairn
+1 Golgari Rot Farm
+1 Golgari Rotwurm
+1 Grim Backwoods
+1 Guardian Beast
+1 Hag of Death's Legion
+1 Hidden Predators
+1 Highland Game
+1 Illegitimate Business
+1 Juzám Djinn
+1 Kaysa
+1 Llanowar Wastes
+1 Malachite Golem
+1 Marsh Lurker
+1 Mongrel Pack
+1 Necroblossom Snarl
+1 Nylea's Forerunner
+1 Overgrown Tomb
+1 Panharmonicon
+1 Phyrexian War Beast
+1 Poison-Tip Archer
+1 Prismatic Lens
+1 Quagmire Druid
+1 Root Cage
+1 Rotwidow Pack
+1 Savage Silhouette
+1 Sinister Strength
+1 Skittering Invasion
+1 Song of Serenity
+1 Starved Rusalka
+1 Stromgald Cabal
+1 Sultai Flayer
+1 Svogthos, the Restless Tomb
+11 Swamp
+1 Sword of the Meek
+1 Tainted Wood
+1 Thelonite Druid
+1 Thelonite Monk
+1 Tireless Provisioner
+1 Titania's Song
+1 Torment
+1 Twilight Mire
+1 Twisted Experiment
+1 Uktabi Wildcats
+1 Vampire Aristocrat
+1 Viridescent Bog
+1 Wanderlust
+1 Wastewood Verge
+1 Weakness
+1 Weatherseed Treefolk
+1 Web
+1 Woodland Chasm
+1 Zhang Liao, Hero of Hefei
+
+[commander]
+The Serpent Society

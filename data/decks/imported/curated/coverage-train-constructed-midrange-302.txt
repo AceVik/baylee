@@ -1,28 +1,28 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
-[deck:constructed midrange UBG #20266303]
-2 Black Poplar Shaman
-2 Catacomb Crocodile
-2 Ebony Treefolk
-2 Emperor Crocodile
-2 Foreboding Landscape
-9 Forest
-2 Forest Bear
-2 Frilled Oculus
-2 Heartwood Treefolk
-2 Ironroot Treefolk
-1 Island
-2 Jolrael's Centaur
-2 Living Airship
-2 Magnigoth Sentry
-2 Mist Leopard
-2 Opulent Palace
-2 Phyrexian Gremlins
-2 Pitiless Gorgon
-2 Scarwood Treefolk
-2 Stonefare Crocodile
+[deck:constructed midrange UBR #20266303]
+2 Bog Elemental
+2 Castle Sengir
+2 Cinderhaze Wretch
+2 Crosis's Catacombs
+1 Crumbling Necropolis
+3 Crypt of the Eternals
+2 Deflection
+2 Forerunner of Slaughter
+2 Furnace Brood
+2 Hibernation Sliver
+10 Island
+2 Juxtapose
+2 Mnemonic Sliver
+2 Morgue Thrull
+2 Phantasmal Image
+2 Phase Dolphin
+2 Rakdos Ragemutt
+2 Rotted Hulk
+2 Scion of Glaciers
+2 Scuttling Sliver
+1 Seething Landscape
 5 Swamp
-2 Trestle Troll
-2 Viridescent Bog
-2 Wardscale Crocodile
-3 Zagoth Triome
+2 Thalakos Mistfolk
+2 Watercourser
+2 Wave Elemental

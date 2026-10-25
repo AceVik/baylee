@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266220]
+1 Accelerate
+1 Ancestral Recall
+1 Arcum's Astrolabe
+1 Badlands
+1 Batterhorn
+1 Blister Beetle
+1 Blood Crypt
+1 Brand
+1 Burning Inquiry
+1 Castle Sengir
+1 Concentrate
+1 Control of the Court
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Dagger Caster
+1 Dangerous Wager
+1 Dark Fortress
+1 Darkwater Catacombs
+1 Deepfathom Skulker
+1 Dewdrop Spy
+1 Dragonborn Looter
+1 Dreamstone Hedron
+1 Drifting Djinn
+1 Enhanced Awareness
+1 Expedite
+1 Fire Imp
+1 Flayer Drone
+1 Foriysian Totem
+1 Fury
+1 Gauntlet of Might
+1 Goblin Lore
+1 Hedron Crab
+1 Iceberg Cancrix
+1 Impolite Entrance
+1 Kolaghan Monument
+1 Library Larcenist
+1 Mage's Guile
+1 Mnemonic Wall
+1 Mogg Bombers
+1 Molten Slagheap
+1 Mox Opal
+1 Nephalia Drownyard
+1 Obelisk of Grixis
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Oscorp Industries
+1 Planetary Patrol
+1 Prophetic Prism
+1 Pyrogoyf
+1 Rakdos Keyrune
+1 Raking Claws
+1 Ravenous Baboons
+1 Ruin Crab
+1 Rummaging Goblin
+1 Seething Landscape
+1 Slip Through Space
+15 Snow-Covered Island
+10 Snow-Covered Mountain
+1 Snow-Covered Swamp
+1 Soratami Cloudskater
+1 Spined Megalodon
+1 Spitfire Lagac
+1 Splatter Technique
+1 Stensia Bloodhall
+1 Subterranean Scout
+1 Sulfur Vent
+1 Sunken Ruins
+1 Temporal Mastery
+1 Thrór's Map
+1 Tunneling Geopede
+1 Tymora's Invoker
+1 Whiptail Moloch
+1 Winds of Change
+1 Witty Roastmaster
+1 Xander's Lounge
+
+[commander]
+Gwendlyn Di Corci

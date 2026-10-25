@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BR #20266115]
-1 Abomination
-1 Balduvian Trading Post
-1 Barad-dûr
-1 Berserkers' Onslaught
-1 Bog Wreckage
-1 Boggart Cursecrafter
-1 Boggart Loggers
-1 Cabal Pit
-1 Cave Sense
-1 Chaosphere
-1 Clutch of Undeath
+1 Arid Archway
+1 Axiom Engraver
+1 Battlefly Swarm
+1 Big Apple, 3 a.m.
+1 Bile Urchin
+1 Blight Pile
+1 Breath of Malfegor
+1 Cackling Fiend
+1 Cackling Imp
+1 Captive Flame
+1 Cloudpost
+1 Contaminated Ground
+1 Control of the Court
+1 Cryptic Spires circles=BR
 1 Cursed Flesh
-1 Dogpile
-1 Dormant Volcano
+1 Cyclops of Eternal Fury
+1 Dread Wight
 1 Dread of Night
-1 Eater of the Dead
-1 Eviscerate
-1 Exiled Boggart
-1 Fogwell's Gym
-1 Ghitu Encampment
-1 Ghoulflesh
-1 Glacial Crevasses
-1 Goblin Artillery
-1 Goblin Gardener
+1 Dry Spell
+1 Edgewall Inn
+1 Engine Rat
+1 Epiphany Storm
+1 Eternal Flame
+1 Evil Presence
+1 Farbog Boneflinger
+1 Firebreathing
+1 Flayer Drone
+1 Flood Plain
+1 Gateway Plaza
+1 Ghitu War Cry
+1 Goblin Lore
 1 Goblin Oriflamme
-1 Goblin Snowman
-1 Goblin Wizardry
-1 Grave Pact
-1 Heat of Battle
-1 Hellion Crucible
-1 Hidden Necropolis
-1 Hoard Robber
-1 Hornet Harasser
-1 Hurler Cyclops
-1 Junktown
+1 Grand Coliseum
+1 Hasran Ogress
+1 Hellfire
+1 Hellkite Igniter
+1 Hidden Hideout
+1 Impending Disaster
 1 Kobolds of Kher Keep
-1 Krark-Clan Grunt
-1 Lawless Broker
-1 Leshrac's Rite
-1 Lich
-1 Madblind Mountain
-1 Maniacal Rage
-1 Mogg Maniac
-1 Mogg Raider
-1 Molting Snakeskin
+1 Lurching Rotbeast
+1 Mana Matrix
+1 Maze's End
+1 Moaning Wall
 9 Mountain
-1 Orcish Bloodpainter
-1 Orcish Mechanics
-1 Oxidda Daredevil
-1 Pitchburn Devils
-1 Pride of the Perfect
-1 Primaris Eliminator
-1 Prophetic Ravings
-1 Reflexes
-1 Serpent Generator
-1 Sinister Strength
-1 Skittering Invasion
-1 Slingshot Goblin
-1 Slobad, Goblin Tinkerer
-1 Smoldering Efreet
-1 Sokenzan, Crucible of Defiance
-1 Spinal Villain
-1 Subterranean Hangar
+1 Mountain Valley
+1 Mutant Town Musicians
+1 Nightfire Giant
+1 Nim Abomination
+1 Oread of Mountain's Blaze
+1 Pillar Tombs of Aku
+1 Public Thoroughfare
+1 Pyrogoyf
+1 Pyrohemia
+1 Rage Reflection
+1 Rocky Tar Pit
+1 Ruins of Oran-Rief
+1 Seizures
+1 Shauku's Minion
+1 Sheoldred
+1 Shimmerdrift Vale
+1 Skull Rend
+1 Slinking Skirge
+1 Soul Bleed
+1 Spiteflame Witch
+1 Spiteful Bully
+1 Stab Wound
+1 Stromkirk Mentor
 17 Swamp
-1 Tahngarth's Rage
-1 Takenuma, Abandoned Mire
-1 Thrull Retainer
-1 Tibalt's Rager
-1 Tomb of Urami
-1 Unfriendly Fire
-1 Vampire Aristocrat
-1 Vault Robber
-1 Victim of Night
-1 Vigilante Justice
-1 Westvale Abbey
+1 Tainted Well
+1 Tethered Skirge
+1 Torture
+1 Ubul Sar Gatekeepers
+1 Uncharted Haven
+1 Vicious Conquistador
+1 Victorious Destruction
 
 [commander]
 Rohgahh of Kher Keep

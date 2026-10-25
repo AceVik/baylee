@@ -1,82 +1,82 @@
 # baylee curated highlander aggro seed=20261120
 # licence: AGPL-3.0-only
 [deck:highlander aggro BRG #20261120]
+1 Acolyte of Xathrid
+1 Appendage Amalgam
+1 Arms Dealer
 1 Barrage of Expendables
 1 Bayou
-1 Bile Urchin
-1 Blight Keeper
+1 Black Waltz No. 3
+1 Boggart Cursecrafter
 1 Burning Earth
 1 Callous Inspector
-1 Careless Celebrant
+1 Carnival of Souls
 1 Cinder Marsh
 1 Contaminated Ground
-1 Corrupted Roots
-1 Courser of Kruphix
+1 Crimson Kobolds
 1 Darigaaz's Caldera
 1 Dark Fortress
-1 Deathbringer Thoctar
+1 Death Watch
+1 Deathcurse Ogre
 1 Deathrite Shaman
-1 Dream Beavers
-1 Earthbind
-1 Eidolon of Blossoms
-1 Eidolon of the Great Revel
+1 Dragonmaster Outcast
+1 Dross Harvester
 1 Elves of Deep Shadow
-1 Enduring Vitality
-1 Fang of Shigeki
+1 Fanatical Firebrand
 1 Fastbond
-1 Fear of Lost Teeth
-1 Festering Wound
 1 Footlight Fiend
-3 Forest
-1 Frostling
+8 Forest
 1 Geothermal Crevice
 1 Gimli, Counter of Kills
 1 Goblin Arsonist
-1 Goblin Bomb
 1 Goblin Bombardment
+1 Goblin Sledder
+1 Golgari Guildmage
 1 Grasping Longneck
-1 Haunting Wind
-1 Hecatomb
+1 Havoc
 1 Impact Tremors
+1 Judith, the Scourge Diva
 1 Jund Battlemage
+1 Kobolds of Kher Keep
 1 Koskun Keep
+1 Kris Mage
 1 Lampad of Death's Vigil
+1 Madame Hydra
 1 Marionette Apprentice
-1 Master of the Feast
-1 Molten Vortex
+1 Merciless Enforcers
+1 Mintstrosity
+1 Mogg Fanatic
 1 Molting Skin
+1 Monsoon
 1 Mount Doom
-8 Mountain
+7 Mountain
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
 1 Nurturing Peatland
-1 Orcish Bowmasters
+1 Omen of the Dead
+1 Orcish Bloodpainter
 1 Orcish Vandal
-1 Oread of Mountain's Blaze
 1 Phyrexian Arena
+1 Phyrexian Reclamation
 1 Pitchburn Devils
-1 Profane Tutor
-1 Sanctum Weaver
-1 Sanguinary Priest
+1 Prodigal Pyromancer
+1 Sardian Avenger
 1 Savage Lands
-1 Sawblade Scamp
 1 Scald
-1 Seizures
-1 Serrated Scorpion
+1 Seal of Fire
+1 Sell-Sword Brute
+1 Skyway Sniper
 1 Slimefoot, the Stowaway
-1 Smaug the Magnificent
-1 Soulreaper of Mogis
-1 Spirit of Malevolence
+1 Spear Spewer
 1 Stensia Bloodhall
 1 Stomping Ground
-1 Storm Caller
+1 Stormbind
+1 Stormfist Crusader
 1 Svogthos, the Restless Tomb
-13 Swamp
-1 Tattered Mummy
-1 Tibalt's Rager
-1 Tinder Wall
-1 Torch Song
+9 Swamp
 1 Twisted Landscape
-1 Underworld Dreams
-1 Walking Ballista
+1 War-Torch Goblin
 1 Warp Artifact
-1 Weaponize the Monsters
+1 World Shaper
 1 Ziatora's Proving Ground
+1 Zulaport Cutthroat

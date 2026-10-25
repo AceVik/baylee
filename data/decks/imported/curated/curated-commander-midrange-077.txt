@@ -1,72 +1,82 @@
 # baylee curated commander midrange seed=20261100
 # licence: AGPL-3.0-only
-[deck:commander midrange U #20261100]
-1 Academy Ruins
-1 Archaeomancer
-1 Archaeomender
-1 Augury Owl
-1 Aven Fateshaper
-1 Aven Fogbringer
-1 Bazaar Trademage
-1 Brinebarrow Intruder
-1 Burrog Befuddler
-1 Cephalid Coliseum
-1 Cloudkin Seer
-1 Cloudreader Sphinx
-1 Consider
-1 Contradict
-1 Council of Advisors
-1 Dismiss
-1 Elite Instructor
-1 Emry, Lurker of the Loch
-1 Faerie Seer
-1 Five Hundred Year Diary
-1 Gryff Vanguard
-1 Halimar Excavator
-1 Harrier Strix
-1 Inkfathom Divers
-34 Island
-1 Kapsho Kitefins
-1 Knight of the Mists
-1 Lilypad Village
-1 Merchant of Secrets
-1 Merfolk Observer
-1 Micromancer
-1 Minamo, School at Water's Edge
-1 Moonlit Scavengers
-1 Mox Sapphire
-1 Omen
-1 Omen of the Sea
-1 Omenspeaker
-1 Otawara, Soaring City
-1 Overwhelmed Apprentice
-1 Owl Familiar
-1 Parasitic Strix
-1 Sage Aven
-1 Sage Owl
-1 Sage of Epityr
-1 Sage of Mysteries
-1 Sage's Row Denizen
-1 Sage's Row Savant
-1 Salvager of Secrets
-1 Scholar of Stars
-1 Scrivener
-1 Seat of the Synod
-1 Serum Visionary
-1 Serum Visions
-1 Sky-Eel School
-1 Snapcaster Mage
-1 Spellseeker
-1 Sphinx Mindbreaker
-1 Sphinx of Magosi
-1 Spire Owl
-1 Stern Proctor
-1 Tishana's Tidebinder
-1 Triton Waverider
-1 Vendilion Clique
-1 Vodalian Merchant
-1 Wan Shi Tong, Librarian
-1 Weldfast Wingsmith
+[deck:commander midrange BG #20261100]
+1 Atrocious Experiment
+1 Ayara, First of Locthwain
+1 Baleful Force
+1 Bayou
+1 Blooming Marsh
+1 Body Snatcher
+1 Cabal Archon
+1 Callous Inspector
+1 Cruel Truths
+1 Darkbore Pathway
+1 Deathrite Shaman
+1 Dross Harvester
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Elvish Farmer
+1 Enduring Vitality
+1 Evolution Charm
+1 Eyeblight Cullers
+7 Forest
+1 Forsaken Drifters
+1 Foul Orchard
+1 Glissa, the Traitor
+1 Golgari Findbroker
+1 Golgari Germination
+1 Golgari Guildmage
+1 Golgari Rot Farm
+1 Golgari Rotwurm
+1 Gravedigger
+1 Greedy Freebooter
+1 Grim Backwoods
+1 Journey to Eternity
+1 Knucklebone Witch
+1 Koma's Faithful
+1 Lampad of Death's Vigil
+1 Llanowar Wastes
+1 Lumra, Bellow of the Woods
+1 Maalfeld Twins
+1 Malevolent Awakening
+1 Moldervine Reclamation
+1 Morcant's Loyalist
+1 Necroblossom Snarl
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Paleoloth
+1 Phyrexian Reclamation
+1 Phyrexian Vivisector
+1 Prowess of the Fair
+1 Read the Bones
+1 Recurring Nightmare
+1 Returned Reveler
+1 Revive the Shire
+1 Sanguinary Priest
+1 Scarblade Scout
+1 Serrated Scorpion
+1 Shattered Crypt
+1 Silverback Shaman
+1 Soul Exchange
+1 Spirit of Malevolence
+1 Sultai Flayer
+1 Svogthos, the Restless Tomb
+18 Swamp
+1 Tainted Wood
+1 Takklemaggot
+1 Tarpan
+1 Tel-Jilad Lifebreather
+1 Titania, Protector of Argoth
+1 Turbulent Fen
+1 Twilight Mire
+1 Undertaker
+1 Viridian Harvest
+1 Warteye Witch
+1 Wastewood Verge
+1 Weirding Shaman
+1 Wolfwillow Haven
+1 World Shaper
+1 Zuran Orb
 
 [commander]
-Sakashima of a Thousand Faces
+Grist, the Hunger Tide

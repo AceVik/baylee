@@ -1,72 +1,82 @@
-# baylee unseen-card holdout commander seed=90000032
+# baylee unseen-card holdout commander seed=90000027
 # licence: AGPL-3.0-only
-[deck:commander midrange U #90000032]
-1 Abjure
-1 Academy Ruins
-1 Ancestral Recall
-1 Ancestral Vision
-1 Angler Drake
-1 Borne Upon a Wind
-1 Citywatch Sphinx
-1 Cruel Witness
-1 Customs Depot
-1 Drowned Secrets
-1 Elusive Spellfist
-1 Enervate
-1 Enter the Enigma
-1 Equilibrium
-1 Force Spike
-1 Force Void
-1 Gitaxian Probe
-1 Guardian of Solitude
-1 Halcyon Glaze
-1 Hesitation
-1 Iguana Parrot
-1 Impulse
-1 Ingenious Skaab
-34 Island
-1 Jeskai Sage
-1 Jeskai Windscout
-1 Kulrath Mystic
-1 Lightshell Duo
-1 Lunar Mystic
-1 Mana Breach
-1 Mana Drain
-1 Minamo, School at Water's Edge
-1 Mind Spring
-1 Mirran Spy
-1 Mistral Singer
-1 Neutralize
-1 Oboro, Palace in the Clouds
-1 Ojer Pakpatiq, Deepest Epoch
-1 Open Communications
-1 Primal Amulet
-1 Psychic Barrier
-1 Reach Through Mists
-1 Refute
-1 Rhystic Study
-1 Riddleform
-1 Ringwarden Owl
-1 Riptide Laboratory
-1 Riverwheel Aerialists
-1 Shipwreck Dowser
-1 Sky Theater Strix
-1 Soldevi Excavations
-1 Spell Snip
-1 Storyteller Pixie
-1 Talrand, Sky Summoner
-1 Tanufel Rimespeaker
-1 Teller of Tales
-1 Tolarian Academy
-1 Umara Entangler
-1 Umara Wizard
-1 Updraft
-1 Urza, Lord High Artificer
-1 Vedalken Archmage
-1 Vedalken Blademaster
-1 Veiled Apparition
-1 Veiled Sentry
-1 Voracious Greatshark
+[deck:commander midrange RG #90000027]
+1 Arctic Wolves
+1 Blisterstick Shaman
+1 Bolt of Keranos
+1 Brand
+1 Centaur Nurturer
+1 Citanul Druid
+1 Commercial District
+1 Contested Cliffs
+1 Cyclone
+1 Deadshot Minotaur
+1 Detonate
+1 Explosive Impact
+1 Fire Ambush
+1 Fire Imp
+1 Fire-Lit Thicket
+1 Firefist Adept
+6 Forest
+1 Fungal Reaches
+1 Ghitu Slinger
+1 Gladewalker Ritualist
+1 Goblin Bomb
+1 Grove of the Burnwillows
+1 Gruul Guildgate
+1 Inferno
+1 Jade Guardian
+1 Jaya's Firenado
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Kujar Seedsculptor
+1 Lava Hounds
+1 Lightning Cloud
+1 Mana Crypt
+1 Massive Raid
+1 Mogg Bombers
+1 Mossfire Valley
+19 Mountain
+1 Onslaught
+1 Orcish Cannonade
+1 Outnumber
+1 Primeval Bounty
+1 Pyrogoyf
+1 Pyrostatic Pillar
+1 Raking Claws
+1 Sabotender
+1 Sarkhan's Unsealing
+1 Satyr Grovedancer
+1 Scorching Spear
+1 Scorchmark
+1 Searing Wind
+1 Shivan Oasis
+1 Skarrg, the Rage Pits
+1 Spellshock
+1 Starstorm
+1 Stomping Ground
+1 Storm Caller
+1 Strangle
+1 Tajuru Archer
+1 Talisman of Impulse
+1 Tanglespan Lookout
+1 Tarfire
+1 The Vision and Scarlet Witch
+1 Thornspire Verge
+1 Timberline Ridge
+1 Tinder Wall
+1 Training Compound
+1 Trumpeting Carnosaur
+1 Tuktuk Grunts
+1 Tuktuk Scrapper
+1 Tunneling Geopede
+1 Vinelasher Kudzu
+1 Walking Ballista
+1 Whiptail Moloch
+1 Winds of Change
+1 Witty Roastmaster
+1 Zap
+1 Zhur-Taa Druid
 
 [commander]
-Heidar, Rimewind Master
+Radha, Heir to Keld

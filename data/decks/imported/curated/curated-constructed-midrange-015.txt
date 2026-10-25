@@ -1,17 +1,17 @@
 # baylee curated constructed midrange seed=20261038
 # licence: AGPL-3.0-only
 [deck:constructed midrange G #20261038]
-2 Blisterpod
-4 Briarbridge Tracker
+2 Audacity
 3 Centaur Garden
 1 Dryad Arbor
-2 Fists of Ironwood
+4 Elderleaf Mentor
 20 Forest
-4 From Beyond
 4 Gaea's Touch
 2 Gilded Goose
-4 Jade Mage
-4 Midsummer Revel
+3 Mantle of the Wolf
+2 Pawpatch Formation
 4 Thallid Devourer
-3 Vital Splicer
+4 Turntimber Ranger
 3 Welcome to . . .
+4 Wirewood Hivemaster
+4 Yavimaya Sapherd

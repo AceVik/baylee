@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp RG #20266114]
-1 Ancient Brontodon
-1 Arid Archway
-1 Bhaal's Invoker
-1 Big Apple, 3 a.m.
-1 Blaster Mage
-1 Blockbuster
-1 Boggart Arsonists
-1 Boseiju, Who Endures
-1 Charging Strifeknight
-1 Cleansing Screech
-1 Command the Storm
-1 Curious Altisaur
-1 Dangerous Wager
+1 Archway Commons
+1 Barbarian Lunatic
+1 Bloodshot Trainee
+1 Breath of Fire
+1 Cactus Preserve
+1 Cathedral of War
+1 Centaur Archer
+1 Cinder Cloud
+1 Command Bridge
+1 Concentrated Fire
+1 Consuming Bonfire
+1 Cunning Sparkmage
+1 Deadeye Duelist
 1 Delete
+1 Dungeon Descent
+1 Earthlore
 1 End the Festivities
-1 Engulfing Eruption
-1 Explosive Shot
+1 Exploration
 1 Fault Line
-1 Fire Imp
+1 Field of the Dead
+1 Fiery Intervention
 1 Fire Tempest
-1 Flame Lash
-12 Forest
-1 Frog Butler
-1 Glissa's Scorn
-1 Goblin Burrows
-1 Goblin Digging Team
-1 Goblin Settler
-1 Gorilla War Cry
-1 Hammerheim
-1 Hanweir Battlements
-1 Honden of Infinite Rage
-1 Hornet Sting
+1 Flowstone Blade
+1 Flowstone Salamander
+6 Forest
+1 Forsaken Crossroads
+1 Frostling
+1 Goblin Artillery
+1 Goblin Medics
+1 Goblin Snowman
+1 Grasslands
+1 Heat of Battle
+1 Impact Tremors
 1 Inferno
-1 Jumbo Cactuar
-1 Kher Keep
+1 Insolence
+1 Iroas's Blessing
+1 Jeska, Warrior Adept
+1 Kookus
 1 Land's Edge
-1 Lava Flow
-1 Lava Hounds
-1 Leaf Arrow
 1 Livonya Silone
-1 Lull
+1 Magmasaur
+1 Manabarbs
+1 Mirrorpool
 1 Mob Justice
-1 Molten Vortex
-14 Mountain
-1 Mountain Valley
-1 Noxious Newt
-1 Okina, Temple to the Grandfathers
-1 Pierce the Sky
-1 Poison Dart Frog
-1 Public Thoroughfare
-1 Quakestrider Ceratops
-1 Ramunap Ruins
+1 Mogg Maniac
+20 Mountain
+1 Myriad Landscape
+1 Nature's Wrath
+1 Night Market
+1 Opportunist
+1 Parch
+1 Pit of Offerings
+1 Primal Order
+1 Rain of Embers
+1 Ravenous Giant
 1 Ready to Rumble
-1 Return to the Earth
-1 Ripjaw Raptor
-1 Rockface Village
-1 Rockslide Ambush
-1 Rootrider Faun
-1 Scorching Spear
-1 Shinka, the Bloodsoaked Keep
-1 Shivan Gorge
-1 Spear Spewer
-1 Starke of Rath
-1 Stature, Young Avenger
-1 Sudden Strength
-1 Sylvan Caryatid
-1 Take Down
-1 Tattermunge Duo
-1 Uncharted Haven
-1 Victorious Destruction
-1 War-Torch Goblin
+1 Reckless Embermage
+1 Reduce to Ashes
+1 Rumbling Slum
+1 Runebound Wolf
+1 Sawback Manticore
+1 Scald
+1 Slingshot Goblin
+1 Spawning Grounds
+1 Spireside Infiltrator
+1 Spitting Hydra
+1 Starting Town
+1 Stormbind
+1 Suplex
+1 Thran Portal
+1 Transguild Promenade
+1 Viashino Fangtail
+1 Vigilante Justice
 1 Whiptail Moloch
-1 Wild Celebrants
-1 Winter Blast
-1 Wirewood Lodge
+1 Wintermoon Mesa
 
 [commander]
 Jerrard of the Closed Fist

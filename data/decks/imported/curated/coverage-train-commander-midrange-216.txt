@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266217]
-1 Adarkar Wastes
-1 Allied Reinforcements
-1 Ancient Spring
-1 Arcane Flight
-1 Arcane Sanctum
-1 Archon of Justice
-1 Arenson's Aura
-1 Assault Intercessor
-1 Aura Fracture
-1 Auspicious Arrival
-1 Avacyn's Collar
-1 Avacyn's Memorial
-1 Bleachbone Verge
-1 Brood of Cockroaches
-1 Call the Cavalry
-1 Caves of Koilos
-1 Cloudcrest Lake
-1 Contaminated Landscape
+[deck:commander midrange UBG #20266217]
+1 Alchemist's Refuge
+1 Attended Socialite
+1 Bayou
+1 Betrayal
+1 Bishop of the Bloodstained
+1 Blightsoil Druid
+1 Blood-Toll Harpy
+1 Borg Queen, Perfection Manifest
+1 Cackling Fiend
+1 Cartouche of Knowledge
+1 Clairvoyance
 1 Coral Barrier
-1 Darkslick Drake
-1 Dread Drone
-1 Dromar's Cavern
-1 Drowned Rusalka
-1 Floodgate
-1 Grim Bounty
-1 Guardian Kirin
-1 Hengegate Pathway
-1 Hoard Robber
-1 Icatian Town
-1 Invasion of Belenon
-9 Island
-1 Jace's Scrutiny
-1 Join the Ranks
-1 Knight Watch
-1 Lawless Broker
-1 Magnifying Glass
-1 Mass Production
-1 Messenger Drake
-1 Mindeye Drake
-1 Phyrexian Broodlings
-8 Plains
-1 Purple-Crystal Crab
-1 Raffine's Tower
-1 Ravenous Harpy
-1 Release the Dogs
-1 Renegade's Getaway
-1 Revered Unicorn
-1 Riptide Crab
-1 Rite of Replication
-1 Sacred Mesa
-1 Scavenger Drake
-1 Security Detail
-1 Sengir Bats
-1 Shadow Lance
-1 Sifter of Skulls
-1 Skycloud Expanse
-1 Smothering Tithe
-1 Spawning Kraken
-1 Spectral Procession
-1 Spinal Centipede
-1 Starlit Sanctum
-8 Swamp
-1 Syndicate Trafficker
-1 Tainted Isle
-1 Take Up Arms
-1 Talrand's Invocation
-1 Teferi's Care
-1 Thallid Soothsayer
-1 The Underworld Cookbook
-1 Thousand Moons Smithy
-1 Undercity Dire Rat
-1 Underground River
-1 Viscerid Drone
-1 Vodalian War Machine
-1 Wall of Kelp
-1 Wizards' School
-1 Wriggling Grub
+1 Darkwatch Elves
+1 Elderfang Disciple
+1 Elegant Entourage
+1 Eyeblight Assassin
+1 Fang Guardian
+1 Farbog Boneflinger
+1 Font of Fortunes
+1 Foreboding Landscape
+1 Geyserfield Stalker
+1 Gitaxian Probe
+1 Grey Havens Navigator
+1 Illuminated Wings
+1 Jadecraft Artisan
+1 Llanowar Dead
+1 Mesmeric Trance
+1 Miasmic Mummy
+1 Mindculling
+1 Mirkwood Meditator
+1 Mystic Snake
+1 Naga Oracle
+1 Nephalia Drownyard
+1 Nighthaze
+1 Nightshade Harvester
+1 Ohran Frostfang
+1 Ophidian
+1 Opulent Palace
+1 Orcish Bowmasters
+1 Overgrown Tomb
+1 Pestermite
+1 Rabid Bloodsucker
+1 Rank and File
+1 Saruli Gatekeepers
+1 Scatter Arc
+1 Serpent Warrior
+1 Seshiro the Anointed
+1 Shaman of the Pack
+1 Shrieking Drake
+1 Skyway Sniper
+5 Snow-Covered Forest
+12 Snow-Covered Island
+8 Snow-Covered Swamp
+1 Soulknife Spy
+1 Spiderwig Boggart
+1 Spirit Away
+1 Striped Bears
+1 Stromkirk Mentor
+1 Sultai Devotee
+1 Sultai Skullkeeper
+1 Sunken Ruins
+1 Super Intelligence
+1 Svogthos, the Restless Tomb
+1 Tainted Wood
+1 Thassa's Devourer
+1 Tropical Island
+1 Ubul Sar Gatekeepers
+1 Underground Sea
+1 Urborg Elf
+1 Voracious Vampire
+1 Wall of Lost Thoughts
+1 Wastewood Verge
+1 Waterkin Shaman
+1 Waterveil Cavern
+1 Weaver of Currents
+1 Willowrush Verge
+1 Zagoth Triome
 
 [commander]
-Halfdane
+Leovold, Emissary of Trest

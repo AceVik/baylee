@@ -1,70 +1,81 @@
 # baylee curated commander control seed=20261091
 # licence: AGPL-3.0-only
-[deck:commander control U #20261091]
-1 Abduction
-1 Academy Ruins
-1 Blighted Cataract
-1 Blue Mana Battery
-1 Censor
-1 Cephalid Coliseum
-1 Compelling Argument
-1 Condescend
-1 Consider
-1 Constricting Tendrils
-1 Deduce
-1 Deliberate
-1 Dispersing Orb
-1 Dream Fracture
-1 Drowned Secrets
-1 Efficient Construction
-1 Elusive Spellfist
-1 Eternity Snare
-1 Eyes of the Watcher
-1 Forced Fruition
-1 Halt Order
-1 Hesitation
-1 Illusions of Grandeur
-1 In the Eye of Chaos
-1 Insight
-1 Invoke Prejudice
-36 Island
-1 Jhessian Thief
-1 Jin-Gitaxias, Progress Tyrant
-1 Jinx
-1 Launch Mishap
-1 Lunar Mystic
-1 Mana Vortex
-1 Miscalculation
-1 Numbing Dose
-1 Oboro, Palace in the Clouds
-1 Ojer Pakpatiq, Deepest Epoch
-1 Otawara, Soaring City
-1 Pact of Negation
-1 Ponder
-1 Portent
-1 Prescient Chimera
-1 Primal Amulet
-1 Reflections of Littjara
-1 Rhystic Study
-1 Riddleform
-1 Riverwheel Aerialists
-1 Shipwreck Dowser
-1 Sire of the Storm
-1 Soldevi Excavations
-1 Storyteller Pixie
-1 Stymied Hopes
-1 TVA Bureaucrat
-1 Tanufel Rimespeaker
-1 Tidespout Tyrant
-1 Tolarian Academy
-1 Trail of Evidence
-1 Unifying Theory
-1 Veil of Birds
-1 Veiled Apparition
-1 Veiled Serpent
-1 Virtue of Knowledge
-1 Whirlwind Adept
-1 Wing Commando
+[deck:commander control WRG #20261091]
+1 Academy Rector
+1 An-Havva Township
+1 Aura Fracture
+1 Battlefield Forge
+1 Bishop of Wings
+1 Blade Splicer
+1 Brazen Freebooter
+1 Butterbur, Bree Innkeeper
+1 Elder Auntie
+1 Elephant Guide
+1 Elgaud Inquisitor
+1 Field of Souls
+1 Flamewright
+2 Forest
+1 Fortifying Provisions
+1 Ghirapur Gearcrafter
+1 Gimli of the Glittering Caves
+1 Goblin Commando
+1 Goblin Engineer
+1 Goblin Instigator
+1 Goblin Trenches
+1 Goblin Warrens
+1 Griffin Guide
+1 Heartwood Giant
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Imperial Recruiter
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Kjeldoran Home Guard
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Late to Dinner
+1 Legion Extruder
+1 Lightning Diadem
+1 Luminarch Ascension
+1 Maja, Bretagard Protector
+1 Mawloc
+14 Mountain
+1 Mox Emerald
+1 Ojer Taq, Deepest Foundation
+1 Pashalik Mons
+1 Pinecrest Ridge
+11 Plains
+1 Plateau
+1 Pyrite Spellbomb
+1 Rancor
+1 Reckless Lackey
+1 Requiem Angel
+1 Resolute Reinforcements
+1 Riftstone Portal
+1 Rith's Grove
+1 Rugged Prairie
+1 Savannah
+1 Sensor Splicer
+1 Sheltering Landscape
+1 Shivan Harvest
+1 Siege-Gang Commander
+1 Skyclave Apparition
+1 Sluggishness
+1 Smaug the Magnificent
+1 Spreading Algae
+1 Stangg
+1 Stark Industries Executive
+1 Stimulus Package
+1 Stomping Ground
+1 Tinder Farm
+1 Tooth and Claw
+1 Underfoot Underdogs
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Weaponize the Monsters
+1 Wily Goblin
+1 Wooded Bastion
+1 Wurmweaver Coil
 
 [commander]
-The Mechanist, Aerial Artisan
+Palladia-Mors

@@ -1,80 +1,80 @@
 # baylee curated highlander midrange seed=20261075
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261075]
-1 Aesi, Tyrant of Gyre Strait
 1 Aether Spellbomb
 1 Alchemist's Refuge
-1 Argothian Enchantress
 1 Barkchannel Pathway
-1 Bazaar Trademage
-1 Bequeathal
 1 Birthing Pod
+1 Blue Mana Battery
 1 Bugenhagen, Wise Elder
 1 Buzz Bots
-1 Censor
-1 Contradict
-1 Dawnhart Rejuvenator
-1 Deliberate
-1 Dissenter's Deliverance
+1 Claws of Wirewood
+1 Copper Myr
+1 Corridor Monitor
+1 Council of Advisors
+1 Courier's Capsule
 1 Dreamroot Cascade
+1 Drowner of Hope
 1 Drumhunter
 1 Elite Instructor
 1 Elvenking's Halls
 1 Five Hundred Year Diary
 1 Flooded Grove
-11 Forest
+6 Forest
 1 Futurist Forge
+1 Garruk's Packleader
 1 Gilded Goose
+1 Gladewalker Ritualist
 1 Goggles of Night
 1 Green Mana Battery
-1 Halt Order
+1 Gryff Vanguard
 1 Harrier Strix
-1 Haywire Mite
-1 Horizon Scholar
-1 Hornet Queen
+1 Horn of Ramos
 1 Implement of Examination
-14 Island
-1 Jeskai Sage
-1 Joraga Visionary
+1 Insight Engine
+19 Island
 1 Kitchen
-1 Kozilek's Unsealing
-1 Leaf-Crowned Visionary
 1 Lifecrafter's Bestiary
 1 Lifespark Spellbomb
 1 Machine God's Effigy
 1 Malcator's Watcher
-1 Merchant of Secrets
+1 Mechan Navigator
 1 Mightstone's Animation
 1 Migrating Ketradon
+1 Moss Diamond
 1 Mox Emerald
 1 Mox Sapphire
 1 Mutant Town
+1 Network Disruptor
+1 Ominous Parcel
 1 Overflowing Basin
+1 Owlbear
 1 Paradox Gardens
 1 Parasitic Strix
 1 Parcel Myr
-1 Portent
-1 Quicksilver Fisher
+1 Pond Prophet
 1 Rain-Slicked Copse
-1 Renewal
 1 S.H.I.E.L.D. Deployment Drone
 1 Sarcomite Myr
-1 Scholar of Stars
+1 Scepter of Insight
+1 Shaman of Spring
 1 Silver Myr
 1 Simic Cluestone
-1 Simic Keyrune
 1 Simic Locket
-1 Simic Signet
+1 Sky-Eel School
 1 Skyshroud Forest
 1 Slumbering Waterways
-1 Sphinx of Enlightenment
-1 Striped Bears
 1 Talisman of Curiosity
-1 Titania, Protector of Argoth
+1 The Everflowing Well
+1 The Theorist, Jace Beleren
+1 Thought Monitor
+1 Three Steps Ahead
+1 Thundering Tanadon
 1 Trigon of Thought
 1 Tropical Island
-1 Virtue of Knowledge
+1 Ultimecia, Temporal Threat
+1 Wan Shi Tong, Librarian
+1 Whir of Invention
 1 Willowrush Verge
-1 Wistful Selkie
 1 Witching Well
 1 Yavimaya Coast

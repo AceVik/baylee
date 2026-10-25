@@ -1,46 +1,55 @@
 # baylee curated highlander control seed=20261078
 # licence: AGPL-3.0-only
 [deck:highlander control W #20261078]
+1 Aang's Defense
+1 Academy Rector
+1 Afterlife
 1 Agent of Atlas
+1 Angelsong
 1 Aura Blast
 1 Auspicious Ancestor
+1 Aven Battle Priest
 1 Battlewise Valor
+1 Blessed Spirits
 1 Blessed Wine
 1 Blighted Steppe
 1 Bygone Bishop
-1 Call the Gatewatch
 1 Cathar's Companion
 1 Clear
+1 Cold Snap
 1 Contemplation
-1 Devout Decree
 1 Dragon Bell Monk
+1 Dragon's Presence
+1 Drogskol Cavalry
 1 Eiganjo, Seat of the Empire
+1 Elgaud Inquisitor
+1 Elite Archers
+1 Elspeth, Storm Slayer
 1 Erode
-1 Fend Off
 1 Flagstones of Trokair
-1 Forsake the Worldly
-1 Gallant Strike
-1 Glider Kids
+1 Guarded Heir
 1 Hall of Heliod's Generosity
-1 Hamato Guardian Stance
+1 Honor
 1 Horizon Seed
 1 Idyllic Tutor
-1 Improvised Armor
-1 Inspiring Commander
-1 Iron Will
-1 Isolation Cell
+1 Jeskai Student
 1 Kami of Tattered Shoji
 1 Karakas
-1 Karmic Guide
-1 Kree Commandos
-1 Loran, Disciple of History
+1 Kjeldoran Home Guard
+1 Knight-Captain of Eos
+1 Knightly Valor
 1 Lotus-Eye Mystics
-1 Luminous Angel
 1 Lupinflower Village
 1 Martyr's Cry
+1 Mausoleum Guard
+1 Mesa Enchantress
+1 Monastery Mentor
 1 Mox Pearl
 1 Nomad Stadium
+1 Odric's Outrider
+1 Ojer Taq, Deepest Foundation
 1 Opal Archangel
+1 Opal Caryatid
 1 Opal Champion
 1 Opal Gargoyle
 1 Operations Officer
@@ -48,21 +57,12 @@
 1 Path to Exile
 36 Plains
 1 Presence of the Master
-1 Pressure Point
-1 Radiant's Judgment
 1 Rain of Blades
 1 Rebellious Strike
-1 Recruiter of the Guard
-1 Repentance
-1 Reveillark
-1 Rhox Meditant
-1 Royal Decree
 1 Sigil of the Empty Throne
 1 Sram, Senior Edificer
-1 Stand Firm
-1 Sterling Supplier
 1 Student of Ojutai
-1 Subjugator Angel
-1 Sun Titan
-1 Sunblast Angel
 1 Sunscorch Regent
+1 Survive the Night
+1 Warmth
+1 Wipe Clean

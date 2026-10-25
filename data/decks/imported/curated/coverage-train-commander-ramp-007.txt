@@ -1,82 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WRG #20266008]
-1 A Realm Reborn
-1 Ancient Amphitheater
-1 Angel of the God-Pharaoh
-1 Asgardian Citadel
-1 Ashen Firebeast
-1 Atalan Jackal
-1 Blockbuster
-1 Brand
+[deck:commander ramp UBR #20266008]
+1 Agent of Stromgald
+1 Akoum Refuge
+1 Arguel's Blood Fast
+1 Astral Cornucopia
+1 Battle Hymn
+1 Billiard Room
+1 Blood Celebrant
+1 Blood Pet
+1 Bloodstone Cameo
+1 Bog Initiate
+1 Bone Pit Brute
 1 Brightstone Ritual
-1 Bulwark
-1 Burning Inquiry
-1 Burnout
-1 Chosen by Heliod
-1 Cinder Glade
-1 Cocoon
-1 Cryptolith Rite
+1 Bubbling Muck
+1 Burnt Offering
+1 Cabal Ritual
+1 Canyon Slough
+1 Capture of Jingzhou
+1 Catalyst Elemental
+1 Cryptic Command
+1 Culling the Weak
+1 Cursed Mirror
 1 Desolation of Smaug
-1 Dimension X
-1 Dining Room
+1 Dragon Mage
 1 Dragon's Desire
-1 Eladamri's Vineyard
-1 Farrelite Priest
-1 Fields of Strife
-9 Forest
-1 Furycalm Snarl
-1 Game Trail
+1 Dread Rider
+1 Firestorm Hellkite
+1 Font of Fortunes
+1 Foreboding Ruins
+1 Foriysian Totem
+1 Fíli and Kíli, Joyous
 1 Geosurge
-1 Glittering Massif
-1 Goblin Artisans
-1 Great Divide Guide
-1 Gruul Keyrune
-1 Gumato
-1 Harabaz Druid
+1 Geothermal Bog
+1 Goblin-town
+1 Granitic Titan
+1 Hanweir Battlements
+1 Haunted Ridge
+1 Headstone
 1 Heart of Ramos
-1 Helionaut
-1 Herald of the Sun
-1 Horn of Ramos
-1 Hulk, Always Angry
-1 Imposing Vantasaur
-1 Iron Hills
-1 Knotvine Mystic
-1 Lifespring Druid
+1 Hell's Kitchen
+1 Hive of the Eye Tyrant
+19 Island
+1 Kozilek's Translator
+1 La Forge, Perceptive Engineer
+1 Lava Serpent
+1 Lay Claim
+1 Lingering Mirage
+1 Magus of the Coffers
 1 Mana Geyser
-1 Moggcatcher
-11 Mountain
-1 Multani's Harmony
-1 Needle Spires
-1 Omashu City
-1 Overgrowth
-6 Plains
-1 Primeval Titan
+1 Marjhan
+1 Moonglove Extractor
+1 Morgue Toad
+7 Mountain
+1 Ominous Asylum
+1 Overeager Apprentice
+1 Power Artifact
 1 Pyretic Ritual
-1 Rabanastre, Royal City
-1 Radiant Summit
-1 Restless Ridgeline
+1 Rakdos Keyrune
+1 Raucous Theater
+1 Razortrap Gorge
+1 Reckless Barbarian
+1 Ridge Rannet
 1 Rite of Flame
-1 Rofellos, Llanowar Emissary
-1 Rune of Protection: Artifacts
-1 Rune of Protection: Black
-1 Rune of Protection: Lands
-1 Rune of Protection: White
-1 Rustvale Bridge
-1 Sanctum Weaver
-1 Saruli Caretaker
-1 Seraph of the Suns
-1 Sir Shandlar of Eberyn
-1 Somberwald Sage
-1 Starstorm
-1 Sunastian Falconer
-1 Titania's Song
-1 Tooth of Ramos
-1 True Love's Kiss
-1 Winged Shepherd
-1 Winter's Night
-1 Wose Pathfinder
-1 Yoked Plowbeast
+1 Sacrifice
+1 Sea Scryer
+1 Seismic Spike
+1 Shinka, the Bloodsoaked Keep
+1 Skirge Familiar
+1 Songs of the Damned
+1 Striped Riverwinder
+1 Telim'Tor's Edict
+1 Temporal Manipulation
+1 Thundering Falls
+1 Tramway Station
+1 Vesper Ghoul
+1 Wave-Wing Elemental
 
 [commander]
-Palladia-Mors
+Nicol Bolas

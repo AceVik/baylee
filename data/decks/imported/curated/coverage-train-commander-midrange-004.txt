@@ -1,84 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266005]
-1 Abandoned Campground
-1 Ambush Gigapede
-1 Ardent Elementalist
-1 Atraxa, Grand Unifier
-1 Avengers Hangar
+1 Angelheart Protector
+1 Atalan Jackal
 1 Badgermole Cub
 1 Barrier of Bones
-1 Binding Mummy
-1 Blister Beetle
-1 Bubbling Muck
-1 Canopy Vista
+1 Burning-Yard Trainer
 1 Captain Storm, Cosmium Raider
-1 Carven Caryatid
+1 Contaminated Aquifer
 1 Contraband Kingpin
 1 Corpse Knight
 1 Corrupt Court Official
-1 Culling the Weak
-1 Deputy of Acquittals
+1 Dagger Caster
+1 Darkmoss Bridge
+1 Dawnhart Disciple
+1 Daybreak Combatants
+1 Dimir Informant
+1 Dwalin, Weaponmaster
 1 EPF Point Squad
-1 Electric Eel
+1 Ertai Resurrected
 1 Eutropia the Twice-Favored
+1 Faerie Duelist
 1 Fallaji Vanguard
-1 Fire Imp
-1 Fisk Tower
-9 Forest
-1 Gladewalker Ritualist
+1 Favored of Iroas
+1 Fearless Fledgling
+1 Fleshpulper Giant
+1 Foggy Bottom Swamp
+1 Fourth Bridge Prowler
+1 Frostboil Snarl
+1 Gateway Sneak
 1 Glidedive Duo
-1 Goblin-town
 1 Goldmire Bridge
-1 Great Whale
-1 Guardian of Pilgrims
-1 Hagra Diabolist
-1 Herald of the Fair
-1 Illegitimate Business
-2 Island
-1 Kazandu Nectarpot
+1 Guardian Gladewalker
+1 Harmonious Archon
+1 Hedron Crab
+1 Hulk, Always Angry
+6 Island
 1 Kraul Whipcracker
-1 Leonin Snarecaster
-1 Lord of Tresserhorn
-1 Los Diablos Missile Base
+1 Lumengrid Sentinel
 1 Mercenary Knight
-1 Messenger Falcons
-1 Mirkwood
-6 Mountain
-1 Mummy Paramount
-1 Naga Oracle
+1 Merfolk Observer
+1 Misty Palms Oasis
+1 Moggcatcher
+1 Momo, Rambunctious Rascal
+9 Mountain
+1 Nezumi Informant
 1 Noggle Ransacker
-1 Opal Lake Gatekeepers
-1 Perimeter Patrol
-8 Plains
-1 Prowling Felidar
-1 Pyknite
-1 Pyrogoyf
-1 Quarry Beetle
-1 Rapturous Moment
+6 Plains
+1 Primeval Titan
+1 Ramses Overdark
 1 Ravaging Horde
-1 Restless Vents
-1 Returned Pastcaller
+1 Rejuvenating Springs
+1 Restless Bivouac
+1 Restless Cottage
+1 Restless Vinestalk
+1 Ruin Crab
+1 Rumbling Sentry
+1 Sanguine Glorifier
 1 Scythe Tiger
-1 Setessan Skirmisher
-1 Siege Rhino
-1 Spectacle Summit
-1 Stingcaster Mage
-1 Tanglespan Lookout
-1 Thopter Architect
-1 Thundering Falls
+1 Seahunter
+1 Shore Lurker
+1 Skyshroud Poacher
+1 Smoldering Marsh
+1 Sodden Verdure
+1 Soldier of the Grey Host
+1 Steppe Lynx
+1 Stirring Wildwood
+4 Swamp
+1 Tanglepool Bridge
+1 Thornglint Bridge
 1 Théoden, King of Rohan
-1 Tidus, Blitzball Star
-1 Training Center
-1 Tresserhorn Sinks
-1 Tunneling Geopede
-1 Turbulent Moor
-1 Turntimber Ascetic
+1 Tuktuk Grunts
 1 Uro, Titan of Nature's Wrath
-1 Venomous Hierophant
+1 Venser, Shaper Savant
 1 Vicious Clown
-1 Witty Roastmaster
-1 Zhalfirin Lancer
+1 Vithian Renegades
+1 Wartime Protestors
+1 Whisper Agent
+1 Yellowjacket, Heartless Marauder
+1 Yotian Dissident
 
 [commander]
 General Tazri

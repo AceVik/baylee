@@ -106,12 +106,16 @@ pub struct CardProfile {
     /// Raw subtype IDs on the front face (for tribal and land-type matching).
     pub subtypes: Vec<u16>,
     /// Specific partner cards named in this card's rules text (`Filter::Named`
-    /// or `Effect::MeldWithNamed`), e.g. `Centaur's Herald -> Centaur Glade`,
-    /// `Bogbrew Witch -> Festering Newt & Bubbling Cauldron`.
+    /// or `Effect::MeldWithNamed`), e.g. `Dragon's Herald -> Hellkite Overlord`,
+    /// `Behemoth's Herald -> Godsire`.
     pub named_partners: Vec<CardIndex>,
     /// True if this card's abilities reference a specific named card other than
     /// itself (even if that named card is not in the current pool).
     pub has_external_named_dependency: bool,
+    /// True if this card is a Snow permanent, costs `{S}`, or checks for Snow permanents.
+    pub cares_about_snow: bool,
+    /// True if this card is an Equipment or Aura that requires creatures to attach to.
+    pub is_equipment_or_aura: bool,
     /// L2-normalized 48-float semantic vector (`summary[96..144]`: 24 effect
     /// channels + 24 role tags) for fast dot-product similarity.
     pub dsl_vec: [f32; 48],
@@ -121,12 +125,21 @@ impl CardProfile {
     /// Builds a [`CardProfile`] from a [`CardDef`].
     #[must_use]
     pub fn from_def(def: &CardDef) -> Self {
+        use baylee_cards_dsl::CommanderRule;
+        use baylee_core::generated::{index, subtypes};
+
         let face = &def.faces[0];
         let dsl = encode_card_face(def, 0);
         let land = face.types.contains(TypeSet::LAND);
         let basic = land && face.supertypes.contains(SupertypeSet::BASIC);
         let creature = face.types.contains(TypeSet::CREATURE);
-        let leader = leader_of(def.index).is_some_and(|l| l.eligible);
+        let is_vehicle_or_spacecraft = face.subtypes.contains(&subtypes::artifact::VEHICLE)
+            || face.subtypes.contains(&subtypes::artifact::SPACECRAFT);
+        let leader = leader_of(def.index).is_some_and(|l| l.eligible && !l.background)
+            && (creature
+                || is_vehicle_or_spacecraft
+                || matches!(def.commander, CommanderRule::ExplicitlyAllowed)
+                || def.index == index::GRIST_THE_HUNGER_TIDE);
 
         let mut roles = 0_u32;
         for (bit, &val) in dsl.summary[120..144].iter().enumerate() {
@@ -135,13 +148,19 @@ impl CardProfile {
             }
         }
 
-        let (named_partners, has_external_named_dependency) = extract_named_partners(def);
+        let (named_partners, has_external_named_dependency, mentions_snow) =
+            extract_named_partners_and_snow(def);
         if has_external_named_dependency {
             // A card that only searches for a hardcoded named partner (e.g.
             // Sphinx's Herald -> Sphinx Sovereign) is a named combo piece, not
             // generic land ramp or a generic tutor.
             roles &= !(ROLE_LAND_RAMP | ROLE_TUTOR);
         }
+        let cares_about_snow = (!basic && face.supertypes.contains(SupertypeSet::SNOW))
+            || face.mana_cost.symbols().any(|s| s == ManaSymbol::Snow)
+            || mentions_snow;
+        let is_equipment_or_aura = face.subtypes.contains(&subtypes::artifact::EQUIPMENT)
+            || face.subtypes.contains(&subtypes::enchantment::AURA);
 
         let mut dsl_vec = [0.0_f32; 48];
         dsl_vec.copy_from_slice(&dsl.summary[96..144]);
@@ -195,6 +214,8 @@ impl CardProfile {
             subtypes,
             named_partners,
             has_external_named_dependency,
+            cares_about_snow,
+            is_equipment_or_aura,
             dsl_vec,
         }
     }
@@ -220,15 +241,19 @@ impl CardProfile {
     /// Infers the most natural [`Archetype`] when building a deck around this card.
     #[must_use]
     pub const fn preferred_archetype(&self) -> Archetype {
-        if (self.roles & (ROLE_MANA_PRODUCER | ROLE_LAND_RAMP | ROLE_FINISHER)) != 0
-            && self.mana_value >= 5
+        if (self.roles & (ROLE_MANA_PRODUCER | ROLE_LAND_RAMP)) != 0
+            || ((self.roles & ROLE_FINISHER) != 0 && self.mana_value >= 6)
         {
             Archetype::Ramp
-        } else if !self.creature
-            && (self.roles & (ROLE_COUNTERMAGIC | ROLE_BOARD_WIPE | ROLE_CARD_DRAW)) != 0
+        } else if (self.roles & (ROLE_COUNTERMAGIC | ROLE_BOARD_WIPE | ROLE_SPELLSLINGER)) != 0
+            || (!self.creature
+                && (self.roles & (ROLE_CARD_DRAW | ROLE_SPOT_REMOVAL | ROLE_CANTRIP)) != 0)
         {
             Archetype::Control
-        } else if self.creature && self.mana_value <= 2 {
+        } else if (self.creature && self.mana_value <= 2)
+            || (self.roles & (ROLE_COMBAT_TRICK | ROLE_BURN_DRAIN | ROLE_LORD_ANTHEM)) != 0
+            || (self.creature && self.mana_value <= 3 && (self.roles & ROLE_EVASION) != 0)
+        {
             Archetype::Aggro
         } else {
             Archetype::Midrange
@@ -275,26 +300,36 @@ pub fn count_mana_pips(cost: &ManaCost) -> [u8; 6] {
     pips
 }
 
-fn extract_named_partners(def: &CardDef) -> (Vec<CardIndex>, bool) {
+fn extract_named_partners_and_snow(def: &CardDef) -> (Vec<CardIndex>, bool, bool) {
+    use baylee_cards_dsl::Trigger;
+
     let mut names: Vec<&'static str> = Vec::new();
+    let mut snow = false;
     for ab in def.abilities_for_face(0) {
         match ab {
             AbilityDef::Activated { effects, .. }
             | AbilityDef::ActivatedConditional { effects, .. }
             | AbilityDef::Loyalty { effects, .. }
-            | AbilityDef::Triggered { effects, .. }
             | AbilityDef::Spell { effects, .. }
             | AbilityDef::SagaChapter { effects, .. } => {
-                collect_named_from_effects(effects, &mut names);
+                collect_named_from_effects(effects, &mut names, &mut snow);
+            }
+            AbilityDef::Triggered {
+                trigger, effects, ..
+            } => {
+                if let Trigger::EntersBattlefield(f) = trigger {
+                    collect_named_from_filter(f, &mut names, &mut snow);
+                }
+                collect_named_from_effects(effects, &mut names, &mut snow);
             }
             AbilityDef::ModalSpell { modes, .. }
             | AbilityDef::ModalActivated { modes, .. }
             | AbilityDef::ModalTriggered { modes, .. } => {
                 for m in *modes {
-                    collect_named_from_effects(m.effects, &mut names);
+                    collect_named_from_effects(m.effects, &mut names, &mut snow);
                 }
             }
-            AbilityDef::Static(sa) => collect_named_from_filter(&sa.filter, &mut names),
+            AbilityDef::Static(sa) => collect_named_from_filter(&sa.filter, &mut names, &mut snow),
             _ => {}
         }
     }
@@ -313,10 +348,14 @@ fn extract_named_partners(def: &CardDef) -> (Vec<CardIndex>, bool) {
             partners.push(cid);
         }
     }
-    (partners, has_ext)
+    (partners, has_ext, snow)
 }
 
-fn collect_named_from_effects(effects: &'static [Effect], out: &mut Vec<&'static str>) {
+fn collect_named_from_effects(
+    effects: &'static [Effect],
+    out: &mut Vec<&'static str>,
+    snow: &mut bool,
+) {
     let mut seen = 0;
     Effect::walk(effects, &mut seen, &mut |eff| match eff {
         Effect::MeldWithNamed { partner_name, .. } => out.push(partner_name),
@@ -325,21 +364,22 @@ fn collect_named_from_effects(effects: &'static [Effect], out: &mut Vec<&'static
         | Effect::SearchLibraryOrGraveyard { filter, .. }
         | Effect::SearchLibraryOf { filter, .. }
         | Effect::SearchLibraryUpTo { filter, .. } => {
-            collect_named_from_filter(filter, out);
+            collect_named_from_filter(filter, out, snow);
         }
         _ => {}
     });
 }
 
-fn collect_named_from_filter(filter: &Filter, out: &mut Vec<&'static str>) {
+fn collect_named_from_filter(filter: &Filter, out: &mut Vec<&'static str>, snow: &mut bool) {
     match filter {
         Filter::Named(name) => out.push(name),
+        Filter::HasSupertype(st) if st.contains(SupertypeSet::SNOW) => *snow = true,
         Filter::And(list) | Filter::Or(list) => {
             for f in *list {
-                collect_named_from_filter(f, out);
+                collect_named_from_filter(f, out, snow);
             }
         }
-        Filter::Not(inner) => collect_named_from_filter(inner, out),
+        Filter::Not(inner) => collect_named_from_filter(inner, out, snow),
         _ => {}
     }
 }

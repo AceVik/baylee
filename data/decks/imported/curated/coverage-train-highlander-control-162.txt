@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WUBRG #20266163]
+1 Agent of Horizons
+1 Aladdin
+1 Ali from Cairo
+1 An-Havva Township
+1 Ana Disciple
+1 Armored Galleon
+1 Bane Alley Blackguard
+1 Barbarian Horde
+1 Beast Walkers
+1 Blackbloom Rogue
+1 Bogbrew Witch
+1 Bountiful Landscape
+1 Cabal Evangel
+1 Cabal Slaver
+1 Contaminated Landscape
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Darigaaz's Caldera
+1 Deathcult Rogue
+1 Deceptive Landscape
+1 Deft Duelist
+1 Disciple of Tevesh Szat
+1 Disciple of the Old Ways
+1 Dread Warlock
+1 Dromar's Cavern
+1 Duskmantle Operative
+1 Fire Nation Ambushers
+1 Fleshformer
+1 Foreboding Landscape
+1 Glamorous Grapplers
+1 Glasswing Grace
+1 Halberdier
+1 Hand of Silumgar
+1 Hussar Patrol
+1 Iroas's Champion
+1 Island
+1 Jhessian Balmgiver
+1 Krovikan Elementalist
+1 Krovikan Scoundrel
+1 Leafdrake Roost
+1 Llanowar Cavalry
+1 Mantis Rider
+2 Mountain
+1 Naya Battlemage
+1 Nearby Planet
+1 Nimble Pilferer
+1 Onyx Mage
+1 Opposition Agent
+1 Perilous Landscape
+11 Plains
+1 Poison-Blade Mentor
+1 Prickly Boggart
+1 Rakdos Ringleader
+1 Rakdos Shred-Freak
+1 Ramosian Sergeant
+1 Rathi Trapper
+1 Resolute Rider
+1 Retrieval Agent
+1 Rubble Slinger
+1 Runes of the Deus
+1 Scalebane's Elite
+1 Shattered Landscape
+1 Stormcaller of Keranos
+13 Swamp
+1 Teferi's Honor Guard
+1 The World Tree
+1 Tournament Grounds
+1 Trokin High Guard
+1 Twisted Landscape
+1 Uncle Istvan
+1 Valeron Outlander
+1 Vernadi Shieldmate
+1 Wandering Mage
+1 Wei Infantry
+1 Wizards' School
+1 Yotian Tactician
+1 Zuran Enchanter

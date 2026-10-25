@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266149]
+1 Aegis Turtle
+1 Air Marshal
+1 Annex
+1 Blockade Runner
+1 Bonds of Quicksilver
+1 Boulderborn Dragon
+1 Brotherhood Spy
+1 Castaway's Despair
+1 Chain Stasis
+1 Controlled Instincts
+1 Coral Commando
+1 Coralhelm Guide
+1 Deeptread Merrow
+1 Dragonstorm Forecaster
+1 Dream Fighter
+1 Encroaching Wastes
+1 Foundry of the Consuls
+1 Fountainport
+1 Freed from the Real
+1 Giant Shark
+1 Headwater Sentries
+1 Hermetic Study
+32 Island
+1 Jump
+1 Keen Glidemaster
+1 Manta Riders
+1 Merfolk Raiders
+1 Merfolk Seastalkers
+1 Merrow Wavebreakers
+1 Mirrorhall Mimic
+1 Murmuring Phantasm
+1 Old Man of the Sea
+1 Phantasmal Terrain
+1 Power Leak
+1 Prismatic Lace
+1 River Darter
+1 River Kaijin
+1 River Merfolk
+1 Rootwater Commando
+1 Rumble Arena
+1 Sea Kings' Blessing
+1 Sea Spirit
+1 Seasinger
+1 Second Wind
+1 Secret Identity
+1 Sejiri Merfolk
+1 Shoreline Raider
+1 Sinking Feeling
+1 Spectral Cloak
+1 Spectral Flight
+1 Steal Enchantment
+1 Streambed Aquitects
+1 Svyelunite Priest
+1 Sworn Guardian
+1 Talas Merchant
+1 Teardrop Kami
+1 Thalakos Sentry
+1 The Grey Havens
+1 Tidal Warrior
+1 Tidepool Turtle
+1 Undersea Invader
+1 Vibrant Cityscape
+1 Vodalian Knights
+1 Vodalian Soldiers
+1 Wandering Ones
+1 Water Wurm
+1 Whiptongue Frog
+1 Wu Infantry
+
+[commander]
+Yargle, Goliath of Otaria

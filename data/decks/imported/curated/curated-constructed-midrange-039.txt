@@ -1,21 +1,21 @@
 # baylee curated constructed midrange seed=20261062
 # licence: AGPL-3.0-only
 [deck:constructed midrange BG #20261062]
-3 Forest
+4 Beast Whisperer
+4 Briarknit Kami
+2 Easy Prey
+10 Forest
+4 Freyalise's Charm
 1 Grim Backwoods
-4 Infested Roothold
-3 Jackalope Herd
 2 Llanowar Wastes
+2 Locust Spray
+3 Nether Void
 4 Night's Whisper
 3 Nurturing Peatland
 2 Overgrown Tomb
 3 Primordial Sage
 3 Profane Tutor
-4 Quill-Slinger Boggart
-4 Reverent Howl
 3 Royal Assassin
-2 Sign in Blood
-4 Skittering Skirge
-12 Swamp
-2 Vampiric Tutor
+5 Swamp
+4 Verduran Enchantress
 1 Viridescent Bog

@@ -1,72 +1,72 @@
 # baylee curated commander midrange seed=20261088
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20261088]
-1 Ambassador Oak
-1 Arctic Wolves
-1 Argothian Enchantress
-1 Battlewand Oak
-1 Beast Whisperer
-1 Blighted Woodland
-1 Bog Gnarr
-1 Briarknit Kami
-1 Centaur Garden
-1 Cyclone
-1 Deeproot Champion
-1 Dissenter's Deliverance
-1 Elvish Handservant
-1 Emrakul's Influence
-1 Enchantress's Presence
-1 Evolution Charm
-1 Feral Instinct
-34 Forest
-1 Foxfire
-1 Freyalise's Charm
-1 Generous Visitor
-1 Guardian of Cloverdell
-1 Hail Storm
-1 Hashep Oasis
-1 Haze of Pollen
-1 Hidden Guerrillas
-1 Hidden Spider
-1 Hurricane
-1 Infested Roothold
-1 Jackalope Herd
-1 Jade Guardian
-1 Kami of the Hunt
-1 Khalni Ambush
-1 Kurgadon
-1 Leaf Arrow
-1 Leaf-Crowned Visionary
-1 Lull
-1 Lurking Lizards
-1 Lys Alana Bowmaster
-1 Lys Alana Huntmaster
-1 Mana Crypt
-1 Managorger Hydra
-1 Many Partings
-1 Medusa, Inhuman Queen
-1 Migrating Ketradon
-1 Mold Adder
-1 Oakhollow Village
-1 Pawpatch Formation
-1 Predatory Hunger
-1 Primeval Bounty
-1 Primordial Sage
-1 Reality Anchor
-1 Renewal
-1 Seshiro the Anointed
-1 Skybeast Tracker
-1 Snake Pit
-1 Soilshaper
-1 Tangleroot
-1 Tangletrap
-1 Titania's Chosen
-1 Touch of Vitae
-1 Tree of Tales
-1 Wild Wanderer
-1 Wildsize
-1 Wilt
-1 Yavimaya Hollow
+[deck:commander midrange U #20261088]
+1 A.I.M. Synthoids
+1 Angler Drake
+1 Barrels of Blasting Jelly
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Blue Mana Battery
+1 Buzz Bots
+1 Chromatic Star
+1 Council of Advisors
+1 Courier's Capsule
+1 Culling Dais
+1 Elite Instructor
+1 Energy Refractor
+1 Experimental Aviator
+1 Eye of Vecna
+1 Falcon, Winged Wonder
+1 Futurist Forge
+1 Goggles of Night
+1 Golden Guardian
+1 Gryff Vanguard
+1 Hierophant's Chalice
+1 Icewind Elemental
+1 Insight Engine
+1 Ipnu Rivulet
+34 Island
+1 Jace, the Mind Sculptor
+1 Lilypad Village
+1 Lotus Petal
+1 Mechan Navigator
+1 Memory Deluge
+1 Mental Note
+1 Merchant of Secrets
+1 Mightstone's Animation
+1 Minamo, School at Water's Edge
+1 Mox Opal
+1 Muse Drake
+1 Nimble Innovator
+1 Oboro, Palace in the Clouds
+1 Ominous Parcel
+1 Owl Familiar
+1 Padeem, Consul of Innovation
+1 Parasitic Strix
+1 Parcel Myr
+1 Prophetic Prism
+1 Quicksilver Fisher
+1 Raven Familiar
+1 Ray of Erasure
+1 Riptide Laboratory
+1 S.H.I.E.L.D. Deployment Drone
+1 Sarcomite Myr
+1 Scepter of Insight
+1 Serum Visions
+1 Shield-Wall Sentinel
+1 Silver Raven
+1 Sire of the Storm
+1 Soaring Show-Off
+1 Soldevi Excavations
+1 Solemn Simulacrum
+1 Terrarion
+1 The Everflowing Well
+1 Three Steps Ahead
+1 Thrór's Map
+1 Trigon of Thought
+1 Unstable Obelisk
+1 Wan Shi Tong, Librarian
+1 Witching Well
 
 [commander]
-Blor the Impervious
+Iron Man, Futurist Paragon

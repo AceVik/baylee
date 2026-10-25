@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp RG #20266231]
+1 Akki War Paint
 1 Anaba Shaman
-1 Ant Queen
-1 Asceticism
-1 Ashnod's Altar
-1 Blazing Effigy
-1 Bristling Backwoods
+1 Briar Shield
 1 Brood Weaver
-1 Cathodion
-1 Cinder Giant
+1 Catalyst Elemental
+1 Charging Strifeknight
+1 Colossification
+1 Concordant Crossroads
 1 Contested Cliffs
 1 Cragcrown Pathway
-1 Craw Giant
-1 Daily Bugle Newspaper
-1 Dryad's Favor
-1 Experimental Armor
+1 Dance with Devils
+1 Epic Proportions
+1 Fire Snake
 1 Fire-Lit Thicket
-1 Flamekin Gildweaver
-16 Forest
-1 Frost Giant
+1 Flurry of Horns
+17 Forest
 1 Fungal Reaches
-1 Gilded Pinions
-1 Gimli's Axe
-1 Glittermonger
-1 Gold Pan
-1 Goldvein Pick
+1 Fury Sliver
+1 Garruk's Uprising
+1 Giant Caterpillar
+1 Goblin Assault
+1 Goblin Scouts
+1 Goblin Wizardry
+1 Gorilla Shaman
+1 Groundshaker Sliver
 1 Grove of the Burnwillows
-1 Gruul War Plow
-1 Hard-Won Jitte
-1 Hidden Path
+1 Hornet Sting
 1 Imposing Visage
-1 Jewel-Eyed Cobra
+1 Infested Roothold
 1 Karplusan Forest
-1 Karplusan Giant
 1 Kessig Wolf Run
-1 Llanowar Mentor
-1 Los Diablos Missile Base
+1 Kithkin Mourncaller
+1 Madcap Skills
+1 Manaweft Sliver
+1 Maraxus of Keld
+1 Marker Beetles
+1 Megantic Sliver
+1 Messenger's Speed
 1 Mogg Hollows
 1 Mossfire Valley
-10 Mountain
-1 Myr Moonvessel
-1 Myr Retriever
-1 Nest Invader
-1 Overgrown Armasaur
-1 Panharmonicon
-1 Penregon Strongbull
-1 Phyrexian Altar
-1 Power Boost
-1 Price of Progress
+9 Mountain
+1 Mythic Proportions
+1 Overgrown Battlement
+1 Pinecrest Ridge
 1 Primal Frenzy
 1 Prodigious Growth
-1 Prying Blade
-1 Pyroclastic Elemental
-1 Ranger's Longbow
-1 Raptor Hatchling
-1 Ravenous Giant
-1 Rumbling Slum
-1 Runes of the Deus
-1 Scion Summoner
-1 Scrap Trawler
+1 Provoke
+1 Ragavan, Nimble Pilferer
+1 Rage Reflection
+1 Ral's Reinforcements
+1 Romantic Rendezvous
+1 Rootrider Faun
+1 Rukh Egg
+1 Sachi, Daughter of Seshiro
+1 Satyr Hedonist
 1 Skarrg, the Rage Pits
-1 Skullclamp
-1 Smoldering Efreet
-1 Spawning Pit
-1 Spidersilk Net
-1 Spitting Spider
+1 Spire Garden
+1 Spore Crawler
 1 Spore Swarm
-1 Stomping Ground
-1 Sylvok Lifestaff
+1 Sudden Breakthrough
+1 Sunastian Falconer
 1 Taiga
-1 Tectonic Hazard
+1 Tattermunge Duo
 1 Tel-Jilad Lifebreather
 1 Thornspire Verge
-1 Tibalt's Rager
-1 Tireless Provisioner
+1 Timberline Ridge
+1 Titan's Strength
 1 Training Compound
+1 Trolls of Tel-Jilad
+1 Unforgiving Aim
+1 Vampires' Vengeance
+1 Wall of Mulch
+1 Whiteout
+1 Wild Celebrants
+1 Xenobotanist
 
 [commander]
-The Lady of the Mountain
+Jerrard of the Closed Fist

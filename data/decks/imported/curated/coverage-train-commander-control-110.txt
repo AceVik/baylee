@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUG #20266111]
+1 Aang, Air Nomad
+1 Absolute Virtue
+1 Almost Perfect
+1 Angelic Shield
+1 Angelic Voices
+1 Angry Mob
+1 Aquatic Incursion
+1 Arena
+1 Asceticism
+1 Ayesha Tanaka
+1 Cavern of Souls
+1 Chill
+1 Cloud Crusader
+1 Coastal Piracy
+1 Collective Blessing
+1 Crosswinds
+1 Dictate of Kruphix
+1 Disdainful Stroke
+1 Dispersing Orb
+1 Disruptive Student
+1 Drannith Magistrate
+1 Elemental Bond
+1 Emeritus of Ideation
+1 Expedition Map
+1 Extinguish
+1 Favor of the Overbeing
+10 Forest
+1 Fountainport
+1 Geier Reach Sanitarium
+1 Glimmervoid
+1 Griffin Canyon
+1 Hanna's Custody
+1 Hidden Path
+1 Hobbit Hole
+1 Inventors' Fair
+9 Island
+1 Jhovall Rider
+1 Jwari Disruption
+1 Karn's Bastion
+1 Kjeldoran Skycaptain
+1 Kjeldoran Skyknight
+1 Library of Alexandria
+1 Lightning Blow
+1 Mantle of Webs
+1 Mental Discipline
+1 Mental Misstep
+1 Moat
+1 Obelisk of Bant
+1 Ophidian Eye
+1 Order of the Sacred Torch
+1 Pegasus Refuge
+1 Petrified Field
+8 Plains
+1 Prismatic Circle
+1 Red Scarab
+1 Refocus
+1 Revelation
+1 Rishadan Airship
+1 Roadside Reliquary
+1 Salt Road Quartermasters
+1 Secret Tunnel
+1 Simic Keyrune
+1 Sky Tether
+1 Skyspear Cavalry
+1 Stern Scolding
+1 Sunken City
+1 Talas Air Ship
+1 The Monumental Facade
+1 Tolarian Sentinel
+1 Tower of the Magistrate
+1 Tranquil Grove
+1 True Conviction
+1 Warriors of Wakanda
+1 Watermarket
+1 Wings of Aesthir
+
+[commander]
+Ragnar

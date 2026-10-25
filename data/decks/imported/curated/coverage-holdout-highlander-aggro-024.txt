@@ -1,0 +1,82 @@
+# baylee synergistic holdout coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro UBG #90010025]
+1 A.I.M. Labs
+1 Agents of HYDRA
+1 Al Bhed Salvagers
+1 Alchemist's Refuge
+1 Aviation Pioneer
+1 Barrow Witches
+1 Bayou
+1 Briarbridge Tracker
+1 Brine Shaman
+1 Byway Courier
+1 Cabal Archon
+1 Callous Inspector
+1 Common Crook
+1 Confront the Unknown
+1 Corsair Captain
+1 Deathgreeter
+1 Deranged Outcast
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Doomed Dissenter
+1 Drakewing Krasis
+1 Drownyard Explorers
+1 Enlightened Maniac
+1 Etherium Spinner
+1 Falcon, Winged Wonder
+1 Flooded Grove
+1 Foreboding Landscape
+7 Forest
+1 Gilded Goose
+1 Greedy Freebooter
+1 Hard Evidence
+1 Homarid Spawning Bed
+1 Hopeless Nightmare
+1 Infestation Sage
+6 Island
+1 Jade Mage
+1 Jeskai Sage
+1 Kiora's Follower
+1 Lead Pipe
+1 Liliana the Repentant
+1 Marionette Apprentice
+1 Minotaur, Roxxon CEO
+1 Novice Occultist
+1 Novijen, Heart of Progress
+1 Opulent Palace
+1 Orochi Hatchery
+1 Overflowing Basin
+1 Overgrown Tomb
+1 Pitiless Plunderer
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Renowned Weaver
+1 River Delta
+1 Sailor of Means
+1 Shadow-Rite Priest
+1 Shelob's Ambush
+1 Sprout
+11 Swamp
+1 Sweettooth Witch
+1 Sylvan Safekeeper
+1 Tempting Witch
+1 The Mechanist, Aerial Artisan
+1 Thelon's Curse
+1 Three Steps Ahead
+1 Toxin Analysis
+1 Treasure Dredger
+1 Unburied Earthcarver
+1 Vampire's Kiss
+1 Village Elder
+1 Vital Splicer
+1 Vitality Charm
+1 Waterlogged Grove
+1 Waterveil Cavern
+1 Wurmweaver Coil
+1 Yavimaya Coast
+1 Yawgmoth, Thran Physician
+1 Zagoth Triome
+1 Zulaport Cutthroat
+1 Zuran Orb

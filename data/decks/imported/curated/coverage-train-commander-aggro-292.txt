@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20266293]
+1 Alesha's Legacy
+1 Barreling Attack
+1 Battle Brawler
+1 Battle-Rage Blessing
+1 Battlefield Percher
+1 Crimson Muckwader
+1 Crimson Roc
+1 Darigaaz's Caldera
+1 Dire Fleet Captain
+1 Dwarven Pony
+1 Falkenrath Reaver
+1 Fill with Fright
+1 Flatten
+5 Forest
+1 Geothermal Crevice
+1 Ghazbán Ogre
+1 Giant Trap Door Spider
+1 Goblin Outlander
+1 Gravel-Hide Goblin
+1 Hatred
+1 Highborn Vampire
+1 Iron-Shield Elf
+1 Kessig Wolf Run
+1 Koskun Keep
+1 Leaping Lizard
+1 Madrush Cyclops
+1 Marsh Goblins
+1 Melancholy
+8 Mountain
+1 Mudbrawler Raiders
+1 Odious Trow
+1 Offer Immortality
+1 Olivia's Dragoon
+1 Overgrown Tomb
+1 Pestilent Kathari
+1 Pharika's Chosen
+1 Pinecrest Ridge
+1 Plated Rootwalla
+1 Prakhata Club Security
+1 Pygmy Pyrosaur
+1 Rhox Brute
+1 Ridged Kusite
+1 Riveteers Initiate
+1 Rix Maadi, Dungeon Palace
+1 Rubblebelt Runner
+1 Ruination Wurm
+1 Savage Lands
+1 Scarred Vinebreeder
+1 Scarwood Goblins
+1 Shadowblood Ridge
+1 Sheoldred's Edict
+1 Shriek of Dread
+1 Skull Collector
+1 Spike Jester
+1 Stench of Decay
+1 Stomping Ground
+1 Stone-Throwing Devils
+1 Strangling Spores
+1 Stromkirk Captain
+11 Swamp
+1 Taiga
+1 Tar Pit Warrior
+1 Tattermunge Maniac
+1 Throatseeker
+1 Trench Wurm
+1 Twisted Landscape
+1 Vampire Hounds
+1 Viashino Grappler
+1 Viashino Outrider
+1 Viashino Sandscout
+1 Viashino Slaughtermaster
+1 Viashino Warrior
+1 Vug Lizard
+1 Waking Nightmare
+1 Wastewood Verge
+1 Windreaper Falcon
+1 Wirewood Symbiote
+1 Ziatora's Proving Ground
+
+[commander]
+Bartel Runeaxe

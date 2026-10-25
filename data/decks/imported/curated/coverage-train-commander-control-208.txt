@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UBR #20266209]
+1 Aftershock
+1 Agonizing Syphon
+1 Badlands
+1 Black Waltz No. 3
+1 Blaze
+1 Bloodshot Trainee
+1 Breath of Fire
+1 Bria, Riptide Rogue
+1 Castle Sengir
+1 Chaos Charm
+1 Choking Sands
+1 Cinder Marsh
+1 Cinder Storm
+1 Consuming Corruption
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Daring Escape
+1 Dark Nourishment
+1 Electrify
+1 Emberstrike Duo
+1 Energy Vortex
+1 Explosive Impact
+1 Fiery Finish
+1 Fiery Islet
+1 Fire Ambush
+1 Flame Rift
+1 Flame-Blessed Bolt
+1 Frenzied Devils
+1 Furious Bellow
+1 Gravelgill Duo
+1 Guerrilla Tactics
+1 Inferno
+1 Inordinate Rage
+13 Island
+1 Isolation Cell
+1 Kazuul's Fury
+1 Kindled Heroism
+1 Kulrath Mystic
+1 Last Kiss
+1 Mage-Ring Bully
+1 Mind Bomb
+1 Molten Slagheap
+10 Mountain
+1 Nephalia Drownyard
+1 Oscorp Industries
+1 Ozai's Cruelty
+1 Price of Progress
+1 Reckless Air Strike
+1 Reveka, Wizard Savant
+1 Riverglide Pathway
+1 Roast
+1 Rumbling Rockslide
+1 Scorchmark
+1 Sear
+1 Seething Landscape
+1 Shadowblood Ridge
+1 Shatterskull Smashing
+1 Simulacrum
+1 Soul Shred
+1 Stormchaser Mage
+1 Sulfur Vent
+1 Sulfurous Springs
+4 Swamp
+1 TVA Bureaucrat
+1 Tarfire
+1 Tempest Angler
+1 Thundering Rebuke
+1 Umara Mystic
+1 Vedalken Blademaster
+1 Volcanic Eruption
+1 Volcanic Hammer
+1 Winter's Intervention
+1 Withering Torment
+1 Xander's Lounge
+
+[commander]
+Sol'kanar the Swamp King

@@ -1,71 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp U #20266252]
-1 A.I.M. Bot
-1 Acid Rain
-1 Beast of Burden
-1 Cavern of Souls
-1 Celestial Prism
-1 Cobalt Golem
-1 Conch Horn
-1 Darksteel Gargoyle
-1 Darksteel Relic
-1 Darksteel Sentinel
-1 Despotic Scepter
-1 Didgeridoo
-1 Dukhara Peafowl
-1 Ebony Rhino
-1 Esperzoa
-1 Flooded Strand
-1 Font of Mythos
-1 Fountain of Ichor
-1 Glass Golem
-1 Graaz, Unstoppable Juggernaut
-1 Guardian Idol
-1 Gust-Skimmer
-1 Hermitic Nautilus
-1 Hexplate Golem
-35 Island
-1 Jandor's Ring
-1 Jawbone Skulkin
-1 Jhoira's Toolbox
-1 Karn, Silver Golem
-1 Kry Shield
-1 Lead Golem
-1 Locthwain Gargoyle
-1 Manalith
-1 Manhole Cover
-1 Mimic
-1 Obsianus Golem
-1 Pardic Wanderer
-1 Patagia Golem
-1 Patriar's Seal
-1 Pearl Medallion
-1 Phyrexian Hulk
-1 Pilgrim of the Fires
-1 Pillar of the Paruns
-1 Pithing Needle
-1 Powerstone Shard
-1 Relic of Legends
-1 Ring of Ma'rûf
-1 Ring of Renewal
-1 Scalding Cauldron
-1 Scarab of the Unseen
-1 Scorpion Sentinel
-1 Seer's Sundial
-1 Sisay's Ring
-1 Spinning Wheel
-1 Squee's Toy
-1 Surveillance Room
-1 Teferi's Sentinel
-1 Tezzeret's Strider
-1 The Grey Havens
-1 The Rack
-1 Tormod's Crypt
-1 Ur-Golem's Eye
-1 Vesuva
-1 Worldslayer
-1 Yavimaya, Cradle of Growth
+[deck:commander ramp UB #20266252]
+1 Abjure
+1 Aether Storm
+1 Angler Turtle
+1 Benthic Behemoth
+1 Bog Serpent
+1 Bribery
+1 Clearwater Pathway
+1 Controlled Instincts
+1 Convolute
+1 Countersculpt
+1 Daring Apprentice
+1 Darkwater Catacombs
+1 Derelor
+1 Disdainful Stroke
+1 Dismal Backwater
+1 Douse
+1 Dreadship Reef
+1 Drowner of Secrets
+1 Evasive Action
+1 Feral Abomination
+1 Fetid Pools
+1 Field of Dreams
+1 Fierce Guardianship
+1 Flash Counter
+1 Flashfreeze
+1 Frazzle
+1 Frilled Sea Serpent
+1 Gainsay
+1 Gloomlake Verge
+1 Hidden Lair
+1 Hisoka's Defiance
+1 Irini Sengir
+1 Island Fish Jasconius
+1 Necrologia
+1 Nephalia Drownyard
+1 Nullify
+1 Nyxborn Seaguard
+1 Patron Wizard
+1 Preemptive Strike
+1 Quench
+1 Razaketh's Rite
+1 Remove Soul
+1 Revolutionary Rebuff
+1 River Delta
+1 River of Tears
+1 Ronom Serpent
+1 Rootwater Depths
+1 Sandbar Serpent
+1 Scatter Ray
+1 Sea Serpent
+1 Sea's Claim
+1 Serpent of Yawning Depths
+1 Silvergill Peddler
+1 Sinister Hideout
+1 Skeletal Wurm
+1 Sleep Magic
+23 Snow-Covered Island
+3 Snow-Covered Swamp
+1 Spell Pierce
+1 Stern Scolding
+1 Sunken Ruins
+1 Sure-Footed Infiltrator
+1 Tainted Isle
+1 Tangle Kelp
+1 The Terror of Serpent's Pass
+1 Thrull Wizard
+1 Torture
+1 Treasure Trove
+1 Undersea Invader
+1 Venomous Hierophant
+1 Vizzerdrix
+1 Waterveil Cavern
+1 Watery Grave
+1 Whitewater Naiads
+1 Wrath of Marit Lage
 
 [commander]
-Aboshan, Cephalid Emperor
+Nebuchadnezzar

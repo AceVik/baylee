@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #20266256]
+1 Altar of the Brood
+1 Ancient Brontodon
+1 Ankh of Mishra
+1 Arcane Signet
+1 Arctic Flats
+1 Axebane Stag
+1 Beast of Burden
+1 Behemoth Sledge
+1 Brushland
+1 Carnage Tyrant
+1 Celestial Prism
+1 Conch Horn
+1 Conduit of Worlds
+1 Darksteel Ingot
+1 Darksteel Sentinel
+1 Elesh Norn, Grand Cenobite
+1 Elfhame Palace
+1 Emerald Medallion
+1 Flamecast Wheel
+1 Flora Colossus
+1 Flowstone Sculpture
+1 Flowstone Thopter
+17 Forest
+1 Gathering Place
+1 Gavony Township
+1 Ghastbark Twins
+1 Goblin Lyre
+1 Grove of the Guardian
+1 Guardian Idol
+1 Heartstone
+1 Horizon Canopy
+1 Hushwood Verge
+1 Implements of Sacrifice
+1 Jet Medallion
+1 Karn, Silver Golem
+1 Kindercatch
+1 Lead Golem
+1 Moss Kami
+1 Myr Scrapling
+1 Narnam Cobra
+1 Nettletooth Djinn
+1 Obsianus Golem
+1 Palladium Myr
+1 Patriar's Seal
+9 Plains
+1 Planar Portal
+1 Razormane Masticore
+1 Riftstone Portal
+1 Ring of Renewal
+1 Ring of Three Wishes
+1 Ruby Medallion
+1 Savannah
+1 Scarecrow
+1 Scattered Groves
+1 Siegehorn Ceratops
+1 Signpost Scarecrow
+1 Smuggler's Copter
+1 Spectral Guardian
+1 Spellbook
+1 Springjaw Trap
+1 Squee's Toy
+1 Storm Seeker
+1 Temple Garden
+1 Thought Vessel
+1 Tower of Calamities
+1 Tranquil Garden
+1 Triangle of War
+1 Tyrranax Rex
+1 Unerring Sling
+1 Ur-Golem's Eye
+1 Urza's Blueprints
+1 Vec Townships
+1 Veldt
+1 Venser's Sliver
+1 Wooded Bastion
+
+[commander]
+Trostani, Three Whispers

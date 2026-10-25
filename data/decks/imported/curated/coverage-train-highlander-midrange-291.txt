@@ -1,81 +1,80 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WRG #20266292]
-1 Aether Shockwave
-1 An-Havva Township
-1 Axebane Beast
-1 Behemoth's Herald
-1 Bladed Ambassador
-1 Blood of the Martyr
-1 Boros Guildmage
-1 Boros Swiftblade
-1 Branchloft Pathway
-1 Canyon Wildcat
-1 Cat Warriors
-1 Cerodon Yearling
-1 Clever Concealment
-1 Coeurl
-1 Darba
-1 Death-Hood Cobra
-1 Eerie Interlude
-1 Elvish Lookout
-1 Feral Maaka
-1 Flowstone Charger
-5 Forest
-1 Fungal Reaches
-1 Furnace Strider
+[deck:highlander midrange WUG #20266292]
+1 Animate Artifact
+1 Annex
+1 Armored Wolf-Rider
+1 Assault Zeppelid
+1 Aysen Abbey
+1 Blade of the Sixth Pride
+1 Breeding Pool
+1 Brokers Initiate
+1 Castaway's Despair
+1 Cat-Owl
+1 Cliff Threader
+1 Cloaked Siren
+1 Cloudheath Drake
+1 Curse of Chains
+1 Deepchannel Duelist
+1 Elvenking's Harper
+1 Elvish Healer
+1 Esper Cormorants
+1 Faerie Swarm
+1 Galina's Knight
 1 Gavony Township
-1 Glissa's Courier
-1 Godsire
+1 Ghost Warden
+1 Gleaming Bastion
+1 Goldmeadow Dodger
 1 Graceful Cat
-1 Great-Horn Krushok
 1 Grizzled Leotau
-1 Grove of the Guardian
-1 Guma
-1 Head of Security
-1 Hearthfire Hobgoblin
-1 Initiate's Companion
-1 Iroas's Champion
-1 Ironclad Krovod
-1 Jetmir's Garden
-1 Jungle Shrine
-1 Kalonian Tusker
-1 Kor Sky Climber
-1 Kranioceros
-1 Llanowar Cavalry
-1 Lynx
-1 Marauding Maulhorn
-1 Marisi's Twinclaws
-1 Moss Viper
-11 Mountain
-1 Mountain Goat
-1 Mugato
-1 Nacatl Savage
-1 Naya Battlemage
-1 Needleverge Pathway
-1 Noble Panther
-9 Plains
-1 Prowling Caracal
-1 Purelace
-1 Rakeclaw Gargantuan
-1 Rapid Fire
-1 Rith's Grove
-1 Rotted Hystrix
-1 Sacred Foundry
-1 Saltcrusted Steppe
-1 Selesnya Sentry
-1 Sheltering Landscape
-1 Skysnare Spider
-1 Soltari Emissary
-1 Tangle Spider
-1 Teferi's Protection
-1 Tinder Farm
-1 Towering Indrik
-1 Veldt
-1 Wild Colos
-1 Wild Jhovall
-1 Wily Bandar
-1 Wooded Bastion
-1 Woolly Thoctar
-1 Zodiac Goat
-1 Zodiac Tiger
+1 Guardian Lions
+1 Hazerider Drake
+1 Hushwood Verge
+1 Irrigation Ditch
+13 Island
+1 Jeskai Runemark
+1 Keen-Eyed Archers
+1 Land Cap
+1 Leafdrake Roost
+1 Living Airship
+1 Llanowar Knight
+1 Maned Serval
+1 Marsh Threader
+1 Merseine
+1 Mtenda Lion
+1 Mystic Restraints
+1 Ocular Halo
+1 Parapet Watchers
+12 Plains
+1 Plumeveil
+1 Prahv, Spires of Order
+1 Rune-Cervin Rider
+1 Safehold Elite
+1 Saheeli's Silverwing
+1 Sea Spirit
+1 Seaside Citadel
+1 Seedpod Squire
+1 Sejiri Shelter
+1 Selesnya Sagittars
+1 Silver Drake
+1 Slippery Bogle
+1 Spara's Headquarters
+1 Spectral Shield
+1 Stoic Angel
+1 Strength of the Harvest
+1 Sungrass Prairie
+1 Telekinesis
+1 Tempest Drake
+1 Thunderclap Wyvern
+1 Tower Drake
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tundra Wolves
+1 Unflinching Courage
+1 Urban Retreat
+1 Venomthrope
+1 Wall of Vines
+1 Wellspring
+1 Winged Coatl
+1 Yavimaya Coast
+1 Zodiac Rooster

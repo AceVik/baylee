@@ -1,71 +1,82 @@
 # baylee curated commander ramp seed=20261094
 # licence: AGPL-3.0-only
-[deck:commander ramp B #20261094]
-1 Ambition's Cost
-1 Ancient Craving
-1 Audacious Thief
-1 Baleful Force
-1 Barrels of Blasting Jelly
-1 Blightspeaker
-1 Blood Pact
-1 Cabal Coffers
-1 Cat-Gator
-1 Cateran Summons
-1 Caustic Hound
-1 Cosmic Horror
-1 Cruel Truths
-1 Dakmor Lancer
-1 Demon's Due
-1 Diresight
-1 Dread Reaper
-1 Ebon Dragon
-1 Eviscerator
-1 Festering Wound
-1 Griselbrand
-1 Harrowing Journey
-1 Havengul Laboratory
-1 Imperial Seal
-1 Infernal Idol
-1 Maggot Carrier
-1 Massacre Wurm
-1 Mold Demon
-1 Mox Jasper
-1 Mox Opal
-1 Mudflat Village
-1 Necrogen Scudder
-1 Night's Whisper
-1 Nightshade Harvester
-1 Ob Nixilis, the Fallen
-1 Ominous Parcel
-1 Orcish Bowmasters
-1 Pestilence Demon
-1 Pharika's Cure
-1 Phyrexian Gargantua
-1 Phyrexian Rager
-1 Phyrexian Tower
-1 Rathi Fiend
-1 Shauku, Endbringer
-1 Shredder's Revenge
-1 Simulacrum
-1 Sleeper Agent
-1 Snarling Gorehound
-1 Soul Exchange
-1 Sovereign's Bite
-1 Succumb to Temptation
-35 Swamp
-1 Tarrian's Journal
-1 The Black Gate
-1 Unearth
-1 Urborg
-1 Vampire Sovereign
-1 Vampiric Spirit
-1 Vampiric Tutor
-1 Westvale Abbey
-1 Wishclaw Talisman
-1 Witch's Cauldron
-1 Wretched Anurid
-1 Yawgmoth Demon
-1 Yawgmoth's Edict
+[deck:commander ramp WUG #20261094]
+1 Alchemist's Refuge
+1 Ancestral Vision
+1 Archaeomancer
+1 Aysen Abbey
+1 Barkchannel Pathway
+1 Beneath the Sands
+1 Birthing Pod
+1 Branchloft Pathway
+1 Breeding Pool
+1 Bugenhagen, Wise Elder
+1 Cloudblazer
+1 Consider
+1 Drumhunter
+1 Emrakul's Influence
+1 Evolution Charm
+1 Fable of Wolf and Owl
+1 Fauna Shaman
+1 Force of Nature
+12 Forest
+1 Frontier Guide
+1 Horizon Canopy
+1 Insight
+1 Irrigation Ditch
+8 Island
+1 Jeskai Sage
+1 Katara, the Fearless
+1 Knight-Captain of Eos
+1 Knightly Valor
+1 Kozilek's Unsealing
+1 Lady Caleria
+1 Lay of the Land
+1 Lumra, Bellow of the Woods
+1 Maja, Bretagard Protector
+1 Maul Splicer
+1 Merchant Scroll
+1 Nylea's Intervention
+1 Oashra Cultivator
+1 Outlaw Medic
+1 Path to Exile
+1 Pawpatch Formation
+6 Plains
+1 Portent
+1 Ramosian Captain
+1 Ramosian Lieutenant
+1 Ramosian Sergeant
+1 Rampaging Baloths
+1 Reach for the Sky
+1 Renewal
+1 Riftstone Portal
+1 Rinoa Heartilly
+1 Riverwheel Aerialists
+1 Rockcaster Platoon
+1 Safewright Quest
+1 Seaside Citadel
+1 Serum Visions
+1 Skycloud Expanse
+1 Slipstream Eel
+1 Spara's Headquarters
+1 Steelshaper Apprentice
+1 Sythis, Harvest's Hand
+1 Temple Garden
+1 Thranduil the Strategist
+1 Tolsimir Wolfblood
+1 Tranquil Landscape
+1 Transmute Artifact
+1 Treva's Ruins
+1 Trostani's Summoner
+1 Tundra
+1 Tura Kennerüd, Skyknight
+1 Ulvenwald Observer
+1 Untamed Wilds
+1 Urban Retreat
+1 Virtue of Knowledge
+1 Wild Wanderer
+1 Worldly Tutor
+1 Yoked Plowbeast
 
 [commander]
-Morinfen
+Angus Mackenzie

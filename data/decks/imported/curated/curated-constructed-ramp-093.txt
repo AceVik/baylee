@@ -5,18 +5,18 @@
 1 Cinder Marsh
 3 Coal Golem
 4 Gauntlet of Might
+3 Iron Myr
 2 Lantern-Lit Graveyard
 2 Lava Tubes
+4 Lead Pipe
 4 Legion Extruder
-2 Moriok Replica
-10 Mountain
+7 Mountain
 3 Pashalik Mons
-3 Piggy Bank
+4 Rakdos Cluestone
 1 Rix Maadi, Dungeon Palace
+3 Saberclaw Golem
 3 Sacrifice
-4 Shadowblood Egg
-3 Siege-Gang Commander
-5 Swamp
+8 Swamp
 2 Tainted Peak
 2 The Balrog of Moria
-4 Warren Soultrader
+2 Warren Soultrader

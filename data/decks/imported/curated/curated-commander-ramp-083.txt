@@ -1,81 +1,71 @@
 # baylee curated commander ramp seed=20261106
 # licence: AGPL-3.0-only
-[deck:commander ramp WU #20261106]
-1 Adarkar Wastes
+[deck:commander ramp U #20261106]
 1 Archaeomender
-1 Augury Owl
-1 Aven Battle Priest
+1 Artificer's Intuition
 1 Aven Fateshaper
-1 Citywatch Sphinx
-1 Cloudblazer
-1 Cloudcrest Lake
+1 Bellowing Crier
+1 Blighted Cataract
+1 Blue Mana Battery
+1 Cloistered Telepath
+1 Cloud of Faeries
 1 Cloudreader Sphinx
-1 Defiant Falcon
-1 Dimir Informant
-1 Elite Guardmage
-1 Enlightened Maniac
-1 Esper Sentinel
+1 Disrupt
 1 Faerie Seer
-1 Glacial Floodplain
-1 Gleaming Bastion
+1 Fascination
+1 Five Hundred Year Diary
+1 Giant's Boulder
+1 Great Whale
 1 Gryff Vanguard
 1 Halimar Excavator
-1 Hallowed Fountain
 1 Harrier Strix
-1 Hengegate Pathway
+1 Hithlain Knots
 1 Horizon Scholar
-1 Iron Man, Futurist Paragon
-18 Island
+1 Icewind Elemental
+1 Ipnu Rivulet
+35 Island
 1 Jace, the Mind Sculptor
-1 Land Cap
-1 Ledger Shredder
-1 Lifecreed Duo
-1 Mana Crypt
+1 Kapsho Kitefins
+1 Kozilek's Unsealing
+1 Mental Note
 1 Micromancer
-1 Monk Idealist
-1 Moorland Haunt
-1 Mox Sapphire
-1 Mystic Gate
-1 Norn's Wellspring
-1 North Pole Gates
-1 Ojutai's Command
-1 Omenspeaker
-1 Operations Officer
-1 Overwhelmed Apprentice
-1 Parasitic Strix
+1 Moonlit Scavengers
+1 Muse Drake
+1 Mystic Remora
+1 Omen
+1 Opal Lake Gatekeepers
+1 Opt
+1 Otawara, Soaring City
+1 Palinchron
+1 Paradise Mantle
 1 Pelargir Survivor
-1 Pileated Provisioner
-8 Plains
-1 Plumecreed Mentor
 1 Pondering Mage
-1 Prahv, Spires of Order
+1 Quicksilver Fisher
 1 Raven Familiar
-1 Sage Aven
-1 Sage Owl
-1 Sage of Mysteries
-1 Serum Visions
-1 Silent Sentinel
-1 Silver Raven
-1 Skybridge Towers
-1 Skycloud Egg
-1 Skycloud Expanse
-1 Slumbering Keepguard
-1 Soaring Show-Off
+1 Riddlemaster Sphinx
+1 Screeching Drake
+1 Seat of the Synod
+1 Serum Visionary
+1 Shipwreck Dowser
+1 Sky-Eel School
+1 Soldevi Excavations
+1 Spellseeker
+1 Sphinx Mindbreaker
 1 Sphinx of Enlightenment
-1 Sphinx of Magosi
 1 Spire Owl
-1 Supply-Line Cranes
-1 Talisman of Progress
-1 Thalakos Lowlands
-1 Tundra
-1 Umara Raptor
-1 Wan Shi Tong, Librarian
-1 Wanderwine Hub
-1 Welkin Guide
-1 Welkin Hawk
-1 Windbrisk Raptor
+1 Thassa's Bounty
+1 The Unspeakable
+1 Three Steps Ahead
+1 Tolarian Academy
+1 Tome Raider
+1 Transmute Artifact
+1 Trenzalore Clocktower
+1 Vendilion Clique
+1 Vessel of Paramnesia
+1 Willow-Wind
 1 Windreader Sphinx
-1 Zhou Yu, Chief Commander
+1 Wizard Class
+1 You Find the Villains' Lair
 
 [commander]
-Rasputin Dreamweaver
+Donatello, Way with Machines

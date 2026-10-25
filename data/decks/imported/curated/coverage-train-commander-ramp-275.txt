@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp W #20266276]
+1 Adamant Will
+1 Aerial Maneuver
+1 Alley Evasion
+1 Allied Reinforcements
+1 Altar's Light
+1 Angelic Voices
+1 Ardent Militia
+1 Asha's Favor
+1 Cactus Preserve
+1 Cho-Arrim Alchemist
+1 Clergy of the Holy Nimbus
+1 Crumbling Vestige
+1 Day of Destiny
+1 Defender of Law
+1 Dub
+1 Femeref Healer
+1 Fresh Volunteers
+1 Gateway Plaza
+1 Glorious Anthem
+1 Great Defender
+1 Icatian Phalanx
+1 Icatian Skirmishers
+1 Interjection
+1 Iona's Blessing
+1 Ivory Charm
+1 Knight of New Benalia
+1 Knight of Valor
+1 Makindi Stampede
+1 Marked by Honor
+1 Martyrs of Korlis
+1 Master Healer
+1 Militant Monk
+1 Moat
+1 Mortal's Ardor
+1 Mountain Valley
+1 Paladin en-Vec
+1 Path of Ancestry
+1 Piety
+35 Plains
+1 Power Depot
+1 Queen's Commission
+1 Repentant Blacksmith
+1 Righteous Avengers
+1 Sacred Knight
+1 Sanctum Custodian
+1 Seize the Initiative
+1 Serra's Boon
+1 Shield Bearer
+1 Shield Wall
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Siegecraft
+1 Silver Knight
+1 Skillful Lunge
+1 Skyline Scout
+1 Swift Justice
+1 Terra Eternal
+1 Thawing Glaciers
+1 Thraben Valiant
+1 Trokin High Guard
+1 Venerable Lammasu
+1 Veteran Bodyguard
+1 Veteran Cavalier
+1 Warning
+1 You're Ambushed on the Road
+
+[commander]
+Hawkeye, Clint Barton

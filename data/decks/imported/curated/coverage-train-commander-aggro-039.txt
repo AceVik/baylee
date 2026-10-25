@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro UR #20266040]
-1 A.I.M. Bot
-1 A.I.M. Synthoids
-1 Artifact Blast
-1 Ashnod's Transmogrant
-1 Aven Envoy
-1 Baron, Airship Kingdom
-1 Bigfin Bouncer
-1 Bloodrage Brawler
-1 Bone Saw
-1 Caldera Lake
-1 Cerulean Wyvern
-1 Coastal Drake
-1 Coastal Peak
-1 Craterize
-1 Dark Maze
-1 Dream Stalker
-1 Envelop
-1 Eroded Canyon
-1 Escaped Experiment
-1 Esperzoa
-1 Exocomp
-1 Fists of the Anvil
-1 Flash Flood
-1 Fleeting Image
-1 Frantic Confrontation
-1 Frostboil Snarl
-1 Gilded Drake
-1 Glimmerbell
-1 Glowing Anemone
-1 Grindclock
-1 Gulf Squid
-1 Horizon Drake
-1 Hydroblast
-1 Hydroelectric Specimen
-1 Iceridge Serpent
-1 Indigo Faerie
-1 Iron Bully
-18 Island
-1 Levitating Statue
-1 Lightning Stormkin
-1 Mechan Navigator
-1 Miscast
-6 Mountain
-1 Nebelgast Herald
-1 Oboro Breezecaller
-1 Pedal to the Metal
-1 Piracy Charm
-1 Ruinous Gremlin
-1 Salivating Gremlins
-1 Scrapskin Drake
-1 Sea Eagle
-1 Sea Kings' Blessing
-1 Sea Sprite
-1 Shore Keeper
-1 Shriekgeist
-1 Silverbluff Bridge
-1 Skyline Predator
-1 Skyshroud Condor
-1 Spindrift Drake
-1 Stark Industries
-1 Subtlety
-1 Sunder from Within
-1 Surge Node
-1 Surtland Frostpyre
-1 TCRI Building
-1 Temple of Epiphany
-1 Timid Drake
-1 Tolarian Drake
-1 Training Center
-1 Turbulent Springs
-1 Volatile Fjord
-1 Volcanic Upheaval
-1 Wandering Fumarole
-1 Wind Dancer
-1 Yarok's Wavecrasher
-1 Zephyr Gull
-1 Zephyr Sprite
+[deck:commander aggro WG #20266040]
+1 Adamant Will
+1 Aegis of the Heavens
+1 Amonkhet Raceway
+1 Blitzball Shot
+1 Bramble Creeper
+1 Brushwagg
+1 Cenn's Heir
+1 Chub Toad
+1 City of Shadows
+1 Cliffrunner Behemoth
+1 Darkthicket Wolf
+1 Devotee of Strength
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Druid of the Spade
+1 Eldrazi Temple
+1 Ember Weaver
+1 Eye of Ugin
+1 Flutterfox
+15 Forest
+1 Gaea's Liege
+1 Gargoyle Castle
+1 Get a Leg Up
+1 Ghost Warden
+1 Giant Turtle
+1 Graceful Cat
+1 Great Defender
+1 Griffin Canyon
+1 Hedge Troll
+1 Indestructible Aura
+1 Interjection
+1 Johtull Wurm
+1 Joven's Ferrets
+1 Kithkin Shielddare
+1 Legolas's Quick Reflexes
+1 Library of Alexandria
+1 Llanowar Vanguard
+1 Loam Lion
+1 Loxodon Stalwart
+1 Massive Might
+1 Nantuko Disciple
+9 Plains
+1 Prized Elephant
+1 Pygmy Troll
+1 Rabid Wolverines
+1 Radiant Essence
+1 Rally
+1 Regal Bunnicorn
+1 Scarwood Hag
+1 Scorched Ruins
+1 Shape the Sands
+1 Silk Net
+1 Skycoach Waypoint
+1 Snare the Skies
+1 Spitting Slug
+1 Staggering Size
+1 Steady Aim
+1 Study Hall
+1 Subdue
+1 Summit Apes
+1 Surveillance Room
+1 Sylvan Paradise
+1 The Monumental Facade
+1 Three Tree City
+1 Timbermaw Larva
+1 Vintara Snapper
+1 Vivien's Crocodile
+1 Wall of Faith
+1 Warning
+1 Watermarket
+1 Wayward Swordtooth
+1 Whippoorwill
+1 Willow Priestess
+1 Willow Satyr
+1 Wolverine Pack
+1 Wood Elemental
+1 You're Ambushed on the Road
 
 [commander]
-Tony Stark
+Kudo, King Among Bears

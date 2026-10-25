@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control BG #20266255]
+1 Abzan Kin-Guard
+1 Alloy Animist
+1 An-Havva Constable
+1 Aspect of Wolf
+1 Bayou
+1 Blackbloom Rogue
+1 Blanchwood Armor
+1 Blight
+1 Bloodcurdling Scream
+1 Blooming Marsh
+1 Charging Bandits
+1 Creeping Corrosion
+1 Crux of Fate
+1 Darkbore Pathway
+1 Deepwood Drummer
+1 Dhund Operative
+1 Duskmantle Operative
+1 Earthlore
+1 Elder of Laurels
+1 Embraal Bruiser
+1 Equestrian Skill
+1 Extinguish All Hope
+1 Final Death
+1 Fleshgrafter
+1 Folk of An-Havva
+1 Forced March
+12 Forest
+1 Gaea's Liege
+1 Gale Force
+1 Glyph of Doom
+1 Gohn, Town of Ruin
+1 Gravblade Heavy
+1 Grim Backwoods
+1 Grotesque Demise
+1 Hardened-Scale Armor
+1 Heir of the Wilds
+1 Illegitimate Business
+1 Inkrise Infiltrator
+1 Jukai Messenger
+1 Jumbo Cactuar
+1 Jungle Hollow
+1 Kraul Warrior
+1 Larger Than Life
+1 Living Lands
+1 Llanowar Wastes
+1 Mark of the Vampire
+1 Masked Blackguard
+1 Meng Huo's Horde
+1 Narcissism
+1 Nurturing Peatland
+1 Oran-Rief Invoker
+1 Overgrown Tomb
+1 People of the Woods
+1 Phytoburst
+1 Ritual of Soot
+1 Scarwood Bandits
+1 Soul Kiss
+1 Sultai Runemark
+1 Svogthos, the Restless Tomb
+15 Swamp
+1 Tainted Wood
+1 Tireless Hauler
+1 Topan Ascetic
+1 Twilight Mire
+1 Undergrowth Stadium
+1 Untamed Hunger
+1 Venomous Breath
+1 Vile Deacon
+1 Viridescent Bog
+1 Virtue's Ruin
+1 Wastewood Verge
+1 Wei Ambush Force
+1 Whirlwind
+1 Woodland Druid
+
+[commander]
+Vhati il-Dal

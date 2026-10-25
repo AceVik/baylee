@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20266148]
+1 Accelerated Evolution
+1 Animate Land
+1 Arboria
+1 Aspect of Wolf
+1 Brushstrider
+1 Call of the Wild
+1 Chub Toad
+1 Cliffrunner Behemoth
+1 Command Beacon
+1 Darksteel Forge
+1 Dungrove Elder
+1 Eclipsed Realms
+1 Equestrian Skill
+1 Feral Krushok
+35 Forest
+1 Gaea's Avenger
+1 Gaea's Embrace
+1 Gigantoad
+1 Gilt-Leaf's Embrace
+1 Goliath Spider
+1 Grounded
+1 Henge of Ramos
+1 Ivy Elemental
+1 Jibbirik Omnivore
+1 Jungle Wurm
+1 Kindercatch
+1 Krakilin
+1 Llanowar Behemoth
+1 Mending Touch
+1 Mirrodin's Core
+1 Moopsy
+1 Nature's Chosen
+1 Needleshot Gourna
+1 Null Rod
+1 Predatory Wurm
+1 Rabid Wolverines
+1 Rabid Wombat
+1 Reclaim
+1 Retaliation
+1 Root Snare
+1 Root Spider
+1 Scaled Behemoth
+1 Scurrid Colony
+1 Song of Serenity
+1 Spore Frog
+1 Springjack Pasture
+1 Squirrel Nest
+1 Squirrel Sovereign
+1 Stamina
+1 Strength of Cedars
+1 Survival of the Fittest
+1 Tall as a Beanstalk
+1 Tangle Spider
+1 Terrain Elemental
+1 Territorial Baloth
+1 Three Tree City
+1 Throne of Makindi
+1 Timber Protector
+1 Timbermaw Larva
+1 Treefolk Seedlings
+1 Trollhide
+1 Trolls of Tel-Jilad
+1 Ursapine
+1 Vitalize
+1 Wolverine Pack
+
+[commander]
+Ashaya, Soul of the Wild

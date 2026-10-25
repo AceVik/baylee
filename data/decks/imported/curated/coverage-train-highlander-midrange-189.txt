@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266190]
+1 Aang and Katara
+1 Aesi, Tyrant of Gyre Strait
+1 Altered Ego
+1 Amrou Scout
+1 Aysen Abbey
+1 Badgermole Cub
+1 Barrenton Cragtreads
+1 Breeding Pool
+1 Bright Reprisal
+1 Cartographer
+1 Chitinous Graspling
+1 Cloistered Telepath
+1 Crop Rotation
+1 Dawnhart Disciple
+1 Emerald Oryx
+1 Emperor Crocodile
+1 Eutropia the Twice-Favored
+9 Forest
+1 Frog Tongue
+1 Frontier Guide
+1 Gallant Citizen
+1 Gathering Place
+1 Gladewalker Ritualist
+1 Grove of the Guardian
+1 Haazda Officer
+1 Healer of the Glade
+1 Heavy Infantry
+1 Humbling Elder
+1 Irrigation Ditch
+10 Island
+1 Knight of the Mists
+1 Krosan Constrictor
+1 Labyrinth Minotaur
+1 Loran, Disciple of History
+1 Lotus Cobra
+1 Magnigoth Sentry
+1 Mossbeard Ancient
+1 Nimbus Maze
+1 Novijen, Heart of Progress
+1 Oran-Rief Survivalist
+1 Palace Jailer
+1 Perimeter Patrol
+6 Plains
+1 Pond Prophet
+1 Renegade Rallier
+1 Roving Harper
+1 Seaside Citadel
+1 Second Thoughts
+1 Serum Visionary
+1 Setessan Skirmisher
+1 Silkwing Scout
+1 Skyclave Apparition
+1 Snapcaster Mage
+1 Social Climber
+1 Solitude
+1 Spara's Headquarters
+1 Staunch Defenders
+1 Steel Leaf Paladin
+1 Stern Proctor
+1 Stoic Builder
+1 Tatyova, Benthic Druid
+1 Tenth District Guard
+1 Tidus, Blitzball Star
+1 Tivadar of Thorn
+1 Tome Raider
+1 Tranquil Landscape
+1 Treasure Hunter
+1 Treva's Ruins
+1 Trostani's Summoner
+1 Urban Retreat
+1 Vec Townships
+1 Vitu-Ghazi, the City-Tree
+1 Wall of Omens
+1 Waterlogged Grove
+1 Werefox Bodyguard
+1 Wistful Selkie
+1 Witch Enchanter
+1 Yotian Dissident

@@ -1,17 +1,21 @@
-# baylee unseen-card holdout constructed seed=90000008
+# baylee unseen-card holdout constructed seed=90000009
 # licence: AGPL-3.0-only
-[deck:constructed midrange G #90000008]
+[deck:constructed midrange UG #90000009]
+4 Aesi, Tyrant of Gyre Strait
 4 Archdruid's Charm
-4 Citanul Druid
-20 Forest
-4 Glade Gnarr
-2 Kurgadon
-3 Many Partings
-4 Maul Splicer
-2 Mold Adder
-3 Oakhollow Village
-4 Path of Annihilation
-4 Pawpatch Formation
-3 Sudden Strength
-2 Verduran Enchantress
-1 Yavimaya Hollow
+2 Breeding Pool
+3 Carven Caryatid
+2 Cloistered Telepath
+3 Eidolon of Blossoms
+4 Emrakul's Influence
+2 Flooded Grove
+11 Forest
+4 Island
+4 Kavu Climber
+3 Mystic Remora
+1 Novijen, Heart of Progress
+4 Pond Prophet
+3 Three Steps Ahead
+3 Tropical Island
+2 Unifying Theory
+1 Willowrush Verge

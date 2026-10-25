@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WRG #20266079]
+1 +2 Mace
+1 Akron Legionnaire
+1 Atarka Monument
+1 Behemoth Sledge
+1 Boots of Speed
+1 Boros Keyrune
+1 Boros Signet
+1 Brass's Tunnel-Grinder
+1 Chocobo Racetrack
+1 Clockwork Gnomes
+1 Cogworker's Puzzleknot
+1 Crater Hellion
+1 Crenellated Wall
+1 Cursed Mirror
+1 Deadshot Minotaur
+1 Defiant Falcon
+1 Esper Sentinel
+1 Eye of Vecna
+1 Fire Diamond
+12 Forest
+1 Foriysian Totem
+1 Fountain Watch
+1 Gauntlet of Might
+1 Goblin Artisans
+1 Gruul Cluestone
+1 Gruul Keyrune
+1 Gruul Locket
+1 Gruul War Plow
+1 Hall
+1 Hard-Won Jitte
+1 Harmonious Archon
+1 Haywire Mite
+1 Hazezon Tamar
+1 Heart of Ramos
+1 Hedgewitch's Mask
+1 Horn of Ramos
+1 Hulk, Always Angry
+1 Implode
+1 Inspiring Vantage
+1 Jackhammer
+1 Kird Chieftain
+1 Kor Halberd
+1 Lorehold Campus
+1 Mechanized Ninja Cavalry
+1 Mossfire Valley
+5 Mountain
+1 Needleverge Pathway
+1 Obelisk of Naya
+1 Outland Boar
+1 Overgrown Farmland
+10 Plains
+1 Plateau
+1 Raging Kavu
+1 Ranger's Longbow
+1 Regal Caracal
+1 Rin and Seri, Inseparable
+1 Rugged Prairie
+1 Runaway Boulder
+1 Sacred Foundry
+1 Savage Mansion
+1 Sentinel
+1 Slagwoods Bridge
+1 Slash, Reptile Rampager
+1 Slayers' Stronghold
+1 Staff of Nin
+1 Stirring Wildwood
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunscorched Divide
+1 Telethopter
+1 Thousand Moons Smithy
+1 Thunder Totem
+1 Tinker's Tote
+1 Trigon of Rage
+1 Troll-Horn Cameo
+1 Wirecat

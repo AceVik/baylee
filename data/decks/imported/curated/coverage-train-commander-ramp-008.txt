@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BRG #20266009]
-1 Ashen Powder
-1 Auntie's Hovel
+1 Ambush Gigapede
+1 Ambush Krotiq
 1 Avaricious Dragon
-1 Blood Pet
-1 Bog Initiate
-1 Brimstone Dragon
-1 Broodmate Dragon
-1 Burnt Offering
-1 Canopy Tactician
-1 Canyon Slough
-1 Charge Through
-1 Charnelhoard Wurm
-1 Daring Escape
-1 Darkmoss Bridge
-1 Deathcap Glade
+1 Belligerent Guest
+1 Boots of Speed
+1 Chocobo Racetrack
+1 Cinder Glade
+1 Crystal Slipper
+1 Darigaaz's Caldera
+1 Deadapult
 1 Dragon Tyrant
-1 Dread Rider
-1 Easy Prey
-1 Elvish Spirit Guide
-4 Forest
-1 Frog Butler
-1 Furious Bellow
-1 Fyndhorn Elder
+1 Dreamstone Hedron
+1 Failed Conversion
+1 Falkenrath Celebrants
+1 Festering Gulch
+1 Fierce Witchstalker
+1 Fireforger's Puzzleknot
+1 Flamekin Gildweaver
+5 Forest
+1 Gene Pollinator
 1 Geothermal Crevice
-1 Hammerfist Giant
+1 Golden Egg
+1 Goldhound
+1 Gruul Keyrune
 1 Hellkite Igniter
 1 Hellkite Overlord
+1 Hellkite Punisher
 1 Hissing Quagmire
-1 Inordinate Rage
-1 Intrepid Stablemaster
-1 Keeper of Tresserhorn
-1 Kindled Heroism
+1 Hobblefiend
+1 Illegitimate Business
+1 Jungle Weaver
+1 Kavu Monarch
 1 Koskun Keep
-1 Kozilek's Translator
-1 Lightning Javelin
-1 Locust Spray
-16 Mountain
-1 Nighthaze
-1 Nimble-Blade Khenra
-1 Nissa, Vital Force
+1 Lightning Spear
+1 Lotus Guardian
+1 Maximum Overdrive
+1 Mirkwood
+1 Morselhoarder
+11 Mountain
+1 Multani's Harmony
+1 Need for Speed
 1 Obelisk of Jund
-1 Ohran Frostfang
-1 Omen of the Forge
-1 Past in Flames
-1 Pavel Maliki
-1 Professor Dellian Fel
-1 Ray of Ruin
-1 Rejuvenate
-1 Restless Cottage
-1 Rise Again
-1 Savage Lands
-1 Scarblade Scout
-1 Silhana Starfletcher
+1 Omashu City
+1 Primordial Ooze
+1 Quarry Beetle
+1 Raging Ravine
+1 Rampaging Hippo
+1 Rapacious Dragon
+1 Rathi Dragon
+1 Ravenous Harpy
+1 Restless Ridgeline
+1 Rockslide Elemental
+1 Runaway Boulder
+1 Savage Mansion
+1 Scavenger Drake
+1 Sengir Bats
 1 Skemfar Elderhall
-1 Skull of Ramos
-1 Skycrash
-1 Songs of the Damned
+1 Slith Predator
 1 Soul Rend
-1 Stature, Young Avenger
-1 Stun
-1 Subterranean Cavern
-1 Sunrise Sovereign
-6 Swamp
-1 Swampbenders
-1 Three Tree Rootweaver
-1 Titan's Grave
-1 Titan's Strength
-1 Tramway Station
-1 Transdimensional Bovine
+1 Spire Garden
+10 Swamp
+1 Swamp Mosquito
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 The One Ring
+1 Thief of Blood
+1 Thundermaw Hellkite
+1 Trigon of Rage
 1 Troll-Horn Cameo
 1 Twisted Landscape
-1 Undergrowth Stadium
+1 Urn of Godfire
+1 Utvara Hellkite
+1 Venomcrawler
+1 Verdant Automaton
 1 Vernal Fen
-1 Vesper Ghoul
-1 Whisper Squad
-1 Windgrace Acolyte
+1 Wrenn and Realmbreaker
 
 [commander]
 Vaevictis Asmadi

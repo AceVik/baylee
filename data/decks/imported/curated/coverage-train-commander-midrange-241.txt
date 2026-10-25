@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UR #20266242]
-1 Active Volcano
-1 Aerial Guide
-1 Airship Engine Room
-1 Aven Smokeweaver
-1 Balduvian Hydra
-1 Bay Falcon
-1 Breezekeeper
-1 Cascade Bluffs
-1 Chasm Drake
-1 Cloudsculpt Technician
-1 Coast Watcher
-1 Covetous Dragon
+[deck:commander midrange RG #20266242]
+1 Aerial Predation
+1 Arborback Stomper
+1 Avaricious Dragon
+1 Barbarian Riftcutter
+1 Bird Maiden
+1 Canopy Baloth
+1 Cinder Glade
+1 Coldsteel Heart
+1 Contested Cliffs
+1 Copper Host Crusher
+1 Crossroads Watcher
 1 Deface
-1 Desolate Lighthouse
 1 Dragon Hatchling
-1 Dragon Tyrant
-1 Dwarven Catapult
-1 Emberwilde Caliph
-1 Emeritus of Ideation
-1 Ferrous Lake
-1 Fiery Islet
-1 Firestorm Phoenix
-1 Flowstone Kavu
-1 Flying Men
+1 Earthshaking Si
+1 Fangren Hunter
+1 Fearful Villager
+1 Fire-Lit Thicket
 1 Frontline War-Rager
-1 Gitaxian Raptor
-1 Granite Gargoyle
-1 Hellkite Punisher
-1 Hover Barrier
-12 Island
-1 Kavu Monarch
-1 Krovikan Mist
-1 Lightning Stormkin
-13 Mountain
-1 Nalathni Dragon
-1 Nivix, Aerie of the Firemind
-1 Oboro Breezecaller
-1 Oboro Envoy
-1 Pseudodragon Familiar
-1 Pyroblast
-1 Quaketusk Boar
+1 Fungal Reaches
+1 Garruk's Companion
+1 Gemrazer
+1 Gerrard's Irregulars
+1 Giant Warthog
+1 Gorn Captain
+1 Grazing Gladehart
+1 Grove of the Burnwillows
+1 Harvesttide Infiltrator
+1 Icecave Crasher
+1 Impetuous Sunchaser
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Khenra Charioteer
+1 Kindled Fury
+1 Mogg Hollows
+1 Molder Beast
+1 Mutant Town Musicians
+1 Nourish
+1 Pinecrest Ridge
+1 Pygmy Razorback
+1 Questing Beast
 1 Rathi Dragon
-1 Razorfin Hunter
-1 Restless Spire
-1 Ripscale Predator
-1 Rishadan Airship
-1 Riverglide Pathway
-1 Riverpyre Verge
-1 Rock Hydra
-1 Scaldkin
-1 Scorched Geyser
-1 Scrapskin Drake
+1 Ravenous Baloth
+1 Raze
+1 Respite
+1 Sapphire Medallion
+1 Sarkhan's Resolve
 1 Shivan Devastator
-1 Shivan Reef
-1 Skyship Stalker
-1 Slith Firewalker
-1 Soratami Mindsweeper
-1 Soratami Mirror-Guard
-1 Soratami Rainshaper
-1 Stark Industries
-1 Steam Vents
-1 Stormcloud Djinn
-1 Stronghold Zeppelin
-1 Sun-Collared Raptor
-1 Talas Air Ship
-1 Talonrend
-1 Teferi's Drake
-1 Thunder Wall
-1 Tolarian Drake
-1 Vaporous Djinn
-1 Vexing Gull
-1 Volatile Fjord
-1 Volcanic Island
-1 Wall of Air
-1 Wind Strider
-1 Windrider Patrol
+1 Skarrg, the Rage Pits
+1 Skyscythe Engulfer
+1 Smelt
+17 Snow-Covered Forest
+8 Snow-Covered Mountain
+1 Spearbreaker Behemoth
+1 Spiked Baloth
+1 Spinal Villain
+1 Stampeding Serow
+1 Stampeding Wildebeests
+1 Stature, Young Avenger
+1 Stomper Cub
+1 Stomping Ground
+1 Subdue
+1 Sudden Strength
+1 Sylvan Brushstrider
+1 Sylvan Paradise
+1 Taiga
+1 Territorial Baloth
+1 Thermokarst
+1 Thornspire Verge
+1 Timberline Ridge
+1 Toil to Renown
+1 Tunnel
+1 Vivify
+1 Warriors of Wakanda
+1 Wolfsbane, Highland Hero
+1 Wooded Ridgeline
+1 Zhao, the Seething Flame
 
 [commander]
-Mm'menon, Uthros Exile
+Tuknir Deathlock

@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266226]
-1 Abjure
-1 Agatha's Soul Cauldron
-1 Air Servant
-1 Aku Djinn
-1 Azure Drake
-1 Battlefly Swarm
-1 Catacomb Dragon
-1 Clearwater Pathway
-1 Cloud Djinn
-1 Cloud Dragon
-1 Coastal Drake
-1 Darkwater Catacombs
-1 Deathgrip
-1 Dimir Cutpurse
-1 Dismal Backwater
-1 Drake Hatchling
-1 Dreadship Reef
-1 Empowered Autogenerator
-1 Ethereal Whiskergill
-1 Fog Elemental
-1 Gallowbraid
-1 Gemstone Array
-1 Gilded Drake
-1 Glimmerbell
-1 Gloomlake Verge
-1 Goliath Sphinx
-1 Hidden Lair
-1 Horizon Drake
-1 Ice Tunnel
-1 Imprison
-17 Island
-1 Leviathan
-1 Living Tempest
-1 Living Tsunami
-1 Mana Matrix
-1 Nephalia Drownyard
-1 Nimbus of the Isles
-1 Nine-Tail White Fox
-1 Peregrine Drake
-1 Phyrexian Battleflies
-1 Pit Imp
-1 Psychic Frog
-1 River Delta
-1 River of Tears
-1 Rootwater Depths
-1 Seacoast Drake
-1 Shimmerscale Drake
-1 Shriekgeist
-1 Skyline Predator
-1 Slinking Skirge
-1 Smog Elemental
-1 Soul of the Rapids
-1 Spiketail Hatchling
-1 Spindrift Drake
-1 Spreading Seas
-1 Stenchskipper
-1 Subtlety
-1 Sunken Ruins
-9 Swamp
-1 Swamp Mosquito
-1 Sword of Hearth and Home
-1 Symbol of Unsummoning
-1 Tainted Isle
-1 Their Name Is Death
-1 Tidal Force
-1 Timid Drake
-1 Underground Sea
-1 Updraft Elemental
-1 Vaporkin
-1 Ventifact Bottle
-1 Waterveil Cavern
-1 Watery Grave
-1 Will-o'-the-Wisp
-1 Wind Spirit
-1 Yarok's Wavecrasher
+[deck:commander ramp WU #20266226]
+1 Abandoned Campground
+1 Adarkar Wastes
+1 Anodet Lurker
+1 Armageddon Clock
+1 Astral Cornucopia
+1 Astrolabe
+1 Bastion Mastodon
+1 Bladed Sentinel
+1 Borne Upon a Wind
+1 Calciform Pools
+1 Cloudcrest Lake
+1 Commander's Sphere
+1 Cumber Stone
+1 Deserted Beach
+1 Diabolic Machine
+1 Diversion Unit
+1 Escaped Experiment
+1 Exocomp
+1 Expedition Map
+1 Eye of Malcator
+1 Filigree Sages
+1 Fortified Beachhead
+1 Glacial Floodplain
+1 Gleaming Bastion
+1 Glint Hawk Idol
+1 Hallowed Fountain
+1 Hedron Archive
+1 Hedron Crawler
+1 Iron Star
+15 Island
+1 Jhovall Queen
+1 Journeyer's Kite
+1 Juju Bubble
+1 Land Cap
+1 Leonin Abunas
+1 Magma Mine
+1 Mana Cylix
+1 Manakin
+1 Marble Chalice
+1 Mindless Automaton
+1 Mishra's War Machine
+1 Murmuring Volume
+1 Myr Matrix
+1 Mystic Gate
+1 Network Terminal
+1 Nimbus Maze
+1 Pentavus
+1 Phyrexian Walker
+1 Pierce Strider
+11 Plains
+1 Prophet of the Peak
+1 Razorfield Thresher
+1 Runed Servitor
+1 Salvaged Manaworker
+1 Scepter of Dominance
+1 Scorpion Sentinel
+1 Serpent Generator
+1 Skycloud Expanse
+1 Soliton
+1 Spawning Pit
+1 Study
+1 Su-Chi
+1 Temporal Manipulation
+1 Thalakos Lowlands
+1 Time Warp
+1 Triskelavus
+1 Triskelion
+1 Tundra
+1 Unbender Tine
+1 Unstable Obelisk
+1 Urza's Chalice
+1 Vedalken Outlander
+1 Watchful Automaton
+1 Wizard Replica
+1 World Map
 
 [commander]
-Ur-Drago
+Jedit Ojanen

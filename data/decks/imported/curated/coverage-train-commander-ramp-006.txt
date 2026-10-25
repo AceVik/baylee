@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBR #20266007]
-1 Agent of Stromgald
-1 Amok
-1 Ancestral Vengeance
-1 Aquatic Incursion
-1 Arnjlot's Ascent
-1 Battle Hymn
-1 Betrayal
-1 Billiard Room
-1 Blood Celebrant
-1 Breath of Dreams
-1 Cabal Ritual
-1 Caldera Lake
-1 Catacomb Dragon
-1 Catalyst Elemental
-1 Dark Hatchling
-1 Demonic Tutor
-1 Dire Undercurrents
-1 Dragon Mage
-1 Dregs of Sorrow
-1 Drossforge Bridge
-1 Dystopia
-1 Ertai Resurrected
-1 Firestorm Hellkite
-1 Foreboding Ruins
-1 Gamble
-1 Geist of Saint Thalia
-1 Geothermal Bog
-1 Goblin Bomb
-1 Granitic Titan
-1 Grasping Shadows
-1 Haunted Ridge
-1 Headstone
-1 Hell's Kitchen
-1 Illuminated Wings
-1 Initiates of the Ebon Hand
-14 Island
-1 Kazarov, Sengir Pureblood
-1 Krovikan Fetish
-1 Lavaclaw Reaches
-1 Lay Waste
-1 Lilting Refrain
+[deck:commander ramp WUB #20266007]
+1 Arcane Sanctum
+1 Argivian Find
+1 Ashen Powder
+1 Badgey, Malicious Glitch
+1 Brain Freeze
+1 Breath of Life
+1 Citywatch Sphinx
+1 Codex Shredder
+1 Compelling Argument
+1 Contaminated Landscape
+1 Crypt Angel
+1 Desperate Bloodseeker
+1 Devout Decree
+1 Dimir Keyrune
+1 Doom's Servo-Guards
+1 Drownyard Amalgam
+1 Ebon Dragon
+1 Emerge from the Cocoon
+1 Etherium Astrolabe
+1 Eye of Ramos
+1 Fisk Tower
+1 Flayed One
+1 Foot Headquarters
+1 Graveshifter
+1 Great Hall of Starnheim
+1 Grim Bauble
+1 Iceberg Cancrix
+1 Karoo
 1 Liturgy of Blood
-1 Luxury Suite
-1 Magus of the Coffers
-1 Mind Harness
-1 Mm'menon, Uthros Exile
-4 Mountain
+1 Minas Morgul, Dark Fortress
+1 Mind Sculpt
+1 Mindscour Dragon
+1 Mistvault Bridge
+1 Morphic Pool
 1 Murky Sewer
-1 Mystic Might
-1 Necromaster Dragon
-1 Overeager Apprentice
-1 Preening Champion
-1 Rapacious Dragon
-1 Raucous Theater
-1 Razortrap Gorge
-1 Reckless Barbarian
-1 Ridge Rannet
-1 Sacrifice
-1 Scavenged Weaponry
-1 Secret Passage
-1 Seismic Spike
-1 She-Hulk, Jennifer Walters
+1 Naga Oracle
+1 Obelisk of Esper
+1 Orzhov Keyrune
+1 Phyrexian Fleshgorger
+1 Protomatter Powder
+1 Psychic Symbiont
+1 Raffine's Tower
+1 Ray of Ruin
+1 Reconstruction
+1 Restless Fortress
+1 Return to Battle
+1 Ritual of Restoration
+1 Rootwater Diver
+1 Sanctum Gargoyle
+1 Saprazzan Cove
+1 Serpent's Pass
+1 Shambling Vent
+1 Sharuum the Hegemon
 1 Sibilant Spirit
-1 Sinister Hideout
-1 Slipstream Eel
-1 Surtland Frostpyre
-8 Swamp
-1 Thundermaw Hellkite
-1 Tidal Influence
-1 Tourach's Gate
-1 Trade Routes
-1 Turbulent Springs
-1 Unspeakable Symbol
-1 Utvara Hellkite
-1 Vessel of Paramnesia
-1 Wave-Wing Elemental
+1 Silumgar Monument
+1 Simulacrum Synthesizer
+1 Skull of Ramos
+13 Snow-Covered Island
+5 Snow-Covered Plains
+8 Snow-Covered Swamp
+1 Sphinx of the Steel Wind
+1 Spined Megalodon
+1 Tamiyo's Epiphany
+1 The Fair Basilica
+1 Thunder Totem
+1 Time Warp
+1 Tolarian Serpent
+1 Tooth of Ramos
+1 Wakandan Drone Flock
+1 Wall of Lost Thoughts
+1 Weight of Memory
+1 Winds of Rebuke
+1 Wishclaw Talisman
+1 Witch Engine
+1 Wretched Doll
+1 Yawgmoth Demon
 
 [commander]
-Nicol Bolas
+Chromium

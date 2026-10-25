@@ -1,17 +1,17 @@
 # baylee curated constructed ramp seed=20261032
 # licence: AGPL-3.0-only
 [deck:constructed ramp B #20261032]
-3 Bastion of Remembrance
-4 Cabal Patriarch
+1 Cabal Patriarch
 4 Callous Inspector
-4 Carnival of Souls
-1 Essence Feed
+4 Cirith Ungol Patrol
+4 Doomed Dissenter
+4 Greedy Freebooter
 2 Havengul Laboratory
 2 Ifnir Deadlands
-2 Krovikan Plague
-4 Locthwain Lancer
-4 Marionette Apprentice
+4 Maalfeld Twins
+2 Marionette Apprentice
 3 Parasitic Bond
-2 Shadow-Rite Priest
+4 Shadow-Rite Priest
 21 Swamp
-4 Vampiric Rites
+2 Sweettooth Witch
+3 Tempting Witch

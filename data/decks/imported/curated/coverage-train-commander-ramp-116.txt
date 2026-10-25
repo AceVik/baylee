@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BG #20266117]
-1 Anurid Murkdiver
-1 Aphelia, Viper Whisperer
-1 Aspect of Lamprey
-1 Burgeoning
-1 Castle Garenbrig
-1 Clinging Darkness
-1 Creakwood Liege
-1 Crypt of Agadeem
+1 Archers' Parapet
+1 Banshee
+1 Barkhide Mauler
+1 Bladebrand
+1 Blighted Fen
+1 Bogstomper
+1 Bronze Walrus
+1 Cabal Coffers
+1 Cabal Pit
+1 Chocobo Camp
+1 Crumble
+1 Crystal Rod
+1 Dakmor Plague
+1 Death Wind
 1 Desert of the Indomitable
-1 Drop of Honey
-1 Dryad of the Ilysian Grove
-1 Eager Trufflesnout
-1 Earthlore
-1 Elemental Bond
-1 Elven Fortress
+1 Emerald Charm
 1 Enormous Baloth
-1 Epic Proportions
-1 Equestrian Skill
-1 Everglades
-1 Exploration
-1 Fastbond
-1 Feast of the Unicorn
-1 Feebleness
-1 Fertile Thicket
-16 Forest
-1 Frantic Strength
-1 Garruk's Uprising
-1 Gemrazer
-1 Gift of the Deity
-1 Gilt-Leaf's Embrace
-1 Gingerbread Cabin
-1 Grasping Longneck
-1 Greel's Caress
-1 Guardian Beast
-1 Hidden Path
-1 Hidden Predators
-1 Hive of the Eye Tyrant
-1 Howlpack Resurgence
-1 Intimidation
+1 Famine
+1 Floral Spuzzem
+1 Forbidden Ritual
+20 Forest
+1 Foul Roads
+1 Gang of Elk
+1 Giant Warthog
+1 Golem's Heart
+1 Havengul Laboratory
+1 Healing Leaves
+1 Ifh-Bíff Efreet
+1 Ifnir Deadlands
+1 Implements of Sacrifice
+1 Iron Star
+1 Ivory Cup
 1 Jungle Basin
-1 Kavu Lair
-1 Kaysa
-1 Khalni Garden
-1 Kishla Village
+1 Juzám Djinn
+1 Kalonian Behemoth
+1 Kezzerdrix
+1 Kithkin Mourncaller
 1 Krosan Groundshaker
-1 Larceny
-1 Mantle of Webs
-1 Mindwrack Harpy
-1 Mosswort Bridge
-1 Nature's Revolt
-1 Night of Souls' Betrayal
-1 Nyxborn Colossus
-1 Overgrown Armasaur
-1 Peat Bog
-1 Predatory Sliver
-1 Primal Rage
-1 Prodigious Growth
-1 Questing Beast
-1 Rotwidow Pack
-1 Silken Strength
-1 Skeletal Grimace
-1 Spawning Grounds
-1 Spidersilk Armor
-1 Susur Secundi, Void Altar
-10 Swamp
-1 Tangletrap
-1 Thelon's Chant
-1 Thriving Moor
-1 Tomb Fortress
-1 Torment
-1 Torture
-1 Turtle Power!
-1 Twisted Experiment
-1 Wild Roads
+1 Lapis Lazuli Talisman
+1 Leering Emblem
+1 Levitating Statue
+1 Lull
+1 Nacre Talisman
+1 Nourish
+1 Oasis Gardener
+1 Ornamental Courage
+1 Phyrexian Altar
+1 Phyrexian Tower
+1 Pili-Pala
+1 Plated Crusher
+1 Reality Anchor
+1 Reign of Terror
+1 Respite
+1 Scarecrow Guide
+1 Shire Scarecrow
+1 Shrink
+1 Skyscythe Engulfer
+1 Snare the Skies
+1 Spearbreaker Behemoth
+6 Swamp
+1 Syphon Fuel
+1 Takenuma, Abandoned Mire
+1 Tar Snare
+1 Team Transmitter
+1 The Black Gate
+1 Thriving Grove
+1 Touch of Vitae
+1 Unholy Grotto
+1 Urborg
+1 Wasteland Scorpion
+1 Westvale Abbey
+1 Wormwood Dryad
 1 Wormwood Treefolk
+1 Wring Flesh
+1 Zulaport Chainmage
 
 [commander]
 Yargle and Multani

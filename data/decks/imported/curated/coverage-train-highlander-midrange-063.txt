@@ -1,82 +1,80 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WUBRG #20266064]
-1 Agent of Horizons
-1 Alchor's Tomb
-1 Amphin Pathmage
-1 Amulet of Kroog
-1 Ana Disciple
-1 Armored Galleon
-1 Ashnod's Battle Gear
-1 Balloon Peddler
-1 Bant Battlemage
-1 Bubble Matrix
-1 Cloudheath Drake
-1 Crown of the Ages
-1 Crystal Quarry
-1 Deathcult Rogue
-1 Dega Disciple
-1 Disciple of the Old Ways
+[deck:highlander midrange WUR #20266064]
+1 Adagia, Windswept Bastion
+1 Adult Gold Dragon
+1 Aquus Steed
+1 Beasts of Bogardan
+1 Benevolent Ancestor
+1 Blood of the Martyr
+1 Bloodcrusher of Khorne
+1 Castle Ardenvale
+1 Chronatog
+1 Cloaked Siren
+1 Cori Mountain Monastery
+1 Cryptic Spires circles=WU
+1 Den of the Bugbear
+1 Desert of the True
+1 Dormant Volcano
+1 Dromosaur
+1 Dwarven Pony
+1 Everybody Lives!
 1 Fleetfeather Sandals
-1 Fleshformer
-1 Forcefield
-1 Galvanic Key
-1 Honed Khopesh
-1 Horn of Deafening
-1 Hussar Patrol
-1 Indatha Triome
-1 Iroas's Champion
-1 Irrigation Ditch
-12 Island
-1 Jade Statue
-1 Jetmir's Garden
-1 Jhessian Balmgiver
-1 Jousting Dummy
-1 Jungle Shrine
-1 Ketria Triome
+1 Flowstone Charger
+1 Flowstone Crusher
+1 Glimmering Angel
+1 Godhead of Awe
+1 Hibernation
+1 Hidden Courtyard
+1 Hidden Volcano
+1 Ironclad Krovod
+13 Island
+1 Jeskai Brushmaster
+1 Kavu Glider
+1 Kelpie Guide
 1 Kitesail
-1 Liquimetal Coating
-1 Marble Priest
-1 Merrow Grimeblotter
-1 Mishra's Groundbreaker
-1 Mountain
-1 Murmuring Bosk
-1 Naya Battlemage
-1 Nearby Planet
-1 Neurok Hoversail
-1 Nova Pentacle
-1 Obelisk of Undoing
+1 Kranioceros
+1 Leering Gargoyle
+1 Lightning Angel
+1 Lonely Sandbar
+1 Makindi Stampede
+1 Marauding Maulhorn
+1 Mire Kavu
+1 Molecular Modifier
+1 Mordenkainen's Polymorph
+1 Murmuring Phantasm
+1 Mystic Compass
 1 Ogre's Cleaver
-1 Oscorp Industries
-2 Plains
-1 Prakhata Pillar-Bug
-1 Raka Disciple
+1 Oraxid
+1 Phantatog
+12 Plains
+1 Political Trickery
+1 Prismatic Lace
+1 Raging Spirit
+1 Rapid Fire
+1 Rapturous Moment
 1 Raugrin Triome
-1 Retrieval Agent
-1 Riot Gear
-1 Rubble Slinger
-1 Safehold Elite
-1 Savage Lands
-1 Scalebane's Elite
-1 Scornful Aether-Lich
-1 Seaside Citadel
-1 Short Bow
-1 Spara's Headquarters
-1 Sungrass Egg
-10 Swamp
-1 Talisman of Conviction
-1 Tawnos's Coffin
-1 Teferi's Honor Guard
-1 Thalakos Deceiver
-1 The World Tree
-1 Tower Gargoyle
-1 Tumble Magnet
-1 Vanguard's Shield
-1 Vectis Agents
-1 Vectis Silencers
-1 Vedalken Outlander
-1 Vibrating Sphere
-1 Wandering Mage
-1 Warmonger's Chariot
-1 Ziatora's Proving Ground
-1 Zombie Outlander
+1 Redeem
+1 Relic Sloth
+1 Reverse Damage
+1 Ridgeline Rager
+1 Ridgetop Raptor
+1 Rock Badger
+1 Saprazzan Cove
+1 Sea Spirit
+1 Sejiri Shelter
+1 Silhouette
+1 Sink into Stupor
+1 Sleight of Mind
+1 Slimy Kavu
+1 Smoldering Spires
+1 Spur Grappler
+1 Talisman of Creativity
+1 Telekinesis
+1 Telim'Tor's Edict
+1 The Surgical Bay
+1 Touchstone
+1 Unbender Tine
+1 Valakut, the Molten Pinnacle
+1 Valor Singer
+1 Water Wings

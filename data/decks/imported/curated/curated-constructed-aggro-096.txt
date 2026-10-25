@@ -2,18 +2,18 @@
 # licence: AGPL-3.0-only
 [deck:constructed aggro W #20261119]
 1 Ancient Den
-2 Captain of the Watch
+4 Aven of Enduring Hope
+4 Cathedral Sanctifier
 3 Daru Encampment
-4 Favored of Iroas
-4 Hada Freeblade
-4 Heavy Infantry
-4 Helpful Hunter
+4 Haazda Officer
 4 Honored Knight-Captain
-2 Master Splicer
-1 Palace Jailer
+2 Inspiring Commander
+2 Operations Officer
 3 Pious Wayfarer
 23 Plains
-3 Steppe Lynx
+4 Soul Warden
+3 Soul's Attendant
+4 Suture Priest
+4 Temple Acolyte
 4 Tenth District Guard
-4 Thraben Inspector
-4 Wall of Omens
+1 Thopter Architect

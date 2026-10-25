@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266113]
-1 Assassin's Strike
-1 Battleground Geist
-1 Bay Falcon
-1 Blue Elemental Blast
-1 Cactus Preserve
-1 Catacomb Dragon
-1 Cathedral of War
-1 Celestial Messenger
-1 Ceremonious Rejection
-1 Chase Inspiration
-1 Cloud Dragon
-1 Cloud Spirit
-1 Coast Watcher
-1 Command Bridge
-1 Consult the Star Charts
+[deck:commander ramp BR #20266113]
+1 Aether Hub
+1 Arcbound Ravager
+1 Ashen Firebeast
+1 Bad River
+1 Bake into a Pie
+1 Batterhorn
+1 Belligerent Guest
+1 Blood Servitor
+1 Boris Devilboon
+1 Brass Secretary
+1 Breeding Pit
+1 Brotherhood Headquarters
+1 Cateran Slaver
+1 Cathodion
+1 Cha'DIch Investigator
+1 Collector's Vault
+1 Contract Killing
 1 Crossroads Village
-1 Cryptic Spires circles=UB
-1 Deathmark
-1 Dimir Cutpurse
-1 Dungeon Descent
-1 Edgewall Inn
-1 Envelop
-1 Ethereal Whiskergill
-1 Fog Elemental
-1 Gateway Plaza
-1 Geyserfield Stalker
-1 Ghost Ship
-1 Glimmerbell
-1 Grand Coliseum
-1 Harbinger of Night
-1 Implements of Sacrifice
-17 Island
-1 Kami of the Crescent Moon
-1 Keening Banshee
-1 Leviathan
-1 Levitating Statue
-1 Living Tempest
-1 Living Tsunami
+1 Crystal Slipper
+1 Emrakul's Hatcher
+1 Experimental Armor
+1 Feast or Famine
+1 Ferrovore
+1 Flowstone Mauler
+1 Flurry of Horns
+1 Gild
+1 Gimli's Axe
+1 Goblin Rally
+1 Grim Bounty
+1 Guardian Beast
+1 Hall of Oracles
+1 Hedron Crawler
+1 Hoard Robber
+1 Illness in the Ranks
+1 Island of Wak-Wak
+1 Jasmine Dragon Tea Shop
+1 Kuro, Pitlord
+1 Lightning Reaver
+1 Lotus Blossom
 1 Lotus Field
-1 Maze's End
-1 Minion of the Wastes
-1 Mischievous Poltergeist
-1 Moaning Spirit
-1 Niblis of the Breath
-1 Nimbus of the Isles
-1 Nine-Tail White Fox
+1 Mana Cylix
+1 Manakin
+1 Marsh Flats
+1 Marsh Lurker
+1 Mindless Automaton
+1 Mirrodin's Core
+11 Mountain
+1 Murmuring Volume
+1 Oxidda Scrapmelter
 1 Path of Ancestry
+1 Pentavus
 1 Power Depot
-1 Refocus
-1 Rocky Tar Pit
-1 Screaming Phantom
-1 Searchlight Geist
-1 Serendib Efreet
-1 Skulking Ghost
+1 Rhystic Cave
+1 Runed Servitor
+1 Rust Monster
+1 Salvaged Manaworker
+1 Scavenger Grounds
+1 Scrap Trawler
+1 Scream Puff
+1 Shaleskin Bruiser
+1 Shivan Phoenix
+1 Sire of Insanity
 1 Smog Elemental
-1 Soul of the Rapids
-1 Souldrinker
-1 Spell Snare
-1 Spindrift Drake
-1 Stenchskipper
-1 Stormcloud Spirit
-1 Supreme Phantom
-9 Swamp
-1 Tattered Haunter
-1 Their Name Is Death
-1 Thran Portal
-1 Tolarian Winds
-1 Untaidake, the Cloud Keeper
-1 Updraft Elemental
-1 Vampire Revenant
-1 Vaporkin
-1 Wanderlight Spirit
-1 Wind Spirit
-1 Zephid
-1 Zephyr Gull
+1 Sparring Construct
+1 Spawning Pit
+1 Su-Chi
+15 Swamp
+1 Sylvok Lifestaff
+1 Throne of the High City
+1 Thrull Retainer
+1 Triskelavus
+1 Turtle Lair
+1 Vault Robber
+1 Weakness
+1 Workhorse
 
 [commander]
-Ur-Drago
+Lady Orca

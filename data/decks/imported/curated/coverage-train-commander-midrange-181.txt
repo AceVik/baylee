@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBR #20266182]
+[deck:commander midrange BRG #20266182]
 1 Acidic Sliver
-1 Anaba Bodyguard
-1 Ancient Carp
-1 Ancient Crab
-1 Armored Whirl Turtle
-1 Burnout
-1 Castle Sengir
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Crystacean
-1 Curio Vendor
-1 Daring Thunder-Thief
-1 Dark Hatchling
-1 Darkwater Catacombs
+1 Amber Prison
+1 Anointed Deacon
+1 Barbed-Back Wurm
+1 Barl's Cage
+1 Blightstep Pathway
+1 Blood Crypt
+1 Breathstealer
+1 Brutal Nightstalker
+1 Caustic Crawler
+1 Chimeric Staff
+1 Conqueror's Galleon
+1 Conservator
+1 Coral Helm
+1 Crypt Ripper
+1 Darigaaz's Caldera
 1 Deathbellow Raider
-1 Firescreamer
-1 Forerunner of Slaughter
-1 Fortress Crab
-1 Frostburn Weird
-1 Furnace Strider
-1 Gamble
-1 Giant Crab
-1 Hidden Lair
-1 Hooded Kavu
-1 Horned Turtle
-1 Horror of the Dim
-1 Hulking Devil
-1 Humongulus
-9 Island
-1 Kolinahr Priest
-1 Labyrinth Minotaur
+1 Dirtwater Wraith
+1 Easy Prey
+1 Felhide Minotaur
+1 Fen Stalker
+5 Forest
+1 Fungal Reaches
+1 Geothermal Crevice
+1 Giant Cockroach
+1 Golgari Longlegs
+1 Golgothian Sylex
+1 Gruul Cluestone
+1 Hag of Dark Duress
+1 Hedron Rover
+1 Hoar Shade
+1 Hopping Automaton
+1 Horn of Deafening
+1 Horrible Hordes
+1 Jade Monolith
+1 Jade Statue
+1 Koskun Keep
+1 Kraul Whipcracker
 1 Lava Tubes
 1 Lithophage
-1 Manta Ray
-1 Maw of Kozilek
-1 Mijae Djinn
-1 Mistford River Turtle
-1 Moor Fiend
-15 Mountain
-1 Mountain Titan
-1 Mystical Tutor
-1 Narwhal
-1 Nether Horror
-1 Noggle Bandit
-1 Oraxid
-1 Orazca Raptor
-1 Orgg
-1 Oscorp Industries
-1 Phase Dolphin
-1 River of Tears
-1 Salvage Scuttler
-1 Sandbar Crocodile
-1 Sea Gate Restoration
-1 Seething Landscape
-1 Segovian Leviathan
+1 Llanowar Wastes
+1 Mana Leech
+1 Mole Worms
+1 Moriok Reaver
+4 Mountain
+1 Necrogen Spellbomb
+1 North Star
+1 Nurturing Peatland
+1 Pentagram of the Ages
+1 Perilous Shadow
+1 Phyrexian Gremlins
+1 Plasmancer
+1 Prowling Nightstalker
+1 Raiding Nightstalker
+1 Rix Maadi, Dungeon Palace
+1 Savage Lands
 1 Shadowblood Egg
-1 Shivan Reef
-1 Sootwalkers
-1 Spark Double
-1 Starstorm
-1 Steam Vents
-1 Sulfur Vent
-1 Swamp
-1 Talisman of Creativity
+1 Shimian Night Stalker
+1 Skull Collector
+1 Skycrash
+1 Slimy Dualleech
+1 Stensia Bloodhall
+1 Svogthos, the Restless Tomb
+16 Swamp
 1 Talisman of Indulgence
-1 Talruum Piper
-1 Thalakos Drifters
-1 Thalakos Mistfolk
-1 Transmute Artifact
-1 Turtle-Seals
-1 Underground River
-1 Vicious Kavu
-1 Wanderbrine Rootcutters
-1 Water Elemental
-1 Wishcoin Crab
-1 Xander's Lounge
+1 Talisman of Resilience
+1 Tar Pit Warrior
+1 Tawnos's Coffin
+1 Tower of Champions
+1 Trespasser il-Vec
+1 Twisted Landscape
+1 Undercity Shade
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Whispering Shade
+1 Ziatora's Proving Ground
+1 Zof Shade
 
 [commander]
-Tetsuo Umezawa
+Xira Arien

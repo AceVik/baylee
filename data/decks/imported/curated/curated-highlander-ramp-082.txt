@@ -3,67 +3,67 @@
 [deck:highlander ramp G #20261105]
 1 Axebane Guardian
 1 Baloth Woodcrasher
-1 Beastcaller Savant
-1 Beneath the Sands
+1 Bequeathal
 1 Blighted Woodland
 1 Bloom Tender
 1 Boreal Druid
-1 Bugenhagen, Wise Elder
+1 Canopy Tactician
 1 Centaur Garden
 1 Centaur Nurturer
+1 Circle of Dreams Druid
 1 Citanul Hierophants
-1 Claws of Wirewood
-1 Dawnhart Rejuvenator
 1 Disciple of Freyalise
-1 Dosan's Oldest Chant
-1 Druid of the Cowl
+1 Drover of the Mighty
 1 Drumhunter
-1 Dundoolin Weaver
+1 Elfsworn Giant
 1 Elturgard Ranger
-35 Forest
+1 Elvish Archdruid
+1 Elvish Regrower
+1 Elvish Skysweeper
+1 Fanatic of Rhonas
+1 Frog Tongue
+1 Fyndhorn Elves
+1 Galadhrim Guide
 1 Garruk's Packleader
-1 Gilded Goose
 1 Great Forest Druid
-1 Green Mana Battery
+1 Greenweaver Druid
 1 Groundchuck & Dirtbag
+1 Guardian of Cloverdell
+1 Gumato
+1 Harabaz Druid
 1 Hashep Oasis
 1 Heart Warden
 1 Heart of Yavimaya
-1 Hornet Queen
 1 Howling Giant
+1 Humble Naturalist
 1 Hundroog
+1 Indrik Stomphowler
 1 Jaspera Sentinel
-1 Jungle Weaver
-1 Keen Sense
+1 Joiner Adept
 1 Leaf Gilder
+1 Lifespring Druid
 1 Llanowar Elves
-1 Llanowar Sentinel
-1 Lumra, Bellow of the Woods
-1 Metamorphosis
-1 Mindful Biomancer
-1 Mossbeard Ancient
-1 Mox Jasper
+1 Llanowar Tribe
+1 Mana Crypt
+1 Maul Splicer
+1 Nantuko Elder
 1 Oakhollow Village
-1 Owlbear
 1 Paleoloth
-1 Paradise Druid
 1 Paradise Mantle
-1 Quirion Sentinel
-1 Rampaging Hippo
-1 Renewal
-1 Soul of the Harvest
-1 Striped Bears
-1 Sunshower Druid
+1 Professor of Zoomancy
+1 Quirion Elves
+1 Rampaging Baloths
+1 Rhox Oracle
+1 Rofellos, Llanowar Emissary
+1 Seshiro the Anointed
+35 Snow-Covered Forest
+1 Somberwald Sage
+1 Swampbenders
 1 Thriss, Nantuko Primus
-1 Totem Speaker
-1 Tranquil Path
+1 Thundering Spineback
 1 Tree of Tales
 1 Turn to Dust
 1 Turntimber Ranger
 1 Viridian Acolyte
 1 Wild Growth
-1 Wirewood Savage
-1 Wood Elves
-1 Woodland Liege
-1 Wrenn and Realmbreaker
 1 Yavimaya Hollow

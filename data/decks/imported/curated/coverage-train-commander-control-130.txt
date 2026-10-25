@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control BG #20266131]
+1 Asphyxiate
+1 Awakening
+1 Bayou
+1 Bilbo's Deadly Slice
+1 Blooming Marsh
+1 Boggart Loggers
+1 Broken Fall
+1 Cast Down
+1 Charging Bandits
+1 Choke
+1 Daring Demolition
+1 Darkbore Pathway
+1 Dauthi Warlord
+1 Deadly Rollick
+1 Deathcap Glade
+1 Defenestrate
+1 Desecrated Earth
+1 Dhund Operative
+1 Epic Downfall
+1 Erstwhile Trooper
+1 Eviscerate
+1 Eyes of the Beholder
+1 Fatal Blow
+1 Fell the Profane
+1 Final Death
+1 Finishing Blow
+1 Fleshgrafter
+10 Forest
+1 Frantic Strength
+1 Gift of the Deity
+1 Gravblade Heavy
+1 Grim Backwoods
+1 Grotesque Demise
+1 Hardened-Scale Armor
+1 Hero's Demise
+1 Hired Poisoner
+1 Hissing Quagmire
+1 Iridescent Blademaster
+1 Kraul Warrior
+1 Living Lands
+1 Llanowar Wastes
+1 Masked Blackguard
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Power Word Kill
+1 Primal Rage
+1 Pull Under
+1 Quagmire
+1 Razaketh's Rite
+1 Reave Soul
+1 Return to the Earth
+1 Savage Silhouette
+1 Shape the Sands
+1 Sinkhole
+1 Stream of Acid
+1 Subterranean Cavern
+1 Svogthos, the Restless Tomb
+17 Swamp
+1 Tainted Wood
+1 Temur Runemark
+1 Thoughtleech
+1 Touch of Darkness
+1 Turbulent Fen
+1 Turtle Power!
+1 Twilight Mire
+1 Tyvar's Stand
+1 Underworld Connections
+1 Unliving Psychopath
+1 Victim of Night
+1 Vile Deacon
+1 Viridescent Bog
+1 Volrath's Gardens
+1 Wastewood Verge
+1 Wei Ambush Force
+
+[commander]
+Vhati il-Dal

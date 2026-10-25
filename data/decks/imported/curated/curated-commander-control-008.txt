@@ -1,81 +1,80 @@
 # baylee curated commander control seed=20261031
 # licence: AGPL-3.0-only
-[deck:commander control UBR #20261031]
-1 Aether Sting
+[deck:commander control WU #20261031]
+1 Adarkar Wastes
 1 Ancestral Vision
-1 Castle Sengir
-1 Cinder Marsh
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Damnable Pact
-1 Efficient Construction
-1 Enraged Flamecaster
-1 Ferrous Lake
-1 Firemind's Research
-1 Flame Jet
+1 Aura Blast
+1 Aven Fateshaper
+1 Backup Agent
+1 Bazaar Trademage
+1 Calciform Pools
+1 Captain's Defense
+1 Censor
+1 Cloudcrest Lake
+1 Contradict
+1 Customs Depot
+1 Defiant Strike
+1 Deliberate
+1 Deserted Beach
+1 Dream Fracture
+1 Erode
+1 Force Void
 1 Forced Fruition
-1 Grim Tutor
-1 Havoc
-1 Hidden Lair
-1 Imperial Seal
+1 Gleaming Bastion
+1 Gryff Vanguard
+1 Guided Strike
+1 Hallowed Fountain
+1 Halt Order
+1 Harrier Strix
+1 Hengegate Pathway
+1 Hesitation
+1 Honor
+1 Insight
 1 Invoke Prejudice
-1 Invoke the Firemind
-16 Island
-1 Izzet Charm
+1 Iron Will
+21 Island
+1 Jeskai Sage
 1 Jin-Gitaxias, Progress Tyrant
-1 Kessig Flamebreather
-1 Last Caress
-1 Lava Tubes
+1 Kindly Customer
+1 Kozilek's Unsealing
+1 Land Cap
+1 Loran of the Third Path
+1 Lotus-Eye Mystics
 1 Lunar Mystic
-1 Magma Jet
-1 Mindsparker
-1 Molten Nursery
-1 Mount Doom
-7 Mountain
+1 Martyr's Cry
+1 Miscalculation
+1 Moorland Haunt
+1 Murmuring Mystic
+1 Mystic Gate
 1 Mystic Remora
-1 Nether Void
-1 Night's Whisper
-1 Oscorp Industries
-1 Painful Lesson
-1 Painful Quandary
-1 Playful Shove
-1 Pointed Discussion
-1 Putrefaction
-1 Pyrostatic Pillar
-1 Quill-Slinger Boggart
-1 Reverent Howl
-1 Rite of the Dragoncaller
-1 Rockslide Sorcerer
-1 Sarkhan's Unsealing
-1 Screamer-Killer
-1 Seething Landscape
+1 Nimbus Maze
+1 Opal Archangel
+1 Oyobi, Who Split the Heavens
+6 Plains
+1 Prahv, Spires of Order
+1 Presence of the Master
+1 Rebellious Strike
+1 Recruiter of the Guard
+1 Reflections of Littjara
+1 Rhystic Study
+1 Runeboggle
+1 Scholar of Stars
+1 Seachrome Coast
 1 Shipwreck Dowser
-1 Shredded Sails
-1 Sign in Blood
-1 Sire of the Storm
-1 Soul Barrier
-1 Soul of Magma
-1 Spark Jolt
-1 Spark Spray
-1 Spellshock
-1 Sphinx-Bone Wand
-1 Succumb to Temptation
-1 Sulfur Vent
-4 Swamp
-1 Tainted Peak
-1 Talrand, Sky Summoner
+1 Shocking Grasp
+1 Sigil of the Empty Throne
+1 Skycloud Expanse
+1 Soul Read
+1 Spellseeker
+1 Storyteller Pixie
+1 Study
 1 Tanufel Rimespeaker
-1 Thorntooth Witch
-1 Traumatic Critique
-1 Underground Sea
-1 Vampiric Tutor
+1 Tundra
+1 Ultimecia, Temporal Threat
+1 Unifying Theory
 1 Vedalken Archmage
-1 Vertigo
-1 Watery Grave
-1 Weaver of Lightning
-1 Winter Sky
-1 Xander's Lounge
+1 Veiled Serpent
+1 You Find the Villains' Lair
 
 [commander]
-Sol'kanar the Swamp King
+Rasputin Dreamweaver

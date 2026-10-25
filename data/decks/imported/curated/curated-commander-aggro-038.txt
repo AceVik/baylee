@@ -1,74 +1,74 @@
 # baylee curated commander aggro seed=20261061
 # licence: AGPL-3.0-only
-[deck:commander aggro W #20261061]
-1 Agent of Atlas
-1 Armed Response
-1 Aura Blast
-1 Auspicious Ancestor
-1 Aven Archer
-1 Aven Brigadier
-1 Backup Agent
-1 Bishop of Wings
-1 Blessed Spirits
-1 Blighted Steppe
-1 Bygone Bishop
-1 Captain's Defense
-1 Cathar's Companion
-1 Daru Encampment
-1 Dawnhart Geist
-1 Deadly Riposte
-1 Dive Bomber
-1 Doomed Traveler
-1 Dragon Bell Monk
-1 Eiganjo Castle
-1 Elspeth's Smite
-1 Farrel's Zealot
-1 Festival of the Guildpact
-1 Flagstones of Trokair
-1 Guided Strike
-1 Hada Freeblade
-1 Heavy Ballista
-1 Honor
-1 Honored Knight-Captain
-1 Iron Will
-1 Jeong Jeong's Deserters
-1 Jeskai Student
-1 Joust Through
-1 Kor Firewalker
-1 Kor Haven
-1 Kree Commandos
-1 Lightshield Parry
-1 Lotus-Eye Mystics
-1 Mana Crypt
-1 Mesa Enchantress
-1 Mighty Mutanimals
-1 Monastery Mentor
-1 Myrsmith
-1 Opal Caryatid
-1 Opal Champion
-1 Opal Gargoyle
-1 Outflank
-32 Plains
-1 Rebellious Strike
-1 Reroute Systems
-1 Resolute Reinforcements
-1 Righteous Blow
-1 Sandblast
-1 Seeker of the Way
-1 Serra's Sanctum
+[deck:commander aggro G #20261061]
+1 Aggressive Urge
+1 Ambassador Oak
+1 Arasta of the Endless Web
+1 Argothian Enchantress
+1 Battlewand Oak
+1 Beast Whisperer
+1 Blighted Woodland
+1 Bog Gnarr
+1 Boseiju, Who Endures
+1 Bristly Bill, Spine Sower
+1 Charge Through
+1 Confront the Unknown
+1 Dauntless Survivor
+1 Deeproot Champion
+1 Dissenter's Deliverance
+1 Elvish Farmer
+1 Elvish Handservant
+1 Elvish Vanguard
+1 Feral Instinct
+32 Forest
+1 Freyalise's Charm
+1 Generous Visitor
+1 Gilded Goose
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Guerrillas
+1 Hidden Spider
+1 Ivy Lane Denizen
+1 Jackalope Herd
+1 Jade Bearer
+1 Jungle Delver
+1 Kami of the Hunt
+1 Kronch Wrangler
+1 Leaf Arrow
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Lifecrafter's Bestiary
+1 Lull
+1 Lurking Lizards
+1 Luxurious Libation
+1 Lys Alana Bowmaster
+1 Managorger Hydra
+1 Mold Adder
+1 Mox Emerald
+1 Oakhollow Village
+1 Okina, Temple to the Grandfathers
+1 Oran-Rief Survivalist
+1 Predatory Hunger
+1 Quirion Dryad
+1 Rishkar, Peema Renegade
+1 Sazh's Chocobo
 1 Shield Sphere
-1 Siege Veteran
-1 Slash of Talons
-1 Sram, Senior Edificer
-1 Stand Firm
-1 Straw Golem
-1 Student of Ojutai
-1 Sunlance
-1 Suture Priest
-1 Ultimate Alliance
-1 Walking Ballista
-1 Warmth
-1 Worthy Knight
+1 Skybeast Tracker
+1 Soilshaper
+1 Sunshower Druid
+1 Take Down
+1 Tel-Jilad Justice
+1 Thallid
+1 Thallid Devourer
+1 Thorn Thallid
+1 Thragtusk
+1 Titania's Chosen
+1 Tree of Tales
+1 Valley Mightcaller
+1 Verduran Enchantress
+1 Winter Blast
+1 Wirewood Lodge
+1 Yavimaya Sapherd
 
 [commander]
-Isamaru, Hound of Konda
+Medusa, Inhuman Queen

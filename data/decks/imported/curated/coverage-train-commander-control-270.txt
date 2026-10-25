@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control G #20266271]
+1 Aladdin's Lamp
+1 Amulet of Kroog
+1 Amulet of Unmaking
+1 Arcum's Whistle
+1 Arid Archway
+1 Ashnod's Battle Gear
+1 Base Camp
+1 Basilisk Collar
+1 Cacophodon
+1 Canopy Spider
+1 Celestial Sword
+1 Chimeric Sphere
+1 Cloudpost
+1 Coral Helm
+1 Crossroads Village
+1 Cursed Totem
+1 Darksteel Relic
+1 Drowsing Tyrannodon
+1 Emmessi Tome
+36 Forest
+1 Forethought Amulet
+1 Fyndhorn Bow
+1 Gloomwidow
+1 Grappler Spider
+1 Herbal Poultice
+1 Iron Lance
+1 Jade Statue
+1 Juntu Stakes
+1 Leonin Bladetrap
+1 Library of Leng
+1 Mammoth Spider
+1 Manifold Key
+1 Masterwork of Ingenuity
+1 Maze's End
+1 Mirkwood Spider
+1 Null Brooch
+1 Null Rod
+1 Orazca Frillback
+1 Ornery Dilophosaur
+1 Pit Trap
+1 Pithing Needle
+1 Puppet Strings
+1 Pygmy Allosaurus
+1 Rakalite
+1 Ring of Immortals
+1 Rocket Launcher
+1 Runed Arch
+1 Sculpting Steel
+1 Seer's Sundial
+1 Shield of the Ages
+1 Skysnare Spider
+1 Sphere of Resistance
+1 Spike-Tailed Ceratops
+1 Spirit Shield
+1 Sporecap Spider
+1 Staff of Zegon
+1 Static Orb
+1 Tarnation Vista
+1 Temple of the Dragon Queen
+1 Tower of Fortunes
+1 Vial of Poison
+1 War Barge
+1 Worldslayer
+1 Xanthic Statue
+
+[commander]
+Terrian, World Tyrant

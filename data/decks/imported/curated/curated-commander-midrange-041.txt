@@ -1,72 +1,72 @@
 # baylee curated commander midrange seed=20261064
 # licence: AGPL-3.0-only
-[deck:commander midrange B #20261064]
-1 Agents of HYDRA
-1 Al Bhed Salvagers
-1 Baron Sengir
-1 Barrow Witches
-1 Bastion of Remembrance
-1 Black Widow, Deadly Hunter
-1 Blighted Fen
-1 Bog Glider
-1 Breeding Pit
-1 Cabal Coffers
-1 Callous Inspector
-1 Carrion
-1 Common Crook
-1 Contract Killing
-1 Dark Prophecy
-1 Deadly Derision
-1 Dire Fleet Hoarder
-1 Disciple of the Vault
-1 Doomed Dissenter
-1 Eyeblight Cullers
-1 Fungal Infection
-1 Golgari Thug
-1 Graf Harvest
-1 Greedy Freebooter
-1 Havengul Laboratory
-1 Hopeless Nightmare
-1 Ifnir Deadlands
-1 Liliana the Repentant
-1 Liliana's Mastery
-1 Locthwain Lancer
-1 Maga, Traitor to Mortals
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Midnight Entourage
-1 Minotaur, Roxxon CEO
-1 Moriok Rigger
-1 Nimana Sell-Sword
-1 Novice Occultist
-1 Open the Graves
-1 Ophiomancer
+[deck:commander midrange G #20261064]
+1 Attended Socialite
+1 Beast-Kin Ranger
+1 Briarbridge Tracker
+1 Bristly Bill, Spine Sower
+1 Centaur Garden
+1 Centaur's Herald
+1 Disciple of Freyalise
+1 Dryad Arbor
+1 Elderleaf Mentor
+1 Elturgard Ranger
+1 Elvish Clancaller
+1 Elvish Farmer
+1 Elvish Regrower
+1 Elvish Skysweeper
+1 Elvish Vanguard
+1 Elvish Visionary
+1 Eternal Witness
+1 Fauna Shaman
+34 Forest
+1 Galadhrim Guide
+1 Gilded Goose
+1 Glittermonger
+1 Greenseeker
+1 Greensleeves, Maro-Sorcerer
+1 Guardian of Cloverdell
+1 Hashep Oasis
+1 Heart Warden
+1 Howling Giant
+1 Imperious Perfect
+1 Ivy Lane Denizen
+1 Jade Bearer
+1 Joraga Visionary
+1 Jungleborn Pioneer
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Llanowar Mentor
+1 Llanowar Sentinel
+1 Llanowar Stalker
+1 Llanowar Visionary
+1 Marshdrinker Giant
+1 Mossbeard Ancient
+1 Multani's Acolyte
+1 Nissa, Resurgent Animist
+1 Oakhollow Village
+1 Okina, Temple to the Grandfathers
 1 Orochi Hatchery
-1 Pawn of Ulamog
-1 Pitiless Plunderer
-1 Priest of Yawgmoth
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Rotlung Reanimator
-1 Sarcomancy
-1 Sengir Autocrat
-1 Shadow-Rite Priest
-1 Shelob's Ambush
-1 Soldevi Adnate
-1 Strands of Night
-34 Swamp
-1 Sweettooth Witch
-1 Takklemaggot
-1 Tempting Witch
-1 Tithebearer Giant
-1 Tomb of Urami
-1 Treasure Dredger
-1 Unburied Earthcarver
-1 Unholy Grotto
-1 Vault Plunderer
-1 Village Cannibals
-1 Yawgmoth, Thran Physician
-1 Zulaport Cutthroat
+1 Owlbear
+1 Pawpatch Formation
+1 Professor of Zoomancy
+1 Quirion Sentinel
+1 Reclamation Sage
+1 Satyr Grovedancer
+1 Soul of the Harvest
+1 Sunshower Druid
+1 Titania, Protector of Argoth
+1 Tree of Tales
+1 Turntimber Ranger
+1 Valley Mightcaller
+1 Viridian Shaman
+1 Wild Wanderer
+1 Wirewood Hivemaster
+1 Wirewood Savage
+1 Wood Elves
+1 Woodland Liege
+1 World Shaper
+1 Yavimaya Granger
 
 [commander]
-Visara the Dreadful
+Lumra, Bellow of the Woods

@@ -1,79 +1,79 @@
 # baylee curated highlander ramp seed=20261057
 # licence: AGPL-3.0-only
 [deck:highlander ramp WU #20261057]
-1 Aang's Defense
 1 Adarkar Wastes
 1 Ancestral Vision
-1 Auspicious Ancestor
+1 Angel of the God-Pharaoh
 1 Aven Fateshaper
-1 Aven Wind Mage
-1 Battlewise Valor
-1 Blessed Spirits
-1 Bygone Bishop
+1 Azorius Locket
 1 Calciform Pools
 1 Captain of the Watch
-1 Captain's Defense
-1 Chain to Memory
+1 Clear
+1 Cloudblazer
 1 Cloudcrest Lake
-1 Condescend
 1 Constricting Tendrils
-1 Cunning Breezedancer
-1 Customs Depot
-1 Dawnhart Geist
-1 Deeproot Waters
+1 Deduce
+1 Deliberate
 1 Disrupt
-1 Drogskol Cavalry
 1 Efficient Construction
-1 Fleeting Distraction
+1 Elite Archers
 1 Forced Fruition
-1 Gallant Strike
 1 Glacial Fortress
-1 Guided Strike
 1 Hallowed Fountain
-1 Hamato Guardian Stance
 1 Hengegate Pathway
-1 In the Eye of Chaos
-1 Iron Will
-18 Island
+1 Hithlain Knots
+17 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Sage
+1 Jeskai Student
+1 Jhessian Thief
 1 Jin-Gitaxias, Progress Tyrant
-1 Kami of Tattered Shoji
 1 Kozilek's Unsealing
-1 Kulrath Mystic
 1 Lake-town
 1 Land Cap
+1 Luminous Angel
 1 Marble Gargoyle
+1 Mesa Enchantress
+1 Meteorite
+1 Micromancer
 1 Miscalculation
 1 Mistfire Adept
 1 Moorland Haunt
-1 Murmuring Mystic
 1 Mystic Gate
 1 Nimbus Maze
-1 Opal Archangel
-1 Oyobi, Who Split the Heavens
-8 Plains
+1 Ojer Pakpatiq, Deepest Epoch
+1 Omen
+1 Ominous Parcel
+1 Opt
+9 Plains
+1 Ponder
+1 Pondering Mage
+1 Power Taint
 1 Prahv, Spires of Order
-1 Presence of the Master
-1 Primal Amulet
+1 Preordain
+1 Primoc Escapee
 1 Rasputin Dreamweaver
-1 Reflections of Littjara
-1 Rhystic Study
-1 Riverwheel Aerialists
+1 Ray of Erasure
+1 Rebellious Strike
+1 Recruiter of the Guard
+1 Refute
+1 Serum Visions
 1 Shipwreck Dowser
-1 Shocking Grasp
-1 Sigil of the Empty Throne
-1 Sire of the Storm
 1 Skycloud Expanse
 1 Stormkeld Prowler
 1 Student of Ojutai
 1 Study
-1 Stymied Hopes
 1 Talisman of Progress
-1 Teller of Tales
+1 Tanufel Rimespeaker
 1 Thalakos Lowlands
-1 The Unspeakable
+1 The Mechanist, Aerial Artisan
+1 Thought Monitor
 1 Thought Scour
+1 Three Steps Ahead
 1 Tidespout Tyrant
+1 Trigon of Thought
 1 Tundra
 1 Tura Kennerüd, Skyknight
-1 Unifying Theory
-1 Warmth
+1 Vedalken Archmage
+1 Whirlwind Adept
+1 Winged Shepherd

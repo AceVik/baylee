@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266308]
+1 Acidic Dagger
+1 Adaptive Shimmerer
+1 Anvilwrought Raptor
+1 Barl's Cage
+1 Canal Monitor
+1 Catacomb Slug
+1 Charcoal Diamond
+1 Clearwater Pathway
+1 Darkwater Catacombs
+1 Dimir Cluestone
+1 Dimir Signet
+1 Dovin's Automaton
+1 Dragonloft Idol
+1 Dreadship Reef
+1 Erratic Portal
+1 Flying Carpet
+1 Giant Crab
+1 Gloomlake Verge
+1 Havoc Sower
+1 Hidden Lair
+1 Homarid Shaman
+1 Horror of the Dim
+1 Imperial Seal
+1 Infernal Idol
+14 Island
+1 Jade Monolith
+1 Juggernaut
+1 Loch Korrigan
+1 Merrow Grimeblotter
+1 Metalspinner's Puzzleknot
+1 Millennial Gargoyle
+1 Mirrorhall Mimic
+1 Mistford River Turtle
+1 Narwhal
+1 Necrogen Spellbomb
+1 Needlebug
+1 North Star
+1 Phyrexian Defiler
+1 Phyrexian Fleshgorger
+1 Phyrexian Gargantua
+1 Power Matrix
+1 Prowling Nightstalker
+1 River Delta
+1 River of Tears
+1 Rootwater Depths
+1 Rotting Fensnake
+1 Segovian Leviathan
+1 Sentinel
+1 Sinister Hideout
+1 Slinking Serpent
+1 Snare Thopter
+1 Soldevi Simulacrum
+1 Sunken Ruins
+12 Swamp
+1 Tainted Isle
+1 Talisman of Dominance
+1 Telethopter
+1 Temple of Deceit
+1 Thalakos Drifters
+1 Thought Monitor
+1 Tithebearer Giant
+1 Tower of Murmurs
+1 Turtle-Seals
+1 Ukud Cobra
+1 Umbilicus
+1 Underground River
+1 Underground Sea
+1 Vampire Champion
+1 Waterveil Cavern
+1 Watery Grave
+1 Wirecat
+1 Wishclaw Talisman
+1 Witching Well
+1 Wormhole Serpent
+1 Zodiac Pig
+
+[commander]
+Ramses Overdark

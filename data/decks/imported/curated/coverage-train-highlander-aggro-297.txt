@@ -1,82 +1,82 @@
 # baylee synergistic coverage highlander aggro
 # licence: AGPL-3.0-only
-[deck:highlander aggro WBR #20266298]
-1 Arena of the Ancients
-1 Armored Warhorse
-1 Badlands
-1 Barl's Cage
-1 Barony Vampire
-1 Bloodcrazed Paladin
-1 Brightclimb Pathway
-1 Camel
-1 Carrion Wall
-1 Cavern Crawler
-1 Chained Brute
-1 Crooked Custodian
-1 Cyclopean Snare
-1 Dakmor Scorpion
+[deck:highlander aggro WUB #20266298]
+1 Ancient Spring
+1 Angrath's Ambusher
+1 Arcane Sanctum
+1 Arctic Foxes
+1 Bog Raiders
+1 Bouncing Beebles
+1 Bubbling Beebles
+1 Calciform Pools
+1 Cloudcrest Lake
+1 Contaminated Landscape
+1 Crypt Ripper
+1 Darkling Stalker
 1 Dauthi Horror
-1 Dauthi Trapper
-1 Deathbellow Raider
-1 Dega Disciple
-1 Dune Beetle
+1 Deathgaze Cockatrice
+1 Desolation Prowler
+1 Devilthorn Fox
+1 Dread Shade
+1 Drifting Shade
+1 Dromar's Cavern
+1 Drowned
 1 Dutiful Thrull
-1 Emeritus of Woe
-1 Fan Bearer
-1 Felhide Minotaur
-1 Fledgling Imp
-1 Giant Slug
-1 Gold-Forged Sentinel
-1 Graven Cairns
-1 Gray Ogre
-1 Highspire Mantis
-1 Huatli's Snubhorn
-1 Hurloon Minotaur
-1 Incurable Ogre
-1 Lantern-Lit Graveyard
-1 Lava Tubes
-1 Loxodon Line Breaker
-1 Maned Serval
-1 Marsh Goblins
-1 Mijae Djinn
-1 Minotaur Tactician
-1 Mount Doom
-11 Mountain
-1 Nomad Outpost
-1 North Star
-1 Ogre Berserker
-1 Ogre Errant
-1 Ogre Jailbreaker
-1 Orzhova, the Church of Deals
-9 Plains
-1 Puppet Strings
-1 Raptor Companion
-1 Reflecting Mirror
-1 Rubblebelt Recluse
-1 Savai Sabertooth
-1 Savai Triome
-1 Sculpting Steel
-1 Shadowcloak Vampire
-1 Shattered Landscape
-1 Silent Clearing
+1 Fatal Fumes
+1 Fetid Horror
+1 Flutterfox
+1 Ghostly Changeling
+1 Gift of Orzhova
+1 Glasswing Grace
+1 Gleaming Bastion
+1 Godless Shrine
+1 Harmattan Efreet
+1 Hengegate Pathway
+1 Hoar Shade
+1 Island
+1 Jorubai Murk Lurker
+1 Kozilek's Shrieker
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Looming Shade
+1 Lurking Nightstalker
+1 Lys Alana Scarblade
+1 Mana Leech
+1 Metathran Zombie
+1 Mischievous Sneakling
+1 Mystic Gate
+1 Naga Eternal
+1 Nameless Race
+1 Nezumi Bladeblesser
+1 Nightsky Mimic
+1 Obscura Initiate
+1 Plague Witch
+3 Plains
+1 Rabid Rats
+1 Raffine's Tower
+1 Rainbow Efreet
+1 Roofstalker Wight
+1 Screeching Buzzard
+1 Sentry of the Underworld
 1 Skeletal Changeling
-1 Slimy Kavu
-1 Sootstoke Kindler
-1 Stensia Bloodhall
-1 Sulfurous Springs
-4 Swamp
-1 Tasseled Dromedary
-1 Tawnos's Wand
-1 Territorial Hammerskull
-1 Tournament Grounds
-1 Umbral Mantle
-1 Vampire Champion
-1 Vampire Noble
-1 Venomous Changeling
-1 Wall of Putrid Flesh
+1 Slaughter Drone
+1 Spectral Lynx
+1 Stillmoon Cavalier
+20 Swamp
+1 Tattered Apparition
+1 Those Who Serve
+1 Twilight Panther
+1 Undercity Shade
+1 Underground River
+1 Utter End
+1 Vodalian Zombie
+1 Wall of Blood
+1 Wall of Tears
 1 Wall of Tombstones
-1 War Chariot
-1 Warship Flight Crew
-1 Whalebone Glider
-1 Whetstone
-1 Zodiac Rat
+1 Wall of Water
+1 Warpath Ghoul
+1 Watery Grave
+1 Whispering Shade
+1 Wizards' School
+1 Zof Shade
+1 Zombie Outlander

@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UBR #20266107]
+1 Abjure
+1 Aether Storm
+1 Archaeological Dig
+1 Argivian Restoration
+1 Artifact Blast
+1 Barktooth Warbeard
+1 Blockbuster
+1 Bria, Riptide Rogue
+1 Cascading Cataracts
+1 Chimeric Egg
+1 Contingency Plan
+1 Cradle of the Accursed
+1 Crystal Grotto
+1 Cursecatcher
+1 Daring Apprentice
+1 Derelor
+1 Douse
+1 Envelop
+1 Ertai, Wizard Adept
+1 Escape Tunnel
+1 Evasive Action
+1 Ezio, Blade of Vengeance
+1 False Summoning
+1 Flash Counter
+1 Flashfreeze
+1 Frazzle
+1 Gainsay
+1 Gravelgill Duo
+1 Guildmages' Forum
+1 Holdout Settlement
+1 Ice Floe
+1 Index
+18 Island
+1 Jade Idol
+1 Maelstrom of the Spirit Dragon
+1 Malevolent Hermit
+1 Maraxus of Keld
+1 Mikokoro, Center of the Sea
+1 Minor Misstep
+1 Miscast
+1 Mobilized District
+1 Moment of Defiance
+1 Moonfolk Puzzlemaker
+4 Mountain
+1 Mountain Stronghold
+1 Mox Diamond
+1 Nullify
+1 Patron Wizard
+1 Pavel Maliki
+1 Preemptive Strike
+1 Professor Zei, Anthropologist
+1 Quench
+1 Reliquary Tower
+1 Remove Soul
+1 Revolutionary Rebuff
+1 Riveteers Overlook
+1 Scatter Ray
+1 Secret Base
+1 Select for Inspection
+1 Soratami Savant
+1 Spectral Interference
+1 Spell Pierce
+1 Stardew Valley
+1 Stromgald Cabal
+1 Stronghold Machinist
+1 Stun
+5 Swamp
+1 Taigam's Scheming
+1 Tamiyo's Epiphany
+1 Thrull Wizard
+1 Tony Stark
+1 Umara Mystic
+1 Vodalian Mage
+1 Windrider Patrol
+1 Worms of the Earth
+
+[commander]
+Gwendlyn Di Corci

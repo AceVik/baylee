@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #20266224]
-1 Akoum Warrior
-1 Appendage Amalgam
-1 Arguel's Blood Fast
-1 Ascendant Evincar
-1 Badlands
-1 Blazemire Verge
-1 Blessing of Leeches
-1 Blight Pile
-1 Blightstep Pathway
-1 Blockbuster
-1 Blood Crypt
-1 Bloodfell Caves
-1 Bloodshed Fever
-1 Burning Earth
-1 Cinder Marsh
-1 Contaminated Ground
-1 Cyclops of Eternal Fury
-1 Dark Fortress
-1 Death Pits of Rath
-1 Dragon's Desire
-1 Epiphany Storm
-1 Evil Presence
-1 Falkenrath Exterminator
-1 Festering Evil
-1 Fire Whip
-1 Flowstone Blade
-1 Flowstone Embrace
-1 Fíli and Kíli, Joyous
-1 Geosurge
-1 Graven Cairns
-1 Heat of Battle
-1 Hecatomb
-1 Hellkite Igniter
-1 Impact Tremors
-1 Initiates of the Ebon Hand
-1 Insolence
-1 Insolent Neonate
-1 Kuro, Pitlord
-1 Larceny
-1 Lava Tubes
-1 Mana Geyser
-1 Manabarbs
-1 Markov Dreadknight
-1 Master of the Feast
-1 Mindwrack Harpy
-1 Minotaur Aggressor
-1 Molten Slagheap
-1 Morinfen
-1 Mount Doom
-14 Mountain
-1 No Mercy
-1 Nyxborn Brute
-1 Nyxborn Marauder
-1 Oni of Wild Places
-1 Oread of Mountain's Blaze
-1 Pillar Tombs of Aku
-1 Primordial Ooze
-1 Pulse Tracker
-1 Rakdos Guildgate
-1 Reckless Assault
-1 Rix Maadi, Dungeon Palace
-1 Scald
-1 Shadowblood Ridge
-1 Sire of Insanity
-1 Soul Bleed
-1 Stalking Bloodsucker
-1 Sulfurous Springs
-12 Swamp
-1 Tainted Peak
-1 Torch Song
-1 Torture
-1 Tsabo Tavoc
-1 Underworld Dreams
-1 Vigilante Justice
-1 Warp Artifact
+[deck:commander ramp WU #20266224]
+1 Abandoned Campground
+1 Adarkar Wastes
+1 Akroma, Angel of Wrath
+1 Angel of Retribution
+1 Archangel
+1 Archon of Justice
+1 Ashnod's Altar
+1 Avenging Angel
+1 Calciform Pools
+1 Caribou Range
+1 Clachan Festival
+1 Cold Case Cracker
+1 Contingency Plan
+1 Crib Swap
+1 Deathless Angel
+1 Errand of Duty
+1 Fearless Fledgling
+1 Flight
+1 Gleaming Bastion
+1 Guardian Kirin
+1 Hallowed Fountain
+1 Hand of Justice
+1 Harnessed Snubhorn
+1 Harrier Griffin
+1 Hengegate Pathway
+1 Herald of the Sun
+1 Illvoi Galeblade
+9 Island
+1 Knight Watch
+1 Land Cap
+1 Loran's Escape
+1 Lotus Blossom
+1 Lyra Dawnbringer
+1 Merfolk Coralsmith
+1 Messenger Drake
+1 Mindeye Drake
+1 Moorland Haunt
+1 Mtenda Griffin
+1 Myr Moonvessel
+1 Mystic Gate
+1 Mystic Might
+1 Nimbus Maze
+1 Phyrexian Altar
+17 Plains
+1 Prahv, Spires of Order
+1 Prairie Stream
+1 Prismatic Circle
+1 Revered Unicorn
+1 Security Blockade
+1 Security Detail
+1 Segovian Angel
+1 Sejiri Refuge
+1 Senate Griffin
+1 Seraph of the Suns
+1 Shriekgeist
+1 Sky Tether
+1 Skycloud Expanse
+1 Skyline Predator
+1 Smothering Tithe
+1 Spellkeeper Weird
+1 Sunblade Angel
+1 Sustaining Spirit
+1 Take Up the Shield
+1 Thalakos Lowlands
+1 Tidal Influence
+1 Tundra
+1 Ventifact Bottle
+1 Viscerid Drone
+1 Voyage's End
+1 Warrior Angel
+1 Watcher in the Mist
+1 Windrider Patrol
+1 Winged Shepherd
+1 Zeriam, Golden Wind
+1 Zetalpa, Primal Dawn
 
 [commander]
-Lady Orca
+Absolute Virtue

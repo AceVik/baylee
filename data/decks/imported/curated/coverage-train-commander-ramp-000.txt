@@ -1,79 +1,79 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WUBRG #20266001]
+1 Ancestral Statue
 1 Arcum's Astrolabe
-1 Azorius Locket
-1 Bag End Banquet
+1 Avacyn's Memorial
+1 Ballroom
+1 Beast of Burden
 1 Boros Cluestone
 1 Boros Locket
+1 Broodmate Dragon
 1 Charcoal Diamond
 1 Coal Golem
-1 Cobalt Golem
 1 Composite Golem
 1 Courier's Briefcase
+1 Creeping Tar Pit
 1 Crosis's Attendant
 1 Crystal Quarry
+1 Dalek Drone
 1 Darigaaz's Attendant
+1 Diamond Kaleidoscope
 1 Dromar's Attendant
-1 Enatu Golem
-1 Fetid Pools
+1 Etched Monstrosity
 1 Font of Progress
-3 Forest
-1 Foriysian Totem
+1 Galazeth Prismari
 1 Gauntlet of Might
-1 Gene Pollinator
-1 Giant's Boulder
+1 Gemstone Array
 1 Glassdust Hulk
-1 Golden Guardian
-1 Goldhound
-1 Grim Bauble
+1 Golgari Cluestone
+1 Gruul Locket
+1 Guadosalam, Farplane Gateway
 1 Hexplate Golem
-1 Icewind Elemental
 1 Indatha Crystal
-10 Island
-1 Jetmir's Garden
-1 Jungle Shrine
 1 Kaleidostone
 1 Ketria Crystal
-1 Koskun Keep
 1 Lightning-Core Excavator
 1 Limestone Golem
-1 Lush Portico
+1 Maelstrom Wanderer
 1 Malachite Golem
-1 Mechanized Ninja Cavalry
-3 Mountain
+1 Mask of Riddles
 1 Mox Diamond
 1 Nearby Planet
+1 Necrogen Spellbomb
+1 North Pole Gates
+1 Oasis Gardener
 1 Omnath, Locus of Creation
 1 Orzhov Signet
-1 Panharmonicon
-1 Pilgrim of the Fires
-5 Plains
-1 Prismite
-1 Rakdos Locket
+1 Port Town
+1 Prairie Stream
 1 Raugrin Crystal
 1 Relic of Sauron
+1 Restless Prairie
+1 Retrofitter Foundry
 1 Rith's Attendant
-1 Rugged Prairie
 1 Savai Crystal
 1 Savai Triome
 1 Selesnya Cluestone
-1 Sheltering Landscape
-1 Sunbillow Verge
-5 Swamp
+4 Snow-Covered Forest
+6 Snow-Covered Island
+2 Snow-Covered Mountain
+8 Snow-Covered Plains
+6 Snow-Covered Swamp
+1 Straw Golem
 1 Talisman of Conviction
 1 Talisman of Creativity
 1 Talisman of Hierarchy
+1 Talisman of Resilience
 1 Talisman of Unity
+1 Tangled Islet
 1 The Reaper, King No More
 1 The World Tree
-1 Thopter Foundry
-1 Thousand Moons Smithy
 1 Time Sieve
-1 Tinder Farm
+1 Tournament Grounds
 1 Treva's Attendant
 1 Tribal Golem
-1 Turbulent Steppe
+1 Turbulent Moor
 1 Twisted Landscape
 1 Walking Archive
 1 Wreckage Wickerfolk

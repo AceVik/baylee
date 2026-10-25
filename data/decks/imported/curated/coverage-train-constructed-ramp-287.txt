@@ -1,0 +1,31 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #20266288]
+2 Ana Disciple
+2 Angelfire Crusader
+2 Anointed Deacon
+2 Armorer Guildmage
+2 Beetleform Mage
+2 Chief of the Edge
+1 Chief of the Scale
+1 Crystal Quarry
+2 Dauntless River Marshal
+2 Dauthi Warlord
+2 Deceptive Landscape
+2 Dragonsoul Knight
+2 Foot Elite
+3 Forest
+2 High Priest of Penance
+5 Island
+2 Keldon Berserker
+2 Mountain
+2 Nearby Planet
+2 Paragon of the Amesha
+2 Pardic Collaborator
+4 Plains
+2 Ruinous Ultimatum
+2 Scalebane's Elite
+2 Shaper Guildmage
+1 Swamp
+2 The World Tree
+3 Tournament Grounds

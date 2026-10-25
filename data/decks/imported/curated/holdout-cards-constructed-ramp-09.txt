@@ -1,21 +1,22 @@
-# baylee unseen-card holdout constructed seed=90000021
+# baylee unseen-card holdout constructed seed=90000015
 # licence: AGPL-3.0-only
-[deck:constructed ramp WBG #90000021]
-4 Colossal Majesty
-3 Courser of Kruphix
-4 Dawnhart Rejuvenator
-3 Deceptive Landscape
-5 Forest
-1 Highway Robber
-4 Icatian Moneychanger
-2 Indatha Triome
+[deck:constructed ramp WG #90000015]
+4 Aeronaut Cavalry
+2 Brushland
+2 Dawnhart Rejuvenator
+3 Earth King's Lieutenant
+1 Forest
+2 Grove of the Guardian
+3 Hada Freeblade
+3 Icatian Moneychanger
+4 Inspiring Commander
 3 Maul Splicer
-4 Metamorphosis Fanatic
-2 Murmuring Bosk
-3 Plains
-4 Polluted Bonds
-1 Sandsteppe Citadel
-7 Swamp
-2 Twilight Mire
-4 Underworld Coinsmith
-4 Yawgmoth's Edict
+4 Okoye, Dora Milaje Leader
+14 Plains
+2 Ranger-Captain of Eos
+2 Recruiter of the Guard
+2 Sungrass Prairie
+3 Tireless Missionaries
+1 Vec Townships
+3 Veldt
+2 Yotian Dissident

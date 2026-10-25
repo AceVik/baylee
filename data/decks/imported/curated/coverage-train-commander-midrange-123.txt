@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266124]
-1 Affa Guard Hound
-1 Arborea Pegasus
-1 Bastion Mastodon
-1 Behemoth Sledge
-1 Binding Mummy
-1 Branchloft Pathway
-1 Briarpack Alpha
-1 Brown Ouphe
-1 Captivating Unicorn
-1 Cave of the Frost Dragon
-1 Citadel Gate
+[deck:commander midrange BG #20266124]
+1 Algae Gharial
+1 Ant Queen
+1 Ashiok's Reaper
+1 Assassin's Strike
+1 Ba Sing Se
+1 Bog Naughty
+1 Bojuka Bog
+1 Carnage Altar
 1 Collector Ouphe
-1 Conch Horn
-1 Conduit of Worlds
 1 Corrosive Gale
-1 Crisis of Conscience
-1 Dark Sphere
-1 Darksteel Ingot
-1 Darksteel Relic
-1 Daybreak Charger
-1 Dispatch
-1 Emmessi Tome
-1 Erase
-1 Fallow Wurm
-1 Fang Guardian
-1 Firdoch Core
-1 Fleetfoot Panther
-13 Forest
-1 Gavony Township
-1 Glyph of Reincarnation
-1 Grazing Gladehart
-1 Grove of the Guardian
-1 Guan Yu's 1,000-Li March
-1 Hushwood Verge
-1 Jeskai Barricade
-1 Kazandu Mammoth
-1 Kitchen Finks
-1 Kor Entanglers
-1 Makindi Ox
-1 Mana Prism
-1 Manhole Cover
-1 Matzalantli, the Great Door
-1 Neighborhood Guardian
-1 Ondu Greathorn
-1 Oxidize
-1 Patriar's Seal
-12 Plains
-1 Plated Crusher
-1 Ranger's Longbow
-1 Riftstone Portal
-1 Rimefur Reindeer
-1 Ring of Renewal
-1 Rogue's Gloves
-1 Ronom Unicorn
-1 Rustspore Ram
-1 Saltcrusted Steppe
-1 Savannah
-1 Scarab of the Unseen
-1 Shifting Woodland
-1 Shimmering Barrier
-1 Snapping Creeper
-1 Spare Supplies
-1 Sparring Mummy
-1 Springmane Cervin
-1 Standing Stones
-1 Tangle Hulk
-1 Temple Garden
-1 Teyo's Lightshield
-1 Thundering Wurm
-1 Titania's Song
-1 Tranquil Garden
-1 Treeguard Duo
-1 Veldt
-1 Vitu-Ghazi, the City-Tree
-1 Wall of Tanglecord
-1 Wooded Bastion
+1 Deadbridge Shaman
+1 Dingus Staff
+1 Disease Carriers
+1 Dowsing Dagger
+1 Drider
+1 Elvish Doomsayer
+1 Filigree Crawler
+1 Foratog
+14 Forest
+1 Gaea's Anthem
+1 Ghoulflesh
+1 Gilded Pinions
+1 Gingerbread Cabin
+1 Glimmer Bairn
+1 Glimmerlight
+1 Gobbling Ooze
+1 Goldvein Pick
+1 Great Arashin City
+1 Groundshaker Sliver
+1 Guul Draz Mucklord
+1 Hollow Trees
+1 Hornet Harasser
+1 Howlpack Resurgence
+1 Khalni Garden
+1 Kishla Village
+1 Kite Shield
+1 Leechridden Swamp
+1 Manor Gate
+1 Mindslicer
+1 Molting Snakeskin
+1 Mortuary Mire
+1 Nettlecyst
+1 Noxious Toad
+1 Overgrown Armasaur
+1 Panharmonicon
+1 Phyrexian Vault
+1 Planar Gate
+1 Rootwater Alligator
+1 Ruby Medallion
+1 Screeching Buzzard
+1 Serpent Generator
+1 Servant of Volrath
+1 Skittering Invasion
+1 Slayer's Plate
+1 Spitting Spider
+1 Splatter Goblin
+1 Spore Crawler
+1 Spore Flower
+1 Spore Swarm
+1 Sporecrown Thallid
+1 Subterranean Hangar
+1 Susur Secundi, Void Altar
+11 Swamp
+1 Tablet of Epityr
+1 Tangle Asp
+1 Tarpan
+1 Thallid Soothsayer
+1 The Serpent Society
+1 The Shire
+1 Thelonite Druid
+1 Thriving Moor
+1 Titan Forge
+1 Twisted Embrace
+1 Twisted Experiment
+1 Vampire Warlord
+1 Zanarkand, Ancient Metropolis
 
 [commander]
-Emiel the Blessed
+Rhys the Exiled

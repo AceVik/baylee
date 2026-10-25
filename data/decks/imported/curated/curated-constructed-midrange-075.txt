@@ -1,23 +1,21 @@
 # baylee curated constructed midrange seed=20261098
 # licence: AGPL-3.0-only
 [deck:constructed midrange URG #20261098]
+2 Arms Dealer
 2 Bountiful Landscape
-2 Claws of Wirewood
-1 Desolate Lighthouse
-2 Fiery Islet
-2 Firemind's Research
-4 Flame Jet
-3 Forest
+1 Contested Cliffs
+2 Cragcrown Pathway
+1 Fiery Islet
 2 Frontier Bivouac
-4 Invoke the Firemind
-6 Island
+2 Goblin Engineer
+2 Goblin Trashmaster
 1 Ketria Triome
-6 Mountain
+15 Mountain
+4 Mudbutton Torchrunner
+4 Pashalik Mons
+2 Reckless Lackey
 4 Runebound Wolf
-4 Sarkhan's Unsealing
-2 Shock
-4 Slash, Reptile Rampager
-2 Soul Barrier
-1 Steam Vents
-4 Storm Caller
-4 Tinder Wall
+4 Sardian Avenger
+4 Siege-Gang Commander
+4 Skirk Prospector
+4 Tar Pitcher

@@ -1,80 +1,80 @@
-# baylee unseen-card holdout highlander seed=90000009
+# baylee unseen-card holdout highlander seed=90000010
 # licence: AGPL-3.0-only
-[deck:highlander midrange UG #90000009]
-1 Aggressive Urge
-1 Alchemist's Refuge
-1 Ant-Man, Reformed Rogue
-1 Arasta of the Endless Web
-1 Archdruid's Charm
-1 Barkchannel Pathway
-1 Barrels of Blasting Jelly
-1 Black Lotus
-1 Blue Mana Battery
-1 Bog-Strider Ash
-1 Brainstorm
-1 Breeding Pool
-1 Briarknit Kami
-1 Buzz Bots
-1 Citanul Druid
-1 Cruel Witness
-1 Cyclone
-1 Dazzling Lights
-1 Deeproot Champion
-1 Elvenking's Halls
-1 Energy Vortex
-1 Eyes of the Watcher
-1 Flooded Grove
-11 Forest
-1 Forget
-1 Green Mana Battery
-1 Guadosalam, Farplane Gateway
-1 Iguana Parrot
-1 Insight Engine
-14 Island
-1 Jeskai Windscout
-1 Kitchen
-1 Leap
-1 Lifecrafter's Bestiary
+[deck:highlander midrange UR #90000010]
+1 Agate Assault
+1 Ancestral Vision
+1 Arc Lightning
+1 Baron, Airship Kingdom
+1 Blaze
+1 Bloodshot Cyclops
+1 Bria, Riptide Rogue
+1 Broadside Barrage
+1 Builder's Bane
+1 Cascade Bluffs
+1 Corrupt Eunuchs
+1 Desolate Lighthouse
+1 Earthshaker
+1 Eidolon of Philosophy
+1 Electrostatic Infantry
+1 Elusive Spellfist
+1 Equilibrium
+1 Ferrous Lake
+1 Fiery Islet
+1 Firemind's Research
+1 Flame Jet
+1 Flame-Blessed Bolt
+1 Frenzied Devils
+1 Halcyon Glaze
+1 Hammer of Bogardan
+1 Intruding Soulrager
+1 Invoke the Firemind
+11 Island
+1 Izzet Charm
+1 Lightning Cloud
 1 Lightshell Duo
+1 Lost in a Labyrinth
 1 Lotus Path Djinn
-1 Lull
-1 Lurking Lizards
-1 Maddening Wind
-1 Managorger Hydra
-1 Medusa, Inhuman Queen
-1 Mind Spring
-1 Murasa Ranger
-1 Mystic Remora
-1 Niblis of Dusk
-1 Novijen, Heart of Progress
-1 Overflowing Basin
-1 Paradox Gardens
-1 Pierce the Sky
-1 Portent
-1 Predatory Hunger
-1 Psychic Allergy
-1 Pym Particles
-1 Quicksilver Fisher
-1 Quirion Dryad
-1 Rimewood Falls
+1 Mage-Ring Bully
+1 Mana Drain
+1 Mercurial Geists
+1 Merrow Reejerey
+1 Meticulous Artisan
+1 Molten Blast
+14 Mountain
+1 Nivix, Aerie of the Firemind
+1 Onslaught
+1 Pinnacle Monk
+1 Reckless Air Strike
 1 Ringwarden Owl
-1 Scaled Hulk
-1 Shocking Grasp
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Sanguinary Mage
+1 Sarkhan's Unsealing
+1 Shipwreck Dowser
+1 Shivan Hellkite
+1 Shivan Reef
 1 Sibilant Spirit
-1 Simic Cluestone
-1 Simic Locket
-1 Sire of the Storm
-1 Startling Development
-1 Stormkeld Prowler
-1 Storyteller Pixie
-1 Tangletrap
-1 The Theorist, Jace Beleren
-1 Thorn Thallid
-1 Thunderous Snapper
-1 Tidespout Tyrant
-1 Tropical Island
+1 Skycrash
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Spray
+1 Spectacle Summit
+1 Spellshock
+1 Spitting Earth
+1 Steam Vents
+1 Stormchaser Mage
+1 Sulfur Falls
+1 Sundering Eruption
+1 Surtland Frostpyre
+1 Tempest Angler
+1 Third Path Iconoclast
+1 Thorned Moloch
+1 Thundering Falls
+1 Tibor and Lumia
+1 Traumatic Critique
+1 Umara Mystic
 1 Umara Wizard
-1 Unyaro Bees
-1 Waterlogged Grove
-1 Willowrush Verge
-1 Yavimaya Coast
+1 Urza, Lord High Artificer
+1 Vedalken Blademaster
+1 Volcanic Geyser
+1 Volcanic Island

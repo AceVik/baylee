@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266311]
+1 Aang's Defense
+1 Ancient Spider
+1 Armed Response
+1 Astral Cornucopia
+1 Aura Blast
+1 Battle Hurda
+1 Branchloft Pathway
+1 Brushland
+1 Charging Troll
+1 Contemplation
+1 Deadly Riposte
+1 Dissenter's Deliverance
+1 Doubling Season
+1 Dutiful Servants
+1 Enchantress's Presence
+1 Erode
+1 Ethereal Champion
+1 Fend Off
+1 Field of Souls
+12 Forest
+1 Freyalise's Charm
+1 Gathering Place
+1 Great Hart
+1 Grove of the Guardian
+1 Hidden Gibbons
+1 Honor
+1 Horizon Canopy
+1 Hushwood Verge
+1 Infested Roothold
+1 Kami of Old Stone
+1 Kyoshi Village
+1 Lifecrafter's Bestiary
+1 Loxodon Anchorite
+1 Lys Alana Bowmaster
+1 Maddening Wind
+1 Midsummer Revel
+1 Opal Champion
+1 Orbweaver Kumo
+1 Oyobi, Who Split the Heavens
+1 Pawpatch Formation
+1 Pillarfield Ox
+15 Plains
+1 Predatory Hunger
+1 Primeval Bounty
+1 Primordial Sage
+1 Prized Elephant
+1 Provoke
+1 Radiant's Judgment
+1 Raven's Run Dragoon
+1 Rebellious Strike
+1 Reroute Systems
+1 Return from the Wilds
+1 Riftstone Portal
+1 Royal Decree
+1 Saltcrusted Steppe
+1 Satyr Enchanter
+1 Savannah
+1 Selesnya Cluestone
+1 Shared Roots
+1 Sigil of the Empty Throne
+1 Sphinx-Bone Wand
+1 Spidersilk Net
+1 Sungrass Prairie
+1 Sunscorch Regent
+1 Talisman of Unity
+1 Tangleroot
+1 Temple Garden
+1 Tranquil Garden
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Warmth
+1 Wilt
+1 Wipe Clean
+1 Wooded Bastion
+
+[commander]
+Trostani, Three Whispers

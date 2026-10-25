@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266251]
+1 Abzan Runemark
+1 Angelic Edict
+1 Aura Shards
+1 Blade Banish
+1 Blessed Light
+1 Bramblecrush
+1 Branchloft Pathway
+1 Brushland
+1 Canopy Dragon
+1 Canopy Vista
+1 Celestial Purge
+1 Child of Gaea
+1 Choke
+1 Cleansing Ray
+1 Collar the Culprit
+1 Crazed Armodon
+1 Demystify
+1 Destroy Evil
+1 Dispatch
+1 Divine Verdict
+1 Erase
+1 Exalted Dragon
+12 Forest
+1 Fortified Area
+1 Gathering Place
+1 Gavony Township
+1 Glare of Heresy
+1 Grove of the Guardian
+1 Horizon Canopy
+1 Hushwood Verge
+1 Immolating Glare
+1 Jhovall Rider
+1 Kudzu
+1 Lawbringer
+1 Lightbringer
+1 Loxodon Battle Priest
+1 Moment of Valor
+1 Neck Snap
+1 Peace and Quiet
+1 Pillar of Light
+15 Plains
+1 Prismatic Ending
+1 Puncturing Light
+1 Repel Calamity
+1 Restless Prairie
+1 Return to the Earth
+1 Revoke Existence
+1 Safehold Duo
+1 Saltcrusted Steppe
+1 Savannah
+1 Scaled Wurm
+1 Seal of Strength
+1 Searing Light
+1 Shoot Down
+1 Silverchase Fox
+1 Spawning Grounds
+1 Squirrel Nest
+1 Sudden Strike
+1 Swift Response
+1 Take Vengeance
+1 Temple Garden
+1 Terashi's Verdict
+1 Thrashing Brontodon
+1 Thrun, Breaker of Silence
+1 Tranquil Garden
+1 Urgent Exorcism
+1 Vanquish
+1 Veldt
+1 Vengeance
+1 Venom
+1 Vitu-Ghazi, the City-Tree
+1 Vulpine Goliath
+1 White Ward
+1 Windurst, Federation Center
+
+[commander]
+Jasmine Boreal

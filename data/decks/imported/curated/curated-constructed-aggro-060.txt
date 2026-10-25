@@ -1,21 +1,21 @@
 # baylee curated constructed aggro seed=20261083
 # licence: AGPL-3.0-only
 [deck:constructed aggro RG #20261083]
+4 Blisterstick Shaman
 3 Contested Cliffs
 2 Cragcrown Pathway
 4 Fire Whip
-4 Flick a Coin
-3 Forest
-4 Forgeborn Oreads
-4 Gilded Goose
+2 Flamekin Harbinger
+2 Forest
+4 Forge Devil
+4 Foundry Street Denizen
 1 Karplusan Forest
 1 Kessig Wolf Run
-11 Mountain
-4 Oakheart Dryads
-4 Oread of Mountain's Blaze
+4 Llanowar Stalker
+4 Mawloc
+12 Mountain
 1 Pinecrest Ridge
-4 Sawblade Scamp
-2 Sazh's Chocobo
-3 Spawning Breath
+3 Shocking Sharpshooter
 1 Timberline Ridge
-4 Voldaren Epicure
+4 Volley Veteran
+4 Zo-Zu the Punisher

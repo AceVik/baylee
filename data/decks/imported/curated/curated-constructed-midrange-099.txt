@@ -1,23 +1,22 @@
 # baylee curated constructed midrange seed=20261122
 # licence: AGPL-3.0-only
 [deck:constructed midrange BG #20261122]
-4 Ancient Craving
+4 Ambition's Cost
 4 Audacious Thief
+4 Damnable Pact
 2 Darkbore Pathway
-2 Dusk Legion Zealot
 4 Elves of Deep Shadow
-8 Forest
-3 Golgari Locket
+3 Eviscerator
 2 Grim Backwoods
-3 Leaf-Crowned Visionary
-3 Locthwain Lancer
+2 Harrowing Journey
+3 Infernal Contract
+3 Mai, Scornful Striker
 3 Mana Crypt
-4 Metalspinner's Puzzleknot
-2 Nightshade Harvester
+2 Metalspinner's Puzzleknot
 2 Overgrown Tomb
-2 Painful Quandary
+2 Skeleton Archer
 1 Svogthos, the Restless Tomb
-7 Swamp
+15 Swamp
 1 Tainted Wood
-2 Talisman of Resilience
+2 Toxic Abomination
 1 Twilight Mire

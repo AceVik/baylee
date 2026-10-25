@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro B #20266269]
+1 Bartizan Bats
+1 Belbe's Percher
+1 Bog Imp
+1 Bog Rats
+1 Burrog Banemaker
+1 Carnophage
+1 Carrion Screecher
+1 Caustic Rain
+1 City of Traitors
+1 Crazed Skirge
+1 Cursed Minotaur
+1 Dakmor Bat
+1 Dark Remedy
+1 Deadly Rollick
+1 Dementia Bat
+1 Dusk Imp
+1 Elephant-Rat
+1 Endless Sands
+1 Feral Shadow
+1 Fetid Imp
+1 Fog of Gnats
+1 Foundry Screecher
+1 Frankenstein's Monster
+1 Ghost Town
+1 Gloomhunter
+1 Grimclaw Bats
+1 Grotesque Mutation
+1 Gurmag Swiftwing
+1 Hate Weaver
+1 Hunted Ghoul
+1 Junún Efreet
+1 Kelinore Bat
+1 Kraul Raider
+1 Lash of Malice
+1 Liliana's Specter
+1 Marrow Bats
+1 Marsh Gas
+1 Midnight Covenant
+1 Misshapen Fiend
+1 Nightwing Shade
+1 Norritt
+1 Noxious Toad
+1 Oblivion Crown
+1 Oblivion Strike
+1 Phyrexian Boon
+1 Phyrexian Debaser
+1 Phyrexian Denouncer
+1 Pit Imp
+1 Plague Beetle
+1 Rain of Filth
+1 Ravenous Skirge
+1 Scorpion's Sting
+1 Sewer Rats
+1 Shriekdiver
+1 Skeletal Grimace
+1 Skittering Heartstopper
+1 Soul Channeling
+1 Stream of Acid
+32 Swamp
+1 Thran Portal
+1 Touch of Darkness
+1 Trenchpost
+1 Two-Headed Zombie
+1 Unworthy Dead
+1 Urza's Workshop
+1 Wander Off
+1 Zodiac Rat
+1 Zombie Master
+
+[commander]
+Yargle, Glutton of Urborg

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WU #20266129]
+1 Adarkar Wastes
+1 Adept Watershaper
+1 Ambassador Laquatus
+1 Bigfin Bouncer
+1 Bonded Fetch
+1 Calciform Pools
+1 Call to Serve
+1 Captivating Unicorn
+1 Cloudcrest Lake
+1 Collar the Culprit
+1 Cradle of Safety
+1 Cunning
+1 Deepchannel Duelist
+1 Demystify
+1 Dispatch
+1 Drogskol Captain
+1 Drowner of Secrets
+1 Fae Flight
+1 Fatehold Chronologist
+1 Flash Flood
+1 Fragmentize
+1 Frilled Sea Serpent
+1 Gavony Trapper
+1 Geist of the Archives
+1 Glare of Heresy
+1 Gleaming Bastion
+1 Goldmeadow Harrier
+1 Grey Havens Navigator
+1 Gulf Squid
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Homarid Explorer
+1 Hydroelectric Specimen
+11 Island
+1 Kami of Ancient Law
+1 Keening Apparition
+1 Land Cap
+1 Marshal of Zhalfir
+1 Moorland Haunt
+1 Mystic Gate
+1 Neck Snap
+1 Nimbus Maze
+1 Ondu Greathorn
+1 Peace and Quiet
+1 Phantatog
+13 Plains
+1 Quiet Purity
+1 Reef Pirates
+1 Repel Calamity
+1 Riptide Crab
+1 Rishadan Dockhand
+1 Ronom Unicorn
+1 Rootwater Mystic
+1 Sea Serpent
+1 Senate Griffin
+1 Shore Lurker
+1 Sigiled Starfish
+1 Skybridge Towers
+1 Skycloud Expanse
+1 Smite
+1 Soulherder
+1 Sparring Mummy
+1 Spellkeeper Weird
+1 Stern Constable
+1 Stonybrook Angler
+1 Study
+1 Supply Caravan
+1 Swift Response
+1 Teferi, Time Raveler
+1 Thalakos Lowlands
+1 Triton Shorethief
+1 Triton Waverider
+1 Valorous Steed
+1 Venser, Shaper Savant
+1 Wanderbrine Trapper
+1 Wings of Hope
+1 Wizened Cenn
+
+[commander]
+Tobias Andrion

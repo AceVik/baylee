@@ -1,82 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266043]
-1 Adept Watershaper
-1 Austere Command
-1 Aysen Bureaucrats
-1 Bird Admirer
-1 Border Guard
-1 Border Patrol
-1 Branch of Vitu-Ghazi
-1 Celestial Enforcer
-1 Checkpoint Officer
-1 Civic Gardener
-1 Cleanse
-1 Clergy en-Vec
-1 Clergy of the Holy Nimbus
-1 Crisis of Conscience
-1 Cryptic Caves
-1 Dark Depths
-1 Defender of Law
-1 Diamond City
-1 Echoing Deeps
-1 Elder Druid
-1 Elvish Healer
-1 Enchanted Being
-1 Ephara's Warden
-1 Essence Filter
-1 Farbog Explorer
-1 Farewell
-1 Final Showdown
-1 Flanking Troops
-1 Fleet-Footed Monk
-4 Forest
-1 Frostwalk Bastion
-1 Gavony Trapper
+[deck:commander midrange W #20266043]
+1 Abbey Gargoyles
+1 Ageless Guardian
+1 Alley Evasion
+1 Angelic Overseer
+1 Arborea Pegasus
+1 Archaeological Dig
+1 Archon of Emeria
+1 Ark of Blight
+1 Avian Changeling
+1 Basalt Monolith
+1 City in a Bottle
+1 Conviction
+1 Crystal Grotto
+1 Darksteel Forge
+1 Darksteel Gargoyle
+1 Dawn Gryff
+1 Dawnglare Invoker
+1 Defense Grid
+1 Feroz's Ban
+1 Friendly Ghost
+1 Gaelicat
+1 Ghostly Sentinel
+1 Goblin Firebomb
 1 Gond Gate
-1 HELIOS One
-1 Haazda Shield Mate
-1 Half-Elf Monk
-1 Hedge Troll
-1 Juniper Order Druid
-1 Kelsinko Ranger
-1 Kitsune Diviner
-1 Kyoshi Warrior Guard
-1 Law-Rune Enforcer
-1 Loxodon Battle Priest
-1 Loxodon Mystic
-1 Mana Tithe
-1 Master Apothecary
-1 Master Healer
-1 Master of Arms
-1 Meng Huo's Horde
-1 Midnight Duelist
-1 Might Weaver
-1 Mishra's Foundry
-1 Northampton Farm
-1 Order of the Sacred Bell
-1 Orthodoxy Enforcer
-21 Plains
-1 Righteous Avengers
-1 Rime Tender
-1 Riveteers Overlook
-1 Sequestered Stash
-1 Shoot Down
-1 Shrine Keeper
-1 Skyline Scout
-1 Spawnbinder Mage
-1 Sterling Keykeeper
-1 Stone Haven Pilgrim
-1 Taoist Hermit
-1 Tranquil Domain
-1 Trokin High Guard
-1 Valiant Guard
-1 Vesuva
-1 Veteran Cathar
-1 Veteran Cavalier
-1 Wallop
-1 Warped Landscape
-1 Winding Canyons
+1 Heaven's Gate
+1 Herald of Serra
+1 Herbal Poultice
+1 Hope and Glory
+1 Island of Wak-Wak
+1 Ivory Charm
+1 Juntu Stakes
+1 Kabuto Moth
+1 Kami of False Hope
+1 Magistrate's Scepter
+1 Majestic Heliopterus
+1 Malach of the Dawn
+1 Matzalantli, the Great Door
+1 Moonwing Moth
+1 Patriar's Seal
+1 Pit Trap
+1 Pithing Needle
+34 Plains
+1 Planar Bridge
+1 Planar Portal
+1 Red Ward
+1 Relic of Legends
+1 Restoration Angel
+1 Seafarer's Quay
+1 Shepherd of the Lost
+1 Shield Wall
+1 Soulbound Guardians
+1 Sphere of Resistance
+1 Spinning Wheel
+1 Starlit Angel
+1 Stormfront Pegasus
+1 Sunmane Pegasus
+1 Sunweb
+1 Swift Justice
+1 Three Tree Mascot
+1 Thunder Spirit
+1 Trenchpost
+1 Unlicensed Hearse
+1 Voice of Duty
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
 
 [commander]
-Kei Takahashi
+Radiant, Archangel

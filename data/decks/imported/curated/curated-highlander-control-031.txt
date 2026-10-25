@@ -1,78 +1,78 @@
 # baylee curated highlander control seed=20261054
 # licence: AGPL-3.0-only
 [deck:highlander control BG #20261054]
+1 Arnyn, Deathbloom Botanist
 1 Audacity
 1 Bastion of Remembrance
 1 Bayou
-1 Bitterblossom
-1 Blight Mound
-1 Centaur Glade
+1 Bishop of the Bloodstained
+1 Bitterbloom Bearer
+1 Blood Artist
+1 Body Snatcher
+1 Carrier Thrall
+1 Caustic Hound
+1 Cirith Ungol Patrol
+1 Claws of Gix
 1 Criminal Enterprise
-1 Dakmor Ghoul
-1 Dark Privilege
 1 Darkbore Pathway
-1 Death Watch
 1 Decomposition
-1 Despondency
-1 Discordant Piper
+1 Dire Fleet Hoarder
 1 Dusk Legion Zealot
-1 Elderfang Venom
-1 Elephant Guide
-1 Fell the Pheasant
-1 Fists of Ironwood
+1 Etched Familiar
+1 Falkenrath Noble
 7 Forest
+1 Fortitude
 1 Foul Orchard
-1 Golgari Rotwurm
+1 Gilded Goose
 1 Grim Backwoods
-1 Grim Guardian
-1 Hopeless Nightmare
-1 Howling Giant
+1 Grist, the Hunger Tide
 1 Infernal Idol
-1 Liliana's Mastery
+1 Kalastria Healer
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Lead Pipe
 1 Llanowar Wastes
-1 Maalfeld Twins
-1 Maggot Carrier
-1 Many Partings
+1 Malakir Soothsayer
+1 Mantle of the Wolf
 1 Marsh Flitter
 1 Massacre Wurm
+1 Master of Dark Rites
 1 Midnight Entourage
-1 Midnight Reaper
-1 Midsummer Revel
-1 Moldervine Reclamation
-1 Most Wanted
 1 Necroblossom Snarl
+1 Necrogen Scudder
+1 Nocturnal Feeder
 1 Nurturing Peatland
 1 Open the Graves
-1 Orochi Hatchery
 1 Path of Annihilation
+1 Pawn of Ulamog
+1 Pelakka Wurm
 1 Phyrexian Gargantua
 1 Phyrexian Rager
 1 Pine Barrens
-1 Pointed Discussion
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Rancor
+1 Rabid Bloodsucker
 1 Rathi Fiend
-1 Rotlung Reanimator
-1 Sarcomancy
 1 Skeletal Vampire
+1 Sleeper Agent
 1 Sling-Gang Lieutenant
-1 Strands of Night
+1 Sneering Shadewriter
 1 Strangled Cemetery
 1 Svogthos, the Restless Tomb
 20 Swamp
 1 Tainted Wood
+1 The Meathook Massacre
 1 Toxic Abomination
 1 Turbulent Fen
 1 Twilight Mire
-1 Undead Augur
-1 Vampire's Kiss
+1 Vampire Neonate
+1 Vampire Sovereign
+1 Vampire Spawn
+1 Vampiric Rites
 1 Vault Plunderer
-1 Vengeful Dead
+1 Vermin Gorger
+1 Vindictive Vampire
 1 Viridescent Bog
-1 Vital Splicer
-1 Warren Soultrader
 1 Wastewood Verge
+1 Witch's Cauldron
 1 Witherbloom Campus
-1 Wolfkin Bond
 1 Wolfwillow Haven
+1 Yawgmoth, Thran Physician

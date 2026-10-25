@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control W #20266155]
+1 Adamant Will
+1 Aerial Maneuver
+1 Aerial Modification
+1 Ageless Guardian
+1 Allied Reinforcements
+1 Amrou Seekers
+1 Amulet of Unmaking
+1 Beaming Defiance
+1 Brokers Hideout
+1 Call the Cavalry
+1 Captain's Call
+1 Conversion
+1 Cooperation
+1 Damping Field
+1 Dub
+1 Escape Tunnel
+1 Faceless Haven
+1 Gallows Warden
+1 Goldmeadow Dodger
+1 Goldmeadow Lookout
+1 Great Defender
+1 Great Hall of the Citadel
+1 Great Wall
+1 Green Ward
+1 Hope and Glory
+1 Humility
+1 Indomitable Ancients
+1 Ivory Charm
+1 Join the Ranks
+1 Kinsbaile Cavalier
+1 Knight Watch
+1 Light of Day
+1 Loxodon Mender
+1 Might of the Ancestors
+1 Noble Steeds
+1 Opal Avenger
+1 Order of the Golden Cricket
+1 Piety
+36 Plains
+1 Planar Nexus
+1 Rally
+1 Red Ward
+1 Release the Dogs
+1 Resplendent Mentor
+1 Rhox Pikemaster
+1 Ring of Immortals
+1 Rule of Law
+1 Serra Aviary
+1 Shield Wall
+1 Skillful Lunge
+1 Soltari Lancer
+1 Spirit Mantle
+1 Staunch Shieldmate
+1 Sun Clasp
+1 Take Up Arms
+1 The Mycosynth Gardens
+1 Trenching Steed
+1 Veteran Cavalier
+1 Warded Battlements
+1 Warning
+1 Worship
+1 Zealous Strike
+1 Zhalfirin Knight
+1 Zoetic Cavern
+
+[commander]
+Worf, Chief Tactical Officer

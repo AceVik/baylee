@@ -1,70 +1,80 @@
-# baylee unseen-card holdout highlander seed=90000031
+# baylee unseen-card holdout highlander seed=90000026
 # licence: AGPL-3.0-only
-[deck:highlander midrange R #90000031]
-1 Abrade
-1 Akki Rockspeaker
-1 Balduvian Trading Post
-1 Ben-Ben, Akki Hermit
-1 Blaze
-1 Blisterstick Shaman
-1 Blood Rites
-1 Bloodshot Cyclops
-1 Bloodshot Trainee
-1 Bombard
-1 Careless Celebrant
-1 Cinder Storm
-1 Electrify
-1 Ember Hauler
-1 Eternal Flame
-1 Fanatical Firebrand
-1 Flame Jet
-1 Fling
-1 Fogwell's Gym
-1 Goblin Artillery
-1 Goblin Chainwhirler
-1 Goblin Commando
-1 Goblin Medics
-1 Goblin Replica
-1 Goblin Snowman
-1 Goblin Tinkerer
-1 Guttersnipe
-1 Hammerheim
-1 Ishi-Ishi, Akki Crackshot
-1 Jaya's Firenado
-1 Keldon Necropolis
-1 Klingon Strike Force
-1 Lightning Cloud
-1 Lightning Diadem
-1 Lightning Spear
-1 Magma Spray
-1 Make Mischief
-1 Mana Crypt
-1 Massive Raid
-1 Mogg Bombers
-1 Mogg Fanatic
-1 Mogg Maniac
-34 Mountain
-1 Mox Jasper
-1 Obliterating Bolt
-1 Orcish Cannonade
-1 Rockface Village
-1 Rumbling Rockslide
-1 Sarpadian Simulacrum
-1 Seismic Strike
-1 Shatterskull Smashing
-1 Siege-Gang Commander
-1 Slingshot Goblin
-1 Sokenzan, Crucible of Defiance
-1 Spark Spray
-1 Sparksmith
-1 Spellshock
-1 Strangle
-1 Sundering Eruption
-1 Trumpeting Carnosaur
-1 Tuktuk Scrapper
-1 Unfriendly Fire
-1 Volcanic Geyser
-1 Volley Veteran
-1 War-Torch Goblin
-1 Word of Blasting
-1 Zo-Zu the Punisher
+[deck:highlander midrange UG #90000026]
+1 Alchemist's Refuge
+1 Arcane Flight
+1 Archdruid's Charm
+1 Artificer's Intuition
+1 Aviation Pioneer
+1 Ayula's Influence
+1 Barkchannel Pathway
+1 Blisterpod
+1 Blizzard
+1 Breeding Pool
+1 Brood Monitor
+1 Cyclone
+1 Dance of Many
+1 Defense of the Heart
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Drowner of Hope
+1 Eldrazi Skyspawner
+1 Energy Vortex
+1 Eyeless Watcher
+1 Faerie Formation
+1 Fastbond
+1 Fecundity
+1 Flooded Grove
+1 Floodhound
+1 Font of Fertility
+1 Forecasting Fortune Teller
+16 Forest
+1 Fungal Bloom
+1 Garruk's Uprising
+1 Gilded Goose
+1 Greater Good
+1 Greensleeves, Maro-Sorcerer
+1 Hatching Plans
+1 Hinterland Harbor
+1 Homarid Spawning Bed
+1 Iceberg
+1 Incubator Drone
+1 Innkeeper's Talent
+1 Ior Ruin Expedition
+9 Island
+1 Jewel-Eyed Cobra
+1 Kingfisher
+1 Knightfisher
+1 Kozilek's Predator
+1 Lumbering Falls
+1 Malcator's Watcher
+1 Mongrel Pack
+1 Most Wanted
+1 Nest Invader
+1 Novijen, Heart of Progress
+1 Orochi Hatchery
+1 Overflowing Basin
+1 Paradox Gardens
+1 Preening Champion
+1 Runewing
+1 S.H.I.E.L.D. Deployment Drone
+1 Silver Raven
+1 Soul of the Harvest
+1 Spike Breeder
+1 Sporemound
+1 Survival of the Fittest
+1 Temple of Mystery
+1 Trade Routes
+1 Tropical Island
+1 Tunnel Surveyor
+1 Turbulent Wilderness
+1 Verdant Force
+1 Viscerid Drone
+1 Walking Ballista
+1 Waterlogged Grove
+1 Welcome to . . .
+1 Willowrush Verge
+1 Wizard Class
+1 Yavimaya Coast
+1 Yavimaya Sapherd
+1 Yavimaya's Embrace

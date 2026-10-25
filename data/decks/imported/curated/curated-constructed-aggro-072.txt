@@ -1,23 +1,23 @@
 # baylee curated constructed aggro seed=20261095
 # licence: AGPL-3.0-only
 [deck:constructed aggro WUR #20261095]
-4 Clammy Prowler
+4 Betrayal
 1 Desolate Lighthouse
-2 Dragon Mantle
 4 Eidolon of Astral Winds
 2 Eidolon of Philosophy
-4 Eidolon of the Great Revel
 3 Flame Blitz
+2 Flamekin Harbinger
+4 Forgeborn Oreads
 3 Hallowed Ground
-2 Island
-4 Land Tax
-7 Mountain
+7 Island
+4 Mountain
 1 Mystic Monastery
 4 Oread of Mountain's Blaze
 3 Perilous Landscape
-5 Plains
+3 Plains
 1 Raugrin Triome
 1 Riverglide Pathway
 2 Riverpyre Verge
 3 Spirited Companion
+4 Wan Shi Tong, Librarian
 4 Whitewater Naiads

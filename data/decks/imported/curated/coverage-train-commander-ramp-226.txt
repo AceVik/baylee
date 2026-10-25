@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp RG #20266227]
-1 Alpha Tyrranax
-1 Avaricious Dragon
-1 Axegrinder Giant
-1 Barkhide Mauler
-1 Brand
-1 Burrowing Razormaw
-1 Captain's Tutelage
-1 Carapace
-1 Charging Strifeknight
-1 Commercial District
-1 Concordant Crossroads
-1 Contested Cliffs
-1 Cragcrown Pathway
-1 Curious Altisaur
-1 Dangerous Wager
-1 Enormous Baloth
-1 Fangren Marauder
-11 Forest
-1 Frantic Strength
-1 Frog Butler
-1 Fungal Reaches
-1 Gift of Strands
-1 Gnathosaur
-1 Goblin Assault
-1 Goblin Rally
-1 Goblin Scouts
-1 Goblin Wizardry
-1 Goobbue Gardener
-1 Grove of the Burnwillows
-1 Hurler Cyclops
-1 Impolite Entrance
-1 Jaya's Firenado
-1 Kalonian Behemoth
-1 Karplusan Forest
-1 Kessig Wolf Run
-1 Krark-Clan Ironworks
-1 Lava Hounds
-1 Loam Dryad
-1 Loamdragger Giant
-1 Madcap Skills
-1 Magma Vein
-1 Marker Beetles
-1 Mass Hysteria
-1 Mogg Hollows
-15 Mountain
-1 Needleshot Gourna
-1 Nightshade Dryad
-1 Nissa, Vital Force
-1 Noxious Newt
-1 Pinecrest Ridge
-1 Poison Dart Frog
-1 Prophetic Ravings
-1 Radha, Heir to Keld
-1 Reflexes
-1 Ripjaw Raptor
-1 Rock Basilisk
-1 Saruli Caretaker
-1 Savage Mansion
+[deck:commander ramp BR #20266227]
+1 Aku Djinn
+1 Amok
+1 Axiom Engraver
+1 Badgey, Malicious Glitch
+1 Badlands
+1 Battlefly Swarm
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bloodcrazed Neonate
+1 Braidwood Sextant
+1 Brimstone Dragon
+1 Cackling Imp
+1 Catacomb Dragon
+1 Cinder Barrens
+1 Cinder Marsh
+1 Cursed Mirror
+1 Dark Fortress
+1 Doom Whisperer
+1 Drill Too Deep
+1 Dystopia
+1 Ebon Praetor
+1 Essence Infusion
+1 Flowstone Mauler
+1 Gallowbraid
+1 Gemstone Array
+1 Glaze Fiend
+1 Havengul Vampire
+1 Hellkite Punisher
+1 Infectious Horror
+1 Insolent Neonate
+1 Iron Giant
+1 Kuro, Pitlord
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Lightning Reaver
+1 Markov Dreadknight
+1 Master of the Feast
+1 Maximum Overdrive
+1 Molten Slagheap
+1 Morinfen
+1 Mount Doom
+9 Mountain
+1 Oni of Wild Places
+1 Paradise Mantle
+1 Primordial Ooze
+1 Rakdos Guildgate
+1 Ravenous Harpy
+1 Renegade Map
+1 Rix Maadi, Dungeon Palace
+1 Rorix Bladewing
+1 Scavenger Drake
+1 Sengir Bats
+1 Shadowblood Ridge
 1 Shaleskin Bruiser
-1 Shivan Oasis
-1 Skarrg, the Rage Pits
-1 Spearbreaker Behemoth
-1 Stomping Ground
-1 Super Speed
-1 Sylvan Caryatid
-1 Tahngarth's Rage
-1 Thornspire Verge
-1 Thundermaw Hellkite
-1 Timberline Ridge
-1 Training Compound
-1 Transdimensional Bovine
-1 Utopia Tree
-1 Vampires' Vengeance
-1 Vivify
-1 Xenobotanist
+1 She-Hulk, Jennifer Walters
+1 Sire of Insanity
+1 Slinking Skirge
+1 Soulcage Fiend
+1 Spirit Shackle
+1 Stensia Bloodhall
+1 Stromkirk Noble
+1 Stromkirk Patrol
+1 Sulfurous Springs
+17 Swamp
+1 Swamp Mosquito
+1 Sword of Hearth and Home
+1 Takklemaggot
+1 Tethered Skirge
+1 Thaumatic Compass
+1 Traveler's Amulet
+1 Unspeakable Symbol
+1 Vault Skirge
+1 Venomcrawler
+1 Visara the Dreadful
 
 [commander]
-Livonya Silone
+Lady Orca

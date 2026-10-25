@@ -1,81 +1,81 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WUR #20266310]
-1 Adarkar Wastes
-1 Aether Channeler
-1 Anarchist
-1 Battlefield Forge
-1 Boros Cluestone
-1 Brazen Freebooter
-1 Captain Storm, Cosmium Raider
-1 Captain of the Watch
-1 Cloudcrest Lake
-1 Corsair Captain
-1 Dragonmaster Outcast
-1 Elgaud Inquisitor
-1 Enlightened Maniac
-1 Esper Sentinel
-1 Experimental Aviator
-1 Falcon, Winged Wonder
-1 Fiery Islet
-1 Flamewright
-1 Galazeth Prismari
-1 Gleaming Bastion
-1 Hallowed Fountain
-1 Hanweir Garrison
-1 Haunted Library
-1 Hearthcage Giant
-1 Icatian Crier
-1 Imperial Oath
-1 Inheritance
-1 Intruding Soulrager
-1 Invasion Reinforcements
-8 Island
-1 Knight of Doves
-1 Kyoshi Warriors
-1 Lightning Spear
-1 Luke Cage, Hero for Hire
-1 Malcator's Watcher
-1 Master Splicer
-1 Merchant of Secrets
-14 Mountain
-1 Mox Ruby
-1 Mystic Monastery
-1 Nimbus Maze
-1 Nivix, Aerie of the Firemind
-1 Noggle Bandit
-1 Norn's Wellspring
-1 Novice Inspector
-1 Outlaw Medic
-1 Pashalik Mons
-1 Perilous Landscape
-1 Pia and Kiran Nalaar
-1 Pia, Determined Rebuilder
-3 Plains
-1 Professor Zei, Anthropologist
-1 Prosperous Pirates
-1 Protector of Gondor
-1 Pyre Spawn
-1 Raugrin Crystal
-1 Raugrin Triome
-1 Reckless Fireweaver
-1 Reckless Lackey
-1 Ripchain Razorkin
-1 Sacred Foundry
-1 Sage of Lat-Nam
-1 Sailor of Means
-1 Seller of Songbirds
-1 Silver Raven
-1 Skycloud Egg
-1 Steam Vents
-1 Sunbeam Spellbomb
-1 Talisman of Conviction
-1 Talisman of Creativity
-1 Thalakos Lowlands
-1 Thraben Inspector
-1 Thraben Standard Bearer
-1 Treetop Freedom Fighters
-1 Tundra
-1 Tunnel Surveyor
-1 Tura Kennerüd, Skyknight
-1 Wing Splicer
+[deck:highlander midrange BRG #20266310]
+1 Audacity
+1 Badlands
+1 Bastion of Remembrance
+1 Bayou
+1 Bitterblossom
+1 Bonebreaker Giant
+1 Bull Hippo
+1 Call the Bloodline
+1 Carnival of Souls
+1 Citanul Centaurs
+1 Cragcrown Pathway
+1 Cyclops of One-Eyed Pass
+1 Darigaaz's Caldera
+1 Dragon Moose
+1 Elvish Piper
+1 Emperor Crocodile
+1 Endangered Armodon
+1 Enraged Ceratok
+1 Firescreamer
+1 Fists of Ironwood
+7 Forest
+1 Fortitude
+1 Geothermal Crevice
+1 Goblin Shrine
+1 Golden Bear
+1 Golgari Germination
+1 Grazing Whiptail
+1 Hulking Devil
+1 Infernal Idol
+1 Infernal Tribute
+1 Kird Chieftain
+1 Koskun Keep
+1 Lagac Lizard
+1 Lantern-Lit Graveyard
+1 Lathnu Sailback
+1 Lead Pipe
+1 Legion Extruder
+1 Lithophage
+1 Lizard Warrior
+1 Llanowar Wastes
+1 Maw of Kozilek
+1 Mosstodon
+1 Mount Doom
+9 Mountain
+1 Mountain Titan
+1 Mountain Yeti
+1 Nema Siltlurker
+1 Nurturing Peatland
+1 Outland Boar
+1 Pitiless Gorgon
+1 Prowess of the Fair
+1 Quarum Trench Gnomes
+1 Rabid Wombat
+1 Rubbleback Rhino
+1 Savage Lands
+1 Sedge Troll
+1 Shadowblood Egg
+1 Southern Elephant
+1 Summit Prowler
+9 Swamp
+1 Tainted Wood
+1 Tarrian's Journal
+1 Terror of the Fairgrounds
+1 The Meathook Massacre
+1 Twisted Landscape
+1 Viashino Cutthroat
+1 Viashino Sandswimmer
+1 Viashino Skeleton
+1 Wall of Pine Needles
+1 War-Spike Changeling
+1 Wardscale Crocodile
+1 Wastewood Verge
+1 Welcome to . . .
+1 Wild Ceratok
+1 Wolfwillow Haven
+1 Ziatora's Proving Ground
+1 Zodiac Horse
+1 Zodiac Ox

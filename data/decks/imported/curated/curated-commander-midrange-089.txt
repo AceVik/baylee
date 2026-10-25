@@ -1,72 +1,82 @@
 # baylee curated commander midrange seed=20261112
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20261112]
-1 Abu Ja'far
-1 Academy Rector
-1 Afterlife
-1 Ancient Den
-1 Arahbo, the First Fang
-1 Aura Fracture
-1 Blighted Steppe
-1 Bygone Bishop
-1 Caregiver
-1 Cartouche of Solidarity
-1 Crib Swap
-1 Daru Encampment
-1 Delney, Streetwise Lookout
-1 Doomed Traveler
-1 Dwarven Castle Guard
-1 Eager Glyphmage
-1 Eiganjo Castle
-1 Elspeth, Storm Slayer
-1 Errand of Duty
-1 Field of Souls
-1 Geist-Honored Monk
-1 Griffin Guide
-1 Haunted Library
-1 Honored Knight-Captain
-1 Hunted Witness
-1 Inheritance
-1 Karakas
-1 Kjeldoran Home Guard
-1 Knight of Doves
-1 Late to Dinner
-1 Luminarch Ascension
-1 Luminous Angel
-1 Luminous Broodmoth
-1 Martyr of Dusk
-1 Martyr's Cry
-1 Monastery Mentor
-1 Nesting Dovehawk
-1 Norn's Wellspring
-1 Oltec Cloud Guard
-1 Orochi Hatchery
-1 Patrol Signaler
-1 Personal Incarnation
-1 Pileated Provisioner
-1 Pillardrop Rescuer
-34 Plains
-1 Protector of Gondor
-1 Reliquary Monk
-1 Rising Populace
-1 Savior of the Sleeping
-1 Secure the Wastes
-1 Sensor Splicer
-1 Servo Exhibition
-1 Shefet Dunes
-1 Siege Veteran
-1 Soulcatcher
-1 Spectral Procession
-1 Spidersilk Net
-1 Spirit Mirror
-1 Take Up Arms
-1 Thraben Standard Bearer
-1 Treasure Hunter
-1 Venerable Knight
-1 Vessel of Ephemera
-1 Welkin Hawk
-1 Wipe Clean
-1 Worthy Knight
+[deck:commander midrange RG #20261112]
+1 Akki Rockspeaker
+1 Anarchist
+1 Ardent Elementalist
+1 Atalan Jackal
+1 Avalanche Riders
+1 Balduvian Horde
+1 Bequeathal
+1 Bugenhagen, Wise Elder
+1 Burning-Tree Emissary
+1 Burning-Yard Trainer
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Dawnhart Disciple
+1 Dawnhart Rejuvenator
+1 Dragon Trainer
+1 Dualcaster Mage
+1 Eternal Witness
+1 Fire-Lit Thicket
+1 Firefist Adept
+1 Flamekin Harbinger
+1 Flametongue Kavu
+1 Fleshpulper Giant
+13 Forest
+1 Foundry Street Denizen
+1 Fungal Reaches
+1 Ghirapur Gearcrafter
+1 Ghitu Slinger
+1 Gladiolus Amicitia
+1 Graypelt Hunter
+1 Grove of the Burnwillows
+1 Hornet Queen
+1 Huntmaster of the Fells
+1 Hyrax Tower Scout
+1 Jade Bearer
+1 Kessig Wolf Run
+1 Kronch Wrangler
+1 Magus of the Wheel
+1 Mana Crypt
+1 Manic Vandal
+1 Mawloc
+1 Mogg Hollows
+1 Mossfire Egg
+1 Mossfire Valley
+12 Mountain
+1 Murasa Pyromancer
+1 Murasa Ranger
+1 Oashra Cultivator
+1 Oran-Rief Survivalist
+1 Perimeter Patrol
+1 Pia, Determined Rebuilder
+1 Pinecrest Ridge
+1 Priest of Urabrask
+1 Rhox Oracle
+1 Rogue Elephant
+1 Rugged Highlands
+1 Setessan Champion
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Shocking Sharpshooter
+1 Skarrg, the Rage Pits
+1 Social Climber
+1 Spider-Man, Hometown Hero
+1 Stingcaster Mage
+1 Stoic Builder
+1 Sunset Strikemaster
+1 Sunshower Druid
+1 Taiga
+1 Thornspire Verge
+1 Timberland Guide
+1 Timberline Ridge
+1 Training Compound
+1 Valley Mightcaller
+1 Vulshok Heartstoker
+1 Wall of Blossoms
+1 Wartime Protestors
+1 Zhur-Taa Druid
 
 [commander]
-Reya Dawnbringer
+Jerrard of the Closed Fist

@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp BRG #20266087]
-1 Atarka Monument
-1 Auntie's Hovel
-1 Axebane Guardian
-1 Battle Hymn
-1 Billiard Room
-1 Blightsoil Druid
-1 Bloom Tender
-1 Brightstone Ritual
-1 Burnt Offering
-1 Cabal Ritual
-1 Circle of Dreams Druid
-1 Citanul Hierophants
-1 Commercial District
-1 Copperline Gorge
-1 Culling the Weak
-1 Darkmoss Bridge
-1 Deathbloom Gardener
-1 Desolation of Smaug
-1 Devoted Druid
-1 Dragon's Desire
-1 Dragonlair Spider
-1 Dreamstone Hedron
-1 Dregs of Sorrow
-1 Drover of the Mighty
-1 Fire Sprites
-12 Forest
-1 Foriysian Totem
-1 Fyndhorn Elder
-1 Fíli and Kíli, Joyous
-1 Geosurge
-1 Goblin Artisans
-1 Greater Sandwurm
-1 Gruul Turf
-1 Harabaz Druid
-1 Highland Forest
-1 Humble Naturalist
-1 Implode
-1 Joiner Adept
-1 Jungle Weaver
-1 Lay Waste
-1 Lifespring Druid
-1 Llanowar Tribe
-1 Loam Dryad
-1 Macetail Hystrodon
+[deck:commander ramp WUB #20266087]
+1 Abduction
+1 Blood Celebrant
+1 Bloodgift Demon
+1 Bog Initiate
+1 Bubbling Muck
+1 Cadaver Imp
+1 Carrier Pigeons
+1 Chronic Flooding
+1 Creeping Tar Pit
+1 Demon's Due
+1 Demonic Tutor
+1 Dimir Aqueduct
+1 Dread Rider
+1 Drownyard Amalgam
+1 Ebon Dragon
+1 Geist of Saint Thalia
+1 Great Hall of Starnheim
+1 Griselbrand
+1 High Tide
+1 Idyllic Beachfront
+1 Illuminated Wings
+1 Insomnia, Crown City
+8 Island
+1 Jwar Isle Refuge
+1 Keen-Eyed Raven
+1 Knightfisher
+1 Laboratory Brute
+1 Lost Legion
 1 Magus of the Coffers
-1 Mana Geyser
-1 Metamorphosis
-14 Mountain
-1 Mox Opal
-1 Nantuko Elder
-1 Obelisk of Jund
-1 Ominous Asylum
-1 Rakdos Carnarium
-1 Rakdos Guildgate
-1 Reckless Barbarian
-1 Ridge Rannet
-1 Sacrifice
-1 Saruli Caretaker
-1 Seismic Spike
-1 Somberwald Sage
+1 Mindscour Dragon
+1 Minion of Leshrac
+1 Minion of Tevesh Szat
+1 Mistvault Bridge
+1 Mold Demon
+1 Neglected Manor
+1 Nesting Dovehawk
+1 Nirkana Revenant
+1 Omen of the Sun
+1 Overeager Apprentice
+1 Pestilence Demon
+1 Pileated Provisioner
+7 Plains
+1 Plumecreed Mentor
+1 Preening Champion
+1 Psychic Symbiont
+1 Rathi Intimidator
+1 Restless Reef
+1 Sage Aven
+1 Sage Owl
+1 Sea of Clouds
+1 Secret Passage
+1 Sejiri Refuge
+1 Serpent's Pass
+1 Sharuum the Hegemon
+1 Shipwreck Marsh
+1 Sibilant Spirit
+1 Skirge Familiar
+1 Snarling Gorehound
 1 Songs of the Damned
-1 Subterranean Cavern
-1 Sunastian Falconer
-1 Swampbenders
-1 Temple of Abandon
-1 Temple of Malady
-1 Temple of Malice
-1 Three Tree Rootweaver
-1 Tresserhorn Sinks
-1 Turbulent Fen
-1 Ulvenwald Observer
-1 Whisperer of the Wilds
-1 Wild Cantor
-1 Wirewood Elf
+1 Soulcatcher
+1 Strix Lookout
+1 Sunken Hollow
+1 Sunspring Expedition
+1 Supply-Line Cranes
+11 Swamp
+1 The Unspeakable
+1 Turbulent Moor
+1 Umara Raptor
+1 Vampiric Spirit
+1 Vessel of Paramnesia
+1 Watcher in the Mist
+1 Weight of Memory
+1 Whisper Agent
+1 Windbrisk Raptor
 1 Witch Engine
+1 Yawgmoth Demon
 
 [commander]
-Vaevictis Asmadi
+Chromium

@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266238]
-1 Adherent of Hope
-1 Ant-Man, Scott Lang
-1 Archweaver
-1 Aura Shards
-1 Birnin Zana Plaza
-1 Brushland
-1 Circle of Protection: Red
-1 Clockwork Avian
-1 Cockatrice
-1 Daraja Griffin
-1 Daring Mechanic
-1 Demystify
-1 Dragonstalker
-1 Drop of Honey
-1 Ephara's Radiance
-1 Expanded Anatomy
-1 Fearless Fledgling
-1 Flickering Ward
-10 Forest
-1 Fungus Elemental
-1 Gale Swooper
-1 Galewind Moose
-1 Gavony Township
-1 Gideon's Avenger
-1 Greater Realm of Preservation
+[deck:commander midrange WB #20266238]
+1 Angel of Light
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Angelsong
+1 Bleachbone Verge
+1 Bloodied Ghost
+1 Caves of Koilos
+1 Chapel Geist
+1 Desolate Mire
+1 Eidolon of Astral Winds
+1 Emancipation Angel
+1 Fetid Heath
+1 Friendly Ghost
+1 Geist of the Moors
+1 Ghostly Sentinel
+1 Godless Shrine
+1 Great Hall of Starnheim
 1 Guan Yu's 1,000-Li March
-1 Horizon Canopy
-1 Hymn of Rebirth
-1 Iron Bully
-1 Island Sanctuary
-1 Kjeldoran Skyknight
-1 Loxodon Battle Priest
-1 Lucent Liminid
-1 Mask of Law and Grace
-1 Mockingbird, Bobbi Morse
-1 Myr Scrapling
-1 Nature's Blessing
-1 Nature's Wrath
-1 Nightwind Glider
-1 Noble Steeds
-15 Plains
-1 Reconnaissance
-1 Regeneration
-1 Riftstone Portal
-1 Rolling Stones
-1 Root Maze
-1 Rosa, Resolute White Mage
-1 Ruins Recluse
-1 Saltcrusted Steppe
-1 Sanguine Glorifier
-1 Savannah
-1 Siegehorn Ceratops
-1 Skyblade of the Legion
-1 Sledding Otter-Penguin
-1 Spike Soldier
-1 Spike Weaver
-1 Suburban Sanctuary
-1 Sungrass Prairie
-1 Tattoo Ward
-1 Temple Garden
-1 Teyo's Lightshield
-1 Thermal Glider
-1 Tranquil Garden
-1 Tranquil Grove
-1 Uktabi Efreet
-1 Unholy Officiant
-1 Unlikely Alliance
-1 Vec Townships
-1 Veldt
-1 Venom
-1 Verdant Automaton
-1 Veteran of the Depths
-1 Vitu-Ghazi, the City-Tree
-1 Volunteer Reserves
-1 Wooded Bastion
-1 Xindi Surveyors
+1 Herald of Serra
+1 Isolated Chapel
+1 Kabuto Moth
+1 Kami of Ancient Law
+1 Keening Apparition
+1 Keening Banshee
+1 Kitesail Scout
+1 Kor Skyfisher
+1 Lantern Kami
+1 Lightfoot Technique
+1 Lightning Blow
+1 Malach of the Dawn
+1 Mass Calcify
+1 Melesse Spirit
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Niblis of the Mist
+1 Niblis of the Urn
+1 Orzhov Basilica
+1 Orzhova, the Church of Deals
+18 Plains
+1 Pressure Point
+1 Pteron Ghost
+1 Radiant, Archangel
+1 Remove Enchantments
+1 Restless Fortress
+1 Restoration Angel
+1 Ritual of Steel
+1 Scoured Barrens
+1 Scrubland
+1 Searchlight Geist
+1 Serra Advocate
+1 Shepherd of the Lost
+1 Shinewend
+1 Skulking Ghost
+1 Soldier of the Grey Host
+1 Spire Mangler
+1 Starlit Angel
+1 Starlit Sanctum
+1 Sustainer of the Realm
+1 Suture Spirit
+7 Swamp
+1 Tainted Field
+1 Their Name Is Death
+1 Thraben Watcher
+1 Thunder Spirit
+1 Tormented Angel
+1 Unquestioned Authority
+1 Vault of the Archangel
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 Voiceless Spirit
+1 Wall of Resistance
+1 Will-o'-the-Wisp
 
 [commander]
-Emiel the Blessed
+Selenia, Dark Angel

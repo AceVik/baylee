@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UBR #20266097]
+1 Adventurers' Guildhouse
+1 Agonizing Syphon
+1 Airship Engine Room
+1 Ancient Runes
+1 Backfire
+1 Bhaal's Invoker
+1 Bloodrite Invoker
+1 Bulwark
+1 Burning Earth
+1 Cave of Temptation
+1 Cleansing Screech
+1 Coastal Peak
+1 Consuming Corruption
+1 Crackling Triton
+1 Curse Artifact
+1 Dark Nourishment
+1 Elder Spawn
+1 Environmental Sciences
+1 Eroded Canyon
+1 Essence Depleter
+1 Explosive Impact
+1 Falkenrath Exterminator
+1 Fanged Flames
+1 Festering Evil
+1 Fire Ambush
+1 Flame Rift
+1 Frostboil Snarl
+1 Guerrilla Tactics
+1 Honden of Infinite Rage
+1 Ill-Gotten Inheritance
+1 Izzet Boilerworks
+1 Last Kiss
+1 Locke Cole
+1 Lust for War
+1 Maestros Theater
+1 Mind Bomb
+1 Mind Whip
+1 Molten Vortex
+7 Mountain
+1 Nightscape Master
+1 Obliterating Bolt
+1 Parasitic Bond
+1 Power Surge
+1 Price of Progress
+1 Primordial Ooze
+1 Prismari Campus
+1 Profane Prayers
+1 Psychic Allergy
+1 Ragefire
+1 Reckless Assault
+1 Relic Bind
+1 Restless Spire
+1 Scorchmark
+1 Screeching Soulbreaker
+1 Sear
+1 Seismic Assault
+1 Sheoldred, the Apocalypse
+1 Silverbluff Bridge
+1 Spectacle Summit
+1 Specter of the Fens
+1 Stark Industries
+1 Strafe
+20 Swamp
+1 TCRI Building
+1 Tectonic Hazard
+1 Tor Wauki
+1 Tourach's Chant
+1 Turbulent Springs
+1 Underworld Dreams
+1 Valakut Invoker
+1 Void Helix
+1 Volatile Fjord
+1 Word of Blasting
+1 Zof Consumption
+
+[commander]
+Sol'kanar the Swamp King

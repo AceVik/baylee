@@ -1,70 +1,80 @@
 # baylee curated commander control seed=20261115
 # licence: AGPL-3.0-only
-[deck:commander control B #20261115]
-1 Ambition's Cost
-1 Atrocious Experiment
-1 Bastion of Remembrance
-1 Blightspeaker
-1 Blood Pact
-1 Bloodgift Demon
-1 Cabal Coffers
-1 Carnival of Souls
-1 Caustic Hound
-1 Certain Death
-1 Consuming Corruption
-1 Crushing Disappointment
-1 Dark Nourishment
-1 Death Watch
-1 Deathcurse Ogre
-1 Demon's Due
-1 Disentomb
-1 Essence Extraction
-1 Festering Evil
-1 Foul Imp
-1 Haunting Wind
-1 Hostile Hostel
-1 Infernal Contract
-1 Infernal Tribute
-1 Kalastria Healer
-1 Last Laugh
-1 Malakir Soothsayer
-1 Malevolent Awakening
-1 Mana Crypt
-1 Midnight Charm
-1 Misery Charm
-1 Moonglove Extractor
-1 Moriok Replica
-1 Mudflat Village
-1 Nether Void
-1 Novice Occultist
-1 Omen of the Dead
-1 Oppression
-1 Pestilence
-1 Phyrexian Arena
-1 Phyrexian Tower
-1 Pillar Tombs of Aku
-1 Polluted Bonds
-1 Return to Battle
-1 Sanguinary Priest
-1 Shattered Crypt
-1 Shizo, Death's Storehouse
-1 Sneering Shadewriter
-1 Soul Shred
-1 Sovereign's Bite
-36 Swamp
-1 Tendrils of Corruption
-1 Tithebearer Giant
-1 Tortured Existence
-1 Touch of Death
-1 Urborg
-1 Vampiric Feast
-1 Vault of Whispers
-1 Vermin Gorger
-1 Vicious Hunger
-1 Virtue of Persistence
-1 Warp Artifact
-1 Winter's Intervention
-1 Yawgmoth's Edict
+[deck:commander control RG #20261115]
+1 Akoum Boulderfoot
+1 Altac Bloodseeker
+1 Anarchist
+1 Ardent Elementalist
+1 Barrage of Expendables
+1 Bugenhagen, Wise Elder
+1 Burning-Tree Emissary
+1 Byway Courier
+1 Cartographer
+1 Confront the Unknown
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Dauntless Survivor
+1 Draconic Disciple
+1 Dragon Trainer
+1 Dragonmaster Outcast
+1 Elturgard Ranger
+1 Embraal Gear-Smasher
+1 Eternal Witness
+1 Fault Riders
+1 Fire Nation Archers
+1 Fire-Lit Thicket
+1 Firefist Adept
+11 Forest
+1 Ghirapur Gearcrafter
+1 Gladiolus Amicitia
+1 Goblin Trashmaster
+1 Goblin Warrens
+1 Jade Mage
+1 Jungle Patrol
+1 Kamahl, Pit Fighter
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Klingon Strike Force
+1 Legion Extruder
+1 Los Diablos Missile Base
+1 Magma Giant
+1 Magus of the Order
+1 Manic Vandal
+1 Mogg Hollows
+16 Mountain
+1 Murasa Pyromancer
+1 Omnath, Locus of Rage
+1 Orochi Hatchery
+1 Pia and Kiran Nalaar
+1 Pia, Determined Rebuilder
+1 Pinecrest Ridge
+1 Priest of Urabrask
+1 Rakka Mar
+1 Reckless Fireweaver
+1 Renowned Weaver
+1 Revive the Shire
+1 Ripchain Razorkin
+1 Ruric Thar, the Unbowed
+1 Sell-Sword Brute
+1 Shivan Oasis
+1 Skarrg, the Rage Pits
+1 Sparkmage Apprentice
+1 Spider-Man, Hometown Hero
+1 Stark Industries Executive
+1 Stingcaster Mage
+1 Stoic Builder
+1 Stomping Ground
+1 Sylvan Safekeeper
+1 Taiga
+1 Thornspire Verge
+1 Timber Gorge
+1 Timberline Ridge
+1 Training Compound
+1 Treetop Freedom Fighters
+1 Village Elder
+1 Vital Splicer
+1 Young Pyromancer
+1 Zhur-Taa Druid
 
 [commander]
-Kalakscion, Hunger Tyrant
+Stangg

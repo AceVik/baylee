@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUG #20266180]
+2 Ancient Spider
+1 Aysen Abbey
+2 Emerald Charm
+2 Endless One
+8 Forest
+2 Fyndhorn Brownie
+2 Gloomwidow
+2 Hitchclaw Recluse
+2 Isolate
+2 Kessig Recluse
+2 Mammoth Spider
+2 Petra Sphinx
+2 Pillarfield Ox
+6 Plains
+2 Rib Cage Spider
+2 Sacred Wolf
+3 Seaside Citadel
+2 Sporecap Spider
+1 Spreading Seas
+2 Swift Spinner
+2 Sylvan Scrying
+2 Thalakos Mistfolk
+1 Tranquil Landscape
+3 Treva's Ruins
+1 Urban Retreat
+2 Venomthrope

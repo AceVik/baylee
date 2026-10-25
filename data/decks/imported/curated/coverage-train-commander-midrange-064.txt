@@ -1,82 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUBRG #20266065]
-1 Aeronaut's Wings
-1 Agna Qel'a
-1 Archdemon of Paliano
-1 Argoth, Sanctum of Nature
+[deck:commander midrange WUBG #20266065]
+1 Agent of Horizons
+1 Ancient Spring
+1 Ankle Biter
+1 Arcane Sanctum
+1 Ashcoat Bear
 1 Assault Zeppelid
-1 Black Carriage
-1 Blazing Specter
-1 Bog Raiders
-1 Brokers Initiate
-1 Cabaretti Initiate
-1 Carnophage
-1 Castle Locthwain
-1 Crazed Skirge
-1 Cryptic Spires circles=WU
-1 Crystal Quarry
-1 Deathbringer Thoctar
-1 Defense Force Aggressor
-1 Deity of Scars
-1 Desert of the Mindful
-1 Drowned
-1 Eldrazi Devastator
-1 Expanded Anatomy
-11 Forest
+1 Balloon Peddler
+1 Bant Battlemage
+1 Bear Cub
+1 Beast Walkers
+1 Blossom Dryad
+1 Castle Vantress
+1 Clever Concealment
+1 Dauthi Horror
+1 Dawnstrider
+1 Death-Hood Cobra
+1 Deathcult Rogue
+1 Desert of the Glorified
+1 Disorient
+1 Dread Warlock
+1 Dutiful Thrull
+1 Eel-Hounds
+1 Faithful Watchdog
+8 Forest
 1 Forest Bear
-1 Foul Roads
-1 Foundry Screecher
-1 Frankenstein's Monster
-1 Geothermal Crevice
-1 Ghost Hounds
-1 Glimmering Angel
-1 Gloomhunter
-1 Grizzly Ghoul
-1 Iron-Shield Elf
-1 Jagwasp Swarm
-1 Kami of False Hope
-1 Kederekt Creeper
-1 Kelinore Bat
+1 Glissa's Courier
+1 Hag of Twisted Visions
+1 Haunter of Nightveil
+1 Hussar Patrol
+1 Hyalopterous Lemure
+1 Indatha Triome
+7 Island
+1 Jhessian Balmgiver
+1 Juxtapose
+1 Kolinahr Priest
+1 Lair of the Hydra
 1 Large Bear
-1 Leering Gargoyle
-1 Lightning Angel
-1 Lithatog
 1 Living Airship
-1 Magosi, the Waterveil
-1 Mortuary Mire
-1 Mossfire Egg
-1 Mtenda Lion
+1 Lynx
+1 Manor Gate
+1 Marsh Boa
+1 Master Healer
+1 Minister of Impediments
+1 Mire Boa
+1 Mnemonic Nexus
+1 Moss Viper
+1 Murmuring Bosk
+1 Nacatl Savage
 1 Nameless Race
-1 Nearby Planet
-1 Nightwing Shade
-1 Obscura Initiate
-1 Phantatog
-1 Plated Seastrider
-1 Relic Sloth
-1 Riveteers Initiate
-1 Roofstalker Wight
-1 Rotting Regisaur
+1 Nightveil Predator
+1 Pale Bears
+1 Piranha Marsh
+6 Plains
+1 Raffine's Tower
+1 Retrieval Agent
+1 Rhox War Monk
+1 Rime Dryad
 1 Rune-Cervin Rider
-1 Sand Silos
-1 Slavering Nulls
-1 Snarling Warg
+1 Rushwood Dryad
+1 Scalebane's Elite
+1 Sivitri, Dragon Master
+1 Spara's Headquarters
+1 Spectral Lynx
 1 Stoic Angel
-1 Sunstone
-14 Swamp
-1 Talisman of Creativity
-1 Talisman of Hierarchy
-1 Tattered Apparition
-1 Tattered Drake
-1 Thaumatog
-1 The Balrog of Moria
-1 The World Tree
-1 Tinder Farm
-1 Trenching Steed
-1 Venomthrope
-1 Volcano Imp
-1 Whipstitched Zombie
-1 Zanarkand, Ancient Metropolis
+1 Suppression Ray
+4 Swamp
+1 Taoist Hermit
+1 Teferi's Honor Guard
+1 Turntimber Grove
+1 Twilight Panther
+1 Unseen Walker
+1 Urban Retreat
+1 Willow Dryad
+1 Wily Bandar
+1 Windbrisk Heights
+1 Woodland Patrol
+1 Zagoth Triome
+1 Zebra Unicorn
 
 [commander]
-Kenrith, the Returned King
+Atraxa, Grand Unifier

@@ -2,69 +2,69 @@
 # licence: AGPL-3.0-only
 [deck:commander control B #20261067]
 1 Ancient Craving
+1 Atrocious Experiment
+1 Audacious Thief
 1 Bad Deal
 1 Bishop of the Bloodstained
-1 Bitterblossom
-1 Blighted Fen
-1 Cabal Pit
+1 Black Widow, Deadly Hunter
+1 Blightcaster
+1 Blood Pact
 1 Carnival of Souls
-1 Corrupted Roots
+1 Cast Away Doubt
+1 Certain Death
+1 Consuming Corruption
 1 Cruel Truths
 1 Crushing Disappointment
-1 Dakmor Ghoul
-1 Dark Prophecy
-1 Death Watch
+1 Damnable Pact
+1 Dark Nourishment
 1 Demon's Due
-1 Diresight
-1 Dogged Pursuit
-1 Fear of Lost Teeth
-1 Festering Evil
+1 Dread Reaper
+1 Dusk Legion Zealot
+1 Essence Extraction
+1 Forbidden Ritual
 1 Foul-Tongue Shriek
-1 Glidedive Duo
-1 Grim Guardian
-1 Hagra Diabolist
-1 Harrowing Journey
-1 Ifnir Deadlands
-1 Ill-Gotten Inheritance
-1 Infernal Contract
+1 Funeral Rites
+1 Grim Tutor
+1 Hostile Hostel
+1 Imperial Seal
 1 Infernal Idol
-1 Kalastria Healer
+1 Isolation Cell
 1 Last Caress
-1 Maggot Carrier
+1 Mai, Scornful Striker
+1 Malakir Soothsayer
 1 Mana Crypt
-1 Massacre Wurm
 1 Metalspinner's Puzzleknot
-1 Midnight Reaper
-1 Mudflat Village
+1 Midnight Charm
 1 Nether Void
-1 Northern Air Temple
-1 Painful Lesson
 1 Painful Quandary
+1 Painsmith
 1 Pharika's Cure
-1 Phyrexian Gargantua
-1 Phyrexian Rager
-1 Phyrexian Tower
-1 Pillar Tombs of Aku
-1 Polluted Bonds
-1 Rathi Fiend
+1 Profane Tutor
+1 Putrefaction
+1 Quill-Slinger Boggart
+1 Rabid Bloodsucker
 1 Reanimate
 1 Risky Shortcut
+1 Shauku, Endbringer
 1 Shizo, Death's Storehouse
 1 Shredder's Revenge
+1 Sign in Blood
+1 Sneering Shadewriter
+1 Sovereign's Bite
 1 Swallowing Plague
 36 Swamp
-1 The Meathook Massacre
+1 Takenuma, Abandoned Mire
+1 The Black Gate
 1 Tithebearer Giant
-1 Toxic Abomination
-1 Undead Augur
+1 Touch of Death
+1 Ulcerate
 1 Urborg
 1 Vampiric Feast
-1 Vampiric Rites
-1 Vicious Hunger
+1 Vampiric Tutor
+1 Vault of Whispers
+1 Volrath's Stronghold
 1 Winter's Intervention
-1 Wretched Anurid
 1 Yawgmoth's Edict
-1 Zuran Orb
 
 [commander]
-Ayara, First of Locthwain
+Irini Sengir

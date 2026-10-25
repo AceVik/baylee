@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WRG #20266069]
+2 Ambush
+2 Anaba Spirit Crafter
+2 Bag End Porter
+2 Cabaretti Initiate
+2 Cavern Crawler
+1 Colossapede
+2 Flesh Burrower
+3 Forest
+2 Grizzled Leotau
+2 Ironclaw Buzzardiers
+2 Ivy Dancer
+4 Jetmir's Garden
+4 Jungle Shrine
+2 Kraul Stinger
+10 Mountain
+2 Neverwinter Dryad
+1 Plains
+2 Raging Minotaur
+2 Rakeclaw Gargantuan
+2 Safehold Elite
+2 Starstorm
+1 Tinder Farm
+2 Twinscroll Shaman
+2 Vug Lizard
+2 Windseeker Centaur

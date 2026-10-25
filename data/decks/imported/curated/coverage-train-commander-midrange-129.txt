@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UB #20266130]
-1 Anti-Magic Aura
-1 Apathy
-1 Arcane Laboratory
-1 Aura Flux
-1 Aura of Dominion
-1 Brink of Madness
-1 Buoyancy
-1 Castaway's Despair
-1 Castle Vantress
-1 Chill
-1 Coma Veil
-1 Controlled Instincts
-1 Convincing Mirage
-1 Copy Artifact
-1 Copy Enchantment
-1 Coral Atoll
-1 Crux of Fate
-1 Damnation
-1 Deep Water
-1 Dreadship Reef
-1 Dream Tides
-1 Erosion
-1 Errant Minion
-1 Extinguish All Hope
-1 Flood
-1 Flooded Shoreline
-1 Forced March
-1 Frozen Aether
-1 Glyph of Doom
-1 Hall of Storm Giants
-1 Hidden Lair
-1 Ice Over
-13 Island
-1 Malfunction
-1 Mark of the Oni
-1 Memorial to Genius
-1 Merseine
-1 Mirrormade
-1 Mistrise Village
-1 Moonring Island
-1 Mystic Decree
-1 Noxious Field
-1 Paralyzing Grasp
-1 Pendrell Mists
-1 Persuasion
-1 Phantasmal Terrain
-1 Quagmire
-1 Ritual of Soot
-1 Rivendell
-1 River Delta
-1 River of Tears
-1 Rootwater Depths
-1 Runner's Bane
-1 Saprazzan Cove
-1 Sea's Claim
-1 Sinking Feeling
-1 Sleep Magic
-1 Soaring Seacliff
-1 Starlight Snare
-1 Stasis
-1 Steal Enchantment
-12 Swamp
-1 Tainted Isle
-1 Tangle Kelp
-1 Thassa's Ire
-1 The Fallen
-1 Threads of Disloyalty
-1 Tidal Flats
-1 Treachery
-1 Undertow
-1 Vanishing
-1 Venarian Gold
-1 Virtue's Ruin
-1 Web of Inertia
-1 Wrath of Marit Lage
-1 Zephyr Charge
+[deck:commander midrange WG #20266130]
+1 Abbey Griffin
+1 Altar's Light
+1 Angelic Edict
+1 Armored Griffin
+1 Aurora Griffin
+1 Berserk
+1 Blade Banish
+1 Blossoming Sands
+1 Bramblecrush
+1 Branchloft Pathway
+1 Brushland
+1 Celestial Purge
+1 Crazed Armodon
+1 Daraja Griffin
+1 Dawn Gryff
+1 Destroy Evil
+1 Ekundu Griffin
+1 Enforcer Griffin
+1 Excise
+11 Forest
+1 Garrison Griffin
+1 Gathering Place
+1 Gavony Township
+1 Grove of the Guardian
+1 Havenwood Wurm
+1 Honor-Worn Shaku
+1 Horizon Canopy
+1 Immolating Glare
+1 Isolate
+1 Jandor's Ring
+1 Lawbringer
+1 Lightbringer
+1 Makindi Aeronaut
+1 Makindi Griffin
+1 Marble Gargoyle
+1 Not on My Watch
+1 Oxidize
+1 Peregrine Griffin
+1 Phyrexian Lens
+14 Plains
+1 Powerstone Shard
+1 Prismatic Ending
+1 Prized Griffin
+1 Puncturing Light
+1 Radiant Grove
+1 Ranger's Guile
+1 Reclaiming Vines
+1 Riftstone Portal
+1 Rootbreaker Wurm
+1 Saltcrusted Steppe
+1 Sarkhan's Resolve
+1 Savannah
+1 Shoot Down
+1 Silverchase Fox
+1 Silverclaw Griffin
+1 Sledding Otter-Penguin
+1 Spare Supplies
+1 Spinning Wheel
+1 Spotted Griffin
+1 Steelbane Hydra
+1 Sudden Strike
+1 Sungrass Prairie
+1 Sunpetal Grove
+1 Sunspire Griffin
+1 Teremko Griffin
+1 Thicket Basilisk
+1 Urza's Blueprints
+1 Veldt
+1 Vengeance
+1 Vitu-Ghazi, the City-Tree
+1 Voracious Varmint
+1 Vulpine Goliath
+1 Wallop
+1 Wild Griffin
+1 Wing Snare
+1 Zuberi, Golden Feather
 
 [commander]
-Nebuchadnezzar
+Kei Takahashi

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266249]
+1 Adept Watershaper
+1 Aerial Modification
+1 Akroma's Devoted
+1 Always Watching
+1 Anthem of Champions
+1 Armor of Faith
+1 Auratog
+1 Black Scarab
+1 Branchloft Pathway
+1 Brown Ouphe
+1 Brushland
+1 Carapace
+1 Castle Raptors
+1 Cessation
+1 Collective Blessing
+1 Collector Ouphe
+1 Conclave Cavalier
+1 Conviction
+1 Devoted Hero
+1 Dwynen, Gilt-Leaf Daen
+1 Eladamri, Lord of Leaves
+1 Elvish Champion
+1 Elvish Hexhunter
+1 Elvish Lookout
+1 Fang of Shigeki
+8 Forest
+1 Gathering Place
+1 Gavony Township
+1 Goldmeadow Lookout
+1 Grove of the Guardian
+1 Hero's Resolve
+1 Holy Armor
+1 Honor of the Pure
+1 Horizon Canopy
+1 Hushwood Verge
+1 Indomitable Will
+1 Intangible Virtue
+1 Invasion of Belenon
+1 Jihad
+1 King of the Pride
+1 Kinsbaile Cavalier
+1 Knighthood
+1 Kor Scythemaster
+1 Lush Portico
+1 Mantle of Webs
+1 Nimbus Wings
+1 Nova Cleric
+1 Odric's Outrider
+1 Phantom General
+1 Pheres-Band Warchief
+16 Plains
+1 Privileged Position
+1 Regal Imperiosaur
+1 Rhox Pikemaster
+1 Savannah
+1 Scattershot Archer
+1 Serra's Blessing
+1 Sliversmith
+1 Soltari Lancer
+1 Spiritual Asylum
+1 Sporecrown Thallid
+1 Squirrel Sovereign
+1 Stonybrook Schoolmaster
+1 Sun Clasp
+1 Sungrass Prairie
+1 Tangle Asp
+1 Thaumatog
+1 Thicket Crasher
+1 Timber Protector
+1 Troubled Healer
+1 Vec Townships
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Warded Battlements
+1 Wild Nacatl
+1 Wizened Cenn
+1 Wooded Bastion
+
+[commander]
+Emmara, Soul of the Accord

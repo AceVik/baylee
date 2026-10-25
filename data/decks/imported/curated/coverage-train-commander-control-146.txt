@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266147]
+1 Aladdin's Lamp
+1 Angel's Tomb
+1 Avishkar Raceway
+1 Baton of Morale
+1 Bone Flute
+1 Bullwhip
+1 Candelabra of Tawnos
+1 Chariot of the Sun
+1 Citanul Flute
+1 Coastal Bulwark
+1 Consulate Skygate
+1 Crenellated Wall
+1 Crown of the Ages
+1 Davriel's Shadowfugue
+1 Didgeridoo
+1 Dunes of the Dead
+1 Floodwater Dam
+1 Fool's Tome
+1 Forethought Amulet
+1 Gargoyle Castle
+1 Glasses of Urza
+1 Goblin Boom Keg
+1 Goblin Lyre
+1 Gond Gate
+1 Hematite Talisman
+1 Ice Floe
+1 Jandor's Saddlebags
+1 Joven's Tools
+1 Juntu Stakes
+1 Kry Shield
+1 Lion Heart
+1 Manifold Key
+1 Meekstone
+1 Mental Agony
+1 Mirror Universe
+1 Misers' Cage
+1 Molten-Tail Masticore
+1 Mycosynth Lattice
+1 Necropolis
+1 Pyramids
+1 Razormane Masticore
+1 Reinforced Bulwark
+1 Rocket Launcher
+1 Runesword
+1 Sacred Armory
+1 School of the Unseen
+1 Sculpting Steel
+1 Sequestered Stash
+1 Shield of the Ages
+1 Shifting Wall
+1 Skyshaper
+1 Snow Fortress
+1 Squee's Toy
+1 Suspicious Bookcase
+36 Swamp
+1 Tower of Calamities
+1 Unerring Sling
+1 Urborg Stalker
+1 Vial of Poison
+1 Wall of Junk
+1 Wall of Shields
+1 Wall of Spears
+1 Wheel of Torture
+1 Zelyon Sword
+
+[commander]
+Yargle, Glutton of Urborg

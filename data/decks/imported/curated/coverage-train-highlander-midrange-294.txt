@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266295]
+1 Adult Gold Dragon
+1 An-Havva Township
+1 Battlefield Forge
+1 Benevolent Ancestor
+1 Blinking Spirit
+1 Bloodtallow Candle
+1 Braidwood Cup
+1 Branchloft Pathway
+1 Brawler's Plate
+1 Brazen Wolves
+1 Camel
+1 Charging War Boar
+1 Chariot of the Sun
+1 Chimeric Idol
+1 Cloak of the Bat
+1 Draconian Cylix
+1 Elixir of Vitality
+1 Ember-Eye Wolf
+1 Fire-Belly Changeling
+1 Fleetfoot Dancer
+1 Flinthoof Boar
+1 Galvanic Key
+1 Gangly Stompling
+1 Gathering Place
+1 Grove Rumbler
+1 Grove of the Burnwillows
+1 Hero's Heirloom
+1 Hobgoblin Dragoon
+1 Horizon Canopy
+1 Horn of Deafening
+1 Horrible Hordes
+1 Imi Statue
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Karplusan Forest
+1 Kyscu Drake
+1 Life Chisel
+1 Lithatog
+1 Mask of Avacyn
+14 Mountain
+1 Mycoid Shepherd
+1 Mystic Compass
+1 Nobilis of War
+1 Orchard Spirit
+11 Plains
+1 Power Armor
+1 Quaketusk Boar
+1 Radiant Essence
+1 Raging Poltergeist
+1 Relic Barrier
+1 Ring of Gix
+1 Riot Gear
+1 Rith's Grove
+1 Rootwater Alligator
+1 Runes of the Deus
+1 Sacred Armory
+1 Scourge of the Nobilis
+1 Sheltering Landscape
+1 Skullmead Cauldron
+1 Specter's Shroud
+1 Stone Spirit
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Tasseled Dromedary
+1 Tawnos's Wand
+1 Thornspire Verge
+1 Tinder Farm
+1 Tower of Eons
+1 True-Faith Censer
+1 Ulrich's Kindred
+1 Viashivan Dragon
+1 Vulshok Morningstar
+1 Wakandan Tusker
+1 War Chariot
+1 Yavimaya Barbarian
+1 Zebra Unicorn
+1 Zelyon Sword

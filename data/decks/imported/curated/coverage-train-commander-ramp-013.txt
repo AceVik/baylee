@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp UBG #20266014]
-1 Afiya Grove
-1 Agna Qel'a
-1 Aku Djinn
-1 Arbor Armament
-1 Ba Sing Se
-1 Big Bertha
-1 Black Dragon Gate
-1 Blizzard
+1 Ant-Man, Reformed Rogue
+1 Archway of Innovation
+1 Barkhide Mauler
+1 Bone to Ash
+1 Boon of the Wish-Giver
+1 Borne Upon a Wind
 1 Bottomless Vault
-1 Bounty Hunter
-1 Castle Garenbrig
-1 Chocobo Camp
-1 Crypt Cobra
+1 Call to Heel
 1 Crypt of Agadeem
-1 Dakmor Salvage
-1 Delighted Halfling
-1 Dread Wight
-1 Drop of Honey
-1 Druid Class
-1 Ephemeron
-20 Forest
+1 Curse Artifact
+1 Dire Undercurrents
+1 Enter the Enigma
+1 Failed Inspection
+8 Forest
+1 Forget
+1 Frog Butler
 1 Fungal Shambler
-1 Fungus Elemental
-1 Fyndhorn Pollen
-1 Gaea's Gift
-1 Glyph of Delusion
-1 Guardian of the Halls
-1 Guild Thief
+1 Fyndhorn Elder
+1 Gitaxian Probe
+1 Goobbue Gardener
+1 Gravelgill Duo
+1 Gyre Engineer
+1 Halcyon Glaze
+1 Halimar Depths
 1 Hermitic Herbalist
-1 Hidden Path
-1 Hungry Megasloth
-1 Illusionary Forces
-1 Illusionary Wall
-1 Innkeeper's Talent
-3 Island
-1 Khabál Ghoul
-1 Lay Claim
-1 Lotleth Troll
-1 Mindbender Spores
-1 Mortal Wound
-1 Nasty Little Rabbit
-1 Oath of the Ancient Wood
-1 Power Artifact
-1 Prowler, Misguided Mentor
+1 Hidden Necropolis
+1 Hollow Trees
+13 Island
+1 Jidoor, Aristocratic Capital
+1 Jinx
+1 Keeper of Tresserhorn
+1 Learn from the Past
+1 Mage's Guile
+1 Mana Breach
+1 Mindculling
+1 Mistral Singer
+1 Mistrise Village
+1 Moment of Defiance
+1 Mystic Sanctuary
+1 Mystic Snake
+1 Open Communications
+1 Piranha Marsh
+1 Plated Crusher
+1 Poison Dart Frog
+1 Prosperity
+1 Prying Eyes
 1 Psychic Frog
-1 Reef Roads
-1 Relic Bind
-1 Rushwood Elemental
-1 Rustvine Cultivator
-1 Sab-Sunen, Luxa Embodied
-1 Scavenger Drake
-1 Scavenging Ghoul
-1 Shelldock Isle
-1 Skeleton Ship
-1 Slith Predator
+1 Pym Particles
+1 Reach Through Mists
+1 Reality Anchor
+1 Rivendell
+1 Scatter Arc
+1 Sea Gate
+1 Sea Gate Restoration
+1 Serpent Assassin
+1 Shadow Rift
+1 Shimmerscale Drake
+1 Silhana Starfletcher
+1 Skittering Monstrosity
+1 Slip Through Space
 1 Snapping Voidcraw
-1 Spawning Grounds
-1 Spike Hatcher
+1 Startling Development
 1 Sultai Devotee
+1 Sunken Palace
 1 Super Intelligence
-1 Suq'Ata Assassin
 1 Susur Secundi, Void Altar
-3 Swamp
-1 Tainted Well
-1 Thanos, Death's Consort
+5 Swamp
 1 The Dross Pits
-1 The Shire
-1 The Surgical Bay
-1 Thriving Isle
-1 Titania's Boon
-1 Tomb Fortress
-1 Tribute to the World Tree
+1 Three Tree Rootweaver
+1 Thriving Moor
+1 Transdimensional Bovine
+1 Updraft
 1 Urborg Elf
-1 Voodoo Doll
-1 War Dance
-1 Worms of the Earth
+1 Vampiric Spirit
+1 Watcher in the Mist
+1 Without Weakness
 
 [commander]
 Vorosh, the Hunter

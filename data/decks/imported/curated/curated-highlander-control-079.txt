@@ -1,78 +1,78 @@
 # baylee curated highlander control seed=20261102
 # licence: AGPL-3.0-only
 [deck:highlander control RG #20261102]
+1 Airship Crash
+1 Akki Rockspeaker
 1 Akoum Boulderfoot
-1 Astral Cornucopia
+1 Barrage Ogre
+1 Battlewand Oak
+1 Beneath the Sands
 1 Bleeding Woods
-1 Bond Beetle
-1 Brass's Tunnel-Grinder
-1 Bugenhagen, Wise Elder
-1 Burning-Tree Emissary
-1 Burning-Yard Trainer
-1 Centaur Nurturer
+1 Blisterstick Shaman
+1 Blockbuster
+1 Blood Rites
+1 Bridgeworks Battle
+1 Bulwark
+1 Claws of Wirewood
 1 Cragcrown Pathway
-1 Dagger Caster
-1 Dauntless Survivor
-1 Dawnhart Rejuvenator
-1 Daybreak Combatants
+1 Cyclone
 1 Deadshot Minotaur
-1 Dismissive Pyromancer
-1 Drumhunter
+1 Enchantress's Presence
 1 Eumidian Terrabotanist
 1 Fire-Lit Thicket
-1 Firefist Adept
-1 Flare
-12 Forest
-1 Forge Devil
+1 Flame Javelin
+6 Forest
 1 Fungal Reaches
-1 Fury
-1 Ghirapur Gearcrafter
-1 Ghitu Slinger
-1 Gladiolus Amicitia
+1 Galvanic Arc
 1 Gnottvold Slumbermound
-1 Golden Egg
-1 Graypelt Hunter
+1 Goblin Chainwhirler
+1 Goblin Commando
+1 Goblin Recruiter
 1 Grove of the Burnwillows
-1 Gruul Cluestone
-1 Gruul Locket
-1 HYDRA Assault Robot
-1 Imperial Recruiter
-1 Intrepid Provisioner
+1 Guttersnipe
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Spider
+1 Improvised Weaponry
+1 Ishi-Ishi, Akki Crackshot
 1 Karplusan Forest
 1 Kessig Wolf Run
-1 Llanowar Visionary
+1 Lightning Diadem
+1 Lys Alana Huntmaster
 1 Mana Crypt
-1 Maul Splicer
+1 Manamorphose
 1 Mawloc
+1 Mogg Bombers
 1 Mogg Hollows
+1 Molten Vortex
+1 Monsoon
 1 Mossfire Egg
-15 Mountain
-1 Murasa Ranger
-1 Orcish Cannonade
-1 Pia and Kiran Nalaar
+21 Mountain
+1 Nimble-Blade Khenra
+1 Omnath, Locus of Rage
 1 Pinecrest Ridge
-1 Priest of Urabrask
-1 Pyrite Spellbomb
+1 Provoke
+1 Pyrogoyf
 1 Raphael, Tough Turtle
-1 Reckless Fireweaver
-1 Setessan Champion
-1 Shocking Sharpshooter
+1 Reach for the Sky
+1 Ruric Thar, the Unbowed
+1 Sarkhan's Unsealing
+1 Seismic Strike
 1 Skarrg, the Rage Pits
+1 Skycrash
 1 Slagwoods Bridge
 1 Slash, Reptile Rampager
-1 Soul of the Harvest
-1 Spider-Man, Hometown Hero
-1 Spitfire Lagac
-1 Stangg
+1 Spark Spray
+1 Spawning Breath
+1 Spellshock
+1 Starstorm
 1 Stomping Ground
-1 Sunshower Druid
+1 Stun
 1 Taiga
-1 Talisman of Impulse
 1 Thornspire Verge
 1 Training Compound
-1 Tuktuk Grunts
-1 Valley Mightcaller
-1 Vulshok Heartstoker
-1 Wall of Blossoms
-1 Wartime Protestors
-1 Zhur-Taa Druid
+1 Tuktuk Scrapper
+1 Voldaren Epicure
+1 Volley Veteran
+1 Walking Ballista
+1 Zo-Zu the Punisher

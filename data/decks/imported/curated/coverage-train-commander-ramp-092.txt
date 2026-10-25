@@ -1,82 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266093]
-1 Abstergo Entertainment
-1 Aquatic Incursion
-1 Barkhide Mauler
-1 Basal Sliver
-1 Blood Pet
-1 Briar Shield
-1 Cartouche of Knowledge
-1 Castle Doom
-1 Cloak of Invisibility
-1 Coerced to Kill
-1 Confirm Suspicions
-1 Cryptic Command
-1 Delighted Halfling
-1 Earthshaking Si
-1 Failed Inspection
-1 Fangren Marauder
-6 Forest
-1 Forge of Heroes
-1 Gemhide Sliver
-1 Ghost Quarter
-1 Golden Hind
-1 Golgari Keyrune
-1 Goobbue Gardener
+[deck:commander ramp WRG #20266093]
+1 Alpine Meadow
+1 Angelic Gift
+1 Beastcaller Savant
+1 Beetleback Chief
+1 Bloom Tender
+1 Boros Garrison
+1 Botanical Plaza
+1 Brightstone Ritual
+1 Canopy Tactician
+1 Centaur Glade
+1 Circle of Dreams Druid
+1 Command the Storm
+1 Conservatory
+1 Deathbloom Gardener
+1 Devoted Druid
+1 Dimension X
+1 Dragon Roost
+1 Druid of the Anima
+1 Dundoolin Weaver
+1 Elesh Norn, Grand Cenobite
+1 Elesh Norn, Mother of Machines
+1 Elvish Spirit Guide
+1 Emmara, Soul of the Accord
+1 Etched Cornfield
+1 Faeburrow Elder
+1 Fastbond
+1 Feather of Flight
+11 Forest
+1 Furycalm Snarl
+1 Fyndhorn Elder
+1 Gaea's Touch
+1 Geosurge
+1 Gift of Granite
+1 Gimli, Counter of Kills
+1 Glittering Massif
+1 Gnathosaur
+1 Goblin Gang Leader
 1 Great Forest Druid
-1 Grim Bounty
-1 Groundshaker Sliver
-1 Gumato
-1 Gyre Engineer
-1 Halls of Mist
-1 Hatching Plans
-1 Hidden Grotto
-1 Holdout Settlement
-1 Horn of Ramos
-1 Illness in the Ranks
-1 Illuminated Wings
-15 Island
-1 Kalonian Behemoth
-1 Krovikan Fetish
-1 Launch
-1 Leyline Prowler
-1 Mana Confluence
-1 Manaweft Sliver
-1 Mech Hangar
-1 Muraganda Raceway
+1 Groundskeeper
+1 Imposing Vantasaur
+1 Iron Hills
+1 Jungle Weaver
+1 Knotvine Mystic
+1 Lance
+1 Lifespring Druid
+1 Loamdragger Giant
+1 Marhault Elsdragon
+1 Metamorphosis
+15 Mountain
 1 Mythic Proportions
-1 Petrified Field
-1 Pirate's Prize
-1 Portcullis Vine
 1 Primal Frenzy
-1 Rise of Eagles
-1 Riveteers Overlook
-1 Rousing Read
-1 Sachi, Daughter of Seshiro
-1 Scatter Arc
-1 Scavenged Weaponry
-1 Scourgemark
-1 Sea Legs
-1 Shire Terrace
-1 Soul Read
-1 Spearbreaker Behemoth
-1 Sultai Devotee
-5 Swamp
-1 Tangled Florahedron
-1 Tendo Ice Bridge
-1 Tusked Colossodon
-1 Tyrranax
-1 Urborg Elf
-1 Urza's Cave
-1 Utopia Tree
-1 Vesper Ghoul
-1 Vesuva
-1 Violet Pall
-1 Vizzerdrix
-1 Weakness
-1 Weaver of Currents
-1 Yavimaya's Embrace
+1 Pyretic Ritual
+1 Radha, Heir to Keld
+1 Restless Prairie
+1 Restless Ridgeline
+1 Ripchain Razorkin
+1 Rofellos, Llanowar Emissary
+1 Rustvale Bridge
+1 Security Detail
+1 Sheltering Boughs
+1 Sidequest: Catch a Fish
+1 Silhana Starfletcher
+1 Skyway Sniper
+1 Slice in Twain
+1 Spirit Mirror
+1 Suburban Sanctuary
+1 Sunastian Falconer
+1 Sunpetal Grove
+1 Sunrise Sovereign
+1 Survey the Wreckage
+1 Temple of Triumph
+1 Three Tree Rootweaver
+1 Tireless Provisioner
+1 Windurst, Federation Center
+1 Wirewood Elf
 
 [commander]
-Muldrotha, the Gravetide
+Johan

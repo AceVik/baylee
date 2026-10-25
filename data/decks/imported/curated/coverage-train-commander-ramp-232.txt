@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266233]
+1 Akoum Refuge
+1 Badlands
+1 Banshee
+1 Bladebrand
+1 Blazemire Verge
+1 Blazing Hellhound
+1 Blessing of Leeches
+1 Blightstep Pathway
+1 Burning Palm Efreet
+1 Cinder Marsh
+1 Coat with Venom
+1 Concentrated Fire
+1 Cunning Sparkmage
+1 Dakmor Plague
+1 Dark Fortress
+1 Davriel's Shadowfugue
+1 Defile
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Eyes of the Beholder
+1 Feed the Flames
+1 Fervent Strike
+1 Festival Crasher
+1 Fiery Intervention
+1 Flame Elemental
+1 Flowstone Salamander
+1 Footlight Fiend
+1 Gangrenous Zombies
+1 Glyph of Destruction
+1 Golem's Heart
+1 Graven Cairns
+1 Infernal Grasp
+1 Karplusan Yeti
+1 Kookus
+1 Kozilek's Sentinel
+1 Lantern-Lit Graveyard
+1 Lapis Lazuli Talisman
+1 Lava Hounds
+1 Lava Tubes
+1 Leering Emblem
+1 Lightning Visionary
+1 Moment of Defiance
+1 Mount Doom
+14 Mountain
+1 Nacre Talisman
+1 Nim Abomination
+1 Onyx Talisman
+1 Opportunist
+1 Parasitic Bond
+1 Perils of the Past
+1 Pitchburn Devils
+1 Pyroblast
+1 Rakdos Ickspitter
+1 Ravenous Giant
+1 Raze the Effigy
+1 Reckless Embermage
+1 Red Elemental Blast
+1 Reign of Terror
+1 Rix Maadi, Dungeon Palace
+1 Runebound Wolf
+1 Scare Tactics
+1 Shadowblood Ridge
+1 Skull Rend
+1 Soulshriek
+1 Spireside Infiltrator
+1 Spitting Hydra
+1 Stab Wound
+1 Stensia Bloodhall
+1 Sulfurous Springs
+12 Swamp
+1 Tainted Peak
+1 Tibalt's Rager
+1 Tresserhorn Sinks
+1 Vigilante Justice
+1 Without Weakness
+
+[commander]
+Pavel Maliki

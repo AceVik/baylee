@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WRG #20266181]
+1 Alpha Kavu
+1 An-Havva Township
+1 Angelic Renewal
+1 Apes of Rath
+1 Bequeathal
+1 Blossom Dryad
+1 Brazen Scourge
+1 Broodhunter Wurm
+1 Cavern Crawler
+1 Daggerback Basilisk
+1 Daredevil's Billy Club
+1 Decomposition
+1 Ferocious Zheng
+1 Flamewright
+10 Forest
+1 Gibbering Hyenas
+1 Glissa's Courier
+1 Gnottvold Recluse
+1 Goblin Artisans
+1 Goblin Bombardment
+1 Goblin Smuggler
+1 Gore Swine
+1 Gorilla Chieftain
+1 Gorilla Pack
+1 Grove of the Guardian
+1 Haunted Library
+1 Helpful Hunter
+1 Hollowhead Sliver
+1 Hollowhenge Beast
+1 Implement of Improvement
+1 Ivy Dancer
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Jungle Troll
+1 King Cheetah
+1 Land Leeches
+1 Legion's Landing
+1 Leonin Squire
+1 Lifespark Spellbomb
+1 Mijae Djinn
+1 Mist Leopard
+1 Mossfire Valley
+13 Mountain
+1 Mungha Wurm
+1 Needleverge Pathway
+1 Nettle Swine
+1 Norn's Wellspring
+1 Omen of the Forge
+1 Outland Boar
+1 Paleoloth
+1 Pearled Unicorn
+1 Piggy Bank
+1 Pinecrest Ridge
+1 Plains
+1 Plated Wurm
+1 Raging Kavu
+1 Regal Unicorn
+1 Ridgetop Raptor
+1 Rith's Grove
+1 Rusted Slasher
+1 Scoria Wurm
+1 Sheltering Landscape
+1 Silverback Ape
+1 Skyshroud Troll
+1 Slash of Talons
+1 Stomping Ground
+1 Streetbreaker Wurm
+1 Talisman of Conviction
+1 Tinder Farm
+1 Tinder Wall
+1 Towering Indrik
+1 Training Compound
+1 Tranquil Garden
+1 Vitu-Ghazi, the City-Tree
+1 Wary Okapi
+1 Wild Leotau
+1 Winding Wurm
+1 Windseeker Centaur
+1 Zodiac Tiger

@@ -1,27 +1,30 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
 [deck:constructed midrange BRG #20266306]
-2 Bog Tatters
-2 Bonebreaker Giant
-2 Catacomb Slug
-1 Darigaaz's Caldera
-2 Douser of Lights
-2 Flowstone Giant
-5 Forest
-3 Geothermal Crevice
-2 Highland Giant
-3 Koskun Keep
-2 Lowland Giant
-2 Maw of Kozilek
-2 Moor Fiend
-10 Mountain
-2 Mountain Titan
-2 Nether Horror
-2 Obsidian Giant
-2 Odylic Wraith
-2 Rampart Smasher
-2 Scoria Wurm
-2 Skyraker Giant
-2 Streetbreaker Wurm
-2 Tor Giant
-2 Twisted Landscape
+2 Blistering Dieflyn
+2 Colossapede
+2 Daggerback Basilisk
+3 Darigaaz's Caldera
+2 Deadly Insect
+2 Dwarven Nomad
+2 Fledgling Imp
+6 Forest
+1 Geothermal Crevice
+2 Giant Cockroach
+2 Giant Scorpion
+2 Golgari Longlegs
+2 Gore Swine
+2 Greater Basilisk
+1 Koskun Keep
+2 Mountain
+2 Nettle Swine
+2 Perilous Shadow
+2 Raging Bull
+2 Riot Devils
+2 Savage Lands
+2 Stonefare Crocodile
+7 Swamp
+1 Twisted Landscape
+2 Volcano Imp
+2 Wild Ox
+1 Ziatora's Proving Ground

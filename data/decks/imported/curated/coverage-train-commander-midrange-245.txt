@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WU #20266246]
-1 Abzan Runemark
-1 Air Bladder
-1 Altar's Light
-1 Barrin, Master Wizard
-1 Calciform Pools
-1 Candlelight Vigil
-1 Captain's Call
-1 Castle Raptors
-1 Celestial Purge
-1 Cloak of Mists
-1 Cloudcrest Lake
-1 Coastal Hornclaw
-1 Companion of the Trials
-1 Deepchannel Duelist
-1 Divine Verdict
-1 Drogskol Captain
-1 Eagle of the Great Shelf
-1 Elite Arrester
-1 Envoy of Okinec Ahau
-1 Excoriate
-1 Exorcise
-1 Fae Flight
-1 Fanatical Devotion
-1 Fledgling Osprey
-1 Glare of Heresy
-1 Gleaming Bastion
-1 Glorious Anthem
-1 Hallowed Fountain
-1 Hengegate Pathway
-1 Honor Guard
-1 Hullbreacher
-14 Island
-1 King of the Pride
-1 Kinsbaile Balloonist
-1 Kjeldoran Pride
-1 Knighthood
-1 Land Cap
-1 Law-Rune Enforcer
-1 Lord of Atlantis
-1 Master of the Pearl Trident
-1 Merfolk Coralsmith
-1 Merfolk Mesmerist
-1 Merfolk Sovereign
-1 Mists of Littjara
-1 Moat
-1 Moorland Haunt
-1 Mystic Gate
-1 Nimbus Maze
-1 Not on My Watch
-1 Pestered Wellguard
-1 Pillar of Light
-11 Plains
-1 Prahv, Spires of Order
-1 Rotcrown Ghoul
-1 Sea of Clouds
-1 Sentinel of the Eternal Watch
-1 Shimmer
-1 Short Circuit
-1 Skycloud Expanse
-1 Slow Motion
-1 Snow Devil
-1 Spectral Cloak
-1 Spectral Shield
-1 Spirit of the Spires
-1 Starlit Mantle
-1 Storm of Saruman
-1 Study
-1 Sunken City
-1 Thalakos Lowlands
-1 Treetop Sentinel
-1 Troubled Healer
-1 Tundra
-1 Venerable Lammasu
-1 Viscerid Armor
-1 Zeriam, Golden Wind
-1 Zuberi, Golden Feather
+[deck:commander midrange WR #20266246]
+1 Abbey Matron
+1 Aerathi Berserker
+1 Akroan Hoplite
+1 Auriok Bladewarden
+1 Balduvian War-Makers
+1 Battlefield Forge
+1 Belligerent Whiptail
+1 Benalish Veteran
+1 Borderland Marauder
+1 Capashen Knight
+1 Charging Paladin
+1 Cloudreach Cavalry
+1 Devout Witness
+1 Dogged Hunter
+1 Duergar Hedge-Mage
+1 Dwarven Miner
+1 Exorcist
+1 Fallaji Vanguard
+1 Fathom Fleet Firebrand
+1 Femeref Knight
+1 Fireborn Knight
+1 Firehoof Cavalry
+1 Fissure
+1 Goblin Legionnaire
+1 Hall
+1 Haradrim Spearmaster
+1 Hardened Escort
+1 Icatian Lieutenant
+1 Icatian Priest
+1 Imperial Lancer
+1 Intrepid Hero
+1 Inventor's Apprentice
+1 Iron Hills
+1 Kargan Dragonrider
+1 Keldon Warlord
+1 Kjeldoran Elite Guard
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Lionheart Maverick
+11 Mountain
+1 Márton Stromgald
+1 Needle Spires
+1 Needleverge Pathway
+1 Oathsworn Giant
+14 Plains
+1 Plateau
+1 Quiet Purity
+1 Rashka the Slayer
+1 Ronom Unicorn
+1 Rowan's Battleguard
+1 Rubblebelt Boar
+1 Rugged Prairie
+1 Ruinous Gremlin
+1 Sacred Foundry
+1 Salivating Gremlins
+1 Sandstone Warrior
+1 Serra Inquisitors
+1 Shield Mate
+1 Slayers' Stronghold
+1 Songstitcher
+1 Southern Paladin
+1 Spectator Seating
+1 Steadfast Cathar
+1 Stone Quarry
+1 Storm Shaman
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Sunscorched Divide
+1 Telim'Tor
+1 Tilonalli's Knight
+1 Undead Slayer
+1 Varchild's Crusader
+1 Viashino Bladescout
+1 Viashino Firstblade
+1 White Shield Crusader
 
 [commander]
-Tobias Andrion
+Théoden, King of Rohan

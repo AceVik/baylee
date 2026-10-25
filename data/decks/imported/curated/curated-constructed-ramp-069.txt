@@ -1,22 +1,22 @@
 # baylee curated constructed ramp seed=20261092
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261092]
-2 Dogged Pursuit
+4 Ayara, First of Locthwain
+3 Carnival of Souls
+4 Dogged Pursuit
+2 Elas il-Kor, Sadistic Pilgrim
+4 Fear of Lost Teeth
 1 Fetid Heath
 3 Gerrard's Battle Cry
-4 Golden-Tail Disciple
-4 Highway Robber
-4 Last Caress
-4 Mana Crypt
-4 Northern Air Temple
-6 Plains
+2 Ill-Gotten Inheritance
+1 Personal Incarnation
+4 Phyrexian Arena
+3 Plains
 2 Scrubland
 3 Silent Clearing
-3 Spirited Companion
+2 Sneering Shadewriter
 3 Starlit Sanctum
-9 Swamp
+12 Swamp
 1 Tainted Field
-2 Tireless Missionaries
-1 Tithebearer Giant
 2 Underworld Coinsmith
-2 Yawgmoth's Edict
+4 Walking Ballista

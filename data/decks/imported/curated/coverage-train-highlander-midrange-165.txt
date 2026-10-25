@@ -1,81 +1,81 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange BRG #20266166]
-1 Badlands
-1 Bog Elemental
-1 Bog Raiders
-1 Cadaverous Knight
-1 Canal Monitor
-1 Cavern Thoctar
-1 Chaos Terminator Lord
-1 Cinderhaze Wretch
-1 Creeping Trailblazer
-1 Crimson Muckwader
-1 Crooked Custodian
-1 Crowd of Cinders
-1 Darigaaz's Caldera
-1 Defense Force Aggressor
-1 Erstwhile Trooper
-8 Forest
-1 Frankenstein's Monster
-1 Furnace Brood
-1 Geothermal Crevice
-1 Ghazbán Ogre
-1 Gilacorn
-1 Goblin Outlander
-1 Gravel-Hide Goblin
-1 Gray Ogre
-1 Hag of Twisted Visions
-1 Iron-Shield Elf
-1 Ivy Elemental
-1 Koskun Keep
-1 Lantern-Lit Graveyard
-1 Lava Zombie
-1 Lavakin Brawler
-1 Leaping Lizard
-1 Legions of Lim-Dûl
-1 Lim-Dûl's Cohort
-1 Madrush Cyclops
-1 Marsh Goblins
-1 Mass of Ghouls
-1 Molten Slagheap
-1 Moss Monster
-5 Mountain
-1 Mudbrawler Raiders
-1 Nath's Buffoon
-1 Nema Siltlurker
-1 Ogre Warrior
-1 Pinecrest Ridge
-1 Prakhata Club Security
-1 Prickly Boggart
-1 Putrid Leech
-1 Rakdos Ragemutt
-1 Rathi Assassin
-1 Reckless Brute
-1 Reckless Ogre
-1 Rhox Brute
-1 Riveteers Initiate
-1 Rubblebelt Runner
-1 Ruination Wurm
-1 Savage Lands
-1 Scarwood Goblins
-1 Shadowblood Ridge
-1 Shatterskull Giant
-1 Shivan Zombie
-1 Skull Collector
-1 Sootstoke Kindler
-1 Spike Jester
-1 Stensia Bloodhall
-1 Stromkirk Captain
-12 Swamp
-1 Tar Pit Warrior
-1 Tattermunge Maniac
-1 Timberline Ridge
-1 Training Compound
-1 Twilight Mire
-1 Twisted Landscape
-1 Viashino Grappler
-1 Viashino Skeleton
-1 Viashino Slaughtermaster
-1 Whipstitched Zombie
-1 Ziatora's Proving Ground
+[deck:highlander midrange WUB #20266166]
+1 Adarkar Sentinel
+1 Adarkar Wastes
+1 Alpha Myr
+1 Amulet of Kroog
+1 Ancestral Statue
+1 Ancient Spring
+1 Arcane Sanctum
+1 Arena of the Ancients
+1 Ashnod's Battle Gear
+1 Basilisk Collar
+1 Bladed Bracers
+1 Bronze Sable
+1 Bubble Matrix
+1 Calciform Pools
+1 Chimeric Idol
+1 Chimeric Sphere
+1 Clay Statue
+1 Clockwork Gnomes
+1 Coiled Tinviper
+1 Colossus Hammer
+1 Contaminated Landscape
+1 Copper Gnomes
+1 Crystal Golem
+1 Custodian of the Trove
+1 Darksteel Myr
+1 Darkwater Catacombs
+1 Draconian Cylix
+1 Dreadship Reef
+1 Dromar's Cavern
+1 Echo Circlet
+1 Endoskeleton
+1 Ersatz Gnomes
+1 Forgotten Sentinel
+1 Fyndhorn Bow
+1 Gleaming Bastion
+1 Guardians of Meletis
+1 Hallowed Fountain
+1 Hidden Lair
+1 Hivestone
+1 Hoof Skulkin
+17 Island
+1 Jabari's Banner
+1 Karn, Silver Golem
+1 Lead Golem
+1 Liquimetal Coating
+1 Myr Landshaper
+1 Needlebug
+1 Nemesis Mask
+1 Nephalia Drownyard
+1 Omega Myr
+1 One-Eyed Scarecrow
+1 Patagia Golem
+5 Plains
+1 Prahv, Spires of Order
+1 Prowler's Helm
+1 Raffine's Tower
+1 Relic Barrier
+1 Ring of Gix
+1 Ring of Ma'rûf
+1 Runed Arch
+1 Rusted Sentinel
+1 Scarecrow
+1 Scornful Aether-Lich
+1 Shell Skulkin
+1 Short Sword
+1 Shuko
+1 Soldevi Golem
+3 Swamp
+1 Tawnos's Weaponry
+1 Tezzeret's Strider
+1 Touchstone
+1 Tower of Coireall
+1 Tumble Magnet
+1 Venser's Sliver
+1 War Chariot
+1 Watchwing Scarecrow
+1 Wicker Witch
+1 Wizards' School

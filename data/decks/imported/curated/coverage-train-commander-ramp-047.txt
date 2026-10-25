@@ -1,71 +1,71 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp U #20266048]
-1 Aboshan, Cephalid Emperor
-1 Acid Rain
-1 Ambassador Laquatus
-1 Arcum's Sleigh
+[deck:commander ramp B #20266048]
+1 Akroma's Memorial
+1 Aladdin's Lamp
+1 Altar of the Brood
+1 Archway Commons
+1 Automatic Librarian
 1 Bad River
-1 Balduvian Conjurer
-1 Benthic Giant
-1 Big Apple, 3 a.m.
-1 Chariot of the Sun
-1 Cold-Water Snapper
-1 Cumber Stone
-1 Cursed Totem
-1 Dark Sphere
-1 Darksteel Relic
-1 Deep-Sea Serpent
-1 Defense Grid
-1 Delif's Cube
-1 Despotic Scepter
-1 Drifter il-Dal
-1 Drowner of Secrets
-1 Filigree Sages
-1 Fool's Tome
-1 Forethought Amulet
-1 Fyndhorn Bow
-1 Giant Shark
-1 Goblin Firebomb
-1 Grand Coliseum
-1 Guildless Commons
-1 Gust-Skimmer
-1 Hematite Talisman
-1 Hermitic Nautilus
-1 Introduction to Prophecy
-35 Island
-1 Joven's Tools
-1 Library of Leng
-1 Lumengrid Warden
-1 Manifold Key
-1 Meteor Sword
-1 Neurok Replica
-1 Pit of Offerings
-1 Pithing Needle
-1 Power Matrix
-1 Pyramids
-1 Reef Pirates
+1 Blister Beetle
+1 Bog Smugglers
+1 Bronze Horse
+1 Brutal Nightstalker
+1 Burglar Rat
+1 Cabal Evangel
+1 Cabal Trainee
+1 Cackling Fiend
+1 Carnophage
+1 Catacomb Dragon
+1 Cathedral of War
+1 Chardalyn Dragon
+1 Death Wind
+1 Duskmantle Operative
+1 Earsplitting Rats
+1 Elephant-Rat
+1 Eyes of the Beholder
+1 Fire Nation Ambushers
+1 Flowstone Thopter
+1 Greel's Caress
+1 Grinding Station
+1 Kite Shield
+1 Krovikan Scoundrel
+1 Lazotep Behemoth
+1 Leonin Bladetrap
+1 Liliana's Specter
+1 Mass of Ghouls
+1 Melancholy
+1 Mirrorpool
+1 Mycosynth Lattice
+1 Nimble Pilferer
+1 One with Nothing
+1 Opposition Agent
+1 Orc Sureshot
+1 Pardic Wanderer
+1 Pilgrim of the Fires
+1 Plasmancer
+1 Predator, Flagship
+1 Prophet of the Peak
+1 Public Thoroughfare
+1 Rain of Filth
+1 Rank and File
+1 Rathi Trapper
 1 Ring of Immortals
-1 Ring of Ma'rûf
-1 Ring of Three Wishes
-1 Scarab of the Unseen
-1 Seer of the Last Tomorrow
-1 Silvergill Douser
-1 Sky Weaver
-1 Smuggler's Copter
-1 Soliton
-1 Stonybrook Angler
-1 Surgical Metamorph
-1 Taniwha
-1 Temple Bell
-1 Temple of the Dragon Queen
-1 Temporal Adept
-1 Thing from the Deep
-1 Trickster Mage
-1 Untaidake, the Cloud Keeper
-1 Vizzerdrix
-1 Warden of Geometries
-1 Xanthic Statue
+1 Rustspore Ram
+1 Signpost Scarecrow
+1 Soulshriek
+1 Spined Fluke
+35 Swamp
+1 Teeka's Dragon
+1 The Fallen
+1 Thran Portal
+1 Time Vault
+1 Touch of Darkness
+1 Vanquisher's Axe
+1 Watcher of the Wayside
+1 Wei Infantry
+1 Wintermoon Mesa
+1 Worldslayer
 
 [commander]
-The Terror of Serpent's Pass
+Grandmother Sengir

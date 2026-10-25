@@ -1,22 +1,21 @@
 # baylee curated constructed control seed=20261089
 # licence: AGPL-3.0-only
 [deck:constructed control WG #20261089]
-1 Bargain
-2 Blessed Wine
-1 Branchloft Pathway
-3 Bulwark Giant
-2 Dosan's Oldest Chant
-6 Forest
-4 Fruition
-3 Grove of the Guardian
-4 Healing Hands
-4 Mana Crypt
-2 Natural End
+4 Bargain
+1 Brushland
+5 Forest
+1 Grove of the Guardian
+3 Healing Hands
+4 Loran of the Third Path
+3 Migrating Ketradon
+4 Mox Emerald
+4 Norn's Wellspring
 4 Path of Annihilation
-10 Plains
+3 Pawpatch Formation
+11 Plains
 3 Radiant's Dragoons
-3 Saltcrusted Steppe
-3 Solarium Sentry
-2 Staunch Defenders
-2 Veldt
-1 Vitu-Ghazi, the City-Tree
+2 Riftstone Portal
+1 Savannah
+2 Sungrass Egg
+2 Vec Townships
+3 Vitu-Ghazi, the City-Tree

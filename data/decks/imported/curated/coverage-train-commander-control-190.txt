@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUBRG #20266191]
+1 Abstruse Interference
+1 An-Havva Township
+1 Anaba Bodyguard
+1 Ancestors' Aid
+1 Auspicious Arrival
+1 Aysen Abbey
+1 Blazing Effigy
+1 Bog Elemental
+1 Bogardan Firefiend
+1 Bountiful Landscape
+1 Bygone Bishop
+1 Castle Sengir
+1 Courier's Briefcase
+1 Crosis's Catacombs
+1 Crowd of Cinders
+1 Crystal Quarry
+1 Cunning Maneuver
+1 Darigaaz's Caldera
+1 Deadshot Minotaur
+1 Deeproot Waters
+1 Drowned Rusalka
+1 Fable of Wolf and Owl
+1 Foreboding Landscape
+5 Forest
+1 Foul Play
+1 Foundry Champion
+1 Goblin Trenches
+1 Greensleeves, Maro-Sorcerer
+1 Grist, the Hunger Tide
+1 Havoc Sower
+1 Hornswoggle
+1 Indatha Crystal
+1 Intruding Soulrager
+7 Island
+1 Izzet Cluestone
+1 Jace's Scrutiny
+1 Kaleidostone
+1 Koskun Keep
+1 Liliana's Mastery
+1 Loch Korrigan
+1 Maelstrom Wanderer
+1 Maw of Kozilek
+1 Midnight Entourage
+3 Mountain
+1 Mouser Attack!
+1 Narset's Rebuke
+1 Nearby Planet
+1 Ogre Jailbreaker
+1 Penregon Strongbull
+2 Plains
+1 Predatory Hunger
+1 Reckless Ransacking
+1 Reveillark
+1 Revel of the Fallen God
+1 Rotted Hulk
+1 Savor
+1 Seething Landscape
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Shredder's Revenge
+1 Sokka's Sword Training
+1 Sootwalkers
+1 Storm Spirit
+1 Sultai Banner
+10 Swamp
+1 The World Tree
+1 Thought Scour
+1 Tooth and Claw
+1 Trail of Evidence
+1 Twisted Landscape
+1 Ulcerate
+1 Veil of Birds
+1 Voice of Resurgence
+1 Wanderbrine Rootcutters
+1 Winter Blast
+1 Wolfkin Bond
+1 Zagoth Triome
+
+[commander]
+Super-Skrull

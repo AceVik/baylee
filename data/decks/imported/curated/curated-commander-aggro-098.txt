@@ -1,84 +1,74 @@
 # baylee curated commander aggro seed=20261121
 # licence: AGPL-3.0-only
-[deck:commander aggro UBR #20261121]
-1 Ancestral Vision
-1 Aven Wind Mage
-1 Black Waltz No. 3
-1 Blightcaster
-1 Boltwave
-1 Broadside Barrage
-1 Burning Prophet
-1 Cascade Bluffs
-1 Castle Sengir
-1 Chandra's Emberling
-1 Chaos Charm
-1 Clearwater Pathway
-1 Coming In Hot
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Darkwater Catacombs
-1 Detonate
-1 Dragon's Rage Channeler
-1 Drowner Initiate
-1 Earthshaker
-1 Electrostatic Infantry
-1 Embersmith
-1 Enraged Flamecaster
-1 Erebor Flamesmith
-1 Festival Crasher
-1 Fever Charm
-1 Fire Urchin
-1 Flame-Blessed Bolt
-1 Gin'tak Charge
-1 Gravelgill Duo
-1 Guttersnipe
-1 Ingenious Skaab
-4 Island
-1 Izzet Charm
-1 Kozilek's Sentinel
-1 Lightning Visionary
-1 Mage-Ring Bully
-1 Mercurial Geists
-1 Molten Slagheap
-1 Monastery Swiftspear
-13 Mountain
-1 Nimble-Blade Khenra
-1 Notion Rain
-1 Onslaught
-1 Oscorp Industries
-1 Outnumber
-1 Profane Tutor
-1 Pyre Hound
-1 Repulsor Rays
-1 Riverfall Mimic
-1 Riverglide Pathway
-1 Rock Slide
-1 Sanguinary Mage
-1 Sawblade Scamp
-1 Seething Landscape
-1 Shock
-1 Skittering Horror
-1 Skittering Monstrosity
-1 Sky Scourer
-1 Sprite Dragon
-1 Steam Vents
-1 Stormchaser Mage
-1 Sulfur Vent
-7 Swamp
-1 TVA Bureaucrat
-1 Taurean Mauler
-1 Telim'Tor's Edict
-1 Tibor and Lumia
-1 Traumatic Critique
-1 Umara Entangler
-1 Umara Mystic
-1 Vampiric Tutor
-1 Vertigo
-1 War-Torch Goblin
-1 Wee Dragonauts
-1 Wing Commando
-1 Xander's Lounge
+[deck:commander aggro G #20261121]
+1 Advocate of the Beast
+1 Aggressive Urge
+1 Ajani's Comrade
+1 Argothian Enchantress
+1 Battlewand Oak
+1 Big Bertha
+1 Bog Gnarr
+1 Bond Beetle
+1 Boseiju, Who Endures
+1 Briarknit Kami
+1 Centaur Garden
+1 Charge Through
+1 Deeproot Champion
+1 Deeproot Elite
+1 Elvish Farmer
+1 Elvish Handservant
+1 Femeref Archers
+32 Forest
+1 Generous Visitor
+1 Gilded Goose
+1 Glissa's Scorn
+1 Heart of Yavimaya
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Spider
+1 Hornet Sting
+1 Hurricane
+1 Ifh-Bíff Efreet
+1 Ironshell Beetle
+1 Jackalope Herd
+1 Jungle Delver
+1 Kami of the Hunt
+1 Kronch Wrangler
+1 Leaf Arrow
+1 Leaf-Crowned Visionary
+1 Lifecrafter's Bestiary
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Machine Man, Model X-51
+1 Managorger Hydra
+1 Mold Adder
+1 Nasty Little Rabbit
+1 Okina, Temple to the Grandfathers
+1 Orbweaver Kumo
+1 Origin of Metalbending
+1 Poison the Blade
+1 Predatory Hunger
+1 Provoke
+1 Quirion Dryad
+1 Shield Sphere
+1 Shredding Winds
+1 Skybeast Tracker
+1 Skyway Sniper
+1 Soilshaper
+1 Spike Breeder
+1 Squall Line
+1 Straw Golem
+1 Take Down
+1 Tangletrap
+1 Territorial Scythecat
+1 Thorn Thallid
+1 Titania's Chosen
+1 Tree of Tales
+1 Unyaro Bees
+1 Viridian Scout
+1 Walking Ballista
+1 Winter Blast
+1 Wirewood Lodge
 
 [commander]
-Gwendlyn Di Corci
+Medusa, Inhuman Queen

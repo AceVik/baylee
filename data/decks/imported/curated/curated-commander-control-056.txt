@@ -1,70 +1,80 @@
 # baylee curated commander control seed=20261079
 # licence: AGPL-3.0-only
-[deck:commander control W #20261079]
-1 Academy Rector
-1 Aeronaut Cavalry
-1 Ancient Den
-1 April O'Neil, Kunoichi Trainee
-1 Arashin Cleric
-1 Aven Battle Priest
-1 Blighted Steppe
-1 Bulwark Giant
-1 Cathedral Sanctifier
-1 Clarion Cathars
-1 Court Street Denizen
-1 Crowd Favorites
-1 Daru Encampment
-1 Devout Lightcaster
-1 Drogskol Cavalry
-1 Extraction Specialist
-1 Favored of Iroas
-1 Flagstones of Trokair
-1 Glider Kids
-1 Hall of Heliod's Generosity
-1 Healer of the Pride
-1 Helpful Hunter
-1 Impassioned Orator
-1 Invasion Reinforcements
-1 Ironclad Slayer
-1 Jedit's Dragoons
-1 Kazandu Blademaster
-1 Knight-Captain of Eos
-1 Kor Haven
-1 Kyoshi Warriors
-1 Leonin Elder
-1 Loran of the Third Path
-1 Loran, Disciple of History
-1 Lossarnach Captain
-1 Palace Jailer
-1 Pillardrop Rescuer
-36 Plains
-1 Radiant's Dragoons
-1 Ramosian Lieutenant
-1 Savannah Sage
-1 Sensor Splicer
-1 Settlement Blacksmith
-1 Shefet Dunes
-1 Shu Grain Caravan
-1 Shu Soldier-Farmers
-1 Slumbering Keepguard
-1 Soul Warden
-1 Soul's Attendant
-1 Staunch Defenders
-1 Subjugator Angel
-1 Sunblast Angel
-1 Temple Acolyte
-1 Tenth District Guard
-1 Teroh's Faithful
-1 Thraben Inspector
-1 Tireless Missionaries
-1 Tivadar of Thorn
-1 Treasure Hunter
-1 Venerable Monk
-1 Wall of Omens
-1 War Priest of Thune
-1 Witch Enchanter
-1 Zhalfirin Lancer
-1 Zuran Orb
+[deck:commander control BG #20261079]
+1 Aclazotz, Deepest Betrayal
+1 Animate Dead
+1 Baron Sengir
+1 Bastion of Remembrance
+1 Bayou
+1 Bequeathal
+1 Bitterbloom Bearer
+1 Bitterblossom
+1 Blood Artist
+1 Breeding Pit
+1 Call the Bloodline
+1 Elderfang Venom
+1 Elephant Guide
+1 Enduring Vitality
+1 Failed Conversion
+1 Falkenrath Noble
+1 Fists of Ironwood
+10 Forest
+1 Fortitude
+1 From Beyond
+1 Gilt-Leaf Palace
+1 Golgari Germination
+1 Graf Harvest
+1 Grim Backwoods
+1 Grim Feast
+1 Grisly Ritual
+1 Guardian of Cloverdell
+1 Hissing Quagmire
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Liliana's Mastery
+1 Llanowar Wastes
+1 Malakir Cullblade
+1 Mantle of the Wolf
+1 Many Partings
+1 Midnight Entourage
+1 Midsummer Revel
+1 Minotaur, Roxxon CEO
+1 Mintstrosity
+1 Moldervine Reclamation
+1 Most Wanted
+1 Night Soil
+1 Nocturnal Feeder
+1 Nurturing Peatland
+1 Ogre Slumlord
+1 Open the Graves
+1 Orochi Hatchery
+1 Overgrown Tomb
+1 Path of Annihilation
+1 Pawn of Ulamog
+1 Quest for the Gravelord
+1 Rampaging Baloths
+1 Restless Cottage
+1 Return from the Wilds
+1 Sarcomancy
+1 Skeletal Vampire
+1 Skemfar Elderhall
+1 Sling-Gang Lieutenant
+1 Sprout
+1 Svogthos, the Restless Tomb
+17 Swamp
+1 Tainted Wood
+1 The Meathook Massacre
+1 They Went This Way
+1 Toxin Analysis
+1 Twilight Mire
+1 Undergrowth Stadium
+1 Vengeful Bloodwitch
+1 Vernal Fen
+1 Vindictive Vampire
+1 Viridescent Bog
+1 Wastewood Verge
+1 Weirding Shaman
+1 Yahenni, Undying Partisan
 
 [commander]
-Nighthawk, Dark Defender
+Slimefoot, the Stowaway

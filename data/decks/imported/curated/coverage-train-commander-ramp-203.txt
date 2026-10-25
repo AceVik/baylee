@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266204]
+1 A Realm Reborn
+1 Ancestral Vengeance
+1 Annihilate
+1 Arguel's Blood Fast
+1 Axelrod Gunnarson
+1 Betrothed of Fire
+1 Blightstep Pathway
+1 Brood Butcher
+1 Burrowing
+1 Call the Bloodline
+1 Cha'DIch Investigator
+1 Cragcrown Pathway
+1 Cryptolith Rite
+1 Cyclops of Eternal Fury
+1 Darigaaz's Caldera
+1 Darkbore Pathway
+1 Deadly Embrace
+1 Defense of the Heart
+1 Dragon Mantle
+1 Dread Drone
+1 Dregs of Sorrow
+1 Dryad of the Ilysian Grove
+1 Eladamri's Vineyard
+1 Elemental Bond
+1 Elfsworn Giant
+1 Emrakul's Hatcher
+1 Fleshpulper Giant
+5 Forest
+1 Forgeborn Oreads
+1 Gaea's Touch
+1 Geothermal Crevice
+1 Goblin Gang Leader
+1 Greater Sandwurm
+1 Greed
+1 Hammerfist Giant
+1 Immolation
+1 Infernal Tribute
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Kiora of Fire and Ashes
+1 Koskun Keep
+1 Krovikan Fetish
+1 Leshrac's Rite
+1 Loam Dryad
+1 Mass Hysteria
+1 Meticulous Artisan
+1 Minotaur, Roxxon CEO
+4 Mountain
+1 Nest Invader
+1 Nightshade Dryad
+1 Nyxborn Colossus
+1 Oakheart Dryads
+1 Oread of Mountain's Blaze
+1 Overgrown Tomb
+1 Overgrowth
+1 Pinecrest Ridge
+1 Primal Rage
+1 Rakdos Locket
+1 Reckless Barbarian
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Savage Lands
+1 Scavenged Weaponry
+1 Scion Summoner
+1 Skarrg, the Rage Pits
+1 Slice in Twain
+1 Soulreaper of Mogis
+1 Stimulus Package
+17 Swamp
+1 Tahngarth's Rage
+1 Tainted Peak
+1 Thornspire Verge
+1 Thoughtrender Lamia
+1 Twisted Landscape
+1 Vernal Bloom
+1 Ziatora's Proving Ground
+
+[commander]
+Vaevictis Asmadi

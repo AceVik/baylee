@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUB #20266221]
+1 Alabaster Host Sanctifier
+1 Ancient Spring
+1 Angel's Mercy
+1 Arcane Sanctum
+1 Arvad the Cursed
+1 Banehound
+1 Bishop's Soldier
+1 Blight Keeper
+1 Blood Glutton
+1 Blood Host
+1 Bloodrite Invoker
+1 Boomerang, Blade Flinger
+1 Brightblade Stoat
+1 Charity Extractor
+1 Contaminated Landscape
+1 Cruel Celebrant
+1 Desiccated Naga
+1 Desolate Mire
+1 Desperate Lunge
+1 Divine Favor
+1 Drana's Emissary
+1 Dromar's Cavern
+1 Environmental Sciences
+1 Essence Depleter
+1 Gifted Aetherborn
+1 Gleaming Bastion
+1 Grollub
+1 Hengegate Pathway
+1 Ill-Gotten Inheritance
+2 Island
+1 Ivory Cup
+1 Judge of Currents
+1 Kezzerdrix
+1 Knight of Meadowgrain
+1 Lifetap
+1 Lucky Offering
+1 Markov Patrician
+1 Merciless Enforcers
+1 Moment of Craving
+1 Moonrise Cleric
+1 Moorland Haunt
+1 Moroii
+1 Narrow Escape
+1 Nephalia Drownyard
+1 Nocturnal Feeder
+1 Orim's Prayer
+1 Orzhov Guildmage
+9 Plains
+1 Poison Arrow
+1 Prideful Feastling
+1 Pulse Tracker
+1 Raffine's Tower
+1 Reverse Polarity
+1 Sanctimony
+1 Sanctum Seeker
+1 Sanguine Syphoner
+1 Screeching Soulbreaker
+1 Serene Offering
+1 Sheoldred, the Apocalypse
+1 Songbird, Sonic Screamer
+1 Specter of the Fens
+1 Starlight Invoker
+1 Starlit Sanctum
+1 Steadfast Paladin
+1 Stone Haven Medic
+13 Swamp
+1 Take Heart
+1 Thirsting Shade
+1 Thrashing Wumpus
+1 Tundra
+1 Underground River
+1 Vampire Envoy
+1 Vampire of the Dire Moon
+1 Vicious Conquistador
+1 Vizkopa Vampire
+1 Whitesun's Passage
+1 Wizards' School
+1 Wooden Sphere
+
+[commander]
+Halfdane

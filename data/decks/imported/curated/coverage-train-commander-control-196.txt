@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUBRG #20266197]
+1 Agent of Shauku
+1 Altac Bloodseeker
+1 Aragorn, the Uniter
+1 Ardent Elementalist
+1 Atzocan Seer
+1 Black Widow, Deadly Hunter
+1 Blighted Shaman
+1 Blood Rites
+1 Bountiful Landscape
+1 Brazen Freebooter
+1 Captain Storm, Cosmium Raider
+1 Careless Celebrant
+1 Castle Sengir
+1 Commander Greven il-Vec
+1 Crosis's Catacombs
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Dai Li Censor
+1 Darigaaz's Caldera
+1 Deathcurse Ogre
+1 Dragonmaster Outcast
+1 Dromar's Cavern
+1 Femeref Enchantress
+1 Firefist Adept
+8 Forest
+1 Garna, the Bloodflame
+1 Ghen, Arcanum Weaver
+1 Gladiolus Amicitia
+1 Golgari Thug
+1 Gosta Dirk
+1 Groundskeeper
+1 Huntmaster of the Fells
+1 Intrepid Stablemaster
+1 Island
+1 Izzet Chronarch
+1 Judith, the Scourge Diva
+1 Jund Battlemage
+1 Katara, the Fearless
+1 Lim-Dûl's Paladin
+1 Long Feng, Grand Secretariat
+1 Luke Cage, Hero for Hire
+1 Madame Hydra
+1 Moriok Rigger
+4 Mountain
+1 Nearby Planet
+1 Perilous Landscape
+1 Pia, Determined Rebuilder
+7 Plains
+1 Priest of Urabrask
+1 Rakka Mar
+1 Ravaging Horde
+1 Reliquary Monk
+1 Restoration Gearsmith
+1 Ripchain Razorkin
+1 Rising Populace
+1 Rith's Grove
+1 Salvage Scout
+1 Savior of the Sleeping
+1 Sek'Kuar, Deathkeeper
+1 Selhoff Occultist
+1 Sell-Sword Brute
+1 Shadewing Laureate
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Sokka, Tenacious Tactician
+1 Stark Industries Executive
+1 Storm God's Oracle
+7 Swamp
+1 The World Tree
+1 Tournament Grounds
+1 Tragic Poet
+1 Treetop Freedom Fighters
+1 Twisted Landscape
+1 Village Cannibals
+1 Village Elder
+1 Wizards' School
+1 Youthful Scholar
+
+[commander]
+Child of Alara

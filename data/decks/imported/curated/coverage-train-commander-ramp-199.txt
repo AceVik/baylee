@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WRG #20266200]
-1 An-Havva Township
-1 Angelheart Protector
-1 Ashen Firebeast
+[deck:commander ramp WUG #20266200]
+1 Alchemist's Apprentice
+1 Apprentice Wizard
+1 Archivist
+1 Avacyn's Pilgrim
 1 Axebane Guardian
-1 Badgermole Cub
-1 Balduvian Horde
-1 Baloth Woodcrasher
-1 Brushland
-1 Burning-Yard Trainer
-1 Contested Cliffs
-1 Dawnhart Disciple
-1 Daybreak Combatants
-1 Disciple of Law
-1 Fallaji Vanguard
-1 Farseek
-1 Favored of Iroas
-8 Forest
-1 Gumato
-1 Haazda Officer
-1 Heal
-1 Heavy Infantry
-1 Herald of the Fair
-1 Hundroog
+1 Aysen Abbey
+1 Azami, Lady of Scrolls
+1 Azure Mage
+1 Benalish Heralds
+1 Citanul Hierophants
+1 Crowd Favorites
+1 D'Avenant Archer
+1 Defiant Falcon
+1 Devout Harpist
+1 Drover of the Mighty
+1 Energy Tap
+1 Expendable Troops
+1 Facet Reader
+1 Farrelite Priest
+2 Forest
+1 Gathering Place
+1 Gigantomancer
+1 Grassland Crusader
+1 Great Divide Guide
+1 Hapless Researcher
+1 Harabaz Druid
+1 Heavy Ballista
+1 Helionaut
+1 Hermitic Herbalist
+1 Horizon Canopy
+1 Humble Naturalist
+1 Hunding Gjornersen
 1 Hushwood Verge
-1 Hyrax Tower Scout
-1 Indrik Stomphowler
-1 Intrepid Provisioner
-1 Jetmir's Garden
-1 Jungle Shrine
-1 Jungle Weaver
-1 Kiora of Fire and Ashes
-1 Lotus Cobra
-1 Mossbeard Ancient
-10 Mountain
-1 Murasa Ranger
-1 Natural Order
-1 Palace Jailer
-1 Paleoloth
-1 Panic
-1 Perimeter Patrol
-8 Plains
-1 Rhox Oracle
-1 Rith's Grove
-1 Seshiro the Anointed
-1 Setessan Skirmisher
-1 Shake the Foundations
-1 Shared Roots
-1 Sheltering Landscape
-1 Slice in Twain
-1 Snapping Gnarlid
-1 Spider-Man, Hometown Hero
-1 Steel Leaf Paladin
-1 Stingcaster Mage
-1 Sunbillow Verge
-1 Sungrass Prairie
-1 Sunhome, Fortress of the Legion
-1 Temple Garden
-1 Tenth District Guard
-1 Thopter Architect
-1 Théoden, King of Rohan
-1 Time of Need
-1 Tinder Farm
-1 Tivadar of Thorn
-1 Training Compound
-1 Tranquil Path
-1 Ulvenwald Observer
-1 Vec Townships
-1 Veldt
-1 Vicious Clown
-1 Viridian Acolyte
-1 Vithian Renegades
-1 Vulshok Heartstoker
-1 Wild Cantor
-1 Witch Enchanter
+1 Iron Man, Futurist Paragon
+1 Irrigation Ditch
+15 Island
+1 Kasimir the Lone Wolf
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 La Forge, Perceptive Engineer
+1 Lord Magnus
+1 Lore Broker
+1 Neurok Commando
+1 Noble Hierarch
+1 Oashra Cultivator
+9 Plains
+1 Ramosian Commander
+1 Rockcaster Platoon
+1 Seahunter
+1 Seaside Citadel
+1 Sir Shandlar of Eberyn
+1 Skyshroud Poacher
+1 Somberwald Sage
+1 Spara's Headquarters
+1 Spock, Logical Choice
+1 Stealer of Secrets
+1 Steelshaper Apprentice
+1 Steward of Valeron
+1 Suq'Ata Firewalker
+1 Swampbenders
+1 Third Path Savant
+1 Torsten Von Ursus
+1 Tranquil Garden
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tropical Island
+1 Tundra
+1 Urban Retreat
+1 Voidwielder
+1 Waterlogged Grove
+1 Weight of Memory
+1 Whisperer of the Wilds
+1 Wooded Bastion
 1 Wose Pathfinder
-1 Zhalfirin Lancer
+1 Yavimaya Coast
+1 Zhou Yu, Chief Commander
 
 [commander]
-Johan
+Arcades Sabboth

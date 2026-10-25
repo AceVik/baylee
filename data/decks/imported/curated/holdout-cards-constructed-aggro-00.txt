@@ -1,22 +1,23 @@
-# baylee unseen-card holdout constructed seed=90000003
+# baylee unseen-card holdout constructed seed=90000006
 # licence: AGPL-3.0-only
-[deck:constructed aggro WR #90000003]
-4 Battlegate Mimic
-2 Birgi, God of Storytelling
-1 Dragon Bell Monk
-3 Embersmith
-3 Festival Crasher
-3 Frenzied Devils
-2 God-Pharaoh's Faithful
-3 Granulate
-3 Mage-Ring Bully
-2 Mogg Sentry
-10 Mountain
-3 Needleverge Pathway
-4 Piercing Light
-4 Plains
-1 Sunbaked Canyon
-2 Sunhome, Fortress of the Legion
-3 Sunscorched Divide
-3 Weaver of Lightning
-4 Winter Sky
+[deck:constructed aggro WR #90000006]
+2 Battlefield Forge
+2 Bishop of Wings
+4 Blade Splicer
+4 Devout Monk
+4 Honored Knight-Captain
+2 Invasion Reinforcements
+3 Kor Entanglers
+4 Loran of the Third Path
+2 Mountain
+2 Needleverge Pathway
+4 Novice Inspector
+4 Phalanx Vanguard
+4 Pia and Kiran Nalaar
+12 Plains
+1 Radiant Summit
+1 Rugged Prairie
+1 Sacred Foundry
+1 Slayers' Stronghold
+1 Sunscorched Divide
+2 Thraben Inspector

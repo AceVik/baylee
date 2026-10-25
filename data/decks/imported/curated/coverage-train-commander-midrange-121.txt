@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WR #20266122]
-1 Aegis Automaton
-1 Ankh of Mishra
-1 Bladed Sentinel
-1 Brass Secretary
-1 Burning Palm Efreet
-1 Cathodion
-1 Clifftop Retreat
-1 Clockwork Drawbridge
-1 Concentrated Fire
-1 Country Roads
-1 Crash and Burn
-1 Crimson Manticore
-1 Deadshot
-1 Desert of the True
-1 Diabolic Machine
-1 Disruptor Pistol
-1 Dowsing Device
-1 Dwarven Demolition Team
-1 Dáin of the Ancient Halls
-1 Emeria, the Sky Ruin
-1 Explosive Apparatus
-1 Feed the Flames
+[deck:commander midrange RG #20266122]
+1 Active Volcano
+1 Advocate of the Beast
+1 Arcane Spyglass
+1 Balduvian Hydra
+1 Barrin's Codex
+1 Bayou Dragonfly
+1 Bird Maiden
+1 Boggart Brute
+1 Bramblesnap
+1 Caustic Caterpillar
+1 Clear a Path
+1 Cliffgate
+1 Cockatrice
+1 Covetous Dragon
+1 Crash of Rhino Beetles
+1 Creeperhulk
+1 Dangerous Wager
+1 Defiant Elf
+1 Dormant Volcano
+1 Dragon Hatchling
+1 Dragon Tyrant
+1 Dwarven Mine
+1 Eager Trufflesnout
+1 Emerald Dragonfly
+1 Fearful Villager
 1 Fire Nation Palace
-1 Forbidding Watchtower
-1 Glint Hawk Idol
-1 Goblin Legionnaire
-1 Goblin Lyre
-1 Grapeshot Catapult
-1 Hidden Courtyard
-1 Hidden Volcano
-1 High Noon
-1 Honor-Worn Shaku
-1 Hotfoot Gnome
-1 Karplusan Yeti
-1 Lightning-Core Excavator
-1 Lindblum, Industrial Regency
-1 Misers' Cage
-1 Monoskelion
-1 Moonglove Extract
-15 Mountain
-1 Nahiri's Machinations
-1 One-Clown Band
-1 Paupers' Cage
-1 Phyrexian Walker
-10 Plains
-1 Planar Portal
-1 Pyramids
-1 Rabbit Battery
-1 Ragged Playmate
-1 Razorfield Thresher
-1 Ring of the Lucii
-1 Saberclaw Golem
-1 Salvaged Manaworker
-1 Sandstone Bridge
-1 Scalding Cauldron
-1 Scepter of Dominance
-1 Scrap Compactor
-1 Silent Dart
-1 Slash Panther
-1 Smoldering Spires
-1 Spitting Hydra
-1 Springjaw Trap
-1 Su-Chi
-1 Sundial, Dawn Tyrant
-1 The Autonomous Furnace
-1 The Rack
-1 Thorin Oakenshield
-1 Titanium Golem
-1 Unerring Sling
-1 Valakut, the Molten Pinnacle
-1 Vial of Dragonfire
+1 Firefly
+1 Flowstone Kavu
+13 Forest
+1 Frontline War-Rager
+1 Gaea's Gift
+1 Garruk's Companion
+1 Gemrazer
+1 Ghitu Encampment
+1 Goliath Beetle
+1 Harvesttide Infiltrator
+1 Havengul Vampire
+1 Hawkeater Moth
+1 Hellkite Punisher
+1 Helm of Awakening
+1 Hungry Megasloth
+1 Impetuous Sunchaser
+1 Kavu Mauler
+1 Kavu Monarch
+1 Killer Bees
+1 Llanowar Reborn
+1 Locust Swarm
+1 Markov Blademaster
+1 Memorial to Unity
+1 Memorial to War
+1 Mercadian Bazaar
+1 Mosswort Bridge
+12 Mountain
+1 Ornithopter of Paradise
+1 Otherworld Atlas
+1 Rathi Dragon
+1 Rock Hydra
+1 Rocky Roads
+1 Rogue Skycaptain
+1 Rorix Bladewing
+1 Sapseep Forest
+1 Scarlet Witch, Wanda Maximoff
+1 Shard Phoenix
+1 Shivan Devastator
+1 Silvos, Rogue Elemental
+1 Tangle Mantis
+1 The Hunter Maze
+1 Tunnel
+1 Turntimber Grove
+1 Utvara Scalper
+1 Venomous Dragonfly
 1 Vivid Crag
-1 Vivid Meadow
-1 Weldfast Monitor
-1 Well of Knowledge
-1 Wheel of Torture
+1 Wolfsbane, Highland Hero
+1 Wrecking Crew
+1 Yavimaya Gnats
+1 Zhao, the Seething Flame
 
 [commander]
-Eivor, Battle-Ready
+Tuknir Deathlock

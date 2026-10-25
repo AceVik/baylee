@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #20266229]
-1 Ali Baba
-1 Altac Bloodseeker
-1 Assassin's Strike
-1 Badlands
-1 Balduvian War-Makers
-1 Barbarian Riftcutter
-1 Bird Maiden
-1 Blackbloom Rogue
-1 Blaster Mage
-1 Blazemire Verge
-1 Blood Crypt
-1 Bloodlust Inciter
-1 Borderland Marauder
-1 Cabal Trainee
-1 Charity Extractor
-1 Cinder Marsh
-1 Dai Li Censor
-1 Dark Fortress
-1 Devastation
-1 Dhund Operative
-1 Embraal Bruiser
-1 Fathom Fleet Firebrand
-1 Fault Riders
-1 Fearful Villager
-1 Gerrard's Irregulars
-1 Glamorous Grapplers
-1 Goblin Lore
-1 Gravblade Heavy
-1 Grave Robbers
-1 Graven Cairns
-1 Happy Hogan, Dauntless Driver
-1 Haradrim Spearmaster
-1 Harvesttide Infiltrator
-1 Hired Poisoner
-1 Immersturm Skullcairn
-1 Impetuous Sunchaser
-1 Inkrise Infiltrator
-1 Inventor's Apprentice
-1 Joven
-1 Kargan Dragonrider
-1 Keldon Berserker
-1 Lantern-Lit Graveyard
-1 Lava Tubes
-1 Lovisa Coldeyes
-1 Masked Blackguard
-1 Molten Slagheap
-1 Mount Doom
-15 Mountain
-1 Mountain Bandit
-1 Márton Stromgald
-1 Notorious Assassin
-1 Onyx Mage
-1 Pardic Collaborator
-1 Rakdos Trumpeter
-1 Raking Claws
-1 Raucous Theater
-1 Renegade Warlord
-1 Rowan's Battleguard
-1 Seismic Mage
-1 Shadowblood Ridge
-1 Soldier of Fortune
-1 Songbird, Sonic Screamer
-1 Starke of Rath
-1 Stensia Bloodhall
-1 Storm Shaman
-1 Sulfurous Springs
-1 Suq'Ata Assassin
-11 Swamp
-1 Tainted Peak
-1 Tilonalli's Knight
-1 Vile Deacon
-1 Warship Scout
-1 Wei Ambush Force
-1 Wrecking Crew
-1 Zhao, the Seething Flame
+[deck:commander ramp UB #20266229]
+1 Alloy Myr
+1 Ashiok's Reaper
+1 Ashiok, Dream Render
+1 Augmenting Automaton
+1 Bog Naughty
+1 Carnage Altar
+1 Cathodion
+1 Coastal Hornclaw
+1 Cobalt Golem
+1 Collector's Vault
+1 Daily Bugle Newspaper
+1 Darkwater Catacombs
+1 Dingus Egg
+1 Dowsing Dagger
+1 Drainpipe Vermin
+1 Dreadship Reef
+1 Dross Ripper
+1 Dukhara Peafowl
+1 Enatu Golem
+1 Flayed One
+1 Floodgate
+1 Friendly Teddy
+1 Gilded Lotus
+1 Gleaming Barrier
+1 Goldvein Pick
+1 Hexplate Golem
+1 Hidden Lair
+11 Island
+1 Jinxed Idol
+1 Krark-Clan Ironworks
+1 Lotus Petal
+1 Mana Geode
+1 Mana Matrix
+1 Monoist Sentry
+1 Morphic Pool
+1 Mox Diamond
+1 Myr Retriever
+1 Myr Sire
+1 Nephalia Drownyard
+1 Perilous Myr
+1 Pewter Golem
+1 Phyrexian Hulk
+1 Phyrexian Metamorph
+1 Phyrexian Vault
+1 Planar Gate
+1 River Delta
+1 River of Tears
+1 Rootwater Depths
+1 Rune-Sealed Wall
+1 Scepter of Fugue
+1 Scrap Trawler
+1 Sensei's Divining Top
+1 Skeletal Kathari
+1 Springleaf Drum
+1 Stone Calendar
+1 Sunken Hollow
+1 Sunken Ruins
+1 Surgical Metamorph
+15 Swamp
+1 Sylvok Lifestaff
+1 Tablet of Epityr
+1 Tainted Isle
+1 The Walls of Ba Sing Se
+1 Tidehollow Strix
+1 Treasure Map
+1 Underground River
+1 Underground Sea
+1 Vectis Agents
+1 Vectis Silencers
+1 Vodalian War Machine
+1 Voodoo Doll
+1 Waterfront District
+1 Waterveil Cavern
+1 Watery Grave
+1 Workhorse
 
 [commander]
-Pavel Maliki
+Ur-Drago

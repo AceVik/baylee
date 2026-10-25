@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266110]
+1 Abyssal Hunter
+1 Arcane Flight
+1 Arcane Lighthouse
+1 Ash Barrens
+1 Attunement
+1 Avishkar Raceway
+1 Bazaar of Baghdad
+1 Bounty Agent
+1 Buried Ruin
+1 Cabaretti Courtyard
+1 Caribou Range
+1 Chaplain's Blessing
+1 Charity Extractor
+1 Cursebreak
+1 Daring Mechanic
+1 Dark Offering
+1 Dogged Hunter
+1 Drana's Emissary
+1 Encroaching Wastes
+1 Exorcist
+1 Furtive Analyst
+1 Ghost Town
+1 Gideon's Avenger
+1 Grave Robbers
+1 Heliod's Intervention
+1 Hidden Grotto
+1 Hierophant's Chalice
+1 High Priest of Penance
+1 Improvised Armor
+1 Intrepid Hero
+5 Island
+1 Lich's Caress
+1 Lifetap
+1 Maw of the Mire
+1 Merfolk Assassin
+1 Mirrex
+1 Mockingbird, Bobbi Morse
+1 Narrow Escape
+1 Northern Paladin
+1 Notorious Assassin
+1 Noxious Grasp
+1 Orim's Prayer
+1 Orzhov Guildmage
+1 Paragon of Gathering Mists
+1 Peace of Mind
+11 Plains
+1 Plaza of Harmony
+1 Poison Arrow
+1 Ramosian Sky Marshal
+1 Rosa, Resolute White Mage
+1 Sanctimony
+1 Scarblade Elite
+1 Scavenged Weaponry
+1 Sephiroth's Intervention
+1 Songbird, Sonic Screamer
+1 Soothing Balm
+1 Southern Paladin
+1 Stalking Assassin
+1 Starlight Invoker
+1 Steadfast Paladin
+1 Stormscape Apprentice
+1 Suq'Ata Assassin
+9 Swamp
+1 Take Heart
+1 Talas Scout
+1 Thespian's Stage
+1 Tidy Conclusion
+1 Tocasia's Dig Site
+1 Trained Caracal
+1 Undead Slayer
+1 Villainous Hideout
+1 Violet Pall
+1 Voidwielder
+1 Volatile Fault
+1 Vona, Butcher of Magan
+1 Western Paladin
+1 World Map
+
+[commander]
+Lady Evangela

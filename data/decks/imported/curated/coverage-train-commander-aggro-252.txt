@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WU #20266253]
+1 Angry Mob
+1 Animate Wall
+1 Artifact Ward
+1 Ascended Lawmage
+1 Azorius First-Wing
+1 Black Ward
+1 Calciform Pools
+1 Cloud Crusader
+1 Cloud Pirates
+1 Cloudcrest Lake
+1 Coastal Tower
+1 Concordia Pegasus
+1 Dawnglare Invoker
+1 Defensive Stance
+1 Emeritus of Ideation
+1 Exorcise
+1 Faerie Invaders
+1 Final Showdown
+1 Flash Flood
+1 Flickering Ward
+1 Flood
+1 Floodbringer
+1 Flying Men
+1 Gleaming Bastion
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Indigo Faerie
+1 Kjeldoran Skycaptain
+1 Land Cap
+1 Mana Chains
+1 Mana Tithe
+1 Mask of Law and Grace
+1 Mesa Pegasus
+1 Metropolis Sprite
+1 Mistral Charger
+1 Mockingbird, Bobbi Morse
+1 Moonfolk Puzzlemaker
+1 Moorland Haunt
+1 Mystic Gate
+1 Nightveil Sprite
+1 Nightwind Glider
+1 Nimbus Maze
+1 Not on My Watch
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Oko's Accomplices
+1 Paragon of Gathering Mists
+1 Pearl Dragon
+1 Pegasus Charger
+1 Phyrexian Pegasus
+1 Prahv, Spires of Order
+1 Pseudodragon Familiar
+1 Rebuild
+1 Red Ward
+1 Rishadan Airship
+1 Sensory Deprivation
+1 Shinechaser
+1 Silkbind Faerie
+1 Skycloud Expanse
+13 Snow-Covered Island
+11 Snow-Covered Plains
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Spectral Interference
+1 Squall Drifter
+1 Stormfront Pegasus
+1 Stronghold Zeppelin
+1 Talas Air Ship
+1 Talas Scout
+1 Teferi, Time Raveler
+1 Thalakos Lowlands
+1 Tolarian Sentinel
+1 Trusted Pegasus
+1 Tundra
+1 Twining Twins
+1 Weatherseed Faeries
+1 Wind Dancer
+
+[commander]
+Tobias Andrion

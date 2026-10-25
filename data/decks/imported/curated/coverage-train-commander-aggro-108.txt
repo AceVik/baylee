@@ -1,0 +1,89 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #20266109]
+1 Abstergo Entertainment
+1 Adherent of Hope
+1 Adventurer's Inn
+1 Ant-Man, Scott Lang
+1 Armed Response
+1 Bee Sting
+1 Big Bertha
+1 Blast Zone
+1 Cloud Djinn
+1 Cloud Pirates
+1 Coordinated Maneuver
+1 Cryptic Caves
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Earthshaking Si
+1 Echoing Deeps
+1 Eldrazi Temple
+1 Elite Javelineer
+1 Elspeth's Smite
+1 Faceless Haven
+1 Farrel's Zealot
+1 Fire and Brimstone
+1 Floodhound
+1 Flying Men
+11 Forest
+1 Gideon's Reproach
+1 Glaring Fleshraker
+1 Glissa's Scorn
+1 Harpoon Sniper
+1 Heavy Ballista
+1 High Market
+1 Horizon of Progress
+1 Ichneumon Druid
+1 Illvoi Galeblade
+1 Inspired Insurgent
+2 Island
+1 Lightning-Core Excavator
+1 Loran's Escape
+1 Mawcor
+1 Mystic Archaeologist
+1 Nettletooth Djinn
+1 Obscura Storefront
+1 Odric's Outrider
+1 Outflank
+6 Plains
+1 Psionic Entity
+1 Purple-Crystal Crab
+1 Questing Beast
+1 Rath's Edge
+1 Razorgrass Ambush
+1 Reveka, Wizard Savant
+1 Revered Unicorn
+1 Rootrider Faun
+1 Ruins Recluse
+1 Samite Archer
+1 Serendib Djinn
+1 Serendib Efreet
+1 Skycoach Waypoint
+1 Spawning Bed
+1 Sphinx's Herald
+1 Squall Line
+1 Storm Seeker
+1 Straw Golem
+1 Tangletrap
+1 Thelon's Chant
+1 Thran Quarry
+1 Three Tree City
+1 Time Elemental
+1 Tolarian Winds
+1 Tomb of the Spirit Dragon
+1 Tracker
+1 Trenchpost
+1 Unyaro Bee Sting
+1 Unyaro Bees
+1 Urza's Chalice
+1 Urza's Factory
+1 Verdant Automaton
+1 Volunteer Reserves
+1 Warped Landscape
+1 Witch Hunter
+1 Wooden Sphere
+1 Xenobotanist
+1 Zuran Spellcaster
+
+[commander]
+Angus Mackenzie

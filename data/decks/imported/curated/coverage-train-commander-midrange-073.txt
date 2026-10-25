@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BR #20266074]
-1 Accursed Horde
-1 Asphodel Wanderer
-1 Black Dragon Gate
-1 Black Poplar Shaman
-1 Bloodcrazed Paladin
-1 Bloodshot Cyclops
-1 Bog Wreckage
-1 Bojuka Bog
-1 Breathstealer
-1 Canal Monitor
-1 Catacomb Crocodile
-1 Catacomb Slug
-1 Cemetery Gate
-1 Crypt Ripper
-1 Dakmor Scorpion
-1 Dread Shade
-1 Dross Prowler
-1 Drudge Reavers
-1 Emeritus of Woe
-1 Gamble
-1 Ghosts of the Damned
-1 Great Arashin City
-1 Hag of Dark Duress
-1 Headstone
-1 Hidden Necropolis
-1 Highland Giant
-1 Hive of the Eye Tyrant
-1 Hollowhead Sliver
-1 Howltooth Hollow
-1 Hyalopterous Lemure
-1 Mana Leech
-1 Memorial to Folly
-1 Mindwarper
-10 Mountain
-1 Mountain Titan
-1 Noxious Groodion
-1 Obsidian Giant
-1 Olivia's Dragoon
-1 Peat Bog
-1 Phyrexian Gremlins
-1 Piranha Marsh
-1 Python
-1 Rabid Rats
-1 Raiding Nightstalker
-1 Rakdos Locket
-1 Rathi Assassin
-1 Realm of Koh
-1 Sedge Troll
-1 Shadowblood Egg
-1 Shimian Night Stalker
-1 Skeletal Changeling
-1 Skeletal Crocodile
-1 Skeletal Snake
-1 Skittering Heartstopper
-1 Skyraker Giant
-1 Spymaster's Vault
-1 Squirrelanoids
-1 Susur Secundi, Void Altar
-15 Swamp
-1 Terror of the Fairgrounds
-1 Tomb Fortress
-1 Tor Giant
-1 Ukud Cobra
-1 Unworthy Dead
-1 Veiled Shade
-1 Venomous Changeling
-1 Viashino Skeleton
-1 Viscid Lemures
-1 Vivid Marsh
-1 Wall of Putrid Flesh
-1 Wall of Shadows
-1 Wall of Tombstones
-1 Wandering Tombshell
-1 Wishclaw Talisman
-1 Zodiac Pig
-1 Zombie Trailblazer
+[deck:commander midrange WG #20266074]
+1 Ancient Spider
+1 Angelic Renewal
+1 Argoth, Sanctum of Nature
+1 Armored Wolf-Rider
+1 Atzocan Seer
+1 Aura Fracture
+1 Battle Hurda
+1 Cave of the Frost Dragon
+1 Collision Course
+1 Conifer Strider
+1 Desert of the Indomitable
+1 Devout Decree
+1 Emerald Oryx
+1 Emeria, the Sky Ruin
+1 Endangered Armodon
+1 Enraged Ceratok
+1 Evendo, Waking Haven
+1 Finale of Devastation
+13 Forest
+1 Gibbering Hyenas
+1 Gingerbread Cabin
+1 Golden Bear
+1 Great-Horn Krushok
+1 Hidden Nursery
+1 Impeccable Timing
+1 Imperial Oath
+1 Kami of Old Stone
+1 Kessig Recluse
+1 Lay of the Land
+1 Mammoth Spider
+1 Marble Titan
+1 Memorial to Unity
+1 Mistveil Plains
+1 Moss Monster
+1 Nature's Lore
+1 Nettle Swine
+1 Oran-Rief, the Vastwood
+1 Ordinary Bear
+1 Pierce the Sky
+12 Plains
+1 Plated Wurm
+1 Predatory Hunger
+1 Rampaging Hippo
+1 Raven's Run Dragoon
+1 Reroute Systems
+1 Ritual of Restoration
+1 River Bear
+1 Rockcaster Platoon
+1 Rubbleback Rhino
+1 Safewright Quest
+1 Sapseep Forest
+1 Satyr Enchanter
+1 Selesnya Sagittars
+1 Shared Roots
+1 Sheltering Light
+1 Shower of Arrows
+1 Silverback Ape
+1 Skywhaler's Shot
+1 Southern Elephant
+1 Swift Spinner
+1 The Shire
+1 Thornling
+1 Thriving Grove
+1 Timberland Ruins
+1 Vine Mare
+1 Viridian Scout
+1 Wall of Pine Needles
+1 Wardscale Crocodile
+1 Warthog
+1 Wary Okapi
+1 Wild Ox
+1 Wildwood Rebirth
+1 Wrenn and Realmbreaker
+1 Zanarkand, Ancient Metropolis
+1 Zodiac Horse
+1 Zodiac Ox
 
 [commander]
-Axelrod Gunnarson
+Lady Caleria

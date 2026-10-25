@@ -90,6 +90,11 @@ pub fn pair_synergy(a: &CardProfile, b: &CardProfile) -> f64 {
         }
     }
 
+    // 3b. Snow permanents & snow-matter payoffs
+    if a.cares_about_snow && b.cares_about_snow {
+        score += 1.8;
+    }
+
     // 4. Continuous 48-dim CardDsl cosine similarity
     let mut dot = 0.0_f32;
     for i in 0..48 {
@@ -128,6 +133,10 @@ pub struct DeckThemeAccumulator {
     pub interaction_count: u16,
     /// Number of card-advantage/draw/tutor/recursion cards (`MASK_CARD_ADVANTAGE`).
     pub card_advantage_count: u16,
+    /// Number of snow-synergy cards currently in the deck.
+    pub snow_count: u16,
+    /// Number of Equipment and Aura cards currently in the deck.
+    pub equipment_aura_count: u16,
     /// Running sum of `dsl_vec` across all added cards.
     pub dsl_sum: [f32; 48],
 }
@@ -146,6 +155,8 @@ impl Default for DeckThemeAccumulator {
             ramp_count: 0,
             interaction_count: 0,
             card_advantage_count: 0,
+            snow_count: 0,
+            equipment_aura_count: 0,
             dsl_sum: [0.0; 48],
         }
     }
@@ -167,6 +178,12 @@ impl DeckThemeAccumulator {
                 let entry = self.subtype_counts.entry(st).or_insert(0);
                 *entry = entry.saturating_add(copies);
             }
+        }
+        if profile.cares_about_snow {
+            self.snow_count = self.snow_count.saturating_add(copies);
+        }
+        if profile.is_equipment_or_aura {
+            self.equipment_aura_count = self.equipment_aura_count.saturating_add(copies);
         }
         if !profile.land {
             self.spell_count = self.spell_count.saturating_add(copies);
@@ -217,6 +234,12 @@ impl DeckThemeAccumulator {
                     *entry = entry.saturating_sub(copies);
                 }
             }
+        }
+        if profile.cares_about_snow {
+            self.snow_count = self.snow_count.saturating_sub(copies);
+        }
+        if profile.is_equipment_or_aura {
+            self.equipment_aura_count = self.equipment_aura_count.saturating_sub(copies);
         }
         if !profile.land {
             self.spell_count = self.spell_count.saturating_sub(copies);
@@ -307,6 +330,11 @@ impl DeckThemeAccumulator {
             }
         }
 
+        // 3b. Snow permanents & snow-matter payoffs
+        if cand.cares_about_snow && self.snow_count > 0 {
+            score += 1.8 * (f64::from(self.snow_count) / denom).sqrt();
+        }
+
         // 4. Centroid cosine similarity in 48-dim CardDsl space
         let mut dot = 0.0_f32;
         for i in 0..48 {
@@ -360,6 +388,15 @@ impl DeckThemeAccumulator {
             let deficit = f64::from(target_draw - self.card_advantage_count)
                 / f64::from(target_draw.max(1));
             bonus += 1.7 * deficit;
+        }
+        // Equipment/Aura guard: ensure enough creatures to wear them
+        if cand.is_equipment_or_aura {
+            let max_eq = (f64::from(self.creature_count) * 0.25).ceil() as u16 + 2;
+            if self.equipment_aura_count >= max_eq {
+                bonus -= 2.5;
+            }
+        } else if cand.creature && self.equipment_aura_count > 2 {
+            bonus += 0.6;
         }
         // Creature vs non-creature balance
         if cand.creature {

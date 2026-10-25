@@ -1,0 +1,23 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUB #20266312]
+1 Ancient Spring
+1 Arcane Sanctum
+1 Contaminated Landscape
+2 Council of Advisors
+4 Dakmor Lancer
+3 Dromar's Cavern
+4 Hero of the Dunes
+4 Honored Knight-Captain
+5 Island
+4 Kindly Customer
+4 Lotus-Eye Mystics
+2 Ostiary Thrull
+5 Plains
+2 Profane Tutor
+2 Raffine's Tower
+2 Spellseeker
+5 Swamp
+3 Ultimecia, Temporal Threat
+4 Vampiric Tutor
+2 Wizards' School

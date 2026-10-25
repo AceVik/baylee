@@ -4,18 +4,18 @@
 4 Ancestral Vision
 1 Barkchannel Pathway
 3 Breeding Pool
-2 Forest
-1 Guardian of Solitude
-13 Island
-4 Jin-Gitaxias, Progress Tyrant
-2 Miscalculation
-4 Opt
-4 Orbweaver Kumo
-2 Path of Annihilation
+1 Elementalist Adept
+3 Forest
+12 Island
+2 Jeskai Sage
+3 Pelakka Wurm
 4 Prescient Chimera
+2 Primal Amulet
+4 Riverwheel Aerialists
 3 Stymied Hopes
 4 Tangleroot
-3 Tidespout Tyrant
+4 Three Steps Ahead
+4 Tidespout Tyrant
 2 Waterlogged Grove
 2 Willowrush Verge
 2 Yavimaya Coast

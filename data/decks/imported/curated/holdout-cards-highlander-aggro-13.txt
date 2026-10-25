@@ -1,81 +1,81 @@
-# baylee unseen-card holdout highlander seed=90000026
+# baylee unseen-card holdout highlander seed=90000019
 # licence: AGPL-3.0-only
-[deck:highlander aggro UG #90000026]
+[deck:highlander aggro UG #90000019]
 1 Alchemist's Refuge
-1 Aquatic Incursion
-1 Arcane Flight
-1 Balamb Garden, SeeD Academy
+1 Ancestral Vision
+1 Ant-Man, Reformed Rogue
+1 Argothian Enchantress
 1 Barkchannel Pathway
-1 Blisterpod
+1 Bog-Strider Ash
+1 Botanical Sanctum
 1 Breeding Pool
-1 Briar Shield
-1 Cartouche of Knowledge
-1 Clammy Prowler
-1 Coral Barrier
-1 Corsair Captain
-1 Creature Bond
-1 Crosswinds
-1 Curiosity
-1 Dance of Many
-1 Deranged Hermit
-1 Drowned Rusalka
-1 Drowner of Hope
-1 Eidolon of Blossoms
-1 Eidolon of Philosophy
-1 Eldrazi Skyspawner
-1 Elvish Farmer
-1 Fanatic of Rhonas
-1 Fang of Shigeki
-1 Flight of Fancy
+1 Careful Study
+1 Charge Through
+1 Citanul Druid
+1 Clairvoyance
+1 Cloak of Feathers
+1 Constricting Tendrils
+1 Cruel Witness
+1 Customs Depot
+1 Deeproot Champion
+1 Drowner Initiate
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Elvish Handservant
+1 Etherium Spinner
+1 Fleeting Distraction
 1 Flooded Grove
-1 Floodhound
-1 Font of Fertility
-1 Forecasting Fortune Teller
-13 Forest
-1 Frog Tongue
-1 Garruk's Uprising
-1 Gilded Goose
-1 Greensleeves, Maro-Sorcerer
-1 Haywire Mite
-1 Hinterland Harbor
-1 Illuminated Wings
-1 Imperious Perfect
-1 Incubator Drone
-11 Island
-1 Jewel-Eyed Cobra
-1 Kavu Lair
-1 Kozilek's Predator
-1 Malcator's Watcher
-1 Meditation Pools
-1 Multani's Harmony
-1 Nest Invader
-1 Night Soil
+9 Forest
+1 Generous Visitor
+1 Hesitation
+1 Hidden Spider
+1 Hurricane
+1 Iguana Parrot
+1 Ingenious Skaab
+15 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jhessian Thief
+1 Jinx
+1 Kami of the Hunt
+1 Kulrath Mystic
+1 Lifesmith
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mana Drain
+1 Medusa, Inhuman Queen
+1 Merrow Reejerey
+1 Mistfire Adept
+1 Mistral Singer
+1 Mold Adder
 1 Novijen, Heart of Progress
-1 Orochi Hatchery
 1 Overflowing Basin
-1 Portcullis Vine
-1 Rejuvenating Springs
-1 River's Favor
-1 Rot Shambler
-1 S.H.I.E.L.D. Deployment Drone
-1 Sanctum Weaver
-1 Savage Hunger
-1 Scion Summoner
-1 Setessan Training
-1 Sheltering Boughs
-1 Shield Sphere
+1 Pact of Negation
+1 Primordial Sage
+1 Prosperity
+1 Psychic Barrier
+1 Pym Particles
+1 Restless Vinestalk
+1 Ringwarden Owl
+1 Shadow Rift
+1 Shocking Grasp
+1 Shorecrasher Mimic
 1 Simic Guildgate
-1 Spreading Algae
-1 Starlit Mantle
-1 Stratus Walk
-1 Super Intelligence
-1 Thallid
-1 Thallid Devourer
+1 Sky Theater Strix
+1 Slip Through Space
+1 Soilshaper
+1 Stymied Hopes
+1 TVA Bureaucrat
+1 Take Down
+1 Talrand, Sky Summoner
+1 Thornwood Falls
+1 Three Steps Ahead
+1 Thunderous Snapper
 1 Tropical Island
-1 Viscerid Drone
-1 Wall of Kelp
-1 Wall of Mulch
+1 Umara Entangler
+1 Vedalken Blademaster
+1 Veiled Apparition
+1 Veiled Sentry
 1 Waterlogged Grove
-1 Web
 1 Willowrush Verge
-1 Wirewood Hivemaster
+1 Wing Commando
+1 Yavimaya Coast

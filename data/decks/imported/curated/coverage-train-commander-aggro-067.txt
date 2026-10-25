@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UBR #20266068]
+1 Aegis of the Meek
+1 Amulet of Kroog
+1 Assembly-Worker
+1 Augmenting Automaton
+1 Barad-dûr
+1 Blazing Specter
+1 Bog Wreckage
+1 Bone Flute
+1 Brass-Talon Chimera
+1 Chariot of the Sun
+1 Chimeric Idol
+1 Clay Statue
+1 Clockwork Steed
+1 Clockwork Swarm
+1 Coral Helm
+1 Crimson Muckwader
+1 Deathbringer Thoctar
+1 Discordant Spirit
+1 Diversion Unit
+1 Ebony Horse
+1 Expanded Anatomy
+1 Extruder
+1 Floodwater Dam
+1 Forgotten Sentinel
+1 Frostburn Weird
+1 Galvanic Key
+1 Giant Slug
+1 Goldhound
+1 Guardians of Meletis
+1 Hive of the Eye Tyrant
+1 Hoof Skulkin
+1 Hopping Automaton
+1 Horrible Hordes
+1 Iron-Heart Chimera
+11 Island
+1 Jidoor, Aristocratic Capital
+1 Jwari Shapeshifter
+1 Kederekt Creeper
+1 Lead-Belly Chimera
+1 Liquimetal Coating
+1 Living Armor
+1 Magosi, the Waterveil
+1 Marble Priest
+1 Memorial to War
+1 Mercadian Bazaar
+1 Mischievous Sneakling
+1 Moriok Replica
+1 Mortuary Mire
+13 Mountain
+1 Myr Landshaper
+1 Needlebug
+1 One-Eyed Scarecrow
+1 Oscorp Industries
+1 Prowler's Helm
+1 Realm of Koh
+1 Relic Barrier
+1 Rusted Sentinel
+1 Scarecrow
+1 Skeletal Changeling
+1 Soldevi Golem
+1 Soldevi Steam Beast
+1 Stuffed Bear
+1 Teferi's Isle
+1 Tek
+1 Thriving Moor
+1 Tin-Wing Chimera
+1 Tomb Fortress
+1 Tumble Magnet
+1 Venser's Sliver
+1 War Chariot
+1 Warship Flight Crew
+1 Watchdog
+1 Welder Automaton
+1 Wishclaw Talisman
+1 Witch's Cottage
+1 Woodlot Crawler
+1 Zelyon Sword
+
+[commander]
+Kess, Dissident Mage

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266208]
+1 Baloth Woodcrasher
+1 Barkchannel Pathway
+1 Bayou
+1 Blood Pet
+1 Blood Vassal
+1 Boon of the Wish-Giver
+1 Breeding Pool
+1 Brilliant Plan
+1 Bubbling Muck
+1 Cabal Ritual
+1 Charge Through
+1 Clearwater Pathway
+1 Consult the Star Charts
+1 Curiosity
+1 Darkbore Pathway
+1 Delighted Halfling
+1 Dig Through Time
+1 Dimir Keyrune
+1 Dire Undercurrents
+1 Enter the Enigma
+1 Eternity Snare
+1 Foreboding Landscape
+3 Forest
+1 Frog Butler
+1 Fungal Shambler
+1 Golgari Keyrune
+1 Goobbue Gardener
+1 Gravebind
+1 Gumato
+1 Gyre Engineer
+1 Hidden Lair
+1 Howling Banshee
+1 Icewind Elemental
+15 Island
+1 Jungle Barrier
+1 Kavu Lair
+1 Keeper of Tresserhorn
+1 Lay Claim
+1 Leyline Prowler
+1 Lingering Mirage
+1 Llanowar Wastes
+1 Lull
+1 Mightstone's Animation
+1 Nephalia Drownyard
+1 Nimble Innovator
+1 Novijen, Heart of Progress
+1 Opal Lake Gatekeepers
+1 Opulent Palace
+1 Overflowing Insight
+1 Overgrown Tomb
+1 Poison Dart Frog
+1 Poison the Blade
+1 Poisonbelly Ogre
+1 Pym Particles
+1 Reach Through Mists
+1 Rhox Oracle
+1 Sea Gate Restoration
+1 Simic Keyrune
+1 Skull of Ramos
+1 Slipstream Eel
+1 Soul Read
+1 Startling Development
+1 Striped Riverwinder
+8 Swamp
+1 Sylvan Caryatid
+1 Tainted Isle
+1 Tangled Florahedron
+1 Tidings
+1 Time Spiral
+1 Tishana's Tidebinder
+1 Trade Routes
+1 Tropical Island
+1 Vampiric Spirit
+1 Wave-Wing Elemental
+1 Willowrush Verge
+1 Zagoth Triome
+
+[commander]
+Muldrotha, the Gravetide

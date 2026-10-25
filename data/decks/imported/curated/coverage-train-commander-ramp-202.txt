@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266203]
+1 Akki Rockspeaker
+1 An-Havva Township
+1 Angel of Flight Alabaster
+1 Angel of the God-Pharaoh
+1 Ashen Firebeast
+1 Atalan Jackal
+1 Avacyn, Angel of Hope
+1 Carven Caryatid
+1 Chosen by Heliod
+1 Cocoon
+1 Crater Hellion
+1 Desolation of Smaug
+1 Dragon Tyrant
+1 Emeria Angel
+1 Excavation Mole
+1 Fasting
+1 Fecundity
+1 Fungal Bloom
+1 Gavony Township
+1 Go Forth
+1 Granitic Titan
+1 Groundchuck & Dirtbag
+1 Grove of the Burnwillows
+1 Grove of the Guardian
+1 Hellkite Igniter
+1 Hushwood Verge
+1 Inheritance
+1 Into the North
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Karmic Guide
+1 Keen-Eyed Raven
+1 Lava Serpent
+1 Mirri's Guile
+1 Morselhoarder
+1 Natural Order
+1 Nature's Lore
+1 Nesting Dovehawk
+1 Neverwinter Dryad
+1 Omen of the Sun
+1 Pileated Provisioner
+1 Pillardrop Rescuer
+1 Plateau
+1 Rampaging Hippo
+1 Requiem Angel
+1 Reya Dawnbringer
+1 Ridge Rannet
+1 Rith's Grove
+1 Rock Basilisk
+1 Rune of Protection: Artifacts
+1 Sacred Foundry
+1 Seismic Spike
+1 Shared Roots
+1 Sheltering Landscape
+1 Shore Lurker
+1 Silent Sentinel
+1 Skarrg, the Rage Pits
+15 Snow-Covered Forest
+4 Snow-Covered Mountain
+7 Snow-Covered Plains
+1 Soulcatcher
+1 Subjugator Angel
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Supply-Line Cranes
+1 Sylvan Anthem
+1 Tinder Farm
+1 Tranquil Path
+1 Transdimensional Bovine
+1 Tribute to the World Tree
+1 Veldt
+1 Violent Impact
+1 Voice of the Provinces
+1 War Dance
+1 Wrenn and Realmbreaker
+1 Youthful Valkyrie
+
+[commander]
+Palladia-Mors

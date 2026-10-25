@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WB #20266034]
-1 Angelic Curator
-1 Angelic Overseer
-1 Aven Mindcensor
-1 Aven Redeemer
-1 Aven Sentry
-1 Aven Trooper
-1 Beacon Hawk
-1 Bloodied Ghost
-1 Carrion Screecher
-1 Combat Professor
-1 Companion of the Trials
-1 Courier Hawk
-1 Dauntless Aven
-1 Deathless Angel
-1 Detection Tower
-1 Dispatch
-1 Dunes of the Dead
-1 Duskrider Falcon
-1 Eagle of the Great Shelf
-1 Eagle of the Watch
-1 Eclipsed Steppe
-1 Eden, Seat of the Sanctum
-1 Encroaching Wastes
-1 Esper Panorama
-1 Fisk Tower
-1 Ghirapur Osprey
-1 Glyph of Doom
-1 Goldmire Bridge
-1 Guardian Kirin
-1 Healer's Flock
-1 Herald of Serra
-1 Insomnia, Crown City
-1 Kabuto Moth
-1 Lieutenant Kirtar
-1 Malach of the Dawn
-1 Mesa Falcon
-1 Mire Shade
-1 Moaning Spirit
-1 Mothrider Patrol
-1 Orzhov Basilica
-1 Pit Raptor
-20 Plains
-1 Radiant, Archangel
-1 Ravenous Skirge
-1 Ravine Raider
-1 Remove Enchantments
-1 Royal Falcon
-1 Rumble Arena
-1 Sanctum of Eternity
-1 Screeching Soulbreaker
-1 Searchlight Geist
-1 Secret Base
-1 Segovian Angel
-1 Shepherd of the Lost
-1 Shinewend
-1 Shriekdiver
-1 Shrike Force
-1 Skeletal Kathari
-1 Skyshroud Falcon
-1 Sledding Otter-Penguin
-1 Soulscour
-1 Squall Drifter
-1 Starlit Angel
-1 Stonerise Spirit
-1 Sustaining Spirit
-1 Suture Spirit
-5 Swamp
-1 Their Name Is Death
-1 Thunder Spirit
-1 Umbral Expanse
-1 Urza's Workshop
-1 Vault Skirge
-1 Voice of Duty
-1 Voice of Law
-1 Voice of Reason
-1 Voice of Truth
+[deck:commander midrange WG #20266034]
+1 Absolute Grace
+1 Absolute Law
+1 Arboria
+1 Awakening
+1 Barbed Foliage
+1 Black Ward
+1 Blue Ward
+1 Bower Passage
+1 Broken Fall
+1 Burden of Guilt
+1 Call of the Wild
+1 Capital City
+1 Cavernous Maw
+1 Choke
+1 Circle of Protection: Shadow
+1 Command Beacon
+1 Conversion
+1 Crackdown
+1 Crisis of Conscience
+1 Damping Field
+1 Day of Destiny
+1 Deadfall
+1 Dense Canopy
+1 Dense Foliage
+1 Dryad of the Ilysian Grove
+1 Earthcraft
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Elven Fortress
+1 Ephara's Radiance
+1 Fear of Surveillance
+11 Forest
+1 Gallifrey Council Chamber
+1 Golden-Tail Disciple
+1 Gossamer Chains
+1 Great Wall
+1 High Ground
+1 Holdout Settlement
+1 Humility
+1 Ifh-Bíff Efreet
+1 Inventors' Fair
+1 Island Sanctuary
+1 Karma
+1 Kindercatch
+1 Kjeldoran Frostbeast
+1 Living Plane
+1 Lucent Liminid
+1 Mantle of Leadership
+1 Might of the Ancestors
+1 Molting Skin
+1 Nettletooth Djinn
+1 Noble Steeds
+1 Nyxborn Courser
+14 Plains
+1 Powerleech
+1 Retaliation
+1 Righteous Aura
+1 Rolling Stones
+1 Root Cage
+1 Rule of Law
+1 Safeguard
+1 Secret Tunnel
+1 Seeker
+1 Song of Serenity
+1 Talon Gates of Madara
+1 The Mycosynth Gardens
+1 The Tabernacle at Pendrell Vale
+1 Tranquil Grove
+1 Unholy Citadel
+1 Unlikely Alliance
+1 Urza's Mine
+1 Venerable Lammasu
+1 Vesuva
+1 Walk-In Closet
+1 Warped Landscape
+1 Wooded Foothills
 
 [commander]
-Selenia, Dark Angel
+Jasmine Boreal

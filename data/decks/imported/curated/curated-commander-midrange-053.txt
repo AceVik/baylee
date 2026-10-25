@@ -1,72 +1,72 @@
 # baylee curated commander midrange seed=20261076
 # licence: AGPL-3.0-only
-[deck:commander midrange R #20261076]
-1 Akki Rockspeaker
-1 Beetleback Chief
-1 Dismissive Pyromancer
-1 Dragon Trainer
-1 Elder Auntie
-1 Firefist Adept
-1 Fogwell's Gym
-1 Forge Devil
-1 Foundry Street Denizen
-1 Ghirapur Gearcrafter
-1 Ghitu Slinger
-1 Goblin Arsonist
-1 Goblin Commando
-1 Goblin Engineer
-1 Goblin Gang Leader
-1 Goblin Instigator
-1 Goblin Recruiter
-1 Goblin Settler
-1 Gremlin Infestation
-1 Hammerheim
-1 Hearthcage Giant
-1 Hellion Crucible
-1 Imperial Recruiter
-1 Iron Man, Tony Stark
-1 Kamahl, Pit Fighter
-1 Keldon Necropolis
-1 Kruin Striker
-1 Legion Extruder
-1 Mana Crypt
-1 Manic Vandal
-1 Mogg Bombers
-34 Mountain
-1 Mudbutton Torchrunner
-1 Munitions Enthusiast
-1 Murasa Pyromancer
-1 Nebula Dragon
-1 Orcish Cannonade
-1 Orochi Hatchery
-1 Pashalik Mons
-1 Pia and Kiran Nalaar
-1 Pia, Determined Rebuilder
-1 Priest of Urabrask
-1 Pyrite Spellbomb
-1 Ramunap Ruins
-1 Reckless Fireweaver
-1 Reckless Lackey
-1 Redcap Thief
-1 Sardian Avenger
-1 Sell-Sword Brute
-1 Shinka, the Bloodsoaked Keep
-1 Shocking Sharpshooter
-1 Siege-Gang Commander
-1 Skirk Prospector
-1 Skirsdag Cultist
-1 Sparkmage Apprentice
-1 Storm Caller
-1 Subterranean Scout
-1 Treetop Freedom Fighters
-1 Tuktuk Grunts
-1 Tuktuk Scrapper
-1 Underfoot Underdogs
-1 Voldaren Epicure
-1 Volley Veteran
-1 Weaponize the Monsters
-1 Wily Goblin
-1 Zo-Zu the Punisher
+[deck:commander midrange G #20261076]
+1 Afiya Grove
+1 Ajani's Comrade
+1 Arctic Wolves
+1 Beast-Kin Ranger
+1 Blighted Woodland
+1 Bond Beetle
+1 Carven Caryatid
+1 Centaur Garden
+1 Cocoon
+1 Cyclone
+1 Dauntless Survivor
+1 Deeproot Elite
+1 Doubling Season
+1 Druid Class
+1 Drumhunter
+1 Eidolon of Blossoms
+1 Elvish Handservant
+1 Elvish Vanguard
+1 Force of Nature
+34 Forest
+1 Gaea's Cradle
+1 Graypelt Hunter
+1 Green Mana Battery
+1 Guardian of the Halls
+1 Hashep Oasis
+1 Healer of the Glade
+1 Hornet Queen
+1 Howling Giant
+1 Intrepid Provisioner
+1 Ironshell Beetle
+1 Ivy Lane Denizen
+1 Jade Bearer
+1 Jade Guardian
+1 Kronch Wrangler
+1 Llanowar Sentinel
+1 Llanowar Visionary
+1 Maddening Wind
+1 Marshdrinker Giant
+1 Migrating Ketradon
+1 Most Wanted
+1 Multani's Acolyte
+1 Murasa Ranger
+1 Oakhollow Village
+1 Oran-Rief Survivalist
+1 Origin of Metalbending
+1 Qasali Slingers
+1 Retreat to Kazandu
+1 Rishkar, Peema Renegade
+1 Satyr Grovedancer
+1 Sazh's Chocobo
+1 Setessan Champion
+1 Shield Sphere
+1 Snakeskin Veil
+1 Sunshower Druid
+1 Territorial Scythecat
+1 Timberland Guide
+1 Titania, Protector of Argoth
+1 Tribute to the World Tree
+1 Valley Mightcaller
+1 Vinelasher Kudzu
+1 Viridian Shaman
+1 Walking Ballista
+1 Wild Wanderer
+1 Wood Elves
+1 Xindi Surveyors
+1 Yavimaya Hollow
 
 [commander]
-The Whizzer, Classic Speedster
+Blor the Impervious

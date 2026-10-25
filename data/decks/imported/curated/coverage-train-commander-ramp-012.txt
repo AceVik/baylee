@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WBR #20266013]
-1 Anurid Murkdiver
-1 Argivian Find
-1 Avacyn, Angel of Hope
-1 Barad-dûr
-1 Belligerent Guest
-1 Bishop of Rebirth
-1 Bloodstone Cameo
-1 Boar-q-pine
-1 Bog Wreckage
-1 Breath of Life
-1 Deadly Visit
-1 Desert of the Glorified
-1 Drill Too Deep
-1 Elesh Norn, Grand Cenobite
-1 Empowered Autogenerator
-1 Expedite
-1 Falkenrath Celebrants
-1 Falkenrath Exterminator
-1 False Defeat
-1 Festerleech
-1 Flamekin Village
-1 Gallowbraid
-1 Gemstone Array
-1 Harnessed Snubhorn
-1 He's Dead, Jim
+[deck:commander ramp WRG #20266013]
+1 Argoth, Sanctum of Nature
+1 Burrowing
+1 Castle Garenbrig
+1 Chocobo Camp
+1 Collective Blessing
+1 Conclave Naturalists
+1 Consecrate Land
+1 Country Roads
+1 Delighted Halfling
+1 Divine Intervention
+1 Dosan's Oldest Chant
+1 Druid of the Anima
+1 Elvish Spirit Guide
+1 Fang Guardian
+9 Forest
+1 Gigantomancer
+1 Gingerbread Cabin
+1 Great Divide Guide
+1 Head of the Homestead
 1 Heal
-1 Hellkite Punisher
-1 Hive of the Eye Tyrant
-1 Hobblefiend
-1 Icatian Town
-1 Impolite Entrance
-1 Ivory Guardians
-1 Juju Bubble
-1 Kiora of Fire and Ashes
-1 Lawless Broker
-1 Lightfoot Technique
-1 Lightning Reaver
+1 Hidden Nursery
+1 Hidden Path
+1 Holy Armor
+1 Icatian Store
+1 Improvised Armor
+1 Intrepid Stablemaster
+1 Kitchen Finks
+1 Lifeblood
 1 Lindblum, Industrial Regency
-1 Loran's Escape
-1 Lotus Blossom
-1 Loxodon Mender
-1 Madblind Mountain
-1 Maximum Overdrive
-1 Memorial to Glory
-1 Memorial to War
-2 Mountain
-1 Mtenda Griffin
-1 Nightsky Mimic
-1 Nomad Outpost
-1 Order of Whiteclay
-1 Paladin of the Bloodstained
-15 Plains
-1 Ravenous Harpy
-1 Refurbish
-1 Revered Unicorn
-1 Savai Triome
-1 Sengir Bats
-1 Shadow Stinger
-1 Shaleskin Bruiser
-1 Shattered Landscape
-1 Sheltering Light
-1 Spiteful Bully
-1 Spymaster's Vault
-1 Stalking Bloodsucker
-1 Stronghold Assassin
-9 Swamp
-1 Swamp Mosquito
-1 Swarm of Bloodflies
-1 Syndicate Trafficker
-1 Take Up the Shield
-1 The Lonely Mountain
-1 Thriving Moor
-1 Tournament Grounds
-1 Ventifact Bottle
-1 Visions
-1 Woebearer
+1 Loam Dryad
+1 Lord Magnus
+1 Magus of the Wheel
+1 Memorial to Unity
+1 Mirri's Guile
+1 Monumental Henge
+4 Mountain
+1 Nature's Claim
+1 Nexus Wardens
+1 Nightshade Dryad
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Overgrowth
+1 Peace of Mind
+13 Plains
+1 Pyknite
+1 Rashida Scalebane
+1 Ravenous Lindwurm
+1 Rejuvenate
+1 Rhox Meditant
+1 Ritual of Steel
+1 Roving Harper
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Black
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Rushwood Grove
+1 Sanctimony
+1 Sanctum Weaver
+1 Sandstone Needle
+1 Saruli Caretaker
+1 Sir Shandlar of Eberyn
+1 Solitude
+1 Spawning Grounds
+1 Spiritual Sanctuary
+1 Tanglespan Lookout
+1 The Hunter Maze
+1 True Love's Kiss
+1 Wild Roads
+1 Windbrisk Heights
+1 Winter's Night
+1 Witty Roastmaster
+1 Wose Pathfinder
+1 Wylie Duke, Atiin Hero
+1 Zanarkand, Ancient Metropolis
 
 [commander]
-Oros, the Avenger
+Johan

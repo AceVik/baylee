@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266290]
-1 Alpine Grizzly
-1 Ambush
-1 Arlinn's Wolf
-1 Ashcoat Bear
-1 Balduvian Bears
-1 Bear Cub
-1 Blazing Specter
-1 Bounding Wolf
-1 Bristlepack Sentry
-1 Brushstrider
-1 Contested Cliffs
-1 Cragcrown Pathway
-1 Darigaaz's Caldera
-1 Darkthicket Wolf
-1 Dire Fleet Captain
-1 Dire Wolves
-1 Discordant Spirit
-1 Erstwhile Trooper
-1 Fangren Hunter
-1 Firefly
-1 Flailing Drake
-1 Flowstone Shambler
-13 Forest
-1 Gangly Stompling
-1 Geothermal Crevice
+[deck:commander midrange UBG #20266290]
+1 Aisling Leprechaun
+1 Anti-Magic Aura
+1 Arrogant Vampire
+1 Balshan Collaborator
+1 Bladestitched Skaab
+1 Bogwater Lumaret
+1 Bonds of Quicksilver
+1 Bounding Krasis
+1 Clearwater Pathway
+1 Deity of Scars
+1 Demonic Torment
+1 Dimir Cutpurse
+1 Drafna's Restoration
+1 Duskwatch Hunter
+1 Eldrazi Devastator
+1 Ethereal Whiskergill
+1 Flooded Grove
+1 Foreboding Landscape
+10 Forest
+1 Freed from the Real
+1 Gaea's Skyfolk
+1 Ghost Hounds
 1 Gilacorn
-1 Gravel-Hide Goblin
+1 Glimmerdust Nap
+1 Gnarled Mass
+1 Grim Backwoods
 1 Grizzly Ghoul
-1 Havoc Devils
-1 Indicate
-1 Ivy Elemental
-1 Keldon Mantle
-1 Kessig Wolf
-1 Koskun Keep
-1 Kyscu Drake
-1 Large Bear
-1 Lurker
-1 Lurking Green Dragon
-1 Mizzix's Mastery
-1 Mogg Hollows
+1 Haunter of Nightveil
+1 Hidden Lair
+1 Hoodwink
+1 Hyalopterous Lemure
+5 Island
+1 Jump
+1 Malfunction
+1 Mark of the Oni
+1 Marsh Crocodile
 1 Moldering Karok
-1 Molten Slagheap
-1 Moopsy
-1 Mossfire Valley
-5 Mountain
-1 Noxious Groodion
-1 Pale Bears
-1 Pestilent Wolf
-1 Putrid Leech
-1 Quilled Wolf
-1 Rakdos Ragemutt
-1 Rakshasa Deathdealer
-1 Ruination Wurm
-1 Sacred Wolf
-1 Savage Lands
-1 Shambling Strider
-1 Skarrg, the Rage Pits
-1 Stampeding Wildebeests
-1 Stensia Bloodhall
-1 Stone-Throwing Devils
-7 Swamp
-1 Taiga
-1 Thornhide Wolves
-1 Trench Wurm
-1 Twisted Landscape
-1 Ulrich's Kindred
-1 Viashino Slaughtermaster
-1 Viashivan Dragon
-1 Vigilant Baloth
-1 Wall of Vines
-1 Wastewood Verge
-1 Whippoorwill
-1 Windreaper Falcon
-1 Wolfir Avenger
-1 Wyluli Wolf
-1 Young Wolf
-1 Ziatora's Proving Ground
+1 Mordenkainen's Polymorph
+1 Needlethorn Drake
+1 Nightveil Predator
+1 Nimbus Swimmer
+1 Novijen, Heart of Progress
+1 Opulent Palace
+1 Orc Sureshot
+1 Overkill
+1 Paralyzing Grasp
+1 Pit Raptor
+1 Risen Reef
+1 River Kaijin
+1 River of Tears
+1 Rootwater Depths
+1 Savage Gorilla
+1 Second Wind
+1 Shorecrasher Mimic
+1 Sick and Tired
+1 Silhouette
+1 Skyshroud Vampire
+1 Steal Artifact
+1 Stenchskipper
+1 Strangleroot Geist
+1 Sunken Ruins
+1 Svogthos, the Restless Tomb
+10 Swamp
+1 Tainted Isle
+1 Tattered Drake
+1 Torpor Dust
+1 Transmutation
+1 Twilight Mire
+1 Vampire Revenant
+1 Viridescent Bog
+1 Void Grafter
+1 Warden of Geometries
+1 Wasp Lancer
+1 Waterknot
+1 Word of Binding
+1 Word of Command
+1 Zagoth Triome
 
 [commander]
-Sek'Kuar, Deathkeeper
+Leovold, Emissary of Trest

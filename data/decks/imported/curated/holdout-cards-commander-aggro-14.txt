@@ -1,74 +1,74 @@
-# baylee unseen-card holdout commander seed=90000027
+# baylee unseen-card holdout commander seed=90000020
 # licence: AGPL-3.0-only
-[deck:commander aggro R #90000027]
-1 Aleatory
-1 Blighted Gorge
-1 Bloodfire Expert
-1 Boar-q-pine
-1 Burning Prophet
-1 Burnout
-1 Chandra's Emberling
-1 Coming In Hot
-1 Crackling Cyclops
-1 Dragon's Rage Channeler
-1 Electrostatic Field
-1 Embersmith
-1 Embraal Gear-Smasher
-1 Enraged Flamecaster
-1 Faithless Looting
-1 Festival Crasher
-1 Fire Urchin
-1 Firebrand Archer
-1 Firespitter Whelp
-1 Frenzied Devils
-1 Furious Bellow
-1 Gorilla War Cry
-1 Great Furnace
-1 Havoc
-1 Hellion Crucible
-1 Impolite Entrance
-1 Junktown
-1 Kessig Flamebreather
-1 Kher Keep
-1 Kiln Fiend
-1 Kindled Heroism
-1 Kozilek's Sentinel
-1 Lightning Visionary
-1 Mage-Ring Bully
-1 Meticulous Artisan
-1 Mindsparker
-1 Mogg Sentry
-1 Monastery Swiftspear
-32 Mountain
-1 Mox Ruby
-1 Nimble-Blade Khenra
-1 Onslaught
-1 Panic
-1 Pinnacle Monk
-1 Pyre Hound
-1 Pyre Spawn
-1 Pyroceratops
-1 Pyrogoyf
-1 Samut's Sprint
-1 Sawblade Scamp
-1 Shivan Gorge
-1 Skycrash
-1 Spark Jolt
-1 Spark Spray
-1 Spear Spewer
-1 Spellgorger Weird
-1 Storm Strike
-1 Storm-Kiln Artist
-1 Stun
-1 Taurean Mauler
-1 Telim'Tor's Edict
-1 The Vision and Scarlet Witch
-1 Thorned Moloch
-1 Titan's Strength
-1 War-Torch Goblin
-1 Weaver of Lightning
-1 Winds of Change
-1 Young Pyromancer
+[deck:commander aggro G #90000020]
+1 Ajani's Comrade
+1 Arbor Armament
+1 Archdruid's Charm
+1 Battlegrowth
+1 Beneath the Sands
+1 Bog-Strider Ash
+1 Bond Beetle
+1 Boseiju, Who Endures
+1 Bridgeworks Battle
+1 Citanul Druid
+1 Deeproot Elite
+1 Deranged Hermit
+1 Dryad Arbor
+1 Elvish Farmer
+1 Elvish Handservant
+1 Emerald Charm
+1 Fell the Pheasant
+1 Freyalise Supplicant
+1 Greenseeker
+1 Guardian Gladewalker
+1 Guardian of the Halls
+1 Hail Storm
+1 Haywire Mite
+1 Hexdrinker
+1 Hidden Guerrillas
+1 Hurricane
+1 Into the North
+1 Ironshell Beetle
+1 Kodama's Reach
+1 Kujar Seedsculptor
+1 Leaf Arrow
+1 Lifesmith
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Managorger Hydra
+1 Marsh Viper
+1 Murasa Ranger
+1 Oakhollow Village
+1 Okina, Temple to the Grandfathers
+1 Open the Gates
+1 Ornithopter
+1 Questing Beast
+1 Quirion Dryad
+1 Ruins Recluse
+1 Rustvine Cultivator
+1 Sazh's Chocobo
+1 Scute Mob
+1 Shield Sphere
+1 Skyway Sniper
+1 Slith Predator
+32 Snow-Covered Forest
+1 Spike Drone
+1 Spike Worker
+1 Squall Line
+1 Tajuru Archer
+1 Take Down
+1 Territorial Scythecat
+1 Thorn Thallid
+1 Titania's Chosen
+1 Vastwood Fortification
+1 Verdant Automaton
+1 Vinelasher Kudzu
+1 Walking Ballista
+1 Winter Blast
+1 Wirewood Lodge
+1 Yavimaya Ants
+1 Yavimaya Hollow
 
 [commander]
-Quicksilver, Pietro Maximoff
+Silvos, Rogue Elemental

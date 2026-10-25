@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266274]
+1 Albino Troll
+1 Ancient Silverback
+1 Bad River
+1 Barkhide Troll
+1 Blessed Respite
+1 Bone Saw
+1 Cat Warriors
+1 Cathar's Shield
+1 Cave Tiger
+1 Centaur Courser
+1 Channel
+1 Elite Cat Warrior
+1 Elvish Herder
+1 Elvish Ranger
+1 Eureka
+1 Feral Krushok
+1 Ferocious Zheng
+1 Field of the Dead
+1 Flood Plain
+34 Forest
+1 Forsaken Crossroads
+1 Giltgrove Stalker
+1 Gladecover Scout
+1 Grizzled Outrider
+1 Harrier Naga
+1 Horned Troll
+1 Initiate's Companion
+1 King Cheetah
+1 Lifelace
+1 Lurker
+1 Lynx
+1 Malamet Brawler
+1 Mist Leopard
+1 Mulch
+1 Murasa Brute
+1 Nacatl Savage
+1 Panther Warriors
+1 Pheres-Band Centaurs
+1 Pouncing Cheetah
+1 Predator, Flagship
+1 Public Thoroughfare
+1 Realms Uncharted
+1 Regenerate
+1 Root Snare
+1 Roots
+1 Sandals of Abdallah
+1 Scaled Behemoth
+1 Simian Brawler
+1 Spire Tracer
+1 Spore Cloud
+1 Steel Golem
+1 Summer Bloom
+1 Swordwise Centaur
+1 Tel-Jilad Archers
+1 Tel-Jilad Exile
+1 Tel-Jilad Outrider
+1 Trailblazer
+1 Troll Ascetic
+1 Vitalize
+1 Warren-Scourge Elf
+1 Wild Leotau
+1 Willow Elf
+1 Wily Bandar
+1 Wintermoon Mesa
+1 Wolfir Avenger
+1 Zodiac Tiger
+
+[commander]
+Thrun, the Last Troll

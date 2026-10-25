@@ -1,81 +1,71 @@
 # baylee curated commander ramp seed=20261034
 # licence: AGPL-3.0-only
-[deck:commander ramp WU #20261034]
-1 Adarkar Wastes
-1 Arashin Cleric
-1 Aven Fateshaper
-1 Aviation Pioneer
-1 Azorius Skyguard
-1 Backup Agent
-1 Bishop of Wings
-1 Blade Splicer
-1 Calciform Pools
-1 Captain of the Watch
-1 Cathedral Sanctifier
-1 Champion of the Parish
-1 Clarion Cathars
-1 Cloudblazer
-1 Cloudcrest Lake
-1 Coastal Tower
-1 Corsair Captain
-1 Crowd Favorites
-1 Doomed Traveler
-1 Drogskol Cavalry
-1 Drownyard Explorers
-1 Elspeth, Storm Slayer
-1 Falcon, Winged Wonder
-1 Fortified Beachhead
-1 Geist-Honored Monk
-1 Gleaming Bastion
-1 Gryff Vanguard
-1 Guarded Heir
-1 Hada Freeblade
-1 Hallowed Fountain
-1 Hengegate Pathway
-1 Honored Knight-Captain
-1 Impassioned Orator
-1 Inspiring Commander
-1 Invasion Reinforcements
-5 Island
-1 Jeong Jeong's Deserters
-1 Kazandu Blademaster
-1 Knight-Captain of Eos
-1 Kyoshi Warriors
-1 Lake-town Lookout
-1 Land Cap
-1 Loran of the Third Path
-1 Mandroid Squadron
-1 Micromancer
-1 Monk Realist
-1 Mox Pearl
-1 Mox Sapphire
-1 Mystic Gate
-1 Nimbus Maze
-1 Novice Inspector
-1 Oltec Cloud Guard
-1 Path to Exile
-21 Plains
-1 Prahv, Spires of Order
-1 Prosperous Pirates
-1 Protector of Gondor
-1 Ramosian Commander
-1 Rasputin Dreamweaver
-1 Recruiter of the Guard
-1 Resolute Reinforcements
-1 Sea of Clouds
-1 Seller of Songbirds
-1 Settlement Blacksmith
-1 Skycloud Expanse
-1 Soul Warden
-1 Spellseeker
-1 Thalakos Lowlands
-1 Thought Monitor
-1 Thraben Inspector
-1 Tundra
-1 Ultimecia, Temporal Threat
-1 Urbis Protector
-1 Wakandan Shield Guard
-1 Zhou Yu, Chief Commander
+[deck:commander ramp B #20261034]
+1 Agents of HYDRA
+1 Al Bhed Salvagers
+1 Baleful Force
+1 Barrow Witches
+1 Blightspeaker
+1 Bog Glider
+1 Cabal Patriarch
+1 Cabal Pit
+1 Callous Inspector
+1 Cateran Overlord
+1 Cha'DIch Investigator
+1 Cirith Ungol Patrol
+1 Common Crook
+1 Dakmor Lancer
+1 Deathgreeter
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Doomed Dissenter
+1 Eyeblight Cullers
+1 Greedy Freebooter
+1 Griselbrand
+1 Harvester of Souls
+1 Highway Robber
+1 Hopeless Nightmare
+1 Hostile Hostel
+1 Lead Pipe
+1 Liliana the Repentant
+1 Locthwain Lancer
+1 Lord of the Pit
+1 Maalfeld Twins
+1 Mana Crypt
+1 Marsh Flitter
+1 Massacre Wurm
+1 Mudflat Village
+1 Nimana Sell-Sword
+1 Novice Occultist
+1 Ogre Slumlord
+1 Open the Graves
+1 Pitiless Plunderer
+1 Priest of Gix
+1 Priest of Yawgmoth
+1 Profane Tutor
+1 Quest for the Gravelord
+1 Razaketh, the Foulblooded
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shizo, Death's Storehouse
+1 Soldevi Adnate
+1 Strands of Night
+1 Strongarm Thug
+35 Swamp
+1 Sweettooth Witch
+1 Takenuma, Abandoned Mire
+1 Tempting Witch
+1 Tithebearer Giant
+1 Tomb of Urami
+1 Unburied Earthcarver
+1 Undead Augur
+1 Unearth
+1 Vault Plunderer
+1 Veldrane of Sengir
+1 Village Cannibals
+1 Westvale Abbey
+1 Whisper Squad
+1 Yawgmoth, Thran Physician
 
 [commander]
-Jedit Ojanen
+Visara the Dreadful

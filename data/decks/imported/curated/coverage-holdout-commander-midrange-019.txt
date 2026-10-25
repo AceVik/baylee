@@ -1,82 +1,72 @@
 # baylee synergistic holdout coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #90010020]
-1 Aerial Engineer
-1 Al-abara's Carpet
+[deck:commander midrange W #90010020]
+1 Academy Rector
+1 Aeronaut Cavalry
+1 Affa Protector
+1 Alpine Watchdog
+1 Amrou Kithkin
+1 Ancient Den
 1 Angelic Page
-1 Anthroplasm
-1 Appa, Aang's Companion
-1 Aven Fleetwing
-1 Aven Flock
-1 Aysen Abbey
-1 Azorius Keyrune
-1 Battlefield Raptor
+1 Arahbo, the First Fang
+1 Benalish Knight
+1 Blade Splicer
 1 Blessing
-1 Bloated Toad
-1 Brushland
-1 Captain of Umbar
-1 Carnassid
-1 Cathar Commando
-1 Change the Equation
-1 Crash of Rhinos
-1 Dispel
-1 Drakewing Krasis
-1 Duskborne Skymarcher
+1 Capashen Unicorn
+1 Captain of the Watch
+1 Champion of the Parish
+1 Citywide Bust
+1 Clarion Cathars
+1 Crusader of Odric
+1 Daru Encampment
+1 Daysquad Marshal
+1 Drogskol Cavalry
 1 Dust to Dust
+1 Elite Inquisitor
+1 Farrel's Mantle
 1 Felidar Cub
-1 Flusterstorm
-13 Forest
-1 Fountain of Renewal
-1 Gabriel Angelfire
-1 Grim Monolith
-1 Hallowed Fountain
-1 Hexdrinker
-1 Hushwood Verge
+1 Flagstones of Trokair
+1 Geist-Honored Monk
+1 Guarded Heir
+1 Hada Freeblade
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Inner Sanctum
+1 Inspiring Commander
 1 Iona's Judgment
-1 Irrigation Ditch
-1 Krosan Grip
-1 Lose Focus
-1 Lunatic Pandora
-1 Mammoth Harness
-1 Marsh Viper
-1 Mindstatic
-1 Mist Dragon
-1 Moorish Cavalry
-1 Nantuko Monastery
-1 Natural State
-1 Nimbus Maze
-1 Orochi Sustainer
-1 Overflowing Basin
-1 Oversoul of Dusk
-12 Plains
-1 Progenitor Mimic
+1 Kazandu Blademaster
+1 Keepers of the Faith
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Kor Castigator
+1 Kor Haven
+1 Kor Line-Slinger
+1 Loran of the Third Path
+1 Lupinflower Village
+1 Magus of the Disk
+1 Master Splicer
+1 Mighty Mutanimals
+1 Mox Pearl
+1 Novice Inspector
+1 Operations Officer
+1 Orim, Samite Healer
+34 Plains
+1 Purify
+1 Recruiter of the Guard
 1 Reprisal
-1 Seashell Cameo
-1 Seaside Citadel
-1 Seaside Haven
-1 Seton, Krosan Protector
+1 Sacred Nectar
+1 Shefet Dunes
 1 Shield of Duty and Reason
-1 Shield of the Oversoul
+1 Siege Veteran
+1 Silent Artisan
 1 Skyhunter Patrol
 1 Skyhunter Skirmisher
-1 Skyscanner
-1 Skywinder Drake
-1 Spara's Headquarters
-1 Spike Worker
-1 Spiketail Drakeling
 1 Spirit of the Labyrinth
-1 Sungrass Prairie
-1 Thelon's Curse
-1 Thoughtbind
-1 Thoughtweft Lieutenant
-1 Thran Turbine
-1 Toxic Scorpion
-1 Tranquil Landscape
-1 Treva's Ruins
-1 Trusty Packbeast
-1 Urban Retreat
-1 Urza's Miter
-1 Waterspout Djinn
+1 Thraben Inspector
+1 Thraben Standard Bearer
+1 Venerable Knight
+1 Wakandan Shield Guard
+1 War Elephant
 
 [commander]
-Jenara, Asura of War
+Appa, Aang's Companion

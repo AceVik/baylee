@@ -3,18 +3,18 @@
 [deck:constructed control WU #20261113]
 3 Ancestral Vision
 1 Calciform Pools
-4 Guardian of Solitude
+4 Censor
 1 Hengegate Pathway
-4 In the Eye of Chaos
-3 Insight
-4 Invoke Prejudice
+2 In the Eye of Chaos
+4 Insight
 16 Island
 3 Land Cap
+4 Lunar Mystic
+3 Mana Vortex
 4 Miscalculation
-2 Niblis of Dusk
 3 Nimbus Maze
 2 Prahv, Spires of Order
 4 Preordain
-1 Prescient Chimera
-3 Presence of the Master
+1 Reflections of Littjara
 2 Sire of the Storm
+3 Vedalken Archmage

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20266185]
+1 Anaconda
+1 Bitterbloom Bearer
+1 Bitterblossom
+1 Black Poplar Shaman
+1 Bog Tatters
+1 Carrion Wall
+1 Cat Burglar
+1 Cemetery Gate
+1 Cinderhaze Wretch
+1 Consuming Ferocity
+1 Contaminated Ground
+1 Crackling Club
+1 Cudgel Troll
+1 Darigaaz's Caldera
+1 Dark Fortress
+1 Dark Heart of the Wood
+1 Dark Privilege
+1 Dauthi Marauder
+1 Dauthi Mindripper
+1 Dauthi Trapper
+1 Deathknell Berserker
+1 Deathrite Shaman
+1 Elves of Deep Shadow
+1 Fastbond
+1 Fauna Shaman
+1 Fire-Lit Thicket
+1 Flowstone Giant
+9 Forest
+1 Geothermal Crevice
+1 Gloom Pangolin
+1 Goblin Bomb
+1 Grim Backwoods
+1 Headstone
+1 Heartwood Treefolk
+1 Highland Giant
+1 Hooded Kavu
+1 Keen Sense
+1 Koskun Keep
+1 Lowland Giant
+1 Mogg Hollows
+1 Molten Vortex
+1 Moonglove Changeling
+1 Moonglove Extractor
+9 Mountain
+1 Mountain Titan
+1 Night Soil
+1 Obsidian Giant
+1 Odylic Wraith
+1 Omen of the Dead
+1 Onslaught
+1 Pitiless Gorgon
+1 Python
+1 Rag Man
+1 Raging Poltergeist
+1 Rampart Smasher
+1 Restless Bones
+1 Rix Maadi, Dungeon Palace
+1 Rowan Treefolk
+1 Savage Lands
+1 Scarwood Treefolk
+1 Shadow Rider
+1 Skarrg, the Rage Pits
+1 Skyraker Giant
+1 Spiteflame Witch
+1 Spreading Algae
+1 Stormfist Crusader
+6 Swamp
+1 The Meathook Massacre
+1 Tor Giant
+1 Training Compound
+1 Trestle Troll
+1 Twilight Mire
+1 Twisted Landscape
+1 Wardscale Crocodile
+1 Weed-Pruner Poplar
+1 Weirding Shaman
+1 Witch's Familiar
+1 Ziatora's Proving Ground
+
+[commander]
+Bartel Runeaxe

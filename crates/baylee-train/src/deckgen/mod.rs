@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
-use baylee_cards::decks::{DeckCard, LoadedDeck, leader_of};
+use baylee_cards::decks::{DeckCard, LoadedDeck};
 use baylee_cards::formats::{self, Shape};
 use baylee_core::color::{Color, ColorPair, ColorSet};
 use baylee_core::generated::index::CRYPTIC_SPIRES;
@@ -242,7 +242,7 @@ impl Pool {
                     basic: face.types.contains(TypeSet::LAND)
                         && face.supertypes.contains(SupertypeSet::BASIC),
                     creature: face.types.contains(TypeSet::CREATURE),
-                    leader: leader_of(def.index).is_some_and(|l| l.eligible),
+                    leader: profile.leader,
                     profile,
                 }
             })

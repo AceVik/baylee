@@ -1,84 +1,82 @@
 # baylee curated commander aggro seed=20261037
 # licence: AGPL-3.0-only
-[deck:commander aggro WUG #20261037]
-1 Abu Ja'far
-1 An Offer You Can't Refuse
-1 Ancestral Vision
-1 Attended Knight
-1 Aviation Pioneer
-1 Aysen Abbey
-1 Backup Agent
-1 Bishop of Wings
-1 Blade Splicer
-1 Brinebarrow Intruder
-1 Brushland
-1 Byway Courier
-1 Captain of the Watch
-1 Cathedral Sanctifier
-1 Champion of the Parish
-1 Clarion Cathars
-1 Corsair Captain
-1 Daysquad Marshal
-1 Deranged Outcast
-1 Doomed Traveler
-1 Experimental Aviator
-7 Forest
-1 Gallant Citizen
-1 Hada Freeblade
-1 Hallowed Fountain
-1 Hengegate Pathway
-1 Humbling Elder
-1 Hunted Witness
-1 Invasion Reinforcements
-1 Irrigation Ditch
-2 Island
-1 Jade Mage
-1 Jeskai Sage
-1 Kindly Customer
-1 Kronch Wrangler
-1 Loran of the Third Path
-1 Maja, Bretagard Protector
-1 Master Splicer
-1 Monastery Mentor
-1 Monk Realist
-1 Myrsmith
-1 Novice Inspector
-1 Oran-Rief Survivalist
-1 Overflowing Basin
-1 Pious Wayfarer
-15 Plains
-1 Protector of Gondor
-1 Renowned Weaver
-1 Sage of Epityr
-1 Sage of Lat-Nam
-1 Sailor of Means
-1 Sanctifier of Souls
-1 Seaside Citadel
-1 Seller of Songbirds
-1 Soul Warden
-1 Soul's Attendant
-1 Spara's Headquarters
-1 Swan Song
-1 Thalakos Lowlands
-1 The Mechanist, Aerial Artisan
-1 Thraben Inspector
-1 Thraben Standard Bearer
-1 Three Steps Ahead
-1 Timberland Guide
-1 Tranquil Landscape
-1 Treva's Ruins
-1 Tropical Island
-1 Tunnel Surveyor
-1 Ultimecia, Temporal Threat
-1 Unruly Mob
-1 Urban Retreat
-1 Venerable Knight
-1 Wakandan Shield Guard
-1 War Priest of Thune
-1 Wing Splicer
-1 Worthy Knight
-1 Yavimaya Coast
-1 Yotian Dissident
+[deck:commander aggro UB #20261037]
+1 Arnyn, Deathbloom Botanist
+1 Ayara, First of Locthwain
+1 Bastion of Remembrance
+1 Blood Artist
+1 Callous Inspector
+1 Carrier Thrall
+1 Carrion Feeder
+1 Claws of Gix
+1 Clearwater Pathway
+1 Dakmor Ghoul
+1 Darkwater Catacombs
+1 Death Watch
+1 Dimir Guildgate
+1 Discordant Piper
+1 Dreadship Reef
+1 Dream Beavers
+1 Dusk Legion Zealot
+1 Essence Feed
+1 Falkenrath Noble
+1 Fear of Lost Teeth
+1 Foul-Tongue Shriek
+1 Hidden Lair
+1 Illusions of Grandeur
+1 Imperial Seal
+1 Infectious Host
+1 Kalastria Healer
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Maalfeld Twins
+1 Maggot Carrier
+1 Mai, Scornful Striker
+1 Master of Dark Rites
+1 Midnight Charm
+1 Midnight Reaper
+1 Misery Charm
+1 Night Market Lookout
+1 Nocturnal Feeder
+1 Novice Occultist
+1 Phyrexian Gargantua
+1 Polluted Bonds
+1 Quest for the Gravelord
+1 Reanimate
+1 River Delta
+1 River of Tears
+1 Rootwater Depths
+1 Salt Marsh
+1 Sanctum Seeker
+1 Sanguine Syphoner
+1 Sarcomancy
+1 Scourge of the Undercity
+1 Serrated Scorpion
+1 Sinister Hideout
+1 Skymarch Bloodletter
+1 Sovereign's Bite
+1 Stitcher's Supplier
+24 Swamp
+1 Tainted Isle
+1 Tattered Mummy
+1 Tempting Witch
+1 Toxic Abomination
+1 Undead Augur
+1 Underground River
+1 Underground Sea
+1 Vampire Neonate
+1 Vampire Spawn
+1 Vampire's Kiss
+1 Vengeful Bloodwitch
+1 Vengeful Dead
+1 Vermin Gorger
+1 Vindictive Vampire
+1 Watery Grave
+1 Wretched Anurid
+1 Yahenni, Undying Partisan
+1 Yawgmoth's Edict
+1 Zuran Orb
 
 [commander]
-Katara, the Fearless
+Tegwyll, Duke of Splendor

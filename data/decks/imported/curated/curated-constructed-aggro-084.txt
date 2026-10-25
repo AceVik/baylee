@@ -1,20 +1,20 @@
 # baylee curated constructed aggro seed=20261107
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261107]
-2 Cathedral Sanctifier
+4 Aven Cloudchaser
 3 Cloudcrest Lake
 3 Cogwork Wrestler
-4 Fountain of Youth
-1 Island
-2 Leonin Elder
-3 Lone Missionary
-2 Mandible Justiciar
-2 Mandroid Squadron
+2 Harrier Strix
+12 Island
+4 Mox Opal
 3 Nimbus Maze
-13 Plains
-4 Rhox Meditant
-4 Roving Harper
+2 Owl Familiar
+2 Plains
+4 Raven Familiar
 3 Serenity
+2 Silver Raven
 4 Skycloud Egg
+4 Soaring Show-Off
+3 Spire Owl
 3 Tundra
-4 Werefox Bodyguard
+2 Wan Shi Tong, Librarian

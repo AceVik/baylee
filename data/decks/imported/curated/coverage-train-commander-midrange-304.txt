@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266305]
-1 Adaptive Shimmerer
-1 Anaconda
-1 Argothian Treefolk
-1 Armored Wolf-Rider
-1 Battle Hurda
-1 Beacon Behemoth
-1 Blanchwood Treefolk
-1 Branchloft Pathway
-1 Brushland
-1 Bull Hippo
-1 Changeling Sentinel
-1 Charging Troll
-1 Citanul Centaurs
-1 Clockwork Gnomes
-1 Colossapede
-1 Cudgel Troll
-1 Deadly Insect
-1 Dovin's Automaton
-1 Dutiful Servants
-1 Endangered Armodon
-1 Enraged Ceratok
-1 Erratic Portal
-1 Ethereal Champion
-1 Feral Krushok
-13 Forest
-1 Garruk's Gorehorn
-1 Gavony Township
-1 Giant Mantis
-1 Glorifier of Dusk
-1 Golden Bear
+[deck:commander midrange BG #20266305]
+1 Aegis of the Meek
+1 Amber Prison
+1 Apes of Rath
+1 Archdemon of Paliano
+1 Barbed Battlegear
+1 Barbed-Back Wurm
+1 Bayou
+1 Bubble Matrix
+1 Champion's Helm
+1 Chilling Apparition
+1 Chitinous Cloak
+1 Crowd of Cinders
+1 Darba
+1 Darkbore Pathway
+1 Darksteel Plate
+1 Disease Carriers
+1 Ebony Treefolk
+1 Emerald Oryx
+1 Fen Stalker
+1 Fireshrieker
+1 Forcefield
+12 Forest
+1 Foul Familiar
+1 Foul Orchard
+1 Ghosts of the Damned
+1 Giant Badger
 1 Golgothian Sylex
-1 Greater Basilisk
-1 Grove of the Guardian
-1 Hillcomber Giant
-1 Hollowhenge Beast
-1 Horizon Canopy
-1 Hushwood Verge
-1 Looming Altisaur
-1 Loxodon Convert
-1 Marble Titan
-1 Mosstodon
-1 Nema Siltlurker
-1 Old Ghastbark
-1 Ordinary Bear
-1 Pentagram of the Ages
-1 Petra Sphinx
-1 Pillarfield Ox
-12 Plains
-1 Return from the Wilds
-1 Riftstone Portal
-1 River Bear
-1 Rowan Treefolk
-1 Rubbleback Rhino
-1 Savannah
-1 Scattered Groves
-1 Scragnoth
-1 Selesnya Cluestone
-1 Selesnya Sagittars
-1 Siege Mastodon
-1 Skullmead Cauldron
-1 Southern Elephant
-1 Staff of Zegon
-1 Sungrass Prairie
-1 Thornglint Bridge
-1 Tower of Champions
-1 Tower of Murmurs
-1 Treefolk Healer
-1 Umbilicus
-1 Vec Townships
-1 Veldt
-1 Vitu-Ghazi, the City-Tree
-1 Wild Ceratok
-1 Wild Ox
-1 Windurst, Federation Center
-1 Zodiac Horse
-1 Zodiac Ox
+1 Gorilla Chieftain
+1 Gorilla Pack
+1 Grim Backwoods
+1 Haunted Cloak
+1 Hissing Quagmire
+1 Land Leeches
+1 Large Bear
+1 Llanowar Wastes
+1 Mindwarper
+1 Mirkwood
+1 Mole Worms
+1 Moonglove Changeling
+1 Mugato
+1 Nemesis Mask
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Python
+1 Radjan Spirit
+1 Renegade Demon
+1 Rotted Hystrix
+1 Screeching Harpy
+1 Shield of Kaldra
+1 Shimian Night Stalker
+1 Silverback Ape
+1 Skyshroud Troll
+1 Slimy Dualleech
+1 Snarling Warg
+1 Spectral Sliver
+1 Squelching Leeches
+1 Svogthos, the Restless Tomb
+13 Swamp
+1 Sword of Vengeance
+1 Tainted Wood
+1 Tenza, Godo's Maul
+1 Thornhide Wolves
+1 Thornling
+1 Thran Weaponry
+1 Trestle Troll
+1 Tumble Magnet
+1 Twilight Mire
+1 Underground Mortuary
+1 Viridescent Bog
+1 Viscid Lemures
+1 Warlord's Axe
+1 Wary Okapi
+1 Wastewood Verge
+1 Willow Satyr
+1 Wolverine Pack
+1 Xenic Poltergeist
 
 [commander]
-Emmara, Soul of the Accord
+Grist, the Hunger Tide

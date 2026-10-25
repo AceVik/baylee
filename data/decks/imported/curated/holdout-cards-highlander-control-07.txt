@@ -1,78 +1,79 @@
-# baylee unseen-card holdout highlander seed=90000017
+# baylee unseen-card holdout highlander seed=90000013
 # licence: AGPL-3.0-only
-[deck:highlander control BG #90000017]
-1 Aphelia, Viper Whisperer
-1 Archdruid's Charm
-1 Assassin's Trophy
-1 Bastion of Remembrance
-1 Bayou
+[deck:highlander control UBG #90000013]
+1 Abduction
+1 An Offer You Can't Refuse
+1 Barkchannel Pathway
+1 Blistergrub
+1 Bloodflow Connoisseur
 1 Body Snatcher
-1 Breeding Pit
+1 Bone Devourer
 1 Brotherhood Patriarch
-1 Call the Scions
-1 Cast Away Doubt
-1 Cateran Overlord
-1 Cateran Summons
-1 Caustic Hound
-1 Centaur Glade
-1 Cha'DIch Investigator
-1 Confront the Unknown
+1 Centaur's Herald
 1 Corrupted Harvester
-1 Crack Open
-1 Criminal Enterprise
-1 Crop Rotation
-1 Darkbore Pathway
-1 Deadly Derision
+1 Creakwood Liege
 1 Deathcurse Ogre
-1 Dread Reaper
+1 Deathknell Berserker
+1 Decomposition
+1 Deranged Hermit
+1 Doubling Season
+1 Dross Harvester
+1 Drowner of Hope
+1 Elderfang Ritualist
 1 Elderfang Venom
+1 Elvish Farmer
 1 Emergency Weld
-1 Failed Conversion
-1 Fiend Artisan
-13 Forest
-1 Foul Orchard
-1 Foul Play
-1 Freyalise's Charm
-1 Gilt-Leaf Palace
-1 Gnawing Zombie
-1 Golgari Germination
+1 Eyeblight Cullers
+1 Fate Foretold
+1 Fists of Ironwood
+1 Foreboding Landscape
+9 Forest
+1 Glimmerburst
+1 Glissa, the Traitor
 1 Golgari Guildmage
-1 Grim Backwoods
 1 Grim Feast
-1 Growth Spasm
-1 Kite Shield
-1 Last Laugh
+1 Grist, the Hunger Tide
+1 Haunt the Network
+1 Homarid Spawning Bed
+1 Imperious Perfect
+1 Infestation Sage
+7 Island
+1 Llanowar Mentor
 1 Llanowar Wastes
-1 Many Partings
 1 Mintstrosity
-1 Nurturing Peatland
-1 Open the Graves
-1 Overgrown Tomb
-1 Path of Annihilation
-1 Plague Spitter
-1 Profane Tutor
-1 Purraj of Urborg
+1 Morcant's Loyalist
+1 Mox Jet
+1 Novijen, Heart of Progress
+1 Opulent Palace
+1 Poison-Tip Archer
+1 Prowess of the Fair
+1 Puppet Master
 1 Quest for the Gravelord
-1 Reach for the Sky
+1 Rancor
 1 Recurring Nightmare
-1 Revive the Shire
-1 Root Out
-1 Rotwidow Pack
-1 Savor
-1 Shelob's Ambush
-1 Skeletal Wurm
+1 River Delta
+1 Robotics Mastery
+1 Rootwater Depths
+1 Sadistic Glee
+1 Skeletal Vampire
 1 Skemfar Avenger
-1 Soul Shred
+1 Slimefoot, the Stowaway
 1 Svogthos, the Restless Tomb
-14 Swamp
-1 Tainted Wood
-1 Takklemaggot
-1 They Went This Way
-1 Titan's Grave
-1 Toxin Analysis
+11 Swamp
+1 Thranduil the Strategist
+1 Thundering Spineback
+1 Tireless Provisioner
+1 Tropical Island
 1 Twilight Mire
-1 Underground Mortuary
-1 Viridescent Bog
-1 Wastewood Verge
-1 Woodland Chasm
+1 Undercity Dire Rat
+1 Underground River
+1 Urza, Lord High Artificer
+1 Violet Pall
+1 Waterlogged Grove
+1 Waterveil Cavern
+1 Watery Grave
+1 Willowrush Verge
+1 Wolfwillow Haven
+1 Wretched Throng
+1 Zagoth Triome
 1 Zendikar's Roil

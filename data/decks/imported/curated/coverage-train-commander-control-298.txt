@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WRG #20266299]
+1 Aether Shockwave
+1 Alpha Kavu
+1 Alpine Grizzly
+1 An-Havva Township
+1 Argothian Treefolk
+1 Ashcoat Bear
+1 Bear Cub
+1 Blanchwood Treefolk
+1 Bramblefort Fink
+1 Branchloft Pathway
+1 Brushland
+1 Cabaretti Initiate
+1 Canyon Wildcat
+1 Chained Brute
+1 Deer-Dog
+1 Faithful Watchdog
+1 Feral Maaka
+1 Fire-Lit Thicket
+10 Forest
+1 Forest Bear
+1 Frog-Squirrels
+1 Fyndhorn Brownie
+1 Grappling Sundew
+1 Guma
+1 Heartwood Treefolk
+1 Horned Kavu
+1 Hushwood Verge
+1 Indomitable Ancients
+1 Ironroot Treefolk
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Kavu Recluse
+1 Kithkin Healer
+1 Lightning Hounds
+1 Magnigoth Sentry
+1 Marisi's Twinclaws
+1 Mire Kavu
+1 Mizzix's Mastery
+1 Molecular Modifier
+12 Mountain
+1 Noble Panther
+1 Old Ghastbark
+1 Ordinary Bear
+1 Pale Bears
+5 Plains
+1 Plateau
+1 Pyric Salamander
+1 Raging Cougar
+1 Raging Kavu
+1 Redwood Treefolk
+1 Regathan Firecat
+1 Rith's Grove
+1 River Bear
+1 Rowan Treefolk
+1 Sabretooth Tiger
+1 Scarwood Treefolk
+1 Scrapyard Mongrel
+1 Scurrid Colony
+1 Serpentine Kavu
+1 Sheltering Landscape
+1 Slimy Kavu
+1 Song-Mad Treachery
+1 Stone Kavu
+1 Sunbillow Verge
+1 Sungrass Prairie
+1 Timberline Ridge
+1 Tinder Farm
+1 Training Compound
+1 Treefolk Healer
+1 Two-Headed Cerberus
+1 Vitu-Ghazi, the City-Tree
+1 Wild Jhovall
+1 Yavimaya Ancients
+1 Yavimaya Scion
+1 Zodiac Dog
+
+[commander]
+Jetmir, Nexus of Revels

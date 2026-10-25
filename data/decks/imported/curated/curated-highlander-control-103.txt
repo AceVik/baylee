@@ -1,78 +1,78 @@
 # baylee curated highlander control seed=20261126
 # licence: AGPL-3.0-only
 [deck:highlander control UG #20261126]
-1 Abduction
 1 Abstruse Interference
 1 Alchemist's Refuge
-1 Ambassador Oak
-1 An Offer You Can't Refuse
-1 Arasta of the Endless Web
-1 Awaken the Woods
+1 Aspiring Aeronaut
 1 Barkchannel Pathway
-1 Birthing Pod
 1 Breeding Pool
-1 Brood Weaver
-1 Cartouche of Knowledge
+1 Cephalid Scout
+1 Confirm Suspicions
+1 Contradict
 1 Crack Open
 1 Dance of Many
 1 Deduce
 1 Deeproot Waters
-1 Delusions of Mediocrity
+1 Dream Fracture
 1 Dreamroot Cascade
+1 Drowner of Hope
+1 Elephant Guide
 1 Elvenking's Halls
-1 Elvish Farmer
+1 Elvish Clancaller
 1 Fable of Wolf and Owl
-1 Fate Foretold
-1 Fell the Pheasant
+1 Faerie Formation
+1 Falcon, Winged Wonder
+1 Fanatic of Rhonas
+1 Fists of Ironwood
 1 Flooded Grove
-17 Forest
-1 Gilded Goose
+1 Floodhound
+12 Forest
+1 From Beyond
+1 Geist Snatch
 1 Glimmerburst
-1 Greensleeves, Maro-Sorcerer
-1 Growth Spasm
 1 Hard Evidence
-1 Hidden Path
 1 Homarid Spawning Bed
-1 Infested Roothold
-10 Island
-1 Launch
+1 Hornswoggle
+1 Icewind Elemental
+15 Island
+1 Jeskai Sage
 1 Launch Mishap
-1 Leaf-Crowned Visionary
-1 Lumra, Bellow of the Woods
-1 Luxurious Libation
-1 Most Wanted
-1 Mythic Proportions
+1 Llanowar Sentinel
+1 Many Partings
+1 Maul Splicer
+1 Meloku the Clouded Mirror
+1 Mongrel Pack
+1 Night Soil
 1 Novijen, Heart of Progress
 1 Orochi Hatchery
 1 Overflowing Basin
-1 Pawpatch Formation
+1 Pirate's Prize
 1 Pym Technologies
 1 Reach for the Sky
 1 Rejuvenating Springs
-1 Return from the Wilds
 1 Revive the Shire
 1 Rise of Eagles
 1 Root Out
+1 Seshiro the Anointed
 1 Simic Guildgate
+1 Spore Swarm
 1 Sprout
-1 Summit Sentinel
 1 Summoner's Bane
+1 Sustenance
 1 Swan Song
 1 Syphon Essence
+1 Tatyova, Benthic Druid
 1 Temple of Mystery
 1 The Theorist, Jace Beleren
-1 They Went This Way
-1 Thragtusk
-1 Thranduil the Strategist
-1 Titania, Protector of Argoth
-1 Trail of Evidence
+1 Three Steps Ahead
 1 Tropical Island
-1 Unfathomable Truths
-1 Unforgiving Aim
 1 Verdant Force
+1 Vodalian Hexcatcher
 1 Waterlogged Grove
 1 Welcome to . . .
 1 Willowrush Verge
-1 Wolfkin Bond
+1 Wistful Selkie
+1 Wretched Throng
 1 Wurmweaver Coil
 1 Yavimaya Coast
+1 You Find the Villains' Lair

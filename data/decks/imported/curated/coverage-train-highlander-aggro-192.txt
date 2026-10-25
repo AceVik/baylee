@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WRG #20266193]
+1 Aegis Automaton
+1 An-Havva Township
+1 Arahbo, the First Fang
+1 Attentive Sunscribe
+1 Blood Servitor
+1 Bond Beetle
+1 Boots of Speed
+1 Boros Keyrune
+1 Brass's Tunnel-Grinder
+1 Clockwork Drawbridge
+1 Dinotomaton
+1 Dovin's Automaton
+1 Dowsing Device
+1 Dragonloft Idol
+1 Elf Replica
+1 Eye of Vecna
+1 Fireforger's Puzzleknot
+3 Forest
+1 Gathering Place
+1 Geistcatcher's Rig
+1 Gene Pollinator
+1 Gruul Keyrune
+1 Hedron Scrabbler
+1 Hobblefiend
+1 Horn of Ramos
+1 Hotfoot Gnome
+1 Hulking Devil
+1 Hushwood Verge
+1 Implode
+1 Jackhammer
+1 Jetmir's Garden
+1 Jewel Thief
+1 Jungle Shrine
+1 Kor Halberd
+1 Lodestone Myr
+1 Machinesmith Automaton
+1 Mandible Justiciar
+1 Marble Gargoyle
+1 Mechanized Ninja Cavalry
+1 Memnite
+1 Metallurgeon
+15 Mountain
+1 Mountain Yeti
+1 One-Clown Band
+6 Plains
+1 Portcullis Vine
+1 Prideful Parent
+1 Prying Blade
+1 Rabbit Battery
+1 Ranger's Longbow
+1 Retrofitter Foundry
+1 Rith's Grove
+1 Russet Wolves
+1 Saltcrusted Steppe
+1 Sanctum Gargoyle
+1 Sheltering Landscape
+1 Slash Panther
+1 Soldier Replica
+1 Sparring Construct
+1 Staff of Nin
+1 Sunbaked Canyon
+1 Sundial, Dawn Tyrant
+1 Sunscorched Divide
+1 Swooping Lookout
+1 Sylvok Replica
+1 Tangle Hulk
+1 Tinder Farm
+1 Tinker's Tote
+1 Tranquil Garden
+1 Trigon of Mending
+1 Trigon of Rage
+1 Veil of Assimilation
+1 Veldt
+1 Verdant Automaton
+1 Wakandan Drone Flock
+1 Walking Wall
+1 Wall of Tanglecord
+1 Welder Automaton
+1 Wooded Bastion

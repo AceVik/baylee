@@ -1,81 +1,81 @@
 # baylee curated highlander aggro seed=20261072
 # licence: AGPL-3.0-only
 [deck:highlander aggro WG #20261072]
-1 Abu Ja'far
 1 April O'Neil, Kunoichi Trainee
-1 Avatar Enthusiasts
-1 Bishop of Wings
+1 Arashin Cleric
+1 Beloved Princess
 1 Branchloft Pathway
 1 Bretagard Stronghold
-1 Briarbridge Tracker
 1 Brushland
-1 Byway Courier
-1 Caregiver
-1 Cartographer
+1 Cathedral Sanctifier
+1 Centaur Peacemaker
 1 Champion of the Parish
-1 Dauntless Survivor
-1 Dawnhart Disciple
-1 Delney, Streetwise Lookout
-1 Deranged Outcast
-1 Doomed Traveler
-1 Dundoolin Weaver
+1 Dawnhart Rejuvenator
+1 Dedicated Martyr
+1 Delif's Cone
+1 Dwarven Priest
 1 Etched Cornfield
-1 Eternal Witness
 1 Extraction Specialist
-1 Femeref Enchantress
-9 Forest
+7 Forest
 1 Gallant Citizen
 1 Gathering Place
 1 Gavony Township
-1 Gilded Goose
-1 Groundskeeper
 1 Hada Freeblade
-1 Hunted Witness
+1 Healer of the Glade
+1 Healer of the Pride
+1 Healing Salve
 1 Hushwood Verge
+1 Impassioned Orator
 1 Implement of Improvement
+1 Inspiring Cleric
 1 Ironclad Slayer
-1 Jeong Jeong's Deserters
-1 Knight-Captain of Eos
-1 Kronch Wrangler
-1 Kyoshi Warriors
-1 Leonin Squire
-1 Loran, Disciple of History
+1 Jaddi Offshoot
+1 Kindly Customer
+1 Leonin Elder
+1 Lone Missionary
+1 Mandible Justiciar
 1 Mandroid Squadron
-1 Master Splicer
+1 Mindful Biomancer
+1 Monk Realist
 1 Mox Emerald
-1 Nighthawk, Dark Defender
 1 Novice Inspector
-1 Oran-Rief Survivalist
-15 Plains
+1 Ondu Cleric
+1 Perimeter Patrol
+1 Pious Wayfarer
+17 Plains
+1 Potion of Healing
 1 Recruiter of the Guard
 1 Renegade Rallier
-1 Renowned Weaver
 1 Riftstone Portal
-1 Salvage Scout
+1 Sanctify
 1 Savannah
-1 Setessan Champion
+1 Savannah Sage
+1 Setessan Skirmisher
 1 Setessan Starbreaker
-1 Siege Veteran
+1 Settlement Blacksmith
+1 Shu Grain Caravan
+1 Skyclave Cleric
 1 Slumbering Keepguard
-1 Staunch Defenders
-1 Stoic Builder
+1 Social Climber
+1 Soul Warden
+1 Soul's Attendant
+1 Sunbeam Spellbomb
 1 Sungrass Prairie
 1 Sunshower Druid
-1 Sylvan Safekeeper
+1 Suture Priest
+1 Tamiyo's Safekeeping
 1 Temple Acolyte
 1 Tenth District Guard
+1 Teroh's Faithful
 1 Thraben Inspector
-1 Tragic Poet
+1 Tivadar of Thorn
+1 Totem Speaker
 1 Tranquil Garden
-1 Unruly Mob
+1 Turntimber Ascetic
 1 Vec Townships
-1 Venerable Knight
-1 Village Elder
-1 Vital Splicer
+1 Venerable Monk
 1 Vitu-Ghazi, the City-Tree
-1 Wakandan Shield Guard
 1 War Priest of Thune
+1 Werefox Bodyguard
 1 Witch Enchanter
 1 Wooded Bastion
-1 Yotian Dissident
-1 Zuran Orb

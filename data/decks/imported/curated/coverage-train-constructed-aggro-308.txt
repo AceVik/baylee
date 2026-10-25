@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WRG #20266309]
+2 An-Havva Township
+2 Brazen Scourge
+2 Flowstone Giant
+5 Forest
+2 Hearthfire Hobgoblin
+2 Highland Giant
+2 Hillcomber Giant
+1 Jetmir's Garden
+3 Jungle Shrine
+2 Loxodon Convert
+1 Loxodon Gatekeeper
+2 Marble Titan
+6 Mountain
+2 Niall Silvain
+2 Obsidian Giant
+3 Plains
+2 Rampart Smasher
+1 Rith's Grove
+2 Selesnya Sentry
+2 Sheltering Landscape
+2 Skyraker Giant
+2 Tor Giant
+2 Towering Thunderfist
+2 Victual Sliver
+2 Warthog
+2 Wilt-Leaf Cavaliers
+2 Windseeker Centaur

@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BR #20266118]
-1 Aftershock
-1 Anaba Shaman
-1 Bojuka Bog
-1 Bot Bashing Time
-1 Bottomless Vault
-1 Burning Earth
-1 Consuming Bonfire
-1 Dakmor Salvage
-1 Deadbridge Shaman
-1 Deadeye Duelist
-1 Demonic Torment
-1 Den of the Bugbear
-1 Desert of the Glorified
-1 Dwarven Sea Clan
-1 Dwarven Vigilantes
-1 Eastern Paladin
-1 Electrify
-1 Emblem of the Warmind
-1 Epiphany Storm
-1 Eternal Flame
-1 Fiery Intervention
-1 Flamekin Spitfire
-1 Flowstone Salamander
-1 Foul Roads
-1 Frenzied Rage
-1 Frostling
-1 Giant Spectacle
-1 Goblin Medics
-1 Goblin War Paint
-1 Impact Tremors
-1 Karplusan Hound
-1 Kavaron, Memorial World
-1 Magmasaur
-1 Manabarbs
-1 Messenger's Speed
-1 Moment of Defiance
-1 Mortuary Mire
-19 Mountain
-1 Nightfire Giant
-1 Ogre Shaman
-1 Ophiomancer
-1 Opportunist
-1 Parch
-1 Penregon Strongbull
-1 Phyrexian Boon
-1 Piranha Marsh
-1 Pyroclastic Elemental
-1 Pyrohemia
-1 Rain of Embers
-1 Rakdos Ickspitter
-1 Ravenous Giant
-1 Reckless Embermage
-1 Retromancer
-1 Runebound Wolf
-1 Sandstone Needle
-1 Sawtooth Ogre
-1 Skull Rend
-1 Spikefield Hazard
-1 Spinerock Knoll
-1 Spiteflame Witch
-1 Spitfire Lagac
-1 Spymaster's Vault
-1 Suplex
-6 Swamp
-1 Swashbuckling
-1 Tectonic Hazard
-1 The Brute
-1 The Dross Pits
-1 Thriving Bluff
-1 Twisted Embrace
-1 Veteran's Voice
-1 Viashino Fangtail
-1 Virulent Plague
-1 Vivid Marsh
-1 Western Paladin
-1 Zombie Master
+[deck:commander midrange UB #20266118]
+1 Academy Ruins
+1 Agatha's Soul Cauldron
+1 Aku Djinn
+1 Armor Thrull
+1 Azimaet Drake
+1 Azure Drake
+1 Blue Elemental Blast
+1 Castle Locthwain
+1 Cephalid Coliseum
+1 Cerulean Wyvern
+1 Chasm Drake
+1 Coastal Drake
+1 Crypt Cobra
+1 Daily Bugle Newspaper
+1 Deathmark
+1 Deep Spawn
+1 Djinn of the Lamp
+1 Drake Hatchling
+1 Empowered Autogenerator
+1 Fighting Drake
+1 Gemstone Array
+1 Greater Werewolf
+1 Grindclock
+1 Harbinger of Night
+1 Hidden Cataract
+1 Hidden Necropolis
+1 Homarid
+1 Horizon Drake
+12 Island
+1 Lesser Werewolf
+1 Lilypad Village
+1 Messenger Drake
+1 Minamo, School at Water's Edge
+1 Mindeye Drake
+1 Mistrise Village
+1 Oboro, Palace in the Clouds
+1 Pendrell Drake
+1 Pit Imp
+1 Pit Scorpion
+1 Riptide Laboratory
+1 Rivendell
+1 Scavenger Drake
+1 Scavenging Ghoul
+1 Scrapskin Drake
+1 Screaming Phantom
+1 Seacoast Drake
+1 Searchlight Geist
+1 Serum Raker
+1 Serum Tank
+1 Shimmerscale Drake
+1 Shriekgeist
+1 Skulking Ghost
+1 Skyline Predator
+1 Soaring Drake
+1 Soldevi Excavations
+1 Souldrinker
+1 Spiketail Drake
+1 Spiketail Hatchling
+1 Spindrift Drake
+1 Spire Monitor
+1 Stalking Bloodsucker
+1 Steel Sabotage
+1 Supreme Phantom
+13 Swamp
+1 Tattered Drake
+1 Tattered Haunter
+1 Teferi's Drake
+1 Tolarian Academy
+1 Tolarian Drake
+1 Trenzalore Clocktower
+1 Urborg Drake
+1 Vedalken Infuser
+1 Ventifact Bottle
+1 Viscerid Drone
+1 Wanderlight Spirit
+1 Witch's Cottage
 
 [commander]
-Boris Devilboon
+Skeleton Ship

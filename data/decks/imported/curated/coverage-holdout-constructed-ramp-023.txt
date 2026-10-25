@@ -1,0 +1,29 @@
+# baylee synergistic holdout coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUR #90010024]
+2 Aerial Engineer
+2 Ashiok's Skulker
+2 Azorius Keyrune
+2 Battlegate Mimic
+2 Essence Flare
+2 Hallowed Fountain
+2 Inertia Bubble
+8 Island
+1 Jwari Scuttler
+2 Kukemssa Pirates
+2 Legerdemain
+3 Mountain
+2 Mystic Monastery
+1 Nimbus Maze
+4 Peculiar Lighthouse
+1 Perilous Landscape
+4 Plains
+2 Reminisce
+2 Second Chance
+2 Shattering Blow
+2 Skywinder Drake
+2 Thalakos Dreamsower
+2 Truefire Paladin
+2 Vesuvan Doppelganger
+2 Wall of Mist
+2 Waterspout Djinn

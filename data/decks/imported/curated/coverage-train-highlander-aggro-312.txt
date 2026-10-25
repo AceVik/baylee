@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUG #20266313]
+1 Aang's Defense
+1 Agent of Atlas
+1 Altered Ego
+1 Ancestral Vision
+1 Aysen Abbey
+1 Blessed Spirits
+1 Briarknit Kami
+1 Captain's Defense
+1 Chain to Memory
+1 Chitinous Graspling
+1 Constricting Tendrils
+1 Cunning Breezedancer
+1 Dawnhart Geist
+1 Deeproot Champion
+1 Deeproot Waters
+1 Drowner Initiate
+1 Elementalist Adept
+1 Elvish Handservant
+1 Etherium Spinner
+1 Fleeting Distraction
+6 Forest
+1 Frilled Oculus
+1 Gavony Township
+1 Generous Visitor
+1 Gilded Goose
+1 Gleaming Bastion
+1 Guardian of Solitude
+1 Halcyon Glaze
+1 Hallowed Fountain
+1 Hesitation
+1 Hidden Gibbons
+1 Hidden Guerrillas
+1 In the Eye of Chaos
+1 Iron Will
+1 Irrigation Ditch
+12 Island
+1 Kor Firewalker
+1 Kulrath Mystic
+1 Land Cap
+1 Lightshield Parry
+1 Lost in a Labyrinth
+1 Lurking Lizards
+1 Mana Vortex
+1 Merrow Reejerey
+1 Mold Adder
+1 Myrsmith
+1 Niblis of Dusk
+1 Omnibian
+1 Overflowing Basin
+6 Plains
+1 Primordial Sage
+1 Safehold Duo
+1 Seaside Citadel
+1 Shocking Grasp
+1 Simic Ragworm
+1 Soilshaper
+1 Solarium Sentry
+1 Spara's Headquarters
+1 Stand Firm
+1 Steeple Creeper
+1 Stormkeld Prowler
+1 Stymied Hopes
+1 Sythis, Harvest's Hand
+1 TVA Bureaucrat
+1 Talrand, Sky Summoner
+1 Teller of Tales
+1 Thistledown Duo
+1 Three Steps Ahead
+1 Tranquil Garden
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urban Retreat
+1 Vedalken Blademaster
+1 Veil of Birds
+1 Veiled Apparition
+1 Veiled Sentry
+1 Veiled Serpent
+1 Veldt
+1 Voice of Resurgence

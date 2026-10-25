@@ -1,71 +1,71 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp U #20266136]
-1 Acid Rain
-1 Ambassador Laquatus
-1 Birthing Boughs
-1 Bone Saw
-1 Citanul Flute
-1 Command Tower
-1 Crucible of the Spirit Dragon
-1 Cunning
-1 Darksteel Forge
+1 Ally Encampment
+1 Apathy
+1 Arcane Laboratory
+1 Aura Flux
+1 Benthic Behemoth
+1 Branch of Vitu-Ghazi
+1 Breaching Hippocamp
+1 Bribery
+1 Brilliant Plan
+1 City of Shadows
+1 Contempt
+1 Convincing Mirage
+1 Copy Enchantment
+1 Dark Maze
 1 Deep-Sea Serpent
-1 Deeptread Merrow
-1 Defense Grid
-1 Diplomatic Immunity
-1 Dreamwinder
-1 Drowner of Secrets
-1 Fae Flight
-1 Fishliver Oil
-1 Frilled Sea Serpent
-1 Frostwalk Bastion
-1 Geist of the Archives
-1 Glimmervoid
-1 Goblin Firebomb
-1 Homarid Explorer
+1 Dispersal Technician
+1 Dive Down
+1 Dream Tides
+1 Ephemeron
+1 Erosion
+1 Escape Routes
+1 Fleeting Image
+1 Floodchaser
+1 Frozen Aether
+1 Ghost Quarter
+1 Glowing Anemone
+1 Hisoka's Defiance
+1 Hover Barrier
 1 Iceridge Serpent
-1 Introduction to Prophecy
+1 Imaginary Pet
+1 Intruder Alarm
 35 Island
 1 Island Fish Jasconius
-1 Kukemssa Serpent
-1 Lord of Atlantis
-1 Manta Riders
-1 Master of the Pearl Trident
-1 Merfolk Raiders
-1 Merfolk Sovereign
-1 Mikokoro, Center of the Sea
-1 Misty Rainforest
-1 Neurok Replica
-1 Petrified Field
-1 Pin to the Earth
+1 It'll Quench Ya!
+1 Land Equilibrium
+1 Leave in the Dust
+1 Mana Chains
+1 Maze of Shadows
+1 Mishra's Foundry
+1 Mistfolk
+1 Mobilized District
+1 Nivix Barrier
+1 Octoprophet
+1 Opposition
+1 Pendrell Mists
+1 Phantasmal Mount
 1 Piracy Charm
-1 Pit Trap
-1 Pithing Needle
-1 Ring of Three Wishes
-1 Rishadan Dockhand
-1 Ronom Serpent
+1 Pulsating Illusion
+1 Rhystic Deluge
 1 Sea Monster
-1 Sea Serpent
-1 Seasinger
-1 Seer's Sundial
-1 Shimmer
-1 Sigiled Starfish
-1 Sisay's Ring
-1 Smuggler's Copter
-1 Spectral Cloak
-1 Svyelunite Priest
-1 Taniwha
-1 Thing from the Deep
-1 Tidal Warrior
-1 Tightening Coils
-1 Time Vault
-1 Triton Waverider
-1 Undersea Invader
-1 Ur-Golem's Eye
-1 Watchful Automaton
-1 Wormhole Serpent
-1 Zephyr Net
+1 So Shiny
+1 Spell Snare
+1 Starlight Snare
+1 Surrakar Banisher
+1 Tangle Kelp
+1 Thieving Otter
+1 Think Tank
+1 Tidal Force
+1 Unstable Shapeshifter
+1 Veiled Crocodile
+1 Viscerid Armor
+1 Vizzerdrix
+1 Wall of Tears
+1 Yarok's Wavecrasher
+1 Zephid
 
 [commander]
-The Terror of Serpent's Pass
+Aboshan, Cephalid Emperor

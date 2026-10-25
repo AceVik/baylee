@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266085]
+1 Akki Avalanchers
+1 Ancient Amphitheater
+1 Behemoth's Herald
+1 Bereavement
+1 Blazing Effigy
+1 Blazing Hellhound
+1 Bogardan Firefiend
+1 Bogardan Phoenix
+1 Boggart Cursecrafter
+1 Bristling Backwoods
+1 Careless Celebrant
+1 Charnelhoard Wurm
+1 Choked Estuary
+1 Citywatch Sphinx
+1 Contaminated Aquifer
+1 Crystal Quarry
+1 Deadapult
+1 Dragon's Herald
+1 Druids' Repository
+1 Earthlink
+1 Elderfang Venom
+1 Failed Conversion
+1 False Demise
+1 Fate Foretold
+1 Festering Thicket
+1 Fiery Mantle
+1 Forest
+1 Game Trail
+1 Glissa, the Traitor
+1 Goblin Chirurgeon
+1 Goblin Clearcutter
+1 Goblin Masons
+1 Goblin Soothsayer
+1 Goblin Trenches
+1 Golgari Germination
+1 Grave Pact
+1 Grim Feast
+1 Heartwood Giant
+1 Hellkite Overlord
+1 Highland Forest
+1 Horror of Horrors
+9 Island
+1 Journey to Eternity
+1 Last Laugh
+1 Launch
+1 Luminous Broodmoth
+1 Mogg Raider
+1 Mongrel Pack
+1 Morselhoarder
+5 Mountain
+1 Nearby Planet
+1 Needle Spires
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Orcish Bloodpainter
+1 Orcish Mechanics
+1 Oxidda Daredevil
+1 Pitchburn Devils
+1 Plague Spitter
+1 Plains
+1 Poison-Tip Archer
+1 Puppet Master
+1 Raiding Party
+1 Shivan Harvest
+1 Skemfar Elderhall
+1 Smoldering Efreet
+1 Soulreaper of Mogis
+1 Spreading Algae
+1 Stormcarved Coast
+1 Stronghold Assassin
+1 Summit Sentinel
+1 Sustenance
+9 Swamp
+1 Takklemaggot
+1 Temple of Malady
+1 The World Tree
+1 Tibalt's Rager
+1 Tourach's Gate
+1 Training Center
+
+[commander]
+Go-Shintai of Life's Origin

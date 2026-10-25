@@ -1,72 +1,83 @@
 # baylee curated commander midrange seed=20261052
 # licence: AGPL-3.0-only
-[deck:commander midrange R #20261052]
-1 Akki Rockspeaker
-1 Akoum Boulderfoot
-1 Beetleback Chief
-1 Blisterstick Shaman
-1 Brazen Freebooter
-1 Choco-Comet
-1 Dragon Trainer
-1 Elder Auntie
-1 Ember Shot
-1 Flick a Coin
-1 Foundry Street Denizen
-1 Ghitu Slinger
-1 Gimli of the Glittering Caves
-1 Goblin Arsonist
-1 Goblin Bombardment
-1 Goblin Chainwhirler
-1 Goblin Commando
-1 Goblin Engineer
-1 Goblin Gang Leader
-1 Goblin Instigator
-1 Goblin Recruiter
-1 Gremlin Infestation
-1 Guttersnipe
-1 Hanweir Battlements
-1 Hellion Crucible
-1 Improvised Weaponry
-1 Iron Man, Tony Stark
-1 Keldon Necropolis
-1 Klingon Strike Force
-1 Legion Extruder
-1 Lightning Diadem
-1 Make Mischief
-1 Mana Crypt
-1 Meticulous Artisan
-1 Mogg Bombers
-34 Mountain
-1 Mox Ruby
-1 Mudbutton Torchrunner
-1 Murasa Pyromancer
-1 Pashalik Mons
-1 Pia and Kiran Nalaar
-1 Playful Shove
-1 Pyrite Spellbomb
-1 Reckless Fireweaver
-1 Reckless Lackey
-1 Redcap Thief
-1 Sardian Avenger
-1 Shinka, the Bloodsoaked Keep
-1 Shivan Gorge
-1 Shocking Sharpshooter
-1 Siege-Gang Commander
-1 Skirk Prospector
-1 Slash, Reptile Rampager
-1 Sokenzan, Crucible of Defiance
-1 Spark Spray
-1 Sparkmage Apprentice
-1 Spawning Breath
-1 Tar Pitcher
-1 The Immortal Weapons
-1 Tuktuk Scrapper
-1 Underfoot Underdogs
-1 Voldaren Epicure
-1 Volley Veteran
-1 Wily Goblin
-1 Winter Sky
-1 Zo-Zu the Punisher
+[deck:commander midrange WUG #20261052]
+1 Aang and Katara
+1 Afterlife
+1 An Offer You Can't Refuse
+1 Attended Knight
+1 Aviation Pioneer
+1 Awaken the Woods
+1 Aysen Abbey
+1 Bishop of Wings
+1 Breeding Pool
+1 Briarbridge Tracker
+1 Byway Courier
+1 Captain of the Watch
+1 Corsair Captain
+1 Delney, Streetwise Lookout
+1 Deranged Outcast
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Drownyard Explorers
+1 Dwarven Castle Guard
+1 Elspeth, Storm Slayer
+1 Enlightened Maniac
+1 Experimental Aviator
+8 Forest
+1 Gallant Cavalry
+1 Growth Spasm
+1 Hengegate Pathway
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Hushwood Verge
+1 Invasion Reinforcements
+1 Irrigation Ditch
+3 Island
+1 Jade Mage
+1 Jeskai Sage
+1 Katara, the Fearless
+1 Knight-Captain of Eos
+1 Lossarnach Captain
+1 Magus of the Order
+1 Maja, Bretagard Protector
+1 Maul Splicer
+1 Mausoleum Guard
+1 Monastery Mentor
+1 Myrsmith
+1 Novice Inspector
+1 Oltec Cloud Guard
+1 Orochi Hatchery
+1 Pawpatch Formation
+14 Plains
+1 Prahv, Spires of Order
+1 Protector of Gondor
+1 Renowned Weaver
+1 Resolute Reinforcements
+1 Return from the Wilds
+1 Riftstone Portal
+1 Rinoa Heartilly
+1 Root Out
+1 Sailor of Means
+1 Sanctifier of Souls
+1 Seaside Citadel
+1 Selesnya Charm
+1 Seller of Songbirds
+1 Spara's Headquarters
+1 Swan Song
+1 They Went This Way
+1 Thraben Inspector
+1 Three Steps Ahead
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tropical Island
+1 Tura Kennerüd, Skyknight
+1 Urban Retreat
+1 Urbis Protector
+1 Veldt
+1 Vital Splicer
+1 Wakandan Shield Guard
+1 Waterlogged Grove
+1 Worthy Knight
 
 [commander]
-Pia, Determined Rebuilder
+Phelddagrif

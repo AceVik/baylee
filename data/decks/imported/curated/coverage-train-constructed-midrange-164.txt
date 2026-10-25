@@ -1,28 +1,27 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
-[deck:constructed midrange WUB #20266165]
-2 Acidic Dagger
-2 Ancient Spring
-1 Contaminated Landscape
-2 Copper Gnomes
-2 Crucible of Worlds
-2 Didgeridoo
-2 Draconian Cylix
-3 Dromar's Cavern
-2 Forethought Amulet
-5 Island
-2 Kry Shield
-2 Locthwain Gargoyle
-2 Millennial Gargoyle
-2 Obsianus Golem
-2 Patchwork Gnomes
-2 Pewter Golem
+[deck:constructed midrange WUG #20266165]
+2 Amnesia
+1 Aysen Abbey
+2 Beyeen Veil
+2 Glimmering Angel
+2 Glint
+10 Island
+2 Leering Gargoyle
+2 Lifelace
+2 Living Airship
+2 Mending Hands
 5 Plains
-2 Sanctuary Raptor
-5 Swamp
-2 Tezzeret's Strider
-2 Tower Gargoyle
-2 Whalebone Glider
-2 Winter Moon
-2 Witches' Eye
-3 Wizards' School
+2 Plumeveil
+2 Riptide
+3 Seaside Citadel
+2 Serra Sphinx
+2 Soul of the Rapids
+2 Stoic Angel
+3 Tranquil Landscape
+2 Treva's Ruins
+2 Vaporous Djinn
+2 Wall of Denial
+2 Water Wings
+2 Winged Coatl
+2 You Come to a River

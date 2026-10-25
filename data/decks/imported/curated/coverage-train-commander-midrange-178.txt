@@ -1,86 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266179]
-1 Alpha Kavu
-1 Ancient Ziggurat
-1 Apes of Rath
-1 Argothian Treefolk
-1 Arlinn's Wolf
-1 Armored Wolf-Rider
-1 Blanchwood Treefolk
-1 Blasted Landscape
-1 Bounding Wolf
-1 Cabaretti Courtyard
-1 Coiled Tinviper
-1 Colossapede
-1 Daggerback Basilisk
-1 Dispeller's Capsule
-1 Dust Bowl
-1 Dutiful Servants
-1 Eldrazi Temple
-1 Elite Archers
-1 Elvish Clancaller
-1 Endangered Armodon
-1 Endless One
-1 Fauna Shaman
-1 Forbidden Orchard
-20 Forest
-1 Frontier Guide
-1 Fyndhorn Brownie
-1 Giant Mantis
-1 Gibbering Hyenas
-1 Glacial Chasm
-1 Glissa's Courier
-1 Gorilla Chieftain
-1 Gorilla Pack
-1 Grave Bramble
-1 Greater Basilisk
-1 Greenseeker
-1 HELIOS One
-1 Hall of Oracles
-1 Heartwood Treefolk
-1 Hidden Grotto
-1 Indomitable Ancients
-1 Karoo Meerkat
-1 King Cheetah
-1 Kraul Stinger
-1 Land Leeches
-1 Looming Altisaur
-1 Magnigoth Sentry
-1 Mana Confluence
-1 Muraganda Raceway
-1 Nesting Grounds
-1 Niall Silvain
-1 Obscura Storefront
-1 Rath's Edge
-1 Raven's Run Dragoon
-1 Redwood Treefolk
-1 Rowan Treefolk
-1 Sacred Wolf
-1 Safehold Elite
-1 Sanctum of Eternity
-1 Scalding Tarn
-1 Scarwood Treefolk
-1 Selesnya Sagittars
-1 Selesnya Sentry
-1 Silverback Ape
-1 Skyshroud Troll
-1 Southern Elephant
-1 Spatial Contortion
-1 Sungrass Egg
-1 Talisman of Unity
+[deck:commander midrange UR #20266179]
+1 Aegis of the Meek
+1 Amaranthine Wall
+1 Angelic Armaments
+1 Baron, Airship Kingdom
+1 Blistering Barrier
+1 Bloodshot Cyclops
+1 Breakneck Berserker
+1 Chariot of Victory
+1 Chitinous Cloak
+1 Chromatic Star
+1 Cobbled Wings
+1 Cyclopean Tomb
+1 Desolate Lighthouse
+1 Dwarven Nomad
+1 Ebony Horse
+1 Fallaji Chaindancer
+1 Ferrous Lake
+1 Fiery Islet
+1 Flowstone Crusher
+1 Flowstone Hellion
+1 Flowstone Wall
+1 Flying Carpet
+1 Frostboil Snarl
+1 Frostburn Weird
+1 Gamble
+1 Glacial Wall
+1 Gray Ogre
+1 Helm of Possession
+1 Homarid Shaman
+1 Humongulus
+1 Hurloon Minotaur
+1 Incurable Ogre
+8 Island
+1 Izzet Boilerworks
+1 Lightning Spear
+1 Living Wall
+1 Magmatic Force
+1 Medicine Bag
+17 Mountain
+1 Narwhal
+1 Nova Pentacle
+1 Oggyar Battle-Seer
+1 Ogre Errant
+1 Phase Dolphin
+1 Power Matrix
+1 Raging Minotaur
+1 Reflecting Mirror
+1 Riot Devils
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Scion of Glaciers
+1 Scouring Sands
+1 Shivan Reef
+1 Spirit Shield
+1 Steam Vents
+1 Sulfur Falls
+1 Swiftwater Cliffs
+1 TCRI Building
+1 Talisman of Creativity
+1 Talruum Piper
 1 Tawnos's Wand
-1 Three Tree City
-1 Underdark Basilisk
-1 Unknown Shores
-1 Urza's Power Plant
-1 Wary Okapi
-1 Wild Ox
-1 Wipe Clean
-1 Yavimaya Scion
-1 Zodiac Horse
-1 Zodiac Monkey
-1 Zodiac Rooster
+1 Thran Weaponry
+1 Tower of Murmurs
+1 Twinscroll Shaman
+1 Umbral Mantle
+1 Viashino Outrider
+1 Volcanic Island
+1 Wall of Vapor
+1 Wall of Wonder
+1 Wandering Fumarole
+1 Water Elemental
+1 Watercourser
+1 Wave Elemental
+1 Whimwader
+1 Wormhole Serpent
+1 Ydwen Efreet
 
 [commander]
-Lady Caleria
+Professor Zei, Anthropologist

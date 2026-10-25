@@ -1,71 +1,81 @@
 # baylee curated commander ramp seed=20261082
 # licence: AGPL-3.0-only
-[deck:commander ramp B #20261082]
+[deck:commander ramp WB #20261082]
+1 Abu Ja'far
+1 Aeronaut Cavalry
+1 Agents of HYDRA
+1 Akron Legionnaire
+1 Angel of Despair
 1 Baron Sengir
-1 Bitterblossom
-1 Blood Artist
-1 Blood Host
-1 Body Snatcher
+1 Barrow Witches
+1 Bishop of Wings
+1 Bleachbone Verge
 1 Bog Glider
-1 Bone Devourer
-1 Carnival of Souls
-1 Carrier Thrall
-1 Cat-Gator
-1 Caustic Hound
-1 Chromatic Star
-1 Criminal Enterprise
-1 Dakmor Ghoul
-1 Dogged Pursuit
-1 Dusk Legion Zealot
-1 Falkenrath Noble
-1 Hopeless Nightmare
-1 Hostile Hostel
-1 Infernal Tribute
-1 Kalastria Highborn
-1 Kheru Bloodsucker
-1 Krovikan Plague
-1 Last Laugh
-1 Malevolent Awakening
-1 Mana Crypt
-1 Massacre Wurm
-1 Master of Dark Rites
-1 Nirkana Revenant
-1 Nocturnal Feeder
-1 Northern Air Temple
-1 Open the Graves
-1 Phyrexian Fleshgorger
-1 Phyrexian Reclamation
-1 Polluted Bonds
-1 Quest for the Gravelord
-1 Rabid Bloodsucker
-1 Sanguine Syphoner
-1 Sarcomancy
-1 Shauku, Endbringer
-1 Shizo, Death's Storehouse
-1 Skeletal Vampire
-1 Sling-Gang Lieutenant
-1 Sneering Shadewriter
-1 Sovereign's Bite
-35 Swamp
-1 The Black Gate
-1 The Meathook Massacre
-1 Thief of Blood
-1 Undead Augur
-1 Unholy Grotto
-1 Urborg
-1 Vampire Neonate
-1 Vampire Sovereign
-1 Vampiric Feast
-1 Vampiric Rites
-1 Vault of Whispers
-1 Vengeful Bloodwitch
-1 Vermin Gorger
-1 Vindictive Vampire
-1 Virtue of Persistence
-1 Westvale Abbey
-1 Witch's Cauldron
-1 Zof Consumption
+1 Brightclimb Pathway
+1 Caregiver
+1 Caves of Koilos
+1 Claws of Gix
+1 Commander Greven il-Vec
+1 Commissar Severina Raine
+1 Dakmor Lancer
+1 Deathcurse Ogre
+1 Desolate Mire
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Fetid Heath
+1 Forum of Amity
+1 Gallant Cavalry
+1 Geist-Honored Monk
+1 Glider Kids
+1 Godless Shrine
+1 Hero of the Dunes
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Inspiring Commander
+1 Ironclad Slayer
+1 Jedit's Dragoons
+1 Judge Magister Gabranth
+1 Kazandu Blademaster
+1 Kyoshi Warriors
+1 Lake-town Lookout
+1 Liliana the Repentant
+1 Marionette Apprentice
+1 Monk Idealist
+1 Nimana Sell-Sword
+1 Oltec Cloud Guard
+1 Orzhova, the Church of Deals
+17 Plains
+1 Pretending Poxbearers
+1 Priest of Gix
+1 Priest of Yawgmoth
+1 Protector of Gondor
+1 Restoration Gearsmith
+1 Reya Dawnbringer
+1 Rising Populace
+1 Salt Flats
+1 Salvage Scout
+1 Savior of the Sleeping
+1 Scrubland
+1 Shadowy Backstreet
+1 Shattered Sanctum
+1 Shu Soldier-Farmers
+1 Silent Clearing
+1 Soldevi Adnate
+1 Starlit Sanctum
+1 Sterling Supplier
+9 Swamp
+1 Tainted Field
+1 Thraben Standard Bearer
+1 Tireless Missionaries
+1 Tithebearer Giant
+1 Tragic Poet
+1 Unburied Earthcarver
+1 Unruly Mob
+1 Urbis Protector
+1 Vault of the Archangel
+1 Veldrane of Sengir
+1 Venerable Knight
 1 Zuran Orb
 
 [commander]
-Arnyn, Deathbloom Botanist
+Neva, Stalked by Nightmares

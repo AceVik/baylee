@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266194]
+1 Abyssal Gatekeeper
+1 Aclazotz, Deepest Betrayal
+1 Awaken the Woods
+1 Bayou
+1 Bereavement
+1 Blistergrub
+1 Bone Devourer
+1 Breeding Pit
+1 Cateran Overlord
+1 Centaur Glade
+1 Corrupted Harvester
+1 Creakwood Liege
+1 Darkbore Pathway
+1 Despondency
+1 Dread Reaper
+1 Dross Harvester
+1 Dying Wail
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Elven Palisade
+1 Emeritus of Woe
+1 Etched Familiar
+1 Eyeblight Cullers
+1 Failed Conversion
+1 Fanatic of Rhonas
+10 Forest
+1 Foul Orchard
+1 From Beyond
+1 Gibbering Barricade
+1 Glissa, the Traitor
+1 Golgari Germination
+1 Grasping Longneck
+1 Grim Backwoods
+1 Grim Feast
+1 Illegitimate Business
+1 Jewel-Eyed Cobra
+1 Journey to Eternity
+1 Knucklebone Witch
+1 Koma's Faithful
+1 Lampad of Death's Vigil
+1 Last Laugh
+1 Llanowar Mentor
+1 Llanowar Wastes
+1 Mintstrosity
+1 Moldervine Reclamation
+1 Morcant's Loyalist
+1 Multani's Harmony
+1 Nurturing Peatland
+1 Ojer Kaslem, Deepest Growth
+1 Overgrown Tomb
+1 Plague Spitter
+1 Restless Cottage
+1 Rhys the Exiled
+1 Sanguinary Priest
+1 Sling-Gang Lieutenant
+1 Splatter Goblin
+1 Squelching Leeches
+1 Sustenance
+1 Svogthos, the Restless Tomb
+15 Swamp
+1 Symbiote Spawn
+1 Tainted Wood
+1 Tarpan
+1 Temple of Malady
+1 Tortured Existence
+1 Twilight Mire
+1 Ukud Cobra
+1 Undercity Dire Rat
+1 Viridian Harvest
+1 Virtue of Persistence
+1 Wastewood Verge
+1 Witch Engine
+1 Woodland Cemetery
+1 Wriggling Grub
+1 Yahenni, Undying Partisan
+1 Zodiac Pig
+
+[commander]
+Slimefoot, the Stowaway

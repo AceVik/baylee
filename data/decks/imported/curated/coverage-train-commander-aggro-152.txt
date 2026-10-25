@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro B #20266153]
+1 Arisen Gorgon
+1 Battle Brawler
+1 Black Oak of Odunos
+1 Blasted Landscape
+1 Bloodcurdling Scream
+1 Boon of Emrakul
+1 Burrog Banemaker
+1 Cadaverous Knight
+1 Carrion Howler
+1 Carrion Screecher
+1 Catacomb Crocodile
+1 Coat with Venom
+1 Dark Remedy
+1 Darkness
+1 Dauthi Mercenary
+1 Demonic Torment
+1 Desolation Prowler
+1 Dross Crocodile
+1 Eldrazi Temple
+1 Embraal Bruiser
+1 Fetid Horror
+1 Fomori Vault
+1 Frankenstein's Monster
+1 Funeral Charm
+1 Give In to Violence
+1 Grotesque Mutation
+1 Gutter Skulk
+1 Headless Horseman
+1 Hollow Dogs
+1 Hunger of the Nim
+1 Hunted Ghoul
+1 Lash of Malice
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Lim-Dûl's High Guard
+1 Lurking Nightstalker
+1 Mass of Ghouls
+1 Misshapen Fiend
+1 Molting Harpy
+1 Muck Rats
+1 Mutavault
+1 Nantuko Shade
+1 Nezumi Bladeblesser
+1 Oblivion Crown
+1 Ominous Cemetery
+1 Order of the Ebon Hand
+1 Ostracize
+1 Pharika's Chosen
+1 Phyrexian Boon
+1 Plague Rats
+1 Rain of Filth
+1 Rathi Assassin
+1 Restless Dead
+1 Ritual of Soot
+1 Rotting Fensnake
+1 Rotting Regisaur
+1 Scarred Vinebreeder
+1 Severed Legion
+1 Sewer Rats
+1 Skeletal Crocodile
+1 Skeletal Snake
+1 Stromgald Crusader
+32 Swamp
+1 Unworthy Dead
+1 Urza's Mine
+1 Whipstitched Zombie
+1 Zodiac Rat
+1 Zombie Trailblazer
+
+[commander]
+Kalakscion, Hunger Tyrant

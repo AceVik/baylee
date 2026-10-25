@@ -3,18 +3,18 @@
 [deck:constructed midrange WB #20261050]
 2 Bleachbone Verge
 2 Caves of Koilos
+2 Damnable Pact
 2 Desolate Mire
-4 Grim Tutor
-3 Jeskai Student
+3 Inspiring Commander
+4 Kambal, Consul of Allocation
 4 Lotus-Eye Mystics
-2 Mai, Scornful Striker
+3 Mai, Scornful Striker
 4 Mesa Enchantress
-3 Night's Whisper
+2 Night's Whisper
 4 Painful Quandary
-2 Painsmith
 7 Plains
 3 Presence of the Master
 4 Righteousness
+3 Sign in Blood
 3 Starlit Sanctum
 8 Swamp
-3 Thorntooth Witch

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266176]
+1 Alpine Grizzly
+1 Amphin Pathmage
+1 Archers of Qarsi
+1 Argothian Pixies
+1 Argothian Treefolk
+1 Armored Wolf-Rider
+1 Ashcoat Bear
+1 Aysen Abbey
+1 Bant Battlemage
+1 Barbary Apes
+1 Bear Cub
+1 Bitterbow Sharpshooters
+1 Blanchwood Treefolk
+1 Brushland
+1 Colossapede
+1 Cultist's Staff
+1 Dawnstrider
+1 Endangered Armodon
+1 Eureka
+1 Fireshrieker
+1 Flesh Burrower
+14 Forest
+1 Forest Bear
+1 Frilled Oculus
+1 Gathering Place
+1 Giant Mantis
+1 Grappling Sundew
+1 Grave Bramble
+1 Greenseeker
+1 Horizon Canopy
+1 Hushwood Verge
+1 Irrigation Ditch
+6 Island
+1 Karoo Meerkat
+1 Kitsune Riftwalker
+1 Kraul Stinger
+1 Lady Caleria
+1 Lay of the Land
+1 Loxodon Anchorite
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Minister of Impediments
+1 Mosstodon
+1 Mounted Archers
+1 Ordinary Bear
+1 Pale Bears
+6 Plains
+1 Ramunap Excavator
+1 Raven Wings
+1 Raven's Run Dragoon
+1 Redwood Treefolk
+1 Riftstone Portal
+1 Safewright Quest
+1 Saltcrusted Steppe
+1 Seaside Citadel
+1 Selesnya Sagittars
+1 Selesnya Sentry
+1 Singing Tree
+1 Southern Elephant
+1 Spara's Headquarters
+1 Stampeding Rhino
+1 Sungrass Egg
+1 Sungrass Prairie
+1 Talisman of Unity
+1 Temple Garden
+1 Tranquil Landscape
+1 Treefolk Healer
+1 Treva's Ruins
+1 Urban Retreat
+1 Veteran's Sidearm
+1 Wall of Pine Needles
+1 Wooded Bastion
+1 Woodland Changeling
+1 Woodland Patrol
+1 Yavimaya Scion
+1 Zodiac Monkey
+
+[commander]
+Ragnar

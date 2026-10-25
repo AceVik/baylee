@@ -1,72 +1,72 @@
 # baylee curated commander midrange seed=20261040
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20261040]
-1 Aeronaut Cavalry
-1 Angelheart Protector
-1 Arashin Cleric
-1 Bishop of Wings
-1 Blade Splicer
-1 Captain of the Watch
-1 Carrier Pigeons
-1 Cathedral Sanctifier
-1 Claws of Gix
-1 Daru Encampment
-1 Dawning Angel
-1 Dedicated Martyr
-1 Devout Lightcaster
-1 Drogskol Cavalry
-1 Dwarven Priest
-1 Eiganjo, Seat of the Empire
-1 Extraction Specialist
-1 Gallant Cavalry
-1 Geist-Honored Monk
-1 Hada Freeblade
-1 Hall of Heliod's Generosity
-1 Healer of the Pride
-1 Honored Knight-Captain
-1 Impassioned Orator
-1 Implement of Improvement
-1 Inspiring Cleric
-1 Inspiring Commander
-1 Karakas
-1 Kazandu Blademaster
-1 Kindly Customer
-1 Kor Celebrant
-1 Leonin Elder
-1 Loran of the Third Path
-1 Mandroid Squadron
-1 Master Splicer
-1 Monk Realist
-1 Mox Pearl
-1 Nomad Stadium
-1 Ondu Cleric
-1 Operations Officer
-1 Outlaw Medic
-1 Pious Wayfarer
-34 Plains
-1 Potion of Healing
-1 Radiant's Dragoons
-1 Recruiter of the Guard
-1 Rhox Meditant
-1 Ritual of Rejuvenation
-1 Roving Harper
-1 Savannah Sage
-1 Serra's Sanctum
-1 Settlement Blacksmith
-1 Shu Grain Caravan
-1 Shu Soldier-Farmers
-1 Skyclave Cleric
-1 Soul Warden
-1 Soul's Attendant
-1 Staunch Defenders
-1 Suture Priest
-1 Teroh's Faithful
-1 Thraben Inspector
-1 Tireless Missionaries
-1 Tivadar of Thorn
-1 Urbis Protector
-1 Venerable Monk
-1 Witch Enchanter
+[deck:commander midrange U #20261040]
+1 Academy Ruins
+1 Alchemist's Apprentice
+1 Ancestral Vision
+1 Archaeomancer
+1 Archaeomender
+1 Aspiring Aeronaut
+1 Aven Fateshaper
+1 Azure Mage
+1 Bazaar Trademage
+1 Blighted Cataract
+1 Brinebarrow Intruder
+1 Censor
+1 Cloudkin Seer
+1 Council of Advisors
+1 Disrupt
+1 Drownyard Explorers
+1 Elite Instructor
+1 Enlightened Maniac
+1 Erratic Visionary
+1 Facet Reader
+1 Faerie Seer
+1 Forced Fruition
+1 Gryff Vanguard
+1 Halimar Excavator
+1 Horizon Scholar
+1 Humbling Elder
+1 Ipnu Rivulet
+34 Island
+1 Jace, the Mind Sculptor
+1 Jeskai Sage
+1 Jhessian Thief
+1 Knight of the Mists
+1 Merchant of Secrets
+1 Micromancer
+1 Minamo, School at Water's Edge
+1 Omenspeaker
+1 Otawara, Soaring City
+1 Overwhelmed Apprentice
+1 Pelargir Survivor
+1 Pondering Mage
+1 Preordain
+1 Prosperous Pirates
+1 Refute
+1 Sage of Epityr
+1 Sage of Lat-Nam
+1 Sage of Mysteries
+1 Sage's Row Savant
+1 Sailor of Means
+1 Scholar of Stars
+1 Scrivener
+1 Seat of the Synod
+1 Serum Visionary
+1 Shipwreck Dowser
+1 Snapcaster Mage
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Stern Proctor
+1 Storyteller Pixie
+1 Three Steps Ahead
+1 Tishana's Tidebinder
+1 Ultimecia, Temporal Threat
+1 Vendilion Clique
+1 Vodalian Merchant
+1 Weldfast Wingsmith
+1 Wing Splicer
 
 [commander]
-Momo, Rambunctious Rascal
+Spock, Logical Choice

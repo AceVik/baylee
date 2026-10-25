@@ -1,83 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266302]
-1 Acidic Dagger
-1 Adarkar Sentinel
+[deck:commander midrange RG #20266302]
 1 Alchor's Tomb
-1 Amber Prison
-1 Ancient Spring
-1 Anvilwrought Raptor
-1 Arcane Sanctum
-1 Brass-Talon Chimera
-1 Bubble Matrix
-1 Cemetery Gate
-1 Chariot of the Sun
-1 Chimeric Idol
-1 Chimeric Staff
-1 Clearwater Pathway
-1 Clockwork Steed
-1 Coiled Tinviper
-1 Conqueror's Galleon
+1 Angelic Armaments
+1 Arc Runner
+1 Argothian Pixies
+1 Arlinn's Wolf
+1 Bleeding Woods
+1 Bloodrock Cyclops
+1 Broodhunter Wurm
+1 Canyon Drake
+1 Cavern Crawler
+1 Chariot of Victory
+1 Clockwork Swarm
 1 Conservator
-1 Contaminated Landscape
-1 Cursed Rack
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Crucible of Worlds
+1 Crystal Ball
+1 Cudgel Troll
+1 Cultist's Staff
 1 Dragon Mask
-1 Dreadship Reef
-1 Drift of the Dead
-1 Dromar's Cavern
-1 Flowstone Thopter
-1 Flying Carpet
-1 Hag of Dark Duress
-1 Haunter of Nightveil
-1 Henge Guardian
-1 Hibernation Sliver
-1 Horn of Deafening
-1 Horrible Hordes
-1 Imi Statue
-1 Iron-Heart Chimera
-6 Island
-1 Jade Statue
-1 Juggernaut
-1 Lead-Belly Chimera
-1 Mindstab Thrull
-1 Mindwhip Sliver
-1 Mischievous Sneakling
-1 Mishra's Groundbreaker
-1 Mishra's Helix
-1 Mole Worms
-1 Nephalia Drownyard
-1 Nova Pentacle
-5 Plains
-1 Power Armor
-1 Power Matrix
-1 Primal Clay
-1 Python
+1 Ebony Horse
+1 Ensouled Scimitar
+1 Fire-Lit Thicket
+1 Floodwater Dam
+14 Forest
+1 Fungal Reaches
+1 Gauntlets of Chaos
+1 Giant Mantis
+1 Gibbering Hyenas
+1 Gnottvold Recluse
+1 Gorgon Flail
+1 Grove of the Burnwillows
+1 Hitchclaw Recluse
+1 Hollowhead Sliver
+1 Jungle Troll
+1 Karplusan Forest
+1 Kessig Recluse
+1 Kessig Wolf
+1 Kessig Wolf Run
+1 Kitesail
+1 Kormus Bell
+1 Kraul Stinger
+1 Lightning Greaves
+1 Mightstone
+1 Mogg Hollows
+1 Mossfire Valley
+11 Mountain
+1 Mungha Wurm
+1 Needlepeak Spider
+1 Pinecrest Ridge
+1 Plated Spider
 1 Quicksilver Amulet
-1 Raffine's Tower
-1 River Delta
-1 River of Tears
-1 Runed Arch
-1 Sentinel
-1 Snare Thopter
-1 Soldevi Simulacrum
-1 Spirit Shield
-1 Sunken Ruins
-14 Swamp
-1 Tainted Isle
-1 Tawnos's Coffin
-1 Tek
-1 Telethopter
-1 Tin-Wing Chimera
-1 Ultron, Machine Overlord
-1 Underground Sea
-1 Unraveling Mummy
-1 Urza's Engine
-1 Wall of Shadows
-1 Wall of Wonder
-1 Watery Grave
-1 Wirecat
-1 Wizards' School
-1 Woodlot Crawler
+1 Reflecting Mirror
+1 Rib Cage Spider
+1 Roc of Kher Ridges
+1 Russet Wolves
+1 Scoria Wurm
+1 Sentinel Spider
+1 Shivan Wurm
+1 Skarrg, the Rage Pits
+1 Steam Spitter
+1 Stomping Ground
+1 Streetbreaker Wurm
+1 Strider Harness
+1 Swift Spinner
+1 Talarian Hook Spider
+1 Thornspire Verge
+1 Torch Gauntlet
+1 Training Compound
+1 Vanguard's Shield
+1 Veteran's Sidearm
+1 Vibrating Sphere
+1 War Horn
+1 Watcher in the Web
+1 Whalebone Glider
+1 Winding Wurm
 
 [commander]
-Inquisitor Greyfax
+Gladiolus Amicitia

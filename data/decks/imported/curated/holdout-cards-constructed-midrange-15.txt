@@ -1,22 +1,20 @@
-# baylee unseen-card holdout constructed seed=90000030
+# baylee unseen-card holdout constructed seed=90000025
 # licence: AGPL-3.0-only
-[deck:constructed midrange WUB #90000030]
-2 Arcane Sanctum
-2 Beskir Shieldmate
-2 Contaminated Landscape
-2 Delney, Streetwise Lookout
-4 Doomed Traveler
-2 Dromar's Cavern
+[deck:constructed midrange WB #90000025]
+3 Bishop of Wings
+1 Caves of Koilos
+3 Desolate Mire
+3 Godless Shrine
+4 Hero of the Dunes
 2 Honored Knight-Captain
-1 Island
-4 Martyr of Dusk
-4 Mausoleum Guard
-4 Okoye, Dora Milaje Leader
-2 Ophiomancer
-3 Orochi Hatchery
-12 Plains
-2 Precinct Captain
-2 Swamp
-3 Sweettooth Witch
-4 Tempting Witch
-3 Wizards' School
+2 Icatian Moneychanger
+2 Liliana the Repentant
+4 Loran, Disciple of History
+4 Metamorphosis Fanatic
+3 Neva, Stalked by Nightmares
+11 Plains
+4 Shinra Reinforcements
+4 Slumbering Keepguard
+4 Swamp
+4 Undead Slayer
+2 Vault of the Archangel

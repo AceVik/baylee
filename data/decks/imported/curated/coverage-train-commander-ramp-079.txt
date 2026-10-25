@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266080]
+1 Abzan Banner
+1 Altered Ego
+1 Asgardian Citadel
+1 Baleful Strix
+1 Black Mana Battery
+1 Broodmate Dragon
+1 Chitinous Graspling
+1 Chromatic Star
+1 Cinder Glade
+1 Coal Golem
+1 Composite Golem
+1 Crosis's Attendant
+1 Crystal Quarry
+1 Darigaaz's Attendant
+1 Dining Room
+1 Dromar's Attendant
+1 Etched Monstrosity
+1 Font of Progress
+1 Galazeth Prismari
+1 Gene Pollinator
+1 Giant's Boulder
+1 Glassdust Hulk
+1 Glint Hawk Idol
+1 Golgari Cluestone
+1 Golgari Locket
+1 Golgari Signet
+1 Grim Bauble
+1 Guadosalam, Farplane Gateway
+1 Hatching Plans
+1 Haunted Mire
+1 Indatha Crystal
+8 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Jeskai Banner
+1 Kaleidostone
+1 Ketria Crystal
+1 Machine God's Effigy
+1 Malachite Golem
+1 Malcator's Watcher
+1 Mardu Devotee
+1 Mox Jasper
+1 Narwhal
+1 Nearby Planet
+1 Omashu City
+1 Phyrexian Fleshgorger
+1 Pine Barrens
+1 Piru, the Volatile
+6 Plains
+1 Rakdos Locket
+1 Raugrin Crystal
+1 Reaper King
+1 Relic of Sauron
+1 Rith's Attendant
+1 Savai Crystal
+1 Spirebluff Canal
+1 Stensia Bloodhall
+12 Swamp
+1 Teferi's Curse
+1 Temur Banner
+1 The Reaper, King No More
+1 The World Tree
+1 Thunder Dragon
+1 Thundering Tanadon
+1 Time Sieve
+1 Treva's Attendant
+1 Tribal Golem
+1 Turbulent Wilderness
+1 Umbral Expanse
+1 Utvara Hellkite
+1 Veil of Assimilation
+1 Volcanic Island
+1 Walking Archive
+1 Witherbloom Campus
+1 Wreckage Wickerfolk
+1 Zagoth Crystal
+
+[commander]
+Super-Skrull

@@ -1,72 +1,72 @@
 # baylee curated highlander aggro seed=20261048
 # licence: AGPL-3.0-only
 [deck:highlander aggro B #20261048]
-1 Arnyn, Deathbloom Botanist
-1 Ayara, First of Locthwain
+1 Agents of HYDRA
 1 Bastion of Remembrance
-1 Blight Mound
 1 Blood Artist
 1 Bloodflow Connoisseur
-1 Bloodthrone Vampire
+1 Bone Devourer
 1 Callous Inspector
 1 Carrier Thrall
-1 Child of Night
+1 Carrion Feeder
+1 Champion of the Perished
 1 Claws of Gix
+1 Common Crook
 1 Criminal Enterprise
+1 Dauthi Ghoul
 1 Death Watch
 1 Deathgreeter
-1 Deathknell Berserker
-1 Desperate Bloodseeker
-1 Dire Fleet Hoarder
 1 Disciple of the Vault
-1 Dusk Legion Zealot
-1 Falkenrath Noble
+1 Discordant Piper
 1 Fear of Lost Teeth
-1 Graf Harvest
+1 Festering Goblin
+1 Gavony Unhallowed
 1 Greedy Freebooter
-1 Highway Robber
+1 Grim Physician
+1 Gutless Ghoul
 1 Hopeless Nightmare
 1 Hostile Hostel
-1 Ill-Gotten Inheritance
-1 Kalastria Healer
+1 Hungry Ghoul
+1 Infectious Host
 1 Kalastria Highborn
 1 Kheru Bloodsucker
-1 Lampad of Death's Vigil
 1 Lead Pipe
-1 Malakir Cullblade
+1 Locthwain Lancer
+1 Marionette Apprentice
 1 Master of Dark Rites
-1 Midnight Charm
+1 Midnight Reaper
+1 Minotaur, Roxxon CEO
+1 Mintstrosity
 1 Mudflat Village
-1 Nocturnal Feeder
-1 Northern Air Temple
+1 Ogre Slumlord
 1 Pawn of Ulamog
-1 Pitiless Plunderer
 1 Quest for the Gravelord
-1 Reanimate
-1 Sanctum Seeker
-1 Sanguine Syphoner
+1 Rotlung Reanimator
+1 Sanguinary Priest
 1 Sarcomancy
-1 Scourge of the Undercity
-1 Sengir Vampire
 1 Serrated Scorpion
+1 Shambling Goblin
 1 Shizo, Death's Storehouse
-1 Skeletal Vampire
-1 Skymarch Bloodletter
-1 Sneering Shadewriter
-32 Swamp
+1 Skirk Ridge Exhumer
+32 Snow-Covered Swamp
+1 Soldevi Adnate
+1 Stitcher's Supplier
+1 Strands of Night
+1 Tattered Mummy
+1 Thanos, Death's Consort
 1 The Meathook Massacre
 1 Tomb of Urami
-1 Vampire Neonate
-1 Vampire Spawn
-1 Vampire of the Dire Moon
-1 Vampire's Kiss
+1 Tourach's Gate
+1 Undead Augur
+1 Undercity Dire Rat
 1 Vampiric Rites
 1 Vault of Whispers
 1 Vengeful Bloodwitch
+1 Vengeful Dead
 1 Vermin Gorger
-1 Vindictive Vampire
 1 Volrath's Stronghold
-1 Weirding Shaman
+1 Warren Soultrader
 1 Witch's Cauldron
 1 Yahenni, Undying Partisan
+1 Zulaport Cutthroat
 1 Zuran Orb

@@ -1,21 +1,21 @@
 # baylee curated constructed control seed=20261077
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261077]
+2 Aven Cloudchaser
 2 Calciform Pools
-4 Cold Snap
-4 Iceberg
-2 Illusions of Grandeur
-8 Island
+3 Claws of Gix
+4 Harrier Strix
+3 Illusions of Grandeur
+12 Island
 2 Land Cap
 3 Moorland Haunt
 2 Mystic Gate
-4 Mystic Remora
-3 Nesting Dovehawk
-3 Orochi Hatchery
-8 Plains
-2 Royal Decree
+2 Nesting Dovehawk
+4 Owl Familiar
+4 Plains
 4 Soaring Drake
-4 Soulcatcher
+4 Soaring Show-Off
 2 Sterling Supplier
 1 Tundra
 2 Wan Shi Tong, Librarian
+4 Welkin Hawk

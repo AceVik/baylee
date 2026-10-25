@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266022]
+1 Abandoned Campground
+1 Abjure
+1 Adarkar Unicorn
+1 Benalish Heralds
+1 Blue Elemental Blast
+1 Boreal Shelf
+1 Ceremonious Rejection
+1 Chimeric Egg
+1 Clash of Wills
+1 Commander's Sphere
+1 Crystal Rod
+1 Dimir Cutpurse
+1 Dimir Guildgate
+1 Diversion Unit
+1 Dragonborn Looter
+1 Empowered Autogenerator
+1 Ethersworn Adjudicator
+1 Extinguish All Hope
+1 Famine
+1 Flash Counter
+1 Foot Headquarters
+1 Gainsay
+1 Harbor Guardian
+1 Hellfire
+1 Idyllic Beachfront
+1 Irrigated Farmland
+13 Island
+1 Isolated Chapel
+1 Isolation Cell
+1 Jade Idol
+1 Jwar Isle Refuge
+1 Kami of the Crescent Moon
+1 Lapis Lazuli Talisman
+1 Leave in the Dust
+1 Leering Emblem
+1 Levitating Statue
+1 Lightning Blow
+1 Lurching Rotbeast
+1 Malachite Talisman
+1 Mana Tithe
+1 Marble Chalice
+1 Minor Misstep
+1 Miscast
+1 Moment of Valor
+1 Murmuring Volume
+1 Neglected Manor
+1 Nightsky Mimic
+1 North Pole Gates
+1 Nullify
+1 Onyx Talisman
+1 Orzhov Basilica
+5 Plains
+1 Planar Cleansing
+1 Preemptive Strike
+1 Razaketh's Rite
+1 Rebuild
+1 Reign of Terror
+1 Remove Soul
+1 Restless Fortress
+1 Scepter of Dominance
+1 Seachrome Coast
+1 Secluded Glen
+1 Selhoff Entomber
+1 Sinister Hideout
+1 Soulknife Spy
+1 Soulscour
+1 Spectral Interference
+1 Spiketail Drake
+1 Stern Scolding
+9 Swamp
+1 Symbol of Unsummoning
+1 Turbulent Moor
+1 Tymora's Invoker
+1 Ventifact Bottle
+1 Waxen Shapethief
+
+[commander]
+Aminatou, the Fateshifter

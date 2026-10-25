@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266201]
-1 A Realm Reborn
-1 Afiya Grove
-1 Arbor Armament
-1 Arnjlot's Ascent
-1 Betrayal
-1 Blizzard
-1 Bond Beetle
-1 Bounty Hunter
-1 Breeding Pool
-1 Clearwater Pathway
-1 Cocoon
-1 Corrupted Roots
-1 Cryptolith Rite
-1 Darkbore Pathway
-1 Deeproot Elite
-1 Dire Undercurrents
+[deck:commander ramp WUB #20266201]
+1 Ancient Spring
+1 Arcane Sanctum
+1 Bandage
+1 Blessed Spirits
+1 Bloodgift Demon
+1 Call the Gatewatch
+1 Chain to Memory
+1 Compelling Argument
+1 Contaminated Landscape
+1 Cruel Truths
+1 Curate
+1 Demon's Due
+1 Demonic Tutor
+1 Desolate Mire
+1 Dread Rider
 1 Dreadship Reef
-1 Druids' Repository
-1 Dystopia
-1 Ebon Praetor
-1 Eladamri's Vineyard
-1 Ertai Resurrected
-1 Eternity Snare
-1 Eutropia the Twice-Favored
-1 Foreboding Landscape
-17 Forest
-1 Fungal Bloom
-1 Fungal Shambler
-1 Gaea's Touch
-1 Glidedive Duo
-1 Grasping Shadows
-1 Greed
-1 Hidden Lair
-1 Icewind Elemental
-1 Innkeeper's Talent
-5 Island
-1 Jade Guardian
-1 Kapsho Kitefins
-1 Lay Claim
-1 Lilting Refrain
-1 Llanowar Wastes
-1 Maddening Wind
-1 Mesmeric Trance
-1 Multani's Harmony
-1 Muse Drake
-1 Novijen, Heart of Progress
-1 Numbing Dose
-1 Opulent Palace
-1 Orcish Bowmasters
-1 Overgrowth
-1 Power Artifact
-1 Primoc Escapee
-1 River Delta
+1 Dromar's Cavern
+1 Drowned Secrets
+1 Eyes of the Watcher
+1 Fascination
+1 Fetid Heath
+1 Godless Shrine
+1 Hamato Guardian Stance
+1 Hithlain Knots
+1 Iguana Parrot
+1 Ingenious Skaab
+14 Island
+1 Jeskai Windscout
+1 Kami of the Waning Moon
+1 Kree Commandos
+1 Leap
+1 Locust Spray
+1 Lord of the Pit
+1 Lose Hope
+1 Lost in a Labyrinth
+1 Mana Breach
+1 Minion of Tevesh Szat
+1 Mirran Spy
+1 Mistral Singer
+1 Mystic Gate
+1 Nether Void
+1 Nirkana Revenant
+1 Open the Armory
+1 Oppression
+1 Painsmith
+1 Pestilence Demon
+1 Plains
+1 Prescient Chimera
+1 Putrefaction
+1 Quill-Slinger Boggart
+1 Raffine's Tower
+1 Reshape
 1 River of Tears
-1 Rushwood Elemental
-1 Sanctum Weaver
-1 Sazh's Chocobo
-1 Screeching Drake
-1 Sky-Eel School
-1 Soaring Show-Off
-1 Spirit Shackle
-4 Swamp
-1 Tainted Wood
-1 Thassa's Devourer
-1 Thoughtrender Lamia
-1 Tropical Island
-1 Umara Raptor
-1 Underground River
-1 Unspeakable Symbol
-1 Vernal Bloom
-1 Watery Grave
-1 Wave-Wing Elemental
-1 Windreader Sphinx
-1 Yellowjacket, Heartless Marauder
-1 Zagoth Crystal
-1 Zagoth Triome
+1 Sacrifice
+1 Scrubland
+1 Select for Inspection
+1 Shauku, Endbringer
+1 Sheltering Light
+1 Shocking Grasp
+1 Skirge Familiar
+1 Skittering Horror
+1 Skittering Monstrosity
+1 Skittering Skirge
+1 Sky Scourer
+1 Soul Exchange
+1 Sphinx of Magosi
+1 Starlit Sanctum
+1 Sugar Rush
+11 Swamp
+1 Tainted Field
+1 Thorntooth Witch
+1 Trapmaker's Snare
+1 Visions
+1 Waterveil Cavern
+1 Wizards' School
+1 Yawgmoth Demon
 
 [commander]
-Vorosh, the Hunter
+Chromium

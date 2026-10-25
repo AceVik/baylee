@@ -1,81 +1,81 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
 [deck:highlander midrange WRG #20266070]
-1 Aisling Leprechaun
-1 Akroan Mastiff
-1 Argothian Pixies
+1 Abandoned Air Temple
+1 Arc Runner
 1 Argothian Treefolk
-1 Armored Wolf-Rider
 1 Blanchwood Treefolk
-1 Bounding Wolf
-1 Castle Garenbrig
+1 Champion's Helm
 1 Changeling Sentinel
+1 Chariot of Victory
+1 Chimeric Staff
+1 Cursed Rack
 1 Daggerback Basilisk
-1 Den of the Bugbear
-1 Emeria, the Sky Ruin
-1 Ethereal Champion
-1 Explosive Impact
-1 Farseek
-1 Fire Nation Palace
-1 Flamekin Village
-15 Forest
-1 Frog-Squirrels
+1 Dwarven Hold
+1 Dwarven Mine
+1 Eldrazi Devastator
+1 Forcefield
+19 Forest
+1 Foundry Champion
+1 Fountain of Cho
 1 Fyndhorn Brownie
-1 Gibbering Hyenas
-1 Gore Swine
-1 Guma
+1 Gangly Stompling
+1 Garrison Sergeant
+1 Giant Badger
+1 Glorifier of Dusk
+1 Gnarled Mass
+1 Guardian Lions
+1 Haunted Cloak
 1 Heartwood Treefolk
-1 Hidden Volcano
+1 Hollowhead Sliver
+1 Indomitable Ancients
+1 Iroas's Champion
 1 Jungle Basin
-1 Karoo Meerkat
-1 Kessig Wolf
+1 Kavaron, Memorial World
 1 Kishla Village
 1 Lagac Lizard
 1 Land Leeches
 1 Leaping Lizard
-1 Lightning Hounds
-1 Mijae Djinn
-5 Mountain
-1 Mungha Wurm
-1 Nettle Swine
+1 Lightning Spear
+1 Loxodon Anchorite
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Marisi's Twinclaws
+1 Mossfire Egg
+2 Mountain
+1 Nema Siltlurker
+1 Nemesis Mask
 1 Niall Silvain
-1 Outland Boar
-1 Pestilent Wolf
-5 Plains
-1 Raging Bull
-1 Raging Kavu
-1 Raven's Run Dragoon
-1 Regal Unicorn
-1 Rime Dryad
+1 North Star
+4 Plains
+1 Power Matrix
+1 Quicksilver Amulet
+1 Reflecting Mirror
+1 Remote Farm
+1 Riot Devils
+1 Rocky Roads
 1 Rowan Treefolk
-1 Safewright Quest
+1 Sandstone Needle
 1 Scarwood Treefolk
-1 Scoria Wurm
-1 Sedge Scorpion
 1 Sejiri Steppe
-1 Selesnya Sagittars
-1 Shelkin Brownie
+1 Selesnya Sentry
+1 Shield of Kaldra
 1 Skycrash
-1 Slimy Kavu
-1 Spinerock Knoll
+1 Stone Spirit
+1 Sunglasses of Urza
+1 Sungrass Egg
+1 Talisman of Conviction
 1 Talisman of Unity
-1 The Autonomous Furnace
+1 Tawnos's Coffin
 1 The Lonely Mountain
-1 The Shire
-1 Thornling
-1 Thriving Grove
-1 Tree Monkey
-1 Underdark Basilisk
-1 Valakut, the Molten Pinnacle
+1 Thran Weaponry
+1 Thriving Bluff
+1 Towering Thunderfist
+1 Umbilicus
+1 Viashino Outrider
 1 Viashino Sandswimmer
-1 War-Spike Changeling
-1 Warthog
-1 Wary Okapi
-1 Wild Leotau
-1 Willow Priestess
-1 Windseeker Centaur
+1 Vivid Crag
+1 Vivid Meadow
+1 Worldly Tutor
 1 Yavimaya Scion
 1 Zodiac Dog
-1 Zodiac Monkey
-1 Zodiac Rooster
-1 Zodiac Tiger

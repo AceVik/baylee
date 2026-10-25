@@ -1,81 +1,81 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange UBG #20266307]
-1 Accursed Horde
-1 Altered Ego
-1 Armored Cancrix
-1 Canal Monitor
-1 Chitinous Graspling
-1 Clearwater Pathway
-1 Dreadship Reef
-1 Dreg Reaver
-1 Drowned Secrets
-1 Easy Prey
-1 Enchantress's Presence
-1 Foreboding Landscape
-5 Forest
-1 Fortress Crab
-1 Freyalise's Charm
-1 Giant Cockroach
-1 Giant Crab
-1 Golgari Longlegs
-1 Grim Tutor
-1 Headstone
-1 Hesitation
-1 Horror of the Dim
+[deck:highlander midrange WUB #20266307]
+1 Amrou Seekers
+1 Ancient Spring
+1 Arcane Sanctum
+1 Arena of the Ancients
+1 Armor Sliver
+1 Barrenton Cragtreads
+1 Blind Phantasm
+1 Bog Tatters
+1 Bone Flute
+1 Changeling Sentinel
+1 Chimeric Staff
+1 Clever Impersonator
+1 Clone
+1 Coiled Tinviper
+1 Conqueror's Galleon
+1 Contaminated Landscape
+1 Cursed Rack
+1 Dirtwater Wraith
+1 Dream Prowler
+1 Dromar's Cavern
+1 Fetid Heath
+1 Glacial Wall
+1 Gloom Pangolin
+1 Gloomlake Verge
+1 Godless Shrine
+1 Hengegate Pathway
+1 Huatli's Snubhorn
 1 Humongulus
-1 Infernal Contract
-1 Infernal Idol
-9 Island
-1 Jin-Gitaxias, Progress Tyrant
+1 Imperious Inkmage
+10 Island
 1 Killer Whale
-1 Lifecrafter's Bestiary
-1 Mana Vortex
-1 Narwhal
-1 Omnibian
-1 Opulent Palace
-1 Overgrown Tomb
+1 Kithkin Billyrider
+1 Kithkin Rabble
+1 Kitsune Riftwalker
+1 Kolinahr Priest
+1 Kor Sky Climber
+1 Looming Altisaur
+1 Loxodon Wayfarer
+1 Medicine Bag
+1 Mindwhip Sliver
+1 Mishra's Groundbreaker
+1 Morphling
+1 Nimbus Maze
+1 Nova Pentacle
+1 Odylic Wraith
+1 Pearled Unicorn
+1 Pentagram of the Ages
+1 Petra Sphinx
 1 Phantasmal Fiend
-1 Phyrexian Defiler
-1 Predatory Hunger
-1 Prowling Nightstalker
-1 Renegade Demon
-1 Riddleform
-1 River Delta
-1 Rotting Fensnake
+12 Plains
+1 Primal Clay
+1 Raffine's Tower
+1 Raptor Companion
+1 Regal Unicorn
+1 Resplendent Mentor
 1 Sandbar Crocodile
-1 Scion of Glaciers
+1 Scrubland
 1 Shadow Rider
-1 Shimian Night Stalker
-1 Shocking Grasp
+1 Shifting Sliver
 1 Shore Snapper
-1 Simic Ragworm
-1 Slinking Serpent
-1 Soul Barrier
+1 Siege Mastodon
+1 Silent Clearing
 1 Spark Double
-1 Species Gorger
-1 Steeple Creeper
-1 Svogthos, the Restless Tomb
-11 Swamp
+1 Starfleet Crew
+1 Starlit Sanctum
+1 Stunt Double
+1 Sunglasses of Urza
+1 Suppression Ray
+3 Swamp
 1 Tainted Isle
-1 Tainted Wood
-1 Talisman of Curiosity
-1 Talisman of Resilience
-1 Tangleroot
-1 Thalakos Drifters
-1 Turtle-Seals
-1 Ukud Cobra
-1 Unhallowed Phalanx
-1 Vampiric Tutor
-1 Veil of Birds
-1 Viridescent Bog
-1 Wanderbrine Rootcutters
-1 Wastewood Verge
-1 Water Elemental
-1 Waterlogged Grove
-1 Waterveil Cavern
-1 Wishcoin Crab
-1 Wormhole Serpent
-1 Yavimaya Coast
-1 Yawgmoth's Edict
-1 Zagoth Triome
+1 Tawnos's Coffin
+1 Tower of Champions
+1 Unraveling Mummy
+1 Unyielding Krumar
+1 Wall of Vapor
+1 Wall of Wonder
+1 Weakstone
+1 Wizards' School

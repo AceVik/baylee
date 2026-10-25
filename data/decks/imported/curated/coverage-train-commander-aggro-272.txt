@@ -1,74 +1,74 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro R #20266273]
-1 About Face
-1 Akki Drillmaster
-1 Arcum's Sleigh
-1 Assault Strobe
-1 Bladed Bracers
-1 Bladed Pinions
-1 Blighted Gorge
-1 Borderland Minotaur
-1 Bronze Sword
-1 Canyon Minotaur
-1 Chaos Terminator Lord
-1 Crimson Kobolds
-1 Crookshank Kobolds
-1 Darksteel Axe
-1 Enslaved Scout
-1 Falter
-1 Frost Ogre
-1 Goblin Assailant
-1 Goblin Berserker
-1 Goblin Bird-Grabber
-1 Goblin Brigand
-1 Goblin Bully
-1 Goblin Burrows
-1 Goblin Cadets
-1 Goblin Cavaliers
-1 Goblin Chariot
-1 Goblin Hero
-1 Goblin Lackey
-1 Goblin Mountaineer
-1 Goblin Patrol
-1 Goblin Piker
-1 Goblin Smuggler
-1 Goblins of the Flarg
-1 Hanweir Battlements
-1 Hulking Bugbear
-1 Kher Keep
-1 Kitesail
-1 Leopard-Spotted Jiao
-1 Lizard Warrior
-1 Marauder's Axe
-1 Minotaur Warrior
-32 Mountain
-1 Nest Robber
-1 Neurok Hoversail
-1 Nimble Birdsticker
-1 Ogre Sentry
-1 Ogre Warrior
-1 Ogre's Cleaver
-1 Onakke Ogre
-1 Orazca Raptor
-1 Pensive Minotaur
-1 Peregrine Mask
-1 Raging Redcap
-1 Reckless Brute
-1 Resistance Skywarden
-1 Ridgetop Raptor
-1 Shatterskull Giant
-1 Shinka, the Bloodsoaked Keep
-1 Shivan Gorge
-1 Shivan Raptor
-1 Skateboard
-1 Skirk Shaman
-1 Slavering Nulls
-1 Sneaking Guide
-1 Sokenzan Bruiser
-1 Swab Goblin
-1 Trusty Machete
-1 Warmonger's Chariot
+[deck:commander aggro W #20266273]
+1 Advance Scout
+1 Alabaster Mage
+1 Alaborn Cavalier
+1 Alarum
+1 Auriok Transfixer
+1 Avacynian Priest
+1 Aysen Bureaucrats
+1 Banishing Stroke
+1 Barrenton Medic
+1 Beloved Chaplain
+1 Benalish Hero
+1 Benalish Infantry
+1 Benalish Trapper
+1 Blinding Mage
+1 Boseiju, Who Shelters All
+1 Burden of Guilt
+1 Burst of Energy
+1 Celestial Enforcer
+1 Clergy en-Vec
+1 Coeurl
+1 Cooperation
+1 Death Speakers
+1 Dragon's Eye Sentry
+1 Dromoka Dunecaster
+1 Dromoka Warrior
+1 Eager Cadet
+1 Earth Kingdom Protectors
+1 Edgewall Inn
+1 Enchanted Being
+1 Ephara's Warden
+1 Errant Doomsayers
+1 Excoriate
+1 Expedition Envoy
+1 Fan Bearer
+1 Flanking Troops
+1 Gavony Trapper
+1 Glory Seeker
+1 Goldmeadow Harrier
+1 Half-Elf Monk
+1 Kelsinko Ranger
+1 Kitsune Diviner
+1 Knight Errant
+1 Knight of the Keep
+1 Kyoshi Warrior Guard
+1 Lotus Field
+1 Loxodon Mystic
+1 Master of Arms
+1 Midnight Duelist
+1 Myriad Landscape
+1 Nebelgast Beguiler
+1 Nightguard Patrol
+1 Peacekeeper
+32 Plains
+1 Primal Beyond
+1 Rocky Tar Pit
+1 Samite Alchemist
+1 Seasoned Marshal
+1 Sigardian Priest
+1 Spawnbinder Mage
+1 Squire
+1 Standing Troops
+1 Steadfast Guard
+1 Sterling Keykeeper
+1 Tenth District Veteran
+1 Territorial Hammerskull
+1 Thistledown Players
+1 Wanderbrine Trapper
+1 Wolf Cove Villager
 
 [commander]
-Tyrox, Saurid Tyrant
+Sidar Jabari

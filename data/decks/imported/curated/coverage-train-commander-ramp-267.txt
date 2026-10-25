@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266268]
+1 Agility
+1 Anaba Ancestor
+1 Battle-Rattle Shaman
+1 Beasts of Bogardan
+1 Bellows Lizard
+1 Boggart Sprite-Chaser
+1 Boil
+1 Bonders' Enclave
+1 Bravado
+1 Burning Shield Askari
+1 Captain's Tutelage
+1 Castle Doom
+1 Cavernous Maw
+1 Char-Rumbler
+1 Colos Yearling
+1 Crown of Flames
+1 Cryptic Caves
+1 Echoing Deeps
+1 Epiphany Storm
+1 Fiery Hellhound
+1 Fit of Rage
+1 Flame Spirit
+1 Flame-Chain Mauler
+1 Flaming Sword
+1 Flashfires
+1 Furnace Spirit
+1 Goblin Caves
+1 Goblin Elite Infantry
+1 Goblin Flotilla
+1 Goblin Ski Patrol
+1 Goblin Tomb Raider
+1 Granite Grip
+1 Granulate
+1 Igneous Cur
+1 Keeper of Kookus
+1 Kird Ape
+1 Lava Flow
+1 Lavakin Brawler
+1 Lavastep Raider
+1 Mikokoro, Center of the Sea
+1 Minotaur Sureshot
+1 Minotaur Tactician
+1 Mogg Squad
+1 Molten Ravager
+35 Mountain
+1 Orcish Captain
+1 Orcish Squatters
+1 Pyre Charger
+1 Rageblood Shaman
+1 Raging Spirit
+1 Rampaging Classmate
+1 Reckless One
+1 Renegade Firebrand
+1 Renegade Warlord
+1 Rig for War
+1 Roc Hatchling
+1 Run Amok
+1 Scoria Cat
+1 Screaming Fury
+1 Skirk Outrider
+1 Teeterpeak Ambusher
+1 Toxic Iguanar
+1 Veteran's Voice
+1 Viashino Weaponsmith
+1 Warped Landscape
+
+[commander]
+Hivis of the Scale

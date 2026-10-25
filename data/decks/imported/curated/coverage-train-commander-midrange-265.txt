@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266266]
-1 Alaborn Grenadier
-1 Alert Shu Infantry
-1 Ardent Militia
-1 Banishing Stroke
-1 Beloved Chaplain
-1 Benalish Hero
-1 Benalish Infantry
-1 Border Guard
-1 Border Patrol
-1 Cho-Arrim Alchemist
-1 Cloud Crusader
-1 Combat Medic
-1 Command Bridge
-1 Death Speakers
-1 Defender of Law
-1 Dromoka Warrior
-1 Eager Cadet
-1 Enchanted Being
-1 Expedition Envoy
-1 Farbog Explorer
-1 Femeref Healer
-1 Femeref Scouts
-1 Field Surgeon
-1 Foriysian Brigade
-1 Foriysian Interceptor
-1 Guildless Commons
-1 Heaven's Gate
-1 Icatian Scout
-1 Icatian Skirmishers
-1 Kelsinko Ranger
-1 Kjeldoran Skycaptain
-1 Knight Errant
-1 Knight of New Benalia
-1 Knight of the Keep
-1 Knights of Thorn
-1 Kyoshi Warrior Guard
-1 Longbow Archer
-1 Lotus Field
-1 Master Healer
-1 Militant Monk
-1 Mirrorpool
-1 Mounted Archers
-1 Nightguard Patrol
-1 Peacekeeper
-34 Plains
-1 Primal Beyond
-1 Repentant Blacksmith
-1 Revoke Existence
-1 Righteous Avengers
-1 Sacred Knight
-1 Saltfield Recluse
-1 Sanctum Custodian
-1 Serra Aviary
-1 Serra Paladin
-1 Shield Bearer
-1 Shu Elite Infantry
-1 Shu Foot Soldiers
-1 Silver Knight
-1 Sokka, Wolf Cove's Protector
-1 Squire
-1 Starting Town
-1 Traveling Philosopher
-1 Veteran Bodyguard
-1 Veteran Cavalier
-1 Wolf Cove Villager
-1 Zhalfirin Knight
+[deck:commander midrange U #20266266]
+1 Acid Rain
+1 Aeronaut Tinkerer
+1 Air Marshal
+1 Ambassador Laquatus
+1 Amphin Pathmage
+1 Ancestral Reminiscence
+1 Armored Galleon
+1 Avalanche Caller
+1 Balduvian Conjurer
+1 Balduvian Frostwaker
+1 Balduvian Shaman
+1 Blinkmoth Nexus
+1 Boulderborn Dragon
+1 Brotherhood Spy
+1 Cache Raiders
+1 Cradle of the Accursed
+1 Crafty Pathmage
+1 Curfew
+1 Dragonstorm Forecaster
+1 Drifter il-Dal
+1 Feroz's Ban
+1 Forgotten Monument
+1 Fugitive Wizard
+1 Glacial Chasm
+1 Glintwing Invoker
+1 Harbinger of the Seas
+1 Heidar, Rimewind Master
+1 Hieroglyphic Illumination
+1 Kite Shield
+1 Lazotep Quarry
+1 Lord of the Unreal
+1 Lumengrid Warden
+1 Meteor Sword
+1 Neurok Replica
+1 Passwall Adept
+1 Puppeteer
+1 Pyramids
+1 Retributive Wand
+1 Rimewind Taskmage
+1 Sift
+1 Silvergill Douser
+1 Sindbad
+1 Sky Weaver
+1 Slow Motion
+34 Snow-Covered Island
+1 Soratami Mindsweeper
+1 Steam Frigate
+1 Stonybrook Angler
+1 Surgespanner
+1 Temporal Adept
+1 Thalakos Deceiver
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Tomb of the Spirit Dragon
+1 Touch of Brilliance
+1 Trickster Mage
+1 Vedalken Entrancer
+1 Vedalken Mastermind
+1 Vedalken Mesmerist
+1 Vodalian Illusionist
+1 Wanderwine Distracter
+1 Weave Fate
+1 Wilderness Hypnotist
+1 Wind Strider
+1 Wizard Mentor
+1 Wu Warship
 
 [commander]
-Hawkeye, Clint Barton
+Barrin, Master Wizard

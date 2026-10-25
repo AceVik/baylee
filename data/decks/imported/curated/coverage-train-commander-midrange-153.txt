@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange R #20266154]
-1 Akki Drillmaster
-1 Aladdin
-1 Ali from Cairo
-1 Ambush
-1 Ambush Party
-1 Anaba Spirit Crafter
-1 Backdraft
-1 Balduvian Barbarians
-1 Barbarian Horde
-1 Barbarian Outcast
-1 Basilisk Gate
-1 Berserkers of Blood Ridge
-1 Black Widow, Natasha Romanoff
-1 Bloodlust Inciter
-1 Bloodthorn Taunter
-1 Caterwauling Boggart
-1 Cave People
-1 Crimson Kobolds
-1 Crimson Mage
-1 Crookshank Kobolds
-1 Defiant Khenra
-1 Demolish
-1 Deserted Temple
-1 Fallaji Chaindancer
-1 Feint
-1 Fervent Strike
-1 Firestorm Phoenix
-1 Flameborn Hellion
-1 Frost Ogre
-1 Goblin Assailant
-1 Goblin Brigand
-1 Goblin Cavaliers
-1 Goblin Chariot
-1 Goblin Smuggler
-1 Halberdier
-1 Happy Hogan, Dauntless Driver
-1 Headlong Rush
-1 Hurloon Minotaur
-1 Hyperion Blacksmith
-1 Independent Troops
-1 Isolated Watchtower
-1 Lunar Frenzy
-1 Mana Clash
-1 Minotaur Aggressor
-1 Minotaur Warrior
+1 Accorder's Shield
+1 Anodet Lurker
+1 Arc Runner
+1 Bant Panorama
+1 Barreling Attack
+1 Canyon Wildcat
+1 Clickslither
+1 Crucible of the Spirit Dragon
+1 Dragon Engine
+1 Dwarven Grunt
+1 Elven Passage
+1 Excavator
+1 Feral Maaka
+1 Furnace Brood
+1 Goblin Cannon
+1 Gorgon's Head
+1 Guardian Automaton
+1 Guma
+1 Haunted Guardian
+1 Helm of the Host
+1 Illusionary Mask
+1 Iron Lance
+1 Jangling Automaton
+1 Jhoira's Toolbox
+1 Jousting Dummy
+1 Kiln Walker
+1 Library of Leng
+1 Magnetic Mine
+1 Mantis Engine
+1 Marauder's Axe
+1 Maskwood Nexus
+1 Metrognome
 34 Mountain
-1 Mountain Bandit
-1 Ogre Sentry
-1 Pensive Minotaur
-1 Rage Weaver
-1 Rageblood Shaman
-1 Reliquary Tower
-1 Renegade Troops
-1 Roc Hunter
-1 Skirk Shaman
-1 Sokenzan Bruiser
-1 Soldier of Fortune
-1 Song-Mad Treachery
-1 Spire of Industry
-1 Tavern Ruffian
-1 Thran Quarry
-1 Ticked Off
-1 Trailblazing Historian
-1 Tyrox, Saurid Tyrant
-1 Vulshok Refugee
-1 Warship Scout
+1 Ogre's Cleaver
+1 Painted Bluffs
+1 Prismatic Vista
+1 Quaketusk Boar
+1 Raging Bull
+1 Raging Cougar
+1 Regathan Firecat
+1 Sabretooth Tiger
+1 Sandals of Abdallah
+1 Scoria Cat
+1 Scoria Elemental
+1 Scrapheap
+1 Shadowspear
+1 Skateboard
+1 Skycoach Waypoint
+1 Sliver Construct
+1 Stone Spirit
+1 Stonework Puma
+1 Sunstone
+1 Sword of the Chosen
+1 Thermal Navigator
+1 Thran Lens
+1 Torch Gauntlet
+1 Unnatural Speed
+1 Voltaic Servant
+1 Wand of the Elements
+1 War Barge
+1 Whalebone Glider
+1 Wild Jhovall
+1 Winter Moon
+1 Wirecat
+1 Witches' Eye
+1 Worldslayer
 
 [commander]
-The Whizzer, Classic Speedster
+Quicksilver, Pietro Maximoff

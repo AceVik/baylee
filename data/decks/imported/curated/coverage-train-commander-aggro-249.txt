@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro WG #20266250]
-1 Abbey Matron
-1 Aegis of the Heavens
-1 Angelic Blessing
-1 Arctic Treeline
-1 Armory Guard
-1 Ashaya, Soul of the Wild
-1 Auriok Bladewarden
-1 Aysen Crusader
-1 Benalish Veteran
-1 Blossoming Defense
+[deck:commander aggro WR #20266250]
+1 Automatic Librarian
+1 Axgard Armory
+1 Battlefield Forge
+1 Bear Trap
+1 Black Vise
 1 Book of Rass
-1 Capashen Knight
-1 Capashen Templar
-1 Cenn's Heir
-1 Cloudreach Cavalry
-1 Dire Wolf Prowler
-1 Dungrove Elder
-1 Femeref Knight
-1 Feral Ferocity
-1 Feral Roar
-7 Forest
-1 Frilled Sandwalla
-1 Gaea's Might
-1 Gathering Place
-1 Gavony Township
-1 Get a Leg Up
-1 Griffin Rider
-1 Grove of the Guardian
-1 Guardian of the Great Conduit
-1 Hardened Escort
-1 Horizon Canopy
-1 Hushwood Verge
-1 Icatian Lieutenant
-1 Icatian Priest
-1 Imperial Lancer
-1 Kithkin Daggerdare
-1 Kjeldoran Elite Guard
-1 Kjeldoran Knight
-1 Kjeldoran Outrider
-1 Knight of the Skyward Eye
-1 Knotvine Paladin
-1 Legolas's Quick Reflexes
-1 Lionheart Maverick
-1 Llanowar Behemoth
-1 Lush Portico
-1 Mana Tithe
-1 Order of Leitbur
-1 Piety
-17 Plains
-1 Pterodon Knight
-1 Qilin's Blessing
-1 Rashka the Slayer
-1 Riftstone Portal
-1 Righteousness
-1 Rust
-1 Saltcrusted Steppe
-1 Shield Mate
-1 Snarling Wolf
-1 Soltari Champion
-1 Soltari Crusader
-1 Soltari Trooper
-1 Songstitcher
-1 Spidery Grasp
-1 Spirit Weaver
-1 Steadfast Cathar
-1 Stone Haven Pilgrim
-1 Sungrass Prairie
-1 Tireless Tribe
-1 Tranquil Garden
-1 Tyvar's Stand
-1 Untamed Might
-1 Veldt
-1 Venomous Breath
-1 Vitu-Ghazi, the City-Tree
-1 White Shield Crusader
-1 Wood Elemental
-1 Wooded Bastion
+1 Brass Man
+1 Brass Secretary
+1 Bullwhip
+1 Chronomaton
+1 Clay Statue
+1 Consulate Skygate
+1 Custodian of the Trove
+1 Excavated Wall
+1 Explosive Apparatus
+1 Forgotten Sentinel
+1 Furycalm Snarl
+1 Goblin Cannon
+1 Grapeshot Catapult
+1 Haunted Guardian
+1 Hematite Golem
+1 Hopping Automaton
+1 Iron Bully
+1 Jangling Automaton
+1 Jawbone Skulkin
+1 Kiln Walker
+1 Lightning-Core Excavator
+1 Limestone Golem
+1 Locthwain Gargoyle
+1 Lorehold Campus
+1 Misers' Cage
+1 Monoskelion
+16 Mountain
+1 Necrogen Censer
+1 Night Market Guard
+1 Patagia Golem
+1 Phyrexian Lens
+8 Plains
+1 Plateau
+1 Prismite
+1 Ragged Playmate
+1 Rugged Prairie
+1 Rusted Sentinel
+1 Saberclaw Golem
+1 Sacred Foundry
+1 Sanitation Automaton
+1 Scalding Cauldron
+1 Scalding Tongs
+1 Scrap Compactor
+1 Shifting Wall
+1 Silent Dart
+1 Slayers' Stronghold
+1 Sliver Construct
+1 Snow Fortress
+1 Spare Supplies
+1 Straw Golem
+1 Sun-Blessed Peak
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Sunscorched Divide
+1 Suspicious Bookcase
+1 Telim'Tor's Darts
+1 Tezzeret's Strider
+1 The Rack
+1 Three Tree Mascot
+1 Throne of the God-Pharaoh
+1 Thumbscrews
+1 Ticking Gnomes
+1 Titanium Golem
+1 Towering Viewpoint
+1 Universal Automaton
+1 Voltaic Servant
+1 Wall of Junk
+1 Weldfast Monitor
+1 Wheel of Torture
+1 Wind-Scarred Crag
 
 [commander]
-Kudo, King Among Bears
+Thorin Oakenshield

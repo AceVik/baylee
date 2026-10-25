@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #20266132]
+1 Absolute Law
+1 Alloy Myr
+1 Back to Nature
+1 Barbtooth Wurm
+1 Birnin Zana Plaza
+1 Blue Ward
+1 Branchloft Pathway
+1 Brushland
+1 Canopy Gorger
+1 Circle of Protection: Blue
+1 Cleansing Nova
+1 Conifer Wurm
+1 Cowl Prowler
+1 Crackdown
+1 Craw Wurm
+1 Creeping Corrosion
+1 Dryad of the Ilysian Grove
+1 Endless Wurm
+1 Essence Filter
+1 Final Showdown
+1 Flora Colossus
+1 Fungus Elemental
+1 Gale Force
+1 Galewind Moose
+1 Gavony Township
+1 Glyph of Reincarnation
+1 Grove of the Guardian
+1 Horizon Canopy
+1 Johtull Wurm
+1 Jolrael's Favor
+1 Kjeldoran Frostbeast
+1 Living Plane
+1 Lush Portico
+1 Oakheart Dryads
+1 Planar Cleansing
+1 Planar Collapse
+1 Plated Slagwurm
+1 Presence of Gond
+1 Primordial Wurm
+1 Quilled Slagwurm
+1 Rain of Blades
+1 Ravages of War
+1 Remove Enchantments
+1 Riftstone Portal
+1 Roaring Slagwurm
+1 Root Cage
+1 Safeguard
+1 Saltcrusted Steppe
+1 Sandstorm
+1 Savannah
+1 Scaled Wurm
+1 Serene Heart
+1 Siegehorn Ceratops
+16 Snow-Covered Forest
+10 Snow-Covered Plains
+1 Squall Drifter
+1 Still Life
+1 Sungrass Prairie
+1 Thicket Crasher
+1 Three Tree Mascot
+1 Tranquil Domain
+1 Tranquil Garden
+1 Treefolk Mystic
+1 Tropical Storm
+1 Unlikely Alliance
+1 Vec Townships
+1 Veldt
+1 Venomous Breath
+1 Vitu-Ghazi, the City-Tree
+1 Vorstclaw
+1 Walk-In Closet
+1 Whiptail Wurm
+1 Whirlwind
+1 Winds of Rath
+1 Wooded Bastion
+
+[commander]
+Trostani, Three Whispers

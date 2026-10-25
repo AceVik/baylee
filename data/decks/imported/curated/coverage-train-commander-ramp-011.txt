@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WRG #20266012]
-1 +2 Mace
-1 Aegis Automaton
-1 An-Havva Township
-1 Arena of Glory
-1 Astrolabe
-1 Avacyn's Collar
-1 Avacyn's Memorial
-1 Bastion Mastodon
-1 Bladed Sentinel
-1 Bootleggers' Stash
-1 Boots of Speed
-1 Cave of the Frost Dragon
-1 Collector Ouphe
-1 Cursed Mirror
-1 Daredevil's Billy Club
-1 Dreamstone Hedron
-1 Evendo, Waking Haven
-1 Experimental Armor
-1 Eye of Vecna
-1 Fireforger's Puzzleknot
-4 Forest
-1 Gimli's Axe
-1 Godsire
-1 Gruul War Plow
-1 Hanna's Custody
-1 Hard-Won Jitte
-1 Harmonious Archon
-1 Hedgewitch's Mask
+[deck:commander ramp WUB #20266012]
+1 Aquatic Incursion
+1 Arenson's Aura
+1 Argivian Restoration
+1 Ashiok, Dream Render
+1 Banishing Betrayal
+1 Barad-dûr
+1 Bog Wreckage
+1 Castle Ardenvale
+1 Cathartic Adept
+1 Chronic Flooding
+1 Contingency Plan
+1 Dakmor Salvage
+1 Deadly Visit
+1 Dispersing Orb
+1 Drowner of Secrets
+1 Emry, Lurker of the Loch
+1 Fate Foretold
+1 Fill with Fright
+1 Foul Roads
+1 Geist of Saint Thalia
+1 Gosta Dirk
+1 Grassland Crusader
+1 Hanna, Ship's Navigator
+1 Hatching Plans
+1 He's Dead, Jim
+1 Hell's Caretaker
+1 Hidden Cataract
+1 High Priest of Penance
+1 Howltooth Hollow
 1 Humble the Brute
+1 Hunding Gjornersen
+1 Index
 1 Ishgard, the Holy See
-1 Jackhammer
-1 Jetmir's Garden
-1 Jungle Shrine
-1 Kor Halberd
-1 Lightning Spear
-1 Manakin
-1 Memorial to Unity
-1 Metallurgeon
-1 Mindless Automaton
-7 Mountain
-1 Network Terminal
-1 Nightshade Dryad
-1 Obelisk of Naya
-1 Pentavus
-1 Phyrexian Walker
-15 Plains
-1 Prophetic Prism
-1 Ranger's Longbow
-1 Razorfield Thresher
-1 Rocky Roads
-1 Rushwood Grove
-1 Saberclaw Golem
-1 Sandstone Needle
-1 Scrap Trawler
-1 Scrapyard Steelbreaker
-1 Selesnya Keyrune
-1 Serpent Generator
-1 Sheltering Landscape
-1 Sparring Construct
-1 Su-Chi
-1 Sundial, Dawn Tyrant
-1 Swooping Lookout
-1 Tangle Hulk
-1 The One Ring
-1 Thriving Bluff
-1 Thriving Grove
-1 Thundering Tanadon
-1 Tinder Farm
-1 Titanium Golem
-1 Trigon of Rage
-1 Triskelavus
-1 Turntimber Grove
-1 Unstable Obelisk
-1 Urn of Godfire
-1 Utopia Tree
-1 Verdant Automaton
+20 Island
+1 Jedit Ojanen
+1 Kasimir the Lone Wolf
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 Lord of the Undead
+1 Merfolk Coralsmith
+1 Merfolk Mesmerist
+1 Mindeye Drake
+1 Mnemonic Wall
+1 Mox Jasper
+1 Mtenda Griffin
+1 Obsessive Stitcher
+2 Plains
+1 Puppet Master
+1 Ramirez DePietro
+1 Remote Farm
+1 Rootwater Mystic
+1 Rotcrown Ghoul
+1 Rummaging Wizard
+1 Sage's Row Denizen
+1 Sand Silos
+1 Scribe of the Mindful
+1 Search for Azcanta
+1 Select for Inspection
+1 Sonic Screwdriver
+1 Sphinx's Herald
+1 Starfighter Pilot
+4 Swamp
+1 Teferi's Care
+1 Teferi's Isle
+1 Temporal Mastery
+1 Thalakos Seer
+1 The Surgical Bay
+1 Thriving Heath
+1 Thriving Isle
+1 Unauthorized Exit
+1 Vivid Marsh
+1 Windrider Patrol
+1 Witch's Cottage
+1 Woebearer
+1 Zhang Liao, Hero of Hefei
+1 Zhou Yu, Chief Commander
 
 [commander]
-Johan
+Dakkon Blackblade

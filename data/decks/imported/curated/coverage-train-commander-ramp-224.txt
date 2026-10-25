@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266225]
-1 Benthic Djinn
-1 Bile Urchin
-1 Blizzard Elemental
-1 Bogstomper
-1 Braidwood Sextant
-1 Cackling Imp
-1 Clearwater Pathway
-1 Contingency Plan
-1 Dakmor Plague
-1 Darkwater Catacombs
-1 Davriel's Shadowfugue
-1 Dig Through Time
-1 Djinn of the Lamp
-1 Dreadship Reef
-1 Dry Spell
-1 Engine Rat
-1 Famine
-1 Floodchaser
-1 Forbidden Ritual
-1 Frost Marsh
-1 Gangrenous Zombies
-1 Gloomlake Verge
-1 Havengul Skaab
-1 Hellfire
-1 Infectious Horror
-1 Infernal Grasp
-10 Island
-1 Juzám Djinn
-1 Jwar Isle Refuge
-1 Kezzerdrix
-1 Levitating Statue
-1 Lotus Blossom
-1 Lotus Petal
-1 Mana Geode
-1 Mental Agony
-1 Mind Spring
-1 Mox Diamond
-1 Nacre Talisman
-1 Nephalia Drownyard
-1 Nim Abomination
-1 Ramirez DePietro
-1 Refocus
-1 Reign of Terror
-1 River Delta
-1 Rootwater Depths
-1 Screams of the Damned
-1 Seer's Lantern
-1 Selhoff Entomber
-1 Serpent of Yawning Depths
-1 Sheoldred, the Apocalypse
-1 Shepherd of Rot
-1 Skirsdag Supplicant
-1 Soulcage Fiend
-1 Spellkeeper Weird
-1 Springleaf Drum
-1 Startling Development
-1 Sunken Ruins
-16 Swamp
-1 Sword of the Ages
-1 Taigam's Scheming
-1 Tainted Isle
-1 Tethered Skirge
-1 Thoughtseize
-1 Thrashing Wumpus
-1 Tome Scour
-1 Treno, Dark City
-1 Unauthorized Exit
-1 Underground River
-1 Underground Sea
-1 Urborg Stalker
-1 Vicious Conquistador
-1 Vision Skeins
-1 Waterveil Cavern
-1 Watery Grave
-1 Withering Torment
+[deck:commander ramp BR #20266225]
+1 Ancient Runes
+1 Artifact Possession
+1 Auntie's Hovel
+1 Axegrinder Giant
+1 Badlands
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Blightstep Pathway
+1 Blockbuster
+1 Blood Crypt
+1 Boiling Rock Prison
+1 Breath of Malfegor
+1 Bulwark
+1 Burning Earth
+1 Cinder Marsh
+1 Consuming Bonfire
+1 Corrupted Roots
+1 Curse Artifact
+1 Dark Fortress
+1 Deadeye Duelist
+1 Earthbind
+1 Fire Tempest
+1 Fire Whip
+1 Flamekin Spitfire
+1 Galvanic Arc
+1 Goblin Artillery
+1 Goblin Medics
+1 Goblin Snowman
+1 Goblin Tinkerer
+1 Golden Guardian
+1 Graven Cairns
+1 Hasran Ogress
+1 He's Dead, Jim
+1 Heat of Battle
+1 Honden of Infinite Rage
+1 Impact Tremors
+1 Insolence
+1 Iroas's Blessing
+1 Jackal Pup
+1 Jeska, Warrior Adept
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Manabarbs
+1 Mogg Maniac
+1 Molten Slagheap
+22 Mountain
+1 Nightfire Giant
+1 Ogre Shaman
+1 Orcish Artillery
+1 Orcish Cannoneers
+1 Parch
+1 Power Surge
+1 Primaris Eliminator
+1 Pyroclastic Elemental
+1 Ready to Rumble
+1 Reckless Assault
+1 Retromancer
+1 Rix Maadi, Dungeon Palace
+1 Scald
+1 Scorching Spear
+1 Seal of Fire
+1 Seismic Assault
+1 Seizures
+1 Shadowblood Ridge
+1 Slingshot Goblin
+1 Sparksmith
+1 Spear Spewer
+1 Spikefield Hazard
+1 Stensia Bloodhall
+1 Sulfurous Springs
+4 Swamp
+1 Tainted Peak
+1 Viashino Fangtail
+1 War-Torch Goblin
+1 Where Ancients Tread
 
 [commander]
-Sivitri Scarzam
+Barktooth Warbeard

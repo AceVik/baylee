@@ -1,79 +1,79 @@
 # baylee curated highlander ramp seed=20261117
 # licence: AGPL-3.0-only
 [deck:highlander ramp WU #20261117]
-1 Academy Rector
 1 Adarkar Wastes
-1 Alchemist's Apprentice
-1 April O'Neil, Kunoichi Trainee
-1 Archaeomancer
+1 Aeronaut Cavalry
+1 Angel of Renewal
+1 Avatar Enthusiasts
 1 Aven Fateshaper
-1 Azorius Cluestone
 1 Azorius Skyguard
-1 Bazaar Trademage
+1 Brinebarrow Intruder
+1 Bulwark Giant
 1 Champion of the Parish
+1 Cloistered Telepath
+1 Cloud of Faeries
 1 Cloudblazer
 1 Cloudcrest Lake
-1 Crowd Favorites
-1 Disciple of Grace
-1 Elite Archers
+1 Deputy of Acquittals
+1 Dimir Informant
+1 Drogskol Cavalry
+1 Drownyard Explorers
 1 Elite Guardmage
 1 Esper Sentinel
-1 Falcon, Winged Wonder
+1 Favored of Iroas
 1 Gates of Istfell
+1 Geist-Honored Monk
 1 Gleaming Bastion
-1 Grassland Crusader
+1 Gosta Dirk
+1 Great Whale
+1 Hada Freeblade
 1 Hallowed Fountain
-1 Hapless Researcher
 1 Heavy Infantry
-1 Helpful Hunter
 1 Hengegate Pathway
-1 Honored Knight-Captain
-1 Horizon Scholar
-1 Hunding Gjornersen
-1 Inkfathom Divers
-12 Island
+1 Herald of the Fair
+1 Humbling Elder
+1 Iron Man, Futurist Paragon
+13 Island
+1 Jeong Jeong's Deserters
 1 Kindly Customer
 1 Knight of the Mists
+1 Kyoshi Warriors
 1 Lake-town
 1 Land Cap
-1 Leonin Squire
-1 Loran of the Third Path
-1 Loran, Disciple of History
-1 Lossarnach Captain
 1 Mana Crypt
+1 Merchant of Secrets
+1 Monk Realist
+1 Moonlit Scavengers
 1 Moorland Haunt
 1 Mystic Gate
+1 Nighthawk, Dark Defender
 1 Nimbus Maze
-1 Omenspeaker
-1 Opt
-1 Overwhelmed Apprentice
 1 Palace Jailer
 1 Palinchron
 1 Pelargir Survivor
-14 Plains
-1 Ramosian Captain
-1 Ramosian Lieutenant
+1 Pious Wayfarer
+13 Plains
+1 Prosperous Pirates
 1 Ramosian Sergeant
-1 Recruiter of the Guard
-1 Sage of Epityr
-1 Sage of Lat-Nam
+1 Rasputin Dreamweaver
 1 Sage of Mysteries
-1 Sage's Row Savant
-1 Salvager of Secrets
-1 Scrivener
+1 Sailor of Means
+1 Sanctifier of Souls
 1 Sejiri Refuge
-1 Serum Visionary
+1 Separatist Voidmage
 1 Sharlayan, Nation of Scholars
 1 Skycloud Egg
 1 Skycloud Expanse
 1 Slumbering Keepguard
-1 Sphinx Mindbreaker
-1 Striped Riverwinder
+1 Snapcaster Mage
+1 Staunch Defenders
+1 Stern Proctor
+1 Tenth District Guard
 1 Thalakos Lowlands
+1 Thought Monitor
 1 Thraben Inspector
+1 Tireless Missionaries
+1 Tivadar of Thorn
 1 Tundra
-1 Ultimecia, Temporal Threat
 1 Urbis Protector
-1 Voidwielder
-1 Windreader Sphinx
-1 Zhalfirin Lancer
+1 War Priest of Thune

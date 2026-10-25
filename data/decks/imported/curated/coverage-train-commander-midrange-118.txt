@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UB #20266119]
-1 A.I.M. Bot
-1 Accorder's Shield
-1 Arcane Signet
-1 Armor Thrull
-1 Augmenting Automaton
-1 Battlefly Swarm
-1 Bear Trap
-1 Black Vise
-1 Bottle of Suleiman
-1 Chimeric Egg
-1 Clockwork Swarm
-1 Consumptive Goo
-1 Coretapper
-1 Crypt Cobra
-1 Dowsing Dagger
-1 Dread Wight
-1 Ebon Stronghold
-1 Exocomp
-1 Flamecast Wheel
-1 Flow of Maggots
-1 Flowstone Sculpture
-1 Great Arashin City
-1 Greater Werewolf
-1 Grindclock
-1 Guardian Idol
-1 Gust-Skimmer
-1 Guul Draz Mucklord
-1 Homarid
-1 Howltooth Hollow
-1 Ipnu Rivulet
-1 Jinxed Idol
-1 Khabál Ghoul
-1 Lesser Werewolf
-1 Life Matrix
-1 Lilypad Village
-1 Living Armor
-1 Lux Cannon
-1 Memorial to Folly
-1 Meteor Sword
-1 Minamo, School at Water's Edge
-1 Minas Morgul, Dark Fortress
-1 Mindless Automaton
-1 Monoist Sentry
-1 Myr Scrapling
-1 Ornithopter of Paradise
-1 Phyrexian Vault
-1 Pili-Pala
-1 Pit Scorpion
-1 Powerstone Shard
-1 Prakhata Pillar-Bug
-1 Riptide Laboratory
-1 Scavenging Ghoul
-1 Scepter of Fugue
-1 Scrap Trawler
-1 Seafloor Debris
-1 Serrated Biskelion
+[deck:commander midrange WB #20266119]
+1 Adagia, Windswept Bastion
+1 Angel of Flight Alabaster
+1 Angel of Light
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Archon of Justice
+1 Assault Intercessor
+1 Aven Mindcensor
+1 Aven Sentry
+1 Aven Skirmisher
+1 Beacon Hawk
+1 Belbe's Percher
+1 Bloodied Ghost
+1 Catacomb Dragon
+1 Cave of the Frost Dragon
+1 Companion of the Trials
+1 Courier Hawk
+1 Dakmor Salvage
+1 Duskrider Falcon
+1 Eagle of the Watch
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Erase
+1 Eye Collector
+1 Fallen Angel
+1 Freewind Falcon
+1 Ghirapur Osprey
+1 Hall of Heliod's Generosity
+1 Herald of Serra
+1 Hive of the Eye Tyrant
+1 Kabuto Moth
+1 Kor Haven
+1 Lantern Kami
+1 Malach of the Dawn
+1 Mesa Falcon
+1 Minas Tirith
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Mothrider Patrol
+1 Niblis of the Urn
+1 Pearl Dragon
+1 Peat Bog
+1 Phyrexian Battleflies
+1 Piranha Marsh
+1 Pit Raptor
+15 Plains
+1 Pteron Ghost
+1 Realm of Koh
+1 Roc Charger
+1 Royal Falcon
+1 Segovian Angel
+1 Serra Advocate
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Shinewend
+1 Shrike Force
 1 Skeletal Kathari
-1 Slinking Skirge
-1 Slith Bloodletter
-1 Soldevi Excavations
-1 Soliton
-1 Spinal Centipede
-1 Spined Thopter
-1 Stromkirk Patrol
-25 Swamp
-1 Teferi's Isle
-1 Thanos, Death's Consort
-1 Thriving Isle
-1 Tidehollow Strix
-1 Time Bomb
-1 Titan Forge
-1 Tolarian Academy
-1 Trenzalore Clocktower
-1 Triangle of War
-1 Urza's Blueprints
+1 Skyshroud Falcon
+1 Soulscour
+1 Stonerise Spirit
+1 Sustaining Spirit
+1 Suture Spirit
+10 Swamp
+1 Territorial Roc
+1 The Fair Basilica
+1 Thunder Spirit
+1 Tormented Angel
+1 Triassic Egg
+1 Venerable Lammasu
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Truth
+1 Voiceless Spirit
+1 Wild Aesthir
 
 [commander]
-Skeleton Ship
+Selenia, Dark Angel

@@ -1,81 +1,81 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WUG #20266073]
-1 Altered Ego
-1 Amphin Cutthroat
-1 Ancient Crab
-1 Aquus Steed
-1 Avengers Hangar
-1 Botanical Plaza
-1 Chitinous Graspling
-1 Clever Impersonator
-1 Crop Rotation
-1 Crumble
-1 Crystacean
-1 Dance of Many
-1 Daring Thunder-Thief
-1 Devouring Deep
-1 Devout Decree
-1 Divine Offering
-1 Endangered Armodon
-1 Enraged Ceratok
-7 Forest
-1 Fortress Crab
-1 Glasspool Mimic
-1 Gnarled Mass
-1 Hidden Gibbons
-1 Homarid Shaman
-1 Humongulus
-1 Ironclad Krovod
-11 Island
-1 Jidoor, Aristocratic Capital
-1 Jwari Shapeshifter
-1 Kolinahr Priest
-1 Lay of the Land
-1 Loxodon Gatekeeper
-1 Lush Oasis
-1 Mana Vortex
-1 Minister of Impediments
-1 Mirror Image
-1 Morphling
-1 Mosstodon
-1 Mystic Sanctuary
-1 Naga Eternal
-1 Nature's Lore
-1 North Pole Gates
-1 Omnibian
-1 Open the Armory
-1 Oraxid
+[deck:highlander midrange WBR #20266073]
+1 Alchor's Tomb
+1 Amber Prison
+1 Anaba Bodyguard
+1 Barbed-Back Wurm
+1 Barl's Cage
+1 Black Poplar Shaman
+1 Bog Elemental
+1 Bojuka Bog
+1 Boros Cluestone
+1 Boros Locket
+1 Bottomless Vault
+1 Canal Monitor
+1 Cat Burglar
+1 Catacomb Slug
+1 Charcoal Diamond
+1 Cinderhaze Wretch
+1 Country Roads
+1 Crypt of Agadeem
+1 Daredevil's Billy Club
+1 Dauthi Trapper
+1 Dispeller's Capsule
+1 Elixir of Vitality
+1 Emeritus of Woe
+1 Ethereal Champion
+1 Executioner's Capsule
+1 Fireforger's Puzzleknot
+1 Flamekin Village
+1 Furnace Brood
+1 Gore Swine
+1 Great Arashin City
+1 Hag of Dark Duress
+1 Howltooth Hollow
+1 Hulking Devil
+1 Icatian Store
+1 Kabira Crossroads
+1 Life Chisel
+1 Lightning Hounds
+1 Lindblum, Industrial Regency
+1 Looming Altisaur
+1 Marble Diamond
+1 Mardu Banner
+1 Maw of Kozilek
+1 Minas Morgul, Dark Fortress
+1 Mishra's Groundbreaker
+9 Mountain
+1 Necrogen Spellbomb
+1 Nova Pentacle
+1 Onyx Goblet
+1 Orazca Raptor
+1 Orzhov Cluestone
+1 Orzhov Signet
+1 Pentagram of the Ages
 1 Petra Sphinx
 7 Plains
-1 Plated Wurm
-1 Quandrix Campus
-1 Radiant Grove
-1 Rain-Slicked Copse
-1 Reef Roads
-1 Rejuvenating Springs
-1 Riptide Turtle
-1 Rubbleback Rhino
-1 Salvage Scuttler
-1 Sandbar Crocodile
-1 Scattered Groves
-1 Scuttling Sliver
-1 Seshiro the Anointed
-1 Shifting Sliver
-1 Simic Ragworm
-1 Slipstream Eel
-1 Southern Elephant
-1 Species Gorger
-1 Steeple Creeper
-1 Stunt Double
-1 Suburban Sanctuary
-1 Temple of Plenty
-1 The Surgical Bay
-1 Time of Need
-1 Towering Indrik
-1 Turn to Dust
-1 Turtle-Seals
-1 Whiptongue Frog
-1 Willow Satyr
-1 Wishcoin Crab
-1 You Find the Villains' Lair
+1 Rotted Hulk
+1 Sandstone Bridge
+1 Scoria Wurm
+1 Shadowblood Egg
+1 Shimian Night Stalker
+1 Skeletal Crocodile
+1 Sootwalkers
+1 Soul Rend
+1 Staff of Zegon
+9 Swamp
+1 Talisman of Hierarchy
+1 Tarrian's Journal
+1 The Autonomous Furnace
+1 The Balrog of Moria
+1 The Fair Basilica
+1 Thriving Heath
+1 Tower of Eons
+1 Trigon of Mending
+1 Venomous Changeling
+1 Viashino Skeleton
+1 Vibrating Sphere
+1 Volcano Imp
+1 War-Spike Changeling
+1 Zodiac Pig

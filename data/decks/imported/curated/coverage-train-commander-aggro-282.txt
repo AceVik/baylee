@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266283]
+1 Academy Ruins
+1 Advanced Hoverguard
+1 Aegis Turtle
+1 Ancient Carp
+1 Ancient Crab
+1 Armored Cancrix
+1 Armored Whirl Turtle
+1 Blighted Cataract
+1 Blinding Drone
+1 Cephalid Inkshrouder
+1 Cephalid Retainer
+1 Charmed Sleep
+1 Chronatog
+1 Cloak of Mists
+1 Containment Protocol
+1 Coral Eel
+1 Crystacean
+1 Dandân
+1 Devouring Deep
+1 Enchantment Alteration
+1 Esperzoa
+1 Fishliver Oil
+1 Fortress Crab
+1 Fylamarid
+1 Gaseous Form
+1 Giant Octopus
+1 Glasspool Mimic
+1 Grayscaled Gharial
+1 Horseshoe Crab
+1 Hoverguard Observer
+1 Ipnu Rivulet
+32 Island
+1 Jwari Shapeshifter
+1 Kelpie Guide
+1 Kozilek's Channeler
+1 Kraken Hatchling
+1 Lilypad Village
+1 Manta Ray
+1 Minamo, School at Water's Edge
+1 Mists of Littjara
+1 Moat Piranhas
+1 Mothdust Changeling
+1 Octoprophet
+1 Oraxid
+1 Part Water
+1 Plated Seastrider
+1 Power Leak
+1 Prismatic Lace
+1 Reef Pirates
+1 Riptide Laboratory
+1 Salvage Scuttler
+1 School of Piranha
+1 Seagraf Skaab
+1 Shorecomber Crab
+1 Sigiled Starfish
+1 Spectral Flight
+1 Spined Thopter
+1 Starlight Snare
+1 Stern Dismissal
+1 Thirst
+1 Thoughtlace
+1 Tide Drifter
+1 Tightening Coils
+1 Viscerid Armor
+1 Vivid Flying Fish
+1 Water Wurm
+1 Wishcoin Crab
+1 Zephyr Net
+
+[commander]
+Caelorna, Coral Tyrant

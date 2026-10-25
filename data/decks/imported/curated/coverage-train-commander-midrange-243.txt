@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WG #20266244]
-1 Ancient Brontodon
+1 Abbey Griffin
+1 Angelic Wall
+1 Armored Griffin
+1 Assault Griffin
+1 Aurora Griffin
+1 Aven Sentry
+1 Bayou Dragonfly
 1 Berserk
-1 Blade Banish
-1 Blessed Light
-1 Bramblecrush
+1 Bounty Agent
 1 Branchloft Pathway
-1 Brushland
-1 Carnage Tyrant
+1 Burrowguard Mentor
+1 Catastrophe
 1 Charging Badger
-1 Cleansing Ray
-1 Collar the Culprit
-1 Crazed Armodon
-1 Dawnglare Invoker
-1 Desecration Plague
-1 Destroy Evil
-1 Emerald Charm
+1 Charging Griffin
+1 Companion of the Trials
+1 Daraja Griffin
+1 Defiant Elf
+1 Diving Griffin
+1 Dragonstalker
+1 Eagle of the Watch
+1 Ekundu Griffin
+1 Emerald Dragonfly
+1 Enforcer Griffin
 1 Excise
-1 Floral Spuzzem
-16 Forest
-1 Fragmentize
+1 Exultant Skymarcher
+3 Forest
+1 Garrison Griffin
 1 Gathering Place
+1 Gavony Township
+1 Gideon's Avenger
 1 Grove of the Guardian
 1 Horizon Canopy
-1 Ice Storm
-1 Immolating Glare
-1 Imperial Ceratops
-1 Kitesail Scout
-1 Lawbringer
-1 Lightbringer
-1 Lyra Dawnbringer
-1 Majestic Heliopterus
-1 Moment of Valor
-1 Neck Snap
-1 Peace and Quiet
-9 Plains
-1 Puncturing Light
-1 Quakestrider Ceratops
-1 Ravenous Daggertooth
-1 Reclaiming Vines
-1 Regal Imperiosaur
-1 Repel Calamity
-1 Return to the Earth
+1 Hushwood Verge
+1 Inspired Insurgent
+1 King Suleiman
+1 Kinsbaile Balloonist
+1 Kjeldoran Skyknight
+1 Makindi Aeronaut
+1 Makindi Griffin
+1 Moon Sprite
+1 Mothrider Patrol
+1 Peregrine Griffin
+22 Plains
+1 Prized Griffin
 1 Riftstone Portal
-1 Ronom Unicorn
+1 Roc Charger
+1 Sabertooth Nishoba
 1 Saltcrusted Steppe
 1 Savannah
+1 Scryb Ranger
+1 Setessan Griffin
 1 Shadow Glider
-1 Shining Aerosaur
-1 Shopkeeper's Bane
-1 Silverchase Fox
+1 Shrike Force
+1 Silverbeak Griffin
+1 Silverclaw Griffin
+1 Skyblade of the Legion
+1 Skyhunter Prowler
+1 Skyspear Cavalry
 1 Smite
-1 Steelbane Hydra
+1 Soulscour
+1 Spotted Griffin
 1 Sungrass Prairie
-1 Swift Response
-1 Take Vengeance
-1 Tangle Asp
+1 Sunspire Griffin
 1 Temple Garden
-1 Thermokarst
-1 Thicket Basilisk
-1 Thrashing Brontodon
-1 Tranquil Garden
-1 Tyrranax
-1 Undergrowth Leopard
-1 Urgent Exorcism
-1 Vanquish
+1 Teremko Griffin
+1 Tethered Griffin
+1 Thermal Glider
+1 Unyaro Griffin
 1 Vec Townships
 1 Veldt
-1 Vengeance
-1 Venomous Dragonfly
-1 Verdigris
 1 Vitu-Ghazi, the City-Tree
-1 Voracious Varmint
-1 Wakandan Tusker
-1 Wing Snare
+1 Wild Aesthir
+1 Wild Griffin
 1 Wooded Bastion
-1 Zetalpa, Primal Dawn
+1 Yavimaya Gnats
+1 Zuberi, Golden Feather
 
 [commander]
-Jasmine Boreal
+Bast, Panther Goddess

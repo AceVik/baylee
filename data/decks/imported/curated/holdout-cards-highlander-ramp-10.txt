@@ -1,79 +1,79 @@
-# baylee unseen-card holdout highlander seed=90000022
+# baylee unseen-card holdout highlander seed=90000016
 # licence: AGPL-3.0-only
-[deck:highlander ramp WU #90000022]
-1 Abandoned Campground
+[deck:highlander ramp WU #90000016]
 1 Adarkar Wastes
-1 Allied Teamwork
-1 An Offer You Can't Refuse
-1 Attended Knight
-1 Auspicious Arrival
-1 Aven Fateshaper
-1 Beskir Shieldmate
-1 Calciform Pools
+1 Aegis of the Heavens
+1 Ancestral Vision
+1 Aven Wind Mage
+1 Avengers Hangar
+1 Blessed Spirits
+1 Captain of the Watch
+1 Cathar's Companion
+1 Celestial Colonnade
 1 Cloudcrest Lake
-1 Confirm Suspicions
-1 Dance of Many
-1 Doomed Traveler
-1 Drogskol Cavalry
-1 Dwarven Castle Guard
-1 Elite Archers
-1 Emeria's Call
-1 Experimental Aviator
-1 Faith Healer
-1 Falcon, Winged Wonder
-1 Floodfarm Verge
-1 Forecasting Fortune Teller
-1 Geist-Honored Monk
+1 Compelling Argument
+1 Condescend
+1 Cruel Witness
+1 Cunning Breezedancer
+1 Dawnhart Geist
+1 Delusions of Mediocrity
+1 Enlightened Tutor
+1 Erode
+1 Forced Fruition
+1 Gallantry
 1 Gleaming Bastion
-1 Griffin Guide
-1 Haunted Library
+1 God-Pharaoh's Faithful
+1 Guardian of Solitude
+1 Hallowed Fountain
 1 Hengegate Pathway
-1 Hive Stirrings
-1 Hunted Witness
-1 Icatian Moneychanger
-1 Iceberg
-1 Imperial Oath
-8 Island
-1 Kjeldoran Home Guard
-1 Knight of Doves
-1 Knight-Captain of Eos
-1 Lake-town Lookout
+1 Horizon Seed
+1 Iguana Parrot
+1 Invoke Prejudice
+22 Island
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
 1 Land Cap
-1 Late to Dinner
-1 Luminarch Ascension
-1 Luminous Angel
-1 Mass Production
-1 Mausoleum Guard
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mana Drain
+1 Meandering River
+1 Mistral Singer
 1 Moorland Haunt
 1 Mystic Gate
 1 Nimbus Maze
-1 Ojer Taq, Deepest Foundation
-1 Okoye, Dora Milaje Leader
-1 Outlaw Medic
+1 Open Communications
+1 Open the Armory
 1 Oyobi, Who Split the Heavens
-1 Pelargir Survivor
-18 Plains
+1 Pact of Negation
+1 Piercing Light
+1 Pileated Provisioner
+4 Plains
+1 Portent
 1 Prahv, Spires of Order
-1 Precinct Captain
-1 Ranger-Captain of Eos
+1 Prescient Chimera
 1 Rasputin Dreamweaver
-1 Requiem Angel
+1 Refocus
 1 Reya Dawnbringer
-1 Sailor of Means
-1 Salvage Scout
-1 Savior of the Sleeping
-1 Seaside Haven
-1 Secure the Wastes
-1 Selhoff Occultist
-1 Skybridge Towers
-1 Sunspire Gatekeepers
-1 Take Up Arms
+1 Ringwarden Owl
+1 Riverwheel Aerialists
+1 Sibilant Spirit
+1 Sigil of the Empty Throne
+1 Sire of the Storm
+1 Skycloud Expanse
+1 Slip Through Space
+1 Solve the Equation
+1 Spell Snip
+1 Sphinx Mindbreaker
+1 Sphinx of Magosi
+1 Stand Firm
+1 Storyteller Pixie
 1 Thalakos Lowlands
-1 Thraben Inspector
-1 Thraben Standard Bearer
+1 The Theorist, Jace Beleren
+1 The Unspeakable
+1 Transmute Artifact
 1 Tundra
 1 Tura Kennerüd, Skyknight
-1 Urza, Lord High Artificer
-1 Vodalian Hexcatcher
-1 Voice of the Provinces
-1 Youthful Scholar
+1 Umara Wizard
+1 Veiled Apparition
+1 Windreader Sphinx
+1 Wing Commando

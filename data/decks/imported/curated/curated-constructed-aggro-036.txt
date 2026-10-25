@@ -1,22 +1,22 @@
 # baylee curated constructed aggro seed=20261059
 # licence: AGPL-3.0-only
 [deck:constructed aggro UR #20261059]
-4 Birgi, God of Storytelling
-4 Drowner Initiate
-2 Eidolon of the Great Revel
+3 Chandra's Emberling
+2 Dragon's Rage Channeler
+4 Elusive Spellfist
+2 Embersmith
 3 Ferrous Lake
 2 Fiery Islet
 3 Force of Will
-5 Island
+2 Invoke Prejudice
+9 Island
 4 Izzet Charm
-2 Monastery Swiftspear
-9 Mountain
+4 Kiln Fiend
+4 Mindsparker
+4 Monastery Swiftspear
+5 Mountain
 1 Riverglide Pathway
 2 Riverpyre Verge
-2 Rockslide Sorcerer
-4 Sanguinary Mage
-2 Sawblade Scamp
+3 Sawblade Scamp
 1 Shivan Reef
-3 Spark Jolt
-4 Umara Entangler
-3 Wee Dragonauts
+2 Spark Jolt

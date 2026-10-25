@@ -1,20 +1,20 @@
 # baylee curated constructed control seed=20261065
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261065]
+4 Azorius Cluestone
 2 Calciform Pools
-4 Cosmium Blast
-4 Elder Spawn
 4 Farrel's Zealot
-2 Gideon's Reproach
+4 Five Hundred Year Diary
+2 Gold Myr
 3 Hengegate Pathway
-7 Island
+4 Island
 2 Land Cap
-4 Lotus-Eye Mystics
-3 Mana Crypt
 1 Moorland Haunt
-9 Plains
+3 Mox Sapphire
+12 Plains
 3 Power Taint
-4 Psychic Allergy
-2 Reroute Systems
-4 Soul Barrier
+2 Skycloud Egg
+4 Talisman of Progress
+4 Thought Monitor
+4 Trigon of Thought
 2 Tundra

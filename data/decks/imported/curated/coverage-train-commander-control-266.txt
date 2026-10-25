@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control R #20266267]
+1 Accorder's Shield
+1 Akroma's Memorial
+1 Ark of Blight
+1 Birthing Boughs
+1 Bronze Sable
+1 Cabaretti Courtyard
+1 Candelabra of Tawnos
+1 Cave of Temptation
+1 Citanul Flute
+1 Clickslither
+1 Crystal Slipper
+1 Cyclopean Tomb
+1 Dark Depths
+1 Darksteel Forge
+1 Eden, Seat of the Sanctum
+1 Excavator
+1 Ferrovore
+1 Fodder Cannon
+1 Glimmerlight
+1 Goblin Boom Keg
+1 Goblin Firebomb
+1 Gold Pan
+1 Grinding Station
+1 Helm of Chatzuk
+1 Hostile Desert
+1 Hurloon Shaman
+1 Iron Maiden
+1 Joven's Tools
+1 Labyrinth of Skophos
+1 Lion Heart
+1 Magnetic Mine
+1 Maskwood Nexus
+1 Meekstone
+1 Mirror Universe
+1 Molten-Tail Masticore
+1 Moonglove Extract
+36 Mountain
+1 Mycosynth Lattice
+1 Nine-Ringed Bo
+1 Nuisance Engine
+1 Orc General
+1 Paupers' Cage
+1 Prizefighter Construct
+1 Ravenous Intruder
+1 Revelsong Horn
+1 Ring of Ma'rûf
+1 Rogue's Passage
+1 Runesword
+1 Rust Monster
+1 Rusted Slasher
+1 Sawtooth Ogre
+1 Scrapyard Steelbreaker
+1 Snake Basket
+1 Soldevi Steam Beast
+1 Sunstone
+1 Supply Drop
+1 Temple Bell
+1 Thermal Navigator
+1 Unlicensed Hearse
+1 Vial of Dragonfire
+1 Vibranium Energy Daggers
+1 Wand of the Elements
+1 Well of Knowledge
+1 Whirlermaker
+
+[commander]
+Eron the Relentless

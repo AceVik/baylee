@@ -1,84 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266062]
-1 Alesha's Legacy
-1 Alloy Animist
-1 Arc Runner
-1 Armorer Guildmage
-1 Azorius First-Wing
-1 Blade Historian
-1 Bog Elemental
+1 Behemoth's Herald
+1 Bladestitched Skaab
+1 Bloodsoaked Insight
 1 Bounding Krasis
-1 Bountiful Landscape
-1 Castle Sengir
-1 Char-Rumbler
-1 Cinderhaze Wretch
-1 Conifer Strider
-1 Courier's Briefcase
+1 Bronzebeak Moa
+1 Castaway's Despair
+1 Contaminated Landscape
 1 Crystal Quarry
 1 Darigaaz's Caldera
-1 Darkness
 1 Dauntless River Marshal
 1 Deceptive Landscape
-1 Discordant Spirit
-1 Embodiment of Spring
-1 Esper Battlemage
-1 Furnace Brood
-1 Fusion Elemental
-1 Gangly Stompling
-1 Goblin Deathraiders
-1 Granitic Titan
-1 Hazerider Drake
-1 High Priest of Penance
-1 Hobgoblin Dragoon
-5 Island
-1 Krovikan Elementalist
-1 Mantis Rider
-1 Mordenkainen's Polymorph
-1 Moss Monster
-9 Mountain
+1 Deepchannel Duelist
+1 Disappear
+1 Dragonsoul Knight
+1 Dreadwing
+1 Drowned
+1 Duct Crawler
+1 Elemental Augury
+1 Enchanted Evening
+1 Eye of Nowhere
+1 Flame Spirit
+1 Fleetfoot Dancer
+2 Forest
+1 Glaciers
+1 Godsire
+1 Gulf Squid
+1 Hedge Maze
+1 Hinterland Harbor
+1 Imperious Inkmage
+9 Island
+1 Knotvine Mystic
+1 Koskun Keep
+1 Lava Zombie
+1 Leafdrake Roost
+1 Lord of Tresserhorn
+1 Martyrs' Tomb
+1 Merseine
+1 Monstrous Carabid
 1 Mystic Monastery
+1 Natural Emergence
 1 Nearby Planet
-1 Needlethorn Drake
+1 Ocular Halo
 1 Omnath, Locus of Creation
-1 Omnath, Locus of Rage
-1 Orcish Spy
+1 Overgrown Estate
 1 Perilous Landscape
-1 Pestilent Kathari
-1 Phase Dolphin
-10 Plains
-1 Plumeveil
-1 Rain of Filth
-1 Regathan Firecat
-1 Rotted Hulk
+7 Plains
+1 Primal Visitation
+1 Putrid Leech
+1 Reality Ripple
+1 Reset
+1 Restless Spire
+1 Righteous War
+1 Risen Reef
+1 Roofstalker Wight
+1 Salivating Gremlins
 1 Sanity Gnawers
-1 Scarland Thrinax
-1 Seething Landscape
-1 Sewn-Eye Drake
-1 Shaper Guildmage
+1 Savage Gorilla
+1 Scornful Aether-Lich
 1 Shattered Landscape
+1 Shivan Wurm
+1 Sire of Insanity
 1 Sootstoke Kindler
-1 Sootwalkers
-1 Stenchskipper
-1 Stone Spirit
+1 Spectral Shield
+1 Stillmoon Cavalier
 1 Stormcaller of Keranos
-1 Swamp
-1 Talonrend
-1 Tempest Drake
+1 Strength of the Harvest
+7 Swamp
 1 The World Tree
-1 Torch Drake
-1 Tower Drake
-1 Tranquil Landscape
-1 Twisted Landscape
-1 Urban Retreat
-1 Valeron Outlander
-1 Vine Mare
+1 Thundering Falls
+1 Torpor Dust
+1 Tournament Grounds
+1 Utter End
+1 Vedalken Outlander
+1 Viashino Slaughtermaster
 1 Votary of the Conclave
-1 Wave Elemental
-1 Whimwader
-1 Word of Command
-1 Zagoth Triome
-1 Zuran Enchanter
+1 Wellspring
+1 Yarok's Wavecrasher
+1 Zombie Outlander
 
 [commander]
-Sliver Hivelord
+General Tazri

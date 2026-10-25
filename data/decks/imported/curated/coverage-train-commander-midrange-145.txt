@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange U #20266146]
-1 Arcane Lighthouse
-1 Bigfin Bouncer
+1 Acid Rain
+1 Aeronaut Tinkerer
+1 Animate Artifact
+1 Anti-Magic Aura
+1 Baldur's Gate
+1 Balduvian Conjurer
+1 Balduvian Frostwaker
+1 Balduvian Shaman
+1 Balloon Peddler
+1 Benthic Giant
 1 Bounce Off
-1 Breaching Hippocamp
-1 Bullwhip
+1 Buoyancy
 1 Cache Raiders
-1 Cave of Temptation
-1 Coastal Drake
-1 Contempt
+1 Containment Protocol
 1 Cyclonic Rift
 1 Disappear
-1 Dispersal Technician
+1 Dream Prowler
+1 Drifter il-Dal
 1 Drown in Shapelessness
-1 Dukhara Peafowl
-1 Encase in Ice
-1 Escape Routes
-1 Escaped Experiment
-1 Esperzoa
+1 Elephant Graveyard
 1 Eye of Nowhere
-1 Filigree Sages
-1 Fledgling Osprey
-1 Giant Shark
-1 Glowing Anemone
-1 Gulf Squid
-1 Hermitic Nautilus
+1 Fugitive Wizard
+1 Glintwing Invoker
+1 Harbinger of the Seas
 1 Hibernation
 1 Hoodwink
 1 Hurkyl's Recall
-1 Hydroelectric Specimen
-1 Illusory Wrappings
-1 Imaginary Pet
-1 Intruder Alarm
+1 Invisibility
 34 Island
-1 Kite Shield
-1 Naya Panorama
-1 Rakalite
-1 Reduce in Stature
+1 Lumengrid Warden
+1 Mirozel
+1 Nesting Grounds
+1 Paralyzing Grasp
+1 Passwall Adept
 1 Rescue
-1 Rhystic Deluge
-1 Scorpion Sentinel
-1 Scrapskin Drake
-1 Second Wind
-1 Short Circuit
+1 Rimewind Taskmage
+1 Riptide Chimera
+1 Sakashima of a Thousand Faces
+1 Salvage Scuttler
+1 Sea's Claim
+1 Silvergill Douser
 1 Sink into Stupor
+1 Sky Weaver
 1 Sleep Paralysis
-1 Spawning Bed
+1 Slow Motion
+1 Starlit Mantle
+1 Steam Frigate
 1 Stern Dismissal
 1 Sunder
 1 Surgespanner
-1 Surgical Metamorph
-1 Surrakar Banisher
-1 Swarmyard
 1 Temporal Adept
+1 Thalakos Deceiver
 1 Thalakos Scout
-1 Thaumaturge's Familiar
-1 Timid Drake
-1 Tractor Beam
-1 Unstable Shapeshifter
+1 The Biblioplex
+1 Thing from the Deep
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Trickster Mage
+1 Urza's Saga
 1 Vedalken Mastermind
-1 Veiled Crocodile
+1 Vodalian Illusionist
+1 Wanderwine Distracter
+1 Wilderness Hypnotist
 1 Witch's Clinic
 1 Wizard Mentor
 1 Word of Undoing
-1 Worldslayer
-1 Xanthic Statue
-1 Yarok's Wavecrasher
 
 [commander]
 Heidar, Rimewind Master

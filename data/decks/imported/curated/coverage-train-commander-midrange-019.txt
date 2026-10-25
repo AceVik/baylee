@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WRG #20266020]
-1 Accelerate
-1 Ambrosia Whiteheart
-1 Asgardian Citadel
-1 Batterhorn
-1 Battlefield Forge
-1 Bone Pit Brute
-1 Braidwood Sextant
-1 Briar Shield
-1 Bronzebeak Moa
-1 Cloudchaser Kestrel
-1 Crossroads Watcher
-1 Dori, Bearer of Friends
-1 Dwalin, Weaponmaster
-1 Dwarven Armorer
-1 East Wind Avatar
-1 Elegant Parlor
-1 Endurance
-1 Enlightened Ascetic
-1 Fearless Fledgling
-1 Fire-Lit Thicket
-12 Forest
-1 Friendly Ghost
-1 Gale Swooper
-1 Galewind Moose
-1 Godtracker of Jund
-1 Gongaga, Reactor Town
-1 Grove Rumbler
-1 Guardian Gladewalker
-1 Icecave Crasher
-1 Infinite Authority
-1 Jungleborn Pioneer
-1 Kavu Monarch
-1 Loporrit Scout
-1 Lotusguard Disciple
-1 Makindi Sliderunner
-1 Molten Vortex
-1 Mossfire Valley
-2 Mountain
-1 Murmuring Volume
-1 Needle Spires
-1 Needleverge Pathway
-1 Ogre Arsonist
-1 Ogre Gatecrasher
-1 Patagia Tiger
-11 Plains
-1 Planetary Patrol
-1 Plant Elemental
-1 Plateau
-1 Plated Crusher
-1 Prismatic Circle
-1 Rabanastre, Royal City
-1 Remnant Elemental
-1 Rescuer Chwinga
-1 Rune of Protection: Green
-1 Rune of Protection: Red
-1 Sanguine Glorifier
-1 Satyr Grovedancer
-1 Shield-Wall Sentinel
-1 Shore Lurker
-1 Silt Crawler
-1 Snapping Creeper
-1 Snapping Gnarlid
-1 Soldier of the Grey Host
-1 Sun-Blessed Peak
-1 Sunbaked Canyon
-1 Sunbillow Verge
-1 Sunscorched Divide
-1 Territorial Baloth
-1 Teyo's Lightshield
-1 Toucan-Puffin
-1 Valakut Predator
-1 Viashino Bladescout
-1 Vinelasher Kudzu
-1 Whiptail Moloch
-1 Wild Celebrants
-1 Windurst, Federation Center
-1 Xindi Surveyors
+[deck:commander midrange BRG #20266020]
+1 Akki Raider
+1 Algae Gharial
+1 Arcane Spyglass
+1 Atog
+1 Auntie's Hovel
+1 Bog Naughty
+1 Boggart Loggers
+1 Boris Devilboon
+1 Charnelhoard Wurm
+1 Clickslither
+1 Deathcap Glade
+1 Drainpipe Vermin
+1 Elvish Doomsayer
+1 Executioner's Capsule
+1 Ferrovore
+1 Fire Snake
+1 Fire Sprites
+1 Foratog
+1 Foreboding Ruins
+8 Forest
+1 Game Trail
+1 Gilt-Leaf Palace
+1 Glacial Crevasses
+1 Glimmer Bairn
+1 Goblin Gardener
+1 Goblin Masons
+1 Goblin Sappers
+1 Goblin Wizardry
+1 Guul Draz Mucklord
+1 Hissing Quagmire
+1 Hoard Robber
+1 Hurloon Shaman
+1 Ignoble Hierarch
+1 Immersturm Skullcairn
+1 Jinxed Idol
+1 Lawless Broker
+1 Lithatog
+1 Marsh Lurker
+1 Megatog
+1 Mire Shade
+1 Mirkwood
+16 Mountain
+1 Nim Deathmantle
+1 Ominous Asylum
+1 Overgrown Armasaur
+1 Oxidda Daredevil
+1 Pentavus
+1 Phyrexian Altar
+1 Pine Barrens
+1 Raiding Party
+1 Ravenous Intruder
+1 Rhys the Exiled
+1 Rock Basilisk
+1 Rootwater Alligator
+1 Rubble Reading
+1 Rust Monster
+1 Scarland Thrinax
+1 Scrapyard Steelbreaker
+1 Seething Pathblazer
+1 Slobad, Goblin Tinkerer
+1 Spire Garden
+1 Spore Crawler
+1 Sulfurous Mire
+1 Swamp
+1 Sword of the Meek
+1 Sylvok Lifestaff
+1 Tablet of Epityr
+1 Thelonite Druid
+1 Thelonite Monk
+1 Trading Post
+1 Tresserhorn Sinks
+1 Uktabi Wildcats
+1 Underground Mortuary
+1 Vampire Aristocrat
+1 Vector, Imperial Capital
+1 Whiteout
+1 Wort, Boggart Auntie
 
 [commander]
-Jetmir, Nexus of Revels
+Adun Oakenshield
