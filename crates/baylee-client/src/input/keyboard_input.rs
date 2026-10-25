@@ -271,12 +271,12 @@ pub(super) fn look_around(
     if fired.has(Action::RailDown) {
         prefs.rail_cursor().move_selection(1);
     }
-    if let Some((phase, turn)) = duel.view.as_ref().map(|v| (v.phase, v.turn)) {
+    if let Some(phase) = duel.view.as_ref().map(|v| v.phase) {
         if fired.has(Action::NextPhase) {
             duel.autopilot = Some(AutoPilot::ToNextPhase { from: phase });
         }
         if fired.has(Action::NextTurn) {
-            duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
+            duel.skip_turn();
         }
     }
     if fired.has(Action::ToggleTextView) {

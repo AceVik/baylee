@@ -4059,6 +4059,18 @@ to reconnect — because nothing between a room and a `GamePreset` ever wrote
 whole preset to the engine as JSON, house rules included, and gamehost has
 always decoded them. What was missing was a way to say which one.
 
+`HouseRules.starting_player` is `null` for a game that chooses its starting
+seat uniformly from the preset's seeded RNG. An explicit non-negative seat is
+accepted only for controlled games and is range-checked at setup. Old records
+without the field keep historical seat 0; the protobuf path always starts a
+new game with the seeded choice.
+
+`HouseRules.auto_discard_empty_optional_triggers` is `true` in a new game: an
+optional trigger whose empty target answer provably has no effect and no
+follow-up question leaves the stack without resolving. Records without the
+field read it as `false`, preserving the target questions their historical
+inputs answer; the protobuf path enables the new behavior for every new game.
+
 `POST /lobby/games` takes `clock` (a name) and, overriding it,
 `decision_timeout_secs` and `reconnect_window_secs`. Nothing said is the
 first row, `classic`: three minutes a decision since 08.10.2026 (the owner;

@@ -1015,6 +1015,27 @@ impl Duel {
             .is_some_and(|v| !v.stack.is_empty() && !v.priority_held)
     }
 
+    /// Let the whole current stack resolve, then pass until the next turn.
+    ///
+    /// This is deliberately not [`Duel::hold_action`]: a stack entry selected
+    /// as a manual response point must not shorten "skip turn" into "stop at
+    /// that entry". A later stack still cancels the engine hold, and a real
+    /// decision still stops the client autopilot.
+    pub fn skip_turn(&mut self) {
+        let Some(view) = self.view.as_ref() else {
+            return;
+        };
+        let turn = view.turn;
+        let depth = u16::try_from(view.stack.len()).unwrap_or(u16::MAX);
+        let hold = !view.stack.is_empty() && !view.priority_held;
+        if hold {
+            self.submit(PlayerAction::SetPriorityHold(
+                baylee_engine::choice::PriorityHold::UntilStackEmpty { depth },
+            ));
+        }
+        self.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
+    }
+
     /// Whether the engine would take a draw offer right now.
     ///
     /// `Engine::offer_draw` refuses anything but the offerer's own priority,

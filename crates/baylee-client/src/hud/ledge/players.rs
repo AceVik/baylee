@@ -291,25 +291,36 @@ fn chip_width(facts: &SeatFacts, tier: Tier, step: f32) -> f32 {
         + GROUP_GAP
         + if pip { 0.0 } else { icon + ICON_GAP }
         + words(&facts.plate.life.to_string(), LIFE_PT, true);
-    let second = facts
-        .plate
-        .details
-        .iter()
-        .filter(|d| tier.shows(**d))
-        .map(|d| {
-            let unlimited = matches!(
-                d,
-                Detail::Hand {
-                    unlimited: true,
-                    ..
-                }
-            );
-            icon + ICON_GAP
-                + words(&d.number(), NUMBER_PT, false)
-                + if unlimited { ICON_GAP + icon } else { 0.0 }
-                + GROUP_GAP
-        })
-        .sum::<f32>()
+    let team = facts.team.map_or(0.0, |team| {
+        let label = if pip {
+            format!("T{team}")
+        } else {
+            // "Team" is the word in both shipped languages; only its width
+            // is needed here, not a translation.
+            format!("Team {team}")
+        };
+        words(&label, NUMBER_PT, false) + GROUP_GAP
+    });
+    let second = team
+        + facts
+            .plate
+            .details
+            .iter()
+            .filter(|d| tier.shows(**d))
+            .map(|d| {
+                let unlimited = matches!(
+                    d,
+                    Detail::Hand {
+                        unlimited: true,
+                        ..
+                    }
+                );
+                icon + ICON_GAP
+                    + words(&d.number(), NUMBER_PT, false)
+                    + if unlimited { ICON_GAP + icon } else { 0.0 }
+                    + GROUP_GAP
+            })
+            .sum::<f32>()
         - GROUP_GAP;
     SPINE_W + SPINE_GAP + PAD_RIGHT + 2.0 + first.max(second)
 }
@@ -701,7 +712,7 @@ pub fn sync_players(
             if *hint != said {
                 *hint = said;
             }
-            let words = write(&mut commands, &fonts, facts, tier, step, flash);
+            let words = write(&mut commands, &fonts, facts, tier, step, lang, flash);
             commands.entity(*kid).add_child(words);
         }
     } else {
@@ -723,7 +734,7 @@ pub fn sync_players(
                 };
                 last_side = facts.team;
                 let button = spawn_button(&mut commands, facts, gap, step, lang);
-                let words = write(&mut commands, &fonts, facts, tier, step, None);
+                let words = write(&mut commands, &fonts, facts, tier, step, lang, None);
                 commands.entity(button).add_child(words);
                 button
             })
@@ -875,6 +886,7 @@ fn write(
     facts: &SeatFacts,
     tier: Tier,
     step: f32,
+    lang: Lang,
     flash: Option<bool>,
 ) -> Entity {
     let away = facts.role == SeatRole::Away;
@@ -1036,6 +1048,23 @@ fn write(
     if !lost {
         let second = line(commands, LINE_2);
         let mut parts = Vec::new();
+        if let Some(team) = facts.team {
+            let number = team.to_string();
+            let label = if tier == Tier::Pip {
+                format!("T{team}")
+            } else {
+                Phrase::SeatSide.fill(lang, &[&number])
+            };
+            parts.push(text(
+                commands,
+                &fonts.medium,
+                fonts,
+                &label,
+                NUMBER_PT * step,
+                soft,
+                GROUP_GAP,
+            ));
+        }
         for detail in facts.plate.details.iter().filter(|d| tier.shows(**d)) {
             let loud = if detail.dangerous() {
                 palette::DANGER
@@ -1544,7 +1573,7 @@ mod tests {
                     for (at, seat) in facts.iter().enumerate() {
                         let gap = if at == 0 { 0.0 } else { GAP_TEAMS };
                         let chip = spawn_button(&mut commands, seat, gap, step, Lang::De);
-                        let words = write(&mut commands, &fonts, seat, tier, step, None);
+                        let words = write(&mut commands, &fonts, seat, tier, step, Lang::De, None);
                         commands.entity(chip).add_child(words);
                         commands.entity(root).add_child(chip);
                         chips.push(chip);
@@ -1603,7 +1632,7 @@ mod tests {
         let mut queue = bevy::ecs::world::CommandQueue::default();
         let mut commands = Commands::new(&mut queue, app.world());
         for seat in &facts {
-            write(&mut commands, &fonts, seat, Tier::Full, 1.0, None);
+            write(&mut commands, &fonts, seat, Tier::Full, 1.0, Lang::En, None);
         }
         queue.apply(app.world_mut());
         let crowned: Vec<PlayerId> = app
@@ -1613,5 +1642,35 @@ mod tests {
             .map(|c| c.player)
             .collect();
         assert_eq!(crowned, [PlayerId::new(2)]);
+    }
+
+    /// Colour groups the chips, but colour alone never has to carry the
+    /// roster's team membership: every tier says the team's number in words,
+    /// shortened only when the chip is at its narrowest.
+    #[test]
+    fn every_chip_names_its_team_at_every_tier() {
+        let mut view = baylee_client_core::test_support::ViewBuilder::new(2).build();
+        let mut facts = seat_facts(&mut view, 0, "Anna", false);
+        facts.team = Some(2);
+        for tier in Tier::ALL {
+            let mut app = App::new();
+            let fonts = UiFonts::default();
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            let mut commands = Commands::new(&mut queue, app.world());
+            write(&mut commands, &fonts, &facts, tier, 1.0, Lang::En, None);
+            queue.apply(app.world_mut());
+            let said: Vec<String> = app
+                .world_mut()
+                .query::<&Text>()
+                .iter(app.world())
+                .map(|text| text.0.clone())
+                .collect();
+            let wanted = if tier == Tier::Pip {
+                "T2".to_string()
+            } else {
+                Phrase::SeatSide.fill(Lang::En, &["2"])
+            };
+            assert!(said.contains(&wanted), "{tier:?}: {said:?}");
+        }
     }
 }

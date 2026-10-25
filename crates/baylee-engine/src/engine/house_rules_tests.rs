@@ -44,7 +44,10 @@ fn open_table(seats: usize, seed: u64) -> Engine<RegistryLookup> {
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
-        house_rules: HouseRules::default(),
+        house_rules: HouseRules {
+            starting_player: Some(0),
+            ..HouseRules::default()
+        },
         modifiers: vec![],
         prints: vec![PrintInfo {
             scryfall_id: uuid::Uuid::nil(),
@@ -101,6 +104,22 @@ fn hand_sizes(engine: &mut Engine<RegistryLookup>) -> Vec<usize> {
         .iter()
         .map(|p| engine.state().zones.list(ZoneLocation::Hand(p.id)).len())
         .collect()
+}
+
+/// The empty-trigger policy changes the next question, so two otherwise
+/// identical continuations may not have the same snapshot hash.
+#[test]
+fn empty_optional_trigger_policy_is_hashed() {
+    let current = open_table(2, 3);
+    assert!(current.house_rules.auto_discard_empty_optional_triggers);
+    let mut historical = open_table(2, 3);
+    historical.house_rules.auto_discard_empty_optional_triggers = false;
+    assert_eq!(
+        current.state().snapshot_hash(),
+        historical.state().snapshot_hash(),
+        "the board is identical; only the continuation policy differs"
+    );
+    assert_ne!(current.snapshot_hash(), historical.snapshot_hash());
 }
 
 /// House rule 1: the first mulligan costs nothing, so a seat that

@@ -650,6 +650,18 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### Optional triggers with an empty target
+
+With `HouseRules.auto_discard_empty_optional_triggers`, an optional trigger
+whose target answer is empty is resolved first on a cloned state. Only a
+complete resolution with no follow-up question and no state change beyond the
+resolver's damage-batch bookkeeping removes the real stack object, journals
+`StackObjectDidNotResolve`, and runs cleanup. Any actual effect, another
+target or division, or an unfinished question keeps the ordinary path. The
+setting is part of the continuation hash. New games enable it; records without
+the field read it as `false`, so their historical empty-target answers still
+have a question to answer.
+
 ### Attachments (CR 704.5m, 704.5n, 704.5p)
 
 `eval::permits_enchantment` reads `CantBeEnchantedExceptSource` for Consecrate
@@ -1984,6 +1996,11 @@ arrival.
 
 Randomness comes from one seed and two kinds of stream:
 
+- **The starting seat** is drawn first from the table's stream, uniformly
+  across the seats (`HouseRules.starting_player == None`), before any opening
+  library is shuffled. A controlled test may name it explicitly instead. Old
+  records without the field keep historical seat 0; new randomized presets
+  serialize it as `null`, so a replay makes the same choice again.
 - **The table's stream** (ChaCha stream 0) shuffles the opening libraries and
   draws everything random from turn 1 on.
 - **A seat's mulligan stream** (`GameRng::for_seat`: the same seed on stream

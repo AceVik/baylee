@@ -5825,3 +5825,21 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   hook cleared its debt. Registry validation changed from 10,693 cards /
   10,352 finished / 341 stubs to **11,083 / 10,600 / 483**, with 0 untested.
   These totals and this merge do not claim set completion.
+
+## Desktop feedback follow-up (25 October 2026)
+
+- Optional triggers with no chosen target are discarded only when a probe
+  resolution on a cloned state completes with no effect and no follow-up
+  choice. The comparison normalizes only damage-batch allocation bookkeeping;
+  any other changed field keeps the trigger. Tuktuk Scrapper covers both the
+  answered empty target and no legal target, while a synthetic trigger with an
+  untargeted draw proves that independent effects still resolve.
+- Restricted mana is now planned by purpose. The ordinary plan wins first;
+  otherwise one filter-admitted restricted source is tapped last, so the
+  planner never evaluates restricted pool mana. Jasmine Dragon Tea Shop covers
+  Ally spells and Ally-source activation, with non-Ally negative controls.
+  Registry-backed hand identities are mandatory in these fixtures.
+- New games choose the starting seat uniformly from the preset's seeded RNG
+  before shuffling. Controlled tests may override it. Missing fields in old
+  presets retain historical seat 0, while new randomized presets serialize
+  `starting_player: null` for identical replays.

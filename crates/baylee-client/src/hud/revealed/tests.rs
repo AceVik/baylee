@@ -198,6 +198,44 @@ fn the_sheet_stands_in_the_decision_area_over_the_shelf_open_at_its_foot() {
     );
 }
 
+/// The cards are the content, not a thumbnail squeezed between two bands:
+/// they take the full height beside a rail carrying the head and the answer.
+#[test]
+fn the_cards_stand_beside_their_own_head_and_answer_rail() {
+    let mut app = table();
+    reveal(&mut app, vec![revealed_line(1, 40, 7)]);
+    app.update();
+    let band = sheets(&mut app)[0];
+    let page = app.world().get::<Children>(band).expect("its paper")[0];
+    assert_eq!(
+        app.world().get::<Node>(page).map(|n| n.flex_direction),
+        Some(FlexDirection::Row)
+    );
+    let parts = app.world().get::<Children>(page).expect("cards and rail");
+    assert_eq!(parts.len(), 2);
+    let (grid, rail) = (parts[0], parts[1]);
+    assert!(
+        app.world().get::<Children>(grid).is_some_and(|cards| cards
+            .iter()
+            .all(|c| app.world().get::<RevealCard>(c).is_some())),
+        "the first column is the card grid"
+    );
+    let rail_node = app.world().get::<Node>(rail).expect("the rail");
+    assert_eq!(rail_node.width, px(RAIL_W));
+    assert_eq!(rail_node.flex_direction, FlexDirection::Column);
+    assert_eq!(rail_node.justify_content, JustifyContent::SpaceBetween);
+    assert_eq!(
+        app.world().get::<Children>(rail).map(Children::len),
+        Some(2)
+    );
+
+    let (width, _) = fit(1, room(Vec2::new(1280.0, 693.0)), GAP, WIDEST);
+    assert!(
+        (width - WIDEST).abs() < f32::EPSILON,
+        "one desktop card uses its full intended width: {width}"
+    );
+}
+
 #[test]
 fn nothing_is_held_up_over_the_end_screen() {
     let mut app = table();

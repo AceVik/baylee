@@ -151,6 +151,18 @@ pub fn slide_the_hand(
     }
 }
 
+/// Registers the final drawer placement after every retained HUD tree has
+/// been rebuilt. A newly spawned rider carries `UiTransform::default()`;
+/// placing it before that rebuild would show a folded hand open for one frame.
+pub fn register(app: &mut App) {
+    app.add_systems(
+        PostUpdate,
+        slide_the_hand
+            .before(bevy::ui::UiSystems::Prepare)
+            .run_if(not(in_state(DuelPhase::Closed))),
+    );
+}
+
 /// Stands the tab on a phone and takes it down elsewhere; rebuilt only when
 /// what it says changes.
 #[allow(clippy::needless_pass_by_value)] // a Bevy system

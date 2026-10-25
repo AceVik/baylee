@@ -543,6 +543,9 @@ pub(crate) mod tests {
             baylee_cards::decks::load_acceptance(&text, "Victory").expect("Victory loads");
         let mut preset = baylee_cards::decks::preset_for(seed, &allytifact, &victory);
         preset.seats[0].controller = SeatController::Open;
+        preset.house_rules.starting_player = Some(0);
+        // This acceptance record pins the historical optional-target prompts.
+        preset.house_rules.auto_discard_empty_optional_triggers = false;
         preset
     }
 

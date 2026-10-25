@@ -1136,6 +1136,10 @@ fn teardown(
 /// Registers the switcher's systems. Its own call, because the present
 /// tuple is at bevy's twenty.
 pub fn plugin(app: &mut App) {
+    // Final hand placement belongs after every HUD spawn, not beside the
+    // switcher: a rebuilt folded hand must never spend a frame at its default
+    // open transform.
+    crate::hud::hand_drawer::register(app);
     app.init_resource::<ArrangementFrame>()
         .init_resource::<crate::table::GlideReport>()
         .init_resource::<SwitcherRevision>()
@@ -1169,7 +1173,6 @@ pub fn plugin(app: &mut App) {
             flash_the_pill.after(sync_switcher),
             crate::hud::peeks::sync_peeks,
             crate::hud::hand_drawer::sync_hand_tab,
-            crate::hud::hand_drawer::slide_the_hand.after(crate::hud::hand_drawer::sync_hand_tab),
         )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),

@@ -106,9 +106,10 @@ pub fn simple_mana(cost: &Cost, effects: &[Effect]) -> Option<SimpleMana> {
 /// The same reading, restricted mana included, saying which it found.
 ///
 /// The filter [`simple_mana`] applies on top of this is the entire difference
-/// between two questions that look alike. A *planner* has to refuse restricted
-/// mana: what a Cavern of Souls' mana may pay for is a rules question, and
-/// answering it outside the engine is the guess this module exists to avoid.
+/// between two questions that look alike. A *context-free planner* has to
+/// refuse restricted mana: what a Cavern of Souls' mana may pay for is a rules
+/// question. A purpose-specific caller may admit it only after proving that
+/// purpose against the view, with the engine still checking the payment.
 /// A *label* must not refuse it — the button still has to say what tapping the
 /// land does, and Jasmine Dragon Tea Shop shipped with its Ally ability drawn
 /// as a bare "{T}" beside a "Tap for {C}", which is two offers a player cannot

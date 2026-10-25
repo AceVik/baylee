@@ -23,8 +23,9 @@
 //!    guesses.
 //! 2. **It never spends what a player would want to decide.** Phyrexian mana
 //!    is read as its colour and never as two life; restricted mana (Cavern of
-//!    Souls) is not counted, because what it may pay for is a rules question
-//!    this side of the wire cannot answer.
+//!    Souls) is not counted here, because its purpose is a rules question.
+//!    `manasources` may add one restricted tap only after proving that purpose
+//!    against the view, always last, with the engine checking the payment.
 //! 3. **It under-counts rather than over-counts.** A source that makes two
 //!    mana *of one chosen colour* is worth one mana here, because two units
 //!    that must share a colour are not two independent units and pretending

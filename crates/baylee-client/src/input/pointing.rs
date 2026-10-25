@@ -244,9 +244,7 @@ pub fn pointer(
                 // the same re-check against the current `LegalActions` that
                 // the key does.
                 PromptAction::SkipTurn => {
-                    if let Some(turn) = duel.view.as_ref().map(|v| v.turn) {
-                        duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
-                    }
+                    duel.skip_turn();
                     None
                 }
                 // Stepping changes nothing the engine can hear either: the
