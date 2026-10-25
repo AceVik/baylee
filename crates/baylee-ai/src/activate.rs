@@ -40,6 +40,8 @@ use baylee_view::{PlayerView, PublicObject, StackItem};
 
 use crate::worth::{Origin, THRESHOLD};
 
+mod payment;
+
 /// The ability to activate now, as one of the offered `(source, index)`
 /// handles — or `None`, which is most of the time.
 ///
@@ -95,6 +97,9 @@ fn best(
                 return None;
             }
             let def = printed(view, source, index)?;
+            if !payment::reachable(view, legal, source, def) {
+                return None;
+            }
             let floor = match def {
                 AbilityDef::Loyalty { .. } if agent.profile.lookahead == 0 => return None,
                 AbilityDef::Loyalty { .. } => 0,

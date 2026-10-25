@@ -152,6 +152,19 @@ belegten Actor-Lücken, bevor mehr gleichartiges Heads-only-Training als Lösung
 ausgegeben wird. Diese Berichtskorrektur startet kein Training und nimmt keine
 automatische Promotion vor.
 
+Nach der Abschlussauswertung wurde eine Ursache konkret reproduziert:
+Acht der 17 Caps enthalten eine lange Haus-KI-Schleife mit Kessig Wolf Run
+(Aktivieren, X=0, Ziel wählen, unbezahltes `{R}{G}`-Fenster passen). Die
+Engine nimmt die unvollständige Aktivierung zurück; der gleiche unveränderte
+Zustand verleitete die Haus-KI zum erneuten Versuch. Ein Session-Test beweist
+die Rückkehr zum identischen State-Hash. Die neue Vorprüfung in
+`baylee-ai/src/activate/payment.rs` prüft den finanzierbaren Mindestpreis,
+ohne die Aktivierungsquelle doppelt zum Tappen einzurechnen. Ein zweiter
+Session-Test erhält die tatsächlich bezahlbare X=0-Aktivierung. Damit ist
+ein Fehler der Trainingsgegner behoben, keine Verbesserung der neuronalen
+Gewichte gemessen. Die alten vollständigen Vergleichsreihen wurden mit diesem
+geänderten Gegner nicht wiederholt; alle eingefrorenen Artefakte bleiben erhalten.
+
 ## Trainingsprotokoll
 
 Geplant und ausgeführt wurden **acht Runden mit jeweils 156 eigenen Partien**, insgesamt

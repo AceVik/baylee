@@ -15,6 +15,22 @@ All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
 
+Before announcing a mana-X activation, the house checks that its fixed price
+and any printed minimum X can be reached through the ordinary view-only mana
+planner. A permanent whose cost includes tapping itself cannot also be used
+as a mana source for that same activation. Affordable X=0 remains useful when
+the fixed effect matters, such as Kessig Wolf Run granting trample.
+This closes a repeated rollback found in eight of the 17 capped Sharp-training
+cases: announce Wolf Run, choose X=0, choose a creature, then pass its unpaid
+`{R}{G}` window without the required colors. The engine correctly reverses that incomplete
+activation, but the same unchanged priority offer used to make the house try
+again thousands of times. Real-Session regressions in
+`crates/baylee-gamehost/tests/ai_activation_payment.rs` prove the rollback and
+the affordable activation's actual payment/tap. Card-defined X and printed
+activation reductions remain outside this new precheck; it does not claim a
+complete solver for every non-mana resource cost or all remaining caps. Frozen
+experiment artifacts retain their original house behavior.
+
 An X spell whose required graveyard target has a positive mana-value bound must
 also have enough visible eligible targets at the planned, payable X. This avoids
 repeatedly announcing Stir the Grave with X=1 when every creature in the caster's
