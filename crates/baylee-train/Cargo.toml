@@ -42,6 +42,11 @@ onnx-cuda = ["onnx", "ort/cuda"]
 # bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
 # the trainer's machine against a model server on loopback.
 llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
+# Local neural opponent over the ordinary gateway seat protocol.
+live-seat = [
+    "onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol",
+    "dep:futures-util", "dep:prost", "dep:tokio-tungstenite",
+]
 
 [dependencies]
 anyhow.workspace = true
@@ -56,6 +61,10 @@ baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
 baylee-seat = { workspace = true, optional = true }
+baylee-protocol = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+tokio-tungstenite = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
@@ -128,6 +137,11 @@ required-features = ["onnx"]
 name = "eval4"
 path = "src/bin/eval4/main.rs"
 required-features = ["onnx"]
+
+[[bin]]
+name = "seat4"
+path = "src/bin/seat4/main.rs"
+required-features = ["live-seat"]
 
 [[bin]]
 name = "import_decks"

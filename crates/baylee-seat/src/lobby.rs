@@ -17,6 +17,9 @@ use anyhow::{Context as _, anyhow, bail};
 use serde::Deserialize;
 use std::time::Duration;
 
+#[path = "lobby_presence.rs"]
+mod presence;
+
 /// A gateway, by its HTTP address (`http://…` or `https://…`).
 #[derive(Clone)]
 pub struct Lobby {

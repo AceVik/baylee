@@ -165,6 +165,23 @@ pub struct SeatKnowledge4 {
 }
 
 impl SeatKnowledge4 {
+    /// Initializes a socket player's knowledge from its own submitted cards.
+    /// No opponent deck or engine state belongs to this interface.
+    #[must_use]
+    pub fn from_own_cards(viewer: PlayerId, seat_count: usize, cards: &[(u32, u8)]) -> Self {
+        let mut knowledge = Self::empty(viewer, seat_count);
+        let mut counts = BTreeMap::<u32, u8>::new();
+        for &(card, count) in cards {
+            if card != UNKNOWN_CARD {
+                let entry = counts.entry(card).or_default();
+                *entry = entry.saturating_add(count);
+            }
+        }
+        knowledge.own_deck_cards = counts.into_iter().collect();
+        knowledge.own_deck_summary = summarize_deck(&knowledge.own_deck_cards);
+        knowledge
+    }
+
     /// Initializes `SeatKnowledge4` for `viewer` from the seat's own submitted
     /// deck in `preset` (never reading any opponent's deck!).
     #[must_use]

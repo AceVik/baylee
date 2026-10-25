@@ -34,6 +34,7 @@ use crate::features4::{
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
+mod live_init;
 mod structure;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
@@ -289,6 +290,10 @@ impl NetPlayer4 {
 
     /// Chooses a legal [`PlayerAction`] and returns full [`Answer4`] metadata
     /// (value prediction, [`StepProvenance4`], and [`TeacherTarget4`]).
+    #[allow(
+        clippy::too_many_lines,
+        reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
+    )]
     pub fn act_detailed(
         &mut self,
         view: &PlayerView,

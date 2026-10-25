@@ -31,6 +31,8 @@ pub mod features3;
 #[cfg(feature = "play")]
 pub mod features4;
 pub mod housedeck;
+#[cfg(feature = "live-seat")]
+pub mod live4;
 #[cfg(feature = "llm")]
 pub mod llmchair;
 #[cfg(feature = "onnx")]

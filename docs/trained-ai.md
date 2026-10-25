@@ -25,6 +25,48 @@ invalid multi-member bands without changing sampling version 2. It sacrifices
 band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+`cargo build --release -p baylee-train --features live-seat --bin seat4`
+builds an optional local v4 opponent for the ordinary gateway protocol.
+`seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`
+opens a two-player room at `http://127.0.0.1:28766`, signs in as `NET-v4-R02`,
+and starts when the other socket player joins with a deck and says ready.
+`--deck` accepts an exported deck instead, `--join <room>` joins an existing
+two-socket room, and `--games 0` hosts another room after each completed game.
+An engine agent and a gateway accepting guests must already be running.
+Use a frozen exported checkpoint; this is a playtest, not model promotion.
+The guest keeps a ticketed lobby socket open across games, answering heartbeats
+so the gateway retains its next waiting room after the previous game socket
+closes. Losing either live connection stops the adapter; it does not reconnect
+over missing game history. Local aggregate reports are retained on failure too.
+
+This adapter uses `baylee-seat`'s lobby, ticketed socket and `TableMemory`
+transport helpers, with its own `live4` core instead of the LLM `SeatCore` or
+`WakeFilter`. Every distinct authorized view advances recurrent state at K=0;
+the fixed decision budget defaults to K=1 with greedy selection. Only the
+submitted own deck and public teams initialize knowledge. Repeated statics do
+not reset memory. An observation failure or an opened socket's interruption
+ends the session; reconnecting with a latest snapshot cannot reconstruct missed
+observations. Aggregate reports separate neural, forced and fallback answers.
+For compatibility with current offline evaluation, the live policy clears only
+the socket-only `casting` and `targeting` additions before observation hashing,
+memory updates and answering; the raw authorized wire view remains intact.
+This prevents an extra `CancelCast` candidate that offline evaluation does not
+provide. A future shared offline/wire view contract should remove this temporary
+compatibility concession, with matching encoder and candidate tests.
+The current wire has no neural `SeatMind` kind, so the visible `NET-` name and
+local report identify it without claiming to be an LLM.
+
+The preview requires two socket chairs, no house-AI chairs, and CPU inference
+(`BAYLEE_EP=cpu` or unset); it refuses CUDA to keep training independent.
+`BAYLEE_ENGINE_PUMP_STEPS=1` on the engine agent limits attached host pumping;
+it is not a guarantee of observation parity for arbitrary mixed house tables.
+No gateway/engine hidden state is passed to the neural adapter. The native
+client accepts cleartext only on numeric loopback, so another local device can
+use an SSH port forward and add `http://127.0.0.1:28766` to its gateway list.
+For example: `ssh -N -L 28766:127.0.0.1:28766 user@linux-host`. Gateway and client
+must speak the same protocol; this does not require running the model on the
+client's device.
+
 `tools/trainer/watch_run4.py` provides an optional local completion wake-up for
 long experiments. It reads `status.json` and checks the controller's Linux boot
 ID and process start ticks; PID reuse cannot make a dead run look live. A
