@@ -2,7 +2,9 @@
 
 mod assignment_restrictions;
 mod battle;
+mod ice_landwalk;
 mod history;
+mod exchange;
 use super::block::LANDWALKS;
 use super::damage::deal_combat_damage;
 use super::*;

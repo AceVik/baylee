@@ -70,7 +70,9 @@ impl DamageWork {
                             to: DamageTarget::Player(to),
                         }
                     }
-                    _ => match super::batch57::shield_kind(state, part, shield.kind) {
+                    _ => match super::batch57::shield_kind(state, part, shield.kind)
+                        .or_else(|| super::ice_combat::shield_kind(state, part, *shield))
+                    {
                         Some(kind) => kind,
                         None => continue,
                     },

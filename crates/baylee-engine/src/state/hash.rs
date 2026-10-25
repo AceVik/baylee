@@ -694,6 +694,29 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 hash_damage_source(h, state, reflection.object, reflection.version);
             }
             crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
+            crate::prevention::ShieldKind::RedirectCombat {
+                sources,
+                to,
+                context,
+            } => {
+                h.u8(9);
+                filter_hash(h, sources);
+                context.text.hash(h);
+                h.u32(position(context.source));
+                context.resolved_name.hash(h);
+                context.reference.map(position).hash(h);
+                match to {
+                    crate::prevention::RedirectDestination::Object(reference) => {
+                        h.u8(0);
+                        h.u32(position(reference.object));
+                        h.u8(moves_since(
+                            state.object(reference.object),
+                            reference.version,
+                        ));
+                    }
+                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
+                }
+            }
             crate::prevention::ShieldKind::Next(n) => {
                 h.u8(0);
                 h.u32(n);
@@ -1089,6 +1112,9 @@ fn hash_object_situation(
     h.u32(obj.paid.as_ref().map_or(0, |p| p.mana_spent));
     h.u8(obj.paid.as_ref().map_or(0, |p| p.colors_spent.bits()));
     for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {
+        h.u32(amount);
+    }
+    for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent_on_x) {
         h.u32(amount);
     }
     h.boolean(obj.paid.is_some());

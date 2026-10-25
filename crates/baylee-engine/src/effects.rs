@@ -141,6 +141,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTByAmount { .. }
         | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_)
         | Modifier::ModifyPTPerGraveyardCard { .. }
@@ -182,6 +183,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
+        | Modifier::RevealYourHand
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -219,6 +221,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
+        | Modifier::LandwalkOfSubtype(_)
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -237,6 +240,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::SkipUntapStep { .. }
         | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
@@ -261,9 +265,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // filter then may attack, not a set fixed as the effect began.
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
+        | Modifier::AttacksAloneOnly
         // A replacement for a player's graveyard: the cards it catches are
         // whichever arrive, not a set fixed as it began.
         | Modifier::ExileInsteadOfYourGraveyard
+        | Modifier::ExileInsteadOfLeavingBattlefield
         // A permission like the three above: a card that reaches the
         // graveyard after Forgotten Cellar's trigger resolved is as
         // castable as one that was there.
@@ -646,6 +652,7 @@ impl EffectTable {
                 Modifier::RevealAllLibraryTops
                     | Modifier::RevealLibraryTop
                     | Modifier::RevealAllHands
+                    | Modifier::RevealYourHand
                     | Modifier::NoMaxHandSize
                     | Modifier::ChosenPlayerMaxHandSize(_)
             ),
@@ -1484,6 +1491,15 @@ mod tests {
             Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
             Modifier::GainControl,
             Modifier::CantBeRegenerated,
+            Modifier::AttacksAloneOnly,
+            Modifier::BlockableWithoutAnyLandwalk,
+            Modifier::ExileInsteadOfLeavingBattlefield,
+            Modifier::LandwalkOfSubtype(SubtypeId::new(1)),
+            Modifier::ModifyPTByAmount {
+                power: baylee_cards_dsl::Amount::Fixed(1),
+                toughness: baylee_cards_dsl::Amount::Fixed(2),
+            },
+            Modifier::RevealYourHand,
             Modifier::AddSupertype(SupertypeSet::SNOW),
             Modifier::RemoveSupertype(SupertypeSet::SNOW),
             Modifier::AddType(TypeSet::ARTIFACT),
@@ -1774,7 +1790,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            160,
+            166,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1853,7 +1869,9 @@ mod tests {
         // `CantAttackIfDefenderControls`) bring rules-only to 110.
         // Adding/removing a supertype locks the affected set; prohibiting
         // regeneration modifies a rule. The Ice Age additions contribute 2/1.
-        assert_eq!((locking, all.len() - locking), (49, 111));
+        // Independently evaluated P/T changes characteristics; the five
+        // new blocking, attacking, departure and visibility rules do not.
+        assert_eq!((locking, all.len() - locking), (50, 116));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

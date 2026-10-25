@@ -40,9 +40,59 @@ pub enum DamageRedirectTo {
     DamagingSourceController,
 }
 
+/// The future event observed by an independent one-shot delayed ability.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedObservation {
+    /// The watched permanent leaves the battlefield or becomes untapped.
+    LeavesBattlefieldOrUntaps,
+    /// The ability's controller loses control of the watched permanent,
+    /// including its departure while that player controls it.
+    YouLoseControl,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Draw cards, then discard only cards actually drawn by this instruction (CR 614.11b).
+    DrawThenDiscardDrawn {
+        /// Number of individual draws.
+        draw: Amount,
+        /// Number to discard, or all eligible cards if fewer remain.
+        discard: u8,
+    },
+    /// Exile the top card unseen, then return that exact card at your next end step.
+    ExileTopFaceDownUntilYourNextEndStep,
+    /// Exile the triggering discard's exact successor only from your graveyard.
+    ExileDiscardedCardFromYourGraveyard,
+
+    /// Exchange the groups of creatures blocking two targeted attackers.
+    ExchangeBlockersOfTargetAttackers,
+    /// Register a prospective one-shot trigger, with separate exact watched
+    /// and affected battlefield objects (CR 603.7).
+    CreateDelayedObserver {
+        /// Object whose future events are observed.
+        watch: TargetSpec,
+        /// Event that triggers the delayed ability.
+        when: DelayedObservation,
+        /// Object named by `EventObject` when the delayed ability resolves.
+        about: TargetSpec,
+        /// Instructions of the delayed ability.
+        effects: &'static [Effect],
+    },
+    /// Prevent this ability source's next damage event to each indicated player this turn.
+    PreventNextDamageFromSource {
+        /// Protected players, bound when this resolves.
+        to: PlayerRel,
+        /// Restrict prevention to combat damage.
+        combat_only: bool,
+    },
+    /// Redirect matching combat damage to you for the rest of this turn.
+    RedirectCombatDamageToYouThisTurn {
+        /// Sources read when damage occurs.
+        by: &'static Filter,
+        /// New damage recipient, bound when this resolves if a permanent.
+        to: DamageRedirectTo,
+    },
     /// Deal damage simultaneously to both independently announced target groups.
     DealDamageToBothTargetInstances {
         /// Damage dealt to every recipient of either group.
@@ -138,6 +188,15 @@ pub enum Effect {
         /// At most this many of the five colors, and at least one (CR 105.4).
         max: u8,
         /// How long the chosen colors replace the old ones.
+        duration: super::Duration,
+    },
+    /// Choose a land subtype and grant the corresponding landwalk.
+    ChooseLandwalk {
+        /// Recipients, fixed before the choice.
+        target: TargetSpec,
+        /// Restrict the choice to the five basic land types.
+        basic_only: bool,
+        /// Duration of the granted ability.
         duration: super::Duration,
     },
     /// Choose a basic land type now; this exact source gains that landwalk.
@@ -476,6 +535,54 @@ pub enum Effect {
         /// "In a random order": the rest are shuffled onto the bottom and
         /// nobody is asked.
         random: bool,
+    },
+    /// Privately keep cards in hand and return the rest to the top in any order.
+    LookAtTopPickThenReorder {
+        /// Number of top cards inspected.
+        count: Amount,
+        /// Number moved to hand, or all available if fewer.
+        pick: u8,
+    },
+    /// Inspect top cards, exile a random subset, and order the rest on top.
+    LookAtTopExileRandom {
+        /// Maximum number inspected.
+        count: u8,
+        /// Number exiled, or all inspected if fewer.
+        exile: u8,
+    },
+    /// Move top cards to public exile without revealing them first.
+    ExileTop {
+        /// Affected library.
+        who: PlayerRel,
+        /// Number moved, limited by the library's size.
+        count: Amount,
+    },
+    /// Reveal down to the first named card; every miss moves to `otherwise`.
+    RevealUntilNamed {
+        /// Affected library.
+        player: PlayerRel,
+        /// Destination for the matching card.
+        matched: SearchDest,
+        /// Destination for each nonmatching card.
+        otherwise: SearchDest,
+    },
+    /// Reveal one card by name, running the failure branch only on a mismatch.
+    RevealTopByNameThen {
+        /// Affected library.
+        player: PlayerRel,
+        /// Destination for the matching card.
+        matched: SearchDest,
+        /// Destination for a nonmatching card.
+        otherwise: SearchDest,
+        /// Runs for a mismatch, even if its movement is replaced; never for an empty library.
+        otherwise_effects: &'static [Effect],
+    },
+    /// That player chooses and orders cards from their hand onto their library.
+    PutFromHandOnTopFor {
+        /// Hand owner, who chooses and orders.
+        player: PlayerRel,
+        /// Number moved, or the whole hand if fewer.
+        count: u8,
     },
     /// Look at the top `count` cards of your library; put one of them into
     /// your hand, one on the bottom of your library, and exile the rest —
@@ -955,6 +1062,8 @@ pub enum Effect {
     /// is made once the card has entered, so replacement and copy choices
     /// as it enters come first.
     ReanimateEnchanted,
+    /// As `ReanimateEnchanted`, with the creature entering tapped.
+    ReanimateEnchantedTapped,
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
@@ -1387,6 +1496,22 @@ pub enum Effect {
     /// The resolving controller privately looks at the chosen player's hand.
     /// Nothing is revealed to the other players and no card changes zones.
     LookAtChosenHand,
+    /// Privately inspect a seeded random subset of a player's hand.
+    LookAtRandomFromHand {
+        /// Owner of the hand; the resolving controller looks.
+        who: PlayerRel,
+        /// Maximum number of distinct cards inspected.
+        count: Amount,
+    },
+    /// Privately inspect a hand, then choose matching cards for its owner to discard.
+    LookHandDiscard {
+        /// Owner of the inspected hand.
+        player: PlayerRel,
+        /// Number chosen, limited by the available matching cards.
+        count: Amount,
+        /// Selectable cards; the controller still inspects the entire hand.
+        filter: &'static Filter,
+    },
     /// Privately inspect the top cards without moving or reordering them.
     LookAtTopOf {
         /// Library to inspect; the resolving controller is the viewer.

@@ -313,6 +313,7 @@ pub(super) fn resolve_find(
 /// becomes a permanent the same way whichever sentence put it there.
 pub(super) fn put_found(state: &mut GameState, player: PlayerId, card: ObjectId, dest: SearchDest) {
     let to = match dest {
+        SearchDest::Exile => ZoneLocation::Exile(state.object(card).map_or(player, |o| o.owner)),
         SearchDest::Graveyard => {
             ZoneLocation::Graveyard(state.object(card).map_or(player, |o| o.owner))
         }

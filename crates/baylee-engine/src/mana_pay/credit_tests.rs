@@ -107,7 +107,7 @@ fn actual_type_reservations_remain_disjoint_from_generic_only_credits() {
             &ManaCost::parse("{1}{R}"),
             ManaSpending::ANY_COLOR,
             [0; 6],
-            Some((Red, 1)),
+            Some((Red, 1).into()),
             [0; 6],
             credits,
         )
@@ -118,7 +118,7 @@ fn actual_type_reservations_remain_disjoint_from_generic_only_credits() {
         &ManaCost::parse("{2}{S}"),
         ManaSpending::EXACT,
         [0; 6],
-        Some((Red, 1)),
+        Some((Red, 1).into()),
         [0; 6],
         credits,
     )

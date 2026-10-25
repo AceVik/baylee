@@ -28,10 +28,12 @@ mod attack;
 mod block;
 mod damage;
 mod defenders;
+mod exchange;
 use crate::object::Status;
 pub(crate) use defenders::{
     active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
 };
+pub(crate) use exchange::exchange_blockers;
 
 use crate::state::GameState;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};

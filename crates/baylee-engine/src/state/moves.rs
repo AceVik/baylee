@@ -382,7 +382,13 @@ impl GameState {
     /// Whether continuous rules reveal this player's entire hand publicly.
     #[must_use]
     pub fn hand_revealed(&self, player: PlayerId) -> bool {
-        !self.has_left(player) && self.hands_revealed()
+        !self.has_left(player) && (self.hands_revealed() || self.effects.iter().any(|fx| {
+            fx.controller == player
+                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealYourHand)
+                && fx.source.is_none_or(|source| self.object(source).is_some_and(|o| {
+                    o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                }))
+        }))
     }
 
     /// Whether an individual card in a hand is revealed by an effect on it
@@ -539,6 +545,7 @@ impl GameState {
         // headed for. The answer was taken before the effect ran; all that
         // is left is to spend it.
         let to = self.flashback_destination(id, from_zone, to);
+        let to = crate::replacement::departure::destination(self, id, to);
         let requested = to;
         let to = self.take_commander_redirect(id, to);
         let commander_redirected = to != requested;
@@ -1194,6 +1201,7 @@ impl GameState {
                 drawn.push(top);
                 if let Some(version) = self.object(top).map(|o| o.version) {
                     self.per_turn.drawn.push((top, version));
+                    self.per_turn.instruction_drawn.push((top, version));
                 }
             }
         }

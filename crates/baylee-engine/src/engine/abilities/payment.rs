@@ -260,7 +260,7 @@ impl<L: CardLookup> Engine<L> {
         // more times this turn" (Dragon Whelp) reads the same count, so an
         // ability whose effects ask it is counted too; no other is, which
         // keeps a repeatable activation out of the loop signature.
-        if matches!(limit, ActivationLimit::PerTurn(_) | ActivationLimit::Boast)
+        if matches!(limit, ActivationLimit::PerTurn(_) | ActivationLimit::PerTurnAmount(_) | ActivationLimit::Boast)
             || asks_its_activations(effects)
         {
             *self

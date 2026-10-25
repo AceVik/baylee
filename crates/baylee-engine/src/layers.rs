@@ -793,7 +793,8 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::CharacteristicPT { .. }
                     | Modifier::CharacteristicPTSeparate { .. }
                     | Modifier::ModifyPTPerCount { .. }
-                    | Modifier::ModifyPTByCount(_)
+                    | Modifier::ModifyPTByAmount { .. }
+        | Modifier::ModifyPTByCount(_)
                     | Modifier::ModifyPTHalfCount(_)
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
@@ -1030,6 +1031,16 @@ fn apply(
                 *tou = tou.saturating_add(count.saturating_mul(*t));
             }
         }
+        Modifier::ModifyPTByAmount { power, toughness } => {
+            *read_board = true;
+            let signed = |amount: &baylee_cards_dsl::Amount| {
+                let n = crate::eval::amount_with_context(amount, state, fx.controller, context, None);
+                let n = i16::try_from(n).unwrap_or(i16::MAX);
+                if amount.is_negative() { -n } else { n }
+            };
+            if let Some(p) = &mut c.power { *p = p.saturating_add(signed(power)); }
+            if let Some(t) = &mut c.toughness { *t = t.saturating_add(signed(toughness)); }
+        }
         Modifier::ModifyPTByCount(count) => {
             let n = pt_count(state, obj, c, fx.controller, *count, context, read_board);
             if let Some(power) = &mut c.power { *power = power.saturating_add(n); }
@@ -1154,6 +1165,7 @@ fn apply(
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
+        | Modifier::RevealYourHand
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -1195,6 +1207,7 @@ fn apply(
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
+        | Modifier::LandwalkOfSubtype(_)
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -1222,6 +1235,7 @@ fn apply(
         | Modifier::NextDrawFromTop { .. }
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
@@ -1251,6 +1265,7 @@ fn apply(
         | Modifier::UntapAtMost { .. }
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
+        | Modifier::AttacksAloneOnly
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::MayRedirectDamageToYou
@@ -1262,7 +1277,8 @@ fn apply(
         | Modifier::CantAttackIfDefenderControls(_)
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
-        | Modifier::ExileInsteadOfYourGraveyard => {}
+        | Modifier::ExileInsteadOfYourGraveyard
+        | Modifier::ExileInsteadOfLeavingBattlefield => {}
         Modifier::HoneEquipment => {
             *read_board = true;
             if let Some(equipment) = fx.source.and_then(|id| state.object(id))

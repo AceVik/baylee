@@ -1058,7 +1058,8 @@ impl<L: CardLookup> Engine<L> {
             .map(resolve::AwaitingOp::search_operation)
         {
             Some(
-                resolve::AwaitingOp::SearchLibrary { inspected, .. }
+                resolve::AwaitingOp::PrivateHandDiscard { inspected, .. }
+                | resolve::AwaitingOp::SearchLibrary { inspected, .. }
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
             ) => inspected,
             Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
@@ -1950,6 +1951,8 @@ mod departed_control_tests;
 mod discard_top_tests;
 #[cfg(test)]
 mod draw_skip_tests;
+#[cfg(test)]
+mod upkeep_permission_tests;
 #[cfg(test)]
 mod draw_tests;
 #[cfg(test)]

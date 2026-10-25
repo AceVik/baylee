@@ -12,7 +12,8 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
                         baylee_cards_dsl::DamageRedirectTo::Target(TargetSpec::ThisObject)
                     )
             }
-            Effect::RedirectNextChosenSourceDamageToTarget { target }
+            Effect::ChooseLandwalk { target, .. }
+            | Effect::RedirectNextChosenSourceDamageToTarget { target }
             | Effect::PreventDamageFromTargetingCausesThisTurn { target }
             | Effect::GrantSpecialActionUntilEndOfTurn {
                 effect: baylee_cards_dsl::SpecialActionEffect::PreventNextDamage { target, .. },
@@ -46,6 +47,12 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::SetPTFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }
+            Effect::PreventNextDamageFromSource { .. } => true,
+            Effect::RedirectCombatDamageToYouThisTurn { to, .. } => matches!(
+                to,
+                baylee_cards_dsl::DamageRedirectTo::ThisObject
+                    | baylee_cards_dsl::DamageRedirectTo::Target(TargetSpec::ThisObject)
+            ),
             Effect::ReflectNextChosenSourceDamage
             | Effect::ExileSourceThenCastTransformed { .. }
             | Effect::TakklemaggotDeath

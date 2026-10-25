@@ -15,6 +15,35 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::DrawThenDiscardDrawn { draw, discard } => loot::drawn_only(state, res, draw, discard),
+        Effect::ExileTopFaceDownUntilYourNextEndStep => {
+            super::hidden_exile::exile_top_until_own_end(state, res);
+            None
+        }
+        Effect::ExileDiscardedCardFromYourGraveyard => {
+            super::hidden_exile::exile_discarded(state, res);
+            None
+        }
+
+        Effect::ExchangeBlockersOfTargetAttackers => {
+            if let Some((&first, &second)) = res
+                .targets
+                .first()
+                .zip(res.targets.get(1).or_else(|| res.second_targets.first()))
+            {
+                crate::combat::exchange_blockers(state, first, second);
+            }
+            None
+        }
+        Effect::CreateDelayedObserver {
+            watch,
+            when,
+            about,
+            effects,
+        } => {
+            super::control_observers::register(state, res, watch, when, about, effects);
+            None
+        }
         Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
             super::tap_energy::start(state, res, who, filter, kind)
         }
@@ -109,8 +138,13 @@ pub(super) fn exec_immediate(
             }
             None
         }
-        Effect::ReanimateEnchanted => {
-            if let Some(finish) = crate::aura_bindings::begin_reanimation(state, res, false) {
+        Effect::ReanimateEnchanted | Effect::ReanimateEnchantedTapped => {
+            if let Some(finish) = crate::aura_bindings::begin_reanimation(
+                state,
+                res,
+                false,
+                matches!(op, Effect::ReanimateEnchantedTapped),
+            ) {
                 state.reanimation_finishes.push(finish);
             }
             None
@@ -339,6 +373,8 @@ pub(super) fn exec_immediate(
         | Effect::DiscardMatching { .. }
         | Effect::DiscardRandomMatching { .. }
         | Effect::LookAtChosenHand
+        | Effect::LookAtRandomFromHand { .. }
+        | Effect::LookHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::SacrificeOneThen { .. }
         | Effect::ReturnChosenToHand { .. }
@@ -462,6 +498,12 @@ pub(super) fn exec_immediate(
             state.draw_cards(you, n);
             None
         }
+        Effect::LookAtTopPickThenReorder { count, pick } => private_library::pick_top(state, res, count, pick),
+        Effect::LookAtTopExileRandom { count, exile } => private_library::exile_random_top(state, res, count, exile),
+        Effect::PutFromHandOnTopFor { player, count } => private_library::hand_on_top(state, res, player, count),
+        Effect::ExileTop { who, count } => names::exile_top(state, res, who, count),
+        Effect::RevealUntilNamed { player, matched, otherwise } => names::reveal_until_named(state, res, player, matched, otherwise),
+        Effect::RevealTopByNameThen { player, matched, otherwise, otherwise_effects } => names::reveal_top_then(state, res, player, matched, otherwise, otherwise_effects),
         Effect::DrawRevealDiscardUnless { keep } => {
             let card = if let Some((drawn_before, replaced_before)) = res.draw_watch.take() {
                 // The draw waited for its replacements and is settled now.
@@ -531,6 +573,10 @@ pub(super) fn exec_immediate(
         }
         Effect::ExileSourceThenCastTransformed { cast } => {
             super::battle_defeat::start(state, res, cast)
+        }
+        Effect::PreventNextDamageFromSource { .. }
+        | Effect::RedirectCombatDamageToYouThisTurn { .. } => {
+            life::ice_combat::exec(state, res, op)
         }
         Effect::RedirectTargetSourceDamageThisTurn { .. }
         | Effect::RedirectNextChosenSourceDamageToTarget { .. }
@@ -755,7 +801,18 @@ pub(super) fn exec_immediate(
             max,
             duration,
         } => colors::choose(state, res, subject, max, duration),
-        Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(res, duration)),
+        Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(
+            state,
+            res,
+            TargetSpec::ThisObject,
+            true,
+            duration,
+        )),
+        Effect::ChooseLandwalk {
+            target,
+            basic_only,
+            duration,
+        } => Some(landwalk::choose(state, res, target, basic_only, duration)),
         Effect::AtNextUpkeep { effects } => {
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
@@ -2054,6 +2111,7 @@ pub(super) fn exec_immediate(
                 prompt: match matched.dest {
                     SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
                     SearchDest::Graveyard => ChoicePrompt::PutIntoGraveyard,
+                    SearchDest::Exile => ChoicePrompt::Generic,
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
                 },
@@ -2141,7 +2199,7 @@ pub(super) fn exec_immediate(
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
-                    SearchDest::Graveyard => ChoicePrompt::Generic,
+                    SearchDest::Graveyard | SearchDest::Exile => ChoicePrompt::Generic,
                 },
                 total: None,
             })

@@ -32,6 +32,7 @@ mod delayed_departure;
 mod departed;
 mod destruction_order;
 mod draw_replacements;
+mod draw_memory;
 mod effects;
 mod flanking;
 mod mana;

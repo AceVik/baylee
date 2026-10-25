@@ -18,6 +18,7 @@ mod batch57;
 mod candidates;
 mod commit;
 mod counter_result;
+mod ice_combat;
 mod life_result;
 #[cfg(test)]
 mod prevention_tests;
@@ -653,7 +654,7 @@ impl DamageWork {
             && let Some(i) = state.shields.position(id)
             && !matches!(
                 state.shields[i].kind,
-                ShieldKind::RedirectSource { next: false, .. }
+                ShieldKind::RedirectSource { next: false, .. } | ShieldKind::RedirectCombat { .. }
             )
         {
             state.shields.remove(i);

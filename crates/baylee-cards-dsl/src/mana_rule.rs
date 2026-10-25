@@ -50,7 +50,8 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
 
 fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect]) {
     match effect {
-        Effect::Reflexive { .. }
+        Effect::CreateDelayedObserver { .. }
+        | Effect::Reflexive { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
         | Effect::AtNextTurnsUpkeep { .. }

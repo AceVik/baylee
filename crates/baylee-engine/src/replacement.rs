@@ -27,6 +27,7 @@ pub use counters::{
 };
 
 mod counter_effects;
+pub(crate) mod departure;
 pub(crate) mod counter_limits;
 
 use crate::eval;

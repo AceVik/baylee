@@ -861,7 +861,7 @@ pub(super) fn resume_arranged_inner(
                 return next_choice(state, res, since, question);
             }
         }
-        (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
+        (AwaitingOp::ReorderTopLibrary { player } | AwaitingOp::HandToTop { player }, [top]) => {
             // The first card listed is the new top card, so the list goes on
             // from its bottom end: each card put on top covers the one
             // listed after it. The library is the one looked at, which for

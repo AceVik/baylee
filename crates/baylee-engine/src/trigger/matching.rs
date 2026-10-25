@@ -753,19 +753,19 @@ fn matches(
                 object,
                 version,
                 player,
-                known: true,
+                known,
                 ..
             },
         ) => {
             eval::players(*who, state, you).is_some_and(|players| players.contains(player))
-                && state
+                && (matches!(filter, baylee_cards_dsl::Filter::Any) || (*known && state
                     .source_object(baylee_core::ids::DamageSourceRef {
                         object: *object,
                         version: *version,
                     })
                     .is_some_and(|card| {
                         eval::matches_with_context(filter, state, card, you, context)
-                    })
+                    })))
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)

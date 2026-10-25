@@ -212,6 +212,10 @@ impl<L: CardLookup> Engine<L> {
         // anything triggers at it (CR 503.1).
         if next_step == Step::Upkeep {
             let active = self.state.turn.active;
+            self.state.play_permissions.retain(|permission| {
+                permission.player != active
+                    || permission.window != baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep.into()
+            });
             self.state.effects.begin_upkeep(active);
             self.state.effects.remove_where(|fx| {
                 matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextUpkeep)

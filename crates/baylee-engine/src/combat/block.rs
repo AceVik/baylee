@@ -163,35 +163,48 @@ pub fn can_block(
             return false;
         }
     }
+    let ignore_landwalk = state.effects.iter().any(|effect| {
+        matches!(
+            effect.modifier,
+            baylee_cards_dsl::Modifier::BlockableWithoutAnyLandwalk
+        ) && crate::effects::applies_to(state, effect, a)
+    });
     // Landwalk (CR 702.14c): unblockable while the *defending* player
     // controls a land of that type — that player's lands and nobody
     // else's, read as they are now (a land an effect made an Island is
     // one).
-    if basic_landwalk_prevents_blocking(state, a, defending) {
+    if !ignore_landwalk && basic_landwalk_prevents_blocking(state, a, defending) {
         return false;
     }
     // The rest of the family (desertwalk, CR 702.14c): a land the effect's
     // filter describes, among the defending player's.
-    if state.effects.iter().any(|fx| {
-        let baylee_cards_dsl::Modifier::LandwalkMatching(filter) = fx.modifier else {
-            return false;
-        };
-        crate::effects::applies_to(state, fx, a)
-            && !landwalk_removed(state, a, fx.timestamp)
-            && state.battlefield_seen().any(|id| {
-                state.object(id).is_some_and(|land| {
-                    land.controller == defending
-                        && land.characteristics().types.contains(TypeSet::LAND)
-                        && crate::eval::matches(
-                            filter,
-                            state,
-                            land,
-                            fx.controller,
-                            fx.source.unwrap_or(attacker),
-                        )
+    if !ignore_landwalk
+        && state.effects.iter().any(|fx| {
+            if let baylee_cards_dsl::Modifier::LandwalkOfSubtype(subtype) = fx.modifier {
+                return crate::effects::applies_to(state, fx, a)
+                    && !landwalk_removed(state, a, fx.timestamp)
+                    && controls_land_of_type(state, defending, subtype);
+            }
+            let baylee_cards_dsl::Modifier::LandwalkMatching(filter) = fx.modifier else {
+                return false;
+            };
+            crate::effects::applies_to(state, fx, a)
+                && !landwalk_removed(state, a, fx.timestamp)
+                && state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|land| {
+                        land.controller == defending
+                            && land.characteristics().types.contains(TypeSet::LAND)
+                            && crate::eval::matches(
+                                filter,
+                                state,
+                                land,
+                                fx.controller,
+                                fx.source.unwrap_or(attacker),
+                            )
+                    })
                 })
-            })
-    }) {
+        })
+    {
         return false;
     }
     // Menace is deliberately *not* asked here. CR 702.111b restricts the

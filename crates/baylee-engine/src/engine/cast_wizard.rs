@@ -1732,10 +1732,13 @@ impl<L: CardLookup> Engine<L> {
         &self,
         wizard: &CastWizard,
         total: ManaCost,
-    ) -> (ManaCost, Option<(baylee_core::mana::ManaColor, u32)>) {
+    ) -> (ManaCost, Option<crate::mana_pay::GenericRestriction>) {
         let face = self.wizard_face(wizard);
-        let restricted_color = face.x_mana_color.filter(|_| !wizard.free);
-        if restricted_color.is_none() && face.extra_target_cost == 0 {
+        let restricted_colors = face
+            .x_mana_colors
+            .or_else(|| face.x_mana_color.map(baylee_core::color::ColorSet::of))
+            .filter(|_| !wizard.free);
+        if restricted_colors.is_none() && face.extra_target_cost == 0 {
             return (total, None);
         }
         let reduction = wizard.reduction.map_or(0, |reduction| reduction.total);
@@ -1745,8 +1748,10 @@ impl<L: CardLookup> Engine<L> {
             .min(total.generic_total());
         (
             total,
-            restricted_color
-                .map(|color| (baylee_core::mana::ManaColor::from_color(color), restricted)),
+            restricted_colors.map(|colors| crate::mana_pay::GenericRestriction {
+                types: colors.bits(),
+                amount: restricted,
+            }),
         )
     }
 

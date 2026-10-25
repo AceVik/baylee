@@ -81,6 +81,13 @@ impl GameState {
                     .unwrap_or(0),
             ));
         }
+        if let Some(entry) = seq.checked_sub(1).and_then(|index| self.journal.entries().get(index as usize))
+            && let GameEvent::Discarded { object, version, .. } = entry.event
+            && object == id
+        {
+            // CR 400.7: the discard trigger follows only the immediate successor.
+            return Some((version.wrapping_add(1), 0));
+        }
         for entry in self.journal.entries().iter().skip(seq as usize) {
             if matches!(entry.event, GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. } if object == id)
                 && let Some(departure) = &entry.departure

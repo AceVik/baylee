@@ -885,6 +885,10 @@ impl GameState {
                 ShieldKind::RedirectSource {
                     to: crate::prevention::RedirectDestination::Object(reference),
                     ..
+                }
+                | ShieldKind::RedirectCombat {
+                    to: crate::prevention::RedirectDestination::Object(reference),
+                    ..
                 } => {
                     out.insert(reference);
                 }
@@ -922,6 +926,9 @@ impl GameState {
             }
         }
         for delayed in &self.delayed {
+            if let DelayedWhen::Observed { watch, .. } = delayed.when {
+                out.insert(watch);
+            }
             if let DelayedWhen::DiesOrIsExiled { card, version, .. }
             | DelayedWhen::DiesThisTurn { card, version, .. }
             | DelayedWhen::DealtDamageThisTurn { card, version, .. }

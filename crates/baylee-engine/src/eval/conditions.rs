@@ -113,6 +113,20 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
+        Condition::ChosenColorIsUniqueMostCommon(filter) => {
+            let Some(object) = state.object(source) else { return false; };
+            let (Some(opponent), Some(color)) = (object.chosen_opponent(), object.chosen_color) else { return false; };
+            if state.has_left(opponent) || color == baylee_core::mana::ManaColor::Colorless { return false; }
+            let mut counts = [0usize; 5];
+            for object in state.battlefield_seen().filter_map(|id| state.object(id)) {
+                if object.controller != opponent || !matches_with_context(filter, state, object, you, context) { continue; }
+                for candidate in baylee_core::color::Color::ALL {
+                    if object.characteristics().colors.contains(candidate) { counts[candidate as usize] += 1; }
+                }
+            }
+            let chosen = color.index();
+            counts[chosen] > 0 && counts.iter().enumerate().all(|(index, count)| index == chosen || *count < counts[chosen])
+        }
         Condition::AfterCombat => matches!(
             state.turn.phase,
             crate::turn::Phase::SecondMain | crate::turn::Phase::Ending
@@ -190,6 +204,9 @@ pub fn condition_holds_with_context(
             .players
             .iter()
             .any(|player| state.is_opponent(player.id, you) && player.poison >= minimum),
+        Condition::AmountIsEven(amount) => {
+            amount_with_context(&amount, state, you, context, None).is_multiple_of(2)
+        }
         Condition::AmountAtLeast(amount, minimum) => {
             amount_with_context(&amount, state, you, context, None) >= minimum
         }

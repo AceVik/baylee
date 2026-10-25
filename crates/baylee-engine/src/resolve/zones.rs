@@ -1367,6 +1367,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             discard::start_chain(state, res, who, count, false)
         }
         Effect::DiscardEachOrDraw { who } => discard::start_chain(state, res, who, 1, true),
+        Effect::LookAtRandomFromHand { who, count } => {
+            private_hand::inspect_random(state, res, who, count)
+        }
+        Effect::LookHandDiscard { player, count, filter } => {
+            private_hand::choose_discard(state, res, player, count, filter)
+        }
         Effect::LookAtChosenHand => {
             let player = res.chosen_player?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();

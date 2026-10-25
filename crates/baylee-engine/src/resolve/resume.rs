@@ -372,8 +372,8 @@ pub(super) fn resume_inner(
             for (card, find) in placed {
                 let (dest, tapped) = (find.dest, find.tapped);
                 match dest {
-                    SearchDest::Graveyard => {
-                        search::put_found(state, receiver, card, SearchDest::Graveyard);
+                    SearchDest::Graveyard | SearchDest::Exile => {
+                        search::put_found(state, receiver, card, dest);
                     }
                     SearchDest::Hand => {
                         let _ = state.move_object(
@@ -438,6 +438,21 @@ pub(super) fn resume_inner(
             });
         }
         AwaitingOp::InspectHand => {}
+        AwaitingOp::PrivateTopPick { looked } => {
+            if let Some(pending) = private_library::picked(state, res, looked, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::HandToTopChoice { player } => {
+            if let Some(pending) = private_library::chosen_hand_to_top(state, res, player, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::PrivateHandDiscard { inspected, player, options, remaining, selected } => {
+            if let Some(pending) = private_hand::discard_chosen(state, res, inspected, player, options, remaining, selected, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::LinkedCounterCleanup { version, kind } => {
             linked_counters::finish_cleanup(state, res.source, version, kind, chosen);
         }
@@ -864,6 +879,7 @@ pub(super) fn resume_inner(
                 .map(|&(card, find)| {
                     let destination = match find.dest {
                         SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
+                        SearchDest::Exile => ZoneLocation::Exile(state.object(card).map_or(res.controller, |o| o.owner)),
                         SearchDest::Hand => ZoneLocation::Hand(res.controller),
                         SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
                         SearchDest::Battlefield => ZoneLocation::Battlefield,
@@ -1427,6 +1443,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::GraveyardOrder { .. }
         | AwaitingOp::ReorderTopLibrary { .. }
         | AwaitingOp::DigBottom
+        | AwaitingOp::HandToTop { .. }
         | AwaitingOp::Scry { .. }
         | AwaitingOp::DiscardDestination { .. }
         | AwaitingOp::Surveil

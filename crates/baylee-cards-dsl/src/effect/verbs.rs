@@ -670,6 +670,7 @@ impl Effect {
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
             | Effect::AtNextTurnsUpkeep { effects }
+            | Effect::CreateDelayedObserver { effects, .. }
             | Effect::AtNextEndStep { effects }
             | Effect::AtNextEndStepAboutSubject { effects }
             | Effect::AtNextCleanup { effects }
@@ -692,7 +693,8 @@ impl Effect {
             | Effect::AtEndOfCombat { about: _, effects }
             | Effect::AtEndOfCombatThisTurn { about: _, effects }
             | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
-            Effect::IfCreaturesDiedAtLeast { n: _, then }
+            Effect::RevealTopByNameThen { otherwise_effects: then, .. }
+            | Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::MayExileFromYourGraveyardThen {
                 count: _,
                 filter: _,
@@ -797,6 +799,11 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopPickThenReorder { .. }
+            | Effect::LookAtTopExileRandom { .. }
+            | Effect::PutFromHandOnTopFor { .. }
+            | Effect::ExileTop { .. }
+            | Effect::RevealUntilNamed { .. }
             | Effect::LookAtTopFind { .. }
             | Effect::ChooseFromYourGraveyard { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
@@ -824,11 +831,15 @@ impl Effect {
             | Effect::ModifySource { .. }
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
+            | Effect::ChooseLandwalk { .. }
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
+            | Effect::DrawThenDiscardDrawn { .. }
+            | Effect::ExileTopFaceDownUntilYourNextEndStep
+            | Effect::ExileDiscardedCardFromYourGraveyard
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
             | Effect::DrawRevealDiscardUnless { .. }
@@ -845,6 +856,8 @@ impl Effect {
             | Effect::GrantSpecialActionUntilEndOfTurn { .. }
             | Effect::CopyResolvingSpell { .. }
             | Effect::RedirectTargetSourceDamageThisTurn { .. }
+            | Effect::PreventNextDamageFromSource { .. }
+            | Effect::RedirectCombatDamageToYouThisTurn { .. }
             | Effect::RedirectNextChosenSourceDamageToTarget { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::PreventDamageFromTargetingCausesThisTurn { .. }
@@ -869,7 +882,9 @@ impl Effect {
             | Effect::LoseGame
             | Effect::WinGame
             | Effect::DrawGame
+            | Effect::ExchangeBlockersOfTargetAttackers
             | Effect::ReanimateEnchanted
+            | Effect::ReanimateEnchantedTapped
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
@@ -957,6 +972,8 @@ impl Effect {
             | Effect::LookAtTopOf { .. }
             | Effect::RevealTopIf { .. }
             | Effect::LookAtChosenHand
+            | Effect::LookAtRandomFromHand { .. }
+            | Effect::LookHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
             | Effect::YourGraveyardToBattlefield { .. }

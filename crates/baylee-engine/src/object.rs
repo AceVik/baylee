@@ -1214,6 +1214,8 @@ pub struct PaidRecord {
     /// Actual quantities spent, in `ManaColor::ALL` order, including colorless.
     /// Spending permissions do not change the types of the mana actually paid.
     pub mana_types_spent: [u32; 6],
+    /// Actual types assigned to the restricted X component, excluding fixed pips.
+    pub mana_types_spent_on_x: [u32; 6],
     /// Exact paid units, retaining snow quality and any restriction/rider IDs.
     pub mana_paid: baylee_core::mana::ManaPool,
     /// Matching riders frozen before another cost can move the activation's source.

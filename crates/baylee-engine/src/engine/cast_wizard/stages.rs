@@ -130,7 +130,8 @@ impl<L: CardLookup> Engine<L> {
                     // reports of 12.10.2026.
                     if !wizard.makes_mana_after_choices()
                         && !more_mana
-                        && (self.wizard_face(&wizard).x_mana_color.is_some()
+                        && ((self.wizard_face(&wizard).x_mana_color.is_some()
+                            || self.wizard_face(&wizard).x_mana_colors.is_some())
                             || (cost.has_variable()
                                 && !wizard.free
                                 && self.pool_alone_pays_x(&wizard)))

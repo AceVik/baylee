@@ -51,6 +51,11 @@ fn reads_event(effect: &Effect) -> bool {
             reads_target(*source)
                 || matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
         }
+        Effect::PreventNextDamageFromSource { to, .. } => reads_player(*to),
+        Effect::RedirectCombatDamageToYouThisTurn { to, .. } => {
+            matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
+        }
+        Effect::ChooseLandwalk { target, .. } => reads_target(*target),
         Effect::CopyResolvingSpell { controller } => reads_player(*controller),
         Effect::DealDamageEvenly { amount, target, .. }
         | Effect::DealDamage { amount, target, .. } => {

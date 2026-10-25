@@ -431,6 +431,11 @@ impl<L: CardLookup> Engine<L> {
         let arena = &self.state.arena;
         let entries = &self.state.journal.entries()[scan_from as usize..];
         self.state.delayed.retain(|d| match d.when {
+            crate::state::DelayedWhen::Observed { watch, .. } => {
+                arena.get(watch.object).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
+                }) && !d.when.observation_fired(entries, d.controller)
+            }
             crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
             | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
             | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }

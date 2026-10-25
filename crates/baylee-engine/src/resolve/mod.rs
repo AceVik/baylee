@@ -30,6 +30,7 @@ pub use names::resume_name;
 mod chosen;
 mod colors;
 mod control;
+mod control_observers;
 mod copying;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
@@ -86,6 +87,10 @@ pub(crate) mod linked_reanimation;
 mod meld;
 pub(crate) mod mutate;
 mod permissions;
+mod private_hand;
+mod private_library;
+#[cfg(test)]
+mod private_hand_tests;
 mod piles;
 pub mod proliferate;
 pub mod tap_energy;
@@ -158,6 +163,8 @@ mod counted_choice_tests;
 
 #[cfg(test)]
 mod controller_of_target_tests;
+#[cfg(test)]
+mod ice_combat_tests;
 
 #[cfg(test)]
 mod copied_decisions_tests;
@@ -661,6 +668,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::ManaTypeSpentOnX(color) => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
         Amount::SacrificedTotalPower => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -936,10 +947,12 @@ pub(super) fn players_of(
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),
-        // Of the source's own attack (CR 508.5).
-        PlayerRel::DefendingPlayer => eval::defending_player_of(state, res.source, you)
-            .into_iter()
-            .collect(),
+        // Of the triggering attacker, or the source for a nontriggered instruction (CR 508.5).
+        PlayerRel::DefendingPlayer => {
+            eval::defending_player_of(state, res.event_object.unwrap_or(res.source), you)
+                .into_iter()
+                .collect()
+        }
         // Last known first (CR 608.2h), for the same reason as the event's
         // below: "Exile target creature. Its controller gains life …" reads
         // its second sentence after the first has moved the creature, and

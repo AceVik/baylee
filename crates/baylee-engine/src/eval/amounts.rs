@@ -163,6 +163,10 @@ pub fn amount_with_context(
             .object(this)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::ManaTypeSpentOnX(color) => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
         Amount::TappedPower => tapped_power(state, this),
         Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
         Amount::UntappedLandsAtTurnStart => state.per_turn.untapped_lands_at_start,

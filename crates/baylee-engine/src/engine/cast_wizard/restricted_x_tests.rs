@@ -541,3 +541,69 @@ fn replicate_uses_unspent_generic_reduction_in_the_offer_and_the_payment() {
     }
     assert_eq!(engine.state.players[0].life, 24);
 }
+
+#[test]
+fn a_multicolor_x_records_actual_units_separately_from_fixed_pips() {
+    use baylee_core::color::ColorSet;
+    for (black, red, blue, expected_x, black_x) in [
+        (1, 4, 0, 3, 0),
+        (4, 1, 0, 3, 3),
+        (2, 3, 0, 3, 1),
+        (1, 2, 2, 2, 0),
+    ] {
+        let template = probe_spell(0, false, false);
+        let definition = Box::leak(Box::new(CardDef {
+            faces: Box::leak(Box::new([FaceDef {
+                x_mana_colors: Some(ColorSet::from_slice(&[Color::Black, Color::Red])),
+                ..template.faces[0]
+            }])),
+            ..*template
+        }));
+        let player = PlayerId::new(0);
+        let mut preset = synthetic::preset(61, &[]);
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
+            card: definition.index,
+            print: PrintRef::new(0),
+        }]);
+        let mut engine = Engine::new(&preset, SyntheticLookup::new(vec![definition])).unwrap();
+        synthetic::keep_mulligans(&mut engine);
+        for _ in 0..30 {
+            if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        for (color, amount) in [
+            (ManaColor::Black, black),
+            (ManaColor::Red, red),
+            (ManaColor::Blue, blue),
+        ] {
+            engine.state.players[0].mana_pool.add(color, amount);
+        }
+        engine.refresh_offer();
+        let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+        engine
+            .apply(player, PlayerAction::CastSpell { card })
+            .unwrap();
+        assert!(
+            matches!(engine.pending(), Pending::ChooseNumber { max, .. } if *max == expected_x)
+        );
+        engine
+            .apply(player, PlayerAction::ChooseNumber(expected_x))
+            .unwrap();
+        let paid = engine.state.object(card).unwrap().paid.as_ref().unwrap();
+        assert_eq!(
+            paid.mana_types_spent_on_x[ManaColor::Black.index()],
+            black_x
+        );
+        assert_eq!(
+            paid.mana_types_spent_on_x[ManaColor::Red.index()],
+            expected_x - black_x
+        );
+        assert_eq!(paid.mana_types_spent_on_x[ManaColor::Blue.index()], 0);
+        assert_eq!(paid.mana_types_spent[ManaColor::Black.index()], black_x + 1);
+    }
+}

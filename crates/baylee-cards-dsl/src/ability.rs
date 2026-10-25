@@ -47,6 +47,8 @@ pub enum ActivationLimit {
     Exhaust,
     /// At most this many activations per turn, per object.
     PerTurn(u8),
+    /// At most the currently evaluated number of activations each turn.
+    PerTurnAmount(crate::Amount),
     /// Boast: this exact creature must have attacked this turn; normally once.
     /// Rules effects may allow a second activation during its controller's turn.
     Boast,
@@ -167,6 +169,8 @@ pub enum Condition {
     OpponentPoisonAtLeast(u16),
     /// An evaluated magnitude meets the printed lower bound.
     AmountAtLeast(crate::Amount, u32),
+    /// The evaluated number is even, including zero.
+    AmountIsEven(crate::Amount),
     /// At least one opponent controls at most this many matching permanents.
     OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
@@ -225,6 +229,9 @@ pub enum Condition {
     /// permanent of the chosen color"). False with no chosen opponent, or
     /// once that player has left the game.
     ChosenOpponentControls(&'static crate::Filter),
+    /// The chosen color occurs strictly more often than every other color among
+    /// the chosen opponent's matching permanents. Multicolored objects count for each color.
+    ChosenColorIsUniqueMostCommon(&'static crate::Filter),
     /// The resolution's first target is a spell that would destroy a
     /// permanent the filter matches if it resolved now (Equinox: "if it
     /// would destroy a land you control"): one of its own top-level

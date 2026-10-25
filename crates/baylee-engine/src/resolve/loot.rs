@@ -18,6 +18,8 @@ pub struct Loot {
     pub token: Option<&'static baylee_cards_dsl::TokenDef>,
     /// Collect large choices in bounded menus, without discarding between menus.
     pub selected: Vec<ObjectId>,
+    /// Beginning of this instruction's eligible draw history, if restricted.
+    pub drawn_since: Option<usize>,
 }
 
 pub(super) fn start(
@@ -49,9 +51,33 @@ pub(super) fn start(
         source,
         token,
         selected: Vec::new(),
+        drawn_since: None,
     }));
     state.draw_cards(player, count as usize);
     // Keep this instruction until run() has settled all queued draw replacements.
+    None
+}
+
+/// Draw first, then discard only surviving cards drawn by this instruction.
+pub(super) fn drawn_only(
+    state: &mut GameState,
+    res: &mut Resolution,
+    draw: Amount,
+    discard: u8,
+) -> Option<Pending> {
+    if let Some(loot) = res.loot.take() {
+        return choose_or_finish(state, res, loot);
+    }
+    let count = amount2(&draw, state, res.controller, res);
+    res.loot = Some(Box::new(Loot {
+        player: res.controller,
+        count: u32::from(discard),
+        source: None,
+        token: None,
+        selected: Vec::new(),
+        drawn_since: Some(state.per_turn.instruction_drawn.len()),
+    }));
+    state.draw_cards(res.controller, count as usize);
     None
 }
 
@@ -77,6 +103,11 @@ fn choose_or_finish(
         .iter()
         .copied()
         .filter(|id| !selected.contains(id))
+        .filter(|id| loot.drawn_since.is_none_or(|start| {
+            state.per_turn.instruction_drawn[start..].iter().any(|(card, version)| {
+                card == id && state.object(*card).is_some_and(|o| o.version == *version)
+            })
+        }))
         .collect();
     let left = (loot.count as usize)
         .saturating_sub(loot.selected.len())

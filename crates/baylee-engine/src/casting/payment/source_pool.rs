@@ -9,14 +9,14 @@ pub(super) struct Payment<'a> {
     pub riding: ManaEntries,
     pub cost: &'a ManaCost,
     pub spending: ManaSpending,
-    pub restriction: Option<(ManaColor, u32)>,
+    pub restriction: Option<crate::mana_pay::GenericRestriction>,
     pub allowance: SourceAllowance,
     pub obligation: Option<&'a crate::constrained_payment::ConstrainedPayment>,
     pub must_consume: bool,
 }
 
 impl Payment<'_> {
-    pub(super) fn pay(self) -> Option<(ManaPool, ManaEntries)> {
+    pub(super) fn pay(self) -> Option<(ManaPool, ManaEntries, [u32; 6])> {
         let (credits, normal): (ManaEntries, ManaEntries) = self
             .entries
             .into_iter()
@@ -37,8 +37,9 @@ impl Payment<'_> {
         for (preference, &minimum) in prefer.iter_mut().zip(normal_required.iter()) {
             *preference = (*preference).max(minimum);
         }
-        let paid = if credits.is_empty() && required.is_none() {
+        let paid = if credits.is_empty() && required.is_none() && self.restriction.is_none() {
             mana_pay::SourcePayment {
+                restricted_generic_paid: [0; 6],
                 remaining: mana_pay::payment_consuming(
                     &ordinary,
                     self.cost,
@@ -89,7 +90,7 @@ impl Payment<'_> {
         let (pool, credit_spent) =
             debit_tracked_units(&pool, credits, SmallVec::new(), credit_plain, credit_snow)?;
         spent.extend(credit_spent);
-        Some((pool, spent))
+        Some((pool, spent, paid.restricted_generic_paid))
     }
 }
 

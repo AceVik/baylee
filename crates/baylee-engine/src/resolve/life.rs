@@ -9,6 +9,7 @@ use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
 pub(super) mod batch57;
+pub(super) mod ice_combat;
 
 /// Executes one life/damage effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
@@ -810,7 +811,7 @@ pub(super) fn deal_to_players(
 /// Whom `target` names as this resolves: the objects and players an
 /// effect that deals damage deals it to, and an effect that prevents
 /// damage shields, in the order they are dealt to.
-fn recipients(
+pub(super) fn recipients(
     state: &GameState,
     res: &Resolution,
     you: PlayerId,

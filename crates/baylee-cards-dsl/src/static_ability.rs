@@ -245,6 +245,8 @@ pub enum Modifier {
     RevealAllLibraryTops,
     /// All players play with their hands revealed.
     RevealAllHands,
+    /// This effect's controller plays with their hand revealed.
+    RevealYourHand,
     /// The effect's controller may play this many lands beyond the one the
     /// rules allow (Exploration: 1; Azusa: 2).
     ///
@@ -405,6 +407,8 @@ pub enum Modifier {
     CrewSaddlePowerBonus(i16),
     /// Ignore the named basic landwalk abilities only when declaring blockers.
     BlockableWithoutLandwalk(KeywordSet),
+    /// Block as though the affected creature had no kind of landwalk.
+    BlockableWithoutAnyLandwalk,
     /// This effect's controller may target opponents and their creatures as
     /// though they did not have hexproof; no keyword is removed (CR 609.4).
     IgnoreOpponentsHexproof,
@@ -435,6 +439,8 @@ pub enum Modifier {
     /// controller and it is asked of the defending player's lands as they
     /// are now.
     LandwalkMatching(&'static crate::Filter),
+    /// Landwalk of one land subtype chosen during resolution.
+    LandwalkOfSubtype(SubtypeId),
     /// The affected creature attacks each combat if able: a requirement on
     /// the declaration of attackers (CR 508.1d). The card's own sentence
     /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
@@ -521,6 +527,8 @@ pub enum Modifier {
     /// its {T} abilities (CR 702.10c), which an "as though" effect leaves
     /// alone (CR 609.4).
     AttacksAsThoughHaste,
+    /// This creature can attack only if no other creature is declared attacking.
+    AttacksAloneOnly,
     /// These players can't untap more than `count` permanents matching `of`
     /// during their untap steps (Smoke: one creature; Winter Orb: one land;
     /// Static Orb: two permanents). A limit on CR 502.3's determination: the
@@ -707,6 +715,8 @@ pub enum Modifier {
     /// rules a permanent registers. Cards only, as the sentence says: a
     /// token is not one (CR 111.1), nor is a copy of a spell.
     ExileInsteadOfYourGraveyard,
+    /// Exile the affected permanent instead of any departure from the battlefield.
+    ExileInsteadOfLeavingBattlefield,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -813,6 +823,13 @@ pub enum Modifier {
     ModifyPTByCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
+    /// Modify power and toughness by independently evaluated source-relative amounts.
+    ModifyPTByAmount {
+        /// Signed power adjustment.
+        power: crate::Amount,
+        /// Signed toughness adjustment.
+        toughness: crate::Amount,
+    },
     /// The intrinsic +1/+0 per hone counter on the Equipment source.
     HoneEquipment,
     /// No affected permanent may hold more than this many counters of the kind.
@@ -1076,6 +1093,7 @@ impl Modifier {
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::HoneEquipment
             | Self::ModifyPT(..)
+            | Self::ModifyPTByAmount { .. }
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTByCount(_)
             | Self::ModifyPTHalfCount(_)
@@ -1105,6 +1123,7 @@ impl Modifier {
             | Self::PlayLandsFromLibraryTop
             | Self::RevealAllLibraryTops
             | Self::RevealAllHands
+            | Self::RevealYourHand
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
@@ -1142,6 +1161,7 @@ impl Modifier {
             | Self::CombatDamageCantBePrevented
             | Self::DamageToItCantBePreventedOrRedirected
             | Self::BlockableWithoutLandwalk(_)
+            | Self::BlockableWithoutAnyLandwalk
             | Self::IgnoreOpponentsHexproof
             | Self::CounterMaximum { .. }
             | Self::CrewSaddlePowerBonus(_)
@@ -1157,6 +1177,7 @@ impl Modifier {
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::CantAttackPlayerIdleLastTurn
             | Self::LandwalkMatching(_)
+            | Self::LandwalkOfSubtype(_)
             | Self::AttacksEachCombat
             | Self::CanBlockAdditional(_)
             | Self::CanBlockAnyNumber
@@ -1175,6 +1196,7 @@ impl Modifier {
             | Self::UntapAtMost { .. }
             | Self::AttacksDespiteDefender
             | Self::AttacksAsThoughHaste
+            | Self::AttacksAloneOnly
             | Self::BoastTwice
             | Self::PlayerHexproof
             | Self::SpellsHaveFlash(_)
@@ -1191,6 +1213,7 @@ impl Modifier {
             | Self::SpellsCostMoreMana(_)
             | Self::CantAttackIfDefenderControls(_)
             | Self::ExileInsteadOfYourGraveyard
+            | Self::ExileInsteadOfLeavingBattlefield
             | Self::CastSpellsFromGraveyard => Layer::Text,
         }
     }
@@ -1309,6 +1332,10 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// Reveal your would-be draw; matching cards go to the graveyard instead.
+    RevealDrawPutMatchingInGraveyard(&'static Filter),
+    /// Reveal each would-be draw; other players may pay this much life to deny it.
+    RevealDrawOthersMayPayLife(u8),
     /// An opponent putting a land into play sacrifices a land afterwards
     /// if they controlled at least as many lands as this source’s controller.
     LandEquilibrium,

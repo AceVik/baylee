@@ -32,6 +32,9 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
             ActivationLimit::PerTurn(n) => u32::from(n),
+            ActivationLimit::PerTurnAmount(amount) => {
+                crate::eval::amount(&amount, &self.state, player, source, None)
+            }
             ActivationLimit::Boast => {
                 let Some(object) = self.state.object(source) else {
                     return true;

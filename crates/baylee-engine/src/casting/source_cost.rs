@@ -2,7 +2,7 @@
 //! Keep this small value with a locked price across mana-ability windows.
 
 use super::{GameState, ManaCost, ObjectId, PlayerId, SpendFor, payment::spending_object};
-use super::{ManaColor, ManaPool, ManaSpending, RestrictedMana, payment::ManaEntries};
+use super::{ManaPool, ManaSpending, RestrictedMana, payment::ManaEntries};
 
 /// Generic reductions may discharge either component of a mixed total. We
 /// retain the largest legal eligible remainder, rather than assigning a
@@ -176,7 +176,7 @@ pub(crate) fn source_plan(
     pool: &ManaPool,
     cost: &ManaCost,
     spending: ManaSpending,
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
     allowance: SourceAllowance,
 ) -> Option<crate::mana_pay::SourcePayment> {
     if !has_source_credits(state, pool) {
@@ -188,6 +188,7 @@ pub(crate) fn source_plan(
             restriction,
         )
         .map(|remaining| crate::mana_pay::SourcePayment {
+            restricted_generic_paid: [0; 6],
             remaining,
             restricted_remaining: ManaPool::new(),
         });

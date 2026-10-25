@@ -132,6 +132,8 @@ pub enum AwaitingOp {
     },
     /// A resolving choice, independent of any as-enters chosen subtype.
     LandwalkChoice {
+        /// Exact recipients captured before the choice.
+        targets: Vec<baylee_core::ids::DamageSourceRef>,
         /// The granted keyword's lifetime.
         duration: baylee_cards_dsl::Duration,
     },
@@ -337,6 +339,34 @@ pub enum AwaitingOp {
 
     /// A private inspection; the empty acknowledgement changes no cards.
     InspectHand,
+    /// A private top-card selection whose remainder stays on top.
+    PrivateTopPick {
+        /// Complete inspected subset.
+        looked: Vec<ObjectId>,
+    },
+    /// Choosing cards from this player's own hand to put on top.
+    HandToTopChoice {
+        /// Hand owner and chooser.
+        player: PlayerId,
+    },
+    /// Ordering the selected hand cards on top of this player's library.
+    HandToTop {
+        /// Hand owner and chooser.
+        player: PlayerId,
+    },
+    /// The controller chooses from a filtered hand while privately seeing all of it.
+    PrivateHandDiscard {
+        /// Entire inspected hand, including unselectable cards.
+        inspected: Vec<ObjectId>,
+        /// Player who discards the selected cards.
+        player: PlayerId,
+        /// Still selectable matching cards.
+        options: Vec<ObjectId>,
+        /// Number still required across bounded answer batches.
+        remaining: u32,
+        /// Choices held until the complete discard is selected.
+        selected: Vec<ObjectId>,
+    },
     /// Optional search consent, before revealing any private library cards.
     MaySearchBasicLand {
         /// The player permitted to search their own library.
@@ -1079,6 +1109,18 @@ impl AwaitingOp {
             Self::ExchangeGreatest(selection) => {
                 crate::state::structural_fingerprint(&(19_u8, selection.fingerprint()))
             }
+            Self::PrivateTopPick { looked } => crate::state::structural_fingerprint(&(31u8, looked)),
+            Self::HandToTopChoice { player } => crate::state::structural_fingerprint(&(32u8, player)),
+            Self::HandToTop { player } => crate::state::structural_fingerprint(&(33u8, player)),
+            Self::PrivateHandDiscard {
+                inspected,
+                player,
+                options,
+                remaining,
+                selected,
+            } => crate::state::structural_fingerprint(&(
+                30u8, inspected, player, options, remaining, selected,
+            )),
             Self::DiscardAny(selection) => crate::state::structural_fingerprint(&(12u8, selection)),
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),

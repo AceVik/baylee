@@ -3,6 +3,8 @@
 use baylee_core::ids::{ObjectId, PlayerId};
 use std::hash::Hash;
 
+mod observers;
+
 /// A delayed trigger registered for a future game point (suspend finishes,
 /// pact payments, rebound re-casts).
 #[derive(Clone, Hash, Debug)]
@@ -18,6 +20,16 @@ pub struct DelayedTrigger {
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
+    /// Independent one-shot event observer. Its affected object is carried
+    /// separately by `DelayedAction::TriggerAbout`.
+    Observed {
+        /// Exact battlefield incarnation being watched.
+        watch: baylee_core::ids::DamageSourceRef,
+        /// Future event required to trigger.
+        when: baylee_cards_dsl::DelayedObservation,
+        /// Events at or before registration cannot trigger this ability.
+        after: u64,
+    },
     /// The next matching spell its controller casts before this turn ends.
     NextSpellCastThisTurn {
         /// Characteristics required of the completed spell.
@@ -40,6 +52,8 @@ pub enum DelayedWhen {
     NextFirstMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
+    /// At the controller's next end step.
+    NextYourEndStep,
     /// At end of combat: as the next end of combat step begins, whoever's
     /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
     /// combat").

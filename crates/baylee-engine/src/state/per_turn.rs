@@ -92,6 +92,8 @@ pub struct PerTurn {
     /// (CR 400.7) and is no longer one of them. Written by
     /// [`GameState::draw_cards`] and nothing else.
     pub drawn: Vec<(ObjectId, u32)>,
+    /// Draws performed by the original instruction, excluding replacement draws (CR 614.11b).
+    pub instruction_drawn: Vec<(ObjectId, u32)>,
     /// How many times each ability of each object has resolved this turn
     /// (Nissa, Resurgent Animist's "the second time this ability has
     /// resolved this turn"). Written by the stack's resolution of an
@@ -303,6 +305,7 @@ impl PerTurn {
             drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
+            instruction_drawn: Vec::new(),
             resolved: Vec::new(),
             graveyard_plays: Vec::new(),
             graveyard_allowances_used: Vec::new(),
@@ -391,6 +394,7 @@ impl PerTurn {
             counter_placements,
             entered_battlefield,
             drawn,
+            instruction_drawn,
             resolved,
             graveyard_plays,
             graveyard_allowances_used,
@@ -437,6 +441,7 @@ impl PerTurn {
         counter_placements.clear();
         entered_battlefield.clear();
         drawn.clear();
+        instruction_drawn.clear();
         resolved.clear();
         graveyard_plays.clear();
         graveyard_allowances_used.clear();

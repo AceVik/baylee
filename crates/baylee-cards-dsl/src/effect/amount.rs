@@ -109,6 +109,9 @@ pub enum Amount {
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
     /// cast spent none; a flashback spent its flashback cost.
     ManaSpentToCast,
+    /// Actual units of this mana type assigned to the printed X payment,
+    /// excluding fixed, additional and increased costs. No payment means zero.
+    ManaTypeSpentOnX(baylee_core::mana::ManaColor),
     /// "The tapped creature's power": the power of the permanent a
     /// `CostPart::TapOther` tapped to pay the cost of the ability that is
     /// resolving — station's "put a number of charge counters on this
