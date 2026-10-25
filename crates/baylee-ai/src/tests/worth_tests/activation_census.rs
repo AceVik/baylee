@@ -327,7 +327,13 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // The final independent PR #394 review changes that imported snapshot
     // by a net 83 non-mana activations, 36 of them read. Recount the whole
     // retained pool after canonical holds and complete optional removals.
-    assert_eq!((read, of), (2783, 3490), "activated/loyalty reader census");
+    // The first eight-card Partial completion adds Arcum's Weathervane's
+    // two contextual supertype activations (both unread). Bone Shaman's
+    // formerly empty, readable activation now grants a live static ability
+    // the evaluator cannot price: one readable row is lost, not an activation.
+    // The other six cards add no activated/loyalty rows. The regression below
+    // pins those exact members rather than widening a reader budget.
+    assert_eq!((read, of), (2782, 3492), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
@@ -345,4 +351,70 @@ fn the_table_reads_most_of_what_the_pool_activates() {
         agent().effects_worth(&v, origin, effects, Aim::Source, 0),
         None
     );
+}
+
+/// Reconcile the census delta against every card in the first Partial batch.
+#[test]
+fn first_partial_completion_changes_exactly_three_activation_reader_rows() {
+    let v = view(0, &[20, 20], vec![]);
+    let origin = Origin {
+        id: obj(1),
+        object: None,
+    };
+    let reader = agent();
+    // Bone Shaman's former empty activation contributed one readable zero.
+    assert_eq!(
+        reader.effects_worth(&v, origin, &[], Aim::Source, 0),
+        Some(0)
+    );
+
+    for (name, expected) in [
+        ("Arcum's Weathervane", 2),
+        ("Bone Shaman", 1),
+        ("Energy Storm", 0),
+        ("Fire Covenant", 0),
+        ("Incinerate", 0),
+        ("Lhurgoyf", 0),
+        ("Lost Order of Jarkeld", 0),
+        ("Shyft", 0),
+        // A real readable activation guards against a reader that refuses all.
+        ("Jayemdae Tome", 1),
+    ] {
+        let index = baylee_cards::decks::by_name(name).unwrap();
+        let definition = baylee_cards::by_index(index).unwrap();
+        let rows: Vec<_> = (0..definition.faces.len())
+            .flat_map(|face| definition.abilities_for_face(face))
+            .filter(|ability| {
+                matches!(
+                    ability,
+                    AbilityDef::Activated {
+                        mana_ability: false,
+                        ..
+                    } | AbilityDef::ActivatedConditional {
+                        mana_ability: false,
+                        ..
+                    } | AbilityDef::ModalActivated {
+                        mana_ability: false,
+                        ..
+                    } | AbilityDef::Loyalty { .. }
+                )
+            })
+            .collect();
+        assert_eq!(rows.len(), expected, "{name}: exact census members");
+        for row in rows {
+            let (AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Loyalty { effects, .. }) = row
+            else {
+                panic!("{name} does not contribute an unbound modal activation");
+            };
+            assert_eq!(
+                reader
+                    .effects_worth(&v, origin, effects, Aim::Source, 0)
+                    .is_some(),
+                name == "Jayemdae Tome",
+                "{name}: supertype changes and live regeneration grants stay unread"
+            );
+        }
+    }
 }
