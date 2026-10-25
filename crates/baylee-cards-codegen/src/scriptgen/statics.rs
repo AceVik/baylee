@@ -147,6 +147,7 @@ impl Tx<'_> {
                 return self.cant_attack_after_last_own_turn(p);
             }
             "CantAttack" => return self.cant_attack_unless(p),
+            "CantBlock" => return self.cant_block(p),
             "CanAttackDefender" => return self.attack_as_though("AttacksDespiteDefender", p),
             "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
             _ => {}
@@ -270,6 +271,34 @@ impl Tx<'_> {
             }
             self.body.abilities.push(expr);
         }
+        Some(())
+    }
+
+    fn cant_block(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if let Some(other) = p.take("NonStackingEffect")
+            && other != "True"
+        {
+            return self.deny(format!("`NonStackingEffect$ {other}`"));
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `CantBlock` static with no `ValidCard$`".to_string());
+        };
+        let filter = self.filter_expr(&valid)?;
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantBlock.{key}`"));
+            }
+            return None;
+        }
+        let mut expr = Self::static_expr(&filter, "Modifier::AddKeyword(KeywordSet::CANT_BLOCK)");
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
         Some(())
     }
 

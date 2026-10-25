@@ -32,4 +32,24 @@ impl Tx<'_> {
         ));
         Some(())
     }
+    /// All damage from the creature this Aura enchants (Muzzle).
+    pub(super) fn enchanted_source_damage_prevention(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        match p.take("ActiveZones").as_deref() {
+            None | Some("Battlefield") => {}
+            Some(_) => return None,
+        }
+        if p.take("Prevent").as_deref() != Some("True")
+            || p.take("ValidSource").as_deref() != Some("Creature.EnchantedBy")
+            || !p.exhausted()
+        {
+            return None;
+        }
+        let filter = self.filter_expr("Creature.EnchantedBy")?;
+        self.body.abilities.push(Self::static_expr(
+            &filter,
+            "Modifier::PreventAllDamageFromIt",
+        ));
+        Some(())
+    }
 }

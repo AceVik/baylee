@@ -91,6 +91,19 @@ impl Tx<'_> {
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
         // `SetPT` sets both, and half a set would invent the other.
         match (p.take("Power"), p.take("Toughness")) {
+            (Some(power), Some(toughness))
+                if power == "X"
+                    && toughness == "X"
+                    && target.is_some()
+                    && self
+                        .svars
+                        .get("X")
+                        .is_some_and(|s| s.trim() == "Targeted$CardManaCost") =>
+            {
+                out.push(format!(
+                    "Effect::SetPTFilter {{ filter: &Filter::This, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration: {duration} }}"
+                ));
+            }
             (Some(power), Some(toughness)) => {
                 let power: i16 = power.parse().ok()?;
                 let toughness: i16 = toughness.parse().ok()?;

@@ -544,6 +544,7 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("ChangesZone") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredCardOwner" if trigger == Some("ChangesZone") => "PlayerRel::OwnerOfEvent",
             // The permanent tapped for mana is the event's object, and its
             // controller is the only player who can have tapped it for mana
             // (CR 602.2): "its controller" and "that player" are one seat.

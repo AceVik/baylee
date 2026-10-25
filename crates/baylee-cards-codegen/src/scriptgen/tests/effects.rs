@@ -1512,3 +1512,69 @@ fn extravagant_spirit_food_chain_flailing_and_haunted_crossroads_shapes_read() {
          SVar:X:Count$xPaid"
     ));
 }
+
+#[test]
+fn jeweled_torque_karns_touch_cant_block_liability_muzzle_and_pangosaur_shapes_read() {
+    let torque = "Name:Jeweled Torque\nManaCost:2\nTypes:Artifact\n\
+        K:ETBReplacement:Other:ChooseColor\n\
+        SVar:ChooseColor:DB$ ChooseColor | Defined$ You\n\
+        T:Mode$ SpellCast | ValidCard$ Card.ChosenColor | TriggerZones$ Battlefield | Execute$ TrigGainLife\n\
+        SVar:TrigGainLife:AB$ GainLife | Cost$ 2 | Defined$ You | LifeAmount$ 2";
+    let body = read(torque);
+    assert!(
+        body.abilities[0].contains("PlayerMayPayThen")
+            && body.abilities[0].contains("Amount::Fixed(2)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let touch = "Name:Karn's Touch\nManaCost:U U\nTypes:Instant\n\
+        A:SP$ Animate | ValidTgts$ Artifact.nonCreature | Power$ X | Toughness$ X | Types$ Artifact,Creature\n\
+        SVar:X:Targeted$CardManaCost";
+    let body = read(touch);
+    assert!(
+        body.abilities[0].contains("Effect::SetPTFilter")
+            && body.abilities[0].contains("Amount::TargetCmc"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let veto = "Name:Magistrate's Veto\nManaCost:2 R\nTypes:Enchantment\n\
+        S:Mode$ CantBlock | ValidCard$ Creature.White,Creature.Blue";
+    let body = read(veto);
+    assert!(
+        body.abilities[0].contains("Modifier::AddKeyword(KeywordSet::CANT_BLOCK)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let liability = "Name:Liability\nManaCost:1 B B\nTypes:Enchantment\n\
+        T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Permanent.nonToken | TriggerZones$ Battlefield | Execute$ TrigLoseLife\n\
+        SVar:TrigLoseLife:DB$ LoseLife | Defined$ TriggeredCardOwner | LifeAmount$ 1";
+    let body = read(liability);
+    assert!(
+        body.abilities[0].contains("PlayerRel::OwnerOfEvent"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let muzzle = "Name:Muzzle\nManaCost:1 W\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature\n\
+        R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidSource$ Creature.EnchantedBy";
+    let body = read(muzzle);
+    assert!(
+        body.abilities[1].contains("Modifier::PreventAllDamageFromIt"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let pangosaur = "Name:Pangosaur\nManaCost:2 G G\nTypes:Creature Dinosaur\nPT:6/6\n\
+        T:Mode$ LandPlayed | ValidCard$ Land | TriggerZones$ Battlefield | Execute$ TrigBounce\n\
+        SVar:TrigBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand";
+    let body = read(pangosaur);
+    assert!(
+        body.abilities[0].contains("Trigger::PlaysLand(PlayerRel::EachPlayer)"),
+        "{}",
+        body.abilities[0]
+    );
+}

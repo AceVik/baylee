@@ -365,6 +365,9 @@ impl Tx<'_> {
         if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.blockedBySource") {
             return self.wall_blocked_damage_prevention(p);
         }
+        if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.EnchantedBy") {
+            return self.enchanted_source_damage_prevention(p);
+        }
         if event == "DamageDone" {
             return self.spell_damage_prevention(p);
         }

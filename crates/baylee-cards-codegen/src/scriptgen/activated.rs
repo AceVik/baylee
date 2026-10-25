@@ -468,11 +468,13 @@ impl Tx<'_> {
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
     /// its price taken off, and the price: `AB$ GainLife | Cost$ 1 | …`
-    /// under `OptionalDecider$ You`. `None` for anything else — no "may",
-    /// no `Cost$`, or a cost that is not mana alone — which leaves the line
-    /// as it was for the chain to read or refuse.
-    pub(super) fn optional_price(body: &str, may: bool) -> Option<(String, Price)> {
-        if !may || !body.trim_start().starts_with("AB$") {
+    /// under `OptionalDecider$ You` (or without it, as on the Mercadian
+    /// Masques Torques, since an `AB$` executed by a trigger is always an
+    /// optional cost). `None` for anything else — no `Cost$`, or a cost
+    /// that is not mana alone — which leaves the line as it was for the
+    /// chain to read or refuse.
+    pub(super) fn optional_price(body: &str) -> Option<(String, Price)> {
+        if !body.trim_start().starts_with("AB$") {
             return None;
         }
         let parts: Vec<&str> = body.split(" | ").collect();

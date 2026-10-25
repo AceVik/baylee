@@ -287,7 +287,21 @@ impl Tx<'_> {
                 let filter = self.body.filter_static("TRIGGER", &expr);
                 Some(format!("Trigger::BecomesTapped(&{filter})"))
             }
+            "LandPlayed" => self.land_played_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
+        }
+    }
+
+    fn land_played_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `LandPlayed` trigger with no `ValidCard$`".to_string());
+        };
+        match valid.as_str() {
+            "Land" => Some("Trigger::PlaysLand(PlayerRel::EachPlayer)".to_string()),
+            "Land.YouCtrl" => Some("Trigger::PlaysLand(PlayerRel::You)".to_string()),
+            "Land.OppCtrl" => Some("Trigger::PlaysLand(PlayerRel::EachOpponent)".to_string()),
+            "Land.Other+YouCtrl" => Some("Trigger::PlaysAnotherLand".to_string()),
+            other => self.deny(format!("`LandPlayed` on `{other}`")),
         }
     }
 
@@ -591,7 +605,7 @@ impl Tx<'_> {
         // the `MayDo` rather than sitting inside it, which would ask twice.
         // Generic mana only: a coloured price or a non-mana cost is another
         // payment the effect cannot take, and stays unclaimed.
-        let (body, price) = match Self::optional_price(&body, may) {
+        let (body, price) = match Self::optional_price(&body) {
             Some((stripped, price)) => (stripped, Some(price)),
             None => (body, None),
         };
