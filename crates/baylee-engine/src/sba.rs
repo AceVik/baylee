@@ -254,6 +254,10 @@ pub(crate) fn run_with_context(
             .and_then(|(_, snapshot)| snapshot.clone())
     };
 
+    // Regeneration prohibitions see the same pre-action board as every
+    // member of this simultaneous state-based event, even if a source dies.
+    let cannot_regenerate = regeneration::prohibited_on_battlefield(state);
+
     // CR 704.5v-y candidates were captured with the same pre-action board.
     for reference in &battles.graveyard {
         if state.source_identity(reference.object) == Some(*reference) {
@@ -305,7 +309,13 @@ pub(crate) fn run_with_context(
     }
     for (id, is_destroy) in dying {
         if is_destroy {
-            destroy_with(state, id, true, departure(id), false);
+            destroy_with(
+                state,
+                id,
+                !cannot_regenerate.contains(&id),
+                departure(id),
+                false,
+            );
         } else {
             put_into_graveyard_with_departure(state, id, departure(id));
         }
@@ -779,7 +789,8 @@ pub fn apply_legend_choice(
 /// Lethal damage routes through here, so a shielded creature survives a
 /// Lightning Bolt and a "destroy target creature" by the same line.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, true, None, true);
+    let regeneratable = regeneration::allowed(state, id);
+    destroy_with(state, id, regeneratable, None, true);
 }
 
 /// Destroys a permanent whose destruction a card said it could not be
@@ -852,9 +863,8 @@ fn destroy_with_replacements(
     }) {
         return;
     }
-    // "It can't be regenerated this turn" (Disintegrate): the shield
-    // stands and is not applied (CR 701.19c), for this object only.
-    let regeneratable = regeneratable && regeneration::allowed(state, id);
+    // The caller captured regeneration permission before this event began.
+    // Rechecking after a co-destroyed static source leaves would split the event.
     let standing_regeneration = state.effects.may_change_player_or_sba_rules()
         && state.object(id).is_some_and(|object| {
             state.effects.iter().any(|effect| {
@@ -940,10 +950,16 @@ pub(crate) fn destroy_all(
 ) {
     let departures: Vec<_> = objects
         .iter()
-        .map(|id| (*id, state.departure_snapshot(*id)))
+        .map(|id| {
+            (
+                *id,
+                state.departure_snapshot(*id),
+                !no_regen && regeneration::allowed(state, *id),
+            )
+        })
         .collect();
-    for (id, departure) in departures {
-        destroy_with(state, id, !no_regen, departure, true);
+    for (id, departure, regeneratable) in departures {
+        destroy_with(state, id, regeneratable, departure, true);
     }
 }
 
@@ -957,7 +973,8 @@ pub(crate) fn destroy_all(
 ///
 /// The time a permanent has had the supertype is read as its timestamp
 /// (CR 613.7d), taken as it entered the battlefield: every world card in the
-/// pool prints the supertype, and nothing grants it. Permanents that enter
+/// pool prints the supertype. Tracking time since gaining or regaining WORLD
+/// through a continuous supertype change is not yet supported. Permanents that enter
 /// at once get timestamps in APNAP order (CR 613.7m) here, so the tie of
 /// the rule's second sentence is two equal timestamps.
 fn world_rule(state: &GameState) -> smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]> {

@@ -11,10 +11,9 @@ fn supertype_changes_preserve_types_and_other_supertypes() {
     state.object_mut(land).unwrap().base_mut().supertypes = SupertypeSet::BASIC;
     register(&mut state, 1, Modifier::AddSupertype(SupertypeSet::SNOW));
     let result = recompute(&state, state.object(land).unwrap()).characteristics;
-    assert!(
-        result
-            .supertypes
-            .contains(SupertypeSet::BASIC.union(SupertypeSet::SNOW))
+    assert_eq!(
+        result.supertypes,
+        SupertypeSet::BASIC.union(SupertypeSet::SNOW)
     );
     assert_eq!(result.types, TypeSet::LAND);
     register(&mut state, 2, Modifier::RemoveSupertype(SupertypeSet::SNOW));

@@ -1,6 +1,6 @@
 //! Counts used by power and toughness layer effects.
 
-use super::*;
+use super::{Characteristics, GameObject, GameState, ObjectId, PlayerId, eval};
 
 /// Whether a count's filter picks its objects by what they are attached to
 /// (`Filter::AttachedToSource`, alone or in an `And`), which no control
@@ -105,30 +105,9 @@ pub(super) fn pt_count(
                 None => 0,
             }
         }
-        baylee_cards_dsl::PtCount::InAllGraveyards(filter) => (0..state.players.len())
-            .map(|seat| PlayerId::new(u8::try_from(seat).expect("player index fits")))
-            .flat_map(|player| {
-                state
-                    .zones
-                    .list(crate::zone::ZoneLocation::Graveyard(player))
-            })
-            .filter_map(|id| state.object(*id))
-            .filter(|card| {
-                card.is_card()
-                    && eval::matches_projected_with_context(
-                        filter,
-                        state,
-                        card,
-                        if card.id == obj.id {
-                            c
-                        } else {
-                            card.characteristics()
-                        },
-                        you,
-                        context,
-                    )
-            })
-            .count(),
+        baylee_cards_dsl::PtCount::InAllGraveyards(filter) => {
+            cards_in_all_graveyards(state, obj, c, you, filter, context)
+        }
         baylee_cards_dsl::PtCount::ChosenPlayerControls(filter) => {
             obj.chosen_opponent().map_or(0, |chosen| {
                 count_controlled(state, obj, c, Some(chosen), you, filter, context)
@@ -209,6 +188,40 @@ fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
             state
                 .object(**id)
                 .is_some_and(|o| o.is_card() && o.riders.contains(&mark))
+        })
+        .count()
+}
+
+fn cards_in_all_graveyards(
+    state: &GameState,
+    obj: &GameObject,
+    c: &Characteristics,
+    you: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    context: crate::text_changes::RuleContext,
+) -> usize {
+    (0..state.players.len())
+        .map(|seat| PlayerId::new(u8::try_from(seat).expect("player index fits")))
+        .flat_map(|player| {
+            state
+                .zones
+                .list(crate::zone::ZoneLocation::Graveyard(player))
+        })
+        .filter_map(|id| state.object(*id))
+        .filter(|card| {
+            card.is_card()
+                && eval::matches_projected_with_context(
+                    filter,
+                    state,
+                    card,
+                    if card.id == obj.id {
+                        c
+                    } else {
+                        card.characteristics()
+                    },
+                    you,
+                    context,
+                )
         })
         .count()
 }

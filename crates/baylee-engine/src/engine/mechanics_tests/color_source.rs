@@ -59,7 +59,10 @@ fn choosing_source_colors_changes_the_source_even_with_a_different_target() {
         .unwrap()
         .index;
     engine
-        .apply(me(), PlayerAction::ChooseCastMode { index })
+        .apply(
+            me(),
+            PlayerAction::ChooseMode(usize::try_from(index).unwrap()),
+        )
         .unwrap();
     settle(&mut engine, me());
     assert_eq!(

@@ -67,6 +67,31 @@ static TOOLS_ABILITIES: &[AbilityDef] = &[
         }],
         Some(TargetReq::one(CREATURE)),
     ),
+    free(
+        &[Effect::DestroyAll {
+            filter: &Filter::CREATURE,
+            no_regen: false,
+        }],
+        None,
+    ),
+    free(
+        &[Effect::DealDamageEach {
+            amount: Amount::Fixed(5),
+            filter: &Filter::CREATURE,
+        }],
+        None,
+    ),
+    free(
+        &[Effect::continuous(
+            &Filter::This,
+            Modifier::GrantStatic {
+                filter: &Filter::And(&[Filter::CREATURE, Filter::DealtDamageBySourceThisTurn]),
+                modifier: &Modifier::CantBeRegenerated,
+            },
+            Duration::UntilEndOfTurn,
+        )],
+        Some(TargetReq::one(CREATURE)),
+    ),
 ];
 static REGENERATE: &[AbilityDef] = &[free(
     &[Effect::Regenerate {
@@ -76,6 +101,10 @@ static REGENERATE: &[AbilityDef] = &[free(
 )];
 
 fn game() -> (Bench, ObjectId, ObjectId, ObjectId) {
+    game_order(false)
+}
+
+fn game_order(reverse: bool) -> (Bench, ObjectId, ObjectId, ObjectId) {
     let mut engine = bench(
         7950,
         vec![
@@ -98,7 +127,14 @@ fn game() -> (Bench, ObjectId, ObjectId, ObjectId) {
                 TOOLS_ABILITIES,
             ),
         ],
-        [Seat::with(&[SOURCE, VICTIM, TOOLS]), Seat::default()],
+        [
+            Seat::with(if reverse {
+                &[VICTIM, SOURCE, TOOLS]
+            } else {
+                &[SOURCE, VICTIM, TOOLS]
+            }),
+            Seat::default(),
+        ],
     );
     to_main(&mut engine, me());
     let source = the(&engine, ZoneLocation::Battlefield, SOURCE);
@@ -190,5 +226,58 @@ fn regeneration_static_stops_when_source_leaves_or_either_incarnation_changes() 
             use_ability(&mut engine, source, 1, None);
         }
         regenerate_then_destroy(&mut engine, victim, tools, true);
+    }
+}
+
+#[test]
+fn regeneration_static_disappears_with_ability_loss_and_a_later_grant_restores_it() {
+    for regrant in [false, true] {
+        let (mut engine, source, victim, tools) = game();
+        use_ability(&mut engine, source, 1, None);
+        use_ability(&mut engine, source, 0, Some(victim));
+        use_ability(&mut engine, tools, 1, Some(source));
+        if regrant {
+            use_ability(&mut engine, tools, 6, Some(source));
+        }
+        regenerate_then_destroy(&mut engine, victim, tools, !regrant);
+    }
+}
+
+#[test]
+fn regeneration_prohibitions_expire_at_cleanup() {
+    for static_grant in [false, true] {
+        let (mut engine, source, victim, tools) = game();
+        if static_grant {
+            use_ability(&mut engine, source, 1, None);
+        }
+        use_ability(
+            &mut engine,
+            source,
+            if static_grant { 0 } else { 2 },
+            Some(victim),
+        );
+        to_main(&mut engine, them());
+        to_main(&mut engine, me());
+        regenerate_then_destroy(&mut engine, victim, tools, true);
+    }
+}
+
+#[test]
+fn regeneration_static_sees_one_board_for_simultaneous_destruction_and_lethal_sbas() {
+    for reverse in [false, true] {
+        for ability in [4, 5] {
+            let (mut engine, source, victim, tools) = game_order(reverse);
+            use_ability(&mut engine, source, 1, None);
+            use_ability(&mut engine, source, 0, Some(victim));
+            use_ability(&mut engine, victim, 0, None);
+            use_ability(&mut engine, tools, ability, None);
+            for id in [source, victim] {
+                assert_eq!(
+                    engine.state().object(id).unwrap().zone,
+                    crate::zone::Zone::Graveyard,
+                    "a simultaneous departure keeps the static prohibition for every victim"
+                );
+            }
+        }
     }
 }

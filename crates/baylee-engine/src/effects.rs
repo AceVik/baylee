@@ -392,6 +392,7 @@ impl RuleHints {
     const BOARD_STATE_FILTER: u32 = 1 << 18;
     const PLAYER_OR_SBA_RULE: u32 = 1 << 19;
     const GRANT_TRIGGERED: u32 = 1 << 20;
+    const REGENERATION_PROHIBITION: u32 = 1 << 21;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -494,6 +495,10 @@ impl EffectTable {
 
     pub(crate) const fn may_change_player_or_sba_rules(&self) -> bool {
         self.hints.contains(RuleHints::PLAYER_OR_SBA_RULE)
+    }
+
+    pub(crate) const fn may_prevent_regeneration(&self) -> bool {
+        self.hints.contains(RuleHints::REGENERATION_PROHIBITION)
     }
 
     pub(crate) fn has_parked(&self) -> bool {
@@ -682,8 +687,11 @@ impl EffectTable {
                     | Modifier::SkipUntapStep { .. }
                     | Modifier::LegendRuleOff
                     | Modifier::RegenerateInsteadOfDestroy
-                    | Modifier::CantBeRegenerated
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::REGENERATION_PROHIBITION,
+            matches!(fx.modifier, Modifier::CantBeRegenerated),
         );
         self.effects.push(fx);
         self.generation += 1;

@@ -651,6 +651,7 @@ impl<L: CardLookup> Engine<L> {
                     if let Some(obj) = self.state.object_mut(object) {
                         obj.set_chosen_opponent(Some(chosen));
                     }
+                    self.state.invalidate_projections();
                     return Ok(());
                 }
                 if matches!(
