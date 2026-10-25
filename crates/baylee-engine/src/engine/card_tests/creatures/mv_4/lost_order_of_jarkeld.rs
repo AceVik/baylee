@@ -54,12 +54,26 @@ fn lost_order_of_jarkeld_chooses_only_an_opponent_and_starts_at_one_without_thei
         unreachable!()
     };
     assert_eq!(options, vec![P1]);
+    let order = on_battlefield(&engine, P0, lost_order_of_jarkeld()).unwrap();
+    assert_eq!(
+        engine.state().object(order).unwrap().chosen_opponent(),
+        None
+    );
     assert!(engine.apply(P0, PlayerAction::ChoosePlayer(P0)).is_err());
-    assert!(on_battlefield(&engine, P0, lost_order_of_jarkeld()).is_none());
-    assert!(on_stack(&engine, lost_order_of_jarkeld()).is_some());
+    assert!(
+        matches!(engine.pending(), Pending::ChoosePlayer { player, options }
+        if *player == P0 && options == &[P1])
+    );
+    assert_eq!(
+        engine.state().object(order).unwrap().chosen_opponent(),
+        None
+    );
     choose_opponent(&mut engine, P1);
 
-    let order = on_battlefield(&engine, P0, lost_order_of_jarkeld()).unwrap();
+    assert_eq!(
+        engine.state().object(order).unwrap().chosen_opponent(),
+        Some(P1)
+    );
     assert_eq!(pt(&engine, order), (1, 1), "only creatures of P1 count");
 }
 

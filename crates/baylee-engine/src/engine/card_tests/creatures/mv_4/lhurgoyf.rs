@@ -12,10 +12,12 @@ fn lhurgoyf() -> CardIndex {
 }
 
 fn cast(engine: &mut Engine<RegistryLookup>, card: CardIndex) {
-    pass_until(
-        engine,
-        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
-    );
+    pass_until(engine, |e| {
+        e.state().turn.active == P0
+            && matches!(e.state().turn.phase, Phase::FirstMain | Phase::SecondMain)
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == P0)
+    });
     for color in ManaColor::ALL {
         engine.state.players[0].mana_pool.add(color, 10);
     }
