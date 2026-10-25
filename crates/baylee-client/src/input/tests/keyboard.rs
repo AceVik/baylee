@@ -236,6 +236,8 @@ fn shift_e_takes_the_whole_merged_card_and_gives_it_back() {
     let mut duel = crate::Duel::default();
     duel.receive_view(view);
     duel.receive_choice(Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: PlayerId::new(0),
         attackers: ids.clone(),
         defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],

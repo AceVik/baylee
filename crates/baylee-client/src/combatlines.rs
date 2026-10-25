@@ -954,6 +954,8 @@ mod running {
         let mut app = harness(a_fight());
         app.world_mut().resource_mut::<Duel>().interaction = Some(Interaction::new(
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: PlayerId::new(0),
                 attackers: vec![obj(2)],
                 defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -991,6 +993,8 @@ mod running {
         let aiming = || {
             Some(Interaction::new(
                 Pending::ChooseAttackers {
+                    alone: Vec::new(),
+                    minimum_required: None,
                     player: PlayerId::new(0),
                     attackers: vec![obj(2)],
                     defenders: vec![Defender::Player(PlayerId::new(1))],

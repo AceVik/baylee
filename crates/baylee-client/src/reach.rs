@@ -536,6 +536,8 @@ mod tests {
             .with_battlefield(1, vec![token(1, 1, "Earth Elemental", 4, 4)])
             .build();
         let pending = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: view.seat,
             attackers: vec![obj(10)],
             defenders: vec![Defender::Player(PlayerId::new(1))],

@@ -127,6 +127,8 @@ fn the_combat_row_offers_the_commit_only_once_something_is_declared() {
     use baylee_engine::choice::Pending;
 
     let question = || Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: baylee_core::ids::PlayerId::new(0),
         attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
         defenders: vec![Defender::Player(baylee_core::ids::PlayerId::new(1))],
@@ -254,6 +256,8 @@ fn the_countdown_stands_in_the_button_the_clock_presses() {
         ),
         (
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: me,
                 attackers: vec![ObjectId::new(3, 0)],
                 defenders: vec![Defender::Player(PlayerId::new(1))],

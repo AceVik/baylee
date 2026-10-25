@@ -223,6 +223,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 | PlayerRel::MostLife
                 | PlayerRel::ControllerOfTarget
                 | PlayerRel::TargetPlayerOrController
+                | PlayerRel::SecondTargetPlayerOrController
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer

@@ -251,6 +251,8 @@ mod tests {
             )
             .build();
         let pending = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: view.seat,
             attackers: view.battlefield.iter().map(|o| o.id).collect(),
             defenders: vec![
@@ -366,6 +368,8 @@ mod tests {
         ];
         defenders.extend((81..92).map(|id| Defender::Planeswalker(ObjectId::new(id, 0))));
         let pending = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: view.seat,
             attackers: view.battlefield.iter().map(|o| o.id).take(2).collect(),
             defenders,
