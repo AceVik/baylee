@@ -110,8 +110,7 @@ pub(super) fn reveal_top_then(
     });
     if !matches {
         let next = res.pc + 1;
-        res.effects
-            .splice(next..next, otherwise_effects.iter().copied());
+        res.effects.splice(next..next, flatten(otherwise_effects));
     }
     put_top(
         state,

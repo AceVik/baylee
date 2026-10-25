@@ -79,7 +79,10 @@ pub struct Find {
 
 impl Find {
     /// Into public exile.
-    pub const EXILE: Self = Self { dest: SearchDest::Exile, ..Self::HAND };
+    pub const EXILE: Self = Self {
+        dest: SearchDest::Exile,
+        ..Self::HAND
+    };
     /// Into its owner's graveyard.
     pub const GRAVEYARD: Self = Self {
         dest: SearchDest::Graveyard,

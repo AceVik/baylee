@@ -103,11 +103,15 @@ fn choose_or_finish(
         .iter()
         .copied()
         .filter(|id| !selected.contains(id))
-        .filter(|id| loot.drawn_since.is_none_or(|start| {
-            state.per_turn.instruction_drawn[start..].iter().any(|(card, version)| {
-                card == id && state.object(*card).is_some_and(|o| o.version == *version)
+        .filter(|id| {
+            loot.drawn_since.is_none_or(|start| {
+                state.per_turn.instruction_drawn[start..]
+                    .iter()
+                    .any(|(card, version)| {
+                        card == id && state.object(*card).is_some_and(|o| o.version == *version)
+                    })
             })
-        }))
+        })
         .collect();
     let left = (loot.count as usize)
         .saturating_sub(loot.selected.len())
@@ -177,4 +181,50 @@ fn choose_or_finish(
     }
     state.forget_discard_answers();
     None
+}
+
+/// Decision progress for the action-loop detector, independent of allocation IDs
+/// and the absolute position of this instruction in the turn's draw ledger.
+pub(crate) fn loop_progress(state: &GameState, res: &Resolution) -> u64 {
+    fn captured(op: &AwaitingOp) -> Option<&Loot> {
+        match op {
+            AwaitingOp::Loot(loot) => Some(loot),
+            AwaitingOp::DiscardDestination {
+                then: DiscardThen::Choice { op, .. },
+                ..
+            }
+            | AwaitingOp::SelectedCommander { operation: op, .. } => captured(op),
+            _ => None,
+        }
+    }
+    let loot = res
+        .awaiting
+        .as_ref()
+        .and_then(captured)
+        .or(res.loot.as_deref());
+    let Some(loot) = loot else {
+        return 0;
+    };
+    let hand = state.zones.list(ZoneLocation::Hand(loot.player));
+    let eligible: Vec<_> = hand
+        .iter()
+        .enumerate()
+        .filter_map(|(position, &id)| {
+            let eligible = loot.drawn_since.is_none_or(|start| {
+                state.per_turn.instruction_drawn[start..]
+                    .iter()
+                    .any(|&(card, version)| {
+                        card == id && state.object(card).is_some_and(|o| o.version == version)
+                    })
+            });
+            eligible.then_some(position)
+        })
+        .collect();
+    let mut selected: Vec<_> = loot
+        .selected
+        .iter()
+        .map(|id| hand.iter().position(|card| card == id))
+        .collect();
+    selected.sort_unstable();
+    crate::state::structural_fingerprint(&(loot.player, loot.count, eligible, selected))
 }

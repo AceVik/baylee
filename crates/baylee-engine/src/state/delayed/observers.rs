@@ -13,25 +13,37 @@ impl DelayedWhen {
         };
         for entry in events.iter().filter(|entry| entry.seq > after) {
             match entry.event {
-                GameEvent::ZoneChanged { object, from: Zone::Battlefield, .. }
-                    if object == watch.object =>
-                {
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    ..
+                } if object == watch.object => {
                     // The first departure ends the watch even when it does
                     // not satisfy its condition. Never follow a later entry.
                     return entry.departure.as_ref().is_some_and(|departure| {
                         departure.version == watch.version
                             && match when {
                                 DelayedObservation::LeavesBattlefieldOrUntaps => true,
-                                DelayedObservation::YouLoseControl => departure.controller == controller,
+                                DelayedObservation::YouLoseControl => {
+                                    departure.controller == controller
+                                }
                             }
                     });
                 }
                 GameEvent::ObjectUntapped { object, .. }
                     if object == watch.object
-                        && when == DelayedObservation::LeavesBattlefieldOrUntaps => return true,
+                        && when == DelayedObservation::LeavesBattlefieldOrUntaps =>
+                {
+                    return true;
+                }
                 GameEvent::ControllerChanged { object, old, new }
-                    if object == watch.object && old == controller && new != controller
-                        && when == DelayedObservation::YouLoseControl => return true,
+                    if object == watch.object
+                        && old == controller
+                        && new != controller
+                        && when == DelayedObservation::YouLoseControl =>
+                {
+                    return true;
+                }
                 _ => {}
             }
         }
@@ -47,7 +59,10 @@ mod tests {
 
     fn watch(when: DelayedObservation) -> DelayedWhen {
         DelayedWhen::Observed {
-            watch: DamageSourceRef { object: ObjectId::NO_SOURCE, version: 7 },
+            watch: DamageSourceRef {
+                object: ObjectId::NO_SOURCE,
+                version: 7,
+            },
             when,
             after: 10,
         }
@@ -109,7 +124,10 @@ mod tests {
         assert!(!observation.observation_fired(&[leave(8, 1)], you));
         let mut untap = JournalEntry {
             seq: 10,
-            event: GameEvent::ObjectUntapped { object: ObjectId::NO_SOURCE, cause: crate::event::Cause::Effect },
+            event: GameEvent::ObjectUntapped {
+                object: ObjectId::NO_SOURCE,
+                cause: crate::event::Cause::Effect,
+            },
             departure: None,
         };
         assert!(!observation.observation_fired(&[untap.clone()], you));

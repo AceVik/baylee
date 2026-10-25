@@ -5,8 +5,15 @@ use crate::trigger::PendingTrigger;
 
 pub(super) fn trigger(state: &GameState, watch: &DelayedTrigger) -> Option<PendingTrigger> {
     let DelayedAction::TriggerAbout {
-        source, source_version, effects, text, object, version, subject,
-    } = watch.action else {
+        source,
+        source_version,
+        effects,
+        text,
+        object,
+        version,
+        subject,
+    } = watch.action
+    else {
         return None;
     };
     Some(PendingTrigger {
@@ -20,10 +27,13 @@ pub(super) fn trigger(state: &GameState, watch: &DelayedTrigger) -> Option<Pendi
         synthetic_effects: Some(effects),
         synthetic_target: None,
         event_object: Some(object),
-        event_object_identity: Some((version, state.source_object(baylee_core::ids::DamageSourceRef {
-            object,
+        event_object_identity: Some((
             version,
-        }).and_then(|object| object.characteristics().power).unwrap_or(0))),
+            state
+                .source_object(baylee_core::ids::DamageSourceRef { object, version })
+                .and_then(|object| object.characteristics().power)
+                .unwrap_or(0),
+        )),
         event_subject: subject,
         event_ability: None,
         related_objects: None,

@@ -8,7 +8,10 @@ pub(crate) fn destination(state: &GameState, id: ObjectId, to: ZoneLocation) -> 
     if matches!(to, ZoneLocation::Battlefield | ZoneLocation::Exile(_)) {
         return to;
     }
-    let Some(object) = state.object(id).filter(|object| object.zone == Zone::Battlefield) else {
+    let Some(object) = state
+        .object(id)
+        .filter(|object| object.zone == Zone::Battlefield)
+    else {
         return to;
     };
     if state.effects.iter().any(|effect| {
@@ -34,26 +37,65 @@ mod tests {
     #[test]
     fn replacement_exiles_each_nonexile_exit_but_never_a_later_incarnation() {
         let player = PlayerId::new(0);
-        for requested in [ZoneLocation::Hand(player), ZoneLocation::Graveyard(player),
-            ZoneLocation::Library(player), ZoneLocation::Exile(player)] {
+        for requested in [
+            ZoneLocation::Hand(player),
+            ZoneLocation::Graveyard(player),
+            ZoneLocation::Library(player),
+            ZoneLocation::Exile(player),
+        ] {
             let lookup = SyntheticLookup::new(vec![]);
             let mut state = GameState::from_preset(&preset(716, &[]), &lookup).unwrap();
             let object = state.zones.list(ZoneLocation::Library(player))[0];
             state.object_mut(object).unwrap().kind = crate::object::ObjectKind::Permanent;
-            state.move_object(object, ZoneLocation::Battlefield, ZonePosition::Top, Cause::Effect).unwrap();
+            state
+                .move_object(
+                    object,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
             let modifier = Modifier::ExileInsteadOfLeavingBattlefield;
             state.effects.register(ContinuousEffect {
-                id: EffectId::new(0), source: None, controller: player,
-                origin: EffectOrigin::Resolution, layer: modifier.layer(), timestamp: 1,
-                duration: Duration::Indefinitely, filter: EffectFilter::object(&state, object), modifier,
+                id: EffectId::new(0),
+                source: None,
+                controller: player,
+                origin: EffectOrigin::Resolution,
+                layer: modifier.layer(),
+                timestamp: 1,
+                duration: Duration::Indefinitely,
+                filter: EffectFilter::object(&state, object),
+                modifier,
             });
-            assert_eq!(destination(&state, object, requested), ZoneLocation::Exile(player));
-            state.move_object(object, requested, ZonePosition::Top, Cause::Effect).unwrap();
+            assert_eq!(
+                destination(&state, object, requested),
+                ZoneLocation::Exile(player)
+            );
+            state
+                .move_object(object, requested, ZonePosition::Top, Cause::Effect)
+                .unwrap();
             assert_eq!(state.object(object).unwrap().zone, Zone::Exile);
             state.object_mut(object).unwrap().kind = crate::object::ObjectKind::Permanent;
-            state.move_object(object, ZoneLocation::Battlefield, ZonePosition::Top, Cause::Effect).unwrap();
-            assert_eq!(destination(&state, object, ZoneLocation::Hand(player)), ZoneLocation::Hand(player));
-            state.move_object(object, ZoneLocation::Hand(player), ZonePosition::Top, Cause::Effect).unwrap();
+            state
+                .move_object(
+                    object,
+                    ZoneLocation::Battlefield,
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
+            assert_eq!(
+                destination(&state, object, ZoneLocation::Hand(player)),
+                ZoneLocation::Hand(player)
+            );
+            state
+                .move_object(
+                    object,
+                    ZoneLocation::Hand(player),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                )
+                .unwrap();
             assert_eq!(state.object(object).unwrap().zone, Zone::Hand);
         }
     }

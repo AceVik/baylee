@@ -65,6 +65,13 @@ pub(super) fn target_spell_would_destroy(
         })
     };
     effects.iter().any(|effect| match effect {
+        Effect::DestroyTargetSlots { targets, .. } => targets.iter().any(|slot| match slot {
+            baylee_cards_dsl::TargetSlot::This => doomed(spell.id),
+            baylee_cards_dsl::TargetSlot::First => spell.targets.iter().copied().any(doomed),
+            baylee_cards_dsl::TargetSlot::Second => {
+                spell.second_targets().iter().copied().any(doomed)
+            }
+        }),
         Effect::Destroy {
             target:
                 TargetSpec::Object(_)
@@ -74,12 +81,15 @@ pub(super) fn target_spell_would_destroy(
                 | TargetSpec::OpponentOrObject(_),
             ..
         } => spell.targets.iter().copied().any(doomed),
-        Effect::DestroyAll { filter: sweep, .. } => state.battlefield_seen().any(|id| {
-            doomed(id)
-                && state
-                    .object(id)
-                    .is_some_and(|o| eval::matches(sweep, state, o, spell.controller, spell.id))
-        }),
+        Effect::DestroyAll { filter: sweep, .. }
+        | Effect::DestroyAllThenForEachDestroyed { filter: sweep, .. } => {
+            state.battlefield_seen().any(|id| {
+                doomed(id)
+                    && state
+                        .object(id)
+                        .is_some_and(|o| eval::matches(sweep, state, o, spell.controller, spell.id))
+            })
+        }
         _ => false,
     })
 }

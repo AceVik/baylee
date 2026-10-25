@@ -83,6 +83,7 @@ fn resolve_from(
         mana_ability: false,
         countered_source: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(run(state, &mut res), Flow::Complete));
     state.refresh_characteristics();

@@ -294,17 +294,8 @@ impl<L: CardLookup> Engine<L> {
             let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 if t.event_mana.is_some()
                     && t.synthetic_target.is_none()
-                    && t.synthetic_effects.is_some_and(|fx| {
-                        fx.iter().any(|effect| {
-                            matches!(
-                                effect,
-                                baylee_cards_dsl::Effect::AddMana { .. }
-                                    | baylee_cards_dsl::Effect::AddManaFor { .. }
-                                    | baylee_cards_dsl::Effect::AddManaLikeEvent { .. }
-                                    | baylee_cards_dsl::Effect::ManaForColorsAmong(_)
-                            )
-                        })
-                    })
+                    && t.synthetic_effects
+                        .is_some_and(baylee_cards_dsl::mana_rule::could_add_mana)
                 {
                     t.synthetic_effects
                 } else {
@@ -353,9 +344,16 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
-                    .with_event_player(t.event_player),
-                text: crate::text_changes::TextChangeMap::IDENTITY,
+                    .with_event_player(t.event_player)
+                    .with_source_version(t.source_version)
+                    .with_event_identity(t.event_object.zip(t.event_object_identity).map(
+                        |(object, (version, power))| {
+                            (baylee_core::ids::DamageSourceRef { object, version }, power)
+                        },
+                    )),
+                text: t.text,
                 this_way_from: None,
+                coin_stake: None,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]

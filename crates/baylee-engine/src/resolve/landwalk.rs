@@ -1,6 +1,6 @@
 //! Land subtype choices made during resolution, independent of printed words.
 use super::{AwaitingOp, Flow, GameState, Pending, Resolution, run, subjects};
-use baylee_cards_dsl::{Duration, KeywordSet, Modifier, TargetSpec};
+use baylee_cards_dsl::{Duration, Filter, KeywordSet, Modifier, TargetSpec};
 use baylee_core::{
     generated::subtypes::{ALL_LAND_TYPES, land},
     ids::SubtypeId,
@@ -19,6 +19,7 @@ pub(super) fn choose(
     res: &mut Resolution,
     target: TargetSpec,
     basic_only: bool,
+    lands: &'static Filter,
     duration: Duration,
 ) -> Pending {
     let targets = if target == TargetSpec::ThisObject {
@@ -30,11 +31,15 @@ pub(super) fn choose(
                 let crate::event::DamageTarget::Object(id) = target else {
                     return None;
                 };
-                state.source_identity(id)
+                subjects::target(state, res, id)
             })
             .collect()
     };
-    res.awaiting = Some(AwaitingOp::LandwalkChoice { targets, duration });
+    res.awaiting = Some(AwaitingOp::LandwalkChoice {
+        targets,
+        lands,
+        duration,
+    });
     Pending::ChooseSubtype {
         player: res.controller,
         options: if basic_only {
@@ -56,18 +61,25 @@ pub fn resume_with_subtype(
     subtype: SubtypeId,
 ) -> Flow {
     subjects::begin_resume(state, res);
-    let Some(AwaitingOp::LandwalkChoice { targets, duration }) = res.awaiting.take() else {
+    let Some(AwaitingOp::LandwalkChoice {
+        targets,
+        lands,
+        duration,
+    }) = res.awaiting.take()
+    else {
         panic!("subtype answer requires a suspended landwalk choice");
     };
     // A word chosen during resolution is not a word in the printed rules
     // (CR 612.1, 612.3), so the source's text substitutions do not change it.
     if ALL_LAND_TYPES.contains(subtype) {
-        let modifier = LANDWALKS
-            .iter()
-            .find(|(land, _)| *land == subtype)
-            .map_or(Modifier::LandwalkOfSubtype(subtype), |(_, keyword)| {
-                Modifier::AddKeyword(*keyword)
-            });
+        let modifier = if matches!(lands, Filter::Any) {
+            LANDWALKS.iter().find(|(land, _)| *land == subtype).map_or(
+                Modifier::LandwalkOfSubtype { subtype, lands },
+                |(_, keyword)| Modifier::AddKeyword(*keyword),
+            )
+        } else {
+            Modifier::LandwalkOfSubtype { subtype, lands }
+        };
         for target in targets {
             if !subjects::on_battlefield(state, target) {
                 continue;

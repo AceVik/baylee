@@ -8,6 +8,7 @@ use crate::prevention::{Shield, ShieldKind, ShieldOrigin, Shielded};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
+mod attached_shield;
 pub(super) mod batch57;
 pub(super) mod ice_combat;
 
@@ -18,7 +19,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
@@ -32,6 +35,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DealDamageEach { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
             start(state, res, op)
+        }
+        Effect::PreventNextDamageToAttached { amount } => {
+            attached_shield::add(state, res, amount);
+            None
         }
         Effect::GainLife { amount } => {
             let n = amount2(&amount, state, you, res) as i32;
@@ -283,7 +290,10 @@ fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {
 
 fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let assignments = assignments(state, res, op);
-    let after = if matches!(op, Effect::DealDamageWithCappedLifeGain { .. }) {
+    let after = if matches!(
+        op,
+        Effect::DealDamageWithCappedLifeGain { .. } | Effect::DealDamageWithLimitedLifeGain { .. }
+    ) {
         let recipient = assignments.first()?.recipient;
         let before_cap = match recipient {
             DamageTarget::Player(p) => state.players[usize::from(p.get())].life.max(0),
@@ -295,6 +305,13 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
                 }
             }),
         };
+        let before_cap = if let Effect::DealDamageWithLimitedLifeGain { life_limit, .. } = op {
+            before_cap.min(
+                i32::try_from(amount2(&life_limit, state, res.controller, res)).unwrap_or(i32::MAX),
+            )
+        } else {
+            before_cap
+        };
         AfterDamage::CappedLifeGain {
             recipient,
             before_cap,
@@ -304,6 +321,9 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     };
     let cause = batch57::cause(state, res);
     let mut work = DamageWork::new(state, assignments);
+    if let Effect::DealDamageWithoutPreventionOrRedirection { recipients, .. } = op {
+        work = work.with_recipient_lock(recipients, res.controller, res.rule_context());
+    }
     if let Some(cause) = cause {
         work = work.with_cause(&cause);
     }
@@ -480,19 +500,23 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                     assignments
                 })
         }
-        Effect::DealDamage { amount, target } => recipients(state, res, you, target)
-            .into_iter()
-            .map(|to| {
-                let n = match to {
-                    DamageTarget::Player(player) => {
-                        super::amount_for_player(&amount, state, you, res, player)
-                    }
-                    DamageTarget::Object(_) => amount2(&amount, state, you, res),
-                };
-                assignment(state, res, res.source, to, n)
-            })
-            .collect(),
-        Effect::DealDamageWithCappedLifeGain { amount } => for_spec(
+        Effect::DealDamage { amount, target }
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
+            recipients(state, res, you, target)
+                .into_iter()
+                .map(|to| {
+                    let n = match to {
+                        DamageTarget::Player(player) => {
+                            super::amount_for_player(&amount, state, you, res, player)
+                        }
+                        DamageTarget::Object(_) => amount2(&amount, state, you, res),
+                    };
+                    assignment(state, res, res.source, to, n)
+                })
+                .collect()
+        }
+        Effect::DealDamageWithCappedLifeGain { amount }
+        | Effect::DealDamageWithLimitedLifeGain { amount, .. } => for_spec(
             res.source,
             amount2(&amount, state, you, res),
             TargetSpec::AnyTarget,
@@ -1540,6 +1564,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             this_way_from: None,
+            coin_stake: None,
         }
     }
 

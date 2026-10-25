@@ -270,17 +270,17 @@ impl Assignment {
             amount,
             self.quota.saturating_add(extra_quota),
             prefer,
-            self.restriction.map(|r| (r.types, r.amount)),
+            self.restriction.map(|r| (r.types, r.amount, true)),
         )?;
         let mut restricted_generic_paid = [0; 6];
         if let Some(restriction) = self.restriction {
             let mut remaining = restriction.amount;
-            for i in 0..6 {
+            for (i, paid) in restricted_generic_paid.iter_mut().enumerate() {
                 if restriction.types & (1 << i) != 0 {
                     let take = allocation.ordinary[i]
                         .saturating_add(allocation.restricted[i])
                         .min(remaining);
-                    restricted_generic_paid[i] = take;
+                    *paid = take;
                     remaining -= take;
                 }
             }
@@ -324,9 +324,9 @@ impl Assignment {
         }
         let [remaining, restricted_remaining] = pools;
         Some(SourcePayment {
-            restricted_generic_paid,
             remaining,
             restricted_remaining,
+            restricted_generic_paid,
         })
     }
 }

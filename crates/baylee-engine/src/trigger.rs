@@ -1319,3 +1319,6 @@ fn activated_stack_ability(event: &GameEvent) -> Option<baylee_core::ids::Damage
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod life_loss_tests;

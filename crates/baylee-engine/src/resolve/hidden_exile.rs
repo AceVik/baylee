@@ -191,9 +191,17 @@ pub(super) fn return_cards(
 
 /// The delayed ability remembers one exact exiled incarnation, without look permission.
 pub(super) fn exile_top_until_own_end(state: &mut GameState, res: &Resolution) {
-    let Some(&card) = state.zones.list(ZoneLocation::Library(res.controller)).last() else { return; };
+    let Some(&card) = state
+        .zones
+        .list(ZoneLocation::Library(res.controller))
+        .last()
+    else {
+        return;
+    };
     exile(state, res, card, false);
-    let Some(object) = state.object(card).filter(|o| o.zone == Zone::Exile) else { return; };
+    let Some(object) = state.object(card).filter(|o| o.zone == Zone::Exile) else {
+        return;
+    };
     let version = object.version;
     state.delayed.push(crate::state::DelayedTrigger {
         controller: res.controller,
@@ -201,7 +209,9 @@ pub(super) fn exile_top_until_own_end(state: &mut GameState, res: &Resolution) {
         action: crate::state::DelayedAction::TriggerAbout {
             source: res.source,
             source_version: source_version(state, res).unwrap_or(0),
-            effects: &[baylee_cards_dsl::Effect::ReturnToHand { target: baylee_cards_dsl::TargetSpec::EventObject }],
+            effects: &[baylee_cards_dsl::Effect::ReturnToHand {
+                target: baylee_cards_dsl::TargetSpec::EventObject,
+            }],
             text: res.text,
             object: card,
             version,
@@ -212,9 +222,20 @@ pub(super) fn exile_top_until_own_end(state: &mut GameState, res: &Resolution) {
 
 /// A discard trigger cannot chase the card after it leaves the graveyard.
 pub(super) fn exile_discarded(state: &mut GameState, res: &Resolution) {
-    let Some(reference) = super::subjects::event(state, res) else { return; };
+    let Some(reference) = super::subjects::event(state, res) else {
+        return;
+    };
     if state.object(reference.object).is_none_or(|o| {
-        o.version != reference.version || o.zone != Zone::Graveyard || o.zone_owner != Some(res.controller)
-    }) { return; }
-    let _ = state.move_object(reference.object, ZoneLocation::Exile(res.controller), ZonePosition::Top, Cause::Effect);
+        o.version != reference.version
+            || o.zone != Zone::Graveyard
+            || o.zone_owner != Some(res.controller)
+    }) {
+        return;
+    }
+    let _ = state.move_object(
+        reference.object,
+        ZoneLocation::Exile(res.controller),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
 }

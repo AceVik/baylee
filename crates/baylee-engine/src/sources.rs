@@ -838,6 +838,10 @@ impl GameState {
     }
 
     /// All eligibility is structural: retained snapshots alone never grant it.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "enumerate every live source-reference owner in one audit point"
+    )]
     pub(crate) fn eligible_damage_sources(&mut self) -> BTreeSet<DamageSourceRef> {
         self.capture_source_references();
         let mut out = BTreeSet::new();

@@ -74,6 +74,8 @@ pub struct PerTurn {
     /// Actual positive permanent damage, deduplicated by both incarnations.
     /// This historical fact survives cleanup; reset only as the turn ends.
     pub(crate) permanent_damage: Vec<crate::damage_history::DamageRecord>,
+    /// Exact source and graveyard successor for creatures that died after damage.
+    pub(crate) damaged_creature_deaths: Vec<crate::damage_history::DamagedCreatureDeath>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
@@ -299,6 +301,7 @@ impl PerTurn {
             life_lost_amount: vec![0; players],
             damage_dealt_to: vec![0; players],
             permanent_damage: Vec::new(),
+            damaged_creature_deaths: Vec::new(),
             creatures_died: 0,
             counter_placements: std::collections::BTreeSet::new(),
             draws: vec![0; players],
@@ -412,6 +415,7 @@ impl PerTurn {
             tapped_for_ability,
             pending_entry_history,
             permanent_damage,
+            damaged_creature_deaths,
         } = self;
         *untapped_lands_at_start = 0;
         *main_phases_begun = 0;
@@ -437,6 +441,7 @@ impl PerTurn {
         life_lost_amount.fill(0);
         damage_dealt_to.fill(0);
         permanent_damage.clear();
+        damaged_creature_deaths.clear();
         *creatures_died = 0;
         counter_placements.clear();
         entered_battlefield.clear();

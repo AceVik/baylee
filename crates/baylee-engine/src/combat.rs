@@ -482,6 +482,8 @@ fn landwalk_removed(state: &GameState, object: &crate::object::GameObject, times
         matches!(
             removal.modifier,
             baylee_cards_dsl::Modifier::LoseAllLandwalk
+                | baylee_cards_dsl::Modifier::LoseAllAbilities
+                | baylee_cards_dsl::Modifier::LoseKeywords
         ) && removal.timestamp >= timestamp
             && crate::effects::applies_to(state, removal, object)
     })

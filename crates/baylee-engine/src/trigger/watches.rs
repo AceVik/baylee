@@ -13,6 +13,7 @@ use baylee_cards_dsl::{PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
 
 mod observers;
+mod recurring;
 
 /// Storm and replicate retain the announced count in one instruction.
 static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::CopyThisSpell {
@@ -538,6 +539,7 @@ pub(super) fn attack_watch_triggers(
         let Some(base) = synthetic_watch_trigger(state, watch) else {
             continue;
         };
+        recurring::collect(state, events, watch, &base, triggers);
         match watch.when {
             crate::state::DelayedWhen::YouAttackThisTurn { after } => {
                 let attacked = events

@@ -69,6 +69,15 @@ impl<L: CardLookup> Engine<L> {
         {
             return Err(EngineError::IllegalAction("too many attackers declared"));
         }
+        if attackers.len() > 1
+            && attackers
+                .iter()
+                .any(|(creature, _)| rules.attacks_alone(*creature))
+        {
+            return Err(EngineError::IllegalAction(
+                "that creature can attack only alone",
+            ));
+        }
         for (creature, defending) in &attackers {
             if !combat::can_attack(&self.state, player, *creature) {
                 return Err(EngineError::IllegalAction("creature cannot attack"));
@@ -90,7 +99,7 @@ impl<L: CardLookup> Engine<L> {
         // any cap on how many creatures may attack (CR 508.1c). A player is
         // never required to pay a cost to declare an attacker (CR 508.1d), so
         // only defenders with zero life tax count toward a requirement.
-        let required_able = self
+        let required_able: Vec<ObjectId> = self
             .state
             .battlefield_seen()
             .filter(|id| {
@@ -102,10 +111,8 @@ impl<L: CardLookup> Engine<L> {
                         .iter()
                         .any(|d| rules.allows(*id, *d) && rules.life_tax(*id, *d) == 0)
             })
-            .count();
-        let required_target = rules
-            .max_attackers()
-            .map_or(required_able, |max| required_able.min(max));
+            .collect();
+        let required_target = rules.required_maximum(&required_able);
         let required_declared = seen.iter().filter(|id| rules.must_attack(**id)).count();
         if required_declared < required_target {
             return Err(crate::choice::AnswerFault::MustAttack.into());

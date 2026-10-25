@@ -153,15 +153,7 @@ pub(super) fn chosen_hand_to_top(
     chosen: &[ObjectId],
 ) -> Option<Pending> {
     if chosen.len() < 2 {
-        for &card in chosen {
-            let _ = state.move_object(
-                card,
-                ZoneLocation::Library(player),
-                ZonePosition::Top,
-                Cause::Effect,
-            );
-        }
-        return None;
+        return hand_transfer::place(state, res, player, chosen);
     }
     res.awaiting = Some(AwaitingOp::HandToTop { player });
     Some(Pending::Arrange {

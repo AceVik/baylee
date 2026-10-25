@@ -173,7 +173,7 @@ pub(super) fn recompute_observing<'a>(
             }
         }
         if layer == Layer::PtCounters && !obj.counters.is_empty() {
-            apply_pt_counters(&mut c, obj);
+            apply_pt_counters(&mut c, obj, state);
         }
     }
     // Changeling (CR 702.73): every creature type, in eight word ORs.

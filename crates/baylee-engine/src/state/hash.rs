@@ -5,6 +5,7 @@ use super::*;
 
 mod arrival_history;
 mod destruction;
+mod draws;
 mod mana;
 
 impl GameState {
@@ -341,7 +342,30 @@ impl GameState {
         // present battlefield is identical, so it distinguishes situations.
         h.u32(self.per_turn.untapped_lands_at_start);
         self.live_damage_pairs(&position).hash(&mut h);
+        let mut damaged_deaths: Vec<_> = self
+            .per_turn
+            .damaged_creature_deaths
+            .iter()
+            .map(|death| {
+                (
+                    position(death.source.object),
+                    moves_since(
+                        self.object_or_departed(death.source.object),
+                        death.source.version,
+                    ),
+                    position(death.returned.object),
+                    moves_since(
+                        self.object_or_departed(death.returned.object),
+                        death.returned.version,
+                    ),
+                )
+            })
+            .collect();
+        damaged_deaths.sort_unstable();
+        damaged_deaths.dedup();
+        damaged_deaths.hash(&mut h);
         self.hash_turn_history(&mut h, &position);
+        draws::hash(&mut h, self, &position);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 731). The
@@ -527,6 +551,25 @@ impl GameState {
                 .collect();
             attackers.sort_unstable();
             attackers.hash(h);
+            for (window, references) in [
+                (&player.blocked_since_upkeep, 0_u8),
+                (&player.blocked_before_upkeep, 1_u8),
+            ] {
+                let mut blocked: Vec<_> = window
+                    .iter()
+                    .filter(|reference| {
+                        self.object(reference.object)
+                            .is_some_and(|object| object.version == reference.version)
+                    })
+                    .map(|reference| position(reference.object))
+                    .collect();
+                blocked.sort_unstable();
+                if !blocked.is_empty() {
+                    0x7570_6b65_u32.hash(h);
+                    references.hash(h);
+                    blocked.hash(h);
+                }
+            }
         }
         self.per_turn.revolt.hash(h);
         self.per_turn.put_nontoken_permanent.hash(h);
@@ -936,6 +979,33 @@ fn hash_waiting_turn_effects(
 ) {
     for delayed in &state.delayed {
         match delayed.action {
+            crate::state::DelayedAction::TriggerAbout {
+                source,
+                source_version,
+                effects,
+                text,
+                object,
+                version,
+                subject,
+            } if delayed.when == crate::state::DelayedWhen::NextYourEndStep => {
+                h.u8(2);
+                delayed.controller.hash(h);
+                delayed.when.hash(h);
+                effects.hash(h);
+                text.hash(h);
+                h.u32(position(source));
+                moves_since(state.object_or_departed(source), source_version).hash(h);
+                h.u32(position(object));
+                moves_since(state.object_or_departed(object), version).hash(h);
+                subject
+                    .map(|r| {
+                        (
+                            position(r.object),
+                            moves_since(state.object_or_departed(r.object), r.version),
+                        )
+                    })
+                    .hash(h);
+            }
             crate::state::DelayedAction::DrawStepLifeLoss {
                 source,
                 controller,
@@ -1114,7 +1184,11 @@ fn hash_object_situation(
     for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {
         h.u32(amount);
     }
-    for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent_on_x) {
+    for amount in obj
+        .paid
+        .as_ref()
+        .map_or([0; 6], |p| p.mana_types_spent_on_x)
+    {
         h.u32(amount);
     }
     h.boolean(obj.paid.is_some());
@@ -1154,6 +1228,10 @@ fn hash_object_situation(
     for t in obj.second_targets() {
         h.u32(position(*t));
     }
+    hash_ability_situation(h, obj, position);
+}
+
+fn hash_ability_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
     match &obj.ability {
         Some(loc) => {
             h.u8(1);
@@ -1305,6 +1383,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             64u8.hash(h);
             count.hash(h);
         }
+        crate::object::Rider::SecondChosenSubtype(subtype) => {
+            h.u8(90);
+            subtype.hash(h);
+        }
         crate::object::Rider::ExhaustedAbility(index) => {
             h.u8(63);
             index.hash(h);
@@ -1445,6 +1527,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_started,
         turns_to_skip,
         last_turn_attackers,
+        blocked_since_upkeep,
+        blocked_before_upkeep,
         last_turn_acted,
         tried_empty_draw,
         commander_damage,
@@ -1471,6 +1555,11 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turns_started.hash(h);
     turns_to_skip.hash(h);
     last_turn_attackers.hash(h);
+    if !blocked_since_upkeep.is_empty() || !blocked_before_upkeep.is_empty() {
+        0x7570_6b65_u32.hash(h);
+        blocked_since_upkeep.hash(h);
+        blocked_before_upkeep.hash(h);
+    }
     last_turn_acted.hash(h);
     if *dungeon_room != 0 || *dungeons_completed != 0 {
         dungeon.hash(h);
@@ -1840,6 +1929,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
             Rider::EntrySacrifices(count) => {
                 64u8.hash(h);
                 count.hash(h);
+            }
+            Rider::SecondChosenSubtype(subtype) => {
+                h.u8(90);
+                subtype.hash(h);
             }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);

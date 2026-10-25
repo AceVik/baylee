@@ -14,9 +14,6 @@ fn reference(state: &GameState, res: &Resolution, spec: TargetSpec) -> Option<Da
     .filter(|reference| subjects::on_battlefield(state, *reference))
 }
 
-#[cfg(test)]
-mod tests;
-
 pub(super) fn register(
     state: &mut GameState,
     res: &Resolution,
@@ -25,14 +22,29 @@ pub(super) fn register(
     about: TargetSpec,
     effects: &'static [Effect],
 ) {
-    let Some(watch) = reference(state, res, watch) else {
+    let watched = if watch == TargetSpec::ThisObject {
+        super::source_version(state, res)
+            .map(|version| DamageSourceRef {
+                object: res.source,
+                version,
+            })
+            .or_else(|| state.source_identity(res.source))
+            .filter(|reference| subjects::on_battlefield(state, *reference))
+    } else {
+        reference(state, res, watch)
+    };
+    let Some(watch) = watched else {
         return;
     };
     let Some(about) = reference(state, res, about) else {
         return;
     };
     let source_version = super::source_version(state, res)
-        .or_else(|| state.source_identity(res.source).map(|source| source.version))
+        .or_else(|| {
+            state
+                .source_identity(res.source)
+                .map(|source| source.version)
+        })
         .unwrap_or(0);
     state.delayed.push(DelayedTrigger {
         controller: res.controller,
@@ -52,3 +64,6 @@ pub(super) fn register(
         },
     });
 }
+
+#[cfg(test)]
+mod tests;

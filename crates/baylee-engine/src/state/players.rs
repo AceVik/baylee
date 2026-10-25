@@ -176,6 +176,18 @@ impl GameState {
             })
     }
 
+    /// Whether a continuous effect skips this player's whole draw step.
+    #[must_use]
+    pub fn skips_draw_step(&self, player: PlayerId) -> bool {
+        self.effects.may_change_player_or_sba_rules()
+            && self.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::SkipDrawStep { who } = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, self, fx.controller).is_some_and(|p| p.contains(&player))
+            })
+    }
+
     /// Whether an effect has `player` skip their untap steps
     /// (`Modifier::SkipUntapStep`, Stasis). Each effect's `who` is read from
     /// its own controller, as [`Self::cant_lose_life`] reads its own.

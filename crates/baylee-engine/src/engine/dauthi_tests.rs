@@ -216,6 +216,7 @@ fn dauthi_does_not_outlive_a_destroy_all_instruction_in_the_same_resolution() {
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(
         crate::resolve::run(&mut e.state, &mut res),

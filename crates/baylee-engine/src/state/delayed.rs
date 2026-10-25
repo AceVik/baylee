@@ -20,6 +20,21 @@ pub struct DelayedTrigger {
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
+    /// Repeated future combat events, including creatures entering after registration.
+    TriggeredThisTurn {
+        /// The combat event family.
+        event: baylee_cards_dsl::CombatWatchEvent,
+        /// Creatures that trigger, read at the event.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Whether the current combat's end expires the observer early.
+        this_combat_only: bool,
+        /// Independent targets chosen for each delayed trigger.
+        targets: Option<baylee_cards_dsl::TargetReq>,
+        /// The creator's frozen rule context.
+        context: crate::text_changes::RuleContext,
+        /// Ignore events from before registration.
+        after: u64,
+    },
     /// Independent one-shot event observer. Its affected object is carried
     /// separately by `DelayedAction::TriggerAbout`.
     Observed {
@@ -200,6 +215,7 @@ impl DelayedWhen {
         matches!(
             self,
             Self::NextSpellCastThisTurn { .. }
+                | Self::TriggeredThisTurn { .. }
                 | Self::DiesThisTurn { .. }
                 | Self::LeavesBattlefieldThisTurn { .. }
                 | Self::DealtDamageThisTurn { .. }

@@ -939,7 +939,7 @@ fn destroy_with_replacements(
         }
         return;
     }
-    put_into_graveyard_with_departure(state, id, departure);
+    put_into_graveyard_with_cause(state, id, departure, Cause::Destroy);
 }
 
 /// Destroy a simultaneous set, retaining attachments before any member leaves.
@@ -1020,6 +1020,15 @@ fn put_into_graveyard_with_departure(
     id: baylee_core::ids::ObjectId,
     departure: Option<crate::damage_history::BattlefieldDeparture>,
 ) {
+    put_into_graveyard_with_cause(state, id, departure, Cause::StateBased);
+}
+
+fn put_into_graveyard_with_cause(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
+    cause: Cause,
+) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
     // Only the kind. The marked damage and the deathtouch flag used to be
     // cleared here too, which was this one caller doing by hand what every
@@ -1032,7 +1041,7 @@ fn put_into_graveyard_with_departure(
         id,
         ZoneLocation::Graveyard(owner),
         ZonePosition::Top,
-        Cause::StateBased,
+        cause,
         departure,
     );
 }

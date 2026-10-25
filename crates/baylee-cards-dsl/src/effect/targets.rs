@@ -23,6 +23,8 @@ pub enum ZoneSel {
     LibraryYou,
     /// Your graveyard.
     GraveyardYou,
+    /// Graveyards of the players named by the relation, bound at resolution.
+    GraveyardOf(PlayerRel),
     /// All opponents' graveyards.
     GraveyardOpponents,
     /// All graveyards.
@@ -64,6 +66,8 @@ pub enum PlayerRel {
     ControllerOfTarget,
     /// The first targeted player, or the controller of the first targeted permanent.
     TargetPlayerOrController,
+    /// The player or permanent's controller named by the second target group.
+    SecondTargetPlayerOrController,
     /// The player who controlled the object the triggering event was about,
     /// as the event happened — Massacre Wurm's "whenever a creature an
     /// opponent controls dies, **that player** loses 2 life". Nothing is

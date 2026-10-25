@@ -97,6 +97,16 @@ pub(super) fn pt_count(
         baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
             count_controlled(state, obj, c, None, you, filter, context)
         }
+        baylee_cards_dsl::PtCount::ControllerOrDefenderControls(filter) => {
+            let controller = if state.combat.is_attacking(obj.id) {
+                defending_player_of(state, obj.id)
+            } else {
+                Some(obj.controller)
+            };
+            controller.map_or(0, |controller| {
+                count_controlled(state, obj, c, Some(controller), you, filter, context)
+            })
+        }
         baylee_cards_dsl::PtCount::DefendingPlayerControls(filter) => {
             match defending_player_of(state, obj.id) {
                 Some(defending) => {

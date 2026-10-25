@@ -35,11 +35,9 @@ pub enum Layer {
     PtModify,
     /// 7c as well: counters that modify power/toughness.
     ///
-    /// CR 613.4c names "effects **and counters** that modify power and/or
-    /// toughness" in one sublayer. They are two buckets here so that every
-    /// counter a permanent wears lands after the effects that modify it,
-    /// which CR 613.4 leaves open — a counter carries no timestamp, so the
-    /// order the sublayer asks for does not reach it.
+    /// Normal counter placements register timestamped effects in `PtModify`
+    /// (CR 613.4c, 613.7c). This bucket only accounts for counters installed
+    /// directly by setup fixtures without a placement event.
     PtCounters,
     /// 7d: effects that switch power/toughness.
     PtSwitch,
@@ -175,6 +173,10 @@ pub enum Modifier {
     /// given as it entered (`EnterModifier::ChooseBasicLandType`). Nothing
     /// while no type was chosen.
     SetLandTypeToChosen,
+    /// Set the affected land to the second basic land type chosen by the
+    /// source as it entered. The source's first choice can select affected
+    /// lands through `Filter::MatchesChosenTypeOfSource`.
+    SetLandTypeToSecondChosen,
     /// Add the source's chosen basic land type, retaining its other types and rules.
     AddChosenBasicLandType,
     /// Adds colors.
@@ -284,6 +286,14 @@ pub enum Modifier {
     /// from the **effect's** controller, so "noncreature spells" is
     /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
     OpponentsCantCast(&'static crate::Filter),
+    /// Named players cannot cast matching spells; the actual casting player
+    /// is checked independently of the card's owner or current controller.
+    PlayersCantCast {
+        /// Players relative to the effect's source and controller.
+        who: crate::PlayerRel,
+        /// Spell characteristics prohibited.
+        filter: &'static crate::Filter,
+    },
     /// Players can't play cards matching the filter — neither cast them as
     /// spells nor play them as lands (City in a Bottle, CR 101.2, 601.3).
     PlayersCantPlay(&'static crate::Filter),
@@ -440,7 +450,12 @@ pub enum Modifier {
     /// are now.
     LandwalkMatching(&'static crate::Filter),
     /// Landwalk of one land subtype chosen during resolution.
-    LandwalkOfSubtype(SubtypeId),
+    LandwalkOfSubtype {
+        /// Required subtype on the defending player's land.
+        subtype: SubtypeId,
+        /// Additional land characteristics required for this evasion ability.
+        lands: &'static crate::Filter,
+    },
     /// The affected creature attacks each combat if able: a requirement on
     /// the declaration of attackers (CR 508.1d). The card's own sentence
     /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
@@ -508,6 +523,11 @@ pub enum Modifier {
     OpponentsSearchTop(u8),
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
+    /// These players skip the entire draw step, including beginning triggers.
+    SkipDrawStep {
+        /// Who skips, relative to this effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// These players skip their untap steps (Stasis: `EachPlayer`). A skip
     /// replaces the step with nothing (CR 614.1b, 614.10): none of its
     /// turn-based actions happen — phasing, the day/night check, the untap
@@ -672,6 +692,8 @@ pub enum Modifier {
     /// a created effect with a duration. Neither is this, and neither is
     /// spelled with this variant.
     DoesNotUntap,
+    /// Remove all counters of this kind instead of an actual turn-based untap.
+    RemoveCountersInsteadOfUntapping(crate::CounterKind),
     /// The affected permanent's controller may choose to leave it tapped
     /// during their untap step (the Fallen Empires storage lands, Ice Floe).
     ///
@@ -819,6 +841,15 @@ pub enum Modifier {
     /// "you" in the count is the effect's controller — an Aura's, not the
     /// enchanted creature's.
     ModifyPTHalfCount(PtCount),
+    /// Reduce power and toughness by a dynamic count. The optional lower
+    /// bound limits only this effect's toughness reduction at its timestamp;
+    /// subsequent modifications can reduce toughness below that bound.
+    ReducePTByCount {
+        /// Amount subtracted from power and, subject to the bound, toughness.
+        count: PtCount,
+        /// Lowest toughness this modification itself can produce.
+        minimum_toughness: Option<i16>,
+    },
     /// Add a computed count to both power and toughness in layer 7c.
     ModifyPTByCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
@@ -979,6 +1010,10 @@ pub enum PtCount {
     /// each equal to the number of Forests defending player controls".
     /// Nothing while the object is not attacking.
     DefendingPlayerControls(&'static crate::Filter),
+    /// Matching permanents controlled by the affected object's controller
+    /// while it is not attacking, or its actual defending player while it
+    /// attacks. This reads the affected object, not the effect's source.
+    ControllerOrDefenderControls(&'static crate::Filter),
     /// Cards exiled with the object (CR 406.6): "the number of cards exiled
     /// with it" (Unlicensed Hearse), the cards in exile that
     /// `Effect::ExileTargetsWithSource` put there for this object.
@@ -1058,6 +1093,7 @@ impl Modifier {
             | Self::AllBasicLandTypes
             | Self::SetLandType(_)
             | Self::SetLandTypeToChosen
+            | Self::SetLandTypeToSecondChosen
             | Self::AddChosenBasicLandType
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
@@ -1097,6 +1133,7 @@ impl Modifier {
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTByCount(_)
             | Self::ModifyPTHalfCount(_)
+            | Self::ReducePTByCount { .. }
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -1131,6 +1168,7 @@ impl Modifier {
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
+            | Self::PlayersCantCast { .. }
             | Self::PlayersCantPlay(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
@@ -1177,7 +1215,7 @@ impl Modifier {
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::CantAttackPlayerIdleLastTurn
             | Self::LandwalkMatching(_)
-            | Self::LandwalkOfSubtype(_)
+            | Self::LandwalkOfSubtype { .. }
             | Self::AttacksEachCombat
             | Self::CanBlockAdditional(_)
             | Self::CanBlockAnyNumber
@@ -1193,6 +1231,7 @@ impl Modifier {
             | Self::NoMaxHandSize
             | Self::ChosenPlayerMaxHandSize(_)
             | Self::SkipUntapStep { .. }
+            | Self::SkipDrawStep { .. }
             | Self::UntapAtMost { .. }
             | Self::AttacksDespiteDefender
             | Self::AttacksAsThoughHaste
@@ -1204,6 +1243,7 @@ impl Modifier {
             | Self::ManaIsAnyColor
             | Self::SpendManaAs { .. }
             | Self::SearchTakeover
+            | Self::RemoveCountersInsteadOfUntapping(_)
             | Self::DoesNotUntap
             | Self::MayChooseNotToUntap
             | Self::MaxAttackersPerCombat(_)
@@ -1310,6 +1350,9 @@ pub enum Duration {
     /// Through this many actual untap steps of the affected permanent's
     /// current controller. Bound to a single exact incarnation by resolution.
     UntilAffectedUntapSteps(u8),
+    /// Ends before untap determination in the affected incarnation's current
+    /// controller's next actual untap step.
+    UntilStartOfAffectedNextUntap,
     /// "Until your next upkeep" (Erhnam Djinn): ends as the effect
     /// controller's next upkeep step begins (CR 503), after that turn's
     /// untap step, so the effect still stands through it.
@@ -1544,6 +1587,7 @@ mod tests {
             (Modifier::AllBasicLandTypes, Layer::Type),
             (Modifier::SetLandType(SubtypeId::new(1)), Layer::Type),
             (Modifier::SetLandTypeToChosen, Layer::Type),
+            (Modifier::SetLandTypeToSecondChosen, Layer::Type),
             (Modifier::AddChosenBasicLandType, Layer::Type),
             (
                 Modifier::BecomeType {
@@ -1639,6 +1683,13 @@ mod tests {
             ),
             (
                 Modifier::ModifyPTHalfCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtModify,
+            ),
+            (
+                Modifier::ReducePTByCount {
+                    count: PtCount::ControllerOrDefenderControls(&Filter::LAND),
+                    minimum_toughness: Some(1),
+                },
                 Layer::PtModify,
             ),
             (

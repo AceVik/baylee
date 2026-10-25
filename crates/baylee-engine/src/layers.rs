@@ -26,6 +26,7 @@
 //! it reevaluates layer-4 dependencies during each projection (CR 613.8c).
 
 mod counts;
+mod reductions;
 use counts::{count_controlled, counts_by_attachment, pt_count};
 
 use crate::effects::{ContinuousEffect, EffectFilter, EffectTable};
@@ -366,12 +367,24 @@ fn update_intrinsic_mana_summary(
 /// toughness are therefore summed apart — one shared delta is right only
 /// while every counter is symmetric, which was true of +1/+1 and -1/-1 and
 /// is true of nothing else.
-fn apply_pt_counters(c: &mut std::borrow::Cow<'_, Characteristics>, obj: &GameObject) {
+fn apply_pt_counters(
+    c: &mut std::borrow::Cow<'_, Characteristics>,
+    obj: &GameObject,
+    state: &GameState,
+) {
     if !c.types.contains(baylee_core::types::TypeSet::CREATURE) {
         return;
     }
     let (mut dp, mut dt) = (0i16, 0i16);
     for (kind, n) in obj.counters.iter() {
+        // Normal placements participate in timestamp order as Counter-origin
+        // effects. Direct setup fixtures alone need this aggregate fallback.
+        if state.effects.iter().any(|effect| {
+            effect.origin == crate::effects::EffectOrigin::Counter(kind)
+                && matches!(effect.filter, EffectFilter::ObjectIs(id, version) if id == obj.id && version == obj.version)
+        }) {
+            continue;
+        }
         let Some((per_power, per_toughness)) = kind.power_toughness() else {
             continue;
         };
@@ -726,6 +739,7 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
             | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Modifier::SetLandType(_)
             | Modifier::SetLandTypeToChosen
+            | Modifier::SetLandTypeToSecondChosen
             | Modifier::AddKeywordIfCountersAtLeast { .. }
             | Modifier::BecomeCopyOf(_)
     )
@@ -763,6 +777,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AllBasicLandTypes
                     | Modifier::SetLandType(_)
                     | Modifier::SetLandTypeToChosen
+                    | Modifier::SetLandTypeToSecondChosen
                     | Modifier::AddChosenBasicLandType
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -794,8 +809,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::CharacteristicPTSeparate { .. }
                     | Modifier::ModifyPTPerCount { .. }
                     | Modifier::ModifyPTByAmount { .. }
-        | Modifier::ModifyPTByCount(_)
+                    | Modifier::ModifyPTByCount(_)
                     | Modifier::ModifyPTHalfCount(_)
+                    | Modifier::ReducePTByCount { .. }
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
             ) || (layer == Layer::PtSet && crate::artifact_animation::animates(*modifier))
@@ -1046,6 +1062,10 @@ fn apply(
             if let Some(power) = &mut c.power { *power = power.saturating_add(n); }
             if let Some(toughness) = &mut c.toughness { *toughness = toughness.saturating_add(n); }
         }
+        Modifier::ReducePTByCount { count, minimum_toughness } => {
+            let count = pt_count(state, obj, c, fx.controller, *count, context, read_board);
+            reductions::reduce_pt(c, count, *minimum_toughness);
+        }
         Modifier::ModifyPTHalfCount(count) => {
             // Half the count, rounded down for power and up for toughness.
             let n = pt_count(state, obj, c, fx.controller, *count, context, read_board).max(0);
@@ -1125,6 +1145,16 @@ fn apply(
                 set_land_type(c, s);
             }
         }
+        Modifier::SetLandTypeToSecondChosen => {
+            if let Some(subtype) = fx.source.and_then(|source| state.object(source))
+                .and_then(|source| source.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::SecondChosenSubtype(subtype) => Some(*subtype),
+                    _ => None,
+                }))
+            {
+                set_land_type(c, subtype);
+            }
+        }
         Modifier::AddChosenBasicLandType => {
             if let Some(subtype) = fx.source.and_then(|id| state.object(id))
                 .and_then(|source| source.chosen_subtype)
@@ -1173,6 +1203,7 @@ fn apply(
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
@@ -1207,7 +1238,7 @@ fn apply(
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
-        | Modifier::LandwalkOfSubtype(_)
+        | Modifier::LandwalkOfSubtype { .. }
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -1262,10 +1293,12 @@ fn apply(
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
         | Modifier::SkipUntapStep { .. }
+        | Modifier::SkipDrawStep { .. }
         | Modifier::UntapAtMost { .. }
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
         | Modifier::AttacksAloneOnly
+        | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::MayRedirectDamageToYou
@@ -1292,11 +1325,14 @@ fn apply(
             }
         }
         Modifier::ModifyPT(p, t) => {
+            let count = if let crate::effects::EffectOrigin::Counter(kind) = fx.origin {
+                i16::try_from(obj.counters.get(kind)).unwrap_or(i16::MAX)
+            } else { 1 };
             if let Some(power) = &mut c.power {
-                *power = power.saturating_add(*p);
+                *power = power.saturating_add(p.saturating_mul(count));
             }
             if let Some(toughness) = &mut c.toughness {
-                *toughness = toughness.saturating_add(*t);
+                *toughness = toughness.saturating_add(t.saturating_mul(count));
             }
         }
         // CR 613.4b, layer 7b: a *setting* effect gives the permanent that

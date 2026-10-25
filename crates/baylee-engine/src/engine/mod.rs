@@ -712,6 +712,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Ordered entry choices, with the first answer retained for the second.
+    ChooseTwoBasicLandTypes {
+        object: ObjectId,
+        first: Option<baylee_core::ids::SubtypeId>,
+    },
     /// Choosing an opponent as a permanent enters (Black Vise).
     ChooseOpponent {
         /// The entering permanent.
@@ -797,6 +802,8 @@ enum PlanKind {
     /// The one plan with no fields: what it is about is the step the game
     /// is in, and the step cannot have moved on while the question stands.
     UntapChoice,
+    /// Replacement decisions for the already determined simultaneous untap.
+    UntapReplacements(progress::untap_replacements::UntapBatch),
     /// The same determination under untap limits (`Modifier::UntapAtMost`),
     /// waiting for the active player to name what untaps
     /// (`ChoicePrompt::Untap`), one answer at a time.
@@ -1218,6 +1225,13 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        if let Some(PlanKind::ChooseTwoBasicLandTypes { object, first }) =
+            self.pending_plan.as_ref()
+        {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(object, first)));
+        }
         if let Some(wizard) = &self.cast_wizard {
             extra = extra
                 .wrapping_mul(31)
@@ -1338,6 +1352,12 @@ impl<L: CardLookup> Engine<L> {
             extra = extra.wrapping_mul(31).wrapping_add(parent.fingerprint());
         }
         if let Some(r) = &self.resolution {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    &r.loot,
+                    r.draw_watch,
+                )));
             extra = extra.wrapping_mul(31).wrapping_add(r.subject.fingerprint());
             extra = extra.wrapping_mul(31).wrapping_add(
                 r.awaiting
@@ -1707,6 +1727,16 @@ impl<L: CardLookup> Engine<L> {
         }
         let signature = self.action_loops.wants_sample().then(|| {
             self.state.loop_signature()
+                ^ self
+                    .resolution
+                    .as_ref()
+                    .map_or(0, |res| resolve::loot::loop_progress(&self.state, res))
+                    .rotate_left(17)
+                ^ self
+                    .resolution
+                    .as_ref()
+                    .map_or(0, |res| res.subject.destruction_progress())
+                    .rotate_left(23)
                 ^ u64::from(player.get()).rotate_left(37)
                 ^ u64::from(self.passes).rotate_left(53)
         });
@@ -1821,6 +1851,7 @@ impl<L: CardLookup> Engine<L> {
                         | PlanKind::EntryReveal { .. }
                         | PlanKind::CopyOnEnter { .. }
                         | PlanKind::ChooseSubtype { .. }
+                        | PlanKind::ChooseTwoBasicLandTypes { .. }
                         | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::ChooseOpponent { .. }
@@ -1877,6 +1908,7 @@ mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;
 mod granted;
+mod land_type_choices;
 mod leave;
 mod mulligan;
 mod payment_window;
@@ -1952,8 +1984,6 @@ mod discard_top_tests;
 #[cfg(test)]
 mod draw_skip_tests;
 #[cfg(test)]
-mod upkeep_permission_tests;
-#[cfg(test)]
 mod draw_tests;
 #[cfg(test)]
 mod enter_tests;
@@ -1977,6 +2007,8 @@ mod requirements_tests;
 mod state_trigger_tests;
 #[cfg(test)]
 mod timing_window_tests;
+#[cfg(test)]
+mod upkeep_permission_tests;
 
 #[cfg(test)]
 mod cancel_cast_tests;
@@ -2162,3 +2194,6 @@ mod granted_tests;
 
 #[cfg(test)]
 mod dungeon_tests;
+
+#[cfg(test)]
+mod ice_dynamic_limit_tests;

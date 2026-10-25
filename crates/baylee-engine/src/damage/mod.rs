@@ -22,6 +22,7 @@ mod ice_combat;
 mod life_result;
 #[cfg(test)]
 mod prevention_tests;
+mod recipient_lock;
 #[cfg(test)]
 mod tests;
 
@@ -82,6 +83,7 @@ pub(crate) struct DamageWork {
     option_keys: Vec<(EffectKey, DamageTarget)>,
     question: Option<PendingDamage>,
     paid: Option<(u32, ShieldOrigin, PlayerId)>,
+    recipient_lock: Option<recipient_lock::RecipientLock>,
     life_gains: Vec<(PlayerId, u32)>,
     counter_removals: Vec<(ObjectId, u32, CounterKind, u32)>,
     result_plans: Option<Vec<crate::replacement::counter_order::CounterPlacementPlan>>,
@@ -169,12 +171,34 @@ impl DamageWork {
             option_keys: Vec::new(),
             question: None,
             paid: None,
+            recipient_lock: None,
             life_gains: Vec::new(),
             counter_removals: Vec::new(),
             result_plans: None,
             result_question: None,
             complete: false,
         }
+    }
+
+    pub(crate) fn with_recipient_lock(
+        mut self,
+        filter: &'static baylee_cards_dsl::Filter,
+        you: PlayerId,
+        context: crate::text_changes::RuleContext,
+    ) -> Self {
+        self.recipient_lock = Some(recipient_lock::RecipientLock {
+            filter,
+            you,
+            context,
+        });
+        self
+    }
+
+    fn recipient_locked(&self, state: &GameState, recipient: DamageTarget) -> bool {
+        recipient_forbids_prevention_or_redirection(state, recipient)
+            || self
+                .recipient_lock
+                .is_some_and(|lock| lock.matches(state, recipient))
     }
 
     /// Add prevention scoped to this event's lineage, including redirected
@@ -235,7 +259,10 @@ impl DamageWork {
             for part in &mut self.parts {
                 part.view.preventable =
                     !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
-                        && !recipient_forbids_prevention_or_redirection(state, part.view.recipient);
+                        && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
+                        && !self
+                            .recipient_lock
+                            .is_some_and(|lock| lock.matches(state, part.view.recipient));
             }
             let mut options = self.candidates(state);
             if options.is_empty() {
@@ -607,7 +634,10 @@ impl DamageWork {
             }
             let preventable =
                 !crate::combat::unpreventable(state, part.view.source, part.view.is_combat)
-                    && !recipient_forbids_prevention_or_redirection(state, part.view.recipient);
+                    && !recipient_forbids_prevention_or_redirection(state, part.view.recipient)
+                    && !self
+                        .recipient_lock
+                        .is_some_and(|lock| lock.matches(state, part.view.recipient));
             match candidate.option.kind {
                 DamageEffectKind::Redirect { to } => {
                     part.view.recipient = to;

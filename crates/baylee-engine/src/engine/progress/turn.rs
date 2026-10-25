@@ -81,6 +81,9 @@ impl<L: CardLookup> Engine<L> {
         self.expire_until_next_turn_effects(self.state.turn.active);
         self.start_awaited_attack_restrictions();
         self.state.per_turn.reset();
+        // Continuous conditions reading turn history must not retain the
+        // previous turn if an expiry refreshed layers before the reset.
+        self.state.invalidate_projections();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();

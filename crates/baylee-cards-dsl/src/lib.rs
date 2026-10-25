@@ -45,11 +45,11 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, DamageRedirectTo, DamageTo, DelayedObservation,
-    DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest, ManaDistribution,
-    ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel,
-    ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec,
-    ThisWay, TokenDef, ZoneSel,
+    Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
+    DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
+    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
@@ -649,6 +649,10 @@ pub enum EnterModifier {
     /// of the five CR 205.3i names, kept where [`Self::ChooseSubtype`] keeps
     /// its answer, and read back by [`crate::Modifier::SetLandTypeToChosen`].
     ChooseBasicLandType,
+    /// Choose an ordered pair of basic land types. The same type may be
+    /// chosen twice; the first is read by `MatchesChosenTypeOfSource`, the
+    /// second by `SetLandTypeToSecondChosen`.
+    ChooseTwoBasicLandTypes,
     /// "As this enters, choose a card name" (Pithing Needle).
     ///
     /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the

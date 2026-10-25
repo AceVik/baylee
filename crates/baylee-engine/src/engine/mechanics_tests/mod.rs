@@ -15,6 +15,7 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod alone_attack;
 mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;
@@ -31,10 +32,12 @@ mod damaged_object;
 mod delayed_departure;
 mod departed;
 mod destruction_order;
-mod draw_replacements;
+mod destruction_receipts;
 mod draw_memory;
+mod draw_replacements;
 mod effects;
 mod flanking;
+mod land_transformations;
 mod mana;
 mod modal_activated;
 mod names;

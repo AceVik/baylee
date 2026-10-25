@@ -109,7 +109,10 @@ impl Mandatory {
     /// The object a player names to choose it.
     const fn source(self) -> Option<ObjectId> {
         match self {
-            Self::Chains(source) | Self::RevealMatch(source, _) | Self::RevealDeny(source, _) | Self::Hullbreacher { source, .. } => Some(source),
+            Self::Chains(source)
+            | Self::RevealMatch(source, _)
+            | Self::RevealDeny(source, _)
+            | Self::Hullbreacher { source, .. } => Some(source),
             Self::Lamp { source, .. } | Self::Wish { source, .. } => source,
         }
     }
@@ -117,32 +120,64 @@ impl Mandatory {
 
 impl GameState {
     fn reveal_draw_replacements(&self, player: PlayerId) -> Vec<Mandatory> {
-        self.replacement_rules.iter().filter(|r| {
-            !self.draw_front.applied.contains(&r.source)
-                && self.object(r.source).is_some_and(|o| o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT))
-        }).filter_map(|r| match r.rule {
-            ReplacementRule::RevealDrawPutMatchingInGraveyard(filter) if r.controller == player => Some(Mandatory::RevealMatch(r.source, filter)),
-            ReplacementRule::RevealDrawOthersMayPayLife(life) => Some(Mandatory::RevealDeny(r.source, life)),
-            _ => None,
-        }).collect()
+        self.replacement_rules
+            .iter()
+            .filter(|r| {
+                !self.draw_front.applied.contains(&r.source)
+                    && self.object(r.source).is_some_and(|o| {
+                        o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+                    })
+            })
+            .filter_map(|r| match r.rule {
+                ReplacementRule::RevealDrawPutMatchingInGraveyard(filter)
+                    if r.controller == player =>
+                {
+                    Some(Mandatory::RevealMatch(r.source, filter))
+                }
+                ReplacementRule::RevealDrawOthersMayPayLife(life) => {
+                    Some(Mandatory::RevealDeny(r.source, life))
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     fn reveal_draw_top(&mut self, player: PlayerId) -> Option<baylee_core::ids::DamageSourceRef> {
         let &card = self.zones.list(ZoneLocation::Library(player)).last()?;
         let version = self.object(card)?.version;
-        self.journal.record(GameEvent::Revealed { player, cards: vec![card] });
-        Some(baylee_core::ids::DamageSourceRef { object: card, version })
+        self.journal.record(GameEvent::Revealed {
+            player,
+            cards: vec![card],
+        });
+        Some(baylee_core::ids::DamageSourceRef {
+            object: card,
+            version,
+        })
     }
 
     fn deny_revealed_draw(&mut self, card: baylee_core::ids::DamageSourceRef) {
-        let Some(owner) = self.source_object(card).filter(|o| o.zone == Zone::Library).map(|o| o.owner) else { return; };
-        let _ = self.move_object(card.object, ZoneLocation::Graveyard(owner), ZonePosition::Top, Cause::Effect);
+        let Some(owner) = self
+            .source_object(card)
+            .filter(|o| o.zone == Zone::Library)
+            .map(|o| o.owner)
+        else {
+            return;
+        };
+        let _ = self.move_object(
+            card.object,
+            ZoneLocation::Graveyard(owner),
+            ZonePosition::Top,
+            Cause::Effect,
+        );
     }
 
     fn next_draw_denial(&mut self) -> Option<DrawReplacement> {
         let (_, life, remaining) = self.draw_front.denial.as_ref()?;
         let life = *life;
-        if let Some(&payer) = remaining.iter().find(|&&p| !self.has_left(p) && self.can_pay_life(p, i32::from(life))) {
+        if let Some(&payer) = remaining
+            .iter()
+            .find(|&&p| !self.has_left(p) && self.can_pay_life(p, i32::from(life)))
+        {
             return Some(DrawReplacement::Deny { payer, life });
         }
         self.draw_front.denial = None;
@@ -441,9 +476,16 @@ impl GameState {
         self.draw_front.replaced = true;
         match replacement {
             Mandatory::RevealMatch(source, filter) => {
+                #[cfg(test)]
+                crate::ability_log::replaced_by(
+                    source,
+                    ReplacementRule::RevealDrawPutMatchingInGraveyard(filter),
+                );
                 self.draw_front.applied.push(source);
                 if let Some(card) = self.reveal_draw_top(player) {
-                    let matches = self.object(card.object).is_some_and(|o| crate::eval::matches(filter, self, o, player, source));
+                    let matches = self
+                        .object(card.object)
+                        .is_some_and(|o| crate::eval::matches(filter, self, o, player, source));
                     if matches {
                         self.deny_revealed_draw(card);
                         self.take_front_draw();
@@ -456,12 +498,27 @@ impl GameState {
                 None
             }
             Mandatory::RevealDeny(source, life) => {
+                #[cfg(test)]
+                crate::ability_log::replaced_by(
+                    source,
+                    ReplacementRule::RevealDrawOthersMayPayLife(life),
+                );
                 self.draw_front.applied.push(source);
                 if let Some(card) = self.reveal_draw_top(player) {
                     let seats = self.players.len();
                     let active = usize::from(self.turn.active.get());
-                    let payers = (0..seats).map(|offset| PlayerId::new(((active + offset) % seats) as u8))
-                        .filter(|&seat| seat != player && !self.has_left(seat) && self.can_pay_life(seat, i32::from(life))).collect();
+                    let payers = (0..seats)
+                        .map(|offset| {
+                            PlayerId::new(
+                                u8::try_from((active + offset) % seats).expect("seat fits"),
+                            )
+                        })
+                        .filter(|&seat| {
+                            seat != player
+                                && !self.has_left(seat)
+                                && self.can_pay_life(seat, i32::from(life))
+                        })
+                        .collect();
                     self.draw_front.denial = Some((card, life, payers));
                     self.next_draw_denial()
                 } else {
@@ -593,8 +650,10 @@ impl GameState {
                     self.deny_revealed_draw(card);
                     self.take_front_draw();
                 }
-            } else if let Some((_, _, remaining)) = &mut self.draw_front.denial {
-                if let Some(index) = remaining.iter().position(|seat| *seat == payer) { remaining.remove(index); }
+            } else if let Some((_, _, remaining)) = &mut self.draw_front.denial
+                && let Some(index) = remaining.iter().position(|seat| *seat == payer)
+            {
+                remaining.remove(index);
             }
             return self.next_draw_offer();
         }
@@ -745,7 +804,9 @@ impl GameState {
         match replacement {
             DrawReplacement::Deny { payer, life } => Pending::YesNo {
                 player: payer,
-                prompt: YesNoPrompt::PayLife { amount: u32::from(life) },
+                prompt: YesNoPrompt::PayLife {
+                    amount: u32::from(life),
+                },
                 source: None,
             },
             DrawReplacement::Skip(source) => self.draw_skip_question(player, source),

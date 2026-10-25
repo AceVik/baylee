@@ -24,7 +24,9 @@ pub struct SubjectContext {
     pub(super) source_version: Option<u32>,
     mana_tap_source: Option<DamageSourceRef>,
     event_player: Option<baylee_core::ids::PlayerId>,
+    event_identity: Option<(DamageSourceRef, i16)>,
     pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
+    pub(super) destruction_batches: Vec<super::destruction_receipts::Batch>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -53,7 +55,9 @@ impl SubjectContext {
             source_version: None,
             mana_tap_source: None,
             event_player: None,
+            event_identity: None,
             for_each_remaining: None,
+            destruction_batches: Vec::new(),
             checkpoint: None,
         }
     }
@@ -99,6 +103,28 @@ impl SubjectContext {
         self.event_player
     }
 
+    /// Preserve the exact event object when an immediate ability has no stack object.
+    pub(crate) fn with_event_identity(mut self, identity: Option<(DamageSourceRef, i16)>) -> Self {
+        self.event_identity = identity;
+        self
+    }
+
+    pub(super) fn set_event_identity(&mut self, identity: Option<(DamageSourceRef, i16)>) {
+        self.event_identity = identity;
+    }
+
+    pub(super) const fn event_identity(&self) -> Option<(DamageSourceRef, i16)> {
+        self.event_identity
+    }
+
+    pub(crate) fn destruction_progress(&self) -> u64 {
+        if self.destruction_batches.is_empty() {
+            0
+        } else {
+            crate::state::structural_fingerprint(&self.destruction_batches)
+        }
+    }
+
     pub(crate) fn fingerprint(&self) -> u64 {
         let links = crate::state::structural_fingerprint(&(
             &self.reanimation_links,
@@ -127,6 +153,14 @@ impl SubjectContext {
             .wrapping_add(crate::state::structural_fingerprint(
                 &self.for_each_remaining,
             ));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(
+                &self.destruction_batches,
+            ));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.event_identity));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h
@@ -229,7 +263,11 @@ fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef
 
 /// Event incarnation, or its successful public successor in this resolution.
 pub(super) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
-    let object = res.event_object?;
+    let object = res
+        .subject
+        .event_identity
+        .map(|(reference, _)| reference.object)
+        .or(res.event_object)?;
     res.subject
         .followed
         .iter()
@@ -336,6 +374,7 @@ pub(super) fn before(state: &GameState, res: &Resolution) -> (Vec<DamageSourceRe
             version: t.version,
         }));
     }
+    refs.extend(res.subject.event_identity.map(|(reference, _)| reference));
     refs.extend(res.subject.followed.iter().copied());
     refs.retain(|r| state.source_identity(r.object) == Some(*r));
     refs.sort_unstable();

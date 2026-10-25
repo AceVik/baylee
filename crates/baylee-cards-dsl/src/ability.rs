@@ -171,6 +171,12 @@ pub enum Condition {
     AmountAtLeast(crate::Amount, u32),
     /// The evaluated number is even, including zero.
     AmountIsEven(crate::Amount),
+    /// This incarnation blocked or became blocked since your previous upkeep.
+    SourceBlockedOrWasBlockedSinceYourLastUpkeep,
+    /// A creature damaged by this source incarnation died this turn.
+    CreatureDamagedBySourceDiedThisTurn,
+    /// At least one eligible defending player controls no matching permanent.
+    SomeDefendingPlayerControlsNone(&'static Filter),
     /// At least one opponent controls at most this many matching permanents.
     OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
@@ -830,6 +836,8 @@ pub enum Trigger {
     DealsCombatDamage(&'static Filter),
     /// A player gains life (Professor Dellian Fel).
     GainsLife(crate::effect::PlayerRel),
+    /// The indicated player actually loses life, including paying life costs.
+    LosesLife(crate::effect::PlayerRel),
     /// "Whenever this creature mutates" (Gemrazer, CR 702.140d).
     Mutates,
 }
@@ -1224,12 +1232,10 @@ impl AbilityDef {
             Self::Triggered {
                 trigger: Trigger::TappedForMana { .. },
                 targets: None,
+                second_targets: None,
                 effects,
                 ..
-            } if effects.iter().any(|effect| matches!(
-                effect,
-                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. } | crate::effect::Effect::AddManaLikeEvent { .. } | crate::effect::Effect::ManaForColorsAmong(_)
-            ))
+            } if crate::mana_rule::could_add_mana(effects)
         )
     }
 }

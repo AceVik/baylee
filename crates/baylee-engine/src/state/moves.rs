@@ -382,13 +382,18 @@ impl GameState {
     /// Whether continuous rules reveal this player's entire hand publicly.
     #[must_use]
     pub fn hand_revealed(&self, player: PlayerId) -> bool {
-        !self.has_left(player) && (self.hands_revealed() || self.effects.iter().any(|fx| {
-            fx.controller == player
-                && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealYourHand)
-                && fx.source.is_none_or(|source| self.object(source).is_some_and(|o| {
-                    o.zone == Zone::Battlefield && !o.status.contains(Status::PHASED_OUT)
+        !self.has_left(player)
+            && (self.hands_revealed()
+                || self.effects.iter().any(|fx| {
+                    fx.controller == player
+                        && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealYourHand)
+                        && fx.source.is_none_or(|source| {
+                            self.object(source).is_some_and(|o| {
+                                o.zone == Zone::Battlefield
+                                    && !o.status.contains(Status::PHASED_OUT)
+                            })
+                        })
                 }))
-        }))
     }
 
     /// Whether an individual card in a hand is revealed by an effect on it
@@ -713,6 +718,7 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                obj.chosen_color = None;
                 for rider in &obj.riders {
                     if let crate::object::Rider::MergedComponent(comp) = *rider {
                         merged_components.push(comp);
@@ -728,6 +734,7 @@ impl GameState {
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
+                            | crate::object::Rider::SecondChosenSubtype(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
@@ -929,6 +936,9 @@ impl GameState {
         // Ghoul's corpse counters).
         if dies_as_a_creature {
             self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
+            if let Some(victim) = previous_source {
+                self.record_damaged_creature_death(victim);
+            }
         }
         // The projected set just changed, and the generation compare that
         // guards a refresh counts *effects* — so nothing would have
@@ -999,11 +1009,14 @@ impl GameState {
         // new object (CR 400.7) that the effect never named.
         if from_zone == Zone::Battlefield {
             self.effects.remove_where(|fx| {
-                matches!(
+                (matches!(
                     fx.duration,
                     baylee_cards_dsl::Duration::WhileYouControlSource
                         | baylee_cards_dsl::Duration::WhileSourceTapped { .. }
-                ) && fx.source == Some(id)
+                ) || (fx.duration == baylee_cards_dsl::Duration::WhileSourceOnBattlefield
+                    && fx.origin == crate::effects::EffectOrigin::Resolution
+                    && fx.modifier == baylee_cards_dsl::Modifier::GainControl))
+                    && fx.source == Some(id)
             });
         }
         if to.zone() == Zone::Graveyard {

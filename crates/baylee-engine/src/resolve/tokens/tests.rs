@@ -379,6 +379,7 @@ fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
         countered_source: None,
         text: TextChangeMap::IDENTITY,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(run(state, &mut res), Flow::Complete));
     state.refresh_characteristics();

@@ -951,6 +951,8 @@ pub enum Rider {
     ExhaustedAbility(u32),
     /// Count sacrificed as this particular incarnation entered.
     EntrySacrifices(u32),
+    /// The second basic land type chosen for this permanent incarnation.
+    SecondChosenSubtype(baylee_core::ids::SubtypeId),
     /// Last number chosen for this permanent incarnation (not a copiable value).
     ChosenNumber {
         /// Linked ability acquisition that owns this value.
@@ -1075,6 +1077,7 @@ impl Rider {
             | Self::GrantedActivated
             | Self::ExhaustedAbility(_)
             | Self::EntrySacrifices(_)
+            | Self::SecondChosenSubtype(_)
             | Self::ChosenNumber { .. }
             | Self::ChosenName { .. }
             | Self::RulesAcquisition(_)

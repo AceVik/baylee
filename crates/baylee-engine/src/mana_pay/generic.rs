@@ -31,14 +31,15 @@ pub(super) fn allocate(
 
 /// An actual-type constraint is a set of allowed mana types, never a spending
 /// permission. Assign it after the colored symbols, so a flexible X cannot
-/// consume the only unit that pays a fixed pip.
+/// consume the only unit that pays a fixed pip. The final flag distinguishes
+/// real restricted-source mana from cost credits that have no actual mana type.
 pub(super) fn allocate_restricting_types(
     ordinary: Resources,
     restricted: Resources,
     amount: u32,
     quota: u32,
     preferred: [u32; 6],
-    restriction: Option<(u8, u32)>,
+    restriction: Option<(u8, u32, bool)>,
 ) -> Option<Allocation> {
     if (0..6).any(|i| {
         ordinary.required[i] > ordinary.available[i]
@@ -59,16 +60,23 @@ pub(super) fn allocate_restricting_types(
     };
     let mut left = u64::from(amount) - mandatory_restricted - mandatory_ordinary;
     let mut allowance = (u64::from(quota) - mandatory_restricted).min(left);
-    if let Some((types, count)) = restriction {
+    if let Some((types, count, credits_eligible)) = restriction {
         let already = (0..6)
             .filter(|i| types & (1 << i) != 0)
-            .map(|i| u64::from(result.ordinary[i]) + u64::from(result.restricted[i]))
+            .map(|i| {
+                u64::from(result.ordinary[i])
+                    + if credits_eligible {
+                        u64::from(result.restricted[i])
+                    } else {
+                        0
+                    }
+            })
             .sum::<u64>();
         let mut fixed = u64::from(count).saturating_sub(already);
         if fixed > left {
             return None;
         }
-        for i in (0..6).filter(|i| types & (1 << i) != 0) {
+        for i in (0..6).filter(|i| credits_eligible && types & (1 << i) != 0) {
             let credit = u64::from(restricted.available[i] - result.restricted[i])
                 .min(allowance)
                 .min(fixed);
@@ -151,7 +159,7 @@ mod tests {
                                 amount,
                                 0,
                                 [0; 6],
-                                Some((mask, x)),
+                                Some((mask, x, false)),
                             );
                             assert_eq!(
                                 actual.is_some(),

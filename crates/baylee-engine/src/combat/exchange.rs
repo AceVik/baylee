@@ -47,6 +47,21 @@ pub(crate) fn exchange_blockers(state: &mut GameState, first: ObjectId, second: 
     }
     // Existing blocked status persists even when a creature loses its blockers.
     // Newly blocked attackers acquire that status without emitting a declaration event.
+    let newly_blocked: Vec<_> = state
+        .combat
+        .attackers
+        .iter()
+        .filter(|attacker| {
+            !attacker.blocked
+                && proposed
+                    .iter()
+                    .any(|pair| pair.attacker == attacker.creature)
+        })
+        .filter_map(|attacker| state.source_identity(attacker.creature))
+        .collect();
+    for reference in newly_blocked {
+        state.record_blocked_or_blocking(reference, reference);
+    }
     for attacker in &mut state.combat.attackers {
         if proposed
             .iter()

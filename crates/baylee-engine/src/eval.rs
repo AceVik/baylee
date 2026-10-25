@@ -5,6 +5,9 @@
 
 mod amounts;
 mod conditions;
+mod defender_conditions;
+#[cfg(test)]
+mod ice_condition_tests;
 mod names;
 mod protection;
 mod relations;
@@ -12,6 +15,7 @@ mod stack_filters;
 pub(crate) mod target_domain;
 pub(crate) mod target_pair;
 mod targets;
+mod upkeep_history;
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;

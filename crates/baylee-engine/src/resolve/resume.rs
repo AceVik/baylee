@@ -304,6 +304,9 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, question);
             }
         }
+        AwaitingOp::ControlChoice(choice) => {
+            super::control_choice::finish(state, &choice, chosen);
+        }
         AwaitingOp::SacrificeChosen { player } => {
             if let Some(&victim) = chosen.first()
                 && let Some(_owner) = state
@@ -438,6 +441,20 @@ pub(super) fn resume_inner(
             });
         }
         AwaitingOp::InspectHand => {}
+        AwaitingOp::DirectedSearch(selection) => {
+            return directed_search::resume(state, res, *selection, chosen);
+        }
+        AwaitingOp::RepeatedGraveyardChoice(selection) => {
+            if let Some(pending) = repeated_graveyard_choice::chosen(state, res, *selection, chosen)
+            {
+                return next_choice(state, res, since, pending);
+            }
+        }
+        AwaitingOp::HandToTopPlace { player } => {
+            if let Some(pending) = hand_transfer::place(state, res, player, chosen) {
+                return next_choice(state, res, since, pending);
+            }
+        }
         AwaitingOp::PrivateTopPick { looked } => {
             if let Some(pending) = private_library::picked(state, res, looked, chosen) {
                 return next_choice(state, res, since, pending);
@@ -448,8 +465,16 @@ pub(super) fn resume_inner(
                 return next_choice(state, res, since, pending);
             }
         }
-        AwaitingOp::PrivateHandDiscard { inspected, player, options, remaining, selected } => {
-            if let Some(pending) = private_hand::discard_chosen(state, res, inspected, player, options, remaining, selected, chosen) {
+        AwaitingOp::PrivateHandDiscard {
+            inspected,
+            player,
+            options,
+            remaining,
+            selected,
+        } => {
+            if let Some(pending) = private_hand::discard_chosen(
+                state, res, inspected, player, options, remaining, selected, chosen,
+            ) {
                 return next_choice(state, res, since, pending);
             }
         }
@@ -879,7 +904,9 @@ pub(super) fn resume_inner(
                 .map(|&(card, find)| {
                     let destination = match find.dest {
                         SearchDest::Graveyard => ZoneLocation::Graveyard(res.controller),
-                        SearchDest::Exile => ZoneLocation::Exile(state.object(card).map_or(res.controller, |o| o.owner)),
+                        SearchDest::Exile => ZoneLocation::Exile(
+                            state.object(card).map_or(res.controller, |o| o.owner),
+                        ),
                         SearchDest::Hand => ZoneLocation::Hand(res.controller),
                         SearchDest::TopOfLibrary => ZoneLocation::Library(res.controller),
                         SearchDest::Battlefield => ZoneLocation::Battlefield,
@@ -1470,6 +1497,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::ManaForDamage { .. }
         | AwaitingOp::DamagePayment { .. }
         | AwaitingOp::SacrificeOpponent { .. }
+        | AwaitingOp::SourceColor { .. }
         | AwaitingOp::ManaUnlessPaidColor { .. }
         | AwaitingOp::CounterPlacementChoice
         | AwaitingOp::ShieldCounterChoice
@@ -1488,6 +1516,8 @@ pub(super) fn resume_inner(
         | AwaitingOp::PayEnergy { .. }
         | AwaitingOp::MaySearchBasicLand { .. }
         | AwaitingOp::MayDo { .. }
+        | AwaitingOp::RepeatCoinLifeStake(_)
+        | AwaitingOp::ChooseCoinRepeatPlayer(_)
         | AwaitingOp::CascadeCast { .. }
         | AwaitingOp::CastTarget { .. }
         | AwaitingOp::TopOrBottom { .. }

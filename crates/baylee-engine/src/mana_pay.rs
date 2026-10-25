@@ -287,7 +287,7 @@ impl Consumption {
             amount,
             self.credits.quota,
             prefer,
-            self.restriction.map(|r| (r.types, r.amount)),
+            self.restriction.map(|r| (r.types, r.amount, false)),
         )?;
         for color in ManaColor::ALL {
             if !pool.spend(color, allocation.ordinary[color.index()]) {
