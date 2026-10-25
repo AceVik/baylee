@@ -108,6 +108,59 @@ impl Tx<'_> {
         )])
     }
 
+    /// "Target permanent becomes the color of your choice until end of turn"
+    /// (Distorting Lens, Alchor's Tomb): `ChooseColor` followed by `DB$ Animate
+    /// | ValidTgts$ <valid> | Colors$ ChosenColor | OverwriteColors$ True`.
+    pub(super) fn choose_color_animate(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<Vec<String>> {
+        if p.take("Defined").as_deref() != Some("You") {
+            return self.deny("`ChooseColor` for somebody other than `You`".to_string());
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ChooseColor.{key}`"));
+        }
+        let Some(animate_name) = sub else {
+            return self.deny("`ChooseColor` with nothing chosen for".to_string());
+        };
+        let Some(body) = self.svars.get(animate_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {animate_name}` names no SVar"));
+        };
+        let Some((api, mut animate)) = Params::parse(&body) else {
+            return self.deny(format!("`SubAbility$ {animate_name}` is no ability"));
+        };
+        if api != "Animate" {
+            return self.deny("`ChooseColor` followed by something other than `Animate`".into());
+        }
+        animate.drop_prose();
+        let Some(valid) = animate.take("ValidTgts") else {
+            return self.deny("`ChooseColor` `Animate` with no `ValidTgts$`".to_string());
+        };
+        if chain.target.is_some() {
+            return self.deny("`ChooseColor` `Animate` with a second target".to_string());
+        }
+        chain.target = Some(self.target_spec(&valid, "Animate")?);
+        if animate.take("Colors").as_deref() != Some("ChosenColor")
+            || animate.take("OverwriteColors").as_deref() != Some("True")
+        {
+            return self.deny("`ChooseColor` `Animate` not overwriting with `ChosenColor`".into());
+        }
+        let duration = match animate.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(other) => return self.deny(format!("`ChooseColor` `Animate` lasting `{other}`")),
+        };
+        if let Some(key) = animate.first_key() {
+            return self.deny(format!("unclaimed parameter `Animate.{key}`"));
+        }
+        Some(vec![format!(
+            "Effect::ChooseColors {{ subject: ColorSubject::Target, max: 1, duration: {duration} }}"
+        )])
+    }
+
     /// Exact repeatable prevention, all recipients and no consumption instruction.
     fn all_damage_from_chosen_source(&self, name: &str) -> bool {
         self.svars
@@ -282,6 +335,7 @@ impl Tx<'_> {
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
                     "" => continue,
                     // A colour word (CR 105.2): "black creatures", "target
                     // green spell", "nonblack creature". A colour is not a

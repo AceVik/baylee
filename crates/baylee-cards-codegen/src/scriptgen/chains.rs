@@ -34,6 +34,11 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        if api == "ChooseColor" {
+            let effects = self.choose_color_animate(p, sub.as_deref(), chain)?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
         // The remembered objects are the damage recipients, not this line's
         // original targets. Read their entire lifetime and consumer together;
         // accepting the flag alone would silently drop a rules clause.
@@ -462,11 +467,7 @@ impl Tx<'_> {
             // The same two readings as `GainLife`: Braingeyser's "target
             // player draws X cards".
             "Draw" => {
-                let n = amount(
-                    p.take("NumCards").as_deref().unwrap_or("1"),
-                    self.svars,
-                    self.has_x,
-                )?;
+                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
                 match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")

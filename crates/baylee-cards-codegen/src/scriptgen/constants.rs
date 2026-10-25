@@ -233,6 +233,9 @@ pub(super) fn keyword_static(line: &str) -> Option<&'static str> {
             Some("Modifier::MayChooseNotToUntap")
         }
         "All creatures able to block CARDNAME do so." => Some("Modifier::MustBeBlockedByAllAble"),
+        "Prevent all damage that would be dealt to CARDNAME." => {
+            Some("Modifier::PreventDamageFrom(&Filter::Any)")
+        }
         _ => None,
     }
 }

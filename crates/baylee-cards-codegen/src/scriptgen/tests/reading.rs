@@ -1592,3 +1592,67 @@ fn attacker_blocked_attacked_you_times_count_arrest_and_event_player_targets_tra
         wasps.abilities[0]
     );
 }
+
+#[test]
+fn chosen_color_protection_prevent_all_damage_draw_count_and_choose_color_animate_transcode() {
+    let blessing = read(
+        "K:Flash\n\
+         K:Enchant:Creature\n\
+         K:ETBReplacement:Other:ChooseColor\n\
+         SVar:ChooseColor:DB$ ChooseColor | Defined$ You | AILogic$ MostProminentInHumanDeck | SpellDescription$ As CARDNAME enters, choose a color.\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddKeyword$ Protection:Card.ChosenColor:chosenColor:Card.CardUID_HostCardUID",
+    );
+    assert_eq!(blessing.enter_modifiers, ["EnterModifier::ChooseColor"]);
+    assert!(
+        blessing.abilities[1]
+            .contains("Filter::And(&[Filter::OfSourceChosenColor, Filter::Not(&Filter::This)])"),
+        "{}",
+        blessing.abilities[1]
+    );
+
+    let cho_manno = read("K:Prevent all damage that would be dealt to CARDNAME.");
+    assert_eq!(
+        cho_manno.abilities,
+        ["static_ability!(Filter::This, Modifier::PreventDamageFrom(&Filter::Any))"]
+    );
+
+    let cinder = read(
+        "A:AB$ DealDamage | Cost$ X R T Sac<1/CARDNAME> | ValidTgts$ Any | NumDmg$ X | AITgts$ BetterThanSource\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        cinder.abilities[0].contains("cost!(\"{X}{R}\", TapSelf, SacrificeSelf)"),
+        "{}",
+        cinder.abilities[0]
+    );
+
+    let collective = read(
+        "A:SP$ Draw | NumCards$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert_eq!(
+        collective.abilities,
+        [
+            "spell!(&[Effect::DrawCards { amount: Amount::CountOf { filter: &Filter::YOUR_CREATURE, zone: ZoneSel::Battlefield } }])"
+        ]
+    );
+
+    let merfolk = read(
+        "A:AB$ ChangeZone | Cost$ U | Origin$ Battlefield | Destination$ Hand | SpellDescription$ Return CARDNAME to its owner's hand.",
+    );
+    assert_eq!(
+        merfolk.abilities,
+        ["activated!(cost!(\"{U}\"), &[Effect::bounce(TargetSpec::ThisObject)])"]
+    );
+
+    let lens = read(
+        "A:AB$ ChooseColor | Cost$ T | Defined$ You | SubAbility$ Animate\n\
+         SVar:Animate:DB$ Animate | ValidTgts$ Permanent | Colors$ ChosenColor | OverwriteColors$ True",
+    );
+    assert_eq!(
+        lens.abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::ChooseColors { subject: ColorSubject::Target, max: 1, duration: Duration::UntilEndOfTurn }], target = Some(TargetSpec::Object(&Filter::Any)))"
+        ]
+    );
+}

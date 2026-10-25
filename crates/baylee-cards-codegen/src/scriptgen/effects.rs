@@ -464,8 +464,19 @@ impl Tx<'_> {
             // `ValidTgts$` nor `Defined$` nor `Hidden$` defaults in the corpus
             // to `Self` (Cyclopean Snare's `SVar:DBBounce:DB$ ChangeZone |
             // Origin$ Battlefield | Destination$ Hand`), never the parent
-            // ability's target.
-            None => !targets_here && !p.has("Hidden") && target != "TargetSpec::AnyPlayer",
+            // ability's target; and an untargeted `Origin$ Battlefield |
+            // Destination$ Hand` with no `ChangeType$` on a permanent's own
+            // ability is "return CARDNAME to its owner's hand" (Darting
+            // Merfolk).
+            None => {
+                !targets_here
+                    && !p.has("Hidden")
+                    && (target != "TargetSpec::AnyPlayer"
+                        || (!self.on_a_spell
+                            && origin == "Battlefield"
+                            && destination == "Hand"
+                            && !p.has("ChangeType")))
+            }
             Some("Self") => true,
             Some(other) => {
                 self.note(format!("`ChangeZone` of `Defined$ {other}`"));
