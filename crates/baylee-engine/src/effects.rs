@@ -1479,10 +1479,13 @@ mod tests {
         use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
-        use baylee_core::types::TypeSet;
+        use baylee_core::types::{SupertypeSet, TypeSet};
         vec![
             Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
             Modifier::GainControl,
+            Modifier::CantBeRegenerated,
+            Modifier::AddSupertype(SupertypeSet::SNOW),
+            Modifier::RemoveSupertype(SupertypeSet::SNOW),
             Modifier::AddType(TypeSet::ARTIFACT),
             Modifier::AnimateNoncreatureArtifact,
             Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
@@ -1771,7 +1774,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            157,
+            160,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1848,7 +1851,9 @@ mod tests {
         // `CantAttackUnlessYouSacrifice`, `DamageToItCantBePreventedOrRedirected`,
         // `CantEnterBattlefield`, `SpellsCostMoreMana`, and
         // `CantAttackIfDefenderControls`) bring rules-only to 110.
-        assert_eq!((locking, all.len() - locking), (47, 110));
+        // Adding/removing a supertype locks the affected set; prohibiting
+        // regeneration modifies a rule. The Ice Age additions contribute 2/1.
+        assert_eq!((locking, all.len() - locking), (49, 111));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole
