@@ -4,8 +4,7 @@
 //! - "Enchant creature you control"
 //! - "Whenever enchanted creature attacks and isn't blocked, you may have it assign no combat damage this turn. If you do, defending player discards a card at random."
 //!
-//! Played at a table of two, where the card is whole (it is Partial for
-//! larger tables: see the card file).
+//! The defending player follows the enchanted attacker at multiplayer tables too.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -118,5 +117,62 @@ fn cloak_of_confusion_does_not_trigger_when_the_creature_is_blocked() {
         hand_size(&engine, P1),
         1,
         "a blocked creature is not \"attacks and isn't blocked\""
+    );
+}
+
+#[test]
+fn cloak_of_confusion_discards_only_the_attacked_players_card_at_a_three_player_table() {
+    let p2 = PlayerId::new(2);
+    let mut engine = Duel::table(SEED, index::FOREST, 3)
+        .battlefield(0, &[index::GRIZZLY_BEARS])
+        .hand(0, &[cloak_of_confusion()])
+        .hand(1, &[index::HILL_GIANT])
+        .hand(2, &[index::SHIVAN_DRAGON])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, P0);
+    let bears = lk::obj(&engine, P0, index::GRIZZLY_BEARS);
+    lk::float(
+        &mut engine,
+        P0,
+        &[(ManaColor::Black, 1), (ManaColor::Colorless, 1)],
+    );
+    lk::cast_at(&mut engine, P0, cloak_of_confusion(), &[bears], &[]);
+    lk::attackers_offered(&mut engine);
+    engine
+        .apply(
+            P0,
+            PlayerAction::DeclareAttackers {
+                attackers: vec![(bears, Defender::Player(p2))],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { player, .. } = engine.pending().clone() else {
+        unreachable!()
+    };
+    assert_eq!(player, p2, "the attacked opponent declares blockers");
+    lk::block(&mut engine, &[]);
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::YesNo { .. })
+    });
+    lk::yes_no(&mut engine, true);
+    lk::through_combat(&mut engine);
+    assert_eq!(
+        hand_size(&engine, P1),
+        1,
+        "the other opponent keeps their card"
+    );
+    assert_eq!(
+        hand_size(&engine, p2),
+        0,
+        "the attacked player discarded at random"
+    );
+    assert_eq!(
+        lk::life(&engine, p2),
+        20,
+        "the attacker assigned no combat damage"
     );
 }
