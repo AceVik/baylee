@@ -335,7 +335,7 @@ def main() -> None:
                 batch = transfer_batch(host, device) if staged is None else staged
                 B, U = batch["step_valid"].shape
                 opt.zero_grad(set_to_none=True)
-                is_new = batch["is_new_traj"].to(device)
+                is_new = batch["is_new_traj"].to(device, non_blocking=True)
                 if h is None or h.shape[0] != B:
                     h = torch.zeros(
                         (B, M.RECURRENT_SLOTS, cfg.d_model), dtype=torch.float32, device=device
@@ -345,10 +345,12 @@ def main() -> None:
                     h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
 
                 k_choices = (1, 2, 4, 8)
-                traj_loss = torch.tensor(0.0, device=device)
+                traj_loss = torch.zeros((), device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                     net.clear_structure()
-                    net.prepare_structure()
+                    net.prepare_structure(
+                        None if args.reference_execution else (host["entity_rules"], host["cand_rules"])
+                    )
                     boards = encode_boards(net, batch, args.board_chunk, device)
 
                 prepared = None

@@ -83,10 +83,9 @@ def compute_unroll_device_loss(prepared, aux_all, batch, plans):
     aux_target_all = batch["aux_target"].to(device, non_blocking=True)
 
     val_pred_all = torch.stack([prepared[t][4].float() for t in range(unroll)], dim=1)
-    valid_plan = torch.tensor([plan.valid for plan in plans], dtype=val_pred_all.dtype, device=device)
     n_valid = valid_all.sum(dim=0).clamp(min=1)
-    val_losses = (((val_pred_all - outcome_all).square() * valid_all).sum(dim=0) / n_valid) * valid_plan
-    aux_losses = (((aux_all - aux_target_all).square().mean(dim=-1) * valid_all).sum(dim=0) / n_valid) * valid_plan
+    val_losses = ((val_pred_all - outcome_all).square() * valid_all).sum(dim=0) / n_valid
+    aux_losses = ((aux_all - aux_target_all).square().mean(dim=-1) * valid_all).sum(dim=0) / n_valid
 
     single_idx_all = batch["single_idx"].to(device, non_blocking=True)
     cand_mask_all = batch["cand_mask"].to(device, non_blocking=True)

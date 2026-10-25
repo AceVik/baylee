@@ -132,9 +132,9 @@ class PlayerNet4(nn.Module):
         from .structure import RuleEncoder
         self.rules = RuleEncoder(data, self.cfg.structure_width)
 
-    def prepare_structure(self):
+    def prepare_structure(self, active_refs=None):
         if self.rules is not None:
-            self.rules.prepare()
+            self.rules.prepare(active_refs)
 
     def clear_structure(self):
         if self.rules is not None:
