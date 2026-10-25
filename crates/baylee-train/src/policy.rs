@@ -159,6 +159,19 @@ pub enum Choice {
 /// a total out of its bounds are answers the question states it refuses.
 #[must_use]
 pub fn done_allowed(pending: &Pending, picked: &Picked) -> bool {
+    if matches!(pending, Pending::ChooseAttackers { .. }) {
+        let action = PlayerAction::DeclareAttackers {
+            attackers: picked
+                .picks
+                .iter()
+                .filter_map(|pick| match pick {
+                    Choice::Attack(id, at) => Some((*id, *at)),
+                    _ => None,
+                })
+                .collect(),
+        };
+        return pending.answer_fault(&action).is_none();
+    }
     assemble(pending, &picked.picks)
         .ok()
         .is_none_or(|action| pending.answer_fault(&action).is_none())
@@ -390,11 +403,45 @@ pub fn options(
         Pending::ChooseAttackers {
             attackers,
             defenders,
+            required,
+            alone,
+            minimum_required,
+            limits,
             ..
         } => {
-            out.push(Choice::Fixed(fixed::DONE));
+            if done_allowed(pending, picked) {
+                out.push(Choice::Fixed(fixed::DONE));
+            }
+            let selected: Vec<_> = picked
+                .picks
+                .iter()
+                .filter_map(|pick| match pick {
+                    Choice::Attack(id, _) => Some(*id),
+                    _ => None,
+                })
+                .collect();
+            let minimum = minimum_required.map_or(required.len(), |n| n as usize);
             for a in attackers.iter().filter(|a| free(a)) {
-                out.extend(defenders.iter().map(|d| Choice::Attack(*a, *d)));
+                let mut next = selected.clone();
+                next.push(*a);
+                let solo = next.iter().any(|id| alone.contains(id));
+                if solo && (next.len() != 1 || usize::from(required.contains(a)) < minimum) {
+                    continue;
+                }
+                let possible = required
+                    .iter()
+                    .filter(|id| {
+                        next.contains(id) || (!alone.contains(id) && attackers.contains(id))
+                    })
+                    .count();
+                if !solo && possible < minimum {
+                    continue;
+                }
+                let allowed = limits
+                    .iter()
+                    .find(|limit| limit.creature == *a)
+                    .map_or(defenders.as_slice(), |limit| limit.defenders.as_slice());
+                out.extend(allowed.iter().map(|d| Choice::Attack(*a, *d)));
             }
         }
         Pending::ChooseBlockers {
@@ -984,6 +1031,36 @@ mod tests {
             capacity: Vec::new(),
             obeying: Vec::new(),
         }
+    }
+
+    #[test]
+    fn solo_attack_choices_preserve_a_legal_completion() {
+        let ids = [
+            ObjectId::new(1, 0),
+            ObjectId::new(2, 0),
+            ObjectId::new(3, 0),
+        ];
+        let at = Defender::Player(PlayerId::new(1));
+        let pending = Pending::ChooseAttackers {
+            player: PlayerId::new(0),
+            attackers: ids.to_vec(),
+            defenders: vec![at],
+            required: ids[..2].to_vec(),
+            alone: ids[..2].to_vec(),
+            minimum_required: Some(1),
+            limits: vec![],
+        };
+        let mut picked = Picked::default();
+        let offered = options(&pending, &[], &picked).unwrap();
+        assert!(!offered.contains(&Choice::Fixed(fixed::DONE)));
+        assert!(!offered.contains(&Choice::Attack(ids[2], at)));
+        assert!(offered.contains(&Choice::Attack(ids[0], at)));
+        picked.add(Choice::Attack(ids[0], at));
+        assert_eq!(
+            options(&pending, &[], &picked).unwrap(),
+            vec![Choice::Fixed(fixed::DONE)]
+        );
+        assert!(done_allowed(&pending, &picked));
     }
 
     fn blocks(pending: &Pending, picks: &[Choice]) -> Vec<Choice> {

@@ -257,9 +257,7 @@ pub fn least_answer(
         // trusted, so a change there cannot leave a seat with no answer.
         Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
         Pending::Priority { .. } => PlayerAction::PassPriority,
-        Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
-            attackers: Vec::new(),
-        },
+        Pending::ChooseAttackers { .. } => baylee_engine::choice::timeout_answer(pending)?,
         Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers {
             blockers: Vec::new(),
         },

@@ -578,6 +578,7 @@ impl HeuristicAgent {
             | PlayerRel::OwnerOfEvent
             | PlayerRel::ControllerOfTarget
             | PlayerRel::TargetPlayerOrController
+            | PlayerRel::SecondTargetPlayerOrController
             | PlayerRel::ControllerOfEvent
             | PlayerRel::DamagedPlayer
             | PlayerRel::EventPlayer
@@ -603,6 +604,18 @@ impl HeuristicAgent {
             .map(|seat| seat.player)
             .collect();
         any(effects.iter().map(|effect| match effect {
+            Effect::SacrificeAmountForPlayers {
+                who,
+                filter,
+                amount,
+            } => match amount {
+                baylee_cards_dsl::Amount::Fixed(0) => Some(false),
+                baylee_cards_dsl::Amount::Fixed(_) => {
+                    self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
+                }
+                // A populated board alone cannot prove a computed count positive.
+                _ => None,
+            },
             Effect::SacrificeFilter { who, filter }
             | Effect::DestroyChosenForPlayers { who, filter }
             | Effect::TapAllOf { who, filter } => {

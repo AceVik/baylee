@@ -67,6 +67,7 @@ enum Ask {
     Attack {
         attackers: Vec<ObjectId>,
         defenders: Vec<Defender>,
+        pending: Box<Pending>,
     },
     /// A block declaration.
     Block { options: Vec<BlockOption> },
@@ -405,7 +406,8 @@ impl Menu {
             Ask::Attack {
                 attackers,
                 defenders,
-            } => self.attack(decision, attackers, defenders),
+                pending,
+            } => self.attack(decision, attackers, defenders, pending),
             Ask::Block { options } => Self::block(decision, options),
             Ask::Number { min, max } => Self::number(decision, *min, *max),
             Ask::Subtype { options } => {
@@ -621,6 +623,7 @@ impl Menu {
         decision: &Decision,
         attackers: &[ObjectId],
         defenders: &[Defender],
+        pending: &Pending,
     ) -> Result<Resolved, String> {
         let mut declared = Vec::new();
         for (attacker, at) in &decision.attacks {
@@ -657,12 +660,13 @@ impl Menu {
                 .collect();
             format!("attack: {}", pairs.join(", "))
         };
-        Ok(now(
-            PlayerAction::DeclareAttackers {
-                attackers: declared,
-            },
-            label,
-        ))
+        let answer = PlayerAction::DeclareAttackers {
+            attackers: declared,
+        };
+        if let Some(fault) = pending.answer_fault(&answer) {
+            return Err(fault.reason().to_owned());
+        }
+        Ok(now(answer, label))
     }
 
     fn block(decision: &Decision, options: &[BlockOption]) -> Result<Resolved, String> {
@@ -951,6 +955,30 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {cost}"),
             "don't pay".into(),
         ),
+        YesNoPrompt::PayManaAndLife { cost, life } => (
+            format!("Pay {cost} and {life} life as one price?"),
+            format!("pay {cost} and {life} life"),
+            "pay neither part".into(),
+        ),
+        YesNoPrompt::RemoveCountersInsteadOfUntapping {
+            permanent,
+            kind,
+            count,
+        } => {
+            let counters = baylee_client_core::interaction::counter_label_counted(
+                *kind,
+                baylee_client_core::Lang::En,
+                usize::from(*count),
+            );
+            (
+                format!(
+                    "Remove {count} {counters} from {} instead of untapping?",
+                    table.named(*permanent)
+                ),
+                format!("remove {count} {counters} and leave it tapped"),
+                "choose another applicable untap replacement; this does not untap it".into(),
+            )
+        }
         YesNoPrompt::PayPact { cost } => pact_words(cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
