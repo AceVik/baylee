@@ -43,6 +43,18 @@ and `docs/card-identity.md` (indices and who may write what).
   other cards, registries or tables are written. A pending preview exits nonzero.
   Regenerate compiled tables separately with `codegen --tables`, then test and
   validate the generated definitions. Never restore ownership markers by hand.
+- When a reader fully handles an existing machine-owned stub,
+  `cargo run -p xtask -- codegen --complete-stub "<name>" --scripts <upstream-cardsfolder> --check`
+  previews just that stub's normal generator output. Repeat `--complete-stub`
+  for an explicit selection. Only unfinished `GENERATED STUB` sources qualify;
+  hand-owned, Partial and already completed generated cards are refused.
+  Coverage is `Generated` without accepted canonical tests and `Implemented`
+  with them; an existing test hold prevents promotion. Like `--reclaim`, it
+  pins the cached printing, Oracle ID, ledger index and canonical path, plans
+  the whole selection and rechecks every original before the first write.
+  Omit `--check` only after reviewing the complete preview. This mode never
+  downloads, adopts cards, changes other cards, or regenerates tables/registries.
+  A completed output is no longer an input to this stub-only mode.
 - A reviewed unsafe hand-owned implementation can be restored only through
   `cargo run -p xtask -- codegen --hold-back "<name>" --hold-back-reason "<finding>"`
   (repeat names or pass `--hold-back-file`). This narrow mode needs cached

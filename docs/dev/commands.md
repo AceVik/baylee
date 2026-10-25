@@ -50,6 +50,7 @@ No `cargo xtask` alias exists; every line below follows `cargo run -p xtask --`.
 ```text
 codegen [--check | --tables]      # --tables: no corpus needed
 codegen --reclaim "<card>" --scripts <upstream-cardsfolder> [--check]
+codegen --complete-stub "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --hold-back "<card>" --hold-back-reason "<review finding>" [--check]
 codegen --hold-back-file <names.txt> --hold-back-reason "<review finding>" [--check]
 validate
@@ -84,6 +85,17 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
   changes remain. It never downloads, moves files, or writes other cards,
   registries, indices or tables; follow an applied transfer with
   `codegen --tables` and the card tests, validation and gates.
+- `codegen --complete-stub` finishes only explicitly named existing
+  machine-owned stubs whose local scripts are now fully read. Repeat the flag
+  for multiple names. It shares reclamation's pinned printing/Oracle/index/path
+  checks and whole-selection preflight, but does not accept hand-owned,
+  Partial or completed generated inputs. The normal renderer emits `Generated`
+  when canonical tests are absent or held, and `Implemented` when accepted.
+  `--check` prints full diffs, writes no cards and exits nonzero for pending
+  changes. Applying writes only those selected stub paths; it never downloads,
+  adopts a card, or changes tables, registries or the index. Use `--tables`
+  separately after the reviewed completion. Once completed, the card is no
+  longer eligible for this stub-only mode.
 - `codegen --hold-back` restores only selected reviewed cards to canonical
   `Coverage::Unimplemented` stubs, recording the required reason as a generated
   comment and removing every ability and keyword. Repeat the flag or use

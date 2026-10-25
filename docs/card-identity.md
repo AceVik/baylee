@@ -222,7 +222,13 @@ One writer each, and that is what keeps the numbers still:
   index, Oracle ID, pinned printing and canonical path, plans the entire
   explicit selection before writing, and rechecks every original source.
   `--check` previews the generated diff without transferring ownership.
-  Only this generator path writes the ownership marker; do not add it by hand.
+  An existing machine-owned unfinished stub instead uses
+  `codegen --complete-stub "<name>"`: the same pinned identity and path checks
+  apply, but accepted canonical tests decide between `Generated` and
+  `Implemented`. This stub-only route refuses hand-owned, Partial and already
+  completed sources; it plans all selected outputs before any write and its
+  `--check` prints the complete preview. Only generator paths write ownership
+  markers; do not add them by hand.
 - **The name table** — codegen again, from the pool it compiles, which makes
   it two-phase like the ability-line table: a card added by the run that
   writes the table gets its row on the *next* run, and `decks::name_table_tests`
