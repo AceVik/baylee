@@ -122,12 +122,20 @@ impl EncodedState4 {
     #[must_use]
     pub fn find_entity(&self, id: ObjectId) -> Option<usize> {
         let raw = pack_object_id(id);
-        if let Some(pos) = self.entity_object_ids.iter().position(|&oid| oid == raw) {
+        if raw == u64::MAX {
+            return None;
+        }
+        if !self.entity_group_members.is_empty()
+            && let Some(pos) = self
+                .entity_group_members
+                .iter()
+                .position(|members| members.contains(&raw))
+        {
             return Some(pos);
         }
-        self.entity_group_members
+        self.entity_object_ids
             .iter()
-            .position(|members| members.contains(&raw))
+            .position(|&oid| oid != u64::MAX && oid == raw)
     }
 
     /// Materializes the `CARD_DSL_WIDTH` (`160`) vector for entity `idx` using

@@ -131,7 +131,7 @@ def main():
             if final["games_rejected"]:
                 if not args.allow_replay_quarantined:
                     raise ValueError("Review converter rejections before continuing")
-                rejected=json.loads((args.source/"rejected.json").read_text())
+                rejected=json.loads((args.source/"rejected-games.json").read_text())
                 if any(not str(r.get("reason","")).startswith("replay audit: Diverged") for r in rejected):
                     raise ValueError("Non-divergence converter rejection encountered")
         if not pending and complete:

@@ -928,7 +928,7 @@ fn push_inventory_group7(
     }
 
     state.entity_feat.push(f);
-    state.entity_object_ids.push(0);
+    state.entity_object_ids.push(u64::MAX);
     state.entity_group_members.push(Vec::new());
     state.entity_card_ids.push(group.card_id);
     state.entity_face_ids.push(0);
