@@ -31,9 +31,8 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
         # Non-single rows may have arbitrary targets, including out-of-range
         # indices for this frame. They must never enter gather/cross_entropy.
         target = torch.where(chosen, at("single_idx"), 0)
-        is_pass = at("cand_feat")[:, :, 0].gather(1, target[:, None])[:, 0] > 0.5
         choice = at("cand_mask")[:, :cand.shape[1]].sum(-1) > 1
-        weights = torch.where(is_pass, 1.0, 3.0) * weight * chosen * choice
+        weights = weight * chosen * choice
         ce = F.cross_entropy(cand, target, reduction="none")
         policy = policy + (ce * weights).sum() / weights.sum().clamp(min=1e-6)
         correct = ((cand.argmax(-1) == target) & chosen).sum()
@@ -47,8 +46,7 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
             free = at(prefix + "_free_mask")[:, :width] * mask.float()
             target = at(prefix + "_target_mask")[:, :width]
             losses = F.binary_cross_entropy_with_logits(
-                logits.masked_fill(~mask, 0.0), target,
-                pos_weight=torch.tensor(2.0, device=device), reduction="none",
+                logits.masked_fill(~mask, 0.0), target, reduction="none",
             )
             weights = free * (weight * selected).unsqueeze(-1)
             policy = policy + 2.5 * (losses * weights).sum() / weights.sum().clamp(min=1.0)

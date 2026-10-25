@@ -41,6 +41,9 @@ pub fn public_refs(obj: &PublicObject, cid: u32, face: u8, token: u16) -> Vec<Ru
         push(&mut out, 3, format!("c/{}/{}", name.card.get(), name.face));
         push(&mut out, 4, format!("i/{}/{}", name.card.get(), name.face));
     }
+    if let Some(prep) = obj.prepared_spell {
+        push(&mut out, 6, format!("c/{}/{}", prep.card.get(), prep.face));
+    }
     if matches!(obj.stack_item, Some(StackItem::Ability { .. })) && !obj.ability_sources.is_empty()
     {
         for source in &obj.ability_sources {

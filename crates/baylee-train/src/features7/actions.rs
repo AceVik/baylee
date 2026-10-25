@@ -1,11 +1,15 @@
 //! Opt-in announce-before-payment candidates. Encoder 6 remains unchanged.
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use baylee_core::ids::{Defender, ObjectId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 
-use crate::features4::{EncodedCandidates4, EncodedState4, MAX_CANDIDATES, encode_candidates4};
+use crate::features4::{
+    Candidate4, EncodedCandidates4, EncodedState4, HeadKind4, MAX_CANDIDATES, encode_candidates4,
+    pack_object_id,
+};
 
 /// A complete Priority menu cannot fit in the candidate ABI.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +94,171 @@ pub fn encode_candidates7(
             .filter(|candidate| matches!(candidate.action, Some(PlayerAction::CastSpell { .. }))),
     );
     Ok(out)
+}
+
+/// Complete Encoder 7 candidate encoder (`encode_candidates7_grouped`):
+/// - Includes distinct `legal.payable` cast-before-payment spells in `Pending::Priority`,
+/// - Includes `PlayerAction::CancelCast` in `Pending::ChooseCastMode` when `view.casting.is_some()`,
+/// - Deduplicates symmetric `SingleChoice` candidates acting on the same grouped battlefield permanent
+///   (storing all member `ObjectId`s in `Candidate4::group_object_ids` so softmax mass is never split
+///   across identical untapped lands/tokens),
+/// - Populates within-group rank features (`feat[46..48]`) on `SubsetPick` candidates for grouped permanents.
+#[must_use]
+pub fn encode_candidates7_grouped(
+    state: &EncodedState4,
+    view: &PlayerView,
+    pending: &Pending,
+) -> EncodedCandidates4 {
+    let mut out = encode_candidates4(state, view, pending);
+
+    if let Pending::Priority { player, legal } = pending {
+        let mut seen: BTreeSet<ObjectId> = legal.castable.iter().copied().collect();
+        let additional: Vec<ObjectId> = legal
+            .payable
+            .iter()
+            .copied()
+            .filter(|id| seen.insert(*id))
+            .collect();
+        if !additional.is_empty() {
+            let mut announced = legal.clone();
+            announced.castable = additional;
+            let extra = encode_candidates4(
+                state,
+                view,
+                &Pending::Priority {
+                    player: *player,
+                    legal: announced,
+                },
+            );
+            for mut cand in extra.candidates {
+                if matches!(cand.action, Some(PlayerAction::CastSpell { .. }))
+                    && out.candidates.len() < MAX_CANDIDATES
+                {
+                    cand.feat[19] = 1.0; // payable (announce before payment)
+                    out.candidates.push(cand);
+                }
+            }
+        }
+    } else if matches!(pending, Pending::ChooseCastMode { .. })
+        && let Some(cast_id) = view.casting
+        && out.candidates.len() < MAX_CANDIDATES
+    {
+        let mut cancel = Candidate4::default();
+        cancel.feat[1] = 1.0; // CancelCast
+        if let Some(eidx) = state.find_entity(cast_id) {
+            cancel.entity_idx = eidx as i16;
+            cancel.card_id = state.entity_card_ids[eidx];
+        }
+        cancel.action = Some(PlayerAction::CancelCast);
+        out.candidates.push(cancel);
+    }
+
+    if state.entity_group_members.is_empty() {
+        return out;
+    }
+
+    match out.head {
+        HeadKind4::SingleChoice => {
+            deduplicate_grouped_single_choices(state, &mut out.candidates);
+        }
+        HeadKind4::SubsetPick => {
+            populate_grouped_subset_ranks(state, &mut out.candidates);
+        }
+        HeadKind4::PairPick | HeadKind4::ScalarValue => {}
+    }
+
+    out
+}
+
+fn deduplicate_grouped_single_choices(state: &EncodedState4, candidates: &mut Vec<Candidate4>) {
+    let mut deduped = Vec::<Candidate4>::with_capacity(candidates.len());
+    let mut group_slot = BTreeMap::<(u8, i16, u32), usize>::new();
+
+    for mut cand in std::mem::take(candidates) {
+        let eidx = cand.entity_idx;
+        let is_multi_group = eidx >= 0
+            && state
+                .entity_group_members
+                .get(eidx as usize)
+                .is_some_and(|m| m.len() > 1);
+        if !is_multi_group {
+            deduped.push(cand);
+            continue;
+        }
+
+        let key_and_obj: Option<((u8, i16, u32), ObjectId)> = match &cand.action {
+            Some(PlayerAction::ActivateManaAbility { source }) => Some(((1, eidx, 0), *source)),
+            Some(PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            }) => Some(((2, eidx, *ability_index), *source)),
+            Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
+                Some(((3, eidx, 0), objects[0]))
+            }
+            Some(PlayerAction::ChooseTargets { objects, players })
+                if objects.len() == 1 && players.is_empty() =>
+            {
+                Some(((4, eidx, 0), objects[0]))
+            }
+            _ => None,
+        };
+
+        if let Some((key, oid)) = key_and_obj {
+            if let Some(&canon_idx) = group_slot.get(&key) {
+                let canon = &mut deduped[canon_idx];
+                if !canon.group_object_ids.contains(&oid) {
+                    canon.group_object_ids.push(oid);
+                }
+                canon.feat[46] = (canon.group_object_ids.len() as f32) / 10.0;
+            } else {
+                cand.group_object_ids.push(oid);
+                cand.feat[46] = 0.1;
+                let idx = deduped.len();
+                group_slot.insert(key, idx);
+                deduped.push(cand);
+            }
+        } else {
+            deduped.push(cand);
+        }
+    }
+
+    *candidates = deduped;
+}
+
+fn populate_grouped_subset_ranks(state: &EncodedState4, candidates: &mut [Candidate4]) {
+    let mut groups = BTreeMap::<(i16, i8, u64), Vec<usize>>::new();
+    for (idx, cand) in candidates.iter().enumerate() {
+        let eidx = cand.entity_idx;
+        let is_multi_group = eidx >= 0
+            && state
+                .entity_group_members
+                .get(eidx as usize)
+                .is_some_and(|m| m.len() > 1);
+        if !is_multi_group {
+            continue;
+        }
+        let def_key = match cand.defender {
+            None => 0,
+            Some(Defender::Player(p)) => 1 + u64::from(p.get()),
+            Some(Defender::Planeswalker(id)) => (1 << 16) | pack_object_id(id),
+            Some(Defender::Battle(id)) => (2 << 16) | pack_object_id(id),
+        };
+        groups
+            .entry((eidx, cand.rel_seat_idx, def_key))
+            .or_default()
+            .push(idx);
+    }
+
+    for indices in groups.values() {
+        if indices.len() <= 1 {
+            continue;
+        }
+        let total = indices.len() as f32;
+        for (rank, &i) in indices.iter().enumerate() {
+            candidates[i].feat[46] = (rank as f32) / total;
+            candidates[i].feat[47] = rank as f32;
+        }
+    }
 }
 
 #[cfg(test)]

@@ -354,6 +354,7 @@ fn main() -> anyhow::Result<()> {
         u64::from(baylee_train::features::ENCODER_VERSION),
         u64::from(baylee_train::features3::VERSION),
         u64::from(baylee_train::features4::ENCODER_VERSION),
+        u64::from(baylee_train::features7::ENCODER_VERSION7),
     ];
     if !known.contains(&encoder) {
         bail!("the model reads encoder v{encoder}; this build writes {known:?}");
@@ -364,7 +365,9 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .filter_map(serde_json::Value::as_str)
         .collect();
-    if encoder == u64::from(baylee_train::features4::ENCODER_VERSION) {
+    if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
+        || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+    {
         if outputs != baylee_train::netplay4::OUTPUT_NAMES {
             bail!(
                 "the v4 model's outputs are {outputs:?}; this build reads {:?}",
@@ -475,7 +478,9 @@ fn main() -> anyhow::Result<()> {
             Duration::from_secs(args.max_secs),
         );
         std::thread::spawn(move || {
-            let loaded = if encoder == u64::from(baylee_train::features4::ENCODER_VERSION) {
+            let loaded = if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
+                || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+            {
                 baylee_train::netplay4::NetPlayer4::load(&model).map(|n| Net::V4(Box::new(n)))
             } else if encoder == u64::from(baylee_train::features3::VERSION) {
                 match server {

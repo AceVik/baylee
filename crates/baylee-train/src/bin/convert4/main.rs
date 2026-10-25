@@ -22,8 +22,10 @@ use baylee_train::carddsl::{
 };
 use baylee_train::convert4::{RolloutStepSidecar4, Step4, stream_game4};
 use baylee_train::features4::{
-    CAND_FEAT_WIDTH, CoverageMatrix4, ENCODER_VERSION, ENTITY_FEAT_WIDTH, GLOBAL_FEAT_WIDTH,
-    MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS, SEAT_FEAT_WIDTH,
+    CoverageMatrix4, MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS,
+};
+use baylee_train::features7::{
+    CAND_FEAT_WIDTH7, ENCODER_VERSION7, ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, SEAT_FEAT_WIDTH7,
 };
 use clap::Parser;
 use flate2::Compression;
@@ -223,7 +225,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut meta = json!({
-        "encoder_version": ENCODER_VERSION,
+        "encoder_version": ENCODER_VERSION7,
         "package_target_steps": args.shard_steps,
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
@@ -234,10 +236,10 @@ fn main() -> anyhow::Result<()> {
         "card_dsl_width": CARD_DSL_WIDTH,
         "ability_dsl_width": ABILITY_DSL_WIDTH,
         "max_abilities": MAX_ABILITIES,
-        "entity_feat_width": ENTITY_FEAT_WIDTH,
-        "seat_feat_width": SEAT_FEAT_WIDTH,
-        "global_feat_width": GLOBAL_FEAT_WIDTH,
-        "cand_feat_width": CAND_FEAT_WIDTH,
+        "entity_feat_width": ENTITY_FEAT_WIDTH7,
+        "seat_feat_width": SEAT_FEAT_WIDTH7,
+        "global_feat_width": GLOBAL_FEAT_WIDTH7,
+        "cand_feat_width": CAND_FEAT_WIDTH7,
         "max_seats": MAX_SEATS,
         "max_entities": MAX_ENTITIES,
         "max_edges": MAX_EDGES,

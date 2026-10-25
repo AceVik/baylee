@@ -458,3 +458,22 @@ information invariance. Then reconvert compatible complete records, use an
 explicitly versioned pass-neutral BC objective, and evaluate mana/interaction
 tactics plus paired games. Archived encoder-6 exports remain the controls.
 No old dataset, checkpoint or frozen completed run is rewritten by this work.
+
+## Second implementation milestone: Encoder 7, Loss v3, and runtime/trainer integration
+
+- **`features7::state::encode_state7` (`ENCODER_VERSION7 = 7`, `128` entity / `64` seat / `80` global / `48` candidate features):**
+  - Replaces hard clipping on life, power/toughness, damage, loyalty, counters, mana pools, and zone sizes with paired normalized linear and `log1p` magnitude channels (`feat_exact_pos`, `feat_exact_signed`).
+  - Expands projected keywords to 24 explicit channels (including haste, vigilance, trample, hexproof, indestructible, deathtouch, lifelink, reach, menace, flash, protection, ward, first/double strike, prowess, defender), adds projected subtype presence/count and active `word_changes` indicators, and separates counter kinds (`Plus`, `Minus`, `Loyalty`, `Defense`, `Lore`, `Level`, `Time`, `Charge`, `Energy`, `Stun`, `Shield`, `Indestructible`, `Finality`, `Poison`, `Rad`, `Custom`) plus signed net P/T from counters.
+  - Encodes dynamic mana production (`granted_mana`, `board_mana`), per-ability and per-seat spending permission summaries, granted flashback cost composition, and exact per-color owed payment requirements (`payment_owed_colors`, `payment_owed_generic`, `payment_owed_hybrid`, `payment_owed_phyrexian`, `payment_owed_x`, plus casting/targeting stage flags in `global_feat[64..80]`).
+  - Attaches `obj.prepared_spell` (`role: 6`) to `cardstructure::refs::public_refs`.
+  - Preserves stack and graveyard order via normalized position channels (`f[36..38]`) and explicit `EDGE_ORDERED_NEXT` (`edge_type = 10`) chain edges.
+  - Emits public commander designations (`EntityZone4::CommanderDesignation = 10`) even when a commander is in a hidden zone, and emits remaining own-library and own-sideboard inventory groups (`DeckInventory = 12`, `SideboardInventory = 13`) from `InventoryLedger7` (with `remaining_copies`, `log1p(remaining_copies)`, and `draw_probability` in `f[120..123]`).
+  - Retains `last_seen_turn` age and `origin_zone` on remembered opponent cards (`f[125..128]`), tracks permanent age and `entered_battlefield_this_turn` in `SeatKnowledge4`, and deduplicates objects across shared/controlled/inspection views.
+- **`features7::grouping::PermanentGroup7` and `encode_candidates7_grouped`:**
+  - Losslessly groups battlefield permanents with identical full authorized semantics into single entity tokens carrying multiplicity (`f[96..99]`) and `entity_group_members`, while deduplicating equivalent priority/target/subset candidates (`group_object_ids`) and canonicalizing teacher targets (`encode_teacher_action4`).
+- **Runtime, conversion, and trainer integration (`LOSS_VERSION = 3`):**
+  - `NetPlayer4` dynamically dispatches between archived Encoder 5/6 (`(96, 64)`, `encode_state4` + `encode_candidates4`) and Encoder 7 (`(128, 80)`, `encode_state7` + `encode_candidates7_grouped`) based on model input dimensions.
+  - `convert4` emits Encoder 7 trajectories with `step_loss_weight = 1.0` for all multi-option decisions (removing the 0.2 pass downweighting) and reuses the deciding seat's `PlayerView` via `Cow::Borrowed` instead of building it twice.
+  - `SeatKnowledge4` uses zero-allocation streaming FNV-1a hashing (`Fnv1aWriter` + `ObservableView`) for `board_observation_hash` and `view_only_state_hash`.
+  - `PlayerNet4` adds `cand_ctx_proj` (zero-initialized residual projection over the masked mean and max of legal candidate embeddings so each candidate sees competing menu options) and `upgrade_state_dict_to_v7` to warm-start Encoder 7 models from archived Encoder 6 checkpoints.
+  - `LOSS_VERSION = 3` removes the 3x non-pass multiplier and the uncalibrated `pos_weight = 2.0` on `SubsetPick` / `PairPick` in both `training4/loss.py` and `training4/device_loss.py`.

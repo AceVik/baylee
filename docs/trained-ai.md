@@ -96,21 +96,40 @@ Greedy neural moves have no behavior probabilities and are not PPO data.
 Staging does not mean replay validation, conversion or optimization has run.
 
 The [live information audit](history/trained-ai-v4-live-information-audit-2026-10-25.md)
-documents remaining encoder losses, including exact own-deck inventory,
-numeric clipping and the missing cast-before-payment action route. These need
-a new versioned encoder and matching training; the archived encoder-6 actor
-must not silently receive a different candidate distribution.
-
-The opt-in `features7` foundations now expose the missing `legal.payable`
-casts and retain the exact own registration multiset (separate library,
-sideboard, commander and configured starting-card sections; per-copy choices
-and physical rules facts survive). They are not yet a complete neural input
-contract or connected to inference/training. `Session::view_for_with_context`
-and `observe_view_with_context` supply the same owner-only cast/target context
-as socket views without altering the archived view methods. Tests exercise
-announcing before tapping, payment, opponent-turn instants and counters;
-they do not test a checkpoint's intelligence. Cancelling mode/target choices
-still needs a separate action representation; it must not become a fake target.
+documents the encoder-6 omissions and the **Encoder 7 / Loss v3** implementation
+that resolves them:
+- **Encoder 7 (`ENCODER_VERSION7 = 7`, `128` entity / `64` seat / `80` global / `48` candidate features):**
+  `features7::state::encode_state7` and `features7::actions::encode_candidates7_grouped`
+  expose `legal.payable` cast-before-payment choices, `InventoryLedger7`
+  remaining own-library and own-sideboard card groups (`DeckInventory = 12`,
+  `SideboardInventory = 13`) with exact copy counts and draw probabilities,
+  public commander designations (`CommanderDesignation = 10`), stack/graveyard
+  position channels and `EDGE_ORDERED_NEXT` order chains, 24 projected keywords,
+  projected subtypes and `word_changes`, separated counter channels, `prepared_spell`
+  (`role: 6`) structural references, dynamic mana production/spending matrices
+  and exact per-symbol owed payment channels, and paired linear+`log1p` scaling
+  beyond legacy numeric caps.
+- **Lossless permanent grouping (`PermanentGroup7`):** identical battlefield
+  permanents (matching all authorized characteristics, status, counters,
+  attachments, combat assignments, and target references) share a grouped entity
+  token with explicit multiplicity (`entity_group_members`) and deduplicated
+  candidate actions (`group_object_ids`).
+- **Backward-compatible runtime dispatch and warm-start (`upgrade_state_dict_to_v7`):**
+  `NetPlayer4` inspects the loaded model's `(entity_width, global_width)` at
+  startup and dispatches `(96, 64)` models to archived `encode_state4` /
+  `encode_candidates4` and `(128, 80)` models to `encode_state7` /
+  `encode_candidates7_grouped`. `PlayerNet4` adds a zero-initialized
+  candidate-menu context residual (`cand_ctx_proj`) over the masked mean and max
+  of legal candidates, and `upgrade_state_dict_to_v7` zero-pads Encoder 6
+  checkpoints into Encoder 7.
+- **Calibrated training objective (`LOSS_VERSION = 3`):** removes the 15x
+  anti-pass bias (`step_loss_weight = 1.0` in `convert4` and `1.0` pass weight
+  in `training4/loss.py` and `device_loss.py`) and removes the uncalibrated
+  `pos_weight = 2.0` on `SubsetPick` and `PairPick` BCE losses.
+- **Zero-allocation observation hashing:** `SeatKnowledge4` computes
+  `board_observation_hash` and `view_only_state_hash` directly via streaming
+  `Fnv1aWriter` and `ObservableView` without per-step heap allocations, and
+  `convert4` reuses the active seat's `PlayerView` via `Cow::Borrowed`.
 
 The eight-round Sharp experiment is complete with **no confirmed playing
 improvement** on its new-seed confirmation. A completed nonpositive mean

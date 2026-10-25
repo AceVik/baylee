@@ -31,4 +31,34 @@ impl NetPlayer4 {
             .insert(viewer.get(), vec![0.; RECURRENT_SLOTS * self.d_model]);
         Ok(())
     }
+
+    /// Starts one live seat using its full [`baylee_seat::DeckList`] (`main`, `sideboard`, `commanders`).
+    ///
+    /// # Errors
+    /// Returns an error if the roster size or viewing seat is invalid.
+    #[cfg(feature = "live-seat")]
+    pub fn init_own_deck_list(
+        &mut self,
+        viewer: PlayerId,
+        deck: &baylee_seat::DeckList,
+        teams: &[Option<u8>],
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !teams.is_empty() && teams.len() <= MAX_SEATS,
+            "invalid live seat count"
+        );
+        anyhow::ensure!(
+            usize::from(viewer.get()) < teams.len(),
+            "live seat is outside the table"
+        );
+        self.reset_game();
+        self.teams = teams.to_vec();
+        self.knowledge.insert(
+            viewer.get(),
+            SeatKnowledge4::from_deck_list(viewer, teams.len(), deck),
+        );
+        self.h_states
+            .insert(viewer.get(), vec![0.; RECURRENT_SLOTS * self.d_model]);
+        Ok(())
+    }
 }

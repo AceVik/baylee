@@ -1,8 +1,10 @@
+use std::borrow::Cow;
+
 use super::{
     AuxTargets4, CoverageMatrix4, HeadKind4, Line, MAX_SEATS, Pending, PendingKind4, PlayerId,
     RECORD_VERSION, ReplaySummary, RolloutStepSidecar4, SeatKnowledge4, Session, Source,
-    SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, encode_candidates4,
-    encode_state4, encode_teacher_action4,
+    SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, encode_candidates7_grouped,
+    encode_state7, encode_teacher_action4,
 };
 
 #[allow(
@@ -60,7 +62,6 @@ pub(super) fn replay_frames(
     let mut unencoded_decisions = 0_u64;
     let mut winners: Option<Vec<u8>> = None;
     let mut final_turn: u32 = 1;
-    let mut mana_pass_count: u64 = 0;
     let mut input_idx: usize = 0;
 
     for line in lines {
@@ -96,28 +97,21 @@ pub(super) fn replay_frames(
                 }
 
                 let p_kind = PendingKind4::of(&pending);
-                let mut step_loss_weight = 1.0_f32;
-                if matches!(&pending, Pending::Priority { .. })
-                    && matches!(action, baylee_engine::choice::PlayerAction::PassPriority)
-                {
-                    // Never drop PassPriority steps from the trajectory sequence (P0-4);
-                    // downweight 5/6 of them via `loss_weight = 0.2`.
-                    let full_weight = mana_pass_count.is_multiple_of(6);
-                    mana_pass_count += 1;
-                    if !full_weight {
-                        step_loss_weight = 0.2;
-                    }
-                }
+                let step_loss_weight = 1.0_f32;
 
                 // Every seat observes the pre-action state, including the acting seat.
                 // Decisions consume this memory; they never update it again.
                 if include_passive_obs {
                     for other_idx in 0..seat_count {
-                        let other_pid = PlayerId::new(other_idx as u8);
-                        let other_v = session.observe_view(other_pid);
+                        let other_v = if other_idx == seat_u8 as usize {
+                            Cow::Borrowed(&view)
+                        } else {
+                            let other_pid = PlayerId::new(other_idx as u8);
+                            Cow::Owned(session.observe_view(other_pid))
+                        };
                         if knowledge[other_idx].observe(&other_v) {
                             let st =
-                                encode_state4(&other_v, None, Some(&knowledge[other_idx]), &teams);
+                                encode_state7(&other_v, None, Some(&knowledge[other_idx]), &teams);
                             let cur_life = other_v.seats.get(other_idx).map_or(20, |s| s.life);
                             let sc = seat_cursors[other_idx];
                             seat_cursors[other_idx] += 1;
@@ -155,13 +149,13 @@ pub(super) fn replay_frames(
                     }
                 }
 
-                let state = encode_state4(
+                let state = encode_state7(
                     &view,
                     Some(&pending),
                     Some(&knowledge[seat_u8 as usize]),
                     &teams,
                 );
-                let cands = encode_candidates4(&state, &view, &pending);
+                let cands = encode_candidates7_grouped(&state, &view, &pending);
 
                 let is_forced = match cands.head {
                     HeadKind4::SingleChoice => cands.candidates.len() <= 1,

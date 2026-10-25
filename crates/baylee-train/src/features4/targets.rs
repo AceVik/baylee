@@ -186,6 +186,14 @@ pub fn encode_teacher_action4(
                 target.single_idx = idx as u16;
                 return Some(target);
             }
+            if let Some(idx) = cands
+                .candidates
+                .iter()
+                .position(|c| matches_grouped_single_action(c, action))
+            {
+                target.single_idx = idx as u16;
+                return Some(target);
+            }
             // Match ChooseObjects / ChooseTargets for single-target questions
             if let (
                 Pending::ChooseTargets { .. },
@@ -265,6 +273,11 @@ pub fn encode_teacher_action4(
                     if !attackers.is_empty() && target.pick_sequence.is_empty() {
                         return None;
                     }
+                    canonicalize_grouped_subset_mask(
+                        cands,
+                        &mut target.multi_mask,
+                        &mut target.pick_sequence,
+                    );
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,
@@ -282,6 +295,11 @@ pub fn encode_teacher_action4(
                         target.multi_mask[idx] = 1;
                         target.pick_sequence.push(idx as u16);
                     }
+                    canonicalize_grouped_subset_mask(
+                        cands,
+                        &mut target.multi_mask,
+                        &mut target.pick_sequence,
+                    );
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,
@@ -307,6 +325,11 @@ pub fn encode_teacher_action4(
                         target.multi_mask[idx] = 1;
                         target.pick_sequence.push(idx as u16);
                     }
+                    canonicalize_grouped_subset_mask(
+                        cands,
+                        &mut target.multi_mask,
+                        &mut target.pick_sequence,
+                    );
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,
@@ -532,4 +555,94 @@ fn choose_best_attack_target(view: &PlayerView, targets: &[Defender]) -> Option<
         }
     }
     best.map(|(_, d)| d)
+}
+
+fn matches_grouped_single_action(cand: &Candidate4, action: &PlayerAction) -> bool {
+    if cand.group_object_ids.is_empty() {
+        return false;
+    }
+    match (&cand.action, action) {
+        (
+            Some(PlayerAction::ActivateManaAbility { .. }),
+            PlayerAction::ActivateManaAbility { source },
+        ) => cand.group_object_ids.contains(source),
+        (
+            Some(PlayerAction::ActivateAbility {
+                ability_index: c_idx,
+                ..
+            }),
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: a_idx,
+            },
+        ) => c_idx == a_idx && cand.group_object_ids.contains(source),
+        (
+            Some(PlayerAction::ChooseObjects { objects: c_objs }),
+            PlayerAction::ChooseObjects { objects: a_objs },
+        ) if c_objs.len() == 1 && a_objs.len() == 1 => cand.group_object_ids.contains(&a_objs[0]),
+        (
+            Some(PlayerAction::ChooseTargets {
+                objects: c_objs,
+                players: c_pl,
+            }),
+            PlayerAction::ChooseTargets {
+                objects: a_objs,
+                players: a_pl,
+            },
+        ) if c_objs.len() == 1 && c_pl.is_empty() && a_objs.len() == 1 && a_pl.is_empty() => {
+            cand.group_object_ids.contains(&a_objs[0])
+        }
+        _ => false,
+    }
+}
+
+fn canonicalize_grouped_subset_mask(
+    cands: &EncodedCandidates4,
+    multi_mask: &mut [u8],
+    pick_sequence: &mut Vec<u16>,
+) {
+    // Only active when within-group ranks (`feat[47] > 0.0`) were populated for grouped entities.
+    if !cands.candidates.iter().any(|c| c.feat[47] > 0.0) {
+        return;
+    }
+    let mut groups: BTreeMap<(i16, i8, u64), Vec<usize>> = BTreeMap::new();
+    for (idx, cand) in cands.candidates.iter().enumerate() {
+        if cand.entity_idx >= 0 {
+            let def_key = match cand.defender {
+                None => 0,
+                Some(Defender::Player(p)) => 1 + u64::from(p.get()),
+                Some(Defender::Planeswalker(id)) => (1 << 16) | pack_object_id(id),
+                Some(Defender::Battle(id)) => (2 << 16) | pack_object_id(id),
+            };
+            groups
+                .entry((cand.entity_idx, cand.rel_seat_idx, def_key))
+                .or_default()
+                .push(idx);
+        }
+    }
+    let mut changed = false;
+    for indices in groups.values() {
+        if indices.len() <= 1 {
+            continue;
+        }
+        let chosen_count = indices
+            .iter()
+            .filter(|&&i| multi_mask.get(i).copied().unwrap_or(0) != 0)
+            .count();
+        for (rank, &i) in indices.iter().enumerate() {
+            let want = u8::from(rank < chosen_count);
+            if multi_mask[i] != want {
+                multi_mask[i] = want;
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        pick_sequence.clear();
+        for (i, &bit) in multi_mask.iter().enumerate() {
+            if bit != 0 {
+                pick_sequence.push(i as u16);
+            }
+        }
+    }
 }

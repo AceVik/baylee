@@ -55,7 +55,7 @@ fn contract(model: &Path) -> anyhow::Result<Value> {
                 meta["encoder_version"].as_u64(),
                 meta["model_version"].as_u64()
             ),
-            (Some(5), Some(2)) | (Some(6), Some(3))
+            (Some(5), Some(2)) | (Some(6 | 7), Some(3))
         ) && meta["trajectory_version"] == 2
             && meta["sampling_version"] == 2,
         "incompatible neural model contract"

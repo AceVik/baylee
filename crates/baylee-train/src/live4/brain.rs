@@ -52,18 +52,7 @@ impl Brain4 for NetPlayer4 {
         deck: &DeckList,
         teams: &[Option<u8>],
     ) -> anyhow::Result<()> {
-        let cards: Vec<_> = deck
-            .main
-            .iter()
-            .chain(&deck.commanders)
-            .map(|entry| {
-                (
-                    entry.card.get(),
-                    u8::try_from(entry.count).unwrap_or(u8::MAX),
-                )
-            })
-            .collect();
-        self.init_own_seat(seat, &cards, teams)
+        self.init_own_deck_list(seat, deck, teams)
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)

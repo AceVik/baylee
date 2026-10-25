@@ -320,3 +320,71 @@ fn target_question_cancellation_is_legal_sideband_but_not_a_fake_target() {
     assert!(view.casting.is_none());
     assert!(view.hand.iter().any(|row| row.id == spell));
 }
+
+#[test]
+fn encode_state7_groups_identical_permanents_and_deduplicates_candidates() {
+    use crate::features4::{EntityZone4, encode_teacher_action4};
+    use crate::features7::{
+        ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
+    };
+
+    let mut session = game(
+        [&["Llanowar Elves"], &[]],
+        [
+            &["Forest", "Forest", "Forest", "Forest", "Forest"],
+            &["Mountain", "Mountain", "Mountain"],
+        ],
+    );
+    main_phase(&mut session);
+    let (pending, view) = session.view_for_with_context(P0).unwrap();
+    let state = encode_state7(&view, Some(&pending), None, &[]);
+    assert_eq!(state.global_feat.len(), GLOBAL_FEAT_WIDTH7);
+    assert!(
+        state
+            .entity_feat
+            .iter()
+            .all(|f| f.len() == ENTITY_FEAT_WIDTH7)
+    );
+
+    // 5 identical Forests + 3 identical Mountains = 2 battlefield entity tokens (instead of 8).
+    let bf_indices: Vec<usize> = state
+        .entity_zone_ids
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &z)| (z == EntityZone4::Battlefield as u8).then_some(i))
+        .collect();
+    assert_eq!(bf_indices.len(), 2);
+
+    let forest_ent_idx = bf_indices
+        .iter()
+        .copied()
+        .find(|&i| state.entity_group_members[i].len() == 5)
+        .expect("grouped Forest entity");
+    assert!((state.entity_feat[forest_ent_idx][122] - 5.0).abs() < 1e-6);
+
+    let menu = encode_candidates7_grouped(&state, &view, &pending);
+    let mana_cands: Vec<_> = menu
+        .candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c.action, Some(PlayerAction::ActivateManaAbility { .. })))
+        .collect();
+    assert_eq!(
+        mana_cands.len(),
+        1,
+        "5 identical Forests must deduplicate to 1 ActivateManaAbility candidate"
+    );
+    let (mana_cand_idx, mana_cand) = mana_cands[0];
+    assert_eq!(mana_cand.group_object_ids.len(), 5);
+
+    // Teacher action for ANY of the 5 Forest ObjectIds must map to `mana_cand_idx`.
+    for &forest_id in &mana_cand.group_object_ids {
+        let teacher = encode_teacher_action4(
+            &menu,
+            &pending,
+            &PlayerAction::ActivateManaAbility { source: forest_id },
+        )
+        .expect("teacher action maps to grouped candidate");
+        assert_eq!(usize::from(teacher.single_idx), mana_cand_idx);
+    }
+}

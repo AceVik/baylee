@@ -31,6 +31,9 @@ use crate::features4::{
     StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice, encode_candidates4,
     encode_state4, normalize_scalar_choice, view_only_state_hash,
 };
+use crate::features7::{
+    ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
+};
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
@@ -72,6 +75,7 @@ pub struct NetPlayer4 {
     sessions: BTreeMap<u8, Session>,
     model_dir: PathBuf,
     rule_roots: Option<BTreeMap<String, u32>>,
+    encoder_version: u32,
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
@@ -141,8 +145,12 @@ impl NetPlayer4 {
             (path.to_path_buf(), meta_p)
         };
         let meta: Value = serde_json::from_slice(&fs::read(&meta_path)?)?;
-        let legacy = meta["encoder_version"] == 5 && meta["model_version"] == 2;
-        let structured = meta["encoder_version"] == 6 && meta["model_version"] == 3;
+        let encoder_version = meta["encoder_version"]
+            .as_u64()
+            .context("missing encoder_version")? as u32;
+        let legacy = encoder_version == 5 && meta["model_version"] == 2;
+        let structured =
+            (encoder_version == 6 || encoder_version == 7) && meta["model_version"] == 3;
         anyhow::ensure!(
             (legacy || structured)
                 && meta["trajectory_version"] == 2
@@ -169,6 +177,7 @@ impl NetPlayer4 {
             sessions: BTreeMap::from([(thinking_steps, session)]),
             model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
             rule_roots,
+            encoder_version,
             d_model,
             thinking_steps,
             temperature: 0.0,
@@ -263,7 +272,11 @@ impl NetPlayer4 {
             .entry(s)
             .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
             .clone();
-        let state = encode_state4(view, None, self.knowledge.get(&s), &self.teams);
+        let state = if self.encoder_version >= 7 {
+            encode_state7(view, None, self.knowledge.get(&s), &self.teams)
+        } else {
+            encode_state4(view, None, self.knowledge.get(&s), &self.teams)
+        };
         let empty_cands = EncodedCandidates4 {
             head: HeadKind4::SingleChoice,
             pending_kind: PendingKind4::Priority,
@@ -316,8 +329,15 @@ impl NetPlayer4 {
             .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
             .clone();
 
-        let state = encode_state4(view, Some(pending), self.knowledge.get(&seat_u8), teams);
-        let cands = encode_candidates4(&state, view, pending);
+        let (state, cands) = if self.encoder_version >= 7 {
+            let st = encode_state7(view, Some(pending), self.knowledge.get(&seat_u8), teams);
+            let cd = encode_candidates7_grouped(&st, view, pending);
+            (st, cd)
+        } else {
+            let st = encode_state4(view, Some(pending), self.knowledge.get(&seat_u8), teams);
+            let cd = encode_candidates4(&st, view, pending);
+            (st, cd)
+        };
 
         // 1. Check if forced (<= 1 legal choice)
         let is_forced = match cands.head {
@@ -335,7 +355,10 @@ impl NetPlayer4 {
                 scalar_norm: 0.0,
             };
             let (action, source) = decode_action4(&cands, view, pending, &forced_target)
-                .filter(|a| pending.answer_fault(a).is_none())
+                .filter(|a| {
+                    (matches!(a, PlayerAction::CancelCast) && view.casting.is_some())
+                        || pending.answer_fault(a).is_none()
+                })
                 .map_or_else(
                     || {
                         (
@@ -428,12 +451,19 @@ impl NetPlayer4 {
         k_val: u8,
     ) -> anyhow::Result<StepOutputs> {
         let e_len = state.entity_feat.len().max(1);
-        let mut ent_feat = vec![0.0_f32; e_len * ENTITY_FEAT_WIDTH];
+        let ent_width = state.entity_feat.first().map_or(
+            if self.encoder_version >= 7 {
+                ENTITY_FEAT_WIDTH7
+            } else {
+                ENTITY_FEAT_WIDTH
+            },
+            Vec::len,
+        );
+        let mut ent_feat = vec![0.0_f32; e_len * ent_width];
         let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
         let mut ent_mask = vec![false; e_len];
         for i in 0..state.entity_feat.len() {
-            ent_feat[i * ENTITY_FEAT_WIDTH..(i + 1) * ENTITY_FEAT_WIDTH]
-                .copy_from_slice(&state.entity_feat[i]);
+            ent_feat[i * ent_width..(i + 1) * ent_width].copy_from_slice(&state.entity_feat[i]);
             let dsl = state.entity_dsl_summary(i);
             ent_dsl[i * CARD_DSL_WIDTH..(i + 1) * CARD_DSL_WIDTH].copy_from_slice(&dsl);
             ent_mask[i] = true;
@@ -444,6 +474,15 @@ impl NetPlayer4 {
             seat_feat[s * SEAT_FEAT_WIDTH..(s + 1) * SEAT_FEAT_WIDTH]
                 .copy_from_slice(&state.seat_feat[s]);
         }
+        let glob_width = if state.global_feat.is_empty() {
+            if self.encoder_version >= 7 {
+                GLOBAL_FEAT_WIDTH7
+            } else {
+                GLOBAL_FEAT_WIDTH
+            }
+        } else {
+            state.global_feat.len()
+        };
         let global_feat = state.global_feat.clone();
 
         let m_len = state.edges.len().max(1);
@@ -483,11 +522,11 @@ impl NetPlayer4 {
 
         let k_steps = vec![i64::from(k_val)];
         let mut inputs = ort::inputs![
-            "entity_feat" => Tensor::from_array(([1, e_len, ENTITY_FEAT_WIDTH], ent_feat)).map_err(ort_error)?,
+            "entity_feat" => Tensor::from_array(([1, e_len, ent_width], ent_feat)).map_err(ort_error)?,
             "entity_dsl" => Tensor::from_array(([1, e_len, CARD_DSL_WIDTH], ent_dsl)).map_err(ort_error)?,
             "entity_mask" => Tensor::from_array(([1, e_len], ent_mask)).map_err(ort_error)?,
             "seat_feat" => Tensor::from_array(([1, MAX_SEATS, SEAT_FEAT_WIDTH], seat_feat)).map_err(ort_error)?,
-            "global_feat" => Tensor::from_array(([1, GLOBAL_FEAT_WIDTH], global_feat)).map_err(ort_error)?,
+            "global_feat" => Tensor::from_array(([1, glob_width], global_feat)).map_err(ort_error)?,
             "edge_index" => Tensor::from_array(([1, m_len, 2], edge_index)).map_err(ort_error)?,
             "edge_type" => Tensor::from_array(([1, m_len], edge_type)).map_err(ort_error)?,
             "edge_mask" => Tensor::from_array(([1, m_len], edge_mask)).map_err(ort_error)?,
@@ -616,7 +655,9 @@ impl NetPlayer4 {
 
         let action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
-        if let Some(fault) = pending.answer_fault(&action) {
+        if !(matches!(action, PlayerAction::CancelCast) && view.casting.is_some())
+            && let Some(fault) = pending.answer_fault(&action)
+        {
             anyhow::bail!("decoded action failed answer_fault: {fault:?}");
         }
         Ok((action, value.clamp(0.0, 1.0), logprob, target))

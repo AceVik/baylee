@@ -183,12 +183,13 @@ def main() -> None:
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
         ckpt_init = torch.load(init_pt, map_location="cpu", weights_only=False)
         if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") != M.MODEL_VERSION
-                or ckpt_init.get("encoder_version") != M.ENCODER_VERSION):
+                or ckpt_init.get("encoder_version") not in (6, M.ENCODER_VERSION)):
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
         from model4.structure import structure_digest
         if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
             raise ValueError("Initial checkpoint uses a different public rules catalog")
-        net.load_state_dict(ckpt_init["state_dict"], strict=True)
+        upgraded = M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net)
+        net.load_state_dict(upgraded, strict=True)
         print(f"[train4] loaded initial weights from {init_pt}")
     val_head_params = [p for n, p in net.named_parameters() if "seat_value_head" in n]
     other_params = [p for n, p in net.named_parameters() if "seat_value_head" not in n]

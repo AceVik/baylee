@@ -196,6 +196,9 @@ pub struct Candidate4 {
     /// Atomic defender target for `ChooseAttackers` (`P1-8`).
     #[serde(default)]
     pub defender: Option<Defender>,
+    /// All member `ObjectId`s when a `SingleChoice` candidate represents a deduplicated permanent group.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub group_object_ids: Vec<ObjectId>,
 }
 
 impl Default for Candidate4 {
@@ -212,6 +215,7 @@ impl Default for Candidate4 {
             player_id: None,
             index_id: None,
             defender: None,
+            group_object_ids: Vec::new(),
         }
     }
 }

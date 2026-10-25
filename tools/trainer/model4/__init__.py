@@ -96,6 +96,9 @@ class PlayerNet4(nn.Module):
             nn.GELU(),
             nn.Linear(d, d),
         )
+        self.cand_ctx_proj = nn.Linear(d * 2, d)
+        nn.init.zeros_(self.cand_ctx_proj.weight)
+        nn.init.zeros_(self.cand_ctx_proj.bias)
         self.cand_scorer = nn.Sequential(
             nn.Linear(d * 4, d),
             nn.LayerNorm(d),
@@ -338,7 +341,14 @@ class PlayerNet4(nn.Module):
 
             g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
             cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-            cand_logits = self.cand_scorer(cand_in).squeeze(-1)
+            h_c = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+            valid_c = cand_mask.unsqueeze(-1).to(h_c.dtype)
+            c_count = valid_c.sum(dim=1, keepdim=True).clamp(min=1.0)
+            c_mean = (h_c * valid_c).sum(dim=1, keepdim=True) / c_count
+            c_max = h_c.masked_fill(~cand_mask.unsqueeze(-1), -1e4).amax(dim=1, keepdim=True)
+            c_max = c_max * (valid_c.sum(dim=1, keepdim=True) > 0.0).to(h_c.dtype)
+            h_c = h_c + self.cand_ctx_proj(torch.cat([c_mean, c_max], dim=-1))
+            cand_logits = self.cand_scorer[3](h_c).squeeze(-1)
             cand_logits = cand_logits.masked_fill(~cand_mask, -1e9)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
@@ -441,3 +451,22 @@ class PlayerNet4(nn.Module):
             )
         )
         return h_out, cand_logits, pair_logits, scalar_pred, value
+
+
+def upgrade_state_dict_to_v7(
+    state_dict: dict[str, torch.Tensor], net: PlayerNet4
+) -> dict[str, torch.Tensor]:
+    """Zero-pad Encoder 6 input projections and initialize missing candidate context weights."""
+    out = dict(state_dict)
+    for key in ("global_proj.0.weight", "entity_proj.0.weight"):
+        if key in out:
+            old_w = out[key]
+            target_w = net.state_dict()[key]
+            if old_w.shape[0] == target_w.shape[0] and old_w.shape[1] < target_w.shape[1]:
+                padded = torch.zeros_like(target_w, dtype=old_w.dtype, device=old_w.device)
+                padded[:, : old_w.shape[1]] = old_w
+                out[key] = padded
+    for key in ("cand_ctx_proj.weight", "cand_ctx_proj.bias"):
+        if key not in out and key in net.state_dict():
+            out[key] = torch.zeros_like(net.state_dict()[key])
+    return out

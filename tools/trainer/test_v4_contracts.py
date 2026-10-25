@@ -321,6 +321,40 @@ def test_p0_6_dynamic_thinking_loop_in_pytorch_and_onnx():
         assert np.allclose(h_by_k[1], h_by_k[8], atol=1e-6), "Persistent h_out must be invariant to thinking depth K"
 
 
+def test_p0_7_encoder7_warm_start_and_candidate_context_refinement():
+    """Verify Encoder 6 -> 7 warm start (upgrade_state_dict_to_v7) and cand_ctx_proj menu awareness."""
+    cfg = M.Config4(d_model=64, n_heads=4, n_layers=2, d_ff=128, dropout=0.0)
+    net7 = M.PlayerNet4(cfg)
+    v6_sd = net7.state_dict()
+    # Simulate an archived Encoder 6 state_dict: entity_proj input width 96, global_proj 64, no cand_ctx_proj
+    v6_sd["entity_proj.0.weight"] = v6_sd["entity_proj.0.weight"][:, :96].clone()
+    v6_sd["global_proj.0.weight"] = v6_sd["global_proj.0.weight"][:, :64].clone()
+    v6_sd.pop("cand_ctx_proj.weight")
+    v6_sd.pop("cand_ctx_proj.bias")
+
+    upgraded = M.upgrade_state_dict_to_v7(v6_sd, net7)
+    net7.load_state_dict(upgraded, strict=True)
+    assert torch.all(net7.entity_proj[0].weight[:, 96:128] == 0.0)
+    assert torch.all(net7.global_proj[0].weight[:, 64:80] == 0.0)
+    assert torch.all(net7.cand_ctx_proj.weight == 0.0)
+
+    # Activate cand_ctx_proj and cand_scorer and verify candidate 0's logit changes when competing candidate 1 changes
+    with torch.no_grad():
+        net7.cand_ctx_proj.weight.normal_(0.0, 0.25)
+        for m in net7.cand_scorer.modules():
+            if isinstance(m, torch.nn.Linear):
+                m.weight.normal_(0.0, 0.25)
+    dummy_a = list(make_dummy_inputs(cfg.d_model, B=1, E=6, M_edges=4, C=3, P=2, K=1))
+    dummy_b = [t.clone() for t in dummy_a]
+    cand_feat_idx = M.INPUT_NAMES.index("cand_feat")
+    # Change candidate 1 features while keeping candidate 0 identical
+    dummy_b[cand_feat_idx][:, 1, :] += 2.5
+    with torch.no_grad():
+        logits_a = net7(*dummy_a)[1]
+        logits_b = net7(*dummy_b)[1]
+    assert abs(float(logits_a[0, 0] - logits_b[0, 0])) > 1e-4, "cand_ctx_proj must make candidate 0 sensitive to competing candidates"
+
+
 if __name__ == "__main__":
     test_p0_1_seat_feat_indices_and_value_head_non_collapse()
     test_p0_2_no_silent_single_idx_relabeling_and_pair_remapping()
@@ -328,4 +362,5 @@ if __name__ == "__main__":
     test_p0_4_stateful_batch_sampler_streams_consecutive_segments()
     test_p0_5_reverse_gae_and_terminal_bootstrap()
     test_p0_6_dynamic_thinking_loop_in_pytorch_and_onnx()
-    print("ALL 6 PYTHON P0/P1 CONTRACT TESTS PASSED!")
+    test_p0_7_encoder7_warm_start_and_candidate_context_refinement()
+    print("ALL 7 PYTHON P0/P1 CONTRACT TESTS PASSED!")

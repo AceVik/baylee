@@ -200,3 +200,133 @@ fn registration_multiset_does_not_confuse_fixed_hand_with_library_cards() {
         7
     );
 }
+
+#[test]
+fn ledger_distinguishes_ordinary_draw_empty_fixed_hand_and_additional_fixed_hand() {
+    let p0 = PlayerId::new(0);
+
+    // 1. Ordinary opening draw (starting_hand = None): 7 drawn from 60 -> 53 left in library.
+    let mut ordinary = preset();
+    empty_own(&mut ordinary);
+    ordinary.seats[0].deck = vec![entry(0); 60];
+    let mut ledger_ordinary = InventoryLedger7::from_preset(&ordinary, p0).unwrap();
+    let session_ordinary = baylee_gamehost::Session::new(&ordinary).unwrap();
+    let view_ordinary = session_ordinary.observe_view(p0);
+    ledger_ordinary.observe(&view_ordinary);
+    assert_eq!(ledger_ordinary.remaining_copies_in_library(0), 53);
+    assert_eq!(ledger_ordinary.total_remaining_library_cards(), 53);
+
+    // 2. Explicitly empty fixed hand (starting_hand = Some([])): 0 drawn -> 60 left in library.
+    let mut empty_fixed = ordinary.clone();
+    empty_fixed.seats[0].starting_hand = Some(vec![]);
+    let mut ledger_empty = InventoryLedger7::from_preset(&empty_fixed, p0).unwrap();
+    let session_empty = baylee_gamehost::Session::new(&empty_fixed).unwrap();
+    let view_empty = session_empty.observe_view(p0);
+    ledger_empty.observe(&view_empty);
+    assert_eq!(ledger_empty.remaining_copies_in_library(0), 60);
+    assert_eq!(ledger_empty.total_remaining_library_cards(), 60);
+
+    // 3. Explicit additional starting hand (starting_hand = Some(7)): 7 additional in hand -> 60 left in library.
+    let mut explicit_fixed = ordinary;
+    explicit_fixed.seats[0].starting_hand = Some(vec![entry(0); 7]);
+    let mut ledger_explicit = InventoryLedger7::from_preset(&explicit_fixed, p0).unwrap();
+    let session_explicit = baylee_gamehost::Session::new(&explicit_fixed).unwrap();
+    let view_explicit = session_explicit.observe_view(p0);
+    ledger_explicit.observe(&view_explicit);
+    assert_eq!(ledger_explicit.remaining_copies_in_library(0), 60);
+    assert_eq!(ledger_explicit.total_remaining_library_cards(), 60);
+}
+
+#[test]
+fn ledger_preserves_counts_across_zone_transitions_and_ignores_tokens() {
+    let p0 = PlayerId::new(0);
+    let mountain = CardIndex::new(0);
+    let shock = CardIndex::new(7);
+
+    let mut p = preset();
+    empty_own(&mut p);
+    p.seats[0].deck = {
+        let mut d = vec![entry(mountain.get()); 40];
+        d.extend(std::iter::repeat_n(entry(shock.get()), 20));
+        d
+    };
+    p.seats[0].starting_hand = Some(vec![entry(mountain.get()), entry(shock.get())]);
+    p.seats[0].sideboard = vec![entry(shock.get()); 3];
+
+    let mut ledger = InventoryLedger7::from_preset(&p, p0).unwrap();
+    let session = baylee_gamehost::Session::new(&p).unwrap();
+    let mut view = session.observe_view(p0);
+    ledger.observe(&view);
+    assert_eq!(ledger.remaining_copies_in_library(mountain.get()), 40);
+    assert_eq!(ledger.remaining_copies_in_library(shock.get()), 20);
+    assert_eq!(ledger.remaining_sideboard_groups()[0].remaining_copies, 3);
+
+    // Simulate drawing one Mountain from library into hand and injecting a token onto the battlefield.
+    let drawn_id = ObjectId::new(99_991, 0);
+    view.hand.push(baylee_view::HandObject {
+        id: drawn_id,
+        card: baylee_view::CardIdentity {
+            index: mountain,
+            print: PrintRef::new(0),
+            face: 0,
+        },
+        name: "Mountain".into(),
+        mana_value: 0,
+        colors: baylee_core::color::ColorSet::EMPTY,
+        types: baylee_core::types::TypeSet::LAND,
+        commander: false,
+    });
+    if let Some(seat) = view.seats.iter_mut().find(|s| s.player == p0) {
+        seat.library_count = 59;
+        seat.hand_count = 3;
+    }
+    ledger.observe(&view);
+    assert_eq!(ledger.remaining_copies_in_library(mountain.get()), 39);
+    assert_eq!(ledger.remaining_copies_in_library(shock.get()), 20);
+    assert_eq!(ledger.total_remaining_library_cards(), 59);
+
+    // Move the drawn Mountain from hand to battlefield, and inject a token with the same card_id.
+    view.hand.retain(|h| h.id != drawn_id);
+    let mut bf_mountain: baylee_view::PublicObject = serde_json::from_value(serde_json::json!({
+        "id": drawn_id,
+        "card": { "index": mountain, "print": 0, "face": 0 },
+        "rules": { "card": mountain, "face": 0 },
+        "name": "Mountain",
+        "controller": p0,
+        "owner": p0,
+        "status": 0,
+        "types": baylee_core::types::TypeSet::LAND,
+        "supertypes": baylee_core::types::SupertypeSet::BASIC,
+        "subtypes": baylee_core::types::SubtypeSet::EMPTY,
+        "colors": baylee_core::color::ColorSet::EMPTY,
+        "keywords": 0,
+        "mana_value": 0,
+        "damage": 0,
+        "counters": [],
+        "targets": [],
+        "summoning_sick": false,
+        "ability_mana_spending": baylee_core::mana::ManaSpending::EXACT
+    }))
+    .unwrap();
+    bf_mountain.id = drawn_id;
+    bf_mountain.owner = p0;
+    bf_mountain.controller = p0;
+    bf_mountain.status = ObjectStatus::NONE;
+    bf_mountain.token = None;
+    bf_mountain.card = Some(baylee_view::CardIdentity {
+        index: mountain,
+        print: PrintRef::new(0),
+        face: 0,
+    });
+
+    let mut token_copy = bf_mountain.clone();
+    token_copy.id = ObjectId::new(99_992, 0);
+    token_copy.status = ObjectStatus::TOKEN;
+
+    view.battlefield.push(bf_mountain);
+    view.battlefield.push(token_copy);
+    ledger.observe(&view);
+
+    assert_eq!(ledger.remaining_copies_in_library(mountain.get()), 39);
+    assert_eq!(ledger.remaining_copies_in_library(shock.get()), 20);
+}

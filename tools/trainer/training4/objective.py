@@ -2,7 +2,7 @@
 import torch
 import torch.nn.functional as F
 
-LOSS_VERSION = 2
+LOSS_VERSION = 3
 
 
 def selection_score(metrics, selection):
