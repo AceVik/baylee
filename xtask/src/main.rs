@@ -96,6 +96,15 @@ fn main() -> anyhow::Result<()> {
         .to_path_buf();
     match cli.cmd {
         Cmd::Codegen {
+            complete_stub,
+            check,
+            scripts,
+            cache,
+            ..
+        } if !complete_stub.is_empty() => {
+            reclaim::complete_stubs(&root, &cache, &scripts, &complete_stub, check)
+        }
+        Cmd::Codegen {
             reclaim,
             check,
             scripts,

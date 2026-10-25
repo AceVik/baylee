@@ -16,8 +16,12 @@ pub(crate) enum Cmd {
     Codegen {
         /// Return only named implemented cards to generator ownership after a full read.
         /// Uses cached pinned printings and accepted canonical tests; never downloads.
-        #[arg(long, conflicts_with_all = ["hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        #[arg(long, conflicts_with_all = ["complete_stub", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
         reclaim: Vec<String>,
+        /// Complete only named existing machine-owned stubs after a full local read.
+        /// Preserves pinned identities; Generated unless canonical tests are accepted.
+        #[arg(long, conflicts_with_all = ["reclaim", "hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        complete_stub: Vec<String>,
         /// Restore only these reviewed, hand-owned cards to canonical stubs.
         /// Repeat for multiple names; requires a concrete review reason.
         #[arg(long, conflicts_with_all = ["adopt_stub", "tables", "subtypes"], requires = "hold_back_reason")]

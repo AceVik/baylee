@@ -1,5 +1,6 @@
 //! Pin reclaim input to the actual card macro and its cached printing.
 
+use super::Mode;
 use crate::{Path, fs, ledger, scryfall, stubgen};
 use anyhow::Context;
 use std::collections::BTreeMap;
@@ -26,6 +27,7 @@ pub(super) fn pinned_printing(
     cache: &Path,
     row: &ledger::LedgerEntry,
     source: &str,
+    mode: Mode,
 ) -> anyhow::Result<scryfall::ScryfallCard> {
     let file = syn::parse_file(source)?;
     let cards: Vec<_> = file
@@ -56,12 +58,7 @@ pub(super) fn pinned_printing(
         "{} source index disagrees with ledger",
         row.name
     );
-    anyhow::ensure!(
-        path_is(fields.get("coverage"), &["Coverage", "Implemented"])
-            && !source.contains(stubgen::STUB_MARKER),
-        "{} must already be Implemented",
-        row.name
-    );
+    require_ownership(&fields, source, mode, &row.name)?;
     anyhow::ensure!(
         string(fields.get("oracle_id"))? == row.oracle_id,
         "{} source oracle disagrees with ledger",
@@ -104,6 +101,30 @@ pub(super) fn pinned_printing(
     Ok(printing)
 }
 
+fn require_ownership(
+    fields: &BTreeMap<String, syn::Expr>,
+    source: &str,
+    mode: Mode,
+    name: &str,
+) -> anyhow::Result<()> {
+    match mode {
+        Mode::Reclaim => anyhow::ensure!(
+            path_is(fields.get("coverage"), &["Coverage", "Implemented"])
+                && !source.contains(stubgen::STUB_MARKER),
+            "{} must already be Implemented",
+            name
+        ),
+        Mode::CompleteStub => anyhow::ensure!(
+            stubgen::adopt_stub(source).is_some()
+                && (!fields.contains_key("coverage")
+                    || path_is(fields.get("coverage"), &["Coverage", "Unimplemented"])),
+            "{} must be an unfinished machine-owned stub",
+            name
+        ),
+    }
+    Ok(())
+}
+
 fn string(expr: Option<&syn::Expr>) -> anyhow::Result<String> {
     if let Some(syn::Expr::Lit(syn::ExprLit {
         lit: syn::Lit::Str(value),
@@ -112,7 +133,7 @@ fn string(expr: Option<&syn::Expr>) -> anyhow::Result<String> {
     {
         return Ok(value.value());
     }
-    anyhow::bail!("a reclaim identity field is not a string literal")
+    anyhow::bail!("a selected-card identity field is not a string literal")
 }
 
 fn path_is(expr: Option<&syn::Expr>, names: &[&str]) -> bool {

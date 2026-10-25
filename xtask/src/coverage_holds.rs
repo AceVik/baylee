@@ -8,12 +8,21 @@ pub(crate) use baylee_cards_codegen::coverage_holds::CoverageHolds;
 
 /// Read and validate holds against current source, before codegen writes anything.
 pub(crate) fn load(root: &Path) -> anyhow::Result<CoverageHolds> {
+    load_completing_stubs(root, &BTreeSet::new())
+}
+
+/// Include only explicitly selected stubs that must fully render before any write.
+/// Their existing holds keep canonical tests unaccepted during that transition.
+pub(crate) fn load_completing_stubs(
+    root: &Path,
+    completing: &BTreeSet<String>,
+) -> anyhow::Result<CoverageHolds> {
     let path = root.join("data/card-test-holds.tsv");
     let text =
         std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     let holds = CoverageHolds::parse(&text)?;
     let cards = root.join("crates/baylee-cards/src/cards");
-    let mut eligible = BTreeSet::new();
+    let mut eligible = completing.clone();
     for path in crate::card_files(&cards)?.values() {
         let source = std::fs::read_to_string(path)?;
         let Some(coverage) = crate::files::knob(&source, "coverage") else {
