@@ -1205,8 +1205,18 @@ shield is a count on the object (`Object::regeneration_shields`) and
 `sba::destroy` is where it is spent — the creature is tapped through
 `GameState::set_tapped`, its marked damage and its deathtouch flag are
 cleared, and it is removed from combat. `sba::destroy_no_regen` is the same
-door with the shield skipped, which is CR 701.19c and the eight cards in the
-pool that print "it can't be regenerated".
+door with the shield skipped (CR 701.19c).
+
+Ordinary destruction also checks the turn's exact-object regeneration
+prohibitions and active `Modifier::CantBeRegenerated` rule effects before
+offering or spending a shield. A continuous prohibition reads its filter at
+destruction: `Filter::DealtDamageBySourceThisTurn` names the exact current
+recipients that source actually damaged this turn, so removing the static
+source removes its prohibition. `Effect::DamagedThisWayCantBeRegenerated`
+instead records the creature recipients of positive damage dealt by this
+resolution's source after prevention and redirection. That prohibition lasts
+through the turn independently of the source and does not follow a recipient
+through a zone change. Neither form consumes a shield it disallows.
 
 Three things about it are easy to get backwards:
 

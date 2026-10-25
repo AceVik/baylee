@@ -27,6 +27,8 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
         Filter::HasWatermark,
         Filter::SharesWatermarkWithSource,
         Filter::UnCard,
+        Filter::DealtDamageToSourceThisTurn,
+        Filter::DealtDamageBySourceThisTurn,
     ] {
         assert_eq!(
             read(&filter, Some(obj(1))),
@@ -35,6 +37,13 @@ fn a_filter_the_view_cannot_answer_is_not_answered_no() {
              would look exactly like a read answer"
         );
     }
+    assert_eq!(
+        read(
+            &Filter::Not(&Filter::DealtDamageBySourceThisTurn),
+            Some(obj(1))
+        ),
+        None
+    );
     // `IsToken` is also unreadable for the object that carries
     // neither handle: a face-down permanent and a token copying a card
     // are one shape in a view and opposite answers in the rules.

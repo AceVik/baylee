@@ -300,6 +300,7 @@ impl HeuristicAgent {
         // Pairwise target context is not available to this filter reader.
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::DealtDamageBySourceThisTurn
         | Filter::BlockedByReference
         | Filter::DealtDamageThisTurn
         | Filter::BlockedThisTurn

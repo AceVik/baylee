@@ -1962,6 +1962,14 @@ Modal/sequence: `Sequence(&[..])`.
 `ModifyPTHalfCount(count)`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
 
+`Modifier::CantBeRegenerated` is "[these permanents] can't be regenerated"
+(CR 701.19c). It changes the rules of destruction rather than an object's
+abilities, so it is a rule effect. Destruction checks the modifier's current
+filter before offering or spending a regeneration shield; the shield remains
+on the object. With `Filter::DealtDamageBySourceThisTurn`, the prohibition
+applies to the exact current objects that source damaged this turn and
+continues only while the continuous effect applies.
+
 `Filter::NamedBySource` reads a name chosen during the current resolution
 first. `ChooseCardName` supplies that local choice whether or not `remember`
 is set and whether or not the source remains on the battlefield (CR 113.7a,
@@ -2484,6 +2492,12 @@ Effects:
   only. "Destroy … It can't be regenerated" is `destroy_no_regen`, not
   this. The reader writes it from an `Effect` whose one static is
   `CantRegenerate` on what it remembers, the line's target.
+- **`Effect::DamagedThisWayCantBeRegenerated`** is "creatures dealt damage
+  this way can't be regenerated this turn". It marks the exact creature
+  recipients of positive damage actually dealt by the resolving source in
+  this resolution, after prevention and redirection. It does not mark a
+  prevented target, another source's damage, or a later incarnation of a
+  recipient, and its prohibition expires at cleanup.
 - **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
   returns every matching card in your graveyard. Nothing is targeted.
 
@@ -3948,6 +3962,11 @@ Filters:
 - `Filter::DealtDamageToSourceThisTurn` — dealt damage this turn to the
   source, as the object that dealt it (Brine Hag's dies trigger: "all
   creatures that dealt damage to it this turn").
+- `Filter::DealtDamageBySourceThisTurn` — was dealt positive damage this
+  turn by the source, after prevention and redirection. Both source and
+  recipient are the exact incarnations recorded by the damage event; a
+  returned permanent is a new object. Damage history is engine state, so
+  public-view readers answer unknown rather than infer it from marked damage.
 - `Filter::BlockingSource` / `BlockedBySource` now also answer for a source
   that has left the battlefield, as it last existed (Abu Ja'far:
   `Trigger::Dies(&Filter::This)` →
