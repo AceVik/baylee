@@ -20,6 +20,7 @@ mod attacking_tokens;
 mod battle_sba;
 mod blocks;
 mod branches;
+mod color_source;
 mod combat_memory;
 mod control;
 mod costs;

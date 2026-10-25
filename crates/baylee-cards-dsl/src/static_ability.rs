@@ -126,6 +126,10 @@ pub enum Modifier {
     CantBeRegenerated,
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
+    /// Add the specified supertypes without changing card types or subtypes.
+    AddSupertype(baylee_core::types::SupertypeSet),
+    /// Remove the specified supertypes without changing other supertypes.
+    RemoveSupertype(baylee_core::types::SupertypeSet),
     /// Animate Artifact: if the affected object is not a creature in layer
     /// 4, add artifact and creature without removing any types, then set
     /// its power and toughness to its mana value in layer 7b. This is one
@@ -946,6 +950,11 @@ pub enum PtCount {
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Cards matching the filter in all players' graveyards, excluding tokens.
+    InAllGraveyards(&'static crate::Filter),
+    /// Matching permanents controlled by the opponent chosen for this object;
+    /// zero when this incarnation has no chosen opponent.
+    ChosenPlayerControls(&'static crate::Filter),
     /// Permanents matching the filter that the defending player controls,
     /// for an object that is attacking: the player it attacks, or the
     /// controller of the planeswalker it attacks (CR 508.5). Gaea's Liege,
@@ -1021,6 +1030,8 @@ impl Modifier {
                         Self::GainControl => Layer::Control,
             // Layer 4: type-changing effects.
             Self::AddType(_)
+            | Self::AddSupertype(_)
+            | Self::RemoveSupertype(_)
             | Self::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Self::AnimateNoncreatureArtifact
             | Self::RemoveType(_)

@@ -22,6 +22,7 @@ pub(super) fn choose(
     duration: Duration,
 ) -> Option<Pending> {
     let target = match subject {
+        ColorSubject::Source => subjects::source(state, res),
         ColorSubject::Target => res
             .targets
             .first()

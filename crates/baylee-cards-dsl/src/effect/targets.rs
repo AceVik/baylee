@@ -238,6 +238,8 @@ pub enum TargetSpec {
 /// The permanent whose colors an instruction changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ColorSubject {
+    /// The exact source of this spell or ability, independent of its targets.
+    Source,
     /// The explicitly targeted permanent.
     Target,
     /// The source's currently attached host, with departure LKI when needed.

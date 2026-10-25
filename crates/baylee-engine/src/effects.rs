@@ -103,6 +103,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // Characteristics: types, colors, abilities, P/T — and control,
         // which the rule names beside them.
         Modifier::AddType(_)
+        | Modifier::AddSupertype(_)
+        | Modifier::RemoveSupertype(_)
         | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
         | Modifier::AnimateNoncreatureArtifact
         | Modifier::RemoveType(_)

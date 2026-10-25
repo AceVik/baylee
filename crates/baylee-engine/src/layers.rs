@@ -814,14 +814,14 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // Nothing in the modifier vocabulary changes any of these. Ownership
         // and tokenhood are fixed for as long as the object exists (CR
         // 108.3, CR 111.1); tapped, attacking, attachment and zone are game
-        // state rather than a characteristic a continuous effect writes; no
-        // modifier grants a supertype; and mana value comes off the printed
+        // state rather than a characteristic a continuous effect writes; mana value comes off the printed
         // cost, which only copying rewrites — and a copy effect's own filter
         // names an object rather than reading one of these. A *name* is the
         // same case as mana value: layer 3 (CR 613.1c) writes one and this
         // vocabulary has no such modifier, `BecomeCopyOf` being layer 1 and
         // applied before any of this. The day a text-changing modifier
         // exists, `Named` is what leaves this list.
+        Filter::HasSupertype(_) => matches!(modifier, Modifier::AddSupertype(_) | Modifier::RemoveSupertype(_)),
         Filter::HasRampage | Filter::HasCumulativeUpkeep | Filter::HasManaAbility => {
             matches!(layer, Layer::Ability | Layer::Type)
         }
@@ -832,7 +832,6 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::HasAdventure
         | Filter::This
         | Filter::Another
-        | Filter::HasSupertype(_)
         | Filter::IsToken
         | Filter::WithSingleTarget
         | Filter::OwnedBySourceOwner
@@ -1080,6 +1079,8 @@ fn apply(
             }
         }
         Modifier::AddType(t) => c.types = c.types.union(*t),
+        Modifier::AddSupertype(types) => c.supertypes = c.supertypes.union(*types),
+        Modifier::RemoveSupertype(types) => c.supertypes = c.supertypes.difference(*types),
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
