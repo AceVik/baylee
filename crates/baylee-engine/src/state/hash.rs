@@ -538,7 +538,7 @@ impl GameState {
         }
     }
 
-    fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+    fn hash_previous_combat_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
         for player in &self.players {
             let mut attackers: Vec<_> = player
                 .last_turn_attackers
@@ -571,6 +571,10 @@ impl GameState {
                 }
             }
         }
+    }
+
+    fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        self.hash_previous_combat_history(h, position);
         self.per_turn.revolt.hash(h);
         self.per_turn.put_nontoken_permanent.hash(h);
         self.per_turn.improvise_next_spell.hash(h);

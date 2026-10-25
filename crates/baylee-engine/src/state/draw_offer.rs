@@ -497,35 +497,7 @@ impl GameState {
                 }
                 None
             }
-            Mandatory::RevealDeny(source, life) => {
-                #[cfg(test)]
-                crate::ability_log::replaced_by(
-                    source,
-                    ReplacementRule::RevealDrawOthersMayPayLife(life),
-                );
-                self.draw_front.applied.push(source);
-                if let Some(card) = self.reveal_draw_top(player) {
-                    let seats = self.players.len();
-                    let active = usize::from(self.turn.active.get());
-                    let payers = (0..seats)
-                        .map(|offset| {
-                            PlayerId::new(
-                                u8::try_from((active + offset) % seats).expect("seat fits"),
-                            )
-                        })
-                        .filter(|&seat| {
-                            seat != player
-                                && !self.has_left(seat)
-                                && self.can_pay_life(seat, i32::from(life))
-                        })
-                        .collect();
-                    self.draw_front.denial = Some((card, life, payers));
-                    self.next_draw_denial()
-                } else {
-                    self.reopen_front_draw();
-                    None
-                }
-            }
+            Mandatory::RevealDeny(source, life) => self.apply_draw_denial(player, source, life),
             Mandatory::Chains(source) => {
                 #[cfg(test)]
                 crate::ability_log::replaced_by(
@@ -594,6 +566,36 @@ impl GameState {
                 }
                 Some(DrawReplacement::Wish(effect))
             }
+        }
+    }
+
+    fn apply_draw_denial(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        life: u8,
+    ) -> Option<DrawReplacement> {
+        #[cfg(test)]
+        crate::ability_log::replaced_by(source, ReplacementRule::RevealDrawOthersMayPayLife(life));
+        self.draw_front.applied.push(source);
+        if let Some(card) = self.reveal_draw_top(player) {
+            let seats = self.players.len();
+            let active = usize::from(self.turn.active.get());
+            let payers = (0..seats)
+                .map(|offset| {
+                    PlayerId::new(u8::try_from((active + offset) % seats).expect("seat fits"))
+                })
+                .filter(|&seat| {
+                    seat != player
+                        && !self.has_left(seat)
+                        && self.can_pay_life(seat, i32::from(life))
+                })
+                .collect();
+            self.draw_front.denial = Some((card, life, payers));
+            self.next_draw_denial()
+        } else {
+            self.reopen_front_draw();
+            None
         }
     }
 

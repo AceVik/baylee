@@ -256,6 +256,10 @@ mod triggered_tests {
 
     #[test]
     fn nested_immediate_mana_is_triggered_mana_but_targets_and_delayed_mana_are_not() {
+        static DELAYED_MANA: &[Effect] = &[Effect::mana(ManaColor::Blue, 2)];
+        static DELAYED: &[Effect] = &[Effect::AtNextEndStep {
+            effects: DELAYED_MANA,
+        }];
         static NESTED: &[Effect] = &[Effect::MayDoFor {
             player: PlayerRel::ControllerOfEvent,
             effects: &[Effect::IfEventObjectMatches {
@@ -274,10 +278,6 @@ mod triggered_tests {
         parts.targets = None;
         parts.second_targets = Some(TargetReq::one(TargetSpec::AnyTarget));
         assert!(!parts.build().is_triggered_mana_ability());
-        static DELAYED_MANA: &[Effect] = &[Effect::mana(ManaColor::Blue, 2)];
-        static DELAYED: &[Effect] = &[Effect::AtNextEndStep {
-            effects: DELAYED_MANA,
-        }];
         let delayed = TriggeredParts::new(trigger, DELAYED);
         assert!(!delayed.build().is_triggered_mana_ability());
     }
