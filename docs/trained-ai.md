@@ -103,6 +103,25 @@ Output is published atomically to a new directory. This is an isolated critic
 experiment, not a policy update or automatic promotion. See the
 [own-game critic pilot](history/trained-ai-v4-own-critic-2026-10-24.md).
 
+`train_policy4.py` provides a separate, bounded action-head PPO path in
+`policy_training4/`. It audits complete learner histories against recorded
+stochastic probabilities in FP32 before fitting. House-only histories are
+excluded from this audit; every observation of a learner history remains.
+Raw conditional masks and provenance must be valid, not loader-invented defaults.
+Terminal Monte Carlo outcomes (`gamma=lambda=1`) supply returns. The fixed critic
+is a state baseline, not a judge assigning labels to individual moves.
+
+Only candidate/pair action heads learn. Shared encoding, thinking, recurrent
+memory, scalar and value heads remain bit-identical. At least 128 genuine choices
+are accumulated per update by default, with one decision-count denominator across
+all microbatches. Forced/no-choice answers cannot meet that minimum; zero-policy
+and zero-gradient groups never advance Adam. Updates that exceed sampled behavior
+KL restore both parameters and optimizer state. A final audit over all eligible
+rollout decisions must pass before the changed policy is published; otherwise the
+unchanged source is published with zero accepted updates. This empirical guard
+does not certify behavior outside the recorded states. See the
+[Sharp-intensive experiment](history/trained-ai-v4-sharp-intensive-2026-10-25.md).
+
 The v4 Python CLI remains `tools/trainer/train4.py`; its implementation is split
 into `training4/` (driver, losses, validation and execution planning), and the
 network into the `model4/` package. `--board-chunk 8` batches independent spatial
