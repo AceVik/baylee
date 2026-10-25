@@ -1,21 +1,17 @@
-# baylee unseen-card holdout constructed seed=90000023
+# baylee unseen-card holdout constructed seed=90000008
 # licence: AGPL-3.0-only
-[deck:constructed midrange B #90000023]
-4 Bloodline Necromancer
-1 Cabal Pit
-1 Cabal Stronghold
-1 Cat-Gator
-2 Dream Beavers
-4 Dusk Legion Zealot
-2 Kalastria Healer
-2 Maggot Carrier
-3 Phyrexian Gargantua
-3 Phyrexian Rager
-4 Pierce Strider
-2 Rathi Fiend
-4 Sneering Shadewriter
-4 Solemn Simulacrum
-4 Spined Fluke
-22 Swamp
-3 Toxic Abomination
-4 Volrath's Stronghold
+[deck:constructed midrange G #90000008]
+4 Archdruid's Charm
+4 Citanul Druid
+20 Forest
+4 Glade Gnarr
+2 Kurgadon
+3 Many Partings
+4 Maul Splicer
+2 Mold Adder
+3 Oakhollow Village
+4 Path of Annihilation
+4 Pawpatch Formation
+3 Sudden Strength
+2 Verduran Enchantress
+1 Yavimaya Hollow

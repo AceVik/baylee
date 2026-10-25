@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266196]
+1 Aclazotz, Deepest Betrayal
+1 Atarka Monument
+1 Axelrod Gunnarson
+1 Baron Sengir
+1 Bayou
+1 Blood Host
+1 Bloodstone Cameo
+1 Boots of Speed
+1 Borg Queen, Perfection Manifest
+1 Chocobo Racetrack
+1 Chromatic Star
+1 Cinder Marsh
+1 Coal Golem
+1 Copper Myr
+1 Cragcrown Pathway
+1 Crystal Slipper
+1 Daredevil's Billy Club
+1 Darigaaz's Attendant
+1 Darigaaz's Caldera
+1 Dark Fortress
+1 Darkbore Pathway
+1 Deadly Derision
+1 Desolation of Smaug
+1 Desperate Bloodseeker
+1 Doom's Servo-Guards
+1 Dowsing Device
+1 Energy Refractor
+1 Fire Diamond
+4 Forest
+1 Foriysian Totem
+1 Gauntlet of Might
+1 Geothermal Crevice
+1 Goblin Artisans
+1 Golden Guardian
+1 Golgari Cluestone
+1 Golgari Keyrune
+1 Golgari Signet
+1 Griselbrand
+1 Gruul Keyrune
+1 HYDRA Assault Robot
+1 Haywire Mite
+1 Heart of Ramos
+1 Hematite Golem
+1 Horn of Ramos
+1 Jackhammer
+1 Karplusan Forest
+1 Kazarov, Sengir Pureblood
+1 Kolaghan Monument
+1 Koskun Keep
+1 Limestone Golem
+1 Malachite Golem
+1 Minotaur, Roxxon CEO
+1 Mossfire Valley
+1 Mount Doom
+5 Mountain
+1 Mox Jasper
+1 Nirkana Revenant
+1 Obelisk of Jund
+1 Pewter Golem
+1 Piggy Bank
+1 Professor Dellian Fel
+1 Rakdos Keyrune
+1 Retrofitter Foundry
+1 Saberclaw Golem
+1 Savage Lands
+1 Skull of Ramos
+1 Sulfurous Springs
+17 Swamp
+1 Tainted Peak
+1 Terrarion
+1 Thief of Blood
+1 Tribal Golem
+1 Troll-Horn Cameo
+1 Twisted Landscape
+1 Venomcrawler
+1 Ziatora's Proving Ground
+
+[commander]
+Vaevictis Asmadi

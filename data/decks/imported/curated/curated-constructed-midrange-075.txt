@@ -1,20 +1,23 @@
 # baylee curated constructed midrange seed=20261098
 # licence: AGPL-3.0-only
 [deck:constructed midrange URG #20261098]
-3 Avacyn's Collar
-4 Blood Petal Celebrant
-3 Bountiful Landscape
-4 Diamond Kaleidoscope
-1 Forest
+2 Bountiful Landscape
+2 Claws of Wirewood
+1 Desolate Lighthouse
+2 Fiery Islet
+2 Firemind's Research
+4 Flame Jet
+3 Forest
 2 Frontier Bivouac
-3 Ketria Triome
-3 Legion Extruder
-13 Mountain
-4 Pashalik Mons
-2 Pia and Kiran Nalaar
-2 Rugged Highlands
-3 Slayer's Plate
-2 Spawning Pit
-4 Striking Sliver
-3 Titania, Protector of Argoth
-4 Trading Post
+4 Invoke the Firemind
+6 Island
+1 Ketria Triome
+6 Mountain
+4 Runebound Wolf
+4 Sarkhan's Unsealing
+2 Shock
+4 Slash, Reptile Rampager
+2 Soul Barrier
+1 Steam Vents
+4 Storm Caller
+4 Tinder Wall

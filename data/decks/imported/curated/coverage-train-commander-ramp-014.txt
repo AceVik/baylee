@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266015]
+1 Ancestral Reminiscence
+1 Argoth, Sanctum of Nature
+1 Arguel's Blood Fast
+1 Barkhide Mauler
+1 Blood Vassal
+1 Boon of the Wish-Giver
+1 Canopy Baloth
+1 Commander's Sphere
+1 Conclave Naturalists
+1 Contaminated Ground
+1 Desert of the Indomitable
+1 Dictate of Kruphix
+1 Elemental Bond
+1 Engine Rat
+1 Enhanced Awareness
+1 Fallowsage
+1 Font of Fortunes
+7 Forest
+1 Furtive Analyst
+1 Goobbue Gardener
+1 Gravebind
+1 Gyre Engineer
+1 Hidden Necropolis
+1 Howltooth Hollow
+1 Illvoi Galeblade
+1 Imprison
+12 Island
+1 Jidoor, Aristocratic Capital
+1 Kavu Lair
+1 Kishla Village
+1 Leap
+1 Learn from the Past
+1 Lingering Mirage
+1 Lurching Rotbeast
+1 Magosi, the Waterveil
+1 Magus of the Bazaar
+1 Manor Gate
+1 Mental Discipline
+1 Mindculling
+1 Mistrise Village
+1 Mystic Snake
+1 Mythic Proportions
+1 Noxious Newt
+1 Open Communications
+1 Piranha Marsh
+1 Poison Dart Frog
+1 Prosperity
+1 Prying Eyes
+1 Razaketh's Rite
+1 Reach Through Mists
+1 Realm of Koh
+1 Sand Silos
+1 Saprazzan Cove
+1 Screams of the Damned
+1 Sea Gate
+1 Sea Gate Loremaster
+1 Sea Gate Restoration
+1 Sea Scryer
+1 Serpent Assassin
+1 Shadowmage Infiltrator
+1 Silvergill Peddler
+1 Soothsayer Adept
+1 Spreading Seas
+1 Sure-Footed Infiltrator
+7 Swamp
+1 Sylvan Caryatid
+1 Teferi's Isle
+1 Teferi's Protege
+1 Thoughtrender Lamia
+1 Tidings
+1 Touch of Invisibility
+1 Turntimber Symbiosis
+1 Vanishing
+1 Wild Roads
+1 Without Weakness
+1 Xenobotanist
+
+[commander]
+Muldrotha, the Gravetide

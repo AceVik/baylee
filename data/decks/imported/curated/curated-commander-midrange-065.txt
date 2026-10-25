@@ -1,74 +1,71 @@
 # baylee curated commander midrange seed=20261088
 # licence: AGPL-3.0-only
 [deck:commander midrange G #20261088]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
+1 Ambassador Oak
+1 Arctic Wolves
+1 Argothian Enchantress
+1 Battlewand Oak
+1 Beast Whisperer
 1 Blighted Woodland
-1 Blisterpod
-1 Blood Servitor
-1 Boseiju, Who Endures
-1 Bottle of Suleiman
-1 Brood Monitor
-1 Byway Courier
+1 Bog Gnarr
+1 Briarknit Kami
 1 Centaur Garden
-1 Chromatic Star
-1 Culling Dais
-1 Dauntless Survivor
-1 Deeproot Elite
-1 Diamond Kaleidoscope
-1 Elephant Guide
-1 Elvish Farmer
-1 Filigree Crawler
-31 Forest
-1 Gaea's Cradle
-1 Gilded Goose
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Graypelt Hunter
-1 Heart of Yavimaya
-1 Iron Bully
-1 Jewel Thief
-1 Jewel-Eyed Cobra
-1 Kronch Wrangler
-1 Legolas Greenleaf
-1 Mantle of the Wolf
-1 Most Wanted
-1 Myr Sire
-1 Nim Deathmantle
+1 Cyclone
+1 Deeproot Champion
+1 Dissenter's Deliverance
+1 Elvish Handservant
+1 Emrakul's Influence
+1 Enchantress's Presence
+1 Evolution Charm
+1 Feral Instinct
+34 Forest
+1 Foxfire
+1 Freyalise's Charm
+1 Generous Visitor
+1 Guardian of Cloverdell
+1 Hail Storm
+1 Hashep Oasis
+1 Haze of Pollen
+1 Hidden Guerrillas
+1 Hidden Spider
+1 Hurricane
+1 Infested Roothold
+1 Jackalope Herd
+1 Jade Guardian
+1 Kami of the Hunt
+1 Khalni Ambush
+1 Kurgadon
+1 Leaf Arrow
+1 Leaf-Crowned Visionary
+1 Lull
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Mana Crypt
+1 Managorger Hydra
+1 Many Partings
+1 Medusa, Inhuman Queen
+1 Migrating Ketradon
+1 Mold Adder
 1 Oakhollow Village
-1 Orochi Hatchery
-1 Pelakka Wurm
-1 Pentavus
+1 Pawpatch Formation
+1 Predatory Hunger
 1 Primeval Bounty
-1 Prying Blade
-1 Rampaging Baloths
-1 Retrofitter Foundry
-1 Rishkar, Peema Renegade
-1 Setessan Champion
-1 Skullclamp
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
-1 Thallid
-1 Thallid Devourer
-1 The One Ring
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
+1 Primordial Sage
+1 Reality Anchor
+1 Renewal
+1 Seshiro the Anointed
+1 Skybeast Tracker
+1 Snake Pit
+1 Soilshaper
+1 Tangleroot
+1 Tangletrap
+1 Titania's Chosen
+1 Touch of Vitae
 1 Tree of Tales
-1 Turntimber Ranger
-1 Valley Mightcaller
-1 Wand of the Elements
-1 Wirewood Lodge
+1 Wild Wanderer
+1 Wildsize
+1 Wilt
 1 Yavimaya Hollow
 
 [commander]

@@ -1,75 +1,85 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266164]
-1 Abbey Griffin
-1 Adamant Will
-1 Aerial Maneuver
-1 Alarum
-1 Alley Evasion
-1 Angelic Overseer
-1 Angelic Protector
-1 Archon of Emeria
-1 Arid Mesa
-1 Avian Changeling
-1 Banishing Stroke
-1 Beaming Defiance
-1 Blinkmoth Nexus
-1 Cleanse
-1 Cleansing Nova
-1 Crackdown
-1 Dawn Gryff
-1 Ekundu Griffin
-1 Flooded Strand
-1 Garrison Griffin
-1 Great Defender
-1 Great Hall of the Biblioplex
-1 Heaven's Gate
-1 Heavenly Qilin
-1 Herald of Serra
-1 Hope and Glory
-1 Indestructible Aura
-1 Ivory Charm
-1 Makindi Aeronaut
-1 Malach of the Dawn
-1 Mana Tithe
-1 Maze of Shadows
-1 Mesa Pegasus
-1 Mistral Charger
-1 Moonwing Moth
-1 Muraganda Raceway
-1 Phyrexian Pegasus
-1 Piety
-31 Plains
-1 Plover Knights
-1 Qilin's Blessing
-1 Rally
-1 Rath's Edge
-1 Ravages of War
-1 Seize the Initiative
-1 Serra Advocate
-1 Shepherd of the Lost
-1 Shield Wall
-1 Skillful Lunge
-1 Starlit Angel
-1 Stormfront Pegasus
-1 Sunmane Pegasus
-1 Sunspire Griffin
-1 Swift Justice
-1 Terrain Generator
-1 Tormented Angel
-1 Tributary Vaulter
-1 Trusted Pegasus
-1 Voice of Duty
-1 Voice of Grace
-1 Voice of Law
-1 Voice of Reason
-1 Voice of Truth
-1 Warning
-1 Wild Griffin
-1 Winds of Rath
-1 Yavimaya, Cradle of Growth
-1 You're Ambushed on the Road
-1 Zealous Strike
+[deck:commander midrange WUBRG #20266164]
+1 An-Havva Township
+1 Angelic Captain
+1 Arctic Aven
+1 Ashiok, Dream Render
+1 Aysen Abbey
+1 Azorius First-Wing
+1 Behemoth's Herald
+1 Bladestitched Skaab
+1 Boartusk Liege
+1 Cat-Owl
+1 Contaminated Landscape
+1 Crimson Roc
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Deity of Scars
+1 Discordant Spirit
+1 Dragon's Herald
+1 Dromar's Cavern
+1 Foreboding Landscape
+5 Forest
+1 Gaea's Skyfolk
+1 Glimmering Angel
+1 Goblin Deathraiders
+1 Godhead of Awe
+1 Godsire
+1 Grizzly Ghoul
+1 Hazerider Drake
+1 Hellkite Overlord
+1 Heroism
+1 Hobgoblin Dragoon
+4 Island
+1 Kederekt Creeper
+1 Khenra Charioteer
+1 Koskun Keep
+1 Kyscu Drake
+1 Lightning Angel
+1 Lurking Green Dragon
+7 Mountain
+1 Nearby Planet
+1 Needlethorn Drake
+1 Nimbus Swimmer
+1 Nobilis of War
+1 Obscura Initiate
+1 Perilous Landscape
+1 Pestilent Kathari
+1 Pitiless Pontiff
+4 Plains
+1 Pseudodragon Familiar
+1 Rune-Cervin Rider
+1 Scarland Thrinax
+1 Seedpod Squire
+1 Senate Courier
+1 Sentry of the Underworld
+1 Sewn-Eye Drake
+1 Sheltering Landscape
+1 Shinechaser
+1 Siegehorn Ceratops
+1 Silkbind Faerie
+1 Sky Terror
+1 Skyship Stalker
+1 Stoic Angel
+5 Swamp
+1 Talon Trooper
+1 Tattered Drake
+1 Tempest Drake
+1 The Balrog of Moria
+1 The World Tree
+1 Thunderclap Wyvern
+1 Torch Drake
+1 Tower Drake
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urborg Drake
+1 Vassal Soul
+1 Viashivan Dragon
+1 Vulpine Goliath
+1 Wasp Lancer
+1 Windreaper Falcon
+1 Wizards' School
 
 [commander]
-Radiant, Archangel
+Child of Alara

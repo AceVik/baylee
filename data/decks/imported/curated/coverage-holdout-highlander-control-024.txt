@@ -1,0 +1,78 @@
+# baylee synergistic holdout coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBG #90010025]
+1 Aggressive Urge
+1 Ambition's Cost
+1 Atrocious Experiment
+1 Bad Deal
+1 Bayou
+1 Beneath the Sands
+1 Blessed Wine
+1 Branchloft Pathway
+1 Brushland
+1 Carnival of Souls
+1 Cat-Gator
+1 Caves of Koilos
+1 Child of Thorns
+1 Colossodon Yearling
+1 Cruel Truths
+1 Culling Sun
+1 Damnable Pact
+1 Darkheart Sliver
+1 Deceptive Landscape
+1 Defiant Strike
+1 Disciple of Freyalise
+1 Emrakul's Influence
+1 Fetid Heath
+14 Forest
+1 Freyalise's Charm
+1 Golgari Locket
+1 Gorilla Warrior
+1 Harrowing Journey
+1 Hidden Ancients
+1 Indatha Triome
+1 Infernal Contract
+1 Leaf Dancer
+1 Lifecrafter's Bestiary
+1 Llanowar Wastes
+1 Moldervine Reclamation
+1 Mox Pearl
+1 Murmuring Bosk
+1 Nether Void
+1 Orzhova, the Church of Deals
+1 Oyobi, Who Split the Heavens
+1 Painful Quandary
+1 Path of Annihilation
+1 Phyrexian Gargantua
+1 Polluted Bonds
+1 Presence of the Master
+1 Primeval Bounty
+1 Profane Tutor
+1 Quirion Ranger
+1 Rathi Fiend
+1 Riftstone Portal
+1 Sandsteppe Citadel
+1 Screams of the Damned
+1 Shanodin Dryads
+1 Sign in Blood
+1 Simian Grunts
+1 Skyshroud Elite
+1 Snake Pit
+1 Somberwald Dryad
+1 Spined Karok
+1 Stalker Hag
+13 Swamp
+1 Tainted Wood
+1 Tajuru Blightblade
+1 Talisman of Hierarchy
+1 Tangleroot
+1 Tithebearer Giant
+1 Touch of Death
+1 Vault of the Archangel
+1 Viridescent Bog
+1 Wandering Wolf
+1 Warmth
+1 Wastewood Verge
+1 Withstand Death
+1 Yawgmoth's Edict
+1 Zendikar Farguide

@@ -1,20 +1,19 @@
 # baylee curated constructed aggro seed=20261035
 # licence: AGPL-3.0-only
 [deck:constructed aggro UR #20261035]
-4 Avacyn's Collar
-4 Blood Petal Celebrant
-4 Fireshrieker
-4 Legion Extruder
-13 Mountain
-2 Pashalik Mons
-4 Prying Blade
-2 Restless Spire
-2 Retrofitter Foundry
-4 Slayer's Plate
-4 Spawning Pit
-4 Steam Vents
-1 Sulfur Falls
-4 The Underworld Cookbook
-1 Thopter Squadron
-1 Turbulent Springs
-2 Volatile Fjord
+4 Ancestral Vision
+1 Cascade Bluffs
+2 Desolate Lighthouse
+4 Eidolon of the Great Revel
+4 Embersmith
+1 Ferrous Lake
+4 Goblin Chainwhirler
+3 Guttersnipe
+4 Ishi-Ishi, Akki Crackshot
+14 Mountain
+3 Rockslide Sorcerer
+4 Sawblade Scamp
+3 Shivan Reef
+3 Spark Spray
+4 Thassa's Ire
+2 Volcanic Island

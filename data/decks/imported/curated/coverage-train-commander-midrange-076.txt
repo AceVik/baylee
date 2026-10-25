@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266077]
-1 Abandoned Campground
-1 Academy Rector
-1 Aether Channeler
-1 An Offer You Can't Refuse
-1 Aspiring Aeronaut
-1 Bladestitched Skaab
-1 Brightclimb Pathway
-1 Cabal Patriarch
-1 Call the Bloodline
-1 Clachan Festival
-1 Cogworker's Puzzleknot
-1 Coral Barrier
-1 Creeping Tar Pit
-1 Deepchannel Duelist
-1 Dread Drone
-1 Drownyard Explorers
-1 Drunau Corpse Trawler
-1 Eager Glyphmage
-1 Emeria's Call
-1 Enlightened Maniac
-1 Esper Battlemage
-1 Esper Sentinel
-1 Etherium Astrolabe
-1 Fate Foretold
-1 Fetid Heath
-1 Fetid Pools
-1 Foot Headquarters
-1 Fountain Watch
-1 Glimmerburst
-1 Grisly Ritual
-1 Hatching Plans
-1 Hero of the Dunes
-1 Imperial Oath
-1 Inheritance
-1 Insomnia, Crown City
-7 Island
-1 Launch
-1 Legion's Landing
-1 Loran of the Third Path
-1 Master of Dark Rites
-1 Minister of Impediments
-1 Mistvault Bridge
-1 Nimble Thopterist
-1 Noxious Toad
-1 Paladin of the Bloodstained
-1 Phantatog
-1 Pirate's Prize
-9 Plains
-1 Prideful Parent
-1 Priest of Yawgmoth
-1 Prosperous Pirates
-1 River Delta
-1 River of Tears
-1 Sacred Mesa
-1 Sage of Lat-Nam
-1 Sailor of Means
-1 Security Blockade
-1 Security Detail
-1 Serpent's Pass
-1 Shambling Vent
-1 Shattered Sanctum
-1 Sidequest: Catch a Fish
-1 Silverquill Campus
-1 Sleeper's Guile
-1 Smothering Tithe
-1 Soldevi Adnate
-1 Spirit Mirror
-1 Starlit Sanctum
-1 Stitcher's Supplier
-7 Swamp
-1 Tainted Field
-1 Tarrian's Journal
-1 Tunnel Surveyor
-1 Undead Augur
-1 Unfathomable Truths
-1 Vault of the Archangel
-1 Vectis Agents
-1 Vectis Silencers
-1 Vodalian Hexcatcher
+[deck:commander midrange BG #20266077]
+1 Aerial Predation
+1 Apes of Rath
+1 Bloodrite Invoker
+1 Blooming Marsh
+1 Blossoming Wreath
+1 Consuming Corruption
+1 Dark Heart of the Wood
+1 Dark Nourishment
+1 Deathcap Glade
+1 Deathrite Shaman
+1 Demonic Tutor
+1 Doom's Servo-Guards
+1 Druid Class
+1 Ebony Treefolk
+1 Elderfang Venom
+1 Emerald Oryx
+1 Fauna Shaman
+1 Festering Gulch
+13 Forest
+1 Frontier Guide
+1 Gilt-Leaf Palace
+1 Glidedive Duo
+1 Gohn, Town of Ruin
+1 Golgari Locket
+1 Golgari Rot Farm
+1 Greenseeker
+1 Grim Feast
+1 Grist, the Hunger Tide
+1 Hagra Diabolist
+1 Haunted Mire
+1 Hill Giant Herdgorger
+1 Ill-Gotten Inheritance
+1 Jaddi Offshoot
+1 Journey to Eternity
+1 Keeper of Tresserhorn
+1 Koma's Faithful
+1 Last Kiss
+1 Lounge
+1 Mind Drain
+1 Minion of Leshrac
+1 Minion of Tevesh Szat
+1 Moldervine Reclamation
+1 Necroblossom Snarl
+1 Nourish
+1 Oashra Cultivator
+1 Pine Barrens
+1 Pitiless Gorgon
+1 Powerleech
+1 Predatory Hunger
+1 Profane Prayers
+1 Professor Dellian Fel
+1 Rabid Wombat
+1 Rejuvenate
+1 Respite
+1 Restless Cottage
+1 River Bear
+1 Scarblade Scout
+1 Serpent Warrior
+1 Shaman of the Pack
+1 Skemfar Elderhall
+1 Social Climber
+1 Soul Rend
+12 Swamp
+1 Tamiyo's Safekeeping
+1 Thoughtleech
+1 Toil to Renown
+1 Tranquil Path
+1 Trestle Troll
+1 Underground Mortuary
+1 Undergrowth Stadium
+1 Vernal Fen
+1 Volrath's Gardens
+1 Wall of Pine Needles
+1 Windgrace Acolyte
+1 Yawgmoth Demon
+1 Zodiac Horse
 
 [commander]
-Inquisitor Greyfax
+Vhati il-Dal

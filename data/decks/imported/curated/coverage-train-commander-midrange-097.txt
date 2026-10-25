@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUB #20266098]
-1 Academy Ruins
-1 Amphin Cutthroat
-1 Ancient Crab
-1 Ancient Spring
-1 Arcane Sanctum
-1 Aura Blast
-1 Azorius Locket
-1 Black Vise
-1 Breathstealer
-1 Cabal Pit
-1 Changeling Sentinel
-1 Clever Impersonator
-1 Contaminated Landscape
-1 Coral Eel
-1 Crystacean
-1 Curio Vendor
-1 Daring Thunder-Thief
-1 Deathcult Rogue
-1 Desert of the True
-1 Devouring Deep
-1 Devout Decree
-1 Dimir Cluestone
-1 Dreg Reaver
-1 Dromar's Cavern
-1 Emeria, the Sky Ruin
-1 Ethereal Champion
-1 Flamecast Wheel
-1 Fortress Crab
-1 Foul Roads
-1 Glasspool Mimic
-1 Hammerhead Shark
-1 Horror of the Dim
-1 Hussar Patrol
-1 Imaginary Pet
-1 Ipnu Rivulet
-11 Island
-1 Jandor's Ring
-1 Jorubai Murk Lurker
-1 Jwari Shapeshifter
-1 Kelpie Guide
-1 Lazotep Behemoth
-1 Liturgy of Blood
-1 Loxodon Anchorite
-1 Manta Ray
-1 Mirror Image
-1 Mischievous Sneakling
-1 Moor Fiend
-1 Morphling
-1 Mox Diamond
-1 Nether Horror
-1 Noxious Groodion
-1 Oboro, Palace in the Clouds
-1 Oraxid
-1 Orzhov Cluestone
-1 Perilous Shadow
-5 Plains
-1 Plated Seastrider
-1 Python
-1 Raffine's Tower
-1 Reef Roads
-1 Salvage Scuttler
-1 Scalding Cauldron
-1 School of Piranha
-1 Shore Snapper
-1 Silent Dart
-1 Soaring Seacliff
-1 Spectral Lynx
-1 Springjaw Trap
-1 Stunt Double
-7 Swamp
-1 Talisman of Hierarchy
-1 Thalakos Mistfolk
-1 Trenzalore Clocktower
-1 Twilight Panther
-1 Urza's Blueprints
-1 Westvale Abbey
-1 Wishcoin Crab
-1 Wizards' School
-1 Woodlot Crawler
+1 All Hallow's Eve
+1 Animal Sanctuary
+1 Apprentice Necromancer
+1 Argivian Find
+1 Argivian Restoration
+1 Arvad the Cursed
+1 Ashen Powder
+1 Blast Zone
+1 Bloodstained Mire
+1 Brood of Cockroaches
+1 Buried Ruin
+1 City of Shadows
+1 Contested War Zone
+1 Contingency Plan
+1 Corpse Blockade
+1 Corrupted Harvester
+1 Cradle of the Accursed
+1 Cruel Celebrant
+1 Cyclopean Mummy
+1 Dark Favor
+1 Death's Duet
+1 Desiccated Naga
+1 Desperate Bloodseeker
+1 Diregraf Captain
+1 Drana's Emissary
+1 Dross Harvester
+1 Drownyard Amalgam
+1 Drunau Corpse Trawler
+1 Déjà Vu
+1 Engine Rat
+1 False Defeat
+1 Fanatical Devotion
+1 Festerleech
+1 Forsaken Drifters
+1 Gemstone Caverns
+1 Gibbering Barricade
+1 Gods' Eye, Gate to the Reikai
+1 Hag of Death's Legion
+1 Hag of Noxious Nightmares
+1 Havengul Skaab
+1 Illumination
+1 Index
+1 Inquisitor Greyfax
+5 Island
+1 Kaervek, the Spiteful
+1 Loran's Escape
+1 Lord of the Undead
+1 Luminous Broodmoth
+1 Mind Sculpt
+1 Mnemonic Wall
+1 Naya Panorama
+1 Necromancer's Assistant
+1 Paladin of the Bloodstained
+8 Plains
+1 Polluted Dead
+1 Protomatter Powder
+1 Refurbish
+1 Returned Reveler
+1 Rotcrown Ghoul
+1 Rottenheart Ghoul
+1 Scalding Tarn
+1 Screeching Skaab
+1 Select for Inspection
+1 Sepulcher Ghoul
+1 Sequestered Stash
+1 Sheltering Light
+1 Sibsig Host
+1 Skirk Ridge Exhumer
+1 Stronghold Assassin
+1 Surveillance Room
+12 Swamp
+1 Symbiote Spawn
+1 Temporal Mastery
+1 The Gold Saucer
+1 The Great Mound
+1 Tome Scour
+1 Woebearer
 
 [commander]
-Lady Evangela
+Alela, Artful Provocateur

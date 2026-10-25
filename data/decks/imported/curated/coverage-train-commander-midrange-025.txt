@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUG #20266026]
-1 Adventurer's Inn
-1 Altar of the Brood
-1 Argivian Find
-1 Argivian Restoration
-1 Bishop of Rebirth
-1 Bounty Agent
-1 Brain Freeze
-1 Branch of Vitu-Ghazi
-1 Breath of Life
-1 Captivating Cave
-1 Cathartic Adept
-1 Charming Prince
-1 Chronic Flooding
-1 Clive's Hideaway
-1 Coastal Bulwark
-1 Compassionate Healer
-1 Corrupted Crossroads
-1 Crawling Barrens
-1 Crowd Favorites
-1 Devout Harpist
-1 Dogged Hunter
-1 Elephant Graveyard
-1 Exorcist
-1 Eye of Malcator
-1 False Defeat
-1 Font of Progress
-1 Forest
-1 Gallifrey Council Chamber
-1 Ghoulcaller's Bell
-1 Grassland Crusader
-1 Haazda Exonerator
-1 Harnessed Snubhorn
+1 Abbey Matron
+1 Abzan Kin-Guard
+1 Akroma's Devoted
+1 An-Havva Constable
+1 Angry Mob
+1 Ayesha Tanaka
+1 Beetleform Mage
+1 Botanical Plaza
+1 Capashen Knight
+1 Capashen Templar
+1 Cloudreach Cavalry
+1 Cursecatcher
+1 Daring Apprentice
+1 Disruptive Student
+1 Drannith Magistrate
+1 Faeburrow Elder
+1 Flora Colossus
+1 Folk of An-Havva
+1 Foriysian Brigade
+1 Formation
+1 Gainsay
+1 Glintwing Invoker
+1 Graypelt Refuge
+1 Griffin Rider
+1 Hardened Escort
+1 Hinterland Harbor
+1 Honor Guard
 1 Hunding Gjornersen
 1 Hymn of Rebirth
-1 Inspired Insurgent
-1 Into the North
-1 Intrepid Hero
-1 Iron Suitcase
-8 Island
-1 Kjeldoran Phalanx
-1 Meng Huo, Barbarian King
-1 Mind Sculpt
-1 Miracle Worker
-1 Moonfolk Puzzlemaker
-1 Northampton Farm
-1 Northern Paladin
+1 Imperial Lancer
+12 Island
+1 Jasmine Boreal
+1 Kitchen
+1 Kjeldoran Knight
+1 Kongming, "Sleeping Dragon"
+1 Lightning Blow
+1 Littjara Mirrorlake
+1 Lord Magnus
+1 Marshal of Zhalfir
+1 Minor Misstep
+1 Nova Cleric
 1 Obelisk of Bant
-1 Order of Whiteclay
-14 Plains
-1 Protomatter Powder
-1 Rashida Scalebane
-1 Refurbish
-1 Rhystic Cave
-1 Rummaging Wizard
-1 Rune-Sealed Wall
-1 Salvage Scout
-1 Scribe of the Mindful
-1 Search for Azcanta
-1 Secret Tunnel
-1 Selesnya Keyrune
-1 Selhoff Occultist
-1 Silkwing Scout
-1 Sir Shandlar of Eberyn
-1 So Shiny
-1 Southern Paladin
-1 Starfighter Pilot
-1 Temporal Manipulation
-1 Temporal Mastery
-1 Third Path Savant
-1 Time Warp
-1 Tocasia's Dig Site
-1 Torsten Von Ursus
-1 Tragic Poet
-1 Underdark Rift
-1 Urza's Tower
-1 Winds of Rebuke
-1 Witch's Clinic
-1 Yavimaya, Cradle of Growth
-1 Zoetic Cavern
+1 Order of Leitbur
+1 Order of the Sacred Torch
+1 Paragon of Gathering Mists
+1 Patron Wizard
+1 People of the Woods
+13 Plains
+1 Preacher
+1 Preemptive Strike
+1 Quandrix Campus
+1 Radiant Grove
+1 Rashka the Slayer
+1 Rejuvenating Springs
+1 Restless Prairie
+1 Rimewood Falls
+1 Samite Alchemist
+1 Saryth, the Viper's Fang
+1 Scarwood Bandits
+1 Serra Inquisitors
+1 Shield Mate
+1 Skyspear Cavalry
+1 Soraya the Falconer
+1 Spirit Weaver
+1 Stirring Wildwood
+1 Sunpetal Grove
+1 Sword of Hearth and Home
+1 Tanglepool Bridge
+1 Thornglint Bridge
+1 Tolarian Entrancer
+1 Topan Ascetic
+1 Vineglimmer Snarl
+1 Vodalian Mage
+1 Warriors of Wakanda
+1 White Shield Crusader
+1 World Map
 
 [commander]
-Ragnar
+Angus Mackenzie

@@ -1,0 +1,82 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange RG #90010026]
+1 Aether Sting
+1 Archdruid's Charm
+1 Argothian Enchantress
+1 Boltwave
+1 Choco-Comet
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Dismissive Pyromancer
+1 Dragon's Rage Channeler
+1 Dragon-Style Twins
+1 Embersmith
+1 Fever Charm
+1 Fire-Lit Thicket
+1 Firebrand Archer
+1 Firefist Adept
+1 Flame Jet
+1 Flame-Blessed Bolt
+1 Flare
+1 Flick a Coin
+11 Forest
+1 Fungal Reaches
+1 Ghitu Slinger
+1 Ghor-Clan Bloodscale
+1 Giant Solifuge
+1 Gremlin Infestation
+1 Grove of the Burnwillows
+1 Guttersnipe
+1 Havoc
+1 Ichneumon Druid
+1 Improvised Weaponry
+1 Iron Man, Tony Stark
+1 Jeska, Warrior Adept
+1 Karplusan Forest
+1 Kessig Flamebreather
+1 Kessig Wolf Run
+1 Leaf-Crowned Visionary
+1 Lys Alana Bowmaster
+1 Magma Jet
+1 Make Mischief
+1 Mana Crypt
+1 Maul Splicer
+1 Molten Nursery
+1 Monastery Swiftspear
+1 Mossfire Valley
+14 Mountain
+1 Murasa Pyromancer
+1 Orcish Cannonade
+1 Path of Annihilation
+1 Pia and Kiran Nalaar
+1 Pinecrest Ridge
+1 Primeval Bounty
+1 Reckless Fireweaver
+1 Rockslide Sorcerer
+1 Ruric Thar, the Unbowed
+1 Sarkhan's Unsealing
+1 Screamer-Killer
+1 Setessan Champion
+1 Shivan Oasis
+1 Shredded Sails
+1 Skarrg, the Rage Pits
+1 Skirsdag Cultist
+1 Spark Jolt
+1 Spark Spray
+1 Spellshock
+1 Sunset Strikemaster
+1 Taiga
+1 The Immortal Weapons
+1 Timberline Ridge
+1 Training Compound
+1 Verduran Enchantress
+1 Weaver of Lightning
+1 Winter Sky
+1 Wooded Ridgeline
+1 Young Pyromancer
+1 Zhur-Taa Druid
+1 Zuko, Avatar Hunter
+
+[commander]
+Tuknir Deathlock

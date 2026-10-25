@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266090]
+1 +2 Mace
+1 Akron Legionnaire
+1 Alpine Meadow
+1 Asgardian Citadel
+1 Attentive Sunscribe
+1 Aven of Enduring Hope
+1 Axgard Armory
+1 Blight Keeper
+1 Bloodstone Cameo
+1 Boots of Speed
+1 Borg Queen, Perfection Manifest
+1 Boros Keyrune
+1 Candy Trail
+1 Codex Shredder
+1 Commander's Sphere
+1 Crystal Slipper
+1 Cursed Mirror
+1 Dimension X
+1 Dinotomaton
+1 Eager Glyphmage
+1 Elegant Parlor
+1 Elesh Norn, Grand Cenobite
+1 Elesh Norn, Mother of Machines
+1 Etched Familiar
+1 Experimental Armor
+1 Eye of Vecna
+1 Fields of Strife
+1 Fleshpulper Giant
+1 Foreboding Ruins
+1 Forum of Amity
+1 Fountain Watch
+1 Glaze Fiend
+1 Golden Egg
+1 Griffin Dreamfinder
+1 Harmonious Archon
+1 Heart of Ramos
+1 Imperial Oath
+1 Imposing Vantasaur
+1 Isolated Chapel
+1 Kiora of Fire and Ashes
+1 Kolaghan Monument
+1 Lotus Guardian
+1 Lotus Petal
+1 Mandible Justiciar
+1 Mechanized Ninja Cavalry
+1 Mire Triton
+3 Mountain
+1 Orzhov Guildgate
+12 Plains
+1 Rakdos Keyrune
+1 Razortrap Gorge
+1 Regal Caracal
+1 Retrofitter Foundry
+1 Returned Pastcaller
+1 Rumbling Sentry
+1 Rune-Scarred Demon
+1 Rustvale Bridge
+1 Sanctum Gargoyle
+1 Skirge Familiar
+1 Spectator Seating
+1 Sulfurous Mire
+1 Sunlit Marsh
+11 Swamp
+1 Swooping Lookout
+1 The One Ring
+1 Thousand Moons Smithy
+1 Thrór's Map
+1 Tinker's Tote
+1 Trigon of Mending
+1 Trigon of Rage
+1 Vampiric Spirit
+1 Vault Skirge
+1 Vector, Imperial Capital
+1 Venomous Hierophant
+1 Wakandan Drone Flock
+1 Welkin Guide
+
+[commander]
+Oros, the Avenger

@@ -1,84 +1,87 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WB #20266037]
-1 Abandoned Outpost
-1 Adagia, Windswept Bastion
-1 Angelic Curator
-1 Angelic Overseer
-1 Assault Intercessor
-1 Avacyn, Angel of Hope
-1 Aven Archer
-1 Aven Mindcensor
-1 Aven Redeemer
-1 Aven Sentry
-1 Aven Trooper
-1 Battlefly Swarm
-1 Beacon Hawk
-1 Bloodied Ghost
-1 Bojuka Bog
-1 Carrion Screecher
-1 Cave of the Frost Dragon
-1 Citadel Gate
-1 Combat Professor
-1 Companion of the Trials
-1 Courier Hawk
-1 Crypt of Agadeem
-1 Dauntless Aven
-1 Deathless Angel
-1 Desert of the True
-1 Dive Bomber
-1 Dragonstalker
-1 Duskrider Falcon
-1 Eagle of the Great Shelf
-1 Eagle of the Watch
-1 Foul Roads
-1 Fountain of Cho
-1 Ghirapur Osprey
-1 Healer's Flock
-1 Herald of Serra
-1 Joust Through
-1 Kabuto Moth
-1 Lieutenant Kirtar
-1 Malach of the Dawn
-1 Mesa Falcon
-1 Mistveil Plains
-1 Moaning Spirit
-1 Monumental Henge
-1 Mortuary Mire
-1 Mothrider Patrol
-1 Peat Bog
-1 Pit Raptor
-21 Plains
-1 Radiant, Archangel
-1 Reroute Systems
-1 Restoration Angel
-1 Royal Falcon
-1 Searchlight Geist
-1 Segovian Angel
-1 Seraph of the Suns
-1 Shepherd of the Lost
-1 Shinewend
-1 Shriekdiver
-1 Shrike Force
-1 Skyshroud Falcon
-1 Soulbound Guardians
-1 Spymaster's Vault
-1 Squall Drifter
-1 Starlit Angel
-1 Stonerise Spirit
-1 Sustaining Spirit
-1 Suture Spirit
-2 Swamp
-1 The Dross Pits
-1 The Fair Basilica
-1 Thriving Moor
-1 Thunder Spirit
-1 Vampire Revenant
-1 Voice of Duty
-1 Voice of Law
-1 Voice of Reason
-1 Voice of Truth
-1 Wild Aesthir
+[deck:commander midrange RG #20266037]
+1 Amonkhet Raceway
+1 Balduvian Hydra
+1 Bazaar of Baghdad
+1 Blinkmoth Well
+1 Boartusk Liege
+1 Boggart Arsonists
+1 Bonders' Enclave
+1 Bramblesnap
+1 Brotherhood Headquarters
+1 Castle Doom
+1 Centaur Archer
+1 Charging Badger
+1 Command Beacon
+1 Conifer Wurm
+1 Corrosive Gale
+1 Crash of Rhino Beetles
+1 Deranged Whelp
+1 Devastation
+1 Dwarven Catapult
+1 Dwarven Weaponsmith
+1 Eldrazi Linebreaker
+1 Emerald Dragonfly
+1 Faerie Noble
+1 Feral Ridgewolf
+1 Firestorm Phoenix
+1 Flowstone Kavu
+1 Flowstone Mauler
+9 Forest
+1 Frontline War-Rager
+1 Gemrazer
+1 Goblin Rock Sled
+1 Goblin Sappers
+1 Hawkeater Moth
+1 Horde of Boggarts
+1 Hulk, Bruce Banner
+1 Hungry Spriggan
+1 Ifh-Bíff Efreet
+1 Khenra Charioteer
+1 Lurking Green Dragon
+1 Markov Blademaster
+1 Moon Sprite
+11 Mountain
+1 Mutant Town Musicians
+1 Nalathni Dragon
+1 Naya Panorama
+1 Nephalia Academy
+1 Petrified Field
+1 Pheres-Band Warchief
+1 Pixie Queen
+1 Prismatic Vista
+1 Rathi Dragon
+1 Sanctum of Ugin
+1 Scavenger Grounds
+1 Scryb Ranger
+1 Shard Phoenix
+1 Shivan Devastator
+1 Shopkeeper's Bane
+1 Skyscythe Engulfer
+1 Skyship Stalker
+1 Smash to Dust
+1 Stampeding Serow
+1 Stomper Cub
+1 Study Hall
+1 Sun-Collared Raptor
+1 Survivors' Encampment
+1 Tajuru Pathwarden
+1 Tangle Mantis
+1 The Tabernacle at Pendrell Vale
+1 Throne of Makindi
+1 Tremor
+1 Tropical Storm
+1 Ulrich's Kindred
+1 Urborg, Tomb of Yawgmoth
+1 Utvara Scalper
+1 Willow Faerie
+1 Windreaper Falcon
+1 Witch's Clinic
+1 Wolfsbane, Highland Hero
+1 Wrecking Crew
+1 Yavimaya Gnats
+1 Yavimaya, Cradle of Growth
 
 [commander]
-Selenia, Dark Angel
+Tuknir Deathlock

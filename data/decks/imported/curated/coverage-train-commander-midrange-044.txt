@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266045]
+1 Angelic Voices
+1 Archaeological Dig
+1 Awakening
+1 Beacon Behemoth
+1 Beaming Defiance
+1 Beast Walkers
+1 Blasted Landscape
+1 Blitzball Shot
+1 Brown Ouphe
+1 Brushstrider
+1 Candlelight Vigil
+1 Capital City
+1 City of Shadows
+1 Cliffrunner Behemoth
+1 Coeurl
+1 Cooperation
+1 Crackdown
+1 Day of Judgment
+1 Dub
+1 Eldrazi Temple
+1 Feral Ferocity
+1 Feral Krushok
+17 Forest
+1 Gallifrey Council Chamber
+1 Great-Horn Krushok
+1 Homeward Path
+1 Indestructibility
+1 Isolated Watchtower
+1 Ivy Dancer
+1 Jibbirik Omnivore
+1 Kithkin Shielddare
+1 Kjeldoran Frostbeast
+1 Kor Scythemaster
+1 Krosan Groundshaker
+1 Leatherback Baloth
+1 Library of Alexandria
+1 Llanowar Vanguard
+1 Lurker
+1 Marked by Honor
+1 Moopsy
+1 Mosscoat Goriak
+1 Mugato
+1 Needleshot Gourna
+1 Noble Steeds
+1 Opal Avenger
+8 Plains
+1 Planar Nexus
+1 Ravages of War
+1 Retaliation
+1 Return to the Earth
+1 Rotted Hystrix
+1 Rule of Law
+1 Rushwood Dryad
+1 Safeguard
+1 Scorched Ruins
+1 Seeker
+1 Shrink
+1 Snare the Skies
+1 Soltari Emissary
+1 Stoneskin
+1 Strength of the Harvest
+1 Tarnished Citadel
+1 Terra Eternal
+1 The Great Mound
+1 Timbermaw Larva
+1 Treefolk Mystic
+1 Tsunami
+1 Unnatural Predation
+1 Unseen Walker
+1 Urza's Power Plant
+1 Vagrant Plowbeasts
+1 Venomous Breath
+1 Volatile Fault
+1 Wellspring
+1 Whirlwind
+1 Willow Dryad
+
+[commander]
+Trostani, Three Whispers

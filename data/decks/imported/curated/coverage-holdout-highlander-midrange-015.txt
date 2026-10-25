@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WBG #90010016]
+1 Alert Heedbonder
+1 Anchovy & Banana Pizza
+1 Attrition
+1 Ayula's Influence
+1 Battlegrowth
+1 Birthing Hulk
+1 Blood Seeker
+1 Blood-Cursed Knight
+1 Bloodline Necromancer
+1 Bog-Strider Ash
+1 Branchloft Pathway
+1 Break Asunder
+1 Davvol, Evincar of Rath
+1 Deceptive Landscape
+1 Deranged Hermit
+1 Divine Transformation
+1 Earth King's Lieutenant
+1 Earthblighter
+1 Essence Drain
+1 Essence Warden
+1 Execute
+1 Farrel's Mantle
+1 Fevered Strength
+1 Font of Vigor
+14 Forest
+1 Freyalise Supplicant
+1 Gnawing Zombie
+1 Grim Backwoods
+1 Hag of Syphoned Breath
+1 Hapatra, Vizier of Poisons
+1 Hardened Tactician
+1 Holy Cow
+1 Hushwood Verge
+1 Indatha Triome
+1 Infestation Sage
+1 Inner Sanctum
+1 Kin-Tree Severance
+1 Knight's Pledge
+1 Kujar Seedsculptor
+1 Leaf Dancer
+1 Lifesmith
+1 Master of the Hunt
+1 Mox Jet
+1 Murmuring Bosk
+1 Natural Selection
+1 Nimana Skydancer
+1 Nutrient Block
+1 Oversoul of Dusk
+9 Plains
+1 Purraj of Urborg
+1 Riftstone Portal
+1 Ritual of Subdual
+1 Sacred Nectar
+1 Sadistic Glee
+1 Sakura-Tribe Elder
+1 Saltcrusted Steppe
+1 Sandsteppe Citadel
+1 Savage Hunger
+1 Scaled Hulk
+1 Seizan, Perverter of Truth
+1 Selesnya Locket
+1 Silent Clearing
+1 Soot Imp
+1 Soul Feast
+2 Swamp
+1 Sylvan Hierophant
+1 Tajuru Archer
+1 Temple Garden
+1 Temple of Silence
+1 Three Visits
+1 Tough Cookie
+1 Vampire Opportunist
+1 Vastwood Fortification
+1 Vault of Champions
+1 Vec Townships
+1 Viridescent Bog
+1 Viscera Seer
+1 Zendikar's Roil

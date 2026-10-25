@@ -1,84 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266281]
-1 Absolute Grace
-1 Almost Perfect
-1 Arboria
-1 Arctic Flats
-1 Aura Shards
-1 Barbed Foliage
-1 Birnin Zana Plaza
-1 Black Ward
-1 Botanical Plaza
-1 Bower Passage
-1 Bramblecrush
-1 Branchloft Pathway
-1 Broken Fall
-1 Burgeoning
+[deck:commander midrange WUR #20266281]
+1 Absolute Law
+1 Angelic Captain
+1 Angelic Voices
+1 Archon of Emeria
+1 Azorius First-Wing
+1 Battlefield Forge
+1 Blaze of Glory
+1 Bloodcrusher of Khorne
+1 Cat-Owl
 1 Circle of Protection: Blue
 1 Circle of Protection: Green
-1 Circle of Protection: Red
 1 Circle of Protection: Shadow
-1 Cleansing Ray
-1 Collective Blessing
-1 Conservatory
+1 Circle of Protection: White
+1 Cloudcrest Lake
 1 Conversion
 1 Crackdown
-1 Deadfall
-1 Dense Foliage
-1 Destroy Evil
-1 Entangling Vines
-1 Ephara's Radiance
-1 Equinox
-1 Etched Cornfield
-1 Exploration
+1 Crimson Roc
+1 Damping Field
+1 Desolate Lighthouse
 1 Farmstead
-5 Forest
-1 Fragmentize
-1 Gavony Township
-1 Gerrard's Battle Cry
-1 Graypelt Refuge
+1 Fatehold Chronologist
+1 Ferrous Lake
+1 Frenetic Efreet
+1 Ghostly Sentinel
+1 Glaciers
+1 Gleaming Bastion
+1 Glimmering Angel
+1 Godhead of Awe
 1 Great Wall
-1 Greater Realm of Preservation
-1 Hot Springs
+1 Hallowed Ground
+1 Hazerider Drake
+1 Hengegate Pathway
+1 Heroism
+1 Hobgoblin Dragoon
 1 Humility
-1 Hushwood Verge
-1 Island Sanctuary
+1 Hypochondria
+5 Island
 1 Kismet
-1 Kudzu
-1 Light of Day
-1 Living Lands
-1 Lush Portico
+1 Lightning Angel
+1 Mantle of Leadership
+1 Mending Hands
 1 Might of the Ancestors
-1 Noble Steeds
+1 Moonwing Moth
+7 Mountain
+1 Mystic Monastery
+1 Nimbus Maze
+1 Nobilis of War
+1 Ocular Halo
 1 Opal Avenger
-1 Overgrown Farmland
 1 Pariah
-18 Plains
-1 Planar Collapse
+1 Perilous Landscape
+13 Plains
+1 Plumeveil
 1 Prismatic Ward
-1 Retaliation
-1 Righteous Aura
-1 Rolling Stones
-1 Root Maze
+1 Raugrin Triome
+1 Relic Sloth
+1 Riverpyre Verge
+1 Roc of Kher Ridges
 1 Rule of Law
-1 Safeguard
-1 Seeker
-1 Selesnya Sanctuary
-1 Shoot Down
-1 Squirrel Nest
-1 Still Life
-1 Swift Reconfiguration
-1 Temple Garden
-1 Temple of Plenty
-1 Unlikely Alliance
-1 Veldt
-1 Vitu-Ghazi, the City-Tree
-1 Walk-In Closet
-1 Wallop
-1 White Ward
-1 Wooded Bastion
-1 Worship
+1 Seedpod Squire
+1 Senate Courier
+1 Serum Raker
+1 Siegecraft
+1 Silence
+1 Sky Terror
+1 Skycloud Expanse
+1 Slayers' Stronghold
+1 Spectral Shepherd
+1 Squall Drifter
+1 Supreme Verdict
+1 Tempest Drake
+1 Thalakos Lowlands
+1 Thunderclap Wyvern
+1 Torch Drake
+1 Tower Drake
+1 Vassal Soul
+1 Volcanic Island
 
 [commander]
-Trostani, Three Whispers
+Sokka, Tenacious Tactician

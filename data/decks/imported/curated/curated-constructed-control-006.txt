@@ -1,19 +1,20 @@
 # baylee curated constructed control seed=20261029
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261029]
-3 Abandoned Campground
-4 Arcbound Ravager
-3 Avacyn's Collar
-4 Captain's Call
-3 Cloudcrest Lake
-3 Fortified Beachhead
-4 Griffin Guide
-2 Island
-2 Lonely Arroyo
-13 Plains
-3 Retrofitter Foundry
-1 Siege Veteran
-3 Slayer's Plate
-4 Spawning Pit
-4 Thopter Squadron
-4 Trading Post
+1 Ancestral Vision
+3 Calciform Pools
+2 Corsair Captain
+4 Drogskol Cavalry
+4 Guarded Heir
+3 Hallowed Fountain
+4 Honored Knight-Captain
+1 Island
+4 Knight Exemplar
+4 Knight-Captain of Eos
+3 Land Cap
+3 Master Splicer
+15 Plains
+3 Resolute Reinforcements
+2 Thraben Inspector
+1 Tundra
+3 Wing Splicer

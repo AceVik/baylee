@@ -1,22 +1,22 @@
 # baylee curated constructed aggro seed=20261059
 # licence: AGPL-3.0-only
 [deck:constructed aggro UR #20261059]
-2 Aether Sting
-1 Airship Engine Room
-2 Desolate Lighthouse
-4 Eidolon of the Great Revel
-4 Firemind's Research
-3 Frostboil Snarl
-2 Glaring Fleshraker
-4 Havoc
-13 Mountain
-4 Mystic Remora
-3 Mystical Tutor
-1 Nivix, Aerie of the Firemind
-1 Pyrostatic Pillar
+4 Birgi, God of Storytelling
+4 Drowner Initiate
+2 Eidolon of the Great Revel
+3 Ferrous Lake
+2 Fiery Islet
+3 Force of Will
+5 Island
+4 Izzet Charm
+2 Monastery Swiftspear
+9 Mountain
+1 Riverglide Pathway
 2 Riverpyre Verge
-3 Sarkhan's Unsealing
+2 Rockslide Sorcerer
+4 Sanguinary Mage
 2 Sawblade Scamp
-4 Spark Spray
-4 Spellshock
-1 Surtland Frostpyre
+1 Shivan Reef
+3 Spark Jolt
+4 Umara Entangler
+3 Wee Dragonauts

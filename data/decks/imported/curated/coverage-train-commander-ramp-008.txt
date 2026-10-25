@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BRG #20266009]
-1 A.I.M. Synthoids
-1 Akki Rockspeaker
-1 Ambush Krotiq
-1 Ardent Elementalist
-1 Atalan Jackal
-1 Badgermole Cub
-1 Barad-dûr
-1 Barrier of Bones
-1 Barrow Witches
-1 Black Dragon Gate
-1 Bond Beetle
-1 Bone Pit Brute
-1 Bottomless Vault
-1 Cartographer
-1 Champion of the Perished
-1 Commander Greven il-Vec
-1 Crypt Angel
-1 Dakmor Lancer
-1 Darigaaz's Caldera
-1 Dark Hatchling
-1 Desert of the Glorified
-1 Desperate Bloodseeker
-1 Doom's Servo-Guards
-1 Drumhunter
-1 Dundoolin Weaver
-1 Ebon Dragon
-1 Flayed One
-8 Forest
-1 Foul Roads
+1 Ashen Powder
+1 Auntie's Hovel
+1 Avaricious Dragon
+1 Blood Pet
+1 Bog Initiate
+1 Brimstone Dragon
+1 Broodmate Dragon
+1 Burnt Offering
+1 Canopy Tactician
+1 Canyon Slough
+1 Charge Through
+1 Charnelhoard Wurm
+1 Daring Escape
+1 Darkmoss Bridge
+1 Deathcap Glade
+1 Dragon Tyrant
+1 Dread Rider
+1 Easy Prey
+1 Elvish Spirit Guide
+4 Forest
+1 Frog Butler
+1 Furious Bellow
+1 Fyndhorn Elder
 1 Geothermal Crevice
-1 Gladiolus Amicitia
-1 Godtracker of Jund
-1 Golgari Cluestone
-1 Golgari Locket
-1 Great Arashin City
-1 Griselbrand
-1 Guardian Gladewalker
-1 Hill Giant Herdgorger
-1 Hive of the Eye Tyrant
-1 Howltooth Hollow
-1 Hundroog
-1 Lindblum, Industrial Regency
-1 Mines of Moria
-1 Mold Demon
-1 Mossbeard Ancient
-6 Mountain
-1 Murasa Ranger
-1 Nightshade Harvester
-1 Nimana Sell-Sword
-1 Nissa, Resurgent Animist
-1 Oran-Rief Survivalist
-1 Orcish Bowmasters
-1 Priest of Urabrask
-1 Primeval Titan
-1 Quirion Sentinel
-1 Rabid Bloodsucker
-1 Ravaging Horde
-1 Ravenous Lindwurm
-1 Realm of Koh
-1 Ridge Rannet
-1 Rushwood Grove
-1 Satyr Grovedancer
-1 Sazh's Chocobo
-1 Sneering Shadewriter
-10 Swamp
-1 Territorial Scythecat
-1 Thaumaturge's Familiar
-1 Thief of Blood
-1 Thriving Bluff
-1 Tomb Fortress
-1 Tuktuk Grunts
-1 Turntimber Grove
-1 Vinelasher Kudzu
-1 Wartime Protestors
-1 Wild Roads
-1 Wild Wanderer
+1 Hammerfist Giant
+1 Hellkite Igniter
+1 Hellkite Overlord
+1 Hissing Quagmire
+1 Inordinate Rage
+1 Intrepid Stablemaster
+1 Keeper of Tresserhorn
+1 Kindled Heroism
+1 Koskun Keep
+1 Kozilek's Translator
+1 Lightning Javelin
+1 Locust Spray
+16 Mountain
+1 Nighthaze
+1 Nimble-Blade Khenra
+1 Nissa, Vital Force
+1 Obelisk of Jund
+1 Ohran Frostfang
+1 Omen of the Forge
+1 Past in Flames
+1 Pavel Maliki
+1 Professor Dellian Fel
+1 Ray of Ruin
+1 Rejuvenate
+1 Restless Cottage
+1 Rise Again
+1 Savage Lands
+1 Scarblade Scout
+1 Silhana Starfletcher
+1 Skemfar Elderhall
+1 Skull of Ramos
+1 Skycrash
+1 Songs of the Damned
+1 Soul Rend
+1 Stature, Young Avenger
+1 Stun
+1 Subterranean Cavern
+1 Sunrise Sovereign
+6 Swamp
+1 Swampbenders
+1 Three Tree Rootweaver
+1 Titan's Grave
+1 Titan's Strength
+1 Tramway Station
+1 Transdimensional Bovine
+1 Troll-Horn Cameo
+1 Twisted Landscape
+1 Undergrowth Stadium
+1 Vernal Fen
+1 Vesper Ghoul
+1 Whisper Squad
 1 Windgrace Acolyte
-1 Yavimaya Granger
 
 [commander]
 Vaevictis Asmadi

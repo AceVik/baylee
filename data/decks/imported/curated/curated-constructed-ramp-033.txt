@@ -1,21 +1,22 @@
 # baylee curated constructed ramp seed=20261056
 # licence: AGPL-3.0-only
 [deck:constructed ramp UG #20261056]
-3 Botanical Sanctum
-3 Dreamroot Cascade
-3 Fable of Wolf and Owl
+2 Enduring Vitality
 1 Flooded Grove
-2 Glaring Fleshraker
-3 Hesitation
-14 Island
-4 Jeskai Sage
-4 Jin-Gitaxias, Progress Tyrant
-1 Kozilek's Unsealing
-3 Metamorphosis
-2 Path of Annihilation
-4 Primeval Bounty
-1 Restless Vinestalk
-4 Shipwreck Dowser
-2 Sire of the Storm
-3 Sodden Verdure
-3 Three Steps Ahead
+4 Forest
+4 Generous Visitor
+11 Island
+3 Jin-Gitaxias, Progress Tyrant
+3 Maul Splicer
+2 Midsummer Revel
+3 Mind Over Matter
+4 Mystic Remora
+3 Novijen, Heart of Progress
+4 Ojer Pakpatiq, Deepest Epoch
+3 Overflowing Basin
+4 Pact of Negation
+2 Primeval Bounty
+2 Reflections of Littjara
+2 Return from the Wilds
+1 Tropical Island
+2 Yavimaya Coast

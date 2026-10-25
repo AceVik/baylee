@@ -262,20 +262,23 @@ impl DeckThemeAccumulator {
         let mut score = 0.0_f64;
 
         // 1. Bipartite Enabler <-> Payoff couplings against accumulated deck roles
+        //    (concave-compressed so multi-role Swiss-army cards don't dominate)
+        let mut role_score = 0.0_f64;
         for &(ra, rb, w) in ENABLER_PAYOFF_COUPLINGS {
             if (cand.roles >> ra) & 1 == 1 {
                 let partner_cnt = f64::from(self.role_counts[rb]);
                 if partner_cnt > 0.0 {
-                    score += w * (partner_cnt / denom).sqrt();
+                    role_score += w * (partner_cnt / denom).sqrt();
                 }
             }
             if ra != rb && (cand.roles >> rb) & 1 == 1 {
                 let partner_cnt = f64::from(self.role_counts[ra]);
                 if partner_cnt > 0.0 {
-                    score += w * (partner_cnt / denom).sqrt();
+                    role_score += w * (partner_cnt / denom).sqrt();
                 }
             }
         }
+        score += 3.2 * (1.0 - (-role_score / 2.8).exp());
 
         // 2. Spellslinger density coupling
         let cand_inst_sorc =

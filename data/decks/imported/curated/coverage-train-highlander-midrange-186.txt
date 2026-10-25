@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266187]
+1 Accelerate
+1 Aleatory
+1 An-Havva Township
+1 Angelsong
+1 Armed Response
+1 Bandage
+1 Battlewand Oak
+1 Birthing Pod
+1 Bloodfire Expert
+1 Boar-q-pine
+1 Bog Gnarr
+1 Burning Prophet
+1 Chandra's Emberling
+1 Control of the Court
+1 Crackling Cyclops
+1 Cragcrown Pathway
+1 Daring Escape
+1 Dragonlair Spider
+1 Earthshaker
+1 Electrostatic Infantry
+1 Enduring Vitality
+1 Fever Charm
+9 Forest
+1 Furious Bellow
+1 Gin'tak Charge
+1 Go Forth
+1 Grove of the Burnwillows
+1 Inordinate Rage
+1 Jackalope Herd
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Kazuul's Fury
+1 Kiln Fiend
+1 Kindled Heroism
+1 Kurgadon
+1 Lightning Blow
+1 Mage-Ring Bully
+1 Magma Giant
+1 Mogg Hollows
+1 Mossfire Valley
+16 Mountain
+1 Nimble-Blade Khenra
+1 Onslaught
+1 Ore Gorger
+1 Outland Boar
+1 Pinecrest Ridge
+1 Pinnacle Monk
+1 Predatory Hunger
+1 Pressure Point
+1 Provoke
+1 Raging Kavu
+1 Rampart Smasher
+1 Rith's Grove
+1 Romantic Rendezvous
+1 Ruric Thar, the Unbowed
+1 Safehold Duo
+1 Samut's Sprint
+1 Satyr Enchanter
+1 Savannah
+1 Scouring Sands
+1 Seething Song
+1 Sheltering Landscape
+1 Skarrg, the Rage Pits
+1 Skybeast Tracker
+1 Skycrash
+1 Stature, Young Avenger
+1 Storm Strike
+1 Stun
+1 Sythis, Harvest's Hand
+1 Tattermunge Duo
+1 Taurean Mauler
+1 Thor Odinson
+1 Timberline Ridge
+1 Tinder Farm
+1 Titan's Strength
+1 Touch of Vitae
+1 Training Compound

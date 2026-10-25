@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266157]
-1 Angelic Curator
-1 Aven Redeemer
-1 Aven Sentry
-1 Aven Trooper
-1 Beacon Hawk
-1 Bee Sting
-1 Blossoming Sands
-1 Botanical Plaza
-1 Bramblecrush
-1 Bramblesnap
-1 Brambleweft Behemoth
-1 Canopy Vista
-1 Combat Professor
-1 Commander Eesha
-1 Companion of the Trials
-1 Courier Hawk
-1 Creeperhulk
-1 Dauntless Aven
-1 Desecration Plague
-1 Dragonstalker
-1 Duskrider Falcon
-1 Eagle of the Watch
-1 Force of Savagery
-7 Forest
-1 Fortified Village
-1 Freewind Falcon
-1 Gallows Warden
-1 Ghirapur Osprey
-1 Ghostly Sentinel
-1 Kabuto Moth
-1 Kodama of the North Tree
-1 Kyoshi Village
-1 Lantern Kami
-1 Melesse Spirit
-1 Mesa Falcon
-1 Moss Kami
-1 Mothrider Patrol
-1 Niblis of the Urn
-1 Overgrown Farmland
-1 Oxidize
-16 Plains
-1 Pteron Ghost
-1 Razorverge Thicket
-1 Reclaiming Vines
-1 Return to the Earth
-1 Roc Charger
-1 Royal Falcon
-1 Saltcrusted Steppe
-1 Savannah
-1 Segovian Angel
-1 Selesnya Sanctuary
-1 Shoot Down
-1 Shrike Force
-1 Silvos, Rogue Elemental
-1 Skyshroud Falcon
-1 Skyswirl Harrier
-1 Soulbound Guardians
-1 Spirit of the Spires
-1 Squall Drifter
-1 Steelbane Hydra
-1 Steeple Roc
-1 Stonerise Spirit
-1 Suburban Sanctuary
-1 Sungrass Prairie
-1 Sunpetal Grove
-1 Territorial Roc
-1 Thicket Basilisk
-1 Thornglint Bridge
-1 Thunder Spirit
-1 Tranquil Garden
-1 Venerable Lammasu
-1 Voiceless Spirit
-1 Voracious Varmint
-1 Wallop
-1 Wild Aesthir
-1 Windurst, Federation Center
-1 Wing Snare
-1 Wooded Bastion
+[deck:commander midrange G #20266157]
+1 Alloy Animist
+1 Anaconda
+1 Ankle Biter
+1 Archers of Qarsi
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Bitterbow Sharpshooters
+1 Broodwarden
+1 Canopy Dragon
+1 Conifer Strider
+1 Crystal Ball
+1 Cyclopean Tomb
+1 Death-Hood Cobra
+1 Dragon Sniper
+1 Eureka
+1 Exotic Orchard
+1 Feiyi Snake
+1 Flailing Drake
+1 Foratog
+34 Forest
+1 Game-Trail Changeling
+1 Gnarled Mass
+1 Gond Gate
+1 High Market
+1 Horned Sliver
+1 Hornet Cobra
+1 Humble Budoka
+1 Indicate
+1 Jasmine Dragon Tea Shop
+1 Jolrael's Centaur
+1 Jukai Messenger
+1 Kavu Mauler
+1 Kindercatch
+1 Krosan Constrictor
+1 Marauder's Axe
+1 Marsh Boa
+1 Megantic Sliver
+1 Meng Huo's Horde
+1 Might Sliver
+1 Might Weaver
+1 Mire Boa
+1 Moss Viper
+1 Oashra Cultivator
+1 Orchard Spirit
+1 Order of the Sacred Bell
+1 Pradesh Gypsies
+1 Radjan Spirit
+1 Ramunap Excavator
+1 Reflex Sliver
+1 Rushwood Herbalist
+1 Skyshroud Poacher
+1 Spinneret Sliver
+1 Sporecrown Thallid
+1 Squirrel Sovereign
+1 Talarian Hook Spider
+1 Taoist Hermit
+1 Teeka's Dragon
+1 Terrain Elemental
+1 Tireless Hauler
+1 Trained Jackal
+1 Venom Sliver
+1 Veteran's Sidearm
+1 War Room
+1 Windswept Heath
+1 Woodland Druid
+1 Woodland Patrol
 
 [commander]
-Trostani, Three Whispers
+The Fabulous Frog-Man

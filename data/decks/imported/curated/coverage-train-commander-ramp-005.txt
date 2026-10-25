@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WUG #20266006]
-1 Abandoned Air Temple
-1 Agent of Atlas
 1 Aggressive Urge
 1 Ant-Man, Reformed Rogue
-1 Archway of Innovation
-1 Barrels of Blasting Jelly
-1 Battlewand Oak
-1 Bog Gnarr
-1 Castle Garenbrig
-1 Chain to Memory
-1 Constricting Tendrils
-1 Contemplation
-1 Country Roads
-1 Dazzling Lights
-1 Desert of the Indomitable
-1 Desert of the True
-1 Drowned Secrets
-1 Elementalist Adept
-1 Elite Archers
-1 Emrakul's Influence
-1 Enchantress's Presence
-1 Evendo, Waking Haven
-1 Eyes of the Watcher
-1 Fleeting Distraction
+1 Birnin Zana Plaza
+1 Bone to Ash
+1 Canopy Dragon
+1 Capture of Jingzhou
+1 Circle of Dreams Druid
+1 Clairvoyance
+1 Cloud Dragon
+1 Conservatory
+1 D'Avenant Healer
+1 Defense of the Heart
+1 Druids' Repository
+1 Enter the Enigma
+1 Exalted Dragon
+1 Failed Inspection
+1 Farseek
+1 Fauna Shaman
+1 Finale of Devastation
 10 Forest
-1 Freyalise's Charm
-1 Go Forth
-1 Guardian of Solitude
+1 Forget
+1 Frontier Guide
+1 Gigantomancer
+1 Gitaxian Probe
+1 Gosta Dirk
+1 Guadosalam, Farplane Gateway
 1 Halcyon Glaze
-1 Halimar Depths
-1 Hamato Guardian Stance
-1 Hematite Talisman
 1 Hidden Gibbons
-1 Hollow Trees
-1 Insight
-7 Island
-1 Jackalope Herd
-1 Jade Idol
-1 Jarvis, Earth's Mightiest Butler
-1 Jhessian Thief
-1 Jidoor, Aristocratic Capital
-1 Jinx
-1 Karn, the Great Creator
-1 Kree Commandos
-1 Kulrath Mystic
-1 Lunar Mystic
-1 Magosi, the Waterveil
-1 Mana Breach
+1 Into the North
+10 Island
+1 Kasimir the Lone Wolf
+1 Kyoshi Village
+1 Lady Caleria
+1 Lotus Guardian
+1 Marjhan
+1 Meditation Pools
 1 Merchant Scroll
-1 Mesa Enchantress
-1 Nylea's Intervention
-1 Onyx Talisman
-7 Plains
-1 Predatory Hunger
-1 Prescient Chimera
-1 Primordial Sage
-1 Provoke
-1 Rebellious Strike
-1 Rivendell
-1 Satyr Enchanter
-1 Sea Gate
-1 Shocking Grasp
-1 Storm Spirit
-1 Storyteller Pixie
-1 Stymied Hopes
-1 TVA Bureaucrat
-1 Tanufel Rimespeaker
-1 Teller of Tales
-1 The Fair Basilica
-1 The Hunter Maze
+1 Mesmeric Trance
+1 Mindscour Dragon
+1 Neverwinter Dryad
+1 Oashra Cultivator
+1 Pearl Dragon
+6 Plains
+1 Prairie Stream
+1 Psionic Entity
+1 Pym Particles
+1 Pym Technologies
+1 Razortide Bridge
+1 Rejuvenating Springs
+1 Reshape
+1 Rockcaster Platoon
+1 Safewright Quest
+1 Samite Archer
+1 Seahunter
+1 Shadow Rift
+1 Shared Roots
+1 Sharlayan, Nation of Scholars
+1 Silkwing Scout
+1 Skyshroud Poacher
+1 Slip Through Space
+1 Sodden Verdure
+1 Steelshaper Apprentice
+1 Stirring Wildwood
+1 Suburban Sanctuary
+1 Tangled Islet
+1 Temporal Manipulation
+1 Time Warp
+1 Time of Need
 1 Tranquil Landscape
-1 Umara Entangler
-1 Vedalken Archmage
-1 Vedalken Blademaster
-1 Veiled Serpent
-1 Warmth
-1 Windbrisk Heights
-1 Zanarkand, Ancient Metropolis
+1 Trapmaker's Snare
+1 Turbulent Wilderness
+1 Vernal Bloom
+1 Weight of Memory
+1 Whisperer of the Wilds
+1 Worldly Tutor
+1 Zephid
 
 [commander]
 Arcades Sabboth

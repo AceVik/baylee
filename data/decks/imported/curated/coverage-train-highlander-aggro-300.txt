@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WRG #20266301]
+1 Aisling Leprechaun
+1 An-Havva Township
+1 Ancient Spider
+1 Argothian Pixies
+1 Bag End Porter
+1 Barbary Apes
+1 Barkhide Troll
+1 Blossom Dryad
+1 Branchloft Pathway
+1 Brushland
+1 Cabaretti Initiate
+1 Canopy Spider
+1 Elvish Piper
+1 Emerald Oryx
+1 Faithful Watchdog
+1 Folk of the Pines
+18 Forest
+1 Frog-Squirrels
+1 Gavony Township
+1 Giant Badger
+1 Gibbering Hyenas
+1 Gloomwidow
+1 Gnottvold Recluse
+1 Grappler Spider
+1 Grappling Sundew
+1 Grove of the Guardian
+1 Hedge Troll
+1 Hitchclaw Recluse
+1 Ivy Dancer
+1 Jetmir's Garden
+1 Joven's Ferrets
+1 Jungle Shrine
+1 Jungle Troll
+1 Karoo Meerkat
+1 Kessig Recluse
+1 Llanowar Knight
+1 Mammoth Spider
+1 Needlepeak Spider
+6 Plains
+1 Plated Spider
+1 Prized Elephant
+1 Raven's Run Dragoon
+1 Reckless Pangolin
+1 Rib Cage Spider
+1 Rith's Grove
+1 Safehold Elite
+1 Savannah
+1 Scion of the Wild
+1 Scurrid Colony
+1 Sedge Scorpion
+1 Sentinel Spider
+1 Sheltering Landscape
+1 Skyshroud Troll
+1 Spitting Slug
+1 Sporecap Spider
+1 Stalking Drone
+1 Steel Leaf Champion
+1 Sungrass Prairie
+1 Swift Spinner
+1 Talarian Hook Spider
+1 Terrain Elemental
+1 Tinder Farm
+1 Tree Monkey
+1 Troll Ascetic
+1 Underdark Basilisk
+1 Unseen Walker
+1 Valeron Outlander
+1 Victual Sliver
+1 Viridian Lorebearers
+1 Vitu-Ghazi, the City-Tree
+1 Warthog
+1 Wary Okapi
+1 Watcher in the Web
+1 Wilt-Leaf Cavaliers
+1 Wooded Bastion
+1 Woolly Mammoths
+1 Zodiac Monkey
+1 Zodiac Rooster

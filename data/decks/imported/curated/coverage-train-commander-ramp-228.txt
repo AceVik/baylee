@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266229]
+1 Ali Baba
+1 Altac Bloodseeker
+1 Assassin's Strike
+1 Badlands
+1 Balduvian War-Makers
+1 Barbarian Riftcutter
+1 Bird Maiden
+1 Blackbloom Rogue
+1 Blaster Mage
+1 Blazemire Verge
+1 Blood Crypt
+1 Bloodlust Inciter
+1 Borderland Marauder
+1 Cabal Trainee
+1 Charity Extractor
+1 Cinder Marsh
+1 Dai Li Censor
+1 Dark Fortress
+1 Devastation
+1 Dhund Operative
+1 Embraal Bruiser
+1 Fathom Fleet Firebrand
+1 Fault Riders
+1 Fearful Villager
+1 Gerrard's Irregulars
+1 Glamorous Grapplers
+1 Goblin Lore
+1 Gravblade Heavy
+1 Grave Robbers
+1 Graven Cairns
+1 Happy Hogan, Dauntless Driver
+1 Haradrim Spearmaster
+1 Harvesttide Infiltrator
+1 Hired Poisoner
+1 Immersturm Skullcairn
+1 Impetuous Sunchaser
+1 Inkrise Infiltrator
+1 Inventor's Apprentice
+1 Joven
+1 Kargan Dragonrider
+1 Keldon Berserker
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Lovisa Coldeyes
+1 Masked Blackguard
+1 Molten Slagheap
+1 Mount Doom
+15 Mountain
+1 Mountain Bandit
+1 Márton Stromgald
+1 Notorious Assassin
+1 Onyx Mage
+1 Pardic Collaborator
+1 Rakdos Trumpeter
+1 Raking Claws
+1 Raucous Theater
+1 Renegade Warlord
+1 Rowan's Battleguard
+1 Seismic Mage
+1 Shadowblood Ridge
+1 Soldier of Fortune
+1 Songbird, Sonic Screamer
+1 Starke of Rath
+1 Stensia Bloodhall
+1 Storm Shaman
+1 Sulfurous Springs
+1 Suq'Ata Assassin
+11 Swamp
+1 Tainted Peak
+1 Tilonalli's Knight
+1 Vile Deacon
+1 Warship Scout
+1 Wei Ambush Force
+1 Wrecking Crew
+1 Zhao, the Seething Flame
+
+[commander]
+Pavel Maliki

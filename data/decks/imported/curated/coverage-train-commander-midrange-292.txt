@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUR #20266293]
+1 Amrou Seekers
+1 Barrenton Cragtreads
+1 Battlefield Forge
+1 Bloodtallow Candle
+1 Bubbling Beebles
+1 Burrenton Shield-Bearers
+1 Champion's Helm
+1 Chariot of Victory
+1 Cliff Threader
+1 Cliffhaven Sell-Sword
+1 Cobbled Wings
+1 Cultist's Staff
+1 Desolate Lighthouse
+1 Elven Lyre
+1 Ensouled Scimitar
+1 Fleetfeather Sandals
+1 Flutterfox
+1 Forethought Amulet
+1 Galina's Knight
+1 Gauntlets of Chaos
+1 Gorgon Flail
+1 Grizzled Wolverine
+1 Haunted Cloak
+1 Helm of Possession
+1 Indomitable Ancients
+12 Island
+1 Kavu Glider
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Kithkin Rabble
+1 Kormus Bell
+1 Leaping Master
+1 Lightning Hounds
+1 Loxodon Stalwart
+1 Marsh Threader
+1 Moon-Eating Dog
+1 Moorland Haunt
+7 Mountain
+1 Mystic Gate
+1 Mystic Monastery
+1 Needleverge Pathway
+1 Perilous Landscape
+6 Plains
+1 Plateau
+1 Quarum Trench Gnomes
+1 Raging Spirit
+1 Raugrin Triome
+1 Raven Wings
+1 Ring of Gix
+1 Riverpyre Verge
+1 Rugged Prairie
+1 Sacred Foundry
+1 Safehold Sentry
+1 Scoria Cat
+1 Scrapyard Mongrel
+1 Shield of Kaldra
+1 Shorecomber Crab
+1 Short Bow
+1 Skycloud Expanse
+1 Specter's Shroud
+1 Steam Vents
+1 Sword of Vengeance
+1 Tawnos's Weaponry
+1 Teleport
+1 Thalakos Lowlands
+1 The Walls of Ba Sing Se
+1 Thistledown Players
+1 Thran Weaponry
+1 True-Faith Censer
+1 Two-Headed Cerberus
+1 Valor Singer
+1 Vulshok Morningstar
+1 Wanderbrine Trapper
+1 War Horn
+1 Weakstone
+1 Zelyon Sword
+1 Zodiac Dog
+
+[commander]
+Sokka, Tenacious Tactician

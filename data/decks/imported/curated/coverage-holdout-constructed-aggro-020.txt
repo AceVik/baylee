@@ -1,0 +1,28 @@
+# baylee synergistic holdout coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WBR #90010021]
+2 Akroan Jailer
+2 Blood-Cursed Knight
+2 Chandler
+2 Crusader of Odric
+2 Cunning Lethemancer
+2 Cutthroat Contender
+2 Disciple of Malice
+2 Elite Inquisitor
+1 Goblin Wizard
+2 Hagra Mauling
+2 Infantry Veteran
+2 Kjeldoran Warrior
+2 Knight of Dusk
+2 Mtenda Herder
+2 Pathmaker Initiate
+6 Plains
+3 Sacred Peaks
+1 Shattered Landscape
+2 Soulmender
+3 Sundown Pass
+8 Swamp
+2 Tournament Grounds
+2 Truefire Paladin
+2 Veteran Swordsmith
+2 Volunteer Militia

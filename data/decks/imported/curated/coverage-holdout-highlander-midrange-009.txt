@@ -1,82 +1,81 @@
 # baylee synergistic holdout coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WU #90010010]
-1 Abandoned Campground
-1 Aerial Engineer
-1 Al-abara's Carpet
-1 Ashiok's Skulker
-1 Azorius Keyrune
-1 Boreal Shelf
-1 Braingeyser
-1 Calciform Pools
-1 Caller of Gales
-1 Captain of Umbar
+[deck:highlander midrange WBR #90010010]
+1 Anchovy & Banana Pizza
+1 Archangel Avacyn
+1 Ashen Monstrosity
+1 Aspect of Gorgon
+1 Attrition
+1 Bala Ged Scorpion
+1 Barbarian Ring
+1 Battlegate Mimic
+1 Blackcleave Cliffs
+1 Blood Moon
+1 Boggart Trawler
+1 Carbonize
+1 Castle Embereth
 1 Cathar Commando
-1 Change the Equation
-1 Cloak of Feathers
-1 Cruel Witness
-1 Deny Entry
-1 Dispel
-1 Divine Arrow
-1 Divine Retribution
-1 Eldrazi Skyspawner
-1 Enervate
-1 Essence Flare
-1 Farmstead Gleaner
+1 Chandler
+1 Chromatic Lantern
+1 Conquer
+1 Dark Betrayal
+1 Deathgazer
+1 Deviant Glee
+1 Disciple of Malice
+1 Dross Hopper
+1 Duergar Assailant
+1 Dust to Dust
+1 Earthblighter
+1 Edge of the Divinity
+1 Eumidian Hatchery
 1 Farrel's Mantle
-1 Floodfarm Verge
-1 Flusterstorm
-1 Frightful Delusion
-1 Hengegate Pathway
-1 Hydro-Channeler
-1 Idyllic Beachfront
-1 Incubator Drone
-22 Island
-1 Jwari Scuttler
-1 Kabira Takedown
-1 Keeneye Aven
-1 Knight's Pledge
-1 Kukemssa Pirates
-1 Land Cap
-1 Legerdemain
-1 Lightshell Duo
-1 Lose Focus
-1 Lotus Path Djinn
-1 Memory Drain
-1 Merfolk Traders
-1 Merrow Witsniper
-1 Mist Dragon
-1 Muse's Encouragement
-1 North Pole Gates
-1 Plains
-1 Plumecreed Escort
-1 Psychic Barrier
-1 Restless Anchorage
-1 Ringwarden Owl
-1 Sage's Knowledge
-1 Saltwater Stalwart
-1 Sandbar Merfolk
-1 Sea of Clouds
-1 Seashell Cameo
-1 Seaside Haven
-1 Second Chance
+1 Fevered Strength
+1 Filigree Familiar
+1 Fire-Omen Crane
+1 Grim Monolith
+1 Hagra Mauling
+1 Hardened Tactician
+1 Hour of Defeat
+1 Infestation Sage
+1 Jokulhaups
+1 Knight of Dusk
+1 Lake of the Dead
+1 Lash of the Whip
+1 Looming Spires
+1 Mage il-Vec
+1 Magnetic Mountain
+1 Manaforge Cinder
+1 Minotaur Abomination
+1 Mire's Grasp
+7 Mountain
+1 Munitions Expert
+1 Nimana Skydancer
+1 Nomad Outpost
+7 Plains
+1 Red Herring
+1 Redrock Sentinel
+1 Reprisal
+1 Riot Spikes
+1 Sacred Peaks
+1 Sadistic Glee
+1 Savai Triome
+1 Shattered Landscape
+1 Shattering Blow
 1 Shield of Duty and Reason
-1 Sky Diamond
-1 Sky Theater Strix
-1 Skybridge Towers
-1 Soldevi Machinist
-1 Sphinx of the Final Word
-1 Thalakos Dreamsower
-1 Thoughtbind
-1 Timetwister
-1 Tolaria
-1 Tolaria West
-1 Umara Wizard
-1 University Campus
-1 Uthros, Titanic Godcore
+1 Shineshadow Snarl
+1 Spirit of the Labyrinth
+1 Stony-Voiced Goblins
+1 Street Wraith
+1 Sundown Pass
+11 Swamp
+1 Temple of Silence
+1 Tournament Grounds
+1 Truefire Paladin
+1 Unburden
+1 Vampire Opportunist
+1 Vault of Champions
+1 Vebulid
 1 Veteran Swordsmith
-1 Wall of Mist
-1 Wanderer's Intervention
-1 Wanderwine Hub
-1 Waterspout Djinn
-1 Zhalfirin Shapecraft
+1 Viashino Heretic
+1 Wake of Vultures
+1 Wicked Visitor

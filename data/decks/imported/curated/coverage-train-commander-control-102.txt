@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266103]
+1 Adarkar Unicorn
+1 Arguel's Blood Fast
+1 Blessing of Leeches
+1 Blood Vassal
+1 Boon of the Wish-Giver
+1 Burden of Guilt
+1 Cave of Temptation
+1 Collision Course
+1 Contaminated Ground
+1 Corrupted Roots
+1 Curse Artifact
+1 Deepfathom Skulker
+1 Demolition Field
+1 Divine Intervention
+1 Dread Statuary
+1 Dry Spell
+1 Embargo
+1 Festering Evil
+1 Flight of Fancy
+1 Font of Fortunes
+1 Forbidden Orchard
+1 Forbidden Ritual
+1 Frostwalk Bastion
+1 Gond Gate
+1 Greed
+1 Hecatomb
+1 Hellfire
+1 Hobbit Hole
+1 Impeccable Timing
+4 Island
+1 Karma
+1 Kozilek's Translator
+1 Lingering Mirage
+1 Lurching Rotbeast
+1 Mental Agony
+1 Mishra's Foundry
+1 Moaning Wall
+1 Ophidian Eye
+1 Pillar Tombs of Aku
+6 Plains
+1 Polluted Delta
+1 Prismatic Vista
+1 Psychic Purge
+1 Rambunctious Mutt
+1 Razorgrass Ambush
+1 Reconnaissance
+1 Reconnaissance Mission
+1 Reign of Terror
+1 Rune of Protection: Green
+1 Rune of Protection: Red
+1 Scavenger Grounds
+1 Screams of the Damned
+1 Selhoff Entomber
+1 Shore Keeper
+1 Shoreline Salvager
+1 Soul Bleed
+1 Spiteful Bully
+1 Spreading Seas
+1 Stab Wound
+1 Storm of Saruman
+1 Study Hall
+17 Swamp
+1 Tainted Well
+1 Thieving Otter
+1 Thoughtrender Lamia
+1 Thoughtseize
+1 Three Tree City
+1 Trade Routes
+1 Trenchpost
+1 Underworld Dreams
+1 Unquestioned Authority
+1 Volatile Fault
+1 War Room
+1 Waxen Shapethief
+1 Yoked Plowbeast
+
+[commander]
+Aminatou, the Fateshifter

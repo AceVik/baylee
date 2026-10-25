@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBG #20266021]
-1 Accursed Duneyard
-1 Animal Sanctuary
-1 Ant-Man, Reformed Rogue
-1 Battlewand Oak
-1 Bladebrand
-1 Borne Upon a Wind
-1 Call to Heel
-1 Cascading Cataracts
-1 Clairvoyance
-1 Consult the Star Charts
-1 Dissenter's Deliverance
-1 Easy Prey
-1 Echoing Deeps
-1 Enter the Enigma
-1 Ertai Resurrected
-1 Force Void
-6 Forest
-1 Forge of Heroes
-1 Forget
-1 Frostwalk Bastion
-1 Gitaxian Probe
-1 Gravebind
-1 Gravelgill Duo
-1 Haze of Pollen
-1 Headstone
-1 Iguana Parrot
-14 Island
-1 Jarvis, Earth's Mightiest Butler
-1 Jhessian Thief
-1 Kozilek's Translator
-1 Leap
-1 Lull
-1 Lunar Mystic
-1 Mage's Guile
-1 Magus of the Coffers
-1 Mirran Spy
-1 Mistral Singer
-1 Mistvault Bridge
-1 Misty Rainforest
-1 Mystic Snake
-1 Nighthaze
-1 Open Communications
-1 Painsmith
-1 Petrified Field
-1 Port of Karfell
-1 Prosperity
-1 Pym Particles
-1 Reach Through Mists
-1 Reality Anchor
-1 Sanctum of Eternity
-1 School of the Unseen
-1 Sequestered Stash
-1 Serpent's Pass
-1 Shadow Rift
-1 Skirge Familiar
-1 Sky Scourer
-1 Slip Through Space
-1 Sorrow's Path
-1 Soul Rend
-1 Soulknife Spy
-1 Startling Development
-1 Storyteller Pixie
-3 Swamp
-1 Tangleroot
-1 Tanufel Rimespeaker
-1 Thorntooth Witch
-1 Thunderous Snapper
-1 Tishana's Tidebinder
-1 Turn to Dust
-1 Updraft
-1 Vedalken Archmage
-1 Verduran Enchantress
-1 Viridescent Bog
-1 Voidwielder
-1 Voracious Greatshark
-1 Waterveil Cavern
-1 Weldfast Wingsmith
-1 Wilt
-1 Without Weakness
+[deck:commander midrange WUG #20266021]
+1 Aang, Air Nomad
+1 Abzan Runemark
+1 Aerial Modification
+1 Aeronaut Admiral
+1 Algae Gharial
+1 Ant-Man, Scott Lang
+1 Archon of Justice
+1 Arctic Flats
+1 Arctic Treeline
+1 Avengers Hangar
+1 Aysen Highway
+1 Benalish Heralds
+1 Birnin Zana Plaza
+1 Black Scarab
+1 Boreal Shelf
+1 Botanical Sanctum
+1 Bountiful Promenade
+1 Castle Raptors
+1 Collector's Vault
+1 Cradle of Safety
+1 Crosswinds
+1 Daring Mechanic
+1 Dowsing Dagger
+1 Etched Cornfield
+1 Fanatical Devotion
+1 Fierce Witchstalker
+1 Floodgate
+5 Forest
+1 Gates of Istfell
+1 Gift of Granite
+1 Gold Pan
+1 Head of the Homestead
+1 Heartwood Giant
+10 Island
+1 Ithilien Kingfisher
+1 Join the Ranks
+1 Judge's Familiar
+1 Kyoshi Village
+1 Lumengrid Sentinel
+1 Mantle of Webs
+1 Moat
+1 Mockingbird, Bobbi Morse
+1 Nest Invader
+1 Nimbus Wings
+1 Noble Hierarch
+1 North Pole Gates
+1 Oko, Thief of Crowns
+1 Palace Familiar
+10 Plains
+1 Prairie Stream
+1 Prying Blade
+1 Restless Vinestalk
+1 Retrofitter Foundry
+1 Riptide Crab
+1 Rite of Replication
+1 Rosa, Resolute White Mage
+1 Scion Summoner
+1 Shimmering Wings
+1 Sodden Verdure
+1 Sphinx's Herald
+1 Starry-Eyed Skyrider
+1 Steely Resolve
+1 Stonybrook Schoolmaster
+1 Sword of the Ages
+1 Tangled Islet
+1 Third Path Savant
+1 Thrór's Map
+1 Tireless Provisioner
+1 Trade Caravan
+1 Twin-Silk Spider
+1 Viscerid Armor
+1 Vodalian War Machine
+1 Volunteer Reserves
+1 Wall of Kelp
+1 Wall of Resistance
+1 Yavimaya's Embrace
+1 Zeriam, Golden Wind
 
 [commander]
-Leovold, Emissary of Trest
+Derevi, Empyrial Tactician

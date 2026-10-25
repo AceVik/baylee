@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WBR #20266013]
-1 Aegis Automaton
-1 Aladdin's Lamp
-1 Alpine Meadow
-1 Ancestral Statue
-1 Ashnod's Transmogrant
-1 Auntie's Hovel
-1 Bladed Sentinel
-1 Blazemire Verge
-1 Blood Crypt
+1 Anurid Murkdiver
+1 Argivian Find
+1 Avacyn, Angel of Hope
+1 Barad-dûr
+1 Belligerent Guest
+1 Bishop of Rebirth
 1 Bloodstone Cameo
-1 Book of Rass
-1 Brass Secretary
-1 Chardalyn Dragon
-1 Clockwork Drawbridge
-1 Coretapper
-1 Delif's Cube
-1 Desolation of Smaug
-1 Dragonskull Summit
-1 Elegant Parlor
-1 Excavated Wall
-1 Foot Headquarters
-1 Forethought Amulet
-1 Foriysian Totem
-1 Geothermal Bog
-1 Gold-Forged Sentinel
-1 HYDRA Assault Robot
-1 Hall
-1 Haunted Guardian
-1 Hedron Rover
-1 Hedron Scrabbler
-1 Honor-Worn Shaku
-1 Jandor's Ring
-1 Lead-Belly Chimera
-1 Life Matrix
-1 Living Armor
-1 Lux Cannon
-1 Manakin
-1 Mount Doom
-5 Mountain
-1 Myr Scrapling
-1 Necropolis
-1 Orzhov Keyrune
-1 Orzhov Signet
-1 Patriar's Seal
-1 Phyrexian Walker
-10 Plains
-1 Prizefighter Construct
-1 Radiant Summit
-1 Raucous Carnival
-1 Ring of Ma'rûf
-1 Rugged Prairie
-1 Rustspore Ram
-1 Salvaged Manaworker
-1 Savai Crystal
+1 Boar-q-pine
+1 Bog Wreckage
+1 Breath of Life
+1 Deadly Visit
+1 Desert of the Glorified
+1 Drill Too Deep
+1 Elesh Norn, Grand Cenobite
+1 Empowered Autogenerator
+1 Expedite
+1 Falkenrath Celebrants
+1 Falkenrath Exterminator
+1 False Defeat
+1 Festerleech
+1 Flamekin Village
+1 Gallowbraid
+1 Gemstone Array
+1 Harnessed Snubhorn
+1 He's Dead, Jim
+1 Heal
+1 Hellkite Punisher
+1 Hive of the Eye Tyrant
+1 Hobblefiend
+1 Icatian Town
+1 Impolite Entrance
+1 Ivory Guardians
+1 Juju Bubble
+1 Kiora of Fire and Ashes
+1 Lawless Broker
+1 Lightfoot Technique
+1 Lightning Reaver
+1 Lindblum, Industrial Regency
+1 Loran's Escape
+1 Lotus Blossom
+1 Loxodon Mender
+1 Madblind Mountain
+1 Maximum Overdrive
+1 Memorial to Glory
+1 Memorial to War
+2 Mountain
+1 Mtenda Griffin
+1 Nightsky Mimic
+1 Nomad Outpost
+1 Order of Whiteclay
+1 Paladin of the Bloodstained
+15 Plains
+1 Ravenous Harpy
+1 Refurbish
+1 Revered Unicorn
 1 Savai Triome
-1 Scrap Compactor
-1 Serrated Biskelion
-1 Skorpekh Destroyer
-1 Smuggler's Copter
-1 Snow Fortress
-1 Spellbook
-1 Stensia Bloodhall
-1 Sundial, Dawn Tyrant
-1 Supply Drop
+1 Sengir Bats
+1 Shadow Stinger
+1 Shaleskin Bruiser
+1 Shattered Landscape
+1 Sheltering Light
+1 Spiteful Bully
+1 Spymaster's Vault
+1 Stalking Bloodsucker
+1 Stronghold Assassin
 9 Swamp
-1 Swooping Lookout
-1 The Walls of Ba Sing Se
-1 Tin-Wing Chimera
-1 Tooth of Ramos
+1 Swamp Mosquito
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 Take Up the Shield
+1 The Lonely Mountain
+1 Thriving Moor
 1 Tournament Grounds
-1 Tresserhorn Sinks
-1 Trigon of Mending
-1 Trigon of Rage
-1 U.S.S. Enterprise-D, Galaxy-Class
-1 Vault of the Archangel
-1 Voltaic Servant
-1 Well of Knowledge
-1 Xanthic Statue
+1 Ventifact Bottle
+1 Visions
+1 Woebearer
 
 [commander]
 Oros, the Avenger

@@ -2,74 +2,71 @@
 # licence: AGPL-3.0-only
 [deck:commander midrange U #20261100]
 1 Academy Ruins
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Aviation Pioneer
-1 Bag End Banquet
-1 Blighted Cataract
-1 Blood Servitor
+1 Archaeomancer
+1 Archaeomender
+1 Augury Owl
+1 Aven Fateshaper
+1 Aven Fogbringer
+1 Bazaar Trademage
+1 Brinebarrow Intruder
+1 Burrog Befuddler
 1 Cephalid Coliseum
-1 Claws of Gix
-1 Cold Case Cracker
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Dowsing Dagger
-1 Drowner of Hope
-1 Etherium Spinner
-1 Experimental Aviator
-1 Falcon, Winged Wonder
-1 Filigree Crawler
-1 Geistcatcher's Rig
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Homarid Spawning Bed
-31 Island
-1 Knightfisher
+1 Cloudkin Seer
+1 Cloudreader Sphinx
+1 Consider
+1 Contradict
+1 Council of Advisors
+1 Dismiss
+1 Elite Instructor
+1 Emry, Lurker of the Loch
+1 Faerie Seer
+1 Five Hundred Year Diary
+1 Gryff Vanguard
+1 Halimar Excavator
+1 Harrier Strix
+1 Inkfathom Divers
+34 Island
+1 Kapsho Kitefins
+1 Knight of the Mists
 1 Lilypad Village
-1 Magnifying Glass
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Oboro, Palace in the Clouds
-1 Orochi Hatchery
+1 Merchant of Secrets
+1 Merfolk Observer
+1 Micromancer
+1 Minamo, School at Water's Edge
+1 Moonlit Scavengers
+1 Mox Sapphire
+1 Omen
+1 Omen of the Sea
+1 Omenspeaker
 1 Otawara, Soaring City
-1 Pentavus
-1 Phyrexian War Beast
-1 Preening Champion
-1 Prosperous Pirates
-1 Prying Blade
-1 Retrofitter Foundry
-1 Riptide Laboratory
-1 S.H.I.E.L.D. Deployment Drone
-1 Sailor of Means
-1 Scrap Trawler
+1 Overwhelmed Apprentice
+1 Owl Familiar
+1 Parasitic Strix
+1 Sage Aven
+1 Sage Owl
+1 Sage of Epityr
+1 Sage of Mysteries
+1 Sage's Row Denizen
+1 Sage's Row Savant
+1 Salvager of Secrets
+1 Scholar of Stars
+1 Scrivener
 1 Seat of the Synod
-1 Shield-Wall Sentinel
-1 Simulacrum Synthesizer
-1 Skullclamp
-1 Slayer's Plate
-1 Soldevi Excavations
-1 Solemn Simulacrum
-1 Sparring Construct
-1 Spawning Pit
-1 Terrarion
-1 The Theorist, Jace Beleren
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
-1 Tunnel Surveyor
+1 Serum Visionary
+1 Serum Visions
+1 Sky-Eel School
+1 Snapcaster Mage
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Magosi
+1 Spire Owl
+1 Stern Proctor
+1 Tishana's Tidebinder
+1 Triton Waverider
+1 Vendilion Clique
+1 Vodalian Merchant
 1 Wan Shi Tong, Librarian
-1 Wand of the Elements
-1 Wing Splicer
+1 Weldfast Wingsmith
 
 [commander]
 Sakashima of a Thousand Faces

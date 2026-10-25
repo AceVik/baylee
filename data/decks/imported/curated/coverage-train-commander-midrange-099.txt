@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266100]
+1 Ambush Gigapede
+1 Ambush Krotiq
+1 Avengers Tower
+1 Batterhorn
+1 Blister Beetle
+1 Blooming Stinger
+1 Bogwater Lumaret
+1 Bucolic Ranch
+1 Burning Inquiry
+1 Canopy Baloth
+1 Caustic Crawler
+1 Crucible of the Spirit Dragon
+1 Desert
+1 Elderfang Disciple
+1 Elephant Graveyard
+1 Endurance
+1 Escape Tunnel
+1 Excavation Mole
+1 Eyeblight Assassin
+13 Forest
+1 Galadhrim Guide
+1 Geier Reach Sanitarium
+1 Gene Pollinator
+1 Gladewalker Ritualist
+1 Godtracker of Jund
+1 Graveshifter
+1 Gruul Keyrune
+1 Guardian Gladewalker
+1 Guildmages' Forum
+1 Healer of the Glade
+1 Herd Gnarr
+1 Honey Mammoth
+1 Icecave Crasher
+1 Invasive Species
+1 Jadecraft Artisan
+1 Kazandu Nectarpot
+1 Kraul Whipcracker
+1 Loporrit Scout
+6 Mountain
+1 Nephalia Academy
+1 Nexus Wardens
+1 Nezumi Informant
+1 Nighthaze
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Orc Sureshot
+1 Oxidda Scrapmelter
+1 Panic
+1 Pharika's Mender
+1 Planetary Patrol
+1 Promising Vein
+1 Quarry Beetle
+1 Ravenous Baboons
+1 Satyr Grovedancer
+1 Scourge of the Undercity
+1 Serpent Assassin
+1 Silt Crawler
+1 Snapping Gnarlid
+1 Soulstone Sanctuary
+1 Spire Mangler
+1 Spire of Industry
+1 Stromkirk Mentor
+1 Survivors' Encampment
+6 Swamp
+1 Sylvan Brushstrider
+1 Territorial Baloth
+1 Territorial Boar
+1 Troll-Horn Cameo
+1 Tunneling Geopede
+1 Turntimber Ascetic
+1 Turntimber Symbiosis
+1 Turtle Lair
+1 Vibrant Cityscape
+1 Vinelasher Kudzu
+1 Vulshok War Boar
+1 Witty Roastmaster
+1 Xindi Surveyors
+
+[commander]
+Xira Arien

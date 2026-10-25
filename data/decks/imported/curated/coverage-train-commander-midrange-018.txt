@@ -1,85 +1,88 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266019]
-1 Apprentice Necromancer
-1 Ashen Powder
-1 Bereavement
-1 Betrothed of Fire
-1 Billiard Room
-1 Body Snatcher
-1 Boggart Cursecrafter
-1 Cateran Overlord
-1 Corrupted Harvester
-1 Dark Heart of the Wood
-1 Darkbore Pathway
-1 Death's Duet
-1 Doomed Necromancer
-1 Dross Harvester
-1 Earthlink
-3 Forest
-1 Forsaken Drifters
+[deck:commander midrange WUB #20266019]
+1 Abyssal Hunter
+1 Air Bladder
+1 Animal Sanctuary
+1 Arvad the Cursed
+1 Assault Intercessor
+1 Avengers Tower
+1 Bandage
+1 Banishing Betrayal
+1 Baxter Building
+1 Bloodrite Invoker
+1 Borne Upon a Wind
+1 Call to Heel
+1 Clachan Festival
+1 Clive's Hideaway
+1 Clutch of Undeath
+1 Consult the Star Charts
+1 Contingency Plan
+1 Corrupted Crossroads
+1 Crystal Grotto
+1 Daily Bugle Building
+1 Defensive Stance
+1 Deserted Temple
+1 Divine Intervention
+1 Dragoon's Wyvern
+1 Dread Drone
+1 Dry Spell
+1 Eager Glyphmage
+1 Emeria Angel
+1 Forbidden Orchard
 1 Gibbering Barricade
-1 Glacial Crevasses
-1 Groundskeeper
-1 Hell's Caretaker
-1 Hissing Quagmire
-1 Horror of Horrors
-1 Illegitimate Business
-1 Immersturm Skullcairn
-1 Journey to Eternity
-1 Koma's Faithful
-1 Lantern-Lit Graveyard
-1 Lich
-1 Lord of the Undead
-1 Lounge
-1 Magma Vein
-1 Master of Dark Rites
-1 Megatog
-1 Mirri's Guile
-1 Molten Slagheap
-1 Mortuary
-3 Mountain
-1 Need for Speed
-1 Nissa, Vital Force
-1 Nocturnal Feeder
-1 Nurturing Peatland
-1 Omen of the Dead
-1 Omen of the Forge
-1 Past in Flames
-1 Phyrexian Vivisector
-1 Plague Spitter
-1 Priest of Yawgmoth
-1 Raiding Party
-1 Raucous Theater
-1 Razortrap Gorge
-1 Return to Battle
-1 Returned Reveler
-1 Revive the Shire
-1 Rhys the Exiled
-1 Rise Again
-1 Rix Maadi, Dungeon Palace
-1 Sanguinary Priest
-1 Shivan Harvest
-1 Skirsdag Flayer
-1 Smoldering Marsh
-1 Soldevi Adnate
-1 Soulreaper of Mogis
-1 Stimulus Package
-1 Strands of Night
-1 Strangled Cemetery
-1 Subterranean Cavern
-17 Swamp
-1 Sylvan Anthem
+1 Glacial Chasm
+1 Glaring Fleshraker
+1 Gods' Eye, Gate to the Reikai
+1 Gravelgill Duo
+1 Green Scarab
+1 Guard Duty
+1 Hag of Death's Legion
+1 Harpoon Sniper
+1 Hoard Robber
+1 Holy Armor
+1 Hullbreacher
+1 Ice Floe
+1 Impeccable Timing
+1 Invasion of Belenon
+1 Irregular Cohort
+8 Island
+1 Leshrac's Rite
+1 Maestros Theater
+1 Master Trinketeer
+1 Mindeye Drake
+1 Mouth of Ronom
+1 Nesting Grounds
+1 Nimble Thopterist
+1 Oathsworn Giant
+1 Pegasus Refuge
+1 Pestered Wellguard
+8 Plains
+1 Polluted Delta
+1 Prideful Parent
+1 Razorgrass Ambush
+1 Red Scarab
+1 Release the Dogs
+1 Seafarer's Quay
+1 Select for Inspection
+1 Sheoldred, the Apocalypse
+1 Sifter of Skulls
+1 Skeletal Grimace
+1 Smothering Tithe
+1 Spawning Kraken
+1 Spectral Cloak
+1 Sunken City
+4 Swamp
 1 Symbiote Spawn
-1 Tortured Existence
-1 Twists and Turns
-1 Vengeful Dead
-1 Warteye Witch
-1 Wastewood Verge
-1 Wildwood Rebirth
-1 Witherbloom Campus
-1 Woebearer
-1 Wort, Boggart Auntie
+1 Teferi's Curse
+1 The Grey Havens
+1 Trenchpost
+1 True Conviction
+1 Updraft
+1 Urza's Cave
+1 Valorous Steed
+1 Vedalken Blademaster
+1 Zulaport Chainmage
 
 [commander]
-Adun Oakenshield
+Alela, Artful Provocateur

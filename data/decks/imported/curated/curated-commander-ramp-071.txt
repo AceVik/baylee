@@ -1,73 +1,71 @@
 # baylee curated commander ramp seed=20261094
 # licence: AGPL-3.0-only
 [deck:commander ramp B #20261094]
-1 Aclazotz, Deepest Betrayal
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Baron Sengir
-1 Bastion of Remembrance
-1 Blight Mound
-1 Blighted Fen
+1 Ambition's Cost
+1 Ancient Craving
+1 Audacious Thief
+1 Baleful Force
+1 Barrels of Blasting Jelly
+1 Blightspeaker
+1 Blood Pact
 1 Cabal Coffers
-1 Callous Inspector
-1 Cirith Ungol Patrol
-1 Criminal Enterprise
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Essence Feed
-1 Eyeblight Cullers
-1 Filigree Crawler
-1 Gleaming Barrier
-1 Greedy Freebooter
+1 Cat-Gator
+1 Cateran Summons
+1 Caustic Hound
+1 Cosmic Horror
+1 Cruel Truths
+1 Dakmor Lancer
+1 Demon's Due
+1 Diresight
+1 Dread Reaper
+1 Ebon Dragon
+1 Eviscerator
+1 Festering Wound
+1 Griselbrand
+1 Harrowing Journey
 1 Havengul Laboratory
-1 Ifnir Deadlands
-1 Juju Bubble
-1 Kheru Bloodsucker
-1 Lead Pipe
-1 Levitating Statue
-1 Maalfeld Twins
-1 Marionette Apprentice
-1 Marsh Flitter
+1 Imperial Seal
+1 Infernal Idol
+1 Maggot Carrier
 1 Massacre Wurm
-1 Minotaur, Roxxon CEO
+1 Mold Demon
+1 Mox Jasper
+1 Mox Opal
 1 Mudflat Village
-1 Myr Sire
-1 Nim Deathmantle
-1 Ogre Slumlord
-1 Open the Graves
-1 Orochi Hatchery
-1 Pentavus
-1 Primal Amulet
-1 Prowess of the Fair
-1 Prying Blade
-1 Quest for the Gravelord
-1 Razaketh, the Foulblooded
-1 Retrofitter Foundry
-1 Serpent Generator
+1 Necrogen Scudder
+1 Night's Whisper
+1 Nightshade Harvester
+1 Ob Nixilis, the Fallen
+1 Ominous Parcel
+1 Orcish Bowmasters
+1 Pestilence Demon
+1 Pharika's Cure
+1 Phyrexian Gargantua
+1 Phyrexian Rager
+1 Phyrexian Tower
+1 Rathi Fiend
 1 Shauku, Endbringer
-1 Shizo, Death's Storehouse
-1 Skeletal Vampire
-1 Skittering Invasion
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Sphinx-Bone Wand
-33 Swamp
-1 Sweettooth Witch
-1 Sword of the Ages
-1 Takenuma, Abandoned Mire
-1 Tempting Witch
+1 Shredder's Revenge
+1 Simulacrum
+1 Sleeper Agent
+1 Snarling Gorehound
+1 Soul Exchange
+1 Sovereign's Bite
+1 Succumb to Temptation
+35 Swamp
+1 Tarrian's Journal
 1 The Black Gate
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Trading Post
-1 Treasure Map
-1 Triskelavus
+1 Unearth
 1 Urborg
-1 Wand of the Elements
-1 Weirding Shaman
-1 Yahenni, Undying Partisan
+1 Vampire Sovereign
+1 Vampiric Spirit
+1 Vampiric Tutor
+1 Westvale Abbey
+1 Wishclaw Talisman
+1 Witch's Cauldron
+1 Wretched Anurid
+1 Yawgmoth Demon
+1 Yawgmoth's Edict
 
 [commander]
 Morinfen

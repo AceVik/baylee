@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WR #20266039]
-1 Abandoned Air Temple
-1 Anaba Shaman
-1 Armed Response
-1 Balduvian Trading Post
-1 Ben-Ben, Akki Hermit
-1 Bhaal's Invoker
-1 Boltwave
-1 Cori Mountain Monastery
-1 Country Roads
-1 Cunning Sparkmage
-1 D'Avenant Archer
-1 D'Avenant Healer
-1 Deadeye Duelist
-1 Deadshot
-1 Dwarven Hold
-1 Dwarven Sea Clan
-1 Dwarven Vigilantes
-1 Earth Tremor
-1 Elite Javelineer
-1 Expendable Troops
-1 Explosive Shot
-1 Fanged Flames
-1 Farrel's Zealot
-1 Feed the Flames
-1 Fire Ambush
-1 Fire Tempest
-1 Fire and Brimstone
-1 Flame Rift
-1 Flame Slash
-1 Flame-Blessed Bolt
-1 Flamekin Spitfire
-1 Frostling
-1 Gin'tak Charge
-1 Goblin Artillery
-1 Harpoon Sniper
-1 Heavy Ballista
-1 Impeccable Timing
-1 Jeska, Warrior Adept
-1 Junktown
-1 Kabira Crossroads
-1 Karplusan Yeti
-1 Kher Keep
-1 Lindblum, Industrial Regency
-1 Mines of Moria
-1 Mob Justice
-1 Mogg Maniac
-19 Mountain
-1 Needle Spires
-1 Obliterating Bolt
-1 Ogre Shaman
-1 Opportunist
-1 Outflank
-1 Penregon Strongbull
-4 Plains
-1 Razorgrass Ambush
-1 Ready to Rumble
-1 Reckless Embermage
-1 Retromancer
-1 Rockface Village
-1 Rockslide Ambush
-1 Rocky Roads
-1 Runebound Wolf
-1 Sandstone Needle
-1 Sawtooth Ogre
-1 Scorchmark
-1 Sear
-1 Searing Wind
-1 Shinka, the Bloodsoaked Keep
-1 Smoldering Efreet
-1 Strafe
-1 Sudden Impact
-1 Thriving Bluff
-1 Ultimate Alliance
-1 Unfriendly Fire
-1 Viashino Fangtail
-1 Vivid Crag
-1 Witch Hunter
-1 Zuko's Offense
+[deck:commander midrange BG #20266039]
+1 Abundant Countryside
+1 Accelerated Evolution
+1 Accursed Duneyard
+1 Aphelia, Viper Whisperer
+1 Arboria
+1 Barbed Foliage
+1 Blanket of Night
+1 Bog Naughty
+1 Broken Fall
+1 Broodwarden
+1 Consumptive Goo
+1 Corpse Blockade
+1 Dakmor Bat
+1 Darkmoss Bridge
+1 Dauthi Embrace
+1 Davriel's Shadowfugue
+1 Deadfall
+1 Deathcap Glade
+1 Demonic Torment
+1 Drainpipe Vermin
+1 Earthcraft
+1 Elephant-Rat
+1 Festering Thicket
+1 Foratog
+1 Forbidden Ritual
+12 Forest
+1 Gaea's Anthem
+1 Gaea's Embrace
+1 Gang of Elk
+1 Gilt-Leaf's Embrace
+1 Glimmerlight
+1 Glyph of Reincarnation
+1 Greater Werewolf
+1 Guul Draz Mucklord
+1 Haunted Mire
+1 Howlpack Resurgence
+1 Juzám Djinn
+1 Labyrinth of Skophos
+1 Living Plane
+1 Marsh Lurker
+1 Mental Agony
+1 Mindslicer
+1 Nectar Faerie
+1 Noxious Toad
+1 Plaza of Heroes
+1 Rootwater Alligator
+1 Rotwidow Pack
+1 Rust
+1 Savage Silhouette
+1 Screeching Buzzard
+1 Servant of Volrath
+1 Sheltered Valley
+1 Shrine of the Forsaken Gods
+1 Skittering Invasion
+1 Soul Kiss
+1 Sporecrown Thallid
+1 Squirrel Sovereign
+1 Stamina
+1 Sultai Runemark
+1 Surveillance Room
+13 Swamp
+1 Tainted Aether
+1 The Biblioplex
+1 Thelonite Monk
+1 Three Tree City
+1 Throne of the High City
+1 Timber Protector
+1 Trollhide
+1 Turtle Power!
+1 Uktabi Wildcats
+1 Vampire Aristocrat
+1 Virulent Plague
+1 Vulpine Goliath
+1 Wild Nacatl
+1 Wormwood Treefolk
+1 Zoetic Cavern
 
 [commander]
-Dáin of the Ancient Halls
+Rhys the Exiled

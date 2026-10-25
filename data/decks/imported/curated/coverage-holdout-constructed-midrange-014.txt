@@ -1,0 +1,29 @@
+# baylee synergistic holdout coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUBRG #90010015]
+2 A.I.M. Labs
+2 Bear's Companion
+2 Brine Hag
+2 Change the Equation
+2 Channel the Suns
+2 Culling Sun
+2 Darkwater Egg
+2 Duskmantle, House of Shadow
+2 Flusterstorm
+3 Forest
+2 Frightful Delusion
+2 Greater Forgeling
+1 Island
+2 Koth's Courier
+2 Kukemssa Pirates
+2 Lose Focus
+2 Manaforge Cinder
+2 Mist Dragon
+2 Molten Tributary
+5 Mountain
+2 Pathmaker Initiate
+3 Peculiar Lighthouse
+6 Plains
+2 Risen Sanctuary
+2 Third Path Iconoclast
+2 Unfulfilled Desires

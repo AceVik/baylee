@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UBG #20266307]
+1 Accursed Horde
+1 Altered Ego
+1 Armored Cancrix
+1 Canal Monitor
+1 Chitinous Graspling
+1 Clearwater Pathway
+1 Dreadship Reef
+1 Dreg Reaver
+1 Drowned Secrets
+1 Easy Prey
+1 Enchantress's Presence
+1 Foreboding Landscape
+5 Forest
+1 Fortress Crab
+1 Freyalise's Charm
+1 Giant Cockroach
+1 Giant Crab
+1 Golgari Longlegs
+1 Grim Tutor
+1 Headstone
+1 Hesitation
+1 Horror of the Dim
+1 Humongulus
+1 Infernal Contract
+1 Infernal Idol
+9 Island
+1 Jin-Gitaxias, Progress Tyrant
+1 Killer Whale
+1 Lifecrafter's Bestiary
+1 Mana Vortex
+1 Narwhal
+1 Omnibian
+1 Opulent Palace
+1 Overgrown Tomb
+1 Phantasmal Fiend
+1 Phyrexian Defiler
+1 Predatory Hunger
+1 Prowling Nightstalker
+1 Renegade Demon
+1 Riddleform
+1 River Delta
+1 Rotting Fensnake
+1 Sandbar Crocodile
+1 Scion of Glaciers
+1 Shadow Rider
+1 Shimian Night Stalker
+1 Shocking Grasp
+1 Shore Snapper
+1 Simic Ragworm
+1 Slinking Serpent
+1 Soul Barrier
+1 Spark Double
+1 Species Gorger
+1 Steeple Creeper
+1 Svogthos, the Restless Tomb
+11 Swamp
+1 Tainted Isle
+1 Tainted Wood
+1 Talisman of Curiosity
+1 Talisman of Resilience
+1 Tangleroot
+1 Thalakos Drifters
+1 Turtle-Seals
+1 Ukud Cobra
+1 Unhallowed Phalanx
+1 Vampiric Tutor
+1 Veil of Birds
+1 Viridescent Bog
+1 Wanderbrine Rootcutters
+1 Wastewood Verge
+1 Water Elemental
+1 Waterlogged Grove
+1 Waterveil Cavern
+1 Wishcoin Crab
+1 Wormhole Serpent
+1 Yavimaya Coast
+1 Yawgmoth's Edict
+1 Zagoth Triome

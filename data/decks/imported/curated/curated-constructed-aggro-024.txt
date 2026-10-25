@@ -1,21 +1,22 @@
 # baylee curated constructed aggro seed=20261047
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261047]
-4 Arcbound Ravager
-4 Avacyn's Collar
-3 Diamond Kaleidoscope
-3 Doomed Traveler
-4 Gleaming Barrier
-3 Gleaming Bastion
-4 Hallowed Fountain
-2 Island
-4 Midnight Haunting
+1 Ancestral Vision
+4 Brinebarrow Intruder
+1 Cloudcrest Lake
+1 Hengegate Pathway
+4 Humbling Elder
+7 Island
+4 Kindly Customer
+4 Monk Realist
+2 Moorland Haunt
 1 Mystic Gate
 1 Nimbus Maze
-2 Orochi Hatchery
-11 Plains
-1 Port Town
-4 Retrofitter Foundry
-4 Slayer's Plate
-3 Spawning Pit
-2 Trading Post
+4 Ondu Greathorn
+4 Pious Wayfarer
+7 Plains
+4 Settlement Blacksmith
+4 Snapcaster Mage
+2 Spellseeker
+3 Tundra
+2 War Priest of Thune

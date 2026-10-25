@@ -1,82 +1,80 @@
 # baylee synergistic holdout coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WG #90010002]
+1 Akroan Jailer
 1 Al-abara's Carpet
 1 Alert Heedbonder
 1 Arachnoid
 1 Argivian Archaeologist
+1 Aven Flock
 1 Ayula's Influence
-1 Birthing Hulk
+1 Battlefield Raptor
 1 Bloated Toad
-1 Break Asunder
-1 Carnassid
-1 Cavalry Drillmaster
-1 Copper Tablet
+1 Cathar Commando
 1 Crash of Rhinos
 1 Creosote Heath
-1 Dalkovan Encampment
-1 Energizer
-1 Essence Warden
-1 Faith Healer
-1 Faithbearer Paladin
-1 Font of Vigor
-19 Forest
+1 Crusader of Odric
+1 Divine Retribution
+1 Duskborne Skymarcher
+1 Elite Inquisitor
+1 Fanatical Strength
+1 Farrel's Mantle
+11 Forest
 1 Forsaken City
-1 Generous Stray
-1 Greatsword
+1 Fountain of Renewal
 1 Grim Monolith
 1 Growing Rites of Itlimoc
 1 Hall of Tagsin
-1 Heavy Mattock
-1 Horn of Greed
-1 Idyllic Grange
-1 Inner Sanctum
-1 Kavu Climber
+1 Infantry Veteran
+1 Iona's Judgment
+1 Kabira Takedown
 1 Kjeldoran Outpost
 1 Knight's Pledge
-1 Knowledge Vault
 1 Lifeforce
 1 Llanowar Envoy
-1 Lunatic Pandora
+1 Magus of the Disk
+1 Mammoth Harness
 1 Mariposa Military Base
-1 Master of the Hunt
+1 Marsh Viper
+1 Moorish Cavalry
 1 Mystifying Maze
 1 Nantuko Monastery
-1 Nutrient Block
-1 Omni-Cheese Pizza
-1 Open the Gates
+1 Natural Selection
+1 Natural State
+1 Naturalize
 1 Orochi Sustainer
+1 Oversoul of Dusk
 1 Pendelhaven
-1 Phalanx Vanguard
-5 Plains
-1 Precinct Captain
+15 Plains
+1 Purify
 1 Rainbow Vale
 1 Refresh
-1 Resupply
+1 Reprisal
 1 Risen Sanctuary
-1 Ritual of Subdual
 1 Safe Haven
-1 Savage Hunger
 1 Scene of the Crime
 1 Seal of Primordium
 1 Seton, Krosan Protector
 1 Shield of Duty and Reason
+1 Shield of the Oversoul
+1 Skyhunter Patrol
+1 Skyshroud Elite
 1 Skyshroud Troopers
-1 Slayer of the Wicked
 1 Slippery Karst
 1 Soulmender
+1 Spirit of the Labyrinth
+1 Tajuru Blightblade
 1 The Seedcore
-1 Thoughtweft Lieutenant
 1 Thran Turbine
-1 Toxic Scorpion
 1 Tranquil Expanse
 1 Treasure Vault
+1 Urza's Miter
 1 Valgavoth's Lair
-1 Vastwood Fortification
-1 Wand of Ith
-1 Watchful Giant
+1 Veteran Swordsmith
+1 Volunteer Militia
+1 Wanderer's Intervention
+1 War Elephant
 1 Woodland Mystic
-1 Zendikar's Roil
 1 Zephyr Boots
 
 [commander]

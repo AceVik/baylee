@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #20266277]
+1 An-Havva Township
+1 Aysen Abbey
+1 Bountiful Landscape
+1 Brainwash
+1 Broodmate Dragon
+1 Castle
+1 Castle Sengir
+1 Ceta Disciple
+1 Circle of Protection: Artifacts
+1 Clout of the Dominus
+1 Coerced to Kill
+1 Copper Host Crusher
+1 Corpse Knight
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Curse of Chains
+1 Darigaaz's Caldera
+1 Defibrillating Current
+1 Dralnu's Crusade
+1 Dromar's Cavern
+1 Drowner of Truth
+1 Druid of the Anima
+1 Favor of the Overbeing
+1 Foreboding Landscape
+8 Forest
+1 Gift of the Deity
+1 Gruul War Chant
+1 Gyre Engineer
+1 Hadana's Climb
+1 Holy Mantle
+1 Ignoble Hierarch
+1 Iona's Blessing
+3 Island
+1 Jeskai Shrinekeeper
+1 Knotvine Mystic
+1 Koskun Keep
+1 Magefire Wings
+1 Merfolk of the Depths
+1 Monsoon
+1 Monstrous Carabid
+1 Mountain
+1 Narset's Rebuke
+1 Natural Emergence
+1 Nearby Planet
+1 Necra Disciple
+1 Nightfire Giant
+11 Plains
+1 Primal Visitation
+1 Privileged Position
+1 Pursuit of Flight
+1 Righteous Aura
+1 Rith's Grove
+1 Sacellum Archers
+1 Sangrite Backlash
+1 Seething Landscape
+1 Sheltering Landscape
+1 Siege Rhino
+1 Skirmish Rhino
+1 Storm the Vault
+1 Stormbind
+1 Stormscape Apprentice
+1 Sultai Devotee
+3 Swamp
+1 Swift Reconfiguration
+1 Temur Ascendancy
+1 Temur Devotee
+1 Temur Tawnyback
+1 The World Tree
+1 Thunderscape Apprentice
+1 Torpor Dust
+1 Treva's Ruins
+1 Two-Headed Hellkite
+1 Urborg Elf
+1 Vagrant Plowbeasts
+1 Vedalken Heretic
+1 Whirlwind of Thought
+1 Wild Research
+1 Winter's Night
+1 Yavimaya's Embrace

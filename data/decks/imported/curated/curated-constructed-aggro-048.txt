@@ -1,24 +1,25 @@
 # baylee curated constructed aggro seed=20261071
 # licence: AGPL-3.0-only
 [deck:constructed aggro BR #20261071]
-2 Bloodfell Caves
-1 Boiling Rock Prison
-4 Cinder Barrens
+4 Aether Sting
 3 Cinder Marsh
-3 Embersmith
+3 Electrostatic Field
+4 Emberstrike Duo
 4 Firebrand Archer
-1 Foreboding Ruins
-4 Glaring Fleshraker
-4 Guttersnipe
+3 Goblin Arsonist
+2 Graven Cairns
+2 Judith, the Scourge Diva
 2 Kessig Flamebreather
-4 Last Gasp
-3 Mai, Scornful Striker
+1 Lava Tubes
+4 Malakir Rebirth
 4 Monastery Swiftspear
-15 Mountain
-1 Rockslide Sorcerer
-2 Sawblade Scamp
-2 Spark Jolt
-4 Spark Spray
-1 Swamp
-2 Weaver of Lightning
-4 Winter Sky
+1 Mount Doom
+12 Mountain
+2 Profane Tutor
+1 Rix Maadi, Dungeon Palace
+2 Spark Spray
+5 Swamp
+2 Tainted Peak
+4 Weaver of Lightning
+2 Young Pyromancer
+3 Zuko, Avatar Hunter

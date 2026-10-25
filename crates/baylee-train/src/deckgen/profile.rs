@@ -2,7 +2,7 @@
 //! and functional replacement.
 
 use baylee_cards::decks::leader_of;
-use baylee_cards::dsl::{CardDef, EnterModifier};
+use baylee_cards::dsl::{AbilityDef, CardDef, Effect, EnterModifier, Filter};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_core::mana::{ManaCost, ManaSymbol};
@@ -83,6 +83,8 @@ pub struct CardProfile {
     pub pips: [u8; 6],
     /// Colors of mana this card can produce (for lands and mana sources).
     pub produced_colors: ColorSet,
+    /// True if this land or mana source can produce explicit colourless mana (`{C}`).
+    pub produces_colorless: bool,
     /// Commander color identity (`CR 903.4`).
     pub identity: ColorSet,
     /// Front-face card types.
@@ -103,6 +105,13 @@ pub struct CardProfile {
     pub roles: u32,
     /// Raw subtype IDs on the front face (for tribal and land-type matching).
     pub subtypes: Vec<u16>,
+    /// Specific partner cards named in this card's rules text (`Filter::Named`
+    /// or `Effect::MeldWithNamed`), e.g. `Centaur's Herald -> Centaur Glade`,
+    /// `Bogbrew Witch -> Festering Newt & Bubbling Cauldron`.
+    pub named_partners: Vec<CardIndex>,
+    /// True if this card's abilities reference a specific named card other than
+    /// itself (even if that named card is not in the current pool).
+    pub has_external_named_dependency: bool,
     /// L2-normalized 48-float semantic vector (`summary[96..144]`: 24 effect
     /// channels + 24 role tags) for fast dot-product similarity.
     pub dsl_vec: [f32; 48],
@@ -126,6 +135,14 @@ impl CardProfile {
             }
         }
 
+        let (named_partners, has_external_named_dependency) = extract_named_partners(def);
+        if has_external_named_dependency {
+            // A card that only searches for a hardcoded named partner (e.g.
+            // Sphinx's Herald -> Sphinx Sovereign) is a named combo piece, not
+            // generic land ramp or a generic tutor.
+            roles &= !(ROLE_LAND_RAMP | ROLE_TUTOR);
+        }
+
         let mut dsl_vec = [0.0_f32; 48];
         dsl_vec.copy_from_slice(&dsl.summary[96..144]);
         let norm_sq: f32 = dsl_vec.iter().map(|x| x * x).sum();
@@ -142,6 +159,8 @@ impl CardProfile {
         } else {
             ColorSet::EMPTY
         };
+        let produces_colorless =
+            (land || (roles & ROLE_MANA_PRODUCER != 0)) && def.color_identity.is_empty();
         let enters_tapped = face.enter_modifiers.iter().any(|em| {
             matches!(
                 em,
@@ -163,6 +182,7 @@ impl CardProfile {
             mana_value: face.mana_cost.cmc(),
             pips,
             produced_colors,
+            produces_colorless,
             identity: def.color_identity,
             types: face.types,
             supertypes: face.supertypes,
@@ -173,6 +193,8 @@ impl CardProfile {
             enters_tapped,
             roles,
             subtypes,
+            named_partners,
+            has_external_named_dependency,
             dsl_vec,
         }
     }
@@ -252,3 +274,73 @@ pub fn count_mana_pips(cost: &ManaCost) -> [u8; 6] {
     }
     pips
 }
+
+fn extract_named_partners(def: &CardDef) -> (Vec<CardIndex>, bool) {
+    let mut names: Vec<&'static str> = Vec::new();
+    for ab in def.abilities_for_face(0) {
+        match ab {
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Loyalty { effects, .. }
+            | AbilityDef::Triggered { effects, .. }
+            | AbilityDef::Spell { effects, .. }
+            | AbilityDef::SagaChapter { effects, .. } => {
+                collect_named_from_effects(effects, &mut names);
+            }
+            AbilityDef::ModalSpell { modes, .. }
+            | AbilityDef::ModalActivated { modes, .. }
+            | AbilityDef::ModalTriggered { modes, .. } => {
+                for m in *modes {
+                    collect_named_from_effects(m.effects, &mut names);
+                }
+            }
+            AbilityDef::Static(sa) => collect_named_from_filter(&sa.filter, &mut names),
+            _ => {}
+        }
+    }
+    let self_name = def.name();
+    let mut partners = Vec::new();
+    let mut has_ext = false;
+    for name in names {
+        if name.eq_ignore_ascii_case(self_name) {
+            continue;
+        }
+        has_ext = true;
+        if let Some(cid) = baylee_cards::decks::by_name(name)
+            && cid != def.index
+            && !partners.contains(&cid)
+        {
+            partners.push(cid);
+        }
+    }
+    (partners, has_ext)
+}
+
+fn collect_named_from_effects(effects: &'static [Effect], out: &mut Vec<&'static str>) {
+    let mut seen = 0;
+    Effect::walk(effects, &mut seen, &mut |eff| match eff {
+        Effect::MeldWithNamed { partner_name, .. } => out.push(partner_name),
+        Effect::SearchLibrary { filter, .. }
+        | Effect::SearchLibraryBeforeShuffle { filter, .. }
+        | Effect::SearchLibraryOrGraveyard { filter, .. }
+        | Effect::SearchLibraryOf { filter, .. }
+        | Effect::SearchLibraryUpTo { filter, .. } => {
+            collect_named_from_filter(filter, out);
+        }
+        _ => {}
+    });
+}
+
+fn collect_named_from_filter(filter: &Filter, out: &mut Vec<&'static str>) {
+    match filter {
+        Filter::Named(name) => out.push(name),
+        Filter::And(list) | Filter::Or(list) => {
+            for f in *list {
+                collect_named_from_filter(f, out);
+            }
+        }
+        Filter::Not(inner) => collect_named_from_filter(inner, out),
+        _ => {}
+    }
+}
+

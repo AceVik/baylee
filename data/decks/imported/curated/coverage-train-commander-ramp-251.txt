@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20266252]
+1 A.I.M. Bot
+1 Acid Rain
+1 Beast of Burden
+1 Cavern of Souls
+1 Celestial Prism
+1 Cobalt Golem
+1 Conch Horn
+1 Darksteel Gargoyle
+1 Darksteel Relic
+1 Darksteel Sentinel
+1 Despotic Scepter
+1 Didgeridoo
+1 Dukhara Peafowl
+1 Ebony Rhino
+1 Esperzoa
+1 Flooded Strand
+1 Font of Mythos
+1 Fountain of Ichor
+1 Glass Golem
+1 Graaz, Unstoppable Juggernaut
+1 Guardian Idol
+1 Gust-Skimmer
+1 Hermitic Nautilus
+1 Hexplate Golem
+35 Island
+1 Jandor's Ring
+1 Jawbone Skulkin
+1 Jhoira's Toolbox
+1 Karn, Silver Golem
+1 Kry Shield
+1 Lead Golem
+1 Locthwain Gargoyle
+1 Manalith
+1 Manhole Cover
+1 Mimic
+1 Obsianus Golem
+1 Pardic Wanderer
+1 Patagia Golem
+1 Patriar's Seal
+1 Pearl Medallion
+1 Phyrexian Hulk
+1 Pilgrim of the Fires
+1 Pillar of the Paruns
+1 Pithing Needle
+1 Powerstone Shard
+1 Relic of Legends
+1 Ring of Ma'rûf
+1 Ring of Renewal
+1 Scalding Cauldron
+1 Scarab of the Unseen
+1 Scorpion Sentinel
+1 Seer's Sundial
+1 Sisay's Ring
+1 Spinning Wheel
+1 Squee's Toy
+1 Surveillance Room
+1 Teferi's Sentinel
+1 Tezzeret's Strider
+1 The Grey Havens
+1 The Rack
+1 Tormod's Crypt
+1 Ur-Golem's Eye
+1 Vesuva
+1 Worldslayer
+1 Yavimaya, Cradle of Growth
+
+[commander]
+Aboshan, Cephalid Emperor

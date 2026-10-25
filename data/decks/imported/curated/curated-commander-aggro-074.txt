@@ -1,76 +1,74 @@
 # baylee curated commander aggro seed=20261097
 # licence: AGPL-3.0-only
 [deck:commander aggro U #20261097]
-1 An Offer You Can't Refuse
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Blighted Cataract
-1 Blood Servitor
-1 Buzz Bots
-1 Cephalid Coliseum
-1 Chromatic Star
-1 Claws of Gix
-1 Cold Case Cracker
-1 Collector's Vault
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Dowsing Dagger
-1 Dragoon's Wyvern
-1 Drowner of Hope
-1 Etherium Spinner
-1 Filigree Crawler
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Homarid Spawning Bed
-1 Ipnu Rivulet
-30 Island
-1 Juju Bubble
-1 Kozilek's Unsealing
+1 Academy Ruins
+1 Ancestral Vision
+1 Augury Owl
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Brinebarrow Intruder
+1 Burrog Befuddler
+1 Cloistered Telepath
+1 Cloud of Faeries
+1 Cloudkin Seer
+1 Cogwork Wrestler
+1 Consider
+1 Council of Advisors
+1 Customs Depot
+1 Disrupt
+1 Donatello, Turtle Techie
+1 Elite Instructor
+1 Faerie Seer
+1 Gateway Sneak
+1 Halimar Excavator
+1 Harrier Strix
+1 Hedron Crab
+1 Humbling Elder
+32 Island
+1 Knight of the Mists
 1 Lilypad Village
-1 Magma Mine
-1 Malcator's Watcher
-1 Minamo, School at Water's Edge
-1 Myr Moonvessel
-1 Myr Retriever
-1 Myr Sire
+1 Lotus Petal
+1 Mana Crypt
+1 Merchant of Secrets
+1 Merfolk Observer
+1 Muse Drake
 1 Mystic Remora
 1 Network Disruptor
-1 Nim Deathmantle
-1 Orochi Hatchery
-1 Otawara, Soaring City
+1 Nimble Innovator
+1 Oboro, Palace in the Clouds
+1 Omenspeaker
+1 Overwhelmed Apprentice
+1 Owl Familiar
 1 Parasitic Strix
-1 Perilous Myr
-1 Preening Champion
-1 Prying Blade
-1 Retrofitter Foundry
-1 Riptide Laboratory
-1 S.H.I.E.L.D. Deployment Drone
-1 Scrap Trawler
+1 Ponder
+1 Power Taint
+1 Raven Familiar
+1 Ruin Crab
+1 Sage Owl
+1 Sage of Epityr
+1 Sage of Mysteries
+1 Sage's Row Savant
+1 Scholar of Stars
+1 Screeching Drake
+1 Seat of the Synod
+1 Serum Visionary
+1 Shrieking Drake
 1 Silver Raven
-1 Skullclamp
-1 Slayer's Plate
-1 Sparring Construct
-1 Spawning Pit
-1 Sphinx's Herald
-1 Sylvok Lifestaff
-1 Terrarion
-1 The Mechanist, Aerial Artisan
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
+1 Snapcaster Mage
+1 Spire Owl
+1 Stern Proctor
+1 Theorist's Proxy
+1 Thought Scour
+1 Tishana's Tidebinder
+1 Tolarian Academy
 1 Trenzalore Clocktower
-1 Walking Ballista
+1 Unifying Theory
+1 Vendilion Clique
+1 Vodalian Merchant
+1 Voidwielder
+1 Voracious Greatshark
 1 Wan Shi Tong, Librarian
-1 Wand of the Elements
-1 Wing Splicer
+1 Witching Well
 
 [commander]
 Venser, Shaper Savant

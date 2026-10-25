@@ -1,83 +1,86 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WB #20266269]
-1 Angel of Light
-1 Angel of Retribution
-1 Angelic Curator
-1 Angelic Overseer
-1 Angelic Protector
-1 Archangel
-1 Baneslayer Angel
-1 Bleachbone Verge
-1 Bloodied Ghost
-1 Caves of Koilos
-1 Chapel Geist
-1 Chaplain's Blessing
-1 Concealed Courtyard
-1 Cursebreak
-1 Deathless Angel
-1 Eriette's Lullaby
-1 Fisk Tower
-1 Foot Headquarters
-1 Forlorn Flats
-1 Geist of the Moors
-1 Godless Shrine
-1 Goldmire Bridge
-1 Great Hall of Starnheim
-1 Healer's Flock
-1 Heliod's Intervention
-1 Herald of Faith
-1 Herald of Serra
-1 Invoke the Divine
-1 Kabuto Moth
-1 Kami of Ancient Law
-1 Keening Apparition
-1 Lantern Kami
-1 Last Breath
-1 Lucky Offering
-1 Lyra Dawnbringer
-1 Malach of the Dawn
-1 Marble Chalice
-1 Melesse Spirit
-1 Moaning Spirit
-1 Moonrise Cleric
-1 Narrow Escape
-1 Niblis of the Urn
-1 Orzhov Basilica
-23 Plains
-1 Pteron Ghost
-1 Radiant, Archangel
-1 Reverse Polarity
-1 Salt Flats
-1 Screaming Phantom
-1 Segovian Angel
-1 Seraph of Dawn
-1 Serene Offering
-1 Serra Advocate
-1 Shepherd of the Lost
-1 Shinewend
-1 Silent Clearing
-1 Silverquill Campus
-1 Soothing Balm
-1 Starlit Angel
-1 Starlit Sanctum
-1 Stonerise Spirit
-1 Surge of Righteousness
-1 Sustainer of the Realm
-1 Suture Spirit
-1 Tainted Field
-1 Take Heart
-1 Thraben Watcher
-1 Thunder Spirit
-1 Tormented Angel
-1 Turbulent Moor
-1 Umbral Expanse
-1 Voice of Duty
-1 Voice of Grace
-1 Voice of Law
-1 Voice of Reason
-1 Voice of Truth
-1 Voiceless Spirit
+[deck:commander midrange R #20266269]
+1 An-Zerrin Ruins
+1 Archway Commons
+1 Ark of Blight
+1 Backdraft
+1 Bad River
+1 Blood Mist
+1 Canyon Drake
+1 Chaoslace
+1 Coral Helm
+1 Crazed Goblin
+1 Crevasse
+1 Crossroads Village
+1 Crumbling Vestige
+1 Defense Force Aggressor
+1 Defiant Khenra
+1 Deranged Whelp
+1 Desert Drake
+1 Destructive Urge
+1 Dungeon Descent
+1 Ebony Horse
+1 Edgewall Inn
+1 Eldrazi Linebreaker
+1 False Orders
+1 Feint
+1 Feral Ridgewolf
+1 Fire Drake
+1 Fire Nation's Conquest
+1 Flaming Sword
+1 Flowstone Strike
+1 Flowstone Wyvern
+1 Fork
+1 Forsaken Crossroads
+1 Gateway Plaza
+1 Grasslands
+1 Headlong Rush
+1 Hotfoot Gnome
+1 Iron Giant
+1 Komodo Rhino
+1 Lagac Lizard
+1 Lathnu Sailback
+1 Leonin Bladetrap
+1 Mana Clash
+1 Maze's End
+1 Mirage Mesa
+20 Mountain
+1 Night Market
+1 Orcish Spy
+1 Orgg
+1 Pit of Offerings
+1 Public Thoroughfare
+1 Pygmy Pyrosaur
+1 Ragged Playmate
+1 Rakalite
+1 Rocky Tar Pit
+1 Sabertooth Wyvern
+1 Sandals of Abdallah
+1 Shimmerdrift Vale
+1 Sigiled Skink
+1 Slash Panther
+1 Song-Mad Treachery
+1 Spellbook
+1 Sphere of Resistance
+1 Spitting Drake
+1 Sunken Citadel
+1 Thawing Glaciers
+1 Throne of the High City
+1 Ticked Off
+1 Uncharted Haven
+1 Unnatural Speed
+1 Viashino Cutthroat
+1 Viashino Outrider
+1 Viashino Runner
+1 Viashino Sandscout
+1 Viashino Sandswimmer
+1 Viashino Slasher
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Vug Lizard
+1 Wayward Giant
+1 Welding Jar
 
 [commander]
-Selenia, Dark Angel
+Quicksilver, Pietro Maximoff

@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266263]
+1 Akroma's Memorial
+1 Birthing Boughs
+1 Blinding Drone
+1 Blockade Runner
+1 Bottle of Suleiman
+1 Cathar's Shield
+1 Citanul Flute
+1 City of Shadows
+1 Coral Commando
+1 Coralhelm Guide
+1 Cursed Totem
+1 Dingus Egg
+1 Dingus Staff
+1 Feroz's Ban
+1 Fodder Cannon
+1 Glimmerlight
+1 Goblin Boom Keg
+1 Harbinger of the Seas
+1 Headwater Sentries
+1 Homarid Shaman
+1 Horseshoe Crab
+1 Inkmoth Nexus
+34 Island
+1 Kelpie Guide
+1 Lapis Lazuli Talisman
+1 Lion Heart
+1 Mana Short
+1 Manta Riders
+1 Merfolk Raiders
+1 Merfolk Seastalkers
+1 Merrow Wavebreakers
+1 Mirrorhall Mimic
+1 Murmuring Phantasm
+1 Nettlecyst
+1 Nuisance Engine
+1 Opal Palace
+1 Planar Bridge
+1 Ring of Immortals
+1 Ring of Three Wishes
+1 Riptide
+1 Rishadan Dockhand
+1 River Darter
+1 River Kaijin
+1 River Merfolk
+1 Rootwater Commando
+1 Sandstorm Verge
+1 Sea Spirit
+1 Seasinger
+1 Sejiri Merfolk
+1 Shoreline Raider
+1 Stonybrook Angler
+1 Streambed Aquitects
+1 Svyelunite Priest
+1 Sworn Guardian
+1 Teardrop Kami
+1 Telekinesis
+1 The Gold Saucer
+1 Tidal Warrior
+1 Tide Drifter
+1 Vodalian Knights
+1 Voldaren Estate
+1 Wandering Ones
+1 Wanderwine Distracter
+1 Wave Elemental
+1 Whirlermaker
+1 Wilderness Hypnotist
+
+[commander]
+Yargle, Goliath of Otaria

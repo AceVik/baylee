@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266202]
+1 Alchemist's Refuge
+1 Bladebrand
+1 Breeding Pool
+1 Bubbling Muck
+1 Call to Heel
+1 Clairvoyance
+1 Cryptic Command
+1 Darkwater Catacombs
+1 Deeproot Champion
+1 Embodiment of Spring
+1 Energy Tap
+1 Equilibrium
+1 Eviscerator
+1 Failed Inspection
+1 Force Void
+1 Foreboding Landscape
+10 Forest
+1 Forget
+1 Gitaxian Probe
+1 Gloomlake Verge
+1 Gravebind
+1 Gravelgill Duo
+1 Grim Backwoods
+1 Guardian of Solitude
+1 High Tide
+1 Howling Banshee
+1 Iguana Parrot
+16 Island
+1 Jeskai Windscout
+1 Jinx
+1 Kami of the Waning Moon
+1 Keeper of Tresserhorn
+1 Leap
+1 Lose Hope
+1 Lull
+1 Lurking Lizards
+1 Mage's Guile
+1 Medusa, Inhuman Queen
+1 Mirran Spy
+1 Mistral Singer
+1 Mold Adder
+1 Nurturing Peatland
+1 Open Communications
+1 Oppression
+1 Opulent Palace
+1 Overflowing Basin
+1 Pestilence Demon
+1 Poison the Blade
+1 Poisonbelly Ogre
+1 Prosperity
+1 Pym Particles
+1 Quirion Dryad
+1 Reach Through Mists
+1 Reality Anchor
+1 Rootwater Depths
+1 Runeboggle
+1 Shadow Rift
+1 Shocking Grasp
+1 Shorecrasher Mimic
+1 Skittering Horror
+1 Sky Scourer
+1 Spell Snip
+1 Svogthos, the Restless Tomb
+1 TVA Bureaucrat
+1 Tangled Florahedron
+1 Thunderous Snapper
+1 Tropical Island
+1 Twilight Mire
+1 Umara Entangler
+1 Underground River
+1 Underground Sea
+1 Updraft
+1 Vedalken Blademaster
+1 Without Weakness
+1 Zagoth Triome
+
+[commander]
+Muldrotha, the Gravetide

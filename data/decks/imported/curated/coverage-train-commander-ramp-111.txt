@@ -1,84 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WUB #20266112]
-1 Ancient Spring
-1 Angel of Despair
-1 Arcane Sanctum
-1 Archway of Innovation
-1 Argivian Restoration
-1 Azorius Signet
-1 Azorius Skyguard
-1 Bogbrew Witch
-1 Brine Shaman
-1 Capture of Jingzhou
-1 Cathartic Adept
-1 Contaminated Landscape
-1 Crowd Favorites
-1 Darksteel Pendant
+[deck:commander ramp BR #20266112]
+1 Akki War Paint
+1 Altar of Dementia
+1 Archway Commons
+1 Ashen Firebeast
+1 Ashiok's Reaper
+1 Bad River
+1 Basalt Monolith
+1 Base Camp
+1 Bladebrand
+1 Boseiju, Who Shelters All
+1 Catalyst Elemental
+1 Crystal Chimes
 1 Deadly Visit
-1 Doc Ock, Evil Inventor
-1 Dreadship Reef
-1 Drifting Djinn
-1 Dromar's Cavern
-1 Déjà Vu
-1 Energy Tap
-1 Farrelite Priest
-1 Font of Progress
-1 Fortified Beachhead
-1 Ghoulcaller's Bell
-1 Gosta Dirk
-1 Grassland Crusader
-1 Grim Bauble
-1 Hanna, Ship's Navigator
-1 Helionaut
-1 Hidden Lair
-1 Hunding Gjornersen
-1 Imposing Vantasaur
-1 Iron Suitcase
-16 Island
-1 Jace, the Mind Sculptor
-1 Jwar Isle Refuge
-1 Kasimir the Lone Wolf
-1 Kjeldoran Phalanx
-1 Knight of the Tusk
-1 La Forge, Perceptive Engineer
-1 Marble Diamond
-1 Murky Sewer
-1 Obsessive Stitcher
-1 Open the Armory
-5 Plains
-1 Princess Lucrezia
-1 Protomatter Powder
-1 Raffine's Tower
-1 Ramirez DePietro
-1 Ramses Overdark
-1 Rathi Intimidator
-1 Riven Turnbull
-1 Rootwater Diver
-1 Rummaging Wizard
-1 Scribe of the Mindful
-1 Seafloor Debris
-1 Seahunter
-1 Selhoff Occultist
-1 Shattered Sanctum
-1 Shriekhorn
-1 Sivitri Scarzam
-1 Skybridge Towers
-1 Spined Megalodon
-1 Starlit Sanctum
-3 Swamp
-1 Tainted Field
-1 Tamiyo's Epiphany
-1 Temporal Manipulation
-1 Time Warp
-1 Tolarian Serpent
-1 Undercity Sewers
-1 Weight of Memory
-1 Wizards' School
-1 Wretched Throng
-1 Yoked Plowbeast
-1 Youthful Scholar
-1 Zhou Yu, Chief Commander
+1 Doom Whisperer
+1 Dread Drone
+1 Eat to Extinction
+1 Face of Fear
+1 Field of the Dead
+1 Flood Plain
+1 Get the Point
+1 Gild
+1 Gimli's Axe
+1 Gnathosaur
+1 Goblin Chirurgeon
+1 Goblin Masons
+1 Goblin Picker
+1 Goblin Rally
+1 Hall of the Bandit Lord
+1 He's Dead, Jim
+1 Hidden Hideout
+1 Horrifying Revelation
+1 Impolite Entrance
+1 Jackhammer
+1 Kiki-Jiki, Mirror Breaker
+1 Kuro, Pitlord
+1 Lightning Javelin
+1 Liquimetal Torque
+1 Lost Legion
+1 Mana Geode
+1 Megatog
+1 Mimic
+1 Miner's Bane
+1 Mirage Mesa
+14 Mountain
+1 Night Market
+1 Oni of Wild Places
+1 Orcish Spy
+1 Pit of Offerings
+1 Plagued Rusalka
+1 Plundering Pirate
+1 Primal Beyond
+1 Ragavan, Nimble Pilferer
+1 Ray of Ruin
+1 Rockslide Elemental
+1 Romantic Rendezvous
+1 Rubble Reading
+1 Ruins of Oran-Rief
+1 Scream Puff
+1 Shadow Stinger
+1 Shaleskin Bruiser
+1 Shimmerdrift Vale
+1 Sinister Starfish
+1 Sire of Insanity
+1 Splatter Goblin
+1 Sunken Citadel
+12 Swamp
+1 Tarnation Vista
+1 Thallid Soothsayer
+1 Thought Vessel
+1 Tsabo Tavoc
+1 Venomcrawler
+1 Visara the Dreadful
+1 Warteye Witch
+1 Wort, Boggart Auntie
+1 Wretched Doll
 
 [commander]
-Dakkon Blackblade
+Lady Orca

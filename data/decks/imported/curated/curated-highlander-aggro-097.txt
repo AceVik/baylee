@@ -1,84 +1,82 @@
 # baylee curated highlander aggro seed=20261120
 # licence: AGPL-3.0-only
 [deck:highlander aggro BRG #20261120]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bastion of Remembrance
-1 Blazemire Verge
-1 Blight Mound
-1 Blisterpod
-1 Blood Petal Celebrant
-1 Blooming Marsh
+1 Barrage of Expendables
+1 Bayou
+1 Bile Urchin
+1 Blight Keeper
+1 Burning Earth
 1 Callous Inspector
-1 Carrier Thrall
-1 Catacomb Sifter
-1 Claws of Gix
-1 Common Crook
-1 Copperline Gorge
-1 Criminal Enterprise
+1 Careless Celebrant
+1 Cinder Marsh
+1 Contaminated Ground
+1 Corrupted Roots
+1 Courser of Kruphix
 1 Darigaaz's Caldera
-1 Deathknell Berserker
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Dragonmaster Outcast
-1 Elephant Guide
-1 Elvish Farmer
-5 Forest
+1 Dark Fortress
+1 Deathbringer Thoctar
+1 Deathrite Shaman
+1 Dream Beavers
+1 Earthbind
+1 Eidolon of Blossoms
+1 Eidolon of the Great Revel
+1 Elves of Deep Shadow
+1 Enduring Vitality
+1 Fang of Shigeki
+1 Fastbond
+1 Fear of Lost Teeth
+1 Festering Wound
+1 Footlight Fiend
+3 Forest
+1 Frostling
 1 Geothermal Crevice
-1 Gilded Goose
-1 Gleaming Barrier
-1 Goblin-town
-1 Golgari Guildmage
-1 Graf Harvest
-1 Greedy Freebooter
-1 Grim Backwoods
-1 Jungle Patrol
-1 Karplusan Forest
-1 Kheru Bloodsucker
+1 Gimli, Counter of Kills
+1 Goblin Arsonist
+1 Goblin Bomb
+1 Goblin Bombardment
+1 Grasping Longneck
+1 Haunting Wind
+1 Hecatomb
+1 Impact Tremors
+1 Jund Battlemage
 1 Koskun Keep
-1 Lead Pipe
-1 Legion Extruder
-1 Mantle of the Wolf
+1 Lampad of Death's Vigil
 1 Marionette Apprentice
-1 Marsh Flitter
-1 Most Wanted
-5 Mountain
-1 Myr Sire
-1 Orochi Hatchery
-1 Pashalik Mons
-1 Pia and Kiran Nalaar
-1 Piggy Bank
-1 Prowess of the Fair
-1 Prying Blade
-1 Quest for the Gravelord
-1 Raucous Theater
-1 Reckless Lackey
-1 Retrofitter Foundry
+1 Master of the Feast
+1 Molten Vortex
+1 Molting Skin
+1 Mount Doom
+8 Mountain
+1 Nurturing Peatland
+1 Orcish Bowmasters
+1 Orcish Vandal
+1 Oread of Mountain's Blaze
+1 Phyrexian Arena
+1 Pitchburn Devils
+1 Profane Tutor
+1 Sanctum Weaver
+1 Sanguinary Priest
 1 Savage Lands
-1 Skeletal Vampire
-1 Skullclamp
-1 Slayer's Plate
+1 Sawblade Scamp
+1 Scald
+1 Seizures
+1 Serrated Scorpion
 1 Slimefoot, the Stowaway
-1 Sling-Gang Lieutenant
-1 Sparring Construct
-1 Spawning Pit
-1 Stark Industries Executive
-12 Swamp
-1 Sweettooth Witch
-1 Sylvok Lifestaff
-1 Tainted Wood
-1 Tempting Witch
-1 Thallid
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Trading Post
-1 Tramway Station
+1 Smaug the Magnificent
+1 Soulreaper of Mogis
+1 Spirit of Malevolence
+1 Stensia Bloodhall
+1 Stomping Ground
+1 Storm Caller
+1 Svogthos, the Restless Tomb
+13 Swamp
+1 Tattered Mummy
+1 Tibalt's Rager
+1 Tinder Wall
+1 Torch Song
 1 Twisted Landscape
-1 Viridescent Bog
-1 Volcanic Strength
-1 Voldaren Epicure
-1 Weirding Shaman
+1 Underworld Dreams
+1 Walking Ballista
+1 Warp Artifact
+1 Weaponize the Monsters
 1 Ziatora's Proving Ground

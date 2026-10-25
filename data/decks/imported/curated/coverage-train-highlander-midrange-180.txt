@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WBG #20266181]
+1 Abzan Banner
+1 Accursed Horde
+1 Aggressive Urge
+1 Bog Tatters
+1 Breathstealer
+1 Bull Hippo
+1 Custodian of the Trove
+1 Darkbore Pathway
+1 Dauthi Mindripper
+1 Dauthi Trapper
+1 Deceptive Landscape
+1 Desolate Mire
+1 Dirtwater Wraith
+1 Dreg Reaver
+1 Dross Crocodile
+1 Drudge Reavers
+1 Easy Prey
+1 Emerald Oryx
+1 Emperor Crocodile
+1 Ersatz Gnomes
+1 Executioner's Capsule
+1 Felhide Minotaur
+1 Finale of Devastation
+5 Forest
+1 Freyalise's Charm
+1 Giant Cockroach
+1 Gloom Pangolin
+1 Gluttonous Zombie
+1 Godless Shrine
+1 Golgari Locket
+1 Golgari Longlegs
+1 Grove of the Guardian
+1 Headstone
+1 Hidden Gibbons
+1 Hushwood Verge
+1 Indatha Triome
+1 Infernal Contract
+1 Lazotep Behemoth
+1 Llanowar Wastes
+1 Murmuring Bosk
+1 Necrogen Spellbomb
+1 Nurturing Peatland
+1 Odylic Wraith
+1 Ordinary Bear
+1 Petra Sphinx
+1 Phyrexian Monitor
+1 Pitiless Gorgon
+2 Plains
+1 Prowling Nightstalker
+1 Raiding Nightstalker
+1 Restless Bones
+1 River Bear
+1 Rotted Hulk
+1 Rotting Legion
+1 Safewright Quest
+1 Sandsteppe Citadel
+1 Scragnoth
+1 Selesnya Cluestone
+1 Shadow Rider
+1 Shimian Night Stalker
+1 Sip of Hemlock
+1 Slimy Dualleech
+1 Soul Rend
+1 Sungrass Prairie
+18 Swamp
+1 Tainted Field
+1 Talisman of Resilience
+1 Thornling
+1 Tranquil Garden
+1 Ultimate Alliance
+1 Unyielding Krumar
+1 Vampiric Feast
+1 Veldt
+1 Wandering Tombshell
+1 Wardscale Crocodile
+1 Wilt
+1 Witch's Familiar
+1 Woodwraith Strangler

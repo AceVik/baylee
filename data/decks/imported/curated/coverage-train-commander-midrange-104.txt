@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266105]
+1 Abjure
+1 Adventurers' Guildhouse
+1 Akoum Warrior
+1 Ancient Ziggurat
+1 Ash Barrens
+1 Axiom Engraver
+1 Bird Maiden
+1 Blackbloom Rogue
+1 Braidwood Sextant
+1 Branch of Vitu-Ghazi
+1 Cavernous Maw
+1 Cloud Pirates
+1 Daring Apprentice
+1 Diamond City
+1 Disruptive Student
+1 Doc Ock, Evil Inventor
+1 Eclipsed Realms
+1 Emeritus of Ideation
+1 Encroaching Wastes
+1 Ertai, Wizard Adept
+1 Eye Collector
+1 Fearful Villager
+1 Flashfreeze
+1 Floodbringer
+1 Flying Men
+1 Glamorous Grapplers
+1 Harvesttide Infiltrator
+1 Impetuous Sunchaser
+1 Indigo Faerie
+1 Inkrise Infiltrator
+19 Island
+1 Jasmine Dragon Tea Shop
+1 Lightning Stormkin
+1 Malevolent Hermit
+1 Moonfolk Puzzlemaker
+1 Nectar Faerie
+1 Nightveil Sprite
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Opal Palace
+1 Paragon of Gathering Mists
+1 Past in Flames
+1 Patron Wizard
+1 Pavel Maliki
+1 Rakdos Trumpeter
+1 Ramirez DePietro
+1 Renegade Map
+1 Rise Again
+1 Rishadan Airship
+1 Rootwater Mystic
+1 Rummaging Wizard
+1 Sanctum of Ugin
+1 Sheltered Valley
+1 Skycoach Waypoint
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Soratami Savant
+1 Stromgald Cabal
+1 Stronghold Machinist
+1 Suq'Ata Assassin
+6 Swamp
+1 Taigam's Scheming
+1 Talas Air Ship
+1 Talas Scout
+1 The Biblioplex
+1 Thrull Wizard
+1 Tolarian Sentinel
+1 Underdome
+1 Vedalken Infuser
+1 Veldrane of Sengir
+1 Vodalian Mage
+1 Wind Strider
+1 Windrider Patrol
+1 World Map
+1 Wrecking Crew
+1 Zhao, the Seething Flame
+
+[commander]
+Gwendlyn Di Corci

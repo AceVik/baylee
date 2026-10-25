@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UR #20266242]
+1 Active Volcano
+1 Aerial Guide
+1 Airship Engine Room
+1 Aven Smokeweaver
+1 Balduvian Hydra
+1 Bay Falcon
+1 Breezekeeper
+1 Cascade Bluffs
+1 Chasm Drake
+1 Cloudsculpt Technician
+1 Coast Watcher
+1 Covetous Dragon
+1 Deface
+1 Desolate Lighthouse
+1 Dragon Hatchling
+1 Dragon Tyrant
+1 Dwarven Catapult
+1 Emberwilde Caliph
+1 Emeritus of Ideation
+1 Ferrous Lake
+1 Fiery Islet
+1 Firestorm Phoenix
+1 Flowstone Kavu
+1 Flying Men
+1 Frontline War-Rager
+1 Gitaxian Raptor
+1 Granite Gargoyle
+1 Hellkite Punisher
+1 Hover Barrier
+12 Island
+1 Kavu Monarch
+1 Krovikan Mist
+1 Lightning Stormkin
+13 Mountain
+1 Nalathni Dragon
+1 Nivix, Aerie of the Firemind
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Pseudodragon Familiar
+1 Pyroblast
+1 Quaketusk Boar
+1 Rathi Dragon
+1 Razorfin Hunter
+1 Restless Spire
+1 Ripscale Predator
+1 Rishadan Airship
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Rock Hydra
+1 Scaldkin
+1 Scorched Geyser
+1 Scrapskin Drake
+1 Shivan Devastator
+1 Shivan Reef
+1 Skyship Stalker
+1 Slith Firewalker
+1 Soratami Mindsweeper
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Stark Industries
+1 Steam Vents
+1 Stormcloud Djinn
+1 Stronghold Zeppelin
+1 Sun-Collared Raptor
+1 Talas Air Ship
+1 Talonrend
+1 Teferi's Drake
+1 Thunder Wall
+1 Tolarian Drake
+1 Vaporous Djinn
+1 Vexing Gull
+1 Volatile Fjord
+1 Volcanic Island
+1 Wall of Air
+1 Wind Strider
+1 Windrider Patrol
+
+[commander]
+Mm'menon, Uthros Exile

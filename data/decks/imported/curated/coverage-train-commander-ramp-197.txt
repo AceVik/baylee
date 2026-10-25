@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266198]
+1 Akki Avalanchers
+1 Akki Raider
+1 Arms Dealer
+1 Badlands
+1 Bag End Banquet
+1 Barrage Ogre
+1 Betrothed of Fire
+1 Breeding Pit
+1 Canopy Tactician
+1 Charnelhoard Wurm
+1 Cinder Marsh
+1 Darigaaz's Caldera
+1 Devils' Playground
+1 Diamond Kaleidoscope
+1 Dori, Bearer of Friends
+1 Dragon's Herald
+1 Earthlink
+1 Elderfang Ritualist
+1 Exiled Boggart
+1 Facevaulter
+1 Fire-Lit Thicket
+9 Forest
+1 Geothermal Crevice
+1 Gimli, Counter of Kills
+1 Glissa, the Traitor
+1 Goblin Chirurgeon
+1 Goblin Gardener
+1 Goblin Masons
+1 Goblin Rabblemaster
+1 Goblin Sledder
+1 Goblin Soothsayer
+1 Goblin Trashmaster
+1 Golgari Thug
+1 Hellkite Overlord
+1 Hornet Harasser
+1 Horror of Horrors
+1 Kiki-Jiki, Mirror Breaker
+1 Klingon Strike Force
+1 Knucklebone Witch
+1 Koskun Keep
+1 Krark-Clan Grunt
+1 Lantern-Lit Graveyard
+1 Mogg Hollows
+1 Mogg Raider
+1 Morcant's Loyalist
+1 Mossfire Valley
+11 Mountain
+1 Munitions Enthusiast
+1 Night Soil
+1 Ogre Slumlord
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Orc General
+1 Orcish Vandal
+1 Oxidda Daredevil
+1 Rhys the Exiled
+1 Rix Maadi, Dungeon Palace
+1 Sardian Avenger
+1 Savage Lands
+1 Scrapyard Steelbreaker
+1 Seething Pathblazer
+1 Shivan Harvest
+1 Silverback Shaman
+1 Skarrg, the Rage Pits
+1 Slobad, Goblin Tinkerer
+1 Splatter Goblin
+1 Stensia Bloodhall
+1 Sustenance
+6 Swamp
+1 Thundering Spineback
+1 Twisted Landscape
+1 Vampire Warlord
+1 Virtue of Persistence
+1 Warteye Witch
+1 Wastewood Verge
+1 Ziatora's Proving Ground
+
+[commander]
+Bartel Runeaxe

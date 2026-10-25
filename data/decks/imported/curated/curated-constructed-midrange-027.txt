@@ -1,20 +1,20 @@
 # baylee curated constructed midrange seed=20261050
 # licence: AGPL-3.0-only
 [deck:constructed midrange WB #20261050]
-4 Arcbound Ravager
-3 Bishop of Wings
-3 Caves of Koilos
-4 Criminal Enterprise
-3 Foot Headquarters
-2 Godless Shrine
-4 Kheru Bloodsucker
-3 Marionette Apprentice
-1 Misty Palms Oasis
-4 Neva, Stalked by Nightmares
-3 Plains
-4 Quest for the Gravelord
-1 Shattered Sanctum
-3 Spawning Pit
-11 Swamp
-3 Trading Post
-4 Virtue of Persistence
+2 Bleachbone Verge
+2 Caves of Koilos
+2 Desolate Mire
+4 Grim Tutor
+3 Jeskai Student
+4 Lotus-Eye Mystics
+2 Mai, Scornful Striker
+4 Mesa Enchantress
+3 Night's Whisper
+4 Painful Quandary
+2 Painsmith
+7 Plains
+3 Presence of the Master
+4 Righteousness
+3 Starlit Sanctum
+8 Swamp
+3 Thorntooth Witch

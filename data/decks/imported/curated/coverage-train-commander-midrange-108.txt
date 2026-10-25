@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266109]
+1 Access Tunnel
+1 Ant Queen
+1 Arcane Flight
+1 Ayesha Tanaka
+1 Brain Freeze
+1 Brave the Sands
+1 Breath of Life
+1 Capital City
+1 Carapace
+1 Chronic Flooding
+1 Coral Barrier
+1 Cryptic Caves
+1 Drannith Magistrate
+1 Drownyard Temple
+1 Fecundity
+1 Ferocious Pup
+1 Fierce Witchstalker
+1 Floodgate
+8 Forest
+1 Giant Caterpillar
+1 Gift of Strands
+1 Glimmer Bairn
+1 Holy Armor
+1 Indomitable Will
+9 Island
+1 Ivory Guardians
+1 Lance
+1 Lord Magnus
+1 Marker Beetles
+1 Marshal of Zhalfir
+1 Messenger Drake
+1 Miren, the Moaning Well
+1 Miscast
+1 Mists of Littjara
+1 Mobilized District
+1 Mtenda Griffin
+1 Naga Oracle
+1 Nightshade Dryad
+1 Nissa, Vital Force
+1 Nova Cleric
+1 Ojer Kaslem, Deepest Growth
+1 Oko, Thief of Crowns
+1 Order of Whiteclay
+1 Order of the Sacred Torch
+1 Padeem, Consul of Innovation
+8 Plains
+1 Precognition
+1 Red Scarab
+1 Reincarnation
+1 Rhystic Cave
+1 Roadside Reliquary
+1 Search for Azcanta
+1 Secret Base
+1 Seer of the Last Tomorrow
+1 Serra Aviary
+1 Serra's Blessing
+1 Sinister Sabotage
+1 Slow Motion
+1 Spined Megalodon
+1 Spore Crawler
+1 Sultai Skullkeeper
+1 Sword of Hearth and Home
+1 Teferi's Curse
+1 The Grey Havens
+1 The Monumental Facade
+1 Thelonite Druid
+1 Thelonite Monk
+1 Torsten Von Ursus
+1 Treva's Ruins
+1 Twists and Turns
+1 Viscerid Armor
+1 Vodalian War Machine
+1 Wall of Lost Thoughts
+1 Warped Landscape
+1 Whiteout
+1 Winding Canyons
+1 Zoetic Cavern
+
+[commander]
+Ragnar

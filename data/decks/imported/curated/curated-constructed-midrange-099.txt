@@ -1,20 +1,23 @@
 # baylee curated constructed midrange seed=20261122
 # licence: AGPL-3.0-only
 [deck:constructed midrange BG #20261122]
-3 Aclazotz, Deepest Betrayal
-2 Arcbound Ravager
-4 Boreal Druid
-2 Darkmoss Bridge
-4 Elvish Farmer
-3 Festering Gulch
-6 Forest
-4 Kheru Bloodsucker
-3 Skeletal Vampire
-4 Slayer's Plate
-3 Sling-Gang Lieutenant
-4 Spawning Pit
-8 Swamp
-2 Titania, Protector of Argoth
-3 Trading Post
-3 Turbulent Fen
-2 Undergrowth Stadium
+4 Ancient Craving
+4 Audacious Thief
+2 Darkbore Pathway
+2 Dusk Legion Zealot
+4 Elves of Deep Shadow
+8 Forest
+3 Golgari Locket
+2 Grim Backwoods
+3 Leaf-Crowned Visionary
+3 Locthwain Lancer
+3 Mana Crypt
+4 Metalspinner's Puzzleknot
+2 Nightshade Harvester
+2 Overgrown Tomb
+2 Painful Quandary
+1 Svogthos, the Restless Tomb
+7 Swamp
+1 Tainted Wood
+2 Talisman of Resilience
+1 Twilight Mire

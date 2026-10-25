@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBG #20266095]
-1 Aether Vial
-1 Ajani's Comrade
-1 Aku Djinn
-1 Ashnod's Transmogrant
-1 Assault Zeppelid
-1 Barrin's Codex
-1 Big Apple, 3 a.m.
-1 Black Mana Battery
-1 Blue Mana Battery
-1 Brass-Talon Chimera
-1 Cathedral of War
-1 Clockwork Swarm
-1 Coretapper
-1 Delif's Cube
-1 Dryad Arbor
-1 Ebon Praetor
-1 Empowered Autogenerator
-1 Energy Vortex
-1 Feral Thallid
-1 Foreboding Landscape
-9 Forest
-1 Forsaken Crossroads
-1 Gallowbraid
-1 Gemstone Array
-1 Grasslands
-1 Green Mana Battery
-1 Guardian of the Halls
-1 Hadana's Climb
-1 Illusionary Wall
-1 Insight Engine
-1 Iron-Heart Chimera
-6 Island
-1 Lead-Belly Chimera
-1 Life Matrix
-1 Lilting Refrain
-1 Living Armor
-1 Lotleth Troll
-1 Lux Cannon
-1 Maddening Wind
-1 Markov Dreadknight
-1 Minamo, School at Water's Edge
-1 Mind Harness
-1 Mindbender Spores
-1 Mindless Automaton
-1 Mirrorpool
-1 Myr Scrapling
-1 Mystic Might
-1 Necropolis
-1 Oath of the Ancient Wood
-1 Opulent Palace
-1 Origin of Metalbending
-1 Otherworld Atlas
-1 Pili-Pala
-1 Public Thoroughfare
-1 Rushwood Elemental
-1 Sab-Sunen, Luxa Embodied
-1 Sengir Bats
-1 Serrated Biskelion
-1 Serum Tank
-1 Shimmerdrift Vale
-1 Slith Predator
-1 Soldevi Excavations
-1 Soul Exchange
-1 Surge Node
-8 Swamp
-1 Swamp Mosquito
-1 Teeka's Dragon
-1 Thorn Thallid
-1 Time Bomb
-1 Tin-Wing Chimera
-1 Tolarian Academy
-1 U.S.S. Enterprise-D, Galaxy-Class
-1 Unspeakable Symbol
-1 Urborg
-1 Ventifact Bottle
-1 Verdant Automaton
-1 Wintermoon Mesa
-1 Yavimaya Hollow
-1 Zagoth Triome
+[deck:commander midrange WRG #20266095]
+1 Abraded Bluffs
+1 Akroma's Devoted
+1 Angelic Gift
+1 Asceticism
+1 Aysen Highway
+1 Barbarian Lunatic
+1 Birnin Zana Plaza
+1 Bretagard Stronghold
+1 Burrowing
+1 Butterbur, Bree Innkeeper
+1 Captain's Tutelage
+1 Chosen by Heliod
+1 Conservatory
+1 Consuming Ferocity
+1 Druid Lyrist
+1 Dryad's Favor
+1 Etched Cornfield
+1 Field Marshal
+1 Flaming Sword
+7 Forest
+1 Fortified Area
+1 Galvanic Arc
+1 Goblin Shrine
+1 Gongaga, Reactor Town
+1 Haazda Exonerator
+1 Herald of Dromoka
+1 Imposing Visage
+1 Improvised Armor
+1 Inspiring Veteran
+1 Jacques le Vert
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 Knight Exemplar
+1 Kongming, "Sleeping Dragon"
+1 Kyoshi Village
+1 Lovisa Coldeyes
+1 Lunarch Mantle
+1 Lush Portico
+1 Mass Hysteria
+1 Meng Huo, Barbarian King
+1 Miracle Worker
+1 Mobilization
+9 Mountain
+1 Needle Spires
+1 Paragon of Eternal Wilds
+1 Paragon of Fierce Defiance
+1 Paragon of New Dawns
+1 Pegasus Refuge
+9 Plains
+1 Privileged Position
+1 Radiant Summit
+1 Rage Reflection
+1 Rakka Mar
+1 Raucous Carnival
+1 Restless Prairie
+1 Ritual of Steel
+1 Saryth, the Viper's Fang
+1 Scabland
+1 Sheltering Boughs
+1 Shivan Oasis
+1 Soraya the Falconer
+1 Spectral Procession
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Steely Resolve
+1 Sunpetal Grove
+1 Super Speed
+1 Survey the Wreckage
+1 Tiger Claws
+1 Unchained Berserker
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Warleader's Call
+1 Weapons Trainer
+1 White Lotus Reinforcements
+1 White Scarab
+1 Wose Pathfinder
 
 [commander]
-Vorosh, the Hunter
+Samut, Voice of Dissent

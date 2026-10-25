@@ -31,6 +31,8 @@ pub struct DeckBuildRequest<'a> {
     /// Optional per-card coverage deficit (`target_coverage - current_coverage`)
     /// to prioritize under-covered cards during candidate scoring.
     pub deficits: Option<&'a BTreeMap<CardIndex, usize>>,
+    /// Optional per-card corpus usage count to penalize over-represented filler cards.
+    pub usage_counts: Option<&'a BTreeMap<CardIndex, usize>>,
 }
 
 impl DeckBuildRequest<'_> {
@@ -44,6 +46,7 @@ impl DeckBuildRequest<'_> {
             anchor: None,
             forced_colors: None,
             deficits: None,
+            usage_counts: None,
         }
     }
 }
@@ -111,6 +114,13 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
     let pool_by_id: BTreeMap<CardIndex, &Entry> =
         pool.entries.iter().map(|e| (e.card, e)).collect();
     let anchor_entry = req.anchor.and_then(|c| pool_by_id.get(&c).copied());
+    let anchor_with_partner_ci = anchor_entry.map_or(ColorSet::EMPTY, |ae| {
+        ae.profile
+            .named_partners
+            .iter()
+            .filter_map(|p| pool_by_id.get(p).map(|pe| pe.identity))
+            .fold(ae.identity, ColorSet::union)
+    });
 
     // 1. Determine leaders (for Commander) and deck colour identity
     let mut leaders = Vec::new();
@@ -122,9 +132,7 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
             leaders.push(ae.card);
             ae.identity
         } else {
-            let req_ci = anchor_entry
-                .map_or(ColorSet::EMPTY, |e| e.identity)
-                .union(req.forced_colors.unwrap_or(ColorSet::EMPTY));
+            let req_ci = anchor_with_partner_ci.union(req.forced_colors.unwrap_or(ColorSet::EMPTY));
             let candidates: Vec<&Entry> = pool
                 .entries
                 .iter()
@@ -144,9 +152,9 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
             leader.identity
         }
     } else if let Some(fc) = req.forced_colors {
-        expand_colors(pool, fc, &mut rng)
-    } else if let Some(ae) = anchor_entry {
-        expand_colors(pool, ae.identity, &mut rng)
+        expand_colors(pool, fc.union(anchor_with_partner_ci), &mut rng)
+    } else if anchor_entry.is_some() {
+        expand_colors(pool, anchor_with_partner_ci, &mut rng)
     } else {
         choose_random_colors(pool, &mut rng)
     };
@@ -183,9 +191,11 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
 
     // 2. Initialize DeckThemeAccumulator with leaders and/or anchor spell
     let mut theme = DeckThemeAccumulator::default();
+    let mut wanted_partners: BTreeSet<CardIndex> = BTreeSet::new();
     for &l in &leaders {
         if let Some(le) = pool_by_id.get(&l) {
             theme.add(&le.profile, 1);
+            wanted_partners.extend(le.profile.named_partners.iter().copied());
         }
     }
 
@@ -195,6 +205,7 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
 
     if let Some(ae) = anchor_entry {
         protected.insert(ae.card);
+        wanted_partners.extend(ae.profile.named_partners.iter().copied());
         if !ae.land && !leaders.contains(&ae.card) && fits(&ae) {
             taken.insert(ae.card);
             let copies = if singleton {
@@ -211,21 +222,27 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
             theme.add(&ae.profile, add_n as u16);
         }
     } else if leaders.is_empty() {
-        // Seed a thematic build-around spell so standalone Constructed/Highlander
-        // decks also form a coherent mechanical cluster.
-        let thematic: Vec<&Entry> = spell_pool
+        // Seed a thematic ON-COLOUR build-around spell so standalone Constructed/Highlander
+        // decks form a coherent mechanical cluster in their own colours.
+        let thematic_colored: Vec<&Entry> = spell_pool
             .iter()
             .copied()
-            .filter(|e| e.profile.roles != 0)
+            .filter(|e| {
+                !e.identity.is_empty()
+                    && e.profile.roles != 0
+                    && e.profile.pips[5] == 0
+                    && !e.profile.has_external_named_dependency
+            })
             .collect();
-        let seed_pool = if thematic.is_empty() {
+        let seed_pool = if thematic_colored.is_empty() {
             &spell_pool
         } else {
-            &thematic
+            &thematic_colored
         };
         let seed_card = seed_pool[rng.below(seed_pool.len())];
         taken.insert(seed_card.card);
         protected.insert(seed_card.card);
+        wanted_partners.extend(seed_card.profile.named_partners.iter().copied());
         let copies = if singleton { 1 } else { 3 + rng.below(2) };
         let add_n = copies.min(spells);
         for _ in 0..add_n {
@@ -233,6 +250,24 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
         }
         theme.add(&seed_card.profile, add_n as u16);
     }
+
+    let anchor_is_artifact_or_colorless = anchor_entry.is_some_and(|ae| {
+        ae.identity.is_empty() || (ae.profile.roles & super::profile::ROLE_ARTIFACT) != 0
+    }) || leaders.iter().any(|l| {
+        pool_by_id.get(l).is_some_and(|le| {
+            le.identity.is_empty() || (le.profile.roles & super::profile::ROLE_ARTIFACT) != 0
+        })
+    });
+    let anchor_uses_c_mana = anchor_entry.is_some_and(|ae| ae.profile.pips[5] > 0);
+    let max_colorless_spells = if anchor_is_artifact_or_colorless || colors.is_empty() {
+        spells
+    } else {
+        (spells / 7).max(3)
+    };
+    let mut colorless_spells_added = main
+        .iter()
+        .filter(|c| pool_by_id.get(c).is_some_and(|e| e.identity.is_empty()))
+        .count();
 
     // 3. Pre-partition spell_pool by mana-value bucket (0..=7+) and deficit status
     let mut by_bucket: [Vec<&Entry>; 8] = std::array::from_fn(|_| Vec::new());
@@ -277,7 +312,15 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
             rng.below(8)
         };
 
-        let candidates: &[&Entry] = if !deficit_spells.iter().all(|e| taken.contains(&e.card)) {
+        let has_untaken_partner = wanted_partners.iter().any(|p| {
+            !taken.contains(p)
+                && pool_by_id
+                    .get(p)
+                    .is_some_and(|pe| !pe.land && fits(pe))
+        });
+        let candidates: &[&Entry] = if has_untaken_partner {
+            &spell_pool
+        } else if !deficit_spells.iter().all(|e| taken.contains(&e.card)) {
             &deficit_spells
         } else if by_bucket[target_b].iter().any(|e| !taken.contains(&e.card)) {
             &by_bucket[target_b]
@@ -285,7 +328,7 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
             &spell_pool
         };
 
-        let mut best_cand: Option<(f64, &Entry)> = None;
+        let mut top_cands: Vec<(f64, &Entry)> = Vec::with_capacity(12);
         for &e in candidates {
             if taken.contains(&e.card) {
                 continue;
@@ -294,30 +337,108 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
                 .deficits
                 .and_then(|m| m.get(&e.card).copied())
                 .unwrap_or(0);
+            let is_wanted_partner = wanted_partners.contains(&e.card);
+            // Cards with an external `Filter::Named` dependency:
+            // - If any named partner exists in `pool_by_id`, require that all available
+            //   partners fit the deck's colours so they can be co-selected together.
+            // - If no named partner exists in `pool_by_id`, only allow when `def_val > 0`.
+            if e.profile.has_external_named_dependency && !is_wanted_partner {
+                let avail_partners: Vec<&Entry> = e
+                    .profile
+                    .named_partners
+                    .iter()
+                    .filter_map(|p| pool_by_id.get(p).copied())
+                    .filter(|pe| !pe.land)
+                    .collect();
+                if avail_partners.is_empty() {
+                    if def_val == 0 {
+                        continue;
+                    }
+                } else if !avail_partners.iter().all(&fits) {
+                    continue;
+                }
+            }
+            // Cards requiring explicit {C} mana are only allowed when the anchor uses {C}
+            // or when the card itself has a coverage deficit.
+            if e.profile.pips[5] > 0 && !anchor_uses_c_mana && def_val == 0 && !is_wanted_partner {
+                continue;
+            }
+            // Enforce colourless spell cap unless the card has a coverage deficit
+            if e.identity.is_empty()
+                && colorless_spells_added >= max_colorless_spells
+                && def_val == 0
+                && !is_wanted_partner
+            {
+                continue;
+            }
             let syn = theme.synergy_score(&e.profile);
             let quota = theme.quota_bonus(&e.profile, archetype, spells);
             let curve_b = theme.curve_bonus(&e.profile, archetype, spells);
+            let color_bonus = if !e.identity.is_empty() {
+                1.8
+            } else if anchor_is_artifact_or_colorless {
+                0.4
+            } else {
+                -1.2
+            };
             let cov_bonus = if def_val > 0 {
-                7.5 * (def_val as f64)
+                8.5 * (def_val as f64)
             } else {
                 0.0
             };
-            let jitter = 0.65 * rng.unit();
-            let total = 2.2 * syn + 1.5 * quota + 1.4 * curve_b + cov_bonus + jitter;
-            if best_cand.is_none_or(|(b_score, _)| total > b_score) {
-                best_cand = Some((total, e));
+            let partner_bonus = if is_wanted_partner { 25.0 } else { 0.0 };
+            let sat_penalty = if def_val == 0 && !is_wanted_partner {
+                req.usage_counts
+                    .and_then(|m| m.get(&e.card).copied())
+                    .map_or(0.0, |u| -0.95 * (u.saturating_sub(2) as f64))
+            } else {
+                0.0
+            };
+            let jitter = 0.85 * rng.unit();
+            let total = 2.0 * syn
+                + 1.5 * quota
+                + 1.4 * curve_b
+                + color_bonus
+                + cov_bonus
+                + partner_bonus
+                + sat_penalty
+                + jitter;
+
+            if top_cands.len() < 8 {
+                top_cands.push((total, e));
+                top_cands.sort_by(|a, b| b.0.total_cmp(&a.0));
+            } else if total > top_cands[7].0 {
+                top_cands[7] = (total, e);
+                top_cands.sort_by(|a, b| b.0.total_cmp(&a.0));
             }
         }
-        let Some((_, chosen)) = best_cand else {
-            break;
-        };
+        // Fallback if strict colourless/{C} filter left `top_cands` empty in `target_b`
+        if top_cands.is_empty() {
+            if let Some(&fallback) = spell_pool.iter().find(|e| {
+                !taken.contains(&e.card) && !e.profile.has_external_named_dependency
+            }) {
+                top_cands.push((0.0, fallback));
+            } else if let Some(&fallback) = spell_pool.iter().find(|e| !taken.contains(&e.card)) {
+                top_cands.push((0.0, fallback));
+            } else {
+                break;
+            }
+        }
+        let max_s = top_cands[0].0;
+        let softmax_weights: Vec<f64> = top_cands
+            .iter()
+            .map(|(s, _)| ((s - max_s) / 0.90).exp())
+            .collect();
+        let chosen = top_cands[rng.weighted(&softmax_weights)].1;
+
         taken.insert(chosen.card);
+        wanted_partners.extend(chosen.profile.named_partners.iter().copied());
         let has_deficit = req
             .deficits
             .and_then(|m| m.get(&chosen.card).copied())
             .unwrap_or(0)
             > 0;
-        if has_deficit {
+        if has_deficit || wanted_partners.contains(&chosen.card) {
             protected.insert(chosen.card);
         }
         let copies = if singleton {
@@ -331,6 +452,9 @@ pub fn build_synergistic(pool: &Pool, req: &DeckBuildRequest<'_>) -> anyhow::Res
         let add_n = copies.min(spells - main.len());
         for _ in 0..add_n {
             main.push(chosen.card);
+        }
+        if chosen.identity.is_empty() {
+            colorless_spells_added += add_n;
         }
         theme.add(&chosen.profile, add_n as u16);
     }
@@ -442,11 +566,18 @@ fn choose_commander<'a>(
         let mut score = (def_val as f64) * 10.0;
         if let Some(ae) = anchor {
             score += 2.5 * pair_synergy(&cand.profile, &ae.profile);
-            // Prefer multi-colour commanders when covering general cards so the
-            // 99-card library can also pack many under-covered cards.
-            score += 0.4 * f64::from(cand.identity.len());
+            // Prefer 2–3 colour commanders for 1–3 colour anchors so we build
+            // cohesive guild/shard/wedge decks instead of 5-colour soup.
+            let target_cols = ae.identity.len().clamp(2, 3);
+            if def_val == 0 {
+                let extra_cols = cand.identity.len().saturating_sub(target_cols);
+                score -= 2.5 * f64::from(extra_cols);
+                if cand.identity.len() == target_cols {
+                    score += 1.5;
+                }
+            }
         }
-        score += 0.5 * rng.unit();
+        score += 0.65 * rng.unit();
         if best.is_none_or(|(b_score, _)| score > b_score) {
             best = Some((score, cand));
         }
@@ -557,7 +688,11 @@ fn refine_spells_1swap(
         let old_bucket = (old_entry.mana_value as usize).min(7);
         let mut best_rep: Option<(f64, &Entry)> = None;
         for &cand in &by_bucket[old_bucket] {
-            if taken.contains(&cand.card) {
+            if taken.contains(&cand.card)
+                || cand.profile.has_external_named_dependency
+                || (cand.identity.is_empty() && !old_entry.identity.is_empty())
+                || (cand.profile.pips[5] > 0 && old_entry.profile.pips[5] == 0)
+            {
                 continue;
             }
             let cand_score = 2.2 * theme.synergy_score(&cand.profile)
@@ -690,9 +825,15 @@ pub fn build_coverage_corpus_scoped(
         };
 
         let anchor_entry = pool_by_id[&anchor_cid];
+        let anchor_ci = anchor_entry
+            .profile
+            .named_partners
+            .iter()
+            .filter_map(|p| pool_by_id.get(p).map(|pe| pe.identity))
+            .fold(anchor_entry.identity, ColorSet::union);
         let archetype = anchor_entry.profile.preferred_archetype();
         let can_use_commander = commander_identities.iter().any(|&ci| {
-            anchor_entry.identity.difference(ci).is_empty()
+            anchor_ci.difference(ci).is_empty()
                 && (anchor_cid != CRYPTIC_SPIRES || ci.len() >= 2)
         });
 
@@ -718,7 +859,7 @@ pub fn build_coverage_corpus_scoped(
             } else {
                 Some(choose_broad_deficit_colors(
                     pool,
-                    anchor_entry.identity,
+                    anchor_ci,
                     &deficits,
                     attempt,
                 ))
@@ -730,6 +871,7 @@ pub fn build_coverage_corpus_scoped(
                 anchor: Some(anchor_cid),
                 forced_colors,
                 deficits: Some(&deficits),
+                usage_counts: Some(&coverage),
             };
             let Ok(deck) = build_synergistic(pool, &req) else {
                 continue;
@@ -763,6 +905,7 @@ pub fn build_coverage_corpus_scoped(
                 anchor: Some(anchor_cid),
                 forced_colors: Some(ColorSet::ALL),
                 deficits: Some(&deficits),
+                usage_counts: Some(&coverage),
             };
             let deck = build_synergistic(pool, &req)?;
             let ms = compute_multiset(&deck.main, &deck.leaders);
@@ -807,7 +950,13 @@ fn choose_broad_deficit_colors(
     attempt: u64,
 ) -> ColorSet {
     let mut chosen = base;
-    let target_len = (usize::from(base.len()).max(2) + (attempt as usize % 2)).min(3);
+    let target_len = if base.len() >= 3 {
+        usize::from(base.len())
+    } else if attempt.is_multiple_of(3) {
+        3
+    } else {
+        2
+    };
     // Rank colours by how many under-covered cards have that colour
     let mut color_deficits: Vec<(usize, Color)> = COLORS
         .into_iter()

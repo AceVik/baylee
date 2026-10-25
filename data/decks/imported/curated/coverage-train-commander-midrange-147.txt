@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WR #20266148]
-1 Aerial Modification
-1 Agility
-1 Akki Rockspeaker
-1 Akki War Paint
-1 Always Watching
-1 Ancient Amphitheater
-1 Arborea Pegasus
-1 Battlefield Forge
-1 Belligerent Whiptail
-1 Berserkers' Onslaught
-1 Boros Garrison
-1 Boros Guildgate
-1 Builder's Blessing
-1 Captivating Unicorn
-1 Chosen by Heliod
-1 Clifftop Retreat
-1 Cooperation
-1 Day of Destiny
-1 Daybreak Charger
-1 Duergar Hedge-Mage
-1 Fallaji Vanguard
-1 Fire Dragon
-1 Flamekin Harbinger
-1 Fortified Area
-1 Foundry Champion
-1 Furious Strength
-1 Geyser Glider
-1 Giant Spectacle
-1 Glittering Massif
-1 Goblin Settler
-1 Goblin War Paint
-1 Green Scarab
-1 Imperial Recruiter
-1 Indestructibility
-1 Indomitable Will
-1 Inspiring Vantage
-1 Iron Hills
-1 Jeskai Barricade
-1 Kindly Customer
-1 Loran of the Third Path
-1 Lunarch Mantle
-1 Mageta's Boon
-1 Makindi Ox
-1 Maniacal Rage
-1 Messenger's Speed
-12 Mountain
-1 Murasa Pyromancer
-1 Needle Spires
-1 Needleverge Pathway
-1 Neighborhood Guardian
-11 Plains
-1 Priest of Iroas
-1 Priest of Urabrask
-1 Prophetic Ravings
-1 Rabanastre, Royal City
-1 Raucous Carnival
-1 Recruiter of the Guard
-1 Red Scarab
-1 Restless Bivouac
-1 Restoration Angel
-1 Rimefur Reindeer
-1 Rubblebelt Boar
-1 Rustvale Bridge
-1 Sacred Foundry
-1 Salivating Gremlins
-1 Settlement Blacksmith
-1 Siege Modification
-1 Siegecraft
-1 Sky Tether
-1 Spectator Seating
-1 Spirit Mantle
-1 Sunbillow Verge
-1 Urbis Protector
-1 Valakut Predator
-1 Viashino Firstblade
-1 Wall of Omens
-1 White Scarab
-1 Wild Celebrants
+[deck:commander midrange G #20266148]
+1 Animate Land
+1 Bag End Porter
+1 Blessed Respite
+1 Boa Constrictor
+1 Bramble Creeper
+1 Brushwagg
+1 Channel
+1 Chub Toad
+1 Craw Wurm
+1 Cryptic Caves
+1 Darkthicket Wolf
+1 Diamond Valley
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Ember Weaver
+1 Fanatical Fever
+34 Forest
+1 Frilled Sandwalla
+1 Gaea's Liege
+1 Giant Badger
+1 Giant Turtle
+1 Gigantoad
+1 Great Hall of the Citadel
+1 Guardian of the Great Conduit
+1 Heroic Intervention
+1 Johtull Wurm
+1 Joven's Ferrets
+1 Jungle Wurm
+1 Library of Alexandria
+1 Lifelace
+1 Llanowar Behemoth
+1 Llanowar Vanguard
+1 Mending Touch
+1 Mountain Stronghold
+1 Nantuko Disciple
+1 Nantuko Mentor
+1 Noose Constrictor
+1 Plated Rootwalla
+1 Predatory Wurm
+1 Pygmy Troll
+1 Quilled Slagwurm
+1 Rabid Wolverines
+1 Rabid Wombat
+1 Reckless Pangolin
+1 Regenerate
+1 Roaring Slagwurm
+1 Root Snare
+1 Root Spider
+1 Scarwood Hag
+1 Scion of the Wild
+1 Scurrid Colony
+1 Secluded Starforge
+1 Snarling Wolf
+1 Spitting Slug
+1 Stalking Drone
+1 Strength of Cedars
+1 Summer Bloom
+1 Summit Apes
+1 Treefolk Seedlings
+1 Vintara Snapper
+1 Vivien's Crocodile
+1 Whippoorwill
+1 Willow Satyr
+1 Wolverine Pack
+1 Wood Elemental
+1 Wyluli Wolf
 
 [commander]
-Théoden, King of Rohan
+Ashaya, Soul of the Wild

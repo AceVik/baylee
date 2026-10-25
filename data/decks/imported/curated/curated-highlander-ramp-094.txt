@@ -1,81 +1,79 @@
 # baylee curated highlander ramp seed=20261117
 # licence: AGPL-3.0-only
 [deck:highlander ramp WU #20261117]
+1 Academy Rector
 1 Adarkar Wastes
-1 Angelic Renewal
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Azorius Chancery
-1 Bag End Banquet
-1 Bishop of Wings
-1 Blade Splicer
-1 Calciform Pools
-1 Captain of the Watch
-1 Cartouche of Solidarity
-1 Celestial Colonnade
-1 Cold Case Cracker
-1 Corsair Captain
-1 Deserted Beach
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Drogskol Cavalry
-1 Drowner of Hope
-1 Elgaud Inquisitor
-1 Elspeth, Storm Slayer
-1 Emeria's Call
-1 False Demise
-1 Fear of Surveillance
-1 Field of Souls
-1 Filigree Crawler
-1 Gleaming Barrier
+1 Alchemist's Apprentice
+1 April O'Neil, Kunoichi Trainee
+1 Archaeomancer
+1 Aven Fateshaper
+1 Azorius Cluestone
+1 Azorius Skyguard
+1 Bazaar Trademage
+1 Champion of the Parish
+1 Cloudblazer
+1 Cloudcrest Lake
+1 Crowd Favorites
+1 Disciple of Grace
+1 Elite Archers
+1 Elite Guardmage
+1 Esper Sentinel
+1 Falcon, Winged Wonder
+1 Gates of Istfell
 1 Gleaming Bastion
-1 Griffin Guide
-1 Grinding Station
-1 Guarded Heir
+1 Grassland Crusader
 1 Hallowed Fountain
-1 Homarid Spawning Bed
-1 Hunted Witness
-1 Idyllic Beachfront
-4 Island
-1 Knight of Doves
-1 Knight-Captain of Eos
+1 Hapless Researcher
+1 Heavy Infantry
+1 Helpful Hunter
+1 Hengegate Pathway
+1 Honored Knight-Captain
+1 Horizon Scholar
+1 Hunding Gjornersen
+1 Inkfathom Divers
+12 Island
+1 Kindly Customer
+1 Knight of the Mists
+1 Lake-town
 1 Land Cap
-1 Lonely Arroyo
-1 Luminous Angel
-1 Meandering River
+1 Leonin Squire
+1 Loran of the Third Path
+1 Loran, Disciple of History
+1 Lossarnach Captain
+1 Mana Crypt
 1 Moorland Haunt
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
+1 Mystic Gate
 1 Nimbus Maze
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
-1 Oyobi, Who Split the Heavens
-1 Pentavus
-20 Plains
-1 Prahv, Spires of Order
-1 Prairie Stream
-1 Prying Blade
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Reveillark
-1 Robotics Mastery
-1 Scrap Trawler
-1 Sensor Splicer
-1 Siege Veteran
-1 Skittering Invasion
-1 Skullclamp
+1 Omenspeaker
+1 Opt
+1 Overwhelmed Apprentice
+1 Palace Jailer
+1 Palinchron
+1 Pelargir Survivor
+14 Plains
+1 Ramosian Captain
+1 Ramosian Lieutenant
+1 Ramosian Sergeant
+1 Recruiter of the Guard
+1 Sage of Epityr
+1 Sage of Lat-Nam
+1 Sage of Mysteries
+1 Sage's Row Savant
+1 Salvager of Secrets
+1 Scrivener
+1 Sejiri Refuge
+1 Serum Visionary
+1 Sharlayan, Nation of Scholars
+1 Skycloud Egg
 1 Skycloud Expanse
-1 Slayer's Plate
-1 Spawning Pit
-1 Study
-1 Sylvok Lifestaff
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
-1 Triskelavus
+1 Slumbering Keepguard
+1 Sphinx Mindbreaker
+1 Striped Riverwinder
+1 Thalakos Lowlands
+1 Thraben Inspector
+1 Tundra
+1 Ultimecia, Temporal Threat
 1 Urbis Protector
-1 Wand of the Elements
-1 Wanderwine Hub
+1 Voidwielder
+1 Windreader Sphinx
+1 Zhalfirin Lancer

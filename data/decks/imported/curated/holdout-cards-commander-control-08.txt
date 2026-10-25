@@ -1,72 +1,80 @@
-# baylee unseen-card holdout commander seed=90000028
+# baylee unseen-card holdout commander seed=90000018
 # licence: AGPL-3.0-only
-[deck:commander control G #90000028]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Archdruid's Charm
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Boseiju, Who Endures
-1 Byway Courier
-1 Chimeric Egg
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Doubling Season
-1 Elephant Guide
-1 Elvish Farmer
-34 Forest
-1 Gaea's Cradle
-1 Generous Visitor
-1 Gilded Goose
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Golem Foundry
-1 Hashep Oasis
-1 Heart of Yavimaya
-1 Jinxed Ring
-1 Juju Bubble
-1 Levitating Statue
-1 Lurking Lizards
-1 Magma Mine
-1 Managorger Hydra
-1 Mantle of the Wolf
-1 Medusa, Inhuman Queen
-1 Midsummer Revel
-1 Most Wanted
-1 Myr Sire
-1 Nim Deathmantle
-1 Okina, Temple to the Grandfathers
-1 Orochi Hatchery
-1 Path of Annihilation
-1 Pawpatch Formation
-1 Pendelhaven
-1 Pentavus
-1 Primal Amulet
-1 Primeval Bounty
-1 Rampaging Baloths
-1 Redrock Sentinel
-1 Retrofitter Foundry
-1 Slayer's Plate
-1 Spawning Pit
-1 Sphinx-Bone Wand
-1 Sword of the Ages
-1 Thallid Devourer
-1 The One Ring
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Time Bomb
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Tree of Tales
-1 Turntimber Ranger
-1 Walking Ballista
-1 Wand of the Elements
-1 Wirewood Lodge
-1 Wurmweaver Coil
-1 Yavimaya Hollow
+[deck:commander control WB #90000018]
+1 Agonizing Syphon
+1 Ajani's Welcome
+1 Armistice
+1 Arnyn, Deathbloom Botanist
+1 Auspicious Ancestor
+1 Ballroom
+1 Bleachbone Verge
+1 Blood Host
+1 Brightclimb Pathway
+1 Caribou Range
+1 Cat-Gator
+1 Caves of Koilos
+1 Certain Death
+1 Commissar Severina Raine
+1 Consuming Corruption
+1 Contemplation
+1 Corrupt
+1 Cruel Celebrant
+1 Cursebreak
+1 Dark Nourishment
+1 Death Grasp
+1 Desolate Mire
+1 Dogged Pursuit
+1 Douse in Gloom
+1 Drana's Emissary
+1 Drogskol Cavalry
+1 Eclipsed Steppe
+1 Elas il-Kor, Sadistic Pilgrim
+1 Emerge from the Cocoon
+1 Essence Drain
+1 Etched Familiar
+1 Fetid Heath
+1 Glyph of Life
+1 Grasping Thrull
+1 Harsh Sustenance
+1 Icatian Moneychanger
+1 Ill-Gotten Inheritance
+1 Last Kiss
+1 Lucky Offering
+1 Omni-Cheese Pizza
+1 Orzhov Basilica
+1 Orzhova, the Church of Deals
+1 Pharika's Cure
+11 Plains
+1 Poison Arrow
+1 Potion of Healing
+1 Radiant Strike
+1 Reviving Dose
+1 Ritual of Rejuvenation
+1 Scrubland
+1 Sephiroth's Intervention
+1 Shineshadow Snarl
+1 Silent Clearing
+1 Soul Feast
+1 Spiritual Sanctuary
+1 Starlit Sanctum
+1 Sunbeam Spellbomb
+1 Sunspring Expedition
+16 Swamp
+1 Swords to Plowshares
+1 Syphon Soul
+1 Tainted Field
+1 Trigon of Mending
+1 Turbulent Moor
+1 Vampire Opportunist
+1 Vampire Spawn
+1 Vampire's Kiss
+1 Vampiric Feast
+1 Vault of the Archangel
+1 Vindictive Vampire
+1 Warmth
+1 White Mana Battery
+1 Yawgmoth's Edict
+1 Zof Consumption
 
 [commander]
-Wolfsbane, Highland Hero
+Vona, Butcher of Magan

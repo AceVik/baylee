@@ -1,84 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WBR #20266113]
-1 Adarkar Sentinel
-1 Akron Legionnaire
-1 Amaranthine Wall
-1 Arcum's Sleigh
-1 Augmenting Automaton
-1 Battlefield Forge
-1 Bladed Sentinel
-1 Bleachbone Verge
-1 Bloodstone Cameo
-1 Boros Cluestone
-1 Boros Locket
-1 Boros Signet
-1 Clockwork Drawbridge
-1 Coastal Bulwark
-1 Consulate Skygate
-1 Crenellated Wall
-1 Desolate Mire
-1 Diabolic Machine
-1 Dimension X
-1 Elegant Parlor
-1 Emmessi Tome
-1 Excavated Wall
-1 Fetid Heath
-1 Forethought Amulet
-1 Forlorn Flats
-1 Glasses of Urza
-1 Goblin Cannon
-1 Graaz, Unstoppable Juggernaut
-1 Hair-Strung Koto
-1 Iron Hills
-1 Joven's Tools
-1 Living Wall
-1 Mardu Banner
-1 Masterwork of Ingenuity
-1 Mirror Universe
-1 Mountain
-1 Mycosynth Lattice
-1 Needle Spires
-1 Nomad Outpost
-1 Orzhov Keyrune
-1 Orzhov Signet
-12 Plains
-1 Plateau
-1 Potion of Healing
-1 Powerstone Shard
-1 Prizefighter Construct
-1 Razormane Masticore
-1 Ring of Ma'rûf
-1 Runesword
-1 Sacred Foundry
-1 Savai Crystal
-1 Savai Triome
-1 Scalding Tongs
-1 Shattered Landscape
-1 Shifting Wall
-1 Skull of Ramos
-1 Snow Fortress
-1 Spectator Seating
-1 Spellbook
-1 Sun-Blessed Peak
-1 Sunbillow Verge
-1 Sundial, Dawn Tyrant
-1 Suspicious Bookcase
-11 Swamp
-1 Swooping Lookout
-1 Talisman of Conviction
-1 The Walls of Ba Sing Se
-1 Throne of the God-Pharaoh
-1 Thunder Totem
-1 Tooth of Ramos
-1 Tournament Grounds
-1 Tower of Fortunes
-1 Walking Wall
-1 Wall of Junk
-1 Wall of Shields
-1 Wall of Spears
-1 Welder Automaton
-1 Xanthic Statue
+[deck:commander ramp UB #20266113]
+1 Assassin's Strike
+1 Battleground Geist
+1 Bay Falcon
+1 Blue Elemental Blast
+1 Cactus Preserve
+1 Catacomb Dragon
+1 Cathedral of War
+1 Celestial Messenger
+1 Ceremonious Rejection
+1 Chase Inspiration
+1 Cloud Dragon
+1 Cloud Spirit
+1 Coast Watcher
+1 Command Bridge
+1 Consult the Star Charts
+1 Crossroads Village
+1 Cryptic Spires circles=UB
+1 Deathmark
+1 Dimir Cutpurse
+1 Dungeon Descent
+1 Edgewall Inn
+1 Envelop
+1 Ethereal Whiskergill
+1 Fog Elemental
+1 Gateway Plaza
+1 Geyserfield Stalker
+1 Ghost Ship
+1 Glimmerbell
+1 Grand Coliseum
+1 Harbinger of Night
+1 Implements of Sacrifice
+17 Island
+1 Kami of the Crescent Moon
+1 Keening Banshee
+1 Leviathan
+1 Levitating Statue
+1 Living Tempest
+1 Living Tsunami
+1 Lotus Field
+1 Maze's End
+1 Minion of the Wastes
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Niblis of the Breath
+1 Nimbus of the Isles
+1 Nine-Tail White Fox
+1 Path of Ancestry
+1 Power Depot
+1 Refocus
+1 Rocky Tar Pit
+1 Screaming Phantom
+1 Searchlight Geist
+1 Serendib Efreet
+1 Skulking Ghost
+1 Smog Elemental
+1 Soul of the Rapids
+1 Souldrinker
+1 Spell Snare
+1 Spindrift Drake
+1 Stenchskipper
+1 Stormcloud Spirit
+1 Supreme Phantom
+9 Swamp
+1 Tattered Haunter
+1 Their Name Is Death
+1 Thran Portal
+1 Tolarian Winds
+1 Untaidake, the Cloud Keeper
+1 Updraft Elemental
+1 Vampire Revenant
+1 Vaporkin
+1 Wanderlight Spirit
+1 Wind Spirit
+1 Zephid
+1 Zephyr Gull
 
 [commander]
-Oros, the Avenger
+Ur-Drago

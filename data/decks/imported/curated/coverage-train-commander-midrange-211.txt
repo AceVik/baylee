@@ -1,84 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange RG #20266212]
-1 Ambassador Oak
-1 Arms Dealer
-1 Atalan Jackal
-1 Beetleback Chief
-1 Behemoth's Herald
-1 Betrothed of Fire
-1 Birthing Pod
-1 Bogardan Phoenix
-1 Centaur Glade
-1 Cinder Glade
-1 Cragcrown Pathway
-1 Destructor Dragon
-1 Dining Room
-1 Dragon Mage
-1 Elder Auntie
-1 Elderleaf Mentor
-1 Elfsworn Giant
-1 Elven Palisade
-1 Emrakul's Hatcher
-1 Fanatic of Rhonas
-1 Fecundity
-1 Ferocious Pup
-1 Fierce Witchstalker
-1 Fire-Lit Thicket
-11 Forest
-1 Friendly Teddy
-1 Game Trail
-1 Gangly Stompling
-1 Gnottvold Slumbermound
-1 Goblin Assault
-1 Goblin Gang Leader
-1 Goblin Shrine
-1 Goblin Trashmaster
-1 Gongaga, Reactor Town
-1 Greensleeves, Maro-Sorcerer
-1 Grove of the Burnwillows
-1 Gruul Turf
-1 Howling Giant
-1 Jungleborn Pioneer
-1 Kessig Wolf Run
-1 Kozilek's Predator
-1 Krark-Clan Stoker
-1 Magus of the Order
-1 Mogg Hollows
-12 Mountain
-1 Nest Invader
-1 Ojer Axonil, Deepest Might
-1 Ojer Kaslem, Deepest Growth
-1 Omashu City
-1 Plundering Pirate
-1 Portcullis Vine
-1 Professor of Zoomancy
-1 Pyre Spawn
-1 Racers' Ring
-1 Raging Ravine
-1 Reckless Lackey
-1 Redcap Thief
-1 Rootbound Crag
-1 Ryusei, the Falling Star
-1 Sardian Avenger
-1 Scion Summoner
-1 Shivan Harvest
-1 Silverback Shaman
-1 Skarrg, the Rage Pits
-1 Skirk Prospector
-1 Sluggishness
-1 Spreading Algae
-1 Sustenance
-1 Taiga
-1 Tar Pitcher
-1 Twin-Silk Spider
-1 Ulvenwald Observer
-1 Underfoot Underdogs
-1 Wall of Mulch
-1 Wily Goblin
-1 Windreaper Falcon
-1 Wirewood Hivemaster
-1 Yavimaya Sapherd
+[deck:commander midrange WUG #20266212]
+1 Adarkar Wastes
+1 Ajani's Comrade
+1 Ambrosia Whiteheart
+1 Arctic Aven
+1 Aven Envoy
+1 Aven Reedstalker
+1 Aven Skirmisher
+1 Aysen Abbey
+1 Battleflight Eagle
+1 Bronzebeak Moa
+1 Carrier Pigeons
+1 Cloudchaser Kestrel
+1 Cloudcrest Lake
+1 Commander Eesha
+1 Courier Hawk
+1 Dive Bomber
+1 Dragoon's Wyvern
+1 East Wind Avatar
+3 Forest
+1 Freewind Falcon
+1 Geist of Saint Thalia
+1 Gleaming Bastion
+1 Hallowed Fountain
+1 Healer's Flock
+1 Infinite Authority
+1 Irrigation Ditch
+5 Island
+1 Ithilien Kingfisher
+1 Judge's Familiar
+1 Keen-Eyed Raven
+1 Kingfisher
+1 Kor Skyfisher
+1 Ledger Shredder
+1 Lieutenant Kirtar
+1 Lifecreed Duo
+1 Lotusguard Disciple
+1 Mesa Falcon
+1 Messenger Falcons
+1 Mist Raven
+1 Moorland Haunt
+1 Nebelgast Herald
+1 Origin of Metalbending
+1 Osai Vultures
+1 Palace Familiar
+1 Pileated Provisioner
+17 Plains
+1 Plumecreed Mentor
+1 Prahv, Spires of Order
+1 River Hoopoe
+1 Roc Charger
+1 Runewing
+1 Rustwing Falcon
+1 Sea Eagle
+1 Seaside Citadel
+1 Shrieking Drake
+1 Skycloud Expanse
+1 Skyshroud Condor
+1 Skyshroud Falcon
+1 Skyswirl Harrier
+1 Soldier of the Grey Host
+1 Spara's Headquarters
+1 Steeple Roc
+1 Storm Crow
+1 Storm Spirit
+1 Strix Lookout
+1 Suntail Hawk
+1 Supply-Line Cranes
+1 Tome Raider
+1 Toucan-Puffin
+1 Trained Condor
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Tundra
+1 Urban Retreat
+1 Welkin Guide
+1 Windbrisk Raptor
+1 Zephyr Gull
 
 [commander]
-Tuknir Deathlock
+Derevi, Empyrial Tactician

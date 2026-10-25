@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266122]
-1 Attended Socialite
-1 Axiom Engraver
-1 Beast-Kin Ranger
-1 Blooming Marsh
-1 Bogwater Lumaret
-1 Canopy Baloth
-1 Conclave Naturalists
-1 Darigaaz's Caldera
-1 Dawnhart Disciple
-1 Dining Room
-1 Disciple of Freyalise
-1 Dosan's Oldest Chant
-1 Duskwatch Hunter
-1 Elderfang Disciple
-1 Eumidian Terrabotanist
-1 Eyeblight Assassin
-1 Fang Guardian
-1 Finale of Devastation
-1 Fire-Lit Thicket
-18 Forest
-1 Game Trail
-1 Geothermal Crevice
-1 Grazing Gladehart
-1 Grove Rumbler
-1 Haunted Ridge
-1 Healer of the Glade
-1 Hyrax Tower Scout
-1 Icecave Crasher
-1 Intrepid Provisioner
-1 Invasive Species
-1 Kazandu Nectarpot
-1 Koskun Keep
-1 Kraul Whipcracker
-1 Lay Waste
-1 Loam Dryad
-1 Lounge
-1 Magus of the Wheel
-1 Makindi Sliderunner
-1 Mindful Biomancer
-1 Mountain
-1 Nexus Wardens
-1 Nightshade Dryad
-1 Nurturing Peatland
-1 Perimeter Patrol
-1 Qasali Slingers
-1 Raging Ravine
-1 Razortrap Gorge
-1 Rejuvenate
-1 Rock Basilisk
-1 Rogue Elephant
-1 Saruli Caretaker
-1 Saruli Gatekeepers
-1 Savage Lands
-1 Scourge of the Undercity
-1 Scythe Leopard
-1 Scythe Tiger
-1 Serpent Assassin
-1 Setessan Skirmisher
-1 Setessan Starbreaker
-1 Sheoldred
-1 Silt Crawler
-1 Skirge Familiar
-1 Slice in Twain
-1 Slinking Skirge
-1 Snapping Gnarlid
-1 Spire Mangler
-1 Springmane Cervin
-4 Swamp
-1 Sylvan Brushstrider
-1 Tainted Peak
-1 Temple of Malice
-1 Totem Speaker
-1 Transdimensional Bovine
-1 Tsabo Tavoc
-1 Turntimber Ascetic
-1 Twisted Landscape
-1 Visara the Dreadful
-1 Vithian Renegades
-1 Ziatora's Proving Ground
+[deck:commander midrange WR #20266122]
+1 Aegis Automaton
+1 Ankh of Mishra
+1 Bladed Sentinel
+1 Brass Secretary
+1 Burning Palm Efreet
+1 Cathodion
+1 Clifftop Retreat
+1 Clockwork Drawbridge
+1 Concentrated Fire
+1 Country Roads
+1 Crash and Burn
+1 Crimson Manticore
+1 Deadshot
+1 Desert of the True
+1 Diabolic Machine
+1 Disruptor Pistol
+1 Dowsing Device
+1 Dwarven Demolition Team
+1 Dáin of the Ancient Halls
+1 Emeria, the Sky Ruin
+1 Explosive Apparatus
+1 Feed the Flames
+1 Fire Nation Palace
+1 Forbidding Watchtower
+1 Glint Hawk Idol
+1 Goblin Legionnaire
+1 Goblin Lyre
+1 Grapeshot Catapult
+1 Hidden Courtyard
+1 Hidden Volcano
+1 High Noon
+1 Honor-Worn Shaku
+1 Hotfoot Gnome
+1 Karplusan Yeti
+1 Lightning-Core Excavator
+1 Lindblum, Industrial Regency
+1 Misers' Cage
+1 Monoskelion
+1 Moonglove Extract
+15 Mountain
+1 Nahiri's Machinations
+1 One-Clown Band
+1 Paupers' Cage
+1 Phyrexian Walker
+10 Plains
+1 Planar Portal
+1 Pyramids
+1 Rabbit Battery
+1 Ragged Playmate
+1 Razorfield Thresher
+1 Ring of the Lucii
+1 Saberclaw Golem
+1 Salvaged Manaworker
+1 Sandstone Bridge
+1 Scalding Cauldron
+1 Scepter of Dominance
+1 Scrap Compactor
+1 Silent Dart
+1 Slash Panther
+1 Smoldering Spires
+1 Spitting Hydra
+1 Springjaw Trap
+1 Su-Chi
+1 Sundial, Dawn Tyrant
+1 The Autonomous Furnace
+1 The Rack
+1 Thorin Oakenshield
+1 Titanium Golem
+1 Unerring Sling
+1 Valakut, the Molten Pinnacle
+1 Vial of Dragonfire
+1 Vivid Crag
+1 Vivid Meadow
+1 Weldfast Monitor
+1 Well of Knowledge
+1 Wheel of Torture
 
 [commander]
-Xira Arien
+Eivor, Battle-Ready

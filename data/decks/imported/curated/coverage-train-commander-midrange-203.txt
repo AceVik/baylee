@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WRG #20266204]
+1 Aerial Modification
+1 Akroma's Devoted
+1 An-Havva Township
+1 Armor of Faith
+1 Battlefield Forge
+1 Black Scarab
+1 Blood Petal Celebrant
+1 Bloodmark Mentor
+1 Butterbur, Bree Innkeeper
+1 Chosen by Heliod
+1 Colossification
+1 Consecrate Land
+1 Consuming Ferocity
+1 Crib Swap
+1 Darling of the Masses
+1 Eladamri, Lord of Leaves
+1 Elvish Archdruid
+1 Emblem of the Warmind
+1 Emeria's Call
+1 Epic Proportions
+1 Fanatic of Rhonas
+1 Field Marshal
+9 Forest
+1 Galvanic Arc
+1 Gathering Place
+1 Gavony Township
+1 Guard Duty
+1 Hanweir Garrison
+1 Herald of Dromoka
+1 Humble the Brute
+1 Icatian Crier
+1 Improvised Armor
+1 Inspiring Veteran
+1 Iroas's Blessing
+1 Jacques le Vert
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 Knight Exemplar
+1 Kongming, "Sleeping Dragon"
+1 Lunarch Mantle
+1 Messenger's Speed
+4 Mountain
+1 Needleverge Pathway
+1 Ohran Frostfang
+1 Paragon of Eternal Wilds
+1 Paragon of Fierce Defiance
+1 Pegasus Refuge
+1 Pinecrest Ridge
+12 Plains
+1 Reliquary Monk
+1 Rith's Grove
+1 Ritual of Steel
+1 Roughshod Mentor
+1 Sachi, Daughter of Seshiro
+1 Sheltering Boughs
+1 Sheltering Landscape
+1 Soraya the Falconer
+1 Stalwart Shield-Bearers
+1 Sunbaked Canyon
+1 Sungrass Prairie
+1 Sunrise Sovereign
+1 Survey the Wreckage
+1 The Brute
+1 Timber Protector
+1 Tinder Farm
+1 Training Compound
+1 Unchained Berserker
+1 Unforgiving Aim
+1 Vigilance
+1 Voldaren Stinger
+1 Weapons Trainer
+1 Web
+1 White Lotus Reinforcements
+1 White Scarab
+1 Wooded Bastion
+
+[commander]
+Samut, Voice of Dissent

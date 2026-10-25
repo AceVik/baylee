@@ -1,30 +1,27 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
-[deck:constructed midrange WUBRG #20266072]
-2 Armorer Guildmage
-2 Beetleform Mage
-2 Blade Historian
-2 Charging Bandits
-3 Crystal Quarry
-2 Dauntless River Marshal
-2 Dragonsoul Knight
-2 Fireborn Knight
-2 Foot Elite
-2 Glintwing Invoker
-2 Harbor Bandit
-2 Indatha Triome
-1 Island
-3 Jungle Shrine
-2 Marshal of Zhalfir
-7 Mountain
-1 Nearby Planet
-2 Necra Disciple
-2 Nightscape Master
-2 Paragon of the Amesha
+[deck:constructed midrange WUB #20266072]
+2 Crypt of Agadeem
+2 Dauthi Horror
+2 Dauthi Marauder
+2 Dauthi Trapper
+4 Desert of the Glorified
+2 Dutiful Thrull
+2 Fledgling Imp
+2 Giant Slug
+2 Havoc Sower
+2 Horror of the Dim
+3 Island
+2 Jorubai Murk Lurker
+2 Kozilek's Shrieker
+2 Lurking Nightstalker
+3 Minas Morgul, Dark Fortress
+2 Moor Fiend
+2 Muck Rats
+2 Nether Horror
 4 Plains
-2 Shaper Guildmage
-2 Swamp
-2 Temur Devotee
-1 The World Tree
-2 Vedalken Heretic
-2 Vile Deacon
+2 Rotting Legion
+2 Sivitri, Dragon Master
+2 Slaughter Drone
+2 Stone-Throwing Devils
+8 Swamp

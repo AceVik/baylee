@@ -1,81 +1,79 @@
 # baylee curated highlander control seed=20261042
 # licence: AGPL-3.0-only
 [deck:highlander control WBG #20261042]
-1 Aclazotz, Deepest Betrayal
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bastion of Remembrance
-1 Bishop of Wings
-1 Blight Mound
-1 Callous Inspector
-1 Common Crook
-1 Criminal Enterprise
+1 Argothian Enchantress
+1 Auspicious Ancestor
+1 Bayou
+1 Blightcaster
+1 Bog Gnarr
+1 Briarknit Kami
+1 Brightclimb Pathway
+1 Captain's Defense
+1 Caves of Koilos
+1 Damnable Pact
 1 Deceptive Landscape
-1 Diamond Kaleidoscope
-1 Elephant Guide
-1 Elgaud Inquisitor
-1 Elvish Farmer
-1 Eyeblight Cullers
-1 Festering Gulch
-1 Fetid Heath
-1 Field of Souls
-1 Fisk Tower
+1 Defiant Strike
+1 Diresight
+1 Emrakul's Influence
+1 Enchantress's Presence
+1 Erode
 8 Forest
-1 Gilded Goose
-1 Golgari Guildmage
-1 Great Hall of Starnheim
-1 Greedy Freebooter
-1 Griffin Guide
-1 Grist, the Hunger Tide
-1 Grove of the Guardian
-1 Guardian of Cloverdell
-1 Haunted Library
-1 Horizon Canopy
+1 Funeral Rites
+1 Gathering Place
+1 Guided Strike
+1 Hidden Ancients
+1 Hidden Guerrillas
+1 Hushwood Verge
 1 Indatha Triome
-1 Jungle Hollow
-1 Kheru Bloodsucker
-1 Mantle of the Wolf
-1 Marionette Apprentice
-1 Marsh Flitter
+1 Iron Will
+1 Kambal, Consul of Allocation
+1 Lifecrafter's Bestiary
+1 Lotus-Eye Mystics
+1 Mai, Scornful Striker
 1 Maul Splicer
-1 Minotaur, Roxxon CEO
-1 Most Wanted
+1 Mesa Enchantress
+1 Migrating Ketradon
+1 Mox Emerald
 1 Murmuring Bosk
-1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
-1 Orzhov Basilica
-1 Overgrown Farmland
-1 Overgrown Tomb
-1 Pentavus
-5 Plains
+1 Night's Whisper
+1 Nylea's Intervention
+1 Opal Archangel
+1 Opal Caryatid
+1 Orbweaver Kumo
+1 Orzhova, the Church of Deals
+1 Oyobi, Who Split the Heavens
+1 Painful Quandary
+1 Path of Annihilation
+1 Pest Control
+7 Plains
+1 Pointed Discussion
+1 Presence of the Master
 1 Primeval Bounty
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Requiem Angel
-1 Restless Cottage
-1 Retrofitter Foundry
-1 Salt Flats
+1 Primordial Sage
+1 Profane Tutor
+1 Putrefaction
+1 Rathi Fiend
+1 Read the Bones
+1 Rebellious Strike
+1 Reverent Howl
+1 Riftstone Portal
+1 Ritual of Soot
 1 Sandsteppe Citadel
-1 Sengir Autocrat
-1 Siege Veteran
-1 Silent Clearing
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Sunpetal Grove
+1 Satyr Enchanter
+1 Savannah
+1 Sigil of the Empty Throne
+1 Sign in Blood
+1 Skittering Monstrosity
+1 Snake Pit
+1 Sram, Senior Edificer
+1 Student of Ojutai
 12 Swamp
-1 Sweettooth Witch
-1 Tempting Witch
-1 Thallid Devourer
-1 Thopter Squadron
-1 Thragtusk
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Voice of Resurgence
-1 Wand of the Elements
-1 Zuberi, Golden Feather
+1 Sythis, Harvest's Hand
+1 Tangleroot
+1 Thorntooth Witch
+1 Touch of Death
+1 Twilight Mire
+1 Vec Townships
+1 Verduran Enchantress
+1 Vitu-Ghazi, the City-Tree
+1 Wastewood Verge

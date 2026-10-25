@@ -1,85 +1,82 @@
 # baylee synergistic holdout coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #90010008]
-1 Ashen Monstrosity
+[deck:commander midrange RG #90010008]
+1 Aggression
+1 Ayula's Influence
 1 Barbarian Ring
 1 Barbed Sliver
-1 Blackcleave Cliffs
-1 Bog-Strider Ash
-1 Break Asunder
-1 Carbonize
+1 Battlegrowth
 1 Castle Embereth
-1 Child of Thorns
-1 Citanul Druid
-1 Colossodon Yearling
+1 Conscripted Infantry
 1 Corrupt Eunuchs
 1 Crackling Perimeter
-1 Crossroads Consecrator
-1 Darigaaz's Caldera
-1 Darkheart Sliver
+1 Crash of Rhinos
+1 Deranged Hermit
 1 Desert Cerodon
-1 Eumidian Hatchery
-1 Execute
-1 Fiend Artisan
-1 Flowstone Overseer
-1 Fomori Nomad
-9 Forest
+1 Essence Warden
+1 Falkenrath Marauders
+18 Forest
 1 Fuel the Flames
-1 Geothermal Crevice
+1 Fungal Reaches
+1 Generous Stray
 1 Ghor-Clan Bloodscale
 1 Giant Solifuge
-1 Glade Gnarr
-1 Golgari Guildgate
-1 Gorilla Warrior
-1 Greater Forgeling
-1 Gruul Guildgate
+1 Goblin Assault Team
+1 Grove of the Burnwillows
+1 Growing Rites of Itlimoc
 1 Gruul Signet
-1 Immersturm Skullcairn
 1 Inferno Fist
+1 Jinxed Ring
+1 Karplusan Forest
+1 Kavu Climber
 1 Keldon Megaliths
-1 Koskun Keep
-1 Lake of the Dead
-1 Leaf Dancer
-1 Lifesmith
+1 Kessig Wolf Run
+1 Krark-Clan Shaman
+1 Kujar Seedsculptor
+1 Lifeforce
+1 Llanowar Envoy
 1 Looming Spires
-1 Midgar, City of Mako
-1 Mogg Sentry
-11 Mountain
-1 Munitions Expert
+1 Magmaw
+1 Master of the Hunt
+1 Mossfire Valley
+7 Mountain
 1 Nacatl Outlander
-1 Natural Selection
-1 Open the Gates
+1 Natural State
+1 Orochi Sustainer
+1 Plated Geopede
 1 Puncturing Blow
-1 Quirion Ranger
 1 Reality Hemorrhage
 1 Rearing Embermare
+1 Refresh
+1 Ritual of Subdual
 1 Sabotender
-1 Savage Lands
-1 Scaled Hulk
-1 Shanodin Dryads
-1 Simian Grunts
-1 Skyshroud Elite
+1 Savage Hunger
+1 Seal of Primordium
+1 Seton, Krosan Protector
+1 Skarrg, the Rage Pits
+1 Skyclave Geopede
 1 Skyshroud Troopers
-1 Somberwald Dryad
+1 Slippery Karst
 1 Spicy Oatmeal Pizza
-1 Spined Karok
-1 Stalker Hag
+1 Spire Barrage
+1 Stomping Ground
+1 Stonehands
 1 Storm World
-3 Swamp
+1 Sylvan Hierophant
 1 Tajuru Archer
-1 Tajuru Blightblade
 1 The Chase Is On
 1 Thorned Moloch
-1 Three Visits
-1 Twisted Landscape
+1 Thornspire Verge
+1 Timberline Ridge
+1 Tough Cookie
+1 Training Compound
+1 Trumpeting Carnosaur
+1 Vastwood Fortification
 1 Vessel of Volatility
 1 Volcanic Submersion
-1 Wall of Heat
-1 Wall of Lava
-1 Wandering Wolf
+1 Woodland Mystic
 1 Zap
-1 Zendikar Farguide
-1 Ziatora's Proving Ground
+1 Zephyr Boots
 
 [commander]
-Xira Arien
+Tuknir Deathlock

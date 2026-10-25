@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266284]
+1 Advanced Hoverguard
+1 Amnesia
+1 Archdemon of Paliano
+1 Balshan Collaborator
+1 Battle-Rage Blessing
+1 Black Carriage
+1 Bladestitched Skaab
+1 Blistering Dieflyn
+1 Bloodsoaked Insight
+1 Cascade Bluffs
+1 Castle Sengir
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Drafna's Restoration
+1 Dreadwing
+1 Drowned
+1 Elemental Augury
+1 Feral Shadow
+1 Gloomlake Verge
+1 Gluttonous Zombie
+1 Headless Horseman
+1 Hidden Lair
+11 Island
+1 Kederekt Creeper
+1 Lava Zombie
+1 Lazotep Behemoth
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Long-Finned Skywhale
+1 Magical Hack
+1 Metathran Zombie
+1 Mind Bend
+1 Monster Mashup
+1 Mordenkainen's Polymorph
+1 Naga Eternal
+1 Nausea
+1 Nightveil Predator
+1 Nightwing Shade
+1 Oscorp Industries
+1 Pestilent Kathari
+1 Rainbow Efreet
+1 Rakdos Ringleader
+1 Reality Ripple
+1 Recall
+1 River of Tears
+1 Riverpyre Verge
+1 Roofstalker Wight
+1 Rotting Legion
+1 Sanguine Guard
+1 Screeching Harpy
+1 Seagraf Skaab
+1 Secret Identity
+1 Seething Landscape
+1 Serpentine Ambush
+1 Severed Legion
+1 Sewn-Eye Drake
+1 Shivan Zombie
+1 Silhouette
+1 Sleight of Mind
+1 Sulfur Vent
+14 Swamp
+1 Tainted Peak
+1 Tattered Apparition
+1 Tattered Drake
+1 Two-Headed Giant of Foriys
+1 Undead Minotaur
+1 Urborg Drake
+1 Vestige of Emrakul
+1 Vodalian Zombie
+1 Volcano Imp
+1 Waking Nightmare
+1 Wasp Lancer
+1 Waterveil Cavern
+1 Xander's Lounge
+1 Zombie Outlander
+
+[commander]
+Kess, Dissident Mage

@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BRG #20266304]
+1 Acidic Sliver
+1 Alpha Kavu
+1 Apes of Rath
+1 Bayou
+1 Blightstep Pathway
+1 Bog Elemental
+1 Bramble Creeper
+1 Breathstealer
+1 Broodhunter Wurm
+1 Carnivorous Plant
+1 Cat Burglar
+1 Charging War Boar
+1 Cinder Marsh
+1 Cinderhaze Wretch
+1 Conifer Strider
+1 Contested Cliffs
+1 Crowd of Cinders
+1 Daggerback Basilisk
+1 Darigaaz's Caldera
+1 Dauthi Marauder
+1 Dauthi Mindripper
+1 Dirtwater Wraith
+1 Eldrazi Devastator
+20 Forest
+1 Fyndhorn Brownie
+1 Geothermal Crevice
+1 Giant Scorpion
+1 Gloom Pangolin
+1 Gorilla Chieftain
+1 Gorilla Pack
+1 Grave Bramble
+1 Grove of the Burnwillows
+1 Hooded Kavu
+1 Hungry Mist
+1 Jungle Wurm
+1 Koskun Keep
+1 Land Leeches
+1 Moss Monster
+1 Mossfire Valley
+1 Mountain
+1 Mountain Yeti
+1 Mungha Wurm
+1 Nettle Swine
+1 Niall Silvain
+1 Nurturing Peatland
+1 Outland Boar
+1 Plated Rootwalla
+1 Rabid Wolverines
+1 Rabid Wombat
+1 Raging Kavu
+1 Raging Poltergeist
+1 Raiding Nightstalker
+1 Rix Maadi, Dungeon Palace
+1 Rotted Hulk
+1 Savage Lands
+1 Scoria Elemental
+1 Serpentine Kavu
+1 Silverback Ape
+1 Singing Tree
+1 Sootwalkers
+1 Squelching Leeches
+1 Stone Spirit
+1 Sulfurous Springs
+4 Swamp
+1 Thornling
+1 Twisted Landscape
+1 Viashino Grappler
+1 Vine Mare
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Pine Needles
+1 Willow Satyr
+1 Winding Wurm
+1 Witch's Familiar
+1 Wolverine Pack
+1 Woodwraith Strangler
+1 Ziatora's Proving Ground
+1 Zodiac Pig

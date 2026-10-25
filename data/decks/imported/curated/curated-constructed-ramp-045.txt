@@ -1,18 +1,21 @@
 # baylee curated constructed ramp seed=20261068
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261068]
-4 Avacyn's Collar
-2 Bishop of Wings
-2 Drogskol Cavalry
-3 Insomnia, Crown City
-4 Kaervek, the Spiteful
-4 Marionette Apprentice
-4 Pentavus
-5 Plains
-4 Quest for the Gravelord
-4 Salt Flats
-4 Scrubland
-3 Slayer's Plate
-4 Spawning Pit
-9 Swamp
-4 Trading Post
+3 Brightclimb Pathway
+3 Carnival of Souls
+4 Cold Snap
+3 Cruel Truths
+3 Dream Beavers
+3 Grim Tutor
+4 Lord of the Pit
+4 Misery Charm
+4 Neva, Stalked by Nightmares
+2 Ob Nixilis, the Fallen
+3 Orzhova, the Church of Deals
+3 Plains
+1 Silent Clearing
+1 Starlit Sanctum
+3 Sunscorch Regent
+12 Swamp
+2 Vault of the Archangel
+2 Yawgmoth's Edict

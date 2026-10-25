@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #20266061]
+1 Adult Gold Dragon
+1 An-Havva Township
+1 Behemoth Sledge
+1 Behemoth's Herald
+1 Benthic Djinn
+1 Bladestitched Skaab
+1 Bloodsoaked Insight
+1 Bountiful Landscape
+1 Cackling Fiend
+1 Cavern Thoctar
+1 Ceta Disciple
+1 Creeping Trailblazer
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Damn
+1 Deathlace
+1 Deceptive Landscape
+1 Deepchannel Duelist
+1 Druid of the Anima
+1 Elemental Augury
+1 Etched Monstrosity
+1 Flayer Drone
+1 Fleetfoot Dancer
+3 Forest
+1 Foxfire Oak
+1 Gaea's Skyfolk
+1 Glaciers
+1 Godsire
+1 Imperious Inkmage
+1 Indatha Triome
+1 Inspirit, Flagship Vessel
+5 Island
+1 Jeskai Shrinekeeper
+1 Keldon Mantle
+1 Ketria Triome
+1 Koskun Keep
+1 Lash of Malice
+1 Lava Zombie
+1 Magefire Wings
+1 Martyrs' Tomb
+1 Miasmic Mummy
+1 Moldering Karok
+1 Monsoon
+1 Monstrous Carabid
+1 Morgue Toad
+1 Mountain
+1 Murmuring Bosk
+1 Natural Emergence
+1 Nearby Planet
+1 Necra Disciple
+1 One with Nothing
+1 Overgrown Estate
+1 Perilous Landscape
+3 Plains
+1 Profane Procession
+1 Rakdos Ragemutt
+1 Raugrin Triome
+1 Reckless Assault
+1 Risen Reef
+1 Sacellum Archers
+1 Sawback Manticore
+1 Scaldkin
+1 Shadow Lance
+1 Sheltering Landscape
+1 Sheoldred's Edict
+1 Skirmish Rhino
+1 Spectacle Summit
+1 Stormcloud Djinn
+14 Swamp
+1 Temur Ascendancy
+1 Temur Devotee
+1 Tendrils of Despair
+1 The World Tree
+1 Time Vault
+1 Timeless Lotus
+1 Tournament Grounds
+1 Two-Headed Hellkite
+1 Void Grafter
+1 Whirlwind of Thought

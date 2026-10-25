@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WR #20266270]
-1 Abraded Bluffs
-1 Aftershock
-1 Alpine Meadow
-1 Axgard Armory
-1 Bhaal's Invoker
-1 Blazing Effigy
-1 Bot Bashing Time
-1 Brand
-1 Burning Inquiry
-1 Burning Palm Efreet
-1 Collision Course
-1 Concentrated Fire
-1 Cosmium Blast
-1 Crash and Burn
-1 Crimson Manticore
-1 Deadshot
-1 Delete
-1 Dimension X
-1 Dogpile
-1 Dwarven Sea Clan
-1 Dwarven Vigilantes
-1 Dáin of the Ancient Halls
-1 Elspeth's Smite
-1 Engulfing Eruption
-1 Fault Line
-1 Fault Riders
-1 Feed the Flames
-1 Fields of Strife
-1 Fire and Brimstone
-1 Flame Elemental
-1 Flame Lash
-1 Flowstone Salamander
-1 Furycalm Snarl
-1 Goblin Legionnaire
-1 Goblin Sledder
-1 Heroism
-1 High Noon
-1 Hurler Cyclops
-1 Hurloon Shaman
-1 Impolite Entrance
-1 Inspiring Vantage
-1 Karplusan Hound
-1 Karplusan Yeti
-1 Magmasaur
-1 Mogg Raider
-22 Mountain
-1 Nahiri's Machinations
-1 Needle Spires
-1 Needleverge Pathway
-1 Orc General
-1 Parch
-1 Penregon Strongbull
-1 Pitchburn Devils
-1 Plains
-1 Plateau
-1 Radiant Summit
-1 Rain of Embers
-1 Rockslide Elemental
-1 Rugged Prairie
-1 Rumbling Rockslide
-1 Runebound Wolf
-1 Sawtooth Ogre
-1 Scorching Shot
-1 Seething Pathblazer
-1 Shivan Phoenix
-1 Slash of Talons
-1 Smoldering Efreet
-1 Spectator Seating
-1 Spitting Hydra
-1 Sudden Impact
-1 Sunbaked Canyon
-1 Sunbillow Verge
-1 Sunscorched Divide
-1 Thor Odinson
-1 Tibalt's Rager
-1 Ultimate Alliance
-1 Wind-Scarred Crag
-1 Winds of Change
+[deck:commander midrange G #20266270]
+1 Alloy Animist
+1 Animate Land
+1 Archers of Qarsi
+1 Argothian Elder
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Blessed Respite
+1 Blighted Woodland
+1 Broodwarden
+1 Canopy Gorger
+1 Centaur Garden
+1 Centaur Veteran
+1 Channel
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Dryad Arbor
+1 Elvish Bard
+1 Elvish Ranger
+1 Eureka
+1 Fanatical Fever
+34 Forest
+1 Greenside Watcher
+1 Grizzled Outrider
+1 Hashep Oasis
+1 Heroic Intervention
+1 Horrid Vigor
+1 Humble Budoka
+1 Jukai Messenger
+1 Kindercatch
+1 Kozilek's Channeler
+1 Llanowar Druid
+1 Massive Might
+1 Meng Huo's Horde
+1 Might Weaver
+1 Mortal's Resolve
+1 Mulch
+1 Mutagenic Growth
+1 Nantuko Disciple
+1 Norwood Archers
+1 Okina, Temple to the Grandfathers
+1 Order of the Sacred Bell
+1 Plated Slagwurm
+1 Pradesh Gypsies
+1 Quilled Slagwurm
+1 Quirion Druid
+1 Realms Uncharted
+1 Reclaim
+1 Resuscitate
+1 Root Snare
+1 Seedling Charm
+1 Shrink
+1 Silk Net
+1 Strength in Numbers
+1 Summer Bloom
+1 Tajuru Snarecaster
+1 Taoist Hermit
+1 Thelonite Monk
+1 Tireless Hauler
+1 Trailblazer
+1 Treetop Rangers
+1 Unnatural Predation
+1 Warren-Scourge Elf
+1 Willow Priestess
+1 Woodland Druid
+1 Woodland Patrol
+1 Yavimaya Hollow
 
 [commander]
-Eivor, Battle-Ready
+The Fabulous Frog-Man

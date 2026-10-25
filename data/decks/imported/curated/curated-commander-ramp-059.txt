@@ -1,72 +1,70 @@
 # baylee curated commander ramp seed=20261082
 # licence: AGPL-3.0-only
 [deck:commander ramp B #20261082]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Ayara, First of Locthwain
-1 Bag End Banquet
 1 Baron Sengir
-1 Blighted Fen
-1 Cabal Coffers
-1 Callous Inspector
+1 Bitterblossom
+1 Blood Artist
+1 Blood Host
+1 Body Snatcher
+1 Bog Glider
+1 Bone Devourer
+1 Carnival of Souls
 1 Carrier Thrall
-1 Cirith Ungol Patrol
-1 Common Crook
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Essence Feed
-1 Eyeblight Cullers
-1 Filigree Crawler
-1 Gleaming Barrier
-1 Greedy Freebooter
+1 Cat-Gator
+1 Caustic Hound
+1 Chromatic Star
+1 Criminal Enterprise
+1 Dakmor Ghoul
+1 Dogged Pursuit
+1 Dusk Legion Zealot
+1 Falkenrath Noble
+1 Hopeless Nightmare
 1 Hostile Hostel
-1 Ifnir Deadlands
+1 Infernal Tribute
+1 Kalastria Highborn
 1 Kheru Bloodsucker
-1 Lead Pipe
-1 Maalfeld Twins
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Minotaur, Roxxon CEO
-1 Mudflat Village
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Ogre Slumlord
+1 Krovikan Plague
+1 Last Laugh
+1 Malevolent Awakening
+1 Mana Crypt
+1 Massacre Wurm
+1 Master of Dark Rites
+1 Nirkana Revenant
+1 Nocturnal Feeder
+1 Northern Air Temple
 1 Open the Graves
-1 Orochi Hatchery
-1 Pentavus
-1 Phyrexian Tower
-1 Prowess of the Fair
-1 Prying Blade
+1 Phyrexian Fleshgorger
+1 Phyrexian Reclamation
+1 Polluted Bonds
 1 Quest for the Gravelord
-1 Razaketh, the Foulblooded
-1 Retrofitter Foundry
-1 Sengir Autocrat
-1 Serpent Generator
+1 Rabid Bloodsucker
+1 Sanguine Syphoner
+1 Sarcomancy
 1 Shauku, Endbringer
 1 Shizo, Death's Storehouse
 1 Skeletal Vampire
-1 Skittering Invasion
-1 Slayer's Plate
 1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Sphinx-Bone Wand
-33 Swamp
-1 Sweettooth Witch
-1 Sword of the Ages
-1 Sylvok Lifestaff
-1 Takenuma, Abandoned Mire
-1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Trading Post
-1 Treasure Map
-1 Triskelavus
-1 Volrath's Stronghold
-1 Wand of the Elements
-1 Yahenni, Undying Partisan
+1 Sneering Shadewriter
+1 Sovereign's Bite
+35 Swamp
+1 The Black Gate
+1 The Meathook Massacre
+1 Thief of Blood
+1 Undead Augur
+1 Unholy Grotto
+1 Urborg
+1 Vampire Neonate
+1 Vampire Sovereign
+1 Vampiric Feast
+1 Vampiric Rites
+1 Vault of Whispers
+1 Vengeful Bloodwitch
+1 Vermin Gorger
+1 Vindictive Vampire
+1 Virtue of Persistence
+1 Westvale Abbey
+1 Witch's Cauldron
+1 Zof Consumption
 1 Zuran Orb
 
 [commander]

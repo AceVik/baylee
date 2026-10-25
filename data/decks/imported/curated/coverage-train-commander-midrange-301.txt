@@ -1,75 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266302]
-1 Advance Scout
-1 Ageless Guardian
-1 Alabaster Potion
-1 Alaborn Grenadier
-1 Alaborn Trooper
-1 Alert Shu Infantry
-1 Ancient Den
-1 Angel's Mercy
-1 Ardent Militia
-1 Armory Guard
-1 Bastion Enforcer
-1 Benalish Infantry
-1 Bladed Ambassador
-1 Border Guard
-1 Cenn's Heir
-1 Combat Medic
-1 Daru Encampment
-1 Desperate Lunge
-1 Eager Cadet
-1 Earth Kingdom Protectors
-1 Eiganjo Castle
-1 Exultant Skymarcher
-1 Farewell
-1 Foriysian Brigade
-1 Foriysian Interceptor
-1 Glorifier of Dusk
-1 Haazda Shield Mate
-1 Hall of Heliod's Generosity
-1 Head of Security
-1 Icatian Infantry
-1 Icatian Phalanx
-1 Icatian Scout
-1 Icatian Skirmishers
-1 Illumination
-1 Karakas
-1 Kinsbaile Balloonist
-1 Kithkin Shielddare
-1 Kjeldoran Escort
-1 Kor Haven
-1 Kor Scythemaster
-1 Kor Sky Climber
-1 Longbow Archer
-1 Loxodon Gatekeeper
-1 Loxodon Line Breaker
-1 Lupinflower Village
-1 Mesa Unicorn
-1 Nightguard Patrol
-1 Nomad Stadium
-1 Phantom General
-31 Plains
-1 Resistance Fighter
-1 Rhox Pikemaster
-1 Righteous Avengers
-1 Sentinel of the Eternal Watch
-1 Shefet Dunes
-1 Shield Bearer
-1 Shu Elite Infantry
-1 Shu Foot Soldiers
-1 Soltari Champion
-1 Soltari Foot Soldier
-1 Soltari Trooper
-1 Standing Troops
-1 Staunch Shieldmate
-1 Sun Sentinel
-1 Thraben Valiant
-1 Valiant Guard
-1 Veteran Bodyguard
-1 Whitesun's Passage
-1 Winter Soldier, Bucky Barnes
+[deck:commander midrange WUB #20266302]
+1 Acidic Dagger
+1 Adarkar Sentinel
+1 Alchor's Tomb
+1 Amber Prison
+1 Ancient Spring
+1 Anvilwrought Raptor
+1 Arcane Sanctum
+1 Brass-Talon Chimera
+1 Bubble Matrix
+1 Cemetery Gate
+1 Chariot of the Sun
+1 Chimeric Idol
+1 Chimeric Staff
+1 Clearwater Pathway
+1 Clockwork Steed
+1 Coiled Tinviper
+1 Conqueror's Galleon
+1 Conservator
+1 Contaminated Landscape
+1 Cursed Rack
+1 Dragon Mask
+1 Dreadship Reef
+1 Drift of the Dead
+1 Dromar's Cavern
+1 Flowstone Thopter
+1 Flying Carpet
+1 Hag of Dark Duress
+1 Haunter of Nightveil
+1 Henge Guardian
+1 Hibernation Sliver
+1 Horn of Deafening
+1 Horrible Hordes
+1 Imi Statue
+1 Iron-Heart Chimera
+6 Island
+1 Jade Statue
+1 Juggernaut
+1 Lead-Belly Chimera
+1 Mindstab Thrull
+1 Mindwhip Sliver
+1 Mischievous Sneakling
+1 Mishra's Groundbreaker
+1 Mishra's Helix
+1 Mole Worms
+1 Nephalia Drownyard
+1 Nova Pentacle
+5 Plains
+1 Power Armor
+1 Power Matrix
+1 Primal Clay
+1 Python
+1 Quicksilver Amulet
+1 Raffine's Tower
+1 River Delta
+1 River of Tears
+1 Runed Arch
+1 Sentinel
+1 Snare Thopter
+1 Soldevi Simulacrum
+1 Spirit Shield
+1 Sunken Ruins
+14 Swamp
+1 Tainted Isle
+1 Tawnos's Coffin
+1 Tek
+1 Telethopter
+1 Tin-Wing Chimera
+1 Ultron, Machine Overlord
+1 Underground Sea
+1 Unraveling Mummy
+1 Urza's Engine
+1 Wall of Shadows
+1 Wall of Wonder
+1 Watery Grave
+1 Wirecat
+1 Wizards' School
+1 Woodlot Crawler
 
 [commander]
-Hawkeye, Clint Barton
+Inquisitor Greyfax

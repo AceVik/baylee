@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266230]
+1 Agility
+1 Akki War Paint
+1 Anaba Spirit Crafter
+1 Aspect of Lamprey
+1 Badlands
+1 Berserkers' Onslaught
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Boggart Arsonists
+1 Boggart Loggers
+1 Burrowing
+1 Caterwauling Boggart
+1 Cave Sense
+1 Chaosphere
+1 Cinder Barrens
+1 Cinder Marsh
+1 Clutch of Undeath
+1 Collector's Vault
+1 Crucible of Fire
+1 Cursed Flesh
+1 Dance with Devils
+1 Dark Fortress
+1 Demonic Torment
+1 Drider
+1 Emrakul's Hatcher
+1 Feast of the Unicorn
+1 Feebleness
+1 Ferocity of the Wilds
+1 Footlight Fiend
+1 Ghoulflesh
+1 Giant Spectacle
+1 Goblin Chieftain
+1 Goblin Digging Team
+1 Goblin King
+1 Goblin Oriflamme
+1 Goblin Picker
+1 Goblin Replica
+1 Goblin Sappers
+1 Goblin Swine-Rider
+1 Goblin War Paint
+1 Graven Cairns
+1 Greel's Caress
+1 Immolation
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Kobolds of Kher Keep
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Luxury Suite
+1 Mad Auntie
+1 Mahadi, Emporium Master
+1 Mardu Runemark
+1 Mark of the Vampire
+1 Molten Slagheap
+1 Molting Snakeskin
+1 Mount Doom
+19 Mountain
+1 Orcish Oriflamme
+1 Plundering Pirate
+1 Ragavan, Nimble Pilferer
+1 Rage Reflection
+1 Rakdos Guildgate
+1 Raze the Effigy
+1 Rukh Egg
+1 Scream Puff
+1 Shadowblood Ridge
+1 Skeletal Kathari
+1 Stensia Bloodhall
+7 Swamp
+1 Swashbuckling
+1 Tainted Peak
+1 Thrull Retainer
+1 Twisted Experiment
+1 Vault Robber
+
+[commander]
+Rohgahh of Kher Keep

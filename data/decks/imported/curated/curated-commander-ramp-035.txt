@@ -1,84 +1,82 @@
 # baylee curated commander ramp seed=20261058
 # licence: AGPL-3.0-only
 [deck:commander ramp WUB #20261058]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
+1 Aeronaut Cavalry
 1 Ancient Spring
 1 Arcane Sanctum
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Baron Sengir
-1 Bishop of Wings
-1 Blight Mound
-1 Calciform Pools
+1 Aspiring Aeronaut
+1 Aven Fateshaper
+1 Bleachbone Verge
+1 Bog Glider
+1 Cabal Patriarch
 1 Callous Inspector
-1 Captain of the Watch
-1 Cirith Ungol Patrol
-1 Claws of Gix
+1 Caregiver
+1 Champion of the Parish
+1 Cloudblazer
+1 Commander Greven il-Vec
+1 Commissar Severina Raine
+1 Common Crook
 1 Contaminated Landscape
-1 Diamond Kaleidoscope
+1 Dakmor Lancer
+1 Daysquad Marshal
+1 Deathgreeter
+1 Doc Ock, Evil Inventor
 1 Doomed Dissenter
-1 Doomed Traveler
+1 Dreadship Reef
 1 Drogskol Cavalry
 1 Dromar's Cavern
-1 Drowner of Hope
-1 Eclipsed Steppe
-1 Eyeblight Cullers
-1 Fortified Beachhead
-1 Goldmire Bridge
+1 Elgaud Inquisitor
+1 Falcon, Winged Wonder
 1 Greedy Freebooter
-1 Griffin Guide
-1 Homarid Spawning Bed
+1 Gryff Vanguard
+1 Guarded Heir
+1 Hengegate Pathway
 1 Hunted Witness
-2 Island
-1 Jwar Isle Refuge
-1 Kheru Bloodsucker
-1 Knight-Captain of Eos
-1 Land Cap
-1 Lead Pipe
+1 Iron Man, Futurist Paragon
+1 Ironclad Slayer
+8 Island
+1 Knight of Doves
+1 Lake-town Lookout
 1 Liliana the Repentant
-1 Luminous Angel
-1 Maalfeld Twins
+1 Locthwain Lancer
 1 Marionette Apprentice
-1 Marsh Flitter
-1 Minotaur, Roxxon CEO
-1 Morphic Pool
+1 Micromancer
 1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ogre Slumlord
-1 Ojer Taq, Deepest Foundation
-1 Open the Graves
-1 Orochi Hatchery
 1 Orzhova, the Church of Deals
-1 Oyobi, Who Split the Heavens
-1 Pentavus
-5 Plains
-1 Quest for the Gravelord
+1 Outlaw Medic
+7 Plains
+1 Pondering Mage
+1 Pretending Poxbearers
+1 Priest of Yawgmoth
+1 Princess Lucrezia
 1 Raffine's Tower
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Rootwater Depths
+1 Riven Turnbull
+1 River Delta
+1 Sage of Mysteries
+1 Sanctifier of Souls
+1 Scrivener
 1 Sengir Autocrat
-1 Siege Veteran
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Snowfield Sinkhole
-1 Spawning Pit
-17 Swamp
-1 Sweettooth Witch
+1 Shadow-Rite Priest
+1 Sivitri Scarzam
+1 Skycloud Expanse
+1 Soldevi Adnate
+1 Spellseeker
+11 Swamp
+1 Tainted Field
 1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Foundry
-1 Thopter Squadron
-1 Trading Post
-1 Tranquil Cove
-1 Treasure Map
-1 Treno, Dark City
-1 Triskelavus
-1 Wand of the Elements
+1 Treasure Dredger
+1 Tunnel Surveyor
+1 Ultimecia, Temporal Threat
+1 Underground Sea
+1 Unruly Mob
+1 Vault of the Archangel
+1 Venerable Knight
+1 Watery Grave
 1 Wizards' School
+1 Yawgmoth, Thran Physician
+1 Zhou Yu, Chief Commander
+1 Zulaport Cutthroat
+1 Zuran Orb
 
 [commander]
 Lady Evangela

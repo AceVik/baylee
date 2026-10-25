@@ -1,86 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266005]
-1 An-Havva Township
-1 Architects of Will
+1 Abandoned Campground
+1 Ambush Gigapede
+1 Ardent Elementalist
 1 Atraxa, Grand Unifier
-1 Bazaar Trademage
-1 Bellowing Crier
-1 Bountiful Landscape
-1 Carrier Pigeons
+1 Avengers Hangar
+1 Badgermole Cub
+1 Barrier of Bones
+1 Binding Mummy
+1 Blister Beetle
+1 Bubbling Muck
+1 Canopy Vista
+1 Captain Storm, Cosmium Raider
 1 Carven Caryatid
-1 Cat-Gator
-1 Centaur Nurturer
-1 Cloistered Telepath
-1 Council of Advisors
-1 Deadshot Minotaur
-1 Disciple of Freyalise
-1 Elegant Parlor
-1 Elite Instructor
-3 Forest
-1 Gallant Citizen
-1 Gateway Sneak
+1 Contraband Kingpin
+1 Corpse Knight
+1 Corrupt Court Official
+1 Culling the Weak
+1 Deputy of Acquittals
+1 EPF Point Squad
+1 Electric Eel
+1 Eutropia the Twice-Favored
+1 Fallaji Vanguard
+1 Fire Imp
+1 Fisk Tower
+9 Forest
 1 Gladewalker Ritualist
-1 Glassdust Hulk
-1 Glittering Massif
-1 Harrier Strix
-1 Hell's Kitchen
-1 Helpful Hunter
-1 Icewind Elemental
-1 Indatha Triome
-12 Island
-1 Kalastria Healer
-1 Ketria Triome
-1 Kindly Customer
-1 Koskun Keep
+1 Glidedive Duo
+1 Goblin-town
+1 Goldmire Bridge
+1 Great Whale
+1 Guardian of Pilgrims
+1 Hagra Diabolist
+1 Herald of the Fair
+1 Illegitimate Business
+2 Island
+1 Kazandu Nectarpot
+1 Kraul Whipcracker
+1 Leonin Snarecaster
 1 Lord of Tresserhorn
-1 Mardu Devotee
-1 Mawloc
-1 Merchant of Secrets
+1 Los Diablos Missile Base
+1 Mercenary Knight
 1 Messenger Falcons
-1 Micromancer
-1 Migrating Ketradon
-1 Mossfire Egg
-1 Multani's Acolyte
-1 Murmuring Bosk
-1 Nimble Innovator
+1 Mirkwood
+6 Mountain
+1 Mummy Paramount
+1 Naga Oracle
 1 Noggle Ransacker
-1 Nomad Outpost
-1 Omnath, Locus of Creation
 1 Opal Lake Gatekeepers
-1 Owl Familiar
-4 Plains
-1 Plasmancer
-1 Pond Prophet
-1 Psychic Symbiont
+1 Perimeter Patrol
+8 Plains
+1 Prowling Felidar
 1 Pyknite
-1 Quicksilver Fisher
-1 Recruiter of the Guard
-1 Rhox Meditant
-1 Rhox Oracle
-1 Roving Harper
-1 Scarblade Scout
-1 Screeching Drake
-1 Serum Visionary
-1 Shattered Landscape
-1 Sheltering Landscape
-1 Soaring Show-Off
-1 Soul of the Harvest
-1 Soul's Attendant
-1 Spellseeker
-1 Sungrass Egg
-4 Swamp
+1 Pyrogoyf
+1 Quarry Beetle
+1 Rapturous Moment
+1 Ravaging Horde
+1 Restless Vents
+1 Returned Pastcaller
+1 Scythe Tiger
+1 Setessan Skirmisher
+1 Siege Rhino
+1 Spectacle Summit
+1 Stingcaster Mage
 1 Tanglespan Lookout
-1 Tatyova, Benthic Druid
-1 Titan's Grave
-1 Tranquil Garden
-1 Twisted Landscape
-1 Urban Retreat
+1 Thopter Architect
+1 Thundering Falls
+1 Théoden, King of Rohan
+1 Tidus, Blitzball Star
+1 Training Center
+1 Tresserhorn Sinks
+1 Tunneling Geopede
+1 Turbulent Moor
+1 Turntimber Ascetic
 1 Uro, Titan of Nature's Wrath
-1 Vendilion Clique
-1 Wayward Servant
-1 Woodland Liege
-1 Ziatora's Proving Ground
+1 Venomous Hierophant
+1 Vicious Clown
+1 Witty Roastmaster
+1 Zhalfirin Lancer
 
 [commander]
 General Tazri

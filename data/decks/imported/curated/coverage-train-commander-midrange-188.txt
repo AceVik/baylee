@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266189]
+1 Academy Rector
+1 An Offer You Can't Refuse
+1 Ancestors' Aid
+1 Aragorn, the Uniter
+1 Atraxa, Grand Unifier
+1 Awaken the Woods
+1 Body Snatcher
+1 Bountiful Landscape
+1 Carrion
+1 Castle Sengir
+1 Contaminated Landscape
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Cunning Maneuver
+1 Deathrite Shaman
+1 Deceptive Landscape
+1 Demon's Herald
+1 Dromar's Cavern
+1 Elas il-Kor, Sadistic Pilgrim
+1 Embraal Gear-Smasher
+1 Etherium Spinner
+1 Exultant Cultist
+1 Eyeblight Cullers
+1 Fable of Wolf and Owl
+1 Fire Nation Archers
+1 Flurry of Horns
+8 Forest
+1 Ghen, Arcanum Weaver
+1 Grist, the Hunger Tide
+1 Hard Evidence
+1 Haunt the Network
+1 Hornswoggle
+1 Intruding Soulrager
+4 Island
+1 Jund Battlemage
+1 Katara, the Fearless
+1 Koskun Keep
+1 Kykar, Wind's Fury
+1 Madame Hydra
+1 Magus of the Order
+1 Master's Call
+1 Most Wanted
+1 Mouser Attack!
+1 Nearby Planet
+1 Ojer Taq, Deepest Foundation
+1 Phyrexian Vivisector
+4 Plains
+1 Queen's Commission
+1 Ral's Reinforcements
+1 Reckless Ransacking
+1 Revel of the Fallen God
+1 Revive the Shire
+1 Rith's Grove
+1 Savor
+1 Seething Landscape
+1 Sek'Kuar, Deathkeeper
+1 Sell-Sword Brute
+1 Servo Exhibition
+1 Shadewing Laureate
+1 Shelob's Ambush
+1 Sheltering Landscape
+1 Skirsdag Flayer
+1 Slimefoot, the Stowaway
+1 Sokka's Sword Training
+1 Sokka, Tenacious Tactician
+1 Sprout
+1 Stimulus Package
+1 Storm God's Oracle
+1 Sudden Breakthrough
+1 Super-Skrull
+9 Swamp
+1 The World Tree
+1 Thranduil the Strategist
+1 Tooth and Claw
+1 Toxin Analysis
+1 Treva's Ruins
+1 Vitality Charm
+1 Wizards' School
+
+[commander]
+Sliver Queen

@@ -1,83 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BR #20266028]
-1 Accelerate
-1 Ashen Firebeast
-1 Avaricious Dragon
-1 Basal Sliver
-1 Battle Hymn
-1 Blood Celebrant
-1 Blood Pet
-1 Blood Vassal
-1 Bog Initiate
-1 Bone Saw
-1 Brightstone Ritual
-1 Bubbling Muck
-1 Burning Inquiry
-1 Burnout
-1 Burnt Offering
-1 Cabal Ritual
-1 Catacomb Dragon
-1 Catalyst Elemental
-1 Cathedral of Serra
+1 Abomination
+1 Active Volcano
+1 Akoum Refuge
+1 Asphyxiate
+1 Auntie's Hovel
+1 Axiom Engraver
+1 Bilbo's Deadly Slice
+1 Billiard Room
+1 Boiling Rock Prison
+1 Charging Strifeknight
+1 Chimeric Egg
 1 Control of the Court
-1 Crackling Cyclops
-1 Culling the Weak
 1 Dangerous Wager
-1 Deadly Visit
-1 Desert
-1 Dragon's Desire
-1 Drownyard Temple
-1 Feral Abomination
+1 Dauthi Cutthroat
+1 Deathmark
+1 Deface
+1 Defenestrate
+1 Desecrated Earth
+1 Dragonskull Summit
+1 Drossforge Bridge
+1 Dwarven Demolition Team
+1 Dwarven Miner
+1 Eastern Paladin
+1 Eliminate
+1 Face of Fear
+1 Fatal Blow
+1 Foreboding Ruins
+1 Frenzied Devils
+1 Fulminator Mage
 1 Fíli and Kíli, Joyous
-1 Gargoyle Castle
-1 Gemstone Caverns
-1 Geosurge
+1 Geothermal Bog
+1 Glyph of Destruction
 1 Goblin Lore
+1 Goblin-town
 1 Gorilla War Cry
-1 Hell's Kitchen
-1 Hellkite Igniter
-1 Hellkite Punisher
-1 Initiates of the Ebon Hand
-1 Isolated Watchtower
-1 Karplusan Giant
-1 Lay Waste
-1 Mana Geyser
+1 Hero's Demise
+1 Honor-Worn Shaku
+1 Immersturm Skullcairn
+1 Jagged Barrens
+1 Kuro, Pitlord
+1 Lava Flow
+1 Lavaclaw Reaches
+1 Machine Man, Model X-51
 1 Miner's Bane
-1 Monstrous Carabid
-19 Mountain
+1 Minion of the Wastes
+12 Mountain
 1 Ominous Asylum
-1 Overeager Apprentice
-1 Painted Bluffs
-1 Pavel Maliki
-1 Polluted Delta
-1 Pyretic Ritual
-1 Rakdos Keyrune
+1 Oni of Wild Places
+1 Perils of the Past
+1 Primaris Eliminator
+1 Pyroblast
 1 Rakdos Ringleader
 1 Raking Claws
-1 Razaketh's Rite
-1 Reckless Barbarian
-1 Rite of Flame
+1 Raze
+1 Raze the Effigy
+1 Red Elemental Blast
+1 Restless Vents
 1 Romantic Rendezvous
-1 Sacrifice
-1 Sanctum of Ugin
-1 Seismic Spike
+1 Scarblade Elite
+1 Sinkhole
+1 Sire of Insanity
+1 Sisay's Ring
 1 Skeletal Wurm
-1 Skycrash
-1 Songs of the Damned
-1 Starstorm
-1 Sunrise Sovereign
-1 Survivors' Encampment
-5 Swamp
-1 Swarmyard
-1 Telim'Tor's Edict
-1 The Monumental Facade
-1 Three Tree City
+1 Stingmoggie
+1 Stone Calendar
+1 Stream of Acid
+1 Sulfurous Mire
+14 Swamp
+1 Trained Orgg
 1 Tramway Station
-1 Tyrite Sanctum
-1 Urborg, Tomb of Yawgmoth
-1 Veldrane of Sengir
-1 Zhang Liao, Hero of Hefei
+1 Tunnel
+1 Unliving Psychopath
+1 Wander Off
+1 Western Paladin
+1 Workhorse
 
 [commander]
 Barktooth Warbeard

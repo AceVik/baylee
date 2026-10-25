@@ -2,82 +2,80 @@
 # licence: AGPL-3.0-only
 [deck:commander ramp WU #20261046]
 1 Adarkar Wastes
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Avacyn's Collar
-1 Azorius Guildgate
-1 Bishop of Wings
-1 Blade Splicer
-1 Boreal Shelf
-1 Captain of the Watch
-1 Chromatic Star
-1 Cloudblazer
+1 Ancestral Vision
+1 Aven Fateshaper
+1 Azorius Cluestone
+1 Calciform Pools
+1 Clear
 1 Cloudcrest Lake
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Drogskol Cavalry
-1 Drowner of Hope
-1 Elspeth, Storm Slayer
-1 Fortified Beachhead
-1 Glacial Fortress
+1 Cunning Breezedancer
+1 Curate
+1 Customs Depot
+1 Defiant Strike
+1 Deliberate
+1 Deserted Beach
+1 Efficient Construction
+1 Elite Archers
+1 Erode
+1 Fascination
+1 Five Hundred Year Diary
+1 Fleeting Distraction
+1 Forced Fruition
+1 Gallant Strike
+1 Glacial Floodplain
 1 Gleaming Bastion
-1 Griffin Guide
-1 Gryff Vanguard
-1 Guarded Heir
-1 Harmonious Archon
+1 Hallowed Fountain
 1 Hengegate Pathway
-1 Homarid Spawning Bed
-1 Honored Knight-Captain
-1 Hunted Witness
-1 Idyllic Beachfront
-1 Irrigated Farmland
-7 Island
-1 Knight-Captain of Eos
-1 Lake-town
-1 Loran of the Third Path
-1 Luminous Angel
-1 Myr Sire
-1 Nesting Dovehawk
-1 Nim Deathmantle
+1 Hithlain Knots
+1 Horizon Seed
+1 Inspiring Commander
+1 Invoke Prejudice
+23 Island
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
+1 Kami of Tattered Shoji
+1 Kozilek's Unsealing
+1 Kulrath Mystic
+1 Land Cap
+1 Lightshield Parry
+1 Lotus-Eye Mystics
+1 Mental Note
+1 Merrow Reejerey
+1 Miscalculation
+1 Moorland Haunt
+1 Mystic Gate
 1 Nimbus Maze
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Operations Officer
+1 Omen
 1 Oyobi, Who Split the Heavens
-1 Pentavus
-17 Plains
+1 Path to Exile
+3 Plains
+1 Ponder
 1 Pondering Mage
-1 Port Town
-1 Prairie Stream
-1 Prying Blade
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Reveillark
-1 Sharlayan, Nation of Scholars
-1 Siege Veteran
-1 Skullclamp
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
-1 Terrarion
+1 Prahv, Spires of Order
+1 Rasputin Dreamweaver
+1 Rhystic Study
+1 Riverwheel Aerialists
+1 Shipwreck Dowser
+1 Sire of the Storm
+1 Skycloud Expanse
+1 Soul Barrier
+1 Sram, Senior Edificer
+1 Steelshaper's Gift
+1 Storyteller Pixie
+1 Sunscorch Regent
+1 Talisman of Progress
+1 Tanufel Rimespeaker
+1 Teller of Tales
 1 Thalakos Lowlands
-1 The Underworld Cookbook
-1 Thopter Squadron
+1 The Unspeakable
 1 Thought Monitor
-1 Three Steps Ahead
-1 Thrór's Map
-1 Titan Forge
-1 Trading Post
-1 Tranquil Cove
-1 Treasure Map
-1 Triskelavus
-1 Urbis Protector
-1 Wan Shi Tong, Librarian
-1 Wand of the Elements
-1 Wanderwine Hub
-1 Zuran Orb
+1 Thought Scour
+1 Tidespout Tyrant
+1 Tundra
+1 Unifying Theory
+1 Vedalken Archmage
+1 Whirlwind Adept
 
 [commander]
 Teferi, Time Raveler

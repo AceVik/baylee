@@ -1,85 +1,74 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro WR #20266159]
-1 Abraded Bluffs
-1 Active Volcano
-1 Akroan Hoplite
-1 Avalanche
-1 Axgard Cavalry
-1 Balthor the Stout
-1 Bastion Enforcer
-1 Battlefield Forge
-1 Benalish Trapper
-1 Blood Frenzy
-1 Boggart Arsonists
-1 Breakneck Berserker
-1 Checkpoint Officer
-1 Cinder Wall
-1 Clear a Path
-1 Craterize
-1 Crookshank Kobolds
-1 Crush
-1 Deface
-1 Demolish
-1 Devoted Hero
-1 Dimension X
-1 Dwarven Berserker
-1 Dwarven Bloodboiler
-1 Dwarven Demolition Team
-1 Dwarven Grunt
-1 Dwarven Lieutenant
-1 Dwarven Miner
-1 Dwarven Nomad
-1 Dwarven Soldier
-1 Dwarven Thaumaturgist
-1 Dwarven Trader
-1 Dwarven Warriors
-1 Eager Cadet
-1 Earth Kingdom Protectors
-1 Enslaved Dwarf
-1 Fields of Strife
-1 Frostbridge Guard
-1 Furycalm Snarl
-1 Garrison Sergeant
-1 Glittering Massif
-1 Goblin Sappers
-1 Goldmeadow Harrier
-1 Hall
-1 Hearth Charm
-1 Keldon Berserker
-1 Kobold Drill Sergeant
-1 Lava Flow
-1 Law-Rune Enforcer
-1 Liberated Dwarf
-1 Miner's Bane
-18 Mountain
-1 Perils of the Past
-4 Plains
-1 Radiant Summit
-1 Raucous Carnival
-1 Raze
-1 Raze the Effigy
-1 Rugged Prairie
-1 Rustvale Bridge
-1 Sacred Foundry
-1 Skyblade of the Legion
-1 Smash to Dust
-1 Spinal Villain
-1 Staunch Shieldmate
-1 Stern Constable
-1 Stingmoggie
-1 Stone Quarry
-1 Sunbillow Verge
-1 Sunder from Within
-1 Sunscorched Divide
-1 Swiftblade Vindicator
-1 Tenth District Veteran
-1 Tunnel
-1 Turbulent Steppe
-1 Twinscroll Shaman
-1 Victorious Destruction
-1 Volcanic Upheaval
-1 Weapons Trainer
+[deck:commander aggro U #20266159]
+1 Adventurer's Inn
+1 Aegis Turtle
+1 Blinding Drone
+1 Blockade Runner
+1 Cephalid Inkshrouder
+1 Cephalid Retainer
+1 Clever Impersonator
+1 Coral Commando
+1 Coralhelm Guide
+1 Devouring Deep
+1 Drafna's Restoration
+1 Fomori Vault
+1 Galerider Sliver
+1 Giant Octopus
+1 Grayscaled Gharial
+1 Harbinger of the Seas
+1 Headwater Sentries
+1 Homarid Shaman
+1 Horseshoe Crab
+1 Hoverguard Observer
+32 Island
+1 Jump
+1 Jwari Shapeshifter
+1 Kelpie Guide
+1 Lumengrid Warden
+1 Maelstrom of the Spirit Dragon
+1 Magical Hack
+1 Merfolk Seastalkers
+1 Merrow Wavebreakers
+1 Mind Bend
+1 Mirror Image
+1 Mirror Universe
+1 Mistwalker
+1 Mordenkainen's Polymorph
+1 Morphling
+1 Painted Bluffs
+1 Political Trickery
+1 Prismatic Lace
+1 Reality Ripple
+1 Relic's Roar
+1 Reset
+1 River Darter
+1 River Merfolk
+1 Rootwater Commando
+1 Seraph Sanctuary
+1 Serpentine Ambush
+1 Shadow Sliver
+1 Shorecomber Crab
+1 Shoreline Raider
+1 Silhouette
+1 Sky Weaver
+1 Sleight of Mind
+1 Sorrow's Path
+1 Stonybrook Angler
+1 Straw Soldiers
+1 Sworn Guardian
+1 Synchronous Sliver
+1 Telekinesis
+1 Thalakos Sentry
+1 Thoughtlace
+1 Triton Shorethief
+1 Vedalken Mesmerist
+1 Vivid Flying Fish
+1 Vodalian Illusionist
+1 Vodalian Knights
+1 Vodalian Soldiers
+1 Water Wings
+1 You See a Guard Approach
 
 [commander]
-Nori, Teller of Tales
+Caelorna, Coral Tyrant

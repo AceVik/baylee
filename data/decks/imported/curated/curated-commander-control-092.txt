@@ -1,72 +1,70 @@
 # baylee curated commander control seed=20261115
 # licence: AGPL-3.0-only
 [deck:commander control B #20261115]
-1 Aclazotz, Deepest Betrayal
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Ayara, First of Locthwain
+1 Ambition's Cost
+1 Atrocious Experiment
 1 Bastion of Remembrance
-1 Blight Mound
-1 Blighted Fen
-1 Cabal Pit
-1 Callous Inspector
-1 Cirith Ungol Patrol
-1 Criminal Enterprise
-1 Culling Dais
-1 Dalek Drone
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Filigree Crawler
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Greedy Freebooter
-1 Havengul Laboratory
-1 Ifnir Deadlands
-1 Infernal Idol
-1 Kheru Bloodsucker
-1 Lead Pipe
-1 Maalfeld Twins
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Minotaur, Roxxon CEO
-1 Myr Sire
-1 Nim Deathmantle
-1 Ogre Slumlord
-1 Open the Graves
-1 Pentavus
-1 Phyrexian Gargantua
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Retrofitter Foundry
-1 Sengir Autocrat
+1 Blightspeaker
+1 Blood Pact
+1 Bloodgift Demon
+1 Cabal Coffers
+1 Carnival of Souls
+1 Caustic Hound
+1 Certain Death
+1 Consuming Corruption
+1 Crushing Disappointment
+1 Dark Nourishment
+1 Death Watch
+1 Deathcurse Ogre
+1 Demon's Due
+1 Disentomb
+1 Essence Extraction
+1 Festering Evil
+1 Foul Imp
+1 Haunting Wind
+1 Hostile Hostel
+1 Infernal Contract
+1 Infernal Tribute
+1 Kalastria Healer
+1 Last Laugh
+1 Malakir Soothsayer
+1 Malevolent Awakening
+1 Mana Crypt
+1 Midnight Charm
+1 Misery Charm
+1 Moonglove Extractor
+1 Moriok Replica
+1 Mudflat Village
+1 Nether Void
+1 Novice Occultist
+1 Omen of the Dead
+1 Oppression
+1 Pestilence
+1 Phyrexian Arena
+1 Phyrexian Tower
+1 Pillar Tombs of Aku
+1 Polluted Bonds
+1 Return to Battle
+1 Sanguinary Priest
+1 Shattered Crypt
 1 Shizo, Death's Storehouse
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Solemn Simulacrum
-1 Spawning Pit
-34 Swamp
-1 Sweettooth Witch
-1 Takenuma, Abandoned Mire
-1 Tempting Witch
-1 The Black Gate
-1 The One Ring
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thrór's Map
-1 Titan Forge
+1 Sneering Shadewriter
+1 Soul Shred
+1 Sovereign's Bite
+36 Swamp
+1 Tendrils of Corruption
 1 Tithebearer Giant
-1 Tomb of Urami
-1 Trading Post
-1 Treasure Map
-1 Triskelavus
-1 Unholy Grotto
-1 Vault Plunderer
-1 Wand of the Elements
-1 Yahenni, Undying Partisan
-1 Zuran Orb
+1 Tortured Existence
+1 Touch of Death
+1 Urborg
+1 Vampiric Feast
+1 Vault of Whispers
+1 Vermin Gorger
+1 Vicious Hunger
+1 Virtue of Persistence
+1 Warp Artifact
+1 Winter's Intervention
+1 Yawgmoth's Edict
 
 [commander]
 Kalakscion, Hunger Tyrant

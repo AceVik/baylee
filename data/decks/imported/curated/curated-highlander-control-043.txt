@@ -1,81 +1,79 @@
 # baylee curated highlander control seed=20261066
 # licence: AGPL-3.0-only
 [deck:highlander control UBG #20261066]
-1 Aclazotz, Deepest Betrayal
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bastion of Remembrance
-1 Blight Mound
-1 Brood Butcher
-1 Callous Inspector
-1 Catacomb Sifter
-1 Chariot of Victory
-1 Cirith Ungol Patrol
-1 Criminal Enterprise
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Drowner of Hope
-1 Elephant Guide
-1 Elvish Farmer
-1 Filigree Crawler
+1 Aether Spellbomb
+1 Ambition's Cost
+1 Ancestral Vision
+1 Architects of Will
+1 Arctic Wolves
+1 Atrocious Experiment
+1 Bayou
+1 Cat-Gator
+1 Caustic Crawler
+1 Clearwater Pathway
+1 Cloistered Telepath
+1 Compelling Argument
+1 Council of Advisors
+1 Customs Depot
+1 Dalek Drone
+1 Damnable Pact
+1 Darkbore Pathway
+1 Darkwater Catacombs
+1 Demon's Due
+1 Dimir Cluestone
+1 Dimir Locket
+1 Diresight
+1 Dreadship Reef
+1 Emrakul's Influence
+1 Essence Feed
+1 Fable of Wolf and Owl
+1 Fascination
 1 Foreboding Landscape
-8 Forest
-1 Gilded Goose
-1 Gilt-Leaf Palace
-1 Gleaming Barrier
-1 Golgari Guildmage
-1 Greedy Freebooter
-1 Guardian of Cloverdell
-1 Haunted Mire
-1 Hedge Maze
-1 Homarid Spawning Bed
-2 Island
-1 Jungle Hollow
-1 Jwar Isle Refuge
-1 Kheru Bloodsucker
-1 Maalfeld Twins
-1 Mantle of the Wolf
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Minotaur, Roxxon CEO
-1 Morphic Pool
-1 Most Wanted
-1 Myr Sire
-1 Nim Deathmantle
+11 Forest
+1 Freyalise's Charm
+1 Garruk's Packleader
+1 Gloomlake Verge
+1 Goggles of Night
+1 Golgari Cluestone
+1 Harrowing Journey
+1 Infernal Idol
+10 Island
+1 Lifecrafter's Bestiary
+1 Lifespark Spellbomb
+1 Metalspinner's Puzzleknot
+1 Mox Sapphire
+1 Mystic Remora
+1 Necrogen Spellbomb
+1 Nimble Innovator
+1 Novijen, Heart of Progress
 1 Nurturing Peatland
-1 Ogre Slumlord
 1 Opulent Palace
+1 Painful Lesson
 1 Path of Annihilation
-1 Pentavus
-1 Pitiless Plunderer
-1 Primeval Bounty
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Retrofitter Foundry
-1 Rimewood Falls
-1 Sengir Autocrat
-1 Shipwreck Marsh
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Slimefoot, the Stowaway
-1 Sling-Gang Lieutenant
-1 Soured Springs
-1 Spawning Pit
-15 Swamp
-1 Sweettooth Witch
-1 Tangled Islet
-1 Tempting Witch
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Twilight Mire
-1 Vineglimmer Snarl
-1 Wand of the Elements
-1 Weirding Shaman
+1 Pelakka Wurm
+1 Phyrexian Gargantua
+1 Phyrexian Rager
+1 Pond Prophet
+1 Psychic Symbiont
+1 Putrefaction
+1 Rathi Fiend
+1 River Delta
+1 Scholar of Stars
+1 Sultai Banner
+6 Swamp
+1 Talisman of Curiosity
+1 Talisman of Resilience
+1 Tarrian's Journal
+1 The Theorist, Jace Beleren
+1 Three Steps Ahead
+1 Toxic Abomination
+1 Tropical Island
+1 Unearth
+1 Unfathomable Truths
+1 Urza's Guilt
+1 Vault Plunderer
+1 Waterlogged Grove
+1 Waterveil Cavern
 1 Willowrush Verge
-1 Woodland Stream
+1 Wistful Selkie
 1 Zagoth Triome

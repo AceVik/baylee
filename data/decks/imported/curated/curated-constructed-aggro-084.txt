@@ -1,19 +1,20 @@
 # baylee curated constructed aggro seed=20261107
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261107]
-3 Arcbound Ravager
-4 Avacyn's Collar
-4 Coastal Tower
-3 Glacial Floodplain
-4 Glaring Fleshraker
-4 Golden Guardian
-10 Island
-4 Mana Crypt
-3 Misers' Cage
-2 Myr Retriever
-3 Perilous Myr
-3 Plains
-3 Retrofitter Foundry
-3 Spawning Pit
-4 Thopter Squadron
+2 Cathedral Sanctifier
+3 Cloudcrest Lake
+3 Cogwork Wrestler
+4 Fountain of Youth
+1 Island
+2 Leonin Elder
+3 Lone Missionary
+2 Mandible Justiciar
+2 Mandroid Squadron
+3 Nimbus Maze
+13 Plains
+4 Rhox Meditant
+4 Roving Harper
+3 Serenity
+4 Skycloud Egg
 3 Tundra
+4 Werefox Bodyguard

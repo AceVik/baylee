@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266088]
+1 Akki Avalanchers
+1 Akki Raider
+1 Akoum Refuge
+1 Barktooth Warbeard
+1 Barrage Ogre
+1 Beastcaller Savant
+1 Bereavement
+1 Bleeding Woods
+1 Boggart Birth Rite
+1 Bristling Backwoods
+1 Canopy Tactician
+1 Cateran Overlord
+1 Cha'DIch Investigator
+1 Charnelhoard Wurm
+1 Chocobo Racetrack
+1 Crackling Club
+1 Devils' Playground
+1 Dining Room
+1 Drider
+1 Dying Wail
+1 Earthlink
+1 Elderfang Ritualist
+1 Elvish Doomsayer
+1 Elvish Spirit Guide
+1 Fable of the Mirror-Breaker
+1 Feast or Famine
+1 Fiery Mantle
+1 Foggy Bottom Swamp
+7 Forest
+1 Foul Play
+1 Gimli, Counter of Kills
+1 Glissa, the Traitor
+1 Gnottvold Slumbermound
+1 Goblin Clearcutter
+1 Goblin Rabblemaster
+1 Greenweaver Druid
+1 Grisly Ritual
+1 Hammerfist Giant
+1 Hana Kami
+1 Hissing Quagmire
+1 Horror of Horrors
+1 Immersturm Skullcairn
+1 Jagged Barrens
+1 Kazandu Refuge
+1 Klingon Strike Force
+1 Llanowar Dead
+1 Los Diablos Missile Base
+1 Marhault Elsdragon
+1 Morcant's Loyalist
+5 Mountain
+1 Omashu City
+1 Orc General
+1 Orcish Vandal
+1 Poison-Tip Archer
+1 Racers' Ring
+1 Radha, Heir to Keld
+1 Reach for the Sky
+1 Return to Battle
+1 Revel of the Fallen God
+1 Rofellos, Llanowar Emissary
+1 Savage Mansion
+1 Scrapyard Steelbreaker
+1 Silhana Starfletcher
+1 Skyway Sniper
+1 Sleeper's Guile
+1 Stir the Grave
+1 Stitcher's Supplier
+1 Strangled Cemetery
+1 Sunrise Sovereign
+14 Swamp
+1 Sylvan Anthem
+1 Tireless Provisioner
+1 Titan's Grave
+1 Tourach's Gate
+1 Vampire Warlord
+1 Viridian Scout
+
+[commander]
+Bartel Runeaxe

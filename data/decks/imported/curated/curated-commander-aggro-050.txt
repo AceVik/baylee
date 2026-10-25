@@ -1,87 +1,85 @@
 # baylee curated commander aggro seed=20261073
 # licence: AGPL-3.0-only
 [deck:commander aggro WUBRG #20261073]
-1 Aether Sting
-1 Alela, Artful Provocateur
+1 Aang and Katara
+1 Aether Channeler
+1 Agents of HYDRA
+1 An-Havva Township
 1 Aragorn, the Uniter
-1 Black Waltz No. 3
+1 Aspiring Aeronaut
+1 Aviation Pioneer
+1 Aysen Abbey
+1 Bishop of Wings
+1 Black Widow, Deadly Hunter
 1 Callous Inspector
-1 Castle Sengir
+1 Caregiver
+1 Cartouche of Solidarity
+1 Common Crook
+1 Contaminated Landscape
 1 Crypt of the Eternals
 1 Crystal Quarry
-1 Deceptive Landscape
-1 Deeproot Champion
-1 Dream Beavers
-1 Eidolon of the Great Revel
-1 Electrostatic Field
-1 Electrostatic Infantry
-1 Elvish Handservant
-1 Embersmith
-1 Enraged Flamecaster
-1 Erebor Flamesmith
-1 Fear of Lost Teeth
-1 Firebrand Archer
-1 Firemind's Research
-1 Firespitter Whelp
-1 Generous Visitor
-1 Gilded Goose
-1 Glaring Fleshraker
-1 Guttersnipe
-1 Havoc
-1 Iron Man, Tony Stark
-1 Irrigation Ditch
-1 Ishi-Ishi, Akki Crackshot
-2 Island
-1 Izzet Charm
-1 Juju Bubble
-1 Jungle Shrine
-1 Kambal, Consul of Allocation
-1 Kessig Flamebreather
-1 Kheru Bloodsucker
-1 Koskun Keep
-1 Lead Pipe
-1 Lurking Lizards
-1 Lys Alana Bowmaster
-1 Mai, Scornful Striker
-1 Mana Crypt
-1 Mindsparker
-1 Mold Adder
-1 Molten Nursery
-1 Monastery Swiftspear
-13 Mountain
-1 Mystic Remora
+1 Darigaaz's Caldera
+1 Delney, Streetwise Lookout
+1 Dire Fleet Hoarder
+1 Dismissive Pyromancer
+1 Doomed Dissenter
+1 Doomed Traveler
+1 Dragon Trainer
+1 Dragonmaster Outcast
+1 Dromar's Cavern
+1 Drownyard Explorers
+1 Flamewright
+1 Foreboding Landscape
+1 Ghirapur Gearcrafter
+1 Goblin Arsonist
+1 Graf Harvest
+1 Greedy Freebooter
+1 Hanweir Garrison
+1 Homarid Spawning Bed
+1 Hunted Witness
+6 Island
+1 Judge Magister Gabranth
+1 Judith, the Scourge Diva
+1 Jund Battlemage
+1 Jungle Patrol
+1 Katara, the Fearless
+1 Kris Mage
+1 Legion Extruder
+1 Mardu Devotee
+1 Marionette Apprentice
+1 Mausoleum Guard
+2 Mountain
 1 Nearby Planet
-1 Opulent Palace
-2 Plains
-1 Pyrostatic Pillar
-1 Quest for the Gravelord
-1 Rin and Seri, Inseparable
+1 Orochi Hatchery
+1 Pia, Determined Rebuilder
+1 Pitiless Plunderer
+6 Plains
+1 Pretending Poxbearers
+1 Prowess of the Fair
+1 Renowned Weaver
 1 Rith's Grove
-1 Sarcomancy
-1 Savage Lands
-1 Sawblade Scamp
-1 Screamer-Killer
-1 Seaside Citadel
-1 Soul Barrier
-1 Soul of Magma
-1 Spara's Headquarters
-1 Spark Jolt
-1 Spark Spray
-1 Spellshock
-1 Sprite Dragon
-1 Stormkeld Prowler
-5 Swamp
-1 Sythis, Harvest's Hand
-1 Tempting Witch
+1 Rufus Shinra
+1 Sage of Lat-Nam
+1 Secure the Wastes
+1 Sell-Sword Brute
+1 Shattered Landscape
+1 Stark Industries Executive
+1 Sunset Strikemaster
+10 Swamp
+1 Swan Song
+1 Sylvan Safekeeper
 1 The World Tree
-1 Three Steps Ahead
+1 Thraben Inspector
+1 Thraben Standard Bearer
 1 Tournament Grounds
-1 Voldaren Epicure
-1 Walking Ballista
-1 Weaver of Lightning
-1 Winter Sky
-1 Yawgmoth's Edict
-1 Zagoth Triome
+1 Toxin Analysis
+1 Treasure Dredger
+1 Treetop Freedom Fighters
+1 Treva's Ruins
+1 Tunnel Surveyor
+1 Village Elder
+1 Young Pyromancer
+1 Zhur-Taa Druid
 
 [commander]
 Super-Skrull

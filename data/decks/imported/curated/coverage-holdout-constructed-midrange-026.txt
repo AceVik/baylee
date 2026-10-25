@@ -1,0 +1,24 @@
+# baylee synergistic holdout coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUB #90010027]
+1 Ancient Spring
+1 Arcane Sanctum
+2 Ashiok's Skulker
+2 Caller of Gales
+3 Contaminated Landscape
+3 Damnable Pact
+2 Dromar's Cavern
+4 Drowner Initiate
+4 Forced Fruition
+9 Island
+2 Jwari Scuttler
+2 Legerdemain
+3 Merrow Reejerey
+4 Night's Whisper
+2 Reminisce
+6 Swamp
+2 Thalakos Dreamsower
+2 Vampiric Tutor
+2 Vesuvan Doppelganger
+2 Wall of Mist
+2 Wizards' School

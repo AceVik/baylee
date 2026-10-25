@@ -1,80 +1,78 @@
 # baylee curated highlander control seed=20261054
 # licence: AGPL-3.0-only
 [deck:highlander control BG #20261054]
-1 Aclazotz, Deepest Betrayal
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Ayara, First of Locthwain
+1 Audacity
 1 Bastion of Remembrance
 1 Bayou
-1 Callous Inspector
-1 Chimeric Egg
-1 Claws of Gix
+1 Bitterblossom
+1 Blight Mound
+1 Centaur Glade
 1 Criminal Enterprise
-1 Dalek Drone
-1 Damnable Pact
+1 Dakmor Ghoul
+1 Dark Privilege
 1 Darkbore Pathway
-1 Darkmoss Bridge
-1 Diamond Kaleidoscope
-1 Elvish Farmer
-1 Elvish Lyrist
-1 Eye of Vecna
-1 Festering Thicket
-2 Forest
+1 Death Watch
+1 Decomposition
+1 Despondency
+1 Discordant Piper
+1 Dusk Legion Zealot
+1 Elderfang Venom
+1 Elephant Guide
+1 Fell the Pheasant
+1 Fists of Ironwood
+7 Forest
 1 Foul Orchard
-1 Gilded Goose
-1 Glaring Fleshraker
-1 Gohn, Town of Ruin
-1 Golgari Guildgate
+1 Golgari Rotwurm
 1 Grim Backwoods
-1 Haunted Mire
-1 Illegitimate Business
+1 Grim Guardian
+1 Hopeless Nightmare
+1 Howling Giant
 1 Infernal Idol
-1 Isolation Cell
-1 Juju Bubble
-1 Kheru Bloodsucker
-1 Lead Pipe
-1 Levitating Statue
-1 Lifecrafter's Bestiary
+1 Liliana's Mastery
 1 Llanowar Wastes
-1 Lys Alana Bowmaster
-1 Machine Man, Model X-51
-1 Mai, Scornful Striker
-1 Mantle of the Wolf
-1 Marionette Apprentice
-1 Metalspinner's Puzzleknot
+1 Maalfeld Twins
+1 Maggot Carrier
+1 Many Partings
+1 Marsh Flitter
+1 Massacre Wurm
+1 Midnight Entourage
+1 Midnight Reaper
+1 Midsummer Revel
+1 Moldervine Reclamation
+1 Most Wanted
 1 Necroblossom Snarl
-1 Night's Whisper
-1 Ob Nixilis, the Fallen
-1 Painful Quandary
+1 Nurturing Peatland
+1 Open the Graves
+1 Orochi Hatchery
 1 Path of Annihilation
-1 Primal Amulet
-1 Primeval Bounty
+1 Phyrexian Gargantua
+1 Phyrexian Rager
+1 Pine Barrens
+1 Pointed Discussion
+1 Prowess of the Fair
 1 Quest for the Gravelord
-1 Quill-Slinger Boggart
-1 Restless Cottage
-1 Runaway Boulder
-1 Shauku, Endbringer
-1 Sign in Blood
+1 Rancor
+1 Rathi Fiend
+1 Rotlung Reanimator
+1 Sarcomancy
 1 Skeletal Vampire
-1 Slayer's Plate
 1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Sphinx-Bone Wand
+1 Strands of Night
 1 Strangled Cemetery
 1 Svogthos, the Restless Tomb
-23 Swamp
-1 Sweettooth Witch
+20 Swamp
 1 Tainted Wood
-1 Tangleroot
-1 Tempting Witch
-1 The One Ring
-1 Thopter Squadron
-1 Thragtusk
-1 Titania, Protector of Argoth
-1 Trading Post
+1 Toxic Abomination
 1 Turbulent Fen
+1 Twilight Mire
+1 Undead Augur
 1 Vampire's Kiss
-1 Walking Ballista
-1 Woodland Chasm
-1 Yawgmoth's Edict
+1 Vault Plunderer
+1 Vengeful Dead
+1 Viridescent Bog
+1 Vital Splicer
+1 Warren Soultrader
+1 Wastewood Verge
+1 Witherbloom Campus
+1 Wolfkin Bond
+1 Wolfwillow Haven

@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUR #20266310]
+1 Adarkar Wastes
+1 Aether Channeler
+1 Anarchist
+1 Battlefield Forge
+1 Boros Cluestone
+1 Brazen Freebooter
+1 Captain Storm, Cosmium Raider
+1 Captain of the Watch
+1 Cloudcrest Lake
+1 Corsair Captain
+1 Dragonmaster Outcast
+1 Elgaud Inquisitor
+1 Enlightened Maniac
+1 Esper Sentinel
+1 Experimental Aviator
+1 Falcon, Winged Wonder
+1 Fiery Islet
+1 Flamewright
+1 Galazeth Prismari
+1 Gleaming Bastion
+1 Hallowed Fountain
+1 Hanweir Garrison
+1 Haunted Library
+1 Hearthcage Giant
+1 Icatian Crier
+1 Imperial Oath
+1 Inheritance
+1 Intruding Soulrager
+1 Invasion Reinforcements
+8 Island
+1 Knight of Doves
+1 Kyoshi Warriors
+1 Lightning Spear
+1 Luke Cage, Hero for Hire
+1 Malcator's Watcher
+1 Master Splicer
+1 Merchant of Secrets
+14 Mountain
+1 Mox Ruby
+1 Mystic Monastery
+1 Nimbus Maze
+1 Nivix, Aerie of the Firemind
+1 Noggle Bandit
+1 Norn's Wellspring
+1 Novice Inspector
+1 Outlaw Medic
+1 Pashalik Mons
+1 Perilous Landscape
+1 Pia and Kiran Nalaar
+1 Pia, Determined Rebuilder
+3 Plains
+1 Professor Zei, Anthropologist
+1 Prosperous Pirates
+1 Protector of Gondor
+1 Pyre Spawn
+1 Raugrin Crystal
+1 Raugrin Triome
+1 Reckless Fireweaver
+1 Reckless Lackey
+1 Ripchain Razorkin
+1 Sacred Foundry
+1 Sage of Lat-Nam
+1 Sailor of Means
+1 Seller of Songbirds
+1 Silver Raven
+1 Skycloud Egg
+1 Steam Vents
+1 Sunbeam Spellbomb
+1 Talisman of Conviction
+1 Talisman of Creativity
+1 Thalakos Lowlands
+1 Thraben Inspector
+1 Thraben Standard Bearer
+1 Treetop Freedom Fighters
+1 Tundra
+1 Tunnel Surveyor
+1 Tura Kennerüd, Skyknight
+1 Wing Splicer

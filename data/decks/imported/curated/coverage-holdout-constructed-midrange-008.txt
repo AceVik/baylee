@@ -1,26 +1,26 @@
 # baylee synergistic holdout coverage constructed midrange
 # licence: AGPL-3.0-only
-[deck:constructed midrange WG #90010009]
-2 Argivian Archaeologist
-2 Carnassid
-3 Creosote Heath
-2 Earth King's Lieutenant
-2 Essence Warden
-8 Forest
-2 Freyalise Supplicant
-2 Generous Stray
-2 Inner Sanctum
-2 Kavu Climber
-2 Kujar Seedsculptor
-2 Marsh Viper
-3 Nantuko Monastery
-2 Oversoul of Dusk
-2 Piercing Light
-6 Plains
-2 Risen Sanctuary
-2 Ritual of Subdual
-2 Selesnya Locket
-2 Thoughtweft Lieutenant
-4 Tranquil Expanse
-2 Trusty Packbeast
-2 Vastwood Fortification
+[deck:constructed midrange WUG #90010009]
+2 Aven Fleetwing
+2 Change the Equation
+2 Dispel
+2 Drakewing Krasis
+2 Essence Flare
+2 Flusterstorm
+7 Forest
+2 Frightful Delusion
+2 Inertia Bubble
+8 Island
+2 Kiora's Follower
+4 Lakeside Shack
+2 Merfolk Mistbinder
+2 Mindstatic
+2 Mist Dragon
+3 Restless Anchorage
+2 Skywinder Drake
+2 Spiketail Drakeling
+2 Thelon's Curse
+2 Thoughtbind
+2 University Campus
+2 Vesuvan Doppelganger
+2 Waterspout Djinn

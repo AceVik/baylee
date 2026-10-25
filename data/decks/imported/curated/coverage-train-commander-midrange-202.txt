@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266203]
-1 Air Marshal
-1 Ancient Spring
-1 Arcane Sanctum
-1 Armored Galleon
-1 Bane Alley Blackguard
-1 Black Widow, Deadly Hunter
-1 Bladestitched Skaab
-1 Bog Smugglers
-1 Cabal Evangel
-1 Cat Burglar
-1 Contaminated Landscape
-1 Creeping Tar Pit
-1 Dakmor Lancer
-1 Dauntless River Marshal
-1 Deathcult Rogue
-1 Deathlace
-1 Deepchannel Duelist
-1 Deft Duelist
-1 Dismal Backwater
-1 Disorient
-1 Dread Warlock
-1 Dromar's Cavern
-1 Duskmantle Operative
-1 Elite Arrester
-1 Ertai Resurrected
-1 Fetid Pools
-1 Fire Nation Ambushers
-1 Glasspool Mimic
-1 Great Hall of Starnheim
-1 Hallowed Fountain
-1 Hand of Silumgar
-1 Harbor Guardian
-1 Hengegate Pathway
-1 Hired Poisoner
-1 Hussar Patrol
-1 Irradiate
-4 Island
-1 Jhessian Balmgiver
-1 Krovikan Scoundrel
-1 Magical Hack
-1 Marsh Gas
-1 Martyrs' Tomb
-1 Minister of Impediments
-1 Moriok Reaver
-1 Nimble Pilferer
-1 Onyx Mage
-1 Opposition Agent
-6 Plains
-1 Poison-Blade Mentor
-1 Port of Karfell
-1 Prairie Stream
-1 Prickly Boggart
-1 Princess Lucrezia
-1 Raffine's Tower
-1 Rathi Trapper
-1 Red Cliffs Armada
-1 Relic's Roar
-1 Resolute Rider
-1 Righteous War
-1 Riven Turnbull
-1 Sewers of Estark
-1 Sivitri, Dragon Master
-1 Snowfield Sinkhole
-1 Suppression Ray
-13 Swamp
-1 Tainted Field
-1 Talas Merchant
-1 Teferi's Honor Guard
-1 Thalakos Lowlands
-1 Three Tragedies
-1 Trespasser il-Vec
-1 Uncle Istvan
-1 Unhallowed Phalanx
-1 Venser, the Sojourner
-1 Wandering Mage
-1 Wei Infantry
-1 Whisper Squad
-1 Wizards' School
-1 Zealous Guardian
+[deck:commander midrange UBR #20266203]
+1 Abyssal Hunter
+1 Barbarian Lunatic
+1 Black Waltz No. 3
+1 Boltwave
+1 Breath of Fire
+1 Bria, Riptide Rogue
+1 Castle Sengir
+1 Certain Death
+1 Chaos Charm
+1 Choking Sands
+1 Clearwater Pathway
+1 Consuming Corruption
+1 Crackling Triton
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Dakmor Ghoul
+1 Desiccated Naga
+1 Desolate Lighthouse
+1 Fanged Flames
+1 Festival Crasher
+1 Fire Ambush
+1 Flame Rift
+1 Flame-Blessed Bolt
+1 Frenzied Devils
+1 Ghitu Fire-Eater
+1 Halcyon Glaze
+1 Ingenious Skaab
+11 Island
+1 Kozilek's Sentinel
+1 Last Kiss
+1 Lightning Reaver
+1 Lightning Visionary
+1 Lost in a Labyrinth
+1 Mercurial Geists
+1 Mob Justice
+8 Mountain
+1 Nightscape Master
+1 Opportunist
+1 Oscorp Industries
+1 Outnumber
+1 Ozai's Cruelty
+1 Pitchburn Devils
+1 Profane Prayers
+1 Ragefire
+1 Reckless Air Strike
+1 Reclusive Artificer
+1 Reveka, Wizard Savant
+1 River Delta
+1 Riverfall Mimic
+1 Rix Maadi, Dungeon Palace
+1 Searing Wind
+1 Seething Landscape
+1 Shauku's Minion
+1 Simulacrum
+1 Soul Shred
+1 Spiteful Bully
+1 Stensia Bloodhall
+1 Stormchaser Mage
+1 Strafe
+1 Sulfur Vent
+1 Sunken Ruins
+1 Suplex
+1 Swallowing Plague
+6 Swamp
+1 Tainted Peak
+1 Tempest Angler
+1 Tibor and Lumia
+1 Tor Wauki
+1 Umara Mystic
+1 Valakut Invoker
+1 Void Helix
+1 Volcanic Eruption
+1 Winter's Intervention
+1 Xander's Lounge
+1 Zuko's Offense
+1 Zulaport Chainmage
 
 [commander]
-Lady Evangela
+Sol'kanar the Swamp King

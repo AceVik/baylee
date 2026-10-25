@@ -1,17 +1,17 @@
 # baylee curated constructed midrange seed=20261086
 # licence: AGPL-3.0-only
 [deck:constructed midrange W #20261086]
-4 Avacyn's Collar
-4 Blessed Light
-1 Blighted Steppe
-3 Captain of the Watch
-4 Glaring Fleshraker
-4 Hall of Heliod's Generosity
-3 Lotus-Eye Mystics
-3 Monastery Mentor
-19 Plains
-3 Primal Amulet
-4 Retrofitter Foundry
-3 Slayer's Plate
-3 Spawning Pit
-2 Worthy Knight
+2 Amrou Scout
+4 Avacyn, Angel of Hope
+3 Defiant Falcon
+3 Elgaud Inquisitor
+4 Knight-Captain of Eos
+2 Lupinflower Village
+4 Monk Idealist
+20 Plains
+3 Ramosian Lieutenant
+4 Reliquary Monk
+2 Serra's Sanctum
+3 Siege Veteran
+3 Trading Post
+3 Zuran Orb

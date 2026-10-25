@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUR #20266172]
+1 Barrenton Cragtreads
+1 Battle Hurda
+1 Bonebreaker Giant
+1 Brassclaw Orcs
+1 Canyon Wildcat
+1 Chained Brute
+1 Cliff Threader
+1 Coral Eel
+1 Dandân
+1 Deflection
+1 Desolate Lighthouse
+1 Elvenking's Harper
+1 Flowstone Giant
+1 Galina's Knight
+1 Gleaming Bastion
+1 Graaz, Unstoppable Juggernaut
+1 Hallowed Fountain
+1 Hammerhead Shark
+1 Hengegate Pathway
+1 Highland Giant
+1 Hillcomber Giant
+1 Hollowhead Sliver
+1 Huatli's Snubhorn
+1 Ironclaw Buzzardiers
+7 Island
+1 Juxtapose
+1 Kavu Glider
+1 Kessig Wolf
+1 Land Cap
+1 Leering Gargoyle
+1 Lowland Giant
+1 Marble Titan
+1 Minister of Impediments
+1 Misdirection
+1 Mnemonic Nexus
+1 Moat Piranhas
+12 Mountain
+1 Mountain Goat
+1 Mystic Monastery
+1 Needleverge Pathway
+1 Nest Robber
+1 Nivix, Aerie of the Firemind
+1 Obelisk of Undoing
+1 Obsidian Giant
+1 Ogre Errant
+1 Orcish Veteran
+1 Parapet Watchers
+1 Perilous Landscape
+6 Plains
+1 Raka Disciple
+1 Raptor Companion
+1 Rapturous Moment
+1 Raugrin Triome
+1 Reverberation
+1 Riot Devils
+1 Riverglide Pathway
+1 Sacred Foundry
+1 Skyraker Giant
+1 Slimy Kavu
+1 Steam Vents
+1 Stream Hopper
+1 Sunbillow Verge
+1 Suppression Ray
+1 Teferi's Honor Guard
+1 Telim'Tor's Edict
+1 Thalakos Lowlands
+1 Thistledown Liege
+1 Tor Giant
+1 Towering Thunderfist
+1 Twining Twins
+1 Two-Headed Giant of Foriys
+1 Venser, the Sojourner
+1 Walking Sponge
+1 Wetland Sambar
+1 Ydwen Efreet
+1 Zealous Guardian
+1 Zodiac Dog
+1 Zodiac Goat

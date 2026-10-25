@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266020]
-1 A Realm Reborn
-1 Afiya Grove
-1 Ajani's Comrade
-1 Ant-Man, Scott Lang
-1 Arbor Armament
-1 Arid Mesa
-1 Arnjlot's Ascent
-1 Avengers Hangar
-1 Battlefield Promotion
-1 Big Bertha
-1 Blinkmoth Well
-1 Blizzard
-1 Brass-Talon Chimera
-1 Breath of Dreams
-1 Clockwork Steed
-1 Clockwork Swarm
+[deck:commander midrange WRG #20266020]
+1 Accelerate
+1 Ambrosia Whiteheart
+1 Asgardian Citadel
+1 Batterhorn
+1 Battlefield Forge
+1 Bone Pit Brute
+1 Braidwood Sextant
+1 Briar Shield
+1 Bronzebeak Moa
 1 Cloudchaser Kestrel
-1 Cocoon
-1 Daring Mechanic
-1 Defiant Falcon
-1 Emergence Zone
-1 Eutropia the Twice-Favored
-1 Expanded Anatomy
+1 Crossroads Watcher
+1 Dori, Bearer of Friends
+1 Dwalin, Weaponmaster
+1 Dwarven Armorer
+1 East Wind Avatar
+1 Elegant Parlor
+1 Endurance
+1 Enlightened Ascetic
 1 Fearless Fledgling
-13 Forest
-1 Forgotten Monument
-1 Fungus Elemental
-1 Gaea's Gift
-1 Glyph of Delusion
-1 Gods' Eye, Gate to the Reikai
-1 Gond Gate
-1 Guardian of the Halls
-1 Guild Thief
-1 Halls of Mist
-1 Haven of the Spirit Dragon
-1 Illusionary Forces
-1 Illusionary Wall
+1 Fire-Lit Thicket
+12 Forest
+1 Friendly Ghost
+1 Gale Swooper
+1 Galewind Moose
+1 Godtracker of Jund
+1 Gongaga, Reactor Town
+1 Grove Rumbler
+1 Guardian Gladewalker
+1 Icecave Crasher
 1 Infinite Authority
-1 Innkeeper's Talent
-1 Iron-Heart Chimera
-5 Island
-1 Lightfoot Technique
-1 Lonely Arroyo
-1 Loxodon Battle Priest
-1 Maze of Ith
-1 Mightstone's Animation
-1 Mikokoro, Center of the Sea
-1 Mindbender Spores
-1 Mockingbird, Bobbi Morse
-1 Mystic Might
-1 Nasty Little Rabbit
-1 Nature's Blessing
-1 Nesting Grounds
-1 Oath of the Ancient Wood
-5 Plains
-1 Plaza of Harmony
-1 Plaza of Heroes
+1 Jungleborn Pioneer
+1 Kavu Monarch
+1 Loporrit Scout
+1 Lotusguard Disciple
+1 Makindi Sliderunner
+1 Molten Vortex
+1 Mossfire Valley
+2 Mountain
+1 Murmuring Volume
+1 Needle Spires
+1 Needleverge Pathway
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Patagia Tiger
+11 Plains
+1 Planetary Patrol
+1 Plant Elemental
+1 Plateau
+1 Plated Crusher
 1 Prismatic Circle
-1 Prowler, Misguided Mentor
-1 Rosa, Resolute White Mage
-1 Rushwood Elemental
-1 Rustvine Cultivator
-1 Sledding Otter-Penguin
-1 Slith Predator
-1 Soulstone Sanctuary
-1 Sphinx of Magosi
-1 Spike Hatcher
-1 Take Up the Shield
+1 Rabanastre, Royal City
+1 Remnant Elemental
+1 Rescuer Chwinga
+1 Rune of Protection: Green
+1 Rune of Protection: Red
+1 Sanguine Glorifier
+1 Satyr Grovedancer
+1 Shield-Wall Sentinel
+1 Shore Lurker
+1 Silt Crawler
+1 Snapping Creeper
+1 Snapping Gnarlid
+1 Soldier of the Grey Host
+1 Sun-Blessed Peak
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunscorched Divide
+1 Territorial Baloth
 1 Teyo's Lightshield
-1 Tidus, Blitzball Star
-1 Titania's Boon
-1 Trade Caravan
-1 Tranquil Path
-1 Urza's Factory
-1 Verdant Automaton
-1 Volunteer Reserves
-1 Wall of Resistance
-1 War Dance
+1 Toucan-Puffin
+1 Valakut Predator
+1 Viashino Bladescout
+1 Vinelasher Kudzu
+1 Whiptail Moloch
+1 Wild Celebrants
+1 Windurst, Federation Center
 1 Xindi Surveyors
 
 [commander]
-Derevi, Empyrial Tactician
+Jetmir, Nexus of Revels

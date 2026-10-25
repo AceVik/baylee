@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266082]
+1 Angel of Despair
+1 Angelheart Protector
+1 Attercop
+1 Aviary Mechanic
+1 Badgermole Cub
+1 Barrier of Bones
+1 Blacklance Paragon
+1 Brushfire Elemental
+1 Carrier Pigeons
+1 Carven Caryatid
+1 Crystal Quarry
+1 Daybreak Combatants
+1 Deadshot Minotaur
+1 Deputy of Acquittals
+1 Drekavac
+1 Dualcaster Mage
+1 Duergar Hedge-Mage
+1 Eviscerator
+1 Fallaji Vanguard
+1 Favored of Iroas
+1 Fisk Tower
+1 Flayer Drone
+6 Forest
+1 Foundry Champion
+1 Glittering Massif
+1 Goblin-town
+1 Guadosalam, Farplane Gateway
+1 Haazda Officer
+1 Hedge Maze
+1 Herald of the Fair
+1 Hulk, Always Angry
+1 Hyrax Tower Scout
+4 Island
+1 Littjara Mirrorlake
+1 Lord of Tresserhorn
+1 Lorehold Campus
+1 Lotus Cobra
+1 Mawloc
+1 Messenger Falcons
+1 Meticulous Archive
+7 Mountain
+1 Mummy Paramount
+1 Nearby Planet
+1 Perimeter Patrol
+3 Plains
+1 Plant Elemental
+1 Plasmancer
+1 Psychic Symbiont
+1 Pyknite
+1 Pyrogoyf
+1 Raphael, Tough Turtle
+1 Remnant Elemental
+1 Restless Ridgeline
+1 Rhox Oracle
+1 Rogue Elephant
+1 Screeching Drake
+1 Scythe Leopard
+1 Scythe Tiger
+1 Separatist Voidmage
+1 Setessan Skirmisher
+1 Smoldering Marsh
+1 Snapping Voidcraw
+1 Spider-Man, Hometown Hero
+1 Spire Garden
+1 Steppe Lynx
+1 Stingcaster Mage
+5 Swamp
+1 Tanglespan Lookout
+1 Temur Tawnyback
+1 The World Tree
+1 Thopter Architect
+1 Théoden, King of Rohan
+1 Venser, Shaper Savant
+1 Vicious Clown
+1 Vithian Renegades
+1 Voidwielder
+1 Weldfast Wingsmith
+1 Woodland Chasm
+1 Zhalfirin Lancer
+
+[commander]
+General Tazri

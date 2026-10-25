@@ -1,85 +1,84 @@
 # baylee curated commander aggro seed=20261109
 # licence: AGPL-3.0-only
 [deck:commander aggro UBR #20261109]
-1 Aether Sting
+1 Anarchist
 1 Ancestral Vision
-1 Badlands
-1 Black Waltz No. 3
+1 Audacious Thief
+1 Balduvian Horde
+1 Bellowing Crier
+1 Black Widow, Deadly Hunter
+1 Blacklance Paragon
+1 Blightstep Pathway
+1 Brinebarrow Intruder
+1 Callous Inspector
+1 Captain Storm, Cosmium Raider
 1 Castle Sengir
-1 Chandra's Emberling
+1 Champion of the Perished
+1 Cloistered Telepath
+1 Corrupt Court Official
+1 Corsair Captain
+1 Council of Advisors
 1 Crosis's Catacombs
 1 Crumbling Necropolis
 1 Crypt of the Eternals
-1 Crystal Rod
-1 Dismal Backwater
-1 Dragon's Rage Channeler
-1 Drowner Initiate
-1 Eidolon of the Great Revel
-1 Electrostatic Field
-1 Electrostatic Infantry
-1 Embersmith
-1 Enraged Flamecaster
-1 Erebor Flamesmith
-1 Eroded Canyon
-1 Etherium Spinner
-1 Fever Charm
-1 Firebrand Archer
-1 Firemind's Research
-1 Firespitter Whelp
-1 Glaring Fleshraker
-1 Guttersnipe
-1 Havoc
-1 Hesitation
+1 Dakmor Lancer
+1 Deadeye Duelist
+1 Dire Fleet Poisoner
+1 Dragonmaster Outcast
+1 Elite Instructor
+1 Exclusion Mage
+1 Faerie Seer
+1 Ferrous Lake
+1 Forge Devil
+1 Foundry Street Denizen
+1 Fourth Bridge Prowler
+1 Greedy Freebooter
+1 Halimar Excavator
+1 Hapless Researcher
 1 Hidden Lair
-1 Ice Tunnel
-1 In the Eye of Chaos
-1 Iron Star
-1 Ishi-Ishi, Akki Crackshot
-8 Island
-1 Ivory Cup
-1 Izzet Charm
-1 Jeskai Sage
-1 Juju Bubble
-1 Kessig Flamebreather
-1 Library
-1 Mai, Scornful Striker
+1 Humbling Elder
+12 Island
+1 Kruin Striker
+1 Lava Tubes
 1 Mana Crypt
-1 Mana Vortex
-1 Mindsparker
-1 Molten Nursery
-1 Monastery Swiftspear
-1 Mount Doom
-14 Mountain
-1 Mystic Remora
-1 Onslaught
+1 Mercenary Knight
+1 Merchant of Secrets
+8 Mountain
+1 Network Disruptor
+1 Nimana Sell-Sword
+1 Obyra, Dreaming Duelist
 1 Oscorp Industries
-1 Pyrostatic Pillar
-1 Quill-Slinger Boggart
-1 Rockslide Sorcerer
-1 Sarkhan's Unsealing
-1 Sawblade Scamp
-1 Screamer-Killer
+1 Overwhelmed Apprentice
+1 Pondering Mage
+1 Priest of Urabrask
+1 Prosperous Pirates
+1 Reckless Fireweaver
+1 Reclusive Artificer
+1 Sage of Epityr
+1 Sage of Mysteries
+1 Sailor of Means
 1 Seething Landscape
-1 Serpent's Pass
-1 Shredded Sails
-1 Soul Barrier
-1 Soul of Magma
-1 Spark Jolt
-1 Spark Spray
-1 Spellshock
-1 Sprite Dragon
-1 Stormkeld Prowler
-1 Straw Golem
+1 Shocking Sharpshooter
+1 Sicken
+1 Sleeper Agent
+1 Sparkmage Apprentice
+1 Stark Industries Executive
+1 Stern Proctor
+1 Stingcaster Mage
+1 Stormfist Crusader
 1 Sulfur Vent
-1 Veil of Birds
-1 Veiled Sentry
-1 Vertigo
-1 Walking Ballista
-1 Weaver of Lightning
-1 Winter Sky
+1 Sunset Strikemaster
+4 Swamp
+1 Tainted Peak
+1 Vault Plunderer
+1 Vicious Clown
+1 Wartime Protestors
+1 Waterveil Cavern
+1 Weldfast Wingsmith
+1 Wily Goblin
+1 Wizard Class
 1 Xander's Lounge
-1 Yawgmoth's Edict
-1 Young Pyromancer
+1 Yellowjacket, Heartless Marauder
 
 [commander]
 Gwendlyn Di Corci

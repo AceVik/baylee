@@ -1,20 +1,23 @@
 # baylee curated constructed control seed=20261101
 # licence: AGPL-3.0-only
 [deck:constructed control UG #20261101]
-2 Dreamroot Cascade
-3 Elvish Farmer
-3 Energy Vortex
+3 Breeding Pool
+3 Claws of Wirewood
+3 Corridor Monitor
 7 Forest
-8 Island
-4 Juju Bubble
-4 Kitchen
-2 Lurking Lizards
-4 Lush Oasis
-1 Mutant Town
-3 Mystic Remora
-3 Path of Annihilation
-3 Primeval Bounty
-4 Quirion Dryad
-4 Soul Barrier
-2 Sphinx-Bone Wand
-3 Wanderlust
+1 Futurist Forge
+4 Geistcatcher's Rig
+9 Island
+2 Lifespark Spellbomb
+4 Mightstone's Animation
+2 Moss Diamond
+1 Novijen, Heart of Progress
+1 Overflowing Basin
+4 Simic Cluestone
+3 Simic Locket
+2 Slumbering Waterways
+2 Talisman of Curiosity
+3 Thought Monitor
+3 Trigon of Thought
+2 Willowrush Verge
+1 Yavimaya Coast

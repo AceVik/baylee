@@ -2,74 +2,72 @@
 # licence: AGPL-3.0-only
 [deck:commander aggro B #20261025]
 1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Avacyn's Collar
+1 Al Bhed Salvagers
+1 Arnyn, Deathbloom Botanist
 1 Ayara, First of Locthwain
-1 Bastion of Remembrance
-1 Blight Mound
+1 Bishop of the Bloodstained
+1 Blight Keeper
 1 Blighted Fen
+1 Blightspeaker
+1 Blood Artist
+1 Bloodhunter Bat
+1 Cabal Archon
 1 Callous Inspector
-1 Carrier Thrall
-1 Carrion Feeder
 1 Claws of Gix
-1 Common Crook
 1 Criminal Enterprise
+1 Death Cultist
 1 Death Watch
-1 Deathknell Berserker
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Discordant Piper
-1 Doomed Dissenter
+1 Deathgreeter
+1 Disciple of the Vault
+1 Dream Beavers
+1 Dross Harvester
+1 Dusk Legion Zealot
+1 Falkenrath Noble
 1 Fear of Lost Teeth
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Graf Harvest
+1 Foul-Tongue Shriek
 1 Greedy Freebooter
-1 Havengul Laboratory
-1 Hostile Hostel
 1 Ifnir Deadlands
+1 Kalastria Healer
+1 Kalastria Highborn
 1 Kheru Bloodsucker
-1 Lampad of Death's Vigil
 1 Lead Pipe
+1 Mai, Scornful Striker
 1 Marionette Apprentice
-1 Marsh Flitter
+1 Merciless Enforcers
+1 Midnight Charm
+1 Midnight Entourage
+1 Misery Charm
 1 Mudflat Village
-1 Myr Sire
-1 Ogre Slumlord
-1 Pawn of Ulamog
-1 Pitiless Plunderer
-1 Prowess of the Fair
-1 Prying Blade
-1 Quest for the Gravelord
-1 Retrofitter Foundry
-1 Rotlung Reanimator
-1 Sarcomancy
-1 Sengir Autocrat
-1 Shadow-Rite Priest
-1 Skeletal Vampire
-1 Skullclamp
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Sparring Construct
-1 Spawning Pit
-30 Swamp
+1 Night Market Lookout
+1 Northern Air Temple
+1 Painful Quandary
+1 Reanimate
+1 Sanctum Seeker
+1 Sanguinary Priest
+1 Sanguine Syphoner
+1 Serrated Scorpion
+1 Skymarch Bloodletter
+1 Spirit of Malevolence
+32 Swamp
 1 Sweettooth Witch
-1 Sylvok Lifestaff
+1 Syphon Soul
 1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Tomb of Urami
-1 Trading Post
+1 Tithebearer Giant
+1 Touch of Death
 1 Unholy Grotto
+1 Urborg
+1 Vampire Neonate
+1 Vampire Spawn
 1 Vampire's Kiss
 1 Vampiric Rites
-1 Vault of Whispers
+1 Vampiric Tutor
+1 Vengeful Bloodwitch
 1 Vermin Gorger
-1 Warren Soultrader
-1 Weirding Shaman
-1 Witch's Cauldron
-1 Yahenni, Undying Partisan
+1 Vicious Hunger
+1 Vindictive Vampire
+1 Volrath's Stronghold
+1 Yawgmoth's Edict
+1 Zulaport Cutthroat
 1 Zuran Orb
 
 [commander]

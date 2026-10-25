@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266248]
-1 Acid Web Spider
-1 Ambrosia Whiteheart
-1 Aven Fogbringer
-1 Aysen Abbey
-1 Battleflight Eagle
-1 Bone to Ash
-1 Brinebarrow Intruder
-1 Bronzebeak Moa
-1 Burrog Befuddler
-1 Conclave Naturalists
-1 Crossroads Watcher
-1 Deputy of Acquittals
-1 Deserted Beach
-1 Devout Lightcaster
-1 East Wind Avatar
-1 Elfhame Palace
-1 Emancipation Angel
-1 Eutropia the Twice-Favored
-1 Exclusion Mage
-1 Faerie Duelist
-1 Fleetfoot Panther
-1 Forest
-1 Fortified Beachhead
-1 Friendly Ghost
-1 Frilled Mystic
-1 Gilded Drake
-1 Glacial Fortress
-1 Guadosalam, Farplane Gateway
-1 Guardian of Pilgrims
-1 Humbling Elder
-1 Irrigated Farmland
-1 Irrigation Ditch
-15 Island
-1 Kor Skyfisher
-1 Ledger Shredder
-1 Leonin Snarecaster
-1 Lotusguard Disciple
-1 Lumengrid Sentinel
-1 Marketwatch Phantom
-1 Mist Raven
-1 Mystic Snake
-1 Nebelgast Herald
-1 Niblis of the Mist
-1 Patagia Tiger
-1 Peregrine Drake
-1 Pestermite
-7 Plains
-1 Prying Eyes
-1 Razortide Bridge
-1 Rescuer Chwinga
-1 Restless Prairie
-1 Risen Reef
-1 Scattered Groves
-1 Seaside Citadel
-1 Separatist Voidmage
-1 Shrieking Drake
-1 Silver Drake
-1 Snapcaster Mage
-1 Soldier of the Grey Host
-1 Somnomancer
-1 Spara's Headquarters
-1 Steppe Lynx
-1 Stern Proctor
-1 Strix Lookout
-1 Subtlety
-1 Suburban Sanctuary
-1 Timid Drake
-1 Toucan-Puffin
-1 Tranquil Landscape
-1 Treasure Cruise
-1 Treva's Ruins
-1 Triton Waverider
-1 Urban Retreat
-1 Venser, Shaper Savant
-1 Voidwielder
-1 Weldfast Wingsmith
-1 Welkin Guide
-1 Whitemane Lion
-1 Zhalfirin Lancer
+[deck:commander midrange BG #20266248]
+1 Abzan Kin-Guard
+1 An-Havva Constable
+1 Bayou
+1 Blanchwood Armor
+1 Blightsoil Druid
+1 Bloodcurdling Scream
+1 Boa Constrictor
+1 Charging Bandits
+1 Consume the Meek
+1 Darkbore Pathway
+1 Deepwood Drummer
+1 Devkarin Dissident
+1 Drove of Elves
+1 Elder of Laurels
+1 Elven Fortress
+1 Elvish Berserker
+1 Elvish Scout
+1 Equestrian Skill
+1 Essence Filter
+1 Final Reward
+1 Fleshgrafter
+1 Folk of An-Havva
+1 Forced March
+13 Forest
+1 Foul Orchard
+1 Gaea's Liege
+1 Gloom
+1 Greenhilt Trainee
+1 Grim Backwoods
+1 Hardened-Scale Armor
+1 Heir of the Wilds
+1 Hissing Quagmire
+1 Howlpack Resurgence
+1 Illegitimate Business
+1 Iridescent Blademaster
+1 Jungle Hollow
+1 Kraul Warrior
+1 Larger Than Life
+1 Living Plane
+1 Llanowar Dead
+1 Llanowar Wastes
+1 Lys Alana Scarblade
+1 Might of Oaks
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Monstrous Growth
+1 Narcissism
+1 Nuclear Fallout
+1 Nurturing Peatland
+1 Oran-Rief Invoker
+1 Overgrown Tomb
+1 People of the Woods
+1 Pine Barrens
+1 Razaketh's Rite
+1 Ritual of the Machine
+1 Sarkhan's Resolve
+1 Scarred Vinebreeder
+1 Scarwood Bandits
+1 Seal of Strength
+1 Simian Brawler
+1 Soul Kiss
+1 Stonewood Invoker
+1 Sultai Runemark
+1 Svogthos, the Restless Tomb
+12 Swamp
+1 Temple of Malady
+1 Thriss, Nantuko Primus
+1 Topan Ascetic
+1 Tropical Storm
+1 Twilight Mire
+1 Virtue's Ruin
+1 Wastewood Verge
+1 Wielding the Green Dragon
+1 Wild Nacatl
+1 Wildheart Invoker
+1 Worms of the Earth
 
 [commander]
-Derevi, Empyrial Tactician
+Vhati il-Dal

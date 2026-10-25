@@ -1,75 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange U #20266176]
-1 Amnesia
-1 Anti-Magic Aura
-1 Apathy
-1 Aven Reedstalker
-1 Aven Smokeweaver
-1 Avengers Tower
-1 Battleground Geist
-1 Castaway's Despair
-1 Cavern of Souls
-1 Celestial Messenger
-1 Cloud Spirit
-1 Cloudsculpt Technician
-1 Containment Protocol
-1 Controlled Instincts
-1 Crawling Barrens
-1 Dark Depths
-1 Defensive Stance
-1 Elven Passage
-1 Errant Minion
-1 Ethereal Whiskergill
-1 Evasive Action
-1 Extinguish
-1 Faerie Invaders
-1 Faerie Swarm
-1 Field of Dreams
-1 Flash Counter
-1 Fog Elemental
-1 Geist of the Archives
-1 Ghost Ship
-1 Glimmerbell
-1 Grasping Dunes
-1 Guildmages' Forum
-1 Hidden Grotto
-1 Il Mheg Pixie
-1 Invisibility
-31 Island
-1 It'll Quench Ya!
-1 Living Tempest
-1 Living Tsunami
-1 Metathran Transport
-1 Metropolis Sprite
-1 Mistwalker
-1 Nephalia Seakite
-1 Niblis of the Breath
-1 Nightveil Sprite
-1 Nimbus of the Isles
-1 Oko's Accomplices
-1 Pseudodragon Familiar
-1 Sea Sprite
-1 Sentinels of Glen Elendra
-1 Shriekgeist
-1 Soul of the Rapids
-1 Stormcloud Spirit
-1 Supreme Phantom
-1 Tangle Kelp
-1 Tattered Haunter
-1 Teardrop Kami
-1 Thassa's Ire
-1 The Unspeakable
-1 Troublesome Spirit
-1 Unknown Shores
-1 Updraft Elemental
-1 Vaporkin
-1 Wandering Ones
-1 Wanderlight Spirit
-1 Weatherseed Faeries
-1 Wind Dancer
-1 Wind Spirit
-1 Zephyr Sprite
+[deck:commander midrange UG #20266176]
+1 Advanced Hoverguard
+1 Aesthir Glider
+1 Alchemist's Refuge
+1 Alpha Myr
+1 Anvilwrought Raptor
+1 Ashnod's Battle Gear
+1 Assembly-Worker
+1 Barkchannel Pathway
+1 Bladed Pinions
+1 Bone Flute
+1 Botanical Sanctum
+1 Brass-Talon Chimera
+1 Breeding Pool
+1 Breezekeeper
+1 Chimeric Idol
+1 Chimeric Sphere
+1 Cloaked Siren
+1 Clockwork Steed
+1 Consulate Skygate
+1 Cyclopean Snare
+1 Darksteel Myr
+1 Dragon Mask
+1 Ebony Horse
+1 Extruder
+1 Flooded Grove
+1 Floodwater Dam
+1 Flying Carpet
+4 Forest
+1 Fyndhorn Bow
+1 Gold-Forged Sentinel
+1 Harmattan Efreet
+1 Hopping Automaton
+1 Horn of Deafening
+1 Iron-Heart Chimera
+21 Island
+1 Jade Statue
+1 Jhoira's Toolbox
+1 Lead-Belly Chimera
+1 Liquimetal Coating
+1 Littjara Mirrorlake
+1 Living Airship
+1 Lodestone Myr
+1 Mantis Engine
+1 Mishra's Groundbreaker
+1 Myr Landshaper
+1 Nemesis Mask
+1 Novijen, Heart of Progress
+1 Omega Myr
+1 Overflowing Basin
+1 Power Matrix
+1 Quicksilver Amulet
+1 Rejuvenating Springs
+1 Roterothopter
+1 Runed Arch
+1 Sacred Armory
+1 Simic Cluestone
+1 Spirit Shield
+1 Sunglasses of Urza
+1 Suspicious Bookcase
+1 Teferi's Sentinel
+1 Thornwood Falls
+1 Thran Weaponry
+1 Tin-Wing Chimera
+1 Tropical Island
+1 Tumble Magnet
+1 Ultron, Machine Overlord
+1 Universal Automaton
+1 Urza's Engine
+1 Vaporous Djinn
+1 Wall of Junk
+1 War Chariot
+1 Warmonger's Chariot
+1 Waterlogged Grove
+1 Willowrush Verge
+1 Woodland Stream
+1 Yavimaya Coast
 
 [commander]
-Yargle, Goliath of Otaria
+Sab-Sunen, Luxa Embodied

@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro UBG #20266297]
+2 Ana Disciple
+3 Barkchannel Pathway
+2 Dawnstrider
+1 Deflection
+1 Foreboding Landscape
+10 Forest
+2 Juxtapose
+2 Krosan Constrictor
+2 Leaping Lizard
+2 Llanowar Vanguard
+2 Merrow Grimeblotter
+2 Mirkwood Spider
+2 Needlethorn Drake
+2 Opulent Palace
+2 Political Trickery
+2 Rabid Rats
+2 Ramunap Excavator
+2 Rime Dryad
+2 Rushwood Dryad
+2 Scarwood Hag
+2 Spore Frog
+4 Swamp
+1 Tropical Island
+2 Willow Dryad
+2 Yavimaya Ancients
+1 Yavimaya Coast
+1 Zagoth Triome

@@ -1,75 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20266057]
-1 Archweaver
-1 Attercop
-1 Blitzball Shot
-1 Bloodstained Mire
-1 Blossoming Wreath
-1 Blunt the Assault
-1 Bountiful Harvest
-1 Bramblesnap
-1 Canopy Baloth
-1 Cavernous Maw
-1 Centaur Nurturer
-1 Dawnhart Rejuvenator
-1 Dune Diviner
-1 Encroaching Wastes
-1 Endurance
-1 Fallow Wurm
-1 Feral Ferocity
-31 Forest
-1 Fruition
-1 Gemrazer
-1 Healing Leaves
-1 Hungry Megasloth
-1 Icecave Crasher
-1 Jadecraft Artisan
-1 Migrating Ketradon
-1 Moss Kami
-1 Mossbeard Ancient
-1 Multani's Acolyte
-1 Nourish
-1 Opal Palace
-1 Ornamental Courage
-1 Overprotect
-1 Owlbear
-1 Plant Elemental
-1 Quirion Sentinel
-1 Ravenous Daggertooth
-1 Respite
-1 Resuscitate
-1 Return to the Earth
-1 Seedling Charm
-1 Setessan Champion
-1 Shape the Sands
-1 Shoot Down
-1 Shopkeeper's Bane
-1 Silt Crawler
-1 Skyscythe Engulfer
-1 Snapping Creeper
-1 Snapping Gnarlid
-1 Soul of the Harvest
-1 Spawning Bed
-1 Springmane Cervin
-1 Staggering Size
-1 Stampeding Serow
-1 Steady Aim
-1 Stomper Cub
-1 Strength of Cedars
-1 Study Hall
-1 Sunshower Druid
-1 Tamiyo's Safekeeping
-1 Territorial Baloth
-1 Territorial Boar
-1 Thundering Wurm
-1 Treeguard Duo
-1 Trenchpost
-1 Tropical Storm
-1 Turtle Lair
-1 Verdant Catacombs
-1 Wild Wanderer
-1 Yavimaya Granger
+[deck:commander midrange W #20266057]
+1 Aether Shockwave
+1 Affa Guard Hound
+1 Alabaster Mage
+1 Alaborn Musketeer
+1 Argivian Blacksmith
+1 Banishing Stroke
+1 Benalish Infantry
+1 Bladed Ambassador
+1 Blaze of Glory
+1 Blood of the Martyr
+1 Burst of Energy
+1 Captivating Unicorn
+1 Country Roads
+1 Death Speakers
+1 Enter the Avatar State
+1 Everybody Lives!
+1 Field Surgeon
+1 Flicker
+1 Foot Soldiers
+1 Foriysian Interceptor
+1 Goldmeadow Dodger
+1 Great Defender
+1 Guardian Angel
+1 Hope and Glory
+1 Icatian Skirmishers
+1 Ivory Charm
+1 Keen-Eyed Archers
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Kitsune Riftwalker
+1 Kjeldoran Escort
+1 Knight Errant
+1 Knights of Thorn
+1 Loxodon Convert
+1 Makindi Ox
+1 Makindi Stampede
+1 Martyrs of Korlis
+1 Mending Hands
+1 Mounted Archers
+1 Order of the Golden Cricket
+1 Peacekeeper
+34 Plains
+1 Purelace
+1 Redeem
+1 Repentant Blacksmith
+1 Reverse Damage
+1 Rhox Pikemaster
+1 Rumbling Sentry
+1 Sacred Knight
+1 Saltfield Recluse
+1 Sandstone Bridge
+1 Scapegoat
+1 Sejiri Shelter
+1 Serra Paladin
+1 Shefet Dunes
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Siegecraft
+1 Sokka, Wolf Cove's Protector
+1 Split-Tail Miko
+1 The Fair Basilica
+1 Thriving Heath
+1 Tributary Vaulter
+1 Veteran Bodyguard
+1 Vivid Meadow
+1 Warning
 
 [commander]
-Kodama of the North Tree
+Hawkeye, Clint Barton

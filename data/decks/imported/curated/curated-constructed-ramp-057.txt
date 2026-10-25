@@ -1,20 +1,21 @@
 # baylee curated constructed ramp seed=20261080
 # licence: AGPL-3.0-only
 [deck:constructed ramp UG #20261080]
-2 Alchemist's Refuge
-4 Avacyn's Collar
-4 Drowner of Hope
-2 Elvish Farmer
-11 Forest
-3 Gilded Goose
-3 Island
-2 Kitchen
-3 Lumberknot
-1 Pentavus
-2 Primeval Bounty
-4 Slayer's Plate
-4 Spawning Pit
-4 Thopter Squadron
-4 Trading Post
-3 Tropical Island
-4 Waterlogged Grove
+4 Ancestral Vision
+1 Barkchannel Pathway
+3 Breeding Pool
+2 Forest
+1 Guardian of Solitude
+13 Island
+4 Jin-Gitaxias, Progress Tyrant
+2 Miscalculation
+4 Opt
+4 Orbweaver Kumo
+2 Path of Annihilation
+4 Prescient Chimera
+3 Stymied Hopes
+4 Tangleroot
+3 Tidespout Tyrant
+2 Waterlogged Grove
+2 Willowrush Verge
+2 Yavimaya Coast

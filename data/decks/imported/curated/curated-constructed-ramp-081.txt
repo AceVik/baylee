@@ -1,18 +1,18 @@
 # baylee curated constructed ramp seed=20261104
 # licence: AGPL-3.0-only
 [deck:constructed ramp R #20261104]
-3 Aladdin's Ring
-2 Avacyn's Collar
-4 Bag End Banquet
-1 Fogwell's Gym
-2 Glaring Fleshraker
-3 Legion Extruder
-19 Mountain
-4 Pashalik Mons
-1 Pentavus
-4 Ramunap Ruins
-4 Retrofitter Foundry
-1 Rockface Village
-4 Siege-Gang Commander
-4 Spawning Pit
-4 Trading Post
+4 Aether Sting
+3 Dragon's Rage Channeler
+2 Ember Shot
+4 Firebrand Archer
+4 Furious Bellow
+3 Hammerheim
+3 Iron Man, Tony Stark
+21 Mountain
+1 Ramunap Ruins
+2 Rite of the Dragoncaller
+2 Scouring Sands
+1 Spellshock
+4 Titan's Strength
+4 Weaver of Lightning
+2 Zuko, Avatar Hunter

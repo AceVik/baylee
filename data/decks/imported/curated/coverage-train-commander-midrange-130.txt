@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266131]
+1 Adarkar Wastes
+1 Alexi's Cloak
+1 Altar's Light
+1 Angelic Shield
+1 Animate Wall
+1 Asha's Favor
+1 Aura Thief
+1 Back to Basics
+1 Battle Mastery
+1 Blind Phantasm
+1 Bonded Fetch
+1 Calciform Pools
+1 Cleansing Nova
+1 Cloak of Mists
+1 Cloudcrest Lake
+1 Consecrate Land
+1 Dark Maze
+1 Dream Prowler
+1 Dream Stalker
+1 Farewell
+1 Flash Flood
+1 Fleeting Image
+1 Fortified Rampart
+1 Glacial Wall
+1 Glare of Heresy
+1 Gleaming Bastion
+1 Glorious Anthem
+1 Great Wall
+1 Green Ward
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Holy Mantle
+1 Hover Barrier
+1 Idyllic Beachfront
+14 Island
+1 Krovikan Mist
+1 Lake-town
+1 Land Cap
+1 Mageta's Boon
+1 Merfolk Assassin
+1 Might of the Ancestors
+1 Mirozel
+1 Mistfolk
+1 Mystic Gate
+1 Nimbus Maze
+1 Nivix Barrier
+1 Noble Steeds
+1 Phantasmal Forces
+1 Phantasmal Image
+1 Phantasmal Mount
+11 Plains
+1 Prahv, Spires of Order
+1 Pulsating Illusion
+1 Rune-Sealed Wall
+1 Safeguard
+1 Seeker
+1 Shimmering Wings
+1 Siegecraft
+1 Skycloud Expanse
+1 Snow Devil
+1 Somnophore
+1 Sun Clasp
+1 Sunweb
+1 Swift Reconfiguration
+1 Terra Eternal
+1 Thalakos Lowlands
+1 Theorist's Proxy
+1 Thirst
+1 Thunder Wall
+1 Tundra
+1 Vigilance
+1 Walking Dream
+1 Wall of Denial
+1 Wall of Swords
+1 Wall of Tears
+1 Warded Battlements
+
+[commander]
+Tobias Andrion

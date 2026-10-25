@@ -1,0 +1,28 @@
+# baylee synergistic holdout coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UBG #90010018]
+3 A.I.M. Labs
+2 Ashiok's Skulker
+2 Aven Fleetwing
+2 Caller of Gales
+2 Darkwater Egg
+2 Deny Entry
+2 Drakewing Krasis
+4 Duskmantle, House of Shadow
+2 Fiend Artisan
+1 Foreboding Landscape
+9 Forest
+4 Island
+2 Jwari Scuttler
+2 Kiora's Follower
+2 Legerdemain
+2 Noxious Dragon
+1 Opulent Palace
+2 Reminisce
+2 Skywinder Drake
+2 Swamp
+2 Thalakos Dreamsower
+2 Vesuvan Doppelganger
+2 Wall of Mist
+2 Waterspout Djinn
+2 Withering Boon

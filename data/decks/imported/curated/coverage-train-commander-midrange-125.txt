@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266126]
-1 Acid Web Spider
-1 Aysen Abbey
-1 Basalt Monolith
-1 Bountiful Promenade
-1 Calciform Pools
-1 Clairvoyance
-1 Corridor Monitor
-1 Craw Giant
-1 Dark Sphere
-1 Delighted Halfling
-1 Despotic Scepter
-1 Dispeller's Capsule
-1 Dragonborn Looter
-1 Dromoka Monument
-1 Faerie Mastermind
-1 Feroz's Ban
-1 Firdoch Core
-1 Fledgling Griffin
-5 Forest
-1 Gale Swooper
-1 Gathering Place
-1 Glowing Anemone
-1 Gulf Squid
-1 Gyre Engineer
-1 Heal
-1 Herd Gnarr
-1 High Tide
-1 Honor-Worn Shaku
-1 Illvoi Galeblade
-1 Irrigation Ditch
-15 Island
-1 Jadecraft Artisan
-1 Library Larcenist
-1 Looter il-Kor
-1 Lush Oasis
-1 Majestic Metamorphosis
-1 Marshdrinker Giant
-1 Mechan Navigator
-1 Mightstone's Animation
-1 Moss Diamond
-1 Mystic Gate
-1 Nimbus Maze
-1 Obelisk of Bant
-1 Ondu Greathorn
-1 Padeem, Consul of Innovation
-1 Patriar's Seal
-1 Pestermite
-3 Plains
-1 Predator, Flagship
-1 Razortide Bridge
-1 Rebuild
-1 Scepter of Insight
-1 Scion of Oona
-1 Sea Scryer
-1 Seaside Citadel
-1 Selesnya Keyrune
-1 Senate Griffin
-1 Silvergill Peddler
-1 Simic Keyrune
-1 Soratami Cloudskater
-1 Spara's Headquarters
-1 Spinning Wheel
-1 Stock Up
-1 Sure-Footed Infiltrator
-1 Symbol of Unsummoning
-1 Temple of Enlightenment
-1 Territorial Baloth
-1 Thalakos Lowlands
-1 Thundering Tanadon
-1 Tranquil Landscape
-1 Treva's Ruins
-1 Turbulent Wilderness
-1 Tymora's Invoker
-1 Uktabi Faerie
-1 Undersea Invader
-1 Urban Retreat
-1 Vedalken Heretic
-1 Vodalian Arcanist
-1 Wakandan Drone Flock
+[deck:commander midrange BG #20266126]
+1 Abyssal Gatekeeper
+1 Arcbound Ravager
+1 Aspect of Wolf
+1 Bayou
+1 Black Dragon Gate
+1 Blanket of Night
+1 Bogstomper
+1 Burrowing Razormaw
+1 Call of the Wild
+1 Chains of Mephistopheles
+1 Darkbore Pathway
+1 Darkest Hour
+1 Daxos's Torment
+1 Deathgrip
+1 Disease Carriers
+1 Downdraft
+1 Drainpipe Vermin
+1 Entangling Vines
+1 Evil Presence
+1 Fallen Angel
+1 Festering Gulch
+10 Forest
+1 Foul Orchard
+1 Gaea's Anthem
+1 Giant Warthog
+1 Gloom
+1 Grim Backwoods
+1 Insidious Bookworms
+1 Jolrael's Favor
+1 Lifegift
+1 Llanowar Wastes
+1 Lotleth Troll
+1 Marsh Lurker
+1 Melancholy
+1 Mindslicer
+1 Molder Beast
+1 Moldering Karok
+1 Mortal Wound
+1 Moss Kami
+1 Necrogen Mists
+1 Nurturing Peatland
+1 Oblivion Crown
+1 Oubliette
+1 Overgrown Tomb
+1 Quagmire Druid
+1 Ravenous Baloth
+1 Ravenous Daggertooth
+1 Root Cage
+1 Root Maze
+1 Roots of Life
+1 Rootwater Alligator
+1 Sacred White Deer
+1 Scrounger of Souls
+1 Season of the Witch
+1 Shopkeeper's Bane
+1 Skull of Orm
+1 Song of Serenity
+1 Spirit of the Night
+1 Spitting Spider
+1 Starved Rusalka
+1 Storm Front
+1 Strands of Undeath
+1 Sultai Flayer
+1 Svogthos, the Restless Tomb
+15 Swamp
+1 Tarpan
+1 Tel-Jilad Lifebreather
+1 Tranquil Grove
+1 Twilight Mire
+1 Uktabi Wildcats
+1 Undergrowth Stadium
+1 Underworld Connections
+1 Urborg Panther
+1 Viridescent Bog
+1 Wastewood Verge
+1 Witch's Cottage
 
 [commander]
-Rubinia Soulsinger
+Rhys the Exiled

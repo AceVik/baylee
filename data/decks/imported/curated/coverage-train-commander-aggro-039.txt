@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UR #20266040]
+1 A.I.M. Bot
+1 A.I.M. Synthoids
+1 Artifact Blast
+1 Ashnod's Transmogrant
+1 Aven Envoy
+1 Baron, Airship Kingdom
+1 Bigfin Bouncer
+1 Bloodrage Brawler
+1 Bone Saw
+1 Caldera Lake
+1 Cerulean Wyvern
+1 Coastal Drake
+1 Coastal Peak
+1 Craterize
+1 Dark Maze
+1 Dream Stalker
+1 Envelop
+1 Eroded Canyon
+1 Escaped Experiment
+1 Esperzoa
+1 Exocomp
+1 Fists of the Anvil
+1 Flash Flood
+1 Fleeting Image
+1 Frantic Confrontation
+1 Frostboil Snarl
+1 Gilded Drake
+1 Glimmerbell
+1 Glowing Anemone
+1 Grindclock
+1 Gulf Squid
+1 Horizon Drake
+1 Hydroblast
+1 Hydroelectric Specimen
+1 Iceridge Serpent
+1 Indigo Faerie
+1 Iron Bully
+18 Island
+1 Levitating Statue
+1 Lightning Stormkin
+1 Mechan Navigator
+1 Miscast
+6 Mountain
+1 Nebelgast Herald
+1 Oboro Breezecaller
+1 Pedal to the Metal
+1 Piracy Charm
+1 Ruinous Gremlin
+1 Salivating Gremlins
+1 Scrapskin Drake
+1 Sea Eagle
+1 Sea Kings' Blessing
+1 Sea Sprite
+1 Shore Keeper
+1 Shriekgeist
+1 Silverbluff Bridge
+1 Skyline Predator
+1 Skyshroud Condor
+1 Spindrift Drake
+1 Stark Industries
+1 Subtlety
+1 Sunder from Within
+1 Surge Node
+1 Surtland Frostpyre
+1 TCRI Building
+1 Temple of Epiphany
+1 Timid Drake
+1 Tolarian Drake
+1 Training Center
+1 Turbulent Springs
+1 Volatile Fjord
+1 Volcanic Upheaval
+1 Wandering Fumarole
+1 Wind Dancer
+1 Yarok's Wavecrasher
+1 Zephyr Gull
+1 Zephyr Sprite
+
+[commander]
+Tony Stark

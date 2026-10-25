@@ -1,75 +1,72 @@
 # baylee curated commander midrange seed=20261076
 # licence: AGPL-3.0-only
 [deck:commander midrange R #20261076]
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Birthing Boughs
-1 Blood Petal Celebrant
-1 Blood Servitor
-1 Chromatic Star
-1 Diamond Kaleidoscope
-1 Dori, Bearer of Friends
-1 Dragon Egg
-1 Enatu Golem
-1 Falkenrath Celebrants
-1 Filigree Crawler
-1 Flick a Coin
+1 Akki Rockspeaker
+1 Beetleback Chief
+1 Dismissive Pyromancer
+1 Dragon Trainer
+1 Elder Auntie
+1 Firefist Adept
+1 Fogwell's Gym
+1 Forge Devil
+1 Foundry Street Denizen
 1 Ghirapur Gearcrafter
-1 Gilded Pinions
-1 Gimli of the Glittering Caves
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
+1 Ghitu Slinger
+1 Goblin Arsonist
+1 Goblin Commando
 1 Goblin Engineer
-1 Goblin Warrens
-1 Gold Pan
-1 Goldvein Pick
-1 Great Furnace
+1 Goblin Gang Leader
+1 Goblin Instigator
+1 Goblin Recruiter
+1 Goblin Settler
 1 Gremlin Infestation
 1 Hammerheim
-1 Hanweir Battlements
 1 Hearthcage Giant
 1 Hellion Crucible
+1 Imperial Recruiter
 1 Iron Man, Tony Stark
-1 Junktown
+1 Kamahl, Pit Fighter
 1 Keldon Necropolis
-1 Kher Keep
-1 Kiora of Fire and Ashes
+1 Kruin Striker
 1 Legion Extruder
-1 Magnifying Glass
-31 Mountain
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
+1 Mana Crypt
+1 Manic Vandal
+1 Mogg Bombers
+34 Mountain
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
+1 Murasa Pyromancer
+1 Nebula Dragon
+1 Orcish Cannonade
 1 Orochi Hatchery
 1 Pashalik Mons
 1 Pia and Kiran Nalaar
-1 Piggy Bank
-1 Prying Blade
+1 Pia, Determined Rebuilder
+1 Priest of Urabrask
+1 Pyrite Spellbomb
 1 Ramunap Ruins
-1 Retrofitter Foundry
-1 Rukh Egg
-1 Scrap Trawler
-1 Shivan Gorge
+1 Reckless Fireweaver
+1 Reckless Lackey
+1 Redcap Thief
+1 Sardian Avenger
+1 Sell-Sword Brute
+1 Shinka, the Bloodsoaked Keep
+1 Shocking Sharpshooter
 1 Siege-Gang Commander
-1 Skullclamp
-1 Slash, Reptile Rampager
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Sparring Construct
-1 Spawning Pit
-1 Sylvok Lifestaff
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Tooth and Claw
-1 Trading Post
-1 Treasure Map
+1 Skirk Prospector
+1 Skirsdag Cultist
+1 Sparkmage Apprentice
+1 Storm Caller
+1 Subterranean Scout
+1 Treetop Freedom Fighters
+1 Tuktuk Grunts
+1 Tuktuk Scrapper
 1 Underfoot Underdogs
 1 Voldaren Epicure
-1 Walking Ballista
-1 Wand of the Elements
+1 Volley Veteran
+1 Weaponize the Monsters
+1 Wily Goblin
+1 Zo-Zu the Punisher
 
 [commander]
 The Whizzer, Classic Speedster

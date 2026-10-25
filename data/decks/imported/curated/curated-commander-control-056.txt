@@ -1,72 +1,70 @@
 # baylee curated commander control seed=20261079
 # licence: AGPL-3.0-only
 [deck:commander control W #20261079]
-1 Allied Teamwork
+1 Academy Rector
+1 Aeronaut Cavalry
 1 Ancient Den
-1 Arahbo, the First Fang
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Bishop of Wings
-1 Blade Splicer
-1 Captain of the Watch
-1 Cartouche of Solidarity
+1 April O'Neil, Kunoichi Trainee
+1 Arashin Cleric
+1 Aven Battle Priest
+1 Blighted Steppe
+1 Bulwark Giant
+1 Cathedral Sanctifier
+1 Clarion Cathars
+1 Court Street Denizen
+1 Crowd Favorites
 1 Daru Encampment
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Dowsing Dagger
-1 Eiganjo, Seat of the Empire
-1 Elgaud Inquisitor
-1 Elspeth, Storm Slayer
-1 Field of Souls
-1 Filigree Crawler
+1 Devout Lightcaster
+1 Drogskol Cavalry
+1 Extraction Specialist
+1 Favored of Iroas
 1 Flagstones of Trokair
-1 Fortifying Provisions
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Griffin Guide
-1 Guarded Heir
+1 Glider Kids
 1 Hall of Heliod's Generosity
-1 Haunted Library
-1 Hunted Witness
-1 Karakas
-1 Knight of Doves
+1 Healer of the Pride
+1 Helpful Hunter
+1 Impassioned Orator
+1 Invasion Reinforcements
+1 Ironclad Slayer
+1 Jedit's Dragoons
+1 Kazandu Blademaster
 1 Knight-Captain of Eos
-1 Knightly Valor
 1 Kor Haven
-1 Lupinflower Village
-1 Magnifying Glass
-1 Master Splicer
-1 Mausoleum Guard
-1 Mobilization
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Nomad Stadium
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Omen of the Sun
-1 Orochi Hatchery
-1 Pentavus
-34 Plains
-1 Prying Blade
-1 Regal Caracal
-1 Requiem Angel
-1 Retrofitter Foundry
+1 Kyoshi Warriors
+1 Leonin Elder
+1 Loran of the Third Path
+1 Loran, Disciple of History
+1 Lossarnach Captain
+1 Palace Jailer
+1 Pillardrop Rescuer
+36 Plains
+1 Radiant's Dragoons
+1 Ramosian Lieutenant
+1 Savannah Sage
 1 Sensor Splicer
-1 Siege Veteran
-1 Slayer's Plate
-1 Spawning Pit
-1 Squire's Devotion
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
-1 Wand of the Elements
+1 Settlement Blacksmith
+1 Shefet Dunes
+1 Shu Grain Caravan
+1 Shu Soldier-Farmers
+1 Slumbering Keepguard
+1 Soul Warden
+1 Soul's Attendant
+1 Staunch Defenders
+1 Subjugator Angel
+1 Sunblast Angel
+1 Temple Acolyte
+1 Tenth District Guard
+1 Teroh's Faithful
+1 Thraben Inspector
+1 Tireless Missionaries
+1 Tivadar of Thorn
+1 Treasure Hunter
+1 Venerable Monk
+1 Wall of Omens
+1 War Priest of Thune
+1 Witch Enchanter
+1 Zhalfirin Lancer
+1 Zuran Orb
 
 [commander]
 Nighthawk, Dark Defender

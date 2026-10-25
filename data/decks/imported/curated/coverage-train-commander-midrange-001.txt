@@ -1,87 +1,85 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266002]
-1 Aragorn, the Uniter
-1 Battlefield Forge
-1 Bequeathal
-1 Bitterbloom Bearer
-1 Bitterblossom
-1 Blazemire Verge
-1 Bleachbone Verge
+1 Altac Bloodseeker
+1 Ancestors' Aid
+1 Angel's Herald
+1 Atzocan Seer
+1 Blighted Shaman
 1 Blood Rites
-1 Bloodshot Cyclops
-1 Brazen Freebooter
-1 Choco-Comet
-1 Commissar Severina Raine
-1 Contested Cliffs
-1 Creeping Tar Pit
+1 Brine Shaman
+1 Butterbur, Bree Innkeeper
+1 Cirith Ungol Patrol
 1 Crystal Quarry
-1 Dark Prophecy
-1 Daysquad Marshal
-1 Deadapult
-1 Decomposition
-1 Delusions of Mediocrity
-1 Dimension X
-1 Dragon Trainer
-1 Elturgard Ranger
+1 Cunning Maneuver
+1 Dai Li Censor
+1 Demon's Herald
+1 Dimir Guildgate
+1 Dragonback Assault
 1 Embraal Gear-Smasher
 1 Fable of the Mirror-Breaker
-1 Fell the Pheasant
-1 Fetid Pools
-1 Fields of Strife
-1 Fire Nation Archers
-1 Flamewright
-3 Forest
+1 Failed Conversion
+1 Fault Riders
+7 Forest
+1 Fortified Village
+1 Foul Play
+1 Ghen, Arcanum Weaver
+1 Go-Shintai of Life's Origin
 1 Goblin Shrine
-1 Grim Feast
+1 Goblin Trenches
+1 Golgari Germination
+1 Grisly Ritual
+1 Grist, the Hunger Tide
 1 Hazezon Tamar
-1 Hissing Quagmire
 1 Huntmaster of the Fells
+1 Immersturm Skullcairn
 1 Inquisitor Greyfax
 1 Intruding Soulrager
-1 Invasion Reinforcements
-2 Island
-1 Jund Battlemage
+3 Island
+1 Knight Watch
 1 Kykar, Wind's Fury
-1 Kyoshi Warriors
-1 Lake-town Lookout
-1 Last Laugh
-1 Launch
-1 Library
-1 Locthwain Lancer
-1 Lotus-Eye Mystics
-1 Madame Hydra
-1 Maelstrom Wanderer
-1 Midnight Entourage
-1 Mirkwood
-1 Misery Charm
-1 Moldervine Reclamation
-1 Mount Doom
+1 Long Feng, Grand Secretariat
+1 Lorehold Campus
+1 Lossarnach Captain
+1 Luke Cage, Hero for Hire
+1 Magus of the Order
+1 Mistvault Bridge
 9 Mountain
-1 Murasa Pyromancer
-1 Omnath, Locus of Creation
-3 Plains
-1 Rinoa Heartilly
-1 Sell-Sword Brute
-1 Seller of Songbirds
-1 Sidequest: Catch a Fish
-1 Sinister Hideout
-1 Sluggishness
-1 Snake Pit
-1 Spawning Breath
+1 Mouser Attack!
+1 Need for Speed
+1 Neglected Manor
+1 Obsessive Stitcher
+1 Odric's Outrider
+1 Ogre Slumlord
+1 Ominous Asylum
+1 Phyrexian Vivisector
+1 Plains
+1 Professor Zei, Anthropologist
+1 Rakka Mar
+1 Reckless Ransacking
+1 Reliquary Monk
+1 Restless Vinestalk
+1 Revel of the Fallen God
+1 Revive the Shire
+1 Ripchain Razorkin
+1 Ritual of Restoration
+1 Savor
+1 Seachrome Coast
+1 Selhoff Occultist
+1 Serpent's Pass
+1 Servo Exhibition
+1 Sokka's Sword Training
+1 Sokka, Tenacious Tactician
 1 Storm God's Oracle
-1 Sunbillow Verge
-6 Swamp
+5 Swamp
+1 The Serpent Society
 1 The World Tree
-1 Trail of Evidence
-1 Treetop Freedom Fighters
-1 Tura Kennerüd, Skyknight
-1 Turbulent Steppe
-1 Undead Augur
-1 Underworld Coinsmith
-1 Urborg Panther
-1 Wakandan Shield Guard
-1 Weaponize the Monsters
+1 Thelonite Druid
+1 Tooth and Claw
+1 Troubled Healer
+1 Vineglimmer Snarl
+1 Volatile Fjord
+1 Wandering Fumarole
 
 [commander]
 Sliver Queen

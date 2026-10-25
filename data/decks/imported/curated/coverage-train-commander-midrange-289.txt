@@ -1,75 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20266290]
-1 Aim High
-1 Bee Sting
-1 Blor the Impervious
-1 Blossoming Defense
-1 Cactus Preserve
-1 Cat Warriors
-1 Centaur Courser
-1 Centaur Veteran
-1 Chorus of Might
-1 Cloudpost
-1 Coral Helm
-1 Dawn's Light Archer
-1 Elite Cat Warrior
-1 Fanatical Fever
-1 Feral Ferocity
-31 Forest
-1 Forsaken Crossroads
-1 Ghastbark Twins
-1 Gift of Strength
-1 Giltgrove Stalker
-1 Gladecover Scout
-1 Grasslands
-1 Grizzled Outrider
-1 Harrier Naga
-1 Imi Statue
-1 Legolas's Quick Reflexes
-1 Malamet Brawler
-1 Massive Might
-1 Might of the Masses
-1 Mirage Mesa
-1 Mortal's Resolve
-1 Murasa Brute
-1 Muscle Burst
-1 Myriad Landscape
-1 Nacatl Savage
-1 Nettletooth Djinn
-1 Night Market
-1 Panther Warriors
-1 Pheres-Band Centaurs
-1 Pheres-Band Warchief
-1 Predator's Strike
-1 Quirion Druid
-1 Resuscitate
-1 Shimmerdrift Vale
-1 Silhana Ledgewalker
-1 Silk Net
-1 Skyshroud Archer
-1 Spidery Grasp
-1 Staggering Size
-1 Static Orb
-1 Steady Aim
-1 Strength of Cedars
-1 Swordwise Centaur
-1 Sylvan Paradise
-1 Tajuru Pathwarden
-1 Tel-Jilad Exile
-1 Tel-Jilad Outrider
-1 Transguild Promenade
-1 Tread Upon
-1 Treetop Warden
-1 Tsunami
-1 Unnatural Predation
-1 Unyaro Bee Sting
-1 War Chariot
-1 Warren-Scourge Elf
-1 Warriors of Wakanda
-1 Weatherseed Elf
-1 Whirlwind
+[deck:commander midrange BRG #20266290]
+1 Alpine Grizzly
+1 Ambush
+1 Arlinn's Wolf
+1 Ashcoat Bear
+1 Balduvian Bears
+1 Bear Cub
+1 Blazing Specter
+1 Bounding Wolf
+1 Bristlepack Sentry
+1 Brushstrider
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Darigaaz's Caldera
+1 Darkthicket Wolf
+1 Dire Fleet Captain
+1 Dire Wolves
+1 Discordant Spirit
+1 Erstwhile Trooper
+1 Fangren Hunter
+1 Firefly
+1 Flailing Drake
+1 Flowstone Shambler
+13 Forest
+1 Gangly Stompling
+1 Geothermal Crevice
+1 Gilacorn
+1 Gravel-Hide Goblin
+1 Grizzly Ghoul
+1 Havoc Devils
+1 Indicate
+1 Ivy Elemental
+1 Keldon Mantle
+1 Kessig Wolf
+1 Koskun Keep
+1 Kyscu Drake
+1 Large Bear
+1 Lurker
+1 Lurking Green Dragon
+1 Mizzix's Mastery
+1 Mogg Hollows
+1 Moldering Karok
+1 Molten Slagheap
+1 Moopsy
+1 Mossfire Valley
+5 Mountain
+1 Noxious Groodion
+1 Pale Bears
+1 Pestilent Wolf
+1 Putrid Leech
+1 Quilled Wolf
+1 Rakdos Ragemutt
+1 Rakshasa Deathdealer
+1 Ruination Wurm
+1 Sacred Wolf
+1 Savage Lands
+1 Shambling Strider
+1 Skarrg, the Rage Pits
+1 Stampeding Wildebeests
+1 Stensia Bloodhall
+1 Stone-Throwing Devils
+7 Swamp
+1 Taiga
+1 Thornhide Wolves
+1 Trench Wurm
+1 Twisted Landscape
+1 Ulrich's Kindred
+1 Viashino Slaughtermaster
+1 Viashivan Dragon
+1 Vigilant Baloth
+1 Wall of Vines
+1 Wastewood Verge
+1 Whippoorwill
+1 Windreaper Falcon
 1 Wolfir Avenger
+1 Wyluli Wolf
+1 Young Wolf
+1 Ziatora's Proving Ground
 
 [commander]
-Thrun, Breaker of Silence
+Sek'Kuar, Deathkeeper

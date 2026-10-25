@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266160]
+1 Adventuring Gear
+1 Aether Shockwave
+1 Akroan Mastiff
+1 Amrou Seekers
+1 Arctic Foxes
+1 Auratog
+1 Benevolent Ancestor
+1 Blade of the Sixth Pride
+1 Blinking Spirit
+1 Burst of Energy
+1 Camel
+1 Candelabra of Tawnos
+1 Dazzling Ramparts
+1 Devilthorn Fox
+1 Elvish Healer
+1 Everybody Lives!
+1 Eye of Ugin
+1 Fan Bearer
+1 Festival
+1 Flutterfox
+1 Galvanic Key
+1 Gargoyle Castle
+1 Ghost Warden
+1 Gorgon's Head
+1 Graceful Cat
+1 Guildmages' Forum
+1 Hivestone
+1 Honed Khopesh
+1 Interplanar Beacon
+1 Jabari's Banner
+1 Kami of False Hope
+1 Keen-Eyed Archers
+1 Kinsbaile Cavalier
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Kitsune Riftwalker
+1 Lazotep Quarry
+1 Library of Leng
+1 Loxodon Anchorite
+1 Loxodon Wayfarer
+1 Maned Serval
+1 Order of the Golden Cricket
+1 Orthodoxy Enforcer
+1 Pearled Unicorn
+1 Peregrine Mask
+32 Plains
+1 Purelace
+1 Regal Bunnicorn
+1 Regal Unicorn
+1 Resplendent Mentor
+1 Sanctuary Cat
+1 Savai Sabertooth
+1 Scapegoat
+1 Shuko
+1 Silverskin Armor
+1 Skateboard
+1 Snow Hound
+1 Soltari Monk
+1 Split-Tail Miko
+1 Tarnished Citadel
+1 Tasseled Dromedary
+1 Thistledown Players
+1 Those Who Serve
+1 Thraben Purebloods
+1 Trenching Steed
+1 Tundra Wall
+1 Wall of Caltrops
+1 Wall of Faith
+
+[commander]
+Isamaru, Hound of Konda

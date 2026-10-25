@@ -1,73 +1,84 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp U #20266161]
-1 Abjure
-1 Aboshan, Cephalid Emperor
-1 Astrolabe
-1 Avishkar Raceway
-1 Benthic Behemoth
-1 Bigfin Bouncer
-1 Blue Elemental Blast
-1 Bonded Fetch
-1 Breaching Hippocamp
-1 Clash of Wills
-1 Cloud Dragon
-1 Commander's Sphere
-1 Consult the Star Charts
-1 Deep-Sea Serpent
-1 Demolition Field
-1 Djinn of the Lamp
-1 Dream Stalker
-1 Encase in Ice
-1 Ensoul Artifact
-1 Ephemeron
-1 Erosion
-1 Esper Panorama
-1 Five Hundred Year Diary
-1 Flood
-1 Fomori Vault
-1 Forget
-1 Frilled Sea Serpent
-1 Giant Shark
-33 Island
-1 Island Fish Jasconius
-1 Karn, the Great Creator
-1 Leave in the Dust
-1 Leviathan
-1 Mage's Guile
-1 Micromancer
-1 Minor Misstep
-1 Mishra's Foundry
-1 Murmuring Volume
-1 Network Terminal
-1 Octoprophet
-1 Phantasmal Terrain
-1 Planar Nexus
-1 Ronom Serpent
-1 Scorched Ruins
-1 Sea Monster
-1 Sea Serpent
-1 Sensory Deprivation
-1 Shore Keeper
-1 Soliton
-1 Spellseeker
-1 Spiketail Drake
-1 Startling Development
-1 Steel Sabotage
-1 Surrakar Banisher
-1 The Gold Saucer
-1 Thing from the Deep
-1 Thrór's Map
-1 Tidal Flats
-1 Tolarian Winds
-1 Touch of Invisibility
-1 Unstable Shapeshifter
-1 Updraft
-1 Verdant Catacombs
-1 Vision Skeins
-1 Vizzerdrix
-1 Watchful Automaton
-1 Zephid
+[deck:commander ramp WUBRG #20266161]
+1 Adult Gold Dragon
+1 An-Havva Township
+1 Anthem of Champions
+1 Bountiful Landscape
+1 Ceta Disciple
+1 Clout of the Dominus
+1 Contraband Kingpin
+1 Crackling Triton
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Curse of Chains
+1 Darigaaz's Caldera
+1 Deceptive Landscape
+1 Dragonback Assault
+1 Dromar's Cavern
+1 Druid of the Anima
+1 Duskwatch Hunter
+1 Elemental Augury
+1 Favor of the Overbeing
+7 Forest
+1 Glasswing Grace
+1 Grove Rumbler
+1 Gruul War Chant
+1 Ignoble Hierarch
+5 Island
+1 Jeskai Shrinekeeper
+1 Keldon Mantle
+1 Kjeldoran Pride
+1 Knotvine Mystic
+1 Koskun Keep
+1 Leafdrake Roost
+1 Magefire Wings
+1 Merfolk of the Depths
+1 Morgue Toad
+3 Mountain
+1 Narset's Rebuke
+1 Natural Emergence
+1 Nearby Planet
+1 Necra Disciple
+1 Nightscape Master
+1 Nucklavee
+1 Obelisk of Naya
+1 Obzedat's Aid
+1 Overgrown Estate
+1 Perilous Landscape
+4 Plains
+1 Primal Visitation
+1 Pursuit of Flight
+1 Razorfin Hunter
+1 Reckless Assault
+1 Rumbling Slum
+1 Runes of the Deus
+1 Sacellum Archers
+1 Sangrite Backlash
+1 Scaldkin
+1 Scourge of the Nobilis
+1 Seething Landscape
+1 Shadow Lance
+1 Shambling Strider
+1 Shattered Landscape
+1 Siege Rhino
+1 Skirmish Rhino
+1 Spectral Shield
+1 Storm the Vault
+7 Swamp
+1 Temur Ascendancy
+1 Temur Devotee
+1 The World Tree
+1 Timeless Lotus
+1 Torpor Dust
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Two-Headed Hellkite
+1 Vagrant Plowbeasts
+1 Whirlwind of Thought
+1 Wings of Hope
+1 Wizards' School
+1 Woodwraith Corrupter
 
 [commander]
-The Terror of Serpent's Pass
+Kenrith, the Returned King

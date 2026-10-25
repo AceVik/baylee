@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BRG #20266283]
+1 Angelic Armaments
+1 Army Ants
+1 Arrogant Vampire
+1 Barbed Battlegear
+1 Blightstep Pathway
+1 Brawler's Plate
+1 Chitinous Cloak
+1 Clickslither
+1 Cloak of the Bat
+1 Creakwood Liege
+1 Creeping Trailblazer
+1 Darigaaz's Caldera
+1 Darkbore Pathway
+1 Deadbridge Shaman
+1 Dire Fleet Neckbreaker
+1 Enatu Golem
+1 Evil Eye of Orms-by-Gore
+1 Excavator
+1 Falkenrath Reaver
+1 Fire-Lit Thicket
+1 Fireshrieker
+1 Foratog
+8 Forest
+1 Geothermal Crevice
+1 Giant Trap Door Spider
+1 Goblin Deathraiders
+1 Goliath Spider
+1 Hero's Heirloom
+1 Koskun Keep
+1 Lightning Greaves
+1 Lithatog
+1 Llanowar Wastes
+1 Lumbering Satyr
+1 Madrush Cyclops
+1 Mask of Avacyn
+1 Might Sliver
+7 Mountain
+1 No-Dachi
+1 Olivia's Dragoon
+1 Queen's Bay Soldier
+1 Riot Gear
+1 Rootwater Alligator
+1 Savage Lands
+1 Scarland Thrinax
+1 Scrapheap
+1 Screeching Buzzard
+1 Servant of Volrath
+1 Shadowspear
+1 Sharpened Pitchfork
+1 Short Sword
+1 Silver-Inlaid Dagger
+1 Silverskin Armor
+1 Skyshroud Vampire
+1 Snake Basket
+1 Stensia Bloodhall
+1 Strider Harness
+1 Stromkirk Captain
+1 Stronghold Taskmaster
+1 Sulfurous Springs
+10 Swamp
+1 Tainted Peak
+1 Tenza, Godo's Maul
+1 Thirsting Bloodlord
+1 Throatseeker
+1 Training Compound
+1 Twisted Landscape
+1 Uktabi Wildcats
+1 Vampire Aristocrat
+1 Vampire Hexmage
+1 Vanguard's Shield
+1 Vanquisher's Axe
+1 Veteran's Sidearm
+1 Vibranium Energy Daggers
+1 Vibrating Sphere
+1 Wand of the Elements
+1 Warlord's Axe
+1 Wastewood Verge
+1 Ziatora's Proving Ground

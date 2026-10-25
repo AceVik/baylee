@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange BG #20266044]
-1 Accelerated Evolution
-1 Aphelia, Viper Whisperer
-1 Ashiok's Reaper
-1 Bitterbloom Bearer
-1 Bitterblossom
-1 Bog Glider
-1 Briarbridge Tracker
-1 Carapace
-1 Centaur Glade
-1 Clinging Darkness
-1 Crosswinds
-1 Deathcap Glade
-1 Demonic Torment
-1 Deranged Outcast
-1 Dread of Night
-1 Duskwatch Hunter
-1 Elturgard Ranger
-1 Fanatic of Rhonas
-1 Feral Invocation
-1 Festering Thicket
-1 Fierce Witchstalker
-1 Foggy Bottom Swamp
-8 Forest
-1 Ghoulflesh
-1 Gilt-Leaf Palace
-1 Golgari Germination
-1 Greel's Caress
-1 Hidden Path
-1 Illegitimate Business
-1 Illness in the Ranks
-1 Lair of the Hydra
-1 Leshrac's Rite
-1 Liliana's Mastery
-1 Locthwain Lancer
-1 Long Feng, Grand Secretariat
-1 Lotleth Troll
-1 Many Partings
-1 Marsh Lurker
-1 Massacre Wurm
-1 Midnight Entourage
-1 Molting Snakeskin
-1 Morcant's Loyalist
-1 Moriok Rigger
-1 Necroblossom Snarl
-1 Nurturing Peatland
-1 Pawpatch Formation
-1 Pride of the Perfect
-1 Primal Frenzy
-1 Ravenous Harpy
-1 Return from the Wilds
-1 Rootwater Alligator
-1 Rotwidow Pack
-1 Sifter of Skulls
-1 Sinister Strength
-1 Skeletal Grimace
-1 Skemfar Elderhall
-1 Snake Pit
-1 Spike Breeder
-1 Stamina
-1 Subterranean Cavern
-1 Sultai Runemark
+1 Abstergo Entertainment
+1 Anointed Deacon
+1 Avoid Fate
+1 Barbed-Back Wurm
+1 Blast Zone
+1 Bloodcurdling Scream
+1 Brokers Hideout
+1 Brushwagg
+1 Burrog Banemaker
+1 Carrion Howler
+1 Charging Bandits
+1 Conduit Pylons
+1 Creeping Corrosion
+1 Crux of Fate
+1 Damnation
+1 Darkthicket Wolf
+1 Dauthi Mercenary
+1 Dauthi Warlord
+1 Desolation Prowler
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Elvish Berserker
+1 Elvish Scout
+1 Embraal Bruiser
+1 Emergence Zone
+1 Erstwhile Trooper
+1 Extinguish All Hope
+1 Fanatical Fever
+1 Feral Roar
+1 Fleshgrafter
+1 Forced March
+10 Forest
+1 Gaea's Liege
+1 Gale Force
+1 Get a Leg Up
+1 Gravblade Heavy
+1 Great Hall of the Citadel
+1 Greenhilt Trainee
+1 Hidden Grotto
+1 Hunger of the Nim
+1 Jasmine Dragon Tea Shop
+1 Jumbo Cactuar
+1 Jungle Wurm
+1 Karn's Bastion
+1 Kithkin Daggerdare
+1 Larger Than Life
+1 Legolas's Quick Reflexes
+1 Mage-Ring Network
+1 Massive Might
+1 Mikokoro, Center of the Sea
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Monstrous Growth
+1 Nuclear Fallout
+1 Ornamental Courage
+1 Pestilence Rats
+1 Phytoburst
+1 Plague Rats
+1 Putrid Leech
+1 Sarkhan's Resolve
+1 Simian Brawler
+1 Skycoach Waypoint
+1 Sliver Hive
+1 Soulstone Sanctuary
+1 Staggering Size
+1 Stromgald Crusader
 15 Swamp
-1 Swarm of Bloodflies
-1 Syndicate Trafficker
-1 The Shire
-1 Timberland Ruins
-1 Torment
-1 Tourach's Gate
-1 Turbulent Fen
-1 Twilight Mire
-1 Unburied Earthcarver
-1 Underground Mortuary
-1 Village Cannibals
-1 Viridescent Bog
-1 Virulent Plague
-1 Vital Splicer
-1 Wastewood Verge
-1 Yawgmoth, Thran Physician
+1 Tendo Ice Bridge
+1 The Fallen
+1 Tyvar's Stand
+1 Vile Deacon
+1 Virtue's Ruin
+1 Wall of Blood
+1 Wei Ambush Force
+1 Wielding the Green Dragon
+1 Wit's End
 
 [commander]
-The Serpent Society
+Vhati il-Dal

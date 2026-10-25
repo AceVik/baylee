@@ -1,75 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266065]
-1 Adamant Will
-1 Advance Scout
-1 Adventurers' Guildhouse
-1 Alabaster Mage
-1 Alaborn Grenadier
-1 Alaborn Musketeer
-1 Alaborn Trooper
-1 Alert Shu Infantry
-1 Ardent Militia
-1 Argivian Blacksmith
-1 Aysen Bureaucrats
-1 Banishing Stroke
-1 Benalish Infantry
-1 Border Guard
-1 Border Patrol
-1 Clergy en-Vec
-1 Clergy of the Holy Nimbus
-1 Day of Destiny
-1 Death Speakers
-1 Defender of Law
-1 Enchanted Being
-1 Erode
-1 Field Surgeon
-1 Flanking Troops
-1 Fleet-Footed Monk
-1 Foot Soldiers
-1 Foriysian Brigade
-1 Foriysian Interceptor
-1 Haazda Shield Mate
-1 Haven of the Spirit Dragon
-1 Hope and Glory
-1 Icatian Infantry
-1 Icatian Skirmishers
-1 Inventors' Fair
-1 Ivory Charm
-1 Kjeldoran Escort
-1 Knight Errant
-1 Knights of Thorn
-1 Kyoshi Warrior Guard
-1 Loxodon Mender
-1 Maelstrom of the Spirit Dragon
-1 Martyrs of Korlis
-1 Master Apothecary
-1 Master Healer
-1 Midnight Duelist
-1 Mounted Archers
-1 Peacekeeper
-31 Plains
-1 Repentant Blacksmith
-1 Righteous Avengers
-1 Saltfield Recluse
-1 School of the Unseen
-1 Sea Gate Wreckage
-1 Shield Wall
-1 Shrine Keeper
-1 Shu Elite Infantry
-1 Shu Foot Soldiers
-1 Sokka, Wolf Cove's Protector
-1 Sterling Keykeeper
-1 Throne of the High City
-1 Trokin High Guard
-1 Valiant Guard
-1 Venerable Lammasu
-1 Veteran Bodyguard
-1 Veteran Cavalier
-1 Vibrant Cityscape
-1 Warning
-1 Winter Soldier, Bucky Barnes
-1 Zhalfirin Void
+[deck:commander midrange WUBRG #20266065]
+1 Aeronaut's Wings
+1 Agna Qel'a
+1 Archdemon of Paliano
+1 Argoth, Sanctum of Nature
+1 Assault Zeppelid
+1 Black Carriage
+1 Blazing Specter
+1 Bog Raiders
+1 Brokers Initiate
+1 Cabaretti Initiate
+1 Carnophage
+1 Castle Locthwain
+1 Crazed Skirge
+1 Cryptic Spires circles=WU
+1 Crystal Quarry
+1 Deathbringer Thoctar
+1 Defense Force Aggressor
+1 Deity of Scars
+1 Desert of the Mindful
+1 Drowned
+1 Eldrazi Devastator
+1 Expanded Anatomy
+11 Forest
+1 Forest Bear
+1 Foul Roads
+1 Foundry Screecher
+1 Frankenstein's Monster
+1 Geothermal Crevice
+1 Ghost Hounds
+1 Glimmering Angel
+1 Gloomhunter
+1 Grizzly Ghoul
+1 Iron-Shield Elf
+1 Jagwasp Swarm
+1 Kami of False Hope
+1 Kederekt Creeper
+1 Kelinore Bat
+1 Large Bear
+1 Leering Gargoyle
+1 Lightning Angel
+1 Lithatog
+1 Living Airship
+1 Magosi, the Waterveil
+1 Mortuary Mire
+1 Mossfire Egg
+1 Mtenda Lion
+1 Nameless Race
+1 Nearby Planet
+1 Nightwing Shade
+1 Obscura Initiate
+1 Phantatog
+1 Plated Seastrider
+1 Relic Sloth
+1 Riveteers Initiate
+1 Roofstalker Wight
+1 Rotting Regisaur
+1 Rune-Cervin Rider
+1 Sand Silos
+1 Slavering Nulls
+1 Snarling Warg
+1 Stoic Angel
+1 Sunstone
+14 Swamp
+1 Talisman of Creativity
+1 Talisman of Hierarchy
+1 Tattered Apparition
+1 Tattered Drake
+1 Thaumatog
+1 The Balrog of Moria
+1 The World Tree
+1 Tinder Farm
+1 Trenching Steed
+1 Venomthrope
+1 Volcano Imp
+1 Whipstitched Zombie
+1 Zanarkand, Ancient Metropolis
 
 [commander]
-Hawkeye, Clint Barton
+Kenrith, the Returned King

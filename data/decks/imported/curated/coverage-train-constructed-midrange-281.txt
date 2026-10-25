@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266282]
+2 Assault Zeppelid
+3 Aysen Abbey
+2 Burrowguard Mentor
+6 Forest
+2 Gaea's Skyfolk
+2 Holy Day
+2 Iron Tusk Elephant
+6 Island
+2 Jump
+2 Kavu Mauler
+2 Nimbus Swimmer
+2 Noble Elephant
+2 Pegasus Charger
+3 Plains
+2 Rune-Cervin Rider
+1 Seaside Citadel
+2 Setessan Griffin
+2 Shackles
+2 Spiked Baloth
+2 Stoic Angel
+3 Tranquil Landscape
+2 Treva's Ruins
+2 Venomthrope
+2 Wall of Denial
+2 Winged Coatl

@@ -1,85 +1,74 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro UR #20266274]
-1 Accelerate
-1 Ancestral Recall
-1 Balduvian Hydra
-1 Belligerent Whiptail
-1 Bloodcrazed Neonate
-1 Bloodfire Mentor
-1 Bloodrage Brawler
-1 Bonded Fetch
-1 Caldera Lake
-1 Cephalid Broker
-1 Control of the Court
-1 Crackling Triton
-1 Dinotomaton
-1 Dualcaster Mage
-1 Dwarven Armorer
-1 Dwarven Weaponsmith
-1 Electric Eel
-1 Erdwal Ripper
-1 Eroded Canyon
-1 Expedite
-1 Ferrous Lake
-1 Fiery Islet
-1 Forget
-1 Frontline War-Rager
-1 Insolent Neonate
-10 Island
-1 Izzet Boilerworks
-1 Izzet Guildgate
-1 Leap
-1 Library
-1 Library Larcenist
-1 Lord of Atlantis
-1 Mage's Guile
-1 Magus of the Wheel
-1 Markov Blademaster
-1 Minotaur Skullcleaver
-12 Mountain
-1 Mutant Town Musicians
-1 Noggle Bridgebreaker
-1 Open Communications
-1 Prosperity
-1 Pym Particles
-1 Rathi Dragon
-1 Razorfin Hunter
-1 Reach Through Mists
-1 Reclusive Artificer
-1 Ripscale Predator
-1 Riverpyre Verge
-1 Rock Hydra
-1 Rogue Skycaptain
-1 Romantic Rendezvous
-1 Rootwater Hunter
-1 Rubblebelt Boar
-1 Rummaging Goblin
-1 Salivating Gremlins
-1 Shadow Rift
-1 Shivan Devastator
-1 Shivan Reef
-1 Shocker
-1 Silvergill Peddler
-1 Slip Through Space
-1 Slith Firewalker
-1 Splatter Technique
-1 Stark Industries
-1 Stormcarved Coast
-1 Stormcloud Djinn
-1 Stromkirk Noble
-1 TCRI Building
-1 Temple of Epiphany
-1 Thieving Otter
-1 Tolarian Winds
-1 Training Center
-1 Turbulent Springs
-1 Updraft
-1 Vapor Snag
-1 Vision Skeins
-1 Wandering Fumarole
-1 Waxen Shapethief
-1 Wild Celebrants
+[deck:commander aggro W #20266274]
+1 Akroan Mastiff
+1 Alabaster Wall
+1 Amaranthine Wall
+1 Ashnod's Battle Gear
+1 Blighted Steppe
+1 Candelabra of Tawnos
+1 Chardalyn Dragon
+1 Coastal Bulwark
+1 Consulate Skygate
+1 Copper Gnomes
+1 Crenellated Wall
+1 Dazzling Ramparts
+1 Dragon Engine
+1 Endoskeleton
+1 Ersatz Gnomes
+1 Excavated Wall
+1 Feldon's Cane
+1 Flagstones of Trokair
+1 Floodwater Dam
+1 Fortified Rampart
+1 Galvanic Key
+1 Hall of Heliod's Generosity
+1 Haunted Guardian
+1 Helm of Chatzuk
+1 Honed Khopesh
+1 Iron Lance
+1 Jandor's Saddlebags
+1 Kor Haven
+1 Library of Leng
+1 Living Wall
+1 Lupinflower Village
+1 Manifold Key
+1 Mobile Fort
+1 Molten-Tail Masticore
+1 Necropolis
+1 Night Market Guard
+1 Nomad Stadium
+1 Pacification Array
+1 Patchwork Gnomes
+1 Patrol Hound
+1 Phyrexian Walker
+32 Plains
+1 Prowler's Helm
+1 Reinforced Bulwark
+1 Roterothopter
+1 Selfless Savior
+1 Shield of the Ages
+1 Skyshaper
+1 Snow Hound
+1 Sterling Hound
+1 Sunweb
+1 Suspicious Bookcase
+1 Thraben Purebloods
+1 Towering Viewpoint
+1 Tundra Wall
+1 Vial of Poison
+1 Walking Wall
+1 Wall of Caltrops
+1 Wall of Faith
+1 Wall of Junk
+1 Wall of Light
+1 Wall of Shields
+1 Wall of Spears
+1 Wall of Swords
+1 Warclamp Mastiff
+1 Warded Battlements
+1 Watchdog
+1 Witches' Eye
 
 [commander]
-Tony Stark
+Isamaru, Hound of Konda

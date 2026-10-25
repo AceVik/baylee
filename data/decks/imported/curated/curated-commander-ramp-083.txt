@@ -1,83 +1,81 @@
 # baylee curated commander ramp seed=20261106
 # licence: AGPL-3.0-only
 [deck:commander ramp WU #20261106]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Arcum's Astrolabe
-1 Avacyn's Collar
-1 Azorius Cluestone
-1 Azorius Guildgate
-1 Bishop of Wings
-1 Blade Splicer
-1 Blood Servitor
-1 Boreal Shelf
-1 Bronze Walrus
-1 Calciform Pools
-1 Captain of the Watch
-1 Chromatic Sphere
-1 Chromatic Star
-1 Claws of Gix
+1 Adarkar Wastes
+1 Archaeomender
+1 Augury Owl
+1 Aven Battle Priest
+1 Aven Fateshaper
+1 Citywatch Sphinx
 1 Cloudblazer
 1 Cloudcrest Lake
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Drogskol Cavalry
-1 Drowner of Hope
-1 Elspeth, Storm Slayer
-1 Energy Refractor
-1 Falcon, Winged Wonder
-1 Gates of Istfell
-1 Geistcatcher's Rig
-1 Golden Egg
-1 Griffin Guide
+1 Cloudreader Sphinx
+1 Defiant Falcon
+1 Dimir Informant
+1 Elite Guardmage
+1 Enlightened Maniac
+1 Esper Sentinel
+1 Faerie Seer
+1 Glacial Floodplain
+1 Gleaming Bastion
+1 Gryff Vanguard
+1 Halimar Excavator
 1 Hallowed Fountain
-1 Idyllic Beachfront
-1 Implement of Improvement
-8 Island
-1 Knight-Captain of Eos
-1 Lake-town
-1 Meandering River
-1 Meteor Golem
-1 Meticulous Archive
-1 Mind Stone
-1 Myr Matrix
-1 Nesting Dovehawk
-1 Nim Deathmantle
+1 Harrier Strix
+1 Hengegate Pathway
+1 Horizon Scholar
+1 Iron Man, Futurist Paragon
+18 Island
+1 Jace, the Mind Sculptor
+1 Land Cap
+1 Ledger Shredder
+1 Lifecreed Duo
+1 Mana Crypt
+1 Micromancer
+1 Monk Idealist
+1 Moorland Haunt
+1 Mox Sapphire
+1 Mystic Gate
 1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
+1 North Pole Gates
+1 Ojutai's Command
+1 Omenspeaker
 1 Operations Officer
-1 Orochi Hatchery
-1 Oyobi, Who Split the Heavens
-1 Pentavus
-16 Plains
-1 Port Town
-1 Prairie Stream
-1 Prophetic Prism
-1 Razortide Bridge
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Reveillark
-1 Siege Veteran
-1 Skullclamp
+1 Overwhelmed Apprentice
+1 Parasitic Strix
+1 Pelargir Survivor
+1 Pileated Provisioner
+8 Plains
+1 Plumecreed Mentor
+1 Pondering Mage
+1 Prahv, Spires of Order
+1 Raven Familiar
+1 Sage Aven
+1 Sage Owl
+1 Sage of Mysteries
+1 Serum Visions
+1 Silent Sentinel
+1 Silver Raven
 1 Skybridge Towers
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
+1 Skycloud Egg
+1 Skycloud Expanse
+1 Slumbering Keepguard
+1 Soaring Show-Off
 1 Sphinx of Enlightenment
-1 Temple of Enlightenment
-1 Terrarion
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thought Monitor
-1 Titan Forge
-1 Trading Post
-1 Tranquil Cove
-1 Treasure Map
-1 Triskelavus
+1 Sphinx of Magosi
+1 Spire Owl
+1 Supply-Line Cranes
+1 Talisman of Progress
+1 Thalakos Lowlands
 1 Tundra
+1 Umara Raptor
 1 Wan Shi Tong, Librarian
-1 Wand of the Elements
 1 Wanderwine Hub
+1 Welkin Guide
+1 Welkin Hawk
+1 Windbrisk Raptor
+1 Windreader Sphinx
+1 Zhou Yu, Chief Commander
 
 [commander]
 Rasputin Dreamweaver

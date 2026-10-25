@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266125]
+1 Alloy Myr
+1 Almost Perfect
+1 Always Watching
+1 Angelic Edict
+1 Aura Shards
+1 Blade Banish
+1 Blessed Light
+1 Bramblecrush
+1 Brambleweft Behemoth
+1 Branchloft Pathway
+1 Celestial Purge
+1 Cleansing Ray
+1 Cockatrice
+1 Collar the Culprit
+1 Crackdown
+1 Crazed Armodon
+1 Desecration Plague
+1 Destroy Evil
+1 Elf Replica
+1 Elvish Hexhunter
+1 Elvish Scrapper
+1 Emerald Charm
+1 Equinox
+1 Excise
+1 Floral Spuzzem
+15 Forest
+1 Gathering Place
+1 Gavony Township
+1 Ghostly Sentinel
+1 Grove of the Guardian
+1 Horizon Canopy
+1 Hushwood Verge
+1 Immolating Glare
+1 Lawbringer
+1 Lightbringer
+1 Lothlórien Lookout
+1 Marble Gargoyle
+1 Narnam Cobra
+1 Neck Snap
+1 Norwood Ranger
+1 Not on My Watch
+10 Plains
+1 Plated Slagwurm
+1 Prismatic Ending
+1 Puncturing Light
+1 Radiant Grove
+1 Reclaiming Vines
+1 Repel Calamity
+1 Riftstone Portal
+1 Savaen Elves
+1 Savannah
+1 Selesnya Guildgate
+1 Shoot Down
+1 Silverchase Fox
+1 Silvos, Rogue Elemental
+1 Steelbane Hydra
+1 Strength of the Harvest
+1 Swift Response
+1 Sylvok Replica
+1 Tangle Asp
+1 Temple Garden
+1 Thicket Basilisk
+1 Thrun, Breaker of Silence
+1 Tranquil Garden
+1 Trolls of Tel-Jilad
+1 Undergrowth Leopard
+1 Veldt
+1 Vengeance
+1 Venom
+1 Viridian Zealot
+1 Vitu-Ghazi, the City-Tree
+1 Voracious Varmint
+1 Vorstclaw
+1 Wallop
+1 Wing Snare
+1 Wooded Bastion
+
+[commander]
+Bast, Panther Goddess

@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20266273]
+1 About Face
+1 Akki Drillmaster
+1 Arcum's Sleigh
+1 Assault Strobe
+1 Bladed Bracers
+1 Bladed Pinions
+1 Blighted Gorge
+1 Borderland Minotaur
+1 Bronze Sword
+1 Canyon Minotaur
+1 Chaos Terminator Lord
+1 Crimson Kobolds
+1 Crookshank Kobolds
+1 Darksteel Axe
+1 Enslaved Scout
+1 Falter
+1 Frost Ogre
+1 Goblin Assailant
+1 Goblin Berserker
+1 Goblin Bird-Grabber
+1 Goblin Brigand
+1 Goblin Bully
+1 Goblin Burrows
+1 Goblin Cadets
+1 Goblin Cavaliers
+1 Goblin Chariot
+1 Goblin Hero
+1 Goblin Lackey
+1 Goblin Mountaineer
+1 Goblin Patrol
+1 Goblin Piker
+1 Goblin Smuggler
+1 Goblins of the Flarg
+1 Hanweir Battlements
+1 Hulking Bugbear
+1 Kher Keep
+1 Kitesail
+1 Leopard-Spotted Jiao
+1 Lizard Warrior
+1 Marauder's Axe
+1 Minotaur Warrior
+32 Mountain
+1 Nest Robber
+1 Neurok Hoversail
+1 Nimble Birdsticker
+1 Ogre Sentry
+1 Ogre Warrior
+1 Ogre's Cleaver
+1 Onakke Ogre
+1 Orazca Raptor
+1 Pensive Minotaur
+1 Peregrine Mask
+1 Raging Redcap
+1 Reckless Brute
+1 Resistance Skywarden
+1 Ridgetop Raptor
+1 Shatterskull Giant
+1 Shinka, the Bloodsoaked Keep
+1 Shivan Gorge
+1 Shivan Raptor
+1 Skateboard
+1 Skirk Shaman
+1 Slavering Nulls
+1 Sneaking Guide
+1 Sokenzan Bruiser
+1 Swab Goblin
+1 Trusty Machete
+1 Warmonger's Chariot
+
+[commander]
+Tyrox, Saurid Tyrant

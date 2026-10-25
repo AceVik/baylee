@@ -1,84 +1,82 @@
 # baylee curated highlander aggro seed=20261084
 # licence: AGPL-3.0-only
 [deck:highlander aggro UBG #20261084]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Audacity
-1 Avacyn's Collar
+1 Alchemist's Refuge
 1 Bastion of Remembrance
-1 Blight Mound
+1 Bayou
+1 Bequeathal
+1 Bitterbloom Bearer
 1 Blisterpod
-1 Callous Inspector
 1 Carrier Thrall
 1 Carrion Feeder
-1 Catacomb Sifter
-1 Claws of Gix
+1 Centaur's Herald
+1 Clearwater Pathway
 1 Common Crook
-1 Criminal Enterprise
-1 Deathcap Glade
+1 Dark Privilege
+1 Dark Prophecy
+1 Darkwater Catacombs
 1 Deathknell Berserker
-1 Dire Fleet Hoarder
+1 Delusions of Mediocrity
 1 Discordant Piper
-1 Doomed Dissenter
-1 Dreadship Reef
-1 Elephant Guide
+1 Dream Beavers
+1 Drowner of Hope
+1 Drunau Corpse Trawler
+1 Elven Palisade
 1 Elvish Farmer
-1 Enduring Vitality
+1 Facevaulter
+1 Fate Foretold
+1 Fear of Lost Teeth
+1 Festering Goblin
 1 Foreboding Landscape
-7 Forest
-1 Gilded Goose
-1 Gleaming Barrier
-1 Gloomlake Verge
-1 Gohn, Town of Ruin
+9 Forest
+1 Fortitude
 1 Golgari Guildmage
 1 Graf Harvest
-1 Greedy Freebooter
+1 Grim Backwoods
 1 Homarid Spawning Bed
-1 Ice Tunnel
-2 Island
+1 Island
+1 Jewel Thief
 1 Kheru Bloodsucker
-1 Lead Pipe
-1 Littjara Mirrorlake
-1 Malevolent Awakening
+1 Knucklebone Witch
+1 Krovikan Plague
+1 Lampad of Death's Vigil
+1 Llanowar Mentor
+1 Maalfeld Twins
 1 Mantle of the Wolf
 1 Marionette Apprentice
-1 Marsh Flitter
-1 Mintstrosity
-1 Most Wanted
-1 Myr Sire
+1 Master of Dark Rites
+1 Morcant's Loyalist
+1 Nocturnal Feeder
 1 Opulent Palace
-1 Orochi Hatchery
-1 Pitiless Plunderer
+1 Pawn of Ulamog
 1 Prowess of the Fair
-1 Prying Blade
-1 Quest for the Gravelord
-1 Rain-Slicked Copse
-1 Rejuvenating Springs
-1 Renowned Weaver
-1 Retrofitter Foundry
-1 Sengir Autocrat
-1 Skeletal Vampire
-1 Skullclamp
-1 Slayer's Plate
+1 Rancor
+1 River of Tears
+1 Shambling Goblin
 1 Slimefoot, the Stowaway
 1 Sling-Gang Lieutenant
-1 Sparring Construct
-1 Spawning Pit
-13 Swamp
-1 Sweettooth Witch
-1 Sylvok Lifestaff
-1 Tanglepool Bridge
-1 Temple of Malady
-1 Tempting Witch
+1 Snake Pit
+1 Soulreaper of Mogis
+1 Spreading Algae
+1 Sunken Ruins
+14 Swamp
+1 Tainted Isle
+1 Tamiyo, Inquisitive Student
+1 Tegwyll, Duke of Splendor
 1 Thallid
 1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thornwood Falls
-1 Trading Post
+1 Thragtusk
 1 Undercity Dire Rat
-1 Vineglimmer Snarl
+1 Underground River
+1 Vampire Sovereign
+1 Vampire's Kiss
+1 Viridian Harvest
+1 Walking Ballista
+1 Warren Soultrader
 1 Watery Grave
 1 Weirding Shaman
+1 Wolfwillow Haven
+1 World Shaper
 1 Wriggling Grub
+1 Yavimaya Coast
 1 Zagoth Triome

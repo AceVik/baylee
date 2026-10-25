@@ -1,87 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUBRG #20266003]
-1 Agatha's Soul Cauldron
-1 Ancient Amphitheater
-1 Bog Glider
-1 Brass's Tunnel-Grinder
-1 Contaminated Aquifer
-1 Dauthi Ghoul
-1 Deranged Outcast
-1 Empowered Autogenerator
-1 Extruder
-1 Fasting
-1 Firestorm Hellkite
+1 Air Nomad Legacy
+1 Akoum Refuge
+1 Allied Teamwork
+1 Arctic Flats
+1 Bereavement
+1 Betrothed of Fire
+1 Blazing Effigy
+1 Bogardan Phoenix
+1 Bountiful Promenade
+1 Brood Weaver
+1 Call the Bloodline
+1 Chocobo Racetrack
+1 Cogworker's Puzzleknot
+1 Dark Heart of the Wood
+1 Dazzling Lights
+1 Dragon Egg
+1 Drowned Rusalka
+1 Elesh Norn, Mother of Machines
+1 Errand of Duty
+1 Etched Familiar
+1 Flamekin Gildweaver
+1 Floodhound
 2 Forest
-1 Furycalm Snarl
-1 Gemstone Array
-1 Golden Urn
+1 Fortifying Provisions
+1 Frog Tongue
+1 Glissa, the Traitor
+1 Goblin Clearcutter
 1 Gongaga, Reactor Town
-1 Grindclock
-1 Grist, the Hunger Tide
-1 Guardian Kirin
-1 Hobblefiend
-1 Hungry Ghoul
-1 Insight Engine
-1 Iron Hills
-2 Island
-1 Judge Magister Gabranth
-1 Kazarov, Sengir Pureblood
-1 Lawless Broker
-1 Long Feng, Grand Secretariat
-1 Lorehold Campus
-1 Lotus Blossom
-1 Magistrate's Scepter
-1 Mighty Mutanimals
-1 Mire Shade
-1 Moriok Rigger
-3 Mountain
-1 Needle Spires
-1 Odric's Outrider
-1 Ominous Asylum
-1 Otherworld Atlas
-1 Pileated Provisioner
-6 Plains
-1 Plumecreed Mentor
-1 Quandrix Campus
-1 Rabanastre, Royal City
-1 Rapacious Dragon
-1 Ravenous Harpy
+1 Grasping Longneck
+1 Grim Feast
+1 Hall
+15 Island
+1 Journey to Eternity
+1 Late to Dinner
+1 Launch
+1 Living Lightning
+1 Maelstrom Wanderer
+1 Magma Vein
+1 Mobilization
+1 Mongrel Pack
+1 Morselhoarder
+6 Mountain
+1 Ojer Axonil, Deepest Might
+1 Omen of the Sun
+1 Piggy Bank
+1 Piru, the Volatile
+1 Plague Spitter
+1 Port Town
+1 Puppet Master
+1 Raging Ravine
+1 Reconstruction
+1 Restless Prairie
 1 Restless Spire
-1 Restless Vents
-1 Revered Unicorn
-1 Rising Populace
-1 Sab-Sunen, Luxa Embodied
-1 Savior of the Sleeping
-1 Scarland Thrinax
-1 Scavenger Drake
-1 Sengir Bats
-1 Shadewing Laureate
-1 She-Hulk, Jennifer Walters
-1 Slagwoods Bridge
-1 Smaug the Magnificent
-1 Soulcatcher
+1 Rin and Seri, Inseparable
+1 Rockslide Elemental
+1 Rotcrown Ghoul
+1 Rukh Egg
+1 Savage Mansion
+1 Security Detail
+1 Shivan Harvest
+1 Sidequest: Catch a Fish
+1 Sluggishness
 1 Spectator Seating
-1 Sphinx of Magosi
-1 Stensia Bloodhall
-1 Sterling Supplier
-1 Sunscorched Divide
-1 Supply-Line Cranes
-1 Surge Node
-10 Swamp
-1 Swarm of Bloodflies
-1 Syndicate Trafficker
-1 Takklemaggot
-1 The Reaper, King No More
-1 Training Compound
-1 Triassic Egg
-1 Umara Raptor
-1 Unburied Earthcarver
-1 Venomcrawler
-1 Ventifact Bottle
-1 Village Cannibals
-1 Vorosh, the Hunter
-1 Wizard Class
+1 Spire Garden
+1 Starved Rusalka
+1 Stimulus Package
+1 Storm Spirit
+1 Storm the Vault
+1 Summit Sentinel
+1 Sunpetal Grove
+1 Survey the Wreckage
+2 Swamp
+1 Thornglint Bridge
+1 Tibalt's Rager
+1 Umbral Expanse
+1 Voice of Resurgence
+1 Wild Research
+1 Witch Engine
 
 [commander]
 Child of Alara

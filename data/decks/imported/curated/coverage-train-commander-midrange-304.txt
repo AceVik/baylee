@@ -1,75 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266305]
-1 Abbey Gargoyles
-1 Abbey Griffin
-1 Adamant Will
-1 Aegis of the Heavens
-1 Aerial Maneuver
-1 Alabaster Kirin
-1 Alarum
-1 Alley Evasion
-1 Ancient Den
-1 Angelic Blessing
-1 Angelic Wall
-1 Archon of Emeria
-1 Armored Griffin
-1 Assault Griffin
-1 Avian Changeling
-1 Banishing Stroke
-1 Beaming Defiance
-1 Benevolent Ancestor
-1 Blood of the Martyr
-1 Cloud Crusader
-1 Daru Encampment
-1 Dawn Gryff
-1 Dawnglare Invoker
-1 Eiganjo Castle
-1 Gallows Warden
-1 Ghost Warden
-1 Ghostly Sentinel
-1 Great Defender
-1 Hall of Heliod's Generosity
-1 Heaven's Gate
-1 Heavenly Qilin
-1 Hope and Glory
-1 Indestructible Aura
-1 Interjection
-1 Iron Tusk Elephant
-1 Kami of False Hope
-1 Karakas
-1 Kor Haven
-1 Lupinflower Village
-1 Majestic Heliopterus
-1 Makindi Griffin
-1 Mortal's Ardor
-1 Noble Elephant
-1 Piety
-31 Plains
-1 Prized Griffin
-1 Qilin's Blessing
-1 Rally
-1 Reverse Damage
-1 Righteousness
-1 Seize the Initiative
-1 Serra's Sanctum
-1 Shefet Dunes
-1 Shield Wall
-1 Shining Aerosaur
-1 Show of Valor
-1 Skillful Lunge
-1 Soulbound Guardians
-1 Spirit of the Spires
-1 Squall Drifter
-1 Sunweb
-1 Swift Justice
-1 Teferi's Protection
-1 Tributary Vaulter
-1 Venerable Lammasu
-1 Wall of Swords
-1 Warning
-1 You're Ambushed on the Road
-1 Zealous Strike
+[deck:commander midrange WG #20266305]
+1 Adaptive Shimmerer
+1 Anaconda
+1 Argothian Treefolk
+1 Armored Wolf-Rider
+1 Battle Hurda
+1 Beacon Behemoth
+1 Blanchwood Treefolk
+1 Branchloft Pathway
+1 Brushland
+1 Bull Hippo
+1 Changeling Sentinel
+1 Charging Troll
+1 Citanul Centaurs
+1 Clockwork Gnomes
+1 Colossapede
+1 Cudgel Troll
+1 Deadly Insect
+1 Dovin's Automaton
+1 Dutiful Servants
+1 Endangered Armodon
+1 Enraged Ceratok
+1 Erratic Portal
+1 Ethereal Champion
+1 Feral Krushok
+13 Forest
+1 Garruk's Gorehorn
+1 Gavony Township
+1 Giant Mantis
+1 Glorifier of Dusk
+1 Golden Bear
+1 Golgothian Sylex
+1 Greater Basilisk
+1 Grove of the Guardian
+1 Hillcomber Giant
+1 Hollowhenge Beast
+1 Horizon Canopy
+1 Hushwood Verge
+1 Looming Altisaur
+1 Loxodon Convert
+1 Marble Titan
+1 Mosstodon
+1 Nema Siltlurker
+1 Old Ghastbark
+1 Ordinary Bear
+1 Pentagram of the Ages
+1 Petra Sphinx
+1 Pillarfield Ox
+12 Plains
+1 Return from the Wilds
+1 Riftstone Portal
+1 River Bear
+1 Rowan Treefolk
+1 Rubbleback Rhino
+1 Savannah
+1 Scattered Groves
+1 Scragnoth
+1 Selesnya Cluestone
+1 Selesnya Sagittars
+1 Siege Mastodon
+1 Skullmead Cauldron
+1 Southern Elephant
+1 Staff of Zegon
+1 Sungrass Prairie
+1 Thornglint Bridge
+1 Tower of Champions
+1 Tower of Murmurs
+1 Treefolk Healer
+1 Umbilicus
+1 Vec Townships
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Wild Ceratok
+1 Wild Ox
+1 Windurst, Federation Center
+1 Zodiac Horse
+1 Zodiac Ox
 
 [commander]
-Sokka, Wolf Cove's Protector
+Emmara, Soul of the Accord

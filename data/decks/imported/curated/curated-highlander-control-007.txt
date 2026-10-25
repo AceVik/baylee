@@ -1,81 +1,79 @@
 # baylee curated highlander control seed=20261030
 # licence: AGPL-3.0-only
 [deck:highlander control WUB #20261030]
-1 Aclazotz, Deepest Betrayal
-1 Alela, Artful Provocateur
+1 Agents of HYDRA
+1 Al Bhed Salvagers
+1 Ancestral Vision
 1 Ancient Spring
 1 Arcane Sanctum
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bastion of Remembrance
+1 Auspicious Ancestor
 1 Bishop of Wings
-1 Blight Mound
+1 Blade Splicer
+1 Blightspeaker
+1 Cabal Archon
 1 Callous Inspector
-1 Choked Estuary
-1 Cirith Ungol Patrol
-1 Claws of Gix
+1 Captain of the Watch
 1 Clearwater Pathway
+1 Cloudblazer
+1 Commissar Severina Raine
 1 Contaminated Landscape
-1 Criminal Enterprise
-1 Diamond Kaleidoscope
-1 Dimir Aqueduct
+1 Death Cultist
+1 Dedicated Martyr
 1 Dire Fleet Hoarder
-1 Dismal Backwater
-1 Doomed Dissenter
+1 Drogskol Cavalry
 1 Dromar's Cavern
-1 Drowner of Hope
 1 Elgaud Inquisitor
+1 Emeria's Call
 1 Essence Feed
-1 Eyeblight Cullers
-1 Greedy Freebooter
-1 Griffin Guide
-1 Haunted Library
-1 Homarid Spawning Bed
-1 Hunted Witness
-1 Illusions of Grandeur
-2 Island
-1 Kheru Bloodsucker
+1 Gallant Cavalry
+1 Geist-Honored Monk
+1 Guarded Heir
+1 Hengegate Pathway
+1 Hero of the Dunes
+1 Highway Robber
+1 Honored Knight-Captain
+1 Inspiring Commander
+1 Invasion Reinforcements
+1 Island
+1 Kambal, Consul of Allocation
 1 Knight of Doves
 1 Knight-Captain of Eos
-1 Kozilek's Unsealing
-1 Lampad of Death's Vigil
+1 Lake-town Lookout
+1 Last Caress
+1 Locthwain Lancer
 1 Marionette Apprentice
-1 Marsh Flitter
-1 Neglected Manor
-1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 North Pole Gates
-1 Ogre Slumlord
-1 Ojer Taq, Deepest Foundation
-1 Open the Graves
-1 Orzhov Basilica
-1 Pawn of Ulamog
-8 Plains
-1 Prowess of the Fair
-1 Quest for the Gravelord
+1 Master Splicer
+1 Midnight Entourage
+1 Monastery Mentor
+1 Moorland Haunt
+1 Mystic Gate
+1 Novice Inspector
+1 Novice Occultist
+1 Oltec Cloud Guard
+1 Operations Officer
+1 Outlaw Medic
+16 Plains
+1 Prahv, Spires of Order
+1 Profane Tutor
+1 Prosperous Pirates
 1 Raffine's Tower
-1 Restless Reef
-1 Retrofitter Foundry
+1 Resolute Reinforcements
+1 Rootwater Depths
 1 Sengir Autocrat
-1 Shambling Vent
+1 Shadow-Rite Priest
 1 Siege Veteran
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Sungrace Pegasus
+1 Silent Clearing
 1 Sunken Ruins
-15 Swamp
+10 Swamp
 1 Sweettooth Witch
 1 Tempting Witch
-1 The Meathook Massacre
-1 The Underworld Cookbook
-1 Thopter Foundry
-1 Thopter Squadron
-1 Trading Post
-1 Tranquil Cove
-1 Treasure Map
-1 Waterveil Cavern
+1 The Mechanist, Aerial Artisan
+1 Thraben Inspector
+1 Tura Kennerüd, Skyknight
+1 Underworld Coinsmith
+1 Urbis Protector
+1 Vault of the Archangel
+1 Watery Grave
+1 Wing Splicer
 1 Wizards' School
-1 Yahenni, Undying Partisan
-1 Zuran Orb
+1 Zulaport Cutthroat

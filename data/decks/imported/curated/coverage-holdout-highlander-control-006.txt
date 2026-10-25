@@ -1,0 +1,78 @@
+# baylee synergistic holdout coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBG #90010007]
+1 Birthing Hulk
+1 Blood Seeker
+1 Blood-Cursed Knight
+1 Bloodline Necromancer
+1 Break Asunder
+1 Brotherhood Patriarch
+1 Cabal Stronghold
+1 Child of Thorns
+1 Colossodon Yearling
+1 Creosote Heath
+1 Culling Sun
+1 Cunning Lethemancer
+1 Cutthroat Contender
+1 Dalkovan Encampment
+1 Darkheart Sliver
+1 Dauthi Slayer
+1 Davvol, Evincar of Rath
+1 Deathgazer
+1 Deceptive Landscape
+1 Emergency Weld
+1 Essence Drain
+1 Eumidian Hatchery
+1 Execute
+14 Forest
+1 Freyalise Supplicant
+1 Gallantry
+1 Gateway Shade
+1 Glade Gnarr
+1 Gnawing Zombie
+1 Gorilla Warrior
+1 Greater Good
+1 Headless Rider
+1 Idyllic Grange
+1 Indatha Triome
+1 Kabira Takedown
+1 Lake of the Dead
+1 Leaf Dancer
+1 Lifesmith
+1 Manor Skeleton
+1 Midgar, City of Mako
+1 Mikaeus, the Unhallowed
+1 Mindlash Sliver
+1 Murmuring Bosk
+1 Nantuko Monastery
+1 Natural Selection
+1 Noxious Dragon
+1 Open the Gates
+1 Purraj of Urborg
+1 Quirion Ranger
+1 Rampart Crawler
+1 Razortooth Rats
+1 Reclusive Wight
+1 Sandsteppe Citadel
+1 Scaled Hulk
+1 Seizan, Perverter of Truth
+1 Selesnya Locket
+1 Shambling Ghoul
+1 Shanodin Dryads
+1 Shineshadow Snarl
+1 Simian Grunts
+1 Skemfar Avenger
+1 Somberwald Dryad
+1 Soot Imp
+1 Spined Karok
+1 Stalker Hag
+1 Stronghold Rats
+13 Swamp
+1 Temple of Silence
+1 The Wretched
+1 Three Visits
+1 Tranquil Expanse
+1 Vault of Champions
+1 Wandering Wolf
+1 Zendikar Farguide
+1 Zendikar's Roil

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266188]
+1 Aang and Katara
+1 Aether Channeler
+1 Angel of Despair
+1 Angel's Herald
+1 April O'Neil, Kunoichi Trainee
+1 Aysen Abbey
+1 Azorius Skyguard
+1 Barrow Witches
+1 Bountiful Landscape
+1 Brazen Freebooter
+1 Captain Storm, Cosmium Raider
+1 Castle Sengir
+1 Cha'DIch Investigator
+1 Clarion Cathars
+1 Commander Greven il-Vec
+1 Contaminated Landscape
+1 Corsair Captain
+1 Courier's Briefcase
+1 Crystal Quarry
+1 Dakmor Lancer
+1 Darigaaz's Caldera
+1 Draconic Disciple
+1 Dragonmaster Outcast
+1 Enlightened Maniac
+1 Experimental Aviator
+1 Femeref Enchantress
+1 Flamewright
+1 Foreboding Landscape
+1 Fourth Bridge Prowler
+1 Garna, the Bloodflame
+1 Gladiolus Amicitia
+1 Hazezon Tamar
+1 Huntmaster of the Fells
+1 Indatha Crystal
+6 Island
+1 Izzet Chronarch
+1 Jeskai Banner
+1 Judge Magister Gabranth
+1 Jungle Patrol
+1 Kaleidostone
+1 Koskun Keep
+1 Kyoshi Warriors
+1 Lossarnach Captain
+1 Maja, Bretagard Protector
+1 Mardu Devotee
+8 Mountain
+1 Nearby Planet
+1 Oasis Gardener
+1 Pili-Pala
+6 Plains
+1 Priest of Yawgmoth
+1 Professor Zei, Anthropologist
+1 Rakdos Cluestone
+1 Relic of Sauron
+1 Renegade Rallier
+1 Rinoa Heartilly
+1 Sailor of Means
+1 Seething Landscape
+1 Sheltering Landscape
+1 Signpost Scarecrow
+1 Stangg
+1 Stark Industries Executive
+1 Stoic Builder
+1 Sultai Banner
+6 Swamp
+1 The Reaper, King No More
+1 The World Tree
+1 Tranquil Landscape
+1 Treetop Freedom Fighters
+1 Treva's Ruins
+1 Twisted Landscape
+1 Unburied Earthcarver
+1 Urn of Godfire
+1 Wing Splicer
+1 Wizards' School
+1 Wreckage Wickerfolk
+1 Yotian Dissident
+
+[commander]
+Reaper King

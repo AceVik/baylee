@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #20266140]
+1 Adventurers' Guildhouse
+1 Anointed Deacon
+1 Armor of Shadows
+1 Arrogant Vampire
+1 Ash Barrens
+1 Battle Brawler
+1 Bloodcrazed Paladin
+1 Boon of Emrakul
+1 Breach
+1 Burrog Banemaker
+1 Captivating Cave
+1 Carrionette
+1 Coat with Venom
+1 Consume the Meek
+1 Dark Deed
+1 Dark Remedy
+1 Dauthi Warlord
+1 Death Wind
+1 Derelor
+1 Embraal Bruiser
+1 Emeritus of Woe
+1 Give In to Violence
+1 Grotesque Mutation
+1 Hell Swarm
+1 Highborn Vampire
+1 Hired Poisoner
+1 Irradiate
+1 Island of Wak-Wak
+1 Kaervek's Hex
+1 Kraul Raider
+1 Lash of Thorns
+1 Lotus Vale
+1 Lys Alana Scarblade
+1 Mad Auntie
+1 Midnight Assassin
+1 Nantuko Shade
+1 Nocturnal Raid
+1 Oblivion Strike
+1 Olivia's Dragoon
+1 Overkill
+1 Paragon of Open Graves
+1 Phyrexian Battleflies
+1 Queen's Bay Soldier
+1 Rush of Vitality
+1 Scare Tactics
+1 Sewers of Estark
+1 Shadowcloak Vampire
+1 Sick and Tired
+1 Skyshroud Vampire
+1 Soul Kiss
+1 Spiderwig Boggart
+1 Sultai Runemark
+34 Swamp
+1 Tainted Aether
+1 Tar Snare
+1 The Biblioplex
+1 Throatseeker
+1 Thrull Champion
+1 Touch of Darkness
+1 Ubul Sar Gatekeepers
+1 Untamed Hunger
+1 Vampire Champion
+1 Vampire Hexmage
+1 Vampire Hounds
+1 Wit's End
+1 Wring Flesh
+
+[commander]
+Irini Sengir

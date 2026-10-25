@@ -789,13 +789,23 @@ fn main() -> anyhow::Result<()> {
     let full_pool = deckgen::Pool::new(&working, &empty_set);
 
     let shapes = [Shape::Constructed, Shape::Highlander, Shape::Commander];
+    let mut curated_usage: BTreeMap<CardIndex, usize> = BTreeMap::new();
     let mut gen_idx = 0_usize;
     let mut seed_cursor = 2026_1022_u64;
     while gen_idx < 105 && seed_cursor < 2026_5000 {
         let shape = shapes[gen_idx % shapes.len()];
         let arch = Archetype::ALL[(gen_idx / shapes.len()) % Archetype::ALL.len()];
         seed_cursor += 1;
-        let Ok(g) = deckgen::generate(&train_pool, shape, arch, seed_cursor) else {
+        let req = deckgen::DeckBuildRequest {
+            shape,
+            archetype: arch,
+            seed: seed_cursor,
+            anchor: None,
+            forced_colors: None,
+            deficits: None,
+            usage_counts: Some(&curated_usage),
+        };
+        let Ok(g) = deckgen::build_synergistic(&train_pool, &req) else {
             continue;
         };
         if !formats::check(shape, &g.main, &g.leaders).is_empty() {
@@ -823,6 +833,9 @@ fn main() -> anyhow::Result<()> {
             tags.sort();
         }
         let multiset = compute_multiset(&g.main, &g.leaders);
+        for &cid in multiset.keys() {
+            *curated_usage.entry(cid).or_insert(0) += 1;
+        }
         let deck_hash = compute_deck_hash(&multiset, &g.leaders);
         let cmd_names: Vec<String> = g
             .leaders
@@ -867,13 +880,25 @@ fn main() -> anyhow::Result<()> {
         let shape = shapes[unseen_idx % shapes.len()];
         let arch = Archetype::ALL[(unseen_idx / shapes.len()) % Archetype::ALL.len()];
         unseen_seed += 1;
-        let Ok(g) = deckgen::generate(&full_pool, shape, arch, unseen_seed) else {
+        let req = deckgen::DeckBuildRequest {
+            shape,
+            archetype: arch,
+            seed: unseen_seed,
+            anchor: None,
+            forced_colors: None,
+            deficits: None,
+            usage_counts: Some(&curated_usage),
+        };
+        let Ok(g) = deckgen::build_synergistic(&full_pool, &req) else {
             continue;
         };
         let multiset = compute_multiset(&g.main, &g.leaders);
         let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
         if held_cnt < 2 {
             continue;
+        }
+        for &cid in multiset.keys() {
+            *curated_usage.entry(cid).or_insert(0) += 1;
         }
         let fmt_str = deckgen::shape_name(shape);
         let slug = format!("holdout-cards-{fmt_str}-{}-{unseen_idx:02}", arch.name());

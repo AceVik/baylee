@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266092]
+1 Accursed Duneyard
+1 Avacyn's Collar
+1 Avishkar Raceway
+1 Azorius Chancery
+1 Badgey, Malicious Glitch
+1 Bag End Banquet
+1 Bazaar of Baghdad
+1 Carnage Altar
+1 Collector's Vault
+1 Corpsehatch
+1 Corridor Monitor
+1 Culling Dais
+1 Daily Bugle Newspaper
+1 Diamond Kaleidoscope
+1 Flayed One
+1 Foot Headquarters
+1 Geistcatcher's Rig
+1 Glimmerlight
+1 Gold Pan
+1 Goldvein Pick
+1 Hierophant's Chalice
+1 Humble the Brute
+1 Inkwell Leviathan
+1 Insomnia, Crown City
+15 Island
+1 Juju Bubble
+1 Knight Watch
+1 Lake-town
+1 Lazotep Quarry
+1 Magma Mine
+1 Malcator's Watcher
+1 Manakin
+1 Mechan Navigator
+1 Mishra's War Machine
+1 Mox Diamond
+1 Murmuring Volume
+1 Myr Matrix
+1 Myr Moonvessel
+1 Network Terminal
+1 Oasis Gardener
+1 Ojutai Monument
+1 Panharmonicon
+1 Parcel Myr
+1 Pentavus
+1 Pierce Strider
+1 Plaza of Heroes
+1 Port Town
+1 Prying Blade
+1 Quicksilver Fisher
+1 Restless Fortress
+1 Runaway Boulder
+1 Runed Servitor
+1 S.H.I.E.L.D. Deployment Drone
+1 Scampering Surveyor
+1 Sea of Clouds
+1 Sejiri Refuge
+1 Shadowy Backstreet
+1 Shambling Vent
+1 Shattered Sanctum
+1 Shield-Wall Sentinel
+1 Skorpekh Destroyer
+1 Slayer's Plate
+1 Sparring Construct
+1 Spawning Pit
+1 Sphinx Mindbreaker
+1 Sphinx of the Steel Wind
+1 Staff of Nin
+1 Stone Calendar
+11 Swamp
+1 Sylvok Lifestaff
+1 Thopter Squadron
+1 Trading Post
+1 Triskelavus
+1 Unstable Obelisk
+1 Workhorse
+
+[commander]
+Sharuum the Hegemon

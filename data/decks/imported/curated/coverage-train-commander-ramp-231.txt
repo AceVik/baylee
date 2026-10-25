@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266232]
+1 Aphelia, Viper Whisperer
+1 Arborback Stomper
+1 Arcbound Ravager
+1 Archers' Parapet
+1 Banshee
+1 Bayou
+1 Bog Naughty
+1 Briar Shield
+1 Brood Butcher
+1 Carnage Altar
+1 Clinging Darkness
+1 Darkbore Pathway
+1 Dowsing Dagger
+1 Dread of Night
+1 Eager Trufflesnout
+1 Fallen Angel
+1 Ferocious Pup
+1 Fierce Witchstalker
+9 Forest
+1 Foul Orchard
+1 Friendly Teddy
+1 Funeral March
+1 Giant Warthog
+1 Glimmer Bairn
+1 Grave Pact
+1 Grim Backwoods
+1 Guul Draz Mucklord
+1 Haunted Mire
+1 Highland Game
+1 Hissing Quagmire
+1 Illness in the Ranks
+1 Kozilek's Predator
+1 Leyline Prowler
+1 Lich
+1 Llanowar Wastes
+1 Long Feng, Grand Secretariat
+1 Marsh Lurker
+1 Mire Shade
+1 Molder Beast
+1 Mortal Wound
+1 Mortuary
+1 Noxious Toad
+1 Nurturing Peatland
+1 Nylea's Forerunner
+1 Overgrown Tomb
+1 Phyrexian Vault
+1 Plagued Rusalka
+1 Poison-Tip Archer
+1 Primal Rage
+1 Ravenous Baloth
+1 Revitalizing Repast
+1 Rotwidow Pack
+1 Silken Strength
+1 Sinister Strength
+1 Skemfar Elderhall
+1 Skittering Invasion
+1 Skyscythe Engulfer
+1 Spawning Grounds
+1 Starved Rusalka
+1 Steely Resolve
+1 Strangled Cemetery
+1 Svogthos, the Restless Tomb
+17 Swamp
+1 Sword of the Meek
+1 Sylvan Safekeeper
+1 Tainted Wood
+1 Tarpan
+1 The Serpent Society
+1 Torment
+1 Trollhide
+1 Twilight Mire
+1 Untamed Hunger
+1 Viridescent Bog
+1 Wastewood Verge
+1 Weatherseed Treefolk
+
+[commander]
+Yargle and Multani

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266197]
+1 Agent of Shauku
+1 Agent of Stromgald
+1 Angel of the God-Pharaoh
+1 Avacyn, Angel of Hope
+1 Badlands
+1 Bake into a Pie
+1 Blazemire Verge
+1 Blighted Shaman
+1 Blightstep Pathway
+1 Blood Celebrant
+1 Blood Crypt
+1 Blood Pet
+1 Bog Initiate
+1 Boros Signet
+1 Brightstone Ritual
+1 Caves of Koilos
+1 Cirith Ungol Patrol
+1 Corpsehatch
+1 Crypt Angel
+1 Deathknell Berserker
+1 Demonic Tutor
+1 Emeria Angel
+1 Errand of Duty
+1 Farrelite Priest
+1 Fetid Heath
+1 Foul Play
+1 Godless Shrine
+1 Granitic Titan
+1 Harmonious Archon
+1 Helionaut
+1 Herald of the Sun
+1 Hulk, Always Angry
+1 Imposing Vantasaur
+1 Karmic Guide
+1 Live or Die
+1 Lotus Guardian
+1 Luke Cage, Hero for Hire
+1 Luminous Angel
+1 Magus of the Coffers
+1 Mardu Banner
+1 Martyr of Dusk
+1 Moriok Rigger
+7 Mountain
+1 Nesting Dovehawk
+1 Nomad Outpost
+1 Odric's Outrider
+1 Oros, the Avenger
+1 Orzhova, the Church of Deals
+14 Plains
+1 Rakka Mar
+1 Reckless Barbarian
+1 Requiem Angel
+1 Reya Dawnbringer
+1 Ripchain Razorkin
+1 Rising Populace
+1 Rogue Skycaptain
+1 Sacred Foundry
+1 Savai Crystal
+1 Savai Triome
+1 Savior of the Sleeping
+1 Seismic Spike
+1 Shattered Landscape
+1 She-Hulk, Jennifer Walters
+1 Silent Sentinel
+1 Sisters of the Flame
+1 Slayers' Stronghold
+1 Soulcatcher
+1 Sulfurous Springs
+5 Swamp
+1 Tainted Peak
+1 Tournament Grounds
+1 Trade Caravan
+1 Village Cannibals
+1 Violet Pall
+1 Winged Shepherd
+1 Youthful Valkyrie
+
+[commander]
+Piru, the Volatile

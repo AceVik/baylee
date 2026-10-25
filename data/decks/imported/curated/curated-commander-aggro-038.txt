@@ -1,76 +1,74 @@
 # baylee curated commander aggro seed=20261061
 # licence: AGPL-3.0-only
 [deck:commander aggro W #20261061]
-1 Ancient Den
-1 Anodet Lurker
-1 Arahbo, the First Fang
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Arcum's Astrolabe
-1 Avacyn's Collar
+1 Agent of Atlas
+1 Armed Response
+1 Aura Blast
+1 Auspicious Ancestor
+1 Aven Archer
+1 Aven Brigadier
+1 Backup Agent
 1 Bishop of Wings
-1 Blade Splicer
+1 Blessed Spirits
 1 Blighted Steppe
-1 Blood Servitor
-1 Candy Trail
-1 Chromatic Sphere
-1 Chromatic Star
-1 Claws of Gix
-1 Crystal Rod
-1 Culling Dais
+1 Bygone Bishop
+1 Captain's Defense
+1 Cathar's Companion
 1 Daru Encampment
-1 Diamond Kaleidoscope
+1 Dawnhart Geist
+1 Deadly Riposte
+1 Dive Bomber
 1 Doomed Traveler
-1 Eiganjo, Seat of the Empire
-1 Elgaud Inquisitor
-1 Energy Refractor
-1 Esper Sentinel
-1 Eye of Vecna
+1 Dragon Bell Monk
+1 Eiganjo Castle
+1 Elspeth's Smite
+1 Farrel's Zealot
+1 Festival of the Guildpact
 1 Flagstones of Trokair
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Golden Egg
-1 Hall of Heliod's Generosity
-1 Hierophant's Chalice
-1 Hunted Witness
-1 Implement of Improvement
-1 Instant Ramen
-1 Iron Star
-1 Karakas
-1 Knight of Doves
-1 Lightning-Core Excavator
-1 Mandible Justiciar
-1 Mandroid Squadron
-1 Mind Stone
-1 Murmuring Volume
-1 Myr Sire
-1 Nomad Stadium
-1 Norn's Wellspring
-1 Oasis Gardener
-1 Onulet
-1 Operations Officer
-1 Orochi Hatchery
-1 Pendulum of Patterns
-30 Plains
-1 Potion of Healing
-1 Prophetic Prism
-1 Retrofitter Foundry
-1 Runed Servitor
-1 Scrap Trawler
+1 Guided Strike
+1 Hada Freeblade
+1 Heavy Ballista
+1 Honor
+1 Honored Knight-Captain
+1 Iron Will
+1 Jeong Jeong's Deserters
+1 Jeskai Student
+1 Joust Through
+1 Kor Firewalker
+1 Kor Haven
+1 Kree Commandos
+1 Lightshield Parry
+1 Lotus-Eye Mystics
+1 Mana Crypt
+1 Mesa Enchantress
+1 Mighty Mutanimals
+1 Monastery Mentor
+1 Myrsmith
+1 Opal Caryatid
+1 Opal Champion
+1 Opal Gargoyle
+1 Outflank
+32 Plains
+1 Rebellious Strike
+1 Reroute Systems
+1 Resolute Reinforcements
+1 Righteous Blow
+1 Sandblast
+1 Seeker of the Way
+1 Serra's Sanctum
+1 Shield Sphere
 1 Siege Veteran
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
-1 Sunbeam Spellbomb
+1 Slash of Talons
+1 Sram, Senior Edificer
+1 Stand Firm
+1 Straw Golem
+1 Student of Ojutai
+1 Sunlance
 1 Suture Priest
-1 Terrarion
-1 The Underworld Cookbook
-1 Trading Post
+1 Ultimate Alliance
 1 Walking Ballista
-1 Watcher of the Wayside
-1 Wooden Sphere
-1 Wurm's Tooth
-1 Zuran Orb
+1 Warmth
+1 Worthy Knight
 
 [commander]
 Isamaru, Hound of Konda

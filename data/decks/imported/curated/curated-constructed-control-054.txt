@@ -1,20 +1,21 @@
 # baylee curated constructed control seed=20261077
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261077]
-3 Adarkar Wastes
-2 Eye of Vecna
-4 Floodwater Dam
-3 Geistcatcher's Rig
-4 Island
-4 Isolation Cell
-4 Juju Bubble
-2 Levitating Statue
-4 Moorland Haunt
-2 Ominous Parcel
-4 Parasitic Strix
-11 Plains
-2 Sejiri Refuge
-2 Skybridge Towers
-2 Sunscorch Regent
-4 Talisman of Progress
-3 The One Ring
+2 Calciform Pools
+4 Cold Snap
+4 Iceberg
+2 Illusions of Grandeur
+8 Island
+2 Land Cap
+3 Moorland Haunt
+2 Mystic Gate
+4 Mystic Remora
+3 Nesting Dovehawk
+3 Orochi Hatchery
+8 Plains
+2 Royal Decree
+4 Soaring Drake
+4 Soulcatcher
+2 Sterling Supplier
+1 Tundra
+2 Wan Shi Tong, Librarian

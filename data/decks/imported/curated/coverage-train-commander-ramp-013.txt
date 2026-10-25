@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp UBG #20266014]
-1 Ambush Gigapede
-1 Archaeomender
-1 Bayou
-1 Compelling Argument
-1 Creeping Tar Pit
-1 Darkslick Shores
-1 Deliberate
-1 Elder Spawn
-1 Elvenking's Halls
-1 Elvish Regrower
-1 Emry, Lurker of the Loch
-1 Farseek
-1 Fascination
-1 Fetid Pools
-1 Foggy Bottom Swamp
-4 Forest
+1 Afiya Grove
+1 Agna Qel'a
+1 Aku Djinn
+1 Arbor Armament
+1 Ba Sing Se
+1 Big Bertha
+1 Black Dragon Gate
+1 Blizzard
+1 Bottomless Vault
+1 Bounty Hunter
+1 Castle Garenbrig
+1 Chocobo Camp
+1 Crypt Cobra
+1 Crypt of Agadeem
+1 Dakmor Salvage
+1 Delighted Halfling
+1 Dread Wight
+1 Drop of Honey
+1 Druid Class
+1 Ephemeron
+20 Forest
 1 Fungal Shambler
-1 Galadhrim Guide
-1 Graveshifter
-1 Great Whale
-1 Halimar Excavator
-1 Hedron Crab
-1 Hithlain Knots
-1 Homarid Explorer
-1 Introduction to Prophecy
-18 Island
-1 Keeper of Tresserhorn
-1 Lay of the Land
-1 Liturgy of Blood
-1 Lumra, Bellow of the Woods
-1 Marjhan
-1 Meditation Pools
-1 Mnemonic Wall
-1 Moonlit Scavengers
-1 Omen
-1 Overwhelmed Apprentice
-1 Pharika's Mender
-1 Profane Tutor
-1 Pym Technologies
-1 Quarry Beetle
-1 Ray of Erasure
-1 River Delta
-1 River of Tears
-1 Ruin Crab
-1 Sage Aven
-1 Sage of Mysteries
-1 Sage's Row Savant
-1 Scrivener
-1 Secret Passage
-1 Shared Roots
-1 Simic Cluestone
-1 Simic Locket
-1 Sinister Hideout
-1 Skemfar Elderhall
+1 Fungus Elemental
+1 Fyndhorn Pollen
+1 Gaea's Gift
+1 Glyph of Delusion
+1 Guardian of the Halls
+1 Guild Thief
+1 Hermitic Herbalist
+1 Hidden Path
+1 Hungry Megasloth
+1 Illusionary Forces
+1 Illusionary Wall
+1 Innkeeper's Talent
+3 Island
+1 Khabál Ghoul
+1 Lay Claim
+1 Lotleth Troll
+1 Mindbender Spores
+1 Mortal Wound
+1 Nasty Little Rabbit
+1 Oath of the Ancient Wood
+1 Power Artifact
+1 Prowler, Misguided Mentor
+1 Psychic Frog
+1 Reef Roads
+1 Relic Bind
+1 Rushwood Elemental
+1 Rustvine Cultivator
+1 Sab-Sunen, Luxa Embodied
+1 Scavenger Drake
+1 Scavenging Ghoul
+1 Shelldock Isle
+1 Skeleton Ship
+1 Slith Predator
 1 Snapping Voidcraw
-1 Spined Megalodon
-1 Standing Stones
-1 Sunken Palace
-1 Sunken Ruins
-2 Swamp
-1 Tamiyo's Epiphany
-1 Thassa's Devourer
-1 Thought Scour
-1 Thoughtrender Lamia
-1 Thundering Tanadon
-1 Time of Need
-1 Titan's Grave
-1 Tolarian Serpent
-1 Twilight Mire
-1 Venomous Hierophant
-1 Vernal Fen
-1 Wall of Lost Thoughts
-1 Wave-Wing Elemental
-1 Willow-Wind
-1 Worldly Tutor
-1 Wrenn and Realmbreaker
-1 Yawgmoth Demon
-1 Zagoth Crystal
+1 Spawning Grounds
+1 Spike Hatcher
+1 Sultai Devotee
+1 Super Intelligence
+1 Suq'Ata Assassin
+1 Susur Secundi, Void Altar
+3 Swamp
+1 Tainted Well
+1 Thanos, Death's Consort
+1 The Dross Pits
+1 The Shire
+1 The Surgical Bay
+1 Thriving Isle
+1 Titania's Boon
+1 Tomb Fortress
+1 Tribute to the World Tree
+1 Urborg Elf
+1 Voodoo Doll
+1 War Dance
+1 Worms of the Earth
 
 [commander]
-Muldrotha, the Gravetide
+Vorosh, the Hunter

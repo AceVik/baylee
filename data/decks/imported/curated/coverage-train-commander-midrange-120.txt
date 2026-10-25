@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBR #20266121]
-1 Aven Fogbringer
-1 Blacklance Paragon
-1 Blood-Toll Harpy
-1 Bloodrage Brawler
-1 Burglar Rat
-1 Burning-Yard Trainer
-1 Burrog Befuddler
-1 Cascade Bluffs
-1 Castle Sengir
-1 Corrupt Court Official
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Dagger Caster
-1 Daybreak Combatants
-1 Drekavac
-1 Dualcaster Mage
-1 Electric Eel
-1 Ertai Resurrected
-1 Faerie Duelist
-1 Fiery Islet
-1 Foundry Street Denizen
-1 Fury
-1 Goblin Chainwhirler
-1 Goblin Commando
-1 Hecteyes
-7 Island
-1 Knight of the Mists
-1 Lumengrid Sentinel
-1 Mercenary Knight
-1 Mindculling
-1 Mistvault Bridge
-1 Mogg Bombers
-15 Mountain
-1 Nezumi Informant
-1 Noggle Bridgebreaker
-1 Noggle Ransacker
-1 Ogre Arsonist
-1 Ogre Gatecrasher
-1 Oscorp Industries
-1 Planetary Patrol
-1 Ravaging Horde
-1 Ravenous Baboons
-1 Remnant Elemental
-1 River Delta
-1 River of Tears
-1 Sanity Gnawers
-1 Sea Gate Restoration
-1 Seething Landscape
-1 Separatist Voidmage
-1 Shrieking Drake
-1 Snapcaster Mage
-1 Spider-Man, Hometown Hero
-1 Spiderwig Boggart
-1 Spirebluff Canal
-1 Spitfire Lagac
-1 Stark Industries
-1 Stern Proctor
-1 Stingcaster Mage
-1 Subterranean Scout
-1 Sulfur Vent
-1 Sulfurous Mire
-1 Swamp
-1 Temple of Malice
-1 Theorist's Proxy
-1 Tishana's Tidebinder
-1 Triton Waverider
-1 Tuktuk Scrapper
-1 Venser, Shaper Savant
-1 Viashino Bladescout
-1 Vicious Clown
-1 Voidwielder
-1 Volley Veteran
-1 Vulshok Heartstoker
-1 Weldfast Wingsmith
-1 Whiptail Moloch
-1 Xander's Lounge
-1 Yellowjacket, Heartless Marauder
-1 Zo-Zu the Punisher
+[deck:commander midrange WB #20266121]
+1 Aardvark Sloth
+1 Adagia, Windswept Bastion
+1 Angel's Mercy
+1 Austere Command
+1 Balm of Restoration
+1 Banehound
+1 Basilica Bell-Haunt
+1 Blood Glutton
+1 Book of Rass
+1 Brightblade Stoat
+1 Caravan Hurda
+1 Castle Ardenvale
+1 Castle Locthwain
+1 Champion of Arashin
+1 Charity Extractor
+1 Delif's Cone
+1 Demystify
+1 Dromad Purebred
+1 Elixir of Vitality
+1 Fountain of Ichor
+1 Grollub
+1 Icatian Store
+1 Imperial Ceratops
+1 Jandor's Ring
+1 Judge of Currents
+1 Kabira Crossroads
+1 Karoo
+1 Knight of Meadowgrain
+1 Koala-Sheep
+1 Lich's Caress
+1 Life Chisel
+1 Markov Patrician
+1 Maw of the Mire
+1 Mesa Unicorn
+1 Minas Tirith
+1 Mistmeadow Skulk
+1 Mistveil Plains
+1 Moment of Valor
+1 Moonrise Cleric
+1 Mournful Zombie
+1 New Benalia
+1 Ondu Inversion
+1 Orim's Prayer
+1 Peace and Quiet
+9 Plains
+1 Prideful Feastling
+1 Recuperate
+1 Relic of Legends
+1 Remote Farm
+1 Rustic Clachan
+1 Scrapheap
+1 Sejiri Steppe
+1 Sickbay Orderly
+1 Skullmead Cauldron
+1 Songbird, Sonic Screamer
+1 Soothing Balm
+1 Staff of Domination
+1 Steadfast Paladin
+1 Sudden Strike
+16 Swamp
+1 Syphon Fuel
+1 Tanglebloom
+1 The Fair Basilica
+1 Thirsting Shade
+1 Thriving Heath
+1 Tidy Conclusion
+1 Tower of Eons
+1 Trained Caracal
+1 Vampire Envoy
+1 Vizkopa Vampire
+1 Wanderbrine Preacher
+1 Well-Worn Spatula
+1 Whitesun's Passage
+1 Windbrisk Heights
+1 Wooden Sphere
+1 Zarichi Tiger
 
 [commander]
-Tetsuo Umezawa
+Vona, Butcher of Magan

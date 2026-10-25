@@ -1,84 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WBR #20266110]
-1 Abandoned Air Temple
-1 Abu Ja'far
-1 Agent of Shauku
-1 Altac Bloodseeker
+[deck:commander ramp WU #20266110]
+1 Aboshan, Cephalid Emperor
+1 Akroma, Angel of Wrath
+1 Altar of the Brood
 1 Angel of Flight Alabaster
-1 Argivian Find
-1 Auriok Salvagers
-1 Bishop of Rebirth
-1 Blighted Shaman
-1 Bloodfell Caves
-1 Bloodflow Connoisseur
-1 Breath of Life
-1 Caregiver
-1 Cateran Overlord
-1 Cave of the Frost Dragon
-1 Charming Prince
-1 Compassionate Healer
-1 Corrupted Harvester
-1 Cruel Celebrant
-1 Dai Li Censor
-1 Dauthi Ghoul
-1 Deathcurse Ogre
-1 Deathgreeter
-1 Doomed Necromancer
-1 Dragonmaster Outcast
-1 Drossforge Bridge
-1 Emerge from the Cocoon
-1 False Defeat
-1 Fault Riders
-1 Fetid Heath
-1 Foot Headquarters
-1 Ghen, Arcanum Weaver
-1 Gnathosaur
-1 Goblin-town
+1 Angel of Retribution
+1 Angler Turtle
+1 Arch of Orazca
+1 Archon of Justice
+1 Baldur's Gate
+1 Banishing Betrayal
+1 Blizzard Elemental
+1 Bronze Walrus
+1 Capture of Jingzhou
+1 Clive's Hideaway
+1 Cloud Djinn
+1 Cold-Water Snapper
+1 Deathless Angel
+1 Emergence Zone
+1 Emry, Lurker of the Loch
+1 Esper Panorama
+1 Eye of Malcator
+1 Floodchaser
+1 Forget
+1 Grasping Dunes
+1 Grey Havens Navigator
 1 Harnessed Snubhorn
-1 Hell's Caretaker
-1 Horror of Horrors
-1 Hungry Ghoul
-1 Icatian Town
-1 Ishgard, the Holy See
-1 Jaya's Firenado
-1 Karoo
-1 Koma's Faithful
-1 Lord of the Undead
-1 Luke Cage, Hero for Hire
-1 Megatog
-1 Mire Shade
-1 Mistveil Plains
-1 Monumental Henge
-1 Mountain
-1 Nomad Outpost
-1 Obzedat's Aid
-1 Order of Whiteclay
-1 Peat Bog
-11 Plains
-1 Ramosian Revivalist
-1 Refurbish
-1 Ritual of Restoration
-1 Salvage Scout
-1 Samite Herbalist
-1 Savai Triome
-1 Scrapyard Steelbreaker
-1 Shadewing Laureate
-1 Shadowblood Ridge
-1 Shattered Landscape
-1 Shivan Phoenix
-1 Skirsdag Flayer
+1 Harrier Griffin
+1 Helm of Awakening
+17 Island
+1 Island of Wak-Wak
+1 Kasimir the Lone Wolf
+1 Krark-Clan Ironworks
+1 Laboratory Brute
+1 Library of Alexandria
+1 Merfolk Mesmerist
+1 Mouth of Ronom
+1 Nim Deathmantle
+1 Octoprophet
+1 Petrified Hamlet
+9 Plains
+1 Quiet Purity
+1 Ransack
+1 Rath's Edge
+1 Ruby Medallion
+1 Sage's Row Denizen
+1 Scorched Ruins
+1 Sea Gate Wreckage
+1 Searing Light
+1 Seer's Lantern
+1 Sensei's Divining Top
+1 Shinewend
+1 Shriekgeist
+1 Shriekhorn
+1 Shrine of the Forsaken Gods
+1 Skyline Predator
 1 Skywhaler's Shot
-1 Starfighter Pilot
-12 Swamp
-1 Takklemaggot
-1 The Balrog of Moria
-1 Thriving Moor
-1 Tinker's Tote
-1 Tournament Grounds
-1 Tragic Poet
-1 Warteye Witch
-1 Wort, Boggart Auntie
+1 Smite
+1 So Shiny
+1 Sonic Screwdriver
+1 Spellkeeper Weird
+1 Subtlety
+1 Sword of the Meek
+1 Temporal Manipulation
+1 Thaumatic Compass
+1 Think Tank
+1 Tidal Force
+1 Tidepool Turtle
+1 Time Warp
+1 Veil of Assimilation
+1 Verdant Catacombs
+1 Voldaren Estate
+1 Warrior Angel
+1 Willow-Wind
+1 Winds of Rebuke
+1 Zetalpa, Primal Dawn
 
 [commander]
-Piru, the Volatile
+Absolute Virtue

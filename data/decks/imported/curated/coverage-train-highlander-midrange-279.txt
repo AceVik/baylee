@@ -1,0 +1,83 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUBRG #20266280]
+1 Abbey Gargoyles
+1 Adamant Will
+1 Aerial Maneuver
+1 Alarum
+1 Alley Evasion
+1 An-Havva Township
+1 Aysen Abbey
+1 Beaming Defiance
+1 Bleed Dry
+1 Bull Cerodon
+1 Cavern Thoctar
+1 Centaur Archer
+1 Contaminated Landscape
+1 Crystal Quarry
+1 Darigaaz's Caldera
+1 Darklit Gargoyle
+1 Deceptive Landscape
+1 Despark
+1 Disorient
+1 Doom Whisperer
+1 Dromar's Cavern
+1 Esper Battlemage
+1 Esper Cormorants
+1 Flatten
+1 Fleshformer
+1 Foreboding Landscape
+3 Forest
+1 Great Defender
+1 Guardian Beast
+1 Hope and Glory
+1 Indestructible Aura
+1 Interjection
+2 Island
+1 Ivory Charm
+1 Jeskai Brushmaster
+1 Leering Gargoyle
+1 Lotleth Troll
+1 Machine Man, Model X-51
+1 Mantis Rider
+1 Moss Kami
+1 Mountain
+1 Nearby Planet
+1 Oko, Thief of Crowns
+1 Overkill
+12 Plains
+1 Raging Regisaur
+1 Rakdos Ickspitter
+1 Rally
+1 Rith's Grove
+1 Roaring Slagwurm
+1 Sawback Manticore
+1 Scornful Aether-Lich
+1 Scourge of the Nobilis
+1 Seize the Initiative
+1 Sheltering Landscape
+1 Shield Wall
+1 Show of Valor
+1 Simic Sky Swallower
+1 Skillful Lunge
+1 Skull Rend
+1 Soulherder
+1 Stormcaller of Keranos
+1 Strangling Spores
+7 Swamp
+1 Swift Justice
+1 Talon Trooper
+1 The World Tree
+1 Throttle
+1 Tidehollow Strix
+1 Tournament Grounds
+1 Tower Gargoyle
+1 Treva's Ruins
+1 Utter End
+1 Vectis Silencers
+1 Vedalken Outlander
+1 Wizards' School
+1 Wormwood Dryad
+1 Wormwood Treefolk
+1 You're Ambushed on the Road
+1 Zealous Strike

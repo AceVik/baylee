@@ -1,81 +1,79 @@
 # baylee curated highlander ramp seed=20261093
 # licence: AGPL-3.0-only
 [deck:highlander ramp BR #20261093]
-1 Aclazotz, Deepest Betrayal
-1 Akoum Refuge
-1 Arcbound Ravager
-1 Arcum's Astrolabe
-1 Avacyn's Collar
+1 Akoum Boulderfoot
+1 Arms Dealer
 1 Axelrod Gunnarson
-1 Ayara, First of Locthwain
 1 Badlands
-1 Bag End Banquet
-1 Baron Sengir
-1 Blood Petal Celebrant
-1 Boiling Rock Prison
-1 Canyon Slough
-1 Chromatic Sphere
-1 Chromatic Star
+1 Baleful Force
+1 Beetleback Chief
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bloodfell Caves
+1 Bloodfire Colossus
+1 Bogardan Rager
+1 Boggart Cursecrafter
+1 Choco-Comet
 1 Cinder Marsh
-1 Cirith Ungol Patrol
 1 Dark Fortress
-1 Deathbringer Thoctar
-1 Diamond Kaleidoscope
-1 Energy Refractor
+1 Deadapult
+1 Deathcurse Ogre
+1 Dread Reaper
 1 Eyeblight Cullers
-1 Foreboding Ruins
-1 Geistcatcher's Rig
-1 Gleaming Barrier
+1 Faithless Looting
+1 Flamekin Harbinger
+1 Fleshpulper Giant
+1 Fury
+1 Garna, the Bloodflame
 1 Goblin Engineer
-1 Golden Egg
-1 Greedy Freebooter
-1 Haunted Ridge
+1 Goblin Recruiter
+1 Graven Cairns
+1 Gremlin Infestation
 1 Hearthcage Giant
-1 Immersturm Skullcairn
+1 Imperial Seal
 1 Infernal Idol
-1 Kheru Bloodsucker
-1 Kiora of Fire and Ashes
+1 Ishi-Ishi, Akki Crackshot
 1 Lantern-Lit Graveyard
-1 Lavaclaw Reaches
+1 Lava Serpent
+1 Lava Tubes
+1 Lead Pipe
 1 Legion Extruder
-1 Maalfeld Twins
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Mind Stone
-1 Minotaur, Roxxon CEO
+1 Magmatic Force
+1 Mana Crypt
+1 Metalspinner's Puzzleknot
+1 Misery Charm
 1 Molten Slagheap
-4 Mountain
-1 Nim Deathmantle
-1 Ogre Slumlord
-1 Orochi Hatchery
+1 Moriok Replica
+1 Mount Doom
+17 Mountain
+1 Munitions Enthusiast
+1 Ominous Parcel
+1 Orcish Vandal
 1 Pashalik Mons
-1 Pentavus
 1 Pia and Kiran Nalaar
-1 Prophetic Prism
-1 Quest for the Gravelord
-1 Rakdos Carnarium
-1 Rakdos Guildgate
-1 Retrofitter Foundry
-1 Shadowblood Ridge
+1 Poisonbelly Ogre
+1 Pyre Spawn
+1 Rage of Purphoros
+1 Rakdos Cluestone
+1 Risky Shortcut
+1 Rix Maadi, Dungeon Palace
+1 Shadowblood Egg
+1 Shattered Crypt
 1 Siege-Gang Commander
-1 Skeletal Vampire
-1 Slayer's Plate
+1 Skirk Prospector
 1 Sling-Gang Lieutenant
-1 Solemn Simulacrum
-1 Spawning Pit
-1 Stone Calendar
-20 Swamp
-1 Sweettooth Witch
+1 Spawning Breath
+1 Stensia Bloodhall
+1 Sulfurous Springs
+9 Swamp
 1 Tainted Peak
-1 Tempting Witch
-1 Terrarion
+1 Talisman of Indulgence
+1 Tar Pitcher
 1 The Balrog of Moria
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Trading Post
-1 Treasure Map
-1 Tresserhorn Sinks
-1 Triskelavus
-1 Utvara Hellkite
-1 Vector, Imperial Capital
-1 Wand of the Elements
+1 The Immortal Weapons
+1 Tithebearer Giant
+1 Tuktuk Scrapper
+1 Volley Veteran
+1 Weaponize the Monsters
+1 Zo-Zu the Punisher

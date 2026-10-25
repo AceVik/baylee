@@ -1,75 +1,72 @@
 # baylee curated commander midrange seed=20261124
 # licence: AGPL-3.0-only
 [deck:commander midrange R #20261124]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Blighted Gorge
-1 Blood Petal Celebrant
-1 Blood Servitor
-1 Chromatic Star
-1 Diamond Kaleidoscope
+1 Akki Avalanchers
+1 Akki Raider
+1 Akki Rockspeaker
+1 Arms Dealer
+1 Balduvian Trading Post
+1 Beetleback Chief
+1 Blazing Effigy
+1 Blisterstick Shaman
 1 Dori, Bearer of Friends
-1 Dowsing Dagger
-1 Dragon Egg
-1 Enatu Golem
-1 Falkenrath Celebrants
-1 Filigree Crawler
+1 Elder Auntie
+1 Embraal Gear-Smasher
 1 Flick a Coin
-1 Fogwell's Gym
-1 Gilded Pinions
 1 Gimli of the Glittering Caves
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Goblin Burrows
+1 Goblin Arsonist
+1 Goblin Artisans
+1 Goblin Commando
 1 Goblin Engineer
+1 Goblin Gang Leader
+1 Goblin Gardener
+1 Goblin Instigator
+1 Goblin Masons
+1 Goblin Rally
+1 Goblin Settler
+1 Goblin Sledder
+1 Goblin Soothsayer
+1 Goblin Trashmaster
 1 Goblin Warrens
-1 Goldvein Pick
-1 Great Furnace
-1 Gremlin Infestation
-1 Hanweir Battlements
+1 Goblin Wizardry
+1 Hammerfist Giant
+1 Hearthcage Giant
 1 Hellion Crucible
-1 Iron Man, Tony Stark
-1 Keldon Necropolis
-1 Kiora of Fire and Ashes
-1 Legion Extruder
-1 Magnifying Glass
-31 Mountain
-1 Myr Matrix
-1 Myr Retriever
-1 Myr Sire
-1 Nim Deathmantle
+1 Kher Keep
+1 Kiki-Jiki, Mirror Breaker
+1 Krark-Clan Grunt
+1 Krark-Clan Stoker
+1 Living Lightning
+1 Mogg Bombers
+1 Mogg Raider
+34 Mountain
+1 Mouser Attack!
+1 Mox Ruby
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
+1 Orcish Vandal
 1 Orochi Hatchery
+1 Oxidda Daredevil
 1 Pashalik Mons
-1 Pentavus
-1 Pia and Kiran Nalaar
-1 Piggy Bank
-1 Prying Blade
+1 Ramunap Ruins
+1 Reckless Lackey
 1 Redcap Thief
-1 Retrofitter Foundry
-1 Rukh Egg
-1 Scrap Trawler
-1 Shivan Gorge
+1 Rockface Village
+1 Sardian Avenger
+1 Scrapyard Steelbreaker
+1 Shinka, the Bloodsoaked Keep
 1 Siege-Gang Commander
-1 Skullclamp
+1 Skirk Prospector
 1 Slash, Reptile Rampager
-1 Slayer's Plate
-1 Sokenzan, Crucible of Defiance
-1 Solemn Simulacrum
-1 Sparring Construct
-1 Spawning Pit
-1 Sylvok Lifestaff
-1 Terrarion
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
+1 Slobad, Goblin Tinkerer
+1 Sudden Breakthrough
+1 Sunrise Sovereign
+1 Tar Pitcher
+1 The Immortal Weapons
 1 Tooth and Claw
-1 Trading Post
-1 Treasure Map
-1 Voldaren Epicure
-1 Wand of the Elements
+1 Underfoot Underdogs
+1 Volley Veteran
+1 Wily Goblin
 
 [commander]
 Balthor the Stout

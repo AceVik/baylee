@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WUB #20266011]
-1 Agna Qel'a
+1 Adarkar Unicorn
 1 Angel of Despair
-1 Angel of the God-Pharaoh
-1 Automatic Librarian
-1 Azorius Locket
-1 Braidwood Sextant
-1 Bronze Horse
-1 Charcoal Diamond
-1 Citadel Gate
-1 Crystal Chimes
-1 Dragonstorm Forecaster
-1 Dromar's Attendant
-1 Emerald Medallion
+1 Aven of Enduring Hope
+1 Ballroom
+1 Battlefield Promotion
+1 Candy Trail
+1 Castle Ardenvale
+1 Cathartic Adept
+1 Compassionate Healer
+1 Contaminated Aquifer
+1 Courier's Capsule
+1 Creeping Tar Pit
+1 Cryptic Command
+1 Dimir Keyrune
+1 Doom's Servo-Guards
+1 Emerge from the Cocoon
 1 Emeria, the Sky Ruin
+1 Energy Refractor
+1 Energy Tap
+1 Erratic Visionary
 1 Etherium Astrolabe
-1 Expedition Map
-1 Flowstone Sculpture
-1 Helm of Awakening
-1 Hidden Cataract
-1 Iron Giant
-1 Iron Man, Futurist Paragon
-1 Ishgard, the Holy See
-12 Island
-1 Jace, the Mind Sculptor
-1 Jet Medallion
-1 Karoo
-1 Liquimetal Torque
-1 Lotus Petal
-1 Machine God's Effigy
-1 Memorial to Glory
-1 Mimic
+1 Executioner's Capsule
+1 Eye of Ramos
+1 Foot Headquarters
+1 Force Void
+1 Fountain Watch
+1 Grassland Crusader
+1 Great Hall of Starnheim
+1 High Tide
+1 Insomnia, Crown City
+17 Island
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 La Forge, Perceptive Engineer
+1 Locke Cole
+1 Lucky Offering
+1 Mask of Riddles
+1 Merchant Ship
 1 Minas Tirith
-1 Monumental Henge
+1 Mistveil Plains
+1 Misty Palms Oasis
 1 Moonring Island
-1 Mox Opal
 1 Mystic Sanctuary
-1 Obsessive Stitcher
-1 Ornithopter of Paradise
-6 Plains
-1 Primoc Escapee
-1 Princess Lucrezia
-1 Prismatic Lens
+1 Obelisk of Esper
+1 Obzedat's Aid
+1 Orzhov Keyrune
+1 Padeem, Consul of Innovation
+3 Plains
+1 Ramirez DePietro
 1 Ramses Overdark
-1 Reef Roads
+1 Rashida Scalebane
 1 Remote Farm
-1 Renegade Map
-1 Riven Turnbull
-1 Ruby Medallion
-1 Sand Silos
-1 Saprazzan Cove
-1 Seahunter
-1 Shelldock Isle
-1 Shriekhorn
-1 Sibilant Spirit
-1 Skull of Orm
-1 Slipstream Eel
-1 Staff of Nin
-1 Steelshaper Apprentice
-1 Sterling Hound
+1 Restless Fortress
+1 Rummaging Wizard
+1 Sanctum Gargoyle
+1 Scatter Arc
+1 Sharuum the Hegemon
+1 Silumgar Monument
+1 Skirge Familiar
+1 Sphinx of the Steel Wind
+1 Spined Megalodon
+1 Spock, Logical Choice
+1 Striped Riverwinder
+1 Sunseed Nurturer
+1 Sunspring Expedition
 6 Swamp
-1 Talisman of Hierarchy
-1 Tarrian's Journal
-1 Teferi's Isle
+1 Tamiyo's Epiphany
+1 Temporal Mastery
 1 The Everflowing Well
-1 The Unspeakable
-1 Thought Vessel
-1 Thriving Isle
-1 Tower of Fortunes
-1 Unstable Obelisk
-1 Ur-Golem's Eye
+1 The Fair Basilica
+1 Thought Courier
+1 Thunder Totem
+1 Tolarian Serpent
+1 Trigon of Mending
 1 Wakandan Drone Flock
-1 Walking Archive
-1 Weight of Memory
-1 Whisper Squad
-1 Winged Shepherd
-1 Wishclaw Talisman
-1 World Map
-1 Yoked Plowbeast
+1 Whisper Agent
 
 [commander]
 Dakkon Blackblade

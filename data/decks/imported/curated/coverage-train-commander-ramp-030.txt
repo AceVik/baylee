@@ -1,83 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #20266031]
-1 Abomination
-1 Amulet of Unmaking
-1 Ankh of Mishra
-1 Arcum's Whistle
-1 Ark of Blight
-1 Avengers Tower
-1 Baldur's Gate
-1 Barbarian Riftcutter
-1 Baxter Building
-1 Blasted Landscape
-1 Blaster Mage
-1 Boggart Arsonists
-1 Boggart Loggers
-1 Bonders' Enclave
-1 Cave of Temptation
+[deck:commander ramp RG #20266031]
+1 Alpha Tyrranax
+1 Altar of Dementia
+1 Ancient Brontodon
+1 Anodet Lurker
+1 Bucolic Ranch
+1 Cathodion
+1 Child of Gaea
+1 Cinder Giant
 1 Citanul Flute
-1 Daredevil's Billy Club
-1 Dark Depths
-1 Deathmark
-1 Despotic Scepter
-1 Disruptor Pistol
-1 Eastern Paladin
-1 Eliminate
-1 Executioner's Capsule
-1 Fatal Blow
-1 Fireforger's Puzzleknot
+1 Craw Giant
+1 Crystal Chimes
+1 Delif's Cone
+1 Dowsing Device
+1 Endless Sands
+1 Eye of Ugin
+1 Fire Snake
+1 Flamecast Wheel
+18 Forest
+1 Forge of Heroes
 1 Fountainport
-1 Geier Reach Sanitarium
-1 Ghitu Fire-Eater
-1 Goblin Firebomb
-1 Goblin Lyre
-1 Goblin Sappers
-1 Griffin Canyon
-1 Hero's Demise
-1 Jawbone Skulkin
-1 Jousting Dummy
-1 Joven
-1 Lightning Spear
-1 Lion Heart
-1 Marsh Flats
-1 Mech Hangar
-1 Mogg Cannon
-1 Molten-Tail Masticore
-14 Mountain
-1 Mycosynth Lattice
-1 Notorious Assassin
-1 Paupers' Cage
-1 Pit Trap
-1 Planar Bridge
-1 Planar Portal
-1 Predator, Flagship
-1 Pyramids
-1 Rath's Edge
-1 Raze
-1 Ring of Three Wishes
-1 Ruinous Gremlin
-1 Sandals of Abdallah
-1 Scarblade Elite
-1 Seismic Mage
-1 Shauku's Minion
-1 Shifting Wall
-1 Sinkhole
-1 Sliver Hive
-1 Starke of Rath
-10 Swamp
-1 Throne of Makindi
-1 Tor Wauki
-1 Tunnel
-1 Universal Automaton
-1 Unliving Psychopath
-1 Urza's Mine
-1 Valakut Invoker
-1 Wall of Corpses
-1 War Barge
-1 Western Paladin
-1 Winding Canyons
-1 Wooded Foothills
+1 Frost Giant
+1 Gilded Pinions
+1 Glimmer Bairn
+1 Golden Urn
+1 Goldvein Pick
+1 Haven of the Spirit Dragon
+1 Hedron Crawler
+1 Helm of the Host
+1 Holdout Settlement
+1 Implements of Sacrifice
+1 Karplusan Giant
+1 Liquimetal Torque
+1 Loamdragger Giant
+1 Lothlórien Lookout
+1 Magnetic Mine
+1 Mana Confluence
+1 Maskwood Nexus
+1 Megatog
+8 Mountain
+1 Omashu City
+1 Ornithopter of Paradise
+1 Otherworld Atlas
+1 Penregon Strongbull
+1 Quakestrider Ceratops
+1 Ravenous Giant
+1 Restless Ridgeline
+1 Rhystic Cave
+1 Ring of Renewal
+1 Ruby Medallion
+1 Rumbling Slum
+1 Salvaged Manaworker
+1 Sapphire Medallion
+1 Seething Pathblazer
+1 Short Sword
+1 Shriekhorn
+1 Silvos, Rogue Elemental
+1 Skull of Orm
+1 Slagwoods Bridge
+1 Slayer's Plate
+1 Sol Grail
+1 Spearbreaker Behemoth
+1 Swarmyard
+1 Sword of the Meek
+1 Tablet of Epityr
+1 The Lady of the Mountain
+1 The Monumental Facade
+1 Titan Forge
+1 Two-Headed Giant of Foriys
+1 Tyrranax Rex
+1 Unyaro Bees
+1 Ur-Golem's Eye
+1 Urza's Factory
+1 Vibrant Cityscape
+1 Well-Worn Spatula
+1 Whirlermaker
 
 [commander]
-Tsabo Tavoc
+Marhault Elsdragon

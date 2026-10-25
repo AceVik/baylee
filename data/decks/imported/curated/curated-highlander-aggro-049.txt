@@ -1,83 +1,81 @@
 # baylee curated highlander aggro seed=20261072
 # licence: AGPL-3.0-only
 [deck:highlander aggro WG #20261072]
-1 Aang's Defense
-1 Angel's Feather
-1 Arctic Flats
-1 Auspicious Ancestor
-1 Bayou Dragonfly
-1 Birnin Zana Plaza
-1 Blessed Spirits
-1 Botanical Plaza
+1 Abu Ja'far
+1 April O'Neil, Kunoichi Trainee
+1 Avatar Enthusiasts
+1 Bishop of Wings
 1 Branchloft Pathway
-1 Briarknit Kami
+1 Bretagard Stronghold
+1 Briarbridge Tracker
 1 Brushland
-1 Bygone Bishop
-1 Captain's Defense
-1 Chimeric Egg
-1 Crystal Rod
-1 Dawnhart Geist
-1 Deeproot Champion
-1 Defiant Strike
-1 Demon's Horn
-1 Dragon's Claw
-1 Elfhame Palace
-1 Elvish Farmer
-1 Elvish Handservant
-10 Forest
-1 Fortified Village
+1 Byway Courier
+1 Caregiver
+1 Cartographer
+1 Champion of the Parish
+1 Dauntless Survivor
+1 Dawnhart Disciple
+1 Delney, Streetwise Lookout
+1 Deranged Outcast
+1 Doomed Traveler
+1 Dundoolin Weaver
+1 Etched Cornfield
+1 Eternal Witness
+1 Extraction Specialist
+1 Femeref Enchantress
+9 Forest
+1 Gallant Citizen
+1 Gathering Place
 1 Gavony Township
-1 Generous Visitor
 1 Gilded Goose
-1 Glaring Fleshraker
-1 Golem's Heart
-1 Honor
-1 Iron Bully
-1 Iron Star
-1 Iron Will
-1 Isolation Cell
-1 Ivory Cup
-1 Juju Bubble
-1 Kor Firewalker
-1 Kraken's Eye
-1 Leaf-Crowned Visionary
-1 Levitating Statue
-1 Lifecrafter's Bestiary
-1 Lightshield Parry
-1 Lurking Lizards
-1 Lush Portico
-1 Lys Alana Bowmaster
-1 Lys Alana Huntmaster
-1 Machine Man, Model X-51
-1 Magma Mine
-1 Managorger Hydra
-1 Medusa, Inhuman Queen
-1 Mold Adder
-1 Monastery Mentor
-1 Overgrown Farmland
-1 Path of Annihilation
-12 Plains
-1 Primal Amulet
-1 Quirion Dryad
-1 Radiant Grove
-1 Razorverge Thicket
-1 Selesnya Guildgate
-1 Shield Sphere
+1 Groundskeeper
+1 Hada Freeblade
+1 Hunted Witness
+1 Hushwood Verge
+1 Implement of Improvement
+1 Ironclad Slayer
+1 Jeong Jeong's Deserters
+1 Knight-Captain of Eos
+1 Kronch Wrangler
+1 Kyoshi Warriors
+1 Leonin Squire
+1 Loran, Disciple of History
+1 Mandroid Squadron
+1 Master Splicer
+1 Mox Emerald
+1 Nighthawk, Dark Defender
+1 Novice Inspector
+1 Oran-Rief Survivalist
+15 Plains
+1 Recruiter of the Guard
+1 Renegade Rallier
+1 Renowned Weaver
+1 Riftstone Portal
+1 Salvage Scout
+1 Savannah
+1 Setessan Champion
+1 Setessan Starbreaker
 1 Siege Veteran
-1 Skybeast Tracker
-1 Solarium Sentry
-1 Straw Golem
-1 Suburban Sanctuary
-1 Sunscorch Regent
+1 Slumbering Keepguard
+1 Staunch Defenders
+1 Stoic Builder
+1 Sungrass Prairie
 1 Sunshower Druid
-1 Suture Priest
-1 Sythis, Harvest's Hand
-1 Temple Garden
-1 The One Ring
-1 Titania's Chosen
-1 Urza's Chalice
-1 Veldt
-1 Voice of Resurgence
-1 Walking Ballista
-1 Wooden Sphere
-1 Wurm's Tooth
+1 Sylvan Safekeeper
+1 Temple Acolyte
+1 Tenth District Guard
+1 Thraben Inspector
+1 Tragic Poet
+1 Tranquil Garden
+1 Unruly Mob
+1 Vec Townships
+1 Venerable Knight
+1 Village Elder
+1 Vital Splicer
+1 Vitu-Ghazi, the City-Tree
+1 Wakandan Shield Guard
+1 War Priest of Thune
+1 Witch Enchanter
+1 Wooded Bastion
+1 Yotian Dissident
+1 Zuran Orb

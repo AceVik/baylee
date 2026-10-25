@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266128]
-1 Aladdin's Lamp
-1 Alpha Myr
-1 Ancient Spring
-1 Angel's Tomb
-1 Arcane Sanctum
-1 Boreal Shelf
-1 Chrome Prowler
-1 City in a Bottle
-1 Clay Statue
-1 Cobalt Golem
-1 Contaminated Landscape
-1 Crystal Golem
-1 Cursed Totem
-1 Custodian of the Trove
-1 Darksteel Myr
-1 Darksteel Relic
-1 Darkwater Catacombs
-1 Defense Grid
-1 Didgeridoo
-1 Dimir Aqueduct
-1 Drake-Skull Cameo
-1 Dromar's Attendant
-1 Dromar's Cavern
-1 Dross Ripper
-1 Escaped Experiment
-1 Executioner's Capsule
-1 Forgotten Sentinel
-1 Forsaken Sanctuary
-1 Glass Golem
-1 Glint Hawk Idol
-1 Guardians of Meletis
-1 Herbal Poultice
-1 Illusionary Mask
-8 Island
-1 Juntu Stakes
-1 Karn, Silver Golem
-1 Kiln Walker
-1 Lead Golem
-1 Mana Prism
-1 Mask of Riddles
-1 Meekstone
-1 Meticulous Archive
-1 Misty Palms Oasis
-1 Monoist Sentry
-1 Null Rod
-1 Obelisk of Esper
-1 Ojutai Monument
-1 Omega Myr
-1 Patagia Golem
-1 Phyrexian Metamorph
-1 Pithing Needle
-5 Plains
-1 Planar Bridge
-1 Planar Portal
-1 Port Town
-1 Raffine's Tower
-1 Rakalite
-1 Rusted Sentinel
-1 Sarcomite Myr
-1 Sea of Clouds
-1 Sejiri Refuge
-1 Sentinel
-1 Shield of the Ages
-1 Sinister Hideout
-1 Sol Grail
-1 Sphere of Resistance
-1 Squee's Toy
-1 Steel Golem
-1 Sunken Ruins
-1 Surgical Metamorph
-10 Swamp
-1 Teferi's Sentinel
-1 Tezzeret's Strider
-1 Titanium Golem
-1 Universal Automaton
-1 Veil of Assimilation
-1 Vial of Poison
-1 Waxen Shapethief
-1 Wizards' School
+[deck:commander midrange BR #20266128]
+1 Agility
+1 Akroma's Memorial
+1 Army Ants
+1 Aspect of Manticore
+1 Atog
+1 Badlands
+1 Battering Sliver
+1 Blightstep Pathway
+1 Blood Bairn
+1 Blood Crypt
+1 Bog Naughty
+1 Boldwyr Aggressor
+1 Bravado
+1 Breath of Malfegor
+1 Carrion Beetles
+1 Cathar's Shield
+1 Cinder Marsh
+1 Cleaving Sliver
+1 Clickslither
+1 Crucible of Fire
+1 Dark Fortress
+1 Dingus Staff
+1 Dralnu's Crusade
+1 Fault Riders
+1 Ferocity of the Wilds
+1 Ferrovore
+1 Fervor
+1 Filigree Crawler
+1 Fire Snake
+1 Fire-Rim Form
+1 Firebreathing
+1 Flowstone Blade
+1 Flowstone Surge
+1 Fodder Cannon
+1 Friendly Teddy
+1 Furious Strength
+1 Fury Sliver
+1 Gleaming Barrier
+1 Goblin Caves
+1 Goblin War Drums
+1 Graven Cairns
+1 Hurloon Shaman
+1 Immersturm Skullcairn
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Madcap Skills
+1 Magnetic Mine
+1 Maskwood Nexus
+1 Monstrous Carabid
+20 Mountain
+1 Nettlecyst
+1 Nezumi Shadow-Watcher
+1 Noxious Toad
+1 Ravaged Highlands
+1 Ravenous Intruder
+1 Retributive Wand
+1 Rix Maadi, Dungeon Palace
+1 Rust Monster
+1 Seething Pathblazer
+1 Servant of Volrath
+1 Shadowblood Ridge
+1 Siege Modification
+1 Snake Basket
+1 Spiteful Motives
+1 Spitting Sliver
+1 Stensia Bloodhall
+1 Striking Sliver
+5 Swamp
+1 Tainted Peak
+1 The Lonely Mountain
+1 Volcanic Strength
+1 Voldaren Stinger
+1 Wand of the Elements
 
 [commander]
-Halfdane
+Mahadi, Emporium Master

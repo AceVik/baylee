@@ -1,22 +1,21 @@
 # baylee curated constructed aggro seed=20261083
 # licence: AGPL-3.0-only
 [deck:constructed aggro RG #20261083]
-4 Arcbound Ravager
-4 Avacyn's Collar
-2 Blood Petal Celebrant
-3 Cinder Glade
-2 Elvish Farmer
+3 Contested Cliffs
+2 Cragcrown Pathway
+4 Fire Whip
+4 Flick a Coin
 3 Forest
-2 Game Trail
-3 Gilded Goose
-4 Iron Bully
-2 Kessig Wolf Run
-10 Mountain
-3 Pashalik Mons
-1 Pia and Kiran Nalaar
-4 Retrofitter Foundry
-2 Savage Mansion
-2 Slayer's Plate
-4 Spawning Pit
-1 Temple of Abandon
-4 Trading Post
+4 Forgeborn Oreads
+4 Gilded Goose
+1 Karplusan Forest
+1 Kessig Wolf Run
+11 Mountain
+4 Oakheart Dryads
+4 Oread of Mountain's Blaze
+1 Pinecrest Ridge
+4 Sawblade Scamp
+2 Sazh's Chocobo
+3 Spawning Breath
+1 Timberline Ridge
+4 Voldaren Epicure

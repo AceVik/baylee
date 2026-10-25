@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UB #20266268]
-1 Aerial Guide
-1 Armor Thrull
-1 Azimaet Drake
-1 Azure Drake
-1 Battlefly Swarm
-1 Bog Imp
-1 Cackling Imp
-1 Cerulean Wyvern
-1 Chasm Drake
-1 Cloud Djinn
-1 Cloud Spirit
-1 Coastal Drake
-1 Consumptive Goo
-1 Crypt Cobra
-1 Dimir Aqueduct
-1 Dismal Backwater
-1 Djinn of the Lamp
-1 Drake Hatchling
-1 Fetid Imp
-1 Fighting Drake
-1 Frost Marsh
-1 Ghost Ship
-1 Greater Werewolf
-1 Harbinger of Night
-1 Hidden Lair
-1 Horizon Drake
-14 Island
-1 Lesser Werewolf
-1 Mawcor
-1 Mischievous Poltergeist
-1 Moon Heron
-1 Moroii
-1 Morphic Pool
-1 Niblis of the Breath
-1 Pendrell Drake
-1 Phyrexian Battleflies
-1 Pit Imp
-1 Pit Scorpion
-1 Restless Reef
-1 River Delta
-1 River of Tears
-1 Seacoast Drake
-1 Searchlight Geist
-1 Secluded Glen
-1 Serendib Djinn
-1 Serendib Efreet
-1 Serpent's Pass
-1 Shimmerscale Drake
-1 Shriekgeist
-1 Sinister Hideout
-1 Skulking Ghost
-1 Sky Ruin Drake
-1 Slith Bloodletter
-1 Soaring Drake
-1 Soratami Cloudskater
-1 Souldrinker
-1 Soured Springs
-1 Spiketail Drake
-1 Spiketail Hatchling
-1 Spindrift Drake
-1 Spire Monitor
-1 Stalking Bloodsucker
-1 Supreme Phantom
-1 Suq'Ata Assassin
-9 Swamp
-1 Tattered Haunter
-1 Teferi's Drake
-1 Temple of Deceit
-1 Tethered Skirge
-1 Tolarian Drake
-1 Treno, Dark City
-1 Urborg Drake
-1 Wanderlight Spirit
-1 Waterfront District
-1 Waterveil Cavern
-1 Watery Grave
-1 Wayward Soul
-1 Will-o'-the-Wisp
+[deck:commander midrange B #20266268]
+1 Angrath's Ambusher
+1 Anointed Deacon
+1 Battle Brawler
+1 Burrog Banemaker
+1 Carrion Howler
+1 City in a Bottle
+1 Coat with Venom
+1 Colossus Hammer
+1 Crux of Fate
+1 Crypt Ripper
+1 Dark Deed
+1 Darkling Stalker
+1 Darksteel Forge
+1 Dauthi Mercenary
+1 Dauthi Warlord
+1 Deathlace
+1 Defense Grid
+1 Desolation Prowler
+1 Dread Shade
+1 Dross Crocodile
+1 Dross Ripper
+1 Fen Stalker
+1 Fetid Horror
+1 Field of the Dead
+1 Funeral Charm
+1 Ghostly Changeling
+1 Goblin Firebomb
+1 Hall of the Bandit Lord
+1 Hatred
+1 Hidden Hideout
+1 Hoar Shade
+1 Hollow Dogs
+1 Hunger of the Nim
+1 Irradiate
+1 Joven's Tools
+1 Kite Shield
+1 Looming Shade
+1 Lurking Nightstalker
+1 Murk Dwellers
+1 Myriad Landscape
+1 Mystic Compass
+1 Nantuko Shade
+1 Nezumi Bladeblesser
+1 Order of the Ebon Hand
+1 Perilous Shadow
+1 Pestilence Rats
+1 Pit Trap
+1 Plague Rats
+1 Power Depot
+1 Prakhata Pillar-Bug
+1 Primeval Shambler
+1 Ruins of Oran-Rief
+1 Scare Tactics
+1 Scorpion's Sting
+1 Sewer Rats
+34 Swamp
+1 Undercity Shade
+1 Unlicensed Hearse
+1 Urza's Avenger
+1 Vampire Hounds
+1 Veiled Shade
+1 Wall of Blood
+1 Whispering Shade
+1 Wretched Doll
+1 Xanthic Statue
+1 Zof Shade
 
 [commander]
-Skeleton Ship
+Kalakscion, Hunger Tyrant

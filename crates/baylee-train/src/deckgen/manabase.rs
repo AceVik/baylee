@@ -112,10 +112,13 @@ pub fn compute_color_source_targets(
         }
     }
 
+    let total_pips = pip_weighted_sum.iter().sum::<f64>().max(1.0);
+    let approx_lands = (deck_size as f64) * 0.40;
     let mut targets = [0.0_f64; 5];
     for c in 0..5 {
         if (colors.bits() >> c) & 1 == 1 {
-            targets[c] = (max_karsten[c] as f64 * 0.70 + pip_weighted_sum[c] * 0.65).max(2.0);
+            let pip_share = approx_lands * (pip_weighted_sum[c] / total_pips);
+            targets[c] = (0.55 * (max_karsten[c] as f64) + 0.45 * pip_share).max(4.0);
         }
     }
     targets
@@ -149,23 +152,44 @@ pub fn build_manabase(
     let basics = basic_lands();
     let targets = compute_color_source_targets(pool_by_id, spells, leaders, colors, deck_size);
     let mut have_sources = [0.0_f64; 5];
+    let mut c_pips_needed = 0_usize;
+    let mut have_c_sources = 0_usize;
 
-    // Count non-land mana sources (dorks/rocks) already in the spell package
-    for &cid in spells {
-        if let Some(e) = pool_by_id.get(&cid)
-            && e.profile.is_ramp()
-        {
-            for (c, have) in have_sources.iter_mut().enumerate() {
-                if (e.profile.produced_colors.bits() >> c) & 1 == 1 {
-                    *have += 0.4;
+    // Count non-land mana sources (dorks/rocks) and {C} pip requirements
+    for &cid in spells.iter().chain(leaders) {
+        if let Some(e) = pool_by_id.get(&cid) {
+            if e.profile.pips[5] > 0 {
+                let req_c = karsten_sources_for_spell(
+                    deck_size,
+                    e.mana_value.max(1),
+                    e.profile.pips[5],
+                );
+                c_pips_needed = c_pips_needed.max(req_c);
+            }
+            if e.profile.is_ramp() {
+                for (c, have) in have_sources.iter_mut().enumerate() {
+                    if (e.profile.produced_colors.bits() >> c) & 1 == 1 {
+                        *have += 0.4;
+                    }
+                }
+                if e.profile.produces_colorless {
+                    have_c_sources += 1;
                 }
             }
         }
     }
 
     let mut land_cards: Vec<CardIndex> = Vec::with_capacity(lands_needed);
-    let nonbasic_share = if colors.len() > 1 { 0.42 } else { 0.22 };
+    let nonbasic_share = if c_pips_needed > 0 {
+        0.50
+    } else if colors.len() > 1 {
+        0.38
+    } else {
+        0.16
+    };
     let nonbasic_target = ((lands_needed as f64) * nonbasic_share).round() as usize;
+    let max_tapped_lands = (lands_needed / 4).max(2);
+    let mut tapped_count = 0_usize;
 
     // Score and rank available non-basic lands
     let mut scored_nonbasics: Vec<(f64, &Entry)> = nonbasics
@@ -183,50 +207,64 @@ pub fn build_manabase(
                 }
             }
             if colors_fixed >= 2 {
-                score += 2.5 * ((colors_fixed - 1) as f64);
+                score += 2.8 * ((colors_fixed - 1) as f64);
             } else if colors_fixed == 1 {
-                score += 0.8;
+                score += 0.6;
+            } else if c_pips_needed > 0 && e.profile.produces_colorless {
+                score += 4.5;
             } else {
-                // Pure utility colourless land: keep modest in multi-colour decks
-                score += if colors.len() <= 1 { 1.0 } else { 0.2 };
+                // Pure utility colourless land when no {C} pips are needed: keep scarce
+                score += if colors.len() <= 1 { 0.3 } else { -1.2 };
             }
-            if e.profile.enters_tapped && colors_fixed <= 1 {
-                score -= 0.4;
+            if e.profile.enters_tapped {
+                score -= if colors_fixed >= 2 { 0.35 } else { 1.1 };
             }
             if let Some(def_map) = deficits
                 && let Some(&def_val) = def_map.get(&e.card)
                 && def_val > 0
             {
-                score += 6.0 * (def_val as f64);
+                score += 6.5 * (def_val as f64);
             }
-            score += 0.35 * rng.unit();
+            score += 0.45 * rng.unit();
             (score, e)
         })
         .collect();
 
     scored_nonbasics.sort_by(|a, b| b.0.total_cmp(&a.0));
 
-    for (_, e) in scored_nonbasics {
+    for (score, e) in scored_nonbasics {
         if land_cards.len() >= nonbasic_target {
             break;
+        }
+        let has_deficit = deficits
+            .and_then(|m| m.get(&e.card))
+            .is_some_and(|&d| d > 0);
+        if score < 0.0 && !has_deficit && !(c_pips_needed > have_c_sources && e.profile.produces_colorless) {
+            continue;
+        }
+        if e.profile.enters_tapped && tapped_count >= max_tapped_lands && !has_deficit {
+            continue;
         }
         if taken.contains(&e.card) {
             continue;
         }
         taken.insert(e.card);
-        let has_deficit = deficits
-            .and_then(|m| m.get(&e.card))
-            .is_some_and(|&d| d > 0);
         let copies = if singleton {
             1
-        } else if has_deficit {
+        } else if has_deficit || (c_pips_needed > have_c_sources && e.profile.produces_colorless) {
             2 + rng.below(3)
         } else {
-            1 + rng.below(4)
+            1 + rng.below(3)
         };
         let add_n = copies.min(nonbasic_target - land_cards.len());
         for _ in 0..add_n {
             land_cards.push(e.card);
+            if e.profile.enters_tapped {
+                tapped_count += 1;
+            }
+            if e.profile.produces_colorless {
+                have_c_sources += 1;
+            }
             for (c, have) in have_sources.iter_mut().enumerate() {
                 if (e.profile.produced_colors.bits() >> c) & 1 == 1 {
                     *have += 1.0;
@@ -237,22 +275,31 @@ pub fn build_manabase(
 
     // Allocate basic lands to satisfy remaining Karsten colour-source deficits
     while land_cards.len() < lands_needed {
-        let weights: Vec<f64> = (0..5_usize)
-            .map(|c| {
-                if (colors.bits() >> c) & 1 == 1 {
-                    let deficit = (targets[c] - have_sources[c]).max(0.0);
-                    // Quadratic urgency on unmet Karsten pip requirements, plus baseline weight
-                    0.5 + targets[c] * 0.15 + deficit * deficit * 0.6 + deficit * 1.5
-                } else {
-                    0.0
-                }
-            })
-            .collect();
-        let colour = if weights.iter().sum::<f64>() > 0.0 {
-            rng.weighted(&weights)
+        let best_deficit = (0..5_usize)
+            .filter(|&c| (colors.bits() >> c) & 1 == 1)
+            .max_by(|&a, &b| {
+                (targets[a] - have_sources[a]).total_cmp(&(targets[b] - have_sources[b]))
+            });
+        let colour = if let Some(c) = best_deficit
+            && targets[c] - have_sources[c] > 0.25
+        {
+            c
         } else {
-            let _ = COLORS;
-            rng.below(5)
+            let weights: Vec<f64> = (0..5_usize)
+                .map(|c| {
+                    if (colors.bits() >> c) & 1 == 1 {
+                        targets[c].max(1.0)
+                    } else {
+                        0.0
+                    }
+                })
+                .collect();
+            if weights.iter().sum::<f64>() > 0.0 {
+                rng.weighted(&weights)
+            } else {
+                let _ = COLORS;
+                rng.below(5)
+            }
         };
         let basic = basics[colour].context("the five basic lands are in the pool")?;
         land_cards.push(basic);

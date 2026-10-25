@@ -1,85 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266253]
-1 Alchemist's Apprentice
-1 Archivist
-1 Aysen Abbey
-1 Azami, Lady of Scrolls
-1 Azorius Skyguard
-1 Azure Mage
-1 Benalish Heralds
-1 Bounty Agent
-1 Branchloft Pathway
-1 Calciform Pools
-1 Canopy Vista
-1 Conservatory
-1 Devout Harpist
-1 Devout Witness
-1 Dogged Hunter
-1 Druid Lyrist
-1 Erratic Visionary
-1 Exorcist
-1 Exultant Cultist
-1 Facet Reader
-1 Fallowsage
-3 Forest
-1 Fortified Village
-1 Furtive Analyst
-1 Gosta Dirk
-1 Gyre Engineer
-1 Haazda Exonerator
-1 Historian of Zhalfir
-1 Inspired Insurgent
-1 Intrepid Hero
-1 Irrigation Ditch
-14 Island
-1 Kasimir the Lone Wolf
-1 King Suleiman
-1 Kite Shield
-1 Knight of the Tusk
-1 Lore Broker
-1 Magus of the Bazaar
-1 Merfolk Seer
-1 Miracle Worker
-1 Mystic Archaeologist
-1 Neurok Commando
-1 Noble Hierarch
-1 Northern Paladin
-1 Obelisk of Bant
-1 Ojutai Monument
-6 Plains
-1 Prahv, Spires of Order
-1 Pym Technologies
-1 Radiant Grove
-1 Razortide Bridge
-1 Research Assistant
-1 Scavenger Folk
-1 Sea Gate Loremaster
-1 Sea Scryer
-1 Sea of Clouds
-1 Seafloor Oracle
-1 Seaside Citadel
-1 Selesnya Keyrune
-1 Southern Paladin
-1 Spara's Headquarters
-1 Spock, Logical Choice
-1 Stealer of Secrets
-1 Sylvan Safekeeper
-1 Teferi's Protege
-1 Thalakos Seer
-1 Third Path Savant
-1 Thought Courier
-1 Tigereye Cameo
-1 Tooth of Ramos
-1 Tranquil Landscape
-1 Treva's Attendant
-1 Treva's Ruins
-1 Undead Slayer
-1 Urban Retreat
-1 Village Elder
-1 Vodalian Arcanist
-1 Youthful Scholar
-1 Zhou Yu, Chief Commander
+[deck:commander midrange U #20266253]
+1 Access Tunnel
+1 Apathy
+1 Arcane Laboratory
+1 Azimaet Drake
+1 Cathartic Adept
+1 Cerulean Wyvern
+1 Charmed Sleep
+1 Cloaked Siren
+1 Cloud Manta
+1 Cold-Water Snapper
+1 Copy Artifact
+1 Crystal Grotto
+1 Deep Water
+1 Demolition Field
+1 Dream Coat
+1 Encase in Ice
+1 Errant Minion
+1 Escape Routes
+1 Field of Dreams
+1 Fighting Drake
+1 Fleeting Image
+1 Flood
+1 Flooded Shoreline
+1 Flying Dolphin-Fish
+1 Freed from the Real
+1 Fylamarid
+1 Geist of the Archives
+1 Holdout Settlement
+1 Ice Over
+1 Illusory Wrappings
+1 Invisibility
+34 Island
+1 It'll Quench Ya!
+1 Metathran Transport
+1 Mirozel
+1 Mishra's Workshop
+1 Mistfolk
+1 Mistwalker
+1 Moon Heron
+1 Nephalia Seakite
+1 Phantasmal Forces
+1 Phantasmal Mount
+1 Phantasmal Terrain
+1 Power Leak
+1 Pulsating Illusion
+1 Revolutionary Rebuff
+1 Rhystic Deluge
+1 Scatter Ray
+1 Scrying Sheets
+1 Sea's Claim
+1 Serra Sphinx
+1 Silver Erne
+1 Sinking Feeling
+1 Sky Ruin Drake
+1 Soaring Drake
+1 Somnophore
+1 Spire Monitor
+1 Stratozeppelid
+1 Tangle Kelp
+1 Tidal Flats
+1 Troublesome Spirit
+1 Vanishing
+1 Venarian Gold
+1 Walking Dream
+1 Web of Inertia
+1 Zephyr Charge
 
 [commander]
-Angus Mackenzie
+Taniwha

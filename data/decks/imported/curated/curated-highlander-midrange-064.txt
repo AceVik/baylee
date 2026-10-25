@@ -1,82 +1,80 @@
 # baylee curated highlander midrange seed=20261087
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261087]
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Blisterpod
-1 Blood Servitor
-1 Botanical Sanctum
+1 Aesi, Tyrant of Gyre Strait
+1 Alchemist's Refuge
+1 Ancestral Vision
+1 Barkchannel Pathway
+1 Beast-Kin Ranger
 1 Breeding Pool
-1 Byway Courier
-1 Cold Case Cracker
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Dowsing Dagger
-1 Drowner of Hope
-1 Elephant Guide
-1 Elvish Farmer
-1 Enduring Vitality
-1 Etherium Spinner
-1 Filigree Crawler
+1 Bristly Bill, Spine Sower
+1 Centaur Nurturer
+1 Coiling Oracle
+1 Disciple of Freyalise
+1 Dundoolin Weaver
+1 Elegant Entourage
+1 Elturgard Ranger
+1 Elvenking's Halls
+1 Elvish Regrower
+1 Elvish Vanguard
+1 Elvish Visionary
+1 Eumidian Terrabotanist
 1 Flooded Grove
-13 Forest
+16 Forest
+1 Frilled Mystic
+1 Galadhrim Guide
+1 Garruk's Packleader
 1 Gilded Goose
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Homarid Spawning Bed
-1 Illusions of Grandeur
-10 Island
-1 Jewel-Eyed Cobra
-1 Kozilek's Unsealing
-1 Mantle of the Wolf
-1 Midsummer Revel
-1 Mongrel Pack
-1 Most Wanted
+1 Grey Havens Navigator
+1 Harrier Strix
+1 Heart Warden
+1 Howling Giant
+9 Island
+1 Jace, the Mind Sculptor
+1 Jaddi Offshoot
+1 Jade Bearer
+1 Joraga Visionary
+1 Jungle Barrier
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Littjara Mirrorlake
+1 Llanowar Sentinel
+1 Llanowar Stalker
+1 Llanowar Visionary
+1 Mindful Biomancer
+1 Mirkwood Meditator
+1 Multani's Acolyte
 1 Mutant Town
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Orochi Hatchery
-1 Path of Annihilation
-1 Pentavus
-1 Primeval Bounty
-1 Prying Blade
+1 Nissa, Resurgent Animist
+1 Novijen, Heart of Progress
+1 Overflowing Basin
+1 Owlbear
+1 Pond Prophet
+1 Professor of Zoomancy
+1 Quirion Sentinel
 1 Rain-Slicked Copse
-1 Rampaging Baloths
-1 Rejuvenating Springs
-1 Retrofitter Foundry
-1 S.H.I.E.L.D. Deployment Drone
-1 Simic Growth Chamber
-1 Slayer's Plate
+1 Reclamation Sage
+1 Rishkar, Peema Renegade
+1 Saruli Gatekeepers
+1 Sazh's Chocobo
+1 Silver Raven
 1 Slumbering Waterways
-1 Sodden Verdure
-1 Sparring Construct
-1 Spawning Pit
-1 Tanglepool Bridge
-1 Temple of Mystery
-1 Thallid
-1 Thallid Devourer
-1 The Mechanist, Aerial Artisan
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thornwood Falls
-1 Thragtusk
+1 Social Climber
+1 Sphinx of Enlightenment
+1 Sunshower Druid
+1 Tatyova, Benthic Druid
+1 Thranduil the Strategist
 1 Three Steps Ahead
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
+1 Totem Speaker
 1 Tropical Island
-1 Turbulent Wilderness
-1 Turntimber Ranger
-1 Vodalian Hexcatcher
-1 Wand of the Elements
+1 Valley Mightcaller
+1 Viridian Shaman
+1 Wall of Blossoms
 1 Waterlogged Grove
-1 Wing Splicer
-1 Woodland Stream
+1 Willowrush Verge
+1 Wirewood Hivemaster
+1 Wirewood Savage
+1 Wood Elves
+1 Woodland Liege
 1 Yavimaya Coast
+1 Yavimaya Granger

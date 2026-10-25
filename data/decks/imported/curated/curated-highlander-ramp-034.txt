@@ -1,81 +1,79 @@
 # baylee curated highlander ramp seed=20261057
 # licence: AGPL-3.0-only
 [deck:highlander ramp WU #20261057]
-1 Abandoned Campground
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Avenging Angel
-1 Bag End Banquet
-1 Bishop of Wings
-1 Blade Splicer
+1 Aang's Defense
+1 Adarkar Wastes
+1 Ancestral Vision
+1 Auspicious Ancestor
+1 Aven Fateshaper
+1 Aven Wind Mage
+1 Battlewise Valor
+1 Blessed Spirits
+1 Bygone Bishop
+1 Calciform Pools
 1 Captain of the Watch
-1 Cartouche of Solidarity
+1 Captain's Defense
+1 Chain to Memory
 1 Cloudcrest Lake
-1 Corsair Captain
-1 Deserted Beach
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Dowsing Dagger
+1 Condescend
+1 Constricting Tendrils
+1 Cunning Breezedancer
+1 Customs Depot
+1 Dawnhart Geist
+1 Deeproot Waters
+1 Disrupt
 1 Drogskol Cavalry
-1 Drowner of Hope
-1 Elgaud Inquisitor
-1 Elspeth, Storm Slayer
-1 Field of Souls
-1 Filigree Crawler
-1 Glacial Floodplain
+1 Efficient Construction
+1 Fleeting Distraction
+1 Forced Fruition
+1 Gallant Strike
 1 Glacial Fortress
-1 Gleaming Barrier
-1 Gleaming Bastion
-1 Griffin Guide
-1 Guarded Heir
+1 Guided Strike
 1 Hallowed Fountain
-1 Haunted Library
-1 Homarid Spawning Bed
-1 Honored Knight-Captain
-1 Hunted Witness
-6 Island
-1 Knight of Doves
-1 Knight-Captain of Eos
+1 Hamato Guardian Stance
+1 Hengegate Pathway
+1 In the Eye of Chaos
+1 Iron Will
+18 Island
+1 Jin-Gitaxias, Progress Tyrant
+1 Kami of Tattered Shoji
+1 Kozilek's Unsealing
+1 Kulrath Mystic
 1 Lake-town
-1 Luminous Angel
-1 Magnifying Glass
-1 Mausoleum Guard
-1 Meticulous Archive
-1 Myr Matrix
-1 Myr Sire
+1 Land Cap
+1 Marble Gargoyle
+1 Miscalculation
+1 Mistfire Adept
+1 Moorland Haunt
+1 Murmuring Mystic
 1 Mystic Gate
-1 Nim Deathmantle
 1 Nimbus Maze
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
+1 Opal Archangel
 1 Oyobi, Who Split the Heavens
-1 Pentavus
-18 Plains
+8 Plains
 1 Prahv, Spires of Order
-1 Prying Blade
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Sejiri Refuge
-1 Sensor Splicer
-1 Sharlayan, Nation of Scholars
-1 Siege Veteran
-1 Skittering Invasion
-1 Skullclamp
+1 Presence of the Master
+1 Primal Amulet
+1 Rasputin Dreamweaver
+1 Reflections of Littjara
+1 Rhystic Study
+1 Riverwheel Aerialists
+1 Shipwreck Dowser
+1 Shocking Grasp
+1 Sigil of the Empty Throne
+1 Sire of the Storm
 1 Skycloud Expanse
-1 Slayer's Plate
-1 Spawning Pit
-1 Sphinx-Bone Wand
+1 Stormkeld Prowler
+1 Student of Ojutai
 1 Study
-1 Sylvok Lifestaff
-1 Temple of Enlightenment
+1 Stymied Hopes
+1 Talisman of Progress
+1 Teller of Tales
 1 Thalakos Lowlands
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
-1 Triskelavus
-1 Wand of the Elements
-1 Zuran Orb
+1 The Unspeakable
+1 Thought Scour
+1 Tidespout Tyrant
+1 Tundra
+1 Tura Kennerüd, Skyknight
+1 Unifying Theory
+1 Warmth

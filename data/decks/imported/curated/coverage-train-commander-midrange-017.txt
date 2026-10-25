@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WRG #20266018]
-1 Abraded Bluffs
-1 Angelheart Protector
-1 April O'Neil, Kunoichi Trainee
-1 Arashin Cleric
-1 Avatar Enthusiasts
-1 Aven of Enduring Hope
-1 Battlefield Forge
-1 Bleeding Woods
-1 Bulwark Giant
-1 Burning-Yard Trainer
-1 Dawnhart Disciple
-1 Daybreak Combatants
-1 Disciple of Freyalise
-1 Dwalin, Weaponmaster
-1 EPF Point Squad
-1 Enlightened Ascetic
-1 Eumidian Terrabotanist
-1 Fallaji Vanguard
-1 Favored of Iroas
-6 Forest
-1 Glittering Massif
-1 Healer of the Glade
-1 Herald of the Fair
-1 Highland Weald
-1 Inspiring Vantage
-1 Iron Hills
-1 Jaddi Offshoot
-1 Kazandu Nectarpot
-1 Leonin Snarecaster
-1 Lifecreed Duo
-1 Lone Missionary
-1 Marshdrinker Giant
-1 Mindful Biomancer
-4 Mountain
-1 Nexus Wardens
-1 Ondu Cleric
-1 Palace Jailer
-1 Perimeter Patrol
-1 Pious Wayfarer
-13 Plains
-1 Plateau
-1 Prowling Felidar
-1 Qasali Slingers
-1 Rejuvenate
-1 Restless Bivouac
-1 Restless Ridgeline
-1 Sanguine Glorifier
-1 Savannah
-1 Scythe Tiger
-1 Setessan Skirmisher
-1 Shu Grain Caravan
-1 Shu Soldier-Farmers
-1 Slumbering Keepguard
-1 Social Climber
-1 Soldier of the Grey Host
-1 Spectator Seating
-1 Spider-Man, Hometown Hero
-1 Staunch Defenders
-1 Steppe Lynx
-1 Stingcaster Mage
-1 Sun-Blessed Peak
-1 Sunbaked Canyon
-1 Sunscorched Divide
-1 Sunseed Nurturer
-1 Tenth District Guard
-1 Thopter Architect
-1 Thornspire Verge
-1 Théoden, King of Rohan
-1 Tivadar of Thorn
-1 Totem Speaker
-1 Training Compound
-1 Turntimber Ascetic
-1 Valkyrior Skyrider
-1 Vicious Clown
-1 Vithian Renegades
-1 Werefox Bodyguard
-1 Witch Enchanter
-1 Wylie Duke, Atiin Hero
-1 Zhalfirin Lancer
+[deck:commander midrange UBR #20266018]
+1 Ancient Runes
+1 Bird Maiden
+1 Blackbloom Rogue
+1 Cackling Imp
+1 Cloud Pirates
+1 Cori Mountain Monastery
+1 Creeping Tar Pit
+1 Deadeye Duelist
+1 Delete
+1 Dwarven Hold
+1 Emberwilde Caliph
+1 Emeritus of Ideation
+1 End the Festivities
+1 Eternal Flame
+1 Explosive Shot
+1 Faerie Mastermind
+1 Fanged Flames
+1 Fault Line
+1 Fearful Villager
+1 Fire Nation Palace
+1 Fire Tempest
+1 Flame Rift
+1 Flying Men
+1 Frostboil Snarl
+1 Glamorous Grapplers
+1 Great Arashin City
+1 Harvesttide Infiltrator
+1 Iguana Parrot
+1 Impetuous Sunchaser
+1 Index
+1 Insolent Neonate
+7 Island
+1 Izzet Boilerworks
+1 Lantern-Lit Graveyard
+1 Last Kiss
+1 Library
+1 Lust for War
+1 Luxury Suite
+1 Mawcor
+1 Metropolis Sprite
+1 Minas Morgul, Dark Fortress
+1 Mirran Spy
+1 Mistral Singer
+1 Moroii
+15 Mountain
+1 Obliterating Bolt
+1 Ozai's Cruelty
+1 Prismari Campus
+1 Rakdos Trumpeter
+1 Reckless Air Strike
+1 Rishadan Airship
+1 Rockslide Ambush
+1 Rogue Skycaptain
+1 Scorching Spear
+1 Scorchmark
+1 Searing Wind
+1 Secluded Glen
+1 Seismic Assault
+1 Serendib Efreet
+1 Soratami Savant
+1 Spiketail Drake
+1 Stormcarved Coast
+1 Strix Lookout
+1 Sudden Impact
+1 Suplex
+3 Swamp
+1 Talas Air Ship
+1 Talas Scout
+1 Tectonic Hazard
+1 Tolarian Sentinel
+1 Umara Mystic
+1 Unfriendly Fire
+1 Vector, Imperial Capital
+1 Where Ancients Tread
+1 Word of Blasting
+1 Zhao, the Seething Flame
+1 Zuko's Offense
 
 [commander]
-Jetmir, Nexus of Revels
+Kess, Dissident Mage

@@ -1,83 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp UB #20266029]
-1 Abundant Countryside
-1 Abyssal Hunter
-1 Accorder's Shield
-1 Aku Djinn
-1 Avishkar Raceway
-1 Banehound
-1 Blightspeaker
-1 Bloodrite Invoker
-1 Bounty Hunter
-1 Charity Extractor
-1 Confirm Suspicions
-1 Corpsehatch
-1 Dark Offering
-1 Darksteel Forge
-1 Defensive Stance
-1 Dunes of the Dead
-1 Dystopia
-1 Endless Sands
-1 Environmental Sciences
-1 Esper Panorama
-1 Eye of Ugin
-1 Flight
-1 Foul Play
-1 Gallowbraid
-1 Geist Snatch
-1 Grasping Shadows
-1 Grave Robbers
-1 Grisly Ritual
-1 Grollub
-1 HELIOS One
-1 Hard Evidence
-1 Ice Floe
-6 Island
-1 Jasmine Dragon Tea Shop
-1 Kite Shield
-1 Ledger Shredder
-1 Library of Alexandria
-1 Locke Cole
-1 Maw of the Mire
-1 Maximum Overdrive
-1 Merchant Ship
-1 Meteor Sword
-1 Mirrex
-1 Noxious Grasp
-1 Ophiomancer
-1 Poison Arrow
-1 Psychic Frog
-1 Pulse Tracker
-1 Radiant Fountain
-1 Savor
-1 Scavenged Weaponry
-1 Scourgemark
-1 Screeching Soulbreaker
-1 Scrounger of Souls
-1 Shelob's Ambush
-1 Sheltered Valley
-1 Sheoldred, the Apocalypse
-1 Sleeper's Robe
-1 Songbird, Sonic Screamer
-1 Suq'Ata Assassin
-18 Swamp
-1 Swamp Mosquito
-1 Syphon Fuel
-1 Teferi's Curse
-1 Thanos, Death's Consort
-1 The Biblioplex
-1 The Gold Saucer
-1 Thirsting Shade
-1 Tidy Conclusion
-1 Toxin Analysis
-1 Treasure Dredger
-1 Underdome
-1 Unspeakable Symbol
-1 Vampire Envoy
-1 Vesuva
-1 Warped Landscape
-1 Zulaport Chainmage
+1 Adventurer's Inn
+1 Aquitect's Defenses
+1 Arcane Flight
+1 Arena
+1 Aspect of Lamprey
+1 Aura Flux
+1 Buoyancy
+1 Castaway's Despair
+1 Chains of Mephistopheles
+1 Chill
+1 Controlled Instincts
+1 Convincing Mirage
+1 Cradle of the Accursed
+1 Darkest Hour
+1 Daxos's Torment
+1 Diamond Valley
+1 Diplomatic Immunity
+1 Disappear
+1 Douse
+1 Drannith Ruins
+1 Dream Tides
+1 Drider
+1 Elephant Graveyard
+1 Elven Passage
+1 Erosion
+1 Errant Minion
+1 Fishliver Oil
+1 Floodchaser
+1 Gargoyle Castle
+1 Ghoulflesh
+1 Glimmerdust Nap
+1 Gloom
+1 Gravitational Shift
+1 Greel's Caress
+1 Haunter of Nightveil
+1 Illness in the Ranks
+21 Island
+1 Jeskai Runemark
+1 Lazotep Quarry
+1 Levitation
+1 Melancholy
+1 Merseine
+1 Molting Snakeskin
+1 Nyxborn Marauder
+1 Painted Bluffs
+1 Paralyzing Grasp
+1 Phyrexia's Core
+1 Pillar of the Paruns
+1 Pride of the Perfect
+1 River's Favor
+1 Robe of Mirrors
+1 Runner's Bane
+1 Scalding Tarn
+1 Secluded Starforge
+1 Short Circuit
+1 Sinister Strength
+1 Sinking Feeling
+1 Sleep Magic
+1 Slimebind
+1 Spectral Flight
+1 Starlit Mantle
+5 Swamp
+1 Tangle Kelp
+1 Thassa's Ire
+1 Thrull Champion
+1 Tidal Force
+1 Torment
+1 Torpor Dust
+1 Torture
+1 Tractor Beam
+1 Unstable Frontier
+1 Urza's Mine
+1 Venarian Gold
+1 Web of Inertia
+1 Zephyr Net
 
 [commander]
-Sivitri Scarzam
+Ur-Drago

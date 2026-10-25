@@ -1,86 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUBRG #20266074]
-1 Amnesia
-1 Azorius First-Wing
-1 Ballroom
-1 Billiard Room
-1 Black Carriage
-1 Bleachbone Verge
-1 Bleeding Woods
-1 Bloodsoaked Insight
-1 Bounce Off
-1 Burrowguard Mentor
-1 Cat-Owl
-1 Cloud Manta
-1 Contested Cliffs
-1 Crystal Quarry
-1 Deity of Scars
-1 Dragonskull Summit
-1 Eel-Hounds
-1 Fall of the Gavel
-1 Fatehold Chronologist
-1 Fiery Islet
-1 Flailing Drake
-1 Fleeting Image
-1 Flying Dolphin-Fish
-7 Forest
-1 Gaea's Skyfolk
-1 Gangly Stompling
-1 Glimmering Angel
-1 Gnottvold Slumbermound
-1 Goblin Deathraiders
-1 Godhead of Awe
-1 Grizzly Ghoul
-1 Hazerider Drake
-1 Hobgoblin Dragoon
-1 Immersturm Skullcairn
-1 Imperial Seal
-8 Island
-1 Kederekt Creeper
-1 Khenra Charioteer
-1 Krovikan Mist
-1 Large Bear
-1 Lightning Angel
-1 Mantis Rider
-1 Metathran Transport
-1 Mistwalker
-1 Misty Palms Oasis
-1 Moldering Karok
-1 Murky Sewer
-1 Nearby Planet
-1 Needlethorn Drake
-1 Obscura Initiate
-1 Pestilent Kathari
-1 Phantasmal Mount
-1 Piranha Fly
-7 Plains
-1 Pulsating Illusion
-1 Rakdos Trumpeter
-1 Riptide
-1 Roc of Kher Ridges
-1 Savage Mansion
-1 Seedpod Squire
-1 Sewn-Eye Drake
-1 Shinechaser
-1 Siegehorn Ceratops
-1 Silverbluff Bridge
-1 Soulsworn Jury
-1 Spectacle Summit
-1 Stoic Angel
-1 Swamp
-1 Talon Trooper
-1 Tattered Drake
-1 Tempest Drake
-1 The World Tree
-1 Torch Drake
-1 Tower Drake
-1 Twining Twins
-1 Ulrich's Kindred
-1 Venomthrope
-1 Walking Dream
-1 Wasp Lancer
-1 Windreaper Falcon
+[deck:commander midrange BR #20266074]
+1 Accursed Horde
+1 Asphodel Wanderer
+1 Black Dragon Gate
+1 Black Poplar Shaman
+1 Bloodcrazed Paladin
+1 Bloodshot Cyclops
+1 Bog Wreckage
+1 Bojuka Bog
+1 Breathstealer
+1 Canal Monitor
+1 Catacomb Crocodile
+1 Catacomb Slug
+1 Cemetery Gate
+1 Crypt Ripper
+1 Dakmor Scorpion
+1 Dread Shade
+1 Dross Prowler
+1 Drudge Reavers
+1 Emeritus of Woe
+1 Gamble
+1 Ghosts of the Damned
+1 Great Arashin City
+1 Hag of Dark Duress
+1 Headstone
+1 Hidden Necropolis
+1 Highland Giant
+1 Hive of the Eye Tyrant
+1 Hollowhead Sliver
+1 Howltooth Hollow
+1 Hyalopterous Lemure
+1 Mana Leech
+1 Memorial to Folly
+1 Mindwarper
+10 Mountain
+1 Mountain Titan
+1 Noxious Groodion
+1 Obsidian Giant
+1 Olivia's Dragoon
+1 Peat Bog
+1 Phyrexian Gremlins
+1 Piranha Marsh
+1 Python
+1 Rabid Rats
+1 Raiding Nightstalker
+1 Rakdos Locket
+1 Rathi Assassin
+1 Realm of Koh
+1 Sedge Troll
+1 Shadowblood Egg
+1 Shimian Night Stalker
+1 Skeletal Changeling
+1 Skeletal Crocodile
+1 Skeletal Snake
+1 Skittering Heartstopper
+1 Skyraker Giant
+1 Spymaster's Vault
+1 Squirrelanoids
+1 Susur Secundi, Void Altar
+15 Swamp
+1 Terror of the Fairgrounds
+1 Tomb Fortress
+1 Tor Giant
+1 Ukud Cobra
+1 Unworthy Dead
+1 Veiled Shade
+1 Venomous Changeling
+1 Viashino Skeleton
+1 Viscid Lemures
+1 Vivid Marsh
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wall of Tombstones
+1 Wandering Tombshell
+1 Wishclaw Talisman
+1 Zodiac Pig
+1 Zombie Trailblazer
 
 [commander]
-Child of Alara
+Axelrod Gunnarson

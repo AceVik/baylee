@@ -1,83 +1,81 @@
 # baylee curated commander control seed=20261043
 # licence: AGPL-3.0-only
 [deck:commander control WUB #20261043]
-1 Aclazotz, Deepest Betrayal
-1 Alela, Artful Provocateur
+1 Acolyte of Xathrid
+1 Ancestral Vision
 1 Ancient Spring
 1 Arcane Sanctum
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Avengers Hangar
-1 Ayara, First of Locthwain
-1 Bastion of Remembrance
-1 Bishop of Wings
-1 Blight Mound
+1 Archaeomancer
+1 Architects of Will
+1 Auspicious Ancestor
+1 Bishop of the Bloodstained
+1 Black Widow, Deadly Hunter
+1 Blightspeaker
 1 Callous Inspector
-1 Cirith Ungol Patrol
-1 Claws of Gix
 1 Contaminated Landscape
-1 Criminal Enterprise
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Drogskol Cavalry
+1 Cruel Truths
+1 Curate
+1 Damnable Pact
+1 Darkwater Catacombs
+1 Desolate Mire
 1 Dromar's Cavern
-1 Drowner of Hope
-1 Elas il-Kor, Sadistic Pilgrim
-1 Elgaud Inquisitor
-1 Eyeblight Cullers
-1 Fortified Beachhead
-1 Forum of Amity
-1 Goldmire Bridge
-1 Greedy Freebooter
-1 Griffin Guide
-1 Hidden Lair
-1 Hierophant's Chalice
-1 Homarid Spawning Bed
-1 Honored Knight-Captain
-1 Idyllic Beachfront
+1 Fetid Heath
+1 Funeral Rites
+1 Gloomlake Verge
+1 Grim Tutor
+1 Gryff Vanguard
+1 Harrowing Journey
+1 Hero of the Dunes
+1 Highway Robber
+1 Honor
 1 Infernal Idol
-6 Island
-1 Kheru Bloodsucker
-1 Knight-Captain of Eos
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Nephalia Drownyard
-1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ogre Slumlord
-1 Ojer Taq, Deepest Foundation
-1 Open the Graves
-1 Pentavus
-5 Plains
-1 Prowess of the Fair
-1 Quest for the Gravelord
+1 Inspiring Commander
+8 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Sage
+1 Kambal, Consul of Allocation
+1 Lead Pipe
+1 Liliana the Repentant
+1 Locthwain Lancer
+1 Lotus-Eye Mystics
+1 Lunar Mystic
+1 Mai, Scornful Striker
+1 Mesa Enchantress
+1 Murmuring Mystic
+1 Myrsmith
+1 Notion Rain
+1 Novice Occultist
+1 Orzhova, the Church of Deals
+9 Plains
+1 Pondering Mage
+1 Preordain
+1 Princess Lucrezia
+1 Profane Tutor
 1 Raffine's Tower
-1 Retrofitter Foundry
-1 Scrubland
+1 Rasputin Dreamweaver
+1 Read the Bones
+1 River of Tears
+1 Scrivener
 1 Sengir Autocrat
-1 Shipwreck Marsh
-1 Siege Veteran
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Solemn Simulacrum
-1 Soured Springs
-1 Spawning Pit
-1 Sunlit Marsh
-14 Swamp
-1 Sweettooth Witch
+1 Shattered Crypt
+10 Swamp
+1 Tainted Isle
 1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Foundry
-1 Thopter Squadron
-1 Tithebearer Giant
-1 Trading Post
-1 Treasure Map
-1 Wand of the Elements
-1 Watery Grave
+1 The Mechanist, Aerial Artisan
+1 Tidespout Tyrant
+1 Touch of Death
+1 Tura Kennerüd, Skyknight
+1 Underground River
+1 Underground Sea
+1 Underworld Coinsmith
+1 Unearth
+1 Urbis Protector
+1 Vampire's Kiss
+1 Vault Plunderer
+1 Vault of the Archangel
 1 Wizards' School
-1 Yahenni, Undying Partisan
+1 Yawgmoth's Edict
+1 Yawgmoth, Thran Physician
 
 [commander]
 Chromium

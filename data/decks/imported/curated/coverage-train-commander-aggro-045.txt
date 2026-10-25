@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro WR #20266046]
-1 Abraded Bluffs
-1 Adventuring Gear
-1 Amaranthine Wall
-1 Ancient Amphitheater
-1 Arcum's Sleigh
-1 Asgardian Citadel
-1 Assembly-Worker
-1 Baton of Morale
-1 Bloodtallow Candle
-1 Boros Garrison
-1 Candelabra of Tawnos
-1 Chimeric Staff
-1 City in a Bottle
-1 Clay Statue
-1 Clockwork Gnomes
-1 Consulate Skygate
-1 Copper Gnomes
-1 Crenellated Wall
-1 Crystal Golem
-1 Cursed Totem
-1 Defense Grid
-1 Dragon Engine
-1 Echo Circlet
-1 Elegant Parlor
-1 Ersatz Gnomes
-1 Fields of Strife
-1 Flamekin Village
-1 Forgotten Sentinel
-1 Fyndhorn Bow
-1 Glass Golem
-1 Guardians of Meletis
-1 Hopping Automaton
-1 Hotfoot Gnome
-1 Inspiring Vantage
-1 Jangling Automaton
-1 Lead Golem
-1 Leonin Bladetrap
-1 Living Wall
-1 Locthwain Gargoyle
-1 Manifold Key
-1 Marble Gargoyle
-1 Mishra's Groundbreaker
-8 Mountain
-1 Myr Landshaper
-1 Needle Spires
-1 Night Market Guard
-1 Null Brooch
-1 Null Rod
-1 Obelisk of Undoing
-1 Omega Myr
-1 One-Clown Band
-1 Pacification Array
-1 Patagia Golem
-1 Patchwork Gnomes
-14 Plains
-1 Prowler's Helm
-1 Ragged Playmate
-1 Reinforced Bulwark
-1 Runesword
-1 Rusted Sentinel
-1 Rustvale Bridge
-1 Saberclaw Golem
-1 Sacred Foundry
-1 Scabland
-1 Shield of the Ages
-1 Sliver Construct
-1 Soldevi Golem
-1 Spectator Seating
-1 Sphere of Resistance
-1 Stonework Puma
-1 Stuffed Bear
-1 Sun-Blessed Peak
-1 Sunbillow Verge
-1 Suspicious Bookcase
-1 Titanium Golem
-1 Valakut, the Molten Pinnacle
-1 Venser's Sliver
-1 Wall of Junk
-1 Wall of Shields
+[deck:commander aggro WG #20266046]
+1 Adamant Will
+1 Aegis of the Heavens
+1 Alley Evasion
+1 Auratog
+1 Aviary Mechanic
+1 Bag End Porter
+1 Boseiju, Who Shelters All
+1 Bramble Creeper
+1 Cathedral of War
+1 Cave of Temptation
+1 Cenn's Heir
+1 Chub Toad
+1 Daybreak Charger
+1 Desecration Plague
+1 Devotee of Strength
+1 Druid of the Spade
+1 Dungrove Elder
+1 Ember Weaver
+1 Flutterfox
+15 Forest
+1 Frilled Sandwalla
+1 Gaea's Avenger
+1 Giant Badger
+1 Giant Turtle
+1 Gigantoad
+1 Graceful Cat
+1 Heaven's Gate
+1 Interjection
+1 Jeskai Barricade
+1 Joven's Ferrets
+1 Kavu Mauler
+1 Loam Lion
+1 Loxodon Stalwart
+1 Mech Hangar
+1 Nantuko Disciple
+1 Night Market
+1 Ominous Cemetery
+1 Overprotect
+9 Plains
+1 Primal Beyond
+1 Prized Elephant
+1 Public Thoroughfare
+1 Pygmy Troll
+1 Rabid Wolverines
+1 Radiant Essence
+1 Rally
+1 Ranger's Guile
+1 Regal Bunnicorn
+1 Resuscitate
+1 Root Spider
+1 Scarwood Hag
+1 Seedling Charm
+1 Shape the Sands
+1 Shield Wall
+1 Siegehorn Ceratops
+1 Spitting Slug
+1 Stardew Valley
+1 Steady Aim
+1 Subdue
+1 Summit Apes
+1 Sunken Citadel
+1 Swift Justice
+1 Sylvan Paradise
+1 Tarnation Vista
+1 Thran Portal
+1 Tocasia's Dig Site
+1 Treefolk Seedlings
+1 Uncharted Haven
+1 Vintara Snapper
+1 Vivien's Crocodile
+1 Wall of Faith
+1 Wayward Swordtooth
+1 Whip Vine
+1 Whippoorwill
+1 Wolverine Pack
+1 Wood Elemental
+1 You're Ambushed on the Road
 
 [commander]
-Thorin Oakenshield
+Kudo, King Among Bears

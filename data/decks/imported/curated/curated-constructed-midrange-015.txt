@@ -1,19 +1,17 @@
 # baylee curated constructed midrange seed=20261038
 # licence: AGPL-3.0-only
 [deck:constructed midrange G #20261038]
-3 Arcbound Ravager
-4 Avacyn's Collar
-2 Blighted Woodland
-2 Boseiju, Who Endures
-2 Diamond Kaleidoscope
-2 Elvish Farmer
-19 Forest
-1 Gaea's Cradle
+2 Blisterpod
+4 Briarbridge Tracker
+3 Centaur Garden
+1 Dryad Arbor
+2 Fists of Ironwood
+20 Forest
+4 From Beyond
+4 Gaea's Touch
 2 Gilded Goose
-2 Gleaming Barrier
-4 Rampaging Baloths
-3 Slayer's Plate
-4 Spawning Pit
-2 Thallid Devourer
-4 Trading Post
-4 Vulshok Battlegear
+4 Jade Mage
+4 Midsummer Revel
+4 Thallid Devourer
+3 Vital Splicer
+3 Welcome to . . .

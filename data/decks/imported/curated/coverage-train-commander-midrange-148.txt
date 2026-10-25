@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WB #20266149]
-1 Abzan Runemark
-1 Angelic Voices
-1 Armor of Faith
-1 Asha's Favor
-1 Aspect of Lamprey
-1 Ballroom
-1 Battle Mastery
-1 Black Scarab
-1 Blight
-1 Blue Scarab
-1 Boon of Emrakul
-1 Brave the Sands
-1 Brightclimb Pathway
-1 Call to Serve
-1 Candlelight Vigil
-1 Clinging Darkness
-1 Consecrate Land
-1 Conviction
-1 Death Pits of Rath
-1 Demonic Torment
-1 Desolate Mire
-1 Dub
-1 Eclipsed Steppe
-1 Feast of the Unicorn
-1 Feebleness
-1 Fetid Heath
-1 Fisk Tower
-1 Forlorn Flats
-1 Glasswing Grace
-1 Glorious Anthem
-1 Great Hall of Starnheim
-1 Greel's Caress
-1 Guard Duty
-1 Hag of Noxious Nightmares
-1 Holy Armor
-1 Holy Mantle
-1 Intangible Virtue
-1 Jihad
-1 Kaervek, the Spiteful
-1 Knighthood
-1 Lance
-1 Marked by Honor
-1 Misty Palms Oasis
-1 Moat
-1 Molting Snakeskin
-1 Neglected Manor
-1 Night of Souls' Betrayal
-1 Nimbus Wings
-1 Nyxborn Marauder
-1 Orzhov Guildgate
-1 Phyrexian Boon
-16 Plains
-1 Pride of the Perfect
-1 Safeguard
-1 Salt Flats
-1 Scrubland
-1 Serra Aviary
-1 Serra's Blessing
-1 Serra's Boon
-1 Sinister Strength
-1 Skeletal Grimace
-1 Snowfield Sinkhole
-1 Stoneskin
-1 Sultai Runemark
-1 Sun Clasp
-1 Sunlit Marsh
-7 Swamp
-1 Terra Eternal
-1 Thrull Retainer
-1 Torment
-1 Triclopean Sight
-1 Twisted Embrace
-1 Twisted Experiment
-1 Umbral Expanse
-1 Vault of the Archangel
-1 Vigilance
-1 Virulent Plague
-1 Worms of the Earth
+[deck:commander midrange U #20266149]
+1 Amnesia
+1 Aquitect's Defenses
+1 Aven Reedstalker
+1 Aven Smokeweaver
+1 Azimaet Drake
+1 Azure Drake
+1 Beyeen Veil
+1 Cerulean Wyvern
+1 Chasm Drake
+1 Cloud Manta
+1 Coastal Hornclaw
+1 Dive Down
+1 Drake Hatchling
+1 Drannith Ruins
+1 Echoing Deeps
+1 Faerie Invaders
+1 Faerie Swarm
+1 Fighting Drake
+1 Flying Dolphin-Fish
+1 Fylamarid
+1 Gitaxian Raptor
+1 Glint
+1 Horizon Drake
+1 Hydrosurge
+1 Infiltrate
+34 Island
+1 Long-Finned Skywhale
+1 Metathran Transport
+1 Metropolis Sprite
+1 Mirrorhall Mimic
+1 Murmuring Phantasm
+1 Nephalia Seakite
+1 Oko's Accomplices
+1 Piranha Fly
+1 Plaza of Harmony
+1 Riptide
+1 River Kaijin
+1 Riveteers Overlook
+1 Sanctum of Ugin
+1 Scion of Oona
+1 Sea Eagle
+1 Sea Kings' Blessing
+1 Sea Spirit
+1 Sea Sprite
+1 Seacoast Drake
+1 Seafarer's Quay
+1 Sentinels of Glen Elendra
+1 Silver Erne
+1 Sky Ruin Drake
+1 Skyshroud Condor
+1 Soaring Drake
+1 Spire Monitor
+1 Storm Crow
+1 Teardrop Kami
+1 Teferi's Drake
+1 Tolarian Drake
+1 Trained Condor
+1 Treetop Sentinel
+1 Troublesome Spirit
+1 Vexing Gull
+1 Wandering Ones
+1 Weatherseed Faeries
+1 Whiptongue Frog
+1 Wind Dancer
+1 You Come to a River
+1 Zephyr Sprite
 
 [commander]
-Rufus Shinra
+Yargle, Goliath of Otaria

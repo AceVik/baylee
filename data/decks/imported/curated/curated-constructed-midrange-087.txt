@@ -1,17 +1,18 @@
 # baylee curated constructed midrange seed=20261110
 # licence: AGPL-3.0-only
 [deck:constructed midrange W #20261110]
-3 Arcbound Ravager
-4 Armor of Faith
-4 Avacyn's Collar
-4 Bishop of Wings
-3 Diamond Kaleidoscope
-2 Griffin Guide
+3 Bishop of Wings
+3 Blade Splicer
+1 Blighted Steppe
+4 Cartouche of Solidarity
+3 Griffin Guide
+2 Honored Knight-Captain
+3 Mighty Mutanimals
 3 Nomad Stadium
-19 Plains
-2 Serra's Sanctum
-4 Siege Veteran
-2 Slayer's Plate
-2 Spawning Pit
-4 Thopter Squadron
-4 Trading Post
+3 Ojer Taq, Deepest Foundation
+20 Plains
+2 Sensor Splicer
+4 Spirit Mirror
+3 Squire's Devotion
+4 Triclopean Sight
+2 Walking Ballista

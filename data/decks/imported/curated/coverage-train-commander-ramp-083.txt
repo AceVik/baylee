@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266084]
+1 Aggressive Urge
+1 Amrou Scout
+1 Ant-Man, Reformed Rogue
+1 Bandage
+1 Botanical Sanctum
+1 Bountiful Promenade
+1 Bulwark Giant
+1 Call to Heel
+1 Chain to Memory
+1 Charge Through
+1 Defiant Falcon
+1 Delusions of Mediocrity
+1 Dreamroot Cascade
+1 Drowned Secrets
+1 Elder Spawn
+1 Elvenking's Halls
+1 Emerge from the Cocoon
+1 Enter the Enigma
+1 Eyes of the Watcher
+1 Finale of Devastation
+12 Forest
+1 Fortified Village
+1 Gitaxian Probe
+1 Halcyon Glaze
+1 Heal
+1 Heartwood Giant
+1 Helionaut
+1 Hithlain Knots
+1 Idyllic Beachfront
+1 Into the North
+14 Island
+1 Jhovall Queen
+1 Lady Caleria
+1 Lost in a Labyrinth
+1 Mana Breach
+1 Marjhan
+1 Mindscour Dragon
+1 Natural Order
+1 Neverwinter Dryad
+1 Paradox Gardens
+1 Primeval Titan
+1 Primoc Escapee
+1 Prosperity
+1 Provoke
+1 Pym Particles
+1 Pym Technologies
+1 Razortide Bridge
+1 Rimewood Falls
+1 Rockcaster Platoon
+1 Safehold Duo
+1 Shared Roots
+1 Sharlayan, Nation of Scholars
+1 Shocking Grasp
+1 Shore Lurker
+1 Sibilant Spirit
+1 Silkwing Scout
+1 Skyshroud Poacher
+1 Slip Through Space
+1 Sodden Verdure
+1 Solarium Sentry
+1 Soldier Replica
+1 Storm Spirit
+1 Study
+1 Sylvan Scrying
+1 Thornglint Bridge
+1 Thunderous Snapper
+1 Transmute Artifact
+1 Turbulent Wilderness
+1 Uro, Titan of Nature's Wrath
+1 Veiled Apparition
+1 Veiled Serpent
+1 Vineglimmer Snarl
+1 Watcher in the Mist
+1 Weight of Memory
+1 Worldly Tutor
+
+[commander]
+Arcades Sabboth

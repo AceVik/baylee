@@ -1,83 +1,81 @@
 # baylee curated highlander aggro seed=20261060
 # licence: AGPL-3.0-only
 [deck:highlander aggro WB #20261060]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Ballroom
-1 Bastion of Remembrance
+1 Al Bhed Salvagers
+1 Arashin Cleric
+1 Attended Knight
+1 Aven Battle Priest
+1 Beloved Princess
 1 Bishop of Wings
-1 Blight Mound
+1 Bleachbone Verge
+1 Boomerang, Blade Flinger
+1 Brightclimb Pathway
+1 Cabal Archon
 1 Callous Inspector
-1 Carrier Thrall
-1 Carrion Feeder
-1 Cartouche of Solidarity
-1 Common Crook
-1 Criminal Enterprise
-1 Deathknell Berserker
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Doomed Traveler
-1 Dwarven Castle Guard
+1 Cathedral Sanctifier
+1 Caves of Koilos
+1 Charming Prince
+1 Claws of Gix
+1 Commissar Severina Raine
+1 Concealed Courtyard
+1 Cosmium Blast
+1 Court Cleric
+1 Death Cultist
+1 Deathgreeter
+1 Dedicated Martyr
+1 Desolate Mire
+1 Dusk Legion Zealot
+1 Elas il-Kor, Sadistic Pilgrim
 1 Elgaud Inquisitor
-1 Fisk Tower
-1 Forlorn Flats
+1 Extraction Specialist
+1 Fetid Heath
 1 Forsaken Sanctuary
-1 Gleaming Barrier
-1 Goldmire Bridge
-1 Graf Harvest
-1 Great Hall of Starnheim
+1 Fourth Bridge Prowler
+1 Godless Shrine
 1 Greedy Freebooter
-1 Griffin Guide
-1 Hunted Witness
-1 Kheru Bloodsucker
-1 Knight of Doves
-1 Knight-Captain of Eos
+1 Hero of the Dunes
+1 Highway Robber
+1 Impassioned Orator
+1 Inspiring Cleric
+1 Joust Through
+1 Kalastria Healer
+1 Kambal, Consul of Allocation
 1 Lead Pipe
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Martyr of Dusk
-1 Myr Sire
+1 Leonin Elder
+1 Liliana the Repentant
+1 Maga, Traitor to Mortals
+1 Mandroid Squadron
+1 Merciless Enforcers
 1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
+1 Night Market Lookout
 1 Novice Inspector
-1 Orochi Hatchery
-1 Orzhov Guildgate
+1 Ondu Cleric
+1 Operations Officer
+1 Orzhov Guildmage
 11 Plains
-1 Pretending Poxbearers
-1 Prowess of the Fair
-1 Prying Blade
-1 Quest for the Gravelord
-1 Reliquary Monk
-1 Retrofitter Foundry
-1 Salt Flats
+1 Rathi Fiend
+1 Savannah Sage
 1 Scrubland
-1 Sengir Autocrat
-1 Shadow-Rite Priest
-1 Shadowy Backstreet
-1 Shambling Vent
-1 Siege Veteran
+1 Shu Grain Caravan
 1 Silent Clearing
 1 Silverquill Campus
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Snowfield Sinkhole
-1 Sparring Construct
-1 Spawning Pit
-11 Swamp
-1 Sweettooth Witch
-1 Sylvok Lifestaff
-1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Squadron
+1 Skyclave Cleric
+1 Skymarch Bloodletter
+1 Sleeper Agent
+1 Slumbering Keepguard
+1 Soul Warden
+1 Soul's Attendant
+1 Starlit Sanctum
+1 Staunch Defenders
+1 Strongarm Thug
+1 Suture Priest
+13 Swamp
+1 Tainted Field
+1 Temple Acolyte
+1 Teroh's Faithful
 1 Thraben Inspector
-1 Thraben Standard Bearer
-1 Trading Post
-1 Turbulent Moor
-1 Umbral Expanse
-1 Venerable Knight
-1 Warren Soultrader
-1 Weirding Shaman
-1 Yahenni, Undying Partisan
+1 Underworld Coinsmith
+1 Vampire Spawn
+1 Vault of the Archangel
+1 Venerable Monk
 1 Zuran Orb

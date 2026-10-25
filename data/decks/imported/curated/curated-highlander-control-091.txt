@@ -1,80 +1,78 @@
 # baylee curated highlander control seed=20261114
 # licence: AGPL-3.0-only
 [deck:highlander control UG #20261114]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Blood Servitor
+1 Aggressive Urge
+1 Alchemist's Refuge
+1 Ant-Man, Reformed Rogue
+1 Arasta of the Endless Web
+1 Barkchannel Pathway
+1 Beast Whisperer
+1 Bog Gnarr
 1 Breeding Pool
-1 Byway Courier
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Doubling Season
-1 Dreamroot Cascade
-1 Drowner of Hope
-1 Elephant Guide
+1 Briarknit Kami
+1 Censor
+1 Crop Rotation
+1 Cyclone
+1 Disrupt
+1 Efficient Construction
+1 Elementalist Adept
 1 Elvenking's Halls
-1 Elvish Farmer
-1 Filigree Crawler
-16 Forest
-1 Geistcatcher's Rig
-1 Gilded Goose
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Gold Pan
-1 Goldvein Pick
-1 Guardian of Cloverdell
-1 Homarid Spawning Bed
-1 Illusions of Grandeur
-1 Iron Bully
-9 Island
-1 Juju Bubble
-1 Kozilek's Unsealing
-1 Magma Mine
-1 Magnifying Glass
-1 Mantle of the Wolf
-1 Meditation Pools
-1 Most Wanted
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Orochi Hatchery
-1 Parasitic Strix
-1 Pentavus
-1 Primeval Bounty
-1 Rain-Slicked Copse
-1 Rampaging Baloths
-1 Rejuvenating Springs
-1 Retrofitter Foundry
-1 Rimewood Falls
-1 S.H.I.E.L.D. Deployment Drone
-1 Simic Growth Chamber
-1 Slayer's Plate
-1 Slumbering Waterways
-1 Sodden Verdure
-1 Solemn Simulacrum
-1 Spawning Pit
+1 Emrakul's Influence
+1 Energy Vortex
+1 Equilibrium
+1 Fable of Wolf and Owl
+1 Feral Instinct
+1 Flooded Grove
+14 Forest
+1 Freyalise's Charm
+1 Go Forth
+1 Guadosalam, Farplane Gateway
+1 Halt Order
+1 Haze of Pollen
+1 Hesitation
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Guerrillas
+1 Hidden Spider
+1 Hydroblast
+1 Insight
+13 Island
+1 Jackalope Herd
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
+1 Kami of the Hunt
+1 Kurgadon
+1 Lay Claim
+1 Leap
+1 Lush Oasis
+1 Lys Alana Bowmaster
+1 Mana Vortex
+1 Medusa, Inhuman Queen
+1 Novijen, Heart of Progress
+1 Nylea's Intervention
+1 Orbweaver Kumo
+1 Overflowing Basin
+1 Path of Annihilation
+1 Primordial Sage
+1 Provoke
+1 Reflections of Littjara
+1 Refute
+1 Restless Vinestalk
+1 Runeboggle
+1 Shocking Grasp
+1 Skybeast Tracker
+1 Snake Pit
+1 Spell Snip
 1 Tangled Islet
-1 Tanglepool Bridge
-1 Temple of Mystery
-1 Thallid Devourer
-1 The One Ring
-1 The Theorist, Jace Beleren
-1 Thopter Squadron
-1 Thragtusk
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Trigon of Thought
+1 Teller of Tales
+1 Thornwood Falls
+1 Thunderous Snapper
+1 Tidespout Tyrant
+1 Trail of Evidence
 1 Tropical Island
-1 Turbulent Wilderness
-1 Turntimber Ranger
-1 Voodoo Doll
-1 Wan Shi Tong, Librarian
-1 Wand of the Elements
+1 Veiled Serpent
 1 Waterlogged Grove
-1 Woodland Stream
+1 Whirlwind Adept
+1 Willowrush Verge
+1 Wilt
 1 Yavimaya Coast
-1 Zephyr Sprite

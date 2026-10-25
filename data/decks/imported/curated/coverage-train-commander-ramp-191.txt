@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266192]
+1 Amrou Scout
+1 Ant-Man, Reformed Rogue
+1 Archaeomender
+1 Avacyn's Pilgrim
+1 Aysen Abbey
+1 Azami, Lady of Scrolls
+1 Benalish Heralds
+1 Calciform Pools
+1 Capture of Jingzhou
+1 Cartographer
+1 Chain to Memory
+1 Citanul Hierophants
+1 Compassionate Healer
+1 Crowd Favorites
+1 Defense of the Heart
+1 Destructor Dragon
+1 Dimir Informant
+1 Elementalist Adept
+1 Elite Javelineer
+1 Esper Sentinel
+1 Expendable Troops
+1 Femeref Archers
+4 Forest
+1 Gigantomancer
+1 Gleaming Bastion
+1 Gosta Dirk
+1 Grassland Crusader
+1 Groundskeeper
+1 Hanna, Ship's Navigator
+1 Hermitic Herbalist
+1 Hithlain Knots
+1 Humble Naturalist
+1 Hunding Gjornersen
+1 Iron Man, Futurist Paragon
+1 Irrigation Ditch
+12 Island
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 Lord Magnus
+1 Mental Note
+1 Moorland Haunt
+1 Noble Hierarch
+1 Omen
+1 Open the Armory
+10 Plains
+1 Prahv, Spires of Order
+1 Ramosian Captain
+1 Ramosian Lieutenant
+1 Ramosian Revivalist
+1 Ray of Erasure
+1 Riftstone Portal
+1 Rockcaster Platoon
+1 Salvage Scout
+1 Samite Herbalist
+1 Savannah
+1 Seahunter
+1 Seaside Citadel
+1 Shu Soldier-Farmers
+1 Sir Shandlar of Eberyn
+1 Spara's Headquarters
+1 Spock, Logical Choice
+1 Steelshaper Apprentice
+1 Sunseed Nurturer
+1 Swampbenders
+1 Thalakos Lowlands
+1 Torsten Von Ursus
+1 Tragic Poet
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urban Retreat
+1 Waterlogged Grove
+1 Weight of Memory
+1 Whisperer of the Wilds
+1 Yavimaya Coast
+1 Youthful Scholar
+1 Zuran Spellcaster
+
+[commander]
+Arcades Sabboth

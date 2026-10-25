@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266186]
+2 Adaptive Shimmerer
+2 Altered Ego
+3 Aysen Abbey
+2 Chitinous Graspling
+2 Clockwork Gnomes
+2 Dromoka Monument
+7 Forest
+2 Gene Pollinator
+2 Hand of Justice
+8 Island
+2 Mechan Navigator
+2 Moss Diamond
+2 Obelisk of Bant
+2 Second Thoughts
+2 Selesnya Signet
+2 Simic Locket
+2 Snapping Voidcraw
+2 Sylvan Scrying
+2 The Everflowing Well
+2 Thunder Totem
+3 Tranquil Landscape
+2 Treva's Ruins
+1 Urban Retreat
+2 Yoked Plowbeast

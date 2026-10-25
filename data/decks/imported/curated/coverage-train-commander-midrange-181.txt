@@ -1,75 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266182]
-1 Adventurers' Guildhouse
-1 Ageless Guardian
-1 Amrou Seekers
-1 Bladed Ambassador
-1 Blaze of Glory
-1 Blood of the Martyr
-1 Border Guard
-1 Cho-Arrim Alchemist
-1 Clergy en-Vec
-1 Clever Concealment
-1 Cliffhaven Sell-Sword
-1 Clive's Hideaway
-1 Contested War Zone
-1 Corrupted Crossroads
-1 Eagle of the Great Shelf
-1 Elvish Healer
-1 Ephemerate
-1 Everybody Lives!
-1 Eye for an Eye
-1 Festival
-1 Fleet-Footed Monk
-1 Flicker
-1 Foundry of the Consuls
-1 Fresh Volunteers
-1 Glorifier of Dusk
-1 Goldmeadow Dodger
-1 Guardian Angel
-1 Head of Security
-1 Holy Day
-1 Indomitable Ancients
-1 Iron Tusk Elephant
-1 King of the Pride
-1 Kinsbaile Balloonist
-1 Kithkin Billyrider
-1 Kithkin Healer
-1 Knight Errant
-1 Kor Sky Climber
-1 Loxodon Anchorite
-1 Loxodon Convert
-1 Loxodon Gatekeeper
-1 Loxodon Line Breaker
-1 Loxodon Wayfarer
-1 Majestic Heliopterus
-1 Makindi Stampede
-1 Mending Hands
-1 Mounted Archers
-1 Noble Elephant
-1 Pay No Heed
-1 Petrified Field
-31 Plains
-1 Rapid Fire
-1 Redeem
-1 Resistance Fighter
-1 Resplendent Mentor
-1 Reverse Damage
-1 Sacred Knight
-1 Scalding Tarn
-1 Scapegoat
-1 Sejiri Shelter
-1 Shield Bearer
-1 Shieldmate's Blessing
-1 Shining Aerosaur
-1 Soltari Emissary
-1 Split-Tail Miko
-1 Steadfast Guard
-1 Teferi's Protection
-1 The Biblioplex
-1 The Great Mound
-1 Worf, Chief Tactical Officer
+[deck:commander midrange UBR #20266182]
+1 Acidic Sliver
+1 Anaba Bodyguard
+1 Ancient Carp
+1 Ancient Crab
+1 Armored Whirl Turtle
+1 Burnout
+1 Castle Sengir
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Crystacean
+1 Curio Vendor
+1 Daring Thunder-Thief
+1 Dark Hatchling
+1 Darkwater Catacombs
+1 Deathbellow Raider
+1 Firescreamer
+1 Forerunner of Slaughter
+1 Fortress Crab
+1 Frostburn Weird
+1 Furnace Strider
+1 Gamble
+1 Giant Crab
+1 Hidden Lair
+1 Hooded Kavu
+1 Horned Turtle
+1 Horror of the Dim
+1 Hulking Devil
+1 Humongulus
+9 Island
+1 Kolinahr Priest
+1 Labyrinth Minotaur
+1 Lava Tubes
+1 Lithophage
+1 Manta Ray
+1 Maw of Kozilek
+1 Mijae Djinn
+1 Mistford River Turtle
+1 Moor Fiend
+15 Mountain
+1 Mountain Titan
+1 Mystical Tutor
+1 Narwhal
+1 Nether Horror
+1 Noggle Bandit
+1 Oraxid
+1 Orazca Raptor
+1 Orgg
+1 Oscorp Industries
+1 Phase Dolphin
+1 River of Tears
+1 Salvage Scuttler
+1 Sandbar Crocodile
+1 Sea Gate Restoration
+1 Seething Landscape
+1 Segovian Leviathan
+1 Shadowblood Egg
+1 Shivan Reef
+1 Sootwalkers
+1 Spark Double
+1 Starstorm
+1 Steam Vents
+1 Sulfur Vent
+1 Swamp
+1 Talisman of Creativity
+1 Talisman of Indulgence
+1 Talruum Piper
+1 Thalakos Drifters
+1 Thalakos Mistfolk
+1 Transmute Artifact
+1 Turtle-Seals
+1 Underground River
+1 Vicious Kavu
+1 Wanderbrine Rootcutters
+1 Water Elemental
+1 Wishcoin Crab
+1 Xander's Lounge
 
 [commander]
-Sokka, Wolf Cove's Protector
+Tetsuo Umezawa

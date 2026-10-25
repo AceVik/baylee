@@ -1,81 +1,79 @@
 # baylee curated highlander ramp seed=20261033
 # licence: AGPL-3.0-only
 [deck:highlander ramp WG #20261033]
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Arctic Flats
-1 Avacyn's Collar
-1 Birnin Zana Plaza
-1 Bishop of Wings
-1 Blisterpod
-1 Blossoming Sands
-1 Bountiful Promenade
+1 Aang's Defense
+1 Arasta of the Endless Web
+1 Beast Whisperer
+1 Blessed Spirits
+1 Blessed Wine
 1 Branchloft Pathway
-1 Bretagard Stronghold
+1 Briarknit Kami
 1 Brushland
-1 Byway Courier
+1 Bygone Bishop
 1 Captain of the Watch
-1 Chromatic Star
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Doomed Traveler
+1 Dawnhart Geist
+1 Defiant Strike
+1 Disciple of Freyalise
+1 Dissenter's Deliverance
 1 Drogskol Cavalry
-1 Elephant Guide
-1 Elgaud Inquisitor
 1 Elspeth, Storm Slayer
-1 Elvish Farmer
-1 Field of Souls
-12 Forest
-1 Fortified Village
+1 Elvish Handservant
+1 Enchantress's Presence
+1 Evolution Charm
+15 Forest
+1 Gallant Strike
+1 Gathering Place
 1 Gavony Township
+1 Generous Visitor
 1 Gilded Goose
-1 Gleaming Barrier
-1 Graypelt Refuge
-1 Griffin Guide
+1 Go Forth
+1 Grove of the Guardian
+1 Growth Spasm
 1 Guarded Heir
 1 Guardian of Cloverdell
-1 Haunted Library
+1 Honor
 1 Horizon Canopy
+1 Horizon Seed
 1 Howling Giant
-1 Hunted Witness
 1 Hushwood Verge
-1 Knight-Captain of Eos
-1 Kyoshi Village
-1 Maja, Bretagard Protector
-1 Mantle of the Wolf
+1 Kami of Tattered Shoji
+1 Kami of the Hunt
+1 Leaf-Crowned Visionary
+1 Lightshield Parry
+1 Lys Alana Huntmaster
+1 Many Partings
+1 Martyr's Cry
 1 Maul Splicer
-1 Most Wanted
-1 Myr Sire
-1 Nightshade Dryad
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
-1 Pelakka Wurm
-1 Pentavus
-12 Plains
+1 Mox Pearl
+1 Nylea's Intervention
+1 Opal Archangel
+1 Orbweaver Kumo
+1 Oyobi, Who Split the Heavens
+1 Path of Annihilation
+1 Pawpatch Formation
+11 Plains
 1 Primeval Bounty
-1 Prying Blade
-1 Razorverge Thicket
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Selesnya Guildgate
-1 Siege Veteran
-1 Skullclamp
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
-1 Sunpetal Grove
+1 Primordial Sage
+1 Provoke
+1 Riftstone Portal
+1 Saltcrusted Steppe
+1 Satyr Enchanter
+1 Savannah
+1 Sigil of the Empty Throne
+1 Skybeast Tracker
+1 Snake Pit
+1 Sphinx-Bone Wand
+1 Sungrass Prairie
+1 Sunscorch Regent
+1 Sythis, Harvest's Hand
+1 Tangleroot
 1 Temple Garden
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thornglint Bridge
-1 Thragtusk
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
+1 Tranquil Garden
 1 Trostani's Summoner
-1 Turntimber Ranger
-1 Wand of the Elements
-1 Zuran Orb
+1 Veldt
+1 Verduran Enchantress
+1 Vitality Charm
+1 Vitu-Ghazi, the City-Tree
+1 Wilt
+1 Wooded Bastion
+1 Wurmweaver Coil

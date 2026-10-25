@@ -1,24 +1,21 @@
-# baylee unseen-card holdout constructed seed=90000031
+# baylee unseen-card holdout constructed seed=90000021
 # licence: AGPL-3.0-only
-[deck:constructed ramp R #90000031]
-4 Arcbound Ravager
-4 Avacyn's Collar
-2 Bag End Banquet
-3 Barbarian Ring
-2 Blighted Gorge
-2 Diamond Kaleidoscope
-2 Enatu Golem
-2 Hearthcage Giant
-25 Mountain
-2 Pashalik Mons
-2 Pentavus
-3 Redrock Sentinel
-4 Retrofitter Foundry
-1 Rockface Village
-1 Shivan Gorge
-4 Siege-Gang Commander
-2 Slayer's Plate
-2 Spawning Pit
-2 Thopter Squadron
-3 Trading Post
-3 Treasure Map
+[deck:constructed ramp WBG #90000021]
+4 Colossal Majesty
+3 Courser of Kruphix
+4 Dawnhart Rejuvenator
+3 Deceptive Landscape
+5 Forest
+1 Highway Robber
+4 Icatian Moneychanger
+2 Indatha Triome
+3 Maul Splicer
+4 Metamorphosis Fanatic
+2 Murmuring Bosk
+3 Plains
+4 Polluted Bonds
+1 Sandsteppe Citadel
+7 Swamp
+2 Twilight Mire
+4 Underworld Coinsmith
+4 Yawgmoth's Edict

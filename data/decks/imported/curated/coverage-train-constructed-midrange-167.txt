@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266168]
+3 Aysen Abbey
+2 Bramblefort Fink
+2 Brokers Initiate
+2 Cloudsculpt Technician
+2 Crystalline Sliver
+2 Enraged Ceratok
+8 Forest
+2 Glaciers
+2 Glare of Subdual
+3 Irrigation Ditch
+5 Island
+2 Ocular Halo
+2 Plains
+2 Rhox War Monk
+2 Rubbleback Rhino
+1 Seaside Citadel
+2 Sedge Scorpion
+2 Serra Sphinx
+2 Shelkin Brownie
+2 Survival of the Fittest
+1 Tranquil Landscape
+1 Treva's Ruins
+2 Venomthrope
+2 Victual Sliver
+2 Wellspring
+2 Wild Ceratok

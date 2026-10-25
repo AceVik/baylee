@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266213]
+1 Abyssal Horror
+1 Acid Web Spider
+1 Attercop
+1 Bellowing Crier
+1 Blacklance Paragon
+1 Blood-Toll Harpy
+1 Blooming Stinger
+1 Bogwater Lumaret
+1 Breeding Pool
+1 Burrog Befuddler
+1 Clearwater Pathway
+1 Cloistered Telepath
+1 Cogwork Wrestler
+1 Conclave Naturalists
+1 Corrupt Court Official
+1 Dire Fleet Poisoner
+1 Donatello, Turtle Techie
+1 Dreadwurm
+1 Elderfang Disciple
+1 Emry, Lurker of the Loch
+1 Fallow Wurm
+1 Flooded Grove
+1 Foreboding Landscape
+10 Forest
+1 Gateway Sneak
+1 Gloomlake Verge
+1 Great Whale
+1 Grey Havens Navigator
+1 Hedron Crab
+1 Hidden Horror
+1 Hidden Lair
+1 Iceberg Cancrix
+10 Island
+1 Jaddi Offshoot
+1 Jungle Barrier
+1 Llanowar Wastes
+1 Marshdrinker Giant
+1 Mercenary Knight
+1 Metamorphosis
+1 Mirkwood Meditator
+1 Mystic Snake
+1 Naga Oracle
+1 Nimble Innovator
+1 Opulent Palace
+1 Pond Prophet
+1 Qasali Slingers
+1 Rampart Hunter
+1 Ravenous Lindwurm
+1 River of Tears
+1 Ruin Crab
+1 Sage's Row Denizen
+1 Screeching Skaab
+1 Sedraxis Alchemist
+1 Selkie Hedge-Mage
+1 Separatist Voidmage
+1 Snapping Creeper
+1 Spiderwig Boggart
+1 Sultai Skullkeeper
+1 Svogthos, the Restless Tomb
+5 Swamp
+1 Thundering Wurm
+1 Treeguard Duo
+1 Triton Waverider
+1 Underground Sea
+1 Uro, Titan of Nature's Wrath
+1 Venomous Hierophant
+1 Venser, Shaper Savant
+1 Vinelasher Kudzu
+1 Viridescent Bog
+1 Voracious Greatshark
+1 Waterkin Shaman
+1 Waterlogged Grove
+1 Watery Grave
+1 Weldfast Wingsmith
+1 Whisper Agent
+1 Windgrace Acolyte
+1 Zagoth Triome
+
+[commander]
+Leovold, Emissary of Trest

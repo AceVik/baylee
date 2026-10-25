@@ -1,75 +1,82 @@
 # baylee synergistic holdout coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange R #90010020]
-1 Aggression
-1 Arcbound Ravager
-1 Ashen Monstrosity
-1 Avacyn's Collar
-1 Balduvian Trading Post
-1 Barbarian Ring
-1 Barbed Sliver
-1 Blighted Gorge
-1 Blood Lust
-1 Blood Moon
-1 Blood Petal Celebrant
-1 Bold Impaler
-1 Claws of Gix
-1 Conquer
-1 Desert Cerodon
-1 Diamond Kaleidoscope
-1 Falkenrath Marauders
-1 Fire-Omen Crane
-1 Flowstone Overseer
-1 Fogwell's Gym
-1 Fomori Nomad
-1 Fuel the Flames
-1 Gleaming Barrier
-1 Goblin Engineer
-1 Goblin Spelunkers
-1 Goblin Wizard
-1 Greater Forgeling
-1 Gremlin Infestation
-1 Hammerheim
-1 Hanweir Battlements
-1 Hyena Pack
-1 Jinxed Ring
-1 Jokulhaups
-1 Junktown
-1 Karsus Depthguard
-1 Kher Keep
-1 Koth's Courier
-1 Legion Extruder
-1 Mage il-Vec
-1 Magnetic Mountain
-31 Mountain
-1 Nim Deathmantle
-1 Ogre Resister
-1 Orochi Hatchery
-1 Pashalik Mons
-1 Pathmaker Initiate
-1 Pia and Kiran Nalaar
-1 Plated Geopede
-1 Rearing Embermare
-1 Red Herring
-1 Retrofitter Foundry
-1 Sabotender
-1 Shadowstorm
-1 Shivan Gorge
-1 Skyclave Geopede
-1 Spawning Pit
-1 Spire Barrage
-1 Stonehands
-1 Talruum Minotaur
-1 The Underworld Cookbook
-1 Tooth and Claw
-1 Torch Courier
-1 Trading Post
-1 Treasure Map
-1 Viashino Heretic
-1 Volcanic Submersion
-1 Wall of Heat
-1 Wall of Lava
-1 Wand of the Elements
+[deck:commander midrange WUG #90010020]
+1 Aerial Engineer
+1 Al-abara's Carpet
+1 Angelic Page
+1 Anthroplasm
+1 Appa, Aang's Companion
+1 Aven Fleetwing
+1 Aven Flock
+1 Aysen Abbey
+1 Azorius Keyrune
+1 Battlefield Raptor
+1 Blessing
+1 Bloated Toad
+1 Brushland
+1 Captain of Umbar
+1 Carnassid
+1 Cathar Commando
+1 Change the Equation
+1 Crash of Rhinos
+1 Dispel
+1 Drakewing Krasis
+1 Duskborne Skymarcher
+1 Dust to Dust
+1 Felidar Cub
+1 Flusterstorm
+13 Forest
+1 Fountain of Renewal
+1 Gabriel Angelfire
+1 Grim Monolith
+1 Hallowed Fountain
+1 Hexdrinker
+1 Hushwood Verge
+1 Iona's Judgment
+1 Irrigation Ditch
+1 Krosan Grip
+1 Lose Focus
+1 Lunatic Pandora
+1 Mammoth Harness
+1 Marsh Viper
+1 Mindstatic
+1 Mist Dragon
+1 Moorish Cavalry
+1 Nantuko Monastery
+1 Natural State
+1 Nimbus Maze
+1 Orochi Sustainer
+1 Overflowing Basin
+1 Oversoul of Dusk
+12 Plains
+1 Progenitor Mimic
+1 Reprisal
+1 Seashell Cameo
+1 Seaside Citadel
+1 Seaside Haven
+1 Seton, Krosan Protector
+1 Shield of Duty and Reason
+1 Shield of the Oversoul
+1 Skyhunter Patrol
+1 Skyhunter Skirmisher
+1 Skyscanner
+1 Skywinder Drake
+1 Spara's Headquarters
+1 Spike Worker
+1 Spiketail Drakeling
+1 Spirit of the Labyrinth
+1 Sungrass Prairie
+1 Thelon's Curse
+1 Thoughtbind
+1 Thoughtweft Lieutenant
+1 Thran Turbine
+1 Toxic Scorpion
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Trusty Packbeast
+1 Urban Retreat
+1 Urza's Miter
+1 Waterspout Djinn
 
 [commander]
-Chandler
+Jenara, Asura of War

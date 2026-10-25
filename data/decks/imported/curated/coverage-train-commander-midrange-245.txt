@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266246]
-1 Akki Avalanchers
-1 All Hallow's Eve
-1 Apprentice Necromancer
-1 Ashen Ghoul
-1 Ashen Powder
-1 Barrage Ogre
-1 Bereavement
-1 Blooming Marsh
-1 Bogardan Firefiend
-1 Boggart Cursecrafter
-1 Breeding Pit
-1 Burrowing Razormaw
-1 Chime of Night
-1 Commercial District
-1 Corrupted Harvester
-1 Darigaaz's Caldera
-1 Dark Fortress
-1 Dark Heart of the Wood
-1 Dying Wail
-1 Earthlink
-1 Elven Cache
-1 Festering Goblin
-1 Fiery Mantle
-1 Fire Snake
-1 Fire-Lit Thicket
-4 Forest
-1 Forsaken Drifters
-1 Funeral March
-1 Geothermal Crevice
-1 Glacial Crevasses
-1 Gnathosaur
-1 Goblin Clearcutter
-1 Goblin Masons
-1 Grave Pact
-1 Grim Backwoods
-1 Grim Feast
-1 Gutless Ghoul
-1 Hana Kami
-1 Hell's Caretaker
-1 Horror of Horrors
-1 Karplusan Forest
-1 Kazandu Refuge
-1 Koskun Keep
-1 Last Laugh
-1 Lich
-1 Luxury Suite
-1 Magma Vein
-1 Megatog
-1 Mirri's Guile
-1 Molten Slagheap
-1 Mortuary
-3 Mountain
-1 Nether Shadow
-1 Orcish Mechanics
-1 Orcish Vandal
-1 Past in Flames
-1 Polluted Dead
-1 Quagmire Druid
-1 Raiding Party
-1 Reaper of the Wilds
-1 Reincarnation
-1 Rootbound Crag
-1 Savage Lands
-1 Sepulcher Ghoul
-1 Shambling Goblin
-1 Skirsdag Flayer
-1 Soulreaper of Mogis
-1 Starved Rusalka
-1 Stronghold Assassin
-16 Swamp
-1 Sylvan Anthem
-1 The Serpent Society
-1 Timberline Ridge
-1 Twisted Landscape
-1 Twists and Turns
-1 Woebearer
-1 Wort, Boggart Auntie
-1 Ziatora's Proving Ground
-1 Zombify
+[deck:commander midrange WU #20266246]
+1 Abzan Runemark
+1 Air Bladder
+1 Altar's Light
+1 Barrin, Master Wizard
+1 Calciform Pools
+1 Candlelight Vigil
+1 Captain's Call
+1 Castle Raptors
+1 Celestial Purge
+1 Cloak of Mists
+1 Cloudcrest Lake
+1 Coastal Hornclaw
+1 Companion of the Trials
+1 Deepchannel Duelist
+1 Divine Verdict
+1 Drogskol Captain
+1 Eagle of the Great Shelf
+1 Elite Arrester
+1 Envoy of Okinec Ahau
+1 Excoriate
+1 Exorcise
+1 Fae Flight
+1 Fanatical Devotion
+1 Fledgling Osprey
+1 Glare of Heresy
+1 Gleaming Bastion
+1 Glorious Anthem
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Honor Guard
+1 Hullbreacher
+14 Island
+1 King of the Pride
+1 Kinsbaile Balloonist
+1 Kjeldoran Pride
+1 Knighthood
+1 Land Cap
+1 Law-Rune Enforcer
+1 Lord of Atlantis
+1 Master of the Pearl Trident
+1 Merfolk Coralsmith
+1 Merfolk Mesmerist
+1 Merfolk Sovereign
+1 Mists of Littjara
+1 Moat
+1 Moorland Haunt
+1 Mystic Gate
+1 Nimbus Maze
+1 Not on My Watch
+1 Pestered Wellguard
+1 Pillar of Light
+11 Plains
+1 Prahv, Spires of Order
+1 Rotcrown Ghoul
+1 Sea of Clouds
+1 Sentinel of the Eternal Watch
+1 Shimmer
+1 Short Circuit
+1 Skycloud Expanse
+1 Slow Motion
+1 Snow Devil
+1 Spectral Cloak
+1 Spectral Shield
+1 Spirit of the Spires
+1 Starlit Mantle
+1 Storm of Saruman
+1 Study
+1 Sunken City
+1 Thalakos Lowlands
+1 Treetop Sentinel
+1 Troubled Healer
+1 Tundra
+1 Venerable Lammasu
+1 Viscerid Armor
+1 Zeriam, Golden Wind
+1 Zuberi, Golden Feather
 
 [commander]
-Adun Oakenshield
+Tobias Andrion

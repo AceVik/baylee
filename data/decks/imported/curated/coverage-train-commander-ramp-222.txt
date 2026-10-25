@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266223]
+1 Adarkar Wastes
+1 Argivian Restoration
+1 Astrolabe
+1 Attentive Sunscribe
+1 Attunement
+1 Benthic Behemoth
+1 Brain Freeze
+1 Calciform Pools
+1 Chill
+1 Cloudcrest Lake
+1 Codex Shredder
+1 Cryptic Annelid
+1 Dazzling Lights
+1 Deep-Sea Serpent
+1 Devout Lightcaster
+1 Dispersing Orb
+1 Expedition Map
+1 False Defeat
+1 Frilled Sea Serpent
+1 Gleaming Bastion
+1 Hallowed Fountain
+1 Iceridge Serpent
+1 Index
+13 Island
+1 Island Fish Jasconius
+1 Ivory Guardians
+1 Jhovall Queen
+1 Journeyer's Kite
+1 Land Cap
+1 Loxodon Mender
+1 Mental Discipline
+1 Meticulous Archive
+1 Moorland Haunt
+1 Nim Deathmantle
+1 Nimbus Maze
+1 North Pole Gates
+1 Paradise Mantle
+13 Plains
+1 Port Town
+1 Prahv, Spires of Order
+1 Precognition
+1 Prophet of the Peak
+1 Rambunctious Mutt
+1 Renegade Map
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Red
+1 Rune-Sealed Wall
+1 Scampering Surveyor
+1 Sea Monster
+1 Sea Serpent
+1 Search for Azcanta
+1 Sejiri Refuge
+1 Select for Inspection
+1 Sheltering Light
+1 Shield-Wall Sentinel
+1 Sift
+1 Skycloud Expanse
+1 Skywhaler's Shot
+1 So Shiny
+1 Spined Megalodon
+1 Stonehorn Chanter
+1 Thalakos Lowlands
+1 Thaumatic Compass
+1 The Terror of Serpent's Pass
+1 Thing from the Deep
+1 Think Tank
+1 Time Walk
+1 Titanium Golem
+1 Trading Post
+1 Tundra
+1 Unstable Obelisk
+1 Vizzerdrix
+1 Wall of Lost Thoughts
+1 Workhorse
+1 World Map
+
+[commander]
+Jedit Ojanen

@@ -1,22 +1,22 @@
-# baylee unseen-card holdout constructed seed=90000004
+# baylee unseen-card holdout constructed seed=90000003
 # licence: AGPL-3.0-only
-[deck:constructed aggro UR #90000004]
-2 Eroded Canyon
-3 Firemind's Research
-3 Firespitter Whelp
-3 Glaring Fleshraker
-2 Golem Foundry
-1 Highland Lake
-7 Island
-4 Izzet Charm
-4 Juju Bubble
-2 Library
-1 Molten Tributary
-6 Mountain
-4 Mystic Remora
-4 Sawblade Scamp
-4 Sire of the Storm
-2 Stark Industries
-2 The Vision and Scarlet Witch
-2 Training Center
-4 Trapmaker's Snare
+[deck:constructed aggro WR #90000003]
+4 Battlegate Mimic
+2 Birgi, God of Storytelling
+1 Dragon Bell Monk
+3 Embersmith
+3 Festival Crasher
+3 Frenzied Devils
+2 God-Pharaoh's Faithful
+3 Granulate
+3 Mage-Ring Bully
+2 Mogg Sentry
+10 Mountain
+3 Needleverge Pathway
+4 Piercing Light
+4 Plains
+1 Sunbaked Canyon
+2 Sunhome, Fortress of the Legion
+3 Sunscorched Divide
+3 Weaver of Lightning
+4 Winter Sky

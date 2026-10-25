@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266146]
-1 Arctic Flats
-1 Arctic Treeline
-1 Ashnod's Battle Gear
-1 Assembly-Worker
-1 Avacyn's Memorial
-1 Basilisk Collar
-1 Bastion Mastodon
-1 Birnin Zana Plaza
-1 Bone Flute
-1 Bretagard Stronghold
-1 Brushland
-1 Bubble Matrix
-1 Canopy Vista
-1 Caustic Caterpillar
-1 Cockatrice
-1 Coral Helm
-1 Crucible of Worlds
-1 Daraja Griffin
-1 Destroy Evil
-1 Ebony Horse
-1 Echo Circlet
-1 Elf Replica
-1 Elven Lyre
-1 Elvish Hexhunter
-1 Elvish Scrapper
-1 Endoskeleton
-1 Floral Spuzzem
-11 Forest
-1 Fyndhorn Bow
-1 Gaelicat
-1 Hedgewitch's Mask
-1 Horizon Canopy
-1 Jhoira's Toolbox
-1 Kry Shield
-1 Leonin Abunas
-1 Lush Portico
-1 Mantis Engine
-1 Marble Gargoyle
-1 Marble Priest
-1 Narnam Cobra
-1 Needlebug
-1 Nemesis Mask
-1 North Star
-1 Overgrown Farmland
-12 Plains
-1 Power Matrix
-1 Prowler's Helm
-1 Quiet Purity
-1 Reflecting Mirror
-1 Reinforced Bulwark
-1 Ronom Unicorn
-1 Saltcrusted Steppe
-1 Savaen Elves
-1 Selesnya Guildgate
-1 Shinewend
-1 Short Sword
-1 Skyhunter Prowler
-1 Spirit Shield
-1 Stonework Puma
-1 Suburban Sanctuary
-1 Sunglasses of Urza
-1 Sungrass Prairie
-1 Tawnos's Coffin
-1 Tawnos's Weaponry
-1 Temple of Plenty
-1 Thornglint Bridge
-1 Thran Lens
-1 Tranquil Garden
-1 Umbral Mantle
-1 Undergrowth Leopard
-1 Urza's Engine
-1 Veldt
-1 Venomous Dragonfly
-1 Viridian Zealot
-1 Wall of Tanglecord
-1 War Chariot
-1 Wirecat
-1 Zelyon Sword
+[deck:commander midrange U #20266146]
+1 Arcane Lighthouse
+1 Bigfin Bouncer
+1 Bounce Off
+1 Breaching Hippocamp
+1 Bullwhip
+1 Cache Raiders
+1 Cave of Temptation
+1 Coastal Drake
+1 Contempt
+1 Cyclonic Rift
+1 Disappear
+1 Dispersal Technician
+1 Drown in Shapelessness
+1 Dukhara Peafowl
+1 Encase in Ice
+1 Escape Routes
+1 Escaped Experiment
+1 Esperzoa
+1 Eye of Nowhere
+1 Filigree Sages
+1 Fledgling Osprey
+1 Giant Shark
+1 Glowing Anemone
+1 Gulf Squid
+1 Hermitic Nautilus
+1 Hibernation
+1 Hoodwink
+1 Hurkyl's Recall
+1 Hydroelectric Specimen
+1 Illusory Wrappings
+1 Imaginary Pet
+1 Intruder Alarm
+34 Island
+1 Kite Shield
+1 Naya Panorama
+1 Rakalite
+1 Reduce in Stature
+1 Rescue
+1 Rhystic Deluge
+1 Scorpion Sentinel
+1 Scrapskin Drake
+1 Second Wind
+1 Short Circuit
+1 Sink into Stupor
+1 Sleep Paralysis
+1 Spawning Bed
+1 Stern Dismissal
+1 Sunder
+1 Surgespanner
+1 Surgical Metamorph
+1 Surrakar Banisher
+1 Swarmyard
+1 Temporal Adept
+1 Thalakos Scout
+1 Thaumaturge's Familiar
+1 Timid Drake
+1 Tractor Beam
+1 Unstable Shapeshifter
+1 Vedalken Mastermind
+1 Veiled Crocodile
+1 Witch's Clinic
+1 Wizard Mentor
+1 Word of Undoing
+1 Worldslayer
+1 Xanthic Statue
+1 Yarok's Wavecrasher
 
 [commander]
-Bast, Panther Goddess
+Heidar, Rimewind Master

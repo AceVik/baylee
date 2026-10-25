@@ -1,84 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266114]
-1 Alchemist's Refuge
-1 Bayou
-1 Bellowing Crier
-1 Brinebarrow Intruder
-1 Clearwater Pathway
-1 Cloistered Telepath
-1 Cloudreader Sphinx
-1 Cosmic Horror
-1 Donatello, Turtle Techie
-1 Drownyard Amalgam
-1 Embodiment of Spring
-1 Eviscerator
-1 Festering Thicket
-1 Foggy Bottom Swamp
-1 Foreboding Landscape
-3 Forest
-1 Fourth Bridge Prowler
-1 Fungal Shambler
-1 Gateway Sneak
-1 Great Whale
-1 Grim Backwoods
-1 Guadosalam, Farplane Gateway
-1 Hedron Crab
-1 Hidden Lair
-1 Homarid Explorer
-1 Humbling Elder
-1 Iceberg Cancrix
-16 Island
-1 Jungle Barrier
-1 Kapsho Kitefins
-1 Keeper of Tresserhorn
-1 Laboratory Brute
-1 Llanowar Stalker
-1 Merfolk Observer
-1 Minion of Leshrac
-1 Mirkwood
-1 Moonlit Scavengers
-1 Naga Oracle
-1 Natural Order
-1 Nature's Lore
-1 Neverwinter Dryad
-1 Nimble Innovator
-1 Opal Lake Gatekeepers
-1 Opulent Palace
-1 Pestilence Demon
-1 Pine Barrens
-1 Poisonbelly Ogre
-1 Pond Prophet
-1 Rabid Bloodsucker
-1 Rain-Slicked Copse
-1 Restless Vinestalk
-1 Ruin Crab
-1 Rune-Scarred Demon
-1 Sage Owl
-1 Screeching Drake
-1 Screeching Skaab
-1 Serpent Warrior
-1 Shaman of the Pack
-1 Silkwing Scout
-1 Skemfar Elderhall
-1 Sky-Eel School
-1 Spire Owl
-1 Sultai Banner
-1 Sultai Skullkeeper
-5 Swamp
-1 Sylvan Scrying
-1 Thassa's Bounty
-1 Time of Need
-1 Tithebearer Giant
-1 Tome Raider
-1 Undercity Sewers
-1 Underground Sea
-1 Wall of Lost Thoughts
-1 Willow-Wind
-1 Wistful Selkie
-1 Xindi Surveyors
-1 Zagoth Crystal
-1 Zagoth Triome
+[deck:commander ramp RG #20266114]
+1 Ancient Brontodon
+1 Arid Archway
+1 Bhaal's Invoker
+1 Big Apple, 3 a.m.
+1 Blaster Mage
+1 Blockbuster
+1 Boggart Arsonists
+1 Boseiju, Who Endures
+1 Charging Strifeknight
+1 Cleansing Screech
+1 Command the Storm
+1 Curious Altisaur
+1 Dangerous Wager
+1 Delete
+1 End the Festivities
+1 Engulfing Eruption
+1 Explosive Shot
+1 Fault Line
+1 Fire Imp
+1 Fire Tempest
+1 Flame Lash
+12 Forest
+1 Frog Butler
+1 Glissa's Scorn
+1 Goblin Burrows
+1 Goblin Digging Team
+1 Goblin Settler
+1 Gorilla War Cry
+1 Hammerheim
+1 Hanweir Battlements
+1 Honden of Infinite Rage
+1 Hornet Sting
+1 Inferno
+1 Jumbo Cactuar
+1 Kher Keep
+1 Land's Edge
+1 Lava Flow
+1 Lava Hounds
+1 Leaf Arrow
+1 Livonya Silone
+1 Lull
+1 Mob Justice
+1 Molten Vortex
+14 Mountain
+1 Mountain Valley
+1 Noxious Newt
+1 Okina, Temple to the Grandfathers
+1 Pierce the Sky
+1 Poison Dart Frog
+1 Public Thoroughfare
+1 Quakestrider Ceratops
+1 Ramunap Ruins
+1 Ready to Rumble
+1 Return to the Earth
+1 Ripjaw Raptor
+1 Rockface Village
+1 Rockslide Ambush
+1 Rootrider Faun
+1 Scorching Spear
+1 Shinka, the Bloodsoaked Keep
+1 Shivan Gorge
+1 Spear Spewer
+1 Starke of Rath
+1 Stature, Young Avenger
+1 Sudden Strength
+1 Sylvan Caryatid
+1 Take Down
+1 Tattermunge Duo
+1 Uncharted Haven
+1 Victorious Destruction
+1 War-Torch Goblin
+1 Whiptail Moloch
+1 Wild Celebrants
+1 Winter Blast
+1 Wirewood Lodge
 
 [commander]
-Muldrotha, the Gravetide
+Jerrard of the Closed Fist

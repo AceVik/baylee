@@ -1,83 +1,81 @@
 # baylee curated commander ramp seed=20261070
 # licence: AGPL-3.0-only
 [deck:commander ramp WG #20261070]
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bishop of Wings
-1 Blade Splicer
-1 Blisterpod
-1 Blossoming Sands
-1 Botanical Plaza
+1 Aeronaut Cavalry
+1 Ambassador Oak
+1 Ambush Krotiq
+1 Angel of Renewal
+1 Arctic Wolves
+1 Avatar Enthusiasts
+1 Backup Agent
+1 Bond Beetle
+1 Branchloft Pathway
 1 Bretagard Stronghold
-1 Byway Courier
-1 Canopy Vista
-1 Captain of the Watch
-1 Cartouche of Solidarity
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Doomed Traveler
+1 Briarbridge Tracker
+1 Brushland
+1 Champion of the Parish
+1 Dauntless Survivor
+1 Daysquad Marshal
+1 Deeproot Elite
+1 Doubling Season
 1 Drogskol Cavalry
-1 Elephant Guide
-1 Elspeth, Storm Slayer
-1 Elvish Farmer
-11 Forest
+1 Drumhunter
+1 Elfhame Palace
+1 Fasting
+12 Forest
+1 From Beyond
+1 Gallant Citizen
 1 Gathering Place
-1 Gilded Goose
-1 Gleaming Barrier
-1 Griffin Guide
-1 Guarded Heir
-1 Guardian of Cloverdell
-1 Haunted Library
+1 Gavony Township
+1 Glider Kids
+1 Grove of the Guardian
+1 Hada Freeblade
 1 Honored Knight-Captain
-1 Horizon Canopy
 1 Hornet Queen
-1 Hunted Witness
-1 Hushwood Verge
+1 Howling Giant
+1 Ironpaw Aspirant
+1 Jade Bearer
+1 Jeong Jeong's Deserters
+1 Kazandu Blademaster
+1 Kjeldoran Home Guard
 1 Knight-Captain of Eos
-1 Maja, Bretagard Protector
-1 Mantle of the Wolf
-1 Martyr of Dusk
+1 Kronch Wrangler
+1 Llanowar Stalker
+1 Many Partings
 1 Maul Splicer
-1 Most Wanted
-1 Myr Sire
-1 Nesting Dovehawk
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
-1 Overgrown Farmland
+1 Mox Pearl
+1 Oran-Rief Survivalist
 1 Pelakka Wurm
-1 Pentavus
-13 Plains
-1 Primeval Bounty
-1 Prying Blade
-1 Radiant Grove
+14 Plains
 1 Rampaging Baloths
-1 Requiem Angel
-1 Restless Prairie
-1 Retrofitter Foundry
+1 Regal Caracal
+1 Riftstone Portal
+1 Rinoa Heartilly
 1 Saltcrusted Steppe
-1 Selesnya Sanctuary
-1 Siege Veteran
-1 Slayer's Plate
-1 Spawning Pit
+1 Savannah
+1 Savior of the Sleeping
+1 Seller of Songbirds
+1 Setessan Champion
+1 Sterling Supplier
+1 Subjugator Angel
+1 Sunblast Angel
+1 Sungrass Egg
 1 Sungrass Prairie
 1 Temple Garden
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
+1 Territorial Scythecat
+1 Thraben Inspector
+1 Timberland Guide
+1 Tivadar of Thorn
+1 Tranquil Garden
 1 Trostani's Summoner
-1 Turntimber Ranger
+1 Urbis Protector
+1 Valley Mightcaller
 1 Vec Townships
 1 Veldt
+1 Vitu-Ghazi, the City-Tree
 1 Voice of the Provinces
-1 Wand of the Elements
-1 Windurst, Federation Center
-1 Wooded Bastion
+1 War Priest of Thune
+1 Wild Wanderer
 
 [commander]
 Emiel the Blessed

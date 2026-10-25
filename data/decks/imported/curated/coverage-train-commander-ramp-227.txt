@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266228]
+1 Advocate of the Beast
+1 Algae Gharial
+1 Amok
+1 Arcane Spyglass
+1 Belligerent Guest
+1 Big Bertha
+1 Bloodcrazed Neonate
+1 Chaotic Goo
+1 Culling Dais
+1 Drill Too Deep
+1 Dwarven Armorer
+1 Dwarven Weaponsmith
+1 Erdwal Ripper
+1 Falkenrath Celebrants
+1 Feral Thallid
+1 Fire Sprites
+1 Fire-Lit Thicket
+1 Flora Colossus
+16 Forest
+1 Foxfire Oak
+1 Fungal Reaches
+1 Gaea's Gift
+1 Gemhide Sliver
+1 Ghastbark Twins
+1 Gobbling Ooze
+1 Golden Hind
+1 Golden Urn
+1 Grove of the Burnwillows
+1 Gruul Turf
+1 Havengul Vampire
+1 Hobblefiend
+1 Hungry Megasloth
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Lumberknot
+1 Maraxus of Keld
+1 Markov Blademaster
+1 Mogg Hollows
+1 Mossfire Valley
+10 Mountain
+1 Nasty Little Rabbit
+1 Oakgnarl Warrior
+1 Otherworld Atlas
+1 Pinecrest Ridge
+1 Prowler, Misguided Mentor
+1 Rot Shambler
+1 Rubble Reading
+1 Rustvine Cultivator
+1 Salt Road Quartermasters
+1 Satyr Hedonist
+1 Savaen Elves
+1 Savage Mansion
+1 Scavenging Ooze
+1 Scute Mob
+1 Segmented Wurm
+1 Serum Tank
+1 Shield Sphere
+1 Skarrg, the Rage Pits
+1 Slith Predator
+1 Snapping Sailback
+1 Spike Breeder
+1 Spike Colony
+1 Spike Drone
+1 Spike Hatcher
+1 Spore Flower
+1 Stomping Ground
+1 Stromkirk Noble
+1 Taiga
+1 Thornspire Verge
+1 Timberline Ridge
+1 Titan Forge
+1 Titania's Boon
+1 Training Compound
+1 Triassic Egg
+1 Yavimaya Ants
+
+[commander]
+Marhault Elsdragon

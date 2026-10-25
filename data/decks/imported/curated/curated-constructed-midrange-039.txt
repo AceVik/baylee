@@ -1,19 +1,21 @@
 # baylee curated constructed midrange seed=20261062
 # licence: AGPL-3.0-only
 [deck:constructed midrange BG #20261062]
-4 Ayara, First of Locthwain
-2 Dalek Drone
-2 Festering Gulch
-3 Festering Thicket
-2 Geistcatcher's Rig
-3 Glaring Fleshraker
-4 Isolation Cell
-4 Juju Bubble
-2 Mai, Scornful Striker
+3 Forest
+1 Grim Backwoods
+4 Infested Roothold
+3 Jackalope Herd
+2 Llanowar Wastes
 4 Night's Whisper
-4 Pine Barrens
-4 Primal Amulet
-3 Spinning Wheel
-4 Straw Golem
-14 Swamp
-1 Woodland Chasm
+3 Nurturing Peatland
+2 Overgrown Tomb
+3 Primordial Sage
+3 Profane Tutor
+4 Quill-Slinger Boggart
+4 Reverent Howl
+3 Royal Assassin
+2 Sign in Blood
+4 Skittering Skirge
+12 Swamp
+2 Vampiric Tutor
+1 Viridescent Bog

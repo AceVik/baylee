@@ -1,20 +1,18 @@
 # baylee curated constructed aggro seed=20261023
 # licence: AGPL-3.0-only
 [deck:constructed aggro U #20261023]
-2 Arcbound Ravager
-4 Avacyn's Collar
-3 Blighted Cataract
-2 Gleaming Barrier
-18 Island
+1 Cephalid Coliseum
+2 Cephalid Scout
+3 Chromatic Star
+4 Deduce
+2 Etherium Spinner
+19 Island
 1 Lilypad Village
-3 Myr Sire
-1 Oboro, Palace in the Clouds
-2 Prying Blade
-3 Retrofitter Foundry
-2 S.H.I.E.L.D. Deployment Drone
-2 Slayer's Plate
-4 Spawning Pit
-3 The Theorist, Jace Beleren
-4 The Underworld Cookbook
-3 Titan Forge
-3 Trading Post
+3 Merfolk Coralsmith
+3 Merfolk Seer
+4 Pestered Wellguard
+4 Rootwater Diver
+4 Thalakos Seer
+4 Three Steps Ahead
+2 Tolarian Academy
+4 Vodalian Hexcatcher

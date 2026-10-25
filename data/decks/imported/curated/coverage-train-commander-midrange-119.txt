@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266120]
-1 Aphelia, Viper Whisperer
-1 Auntie's Hovel
-1 Bereavement
-1 Black Cat
-1 Boggart Cursecrafter
-1 Boris Devilboon
-1 Breeding Pit
-1 Carrion
-1 Chime of Night
-1 Cinder Glade
-1 Contract Killing
-1 Copperline Gorge
-1 Corpse Blockade
-1 Corpsehatch
-1 Creakwood Liege
-1 Cyclopean Mummy
-1 Darigaaz's Caldera
-1 Dark Fortress
-1 Deadly Derision
-1 Dying Wail
-1 Earthlink
-1 Eat to Extinction
-1 Elderfang Ritualist
-1 Elvish Doomsayer
-1 Facevaulter
-1 Feast or Famine
-1 Festering Gulch
-1 Fire-Lit Thicket
-5 Forest
-1 Foul Play
-1 Geothermal Crevice
-1 Glimmer Bairn
-1 Glissa, the Traitor
-1 Golgari Germination
-1 Golgari Rot Farm
-1 Golgari Rotwurm
-1 Grave Pact
-1 Gristle Grinner
-1 Groundskeeper
-1 Hana Kami
-1 He's Dead, Jim
-1 Hoard Robber
-1 Journey to Eternity
-1 Koskun Keep
-1 Lich
-1 Lightning Javelin
-1 Magmatic Force
-1 Moldervine Reclamation
-1 Morcant's Loyalist
-1 Mortuary
-1 Mountain
-1 Ominous Asylum
-1 Ophiomancer
-1 Plagued Rusalka
-1 Poison-Tip Archer
-1 Polluted Dead
-1 Quagmire Druid
-1 Restless Vents
-1 Rhys the Exiled
-1 Rottenheart Ghoul
-1 Rubble Reading
-1 Savage Lands
-1 Scarland Thrinax
-1 Sepulcher Ghoul
-1 Shambling Goblin
-1 Skirk Ridge Exhumer
-1 Soulreaper of Mogis
-1 Strands of Night
-1 Stronghold Assassin
-17 Swamp
-1 Taiga
-1 Temple of Malady
-1 Treasure Dredger
-1 Twisted Landscape
-1 Undead Executioner
-1 Vengeful Dead
-1 Violet Pall
-1 World Shaper
-1 Ziatora's Proving Ground
+[deck:commander midrange WB #20266120]
+1 Abandoned Air Temple
+1 Abandoned Outpost
+1 Alley Strangler
+1 Angel of Light
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Aven Mindcensor
+1 Aven Skirmisher
+1 Baneslayer Angel
+1 Belbe's Percher
+1 Bloodied Ghost
+1 Catastrophe
+1 Commander Eesha
+1 Courier Hawk
+1 Dark Offering
+1 Defenestrate
+1 Eagle of the Watch
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Formation
+1 Fountain of Cho
+1 Freewind Falcon
+1 Ghirapur Osprey
+1 Grave Robbers
+1 Hall of Heliod's Generosity
+1 Healer's Flock
+1 Herald of Serra
+1 Human Frailty
+1 Ishgard, the Holy See
+1 Isolate
+1 Kabuto Moth
+1 Kami of Ancient Law
+1 Keening Apparition
+1 Kor Haven
+1 Lantern Kami
+1 Leechridden Swamp
+1 Lightning Blow
+1 Lupinflower Village
+1 Lyra Dawnbringer
+1 Malach of the Dawn
+1 Melesse Spirit
+1 Memorial to Glory
+1 Mesa Falcon
+1 Monumental Henge
+1 Niblis of the Urn
+1 Pit Raptor
+16 Plains
+1 Pteron Ghost
+1 Radiant, Archangel
+1 Ravine Raider
+1 Realm of Koh
+1 Restoration Angel
+1 Roc Charger
+1 Segovian Angel
+1 Seraph of Dawn
+1 Serra Advocate
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Shepherd of the Lost
+1 Shriekdiver
+1 Shrike Force
+1 Soulscour
+1 Starlit Angel
+1 Stonerise Spirit
+1 Suture Spirit
+9 Swamp
+1 Territorial Roc
+1 Thunder Spirit
+1 Tormented Angel
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 Voiceless Spirit
 
 [commander]
-Adun Oakenshield
+Selenia, Dark Angel

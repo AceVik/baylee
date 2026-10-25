@@ -1,85 +1,84 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WRG #20266080]
-1 Aether Hub
-1 Ageless Guardian
-1 Ambush
-1 Archaeological Dig
-1 Atalan Jackal
-1 Barreling Attack
-1 Beast Walkers
-1 Bladed Ambassador
-1 Bristling Backwoods
-1 Buried Ruin
-1 Cabaretti Courtyard
-1 Cathedral of Serra
-1 Cave of Temptation
-1 Cho-Arrim Alchemist
-1 Cliff Threader
-1 Crookshank Kobolds
-1 Devoted Hero
-1 Disciple of the Old Ways
-1 Eager Cadet
-1 Earth Kingdom Protectors
-1 Elite Archers
-1 Elvish Healer
-1 Enslaved Scout
-3 Forest
-1 Frostbridge Guard
-1 Frostwalk Bastion
-1 Furycalm Snarl
-1 Garrison Sergeant
-1 Glimmervoid
-1 Glorifier of Dusk
-1 Head of Security
-1 Hedge Troll
-1 Indomitable Ancients
-1 Iroas's Champion
-1 Ironclaw Buzzardiers
-1 Keen-Eyed Archers
-1 Kelsinko Ranger
-1 Kobolds of Kher Keep
-1 Loxodon Convert
-1 Loxodon Gatekeeper
-1 Loxodon Line Breaker
-1 Loxodon Mystic
-1 Loxodon Wayfarer
-1 Maestros Theater
-1 Marisi's Twinclaws
-1 Marsh Threader
-1 Mosstodon
-4 Mountain
-1 Naya Battlemage
-1 Northampton Farm
-16 Plains
-1 Prized Elephant
-1 Rath's Edge
-1 Rhox Brute
-1 Roadside Reliquary
-1 Rockcaster Platoon
-1 Rubble Slinger
-1 Sacred Knight
-1 Safehold Elite
-1 Scalebane's Elite
-1 Selesnya Sentry
-1 Serra Paladin
-1 Sheltered Valley
-1 Shrine of the Forsaken Gods
-1 Skyline Scout
-1 Soltari Emissary
-1 Squire
-1 Staunch Shieldmate
-1 Steelshaper Apprentice
-1 Tattermunge Maniac
-1 Towering Thunderfist
-1 Unnatural Speed
-1 Urza's Tower
-1 Valeron Outlander
-1 Veteran Cathar
-1 Votary of the Conclave
-1 Wanderbrine Trapper
-1 Wild Elephant
-1 Wolf Cove Villager
+[deck:commander midrange WUBRG #20266080]
+1 Air Nomad Legacy
+1 Allied Teamwork
+1 Ancestors' Aid
+1 Aragorn, the Uniter
+1 Auspicious Arrival
+1 Awaken the Woods
+1 Battlefield Forge
+1 Blazing Effigy
+1 Blazing Hellhound
+1 Bogardan Firefiend
+1 Careless Celebrant
+1 Carrion
+1 Crib Swap
+1 Crystal Quarry
+1 Cunning Maneuver
+1 Dark Fortress
+1 Fanatic of Rhonas
+1 Field of Souls
+1 Flamekin Gildweaver
+1 Floodhound
+1 Flurry of Horns
+6 Forest
+1 Fortifying Provisions
+1 Ghen, Arcanum Weaver
+1 Goblin Warrens
+1 Golgari Germination
+1 Greensleeves, Maro-Sorcerer
+1 Grove of the Burnwillows
+1 Hard Evidence
+1 Haunt the Network
+1 Intruding Soulrager
+4 Island
+1 Jund Battlemage
+1 Krark-Clan Stoker
+1 Lantern-Lit Graveyard
+1 Late to Dinner
+1 Legion's Landing
+1 Living Lightning
+1 Maelstrom Wanderer
+1 Mardu Devotee
+1 Martyr of Dusk
+1 Mogg Hollows
+1 Mongrel Pack
+1 Morselhoarder
+1 Mossfire Valley
+1 Mouser Attack!
+1 Nearby Planet
+1 Ojer Taq, Deepest Foundation
+1 Overgrown Farmland
+5 Plains
+1 Plateau
+1 Pyre Spawn
+1 Queen's Commission
+1 Ral's Reinforcements
+1 Reckless Ransacking
+1 Renegade's Getaway
+1 Rin and Seri, Inseparable
+1 Savor
+1 Sek'Kuar, Deathkeeper
+1 Servo Exhibition
+1 Skyclave Apparition
+1 Sokka's Sword Training
+1 Sokka, Tenacious Tactician
+1 Sprout
+1 Stensia Bloodhall
+1 Stimulus Package
+1 Storm God's Oracle
+1 Sudden Breakthrough
+1 Summit Sentinel
+1 Sunbillow Verge
+1 Sunscorched Divide
+1 Super-Skrull
+10 Swamp
+1 The World Tree
+1 Titania, Protector of Argoth
+1 Training Compound
+1 Unforgiving Aim
+1 Voice of Resurgence
 
 [commander]
-Jacques le Vert
+Sliver Queen

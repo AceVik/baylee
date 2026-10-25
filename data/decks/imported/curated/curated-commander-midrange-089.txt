@@ -1,75 +1,72 @@
 # baylee curated commander midrange seed=20261112
 # licence: AGPL-3.0-only
 [deck:commander midrange W #20261112]
-1 Allied Teamwork
+1 Abu Ja'far
+1 Academy Rector
+1 Afterlife
+1 Ancient Den
 1 Arahbo, the First Fang
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Avacyn's Collar
-1 Bishop of Wings
-1 Blade Splicer
+1 Aura Fracture
 1 Blighted Steppe
-1 Blood Servitor
+1 Bygone Bishop
+1 Caregiver
 1 Cartouche of Solidarity
-1 Diamond Kaleidoscope
+1 Crib Swap
+1 Daru Encampment
+1 Delney, Streetwise Lookout
 1 Doomed Traveler
-1 Dowsing Dagger
 1 Dwarven Castle Guard
+1 Eager Glyphmage
 1 Eiganjo Castle
-1 Elgaud Inquisitor
 1 Elspeth, Storm Slayer
+1 Errand of Duty
 1 Field of Souls
-1 Filigree Crawler
-1 Flagstones of Trokair
-1 Fortifying Provisions
-1 Gilded Pinions
-1 Gleaming Barrier
-1 Glimmerlight
+1 Geist-Honored Monk
 1 Griffin Guide
-1 Hall of Heliod's Generosity
 1 Haunted Library
 1 Honored Knight-Captain
 1 Hunted Witness
+1 Inheritance
+1 Karakas
+1 Kjeldoran Home Guard
 1 Knight of Doves
-1 Knight-Captain of Eos
-1 Kor Haven
-1 Lupinflower Village
-1 Magnifying Glass
+1 Late to Dinner
+1 Luminarch Ascension
+1 Luminous Angel
+1 Luminous Broodmoth
 1 Martyr of Dusk
-1 Master Splicer
-1 Master Trinketeer
-1 Mausoleum Guard
-1 Mobilization
-1 Myr Matrix
-1 Myr Sire
+1 Martyr's Cry
+1 Monastery Mentor
 1 Nesting Dovehawk
-1 Nim Deathmantle
-1 Nomad Stadium
 1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
-1 Pentavus
-31 Plains
-1 Prying Blade
-1 Regal Caracal
-1 Requiem Angel
-1 Retrofitter Foundry
-1 Scrap Trawler
+1 Oltec Cloud Guard
+1 Orochi Hatchery
+1 Patrol Signaler
+1 Personal Incarnation
+1 Pileated Provisioner
+1 Pillardrop Rescuer
+34 Plains
+1 Protector of Gondor
+1 Reliquary Monk
+1 Rising Populace
+1 Savior of the Sleeping
+1 Secure the Wastes
 1 Sensor Splicer
-1 Serra's Sanctum
+1 Servo Exhibition
 1 Shefet Dunes
 1 Siege Veteran
-1 Skullclamp
-1 Slayer's Plate
-1 Spawning Pit
-1 Squire's Devotion
-1 Sylvok Lifestaff
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Trading Post
-1 Treasure Map
-1 Wand of the Elements
+1 Soulcatcher
+1 Spectral Procession
+1 Spidersilk Net
+1 Spirit Mirror
+1 Take Up Arms
+1 Thraben Standard Bearer
+1 Treasure Hunter
+1 Venerable Knight
+1 Vessel of Ephemera
+1 Welkin Hawk
+1 Wipe Clean
+1 Worthy Knight
 
 [commander]
 Reya Dawnbringer

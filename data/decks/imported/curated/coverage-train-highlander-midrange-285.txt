@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WBG #20266286]
+1 Auratog
+1 Axebane Stag
+1 Benevolent Ancestor
+1 Blinking Spirit
+1 Branchloft Pathway
+1 Brushland
+1 Call to the Feast
+1 Camouflage
+1 Chilling Apparition
+1 Crossbow Ambush
+1 Day of Destiny
+1 Deceptive Landscape
+1 Deity of Scars
+1 Demon's Grasp
+1 Disease Carriers
+1 Ephemerate
+1 Everybody Lives!
+1 Festival
+1 Fill with Fright
+10 Forest
+1 Foul Familiar
+1 Fugue
+1 Ghost Hounds
+1 Ghost Warden
+1 Ghosts of the Damned
+1 Glare of Subdual
+1 Gnarled Mass
+1 Grim Backwoods
+1 Grove of the Guardian
+1 Hold at Bay
+1 Hyalopterous Lemure
+1 Indatha Triome
+1 Kami of False Hope
+1 Kami of Old Stone
+1 Lifelace
+1 Light of Day
+1 Martyrs' Tomb
+1 Mindwarper
+1 Murmuring Bosk
+1 Nebelgast Beguiler
+1 Orchard Spirit
+1 Overgrown Estate
+1 Pitiless Pontiff
+1 Radiant Essence
+1 Radjan Spirit
+1 Redeem
+1 Regenerate
+1 Revered Dead
+1 Righteous War
+1 Saltcrusted Steppe
+1 Sanctuary Cat
+1 Sandsteppe Citadel
+1 Scaled Behemoth
+1 Scapegoat
+1 Scion of Ugin
+1 Seeker
+1 Sejiri Shelter
+1 Spectral Lynx
+1 Spectral Sliver
+1 Starlit Sanctum
+1 Strangleroot Geist
+1 Strength of the Harvest
+15 Swamp
+1 Tainted Field
+1 Tainted Wood
+1 Thaumatog
+1 Three Tragedies
+1 Twilight Panther
+1 Veldt
+1 Viridescent Bog
+1 Viscid Lemures
+1 Vivien's Crocodile
+1 Wellspring
+1 Wooded Bastion
+1 Word of Binding
+1 Worship
+1 Xenic Poltergeist

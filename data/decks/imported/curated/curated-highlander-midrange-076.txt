@@ -2,81 +2,79 @@
 # licence: AGPL-3.0-only
 [deck:highlander midrange WB #20261099]
 1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bastion of Remembrance
-1 Bishop of Wings
-1 Blade Splicer
-1 Blight Mound
+1 Angel of Renewal
+1 Barrow Witches
+1 Black Dragon
+1 Bleachbone Verge
+1 Bloodhunter Bat
+1 Bone Devourer
+1 Bone Shredder
 1 Brightclimb Pathway
-1 Callous Inspector
-1 Cirith Ungol Patrol
-1 Common Crook
-1 Criminal Enterprise
+1 Cabal Patriarch
+1 Cartouche of Solidarity
+1 Cateran Persuader
+1 Caves of Koilos
+1 Champion of the Perished
+1 Claws of Gix
+1 Commander Greven il-Vec
 1 Desolate Mire
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Doomed Traveler
-1 Drogskol Cavalry
 1 Eclipsed Steppe
-1 Elgaud Inquisitor
-1 Eyeblight Cullers
-1 Field of Souls
-1 Forlorn Flats
+1 Elas il-Kor, Sadistic Pilgrim
+1 Esper Sentinel
+1 Fetid Heath
 1 Forsaken Sanctuary
-1 Forum of Amity
-1 Gleaming Barrier
-1 Great Hall of Starnheim
-1 Greedy Freebooter
-1 Griffin Guide
-1 Haunted Library
-1 Hunted Witness
-1 Isolated Chapel
-1 Kheru Bloodsucker
-1 Knight of Doves
-1 Knight-Captain of Eos
+1 Glider Kids
+1 Godless Shrine
+1 Hero of the Dunes
+1 Honored Knight-Captain
+1 Implement of Improvement
+1 Inheritance
+1 Ironclad Slayer
+1 Judge Magister Gabranth
+1 Keen-Eyed Raven
+1 Liliana the Repentant
+1 Luminarch Ascension
 1 Marionette Apprentice
-1 Marsh Flitter
 1 Mausoleum Guard
-1 Myr Sire
+1 Momo, Rambunctious Rascal
+1 Monk Idealist
+1 Necrogen Scudder
+1 Nesting Dovehawk
 1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Ogre Slumlord
-1 Ojer Taq, Deepest Foundation
-1 Open the Graves
-1 Orzhov Basilica
-1 Orzhov Guildgate
-1 Pawn of Ulamog
-1 Pentavus
-1 Pitiless Plunderer
-8 Plains
+1 Nighthawk, Dark Defender
+1 Omen of the Dead
+1 Operations Officer
+1 Orcish Bowmasters
+1 Orzhova, the Church of Deals
+1 Pillardrop Rescuer
+11 Plains
 1 Pretending Poxbearers
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Restless Fortress
-1 Retrofitter Foundry
-1 Rotlung Reanimator
-1 Scoured Barrens
+1 Priest of Gix
+1 Ramosian Sergeant
+1 Restoration Gearsmith
+1 Rising Populace
+1 Salvage Scout
+1 Scrubland
 1 Sengir Autocrat
-1 Shadowy Backstreet
-1 Siege Veteran
-1 Silverquill Campus
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Sparring Construct
-1 Spawning Pit
-15 Swamp
-1 Sweettooth Witch
-1 Tempting Witch
-1 Thopter Squadron
-1 Trading Post
-1 Turbulent Moor
-1 Umbral Expanse
+1 Shadewing Laureate
+1 Shinra Reinforcements
+1 Shu Soldier-Farmers
+1 Silent Clearing
+1 Skirsdag Flayer
+1 Soul Exchange
+1 Starlit Sanctum
+1 Strongarm Thug
+1 Sunlit Marsh
+14 Swamp
+1 Tainted Field
+1 Tragic Poet
+1 Treasure Hunter
 1 Vault of the Archangel
-1 Wand of the Elements
-1 Warren Soultrader
-1 Weirding Shaman
-1 Yahenni, Undying Partisan
+1 Veldrane of Sengir
+1 Village Cannibals
+1 Welkin Hawk
+1 Wild Aesthir
+1 Yawgmoth, Thran Physician
+1 Yellowjacket, Heartless Marauder
+1 Youthful Valkyrie
+1 Zuran Orb

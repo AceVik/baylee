@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266123]
-1 Aven of Enduring Hope
-1 Aysen Abbey
-1 Balm of Restoration
-1 Battlefield Promotion
-1 Birnin Zana Plaza
-1 Blossoming Wreath
-1 Celebrity Fencer
-1 Celestial Force
-1 Centaur Healer
-1 Chaplain's Blessing
-1 Cloudchaser Kestrel
-1 Courier Griffin
-1 Crumble
-1 Elite Guardmage
-1 Elixir of Vitality
-1 Emiel the Blessed
-1 Enlightened Ascetic
-1 Etched Cornfield
-2 Forest
-1 Glassdust Hulk
-1 Graypelt Refuge
-1 Healing Leaves
-1 Heliod's Intervention
-1 Hope Charm
-1 Horizon Canopy
-1 Irrigation Ditch
-1 Joyous Respite
-1 Kiss of the Amesha
-1 Kitchen Finks
-1 Koala-Sheep
-1 Kor Celebrant
-1 Last Breath
-1 Life Chisel
-1 Lifecreed Duo
-1 Lone Missionary
-1 Lucky Offering
-1 Marble Chalice
-1 Narrow Escape
-1 Nature's Claim
-1 Nighthawk, Dark Defender
-1 Nimbus Maze
-21 Plains
-1 Pym Technologies
-1 Radiant Grove
-1 Rain-Slicked Copse
-1 Respite
-1 Reverse Polarity
-1 Ritual of Rejuvenation
-1 River Hoopoe
-1 Sanguine Glorifier
-1 Savannah Sage
-1 Seaside Citadel
-1 Selkie Hedge-Mage
-1 Shattered Angel
-1 Shu Soldier-Farmers
-1 Skullmead Cauldron
-1 Solitude
-1 Soothing Balm
-1 Spara's Headquarters
-1 Spiritual Guardian
-1 Staunch Defenders
-1 Tamiyo's Safekeeping
-1 Tanglebloom
-1 Teyo's Lightshield
-1 Toil to Renown
-1 Tower of Eons
-1 Tranquil Landscape
-1 Treva's Ruins
-1 Tropical Island
-1 Urban Retreat
-1 Valkyrior Skyrider
-1 Walking Archive
-1 Warrior Angel
-1 Waterlogged Grove
-1 Werefox Bodyguard
-1 Whitesun's Passage
-1 Witch Enchanter
-1 Wylie Duke, Atiin Hero
+[deck:commander midrange RG #20266123]
+1 Barbed Foliage
+1 Bayou Dragonfly
+1 Bloodshed Fever
+1 Bower Passage
+1 Captive Flame
+1 Caustic Caterpillar
+1 Centaur Archer
+1 Charging Badger
+1 Choke
+1 Cori Mountain Monastery
+1 Crash of Rhino Beetles
+1 Crown of Flames
+1 Curse of Marit Lage
+1 Deadfall
+1 Defiant Elf
+1 Dense Canopy
+1 Deranged Whelp
+1 Dwarven Hold
+1 Dwarven Mine
+1 Earthcraft
+1 Emerald Dragonfly
+1 Endless Wurm
+1 Evendo, Waking Haven
+1 Fire Ants
+1 Fire Drake
+1 Firefly
+1 Flowstone Mauler
+1 Forbidden Lore
+15 Forest
+1 Ghitu War Cry
+1 Goblin Kites
+1 Goliath Beetle
+1 Grounded
+1 Havenwood Wurm
+1 Hawkeater Moth
+1 Hidden Nursery
+1 Hollow Trees
+1 Hot Springs
+1 Ifh-Bíff Efreet
+1 Instill Energy
+1 Killer Bees
+1 Kudzu
+1 Lair of the Hydra
+1 Locust Swarm
+1 Lure
+1 Manor Gate
+1 Mardu Runemark
+1 Monsoon
+1 Moon Sprite
+10 Mountain
+1 Nature's Chosen
+1 Nature's Wrath
+1 Oran-Rief, the Vastwood
+1 Presence of Gond
+1 Pygmy Razorback
+1 Raging River
+1 Revelation
+1 Rocky Roads
+1 Roots
+1 Satyr Rambler
+1 Sawback Manticore
+1 Shivan Wurm
+1 Shocker
+1 Squall Line
+1 Stormbind
+1 Talons of Falkenrath
+1 Tangle Mantis
+1 The Hunter Maze
+1 Thriving Grove
+1 Timberland Ruins
+1 Turntimber Grove
+1 Unyaro Bee Sting
+1 Unyaro Bees
+1 Venomous Dragonfly
+1 Yavimaya Gnats
+1 Zanarkand, Ancient Metropolis
 
 [commander]
-Derevi, Empyrial Tactician
+Tuknir Deathlock

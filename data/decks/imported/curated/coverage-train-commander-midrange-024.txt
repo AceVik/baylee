@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUG #20266025]
-1 Adventurers' Guildhouse
-1 Arena
-1 Ayesha Tanaka
-1 Basilisk Gate
-1 Benalish Heralds
-1 Betrayal
-1 Brokers Hideout
-1 Crucible of the Spirit Dragon
-1 Cryptolith Rite
-1 Cursecatcher
-1 Daring Apprentice
-1 Deserted Temple
-1 Dictate of Kruphix
-1 Disruptive Student
-1 Drannith Magistrate
-1 Eladamri's Vineyard
-1 Eldrazi Temple
-1 Elemental Bond
-1 Fallowsage
-1 Finale of Devastation
-1 Flight of Fancy
-1 Font of Fortunes
-3 Forest
-1 Future Flight
-1 Gaea's Touch
-1 Gosta Dirk
-1 Gyre Engineer
-1 Hall of Oracles
-1 Harabaz Druid
-1 Helionaut
-1 Hermitic Herbalist
-1 High Tide
-1 Improvised Armor
-17 Island
-1 Karn's Bastion
-1 Kasimir the Lone Wolf
-1 Kavu Lair
-1 Keen Sense
-1 Knight of the Tusk
-1 La Forge, Perceptive Engineer
-1 Lazotep Quarry
-1 Lingering Mirage
-1 Lord Magnus
-1 Maelstrom of the Spirit Dragon
-1 Mental Discipline
-1 Multani's Harmony
-1 Noble Hierarch
-1 Ophidian Eye
-1 Order of the Sacred Torch
-1 Overgrowth
-1 Patron Wizard
-3 Plains
-1 Power Artifact
-1 Riveteers Overlook
-1 Rune of Protection: Artifacts
-1 Rune of Protection: Green
-1 Rune of Protection: Lands
-1 Rune of Protection: Red
-1 Rune of Protection: White
-1 Scorched Ruins
-1 Sea Gate Loremaster
-1 Sea Scryer
-1 Sheltering Boughs
-1 Soothsayer Adept
-1 Soratami Savant
-1 Spock, Logical Choice
-1 Spreading Seas
-1 Stardew Valley
-1 Super Intelligence
-1 Teferi's Protege
-1 Tendo Ice Bridge
-1 The Grey Havens
-1 Vernal Bloom
-1 Vodalian Mage
-1 White Lotus Hideout
-1 Whitewater Naiads
-1 Wose Pathfinder
-1 Youthful Scholar
-1 Zhou Yu, Chief Commander
+[deck:commander midrange WUB #20266025]
+1 Absolute Virtue
+1 Aether Storm
+1 Altar of the Brood
+1 Argivian Restoration
+1 Ashiok, Dream Render
+1 Ballroom
+1 Brain Freeze
+1 Chronic Flooding
+1 Codex Shredder
+1 Darkslick Shores
+1 Deathgrip
+1 Diversion Unit
+1 Doom Whisperer
+1 Drownyard Amalgam
+1 Ethersworn Adjudicator
+1 Eye Collector
+1 Eye of Malcator
+1 Fear of Surveillance
+1 Fill with Fright
+1 Forlorn Flats
+1 Ghoulcaller's Bell
+1 Goliath Sphinx
+1 Hand of Justice
+1 Hanna, Ship's Navigator
+1 Homarid Explorer
+1 Iceberg Cancrix
+1 Iron Suitcase
+12 Island
+1 Isolated Chapel
+1 Lonely Arroyo
+1 Mana Geode
+1 Merfolk Coralsmith
+1 Merfolk Mesmerist
+1 Meticulous Archive
+1 Mind Sculpt
+1 Mindwrack Harpy
+1 Moonfolk Puzzlemaker
+1 Neglected Manor
+1 No Mercy
+1 Phyrexian Altar
+1 Port Town
+1 Protomatter Powder
+1 Razortide Bridge
+1 Rootwater Mystic
+1 Rune-Sealed Wall
+1 Salt Flats
+1 Scribe of the Mindful
+1 Seachrome Coast
+1 Search for Azcanta
+1 Season of the Witch
+1 Secret Passage
+1 Seer's Lantern
+1 Sensei's Divining Top
+1 Shadowy Backstreet
+1 Sharlayan, Nation of Scholars
+1 Sinister Starfish
+1 So Shiny
+1 Sonic Screwdriver
+1 Spellkeeper Weird
+1 Starfighter Pilot
+13 Swamp
+1 Tidepool Turtle
+1 Triassic Egg
+1 Turbulent Moor
+1 Unauthorized Exit
+1 Unbender Tine
+1 Venomcrawler
+1 Wall of Lost Thoughts
+1 Watcher in the Mist
+1 Watchful Automaton
+1 Willow-Wind
+1 Windrider Patrol
+1 Winds of Rebuke
+1 Witness of Tomorrows
+1 Wretched Doll
+1 Zhang Liao, Hero of Hefei
 
 [commander]
-Angus Mackenzie
+Halfdane

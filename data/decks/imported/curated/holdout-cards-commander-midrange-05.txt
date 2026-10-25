@@ -1,75 +1,72 @@
-# baylee unseen-card holdout commander seed=90000025
+# baylee unseen-card holdout commander seed=90000010
 # licence: AGPL-3.0-only
-[deck:commander midrange U #90000025]
-1 Academy Ruins
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Blood Servitor
-1 Cephalid Coliseum
-1 Chromatic Star
-1 Cold Case Cracker
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Drowner of Hope
-1 Enatu Golem
-1 Etherium Spinner
-1 Experimental Aviator
-1 Eye of Vecna
-1 Falcon, Winged Wonder
-1 Filigree Crawler
-1 Filigree Familiar
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Golden Egg
-1 Goldvein Pick
-1 Golem Foundry
-1 Iron Bully
-31 Island
-1 Jinxed Ring
-1 Knightfisher
-1 Lilypad Village
-1 Magnifying Glass
-1 Minamo, School at Water's Edge
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
+[deck:commander midrange R #90000010]
+1 Akki Raider
+1 Arms Dealer
+1 Barrage Ogre
+1 Barrage of Expendables
+1 Beetleback Chief
+1 Blighted Gorge
+1 Blood Rites
+1 Bloodshot Cyclops
+1 Careless Celebrant
+1 Choco-Comet
+1 Conscripted Infantry
+1 Devils' Playground
+1 Dragon Roost
+1 Dragonmaster Outcast
+1 Elder Auntie
+1 Ember Shot
+1 Embraal Gear-Smasher
+1 Fable of the Mirror-Breaker
+1 Fire Nation Archers
+1 Flick a Coin
+1 Goblin Assault Team
+1 Goblin Bombardment
+1 Goblin Chirurgeon
+1 Goblin Engineer
+1 Goblin Gang Leader
+1 Goblin Instigator
+1 Goblin Masons
+1 Goblin Rabblemaster
+1 Goblin Recruiter
+1 Goblin Scouts
+1 Goblin Sledder
+1 Goblin Trashmaster
+1 Goblin Wizardry
+1 Gremlin Infestation
+1 Hanweir Battlements
+1 Hearthcage Giant
+1 Junktown
+1 Keldon Necropolis
+1 Klingon Strike Force
+1 Krark-Clan Grunt
+1 Krark-Clan Shaman
+1 Krark-Clan Stoker
+1 Legion Extruder
+1 Mogg Raider
+34 Mountain
+1 Mox Ruby
+1 Mudbutton Torchrunner
+1 Orcish Bloodpainter
 1 Orochi Hatchery
-1 Otawara, Soaring City
-1 Parasitic Strix
-1 Pentavus
-1 Prying Blade
-1 Redrock Sentinel
-1 Retrofitter Foundry
-1 Riptide Laboratory
-1 Roaming Throne
-1 S.H.I.E.L.D. Deployment Drone
-1 Scrap Trawler
-1 Seat of the Synod
-1 Skullclamp
-1 Skyscanner
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Sparring Construct
-1 Spawning Pit
-1 Sphinx's Herald
-1 Terrarion
-1 The One Ring
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
-1 Titan Forge
-1 Tolaria
-1 Trading Post
-1 Treasure Map
-1 Trenzalore Clocktower
-1 Walking Ballista
-1 Wan Shi Tong, Librarian
-1 Wand of the Elements
-1 Wing Splicer
+1 Oxidda Daredevil
+1 Pashalik Mons
+1 Ral's Reinforcements
+1 Reckless Lackey
+1 Redcap Thief
+1 Ripchain Razorkin
+1 Sardian Avenger
+1 Shivan Gorge
+1 Shivan Harvest
+1 Siege-Gang Commander
+1 Slobad, Goblin Tinkerer
+1 Sokenzan, Crucible of Defiance
+1 Storm-Kiln Artist
+1 Tar Pitcher
+1 Underfoot Underdogs
+1 Weaponize the Monsters
+1 Wily Goblin
 
 [commander]
-Geist of Saint Thalia
+Kiki-Jiki, Mirror Breaker

@@ -1,21 +1,20 @@
 # baylee curated constructed control seed=20261065
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261065]
-4 Ancestral Vision
-2 Coastal Tower
-4 Envelop
-2 Glacial Fortress
-4 Hesitation
-4 In the Eye of Chaos
-14 Island
-1 Jin-Gitaxias, Progress Tyrant
-2 Mana Vortex
-2 North Pole Gates
-4 Opal Archangel
-1 Plains
-4 Presence of the Master
-2 Razortide Bridge
-1 Sejiri Refuge
-3 Soul Barrier
-4 Unifying Theory
-2 Wanderwine Hub
+2 Calciform Pools
+4 Cosmium Blast
+4 Elder Spawn
+4 Farrel's Zealot
+2 Gideon's Reproach
+3 Hengegate Pathway
+7 Island
+2 Land Cap
+4 Lotus-Eye Mystics
+3 Mana Crypt
+1 Moorland Haunt
+9 Plains
+3 Power Taint
+4 Psychic Allergy
+2 Reroute Systems
+4 Soul Barrier
+2 Tundra

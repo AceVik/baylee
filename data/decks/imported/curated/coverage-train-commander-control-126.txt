@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WU #20266127]
+1 Agna Qel'a
+1 Arcane Encyclopedia
+1 Archway of Innovation
+1 Benthic Behemoth
+1 Bribery
+1 Celestial Prism
+1 Cloudheath Drake
+1 Cobalt Golem
+1 Countersculpt
+1 Cumber Stone
+1 Desert of the Mindful
+1 Disdainful Stroke
+1 Douse
+1 Ephemeron
+1 Esper Cormorants
+1 Evasive Action
+1 Extinguish
+1 False Summoning
+1 Flash Counter
+1 Frazzle
+1 Gainsay
+1 Gallows Warden
+1 Halimar Depths
+1 Hidden Cataract
+1 Hisoka's Defiance
+1 Hydroblast
+12 Island
+1 It'll Quench Ya!
+1 Jade Idol
+1 Jidoor, Aristocratic Capital
+1 Judge's Familiar
+1 Jwari Disruption
+1 Lapis Lazuli Talisman
+1 Leering Emblem
+1 Lonely Sandbar
+1 Machine Man, Model X-51
+1 Magosi, the Waterveil
+1 Malachite Talisman
+1 Mana Tithe
+1 Mental Misstep
+1 Minor Misstep
+1 Mystic Sanctuary
+1 Nullify
+1 Phyrexian Metamorph
+1 Piety
+15 Plains
+1 Planar Bridge
+1 Preemptive Strike
+1 Quench
+1 Reef Roads
+1 Remove Soul
+1 Revolutionary Rebuff
+1 Ring of Immortals
+1 Sand Silos
+1 Sandbar Serpent
+1 Scatter Ray
+1 Sea Gate
+1 Shelldock Isle
+1 Skyline Cascade
+1 Sol Grail
+1 Soulherder
+1 Soulsworn Jury
+1 Spectral Guardian
+1 Spectral Interference
+1 Spectral Shepherd
+1 Spell Pierce
+1 Spinning Wheel
+1 Steel Sabotage
+1 Stern Scolding
+1 Straw Golem
+1 Sunken Palace
+1 Symbol of Unsummoning
+1 The Surgical Bay
+1 Unbender Tine
+
+[commander]
+Teferi, Time Raveler

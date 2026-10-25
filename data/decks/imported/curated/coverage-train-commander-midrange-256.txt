@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266257]
+1 Animate Artifact
+1 Annex
+1 Aquitect's Defenses
+1 Aura Flux
+1 Aura of Dominion
+1 Back to Basics
+1 Benthic Giant
+1 Capture Sphere
+1 Castaway's Despair
+1 Clammy Prowler
+1 Clive's Hideaway
+1 Coma Veil
+1 Containment Protocol
+1 Contempt
+1 Convincing Mirage
+1 Copy Enchantment
+1 Copy Land
+1 Cradle of Safety
+1 Dream Tides
+1 Drowner of Secrets
+1 Emergence Zone
+1 Fishliver Oil
+1 Forgotten Monument
+1 Frozen Aether
+1 Gaseous Form
+1 Giant Shark
+1 Glimmerdust Nap
+1 Halls of Mist
+1 Hermetic Study
+1 Intruder Alarm
+34 Island
+1 Land Equilibrium
+1 Lifetap
+1 Malfunction
+1 Mana Chains
+1 Merseine
+1 Mirrormade
+1 Mystic Decree
+1 Mystic Restraints
+1 Nyxborn Seaguard
+1 Paralyzing Grasp
+1 Persuasion
+1 Pin to the Earth
+1 Reduce in Stature
+1 Reef Pirates
+1 Riptide Chimera
+1 Rummaging Wizard
+1 Runner's Bane
+1 Seal of Removal
+1 Seer of the Last Tomorrow
+1 Sigiled Starfish
+1 Sleep Magic
+1 Slimebind
+1 Starlight Snare
+1 Steal Enchantment
+1 Thassa's Ire
+1 Tidepool Turtle
+1 Tractor Beam
+1 Unclaimed Territory
+1 Undertow
+1 Urza's Workshop
+1 Vedalken Entrancer
+1 Veiled Crocodile
+1 Waterknot
+1 Witness of Tomorrows
+1 Wrath of Marit Lage
+
+[commander]
+Ambassador Laquatus

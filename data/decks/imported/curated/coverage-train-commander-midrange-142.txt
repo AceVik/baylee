@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WR #20266143]
-1 Abraded Bluffs
-1 Animate Wall
-1 Artifact Ward
-1 Asgardian Citadel
-1 Aura of Silence
-1 Boros Guildgate
-1 Boros Keyrune
-1 Bot Bashing Time
-1 Burning Palm Efreet
-1 Captive Flame
-1 Clifftop Retreat
-1 Concentrated Fire
-1 Consuming Bonfire
-1 Crevasse
-1 Cyclops of Eternal Fury
-1 Damping Field
-1 Deadshot
-1 Delete
-1 Dáin of the Ancient Halls
-1 Eidolon of Inspiration
-1 Eidolon of Rhetoric
-1 Electrify
-1 End the Festivities
-1 Engulfing Eruption
-1 Epiphany Storm
-1 Eternal Flame
-1 Fields of Strife
-1 Flowstone Salamander
-1 Frostling
-1 Goblin Legionnaire
-1 Granite Grip
-1 Green Ward
-1 High Noon
-1 Iron Hills
-1 Karplusan Hound
-1 Karplusan Yeti
-1 Lorehold Campus
-1 Might of the Ancestors
-13 Mountain
-1 Mudslide
-1 Nahiri's Machinations
-1 Needleverge Pathway
-1 Noble Steeds
+[deck:commander midrange R #20266143]
+1 Aerathi Berserker
+1 Aether Flash
+1 Anarchy
+1 Antagonize
+1 Avishkar Raceway
+1 Balduvian War-Makers
+1 Battle-Rattle Shaman
+1 Blood Knight
+1 Boggart Sprite-Chaser
+1 Boil
+1 Borderland Marauder
+1 Buccaneer's Bravado
+1 Burning Shield Askari
+1 Capital Guard
+1 Cavernous Maw
+1 Defender of Chaos
+1 Desert Nomads
+1 Deserter's Disciple
+1 Detection Tower
+1 Devastation
+1 Fathom Fleet Firebrand
+1 Fire Nation Soldier
+1 Flame-Chain Mauler
+1 Frontline Rebel
+1 Gnat Alley Creeper
+1 Goblin Chieftain
+1 Goblin Elite Infantry
+1 Goblin Flotilla
+1 Goblin King
+1 Goblin Ski Patrol
+1 Goblin Tomb Raider
+1 Granulate
+1 Haradrim Spearmaster
+1 Homeward Path
+1 Inventor's Apprentice
+1 Jund Panorama
+1 Keeper of Kookus
+1 Keldon Warlord
+1 Lavastep Raider
+1 Magus of the Moon
+1 Mogg Squad
+1 Molecular Modifier
+34 Mountain
+1 Márton Stromgald
 1 Nyxborn Brute
-1 Nyxborn Courser
-1 Oread of Mountain's Blaze
-10 Plains
-1 Pyrohemia
-1 Rabanastre, Royal City
-1 Rage Reflection
-1 Rain of Embers
-1 Ready to Rumble
-1 Restless Bivouac
-1 Rule of Law
-1 Rumbling Rockslide
-1 Rune of Protection: Artifacts
-1 Rune of Protection: Black
-1 Rune of Protection: Blue
-1 Rune of Protection: Green
-1 Rune of Protection: Lands
-1 Rune of Protection: Red
-1 Rune of Protection: White
-1 Runebound Wolf
-1 Rustvale Bridge
-1 Sawtooth Ogre
-1 Scabland
-1 Stone Quarry
-1 Sudden Impact
-1 Sunbaked Canyon
-1 Sunbillow Verge
-1 Sunhome, Fortress of the Legion
-1 Swift Reconfiguration
-1 Tectonic Hazard
-1 Temple of Triumph
-1 True Conviction
-1 Vigilante Justice
-1 Warleader's Call
-1 White Ward
+1 Orcish Captain
+1 Pedal to the Metal
+1 Pyre Charger
+1 Renegade Warlord
+1 Rig for War
+1 Rowan's Battleguard
+1 Ruination
+1 Ruinous Gremlin
+1 Run Amok
+1 Sandstone Warrior
+1 Screaming Fury
+1 Searing Spear Askari
+1 Shatterstorm
+1 Teeterpeak Ambusher
+1 Telim'Tor
+1 Tilonalli's Knight
+1 Tower of the Magistrate
+1 Tunnel
+1 Varchild's Crusader
+1 Weaselback Redcap
+1 Whip Sergeant
 
 [commander]
-Eivor, Battle-Ready
+Eron the Relentless

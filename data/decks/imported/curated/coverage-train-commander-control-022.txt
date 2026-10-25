@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266023]
+1 Absolute Law
+1 Animate Wall
+1 Arcane Laboratory
+1 Artifact Possession
+1 Artifact Ward
+1 Banshee
+1 Blessing of Leeches
+1 Bonded Fetch
+1 Brink of Madness
+1 Celestial Colonnade
+1 Coma Veil
+1 Contaminated Aquifer
+1 Copy Artifact
+1 Curse Artifact
+1 Dakmor Plague
+1 Death Pits of Rath
+1 Dimir Cutpurse
+1 Dimir Guildgate
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Embargo
+1 Enchanted Evening
+1 Ephara's Radiance
+1 Famine
+1 Field of Dreams
+1 Flood
+1 Foot Headquarters
+1 Gate to Phyrexia
+1 Great Hall of Starnheim
+1 Harbor Guardian
+1 Hasran Ogress
+1 Hecatomb
+1 Hellfire
+1 Ice Over
+1 Idyllic Beachfront
+1 Irrigated Farmland
+13 Island
+1 Kami of the Crescent Moon
+1 Master of the Feast
+1 Mind Whip
+1 Misty Palms Oasis
+1 Murky Sewer
+1 Oblivion Crown
+1 Ocular Halo
+1 Pendrell Mists
+5 Plains
+1 Prismatic Ward
+1 Restless Fortress
+1 Reveka, Wizard Savant
+1 Righteous Aura
+1 Righteous War
+1 Rolling Stones
+1 Sea's Claim
+1 Seizures
+1 Selhoff Entomber
+1 Serpent's Pass
+1 Shambling Vent
+1 Shattered Sanctum
+1 Shimmering Barrier
+1 Shoreline Salvager
+1 Silverquill Campus
+1 Snowfield Sinkhole
+1 Steal Enchantment
+1 Storm of Saruman
+9 Swamp
+1 Swift Reconfiguration
+1 The Abyss
+1 Thieving Otter
+1 Tidal Flats
+1 Tourach's Chant
+1 Treachery
+1 Treno, Dark City
+1 Underworld Connections
+1 Wrath of Marit Lage
+1 Zephyr Charge
+
+[commander]
+Aminatou, the Fateshifter

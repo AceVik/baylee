@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266107]
+1 Aang, Air Nomad
+1 Adherent of Hope
+1 Aeronaut Admiral
+1 Angry Mob
+1 Ant-Man, Scott Lang
+1 Aven Brigadier
+1 Aven Envoy
+1 Blasted Landscape
+1 Bounty Agent
+1 Brokers Hideout
+1 Cloud Crusader
+1 Daring Mechanic
+1 Deep Spawn
+1 Devout Harpist
+1 Dogged Hunter
+1 Drogskol Captain
+1 Eden, Seat of the Sanctum
+1 Eldrazi Temple
+1 Elven Cache
+1 Exorcist
+1 Expedition Map
+1 Faceless Haven
+3 Forest
+1 Fragmentize
+1 Gideon's Avenger
+1 Grassland Crusader
+1 Guardian Kirin
+1 Hunding Gjornersen
+1 Hymn of Rebirth
+1 Inspired Insurgent
+1 Intrepid Hero
+4 Island
+1 Isolated Watchtower
+1 Jhovall Rider
+1 King Suleiman
+1 Kjeldoran Phalanx
+1 Kjeldoran Skycaptain
+1 Kjeldoran Skyknight
+1 Lieutenant Kirtar
+1 Lightfoot Technique
+1 Lotus Vale
+1 Loxodon Battle Priest
+1 Maelstrom of the Spirit Dragon
+1 Metallurgeon
+1 Mirrex
+1 Mockingbird, Bobbi Morse
+1 Mutavault
+1 Phyrexia's Core
+18 Plains
+1 Prowler, Misguided Mentor
+1 Revered Unicorn
+1 Rosa, Resolute White Mage
+1 Salt Road Quartermasters
+1 Scrying Sheets
+1 Serum Tank
+1 Skyblade of the Legion
+1 Skyspear Cavalry
+1 Sledding Otter-Penguin
+1 Southern Paladin
+1 Starfighter Pilot
+1 Swarmyard
+1 Take Up the Shield
+1 Tigereye Cameo
+1 Treasure Map
+1 Triassic Egg
+1 Troubled Healer
+1 Undead Slayer
+1 Unholy Officiant
+1 Urza's Saga
+1 Urza's Tower
+1 Veteran of the Depths
+1 Visions
+1 Wall of Resistance
+1 Warriors of Wakanda
+1 Wildwood Rebirth
+1 Windbrisk Raptor
+1 Yotian Tactician
+
+[commander]
+Angus Mackenzie

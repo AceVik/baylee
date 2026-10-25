@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266235]
+1 Aardvark Sloth
+1 Ajani's Mantra
+1 Animate Wall
+1 Basilica Bell-Haunt
+1 Black Ward
+1 Bleachbone Verge
+1 Blight
+1 Brightclimb Pathway
+1 Burden of Guilt
+1 Candy Trail
+1 Caravan Hurda
+1 Caves of Koilos
+1 Celestial Force
+1 Champion of Arashin
+1 Charming Prince
+1 Congregate
+1 Convalescence
+1 Courier Griffin
+1 Divine Favor
+1 Dromad Purebred
+1 Equinox
+1 Farewell
+1 Fetid Heath
+1 Godless Shrine
+1 Golden-Tail Disciple
+1 Great Hall of Starnheim
+1 Grollub
+1 Insomnia, Crown City
+1 Instant Ramen
+1 Judge of Currents
+1 Knight of Meadowgrain
+1 Koala-Sheep
+1 Lagonna-Band Elder
+1 Lifeblood
+1 Lone Missionary
+1 Maw of the Mire
+1 Mesa Unicorn
+1 Mind Ravel
+1 Mistmeadow Skulk
+1 Moonrise Cleric
+1 Mournful Zombie
+1 Nip Gwyllion
+1 Nyx-Fleece Ram
+1 Orim's Prayer
+1 Orzhov Basilica
+1 Orzhova, the Church of Deals
+14 Plains
+1 Prideful Feastling
+1 Pristine Talisman
+1 Profane Procession
+1 Recuperate
+1 Sanctimony
+1 Scrounger of Souls
+1 Scrubland
+1 Season of the Witch
+1 Serenity
+1 Shattered Sanctum
+1 Sickbay Orderly
+1 Silent Clearing
+1 Spiritual Guardian
+1 Spiritual Sanctuary
+1 Staff of Domination
+1 Starlit Sanctum
+1 Steadfast Paladin
+11 Swamp
+1 Syphon Fuel
+1 Tablet of Epityr
+1 Tainted Field
+1 The Abyss
+1 Thirsting Shade
+1 Tidy Conclusion
+1 Trained Caracal
+1 Valkyrior Skyrider
+1 Vampire Envoy
+1 Vault of the Archangel
+1 Zarichi Tiger
+
+[commander]
+Vona, Butcher of Magan

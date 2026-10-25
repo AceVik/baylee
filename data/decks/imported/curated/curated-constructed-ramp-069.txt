@@ -1,21 +1,22 @@
 # baylee curated constructed ramp seed=20261092
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261092]
-2 Aclazotz, Deepest Betrayal
-4 Arcbound Ravager
-4 Avacyn's Collar
-4 Godless Shrine
-1 Isolated Chapel
-3 Kheru Bloodsucker
-4 Ojer Taq, Deepest Foundation
-4 Orzhov Basilica
-4 Pentavus
+2 Dogged Pursuit
+1 Fetid Heath
+3 Gerrard's Battle Cry
+4 Golden-Tail Disciple
+4 Highway Robber
+4 Last Caress
+4 Mana Crypt
+4 Northern Air Temple
 6 Plains
-3 Quest for the Gravelord
-3 Saheeli's Silverwing
-1 Silent Clearing
-2 Slayer's Plate
-4 Spawning Pit
-1 Sunlit Marsh
-8 Swamp
-2 Thopter Squadron
+2 Scrubland
+3 Silent Clearing
+3 Spirited Companion
+3 Starlit Sanctum
+9 Swamp
+1 Tainted Field
+2 Tireless Missionaries
+1 Tithebearer Giant
+2 Underworld Coinsmith
+2 Yawgmoth's Edict

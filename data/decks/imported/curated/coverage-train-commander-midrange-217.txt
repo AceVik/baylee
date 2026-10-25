@@ -1,84 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266218]
-1 Alpha Kavu
-1 Amrou Scout
-1 Ancient Spider
-1 Ankh of Mishra
-1 Apes of Rath
-1 Armored Wolf-Rider
-1 Astral Cornucopia
-1 Bear Trap
-1 Beneath the Sands
-1 Botanical Plaza
-1 Bramblefort Fink
-1 Branchloft Pathway
+[deck:commander midrange WUG #20266218]
+1 Ancestral Reminiscence
+1 Aysen Abbey
+1 Beastcaller Savant
+1 Bloom Tender
+1 Boon of the Wish-Giver
+1 Boreal Druid
+1 Bounty Agent
+1 Breeding Pool
 1 Brushland
-1 Changeling Sentinel
-1 Conifer Strider
-1 Daggerback Basilisk
-1 Defiant Falcon
-1 Elfhame Palace
-1 Emerald Oryx
-1 Endangered Armodon
-1 Ethereal Champion
-1 Faithful Watchdog
-1 Flamecast Wheel
-19 Forest
-1 Fyndhorn Brownie
-1 Gavony Township
-1 Gibbering Hyenas
-1 Glissa's Courier
-1 Gorilla Pack
-1 Grave Bramble
-1 Greater Basilisk
-1 Hillcomber Giant
-1 Horizon Canopy
-1 Hushwood Verge
-1 Karoo Meerkat
-1 Kyoshi Village
-1 Lady Caleria
-1 Land Leeches
-1 Moss Monster
-1 Mosstodon
-1 Niall Silvain
-4 Plains
-1 Ramosian Captain
-1 Ramosian Commander
-1 Ramosian Lieutenant
-1 Razorverge Thicket
-1 Restless Prairie
-1 Scalding Cauldron
-1 Selesnya Sanctuary
-1 Shelkin Brownie
-1 Silverback Ape
-1 Singing Tree
-1 Skyshroud Poacher
-1 Southern Elephant
-1 Springjaw Trap
-1 Steelshaper Apprentice
-1 Suburban Sanctuary
-1 Sunpetal Grove
-1 Thornling
-1 Trained Jackal
-1 Tree Monkey
-1 Triangle of War
-1 Triskelion
-1 Underdark Basilisk
-1 Vec Townships
-1 Vine Mare
-1 Vitu-Ghazi, the City-Tree
-1 Wall of Brambles
-1 Wall of Ice
-1 Wall of Pine Needles
-1 Warthog
-1 Wary Okapi
-1 Watcher in the Web
-1 Windurst, Federation Center
-1 Wooded Bastion
-1 Woodland Changeling
-1 Zodiac Horse
-1 Zodiac Monkey
+1 Charge Through
+1 Circle of Dreams Druid
+1 Darkwatch Elves
+1 Deathbloom Gardener
+1 Delighted Halfling
+1 Devoted Druid
+1 Devout Harpist
+1 Devout Witness
+1 Druid Lyrist
+1 Elemental Bond
+1 Elvish Spirit Guide
+1 Enhanced Awareness
+1 Exorcist
+1 Faeburrow Elder
+10 Forest
+1 Fyndhorn Elder
+1 Great Forest Druid
+1 Greater Sandwurm
+1 Greenweaver Druid
+1 Inspired Insurgent
+1 Intrepid Stablemaster
+1 Irrigation Ditch
+7 Island
+1 Joiner Adept
+1 Kavu Lair
+1 Land Cap
+1 Learn from the Past
+1 Leave in the Dust
+1 Lifespring Druid
+1 Lingering Mirage
+1 Llanowar Tribe
+1 Mindculling
+1 Miracle Worker
+1 Nantuko Elder
+1 Northern Paladin
+1 Overflowing Insight
+8 Plains
+1 Prahv, Spires of Order
+1 Rofellos, Llanowar Emissary
+1 Rune of Protection: Blue
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Scavenger Folk
+1 Seaside Citadel
+1 Silhana Starfletcher
+1 Southern Paladin
+1 Spara's Headquarters
+1 Sudden Strength
+1 Tamiyo's Epiphany
+1 Temple Garden
+1 Temporal Manipulation
+1 Thalakos Lowlands
+1 Three Tree Rootweaver
+1 Tidings
+1 Time Spiral
+1 Time Warp
+1 Touch of Brilliance
+1 Touch of Invisibility
+1 Trade Routes
+1 Tranquil Garden
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Undead Slayer
+1 Urban Retreat
+1 Weaver of Currents
+1 Wirewood Channeler
+1 Wirewood Elf
+1 Yavimaya Coast
 
 [commander]
-Sir Shandlar of Eberyn
+Angus Mackenzie

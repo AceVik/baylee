@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266258]
+1 Arid Mesa
+1 Avalanche
+1 Barreling Attack
+1 Battle Rampart
+1 Battle-Rattle Shaman
+1 Blistering Barrier
+1 Blood Frenzy
+1 Boggart Sprite-Chaser
+1 Boiling Seas
+1 Buried Ruin
+1 Caverns of Despair
+1 Char-Rumbler
+1 Cinder Wall
+1 Conduit Pylons
+1 Demolish
+1 Enrage
+1 Fervor
+1 Fiery Hellhound
+1 Fire-Rim Form
+1 Flame Spirit
+1 Flame-Chain Mauler
+1 Flameborn Hellion
+1 Flowstone Surge
+1 Flowstone Wall
+1 Ghitu War Cry
+1 Goblin Elite Infantry
+1 Goblin Flotilla
+1 Goblin Kites
+1 Goblin War Drums
+1 Granite Grip
+1 Hearth Charm
+1 Igneous Cur
+1 Keeper of Kookus
+1 Lava Flow
+1 Lavakin Brawler
+1 Lavastep Raider
+1 Lightning Talons
+1 Maniacal Rage
+1 Mogg Squad
+1 Molten Ravager
+34 Mountain
+1 Orcish Settlers
+1 Perils of the Past
+1 Pyre Charger
+1 Raging River
+1 Renegade Firebrand
+1 Run Amok
+1 Siege Modification
+1 Stingmoggie
+1 Sunder from Within
+1 Tectonic Edge
+1 Teeterpeak Ambusher
+1 The Mycosynth Gardens
+1 Tin Street Market
+1 Tuktuk Rubblefort
+1 Tunnel
+1 Vance's Blasting Cannons
+1 Wall of Dust
+1 Wall of Earth
+1 Wall of Granite
+1 Wall of Opposition
+1 Wall of Razors
+1 Wall of Stone
+1 Wall of Torches
+1 Watermarket
+1 Weaselback Redcap
+
+[commander]
+Eron the Relentless

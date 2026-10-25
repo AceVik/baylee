@@ -1,21 +1,23 @@
 # baylee curated constructed control seed=20261053
 # licence: AGPL-3.0-only
 [deck:constructed control UR #20261053]
-4 Avacyn's Collar
-3 Coastal Peak
-2 Drowner of Hope
-2 Island
-4 Legion Extruder
-4 Mishra's War Machine
-13 Mountain
+1 Cascade Bluffs
+1 Desolate Lighthouse
+1 Ferrous Lake
+1 Fiery Islet
+4 Five Hundred Year Diary
+3 HYDRA Assault Robot
+2 Insight Engine
+11 Island
+4 Izzet Cluestone
+4 Izzet Locket
+5 Mountain
 1 Nivix, Aerie of the Firemind
-2 Orochi Hatchery
-4 Pashalik Mons
-2 Prismari Campus
-2 Scorched Geyser
-4 Slayer's Plate
-4 Spawning Pit
-1 Sulfur Falls
-3 Thopter Squadron
-3 Trading Post
-2 Volatile Fjord
+4 Pyrite Spellbomb
+3 Red Mana Battery
+2 Riverglide Pathway
+1 Riverpyre Verge
+4 Scorpion Sentinel
+2 Shivan Reef
+2 Thought Monitor
+4 Trigon of Thought

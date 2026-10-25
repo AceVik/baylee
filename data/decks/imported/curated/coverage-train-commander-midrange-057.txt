@@ -1,75 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20266058]
-1 Arlinn's Wolf
-1 Awakening
-1 Blessed Respite
-1 Bramble Creeper
-1 Bristlepack Sentry
-1 Call of the Wild
-1 Canopy Dragon
-1 Charging Badger
-1 Chorus of Might
-1 Cliffrunner Behemoth
-1 Conifer Strider
-1 Creeperhulk
-1 Darkthicket Wolf
-1 Deserted Temple
-1 Dire Wolf Prowler
-1 Dire Wolves
-1 Drownyard Temple
-1 Dungrove Elder
-1 Flora Colossus
-1 Fomori Vault
-1 Force of Savagery
-31 Forest
-1 Gaea's Avenger
-1 Gaea's Embrace
-1 Gaea's Liege
-1 Get a Leg Up
-1 Giant Badger
-1 Grappling Sundew
-1 Grave Bramble
-1 Guildmages' Forum
-1 Halls of Mist
-1 Heroic Intervention
-1 Jumbo Cactuar
-1 Kavu Mauler
-1 Legolas's Quick Reflexes
-1 Library of Alexandria
-1 Living Lands
-1 Lurking Green Dragon
-1 Massive Might
-1 Moss Monster
-1 Nylea's Intervention
-1 Phytoburst
-1 Pygmy Troll
-1 Ranger's Guile
-1 Realms Uncharted
-1 Regenerate
-1 Retaliation
-1 Roots
-1 Silk Net
-1 Subdue
-1 Survival of the Fittest
-1 Sylvan Paradise
-1 Tall as a Beanstalk
-1 The Gold Saucer
-1 Thicket Crasher
-1 Thornling
-1 Treefolk Seedlings
-1 Tyvar's Stand
-1 Underdome
-1 Unnatural Predation
-1 Urza's Factory
-1 Vine Mare
-1 Wall of Pine Needles
-1 Wall of Vines
-1 Whip Vine
-1 Whippoorwill
-1 Wielding the Green Dragon
-1 Wolfsbane, Highland Hero
-1 Wood Elemental
+[deck:commander midrange R #20266058]
+1 About Face
+1 Ambush
+1 Anaba Ancestor
+1 Anaba Bodyguard
+1 Anaba Spirit Crafter
+1 Assault Strobe
+1 Atog
+1 Balduvian Trading Post
+1 Beasts of Bogardan
+1 Canyon Wildcat
+1 Colos Yearling
+1 Crazed Goblin
+1 Defiant Khenra
+1 Dormant Volcano
+1 Dromosaur
+1 Duct Crawler
+1 Dwarven Berserker
+1 Dwarven Bloodboiler
+1 Excavator
+1 False Orders
+1 Ferrovore
+1 Flowstone Crusher
+1 Flowstone Hellion
+1 Flowstone Infusion
+1 Flowstone Thopter
+1 Furnace Spirit
+1 Goblin Burrows
+1 Goblin Chariot
+1 Goblin Mountaineer
+1 Goblins of the Flarg
+1 Greataxe
+1 Grizzled Wolverine
+1 Heart Wolf
+1 Hurloon Shaman
+1 Indicate
+1 Marauding Maulhorn
+1 Mercadian Bazaar
+1 Minotaur Sureshot
+1 Minotaur Tactician
+1 Mire Kavu
+1 Mizzix's Mastery
+1 Molecular Modifier
+34 Mountain
+1 Mystic Compass
+1 Quarum Trench Gnomes
+1 Raging Minotaur
+1 Raging Spirit
+1 Ravenous Intruder
+1 Reckless Ogre
+1 Ridgeline Rager
+1 Ridgetop Raptor
+1 Rock Badger
+1 Rust Monster
+1 Scoria Cat
+1 Sokenzan, Crucible of Defiance
+1 Song-Mad Treachery
+1 Spur Grappler
+1 Sword of the Chosen
+1 Teetering Peaks
+1 Ticked Off
+1 Torch Gauntlet
+1 True-Faith Censer
+1 Tyrox, Saurid Tyrant
+1 Valor Singer
+1 Wall of Earth
+1 Wall of Opposition
 
 [commander]
-Thrun, Breaker of Silence
+Quicksilver, Pietro Maximoff

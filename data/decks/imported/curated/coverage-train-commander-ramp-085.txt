@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266086]
+1 A Realm Reborn
+1 Afiya Grove
+1 Angel of the God-Pharaoh
+1 Archangel
+1 Arctic Flats
+1 Avacyn, Angel of Hope
+1 Blizzard
+1 Boros Garrison
+1 Bulwark
+1 Canopy Vista
+1 Centaur Glade
+1 Cinder Glade
+1 Cocoon
+1 Cryptolith Rite
+1 Cyclops of Eternal Fury
+1 Defense of the Heart
+1 Druids' Repository
+1 Eladamri's Vineyard
+1 Emeria Angel
+1 Fasting
+14 Forest
+1 Forgeborn Oreads
+1 Frog Tongue
+1 Furycalm Snarl
+1 Fyndhorn Pollen
+1 Gaea's Touch
+1 Goblin Bomb
+1 Hall
+1 Herald of the Sun
+1 Highland Weald
+1 Infinite Authority
+1 Innkeeper's Talent
+1 Inspiring Vantage
+1 Iron Hills
+1 Maddening Wind
+1 Mossbeard Ancient
+1 Nature's Blessing
+1 Nylea's Forerunner
+1 Overgrowth
+1 Pileated Provisioner
+12 Plains
+1 Primal Order
+1 Prismatic Circle
+1 Raging Ravine
+1 Rampaging Hippo
+1 Requiem Angel
+1 Rootbound Crag
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Lands
+1 Rune of Protection: White
+1 Rustvine Cultivator
+1 Sanctum Weaver
+1 Seraph of the Suns
+1 Setessan Training
+1 Shattered Angel
+1 She-Hulk, Jennifer Walters
+1 Slagwoods Bridge
+1 Soulcatcher
+1 Spike Breeder
+1 Spike Drone
+1 Spike Hatcher
+1 Sun-Blessed Peak
+1 Sunspring Expedition
+1 Supply-Line Cranes
+1 Sustaining Spirit
+1 Temple of Triumph
+1 Territorial Scythecat
+1 Torch Song
+1 Tribute to the World Tree
+1 Turbulent Steppe
+1 Vernal Bloom
+1 War Dance
+1 Windurst, Federation Center
+1 Winged Shepherd
+1 Winter's Night
+
+[commander]
+Palladia-Mors

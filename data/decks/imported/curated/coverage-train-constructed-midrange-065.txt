@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange BRG #20266066]
+2 Chaos Terminator Lord
+3 Dakmor Salvage
+2 Elite Cat Warrior
+2 Everglades
+5 Forest
+2 Goblin Outlander
+2 Lazotep Behemoth
+2 Lizard Warrior
+2 Lynx
+2 Madrush Cyclops
+2 Malamet Brawler
+2 Marsh Goblins
+2 Mass of Ghouls
+6 Mountain
+2 Ogre Warrior
+2 Prakhata Club Security
+2 Raging Cougar
+2 Sabretooth Tiger
+3 Sandstone Needle
+2 Shatterskull Giant
+2 Skull Collector
+4 Swamp
+2 Tattermunge Maniac
+1 The Dross Pits
+2 Wily Bandar

@@ -1,82 +1,80 @@
 # baylee curated highlander midrange seed=20261075
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261075]
+1 Aesi, Tyrant of Gyre Strait
+1 Aether Spellbomb
 1 Alchemist's Refuge
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
+1 Argothian Enchantress
 1 Barkchannel Pathway
-1 Blisterpod
-1 Blood Servitor
-1 Brood Weaver
-1 Byway Courier
-1 Chromatic Star
-1 Cold Case Cracker
-1 Corsair Captain
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Drowner of Hope
-1 Elephant Guide
-1 Elvish Farmer
-1 Energy Refractor
-1 Etherium Spinner
-1 Eye of Vecna
-1 Filigree Crawler
+1 Bazaar Trademage
+1 Bequeathal
+1 Birthing Pod
+1 Bugenhagen, Wise Elder
+1 Buzz Bots
+1 Censor
+1 Contradict
+1 Dawnhart Rejuvenator
+1 Deliberate
+1 Dissenter's Deliverance
+1 Dreamroot Cascade
+1 Drumhunter
+1 Elite Instructor
+1 Elvenking's Halls
+1 Five Hundred Year Diary
 1 Flooded Grove
-14 Forest
+11 Forest
+1 Futurist Forge
 1 Gilded Goose
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Golden Egg
-1 Goldvein Pick
-1 Hierophant's Chalice
-1 Homarid Spawning Bed
-9 Island
-1 Jewel-Eyed Cobra
-1 Littjara Mirrorlake
-1 Lumbering Falls
-1 Lush Oasis
-1 Mantle of the Wolf
-1 Mongrel Pack
-1 Most Wanted
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Novijen, Heart of Progress
-1 Orochi Hatchery
+1 Goggles of Night
+1 Green Mana Battery
+1 Halt Order
+1 Harrier Strix
+1 Haywire Mite
+1 Horizon Scholar
+1 Hornet Queen
+1 Implement of Examination
+14 Island
+1 Jeskai Sage
+1 Joraga Visionary
+1 Kitchen
+1 Kozilek's Unsealing
+1 Leaf-Crowned Visionary
+1 Lifecrafter's Bestiary
+1 Lifespark Spellbomb
+1 Machine God's Effigy
+1 Malcator's Watcher
+1 Merchant of Secrets
+1 Mightstone's Animation
+1 Migrating Ketradon
+1 Mox Emerald
+1 Mox Sapphire
+1 Mutant Town
+1 Overflowing Basin
 1 Paradox Gardens
-1 Pentavus
-1 Prying Blade
+1 Parasitic Strix
+1 Parcel Myr
+1 Portent
+1 Quicksilver Fisher
 1 Rain-Slicked Copse
-1 Rejuvenating Springs
-1 Retrofitter Foundry
-1 Rimewood Falls
+1 Renewal
 1 S.H.I.E.L.D. Deployment Drone
-1 Scrap Trawler
-1 Simic Growth Chamber
-1 Simic Guildgate
-1 Skullclamp
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Spawning Pit
+1 Sarcomite Myr
+1 Scholar of Stars
+1 Silver Myr
+1 Simic Cluestone
+1 Simic Keyrune
+1 Simic Locket
+1 Simic Signet
+1 Skyshroud Forest
+1 Slumbering Waterways
+1 Sphinx of Enlightenment
+1 Striped Bears
 1 Talisman of Curiosity
-1 Terrarion
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thornwood Falls
-1 Thought Monitor
-1 Thragtusk
-1 Thran Dynamo
-1 Thranduil the Strategist
-1 Titan Forge
 1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Turbulent Wilderness
-1 Turntimber Ranger
-1 Wand of the Elements
-1 Wing Splicer
-1 Woodland Stream
+1 Trigon of Thought
+1 Tropical Island
+1 Virtue of Knowledge
+1 Willowrush Verge
+1 Wistful Selkie
+1 Witching Well
 1 Yavimaya Coast

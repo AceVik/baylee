@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266211]
+1 Ambush Gigapede
+1 Ambush Krotiq
+1 Attended Socialite
+1 Barrier of Bones
+1 Blightstep Pathway
+1 Blister Beetle
+1 Bone Pit Brute
+1 Burglar Rat
+1 Burnt Offering
+1 Cadaver Imp
+1 Carven Caryatid
+1 Caustic Crawler
+1 Dagger Caster
+1 Darigaaz's Caldera
+1 Darkbore Pathway
+1 Drekavac
+1 Eyeblight Assassin
+1 Flayer Drone
+10 Forest
+1 Galadhrim Guide
+1 Geothermal Crevice
+1 Gladewalker Ritualist
+1 Godtracker of Jund
+1 Graven Cairns
+1 Guardian Gladewalker
+1 Hagra Diabolist
+1 Invasive Species
+1 Ironshell Beetle
+1 Jadecraft Artisan
+1 Karplusan Forest
+1 Kazandu Nectarpot
+1 Keening Banshee
+1 Kjeldoran Dead
+1 Koskun Keep
+1 Kraul Whipcracker
+1 Lantern-Lit Graveyard
+1 Lost Legion
+1 Miasmic Mummy
+1 Mold Demon
+5 Mountain
+1 Nezumi Informant
+1 Ogre Gatecrasher
+1 Planetary Patrol
+1 Plant Elemental
+1 Pyknite
+1 Quarry Beetle
+1 Rank and File
+1 Raphael, Tough Turtle
+1 Rogue Elephant
+1 Sacrifice
+1 Satyr Grovedancer
+1 Savage Lands
+1 Scythe Leopard
+1 Scythe Tiger
+1 Serpent Assassin
+1 Serpent Warrior
+1 Shaman of the Pack
+1 Sibsig Host
+1 Solemn Simulacrum
+1 Spire Mangler
+1 Spitfire Lagac
+1 Stomping Ground
+1 Stromkirk Mentor
+1 Sulfurous Springs
+10 Swamp
+1 Tainted Peak
+1 Tanglespan Lookout
+1 Territorial Scythecat
+1 Tunneling Geopede
+1 Twilight Mire
+1 Twisted Landscape
+1 Ubul Sar Gatekeepers
+1 Vampiric Spirit
+1 Viashino Bladescout
+1 Whiptail Moloch
+1 Wretched Anurid
+1 Ziatora's Proving Ground
+
+[commander]
+Xira Arien

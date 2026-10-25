@@ -1,20 +1,19 @@
 # baylee curated constructed midrange seed=20261026
 # licence: AGPL-3.0-only
 [deck:constructed midrange UG #20261026]
-2 Chimeric Egg
-3 Dreamroot Cascade
-6 Forest
-3 Glaring Fleshraker
-8 Island
-2 Juju Bubble
-4 Kurgadon
-4 Levitating Statue
-2 Lurking Lizards
-3 Lush Oasis
-4 Managorger Hydra
-4 Mystic Remora
-4 Primal Amulet
-3 Sphinx-Bone Wand
-4 Three Steps Ahead
+4 Cloudkin Seer
+2 Flooded Grove
+8 Forest
+4 Illusions of Grandeur
+4 Ior Ruin Expedition
+7 Island
+3 Maddening Wind
+3 Mystic Remora
+3 Pelakka Wurm
+4 Setessan Champion
+3 Soul of the Harvest
+4 Tangled Florahedron
 3 Tropical Island
-1 Turbulent Wilderness
+3 Willowrush Verge
+4 Wizard Class
+1 Yavimaya Coast

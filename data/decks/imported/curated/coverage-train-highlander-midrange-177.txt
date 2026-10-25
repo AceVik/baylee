@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUB #20266178]
+1 Amber Prison
+1 Ancient Spring
+1 Arcane Sanctum
+1 Azorius Cluestone
+1 Bloodgift Demon
+1 Bubble Matrix
+1 Carrion Wall
+1 Catacomb Slug
+1 Cemetery Gate
+1 Changeling Sentinel
+1 Cloudcrest Lake
+1 Conqueror's Galleon
+1 Contaminated Landscape
+1 Dakmor Scorpion
+1 Desolate Mire
+1 Dimir Locket
+1 Douser of Lights
+1 Drana's Emissary
+1 Dread Reaper
+1 Dromar's Cavern
+1 Dune Beetle
+1 Dutiful Thrull
+1 Erratic Portal
+1 Fetid Heath
+1 Giant Scorpion
+1 Giant Slug
+1 Gleaming Bastion
+1 Golgothian Sylex
+1 Hag of Dark Duress
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Hoof Skulkin
+6 Island
+1 Jorubai Murk Lurker
+1 Malakir Soothsayer
+1 Mana Leech
+1 Marble Priest
+1 Merrow Grimeblotter
+1 Mindstab Thrull
+1 Mischievous Sneakling
+1 Mole Worms
+1 Moroii
+1 Nephalia Drownyard
+1 Nightveil Predator
+1 Nova Pentacle
+1 Orzhov Cluestone
+1 Pentagram of the Ages
+2 Plains
+1 Plasmancer
+1 Power Armor
+1 Rabid Bloodsucker
+1 Raffine's Tower
+1 Reflecting Mirror
+1 Riptide Turtle
+1 School of Piranha
+1 Shauku, Endbringer
+1 Skeletal Changeling
+1 Slaughter Drone
+1 Spectral Lynx
+1 Staff of Zegon
+1 Starfleet Crew
+1 Stunt Double
+1 Sunbeam Spellbomb
+17 Swamp
+1 Tainted Isle
+1 Talisman of Hierarchy
+1 Tek
+1 Tower of Champions
+1 Twilight Panther
+1 Umbilicus
+1 Venomous Changeling
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wall of Tombstones
+1 Wall of Wonder
+1 Watery Grave
+1 Wizards' School
+1 Woodlot Crawler

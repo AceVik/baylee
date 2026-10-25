@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266239]
+1 Accelerated Evolution
+1 Affa Guard Hound
+1 Almost Perfect
+1 Arborea Pegasus
+1 Aviary Mechanic
+1 Barbed Foliage
+1 Binding Mummy
+1 Botanical Plaza
+1 Branchloft Pathway
+1 Briarpack Alpha
+1 Brushland
+1 Captivating Unicorn
+1 Collective Blessing
+1 Court Street Denizen
+1 Daybreak Charger
+1 Dictate of Heliod
+1 Downdraft
+1 Eidolon of Astral Winds
+1 Endurance
+1 Fang Guardian
+1 Final Showdown
+1 Fledgling Griffin
+1 Fleetfoot Panther
+11 Forest
+1 Gathering Place
+1 Glaring Aegis
+1 Griffin Protector
+1 Grove of the Guardian
+1 Head of the Homestead
+1 Honor of the Pure
+1 Horizon Canopy
+1 Hushwood Verge
+1 Irregular Cohort
+1 Jeskai Barricade
+1 Kazandu Mammoth
+1 Kitchen Finks
+1 Kor Entanglers
+1 Kudzu
+1 Lance
+1 Leonin Snarecaster
+1 Lifelink
+1 Loporrit Scout
+1 Makindi Ox
+1 Mantle of Webs
+1 Marketwatch Phantom
+1 Mass Calcify
+1 Mummy Paramount
+1 Neighborhood Guardian
+1 Nimbus Wings
+1 Oakheart Dryads
+1 Ondu Greathorn
+1 Patagia Tiger
+14 Plains
+1 Planar Collapse
+1 Powerleech
+1 Rain of Blades
+1 Rescuer Chwinga
+1 Riftstone Portal
+1 Rimefur Reindeer
+1 Sabertooth Nishoba
+1 Saltcrusted Steppe
+1 Serpent Skin
+1 Sky Tether
+1 Skyhunter Prowler
+1 Sparring Mummy
+1 Springmane Cervin
+1 Steppe Lynx
+1 Sungrass Prairie
+1 Sylvan Brushstrider
+1 Tall as a Beanstalk
+1 Temple Garden
+1 Tranquil Garden
+1 Vec Townships
+1 Veldt
+1 Whitemane Lion
+1 Wooded Bastion
+
+[commander]
+Bast, Panther Goddess

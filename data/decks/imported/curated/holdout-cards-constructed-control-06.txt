@@ -1,19 +1,21 @@
-# baylee unseen-card holdout constructed seed=90000026
+# baylee unseen-card holdout constructed seed=90000016
 # licence: AGPL-3.0-only
-[deck:constructed control UG #90000026]
-4 Arcbound Ravager
-4 Archdruid's Charm
-1 Avacyn's Collar
-2 Botanical Sanctum
-15 Forest
-3 Golem Foundry
-3 Juju Bubble
-4 Kitchen
-2 Littjara Mirrorlake
-2 Primal Amulet
-4 Primeval Bounty
-3 Rimewood Falls
-3 Serendib Efreet
-4 Spawning Pit
-3 Thopter Squadron
-3 Trading Post
+[deck:constructed control WU #90000016]
+4 Akron Legionnaire
+3 Calciform Pools
+4 Doomed Traveler
+2 Floodfarm Verge
+3 Fortifying Provisions
+3 Gleaming Bastion
+2 Island
+2 Land Cap
+3 Martyr of Dusk
+3 Opal Lake Gatekeepers
+15 Plains
+1 Prahv, Spires of Order
+3 Recruiter of the Guard
+2 Resolute Reinforcements
+4 Sunspire Gatekeepers
+3 Thraben Inspector
+4 Wakandan Shield Guard
+4 Watchful Giant

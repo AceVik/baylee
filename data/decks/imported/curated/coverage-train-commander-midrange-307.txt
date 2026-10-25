@@ -1,75 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange W #20266308]
-1 Aether Shockwave
-1 Alabaster Mage
-1 Alaborn Musketeer
-1 Argivian Blacksmith
-1 Beloved Chaplain
-1 Benalish Hero
-1 Blighted Steppe
-1 Border Patrol
-1 Cho-Arrim Alchemist
-1 Clergy en-Vec
-1 Clergy of the Holy Nimbus
-1 Cliffhaven Sell-Sword
-1 Death Speakers
-1 Defender of Law
-1 Dragon's Eye Sentry
-1 Dromoka Warrior
-1 Eiganjo Castle
-1 Enchanted Being
-1 Expedition Envoy
-1 Farbog Explorer
-1 Femeref Healer
-1 Femeref Scouts
-1 Field Surgeon
-1 Flagstones of Trokair
-1 Fleet-Footed Monk
-1 Foot Soldiers
-1 Fresh Volunteers
-1 Imperial Outrider
-1 Indomitable Ancients
-1 Ivory Charm
-1 Karakas
-1 Kelsinko Ranger
-1 Knight of New Benalia
-1 Knight of Valor
-1 Knight of the Keep
-1 Knights of Thorn
-1 Kor Haven
-1 Kyoshi Warrior Guard
-1 Lupinflower Village
-1 Makindi Stampede
-1 Martyrs of Korlis
-1 Master Apothecary
-1 Master Healer
-1 Midnight Duelist
-1 Militant Monk
-1 Mounted Archers
-1 Nomad Stadium
-1 Paladin en-Vec
-1 Peacekeeper
-31 Plains
-1 Rapid Fire
-1 Repentant Blacksmith
-1 Resplendent Mentor
-1 Sacred Knight
-1 Saltfield Recluse
-1 Sanctum Custodian
-1 Serra Paladin
-1 Serra's Sanctum
-1 Shefet Dunes
-1 Shrine Keeper
-1 Silver Knight
-1 Skyline Scout
-1 Squire
-1 Sword Dancer
-1 Traveling Philosopher
-1 Trokin High Guard
-1 Veteran Cavalier
-1 Wolf Cove Villager
-1 Zhalfirin Knight
+[deck:commander midrange WR #20266308]
+1 Aether Sting
+1 Alpine Meadow
+1 Armed Response
+1 Aura Blast
+1 Battlefield Forge
+1 Birgi, God of Storytelling
+1 Blessed Spirits
+1 Bloodfire Expert
+1 Bloodshot Cyclops
+1 Boros Garrison
+1 Burnout
+1 Captain's Defense
+1 Chandra's Emberling
+1 Choco-Comet
+1 Clifftop Retreat
+1 Contemplation
+1 Crackling Cyclops
+1 Direct Hit
+1 Dragon-Style Twins
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Erode
+1 Fever Charm
+1 Fire Urchin
+1 Firespitter Whelp
+1 Flowstone Crusher
+1 Foundry Champion
+1 Frenzied Devils
+1 Havoc
+1 Iron Man, Tony Stark
+1 Ishi-Ishi, Akki Crackshot
+1 Kiln Fiend
+1 Kindled Heroism
+1 Lithophage
+1 Lorehold Campus
+1 Meticulous Artisan
+1 Mindsparker
+1 Molten Nursery
+19 Mountain
+1 Mox Ruby
+1 Needleverge Pathway
+1 Onslaught
+1 Oyobi, Who Split the Heavens
+1 Pinnacle Monk
+6 Plains
+1 Plateau
+1 Playful Shove
+1 Pyre Hound
+1 Pyroceratops
+1 Pyrohemia
+1 Restless Bivouac
+1 Rock Slide
+1 Rockslide Sorcerer
+1 Rugged Prairie
+1 Russet Wolves
+1 Sacred Foundry
+1 Sanguinary Mage
+1 Sarkhan's Unsealing
+1 Shredded Sails
+1 Skycrash
+1 Slash of Talons
+1 Slayers' Stronghold
+1 Spark Spray
+1 Spellshock
+1 Summit Prowler
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Sunscorched Divide
+1 Taurean Mauler
+1 Towering Thunderfist
+1 Vertigo
+1 War-Spike Changeling
+1 Weaver of Lightning
+1 Winter Sky
 
 [commander]
-Worf, Chief Tactical Officer
+Nori, Teller of Tales

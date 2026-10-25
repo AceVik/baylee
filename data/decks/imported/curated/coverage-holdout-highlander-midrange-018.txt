@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UBR #90010019]
+1 Aggression
+1 Aspect of Gorgon
+1 Bala Ged Scorpion
+1 Blackcleave Cliffs
+1 Blood Crypt
+1 Blood Moon
+1 Boggart Trawler
+1 Braingeyser
+1 Castle Sengir
+1 Cloak of Feathers
+1 Conscripted Infantry
+1 Creature Bond
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Deviant Glee
+1 Eldrazi Skyspawner
+1 Enervate
+1 Essence Flare
+1 Falkenrath Marauders
+1 Fire-Omen Crane
+1 Forecasting Fortune Teller
+1 Goblin Assault Team
+1 Headless Rider
+1 Hour of Defeat
+1 Hydro-Channeler
+1 Incubator Drone
+1 Inertia Bubble
+10 Island
+1 Izzet Signet
+1 Jinxed Ring
+1 Keeneye Aven
+1 Krark-Clan Shaman
+1 Magmaw
+1 Magnetic Mountain
+1 Manaforge Cinder
+1 Memory Drain
+1 Merfolk Traders
+1 Merrow Witsniper
+1 Mikaeus, the Unhallowed
+1 Minotaur Abomination
+1 Mire's Grasp
+1 Molten Tributary
+6 Mountain
+1 Munitions Expert
+1 Muse's Encouragement
+1 Oscorp Industries
+1 Peculiar Lighthouse
+1 Plumecreed Escort
+1 Psychic Barrier
+1 Redrock Sentinel
+1 Ringwarden Owl
+1 Riot Spikes
+1 Roaming Throne
+1 Sage's Knowledge
+1 Saltwater Stalwart
+1 Sandbar Merfolk
+1 Second Chance
+1 Seething Landscape
+1 Sibsig Icebreakers
+1 Sky Diamond
+1 Sky Theater Strix
+1 Soldevi Machinist
+1 Sphinx of the Final Word
+1 Sulfur Vent
+9 Swamp
+1 Third Path Iconoclast
+1 Timetwister
+1 Tolaria
+1 Tolaria West
+1 Unburden
+1 Unfulfilled Desires
+1 Uthros, Titanic Godcore
+1 Wake of Vultures
+1 Wicked Visitor
+1 Xander's Lounge
+1 Zephyr Boots
+1 Zhalfirin Shapecraft

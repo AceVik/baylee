@@ -1,84 +1,82 @@
 # baylee curated commander aggro seed=20261049
 # licence: AGPL-3.0-only
 [deck:commander aggro BR #20261049]
-1 Aether Sting
+1 Abrade
+1 Acolyte of Xathrid
 1 Badlands
-1 Billiard Room
-1 Boar-q-pine
+1 Blazemire Verge
+1 Blightcaster
+1 Blood Crypt
+1 Boiling Rock Prison
+1 Cabal Archon
 1 Callous Inspector
-1 Canyon Slough
+1 Cast Away Doubt
 1 Chandra's Emberling
-1 Chimeric Egg
-1 Cinder Barrens
-1 Crystal Rod
-1 Damnable Pact
+1 Cinder Marsh
+1 Crackling Cyclops
+1 Dark Fortress
+1 Detonate
+1 Disciple of the Vault
 1 Dragon's Rage Channeler
-1 Dream Beavers
-1 Drossforge Bridge
+1 Dragon-Style Twins
 1 Eidolon of the Great Revel
 1 Electrostatic Field
-1 Electrostatic Infantry
 1 Embersmith
+1 Emberstrike Duo
 1 Enraged Flamecaster
 1 Erebor Flamesmith
-1 Fear of Lost Teeth
 1 Fever Charm
 1 Firebrand Archer
 1 Firespitter Whelp
-1 Flame Jet
-1 Glaring Fleshraker
+1 Flame-Blessed Bolt
+1 Graven Cairns
 1 Guttersnipe
-1 Haunted Ridge
-1 Havoc
-1 Iron Star
+1 Heat Ray
+1 Imperial Seal
 1 Ishi-Ishi, Akki Crackshot
-1 Isolation Cell
-1 Ivory Cup
-1 Juju Bubble
+1 Jaya's Greeting
+1 Judith, the Scourge Diva
+1 Kami of the Waning Moon
 1 Kessig Flamebreather
+1 Kiln Fiend
+1 Kris Mage
 1 Lava Tubes
-1 Lavaclaw Reaches
-1 Levitating Statue
+1 Lightning Visionary
+1 Madame Hydra
+1 Mage-Ring Bully
 1 Magma Jet
-1 Mai, Scornful Striker
-1 Malakir Rebirth
-1 Mana Crypt
+1 Magmatic Force
 1 Mindsparker
-1 Molten Nursery
+1 Misery Charm
+1 Molten Slagheap
 1 Monastery Swiftspear
-16 Mountain
-1 Night's Whisper
-1 Onslaught
+1 Mount Doom
+19 Mountain
+1 Night Market Lookout
+1 Ore Gorger
+1 Price of Progress
+1 Pyroceratops
 1 Pyrostatic Pillar
 1 Quill-Slinger Boggart
-1 Rakdos Carnarium
-1 Rakdos Guildgate
+1 Repulsor Rays
 1 Rockslide Sorcerer
-1 Sarkhan's Unsealing
 1 Sawblade Scamp
-1 Shield Sphere
-1 Sign in Blood
-1 Smoldering Marsh
+1 Sear
+1 Shadowblood Ridge
+1 Shredded Sails
+1 Soul of Magma
 1 Spark Jolt
-1 Spark Spray
-1 Spellgorger Weird
-1 Spellshock
-1 Straw Golem
-1 Sulfurous Mire
-6 Swamp
-1 Taurean Mauler
-1 Temple of Malice
-1 Tramway Station
+1 Spireside Infiltrator
+1 Stensia Bloodhall
+5 Swamp
+1 Sweettooth Witch
+1 Tainted Peak
+1 Thorntooth Witch
 1 Ulcerate
-1 Urborg Volcano
-1 Urza's Chalice
+1 Vampiric Tutor
 1 Vector, Imperial Capital
 1 Vertigo
-1 Walking Ballista
 1 Weaver of Lightning
-1 Winter Sky
-1 Wooden Sphere
-1 Yawgmoth's Edict
 1 Young Pyromancer
 
 [commander]

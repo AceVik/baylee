@@ -1,21 +1,20 @@
 # baylee curated constructed control seed=20261113
 # licence: AGPL-3.0-only
 [deck:constructed control WU #20261113]
-3 Customs Depot
-4 Forced Fruition
-4 Frazzle
-1 Gleaming Bastion
-4 Hesitation
-3 In the Eye of Chaos
-3 Invoke Prejudice
-15 Island
-4 Mana Vortex
-2 Meticulous Archive
-3 Mystic Remora
-3 Prahv, Spires of Order
-1 Prairie Stream
-1 Sea of Clouds
-2 Sigil of the Empty Throne
-1 Three Steps Ahead
-3 Veiled Apparition
-3 Wanderwine Hub
+3 Ancestral Vision
+1 Calciform Pools
+4 Guardian of Solitude
+1 Hengegate Pathway
+4 In the Eye of Chaos
+3 Insight
+4 Invoke Prejudice
+16 Island
+3 Land Cap
+4 Miscalculation
+2 Niblis of Dusk
+3 Nimbus Maze
+2 Prahv, Spires of Order
+4 Preordain
+1 Prescient Chimera
+3 Presence of the Master
+2 Sire of the Storm

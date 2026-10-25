@@ -1,84 +1,82 @@
 # baylee curated commander midrange seed=20261028
 # licence: AGPL-3.0-only
 [deck:commander midrange WG #20261028]
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Avacyn's Collar
-1 Bishop of Wings
-1 Blade Splicer
-1 Blisterpod
-1 Blossoming Sands
+1 Afterlife
 1 Branchloft Pathway
-1 Byway Courier
-1 Canopy Vista
-1 Captain of the Watch
-1 Cartouche of Solidarity
-1 Claws of Gix
-1 Conclave Cavalier
-1 Conservatory
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Dwarven Castle Guard
+1 Brushland
+1 Call of the Conclave
+1 Celebrity Fencer
+1 Centaur's Herald
+1 Confront the Unknown
+1 Darling of the Masses
+1 Disciple of Freyalise
+1 Doubling Season
+1 Drogskol Cavalry
+1 Elderleaf Mentor
 1 Elephant Guide
-1 Elfhame Palace
-1 Elgaud Inquisitor
 1 Elspeth, Storm Slayer
+1 Elturgard Ranger
+1 Elvish Clancaller
 1 Elvish Farmer
-1 Field of Souls
-1 Filigree Crawler
-8 Forest
-1 Fortifying Provisions
-1 Gilded Goose
-1 Gilded Pinions
-1 Gleaming Barrier
-1 Goldvein Pick
-1 Griffin Guide
+1 Elvish Handservant
+1 Elvish Vanguard
+1 Elvish Visionary
+1 Fell the Pheasant
+17 Forest
+1 Gathering Place
+1 Glittermonger
 1 Grove of the Guardian
-1 Haunted Library
-1 Hunted Witness
-1 Jewel-Eyed Cobra
-1 Knight of Doves
-1 Knight-Captain of Eos
+1 Horizon Canopy
+1 Hushwood Verge
+1 Imperious Perfect
+1 Ivy Lane Denizen
+1 Joraga Visionary
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Llanowar Mentor
+1 Llanowar Visionary
+1 Luxurious Libation
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
 1 Mantle of the Wolf
-1 Martyr of Dusk
-1 Mausoleum Guard
-1 Mobilization
-1 Most Wanted
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Norn's Wellspring
-1 Ojer Taq, Deepest Foundation
+1 Many Partings
+1 Multani's Acolyte
+1 Nissa, Resurgent Animist
 1 Orochi Hatchery
-1 Pentavus
-15 Plains
-1 Prying Blade
-1 Radiant Grove
-1 Requiem Angel
-1 Retrofitter Foundry
+1 Paradise Druid
+1 Pawpatch Formation
+8 Plains
+1 Primeval Bounty
+1 Professor of Zoomancy
+1 Quirion Sentinel
+1 Reclamation Sage
+1 Riftstone Portal
+1 Rishkar, Peema Renegade
+1 Roving Harper
 1 Saltcrusted Steppe
-1 Scattered Groves
-1 Selesnya Sanctuary
-1 Siege Veteran
-1 Slayer's Plate
-1 Spawning Pit
-1 Squire's Devotion
-1 Stirring Wildwood
-1 Suburban Sanctuary
+1 Selesnya Charm
+1 Selesnya Evangel
+1 Shaman of Spring
+1 Sigil of the Empty Throne
+1 Steel Leaf Paladin
 1 Sungrass Prairie
-1 Sunpetal Grove
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
+1 Sunshower Druid
+1 Temple Garden
+1 Temple of Plenty
+1 Tolsimir Wolfblood
+1 Totem Speaker
+1 Tranquil Garden
+1 Trostani's Summoner
+1 Turntimber Ranger
+1 Vec Townships
 1 Veldt
-1 Wand of the Elements
-1 Windurst, Federation Center
-1 Wooded Bastion
+1 Viridian Shaman
+1 Vitality Charm
+1 Vitu-Ghazi, the City-Tree
+1 Werefox Bodyguard
+1 Wirewood Hivemaster
+1 Woodland Liege
+1 Yavimaya Granger
 
 [commander]
 Emmara, Soul of the Accord

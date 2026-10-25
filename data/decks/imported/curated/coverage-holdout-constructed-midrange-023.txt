@@ -1,0 +1,30 @@
+# baylee synergistic holdout coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUBRG #90010024]
+2 Aerial Engineer
+2 Alert Heedbonder
+2 Aysen Abbey
+2 Bear's Companion
+2 Brine Hag
+2 Channel the Suns
+2 Crossroads Consecrator
+2 Crushing Vines
+2 Crystal Quarry
+2 Deviant Glee
+2 Edge of the Divinity
+5 Forest
+2 Frightful Delusion
+3 Island
+2 Kin-Tree Severance
+2 Kiora's Follower
+2 Kukemssa Pirates
+2 Merfolk Mistbinder
+1 Mountain
+2 Nacatl Outlander
+2 Nearby Planet
+4 Plains
+2 Putrefy
+2 Risen Sanctuary
+2 Skull Prophet
+2 Swamp
+3 The World Tree

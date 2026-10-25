@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266194]
+1 Ancestral Vengeance
+1 Black Mana Battery
+1 Blue Mana Battery
+1 Boltwing Marauder
+1 Breath of Dreams
+1 Brimstone Dragon
+1 Buzz Bots
+1 Cascade Bluffs
+1 Castle Sengir
+1 Cephalid Scout
+1 Champion of the Perished
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Cursed Mirror
+1 Dalek Drone
+1 Deathbringer Thoctar
+1 Dragon Egg
+1 Dragon Mage
+1 Ebon Dragon
+1 Essence Infusion
+1 Festering Wound
+1 Firestorm Hellkite
+1 Foul Imp
+1 Galazeth Prismari
+1 Glyph of Delusion
+1 Goldhound
+6 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Knightfisher
+1 Lim-Dûl's Paladin
+1 Lord of Tresserhorn
+1 Machinesmith Automaton
+1 Malcator's Watcher
+1 Maximum Overdrive
+1 Mind Harness
+1 Mindscour Dragon
+7 Mountain
+1 Mystic Might
+1 Necromaster Dragon
+1 Nivix, Aerie of the Firemind
+1 Oscorp Industries
+1 Preening Champion
+1 Rakdos Locket
+1 Rakdos Signet
+1 Rapacious Dragon
+1 Return to Battle
+1 Riverpyre Verge
+1 Rorix Bladewing
+1 Ryusei, the Falling Star
+1 S.H.I.E.L.D. Deployment Drone
+1 Seething Landscape
+1 Shivan Hellkite
+1 Skirge Familiar
+1 Smaug the Magnificent
+1 Snarling Gorehound
+1 Songs of the Damned
+1 Sprite Dragon
+1 Steam Vents
+1 Stensia Bloodhall
+1 Stormfist Crusader
+1 Sulfur Vent
+1 Sulfurous Springs
+1 Sunken Ruins
+13 Swamp
+1 Swarm of Bloodflies
+1 Takklemaggot
+1 Thunder Dragon
+1 Tidal Influence
+1 Tourach's Gate
+1 Trigon of Rage
+1 Two-Headed Dragon
+1 Utvara Hellkite
+1 Volcanic Island
+1 Xander's Lounge
+
+[commander]
+Nicol Bolas

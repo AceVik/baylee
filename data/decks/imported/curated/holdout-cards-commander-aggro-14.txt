@@ -1,76 +1,74 @@
-# baylee unseen-card holdout commander seed=90000037
+# baylee unseen-card holdout commander seed=90000027
 # licence: AGPL-3.0-only
-[deck:commander aggro G #90000037]
-1 Arcbound Ravager
-1 Audacity
-1 Avacyn's Collar
-1 Blighted Woodland
-1 Blisterpod
-1 Blood Servitor
-1 Byway Courier
-1 Centaur Garden
-1 Centaur's Herald
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Dowsing Dagger
-1 Dryad Arbor
-1 Elephant Guide
-1 Elvish Farmer
-1 Elvish Skysweeper
-1 Filigree Crawler
-1 Fists of Ironwood
-30 Forest
-1 Fortitude
-1 Gilded Goose
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Golem Foundry
-1 Haywire Mite
-1 Heart of Yavimaya
-1 Imperious Perfect
-1 Jewel-Eyed Cobra
-1 Jinxed Ring
-1 Llanowar Mentor
-1 Mantle of the Wolf
-1 Mongrel Pack
-1 Most Wanted
-1 Myr Moonvessel
-1 Myr Retriever
-1 Myr Sire
-1 Nim Deathmantle
-1 Nutrient Block
-1 Oakhollow Village
-1 Orochi Hatchery
-1 Pendelhaven
-1 Primeval Bounty
-1 Prying Blade
-1 Rancor
-1 Redrock Sentinel
-1 Renowned Weaver
-1 Retrofitter Foundry
-1 Scrap Trawler
-1 Skullclamp
-1 Slayer's Plate
-1 Sliversmith
-1 Sparring Construct
-1 Spawning Pit
-1 Sylvok Lifestaff
-1 Thallid
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Tough Cookie
-1 Trading Post
-1 Treasure Map
-1 Tree of Tales
-1 Walking Ballista
-1 Wand of the Elements
-1 Yavimaya Hollow
+[deck:commander aggro R #90000027]
+1 Aleatory
+1 Blighted Gorge
+1 Bloodfire Expert
+1 Boar-q-pine
+1 Burning Prophet
+1 Burnout
+1 Chandra's Emberling
+1 Coming In Hot
+1 Crackling Cyclops
+1 Dragon's Rage Channeler
+1 Electrostatic Field
+1 Embersmith
+1 Embraal Gear-Smasher
+1 Enraged Flamecaster
+1 Faithless Looting
+1 Festival Crasher
+1 Fire Urchin
+1 Firebrand Archer
+1 Firespitter Whelp
+1 Frenzied Devils
+1 Furious Bellow
+1 Gorilla War Cry
+1 Great Furnace
+1 Havoc
+1 Hellion Crucible
+1 Impolite Entrance
+1 Junktown
+1 Kessig Flamebreather
+1 Kher Keep
+1 Kiln Fiend
+1 Kindled Heroism
+1 Kozilek's Sentinel
+1 Lightning Visionary
+1 Mage-Ring Bully
+1 Meticulous Artisan
+1 Mindsparker
+1 Mogg Sentry
+1 Monastery Swiftspear
+32 Mountain
+1 Mox Ruby
+1 Nimble-Blade Khenra
+1 Onslaught
+1 Panic
+1 Pinnacle Monk
+1 Pyre Hound
+1 Pyre Spawn
+1 Pyroceratops
+1 Pyrogoyf
+1 Samut's Sprint
+1 Sawblade Scamp
+1 Shivan Gorge
+1 Skycrash
+1 Spark Jolt
+1 Spark Spray
+1 Spear Spewer
+1 Spellgorger Weird
+1 Storm Strike
+1 Storm-Kiln Artist
+1 Stun
+1 Taurean Mauler
+1 Telim'Tor's Edict
+1 The Vision and Scarlet Witch
+1 Thorned Moloch
+1 Titan's Strength
+1 War-Torch Goblin
+1 Weaver of Lightning
+1 Winds of Change
+1 Young Pyromancer
 
 [commander]
-Ojer Kaslem, Deepest Growth
+Quicksilver, Pietro Maximoff

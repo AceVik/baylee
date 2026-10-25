@@ -1,84 +1,85 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WU #20266278]
-1 Aardvark Sloth
-1 Abandoned Campground
-1 Ajani's Sunstriker
-1 Alabaster Host Sanctifier
-1 Altar's Light
-1 Azorius Guildgate
-1 Bishop's Soldier
-1 Blade Banish
-1 Blessed Light
-1 Brad Boimler, Eager Ensign
-1 Brightblade Stoat
-1 Calciform Pools
-1 Caravan Hurda
-1 Celestial Purge
-1 Champion of Arashin
-1 Commander's Insight
-1 Congregate
-1 Dark Maze
-1 Daybreak Chaplain
-1 Dispatch
-1 Dromad Purebred
-1 Erase
-1 Excise
-1 Excoriate
-1 Exorcise
-1 Gates of Istfell
-1 Gerrard's Wisdom
-1 Glacial Floodplain
-1 Glacial Fortress
-1 Glare of Heresy
-1 Hengegate Pathway
-1 Hieroglyphic Illumination
-1 Imperial Ceratops
-1 Irrigated Farmland
-2 Island
-1 Isolate
-1 Judge of Currents
-1 Knight of Meadowgrain
-1 Lake-town
-1 Land Cap
-1 Leonin Vanguard
-1 Meticulous Archive
-1 Mistmeadow Skulk
-1 Not on My Watch
-1 Ondu War Cleric
-1 Pillar of Light
-21 Plains
-1 Port Town
-1 Prairie Stream
-1 Prismatic Ending
-1 Puncturing Light
-1 Quiet Purity
-1 Razortide Bridge
-1 Recuperate
-1 Repel Calamity
-1 Revoke Existence
-1 Searing Light
-1 Sickbay Orderly
-1 Silundi Vision
-1 Silverchase Fox
-1 Silverstrike
-1 Skycloud Expanse
-1 Soul Shepherd
-1 Spirit Water Revival
-1 Starlight Invoker
-1 Steadfast Paladin
-1 Stone Haven Medic
-1 Stonehorn Chanter
-1 Story Seeker
-1 Temple of Enlightenment
-1 Thalakos Lowlands
-1 Trained Caracal
-1 Triumphant Surge
-1 Urgent Exorcism
-1 Wanderbrine Preacher
-1 Withstand
-1 Yotian Medic
-1 Zarichi Tiger
+[deck:commander midrange WUBRG #20266278]
+1 A.I.M. Synthoids
+1 Aeronaut's Wings
+1 Altar of the Brood
+1 Ancestral Statue
+1 Ashiok, Dream Render
+1 Automatic Librarian
+1 Basilisk Collar
+1 Belligerent Whiptail
+1 Bloodfire Mentor
+1 Bounding Krasis
+1 Bountiful Landscape
+1 Brushfire Elemental
+1 Brutal Nightstalker
+1 Castle Sengir
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Damn
+1 Darigaaz's Caldera
+1 Darksteel Plate
+1 Duskwatch Hunter
+1 Elemental Summoning
+1 Ethersworn Adjudicator
+3 Forest
+1 Fulminator Mage
+1 Fusion Elemental
+1 Ghoulcaller's Bell
+1 Gorgon's Head
+1 Greataxe
+1 Grove Rumbler
+1 Hedron Rover
+1 Hedron Scrabbler
+1 Helm of the Host
+1 Horned Kavu
+1 Imperious Inkmage
+1 Inspirit, Flagship Vessel
+7 Island
+1 Ketria Triome
+1 Koskun Keep
+1 Life Matrix
+1 Liliana's Specter
+1 Living Armor
+1 Marsh Crocodile
+1 Maskwood Nexus
+1 Metrognome
+1 Millstone
+1 Morgue Toad
+3 Mountain
+1 Nearby Planet
+1 Orc Sureshot
+1 Peace Strider
+3 Plains
+1 Risen Reef
+1 Rith's Grove
+1 Saheeli's Silverwing
+1 Sanitation Automaton
+1 Sanity Gnawers
+1 Savage Gorilla
+1 Seething Landscape
+1 Shuko
+1 Slagwurm Armor
+1 Stuffed Bear
+9 Swamp
+1 Tanglebloom
+1 Territorial Boar
+1 The World Tree
+1 Time Vault
+1 Torch Gauntlet
+1 Touchstone
+1 Tournament Grounds
+1 Twisted Landscape
+1 Vanishing Verse
+1 Viridian Claw
+1 Void Grafter
+1 Vorstclaw
+1 Watcher of the Wayside
+1 Well-Worn Spatula
+1 Woodwraith Corrupter
+1 Xander's Lounge
+1 Zagoth Triome
 
 [commander]
-Tobias Andrion
+Reaper King

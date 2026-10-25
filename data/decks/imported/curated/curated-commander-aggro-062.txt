@@ -1,85 +1,84 @@
 # baylee curated commander aggro seed=20261085
 # licence: AGPL-3.0-only
 [deck:commander aggro WUB #20261085]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
+1 Acolyte of Xathrid
+1 Adarkar Wastes
 1 Ancient Spring
-1 Angel's Herald
 1 Arcane Sanctum
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Ballroom
-1 Bastion of Remembrance
-1 Bishop of Wings
-1 Blight Mound
-1 Callous Inspector
-1 Cartouche of Solidarity
-1 Common Crook
-1 Concealed Courtyard
+1 Audacious Thief
+1 Aven Archer
+1 Blightspeaker
+1 Boomerang, Blade Flinger
+1 Cloudcrest Lake
+1 Commissar Severina Raine
 1 Contaminated Landscape
-1 Criminal Enterprise
+1 Crossbow Infantry
+1 Cunning Breezedancer
+1 Cuombajj Witches
+1 D'Avenant Archer
 1 Darkwater Catacombs
-1 Demon's Herald
-1 Dimir Guildgate
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Doomed Traveler
+1 Death Cultist
+1 Desiccated Naga
 1 Dromar's Cavern
-1 Dwarven Castle Guard
-1 Elgaud Inquisitor
-1 Fortified Beachhead
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Graf Harvest
-1 Greedy Freebooter
-1 Griffin Guide
-1 Homarid Spawning Bed
-1 Hunted Witness
-1 Kheru Bloodsucker
-1 Knight of Doves
-1 Lead Pipe
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Martyr of Dusk
-1 Morphic Pool
-1 Myr Sire
-1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Novice Inspector
-1 Novice Occultist
-1 Ojer Taq, Deepest Foundation
-1 Orochi Hatchery
-1 Pitiless Plunderer
-9 Plains
-1 Pretending Poxbearers
-1 Prying Blade
-1 Quest for the Gravelord
+1 Drowner Initiate
+1 Elite Javelineer
+1 Elspeth's Smite
+1 Elusive Spellfist
+1 Erg Raiders
+1 Expendable Troops
+1 Farrel's Zealot
+1 Foul-Tongue Shriek
+1 Heavy Ballista
+1 Icatian Javelineers
+2 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Joust Through
+1 Kambal, Consul of Allocation
+1 Mai, Scornful Striker
+1 Malakir Soothsayer
+1 Mana Crypt
+1 Merciless Enforcers
+1 Mind Bomb
+1 Night Market Lookout
+1 Nimbus Maze
+1 Orzhov Guildmage
+1 Painsmith
+1 Pirate Ship
+10 Plains
+1 Prodigal Sorcerer
+1 Psychic Purge
+1 Pulse Tracker
+1 Quill-Slinger Boggart
 1 Raffine's Tower
-1 Retrofitter Foundry
-1 Sengir Autocrat
-1 Siege Veteran
-1 Skybridge Towers
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Spawning Pit
-13 Swamp
-1 Sweettooth Witch
-1 Sylvok Lifestaff
-1 Temple of Deceit
-1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Foundry
-1 Thopter Squadron
-1 Thraben Inspector
-1 Thraben Standard Bearer
-1 Trading Post
-1 Umbral Expanse
-1 Venerable Knight
-1 Watery Grave
-1 Weirding Shaman
+1 River of Tears
+1 Sanctum Seeker
+1 Seeker of the Way
+1 Shredder's Revenge
+1 Silent Clearing
+1 Simulacrum
+1 Skeleton Archer
+1 Slash of Talons
+1 Sorin's Thirst
+1 Sovereign's Bite
+1 Stormscape Apprentice
+1 Suq'Ata Firewalker
+12 Swamp
+1 Syphon Soul
+1 TVA Bureaucrat
+1 Thoughtseize
+1 Ulcerate
+1 Ultimate Alliance
+1 Underground River
+1 Underground Sea
+1 Underworld Coinsmith
+1 Vampire Neonate
+1 Vapor Snag
+1 Vicious Conquistador
+1 Wayward Servant
+1 Winter's Intervention
+1 Witch Hunter
 1 Wizards' School
-1 Yahenni, Undying Partisan
-1 Zuran Orb
+1 Yawgmoth's Edict
 
 [commander]
 Chromium

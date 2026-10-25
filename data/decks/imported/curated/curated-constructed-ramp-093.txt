@@ -1,22 +1,22 @@
 # baylee curated constructed ramp seed=20261116
 # licence: AGPL-3.0-only
 [deck:constructed ramp BR #20261116]
-2 Arcum's Astrolabe
-1 Blightstep Pathway
-4 Blood Crypt
-4 Coal Golem
-3 Commander's Sphere
-4 Energy Refractor
-3 Geothermal Bog
-2 Infernal Idol
+2 Blightstep Pathway
+1 Cinder Marsh
+3 Coal Golem
+4 Gauntlet of Might
 2 Lantern-Lit Graveyard
-4 Limestone Golem
-3 Mana Crypt
-1 Meteor Golem
-2 Mind Stone
-9 Mountain
-3 Prophetic Prism
-3 Shadowblood Egg
-1 Shadowblood Ridge
-4 Solemn Simulacrum
+2 Lava Tubes
+4 Legion Extruder
+2 Moriok Replica
+10 Mountain
+3 Pashalik Mons
+3 Piggy Bank
+1 Rix Maadi, Dungeon Palace
+3 Sacrifice
+4 Shadowblood Egg
+3 Siege-Gang Commander
 5 Swamp
+2 Tainted Peak
+2 The Balrog of Moria
+4 Warren Soultrader

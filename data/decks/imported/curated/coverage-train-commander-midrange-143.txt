@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WU #20266144]
-1 Akroma's Devoted
-1 Arctic Aven
-1 Aven Mindcensor
-1 Azorius Chancery
-1 Benalish Heralds
-1 Brotherhood Spy
-1 Calciform Pools
-1 Call to Heel
-1 Cloud Pirates
-1 Coastal Tower
-1 Cursecatcher
-1 Daring Apprentice
-1 Dawnglare Invoker
-1 Deserted Beach
-1 Disruptive Student
-1 Drannith Magistrate
-1 Emeritus of Ideation
-1 Enhanced Awareness
-1 Ertai, Wizard Adept
-1 Fall of the Gavel
-1 Fatehold Chronologist
-1 Field Marshal
-1 Floodbringer
-1 Flying Men
-1 Glacial Floodplain
-1 Glacial Fortress
-1 Gleaming Bastion
-1 Guan Yu's 1,000-Li March
-1 Icatian Lieutenant
-1 Imperial Lancer
-1 Indigo Faerie
-12 Island
-1 Juniper Order Advocate
-1 Kjeldoran Knight
-1 Kjeldoran Outrider
-1 Knight Exemplar
-1 Kongming, "Sleeping Dragon"
-1 Leap
-1 Lionheart Maverick
-1 Malevolent Hermit
-1 Marshal of Zhalfir
-1 Meandering River
-1 Merchant Ship
-1 Moorland Haunt
-1 North Pole Gates
-1 Nova Cleric
-1 Oboro Breezecaller
-1 Oboro Envoy
-1 Order of the Sacred Torch
-1 Paragon of New Dawns
-1 Patron Wizard
-11 Plains
-1 Refocus
-1 Rishadan Airship
-1 Sea of Clouds
-1 Sejiri Refuge
-1 Serra Inquisitors
-1 Skycloud Expanse
-1 Songstitcher
-1 Soratami Mirror-Guard
-1 Soratami Rainshaper
-1 Soratami Savant
-1 Soraya the Falconer
-1 Soulscour
-1 Spirit Weaver
-1 Stronghold Machinist
-1 Study
-1 Talas Air Ship
-1 Talas Scout
-1 Temple of Enlightenment
-1 Tidings
-1 Tolarian Sentinel
-1 Tranquil Cove
-1 Tundra
-1 Twining Twins
-1 Vodalian Mage
-1 Wind Strider
-1 Yotian Tactician
+[deck:commander midrange B #20266144]
+1 Aladdin's Lamp
+1 Amulet of Unmaking
+1 Bane Alley Blackguard
+1 Bleed Dry
+1 Bloodcurdling Scream
+1 Bog Smugglers
+1 Bogbrew Witch
+1 Brotherhood Headquarters
+1 Cabal Evangel
+1 Cabal Slaver
+1 Cabal Trainee
+1 Celestial Sword
+1 Charging Bandits
+1 Dhund Operative
+1 Disciple of Tevesh Szat
+1 Dread Warlock
+1 Duskmantle Operative
+1 Fatal Fumes
+1 Fill with Fright
+1 Fire Nation Ambushers
+1 Fleshgrafter
+1 Ghosts of the Damned
+1 Goblin Boom Keg
+1 Gravblade Heavy
+1 Hagra Sharpshooter
+1 Hand of Silumgar
+1 Hyalopterous Lemure
+1 Krovikan Scoundrel
+1 Masked Blackguard
+1 Maze of Shadows
+1 Mind Knives
+1 Moriok Reaver
+1 Mycosynth Lattice
+1 Nausea
+1 Nim Replica
+1 Nimble Pilferer
+1 One with Nothing
+1 Onyx Mage
+1 Opposition Agent
+1 Ostracize
+1 Phyrexia's Core
+1 Plague Witch
+1 Poison-Blade Mentor
+1 Predator, Flagship
+1 Rabid Rats
+1 Rag Man
+1 Rain of Filth
+1 Rathi Trapper
+1 Sandals of Abdallah
+1 Smokespew Invoker
+1 Soulstone Sanctuary
+1 Stronghold Taskmaster
+34 Swamp
+1 Tendrils of Despair
+1 Thespian's Stage
+1 Tinybones, the Pickpocket
+1 Tower of Calamities
+1 Trespasser il-Vec
+1 Tyrite Sanctum
+1 Uncle Istvan
+1 Vile Deacon
+1 Viscid Lemures
+1 Waking Nightmare
+1 Weed-Pruner Poplar
+1 Wei Infantry
+1 Welding Jar
 
 [commander]
-Ayesha Tanaka
+Grandmother Sengir

@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266054]
+1 Acidic Dagger
+1 Adventuring Gear
+1 Ancestral Statue
+1 Arena of the Ancients
+1 Automatic Librarian
+1 Ba Sing Se
+1 Baton of Morale
+1 Beast of Burden
+1 Bloodtallow Candle
+1 Boseiju, Who Endures
+1 Cacophodon
+1 Candelabra of Tawnos
+1 Chocobo Camp
+1 Clay Statue
+1 Crystal Golem
+1 Cyclopean Tomb
+1 Didgeridoo
+1 Dragon Engine
+1 Ebony Horse
+1 Echo Circlet
+1 Eel-Hounds
+34 Forest
+1 Gauntlets of Chaos
+1 Glass Golem
+1 Glasses of Urza
+1 Grappling Sundew
+1 Grave Bramble
+1 Grinding Station
+1 Guardians of Meletis
+1 Hedron Rover
+1 Hedron Scrabbler
+1 Hidden Nursery
+1 Iron Giant
+1 Iron Lance
+1 Jabari's Banner
+1 Juntu Stakes
+1 Lead Golem
+1 Manor Gate
+1 Masterwork of Ingenuity
+1 North Star
+1 Orazca Frillback
+1 Pardic Wanderer
+1 Pygmy Allosaurus
+1 Quicksilver Amulet
+1 Ravenous Daggertooth
+1 Regal Imperiosaur
+1 Relic Barrier
+1 Rustspore Ram
+1 Sanitation Automaton
+1 Sapseep Forest
+1 Shield of the Ages
+1 Skateboard
+1 Skyshaper
+1 Spike-Tailed Ceratops
+1 Sterling Hound
+1 Stuffed Bear
+1 Teferi's Sentinel
+1 Thaumaturge's Familiar
+1 Touchstone
+1 Tower of Coireall
+1 Treeguard Duo
+1 Voltaic Servant
+1 War Chariot
+1 Watcher of the Wayside
+1 Zelyon Sword
+1 Zodiac Rabbit
+
+[commander]
+Terrian, World Tyrant

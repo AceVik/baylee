@@ -1,75 +1,72 @@
-# baylee unseen-card holdout commander seed=90000045
+# baylee unseen-card holdout commander seed=90000032
 # licence: AGPL-3.0-only
-[deck:commander midrange U #90000045]
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Blood Servitor
-1 Cephalid Coliseum
-1 Cold Case Cracker
-1 Corsair Captain
-1 Deduce
-1 Diamond Kaleidoscope
-1 Dowsing Dagger
-1 Drowner of Hope
-1 Eldrazi Skyspawner
-1 Enatu Golem
-1 Etherium Spinner
-1 Experimental Aviator
-1 Falcon, Winged Wonder
-1 Filigree Crawler
-1 Filigree Familiar
-1 Gilded Pinions
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Golem Foundry
-1 Homarid Spawning Bed
-1 Ipnu Rivulet
-31 Island
-1 Jinxed Ring
-1 Kozilek's Unsealing
-1 Lilypad Village
-1 Magnifying Glass
+[deck:commander midrange U #90000032]
+1 Abjure
+1 Academy Ruins
+1 Ancestral Recall
+1 Ancestral Vision
+1 Angler Drake
+1 Borne Upon a Wind
+1 Citywatch Sphinx
+1 Cruel Witness
+1 Customs Depot
+1 Drowned Secrets
+1 Elusive Spellfist
+1 Enervate
+1 Enter the Enigma
+1 Equilibrium
+1 Force Spike
+1 Force Void
+1 Gitaxian Probe
+1 Guardian of Solitude
+1 Halcyon Glaze
+1 Hesitation
+1 Iguana Parrot
+1 Impulse
+1 Ingenious Skaab
+34 Island
+1 Jeskai Sage
+1 Jeskai Windscout
+1 Kulrath Mystic
+1 Lightshell Duo
+1 Lunar Mystic
+1 Mana Breach
+1 Mana Drain
 1 Minamo, School at Water's Edge
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Orochi Hatchery
-1 Pentavus
-1 Prying Blade
-1 Redrock Sentinel
-1 Retrofitter Foundry
+1 Mind Spring
+1 Mirran Spy
+1 Mistral Singer
+1 Neutralize
+1 Oboro, Palace in the Clouds
+1 Ojer Pakpatiq, Deepest Epoch
+1 Open Communications
+1 Primal Amulet
+1 Psychic Barrier
+1 Reach Through Mists
+1 Refute
+1 Rhystic Study
+1 Riddleform
+1 Ringwarden Owl
 1 Riptide Laboratory
-1 Roaming Throne
-1 Robotics Mastery
-1 S.H.I.E.L.D. Deployment Drone
-1 Scrap Trawler
-1 Seat of the Synod
-1 Skullclamp
-1 Slayer's Plate
-1 Solemn Simulacrum
-1 Sparring Construct
-1 Spawning Pit
-1 Sphinx's Herald
-1 Sylvok Lifestaff
-1 The Mechanist, Aerial Artisan
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
-1 Titan Forge
-1 Tolaria
+1 Riverwheel Aerialists
+1 Shipwreck Dowser
+1 Sky Theater Strix
+1 Soldevi Excavations
+1 Spell Snip
+1 Storyteller Pixie
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Teller of Tales
 1 Tolarian Academy
-1 Trading Post
-1 Treasure Map
-1 Trenzalore Clocktower
+1 Umara Entangler
+1 Umara Wizard
+1 Updraft
 1 Urza, Lord High Artificer
-1 Vodalian Hexcatcher
-1 Walking Ballista
-1 Wand of the Elements
-1 Wing Splicer
+1 Vedalken Archmage
+1 Vedalken Blademaster
+1 Veiled Apparition
+1 Veiled Sentry
+1 Voracious Greatshark
 
 [commander]
 Heidar, Rimewind Master

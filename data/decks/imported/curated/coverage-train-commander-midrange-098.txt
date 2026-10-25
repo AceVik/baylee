@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266099]
+1 Abundant Countryside
+1 Agent of Stromgald
+1 Ancient Runes
+1 Arcane Lighthouse
+1 Artifact Possession
+1 Backfire
+1 Barbarian Riftcutter
+1 Basal Thrull
+1 Blinkmoth Well
+1 Brothers of Fire
+1 Chaos Charm
+1 Cinder Cloud
+1 Corrupted Crossroads
+1 Crawling Barrens
+1 Cunning Sparkmage
+1 Diamond Valley
+1 Earth Tremor
+1 Earthbind
+1 Erratic Visionary
+1 Eye of Ugin
+1 Facet Reader
+1 Flame-Blessed Bolt
+1 Ghitu Fire-Eater
+1 Hapless Researcher
+1 Haven of the Spirit Dragon
+1 Historian of Zhalfir
+1 Insolence
+1 Iroas's Blessing
+3 Island
+1 Jaya's Firenado
+1 Joven
+1 Lore Broker
+1 Lust for War
+1 Magus of the Bazaar
+1 Magus of the Wheel
+1 Maraxus of Keld
+1 Mind Whip
+16 Mountain
+1 Northampton Farm
+1 Notorious Assassin
+1 Obliterating Bolt
+1 Painted Bluffs
+1 Parasitic Bond
+1 Power Surge
+1 Psychic Allergy
+1 Reckless Air Strike
+1 Reduce to Ashes
+1 Research Assistant
+1 Rumbling Rockslide
+1 Sandstorm Verge
+1 Scald
+1 Scarblade Elite
+1 Searing Wind
+1 Seismic Assault
+1 Seismic Mage
+1 Seizures
+1 Shadowmage Infiltrator
+1 Shauku's Minion
+1 Sisters of the Flame
+1 Sivitri Scarzam
+1 Stalking Assassin
+1 Strafe
+1 Sudden Impact
+6 Swamp
+1 Thought Courier
+1 Tomb of the Spirit Dragon
+1 Tony Stark
+1 Tourach's Chant
+1 Unholy Citadel
+1 Unliving Psychopath
+1 Valakut Invoker
+1 Villainous Hideout
+1 Where Ancients Tread
+1 White Lotus Hideout
+1 Word of Blasting
+1 Zhang Liao, Hero of Hefei
+1 Zulaport Chainmage
+
+[commander]
+Tetsuo Umezawa

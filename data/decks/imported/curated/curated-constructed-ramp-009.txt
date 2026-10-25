@@ -1,18 +1,17 @@
 # baylee curated constructed ramp seed=20261032
 # licence: AGPL-3.0-only
 [deck:constructed ramp B #20261032]
-3 Arcum's Astrolabe
-2 Chromatic Sphere
+3 Bastion of Remembrance
+4 Cabal Patriarch
+4 Callous Inspector
+4 Carnival of Souls
+1 Essence Feed
 2 Havengul Laboratory
-2 Hostile Hostel
-4 Infernal Idol
-4 Lotus Guardian
-4 Meteorite
-4 Mind Stone
-3 Mishra's War Machine
-3 Primal Clay
-4 Prophetic Prism
-19 Swamp
-2 The Black Gate
-2 Three Tree Mascot
-2 Workhorse
+2 Ifnir Deadlands
+2 Krovikan Plague
+4 Locthwain Lancer
+4 Marionette Apprentice
+3 Parasitic Bond
+2 Shadow-Rite Priest
+21 Swamp
+4 Vampiric Rites

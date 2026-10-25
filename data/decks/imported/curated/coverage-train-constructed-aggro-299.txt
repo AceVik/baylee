@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUG #20266300]
+2 Acridian
+3 Aysen Abbey
+2 Bramblefort Fink
+2 Brokers Initiate
+2 Cave Tiger
+2 Ferocious Zheng
+2 Flesh Burrower
+12 Forest
+2 Guardian Lions
+2 Island
+2 King Cheetah
+2 Kraul Stinger
+2 Mtenda Lion
+2 Nantuko Mentor
+2 Pincher Beetles
+2 Pouncing Cheetah
+1 Seaside Citadel
+2 Shelkin Brownie
+2 Slippery Bogle
+1 Tranquil Landscape
+3 Treva's Ruins
+1 Urban Retreat
+1 Wild Leotau
+2 Wirewood Symbiote
+2 Woodland Changeling
+2 Zodiac Rabbit

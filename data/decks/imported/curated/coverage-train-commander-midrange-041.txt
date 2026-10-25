@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266042]
-1 Abzan Runemark
-1 Angelic Renewal
-1 Ant Queen
-1 Anthem of Champions
-1 Archon of Justice
-1 Argoth, Sanctum of Nature
-1 Auratog
-1 Ba Sing Se
-1 Briar Shield
-1 Call to Serve
-1 Centaur's Herald
-1 Chocobo Camp
-1 Collective Blessing
-1 Daraja Griffin
-1 Dryad's Favor
-1 Emeria, the Sky Ruin
-1 Evendo, Waking Haven
-1 Excavation Mole
-1 Foratog
-14 Forest
-1 Fortified Area
-1 From Beyond
+[deck:commander midrange WU #20266042]
+1 Access Tunnel
+1 Angelic Edict
+1 Anti-Magic Aura
+1 Ash Barrens
+1 Blade Banish
+1 Blessed Light
+1 Burden of Guilt
+1 Cascading Cataracts
+1 Cat-Owl
+1 Cavern of Souls
+1 Cavernous Maw
+1 Cunning
+1 Dawnglare Invoker
+1 Day of Destiny
+1 Demystify
+1 Destroy Evil
+1 Drogskol Captain
+1 Eclipsed Realms
+1 Esper Cormorants
+1 Fae Flight
+1 Faerie Swarm
+1 Fatehold Chronologist
+1 Fomori Vault
 1 Gaelicat
-1 Glimmer Bairn
-1 Glittermonger
-1 Goldmeadow Lookout
-1 Green Scarab
-1 Harrier Griffin
-1 Hollow Trees
-1 Ivory Guardians
-1 Join the Ranks
-1 Jungle Basin
-1 Kishla Village
-1 Kithkin Mourncaller
-1 Knighthood
-1 Lance
-1 Llanowar Mentor
-1 Luminarch Ascension
-1 Luminous Broodmoth
-1 Manor Gate
-1 Mantle of Webs
-1 Memorial to Glory
-1 Minas Tirith
-1 Mtenda Griffin
-1 Mythic Proportions
-1 Nimbus Wings
-1 Ojer Kaslem, Deepest Growth
-1 Overgrown Armasaur
-9 Plains
-1 Primal Rage
-1 Release the Dogs
-1 Rushwood Grove
-1 Safewright Quest
-1 Sandstone Bridge
-1 Sapseep Forest
-1 Serra's Blessing
-1 Silken Strength
-1 Spore Crawler
-1 Steely Resolve
-1 Stonybrook Schoolmaster
-1 Tattoo Ward
-1 Temur Runemark
-1 Thaumatog
-1 Thelonite Monk
-1 Tireless Provisioner
-1 Trenching Steed
-1 Turntimber Grove
-1 Turtle Power!
-1 Uktabi Wildcats
-1 Undergrowth Leopard
-1 Unyaro Griffin
-1 White Scarab
-1 Whiteout
-1 Windbrisk Heights
-1 Windbrisk Raptor
-1 Wolfkin Bond
-1 Wolfwillow Haven
-1 Zanarkand, Ancient Metropolis
+1 Geist of the Archives
+1 Ghost Warden
+1 Ghostly Sentinel
+1 Glare of Heresy
+1 Glaring Aegis
+1 Godhead of Awe
+1 Great Wall
+1 Griffin Canyon
+1 Hover Barrier
+1 Illusory Wrappings
+10 Island
+1 Isolate
+1 Jhovall Queen
+1 Keening Apparition
+1 Kinsbaile Balloonist
+1 Lawbringer
+1 Lightbringer
+1 Lotus Vale
+1 Mantle of Leadership
+1 Mirrex
+1 Mists of Littjara
+1 Misty Rainforest
+1 Neck Snap
+1 Not on My Watch
+1 Opal Palace
+1 Peace and Quiet
+1 Phantasmal Mount
+15 Plains
+1 Planar Cleansing
+1 Quiet Purity
+1 Red Ward
+1 Reduce in Stature
+1 Ronom Unicorn
+1 Searing Light
+1 Seedpod Squire
+1 Shinechaser
+1 Soulbound Guardians
+1 Soulherder
+1 Soulsworn Jury
+1 Spectral Shield
+1 Talon Trooper
+1 Tightening Coils
+1 Treetop Sentinel
+1 Turtle Lair
+1 Twining Twins
+1 Unholy Citadel
+1 Vassal Soul
+1 Venerable Lammasu
+1 Vengeance
+1 Watermarket
+1 White Ward
+1 Wings of Hope
 
 [commander]
-Bast, Panther Goddess
+Tobias Andrion

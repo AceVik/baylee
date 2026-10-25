@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266152]
-1 Abbey Matron
-1 Abzan Kin-Guard
-1 Adanto Vanguard
-1 Almost Perfect
-1 An-Havva Constable
-1 Arctic Flats
-1 Arctic Treeline
-1 Armory Guard
-1 Auriok Bladewarden
-1 Austere Command
-1 Aysen Crusader
-1 Berserk
-1 Bountiful Promenade
-1 Brushland
-1 Burrenton Shield-Bearers
-1 Capashen Knight
-1 Capashen Templar
-1 Castle Raptors
-1 Cenn's Heir
-1 Charging Paladin
-1 Cloudreach Cavalry
-1 Conservatory
-1 Downdraft
-1 Drop of Honey
-1 Elder of Laurels
-1 Elemental Bond
-1 Emerald Charm
-1 Femeref Knight
-1 Final Showdown
-1 Folk of An-Havva
-11 Forest
-1 Gavony Township
-1 Griffin Rider
-1 Hardened Escort
-1 Honor Guard
-1 Hushwood Verge
-1 Icatian Priest
-1 Kithkin Daggerdare
-1 Kithkin Shielddare
-1 Knight of the Skyward Eye
-1 Knotvine Paladin
-1 Kor Scythemaster
-1 Loxodon Stalwart
-1 Mortal Wound
-1 Narcissism
-1 Nature's Revolt
-1 Order of Leitbur
-1 Paragon of Eternal Wilds
-1 People of the Woods
-1 Phantom General
-12 Plains
-1 Planar Cleansing
-1 Preacher
-1 Pterodon Knight
-1 Rashka the Slayer
-1 Restless Prairie
-1 Rhox Pikemaster
-1 Riftstone Portal
-1 Saryth, the Viper's Fang
-1 Scarwood Bandits
-1 Scattered Groves
-1 Selesnya Guildgate
-1 Selesnya Sanctuary
-1 Shield Mate
-1 Soltari Crusader
-1 Soltari Trooper
-1 Spawning Grounds
-1 Steadfast Cathar
-1 Sudden Strength
-1 Sungrass Prairie
-1 Temple of Plenty
-1 Thornglint Bridge
-1 Topan Ascetic
-1 Unflinching Courage
-1 Vitu-Ghazi, the City-Tree
-1 White Lotus Reinforcements
-1 White Shield Crusader
-1 Windurst, Federation Center
+[deck:commander midrange U #20266152]
+1 Aeronaut Tinkerer
+1 Air Marshal
+1 Amphin Pathmage
+1 Armored Galleon
+1 Avalanche Caller
+1 Balduvian Conjurer
+1 Balduvian Frostwaker
+1 Balduvian Shaman
+1 Balloon Peddler
+1 Benthic Giant
+1 Boulderborn Dragon
+1 Bouncing Beebles
+1 Brotherhood Spy
+1 Bubbling Beebles
+1 Capture Sphere
+1 Chain Stasis
+1 Chronatog
+1 Containment Protocol
+1 Contested War Zone
+1 Crafty Pathmage
+1 Dragonstorm Forecaster
+1 Dread Statuary
+1 Dream Fighter
+1 Drifter il-Dal
+1 Enchantment Alteration
+1 Freed from the Real
+1 Fugitive Wizard
+1 Glasspool Mimic
+1 Glimmerdust Nap
+1 Glintwing Invoker
+1 Homarid Warrior
+34 Island
+1 Jeskai Runemark
+1 Jhessian Lookout
+1 Keen Glidemaster
+1 Land Equilibrium
+1 Levitation
+1 Mystic Restraints
+1 Old Man of the Sea
+1 Opposition
+1 Passwall Adept
+1 Petrified Hamlet
+1 Red Cliffs Armada
+1 Retrieval Agent
+1 Rimewind Taskmage
+1 Secret Identity
+1 Sejiri Merfolk
+1 Serpent of the Endless Sea
+1 Silvergill Douser
+1 Sindbad
+1 Slimebind
+1 Steam Frigate
+1 Streambed Aquitects
+1 Talas Merchant
+1 Thalakos Deceiver
+1 Tocasia's Dig Site
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Trickster Mage
+1 Unholy Citadel
+1 Urza's Factory
+1 Wanderwine Distracter
+1 Water Wurm
+1 Wilderness Hypnotist
+1 Wu Infantry
+1 Wu Warship
 
 [commander]
-Jasmine Boreal
+Sakashima of a Thousand Faces

@@ -1,85 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBG #20266124]
-1 Alchemist's Apprentice
-1 Archivist
-1 Azami, Lady of Scrolls
-1 Azure Mage
-1 Barkchannel Pathway
-1 Bone to Ash
-1 Boon of the Wish-Giver
-1 Charge Through
-1 Contradict
-1 Creeping Tar Pit
-1 Cryptic Command
-1 Dimir Guildgate
-1 Elvenking's Halls
-1 Elvish Spirit Guide
-1 Erratic Visionary
-1 Ezio, Blade of Vengeance
-1 Facet Reader
-1 Failed Inspection
-1 Fallowsage
-1 Foggy Bottom Swamp
-1 Foreboding Landscape
-4 Forest
-1 Furtive Analyst
-1 Great Divide Guide
-1 Hapless Researcher
-1 Hermitic Herbalist
-1 Historian of Zhalfir
-1 Ice Tunnel
-1 Intrepid Stablemaster
-18 Island
-1 Locke Cole
-1 Lore Broker
-1 Magus of the Bazaar
-1 Mirkwood Meditator
-1 Murky Sewer
-1 Mystic Archaeologist
-1 Mystic Snake
-1 Neurok Commando
-1 Ohran Frostfang
-1 Open Communications
-1 Opulent Palace
-1 Overeager Apprentice
-1 Overgrown Tomb
-1 Prosperity
-1 Prying Eyes
-1 Pym Particles
-1 Reach Through Mists
-1 Research Assistant
-1 Sachi, Daughter of Seshiro
-1 Scatter Arc
-1 Sea Gate Loremaster
-1 Seafloor Oracle
-1 Shadow Rift
-1 Shadowmage Infiltrator
-1 Shipwreck Marsh
-1 Silundi Vision
-1 Slip Through Space
-1 Soothsayer Adept
-1 Soul Read
-1 Soulknife Spy
-1 Spock, Logical Choice
-1 Stealer of Secrets
-1 Suit Up
-1 Sultai Devotee
-1 Swamp
-1 Teferi's Protege
-1 Third Path Savant
-1 Thought Courier
-1 Time Spiral
-1 Titan's Grave
-1 Treasure Cruise
-1 Turntimber Symbiosis
-1 Urborg Elf
-1 Vernal Fen
-1 Wastewood Verge
-1 Watery Grave
-1 Weaver of Currents
-1 Yavimaya Coast
-1 Zagoth Triome
+[deck:commander midrange WG #20266124]
+1 Affa Guard Hound
+1 Arborea Pegasus
+1 Bastion Mastodon
+1 Behemoth Sledge
+1 Binding Mummy
+1 Branchloft Pathway
+1 Briarpack Alpha
+1 Brown Ouphe
+1 Captivating Unicorn
+1 Cave of the Frost Dragon
+1 Citadel Gate
+1 Collector Ouphe
+1 Conch Horn
+1 Conduit of Worlds
+1 Corrosive Gale
+1 Crisis of Conscience
+1 Dark Sphere
+1 Darksteel Ingot
+1 Darksteel Relic
+1 Daybreak Charger
+1 Dispatch
+1 Emmessi Tome
+1 Erase
+1 Fallow Wurm
+1 Fang Guardian
+1 Firdoch Core
+1 Fleetfoot Panther
+13 Forest
+1 Gavony Township
+1 Glyph of Reincarnation
+1 Grazing Gladehart
+1 Grove of the Guardian
+1 Guan Yu's 1,000-Li March
+1 Hushwood Verge
+1 Jeskai Barricade
+1 Kazandu Mammoth
+1 Kitchen Finks
+1 Kor Entanglers
+1 Makindi Ox
+1 Mana Prism
+1 Manhole Cover
+1 Matzalantli, the Great Door
+1 Neighborhood Guardian
+1 Ondu Greathorn
+1 Oxidize
+1 Patriar's Seal
+12 Plains
+1 Plated Crusher
+1 Ranger's Longbow
+1 Riftstone Portal
+1 Rimefur Reindeer
+1 Ring of Renewal
+1 Rogue's Gloves
+1 Ronom Unicorn
+1 Rustspore Ram
+1 Saltcrusted Steppe
+1 Savannah
+1 Scarab of the Unseen
+1 Shifting Woodland
+1 Shimmering Barrier
+1 Snapping Creeper
+1 Spare Supplies
+1 Sparring Mummy
+1 Springmane Cervin
+1 Standing Stones
+1 Tangle Hulk
+1 Temple Garden
+1 Teyo's Lightshield
+1 Thundering Wurm
+1 Titania's Song
+1 Tranquil Garden
+1 Treeguard Duo
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Wall of Tanglecord
+1 Wooded Bastion
 
 [commander]
-Leovold, Emissary of Trest
+Emiel the Blessed

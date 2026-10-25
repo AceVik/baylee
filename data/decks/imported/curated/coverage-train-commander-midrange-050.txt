@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BG #20266051]
-1 Acidic Dagger
-1 Asphyxiate
-1 Attended Socialite
-1 Bayou
-1 Beast-Kin Ranger
-1 Bloodcurdling Scream
-1 Carrionette
-1 Cat Warriors
-1 Crossroads Watcher
-1 Darkbore Pathway
-1 Darkmoss Bridge
-1 Defenestrate
-1 Eden, Seat of the Sanctum
-1 Elegant Entourage
-1 Elite Cat Warrior
-1 Elvish Berserker
-1 Elvish Scout
-1 Embraal Bruiser
-1 Extinguish All Hope
-1 Fang Guardian
-1 Fleshgrafter
-13 Forest
-1 Gallifrey Council Chamber
-1 Gauntlets of Chaos
-1 Giltgrove Stalker
-1 Golgothian Sylex
-1 Greenhilt Trainee
-1 Grizzled Outrider
-1 Hand of Silumgar
-1 Harrier Naga
-1 Highborn Vampire
-1 Hissing Quagmire
-1 Hungry Spriggan
-1 Iron-Shield Elf
-1 Loporrit Scout
-1 Lothlórien Lookout
-1 Lounge
-1 Malamet Brawler
-1 Mana Confluence
-1 Mass of Ghouls
-1 Mirkwood
-1 Mirkwood Channeler
-1 Mirkwood Pathmaker
-1 Mystic Compass
-1 Nacatl Savage
-1 Oxidize
-1 Panther Warriors
-1 Paragon of Open Graves
-1 Pheres-Band Warchief
-1 Pine Barrens
-1 Prakhata Club Security
-1 Primaris Eliminator
-1 Ranger's Longbow
-1 Raven Wings
-1 Restless Cottage
-1 Savaen Elves
-1 Scattershot Archer
-1 Simian Brawler
-1 Skull Collector
-1 Strangled Cemetery
-10 Swamp
-1 Tajuru Pathwarden
-1 Their Name Is Death
-1 Thran Weaponry
-1 Timber Protector
-1 Titan's Grave
-1 Tower of Champions
-1 Treetop Warden
-1 Undergrowth Stadium
-1 Vernal Fen
-1 Viridian Zealot
-1 Warren-Scourge Elf
-1 Wasteland Scorpion
-1 Wild Nacatl
-1 Wing Snare
-1 Wit's End
-1 Witherbloom Campus
-1 Woodland Chasm
+[deck:commander midrange R #20266051]
+1 Aliban's Tower
+1 An-Zerrin Ruins
+1 Antagonize
+1 Backdraft
+1 Barreling Attack
+1 Base Camp
+1 Blazing Volley
+1 Bloodcrusher of Khorne
+1 Boggart Sprite-Chaser
+1 Boil
+1 Boiling Seas
+1 Bull Rush
+1 Canyon Drake
+1 Chaotic Goo
+1 Crookshank Kobolds
+1 Desert Drake
+1 Dwarven Song
+1 Falter
+1 Feint
+1 Fervent Strike
+1 Field of the Dead
+1 Fighting Chance
+1 Fire Ants
+1 Fire Drake
+1 Flame Spirit
+1 Flame-Chain Mauler
+1 Flashfires
+1 Flowstone Wyvern
+1 Furious Resistance
+1 Goblin Cavaliers
+1 Goblin Flotilla
+1 Granite Gargoyle
+1 Hivis of the Scale
+1 Hurly-Burly
+1 Igneous Cur
+1 Komodo Rhino
+1 Lava Storm
+1 Meltdown
+1 Mirage Mesa
+1 Mirrorpool
+1 Mogg Squad
+1 Monster Mashup
+34 Mountain
+1 Power Depot
+1 Precise Strike
+1 Quaketusk Boar
+1 Rampaging Classmate
+1 Resistance Skywarden
+1 Rig for War
+1 Roc of Kher Ridges
+1 Rocky Tar Pit
+1 Screaming Fury
+1 Seismic Shudder
+1 Shatterstorm
+1 Sigiled Skink
+1 Smaug's Fury
+1 Stampede Rider
+1 Storm's Wrath
+1 Toxic Iguanar
+1 Uncanny Speed
+1 Viashino Outrider
+1 Viashino Spearhunter
+1 Viashino Weaponsmith
+1 Vug Lizard
+1 Wayward Giant
+1 Whirling Strike
 
 [commander]
-Vhati il-Dal
+Scarlet Witch, Wanda Maximoff

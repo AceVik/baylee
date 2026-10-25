@@ -1,82 +1,80 @@
 # baylee curated highlander midrange seed=20261051
 # licence: AGPL-3.0-only
 [deck:highlander midrange WU #20261051]
-1 Allied Teamwork
-1 Arahbo, the First Fang
-1 Arcbound Ravager
-1 Archon of Sun's Grace
-1 Avacyn's Collar
-1 Bishop of Wings
-1 Blade Splicer
-1 Captain of the Watch
-1 Cartouche of Solidarity
+1 Aang's Defense
+1 Adarkar Wastes
+1 Artificer's Intuition
+1 Aven Wind Mage
+1 Calciform Pools
+1 Censor
 1 Cloudcrest Lake
-1 Corsair Captain
-1 Diamond Kaleidoscope
-1 Doomed Traveler
-1 Dowsing Dagger
-1 Drowner of Hope
-1 Dwarven Castle Guard
-1 Elgaud Inquisitor
-1 Elspeth, Storm Slayer
-1 Field of Souls
-1 Filigree Crawler
-1 Gilded Pinions
-1 Glacial Floodplain
-1 Gleaming Barrier
-1 Gleaming Bastion
-1 Gold Pan
-1 Goldvein Pick
-1 Griffin Guide
+1 Deduce
+1 Disrupt
+1 Dragon Bell Monk
+1 Drowner Initiate
+1 Elementalist Adept
+1 Equilibrium
+1 Etherium Spinner
+1 Falcon, Winged Wonder
+1 Fleeting Distraction
+1 Forced Fruition
+1 Fortified Beachhead
 1 Hallowed Fountain
-1 Hanna, Ship's Navigator
-1 Haunted Library
-1 Homarid Spawning Bed
-1 Hunted Witness
-1 Irrigated Farmland
-4 Island
-1 Knight of Doves
-1 Knight-Captain of Eos
-1 Magnifying Glass
-1 Martyr of Dusk
-1 Master Splicer
-1 Master Trinketeer
-1 Mausoleum Guard
-1 Mobilization
+1 Hengegate Pathway
+1 Hesitation
+1 Horizon Seed
+1 Iceberg
+1 In the Eye of Chaos
+1 Insight
+1 Invoke Prejudice
+21 Island
+1 Jeskai Sage
+1 Jeskai Student
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
+1 Kulrath Mystic
+1 Land Cap
+1 Lightshield Parry
+1 Lunar Mystic
+1 Mana Breach
+1 Mistfire Adept
+1 Monastery Mentor
 1 Moorland Haunt
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
+1 Murmuring Mystic
+1 Myrsmith
+1 Mystic Gate
 1 Nimbus Maze
-1 Norn's Wellspring
-1 North Pole Gates
-1 Ojer Taq, Deepest Foundation
-1 Pentavus
-19 Plains
-1 Port Town
+1 Numbing Dose
+1 Opal Archangel
+1 Opal Caryatid
+1 Opal Champion
+1 Personal Incarnation
+4 Plains
+1 Power Taint
 1 Prahv, Spires of Order
-1 Prying Blade
-1 Razortide Bridge
-1 Regal Caracal
-1 Retrofitter Foundry
-1 S.H.I.E.L.D. Deployment Drone
-1 Sea of Clouds
-1 Sensor Splicer
-1 Sharlayan, Nation of Scholars
-1 Siege Veteran
-1 Skullclamp
-1 Skybridge Towers
-1 Slayer's Plate
-1 Spawning Pit
-1 Squire's Devotion
-1 Study
-1 Sylvok Lifestaff
-1 Temple of Enlightenment
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Titan Forge
-1 Trading Post
-1 Tranquil Cove
-1 Treasure Map
-1 Wand of the Elements
-1 Wing Splicer
+1 Presence of the Master
+1 Reflections of Littjara
+1 Royal Decree
+1 Sacred Mesa
+1 Sejiri Refuge
+1 Sire of the Storm
+1 Stormkeld Prowler
+1 Storyteller Pixie
+1 Student of Ojutai
+1 Talisman of Progress
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Thalakos Lowlands
+1 The Mechanist, Aerial Artisan
+1 Thistledown Duo
+1 Tidespout Tyrant
+1 Trail of Evidence
+1 Tundra
+1 Unifying Theory
+1 Vedalken Archmage
+1 Veil of Birds
+1 Veiled Sentry
+1 Wanderwine Hub
+1 Warmth
+1 Whirlwind Adept
+1 Worthy Knight

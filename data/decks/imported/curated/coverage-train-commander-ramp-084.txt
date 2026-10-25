@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266085]
+1 Accelerate
+1 Avaricious Dragon
+1 Black Waltz No. 3
+1 Blood-Toll Harpy
+1 Boltwing Marauder
+1 Brand
+1 Bria, Riptide Rogue
+1 Bubbling Muck
+1 Clairvoyance
+1 Control of the Court
+1 Dragon Mage
+1 Dragonskull Summit
+1 Ebon Dragon
+1 Ebon Praetor
+1 Electrostatic Infantry
+1 Expedite
+1 Falkenrath Celebrants
+1 Fetid Pools
+1 Firestorm Hellkite
+1 Frost Marsh
+1 Frostboil Snarl
+1 Geothermal Bog
+1 Goblin Lore
+1 Goldhound
+1 Hell's Kitchen
+1 Icewind Elemental
+1 Illvoi Galeblade
+10 Island
+1 Karn, the Great Creator
+1 Kazarov, Sengir Pureblood
+1 Lava Serpent
+1 Lavaclaw Reaches
+1 Locust Spray
+1 Machinesmith Automaton
+1 Mage's Guile
+1 Merchant Scroll
+1 Mesmeric Trance
+1 Mm'menon, Uthros Exile
+10 Mountain
+1 Nirkana Revenant
+1 Open Communications
+1 Oppression
+1 Pyretic Ritual
+1 Rabid Bloodsucker
+1 Raking Claws
+1 Rathi Dragon
+1 Reshape
+1 Restless Vents
+1 Rite of Flame
+1 Serpent's Pass
+1 Shadow Rift
+1 Shivan Hellkite
+1 Silverbluff Bridge
+1 Sprite Dragon
+1 Stark Industries
+1 Stormchaser Mage
+1 Stun
+1 Sugar Rush
+1 Surtland Frostpyre
+6 Swamp
+1 Taurean Mauler
+1 Tempest Angler
+1 Temple of Deceit
+1 Thief of Blood
+1 Thunder Dragon
+1 Thundermaw Hellkite
+1 Tibor and Lumia
+1 Tramway Station
+1 Trapmaker's Snare
+1 Umara Raptor
+1 Undercity Sewers
+1 Updraft
+1 Vision Skeins
+1 Wandering Fumarole
+1 Winds of Change
+1 Without Weakness
+
+[commander]
+Nicol Bolas

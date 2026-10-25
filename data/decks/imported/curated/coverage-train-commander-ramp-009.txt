@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp BRG #20266010]
-1 Arena of Glory
-1 Ba Sing Se
-1 Beastcaller Savant
-1 Birgi, God of Storytelling
-1 Bloom Tender
-1 Bog Wreckage
-1 Canopy Tactician
-1 Charge Through
-1 Charnelhoard Wurm
-1 Chocobo Camp
-1 Circle of Dreams Druid
-1 Cruel Truths
-1 Crypt of Agadeem
-1 Daring Escape
-1 Deathrite Shaman
-1 Demon's Due
-1 Dread Rider
-1 Dwarven Hold
-1 Earthshaker
-1 Elvish Clancaller
-1 Elvish Spirit Guide
+1 Adun Oakenshield
+1 Akki Avalanchers
+1 Akki Raider
+1 Appendage Amalgam
+1 Blood Petal Celebrant
+1 Cabal Pit
+1 Carapace
+1 Cateran Overlord
+1 Cateran Slaver
+1 Cha'DIch Investigator
+1 Cliffgate
+1 Corrupted Harvester
+1 Crypt Angel
+1 Death's Duet
+1 Diamond Kaleidoscope
+1 Doomed Necromancer
+1 Dragon's Herald
+1 Dread of Night
+1 Earthlink
+1 Elvish Doomsayer
 1 Everglades
-1 Expedite
-1 Fauna Shaman
-8 Forest
-1 Frenzied Devils
-1 Frontier Guide
-1 Furious Bellow
-1 Fyndhorn Elder
+9 Forest
+1 Foul Roads
 1 Gingerbread Cabin
-1 Hammerfist Giant
+1 Glacial Crevasses
+1 Gnathosaur
+1 Goblin Assault
+1 Goblin Masons
+1 Goblin Wizardry
+1 Graveshifter
+1 Hell's Caretaker
+1 Hellkite Overlord
 1 Hidden Nursery
-1 Inordinate Rage
+1 Horror of Horrors
+1 Ignoble Hierarch
 1 Jaya's Firenado
-1 Jungle Weaver
-1 Kami of the Waning Moon
-1 Kindled Heroism
-1 Lapis Lazuli Talisman
-1 Leering Emblem
-1 Lifespring Druid
-1 Lightning Visionary
-1 Locust Spray
+1 Jewel-Eyed Cobra
+1 Junktown
+1 Karn, the Great Creator
+1 Kher Keep
+1 Kiki-Jiki, Mirror Breaker
+1 Koma's Faithful
+1 Loam Dryad
 1 Lose Hope
-1 Madblind Mountain
-1 Mage-Ring Bully
-1 Magmatic Force
-1 Malachite Talisman
-1 Malakir Soothsayer
-1 Marhault Elsdragon
-1 Memorial to Unity
 1 Minion of Tevesh Szat
-1 Mirkwood
-1 Moonglove Extractor
-1 Morselhoarder
-8 Mountain
-1 Nacre Talisman
-1 Nimble-Blade Khenra
-1 Nirkana Revenant
-1 Oppression
-1 Ore Gorger
-1 Phyrexian Fleshgorger
-1 Piranha Marsh
-1 Playful Shove
-1 Primordial Sage
-1 Professor Dellian Fel
-1 Putrefaction
-1 Rofellos, Llanowar Emissary
-1 Sandstone Needle
-1 Silhana Starfletcher
-1 Skittering Monstrosity
-1 Spinerock Knoll
-1 Stun
-1 Susur Secundi, Void Altar
+1 Mirri's Guile
+1 Mortuary
+9 Mountain
+1 Oxidda Daredevil
+1 Pharika's Mender
+1 Raiding Party
+1 Ravaged Highlands
+1 Razaketh, the Foulblooded
+1 Rock Basilisk
+1 Rockface Village
+1 Rubble Reading
+1 Sachi, Daughter of Seshiro
+1 Scouring Sands
+1 Slobad, Goblin Tinkerer
+1 Splatter Goblin
+1 Sustenance
 8 Swamp
-1 Talisman of Resilience
-1 Thriving Grove
-1 Titan's Strength
+1 Sylvan Anthem
+1 Takenuma, Abandoned Mire
+1 The Hunter Maze
+1 Tsabo Tavoc
+1 Twists and Turns
+1 Valakut, the Molten Pinnacle
 1 Vivid Marsh
+1 Warteye Witch
+1 Whiteout
+1 Wildwood Rebirth
+1 Witch's Cottage
+1 Woodwraith Corrupter
+1 Wort, Boggart Auntie
+1 Ziatora's Proving Ground
 
 [commander]
 Bartel Runeaxe

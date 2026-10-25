@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266035]
+1 Balm of Restoration
+1 Banehound
+1 Basalt Monolith
+1 Basilisk Gate
+1 Bogstomper
+1 Brightblade Stoat
+1 Captivating Cave
+1 Celestial Prism
+1 Charity Extractor
+1 Clockwork Drawbridge
+1 Collar the Culprit
+1 Darklit Gargoyle
+1 Desperate Lunge
+1 Dross Ripper
+1 Escape Tunnel
+1 Foundry of the Consuls
+1 Gemstone Caverns
+1 Glint Hawk Idol
+1 Great Hall of the Biblioplex
+1 Grollub
+1 Guan Yu's 1,000-Li March
+1 Guardian Beast
+1 Helm of Awakening
+1 Henge of Ramos
+1 Indestructible Aura
+1 Instant Ramen
+1 Jade Idol
+1 Kezzerdrix
+1 Lapis Lazuli Talisman
+1 Leonin Abunas
+1 Life Chisel
+1 Malachite Talisman
+1 Matzalantli, the Great Door
+1 Mishra's War Machine
+1 Mistmeadow Skulk
+1 Moment of Valor
+1 Monoist Sentry
+1 Moonrise Cleric
+1 Nip Gwyllion
+1 Onyx Talisman
+14 Plains
+1 Planar Bridge
+1 Prideful Feastling
+1 Reign of Terror
+1 Reverse Polarity
+1 Scepter of Dominance
+1 Scrapheap
+1 Scrounger of Souls
+1 Scrying Sheets
+1 Sea Gate Wreckage
+1 Shifting Wall
+1 Shire Terrace
+1 Sickbay Orderly
+1 Silent Dart
+1 Snow Fortress
+1 Soldevi Steam Beast
+1 Songbird, Sonic Screamer
+1 Spawning Bed
+1 Spire of Industry
+1 Staff of Domination
+1 Standing Stones
+1 Steadfast Paladin
+11 Swamp
+1 Tanglebloom
+1 The Mycosynth Gardens
+1 Thirsting Shade
+1 Three Tree Mascot
+1 Tower of Eons
+1 Urborg Stalker
+1 Utter End
+1 Vampire Envoy
+1 Veil of Assimilation
+1 Villainous Hideout
+1 Vizkopa Vampire
+1 War Room
+1 Well of Knowledge
+
+[commander]
+Vona, Butcher of Magan

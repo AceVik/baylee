@@ -1,83 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266032]
-1 Ally Encampment
-1 Architects of Will
-1 Arguel's Blood Fast
-1 Bigfin Bouncer
-1 Blessing of Leeches
-1 Brutal Nightstalker
-1 Burglar Rat
-1 Caustic Crawler
-1 Cavern of Souls
-1 Contaminated Ground
-1 Convincing Mirage
-1 Cryptic Caves
-1 Dakmor Lancer
-1 Darkest Hour
-1 Dire Undercurrents
-1 Dispersal Technician
+[deck:commander ramp BR #20266032]
+1 Arcane Lighthouse
+1 Arid Mesa
+1 Ashiok's Reaper
+1 Aspect of Manticore
+1 Balthor the Stout
+1 Bloodfire Dwarf
+1 Bloodshed Fever
+1 Boldwyr Aggressor
+1 Boris Devilboon
+1 Cabaretti Courtyard
+1 Captain's Tutelage
+1 Caustic Rain
+1 Cave Sense
+1 Chaosphere
+1 Clinging Darkness
+1 Crown of Flames
+1 Curse of Marit Lage
+1 Cyclops of Eternal Fury
+1 Demolition Field
 1 Dragon-Cursed Halls
-1 Dreadwurm
-1 Dream Coat
-1 Dream Stalker
-1 Earsplitting Rats
-1 Eclipsed Realms
-1 Field of Dreams
-1 Flood
-1 Gate to Phyrexia
-1 Ghost Town
-1 Great Hall of the Biblioplex
-1 Hecatomb
-1 Hecteyes
-1 Homeward Path
-1 Hydroelectric Specimen
-1 Ice Over
-1 Iceberg Cancrix
-1 Iceridge Serpent
-1 Imprison
-9 Island
-1 Krovikan Fetish
-1 Labyrinth of Skophos
-1 Micromancer
-1 Mind Whip
-1 Mirkwood Meditator
+1 Dralnu's Crusade
+1 Epiphany Storm
+1 Evil Eye of Orms-by-Gore
+1 Ferocity of the Wilds
+1 Fire Nation's Conquest
+1 Firebreathing
+1 Flaming Sword
+1 Flowstone Surge
+1 Frenzied Rage
+1 Furious Strength
+1 Goblin Caves
+1 Goblin Oriflamme
+1 Goblin War Paint
+1 Hall of Oracles
+1 Heap Gate
+1 Impending Disaster
+1 Irini Sengir
+1 Kaervek, the Spiteful
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Kobolds of Kher Keep
+1 Lightning Talons
+1 Mahadi, Emporium Master
+17 Mountain
 1 Muraganda Raceway
-1 Oblivion Crown
-1 Orc Sureshot
-1 Parasitic Bond
-1 Pithing Needle
-1 Plasmancer
-1 Pondering Mage
-1 Psychic Symbiont
-1 Ramirez DePietro
-1 Rampart Hunter
-1 Scalding Tarn
-1 Screams of the Damned
-1 Sea Gate Wreckage
-1 Sea's Claim
-1 Secluded Starforge
-1 Seizures
-1 Shadowmage Infiltrator
-1 Shire Terrace
-1 Sleep Magic
-1 Spellseeker
-1 Spined Fluke
-1 Stasis
-1 Storm of Saruman
-1 Stromgald Cabal
-15 Swamp
-1 Tainted Well
-1 Tarnished Citadel
-1 Tectonic Edge
-1 Theorist's Proxy
-1 Tidal Flats
-1 Trenchpost
-1 Unstable Frontier
-1 Unstable Shapeshifter
-1 Vanishing
-1 Vault Plunderer
-1 Vermiculos
+1 Night of Souls' Betrayal
+1 Nyxborn Brute
+1 Paragon of Fierce Defiance
+1 Paragon of Open Graves
+1 Plaza of Harmony
+1 Power Boost
+1 Promising Vein
+1 Rising of the Day
+1 School of the Unseen
+1 Siege Modification
+1 Spirit of the Night
+1 Spiteful Motives
+1 Spitting Sliver
+1 Stromkirk Captain
+1 Stronghold Taskmaster
+9 Swamp
+1 Swashbuckling
+1 Throatseeker
+1 Tin Street Market
+1 Total War
+1 Tower of the Magistrate
+1 Tresserhorn Sinks
+1 Tyrite Sanctum
+1 Unknown Shores
+1 Urborg Panther
+1 Vault Robber
+1 Veteran's Voice
+1 Voldaren Stinger
+1 Wooded Foothills
 
 [commander]
-Doc Ock, Evil Inventor
+Rohgahh of Kher Keep

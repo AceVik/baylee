@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266055]
+1 Advanced Hoverguard
+1 Amnesia
+1 Annex
+1 Aura Thief
+1 Back to Basics
+1 Beyeen Veil
+1 Bounce Off
+1 Breezekeeper
+1 Chain Stasis
+1 Chase Inspiration
+1 Cloaked Siren
+1 Cloud Manta
+1 Cloudsculpt Technician
+1 Coastal Hornclaw
+1 Copy Land
+1 Coral Eel
+1 Cyclonic Rift
+1 Dampening Pulse
+1 Dream Prowler
+1 Dreamwinder
+1 Escape Routes
+1 Eye of Nowhere
+1 Fighting Drake
+1 Flying Dolphin-Fish
+1 Freed from the Real
+1 Fylamarid
+1 Hall of Storm Giants
+1 Hoverguard Observer
+1 Imaginary Pet
+1 Infiltrate
+34 Island
+1 Krovikan Mist
+1 Lonely Sandbar
+1 Manta Ray
+1 Metathran Transport
+1 Minamo, School at Water's Edge
+1 Mistrise Village
+1 Murmuring Phantasm
+1 Old Man of the Sea
+1 Pulsating Illusion
+1 Rescue
+1 Rhystic Deluge
+1 Riptide
+1 School of Piranha
+1 Sea Spirit
+1 Second Wind
+1 Serra Sphinx
+1 Serum Raker
+1 Shimmer
+1 Soldevi Excavations
+1 Starlight Snare
+1 Stratozeppelid
+1 Sunder
+1 Telekinesis
+1 Thalakos Mistfolk
+1 Thirst
+1 Thriving Isle
+1 Thunder Wall
+1 Undertow
+1 Veiled Crocodile
+1 Walking Dream
+1 Wandering Ones
+1 Water Wings
+1 Word of Undoing
+1 You Come to a River
+1 You See a Guard Approach
+
+[commander]
+Yargle, Goliath of Otaria

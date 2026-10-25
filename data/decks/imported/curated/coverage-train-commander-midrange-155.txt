@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BG #20266156]
-1 Angelic Armaments
-1 Asphyxiate
-1 Assassin's Strike
-1 Battle Brawler
-1 Bayou
-1 Bloodcurdling Scream
-1 Blooming Marsh
-1 Boggart Loggers
-1 Brawler's Plate
-1 Champion's Helm
-1 Charging Bandits
-1 Chitinous Cloak
-1 Defenestrate
-1 Devkarin Dissident
-1 Dhund Operative
-1 Dragon Mask
-1 Druid of the Spade
-1 Elvish Berserker
-1 Elvish Scout
-1 Embraal Bruiser
-1 Ensouled Scimitar
-1 Erstwhile Trooper
-1 Feral Roar
-1 Fleshgrafter
-11 Forest
-1 Foul Orchard
-1 Gohn, Town of Ruin
-1 Gravblade Heavy
-1 Greenhilt Trainee
-1 Grim Backwoods
-1 Hunger of the Nim
-1 Illegitimate Business
-1 Iridescent Blademaster
-1 Jungle Hollow
-1 Kaysa
-1 Kraul Warrior
-1 Llanowar Wastes
-1 Lounge
-1 Lys Alana Scarblade
-1 Mask of Avacyn
-1 Masked Blackguard
-1 Mirkwood Channeler
-1 Mirkwood Pathmaker
-1 Monstrous Growth
-1 Mystic Compass
-1 Nantuko Mentor
-1 Nezumi Shadow-Watcher
-1 Nuclear Fallout
-1 Ogre's Cleaver
-1 Power Armor
-1 Primaris Eliminator
-1 Ranger's Longbow
-1 Ritual of the Machine
-1 Sarkhan's Resolve
-1 Scarblade Elite
-1 Scarred Vinebreeder
-1 Scattershot Archer
-1 Shield of Kaldra
-1 Simian Brawler
-1 Skemfar Elderhall
-1 Strider Harness
-1 Subterranean Cavern
-1 Svogthos, the Restless Tomb
-12 Swamp
-1 Tainted Wood
-1 Temple of Malady
-1 Tenza, Godo's Maul
-1 Thran Weaponry
-1 Timber Protector
-1 Titan's Grave
-1 Tower of Champions
-1 Turbulent Fen
-1 Vile Deacon
-1 Viridescent Bog
-1 Viridian Lorebearers
-1 Wei Ambush Force
-1 Wild Nacatl
-1 Wildheart Invoker
+[deck:commander midrange R #20266156]
+1 About Face
+1 Arc Runner
+1 Arena
+1 Assault Strobe
+1 Belligerent Whiptail
+1 Bloodcrusher of Khorne
+1 Branch of Vitu-Ghazi
+1 Chaoslace
+1 Crazed Goblin
+1 Enslaved Scout
+1 Escape Tunnel
+1 Esper Panorama
+1 Falter
+1 Flameborn Viron
+1 Flowstone Infusion
+1 Geyser Glider
+1 Goblin Berserker
+1 Goblin Bird-Grabber
+1 Goblin Bully
+1 Goblin Cadets
+1 Goblin Hero
+1 Goblin Lackey
+1 Goblin Mountaineer
+1 Goblin Patrol
+1 Goblin Striker
+1 Goblins of the Flarg
+1 Gods' Eye, Gate to the Reikai
+1 Hair-Strung Koto
+1 Hulking Bugbear
+1 Iron Giant
+1 Komodo Rhino
+1 Lagac Lizard
+1 Lathnu Sailback
+1 Lizard Warrior
+1 Mizzix's Mastery
+34 Mountain
+1 Nimble Birdsticker
+1 Ogre Berserker
+1 Pygmy Pyrosaur
+1 Quaketusk Boar
+1 Raging Minotaur
+1 Raging Redcap
+1 Ravenous Bloodseeker
+1 Regathan Firecat
+1 Riot Piker
+1 Rubblebelt Boar
+1 Rubblebelt Recluse
+1 Salivating Gremlins
+1 Scoria Elemental
+1 Sigiled Skink
+1 Slavering Nulls
+1 Sneaking Guide
+1 Stone Spirit
+1 Swab Goblin
+1 The Tabernacle at Pendrell Vale
+1 Unnatural Speed
+1 Valakut Predator
+1 Viashino Bladescout
+1 Viashino Outrider
+1 Viashino Runner
+1 Viashino Sandscout
+1 Viashino Sandswimmer
+1 Viashino Slasher
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Vug Lizard
 
 [commander]
-Vhati il-Dal
+Quicksilver, Pietro Maximoff

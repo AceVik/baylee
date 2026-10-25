@@ -1,71 +1,69 @@
 # baylee curated highlander ramp seed=20261081
 # licence: AGPL-3.0-only
 [deck:highlander ramp G #20261081]
-1 Arcane Spyglass
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Blighted Woodland
+1 Audacity
+1 Awaken the Woods
+1 Bequeathal
 1 Blisterpod
 1 Boseiju, Who Endures
 1 Brood Monitor
 1 Byway Courier
+1 Carnivorous Moss-Beast
 1 Centaur Garden
-1 Diamond Kaleidoscope
+1 Centaur's Herald
+1 Confront the Unknown
+1 Decomposition
+1 Destructor Dragon
 1 Doubling Season
-1 Dowsing Dagger
-1 Dryad Arbor
+1 Elderleaf Mentor
 1 Elephant Guide
-1 Elvish Farmer
-1 Enatu Golem
+1 Elfsworn Giant
+1 Elvish Clancaller
+1 Elvish Skysweeper
 1 Enduring Vitality
-1 Filigree Crawler
-33 Forest
-1 Gilded Goose
-1 Gilded Pinions
-1 Gleaming Barrier
-1 Glimmerlight
-1 Gold Pan
-1 Goldvein Pick
-1 Guardian of Cloverdell
+1 Evolution Charm
+1 Fanatic of Rhonas
+1 Fell the Pheasant
+1 Fists of Ironwood
+1 Font of Fertility
+35 Forest
+1 Fortitude
+1 From Beyond
+1 Glittermonger
+1 Greensleeves, Maro-Sorcerer
 1 Hashep Oasis
 1 Heart of Yavimaya
 1 Hornet Queen
+1 Howling Giant
+1 Hundroog
+1 Imperious Perfect
+1 Kozilek's Predator
+1 Lumra, Bellow of the Woods
+1 Luxurious Libation
 1 Mantle of the Wolf
 1 Maul Splicer
 1 Midsummer Revel
 1 Most Wanted
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
+1 Night Soil
 1 Oakhollow Village
+1 Ojer Kaslem, Deepest Growth
+1 Okina, Temple to the Grandfathers
 1 Orochi Hatchery
-1 Path of Annihilation
+1 Paleoloth
+1 Paradise Druid
 1 Pelakka Wurm
-1 Pentavus
-1 Primeval Bounty
-1 Prying Blade
+1 Portcullis Vine
+1 Professor of Zoomancy
 1 Rampaging Baloths
-1 Retrofitter Foundry
-1 Serpent Generator
-1 Skullclamp
-1 Slayer's Plate
-1 Spawning Pit
-1 Stoic Builder
-1 Sylvok Lifestaff
-1 Thallid
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Thragtusk
-1 Thundering Spineback
-1 Titania, Protector of Argoth
-1 Trading Post
-1 Treasure Map
-1 Tree of Tales
-1 Triskelavus
+1 Rancor
+1 Return from the Wilds
+1 Root Out
+1 Spore Swarm
+1 Spreading Algae
+1 They Went This Way
 1 Turntimber Ranger
-1 Wand of the Elements
-1 Wirewood Lodge
+1 Verdant Force
+1 Wolfkin Bond
+1 Wolfwillow Haven
 1 Wurmweaver Coil
-1 Zuran Orb
+1 Yavimaya Hollow

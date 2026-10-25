@@ -1,84 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WU #20266049]
-1 Angelic Edict
-1 Arborea Pegasus
-1 Avengers Hangar
-1 Avishkar Raceway
-1 Blade Banish
-1 Blessed Light
-1 Bribery
-1 Celestial Colonnade
-1 Celestial Purge
-1 Cleansing Ray
-1 Collar the Culprit
-1 Collision Course
-1 Coordinated Maneuver
-1 Cosmium Blast
-1 Crystal Grotto
-1 Dark Maze
-1 Demystify
-1 Deputy of Acquittals
-1 Deserted Beach
-1 Destroy Evil
-1 Dispatch
-1 Drogskol Captain
-1 Eldrazi Devastator
+[deck:commander midrange G #20266049]
+1 Aegis of the Meek
+1 Agatha's Soul Cauldron
+1 Arcum's Whistle
+1 Argothian Swine
+1 Basilisk Collar
+1 Birthing Boughs
+1 Brass-Talon Chimera
+1 Chimeric Sphere
+1 City in a Bottle
+1 Coastal Bulwark
+1 Colossadactyl
+1 Consulate Skygate
+1 Coretapper
+1 Crossroads Village
+1 Darksteel Forge
+1 Devil Dinosaur
+1 Draconian Cylix
+1 Dungeon Descent
 1 Elven Lyre
-1 Emeritus of Ideation
-1 Farewell
-1 Fragmentize
-1 Gale Swooper
-1 Gates of Istfell
-1 Ghostly Sentinel
-1 Glare of Heresy
-1 Harbor Guardian
-1 Hover Barrier
-6 Island
-1 Isolate
-1 Jeskai Barricade
-1 Jhovall Queen
-1 Keening Apparition
-1 Land Cap
-1 Lawbringer
-1 Lightbringer
-1 Lonely Arroyo
-1 Medicine Bag
-1 Mikokoro, Center of the Sea
-1 Moment of Valor
-1 Neck Snap
-1 Nephalia Academy
-1 Niblis of the Breath
-1 Not on My Watch
-1 Peace and Quiet
-1 Petrified Field
-17 Plains
-1 Prismatic Ending
-1 Quiet Purity
-1 Rakalite
-1 Repel Calamity
-1 Riptide Crab
-1 Ronom Unicorn
-1 Rumble Arena
-1 Samite Archer
-1 Seachrome Coast
-1 Searing Light
-1 Shimmering Barrier
-1 Skycloud Expanse
-1 Soulherder
-1 Sunweb
-1 Talas Air Ship
-1 The Monumental Facade
-1 Thunder Wall
-1 Tolarian Sentinel
-1 Troublesome Spirit
-1 Tundra
-1 Vassal Soul
-1 Vengeance
-1 Vodalian War Machine
-1 Wanderlight Spirit
-1 War Room
-1 Warded Battlements
+1 Excavated Wall
+1 Flailing Drake
+1 Flowstone Sculpture
+34 Forest
+1 Game-Trail Changeling
+1 Gold-Forged Sentinel
+1 Hall of the Bandit Lord
+1 Hippo-Cows
+1 Horrible Hordes
+1 Imi Statue
+1 Iron-Heart Chimera
+1 Lead-Belly Chimera
+1 Leonin Bladetrap
+1 Life Matrix
+1 Living Armor
+1 Lux Cannon
+1 Magistrate's Scepter
+1 Maze's End
+1 Mogg Cannon
+1 Moss Kami
+1 Mountain Valley
+1 Myr Landshaper
+1 Myr Scrapling
+1 Narnam Cobra
+1 Necropolis
+1 Null Rod
+1 Omega Myr
+1 Pacification Array
+1 Peregrine Mask
+1 Predator, Flagship
+1 Prowler's Helm
+1 Reinforced Bulwark
+1 Roterothopter
+1 Runed Arch
+1 Sanctuary Raptor
+1 Spellbook
+1 Sphere of Resistance
+1 Spidersilk Net
+1 Teeka's Dragon
+1 Thumbscrews
+1 Tin-Wing Chimera
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Universal Automaton
+1 Vibranium Energy Daggers
+1 Wall of Tanglecord
+1 Wild Elephant
+1 Wintermoon Mesa
 
 [commander]
-Tobias Andrion
+Kodama of the North Tree

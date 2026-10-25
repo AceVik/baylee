@@ -1,80 +1,78 @@
 # baylee curated highlander control seed=20261102
 # licence: AGPL-3.0-only
 [deck:highlander control RG #20261102]
-1 Arcbound Ravager
-1 Avacyn's Collar
-1 Bag End Banquet
-1 Blisterpod
-1 Blood Petal Celebrant
-1 Byway Courier
-1 Claws of Gix
-1 Commercial District
+1 Akoum Boulderfoot
+1 Astral Cornucopia
+1 Bleeding Woods
+1 Bond Beetle
+1 Brass's Tunnel-Grinder
+1 Bugenhagen, Wise Elder
+1 Burning-Tree Emissary
+1 Burning-Yard Trainer
+1 Centaur Nurturer
 1 Cragcrown Pathway
-1 Culling Dais
-1 Diamond Kaleidoscope
-1 Dragon Egg
-1 Elephant Guide
-1 Elvish Farmer
-1 Filigree Crawler
+1 Dagger Caster
+1 Dauntless Survivor
+1 Dawnhart Rejuvenator
+1 Daybreak Combatants
+1 Deadshot Minotaur
+1 Dismissive Pyromancer
+1 Drumhunter
+1 Eumidian Terrabotanist
 1 Fire-Lit Thicket
-15 Forest
-1 Game Trail
-1 Gilded Goose
-1 Gimli of the Glittering Caves
-1 Glaring Fleshraker
-1 Gleaming Barrier
-1 Goblin Engineer
-1 Goblin Warrens
-1 Goldvein Pick
-1 Gremlin Infestation
+1 Firefist Adept
+1 Flare
+12 Forest
+1 Forge Devil
+1 Fungal Reaches
+1 Fury
+1 Ghirapur Gearcrafter
+1 Ghitu Slinger
+1 Gladiolus Amicitia
+1 Gnottvold Slumbermound
+1 Golden Egg
+1 Graypelt Hunter
 1 Grove of the Burnwillows
-1 Gruul Guildgate
-1 Gruul Turf
-1 Highland Forest
-1 Iron Man, Tony Stark
-1 Jewel-Eyed Cobra
-1 Jungle Patrol
-1 Legion Extruder
-1 Mantle of the Wolf
+1 Gruul Cluestone
+1 Gruul Locket
+1 HYDRA Assault Robot
+1 Imperial Recruiter
+1 Intrepid Provisioner
+1 Karplusan Forest
+1 Kessig Wolf Run
+1 Llanowar Visionary
+1 Mana Crypt
+1 Maul Splicer
+1 Mawloc
 1 Mogg Hollows
-1 Most Wanted
-10 Mountain
-1 Myr Matrix
-1 Myr Sire
-1 Nim Deathmantle
-1 Orochi Hatchery
-1 Pashalik Mons
+1 Mossfire Egg
+15 Mountain
+1 Murasa Ranger
+1 Orcish Cannonade
 1 Pia and Kiran Nalaar
-1 Piggy Bank
 1 Pinecrest Ridge
-1 Primeval Bounty
-1 Prying Blade
-1 Racers' Ring
-1 Raging Ravine
-1 Rampaging Baloths
-1 Restless Ridgeline
-1 Retrofitter Foundry
-1 Rootbound Crag
-1 Rugged Highlands
-1 Siege-Gang Commander
-1 Skullclamp
-1 Slayer's Plate
-1 Spawning Pit
-1 Spire Garden
+1 Priest of Urabrask
+1 Pyrite Spellbomb
+1 Raphael, Tough Turtle
+1 Reckless Fireweaver
+1 Setessan Champion
+1 Shocking Sharpshooter
+1 Skarrg, the Rage Pits
+1 Slagwoods Bridge
+1 Slash, Reptile Rampager
+1 Soul of the Harvest
+1 Spider-Man, Hometown Hero
+1 Spitfire Lagac
 1 Stangg
-1 Stimulus Package
-1 Thallid Devourer
-1 The Underworld Cookbook
-1 Thopter Squadron
+1 Stomping Ground
+1 Sunshower Druid
+1 Taiga
+1 Talisman of Impulse
 1 Thornspire Verge
-1 Thragtusk
-1 Timberline Ridge
-1 Titan Forge
-1 Titania, Protector of Argoth
-1 Tooth and Claw
-1 Trading Post
-1 Treasure Map
-1 Turntimber Ranger
-1 Uktabi Orangutan
-1 Wand of the Elements
-1 Wurmweaver Coil
+1 Training Compound
+1 Tuktuk Grunts
+1 Valley Mightcaller
+1 Vulshok Heartstoker
+1 Wall of Blossoms
+1 Wartime Protestors
+1 Zhur-Taa Druid

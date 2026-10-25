@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266264]
+1 Albino Troll
+1 Arboria
+1 Awakening
+1 Barbtooth Wurm
+1 Boseiju, Who Shelters All
+1 Bountiful Harvest
+1 Broken Fall
+1 Burgeoning
+1 Call of the Wild
+1 Castle Doom
+1 Choke
+1 Conifer Wurm
+1 Cowl Prowler
+1 Deadfall
+1 Dense Canopy
+1 Dragon Sniper
+1 Dryad of the Ilysian Grove
+1 Earthcraft
+1 Elfhame Wurm
+1 Endless Wurm
+1 Entangling Vines
+1 Forbidden Lore
+34 Forest
+1 Gaea's Embrace
+1 Grazing Gladehart
+1 Grounded
+1 Healing Leaves
+1 Horned Troll
+1 Hot Springs
+1 Johtull Wurm
+1 Jolrael's Favor
+1 Living Lands
+1 Lothlórien Lookout
+1 Lure
+1 Molting Skin
+1 Mountain Valley
+1 Natural Spring
+1 Nature's Chosen
+1 Nature's Revolt
+1 Nexus Wardens
+1 Nourish
+1 Path of Ancestry
+1 Plated Wurm
+1 Predatory Wurm
+1 Presence of Gond
+1 Primordial Wurm
+1 Pygmy Troll
+1 Respite
+1 Roots
+1 Roots of Life
+1 Sacred White Deer
+1 Scaled Wurm
+1 Skyshroud Archer
+1 Song of Serenity
+1 Squirrel Nest
+1 Still Life
+1 Sultai Flayer
+1 Tamiyo's Safekeeping
+1 Tarnation Vista
+1 Thoughtleech
+1 Transguild Promenade
+1 Trolls of Tel-Jilad
+1 Volrath's Gardens
+1 Walk-In Closet
+1 Warden of Geometries
+1 Whiptail Wurm
+
+[commander]
+Thrun, the Last Troll

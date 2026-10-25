@@ -1,85 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WUB #20266024]
-1 Alloy Myr
-1 Arch of Orazca
-1 Balm of Restoration
-1 Basalt Monolith
+[deck:commander midrange UBR #20266024]
+1 Anaba Shaman
 1 Bear Trap
-1 Binding Mummy
-1 Blast Zone
-1 Bucolic Ranch
-1 Bullwhip
-1 Cackling Fiend
-1 Cateran Slaver
-1 Chrome Prowler
-1 Cogwork Wrestler
-1 Command Beacon
-1 Corpse Knight
-1 Corridor Monitor
-1 Courier's Capsule
-1 Dark Sphere
-1 Diamond City
-1 Diamond Valley
-1 Dimir Keyrune
-1 Elesh Norn, Grand Cenobite
-1 Elixir of Vitality
-1 Engine Rat
-1 Escape Tunnel
-1 Eye of Ramos
-1 Hand of Justice
-1 Herbal Poultice
-12 Island
-1 Life Chisel
-1 Lurching Rotbeast
-1 Marble Chalice
-1 Mask of Riddles
-1 Matzalantli, the Great Door
-1 Mechan Navigator
-1 Mouth of Ronom
-1 Mummy Paramount
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Blaster Mage
+1 Blight Pile
+1 Boltwave
+1 Bot Bashing Time
+1 Breath of Malfegor
+1 Burning Earth
+1 Canyon Slough
+1 Cinder Cloud
+1 Concentrated Fire
+1 Crash and Burn
+1 Cunning Sparkmage
+1 Deadshot
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Earth Tremor
+1 Earthbind
+1 Expedition Map
+1 Feed the Flames
+1 Fetid Pools
+1 Flamekin Spitfire
+1 Frostling
+1 Ghitu Fire-Eater
+1 Goblin Artillery
+1 Haunted Ridge
+1 Heat of Battle
+1 Hell's Kitchen
+1 Honden of Infinite Rage
+1 Insolence
+8 Island
+1 Jeska, Warrior Adept
+1 Karplusan Yeti
+1 Land's Edge
+1 Merfolk Assassin
+1 Mob Justice
+1 Mogg Maniac
+1 Morphic Pool
+16 Mountain
+1 Nightscape Master
 1 Nim Abomination
-1 Obelisk of Esper
-1 Padeem, Consul of Innovation
-1 Parcel Myr
-1 Phyrexia's Core
-4 Plains
-1 Rank and File
-1 Rathi Assassin
-1 Relic of Legends
-1 Reshape
-1 Sarcomite Myr
-1 Scalding Cauldron
-1 Scalding Tongs
-1 Scepter of Insight
-1 Scornful Aether-Lich
-1 Selhoff Entomber
-1 Sheoldred
-1 Shrine of the Forsaken Gods
-1 Silent Dart
-1 Silumgar Monument
-1 Skull of Ramos
-1 Sol Grail
-1 Soldevi Steam Beast
-1 Soliton
-1 Solitude
-1 Spawning Bed
-1 Sphinx of the Steel Wind
-1 Spire of Industry
-1 Spiteful Bully
-7 Swamp
-1 Tanglebloom
-1 Temple Bell
-1 Tomb of the Spirit Dragon
-1 Tower of Eons
-1 Triangle of War
-1 Unholy Citadel
-1 Urza's Cave
-1 Vault Skirge
-1 Vesper Ghoul
-1 Volatile Fault
-1 Well-Worn Spatula
-1 Zhalfirin Void
+1 Notorious Assassin
+1 Ogre Shaman
+1 Orcish Mechanics
+1 Pyrohemia
+1 Rakdos Carnarium
+1 Rakdos Keyrune
+1 Raucous Theater
+1 Razorfin Hunter
+1 Razortrap Gorge
+1 Ready to Rumble
+1 Reckless Embermage
+1 Restless Spire
+1 Retromancer
+1 Runaway Boulder
+1 Scald
+1 Scorched Geyser
+1 Scorching Shot
+1 Scrap Compactor
+1 Shauku's Minion
+1 Sinister Hideout
+1 Skull Rend
+1 Smoldering Efreet
+1 Smoldering Marsh
+1 Spiteflame Witch
+1 Springjaw Trap
+1 Staff of Nin
+1 Starke of Rath
+1 Sunken Hollow
+1 Swamp
+1 Temple of Malice
+1 Thundering Falls
+1 Valakut Invoker
+1 Viashino Fangtail
+1 Victorious Destruction
 
 [commander]
-Halfdane
+Gwendlyn Di Corci

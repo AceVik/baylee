@@ -1,86 +1,84 @@
 # baylee curated commander aggro seed=20261121
 # licence: AGPL-3.0-only
 [deck:commander aggro UBR #20261121]
-1 Aether Sting
 1 Ancestral Vision
-1 Badlands
+1 Aven Wind Mage
 1 Black Waltz No. 3
-1 Caldera Lake
-1 Callous Inspector
+1 Blightcaster
+1 Boltwave
+1 Broadside Barrage
+1 Burning Prophet
+1 Cascade Bluffs
 1 Castle Sengir
 1 Chandra's Emberling
+1 Chaos Charm
+1 Clearwater Pathway
+1 Coming In Hot
 1 Crosis's Catacombs
 1 Crumbling Necropolis
 1 Crypt of the Eternals
-1 Crystal Rod
+1 Darkwater Catacombs
+1 Detonate
 1 Dragon's Rage Channeler
 1 Drowner Initiate
-1 Eidolon of the Great Revel
-1 Electrostatic Field
+1 Earthshaker
 1 Electrostatic Infantry
 1 Embersmith
 1 Enraged Flamecaster
 1 Erebor Flamesmith
-1 Etherium Spinner
+1 Festival Crasher
 1 Fever Charm
-1 Firebrand Archer
-1 Firemind's Research
-1 Firespitter Whelp
-1 Glaring Fleshraker
+1 Fire Urchin
+1 Flame-Blessed Bolt
+1 Gin'tak Charge
+1 Gravelgill Duo
 1 Guttersnipe
-1 Havoc
-1 Hesitation
-1 In the Eye of Chaos
-1 Ishi-Ishi, Akki Crackshot
-7 Island
+1 Ingenious Skaab
+4 Island
 1 Izzet Charm
-1 Juju Bubble
-1 Kessig Flamebreather
-1 Lantern-Lit Graveyard
-1 Mai, Scornful Striker
-1 Malakir Rebirth
-1 Mana Crypt
-1 Mindsparker
-1 Molten Nursery
+1 Kozilek's Sentinel
+1 Lightning Visionary
+1 Mage-Ring Bully
+1 Mercurial Geists
+1 Molten Slagheap
 1 Monastery Swiftspear
-14 Mountain
-1 Mystic Remora
+13 Mountain
+1 Nimble-Blade Khenra
+1 Notion Rain
 1 Onslaught
 1 Oscorp Industries
-1 Pyrostatic Pillar
-1 Quill-Slinger Boggart
-1 Rockslide Sorcerer
-1 Sarkhan's Unsealing
+1 Outnumber
+1 Profane Tutor
+1 Pyre Hound
+1 Repulsor Rays
+1 Riverfall Mimic
+1 Riverglide Pathway
+1 Rock Slide
+1 Sanguinary Mage
 1 Sawblade Scamp
 1 Seething Landscape
-1 Sire of the Storm
-1 Soul Barrier
-1 Soul of Magma
-1 Spark Jolt
-1 Spark Spray
-1 Spellshock
+1 Shock
+1 Skittering Horror
+1 Skittering Monstrosity
+1 Sky Scourer
 1 Sprite Dragon
-1 Stark Industries
-1 Stormkeld Prowler
-1 Straw Golem
+1 Steam Vents
+1 Stormchaser Mage
 1 Sulfur Vent
-1 Swamp
+7 Swamp
+1 TVA Bureaucrat
 1 Taurean Mauler
-1 Tempest Angler
-1 Temple of Deceit
-1 Three Steps Ahead
-1 Tramway Station
-1 Veil of Birds
-1 Veiled Sentry
+1 Telim'Tor's Edict
+1 Tibor and Lumia
+1 Traumatic Critique
+1 Umara Entangler
+1 Umara Mystic
+1 Vampiric Tutor
 1 Vertigo
-1 Volatile Fjord
-1 Walking Ballista
-1 Waterveil Cavern
-1 Weaver of Lightning
-1 Winter Sky
+1 War-Torch Goblin
+1 Wee Dragonauts
+1 Wing Commando
 1 Xander's Lounge
-1 Yawgmoth's Edict
-1 Young Pyromancer
 
 [commander]
 Gwendlyn Di Corci

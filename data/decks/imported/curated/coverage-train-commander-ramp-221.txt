@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266222]
+1 Akoum Refuge
+1 Artifact Possession
+1 Badlands
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bloodshot Trainee
+1 Breath of Malfegor
+1 Bulwark
+1 Cinder Barrens
+1 Cinder Marsh
+1 Cinder Storm
+1 Cleansing Screech
+1 Command the Storm
+1 Curse Artifact
+1 Dogpile
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Fiery Finish
+1 Flame Elemental
+1 Geothermal Bog
+1 Goblin Artillery
+1 Goblin Medics
+1 Goblin Snowman
+1 Goblin Tinkerer
+1 Graven Cairns
+1 Guerrilla Tactics
+1 Hasran Ogress
+1 Honden of Infinite Rage
+1 Jackal Pup
+1 Jagged Barrens
+1 Karplusan Yeti
+1 Lava Tubes
+1 Magmasaur
+1 Megrim
+1 Mind Whip
+1 Mogg Maniac
+1 Molten Vortex
+21 Mountain
+1 Orcish Artillery
+1 Orcish Cannoneers
+1 Panicked Altisaur
+1 Parasitic Bond
+1 Parch
+1 Power Surge
+1 Reduce to Ashes
+1 Retromancer
+1 Rix Maadi, Dungeon Palace
+1 Roast
+1 Rockslide Ambush
+1 Scorching Shot
+1 Scorching Spear
+1 Scorchmark
+1 Seal of Fire
+1 Seismic Assault
+1 Seizures
+1 Shadowblood Ridge
+1 Shatterskull Smashing
+1 Slingshot Goblin
+1 Sparksmith
+1 Spear Spewer
+1 Spikefield Hazard
+1 Spiteflame Witch
+1 Stensia Bloodhall
+1 Sulfurous Springs
+5 Swamp
+1 Tarfire
+1 Tourach's Chant
+1 Tramway Station
+1 Viashino Fangtail
+1 War-Torch Goblin
+1 Where Ancients Tread
+1 Word of Blasting
+
+[commander]
+Barktooth Warbeard

@@ -1,19 +1,22 @@
-# baylee unseen-card holdout constructed seed=90000043
+# baylee unseen-card holdout constructed seed=90000030
 # licence: AGPL-3.0-only
-[deck:constructed midrange U #90000043]
-2 Arcbound Ravager
-4 Avacyn's Collar
-3 Diamond Kaleidoscope
-4 Drowner of Hope
-3 Filigree Crawler
-19 Island
-2 Myr Retriever
-4 Myr Sire
-2 Redrock Sentinel
-2 Retrofitter Foundry
-1 Riptide Laboratory
-2 Spawning Pit
-2 The Underworld Cookbook
-2 Trading Post
-4 Trenzalore Clocktower
-4 Worry Beads
+[deck:constructed midrange WUB #90000030]
+2 Arcane Sanctum
+2 Beskir Shieldmate
+2 Contaminated Landscape
+2 Delney, Streetwise Lookout
+4 Doomed Traveler
+2 Dromar's Cavern
+2 Honored Knight-Captain
+1 Island
+4 Martyr of Dusk
+4 Mausoleum Guard
+4 Okoye, Dora Milaje Leader
+2 Ophiomancer
+3 Orochi Hatchery
+12 Plains
+2 Precinct Captain
+2 Swamp
+3 Sweettooth Witch
+4 Tempting Witch
+3 Wizards' School

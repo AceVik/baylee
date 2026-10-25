@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266139]
+1 Abstergo Entertainment
+1 Active Volcano
+1 An-Zerrin Ruins
+1 Animal Sanctuary
+1 Bedlam
+1 Blast Zone
+1 Blood Mist
+1 Boggart Brute
+1 Bonders' Enclave
+1 Break Through the Line
+1 Brimstone Dragon
+1 Canyon Drake
+1 Caverns of Despair
+1 Cinder Wall
+1 Covetous Dragon
+1 Crawling Barrens
+1 Crevasse
+1 Crush
+1 Deface
+1 Desert Drake
+1 Destructive Urge
+1 Dragon Hatchling
+1 Eldrazi Linebreaker
+1 Feral Ridgewolf
+1 Fire Nation's Conquest
+1 Fists of the Anvil
+1 Flowstone Embrace
+1 Flowstone Kavu
+1 Flowstone Wyvern
+1 Geier Reach Sanitarium
+1 Glyph of Destruction
+1 Goblin Rock Sled
+1 Goblin Sappers
+1 Granite Gargoyle
+1 Gravity Sphere
+1 Great Hall of the Biblioplex
+1 Hearth Charm
+1 Hellkite Punisher
+1 Hobbit Hole
+1 Horde of Boggarts
+1 Karn's Bastion
+1 Lightning Talons
+1 Mek'leth Berserker
+1 Miren, the Moaning Well
+1 Monster Mashup
+20 Mountain
+1 Mudslide
+1 Nalathni Dragon
+1 Perils of the Past
+1 Polluted Delta
+1 Power Boost
+1 Precise Strike
+1 Raze
+1 Raze the Effigy
+1 Resistance Skywarden
+1 Ripscale Predator
+1 Rising of the Day
+1 Roc of Kher Ridges
+1 Sabertooth Wyvern
+1 Scarlet Witch, Wanda Maximoff
+1 Smash to Dust
+1 Spitting Drake
+1 Stampede Rider
+1 Stardew Valley
+1 Study Hall
+1 Sun-Collared Raptor
+1 Tendo Ice Bridge
+1 Thunder Strike
+1 Tin Street Market
+1 Two-Headed Dragon
+1 Underworld Breach
+1 Urborg, Tomb of Yawgmoth
+1 Urza's Mine
+1 Utvara Scalper
+1 Vance's Blasting Cannons
+1 Verdant Catacombs
+1 Vestige of Emrakul
+1 Vibrant Cityscape
+1 Villainous Hideout
+1 Zhalfirin Void
+
+[commander]
+Hulk, Bruce Banner

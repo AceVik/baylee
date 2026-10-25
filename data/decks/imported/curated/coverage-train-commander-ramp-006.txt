@@ -1,84 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp UBR #20266007]
-1 Astrolabe
-1 Baleful Force
-1 Beast of Burden
-1 Borg Queen, Perfection Manifest
-1 Carnival of Souls
-1 Cliffgate
-1 Commander's Sphere
-1 Crosis's Attendant
-1 Dakmor Salvage
-1 Dimir Cluestone
-1 Dimir Locket
+1 Agent of Stromgald
+1 Amok
+1 Ancestral Vengeance
+1 Aquatic Incursion
+1 Arnjlot's Ascent
+1 Battle Hymn
+1 Betrayal
+1 Billiard Room
+1 Blood Celebrant
+1 Breath of Dreams
+1 Cabal Ritual
+1 Caldera Lake
+1 Catacomb Dragon
+1 Catalyst Elemental
+1 Dark Hatchling
+1 Demonic Tutor
+1 Dire Undercurrents
 1 Dragon Mage
-1 Dread Reaper
-1 Dreamstone Hedron
-1 Dwarven Mine
-1 Five Hundred Year Diary
-1 Flamekin Village
-1 Giant's Boulder
-1 Goggles of Night
-1 Goldhound
+1 Dregs of Sorrow
+1 Drossforge Bridge
+1 Dystopia
+1 Ertai Resurrected
+1 Firestorm Hellkite
+1 Foreboding Ruins
+1 Gamble
+1 Geist of Saint Thalia
+1 Geothermal Bog
+1 Goblin Bomb
 1 Granitic Titan
-1 Guardian Idol
-1 Hedron Crawler
-1 Hexplate Golem
-1 Hidden Necropolis
-1 Imperial Seal
-7 Island
-1 Izzet Cluestone
-1 Izzet Locket
-1 Lava Serpent
-1 Mana Geode
-1 Minas Morgul, Dark Fortress
-1 Mindless Automaton
-1 Mistrise Village
+1 Grasping Shadows
+1 Haunted Ridge
+1 Headstone
+1 Hell's Kitchen
+1 Illuminated Wings
+1 Initiates of the Ebon Hand
+14 Island
+1 Kazarov, Sengir Pureblood
+1 Krovikan Fetish
+1 Lavaclaw Reaches
+1 Lay Waste
+1 Lilting Refrain
+1 Liturgy of Blood
+1 Luxury Suite
+1 Magus of the Coffers
+1 Mind Harness
+1 Mm'menon, Uthros Exile
 4 Mountain
-1 Mox Diamond
-1 Necrogen Spellbomb
-1 Network Terminal
-1 Paradise Mantle
-1 Pardic Wanderer
-1 Pilgrim of the Fires
-1 Power Taint
-1 Prismite
-1 Prophet of the Peak
-1 Rakdos Locket
-1 Ravaged Highlands
-1 Razorfield Thresher
-1 Relic of Sauron
-1 Ring of Renewal
-1 Rockface Village
-1 Rocky Roads
-1 Scampering Surveyor
-1 Scarecrow Guide
-1 Seer's Lantern
-1 Sensei's Divining Top
-1 Shadowblood Egg
-1 Shire Scarecrow
-1 Signpost Scarecrow
-1 Sisay's Ring
-1 Sivitri, Dragon Master
-1 Sonic Screwdriver
-1 Spymaster's Vault
-1 Striped Riverwinder
-13 Swamp
-1 Talisman of Creativity
-1 Teeka's Dragon
-1 The Autonomous Furnace
-1 The Dross Pits
-1 The Lonely Mountain
-1 The Surgical Bay
-1 Thriving Moor
-1 Time Vault
-1 Tribal Golem
-1 Urn of Godfire
-1 Valakut, the Molten Pinnacle
-1 Witch Engine
-1 Witch's Cottage
-1 Wreckage Wickerfolk
+1 Murky Sewer
+1 Mystic Might
+1 Necromaster Dragon
+1 Overeager Apprentice
+1 Preening Champion
+1 Rapacious Dragon
+1 Raucous Theater
+1 Razortrap Gorge
+1 Reckless Barbarian
+1 Ridge Rannet
+1 Sacrifice
+1 Scavenged Weaponry
+1 Secret Passage
+1 Seismic Spike
+1 She-Hulk, Jennifer Walters
+1 Sibilant Spirit
+1 Sinister Hideout
+1 Slipstream Eel
+1 Surtland Frostpyre
+8 Swamp
+1 Thundermaw Hellkite
+1 Tidal Influence
+1 Tourach's Gate
+1 Trade Routes
+1 Turbulent Springs
+1 Unspeakable Symbol
+1 Utvara Hellkite
+1 Vessel of Paramnesia
+1 Wave-Wing Elemental
 
 [commander]
 Nicol Bolas

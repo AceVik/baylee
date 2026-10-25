@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266116]
+1 Advocate of the Beast
+1 Aether Vial
+1 Agatha's Soul Cauldron
+1 Algae Gharial
+1 Arena of Glory
+1 Argoth, Sanctum of Nature
+1 Ashnod's Transmogrant
+1 Ba Sing Se
+1 Balduvian Hydra
+1 Barrin's Codex
+1 Chaotic Goo
+1 Chocobo Camp
+1 Cinder Giant
+1 Cliffgate
+1 Craw Giant
+1 Delif's Cube
+1 Dragon Tyrant
+1 Dryad Arbor
+1 Dwarven Armorer
+1 Dwarven Weaponsmith
+1 Erdwal Ripper
+1 Flamekin Village
+13 Forest
+1 Frontline War-Rager
+1 Frost Giant
+1 Gilded Lotus
+1 Gobbling Ooze
+1 Golden Urn
+1 Hellkite Igniter
+1 Hungry Megasloth
+1 Instant Ramen
+1 Jet Medallion
+1 Karplusan Giant
+1 Kavu Monarch
+1 Llanowar Reborn
+1 Loamdragger Giant
+1 Markov Blademaster
+1 Memorial to Unity
+1 Memorial to War
+1 Mercadian Bazaar
+1 Mines of Moria
+13 Mountain
+1 Otherworld Atlas
+1 Prismatic Lens
+1 Pristine Talisman
+1 Rock Basilisk
+1 Rock Hydra
+1 Rootbreaker Wurm
+1 Ruins Recluse
+1 Rushwood Grove
+1 Sapphire Medallion
+1 Sapseep Forest
+1 Scavenging Ooze
+1 Segmented Wurm
+1 Shield Sphere
+1 Shivan Devastator
+1 Shower of Arrows
+1 Skyscythe Engulfer
+1 Snapping Sailback
+1 Spike Colony
+1 Spike Weaver
+1 Surge Node
+1 Team Transmitter
+1 Teetering Peaks
+1 The Shire
+1 Thermokarst
+1 Thundering Tanadon
+1 Tyrranax Rex
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Uktabi Efreet
+1 Uktabi Faerie
+1 Verdant Automaton
+1 Viashivan Dragon
+1 Voodoo Doll
+1 Wayward Giant
+
+[commander]
+The Lady of the Mountain

@@ -1,82 +1,70 @@
-# baylee unseen-card holdout highlander seed=90000044
+# baylee unseen-card holdout highlander seed=90000031
 # licence: AGPL-3.0-only
-[deck:highlander midrange WB #90000044]
-1 Aclazotz, Deepest Betrayal
-1 Agents of HYDRA
-1 Arcbound Ravager
-1 Auspicious Arrival
-1 Avacyn's Collar
-1 Ballroom
-1 Bastion of Remembrance
-1 Bishop of Wings
-1 Bleachbone Verge
-1 Blight Mound
-1 Brightclimb Pathway
-1 Callous Inspector
-1 Cirith Ungol Patrol
-1 Claws of Gix
-1 Common Crook
-1 Concealed Courtyard
-1 Criminal Enterprise
-1 Desolate Mire
-1 Diamond Kaleidoscope
-1 Dire Fleet Hoarder
-1 Doomed Dissenter
-1 Doomed Traveler
-1 Drogskol Cavalry
-1 Elgaud Inquisitor
-1 Field of Souls
-1 Forsaken Sanctuary
-1 Godless Shrine
-1 Golem Foundry
-1 Greedy Freebooter
-1 Griffin Guide
-1 Haunted Library
-1 Hunted Witness
-1 Isolated Chapel
-1 Jinxed Ring
-1 Kheru Bloodsucker
-1 Knight of Doves
-1 Knight-Captain of Eos
-1 Marionette Apprentice
-1 Marsh Flitter
-1 Mausoleum Guard
-1 Misty Palms Oasis
-1 Neva, Stalked by Nightmares
-1 Nim Deathmantle
-1 Ogre Slumlord
-1 Ojer Taq, Deepest Foundation
-1 Open the Graves
-1 Orochi Hatchery
-1 Orzhov Basilica
-1 Orzhova, the Church of Deals
-1 Pentavus
-1 Pitiless Plunderer
-11 Plains
-1 Pretending Poxbearers
-1 Prowess of the Fair
-1 Quest for the Gravelord
-1 Redrock Sentinel
-1 Restless Fortress
-1 Retrofitter Foundry
-1 Rotlung Reanimator
-1 Sengir Autocrat
-1 Shattered Sanctum
-1 Siege Veteran
-1 Silent Clearing
-1 Silverquill Campus
-1 Skeletal Vampire
-1 Slayer's Plate
-1 Sling-Gang Lieutenant
-1 Spawning Pit
-1 Starlit Sanctum
-12 Swamp
-1 Sweettooth Witch
-1 Tempting Witch
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Trading Post
-1 Vault of Champions
-1 Wand of the Elements
-1 Warren Soultrader
-1 Yahenni, Undying Partisan
+[deck:highlander midrange R #90000031]
+1 Abrade
+1 Akki Rockspeaker
+1 Balduvian Trading Post
+1 Ben-Ben, Akki Hermit
+1 Blaze
+1 Blisterstick Shaman
+1 Blood Rites
+1 Bloodshot Cyclops
+1 Bloodshot Trainee
+1 Bombard
+1 Careless Celebrant
+1 Cinder Storm
+1 Electrify
+1 Ember Hauler
+1 Eternal Flame
+1 Fanatical Firebrand
+1 Flame Jet
+1 Fling
+1 Fogwell's Gym
+1 Goblin Artillery
+1 Goblin Chainwhirler
+1 Goblin Commando
+1 Goblin Medics
+1 Goblin Replica
+1 Goblin Snowman
+1 Goblin Tinkerer
+1 Guttersnipe
+1 Hammerheim
+1 Ishi-Ishi, Akki Crackshot
+1 Jaya's Firenado
+1 Keldon Necropolis
+1 Klingon Strike Force
+1 Lightning Cloud
+1 Lightning Diadem
+1 Lightning Spear
+1 Magma Spray
+1 Make Mischief
+1 Mana Crypt
+1 Massive Raid
+1 Mogg Bombers
+1 Mogg Fanatic
+1 Mogg Maniac
+34 Mountain
+1 Mox Jasper
+1 Obliterating Bolt
+1 Orcish Cannonade
+1 Rockface Village
+1 Rumbling Rockslide
+1 Sarpadian Simulacrum
+1 Seismic Strike
+1 Shatterskull Smashing
+1 Siege-Gang Commander
+1 Slingshot Goblin
+1 Sokenzan, Crucible of Defiance
+1 Spark Spray
+1 Sparksmith
+1 Spellshock
+1 Strangle
+1 Sundering Eruption
+1 Trumpeting Carnosaur
+1 Tuktuk Scrapper
+1 Unfriendly Fire
+1 Volcanic Geyser
+1 Volley Veteran
+1 War-Torch Goblin
+1 Word of Blasting
+1 Zo-Zu the Punisher

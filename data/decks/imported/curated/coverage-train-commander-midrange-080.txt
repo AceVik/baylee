@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266081]
+1 Aang and Katara
+1 Adun Oakenshield
+1 Agent of Shauku
+1 Arctic Treeline
+1 Ardent Elementalist
+1 Atalan Jackal
+1 Auriok Salvagers
+1 Blighted Shaman
+1 Brine Shaman
+1 Burning-Yard Trainer
+1 Captain Storm, Cosmium Raider
+1 Cathartic Adept
+1 Cirith Ungol Patrol
+1 Corrupt Court Official
+1 Crowd Favorites
+1 Crystal Quarry
+1 Dai Li Censor
+1 Dawnhart Disciple
+1 Demon's Herald
+1 Destructor Dragon
+1 Dimir Informant
+1 Doomed Necromancer
+1 Drossforge Bridge
+1 EPF Point Squad
+1 Eroded Canyon
+1 Eutropia the Twice-Favored
+1 Festering Thicket
+1 Forest
+1 Fourth Bridge Prowler
+1 Game Trail
+1 Garna, the Bloodflame
+1 Gladiolus Amicitia
+1 Graypelt Hunter
+1 Graypelt Refuge
+1 Groundskeeper
+1 Hanna, Ship's Navigator
+7 Island
+1 Izzet Chronarch
+1 Library
+1 Long Feng, Grand Secretariat
+1 Luke Cage, Hero for Hire
+1 Moggcatcher
+1 Molten Slagheap
+1 Moriok Rigger
+3 Mountain
+1 Murasa Ranger
+1 Nearby Planet
+1 Nimana Sell-Sword
+1 Obsessive Stitcher
+1 Phyrexian Vivisector
+5 Plains
+1 Professor Zei, Anthropologist
+1 Ramosian Revivalist
+1 Rathi Intimidator
+1 Ravaging Horde
+1 Razaketh, the Foulblooded
+1 Restoration Gearsmith
+1 Rufus Shinra
+1 Scribe of the Mindful
+1 Seahunter
+1 Selhoff Occultist
+1 Shadewing Laureate
+1 Sheltered Thicket
+1 Skirsdag Flayer
+1 Steelshaper Apprentice
+1 Stirring Wildwood
+1 Stormfist Crusader
+9 Swamp
+1 The Serpent Society
+1 The World Tree
+1 Thornspire Verge
+1 Thundering Falls
+1 Trade Caravan
+1 Unburied Earthcarver
+1 Volunteer Reserves
+1 Wartime Protestors
+1 Whisper Agent
+1 Yellowjacket, Heartless Marauder
+1 Youthful Scholar
+
+[commander]
+Child of Alara

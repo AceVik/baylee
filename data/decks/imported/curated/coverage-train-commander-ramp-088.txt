@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266089]
+1 Agonizing Syphon
+1 Ajani's Mantra
+1 Ajani's Welcome
+1 Archivist
+1 Armistice
+1 Attunement
+1 Azure Mage
+1 Benalish Heralds
+1 Betrayal
+1 Blood Celebrant
+1 Bog Initiate
+1 Bone to Ash
+1 Boreal Shelf
+1 Caribou Range
+1 Chaplain's Blessing
+1 Convalescence
+1 Curiosity
+1 Deserted Beach
+1 Dire Undercurrents
+1 Eclipsed Steppe
+1 Energy Tap
+1 Ertai Resurrected
+1 Ezio, Blade of Vengeance
+1 Farrelite Priest
+1 Goldmire Bridge
+1 Grasping Thrull
+1 Great Hall of Starnheim
+1 Griselbrand
+1 High Tide
+1 Initiates of the Ebon Hand
+12 Island
+1 Jwar Isle Refuge
+1 Kiss of the Amesha
+1 La Forge, Perceptive Engineer
+1 Lay Claim
+1 Lifeblood
+1 Lifetap
+1 Locke Cole
+1 Lonely Arroyo
+1 Merchant Ship
+1 Misty Palms Oasis
+1 Mold Demon
+1 Moonlit Wake
+1 Omen of the Sun
+1 Overeager Apprentice
+1 Peace of Mind
+5 Plains
+1 Power Artifact
+1 Rashida Scalebane
+1 Relic Bind
+1 Righteous Cause
+1 Salt Flats
+1 Sanctimony
+1 Sea Scryer
+1 Secluded Glen
+1 Senate Guildmage
+1 Silverquill Campus
+1 Skybridge Towers
+1 Snowfield Sinkhole
+1 Solitude
+1 Spiritual Sanctuary
+1 Spock, Logical Choice
+1 Striped Riverwinder
+1 Sunken Hollow
+1 Sunseed Nurturer
+1 Super Intelligence
+9 Swamp
+1 Third Path Savant
+1 Treasure Trove
+1 Turbulent Moor
+1 Vessel of Paramnesia
+1 Vodalian Arcanist
+1 Void Helix
+1 Wanderwine Hub
+1 Wayward Servant
+1 Zof Consumption
+
+[commander]
+Dakkon Blackblade

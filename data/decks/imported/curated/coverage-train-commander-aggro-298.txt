@@ -1,0 +1,89 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUR #20266299]
+1 Ancient Crab
+1 Aquus Steed
+1 Arc Runner
+1 Armor Sliver
+1 Blade of the Sixth Pride
+1 Blind Phantasm
+1 Bloodrock Cyclops
+1 Brazen Scourge
+1 Cryptic Spires circles=WU
+1 Crystacean
+1 Cyclopean Tomb
+1 Deer-Dog
+1 Desolate Lighthouse
+1 Devilthorn Fox
+1 Dragon Moose
+1 Earth Elemental
+1 Elvenking's Harper
+1 Elvish Healer
+1 Endless One
+1 Ferrous Lake
+1 Fiery Islet
+1 Flowstone Hellion
+1 Frostburn Weird
+1 Furnace Brood
+1 Glacial Wall
+1 Gore Swine
+1 Great Hart
+1 Hammerhead Shark
+1 Hollowhead Sliver
+1 Hulking Devil
+5 Island
+1 Kavu Recluse
+1 Keen-Eyed Archers
+1 Kraken Hatchling
+1 Labyrinth Minotaur
+1 Loxodon Anchorite
+1 Loxodon Gatekeeper
+1 Loxodon Wayfarer
+1 Medicine Bag
+1 Mightstone
+1 Mnemonic Sliver
+1 Moorland Haunt
+13 Mountain
+1 Mystic Gate
+1 Mystic Monastery
+1 Nimbus Maze
+1 Oggyar Battle-Seer
+1 Oraxid
+1 Pearled Unicorn
+1 Perilous Landscape
+1 Phase Dolphin
+1 Plains
+1 Plateau
+1 Plated Seastrider
+1 Raging Bull
+1 Raging Cougar
+1 Raka Disciple
+1 Raugrin Triome
+1 Regal Unicorn
+1 Riot Devils
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Rock Badger
+1 Rugged Prairie
+1 Sabretooth Tiger
+1 Scuttling Sliver
+1 Shifting Sliver
+1 Skycloud Expanse
+1 Slayers' Stronghold
+1 Spatial Contortion
+1 Sunbaked Canyon
+1 Sunglasses of Urza
+1 Talruum Piper
+1 Terror of the Fairgrounds
+1 Those Who Serve
+1 Tundra
+1 Volcanic Island
+1 Walking Sponge
+1 Wall of Vapor
+1 Watercourser
+1 Whimwader
+1 Windseeker Centaur
+1 Ydwen Efreet
+
+[commander]
+Kykar, Wind's Fury

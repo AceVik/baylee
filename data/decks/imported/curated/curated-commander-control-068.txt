@@ -1,72 +1,70 @@
 # baylee curated commander control seed=20261091
 # licence: AGPL-3.0-only
 [deck:commander control U #20261091]
+1 Abduction
 1 Academy Ruins
-1 Arcbound Ravager
-1 Avacyn's Collar
 1 Blighted Cataract
+1 Blue Mana Battery
+1 Censor
 1 Cephalid Coliseum
-1 Chimeric Egg
-1 Customs Depot
+1 Compelling Argument
+1 Condescend
+1 Consider
+1 Constricting Tendrils
 1 Deduce
-1 Deeproot Waters
-1 Diamond Kaleidoscope
+1 Deliberate
+1 Dispersing Orb
+1 Dream Fracture
 1 Drowned Secrets
-1 Drowner of Hope
 1 Efficient Construction
-1 Energy Vortex
-1 Etherium Spinner
+1 Elusive Spellfist
+1 Eternity Snare
 1 Eyes of the Watcher
 1 Forced Fruition
-1 Glaring Fleshraker
+1 Halt Order
 1 Hesitation
 1 Illusions of Grandeur
 1 In the Eye of Chaos
+1 Insight
 1 Invoke Prejudice
-1 Ipnu Rivulet
-34 Island
-1 Isolation Cell
-1 Jeskai Sage
-1 Juju Bubble
-1 Kozilek's Unsealing
-1 Levitating Statue
-1 Lilypad Village
-1 Mana Crypt
+36 Island
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
+1 Launch Mishap
+1 Lunar Mystic
 1 Mana Vortex
-1 Minamo, School at Water's Edge
-1 Murmuring Mystic
-1 Myr Matrix
-1 Mystic Remora
-1 Nim Deathmantle
+1 Miscalculation
+1 Numbing Dose
 1 Oboro, Palace in the Clouds
 1 Ojer Pakpatiq, Deepest Epoch
-1 Pentavus
+1 Otawara, Soaring City
+1 Pact of Negation
+1 Ponder
+1 Portent
 1 Prescient Chimera
 1 Primal Amulet
-1 Prying Blade
-1 Retrofitter Foundry
+1 Reflections of Littjara
+1 Rhystic Study
 1 Riddleform
-1 Riptide Laboratory
 1 Riverwheel Aerialists
-1 Robotics Mastery
 1 Shipwreck Dowser
 1 Sire of the Storm
-1 Slayer's Plate
-1 Soul Barrier
-1 Spawning Pit
-1 Sphinx-Bone Wand
-1 Stormkeld Prowler
-1 The Underworld Cookbook
-1 Thopter Squadron
-1 Three Steps Ahead
+1 Soldevi Excavations
+1 Storyteller Pixie
+1 Stymied Hopes
+1 TVA Bureaucrat
+1 Tanufel Rimespeaker
+1 Tidespout Tyrant
 1 Tolarian Academy
-1 Trading Post
 1 Trail of Evidence
-1 Treasure Map
 1 Unifying Theory
+1 Veil of Birds
+1 Veiled Apparition
 1 Veiled Serpent
-1 Walking Ballista
-1 Wand of the Elements
+1 Virtue of Knowledge
+1 Whirlwind Adept
+1 Wing Commando
 
 [commander]
 The Mechanist, Aerial Artisan
