@@ -35,6 +35,11 @@ information is unrepresentable in a view, and the gateway runs no rules.
 
 ## Hidden information and seats
 
+- New offline neural consumers can opt into `Session::view_for_with_context`
+  and `observe_view_with_context`: the ordinary authorized agent view plus
+  the same owner-only casting/target context that sockets receive. These add
+  no clock, teammate sharing or hidden-state access. Existing view methods
+  remain unchanged for archived model/data contracts.
 - The view carries projected characteristics; clients never run layers.
 - Hidden information is unrepresentable: libraries and other hands are counts; a face-down `card` is `None` unless entitled. `crates/baylee-gamehost/src/view/tests/hidden.rs` (and its siblings) tests each guarantee; add one per new one. One deliberate exception: in debug builds only (`cfg(debug_assertions)`), an LLM seat's reasoning (`AiLog`) is forwarded to every seat at the table as a sparring tool (owner, 06.10.2026; `docs/protocol.md` §"An AI seat's reasoning"); release builds drop it.
 - Bump `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`) on any breaking view change; never restate its value.

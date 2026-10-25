@@ -50,14 +50,14 @@ fn optional_band_fallback_is_accepted_when_all_three_offered_members_are_not() {
 
     let deck = crate::housedeck::HouseDeck::named("victory").unwrap();
     let mut preset = crate::selfplay::table_for(42, &[&deck, &deck], &[AIProfile::STEADY; 2], &[]);
-    let template = preset.seats[0].deck[0].clone();
+    let template = preset.seats[0].deck[0];
     preset.seats[0].starting_battlefield =
         ["Benalish Hero", "Grizzly Bears", "Hill Giant", "Gray Ogre"]
             .into_iter()
             .map(|name| baylee_core::preset::DeckEntry {
                 card: baylee_cards::decks::by_name(name).unwrap(),
                 rule_print: None,
-                ..template.clone()
+                ..template
             })
             .collect();
     let mut engine = Engine::new(&preset, baylee_gamehost::RegistryLookup).unwrap();

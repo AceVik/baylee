@@ -20,7 +20,7 @@ fn entry(name: &str) -> DeckEntry {
         card: card(name),
         print: PrintRef::new(0),
         rule_print: None,
-        choices: Default::default(),
+        choices: baylee_core::card_metadata::DeckChoices::default(),
     }
 }
 

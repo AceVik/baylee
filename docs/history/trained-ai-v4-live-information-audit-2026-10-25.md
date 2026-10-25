@@ -397,8 +397,10 @@ neural expected side utility, recorded separately from learned policy answers;
 it is not evidence of calibrated human-opponent win probabilities. These live
 changes do not rewrite frozen experiment code, actor weights or PPO data.
 
-Next learning decision: finish the already-running eight-round experiment and
-its comparisons as an encoder-6 baseline. Do not respond to these findings by
+Next learning decision: retain the now-completed eight-round experiment and
+its comparisons as an encoder-6 baseline; new-seed confirmation did not
+establish an improvement (see the
+[final report](trained-ai-v4-sharp-intensive-2026-10-25.md)). Do not respond to these findings by
 merely increasing model size or appending another broad encoder-6 run. Implement
 and verify the encoder-7 information contract, then reconvert replay-compatible
 training data and train with the corrected action/payment context. Preserve
@@ -411,5 +413,48 @@ mana/interaction behavior on fixed tactical cases and paired full games. The
 current heads-only PPO experiment does not use those BC weights; this is a
 possible inherited bias, not a measured causal explanation of its outcome.
 
-None of the proposed encoder-7 information fixes or new objective semantics has
-been implemented by this audit document.
+The audit itself changed no encoder or objective. The following subsequent
+implementation is opt-in groundwork, not a deployed encoder-7 checkpoint.
+
+## First implementation milestone after Sharp completion
+
+- `features7::actions::encode_candidates7` preserves the existing priority
+  candidates and adds distinct `legal.payable` spells. The engine can then ask
+  for modes/targets and open its exact payment window before lands are tapped.
+  A priority menu beyond the candidate bound returns an explicit error. This
+  does not repair other legacy head/entity/edge limits yet.
+- Additive `Session::view_for_with_context` and `observe_view_with_context`
+  expose owner-authorized casting/target context from the same builders used
+  for sockets. Existing methods and encoder-6 live normalization stay stable.
+  Regression coverage checks exact legacy equality after removing only the
+  added context, socket parity, and opponent privacy.
+- `features7::inventory::RegisteredDeck7` keeps an exact unordered multiset of
+  the own submission, with separate sections, counts beyond 255, card identity,
+  per-copy deck choices and resolved physical printing rules. Artwork and
+  preset-local metadata indices are excluded. The constructor receives one
+  seat's submission and only dereferences that seat's rules metadata.
+  Changing another deck, RNG seed, submission order, artwork or unrelated
+  metadata does not change this inventory.
+- The registration inventory is **not** a remaining-library estimator.
+  Fixed starting hands are additional physical cards in this engine. An
+  absent fixed hand and an explicitly empty fixed hand have the same multiset
+  of additional cards but different opening-draw behavior. Setup flow and
+  later hidden transfers/copies require their own representations.
+
+Actual Session tests cover announcing a creature before producing mana,
+Shock during the opponent's turn, Counterspell targeting a live stack object,
+and cancellation during payment. These deliberately select offered actions;
+they establish plumbing, not learned planning. `CancelCast` is validated by
+the engine before generic `Pending::answer_fault`, using owner-only context.
+It remains absent from mode/target heads: cancellation must be represented
+as a separate decision, not an extra object in a target subset. That limitation
+has its own regression and must be resolved before declaring action coverage.
+
+Before new full-network training: complete exact numeric/typed state facts,
+ordered zones and all visible entities; bind the inventory, owed symbols and
+choice context to actual neural tensors; represent sideband cancellation;
+version model/export/conversion together; test runtime/replay parity and hidden
+information invariance. Then reconvert compatible complete records, use an
+explicitly versioned pass-neutral BC objective, and evaluate mana/interaction
+tactics plus paired games. Archived encoder-6 exports remain the controls.
+No old dataset, checkpoint or frozen completed run is rewritten by this work.

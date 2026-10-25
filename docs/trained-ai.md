@@ -100,6 +100,26 @@ numeric clipping and the missing cast-before-payment action route. These need
 a new versioned encoder and matching training; the archived encoder-6 actor
 must not silently receive a different candidate distribution.
 
+The opt-in `features7` foundations now expose the missing `legal.payable`
+casts and retain the exact own registration multiset (separate library,
+sideboard, commander and configured starting-card sections; per-copy choices
+and physical rules facts survive). They are not yet a complete neural input
+contract or connected to inference/training. `Session::view_for_with_context`
+and `observe_view_with_context` supply the same owner-only cast/target context
+as socket views without altering the archived view methods. Tests exercise
+announcing before tapping, payment, opponent-turn instants and counters;
+they do not test a checkpoint's intelligence. Cancelling mode/target choices
+still needs a separate action representation; it must not become a fake target.
+
+The eight-round Sharp experiment is complete with **no confirmed playing
+improvement** on its new-seed confirmation. A completed nonpositive mean
+confirmation now vetoes publication of that candidate. The publisher writes
+`<selection>.confirmation-status.json`, and maintenance exposes this as
+`selection_review`; an already active preview is retained and explicitly
+marked for review. This is a conservative operational filter, not a test of
+statistical significance. Pending confirmation still means an experimental
+development preview, never a confirmed strength promotion.
+
 The preview requires two socket chairs, no house-AI chairs, and CPU inference
 (`BAYLEE_EP=cpu` or unset); it refuses CUDA to keep training independent.
 `BAYLEE_ENGINE_PUMP_STEPS=1` on the engine agent limits attached host pumping;
