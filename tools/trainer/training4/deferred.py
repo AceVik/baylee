@@ -40,15 +40,16 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
     if chunk < 1 or net.cfg.dropout != 0:
         raise ValueError("Deferred readouts require positive chunk size and dropout=0")
     b, unroll = batch["step_valid"].shape
+    valid_all = batch["step_valid"].to(device, non_blocking=True)
+    decision_all = batch["is_decision"].to(device, non_blocking=True).long()
     memories, thinking = [], []
     for t, plan in enumerate(plans):
-        k = batch["is_decision"][:, t].to(device).long() * plan.thinking
+        k = decision_all[:, t] * plan.thinking
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):
             observed = net.observe_memory(boards[t][0], hidden, k)
         memories.append(observed)
         thinking.append(k)
-        valid = batch["step_valid"][:, t].to(device)
-        hidden = torch.where(valid[:, None, None], observed.float(), hidden)
+        hidden = torch.where(valid_all[:, t, None, None], observed.float(), hidden)
 
     outputs = [None] * unroll
     token_limit = 128 * 1024**2 // (b * net.cfg.d_model * 4)
@@ -57,20 +58,34 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         p = max(plans[t].pairs for t in times)
         # Merge frames into the batch axis. Trim BEFORE concatenation so one
         # rare NameCard frame cannot inflate all other readouts in the unroll.
-        inputs = []
-        for name in M.INPUT_NAMES[:-2]:
-            frames = []
-            for t in times:
-                frame = batch[name][:, t]
+        if len(times) == 1:
+            t0 = times[0]
+            inputs = []
+            for name in M.INPUT_NAMES[:-2]:
+                frame = batch[name][:, t0]
                 if name.startswith("cand_"):
                     frame = frame[:, :c]
                 elif name.startswith("pair_"):
                     frame = frame[:, :p]
-                frames.append(frame.to(device, non_blocking=True))
-            inputs.append(torch.cat(frames, dim=0))
-        memory = torch.cat([memories[t] for t in times], dim=0)
-        board = tuple(torch.cat([boards[t][i] for t in times], dim=0) for i in range(2))
-        budgets = torch.cat([thinking[t] for t in times], dim=0)
+                inputs.append(frame.to(device, non_blocking=True))
+            memory = memories[t0]
+            board = boards[t0]
+            budgets = thinking[t0]
+        else:
+            t_idx = list(times)
+            n_times = len(times)
+            inputs = []
+            for name in M.INPUT_NAMES[:-2]:
+                tensor = batch[name]
+                if name.startswith("cand_"):
+                    tensor = tensor[:, :, :c]
+                elif name.startswith("pair_"):
+                    tensor = tensor[:, :, :p]
+                selected = tensor[:, t_idx].to(device, non_blocking=True)
+                inputs.append(selected.transpose(0, 1).reshape(n_times * b, *selected.shape[2:]))
+            memory = torch.cat([memories[t] for t in times], dim=0)
+            board = tuple(torch.cat([boards[t][i] for t in times], dim=0) for i in range(2))
+            budgets = torch.cat([thinking[t] for t in times], dim=0)
         heads = (tuple(any(plans[t].heads[h] for t in times) for h in range(4))
                  if getattr(net, "prune_unused_policy_heads", False) else None)
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=bf16):

@@ -31,17 +31,25 @@ def plan_batch(batch, step_num, thinking_steps=1, curriculum=False):
     heads = batch["head"].numpy()
     candidates = batch["cand_mask"].numpy()
     pairs = batch["pair_mask"].numpy()
+
+    cand_any = candidates.any(axis=0)
+    pair_any = pairs.any(axis=0)
+    valid_dec = valid & decision
+    dec_any = decision.any(axis=0)
+    val_any = valid.any(axis=0)
+    head_any = tuple((valid_dec & (heads == h)).any(axis=0) for h in range(4))
+
     result = []
     for t in range(valid.shape[1]):
-        c = np.flatnonzero(candidates[:, t].any(axis=0))
-        p = np.flatnonzero(pairs[:, t].any(axis=0))
+        c = np.flatnonzero(cand_any[t])
+        p = np.flatnonzero(pair_any[t])
         k = (1, 2, 4, 8)[(step_num + t) % 4] if curriculum else thinking_steps
         result.append(StepPlan(
             int(c[-1]) + 1 if len(c) else 1,
             int(p[-1]) + 1 if len(p) else 1,
-            k if decision[:, t].any() else 0,
-            bool(valid[:, t].any()),
-            tuple(bool((valid[:, t] & decision[:, t] & (heads[:, t] == h)).any()) for h in range(4)),
+            k if dec_any[t] else 0,
+            bool(val_any[t]),
+            (bool(head_any[0][t]), bool(head_any[1][t]), bool(head_any[2][t]), bool(head_any[3][t])),
         ))
     return result
 

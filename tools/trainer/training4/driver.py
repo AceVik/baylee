@@ -32,7 +32,7 @@ from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
 from .loss import compute_step_loss
 from .validation import evaluate
 from .validation_device import evaluate_device
-from .device_loss import compute_device_loss
+from .device_loss import compute_device_loss, compute_unroll_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
@@ -355,8 +355,14 @@ def main() -> None:
                 if args.decision_chunk > 1:
                     prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
                                                               args.decision_chunk, device, use_bf16)
-                for t in range(U):
-                    if prepared is None:
+                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                        aux_all = net.aux_head(torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1))
+                    traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans)
+                    epoch_stats[:3] += st[:3] / U
+                    epoch_stats[3:] += st[3:]
+                    h = final_hidden
+                else:
+                    for t in range(U):
                         k_val = (k_choices[(step_num + t) % len(k_choices)]
                                  if args.thinking_curriculum else args.thinking_steps)
                         k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
@@ -365,38 +371,32 @@ def main() -> None:
                                          execution_hint=None if plans is None else plans[t].hint,
                                          encoded_board=None if boards is None else boards[t],
                                          policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
-                    else:
-                        output = prepared[t]
-                    h_next, cand_l, pair_l, scal_p, val_p = output
-                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                        aux_p = net.aux_head(h_next[:, 0])
-                    loss_function = compute_step_loss if plans is None else compute_device_loss
-                    loss_t, st = loss_function(
-                        cand_l.float(),
-                        pair_l.float(),
-                        scal_p.float(),
-                        val_p.float(),
-                        aux_p.float(),
-                        batch,
-                        t,
-                        *([] if plans is None else [plans[t]]),
-                    )
-                    if prepared is None:
+                        h_next, cand_l, pair_l, scal_p, val_p = output
+                        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                            aux_p = net.aux_head(h_next[:, 0])
+                        loss_function = compute_step_loss if plans is None else compute_device_loss
+                        loss_t, st = loss_function(
+                            cand_l.float(),
+                            pair_l.float(),
+                            scal_p.float(),
+                            val_p.float(),
+                            aux_p.float(),
+                            batch,
+                            t,
+                            *([] if plans is None else [plans[t]]),
+                        )
                         valid_t = batch["step_valid"][:, t].to(device)
                         h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
-                    traj_loss = traj_loss + loss_t / U
-                    if plans is None:
-                        ep_pol += st["pol_loss"] / U
-                        ep_val += st["val_loss"] / U
-                        ep_aux += st["aux_loss"] / U
-                        ep_corr += st["correct_single"]
-                        ep_tot += st["total_single"]
-                    else:
-                        epoch_stats[:3] += st[:3] / U
-                        epoch_stats[3:] += st[3:]
-
-                if prepared is not None:
-                    h = final_hidden
+                        traj_loss = traj_loss + loss_t / U
+                        if plans is None:
+                            ep_pol += st["pol_loss"] / U
+                            ep_val += st["val_loss"] / U
+                            ep_aux += st["aux_loss"] / U
+                            ep_corr += st["correct_single"]
+                            ep_tot += st["total_single"]
+                        else:
+                            epoch_stats[:3] += st[:3] / U
+                            epoch_stats[3:] += st[3:]
                 if not torch.isfinite(traj_loss):
                     raise FloatingPointError(f"Non-finite loss at step {step_num}")
                 traj_loss.backward()
