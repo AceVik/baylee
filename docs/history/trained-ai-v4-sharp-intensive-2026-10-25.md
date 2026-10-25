@@ -103,3 +103,18 @@ Nullgradienten und vollständigen Rollback einschließlich Adam-Zählern. Ein
 unabhängiger Agent prüfte PPO-Semantik und Controller. Vor dem Dauerlauf folgt
 zusätzlich ein begrenzter Schritt des echten großen Modells auf acht vollständigen,
 kurzen Sharp-Duellen; das ist eine Implementierungsprobe, kein Spielstärketest.
+
+Diese Probe ist inzwischen bestanden: 138,6 Sekunden auf der CPU, 1,57 GiB
+Peak-PSS, 3.265 chronologische Lernframes und 659 auditierte Entscheidungen.
+Maximale Logprob-Abweichung 0,0000058413. Ein Update mit 129 Entscheidungen
+wurde akzeptiert; dessen KL beträgt 0,0000055835 und der anschließende Audit
+über alle 659 Entscheidungen 0,0000051767. Alle gemeinsamen, Gedächtnis- und
+Value-Tensoren blieben bitidentisch. Der Probekandidat wird nicht als Quelle
+des Dauerlaufs verwendet.
+
+Der Controller und sein Abschluss-/Fehler-Wecker sind gestartet. Anfangsphase
+ist `waiting-for-critic`; die GPU gehört weiter dem gesunden Critic-Lauf.
+Nach dessen tatsächlichem Ende folgen Sammlung und Policy-Training ohne
+weitere Benutzerfreigabe. Die Python-Runtime ist bei `da10b2133` eingefroren,
+die Rust-Binaries wurden bei `6afb09c7d` gebaut und separat gehasht. Es wurde
+kein laufender Versuch umgeschrieben und kein Push ohne lokale Gates ausgeführt.
