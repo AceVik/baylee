@@ -149,10 +149,7 @@ impl Prompt {
             // mana abilities with nothing castable is also every quiet
             // window in the game.
             Self::Priority { .. } if owing => Phrase::PayOrPass.text(lang).to_string(),
-            Self::Priority { .. } => match turn {
-                Turn::Mine => Phrase::YourMove.text(lang).to_string(),
-                Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
-            },
+            Self::Priority { .. } => priority_line(lang, turn),
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
             Self::Discard { count } => {
@@ -762,5 +759,12 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::SkipTurn { .. } => Phrase::SkipTurnToUntap.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
+    }
+}
+
+fn priority_line(lang: Lang, turn: Turn) -> String {
+    match turn {
+        Turn::Mine => Phrase::YourMove.text(lang).to_string(),
+        Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
     }
 }
