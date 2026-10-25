@@ -1,5 +1,7 @@
 //! Offline fixtures for selective, preflighted reader reclamation.
 
+mod complete_stub;
+
 use super::plan;
 use crate::{Cli, Cmd, Parser};
 use baylee_cards_codegen::{ledger, scryfall, stubgen};
