@@ -56,10 +56,6 @@ def select_entries(pending, frame_limit, seed):
 def publish(source, output, entries, header):
     output.mkdir(exist_ok=False)
     (output/"train").mkdir()
-    src_sidecar = source / ".shard-cache-v3"
-    dst_sidecar = output / ".shard-cache-v3"
-    if src_sidecar.exists():
-        dst_sidecar.mkdir(exist_ok=True)
     for entry in entries:
         name = entry["shard"]
         if Path(name).name != name or entry["split"] != "train":
@@ -68,11 +64,6 @@ def publish(source, output, entries, header):
                 not entry.get("replay_hashes_checked") or entry["unencoded_decisions"]):
             raise ValueError("Unverified game or incompatible rule catalog")
         os.link(source/"train"/name, output/"train"/name)
-        if src_sidecar.exists():
-            for ext in (".bin", ".idx", ".meta"):
-                sp = src_sidecar / (name + ext)
-                if sp.exists():
-                    os.link(sp, dst_sidecar / (name + ext))
     for name in ("card_structure.json","card_dsl.bin","card_dsl_back.bin","token_dsl.bin","card_abilities.bin"):
         os.link(source/name, output/name)
     ids = [entry["game_id"] for entry in entries]

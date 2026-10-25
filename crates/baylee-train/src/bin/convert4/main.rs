@@ -30,7 +30,6 @@ use baylee_train::features7::{
 use clap::Parser;
 use flate2::Compression;
 use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 #[derive(Parser, Debug)]

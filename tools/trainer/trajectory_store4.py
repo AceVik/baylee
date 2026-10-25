@@ -224,20 +224,33 @@ def record_header(line: bytes) -> dict:
 
 
 def build_part(path: Path, data_path: Path, index_path: Path) -> int:
-    sidecar_dir = path.parent.parent / ".shard-cache-v3"
-    sidecar_meta = sidecar_dir / f"{path.name}.meta"
-    sidecar_bin = sidecar_dir / f"{path.name}.bin"
-    sidecar_idx = sidecar_dir / f"{path.name}.idx"
-    if sidecar_meta.exists() and sidecar_bin.exists() and sidecar_idx.exists():
-        try:
-            st = path.stat()
-            meta = json.loads(sidecar_meta.read_text())
-            if meta.get("size") == st.st_size and meta.get("mtime_ns") == st.st_mtime_ns:
-                shutil.copyfile(sidecar_bin, data_path)
-                shutil.copyfile(sidecar_idx, index_path)
-                return int(meta["records"])
-        except (OSError, ValueError, KeyError):
-            pass
+    with path.open("rb") as raw_in:
+        magic = raw_in.read(8)
+        if magic == b"BS4S\x01\x00\x00\x00":
+            raw_in.seek(0, os.SEEK_END)
+            total_size = raw_in.tell()
+            if total_size < 32:
+                raise ValueError(f"Truncated BS4S binary shard: {path}")
+            raw_in.seek(total_size - 24)
+            footer = raw_in.read(24)
+            index_offset, records, footer_magic = struct.unpack("<QQ8s", footer)
+            if footer_magic != b"BS4S_END" or index_offset < 8 or index_offset + records * 32 + 24 != total_size:
+                raise ValueError(f"Corrupt BS4S binary shard footer: {path}")
+            raw_in.seek(8)
+            remaining = index_offset - 8
+            with data_path.open("wb") as data_out:
+                while remaining > 0:
+                    chunk = raw_in.read(min(1 << 20, remaining))
+                    if not chunk:
+                        raise ValueError(f"Unexpected EOF in BS4S payload: {path}")
+                    data_out.write(chunk)
+                    remaining -= len(chunk)
+            raw_in.seek(index_offset)
+            idx_bytes = raw_in.read(records * 32)
+            if len(idx_bytes) != records * 32:
+                raise ValueError(f"Unexpected EOF in BS4S index: {path}")
+            index_path.write_bytes(idx_bytes)
+            return int(records)
 
     roots = None
     struct_path = path.parent.parent / "card_structure.json"

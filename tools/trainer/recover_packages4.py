@@ -75,7 +75,7 @@ def main():
                 allowed_games.add(gid)
                 provenance[gid] = {"run": run, "seed": game.get("seed"), "shard": game["shard"],
                                    "offset": game["offset"], "len": game["len"]}
-    all_shards = sorted((source / "train").glob("*.jsonl.gz"))
+    all_shards = sorted(list((source / "train").glob("*.bst4")) + list((source / "train").glob("*.jsonl.gz")))
     candidates = [p for p in all_shards[:-1] if p.stat().st_size <= args.max_shard_mib * 2**20]
     # Spread the quick first package across the source order; do not consume
     # only the first duel shards while later multiplayer records are ready.

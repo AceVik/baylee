@@ -1,28 +1,22 @@
 use super::{
-    Arc, BufWriter, Compression, File, GameRef, GzEncoder, Path, PathBuf, Step4, UNKNOWN_CARD, fs,
-    json,
+    Arc, BufWriter, Compression, File, GameRef, Path, PathBuf, Step4, UNKNOWN_CARD, fs, json,
 };
 use anyhow::Context as _;
 use baylee_train::features4::SourceKind4;
 use flate2::write::ZlibEncoder;
 use std::io::Write as _;
-use std::os::unix::fs::MetadataExt as _;
 
-/// One private per-game stream. Its final filename is the commit marker.
+const BS4S_HEADER: &[u8; 8] = b"BS4S\x01\x00\x00\x00";
+const BS4S_FOOTER_MAGIC: &[u8; 8] = b"BS4S_END";
+
+/// One private per-game binary stream (`BS4S` v1). Its final filename is the commit marker.
 pub(super) struct GameWriter {
     partial: PathBuf,
     final_path: PathBuf,
-    enc: GzEncoder<BufWriter<File>>,
-    sidecar_bin_partial: PathBuf,
-    sidecar_bin_final: PathBuf,
-    sidecar_idx_partial: PathBuf,
-    sidecar_idx_final: PathBuf,
-    sidecar_meta_final: PathBuf,
-    bin_writer: BufWriter<File>,
-    idx_writer: BufWriter<File>,
-    bin_offset: u64,
+    writer: BufWriter<File>,
+    data_offset: u64,
     records: u64,
-    frame: Vec<u8>,
+    index_buf: Vec<u8>,
     bst4_buf: Vec<u8>,
     zlib_buf: Vec<u8>,
     roots: Arc<std::collections::BTreeMap<String, u32>>,
@@ -37,33 +31,18 @@ impl GameWriter {
     ) -> anyhow::Result<Self> {
         let dir = root.join(if validation { "val" } else { "train" });
         fs::create_dir_all(&dir)?;
-        let shard_name = format!("game-{id:06}.jsonl.gz");
-        let final_path = dir.join(&shard_name);
-        let partial = final_path.with_extension("gz.partial");
-        let file = File::create(&partial)?;
-
-        let sidecar_dir = root.join(".shard-cache-v3");
-        fs::create_dir_all(&sidecar_dir)?;
-        let sidecar_bin_final = sidecar_dir.join(format!("{shard_name}.bin"));
-        let sidecar_bin_partial = sidecar_dir.join(format!("{shard_name}.bin.partial"));
-        let sidecar_idx_final = sidecar_dir.join(format!("{shard_name}.idx"));
-        let sidecar_idx_partial = sidecar_dir.join(format!("{shard_name}.idx.partial"));
-        let sidecar_meta_final = sidecar_dir.join(format!("{shard_name}.meta"));
+        let final_path = dir.join(format!("game-{id:06}.bst4"));
+        let partial = final_path.with_extension("bst4.partial");
+        let mut writer = BufWriter::new(File::create(&partial)?);
+        writer.write_all(BS4S_HEADER)?;
 
         Ok(Self {
             partial,
             final_path,
-            enc: GzEncoder::new(BufWriter::new(file), Compression::fast()),
-            bin_writer: BufWriter::new(File::create(&sidecar_bin_partial)?),
-            idx_writer: BufWriter::new(File::create(&sidecar_idx_partial)?),
-            sidecar_bin_partial,
-            sidecar_bin_final,
-            sidecar_idx_partial,
-            sidecar_idx_final,
-            sidecar_meta_final,
-            bin_offset: 0,
+            writer,
+            data_offset: 0,
             records: 0,
-            frame: Vec::with_capacity(64 * 1024),
+            index_buf: Vec::with_capacity(4096 * 32),
             bst4_buf: Vec::with_capacity(32 * 1024),
             zlib_buf: Vec::with_capacity(16 * 1024),
             roots,
@@ -279,45 +258,25 @@ impl GameWriter {
         idx_row[0..4].copy_from_slice(&step.game_id.to_le_bytes());
         idx_row[4..8].copy_from_slice(&u32::from(step.seat).to_le_bytes());
         idx_row[8..16].copy_from_slice(&u64::from(step.step_cursor).to_le_bytes());
-        idx_row[16..24].copy_from_slice(&self.bin_offset.to_le_bytes());
+        idx_row[16..24].copy_from_slice(&self.data_offset.to_le_bytes());
         idx_row[24..28].copy_from_slice(&(self.zlib_buf.len() as u32).to_le_bytes());
         idx_row[28..32].copy_from_slice(&idx_flags.to_le_bytes());
-        self.idx_writer.write_all(&idx_row)?;
-        self.bin_writer.write_all(&self.zlib_buf)?;
-        self.bin_offset += self.zlib_buf.len() as u64;
+        self.index_buf.extend_from_slice(&idx_row);
+        self.writer.write_all(&self.zlib_buf)?;
+        self.data_offset += self.zlib_buf.len() as u64;
         self.records += 1;
-
-        self.frame.clear();
-        serde_json::to_writer(&mut self.frame, step)?;
-        self.frame.push(b'\n');
-        self.enc.write_all(&self.frame)?;
         Ok(())
     }
 
     pub fn finish(mut self) -> anyhow::Result<String> {
-        let mut file = self.enc.finish()?;
-        file.flush()?;
-        file.get_ref().sync_all()?;
+        let index_offset = BS4S_HEADER.len() as u64 + self.data_offset;
+        self.writer.write_all(&self.index_buf)?;
+        self.writer.write_all(&index_offset.to_le_bytes())?;
+        self.writer.write_all(&self.records.to_le_bytes())?;
+        self.writer.write_all(BS4S_FOOTER_MAGIC)?;
+        self.writer.flush()?;
+        self.writer.get_ref().sync_all()?;
         fs::rename(self.partial, &self.final_path)?;
-
-        self.bin_writer.flush()?;
-        self.bin_writer.get_ref().sync_all()?;
-        self.idx_writer.flush()?;
-        self.idx_writer.get_ref().sync_all()?;
-        fs::rename(&self.sidecar_bin_partial, &self.sidecar_bin_final)?;
-        fs::rename(&self.sidecar_idx_partial, &self.sidecar_idx_final)?;
-        let st = fs::metadata(&self.final_path)?;
-        let mtime_ns = i128::from(st.mtime()) * 1_000_000_000 + i128::from(st.mtime_nsec());
-        let meta_tmp = self.sidecar_meta_final.with_extension("meta.partial");
-        fs::write(
-            &meta_tmp,
-            serde_json::to_vec(&json!({
-                "size": st.len(),
-                "mtime_ns": mtime_ns,
-                "records": self.records,
-            }))?,
-        )?;
-        fs::rename(meta_tmp, &self.sidecar_meta_final)?;
 
         Ok(self
             .final_path
