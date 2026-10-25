@@ -1087,7 +1087,7 @@ pub(crate) use front::FrontPress;
 /// The shell's notice lane: the chat keeps it clear of the friends list and
 /// the chat window (`social::drawer::clear_the_lane`).
 pub(crate) use header::ToastLane;
-pub(crate) use header::{HeaderPress, ShellAsk};
+pub(crate) use header::{HeaderPress, ShellAsk, handle, tools};
 pub(crate) use hub::HubPress;
 pub(crate) use library_ui::LibraryPress;
 pub(crate) use press::{Press, SharedPress};

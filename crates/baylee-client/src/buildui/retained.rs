@@ -462,7 +462,7 @@ fn header_key(env: &Env) -> HeaderKey {
         offline: state.lobby.offline(),
         feed_down: state.feed_down,
         unread: state.bell.unread(),
-        handle: super::header::handle(state),
+        handle: crate::lobby::handle(state),
         menu: env.ui().menu == Some(BuildMenu::Header),
         pane: env.ui().pane,
     }

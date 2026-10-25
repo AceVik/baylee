@@ -20,15 +20,21 @@ const BUDGET: usize = 900_000;
 #[cfg(not(target_arch = "wasm32"))]
 const WIDTHS: [u32; 3] = [1280, 960, 640];
 
-/// Asks the renderer for the window as it is now. `true` when a picture is
-/// on its way.
+/// Asks the renderer for the window and encodes its answer on the compute
+/// pool. `true` when a picture is on its way.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn take(commands: &mut Commands) -> bool {
+pub(super) fn take(commands: &mut Commands, opening: u64) -> bool {
     use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
     commands.spawn(Screenshot::primary_window()).observe(
-        |captured: On<ScreenshotCaptured>, mut desk: ResMut<super::ReportDesk>| {
-            desk.shooting = false;
-            desk.gathered.screenshot = encode(captured.image.clone());
+        move |captured: On<ScreenshotCaptured>, mut desk: ResMut<super::ReportDesk>| {
+            if !desk.open || desk.opening != opening {
+                return;
+            }
+            let image = captured.image.clone();
+            desk.shot_encoding = Some(
+                bevy::tasks::AsyncComputeTaskPool::get()
+                    .spawn(async move { (opening, encode(image)) }),
+            );
         },
     );
     true
@@ -36,7 +42,7 @@ pub(super) fn take(commands: &mut Commands) -> bool {
 
 /// A browser build takes no picture.
 #[cfg(target_arch = "wasm32")]
-pub(super) fn take(_commands: &mut Commands) -> bool {
+pub(super) fn take(_commands: &mut Commands, _opening: u64) -> bool {
     false
 }
 

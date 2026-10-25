@@ -58,7 +58,7 @@
 //! `hud::scrolls` is the one input system that runs past `Playing`.
 
 use super::ledge::log::{
-    LOG_ROW_GAP, LineInks, LogTexts, Paint, PhaseRun, scrollbar, spawn_line, spawn_phase, wording,
+    LOG_ROW_GAP, LineInks, LogFollow, LogTexts, Paint, scrollbar, virtual_list, wording,
 };
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
@@ -193,8 +193,11 @@ pub(crate) struct FinishSheet;
 pub(crate) struct FinishExits;
 
 /// The game log's scrolling list on the sheet.
-#[derive(Component)]
-pub(crate) struct FinishLog;
+#[derive(Component, Default, Debug)]
+pub(crate) struct FinishLog {
+    rows: virtual_list::VirtualLog,
+    lang: Lang,
+}
 
 /// A node of this sheet, and the colour it rests at.
 ///
@@ -589,9 +592,20 @@ fn write_the_log(
     let caption = caption.id();
     // Pickable, unlike everything else on the sheet: the wheel is aimed at
     // what is under the pointer, and the rows under it pass it up to here.
+    let (entries, _) = virtual_list::entries(lines);
+    let mut log = FinishLog {
+        rows: virtual_list::VirtualLog::default(),
+        lang,
+    };
+    log.rows.replace(entries);
     let list = commands
         .spawn((
-            FinishLog,
+            log,
+            LogFollow {
+                stuck: false,
+                set: 0.0,
+                unseen: false,
+            },
             Scrolls,
             ScrollPosition::default(),
             Node {
@@ -604,18 +618,6 @@ fn write_the_log(
             },
         ))
         .id();
-    let mut run = PhaseRun::default();
-    for line in lines {
-        if let Some(phase) = run.heading(line) {
-            let heading = spawn_phase(commands, fonts, lang, phase, &SHEET_INKS);
-            commands.entity(list).add_child(heading);
-        }
-        // No seat swatch: the sheet is one reader's account of a game that
-        // is over, and a column of seat colours down its left is the
-        // panel's, where the table is still being played beside it.
-        let row = spawn_line(commands, fonts, lang, line, &SHEET_INKS, None);
-        commands.entity(list).add_child(row);
-    }
     let bar = scrollbar(
         commands,
         list,
@@ -645,6 +647,37 @@ fn write_the_log(
     settle(&mut frame, Paint::Rule(palette::PARCHMENT_EDGE));
     let frame = frame.add_children(&[list, bar]).id();
     commands.entity(sheet).add_children(&[caption, frame]);
+}
+
+/// Mounts only the end log's visible window and keeps it in step with the
+/// wheel. Unlike the live panel it starts at the top and never follows new
+/// lines: the finished book does not grow.
+pub(crate) fn sync_finish_log(
+    mut commands: Commands,
+    fonts: Option<Res<UiFonts>>,
+    mut lists: Query<(Entity, &mut FinishLog, &mut LogFollow, &mut ScrollPosition)>,
+    nodes: Query<&ComputedNode>,
+    mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
+) {
+    let Some(fonts) = fonts else {
+        return;
+    };
+    for (list, mut log, mut follow, mut scroll) in &mut lists {
+        let lang = log.lang;
+        log.rows.sync(
+            &mut commands,
+            list,
+            &fonts,
+            lang,
+            None,
+            &SHEET_INKS,
+            &mut follow,
+            &mut scroll,
+            &nodes,
+            &mut spacers,
+            &mut |_, _, _, _| {},
+        );
+    }
 }
 
 /// One line of [`table_losses`] on the sheet.
@@ -706,7 +739,10 @@ pub(crate) fn settle_the_sheet(
         }
     }
     for mut transform in &mut sheets {
-        transform.translation = Val2::px(0.0, SHEET_LIFT * (1.0 - lit));
+        let translation = Val2::px(0.0, SHEET_LIFT * (1.0 - lit));
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
     }
 }
 
@@ -784,7 +820,10 @@ mod tests {
             .insert_resource(crate::settings::ClientSettings::default())
             .insert_resource(fonts())
             .init_resource::<Veil>()
-            .add_systems(Update, (spawn_finish, settle_the_sheet).chain());
+            .add_systems(
+                Update,
+                (spawn_finish, sync_finish_log, settle_the_sheet).chain(),
+            );
         app.update();
         app
     }
@@ -1006,6 +1045,18 @@ mod tests {
         found.iter(app.world()).next()
     }
 
+    fn mounted_log_rows(app: &App, list: Entity) -> usize {
+        app.world().get::<Children>(list).map_or(0, |kids| {
+            kids.iter()
+                .filter(|entity| {
+                    app.world()
+                        .get::<virtual_list::LogSpacer>(*entity)
+                        .is_none()
+                })
+                .count()
+        })
+    }
+
     /// The whole log is on the sheet, a row for each line, between why the
     /// seats went out and the way out of the screen.
     #[test]
@@ -1014,7 +1065,7 @@ mod tests {
         let expected = duel.log.len();
         let mut app = app_at(duel);
         let list = the_log(&mut app).expect("the log is on the sheet");
-        let rows = app.world().get::<Children>(list).map_or(0, Children::len);
+        let rows = mounted_log_rows(&app, list);
         assert_eq!(rows, expected, "a row for each of the {expected} lines");
 
         let mut sheets = app
@@ -1041,6 +1092,15 @@ mod tests {
             Some(Phrase::GameLogTitle.text(Lang::En)),
             "and says what it is"
         );
+    }
+
+    /// A long result keeps the whole book in the model, not in the UI tree.
+    #[test]
+    fn a_long_finish_log_mounts_only_a_bounded_window() {
+        let mut app = app_at(logged(500));
+        let list = the_log(&mut app).expect("the log is on the sheet");
+        assert_eq!(app.world().resource::<crate::Duel>().log.len(), 500);
+        assert!(mounted_log_rows(&app, list) <= virtual_list::MAX_MOUNTED);
     }
 
     /// A game that logged nothing gets no box and no caption over one.
@@ -1097,6 +1157,55 @@ mod tests {
         assert!(edge.alpha() > 0.5, "the box's edge stayed clear");
     }
 
+    /// Once the veil is fully lit, another frame writes nothing at all.
+    #[test]
+    fn a_settled_sheet_writes_neither_transform_nor_colours() {
+        use bevy::ecs::system::RunSystemOnce;
+
+        fn unchanged<C: Component>(world: &World, entity: Entity) -> bool {
+            !world
+                .entity(entity)
+                .get_ref::<C>()
+                .expect("the component under test")
+                .is_changed()
+        }
+
+        let mut app = App::new();
+        app.insert_resource(Veil { lit: 1.0 });
+        let sheet = app
+            .world_mut()
+            .spawn((FinishSheet, UiTransform::default()))
+            .id();
+        let painted = app
+            .world_mut()
+            .spawn((
+                Settling {
+                    fill: Some(Color::WHITE),
+                    border: Some(Color::WHITE),
+                    ink: Some(Color::WHITE),
+                    grain: Some(Color::WHITE),
+                },
+                BackgroundColor(Color::WHITE),
+                BorderColor::all(Color::WHITE),
+                TextColor(Color::WHITE),
+                ImageNode::default(),
+            ))
+            .id();
+        app.world_mut()
+            .run_system_once(settle_the_sheet)
+            .expect("the sheet settles");
+        app.world_mut().clear_trackers();
+        app.world_mut()
+            .run_system_once(settle_the_sheet)
+            .expect("the settled sheet is read again");
+        let world = app.world();
+        assert!(unchanged::<UiTransform>(world, sheet));
+        assert!(unchanged::<BackgroundColor>(world, painted));
+        assert!(unchanged::<BorderColor>(world, painted));
+        assert!(unchanged::<TextColor>(world, painted));
+        assert!(unchanged::<ImageNode>(world, painted));
+    }
+
     /// The wheel reaches the log once the game is over, and only a game in
     /// hand or just ended: the schedule is the client's own
     /// (`add_input_systems`), whose every other system stops at `Playing`.
@@ -1120,6 +1229,9 @@ mod tests {
             app.world_mut()
                 .run_system_once(spawn_finish)
                 .expect("the sheet is built");
+            app.world_mut()
+                .run_system_once(sync_finish_log)
+                .expect("the log window is mounted");
             crate::add_input_systems(&mut app);
             app.world_mut()
                 .resource_mut::<NextState<crate::DuelPhase>>()

@@ -106,6 +106,41 @@ pub enum SheetWidth {
     Large,
 }
 
+/// The footer of a sheet drawn by [`sheet_box_with_footer`].
+pub struct SheetFooter<'a> {
+    entities: &'a [Entity],
+    retained: Option<&'a super::retain::Kept>,
+    compact: bool,
+}
+
+impl<'a> SheetFooter<'a> {
+    /// The usual padded footer, built from `entities`.
+    #[must_use]
+    pub fn regular(entities: &'a [Entity]) -> Self {
+        Self {
+            entities,
+            retained: None,
+            compact: false,
+        }
+    }
+
+    /// A footer with compact padding and gaps for compact controls.
+    #[must_use]
+    pub fn compact(entities: &'a [Entity]) -> Self {
+        Self {
+            compact: true,
+            ..Self::regular(entities)
+        }
+    }
+
+    /// Moves an existing footer into the new sheet instead of rebuilding it.
+    #[must_use]
+    pub fn retained(mut self, kept: &'a super::retain::Kept) -> Self {
+        self.retained = Some(kept);
+        self
+    }
+}
+
 /// A sheet's box: a head, a body that scrolls, and a footer that stays —
 /// sticky above the gesture and keyboard insets on a phone, so the primary
 /// is visible without scrolling (C3-9). Opaque. [`sheet`] stands it over a
@@ -132,6 +167,31 @@ pub fn sheet_box_with(
     body: &[Entity],
     footer: &[Entity],
     marker: impl Bundle,
+) -> Entity {
+    sheet_box_with_footer(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        SheetFooter::regular(footer),
+        marker,
+        (),
+    )
+}
+
+/// A [`sheet_box_with`] with a compact and optionally retained footer.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+// the three sheet bands and both footer paths
+pub fn sheet_box_with_footer(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: SheetFooter,
+    marker: impl Bundle,
+    footer_marker: impl Bundle,
 ) -> Entity {
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
@@ -186,16 +246,27 @@ pub fn sheet_box_with(
         .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
+    commands.entity(surface).add_children(&[head, scroller]);
+    if let Some(kept) = footer.retained {
+        kept.attach(commands, surface);
+        return surface;
+    }
+    let (padding, gap) = if footer.compact {
+        (UiRect::axes(kit.m.px(12.0), kit.m.px(6.0)), kit.m.px(6.0))
+    } else {
+        (UiRect::all(px_fixed(kit.m.pad)), px_fixed(kit.m.gap))
+    };
     let foot = commands
         .spawn((
+            footer_marker,
             Node {
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                column_gap: px_fixed(kit.m.gap),
+                padding,
+                column_gap: gap,
                 // More actions than a narrow sheet holds in a row (the report's
                 // four in German, window B) go onto a second row, never out of
                 // the sheet.
                 flex_wrap: FlexWrap::Wrap,
-                row_gap: px_fixed(kit.m.gap),
+                row_gap: gap,
                 justify_content: JustifyContent::FlexEnd,
                 flex_shrink: 0.0,
                 border: UiRect::top(px_fixed(1.0)),
@@ -205,10 +276,8 @@ pub fn sheet_box_with(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(foot).add_children(footer);
-    commands
-        .entity(surface)
-        .add_children(&[head, scroller, foot]);
+    commands.entity(foot).add_children(footer.entities);
+    commands.entity(surface).add_child(foot);
     surface
 }
 

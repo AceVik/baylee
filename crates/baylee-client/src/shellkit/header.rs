@@ -84,8 +84,8 @@ pub struct HeaderLook<'a> {
     pub handle: Option<&'a str>,
     /// The Phone header's gold Return pill, in place of the gateway's dot.
     pub return_pill: Option<&'a str>,
-    /// Controls the screen adds before the bell (the lobby's quick
-    /// settings gear), already built.
+    /// Controls the screen adds before the bell (quick settings and social
+    /// tools), already built.
     pub tools: &'a [Entity],
 }
 

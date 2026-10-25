@@ -53,6 +53,14 @@ pub(super) fn typing(
         Step::Char
     };
     let mut closed = false;
+    if desk.form.status == baylee_client_core::bugreport::Status::Sending {
+        for key in typed.read() {
+            if key.state.is_pressed() && key.logical_key == Key::Escape {
+                closed = true;
+            }
+        }
+        return closed;
+    }
     if desk.form.confirming {
         // The words are what is being confirmed: they do not change under
         // the confirmation. `Esc` goes back to them; Enter sends, unless the
@@ -160,6 +168,7 @@ pub(super) fn take_the_paste(desk: &mut ReportDesk) {
     desk.paste = None;
     if let Ok(text) = result
         && desk.open
+        && desk.form.status != baylee_client_core::bugreport::Status::Sending
     {
         desk.form.paste(&text);
     }
@@ -224,6 +233,11 @@ pub(super) fn act(
     lobby: Option<&LobbyState>,
     clipboard: Option<&mut bevy::clipboard::Clipboard>,
 ) {
+    if desk.form.status == baylee_client_core::bugreport::Status::Sending
+        && press.locked_while_sending()
+    {
+        return;
+    }
     match press {
         DeskPress::Kind(kind) => {
             desk.form.kind = kind;

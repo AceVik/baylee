@@ -61,6 +61,8 @@ use bevy::picking::events::{PointerClick, PointerOut, PointerOver};
 use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
 
+pub(crate) mod virtual_list;
+
 /// How wide the panel is at least, where the window has the room.
 ///
 /// A column of sentences, and wide enough that a line naming two cards
@@ -192,7 +194,7 @@ impl Default for LogZoom {
 }
 
 /// What the panel was last drawn from.
-#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct LogRevision {
     /// The panel it was drawn into. The overlay can spawn a new one.
     panel: Option<Entity>,
@@ -210,6 +212,8 @@ pub struct LogRevision {
     drawn: usize,
     /// Where the last drawn line left the phase headings.
     run: PhaseRun,
+    /// The bounded window of mounted rows.
+    rows: virtual_list::VirtualLog,
 }
 
 impl LogRevision {
@@ -223,8 +227,8 @@ impl LogRevision {
             && self.seat == next.seat
             && self.rewrites == next.rewrites
             // An empty book drew its empty line, which the first line
-            // replaces rather than follows.
-            && self.drawn > 0
+            // replaces rather than follows. Two empty frames still extend.
+            && (self.drawn > 0 || len == 0)
             && len >= self.drawn
     }
 }
@@ -299,7 +303,12 @@ pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
 ///
 /// Nothing here shows or hides it: [`grow_the_log`] does both, at the ends
 /// of the movement.
-#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::too_many_lines
+)]
+// a Bevy system: every one is an injection
 pub fn sync_log(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -309,8 +318,13 @@ pub fn sync_log(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
     mut revision: ResMut<LogRevision>,
-    mut panel: Query<(Entity, Option<&Children>, &mut LogZoom, &mut Node), With<LogPanel>>,
-    mut lists: Query<(Entity, &mut LogFollow), With<LogList>>,
+    mut panel: Query<
+        (Entity, Option<&Children>, &mut LogZoom, &mut Node),
+        (With<LogPanel>, Without<virtual_list::LogSpacer>),
+    >,
+    mut lists: Query<(Entity, &mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    nodes: Query<&ComputedNode>,
+    mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
     chat: Option<Res<crate::social::SocialHost>>,
 ) {
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
@@ -337,6 +351,7 @@ pub fn sync_log(
             fold.t = 0.0;
         }
         revision.panel = None;
+        revision.rows.reset();
         return;
     }
     // A finished game closes it, for the menu's reason: `DuelSet::Input`
@@ -351,6 +366,7 @@ pub fn sync_log(
         rewrites: duel.log.rewrites(),
         drawn: revision.drawn,
         run: revision.run,
+        rows: virtual_list::VirtualLog::default(),
     };
     if next.open == fold.closing {
         fold.closing = !next.open;
@@ -365,41 +381,45 @@ pub fn sync_log(
     let len = duel.log.len();
     let drawn = standing.is_some_and(|kids| !kids.is_empty());
     if revision.extends(&next, len) && drawn {
-        if len == revision.drawn {
-            return;
-        }
-        let Some((list, mut follow)) = lists.iter_mut().next() else {
+        let Some((list, mut follow, mut scroll)) = lists.iter_mut().next() else {
             return;
         };
         let lookup = LogTexts(texts.as_deref());
         let wording = wording(&duel, lang, &lookup);
-        let mut run = revision.run;
-        for line in duel.log.lines_since(revision.drawn, &wording) {
-            if let Some(phase) = run.heading(&line) {
-                let heading = spawn_phase(&mut commands, &fonts, lang, phase, &PANEL_INKS);
-                commands.entity(list).add_child(heading);
+        if len > revision.drawn {
+            let from = revision.drawn;
+            let mut run = revision.run;
+            let lines = duel.log.lines_since(from, &wording);
+            revision
+                .rows
+                .append(virtual_list::append_entries(&lines, from, &mut run));
+            if !follow.stuck {
+                follow.unseen = true;
             }
-            let swatch = subject_ink(&wording, line.subject);
-            let row = spawn_line(
+            revision.drawn = len;
+            revision.run = run;
+        }
+        if len > 0 {
+            revision.rows.sync(
                 &mut commands,
+                list,
                 &fonts,
                 lang,
-                &line,
+                Some(&wording),
                 &PANEL_INKS,
-                Some(swatch),
+                &mut follow,
+                &mut scroll,
+                &nodes,
+                &mut spacers,
+                &mut |_, _, _, _| {},
             );
-            commands.entity(list).add_child(row);
         }
-        if !follow.stuck {
-            follow.unseen = true;
-        }
-        revision.drawn = len;
-        revision.run = run;
         return;
     }
 
     // Everything again: the panel opened, or what every line is written
-    // from changed under it.
+    // from changed under it. The root removal owns the old row entities.
+    revision.rows.reset();
     if let Some(kids) = standing {
         for kid in kids {
             commands.entity(*kid).despawn();
@@ -408,13 +428,35 @@ pub fn sync_log(
     let lookup = LogTexts(texts.as_deref());
     let wording = wording(&duel, lang, &lookup);
     let lines = duel.log.lines(&wording);
-    let (parts, run) = draw_all(&mut commands, &fonts, &wording, &lines);
+    let (entries, run) = virtual_list::entries(&lines);
+    let (parts, list) = draw_all(&mut commands, &fonts, &wording, &lines);
     commands.entity(panel).add_children(&parts);
+    let mut rows = std::mem::take(&mut revision.rows);
+    rows.replace(entries);
+    if len > 0 {
+        let mut follow = LogFollow::default();
+        let mut scroll = ScrollPosition::default();
+        rows.sync(
+            &mut commands,
+            list,
+            &fonts,
+            lang,
+            Some(&wording),
+            &PANEL_INKS,
+            &mut follow,
+            &mut scroll,
+            &nodes,
+            &mut spacers,
+            &mut |_, _, _, _| {},
+        );
+        commands.entity(list).insert((follow, scroll));
+    }
     *revision = LogRevision {
         drawn: len,
         run,
         ..next
     };
+    revision.rows = rows;
 }
 
 /// The whole panel's inside: the head, and the list with its scrollbar and
@@ -424,7 +466,7 @@ fn draw_all(
     fonts: &UiFonts,
     wording: &Wording,
     lines: &[LogLine],
-) -> ([Entity; 2], PhaseRun) {
+) -> ([Entity; 2], Entity) {
     let lang = wording.lang;
     let head = head(commands, fonts, lang);
     let body = commands
@@ -467,16 +509,6 @@ fn draw_all(
             .id();
         commands.entity(list).add_child(empty);
     }
-    let mut run = PhaseRun::default();
-    for line in lines {
-        if let Some(phase) = run.heading(line) {
-            let heading = spawn_phase(commands, fonts, lang, phase, &PANEL_INKS);
-            commands.entity(list).add_child(heading);
-        }
-        let swatch = subject_ink(wording, line.subject);
-        let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS, Some(swatch));
-        commands.entity(list).add_child(row);
-    }
     let track = scrollbar(
         commands,
         list,
@@ -488,7 +520,7 @@ fn draw_all(
     );
     let pill = new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
-    ([head, body], run)
+    ([head, body], list)
 }
 
 /// The catalog's text as the log reads it: card names, and the words of a

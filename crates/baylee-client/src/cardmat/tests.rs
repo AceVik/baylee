@@ -775,6 +775,7 @@ fn the_glow_flags_are_the_same_number_on_both_sides() {
         ("GLOW_WILL_TAP", glow::WILL_TAP, true),
         ("GLOW_REACHABLE", glow::REACHABLE, true),
         ("GLOW_CHOOSABLE", glow::CHOOSABLE, true),
+        ("GLOW_SELECTED", glow::SELECTED, true),
     ] {
         if drawn {
             let theirs = wgsl_const(common, name);
@@ -794,8 +795,8 @@ fn the_glow_flags_are_the_same_number_on_both_sides() {
     }
     assert_eq!(
         glow::OFFERS.count_ones(),
-        5,
-        "the felt is lit for five offers, and the protection is not one"
+        6,
+        "the felt is lit for six offers, and the protection is not one"
     );
     for (which, src) in [
         ("card.wesl", include_str!("../shaders/card.wesl")),

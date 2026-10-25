@@ -42,8 +42,9 @@ use bevy::shader::ShaderRef;
 /// once here is cheaper than sending a `u128` to the GPU.
 ///
 /// Two kinds of claim ride in the word. The offers — [`ACTIVATABLE`],
-/// [`REACHABLE`], [`ARMED`], [`WILL_TAP`] — are this client saying "you
-/// could" or "you are about to", and are light on the felt round the card
+/// [`REACHABLE`], [`ARMED`], [`WILL_TAP`], [`CHOOSABLE`], [`SELECTED`] — are
+/// this client saying "you could", "you are about to" or "you chose", and are
+/// light on the felt round the card
 /// (`floor_light`, #298). The three protection keywords are facts about the
 /// card. They were the frame's paper until #298 took the frame away, and they
 /// wait for the shells that replace it. Sickness and identity used to ride
@@ -104,9 +105,12 @@ pub mod glow {
     /// print, `docs/legal.md` §3) and take no press
     /// (`input::table_click`'s choice gate).
     pub const CHOOSABLE: u32 = 1 << 24;
+    /// This card belongs to the draft answer, whether or not it is still a
+    /// legal thing to click. A steady, strong light independent of `choosable`.
+    pub const SELECTED: u32 = 1 << 25;
 
-    /// The five offers: what the felt round a card is lit with.
-    pub const OFFERS: u32 = ACTIVATABLE | ARMED | WILL_TAP | REACHABLE | CHOOSABLE;
+    /// The six offers: what the felt round a card is lit with.
+    pub const OFFERS: u32 = ACTIVATABLE | ARMED | WILL_TAP | REACHABLE | CHOOSABLE | SELECTED;
 }
 
 /// The engine's keyword bit for each glow, from `baylee-cards-dsl`.
@@ -147,8 +151,8 @@ pub fn glow_bits(keywords: u128) -> u32 {
 
 /// What this client is offering to do with one card, right now.
 ///
-/// Four claims about the *client's own state* rather than about the card, and
-/// they travel together rather than as four arguments for the same reason
+/// Five claims about the *client's own state* rather than about the card, and
+/// they travel together rather than as five arguments for the same reason
 /// [`glow_of`] exists at all: they change with priority and with a tap, and a
 /// caller that passed some of them would have the same card saying two
 /// different things in the hand and on the table.
@@ -277,6 +281,18 @@ impl Offer {
 /// different subset than another.
 #[must_use]
 pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 {
+    glow_of_with_selection(object, offer, false)
+}
+
+/// [`glow_of`], plus the selection held by the table placement rather than by
+/// the offer. Selection is persistent and therefore never ranked against the
+/// invitations to act.
+#[must_use]
+pub fn glow_of_with_selection(
+    object: Option<&baylee_view::PublicObject>,
+    offer: Offer,
+    selected: bool,
+) -> u32 {
     let from_card = object.map_or(0, |o| glow_bits(o.keywords));
     // An armed card is not also inviting a tap: the invitation was accepted,
     // and drawing both would put a travelling light and a steady one round
@@ -298,7 +314,10 @@ pub fn glow_of(object: Option<&baylee_view::PublicObject>, offer: Offer) -> u32 
     } else {
         0
     };
-    from_card | offered | if offer.will_tap { glow::WILL_TAP } else { 0 }
+    from_card
+        | offered
+        | if offer.will_tap { glow::WILL_TAP } else { 0 }
+        | if selected { glow::SELECTED } else { 0 }
 }
 
 /// What the shader needs to know about one card.

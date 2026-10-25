@@ -200,6 +200,8 @@ pub fn waiting(age: f32) -> Stage {
 pub struct VistaParams {
     /// The panel framed: centre xy, half extent zw, in the field's units.
     pub panel: Vec4,
+    /// Baylee's screen-wide home: foot xy and height, independent of the panel.
+    pub home: Vec4,
     /// Pointer xy, aspect, energy.
     pub view: Vec4,
     /// Hour, haze, glow, quality.
@@ -431,6 +433,11 @@ fn unframed(aspect: f32) -> Vec4 {
     Vec4::new(aspect * 0.5, 0.5, (aspect * 0.4).min(0.3), 0.3)
 }
 
+/// Baylee's home belongs to the window, not to whichever panel a scene draws.
+fn home_anchor(aspect: f32) -> Vec4 {
+    Vec4::new(aspect * 0.235, 0.968, 0.30, 0.0)
+}
+
 /// Moves `from` towards `to` by `step` of the way.
 fn towards(from: f32, to: f32, step: f32) -> f32 {
     if (to - from).abs() <= step {
@@ -569,6 +576,7 @@ pub(crate) fn paint(
         let energy = if frozen { 0.0 } else { 1.0 };
         material.params = VistaParams {
             panel,
+            home: home_anchor(aspect),
             view: Vec4::new(gaze.0.x, gaze.0.y, aspect, energy),
             hour: Vec4::new(settled.hour, stage.haze, stage.glow, detail),
             gate_a: Vec4::new(
@@ -678,7 +686,12 @@ struct Globals { time: f32 };
     /// The lobby's world (Baylee's fireflies are drawn from its clock,
     /// `portal.z`, and only while `view.w`, its energy, is not zero), painted
     /// for `frames` frames of 50 ms; the last params, and each frame's clock.
-    fn lobby_world(reduce_motion: bool, frames: usize) -> (VistaParams, Vec<f32>) {
+    /// `panel_x` is the current scene's panel centre in screen heights.
+    fn lobby_world(
+        reduce_motion: bool,
+        frames: usize,
+        panel_x: Option<f32>,
+    ) -> (VistaParams, Vec<f32>) {
         use bevy::time::TimeUpdateStrategy;
         let mut app = App::new();
         app.add_plugins(MinimalPlugins)
@@ -715,6 +728,16 @@ struct Globals { time: f32 };
             MaterialNode(handle.clone()),
             Visibility::Inherited,
         ));
+        if let Some(x) = panel_x {
+            app.world_mut().spawn((
+                Framed(Vista::Interior),
+                ComputedNode {
+                    size: Vec2::new(300.0, 500.0),
+                    ..ComputedNode::default()
+                },
+                UiGlobalTransform::from_translation(Vec2::new(x * 1032.0, 400.0)),
+            ));
+        }
         let mut clock = Vec::new();
         for _ in 0..frames {
             app.update();
@@ -732,12 +755,24 @@ struct Globals { time: f32 };
     #[test]
     #[allow(clippy::float_cmp)] // a stopped clock and zero energy are exact
     fn reduced_motion_stops_the_lobby_fireflies() {
-        let (still, clock) = lobby_world(true, 8);
+        let (still, clock) = lobby_world(true, 8, None);
         assert_eq!(still.view.w, 0.0, "{still:?}");
         assert!(clock.iter().all(|t| *t == clock[0]), "{clock:?}");
-        let (moving, clock) = lobby_world(false, 8);
+        let (moving, clock) = lobby_world(false, 8, None);
         assert_eq!(moving.view.w, 1.0, "{moving:?}");
         assert!(clock.windows(2).skip(2).all(|w| w[1] > w[0]), "{clock:?}");
         assert_eq!(moving.gate_b.w, 1.0, "the interior draws Baylee at home");
+    }
+
+    /// Play's side panel, the unframed Decks screen and a differently placed
+    /// builder panel may move the dimming mask, but never Baylee's home.
+    #[test]
+    #[allow(clippy::float_cmp)] // every anchor and panel centre is exact by construction
+    fn baylees_home_anchor_is_the_same_across_scenes() {
+        let scenes = [Some(0.24), None, Some(0.71)].map(|panel| lobby_world(false, 3, panel).0);
+        let home = scenes[0].home;
+        assert!(scenes.iter().all(|scene| scene.home == home));
+        assert_ne!(scenes[0].panel.x, scenes[1].panel.x);
+        assert_ne!(scenes[1].panel.x, scenes[2].panel.x);
     }
 }

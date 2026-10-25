@@ -2782,6 +2782,10 @@ AttackWithdraw = Withdraw: { $card } → { $defender }
 # Instructions for the reversible draft.
 AttackDraftHint = Choose a defender, then creatures. Withdraw an attacker here to reassign it. Confirm when ready.
 
+# Shared page of the defender and creature lists.
+# Arguments: page, total
+AttackPage = Page { $page } of { $total }
+
 # Declare blockers
 DeclareBlockers = Declare blockers
 
@@ -5406,10 +5410,10 @@ ReportShotSize = { $width } × { $height }, { $kilobytes } KB
 ReportCrashesBox = Send crash reports automatically
 
 # Opens the preview.
-ReportPreviewShow = Show what is sent
+ReportPreviewShow = What is sent
 
 # Closes it.
-ReportPreviewHide = Hide what is sent
+ReportPreviewHide = Hide preview
 
 # Sends.
 ReportSend = Send
@@ -5419,6 +5423,9 @@ ReportClose = Close
 
 # While it goes.
 ReportSending = Sending …
+
+# While a local game's record is compressed in the background.
+ReportPreparing = Preparing attachments …
 
 # Received. `$id` is the report's id.
 # Arguments: id

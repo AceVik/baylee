@@ -183,6 +183,14 @@ fn words(text: &str) -> (String, Piece) {
     (text.into(), Piece::Words)
 }
 
+fn link(card: u32) -> Piece {
+    Piece::Link(rows::ChatCardLink {
+        card,
+        face: 0,
+        print: None,
+    })
+}
+
 /// The pieces always read back as the whole text.
 fn rejoined(pieces: &[(String, Piece)]) -> String {
     pieces.iter().map(|(t, _)| t.as_str()).collect()
@@ -206,11 +214,7 @@ fn a_link_cuts_the_text_around_it() {
     let b = body("cast [Opt] now", &[[5, 10]], &[]);
     assert_eq!(
         rows::pieces(&b),
-        [
-            words("cast "),
-            ("[Opt]".into(), Piece::Link(100, 0)),
-            words(" now"),
-        ]
+        [words("cast "), ("[Opt]".into(), link(100)), words(" now"),]
     );
 }
 
@@ -224,7 +228,7 @@ fn marks_are_cut_in_text_order_whatever_order_they_come_in() {
         [
             ("[@Bob#0012]".into(), Piece::Mention),
             words(" sees "),
-            ("[Opt]".into(), Piece::Link(100, 0)),
+            ("[Opt]".into(), link(100)),
         ]
     );
     assert_eq!(rejoined(&p), b.text);
@@ -239,7 +243,7 @@ fn spans_count_characters_not_bytes() {
         p,
         [
             words("Grüße "),
-            ("[Lötus]".into(), Piece::Link(100, 0)),
+            ("[Lötus]".into(), link(100)),
             words(" 日本"),
         ]
     );
@@ -250,7 +254,7 @@ fn spans_count_characters_not_bytes() {
 fn a_mark_in_the_last_characters_leaves_no_trailing_words() {
     let b = body("see 日本[X]", &[[6, 9]], &[]);
     let p = rows::pieces(&b);
-    assert_eq!(p.last(), Some(&("[X]".into(), Piece::Link(100, 0))));
+    assert_eq!(p.last(), Some(&("[X]".into(), link(100))));
     assert_eq!(rejoined(&p), b.text);
 }
 
@@ -270,14 +274,7 @@ fn an_empty_or_backwards_span_is_ignored() {
 fn of_two_overlapping_spans_the_earlier_wins() {
     let b = body("abcdefgh", &[[1, 5]], &[[3, 7]]);
     let p = rows::pieces(&b);
-    assert_eq!(
-        p,
-        [
-            words("a"),
-            ("bcde".into(), Piece::Link(100, 0)),
-            words("fgh"),
-        ]
-    );
+    assert_eq!(p, [words("a"), ("bcde".into(), link(100)), words("fgh"),]);
     assert_eq!(rejoined(&p), b.text, "nothing drawn twice, nothing lost");
 }
 
@@ -286,10 +283,7 @@ fn neighbouring_spans_leave_no_empty_run_between_them() {
     let b = body("abcdef", &[[0, 3]], &[[3, 6]]);
     assert_eq!(
         rows::pieces(&b),
-        [
-            ("abc".into(), Piece::Link(100, 0)),
-            ("def".into(), Piece::Mention),
-        ]
+        [("abc".into(), link(100)), ("def".into(), Piece::Mention),]
     );
 }
 
@@ -2191,6 +2185,7 @@ mod pane {
             .spawn(ChatCardLink {
                 card: 4242,
                 face: 0,
+                print: None,
             })
             .id();
         rig.frames(2);

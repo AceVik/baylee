@@ -217,6 +217,15 @@ pub(crate) fn mode_words(
         .or_else(|| baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string))
 }
 
+/// A non-interactive caption before a group of related choice rows.
+#[derive(Clone, PartialEq, Debug)]
+pub struct ChoiceHeading {
+    /// The category and, for a permanent defender, its controller.
+    pub label: String,
+    /// A Font Awesome mark drawn beside the category.
+    pub icon: char,
+}
+
 /// One row of an indexed chooser.
 #[derive(Clone, PartialEq, Debug)]
 pub struct ChoiceOption {
@@ -234,6 +243,8 @@ pub struct ChoiceOption {
     pub pip: Option<Pip>,
     /// A cost drawn after the label, for the cast options that have one.
     pub cost: Option<ManaCost>,
+    /// A caption attached to the first row of a visible group.
+    pub heading: Option<ChoiceHeading>,
 }
 
 impl ChoiceOption {
@@ -244,6 +255,7 @@ impl ChoiceOption {
             label,
             pip: None,
             cost: None,
+            heading: None,
         }
     }
 }
@@ -570,6 +582,7 @@ fn color_options(options: &[baylee_core::mana::ManaColor]) -> Vec<ChoiceOption> 
             label: String::new(),
             pip: Some(colour_pip(*c)),
             cost: None,
+            heading: None,
         })
         .collect()
 }
@@ -711,6 +724,7 @@ pub fn options(
                     } else {
                         Some(desc.cost)
                     },
+                    heading: None,
                 })
                 .collect(),
         ),
@@ -1278,6 +1292,18 @@ pub(crate) fn damage_effect_label(
     baylee_client_core::damage::effect_label(lang, effect, damage, &origin, &|target| {
         damage_target(target, lang, statics, names)
     })
+}
+
+/// Attack defenders and creatures share a page control; the longer group decides
+/// how many pages exist, and each group clamps independently to its last page.
+pub(crate) fn attack_page_count(
+    options: &[baylee_client_core::interaction::AttackOption],
+) -> usize {
+    use baylee_client_core::{interaction::AttackOption, targeting::PAGE_SIZE};
+    let count = |wanted: fn(&AttackOption) -> bool| options.iter().filter(|o| wanted(o)).count();
+    let defenders = count(|o| matches!(o, AttackOption::Aim(_)));
+    let creatures = count(|o| matches!(o, AttackOption::Toggle(_)));
+    (defenders.max(creatures).saturating_sub(1) / PAGE_SIZE) + 1
 }
 
 /// Damage rows remain bounded by page size, independent of damage amount.

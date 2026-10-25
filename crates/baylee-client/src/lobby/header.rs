@@ -39,6 +39,8 @@ pub(crate) enum HeaderPress {
     Bell,
     /// The account pill (or its letter).
     Account,
+    /// The chat tool.
+    Chat,
     /// Click outside an open header popover to close it.
     CloseMenu,
     /// A toast's cross: the toast it stands on.
@@ -187,7 +189,7 @@ pub(super) fn wears_header(state: &LobbyState) -> bool {
 }
 
 /// The account pill's handle: `GET /me`'s, a kept guest's, else none yet.
-fn handle(state: &LobbyState) -> Option<String> {
+pub(crate) fn handle(state: &LobbyState) -> Option<String> {
     if state.lobby.offline() {
         return None;
     }
@@ -218,14 +220,14 @@ pub(super) fn draw(
             bar(commands, root, state, kit, seated.is_some());
         }
     }
-    if state.front_menu && wears_header(state) {
+    let builder = matches!(state.lobby.screen(), Screen::Build);
+    if state.front_menu && (wears_header(state) || builder) {
         let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
         commands.entity(root).add_child(menu);
     }
     strips(commands, root, state, kit, seated);
     // The builder wears a header of its own (`buildui::header`) with the
-    // same dot, bell and account, and their popovers are these.
-    let builder = matches!(state.lobby.screen(), Screen::Build);
+    // same tools, bell and account, and their popovers are these.
     if let Some(menu) = state.header_menu.filter(|_| wears_header(state) || builder) {
         let popover = popover(commands, state, kit, menu);
         commands.entity(root).add_child(popover);
@@ -298,54 +300,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             strips::pill_words(state.lobby.stats(), &state.lobby, lang)
         };
         let handle = handle(state);
-        // The quick settings (language, music: the music's toggle stands on
-        // every screen it plays on) keep their gear beside the bell.
-        let gear_face = commands
-            .spawn((
-                Node {
-                    min_width: kit.m.px(32.0),
-                    min_height: kit.m.px(32.0),
-                    padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                UiTransform::default(),
-                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let gear_glyph = commands
-            .spawn((
-                Text::new("\u{f013}"),
-                crate::hud::icon_tf(kit.fonts, kit.m.text),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(gear_face).add_child(gear_glyph);
-        let gear = crate::shellkit::controls::hit(
-            commands,
-            kit,
-            gear_face,
-            (
-                Press::Front(FrontPress::FrontMenu),
-                kit_header::HeaderTrigger::Gear,
-            ),
-        );
-        let mut tools = vec![gear];
-        if let Some(true) = state.chat_header {
-            tools.push(chat_tool(
-                commands,
-                kit,
-                crate::hud::glyph::FRIENDS,
-                None,
-                crate::social::HeaderCount::Friends,
-                Press::Header(HeaderPress::Friends),
-            ));
-        }
+        let tools = tools(commands, state, kit);
         let look = HeaderLook {
             brand: Phrase::AppName.text(lang),
             // The short form (§2.1); the full one is in the gateway popover.
@@ -399,6 +354,65 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             .insert((RetainedHeader(identity(state, kit)), LobbyScreen));
         commands.entity(root).add_child(bar);
     }
+}
+
+/// The quick settings and social tools shared by the lobby and builder.
+pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Vec<Entity> {
+    let gear_face = commands
+        .spawn((
+            Node {
+                min_width: kit.m.px(32.0),
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gear_glyph = commands
+        .spawn((
+            Text::new("\u{f013}"),
+            crate::hud::icon_tf(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(gear_face).add_child(gear_glyph);
+    let gear = crate::shellkit::controls::hit(
+        commands,
+        kit,
+        gear_face,
+        (
+            Press::Front(FrontPress::FrontMenu),
+            kit_header::HeaderTrigger::Gear,
+        ),
+    );
+    let mut tools = vec![gear];
+    if let Some(true) = state.chat_header {
+        tools.push(chat_tool(
+            commands,
+            kit,
+            crate::hud::glyph::CHAT,
+            Some(Phrase::ShellChat.text(state.lobby.lang())),
+            crate::social::HeaderCount::Chat,
+            Press::Header(HeaderPress::Chat),
+        ));
+        tools.push(chat_tool(
+            commands,
+            kit,
+            crate::hud::glyph::FRIENDS,
+            None,
+            crate::social::HeaderCount::Friends,
+            Press::Header(HeaderPress::Friends),
+        ));
+    }
+    tools
 }
 
 /// A social tool button in the header: its glyph, and for `HeaderCount::Chat`
@@ -956,10 +970,14 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
-            HeaderPress::Friends => {
+            HeaderPress::Friends | HeaderPress::Chat => {
                 cx.state.header_menu = None;
                 cx.state.front_menu = false;
-                cx.state.shell_asks.push(ShellAsk::Friends);
+                cx.state.shell_asks.push(if self == HeaderPress::Chat {
+                    ShellAsk::Chat
+                } else {
+                    ShellAsk::Friends
+                });
             }
             HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
             HeaderPress::SignOut => {

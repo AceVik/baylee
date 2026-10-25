@@ -619,6 +619,10 @@ impl Plugin for DuelPlugin {
             // covers the way to `Closed` too, so it needs no line in the
             // teardown below.
             .add_systems(OnEnter(DuelPhase::Finished), hud::spawn_finish)
+            .add_systems(
+                Update,
+                hud::sync_finish_log.run_if(in_state(DuelPhase::Finished)),
+            )
             .add_systems(OnExit(DuelPhase::Finished), hud::despawn_finish);
         tear_the_table_down(app);
     }

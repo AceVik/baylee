@@ -17,7 +17,7 @@ use bevy::picking::hover::PickingInteraction;
 use bevy::prelude::*;
 
 mod compact;
-use compact::tooltip;
+pub(crate) use compact::tooltip;
 pub use compact::{button_compact, button_compact_with};
 
 /// What every maker needs: the fonts, the sizes, and whether the labels are

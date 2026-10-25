@@ -31,20 +31,36 @@ pub(crate) fn spawn(commands: &mut Commands, card: &HoverCard) -> Entity {
         entity.insert(Thumbnail(url.replace("/normal/", "/small/"), card.finish));
     }
     let id = entity.id();
-    if let Some(url) = &card.url
-        && card.finish == baylee_client_core::images::FinishTreatment::Plain
-    {
+    if let Some(url) = &card.url {
         let url = url.replace("/normal/", "/small/");
-        // Recycled rows get their cached image before the next layout/render,
-        // rather than spending a frame as an empty placeholder.
+        let finish = card.finish;
+        // Recycled rows get their cached picture or special-finish material
+        // before the next layout/render, rather than spending a frame empty.
         commands.queue(move |world: &mut World| {
             let handle = world
                 .get_resource::<Cache>()
                 .and_then(|cache| cache.images.get(&url))
                 .cloned();
-            if let Some(handle) = handle
-                && let Ok(mut entity) = world.get_entity_mut(id)
-            {
+            let Some(handle) = handle else {
+                return;
+            };
+            let special = finish != baylee_client_core::images::FinishTreatment::Plain
+                && world.contains_resource::<crate::cardmat::UiCardMaterials>()
+                && world.contains_resource::<Assets<crate::cardmat::CardUiMaterial>>();
+            if special {
+                let material = world.resource_scope(
+                    |world, mut materials: Mut<crate::cardmat::UiCardMaterials>| {
+                        let mut assets =
+                            world.resource_mut::<Assets<crate::cardmat::CardUiMaterial>>();
+                        materials.preview(&url, finish, handle, &mut assets)
+                    },
+                );
+                if let Ok(mut entity) = world.get_entity_mut(id) {
+                    entity.insert(MaterialNode(material));
+                }
+            } else if let Ok(mut entity) = world.get_entity_mut(id) {
+                // Headless tests have no material store; their readable
+                // fallback is the same plain picture as before.
                 entity.insert(ImageNode::new(handle));
             }
         });
@@ -413,5 +429,47 @@ mod tests {
         );
         world.flush();
         assert_eq!(world.entity(id).get::<ImageNode>().unwrap().image, handle);
+    }
+
+    /// Special finishes need their material just as early as plain rows need
+    /// their image: waiting for the visibility-driven loader leaves one blank
+    /// frame when the retained deck body remounts every visible row.
+    #[test]
+    fn a_remounted_special_finish_has_its_cached_material_before_layout() {
+        for finish in [
+            baylee_client_core::images::FinishTreatment::Foil,
+            baylee_client_core::images::FinishTreatment::Etched,
+        ] {
+            let mut world = World::new();
+            world.init_resource::<Cache>();
+            world.init_resource::<crate::cardmat::UiCardMaterials>();
+            world.init_resource::<Assets<crate::cardmat::CardUiMaterial>>();
+            let handle = Handle::<Image>::default();
+            world
+                .resource_mut::<Cache>()
+                .images
+                .insert("test/small/art".into(), handle.clone());
+            let material = world.resource_scope(
+                |world, mut materials: Mut<crate::cardmat::UiCardMaterials>| {
+                    let mut assets = world.resource_mut::<Assets<crate::cardmat::CardUiMaterial>>();
+                    materials.preview("test/small/art", finish, handle, &mut assets)
+                },
+            );
+            let id = spawn(
+                &mut world.commands(),
+                &HoverCard {
+                    url: Some("test/normal/art".into()),
+                    back_url: None,
+                    finish,
+                    index: None,
+                },
+            );
+            world.flush();
+            let shown = world
+                .entity(id)
+                .get::<MaterialNode<crate::cardmat::CardUiMaterial>>()
+                .expect("the warm special finish is mounted immediately");
+            assert_eq!(shown.0, material);
+        }
     }
 }

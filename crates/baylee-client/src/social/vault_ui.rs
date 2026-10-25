@@ -331,10 +331,12 @@ fn draw(
         form.focus
     );
     let key = format!(
-        "{key}:{}:{}:{}",
+        "{key}:{}:{}:{}:{}:{}",
         form.create_armed,
         form.again.text().chars().count(),
-        form.mismatch
+        form.mismatch,
+        ui.open,
+        ui.minimised
     );
     let key = format!(
         "{key}:{:?}",
@@ -348,6 +350,10 @@ fn draw(
         commands.entity(root).despawn();
     }
     if !visible || (host.active() && host.vault.is_central()) {
+        return;
+    }
+    // An open composer carries the lock itself; never float it over Send.
+    if host.active() && ui.open && !ui.minimised {
         return;
     }
     if !ui.vault_open {

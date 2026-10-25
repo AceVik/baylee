@@ -227,7 +227,8 @@ pub fn sync_scene(
         // said they will — and is light on the felt round it; a Forest that
         // becomes tappable is lit, and stops being lit the moment priority
         // moves on.
-        let glow = crate::cardmat::glow_of(object, placement.offer);
+        let glow =
+            crate::cardmat::glow_of_with_selection(object, placement.offer, placement.selected);
         if hovered == Some(placement.object) {
             hovered_offer = glow & crate::cardmat::glow::OFFERS != 0;
         }

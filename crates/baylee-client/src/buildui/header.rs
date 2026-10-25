@@ -1,13 +1,13 @@
 //! The builder's header (§7): the breadcrumb back to Decks and the deck's
 //! name, the deck-wide actions, the **one** save state, the `⋯`, and the
-//! shell's dot, bell and account on the right.
+//! shell's dot, quick settings, social tools, bell and account on the right.
 //!
 //! The builder wears this in place of the shell's nav (§2.1: "replaces the
 //! nav"); `1 2 3` do not work here and Esc never leaves (Back is `‹`).
 
 #[allow(clippy::wildcard_imports)] // the builder's own vocabulary
 use super::*;
-use crate::lobby::{HeaderPress, LibraryPress};
+use crate::lobby::{HeaderPress, LibraryPress, handle, tools};
 use crate::shellkit::header as kit_header;
 use baylee_client_core::deckbuilder::BuildField;
 
@@ -18,21 +18,6 @@ use save::{save_button, save_state};
 /// whether the deck is saved (§2.5, WP4: "one save-state node").
 #[derive(Component)]
 pub(crate) struct SaveStateNode;
-
-/// The account pill's handle: `GET /me`'s, a kept guest's, else an ellipsis
-/// while `/me` is on its way; none offline.
-pub(crate) fn handle(state: &LobbyState) -> Option<String> {
-    if state.lobby.offline() {
-        return None;
-    }
-    state
-        .lobby
-        .me()
-        .map(|me| me.handle.clone())
-        .filter(|h| !h.is_empty())
-        .or_else(|| state.lobby.kept_guest().map(|g| g.handle.clone()))
-        .or_else(|| Some("\u{2026}".to_string()))
-}
 
 /// Draws the header into `holder`.
 #[allow(clippy::too_many_lines)] // one bar, read left to right
@@ -56,15 +41,6 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         let brand =
             crate::shellkit::header::brand_mark(commands, m.header, Phrase::AppName.text(lang));
         kids.push(brand);
-        if roomy {
-            kids.push(words(
-                commands,
-                kit,
-                baylee_build::VERSION,
-                m.small,
-                tokens::MUTED,
-            ));
-        }
     }
 
     // ‹ Decks › name ✎
@@ -197,13 +173,14 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
         kit_header::Reach::Up
     };
     let handle = handle(env.state);
+    let tools = tools(commands, env.state, kit);
     kit_header::status(
         commands,
         kit,
         bar,
         &kit_header::HeaderLook {
             brand: Phrase::AppName.text(lang),
-            build: baylee_build::VERSION,
+            build: "",
             nav: &[],
             active: None,
             reach,
@@ -212,7 +189,7 @@ pub(super) fn draw(commands: &mut Commands, holder: Entity, env: &Env) {
             unread: env.state.bell.unread(),
             handle: handle.as_deref(),
             return_pill: None,
-            tools: &[],
+            tools: &tools,
         },
         kit_header::StatusActions {
             gateway: Press::Header(HeaderPress::Gateway),

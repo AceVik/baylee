@@ -93,6 +93,8 @@ pub(crate) struct ChatCardLink {
     pub card: u32,
     /// The face.
     pub face: u8,
+    /// The printing named by the sender, when there was one.
+    pub print: Option<social::BodyPrint>,
 }
 
 /// A name in a chat line: a press whispers them (§5).
@@ -382,13 +384,13 @@ pub(crate) fn spawn_row(
                     Piece::Mention => {
                         span(commands, text, tf_bold(fonts, z(inks.pt)), ink);
                     }
-                    Piece::Link(card, face) => {
+                    Piece::Link(link) => {
                         let font = TextFont {
                             font: bevy::text::FontSource::Handle(fonts.medium.clone()),
                             ..tf(fonts, z(inks.pt))
                         };
                         let id = span(commands, text, font, inks.link.with_alpha(faded));
-                        commands.entity(id).insert(ChatCardLink { card, face });
+                        commands.entity(id).insert(link);
                     }
                 }
             }
@@ -449,14 +451,14 @@ fn is_error(phrase: ChatPhrase) -> bool {
 }
 
 /// A piece of a body's text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Piece {
     /// Its words.
     Words,
     /// A mention, bold.
     Mention,
-    /// A card link: index and face.
-    Link(u32, u8),
+    /// A card link, with the printing the line named.
+    Link(ChatCardLink),
 }
 
 /// A body cut at its links and mentions (spans in characters).
@@ -465,7 +467,16 @@ pub(crate) fn pieces(body: &social::Body) -> Vec<(String, Piece)> {
     let mut marks: Vec<([usize; 2], Piece)> = body
         .links
         .iter()
-        .map(|l| (l.at, Piece::Link(l.card, l.face)))
+        .map(|l| {
+            (
+                l.at,
+                Piece::Link(ChatCardLink {
+                    card: l.card,
+                    face: l.face,
+                    print: l.print.clone(),
+                }),
+            )
+        })
         .chain(body.mentions.iter().map(|m| (m.at, Piece::Mention)))
         .collect();
     marks.sort_by_key(|(at, _)| at[0]);

@@ -411,12 +411,14 @@ fn narrow_desktop_with_large_german_text_wraps_without_losing_actions() {
 }
 
 /// Exercise the real builder through its normal retained sections, with the
-/// shipped fonts: contextual actions must remain reachable after adopting
-/// the shell's shared frame and compact controls.
+/// shipped fonts: contextual and shared header actions must remain reachable,
+/// the wide account keeps its handle, and no version stands beside the brand.
 #[test]
 fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
     use crate::buildui::{Env, Layout};
-    use crate::lobby::{BuildPress, HeaderPress, LibraryPress, LobbyState, Press, Scrolled};
+    use crate::lobby::{
+        BuildPress, FrontPress, HeaderPress, LibraryPress, LobbyState, Press, Scrolled,
+    };
 
     let (mut app, fonts) = layout_app();
     let scrolled = Scrolled::default();
@@ -424,6 +426,11 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
         for width in [1280.0, 1600.0, 1920.0] {
             let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
             state.lobby.set_lang(lang);
+            state.chat_header = Some(true);
+            state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+                handle: HANDLE.to_string(),
+                guest: false,
+            });
             for ch in "A long deck name that must yield to every navigation action".chars() {
                 state.lobby.builder_mut().type_name(ch);
             }
@@ -460,18 +467,15 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 .unwrap()
                 .0;
             let frame = bounds(app.world(), header);
-            let version = app
-                .world_mut()
-                .query::<(Entity, &Text)>()
+            let mut texts = app.world_mut().query::<&Text>();
+            let drawn: Vec<_> = texts
                 .iter(app.world())
-                .find(|(_, text)| text.0 == baylee_build::VERSION)
-                .expect("the roomy builder visibly names its build")
-                .0;
-            let version = bounds(app.world(), version);
-            assert!(version.width() > 1.0 && version.height() > 1.0);
+                .map(|text| text.0.as_str())
+                .collect();
+            assert!(drawn.contains(&HANDLE), "the wide account keeps its handle");
             assert!(
-                frame.contains(version.min) && frame.contains(version.max),
-                "{lang:?} {width}: version {version:?} is outside {frame:?}"
+                drawn.iter().all(|text| *text != baylee_build::VERSION),
+                "no version beside the builder's brand"
             );
             let mut previous = frame.min.x;
             for action in [
@@ -482,7 +486,11 @@ fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
                 Press::Build(BuildPress::SaveDeck),
                 Press::Build(BuildPress::ToggleHeaderMenu),
                 Press::Header(HeaderPress::Gateway),
+                Press::Front(FrontPress::FrontMenu),
+                Press::Header(HeaderPress::Chat),
+                Press::Header(HeaderPress::Friends),
                 Press::Header(HeaderPress::Bell),
+                Press::Header(HeaderPress::Account),
             ] {
                 let entity = app
                     .world_mut()

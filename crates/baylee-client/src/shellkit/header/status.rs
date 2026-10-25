@@ -27,7 +27,8 @@ pub fn status<G: Bundle, B: Bundle, A: Bundle, R: Bundle>(
     compact: bool,
 ) {
     let phone = kit.m.frame == Frame::Phone;
-    let roomy = !compact && matches!(kit.m.frame, Frame::Wide | Frame::Vast);
+    let wide = matches!(kit.m.frame, Frame::Wide | Frame::Vast);
+    let roomy = !compact && wide;
     if let Some(back) = look.return_pill.filter(|_| phone) {
         let pill = controls::button(
             commands,
@@ -66,7 +67,7 @@ pub fn status<G: Bundle, B: Bundle, A: Bundle, R: Bundle>(
     commands.entity(bell).insert(HeaderTrigger::Bell);
     commands.entity(bar).add_child(bell);
     if let Some(handle) = look.handle {
-        let account = if roomy {
+        let account = if wide {
             controls::pill(commands, kit, None, handle, true, actions.account)
         } else {
             avatar(commands, kit, handle, actions.account)

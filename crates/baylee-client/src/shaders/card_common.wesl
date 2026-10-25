@@ -347,6 +347,7 @@ const GLOW_ARMED: u32 = 32u;
 const GLOW_WILL_TAP: u32 = 64u;
 const GLOW_REACHABLE: u32 = 8388608u;
 const GLOW_CHOOSABLE: u32 = 16777216u;
+const GLOW_SELECTED: u32 = 33554432u;
 
 /// How far past the card's edge an offer's light reaches on the felt, and
 /// the band next to the edge it keeps at full strength, in card widths.
@@ -444,6 +445,11 @@ fn floor_light(uv: vec2<f32>, glow: u32, t: f32, m: f32, now: f32) -> vec3<f32> 
     if (glow & GLOW_CHOOSABLE) != 0u {
         let breath = 0.80 + 0.20 * sin(now * 1.8) * m;
         out = out + vec3<f32>(0.86, 0.94, 1.00) * pow(band, 0.6) * 0.55 * breath;
+    }
+    // A selection is a commitment, not an invitation: a broader, brighter,
+    // motionless ivory ring remains after the choosable light has gone.
+    if (glow & GLOW_SELECTED) != 0u {
+        out = out + vec3<f32>(1.00, 0.91, 0.58) * pow(band, 0.30) * 1.15;
     }
     return out;
 }

@@ -76,6 +76,7 @@ pub(super) fn reading(
                 label,
                 pip: None,
                 cost: None,
+                heading: None,
             }
         })
         .collect();
@@ -89,6 +90,7 @@ pub(super) fn reading(
                 label: label.into(),
                 pip: None,
                 cost: None,
+                heading: None,
             });
         }
     }

@@ -37,15 +37,14 @@ fn tap_key(app: &mut App, code: KeyCode) {
     keys.clear();
 }
 
-/// The form open and drawn. It waits up to 30 frames for a screenshot no
-/// renderer here will take, so a test waits them out.
+/// The form open and drawn on the first update that opens it, even though a
+/// headless app's screenshot has not arrived.
 fn open_form(app: &mut App) {
     tap_key(app, KeyCode::F8);
-    for _ in 0..32 {
-        app.update();
-    }
+    app.update();
     assert!(desk(app).open, "F8 opened the form");
-    assert!(drawn(app), "the form is drawn");
+    assert!(drawn(app), "the form is drawn on its first frame");
+    settle_record(app);
 }
 
 fn desk(app: &App) -> &ReportDesk {
@@ -54,6 +53,16 @@ fn desk(app: &App) -> &ReportDesk {
 
 fn desk_mut(app: &mut App) -> Mut<'_, ReportDesk> {
     app.world_mut().resource_mut::<ReportDesk>()
+}
+
+fn settle_record(app: &mut App) {
+    for _ in 0..64 {
+        if !desk(app).record_pending() {
+            return;
+        }
+        app.update();
+    }
+    panic!("the record's background packing did not finish");
 }
 
 fn drawn(app: &mut App) -> bool {
@@ -777,6 +786,218 @@ fn a_keystroke_keeps_the_box_where_it_was_scrolled() {
         q.single(app.world()).expect("one text box").y
     };
     assert!((scrolled - 57.0).abs() < f32::EPSILON, "{scrolled}");
+}
+
+/// Typing and opening the disclosure rebuild the body, not its sticky footer.
+/// The Send icon is the shipped icon font's paper plane, not a missing glyph.
+#[test]
+fn typing_retains_the_footer_and_its_send_icon() {
+    fn footer(app: &mut App) -> Vec<Entity> {
+        let mut entities: Vec<Entity> = desk_presses(app)
+            .into_iter()
+            .filter(|(_, press)| {
+                matches!(
+                    press,
+                    DeskPress::Preview | DeskPress::Close | DeskPress::Send
+                )
+            })
+            .map(|(entity, _)| entity)
+            .collect();
+        entities.sort_unstable();
+        entities
+    }
+
+    let mut app = with_settings();
+    open_form(&mut app);
+    let before = footer(&mut app);
+    let redraws = desk(&app).redraws;
+    keys(&mut app, [typed('h'), typed('i')]);
+    assert_eq!(footer(&mut app), before, "typing replaced the footer");
+    assert!(desk(&app).redraws > redraws, "the body did change");
+    assert!(
+        form_words(&mut app).contains(Phrase::ReportPreviewShow.text(Lang::En)),
+        "the disclosure is visible"
+    );
+    click_desk(&mut app, "what is sent", |press| {
+        matches!(press, DeskPress::Preview)
+    });
+    assert_eq!(footer(&mut app), before, "the disclosure replaced itself");
+    assert!(form_words(&mut app).contains(Phrase::ReportPreviewHide.text(Lang::En)));
+
+    let send = desk_presses(&mut app)
+        .into_iter()
+        .find_map(|(entity, press)| matches!(press, DeskPress::Send).then_some(entity))
+        .expect("Send");
+    let face = app.world().get::<Children>(send).expect("Send face")[0];
+    let icon = app
+        .world()
+        .get::<Children>(face)
+        .expect("Send contents")
+        .iter()
+        .find(|entity| {
+            app.world()
+                .get::<Text>(*entity)
+                .is_some_and(|text| text.0 == crate::hud::glyph::SEND.to_string())
+        })
+        .expect("the paper-plane icon");
+    let font = app.world().get::<TextFont>(icon).expect("icon font");
+    let icons = app.world().resource::<crate::hud::UiFonts>().icons.clone();
+    assert!(matches!(
+        &font.font,
+        bevy::text::FontSource::Handle(handle) if *handle == icons
+    ));
+}
+
+/// Compact visual buttons keep the kit's touch-sized hit areas.
+#[test]
+fn compact_footer_buttons_keep_their_touch_hitboxes() {
+    let mut app = with_settings();
+    app.world_mut()
+        .resource_mut::<ClientSettings>()
+        .feedback_url = Some("https://feedback.example".to_string());
+    app.insert_resource(crate::shellkit::InputClass::Touch);
+    open_form(&mut app);
+    let send = desk_presses(&mut app)
+        .into_iter()
+        .find_map(|(entity, press)| matches!(press, DeskPress::Send).then_some(entity))
+        .expect("Send");
+    let hit = app.world().get::<Node>(send).expect("hit area");
+    assert!(matches!(hit.min_height, Val::Px(height) if height >= 44.0));
+    let face = app.world().get::<Children>(send).expect("Send face")[0];
+    let face = app.world().get::<Node>(face).expect("compact face");
+    assert!(matches!(face.min_height, Val::Px(height) if height <= 30.0));
+    let column = app
+        .world()
+        .get::<ChildOf>(send)
+        .expect("Send column")
+        .parent();
+    let reason = app
+        .world()
+        .get::<Children>(column)
+        .expect("disabled reason")[1];
+    assert_eq!(
+        app.world().get::<Visibility>(reason),
+        Some(&Visibility::Inherited),
+        "Touch keeps the disabled reason visible"
+    );
+    assert_eq!(
+        app.world().get::<Text>(reason).map(|text| text.0.as_str()),
+        Some(Phrase::ReportTextHint.text(Lang::En))
+    );
+}
+
+/// One in-flight report locks every report-changing control. Its spinner
+/// respects reduced motion, and either answer makes the form editable again.
+#[test]
+#[allow(clippy::too_many_lines)] // the whole in-flight lifecycle in one harness
+fn sending_locks_the_form_and_either_answer_unlocks_it() {
+    let mut app = with_settings();
+    app.world_mut()
+        .resource_mut::<ClientSettings>()
+        .feedback_url = Some("https://feedback.example".to_string());
+    app.add_systems(Update, crate::card_loading::spin);
+    open_form(&mut app);
+    keys(&mut app, [typed('o'), typed('w')]);
+    let kind = desk(&app).form().kind;
+    let consent = app.world().resource::<ClientSettings>().reports.clone();
+    desk_mut(&mut app).form_mut().status = Status::Sending;
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(200),
+    ));
+    app.update();
+    assert!(form_words(&mut app).contains(Phrase::ReportSending.text(Lang::En)));
+    for entity in desk_presses(&mut app)
+        .into_iter()
+        .filter_map(|(entity, press)| {
+            matches!(
+                press,
+                DeskPress::Kind(_) | DeskPress::Toggle(_) | DeskPress::Send
+            )
+            .then_some(entity)
+        })
+    {
+        assert!(
+            app.world()
+                .get::<crate::shellkit::controls::Disabled>(entity)
+                .is_some(),
+            "a report-changing control stayed live"
+        );
+    }
+    click_desk(&mut app, "the system box", |press| {
+        matches!(press, DeskPress::Toggle(Category::System))
+    });
+    click_desk(&mut app, "the improvement kind", |press| {
+        matches!(
+            press,
+            DeskPress::Kind(baylee_client_core::bugreport::Kind::Improvement)
+        )
+    });
+    keys(&mut app, [typed('x')]);
+    desk_mut(&mut app).clipboard_answers("pasted");
+    app.update();
+    assert_eq!(desk(&app).form().text.text(), "ow");
+    assert_eq!(desk(&app).form().kind, kind);
+    assert_eq!(app.world().resource::<ClientSettings>().reports, consent);
+
+    let rotation = |app: &mut App| {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<&UiTransform, With<crate::report::SendSpinner>>();
+        query
+            .single(app.world())
+            .expect("one Send spinner")
+            .rotation
+    };
+    app.update();
+    let first = rotation(&mut app);
+    app.update();
+    assert_ne!(rotation(&mut app), first, "the spinner turns");
+    app.world_mut()
+        .resource_mut::<crate::prefs::Prefs>()
+        .edit()
+        .reduce_motion = true;
+    app.update();
+    assert_eq!(
+        rotation(&mut app),
+        Rot2::IDENTITY,
+        "reduced motion holds it still"
+    );
+
+    gateway_answers(app.world(), 429, "");
+    app.update();
+    assert!(matches!(desk(&app).form().status, Status::Failed(_)));
+    for (entity, press) in desk_presses(&mut app) {
+        if matches!(
+            press,
+            DeskPress::Kind(_) | DeskPress::Toggle(_) | DeskPress::Send
+        ) {
+            assert!(
+                app.world()
+                    .get::<crate::shellkit::controls::Disabled>(entity)
+                    .is_none(),
+                "a refusal did not unlock {press:?}"
+            );
+        }
+    }
+    keys(&mut app, [typed('!')]);
+    assert_eq!(desk(&app).form().text.text(), "ow!");
+
+    desk_mut(&mut app).form_mut().status = Status::Sending;
+    app.update();
+    gateway_answers(app.world(), 201, r#"{"report_id":"r-1"}"#);
+    app.update();
+    assert_eq!(desk(&app).form().status, Status::Sent("r-1".into()));
+    assert!(desk(&app).form().text.is_empty());
+    for (entity, press) in desk_presses(&mut app) {
+        if matches!(press, DeskPress::Kind(_) | DeskPress::Toggle(_)) {
+            assert!(
+                app.world()
+                    .get::<crate::shellkit::controls::Disabled>(entity)
+                    .is_none(),
+                "success did not unlock {press:?}"
+            );
+        }
+    }
 }
 
 /// The caret blinks at the rate every text box here blinks at, lit again

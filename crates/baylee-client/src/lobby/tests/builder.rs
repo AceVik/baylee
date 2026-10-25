@@ -27,12 +27,10 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     assert!(presses(&mut app).contains(&Press::Decks(DecksPress::Delete(0))));
 }
 
-/// #254: the deckbuilder says which build it is, as the lobby does, on every
-/// frame: beside the brand where there is room (the shell design §2.1, the
-/// short form), and in the gateway's popover — the whole build — everywhere,
-/// a narrow header included.
+/// The builder keeps its brand clear of the build version on every frame;
+/// the gateway's popover still names the whole build, narrow headers included.
 #[test]
-fn the_builder_names_its_build_on_every_frame() {
+fn the_builder_keeps_its_build_in_the_gateway_popover() {
     for width in [1400.0, 390.0] {
         let mut app = headless();
         stocked(&mut app);
@@ -42,13 +40,11 @@ fn the_builder_names_its_build_on_every_frame() {
             .lobby
             .build_deck();
         app.update();
-        if width > 1000.0 {
-            let drawn = labels(&mut app);
-            assert!(
-                drawn.iter().any(|l| l == baylee_build::VERSION),
-                "{width} px: {drawn:?}"
-            );
-        }
+        let drawn = labels(&mut app);
+        assert!(
+            drawn.iter().all(|l| l != baylee_build::VERSION),
+            "{width} px: {drawn:?}"
+        );
         press(&mut app, Press::Header(crate::lobby::HeaderPress::Gateway));
         let drawn = labels(&mut app);
         assert!(

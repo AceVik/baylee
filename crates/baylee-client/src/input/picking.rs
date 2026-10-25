@@ -269,7 +269,7 @@ fn page_damage_choice(duel: &mut Duel, index: usize) -> bool {
 
 /// Combat rows edit a draft; the ordinary confirmation remains the only send.
 fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
-    use baylee_client_core::targeting::{NEXT, PAGE_SIZE, PREVIOUS};
+    use baylee_client_core::targeting::{NEXT, PREVIOUS};
     let Some(i) = duel.interaction.as_mut() else {
         return false;
     };
@@ -284,11 +284,8 @@ fn pick_attack_choice(duel: &mut Duel, index: usize) -> bool {
         crate::hud::ATTACK_LIST_FOLD => duel.attack_list_folded = !duel.attack_list_folded,
         PREVIOUS => duel.target_page = duel.target_page.saturating_sub(1),
         NEXT => {
-            let creatures = options
-                .iter()
-                .filter(|o| matches!(o, baylee_client_core::interaction::AttackOption::Toggle(_)))
-                .count();
-            duel.target_page = (duel.target_page + 1).min(creatures.saturating_sub(1) / PAGE_SIZE);
+            duel.target_page = (duel.target_page + 1)
+                .min(crate::choices::attack_page_count(&options).saturating_sub(1));
         }
         _ => {
             if let Some(option) = options.get(index) {

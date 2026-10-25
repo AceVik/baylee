@@ -99,7 +99,7 @@ pub fn button_compact_with(
 }
 
 /// A tooltip's box, hidden until the pointer rests on its owner.
-pub(super) fn tooltip(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
+pub(crate) fn tooltip(commands: &mut Commands, kit: Kit, text: &str) -> Entity {
     let words = label(commands, kit, text, kit.m.small, tokens::INK);
     let tip = commands
         .spawn((

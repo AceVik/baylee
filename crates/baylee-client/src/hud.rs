@@ -1888,7 +1888,9 @@ use hand::{
 use overlay::BUTTON_GAP;
 use stack::spawn_stack_panel;
 
-pub(crate) use finish::{FinishExits, despawn_finish, settle_the_sheet, spawn_finish};
+pub(crate) use finish::{
+    FinishExits, despawn_finish, settle_the_sheet, spawn_finish, sync_finish_log,
+};
 pub use hand::apply_hand_scroll;
 /// Gentle lift while inspecting a hand card.
 pub(crate) const HOVER_RAISE: f32 = 12.0;

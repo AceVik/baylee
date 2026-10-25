@@ -42,6 +42,15 @@ pub fn store_is_open() -> bool {
     OPEN.load(Ordering::Acquire)
 }
 
+/// The lobby chat window's size in unscaled interface pixels.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChatWindowSize {
+    /// Horizontal size.
+    pub width: f32,
+    /// Vertical size.
+    pub height: f32,
+}
+
 /// Everything the client remembers.
 #[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -80,6 +89,9 @@ pub struct ClientSettings {
     /// language and their address with it.
     #[serde(default)]
     pub zone_view: baylee_client_core::browser::ViewMode,
+    /// The lobby chat window's size on this device; `None` keeps its responsive default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_window: Option<ChatWindowSize>,
     /// The address that last signed in here, to fill the sign-in box with.
     ///
     /// Here for the reason the zone browser above is, said from the other
@@ -205,6 +217,7 @@ impl Default for ClientSettings {
             prefer_text_view: false,
             zone_browser: None,
             zone_view: baylee_client_core::browser::ViewMode::default(),
+            chat_window: None,
             last_username: String::new(),
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
@@ -703,6 +716,10 @@ mod tests {
                 height: 380.0,
             }),
             zone_view: baylee_client_core::browser::ViewMode::Grid,
+            chat_window: Some(super::ChatWindowSize {
+                width: 640.0,
+                height: 420.0,
+            }),
             last_username: "mail@acevik.de".to_string(),
             gateway_uses: {
                 let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
@@ -767,6 +784,7 @@ mod tests {
         assert_eq!(read.graphics, written.graphics);
         assert_eq!(read.audio, written.audio);
         assert_eq!(read.table, written.table);
+        assert_eq!(read.chat_window, written.chat_window);
         assert_eq!(read.feedback_url, written.feedback_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
