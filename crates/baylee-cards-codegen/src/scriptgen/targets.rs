@@ -246,6 +246,7 @@ impl Tx<'_> {
                     "Other" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
@@ -365,6 +366,21 @@ impl Tx<'_> {
         // `Filter` to match.
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
+        }
+        if self.trigger_mode.as_deref() == Some("DamageDone")
+            && api != "Counter"
+            && let Some(stripped) = valid
+                .split(',')
+                .map(|alt| {
+                    alt.trim()
+                        .strip_suffix(".ControlledBy TriggeredTarget")
+                        .or_else(|| alt.trim().strip_suffix("+ControlledBy TriggeredTarget"))
+                })
+                .collect::<Option<Vec<_>>>()
+        {
+            let expr = self.filter_expr(&stripped.join(","))?;
+            let name = self.body.filter_static("TARGET", &expr);
+            return Some(format!("TargetSpec::ObjectOfEventPlayer(&{name})"));
         }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("TARGET", &expr);
@@ -491,6 +507,11 @@ impl Tx<'_> {
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
             "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
+            "TriggeredDefendingPlayer"
+                if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
+            {
+                "PlayerRel::DefendingPlayer"
+            }
             _ => return None,
         })
     }

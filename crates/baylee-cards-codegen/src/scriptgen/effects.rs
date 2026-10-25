@@ -265,6 +265,11 @@ impl Tx<'_> {
         let whom = match defined.as_deref() {
             Some("Self") => Some("Filter::This"),
             Some("Enchanted" | "Equipped") => Some("Filter::AttachedToBySource"),
+            Some("TriggeredAttackerLKICopy" | "TriggeredAttacker")
+                if self.trigger_mode.as_deref() == Some("Attacks") =>
+            {
+                Some("Filter::Reference")
+            }
             _ => None,
         };
         if let Some(whom) = whom {

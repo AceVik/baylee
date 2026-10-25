@@ -135,38 +135,30 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
-        if mode == "RaiseCost" {
-            return self.mana_life_tax(p);
+        match mode.as_str() {
+            "RaiseCost" => return self.mana_life_tax(p),
+            "CantBeCast" => return self.one_spell_each_turn(p),
+            "CantBlockBy" => return self.cant_block_by(p),
+            "MustAttack" => return self.must_attack(p),
+            "CantAttack,CantBlock,CantBeActivated" => {
+                return self.cant_attack_block_activate(&mode, p);
+            }
+            "CantAttack" if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") => {
+                return self.cant_attack_after_last_own_turn(p);
+            }
+            "CantAttack" => return self.cant_attack_unless(p),
+            "CanAttackDefender" => return self.attack_as_though("AttacksDespiteDefender", p),
+            "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
+            _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") {
             return self.riftstone_graveyard_grant(&mode, p);
-        }
-        if mode == "CantBeCast" {
-            return self.one_spell_each_turn(p);
         }
         if mode == "CantTarget" && p.peek("SourceCanOnlyTarget") == Some("Wall") {
             return self.wall_only_target_prohibition(p);
         }
         if super::guardian52::candidate(&mode, &p) {
             return self.guardian_permission(&mode, p);
-        }
-        match mode.as_str() {
-            "CantBlockBy" => return self.cant_block_by(p),
-            "MustAttack" => return self.must_attack(p),
-            _ => {}
-        }
-        if mode == "CantAttack" {
-            if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") {
-                return self.cant_attack_after_last_own_turn(p);
-            }
-            return self.cant_attack_unless(p);
-        }
-        if let Some(modifier) = match mode.as_str() {
-            "CanAttackDefender" => Some("AttacksDespiteDefender"),
-            "CanAttackIfHaste" => Some("AttacksAsThoughHaste"),
-            _ => None,
-        } {
-            return self.attack_as_though(modifier, p);
         }
         if mode != "Continuous" {
             self.note(format!("static ability `S: Mode$ {mode}`"));
@@ -249,6 +241,35 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    fn cant_attack_block_activate(&mut self, mode: &str, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let Some(valid) = p.take("ValidCard") else {
+            return self
+                .deny("a `CantAttack,CantBlock,CantBeActivated` with no `ValidCard$`".to_string());
+        };
+        let filter = self.filter_expr(&valid)?;
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{mode}.{key}`"));
+            }
+            return None;
+        }
+        for modifier in [
+            "Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))",
+            "Modifier::CantActivate",
+        ] {
+            let mut expr = Self::static_expr(&filter, modifier);
+            if !condition.is_empty()
+                && let Some(open) = expr.strip_suffix(')')
+            {
+                expr = format!("{open}{condition})");
+            }
+            self.body.abilities.push(expr);
+        }
         Some(())
     }
 
@@ -499,9 +520,26 @@ impl Tx<'_> {
                 && var_p == var_t
                 && var_p.trim().parse::<i16>().is_err()
                 && let Some(count) = self.svars.get(var_p.trim()).cloned()
-                && let Some(valid) = count.strip_prefix("Count$Valid ")
-                && !valid.contains('/')
+                && let Some(raw_valid) = count.strip_prefix("Count$Valid ")
             {
+                let (valid, times) = match raw_valid.split_once("/Times.") {
+                    None => (raw_valid, 1_u8),
+                    Some((v, n)) => {
+                        let Ok(n) = n.trim().parse::<u8>() else {
+                            self.note("static ability with a computed P/T".to_string());
+                            return None;
+                        };
+                        if !(1..=4).contains(&n) {
+                            self.note("static ability with a computed P/T".to_string());
+                            return None;
+                        }
+                        (v, n)
+                    }
+                };
+                if valid.contains('/') {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                }
                 let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
                 if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
                     self.note("static ability with a computed P/T".to_string());
@@ -513,10 +551,12 @@ impl Tx<'_> {
                 };
                 let name = self.body.filter_static("COUNTED", &counted_filter);
                 let kind = if yours { "YouControl" } else { "OnBattlefield" };
-                out.push(Self::static_expr(
-                    filter,
-                    &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
-                ));
+                for _ in 0..times {
+                    out.push(Self::static_expr(
+                        filter,
+                        &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
+                    ));
+                }
             } else {
                 // An anthem that names only one half still moves the other by
                 // zero, which is what the printed "+1/+0" says.

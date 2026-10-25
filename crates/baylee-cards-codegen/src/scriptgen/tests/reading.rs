@@ -1521,3 +1521,74 @@ fn echo_keyword_defined_graveyard_controller_and_each_end_step_oracle_read() {
         ]
     );
 }
+
+#[test]
+fn attacker_blocked_attacked_you_times_count_arrest_and_event_player_targets_transcode() {
+    let grifters = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDiscard\n\
+         SVar:TrigDiscard:DB$ Discard | Defined$ TriggeredDefendingPlayer | Mode$ TgtChoose",
+    );
+    assert_eq!(
+        grifters.abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::DiscardForPlayers { who: PlayerRel::DefendingPlayer, count: 1 }])"
+        ]
+    );
+
+    let mask = read(
+        "K:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$Valid Enchantment.Other/Times.2",
+    );
+    assert_eq!(mask.abilities.len(), 3, "{:?}", mask.abilities);
+    assert_eq!(mask.abilities[1], mask.abilities[2]);
+
+    let arrest = read(
+        "K:Enchant:Creature\n\
+         S:Mode$ CantAttack,CantBlock,CantBeActivated | ValidCard$ Creature.EnchantedBy",
+    );
+    assert_eq!(
+        arrest.abilities,
+        [
+            "spell!(&[Effect::AttachSelf { target: TargetSpec::Object(&Filter::CREATURE) }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)))",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::CantActivate)"
+        ]
+    );
+
+    let ballista = read(
+        "A:AB$ DealDamage | Cost$ X W T | ValidTgts$ Creature.attacking,Creature.blocking | NumDmg$ X\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:{X}{W}, {T}: Ballista Squad deals X damage to target attacking or blocking creature.",
+    );
+    assert!(
+        ballista.abilities[0].contains("cost!(\"{X}{W}\", TapSelf)"),
+        "{}",
+        ballista.abilities[0]
+    );
+
+    let briar = read(
+        "T:Mode$ Attacks | ValidCard$ Creature | Attacked$ You | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ -1",
+    );
+    assert!(
+        briar.statics.contains("Filter::AttackingYou"),
+        "{}",
+        briar.statics
+    );
+    assert!(
+        briar.abilities[0].contains("Effect::PumpFilter { filter: &Filter::Reference"),
+        "{}",
+        briar.abilities[0]
+    );
+
+    let wasps = read(
+        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ TrigDestroy | CombatDamage$ True | OptionalDecider$ You\n\
+         SVar:TrigDestroy:DB$ Destroy | ValidTgts$ Artifact.ControlledBy TriggeredTarget",
+    );
+    assert!(
+        wasps.abilities[0].contains("TargetSpec::ObjectOfEventPlayer(&Filter::ARTIFACT)"),
+        "{}",
+        wasps.abilities[0]
+    );
+}

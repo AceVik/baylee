@@ -195,6 +195,7 @@ impl Tx<'_> {
         }
         match mode {
             "AttackerBlockedByCreature" => self.block_trigger(p),
+            "AttackerBlocked" => self.attacker_blocked_trigger(p),
             "ChangesZone" => {
                 let origin = p.take("Origin");
                 let dest = p.take("Destination");
@@ -268,18 +269,7 @@ impl Tx<'_> {
                     "Trigger::StepBegin {{ step: {step}, whose: {whose} }}"
                 ))
             }
-            "Attacks" => {
-                let Some(valid) = p.take("ValidCard") else {
-                    return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
-                };
-                let filter = if valid == "Card.Self" {
-                    "&Filter::This".to_string()
-                } else {
-                    let expr = self.filter_expr(&valid)?;
-                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
-                };
-                Some(format!("Trigger::Attacks({filter})"))
-            }
+            "Attacks" => self.attacks_trigger(p),
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
@@ -299,6 +289,42 @@ impl Tx<'_> {
             }
             other => self.deny(format!("trigger mode `{other}`")),
         }
+    }
+
+    fn attacker_blocked_trigger(&mut self, p: &mut Params) -> Option<String> {
+        if p.take("ValidCard").as_deref() != Some("Card.Self") {
+            return self.deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+        }
+        match p.take("ValidBlocker") {
+            None => Some("Trigger::BecomesBlocked".to_string()),
+            Some(blocker) => {
+                let expr = self.filter_expr(&blocker)?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                Some(format!("Trigger::BecomesBlockedBy(&{filter})"))
+            }
+        }
+    }
+
+    fn attacks_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
+        };
+        let valid = match p.take("Attacked").as_deref() {
+            None => valid,
+            Some("You") if valid != "Card.Self" => valid
+                .split(',')
+                .map(|alt| format!("{alt}.attackingYou"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some(other) => return self.deny(format!("an attack against `{other}`")),
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        Some(format!("Trigger::Attacks({filter})"))
     }
 
     /// One `K:` line, as whichever of the four things it is.

@@ -446,6 +446,10 @@ impl Tx<'_> {
                 parts.push(format!("PayLife({n})"));
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+                || (token == "X"
+                    && self.has_x
+                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                    && !self.oracle.to_ascii_lowercase().contains("x is "))
             {
                 mana.push('{');
                 mana.push_str(token);
