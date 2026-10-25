@@ -3,6 +3,9 @@
 trait EvaluationPlayer {
     fn reseed(&mut self, seed: u64);
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset);
+    fn uses_context(&self) -> bool {
+        false
+    }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()>;
     fn answer(
         &mut self,
@@ -19,6 +22,9 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset) {
         Self::init_game(self, preset);
+    }
+    fn uses_context(&self) -> bool {
+        self.is_encoder7()
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)

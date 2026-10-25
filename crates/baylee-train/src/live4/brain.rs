@@ -18,6 +18,11 @@ pub struct LiveAnswer4 {
 
 /// A synchronous seat brain. It never receives opponent decks or game state.
 pub trait Brain4 {
+    /// Whether the brain natively consumes live `casting`/`targeting` context.
+    #[must_use]
+    fn retains_live_context(&self) -> bool {
+        false
+    }
     /// Initialize once from this seat's deck and public team assignments.
     ///
     /// # Errors
@@ -46,6 +51,9 @@ pub trait Brain4 {
 }
 
 impl Brain4 for NetPlayer4 {
+    fn retains_live_context(&self) -> bool {
+        self.is_encoder7()
+    }
     fn initialize(
         &mut self,
         seat: PlayerId,

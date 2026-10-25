@@ -52,21 +52,25 @@ def main():
         raise ValueError("Preserving existing output; use a new directory")
     checkpoint = args.model / "net.pt"
     old = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    for key, expected in (("encoder_version", M.ENCODER_VERSION), ("model_version", M.MODEL_VERSION),
+    if old.get("encoder_version") not in (6, M.ENCODER_VERSION):
+        raise ValueError("Incompatible encoder_version")
+    for key, expected in (("model_version", M.MODEL_VERSION),
                           ("trajectory_version", M.TRAJECTORY_VERSION), ("sampling_version", M.SAMPLING_VERSION)):
         if old.get(key) != expected:
             raise ValueError(f"Incompatible {key}")
     data = json.loads(args.catalog.read_text())
     net = M.PlayerNet4(M.Config4(**old["config"]))
     net.attach_structure(old["structure"])
-    net.load_state_dict(old["state_dict"], strict=True)
+    net.load_state_dict(M.upgrade_state_dict_to_v7(old["state_dict"], net), strict=True)
     old_digest = net.rules.digest
     net.rules = refresh_encoder(net.rules, data)
-    payload = {key: old[key] for key in ("config", "encoder_version", "model_version",
+    payload = {key: old[key] for key in ("config", "model_version",
                                        "trajectory_version", "sampling_version")}
+    payload["encoder_version"] = M.ENCODER_VERSION
     payload.update(state_dict=net.state_dict(), structure=data,
                    provenance={"source": str(checkpoint),
                                "source_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+                               "source_encoder_version": old.get("encoder_version"),
                                "old_catalog_sha256": old_digest,
                                "new_catalog_sha256": net.rules.digest,
                                "operator_mapping": "exact tag names",

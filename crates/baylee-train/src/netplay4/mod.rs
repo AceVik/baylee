@@ -190,6 +190,12 @@ impl NetPlayer4 {
         })
     }
 
+    /// Returns `true` when this player uses the Encoder 7 state/candidate contract.
+    #[must_use]
+    pub const fn is_encoder7(&self) -> bool {
+        self.encoder_version >= 7
+    }
+
     /// Sets the sampling temperature `tau` (`0.0` = greedy argmax).
     #[must_use]
     pub fn with_temperature(mut self, tau: f32) -> Self {

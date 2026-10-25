@@ -17,10 +17,10 @@ use serde::Serialize;
 use std::borrow::Cow;
 
 /// Match the current offline observation/candidate contract without changing
-/// `TableMemory`'s authorized wire snapshot. Offline Session views omit these
-/// two UI additions; casting would otherwise insert a new `CancelCast` choice.
-fn policy_view(view: &PlayerView) -> Cow<'_, PlayerView> {
-    if view.casting.is_none() && view.targeting.is_none() {
+/// `TableMemory`'s authorized wire snapshot. Archived Encoder 6 models strip
+/// `casting` and `targeting`, while Encoder 7 models retain them natively.
+fn policy_view(view: &PlayerView, retain_context: bool) -> Cow<'_, PlayerView> {
+    if retain_context || (view.casting.is_none() && view.targeting.is_none()) {
         return Cow::Borrowed(view);
     }
     let mut compatible = view.clone();
@@ -249,7 +249,7 @@ impl<B: Brain4> LiveSeat4<B> {
                 self.report.duplicate_questions += 1;
                 return Ok(outgoing);
             }
-            let view = policy_view(view);
+            let view = policy_view(view, self.brain.retains_live_context());
             let answer = self
                 .brain
                 .answer(view.as_ref(), &question.pending, &self.teams)?;
@@ -291,7 +291,7 @@ impl<B: Brain4> LiveSeat4<B> {
             view.seat == self.seat && view.seats.len() == self.teams.len(),
             "view is not authorized for this seat/roster"
         );
-        let view = policy_view(view);
+        let view = policy_view(view, self.brain.retains_live_context());
         let digest = board_observation_hash(view.as_ref());
         if self.last_observation == Some(digest) {
             self.report.duplicate_observations += 1;

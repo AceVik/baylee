@@ -126,11 +126,16 @@ fn play_one_table(
         }
 
         // Passively observe the table for all neural seats after opponent progression (P0-4)
+        let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
                 if is_net_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    let obs_v = session.observe_view(pid);
+                    let obs_v = if uses_ctx {
+                        session.observe_view_with_context(pid)
+                    } else {
+                        session.observe_view(pid)
+                    };
                     n.observe(&obs_v)?;
                 }
             }
@@ -148,7 +153,12 @@ fn play_one_table(
                 continue;
             }
             let pid = PlayerId::new(s as u8);
-            let Some((pending, view)) = session.view_for(pid) else {
+            let pending_view = if uses_ctx {
+                session.view_for_with_context(pid)
+            } else {
+                session.view_for(pid)
+            };
+            let Some((pending, view)) = pending_view else {
                 continue;
             };
             let vh = view_only_state_hash(&view, &pending);

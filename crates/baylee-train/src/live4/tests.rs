@@ -359,7 +359,7 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
             ..LegalActions::default()
         }),
     };
-    let compatible = policy_view(&wire);
+    let compatible = policy_view(&wire, false);
     let state = encode_state4(compatible.as_ref(), Some(&pending), None, &[None, None]);
     let choices = encode_candidates4(&state, compatible.as_ref(), &pending);
     assert!(
@@ -369,7 +369,10 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
             .all(|choice| !matches!(choice.action, Some(PlayerAction::CancelCast)))
     );
     assert_eq!(choices.candidates.len(), 1);
-    assert!(matches!(policy_view(compatible.as_ref()), Cow::Borrowed(_)));
+    assert!(matches!(
+        policy_view(compatible.as_ref(), false),
+        Cow::Borrowed(_)
+    ));
     let (mut seat, calls) = adapter();
     seat.hear(&table()).unwrap();
     let delta = frame(v1::envelope::Msg::StateDelta(v1::StateDelta {

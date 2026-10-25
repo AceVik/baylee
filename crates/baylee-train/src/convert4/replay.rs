@@ -88,7 +88,7 @@ pub(super) fn replay_frames(
                 };
 
                 let (pending, view) = session
-                    .view_for(seat)
+                    .view_for_with_context(seat)
                     .ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
 
                 // Diagnostic decision-only conversion is not a recurrent training dataset.
@@ -107,7 +107,7 @@ pub(super) fn replay_frames(
                             Cow::Borrowed(&view)
                         } else {
                             let other_pid = PlayerId::new(other_idx as u8);
-                            Cow::Owned(session.observe_view(other_pid))
+                            Cow::Owned(session.observe_view_with_context(other_pid))
                         };
                         if knowledge[other_idx].observe(&other_v) {
                             let st =
