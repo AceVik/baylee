@@ -1,20 +1,26 @@
-//! Decks built from the working pool, so the trained AI sees more than two.
+//! Decks built from the working pool, so the trained AI sees every working card
+//! in coherent, synergistic, curve-balanced decks with pip-accurate mana bases.
 //!
-//! A generated deck is a training artifact, not a house deck: it lives in a
-//! run's manifest, never in `data/decks/` or the database. It is built to a
-//! shape ([`Shape`]: at least 60 cards with four copies, sometimes more
-//! cards; Highlander; Commander) and an archetype ([`Archetype`]: how many
-//! lands, which curve, how many creatures), from cards that work, and it is
-//! checked by the same predicate the gateway will use
+//! A generated deck is a training and evaluation artifact: it is built to a
+//! shape ([`Shape`]: Constructed, Highlander, Commander) and an archetype
+//! ([`Archetype`]: land share, mana curve, creature share, and functional quotas
+//! for ramp, interaction, and card advantage), from cards that work, and it is
+//! checked by the same predicate the gateway uses
 //! ([`baylee_cards::formats::check`]). A deterministic slice of the working
-//! cards is held out of every deck ([`held_out`]), so a net's play on cards
-//! it never saw can be measured.
+//! cards is held out of every training deck ([`held_out`]), so a net's play on
+//! cards it never saw can be measured.
+//!
+//! Submodules provide reusable building blocks across the workspace:
+//! - [`profile`]: semantic card profiles (`CardProfile`, role bitmasks, mana pip counts)
+//! - [`synergy`]: pairwise enabler/payoff synergy graph and $O(1)$ [`DeckThemeAccumulator`](synergy::DeckThemeAccumulator)
+//! - [`manabase`]: Frank Karsten hypergeometric mana-source solver
+//! - [`strategy`]: multi-label deck archetype/tag classifier, functional card replacement, and multiset Jaccard similarity
+//! - [`coverage`]: $k$-Multi-Set Cover corpus builder ([`build_coverage_corpus`]) ensuring every working card appears in at least $k$ decks
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
-use anyhow::{Context as _, bail};
-use baylee_cards::decks::{DeckCard, LoadedDeck, basic_lands, leader_of};
+use baylee_cards::decks::{DeckCard, LoadedDeck, leader_of};
 use baylee_cards::formats::{self, Shape};
 use baylee_core::color::{Color, ColorPair, ColorSet};
 use baylee_core::generated::index::CRYPTIC_SPIRES;
@@ -23,8 +29,20 @@ use baylee_core::types::{SupertypeSet, TypeSet};
 
 use crate::working::Working;
 
+pub mod coverage;
+pub mod manabase;
+pub mod profile;
+pub mod strategy;
+pub mod synergy;
+
+pub use coverage::{
+    CoverageConfig, CoverageReport, DeckBuildRequest, build_coverage_corpus,
+    build_coverage_corpus_scoped, build_synergistic,
+};
+pub use profile::CardProfile;
+
 /// The five colours in their bit order.
-const COLORS: [Color; 5] = [
+pub(crate) const COLORS: [Color; 5] = [
     Color::White,
     Color::Blue,
     Color::Black,
@@ -50,7 +68,8 @@ impl Archetype {
     pub const ALL: [Self; 4] = [Self::Aggro, Self::Midrange, Self::Control, Self::Ramp];
 
     /// The share of a deck that is land.
-    const fn land_share(self) -> f64 {
+    #[must_use]
+    pub const fn land_share(self) -> f64 {
         match self {
             Self::Aggro => 0.38,
             Self::Midrange => 0.40,
@@ -60,7 +79,8 @@ impl Archetype {
     }
 
     /// Weights of mana value 0, 1, …, 7+ among the spells.
-    const fn curve(self) -> [f64; 8] {
+    #[must_use]
+    pub const fn curve(self) -> [f64; 8] {
         match self {
             Self::Aggro => [0.04, 0.30, 0.30, 0.20, 0.10, 0.04, 0.02, 0.0],
             Self::Midrange => [0.03, 0.14, 0.24, 0.24, 0.17, 0.10, 0.05, 0.03],
@@ -70,7 +90,8 @@ impl Archetype {
     }
 
     /// The share of the spells that are creatures.
-    const fn creature_share(self) -> f64 {
+    #[must_use]
+    pub const fn creature_share(self) -> f64 {
         match self {
             Self::Aggro => 0.70,
             Self::Midrange => 0.50,
@@ -147,7 +168,7 @@ impl Rng {
 }
 
 /// What the generator knows about one card.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 #[allow(clippy::struct_excessive_bools)] // facts about a card, each a yes or no
 pub struct Entry {
     /// The card.
@@ -164,6 +185,8 @@ pub struct Entry {
     pub creature: bool,
     /// It may lead a Commander deck.
     pub leader: bool,
+    /// Semantic deckbuilding profile (`CardDsl` roles, mana pips, subtypes, and effect vector).
+    pub profile: CardProfile,
 }
 
 /// The cards decks are built from.
@@ -210,6 +233,7 @@ impl Pool {
             .filter_map(|c| baylee_cards::by_index(*c))
             .map(|def| {
                 let face = &def.faces[0];
+                let profile = CardProfile::from_def(def);
                 Entry {
                     card: def.index,
                     mana_value: face.mana_cost.cmc(),
@@ -219,6 +243,7 @@ impl Pool {
                         && face.supertypes.contains(SupertypeSet::BASIC),
                     creature: face.types.contains(TypeSet::CREATURE),
                     leader: leader_of(def.index).is_some_and(|l| l.eligible),
+                    profile,
                 }
             })
             .collect();
@@ -271,9 +296,6 @@ impl Generated {
 
     /// The deck in the house decks' text format: `[deck:Name]`, one
     /// `count Name` row per card, `[commander]` and the leaders' names.
-    ///
-    /// TODO: `baylee_deckio::export` writes this format once it reaches
-    /// main; call it then instead.
     #[must_use]
     pub fn text(&self) -> String {
         let mut counts: BTreeMap<String, usize> = BTreeMap::new();
@@ -312,7 +334,7 @@ impl Generated {
     }
 }
 
-fn colour_letters(colors: ColorSet) -> String {
+pub(crate) fn colour_letters(colors: ColorSet) -> String {
     ["W", "U", "B", "R", "G"]
         .iter()
         .enumerate()
@@ -321,210 +343,36 @@ fn colour_letters(colors: ColorSet) -> String {
         .collect()
 }
 
-/// Builds one deck of `shape` and `archetype` from `pool`, `seed` choosing
-/// everything left to chance.
+/// Builds one synergistic, curve-balanced deck of `shape` and `archetype` from
+/// `pool`, with `seed` choosing everything left to chance.
 ///
 /// # Errors
 /// When the pool cannot fill the deck (too few cards in its colours), or
-/// the result is not of its shape (a bug here, and said so).
-#[allow(
-    clippy::too_many_lines,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss
-)] // one recipe; small counts
+/// the result is not of its shape.
 pub fn generate(
     pool: &Pool,
     shape: Shape,
     archetype: Archetype,
     seed: u64,
 ) -> anyhow::Result<Generated> {
-    let mut rng = Rng::new(seed ^ 0x5eed_dec5);
-    let basics = basic_lands();
-    // Colours, and for Commander the leader who sets them.
-    let mut leaders = Vec::new();
-    let colors = if shape == Shape::Commander {
-        let candidates: Vec<&Entry> = pool
-            .entries
-            .iter()
-            .filter(|e| e.leader && !e.identity.is_empty())
-            .collect();
-        if candidates.is_empty() {
-            bail!("no working card may lead a deck");
-        }
-        let leader = candidates[rng.below(candidates.len())];
-        leaders.push(leader.card);
-        leader.identity
-    } else {
-        let count = [1, 2, 2, 2, 3][rng.below(5)];
-        let mut chosen = ColorSet::EMPTY;
-        let all = [0_u8, 1, 2, 3, 4];
-        while chosen.len() < count {
-            let weights: Vec<f64> = all
-                .iter()
-                .map(|i| {
-                    if chosen.bits() >> i & 1 == 1 {
-                        0.0
-                    } else {
-                        pool.entries
-                            .iter()
-                            .filter(|e| !e.land && e.identity.bits() >> i & 1 == 1)
-                            .count() as f64
-                    }
-                })
-                .collect();
-            let pick = all[rng.weighted(&weights)];
-            chosen = chosen.union(ColorSet::of(COLORS[usize::from(pick)]));
-        }
-        chosen
-    };
-
-    let size = match shape {
-        // At least 60, and a quarter of the decks a little more.
-        Shape::Constructed => {
-            if rng.unit() < 0.25 {
-                61 + rng.below(15)
-            } else {
-                60
-            }
-        }
-        Shape::Highlander | Shape::Commander => formats::SINGLETON_SIZE,
-    };
-    let library = size - leaders.len();
-    let lands = ((size as f64) * archetype.land_share()).round() as usize;
-    let spells = library - lands;
-    let singleton = shape != Shape::Constructed;
-
-    // Spells in the deck's colours (colourless ones too), by mana value.
-    let fits = |e: &&Entry| e.identity.difference(colors).is_empty() && !leaders.contains(&e.card);
-    let spell_pool: Vec<&Entry> = pool
-        .entries
-        .iter()
-        .filter(|e| !e.land)
-        .filter(fits)
-        .collect();
-    if spell_pool.len() < 12 {
-        bail!(
-            "only {} working spells in {}",
-            spell_pool.len(),
-            colour_letters(colors)
-        );
-    }
-    let curve = archetype.curve();
-    let mut main: Vec<CardIndex> = Vec::with_capacity(library);
-    let mut taken: BTreeSet<CardIndex> = BTreeSet::new();
-    let mut guard = 0;
-    while main.len() < spells {
-        guard += 1;
-        if guard > 20 * library {
-            bail!(
-                "the pool in {} cannot fill {spells} spells",
-                colour_letters(colors)
-            );
-        }
-        let creature = rng.unit() < archetype.creature_share();
-        let bucket = rng.weighted(&curve);
-        let candidates: Vec<&&Entry> = spell_pool
-            .iter()
-            .filter(|e| e.creature == creature)
-            .filter(|e| (e.mana_value as usize).min(7) == bucket)
-            .filter(|e| !taken.contains(&e.card))
-            .collect();
-        if candidates.is_empty() {
-            continue;
-        }
-        let card = candidates[rng.below(candidates.len())].card;
-        taken.insert(card);
-        let copies = if singleton {
-            1
-        } else {
-            [4, 4, 3, 2][rng.below(4)]
-        };
-        for _ in 0..copies.min(spells - main.len()) {
-            main.push(card);
-        }
-    }
-
-    // Lands: some nonbasics in the colours, the rest basics by colour weight.
-    let nonbasics: Vec<&Entry> = pool
-        .entries
-        .iter()
-        .filter(|e| e.land && !e.basic)
-        // Two distinct circles cannot fit a mono-color commander's identity.
-        .filter(|e| shape != Shape::Commander || colors.len() >= 2 || e.card != CRYPTIC_SPIRES)
-        .filter(fits)
-        .collect();
-    let mut land_cards: Vec<CardIndex> = Vec::with_capacity(lands);
-    let nonbasic_target = (lands as f64 * if colors.len() > 1 { 0.4 } else { 0.2 }) as usize;
-    let mut tries = 0;
-    while land_cards.len() < nonbasic_target && !nonbasics.is_empty() && tries < 200 {
-        tries += 1;
-        let e = nonbasics[rng.below(nonbasics.len())];
-        if taken.contains(&e.card) {
-            continue;
-        }
-        taken.insert(e.card);
-        let copies = if singleton { 1 } else { 1 + rng.below(4) };
-        for _ in 0..copies.min(nonbasic_target - land_cards.len()) {
-            land_cards.push(e.card);
-        }
-    }
-    let weight: Vec<f64> = (0..5_u8)
-        .map(|i| {
-            if colors.bits() >> i & 1 == 1 {
-                1.0 + main
-                    .iter()
-                    .filter_map(|c| baylee_cards::by_index(*c))
-                    .filter(|d| d.color_identity.bits() >> i & 1 == 1)
-                    .count() as f64
-            } else {
-                0.0
-            }
-        })
-        .collect();
-    while land_cards.len() < lands {
-        let colour = if weight.iter().sum::<f64>() > 0.0 {
-            rng.weighted(&weight)
-        } else {
-            rng.below(5)
-        };
-        let basic = basics[colour].context("the five basic lands are in the pool")?;
-        land_cards.push(basic);
-    }
-    main.extend(land_cards);
-    main.sort();
-
-    let generated = Generated {
-        name: format!(
-            "{} {} {} #{seed}",
-            shape_name(shape),
-            archetype.name(),
-            colour_letters(colors)
-        ),
-        shape,
-        archetype,
-        colors,
-        main,
-        leaders,
-    };
-    let problems = formats::check(shape, &generated.main, &generated.leaders);
-    if !problems.is_empty() {
-        bail!(
-            "a generated {} deck is not one: {problems:?}",
-            shape_name(shape)
-        );
-    }
-    Ok(generated)
+    build_synergistic(pool, &DeckBuildRequest::new(shape, archetype, seed))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::deckgen::manabase::karsten_sources_for_spell;
+    use crate::deckgen::profile::{ROLE_SAC_OUTLET, ROLE_TOKENS};
+    use crate::deckgen::synergy::pair_synergy;
 
-    fn pool() -> (Working, Pool) {
-        let working = Working::scan(&crate::working::repo_root()).unwrap();
-        let held = held_out(&working, 20);
-        let pool = Pool::new(&working, &held);
-        (working, pool)
+    fn pool() -> &'static (Working, Pool) {
+        static CACHE: std::sync::OnceLock<(Working, Pool)> = std::sync::OnceLock::new();
+        CACHE.get_or_init(|| {
+            let working = Working::scan(&crate::working::repo_root()).unwrap();
+            let held = held_out(&working, 20);
+            let pool = Pool::new(&working, &held);
+            (working, pool)
+        })
     }
 
     /// Every shape and archetype builds decks of its shape, from working
@@ -532,12 +380,12 @@ mod tests {
     #[test]
     fn generated_decks_are_decks_of_working_cards() {
         let (working, pool) = pool();
-        let held = held_out(&working, 20);
+        let held = held_out(working, 20);
         let mut built = 0;
         for shape in [Shape::Constructed, Shape::Highlander, Shape::Commander] {
             for archetype in Archetype::ALL {
                 for seed in 0..6 {
-                    let Ok(deck) = generate(&pool, shape, archetype, seed) else {
+                    let Ok(deck) = generate(pool, shape, archetype, seed) else {
                         continue;
                     };
                     built += 1;
@@ -551,7 +399,7 @@ mod tests {
                     let mut parsed_main = parsed.deck.main;
                     parsed_main.sort_by_key(|card| card.index);
                     assert_eq!(parsed_main, deck.loaded().main);
-                    let again = generate(&pool, shape, archetype, seed).unwrap();
+                    let again = generate(pool, shape, archetype, seed).unwrap();
                     assert_eq!(deck.main, again.main);
                 }
             }
@@ -563,7 +411,7 @@ mod tests {
     fn some_constructed_decks_hold_more_than_sixty() {
         let (_, pool) = pool();
         let sizes: BTreeSet<usize> = (0..40)
-            .filter_map(|s| generate(&pool, Shape::Constructed, Archetype::Midrange, s).ok())
+            .filter_map(|s| generate(pool, Shape::Constructed, Archetype::Midrange, s).ok())
             .map(|d| d.main.len())
             .collect();
         assert!(sizes.contains(&60));
@@ -574,10 +422,10 @@ mod tests {
     #[allow(clippy::cast_precision_loss)]
     fn the_held_out_slice_is_a_twentieth_and_stable() {
         let (working, _) = pool();
-        let held = held_out(&working, 20);
+        let held = held_out(working, 20);
         let share = held.len() as f64 / working.cards.len() as f64;
         assert!((0.03..0.08).contains(&share), "{share}");
-        assert_eq!(held, held_out(&working, 20));
+        assert_eq!(held, held_out(working, 20));
     }
 
     #[test]
@@ -605,11 +453,93 @@ mod tests {
     #[test]
     fn the_text_is_a_house_deck_file() {
         let (_, pool) = pool();
-        let deck = generate(&pool, Shape::Commander, Archetype::Midrange, 3).unwrap();
+        let deck = generate(pool, Shape::Commander, Archetype::Midrange, 3).unwrap();
         let parsed = crate::housedeck::HouseDeck::parse("gen", &deck.text()).unwrap();
         let mut parsed_main = parsed.deck.main;
         parsed_main.sort_by_key(|card| card.index);
         assert_eq!(parsed_main, deck.loaded().main);
         assert_eq!(parsed.deck.commanders.len(), 1);
+    }
+
+    #[test]
+    fn karsten_mana_math_scales_with_pips_and_deck_size() {
+        let single_pip_5drop = karsten_sources_for_spell(60, 5, 1);
+        let double_pip_3drop = karsten_sources_for_spell(60, 3, 2);
+        let triple_pip_3drop = karsten_sources_for_spell(60, 3, 3);
+        assert!(
+            double_pip_3drop > single_pip_5drop,
+            "1WW ({double_pip_3drop}) must demand more sources than 4W ({single_pip_5drop})"
+        );
+        assert!(
+            triple_pip_3drop > double_pip_3drop,
+            "WWW ({triple_pip_3drop}) must demand more sources than 1WW ({double_pip_3drop})"
+        );
+        let commander_double_pip = karsten_sources_for_spell(100, 3, 2);
+        assert!(
+            commander_double_pip > double_pip_3drop,
+            "100-card deck ({commander_double_pip}) needs more sources than 60-card ({double_pip_3drop})"
+        );
+    }
+
+    #[test]
+    fn synergy_couples_enablers_and_payoffs() {
+        let (_, pool) = pool();
+        let token_card = pool
+            .entries
+            .iter()
+            .find(|e| (e.profile.roles & ROLE_TOKENS) != 0)
+            .expect("pool has a token generator");
+        let sac_card = pool
+            .entries
+            .iter()
+            .find(|e| (e.profile.roles & ROLE_SAC_OUTLET) != 0)
+            .expect("pool has a sacrifice outlet");
+        let vanilla_card = pool
+            .entries
+            .iter()
+            .find(|e| !e.land && e.profile.roles == 0 && e.profile.subtypes.is_empty())
+            .unwrap_or(&pool.entries[0]);
+
+        let syn_coupled = pair_synergy(&token_card.profile, &sac_card.profile);
+        let syn_vanilla = pair_synergy(&token_card.profile, &vanilla_card.profile);
+        assert!(
+            syn_coupled > syn_vanilla + 1.5,
+            "Token+Sacrifice synergy ({syn_coupled}) should exceed vanilla ({syn_vanilla})"
+        );
+    }
+
+    #[test]
+    fn coverage_corpus_covers_every_subset_card_at_least_three_times() {
+        let (_, full_pool) = pool();
+        // Take a representative 220-card subset including basic lands, leaders, and spells
+        let mut entries: Vec<Entry> = full_pool
+            .entries
+            .iter()
+            .filter(|e| e.basic || e.leader)
+            .take(30)
+            .cloned()
+            .collect();
+        for e in &full_pool.entries {
+            if entries.len() >= 220 {
+                break;
+            }
+            if !entries.iter().any(|x| x.card == e.card) {
+                entries.push(e.clone());
+            }
+        }
+        let sub_pool = Pool { entries };
+        let cfg = CoverageConfig {
+            min_coverage: 3,
+            max_jaccard: 0.85,
+            base_seed: 42,
+            max_new_decks: 120,
+        };
+        let (decks, report) = build_coverage_corpus(&sub_pool, &[], &cfg).unwrap();
+        assert_eq!(report.under_covered_after, 0, "{report:?}");
+        assert!(report.min_coverage_after >= 3, "{report:?}");
+        assert!(!decks.is_empty());
+        for d in &decks {
+            assert!(formats::check(d.shape, &d.main, &d.leaders).is_empty());
+        }
     }
 }

@@ -1,0 +1,263 @@
+//! Frank Karsten hypergeometric mana-base calculator and dual/basic land
+//! allocator.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use anyhow::Context as _;
+use baylee_cards::decks::basic_lands;
+use baylee_core::color::ColorSet;
+use baylee_core::ids::CardIndex;
+
+use super::{COLORS, Entry, Rng};
+
+/// Hypergeometric probability $\mathbb{P}(X \ge k)$ when drawing `n_drawn` cards
+/// without replacement from a deck of `deck_size` containing `sources` mana sources.
+#[must_use]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "Exact floating-point hypergeometric PMF over small integer deck sizes (<= 100)"
+)]
+pub fn hypergeom_at_least(deck_size: usize, sources: usize, n_drawn: usize, k: usize) -> f64 {
+    if k == 0 {
+        return 1.0;
+    }
+    if sources < k || n_drawn < k || deck_size == 0 {
+        return 0.0;
+    }
+    let n_drawn = n_drawn.min(deck_size);
+    let max_x = sources.min(n_drawn);
+    let mut prob_sum = 0.0_f64;
+    for x in k..=max_x {
+        let non_sources = deck_size.saturating_sub(sources);
+        let needed_non = n_drawn.saturating_sub(x);
+        if needed_non > non_sources {
+            continue;
+        }
+        let log_p =
+            ln_choose(sources, x) + ln_choose(non_sources, needed_non) - ln_choose(deck_size, n_drawn);
+        prob_sum += log_p.exp();
+    }
+    prob_sum.clamp(0.0, 1.0)
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn ln_choose(n: usize, k: usize) -> f64 {
+    if k > n {
+        return f64::NEG_INFINITY;
+    }
+    let k = k.min(n - k);
+    let mut acc = 0.0_f64;
+    for i in 1..=k {
+        acc += ((n - k + i) as f64).ln() - (i as f64).ln();
+    }
+    acc
+}
+
+/// Computes the minimum number of sources of a colour in a deck of `deck_size`
+/// required by Frank Karsten's hypergeometric criterion ($\ge 88\%$ consistency)
+/// to cast a spell of `mana_value` with `pips` coloured symbols on curve.
+#[must_use]
+pub fn karsten_sources_for_spell(deck_size: usize, mana_value: u32, pips: u8) -> usize {
+    if pips == 0 {
+        return 0;
+    }
+    let turn = (mana_value as usize).clamp(1, 7);
+    let cards_seen = 6 + turn;
+    let k = usize::from(pips).min(cards_seen);
+    for sources in k..=deck_size {
+        if hypergeom_at_least(deck_size, sources, cards_seen, k) >= 0.88 {
+            return sources;
+        }
+    }
+    deck_size / 2
+}
+
+/// Computes target mana-source counts `[W, U, B, R, G]` across all spells and
+/// leaders in the deck.
+#[must_use]
+#[allow(clippy::cast_precision_loss)]
+pub fn compute_color_source_targets(
+    pool_by_id: &BTreeMap<CardIndex, &Entry>,
+    spells: &[CardIndex],
+    leaders: &[CardIndex],
+    colors: ColorSet,
+    deck_size: usize,
+) -> [f64; 5] {
+    let mut max_karsten = [0_usize; 5];
+    let mut pip_weighted_sum = [0.0_f64; 5];
+
+    for &cid in spells.iter().chain(leaders) {
+        let Some(entry) = pool_by_id.get(&cid) else {
+            continue;
+        };
+        let mv = entry.mana_value.max(1);
+        for c in 0..5 {
+            if (colors.bits() >> c) & 1 == 0 {
+                continue;
+            }
+            let p = entry.profile.pips[c];
+            if p > 0 {
+                let req = karsten_sources_for_spell(deck_size, mv, p);
+                if req > max_karsten[c] {
+                    max_karsten[c] = req;
+                }
+                // Early double/triple-pip spells weigh more heavily than late single-pip spells
+                let turn_urgency = 1.0 / (f64::from(mv) + 1.0);
+                pip_weighted_sum[c] += f64::from(p) * (1.0 + 2.0 * turn_urgency);
+            } else if (entry.identity.bits() >> c) & 1 == 1 {
+                // Off-face / activated ability colour identity still needs mana sources
+                pip_weighted_sum[c] += 0.75;
+                max_karsten[c] = max_karsten[c].max(6);
+            }
+        }
+    }
+
+    let mut targets = [0.0_f64; 5];
+    for c in 0..5 {
+        if (colors.bits() >> c) & 1 == 1 {
+            targets[c] = (max_karsten[c] as f64 * 0.70 + pip_weighted_sum[c] * 0.65).max(2.0);
+        }
+    }
+    targets
+}
+
+/// Selects non-basic fixing/utility lands and basic lands to satisfy the deck's
+/// Karsten colour-source targets (`compute_color_source_targets`).
+///
+/// # Errors
+/// Returns an error if the five basic lands are missing from the card registry.
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+pub fn build_manabase(
+    pool_by_id: &BTreeMap<CardIndex, &Entry>,
+    nonbasics: &[&Entry],
+    spells: &[CardIndex],
+    leaders: &[CardIndex],
+    lands_needed: usize,
+    deck_size: usize,
+    colors: ColorSet,
+    singleton: bool,
+    taken: &mut BTreeSet<CardIndex>,
+    deficits: Option<&BTreeMap<CardIndex, usize>>,
+    rng: &mut Rng,
+) -> anyhow::Result<Vec<CardIndex>> {
+    let basics = basic_lands();
+    let targets = compute_color_source_targets(pool_by_id, spells, leaders, colors, deck_size);
+    let mut have_sources = [0.0_f64; 5];
+
+    // Count non-land mana sources (dorks/rocks) already in the spell package
+    for &cid in spells {
+        if let Some(e) = pool_by_id.get(&cid)
+            && e.profile.is_ramp()
+        {
+            for (c, have) in have_sources.iter_mut().enumerate() {
+                if (e.profile.produced_colors.bits() >> c) & 1 == 1 {
+                    *have += 0.4;
+                }
+            }
+        }
+    }
+
+    let mut land_cards: Vec<CardIndex> = Vec::with_capacity(lands_needed);
+    let nonbasic_share = if colors.len() > 1 { 0.42 } else { 0.22 };
+    let nonbasic_target = ((lands_needed as f64) * nonbasic_share).round() as usize;
+
+    // Score and rank available non-basic lands
+    let mut scored_nonbasics: Vec<(f64, &Entry)> = nonbasics
+        .iter()
+        .filter(|e| !taken.contains(&e.card))
+        .map(|&e| {
+            let mut score = 0.0_f64;
+            let mut colors_fixed = 0_usize;
+            for (c, &target_c) in targets.iter().enumerate() {
+                if (colors.bits() >> c) & 1 == 1
+                    && (e.profile.produced_colors.bits() >> c) & 1 == 1
+                {
+                    colors_fixed += 1;
+                    score += (target_c * 0.12).min(2.0);
+                }
+            }
+            if colors_fixed >= 2 {
+                score += 2.5 * ((colors_fixed - 1) as f64);
+            } else if colors_fixed == 1 {
+                score += 0.8;
+            } else {
+                // Pure utility colourless land: keep modest in multi-colour decks
+                score += if colors.len() <= 1 { 1.0 } else { 0.2 };
+            }
+            if e.profile.enters_tapped && colors_fixed <= 1 {
+                score -= 0.4;
+            }
+            if let Some(def_map) = deficits
+                && let Some(&def_val) = def_map.get(&e.card)
+                && def_val > 0
+            {
+                score += 6.0 * (def_val as f64);
+            }
+            score += 0.35 * rng.unit();
+            (score, e)
+        })
+        .collect();
+
+    scored_nonbasics.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+    for (_, e) in scored_nonbasics {
+        if land_cards.len() >= nonbasic_target {
+            break;
+        }
+        if taken.contains(&e.card) {
+            continue;
+        }
+        taken.insert(e.card);
+        let has_deficit = deficits
+            .and_then(|m| m.get(&e.card))
+            .is_some_and(|&d| d > 0);
+        let copies = if singleton {
+            1
+        } else if has_deficit {
+            2 + rng.below(3)
+        } else {
+            1 + rng.below(4)
+        };
+        let add_n = copies.min(nonbasic_target - land_cards.len());
+        for _ in 0..add_n {
+            land_cards.push(e.card);
+            for (c, have) in have_sources.iter_mut().enumerate() {
+                if (e.profile.produced_colors.bits() >> c) & 1 == 1 {
+                    *have += 1.0;
+                }
+            }
+        }
+    }
+
+    // Allocate basic lands to satisfy remaining Karsten colour-source deficits
+    while land_cards.len() < lands_needed {
+        let weights: Vec<f64> = (0..5_usize)
+            .map(|c| {
+                if (colors.bits() >> c) & 1 == 1 {
+                    let deficit = (targets[c] - have_sources[c]).max(0.0);
+                    // Quadratic urgency on unmet Karsten pip requirements, plus baseline weight
+                    0.5 + targets[c] * 0.15 + deficit * deficit * 0.6 + deficit * 1.5
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        let colour = if weights.iter().sum::<f64>() > 0.0 {
+            rng.weighted(&weights)
+        } else {
+            let _ = COLORS;
+            rng.below(5)
+        };
+        let basic = basics[colour].context("the five basic lands are in the pool")?;
+        land_cards.push(basic);
+        have_sources[colour] += 1.0;
+    }
+
+    Ok(land_cards)
+}
