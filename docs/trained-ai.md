@@ -56,6 +56,50 @@ compatibility concession, with matching encoder and candidate tests.
 The current wire has no neural `SeatMind` kind, so the visible `NET-` name and
 local report identify it without claiming to be an LLM.
 
+`seat4 --model-selection /path/to/selected-model.json` optionally reads a local
+supervisor manifest at the start of each game, before the first view. A model
+stays pinned for that entire game. The manifest carries the absolute frozen
+directory, label, benchmark ID, score and SHA-256 of every model file. A later
+selection must improve the same benchmark, preserve encoder/catalog contracts
+and load successfully; otherwise the previous valid selection remains. Local
+reports include the exact model, hash, game and neural seat for diagnosis.
+They are operational metadata, not anonymous training exports.
+
+`tools/trainer/publish_live_model4.py` verifies completed paired evaluation jobs,
+identical deals and house baselines, export parity and evaluated model hashes
+before publishing that manifest atomically. Ranking is development mean side
+utility across duel and Commander suites, not a statistically established
+strength promotion. `live_play_maintenance4.py` checks the registered experiment
+every 30 seconds and imports completed official gateway exports every five
+minutes. A changed benchmark requires new comparable evidence. It never
+restarts a live game, changes a checkpoint or trains on unfinished records.
+
+The local adapter answers actual draw offers using `critic_draw_rule_v1`:
+compare the neural continuation side utility with the agreed-draw utility
+(0.5 in duels; divided among surviving sides otherwise). Accept only if it is
+more than 0.10 lower. This is a heuristic decision margin, not a confidence
+interval or a calibrated pure win probability. Unavailable/nonfinite inference
+declines. The ordinary policy logits do not determine this reply: it is marked
+as a rule/House override with separate draw counters and values in the report.
+Other yes/no questions remain unchanged. Frozen evaluation and training actors
+do not acquire this live-only rule. A learned draw policy needs explicit
+prompt/proposer features in a new encoder contract.
+
+The owner authorized human playtest records for training on 25 October 2026.
+`import_live_records4.py` reads only numbered files from the official anonymized
+gateway export, deduplicates uncompressed content and creates an immutable,
+train-only staging corpus. Confirmed human, neural, clock and house origins
+stay distinct; house smoke opponents are excluded, unknown/mixed opponent
+declarations quarantined. These are not automatically good imitation labels.
+Greedy neural moves have no behavior probabilities and are not PPO data.
+Staging does not mean replay validation, conversion or optimization has run.
+
+The [live information audit](history/trained-ai-v4-live-information-audit-2026-10-25.md)
+documents remaining encoder losses, including exact own-deck inventory,
+numeric clipping and the missing cast-before-payment action route. These need
+a new versioned encoder and matching training; the archived encoder-6 actor
+must not silently receive a different candidate distribution.
+
 The preview requires two socket chairs, no house-AI chairs, and CPU inference
 (`BAYLEE_EP=cpu` or unset); it refuses CUDA to keep training independent.
 `BAYLEE_ENGINE_PUMP_STEPS=1` on the engine agent limits attached host pumping;
