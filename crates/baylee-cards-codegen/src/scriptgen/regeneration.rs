@@ -3,6 +3,112 @@
 use super::{Params, Tx};
 
 impl Tx<'_> {
+    /// Consume a complete damage-memory suffix only on the initial instruction.
+    pub(super) fn take_damage_recipient_regeneration(
+        &self,
+        api: &str,
+        p: &mut Params,
+        sub: &mut Option<String>,
+        initial: bool,
+    ) -> Option<bool> {
+        if api != "DealDamage" || !p.has("RememberDamaged") {
+            return Some(false);
+        }
+        // Runtime damage facts span the resolution, not one instruction.
+        if !initial {
+            return self.deny("damage-recipient memory after an earlier instruction".into());
+        }
+        if p.take("RememberDamaged").as_deref() != Some("True") {
+            return self.deny("a nontrue damage-recipient memory flag".into());
+        }
+        self.damage_recipient_regeneration(sub.as_deref()?)?;
+        *sub = None;
+        Some(true)
+    }
+
+    /// A temporary source ability forbidding regeneration of creatures it damaged.
+    /// The referenced static is read as a rule, not an ignored animation label.
+    pub(super) fn animate_regeneration_grant(
+        &mut self,
+        p: &mut Params,
+        source_only: bool,
+        duration: &str,
+    ) -> Option<Vec<String>> {
+        let lower = p.take("staticAbilities");
+        let upper = p.take("StaticAbilities");
+        let name = match (lower, upper) {
+            (None, None) => return Some(Vec::new()),
+            (Some(name), None) | (None, Some(name)) if source_only => name,
+            _ => {
+                return self.deny(
+                    "a static animation grant with multiple references or another subject".into(),
+                );
+            }
+        };
+        let valid = self.no_regeneration_filter(name.trim())?;
+        if valid != "Creature.DamagedBy" {
+            return self.deny(format!("a granted regeneration rule on `{valid}`"));
+        }
+        Some(vec![Self::animate_expr(
+            "Modifier::GrantStatic { filter: &Filter::And(&[Filter::CREATURE, \
+             Filter::DealtDamageBySourceThisTurn]), modifier: &Modifier::CantBeRegenerated }",
+            duration,
+        )])
+    }
+
+    /// Validate the complete remembered-recipient consumer and optional cleanup.
+    /// Runtime resolution already records actual recipients, including redirection.
+    pub(super) fn damage_recipient_regeneration(&self, name: &str) -> Option<()> {
+        let (api, mut p) = Params::parse(self.svars.get(name)?)?;
+        p.drop_prose();
+        if api != "Effect" || p.take("RememberObjects").as_deref() != Some("Remembered.Creature") {
+            return self.deny("a damage memory consumed by another effect or recipient set".into());
+        }
+        let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
+        if ends.as_deref() != Some("Battlefield")
+            || !matches!(p.take("IsCurse").as_deref(), None | Some("True"))
+        {
+            return self
+                .deny("a damage-recipient restriction with another lifetime or flag".into());
+        }
+        let rule = p.take("StaticAbilities")?;
+        if self.no_regeneration_filter(rule.trim())? != "Card.IsRemembered" {
+            return self.deny("a damage memory used by another static subject".into());
+        }
+        let cleanup = p.take("SubAbility");
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Effect.{key}`"));
+        }
+        if let Some(name) = cleanup {
+            let (api, mut p) = Params::parse(self.svars.get(&name)?)?;
+            p.drop_prose();
+            if api != "Cleanup"
+                || p.take("ClearRemembered").as_deref() != Some("True")
+                || !p.exhausted()
+            {
+                return self
+                    .deny("a damage memory followed by something other than its cleanup".into());
+            }
+        }
+        Some(())
+    }
+
+    /// The complete static restriction, returning only the filter it actually names.
+    fn no_regeneration_filter(&self, name: &str) -> Option<String> {
+        if name.is_empty() || name.contains(',') {
+            return self.deny("a regeneration restriction naming multiple or no statics".into());
+        }
+        let (mode, mut p) = Params::parse(self.svars.get(name)?)?;
+        p.drop_prose();
+        let valid = p.take("ValidCard")?;
+        if mode != "CantRegenerate" || !p.exhausted() {
+            return self.deny(
+                "a referenced static other than an unconditional regeneration restriction".into(),
+            );
+        }
+        Some(valid)
+    }
+
     /// An `Effect` line: a static ability that lasts the turn, read by the
     /// one sentence its static says. Every other static stays refused.
     pub(super) fn static_effect(
@@ -32,22 +138,15 @@ impl Tx<'_> {
     ///
     /// "If it's a creature" (`ConditionDefined$ ParentTarget |
     /// ConditionPresent$ Creature`) is asked of the target as the line
-    /// resolves. "A creature dealt damage this way" (`Remembered.Creature`
-    /// after `RememberDamaged$`) asks whether damage was dealt, and is
-    /// refused.
+    /// resolves. Actual damage-recipient memory is the separate complete
+    /// chain read by [`Self::damage_recipient_regeneration`].
     pub(super) fn cant_regenerate_effect(
         &mut self,
         p: &mut Params,
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         let statics = p.take("StaticAbilities")?;
-        let body = self.svars.get(statics.trim())?.clone();
-        let (mode, mut st) = Params::parse(&body)?;
-        st.drop_prose();
-        if mode != "CantRegenerate"
-            || st.take("ValidCard").as_deref() != Some("Card.IsRemembered")
-            || !st.exhausted()
-        {
+        if self.no_regeneration_filter(statics.trim())? != "Card.IsRemembered" {
             return None;
         }
         let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));

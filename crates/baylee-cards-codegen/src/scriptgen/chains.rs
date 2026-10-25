@@ -25,7 +25,7 @@ impl Tx<'_> {
         if let Some(valid) = valid {
             self.chain_target(&api, &mut p, &valid, chain)?;
         }
-        let sub = p.take("SubAbility");
+        let mut sub = p.take("SubAbility");
         // The chosen-source shield is three lines in the reference and one
         // sentence on the card: its `SubAbility$` is part of the sentence,
         // not the next one, so this rule reads the rest of the chain itself.
@@ -34,6 +34,15 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        // The remembered objects are the damage recipients, not this line's
+        // original targets. Read their entire lifetime and consumer together;
+        // accepting the flag alone would silently drop a rules clause.
+        let prevent_damaged_regeneration = self.take_damage_recipient_regeneration(
+            &api,
+            &mut p,
+            &mut sub,
+            chain.effects.is_empty(),
+        )?;
         // The requirement and the effect name the target differently when it
         // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
         // spell's chosen player, and the effect then reads it back as
@@ -101,6 +110,9 @@ impl Tx<'_> {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
             }
             return None;
+        }
+        if prevent_damaged_regeneration {
+            effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
         effects.extend(dying);
         effects.extend(at_end);

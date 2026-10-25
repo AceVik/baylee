@@ -51,6 +51,7 @@ mod horse_johan;
 mod imprison;
 mod keywords;
 mod mana;
+mod prevention;
 mod protection52;
 mod regeneration;
 mod riftstone_portal;
