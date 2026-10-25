@@ -391,6 +391,8 @@ impl Tx<'_> {
                 parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
                 parts.push("SacrificeSelf".to_string());
+            } else if token == "Exile<1/CARDNAME>" || token.starts_with("Exile<1/CARDNAME/") {
+                parts.push("ExileSelf".to_string());
             } else if let Some((n, kind)) = token
                 .strip_prefix("AddCounter<")
                 .and_then(|t| t.strip_suffix('>'))

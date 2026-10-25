@@ -250,6 +250,8 @@ impl Tx<'_> {
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
                     "untapped" => "Filter::Untapped".to_string(),
+                    "enchanted" => "Filter::Enchanted".to_string(),
+                    "!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)".to_string(),
                     "token" => "Filter::IsToken".to_string(),
                     "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
                     // `LacksType` and not `Not(&…)`: the two are the same

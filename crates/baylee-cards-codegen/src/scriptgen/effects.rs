@@ -631,6 +631,15 @@ impl Tx<'_> {
                 return None;
             }
         };
+        let shuffle_non_mandatory = match p.take("ShuffleNonMandatory").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `ShuffleNonMandatory$ {other}`"));
+                return None;
+            }
+        };
+        let optional = optional || shuffle_non_mandatory;
         // Claimed rather than read: `Mandatory$ True` is the default, every
         // search this emitter writes shuffles afterwards, and `Hidden$ True`
         // only says the library is a hidden zone, which it is.

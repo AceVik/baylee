@@ -487,7 +487,7 @@ impl Tx<'_> {
     /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
     /// (layer 7b) as static abilities.
     pub(super) fn pt_modifiers(
-        &self,
+        &mut self,
         p: &mut Params,
         filter: &str,
         out: &mut Vec<String>,
@@ -495,19 +495,43 @@ impl Tx<'_> {
         let add_p = p.take("AddPower");
         let add_t = p.take("AddToughness");
         if add_p.is_some() || add_t.is_some() {
-            // An anthem that names only one half still moves the other by
-            // zero, which is what the printed "+1/+0" says.
-            let (Some(power), Some(tough)) = (
-                add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-                add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
-            ) else {
-                self.note("static ability with a computed P/T".to_string());
-                return None;
-            };
-            out.push(Self::static_expr(
-                filter,
-                &format!("Modifier::ModifyPT({power}, {tough})"),
-            ));
+            if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
+                && var_p == var_t
+                && var_p.trim().parse::<i16>().is_err()
+                && let Some(count) = self.svars.get(var_p.trim()).cloned()
+                && let Some(valid) = count.strip_prefix("Count$Valid ")
+                && !valid.contains('/')
+            {
+                let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+                if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                }
+                let Some(counted_filter) = self.filter_expr(valid) else {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                };
+                let name = self.body.filter_static("COUNTED", &counted_filter);
+                let kind = if yours { "YouControl" } else { "OnBattlefield" };
+                out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
+                ));
+            } else {
+                // An anthem that names only one half still moves the other by
+                // zero, which is what the printed "+1/+0" says.
+                let (Some(power), Some(tough)) = (
+                    add_p.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                    add_t.map_or(Some(0), |v| v.trim().parse::<i16>().ok()),
+                ) else {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                };
+                out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::ModifyPT({power}, {tough})"),
+                ));
+            }
         }
         let set_p = p.take("SetPower");
         let set_t = p.take("SetToughness");
@@ -618,6 +642,12 @@ impl Tx<'_> {
                 filter,
                 &format!("Modifier::CanBlockAdditional({more})"),
             ));
+        }
+        if let Some(any) = p.take("CanBlockAny") {
+            if any.trim() != "True" {
+                return self.deny(format!("`CanBlockAny$ {any}`"));
+            }
+            out.push(Self::static_expr(filter, "Modifier::CanBlockAnyNumber"));
         }
         if p.peek("AddHiddenKeyword").map(str::trim) == Some(LURED) {
             p.take("AddHiddenKeyword");

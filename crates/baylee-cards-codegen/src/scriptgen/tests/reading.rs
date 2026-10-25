@@ -1468,4 +1468,56 @@ fn echo_keyword_defined_graveyard_controller_and_each_end_step_oracle_read() {
         taunting.abilities,
         ["static_ability!(Filter::This, Modifier::MustBeBlockedByAllAble)"]
     );
+
+    let golem = read(
+        "S:Mode$ Continuous | Affected$ Card.Self+enchanted | AddPower$ 2 | AddToughness$ 2 | AddKeyword$ Flying",
+    );
+    assert!(
+        golem
+            .abilities
+            .join("\n")
+            .contains("Filter::And(&[Filter::This, Filter::Enchanted])"),
+        "{:?}",
+        golem.abilities
+    );
+
+    let glare = read("S:Mode$ Continuous | Affected$ Card.Self | CanBlockAny$ True");
+    assert_eq!(
+        glare.abilities,
+        ["static_ability!(Filter::This, Modifier::CanBlockAnyNumber)"]
+    );
+
+    let elder = read(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigFetch | OptionalDecider$ TriggeredCardController\n\
+         SVar:TrigFetch:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land.Basic | ChangeNum$ 2 | ShuffleNonMandatory$ True\n\
+         Oracle:When Yavimaya Elder dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.",
+    );
+    assert!(
+        elder
+            .abilities
+            .join("")
+            .contains("finds: &[Find::HAND, Find::HAND], optional: true"),
+        "{:?}",
+        elder.abilities
+    );
+
+    let foundry = read(
+        "A:AB$ ChangeZoneAll | Cost$ 1 T Exile<1/CARDNAME> | Origin$ Graveyard | Destination$ Library | ValidTgts$ Player | ChangeType$ Card | Shuffle$ True",
+    );
+    assert!(
+        foundry.abilities[0].contains("cost!(\"{1}\", TapSelf, ExileSelf)"),
+        "{}",
+        foundry.abilities[0]
+    );
+
+    let enchantress = read(
+        "S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$Valid Enchantment",
+    );
+    assert_eq!(
+        enchantress.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPTByCount(PtCount::OnBattlefield(&Filter::ENCHANTMENT)))"
+        ]
+    );
 }

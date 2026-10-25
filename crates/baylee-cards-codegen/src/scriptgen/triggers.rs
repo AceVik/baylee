@@ -541,6 +541,12 @@ impl Tx<'_> {
         let may = match p.take("OptionalDecider").as_deref() {
             None => false,
             Some("You") => true,
+            Some("TriggeredCardController")
+                if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))
+                    && self.oracle.to_ascii_lowercase().contains("you may") =>
+            {
+                true
+            }
             Some(other) => return self.deny(format!("a `may` decided by `{other}`")),
         };
         if !p.exhausted() {
