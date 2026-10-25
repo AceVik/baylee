@@ -44,6 +44,12 @@ one mask OR, not a scan), and the ids in it are **append-only** since #43:
 list rather than a range, because a new creature type no longer sits next to
 the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
+`AddSupertype` and `RemoveSupertype` alter only the named supertypes in layer
+4, including dependency ordering for effects that read those supertypes.
+The world rule still uses entry timestamps for printed World permanents;
+tracking time since gaining or regaining World through a continuous effect
+is unsupported. The supertype modifiers alone do not implement that rule.
+
 **An object keeps two clocks, and a transform moves only one.** Both read
 the game's one counter (`GameState::next_timestamp`).
 `GameObject::timestamp` is the timestamp of CR 613.7: taken as the object

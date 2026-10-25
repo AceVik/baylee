@@ -1982,6 +1982,9 @@ continues only while the continuous effect applies.
 supertypes in layer 4. Card types, subtypes and other supertypes stay.
 Arcum's Weathervane uses these to add or remove `SupertypeSet::SNOW`; these
 are characteristic changes, so a resolving effect locks its affected set.
+Do not use them to implement gaining or regaining `SupertypeSet::WORLD`:
+the world rule does not yet track how long a permanent has continuously had
+that supertype. Existing printed World permanents use their entry timestamps.
 
 `Filter::NamedBySource` reads a name chosen during the current resolution
 first. `ChooseCardName` supplies that local choice whether or not `remember`
