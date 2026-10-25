@@ -341,7 +341,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Thran Foundry and Yavimaya Elder (1 of 2 read by the evaluator).
     // Mercadian Masques (`mmq`) Batch 1 adds 3 non-mana activated abilities on
     // Aerial Caravan, Ballista Squad, and Cackling Witch (2 of 3 read by the evaluator).
-    assert_eq!((read, of), (2787, 3501), "activated/loyalty reader census");
+    // Mercadian Masques (`mmq`) Batch 2 adds 6 non-mana activated abilities on
+    // Cinder Elemental, Corrupt Official, Darting Merfolk, Deepwood Elder,
+    // Deepwood Legate, and Distorting Lens (4 of 6 read by the evaluator).
+    assert_eq!((read, of), (2791, 3507), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -3051,6 +3051,12 @@ pub mod chitinous_graspling;
 pub mod cho_arrim_alchemist;
 #[path = "creatures/mv_6/cho_arrim_bruiser.rs"]
 pub mod cho_arrim_bruiser;
+#[path = "creatures/mv_3/cho_arrim_legate.rs"]
+pub mod cho_arrim_legate;
+#[path = "creatures/mv_4/cho_manno_revolutionary.rs"]
+pub mod cho_manno_revolutionary;
+#[path = "enchantments/auras/mv_2/cho_manno_s_blessing.rs"]
+pub mod cho_manno_s_blessing;
 #[path = "sorceries/mv_2/choco_comet.rs"]
 pub mod choco_comet;
 #[path = "lands/legendary/chocobo_camp.rs"]
@@ -3101,6 +3107,8 @@ pub mod cinder_barrens;
 pub mod cinder_cloud;
 #[path = "creatures/mv_2/cinder_crawler.rs"]
 pub mod cinder_crawler;
+#[path = "creatures/mv_4/cinder_elemental.rs"]
+pub mod cinder_elemental;
 #[path = "creatures/mv_4/cinder_giant.rs"]
 pub mod cinder_giant;
 #[path = "lands/battle/cinder_glade.rs"]
@@ -3199,6 +3207,8 @@ pub mod cleansing_screech;
 pub mod clear;
 #[path = "sorceries/mv_1/clear_a_path.rs"]
 pub mod clear_a_path;
+#[path = "sorceries/mv_3/clear_the_land.rs"]
+pub mod clear_the_land;
 #[path = "sorceries/mv_3/clear_the_mind.rs"]
 pub mod clear_the_mind;
 #[path = "lands/pathway/clearwater_pathway.rs"]
@@ -3257,6 +3267,8 @@ pub mod clockwork_swarm;
 pub mod cloistered_telepath;
 #[path = "creatures/mv_4/clone.rs"]
 pub mod clone;
+#[path = "enchantments/mv_4/close_quarters.rs"]
+pub mod close_quarters;
 #[path = "creatures/mv_2/clot_sliver.rs"]
 pub mod clot_sliver;
 #[path = "creatures/mv_4/cloud_crusader.rs"]
@@ -3371,6 +3383,8 @@ pub mod coldsteel_heart;
 pub mod collar_the_culprit;
 #[path = "enchantments/mv_6/collective_blessing.rs"]
 pub mod collective_blessing;
+#[path = "sorceries/mv_6/collective_unconscious.rs"]
+pub mod collective_unconscious;
 #[path = "creatures/mv_2/collector_ouphe.rs"]
 pub mod collector_ouphe;
 #[path = "artifacts/mv_2/collector_s_vault.rs"]
@@ -3429,6 +3443,8 @@ pub mod commercial_district;
 pub mod commissar_severina_raine;
 #[path = "instants/mv_3/common_bond.rs"]
 pub mod common_bond;
+#[path = "enchantments/mv_3/common_cause.rs"]
+pub mod common_cause;
 #[path = "creatures/mv_2/common_crook.rs"]
 pub mod common_crook;
 #[path = "creatures/mv_3/companion_of_the_trials.rs"]
@@ -3497,6 +3513,8 @@ pub mod conservator;
 pub mod conservatory;
 #[path = "instants/mv_1/consider.rs"]
 pub mod consider;
+#[path = "enchantments/mv_5/conspiracy.rs"]
+pub mod conspiracy;
 #[path = "instants/mv_2/constant_mists.rs"]
 pub mod constant_mists;
 #[path = "instants/mv_1/constricting_tendrils.rs"]
@@ -3605,6 +3623,8 @@ pub mod coralhelm_guide;
 pub mod coretapper;
 #[path = "lands/check/cori_mountain_monastery.rs"]
 pub mod cori_mountain_monastery;
+#[path = "enchantments/mv_3/cornered_market.rs"]
+pub mod cornered_market;
 #[path = "creatures/mv_3/corpse_blockade.rs"]
 pub mod corpse_blockade;
 #[path = "instants/mv_3/corpse_dance.rs"]
@@ -3625,6 +3645,8 @@ pub mod corrupt;
 pub mod corrupt_court_official;
 #[path = "creatures/mv_4/corrupt_eunuchs.rs"]
 pub mod corrupt_eunuchs;
+#[path = "creatures/mv_5/corrupt_official.rs"]
+pub mod corrupt_official;
 #[path = "lands/corrupted_crossroads.rs"]
 pub mod corrupted_crossroads;
 #[path = "creatures/mv_6/corrupted_harvester.rs"]
@@ -3667,6 +3689,8 @@ pub mod court_cleric;
 pub mod court_street_denizen;
 #[path = "creatures/mv_5/covetous_dragon.rs"]
 pub mod covetous_dragon;
+#[path = "enchantments/mv_5/cowardice.rs"]
+pub mod cowardice;
 #[path = "creatures/mv_6/cowl_prowler.rs"]
 pub mod cowl_prowler;
 #[path = "sorceries/mv_3/crack_open.rs"]
@@ -3689,8 +3713,12 @@ pub mod cradle_of_safety;
 pub mod cradle_of_the_accursed;
 #[path = "creatures/mv_3/crafty_pathmage.rs"]
 pub mod crafty_pathmage;
+#[path = "creatures/mv_3/crag_saurian.rs"]
+pub mod crag_saurian;
 #[path = "lands/pathway/cragcrown_pathway.rs"]
 pub mod cragcrown_pathway;
+#[path = "instants/mv_3/crash.rs"]
+pub mod crash;
 #[path = "instants/mv_4/crash_and_burn.rs"]
 pub mod crash_and_burn;
 #[path = "creatures/mv_5/crash_of_rhino_beetles.rs"]
@@ -3723,6 +3751,8 @@ pub mod crazed_skirge;
 pub mod creakwood_liege;
 #[path = "enchantments/auras/mv_2/creature_bond.rs"]
 pub mod creature_bond;
+#[path = "artifacts/mv_2/credit_voucher.rs"]
+pub mod credit_voucher;
 #[path = "creatures/mv_5/creeperhulk.rs"]
 pub mod creeperhulk;
 #[path = "sorceries/mv_4/creeping_corrosion.rs"]
@@ -3759,6 +3789,8 @@ pub mod crimson_roc;
 pub mod crisis_of_conscience;
 #[path = "creatures/mv_2/crooked_custodian.rs"]
 pub mod crooked_custodian;
+#[path = "artifacts/mv_4/crooked_scales.rs"]
+pub mod crooked_scales;
 #[path = "creatures/mv_0/crookshank_kobolds.rs"]
 pub mod crookshank_kobolds;
 #[path = "instants/mv_1/crop_rotation.rs"]
@@ -3811,6 +3843,8 @@ pub mod cruel_witness;
 pub mod crumble;
 #[path = "lands/tapland/crumbling_necropolis.rs"]
 pub mod crumbling_necropolis;
+#[path = "artifacts/mv_5/crumbling_sanctuary.rs"]
+pub mod crumbling_sanctuary;
 #[path = "lands/utility/crumbling_vestige.rs"]
 pub mod crumbling_vestige;
 #[path = "enchantments/mv_2/crusade.rs"]
@@ -4123,6 +4157,8 @@ pub mod darkwater_catacombs;
 pub mod darkwater_egg;
 #[path = "creatures/mv_4/darling_of_the_masses.rs"]
 pub mod darling_of_the_masses;
+#[path = "creatures/mv_2/darting_merfolk.rs"]
+pub mod darting_merfolk;
 #[path = "lands/utility/daru_encampment.rs"]
 pub mod daru_encampment;
 #[path = "creatures/mv_4/daughter_of_autumn.rs"]
@@ -4319,8 +4355,16 @@ pub mod deeproot_waters;
 pub mod deeptread_merrow;
 #[path = "creatures/mv_2/deepwood_drummer.rs"]
 pub mod deepwood_drummer;
+#[path = "creatures/mv_2/deepwood_elder.rs"]
+pub mod deepwood_elder;
 #[path = "creatures/mv_3/deepwood_ghoul.rs"]
 pub mod deepwood_ghoul;
+#[path = "creatures/mv_4/deepwood_legate.rs"]
+pub mod deepwood_legate;
+#[path = "creatures/mv_5/deepwood_tantiv.rs"]
+pub mod deepwood_tantiv;
+#[path = "creatures/mv_1/deepwood_wolverine.rs"]
+pub mod deepwood_wolverine;
 #[path = "creatures/mv_2/deer_dog.rs"]
 pub mod deer_dog;
 #[path = "sorceries/mv_1/deface.rs"]
@@ -4385,6 +4429,8 @@ pub mod delirium;
 pub mod delirium_skeins;
 #[path = "creatures/mv_3/delney_streetwise_lookout.rs"]
 pub mod delney_streetwise_lookout;
+#[path = "creatures/mv_7/delraich.rs"]
+pub mod delraich;
 #[path = "instants/mv_3/deluge.rs"]
 pub mod deluge;
 #[path = "enchantments/mv_4/delusions_of_mediocrity.rs"]
@@ -4593,6 +4639,8 @@ pub mod dingus_staff;
 pub mod dining_room;
 #[path = "creatures/artifacts/mv_4/dinotomaton.rs"]
 pub mod dinotomaton;
+#[path = "creatures/mv_2/diplomatic_escort.rs"]
+pub mod diplomatic_escort;
 #[path = "enchantments/auras/mv_2/diplomatic_immunity.rs"]
 pub mod diplomatic_immunity;
 #[path = "creatures/mv_2/dire_fleet_captain.rs"]
@@ -4695,6 +4743,8 @@ pub mod disruptor_pistol;
 pub mod dissenter_s_deliverance;
 #[path = "instants/mv_3/dissipate.rs"]
 pub mod dissipate;
+#[path = "artifacts/mv_2/distorting_lens.rs"]
+pub mod distorting_lens;
 #[path = "sorceries/mv_2/disturbed_burial.rs"]
 pub mod disturbed_burial;
 #[path = "creatures/mv_4/dive_bomber.rs"]

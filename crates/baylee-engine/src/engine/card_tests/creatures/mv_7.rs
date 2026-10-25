@@ -388,6 +388,7 @@ mod chaos_lord;
 mod charnelhoard_wurm;
 mod craw_giant;
 mod crowd_favorites;
+mod delraich;
 mod djinn_of_the_lamp;
 mod doc_ock_evil_inventor;
 mod dragon_mage;

@@ -65,6 +65,7 @@ mod cephalid_looter;
 mod ceremonial_guard;
 mod chambered_nautilus;
 mod charging_paladin;
+mod cho_arrim_legate;
 mod chub_toad;
 mod coastal_drake;
 mod coffin_queen;

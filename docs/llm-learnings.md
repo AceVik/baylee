@@ -6,6 +6,19 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 2 (`Cho-Arrim Legate` through `Distorting Lens`, 25 cards)
+
+Adding the second 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `5 Partial`, `10 Unimplemented`) extended `scriptgen` across five patterns (`Cho-Manno's Blessing`, `Cho-Manno, Revolutionary`, `Cinder Elemental`, `Collective Unconscious`, `Corrupt Official`, `Darting Merfolk`, `Deepwood Tantiv`, `Deepwood Wolverine`, `Distorting Lens`):
+
+1. **`ChosenColor` in protection filters and `ChooseColor` → `DB$ Animate` chains.**
+   `targets.rs` maps `"ChosenColor"` in `filter_expr_in_zone` to `Filter::OfSourceChosenColor` (`Cho-Manno's Blessing`), and `choose_color_animate` lowers `ChooseColor | Defined$ You | SubAbility$ DBAnimate` with `Colors$ ChosenColor | OverwriteColors$ True` to `Effect::ModifyCharacteristics { target, effect: ModifyEffect::SetColorsToChosen, duration }` (`Distorting Lens`).
+2. **`Prevent all damage that would be dealt to CARDNAME.`**
+   `constants.rs` maps `"Prevent all damage that would be dealt to CARDNAME."` in `keyword_static` to `Modifier::PreventDamageFrom(&Filter::Any)` (`Cho-Manno, Revolutionary`).
+3. **`NumCards$` expressions in `Draw` and self-bounce defaults in `ChangeZone`.**
+   `chains.rs` uses `amount_or_count` for `Draw`'s `NumCards$` (`Collective Unconscious`: `SVar:X:Count$Valid Creature.YouCtrl`), and `effects.rs` defaults untargeted `Origin$ Battlefield | Destination$ Hand` without `ChangeType$` on a permanent's own ability to `Defined$ Self` (`Darting Merfolk`).
+4. **Sacrifice-based alternative casting costs remain `Coverage::Partial`.**
+   `cast_wizard::paid_as_an_alternative_cost` currently only pays `CostPart::PayLife(_)` and `CostPart::ExileFromHand(_)`; cards whose alternative cost sacrifices permanents (`Crash`, `Delraich`, like `Fireblast`) must stay `Coverage::Partial` without `alternative_costs` until `cast_wizard` wires a sacrifice stage for `CastModeKind::Alternative`.
+
 ## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 1 (`Aerial Caravan` through `Cho-Arrim Bruiser`, 25 cards)
 
 Adding the first 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `2 Partial`, `9 Unimplemented`) extended `scriptgen` to cover five recurring patterns (`Alley Grifters`, `Ancestral Mask`, `Arrest`, `Ballista Squad`, `Briar Patch`, `Cackling Witch`, `Caustic Wasps`, `Chambered Nautilus`):

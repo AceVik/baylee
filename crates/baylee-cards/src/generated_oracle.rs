@@ -11665,42 +11665,86 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Cho-Arrim Bruiser
     &["Whenever this creature attacks, you may tap up to two target creatures."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cho-Arrim Legate
+    &[
+        "If an opponent controls a Swamp and you control a Plains, you may cast this spell without paying its mana cost.\nProtection from black",
+    ],
+    // Cho-Manno's Blessing
+    &[
+        "Flash\nEnchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.",
+    ],
+    // Cho-Manno, Revolutionary
+    &["Prevent all damage that would be dealt to Cho-Manno."],
+    // Cinder Elemental
+    &["{X}{R}, {T}, Sacrifice this creature: It deals X damage to any target."],
+    // Clear the Land
+    &[
+        "Each player reveals the top five cards of their library, puts all land cards revealed this way onto the battlefield tapped, and exiles the rest.",
+    ],
+    // Close Quarters
+    &[
+        "Whenever a creature you control becomes blocked, this enchantment deals 1 damage to any target.",
+    ],
     // Cloud Sprite
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nThis creature can block only creatures with flying.",
     ],
     // Coastal Piracy
     &["Whenever a creature you control deals combat damage to an opponent, you may draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Collective Unconscious
+    &["Draw a card for each creature you control."],
+    // Common Cause
+    &["Nonartifact creatures get +2/+2 as long as they all share a color."],
+    // Conspiracy
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.",
+    ],
+    // Cornered Market
+    &[
+        "Players can't cast spells with the same name as a nontoken permanent.\nPlayers can't play nonbasic lands with the same name as a nontoken permanent.",
+    ],
+    // Corrupt Official
+    &[
+        "{2}{B}: Regenerate this creature.\nWhenever this creature becomes blocked, defending player discards a card at random.",
+    ],
+    // Cowardice
+    &[
+        "Whenever a creature becomes the target of a spell or ability, return that creature to its owner's hand. (It won't be affected by the spell or ability.)",
+    ],
     // Crackdown
     &[
         "Nonwhite creatures with power 3 or greater don't untap during their controllers' untap steps.",
     ],
-    &[],
-    &[],
-    &[],
+    // Crag Saurian
+    &[
+        "Whenever a source deals damage to this creature, that source's controller gains control of this creature.",
+    ],
+    // Crash
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nDestroy target artifact.",
+    ],
+    // Credit Voucher
+    &[
+        "{2}, {T}, Sacrifice this artifact: Shuffle any number of cards from your hand into your library, then draw that many cards.",
+    ],
     // Crenellated Wall
     &["Defender (This creature can't attack.)\n{T}: Target creature gets +0/+4 until end of turn."],
-    &[],
+    // Crooked Scales
+    &[
+        "{4}, {T}: Flip a coin. If you win the flip, destroy target creature an opponent controls. If you lose the flip, destroy target creature you control unless you pay {3} and repeat this process.",
+    ],
     // Crossbow Infantry
     &["{T}: This creature deals 1 damage to target attacking or blocking creature."],
-    &[],
+    // Crumbling Sanctuary
+    &[
+        "If damage would be dealt to a player, that player exiles that many cards from the top of their library instead.",
+    ],
     // Customs Depot
     &[
         "Whenever you cast a creature spell, you may pay {1}. If you do, draw a card, then discard a card.",
     ],
-    &[],
+    // Darting Merfolk
+    &["{U}: Return this creature to its owner's hand."],
     // Dawnstrider
     &["{G}, {T}, Discard a card: Prevent all combat damage that would be dealt this turn."],
     // Deathgazer
@@ -11709,25 +11753,34 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Deepwood Drummer
     &["{G}, {T}, Discard a card: Target creature gets +2/+2 until end of turn."],
-    &[],
+    // Deepwood Elder
+    &["{X}{G}{G}, {T}, Discard a card: X target lands become Forests until end of turn."],
     // Deepwood Ghoul
     &["Pay 2 life: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
+    // Deepwood Legate
+    &[
+        "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying its mana cost.\n{B}: This creature gets +1/+1 until end of turn.",
+    ],
+    // Deepwood Tantiv
+    &["Whenever this creature becomes blocked, you gain 2 life."],
+    // Deepwood Wolverine
+    &["Whenever this creature becomes blocked, it gets +2/+0 until end of turn."],
     // Dehydration
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature doesn't untap during its controller's untap step.",
     ],
-    &[],
+    // Delraich
+    &["You may sacrifice three black creatures rather than pay this spell's mana cost.\nTrample"],
     // Devout Witness
     &["{1}{W}, {T}, Discard a card: Destroy target artifact or enchantment."],
-    &[],
+    // Diplomatic Escort
+    &["{U}, {T}, Discard a card: Counter target spell or ability that targets a creature."],
     // Diplomatic Immunity
     &[
         "Enchant creature\nShroud (A permanent with shroud can't be the target of spells or abilities.)\nEnchanted creature has shroud.",
     ],
-    &[],
+    // Distorting Lens
+    &["{T}: Target permanent becomes the color of your choice until end of turn."],
     // Drake Hatchling
     &["Flying\n{U}: This creature gets +1/+0 until end of turn. Activate only once each turn."],
     // Dust Bowl

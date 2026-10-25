@@ -35,6 +35,7 @@ mod child_of_thorns;
 mod cinder_wall;
 mod civic_guildmage;
 mod dedicated_martyr;
+mod deepwood_wolverine;
 mod defiant_elf;
 mod dega_disciple;
 mod devout_harpist;

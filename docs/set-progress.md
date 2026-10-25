@@ -737,6 +737,7 @@ no-engine-change contract:
   - Batch 4 (`Thorn Elemental` to `Yawgmoth's Bargain`, 10 cards): **7 Implemented, 1 Partial, 2 Unimplemented (held back)**.
 - **Mercadian Masques (`mmq`)** — in progress:
   - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
+  - Batch 2 (`Cho-Arrim Legate` to `Distorting Lens`, 25 cards): **10 Implemented, 5 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `5 Partial` hand-owned, and `10 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

@@ -22,6 +22,7 @@ mod cursed_totem;
 mod darksteel_pendant;
 mod defense_grid;
 mod demon_s_horn;
+mod distorting_lens;
 mod dowsing_device;
 mod dragon_s_claw;
 mod elven_lyre;
