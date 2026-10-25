@@ -22,6 +22,7 @@ mod mechanics;
 mod oracle_lines;
 mod precons;
 mod printings;
+mod reclaim;
 mod tables;
 mod transcode;
 mod update_key;
@@ -95,6 +96,13 @@ fn main() -> anyhow::Result<()> {
         .to_path_buf();
     match cli.cmd {
         Cmd::Codegen {
+            reclaim,
+            check,
+            scripts,
+            cache,
+            ..
+        } if !reclaim.is_empty() => reclaim::run(&root, &cache, &scripts, &reclaim, check),
+        Cmd::Codegen {
             adopt_stub,
             hold_back,
             hold_back_file,
@@ -104,6 +112,7 @@ fn main() -> anyhow::Result<()> {
             subtypes,
             scripts,
             cache,
+            ..
         } => match adopt_stub {
             Some(name) => adopt_stub_card(&root, &name),
             None if hold_back_reason.is_some() => hold_back::run(

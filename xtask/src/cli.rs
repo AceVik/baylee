@@ -14,6 +14,10 @@ pub(crate) enum Cmd {
     /// Regenerate subtype constants, card stubs, registry, and the script index.
     #[command(group(clap::ArgGroup::new("hold_back_selection").args(["hold_back", "hold_back_file"]).multiple(true)))]
     Codegen {
+        /// Return only named implemented cards to generator ownership after a full read.
+        /// Uses cached pinned printings and accepted canonical tests; never downloads.
+        #[arg(long, conflicts_with_all = ["hold_back", "hold_back_file", "hold_back_reason", "adopt_stub", "tables", "subtypes"])]
+        reclaim: Vec<String>,
         /// Restore only these reviewed, hand-owned cards to canonical stubs.
         /// Repeat for multiple names; requires a concrete review reason.
         #[arg(long, conflicts_with_all = ["adopt_stub", "tables", "subtypes"], requires = "hold_back_reason")]
