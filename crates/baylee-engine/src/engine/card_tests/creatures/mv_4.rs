@@ -215,6 +215,7 @@ mod ojer_pakpatiq_deepest_epoch;
 mod omnath_locus_of_creation;
 mod order_of_yawgmoth;
 mod palace_jailer;
+mod pangosaur;
 mod pardic_collaborator;
 mod pendrell_drake;
 mod phantasmal_fiend;

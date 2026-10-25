@@ -323,7 +323,9 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// Mercadian Masques (`mmq`) Batch 1 adds `Black Market` (`Coverage::Implemented`),
 /// adding 1 wholly readable face and 1 triggered mana line. Batch 3 adds
 /// `Food Chain` (`Coverage::Implemented`), adding 1 wholly readable face, 1
-/// costly mana line, and 1 costly mana ability.
+/// costly mana line, and 1 costly mana ability. Batch 4 adds `Kyren Toy`
+/// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
+/// costly mana line.
 ///
 /// This remains the existing reader's population: it recognizes "add", not
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
@@ -335,7 +337,7 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     creature_promises: 90..=90,
     unparsed: 59..=59,
     fully_read: 381,
-    costly_lines: 144..=144,
+    costly_lines: 145..=145,
     triggered_lines: 25..=25,
     granted_lines: 41..=41,
     self_granted: 7..=7,
@@ -373,7 +375,7 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [438, 0, 11],
+        [438, 0, 12],
         "the coverage-tier population changed"
     );
     assert_eq!(readable, [381, 0, 0], "the readable coverage tiers changed");
@@ -427,6 +429,7 @@ fn reviewed_cards_explain_the_mana_population_changes() {
         (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0)),
         (index::METALWORKER, false, (0, 1, 0, 0, 1, 0)),
         (index::FOOD_CHAIN, true, (1, 0, 1, 0, 0, 1)),
+        (index::KYREN_TOY, false, (0, 0, 1, 0, 0, 0)),
     ] {
         let def = baylee_cards::by_index(card).expect("reviewed card remains registered");
         assert_eq!(def.is_fully_read(), fully_read, "{}", def.name());

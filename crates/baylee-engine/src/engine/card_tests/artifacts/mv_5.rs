@@ -17,6 +17,7 @@ mod citanul_flute;
 mod forethought_amulet;
 mod gauntlets_of_chaos;
 mod gilded_lotus;
+mod mercadian_atlas;
 mod meteorite;
 mod mishra_s_helix;
 mod myr_matrix;

@@ -150,6 +150,8 @@ mod kobold_drill_sergeant;
 mod kobold_overlord;
 mod kobold_taskmaster;
 mod krovikan_elementalist;
+mod kyren_glider;
+mod kyren_legate;
 mod ledger_shredder;
 mod leeching_licid;
 mod leonin_skyhunter;

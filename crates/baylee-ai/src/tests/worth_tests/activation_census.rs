@@ -347,7 +347,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mercadian Masques (`mmq`) Batch 3 adds 8 non-mana activated abilities on
     // Flailing Manticore (2), Flailing Ogre (2), Flailing Soldier (2),
     // General's Regalia, and Haunted Crossroads (6 of 8 read by the evaluator).
-    assert_eq!((read, of), (2797, 3515), "activated/loyalty reader census");
+    // Mercadian Masques (`mmq`) Batch 4 adds 1 non-mana activated ability on
+    // Panacea (0 of 1 read by the evaluator).
+    assert_eq!((read, of), (2797, 3516), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

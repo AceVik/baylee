@@ -11925,7 +11925,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nWhen this creature enters, each other player may draw up to three cards."],
     // Instigator
     &["{1}{B}{B}, {T}, Discard a card: Creatures target player controls attack this turn if able."],
-    &[],
+    // Insubordination
+    &[
+        "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, this Aura deals 2 damage to that player unless that creature attacked this turn.",
+    ],
     // Intimidation
     &[
         "Creatures you control have fear. (They can't be blocked except by artifact creatures and/or black creatures.)",
@@ -11934,31 +11937,60 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Iron Lance
     &["{3}, {T}: Target creature gains first strike until end of turn."],
-    &[],
-    &[],
+    // Ivory Mask
+    &["You have shroud. (You can't be the target of spells or abilities.)"],
+    // Jeweled Torque
+    &[
+        "As this artifact enters, choose a color.\nWhenever a player casts a spell of the chosen color, you may pay {2}. If you do, you gain 2 life.",
+    ],
     // Jhovall Queen
     &["Vigilance"],
     // Jhovall Rider
     &["Trample"],
-    &[],
+    // Karn's Touch
+    &[
+        "Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value until end of turn. (It retains its abilities.)",
+    ],
     // Kris Mage
     &["{R}, {T}, Discard a card: This creature deals 1 damage to any target."],
     &[],
+    // Kyren Glider
+    &["Flying\nThis creature can't block."],
+    // Kyren Legate
+    &[
+        "If an opponent controls a Plains and you control a Mountain, you may cast this spell without paying its mana cost.\nHaste",
+    ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Kyren Sniper
+    &[
+        "At the beginning of your upkeep, you may have this creature deal 1 damage to target player or planeswalker.",
+    ],
+    // Kyren Toy
+    &[
+        "{1}, {T}: Put a charge counter on this artifact.\n{T}, Remove X charge counters from this artifact: Add an amount of {C} equal to X plus one.",
+    ],
+    // Land Grant
+    &[
+        "If you have no land cards in hand, you may reveal your hand rather than pay this spell's mana cost.\nSearch your library for a Forest card, reveal that card, put it into your hand, then shuffle.",
+    ],
     // Larceny
     &[
         "Whenever a creature you control deals combat damage to a player, that player discards a card.",
     ],
     // Last Breath
     &["Exile target creature with power 2 or less. Its controller gains 4 life."],
-    &[],
-    &[],
-    &[],
+    // Lava Runner
+    &[
+        "Haste\nWhenever this creature becomes the target of a spell or ability, that spell or ability's controller sacrifices a land of their choice.",
+    ],
+    // Ley Line
+    &[
+        "At the beginning of each player's upkeep, that player may put a +1/+1 counter on target creature of their choice.",
+    ],
+    // Liability
+    &[
+        "Whenever a nontoken permanent is put into a player's graveyard from the battlefield, that player loses 1 life.",
+    ],
     // Lightning Hounds
     &["First strike"],
     // Lithophage
@@ -11974,16 +12006,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{4}, {T}: Put a charge counter on this artifact.\n{T}, Remove three charge counters from this artifact: Take an extra turn after this one.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Magistrate's Veto
+    &["White creatures and blue creatures can't block."],
+    // Megatherium
+    &[
+        "Trample\nWhen this creature enters, sacrifice it unless you pay {1} for each card in your hand.",
+    ],
+    // Mercadia's Downfall
+    &[
+        "Each attacking creature gets +1/+0 until end of turn for each nonbasic land defending player controls.",
+    ],
+    // Mercadian Atlas
+    &[
+        "At the beginning of your end step, if you didn't play a land this turn, you may draw a card.",
+    ],
     // Mercadian Bazaar
     &[
         "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {R} for each storage counter removed this way.",
     ],
-    &[],
-    &[],
+    // Mercadian Lift
+    &[
+        "{1}, {T}: Put a winch counter on this artifact.\n{T}, Remove X winch counters from this artifact: You may put a creature card with mana value X from your hand onto the battlefield.",
+    ],
+    // Midnight Ritual
+    &[
+        "Exile X target creature cards from your graveyard. For each creature card exiled this way, create a 2/2 black Zombie creature token.",
+    ],
     // Misdirection
     &[
         "You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.",
@@ -11993,21 +12041,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     // Molting Harpy
     &["Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {2}."],
-    &[],
-    &[],
+    // Moment of Silence
+    &["Target player skips their next combat phase this turn."],
+    // Monkey Cage
+    &[
+        "When a creature enters, sacrifice this artifact and create X 2/2 green Monkey creature tokens, where X is that creature's mana value.",
+    ],
     // Moonlit Wake
     &["Whenever a creature dies, you gain 1 life."],
+    // Muzzle
+    &["Enchant creature\nPrevent all damage that would be dealt by enchanted creature."],
     &[],
-    &[],
-    &[],
+    // Nether Spirit
+    &[
+        "At the beginning of your upkeep, if this card is the only creature card in your graveyard, you may return this card to the battlefield.",
+    ],
     // Nightwind Glider
     &["Flying, protection from black"],
     &[],
     // Notorious Assassin
     &["{2}{B}, {T}, Discard a card: Destroy target nonblack creature. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
+    // Orim's Cure
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nPrevent the next 4 damage that would be dealt to any target this turn.",
+    ],
+    // Panacea
+    &["{X}{X}, {T}: Prevent the next X damage that would be dealt to any target this turn."],
+    // Pangosaur
+    &["Whenever a player plays a land, return this creature to its owner's hand."],
     // Peat Bog
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {B}{B}. If there are no depletion counters on this land, sacrifice it.",

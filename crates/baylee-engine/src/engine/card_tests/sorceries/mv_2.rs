@@ -30,6 +30,7 @@ mod gaea_s_blessing;
 mod gaze_of_pain;
 mod hunger_of_the_nim;
 mod kaervek_s_purge;
+mod land_grant;
 mod martyr_s_cry;
 mod mob_justice;
 mod monstrous_growth;

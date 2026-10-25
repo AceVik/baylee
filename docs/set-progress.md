@@ -739,6 +739,7 @@ no-engine-change contract:
   - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
   - Batch 2 (`Cho-Arrim Legate` to `Distorting Lens`, 25 cards): **10 Implemented, 5 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `5 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 3 (`Enslaved Horror` to `Instigator`, 25 cards): **10 Implemented, 4 Partial, 11 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `11 Unimplemented` stubs).
+  - Batch 4 (`Insubordination` to `Pangosaur`, 25 cards): **14 Implemented, 3 Partial, 8 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `3 Partial` hand-owned, and `8 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

@@ -6,6 +6,23 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 4 (`Insubordination` through `Pangosaur`, 25 cards)
+
+Adding the fourth 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `3 Partial`, `8 Unimplemented`) extended `scriptgen` across six patterns (`Jeweled Torque`, `Karn's Touch`, `Kyren Glider`, `Liability`, `Magistrate's Veto`, `Muzzle`, `Pangosaur`) and authored 4 full `Coverage::Implemented` hand-owned cards (`Insubordination`, `Lava Runner`, `Mercadian Atlas`, `Nether Spirit`):
+
+1. **Mana-only `Cost$` on triggered `AB$` abilities in `optional_price`.**
+   `activated.rs` recognizes `Cost$` on triggered `AB$` blocks when it parses as a positive generic mana integer even without `OptionalDecider$ You` (`Jeweled Torque` and the remaining four MMQ Torques).
+2. **`S:Mode$ CantBlock` in `statics.rs`.**
+   `statics.rs` maps `S:Mode$ CantBlock` to `Modifier::AddKeyword(KeywordSet::CANT_BLOCK)` (`Kyren Glider`, `Magistrate's Veto`).
+3. **`R:Event$ DamageDone | Prevent$ True | ValidSource$ Creature.EnchantedBy` in `keywords.rs` and `wall52.rs`.**
+   Mapped to `Modifier::PreventAllDamageFromIt` on `Filter::EnchantedBySource` (`Muzzle`).
+4. **`T:Mode$ LandPlayed` in `triggers.rs`.**
+   Mapped to `Trigger::PlaysLand` / `Trigger::PlaysAnotherLand` (`Pangosaur`).
+5. **`Defined$ TriggeredCardOwner` on `ChangesZone` triggers in `targets.rs`.**
+   Mapped to `PlayerRel::OwnerOfEvent` (`Liability`).
+6. **`AB$/SP$ Animate` with `Power$ X | Toughness$ X` and `SVar:X:Targeted$CardManaCost` in `effects.rs`.**
+   Mapped to `Effect::SetPTFilter { filter: &Filter::This, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration }` alongside `Effect::AddTypesToTarget` (`Karn's Touch`).
+
 ## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 3 (`Enslaved Horror` through `Instigator`, 25 cards)
 
 Adding the third 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `4 Partial`, `11 Unimplemented`) extended `scriptgen` across five patterns (`Extravagant Spirit`, `Flailing Manticore`, `Flailing Ogre`, `Flailing Soldier`, `Food Chain`, `Furious Assault`, `Haunted Crossroads`, `High Seas`):
