@@ -1,7 +1,9 @@
 //! Transport-free neural seat: every authorized observation, every offered choice.
 //! A transport break must terminate this adapter; a latest view cannot repair H.
 mod brain;
+mod draw;
 pub use brain::{Brain4, LiveAnswer4};
+pub use draw::DrawDecision4;
 
 use crate::features4::{SourceKind4, board_observation_hash};
 use crate::netplay4::NetPlayer4;
@@ -48,6 +50,10 @@ pub struct LiveReport4 {
     pub fallback_answers: u64,
     /// Search-selected answers (distinct from neural and house fallbacks).
     pub search_answers: u64,
+    /// Draw offers answered by the explicit live rule over the neural critic.
+    pub draw_offer_answers: u64,
+    /// Last rule evaluation; no player identity or hidden information included.
+    pub last_draw_decision: Option<DrawDecision4>,
     /// Repeated/stale questions ignored without another policy call.
     pub duplicate_questions: u64,
     /// Server clock-probe echoes heard (never echoed back).
@@ -252,6 +258,10 @@ impl<B: Brain4> LiveSeat4<B> {
                 "brain returned an invalid offered answer"
             );
             self.report.answers += 1;
+            if let Some(draw) = answer.draw {
+                self.report.draw_offer_answers += 1;
+                self.report.last_draw_decision = Some(draw);
+            }
             match answer.source {
                 SourceKind4::Net => self.report.neural_answers += 1,
                 SourceKind4::Forced => self.report.forced_answers += 1,

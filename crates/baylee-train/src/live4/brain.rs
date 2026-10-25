@@ -12,6 +12,8 @@ pub struct LiveAnswer4 {
     pub action: PlayerAction,
     /// Neural, forced, or fallback origin returned by the runtime.
     pub source: SourceKind4,
+    /// Live-only draw rule audit, absent for ordinary learned policy answers.
+    pub draw: Option<super::DrawDecision4>,
 }
 
 /// A synchronous seat brain. It never receives opponent decks or game state.
@@ -73,9 +75,19 @@ impl Brain4 for NetPlayer4 {
         teams: &[Option<u8>],
     ) -> anyhow::Result<LiveAnswer4> {
         let answer = self.act_detailed(view, pending, teams);
+        let draw =
+            super::draw::decide(pending, view, teams, answer.provenance.source, answer.value);
+        if let Some(decision) = draw {
+            return Ok(LiveAnswer4 {
+                action: PlayerAction::YesNo(decision.accepted),
+                source: SourceKind4::House,
+                draw: Some(decision),
+            });
+        }
         Ok(LiveAnswer4 {
             action: answer.action,
             source: answer.provenance.source,
+            draw: None,
         })
     }
 }

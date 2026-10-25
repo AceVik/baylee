@@ -93,6 +93,11 @@ sha2.workspace = true
 name = "probe_refusal"
 required-features = ["play"]
 
+[[example]]
+name = "priority_audit4"
+path = "examples/priority_audit4/main.rs"
+required-features = ["play"]
+
 [[bin]]
 name = "selfplay"
 path = "src/bin/selfplay.rs"

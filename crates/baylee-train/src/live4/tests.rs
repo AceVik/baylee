@@ -48,6 +48,14 @@ impl Brain4 for Brain {
         let mut calls = self.0.borrow_mut();
         assert_eq!(calls.observations.last(), Some(&view.seats[0].life));
         calls.answers += 1;
+        if let Some(draw) = super::draw::decide(pending, view, &[None, None], SourceKind4::Net, 0.1)
+        {
+            return Ok(LiveAnswer4 {
+                action: PlayerAction::YesNo(draw.accepted),
+                source: SourceKind4::House,
+                draw: Some(draw),
+            });
+        }
         let action = match pending {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::MulliganBottom { count, .. } => PlayerAction::ChooseObjects {
@@ -64,6 +72,7 @@ impl Brain4 for Brain {
         Ok(LiveAnswer4 {
             action,
             source: SourceKind4::Net,
+            draw: None,
         })
     }
 }
@@ -389,4 +398,43 @@ fn socket_casting_and_targeting_are_normalized_for_policy_only() {
     let held = seat.memory.view().unwrap();
     assert_eq!(held.casting, wire.casting);
     assert_eq!(held.targeting.as_ref().unwrap().batch_count, 2);
+}
+
+#[test]
+fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
+    let (mut seat, calls) = adapter();
+    seat.hear(&table()).unwrap();
+    seat.hear(&view(1, 20)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: baylee_engine::choice::YesNoPrompt::DrawOffer {
+            proposer: PlayerId::new(1),
+        },
+        source: None,
+    };
+    let output = seat
+        .hear(&frame(v1::envelope::Msg::ChoiceRequest(
+            v1::ChoiceRequest {
+                game_id: "test-game".into(),
+                seq: 1,
+                pending_json: serde_json::to_vec(&pending).unwrap(),
+            },
+        )))
+        .unwrap();
+    let Some(v1::envelope::Msg::PlayerAction(action)) = &output[0].msg else {
+        panic!("draw answer")
+    };
+    assert!(matches!(
+        serde_json::from_slice::<PlayerAction>(&action.action_json).unwrap(),
+        PlayerAction::YesNo(true)
+    ));
+    assert_eq!(calls.borrow().observations.len(), 1);
+    assert_eq!(seat.report().draw_offer_answers, 1);
+    assert_eq!(seat.report().neural_answers, 0);
+    assert_eq!(seat.report().fallback_answers, 1);
+    let decision = seat.report().last_draw_decision.as_ref().unwrap();
+    assert_eq!(decision.rule, "critic_draw_rule_v1");
+    assert_eq!(decision.continuation_utility, Some(0.1));
+    assert!(decision.accepted);
 }
