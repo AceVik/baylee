@@ -94,6 +94,8 @@ def main():
     ap.add_argument("--ahead",type=int,default=2)
     ap.add_argument("--seed",type=int,default=2718,help="Deterministic source-balanced package mixing")
     ap.add_argument("--timeout",type=float,default=21600)
+    ap.add_argument("--allow-replay-quarantined",action="store_true",
+                    help="Allow historical records quarantined by replay audit divergence when unencoded_decisions == 0")
     args=ap.parse_args()
     if args.ahead<1 or args.frames<1: ap.error("Positive queue/size limits are required")
     args.out.mkdir(exist_ok=True)
@@ -124,8 +126,14 @@ def main():
         complete=source_job["status"]=="complete"
         if complete:
             final=json.loads((args.source/"meta.json").read_text())
-            if final["games_rejected"] or final["unencoded_decisions"]:
-                raise ValueError("Review converter rejections before continuing")
+            if final["unencoded_decisions"]:
+                raise ValueError("Review converter unencoded decisions before continuing")
+            if final["games_rejected"]:
+                if not args.allow_replay_quarantined:
+                    raise ValueError("Review converter rejections before continuing")
+                rejected=json.loads((args.source/"rejected.json").read_text())
+                if any(not str(r.get("reason","")).startswith("replay audit: Diverged") for r in rejected):
+                    raise ValueError("Non-divergence converter rejection encountered")
         if not pending and complete:
             atomic_json(args.out/"complete.json",{"packages":len(existing),"games":len(used)})
             return
