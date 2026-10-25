@@ -38,6 +38,7 @@ use crate::tokengen::TokenLookup;
 use std::collections::BTreeMap;
 
 mod activated;
+mod animation;
 mod archon_kismet;
 mod atoms;
 mod chains;
@@ -51,6 +52,7 @@ mod imprison;
 mod keywords;
 mod mana;
 mod protection52;
+mod regeneration;
 mod riftstone_portal;
 mod song52;
 mod statics;
