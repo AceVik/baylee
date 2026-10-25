@@ -11789,22 +11789,52 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Nonland permanents don't untap during their controllers' untap steps.\nAt the beginning of your upkeep, you lose 2 life.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Enslaved Horror
+    &[
+        "When this creature enters, each other player may return a creature card from their graveyard to the battlefield.",
+    ],
+    // Erithizon
+    &[
+        "Whenever this creature attacks, put a +1/+1 counter on target creature of defending player's choice.",
+    ],
+    // Extortion
+    &[
+        "Look at target player's hand and choose up to two cards from it. That player discards those cards.",
+    ],
+    // Extravagant Spirit
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {1} for each card in your hand.",
+    ],
     // Eye of Ramos
     &["{T}: Add {U}.\nSacrifice this artifact: Add {U}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ferocity
+    &[
+        "Enchant creature\nWhenever enchanted creature blocks or becomes blocked, you may put a +1/+1 counter on it.",
+    ],
+    // Flailing Manticore
+    &[
+        "Flying, first strike\n{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
+    // Flailing Ogre
+    &[
+        "{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
+    // Flailing Soldier
+    &[
+        "{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
     // Flaming Sword
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+0 and has first strike."],
-    &[],
+    // Food Chain
+    &[
+        "Exile a creature you control: Add X mana of any one color, where X is 1 plus the exiled creature's mana value. Spend this mana only to cast creature spells.",
+    ],
     // Forced March
     &["Destroy all creatures with mana value X or less."],
-    &[],
+    // Foster
+    &[
+        "Whenever a creature you control dies, you may pay {1}. If you do, reveal cards from the top of your library until you reveal a creature card. Put that card into your hand and the rest into your graveyard.",
+    ],
     // Fountain Watch
     &[
         "Artifacts and enchantments you control have shroud. (They can't be the targets of spells or abilities.)",
@@ -11815,9 +11845,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Fresh Volunteers
     &[""],
-    &[],
-    &[],
-    &[],
+    // Furious Assault
+    &[
+        "Whenever you cast a creature spell, this enchantment deals 1 damage to target player or planeswalker.",
+    ],
+    // Game Preserve
+    &[
+        "At the beginning of your upkeep, each player reveals the top card of their library. If all cards revealed this way are creature cards, put those cards onto the battlefield under their owners' control.",
+    ],
+    // General's Regalia
+    &[
+        "{3}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature you control instead.",
+    ],
     // Gerrard's Irregulars
     &["Trample, haste"],
     // Ghoul's Feast
@@ -11828,9 +11867,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, you may return target land to its owner's hand."],
     // Groundskeeper
     &["{1}{G}: Return target basic land card from your graveyard to your hand."],
-    &[],
-    &[],
-    &[],
+    // Gush
+    &[
+        "You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nDraw two cards.",
+    ],
+    // Hammer Mage
+    &["{X}{R}, {T}, Discard a card: Destroy all artifacts with mana value X or less."],
+    // Haunted Crossroads
+    &["{B}: Put target creature card from your graveyard on top of your library."],
     // Heart of Ramos
     &["{T}: Add {R}.\nSacrifice this artifact: Add {R}."],
     // Henge Guardian
@@ -11843,23 +11887,44 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // High Market
     &["{T}: Add {C}.\n{T}, Sacrifice a creature: You gain 1 life."],
-    &[],
+    // High Seas
+    &["Red creature spells and green creature spells cost {1} more to cast."],
     // Highway Robber
     &["When this creature enters, target opponent loses 2 life and you gain 2 life."],
-    &[],
-    &[],
+    // Hired Giant
+    &[
+        "When this creature enters, each other player may search their library for a land card and put that card onto the battlefield. Then each player who searched their library this way shuffles.",
+    ],
+    // Honor the Fallen
+    &[
+        "Exile all creature cards from all graveyards. You gain 1 life for each card exiled this way.",
+    ],
     // Hoodwink
     &["Return target artifact, enchantment, or land to its owner's hand."],
-    &[],
+    // Horn of Plenty
+    &[
+        "Whenever a player casts a spell, they may pay {1}. If the player does, they draw a card at the beginning of the next end step.",
+    ],
     // Horn of Ramos
     &["{T}: Add {G}.\nSacrifice this artifact: Add {G}."],
     // Horned Troll
     &["{G}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Howling Wolf
+    &[
+        "When this creature enters, you may search your library for up to three cards named Howling Wolf, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Hunted Wumpus
+    &[
+        "When this creature enters, each other player may put a creature card from their hand onto the battlefield.",
+    ],
+    // Ignoble Soldier
+    &[
+        "Whenever this creature becomes blocked, prevent all combat damage that would be dealt by it this turn.",
+    ],
+    // Indentured Djinn
+    &["Flying\nWhen this creature enters, each other player may draw up to three cards."],
+    // Instigator
+    &["{1}{B}{B}, {T}, Discard a card: Creatures target player controls attack this turn if able."],
     &[],
     // Intimidation
     &[

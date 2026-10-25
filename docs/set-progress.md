@@ -738,6 +738,7 @@ no-engine-change contract:
 - **Mercadian Masques (`mmq`)** — in progress:
   - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
   - Batch 2 (`Cho-Arrim Legate` to `Distorting Lens`, 25 cards): **10 Implemented, 5 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `5 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 3 (`Enslaved Horror` to `Instigator`, 25 cards): **10 Implemented, 4 Partial, 11 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `11 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

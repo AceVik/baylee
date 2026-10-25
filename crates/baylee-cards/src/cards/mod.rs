@@ -5671,6 +5671,8 @@ pub mod enraged_flamecaster;
 pub mod enraging_licid;
 #[path = "creatures/mv_1/enslaved_dwarf.rs"]
 pub mod enslaved_dwarf;
+#[path = "creatures/mv_4/enslaved_horror.rs"]
+pub mod enslaved_horror;
 #[path = "creatures/mv_3/enslaved_scout.rs"]
 pub mod enslaved_scout;
 #[path = "artifacts/mv_3/ensnaring_bridge.rs"]
@@ -5733,6 +5735,8 @@ pub mod erg_raiders;
 pub mod erhnam_djinn;
 #[path = "sorceries/mv_2/eriette_s_lullaby.rs"]
 pub mod eriette_s_lullaby;
+#[path = "creatures/mv_4/erithizon.rs"]
+pub mod erithizon;
 #[path = "instants/mv_1/erode.rs"]
 pub mod erode;
 #[path = "lands/deserts/eroded_canyon.rs"]
@@ -5937,8 +5941,12 @@ pub mod extinction;
 pub mod extinguish;
 #[path = "sorceries/mv_6/extinguish_all_hope.rs"]
 pub mod extinguish_all_hope;
+#[path = "sorceries/mv_5/extortion.rs"]
+pub mod extortion;
 #[path = "creatures/mv_3/extraction_specialist.rs"]
 pub mod extraction_specialist;
+#[path = "creatures/mv_4/extravagant_spirit.rs"]
+pub mod extravagant_spirit;
 #[path = "creatures/artifacts/mv_4/extruder.rs"]
 pub mod extruder;
 #[path = "creatures/mv_3/exultant_cultist.rs"]
@@ -6243,6 +6251,8 @@ pub mod ferocious_charge;
 pub mod ferocious_pup;
 #[path = "creatures/mv_4/ferocious_zheng.rs"]
 pub mod ferocious_zheng;
+#[path = "enchantments/auras/mv_2/ferocity.rs"]
+pub mod ferocity;
 #[path = "enchantments/mv_3/ferocity_of_the_wilds.rs"]
 pub mod ferocity_of_the_wilds;
 #[path = "artifacts/mv_6/feroz_s_ban.rs"]
@@ -6457,6 +6467,12 @@ pub mod five_hundred_year_diary;
 pub mod flagstones_of_trokair;
 #[path = "creatures/mv_4/flailing_drake.rs"]
 pub mod flailing_drake;
+#[path = "creatures/mv_4/flailing_manticore.rs"]
+pub mod flailing_manticore;
+#[path = "creatures/mv_3/flailing_ogre.rs"]
+pub mod flailing_ogre;
+#[path = "creatures/mv_1/flailing_soldier.rs"]
+pub mod flailing_soldier;
 #[path = "instants/mv_1/flame_blessed_bolt.rs"]
 pub mod flame_blessed_bolt;
 #[path = "enchantments/mv_1/flame_blitz.rs"]
@@ -6687,6 +6703,8 @@ pub mod font_of_mythos;
 pub mod font_of_progress;
 #[path = "enchantments/mv_2/font_of_vigor.rs"]
 pub mod font_of_vigor;
+#[path = "enchantments/mv_3/food_chain.rs"]
+pub mod food_chain;
 #[path = "artifacts/mv_4/fool_s_tome.rs"]
 pub mod fool_s_tome;
 #[path = "creatures/mv_3/foot_elite.rs"]
@@ -6805,6 +6823,8 @@ pub mod fortitude;
 pub mod fortress_crab;
 #[path = "lands/surveil/forum_of_amity.rs"]
 pub mod forum_of_amity;
+#[path = "enchantments/mv_4/foster.rs"]
+pub mod foster;
 #[path = "creatures/mv_3/foul_familiar.rs"]
 pub mod foul_familiar;
 #[path = "creatures/mv_2/foul_imp.rs"]
@@ -6961,6 +6981,8 @@ pub mod fungal_shambler;
 pub mod fungus_elemental;
 #[path = "creatures/mv_4/fungusaur.rs"]
 pub mod fungusaur;
+#[path = "enchantments/mv_3/furious_assault.rs"]
+pub mod furious_assault;
 #[path = "instants/mv_2/furious_bellow.rs"]
 pub mod furious_bellow;
 #[path = "instants/mv_1/furious_resistance.rs"]
@@ -7073,6 +7095,8 @@ pub mod galvanic_key;
 pub mod gamble;
 #[path = "sorceries/mv_3/game_of_chaos.rs"]
 pub mod game_of_chaos;
+#[path = "enchantments/mv_3/game_preserve.rs"]
+pub mod game_preserve;
 #[path = "lands/tapland/game_trail.rs"]
 pub mod game_trail;
 #[path = "creatures/mv_5/game_trail_changeling.rs"]
@@ -7163,6 +7187,8 @@ pub mod gemstone_mine;
 pub mod gene_pollinator;
 #[path = "creatures/mv_4/general_jarkeld.rs"]
 pub mod general_jarkeld;
+#[path = "artifacts/mv_3/general_s_regalia.rs"]
+pub mod general_s_regalia;
 #[path = "creatures/mv_5/general_tazri.rs"]
 pub mod general_tazri;
 #[path = "creatures/mv_3/generous_stray.rs"]
@@ -8105,6 +8131,8 @@ pub mod guma;
 pub mod gumato;
 #[path = "creatures/mv_2/gurmag_swiftwing.rs"]
 pub mod gurmag_swiftwing;
+#[path = "instants/mv_5/gush.rs"]
+pub mod gush;
 #[path = "creatures/artifacts/mv_2/gust_skimmer.rs"]
 pub mod gust_skimmer;
 #[path = "artifacts/mv_0/gustha_s_scepter.rs"]
@@ -8191,6 +8219,8 @@ pub mod halls_of_mist;
 pub mod halt_order;
 #[path = "instants/mv_1/hamato_guardian_stance.rs"]
 pub mod hamato_guardian_stance;
+#[path = "creatures/mv_2/hammer_mage.rs"]
+pub mod hammer_mage;
 #[path = "sorceries/mv_3/hammer_of_bogardan.rs"]
 pub mod hammer_of_bogardan;
 #[path = "creatures/mv_6/hammerfist_giant.rs"]
@@ -8289,6 +8319,8 @@ pub mod hatred;
 pub mod haunt_the_network;
 #[path = "artifacts/equipment/mv_3/haunted_cloak.rs"]
 pub mod haunted_cloak;
+#[path = "enchantments/mv_3/haunted_crossroads.rs"]
+pub mod haunted_crossroads;
 #[path = "lands/utility/haunted_fengraf.rs"]
 pub mod haunted_fengraf;
 #[path = "creatures/artifacts/mv_2/haunted_guardian.rs"]
@@ -8587,6 +8619,8 @@ pub mod high_market;
 pub mod high_noon;
 #[path = "creatures/mv_2/high_priest_of_penance.rs"]
 pub mod high_priest_of_penance;
+#[path = "enchantments/mv_3/high_seas.rs"]
+pub mod high_seas;
 #[path = "instants/mv_1/high_tide.rs"]
 pub mod high_tide;
 #[path = "creatures/mv_4/highborn_vampire.rs"]
@@ -8619,6 +8653,8 @@ pub mod hipparion;
 pub mod hippo_cows;
 #[path = "creatures/mv_3/hired_blade.rs"]
 pub mod hired_blade;
+#[path = "creatures/mv_4/hired_giant.rs"]
+pub mod hired_giant;
 #[path = "creatures/mv_1/hired_poisoner.rs"]
 pub mod hired_poisoner;
 #[path = "instants/mv_2/hisoka_s_defiance.rs"]
@@ -8697,6 +8733,8 @@ pub mod honor;
 pub mod honor_guard;
 #[path = "enchantments/mv_2/honor_of_the_pure.rs"]
 pub mod honor_of_the_pure;
+#[path = "instants/mv_2/honor_the_fallen.rs"]
+pub mod honor_the_fallen;
 #[path = "artifacts/mv_3/honor_worn_shaku.rs"]
 pub mod honor_worn_shaku;
 #[path = "instants/mv_2/honorable_passage.rs"]
@@ -8737,6 +8775,8 @@ pub mod horizon_seed;
 pub mod horn_of_deafening;
 #[path = "artifacts/mv_3/horn_of_greed.rs"]
 pub mod horn_of_greed;
+#[path = "artifacts/mv_6/horn_of_plenty.rs"]
+pub mod horn_of_plenty;
 #[path = "artifacts/mv_3/horn_of_ramos.rs"]
 pub mod horn_of_ramos;
 #[path = "creatures/mv_2/horned_kavu.rs"]
@@ -8799,6 +8839,8 @@ pub mod howling_fury;
 pub mod howling_giant;
 #[path = "artifacts/mv_2/howling_mine.rs"]
 pub mod howling_mine;
+#[path = "creatures/mv_4/howling_wolf.rs"]
+pub mod howling_wolf;
 #[path = "enchantments/mv_3/howlpack_resurgence.rs"]
 pub mod howlpack_resurgence;
 #[path = "lands/utility/howltooth_hollow.rs"]
@@ -8855,6 +8897,8 @@ pub mod hungry_spriggan;
 pub mod hunted_ghoul;
 #[path = "creatures/mv_1/hunted_witness.rs"]
 pub mod hunted_witness;
+#[path = "creatures/mv_4/hunted_wumpus.rs"]
+pub mod hunted_wumpus;
 #[path = "creatures/mv_3/hunting_moa.rs"]
 pub mod hunting_moa;
 #[path = "creatures/mv_4/huntmaster_of_the_fells.rs"]
@@ -8977,6 +9021,8 @@ pub mod igneous_cur;
 pub mod igneous_golem;
 #[path = "creatures/mv_1/ignoble_hierarch.rs"]
 pub mod ignoble_hierarch;
+#[path = "creatures/mv_3/ignoble_soldier.rs"]
+pub mod ignoble_soldier;
 #[path = "creatures/mv_3/iguana_parrot.rs"]
 pub mod iguana_parrot;
 #[path = "creatures/mv_6/ihsan_s_shade.rs"]
@@ -9097,6 +9143,8 @@ pub mod incurable_ogre;
 pub mod indatha_crystal;
 #[path = "lands/triome/indatha_triome.rs"]
 pub mod indatha_triome;
+#[path = "creatures/mv_3/indentured_djinn.rs"]
+pub mod indentured_djinn;
 #[path = "creatures/mv_2/independent_troops.rs"]
 pub mod independent_troops;
 #[path = "enchantments/auras/mv_4/indestructibility.rs"]
@@ -9217,6 +9265,8 @@ pub mod inspiring_veteran;
 pub mod inspirit_flagship_vessel;
 #[path = "artifacts/mv_2/instant_ramen.rs"]
 pub mod instant_ramen;
+#[path = "creatures/mv_2/instigator.rs"]
+pub mod instigator;
 #[path = "enchantments/auras/mv_1/instill_energy.rs"]
 pub mod instill_energy;
 #[path = "enchantments/mv_2/intangible_virtue.rs"]

@@ -6,6 +6,21 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 3 (`Enslaved Horror` through `Instigator`, 25 cards)
+
+Adding the third 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `4 Partial`, `11 Unimplemented`) extended `scriptgen` across five patterns (`Extravagant Spirit`, `Flailing Manticore`, `Flailing Ogre`, `Flailing Soldier`, `Food Chain`, `Furious Assault`, `Haunted Crossroads`, `High Seas`):
+
+1. **`Count$ValidHand Card.YouOwn` and `unless_price` with `SVar:X`–`Z`.**
+   `atoms.rs` maps `Count$ValidHand Card.YouOwn` to `Amount::HandSize(PlayerRel::You)`, and `chains.rs` accepts `"X" | "Y" | "Z"` in `unless_price` (`Extravagant Spirit`).
+2. **`Activator$ Player` on non-mana activated abilities (`ActivationZone::BattlefieldAnyPlayer`).**
+   `activated.rs` appends `, zone = ActivationZone::BattlefieldAnyPlayer` when `Activator$ Player` appears on an activated ability, enabling the *Flailing* cycle (`Flailing Manticore`, `Flailing Ogre`, `Flailing Soldier`).
+3. **`Exile<1/...>` in `mana_cost_parts` and `Exiled$CardManaCost/Plus.1` in `Produced$`.**
+   `mana.rs` and `support.rs` map `"Exile"` cost atoms to `ExilePermanent(...)`, and `atoms.rs` maps `Exiled$CardManaCost/Plus.<n>` to `Amount::Plus { base: &Amount::SacrificedManaValue, offset: <n> }` because `CostPart::ExilePermanent` populates `paid.sacrificed_lki` (`Food Chain`).
+4. **Targeted `ChangeZone | Origin$ Graveyard | Destination$ Library` and `S:Mode$ RaiseCost | Type$ Spell`.**
+   `effects.rs` maps targeted `Origin$ Graveyard | Destination$ Library` (with `LibraryPosition$ 0` or default top) to `Effect::GraveyardToTop { target }` (`Haunted Crossroads`), and `final_portals.rs` maps `S:Mode$ RaiseCost | Type$ Spell | Amount$ <n> | ValidCard$ <filter>` to `Modifier::SpellsCostMore(n)` (`High Seas`).
+5. **`Filter::CmcAtMostX` / `Filter::CmcExactlyX` in `Effect::DestroyAll` require `SP$` mode.**
+   `Effect::DestroyAll` evaluates its filter against `this = res.source`, which is the announced `x_value` on a spell on the stack (`Meltdown`, `Gaze of Granite`, `Forced March`) and `0` on a battlefield permanent activating `AB$ DestroyAll` (`Hammer Mage`). `chains.rs` now refuses `DestroyAll` when `self.mode != "SP"` and the filter contains `Filter::CmcAtMostX` or `Filter::CmcExactlyX`.
+
 ## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 2 (`Cho-Arrim Legate` through `Distorting Lens`, 25 cards)
 
 Adding the second 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `5 Partial`, `10 Unimplemented`) extended `scriptgen` across five patterns (`Cho-Manno's Blessing`, `Cho-Manno, Revolutionary`, `Cinder Elemental`, `Collective Unconscious`, `Corrupt Official`, `Darting Merfolk`, `Deepwood Tantiv`, `Deepwood Wolverine`, `Distorting Lens`):

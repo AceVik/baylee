@@ -292,6 +292,7 @@ mod fissure;
 mod flesh_to_dust;
 mod force_of_will;
 mod get_the_point;
+mod gush;
 mod hatred;
 mod humble_the_brute;
 mod jace_s_ingenuity;

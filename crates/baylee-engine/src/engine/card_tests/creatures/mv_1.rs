@@ -53,6 +53,7 @@ mod elvish_lyrist;
 mod elvish_mystic;
 mod elvish_scout;
 mod elvish_scrapper;
+mod flailing_soldier;
 mod flamekin_harbinger;
 mod fledgling_osprey;
 mod flying_men;

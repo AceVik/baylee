@@ -37,6 +37,7 @@ mod ensnaring_bridge;
 mod eye_of_ramos;
 mod floodwater_dam;
 mod forcefield;
+mod general_s_regalia;
 mod goblin_lyre;
 mod heart_of_ramos;
 mod heartstone;

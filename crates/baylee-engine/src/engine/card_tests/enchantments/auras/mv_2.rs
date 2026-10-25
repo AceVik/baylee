@@ -31,6 +31,7 @@ mod enfeeblement;
 mod errantry;
 mod favorable_destiny;
 mod fear;
+mod ferocity;
 mod festering_wound;
 mod fiery_mantle;
 mod fire_whip;
