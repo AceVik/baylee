@@ -26,7 +26,6 @@ card!(
         subtypes = &[planeswalker::KARN],
         loyalty = Some(5),
     )],
-    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(Filter::Any, Modifier::CantActivateArtifacts),

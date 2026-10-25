@@ -22,7 +22,6 @@ card!(
         loyalty = Some(3),
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue]),
-    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         loyalty!(

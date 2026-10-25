@@ -93,6 +93,7 @@ card!(
         ),
     ],
     color_identity = ColorSet::from_slice(&[Color::Black]),
+    commander = CommanderRule::Legendary,
     keywords = KeywordSet::MENACE,
     coverage = Coverage::Implemented,
     abilities = &[
