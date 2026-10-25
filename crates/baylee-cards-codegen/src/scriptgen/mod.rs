@@ -43,6 +43,7 @@ mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod divided_damage;
 mod effects;
 mod final_portals;
 mod gond_gate;

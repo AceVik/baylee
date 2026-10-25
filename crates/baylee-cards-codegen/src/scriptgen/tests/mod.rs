@@ -5,6 +5,7 @@ mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
+mod divided_damage;
 mod effects;
 mod imprison;
 mod prevention_rules;

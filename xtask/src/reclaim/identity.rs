@@ -111,15 +111,13 @@ fn require_ownership(
         Mode::Reclaim => anyhow::ensure!(
             path_is(fields.get("coverage"), &["Coverage", "Implemented"])
                 && !source.contains(stubgen::STUB_MARKER),
-            "{} must already be Implemented",
-            name
+            "{name} must already be Implemented"
         ),
         Mode::CompleteStub => anyhow::ensure!(
             stubgen::adopt_stub(source).is_some()
                 && (!fields.contains_key("coverage")
                     || path_is(fields.get("coverage"), &["Coverage", "Unimplemented"])),
-            "{} must be an unfinished machine-owned stub",
-            name
+            "{name} must be an unfinished machine-owned stub"
         ),
     }
     Ok(())

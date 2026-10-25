@@ -87,6 +87,13 @@ impl Tx<'_> {
 
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
+        if !is_activated
+            && let Some((api, p)) = Params::parse(spec)
+            && api == "DealDamage"
+            && p.has("DividedAsYouChoose")
+        {
+            return self.divided_damage_spell(p);
+        }
         if let Some((api, p)) = Params::parse(spec)
             && api == "ManaReflected"
         {
@@ -226,17 +233,7 @@ impl Tx<'_> {
             // not mana at all (Ertai's Meddling and four others, none of
             // them in this pool yet, all five reachable by a batch).
             if let Some(raw) = &cost {
-                for token in cost_parts(raw) {
-                    let is_mana = token.chars().all(|c| c.is_ascii_digit())
-                        || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "X")
-                        || hybrid_pair(&token).is_some();
-                    if !is_mana {
-                        let head = token.split('<').next().unwrap_or(&token);
-                        return self.deny(format!(
-                            "`{head}` on a spell line, beside the mana the face carries"
-                        ));
-                    }
-                }
+                self.spell_mana_cost(raw)?;
             }
             let targets = chain
                 .target
@@ -245,6 +242,22 @@ impl Tx<'_> {
             self.body
                 .abilities
                 .push(format!("spell!({effects}{targets}{second_targets})"));
+        }
+        Some(())
+    }
+
+    /// Validate the spell's cost tokens without treating additional costs as mana.
+    fn spell_mana_cost(&self, raw: &str) -> Option<()> {
+        for token in cost_parts(raw) {
+            let is_mana = token.chars().all(|c| c.is_ascii_digit())
+                || matches!(token.as_str(), "W" | "U" | "B" | "R" | "G" | "C" | "X")
+                || hybrid_pair(&token).is_some();
+            if !is_mana {
+                let head = token.split('<').next().unwrap_or(&token);
+                return self.deny(format!(
+                    "`{head}` on a spell line, beside the mana the face carries"
+                ));
+            }
         }
         Some(())
     }
