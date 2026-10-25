@@ -5698,3 +5698,16 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
 - **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
   - `chains.rs`: Extended `"DestroyAll"` to transcode `.cmcEQX` across comma-separated alternatives of `ValidCards` into `Effect::DestroyAllWithManaValue { filter, value }` when `NoRegen` is absent (unblocking `Powder Keg` as machine-owned).
   - `constants.rs`: Mapped `"All creatures able to block CARDNAME do so."` in `keyword_static` to `Modifier::MustBeBlockedByAllAble` (unblocking `Taunting Elf` as machine-owned).
+
+## 2026-10-25 — Urza's Destiny Batch 4 (`Thorn Elemental` through `Yawgmoth's Bargain`)
+
+- **Cards**: Added the final 10 absent first-printing identities in `uds` ledger order (`Thorn Elemental` through `Yawgmoth's Bargain`), completing Urza's Destiny (`uds`): **7 `Coverage::Implemented`, 1 `Coverage::Partial`, 2 `Coverage::Unimplemented` (stubs)**.
+  - **Machine-owned (`Coverage::Implemented`, 6)**: `Thran Foundry`, `Thran Golem`, `Trumpet Blast`, `Wall of Glare`, `Yavimaya Elder`, `Yavimaya Enchantress`.
+  - **Hand-owned (`Coverage::Implemented`, 1)**: `Urza's Incubator`.
+  - **Hand-owned (`Coverage::Partial`, 1)**: `Thorn Elemental` (7/7 Elemental body; optional unblocked combat-damage assignment `"You may have this creature assign its combat damage as though it weren't blocked."` is not in the DSL).
+  - **Unimplemented stubs (`Coverage::Unimplemented`, 2)**: `Wake of Destruction` (destroying all other *lands* with the same name as target land is not in the DSL; `DestroyOthersNamedLike` destroys all permanents with that name), `Yawgmoth's Bargain` (mandatory `Skip your draw step` replacement is not in `ReplacementRule`).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `mana.rs`: Added `Exile<1/CARDNAME>` / `Exile<1/CARDNAME/...>` cost transcoding to `CostPart::ExileSelf` (unblocking `Thran Foundry` as machine-owned).
+  - `targets.rs`: Added `"enchanted" => "Filter::Enchanted"` and `"!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)"` filter atoms (unblocking `Thran Golem` as machine-owned).
+  - `statics.rs`: Added `CanBlockAny$ True` -> `Modifier::CanBlockAnyNumber` in `block_modifiers` (unblocking `Wall of Glare` as machine-owned) and `AddPower$ X | AddToughness$ X` with `SVar:X:Count$Valid <valid>` -> `Modifier::ModifyPTByCount(PtCount::{YouControl|OnBattlefield}(...))` in `pt_modifiers` (unblocking `Yavimaya Enchantress` as machine-owned).
+  - `effects.rs` / `triggers.rs`: Added `ShuffleNonMandatory$ True` -> `optional = true` in `search_library` and accepted `OptionalDecider$ TriggeredCardController` on `Filter::This`/`ETB` triggers whose Oracle text contains `"you may"` (unblocking `Yavimaya Elder` as machine-owned).

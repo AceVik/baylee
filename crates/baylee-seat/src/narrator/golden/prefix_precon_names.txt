@@ -51,6 +51,7 @@ Main deck:
   1× Vivid Grove
   1× Wickerbough Elder
   1× Woodland Stream
+  1× Yavimaya Elder
   1× Abundant Countryside
   1× Ancient Ziggurat
   1× Arcane Signet
@@ -90,4 +91,3 @@ Main deck:
   1× Thriving Heath
   1× Thriving Isle
   1× Thriving Moor
-  1× Timeless Lotus

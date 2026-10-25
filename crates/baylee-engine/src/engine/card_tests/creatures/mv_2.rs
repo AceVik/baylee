@@ -289,6 +289,7 @@ mod wall_of_corpses;
 mod wall_of_diffusion;
 mod wall_of_earth;
 mod wall_of_essence;
+mod wall_of_glare;
 mod wall_of_kelp;
 mod wall_of_mulch;
 mod wall_of_razors;

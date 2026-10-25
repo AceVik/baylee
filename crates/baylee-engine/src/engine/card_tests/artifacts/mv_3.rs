@@ -76,6 +76,7 @@ mod tigereye_cameo;
 mod tooth_of_ramos;
 mod troll_horn_cameo;
 mod unerring_sling;
+mod urza_s_incubator;
 mod ventifact_bottle;
 mod war_chariot;
 mod war_horn;

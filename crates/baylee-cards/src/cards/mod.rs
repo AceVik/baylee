@@ -18777,6 +18777,8 @@ pub mod thopter_squadron;
 pub mod thor_odinson;
 #[path = "creatures/mv_2/thorin_oakenshield.rs"]
 pub mod thorin_oakenshield;
+#[path = "creatures/mv_7/thorn_elemental.rs"]
+pub mod thorn_elemental;
 #[path = "creatures/mv_3/thorn_thallid.rs"]
 pub mod thorn_thallid;
 #[path = "instants/mv_3/thornado.rs"]
@@ -18845,6 +18847,10 @@ pub mod thragtusk;
 pub mod thran_dynamo;
 #[path = "artifacts/mv_3/thran_forge.rs"]
 pub mod thran_forge;
+#[path = "artifacts/mv_1/thran_foundry.rs"]
+pub mod thran_foundry;
+#[path = "creatures/artifacts/mv_5/thran_golem.rs"]
+pub mod thran_golem;
 #[path = "artifacts/mv_2/thran_lens.rs"]
 pub mod thran_lens;
 #[path = "lands/gates/thran_portal.rs"]
@@ -19433,6 +19439,8 @@ pub mod true_faith_censer;
 pub mod true_love_s_kiss;
 #[path = "creatures/mv_2/truefire_paladin.rs"]
 pub mod truefire_paladin;
+#[path = "instants/mv_3/trumpet_blast.rs"]
+pub mod trumpet_blast;
 #[path = "creatures/mv_4/trumpeting_armodon.rs"]
 pub mod trumpeting_armodon;
 #[path = "creatures/mv_6/trumpeting_carnosaur.rs"]
@@ -19829,6 +19837,8 @@ pub mod urza_s_engine;
 pub mod urza_s_factory;
 #[path = "sorceries/mv_4/urza_s_guilt.rs"]
 pub mod urza_s_guilt;
+#[path = "artifacts/mv_3/urza_s_incubator.rs"]
+pub mod urza_s_incubator;
 #[path = "lands/mines/urza_s_mine.rs"]
 pub mod urza_s_mine;
 #[path = "artifacts/mv_3/urza_s_miter.rs"]
@@ -20439,6 +20449,8 @@ pub mod wakandan_drone_flock;
 pub mod wakandan_shield_guard;
 #[path = "creatures/mv_2/wakandan_tusker.rs"]
 pub mod wakandan_tusker;
+#[path = "sorceries/mv_6/wake_of_destruction.rs"]
+pub mod wake_of_destruction;
 #[path = "creatures/mv_4/wake_of_vultures.rs"]
 pub mod wake_of_vultures;
 #[path = "sorceries/mv_3/waking_nightmare.rs"]
@@ -20489,6 +20501,8 @@ pub mod wall_of_essence;
 pub mod wall_of_faith;
 #[path = "creatures/mv_3/wall_of_fire.rs"]
 pub mod wall_of_fire;
+#[path = "creatures/mv_2/wall_of_glare.rs"]
+pub mod wall_of_glare;
 #[path = "creatures/mv_3/wall_of_granite.rs"]
 pub mod wall_of_granite;
 #[path = "creatures/mv_3/wall_of_heat.rs"]
@@ -21313,6 +21327,10 @@ pub mod yavimaya_barbarian;
 pub mod yavimaya_coast;
 #[path = "lands/yavimaya_cradle_of_growth.rs"]
 pub mod yavimaya_cradle_of_growth;
+#[path = "creatures/mv_3/yavimaya_elder.rs"]
+pub mod yavimaya_elder;
+#[path = "creatures/mv_3/yavimaya_enchantress.rs"]
+pub mod yavimaya_enchantress;
 #[path = "creatures/mv_3/yavimaya_gnats.rs"]
 pub mod yavimaya_gnats;
 #[path = "creatures/mv_3/yavimaya_granger.rs"]
@@ -21329,6 +21347,8 @@ pub mod yavimaya_scion;
 pub mod yavimaya_wurm;
 #[path = "creatures/mv_6/yawgmoth_demon.rs"]
 pub mod yawgmoth_demon;
+#[path = "enchantments/mv_6/yawgmoth_s_bargain.rs"]
+pub mod yawgmoth_s_bargain;
 #[path = "enchantments/mv_2/yawgmoth_s_edict.rs"]
 pub mod yawgmoth_s_edict;
 #[path = "sorceries/mv_3/yawgmoth_s_will.rs"]

@@ -10632,3 +10632,13 @@ Splinter
 Storage Matrix
 Taunting Elf
 Telepathic Spies
+Thorn Elemental
+Thran Foundry
+Thran Golem
+Trumpet Blast
+Urza's Incubator
+Wake of Destruction
+Wall of Glare
+Yavimaya Elder
+Yavimaya Enchantress
+Yawgmoth's Bargain

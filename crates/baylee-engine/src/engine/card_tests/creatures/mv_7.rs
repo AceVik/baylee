@@ -470,6 +470,7 @@ mod spined_megalodon;
 mod striped_riverwinder;
 mod the_balrog_of_moria;
 mod the_terror_of_serpent_s_pass;
+mod thorn_elemental;
 mod thriss_nantuko_primus;
 mod thunder_dragon;
 mod thundering_spineback;

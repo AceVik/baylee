@@ -99,6 +99,7 @@ mod tangle_hulk;
 mod teferi_s_sentinel;
 mod tek;
 mod thopter_squadron;
+mod thran_golem;
 mod titanium_golem;
 mod treva_s_attendant;
 mod ultron_machine_overlord;

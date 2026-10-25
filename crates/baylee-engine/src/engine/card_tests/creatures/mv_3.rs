@@ -416,6 +416,8 @@ mod woolly_mammoths;
 mod woolly_spider;
 mod xenic_poltergeist;
 mod xira_arien;
+mod yavimaya_elder;
+mod yavimaya_enchantress;
 mod yavimaya_granger;
 mod ydwen_efreet;
 mod zhalfirin_commander;

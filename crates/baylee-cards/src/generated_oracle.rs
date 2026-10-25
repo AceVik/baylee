@@ -11414,34 +11414,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals damage to an opponent, draw a card.",
     ],
-    &[],
+    // Thorn Elemental
+    &["You may have this creature assign its combat damage as though it weren't blocked."],
     // Thran Dynamo
     &["{T}: Add {C}{C}{C}."],
-    &[],
-    &[],
+    // Thran Foundry
+    &["{1}, {T}, Exile this artifact: Target player shuffles their graveyard into their library."],
+    // Thran Golem
+    &[
+        "As long as this creature is enchanted, it gets +2/+2 and has flying, first strike, and trample.",
+    ],
     // Tormented Angel
     &["Flying"],
     // Treachery
     &[
         "Enchant creature\nWhen this Aura enters, untap up to five lands.\nYou control enchanted creature.",
     ],
-    &[],
+    // Trumpet Blast
+    &["Attacking creatures get +2/+0 until end of turn."],
     // Twisted Experiment
     &["Enchant creature\nEnchanted creature gets +3/-1."],
-    &[],
+    // Urza's Incubator
+    &[
+        "As this artifact enters, choose a creature type.\nCreature spells of the chosen type cost {2} less to cast.",
+    ],
     // Voice of Duty
     &["Flying, protection from green"],
     // Voice of Reason
     &["Flying, protection from blue"],
-    &[],
-    &[],
+    // Wake of Destruction
+    &["Destroy target land and all other lands with the same name as that land."],
+    // Wall of Glare
+    &["Defender (This creature can't attack.)\nThis creature can block any number of creatures."],
     // Wild Colos
     &["Haste"],
-    &[],
-    &[],
+    // Yavimaya Elder
+    &[
+        "When this creature dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.\n{2}, Sacrifice this creature: Draw a card.",
+    ],
+    // Yavimaya Enchantress
+    &["This creature gets +1/+1 for each enchantment on the battlefield."],
     // Yavimaya Hollow
     &["{T}: Add {C}.\n{G}, {T}: Regenerate target creature."],
-    &[],
+    // Yawgmoth's Bargain
+    &["Skip your draw step.\nPay 1 life: Draw a card."],
     // Angel of Light
     &["Flying, vigilance"],
     &[],

@@ -54,6 +54,7 @@ mod sungrass_egg;
 mod tablet_of_epityr;
 mod tanglebloom;
 mod the_rack;
+mod thran_foundry;
 mod thran_turbine;
 mod throne_of_bone;
 mod traveler_s_amulet;
