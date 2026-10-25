@@ -3,22 +3,15 @@
 //! Oracle: Prevent all damage that would be dealt by instant and sorcery spells.
 //! Oracle: Creatures with flying don't untap during their controllers' untap steps.
 //! Set: ME2 #11 — Masters Edition II | Scryfall ID: a8628e29-3d20-4601-8693-70524dac3f98 | Oracle ID: 567d3de7-8d56-4b6d-a59a-f8674172f595
-// PARTIAL: preventing all damage dealt by instant and sorcery spells not supported.
 
 use baylee_cards_dsl::prelude::*;
 
-const CREATURE_WITH_FLYING: Filter =
-    Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]);
-
-// NOT SUPPORTED: Prevent all damage that would be dealt by instant and sorcery spells.
 card!(
     index = index::ENERGY_STORM,
     oracle_id = "567d3de7-8d56-4b6d-a59a-f8674172f595",
     scryfall_id = "a8628e29-3d20-4601-8693-70524dac3f98",
     color_identity = ColorSet::from_slice(&[Color::White]),
-    coverage = Coverage::Partial(
-        "preventing all damage dealt by instant and sorcery spells not supported"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Energy Storm",
         mana_cost = mana!("{1}{W}"),
@@ -45,6 +38,13 @@ card!(
                 ZoneRef::Battlefield
             )))
         ),
-        static_ability!(CREATURE_WITH_FLYING, Modifier::DoesNotUntap),
+        static_ability!(
+            Filter::And(&[Filter::InZone(ZoneRef::Stack), Filter::INSTANT_OR_SORCERY]),
+            Modifier::PreventAllDamageFromIt
+        ),
+        static_ability!(
+            Filter::And(&[Filter::CREATURE, Filter::HasKeyword(KeywordSet::FLYING)]),
+            Modifier::DoesNotUntap
+        ),
     ],
 );
