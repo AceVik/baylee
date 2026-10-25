@@ -203,7 +203,10 @@ impl Duel {
             rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: self.seed,
-            house_rules: HouseRules::default(),
+            house_rules: HouseRules {
+                starting_player: Some(0),
+                ..HouseRules::default()
+            },
             modifiers: vec![],
             prints: vec![PrintInfo {
                 scryfall_id: uuid::Uuid::nil(),

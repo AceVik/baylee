@@ -484,6 +484,7 @@ impl<L: CardLookup> Engine<L> {
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
+        self.discard_empty_trigger_without_effect(id);
     }
 
     /// Queues delayed actions that fire at the first main phase (Mana

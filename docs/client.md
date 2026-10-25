@@ -5168,8 +5168,10 @@ changing it:
    hands the turn back rather than pushing an action that would bounce.
 2. **It never spends what a player would want to decide.** Phyrexian mana is
    read as its colour and never as two life; `{X}` and `{S}` are refused
-   outright; restricted mana (Cavern of Souls) is not counted, because what it
-   may be spent on is a rules question this side of the wire cannot answer.
+   outright. Restricted mana (Cavern of Souls) is not counted in the generic
+   matcher. `manasources` first tries the unrestricted plan, then adds at most
+   one restricted tap whose filter provably admits this spell or activation,
+   always last, so the engine's own payment check remains authoritative.
 3. **It under-counts rather than over-counts.** A source that makes two mana
    *of one chosen colour* is worth one mana here, because two units that must
    match are not two independent units, and pretending otherwise builds a plan
@@ -5686,13 +5688,13 @@ trap a second time.
 
 ### The pool, and the land that always tapped for the wrong thing
 
-Rule 2 above — the planner refuses restricted mana — is correct and was, for
-one card, the entire user-visible bug. Jasmine Dragon Tea Shop prints *two*
-mana abilities: `{T}: Add {C}`, and `{T}: Add one mana of any color`
-spendable only on Allies. `manasources` reduces a permanent to the one tap it
-can read, `simple_mana` refuses the restricted one on purpose, so the land
-resolved to `{C}` — every time, whatever the player wanted, and the Ally
-spell the land is in the deck *for* stayed unlit.
+Rule 2 above — the *generic* matcher refuses restricted mana — is correct
+and was, for one card, the entire user-visible bug. Jasmine Dragon Tea Shop
+prints *two* mana abilities: `{T}: Add {C}`, and `{T}: Add one mana of any
+color` spendable only on Allies. `manasources` used to reduce a permanent to
+the one tap it could read, so the land resolved to `{C}` — every time,
+whatever the player wanted, and the Ally spell the land is in the deck *for*
+stayed unlit.
 
 Three things were wrong and only one of them was the planner:
 
@@ -5724,9 +5726,12 @@ colour alone must not carry meaning, and five discs is a number the player has
 to stop and count. `baylee-client-core/src/manapool.rs` decides the row and is
 tested without a renderer, like everything else in that crate.
 
-None of this changes what the planner does, and that is the point — the player
-can now do by hand the thing the planner is right to refuse, and watch it
-happen.
+The generic matcher still refuses restricted mana, and that is the point —
+the player can do by hand the thing it is right to refuse. A purpose-specific
+plan now tries the ordinary sources first and then, only when the filter
+provably admits this exact spell or activation, adds one restricted tap last.
+The engine still makes the final payment check, so no plan depends on reading
+restricted mana already floating in the pool.
 
 ## A choice you answer by picking, not by clicking the table
 

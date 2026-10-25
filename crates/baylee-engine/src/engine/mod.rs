@@ -1439,6 +1439,11 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(answer.as_bool()));
             }
         }
+        // This setting changes which question comes next even with an
+        // otherwise identical board, so it belongs in the continuation hash.
+        extra = extra.wrapping_mul(31).wrapping_add(u64::from(
+            self.house_rules.auto_discard_empty_optional_triggers,
+        ));
         base ^ extra.rotate_left(17)
     }
 

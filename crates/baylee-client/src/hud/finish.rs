@@ -64,6 +64,7 @@ use super::ledge::log::{
 use super::*;
 use baylee_client_core::gamelog::LogLine;
 use baylee_client_core::interaction::{ending_reason, table_losses, verdict};
+use bevy::picking::events::PointerClick;
 use bevy::text::LineHeight;
 use bevy::ui::ScrollPosition;
 
@@ -182,6 +183,10 @@ pub(crate) struct FinishRoot;
 /// The sheet itself, which is the one node that moves.
 #[derive(Component)]
 pub(crate) struct FinishSheet;
+
+/// The full-window input shield: nothing below the end screen answers a click.
+#[derive(Component)]
+pub(crate) struct FinishInputVeil;
 
 /// The row an embedding shell puts its exits in.
 ///
@@ -321,40 +326,7 @@ pub(crate) fn spawn_finish(
     let (width, height) = crate::hud::scale::window_space(&windows, ui.as_deref())
         .map_or((1280.0, 720.0), |w| (w.x, w.y));
 
-    let root = commands
-        .spawn((
-            FinishRoot,
-            Node {
-                position_type: PositionType::Absolute,
-                left: px(0),
-                right: px(0),
-                top: px(0),
-                bottom: px(0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-            // A **root**, so this is ordered against other roots and not
-            // against `HudRoot`'s children: `ui_stack_system` sorts roots by
-            // `(GlobalZIndex, ZIndex)` and then walks each subtree. Every
-            // other root in this client sits at `GlobalZIndex(0)` — the seat
-            // bars at -1 — so one is enough to stand over all of them, and it
-            // says what it means instead of continuing the ladder of `ZIndex`
-            // numbers that only ever order siblings. Two things stand over
-            // it on purpose: a preview opened from this sheet's log
-            // ([`G_PREVIEW_OVER_FINISH`]) and the report button and form
-            // (`crate::report`), which are over everything.
-            GlobalZIndex(G_FINISH),
-            Pickable::IGNORE,
-        ))
-        .id();
-
-    // The same veil a zone dialog draws, from the same constructor and
-    // painted by the same system: `tray::dim_the_table` now has a finished
-    // game as its second reason to darken a table. The board stays visible
-    // through it, because the board is the evidence for what the sheet says.
-    let veil = super::tray::spawn_veil(&mut commands);
-    commands.entity(root).add_child(veil);
+    let root = spawn_finish_root(&mut commands);
 
     let sheet = commands
         .spawn((
@@ -439,6 +411,66 @@ pub(crate) fn spawn_finish(
         ))
         .id();
     commands.entity(sheet).add_child(exits);
+}
+
+/// The finish root and the two veils between the live table and its sheet.
+fn spawn_finish_root(commands: &mut Commands) -> Entity {
+    let root = commands
+        .spawn((
+            FinishRoot,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(0),
+                bottom: px(0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            // A **root**, so this is ordered against other roots and not
+            // against `HudRoot`'s children: `ui_stack_system` sorts roots by
+            // `(GlobalZIndex, ZIndex)` and then walks each subtree. Every
+            // other root in this client sits at `GlobalZIndex(0)` — the seat
+            // bars at -1 — so one is enough to stand over all of them, and it
+            // says what it means instead of continuing the ladder of `ZIndex`
+            // numbers that only ever order siblings. Two things stand over
+            // it on purpose: a preview opened from this sheet's log
+            // ([`G_PREVIEW_OVER_FINISH`]) and the report button and form
+            // (`crate::report`), which are over everything.
+            GlobalZIndex(G_FINISH),
+            Pickable::IGNORE,
+        ))
+        .id();
+
+    // The same veil a zone dialog draws, from the same constructor and
+    // painted by the same system: `tray::dim_the_table` now has a finished
+    // game as its second reason to darken a table. The board stays visible
+    // through it, because the board is the evidence for what the sheet says.
+    let veil = super::tray::spawn_veil(commands);
+    commands.entity(root).add_child(veil);
+    let input_veil = commands
+        .spawn((
+            FinishInputVeil,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(0),
+                bottom: px(0),
+                ..default()
+            },
+            Pickable {
+                should_block_lower: true,
+                is_hoverable: true,
+            },
+        ))
+        .observe(|mut click: On<PointerClick>| {
+            click.propagate(false);
+        })
+        .id();
+    commands.entity(root).add_child(input_veil);
+    root
 }
 
 /// Everything the sheet has to say, and who is reading it.
@@ -1321,5 +1353,47 @@ mod tests {
             sheet_z > veil_z,
             "the veil ({veil_z}) is painted over the sheet ({sheet_z})"
         );
+    }
+
+    /// The finished table is evidence, not a set of live controls: replay and
+    /// its sheets stay below the result, and the full-window shield keeps a
+    /// click from reaching either them or the board. The result's own exits
+    /// and scrolling sheet are above that shield.
+    #[test]
+    fn the_end_screen_covers_replay_and_blocks_input_below_it() {
+        const {
+            assert!(G_REPLAY_BAR < G_REPLAY_SHEET);
+            assert!(G_REPLAY_SHEET < 0);
+            assert!(G_FINISH > 0);
+        }
+
+        let mut app = app_at(ended(
+            GameResult {
+                winner: Some(Victor::Player(PlayerId::new(0))),
+                reason: EndReason::LastPlayerStanding,
+            },
+            None,
+        ));
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<&GlobalZIndex, With<FinishRoot>>();
+        assert_eq!(roots.single(app.world()).expect("one end root").0, G_FINISH);
+
+        let mut shields = app
+            .world_mut()
+            .query_filtered::<(&Pickable, &ChildOf, Option<&ZIndex>), With<FinishInputVeil>>();
+        let (pickable, parent, shield_z) = shields.single(app.world()).expect("one input shield");
+        assert!(pickable.should_block_lower);
+        assert!(pickable.is_hoverable);
+        let parent = parent.parent();
+        let shield_z = shield_z.map_or(0, |z| z.0);
+
+        let mut sheets = app
+            .world_mut()
+            .query_filtered::<(&ZIndex, &ChildOf), With<FinishSheet>>();
+        let (sheet_z, sheet_parent) = sheets.single(app.world()).expect("one sheet");
+        let (sheet_z, sheet_parent) = (sheet_z.0, sheet_parent.parent());
+        assert_eq!(parent, sheet_parent);
+        assert!(sheet_z > shield_z);
     }
 }

@@ -895,7 +895,7 @@ impl<L: CardLookup> Engine<L> {
                 });
             } else {
                 self.hand_over_trigger_abilities(&t);
-                self.push_ability_to_stack(
+                let top = self.push_ability_to_stack(
                     t.controller,
                     t.source,
                     t.ability_index,
@@ -904,14 +904,14 @@ impl<L: CardLookup> Engine<L> {
                 self.set_top_mode(t.chosen_mode);
                 self.bind_top_trigger(&t);
                 // Carry the event object onto the fresh stack object.
-                if let Some(event_object) = t.event_object {
-                    let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
-                    if let Some(top) = top
-                        && let Some(obj) = self.state.object_mut(top)
-                    {
-                        obj.event_object = Some(event_object);
-                        obj.targets.extend(t.implicit_target);
-                    }
+                if let Some(event_object) = t.event_object
+                    && let Some(obj) = self.state.object_mut(top)
+                {
+                    obj.event_object = Some(event_object);
+                    obj.targets.extend(t.implicit_target);
+                }
+                if self.discard_empty_trigger_without_effect(top) {
+                    continue;
                 }
                 if self.ask_trigger_second_target() {
                     return;

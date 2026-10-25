@@ -61,14 +61,16 @@ pub(crate) const WIDEST: f32 = 240.0;
 /// The most of the window's width the sheet takes.
 const MOST_ACROSS: f32 = 0.8;
 
-/// The paper round the cards.
-const PAD: f32 = 12.0;
+/// The paper round the cards and their side rail.
+const PAD: f32 = 16.0;
 
-/// Between two cards.
-const GAP: f32 = 10.0;
+/// Between two cards, and between the cards and their rail.
+const GAP: f32 = 14.0;
 
-/// The head's height, kept out of the cards' room.
-const HEAD_H: f32 = 34.0;
+/// The right-hand rail: title, guidance and the way through the reveals.
+/// Keeping those beside rather than above and below the cards leaves the
+/// cards' whole height for the cards themselves.
+const RAIL_W: f32 = 224.0;
 
 /// The rung is the claim, so it is checked where it is made: a sheet only
 /// showing the game stands under a dialog answering a question and under the
@@ -363,16 +365,19 @@ fn spawn_sheet(
     }
     let room = room(paper.window);
     let (width, across) = fit(paper.reveal.cards.len(), room, GAP, WIDEST);
+    let rows = paper.reveal.cards.len().max(1).div_ceil(across);
     #[allow(clippy::cast_precision_loss)] // a handful of cards
-    let row_w = across as f32 * width + (across.saturating_sub(1)) as f32 * GAP;
+    let (across_f, rows_f) = (across as f32, rows as f32);
+    let row_w = across_f * width + (across_f - 1.0) * GAP;
+    let grid_h = rows_f * width * 88.0 / 63.0 + (rows_f - 1.0) * GAP;
     let page = commands
         .spawn((
             Node {
-                width: px(row_w + 2.0 * PAD),
-                flex_direction: FlexDirection::Column,
+                width: px(row_w + RAIL_W + GAP + 2.0 * PAD),
+                flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
+                column_gap: px(GAP),
                 padding: UiRect::all(px(PAD)),
-                row_gap: px(GAP),
                 // Open at the foot, as the decision sheet is: it grows out of
                 // the shelf rather than standing on it.
                 border: UiRect {
@@ -398,6 +403,7 @@ fn spawn_sheet(
             }]),
         ))
         .id();
+    let grid = spawn_grid(commands, paper, (width, row_w, grid_h), card);
     let top = sheet::spawn_head(
         commands,
         fonts,
@@ -406,9 +412,23 @@ fn spawn_sheet(
         (MenuAction::FoldReveal, None),
         Some(MenuAction::DismissReveal),
     );
-    let grid = spawn_grid(commands, paper, (width, row_w), card);
-    let foot = spawn_foot(commands, paper, fonts, row_w);
-    commands.entity(page).add_children(&[top, grid, foot]);
+    let foot = spawn_foot(commands, paper, fonts);
+    let rail = commands
+        .spawn((
+            Node {
+                width: px(RAIL_W),
+                min_width: px(RAIL_W),
+                min_height: px(grid_h),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                row_gap: px(GAP),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(rail).add_children(&[top, foot]);
+    commands.entity(page).add_children(&[grid, rail]);
     commands.entity(band).add_child(page);
     band
 }
@@ -417,13 +437,15 @@ fn spawn_sheet(
 fn spawn_grid(
     commands: &mut Commands,
     paper: &Paper<'_>,
-    (width, row_w): (f32, f32),
+    (width, row_w, height): (f32, f32, f32),
     card: &mut dyn FnMut(&mut Commands, LogLink, f32) -> Entity,
 ) -> Entity {
     let grid = commands
         .spawn((
             Node {
                 width: px(row_w),
+                height: px(height),
+                flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::Center,
@@ -464,17 +486,20 @@ fn spawn_grid(
     grid
 }
 
-/// The foot: the close answer with `Esc`'s cap.
-fn spawn_foot(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, row_w: f32) -> Entity {
+/// The foot: the close answer with `Esc`'s cap, across the side rail.
+fn spawn_foot(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts) -> Entity {
     use super::ledge::drawer::sheet;
     let foot = commands
         .spawn((
             Node {
-                width: px(row_w),
+                width: percent(100),
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::FlexEnd,
+                padding: UiRect::top(px(10)),
+                border: UiRect::top(px(1)),
                 ..default()
             },
+            BorderColor::all(palette::DOCK_EDGE),
             Pickable::IGNORE,
         ))
         .id();
@@ -492,23 +517,21 @@ fn spawn_foot(commands: &mut Commands, paper: &Paper<'_>, fonts: &UiFonts, row_w
         label.text(paper.lang),
         paper.cancel_cap.as_deref(),
     );
+    commands
+        .entity(close)
+        .entry::<Node>()
+        .and_modify(|mut node| node.width = percent(100));
     commands.entity(foot).add_child(close);
     foot
 }
 
 /// The room the cards have in a window this big: across, at most
-/// [`MOST_ACROSS`] of it inside the margins; down, from under the report
-/// button's corner to the hand zone, less the paper and its head.
+/// [`MOST_ACROSS`] of it inside the margins, less their own rail and the
+/// paper; down, from under the report button's corner to the hand zone, less
+/// only the paper. Head and foot stand beside the cards, not above and below.
 pub(crate) fn room(window: Vec2) -> (f32, f32) {
-    let across = (window.x * MOST_ACROSS).min(window.x - 2.0 * EDGE) - 2.0 * PAD;
-    let down = window.y
-        - TOP_CLEAR
-        - super::HAND_ZONE_H
-        - EDGE
-        - 2.0 * PAD
-        - HEAD_H
-        - super::ledge::drawer::sheet::FOOT_H
-        - 2.0 * GAP;
+    let across = (window.x * MOST_ACROSS).min(window.x - 2.0 * EDGE) - 2.0 * PAD - RAIL_W - GAP;
+    let down = window.y - TOP_CLEAR - super::HAND_ZONE_H - EDGE - 2.0 * PAD;
     (across.max(0.0), down.max(0.0))
 }
 

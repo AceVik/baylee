@@ -1044,7 +1044,8 @@ mod tests {
     #[test]
     fn the_deck_rows_are_the_seats_own_list_less_what_it_saw() {
         let (a, b) = (house("allytifact"), house("victory"));
-        let preset = crate::selfplay::table(3, &a, &b, [AIProfile::default(); 2]);
+        let mut preset = crate::selfplay::table(3, &a, &b, [AIProfile::default(); 2]);
+        preset.house_rules.starting_player = Some(0);
         let engine = dealt(&preset);
         let seat = PlayerId::new(0);
         let pending = engine.pending_for(seat).expect("seat 0 is asked").clone();

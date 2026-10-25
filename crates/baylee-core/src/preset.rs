@@ -108,6 +108,16 @@ pub struct HouseRules {
     pub decision_timeout_secs: u32,
     /// Reconnect window before AI takes over a seat (default 60 s).
     pub reconnect_window_secs: u32,
+    /// Optional explicit starting seat for controlled games. `None` chooses
+    /// uniformly from the preset's seeded RNG. Missing on an old record keeps
+    /// the historical seat 0; new random starts serialize as `null`.
+    #[serde(default = "legacy_starting_player")]
+    pub starting_player: Option<u8>,
+    /// Remove an optional trigger when an empty target answer is proved to
+    /// have no effect and no follow-up question. New games enable this; a
+    /// record without the field keeps its historical target questions.
+    #[serde(default)]
+    pub auto_discard_empty_optional_triggers: bool,
     /// Anti-tell: auto-passes fire with normalized random delay.
     pub timing_normalization: bool,
     /// Allow opponent-approved takebacks.
@@ -122,6 +132,11 @@ pub struct HouseRules {
 /// the two together.
 pub const DEFAULT_DECISION_SECS: u32 = 180;
 
+#[allow(clippy::unnecessary_wraps)] // Serde's field default must match the optional field.
+fn legacy_starting_player() -> Option<u8> {
+    Some(0)
+}
+
 impl Default for HouseRules {
     fn default() -> Self {
         Self {
@@ -131,6 +146,8 @@ impl Default for HouseRules {
             loop_policy: LoopPolicy::default(),
             decision_timeout_secs: DEFAULT_DECISION_SECS,
             reconnect_window_secs: 60,
+            starting_player: None,
+            auto_discard_empty_optional_triggers: true,
             timing_normalization: true,
             takebacks: false,
             time_extension_votes: true,
@@ -619,6 +636,9 @@ pub enum PresetError {
     /// it began.
     #[error("every seat is on team {0}; a game needs at least two sides")]
     OneSideOnly(u8),
+    /// The explicit starting seat is outside this table.
+    #[error("starting player {0} is not a seat of this table")]
+    StartingPlayer(u8),
     /// A deck entry references a print outside the print table.
     #[error("seat {seat} {list} entry {entry} references print {print}, out of range")]
     PrintOutOfRange {
@@ -721,6 +741,11 @@ impl GamePreset {
         }
         if self.seats.len() > 8 {
             return Err(PresetError::TooManySeats);
+        }
+        if let Some(starting) = self.house_rules.starting_player
+            && usize::from(starting) >= self.seats.len()
+        {
+            return Err(PresetError::StartingPlayer(starting));
         }
         if self.prints.len() > MAX_PRINTS {
             return Err(PresetError::PrintTableTooLarge(self.prints.len()));
@@ -877,6 +902,47 @@ mod tests {
                 print: 0,
             }
         );
+    }
+
+    /// New games choose their starting seat from the seed; an old preset
+    /// without that field keeps its historical seat 0, and an explicit seat
+    /// outside the table is rejected.
+    #[test]
+    fn starting_player_is_seeded_with_a_legacy_default_and_a_bound() {
+        assert_eq!(HouseRules::default().starting_player, None);
+        let current = serde_json::to_value(HouseRules::default()).expect("rules serialize");
+        assert_eq!(current["starting_player"], serde_json::Value::Null);
+        let mut legacy = current.clone();
+        legacy
+            .as_object_mut()
+            .expect("an object")
+            .remove("starting_player");
+        let legacy: HouseRules = serde_json::from_value(legacy).expect("an old preset still reads");
+        assert_eq!(legacy.starting_player, Some(0));
+
+        let mut invalid = preset(2, 1, 0);
+        invalid.house_rules.starting_player = Some(2);
+        assert_eq!(invalid.validate(), Err(PresetError::StartingPlayer(2)));
+    }
+
+    /// Empty optional triggers are discarded in a new game, while a record
+    /// from before that behavior keeps the questions its inputs answer.
+    #[test]
+    fn empty_optional_trigger_policy_is_explicit_and_legacy_compatible() {
+        let current = serde_json::to_value(HouseRules::default()).expect("rules serialize");
+        assert_eq!(
+            current["auto_discard_empty_optional_triggers"],
+            serde_json::Value::Bool(true)
+        );
+        assert!(HouseRules::default().auto_discard_empty_optional_triggers);
+
+        let mut legacy = current;
+        legacy
+            .as_object_mut()
+            .expect("an object")
+            .remove("auto_discard_empty_optional_triggers");
+        let legacy: HouseRules = serde_json::from_value(legacy).expect("an old preset still reads");
+        assert!(!legacy.auto_discard_empty_optional_triggers);
     }
 
     /// The sideboard was the one card list validation skipped, and it is

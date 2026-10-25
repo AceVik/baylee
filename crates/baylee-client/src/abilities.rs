@@ -492,17 +492,13 @@ pub fn mana_for(
         .unpaid_abilities
         .iter()
         .find(|(s, i, _)| *s == source && *i == index)?;
-    let sources: Vec<_> = crate::manasources::sources(view, legal)
-        .into_iter()
-        .filter(|s| s.id != source)
-        .collect();
     let mut pool = view
         .seat(baylee_client_core::decision::resource_player(view))?
         .mana_pool;
     if let Some(object) = view.object(source) {
         pool.spending = object.ability_mana_spending;
     }
-    baylee_client_core::manaplan::plan(cost, &pool, &sources)
+    crate::manasources::plan_for_activation(cost, &pool, view, legal, source)
 }
 
 /// A permanent's **mana** rows become one row per colour, at the head of the

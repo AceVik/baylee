@@ -40,6 +40,7 @@ fn entry(name: &str) -> DeckEntry {
 
 fn position(hand: &[&str], board: &[&str]) -> GamePreset {
     let mut preset = baylee_cards::decks::probe_preset(41, entry("Forest").card).unwrap();
+    preset.house_rules.starting_player = Some(0);
     for seat in &mut preset.seats {
         seat.starting_hand = Some(vec![]);
         seat.starting_battlefield.clear();

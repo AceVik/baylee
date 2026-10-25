@@ -1019,7 +1019,10 @@ fn rift_table(seed: u64) -> Engine<RegistryLookup> {
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: baylee_core::preset::FormatId::Freeform,
         seed,
-        house_rules: baylee_core::preset::HouseRules::default(),
+        house_rules: baylee_core::preset::HouseRules {
+            starting_player: Some(0),
+            ..Default::default()
+        },
         modifiers: vec![],
         prints: vec![baylee_core::preset::PrintInfo {
             scryfall_id: uuid::Uuid::nil(),

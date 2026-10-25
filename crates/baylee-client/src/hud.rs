@@ -1582,6 +1582,11 @@ pub(crate) fn hud_corners(window: Vec2) -> [Rect; 2] {
     ]
 }
 
+/// The replay bar's root rung: below the ordinary HUD and the end screen.
+/// Its controls must not cover a preview or answer through the end veil.
+pub(crate) const G_REPLAY_BAR: i32 = -2;
+/// Replay sheets and the seat picker: above the bar, still below the HUD.
+pub(crate) const G_REPLAY_SHEET: i32 = -1;
 /// The end screen's root rung: over every other root of the table
 /// (`GlobalZIndex(0)`, the seat bars at -1). See [`finish`].
 pub(crate) const G_FINISH: i32 = 1;

@@ -1139,7 +1139,8 @@ impl<L: CardLookup> Engine<L> {
                         if let Some(t) = queued.as_ref() {
                             self.hand_over_trigger_abilities(t);
                         }
-                        self.push_ability_to_stack(controller, source, ability_index, targets);
+                        let top =
+                            self.push_ability_to_stack(controller, source, ability_index, targets);
                         self.set_top_mode(mode);
                         if let Some(t) = &queued {
                             self.bind_top_trigger(t);
@@ -1155,8 +1156,6 @@ impl<L: CardLookup> Engine<L> {
                         // `PlayerRel::Chosen` reads back, which exists only
                         // when exactly one was named.
                         if !players.is_empty()
-                            && let Some(top) =
-                                self.state.zones.list(ZoneLocation::Stack).last().copied()
                             && let Some(obj) = self.state.object_mut(top)
                         {
                             obj.target_players = players.iter().copied().collect();
@@ -1166,8 +1165,12 @@ impl<L: CardLookup> Engine<L> {
                         }
                         // A second instance of "target" is asked now that the
                         // first is on the stack object it binds against, and
-                        // a division once the targets are known.
-                        if !self.ask_trigger_second_target() {
+                        // a division once the targets are known. An empty
+                        // optional trigger goes only when its probe resolves
+                        // without any effect or follow-up question.
+                        if !self.discard_empty_trigger_without_effect(top)
+                            && !self.ask_trigger_second_target()
+                        {
                             self.ask_trigger_division();
                         }
                     }

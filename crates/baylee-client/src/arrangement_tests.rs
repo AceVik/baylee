@@ -874,3 +874,101 @@ fn the_hand_slides_down_on_a_phone_and_up_on_its_key() {
     let desk = crate::table::Canvas::hud(Vec2::new(1708.0, 1028.0));
     assert!((desk.with_drawer(false).bottom - HAND_ZONE_H).abs() < 1e-6);
 }
+
+/// A replay rebuilds the retained hand as its views arrive. Even with the
+/// hand folded, each replacement starts with Bevy's default open transform;
+/// the production placement must reach it in that same frame, before layout.
+#[test]
+fn a_rebuilt_replay_hand_never_flashes_open() {
+    use baylee_client_core::replay::{Perspective, Perspectives, Speed, Verify};
+    use baylee_core::ids::PlayerId;
+
+    use crate::hud::HandScroll;
+    use crate::hud::hand_drawer::{drop_at, register};
+    use crate::hud::replay_bar::BarUi;
+    use crate::replay::{Origin, ReplayStatus};
+
+    fn rebuild_hand(mut commands: Commands, old: Query<Entity, With<HandScroll>>) {
+        for entity in &old {
+            commands.entity(entity).despawn();
+        }
+        commands.spawn((
+            HandScroll,
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: px(0),
+                ..default()
+            },
+            UiTransform::default(),
+        ));
+    }
+
+    let perspective = Perspective::Seat(PlayerId::new(0));
+    let status = ReplayStatus {
+        header: None,
+        step: 0,
+        steps: 10,
+        playing: true,
+        speed: Speed::One,
+        timeline: None,
+        stop: None,
+        check: None,
+        perspective,
+        offers: Perspectives {
+            seat: true,
+            public: true,
+            all_hands: true,
+        },
+        verify: Verify::Stop,
+        loading: None,
+        problem: None,
+        origin: Origin::default(),
+        seats: Vec::new(),
+    };
+    let mut duel = seated_duel(Arrangement::Ring);
+    duel.replay = Some(status);
+    duel.hand_shown = 0.0;
+    duel.hand_drawn_open = false;
+
+    let mut app = App::new();
+    app.init_resource::<Time>()
+        .init_resource::<crate::prefs::Prefs>()
+        .insert_resource(State::new(DuelPhase::Playing))
+        .insert_resource(BarUi {
+            hand: Some((perspective, false)),
+            picker: false,
+        })
+        .insert_resource(duel)
+        .add_systems(Update, rebuild_hand);
+    register(&mut app);
+    app.world_mut().spawn(Window {
+        resolution: bevy::window::WindowResolution::new(1280, 693),
+        ..default()
+    });
+
+    for seq in 0..4 {
+        let mut view = app
+            .world()
+            .resource::<Duel>()
+            .view
+            .clone()
+            .expect("the fixture has a view");
+        view.seq = seq;
+        app.world_mut().resource_mut::<Duel>().receive_view(view);
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_secs_f32(1.0 / 60.0));
+        app.update();
+
+        let mut hands = app
+            .world_mut()
+            .query_filtered::<&UiTransform, With<HandScroll>>();
+        let transform = hands.single(app.world()).expect("one rebuilt hand");
+        assert_eq!(
+            transform.translation.y,
+            Val::Px(drop_at(0.0)),
+            "the rebuilt hand opened for a frame at view {seq}"
+        );
+        assert_eq!(app.world().resource::<Duel>().hand_shown, 0.0);
+    }
+}
