@@ -2074,3 +2074,18 @@ fn invasion_batch_three_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn invasion_batch_four_reader_patterns() {
+    let delver = "Name:Phyrexian Delver\nManaCost:3 B B\nTypes:Creature Phyrexian Zombie\nPT:3/2\n\
+        T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigChangeZone\n\
+        SVar:TrigChangeZone:DB$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | ValidTgts$ Creature.YouCtrl | GainControl$ True | ChangeNum$ 1 | SubAbility$ DBLoseLifeYou\n\
+        SVar:DBLoseLifeYou:DB$ LoseLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:Targeted$CardManaCost";
+    assert_eq!(
+        read(delver).abilities,
+        [
+            "triggered!(Trigger::ETB, &[Effect::GraveyardToBattlefield { target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You), owner_control: false, counters: None }, Effect::LoseLife { amount: Amount::TargetCmc, target: PlayerRel::You }], targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You))))"
+        ]
+    );
+}

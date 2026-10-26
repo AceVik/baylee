@@ -783,6 +783,11 @@ impl Tx<'_> {
                 {
                     return self.deny(format!("`ChangeZone` with `GainControl$ {gain}`"));
                 }
+                if let Some(num) = p.take("ChangeNum")
+                    && num != "1"
+                {
+                    return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
+                }
                 vec![format!(
                     "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
                      counters: None }}"
