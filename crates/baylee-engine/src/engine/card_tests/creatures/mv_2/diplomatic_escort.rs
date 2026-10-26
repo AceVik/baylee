@@ -2,6 +2,7 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
 
 const P0: PlayerId = PlayerId::new(0);
 
@@ -11,7 +12,7 @@ fn subject_card() -> CardIndex {
 
 /// Diplomatic Escort — {1}{U} 1/1 Creature — Human Spellshaper (Partial).
 #[test]
-fn diplomatic_escort_casts_as_a_one_one_spellshaper() {
+fn diplomatic_escort_casts_and_deals_one_combat_damage() {
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[island(), island()])
         .hand(0, &[subject_card()])
@@ -23,5 +24,15 @@ fn diplomatic_escort_casts_as_a_one_one_spellshaper() {
     pass_until(&mut engine, stack_is_empty);
 
     let escort = on_battlefield(&engine, P0, subject_card()).unwrap();
-    assert_eq!(pt(&engine, escort), (1, 1));
+    let p1 = PlayerId::new(1);
+    reach_their_main_phase(&mut engine, p1);
+    reach_their_main_phase(&mut engine, P0);
+    lk::attack(&mut engine, &[escort]);
+    lk::block(&mut engine, &[]);
+    lk::through_combat(&mut engine);
+    assert_eq!(
+        lk::life(&engine, p1),
+        19,
+        "the supported creature body deals one combat damage"
+    );
 }
