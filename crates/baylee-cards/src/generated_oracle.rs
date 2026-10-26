@@ -13535,51 +13535,112 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nBreath of Darigaaz deals 1 damage to each creature without flying and each player. If this spell was kicked, it deals 4 damage to each creature without flying and each player instead.",
     ],
-    &[],
-    &[],
+    // Callous Giant
+    &["If a source would deal 3 or less damage to this creature, prevent that damage."],
+    // Canopy Surge
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nCanopy Surge deals 1 damage to each creature with flying and each player. If this spell was kicked, it deals 4 damage to each creature with flying and each player instead.",
+    ],
     // Capashen Unicorn
     &["{1}{W}, {T}, Sacrifice this creature: Destroy target artifact or enchantment."],
-    &[],
-    &[],
-    &[],
+    // Captain Sisay
+    &[
+        "{T}: Search your library for a legendary card, reveal that card, put it into your hand, then shuffle.",
+    ],
+    // Cauldron Dance
+    &[
+        "Cast this spell only during combat.\nReturn target creature card from your graveyard to the battlefield. That creature gains haste. Return it to your hand at the beginning of the next end step.\nYou may put a creature card from your hand onto the battlefield. That creature gains haste. Its controller sacrifices it at the beginning of the next end step.",
+    ],
+    // Chaotic Strike
+    &[
+        "Cast this spell only during combat after blockers are declared.\nFlip a coin. If you win the flip, target creature gets +1/+1 until end of turn.\nDraw a card.",
+    ],
     // Charging Troll
     &["Vigilance\n{G}: Regenerate this creature."],
     // Chromatic Sphere
     &[
         "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card. (Activate only as an instant.)",
     ],
-    &[],
-    &[],
+    // Cinder Shade
+    &[
+        "{B}: This creature gets +1/+1 until end of turn.\n{R}, Sacrifice this creature: It deals damage equal to its power to target creature.",
+    ],
+    // Coalition Victory
+    &[
+        "You win the game if you control a land of each basic land type and a creature of each color.",
+    ],
     // Coastal Tower
     &["This land enters tapped.\n{T}: Add {W} or {U}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Collapsing Borders
+    &[
+        "Domain — At the beginning of each player's upkeep, that player gains 1 life for each basic land type among lands they control. Then this enchantment deals 3 damage to that player.",
+    ],
+    // Collective Restraint
+    &[
+        "Domain — Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of basic land types among lands you control.",
+    ],
+    // Cremate
+    &["Exile target card from a graveyard.\nDraw a card."],
+    // Crimson Acolyte
+    &["Protection from red\n{W}: Target creature gains protection from red until end of turn."],
     // Crosis's Attendant
     &["{1}, Sacrifice this creature: Add {U}{B}{R}."],
-    &[],
-    &[],
+    // Crosis, the Purger
+    &[
+        "Flying\nWhenever Crosis deals combat damage to a player, you may pay {2}{B}. If you do, choose a color, then that player reveals their hand and discards all cards of that color.",
+    ],
+    // Crusading Knight
+    &["Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control."],
     // Crypt Angel
     &[
         "Flying, protection from white\nWhen this creature enters, return target blue or red creature card from your graveyard to your hand.",
     ],
-    &[],
+    // Crystal Spray
+    &[
+        "Change the text of target spell or permanent by replacing all instances of one color word with another or one basic land type with another until end of turn.\nDraw a card.",
+    ],
     // Darigaaz's Attendant
     &["{1}, Sacrifice this creature: Add {B}{R}{G}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Darigaaz, the Igniter
+    &[
+        "Flying\nWhenever Darigaaz deals combat damage to a player, you may pay {2}{R}. If you do, choose a color, then that player reveals their hand and Darigaaz deals damage to the player equal to the number of cards of that color revealed this way.",
+    ],
+    // Death or Glory
+    &[
+        "Separate all creature cards in your graveyard into two piles. Exile the pile of an opponent's choice and return the other to the battlefield.",
+    ],
+    // Defiling Tears
+    &[
+        "Until end of turn, target creature becomes black, gets +1/-1, and gains \"{B}: Regenerate this creature.\"",
+    ],
+    // Desperate Research
+    &[
+        "Choose a card name other than a basic land card name. Reveal the top seven cards of your library and put all of them with that name into your hand. Exile the rest.",
+    ],
+    // Devouring Strossus
+    &[
+        "Flying, trample\nAt the beginning of your upkeep, sacrifice a creature.\nSacrifice a creature: Regenerate this creature.",
+    ],
+    // Dismantling Blow
+    &[
+        "Kicker {2}{U} (You may pay an additional {2}{U} as you cast this spell.)\nDestroy target artifact or enchantment. If this spell was kicked, draw two cards.",
+    ],
+    // Distorting Wake
+    &["Return X target nonland permanents to their owners' hands."],
+    // Divine Presence
+    &[
+        "If a source would deal 4 or more damage to a permanent or player, that source deals 3 damage to that permanent or player instead.",
+    ],
+    // Do or Die
+    &[
+        "Separate all creatures target player controls into two piles. Destroy all creatures in the pile of that player's choice. They can't be regenerated.",
+    ],
     // Drake-Skull Cameo
     &["{T}: Add {U} or {B}."],
-    &[],
-    &[],
+    // Dream Thrush
+    &["Flying\n{T}: Target land becomes the basic land type of your choice until end of turn."],
+    // Dredge
+    &["Sacrifice a creature or land.\nDraw a card."],
     // Dromar's Attendant
     &["{1}, Sacrifice this creature: Add {W}{U}{B}."],
     &[],

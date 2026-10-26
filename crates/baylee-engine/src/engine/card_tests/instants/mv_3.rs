@@ -22,6 +22,7 @@ mod crash;
 mod daring_leap;
 mod dark_banishing;
 mod debt_of_loyalty;
+mod defiling_tears;
 mod deflecting_swat;
 mod delirium;
 mod dissipate;

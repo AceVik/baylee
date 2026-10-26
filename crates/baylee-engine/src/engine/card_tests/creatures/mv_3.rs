@@ -69,6 +69,7 @@ mod charging_paladin;
 mod chieftain_en_dal;
 mod cho_arrim_legate;
 mod chub_toad;
+mod cinder_shade;
 mod coastal_drake;
 mod coffin_queen;
 mod coiling_woodworm;

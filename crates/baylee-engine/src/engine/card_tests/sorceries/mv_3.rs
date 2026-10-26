@@ -19,6 +19,7 @@ mod cleansing;
 mod coercion;
 mod death_s_duet;
 mod deconstruct;
+mod distorting_wake;
 mod divination;
 mod dream_cache;
 mod dust_to_dust;

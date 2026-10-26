@@ -60,6 +60,7 @@ mod coiling_oracle;
 mod collector_ouphe;
 mod consumptive_goo;
 mod coral_fighters;
+mod crimson_acolyte;
 mod crystalline_sliver;
 mod cuombajj_witches;
 mod dakmor_bat;
