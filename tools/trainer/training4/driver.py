@@ -87,6 +87,7 @@ def main() -> None:
     ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
+    ap.add_argument("--freeze-trunk", action="store_true", help="Freeze board encoder, transformer trunk, recurrent memory, and critic; train only action/policy heads")
     args = ap.parse_args()
     if sum(bool(v) for v in (args.init, args.init_state, args.resume)) > 1:
         ap.error("Choose one of --init, --init-state or --resume")
@@ -191,13 +192,25 @@ def main() -> None:
         upgraded = M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net)
         net.load_state_dict(upgraded, strict=True)
         print(f"[train4] loaded initial weights from {init_pt}")
-    val_head_params = [p for n, p in net.named_parameters() if "seat_value_head" in n]
-    other_params = [p for n, p in net.named_parameters() if "seat_value_head" not in n]
+    if args.freeze_trunk:
+        head_prefixes = (
+            "cand_proj.",
+            "cand_ctx_proj.",
+            "cand_scorer.",
+            "pair_blk_proj.",
+            "pair_atk_proj.",
+            "pair_scorer.",
+            "scalar_head.",
+        )
+        for n, p in net.named_parameters():
+            p.requires_grad_(n.startswith(head_prefixes))
+    val_head_params = [p for n, p in net.named_parameters() if p.requires_grad and "seat_value_head" in n]
+    other_params = [p for n, p in net.named_parameters() if p.requires_grad and "seat_value_head" not in n]
+    opt_groups = [{"params": other_params, "lr": args.lr, "weight_decay": 1e-2}]
+    if val_head_params:
+        opt_groups.append({"params": val_head_params, "lr": args.lr * 0.2, "weight_decay": 5e-2})
     opt = torch.optim.AdamW(
-        [
-            {"params": other_params, "lr": args.lr, "weight_decay": 1e-2},
-            {"params": val_head_params, "lr": args.lr * 0.2, "weight_decay": 5e-2},
-        ],
+        opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
     )
     package_parent = None

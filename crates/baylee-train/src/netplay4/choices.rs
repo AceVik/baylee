@@ -1,0 +1,1216 @@
+//! Non-priority choice tactics (`ChooseColor`, `ChooseSubtype`, `ChooseCards`,
+//! `DiscardChoice`, `MulliganBottom`, `ChooseAttackers`, and `ChooseBlockers`) for [`super::NetPlayer4`].
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use baylee_cards_dsl::{AbilityDef, CostPart, Effect, KeywordSet, ManaSource};
+use baylee_core::color::{Color, ColorSet};
+use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
+use baylee_core::mana::{ManaColor, ManaCost, ManaPayment, ManaSymbol};
+use baylee_core::types::TypeSet;
+use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction};
+use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
+
+use crate::features4::{EncodedCandidates4, untapped_mana_production};
+
+use super::tactics::{
+    TargetIntent, classify_active_target_intent, is_spell_worth_casting_now, is_true_land_card,
+    land_card_colors, lookup_card_identity, lookup_spell_cost, non_sac_source_colors,
+};
+
+/// Applies view-only tactical masking to non-priority `SingleChoice` decisions
+/// (`ChooseColor`, `ChooseSubtype`, and single-pick `ChooseCards`).
+#[allow(
+    clippy::too_many_lines,
+    reason = "Applies view-only masking across ChooseColor, ChooseSubtype, and ChooseCards prompts"
+)]
+pub(super) fn mask_non_priority_single_choice(
+    cands: &EncodedCandidates4,
+    masked_logits: &mut [f32],
+    view: &PlayerView,
+    pending: &Pending,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    match pending {
+        Pending::ChooseColor { .. } => {
+            let scores: Vec<u32> = cands
+                .candidates
+                .iter()
+                .map(|c| match c.action {
+                    Some(PlayerAction::ChooseColor(mc)) => color_demand_score(view, actor, mc),
+                    _ => 0,
+                })
+                .collect();
+            let max_score = scores.iter().copied().max().unwrap_or(0);
+            if max_score > 0 {
+                let mut trial = masked_logits.to_vec();
+                for (i, &s) in scores.iter().enumerate() {
+                    if s < max_score {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            }
+        }
+        Pending::ChooseSubtype { .. } => {
+            let scores: Vec<u32> = cands
+                .candidates
+                .iter()
+                .map(|c| match c.action {
+                    Some(PlayerAction::ChooseSubtype(st)) => subtype_demand_score(view, actor, st),
+                    _ => 0,
+                })
+                .collect();
+            let max_score = scores.iter().copied().max().unwrap_or(0);
+            if max_score > 0 {
+                let mut trial = masked_logits.to_vec();
+                for (i, &s) in scores.iter().enumerate() {
+                    if s < max_score {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            }
+        }
+        Pending::ChooseCards { prompt, .. } => {
+            if matches!(
+                prompt,
+                ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
+            ) {
+                let tiers: Vec<i32> = cands
+                    .candidates
+                    .iter()
+                    .map(|c| match &c.action {
+                        Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
+                            tutor_card_tier(view, actor, objects[0])
+                        }
+                        _ => 0,
+                    })
+                    .collect();
+                if let Some(max_tier) = tiers.iter().copied().max() {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, &t) in tiers.iter().enumerate() {
+                        if t < max_tier {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
+                    }
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
+                }
+            } else if matches!(prompt, ChoicePrompt::CostDiscard | ChoicePrompt::Discard) {
+                let tiers: Vec<i32> = cands
+                    .candidates
+                    .iter()
+                    .map(|c| match &c.action {
+                        Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
+                            discard_card_tier(view, actor, objects[0]).0
+                        }
+                        _ => 0,
+                    })
+                    .collect();
+                if let Some(max_tier) = tiers.iter().copied().max() {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, &t) in tiers.iter().enumerate() {
+                        if t < max_tier {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
+                    }
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
+                }
+            } else if matches!(prompt, ChoicePrompt::CostSacrifice)
+                && let Some((src_id, Some(_))) = active_source
+            {
+                let mut trial = masked_logits.to_vec();
+                let mut found_self = false;
+                for (i, c) in cands.candidates.iter().enumerate() {
+                    if let Some(PlayerAction::ChooseObjects { objects }) = &c.action
+                        && objects.len() == 1
+                        && objects[0] == src_id
+                    {
+                        found_self = true;
+                    } else {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if found_self && trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Adjusts `SubsetPick` candidate logits before constrained subset sampling
+/// (`ChooseAttackers`, `ChooseTargets`, `DiscardChoice`, `MulliganBottom`, `ChooseCards`).
+#[allow(
+    clippy::too_many_lines,
+    clippy::cast_precision_loss,
+    reason = "Adjusts SubsetPick logits across attackers, targets, discards, and tutors"
+)]
+pub(super) fn adjust_subset_logits(
+    cands: &EncodedCandidates4,
+    logits: &[f32],
+    view: &PlayerView,
+    pending: &Pending,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> Vec<f32> {
+    let n = cands.candidates.len().min(logits.len());
+    let mut out = logits[..n].to_vec();
+    let actor = view.decision_player.unwrap_or(view.seat);
+
+    match pending {
+        Pending::ChooseAttackers {
+            defenders,
+            required,
+            ..
+        } => {
+            let mut pos_attacker_ids = Vec::new();
+            let mut non_engine_powers = Vec::new();
+            for cand in &cands.candidates[..n] {
+                if let Some(oid) = cand.object_id
+                    && !pos_attacker_ids.contains(&oid)
+                    && let Some(o) = view.object(oid)
+                    && o.power.unwrap_or(0) > 0
+                {
+                    pos_attacker_ids.push(oid);
+                    let rem_t = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
+                    if !(rem_t <= 1 && has_non_mana_tap_ability(view, o.id)) {
+                        non_engine_powers.push(i32::from(o.power.unwrap_or(0)));
+                    }
+                }
+            }
+            non_engine_powers.sort_unstable();
+            let total_pos_attackers = pos_attacker_ids.len();
+
+            for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                let Some(att_id) = cand.object_id else {
+                    continue;
+                };
+                if required.contains(&att_id) {
+                    continue;
+                }
+                let Some(att_obj) = view.object(att_id) else {
+                    continue;
+                };
+                let att_power = att_obj.power.unwrap_or(0);
+                if att_power <= 0 {
+                    out[i] = -20.0;
+                    continue;
+                }
+                let def_target = cand.defender.or_else(|| defenders.first().copied());
+                let Some(Defender::Player(def_pid)) = def_target else {
+                    continue;
+                };
+                let rem_t =
+                    (i32::from(att_obj.toughness.unwrap_or(1)) - i32::from(att_obj.damage)).max(1);
+                let is_fragile_engine = rem_t <= 1 && has_non_mana_tap_ability(view, att_obj.id);
+                let total_def_blockers = view
+                    .battlefield_of(def_pid)
+                    .filter(|b| {
+                        b.types.contains(TypeSet::CREATURE)
+                            && !b.status.contains(ObjectStatus::TAPPED)
+                            && !b.status.contains(ObjectStatus::PHASED_OUT)
+                            && !has_kw(b, KeywordSet::CANT_BLOCK)
+                    })
+                    .count();
+                let def_life = view.seat(def_pid).map_or(20, |p| p.life);
+                let guaranteed_unblocked_count =
+                    non_engine_powers.len().saturating_sub(total_def_blockers);
+                let guaranteed_unblocked_dmg: i32 = non_engine_powers
+                    .iter()
+                    .take(guaranteed_unblocked_count)
+                    .sum();
+                let has_vigilance = has_kw(att_obj, KeywordSet::VIGILANCE);
+                let go_wide_alpha = !is_fragile_engine
+                    && ((guaranteed_unblocked_count > 0 && guaranteed_unblocked_dmg >= def_life)
+                        || (non_engine_powers.len() >= 8
+                            && non_engine_powers.len() >= total_def_blockers + 4
+                            && (total_def_blockers <= 5 || guaranteed_unblocked_dmg >= 10))
+                        || (has_vigilance
+                            && non_engine_powers.len() >= total_def_blockers + 4));
+                if go_wide_alpha {
+                    out[i] = out[i].max(2.0);
+                    continue;
+                }
+                if is_suicide_attack_into_blockers(
+                    view,
+                    att_obj,
+                    def_pid,
+                    total_pos_attackers,
+                ) {
+                    out[i] = -20.0;
+                }
+            }
+        }
+        Pending::DiscardChoice { .. } | Pending::MulliganBottom { .. } => {
+            for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                if let Some(oid) = cand.object_id {
+                    let (tier, bonus) = discard_card_tier(view, actor, oid);
+                    out[i] += (tier as f32) * 10.0 + bonus;
+                }
+            }
+        }
+        Pending::ChooseCards { prompt, .. } => {
+            if matches!(
+                prompt,
+                ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
+            ) {
+                for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                    if let Some(oid) = cand.object_id {
+                        let tier = tutor_card_tier(view, actor, oid);
+                        out[i] += (tier as f32) * 10.0;
+                    }
+                }
+            } else if matches!(prompt, ChoicePrompt::CostDiscard | ChoicePrompt::Discard) {
+                for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                    if let Some(oid) = cand.object_id {
+                        let (tier, bonus) = discard_card_tier(view, actor, oid);
+                        out[i] += (tier as f32) * 10.0 + bonus;
+                    }
+                }
+            }
+        }
+        Pending::ChooseTargets { min, .. } => {
+            let intent = classify_active_target_intent(view, actor, active_source);
+            if intent != TargetIntent::Neutral {
+                for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                    let is_friendly = cand
+                        .object_id
+                        .and_then(|oid| view.object(oid))
+                        .is_some_and(|o| o.controller == actor)
+                        || cand.player_id == Some(actor);
+                    let is_hostile = cand
+                        .object_id
+                        .and_then(|oid| view.object(oid))
+                        .is_some_and(|o| o.controller != actor)
+                        || cand.player_id.is_some_and(|p| p != actor);
+                    match intent {
+                        TargetIntent::Hostile => {
+                            if is_friendly {
+                                out[i] -= 15.0;
+                            } else if is_hostile {
+                                out[i] += 2.0;
+                            }
+                        }
+                        TargetIntent::Beneficial => {
+                            if is_hostile {
+                                out[i] -= 15.0;
+                            } else if is_friendly {
+                                out[i] += 2.0;
+                            }
+                        }
+                        TargetIntent::Neutral => {}
+                    }
+                }
+            }
+            if *min <= 1 && is_single_target_concentrated_source(view, active_source) && n > 0 {
+                let mut best_i = 0;
+                for i in 1..n {
+                    if out[i] > out[best_i] {
+                        best_i = i;
+                    }
+                }
+                let best_val = out[best_i].max(2.0) + 5.0;
+                for (i, v) in out.iter_mut().enumerate() {
+                    if i == best_i {
+                        *v = best_val;
+                    } else {
+                        *v = -15.0;
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+
+    out
+}
+
+fn is_single_target_concentrated_source(
+    view: &PlayerView,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> bool {
+    let src_oid = active_source.map(|(oid, _)| oid).or(view.casting);
+    if let Some(oid) = src_oid
+        && let Some(ci) = lookup_card_identity(view, oid)
+        && let Some(def) = baylee_cards::by_index(ci.index)
+    {
+        let face_idx = usize::from(ci.face);
+        if def
+            .faces
+            .get(face_idx)
+            .is_some_and(|f| f.extra_target_cost > 0)
+        {
+            return true;
+        }
+        for ab in def.abilities_for_face(face_idx) {
+            let effects: &[Effect] = match ab {
+                AbilityDef::Spell { effects, .. }
+                | AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Triggered { effects, .. } => effects,
+                _ => continue,
+            };
+            if effects
+                .iter()
+                .any(|e| matches!(e, Effect::DealDamageEvenly { .. }))
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_kw(obj: &PublicObject, kw: KeywordSet) -> bool {
+    (obj.keywords & kw.bits()) != 0
+}
+
+fn is_suicide_attack_into_blockers(
+    view: &PlayerView,
+    att_obj: &PublicObject,
+    def_pid: PlayerId,
+    total_pos_attackers: usize,
+) -> bool {
+    if has_kw(att_obj, KeywordSet::INDESTRUCTIBLE) || has_kw(att_obj, KeywordSet::UNBLOCKABLE) {
+        return false;
+    }
+    let att_power = i32::from(att_obj.power.unwrap_or(0)).max(0);
+    let att_rem_tough =
+        (i32::from(att_obj.toughness.unwrap_or(1)) - i32::from(att_obj.damage)).max(1);
+    let att_deathtouch = has_kw(att_obj, KeywordSet::DEATHTOUCH) && att_power > 0;
+
+    let legal_blockers: Vec<&PublicObject> = view
+        .battlefield_of(def_pid)
+        .filter(|b| {
+            b.types.contains(TypeSet::CREATURE)
+                && !b.status.contains(ObjectStatus::TAPPED)
+                && !b.status.contains(ObjectStatus::PHASED_OUT)
+                && !has_kw(b, KeywordSet::CANT_BLOCK)
+                && can_legally_block(att_obj, b)
+        })
+        .collect();
+
+    if legal_blockers.is_empty() {
+        return false;
+    }
+
+    // 1. Check blockers that strictly survive combat with `att_obj` (rem_tough > att_power)
+    if !att_deathtouch && total_pos_attackers < legal_blockers.len() + 4 {
+        let surviving: Vec<&&PublicObject> = legal_blockers
+            .iter()
+            .filter(|b| {
+                let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
+                b_rem > att_power || has_kw(b, KeywordSet::INDESTRUCTIBLE)
+            })
+            .collect();
+
+        let min_blockers = if has_kw(att_obj, KeywordSet::MENACE) {
+            2
+        } else {
+            1
+        };
+        if surviving.len() >= min_blockers {
+            let free_eaters = surviving
+                .iter()
+                .filter(|b| {
+                    let bp = i32::from(b.power.unwrap_or(0));
+                    bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0)
+                })
+                .count();
+            let single_free_eater = min_blockers == 1 && free_eaters >= 1;
+            let gang_free_eat = {
+                let sum_p: i32 = surviving
+                    .iter()
+                    .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+                    .sum();
+                let any_dt = surviving
+                    .iter()
+                    .any(|b| has_kw(b, KeywordSet::DEATHTOUCH) && b.power.unwrap_or(0) > 0);
+                sum_p >= att_rem_tough || any_dt
+            };
+            if single_free_eater || gang_free_eat {
+                return true;
+            }
+        }
+    }
+
+    // 2. Protect fragile tap-ability engine creatures (e.g. Stronghold Assassin) from trading down into 1/1s
+    if att_rem_tough <= 1
+        && has_non_mana_tap_ability(view, att_obj.id)
+        && legal_blockers.iter().any(|b| b.power.unwrap_or(0) >= 1)
+    {
+        return true;
+    }
+
+    false
+}
+
+/// Adjusts `PairPick` (`Pending::ChooseBlockers`) logits so that blockers do not
+/// redundantly pile onto a single attacker when other attackers go unblocked,
+/// free kills are taken, and lethal combat damage is blocked.
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit combat assignment passes over view-visible attacker/blocker pairs"
+)]
+pub(super) fn adjust_pair_logits(
+    cands: &EncodedCandidates4,
+    raw_logits: &[f32],
+    view: &PlayerView,
+    pending: &Pending,
+) -> Vec<f32> {
+    let n = raw_logits.len().min(cands.pair_objects.len());
+    let mut out = raw_logits[..n].to_vec();
+    if n == 0 || !matches!(pending, Pending::ChooseBlockers { .. }) {
+        return out;
+    }
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let my_life = view.seat(actor).map_or(20, |s| s.life);
+
+    // 1. Inspect what raw greedy selection (`sample_pairs_constrained` at tau <= 0.35) would do
+    let mut raw_blk_best: BTreeMap<ObjectId, (usize, f32, f32)> = BTreeMap::new();
+    let mut attackers: BTreeSet<ObjectId> = BTreeSet::new();
+    let mut blockers: BTreeSet<ObjectId> = BTreeSet::new();
+    for (i, &l) in raw_logits[..n].iter().enumerate() {
+        let [b_idx, a_idx] = cands.pairs[i];
+        if b_idx < 0 || a_idx < 0 {
+            continue;
+        }
+        let (blk, atk) = cands.pair_objects[i];
+        blockers.insert(blk);
+        attackers.insert(atk);
+        let p = 1.0 / (1.0 + (-l).exp());
+        let entry = raw_blk_best
+            .entry(blk)
+            .or_insert((i, f32::NEG_INFINITY, 0.0));
+        if l > entry.1 {
+            entry.0 = i;
+            entry.1 = l;
+        }
+        entry.2 += p;
+    }
+    if attackers.is_empty() || blockers.is_empty() {
+        return out;
+    }
+
+    let mut raw_atk_blks: BTreeMap<ObjectId, Vec<ObjectId>> = BTreeMap::new();
+    for (&b_key, &(best_i, best_l, p_sum)) in &raw_blk_best {
+        if best_l > 0.0 || (p_sum > 0.50 && best_l > -0.65) {
+            let (blk, atk) = cands.pair_objects[best_i];
+            debug_assert_eq!(blk, b_key);
+            raw_atk_blks.entry(atk).or_default().push(blk);
+        }
+    }
+
+    let atk_stats = |atk_id: ObjectId| -> (i32, i32, bool, bool, bool, bool, bool) {
+        let Some(o) = view.object(atk_id) else {
+            return (0, 1, false, false, false, false, false);
+        };
+        let ap = i32::from(o.power.unwrap_or(0)).max(0);
+        let at = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
+        let dt = has_kw(o, KeywordSet::DEATHTOUCH) && ap > 0;
+        let fs = has_kw(o, KeywordSet::FIRST_STRIKE) || has_kw(o, KeywordSet::DOUBLE_STRIKE);
+        let tr = has_kw(o, KeywordSet::TRAMPLE);
+        let mn = has_kw(o, KeywordSet::MENACE);
+        let ind = has_kw(o, KeywordSet::INDESTRUCTIBLE);
+        (ap, at, dt, fs, tr, mn, ind)
+    };
+    let blk_stats = |blk_id: ObjectId| -> (i32, i32, bool, bool, bool) {
+        let Some(o) = view.object(blk_id) else {
+            return (0, 1, false, false, false);
+        };
+        let bp = i32::from(o.power.unwrap_or(0)).max(0);
+        let bt = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
+        let dt = has_kw(o, KeywordSet::DEATHTOUCH) && bp > 0;
+        let fs = has_kw(o, KeywordSet::FIRST_STRIKE) || has_kw(o, KeywordSet::DOUBLE_STRIKE);
+        let ind = has_kw(o, KeywordSet::INDESTRUCTIBLE);
+        (bp, bt, dt, fs, ind)
+    };
+
+    let attacks_me = |atk_id: ObjectId| -> bool {
+        view.combat
+            .attackers
+            .iter()
+            .find(|a| a.creature == atk_id)
+            .is_none_or(|a| a.defending == Defender::Player(actor))
+    };
+
+    // Check if raw greedy selection has a flaw:
+    // (a) redundant or non-killing multi-block on the same attacker,
+    // (b) single-blocker on a Menace attacker,
+    // (c) unblocked damage is lethal while unused blockers or multi-blockers remain.
+    let mut has_redundant_multiblock = false;
+    let mut has_non_menace_multiblock = false;
+    let mut has_illegal_menace = false;
+    let mut raw_unblocked_dmg = 0_i32;
+    let unblocked_atks_exist = attackers
+        .iter()
+        .any(|k| raw_atk_blks.get(k).is_none_or(Vec::is_empty));
+
+    for &atk_id in &attackers {
+        let (ap, at, _, _, tr, mn, ind) = atk_stats(atk_id);
+        let hits_me = attacks_me(atk_id);
+        let assigned = raw_atk_blks.get(&atk_id).map_or(&[][..], Vec::as_slice);
+        if assigned.is_empty() {
+            if hits_me {
+                raw_unblocked_dmg += ap;
+            }
+        } else {
+            if mn && assigned.len() == 1 {
+                has_illegal_menace = true;
+            }
+            let mut total_bp = 0_i32;
+            let mut min_bp = i32::MAX;
+            let mut any_dt = false;
+            let mut total_bt = 0_i32;
+            for &b_id in assigned {
+                let (bp, bt, dt, _, _) = blk_stats(b_id);
+                total_bp += bp;
+                min_bp = min_bp.min(bp);
+                if dt {
+                    any_dt = true;
+                }
+                total_bt += bt;
+            }
+            if hits_me && tr && ap > total_bt {
+                raw_unblocked_dmg += ap - total_bt;
+            }
+            if assigned.len() >= 2 {
+                let kills = !ind && (total_bp >= at || any_dt);
+                let kills_without_smallest =
+                    !ind && (total_bp - min_bp >= at || (any_dt && assigned.len() >= 2));
+                if !kills || (kills_without_smallest && unblocked_atks_exist) {
+                    has_redundant_multiblock = true;
+                }
+                if !mn {
+                    has_non_menace_multiblock = true;
+                }
+            }
+        }
+    }
+    if has_non_menace_multiblock && raw_unblocked_dmg >= my_life && unblocked_atks_exist {
+        has_redundant_multiblock = true;
+    }
+
+    let raw_used_blks: usize = raw_atk_blks.values().map(Vec::len).sum();
+    let lethal_unblocked = (raw_unblocked_dmg >= my_life
+        || (raw_unblocked_dmg >= 3 && my_life <= 10 && blockers.len() >= 6 && raw_used_blks == 0))
+        && raw_used_blks < blockers.len()
+        && unblocked_atks_exist;
+
+    if !attackers.iter().any(|&a| attacks_me(a))
+        || (!has_redundant_multiblock && !has_illegal_menace && !lethal_unblocked)
+    {
+        return out;
+    }
+
+    // Build tactical blocker assignment:
+    let mut sorted_atks: Vec<ObjectId> = attackers.iter().copied().collect();
+    sorted_atks.sort_by(|&a, &b| {
+        let (ap_a, at_a, ..) = atk_stats(a);
+        let (ap_b, at_b, ..) = atk_stats(b);
+        ap_b.cmp(&ap_a)
+            .then_with(|| at_b.cmp(&at_a))
+            .then_with(|| a.cmp(&b))
+    });
+
+    let mut used_blks: BTreeSet<ObjectId> = BTreeSet::new();
+    let mut chosen_pairs: BTreeSet<usize> = BTreeSet::new();
+    let mut blocked_atks: BTreeSet<ObjectId> = BTreeSet::new();
+
+    // Pass 1: Free kills (`blk` kills `atk` solo and survives)
+    for &atk_id in &sorted_atks {
+        let (ap, at, a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
+        if a_mn || a_ind {
+            continue;
+        }
+        let best_pair = (0..n)
+            .filter(|&i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return false;
+                }
+                let (blk_id, a_id) = cands.pair_objects[i];
+                if a_id != atk_id || used_blks.contains(&blk_id) {
+                    return false;
+                }
+                let (bp, bt, b_dt, b_fs, b_ind) = blk_stats(blk_id);
+                let kills = bp >= at || b_dt;
+                let survives = b_ind || (kills && b_fs && !a_fs) || (!a_dt && bt > ap);
+                kills && survives
+            })
+            .min_by(|&i, &j| {
+                let (b_i, _) = cands.pair_objects[i];
+                let (b_j, _) = cands.pair_objects[j];
+                let (bp_i, bt_i, ..) = blk_stats(b_i);
+                let (bp_j, bt_j, ..) = blk_stats(b_j);
+                (bp_i + bt_i)
+                    .cmp(&(bp_j + bt_j))
+                    .then_with(|| raw_logits[j].total_cmp(&raw_logits[i]))
+            });
+        if let Some(p_idx) = best_pair {
+            let (blk_id, _) = cands.pair_objects[p_idx];
+            used_blks.insert(blk_id);
+            blocked_atks.insert(atk_id);
+            chosen_pairs.insert(p_idx);
+        }
+    }
+
+    // Pass 2: Free bounce / wall blocks (`blk` survives solo without dying and prevents damage)
+    for &atk_id in &sorted_atks {
+        if blocked_atks.contains(&atk_id) {
+            continue;
+        }
+        let (ap, _at, a_dt, _a_fs, _, a_mn, _) = atk_stats(atk_id);
+        if a_mn || ap <= 0 {
+            continue;
+        }
+        let best_pair = (0..n)
+            .filter(|&i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return false;
+                }
+                let (blk_id, a_id) = cands.pair_objects[i];
+                if a_id != atk_id || used_blks.contains(&blk_id) {
+                    return false;
+                }
+                let (_bp, bt, _b_dt, _b_fs, b_ind) = blk_stats(blk_id);
+                b_ind || (!a_dt && bt > ap)
+            })
+            .max_by(|&i, &j| raw_logits[i].total_cmp(&raw_logits[j]));
+        if let Some(p_idx) = best_pair {
+            let (blk_id, _) = cands.pair_objects[p_idx];
+            used_blks.insert(blk_id);
+            blocked_atks.insert(atk_id);
+            chosen_pairs.insert(p_idx);
+        }
+    }
+
+    // Pass 3: Solo 1-for-1 trades (`blk` kills `atk` solo)
+    for &atk_id in &sorted_atks {
+        if blocked_atks.contains(&atk_id) {
+            continue;
+        }
+        let (ap, at, _a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
+        if a_mn || a_ind {
+            continue;
+        }
+        let best_pair = (0..n)
+            .filter(|&i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return false;
+                }
+                let (blk_id, a_id) = cands.pair_objects[i];
+                if a_id != atk_id || used_blks.contains(&blk_id) {
+                    return false;
+                }
+                let (bp, bt, b_dt, b_fs, _b_ind) = blk_stats(blk_id);
+                if a_fs && !b_fs && ap >= bt {
+                    return false;
+                }
+                let kills = bp >= at || b_dt;
+                let favorable_or_wanted =
+                    ap >= bp || raw_logits[i] > 0.0 || raw_unblocked_dmg >= my_life;
+                kills && favorable_or_wanted
+            })
+            .min_by(|&i, &j| {
+                let (b_i, _) = cands.pair_objects[i];
+                let (b_j, _) = cands.pair_objects[j];
+                let (bp_i, bt_i, ..) = blk_stats(b_i);
+                let (bp_j, bt_j, ..) = blk_stats(b_j);
+                (bp_i + bt_i)
+                    .cmp(&(bp_j + bt_j))
+                    .then_with(|| raw_logits[j].total_cmp(&raw_logits[i]))
+            });
+        if let Some(p_idx) = best_pair {
+            let (blk_id, _) = cands.pair_objects[p_idx];
+            used_blks.insert(blk_id);
+            blocked_atks.insert(atk_id);
+            chosen_pairs.insert(p_idx);
+        }
+    }
+
+    // Pass 3b: Minimal gang-block kills on attackers where the raw network wanted to multi-block
+    // or when we have 6+ blockers at low life facing a >=3 power attacker.
+    for &atk_id in &sorted_atks {
+        if blocked_atks.contains(&atk_id) {
+            continue;
+        }
+        let (ap, at, a_dt, a_fs, _, _a_mn, a_ind) = atk_stats(atk_id);
+        let raw_assigned = raw_atk_blks.get(&atk_id).map_or(0, Vec::len);
+        let allow_gang = raw_assigned >= 2
+            || (attacks_me(atk_id) && ap >= 3 && my_life <= 10 && blockers.len() >= 6);
+        if !allow_gang || a_ind || a_dt || a_fs || at <= 0 {
+            continue;
+        }
+        let mut avail: Vec<usize> = (0..n)
+            .filter(|&i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return false;
+                }
+                let (blk_id, a_id) = cands.pair_objects[i];
+                a_id == atk_id && !used_blks.contains(&blk_id) && blk_stats(blk_id).0 > 0
+            })
+            .collect();
+        avail.sort_by(|&i, &j| {
+            let (b_i, _) = cands.pair_objects[i];
+            let (b_j, _) = cands.pair_objects[j];
+            let (bp_i, bt_i, ..) = blk_stats(b_i);
+            let (bp_j, bt_j, ..) = blk_stats(b_j);
+            (bp_i + bt_i)
+                .cmp(&(bp_j + bt_j))
+                .then_with(|| raw_logits[j].total_cmp(&raw_logits[i]))
+        });
+        let mut gang = Vec::new();
+        let mut sum_bp = 0_i32;
+        for &p_idx in &avail {
+            let (blk_id, _) = cands.pair_objects[p_idx];
+            let (bp, ..) = blk_stats(blk_id);
+            gang.push(p_idx);
+            sum_bp += bp;
+            if sum_bp >= at && gang.len() >= 2 {
+                break;
+            }
+        }
+        if sum_bp >= at && gang.len() >= 2 && gang.len() <= 3 && ap >= 2 {
+            for p_idx in gang {
+                let (blk_id, _) = cands.pair_objects[p_idx];
+                used_blks.insert(blk_id);
+                chosen_pairs.insert(p_idx);
+            }
+            blocked_atks.insert(atk_id);
+        }
+    }
+
+    // Pass 4: Chump block largest remaining unblocked attackers if unblocked damage is lethal/near-lethal
+    // or if the model strongly wanted to block with a remaining blocker (`best_l > 0.0`)
+    let mut rem_unblocked_dmg: i32 = sorted_atks
+        .iter()
+        .filter(|&&a| !blocked_atks.contains(&a) && attacks_me(a))
+        .map(|&a| atk_stats(a).0)
+        .sum();
+
+    for &atk_id in &sorted_atks {
+        if blocked_atks.contains(&atk_id) || !attacks_me(atk_id) {
+            continue;
+        }
+        let (ap, _at, _, _, _, a_mn, _) = atk_stats(atk_id);
+        if a_mn || ap <= 0 {
+            continue;
+        }
+        let need_lethal_chump = rem_unblocked_dmg >= my_life || my_life - rem_unblocked_dmg <= 3;
+        let best_pair = (0..n)
+            .filter(|&i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return false;
+                }
+                let (blk_id, a_id) = cands.pair_objects[i];
+                if a_id != atk_id || used_blks.contains(&blk_id) {
+                    return false;
+                }
+                need_lethal_chump || (raw_logits[i] > 0.0 && ap >= 3 && my_life <= 10)
+            })
+            .min_by(|&i, &j| {
+                let (b_i, _) = cands.pair_objects[i];
+                let (b_j, _) = cands.pair_objects[j];
+                let (bp_i, bt_i, ..) = blk_stats(b_i);
+                let (bp_j, bt_j, ..) = blk_stats(b_j);
+                (bp_i + bt_i)
+                    .cmp(&(bp_j + bt_j))
+                    .then_with(|| raw_logits[j].total_cmp(&raw_logits[i]))
+            });
+        if let Some(p_idx) = best_pair {
+            let (blk_id, _) = cands.pair_objects[p_idx];
+            used_blks.insert(blk_id);
+            blocked_atks.insert(atk_id);
+            chosen_pairs.insert(p_idx);
+            rem_unblocked_dmg -= ap;
+        }
+    }
+
+    for i in 0..n {
+        if chosen_pairs.contains(&i) {
+            out[i] = raw_logits[i].max(0.5) + 10.0;
+        } else {
+            out[i] = -20.0;
+        }
+    }
+    out
+}
+
+fn can_legally_block(att: &PublicObject, blk: &PublicObject) -> bool {
+    if has_kw(att, KeywordSet::FLYING)
+        && !has_kw(blk, KeywordSet::FLYING)
+        && !has_kw(blk, KeywordSet::REACH)
+    {
+        return false;
+    }
+    if has_kw(att, KeywordSet::FEAR)
+        && !blk.types.contains(TypeSet::ARTIFACT)
+        && !blk.colors.contains(Color::Black)
+    {
+        return false;
+    }
+    if has_kw(att, KeywordSet::INTIMIDATE)
+        && !blk.types.contains(TypeSet::ARTIFACT)
+        && !att.colors.intersects(blk.colors)
+    {
+        return false;
+    }
+    true
+}
+
+fn has_non_mana_tap_ability(view: &PlayerView, id: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, id) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| {
+            !ab.is_mana_ability()
+                && match ab {
+                    AbilityDef::Activated { cost, .. }
+                    | AbilityDef::ActivatedConditional { cost, .. }
+                    | AbilityDef::ModalActivated { cost, .. } => {
+                        cost.parts.contains(&CostPart::TapSelf)
+                    }
+                    _ => false,
+                }
+        })
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Scores color demand across owed payment, hand spells, and permanent abilities"
+)]
+fn color_demand_score(view: &PlayerView, actor: PlayerId, mc: ManaColor) -> u32 {
+    let idx = mc.index();
+    if idx >= 5 {
+        return 1;
+    }
+    let Some(seat) = view.seat(actor) else {
+        return 0;
+    };
+    let have = [
+        seat.mana_pool
+            .white
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[0]).unwrap_or(0)),
+        seat.mana_pool
+            .blue
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[1]).unwrap_or(0)),
+        seat.mana_pool
+            .black
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[2]).unwrap_or(0)),
+        seat.mana_pool
+            .red
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[3]).unwrap_or(0)),
+        seat.mana_pool
+            .green
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[4]).unwrap_or(0)),
+        seat.mana_pool
+            .colorless
+            .saturating_add(u32::try_from(seat.mana_pool.restricted[5]).unwrap_or(0)),
+    ];
+    let pool_total = u32::try_from(seat.mana_pool.total()).unwrap_or(0);
+    let avail = pool_total
+        .saturating_add(1)
+        .saturating_add(untapped_mana_production(view, actor));
+
+    // Count untapped single-color sources on battlefield
+    let mut single_untapped = [0_u32; 5];
+    for obj in view.battlefield_of(actor) {
+        if obj.status.contains(ObjectStatus::TAPPED)
+            || obj.status.contains(ObjectStatus::PHASED_OUT)
+        {
+            continue;
+        }
+        let cols = non_sac_source_colors(view, obj.id);
+        let color_count = (0..5).filter(|&c| cols[c]).count();
+        if color_count == 1 {
+            for c in 0..5 {
+                if cols[c] {
+                    single_untapped[c] += 1;
+                }
+            }
+        }
+    }
+
+    if let Some(ManaPayment::Fixed(ref cost)) = view.owed {
+        let pips = count_color_pips(cost, idx);
+        let unmet = pips.saturating_sub(have[idx]);
+        if unmet > 0 {
+            return 10_000 + unmet * 100;
+        }
+    }
+
+    let mut score = 0_u32;
+    for h in &view.hand {
+        if is_true_land_card(view, h.id) {
+            continue;
+        }
+        let Some((cost, tax)) = lookup_spell_cost(view, h.id) else {
+            continue;
+        };
+        let pips = count_color_pips(&cost, idx);
+        if pips == 0 {
+            continue;
+        }
+        let cmc = cost.with_x(0).cmc().saturating_add(tax);
+        let unmet_pool = pips.saturating_sub(have[idx]);
+        let unmet_board = unmet_pool.saturating_sub(single_untapped[idx]);
+        if cmc <= avail && is_spell_worth_casting_now(view, h.id) {
+            if unmet_pool > 0 {
+                score += 1000 * unmet_pool + 500 * unmet_board;
+            } else {
+                score += 50 * pips;
+            }
+        } else {
+            score += 20 * unmet_board + 5 * pips;
+        }
+    }
+
+    for obj in view.battlefield_of(actor) {
+        let rf = obj.rules.or_else(|| {
+            obj.card.map(|c| RulesFace {
+                card: c.index,
+                face: c.face,
+            })
+        });
+        let Some(rf) = rf else { continue };
+        let Some(def) = baylee_cards::by_index(rf.card) else {
+            continue;
+        };
+        for ab in def.abilities_for_face(usize::from(rf.face)) {
+            if ab.is_mana_ability() {
+                continue;
+            }
+            if let AbilityDef::Activated { cost, .. }
+            | AbilityDef::ActivatedConditional { cost, .. }
+            | AbilityDef::ModalActivated { cost, .. } = ab
+            {
+                let pips = count_color_pips(&cost.mana, idx);
+                score += 5 * pips;
+            }
+        }
+    }
+
+    score
+}
+
+pub(super) fn count_color_pips(cost: &ManaCost, color_idx: usize) -> u32 {
+    let mut pips = 0_u32;
+    for (sym, count) in cost.runs() {
+        let n = u32::from(count);
+        let matches = match (color_idx, sym) {
+            (0, ManaSymbol::White | ManaSymbol::TwoOrColor(Color::White))
+            | (1, ManaSymbol::Blue | ManaSymbol::TwoOrColor(Color::Blue))
+            | (2, ManaSymbol::Black | ManaSymbol::TwoOrColor(Color::Black))
+            | (3, ManaSymbol::Red | ManaSymbol::TwoOrColor(Color::Red))
+            | (4, ManaSymbol::Green | ManaSymbol::TwoOrColor(Color::Green)) => true,
+            (idx, ManaSymbol::Hybrid(pair) | ManaSymbol::HybridPhyrexian(pair)) if idx < 5 => {
+                ColorSet::of_pair(pair).contains(Color::ALL[idx])
+            }
+            _ => false,
+        };
+        if matches {
+            pips += n;
+        }
+    }
+    pips
+}
+
+fn subtype_demand_score(view: &PlayerView, actor: PlayerId, st: SubtypeId) -> u32 {
+    let mut score = 0_u32;
+    for h in &view.hand {
+        if let Some(def) = baylee_cards::by_index(h.card.index)
+            && def
+                .faces
+                .iter()
+                .any(|f| f.subtypes.contains(&st))
+        {
+            score += 3;
+        }
+    }
+    for obj in view.battlefield_of(actor) {
+        if obj.subtypes.contains(st) {
+            score += 2;
+        } else if let Some(ci) = obj.card
+            && let Some(def) = baylee_cards::by_index(ci.index)
+            && def.faces.iter().any(|f| f.subtypes.contains(&st))
+        {
+            score += 2;
+        }
+    }
+    if let Some(gy) = view.graveyards.get(usize::from(actor.get())) {
+        for obj in gy {
+            if obj.subtypes.contains(st) {
+                score += 1;
+            }
+        }
+    }
+    score
+}
+
+fn tutor_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> i32 {
+    let my_mana = view
+        .battlefield_of(actor)
+        .filter(|o| o.types.contains(TypeSet::LAND) || o.board_mana.is_some())
+        .count() as u32;
+    let my_creatures = view
+        .battlefield_of(actor)
+        .filter(|o| o.types.contains(TypeSet::CREATURE))
+        .count();
+    let lands_in_hand = view
+        .hand
+        .iter()
+        .filter(|h| is_true_land_card(view, h.id))
+        .count() as u32;
+    let need_land = my_mana < 4 && lands_in_hand == 0;
+    let max_castable_cmc = (my_mana + u32::from(lands_in_hand > 0)).max(2);
+
+    if is_pure_search_library_card(view, oid) {
+        return 0;
+    }
+    if is_true_land_card(view, oid) {
+        if need_land {
+            let cols = land_card_colors(view, oid);
+            if cols.iter().any(|&c| c) {
+                return 5;
+            }
+            return 4;
+        }
+        if my_mana + lands_in_hand >= 5 {
+            return 1;
+        }
+        return 2;
+    }
+
+    let cmc = lookup_spell_cost(view, oid).map_or(3, |(c, t)| c.with_x(0).cmc().saturating_add(t));
+    let is_creature = is_creature_card(view, oid);
+    if is_creature && my_creatures == 0 && cmc <= (my_mana + lands_in_hand.min(2)).max(4) {
+        return 5;
+    }
+    if cmc <= max_castable_cmc {
+        if !need_land {
+            if is_draw_spell_card(view, oid) && view.hand.len() >= 5 && my_creatures == 0 {
+                return 3;
+            }
+            return 4;
+        }
+        if is_draw_spell_card(view, oid) && cmc <= my_mana {
+            return 4;
+        }
+        return 2;
+    }
+    if cmc == max_castable_cmc + 1 {
+        return 2;
+    }
+    1
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32, f32) {
+    let my_mana = view
+        .battlefield_of(actor)
+        .filter(|o| o.types.contains(TypeSet::LAND) || o.board_mana.is_some())
+        .count() as u32;
+    let lands_in_hand = view
+        .hand
+        .iter()
+        .filter(|h| is_true_land_card(view, h.id))
+        .count() as u32;
+
+    if is_true_land_card(view, oid) {
+        if my_mana >= 6 && lands_in_hand >= 2 {
+            return (4, 0.0);
+        }
+        if my_mana + lands_in_hand >= 6 && lands_in_hand >= 3 {
+            return (3, 0.0);
+        }
+        return (0, 0.0);
+    }
+
+    let cmc = lookup_spell_cost(view, oid).map_or(2, |(c, t)| c.with_x(0).cmc().saturating_add(t));
+    let cmc_bonus = (cmc.min(12) as f32) * 0.1;
+    if cmc >= my_mana + 3 {
+        return (4, cmc_bonus);
+    }
+    if cmc == my_mana + 2 {
+        return (3, cmc_bonus);
+    }
+    (1, cmc_bonus)
+}
+
+fn is_creature_card(view: &PlayerView, oid: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, oid) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    def.faces
+        .get(usize::from(ci.face))
+        .is_some_and(|f| f.types.contains(TypeSet::CREATURE))
+}
+
+fn is_pure_search_library_card(view: &PlayerView, oid: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, oid) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    let Some(face) = def.faces.get(usize::from(ci.face)) else {
+        return false;
+    };
+    if face.types.contains(TypeSet::CREATURE) {
+        return false;
+    }
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| match ab {
+            AbilityDef::Spell { effects, .. } => effects.iter().any(|e| {
+                matches!(
+                    e,
+                    Effect::SearchLibrary { .. } | Effect::SearchLibraryUpTo { .. }
+                )
+            }),
+            _ => false,
+        })
+}
+
+fn is_draw_spell_card(view: &PlayerView, oid: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, oid) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| match ab {
+            AbilityDef::Spell { effects, .. } => {
+                effects.iter().any(|e| matches!(e, Effect::DrawCards { .. }))
+            }
+            _ => false,
+        })
+}
+
+#[allow(dead_code)]
+fn _unused_mana_source_marker(_: ManaSource) {}

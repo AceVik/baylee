@@ -31,7 +31,6 @@ use crate::features4::{
     abs_seat, pack_object_id, rel_seat,
 };
 use crate::features7::grouping::group_battlefield_permanents;
-use crate::features7::inventory::RemainingCardGroup7;
 
 /// Encoder version identifier for Encoder 7 (`7`).
 pub const ENCODER_VERSION7: u32 = 7;
@@ -49,13 +48,17 @@ fn raw_unit(v: f32, scale: f32) -> f32 {
     if scale <= 0.0 {
         0.0
     } else {
-        v.max(0.0) / scale
+        (v / scale).clamp(0.0, 1.0)
     }
 }
 
 #[inline]
 fn raw_signed(v: f32, scale: f32) -> f32 {
-    if scale <= 0.0 { 0.0 } else { v / scale }
+    if scale <= 0.0 {
+        0.0
+    } else {
+        (v / scale).clamp(-1.0, 1.0)
+    }
 }
 
 /// Encodes a [`PlayerView`] into an Encoder 7 [`EncodedState4`] (`128` entity dims, `80` global dims).
@@ -336,37 +339,9 @@ pub fn encode_state7(
             }
             push_remembered_card7(&mut state, view, obj_id, mem, viewer, seat_count);
         }
-
-        // 8. Viewing seat's remaining library & sideboard inventory groups
-        let (lib_groups, sb_groups) = kn.inventory.remaining_groups();
-        for group in &lib_groups {
-            if state.entity_object_ids.len() >= MAX_ENTITIES {
-                break;
-            }
-            let draw_prob = kn.inventory.draw_probability(group.card_id);
-            push_inventory_group7(
-                &mut state,
-                group,
-                EntityZone4::DeckInventory,
-                draw_prob,
-                viewer,
-            );
-        }
-        for group in &sb_groups {
-            if state.entity_object_ids.len() >= MAX_ENTITIES {
-                break;
-            }
-            push_inventory_group7(
-                &mut state,
-                group,
-                EntityZone4::SideboardInventory,
-                0.0,
-                viewer,
-            );
-        }
     }
 
-    // 9. Seat features in relative seat order `0..seat_count`
+    // 8. Seat features in relative seat order `0..seat_count`
     encode_seats7(&mut state, view, knowledge, teams, viewer, seat_count);
 
     // 10. Global features (`80` dims)
@@ -436,10 +411,7 @@ fn push_public_object7(
     if let Some(p) = pending {
         match p {
             Pending::Priority { legal, .. } => {
-                if legal.castable.contains(&obj.id)
-                    || legal.payable.contains(&obj.id)
-                    || legal.suspendable.contains(&obj.id)
-                {
+                if legal.castable.contains(&obj.id) || legal.suspendable.contains(&obj.id) {
                     f[27] = 1.0;
                 }
                 if legal.payable.contains(&obj.id) {
@@ -745,10 +717,7 @@ fn push_hand_object7(
     f[15] = raw_unit(rel_own as f32, 8.0);
 
     if let Some(Pending::Priority { legal, .. }) = pending {
-        if legal.castable.contains(&h_obj.id)
-            || legal.payable.contains(&h_obj.id)
-            || legal.suspendable.contains(&h_obj.id)
-        {
+        if legal.castable.contains(&h_obj.id) || legal.suspendable.contains(&h_obj.id) {
             f[27] = 1.0;
         }
         if legal.payable.contains(&h_obj.id) {
@@ -900,44 +869,6 @@ fn push_remembered_card7(
         .entity_zone_ids
         .push(EntityZone4::RememberedOpponentCard as u8);
     state.entity_rel_controller.push(rel_own as u8);
-}
-
-fn push_inventory_group7(
-    state: &mut EncodedState4,
-    group: &RemainingCardGroup7,
-    zone: EntityZone4,
-    draw_probability: f32,
-    _viewer: PlayerId,
-) {
-    let mut f = vec![0.0_f32; ENTITY_FEAT_WIDTH7];
-    f[12] = 1.0; // controlled/owned by viewing seat (rel_seat == 0)
-    f[14] = 1.0;
-    populate_printed_face_features(group.card_id, 0, &mut f);
-    f[122] = group.remaining_copies as f32;
-    f[123] = if zone == EntityZone4::DeckInventory {
-        group.remaining_copies as f32
-    } else {
-        0.0
-    };
-    f[124] = draw_probability;
-    f[125] = group.registered_copies as f32;
-    if zone == EntityZone4::DeckInventory {
-        f[126] = 1.0;
-    } else {
-        f[127] = 1.0;
-    }
-
-    state.entity_feat.push(f);
-    state.entity_object_ids.push(u64::MAX);
-    state.entity_group_members.push(Vec::new());
-    state.entity_card_ids.push(group.card_id);
-    state.entity_face_ids.push(0);
-    state.entity_token_ids.push(0);
-    state
-        .entity_rule_refs
-        .push(crate::cardstructure::refs::card_refs(group.card_id, 0, 0));
-    state.entity_zone_ids.push(zone as u8);
-    state.entity_rel_controller.push(0);
 }
 
 fn populate_printed_face_features(card_id: u32, face_idx: usize, f: &mut [f32]) {

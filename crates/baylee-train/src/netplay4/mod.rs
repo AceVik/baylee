@@ -14,7 +14,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
@@ -34,11 +34,13 @@ use crate::features4::{
 use crate::features7::{
     ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
 };
+mod choices;
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
 mod live_init;
 mod structure;
+mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 
@@ -88,6 +90,9 @@ pub struct NetPlayer4 {
     knowledge: BTreeMap<u8, SeatKnowledge4>,
     /// View-only state visit counts `(seat, view_hash) -> count` for loop guarding.
     seen_hashes: BTreeMap<(u8, u64), u8>,
+    /// Per-seat most recently announced `CastSpell` or `ActivateAbility` `(object_id, ability_index)`
+    /// for target-intent and scalar choice disambiguation before `Pending::Priority` resumes.
+    last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
 }
@@ -186,6 +191,7 @@ impl NetPlayer4 {
             h_states: BTreeMap::new(),
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::new(),
+            last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
         })
     }
@@ -226,6 +232,7 @@ impl NetPlayer4 {
         self.h_states.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
+        self.last_announced_source.clear();
     }
 
     /// Reseeds the policy sampling RNG from an independent seed (never the game
@@ -242,6 +249,7 @@ impl NetPlayer4 {
         self.h_states.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
+        self.last_announced_source.clear();
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states
@@ -320,6 +328,12 @@ impl NetPlayer4 {
         teams: &[Option<u8>],
     ) -> Answer4 {
         let seat_u8 = view.seat.get();
+        if matches!(pending, Pending::Priority { .. })
+            && view.owed.is_none()
+            && view.stack.is_empty()
+        {
+            self.last_announced_source.remove(&seat_u8);
+        }
         let p_kind = PendingKind4::of(pending);
 
         if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
@@ -411,7 +425,7 @@ impl NetPlayer4 {
         }
 
         // 3. Run ONNX inference
-        if let Ok((action, value, logprob, target)) =
+        let ans = if let Ok((action, value, logprob, target)) =
             self.infer_and_sample(&state, &cands, view, pending, &h_in)
         {
             self.coverage.record(p_kind, SourceKind4::Net);
@@ -442,7 +456,21 @@ impl NetPlayer4 {
                 },
                 target: TeacherTarget4::default(),
             }
+        };
+        match &ans.action {
+            PlayerAction::CastSpell { card } => {
+                self.last_announced_source.insert(seat_u8, (*card, None));
+            }
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            } => {
+                self.last_announced_source
+                    .insert(seat_u8, (*source, Some(*ability_index)));
+            }
+            _ => {}
         }
+        ans
     }
 
     #[allow(
@@ -601,6 +629,10 @@ impl NetPlayer4 {
         ))
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Dispatches ONNX outputs across SingleChoice, SubsetPick, PairPick, and ScalarValue heads"
+    )]
     fn infer_and_sample(
         &mut self,
         state: &crate::features4::EncodedState4,
@@ -616,22 +648,57 @@ impl NetPlayer4 {
 
         let logprob: f32 = match cands.head {
             HeadKind4::SingleChoice => {
-                let n = cands.candidates.len();
-                let logits = &cand_logits[..n];
-                let (chosen_idx, lp) = sample_categorical(logits, self.temperature, &mut self.rng);
+                let active_source = self.last_announced_source.get(&view.seat.get()).copied();
+                let (chosen_idx, lp) = tactics::select_single_choice(
+                    cands,
+                    &cand_logits,
+                    view,
+                    pending,
+                    active_source,
+                    self.temperature,
+                    &mut self.rng,
+                );
                 target.single_idx = chosen_idx as u16;
                 lp
             }
             HeadKind4::SubsetPick => {
                 let n = cands.candidates.len();
-                let logits = &cand_logits[..n];
-                let (mask, free_mask, seq, lp) = sample_subset_constrained(
-                    logits,
+                let raw_logits = &cand_logits[..n];
+                let active_source = self.last_announced_source.get(&view.seat.get()).copied();
+                let adj_logits =
+                    choices::adjust_subset_logits(cands, raw_logits, view, pending, active_source);
+                let (mask, free_mask, seq, _) = sample_subset_constrained(
+                    &adj_logits,
                     cands,
                     pending,
                     self.temperature,
                     &mut self.rng,
                 );
+                let lp = if self.temperature <= 1e-4 {
+                    0.0
+                } else {
+                    let scale = 1.0 / self.temperature;
+                    let mut acc = 0.0_f32;
+                    for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
+                        if free_mask.get(i).copied().unwrap_or(0) == 1 {
+                            let z = raw_l * scale;
+                            let picked = mask.get(i).copied().unwrap_or(0) == 1;
+                            let step_lp = if picked {
+                                if z >= 0.0 {
+                                    -((-z).exp().ln_1p())
+                                } else {
+                                    z - z.exp().ln_1p()
+                                }
+                            } else if z >= 0.0 {
+                                -z - (-z).exp().ln_1p()
+                            } else {
+                                -z.exp().ln_1p()
+                            };
+                            acc += step_lp;
+                        }
+                    }
+                    acc
+                };
                 target.multi_mask = mask;
                 target.free_mask = free_mask;
                 target.pick_sequence = seq;
@@ -639,16 +706,53 @@ impl NetPlayer4 {
             }
             HeadKind4::PairPick => {
                 let n = cands.pairs.len();
-                let logits = &pair_logits[..n];
-                let (mask, free_mask, seq, lp) =
-                    sample_pairs_constrained(logits, cands, self.temperature, &mut self.rng);
+                let raw_logits = &pair_logits[..n];
+                let adj_logits = choices::adjust_pair_logits(cands, raw_logits, view, pending);
+                let (mask, free_mask, seq, _) =
+                    sample_pairs_constrained(&adj_logits, cands, self.temperature, &mut self.rng);
+                let lp = if self.temperature <= 1e-4 {
+                    0.0
+                } else {
+                    let scale = 1.0 / self.temperature;
+                    let mut acc = 0.0_f32;
+                    for (i, &raw_l) in raw_logits.iter().enumerate().take(n) {
+                        if free_mask.get(i).copied().unwrap_or(0) == 1 {
+                            let z = raw_l * scale;
+                            let picked = mask.get(i).copied().unwrap_or(0) == 1;
+                            let step_lp = if picked {
+                                if z >= 0.0 {
+                                    -((-z).exp().ln_1p())
+                                } else {
+                                    z - z.exp().ln_1p()
+                                }
+                            } else if z >= 0.0 {
+                                -z - (-z).exp().ln_1p()
+                            } else {
+                                -z.exp().ln_1p()
+                            };
+                            acc += step_lp;
+                        }
+                    }
+                    acc
+                };
                 target.multi_mask = mask;
                 target.free_mask = free_mask;
                 target.pick_sequence = seq;
                 lp
             }
             HeadKind4::ScalarValue => {
-                let pred = scalar_pred.clamp(0.0, 1.0);
+                let pred = if matches!(
+                    pending,
+                    Pending::ChooseNumber {
+                        reason: baylee_engine::choice::NumberPrompt::X
+                            | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
+                        ..
+                    }
+                ) {
+                    1.0
+                } else {
+                    scalar_pred.clamp(0.0, 1.0)
+                };
                 let chosen_int =
                     denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
                 let norm =

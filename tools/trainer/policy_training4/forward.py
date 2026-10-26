@@ -51,7 +51,8 @@ def actor_outputs(net, batch, board_chunk=0):
             cl, pl, scalar = outputs[1:4]
             lp, _ = action_logprob_and_kl(cl, pl, scalar, cl.detach(), pl.detach(), scalar.detach(), batch, t)
             current.append(lp[mask])
-            recorded.append(at("behavior_logprob")[mask])
+            rec_lp = at("behavior_lp") if "behavior_lp" in batch else at("behavior_logprob")
+            recorded.append(rec_lp[mask])
             advantage.append(at("advantages")[mask])
     if not current:
         raise ValueError("Optimizer microbatch contains no actor choices")

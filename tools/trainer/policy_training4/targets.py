@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 import dataset4 as D
 import model4 as M
+from trajectory_store4 import BST4_HDR, BST4_MAGIC
 from train_rl4 import action_logprob_and_kl
 from training4.execution import encode_boards
 
@@ -19,8 +20,10 @@ def actor_mask(batch):
     base = (batch['step_valid'] & batch['is_decision'] & (batch['source_kind'] == 0)
             & batch['has_logprob'] & (batch['temperature'] > 1e-4))
     choices = ((batch['head'] == 0) & (batch['cand_mask'].sum(-1) > 1))
-    choices |= ((batch['head'] == 1) & ((batch['cand_free_mask'] > 0) & batch['cand_mask']).any(-1))
-    choices |= ((batch['head'] == 2) & ((batch['pair_free_mask'] > 0) & batch['pair_mask']).any(-1))
+    choices |= ((batch['head'] == 1) & (batch['temperature'] > 0.35)
+                & ((batch['cand_free_mask'] > 0) & batch['cand_mask']).any(-1))
+    choices |= ((batch['head'] == 2) & (batch['temperature'] > 0.35)
+                & ((batch['pair_free_mask'] > 0) & batch['pair_mask']).any(-1))
     return base & choices
 
 
@@ -49,9 +52,38 @@ def _raw_choice(step):
     raise ValueError('Unknown stochastic neural action head')
 
 
+def _bst4_choice(blob: bytes) -> bool:
+    (
+        _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head, _pending_kind,
+        src_kind, _pad0, _k, _single_idx, _loss_weight, _scalar_norm, _outcome,
+        _aux0, _aux1, _aux2, _aux3, logprob, temperature,
+        _n_ent, _ent_width, _ent_rule_cols, _seat_width, _global_width, _n_edg,
+        n_cand, _cand_width, _cand_rule_cols, n_pair, n_mm, n_fm,
+    ) = BST4_HDR.unpack_from(blob, 0)
+    is_decision = bool(flags & 1)
+    has_logprob = bool(flags & 4)
+    if not (is_decision and src_kind == 0 and has_logprob):
+        return False
+    if not np.isfinite(temperature) or temperature <= 1e-4 or not np.isfinite(logprob):
+        raise ValueError('Malformed stochastic neural provenance: temperature/logprob')
+    if head == 0:
+        return n_cand > 1
+    if head in (1, 2):
+        size = n_cand if head == 1 else n_pair
+        if n_mm != size or n_fm != size:
+            raise ValueError('Malformed stochastic neural mask length')
+        mm = blob[len(blob) - n_mm - n_fm : len(blob) - n_fm]
+        fm = blob[len(blob) - n_fm :]
+        if any(b not in (0, 1) for b in mm) or any(b not in (0, 1) for b in fm):
+            raise ValueError('Malformed stochastic neural mask values')
+        return any(fm)
+    if head == 3:
+        raise ValueError('Scalar action falsely claims stochastic behavior probability')
+    raise ValueError('Unknown stochastic neural action head')
+
+
 def _learner_histories(dataset):
-    # Provenance is the final JSON member in converter records. Read that small
-    # suffix first; teacher decisions need no large state-array deserialization.
+    # Provenance is the final JSON member in converter records, or packed in BST4_HDR.
     stream = mapping = None
     try:
         if hasattr(dataset.store, 'data_path'):
@@ -67,9 +99,17 @@ def _learner_histories(dataset):
                         continue
                     if mapping is None:
                         step = dataset.store.read(int(row))
+                        if '_bst4' in step:
+                            if _bst4_choice(step['_bst4']):
+                                found = True
+                            continue
                     else:
                         start = int(rec['offset'])
                         blob = zlib.decompress(mapping[start:start+int(rec['length'])])
+                        if blob[:4] == BST4_MAGIC:
+                            if _bst4_choice(blob):
+                                found = True
+                            continue
                         pos = blob.rfind(b'"provenance"')
                         provenance = None
                         if pos >= 0:
@@ -118,6 +158,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     cache = {}
     n, u, width = len(dataset), dataset.unroll_len, net.cfg.d_model
     for name, dtype, shape in [('advantages', np.float32, (n,u)), ('returns', np.float32,(n,u)),
+                               ('behavior_lp', np.float32, (n,u)),
                                ('actor_mask',np.bool_,(n,u)), ('behavior_h',np.float32,(n,9,width))]:
         cache[name] = np.memmap(Path(temporary.name)/name, mode='w+', dtype=dtype, shape=shape)
     loader = DataLoader(dataset, batch_sampler=D.StatefulBatchSampler4(dataset,batch_size,shuffle=False),
@@ -145,7 +186,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             invalid_k = ((host['thinking_steps'] < 1) | (host['thinking_steps'] > 8)) & mask
             if bool(invalid_k.any()):
                 raise ValueError('Genuine neural decision has invalid recorded thinking depth')
-            values, errors = [], []
+            values, errors, lps = [], [], []
             for t in range(u):
                 decision = host['is_decision'][:,t].to(device)
                 recorded = host['thinking_steps'][:,t].to(device)
@@ -158,9 +199,11 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
                 h = torch.where(valid[:,None,None],output[0],h)
                 lp,_ = action_logprob_and_kl(output[1].float(),output[2].float(),output[3].float(),
                                             output[1].float(),output[2].float(),output[3].float(),host,t)
+                lps.append(lp.float())
                 errors.append((lp-host['behavior_logprob'][:,t].to(device)).abs())
                 values.append(output[4].float())
             value = torch.stack(values,1).cpu().numpy()
+            lp_arr = torch.stack(lps,1).cpu().numpy()
             error = torch.stack(errors,1).cpu().numpy()
             keep = mask.numpy()
             observed = error[keep]
@@ -178,6 +221,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             for lane,idx in enumerate(ids):
                 if idx >= 0:
                     cache['actor_mask'][idx] = keep[lane]
+                    cache['behavior_lp'][idx] = np.where(keep[lane],lp_arr[lane],0)
                     cache['returns'][idx] = np.where(valid[lane],truth[lane],0)
                     cache['advantages'][idx] = np.where(keep[lane],truth[lane]-value[lane],0)
             frames += int(valid.sum())

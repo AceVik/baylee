@@ -21,9 +21,11 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
     aux_loss = zero
     correct = zero
     count = zero
+    outcome = at("outcome")
+    out_factor = 0.35 + 1.30 * outcome
     if plan.valid:
         n = valid.sum().clamp(min=1)
-        value_loss = ((value - at("outcome")).square() * valid).sum() / n
+        value_loss = ((value - outcome).square() * valid).sum() / n
         aux_loss = ((auxiliary - at("aux_target")).square().mean(-1) * valid).sum() / n
 
     if plan.heads[0]:
@@ -32,24 +34,29 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
         # indices for this frame. They must never enter gather/cross_entropy.
         target = torch.where(chosen, at("single_idx"), 0)
         choice = at("cand_mask")[:, :cand.shape[1]].sum(-1) > 1
-        weights = weight * chosen * choice
+        act_factor = torch.where(target > 0, 2.5, 1.0)
+        weights = weight * out_factor * act_factor * chosen * choice
         ce = F.cross_entropy(cand, target, reduction="none")
         policy = policy + (ce * weights).sum() / weights.sum().clamp(min=1e-6)
         correct = ((cand.argmax(-1) == target) & chosen).sum()
         count = chosen.sum()
 
-    for kind, logits, prefix in ((1, cand, "cand"), (2, pair, "pair")):
+    for kind, logits, prefix, pos_val, mult in (
+        (1, cand, "cand", 2.5, 8.0),
+        (2, pair, "pair", 3.0, 16.0),
+    ):
         if plan.heads[kind]:
             selected = decision & (head == kind)
             width = logits.shape[1]
             mask = at(prefix + "_mask")[:, :width]
             free = at(prefix + "_free_mask")[:, :width] * mask.float()
             target = at(prefix + "_target_mask")[:, :width]
+            pos_w = torch.tensor(pos_val, dtype=logits.dtype, device=device)
             losses = F.binary_cross_entropy_with_logits(
-                logits.masked_fill(~mask, 0.0), target, reduction="none",
+                logits.masked_fill(~mask, 0.0), target, pos_weight=pos_w, reduction="none",
             )
-            weights = free * (weight * selected).unsqueeze(-1)
-            policy = policy + 2.5 * (losses * weights).sum() / weights.sum().clamp(min=1.0)
+            weights = free * (weight * out_factor * selected).unsqueeze(-1)
+            policy = policy + mult * (losses * weights).sum() / weights.sum().clamp(min=1.0)
 
     if plan.heads[3]:
         selected = decision & (head == 3)
@@ -111,12 +118,14 @@ def compute_unroll_device_loss(prepared, aux_all, batch, plans):
             decision = decision_all[:, t]
             head = head_all[:, t]
             weight = weight_all[:, t]
+            out_factor = 0.35 + 1.30 * outcome_all[:, t]
 
             if plan.heads[0]:
                 chosen = decision & (head == 0)
                 target = torch.where(chosen, single_idx_all[:, t], 0)
                 choice = cand_mask_all[:, t, :cand.shape[1]].sum(-1) > 1
-                weights = weight * chosen * choice
+                act_factor = torch.where(target > 0, 2.5, 1.0)
+                weights = weight * out_factor * act_factor * chosen * choice
                 ce = F.cross_entropy(cand, target, reduction="none")
                 policy = policy + (ce * weights).sum() / weights.sum().clamp(min=1e-6)
                 correct_sum = correct_sum + ((cand.argmax(-1) == target) & chosen).sum().float()
@@ -128,11 +137,12 @@ def compute_unroll_device_loss(prepared, aux_all, batch, plans):
                 mask = cand_mask_all[:, t, :width]
                 free = cand_free_all[:, t, :width] * mask.float()
                 target = cand_target_all[:, t, :width]
+                pos_w1 = torch.tensor(2.5, dtype=cand.dtype, device=device)
                 losses = F.binary_cross_entropy_with_logits(
-                    cand.masked_fill(~mask, 0.0), target, reduction="none",
+                    cand.masked_fill(~mask, 0.0), target, pos_weight=pos_w1, reduction="none",
                 )
-                weights = free * (weight * selected).unsqueeze(-1)
-                policy = policy + 2.5 * (losses * weights).sum() / weights.sum().clamp(min=1.0)
+                weights = free * (weight * out_factor * selected).unsqueeze(-1)
+                policy = policy + 8.0 * (losses * weights).sum() / weights.sum().clamp(min=1.0)
 
             if plan.heads[2]:
                 selected = decision & (head == 2)
@@ -140,11 +150,12 @@ def compute_unroll_device_loss(prepared, aux_all, batch, plans):
                 mask = pair_mask_all[:, t, :width]
                 free = pair_free_all[:, t, :width] * mask.float()
                 target = pair_target_all[:, t, :width]
+                pos_w2 = torch.tensor(3.0, dtype=pair.dtype, device=device)
                 losses = F.binary_cross_entropy_with_logits(
-                    pair.masked_fill(~mask, 0.0), target, reduction="none",
+                    pair.masked_fill(~mask, 0.0), target, pos_weight=pos_w2, reduction="none",
                 )
-                weights = free * (weight * selected).unsqueeze(-1)
-                policy = policy + 2.5 * (losses * weights).sum() / weights.sum().clamp(min=1.0)
+                weights = free * (weight * out_factor * selected).unsqueeze(-1)
+                policy = policy + 16.0 * (losses * weights).sum() / weights.sum().clamp(min=1.0)
 
             if plan.heads[3]:
                 selected = decision & (head == 3)

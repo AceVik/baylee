@@ -370,11 +370,16 @@ pub fn encode_teacher_action4(
 
         HeadKind4::ScalarValue => {
             if let PlayerAction::ChooseNumber(v) = action {
-                if *v < cands.min_choices || *v > cands.max_choices {
+                if let Pending::ChooseNumber { min, max, .. } = pending {
+                    if *v < *min || *v > *max {
+                        return None;
+                    }
+                } else if *v < cands.min_choices || *v > cands.max_choices {
                     return None;
                 }
+                let clamped = (*v).clamp(cands.min_choices, cands.max_choices);
                 target.scalar_norm =
-                    normalize_scalar_choice(*v, cands.min_choices, cands.max_choices);
+                    normalize_scalar_choice(clamped, cands.min_choices, cands.max_choices);
                 return Some(target);
             }
             None
@@ -534,8 +539,10 @@ pub fn decode_action4(
 
         HeadKind4::ScalarValue => match pending {
             Pending::ChooseNumber { min, max, .. } => {
-                let v = denormalize_scalar_choice(choice.scalar_norm, *min, *max);
-                Some(PlayerAction::ChooseNumber(v))
+                let lo = cands.min_choices.max(*min);
+                let hi = cands.max_choices.clamp(lo, *max);
+                let v = denormalize_scalar_choice(choice.scalar_norm, lo, hi);
+                Some(PlayerAction::ChooseNumber(v.clamp(*min, *max)))
             }
             _ => None,
         },

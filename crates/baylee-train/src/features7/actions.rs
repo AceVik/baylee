@@ -97,12 +97,13 @@ pub fn encode_candidates7(
 }
 
 /// Complete Encoder 7 candidate encoder (`encode_candidates7_grouped`):
-/// - Includes distinct `legal.payable` cast-before-payment spells in `Pending::Priority`,
-/// - Includes `PlayerAction::CancelCast` in `Pending::ChooseCastMode` when `view.casting.is_some()`,
 /// - Deduplicates symmetric `SingleChoice` candidates acting on the same grouped battlefield permanent
 ///   (storing all member `ObjectId`s in `Candidate4::group_object_ids` so softmax mass is never split
 ///   across identical untapped lands/tokens),
 /// - Populates within-group rank features (`feat[46..48]`) on `SubsetPick` candidates for grouped permanents.
+/// - Note: `legal.payable` (announce-before-payment) is intentionally omitted here because `baylee-ai`
+///   always taps mana abilities before casting from `legal.castable`, and `legal.payable` includes
+///   spells whose mana costs cannot actually be paid by the available lands.
 #[must_use]
 pub fn encode_candidates7_grouped(
     state: &EncodedState4,
@@ -110,48 +111,6 @@ pub fn encode_candidates7_grouped(
     pending: &Pending,
 ) -> EncodedCandidates4 {
     let mut out = encode_candidates4(state, view, pending);
-
-    if let Pending::Priority { player, legal } = pending {
-        let mut seen: BTreeSet<ObjectId> = legal.castable.iter().copied().collect();
-        let additional: Vec<ObjectId> = legal
-            .payable
-            .iter()
-            .copied()
-            .filter(|id| seen.insert(*id))
-            .collect();
-        if !additional.is_empty() {
-            let mut announced = legal.clone();
-            announced.castable = additional;
-            let extra = encode_candidates4(
-                state,
-                view,
-                &Pending::Priority {
-                    player: *player,
-                    legal: announced,
-                },
-            );
-            for mut cand in extra.candidates {
-                if matches!(cand.action, Some(PlayerAction::CastSpell { .. }))
-                    && out.candidates.len() < MAX_CANDIDATES
-                {
-                    cand.feat[19] = 1.0; // payable (announce before payment)
-                    out.candidates.push(cand);
-                }
-            }
-        }
-    } else if matches!(pending, Pending::ChooseCastMode { .. })
-        && let Some(cast_id) = view.casting
-        && out.candidates.len() < MAX_CANDIDATES
-    {
-        let mut cancel = Candidate4::default();
-        cancel.feat[1] = 1.0; // CancelCast
-        if let Some(eidx) = state.find_entity(cast_id) {
-            cancel.entity_idx = eidx as i16;
-            cancel.card_id = state.entity_card_ids[eidx];
-        }
-        cancel.action = Some(PlayerAction::CancelCast);
-        out.candidates.push(cancel);
-    }
 
     if state.entity_group_members.is_empty() {
         return out;
