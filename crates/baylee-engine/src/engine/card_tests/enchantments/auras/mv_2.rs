@@ -48,6 +48,7 @@ mod illuminated_wings;
 mod indomitable_will;
 mod inertia_bubble;
 mod insubordination;
+mod inviolability;
 mod invisibility;
 mod kjeldoran_pride;
 mod launch;

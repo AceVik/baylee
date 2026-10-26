@@ -11933,8 +11933,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Creatures you control have fear. (They can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
+    // Invigorate
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have an opponent gain 3 life.\nTarget creature gets +4/+4 until end of turn.",
+    ],
+    // Inviolability
+    &["Enchant creature\nPrevent all damage that would be dealt to enchanted creature."],
     // Iron Lance
     &["{3}, {T}: Target creature gains first strike until end of turn."],
     // Ivory Mask
@@ -11953,14 +11957,20 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Kris Mage
     &["{R}, {T}, Discard a card: This creature deals 1 damage to any target."],
-    &[],
+    // Kyren Archive
+    &[
+        "At the beginning of your upkeep, you may exile the top card of your library face down.\n{5}, Discard your hand, Sacrifice this artifact: Put all cards exiled with this artifact into their owner's hand.",
+    ],
     // Kyren Glider
     &["Flying\nThis creature can't block."],
     // Kyren Legate
     &[
         "If an opponent controls a Plains and you control a Mountain, you may cast this spell without paying its mana cost.\nHaste",
     ],
-    &[],
+    // Kyren Negotiations
+    &[
+        "Tap an untapped creature you control: This enchantment deals 1 damage to target player or planeswalker.",
+    ],
     // Kyren Sniper
     &[
         "At the beginning of your upkeep, you may have this creature deal 1 damage to target player or planeswalker.",
@@ -11999,7 +12009,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "All creatures have forestwalk. (They can't be blocked as long as defending player controls a Forest.)",
     ],
-    &[],
+    // Lunge
+    &["Lunge deals 2 damage to target creature and 2 damage to target player or planeswalker."],
     // Maggot Therapy
     &["Flash\nEnchant creature\nEnchanted creature gets +2/-2."],
     // Magistrate's Scepter
@@ -12038,7 +12049,8 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Misshapen Fiend
     &["Flying"],
-    &[],
+    // Misstep
+    &["Creatures target player controls don't untap during that player's next untap step."],
     // Molting Harpy
     &["Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {2}."],
     // Moment of Silence
@@ -12051,14 +12063,16 @@ pub static ORACLE: &[&[&str]] = &[
     &["Whenever a creature dies, you gain 1 life."],
     // Muzzle
     &["Enchant creature\nPrevent all damage that would be dealt by enchanted creature."],
-    &[],
+    // Natural Affinity
+    &["All lands become 2/2 creatures until end of turn. They're still lands."],
     // Nether Spirit
     &[
         "At the beginning of your upkeep, if this card is the only creature card in your graveyard, you may return this card to the battlefield.",
     ],
     // Nightwind Glider
     &["Flying, protection from black"],
-    &[],
+    // Noble Purpose
+    &["Whenever a creature you control deals combat damage, you gain that much life."],
     // Notorious Assassin
     &["{2}{B}, {T}, Discard a card: Destroy target nonblack creature. It can't be regenerated."],
     // Orim's Cure
@@ -12073,21 +12087,38 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {B}{B}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
+    // Pious Warrior
+    &["Whenever this creature is dealt combat damage, you gain that much life."],
+    // Port Inspector
+    &["Whenever this creature becomes blocked, you may look at defending player's hand."],
     // Power Matrix
     &[
         "{T}: Target creature gets +1/+1 and gains flying, first strike, and trample until end of turn.",
     ],
-    &[],
+    // Pretender's Claim
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes blocked, tap all lands defending player controls.",
+    ],
     // Primeval Shambler
     &["{B}: This creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Puffer Extract
+    &[
+        "{X}, {T}: Target creature you control gets +X/+X until end of turn. Destroy it at the beginning of the next end step.",
+    ],
+    // Pulverize
+    &[
+        "You may sacrifice two Mountains rather than pay this spell's mana cost.\nDestroy all artifacts.",
+    ],
+    // Puppet's Verdict
+    &[
+        "Flip a coin. If you win the flip, destroy all creatures with power 2 or less. If you lose the flip, destroy all creatures with power 3 or greater.",
+    ],
     // Putrefaction
     &["Whenever a player casts a green or white spell, that player discards a card."],
-    &[],
+    // Quagmire Lamprey
+    &[
+        "Whenever this creature becomes blocked by a creature, put a -1/-1 counter on that creature.",
+    ],
     // Ramosian Captain
     &[
         "First strike\n{5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
@@ -12100,7 +12131,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Ramosian Rally
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nCreatures you control get +1/+1 until end of turn.",
+    ],
     // Ramosian Sergeant
     &[
         "{3}, {T}: Search your library for a Rebel permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
@@ -12111,22 +12145,44 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rampart Crawler
     &["This creature can't be blocked by Walls."],
-    &[],
+    // Rappelling Scouts
+    &[
+        "Flying\n{2}{W}: This creature gains protection from the color of your choice until end of turn.",
+    ],
     // Remote Farm
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {W}{W}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
-    &[],
+    // Renounce
+    &[
+        "Sacrifice any number of permanents. You gain 2 life for each permanent sacrificed this way.",
+    ],
+    // Revered Elder
+    &["{1}: Prevent the next 1 damage that would be dealt to this creature this turn."],
+    // Reverent Mantra
+    &[
+        "You may exile a white card from your hand rather than pay this spell's mana cost.\nChoose a color. All creatures gain protection from the chosen color until end of turn.",
+    ],
     // Revive
     &["Return target green card from your graveyard to your hand."],
-    &[],
+    // Righteous Indignation
+    &[
+        "Whenever a creature blocks a black or red creature, the blocking creature gets +1/+1 until end of turn.",
+    ],
     // Rishadan Airship
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
-    &[],
+    // Rishadan Brigand
+    &[
+        "Flying\nWhen this creature enters, each opponent sacrifices a permanent of their choice unless they pay {3}.\nThis creature can block only creatures with flying.",
+    ],
+    // Rishadan Cutpurse
+    &[
+        "When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {1}.",
+    ],
+    // Rishadan Footpad
+    &[
+        "When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {2}.",
+    ],
     &[],
     // Rishadan Port
     &["{T}: Add {C}.\n{1}, {T}: Tap target land."],

@@ -10742,3 +10742,28 @@ Nether Spirit
 Orim's Cure
 Panacea
 Pangosaur
+Invigorate
+Inviolability
+Kyren Archive
+Kyren Negotiations
+Lunge
+Misdirection
+Misstep
+Natural Affinity
+Noble Purpose
+Pious Warrior
+Port Inspector
+Pretender's Claim
+Puffer Extract
+Pulverize
+Puppet's Verdict
+Quagmire Lamprey
+Ramosian Rally
+Rappelling Scouts
+Renounce
+Revered Elder
+Reverent Mantra
+Righteous Indignation
+Rishadan Brigand
+Rishadan Cutpurse
+Rishadan Footpad

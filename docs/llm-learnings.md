@@ -6,6 +6,21 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-26 — *Mercadian Masques* (`mmq`) Batch 5 (`Invigorate` through `Rishadan Footpad`, 25 cards)
+
+Adding the fifth 25 previously absent *Mercadian Masques* first-printing cards (`12 Implemented`, `3 Partial`, `10 Unimplemented`) extended the DSL, engine, and `scriptgen` across five patterns (`Inviolability`, `Kyren Negotiations`, `Natural Affinity`, `Noble Purpose`, `Pious Warrior`, `Quagmire Lamprey`, `Rappelling Scouts`, `Revered Elder`, `Rishadan Brigand`, `Rishadan Cutpurse`, `Rishadan Footpad`):
+
+1. **`Trigger::DealtCombatDamage(&'static Filter)` and `T:Mode$ DamageDealtOnce` / `TriggerCount$DamageAmount`.**
+   Added `Trigger::DealtCombatDamage(&'static Filter)` to `baylee-cards-dsl` and `baylee-engine` (summing batch combat damage per target in `event_damage_of`), and taught `triggers.rs` and `mana.rs` to lower `T:Mode$ DamageDealtOnce` (`ValidSource$` -> `DealsCombatDamage`, `ValidTarget$` -> `DealtCombatDamage`) and `TriggerCount$DamageAmount` (`Amount::EventAmount`) for `Noble Purpose` and `Pious Warrior`.
+2. **`R:Event$ DamageDone | Prevent$ True | ValidTarget$ Creature.EnchantedBy` (`Inviolability`).**
+   `keywords.rs` and `wall52.rs` lower `ValidTarget$ Creature.EnchantedBy` prevention replacements to `static_ability!(Filter::EnchantedBySource, Modifier::PreventDamageFrom(&Filter::Any))`.
+3. **Untargeted `AB$ PreventDamage | Defined$ Self` and `Effect::ProtectionFromChosenColor` (`Revered Elder`, `Rappelling Scouts`).**
+   `chains.rs` maps `Defined$ Self` on a permanent's own `PreventDamage` ability to `TargetSpec::ThisObject` (`Revered Elder`), and `Effect::ProtectionFromChosenColor` falls back to `subjects::source(state, res)` when `!res.targeted` (`Rappelling Scouts`).
+4. **`RepeatEach | RepeatPlayers$ Player.Opponent` with `Sacrifice` (`UnlessCost$`) and multi-player `Effect::PlayerMayPayOr` (`Rishadan Cutpurse`, `Rishadan Footpad`, `Rishadan Brigand`).**
+   `effects.rs` lowers `RepeatEach | RepeatPlayers$ Player.Opponent` wrapping `Sacrifice | Defined$ Remembered | UnlessCost$ <n> | UnlessPayer$ Remembered` to `Effect::PlayerMayPayOr { player: PlayerRel::EachOpponent, mana: Amount::Fixed(n), effect: &Effect::SacrificeChosen { who: PlayerRel::EventPlayer, .. } }`, and `choices.rs` iterates all players returned by `players_of(player, ..)` across `res.subject.pay_players_remaining`.
+5. **`SP$ AnimateAll | ValidCards$ Land` (`Natural Affinity`).**
+   `effects.rs` lowers `AnimateAll` into `Effect::CreateContinuousEffect` ops for `Modifier::AddType(TypeSet::CREATURE)` and `Modifier::SetPT(power, toughness)`.
+
 ## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 4 (`Insubordination` through `Pangosaur`, 25 cards)
 
 Adding the fourth 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `3 Partial`, `8 Unimplemented`) extended `scriptgen` across six patterns (`Jeweled Torque`, `Karn's Touch`, `Kyren Glider`, `Liability`, `Magistrate's Veto`, `Muzzle`, `Pangosaur`) and authored 4 full `Coverage::Implemented` hand-owned cards (`Insubordination`, `Lava Runner`, `Mercadian Atlas`, `Nether Spirit`):

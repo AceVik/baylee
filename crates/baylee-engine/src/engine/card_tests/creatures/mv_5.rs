@@ -133,6 +133,7 @@ mod ravaging_horde;
 mod renegade_troops;
 mod renegade_warlord;
 mod reveillark;
+mod rishadan_brigand;
 mod rubinia_soulsinger;
 mod rushwood_elemental;
 mod sabertooth_wyvern;

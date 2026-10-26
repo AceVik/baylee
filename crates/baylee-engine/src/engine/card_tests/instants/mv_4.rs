@@ -22,6 +22,7 @@ mod memory_deluge;
 mod might_of_oaks;
 mod nocturnal_raid;
 mod quash;
+mod ramosian_rally;
 mod rapid_fire;
 mod ray_of_command;
 mod reverberation;

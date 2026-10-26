@@ -152,6 +152,7 @@ mod illusions_of_grandeur;
 mod infernal_darkness;
 mod invoke_prejudice;
 mod karma;
+mod kyren_negotiations;
 mod last_laugh;
 mod levitation;
 mod light_of_day;
