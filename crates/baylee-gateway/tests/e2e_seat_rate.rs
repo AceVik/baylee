@@ -12,7 +12,6 @@ mod common;
 use baylee_protocol::v1::{self, Envelope};
 use common::{http, json_field, login, spawn_gateway};
 use futures_util::{SinkExt, StreamExt};
-use prost::Message as _;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
