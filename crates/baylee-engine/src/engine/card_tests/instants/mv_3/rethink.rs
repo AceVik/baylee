@@ -41,9 +41,10 @@ fn rethink_counters_target_spell_when_controller_declines_to_pay_its_mana_value(
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0),
+    );
     engine.apply(p0, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
@@ -83,9 +84,10 @@ fn rethink_does_not_counter_when_controller_pays_target_spells_mana_value() {
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0),
+    );
     engine.apply(p0, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

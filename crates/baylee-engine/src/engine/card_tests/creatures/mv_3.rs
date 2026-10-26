@@ -348,6 +348,7 @@ mod soldevi_heretic;
 mod soltari_champion;
 mod soratami_rainshaper;
 mod sorceress_queen;
+mod soul_charmer;
 mod soul_sculptor;
 mod soulherder;
 mod soulsworn_jury;

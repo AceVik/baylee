@@ -70,7 +70,12 @@ fn rebel_informer_cannot_be_targeted_by_white_spells() {
     );
     assert!(options.contains(&bears));
     engine
-        .apply(p0, PlayerAction::ChooseObjects { objects: vec![bears] })
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![bears],
+            },
+        )
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 

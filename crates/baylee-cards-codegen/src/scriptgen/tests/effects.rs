@@ -1886,4 +1886,3 @@ fn sacrifice_effect_accepts_change_num_one() {
     );
     assert!(refusal_reason(&two, &cats(), None).is_some());
 }
-

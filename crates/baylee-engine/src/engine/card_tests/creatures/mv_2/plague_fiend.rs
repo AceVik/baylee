@@ -46,9 +46,10 @@ fn plague_fiend_destroys_damaged_creature_when_controller_declines_to_pay_two() 
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
@@ -98,9 +99,10 @@ fn plague_fiend_spares_damaged_creature_when_controller_pays_two() {
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
     });
     tap_all_mana(&mut engine, p1);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

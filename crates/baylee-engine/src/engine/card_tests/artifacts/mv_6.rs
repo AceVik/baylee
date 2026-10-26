@@ -24,3 +24,4 @@ mod mirror_universe;
 
 mod celestial_sword;
 mod urza_s_blueprints;
+mod well_of_discovery;

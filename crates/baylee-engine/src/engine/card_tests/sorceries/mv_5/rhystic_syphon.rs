@@ -23,9 +23,10 @@ fn rhystic_syphon_drains_five_life_when_target_player_declines_to_pay_three() {
     tap_all_mana(&mut engine, p0);
     cast_from_hand(&mut engine, p0, subject);
     engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 
@@ -54,9 +55,10 @@ fn rhystic_syphon_does_nothing_when_target_player_pays_three() {
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
     );
     tap_all_mana(&mut engine, p1);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(&mut engine, stack_is_empty);
 

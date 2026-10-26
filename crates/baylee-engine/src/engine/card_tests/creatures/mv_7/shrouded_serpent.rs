@@ -33,9 +33,10 @@ fn shrouded_serpent_cannot_be_blocked_when_defending_player_declines_to_pay_four
             },
         )
         .unwrap();
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(false)).unwrap();
     pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
@@ -53,13 +54,7 @@ fn shrouded_serpent_can_be_blocked_when_defending_player_pays_four() {
         .battlefield(0, &[subject])
         .battlefield(
             1,
-            &[
-                index::GRIZZLY_BEARS,
-                forest(),
-                forest(),
-                forest(),
-                forest(),
-            ],
+            &[index::GRIZZLY_BEARS, forest(), forest(), forest(), forest()],
         )
         .start();
     keep_mulligans(&mut engine);
@@ -83,9 +78,10 @@ fn shrouded_serpent_can_be_blocked_when_defending_player_pays_four() {
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
     );
     tap_all_mana(&mut engine, p1);
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1)
-    });
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
     engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
     pass_until(
         &mut engine,

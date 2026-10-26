@@ -111,3 +111,4 @@ mod wand_of_ith;
 mod wand_of_the_elements;
 mod war_barge;
 mod weakstone;
+mod well_of_life;

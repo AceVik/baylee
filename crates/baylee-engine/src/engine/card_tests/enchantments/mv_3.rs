@@ -105,6 +105,7 @@ mod sidequest_catch_a_fish;
 mod spidersilk_armor;
 mod still_life;
 mod stormbind;
+mod task_mage_assembly;
 mod teferi_s_care;
 mod temur_ascendancy;
 mod thelon_s_chant;

@@ -17433,6 +17433,8 @@ pub mod smother;
 pub mod smothering_tithe;
 #[path = "artifacts/vehicles/mv_2/smuggler_s_copter.rs"]
 pub mod smuggler_s_copter;
+#[path = "instants/mv_4/snag.rs"]
+pub mod snag;
 #[path = "artifacts/mv_4/snake_basket.rs"]
 pub mod snake_basket;
 #[path = "enchantments/mv_4/snake_pit.rs"]
@@ -17655,6 +17657,8 @@ pub mod soul_bleed;
 pub mod soul_burn;
 #[path = "enchantments/auras/mv_3/soul_channeling.rs"]
 pub mod soul_channeling;
+#[path = "creatures/mv_3/soul_charmer.rs"]
+pub mod soul_charmer;
 #[path = "enchantments/mv_2/soul_echo.rs"]
 pub mod soul_echo;
 #[path = "sorceries/mv_2/soul_exchange.rs"]
@@ -17683,6 +17687,8 @@ pub mod soul_sculptor;
 pub mod soul_shepherd;
 #[path = "sorceries/mv_5/soul_shred.rs"]
 pub mod soul_shred;
+#[path = "sorceries/mv_1/soul_strings.rs"]
+pub mod soul_strings;
 #[path = "creatures/mv_1/soul_warden.rs"]
 pub mod soul_warden;
 #[path = "creatures/mv_5/soulbound_guardians.rs"]
@@ -18089,6 +18095,8 @@ pub mod squirming_mass;
 pub mod squirrel_nest;
 #[path = "creatures/mv_2/squirrel_sovereign.rs"]
 pub mod squirrel_sovereign;
+#[path = "creatures/mv_4/squirrel_wrangler.rs"]
+pub mod squirrel_wrangler;
 #[path = "creatures/mv_1/squirrelanoids.rs"]
 pub mod squirrelanoids;
 #[path = "creatures/mv_2/sram_senior_edificer.rs"]
@@ -18203,6 +18211,8 @@ pub mod steady_aim;
 pub mod steal_artifact;
 #[path = "enchantments/auras/mv_2/steal_enchantment.rs"]
 pub mod steal_enchantment;
+#[path = "instants/mv_2/steal_strength.rs"]
+pub mod steal_strength;
 #[path = "creatures/mv_3/stealer_of_secrets.rs"]
 pub mod stealer_of_secrets;
 #[path = "sorceries/mv_3/stealth_mission.rs"]
@@ -18395,6 +18405,8 @@ pub mod stormkeld_prowler;
 pub mod stormrider_spirit;
 #[path = "creatures/mv_1/stormscape_apprentice.rs"]
 pub mod stormscape_apprentice;
+#[path = "creatures/mv_4/stormwatch_eagle.rs"]
+pub mod stormwatch_eagle;
 #[path = "enchantments/mv_3/story_circle.rs"]
 pub mod story_circle;
 #[path = "creatures/mv_2/story_seeker.rs"]
@@ -18633,6 +18645,8 @@ pub mod sunhome_fortress_of_the_legion;
 pub mod sunken_citadel;
 #[path = "enchantments/mv_2/sunken_city.rs"]
 pub mod sunken_city;
+#[path = "enchantments/auras/mv_2/sunken_field.rs"]
+pub mod sunken_field;
 #[path = "lands/battle/sunken_hollow.rs"]
 pub mod sunken_hollow;
 #[path = "lands/caves/sunken_palace.rs"]
@@ -19005,6 +19019,8 @@ pub mod tarpan;
 pub mod tarrian_s_journal;
 #[path = "creatures/mv_3/task_force.rs"]
 pub mod task_force;
+#[path = "enchantments/mv_3/task_mage_assembly.rs"]
+pub mod task_mage_assembly;
 #[path = "creatures/mv_1/tasseled_dromedary.rs"]
 pub mod tasseled_dromedary;
 #[path = "sorceries/mv_4/taste_of_paradise.rs"]
@@ -19543,8 +19559,12 @@ pub mod three_tree_rootweaver;
 pub mod three_visits;
 #[path = "instants/mv_3/three_wishes.rs"]
 pub mod three_wishes;
+#[path = "creatures/mv_5/thresher_beast.rs"]
+pub mod thresher_beast;
 #[path = "creatures/mv_7/thriss_nantuko_primus.rs"]
 pub mod thriss_nantuko_primus;
+#[path = "sorceries/mv_1/thrive.rs"]
+pub mod thrive;
 #[path = "lands/tapland/thriving_bluff.rs"]
 pub mod thriving_bluff;
 #[path = "lands/tapland/thriving_grove.rs"]
@@ -20753,6 +20773,8 @@ pub mod ventifact_bottle;
 pub mod verdant_automaton;
 #[path = "lands/fetch/verdant_catacombs.rs"]
 pub mod verdant_catacombs;
+#[path = "enchantments/auras/mv_3/verdant_field.rs"]
+pub mod verdant_field;
 #[path = "creatures/mv_8/verdant_force.rs"]
 pub mod verdant_force;
 #[path = "sorceries/mv_2/verdant_touch.rs"]
@@ -20795,6 +20817,8 @@ pub mod veteran_armorer;
 pub mod veteran_armorsmith;
 #[path = "creatures/mv_5/veteran_bodyguard.rs"]
 pub mod veteran_bodyguard;
+#[path = "creatures/mv_2/veteran_brawlers.rs"]
+pub mod veteran_brawlers;
 #[path = "creatures/mv_2/veteran_cathar.rs"]
 pub mod veteran_cathar;
 #[path = "creatures/mv_2/veteran_cavalier.rs"]
@@ -20911,6 +20935,8 @@ pub mod vine_trellis;
 pub mod vineglimmer_snarl;
 #[path = "creatures/mv_2/vinelasher_kudzu.rs"]
 pub mod vinelasher_kudzu;
+#[path = "creatures/mv_5/vintara_elephant.rs"]
+pub mod vintara_elephant;
 #[path = "creatures/mv_2/vintara_snapper.rs"]
 pub mod vintara_snapper;
 #[path = "sorceries/mv_4/violent_impact.rs"]
@@ -20967,6 +20993,8 @@ pub mod vitality_charm;
 pub mod vitalize;
 #[path = "instants/mv_2/vitalizing_cascade.rs"]
 pub mod vitalizing_cascade;
+#[path = "instants/mv_9/vitalizing_wind.rs"]
+pub mod vitalizing_wind;
 #[path = "creatures/mv_3/vithian_renegades.rs"]
 pub mod vithian_renegades;
 #[path = "lands/utility/vitu_ghazi_the_city_tree.rs"]
@@ -21257,6 +21285,8 @@ pub mod wall_of_torches;
 pub mod wall_of_vapor;
 #[path = "creatures/mv_1/wall_of_vines.rs"]
 pub mod wall_of_vines;
+#[path = "creatures/mv_3/wall_of_vipers.rs"]
+pub mod wall_of_vipers;
 #[path = "creatures/mv_3/wall_of_water.rs"]
 pub mod wall_of_water;
 #[path = "creatures/mv_4/wall_of_wonder.rs"]
@@ -21525,8 +21555,12 @@ pub mod welkin_guide;
 pub mod welkin_hawk;
 #[path = "creatures/mv_2/welkin_tern.rs"]
 pub mod welkin_tern;
+#[path = "artifacts/mv_6/well_of_discovery.rs"]
+pub mod well_of_discovery;
 #[path = "artifacts/mv_3/well_of_knowledge.rs"]
 pub mod well_of_knowledge;
+#[path = "artifacts/mv_4/well_of_life.rs"]
+pub mod well_of_life;
 #[path = "artifacts/equipment/mv_1/well_worn_spatula.rs"]
 pub mod well_worn_spatula;
 #[path = "enchantments/auras/mv_3/wellspring.rs"]
@@ -21657,6 +21691,8 @@ pub mod wild_jhovall;
 pub mod wild_leotau;
 #[path = "creatures/mv_3/wild_mammoth.rs"]
 pub mod wild_mammoth;
+#[path = "instants/mv_2/wild_might.rs"]
+pub mod wild_might;
 #[path = "creatures/mv_1/wild_nacatl.rs"]
 pub mod wild_nacatl;
 #[path = "creatures/mv_4/wild_ox.rs"]
@@ -21743,6 +21779,8 @@ pub mod winds_of_change;
 pub mod winds_of_rath;
 #[path = "instants/mv_2/winds_of_rebuke.rs"]
 pub mod winds_of_rebuke;
+#[path = "creatures/mv_4/windscouter.rs"]
+pub mod windscouter;
 #[path = "creatures/mv_3/windseeker_centaur.rs"]
 pub mod windseeker_centaur;
 #[path = "instants/mv_1/windstorm.rs"]
@@ -21759,6 +21797,8 @@ pub mod wing_commando;
 pub mod wing_snare;
 #[path = "creatures/mv_4/wing_splicer.rs"]
 pub mod wing_splicer;
+#[path = "sorceries/mv_3/wing_storm.rs"]
+pub mod wing_storm;
 #[path = "creatures/mv_3/winged_coatl.rs"]
 pub mod winged_coatl;
 #[path = "creatures/mv_6/winged_shepherd.rs"]
@@ -21837,6 +21877,8 @@ pub mod witch_s_familiar;
 pub mod witches_eye;
 #[path = "artifacts/mv_1/witching_well.rs"]
 pub mod witching_well;
+#[path = "instants/mv_2/withdraw.rs"]
+pub mod withdraw;
 #[path = "lands/scry/witherbloom_campus.rs"]
 pub mod witherbloom_campus;
 #[path = "instants/mv_2/withering_boon.rs"]
@@ -22141,6 +22183,8 @@ pub mod zephyr_gull;
 pub mod zephyr_net;
 #[path = "creatures/mv_1/zephyr_sprite.rs"]
 pub mod zephyr_sprite;
+#[path = "creatures/mv_4/zerapa_minotaur.rs"]
+pub mod zerapa_minotaur;
 #[path = "creatures/mv_4/zeriam_golden_wind.rs"]
 pub mod zeriam_golden_wind;
 #[path = "creatures/mv_8/zetalpa_primal_dawn.rs"]

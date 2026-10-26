@@ -13302,9 +13302,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Silt Crawler
     &["When this creature enters, tap all lands you control."],
-    &[],
-    &[],
-    &[],
+    // Snag
+    &[
+        "You may discard a Forest card rather than pay this spell's mana cost.\nPrevent all combat damage that would be dealt by unblocked creatures this turn.",
+    ],
+    // Soul Charmer
+    &[
+        "Whenever this creature deals combat damage to a creature, you gain 2 life unless that creature's controller pays {2}.",
+    ],
+    // Soul Strings
+    &[
+        "Return two target creature cards from your graveyard to your hand unless any player pays {X}.",
+    ],
     // Spiketail Drake
     &["Flying\nSacrifice this creature: Counter target spell unless its controller pays {3}."],
     // Spiketail Hatchling
@@ -13319,45 +13328,90 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this creature: Prevent all combat damage that would be dealt this turn."],
     // Spur Grappler
     &["This creature gets +2/+1 as long as you control no untapped lands."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Squirrel Wrangler
+    &[
+        "{1}{G}, Sacrifice a land: Create two 1/1 green Squirrel creature tokens.\n{1}{G}, Sacrifice a land: Squirrel creatures get +1/+1 until end of turn.",
+    ],
+    // Steal Strength
+    &[
+        "Target creature gets +1/+1 until end of turn. Another target creature gets -1/-1 until end of turn.",
+    ],
+    // Stormwatch Eagle
+    &["Flying\nSacrifice a land: Return this creature to its owner's hand."],
+    // Sunken Field
+    &[
+        "Enchant land\nEnchanted land has \"{T}: Counter target spell unless its controller pays {1}.\"",
+    ],
     // Sword Dancer
     &["{W}{W}: Target attacking creature gets -1/-0 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Task Mage Assembly
+    &[
+        "When there are no creatures on the battlefield, sacrifice this enchantment.\n{2}: This enchantment deals 1 damage to target creature. Any player may activate this ability but only as a sorcery.",
+    ],
+    // Thresher Beast
+    &[
+        "Whenever this creature becomes blocked, defending player sacrifices a land of their choice.",
+    ],
+    // Thrive
+    &["Put a +1/+1 counter on each of X target creatures."],
     // Trenching Steed
     &["Sacrifice a land: This creature gets +0/+3 until end of turn."],
     // Troubled Healer
     &["Sacrifice a land: Prevent the next 2 damage that would be dealt to any target this turn."],
     // Troublesome Spirit
     &["Flying\nAt the beginning of your end step, tap all lands you control."],
-    &[],
-    &[],
-    &[],
+    // Verdant Field
+    &["Enchant land\nEnchanted land has \"{T}: Target creature gets +1/+1 until end of turn.\""],
+    // Veteran Brawlers
+    &[
+        "This creature can't attack if defending player controls an untapped land.\nThis creature can't block if you control an untapped land.",
+    ],
+    // Vintara Elephant
+    &[
+        "Trample\n{3}: This creature loses trample until end of turn. Any player may activate this ability.",
+    ],
     // Vintara Snapper
     &[
         "This creature has shroud as long as you control no untapped lands. (It can't be the target of spells or abilities.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vitalizing Wind
+    &["Creatures you control get +7/+7 until end of turn."],
+    // Wall of Vipers
+    &[
+        "Defender (This creature can't attack.)\n{3}: Destroy this creature and target creature it's blocking. Any player may activate this ability.",
+    ],
+    // Well of Discovery
+    &["At the beginning of your end step, if you control no untapped lands, draw a card."],
+    // Well of Life
+    &["At the beginning of your end step, if you control no untapped lands, you gain 2 life."],
     // Whip Sergeant
     &["{R}: Target creature gains haste until end of turn. (It can attack this turn.)"],
     // Whipstitched Zombie
     &["At the beginning of your upkeep, sacrifice this creature unless you pay {B}."],
-    &[],
-    &[],
-    &[],
+    // Wild Might
+    &[
+        "Target creature gets +1/+1 until end of turn. That creature gets an additional +4/+4 until end of turn unless any player pays {2}.",
+    ],
+    // Windscouter
+    &[
+        "Flying\nWhen this creature attacks or blocks, return it to its owner's hand at end of combat. (Return it only if it's on the battlefield.)",
+    ],
+    // Wing Storm
+    &[
+        "Wing Storm deals damage to each player equal to twice the number of creatures that player controls with flying.",
+    ],
     // Wintermoon Mesa
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Tap two target lands.",
     ],
-    &[],
-    &[],
+    // Withdraw
+    &[
+        "Return target creature to its owner's hand. Then return another target creature to its owner's hand unless its controller pays {1}.",
+    ],
+    // Zerapa Minotaur
+    &[
+        "First strike\n{2}: This creature loses first strike until end of turn. Any player may activate this ability.",
+    ],
     // Raging Kavu
     &["Flash\nHaste"],
     // Absorb
