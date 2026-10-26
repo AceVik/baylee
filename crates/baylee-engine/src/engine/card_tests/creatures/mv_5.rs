@@ -36,6 +36,7 @@ mod chandler;
 mod charging_bandits;
 mod coastal_hornclaw;
 mod cockatrice;
+mod coffin_puppets;
 mod corrupt_official;
 mod crashing_boars;
 mod crimson_roc;

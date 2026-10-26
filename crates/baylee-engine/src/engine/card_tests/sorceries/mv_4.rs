@@ -15,6 +15,7 @@ mod ashen_powder;
 mod avalanche;
 mod bee_sting;
 mod break_asunder;
+mod calming_verse;
 mod channel_the_suns;
 mod concentrate;
 mod creeping_mold;

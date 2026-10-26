@@ -64,6 +64,7 @@ mod boulderborn_dragon;
 mod clockwork_avian;
 mod cloudheath_drake;
 mod coal_golem;
+mod copper_leaf_angel;
 mod crosis_s_attendant;
 mod dalek_drone;
 mod darigaaz_s_attendant;

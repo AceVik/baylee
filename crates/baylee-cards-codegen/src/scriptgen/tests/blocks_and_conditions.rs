@@ -1277,7 +1277,8 @@ fn combat_damage_to_creature_conditional_subability_and_graveyard_sacrifice_cost
          IsPresent$ Mountain.YouCtrl\n",
     );
     assert!(
-        puppets.abilities[0].contains("Sacrifice(&Filter::YOUR_LAND), Sacrifice(&Filter::YOUR_LAND)")
+        puppets.abilities[0]
+            .contains("Sacrifice(&Filter::YOUR_LAND), Sacrifice(&Filter::YOUR_LAND)")
             && puppets.abilities[0].contains("zone = ActivationZone::Graveyard")
             && puppets.abilities[0].contains("Condition::All(&[")
             && puppets.abilities[0].contains("Effect::ReturnSourceFromGraveyard"),

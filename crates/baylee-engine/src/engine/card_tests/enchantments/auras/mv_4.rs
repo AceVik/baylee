@@ -12,6 +12,7 @@ mod cursed_land;
 mod dehydration;
 mod disappear;
 mod divine_transformation;
+mod entangler;
 mod feast_of_the_unicorn;
 mod flight_of_fancy;
 mod improvised_armor;

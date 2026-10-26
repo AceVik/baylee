@@ -12962,23 +12962,42 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Phyrexian Rager
     &["When this creature enters, you draw a card and you lose 1 life."],
-    &[],
-    &[],
+    // Avatar of Hope
+    &[
+        "If you have 3 or less life, this spell costs {6} less to cast.\nFlying\nThis creature can block any number of creatures.",
+    ],
+    // Abolish
+    &[
+        "You may discard a Plains card rather than pay this spell's mana cost.\nDestroy target artifact or enchantment.",
+    ],
     // Agent of Shauku
     &["{1}{B}, Sacrifice a land: Target creature gets +2/+0 until end of turn."],
     // Alexi's Cloak
     &[
         "Flash\nEnchant creature\nEnchanted creature has shroud. (It can't be the target of spells or abilities.)",
     ],
-    &[],
+    // Alexi, Zephyr Mage
+    &["{X}{U}, {T}, Discard two cards: Return X target creatures to their owners' hands."],
     // Aura Fracture
     &["Sacrifice a land: Destroy target enchantment."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Avatar of Fury
+    &[
+        "If an opponent controls seven or more lands, this spell costs {6} less to cast.\nFlying\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Avatar of Might
+    &[
+        "If an opponent controls at least four more creatures than you, this spell costs {6} less to cast.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
+    // Avatar of Will
+    &["If an opponent has no cards in hand, this spell costs {6} less to cast.\nFlying"],
+    // Avatar of Woe
+    &[
+        "If there are ten or more creature cards total in all graveyards, this spell costs {6} less to cast.\nFear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{T}: Destroy target creature. It can't be regenerated.",
+    ],
+    // Barbed Field
+    &["Enchant land\nEnchanted land has \"{T}: This land deals 1 damage to any target.\""],
+    // Blessed Wind
+    &["Target player's life total becomes 20."],
     // Bog Elemental
     &[
         "Protection from white\nAt the beginning of your upkeep, sacrifice this creature unless you sacrifice a land.",
@@ -12987,10 +13006,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{T}, Sacrifice a land: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Branded Brawlers
+    &[
+        "This creature can't attack if defending player controls an untapped land.\nThis creature can't block if you control an untapped land.",
+    ],
+    // Brutal Suppression
+    &[
+        "Activated abilities of nontoken Rebels cost an additional \"Sacrifice a land\" to activate.",
+    ],
+    // Calming Verse
+    &[
+        "Destroy all enchantments you don't control. Then if you control an untapped land, destroy all enchantments you control.",
+    ],
+    // Celestial Convergence
+    &[
+        "This enchantment enters with seven omen counters on it.\nAt the beginning of your upkeep, remove an omen counter from this enchantment. If there are no omen counters on this enchantment, the player with the highest life total wins the game. If two or more players are tied for highest life total, the game is a draw.",
+    ],
     // Chilling Apparition
     &[
         "{B}: Regenerate this creature.\nWhenever this creature deals combat damage to a player, that player discards a card.",
@@ -12999,25 +13030,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{0}: Tap all lands you control. This artifact becomes a 3/3 Turtle artifact creature until end of turn.",
     ],
-    &[],
+    // Citadel of Pain
+    &[
+        "At the beginning of each player's end step, this enchantment deals X damage to that player, where X is the number of untapped lands they control.",
+    ],
     // Coastal Hornclaw
     &["Sacrifice a land: This creature gains flying until end of turn."],
-    &[],
-    &[],
+    // Coffin Puppets
+    &[
+        "Sacrifice two lands: Return this card from your graveyard to the battlefield. Activate only during your upkeep and only if you control a Swamp.",
+    ],
+    // Copper-Leaf Angel
+    &["Flying\n{T}, Sacrifice X lands: Put X +1/+1 counters on this creature."],
     // Darba
     &["At the beginning of your upkeep, sacrifice this creature unless you pay {G}{G}."],
-    &[],
-    &[],
+    // Death Charmer
+    &[
+        "Whenever this creature deals combat damage to a creature, that creature's controller loses 2 life unless they pay {2}.",
+    ],
+    // Denying Wind
+    &[
+        "Search target player's library for up to seven cards and exile them. Then that player shuffles.",
+    ],
     // Despoil
     &["Destroy target land. Its controller loses 2 life."],
-    &[],
+    // Devastate
+    &["Destroy target land. Devastate deals 1 damage to each creature and each player."],
     // Diving Griffin
     &["Flying, vigilance"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dual Nature
+    &[
+        "Whenever a nontoken creature enters, its controller creates a token that's a copy of that creature.\nWhenever a nontoken creature leaves the battlefield, exile all tokens with the same name as that creature.\nWhen this enchantment leaves the battlefield, exile all tokens created with this enchantment.",
+    ],
+    // Elephant Resurgence
+    &[
+        "Each player creates a green Elephant creature token. Those creatures have \"This token's power and toughness are each equal to the number of creature cards in its controller's graveyard.\"",
+    ],
+    // Endbringer's Revel
+    &[
+        "{4}: Return target creature card from a graveyard to its owner's hand. Any player may activate this ability but only as a sorcery.",
+    ],
+    // Entangler
+    &["Enchant creature\nEnchanted creature can block any number of creatures."],
+    // Excavation
+    &["{1}, Sacrifice a land: Draw a card. Any player may activate this ability."],
     // Excise
     &["Exile target attacking creature unless its controller pays {X}."],
     // Fault Riders
@@ -13028,7 +13084,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature has fear as long as you control no untapped lands. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
+    // Fickle Efreet
+    &[
+        "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.",
+    ],
     &[],
     &[],
     &[],

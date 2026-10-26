@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod abolish;
 mod absorb;
 mod aerial_predation;
 mod afflict;

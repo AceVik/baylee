@@ -78,6 +78,7 @@ mod cradle_guard;
 mod crypt_rats;
 mod daring_apprentice;
 mod dauthi_jackal;
+mod death_charmer;
 mod defiant_vanguard;
 mod delney_streetwise_lookout;
 mod desert_nomads;

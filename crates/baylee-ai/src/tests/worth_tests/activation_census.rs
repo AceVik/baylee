@@ -372,7 +372,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Nemesis (`nem`) Batch 4 adds 4 non-mana activated abilities on Sliptide
     // Serpent, Stampede Driver, Stronghold Biologist, and Woodripper (4 of 4
     // read by the evaluator).
-    assert_eq!((read, of), (2817, 3552), "activated/loyalty reader census");
+    // Prophecy (`pcy`) Batch 1 adds 6 non-mana activated abilities on Avatar of
+    // Fury, Avatar of Woe, Coffin Puppets, Copper-Leaf Angel, Endbringer's
+    // Revel, and Excavation (5 of 6 read by the evaluator).
+    assert_eq!((read, of), (2822, 3558), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
