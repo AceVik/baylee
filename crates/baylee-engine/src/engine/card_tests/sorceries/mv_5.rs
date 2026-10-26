@@ -14,6 +14,7 @@ mod dosan_s_oldest_chant;
 mod dregs_of_sorrow;
 mod essence_drain;
 mod extortion;
+mod frenzied_tilling;
 mod fumarole;
 mod hellfire;
 mod hymn_of_rebirth;

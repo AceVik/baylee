@@ -101,6 +101,7 @@ mod fatehold_chronologist;
 mod femeref_enchantress;
 mod fiend_artisan;
 mod fire_sprites;
+mod firebrand_ranger;
 mod fledgling_djinn;
 mod floodbringer;
 mod fog_bank;

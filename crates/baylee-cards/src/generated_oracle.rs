@@ -13643,54 +13643,102 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice a creature or land.\nDraw a card."],
     // Dromar's Attendant
     &["{1}, Sacrifice this creature: Add {W}{U}{B}."],
-    &[],
-    &[],
-    &[],
+    // Dromar, the Banisher
+    &[
+        "Flying\nWhenever Dromar deals combat damage to a player, you may pay {2}{U}. If you do, choose a color, then return all creatures of that color to their owners' hands.",
+    ],
+    // Dueling Grounds
+    &[
+        "No more than one creature can attack each combat.\nNo more than one creature can block each combat.",
+    ],
+    // Duskwalker
+    &[
+        "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with fear. (It can't be blocked except by artifact creatures and/or black creatures.)",
+    ],
     // Elfhame Palace
     &["This land enters tapped.\n{T}: Add {G} or {W}."],
-    &[],
+    // Elfhame Sanctuary
+    &[
+        "At the beginning of your upkeep, you may search your library for a basic land card, reveal that card, put it into your hand, then shuffle. If you do, you skip your draw step this turn.",
+    ],
     // Elvish Champion
     &[
         "Other Elf creatures get +1/+1 and have forestwalk. (They can't be blocked as long as defending player controls a Forest.)",
     ],
-    &[],
-    &[],
+    // Empress Galina
+    &["{U}{U}, {T}: Gain control of target legendary permanent. (This effect lasts indefinitely.)"],
+    // Essence Leak
+    &[
+        "Enchant permanent\nAs long as enchanted permanent is red or green, it has \"At the beginning of your upkeep, sacrifice this permanent unless you pay its mana cost.\"",
+    ],
     // Exclude
     &["Counter target creature spell.\nDraw a card."],
-    &[],
-    &[],
+    // Exotic Curse
+    &[
+        "Enchant creature\nDomain — Enchanted creature gets -1/-1 for each basic land type among lands you control.",
+    ],
+    // Explosive Growth
+    &[
+        "Kicker {5} (You may pay an additional {5} as you cast this spell.)\nTarget creature gets +2/+2 until end of turn. If this spell was kicked, that creature gets +5/+5 until end of turn instead.",
+    ],
     // Fact or Fiction
     &[
         "Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one pile into your hand and the other into your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
+    // Faerie Squadron
+    &[
+        "Kicker {3}{U} (You may pay an additional {3}{U} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with flying.",
+    ],
+    // Fight or Flight
+    &[
+        "At the beginning of combat on each opponent's turn, separate all creatures that player controls into two piles. Only creatures in the pile of their choice can attack this turn.",
+    ],
+    // Firebrand Ranger
+    &["{G}, {T}: You may put a basic land card from your hand onto the battlefield."],
     // Fires of Yavimaya
     &[
         "Creatures you control have haste.\nSacrifice this enchantment: Target creature gets +2/+2 until end of turn.",
     ],
     // Firescreamer
     &["{R}: This creature gets +1/+0 until end of turn."],
-    &[],
+    // Frenzied Tilling
+    &[
+        "Destroy target land. Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    ],
     // Galina's Knight
     &["Protection from red"],
     // Geothermal Crevice
     &["This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add {B}{G}."],
-    &[],
+    // Ghitu Fire
+    &[
+        "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nGhitu Fire deals X damage to any target.",
+    ],
     // Glimmering Angel
     &[
         "Flying\n{U}: This creature gains shroud until end of turn. (It can't be the target of spells or abilities.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Global Ruin
+    &[
+        "Each player chooses from the lands they control a land of each basic land type, then sacrifices the rest.",
+    ],
+    // Goblin Spy
+    &["Play with the top card of your library revealed."],
+    // Goham Djinn
+    &[
+        "{1}{B}: Regenerate this creature.\nThis creature gets -2/-2 as long as black is the most common color among all permanents or is tied for most common.",
+    ],
+    // Halam Djinn
+    &[
+        "Haste\nThis creature gets -2/-2 as long as red is the most common color among all permanents or is tied for most common.",
+    ],
     // Hanna, Ship's Navigator
     &[
         "{1}{W}{U}, {T}: Return target artifact or enchantment card from your graveyard to your hand.",
     ],
-    &[],
+    // Harsh Judgment
+    &[
+        "As this enchantment enters, choose a color.\nIf an instant or sorcery spell of the chosen color would deal damage to you, it deals that damage to its controller instead.",
+    ],
     // Hate Weaver
     &["{2}: Target blue or red creature gets +1/+0 until end of turn."],
     // Heroes' Reunion
@@ -13699,17 +13747,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{B}: This creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Horned Cheetah
+    &["Whenever this creature deals damage, you gain that much life."],
+    // Hunting Kavu
+    &[
+        "{1}{R}{G}, {T}: Exile this creature and target creature without flying that's attacking you.",
+    ],
+    // Hypnotic Cloud
+    &[
+        "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nTarget player discards a card. If this spell was kicked, that player discards three cards instead.",
+    ],
     // Irrigation Ditch
     &["This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add {G}{U}."],
-    &[],
+    // Jade Leech
+    &["Green spells you cast cost {G} more to cast."],
     // Juntu Stakes
     &["Creatures with power 1 or less don't untap during their controllers' untap steps."],
-    &[],
-    &[],
-    &[],
+    // Kangee, Aerie Keeper
+    &[
+        "Kicker {X}{2} (You may pay an additional {X}{2} as you cast this spell.)\nFlying\nWhen Kangee enters, if it was kicked, put X feather counters on it.\nOther Bird creatures get +1/+1 for each feather counter on Kangee.",
+    ],
+    // Kavu Aggressor
+    &[
+        "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nThis creature can't block.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+    ],
+    // Kavu Chameleon
+    &[
+        "This spell can't be countered.\n{G}: This creature becomes the color of your choice until end of turn.",
+    ],
     // Kavu Climber
     &["When this creature enters, draw a card."],
     // Kavu Lair

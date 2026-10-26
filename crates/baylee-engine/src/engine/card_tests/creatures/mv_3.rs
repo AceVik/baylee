@@ -168,6 +168,7 @@ mod horned_sliver;
 mod hornet_cobra;
 mod horseshoe_crab;
 mod hulking_ogre;
+mod hunting_kavu;
 mod hunting_moa;
 mod hurloon_minotaur;
 mod hurloon_shaman;
