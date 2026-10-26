@@ -461,6 +461,7 @@ mod seraph_of_the_suns;
 mod shaleskin_bruiser;
 mod shauku_endbringer;
 mod shivan_hellkite;
+mod shrouded_serpent;
 mod silent_sentinel;
 mod simic_sky_swallower;
 mod skyshroud_behemoth;

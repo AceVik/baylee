@@ -13184,61 +13184,122 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature can't be the target of black spells or abilities from black sources.\n{2}{W}: Put target nontoken Mercenary on the bottom of its owner's library.",
     ],
-    &[],
-    &[],
+    // Mine Bearer
+    &["{T}, Sacrifice this creature: Destroy target attacking creature."],
+    // Mirror Strike
+    &[
+        "All combat damage that would be dealt to you this turn by target unblocked creature is dealt to its controller instead.",
+    ],
     // Mungha Wurm
     &["You can't untap more than one land during your untap step."],
-    &[],
+    // Nakaya Shade
+    &["{B}: This creature gets +1/+1 until end of turn unless any player pays {2}."],
     // Noxious Field
     &[
         "Enchant land\nEnchanted land has \"{T}: This land deals 1 damage to each creature and each player.\"",
     ],
-    &[],
-    &[],
-    &[],
+    // Outbreak
+    &[
+        "You may discard a Swamp card rather than pay this spell's mana cost.\nChoose a creature type. All creatures of that type get -1/-1 until end of turn.",
+    ],
+    // Overburden
+    &[
+        "Whenever a player puts a nontoken creature onto the battlefield, that player returns a land they control to its owner's hand.",
+    ],
+    // Panic Attack
+    &["Up to three target creatures can't block this turn."],
     // Pit Raptor
     &[
         "Flying, first strike\nAt the beginning of your upkeep, sacrifice this creature unless you pay {2}{B}{B}.",
     ],
-    &[],
-    &[],
-    &[],
+    // Plague Fiend
+    &[
+        "Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.",
+    ],
+    // Plague Wind
+    &["Destroy all creatures you don't control. They can't be regenerated."],
+    // Psychic Theft
+    &[
+        "Target player reveals their hand. You choose an instant or sorcery card from it and exile that card. You may cast that card for as long as it remains exiled. At the beginning of the next end step, if you haven't cast the card, return it to its owner's hand.",
+    ],
     // Pygmy Razorback
     &["Trample"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Quicksilver Wall
+    &[
+        "Defender (This creature can't attack.)\n{4}: Return this creature to its owner's hand. Any player may activate this ability.",
+    ],
+    // Rebel Informer
+    &[
+        "This creature can't be the target of white spells or abilities from white sources.\n{3}: Put target nontoken Rebel on the bottom of its owner's library.",
+    ],
+    // Rethink
+    &["Counter target spell unless its controller pays {X}, where X is its mana value."],
+    // Reveille Squad
+    &[
+        "Whenever one or more creatures attack you, if this creature is untapped, you may untap all creatures you control.",
+    ],
     // Rhystic Cave
     &[
         "{T}: Choose a color. Add one mana of that color unless any player pays {1}. Activate only as an instant.",
     ],
-    &[],
+    // Rhystic Circle
+    &[
+        "{1}: Any player may pay {1}. If no one does, the next time a source of your choice would deal damage to you this turn, prevent that damage.",
+    ],
     // Rhystic Deluge
     &["{U}: Tap target creature unless its controller pays {1}."],
-    &[],
-    &[],
-    &[],
+    // Rhystic Lightning
+    &[
+        "Rhystic Lightning deals 4 damage to any target unless that permanent's controller or that player pays {2}. If they do, Rhystic Lightning deals 2 damage to the permanent or player.",
+    ],
+    // Rhystic Scrying
+    &["Draw three cards. Then if any player pays {2}, discard three cards."],
+    // Rhystic Shield
+    &[
+        "Creatures you control get +0/+1 until end of turn. They get an additional +0/+2 until end of turn unless any player pays {2}.",
+    ],
     // Rhystic Study
     &["Whenever an opponent casts a spell, you may draw a card unless that player pays {1}."],
-    &[],
-    &[],
+    // Rhystic Syphon
+    &["Unless target player pays {3}, that player loses 5 life and you gain 5 life."],
+    // Rhystic Tutor
+    &[
+        "Unless any player pays {2}, search your library for a card, put that card into your hand, then shuffle.",
+    ],
     // Rib Cage Spider
     &["Reach (This creature can block creatures with flying.)"],
-    &[],
+    // Ribbon Snake
+    &[
+        "Flying\n{2}: This creature loses flying until end of turn. Any player may activate this ability.",
+    ],
     // Ridgeline Rager
     &["{R}: This creature gets +1/+0 until end of turn."],
     // Root Cage
     &["Mercenaries don't untap during their controllers' untap steps."],
-    &[],
+    // Samite Sanctuary
+    &[
+        "{2}: Prevent the next 1 damage that would be dealt to target creature this turn. Any player may activate this ability.",
+    ],
     // Scoria Cat
     &["This creature gets +3/+3 as long as you control no untapped lands."],
-    &[],
+    // Search for Survivors
+    &[
+        "Reorder your graveyard at random. An opponent chooses a card at random in your graveyard. If it's a creature card, put it onto the battlefield. Otherwise, exile it.",
+    ],
     // Searing Wind
     &["Searing Wind deals 10 damage to any target."],
-    &[],
-    &[],
-    &[],
+    // Sheltering Prayers
+    &[
+        "Basic lands each player controls have shroud as long as that player controls three or fewer lands. (They can't be the targets of spells or abilities.)",
+    ],
+    // Shield Dancer
+    &[
+        "{2}{W}: The next time target attacking creature would deal combat damage to this creature this turn, that creature deals that damage to itself instead.",
+    ],
+    // Shrouded Serpent
+    &[
+        "Whenever this creature attacks, defending player may pay {4}. If that player doesn't, this creature can't be blocked this turn.",
+    ],
     // Silt Crawler
     &["When this creature enters, tap all lands you control."],
     &[],

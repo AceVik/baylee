@@ -10974,3 +10974,28 @@ Living Terrain
 Mageta the Lion
 Mana Vapors
 Mercenary Informer
+Mine Bearer
+Mirror Strike
+Nakaya Shade
+Outbreak
+Overburden
+Panic Attack
+Plague Fiend
+Plague Wind
+Psychic Theft
+Quicksilver Wall
+Rebel Informer
+Rethink
+Reveille Squad
+Rhystic Circle
+Rhystic Lightning
+Rhystic Scrying
+Rhystic Shield
+Rhystic Syphon
+Rhystic Tutor
+Ribbon Snake
+Samite Sanctuary
+Search for Survivors
+Sheltering Prayers
+Shield Dancer
+Shrouded Serpent

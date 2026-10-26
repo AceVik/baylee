@@ -204,6 +204,7 @@ mod patrol_hound;
 mod people_of_the_woods;
 mod phantasmal_mount;
 mod phyrexian_denouncer;
+mod plague_fiend;
 mod plague_witch;
 mod plaguebearer;
 mod plant_elemental;

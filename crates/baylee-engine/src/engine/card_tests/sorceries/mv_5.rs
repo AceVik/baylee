@@ -24,6 +24,7 @@ mod mana_geyser;
 mod natural_spring;
 mod overrun;
 mod reign_of_terror;
+mod rhystic_syphon;
 mod sever_soul;
 mod song_mad_treachery;
 mod soul_feast;

@@ -74,6 +74,7 @@ mod rend_flesh;
 mod rend_spirit;
 mod repulse;
 mod rescind;
+mod rethink;
 mod reverse_damage;
 mod reviving_dose;
 mod ritual_of_rejuvenation;

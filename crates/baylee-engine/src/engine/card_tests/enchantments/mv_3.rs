@@ -97,6 +97,7 @@ mod retreat_to_kazandu;
 mod rhystic_study;
 mod roots_of_life;
 mod sacred_mesa;
+mod samite_sanctuary;
 mod season_of_the_witch;
 mod second_chance;
 mod seismic_assault;

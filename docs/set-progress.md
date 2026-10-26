@@ -752,6 +752,7 @@ no-engine-change contract:
 - **Prophecy (`pcy`)** — in progress:
   - Batch 1 (`Abolish` to `Fickle Efreet`, 25 cards): **9 Implemented, 6 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `6 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 2 (`Flameshot` to `Mercenary Informer`, 25 cards): **7 Implemented, 2 Partial, 16 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen`, `2 Partial` hand-owned, and `16 Unimplemented` stubs).
+  - Batch 3 (`Mine Bearer` to `Shrouded Serpent`, 25 cards): **10 Implemented, 0 Partial, 15 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen` and `15 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 
