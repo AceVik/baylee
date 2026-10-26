@@ -17,7 +17,7 @@ fn excavation_lets_any_player_pay_one_and_sacrifice_a_land_to_draw_a_card() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let excavation = on_battlefield(&engine, p0, excavation()).unwrap();
+    let enchantment = on_battlefield(&engine, p0, excavation()).unwrap();
     let p0_island = on_battlefield(&engine, p0, island()).unwrap();
     let p0_hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
@@ -49,7 +49,7 @@ fn excavation_lets_any_player_pay_one_and_sacrifice_a_land_to_draw_a_card() {
         .apply(
             p1,
             PlayerAction::ActivateAbility {
-                source: excavation,
+                source: enchantment,
                 ability_index: 0,
             },
         )
