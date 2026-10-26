@@ -311,6 +311,12 @@ impl Tx<'_> {
                     "attacking" => "Filter::Attacking".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "blockingSource" => "Filter::BlockingSource".to_string(),
+                    "blockingTriggeredAttacker"
+                        if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
+                    {
+                        "Filter::BlockingSource".to_string()
+                    }
                     "blocked" => "Filter::Blocked".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),

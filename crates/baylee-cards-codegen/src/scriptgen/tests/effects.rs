@@ -2110,3 +2110,28 @@ fn invasion_batch_five_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn invasion_batch_six_reader_patterns() {
+    let skittish = "Name:Skittish Kavu\nManaCost:1 R\nTypes:Creature\nPT:1/1\n\
+        S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 1 | AddToughness$ 1 | CheckSVar$ X | SVarCompare$ EQ0\n\
+        SVar:X:Count$Valid Creature.White+OppCtrl/Plus.Y\n\
+        SVar:Y:Count$Valid Creature.Blue+OppCtrl";
+    assert_eq!(
+        read(skittish).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPT(1, 1), condition = Some(Condition::BattlefieldCountAtMost(&CHECK1, 0)))"
+        ]
+    );
+
+    let sparring = "Name:Sparring Golem\nManaCost:3\nTypes:Artifact Creature\nPT:2/2\n\
+        T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigPump\n\
+        SVar:TrigPump:DB$ Pump | Defined$ Self | NumAtt$ +X | NumDef$ +X\n\
+        SVar:X:Count$Valid Creature.blockingTriggeredAttacker";
+    assert_eq!(
+        read(sparring).abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::CountOf { filter: &COUNT1, zone: ZoneSel::Battlefield }, toughness: Amount::CountOf { filter: &COUNT1, zone: ZoneSel::Battlefield }, keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}

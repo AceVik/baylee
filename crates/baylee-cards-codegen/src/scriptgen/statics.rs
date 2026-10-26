@@ -227,7 +227,10 @@ impl Tx<'_> {
         // clause the `A:` line reads as a restriction is, on a static, the
         // condition under which the ability exists at all, and the engine
         // registers and removes it as the condition changes.
-        let condition = self.condition(&mut p)?;
+        let mut condition = self.condition(&mut p)?;
+        if condition.is_empty() && p.peek("CheckSVar").is_some() {
+            condition = self.static_svar_condition(&mut p)?;
+        }
         let mut out = Vec::new();
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
@@ -265,6 +268,68 @@ impl Tx<'_> {
         }
         self.body.abilities.extend(out);
         Some(())
+    }
+
+    fn static_svar_condition(&mut self, p: &mut Params) -> Option<String> {
+        let var = p.take("CheckSVar")?;
+        let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
+        if cmp != "EQ0" {
+            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+        }
+        let Some(raw) = self
+            .svars
+            .get(var.trim())
+            .and_then(|s| s.trim().strip_prefix("Count$Valid "))
+        else {
+            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+        };
+        let valid = match raw.split_once("/Plus.") {
+            None => raw.to_string(),
+            Some((first, second_var)) => {
+                let Some(second) = self
+                    .svars
+                    .get(second_var.trim())
+                    .and_then(|s| s.trim().strip_prefix("Count$Valid "))
+                else {
+                    return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+                };
+                format!("{first},{second}")
+            }
+        };
+        if valid.contains('/') {
+            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+        }
+        let relative = valid.split(',').any(|alt| {
+            alt.split(['.', '+']).any(|a| {
+                matches!(
+                    a.trim(),
+                    "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                )
+            })
+        });
+        let yours = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+        let opps = valid
+            .split(',')
+            .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"));
+        let nobodys = !valid
+            .split(',')
+            .flat_map(|alt| alt.split(['.', '+']))
+            .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
+        if relative || (!yours && !opps && !nobodys) {
+            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+        }
+        let expr = self.filter_expr(&valid)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        let variant = if yours {
+            "ControlCountAtMost"
+        } else {
+            "BattlefieldCountAtMost"
+        };
+        Some(format!(
+            ", condition = Some(Condition::{variant}(&{name}, 0))"
+        ))
     }
 
     fn reveal_all_hands(&mut self, mut p: Params) -> Option<()> {
