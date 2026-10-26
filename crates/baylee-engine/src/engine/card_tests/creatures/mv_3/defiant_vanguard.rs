@@ -13,7 +13,11 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_recruits_rebels() {
     let mut engine = Duel::new(SEED, index::NIGHTWIND_GLIDER)
-        .battlefield(0, &[card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")])
+        .battlefield(
+            0,
+            &[card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"), forest()],
+        )
+        .hand(0, &[index::FOG])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -51,8 +55,10 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         "Defiant Vanguard recruited Nightwind Glider onto the battlefield"
     );
 
-    // Untap on P1's turn? No, untap Defiant Vanguard and let P1's 3/3 Hill Giant attack;
-    // give Defiant Vanguard +0/+4 so it survives combat damage, then verify both die at end of combat!
+    // Let Vanguard untap normally after recruitment, then prevent combat damage
+    // so both creatures are still present when the delayed destruction resolves.
+    reach_their_main_phase(&mut engine, P1);
+    reach_their_main_phase(&mut engine, P0);
     reach_their_main_phase(&mut engine, P1);
     let vanguard = on_battlefield(
         &engine,
@@ -60,29 +66,13 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"),
     )
     .unwrap();
-    engine
-        .dev_state_mut(P0)
-        .unwrap()
-        .object_mut(vanguard)
-        .unwrap()
-        .status
-        .remove(crate::object::Status::TAPPED);
-    engine
-        .dev_state_mut(P0)
-        .unwrap()
-        .object_mut(vanguard)
-        .unwrap()
-        .counters
-        .add(CounterKind::P1P1, 3);
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
-    engine
-        .dev_state_mut(P1)
-        .unwrap()
-        .object_mut(giant)
-        .unwrap()
-        .counters
-        .add(CounterKind::P1P1, 3);
-    engine.refresh_offer();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == P0),
+    );
+    cast_from_hand(&mut engine, P0, index::FOG);
+    pass_until(&mut engine, stack_is_empty);
 
     pass_until(
         &mut engine,
@@ -109,27 +99,28 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         )
         .unwrap();
     pass_until(&mut engine, |e| {
+        e.state().turn.step == crate::turn::Step::CombatEnd && !stack_is_empty(e)
+    });
+    assert_eq!(
+        engine.state().object(vanguard).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert_eq!(
+        engine.state().object(giant).unwrap().zone,
+        Zone::Battlefield
+    );
+    pass_until(&mut engine, |e| {
         e.state().turn.phase == Phase::SecondMain && stack_is_empty(e)
     });
 
-    assert!(
-        on_battlefield(
-            &engine,
-            P0,
-            card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")
-        )
-        .is_none()
-            && in_graveyard(
-                &engine,
-                P0,
-                card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")
-            )
-            .is_some(),
+    assert_eq!(
+        engine.state().object(vanguard).unwrap().zone,
+        Zone::Graveyard,
         "Defiant Vanguard was destroyed at end of combat"
     );
-    assert!(
-        on_battlefield(&engine, P1, index::HILL_GIANT).is_none()
-            && in_graveyard(&engine, P1, index::HILL_GIANT).is_some(),
-        "the 6/6 Hill Giant blocked by Defiant Vanguard was destroyed at end of combat"
+    assert_eq!(
+        engine.state().object(giant).unwrap().zone,
+        Zone::Graveyard,
+        "the blocked Hill Giant was destroyed at end of combat"
     );
 }

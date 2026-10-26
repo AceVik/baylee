@@ -60,4 +60,5 @@ fn laccolith_whelp_deals_one_damage_to_target_creature_and_assigns_no_combat_dam
         Some(bears),
         "blocker takes no combat damage from Laccolith Whelp"
     );
+    assert_eq!(engine.state().object(bears).unwrap().damage, 0);
 }
