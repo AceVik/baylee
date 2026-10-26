@@ -72,7 +72,13 @@ pub struct Answer4 {
     pub target: TeacherTarget4,
 }
 
-/// A Playernet v4 agent driving one or more seats via ONNX Runtime.
+/// Canonical display name of the trained neural player (`BayleeKI`; `NET-BayleeKI` on the gateway wire).
+pub const BAYLEE_KI_NAME: &str = "BayleeKI";
+
+/// Canonical alias for the trained Playernet v4 agent ([`NetPlayer4`]).
+pub type BayleeKI = NetPlayer4;
+
+/// A Playernet v4 (`BayleeKI`) agent driving one or more seats via ONNX Runtime.
 pub struct NetPlayer4 {
     sessions: BTreeMap<u8, Session>,
     model_dir: PathBuf,
@@ -457,18 +463,20 @@ impl NetPlayer4 {
                 target: TeacherTarget4::default(),
             }
         };
-        match &ans.action {
-            PlayerAction::CastSpell { card } => {
-                self.last_announced_source.insert(seat_u8, (*card, None));
+        if view.owed.is_none() {
+            match &ans.action {
+                PlayerAction::CastSpell { card } => {
+                    self.last_announced_source.insert(seat_u8, (*card, None));
+                }
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                } if !tactics::is_mana_ability_entry(view, *source, *ability_index) => {
+                    self.last_announced_source
+                        .insert(seat_u8, (*source, Some(*ability_index)));
+                }
+                _ => {}
             }
-            PlayerAction::ActivateAbility {
-                source,
-                ability_index,
-            } => {
-                self.last_announced_source
-                    .insert(seat_u8, (*source, Some(*ability_index)));
-            }
-            _ => {}
         }
         ans
     }
@@ -763,8 +771,27 @@ impl NetPlayer4 {
             }
         };
 
-        let action = decode_action4(cands, view, pending, &target)
+        let mut action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
+        if view.owed.is_some()
+            && cands.head == HeadKind4::SingleChoice
+            && let Some(tap_src) = tactics::active_source_requires_tap_self(
+                view,
+                self.last_announced_source.get(&view.seat.get()).copied(),
+            )
+            && let Some(cand) = cands.candidates.get(target.single_idx as usize)
+            && let Some(&alt_id) = cand.group_object_ids.iter().find(|&&oid| oid != tap_src)
+        {
+            match &mut action {
+                PlayerAction::ActivateManaAbility { source }
+                | PlayerAction::ActivateAbility { source, .. }
+                    if *source == tap_src =>
+                {
+                    *source = alt_id;
+                }
+                _ => {}
+            }
+        }
         if !(matches!(action, PlayerAction::CancelCast) && view.casting.is_some())
             && let Some(fault) = pending.answer_fault(&action)
         {

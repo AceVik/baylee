@@ -982,7 +982,7 @@ fn filter_requires_cmc_exactly_x(filter: &baylee_cards_dsl::Filter) -> bool {
     }
 }
 
-/// Checks whether a [`PublicObject`] satisfies a basic type/controller [`baylee_cards_dsl::Filter`].
+/// Checks whether a [`PublicObject`] satisfies a basic type/controller/characteristic [`baylee_cards_dsl::Filter`].
 #[must_use]
 pub fn public_object_matches_basic_filter(
     actor: PlayerId,
@@ -1003,10 +1003,24 @@ pub fn public_object_matches_basic_filter(
         baylee_cards_dsl::Filter::LacksType(ts) => !obj.types.intersects(*ts),
         baylee_cards_dsl::Filter::HasSupertype(st) => obj.supertypes.contains(*st),
         baylee_cards_dsl::Filter::HasSubtype(sub) => obj.subtypes.contains(*sub),
+        baylee_cards_dsl::Filter::HasColor(cs) => obj.colors.intersects(*cs),
+        baylee_cards_dsl::Filter::IsColorless => obj.colors.is_empty(),
+        baylee_cards_dsl::Filter::Monocolored => obj.colors.len() == 1,
+        baylee_cards_dsl::Filter::HasKeyword(kw) => (obj.keywords & kw.bits()) == kw.bits(),
+        baylee_cards_dsl::Filter::IsToken => obj.token.is_some() || obj.card.is_none(),
+        baylee_cards_dsl::Filter::IsCommander => obj.commander,
+        baylee_cards_dsl::Filter::CmcAtMost(n) => obj.mana_value <= *n,
+        baylee_cards_dsl::Filter::CmcAtLeast(n) => obj.mana_value >= *n,
+        baylee_cards_dsl::Filter::PowerAtMost(n) => obj.power.is_some_and(|p| p <= *n),
+        baylee_cards_dsl::Filter::PowerAtLeast(n) => obj.power.is_some_and(|p| p >= *n),
+        baylee_cards_dsl::Filter::ToughnessAtMost(n) => obj.toughness.is_some_and(|t| t <= *n),
+        baylee_cards_dsl::Filter::ToughnessAtLeast(n) => obj.toughness.is_some_and(|t| t >= *n),
         baylee_cards_dsl::Filter::ControlledByYou => obj.controller == actor,
         baylee_cards_dsl::Filter::ControlledByOpponent => obj.controller != actor,
+        baylee_cards_dsl::Filter::OwnedByYou => obj.owner == actor,
         baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
         baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
+        baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
         _ => true,
     }
 }

@@ -107,7 +107,7 @@ impl HeuristicAgent {
         if !self.hostile(o.controller, view.seat) {
             return -10_000 - material(o);
         }
-        if harmful(stack_meaning(o, 0)) {
+        if harmful(stack_meaning(view, o, 0)) {
             self.aimed_at_this_seat(view, o)
         } else {
             0
@@ -119,7 +119,7 @@ impl HeuristicAgent {
     /// or a permanent spell's body.
     fn copy_worth(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         if o.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY)) {
-            self.meaning_value(view, stack_meaning(o, 0))
+            self.meaning_value(view, stack_meaning(view, o, 0))
         } else {
             material(o)
         }
@@ -155,7 +155,7 @@ impl HeuristicAgent {
         let spent: Vec<ObjectId> = view
             .stack
             .iter()
-            .filter(|o| harmful(stack_meaning(o, 0)))
+            .filter(|o| harmful(stack_meaning(view, o, 0)))
             .flat_map(|o| &o.targets)
             .filter_map(|t| match t {
                 TargetRef::Object(source) => view
@@ -165,7 +165,7 @@ impl HeuristicAgent {
                 TargetRef::Player(_) => None,
             })
             .collect();
-        let m = stack_meaning(spell, 0);
+        let m = stack_meaning(view, spell, 0);
         self.rank(view, offer, context, m, &spent)
     }
 }

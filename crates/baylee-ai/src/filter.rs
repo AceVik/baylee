@@ -169,6 +169,11 @@ impl HeuristicAgent {
         this: Option<ObjectId>,
     ) -> Option<bool> {
         let recur = |f: &Filter| self.filter_matches(f, view, object, zone, this);
+        // CR 109.5: "you" on an object refers to its current controller, or
+        // the acting seat when the source is not a public object yet.
+        let you = this
+            .and_then(|id| view.object(id))
+            .map_or(view.seat, |source| source.controller);
         match filter {
             Filter::Any => Some(true),
             Filter::This => this.map(|id| object.id == id),
@@ -196,13 +201,13 @@ impl HeuristicAgent {
             // header has the reason. `card` is asked second because a
             // registry token never carries one.
             Filter::IsToken => public_token_identity(object),
-            Filter::ControlledByYou => Some(object.controller == view.seat),
-            Filter::ControlledByOpponent => Some(self.hostile(object.controller, view.seat)),
+            Filter::ControlledByYou => Some(object.controller == you),
+            Filter::ControlledByOpponent => Some(self.hostile(object.controller, you)),
             Filter::ControlledByActivePlayer => Some(object.controller == view.active),
             Filter::ControlledByDefendingPlayer => Some(
                 view.phase == baylee_view::Phase::Combat && self.hostile(object.controller, view.active),
             ),
-            Filter::OwnedByYou => Some(object.owner == view.seat),
+            Filter::OwnedByYou => Some(object.owner == you),
             Filter::Tapped => Some(object.status.contains(ObjectStatus::TAPPED)),
             Filter::Untapped => Some(!object.status.contains(ObjectStatus::TAPPED)),
             Filter::Attacking => Some(
@@ -405,7 +410,12 @@ impl HeuristicAgent {
                     None => 1,
                     Some(false) => 0,
                 };
-                (reach, std::cmp::Reverse(*position))
+                let worth = if reach == 2 {
+                    self.mode_worth(view, mode, object)
+                } else {
+                    0
+                };
+                (reach, worth, std::cmp::Reverse(*position))
             })
             .map_or(0, |(position, _)| position)
     }
@@ -514,14 +524,76 @@ impl HeuristicAgent {
     /// whole game state. "Up to one target" is offered with nothing to point
     /// at, so it falls through to the effects like an untargeted mode.
     fn mode_reaches(&self, view: &PlayerView, mode: &SpellMode, this: ObjectId) -> Option<bool> {
+        let draws = crate::optional::self_draws(view, mode.effects, 0);
+        if draws > 0 && view.seat(view.seat).is_some_and(|s| s.library_count <= draws) {
+            return Some(false);
+        }
         if [mode.targets, mode.second_targets]
             .into_iter()
             .flatten()
             .any(|req| req.min >= 1)
         {
+            if mode.second_targets.is_none()
+                && let Some((worth, _)) = self.aimed_worth(
+                    view,
+                    crate::worth::Origin::of(view, this),
+                    mode.effects,
+                    mode.targets.as_ref(),
+                    0,
+                )
+            {
+                return Some(worth > 0);
+            }
             return Some(true);
         }
         self.effects_reach(view, mode.effects, this)
+    }
+
+    /// How much a reachable mode is worth on this board, for breaking ties
+    /// between modes that both reach something.
+    pub(crate) fn mode_worth(&self, view: &PlayerView, mode: &SpellMode, this: ObjectId) -> i64 {
+        if mode.second_targets.is_none()
+            && let Some((worth, _)) = self.aimed_worth(
+                view,
+                crate::worth::Origin::of(view, this),
+                mode.effects,
+                mode.targets.as_ref(),
+                0,
+            )
+        {
+            return worth;
+        }
+        mode.effects
+            .iter()
+            .map(|effect| match effect {
+                Effect::SacrificeFilter { who, filter } => self
+                    .seats(*who, view)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|seat| {
+                        let loss = view
+                            .battlefield_of(seat)
+                            .filter(|o| {
+                                self.filter_matches(
+                                    filter,
+                                    view,
+                                    o,
+                                    ZoneRef::Battlefield,
+                                    Some(this),
+                                ) == Some(true)
+                            })
+                            .map(|o| Self::permanent_worth(view, o))
+                            .min()?;
+                        Some(if self.hostile(seat, view.seat) {
+                            loss
+                        } else {
+                            -loss
+                        })
+                    })
+                    .sum(),
+                _ => 0,
+            })
+            .sum()
     }
 
     /// Which seats a [`PlayerRel`] names, from the view alone.
@@ -594,7 +666,12 @@ impl HeuristicAgent {
     /// nothing, and the printed order of the modes says nothing about which
     /// one does. `None` where the shape is not one of the three read here, so
     /// a caller keeps its old answer rather than acting on a silent no.
-    fn effects_reach(&self, view: &PlayerView, effects: &[Effect], this: ObjectId) -> Option<bool> {
+    pub(crate) fn effects_reach(
+        &self,
+        view: &PlayerView,
+        effects: &[Effect],
+        this: ObjectId,
+    ) -> Option<bool> {
         let everyone: Vec<PlayerId> = view
             .seats
             .iter()

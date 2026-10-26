@@ -482,6 +482,17 @@ impl HeuristicAgent {
         })
     }
 
+    /// How many legal targets `req` can see in `view`, or `None` when the
+    /// target specification is not one [`Self::aims`] reads.
+    pub(crate) fn target_candidates(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        req: &TargetReq,
+    ) -> Option<usize> {
+        self.aims(view, origin, &req.spec).map(|a| a.len())
+    }
+
     /// The worth of a list of effects run in order at `aim`.
     pub(crate) fn effects_worth(
         &self,
@@ -742,9 +753,8 @@ impl HeuristicAgent {
         }
     }
 
-    /// Whether an instant or sorcery of this seat's on the stack is aimed at
-    /// `o` to destroy, exile or tuck it: [`doomed`](Self::doomed) seen from
-    /// the other side.
+    /// Whether a spell or ability of this seat's on the stack is aimed at
+    /// `o` to remove it: [`doomed`](Self::doomed) seen from the other side.
     ///
     /// A second answer to it is worth nothing while the first is on its way.
     /// The house cast Path to Exile at a commander, was asked again as its
@@ -752,12 +762,10 @@ impl HeuristicAgent {
     /// Swords resolved first, and Path had no target left (CR 608.2b), a
     /// card thrown away (22.10.2026). Once the first has left the stack,
     /// countered or fizzled, the second is worth its card again.
-    fn answered(view: &PlayerView, o: &PublicObject) -> bool {
+    pub(crate) fn answered(view: &PlayerView, o: &PublicObject) -> bool {
         view.stack.iter().any(|s| {
             s.controller == view.seat
-                && crate::tactics::printed_effects(s)
-                    .iter()
-                    .any(|effects| effects.iter().any(crate::policy::removal))
+                && crate::tactics::stack_removes(view, s, o)
                 && s.targets.iter().any(|target| match target {
                     TargetRef::Object(source) => {
                         source.object == o.id
@@ -835,7 +843,8 @@ impl HeuristicAgent {
 
     /// What `o` entering the battlefield sets off for its controller, by
     /// the vocabulary [`crate::tactics::meaning`] reads: its own ETB
-    /// triggers, never counted below zero.
+    /// triggers, never counted below zero except when a mandatory draw
+    /// decks its owner.
     fn etb_worth(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         printed_list(o)
             .iter()
@@ -844,7 +853,21 @@ impl HeuristicAgent {
                     trigger: Trigger::EntersBattlefield(Filter::This),
                     effects,
                     ..
-                } => self.effect_value(view, effects).max(0),
+                } => {
+                    let draws = crate::optional::self_draws(view, effects, 0);
+                    if draws > 0
+                        && view.seat(o.owner).is_some_and(|s| {
+                            if o.owner == view.seat {
+                                s.library_count <= draws
+                            } else {
+                                self.hostile(o.owner, view.seat) && s.library_count < draws
+                            }
+                        })
+                    {
+                        return -DECKED;
+                    }
+                    self.effect_value(view, effects).max(0)
+                }
                 _ => 0,
             })
             .sum()
@@ -859,6 +882,9 @@ impl HeuristicAgent {
     fn bounce(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let tempo = i64::from(o.mana_value) * 60 + 50;
         if self.hostile(o.controller, view.seat) {
+            if Self::answered(view, o) {
+                return 0;
+            }
             // A token does not come back (CR 111.7).
             if o.token.is_some() {
                 return Self::permanent_worth(view, o);
@@ -1183,9 +1209,40 @@ impl HeuristicAgent {
                 .sum();
         }
         let ids: Vec<ObjectId> = objects.iter().map(|o| o.id).collect();
-        self.attack_gain(view, &|o| {
+        let early = view.active == view.seat
+            && (matches!(view.phase, Phase::Beginning | Phase::FirstMain)
+                || view.phase == Phase::Combat && view.step == Step::CombatBegin);
+        let mut total = self.attack_gain(view, &|o| {
             ids.contains(&o.id).then_some((power, toughness, keywords))
-        })
+        });
+        let pure_debuff = power <= 0 && toughness <= 0 && keywords == 0;
+        for &o in objects.iter().filter(|o| creature(o)) {
+            let left = i32::from(o.toughness.unwrap_or(0));
+            let lethal = toughness < 0
+                && (left + toughness <= 0
+                    || (!has(o, KeywordSet::INDESTRUCTIBLE)
+                        && left - i32::from(o.damage) + toughness <= 0));
+            if self.hostile(o.controller, view.seat) {
+                total += if lethal {
+                    self.removal(view, o)
+                } else if pure_debuff {
+                    if Self::answered(view, o) {
+                        0
+                    } else {
+                        -i64::from(power) * 20 - i64::from(toughness) * 15
+                    }
+                } else {
+                    -(i64::from(power.max(0)) * 30
+                        + i64::from(toughness.max(0)) * 10
+                        + 30 * i64::from(keywords.count_ones()))
+                };
+            } else if !early && lethal {
+                total += self.removal(view, o);
+            } else if pure_debuff && !lethal && (power < 0 || toughness < 0) {
+                total += i64::from(power) * 20 + i64::from(toughness) * 15;
+            }
+        }
+        total
     }
 
     /// Counters put on `o`, to this seat.

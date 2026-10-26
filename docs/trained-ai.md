@@ -1,4 +1,4 @@
-# The trained AI
+# The trained AI (`BayleeKI`)
 
 **Current v4 work (24 October 2026):** implementation through `88bc2b07f` is on
 `main`; subsequent corrections are on `c42/trained-ai`. The

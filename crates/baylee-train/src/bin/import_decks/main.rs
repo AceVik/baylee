@@ -28,9 +28,7 @@ use baylee_cards::formats::{self, Shape};
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
 use baylee_train::deckgen::strategy::MultisetSimilarityIndex;
-use baylee_train::deckgen::{
-    self, Archetype, CoverageConfig, Rng, build_coverage_corpus_scoped,
-};
+use baylee_train::deckgen::{self, Archetype, CoverageConfig, Rng, build_coverage_corpus_scoped};
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::working::{Refusal, Working, repo_root};
 use clap::Parser;
@@ -1059,13 +1057,8 @@ fn main() -> anyhow::Result<()> {
             base_seed: 2026_6000,
             max_new_decks: 1200,
         };
-        let (train_cov_decks, t_rep) = build_coverage_corpus_scoped(
-            &train_pool,
-            None,
-            &train_ms,
-            &non_train_ms,
-            &train_cfg,
-        )?;
+        let (train_cov_decks, t_rep) =
+            build_coverage_corpus_scoped(&train_pool, None, &train_ms, &non_train_ms, &train_cfg)?;
         println!(
             "[import_decks] Train card coverage (k >= {}): under-covered {} -> {} ({} new synergistic decks)",
             args.min_card_coverage,

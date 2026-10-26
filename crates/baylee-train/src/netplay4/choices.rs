@@ -3,26 +3,29 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use baylee_cards_dsl::{AbilityDef, CostPart, Effect, KeywordSet, ManaSource};
+use baylee_cards_dsl::{
+    AbilityDef, Amount, CostPart, Effect, KeywordSet, ManaSource, PlayerRel, TargetSpec, counters,
+};
 use baylee_core::color::{Color, ColorSet};
-use baylee_core::ids::{Defender, ObjectId, PlayerId, SubtypeId};
+use baylee_core::ids::{AbilityRef, Defender, ObjectId, PlayerId, SubtypeId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment, ManaSymbol};
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction};
+use baylee_engine::choice::{ChoicePrompt, Pending, PlayerAction, YesNoPrompt};
 use baylee_view::{ObjectStatus, PlayerView, PublicObject, RulesFace};
 
 use crate::features4::{EncodedCandidates4, untapped_mana_production};
 
 use super::tactics::{
-    TargetIntent, classify_active_target_intent, is_spell_worth_casting_now, is_true_land_card,
-    land_card_colors, lookup_card_identity, lookup_spell_cost, non_sac_source_colors,
+    TargetIntent, classify_active_target_intent, is_modal_mode_worth_casting,
+    is_spell_worth_casting_now, is_true_land_card, land_card_colors, lookup_card_identity,
+    lookup_spell_cost, non_sac_source_colors,
 };
 
 /// Applies view-only tactical masking to non-priority `SingleChoice` decisions
-/// (`ChooseColor`, `ChooseSubtype`, and single-pick `ChooseCards`).
+/// (`ChooseColor`, `ChooseSubtype`, `Mulligan`, `ChooseCastMode`, and single-pick `ChooseCards`).
 #[allow(
     clippy::too_many_lines,
-    reason = "Applies view-only masking across ChooseColor, ChooseSubtype, and ChooseCards prompts"
+    reason = "Applies view-only masking across ChooseColor, ChooseSubtype, Mulligan, ChooseCastMode, and ChooseCards prompts"
 )]
 pub(super) fn mask_non_priority_single_choice(
     cands: &EncodedCandidates4,
@@ -33,6 +36,84 @@ pub(super) fn mask_non_priority_single_choice(
 ) {
     let actor = view.decision_player.unwrap_or(view.seat);
     match pending {
+        Pending::Mulligan {
+            taken,
+            next_is_free,
+            can_take: true,
+            ..
+        } => {
+            if *taken <= 2 {
+                let mut land_count = 0_usize;
+                let mut hand_colors = [false; 5];
+                for h in &view.hand {
+                    if is_true_land_card(view, h.id) {
+                        land_count += 1;
+                        let cols = land_card_colors(view, h.id);
+                        for (c, &ok) in cols.iter().enumerate() {
+                            if ok {
+                                hand_colors[c] = true;
+                            }
+                        }
+                    }
+                }
+                let has_castable_early_spell = view.hand.iter().any(|h| {
+                    !is_true_land_card(view, h.id)
+                        && lookup_spell_cost(view, h.id).is_some_and(|(cost, tax)| {
+                            let max_early = if land_count == 1 { 1 } else { 3 };
+                            cost.with_x(0).cmc().saturating_add(tax) <= max_early
+                                && (0..5).all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
+                        })
+                });
+                let should_take = land_count == 0
+                    || land_count >= 6
+                    || (land_count == 1
+                        && (*next_is_free || *taken == 0)
+                        && !has_castable_early_spell);
+                let should_keep = (2..=5).contains(&land_count) && has_castable_early_spell;
+                if should_take || should_keep {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, c) in cands.candidates.iter().enumerate() {
+                        if (should_take && matches!(c.action, Some(PlayerAction::MulliganKeep)))
+                            || (should_keep && matches!(c.action, Some(PlayerAction::MulliganTake)))
+                        {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
+                    }
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
+                }
+            }
+        }
+        Pending::ChooseCastMode {
+            object, options, ..
+        } => {
+            if let Some(ci) = lookup_card_identity(view, *object)
+                && let Some(def) = baylee_cards::by_index(ci.index)
+            {
+                let abilities = def.abilities_for_face(usize::from(ci.face));
+                let modal_modes = abilities.iter().find_map(|ab| match ab {
+                    AbilityDef::ModalSpell { modes, .. } => Some(*modes),
+                    _ => None,
+                });
+                if let Some(modes) = modal_modes {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, c) in cands.candidates.iter().enumerate() {
+                        if let Some(PlayerAction::ChooseMode(opt_idx)) = c.action
+                            && let Some(opt) = options.get(opt_idx)
+                            && let baylee_engine::choice::CastModeKind::Mode(m_idx) = opt.kind
+                            && let Some(mode) = modes.get(m_idx)
+                            && !is_modal_mode_worth_casting(view, actor, mode)
+                        {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
+                    }
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
+                }
+            }
+        }
         Pending::ChooseColor { .. } => {
             let scores: Vec<u32> = cands
                 .candidates
@@ -77,7 +158,29 @@ pub(super) fn mask_non_priority_single_choice(
                 }
             }
         }
-        Pending::ChooseCards { prompt, .. } => {
+        Pending::YesNo { prompt, source, .. } => {
+            let req_mana = match prompt {
+                YesNoPrompt::PayTax { mana } => Some(u32::from(*mana)),
+                YesNoPrompt::PayMana { cost } => Some(cost.with_x(0).cmc()),
+                _ => None,
+            };
+            let decline_draw = should_decline_yes_no_for_library(view, actor, *source);
+            let decline_tax = req_mana.is_some_and(|req| !should_pay_tax(view, actor, *source, req));
+            if decline_draw || decline_tax {
+                let mut trial = masked_logits.to_vec();
+                for (i, c) in cands.candidates.iter().enumerate() {
+                    if matches!(c.action, Some(PlayerAction::YesNo(true))) {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            }
+        }
+        Pending::ChooseCards {
+            options, prompt, ..
+        } => {
             if matches!(
                 prompt,
                 ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
@@ -103,7 +206,7 @@ pub(super) fn mask_non_priority_single_choice(
                         masked_logits.copy_from_slice(&trial);
                     }
                 }
-            } else if matches!(prompt, ChoicePrompt::CostDiscard | ChoicePrompt::Discard) {
+            } else if is_discard_choose_cards(view, *prompt, options, active_source) {
                 let tiers: Vec<i32> = cands
                     .candidates
                     .iter()
@@ -175,6 +278,11 @@ pub(super) fn adjust_subset_logits(
         } => {
             let mut pos_attacker_ids = Vec::new();
             let mut non_engine_powers = Vec::new();
+            let first_def_pid = defenders.iter().find_map(|d| match d {
+                Defender::Player(p) => Some(*p),
+                _ => None,
+            });
+            let mut unblockable_dmg = 0_i32;
             for cand in &cands.candidates[..n] {
                 if let Some(oid) = cand.object_id
                     && !pos_attacker_ids.contains(&oid)
@@ -184,18 +292,112 @@ pub(super) fn adjust_subset_logits(
                     pos_attacker_ids.push(oid);
                     let rem_t = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
                     if !(rem_t <= 1 && has_non_mana_tap_ability(view, o.id)) {
-                        non_engine_powers.push(i32::from(o.power.unwrap_or(0)));
+                        let p = i32::from(o.power.unwrap_or(0));
+                        non_engine_powers.push(p);
+                        if let Some(def_pid) = first_def_pid
+                            && !view.battlefield_of(def_pid).any(|b| {
+                                b.types.contains(TypeSet::CREATURE)
+                                    && !b.status.contains(ObjectStatus::TAPPED)
+                                    && !b.status.contains(ObjectStatus::PHASED_OUT)
+                                    && !has_kw(b, KeywordSet::CANT_BLOCK)
+                                    && can_legally_block(o, b)
+                            })
+                        {
+                            unblockable_dmg += p;
+                        }
                     }
                 }
             }
             non_engine_powers.sort_unstable();
             let total_pos_attackers = pos_attacker_ids.len();
+            let my_life = view.seat(actor).map_or(20, |s| s.life);
+            let my_lib = view.seat(actor).map_or(99, |s| s.library_count);
+
+            let mut hold_back_for_crackback: BTreeSet<ObjectId> = BTreeSet::new();
+            if let Some(def_pid) = first_def_pid {
+                let def_life = view.seat(def_pid).map_or(20, |p| p.life);
+                let total_def_blockers = view
+                    .battlefield_of(def_pid)
+                    .filter(|b| {
+                        b.types.contains(TypeSet::CREATURE)
+                            && !b.status.contains(ObjectStatus::TAPPED)
+                            && !b.status.contains(ObjectStatus::PHASED_OUT)
+                            && !has_kw(b, KeywordSet::CANT_BLOCK)
+                    })
+                    .count();
+                let guaranteed_unblocked_count =
+                    non_engine_powers.len().saturating_sub(total_def_blockers);
+                let guaranteed_unblocked_dmg: i32 = non_engine_powers
+                    .iter()
+                    .take(guaranteed_unblocked_count)
+                    .sum();
+                if unblockable_dmg < def_life && guaranteed_unblocked_dmg < def_life {
+                    let mut opp_crackback_powers: Vec<i32> = view
+                        .battlefield_of(def_pid)
+                        .filter(|b| {
+                            b.types.contains(TypeSet::CREATURE)
+                                && !b.status.contains(ObjectStatus::PHASED_OUT)
+                                && !has_kw(b, KeywordSet::DEFENDER)
+                                && b.power.unwrap_or(0) > 0
+                        })
+                        .map(|b| i32::from(b.power.unwrap_or(0)))
+                        .collect();
+                    opp_crackback_powers.sort_unstable_by(|a, b| b.cmp(a));
+                    let already_holding = view
+                        .battlefield_of(actor)
+                        .filter(|o| {
+                            o.types.contains(TypeSet::CREATURE)
+                                && !o.status.contains(ObjectStatus::TAPPED)
+                                && !o.status.contains(ObjectStatus::PHASED_OUT)
+                                && !has_kw(o, KeywordSet::CANT_BLOCK)
+                                && (!pos_attacker_ids.contains(&o.id)
+                                    || has_kw(o, KeywordSet::VIGILANCE))
+                        })
+                        .count();
+                    let rem_crackback: i32 =
+                        opp_crackback_powers.iter().skip(already_holding).sum();
+                    if rem_crackback >= my_life {
+                        let mut hold_candidates: Vec<(ObjectId, i32, i32)> = pos_attacker_ids
+                            .iter()
+                            .copied()
+                            .filter(|id| !required.contains(id))
+                            .filter_map(|id| {
+                                let o = view.object(id)?;
+                                if has_kw(o, KeywordSet::VIGILANCE)
+                                    || has_kw(o, KeywordSet::CANT_BLOCK)
+                                {
+                                    return None;
+                                }
+                                Some((
+                                    id,
+                                    i32::from(o.power.unwrap_or(0)),
+                                    i32::from(o.toughness.unwrap_or(1)),
+                                ))
+                            })
+                            .collect();
+                        hold_candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
+                        let mut cur_skip = already_holding;
+                        for (cid, _, _) in hold_candidates {
+                            hold_back_for_crackback.insert(cid);
+                            cur_skip += 1;
+                            let next_rem: i32 = opp_crackback_powers.iter().skip(cur_skip).sum();
+                            if next_rem < my_life {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
 
             for (i, cand) in cands.candidates[..n].iter().enumerate() {
                 let Some(att_id) = cand.object_id else {
                     continue;
                 };
                 if required.contains(&att_id) {
+                    continue;
+                }
+                if hold_back_for_crackback.contains(&att_id) {
+                    out[i] = -20.0;
                     continue;
                 }
                 let Some(att_obj) = view.object(att_id) else {
@@ -222,6 +424,14 @@ pub(super) fn adjust_subset_logits(
                             && !has_kw(b, KeywordSet::CANT_BLOCK)
                     })
                     .count();
+                let is_unblockable = !is_fragile_engine
+                    && !view.battlefield_of(def_pid).any(|b| {
+                        b.types.contains(TypeSet::CREATURE)
+                            && !b.status.contains(ObjectStatus::TAPPED)
+                            && !b.status.contains(ObjectStatus::PHASED_OUT)
+                            && !has_kw(b, KeywordSet::CANT_BLOCK)
+                            && can_legally_block(att_obj, b)
+                    });
                 let def_life = view.seat(def_pid).map_or(20, |p| p.life);
                 let guaranteed_unblocked_count =
                     non_engine_powers.len().saturating_sub(total_def_blockers);
@@ -230,23 +440,28 @@ pub(super) fn adjust_subset_logits(
                     .take(guaranteed_unblocked_count)
                     .sum();
                 let has_vigilance = has_kw(att_obj, KeywordSet::VIGILANCE);
+                if is_unblockable && unblockable_dmg >= def_life {
+                    out[i] = out[i].max(4.0);
+                    continue;
+                }
                 let go_wide_alpha = !is_fragile_engine
                     && ((guaranteed_unblocked_count > 0 && guaranteed_unblocked_dmg >= def_life)
                         || (non_engine_powers.len() >= 8
                             && non_engine_powers.len() >= total_def_blockers + 4
-                            && (total_def_blockers <= 5 || guaranteed_unblocked_dmg >= 10))
-                        || (has_vigilance
-                            && non_engine_powers.len() >= total_def_blockers + 4));
+                            && (total_def_blockers <= 5 || guaranteed_unblocked_dmg >= 4))
+                        || (my_lib <= 12
+                            && non_engine_powers.len() > total_def_blockers
+                            && guaranteed_unblocked_dmg >= 2)
+                        || (has_vigilance && non_engine_powers.len() >= total_def_blockers + 4)
+                        || (is_unblockable
+                            && (has_vigilance
+                                || total_pos_attackers >= total_def_blockers + 2
+                                || my_life >= 12)));
                 if go_wide_alpha {
                     out[i] = out[i].max(2.0);
                     continue;
                 }
-                if is_suicide_attack_into_blockers(
-                    view,
-                    att_obj,
-                    def_pid,
-                    total_pos_attackers,
-                ) {
+                if is_suicide_attack_into_blockers(view, att_obj, def_pid, total_pos_attackers) {
                     out[i] = -20.0;
                 }
             }
@@ -259,7 +474,9 @@ pub(super) fn adjust_subset_logits(
                 }
             }
         }
-        Pending::ChooseCards { prompt, .. } => {
+        Pending::ChooseCards {
+            options, prompt, ..
+        } => {
             if matches!(
                 prompt,
                 ChoicePrompt::SearchLibrary | ChoicePrompt::PutIntoHand | ChoicePrompt::Wish
@@ -270,7 +487,7 @@ pub(super) fn adjust_subset_logits(
                         out[i] += (tier as f32) * 10.0;
                     }
                 }
-            } else if matches!(prompt, ChoicePrompt::CostDiscard | ChoicePrompt::Discard) {
+            } else if is_discard_choose_cards(view, *prompt, options, active_source) {
                 for (i, cand) in cands.candidates[..n].iter().enumerate() {
                     if let Some(oid) = cand.object_id {
                         let (tier, bonus) = discard_card_tier(view, actor, oid);
@@ -404,13 +621,20 @@ fn is_suicide_attack_into_blockers(
         return false;
     }
 
-    // 1. Check blockers that strictly survive combat with `att_obj` (rem_tough > att_power)
+    // 1. Check blockers that strictly survive combat with `att_obj` (rem_tough > att_power or First Strike kill)
     if !att_deathtouch && total_pos_attackers < legal_blockers.len() + 4 {
+        let att_first = has_kw(att_obj, KeywordSet::FIRST_STRIKE)
+            || has_kw(att_obj, KeywordSet::DOUBLE_STRIKE);
         let surviving: Vec<&&PublicObject> = legal_blockers
             .iter()
             .filter(|b| {
                 let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
-                b_rem > att_power || has_kw(b, KeywordSet::INDESTRUCTIBLE)
+                let bp = i32::from(b.power.unwrap_or(0));
+                let b_first_kills = !att_first
+                    && (has_kw(b, KeywordSet::FIRST_STRIKE)
+                        || has_kw(b, KeywordSet::DOUBLE_STRIKE))
+                    && (bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0));
+                b_rem > att_power || has_kw(b, KeywordSet::INDESTRUCTIBLE) || b_first_kills
             })
             .collect();
 
@@ -440,6 +664,26 @@ fn is_suicide_attack_into_blockers(
             };
             if single_free_eater || gang_free_eat {
                 return true;
+            }
+            if min_blockers == 1 && total_pos_attackers <= legal_blockers.len() {
+                for &&b_surv in &surviving {
+                    let b_surv_p = i32::from(b_surv.power.unwrap_or(0)).max(0);
+                    for &b_chump in &legal_blockers {
+                        if b_chump.id == b_surv.id {
+                            continue;
+                        }
+                        let b_chump_p = i32::from(b_chump.power.unwrap_or(0)).max(0);
+                        let b_chump_rem = (i32::from(b_chump.toughness.unwrap_or(1))
+                            - i32::from(b_chump.damage))
+                        .max(1);
+                        let chump_dt = has_kw(b_chump, KeywordSet::DEATHTOUCH) && b_chump_p > 0;
+                        if (b_surv_p + b_chump_p >= att_rem_tough || chump_dt)
+                            && b_chump_p + b_chump_rem + 1 < att_power + att_rem_tough
+                        {
+                            return true;
+                        }
+                    }
+                }
             }
         }
     }
@@ -551,7 +795,14 @@ pub(super) fn adjust_pair_logits(
     let mut has_redundant_multiblock = false;
     let mut has_non_menace_multiblock = false;
     let mut has_illegal_menace = false;
-    let mut raw_unblocked_dmg = 0_i32;
+    let unblockable_atk_dmg: i32 = view
+        .combat
+        .attackers
+        .iter()
+        .filter(|a| a.defending == Defender::Player(actor) && !attackers.contains(&a.creature))
+        .map(|a| atk_stats(a.creature).0)
+        .sum();
+    let mut raw_unblocked_dmg = unblockable_atk_dmg;
     let unblocked_atks_exist = attackers
         .iter()
         .any(|k| raw_atk_blks.get(k).is_none_or(Vec::is_empty));
@@ -602,13 +853,46 @@ pub(super) fn adjust_pair_logits(
     }
 
     let raw_used_blks: usize = raw_atk_blks.values().map(Vec::len).sum();
+    let raw_used_blk_set: BTreeSet<ObjectId> = raw_atk_blks
+        .values()
+        .flat_map(|v| v.iter().copied())
+        .collect();
+    let has_missed_kill = (0..n).any(|i| {
+        let [b_idx, a_idx] = cands.pairs[i];
+        if b_idx < 0 || a_idx < 0 {
+            return false;
+        }
+        let (blk_id, atk_id) = cands.pair_objects[i];
+        if raw_used_blk_set.contains(&blk_id)
+            || raw_atk_blks.contains_key(&atk_id)
+            || !attacks_me(atk_id)
+        {
+            return false;
+        }
+        let (ap, at, a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
+        if a_mn || a_ind || ap <= 0 {
+            return false;
+        }
+        let (bp, bt, b_dt, b_fs, b_ind) = blk_stats(blk_id);
+        let kills = bp >= at || b_dt;
+        if !kills {
+            return false;
+        }
+        let survives = b_ind || (b_fs && !a_fs) || (!a_dt && bt > ap);
+        let favorable_trade_at_low_life =
+            my_life - raw_unblocked_dmg <= 4 && ap >= 2 && ap >= bp && !(a_fs && !b_fs && ap >= bt);
+        survives || favorable_trade_at_low_life
+    });
     let lethal_unblocked = (raw_unblocked_dmg >= my_life
         || (raw_unblocked_dmg >= 3 && my_life <= 10 && blockers.len() >= 6 && raw_used_blks == 0))
         && raw_used_blks < blockers.len()
         && unblocked_atks_exist;
 
     if !attackers.iter().any(|&a| attacks_me(a))
-        || (!has_redundant_multiblock && !has_illegal_menace && !lethal_unblocked)
+        || (!has_redundant_multiblock
+            && !has_illegal_menace
+            && !lethal_unblocked
+            && !has_missed_kill)
     {
         return out;
     }
@@ -796,21 +1080,56 @@ pub(super) fn adjust_pair_logits(
 
     // Pass 4: Chump block largest remaining unblocked attackers if unblocked damage is lethal/near-lethal
     // or if the model strongly wanted to block with a remaining blocker (`best_l > 0.0`)
-    let mut rem_unblocked_dmg: i32 = sorted_atks
-        .iter()
-        .filter(|&&a| !blocked_atks.contains(&a) && attacks_me(a))
-        .map(|&a| atk_stats(a).0)
-        .sum();
+    let mut rem_unblocked_dmg: i32 = unblockable_atk_dmg
+        + sorted_atks
+            .iter()
+            .filter(|&&a| !blocked_atks.contains(&a) && attacks_me(a))
+            .map(|&a| atk_stats(a).0)
+            .sum::<i32>();
 
     for &atk_id in &sorted_atks {
         if blocked_atks.contains(&atk_id) || !attacks_me(atk_id) {
             continue;
         }
         let (ap, _at, _, _, _, a_mn, _) = atk_stats(atk_id);
-        if a_mn || ap <= 0 {
+        if ap <= 0 {
             continue;
         }
         let need_lethal_chump = rem_unblocked_dmg >= my_life || my_life - rem_unblocked_dmg <= 3;
+        if a_mn {
+            if !need_lethal_chump {
+                continue;
+            }
+            let mut avail: Vec<usize> = (0..n)
+                .filter(|&i| {
+                    let [b_idx, a_idx] = cands.pairs[i];
+                    if b_idx < 0 || a_idx < 0 {
+                        return false;
+                    }
+                    let (blk_id, a_id) = cands.pair_objects[i];
+                    a_id == atk_id && !used_blks.contains(&blk_id)
+                })
+                .collect();
+            avail.sort_by(|&i, &j| {
+                let (b_i, _) = cands.pair_objects[i];
+                let (b_j, _) = cands.pair_objects[j];
+                let (bp_i, bt_i, ..) = blk_stats(b_i);
+                let (bp_j, bt_j, ..) = blk_stats(b_j);
+                (bp_i + bt_i)
+                    .cmp(&(bp_j + bt_j))
+                    .then_with(|| raw_logits[j].total_cmp(&raw_logits[i]))
+            });
+            if avail.len() >= 2 {
+                for &p_idx in &avail[..2] {
+                    let (blk_id, _) = cands.pair_objects[p_idx];
+                    used_blks.insert(blk_id);
+                    chosen_pairs.insert(p_idx);
+                }
+                blocked_atks.insert(atk_id);
+                rem_unblocked_dmg -= ap;
+            }
+            continue;
+        }
         let best_pair = (0..n)
             .filter(|&i| {
                 let [b_idx, a_idx] = cands.pairs[i];
@@ -1039,10 +1358,7 @@ fn subtype_demand_score(view: &PlayerView, actor: PlayerId, st: SubtypeId) -> u3
     let mut score = 0_u32;
     for h in &view.hand {
         if let Some(def) = baylee_cards::by_index(h.card.index)
-            && def
-                .faces
-                .iter()
-                .any(|f| f.subtypes.contains(&st))
+            && def.faces.iter().any(|f| f.subtypes.contains(&st))
         {
             score += 3;
         }
@@ -1067,6 +1383,10 @@ fn subtype_demand_score(view: &PlayerView, actor: PlayerId, st: SubtypeId) -> u3
     score
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Ranks tutor candidates by mana curve, color fixing, and hand duplicates"
+)]
 fn tutor_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> i32 {
     let my_mana = view
         .battlefield_of(actor)
@@ -1084,16 +1404,68 @@ fn tutor_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> i32 {
     let need_land = my_mana < 4 && lands_in_hand == 0;
     let max_castable_cmc = (my_mana + u32::from(lands_in_hand > 0)).max(2);
 
+    let mut board_color_counts = [0_u32; 5];
+    for obj in view.battlefield_of(actor) {
+        if obj.status.contains(ObjectStatus::PHASED_OUT) {
+            continue;
+        }
+        let cols = non_sac_source_colors(view, obj.id);
+        for c in 0..5 {
+            if cols[c] {
+                board_color_counts[c] += 1;
+            }
+        }
+    }
+    let mut hand_land_color_counts = [0_u32; 5];
+    for h in &view.hand {
+        if is_true_land_card(view, h.id) {
+            let cols = land_card_colors(view, h.id);
+            for c in 0..5 {
+                if cols[c] {
+                    hand_land_color_counts[c] += 1;
+                }
+            }
+        }
+    }
+    let mut missing_hand_colors = [false; 5];
+    for h in &view.hand {
+        if is_true_land_card(view, h.id) {
+            continue;
+        }
+        if let Some((cost, _)) = lookup_spell_cost(view, h.id) {
+            for c in 0..5 {
+                if count_color_pips(&cost, c) > board_color_counts[c] + hand_land_color_counts[c] {
+                    missing_hand_colors[c] = true;
+                }
+            }
+        }
+    }
+
     if is_pure_search_library_card(view, oid) {
         return 0;
     }
     if is_true_land_card(view, oid) {
-        if need_land {
-            let cols = land_card_colors(view, oid);
-            if cols.iter().any(|&c| c) {
-                return 5;
+        let cols = land_card_colors(view, oid);
+        let fixes_missing = (0..5).any(|c| cols[c] && missing_hand_colors[c]);
+        let produces_new_color =
+            (0..5).any(|c| cols[c] && board_color_counts[c] + hand_land_color_counts[c] == 0);
+        if fixes_missing {
+            if my_mana + lands_in_hand <= 3 {
+                return 6;
             }
             return 4;
+        }
+        if need_land {
+            if produces_new_color {
+                return 5;
+            }
+            if cols.iter().any(|&c| c) {
+                return 4;
+            }
+            return 3;
+        }
+        if produces_new_color {
+            return 3;
         }
         if my_mana + lands_in_hand >= 5 {
             return 1;
@@ -1101,27 +1473,267 @@ fn tutor_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> i32 {
         return 2;
     }
 
+    if let Some((cost, _)) = lookup_spell_cost(view, oid) {
+        for c in 0..5 {
+            if count_color_pips(&cost, c) > 0
+                && board_color_counts[c] + hand_land_color_counts[c] == 0
+            {
+                return 1;
+            }
+        }
+    }
+    let duplicate_penalty = if let Some(ci) = lookup_card_identity(view, oid)
+        && view.hand.iter().any(|h| h.card.index == ci.index)
+    {
+        2
+    } else {
+        0
+    };
+
     let cmc = lookup_spell_cost(view, oid).map_or(3, |(c, t)| c.with_x(0).cmc().saturating_add(t));
     let is_creature = is_creature_card(view, oid);
-    if is_creature && my_creatures == 0 && cmc <= (my_mana + lands_in_hand.min(2)).max(4) {
-        return 5;
-    }
-    if cmc <= max_castable_cmc {
-        if !need_land {
-            if is_draw_spell_card(view, oid) && view.hand.len() >= 5 && my_creatures == 0 {
-                return 3;
+    let base_tier =
+        if is_creature && my_creatures == 0 && cmc <= (my_mana + lands_in_hand.min(2)).max(4) {
+            5
+        } else if cmc <= max_castable_cmc {
+            if !need_land {
+                if is_draw_spell_card(view, oid) && view.hand.len() >= 5 && my_creatures == 0 {
+                    3
+                } else {
+                    4
+                }
+            } else if is_draw_spell_card(view, oid) && cmc <= my_mana {
+                4
+            } else {
+                2
             }
-            return 4;
+        } else if cmc == max_castable_cmc + 1 {
+            2
+        } else {
+            1
+        };
+    (base_tier - duplicate_penalty).max(1)
+}
+
+fn effects_draw_cards_for_actor(effects: &[Effect]) -> bool {
+    effects.iter().any(|e| match e {
+        Effect::DrawCards { .. }
+        | Effect::DrawCardsFor {
+            who: PlayerRel::You | PlayerRel::EventPlayer | PlayerRel::EachPlayer,
+            ..
+        } => true,
+        Effect::MayDo { effects: inner }
+        | Effect::PlayerMayPayThen { effects: inner, .. }
+        | Effect::PlayerMayPayManaThen { effects: inner, .. } => {
+            effects_draw_cards_for_actor(inner)
         }
-        if is_draw_spell_card(view, oid) && cmc <= my_mana {
-            return 4;
+        _ => false,
+    })
+}
+
+fn should_decline_yes_no_for_library(
+    view: &PlayerView,
+    actor: PlayerId,
+    source: Option<AbilityRef>,
+) -> bool {
+    let my_lib = view.seat(actor).map_or(99, |s| s.library_count);
+    if my_lib > 5 {
+        return false;
+    }
+    let Some(aref) = source else {
+        return false;
+    };
+    if aref.index == AbilityRef::SYNTHETIC {
+        return false;
+    }
+    let Some(def) = baylee_cards::by_index(aref.card) else {
+        return false;
+    };
+    let abilities = def.abilities_for_face(0);
+    if let Some(
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Triggered { effects, .. },
+    ) = abilities.get(aref.index as usize)
+    {
+        return effects_draw_cards_for_actor(effects);
+    }
+    abilities.iter().any(|ab| match ab {
+        AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Triggered { effects, .. } => effects_draw_cards_for_actor(effects),
+        _ => false,
+    })
+}
+
+fn should_pay_tax(
+    view: &PlayerView,
+    actor: PlayerId,
+    source: Option<AbilityRef>,
+    req_mana: u32,
+) -> bool {
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+    let avail_mana = pool_total.saturating_add(untapped_mana_production(view, actor));
+    if avail_mana < req_mana {
+        return false;
+    }
+    let Some(aref) = source else {
+        return true;
+    };
+    if aref.index == AbilityRef::SYNTHETIC {
+        return true;
+    }
+    let Some(def) = baylee_cards::by_index(aref.card) else {
+        return true;
+    };
+    let abilities = def.abilities_for_face(0);
+    let check_effects = |effects: &[Effect]| -> bool {
+        if effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::PlayerMayPayThen { .. }
+                    | Effect::PlayerMayPayManaThen { .. }
+                    | Effect::PlayerMayPayThenElse { .. }
+                    | Effect::PlayerMayPayManaEachThenElse { .. }
+            )
+        }) {
+            return true;
         }
-        return 2;
+        let refusal_costs_card = effects.iter().any(|e| match e {
+            Effect::PlayerMayPayOr { effect, .. } | Effect::PlayerMayPayManaOr { effect, .. } => {
+                matches!(
+                    effect,
+                    Effect::CounterTargetSpell
+                        | Effect::CounterTargetSpellToExile
+                        | Effect::CounterTargetAbility
+                        | Effect::CounterTargetSpellOrAbility
+                        | Effect::SacrificeSelf
+                        | Effect::DealDamage {
+                            target: TargetSpec::Player(PlayerRel::You),
+                            ..
+                        }
+                )
+            }
+            _ => false,
+        });
+        if !refusal_costs_card {
+            return false;
+        }
+        let is_cumulative = effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::PlayerMayPayOr {
+                    mana: Amount::CountersOnSource(counters::AGE),
+                    effect: Effect::SacrificeSelf,
+                    ..
+                }
+            )
+        });
+        if is_cumulative && !view.hand.is_empty() && req_mana >= 3 {
+            return false;
+        }
+        true
+    };
+
+    if let Ok(idx) = usize::try_from(aref.index)
+        && let Some(ab) = abilities.get(idx)
+    {
+        return match ab {
+            AbilityDef::Spell { effects, .. }
+            | AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. } => check_effects(effects),
+            _ => true,
+        };
     }
-    if cmc == max_castable_cmc + 1 {
-        return 2;
+    for ab in abilities {
+        if let AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Triggered { effects, .. } = ab
+            && check_effects(effects)
+        {
+            return true;
+        }
     }
-    1
+    false
+}
+
+fn is_discard_choose_cards(
+    view: &PlayerView,
+    prompt: ChoicePrompt,
+    options: &[ObjectId],
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> bool {
+    if matches!(prompt, ChoicePrompt::CostDiscard | ChoicePrompt::Discard) {
+        return true;
+    }
+    if !matches!(prompt, ChoicePrompt::Generic)
+        || options.is_empty()
+        || !options
+            .iter()
+            .all(|&oid| view.hand.iter().any(|h| h.id == oid))
+    {
+        return false;
+    }
+    let has_discard_effect = |effects: &[Effect]| -> bool {
+        effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::DiscardForPlayers { .. }
+                    | Effect::DiscardEachOrDraw { .. }
+                    | Effect::DiscardUpToThenDraw { .. }
+                    | Effect::DiscardUpToForPlayers { .. }
+                    | Effect::DiscardAnyThenDraw
+                    | Effect::DiscardCount { .. }
+                    | Effect::DiscardMatching { .. }
+                    | Effect::Connive { .. }
+                    | Effect::Recruit { .. }
+            )
+        })
+    };
+    let check_oid = |oid: ObjectId, ab_idx: Option<u32>| -> bool {
+        let Some(ci) = lookup_card_identity(view, oid) else {
+            return false;
+        };
+        let Some(def) = baylee_cards::by_index(ci.index) else {
+            return false;
+        };
+        let abilities = def.abilities_for_face(usize::from(ci.face));
+        if let Some(idx) = ab_idx.and_then(|i| usize::try_from(i).ok())
+            && let Some(ab) = abilities.get(idx)
+        {
+            return match ab {
+                AbilityDef::Spell { effects, .. }
+                | AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Triggered { effects, .. } => has_discard_effect(effects),
+                _ => false,
+            };
+        }
+        abilities.iter().any(|ab| match ab {
+            AbilityDef::Spell { effects, .. }
+            | AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. } => has_discard_effect(effects),
+            _ => false,
+        })
+    };
+    if let Some((oid, ab_idx)) = active_source
+        && check_oid(oid, ab_idx)
+    {
+        return true;
+    }
+    if let Some(oid) = view.casting
+        && check_oid(oid, None)
+    {
+        return true;
+    }
+    view.battlefield.iter().any(|o| check_oid(o.id, None))
 }
 
 #[allow(clippy::cast_precision_loss)]
@@ -1138,10 +1750,10 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
 
     if is_true_land_card(view, oid) {
         if my_mana >= 6 && lands_in_hand >= 2 {
-            return (4, 0.0);
+            return (4, 0.5);
         }
         if my_mana + lands_in_hand >= 6 && lands_in_hand >= 3 {
-            return (3, 0.0);
+            return (4, 0.0);
         }
         return (0, 0.0);
     }
@@ -1205,9 +1817,9 @@ fn is_draw_spell_card(view: &PlayerView, oid: ObjectId) -> bool {
     def.abilities_for_face(usize::from(ci.face))
         .iter()
         .any(|ab| match ab {
-            AbilityDef::Spell { effects, .. } => {
-                effects.iter().any(|e| matches!(e, Effect::DrawCards { .. }))
-            }
+            AbilityDef::Spell { effects, .. } => effects
+                .iter()
+                .any(|e| matches!(e, Effect::DrawCards { .. })),
             _ => false,
         })
 }

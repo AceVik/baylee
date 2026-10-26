@@ -334,3 +334,112 @@ fn another_players_may_preserves_unknown_controller_semantics() {
         );
     }
 }
+
+#[test]
+fn self_decking_is_refused_across_optional_draws_taxes_spells_and_flickers() {
+    static DRAW_ONE: [Effect; 1] = [Effect::DrawCards {
+        amount: Amount::Fixed(1),
+    }];
+    static PAY_TO_DRAW: [Effect; 1] = [Effect::PlayerMayPayThen {
+        player: PlayerRel::You,
+        mana: Amount::Fixed(1),
+        effects: &DRAW_ONE,
+    }];
+
+    // Island Sanctuary: skip draw when library_count <= 1.
+    let mut v = view(0, &[20, 20], vec![]);
+    v.seats[0].library_count = 1;
+    assert_eq!(
+        agent().act(&v, &may(Some(sanctuary()))),
+        PlayerAction::YesNo(true),
+        "skip draw when drawing the last card would leave an empty library"
+    );
+
+    // Optional triggered draw (MayDo with None branch and DrawCards in context.effects).
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &may(None),
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &DRAW_ONE,
+                ..Default::default()
+            }
+        ),
+        PlayerAction::YesNo(false),
+        "optional triggered draw is declined when library_count <= draws"
+    );
+    v.seats[0].library_count = 2;
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &may(None),
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &DRAW_ONE,
+                ..Default::default()
+            }
+        ),
+        PlayerAction::YesNo(true),
+        "optional triggered draw is accepted when library_count > draws"
+    );
+
+    // PayTax for PlayerMayPayThen (e.g. Unifying Theory / Mentor of the Meek):
+    // declined when library_count <= 1, paid when library_count >= 2.
+    v.seats[0].mana_pool.colorless = 1;
+    v.seats[0].library_count = 1;
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &Pending::YesNo {
+                player: ME,
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                source: None,
+            },
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &PAY_TO_DRAW,
+                ..Default::default()
+            }
+        ),
+        PlayerAction::YesNo(false),
+        "paying to draw is refused when library_count <= 1"
+    );
+    v.seats[0].library_count = 2;
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &Pending::YesNo {
+                player: ME,
+                prompt: YesNoPrompt::PayTax { mana: 1 },
+                source: None,
+            },
+            &DecisionContext {
+                source: Some(obj(1)),
+                effects: &PAY_TO_DRAW,
+                ..Default::default()
+            }
+        ),
+        PlayerAction::YesNo(true),
+        "paying to draw is accepted when library_count >= 2"
+    );
+
+    // Divination (2 draws) and Baleful Strix (1 mandatory ETB draw) are refused
+    // when their mandatory draws >= library_count.
+    let divination = hand_card(1, "Divination");
+    let strix = hand_card(2, "Baleful Strix");
+    v.seats[0].library_count = 2;
+    assert!(
+        agent().spell_score(&v, divination.card) < 0,
+        "Divination is refused at library_count == 2"
+    );
+    assert!(
+        agent().spell_score(&v, strix.card) > 0,
+        "Baleful Strix (1 draw) is still safe at library_count == 2"
+    );
+    v.seats[0].library_count = 1;
+    assert!(
+        agent().spell_score(&v, strix.card) < 0,
+        "Baleful Strix is refused at library_count == 1"
+    );
+}

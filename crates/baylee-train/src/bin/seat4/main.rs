@@ -33,9 +33,9 @@ struct Args {
     #[arg(long)]
     acceptance: Option<String>,
     /// The public opponent name receives the NET- prefix.
-    #[arg(long, default_value = "v4")]
+    #[arg(long, default_value = baylee_train::BAYLEE_KI_NAME)]
     name: String,
-    #[arg(long, default_value = "Play against neural v4")]
+    #[arg(long, default_value = "Play against BayleeKI")]
     room_name: String,
     /// Join a waiting room instead of hosting a two-player room.
     #[arg(long)]
