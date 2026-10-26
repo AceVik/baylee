@@ -1864,3 +1864,26 @@ fn prophecy_batch_3_patterns_generate() {
         body.abilities[0]
     );
 }
+
+#[test]
+fn sacrifice_effect_accepts_change_num_one() {
+    let beast = "Name:Thresher Beast\nManaCost:3 G G\nTypes:Creature Beast\nPT:4/4\n\
+        T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ Sacrifice | SacValid$ Land | Defined$ TriggeredDefendingPlayer | ChangeNum$ 1";
+    let body = read(beast);
+    assert_eq!(
+        body.abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::SacrificeFilter { \
+             who: PlayerRel::DefendingPlayer, filter: &Filter::LAND }])"
+        ]
+    );
+
+    let two = parse(
+        "Name:X\nManaCost:3 G G\nTypes:Creature Beast\nPT:4/4\n\
+        T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ Sacrifice | SacValid$ Land | Defined$ TriggeredDefendingPlayer | ChangeNum$ 2",
+    );
+    assert!(refusal_reason(&two, &cats(), None).is_some());
+}
+

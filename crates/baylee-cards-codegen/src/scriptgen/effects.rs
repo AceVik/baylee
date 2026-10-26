@@ -27,6 +27,11 @@ impl Tx<'_> {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
+        if let Some(num) = p.take("ChangeNum")
+            && num.trim() != "1"
+        {
+            return self.deny(format!("a sacrifice with `ChangeNum$ {num}`"));
+        }
         let Some(sac_valid) = p.take("SacValid") else {
             if p.take("Defined").is_some() {
                 return self.deny("a sacrifice naming `Defined`".to_string());
