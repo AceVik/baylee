@@ -5,6 +5,8 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
+mod sweep_filter;
+
 /// Whether "sacrifice this" can still happen (CR 701.21a): "To sacrifice
 /// a permanent, its controller moves it from the battlefield directly to
 /// its owner's graveyard. A player can't sacrifice something that isn't a
@@ -340,7 +342,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         value.is_none_or(|value| o.characteristics().mana_value() == value)
-                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
+                            && sweep_filter::matches(filter, state, o, res)
                     })
                 })
                 .collect();

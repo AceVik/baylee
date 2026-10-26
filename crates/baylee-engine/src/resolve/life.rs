@@ -9,6 +9,8 @@ use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
 mod attached_shield;
+#[cfg(test)]
+mod damage_pair_tests;
 pub(super) mod batch57;
 pub(super) mod ice_combat;
 
@@ -289,7 +291,14 @@ fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {
 }
 
 fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
-    let assignments = assignments(state, res, op);
+    let mut assignments = assignments(state, res, op);
+    if let Some(players) = simultaneous_player_half(res, op) {
+        assignments.extend(self::assignments(state, res, players));
+        // The documented creature/player pair is one damage instruction.
+        // Keep the PC on its final operation even while replacement choices
+        // suspend it; all completion paths then advance once as usual.
+        res.pc += 1;
+    }
     let after = if matches!(
         op,
         Effect::DealDamageWithCappedLifeGain { .. } | Effect::DealDamageWithLimitedLifeGain { .. }
@@ -328,6 +337,32 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
         work = work.with_cause(&cause);
     }
     finish_or_suspend(state, res, DamageResolution { work, after })
+}
+
+/// The DSL spells one untargeted creature-and-player damage sentence as
+/// this adjacent pair. Other instructions and differing amounts delimit it.
+fn simultaneous_player_half(res: &Resolution, op: Effect) -> Option<Effect> {
+    if res.targeted {
+        return None;
+    }
+    let Effect::DealDamageEach { amount, .. } = op else {
+        return None;
+    };
+    let next = *res.effects.get(res.pc + 1)?;
+    match next {
+        Effect::DealDamage {
+            amount: next_amount,
+            target:
+                TargetSpec::Player(
+                    PlayerRel::You
+                    | PlayerRel::Opponent
+                    | PlayerRel::EachOpponent
+                    | PlayerRel::EachPlayer
+                    | PlayerRel::EachOtherPlayer,
+                ),
+        } if amount == next_amount => Some(next),
+        _ => None,
+    }
 }
 
 fn finish_or_suspend(

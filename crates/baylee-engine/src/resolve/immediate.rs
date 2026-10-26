@@ -1961,7 +1961,11 @@ pub(super) fn exec_immediate(
             let candidate = if res.targeted {
                 res.targets.first().copied()
             } else {
-                subjects::source(state, res).map(|s| s.object)
+                // CR 400.7: returning with the same arena id does not make
+                // the new permanent this ability's captured source.
+                subjects::source(state, res)
+                    .filter(|source| subjects::on_battlefield(state, *source))
+                    .map(|source| source.object)
             };
             let target = candidate.filter(|t| {
                 state

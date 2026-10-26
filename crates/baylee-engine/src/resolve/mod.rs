@@ -190,6 +190,8 @@ mod ice_combat_tests;
 
 #[cfg(test)]
 mod copied_decisions_tests;
+#[cfg(test)]
+mod protection_color_tests;
 
 pub use control::resume_control_choice;
 pub(crate) use life::{refresh_damage, resume_damage};

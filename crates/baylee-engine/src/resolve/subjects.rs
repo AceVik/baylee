@@ -27,7 +27,7 @@ pub struct SubjectContext {
     event_identity: Option<(DamageSourceRef, i16)>,
     pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
     pub(super) destruction_batches: Vec<super::destruction_receipts::Batch>,
-    pub(super) pay_players_remaining: Option<Vec<baylee_core::ids::PlayerId>>,
+    pub(super) payment_batches: Vec<super::choices::PaymentBatch>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -59,7 +59,7 @@ impl SubjectContext {
             event_identity: None,
             for_each_remaining: None,
             destruction_batches: Vec::new(),
-            pay_players_remaining: None,
+            payment_batches: Vec::new(),
             checkpoint: None,
         }
     }
@@ -165,9 +165,7 @@ impl SubjectContext {
             .wrapping_add(crate::state::structural_fingerprint(&self.event_identity));
         h = h
             .wrapping_mul(31)
-            .wrapping_add(crate::state::structural_fingerprint(
-                &self.pay_players_remaining,
-            ));
+            .wrapping_add(crate::state::structural_fingerprint(&self.payment_batches));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h
