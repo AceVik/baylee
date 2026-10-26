@@ -299,6 +299,8 @@ fn attack_declaration_and_a_quiet_window_light_nothing_as_choosable() {
         attackers: vec![ObjectId::new(10, 0), ObjectId::new(11, 0)],
         defenders: vec![Defender::Player(PlayerId::new(1))],
         required: Vec::new(),
+        alone: Vec::new(),
+        minimum_required: None,
         limits: Vec::new(),
     });
     assert!(!drawn.is_empty());
