@@ -812,8 +812,8 @@ fn a_refused_script_always_says_why() {
         // paid with one card where the script charges two is a
         // discount.
         (
-            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<2/Card> | NumCards$ 1",
-            "a cost naming `2` objects",
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<3/Card> | NumCards$ 1",
+            "a cost naming `3` objects",
         ),
         (
             "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",

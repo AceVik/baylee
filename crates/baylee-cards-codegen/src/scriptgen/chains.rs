@@ -327,6 +327,8 @@ impl Tx<'_> {
         let targets_a_controlled_object = target.is_some_and(|t| {
             t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
         });
+        let targets_a_player = target
+            .is_some_and(|t| t == "TargetSpec::AnyPlayer" || t.starts_with("TargetSpec::Player("));
         let payer = match payer.as_deref() {
             Some("You") => "PlayerRel::You",
             // Paralyze's "that player may pay {4}": the enchanted
@@ -335,6 +337,7 @@ impl Tx<'_> {
             None | Some("TargetedController") if targets_a_controlled_object => {
                 "PlayerRel::ControllerOfTarget"
             }
+            Some("Targeted") if targets_a_player => "PlayerRel::Chosen",
             // Rhystic Study's "unless that player pays {1}": the player the
             // cast trigger's event is about, as `Defined$` reads the same
             // words (`Tx::player_rel`). Anywhere but a cast trigger they
@@ -883,7 +886,7 @@ impl Tx<'_> {
                 }
                 effects
             }
-            "Sacrifice" => self.sacrifice_effect(p)?,
+            "Sacrifice" => self.sacrifice_effect(p, target, targets_a_player)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
             // target.
             // "Tap all lands target player controls" (Mana Short): the

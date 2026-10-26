@@ -846,7 +846,7 @@ impl Tx<'_> {
             }
             let mut types = Vec::new();
             let mut subtypes = Vec::new();
-            for word in raw.split_whitespace() {
+            for word in raw.split_whitespace().filter(|&w| w != "&") {
                 if let Some(t) = card_type_const(word) {
                     types.push(t);
                 } else if let Some(supertype) = supertype_const(word) {
@@ -965,7 +965,7 @@ impl Tx<'_> {
         for (key, modifier) in [("AddColor", "AddColor"), ("SetColor", "SetColor")] {
             let Some(raw) = p.take(key) else { continue };
             let mut colors = Vec::new();
-            for word in raw.split_whitespace() {
+            for word in raw.split_whitespace().filter(|&w| w != "&") {
                 colors.push(match word {
                     "White" => "Color::White",
                     "Blue" => "Color::Blue",

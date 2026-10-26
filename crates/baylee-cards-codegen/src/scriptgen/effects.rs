@@ -16,19 +16,33 @@ impl Tx<'_> {
     /// DSL has no effect for, and reading them as the source would be a
     /// card that sacrifices the wrong permanent under a
     /// `Coverage::Implemented`.
-    pub(super) fn sacrifice_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
-        for key in [
-            "Defined",
-            "SacValid",
-            "Amount",
-            "Optional",
-            "RememberSacrificed",
-        ] {
+    pub(super) fn sacrifice_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        for key in ["Amount", "Optional", "RememberSacrificed"] {
             if p.take(key).is_some() {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
-        Some(vec!["Effect::SacrificeSelf".to_string()])
+        let Some(sac_valid) = p.take("SacValid") else {
+            if p.take("Defined").is_some() {
+                return self.deny("a sacrifice naming `Defined`".to_string());
+            }
+            return Some(vec!["Effect::SacrificeSelf".to_string()]);
+        };
+        let who = self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
+        let filter = if sac_valid == "Permanent" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr(&sac_valid)?;
+            format!("&{}", self.body.filter_static("SAC", &expr))
+        };
+        Some(vec![format!(
+            "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
+        )])
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
