@@ -75,6 +75,7 @@ mod princess_lucrezia;
 mod progenitor_mimic;
 mod ramirez_de_pietro;
 mod ramses_overdark;
+mod rhox;
 mod rohgahh_of_kher_keep;
 mod rorix_bladewing;
 mod roughshod_mentor;

@@ -265,6 +265,7 @@ mod pearled_unicorn;
 mod pegasus_charger;
 mod pestilence_rats;
 mod phyrexian_broodlings;
+mod phyrexian_driver;
 mod phyrexian_gremlins;
 mod phyrexian_negator;
 mod phyrexian_rager;

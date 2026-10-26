@@ -747,6 +747,7 @@ no-engine-change contract:
 - **Nemesis (`nem`)** — in progress:
   - Batch 1 (`Accumulated Knowledge` to `Eye of Yawgmoth`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `4 Partial` hand-owned, and `6 Unimplemented` stubs).
   - Batch 2 (`Flint Golem` to `Netter en-Dal`, 25 cards): **13 Implemented, 4 Partial, 8 Unimplemented (held back/stubs)** (`12 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `8 Unimplemented` stubs).
+  - Batch 3 (`Noble Stand` to `Shrieking Mogg`, 25 cards): **11 Implemented, 4 Partial, 10 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Partial` hand-owned, and `10 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

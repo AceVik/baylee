@@ -133,6 +133,7 @@ mod midsummer_revel;
 mod moldervine_reclamation;
 mod nature_s_revolt;
 mod noble_purpose;
+mod noble_stand;
 mod opal_archangel;
 mod open_the_graves;
 mod painful_quandary;

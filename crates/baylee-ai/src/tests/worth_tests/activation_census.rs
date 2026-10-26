@@ -366,7 +366,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Nemesis (`nem`) Batch 2 adds 6 non-mana activated abilities on Flowstone
     // Armor, Jolting Merfolk, Lin Sivvi, Defiant Hero (2), Mind Slash, and
     // Netter en-Dal (3 of 6 read by the evaluator).
-    assert_eq!((read, of), (2808, 3541), "activated/loyalty reader census");
+    // Nemesis (`nem`) Batch 3 adds 7 non-mana activated abilities on Parallax
+    // Tide, Parallax Wave, Phyrexian Prowler, Rejuvenation Chamber, Rhox,
+    // Rootwater Thief, and Saproling Cluster (5 of 7 read by the evaluator).
+    assert_eq!((read, of), (2813, 3548), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

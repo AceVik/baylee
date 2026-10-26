@@ -12722,28 +12722,64 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Netter en-Dal
     &["{W}, {T}, Discard a card: Target creature can't attack this turn."],
-    &[],
-    &[],
-    &[],
+    // Noble Stand
+    &["Whenever a creature you control blocks, you gain 2 life."],
+    // Off Balance
+    &["Target creature can't attack or block this turn."],
+    // Oracle's Attendants
+    &[
+        "{T}: All damage that would be dealt to target creature this turn by a source of your choice is dealt to this creature instead.",
+    ],
     // Oraxid
     &["Protection from red"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Overlaid Terrain
+    &[
+        "As this enchantment enters, sacrifice all lands you control.\nLands you control have \"{T}: Add two mana of any one color.\"",
+    ],
+    // Pack Hunt
+    &[
+        "Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Pale Moon
+    &[
+        "Until end of turn, if a player taps a nonbasic land for mana, it produces colorless mana instead of any other type.",
+    ],
+    // Parallax Dementia
+    &[
+        "Enchant creature\nFading 1 (This enchantment enters with one fade counter on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nEnchanted creature gets +3/+2.\nWhen this Aura leaves the battlefield, destroy enchanted creature. That creature can't be regenerated.",
+    ],
+    // Parallax Inhibitor
+    &[
+        "{1}, {T}, Sacrifice this artifact: Put a fade counter on each permanent with fading you control.",
+    ],
+    // Parallax Nexus
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Target opponent exiles a card from their hand. Activate only as a sorcery.\nWhen this enchantment leaves the battlefield, each player returns to their hand all cards they own exiled with it.",
+    ],
+    // Parallax Tide
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Exile target land.\nWhen this enchantment leaves the battlefield, each player returns to the battlefield all cards they own exiled with it.",
+    ],
+    // Parallax Wave
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Exile target creature.\nWhen this enchantment leaves the battlefield, each player returns to the battlefield all cards they own exiled with it.",
+    ],
+    // Phyrexian Driver
+    &["When this creature enters, other Mercenary creatures get +1/+1 until end of turn."],
+    // Phyrexian Prowler
+    &[
+        "Fading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: This creature gets +1/+1 until end of turn.",
+    ],
     // Plague Witch
     &["{B}, {T}, Discard a card: Target creature gets -1/-1 until end of turn."],
     // Predator, Flagship
     &[
         "{2}: Target creature gains flying until end of turn.\n{5}, {T}: Destroy target creature with flying.",
     ],
-    &[],
+    // Rackling
+    &[
+        "At the beginning of each opponent's upkeep, this creature deals X damage to that player, where X is 3 minus the number of cards in their hand.",
+    ],
     // Rath's Edge
     &["{T}: Add {C}.\n{4}, {T}, Sacrifice a land: Rath's Edge deals 1 damage to any target."],
     // Rathi Fiend
@@ -12754,20 +12790,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{2}, {T}: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Refreshing Rain
+    &[
+        "If an opponent controls a Swamp and you control a Forest, you may cast this spell without paying its mana cost.\nTarget player gains 6 life.",
+    ],
+    // Rejuvenation Chamber
+    &[
+        "Fading 2 (This artifact enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{T}: You gain 2 life.",
+    ],
+    // Reverent Silence
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 6 life.\nDestroy all enchantments.",
+    ],
+    // Rhox
+    &[
+        "You may have this creature assign its combat damage as though it weren't blocked.\n{2}{G}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
+    // Rising Waters
+    &[
+        "Lands don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player untaps a land they control.",
+    ],
     // Rootwater Commando
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rootwater Thief
+    &[
+        "{U}: This creature gains flying until end of turn.\nWhenever this creature deals combat damage to a player, you may pay {2}. If you do, search that player's library for a card and exile it, then the player shuffles.",
+    ],
+    // Rupture
+    &[
+        "Sacrifice a creature. Rupture deals damage equal to that creature's power to each creature without flying and each player.",
+    ],
+    // Rusting Golem
+    &[
+        "Fading 5 (This creature enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRusting Golem's power and toughness are each equal to the number of fade counters on it.",
+    ],
+    // Saproling Burst
+    &[
+        "Fading 7 (This enchantment enters with seven fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of fade counters on Saproling Burst.\"\nWhen this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+    ],
+    // Saproling Cluster
+    &[
+        "{1}, Discard a card: Create a 1/1 green Saproling creature token. Any player may activate this ability.",
+    ],
     // Seahunter
     &[
         "{3}, {T}: Search your library for a Merfolk permanent card, put it onto the battlefield, then shuffle.",
@@ -12782,7 +12848,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this enchantment: Return target creature to its owner's hand."],
     // Seal of Strength
     &["Sacrifice this enchantment: Target creature gets +3/+3 until end of turn."],
-    &[],
+    // Shrieking Mogg
+    &["Haste\nWhen this creature enters, tap all other creatures."],
     &[],
     &[],
     &[],

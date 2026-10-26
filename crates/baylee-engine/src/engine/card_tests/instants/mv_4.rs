@@ -26,6 +26,7 @@ mod quash;
 mod ramosian_rally;
 mod rapid_fire;
 mod ray_of_command;
+mod refreshing_rain;
 mod reverberation;
 mod rewind;
 mod scour;

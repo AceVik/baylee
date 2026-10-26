@@ -46,6 +46,7 @@ mod relentless_assault;
 mod replenish;
 mod reprocess;
 mod resurrection;
+mod reverent_silence;
 mod ritual_of_the_machine;
 mod shatterstorm;
 mod sowing_salt;

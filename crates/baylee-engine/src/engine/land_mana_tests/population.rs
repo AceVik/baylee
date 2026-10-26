@@ -327,7 +327,9 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
 /// costly mana line. Nemesis (`nem`) Batch 2 adds `Mana Cache`
 /// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
-/// costly mana line.
+/// costly mana line. Batch 3 adds `Overlaid Terrain`
+/// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
+/// granted mana line.
 ///
 /// This remains the existing reader's population: it recognizes "add", not
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
@@ -341,7 +343,7 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     fully_read: 381,
     costly_lines: 146..=146,
     triggered_lines: 25..=25,
-    granted_lines: 41..=41,
+    granted_lines: 42..=42,
     self_granted: 7..=7,
     busy: 0,
     not_implemented: 0,
@@ -377,7 +379,7 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [438, 0, 13],
+        [438, 0, 14],
         "the coverage-tier population changed"
     );
     assert_eq!(readable, [381, 0, 0], "the readable coverage tiers changed");

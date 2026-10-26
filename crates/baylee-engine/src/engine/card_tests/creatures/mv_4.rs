@@ -229,6 +229,7 @@ mod phantom_monster;
 mod phelddagrif;
 mod phyrexian_debaser;
 mod phyrexian_defiler;
+mod phyrexian_prowler;
 mod pious_warrior;
 mod pixie_queen;
 mod pyrogoyf;

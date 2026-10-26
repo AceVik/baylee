@@ -64,6 +64,7 @@ mod paupers_cage;
 mod phyrexian_altar;
 mod phyrexian_lens;
 mod phyrexian_vault;
+mod rejuvenation_chamber;
 mod ring_of_gix;
 mod runed_arch;
 mod scepter_of_insight;

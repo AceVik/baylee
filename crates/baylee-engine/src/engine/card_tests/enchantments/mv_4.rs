@@ -172,6 +172,8 @@ mod no_mercy;
 mod opal_titan;
 mod opposition;
 mod orcish_oriflamme;
+mod parallax_tide;
+mod parallax_wave;
 mod path_of_annihilation;
 mod pegasus_refuge;
 mod pendrell_mists;
