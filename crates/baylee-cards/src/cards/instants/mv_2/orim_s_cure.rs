@@ -2,6 +2,7 @@
 //! Oracle: If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.
 //! Oracle: Prevent the next 4 damage that would be dealt to any target this turn.
 //! Set: MMQ #33 — Mercadian Masques | Scryfall ID: 754ae359-363b-456a-bbca-52fbfbaa86b8 | Oracle ID: 61eacaab-625b-499c-8602-f37ad5dda138
+// NOT SUPPORTED: conditional alternative cost (tap an untapped creature if you control a Plains) not supported
 // PARTIAL: conditional alternative cost (tap an untapped creature if you control a Plains) not supported.
 
 use baylee_cards_dsl::prelude::*;

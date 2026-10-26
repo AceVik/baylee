@@ -1,6 +1,7 @@
 //! Thorn Elemental — {5}{G}{G} — Creature — Elemental
 //! Oracle: You may have this creature assign its combat damage as though it weren't blocked.
 //! Set: DOM #185 — Dominaria | Scryfall ID: da901037-20e6-4445-8e7e-1ccd2e8b13ae | Oracle ID: 9cdf840d-314e-46ef-9c04-74f145d9e65b
+// NOT SUPPORTED: You may have this creature assign its combat damage as though it weren't blocked — optional unblocked combat-damage assignment is not in the DSL
 // PARTIAL — {5}{G}{G} 7/7 Elemental body; "You may have this creature assign
 // its combat damage as though it weren't blocked" is not in the DSL.
 

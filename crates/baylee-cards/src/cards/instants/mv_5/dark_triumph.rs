@@ -2,6 +2,7 @@
 //! Oracle: If you control a Swamp, you may sacrifice a creature rather than pay this spell's mana cost.
 //! Oracle: Creatures you control get +2/+0 until end of turn.
 //! Set: NEM #55 — Nemesis | Scryfall ID: 794657cd-b292-41d7-a4a6-3f3dd20dc07a | Oracle ID: 885630a8-c43b-4804-acd6-14a7c7321d73
+// NOT SUPPORTED: creatures you control get +2/+0 until end of turn for {4}{B}; the alternative cost of sacrificing a creature while controlling a Swamp is not yet modeled
 // PARTIAL: creatures you control get +2/+0 until end of turn for {4}{B}; the alternative cost of sacrificing a creature while controlling a Swamp is not yet modeled.
 
 use baylee_cards_dsl::prelude::*;

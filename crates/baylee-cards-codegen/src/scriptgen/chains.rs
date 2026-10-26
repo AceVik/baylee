@@ -53,24 +53,7 @@ impl Tx<'_> {
             &mut sub,
             chain.effects.is_empty(),
         )?;
-        // The requirement and the effect name the target differently when it
-        // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
-        // spell's chosen player, and the effect then reads it back as
-        // `PlayerRel::Chosen`. Handing the *requirement* to the effect
-        // instead is how a burn spell ends up dealing damage to nothing at
-        // all: `DealDamage` looks for an object target and finds none.
-        let target: Option<String> = match chain
-            .second_target
-            .as_ref()
-            .or(chain.target.as_ref())
-            .map(String::as_str)
-        {
-            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
-                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
-            }
-            Some(other) => Some(other.to_string()),
-            None => None,
-        };
+        let target = Self::effect_target(chain);
         // Whether an absent `Defined$` on this line means a chosen player:
         // only where this line declared the player target itself.
         let targets_a_player =
@@ -134,6 +117,27 @@ impl Tx<'_> {
                 self.chain(&body, chain)
             }
             None => Some(()),
+        }
+    }
+
+    // The requirement and the effect name the target differently when it
+    // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
+    // spell's chosen player, and the effect then reads it back as
+    // `PlayerRel::Chosen`. Handing the *requirement* to the effect
+    // instead is how a burn spell ends up dealing damage to nothing at
+    // all: `DealDamage` looks for an object target and finds none.
+    fn effect_target(chain: &Chain) -> Option<String> {
+        match chain
+            .second_target
+            .as_ref()
+            .or(chain.target.as_ref())
+            .map(String::as_str)
+        {
+            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
+                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
+            }
+            Some(other) => Some(other.to_string()),
+            None => None,
         }
     }
 

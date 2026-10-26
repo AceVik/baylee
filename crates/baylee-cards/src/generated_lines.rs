@@ -25968,7 +25968,7 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         stackable: 0,
         lines: &[None],
         modes: &[],
-        alternatives: &[],
+        alternatives: &[Some(0)],
     }],
     &[],
     &[],
@@ -25989,7 +25989,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Vine Dryad
+    &[FaceLines {
+        sentences: 3,
+        stackable: 0,
+        lines: &[],
+        modes: &[],
+        alternatives: &[Some(0)],
+    }],
     // Vine Trellis
     &[FaceLines {
         sentences: 2,

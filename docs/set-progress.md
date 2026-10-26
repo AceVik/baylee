@@ -735,14 +735,14 @@ no-engine-change contract:
   - Batch 2 (`Goblin Festival` to `Phyrexian Negator`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back)**.
   - Batch 3 (`Plague Dogs` to `Telepathic Spies`, 25 cards): **9 Implemented, 7 Partial, 9 Unimplemented (held back)**.
   - Batch 4 (`Thorn Elemental` to `Yawgmoth's Bargain`, 10 cards): **7 Implemented, 1 Partial, 2 Unimplemented (held back)**.
-- **Mercadian Masques (`mmq`)** — completed across 8 batches (**99 Implemented, 24 Partial, 63 Unimplemented (held back/stubs)** across the 186 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+- **Mercadian Masques (`mmq`)** — completed across 8 batches (**101 Implemented, 22 Partial, 63 Unimplemented (held back/stubs)** across the 186 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
   - Batch 2 (`Cho-Arrim Legate` to `Distorting Lens`, 25 cards): **10 Implemented, 5 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `5 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 3 (`Enslaved Horror` to `Instigator`, 25 cards): **10 Implemented, 4 Partial, 11 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `11 Unimplemented` stubs).
   - Batch 4 (`Insubordination` to `Pangosaur`, 25 cards): **14 Implemented, 3 Partial, 8 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `3 Partial` hand-owned, and `8 Unimplemented` stubs).
   - Batch 5 (`Invigorate` to `Rishadan Footpad`, 25 cards): **12 Implemented, 3 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `3 Implemented` + `3 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 6 (`Rampart Crawler` to `Two-Headed Dragon`, 25 cards): **15 Implemented, 3 Partial, 7 Unimplemented (held back/stubs)**.
-  - Batch 7 (`Ogre Taskmaster` to `Wall of Distortion`, 25 cards): **19 Implemented, 2 Partial, 4 Unimplemented (held back/stubs)**.
+  - Batch 7 (`Ogre Taskmaster` to `Wall of Distortion`, 25 cards): **21 Implemented, 0 Partial, 4 Unimplemented (held back/stubs)**.
   - Batch 8 (`War Cadence` to `Wishmonger`, 11 cards): **5 Implemented, 2 Partial, 4 Unimplemented (held back/stubs)**.
 - **Nemesis (`nem`)** — completed across 4 batches (**55 Implemented, 13 Partial, 32 Unimplemented (held back/stubs)** across the 100 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Accumulated Knowledge` to `Eye of Yawgmoth`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `4 Partial` hand-owned, and `6 Unimplemented` stubs).

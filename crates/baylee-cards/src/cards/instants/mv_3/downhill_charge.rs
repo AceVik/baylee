@@ -2,6 +2,7 @@
 //! Oracle: You may sacrifice a Mountain rather than pay this spell's mana cost.
 //! Oracle: Target creature gets +X/+0 until end of turn, where X is the number of Mountains you control.
 //! Set: DDI #69 — Duel Decks: Venser vs. Koth | Scryfall ID: 8d7ef860-f248-4b14-8080-592121983d83 | Oracle ID: 8018419c-ea19-499b-a33a-7c20b35bce7b
+// NOT SUPPORTED: target creature gets +X/+0 until end of turn for each Mountain you control when cast for {2}{R}; the alternative cost of sacrificing a Mountain is not yet modeled
 // PARTIAL: target creature gets +X/+0 until end of turn for each Mountain you control when cast for {2}{R}; the alternative cost of sacrificing a Mountain is not yet modeled.
 
 use baylee_cards_dsl::prelude::*;

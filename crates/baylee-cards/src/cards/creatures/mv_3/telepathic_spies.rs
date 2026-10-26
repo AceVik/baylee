@@ -18,10 +18,10 @@ card!(
         subtypes = &[subtypes::creature::HUMAN, subtypes::creature::WIZARD],
         power = Some(2),
         toughness = Some(2),
-        abilities = &[triggered!(
-            Trigger::ETB,
-            &[Effect::LookAtChosenHand],
-            targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::ETB,
+        &[Effect::LookAtChosenHand],
+        targets = Some(TargetReq::one(TargetSpec::AnyOpponent)),
+    )],
 );

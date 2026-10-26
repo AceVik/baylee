@@ -16,12 +16,12 @@ card!(
         mana_cost = mana!("{R}"),
         types = TypeSet::SORCERY,
         mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::YOUR_CREATURE)],
-        abilities = &[spell!(
-            &[Effect::DealDamage {
-                amount: Amount::Fixed(4),
-                target: TargetSpec::AnyTarget,
-            }],
-            targets = Some(TargetReq::one(TargetSpec::AnyTarget)),
-        )],
     ),],
+    abilities = &[spell!(
+        &[Effect::DealDamage {
+            amount: Amount::Fixed(4),
+            target: TargetSpec::AnyTarget,
+        }],
+        targets = Some(TargetReq::one(TargetSpec::AnyTarget)),
+    )],
 );

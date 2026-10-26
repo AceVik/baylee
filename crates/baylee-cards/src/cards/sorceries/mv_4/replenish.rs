@@ -1,6 +1,7 @@
 //! Replenish — {3}{W} — Sorcery
 //! Oracle: Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)
 //! Set: UDS #15 — Urza's Destiny | Scryfall ID: 7fd2fe13-bbc0-42b7-bc42-3b51910ce118 | Oracle ID: 523ae937-5535-490d-96ea-07f331b5e5ad
+// NOT SUPPORTED: returning Aura cards attached to an eligible object is not supported, so Aura cards remain in your graveyard.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
@@ -22,9 +23,9 @@ card!(
         name = "Replenish",
         mana_cost = mana!("{3}{W}"),
         types = TypeSet::SORCERY,
-        abilities = &[spell!(&[Effect::YourGraveyardToBattlefield {
-            filter: &NON_AURA_ENCHANTMENT,
-            tapped: false,
-        }])],
     ),],
+    abilities = &[spell!(&[Effect::YourGraveyardToBattlefield {
+        filter: &NON_AURA_ENCHANTMENT,
+        tapped: false,
+    }])],
 );

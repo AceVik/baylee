@@ -2,6 +2,7 @@
 //! Oracle: If an opponent controls a Mountain and you control an Island, you may cast this spell without paying its mana cost.
 //! Oracle: Flying
 //! Set: MMQ #100 — Mercadian Masques | Scryfall ID: db9adf84-ee7e-472b-bd96-9abf853afa83 | Oracle ID: d20b62fc-e248-4c84-87ac-7319b92531d4
+// NOT SUPPORTED: opponent-land plus your-land free-cast alternative cost not yet in DSL
 // IMPLEMENTED — hand-written with tests, see docs/card-dsl.md.
 
 use baylee_cards_dsl::prelude::*;

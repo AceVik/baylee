@@ -2,6 +2,7 @@
 //! Oracle: If you control a Forest, rather than pay this spell's mana cost, you may have an opponent gain 3 life.
 //! Oracle: Target creature gets +4/+4 until end of turn.
 //! Set: 2XM #172 — Double Masters | Scryfall ID: e0899da3-7beb-4161-81a3-e2d694e5b8a5 | Oracle ID: 9264c198-76c7-4ac0-9334-37c691de1b54
+// NOT SUPPORTED: optional alternative cost (having an opponent gain 3 life if you control a Forest) not supported
 // PARTIAL — omits optional alternative cost (having an opponent gain 3 life if you control a Forest).
 
 use baylee_cards_dsl::prelude::*;

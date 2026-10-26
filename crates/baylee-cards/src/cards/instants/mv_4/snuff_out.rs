@@ -2,6 +2,7 @@
 //! Oracle: If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.
 //! Oracle: Destroy target nonblack creature. It can't be regenerated.
 //! Set: GVL #53 — Duel Decks Anthology: Garruk vs. Liliana | Scryfall ID: 75bbe89f-09af-494e-b58e-271f64bde4b5 | Oracle ID: 324824cb-f938-401c-b9b5-d8908b431ef0
+// NOT SUPPORTED: conditional life-payment alternative cost not yet in DSL
 // IMPLEMENTED — hand-written with tests, see docs/card-dsl.md.
 
 use baylee_cards_dsl::prelude::*;

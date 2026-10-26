@@ -14,12 +14,12 @@ card!(
         name = "Repercussion",
         mana_cost = mana!("{1}{R}{R}"),
         types = TypeSet::ENCHANTMENT,
-        abilities = &[triggered!(
-            Trigger::DealtDamage(&Filter::CREATURE),
-            &[Effect::DealDamage {
-                amount: Amount::EventAmount,
-                target: TargetSpec::Player(PlayerRel::ControllerOfEvent),
-            }],
-        )],
     ),],
+    abilities = &[triggered!(
+        Trigger::DealtDamage(&Filter::CREATURE),
+        &[Effect::DealDamage {
+            amount: Amount::EventAmount,
+            target: TargetSpec::Player(PlayerRel::ControllerOfEvent),
+        }],
+    )],
 );

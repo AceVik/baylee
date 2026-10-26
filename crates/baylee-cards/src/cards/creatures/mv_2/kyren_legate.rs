@@ -2,6 +2,7 @@
 //! Oracle: If an opponent controls a Plains and you control a Mountain, you may cast this spell without paying its mana cost.
 //! Oracle: Haste
 //! Set: MMQ #197 — Mercadian Masques | Scryfall ID: 6f0e9806-be8c-4b88-a4be-0111d1be81d9 | Oracle ID: 41b46aa5-6091-4bc4-8d17-d2c6b5fe1c5e
+// NOT SUPPORTED: conditional free cast (opponent controls Plains and you control Mountain) not supported
 // PARTIAL: conditional free cast (opponent controls Plains and you control Mountain) not supported.
 
 use baylee_cards_dsl::prelude::*;

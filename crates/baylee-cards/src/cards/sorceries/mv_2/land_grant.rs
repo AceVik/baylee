@@ -2,6 +2,7 @@
 //! Oracle: If you have no land cards in hand, you may reveal your hand rather than pay this spell's mana cost.
 //! Oracle: Search your library for a Forest card, reveal that card, put it into your hand, then shuffle.
 //! Set: MMQ #255 — Mercadian Masques | Scryfall ID: d6862005-32d1-473e-a28b-5dfc4b7782cd | Oracle ID: e36f4649-934d-4e8a-bd5f-39f164ea6937
+// NOT SUPPORTED: conditional alternative cost (reveal hand with no land cards) not supported
 // PARTIAL: conditional alternative cost (reveal hand with no land cards) not supported.
 
 use baylee_cards_dsl::prelude::*;

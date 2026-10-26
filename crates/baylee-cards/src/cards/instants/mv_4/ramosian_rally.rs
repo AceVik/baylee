@@ -2,6 +2,7 @@
 //! Oracle: If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.
 //! Oracle: Creatures you control get +1/+1 until end of turn.
 //! Set: MMQ #38 — Mercadian Masques | Scryfall ID: 7fc0ff04-43e7-4a0d-b7e2-8bab72cc6cc0 | Oracle ID: 2731c237-eda1-4b74-a294-502d574f4435
+// NOT SUPPORTED: optional alternative cost (tapping an untapped creature you control if you control a Plains) not supported
 // PARTIAL — omits optional alternative cost (tapping an untapped creature you control if you control a Plains).
 
 use baylee_cards_dsl::prelude::*;

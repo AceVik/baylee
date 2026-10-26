@@ -17,25 +17,25 @@ card!(
         mana_cost = mana!("{U}"),
         types = TypeSet::ENCHANTMENT,
         subtypes = &[subtypes::enchantment::AURA],
-        abilities = &[
-            spell!(
-                &[Effect::AttachSelf {
-                    target: TargetSpec::Object(&Filter::CREATURE),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
-            ),
-            triggered!(
-                Trigger::DealsDamageToPlayer {
-                    source: &Filter::AttachedToBySource,
-                    player: PlayerRel::EachPlayer,
-                },
-                &[Effect::ReturnToHand {
-                    target: TargetSpec::ObjectOfEventPlayer(&Filter::CREATURE),
-                }],
-                targets = Some(TargetReq::one(TargetSpec::ObjectOfEventPlayer(
-                    &Filter::CREATURE
-                ))),
-            ),
-        ],
     ),],
+    abilities = &[
+        spell!(
+            &[Effect::AttachSelf {
+                target: TargetSpec::Object(&Filter::CREATURE),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))),
+        ),
+        triggered!(
+            Trigger::DealsDamageToPlayer {
+                source: &Filter::AttachedToBySource,
+                player: PlayerRel::EachPlayer,
+            },
+            &[Effect::ReturnToHand {
+                target: TargetSpec::ObjectOfEventPlayer(&Filter::CREATURE),
+            }],
+            targets = Some(TargetReq::one(TargetSpec::ObjectOfEventPlayer(
+                &Filter::CREATURE
+            ))),
+        ),
+    ],
 );

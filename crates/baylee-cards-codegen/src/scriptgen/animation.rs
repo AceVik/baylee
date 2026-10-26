@@ -203,16 +203,6 @@ impl Tx<'_> {
     /// is either a card type or a subtype, and the corpus writes both in one
     /// list. `remove` is (`RemoveCreatureTypes$ True`, `RemoveLandTypes$
     /// True`), each of which needs the one word it replaces with.
-    pub(super) fn animate_types(
-        &mut self,
-        types: &str,
-        remove: (bool, bool),
-        duration: &str,
-        out: &mut Vec<String>,
-    ) -> Option<()> {
-        self.animate_types_for(types, remove, "&Filter::This", duration, out)
-    }
-
     fn animate_types_for(
         &mut self,
         types: &str,

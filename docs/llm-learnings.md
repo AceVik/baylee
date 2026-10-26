@@ -5784,3 +5784,18 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   - `targets.rs`: Added `"enchanted" => "Filter::Enchanted"` and `"!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)"` filter atoms (unblocking `Thran Golem` as machine-owned).
   - `statics.rs`: Added `CanBlockAny$ True` -> `Modifier::CanBlockAnyNumber` in `block_modifiers` (unblocking `Wall of Glare` as machine-owned) and `AddPower$ X | AddToughness$ X` with `SVar:X:Count$Valid <valid>` -> `Modifier::ModifyPTByCount(PtCount::{YouControl|OnBattlefield}(...))` in `pt_modifiers` (unblocking `Yavimaya Enchantress` as machine-owned).
   - `effects.rs` / `triggers.rs`: Added `ShuffleNonMandatory$ True` -> `optional = true` in `search_library` and accepted `OptionalDecider$ TriggeredCardController` on `Filter::This`/`ETB` triggers whose Oracle text contains `"you may"` (unblocking `Yavimaya Elder` as machine-owned).
+
+## 2026-10-26 — Mercadian Masques (`mmq`), Nemesis (`nem`), Prophecy (`pcy`) Batches 1–2, and Self-PR Review
+
+- **Cards**:
+  - Completed **Mercadian Masques (`mmq`)** across 8 batches (186 cards: **101 `Coverage::Implemented`, 22 `Coverage::Partial`, 63 `Coverage::Unimplemented`**).
+  - Completed **Nemesis (`nem`)** across 4 batches (100 cards: **55 `Coverage::Implemented`, 13 `Coverage::Partial`, 32 `Coverage::Unimplemented`**).
+  - Completed **Prophecy (`pcy`)** Batches 1–2 (50 cards, `Abolish` through `Mercenary Informer`: **16 `Coverage::Implemented`, 8 `Coverage::Partial`, 26 `Coverage::Unimplemented`**).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - Extended `scriptgen` across `mmq`, `nem`, and `pcy` Batches 1–2 to transcode `Sac<2/Land>`, `Discard<2/...>`, `SacValid$` (`Effect::SacrificeFilter`), `UnlessCost$` on player targets (`PlayerRel::Chosen`), `&`-delimited `AddType$` tokens (`Living Terrain`), `TapOrUntap` / `TapOrUntapAll`, `RevealHand$` + `Discard` chains (`Effect::RevealHandDiscard`), `PumpAll` with `ValidCards$` subtype filters, and Rebel/Mercenary permanent search recruitment (`Effect::SearchLibraryToBattlefield` with `Filter::CmcAtMost`).
+  - Fixed `crates/baylee-cards-codegen/src/commander.rs` (`is_legendary_commander_face`) so flip creatures whose secondary face is legendary (`Erayo`, `Bushi Tenderfoot`, `Rune-Tail`, etc.) are not misclassified as `CommanderRule::Legendary` unless their primary face (index 0) is legendary (CR 903.3, 710.2).
+- **Self-PR Review (`origin/main..HEAD`)**:
+  - Promoted `Vine Dryad` and `Unmask` (`mmq` Batch 7) from `Coverage::Partial` to `Coverage::Implemented` using `AlternativeCost { cost: cost!(ExileFromHand(&...)), condition: AltCondition::Always }`, and added pitch-cast tests verifying that only a matching-color card in hand pays the alternative cost.
+  - Moved `abilities = &[...]` from `face!(...)` to card level (`card!(...)`) on 11 single-faced cards from `uds` Batch 3 (`Quash`, `Rapid Decay`, `Rayne, Academy Chancellor`, `Reckless Abandon`, `Repercussion`, `Replenish`, `Scour`, `Sigil of Sleep`, `Sowing Salt`, `Splinter`, `Telepathic Spies`) so `def.abilities`, `generated_lines.rs`, and `activation_census` see all 12 abilities.
+  - Added missing `// NOT SUPPORTED:` header comments to all hand-owned `Coverage::Partial` card files in the branch diff.
+  - Note on targeting prompts in card tests: spells with `TargetSpec::AnyPlayer` prompt `Pending::ChoosePlayer` (answered with `PlayerAction::ChoosePlayer(pid)`), whereas activated abilities with `TargetSpec::AnyPlayer` prompt `Pending::ChooseTargets` (answered with `PlayerAction::ChooseTargets { objects: vec![], players: vec![pid] }`).

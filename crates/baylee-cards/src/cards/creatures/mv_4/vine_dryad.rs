@@ -3,10 +3,12 @@
 //! Oracle: Flash
 //! Oracle: Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)
 //! Set: MMQ #284 — Mercadian Masques | Scryfall ID: fc9c9158-faed-42ae-9f6b-71dee49ff79f | Oracle ID: 990cd7de-66a2-4def-bf00-390b2682e995
-// NOT SUPPORTED: Alternate cost of exiling a green card from your hand is not supported; Flash and Forestwalk work when cast for {3}{G}.
+// IMPLEMENTED — pitch alternative cost exiling a green card from your hand, Flash, and Forestwalk.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
+
+static GREEN_CARD: Filter = Filter::HasColor(ColorSet::from_slice(&[Color::Green]));
 
 card!(
     index = index::VINE_DRYAD,
@@ -14,7 +16,7 @@ card!(
     scryfall_id = "fc9c9158-faed-42ae-9f6b-71dee49ff79f",
     color_identity = ColorSet::from_slice(&[Color::Green]),
     keywords = KeywordSet::FLASH.union(KeywordSet::FORESTWALK),
-    coverage = Coverage::Partial("alternate exile-green-card cost not supported"),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Vine Dryad",
         mana_cost = mana!("{3}{G}"),
@@ -22,5 +24,9 @@ card!(
         subtypes = &[subtypes::creature::DRYAD],
         power = Some(1),
         toughness = Some(3),
+        alternative_costs = &[AlternativeCost {
+            cost: cost!(ExileFromHand(&GREEN_CARD)),
+            condition: AltCondition::Always,
+        }],
     ),],
 );
