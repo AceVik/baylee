@@ -4,8 +4,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CostPart, Effect, Filter, KeywordSet, ManaSource, PlayerRel, TargetSpec,
-    Trigger, counters,
+    AbilityDef, Amount, CostPart, Effect, Filter, KeywordSet, ManaSource, PlayerRel, StepKind,
+    TargetSpec, Trigger, counters,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::{AbilityRef, Defender, ObjectId, PlayerId, SubtypeId};
@@ -57,16 +57,26 @@ pub(super) fn mask_non_priority_single_choice(
                         }
                     }
                 }
-                let has_castable_early_spell = view.hand.iter().any(|h| {
-                    !is_true_land_card(view, h.id)
-                        && lookup_spell_cost(view, h.id).is_some_and(|(cost, tax)| {
-                            let max_early = if land_count == 1 { 1 } else { 3 };
-                            cost.with_x(0).cmc().saturating_add(tax) <= max_early
-                                && (0..5).all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
-                        })
-                });
+                let early_castable_count = view
+                    .hand
+                    .iter()
+                    .filter(|h| {
+                        !is_true_land_card(view, h.id)
+                            && lookup_spell_cost(view, h.id).is_some_and(|(cost, tax)| {
+                                let max_early = if land_count == 1 { 1 } else { 3 };
+                                cost.with_x(0).cmc().saturating_add(tax) <= max_early
+                                    && (0..5)
+                                        .all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
+                            })
+                    })
+                    .count();
+                let has_castable_early_spell = early_castable_count >= 1;
                 let should_take = land_count == 0
                     || land_count >= 6
+                    || (land_count == 1
+                        && *next_is_free
+                        && *taken == 0
+                        && early_castable_count < 2)
                     || (land_count == 1
                         && (*next_is_free || *taken == 0)
                         && !has_castable_early_spell);
@@ -211,10 +221,10 @@ pub(super) fn mask_non_priority_single_choice(
                 false
             };
             let decline_draw = should_decline_yes_no_for_library(view, actor, *source);
-            let decline_tax = req_mana.is_some_and(|req| !should_pay_tax(view, actor, *source, req));
-            let force_pay_tax = matches!(prompt, YesNoPrompt::PayTax { .. })
-                && !decline_draw
-                && !decline_tax;
+            let decline_tax =
+                req_mana.is_some_and(|req| !should_pay_tax(view, actor, *source, req));
+            let force_pay_tax =
+                matches!(prompt, YesNoPrompt::PayTax { .. }) && !decline_draw && !decline_tax;
             if decline_draw || decline_tax || decline_shock {
                 let mut trial = masked_logits.to_vec();
                 for (i, c) in cands.candidates.iter().enumerate() {
@@ -310,6 +320,28 @@ pub(super) fn mask_non_priority_single_choice(
                         masked_logits.copy_from_slice(&trial);
                     }
                 }
+            } else if is_self_bounce_choose_cards(view, actor, *prompt, options, active_source) {
+                let tiers: Vec<i32> = cands
+                    .candidates
+                    .iter()
+                    .map(|c| match &c.action {
+                        Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
+                            self_bounce_card_tier(view, actor, objects[0])
+                        }
+                        _ => 0,
+                    })
+                    .collect();
+                if let Some(max_tier) = tiers.iter().copied().max() {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, &t) in tiers.iter().enumerate() {
+                        if t < max_tier {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
+                    }
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
+                }
             }
         }
         _ => {}
@@ -354,8 +386,7 @@ pub(super) fn adjust_subset_logits(
                     && o.power.unwrap_or(0) > 0
                 {
                     pos_attacker_ids.push(oid);
-                    let rem_t = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
-                    if !(rem_t <= 1 && has_non_mana_tap_ability(view, o.id)) {
+                    if !is_protected_engine_or_catastrophic_ltb(view, o) {
                         let p = i32::from(o.power.unwrap_or(0));
                         non_engine_powers.push(p);
                         if let Some(def_pid) = first_def_pid
@@ -476,9 +507,7 @@ pub(super) fn adjust_subset_logits(
                 let Some(Defender::Player(def_pid)) = def_target else {
                     continue;
                 };
-                let rem_t =
-                    (i32::from(att_obj.toughness.unwrap_or(1)) - i32::from(att_obj.damage)).max(1);
-                let is_fragile_engine = rem_t <= 1 && has_non_mana_tap_ability(view, att_obj.id);
+                let is_fragile_engine = is_protected_engine_or_catastrophic_ltb(view, att_obj);
                 let total_def_blockers = view
                     .battlefield_of(def_pid)
                     .filter(|b| {
@@ -571,11 +600,21 @@ pub(super) fn adjust_subset_logits(
                         out[i] += (tier as f32) * 10.0;
                     }
                 }
+            } else if is_self_bounce_choose_cards(view, actor, *prompt, options, active_source) {
+                for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                    if let Some(oid) = cand.object_id {
+                        let tier = self_bounce_card_tier(view, actor, oid);
+                        out[i] += (tier as f32) * 10.0;
+                    }
+                }
             }
         }
         Pending::ChooseTargets { min, .. } => {
             let intent = classify_active_target_intent(view, actor, active_source);
             let fixed_dmg = active_source_fixed_damage(view, active_source);
+            let any_opp_player_target = cands.candidates[..n]
+                .iter()
+                .any(|cand| cand.player_id.is_some_and(|p| p != actor));
             let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
                 cands.candidates[..n].iter().any(|cand| {
                     cand.object_id
@@ -584,6 +623,10 @@ pub(super) fn adjust_subset_logits(
                             o.controller != actor
                                 && o.types.contains(TypeSet::CREATURE)
                                 && !has_kw(o, KeywordSet::INDESTRUCTIBLE)
+                                && !(any_opp_player_target
+                                    && dmg >= 2
+                                    && o.power.unwrap_or(0) <= 0
+                                    && o.token.is_some())
                                 && (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
                                     .max(1)
                                     <= dmg
@@ -616,6 +659,10 @@ pub(super) fn adjust_subset_logits(
                                         && any_lethal_creature_kill
                                         && o.types.contains(TypeSet::CREATURE)
                                         && !has_kw(o, KeywordSet::INDESTRUCTIBLE)
+                                        && !(any_opp_player_target
+                                            && dmg >= 2
+                                            && o.power.unwrap_or(0) <= 0
+                                            && o.token.is_some())
                                     {
                                         let rem_t = (i32::from(o.toughness.unwrap_or(1))
                                             - i32::from(o.damage))
@@ -748,9 +795,11 @@ fn is_suicide_attack_into_blockers(
     }
 
     // 1. Check blockers that strictly survive combat with `att_obj` (rem_tough > att_power or First Strike kill)
-    if !att_deathtouch && total_pos_attackers < legal_blockers.len() + 4 {
-        let att_first = has_kw(att_obj, KeywordSet::FIRST_STRIKE)
-            || has_kw(att_obj, KeywordSet::DOUBLE_STRIKE);
+    if !att_deathtouch
+        && (total_pos_attackers < legal_blockers.len() + 4 || legal_blockers.len() == 1)
+    {
+        let att_first =
+            has_kw(att_obj, KeywordSet::FIRST_STRIKE) || has_kw(att_obj, KeywordSet::DOUBLE_STRIKE);
         let surviving: Vec<&&PublicObject> = legal_blockers
             .iter()
             .filter(|b| {
@@ -781,16 +830,18 @@ fn is_suicide_attack_into_blockers(
                 legal_blockers.len() == 1 && total_pos_attackers >= 3 && death_payoff >= 1;
             let single_free_eater =
                 min_blockers == 1 && free_eaters >= 1 && !allow_go_wide_into_single_blocker;
-            let gang_free_eat = !allow_go_wide_into_single_blocker && {
-                let sum_p: i32 = surviving
-                    .iter()
-                    .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
-                    .sum();
-                let any_dt = surviving
-                    .iter()
-                    .any(|b| has_kw(b, KeywordSet::DEATHTOUCH) && b.power.unwrap_or(0) > 0);
-                sum_p >= att_rem_tough || any_dt
-            };
+            let gang_free_eat = !allow_go_wide_into_single_blocker
+                && total_pos_attackers < legal_blockers.len() + 4
+                && {
+                    let sum_p: i32 = surviving
+                        .iter()
+                        .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+                        .sum();
+                    let any_dt = surviving
+                        .iter()
+                        .any(|b| has_kw(b, KeywordSet::DEATHTOUCH) && b.power.unwrap_or(0) > 0);
+                    sum_p >= att_rem_tough || any_dt
+                };
             if single_free_eater || gang_free_eat {
                 return true;
             }
@@ -865,15 +916,50 @@ fn is_suicide_attack_into_blockers(
         }
     }
 
-    // 2. Protect fragile tap-ability engine creatures (e.g. Stronghold Assassin) from trading down into 1/1s
-    if att_rem_tough <= 1
-        && has_non_mana_tap_ability(view, att_obj.id)
-        && legal_blockers.iter().any(|b| b.power.unwrap_or(0) >= 1)
+    // 2. Protect fragile tap-ability, combat-begin/spellcast engine, or catastrophic-LTB creatures
+    if is_protected_engine_or_catastrophic_ltb(view, att_obj)
+        && legal_blockers.iter().any(|b| {
+            let bp = i32::from(b.power.unwrap_or(0)).max(0);
+            bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0)
+        })
     {
         return true;
     }
 
     false
+}
+
+fn is_protected_engine_or_catastrophic_ltb(view: &PlayerView, obj: &PublicObject) -> bool {
+    let rem_t = (i32::from(obj.toughness.unwrap_or(1)) - i32::from(obj.damage)).max(1);
+    if rem_t <= 1 && has_non_mana_tap_ability(view, obj.id) {
+        return true;
+    }
+    let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
+        return false;
+    };
+    let p = i32::from(obj.power.unwrap_or(0)).max(0);
+    abs.iter().any(|ab| match ab {
+        AbilityDef::Triggered {
+            trigger: Trigger::LeavesBattlefield(Filter::This) | Trigger::Dies(Filter::This),
+            effects,
+            ..
+        } => effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::ExileAll { .. } | Effect::DestroyAll { .. } | Effect::SacrificeAll { .. }
+            )
+        }),
+        AbilityDef::Triggered {
+            trigger:
+                Trigger::StepBegin {
+                    step: StepKind::CombatBegin | StepKind::Upkeep,
+                    whose: PlayerRel::You,
+                }
+                | Trigger::SpellCast(_),
+            ..
+        } => p <= 2 && rem_t <= 2,
+        _ => false,
+    })
 }
 
 /// Adjusts `PairPick` (`Pending::ChooseBlockers`) logits so that blockers do not
@@ -1060,16 +1146,20 @@ pub(super) fn adjust_pair_logits(
             my_life - raw_unblocked_dmg <= 4 && ap >= 2 && ap >= bp && !(a_fs && !b_fs && ap >= bt);
         survives || favorable_trade_at_low_life
     });
+    let has_wasted_zero_power_block = raw_atk_blks
+        .iter()
+        .any(|(&atk_id, blks)| !blks.is_empty() && atk_stats(atk_id).0 <= 0);
     let lethal_unblocked = (raw_unblocked_dmg >= my_life
         || (raw_unblocked_dmg >= 3 && my_life <= 10 && blockers.len() >= 6 && raw_used_blks == 0))
-        && raw_used_blks < blockers.len()
+        && (raw_used_blks < blockers.len() || has_wasted_zero_power_block)
         && unblocked_atks_exist;
 
     if !attackers.iter().any(|&a| attacks_me(a))
         || (!has_redundant_multiblock
             && !has_illegal_menace
             && !lethal_unblocked
-            && !has_missed_kill)
+            && !has_missed_kill
+            && !has_wasted_zero_power_block)
     {
         return out;
     }
@@ -1091,7 +1181,7 @@ pub(super) fn adjust_pair_logits(
     // Pass 1: Free kills (`blk` kills `atk` solo and survives)
     for &atk_id in &sorted_atks {
         let (ap, at, a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
-        if a_mn || a_ind {
+        if a_mn || a_ind || ap <= 0 {
             continue;
         }
         let best_pair = (0..n)
@@ -1163,7 +1253,7 @@ pub(super) fn adjust_pair_logits(
             continue;
         }
         let (ap, at, _a_dt, a_fs, _, a_mn, a_ind) = atk_stats(atk_id);
-        if a_mn || a_ind {
+        if a_mn || a_ind || ap <= 0 {
             continue;
         }
         let best_pair = (0..n)
@@ -1937,10 +2027,20 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
         .iter()
         .filter(|h| is_true_land_card(view, h.id))
         .count() as u32;
+    let max_hand_spell_cmc = view
+        .hand
+        .iter()
+        .filter(|h| !is_true_land_card(view, h.id))
+        .filter_map(|h| lookup_spell_cost(view, h.id).map(|(c, t)| c.with_x(0).cmc() + t))
+        .max()
+        .unwrap_or(0);
 
     if is_true_land_card(view, oid) {
-        if my_mana >= 6 && lands_in_hand >= 2 {
+        if my_mana >= 6 && (lands_in_hand >= 1 || my_mana >= max_hand_spell_cmc) {
             return (4, 0.5);
+        }
+        if my_mana >= 5 && lands_in_hand >= 2 {
+            return (4, 0.2);
         }
         if my_mana + lands_in_hand >= 6 && lands_in_hand >= 3 {
             return (4, 0.0);
@@ -1972,15 +2072,117 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
     if cmc == my_mana + 2 {
         return (3, cmc_bonus);
     }
-    (1, cmc_bonus)
+    let keep_high_impact_bonus = -((cmc.min(8) as f32) * 0.05);
+    (1, keep_high_impact_bonus)
+}
+
+fn has_etb_self_bounce(obj: &PublicObject) -> bool {
+    let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
+        return false;
+    };
+    abs.iter().any(|ab| {
+        matches!(
+            ab,
+            AbilityDef::Triggered {
+                trigger: Trigger::ETB,
+                effects,
+                ..
+            } if effects.iter().any(|e| matches!(e, Effect::ReturnChosenToHand { .. }))
+        )
+    })
+}
+
+fn is_self_bounce_choose_cards(
+    view: &PlayerView,
+    actor: PlayerId,
+    prompt: ChoicePrompt,
+    options: &[ObjectId],
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> bool {
+    if matches!(prompt, ChoicePrompt::CostReturn) {
+        return true;
+    }
+    if !matches!(prompt, ChoicePrompt::Generic)
+        || options.is_empty()
+        || !options
+            .iter()
+            .all(|&oid| view.battlefield_of(actor).any(|o| o.id == oid))
+    {
+        return false;
+    }
+    if let Some((src_id, _)) = active_source
+        && view.object(src_id).is_some_and(has_etb_self_bounce)
+    {
+        return true;
+    }
+    if let Some(top) = view.top_of_stack()
+        && let Some(baylee_view::StackItem::Ability { source, .. }) = top.stack_item
+        && view.object(source).is_some_and(has_etb_self_bounce)
+    {
+        return true;
+    }
+    view.battlefield_of(actor).any(has_etb_self_bounce)
+}
+
+fn self_bounce_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> i32 {
+    let Some(obj) = view.object(oid) else {
+        return 1;
+    };
+    if has_etb_self_bounce(obj) || obj.token.is_some() {
+        return 0;
+    }
+    let my_lands = view
+        .battlefield_of(actor)
+        .filter(|o| o.types.contains(TypeSet::LAND))
+        .count();
+    let has_positive_etb =
+        super::tactics::abilities_of_battlefield_object(obj).is_some_and(|abs| {
+            abs.iter().any(|ab| {
+                matches!(
+                    ab,
+                    AbilityDef::Triggered {
+                        trigger: Trigger::ETB,
+                        effects,
+                        ..
+                    } if !effects.iter().any(|e| matches!(
+                        e,
+                        Effect::ReturnChosenToHand { .. }
+                            | Effect::SacrificeAll { .. }
+                            | Effect::LoseLife { target: PlayerRel::You, .. }
+                    ))
+                )
+            })
+        });
+    let cmc = lookup_spell_cost(view, oid).map_or(2, |(c, _)| c.with_x(0).cmc());
+    if has_positive_etb && cmc <= 2 {
+        return 5;
+    }
+    if has_positive_etb && cmc <= 3 {
+        return 4;
+    }
+    if obj.types.contains(TypeSet::LAND) {
+        let tapped = obj.status.contains(ObjectStatus::TAPPED);
+        if my_lands >= 4 && tapped {
+            return 4;
+        }
+        if my_lands >= 4 {
+            return 3;
+        }
+        if tapped {
+            return 2;
+        }
+        return 1;
+    }
+    if cmc <= 2 {
+        return 3;
+    }
+    2
 }
 
 fn is_positive_death_effect(eff: &Effect, require_creature_token: bool) -> bool {
     match eff {
         Effect::DrawCards { .. } | Effect::GainLife { .. } => true,
-        Effect::DealDamage { target, .. } => {
-            !matches!(target, TargetSpec::Player(PlayerRel::You))
-        }
+        Effect::DealDamage { target, .. } => !matches!(target, TargetSpec::Player(PlayerRel::You)),
         Effect::LoseLife { target, .. } => !matches!(target, PlayerRel::You),
         Effect::CreateToken { token, .. } => {
             !require_creature_token || token.types.contains(TypeSet::CREATURE)
