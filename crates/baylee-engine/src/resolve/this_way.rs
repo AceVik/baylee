@@ -53,6 +53,7 @@ pub(super) fn entries<'a>(state: &'a GameState, res: &Resolution) -> &'a [Journa
 /// [`baylee_cards_dsl::Amount::ThisWay`]: how much of `what` this resolution
 /// has done, counting only `only`'s part when it names a player (an
 /// instruction applied to each player in turn).
+#[allow(clippy::too_many_lines)] // Keep each journal event/result pair in one flat match.
 pub(super) fn count(
     state: &GameState,
     res: &Resolution,
