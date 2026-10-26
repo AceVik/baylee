@@ -480,6 +480,59 @@ impl Tx<'_> {
         })
     }
 
+    pub(super) fn gain_control_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+        targets_here: bool,
+        targets_a_player: bool,
+    ) -> Option<Vec<String>> {
+        if target.is_none() || targets_a_player {
+            return None;
+        }
+        match p.take("Defined").as_deref() {
+            None => {}
+            Some("Targeted") if !targets_here => {}
+            Some(_) => return None,
+        }
+        match p.take("NewController").as_deref() {
+            None | Some("You") => {}
+            Some(_) => return None,
+        }
+        let duration = match p.take("LoseControl").as_deref() {
+            Some("EOT") => "Duration::UntilEndOfTurn",
+            Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileYouControlSource",
+            None => "Duration::Permanent",
+            Some(_) => return None,
+        };
+        let untap = match p.take("Untap").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let mut out = Vec::new();
+        if untap {
+            out.push("Effect::UntapTarget".to_string());
+        }
+        out.push(format!(
+            "Effect::continuous(&Filter::This, Modifier::GainControl, {duration})"
+        ));
+        if let Some(kw_raw) = p.take("AddKWs") {
+            if duration != "Duration::UntilEndOfTurn" {
+                return None;
+            }
+            let each: Option<Vec<&str>> =
+                kw_raw.split('&').map(|k| keyword_const(k.trim())).collect();
+            let kw =
+                each?.join(".union(") + &")".repeat(kw_raw.split('&').count().saturating_sub(1));
+            out.push(format!(
+                "Effect::PumpTarget {{ power: Amount::Fixed(0), toughness: Amount::Fixed(0), \
+                 keywords: {kw}, duration: Duration::UntilEndOfTurn }}"
+            ));
+        }
+        Some(out)
+    }
+
     /// `ChangeZone` for the zone pairs the engine has an effect for.
     ///
     /// The corpus writes every zone change with one API and two zone names; the
@@ -549,7 +602,7 @@ impl Tx<'_> {
             return None;
         }
         Some(match (origin.as_str(), destination.as_str(), itself) {
-            ("Battlefield", "Hand", true) => {
+            ("Battlefield" | "Graveyard", "Hand", true) => {
                 vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
             }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],

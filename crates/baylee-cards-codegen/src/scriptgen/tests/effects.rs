@@ -1730,3 +1730,56 @@ fn pawnshop_heir_outrigger_scandalmonger_sever_soul_silent_assassin_and_fugitive
         body.abilities[0]
     );
 }
+
+#[test]
+fn overtaker_squee_statecraft_and_territorial_dispute_shapes_read() {
+    let overtaker = "Name:Overtaker\nManaCost:1 U\nTypes:Creature Merfolk Spellshaper\nPT:1/1\n\
+        A:AB$ Untap | Cost$ 3 U T Discard<1/Card> | ValidTgts$ Creature | SubAbility$ DBChange\n\
+        SVar:DBChange:DB$ GainControl | Defined$ Targeted | AddKWs$ Haste | LoseControl$ EOT";
+    let body = read(overtaker);
+    assert!(
+        body.abilities[0].contains("Effect::UntapTarget")
+            && body.abilities[0].contains(
+                "Effect::continuous(&Filter::This, Modifier::GainControl, Duration::UntilEndOfTurn)"
+            )
+            && body.abilities[0].contains("keywords: KeywordSet::HASTE"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let squee = "Name:Squee, Goblin Nabob\nManaCost:2 R\nTypes:Legendary Creature Goblin\nPT:1/1\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Graveyard | OptionalDecider$ You | Execute$ TrigChange\n\
+        SVar:TrigChange:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | Defined$ Self";
+    let body = read(squee);
+    assert!(
+        body.abilities[0].contains("zone = TriggerZone::Graveyard")
+            && body.abilities[0].contains("Effect::bounce(TargetSpec::ThisObject)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let statecraft = "Name:Statecraft\nManaCost:3 U\nTypes:Enchantment\n\
+        R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ Creature.YouCtrl | ActiveZones$ Battlefield\n\
+        R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Creature.YouCtrl | ActiveZones$ Battlefield | Secondary$ True";
+    let body = read(statecraft);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities[0].contains("Modifier::PreventDamageToIt")
+            && body.abilities[1].contains("Modifier::PreventDamageFromIt"),
+        "{:?}",
+        body.abilities
+    );
+
+    let dispute = "Name:Territorial Dispute\nManaCost:4 R R\nTypes:Enchantment\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigUpkeep\n\
+        SVar:TrigUpkeep:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ Sac<1/Land>\n\
+        S:Mode$ CantPlayLand | Description$ Players can't play lands.";
+    let body = read(dispute);
+    assert!(
+        body.abilities
+            .iter()
+            .any(|a| a.contains("Modifier::PlayersCantPlay(&Filter::LAND)")),
+        "{:?}",
+        body.abilities
+    );
+}

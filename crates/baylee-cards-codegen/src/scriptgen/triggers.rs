@@ -616,6 +616,7 @@ impl Tx<'_> {
         if self.is_imprison_clause(&mode, &p) {
             return self.imprison_clause(&mode, p);
         }
+        let zone = Self::take_trigger_zone(&mode, &mut p);
         let (trigger, condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {
@@ -706,7 +707,8 @@ impl Tx<'_> {
             None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
-        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{second}{condition})");
+        let ability =
+            format!("triggered!({trigger}, &[{effects}]{zone}{targets}{second}{condition})");
         if let Some((role, other, secondary)) = self.block_line.take() {
             return self.pair_block_half(role, other, secondary, ability);
         }
@@ -918,5 +920,17 @@ impl Tx<'_> {
             return self.deny("a delayed trigger that reads as no effect".to_string());
         }
         Some(inner.effects.join(", "))
+    }
+
+    fn take_trigger_zone(mode: &str, p: &mut Params) -> &'static str {
+        if mode == "Phase"
+            && p.peek("Phase") == Some("Upkeep")
+            && p.peek("TriggerZones") == Some("Graveyard")
+        {
+            p.take("TriggerZones");
+            ", zone = TriggerZone::Graveyard"
+        } else {
+            ""
+        }
     }
 }

@@ -150,6 +150,7 @@ impl Tx<'_> {
             "CantBlock" => return self.cant_block(p),
             "CanAttackDefender" => return self.attack_as_though("AttacksDespiteDefender", p),
             "CanAttackIfHaste" => return self.attack_as_though("AttacksAsThoughHaste", p),
+            "CantPlayLand" => return self.cant_play_land(p),
             _ => {}
         }
         if p.peek("EffectZone") == Some("Graveyard") {
@@ -433,6 +434,18 @@ impl Tx<'_> {
         let filter = self.filter_expr(&valid)?;
         self.body.abilities.push(format!(
             "static_ability!({filter}, Modifier::{modifier}{condition})"
+        ));
+        Some(())
+    }
+
+    pub(super) fn cant_play_land(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            return None;
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::This, Modifier::PlayersCantPlay(&Filter::LAND){condition})"
         ));
         Some(())
     }

@@ -371,6 +371,13 @@ impl Tx<'_> {
         if event == "DamageDone" && p.peek("ValidTarget") == Some("Creature.EnchantedBy") {
             return self.enchanted_target_damage_prevention(p);
         }
+        if event == "DamageDone"
+            && p.peek("IsCombat") == Some("True")
+            && (p.peek("ValidTarget") == Some("Creature.YouCtrl")
+                || p.peek("ValidSource") == Some("Creature.YouCtrl"))
+        {
+            return self.combat_damage_your_creatures_prevention(p);
+        }
         if event == "DamageDone" {
             return self.spell_damage_prevention(p);
         }

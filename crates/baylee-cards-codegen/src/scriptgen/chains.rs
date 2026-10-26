@@ -522,6 +522,20 @@ impl Tx<'_> {
                     "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
                 )]
             }
+            "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
+                p.take("Mode");
+                if !targets_a_player
+                    || p.take("Defined").is_some()
+                    || !matches!(p.take("NumCards").as_deref(), None | Some("1"))
+                {
+                    return None;
+                }
+                let filter = match p.take("DiscardValid").as_deref() {
+                    None | Some("Card") => "Filter::Any".to_string(),
+                    Some(valid) => self.filter_expr(valid)?,
+                };
+                vec![format!("Effect::RevealHandDiscard {{ filter: &{filter} }}")]
+            }
             "Discard" => {
                 // Refuse other modes instead of turning a chosen discard
                 // into a random one. Unconsumed qualifiers also refuse it.
@@ -793,6 +807,7 @@ impl Tx<'_> {
             "Pump" => self.pump_effect(p, aimed, false)?,
             "PumpAll" => self.pump_all_effect(p, target)?,
             "Effect" => self.static_effect(p, target)?,
+            "GainControl" => self.gain_control_effect(p, target, targets_here, targets_a_player)?,
             "ChangeZone" => self.change_zone(p, target, targets_here)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
             // "Look at the top three cards of target player's library and
