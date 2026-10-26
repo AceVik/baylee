@@ -53,6 +53,7 @@ mod elesh_norn_mother_of_machines;
 mod elvish_bard;
 mod empress_galina;
 mod endless_wurm;
+mod ertai_the_corrupted;
 mod escaped_shapeshifter;
 mod ethereal_champion;
 mod fallen_angel;

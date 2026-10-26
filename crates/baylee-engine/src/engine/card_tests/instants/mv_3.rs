@@ -28,6 +28,7 @@ mod delirium;
 mod dissipate;
 mod dominate;
 mod downhill_charge;
+mod dromar_s_charm;
 mod early_harvest;
 mod eerie_interlude;
 mod essence_vortex;

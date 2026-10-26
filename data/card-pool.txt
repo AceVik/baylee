@@ -11218,3 +11218,30 @@ Worldly Counsel
 Yavimaya Kavu
 Yawgmoth's Agenda
 Zanam Djinn
+
+# Planeshift (pls) — batch 1
+Allied Strategies
+Amphibious Kavu
+Arctic Merfolk
+Bog Down
+Caldera Kavu
+Cavern Harpy
+Cloud Cover
+Confound
+Dark Suspicions
+Death Bomb
+Destructive Flow
+Diabolic Intent
+Disciple of Kangee
+Dominaria's Judgment
+Doomsday Specter
+Draco
+Dralnu's Pet
+Dromar's Charm
+Ertai's Trickery
+Ertai, the Corrupted
+Exotic Disease
+Falling Timber
+Gaea's Herald
+Goblin Game
+Guard Dogs

@@ -14171,132 +14171,276 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nDomain — Enchanted creature gets +1/+1 for each basic land type among lands you control.",
     ],
-    &[],
+    // Sulam Djinn
+    &[
+        "Trample\nThis creature gets -2/-2 as long as green is the most common color among all permanents or is tied for most common.",
+    ],
     // Sulfur Vent
     &["This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add {U}{R}."],
-    &[],
-    &[],
-    &[],
+    // Sunscape Apprentice
+    &[
+        "{G}, {T}: Target creature gets +1/+1 until end of turn.\n{U}, {T}: Put target creature you control on top of its owner's library.",
+    ],
+    // Sunscape Master
+    &[
+        "{G}{G}, {T}: Creatures you control get +2/+2 until end of turn.\n{U}{U}, {T}: Return target creature to its owner's hand.",
+    ],
+    // Sway of Illusion
+    &[
+        "Any number of target creatures become the color of your choice until end of turn.\nDraw a card.",
+    ],
     // Tainted Well
     &["Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land is a Swamp."],
-    &[],
-    &[],
+    // Tangle
+    &[
+        "Prevent all combat damage that would be dealt this turn.\nEach attacking creature doesn't untap during its controller's next untap step.",
+    ],
+    // Tectonic Instability
+    &["Whenever a land enters, tap all lands its controller controls."],
     // Teferi's Care
     &[
         "{W}, Sacrifice an enchantment: Destroy target enchantment.\n{3}{U}{U}: Counter target enchantment spell.",
     ],
-    &[],
-    &[],
+    // Teferi's Moat
+    &[
+        "As this enchantment enters, choose a color.\nCreatures of the chosen color without flying can't attack you.",
+    ],
+    // Teferi's Response
+    &[
+        "Counter target spell or ability an opponent controls that targets a land you control. If a permanent's ability is countered this way, destroy that permanent.\nDraw two cards.",
+    ],
     // Tek
     &[
         "This creature gets +0/+2 as long as you control a Plains, has flying as long as you control an Island, gets +2/+0 as long as you control a Swamp, has first strike as long as you control a Mountain, and has trample as long as you control a Forest.",
     ],
-    &[],
-    &[],
+    // Temporal Distortion
+    &[
+        "Whenever a creature or land becomes tapped, put an hourglass counter on it.\nEach permanent with an hourglass counter on it doesn't untap during its controller's untap step.\nAt the beginning of each player's upkeep, remove all hourglass counters from permanents that player controls.",
+    ],
+    // Thicket Elemental
+    &[
+        "Kicker {1}{G} (You may pay an additional {1}{G} as you cast this spell.)\nWhen this creature enters, if it was kicked, you may reveal cards from the top of your library until you reveal a creature card. If you do, put that card onto the battlefield and shuffle all other cards revealed this way into your library.",
+    ],
     // Thornscape Apprentice
     &[
         "{R}, {T}: Target creature gains first strike until end of turn.\n{W}, {T}: Tap target creature.",
     ],
-    &[],
+    // Thornscape Master
+    &[
+        "{R}{R}, {T}: This creature deals 2 damage to target creature.\n{W}{W}, {T}: Target creature gains protection from the color of your choice until end of turn.",
+    ],
     // Thunderscape Apprentice
     &[
         "{B}, {T}: Target player loses 1 life.\n{G}, {T}: Target creature gets +1/+1 until end of turn.",
     ],
-    &[],
-    &[],
+    // Thunderscape Master
+    &[
+        "{B}{B}, {T}: Target player loses 2 life and you gain 2 life.\n{G}{G}, {T}: Creatures you control get +2/+2 until end of turn.",
+    ],
+    // Tidal Visionary
+    &["{T}: Target creature becomes the color of your choice until end of turn."],
     // Tigereye Cameo
     &["{T}: Add {G} or {W}."],
     // Tinder Farm
     &["This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add {R}{W}."],
-    &[],
+    // Tolarian Emissary
+    &[
+        "Kicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, destroy target enchantment.",
+    ],
     // Tower Drake
     &["Flying\n{W}: This creature gets +0/+1 until end of turn."],
-    &[],
+    // Traveler's Cloak
+    &[
+        "Enchant creature\nAs this Aura enters, choose a land type.\nWhen this Aura enters, draw a card.\nEnchanted creature has landwalk of the chosen type. (It can't be blocked as long as defending player controls a land of that type.)",
+    ],
     // Treefolk Healer
     &["{2}{W}, {T}: Prevent the next 2 damage that would be dealt to any target this turn."],
     // Trench Wurm
     &["{2}{R}, {T}: Destroy target nonbasic land."],
     // Treva's Attendant
     &["{1}, Sacrifice this creature: Add {G}{W}{U}."],
-    &[],
-    &[],
+    // Treva, the Renewer
+    &[
+        "Flying\nWhenever Treva deals combat damage to a player, you may pay {2}{W}. If you do, choose a color, then you gain 1 life for each permanent of that color.",
+    ],
+    // Tribal Flames
+    &[
+        "Domain — Tribal Flames deals X damage to any target, where X is the number of basic land types among lands you control.",
+    ],
     // Troll-Horn Cameo
     &["{T}: Add {R} or {G}."],
     // Tsabo Tavoc
     &[
         "First strike, protection from legendary creatures\n{B}{B}, {T}: Destroy target legendary creature. It can't be regenerated.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tsabo's Assassin
+    &[
+        "{T}: Destroy target creature if it shares a color with the most common color among all permanents or a color tied for most common. A creature destroyed this way can't be regenerated.",
+    ],
+    // Tsabo's Decree
+    &[
+        "Choose a creature type. Target player reveals their hand and discards all creature cards of that type. Then destroy all creatures of that type that player controls. They can't be regenerated.",
+    ],
+    // Tsabo's Web
+    &[
+        "When this artifact enters, draw a card.\nEach land with an activated ability that isn't a mana ability doesn't untap during its controller's untap step.",
+    ],
+    // Turf Wound
+    &["Target player can't play lands this turn.\nDraw a card."],
+    // Twilight's Call
+    &[
+        "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nEach player returns all creature cards from their graveyard to the battlefield.",
+    ],
+    // Undermine
+    &["Counter target spell. Its controller loses 3 life."],
     // Urborg Drake
     &["Flying\nThis creature attacks each combat if able."],
-    &[],
-    &[],
+    // Urborg Emissary
+    &[
+        "Kicker {1}{U} (You may pay an additional {1}{U} as you cast this spell.)\nWhen this creature enters, if it was kicked, return target permanent to its owner's hand.",
+    ],
+    // Urborg Phantom
+    &[
+        "This creature can't block.\n{U}: Prevent all combat damage that would be dealt to and dealt by this creature this turn.",
+    ],
     // Urborg Shambler
     &["Other black creatures get -1/-1."],
-    &[],
+    // Urborg Skeleton
+    &[
+        "Kicker {3} (You may pay an additional {3} as you cast this spell.)\n{B}: Regenerate this creature.\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+    ],
     // Urborg Volcano
     &["This land enters tapped.\n{T}: Add {B} or {R}."],
-    &[],
-    &[],
+    // Urza's Filter
+    &["Multicolored spells cost {2} less to cast."],
+    // Urza's Rage
+    &[
+        "Kicker {8}{R} (You may pay an additional {8}{R} as you cast this spell.)\nThis spell can't be countered.\nUrza's Rage deals 3 damage to any target. If this spell was kicked, instead it deals 10 damage to that permanent or player and the damage can't be prevented.",
+    ],
     // Utopia Tree
     &["{T}: Add one mana of any color."],
-    &[],
-    &[],
+    // Verdeloth the Ancient
+    &[
+        "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSaproling creatures and other Treefolk creatures get +1/+1.\nWhen Verdeloth enters, if it was kicked, create X 1/1 green Saproling creature tokens.",
+    ],
+    // Verduran Emissary
+    &[
+        "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nWhen this creature enters, if it was kicked, destroy target artifact. It can't be regenerated.",
+    ],
     // Viashino Grappler
     &["{G}: This creature gains trample until end of turn."],
     // Vicious Kavu
     &["Whenever this creature attacks, it gets +2/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Vigorous Charge
+    &[
+        "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget creature gains trample until end of turn. Whenever that creature deals combat damage this turn, if this spell was kicked, you gain life equal to that damage.",
+    ],
+    // Vile Consumption
+    &[
+        "All creatures have \"At the beginning of your upkeep, sacrifice this creature unless you pay 1 life.\"",
+    ],
+    // Vodalian Hypnotist
+    &["{2}{B}, {T}: Target player discards a card. Activate only as a sorcery."],
     // Vodalian Merchant
     &["When this creature enters, draw a card, then discard a card."],
-    &[],
+    // Vodalian Serpent
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nThis creature can't attack unless defending player controls an Island.\nIf this creature was kicked, it enters with four +1/+1 counters on it.",
+    ],
     // Vodalian Zombie
     &["Protection from green"],
-    &[],
-    &[],
+    // Void
+    &[
+        "Choose a number. Destroy all artifacts and creatures with mana value equal to that number. Then target player reveals their hand and discards all nonland cards with mana value equal to the number.",
+    ],
+    // Voracious Cobra
+    &[
+        "First strike\nWhenever this creature deals combat damage to a creature, destroy that creature.",
+    ],
     // Wallop
     &["Destroy target blue or black creature with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Wandering Stream
+    &["Domain — You gain 2 life for each basic land type among lands you control."],
+    // Wash Out
+    &["Return all permanents of the color of your choice to their owners' hands."],
+    // Wax
+    &[
+        "Target creature gets +2/+2 until end of turn.",
+        "Destroy target enchantment.",
+    ],
+    // Wayfaring Giant
+    &["Domain — This creature gets +1/+1 for each basic land type among lands you control."],
+    // Well-Laid Plans
+    &[
+        "Prevent all damage that would be dealt to a creature by another creature if they share a color.",
+    ],
+    // Whip Silk
+    &[
+        "Enchant creature\nEnchanted creature has reach. (It can block creatures with flying.)\n{G}: Return this Aura to its owner's hand.",
+    ],
     // Wings of Hope
     &["Enchant creature\nEnchanted creature gets +1/+3 and has flying."],
-    &[],
-    &[],
+    // Winnow
+    &[
+        "Destroy target nonland permanent if another permanent with the same name is on the battlefield.\nDraw a card.",
+    ],
+    // Worldly Counsel
+    &[
+        "Domain — Look at the top X cards of your library, where X is the number of basic land types among lands you control. Put one of those cards into your hand and the rest on the bottom of your library in any order.",
+    ],
     // Yavimaya Barbarian
     &["Protection from blue"],
-    &[],
-    &[],
-    &[],
+    // Yavimaya Kavu
+    &[
+        "Yavimaya Kavu's power is equal to the number of red creatures on the battlefield.\nYavimaya Kavu's toughness is equal to the number of green creatures on the battlefield.",
+    ],
+    // Yawgmoth's Agenda
+    &[
+        "You can't cast more than one spell each turn.\nYou may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere, exile it instead.",
+    ],
+    // Zanam Djinn
+    &[
+        "Flying\nThis creature gets -2/-2 as long as blue is the most common color among all permanents or is tied for most common.",
+    ],
     // Zap
     &["Zap deals 1 damage to any target.\nDraw a card."],
     &[],
-    &[],
+    // Allied Strategies
+    &["Domain — Target player draws a card for each basic land type among lands they control."],
     // Alpha Kavu
     &["{1}{G}: Target Kavu creature gets -1/+1 until end of turn."],
-    &[],
+    // Amphibious Kavu
+    &[
+        "Whenever this creature blocks or becomes blocked by one or more blue and/or black creatures, this creature gets +3/+3 until end of turn.",
+    ],
     // Ancient Spider
     &["Reach (This creature can block creatures with flying.)\nFirst strike"],
-    &[],
+    // Arctic Merfolk
+    &[
+        "Kicker—Return a creature you control to its owner's hand. (You may return a creature you control to its owner's hand in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+    ],
     // Aura Blast
     &["Destroy target enchantment.\nDraw a card."],
     // Aurora Griffin
     &["Flying\n{W}: Target permanent becomes white until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bog Down
+    &[
+        "Kicker—Sacrifice two lands. (You may sacrifice two lands in addition to any other costs as you cast this spell.)\nTarget player discards two cards. If this spell was kicked, that player discards three cards instead.",
+    ],
+    // Caldera Kavu
+    &[
+        "{1}{B}: This creature gets +1/+1 until end of turn.\n{G}: This creature becomes the color of your choice until end of turn.",
+    ],
+    // Cavern Harpy
+    &[
+        "Flying\nWhen this creature enters, return a blue or black creature you control to its owner's hand.\nPay 1 life: Return this creature to its owner's hand.",
+    ],
+    // Cloud Cover
+    &[
+        "Whenever another permanent you control becomes the target of a spell or ability an opponent controls, you may return that permanent to its owner's hand.",
+    ],
+    // Confound
+    &["Counter target spell that targets a creature.\nDraw a card."],
     // Crosis's Catacombs
     &[
         "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {U}, {B}, or {R}.",
@@ -14315,36 +14459,72 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Daring Leap
     &["Target creature gets +1/+1 and gains flying and first strike until end of turn."],
-    &[],
+    // Dark Suspicions
+    &[
+        "At the beginning of each opponent's upkeep, that player loses X life, where X is the number of cards in that player's hand minus the number of cards in your hand.",
+    ],
     // Deadapult
     &["{R}, Sacrifice a Zombie: This enchantment deals 2 damage to any target."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Death Bomb
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nDestroy target nonblack creature. It can't be regenerated. Its controller loses 2 life.",
+    ],
+    // Destructive Flow
+    &[
+        "At the beginning of each player's upkeep, that player sacrifices a nonbasic land of their choice.",
+    ],
+    // Diabolic Intent
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
+    ],
+    // Disciple of Kangee
+    &["{U}, {T}: Target creature gains flying and becomes blue until end of turn."],
+    // Dominaria's Judgment
+    &[
+        "Until end of turn, creatures you control gain protection from white if you control a Plains, from blue if you control an Island, from black if you control a Swamp, from red if you control a Mountain, and from green if you control a Forest.",
+    ],
+    // Doomsday Specter
+    &[
+        "Flying\nWhen this creature enters, return a blue or black creature you control to its owner's hand.\nWhenever this creature deals combat damage to a player, look at that player's hand and choose a card from it. The player discards that card.",
+    ],
+    // Draco
+    &[
+        "Domain — This spell costs {2} less to cast for each basic land type among lands you control.\nFlying\nDomain — At the beginning of your upkeep, sacrifice this creature unless you pay {10}. This cost is reduced by {2} for each basic land type among lands you control.",
+    ],
     // Dralnu's Crusade
     &[
         "All Goblins get +1/+1.\nAll Goblins are black and are Zombies in addition to their other creature types.",
     ],
-    &[],
+    // Dralnu's Pet
+    &[
+        "Kicker—{2}{B}, Discard a creature card. (You may pay {2}{B} and discard a creature card in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with flying and with X +1/+1 counters on it, where X is the discarded card's mana value.",
+    ],
     // Dromar's Cavern
     &[
         "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {W}, {U}, or {B}.",
     ],
-    &[],
+    // Dromar's Charm
+    &[
+        "Choose one —\n• You gain 5 life.\n• Counter target spell.\n• Target creature gets -2/-2 until end of turn.",
+    ],
     // Eladamri's Call
     &[
         "Search your library for a creature card, reveal that card, put it into your hand, then shuffle.",
     ],
-    &[],
-    &[],
+    // Ertai's Trickery
+    &["Counter target spell if it was kicked."],
+    // Ertai, the Corrupted
+    &["{U}, {T}, Sacrifice a creature or enchantment: Counter target spell."],
     // Escape Routes
     &["{2}{U}: Return target white or black creature you control to its owner's hand."],
-    &[],
-    &[],
+    // Exotic Disease
+    &[
+        "Domain — Target player loses X life and you gain X life, where X is the number of basic land types among lands you control.",
+    ],
+    // Falling Timber
+    &[
+        "Kicker—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nPrevent all combat damage target creature would deal this turn. If this spell was kicked, prevent all combat damage another target creature would deal this turn.",
+    ],
     // Flametongue Kavu
     &["When this creature enters, it deals 4 damage to target creature."],
     // Fleetfoot Panther
@@ -14355,7 +14535,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land doesn't untap during your untap step.\nAt the beginning of your upkeep, you may exile a card from your hand. If you do, untap this land.\n{T}: Add one mana of any color.",
     ],
-    &[],
+    // Gaea's Herald
+    &["Creature spells can't be countered."],
     // Gaea's Might
     &[
         "Domain — Target creature gets +1/+1 until end of turn for each basic land type among lands you control.",
@@ -14364,8 +14545,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["Counter target blue spell."],
     // Gerrard's Command
     &["Untap target creature. It gets +3/+3 until end of turn."],
-    &[],
-    &[],
+    // Goblin Game
+    &[
+        "Each player hides at least one item, then all players reveal them simultaneously. Each player loses life equal to the number of items they revealed. The player who revealed the fewest items then loses half their life, rounded up. If two or more players are tied for fewest, each loses half their life, rounded up.",
+    ],
+    // Guard Dogs
+    &[
+        "{2}{W}, {T}: Choose a permanent you control. Prevent all combat damage target creature would deal this turn if it shares a color with that permanent.",
+    ],
     &[],
     &[],
     &[],

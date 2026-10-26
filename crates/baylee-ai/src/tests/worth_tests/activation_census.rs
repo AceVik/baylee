@@ -404,7 +404,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // and Tidal Visionary (1) (5 of 7 read by the evaluator).
     // Invasion (`inv`) Batch 8 adds 2 non-mana activated abilities on
     // Vodalian Hypnotist and Whip Silk (1 of 2 read by the evaluator).
-    assert_eq!((read, of), (2848, 3602), "activated/loyalty reader census");
+    // Planeshift (`pls`) Batch 1 adds 5 non-mana activated abilities on
+    // Caldera Kavu (2), Cavern Harpy, Disciple of Kangee, and Ertai, the
+    // Corrupted (4 of 5 read by the evaluator).
+    assert_eq!((read, of), (2852, 3607), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

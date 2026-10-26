@@ -50,6 +50,7 @@ mod canopy_spider;
 mod capashen_knight;
 mod capashen_unicorn;
 mod carrionette;
+mod cavern_harpy;
 mod cephalid_scout;
 mod charming_prince;
 mod cinder_crawler;
