@@ -8,17 +8,26 @@ use baylee_core::generated::index;
 fn sneaky_homunculus_cant_block_or_be_blocked_by_power_2_or_greater() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
-        .hand(0, &[index::SNEAKY_HOMUNCULUS])
+        .hand(0, &[card_index("0b76bb3b-1ada-4c78-bd13-3464371d4fa0")])
         .battlefield(0, &[island(); 2])
         .battlefield(1, &[index::GRIZZLY_BEARS, llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SNEAKY_HOMUNCULUS);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("0b76bb3b-1ada-4c78-bd13-3464371d4fa0"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let homunculus = on_battlefield(&engine, p0, index::SNEAKY_HOMUNCULUS).unwrap();
+    let homunculus = on_battlefield(
+        &engine,
+        p0,
+        card_index("0b76bb3b-1ada-4c78-bd13-3464371d4fa0"),
+    )
+    .unwrap();
     let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
     let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
 

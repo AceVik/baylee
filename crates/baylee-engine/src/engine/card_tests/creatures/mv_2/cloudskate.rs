@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_cards_dsl::counters;
-use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -14,15 +13,24 @@ const P1: PlayerId = PlayerId::new(1);
 fn cloudskate_enters_with_three_fade_counters_removes_one_each_upkeep_and_sacrifices_when_empty() {
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[island(), island()])
-        .hand(0, &[index::CLOUDSKATE])
+        .hand(0, &[card_index("648e4072-b991-46fd-b057-1e807091dcdf")])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    cast_from_hand(&mut engine, P0, index::CLOUDSKATE);
+    cast_from_hand(
+        &mut engine,
+        P0,
+        card_index("648e4072-b991-46fd-b057-1e807091dcdf"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let skate = on_battlefield(&engine, P0, index::CLOUDSKATE).unwrap();
+    let skate = on_battlefield(
+        &engine,
+        P0,
+        card_index("648e4072-b991-46fd-b057-1e807091dcdf"),
+    )
+    .unwrap();
     assert_eq!(
         engine
             .state()
@@ -51,6 +59,20 @@ fn cloudskate_enters_with_three_fade_counters_removes_one_each_upkeep_and_sacrif
     // Upkeep 4 (0 counters left): sacrificed.
     reach_their_main_phase(&mut engine, P1);
     reach_their_main_phase(&mut engine, P0);
-    assert!(on_battlefield(&engine, P0, index::CLOUDSKATE).is_none());
-    assert!(in_graveyard(&engine, P0, index::CLOUDSKATE).is_some());
+    assert!(
+        on_battlefield(
+            &engine,
+            P0,
+            card_index("648e4072-b991-46fd-b057-1e807091dcdf")
+        )
+        .is_none()
+    );
+    assert!(
+        in_graveyard(
+            &engine,
+            P0,
+            card_index("648e4072-b991-46fd-b057-1e807091dcdf")
+        )
+        .is_some()
+    );
 }

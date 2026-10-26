@@ -12,7 +12,7 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn avenger_en_dal_exiles_attacking_creature_and_its_controller_gains_life_equal_to_toughness() {
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[index::AVENGER_EN_DAL])
+        .battlefield(0, &[card_index("62009b63-ca6c-4fb0-8c9a-eccdec51cb18")])
         .hand(0, &[plains()])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
@@ -44,7 +44,12 @@ fn avenger_en_dal_exiles_attacking_creature_and_its_controller_gains_life_equal_
         .add(ManaColor::White, 3);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::AVENGER_EN_DAL, 0);
+    activate(
+        &mut engine,
+        P0,
+        card_index("62009b63-ca6c-4fb0-8c9a-eccdec51cb18"),
+        0,
+    );
     engine
         .apply(
             P0,

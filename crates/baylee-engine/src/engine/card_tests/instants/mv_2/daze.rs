@@ -2,7 +2,6 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 /// Daze ({1}{U} Instant):
 /// "Counter target spell unless its controller pays {1}."
@@ -11,7 +10,7 @@ fn daze_counters_target_spell_unless_its_controller_pays_one() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[island(), island()])
-        .hand(0, &[index::DAZE])
+        .hand(0, &[card_index("70486bee-6ee7-41ea-b834-8caf4699302b")])
         .battlefield(1, &[forest(), forest()])
         .hand(1, &[grizzly_bears()])
         .start();
@@ -25,7 +24,11 @@ fn daze_counters_target_spell_unless_its_controller_pays_one() {
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
     );
 
-    cast_from_hand(&mut engine, p0, index::DAZE);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("70486bee-6ee7-41ea-b834-8caf4699302b"),
+    );
     engine
         .apply(
             p0,

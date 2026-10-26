@@ -13,7 +13,7 @@ const P1: PlayerId = PlayerId::new(1);
 fn dominate_gains_permanent_control_of_target_creature_with_mana_value_x_or_less() {
     let mut engine = Duel::new(SEED, island())
         .battlefield(0, &[island(), island(), island(), island(), island()])
-        .hand(0, &[index::DOMINATE])
+        .hand(0, &[card_index("77db8db4-9fe4-478e-b919-5348b0b87b0d")])
         .battlefield(1, &[grizzly_bears(), index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -23,7 +23,11 @@ fn dominate_gains_permanent_control_of_target_creature_with_mana_value_x_or_less
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
 
     tap_mana_where(&mut engine, P0, |_| true);
-    cast_with_floating(&mut engine, P0, index::DOMINATE);
+    cast_with_floating(
+        &mut engine,
+        P0,
+        card_index("77db8db4-9fe4-478e-b919-5348b0b87b0d"),
+    );
     // Announce X = 2: Grizzly Bears (MV 2) is legal, Hill Giant (MV 3) is not.
     engine.apply(P0, PlayerAction::ChooseNumber(2)).unwrap();
     let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {

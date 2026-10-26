@@ -9,7 +9,10 @@ fn netter_en_dal_prevents_target_creature_from_attacking_this_turn() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
         .battlefield(0, &[index::GRIZZLY_BEARS])
-        .battlefield(1, &[index::NETTER_EN_DAL, plains()])
+        .battlefield(
+            1,
+            &[card_index("8cd65dcd-e36d-47b1-b011-961c79004cb0"), plains()],
+        )
         .hand(1, &[plains()])
         .start();
     keep_mulligans(&mut engine);
@@ -21,7 +24,12 @@ fn netter_en_dal_prevents_target_creature_from_attacking_this_turn() {
         |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
     );
     tap_all_mana(&mut engine, p1);
-    activate(&mut engine, p1, index::NETTER_EN_DAL, 0);
+    activate(
+        &mut engine,
+        p1,
+        card_index("8cd65dcd-e36d-47b1-b011-961c79004cb0"),
+        0,
+    );
     aim_at(&mut engine, p1, bears);
     engine
         .apply(

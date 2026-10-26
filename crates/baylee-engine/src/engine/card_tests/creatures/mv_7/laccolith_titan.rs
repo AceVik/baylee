@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn laccolith_titan_deals_six_damage_to_target_creature_and_assigns_no_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::LACCOLITH_TITAN])
+        .battlefield(0, &[card_index("0d9ac5e0-2b4e-4e7b-937e-9e9bfce7e96b")])
         .battlefield(1, &[index::WALL_OF_WOOD, index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -16,7 +16,12 @@ fn laccolith_titan_deals_six_damage_to_target_creature_and_assigns_no_combat_dam
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
     );
-    let titan = on_battlefield(&engine, p0, index::LACCOLITH_TITAN).expect("Laccolith Titan");
+    let titan = on_battlefield(
+        &engine,
+        p0,
+        card_index("0d9ac5e0-2b4e-4e7b-937e-9e9bfce7e96b"),
+    )
+    .expect("Laccolith Titan");
     let wall = on_battlefield(&engine, p1, index::WALL_OF_WOOD).expect("Wall of Wood");
     let giant = on_battlefield(&engine, p1, index::HILL_GIANT).expect("Hill Giant");
     engine

@@ -8,7 +8,14 @@ use baylee_core::generated::index;
 fn mind_slash_sacrifices_creature_to_reveal_opponent_hand_and_discard_chosen_card() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[index::MIND_SLASH, swamp(), index::GRIZZLY_BEARS])
+        .battlefield(
+            0,
+            &[
+                card_index("47e79913-322e-4ba6-9bf8-3b4c1c82a6c4"),
+                swamp(),
+                index::GRIZZLY_BEARS,
+            ],
+        )
         .hand(1, &[index::HILL_GIANT, index::LLANOWAR_ELVES])
         .start();
     keep_mulligans(&mut engine);
@@ -16,7 +23,12 @@ fn mind_slash_sacrifices_creature_to_reveal_opponent_hand_and_discard_chosen_car
     let bears = on_battlefield(&engine, p0, index::GRIZZLY_BEARS).expect("Grizzly Bears");
     let opp_giant = in_hand(&engine, p1, index::HILL_GIANT).expect("Hill Giant in p1 hand");
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::MIND_SLASH, 0);
+    activate(
+        &mut engine,
+        p0,
+        card_index("47e79913-322e-4ba6-9bf8-3b4c1c82a6c4"),
+        0,
+    );
     engine
         .apply(
             p0,

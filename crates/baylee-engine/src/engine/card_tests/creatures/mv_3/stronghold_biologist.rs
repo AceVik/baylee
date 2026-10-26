@@ -8,7 +8,14 @@ use baylee_core::generated::index;
 fn stronghold_biologist_counters_target_creature_spell() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[island(), island(), index::STRONGHOLD_BIOLOGIST])
+        .battlefield(
+            0,
+            &[
+                island(),
+                island(),
+                card_index("1e2c4508-54ad-45c2-b35f-678f8c376b27"),
+            ],
+        )
         .hand(0, &[llanowar_elves()])
         .battlefield(1, &[forest(), forest()])
         .hand(1, &[index::GRIZZLY_BEARS])
@@ -24,10 +31,24 @@ fn stronghold_biologist_counters_target_creature_spell() {
             && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
     });
     let bears_spell = on_stack(&engine, index::GRIZZLY_BEARS).unwrap();
-    let biologist = on_battlefield(&engine, p0, index::STRONGHOLD_BIOLOGIST).unwrap();
+    let biologist = on_battlefield(
+        &engine,
+        p0,
+        card_index("1e2c4508-54ad-45c2-b35f-678f8c376b27"),
+    )
+    .unwrap();
 
-    tap_all_mana_but(&mut engine, p0, Some(index::STRONGHOLD_BIOLOGIST));
-    activate(&mut engine, p0, index::STRONGHOLD_BIOLOGIST, 0);
+    tap_all_mana_but(
+        &mut engine,
+        p0,
+        Some(card_index("1e2c4508-54ad-45c2-b35f-678f8c376b27")),
+    );
+    activate(
+        &mut engine,
+        p0,
+        card_index("1e2c4508-54ad-45c2-b35f-678f8c376b27"),
+        0,
+    );
 
     engine
         .apply(

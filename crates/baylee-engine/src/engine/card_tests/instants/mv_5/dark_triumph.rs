@@ -14,7 +14,7 @@ fn dark_triumph_gives_creatures_you_control_plus_two_plus_zero_until_end_of_turn
             0,
             &[swamp(), swamp(), swamp(), swamp(), swamp(), grizzly_bears()],
         )
-        .hand(0, &[index::DARK_TRIUMPH])
+        .hand(0, &[card_index("885630a8-c43b-4804-acd6-14a7c7321d73")])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -23,7 +23,11 @@ fn dark_triumph_gives_creatures_you_control_plus_two_plus_zero_until_end_of_turn
     let bears = on_battlefield(&engine, p0, grizzly_bears()).unwrap();
     let giant = on_battlefield(&engine, p1, index::HILL_GIANT).unwrap();
 
-    cast_from_hand(&mut engine, p0, index::DARK_TRIUMPH);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("885630a8-c43b-4804-acd6-14a7c7321d73"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(pt(&engine, bears), (4, 2));

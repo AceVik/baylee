@@ -13,7 +13,7 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_recruits_rebels() {
     let mut engine = Duel::new(SEED, index::NIGHTWIND_GLIDER)
-        .battlefield(0, &[index::DEFIANT_VANGUARD])
+        .battlefield(0, &[card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -25,7 +25,12 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         .add(ManaColor::White, 5);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::DEFIANT_VANGUARD, 1);
+    activate(
+        &mut engine,
+        P0,
+        card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"),
+        1,
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
@@ -49,7 +54,12 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
     // Untap on P1's turn? No, untap Defiant Vanguard and let P1's 3/3 Hill Giant attack;
     // give Defiant Vanguard +0/+4 so it survives combat damage, then verify both die at end of combat!
     reach_their_main_phase(&mut engine, P1);
-    let vanguard = on_battlefield(&engine, P0, index::DEFIANT_VANGUARD).unwrap();
+    let vanguard = on_battlefield(
+        &engine,
+        P0,
+        card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"),
+    )
+    .unwrap();
     engine
         .dev_state_mut(P0)
         .unwrap()
@@ -103,8 +113,18 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
     });
 
     assert!(
-        on_battlefield(&engine, P0, index::DEFIANT_VANGUARD).is_none()
-            && in_graveyard(&engine, P0, index::DEFIANT_VANGUARD).is_some(),
+        on_battlefield(
+            &engine,
+            P0,
+            card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")
+        )
+        .is_none()
+            && in_graveyard(
+                &engine,
+                P0,
+                card_index("680766e2-637b-40bc-a15f-0b4dc55bd619")
+            )
+            .is_some(),
         "Defiant Vanguard was destroyed at end of combat"
     );
     assert!(

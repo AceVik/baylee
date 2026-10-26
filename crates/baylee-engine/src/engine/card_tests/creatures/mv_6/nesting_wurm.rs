@@ -2,13 +2,12 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn nesting_wurm_searches_library_for_up_to_three_copies_on_etb() {
     let p0 = PlayerId::new(0);
-    let mut engine = Duel::new(SEED, index::NESTING_WURM)
-        .hand(0, &[index::NESTING_WURM])
+    let mut engine = Duel::new(SEED, card_index("3160dada-d59f-4f23-8420-ba14f9df7514"))
+        .hand(0, &[card_index("3160dada-d59f-4f23-8420-ba14f9df7514")])
         .battlefield(
             0,
             &[forest(), forest(), forest(), forest(), forest(), forest()],
@@ -17,7 +16,11 @@ fn nesting_wurm_searches_library_for_up_to_three_copies_on_etb() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
     let hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
-    cast_from_hand(&mut engine, p0, index::NESTING_WURM);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("3160dada-d59f-4f23-8420-ba14f9df7514"),
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::YesNo { .. })
     });

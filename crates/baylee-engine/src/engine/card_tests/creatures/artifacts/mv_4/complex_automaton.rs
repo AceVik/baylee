@@ -2,7 +2,6 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -15,7 +14,7 @@ fn complex_automaton_returns_to_hand_on_upkeep_only_with_seven_or_more_permanent
         .battlefield(
             0,
             &[
-                index::COMPLEX_AUTOMATON,
+                card_index("e4951b4e-ba68-495c-8062-e89250d02cf3"),
                 forest(),
                 forest(),
                 forest(),
@@ -32,7 +31,12 @@ fn complex_automaton_returns_to_hand_on_upkeep_only_with_seven_or_more_permanent
     reach_their_main_phase(&mut engine, P1);
     reach_their_main_phase(&mut engine, P0);
     assert!(
-        on_battlefield(&engine, P0, index::COMPLEX_AUTOMATON).is_some(),
+        on_battlefield(
+            &engine,
+            P0,
+            card_index("e4951b4e-ba68-495c-8062-e89250d02cf3")
+        )
+        .is_some(),
         "with only 6 permanents, Complex Automaton stays on the battlefield"
     );
 
@@ -45,8 +49,20 @@ fn complex_automaton_returns_to_hand_on_upkeep_only_with_seven_or_more_permanent
     reach_their_main_phase(&mut engine, P0);
 
     assert!(
-        on_battlefield(&engine, P0, index::COMPLEX_AUTOMATON).is_none(),
+        on_battlefield(
+            &engine,
+            P0,
+            card_index("e4951b4e-ba68-495c-8062-e89250d02cf3")
+        )
+        .is_none(),
         "with 7 permanents on upkeep, Complex Automaton returned to hand"
     );
-    assert!(in_hand(&engine, P0, index::COMPLEX_AUTOMATON).is_some());
+    assert!(
+        in_hand(
+            &engine,
+            P0,
+            card_index("e4951b4e-ba68-495c-8062-e89250d02cf3")
+        )
+        .is_some()
+    );
 }

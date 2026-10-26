@@ -2,13 +2,12 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn rackling_deals_three_minus_hand_size_damage_at_opponent_upkeep() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[index::RACKLING])
+        .battlefield(0, &[card_index("41d116d7-3b1e-4777-b3c0-54f8ca6b2785")])
         .hand(1, &[swamp()])
         .start();
     keep_mulligans(&mut engine);
@@ -22,7 +21,7 @@ fn rackling_deals_three_minus_hand_size_damage_at_opponent_upkeep() {
 fn rackling_deals_no_damage_when_opponent_has_three_or_more_cards() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[index::RACKLING])
+        .battlefield(0, &[card_index("41d116d7-3b1e-4777-b3c0-54f8ca6b2785")])
         .hand(1, &[swamp(), swamp(), swamp(), swamp()])
         .start();
     keep_mulligans(&mut engine);

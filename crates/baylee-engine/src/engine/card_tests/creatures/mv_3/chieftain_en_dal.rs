@@ -14,13 +14,22 @@ fn chieftain_en_dal_grants_attacking_creatures_first_strike_when_it_attacks() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
             0,
-            &[index::CHIEFTAIN_EN_DAL, grizzly_bears(), index::HILL_GIANT],
+            &[
+                card_index("8aae3a28-dcf3-460e-89f9-4b0c96d6f55e"),
+                grizzly_bears(),
+                index::HILL_GIANT,
+            ],
         )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    let chieftain = on_battlefield(&engine, P0, index::CHIEFTAIN_EN_DAL).unwrap();
+    let chieftain = on_battlefield(
+        &engine,
+        P0,
+        card_index("8aae3a28-dcf3-460e-89f9-4b0c96d6f55e"),
+    )
+    .unwrap();
     let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
     let giant = on_battlefield(&engine, P0, index::HILL_GIANT).unwrap();
 

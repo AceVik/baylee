@@ -8,17 +8,26 @@ use baylee_core::generated::index;
 fn spineless_thug_cant_block() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[index::SPINELESS_THUG])
+        .hand(0, &[card_index("78bbd213-e8f4-40da-aef5-853244e95756")])
         .battlefield(0, &[swamp(); 2])
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SPINELESS_THUG);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("78bbd213-e8f4-40da-aef5-853244e95756"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let thug = on_battlefield(&engine, p0, index::SPINELESS_THUG).unwrap();
+    let thug = on_battlefield(
+        &engine,
+        p0,
+        card_index("78bbd213-e8f4-40da-aef5-853244e95756"),
+    )
+    .unwrap();
     let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
     assert!(keywords(&engine, thug).contains(KeywordSet::CANT_BLOCK));
 

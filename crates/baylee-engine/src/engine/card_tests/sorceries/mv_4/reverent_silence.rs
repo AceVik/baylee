@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn reverent_silence_destroys_all_enchantments() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[index::REVERENT_SILENCE])
+        .hand(0, &[card_index("e670d1c9-5e28-4df8-aad9-d08d19dc74e9")])
         .battlefield(
             0,
             &[
@@ -25,7 +25,11 @@ fn reverent_silence_destroys_all_enchantments() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::REVERENT_SILENCE);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("e670d1c9-5e28-4df8-aad9-d08d19dc74e9"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(

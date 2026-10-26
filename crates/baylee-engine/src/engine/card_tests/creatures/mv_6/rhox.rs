@@ -2,18 +2,30 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn rhox_regenerates_for_two_and_a_green() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::RHOX, forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[
+                card_index("f6f4c684-2915-4a58-9c4b-487387f7cf73"),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let rhox = on_battlefield(&engine, p0, index::RHOX).expect("Rhox");
+    let rhox = on_battlefield(
+        &engine,
+        p0,
+        card_index("f6f4c684-2915-4a58-9c4b-487387f7cf73"),
+    )
+    .expect("Rhox");
     assert_eq!(pt(&engine, rhox), (5, 5));
 
     tap_all_mana(&mut engine, p0);
@@ -21,7 +33,12 @@ fn rhox_regenerates_for_two_and_a_green() {
     kill(&mut engine, rhox);
 
     assert!(
-        on_battlefield(&engine, p0, index::RHOX).is_some(),
+        on_battlefield(
+            &engine,
+            p0,
+            card_index("f6f4c684-2915-4a58-9c4b-487387f7cf73")
+        )
+        .is_some(),
         "Rhox survives destruction via regeneration shield"
     );
     assert!(

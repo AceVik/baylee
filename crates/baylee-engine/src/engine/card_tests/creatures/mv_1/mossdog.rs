@@ -8,14 +8,22 @@ use baylee_core::generated::index;
 fn mossdog_gets_plus_one_plus_one_counter_when_targeted_by_opponent_spell_or_ability() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::MOSSDOG, forest()])
+        .battlefield(
+            0,
+            &[card_index("95cc3652-b78b-473b-84cf-0dd3a7006219"), forest()],
+        )
         .hand(0, &[index::GIANT_GROWTH])
         .battlefield(1, &[plains(), index::NETTER_EN_DAL])
         .hand(1, &[plains()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    let dog = on_battlefield(&engine, p0, index::MOSSDOG).expect("Mossdog");
+    let dog = on_battlefield(
+        &engine,
+        p0,
+        card_index("95cc3652-b78b-473b-84cf-0dd3a7006219"),
+    )
+    .expect("Mossdog");
     let opp_plains_in_hand = in_hand(&engine, p1, plains()).expect("Plains in p1 hand");
 
     // Own spell targeting Mossdog does not trigger it.

@@ -3,7 +3,6 @@
 #[allow(clippy::wildcard_imports)]
 use super::*;
 use baylee_cards_dsl::counters;
-use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -14,15 +13,24 @@ const P1: PlayerId = PlayerId::new(1);
 fn blastoderm_has_shroud_and_fades_away_after_three_upkeeps() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), forest(), forest()])
-        .hand(0, &[index::BLASTODERM])
+        .hand(0, &[card_index("d6ee8bd6-0207-46ee-9892-c1d1b23b934e")])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    cast_from_hand(&mut engine, P0, index::BLASTODERM);
+    cast_from_hand(
+        &mut engine,
+        P0,
+        card_index("d6ee8bd6-0207-46ee-9892-c1d1b23b934e"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let derm = on_battlefield(&engine, P0, index::BLASTODERM).unwrap();
+    let derm = on_battlefield(
+        &engine,
+        P0,
+        card_index("d6ee8bd6-0207-46ee-9892-c1d1b23b934e"),
+    )
+    .unwrap();
     assert!(
         engine
             .state()
@@ -58,6 +66,20 @@ fn blastoderm_has_shroud_and_fades_away_after_three_upkeeps() {
 
     reach_their_main_phase(&mut engine, P1);
     reach_their_main_phase(&mut engine, P0);
-    assert!(on_battlefield(&engine, P0, index::BLASTODERM).is_none());
-    assert!(in_graveyard(&engine, P0, index::BLASTODERM).is_some());
+    assert!(
+        on_battlefield(
+            &engine,
+            P0,
+            card_index("d6ee8bd6-0207-46ee-9892-c1d1b23b934e")
+        )
+        .is_none()
+    );
+    assert!(
+        in_graveyard(
+            &engine,
+            P0,
+            card_index("d6ee8bd6-0207-46ee-9892-c1d1b23b934e")
+        )
+        .is_some()
+    );
 }

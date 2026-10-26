@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn flint_golem_mills_defending_player_three_when_blocked() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::FLINT_GOLEM])
+        .battlefield(0, &[card_index("0993c5f1-1e8f-4871-9904-6c5a00405f36")])
         .battlefield(1, &[index::WALL_OF_WOOD])
         .start();
     keep_mulligans(&mut engine);
@@ -16,7 +16,12 @@ fn flint_golem_mills_defending_player_three_when_blocked() {
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
     );
-    let golem = on_battlefield(&engine, p0, index::FLINT_GOLEM).expect("Flint Golem");
+    let golem = on_battlefield(
+        &engine,
+        p0,
+        card_index("0993c5f1-1e8f-4871-9904-6c5a00405f36"),
+    )
+    .expect("Flint Golem");
     let wall = on_battlefield(&engine, p1, index::WALL_OF_WOOD).expect("Wall of Wood");
     let lib_before = engine.state().zones.list(ZoneLocation::Library(p1)).len();
     engine

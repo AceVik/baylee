@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn phyrexian_driver_etb_pumps_other_mercenaries_only() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[index::PHYREXIAN_DRIVER])
+        .hand(0, &[card_index("e8d12d8e-afd2-438b-b121-5911fca479f9")])
         .battlefield(
             0,
             &[
@@ -27,10 +27,19 @@ fn phyrexian_driver_etb_pumps_other_mercenaries_only() {
     assert_eq!(pt(&engine, persuader), (2, 1));
     assert_eq!(pt(&engine, bears), (2, 2));
 
-    cast_from_hand(&mut engine, p0, index::PHYREXIAN_DRIVER);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("e8d12d8e-afd2-438b-b121-5911fca479f9"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let driver = on_battlefield(&engine, p0, index::PHYREXIAN_DRIVER).expect("Phyrexian Driver");
+    let driver = on_battlefield(
+        &engine,
+        p0,
+        card_index("e8d12d8e-afd2-438b-b121-5911fca479f9"),
+    )
+    .expect("Phyrexian Driver");
     assert_eq!(pt(&engine, persuader), (3, 2), "other Mercenary gets +1/+1");
     assert_eq!(pt(&engine, bears), (2, 2), "non-Mercenary unchanged");
     assert_eq!(

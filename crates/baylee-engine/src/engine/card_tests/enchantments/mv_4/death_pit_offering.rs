@@ -25,7 +25,13 @@ fn death_pit_offering_sacrifices_your_creatures_on_entry_and_pumps_future_creatu
                 grizzly_bears(),
             ],
         )
-        .hand(0, &[index::DEATH_PIT_OFFERING, index::HILL_GIANT])
+        .hand(
+            0,
+            &[
+                card_index("d445032b-b243-4203-9c88-a0ac357fb9b5"),
+                index::HILL_GIANT,
+            ],
+        )
         .battlefield(1, &[grizzly_bears()])
         .start();
     keep_mulligans(&mut engine);
@@ -45,7 +51,11 @@ fn death_pit_offering_sacrifices_your_creatures_on_entry_and_pumps_future_creatu
         })
         .collect();
     tap_mana_where(&mut engine, P0, |id| swamp_ids.contains(&id));
-    cast_with_floating(&mut engine, P0, index::DEATH_PIT_OFFERING);
+    cast_with_floating(
+        &mut engine,
+        P0,
+        card_index("d445032b-b243-4203-9c88-a0ac357fb9b5"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert!(

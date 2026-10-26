@@ -12,7 +12,13 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn belbes_armor_gives_target_creature_minus_x_plus_x_until_end_of_turn() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::BELBE_S_ARMOR, index::HILL_GIANT])
+        .battlefield(
+            0,
+            &[
+                card_index("1650d85f-4c65-429d-8952-f68b62935a55"),
+                index::HILL_GIANT,
+            ],
+        )
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
@@ -26,7 +32,12 @@ fn belbes_armor_gives_target_creature_minus_x_plus_x_until_end_of_turn() {
         .add(ManaColor::Colorless, 2);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::BELBE_S_ARMOR, 0);
+    activate(
+        &mut engine,
+        P0,
+        card_index("1650d85f-4c65-429d-8952-f68b62935a55"),
+        0,
+    );
     for _ in 0..4 {
         match engine.pending().clone() {
             Pending::ChooseNumber { .. } => {

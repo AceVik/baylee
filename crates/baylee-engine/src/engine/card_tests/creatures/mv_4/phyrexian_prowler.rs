@@ -2,21 +2,29 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn phyrexian_prowler_removes_fade_counter_to_pump_self() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[index::PHYREXIAN_PROWLER])
+        .hand(0, &[card_index("128ec451-97f6-4f01-8929-689fd4c45f40")])
         .battlefield(0, &[swamp(), swamp(), swamp(), swamp()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
-    cast_from_hand(&mut engine, p0, index::PHYREXIAN_PROWLER);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("128ec451-97f6-4f01-8929-689fd4c45f40"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let prowler = on_battlefield(&engine, p0, index::PHYREXIAN_PROWLER).expect("Phyrexian Prowler");
+    let prowler = on_battlefield(
+        &engine,
+        p0,
+        card_index("128ec451-97f6-4f01-8929-689fd4c45f40"),
+    )
+    .expect("Phyrexian Prowler");
     assert_eq!(
         engine
             .state()
@@ -28,7 +36,12 @@ fn phyrexian_prowler_removes_fade_counter_to_pump_self() {
     );
     assert_eq!(pt(&engine, prowler), (3, 3));
 
-    activate(&mut engine, p0, index::PHYREXIAN_PROWLER, 1);
+    activate(
+        &mut engine,
+        p0,
+        card_index("128ec451-97f6-4f01-8929-689fd4c45f40"),
+        1,
+    );
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(
         engine

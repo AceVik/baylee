@@ -2,7 +2,6 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
@@ -12,7 +11,15 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn aether_barrier_taxes_creature_spells_or_forces_caster_to_sacrifice_a_permanent() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::AETHER_BARRIER, forest(), forest(), forest()])
+        .battlefield(
+            0,
+            &[
+                card_index("0fe602b7-9f88-4d3d-af24-7790df867ed5"),
+                forest(),
+                forest(),
+                forest(),
+            ],
+        )
         .hand(0, &[grizzly_bears()])
         .battlefield(1, &[forest(), forest()])
         .hand(1, &[grizzly_bears()])

@@ -2,21 +2,29 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn skyshroud_cutter_casts_as_2_2_beast() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[index::SKYSHROUD_CUTTER])
+        .hand(0, &[card_index("fbd71691-d0fd-4842-913b-fe6096d509a3")])
         .battlefield(0, &[forest(); 4])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SKYSHROUD_CUTTER);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("fbd71691-d0fd-4842-913b-fe6096d509a3"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let cutter = on_battlefield(&engine, p0, index::SKYSHROUD_CUTTER).unwrap();
+    let cutter = on_battlefield(
+        &engine,
+        p0,
+        card_index("fbd71691-d0fd-4842-913b-fe6096d509a3"),
+    )
+    .unwrap();
     assert_eq!(pt(&engine, cutter), (2, 2));
 }

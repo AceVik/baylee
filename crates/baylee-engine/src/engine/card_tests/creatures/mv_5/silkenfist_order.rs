@@ -8,17 +8,26 @@ use baylee_core::generated::index;
 fn silkenfist_order_untaps_when_blocked() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .hand(0, &[index::SILKENFIST_ORDER])
+        .hand(0, &[card_index("5cca974b-1a6c-485f-adc0-81d2b7dca286")])
         .battlefield(0, &[plains(); 5])
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SILKENFIST_ORDER);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("5cca974b-1a6c-485f-adc0-81d2b7dca286"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let order = on_battlefield(&engine, p0, index::SILKENFIST_ORDER).unwrap();
+    let order = on_battlefield(
+        &engine,
+        p0,
+        card_index("5cca974b-1a6c-485f-adc0-81d2b7dca286"),
+    )
+    .unwrap();
     let blocker = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
 
     reach_their_main_phase(&mut engine, p1);

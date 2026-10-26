@@ -2,19 +2,22 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn skyshroud_claim_puts_up_to_two_forests_onto_battlefield_untapped() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[index::SKYSHROUD_CLAIM])
+        .hand(0, &[card_index("376c9d3f-21d3-4251-bb6a-026fa9e1b0e1")])
         .battlefield(0, &[forest(); 4])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SKYSHROUD_CLAIM);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("376c9d3f-21d3-4251-bb6a-026fa9e1b0e1"),
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });

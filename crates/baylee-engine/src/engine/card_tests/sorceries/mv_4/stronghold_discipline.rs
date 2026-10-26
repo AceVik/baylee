@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn stronghold_discipline_makes_each_player_lose_life_per_own_creature() {
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, swamp())
-        .hand(0, &[index::STRONGHOLD_DISCIPLINE])
+        .hand(0, &[card_index("90e46d04-9d53-4a24-aff0-f8c61e1db97d")])
         .battlefield(
             0,
             &[swamp(), swamp(), swamp(), swamp(), index::GRIZZLY_BEARS],
@@ -21,7 +21,11 @@ fn stronghold_discipline_makes_each_player_lose_life_per_own_creature() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::STRONGHOLD_DISCIPLINE);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("90e46d04-9d53-4a24-aff0-f8c61e1db97d"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
     assert_eq!(engine.state().players[0].life, 19);

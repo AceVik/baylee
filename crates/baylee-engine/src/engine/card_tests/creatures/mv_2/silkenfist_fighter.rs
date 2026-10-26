@@ -8,17 +8,26 @@ use baylee_core::generated::index;
 fn silkenfist_fighter_untaps_when_blocked() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .hand(0, &[index::SILKENFIST_FIGHTER])
+        .hand(0, &[card_index("bf5ceba2-9def-4ff4-9291-740ca90c1c4d")])
         .battlefield(0, &[plains(); 2])
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::SILKENFIST_FIGHTER);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("bf5ceba2-9def-4ff4-9291-740ca90c1c4d"),
+    );
     pass_until(&mut engine, stack_is_empty);
 
-    let fighter = on_battlefield(&engine, p0, index::SILKENFIST_FIGHTER).unwrap();
+    let fighter = on_battlefield(
+        &engine,
+        p0,
+        card_index("bf5ceba2-9def-4ff4-9291-740ca90c1c4d"),
+    )
+    .unwrap();
     let blocker = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
 
     reach_their_main_phase(&mut engine, p1);

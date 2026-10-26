@@ -8,7 +8,13 @@ use baylee_core::generated::index;
 fn noble_stand_gains_two_life_when_your_creature_blocks() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[index::NOBLE_STAND, index::GRIZZLY_BEARS])
+        .battlefield(
+            0,
+            &[
+                card_index("1aa1e34c-b2ff-4750-9e73-5707a8f49bfb"),
+                index::GRIZZLY_BEARS,
+            ],
+        )
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);

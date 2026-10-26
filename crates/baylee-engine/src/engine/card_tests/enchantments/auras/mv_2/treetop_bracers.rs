@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn treetop_bracers_pumps_and_prevents_nonflying_blockers() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[index::TREETOP_BRACERS])
+        .hand(0, &[card_index("ba71eb8a-f9f8-4608-88d8-963a1770d8d4")])
         .battlefield(0, &[forest(), forest(), index::GRIZZLY_BEARS])
         .battlefield(1, &[llanowar_elves(), index::STORM_CROW])
         .start();
@@ -19,7 +19,11 @@ fn treetop_bracers_pumps_and_prevents_nonflying_blockers() {
     let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
     let crow = on_battlefield(&engine, p1, index::STORM_CROW).unwrap();
 
-    cast_from_hand(&mut engine, p0, index::TREETOP_BRACERS);
+    cast_from_hand(
+        &mut engine,
+        p0,
+        card_index("ba71eb8a-f9f8-4608-88d8-963a1770d8d4"),
+    );
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseTargets { .. })
     });

@@ -11,7 +11,7 @@ fn lin_sivvi_searches_for_rebel_and_puts_rebel_from_graveyard_on_bottom_of_libra
         .battlefield(
             0,
             &[
-                index::LIN_SIVVI_DEFIANT_HERO,
+                card_index("6c3847b6-9bfb-49b5-8f1a-bdb40e6900f1"),
                 plains(),
                 plains(),
                 plains(),
@@ -26,7 +26,12 @@ fn lin_sivvi_searches_for_rebel_and_puts_rebel_from_graveyard_on_bottom_of_libra
     seed_graveyard(&mut engine, p0, 1);
     let glider_gy = in_graveyard(&engine, p0, index::NIGHTWIND_GLIDER).expect("Glider in gy");
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::LIN_SIVVI_DEFIANT_HERO, 0);
+    activate(
+        &mut engine,
+        p0,
+        card_index("6c3847b6-9bfb-49b5-8f1a-bdb40e6900f1"),
+        0,
+    );
     engine
         .apply(p0, PlayerAction::ChooseNumber(3))
         .expect("announce X=3");
@@ -48,7 +53,12 @@ fn lin_sivvi_searches_for_rebel_and_puts_rebel_from_graveyard_on_bottom_of_libra
     assert!(on_battlefield(&engine, p0, index::NIGHTWIND_GLIDER).is_some());
 
     let lib_before = engine.state().zones.list(ZoneLocation::Library(p0)).len();
-    activate(&mut engine, p0, index::LIN_SIVVI_DEFIANT_HERO, 1);
+    activate(
+        &mut engine,
+        p0,
+        card_index("6c3847b6-9bfb-49b5-8f1a-bdb40e6900f1"),
+        1,
+    );
     aim_at(&mut engine, p0, glider_gy);
     pass_until(&mut engine, stack_is_empty);
     assert_eq!(in_graveyard(&engine, p0, index::NIGHTWIND_GLIDER), None);

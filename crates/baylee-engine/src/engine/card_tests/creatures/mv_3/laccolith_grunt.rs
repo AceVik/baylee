@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn laccolith_grunt_deals_power_damage_to_target_creature_and_assigns_no_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::LACCOLITH_GRUNT])
+        .battlefield(0, &[card_index("f973daa7-241e-4eb7-9d98-9ea7557caa3a")])
         .battlefield(1, &[index::LLANOWAR_ELVES, index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
@@ -16,7 +16,12 @@ fn laccolith_grunt_deals_power_damage_to_target_creature_and_assigns_no_combat_d
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
     );
-    let grunt = on_battlefield(&engine, p0, index::LACCOLITH_GRUNT).expect("Laccolith Grunt");
+    let grunt = on_battlefield(
+        &engine,
+        p0,
+        card_index("f973daa7-241e-4eb7-9d98-9ea7557caa3a"),
+    )
+    .expect("Laccolith Grunt");
     let elves = on_battlefield(&engine, p1, index::LLANOWAR_ELVES).expect("Llanowar Elves");
     let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).expect("Grizzly Bears");
     engine

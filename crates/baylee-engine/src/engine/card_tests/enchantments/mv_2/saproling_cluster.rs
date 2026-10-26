@@ -2,13 +2,15 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 #[test]
 fn saproling_cluster_allows_any_player_to_discard_and_create_saproling() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::SAPROLING_CLUSTER, forest()])
+        .battlefield(
+            0,
+            &[card_index("3b64051e-d320-4991-bc9e-6e1435a23c17"), forest()],
+        )
         .battlefield(1, &[forest()])
         .hand(0, &[forest()])
         .hand(1, &[forest()])
@@ -18,7 +20,12 @@ fn saproling_cluster_allows_any_player_to_discard_and_create_saproling() {
 
     let card0 = in_hand(&engine, p0, forest()).expect("card in p0 hand");
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::SAPROLING_CLUSTER, 0);
+    activate(
+        &mut engine,
+        p0,
+        card_index("3b64051e-d320-4991-bc9e-6e1435a23c17"),
+        0,
+    );
     engine
         .apply(
             p0,
@@ -42,7 +49,12 @@ fn saproling_cluster_allows_any_player_to_discard_and_create_saproling() {
     assert_eq!(p0_creatures, 1);
 
     // Opponent (p1) can also activate Saproling Cluster.
-    let cluster = on_battlefield(&engine, p0, index::SAPROLING_CLUSTER).expect("cluster");
+    let cluster = on_battlefield(
+        &engine,
+        p0,
+        card_index("3b64051e-d320-4991-bc9e-6e1435a23c17"),
+    )
+    .expect("cluster");
     let card1 = in_hand(&engine, p1, forest()).expect("card in p1 hand");
     pass_until(
         &mut engine,

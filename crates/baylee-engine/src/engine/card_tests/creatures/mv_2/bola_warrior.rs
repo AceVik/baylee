@@ -12,7 +12,13 @@ const P1: PlayerId = PlayerId::new(1);
 #[test]
 fn bola_warrior_discards_a_card_to_prevent_target_creature_from_blocking_this_turn() {
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::BOLA_WARRIOR, index::HILL_GIANT])
+        .battlefield(
+            0,
+            &[
+                card_index("13f41253-364f-40a5-a7cd-84d8785b2460"),
+                index::HILL_GIANT,
+            ],
+        )
         .hand(0, &[mountain()])
         .battlefield(1, &[grizzly_bears()])
         .start();
@@ -28,7 +34,12 @@ fn bola_warrior_discards_a_card_to_prevent_target_creature_from_blocking_this_tu
         .add(ManaColor::Red, 1);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::BOLA_WARRIOR, 0);
+    activate(
+        &mut engine,
+        P0,
+        card_index("13f41253-364f-40a5-a7cd-84d8785b2460"),
+        0,
+    );
     engine
         .apply(
             P0,

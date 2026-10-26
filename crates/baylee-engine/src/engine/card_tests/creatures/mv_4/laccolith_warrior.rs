@@ -8,7 +8,7 @@ use baylee_core::generated::index;
 fn laccolith_warrior_deals_three_damage_to_target_creature_and_assigns_no_combat_damage() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::LACCOLITH_WARRIOR])
+        .battlefield(0, &[card_index("bf957e0b-3070-4a85-a63d-3dadd7364d53")])
         .battlefield(1, &[index::WALL_OF_WOOD, index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
@@ -16,7 +16,12 @@ fn laccolith_warrior_deals_three_damage_to_target_creature_and_assigns_no_combat
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
     );
-    let warrior = on_battlefield(&engine, p0, index::LACCOLITH_WARRIOR).expect("Laccolith Warrior");
+    let warrior = on_battlefield(
+        &engine,
+        p0,
+        card_index("bf957e0b-3070-4a85-a63d-3dadd7364d53"),
+    )
+    .expect("Laccolith Warrior");
     let wall = on_battlefield(&engine, p1, index::WALL_OF_WOOD).expect("Wall of Wood");
     let giant = on_battlefield(&engine, p1, index::HILL_GIANT).expect("Hill Giant");
     engine
