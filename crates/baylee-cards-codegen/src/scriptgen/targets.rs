@@ -347,6 +347,13 @@ impl Tx<'_> {
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "MonoColor" => "Filter::Monocolored".to_string(),
+                    "MultiColor" => "Filter::And(&[Filter::Not(&Filter::IsColorless), \
+                         Filter::Not(&Filter::Monocolored)])"
+                        .to_string(),
+                    "nonMultiColor" => {
+                        "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
+                    }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
                     "" => continue,
                     // A colour word (CR 105.2): "black creatures", "target

@@ -384,9 +384,14 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
         };
+        let alone = match p.take("Alone").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Alone$ {other}`")),
+        };
         let valid = match p.take("Attacked").as_deref() {
             None => valid,
-            Some("You") if valid != "Card.Self" => valid
+            Some("You") if valid != "Card.Self" && !alone => valid
                 .split(',')
                 .map(|alt| format!("{alt}.attackingYou"))
                 .collect::<Vec<_>>()
@@ -399,7 +404,11 @@ impl Tx<'_> {
             let expr = self.filter_expr(&valid)?;
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
-        Some(format!("Trigger::Attacks({filter})"))
+        if alone {
+            Some(format!("Trigger::AttacksAlone({filter})"))
+        } else {
+            Some(format!("Trigger::Attacks({filter})"))
+        }
     }
 
     fn blocks_trigger(&mut self, p: &mut Params) -> Option<String> {

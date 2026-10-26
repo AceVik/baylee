@@ -2089,3 +2089,24 @@ fn invasion_batch_four_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn invasion_batch_five_reader_patterns() {
+    let rewards = "Name:Rewards of Diversity\nManaCost:2 W\nTypes:Enchantment\n\
+        T:Mode$ SpellCast | ValidCard$ Card.MultiColor | ValidActivatingPlayer$ Opponent | TriggerZones$ Battlefield | Execute$ TrigGainLife\n\
+        SVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 4";
+    assert_eq!(
+        read(rewards).abilities,
+        ["triggered!(Trigger::SpellCast(&TRIGGER1), &[Effect::gain_life(4)])"]
+    );
+
+    let rogue = "Name:Rogue Kavu\nManaCost:1 R\nTypes:Creature\nPT:1/1\n\
+        T:Mode$ Attacks | ValidCard$ Card.Self | Alone$ True | Execute$ TrigPump\n\
+        SVar:TrigPump:DB$ Pump | Defined$ Self | NumAtt$ +2";
+    assert_eq!(
+        read(rogue).abilities,
+        [
+            "triggered!(Trigger::AttacksAlone(&Filter::This), &[Effect::PumpFilter { filter: &Filter::This, controlled_by: None, power: Amount::Fixed(2), toughness: Amount::Fixed(0), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}
