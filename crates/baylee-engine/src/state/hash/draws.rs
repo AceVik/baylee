@@ -1,5 +1,5 @@
 //! Draw-replacement progress, normalized to zone positions for loop detection.
-use super::{GameState, Hasher, ObjectId, Zone, moves_since};
+use super::{GameState, Hasher, ObjectId, moves_since};
 use std::hash::Hash;
 
 pub(super) fn hash(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectId) -> u32) {
@@ -24,20 +24,8 @@ pub(super) fn hash(h: &mut Hasher, state: &GameState, position: &impl Fn(ObjectI
     } else {
         h.u8(0);
     }
-    // A departed hand incarnation can never become eligible again. Its historical
-    // ID and the absolute length of the ledger must not hide a repeating situation.
-    let mut drawn: Vec<_> = state
-        .per_turn
-        .instruction_drawn
-        .iter()
-        .filter_map(|&(id, version)| {
-            state
-                .object(id)
-                .filter(|o| o.zone == Zone::Hand && o.version == version)
-                .map(|_| position(id))
-        })
-        .collect();
-    drawn.sort_unstable();
-    drawn.dedup();
-    drawn.hash(h);
+    // Past instruction draws are not a future rule input on their own: a new
+    // instruction starts at the ledger's current length. An active loot hashes
+    // its eligible hand positions through resolve::loot::loop_progress instead.
+    // The full ledger remains part of snapshot_hash through PerTurn::hash.
 }

@@ -219,6 +219,7 @@ fn a_stale_or_phased_source_cannot_blink_a_new_incarnation() {
                 )
                 .unwrap();
         }
+        state.refresh_characteristics();
         let identity = state.source_identity(it);
         let before = state.journal.len();
         resolve_from(
