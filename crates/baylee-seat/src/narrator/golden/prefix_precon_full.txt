@@ -124,6 +124,9 @@ Main deck:
   1× Woodland Stream · Land
     This land enters tapped.
     {T}: Add {G} or {U}.
+  1× Yavimaya Elder {1}{G}{G} · Creature — Human Druid · 2/1
+    When this creature dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.
+    {2}, Sacrifice this creature: Draw a card.
   1× Abundant Countryside · Land
     {T}: Add {C}.
     {T}: Add one mana of any color. Spend this mana only to cast a creature spell.
@@ -237,6 +240,3 @@ Main deck:
   1× Thriving Moor · Land
     This land enters tapped. As it enters, choose a color other than black.
     {T}: Add {B} or one mana of the chosen color.
-  1× Timeless Lotus {5} · Legendary Artifact
-    Timeless Lotus enters tapped.
-    {T}: Add {W}{U}{B}{R}{G}.

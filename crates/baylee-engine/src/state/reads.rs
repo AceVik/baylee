@@ -28,6 +28,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Untapped
         | Filter::Attacking
         | Filter::Blocking
+        | Filter::Blocked
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::BlockingReference
@@ -101,6 +102,7 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
         | PtCount::InAllGraveyards(_)
         | PtCount::ChosenPlayerControls(_)
         | PtCount::ExiledWithThis
+        | PtCount::CountersOnThis(_)
         | PtCount::EntrySacrifices
         | PtCount::ChosenNumber
         | PtCount::Fixed(_) => false,

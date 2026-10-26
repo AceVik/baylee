@@ -863,6 +863,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BandedWithSource
         | Filter::NotTargetedByAnotherNamed(_)
         | Filter::Blocking
+        | Filter::Blocked
         | Filter::Unblocked
         | Filter::EnteredThisTurn
         | Filter::PutIntoGraveyardThisTurn

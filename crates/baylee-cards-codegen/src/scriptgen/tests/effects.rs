@@ -1443,3 +1443,352 @@ fn bore_counter_generic_reader_preserves_the_verified_exact_counter_word() {
         assert!(refused(&script.replace("BORE", wrong)), "{wrong}");
     }
 }
+
+#[test]
+fn extravagant_spirit_food_chain_flailing_and_haunted_crossroads_shapes_read() {
+    let spirit = "Name:Extravagant Spirit\nManaCost:3 U\nTypes:Creature Spirit\nPT:4/4\nK:Flying\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigUpkeep\n\
+        SVar:TrigUpkeep:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ Y\n\
+        SVar:Y:Count$ValidHand Card.YouOwn";
+    let body = read(spirit);
+    assert!(
+        body.abilities[0].contains("Amount::HandSize(PlayerRel::You)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let flailing = "Name:Flailing Soldier\nManaCost:R\nTypes:Creature Human Soldier\nPT:2/2\n\
+        A:AB$ Pump | Cost$ 1 | Defined$ Self | NumAtt$ +1 | NumDef$ +1 | Activator$ Player";
+    let body = read(flailing);
+    assert!(
+        body.abilities[0].contains("zone = ActivationZone::BattlefieldAnyPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let food_chain = "Name:Food Chain\nManaCost:2 G\nTypes:Enchantment\n\
+        A:AB$ Mana | Cost$ Exile<1/Creature> | Produced$ Any | Amount$ X | RestrictValid$ Spell.Creature\n\
+        SVar:X:Exiled$CardManaCost/Plus.1";
+    let body = read(food_chain);
+    assert!(
+        body.abilities[0].contains("ExilePermanent(&Filter::YOUR_CREATURE)")
+            && body.abilities[0]
+                .contains("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let crossroads = "Name:Haunted Crossroads\nManaCost:2 B\nTypes:Enchantment\n\
+        A:AB$ ChangeZone | Cost$ B | ValidTgts$ Creature.YouCtrl | Origin$ Graveyard | Destination$ Library";
+    let body = read(crossroads);
+    assert!(
+        body.abilities[0].contains("Effect::GraveyardToTop"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let furious = "Name:Furious Assault\nManaCost:2 R\nTypes:Enchantment\n\
+        T:Mode$ SpellCast | ValidCard$ Creature | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigDealDamage\n\
+        SVar:TrigDealDamage:DB$ DealDamage | ValidTgts$ Player,Planeswalker | NumDmg$ 1";
+    let body = read(furious);
+    assert!(
+        body.abilities[0].contains("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let high_seas = "Name:High Seas\nManaCost:2 U\nTypes:Enchantment\n\
+        S:Mode$ RaiseCost | ValidCard$ Creature.Red,Creature.Green | Type$ Spell | Amount$ 1";
+    let body = read(high_seas);
+    assert!(
+        body.abilities[0].contains("Modifier::SpellsCostMore(1)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    assert!(refused(
+        "Name:Hammer Mage\nManaCost:1 R\nTypes:Creature Human Spellshaper\nPT:1/1\n\
+         A:AB$ DestroyAll | Cost$ X R T Discard<1/Card> | ValidCards$ Artifact.cmcLEX\n\
+         SVar:X:Count$xPaid"
+    ));
+}
+
+#[test]
+fn jeweled_torque_karns_touch_cant_block_liability_muzzle_and_pangosaur_shapes_read() {
+    let torque = "Name:Jeweled Torque\nManaCost:2\nTypes:Artifact\n\
+        K:ETBReplacement:Other:ChooseColor\n\
+        SVar:ChooseColor:DB$ ChooseColor | Defined$ You\n\
+        T:Mode$ SpellCast | ValidCard$ Card.ChosenColor | TriggerZones$ Battlefield | Execute$ TrigGainLife\n\
+        SVar:TrigGainLife:AB$ GainLife | Cost$ 2 | Defined$ You | LifeAmount$ 2";
+    let body = read(torque);
+    assert!(
+        body.abilities[0].contains("PlayerMayPayThen")
+            && body.abilities[0].contains("Amount::Fixed(2)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let touch = "Name:Karn's Touch\nManaCost:U U\nTypes:Instant\n\
+        A:SP$ Animate | ValidTgts$ Artifact.nonCreature | Power$ X | Toughness$ X | Types$ Artifact,Creature\n\
+        SVar:X:Targeted$CardManaCost";
+    let body = read(touch);
+    assert!(
+        body.abilities[0].contains("Effect::SetPTFilter")
+            && body.abilities[0].contains("Amount::TargetCmc"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let veto = "Name:Magistrate's Veto\nManaCost:2 R\nTypes:Enchantment\n\
+        S:Mode$ CantBlock | ValidCard$ Creature.White,Creature.Blue";
+    let body = read(veto);
+    assert!(
+        body.abilities[0].contains("Modifier::AddKeyword(KeywordSet::CANT_BLOCK)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let liability = "Name:Liability\nManaCost:1 B B\nTypes:Enchantment\n\
+        T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Permanent.nonToken | TriggerZones$ Battlefield | Execute$ TrigLoseLife\n\
+        SVar:TrigLoseLife:DB$ LoseLife | Defined$ TriggeredCardOwner | LifeAmount$ 1";
+    let body = read(liability);
+    assert!(
+        body.abilities[0].contains("PlayerRel::OwnerOfEvent"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let muzzle = "Name:Muzzle\nManaCost:1 W\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature\n\
+        R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidSource$ Creature.EnchantedBy";
+    let body = read(muzzle);
+    assert!(
+        body.abilities[1].contains("Modifier::PreventAllDamageFromIt"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let pangosaur = "Name:Pangosaur\nManaCost:2 G G\nTypes:Creature Dinosaur\nPT:6/6\n\
+        T:Mode$ LandPlayed | ValidCard$ Land | TriggerZones$ Battlefield | Execute$ TrigBounce\n\
+        SVar:TrigBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand";
+    let body = read(pangosaur);
+    assert!(
+        body.abilities[0].contains("Trigger::PlaysLand(PlayerRel::EachPlayer)"),
+        "{}",
+        body.abilities[0]
+    );
+}
+
+#[test]
+fn inviolability_natural_affinity_noble_purpose_pious_warrior_revered_elder_and_rishadan_pirate_shapes_read()
+ {
+    let inviolability = "Name:Inviolability\nManaCost:1 W\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature\n\
+        R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Creature.EnchantedBy";
+    let body = read(inviolability);
+    assert!(
+        body.abilities[1].contains("Modifier::PreventDamageFrom(&Filter::Any)"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let natural_affinity = "Name:Natural Affinity\nManaCost:2 G\nTypes:Instant\n\
+        A:SP$ AnimateAll | ValidCards$ Land | Types$ Creature | Power$ 2 | Toughness$ 2";
+    let body = read(natural_affinity);
+    assert!(
+        body.abilities[0].contains("Modifier::AddType(TypeSet::CREATURE)")
+            && body.abilities[0].contains("Modifier::SetPT(2, 2)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let noble_purpose = "Name:Noble Purpose\nManaCost:3 W W\nTypes:Enchantment\n\
+        T:Mode$ DamageDealtOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain\n\
+        SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:TriggerCount$DamageAmount";
+    let body = read(noble_purpose);
+    assert!(
+        body.abilities[0].contains("Trigger::DealsCombatDamage(&Filter::YOUR_CREATURE)")
+            && body.abilities[0].contains("Effect::GainLife { amount: Amount::EventAmount }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let pious_warrior = "Name:Pious Warrior\nManaCost:3 W\nTypes:Creature Human Rebel Warrior\nPT:2/3\n\
+        T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidTarget$ Card.Self | Execute$ TrigGain\n\
+        SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:TriggerCount$DamageAmount";
+    let body = read(pious_warrior);
+    assert!(
+        body.abilities[0].contains("Trigger::DealtCombatDamage(&Filter::This)")
+            && body.abilities[0].contains("Effect::GainLife { amount: Amount::EventAmount }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let revered_elder = "Name:Revered Elder\nManaCost:2 W\nTypes:Creature Human Cleric\nPT:1/2\n\
+        A:AB$ PreventDamage | Cost$ 1 | Defined$ Self | Amount$ 1";
+    let body = read(revered_elder);
+    assert!(
+        body.abilities[0].contains("TargetSpec::ThisObject")
+            && body.abilities[0].contains("Amount::Fixed(1)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let cutpurse = "Name:Rishadan Cutpurse\nManaCost:2 U\nTypes:Creature Human Pirate\nPT:1/1\n\
+        T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ RepeatEach | RepeatPlayers$ Player.Opponent | RepeatSubAbility$ DBSac\n\
+        SVar:DBSac:DB$ Sacrifice | Defined$ Remembered | SacValid$ Permanent | UnlessCost$ 1 | UnlessPayer$ Remembered";
+    let body = read(cutpurse);
+    assert!(
+        body.abilities[0].contains("PlayerRel::EachOpponent")
+            && body.abilities[0].contains("PlayerRel::EventPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+}
+
+#[test]
+fn pawnshop_heir_outrigger_scandalmonger_sever_soul_silent_assassin_and_fugitive_shapes_read() {
+    let pawnshop = "Name:Rishadan Pawnshop\nManaCost:2\nTypes:Artifact\n\
+        A:AB$ ChangeZone | Cost$ 2 T | Origin$ Battlefield | Destination$ Library | Shuffle$ True | ValidTgts$ Permanent.nonToken+YouCtrl";
+    let body = read(pawnshop);
+    assert!(
+        body.abilities[0].contains("Effect::ShuffleTargetsIntoOwnersLibraries"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let heir = "Name:Saprazzan Heir\nManaCost:1 U\nTypes:Creature Merfolk\nPT:1/1\n\
+        T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+        SVar:TrigDraw:DB$ Draw | NumCards$ 3 | OptionalDecider$ You";
+    let body = read(heir);
+    assert!(
+        body.abilities[0].contains("Effect::MayDo { effects: &[Effect::draw(3)] }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let outrigger = "Name:Saprazzan Outrigger\nManaCost:3 U\nTypes:Creature Merfolk\nPT:5/5\n\
+        T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigDelayed\n\
+        T:Mode$ Blocks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigDelayed\n\
+        SVar:TrigDelayed:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigTop\n\
+        SVar:TrigTop:DB$ ChangeZone | Origin$ Battlefield | Destination$ Library | LibraryPosition$ 0";
+    let body = read(outrigger);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities[0].contains("Trigger::Attacks(&Filter::This)")
+            && body.abilities[0].contains("Effect::PutSourceOnTopOfLibrary")
+            && body.abilities[1].contains("Trigger::Blocks(&Filter::This)"),
+        "{:?}",
+        body.abilities
+    );
+
+    let scandalmonger = "Name:Scandalmonger\nManaCost:3 B\nTypes:Creature Boar Monger\nPT:3/3\n\
+        A:AB$ Discard | Cost$ 2 | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose | IsCurse$ True | SorcerySpeed$ True | Activator$ Player";
+    let body = read(scandalmonger);
+    assert!(
+        body.abilities[0].contains("timing = ActivationTiming::SorcerySpeed")
+            && body.abilities[0].contains("zone = ActivationZone::BattlefieldAnyPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let sever_soul = "Name:Sever Soul\nManaCost:3 B B\nTypes:Sorcery\n\
+        A:SP$ Destroy | ValidTgts$ Creature.nonBlack | NoRegen$ True | SubAbility$ DBGain\n\
+        SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:Targeted$CardToughness";
+    let body = read(sever_soul);
+    assert!(
+        body.abilities[0].contains("Amount::TargetToughness"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let silent_assassin = "Name:Silent Assassin\nManaCost:B B\nTypes:Creature Human Mercenary Assassin\nPT:2/1\n\
+        A:AB$ Effect | Cost$ 3 B | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | Triggers$ DelTrig\n\
+        SVar:DelTrig:Mode$ Phase | Phase$ EndCombat | Execute$ TrigDestroy\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ Remembered";
+    let body = read(silent_assassin);
+    assert!(
+        body.abilities[0].contains(
+            "Effect::AtEndOfCombat { about: TargetSpec::Object(&TARGET1), effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+        ),
+        "{}",
+        body.abilities[0]
+    );
+
+    let fugitive = "Name:Skulking Fugitive\nManaCost:2 B\nTypes:Creature Horror Mercenary\nPT:3/4\n\
+        T:Mode$ BecomesTarget | ValidTarget$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ Sacrifice";
+    let body = read(fugitive);
+    assert!(
+        body.abilities[0].contains("Trigger::BecomesTarget")
+            && body.abilities[0].contains("Effect::SacrificeSelf"),
+        "{}",
+        body.abilities[0]
+    );
+}
+
+#[test]
+fn overtaker_squee_statecraft_and_territorial_dispute_shapes_read() {
+    let overtaker = "Name:Overtaker\nManaCost:1 U\nTypes:Creature Merfolk Spellshaper\nPT:1/1\n\
+        A:AB$ Untap | Cost$ 3 U T Discard<1/Card> | ValidTgts$ Creature | SubAbility$ DBChange\n\
+        SVar:DBChange:DB$ GainControl | Defined$ Targeted | AddKWs$ Haste | LoseControl$ EOT";
+    let body = read(overtaker);
+    assert!(
+        body.abilities[0].contains("Effect::UntapTarget")
+            && body.abilities[0].contains(
+                "Effect::continuous(&Filter::This, Modifier::GainControl, Duration::UntilEndOfTurn)"
+            )
+            && body.abilities[0].contains("keywords: KeywordSet::HASTE"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let squee = "Name:Squee, Goblin Nabob\nManaCost:2 R\nTypes:Legendary Creature Goblin\nPT:1/1\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Graveyard | OptionalDecider$ You | Execute$ TrigChange\n\
+        SVar:TrigChange:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | Defined$ Self";
+    let body = read(squee);
+    assert!(
+        body.abilities[0].contains("zone = TriggerZone::Graveyard")
+            && body.abilities[0].contains("Effect::bounce(TargetSpec::ThisObject)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let statecraft = "Name:Statecraft\nManaCost:3 U\nTypes:Enchantment\n\
+        R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidTarget$ Creature.YouCtrl | ActiveZones$ Battlefield\n\
+        R:Event$ DamageDone | Prevent$ True | IsCombat$ True | ValidSource$ Creature.YouCtrl | ActiveZones$ Battlefield | Secondary$ True";
+    let body = read(statecraft);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities[0].contains("Modifier::PreventDamageToIt")
+            && body.abilities[1].contains("Modifier::PreventDamageFromIt"),
+        "{:?}",
+        body.abilities
+    );
+
+    let dispute = "Name:Territorial Dispute\nManaCost:4 R R\nTypes:Enchantment\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigUpkeep\n\
+        SVar:TrigUpkeep:DB$ Sacrifice | UnlessPayer$ You | UnlessCost$ Sac<1/Land>\n\
+        S:Mode$ CantPlayLand | Description$ Players can't play lands.";
+    let body = read(dispute);
+    assert!(
+        body.abilities
+            .iter()
+            .any(|a| a.contains("Modifier::PlayersCantPlay(&Filter::LAND)")),
+        "{:?}",
+        body.abilities
+    );
+
+    let warpath = "Name:Warpath\nManaCost:3 R\nTypes:Instant\n\
+        A:SP$ DamageAll | NumDmg$ 3 | ValidCards$ Creature.blocked,Creature.blocking";
+    let body = read(warpath);
+    assert!(
+        body.statics.contains("Filter::Blocked") && body.statics.contains("Filter::Blocking"),
+        "{}",
+        body.statics
+    );
+}

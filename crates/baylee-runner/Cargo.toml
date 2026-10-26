@@ -1,0 +1,22 @@
+[package]
+name = "baylee-runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Binary: disposable macOS Tart VMs for GitHub Actions jobs (baylee-macos-runner)"
+publish = false
+
+[[bin]]
+name = "baylee-macos-runner"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+ctrlc = { workspace = true, features = ["termination"] }
+serde_json.workspace = true
+tempfile.workspace = true

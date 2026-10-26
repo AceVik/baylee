@@ -561,6 +561,21 @@ fn matches(
                     .object(*dealt)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (
+            Trigger::DealtCombatDamage(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                is_combat: true,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && first_combat_damage_to(event, batch, crate::event::DamageTarget::Object(*dealt))
+                && state
+                    .object(*dealt)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         // The player's side of the arm above: once for a step's combat
         // damage to that player, once for every other damage event.
         (

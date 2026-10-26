@@ -125,6 +125,7 @@ pub(super) fn pt_count(
         }
         baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
         baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
+        baylee_cards_dsl::PtCount::CountersOnThis(kind) => usize::from(obj.counters.get(kind)),
         baylee_cards_dsl::PtCount::EntrySacrifices => obj
             .riders
             .iter()

@@ -103,6 +103,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "ManaReflected",
     "Destroy",
     "DestroyAll",
+    "SacrificeAll",
     "DelayedTrigger",
     "DamageAll",
     "DamageResolve",
@@ -139,7 +140,14 @@ pub const SUPPORTED_APIS: &[&str] = &[
 /// `Sac<1/CARDNAME…>` is deliberately not among them: it is matched one
 /// branch earlier as `SacrificeSelf`, which asks nobody anything.
 pub(super) fn object_cost(token: &str) -> Option<(&'static str, &str)> {
-    for kind in ["Sac", "Discard", "tapXType", "Return", "ExileFromGrave"] {
+    for kind in [
+        "Sac",
+        "Discard",
+        "tapXType",
+        "Return",
+        "ExileFromGrave",
+        "Exile",
+    ] {
         if let Some(body) = token
             .strip_prefix(kind)
             .and_then(|t| t.strip_prefix('<'))
@@ -164,6 +172,7 @@ pub(super) fn asks_for_an_object(part: &str) -> bool {
         "TapOther(",
         "ReturnToHand(",
         "ExileFromGraveyard(",
+        "ExilePermanent(",
     ]
     .iter()
     .any(|kind| part.starts_with(kind))

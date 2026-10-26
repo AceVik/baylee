@@ -108,6 +108,59 @@ impl Tx<'_> {
         )])
     }
 
+    /// "Target permanent becomes the color of your choice until end of turn"
+    /// (Distorting Lens, Alchor's Tomb): `ChooseColor` followed by `DB$ Animate
+    /// | ValidTgts$ <valid> | Colors$ ChosenColor | OverwriteColors$ True`.
+    pub(super) fn choose_color_animate(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        chain: &mut super::Chain,
+    ) -> Option<Vec<String>> {
+        if p.take("Defined").as_deref() != Some("You") {
+            return self.deny("`ChooseColor` for somebody other than `You`".to_string());
+        }
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `ChooseColor.{key}`"));
+        }
+        let Some(animate_name) = sub else {
+            return self.deny("`ChooseColor` with nothing chosen for".to_string());
+        };
+        let Some(body) = self.svars.get(animate_name).cloned() else {
+            return self.deny(format!("`SubAbility$ {animate_name}` names no SVar"));
+        };
+        let Some((api, mut animate)) = Params::parse(&body) else {
+            return self.deny(format!("`SubAbility$ {animate_name}` is no ability"));
+        };
+        if api != "Animate" {
+            return self.deny("`ChooseColor` followed by something other than `Animate`".into());
+        }
+        animate.drop_prose();
+        let Some(valid) = animate.take("ValidTgts") else {
+            return self.deny("`ChooseColor` `Animate` with no `ValidTgts$`".to_string());
+        };
+        if chain.target.is_some() {
+            return self.deny("`ChooseColor` `Animate` with a second target".to_string());
+        }
+        chain.target = Some(self.target_spec(&valid, "Animate")?);
+        if animate.take("Colors").as_deref() != Some("ChosenColor")
+            || animate.take("OverwriteColors").as_deref() != Some("True")
+        {
+            return self.deny("`ChooseColor` `Animate` not overwriting with `ChosenColor`".into());
+        }
+        let duration = match animate.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("Permanent") => "Duration::Indefinitely",
+            Some(other) => return self.deny(format!("`ChooseColor` `Animate` lasting `{other}`")),
+        };
+        if let Some(key) = animate.first_key() {
+            return self.deny(format!("unclaimed parameter `Animate.{key}`"));
+        }
+        Some(vec![format!(
+            "Effect::ChooseColors {{ subject: ColorSubject::Target, max: 1, duration: {duration} }}"
+        )])
+    }
+
     /// Exact repeatable prevention, all recipients and no consumption instruction.
     fn all_damage_from_chosen_source(&self, name: &str) -> bool {
         self.svars
@@ -240,16 +293,21 @@ impl Tx<'_> {
                         "Filter::AttachedToBySource".to_string()
                     }
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
+                    "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
-                    "Other" => "Filter::Another".to_string(),
+                    "Other" | "StrictlyOther" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
+                    "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "blocked" => "Filter::Blocked".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
                     "untapped" => "Filter::Untapped".to_string(),
+                    "enchanted" => "Filter::Enchanted".to_string(),
+                    "!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)".to_string(),
                     "token" => "Filter::IsToken".to_string(),
                     "nonToken" | "!token" => "Filter::Not(&Filter::IsToken)".to_string(),
                     // `LacksType` and not `Not(&…)`: the two are the same
@@ -259,6 +317,7 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Creature" => "Filter::CREATURE".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).
@@ -279,6 +338,7 @@ impl Tx<'_> {
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
                     "" => continue,
                     // A colour word (CR 105.2): "black creatures", "target
                     // green spell", "nonblack creature". A colour is not a
@@ -358,11 +418,32 @@ impl Tx<'_> {
         if valid == "Opponent" {
             return Some("TargetSpec::AnyOpponent".to_string());
         }
+        if matches!(valid, "Player,Planeswalker" | "Planeswalker,Player") {
+            return Some("TargetSpec::PlayerOrObject(&Filter::PLANESWALKER)".to_string());
+        }
+        if matches!(valid, "Opponent,Planeswalker" | "Planeswalker,Opponent") {
+            return Some("TargetSpec::OpponentOrObject(&Filter::PLANESWALKER)".to_string());
+        }
         // "Any target" (CR 115.4) spans objects and players, which is why it
         // is a spec and not a filter — there is nothing on a player for a
         // `Filter` to match.
         if valid == "Any" {
             return Some("TargetSpec::AnyTarget".to_string());
+        }
+        if self.trigger_mode.as_deref() == Some("DamageDone")
+            && api != "Counter"
+            && let Some(stripped) = valid
+                .split(',')
+                .map(|alt| {
+                    alt.trim()
+                        .strip_suffix(".ControlledBy TriggeredTarget")
+                        .or_else(|| alt.trim().strip_suffix("+ControlledBy TriggeredTarget"))
+                })
+                .collect::<Option<Vec<_>>>()
+        {
+            let expr = self.filter_expr(&stripped.join(","))?;
+            let name = self.body.filter_static("TARGET", &expr);
+            return Some(format!("TargetSpec::ObjectOfEventPlayer(&{name})"));
         }
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("TARGET", &expr);
@@ -387,7 +468,11 @@ impl Tx<'_> {
     /// graveyard unless the Oracle text explicitly scopes it to "your
     /// graveyard" (Misery Charm). The rest of the valid-string is the card's
     /// filter.
-    pub(super) fn graveyard_target(&mut self, valid: &str) -> Option<String> {
+    pub(super) fn graveyard_target(
+        &mut self,
+        valid: &str,
+        defined_controller: Option<&str>,
+    ) -> Option<String> {
         let mut whose = "PlayerRel::EachPlayer";
         let mut cleaned_alts = Vec::new();
         for alt in valid.split(',') {
@@ -428,6 +513,12 @@ impl Tx<'_> {
                 whose = "PlayerRel::You";
             }
         }
+        match defined_controller {
+            None => {}
+            Some("You") => whose = "PlayerRel::You",
+            Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+            Some(_) => return None,
+        }
         let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
         let filter = self.body.filter_static("TARGET", &filter);
         Some(format!("TargetSpec::CardInGraveyard(&{filter}, {whose})"))
@@ -456,6 +547,7 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("ChangesZone") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredCardOwner" if trigger == Some("ChangesZone") => "PlayerRel::OwnerOfEvent",
             // The permanent tapped for mana is the event's object, and its
             // controller is the only player who can have tapped it for mana
             // (CR 602.2): "its controller" and "that player" are one seat.
@@ -479,6 +571,14 @@ impl Tx<'_> {
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
             "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
+            "TriggeredTargetController" if trigger == Some("DamageDone") => {
+                "PlayerRel::ControllerOfEvent"
+            }
+            "TriggeredDefendingPlayer"
+                if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
+            {
+                "PlayerRel::DefendingPlayer"
+            }
             _ => return None,
         })
     }

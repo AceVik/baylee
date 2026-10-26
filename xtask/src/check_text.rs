@@ -843,8 +843,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("ControlledByOpponent")
         || built.contains("OpponentControlCountAtMost(")
         || built.contains("PayLifeForPtCapWhiteOpponents")
-        // These restrict the controller of the effect causing a discard,
+        // These restrict the controller of the effect/spell/ability,
         // rather than the controller of a permanent selected by a filter.
+        || built.contains("TargetedByOpponent")
         || built.contains("DiscardedThisByOpponent")
         || built.contains("MayRevealOpponentDiscardToLibraryTop");
 

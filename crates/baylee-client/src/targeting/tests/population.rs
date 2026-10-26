@@ -107,8 +107,9 @@ fn the_pools_targets_are_a_population_this_client_can_read() {
     // Exact membership replaces a growing budget. These predicates require
     // history, unannounced X, or stack-source facts absent from PlayerView.
     // They deliberately remain unknown; their printed cards are unchanged.
-    const EXPECTED_BLIND: [&str; 9] = [
+    const EXPECTED_BLIND: [&str; 10] = [
         "Detonate",
+        "Dominate",
         "Fatal Blow",
         "Fire and Brimstone",
         "Glyph of Delusion",

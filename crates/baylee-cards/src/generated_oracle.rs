@@ -9334,7 +9334,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, destroy target land."],
     // Ogre Berserker
     &["Haste"],
-    &[],
+    // Ogre Taskmaster
+    &["This creature can't block."],
     // Ogre Warrior
     &[""],
     &[],
@@ -11172,38 +11173,82 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Goblin Berserker
     &["First strike, haste"],
-    &[],
+    // Goblin Festival
+    &[
+        "{2}: This enchantment deals 1 damage to any target. Flip a coin. If you lose the flip, choose one of your opponents. That player gains control of this enchantment.",
+    ],
     // Goblin Gardener
     &["When this creature dies, destroy target land."],
-    &[],
+    // Goblin Marshal
+    &[
+        "Echo {4}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters or dies, create two 1/1 red Goblin creature tokens.",
+    ],
     // Goblin Masons
     &["When this creature dies, destroy target Wall."],
     // Goliath Beetle
     &["Trample"],
     // Heart Warden
     &["{T}: Add {G}.\n{2}, Sacrifice this creature: Draw a card."],
-    &[],
-    &[],
+    // Hulking Ogre
+    &["This creature can't block."],
+    // Hunting Moa
+    &[
+        "Echo {2}{G} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters or dies, put a +1/+1 counter on target creature.",
+    ],
     // Illuminated Wings
     &["Enchant creature\nEnchanted creature has flying.\n{2}, Sacrifice this Aura: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Impatience
+    &[
+        "At the beginning of each player's end step, if that player didn't cast a spell this turn, this enchantment deals 2 damage to that player.",
+    ],
+    // Incendiary
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a fuse counter on this Aura.\nWhen enchanted creature dies, this Aura deals X damage to any target, where X is the number of fuse counters on this Aura.",
+    ],
+    // Iridescent Drake
+    &[
+        "Flying\nWhen this creature enters, put target Aura card from a graveyard onto the battlefield under your control attached to this creature.",
+    ],
+    // Ivy Seer
+    &[
+        "{2}{G}, {T}: Reveal any number of green cards in your hand. Target creature gets +X/+X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Jasmine Seer
+    &[
+        "{2}{W}, {T}: Reveal any number of white cards in your hand. You gain 2 life for each card revealed this way.",
+    ],
+    // Junk Diver
+    &[
+        "Flying\nWhen this creature dies, return another target artifact card from your graveyard to your hand.",
+    ],
+    // Keldon Champion
+    &[
+        "Haste\nEcho {2}{R}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, it deals 3 damage to target player or planeswalker.",
+    ],
+    // Keldon Vandals
+    &[
+        "Echo {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)\nWhen this creature enters, destroy target artifact.",
+    ],
     // Kingfisher
     &["Flying\nWhen this creature dies, draw a card."],
-    &[],
-    &[],
-    &[],
+    // Landslide
+    &[
+        "Sacrifice any number of Mountains. Landslide deals that much damage to target player or planeswalker.",
+    ],
+    // Lurking Jackals
+    &[
+        "When an opponent has 10 or less life, if this permanent is an enchantment, it becomes a 3/2 Jackal creature.",
+    ],
+    // Magnify
+    &["All creatures get +1/+1 until end of turn."],
     // Mantis Engine
     &[
         "{2}: This creature gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)\n{2}: This creature gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
     ],
-    &[],
+    // Mark of Fury
+    &[
+        "Enchant creature\nEnchanted creature has haste.\nAt the beginning of the end step, return this Aura to its owner's hand.",
+    ],
     // Marker Beetles
     &[
         "When this creature dies, target creature gets +1/+1 until end of turn.\n{2}, Sacrifice this creature: Draw a card.",
@@ -11218,64 +11263,150 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Mental Discipline
     &["{1}{U}, Discard a card: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Metalworker
+    &[
+        "{T}: Reveal any number of artifact cards in your hand. Add {C}{C} for each card revealed this way.",
+    ],
+    // Metathran Elite
+    &["This creature can't be blocked as long as it's enchanted."],
+    // Metathran Soldier
+    &["This creature can't be blocked."],
+    // Momentum
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a growth counter on this Aura.\nEnchanted creature gets +1/+1 for each growth counter on this Aura.",
+    ],
+    // Multani's Decree
+    &["Destroy all enchantments. You gain 2 life for each enchantment destroyed this way."],
+    // Nightshade Seer
+    &[
+        "{2}{B}, {T}: Reveal any number of black cards in your hand. Target creature gets -X/-X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Opalescence
+    &[
+        "Each other non-Aura enchantment is a creature in addition to its other types and has base power and base toughness each equal to its mana value.",
+    ],
     // Opposition
     &["Tap an untapped creature you control: Tap target artifact, creature, or land."],
-    &[],
+    // Pattern of Rebirth
+    &[
+        "Enchant creature\nWhen enchanted creature dies, that creature's controller may search their library for a creature card, put that card onto the battlefield, then shuffle.",
+    ],
     // Phyrexian Monitor
     &["{B}: Regenerate this creature."],
-    &[],
-    &[],
+    // Phyrexian Negator
+    &["Trample\nWhenever this creature is dealt damage, sacrifice that many permanents."],
+    // Plague Dogs
+    &[
+        "When this creature dies, all creatures get -1/-1 until end of turn.\n{2}, Sacrifice this creature: Draw a card.",
+    ],
     // Plated Spider
     &["Reach (This creature can block creatures with flying.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Plow Under
+    &["Put two target lands on top of their owners' libraries."],
+    // Powder Keg
+    &[
+        "At the beginning of your upkeep, you may put a fuse counter on this artifact.\n{T}, Sacrifice this artifact: Destroy each artifact and creature with mana value equal to the number of fuse counters on this artifact.",
+    ],
+    // Private Research
+    &[
+        "Enchant creature\nAt the beginning of your upkeep, you may put a page counter on this Aura.\nWhen enchanted creature dies, draw a card for each page counter on this Aura.",
+    ],
+    // Quash
+    &[
+        "Counter target instant or sorcery spell. Search its controller's graveyard, hand, and library for all cards with the same name as that spell and exile them. Then that player shuffles.",
+    ],
+    // Rapid Decay
+    &[
+        "Exile up to three target cards from a single graveyard.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Rayne, Academy Chancellor
+    &[
+        "Whenever you or a permanent you control becomes the target of a spell or ability an opponent controls, you may draw a card. You may draw an additional card if Rayne is enchanted.",
+    ],
+    // Reckless Abandon
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nReckless Abandon deals 4 damage to any target.",
+    ],
     // Reliquary Monk
     &["When this creature dies, destroy target artifact or enchantment."],
-    &[],
-    &[],
+    // Repercussion
+    &[
+        "Whenever a creature is dealt damage, this enchantment deals that much damage to that creature's controller.",
+    ],
+    // Replenish
+    &[
+        "Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)",
+    ],
     // Rescue
     &["Return target permanent you control to its owner's hand."],
-    &[],
+    // Rofellos's Gift
+    &[
+        "Reveal any number of green cards in your hand. Return an enchantment card from your graveyard to your hand for each card revealed this way.",
+    ],
     // Rofellos, Llanowar Emissary
     &["{T}: Add {G} for each Forest you control."],
     // Sanctimony
     &["Whenever an opponent taps a Mountain for mana, you may gain 1 life."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Scent of Brine
+    &[
+        "Reveal any number of blue cards in your hand. Counter target spell unless its controller pays {1} for each card revealed this way.",
+    ],
+    // Scent of Cinder
+    &[
+        "Reveal any number of red cards in your hand. Scent of Cinder deals X damage to any target, where X is the number of cards revealed this way.",
+    ],
+    // Scent of Ivy
+    &[
+        "Reveal any number of green cards in your hand. Target creature gets +X/+X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Scent of Jasmine
+    &[
+        "Reveal any number of white cards in your hand. You gain 2 life for each card revealed this way.",
+    ],
+    // Scent of Nightshade
+    &[
+        "Reveal any number of black cards in your hand. Target creature gets -X/-X until end of turn, where X is the number of cards revealed this way.",
+    ],
+    // Scour
+    &[
+        "Exile target enchantment. Search its controller's graveyard, hand, and library for all cards with the same name as that enchantment and exile them. Then that player shuffles.",
+    ],
+    // Scrying Glass
+    &[
+        "{3}, {T}: Choose a number greater than 0 and a color. Target opponent reveals their hand. If that opponent reveals exactly the chosen number of cards of the chosen color, you draw a card.",
+    ],
     // Serra Advocate
     &["Flying\n{T}: Target attacking or blocking creature gets +2/+2 until end of turn."],
-    &[],
+    // Sigil of Sleep
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to a player, return target creature that player controls to its owner's hand.",
+    ],
     // Skittering Horror
     &["When you cast a creature spell, sacrifice this creature."],
     // Slinking Skirge
     &["Flying\n{2}, Sacrifice this creature: Draw a card."],
-    &[],
+    // Solidarity
+    &["Creatures you control get +0/+5 until end of turn."],
     // Soul Feast
     &["Target player loses 4 life and you gain 4 life."],
-    &[],
-    &[],
+    // Sowing Salt
+    &[
+        "Exile target nonbasic land. Search its controller's graveyard, hand, and library for all cards with the same name as that land and exile them. Then that player shuffles.",
+    ],
+    // Splinter
+    &[
+        "Exile target artifact. Search its controller's graveyard, hand, and library for all cards with the same name as that artifact and exile them. Then that player shuffles.",
+    ],
     // Squirming Mass
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
-    &[],
-    &[],
-    &[],
+    // Storage Matrix
+    &[
+        "As long as this artifact is untapped, each player chooses artifact, creature, or land during their untap step. That player can untap only permanents of the chosen type this step.",
+    ],
+    // Taunting Elf
+    &["All creatures able to block this creature do so."],
+    // Telepathic Spies
+    &["When this creature enters, look at target opponent's hand."],
     // Temporal Adept
     &["{U}{U}{U}, {T}: Return target permanent to its owner's hand."],
     // Tethered Griffin
@@ -11284,34 +11415,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals damage to an opponent, draw a card.",
     ],
-    &[],
+    // Thorn Elemental
+    &["You may have this creature assign its combat damage as though it weren't blocked."],
     // Thran Dynamo
     &["{T}: Add {C}{C}{C}."],
-    &[],
-    &[],
+    // Thran Foundry
+    &["{1}, {T}, Exile this artifact: Target player shuffles their graveyard into their library."],
+    // Thran Golem
+    &[
+        "As long as this creature is enchanted, it gets +2/+2 and has flying, first strike, and trample.",
+    ],
     // Tormented Angel
     &["Flying"],
     // Treachery
     &[
         "Enchant creature\nWhen this Aura enters, untap up to five lands.\nYou control enchanted creature.",
     ],
-    &[],
+    // Trumpet Blast
+    &["Attacking creatures get +2/+0 until end of turn."],
     // Twisted Experiment
     &["Enchant creature\nEnchanted creature gets +3/-1."],
-    &[],
+    // Urza's Incubator
+    &[
+        "As this artifact enters, choose a creature type.\nCreature spells of the chosen type cost {2} less to cast.",
+    ],
     // Voice of Duty
     &["Flying, protection from green"],
     // Voice of Reason
     &["Flying, protection from blue"],
-    &[],
-    &[],
+    // Wake of Destruction
+    &["Destroy target land and all other lands with the same name as that land."],
+    // Wall of Glare
+    &["Defender (This creature can't attack.)\nThis creature can block any number of creatures."],
     // Wild Colos
     &["Haste"],
-    &[],
-    &[],
+    // Yavimaya Elder
+    &[
+        "When this creature dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.\n{2}, Sacrifice this creature: Draw a card.",
+    ],
+    // Yavimaya Enchantress
+    &["This creature gets +1/+1 for each enchantment on the battlefield."],
     // Yavimaya Hollow
     &["{T}: Add {C}.\n{G}, {T}: Regenerate target creature."],
-    &[],
+    // Yawgmoth's Bargain
+    &["Skip your draw step.\nPay 1 life: Draw a card."],
     // Angel of Light
     &["Flying, vigilance"],
     &[],
@@ -11361,56 +11508,100 @@ pub static ORACLE: &[&[&str]] = &[
     &[""],
     // Willow Elf
     &[""],
-    &[],
-    &[],
-    &[],
+    // Overtaker
+    &[
+        "{3}{U}, {T}, Discard a card: Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.",
+    ],
+    // Warmonger
+    &[
+        "{2}: This creature deals 1 damage to each creature without flying and each player. Any player may activate this ability.",
+    ],
+    // Aerial Caravan
+    &[
+        "Flying\n{1}{U}{U}: Exile the top card of your library. Until end of turn, you may play that card. (Reveal the card as you exile it.)",
+    ],
     // Alabaster Wall
     &[
         "Defender (This creature can't attack.)\n{T}: Prevent the next 1 damage that would be dealt to any target this turn.",
     ],
-    &[],
-    &[],
+    // Alley Grifters
+    &["Whenever this creature becomes blocked, defending player discards a card."],
+    // Ancestral Mask
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 for each other enchantment on the battlefield.",
+    ],
     // Armistice
     &["{3}{W}{W}: You draw a card and target opponent gains 3 life."],
     // Arms Dealer
     &["{1}{R}, Sacrifice a Goblin: This creature deals 4 damage to target creature."],
-    &[],
-    &[],
-    &[],
+    // Arrest
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated.",
+    ],
+    // Assembly Hall
+    &[
+        "{4}, {T}: Reveal a creature card in your hand. Search your library for a card with the same name as that card, reveal it, put it into your hand, then shuffle.",
+    ],
+    // Ballista Squad
+    &["{X}{W}, {T}: This creature deals X damage to target attacking or blocking creature."],
     // Balloon Peddler
     &["{U}, {T}, Discard a card: Target creature gains flying until end of turn."],
-    &[],
-    &[],
+    // Barbed Wire
+    &[
+        "At the beginning of each player's upkeep, this artifact deals 1 damage to that player.\n{2}: Prevent the next 1 damage that would be dealt by this artifact this turn.",
+    ],
+    // Bargaining Table
+    &["{X}, {T}: Draw a card. X is the number of cards in an opponent's hand."],
     // Battle Rampart
     &["Defender\n{T}: Target creature gains haste until end of turn."],
     // Battle Squadron
     &[
         "Flying\nBattle Squadron's power and toughness are each equal to the number of creatures you control.",
     ],
-    &[],
-    &[],
+    // Bifurcate
+    &[
+        "Search your library for a permanent card with the same name as target nontoken creature, put that card onto the battlefield, then shuffle.",
+    ],
+    // Black Market
+    &[
+        "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+    ],
     // Blaster Mage
     &["{R}, {T}, Discard a card: Destroy target Wall."],
     // Blockade Runner
     &["{U}: This creature can't be blocked this turn."],
-    &[],
-    &[],
+    // Blood Hound
+    &[
+        "Whenever you're dealt damage, you may put that many +1/+1 counters on this creature.\nAt the beginning of your end step, remove all +1/+1 counters from this creature.",
+    ],
+    // Blood Oath
+    &[
+        "Choose a card type. Target opponent reveals their hand. Blood Oath deals 3 damage to that player for each card of the chosen type revealed this way. (Artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery are card types.)",
+    ],
     // Boa Constrictor
     &["{T}: This creature gets +3/+3 until end of turn."],
     // Bog Smugglers
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
     // Bog Witch
     &["{B}, {T}, Discard a card: Add {B}{B}{B}."],
-    &[],
-    &[],
+    // Brawl
+    &[
+        "Until end of turn, all creatures gain \"{T}: This creature deals damage equal to its power to target creature.\"",
+    ],
+    // Briar Patch
+    &["Whenever a creature attacks you, it gets -1/-0 until end of turn."],
     // Bribery
     &[
         "Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then that player shuffles.",
     ],
     // Buoyancy
     &["Flash\nEnchant creature\nEnchanted creature has flying."],
-    &[],
-    &[],
+    // Cackling Witch
+    &["{X}{B}, {T}, Discard a card: Target creature gets +X/+0 until end of turn."],
+    // Caller of the Hunt
+    &[
+        "As an additional cost to cast this spell, choose a creature type.\nCaller of the Hunt's power and toughness are each equal to the number of creatures of the chosen type on the battlefield.",
+    ],
     // Cateran Brute
     &[
         "{2}, {T}: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
@@ -11439,63 +11630,128 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Search your library for a Mercenary card, reveal that card, put it into your hand, then shuffle.",
     ],
-    &[],
+    // Caustic Wasps
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player, you may destroy target artifact that player controls.",
+    ],
     // Cave Sense
     &[
         "Enchant creature\nEnchanted creature gets +1/+1 and has mountainwalk. (It can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Cave-In
+    &[
+        "You may exile a red card from your hand rather than pay this spell's mana cost.\nCave-In deals 2 damage to each creature and each player.",
+    ],
     // Cavern Crawler
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)\n{R}: This creature gets +1/-1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ceremonial Guard
+    &["When this creature attacks or blocks, destroy it at end of combat."],
+    // Chambered Nautilus
+    &["Whenever this creature becomes blocked, you may draw a card."],
+    // Chameleon Spirit
+    &[
+        "As this creature enters, choose a color.\nChameleon Spirit's power and toughness are each equal to the number of permanents of the chosen color your opponents control.",
+    ],
+    // Charisma
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage to a creature, gain control of the other creature for as long as this Aura remains on the battlefield.",
+    ],
+    // Charm Peddler
+    &[
+        "{W}, {T}, Discard a card: The next time a source of your choice would deal damage to target creature this turn, prevent that damage.",
+    ],
+    // Charmed Griffin
+    &[
+        "Flying\nWhen this creature enters, each other player may put an artifact or enchantment card onto the battlefield from their hand.",
+    ],
     // Cho-Arrim Alchemist
     &[
         "{1}{W}{W}, {T}, Discard a card: The next time a source of your choice would deal damage to you this turn, prevent that damage. You gain life equal to the damage prevented this way.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cho-Arrim Bruiser
+    &["Whenever this creature attacks, you may tap up to two target creatures."],
+    // Cho-Arrim Legate
+    &[
+        "If an opponent controls a Swamp and you control a Plains, you may cast this spell without paying its mana cost.\nProtection from black",
+    ],
+    // Cho-Manno's Blessing
+    &[
+        "Flash\nEnchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.",
+    ],
+    // Cho-Manno, Revolutionary
+    &["Prevent all damage that would be dealt to Cho-Manno."],
+    // Cinder Elemental
+    &["{X}{R}, {T}, Sacrifice this creature: It deals X damage to any target."],
+    // Clear the Land
+    &[
+        "Each player reveals the top five cards of their library, puts all land cards revealed this way onto the battlefield tapped, and exiles the rest.",
+    ],
+    // Close Quarters
+    &[
+        "Whenever a creature you control becomes blocked, this enchantment deals 1 damage to any target.",
+    ],
     // Cloud Sprite
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nThis creature can block only creatures with flying.",
     ],
     // Coastal Piracy
     &["Whenever a creature you control deals combat damage to an opponent, you may draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Collective Unconscious
+    &["Draw a card for each creature you control."],
+    // Common Cause
+    &["Nonartifact creatures get +2/+2 as long as they all share a color."],
+    // Conspiracy
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures you control are the chosen type. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.",
+    ],
+    // Cornered Market
+    &[
+        "Players can't cast spells with the same name as a nontoken permanent.\nPlayers can't play nonbasic lands with the same name as a nontoken permanent.",
+    ],
+    // Corrupt Official
+    &[
+        "{2}{B}: Regenerate this creature.\nWhenever this creature becomes blocked, defending player discards a card at random.",
+    ],
+    // Cowardice
+    &[
+        "Whenever a creature becomes the target of a spell or ability, return that creature to its owner's hand. (It won't be affected by the spell or ability.)",
+    ],
     // Crackdown
     &[
         "Nonwhite creatures with power 3 or greater don't untap during their controllers' untap steps.",
     ],
-    &[],
-    &[],
-    &[],
+    // Crag Saurian
+    &[
+        "Whenever a source deals damage to this creature, that source's controller gains control of this creature.",
+    ],
+    // Crash
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nDestroy target artifact.",
+    ],
+    // Credit Voucher
+    &[
+        "{2}, {T}, Sacrifice this artifact: Shuffle any number of cards from your hand into your library, then draw that many cards.",
+    ],
     // Crenellated Wall
     &["Defender (This creature can't attack.)\n{T}: Target creature gets +0/+4 until end of turn."],
-    &[],
+    // Crooked Scales
+    &[
+        "{4}, {T}: Flip a coin. If you win the flip, destroy target creature an opponent controls. If you lose the flip, destroy target creature you control unless you pay {3} and repeat this process.",
+    ],
     // Crossbow Infantry
     &["{T}: This creature deals 1 damage to target attacking or blocking creature."],
-    &[],
+    // Crumbling Sanctuary
+    &[
+        "If damage would be dealt to a player, that player exiles that many cards from the top of their library instead.",
+    ],
     // Customs Depot
     &[
         "Whenever you cast a creature spell, you may pay {1}. If you do, draw a card, then discard a card.",
     ],
-    &[],
+    // Darting Merfolk
+    &["{U}: Return this creature to its owner's hand."],
     // Dawnstrider
     &["{G}, {T}, Discard a card: Prevent all combat damage that would be dealt this turn."],
     // Deathgazer
@@ -11504,25 +11760,34 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Deepwood Drummer
     &["{G}, {T}, Discard a card: Target creature gets +2/+2 until end of turn."],
-    &[],
+    // Deepwood Elder
+    &["{X}{G}{G}, {T}, Discard a card: X target lands become Forests until end of turn."],
     // Deepwood Ghoul
     &["Pay 2 life: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
+    // Deepwood Legate
+    &[
+        "If an opponent controls a Forest and you control a Swamp, you may cast this spell without paying its mana cost.\n{B}: This creature gets +1/+1 until end of turn.",
+    ],
+    // Deepwood Tantiv
+    &["Whenever this creature becomes blocked, you gain 2 life."],
+    // Deepwood Wolverine
+    &["Whenever this creature becomes blocked, it gets +2/+0 until end of turn."],
     // Dehydration
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature doesn't untap during its controller's untap step.",
     ],
-    &[],
+    // Delraich
+    &["You may sacrifice three black creatures rather than pay this spell's mana cost.\nTrample"],
     // Devout Witness
     &["{1}{W}, {T}, Discard a card: Destroy target artifact or enchantment."],
-    &[],
+    // Diplomatic Escort
+    &["{U}, {T}, Discard a card: Counter target spell or ability that targets a creature."],
     // Diplomatic Immunity
     &[
         "Enchant creature\nShroud (A permanent with shroud can't be the target of spells or abilities.)\nEnchanted creature has shroud.",
     ],
-    &[],
+    // Distorting Lens
+    &["{T}: Target permanent becomes the color of your choice until end of turn."],
     // Drake Hatchling
     &["Flying\n{U}: This creature gets +1/+0 until end of turn. Activate only once each turn."],
     // Dust Bowl
@@ -11531,22 +11796,52 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Nonland permanents don't untap during their controllers' untap steps.\nAt the beginning of your upkeep, you lose 2 life.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Enslaved Horror
+    &[
+        "When this creature enters, each other player may return a creature card from their graveyard to the battlefield.",
+    ],
+    // Erithizon
+    &[
+        "Whenever this creature attacks, put a +1/+1 counter on target creature of defending player's choice.",
+    ],
+    // Extortion
+    &[
+        "Look at target player's hand and choose up to two cards from it. That player discards those cards.",
+    ],
+    // Extravagant Spirit
+    &[
+        "Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {1} for each card in your hand.",
+    ],
     // Eye of Ramos
     &["{T}: Add {U}.\nSacrifice this artifact: Add {U}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ferocity
+    &[
+        "Enchant creature\nWhenever enchanted creature blocks or becomes blocked, you may put a +1/+1 counter on it.",
+    ],
+    // Flailing Manticore
+    &[
+        "Flying, first strike\n{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
+    // Flailing Ogre
+    &[
+        "{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
+    // Flailing Soldier
+    &[
+        "{1}: This creature gets +1/+1 until end of turn. Any player may activate this ability.\n{1}: This creature gets -1/-1 until end of turn. Any player may activate this ability.",
+    ],
     // Flaming Sword
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+0 and has first strike."],
-    &[],
+    // Food Chain
+    &[
+        "Exile a creature you control: Add X mana of any one color, where X is 1 plus the exiled creature's mana value. Spend this mana only to cast creature spells.",
+    ],
     // Forced March
     &["Destroy all creatures with mana value X or less."],
-    &[],
+    // Foster
+    &[
+        "Whenever a creature you control dies, you may pay {1}. If you do, reveal cards from the top of your library until you reveal a creature card. Put that card into your hand and the rest into your graveyard.",
+    ],
     // Fountain Watch
     &[
         "Artifacts and enchantments you control have shroud. (They can't be the targets of spells or abilities.)",
@@ -11557,9 +11852,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Fresh Volunteers
     &[""],
-    &[],
-    &[],
-    &[],
+    // Furious Assault
+    &[
+        "Whenever you cast a creature spell, this enchantment deals 1 damage to target player or planeswalker.",
+    ],
+    // Game Preserve
+    &[
+        "At the beginning of your upkeep, each player reveals the top card of their library. If all cards revealed this way are creature cards, put those cards onto the battlefield under their owners' control.",
+    ],
+    // General's Regalia
+    &[
+        "{3}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature you control instead.",
+    ],
     // Gerrard's Irregulars
     &["Trample, haste"],
     // Ghoul's Feast
@@ -11570,9 +11874,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, you may return target land to its owner's hand."],
     // Groundskeeper
     &["{1}{G}: Return target basic land card from your graveyard to your hand."],
-    &[],
-    &[],
-    &[],
+    // Gush
+    &[
+        "You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nDraw two cards.",
+    ],
+    // Hammer Mage
+    &["{X}{R}, {T}, Discard a card: Destroy all artifacts with mana value X or less."],
+    // Haunted Crossroads
+    &["{B}: Put target creature card from your graveyard on top of your library."],
     // Heart of Ramos
     &["{T}: Add {R}.\nSacrifice this artifact: Add {R}."],
     // Henge Guardian
@@ -11585,57 +11894,120 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // High Market
     &["{T}: Add {C}.\n{T}, Sacrifice a creature: You gain 1 life."],
-    &[],
+    // High Seas
+    &["Red creature spells and green creature spells cost {1} more to cast."],
     // Highway Robber
     &["When this creature enters, target opponent loses 2 life and you gain 2 life."],
-    &[],
-    &[],
+    // Hired Giant
+    &[
+        "When this creature enters, each other player may search their library for a land card and put that card onto the battlefield. Then each player who searched their library this way shuffles.",
+    ],
+    // Honor the Fallen
+    &[
+        "Exile all creature cards from all graveyards. You gain 1 life for each card exiled this way.",
+    ],
     // Hoodwink
     &["Return target artifact, enchantment, or land to its owner's hand."],
-    &[],
+    // Horn of Plenty
+    &[
+        "Whenever a player casts a spell, they may pay {1}. If the player does, they draw a card at the beginning of the next end step.",
+    ],
     // Horn of Ramos
     &["{T}: Add {G}.\nSacrifice this artifact: Add {G}."],
     // Horned Troll
     &["{G}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Howling Wolf
+    &[
+        "When this creature enters, you may search your library for up to three cards named Howling Wolf, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Hunted Wumpus
+    &[
+        "When this creature enters, each other player may put a creature card from their hand onto the battlefield.",
+    ],
+    // Ignoble Soldier
+    &[
+        "Whenever this creature becomes blocked, prevent all combat damage that would be dealt by it this turn.",
+    ],
+    // Indentured Djinn
+    &["Flying\nWhen this creature enters, each other player may draw up to three cards."],
+    // Instigator
+    &["{1}{B}{B}, {T}, Discard a card: Creatures target player controls attack this turn if able."],
+    // Insubordination
+    &[
+        "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, this Aura deals 2 damage to that player unless that creature attacked this turn.",
+    ],
     // Intimidation
     &[
         "Creatures you control have fear. (They can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
+    // Invigorate
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have an opponent gain 3 life.\nTarget creature gets +4/+4 until end of turn.",
+    ],
+    // Inviolability
+    &["Enchant creature\nPrevent all damage that would be dealt to enchanted creature."],
     // Iron Lance
     &["{3}, {T}: Target creature gains first strike until end of turn."],
-    &[],
-    &[],
+    // Ivory Mask
+    &["You have shroud. (You can't be the target of spells or abilities.)"],
+    // Jeweled Torque
+    &[
+        "As this artifact enters, choose a color.\nWhenever a player casts a spell of the chosen color, you may pay {2}. If you do, you gain 2 life.",
+    ],
     // Jhovall Queen
     &["Vigilance"],
     // Jhovall Rider
     &["Trample"],
-    &[],
+    // Karn's Touch
+    &[
+        "Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value until end of turn. (It retains its abilities.)",
+    ],
     // Kris Mage
     &["{R}, {T}, Discard a card: This creature deals 1 damage to any target."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Kyren Archive
+    &[
+        "At the beginning of your upkeep, you may exile the top card of your library face down.\n{5}, Discard your hand, Sacrifice this artifact: Put all cards exiled with this artifact into their owner's hand.",
+    ],
+    // Kyren Glider
+    &["Flying\nThis creature can't block."],
+    // Kyren Legate
+    &[
+        "If an opponent controls a Plains and you control a Mountain, you may cast this spell without paying its mana cost.\nHaste",
+    ],
+    // Kyren Negotiations
+    &[
+        "Tap an untapped creature you control: This enchantment deals 1 damage to target player or planeswalker.",
+    ],
+    // Kyren Sniper
+    &[
+        "At the beginning of your upkeep, you may have this creature deal 1 damage to target player or planeswalker.",
+    ],
+    // Kyren Toy
+    &[
+        "{1}, {T}: Put a charge counter on this artifact.\n{T}, Remove X charge counters from this artifact: Add an amount of {C} equal to X plus one.",
+    ],
+    // Land Grant
+    &[
+        "If you have no land cards in hand, you may reveal your hand rather than pay this spell's mana cost.\nSearch your library for a Forest card, reveal that card, put it into your hand, then shuffle.",
+    ],
     // Larceny
     &[
         "Whenever a creature you control deals combat damage to a player, that player discards a card.",
     ],
     // Last Breath
     &["Exile target creature with power 2 or less. Its controller gains 4 life."],
-    &[],
-    &[],
-    &[],
+    // Lava Runner
+    &[
+        "Haste\nWhenever this creature becomes the target of a spell or ability, that spell or ability's controller sacrifices a land of their choice.",
+    ],
+    // Ley Line
+    &[
+        "At the beginning of each player's upkeep, that player may put a +1/+1 counter on target creature of their choice.",
+    ],
+    // Liability
+    &[
+        "Whenever a nontoken permanent is put into a player's graveyard from the battlefield, that player loses 1 life.",
+    ],
     // Lightning Hounds
     &["First strike"],
     // Lithophage
@@ -11644,66 +12016,116 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "All creatures have forestwalk. (They can't be blocked as long as defending player controls a Forest.)",
     ],
-    &[],
+    // Lunge
+    &["Lunge deals 2 damage to target creature and 2 damage to target player or planeswalker."],
     // Maggot Therapy
     &["Flash\nEnchant creature\nEnchanted creature gets +2/-2."],
     // Magistrate's Scepter
     &[
         "{4}, {T}: Put a charge counter on this artifact.\n{T}, Remove three charge counters from this artifact: Take an extra turn after this one.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Magistrate's Veto
+    &["White creatures and blue creatures can't block."],
+    // Megatherium
+    &[
+        "Trample\nWhen this creature enters, sacrifice it unless you pay {1} for each card in your hand.",
+    ],
+    // Mercadia's Downfall
+    &[
+        "Each attacking creature gets +1/+0 until end of turn for each nonbasic land defending player controls.",
+    ],
+    // Mercadian Atlas
+    &[
+        "At the beginning of your end step, if you didn't play a land this turn, you may draw a card.",
+    ],
     // Mercadian Bazaar
     &[
         "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {R} for each storage counter removed this way.",
     ],
-    &[],
-    &[],
+    // Mercadian Lift
+    &[
+        "{1}, {T}: Put a winch counter on this artifact.\n{T}, Remove X winch counters from this artifact: You may put a creature card with mana value X from your hand onto the battlefield.",
+    ],
+    // Midnight Ritual
+    &[
+        "Exile X target creature cards from your graveyard. For each creature card exiled this way, create a 2/2 black Zombie creature token.",
+    ],
     // Misdirection
     &[
         "You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.",
     ],
     // Misshapen Fiend
     &["Flying"],
-    &[],
+    // Misstep
+    &["Creatures target player controls don't untap during that player's next untap step."],
     // Molting Harpy
     &["Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {2}."],
-    &[],
-    &[],
+    // Moment of Silence
+    &["Target player skips their next combat phase this turn."],
+    // Monkey Cage
+    &[
+        "When a creature enters, sacrifice this artifact and create X 2/2 green Monkey creature tokens, where X is that creature's mana value.",
+    ],
     // Moonlit Wake
     &["Whenever a creature dies, you gain 1 life."],
-    &[],
-    &[],
-    &[],
+    // Muzzle
+    &["Enchant creature\nPrevent all damage that would be dealt by enchanted creature."],
+    // Natural Affinity
+    &["All lands become 2/2 creatures until end of turn. They're still lands."],
+    // Nether Spirit
+    &[
+        "At the beginning of your upkeep, if this card is the only creature card in your graveyard, you may return this card to the battlefield.",
+    ],
     // Nightwind Glider
     &["Flying, protection from black"],
-    &[],
+    // Noble Purpose
+    &["Whenever a creature you control deals combat damage, you gain that much life."],
     // Notorious Assassin
     &["{2}{B}, {T}, Discard a card: Destroy target nonblack creature. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
+    // Orim's Cure
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nPrevent the next 4 damage that would be dealt to any target this turn.",
+    ],
+    // Panacea
+    &["{X}{X}, {T}: Prevent the next X damage that would be dealt to any target this turn."],
+    // Pangosaur
+    &["Whenever a player plays a land, return this creature to its owner's hand."],
     // Peat Bog
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {B}{B}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
+    // Pious Warrior
+    &["Whenever this creature is dealt combat damage, you gain that much life."],
+    // Port Inspector
+    &["Whenever this creature becomes blocked, you may look at defending player's hand."],
     // Power Matrix
     &[
         "{T}: Target creature gets +1/+1 and gains flying, first strike, and trample until end of turn.",
     ],
-    &[],
+    // Pretender's Claim
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes blocked, tap all lands defending player controls.",
+    ],
     // Primeval Shambler
     &["{B}: This creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Puffer Extract
+    &[
+        "{X}, {T}: Target creature you control gets +X/+X until end of turn. Destroy it at the beginning of the next end step.",
+    ],
+    // Pulverize
+    &[
+        "You may sacrifice two Mountains rather than pay this spell's mana cost.\nDestroy all artifacts.",
+    ],
+    // Puppet's Verdict
+    &[
+        "Flip a coin. If you win the flip, destroy all creatures with power 2 or less. If you lose the flip, destroy all creatures with power 3 or greater.",
+    ],
     // Putrefaction
     &["Whenever a player casts a green or white spell, that player discards a card."],
-    &[],
+    // Quagmire Lamprey
+    &[
+        "Whenever this creature becomes blocked by a creature, put a -1/-1 counter on that creature.",
+    ],
     // Ramosian Captain
     &[
         "First strike\n{5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
@@ -11716,7 +12138,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Ramosian Rally
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nCreatures you control get +1/+1 until end of turn.",
+    ],
     // Ramosian Sergeant
     &[
         "{3}, {T}: Search your library for a Rebel permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
@@ -11727,31 +12152,60 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rampart Crawler
     &["This creature can't be blocked by Walls."],
-    &[],
+    // Rappelling Scouts
+    &[
+        "Flying\n{2}{W}: This creature gains protection from the color of your choice until end of turn.",
+    ],
     // Remote Farm
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {W}{W}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
-    &[],
+    // Renounce
+    &[
+        "Sacrifice any number of permanents. You gain 2 life for each permanent sacrificed this way.",
+    ],
+    // Revered Elder
+    &["{1}: Prevent the next 1 damage that would be dealt to this creature this turn."],
+    // Reverent Mantra
+    &[
+        "You may exile a white card from your hand rather than pay this spell's mana cost.\nChoose a color. All creatures gain protection from the chosen color until end of turn.",
+    ],
     // Revive
     &["Return target green card from your graveyard to your hand."],
-    &[],
+    // Righteous Indignation
+    &[
+        "Whenever a creature blocks a black or red creature, the blocking creature gets +1/+1 until end of turn.",
+    ],
     // Rishadan Airship
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rishadan Brigand
+    &[
+        "Flying\nWhen this creature enters, each opponent sacrifices a permanent of their choice unless they pay {3}.\nThis creature can block only creatures with flying.",
+    ],
+    // Rishadan Cutpurse
+    &[
+        "When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {1}.",
+    ],
+    // Rishadan Footpad
+    &[
+        "When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {2}.",
+    ],
+    // Rishadan Pawnshop
+    &["{2}, {T}: Shuffle target nontoken permanent you control into its owner's library."],
     // Rishadan Port
     &["{T}: Add {C}.\n{1}, {T}: Tap target land."],
-    &[],
+    // Robber Fly
+    &[
+        "Flying\nWhenever this creature becomes blocked, defending player discards all the cards in their hand, then draws that many cards.",
+    ],
     // Rock Badger
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Rouse
+    &[
+        "If you control a Swamp, you may pay 2 life rather than pay this spell's mana cost.\nTarget creature gets +2/+0 until end of turn.",
+    ],
     // Rushwood Dryad
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Rushwood Elemental
@@ -11762,83 +12216,142 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rushwood Herbalist
     &["{G}, {T}, Discard a card: Regenerate target creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rushwood Legate
+    &[
+        "If an opponent controls an Island and you control a Forest, you may cast this spell without paying its mana cost.",
+    ],
+    // Saber Ants
+    &[
+        "Whenever this creature is dealt damage, you may create that many 1/1 green Insect creature tokens.",
+    ],
+    // Sacred Prey
+    &["Whenever this creature becomes blocked, you gain 1 life."],
+    // Sailmonger
+    &["{2}: Target creature gains flying until end of turn. Any player may activate this ability."],
+    // Sand Squid
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nYou may choose not to untap this creature during your untap step.\n{T}: Tap target creature. That creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
     // Sandstone Needle
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {R}{R}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
+    // Saprazzan Bailiff
+    &[
+        "When this creature enters, exile all artifact and enchantment cards from all graveyards.\nWhen this creature leaves the battlefield, return all artifact and enchantment cards from all graveyards to their owners' hands.",
+    ],
+    // Saprazzan Breaker
+    &[
+        "{U}: Mill a card. If a land card was milled this way, this creature can't be blocked this turn.",
+    ],
     // Saprazzan Cove
     &[
         "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {U} for each storage counter removed this way.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Saprazzan Heir
+    &["Whenever this creature becomes blocked, you may draw three cards."],
+    // Saprazzan Legate
+    &[
+        "If an opponent controls a Mountain and you control an Island, you may cast this spell without paying its mana cost.\nFlying",
+    ],
+    // Saprazzan Outrigger
+    &[
+        "When this creature attacks or blocks, put it on top of its owner's library at end of combat.",
+    ],
+    // Saprazzan Raider
+    &["When this creature becomes blocked, return it to its owner's hand."],
     // Saprazzan Skerry
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {U}{U}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
+    // Scandalmonger
+    &[
+        "{2}: Target player discards a card. Any player may activate this ability but only as a sorcery.",
+    ],
     // Security Detail
     &[
         "{W}{W}: Create a 1/1 white Soldier creature token. Activate only if you control no creatures and only once each turn.",
     ],
     // Seismic Mage
     &["{2}{R}, {T}, Discard a card: Destroy target land."],
-    &[],
+    // Sever Soul
+    &[
+        "Destroy target nonblack creature. It can't be regenerated. You gain life equal to its toughness.",
+    ],
     // Shock Troops
     &["Sacrifice this creature: It deals 2 damage to any target."],
-    &[],
-    &[],
-    &[],
+    // Shoving Match
+    &["Until end of turn, all creatures gain \"{T}: Tap target creature.\""],
+    // Silent Assassin
+    &["{3}{B}: Destroy target blocking creature at end of combat."],
+    // Silverglade Elemental
+    &[
+        "When this creature enters, you may search your library for a Forest card, put that card onto the battlefield, then shuffle.",
+    ],
     // Silverglade Pathfinder
     &[
         "{1}{G}, {T}, Discard a card: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
     ],
     // Sizzle
     &["Sizzle deals 3 damage to each opponent."],
-    &[],
+    // Skulking Fugitive
+    &["When this creature becomes the target of a spell or ability, sacrifice it."],
     // Skull of Ramos
     &["{T}: Add {B}.\nSacrifice this artifact: Add {B}."],
     // Snake Pit
     &[
         "Whenever an opponent casts a blue or black spell, you may create a 1/1 green Snake creature token.",
     ],
-    &[],
-    &[],
+    // Snorting Gahr
+    &["Whenever this creature becomes blocked, it gets +2/+2 until end of turn."],
+    // Snuff Out
+    &[
+        "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated.",
+    ],
     // Soothing Balm
     &["Target player gains 5 life."],
-    &[],
+    // Soothsaying
+    &[
+        "{3}{U}{U}: Shuffle your library.\n{X}: Look at the top X cards of your library, then put them back in any order.",
+    ],
     // Soul Channeling
     &["Enchant creature\nPay 2 life: Regenerate enchanted creature."],
     // Specter's Wail
     &["Target player discards a card at random."],
     // Spidersilk Armor
     &["Creatures you control get +0/+1 and have reach. (They can block creatures with flying.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spiritual Focus
+    &[
+        "Whenever a spell or ability an opponent controls causes you to discard a card, you gain 2 life and you may draw a card.",
+    ],
+    // Spontaneous Generation
+    &["Create a 1/1 green Saproling creature token for each card in your hand."],
+    // Squallmonger
+    &[
+        "{2}: This creature deals 1 damage to each creature with flying and each player. Any player may activate this ability.",
+    ],
+    // Squee, Goblin Nabob
+    &[
+        "At the beginning of your upkeep, you may return this card from your graveyard to your hand.",
+    ],
+    // Squeeze
+    &["Sorcery spells cost {3} more to cast."],
     // Stamina
     &[
         "Enchant creature\nEnchanted creature has vigilance.\nSacrifice this Aura: Regenerate enchanted creature.",
     ],
-    &[],
+    // Statecraft
+    &["Prevent all combat damage that would be dealt to and dealt by creatures you control."],
     // Steadfast Guard
     &["Vigilance (Attacking doesn't cause this creature to tap.)"],
     // Stinging Barrier
     &[
         "Defender (This creature can't attack.)\n{U}, {T}: This creature deals 1 damage to any target.",
     ],
-    &[],
+    // Story Circle
+    &[
+        "As this enchantment enters, choose a color.\n{W}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
+    ],
     // Strongarm Thug
     &[
         "When this creature enters, you may return target Mercenary card from your graveyard to your hand.",
@@ -11849,18 +12362,38 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Sustenance
     &["{1}, Sacrifice a land: Target creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Task Force
+    &[
+        "Whenever this creature becomes the target of a spell or ability, it gets +0/+3 until end of turn.",
+    ],
+    // Tectonic Break
+    &["Each player sacrifices X lands of their choice."],
+    // Territorial Dispute
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a land.\nPlayers can't play lands.",
+    ],
     // Thermal Glider
     &["Flying, protection from red"],
-    &[],
+    // Thieves' Auction
+    &[
+        "Exile all nontoken permanents. Starting with you, each player chooses one of the exiled cards and puts it onto the battlefield tapped under their control. Repeat this process until all cards exiled this way have been chosen.",
+    ],
     // Thrashing Wumpus
     &["{B}: This creature deals 1 damage to each creature and each player."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thunderclap
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nThunderclap deals 3 damage to target creature.",
+    ],
+    // Thwart
+    &[
+        "You may return three Islands you control to their owner's hand rather than pay this spell's mana cost.\nCounter target spell.",
+    ],
+    // Tidal Bore
+    &[
+        "You may return an Island you control to its owner's hand rather than pay this spell's mana cost.\nYou may tap or untap target creature.",
+    ],
+    // Tidal Kraken
+    &["This creature can't be blocked."],
     // Tiger Claws
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+1 and has trample."],
     // Tonic Peddler
@@ -11871,41 +12404,78 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{1}, {T}: Target creature gains protection from artifacts until end of turn.",
     ],
-    &[],
+    // Toymaker
+    &[
+        "{1}, {T}, Discard a card: Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value until end of turn. (It retains its abilities.)",
+    ],
     // Trade Routes
     &[
         "{1}: Return target land you control to its owner's hand.\n{1}, Discard a land card: Draw a card.",
     ],
-    &[],
+    // Trap Runner
+    &[
+        "{T}: Target unblocked attacking creature becomes blocked. Activate only during combat after blockers are declared. (This ability works on creatures that can't be blocked.)",
+    ],
     // Two-Headed Dragon
     &[
         "Flying\nMenace (This creature can't be blocked except by two or more creatures.)\nThis creature can block an additional creature each combat.\n{1}{R}: This creature gets +2/+0 until end of turn.",
     ],
     // Undertaker
     &["{B}, {T}, Discard a card: Return target creature card from your graveyard to your hand."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Unmask
+    &[
+        "You may exile a black card from your hand rather than pay this spell's mana cost.\nTarget player reveals their hand. You choose a nonland card from it. That player discards that card.",
+    ],
+    // Unnatural Hunger
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals damage equal to that creature's power to that player unless they sacrifice another creature of their choice.",
+    ],
+    // Uphill Battle
+    &["Creatures played by your opponents enter tapped."],
+    // Vendetta
+    &[
+        "Destroy target nonblack creature. It can't be regenerated. You lose life equal to that creature's toughness.",
+    ],
     // Venomous Dragonfly
     &[
         "Flying\nWhenever this creature blocks or becomes blocked by a creature, destroy that creature at end of combat.",
     ],
-    &[],
-    &[],
+    // Vernal Equinox
+    &["Any player may cast creature and enchantment spells as though they had flash."],
+    // Vine Dryad
+    &[
+        "You may exile a green card from your hand rather than pay this spell's mana cost.\nFlash\nForestwalk (This creature can't be blocked as long as defending player controls a Forest.)",
+    ],
     // Vine Trellis
     &["Defender (This creature can't attack.)\n{T}: Add {G}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Volcanic Wind
+    &[
+        "Volcanic Wind deals X damage divided as you choose among any number of target creatures, where X is the number of creatures on the battlefield as you cast this spell.",
+    ],
+    // Wall of Distortion
+    &[
+        "Defender (This creature can't attack.)\n{2}{B}, {T}: Target player discards a card. Activate only as a sorcery.",
+    ],
+    // War Cadence
+    &[
+        "{X}{R}: This turn, creatures can't block unless their controller pays {X} for each blocking creature they control.",
+    ],
+    // War Tax
+    &[
+        "{X}{U}: This turn, creatures can't attack unless their controller pays {X} for each attacking creature they control.",
+    ],
+    // Warpath
+    &["Warpath deals 3 damage to each blocking creature and each blocked creature."],
     // Waterfront Bouncer
     &["{U}, {T}, Discard a card: Return target creature to its owner's hand."],
-    &[],
+    // Wave of Reckoning
+    &["Each creature deals damage to itself equal to its power."],
     // Wild Jhovall
     &[""],
-    &[],
+    // Wishmonger
+    &[
+        "{2}: Target creature gains protection from the color of its controller's choice until end of turn. Any player may activate this ability.",
+    ],
     // Worry Beads
     &["At the beginning of each player's upkeep, that player mills a card."],
     // Silver Drake
@@ -11916,64 +12486,134 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{1}{B}{B}, {T}: Destroy target tapped nonblack creature.\n{3}, {T}: Search your library for a Mercenary permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
+    // Accumulated Knowledge
+    &[
+        "Draw a card, then draw cards equal to the number of cards named Accumulated Knowledge in all graveyards.",
+    ],
+    // Aether Barrier
+    &[
+        "Whenever a player casts a creature spell, that player sacrifices a permanent of their choice unless they pay {1}.",
+    ],
     // Air Bladder
     &[
         "Enchant creature\nEnchanted creature has flying.\nEnchanted creature can block only creatures with flying.",
     ],
-    &[],
-    &[],
+    // Ancient Hydra
+    &[
+        "Fading 5 (This creature enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{1}, Remove a fade counter from this creature: It deals 1 damage to any target.",
+    ],
+    // Angelic Favor
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nCast this spell only during combat.\nCreate a 4/4 white Angel creature token with flying. Exile it at the beginning of the next end step.",
+    ],
     // Animate Land
     &["Until end of turn, target land becomes a 3/3 creature that's still a land."],
-    &[],
+    // Arc Mage
+    &[
+        "{2}{R}, {T}, Discard a card: This creature deals 2 damage divided as you choose among one or two targets.",
+    ],
     // Ascendant Evincar
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nOther black creatures get +1/+1.\nNonblack creatures get -1/-1.",
     ],
-    &[],
+    // Avenger en-Dal
+    &[
+        "{2}{W}, {T}, Discard a card: Exile target attacking creature. Its controller gains life equal to its toughness.",
+    ],
     // Battlefield Percher
     &[
         "Flying\nThis creature can block only creatures with flying.\n{1}{B}: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Belbe's Armor
+    &["{X}, {T}: Target creature gets -X/+X until end of turn."],
     // Belbe's Percher
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Belbe's Portal
+    &[
+        "As this artifact enters, choose a creature type.\n{3}, {T}: You may put a creature card of the chosen type from your hand onto the battlefield.",
+    ],
+    // Blastoderm
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Blinding Angel
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals combat damage to a player, that player skips their next combat phase.",
+    ],
+    // Bola Warrior
+    &["{R}, {T}, Discard a card: Target creature can't block this turn."],
     // Carrion Wall
     &["Defender (This creature can't attack.)\n{1}{B}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chieftain en-Dal
+    &["Whenever this creature attacks, attacking creatures gain first strike until end of turn."],
+    // Cloudskate
+    &[
+        "Flying\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Coiling Woodworm
+    &["Coiling Woodworm's power is equal to the number of Forests on the battlefield."],
+    // Complex Automaton
+    &[
+        "At the beginning of your upkeep, if you control seven or more permanents, return this creature to its owner's hand.",
+    ],
+    // Dark Triumph
+    &[
+        "If you control a Swamp, you may sacrifice a creature rather than pay this spell's mana cost.\nCreatures you control get +2/+0 until end of turn.",
+    ],
+    // Daze
+    &[
+        "You may return an Island you control to its owner's hand rather than pay this spell's mana cost.\nCounter target spell unless its controller pays {1}.",
+    ],
+    // Death Pit Offering
+    &[
+        "When this enchantment enters, sacrifice all creatures you control.\nCreatures you control get +2/+2.",
+    ],
+    // Defender en-Vec
+    &[
+        "Fading 4 (This creature enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: Prevent the next 2 damage that would be dealt to any target this turn.",
+    ],
     // Defiant Falcon
     &[
         "Flying\n{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Defiant Vanguard
+    &[
+        "When this creature blocks, at end of combat, destroy it and all creatures it blocked this turn.\n{5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
+    ],
+    // Divining Witch
+    &[
+        "{1}{B}, {T}, Discard a card: Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards revealed this way.",
+    ],
+    // Dominate
+    &["Gain control of target creature with mana value X or less."],
+    // Downhill Charge
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nTarget creature gets +X/+0 until end of turn, where X is the number of Mountains you control.",
+    ],
+    // Ensnare
+    &[
+        "You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nTap all creatures.",
+    ],
+    // Eye of Yawgmoth
+    &[
+        "{3}, {T}, Sacrifice a creature: Reveal a number of cards from the top of your library equal to the sacrificed creature's power. Put one into your hand and exile the rest.",
+    ],
     // Fanatical Devotion
     &["Sacrifice a creature: Regenerate target creature."],
     // Flame Rift
     &["Flame Rift deals 4 damage to each player."],
-    &[],
-    &[],
+    // Flint Golem
+    &["Whenever this creature becomes blocked, defending player mills three cards."],
+    // Flowstone Armor
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Target creature gets +1/-1 for as long as this artifact remains tapped.",
+    ],
     // Flowstone Crusher
     &["{R}: This creature gets +1/-1 until end of turn."],
     // Flowstone Overseer
     &["{R}{R}: Target creature gets +1/-1 until end of turn."],
-    &[],
+    // Flowstone Slide
+    &["All creatures get +X/-X until end of turn."],
     // Flowstone Strike
     &["Target creature gets +1/-1 and gains haste until end of turn."],
     // Flowstone Surge
@@ -11982,64 +12622,164 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}: This creature gets +1/-1 and gains flying until end of turn."],
     // Flowstone Wall
     &["Defender (This creature can't attack.)\n{R}: This creature gets +1/-1 until end of turn."],
-    &[],
-    &[],
+    // Fog Patch
+    &[
+        "Cast this spell only during the declare blockers step.\nAttacking creatures become blocked. (This spell works on creatures that can't be blocked.)",
+    ],
+    // Harvest Mage
+    &[
+        "{G}, {T}, Discard a card: Until end of turn, if you tap a land for mana, it produces one mana of a color of your choice instead of any other type and amount.",
+    ],
     // Infiltrate
     &["Target creature can't be blocked this turn."],
-    &[],
-    &[],
+    // Jolting Merfolk
+    &[
+        "Fading 4 (This creature enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: Tap target creature.",
+    ],
+    // Kill Switch
+    &[
+        "{2}, {T}: Tap all other artifacts. They don't untap during their controllers' untap steps for as long as this artifact remains tapped.",
+    ],
     // Kor Haven
     &[
         "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Laccolith Grunt
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Rig
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, the first creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Titan
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Warrior
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Whelp
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Lashknife
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nEnchant creature\nEnchanted creature has first strike.",
+    ],
     // Lawbringer
     &["{T}, Sacrifice this creature: Exile target red creature."],
     // Lightbringer
     &["{T}, Sacrifice this creature: Exile target black creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Lin Sivvi, Defiant Hero
+    &[
+        "{X}, {T}: Search your library for a Rebel permanent card with mana value X or less, put it onto the battlefield, then shuffle.\n{3}: Put target Rebel card from your graveyard on the bottom of your library.",
+    ],
+    // Mana Cache
+    &[
+        "At the beginning of each player's end step, put a charge counter on this enchantment for each untapped land that player controls.\nRemove a charge counter from this enchantment: Add {C}. Any player may activate this ability but only during their turn before the end step.",
+    ],
+    // Massacre
+    &[
+        "If an opponent controls a Plains and you control a Swamp, you may cast this spell without paying its mana cost.\nAll creatures get -2/-2 until end of turn.",
+    ],
+    // Mind Slash
+    &[
+        "{B}, Sacrifice a creature: Target opponent reveals their hand. You choose a card from it. That player discards that card. Activate only as a sorcery.",
+    ],
+    // Mind Swords
+    &[
+        "If you control a Swamp, you may sacrifice a creature rather than pay this spell's mana cost.\nEach player exiles two cards from their hand.",
+    ],
+    // Mogg Alarm
+    &[
+        "You may sacrifice two Mountains rather than pay this spell's mana cost.\nCreate two 1/1 red Goblin creature tokens.",
+    ],
+    // Mogg Salvage
+    &[
+        "If an opponent controls an Island and you control a Mountain, you may cast this spell without paying its mana cost.\nDestroy target artifact.",
+    ],
+    // Mogg Toady
+    &[
+        "This creature can't attack unless you control more creatures than defending player.\nThis creature can't block unless you control more creatures than attacking player.",
+    ],
     // Moggcatcher
     &[
         "{3}, {T}: Search your library for a Goblin permanent card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mossdog
+    &[
+        "Whenever this creature becomes the target of a spell or ability an opponent controls, put a +1/+1 counter on this creature.",
+    ],
+    // Murderous Betrayal
+    &[
+        "{B}{B}, Pay half your life, rounded up: Destroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Nesting Wurm
+    &[
+        "Trample\nWhen this creature enters, you may search your library for up to three cards named Nesting Wurm, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Netter en-Dal
+    &["{W}, {T}, Discard a card: Target creature can't attack this turn."],
+    // Noble Stand
+    &["Whenever a creature you control blocks, you gain 2 life."],
+    // Off Balance
+    &["Target creature can't attack or block this turn."],
+    // Oracle's Attendants
+    &[
+        "{T}: All damage that would be dealt to target creature this turn by a source of your choice is dealt to this creature instead.",
+    ],
     // Oraxid
     &["Protection from red"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Overlaid Terrain
+    &[
+        "As this enchantment enters, sacrifice all lands you control.\nLands you control have \"{T}: Add two mana of any one color.\"",
+    ],
+    // Pack Hunt
+    &[
+        "Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Pale Moon
+    &[
+        "Until end of turn, if a player taps a nonbasic land for mana, it produces colorless mana instead of any other type.",
+    ],
+    // Parallax Dementia
+    &[
+        "Enchant creature\nFading 1 (This enchantment enters with one fade counter on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nEnchanted creature gets +3/+2.\nWhen this Aura leaves the battlefield, destroy enchanted creature. That creature can't be regenerated.",
+    ],
+    // Parallax Inhibitor
+    &[
+        "{1}, {T}, Sacrifice this artifact: Put a fade counter on each permanent with fading you control.",
+    ],
+    // Parallax Nexus
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Target opponent exiles a card from their hand. Activate only as a sorcery.\nWhen this enchantment leaves the battlefield, each player returns to their hand all cards they own exiled with it.",
+    ],
+    // Parallax Tide
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Exile target land.\nWhen this enchantment leaves the battlefield, each player returns to the battlefield all cards they own exiled with it.",
+    ],
+    // Parallax Wave
+    &[
+        "Fading 5 (This enchantment enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Exile target creature.\nWhen this enchantment leaves the battlefield, each player returns to the battlefield all cards they own exiled with it.",
+    ],
+    // Phyrexian Driver
+    &["When this creature enters, other Mercenary creatures get +1/+1 until end of turn."],
+    // Phyrexian Prowler
+    &[
+        "Fading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: This creature gets +1/+1 until end of turn.",
+    ],
     // Plague Witch
     &["{B}, {T}, Discard a card: Target creature gets -1/-1 until end of turn."],
     // Predator, Flagship
     &[
         "{2}: Target creature gains flying until end of turn.\n{5}, {T}: Destroy target creature with flying.",
     ],
-    &[],
+    // Rackling
+    &[
+        "At the beginning of each opponent's upkeep, this creature deals X damage to that player, where X is 3 minus the number of cards in their hand.",
+    ],
     // Rath's Edge
     &["{T}: Add {C}.\n{4}, {T}, Sacrifice a land: Rath's Edge deals 1 damage to any target."],
     // Rathi Fiend
@@ -12050,20 +12790,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{2}, {T}: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Refreshing Rain
+    &[
+        "If an opponent controls a Swamp and you control a Forest, you may cast this spell without paying its mana cost.\nTarget player gains 6 life.",
+    ],
+    // Rejuvenation Chamber
+    &[
+        "Fading 2 (This artifact enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{T}: You gain 2 life.",
+    ],
+    // Reverent Silence
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 6 life.\nDestroy all enchantments.",
+    ],
+    // Rhox
+    &[
+        "You may have this creature assign its combat damage as though it weren't blocked.\n{2}{G}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
+    // Rising Waters
+    &[
+        "Lands don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player untaps a land they control.",
+    ],
     // Rootwater Commando
     &[
         "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rootwater Thief
+    &[
+        "{U}: This creature gains flying until end of turn.\nWhenever this creature deals combat damage to a player, you may pay {2}. If you do, search that player's library for a card and exile it, then the player shuffles.",
+    ],
+    // Rupture
+    &[
+        "Sacrifice a creature. Rupture deals damage equal to that creature's power to each creature without flying and each player.",
+    ],
+    // Rusting Golem
+    &[
+        "Fading 5 (This creature enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRusting Golem's power and toughness are each equal to the number of fade counters on it.",
+    ],
+    // Saproling Burst
+    &[
+        "Fading 7 (This enchantment enters with seven fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this enchantment: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of fade counters on Saproling Burst.\"\nWhen this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+    ],
+    // Saproling Cluster
+    &[
+        "{1}, Discard a card: Create a 1/1 green Saproling creature token. Any player may activate this ability.",
+    ],
     // Seahunter
     &[
         "{3}, {T}: Search your library for a Merfolk permanent card, put it onto the battlefield, then shuffle.",
@@ -12078,23 +12848,50 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this enchantment: Return target creature to its owner's hand."],
     // Seal of Strength
     &["Sacrifice this enchantment: Target creature gets +3/+3 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Shrieking Mogg
+    &["Haste\nWhen this creature enters, tap all other creatures."],
+    // Silkenfist Fighter
+    &["Whenever this creature becomes blocked, untap it."],
+    // Silkenfist Order
+    &["Whenever this creature becomes blocked, untap it."],
+    // Sivvi's Ruse
+    &[
+        "If an opponent controls a Mountain and you control a Plains, you may cast this spell without paying its mana cost.\nPrevent all damage that would be dealt this turn to creatures you control.",
+    ],
+    // Sivvi's Valor
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nAll damage that would be dealt to target creature this turn is dealt to you instead.",
+    ],
+    // Skyshroud Behemoth
+    &[
+        "Fading 2 (This creature enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nThis creature enters tapped.",
+    ],
+    // Skyshroud Claim
+    &[
+        "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",
+    ],
+    // Skyshroud Cutter
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
+    ],
     // Skyshroud Poacher
     &[
         "{3}, {T}: Search your library for an Elf permanent card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Skyshroud Ridgeback
+    &[
+        "Fading 2 (This creature enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Skyshroud Sentinel
+    &[
+        "When this creature enters, you may search your library for up to three cards named Skyshroud Sentinel, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Sliptide Serpent
+    &["{3}{U}: Return this creature to its owner's hand."],
+    // Sneaky Homunculus
+    &["This creature can't block or be blocked by creatures with power 2 or greater."],
+    // Spineless Thug
+    &["This creature can't block."],
     // Spiritual Asylum
     &[
         "Creatures and lands you control have shroud. (They can't be the targets of spells or abilities.)\nWhen a creature you control attacks, sacrifice this enchantment.",
@@ -12103,52 +12900,104 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, this creature deals 3 damage to target creature you control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Stampede Driver
+    &[
+        "{1}{G}, {T}, Discard a card: Creatures you control get +1/+1 and gain trample until end of turn.",
+    ],
+    // Stronghold Biologist
+    &["{U}{U}, {T}, Discard a card: Counter target creature spell."],
+    // Stronghold Discipline
+    &["Each player loses 1 life for each creature they control."],
+    // Stronghold Gambit
+    &[
+        "Each player chooses a card in their hand. Then each player reveals their chosen card. The owner of each creature card revealed this way with the lowest mana value puts it onto the battlefield.",
+    ],
     // Stronghold Machinist
     &["{U}{U}, {T}, Discard a card: Counter target noncreature spell."],
     // Stronghold Zeppelin
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
+    // Submerge
+    &[
+        "If an opponent controls a Forest and you control an Island, you may cast this spell without paying its mana cost.\nPut target creature on top of its owner's library.",
+    ],
+    // Tangle Wire
+    &[
+        "Fading 4 (This artifact enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nAt the beginning of each player's upkeep, that player taps an untapped artifact, creature, or land they control for each fade counter on this artifact.",
+    ],
     // Terrain Generator
     &[
         "{T}: Add {C}.\n{2}, {T}: You may put a basic land card from your hand onto the battlefield tapped.",
     ],
-    &[],
-    &[],
+    // Topple
+    &[
+        "Exile target creature with the greatest power among creatures on the battlefield. (If two or more creatures are tied for greatest power, target any one of them.)",
+    ],
+    // Treetop Bracers
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature gets +1/+1 and can't be blocked except by creatures with flying.",
+    ],
     // Trickster Mage
     &["{U}, {T}, Discard a card: You may tap or untap target artifact, creature, or land."],
     // Vicious Hunger
     &["Vicious Hunger deals 2 damage to target creature and you gain 2 life."],
-    &[],
+    // Viseling
+    &[
+        "At the beginning of each opponent's upkeep, this creature deals X damage to that player, where X is the number of cards in their hand minus 4.",
+    ],
     // Voice of Truth
     &["Flying, protection from white"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Volrath the Fallen
+    &[
+        "{1}{B}, Discard a creature card: Volrath gets +X/+X until end of turn, where X is the discarded card's mana value.",
+    ],
+    // Wandering Eye
+    &["Flying\nPlayers play with their hands revealed."],
+    // Wild Mammoth
+    &[
+        "At the beginning of your upkeep, if a player controls more creatures than each other player, the player who controls the most creatures gains control of this creature.",
+    ],
+    // Woodripper
+    &[
+        "Fading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{1}, Remove a fade counter from this creature: Destroy target artifact.",
+    ],
     // Phyrexian Rager
     &["When this creature enters, you draw a card and you lose 1 life."],
-    &[],
-    &[],
+    // Avatar of Hope
+    &[
+        "If you have 3 or less life, this spell costs {6} less to cast.\nFlying\nThis creature can block any number of creatures.",
+    ],
+    // Abolish
+    &[
+        "You may discard a Plains card rather than pay this spell's mana cost.\nDestroy target artifact or enchantment.",
+    ],
     // Agent of Shauku
     &["{1}{B}, Sacrifice a land: Target creature gets +2/+0 until end of turn."],
     // Alexi's Cloak
     &[
         "Flash\nEnchant creature\nEnchanted creature has shroud. (It can't be the target of spells or abilities.)",
     ],
-    &[],
+    // Alexi, Zephyr Mage
+    &["{X}{U}, {T}, Discard two cards: Return X target creatures to their owners' hands."],
     // Aura Fracture
     &["Sacrifice a land: Destroy target enchantment."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Avatar of Fury
+    &[
+        "If an opponent controls seven or more lands, this spell costs {6} less to cast.\nFlying\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Avatar of Might
+    &[
+        "If an opponent controls at least four more creatures than you, this spell costs {6} less to cast.\nTrample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
+    // Avatar of Will
+    &["If an opponent has no cards in hand, this spell costs {6} less to cast.\nFlying"],
+    // Avatar of Woe
+    &[
+        "If there are ten or more creature cards total in all graveyards, this spell costs {6} less to cast.\nFear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{T}: Destroy target creature. It can't be regenerated.",
+    ],
+    // Barbed Field
+    &["Enchant land\nEnchanted land has \"{T}: This land deals 1 damage to any target.\""],
+    // Blessed Wind
+    &["Target player's life total becomes 20."],
     // Bog Elemental
     &[
         "Protection from white\nAt the beginning of your upkeep, sacrifice this creature unless you sacrifice a land.",
@@ -12157,10 +13006,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\n{T}, Sacrifice a land: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Branded Brawlers
+    &[
+        "This creature can't attack if defending player controls an untapped land.\nThis creature can't block if you control an untapped land.",
+    ],
+    // Brutal Suppression
+    &[
+        "Activated abilities of nontoken Rebels cost an additional \"Sacrifice a land\" to activate.",
+    ],
+    // Calming Verse
+    &[
+        "Destroy all enchantments you don't control. Then if you control an untapped land, destroy all enchantments you control.",
+    ],
+    // Celestial Convergence
+    &[
+        "This enchantment enters with seven omen counters on it.\nAt the beginning of your upkeep, remove an omen counter from this enchantment. If there are no omen counters on this enchantment, the player with the highest life total wins the game. If two or more players are tied for highest life total, the game is a draw.",
+    ],
     // Chilling Apparition
     &[
         "{B}: Regenerate this creature.\nWhenever this creature deals combat damage to a player, that player discards a card.",
@@ -12169,25 +13030,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{0}: Tap all lands you control. This artifact becomes a 3/3 Turtle artifact creature until end of turn.",
     ],
-    &[],
+    // Citadel of Pain
+    &[
+        "At the beginning of each player's end step, this enchantment deals X damage to that player, where X is the number of untapped lands they control.",
+    ],
     // Coastal Hornclaw
     &["Sacrifice a land: This creature gains flying until end of turn."],
-    &[],
-    &[],
+    // Coffin Puppets
+    &[
+        "Sacrifice two lands: Return this card from your graveyard to the battlefield. Activate only during your upkeep and only if you control a Swamp.",
+    ],
+    // Copper-Leaf Angel
+    &["Flying\n{T}, Sacrifice X lands: Put X +1/+1 counters on this creature."],
     // Darba
     &["At the beginning of your upkeep, sacrifice this creature unless you pay {G}{G}."],
-    &[],
-    &[],
+    // Death Charmer
+    &[
+        "Whenever this creature deals combat damage to a creature, that creature's controller loses 2 life unless they pay {2}.",
+    ],
+    // Denying Wind
+    &[
+        "Search target player's library for up to seven cards and exile them. Then that player shuffles.",
+    ],
     // Despoil
     &["Destroy target land. Its controller loses 2 life."],
-    &[],
+    // Devastate
+    &["Destroy target land. Devastate deals 1 damage to each creature and each player."],
     // Diving Griffin
     &["Flying, vigilance"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dual Nature
+    &[
+        "Whenever a nontoken creature enters, its controller creates a token that's a copy of that creature.\nWhenever a nontoken creature leaves the battlefield, exile all tokens with the same name as that creature.\nWhen this enchantment leaves the battlefield, exile all tokens created with this enchantment.",
+    ],
+    // Elephant Resurgence
+    &[
+        "Each player creates a green Elephant creature token. Those creatures have \"This token's power and toughness are each equal to the number of creature cards in its controller's graveyard.\"",
+    ],
+    // Endbringer's Revel
+    &[
+        "{4}: Return target creature card from a graveyard to its owner's hand. Any player may activate this ability but only as a sorcery.",
+    ],
+    // Entangler
+    &["Enchant creature\nEnchanted creature can block any number of creatures."],
+    // Excavation
+    &["{1}, Sacrifice a land: Draw a card. Any player may activate this ability."],
     // Excise
     &["Exile target attacking creature unless its controller pays {X}."],
     // Fault Riders
@@ -12198,46 +13084,106 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This creature has fear as long as you control no untapped lands. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Fickle Efreet
+    &[
+        "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.",
+    ],
+    // Flameshot
+    &[
+        "You may discard a Mountain card rather than pay this spell's mana cost.\nFlameshot deals 3 damage divided as you choose among one, two, or three target creatures.",
+    ],
+    // Flay
+    &[
+        "Target player discards a card at random. Then that player discards another card at random unless they pay {1}.",
+    ],
+    // Flowering Field
+    &[
+        "Enchant land\nEnchanted land has \"{T}: Prevent the next 1 damage that would be dealt to any target this turn.\"",
+    ],
+    // Foil
+    &[
+        "You may discard an Island card and another card rather than pay this spell's mana cost.\nCounter target spell.",
+    ],
+    // Forgotten Harvest
+    &[
+        "At the beginning of your upkeep, you may exile a land card from your graveyard. If you do, put a +1/+1 counter on target creature.",
+    ],
+    // Glittering Lion
+    &[
+        "Prevent all damage that would be dealt to this creature.\n{3}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    ],
+    // Glittering Lynx
+    &[
+        "Prevent all damage that would be dealt to this creature.\n{2}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    ],
     // Greel's Caress
     &["Flash\nEnchant creature\nEnchanted creature gets -3/-0."],
-    &[],
+    // Greel, Mind Raker
+    &["{X}{B}, {T}, Discard two cards: Target player discards X cards at random."],
     // Gulf Squid
     &["When this creature enters, tap all lands target player controls."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hazy Homunculus
+    &["This creature can't be blocked as long as defending player controls an untapped land."],
+    // Heightened Awareness
+    &[
+        "As this enchantment enters, discard your hand.\nAt the beginning of your draw step, draw an additional card.",
+    ],
+    // Hollow Warrior
+    &[
+        "This creature can't attack or block unless you tap an untapped creature you control not declared as an attacking or blocking creature this combat. (This cost is paid as attackers or blockers are declared.)",
+    ],
+    // Infernal Genesis
+    &[
+        "At the beginning of each player's upkeep, that player mills a card. Then they create X 1/1 black Minion creature tokens, where X is the milled card's mana value.",
+    ],
+    // Inflame
+    &["Inflame deals 2 damage to each creature dealt damage this turn."],
+    // Jeweled Spirit
+    &[
+        "Flying\nSacrifice two lands: This creature gains protection from artifacts or from the color of your choice until end of turn.",
+    ],
     // Jolrael's Favor
     &["Flash\nEnchant creature\n{1}{G}: Regenerate enchanted creature."],
-    &[],
-    &[],
-    &[],
+    // Jolrael, Empress of Beasts
+    &[
+        "{2}{G}, {T}, Discard two cards: All lands target player controls become 3/3 creatures until end of turn. They're still lands.",
+    ],
+    // Keldon Arsonist
+    &["{1}, Sacrifice two lands: Destroy target land."],
+    // Keldon Battlewagon
+    &[
+        "Trample\nThis creature can't block.\nWhen this creature attacks, sacrifice it at end of combat.\nTap an untapped creature you control: This creature gets +X/+0 until end of turn, where X is the power of the creature tapped this way.",
+    ],
     // Keldon Berserker
     &[
         "Whenever this creature attacks, if you control no untapped lands, it gets +3/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Keldon Firebombers
+    &["When this creature enters, each player sacrifices all lands they control except for three."],
+    // Latulla's Orders
+    &[
+        "Flash\nEnchant creature\nWhenever enchanted creature deals combat damage to defending player, you may destroy target artifact that player controls.",
+    ],
+    // Latulla, Keldon Overseer
+    &["{X}{R}, {T}, Discard two cards: Latulla deals X damage to any target."],
+    // Lesser Gargadon
+    &["Whenever this creature attacks or blocks, sacrifice a land."],
+    // Living Terrain
+    &["Enchant land\nEnchanted land is a 5/6 green Treefolk creature that's still a land."],
+    // Mageta the Lion
+    &[
+        "{2}{W}{W}, {T}, Discard two cards: Destroy all creatures except for Mageta. Those creatures can't be regenerated.",
+    ],
     // Mageta's Boon
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+2."],
-    &[],
+    // Mana Vapors
+    &["Lands target player controls don't untap during their next untap step."],
     // Marsh Boa
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
-    &[],
+    // Mercenary Informer
+    &[
+        "This creature can't be the target of black spells or abilities from black sources.\n{2}{W}: Put target nontoken Mercenary on the bottom of its owner's library.",
+    ],
     &[],
     &[],
     // Mungha Wurm

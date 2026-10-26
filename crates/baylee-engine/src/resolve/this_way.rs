@@ -13,7 +13,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 use super::Resolution;
 use crate::eval;
-use crate::event::{DamageTarget, GameEvent, JournalEntry};
+use crate::event::{Cause, DamageTarget, GameEvent, JournalEntry};
 use crate::state::GameState;
 use crate::zone::Zone;
 
@@ -53,6 +53,7 @@ pub(super) fn entries<'a>(state: &'a GameState, res: &Resolution) -> &'a [Journa
 /// [`baylee_cards_dsl::Amount::ThisWay`]: how much of `what` this resolution
 /// has done, counting only `only`'s part when it names a player (an
 /// instruction applied to each player in turn).
+#[allow(clippy::too_many_lines)] // Keep each journal event/result pair in one flat match.
 pub(super) fn count(
     state: &GameState,
     res: &Resolution,
@@ -110,6 +111,15 @@ pub(super) fn count(
                 },
                 ThisWay::ReturnedToHand(filter),
             ) => u32::from(was(state, res, *object, filter, &mine)),
+            (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    cause: Cause::Destroy,
+                    ..
+                },
+                ThisWay::Destroyed(filter),
+            ) => u32::from(destroyed(state, res, entry, *object, filter, &mine)),
             (GameEvent::Discarded { player, .. }, ThisWay::Discarded) => u32::from(mine(*player)),
             (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
             (
@@ -177,6 +187,32 @@ fn was(
             state,
             card,
             chars,
+            res.controller,
+            res.rule_context(),
+        )
+}
+
+/// Destruction retains the departure controller even if the card moves again.
+fn destroyed(
+    state: &GameState,
+    res: &Resolution,
+    entry: &JournalEntry,
+    object: ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+    mine: &impl Fn(PlayerId) -> bool,
+) -> bool {
+    let Some(departure) = &entry.departure else {
+        return was(state, res, object, filter, mine);
+    };
+    let Some(card) = state.damage_source(object, Some(departure.version)) else {
+        return false;
+    };
+    mine(departure.controller)
+        && eval::matches_projected_with_context(
+            filter,
+            state,
+            card,
+            card.characteristics(),
             res.controller,
             res.rule_context(),
         )

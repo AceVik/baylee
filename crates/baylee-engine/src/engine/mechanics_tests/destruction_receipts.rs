@@ -222,3 +222,132 @@ fn a_sweep_finishes_before_per_object_payments_and_retains_destroyed_objects_con
     assert_eq!(life(&e, me()), 18, "one of three payments was made");
     assert_eq!(life(&e, them()), 19);
 }
+
+#[test]
+fn destroyed_this_way_counts_exile_replacement_but_not_failed_destruction_and_filters_departures() {
+    use baylee_cards_dsl::ThisWay;
+    static ABILITIES: &[AbilityDef] = &[free(
+        &[
+            Effect::DestroyAll {
+                filter: &Filter::LAND,
+                no_regen: false,
+            },
+            Effect::GainLife {
+                amount: Amount::ThisWay(ThisWay::Destroyed(&PLAINS)),
+            },
+        ],
+        None,
+    )];
+    let mut e = bench(
+        8621,
+        vec![
+            card(
+                SOURCE,
+                land_face("Sweep source"),
+                KeywordSet::EMPTY,
+                ABILITIES,
+            ),
+            card(ORDINARY, plains("Ordinary plains"), KeywordSet::EMPTY, &[]),
+            card(EXILED, plains("Exiling plains"), KeywordSet::EMPTY, EXILE),
+            card(
+                INDESTRUCTIBLE,
+                plains("Indestructible plains"),
+                KeywordSet::INDESTRUCTIBLE,
+                &[],
+            ),
+            card(
+                REGENERATING,
+                plains("Regenerating plains"),
+                KeywordSet::EMPTY,
+                REGENERATE,
+            ),
+        ],
+        [
+            Seat::with(&[SOURCE, REGENERATING]),
+            Seat::with(&[ORDINARY, EXILED, INDESTRUCTIBLE]),
+        ],
+    );
+    to_main(&mut e, me());
+    let regenerating = the(&e, ZoneLocation::Battlefield, REGENERATING);
+    activate(&mut e, me(), regenerating, 0);
+    settle(&mut e, me());
+    let source = the(&e, ZoneLocation::Battlefield, SOURCE);
+    activate(&mut e, me(), source, 0);
+    settle(&mut e, me());
+    assert_eq!(
+        life(&e, me()),
+        22,
+        "only the ordinary and exiled Plains were destroyed; the source has no Plains subtype"
+    );
+    assert_eq!(
+        e.state().object(regenerating).unwrap().zone,
+        crate::zone::Zone::Battlefield
+    );
+    assert_eq!(
+        objects(&e, ZoneLocation::Battlefield, INDESTRUCTIBLE).len(),
+        1
+    );
+    assert_eq!(objects(&e, ZoneLocation::Exile(them()), EXILED).len(), 1);
+}
+
+#[test]
+fn destroyed_this_way_excludes_sacrifice_and_direct_exile_in_the_same_resolution() {
+    use baylee_cards_dsl::ThisWay;
+    static ABILITIES: &[AbilityDef] = &[free(
+        &[
+            Effect::SacrificeAll { filter: &PLAINS },
+            Effect::ExileAll {
+                filter: &Filter::HasSubtype(land::FOREST),
+            },
+            Effect::DestroyAll {
+                filter: &Filter::LAND,
+                no_regen: false,
+            },
+            Effect::GainLife {
+                amount: Amount::ThisWay(ThisWay::Destroyed(&Filter::LAND)),
+            },
+        ],
+        None,
+    )];
+    let mut e = bench(
+        8622,
+        vec![
+            card(
+                SOURCE,
+                land_face("Sweep source"),
+                KeywordSet::EMPTY,
+                ABILITIES,
+            ),
+            card(
+                ORDINARY,
+                plains("Sacrificed plains"),
+                KeywordSet::EMPTY,
+                &[],
+            ),
+            card(
+                EXILED,
+                FaceDef {
+                    subtypes: &[land::FOREST],
+                    ..land_face("Exiled forest")
+                },
+                KeywordSet::EMPTY,
+                &[],
+            ),
+        ],
+        [Seat::with(&[SOURCE]), Seat::with(&[ORDINARY, EXILED])],
+    );
+    to_main(&mut e, me());
+    let source = the(&e, ZoneLocation::Battlefield, SOURCE);
+    activate(&mut e, me(), source, 0);
+    settle(&mut e, me());
+    assert_eq!(
+        life(&e, me()),
+        21,
+        "only the source was destroyed; sacrifice and exile are different operations"
+    );
+    assert_eq!(
+        objects(&e, ZoneLocation::Graveyard(them()), ORDINARY).len(),
+        1
+    );
+    assert_eq!(objects(&e, ZoneLocation::Exile(them()), EXILED).len(), 1);
+}

@@ -1425,15 +1425,30 @@ pub(super) fn exec_immediate(
         }
         Effect::GainControlAll { filter, to } => {
             let player = players_of(to, state, you, res).first().copied()?;
-            let changes: Vec<(ObjectId, PlayerId)> = state
-                .battlefield_seen()
-                .filter(|id| {
-                    state.object(*id).is_some_and(|o| {
-                        eval::matches_with_context(filter, state, o, you, res.rule_context())
-                    })
-                })
-                .map(|id| (id, player))
-                .collect();
+            let changes: Vec<(ObjectId, PlayerId)> =
+                if matches!(filter, baylee_cards_dsl::Filter::This) {
+                    subjects::source(state, res)
+                        .filter(|s| subjects::on_battlefield(state, *s))
+                        .map(|s| (s.object, player))
+                        .into_iter()
+                        .collect()
+                } else {
+                    state
+                        .battlefield_seen()
+                        .filter(|id| {
+                            state.object(*id).is_some_and(|o| {
+                                eval::matches_with_context(
+                                    filter,
+                                    state,
+                                    o,
+                                    you,
+                                    res.rule_context(),
+                                )
+                            })
+                        })
+                        .map(|id| (id, player))
+                        .collect()
+                };
             super::gain_control(state, &changes);
             None
         }
@@ -1943,7 +1958,16 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ProtectionFromChosenColor { duration } => {
-            let target = res.targets.first().copied().filter(|t| {
+            let candidate = if res.targeted {
+                res.targets.first().copied()
+            } else {
+                // CR 400.7: returning with the same arena id does not make
+                // the new permanent this ability's captured source.
+                subjects::source(state, res)
+                    .filter(|source| subjects::on_battlefield(state, *source))
+                    .map(|source| source.object)
+            };
+            let target = candidate.filter(|t| {
                 state
                     .object(*t)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)

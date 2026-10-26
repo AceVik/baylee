@@ -119,6 +119,9 @@ impl Tx<'_> {
         if p.peek("ReplacementEffects").is_some() {
             return self.replace_target_white_mana(p, target);
         }
+        if p.peek("Triggers").is_some() {
+            return self.delayed_destroy_target_effect(p, target);
+        }
         let statics = p.peek("StaticAbilities")?.trim().to_string();
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
@@ -126,8 +129,79 @@ impl Tx<'_> {
             "CantChangeLife" => self.life_total_lock(p),
             "CantBlockBy" => self.unblockable_effect(p, target),
             "CantRegenerate" => self.cant_regenerate_effect(p, target),
+            "AssignNoCombatDamage" => self.assign_no_combat_damage_effect(p),
             _ => None,
         }
+    }
+
+    /// "Assigns no combat damage this turn" (Laccolith Whelp, Laccolith Grunt,
+    /// Laccolith Warrior, Laccolith Titan): an `Effect` whose one static is
+    /// `Mode$ AssignNoCombatDamage | ValidCard$ Card.EffectSource`.
+    fn assign_no_combat_damage_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if self.on_a_spell {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "AssignNoCombatDamage"
+            || st.take("ValidCard").as_deref() != Some("Card.EffectSource")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        if !matches!(
+            p.take("Duration").as_deref(),
+            None | Some("UntilHostLeavesPlayOrEOT" | "UntilEndOfCombat")
+        ) {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifySource { modifier: Modifier::AssignsNoCombatDamage, \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
+    }
+
+    /// "Destroy target blocking creature at end of combat" (Silent Assassin):
+    /// an `Effect` remembering `Targeted` with a `Triggers$` delayed trigger
+    /// at `Phase$ EndCombat` that destroys `Remembered`.
+    fn delayed_destroy_target_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+        let trig_name = p.take("Triggers")?;
+        if p.take("RememberObjects").as_deref() != Some("Targeted") {
+            return None;
+        }
+        p.take("IsCurse");
+        p.take("Name");
+        let trig_body = self.svars.get(trig_name.trim())?.clone();
+        let (mode, mut tp) = Params::parse(&trig_body)?;
+        tp.drop_prose();
+        if mode != "Phase" || tp.take("Phase").as_deref() != Some("EndCombat") {
+            return None;
+        }
+        let exec_name = tp.take("Execute")?;
+        if !tp.exhausted() {
+            return None;
+        }
+        let exec_body = self.svars.get(exec_name.trim())?.clone();
+        let (exec_api, mut ep) = Params::parse(&exec_body)?;
+        ep.drop_prose();
+        if exec_api != "Destroy"
+            || ep.take("Defined").as_deref() != Some("Remembered")
+            || !ep.exhausted()
+        {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AtEndOfCombat {{ about: {target}, \
+             effects: &[Effect::destroy(TargetSpec::EventObject)] }}"
+        )])
     }
 
     /// "It can't be regenerated this turn" (Disintegrate, Carbonize): an

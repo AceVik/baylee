@@ -23,22 +23,35 @@ impl Tx<'_> {
         condition: &mut String,
     ) -> Option<Vec<&'static str>> {
         let mut claimed = Vec::new();
+        let mut clauses: Vec<String> = condition
+            .strip_prefix(", condition = Some(")
+            .and_then(|s| s.strip_suffix(')'))
+            .map(str::to_string)
+            .into_iter()
+            .collect();
         if let Some(your_turn) = probe.take("PlayerTurn") {
-            if your_turn != "True" || !is_activated || !condition.is_empty() {
+            if your_turn != "True" || !is_activated {
                 return self.deny(format!("`PlayerTurn$ {your_turn}` beside another clause"));
             }
-            *condition = ", condition = Some(Condition::YourTurn)".to_string();
+            clauses.push("Condition::YourTurn".to_string());
             claimed.push("PlayerTurn$");
         }
         if let Some(phases) = probe.take("ActivationPhases") {
-            if phases != "BeginCombat->EndCombat" || !is_activated || !condition.is_empty() {
+            if !is_activated {
                 return self.deny(format!("`ActivationPhases$ {phases}`"));
             }
-            *condition = ", condition = Some(Condition::DuringCombat)".to_string();
+            let clause = match phases.as_str() {
+                "BeginCombat->EndCombat" if clauses.is_empty() => "Condition::DuringCombat",
+                "Upkeep" if clauses.iter().any(|c| c == "Condition::YourTurn") => {
+                    "Condition::DuringStep(StepKind::Upkeep)"
+                }
+                _ => return self.deny(format!("`ActivationPhases$ {phases}`")),
+            };
+            clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
         }
         if let Some(name) = probe.take("CheckSVar") {
-            if !is_activated || !condition.is_empty() {
+            if !is_activated || !clauses.is_empty() {
                 return self
                     .deny("an entry-history activation clause beside another clause".to_string());
             }
@@ -58,12 +71,17 @@ impl Tx<'_> {
                 };
                 subtypes.push(path);
             }
-            *condition = format!(
-                ", condition = Some(Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}]))",
+            clauses.push(format!(
+                "Condition::EnteredSubtypeUnderYourControlThisTurn(&[{}])",
                 subtypes.join(", ")
-            );
+            ));
             claimed.push("CheckSVar$");
         }
+        *condition = match clauses.as_slice() {
+            [] => String::new(),
+            [one] => format!(", condition = Some({one})"),
+            many => format!(", condition = Some(Condition::All(&[{}]))", many.join(", ")),
+        };
         Some(claimed)
     }
 
@@ -114,6 +132,10 @@ impl Tx<'_> {
         // reason the cost does: it restricts activating it, not what happens
         // when it resolves.
         let limit = probe.take("ActivationLimit");
+        let activator = probe.take("Activator");
+        let activation_zone = probe.take("ActivationZone");
+        let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
+        let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
         // And so does the clause, which on an `A:` line is a restriction on
         // activating rather than CR 603.4's intervening `if`: the reference
         // spells a resolution-time condition `ConditionPresent$`, a
@@ -140,9 +162,13 @@ impl Tx<'_> {
         } else {
             &[]
         };
+        let any_player = is_activated && activator.as_deref() == Some("Player");
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
+            .filter(|part| !(any_player && part.starts_with("Activator$")))
+            .filter(|part| !(graveyard_zone && part.starts_with("ActivationZone$")))
+            .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
@@ -157,92 +183,152 @@ impl Tx<'_> {
             .map(|t| format!(", second_targets = Some(TargetReq::one({t}))"))
             .unwrap_or_default();
         if is_activated {
-            let Some(cost) = cost else {
-                return self.deny("an activated ability with no `Cost$`".to_string());
+            let zone = if any_player {
+                ", zone = ActivationZone::BattlefieldAnyPlayer"
+            } else if graveyard_zone {
+                ", zone = ActivationZone::Graveyard"
+            } else {
+                ""
             };
-            let cost = self.cost_expr(&cost)?;
-            // CR 605.1a includes the library-movement exclusion. These
-            // properties describe this chain, not separately created delayed
-            // or granted abilities and not any external replacement.
-            let mana_ability =
-                chain.could_add_mana && !chain.moves_library && chain.target.is_none();
-            let target = chain
-                .target
-                .map(|t| format!(", target = Some({t})"))
-                .unwrap_or_default();
-            let limit = self.activation_limit(limit.as_deref())?;
-            // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
-            // — the macro supplies the tap, because tapping is what almost
-            // every mana ability costs. Writing the cost out again says
-            // nothing and reads as though this one were the exception.
-            //
-            // The short form takes the cost as its *only* positional
-            // argument, so it is right exactly while there is nothing else
-            // to say: `mana_ability!(&[…], limit = …)` would bind the
-            // effects where the cost goes and `limit = …` — an assignment
-            // expression, and so a legal one — where the effects go.
-            let extras = format!("{target}{second_targets}{limit}{condition}");
-            let line = match (mana_ability, cost.as_str()) {
-                (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
-                (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
-                (false, _) => format!("activated!({cost}, {effects}{extras})"),
-            };
-            self.body.abilities.push(line);
+            self.push_activated_ability(
+                cost.as_deref(),
+                limit.as_deref(),
+                sorcery_speed,
+                zone,
+                &condition,
+                &effects,
+                &chain,
+                &second_targets,
+            )
         } else {
-            if limit.is_some() {
-                // A spell is cast, not activated, so there is nothing for the
-                // key to restrict and dropping it quietly would be the
-                // unclaimed-parameter fault one level down.
-                return self.deny("`ActivationLimit$` on a spell line".to_string());
-            }
-            if !condition.is_empty() {
-                // The same, for the same reason: `spell!` has no
-                // precondition, and a restriction on casting is a rule this
-                // DSL does not have (CR 601.2 has no place for one).
-                return self.deny("`IsPresent$` on a spell line".to_string());
-            }
-            // And the third of them, which this branch dropped in silence
-            // until a batch of four hundred cards walked into it. A spell's
-            // `Cost$` is its mana cost *plus* whatever else the card charges
-            // (CR 601.2b), and only the mana half is on the face — so
-            // Kaervek's Spite came out as three mana for "target player
-            // loses 5 life", with "sacrifice all permanents you control and
-            // discard your hand" nowhere in the card, and Crop Rotation as a
-            // one-mana tutor that sacrifices no land. 215 of the 236
-            // `A:SP$` lines naming a `Cost$` charge something beside mana.
-            //
-            // `FaceDef::mandatory_additional_costs` is where they belong and
-            // the engine collects them at cast; emitting them is the next
-            // step and not this one, because it would walk a dozen cards
-            // into a path exactly one card in the pool has ever played
-            // (Toxic Deluge's `PayLifeX`). Until then the honest answer is
-            // the stub. See #52.
-            //
-            // The token is read here rather than through `cost_pieces`,
-            // which prices an *activation* and denies what it cannot price:
-            // routing a spell's cost through it would refuse `Cost$ X G` for
-            // its bare `X` — mana the face already carries — and take a card
-            // off the list for the one thing that is not wrong with it.
-            //
-            // So the question asked of each token is the narrow one: is this
-            // the card's own mana cost? Everything else refuses, which is an
-            // allow-list on purpose. The alternative — refusing the `<…>`
-            // spelling every one of those 215 additional costs happens to
-            // use — goes silent on a restriction that needs no brackets, and
-            // one of those is already here: `XMin1` is "X can't be 0" and
-            // not mana at all (Ertai's Meddling and four others, none of
-            // them in this pool yet, all five reachable by a batch).
-            if let Some(raw) = &cost {
-                self.spell_mana_cost(raw)?;
-            }
-            let targets = chain
-                .target
-                .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
-                .unwrap_or_default();
-            self.body
-                .abilities
-                .push(format!("spell!({effects}{targets}{second_targets})"));
+            self.push_spell_ability(
+                cost.as_deref(),
+                limit.as_deref(),
+                &condition,
+                &effects,
+                chain.target.as_deref(),
+                &second_targets,
+            )
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_activated_ability(
+        &mut self,
+        cost: Option<&str>,
+        limit: Option<&str>,
+        sorcery_speed: bool,
+        zone: &str,
+        condition: &str,
+        effects: &str,
+        chain: &Chain,
+        second_targets: &str,
+    ) -> Option<()> {
+        let Some(cost) = cost else {
+            return self.deny("an activated ability with no `Cost$`".to_string());
+        };
+        let cost = self.cost_expr(cost)?;
+        // CR 605.1a includes the library-movement exclusion. These
+        // properties describe this chain, not separately created delayed
+        // or granted abilities and not any external replacement.
+        let mana_ability = chain.could_add_mana && !chain.moves_library && chain.target.is_none();
+        if !zone.is_empty() && mana_ability {
+            return self.deny("a non-default activation zone on a mana ability".to_string());
+        }
+        if sorcery_speed && mana_ability {
+            return self.deny("`SorcerySpeed$ True` on a mana ability".to_string());
+        }
+        let timing = if sorcery_speed {
+            ", timing = ActivationTiming::SorcerySpeed"
+        } else {
+            ""
+        };
+        let target = chain
+            .target
+            .as_ref()
+            .map(|t| format!(", target = Some({t})"))
+            .unwrap_or_default();
+        let limit = self.activation_limit(limit)?;
+        // `mana_ability!(effects)` *is* `mana_ability!({T}, effects)`
+        // — the macro supplies the tap, because tapping is what almost
+        // every mana ability costs. Writing the cost out again says
+        // nothing and reads as though this one were the exception.
+        //
+        // The short form takes the cost as its *only* positional
+        // argument, so it is right exactly while there is nothing else
+        // to say: `mana_ability!(&[…], limit = …)` would bind the
+        // effects where the cost goes and `limit = …` — an assignment
+        // expression, and so a legal one — where the effects go.
+        let extras = format!("{timing}{zone}{target}{second_targets}{limit}{condition}");
+        let line = match (mana_ability, cost.as_str()) {
+            (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
+            (true, _) => format!("mana_ability!({cost}, {effects}{extras})"),
+            (false, _) => format!("activated!({cost}, {effects}{extras})"),
+        };
+        self.body.abilities.push(line);
+        Some(())
+    }
+    // And the third of them, which this branch dropped in silence
+    // until a batch of four hundred cards walked into it. A spell's
+    // `Cost$` is its mana cost *plus* whatever else the card charges
+    // (CR 601.2b), and only the mana half is on the face — so
+    // Kaervek's Spite came out as three mana for "target player
+    // loses 5 life", with "sacrifice all permanents you control and
+    // discard your hand" nowhere in the card, and Crop Rotation as a
+    // one-mana tutor that sacrifices no land. 215 of the 236
+    // `A:SP$` lines naming a `Cost$` charge something beside mana.
+    //
+    // `FaceDef::mandatory_additional_costs` is where they belong and
+    // the engine collects them at cast; emitting them is the next
+    // step and not this one, because it would walk a dozen cards
+    // into a path exactly one card in the pool has ever played
+    // (Toxic Deluge's `PayLifeX`). Until then the honest answer is
+    // the stub. See #52.
+    //
+    // The token is read here rather than through `cost_pieces`,
+    // which prices an *activation* and denies what it cannot price:
+    // routing a spell's cost through it would refuse `Cost$ X G` for
+    // its bare `X` — mana the face already carries — and take a card
+    // off the list for the one thing that is not wrong with it.
+    //
+    // So the question asked of each token is the narrow one: is this
+    // the card's own mana cost? Everything else refuses, which is an
+    // allow-list on purpose. The alternative — refusing the `<…>`
+    // spelling every one of those 215 additional costs happens to
+    // use — goes silent on a restriction that needs no brackets, and
+    // one of those is already here: `XMin1` is "X can't be 0" and
+    // not mana at all (Ertai's Meddling and four others, none of
+    // them in this pool yet, all five reachable by a batch).
+    fn push_spell_ability(
+        &mut self,
+        cost: Option<&str>,
+        limit: Option<&str>,
+        condition: &str,
+        effects: &str,
+        target: Option<&str>,
+        second_targets: &str,
+    ) -> Option<()> {
+        if limit.is_some() {
+            // A spell is cast, not activated, so there is nothing for the
+            // key to restrict and dropping it quietly would be the
+            // unclaimed-parameter fault one level down.
+            return self.deny("`ActivationLimit$` on a spell line".to_string());
+        }
+        if !condition.is_empty() {
+            // The same, for the same reason: `spell!` has no
+            // precondition, and a restriction on casting is a rule this
+            // DSL does not have (CR 601.2 has no place for one).
+            return self.deny("`IsPresent$` on a spell line".to_string());
+        }
+        if let Some(raw) = cost {
+            self.spell_mana_cost(raw)?;
+        }
+        let targets = target
+            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .unwrap_or_default();
+        self.body
+            .abilities
+            .push(format!("spell!({effects}{targets}{second_targets})"));
         Some(())
     }
 
@@ -468,11 +554,13 @@ impl Tx<'_> {
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with
     /// its price taken off, and the price: `AB$ GainLife | Cost$ 1 | …`
-    /// under `OptionalDecider$ You`. `None` for anything else — no "may",
-    /// no `Cost$`, or a cost that is not mana alone — which leaves the line
-    /// as it was for the chain to read or refuse.
-    pub(super) fn optional_price(body: &str, may: bool) -> Option<(String, Price)> {
-        if !may || !body.trim_start().starts_with("AB$") {
+    /// under `OptionalDecider$ You` (or without it, as on the Mercadian
+    /// Masques Torques, since an `AB$` executed by a trigger is always an
+    /// optional cost). `None` for anything else — no `Cost$`, or a cost
+    /// that is not mana alone — which leaves the line as it was for the
+    /// chain to read or refuse.
+    pub(super) fn optional_price(body: &str) -> Option<(String, Price)> {
+        if !body.trim_start().starts_with("AB$") {
             return None;
         }
         let parts: Vec<&str> = body.split(" | ").collect();

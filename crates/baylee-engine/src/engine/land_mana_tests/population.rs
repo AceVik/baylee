@@ -316,6 +316,20 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// ability, balancing Lotus Blossom. No printed promise was lost: 212 plus
 /// Fellwar Stone's opponent-land promise still make 213. The independent
 /// census and the executed sweep both reach 379 wholly readable faces.
+/// Urza's Destiny batch 2 adds Metalworker as a Partial 1/2 creature (its
+/// hand-reveal mana ability is omitted), adding 1 non-fully-read eligible
+/// face, 1 creature, and 1 unparsed mana line.
+///
+/// Mercadian Masques (`mmq`) Batch 1 adds `Black Market` (`Coverage::Implemented`),
+/// adding 1 wholly readable face and 1 triggered mana line. Batch 3 adds
+/// `Food Chain` (`Coverage::Implemented`), adding 1 wholly readable face, 1
+/// costly mana line, and 1 costly mana ability. Batch 4 adds `Kyren Toy`
+/// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
+/// costly mana line. Nemesis (`nem`) Batch 2 adds `Mana Cache`
+/// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
+/// costly mana line. Batch 3 adds `Overlaid Terrain`
+/// (`Coverage::Unimplemented`), adding 1 non-fully-read eligible face and 1
+/// granted mana line.
 ///
 /// This remains the existing reader's population: it recognizes "add", not
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
@@ -325,11 +339,11 @@ const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
     routes: 213,
     promises: 212..=212,
     creature_promises: 90..=90,
-    unparsed: 58..=58,
-    fully_read: 379,
-    costly_lines: 143..=143,
-    triggered_lines: 24..=24,
-    granted_lines: 41..=41,
+    unparsed: 59..=59,
+    fully_read: 381,
+    costly_lines: 146..=146,
+    triggered_lines: 25..=25,
+    granted_lines: 42..=42,
     self_granted: 7..=7,
     busy: 0,
     not_implemented: 0,
@@ -365,13 +379,13 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [436, 0, 10],
+        [438, 0, 14],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [379, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(readable, [381, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 379,
+        expected, 381,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -389,8 +403,8 @@ fn check_other_permanent_population(tally: &Tally) {
         ),
         (469, 213, 212, 1)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (237, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (24, 58));
+    assert_eq!((tally.creatures, tally.creature_promises), (238, 90));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (25, 59));
     assert_eq!(
         (
             tally.conditional,
@@ -399,12 +413,12 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 103, 80, 0, 0),
+        (4, 104, 80, 0, 0),
         "the measured skip categories changed"
     );
 }
 
-/// These five reviewed definitions explain every change from the old pins.
+/// These reviewed definitions explain every change from the old pins.
 /// In particular, a partial creature must not recover the free mana route
 /// removed for omitting a printed cost; a held card stays in the text census.
 #[test]
@@ -417,6 +431,9 @@ fn reviewed_cards_explain_the_mana_population_changes() {
         (index::LOTUS_BLOSSOM, true, (1, 0, 1, 0, 0, 1)),
         (index::THRAN_TURBINE, true, (1, 0, 0, 1, 0, 0)),
         (index::WITCH_ENGINE, true, (0, 1, 0, 0, 1, 0)),
+        (index::METALWORKER, false, (0, 1, 0, 0, 1, 0)),
+        (index::FOOD_CHAIN, true, (1, 0, 1, 0, 0, 1)),
+        (index::KYREN_TOY, false, (0, 0, 1, 0, 0, 0)),
     ] {
         let def = baylee_cards::by_index(card).expect("reviewed card remains registered");
         assert_eq!(def.is_fully_read(), fully_read, "{}", def.name());

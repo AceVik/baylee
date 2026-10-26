@@ -136,6 +136,9 @@ pub enum Filter {
     /// A blocking creature (CR 509.1g): declared as a blocker this combat
     /// and not removed from it since.
     Blocking,
+    /// A blocked creature (CR 509.1h): attacking, with blockers declared
+    /// and at least one declared for it (or made blocked by an effect).
+    Blocked,
     /// An unblocked creature (CR 509.1h): attacking, with blockers declared
     /// and none declared for it. Before blockers are declared an attacking
     /// creature is neither blocked nor unblocked, and this is false.

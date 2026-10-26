@@ -224,6 +224,19 @@ impl HeuristicAgent {
                     .iter()
                     .any(|blocker| blocker.blocker == object.id),
             ),
+            Filter::Blocked => Some(
+                matches!(
+                    view.step,
+                    Step::DeclareBlockers
+                        | Step::CombatDamageFirst
+                        | Step::CombatDamage
+                        | Step::CombatEnd
+                ) && view
+                    .combat
+                    .attackers
+                    .iter()
+                    .any(|attacker| attacker.creature == object.id && attacker.blocked),
+            ),
             Filter::Unblocked => Some(
                 matches!(
                     view.step,

@@ -524,7 +524,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
                                         "{who}: owner_control {owner_control}, prints {text:?}"
                                     ));
                                 }
-                                if !text.contains("return") {
+                                if !text.contains("return") && !text.contains("Return") {
                                     wrong.push(format!(
                                         "{who}: prints no return, so it is \
                                          Effect::TransformSource: {text:?}"
@@ -551,7 +551,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (7..=15).contains(&checked),
+        (7..=16).contains(&checked),
         "read {checked} self-returns out of the pool, and seven were written"
     );
 }

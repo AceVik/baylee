@@ -41,6 +41,7 @@ card!(
         toughness = Some(2),
     )],
     color_identity = ColorSet::from_slice(&[Color::Blue, Color::Black]),
+    commander = CommanderRule::Legendary,
     keywords = KeywordSet::FLASH,
     coverage = Coverage::Implemented,
     abilities = &[modal_triggered!(

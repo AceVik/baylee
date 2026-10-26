@@ -330,6 +330,11 @@ pub enum ThisWay {
     /// (CR 608.2h): Hellfire's "creatures that died this way". A creature
     /// that was regenerated, or went to exile instead, did not die.
     Died(&'static Filter),
+    /// Permanents destroyed by this resolution that matched the filter as they
+    /// last existed on the battlefield. A replacement changing the destination
+    /// (including exile) still counts; regeneration and indestructibility do not.
+    /// Sacrifice and direct exile are not destruction.
+    Destroyed(&'static Filter),
     /// Permanents exiled from the battlefield that matched the filter as they
     /// last existed there (CR 608.2h): Martyr's Cry's "for each creature
     /// exiled this way, its controller draws a card".

@@ -41,6 +41,7 @@ mod psychic_purge;
 mod raise_dead;
 mod raze;
 mod recall;
+mod reckless_abandon;
 mod reconstruction;
 mod return_to_battle;
 mod rite_of_flame;
