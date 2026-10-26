@@ -230,6 +230,7 @@ mod repentant_blacksmith;
 mod revered_unicorn;
 mod rock_hydra;
 mod rofellos_llanowar_emissary;
+mod rogue_kavu;
 mod rootwater_thief;
 mod royal_falcon;
 mod safehold_elite;

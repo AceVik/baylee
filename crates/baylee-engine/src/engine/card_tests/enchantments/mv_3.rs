@@ -94,6 +94,7 @@ mod raiding_party;
 mod repercussion;
 mod retaliation;
 mod retreat_to_kazandu;
+mod rewards_of_diversity;
 mod rhystic_study;
 mod roots_of_life;
 mod sacred_mesa;

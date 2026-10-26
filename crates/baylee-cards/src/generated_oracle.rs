@@ -13913,55 +13913,106 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever this creature becomes blocked by a green creature, destroy that creature. It can't be regenerated.",
     ],
-    &[],
-    &[],
+    // Phyrexian Slayer
+    &[
+        "Flying\nWhenever this creature becomes blocked by a white creature, destroy that creature. It can't be regenerated.",
+    ],
+    // Pincer Spider
+    &[
+        "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nReach (This creature can block creatures with flying.)\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+    ],
     // Plague Spitter
     &[
         "At the beginning of your upkeep, this creature deals 1 damage to each creature and each player.\nWhen this creature dies, it deals 1 damage to each creature and each player.",
     ],
-    &[],
+    // Plague Spores
+    &["Destroy target nonblack creature and target land. They can't be regenerated."],
     // Planar Portal
     &["{6}, {T}: Search your library for a card, put that card into your hand, then shuffle."],
-    &[],
-    &[],
+    // Pledge of Loyalty
+    &[
+        "Enchant creature\nEnchanted creature has protection from each color among permanents you control. This effect doesn't remove this Aura.",
+    ],
+    // Pouncing Kavu
+    &[
+        "Kicker {2}{R} (You may pay an additional {2}{R} as you cast this spell.)\nFirst strike\nIf this creature was kicked, it enters with two +1/+1 counters on it and with haste.",
+    ],
     // Power Armor
     &[
         "Domain — {3}, {T}: Target creature gets +1/+1 until end of turn for each basic land type among lands you control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Prison Barricade
+    &[
+        "Defender (This creature can't attack.)\nKicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it and with \"This creature can attack as though it didn't have defender.\"",
+    ],
+    // Probe
+    &[
+        "Kicker {1}{B} (You may pay an additional {1}{B} as you cast this spell.)\nDraw three cards, then discard two cards. If this spell was kicked, target player discards two cards.",
+    ],
+    // Prohibit
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nCounter target spell if its mana value is 2 or less. If this spell was kicked, counter that spell if its mana value is 4 or less instead.",
+    ],
+    // Protective Sphere
+    &[
+        "{1}, Pay 1 life: Prevent all damage that would be dealt to you this turn by a source of your choice that shares a color with the mana spent on this activation cost. (Colorless mana prevents no damage.)",
+    ],
+    // Psychic Battle
+    &[
+        "Whenever a player chooses one or more targets, each player reveals the top card of their library. The player who reveals the card with the greatest mana value may change the target or targets. If two or more cards are tied for greatest, the target or targets remain unchanged. Changing targets this way doesn't trigger abilities of permanents named Psychic Battle.",
+    ],
+    // Pulse of Llanowar
+    &[
+        "If a basic land you control is tapped for mana, it produces mana of a color of your choice instead of any other type.",
+    ],
+    // Pure Reflection
+    &[
+        "Whenever a player casts a creature spell, destroy all Reflections. Then that player creates an X/X white Reflection creature token, where X is the mana value of that spell.",
+    ],
+    // Pyre Zombie
+    &[
+        "At the beginning of your upkeep, if this card is in your graveyard, you may pay {1}{B}{B}. If you do, return it to your hand.\n{1}{R}{R}, Sacrifice this creature: It deals 2 damage to any target.",
+    ],
     // Quirion Sentinel
     &["When this creature enters, add one mana of any color."],
-    &[],
+    // Quirion Trailblazer
+    &[
+        "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    ],
     // Rage Weaver
     &[
         "{2}: Target black or green creature gains haste until end of turn. (It can attack and {T} this turn.)",
     ],
-    &[],
-    &[],
+    // Rainbow Crow
+    &["Flying\n{1}: This creature becomes the color of your choice until end of turn."],
+    // Rampant Elephant
+    &["{G}: Target creature blocks this creature this turn if able."],
     // Razorfoot Griffin
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nFirst strike (This creature deals combat damage before creatures without first strike.)",
     ],
     // Reckless Assault
     &["{1}, Pay 2 life: This enchantment deals 1 damage to any target."],
-    &[],
+    // Recoil
+    &["Return target permanent to its owner's hand. Then that player discards a card."],
     // Recover
     &["Return target creature card from your graveyard to your hand.\nDraw a card."],
     // Repulse
     &["Return target creature to its owner's hand.\nDraw a card."],
-    &[],
-    &[],
+    // Restock
+    &["Return two target cards from your graveyard to your hand. Exile Restock."],
+    // Restrain
+    &[
+        "Prevent all combat damage that would be dealt by target attacking creature this turn.\nDraw a card.",
+    ],
     // Reviving Dose
     &["You gain 3 life.\nDraw a card."],
-    &[],
-    &[],
+    // Reviving Vapors
+    &[
+        "Reveal the top three cards of your library and put one of them into your hand. You gain life equal to that card's mana value. Put all other cards revealed this way into your graveyard.",
+    ],
+    // Rewards of Diversity
+    &["Whenever an opponent casts a multicolored spell, you gain 4 life."],
     // Reya Dawnbringer
     &[
         "Flying\nAt the beginning of your upkeep, you may return target creature card from your graveyard to the battlefield.",
@@ -13970,10 +14021,20 @@ pub static ORACLE: &[&[&str]] = &[
     &["Vigilance\nWhen this creature dies, draw a card."],
     // Rith's Attendant
     &["{1}, Sacrifice this creature: Add {R}{G}{W}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rith, the Awakener
+    &[
+        "Flying\nWhenever Rith deals combat damage to a player, you may pay {2}{G}. If you do, choose a color, then create a 1/1 green Saproling creature token for each permanent of that color.",
+    ],
+    // Rogue Kavu
+    &["Whenever this creature attacks alone, it gets +2/+0 until end of turn."],
+    // Rooting Kavu
+    &[
+        "When this creature dies, you may exile it. If you do, shuffle all creature cards from your graveyard into your library.",
+    ],
+    // Rout
+    &[
+        "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nDestroy all creatures. They can't be regenerated.",
+    ],
     &[],
     &[],
     // Sabertooth Nishoba
