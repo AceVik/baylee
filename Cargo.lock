@@ -1294,6 +1294,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "baylee-runner"
+version = "0.1.0-beta.8b"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "baylee-seal"
 version = "0.1.0-beta.8b"
 dependencies = [

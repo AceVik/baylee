@@ -236,7 +236,7 @@ cold and 16 with every workspace crate rebuilt (22.10.2026, with about two and
 a half cores busy elsewhere; 9.6 GB at its peak). The rest of a main push then
 ends with `test-release` (37–44).
 
-Each job runs in a throwaway Tart VM (`scripts/macos-runner/runner.sh`):
+Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
 
 - **Who can reach it.** A personal repository has no runner groups, so
   nothing on GitHub's side ties the runner to main's workflow: a fork's pull
@@ -278,11 +278,12 @@ Setting it up, once: `brew trust --formula openai/tools/softnet && brew install
 openai/tools/tart`; Softnet's SUID bit (`sudo chown root:wheel` and `chmod
 u+s` on the binary); the token in the keychain (`security
 add-generic-password -s baylee-macos-runner -a AceVik -w`, which prompts for
-it); then `scripts/macos-runner/runner.sh prepare`, which clones
+it); then `cargo run -p baylee-runner -- prepare`, which clones
 `ghcr.io/cirruslabs/macos-tahoe-base` (about 25 GB) into `baylee-runner` and
-adds rustup and the pinned actions runner, and `runner.sh install`, which
-copies the script to `~/baylee-ci` and loads the LaunchAgent
-`org.baylee.macos-runner` (log: `~/Library/Logs/baylee-macos-runner.log`).
+adds rustup and the pinned actions runner, and `cargo run -p baylee-runner --
+install`, which copies the native binary to `~/baylee-ci` and loads the
+LaunchAgent `org.baylee.macos-runner` (log:
+`~/Library/Logs/baylee-macos-runner.log`).
 When the pinned actions runner is a month old, `tart delete baylee-runner`,
 raise the pin and `prepare` again: an older runner downloads its update at the
 start of every job.

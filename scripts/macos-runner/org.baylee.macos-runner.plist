@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The macOS package rows' runner (docs/releasing.md §"The macOS runner").
-     `runner.sh install` writes this with @HOME@ filled in to
+     `baylee-macos-runner install` writes this with @HOME@ filled in to
      ~/Library/LaunchAgents and loads it into the owner's session: Tart's VMs
      need the logged-in user, and so does the keychain the token is kept in. -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -10,7 +10,7 @@
     <string>org.baylee.macos-runner</string>
     <key>ProgramArguments</key>
     <array>
-        <string>@HOME@/baylee-ci/runner.sh</string>
+        <string>@HOME@/baylee-ci/baylee-macos-runner</string>
         <string>serve</string>
     </array>
     <key>RunAtLoad</key>
