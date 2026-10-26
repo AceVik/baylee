@@ -10923,7 +10923,7 @@ Wandering Eye
 Wild Mammoth
 Woodripper
 
-# Prophecy (2000-06 — batches 1+, Abolish..Fickle Efreet)
+# Prophecy (2000-06 — batches 1–2, Abolish..Mercenary Informer)
 Abolish
 Alexi, Zephyr Mage
 Avatar of Fury
@@ -10949,3 +10949,28 @@ Endbringer's Revel
 Entangler
 Excavation
 Fickle Efreet
+Flameshot
+Flay
+Flowering Field
+Foil
+Forgotten Harvest
+Glittering Lion
+Glittering Lynx
+Greel, Mind Raker
+Hazy Homunculus
+Heightened Awareness
+Hollow Warrior
+Infernal Genesis
+Inflame
+Jeweled Spirit
+Jolrael, Empress of Beasts
+Keldon Arsonist
+Keldon Battlewagon
+Keldon Firebombers
+Latulla's Orders
+Latulla, Keldon Overseer
+Lesser Gargadon
+Living Terrain
+Mageta the Lion
+Mana Vapors
+Mercenary Informer

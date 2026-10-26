@@ -6611,6 +6611,8 @@ pub mod flamekin_harbinger;
 pub mod flamekin_spitfire;
 #[path = "lands/utility/flamekin_village.rs"]
 pub mod flamekin_village;
+#[path = "sorceries/mv_4/flameshot.rs"]
+pub mod flameshot;
 #[path = "creatures/mv_4/flametongue_kavu.rs"]
 pub mod flametongue_kavu;
 #[path = "creatures/mv_2/flamewright.rs"]
@@ -6635,6 +6637,8 @@ pub mod flashfreeze;
 pub mod flatten;
 #[path = "instants/mv_3/flawless_maneuver.rs"]
 pub mod flawless_maneuver;
+#[path = "sorceries/mv_4/flay.rs"]
+pub mod flay;
 #[path = "creatures/artifacts/mv_3/flayed_one.rs"]
 pub mod flayed_one;
 #[path = "creatures/mv_3/flayer_drone.rs"]
@@ -6719,6 +6723,8 @@ pub mod flora_colossus;
 pub mod floral_spuzzem;
 #[path = "creatures/mv_3/flow_of_maggots.rs"]
 pub mod flow_of_maggots;
+#[path = "enchantments/auras/mv_2/flowering_field.rs"]
+pub mod flowering_field;
 #[path = "artifacts/mv_3/flowstone_armor.rs"]
 pub mod flowstone_armor;
 #[path = "enchantments/auras/mv_1/flowstone_blade.rs"]
@@ -6793,6 +6799,8 @@ pub mod fog_patch;
 pub mod foggy_bottom_swamp;
 #[path = "lands/pain/fogwell_s_gym.rs"]
 pub mod fogwell_s_gym;
+#[path = "instants/mv_4/foil.rs"]
+pub mod foil;
 #[path = "creatures/mv_1/folk_of_an_havva.rs"]
 pub mod folk_of_an_havva;
 #[path = "creatures/mv_5/folk_of_the_pines.rs"]
@@ -6885,6 +6893,8 @@ pub mod forgeborn_oreads;
 pub mod forget;
 #[path = "lands/cycling/forgotten_cave.rs"]
 pub mod forgotten_cave;
+#[path = "enchantments/mv_2/forgotten_harvest.rs"]
+pub mod forgotten_harvest;
 #[path = "sorceries/mv_1/forgotten_lore.rs"]
 pub mod forgotten_lore;
 #[path = "lands/caves/forgotten_monument.rs"]
@@ -7565,6 +7575,10 @@ pub mod glissa_s_courier;
 pub mod glissa_s_scorn;
 #[path = "creatures/mv_3/glissa_the_traitor.rs"]
 pub mod glissa_the_traitor;
+#[path = "creatures/mv_3/glittering_lion.rs"]
+pub mod glittering_lion;
+#[path = "creatures/mv_1/glittering_lynx.rs"]
+pub mod glittering_lynx;
 #[path = "lands/cycling/glittering_massif.rs"]
 pub mod glittering_massif;
 #[path = "creatures/mv_4/glittermonger.rs"]
@@ -8047,6 +8061,8 @@ pub mod greatsword;
 pub mod greed;
 #[path = "creatures/mv_1/greedy_freebooter.rs"]
 pub mod greedy_freebooter;
+#[path = "creatures/mv_5/greel_mind_raker.rs"]
+pub mod greel_mind_raker;
 #[path = "enchantments/auras/mv_2/greel_s_caress.rs"]
 pub mod greel_s_caress;
 #[path = "artifacts/mv_4/green_mana_battery.rs"]
@@ -8481,6 +8497,8 @@ pub mod haze_of_pollen;
 pub mod hazerider_drake;
 #[path = "creatures/mv_7/hazezon_tamar.rs"]
 pub mod hazezon_tamar;
+#[path = "creatures/mv_2/hazy_homunculus.rs"]
+pub mod hazy_homunculus;
 #[path = "instants/mv_4/he_s_dead_jim.rs"]
 pub mod he_s_dead_jim;
 #[path = "creatures/mv_2/head_of_security.rs"]
@@ -8583,6 +8601,8 @@ pub mod hedron_scrabbler;
 pub mod heedless_one;
 #[path = "creatures/mv_5/heidar_rimewind_master.rs"]
 pub mod heidar_rimewind_master;
+#[path = "enchantments/mv_5/heightened_awareness.rs"]
+pub mod heightened_awareness;
 #[path = "creatures/mv_2/heir_of_the_wilds.rs"]
 pub mod heir_of_the_wilds;
 #[path = "instants/mv_2/heliod_s_intervention.rs"]
@@ -8803,6 +8823,8 @@ pub mod holdout_settlement;
 pub mod hollow_dogs;
 #[path = "lands/storage/hollow_trees.rs"]
 pub mod hollow_trees;
+#[path = "creatures/artifacts/mv_4/hollow_warrior.rs"]
+pub mod hollow_warrior;
 #[path = "creatures/mv_3/hollowhead_sliver.rs"]
 pub mod hollowhead_sliver;
 #[path = "creatures/mv_5/hollowhenge_beast.rs"]
@@ -9287,6 +9309,8 @@ pub mod infernal_contract;
 pub mod infernal_darkness;
 #[path = "creatures/mv_8/infernal_denizen.rs"]
 pub mod infernal_denizen;
+#[path = "enchantments/mv_6/infernal_genesis.rs"]
+pub mod infernal_genesis;
 #[path = "instants/mv_2/infernal_grasp.rs"]
 pub mod infernal_grasp;
 #[path = "sorceries/mv_2/infernal_harvest.rs"]
@@ -9311,6 +9335,8 @@ pub mod infiltrate;
 pub mod infinite_authority;
 #[path = "artifacts/mv_4/infinite_hourglass.rs"]
 pub mod infinite_hourglass;
+#[path = "instants/mv_1/inflame.rs"]
+pub mod inflame;
 #[path = "instants/mv_1/infuriate.rs"]
 pub mod infuriate;
 #[path = "instants/mv_3/infuse.rs"]
@@ -9681,6 +9707,8 @@ pub mod jewel_eyed_cobra;
 pub mod jewel_thief;
 #[path = "artifacts/mv_0/jeweled_amulet.rs"]
 pub mod jeweled_amulet;
+#[path = "creatures/mv_5/jeweled_spirit.rs"]
+pub mod jeweled_spirit;
 #[path = "artifacts/mv_2/jeweled_torque.rs"]
 pub mod jeweled_torque;
 #[path = "creatures/mv_3/jhessian_balmgiver.rs"]
@@ -9719,6 +9747,8 @@ pub mod join_the_ranks;
 pub mod joiner_adept;
 #[path = "sorceries/mv_6/jokulhaups.rs"]
 pub mod jokulhaups;
+#[path = "creatures/mv_5/jolrael_empress_of_beasts.rs"]
+pub mod jolrael_empress_of_beasts;
 #[path = "creatures/mv_3/jolrael_s_centaur.rs"]
 pub mod jolrael_s_centaur;
 #[path = "enchantments/auras/mv_2/jolrael_s_favor.rs"]
@@ -9965,10 +9995,16 @@ pub mod keeper_of_tresserhorn;
 pub mod keepers_of_the_faith;
 #[path = "creatures/mv_4/kei_takahashi.rs"]
 pub mod kei_takahashi;
+#[path = "creatures/mv_3/keldon_arsonist.rs"]
+pub mod keldon_arsonist;
+#[path = "creatures/artifacts/mv_5/keldon_battlewagon.rs"]
+pub mod keldon_battlewagon;
 #[path = "creatures/mv_4/keldon_berserker.rs"]
 pub mod keldon_berserker;
 #[path = "creatures/mv_4/keldon_champion.rs"]
 pub mod keldon_champion;
+#[path = "creatures/mv_5/keldon_firebombers.rs"]
+pub mod keldon_firebombers;
 #[path = "enchantments/auras/mv_2/keldon_mantle.rs"]
 pub mod keldon_mantle;
 #[path = "lands/restricted/keldon_megaliths.rs"]
@@ -10455,6 +10491,10 @@ pub mod lat_nam_s_legacy;
 pub mod late_to_dinner;
 #[path = "creatures/mv_5/lathnu_sailback.rs"]
 pub mod lathnu_sailback;
+#[path = "creatures/mv_5/latulla_keldon_overseer.rs"]
+pub mod latulla_keldon_overseer;
+#[path = "enchantments/auras/mv_2/latulla_s_orders.rs"]
+pub mod latulla_s_orders;
 #[path = "enchantments/auras/mv_2/launch.rs"]
 pub mod launch;
 #[path = "instants/mv_3/launch_mishap.rs"]
@@ -10589,6 +10629,8 @@ pub mod leovold_s_operative;
 pub mod leshrac_s_rite;
 #[path = "enchantments/mv_2/leshrac_s_sigil.rs"]
 pub mod leshrac_s_sigil;
+#[path = "creatures/mv_4/lesser_gargadon.rs"]
+pub mod lesser_gargadon;
 #[path = "creatures/mv_4/lesser_werewolf.rs"]
 pub mod lesser_werewolf;
 #[path = "creatures/mv_9/leviathan.rs"]
@@ -10773,6 +10815,8 @@ pub mod living_lightning;
 pub mod living_plane;
 #[path = "creatures/mv_5/living_tempest.rs"]
 pub mod living_tempest;
+#[path = "enchantments/auras/mv_4/living_terrain.rs"]
+pub mod living_terrain;
 #[path = "creatures/mv_4/living_tsunami.rs"]
 pub mod living_tsunami;
 #[path = "creatures/artifacts/mv_4/living_wall.rs"]
@@ -11081,6 +11125,8 @@ pub mod mage_s_guile;
 pub mod magefire_wings;
 #[path = "enchantments/auras/mv_2/mageta_s_boon.rs"]
 pub mod mageta_s_boon;
+#[path = "creatures/mv_5/mageta_the_lion.rs"]
+pub mod mageta_the_lion;
 #[path = "creatures/mv_1/maggot_carrier.rs"]
 pub mod maggot_carrier;
 #[path = "enchantments/auras/mv_3/maggot_therapy.rs"]
@@ -11231,6 +11277,8 @@ pub mod mana_severance;
 pub mod mana_short;
 #[path = "instants/mv_1/mana_tithe.rs"]
 pub mod mana_tithe;
+#[path = "sorceries/mv_2/mana_vapors.rs"]
+pub mod mana_vapors;
 #[path = "artifacts/mv_1/mana_vault.rs"]
 pub mod mana_vault;
 #[path = "enchantments/mv_3/mana_vortex.rs"]
@@ -11559,6 +11607,8 @@ pub mod mercadian_bazaar;
 pub mod mercadian_lift;
 #[path = "creatures/mv_4/mercenaries.rs"]
 pub mod mercenaries;
+#[path = "creatures/mv_3/mercenary_informer.rs"]
+pub mod mercenary_informer;
 #[path = "creatures/mv_3/mercenary_knight.rs"]
 pub mod mercenary_knight;
 #[path = "creatures/mv_3/merchant_of_secrets.rs"]

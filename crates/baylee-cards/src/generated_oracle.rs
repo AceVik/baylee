@@ -13088,45 +13088,102 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of this creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Flameshot
+    &[
+        "You may discard a Mountain card rather than pay this spell's mana cost.\nFlameshot deals 3 damage divided as you choose among one, two, or three target creatures.",
+    ],
+    // Flay
+    &[
+        "Target player discards a card at random. Then that player discards another card at random unless they pay {1}.",
+    ],
+    // Flowering Field
+    &[
+        "Enchant land\nEnchanted land has \"{T}: Prevent the next 1 damage that would be dealt to any target this turn.\"",
+    ],
+    // Foil
+    &[
+        "You may discard an Island card and another card rather than pay this spell's mana cost.\nCounter target spell.",
+    ],
+    // Forgotten Harvest
+    &[
+        "At the beginning of your upkeep, you may exile a land card from your graveyard. If you do, put a +1/+1 counter on target creature.",
+    ],
+    // Glittering Lion
+    &[
+        "Prevent all damage that would be dealt to this creature.\n{3}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    ],
+    // Glittering Lynx
+    &[
+        "Prevent all damage that would be dealt to this creature.\n{2}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+    ],
     // Greel's Caress
     &["Flash\nEnchant creature\nEnchanted creature gets -3/-0."],
-    &[],
+    // Greel, Mind Raker
+    &["{X}{B}, {T}, Discard two cards: Target player discards X cards at random."],
     // Gulf Squid
     &["When this creature enters, tap all lands target player controls."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hazy Homunculus
+    &["This creature can't be blocked as long as defending player controls an untapped land."],
+    // Heightened Awareness
+    &[
+        "As this enchantment enters, discard your hand.\nAt the beginning of your draw step, draw an additional card.",
+    ],
+    // Hollow Warrior
+    &[
+        "This creature can't attack or block unless you tap an untapped creature you control not declared as an attacking or blocking creature this combat. (This cost is paid as attackers or blockers are declared.)",
+    ],
+    // Infernal Genesis
+    &[
+        "At the beginning of each player's upkeep, that player mills a card. Then they create X 1/1 black Minion creature tokens, where X is the milled card's mana value.",
+    ],
+    // Inflame
+    &["Inflame deals 2 damage to each creature dealt damage this turn."],
+    // Jeweled Spirit
+    &[
+        "Flying\nSacrifice two lands: This creature gains protection from artifacts or from the color of your choice until end of turn.",
+    ],
     // Jolrael's Favor
     &["Flash\nEnchant creature\n{1}{G}: Regenerate enchanted creature."],
-    &[],
-    &[],
-    &[],
+    // Jolrael, Empress of Beasts
+    &[
+        "{2}{G}, {T}, Discard two cards: All lands target player controls become 3/3 creatures until end of turn. They're still lands.",
+    ],
+    // Keldon Arsonist
+    &["{1}, Sacrifice two lands: Destroy target land."],
+    // Keldon Battlewagon
+    &[
+        "Trample\nThis creature can't block.\nWhen this creature attacks, sacrifice it at end of combat.\nTap an untapped creature you control: This creature gets +X/+0 until end of turn, where X is the power of the creature tapped this way.",
+    ],
     // Keldon Berserker
     &[
         "Whenever this creature attacks, if you control no untapped lands, it gets +3/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Keldon Firebombers
+    &["When this creature enters, each player sacrifices all lands they control except for three."],
+    // Latulla's Orders
+    &[
+        "Flash\nEnchant creature\nWhenever enchanted creature deals combat damage to defending player, you may destroy target artifact that player controls.",
+    ],
+    // Latulla, Keldon Overseer
+    &["{X}{R}, {T}, Discard two cards: Latulla deals X damage to any target."],
+    // Lesser Gargadon
+    &["Whenever this creature attacks or blocks, sacrifice a land."],
+    // Living Terrain
+    &["Enchant land\nEnchanted land is a 5/6 green Treefolk creature that's still a land."],
+    // Mageta the Lion
+    &[
+        "{2}{W}{W}, {T}, Discard two cards: Destroy all creatures except for Mageta. Those creatures can't be regenerated.",
+    ],
     // Mageta's Boon
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+2."],
-    &[],
+    // Mana Vapors
+    &["Lands target player controls don't untap during their next untap step."],
     // Marsh Boa
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
-    &[],
+    // Mercenary Informer
+    &[
+        "This creature can't be the target of black spells or abilities from black sources.\n{2}{W}: Put target nontoken Mercenary on the bottom of its owner's library.",
+    ],
     &[],
     &[],
     // Mungha Wurm

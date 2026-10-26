@@ -178,6 +178,7 @@ mod labyrinth_minotaur;
 mod laccolith_warrior;
 mod lava_hounds;
 mod leonin_abunas;
+mod lesser_gargadon;
 mod lesser_werewolf;
 mod lhurgoyf;
 mod lightning_angel;

@@ -183,6 +183,7 @@ mod katara_the_fearless;
 mod kavu_glider;
 mod kazandu_mammoth;
 mod keen_eyed_archers;
+mod keldon_arsonist;
 mod keldon_vandals;
 mod khabal_ghoul;
 mod khenra_charioteer;

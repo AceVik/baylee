@@ -15,6 +15,7 @@ mod ensnare;
 mod fact_or_fiction;
 mod fanatical_fever;
 mod fell_the_profane;
+mod foil;
 mod hagra_mauling;
 mod inspiration;
 mod irradiate;
