@@ -119,6 +119,9 @@ impl Tx<'_> {
         if p.peek("ReplacementEffects").is_some() {
             return self.replace_target_white_mana(p, target);
         }
+        if p.peek("Triggers").is_some() {
+            return self.delayed_destroy_target_effect(p, target);
+        }
         let statics = p.peek("StaticAbilities")?.trim().to_string();
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
@@ -128,6 +131,46 @@ impl Tx<'_> {
             "CantRegenerate" => self.cant_regenerate_effect(p, target),
             _ => None,
         }
+    }
+
+    /// "Destroy target blocking creature at end of combat" (Silent Assassin):
+    /// an `Effect` remembering `Targeted` with a `Triggers$` delayed trigger
+    /// at `Phase$ EndCombat` that destroys `Remembered`.
+    fn delayed_destroy_target_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let target = target.filter(|t| t.starts_with("TargetSpec::Object("))?;
+        let trig_name = p.take("Triggers")?;
+        if p.take("RememberObjects").as_deref() != Some("Targeted") {
+            return None;
+        }
+        p.take("IsCurse");
+        p.take("Name");
+        let trig_body = self.svars.get(trig_name.trim())?.clone();
+        let (mode, mut tp) = Params::parse(&trig_body)?;
+        tp.drop_prose();
+        if mode != "Phase" || tp.take("Phase").as_deref() != Some("EndCombat") {
+            return None;
+        }
+        let exec_name = tp.take("Execute")?;
+        if !tp.exhausted() {
+            return None;
+        }
+        let exec_body = self.svars.get(exec_name.trim())?.clone();
+        let (exec_api, mut ep) = Params::parse(&exec_body)?;
+        ep.drop_prose();
+        if exec_api != "Destroy"
+            || ep.take("Defined").as_deref() != Some("Remembered")
+            || !ep.exhausted()
+        {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::AtEndOfCombat {{ about: {target}, \
+             effects: &[Effect::destroy(TargetSpec::EventObject)] }}"
+        )])
     }
 
     /// "It can't be regenerated this turn" (Disintegrate, Carbonize): an

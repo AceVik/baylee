@@ -473,16 +473,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PutSourceOnTopOfLibrary => {
-            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            let source = super::subjects::moving_source(state, res)?.object;
+            let owner = state.object(source).map_or(you, |o| o.owner);
             // CR 903.9b: a commander that puts *itself* on top is still
             // being put into a library, and its owner still chooses.
             if let Some(pending) =
-                ask_commander_replace(state, res, &[(res.source, ZoneLocation::Library(owner))])
+                ask_commander_replace(state, res, &[(source, ZoneLocation::Library(owner))])
             {
                 return Some(pending);
             }
             let _ = state.move_object(
-                res.source,
+                source,
                 ZoneLocation::Library(owner),
                 ZonePosition::Top,
                 Cause::Effect,

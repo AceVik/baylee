@@ -1648,3 +1648,85 @@ fn inviolability_natural_affinity_noble_purpose_pious_warrior_revered_elder_and_
         body.abilities[0]
     );
 }
+
+#[test]
+fn pawnshop_heir_outrigger_scandalmonger_sever_soul_silent_assassin_and_fugitive_shapes_read() {
+    let pawnshop = "Name:Rishadan Pawnshop\nManaCost:2\nTypes:Artifact\n\
+        A:AB$ ChangeZone | Cost$ 2 T | Origin$ Battlefield | Destination$ Library | Shuffle$ True | ValidTgts$ Permanent.nonToken+YouCtrl";
+    let body = read(pawnshop);
+    assert!(
+        body.abilities[0].contains("Effect::ShuffleTargetsIntoOwnersLibraries"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let heir = "Name:Saprazzan Heir\nManaCost:1 U\nTypes:Creature Merfolk\nPT:1/1\n\
+        T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+        SVar:TrigDraw:DB$ Draw | NumCards$ 3 | OptionalDecider$ You";
+    let body = read(heir);
+    assert!(
+        body.abilities[0].contains("Effect::MayDo { effects: &[Effect::draw(3)] }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let outrigger = "Name:Saprazzan Outrigger\nManaCost:3 U\nTypes:Creature Merfolk\nPT:5/5\n\
+        T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigDelayed\n\
+        T:Mode$ Blocks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigDelayed\n\
+        SVar:TrigDelayed:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigTop\n\
+        SVar:TrigTop:DB$ ChangeZone | Origin$ Battlefield | Destination$ Library | LibraryPosition$ 0";
+    let body = read(outrigger);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities[0].contains("Trigger::Attacks(&Filter::This)")
+            && body.abilities[0].contains("Effect::PutSourceOnTopOfLibrary")
+            && body.abilities[1].contains("Trigger::Blocks(&Filter::This)"),
+        "{:?}",
+        body.abilities
+    );
+
+    let scandalmonger = "Name:Scandalmonger\nManaCost:3 B\nTypes:Creature Boar Monger\nPT:3/3\n\
+        A:AB$ Discard | Cost$ 2 | ValidTgts$ Player | NumCards$ 1 | Mode$ TgtChoose | IsCurse$ True | SorcerySpeed$ True | Activator$ Player";
+    let body = read(scandalmonger);
+    assert!(
+        body.abilities[0].contains("timing = ActivationTiming::SorcerySpeed")
+            && body.abilities[0].contains("zone = ActivationZone::BattlefieldAnyPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let sever_soul = "Name:Sever Soul\nManaCost:3 B B\nTypes:Sorcery\n\
+        A:SP$ Destroy | ValidTgts$ Creature.nonBlack | NoRegen$ True | SubAbility$ DBGain\n\
+        SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:Targeted$CardToughness";
+    let body = read(sever_soul);
+    assert!(
+        body.abilities[0].contains("Amount::TargetToughness"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let silent_assassin = "Name:Silent Assassin\nManaCost:B B\nTypes:Creature Human Mercenary Assassin\nPT:2/1\n\
+        A:AB$ Effect | Cost$ 3 B | ValidTgts$ Creature.blocking | RememberObjects$ Targeted | Triggers$ DelTrig\n\
+        SVar:DelTrig:Mode$ Phase | Phase$ EndCombat | Execute$ TrigDestroy\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ Remembered";
+    let body = read(silent_assassin);
+    assert!(
+        body.abilities[0].contains(
+            "Effect::AtEndOfCombat { about: TargetSpec::Object(&TARGET1), effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+        ),
+        "{}",
+        body.abilities[0]
+    );
+
+    let fugitive = "Name:Skulking Fugitive\nManaCost:2 B\nTypes:Creature Horror Mercenary\nPT:3/4\n\
+        T:Mode$ BecomesTarget | ValidTarget$ Card.Self | TriggerZones$ Battlefield | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ Sacrifice";
+    let body = read(fugitive);
+    assert!(
+        body.abilities[0].contains("Trigger::BecomesTarget")
+            && body.abilities[0].contains("Effect::SacrificeSelf"),
+        "{}",
+        body.abilities[0]
+    );
+}

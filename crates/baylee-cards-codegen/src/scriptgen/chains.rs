@@ -473,18 +473,27 @@ impl Tx<'_> {
             // player draws X cards".
             "Draw" => {
                 let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
-                match (
+                let may = match p.take("OptionalDecider").as_deref() {
+                    None => false,
+                    Some("You") => true,
+                    Some(_) => return None,
+                };
+                let draw = match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
-                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::draw({fixed})")],
-                    ("PlayerRel::You", None) => {
-                        vec![format!("Effect::DrawCards {{ amount: {n} }}")]
+                    ("PlayerRel::You", Some(fixed)) => format!("Effect::draw({fixed})"),
+                    ("PlayerRel::You", None) => format!("Effect::DrawCards {{ amount: {n} }}"),
+                    (who, _) if !may => {
+                        format!("Effect::DrawCardsFor {{ amount: {n}, who: {who} }}")
                     }
-                    (who, _) => vec![format!(
-                        "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
-                    )],
+                    _ => return None,
+                };
+                if may {
+                    vec![format!("Effect::MayDo {{ effects: &[{draw}] }}")]
+                } else {
+                    vec![draw]
                 }
             }
             // "Target player discards a card": the discarding player
@@ -500,6 +509,7 @@ impl Tx<'_> {
             }
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
                 p.take("Mode");
+                p.take("IsCurse");
                 let n = p
                     .take("NumCards")
                     .as_deref()

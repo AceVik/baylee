@@ -1,7 +1,7 @@
 //! Reading the effects that are more than one line: tokens, animation,
 //! pumps, zone changes and library searches.
 
-use super::{CLUE_TOKEN_SCRIPT, Params, Tx, amount, keyword_const, plain_number, pump_amount};
+use super::{CLUE_TOKEN_SCRIPT, Params, Tx, keyword_const, plain_number, pump_amount};
 
 impl Tx<'_> {
     /// `DB$ Sacrifice`: "sacrifice it".
@@ -99,7 +99,7 @@ impl Tx<'_> {
         let token = format!("&generated_tokens::{}", body.constant);
         let amount = match raw_amount {
             None => None,
-            Some(raw) => match amount(raw, self.svars, self.has_x) {
+            Some(raw) => match self.amount_or_count(raw) {
                 // A refusal names the `SVar` the amount resolves *through*
                 // and not merely the letter, because `X` is what 356 scripts
                 // write and each of them means it by a different count —
@@ -522,7 +522,9 @@ impl Tx<'_> {
                     && (target != "TargetSpec::AnyPlayer"
                         || (!self.on_a_spell
                             && origin == "Battlefield"
-                            && destination == "Hand"
+                            && (destination == "Hand"
+                                || (destination == "Library"
+                                    && p.peek("LibraryPosition") == Some("0")))
                             && !p.has("ChangeType")))
             }
             Some("Self") => true,
@@ -551,6 +553,17 @@ impl Tx<'_> {
                 vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
             }
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
+            ("Battlefield", "Library", true)
+                if p.take("LibraryPosition").as_deref() == Some("0") =>
+            {
+                vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
+            }
+            ("Battlefield", "Library", false)
+                if target.starts_with("TargetSpec::Object(")
+                    && p.take("Shuffle").as_deref() == Some("True") =>
+            {
+                vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+            }
             ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"

@@ -304,6 +304,13 @@ impl Tx<'_> {
                 ))
             }
             "Attacks" => self.attacks_trigger(p),
+            "Blocks" => self.blocks_trigger(p),
+            "BecomesTarget" => {
+                if p.take("ValidTarget").as_deref() != Some("Card.Self") {
+                    return self.deny("a `BecomesTarget` trigger not on `Card.Self`".to_string());
+                }
+                Some("Trigger::BecomesTarget".to_string())
+            }
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
@@ -374,6 +381,23 @@ impl Tx<'_> {
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
         Some(format!("Trigger::Attacks({filter})"))
+    }
+
+    fn blocks_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Blocks` trigger with no `ValidCard$`".to_string());
+        };
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        Some(format!("Trigger::Blocks({filter})"))
     }
 
     /// One `K:` line, as whichever of the four things it is.
@@ -834,26 +858,9 @@ impl Tx<'_> {
             if targets_here {
                 return self.deny("a delayed trigger on a line that targets".to_string());
             }
-            let Some(execute) = p.take("Execute") else {
-                return self.deny("a delayed trigger with no `Execute$`".to_string());
-            };
-            let Some(body) = self.svars.get(&execute).cloned() else {
-                return self.deny(format!("`Execute$ {execute}` names no SVar"));
-            };
-            let mut inner = super::Chain::default();
-            let outer = std::mem::replace(&mut self.in_delayed, true);
-            let read = self.chain(&body, &mut inner);
-            self.in_delayed = outer;
-            read?;
-            if inner.target.is_some() {
-                return self.deny("a delayed trigger that targets".to_string());
-            }
-            if inner.effects.is_empty() {
-                return self.deny("a delayed trigger that reads as no effect".to_string());
-            }
+            let effects = self.delayed_execute_effects(p)?;
             return Some(format!(
-                "Effect::AtNextTurnsUpkeep {{ effects: &[{}] }}",
-                inner.effects.join(", ")
+                "Effect::AtNextTurnsUpkeep {{ effects: &[{effects}] }}"
             ));
         }
         if mode != "Phase" || phase != "EndCombat" {
@@ -866,21 +873,33 @@ impl Tx<'_> {
             }
         }
         let remembered = p.take("RememberObjects").unwrap_or_default();
-        let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
-            Some(BlockRole::Blocks) => "TriggeredAttacker",
-            Some(BlockRole::Blocked) => "TriggeredBlocker",
-            None => {
-                return self.deny(format!(
-                    "a delayed trigger remembering `{remembered}` outside a block trigger"
-                ));
+        let self_combat = remembered.is_empty()
+            && self.block_line.is_none()
+            && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
+        if !self_combat {
+            let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
+                Some(BlockRole::Blocks) => "TriggeredAttacker",
+                Some(BlockRole::Blocked) => "TriggeredBlocker",
+                None => {
+                    return self.deny(format!(
+                        "a delayed trigger remembering `{remembered}` outside a block trigger"
+                    ));
+                }
+            };
+            if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
+                return self.deny(format!("a delayed trigger remembering `{remembered}`"));
             }
-        };
-        if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
-            return self.deny(format!("a delayed trigger remembering `{remembered}`"));
         }
         if target.is_some() {
             return self.deny("a delayed trigger on a line that targets".to_string());
         }
+        let effects = self.delayed_execute_effects(p)?;
+        Some(format!(
+            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{effects}] }}"
+        ))
+    }
+
+    fn delayed_execute_effects(&mut self, p: &mut Params) -> Option<String> {
         let Some(execute) = p.take("Execute") else {
             return self.deny("a delayed trigger with no `Execute$`".to_string());
         };
@@ -898,9 +917,6 @@ impl Tx<'_> {
         if inner.effects.is_empty() {
             return self.deny("a delayed trigger that reads as no effect".to_string());
         }
-        Some(format!(
-            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{}] }}",
-            inner.effects.join(", ")
-        ))
+        Some(inner.effects.join(", "))
     }
 }
