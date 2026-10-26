@@ -24,12 +24,10 @@ card!(
     ),],
     abilities = &[triggered!(
         Trigger::DealtDamage(&Filter::This),
-        &[Effect::Repeat {
-            times: Amount::EventAmount,
-            effects: &[Effect::SacrificeFilter {
-                who: PlayerRel::You,
-                filter: &Filter::Any,
-            }],
+        &[Effect::SacrificeAmountForPlayers {
+            who: PlayerRel::You,
+            filter: &Filter::Any,
+            amount: Amount::EventAmount,
         }],
     )],
 );

@@ -1,7 +1,7 @@
 //! Multani's Decree — {3}{G} — Sorcery
 //! Oracle: Destroy all enchantments. You gain 2 life for each enchantment destroyed this way.
 //! Set: UDS #114 — Urza's Destiny | Scryfall ID: 58b4d5c8-23fc-4fb8-99d6-bb64e66cc4db | Oracle ID: b233473d-d22b-45e4-9fe7-55d1170a788b
-// IMPLEMENTED — destroys all enchantments, then its controller gains 2 life for each enchantment put into a graveyard this way (CR 701.8c).
+// IMPLEMENTED — destroys all enchantments, then its controller gains 2 life for each enchantment actually destroyed, including exile-replaced destruction.
 
 use baylee_cards_dsl::prelude::*;
 
@@ -16,13 +16,11 @@ card!(
         mana_cost = mana!("{3}{G}"),
         types = TypeSet::SORCERY,
     ),],
-    abilities = &[spell!(&[
-        Effect::destroy_all(&Filter::ENCHANTMENT),
-        Effect::GainLife {
-            amount: Amount::Times {
-                base: &Amount::ThisWay(ThisWay::Died(&Filter::ENCHANTMENT)),
-                factor: 2,
-            },
-        },
-    ])],
+    abilities = &[spell!(&[Effect::DestroyAllThenForEachDestroyed {
+        filter: &Filter::ENCHANTMENT,
+        no_regen: false,
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(2),
+        }],
+    }])],
 );

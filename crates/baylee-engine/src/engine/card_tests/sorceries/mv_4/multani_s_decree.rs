@@ -67,3 +67,39 @@ fn multanis_decree_counts_only_enchantments_actually_destroyed_this_way() {
         "only the 1 enchantment actually destroyed grants 2 life"
     );
 }
+
+#[test]
+fn multanis_decree_counts_destroyed_enchantments_exiled_instead_of_dying() {
+    let voidwalker = card_index("f1c2dbe2-fbe0-4058-bdf1-91d1b1832786");
+    let mut e = lk::game(
+        SEED,
+        &[fastbond(), sol_ring()],
+        &[voidwalker, mirri_s_guile()],
+        &[multani_s_decree()],
+        &[],
+    );
+    lk::float(&mut e, lk::P0, &[(ManaColor::Green, 4)]);
+    cast_with_floating(&mut e, lk::P0, multani_s_decree());
+    lk::settle(&mut e);
+
+    assert!(in_graveyard(&e, lk::P0, fastbond()).is_none());
+    assert!(
+        e.state()
+            .zones
+            .list(ZoneLocation::Exile(lk::P0))
+            .iter()
+            .any(|id| {
+                e.state()
+                    .object(*id)
+                    .is_some_and(|object| object.card == Some(fastbond()))
+            })
+    );
+    assert!(in_graveyard(&e, lk::P1, mirri_s_guile()).is_some());
+    assert!(on_battlefield(&e, lk::P1, voidwalker).is_some());
+    assert!(on_battlefield(&e, lk::P0, sol_ring()).is_some());
+    assert_eq!(
+        lk::life(&e, lk::P0),
+        24,
+        "both successful destructions grant life, including the card exiled instead"
+    );
+}
