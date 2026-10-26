@@ -8,7 +8,7 @@ use baylee_core::color::{Color, ColorSet};
 use baylee_core::generated::subtypes::land as land_subtypes;
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::mana::{ManaColor, ManaCost, ManaPayment, ManaSymbol};
-use baylee_core::types::TypeSet;
+use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, granted_slot};
 use baylee_view::{CardIdentity, ObjectStatus, Phase, PlayerView, PublicObject, RulesFace, Step};
 
@@ -120,14 +120,35 @@ pub(super) fn select_single_choice(
             ) {
                 let intent = classify_active_target_intent(view, actor, active_source);
                 if intent != TargetIntent::Neutral {
+                    let cand_obj = |cand: &crate::features4::Candidate4| -> Option<ObjectId> {
+                        cand.object_id.or_else(|| match &cand.action {
+                            Some(PlayerAction::ChooseTargets { objects, players })
+                                if objects.len() == 1 && players.is_empty() =>
+                            {
+                                Some(objects[0])
+                            }
+                            _ => None,
+                        })
+                    };
+                    let cand_pid = |cand: &crate::features4::Candidate4| -> Option<PlayerId> {
+                        cand.player_id.or_else(|| match &cand.action {
+                            Some(PlayerAction::ChooseTargets { objects, players })
+                                if objects.is_empty() && players.len() == 1 =>
+                            {
+                                Some(players[0])
+                            }
+                            Some(PlayerAction::ChoosePlayer(p)) => Some(*p),
+                            _ => None,
+                        })
+                    };
                     let fixed_dmg = super::choices::active_source_fixed_damage(view, active_source);
                     let any_opp_player_target = cands
                         .candidates
                         .iter()
-                        .any(|cand| cand.player_id.is_some_and(|pid| pid != actor));
+                        .any(|cand| cand_pid(cand).is_some_and(|pid| pid != actor));
                     let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
                         cands.candidates.iter().any(|cand| {
-                            cand.object_id
+                            cand_obj(cand)
                                 .and_then(|oid| view.object(oid))
                                 .is_some_and(|o| {
                                     o.controller != actor
@@ -149,7 +170,7 @@ pub(super) fn select_single_choice(
                     let any_damaged_opp_creature = fixed_dmg.is_some_and(|_| {
                         !any_lethal_creature_kill
                             && cands.candidates.iter().any(|cand| {
-                                cand.object_id
+                                cand_obj(cand)
                                     .and_then(|oid| view.object(oid))
                                     .is_some_and(|o| {
                                         o.controller != actor
@@ -172,7 +193,7 @@ pub(super) fn select_single_choice(
                         !any_lethal_creature_kill
                             && can_follow_up_ping
                             && cands.candidates.iter().any(|cand| {
-                                cand.object_id
+                                cand_obj(cand)
                                     .and_then(|oid| view.object(oid))
                                     .is_some_and(|o| {
                                         o.controller != actor
@@ -189,7 +210,7 @@ pub(super) fn select_single_choice(
                             })
                     });
                     let any_urgent_ench = cands.candidates.iter().any(|cand| {
-                        cand.object_id
+                        cand_obj(cand)
                             .and_then(|oid| view.object(oid))
                             .is_some_and(|o| {
                                 o.controller != actor && super::choices::is_urgent_enchantment(o)
@@ -205,8 +226,7 @@ pub(super) fn select_single_choice(
                                 if is_friendly_target_action(view, actor, act) {
                                     trial[i] = f32::NEG_INFINITY;
                                 } else if any_urgent_ench {
-                                    let is_urgent = cand
-                                        .object_id
+                                    let is_urgent = cand_obj(cand)
                                         .and_then(|oid| view.object(oid))
                                         .is_some_and(|o| {
                                             o.controller != actor
@@ -217,8 +237,7 @@ pub(super) fn select_single_choice(
                                     }
                                 } else if let Some(dmg) = fixed_dmg {
                                     if any_lethal_creature_kill {
-                                        let is_lethal_target = cand
-                                            .object_id
+                                        let is_lethal_target = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
                                                 o.controller != actor
@@ -236,7 +255,7 @@ pub(super) fn select_single_choice(
                                                     .max(1)
                                                         <= dmg
                                             })
-                                            || cand.player_id.is_some_and(|pid| {
+                                            || cand_pid(cand).is_some_and(|pid| {
                                                 pid != actor
                                                     && view.seat(pid).map_or(20, |s| s.life) <= dmg
                                             });
@@ -244,8 +263,7 @@ pub(super) fn select_single_choice(
                                             trial[i] = f32::NEG_INFINITY;
                                         }
                                     } else if any_damaged_opp_creature {
-                                        let is_damaged_creature = cand
-                                            .object_id
+                                        let is_damaged_creature = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
                                                 o.controller != actor
@@ -260,8 +278,7 @@ pub(super) fn select_single_choice(
                                             trial[i] = f32::NEG_INFINITY;
                                         }
                                     } else if any_two_hit_opp_creature {
-                                        let is_two_hit_creature = cand
-                                            .object_id
+                                        let is_two_hit_creature = cand_obj(cand)
                                             .and_then(|oid| view.object(oid))
                                             .is_some_and(|o| {
                                                 o.controller != actor
@@ -280,7 +297,7 @@ pub(super) fn select_single_choice(
                                         }
                                     } else if !can_follow_up_ping
                                         && any_opp_player_target
-                                        && cand.player_id.is_none_or(|pid| pid == actor)
+                                        && cand_pid(cand).is_none_or(|pid| pid == actor)
                                     {
                                         trial[i] = f32::NEG_INFINITY;
                                     }
@@ -1484,6 +1501,28 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
     // Check battlefield SpellCast punisher triggers (e.g. Eidolon of the Great Revel, Spellshock, Mai)
     let mut existing_cast_self_loss = 0_i32;
     if let Some(face) = face_opt {
+        if face.supertypes.contains(SupertypeSet::LEGENDARY)
+            && !face.types.contains(TypeSet::PLANESWALKER)
+            && view.battlefield_of(actor).any(|o| {
+                !o.status.contains(ObjectStatus::PHASED_OUT)
+                    && o.damage == 0
+                    && o.card
+                        .is_some_and(|c| c.index == ci.index && c.face == ci.face)
+            })
+            && !abilities.iter().any(|ab| {
+                matches!(
+                    ab,
+                    AbilityDef::Triggered {
+                        trigger: Trigger::ETB
+                            | Trigger::Dies(Filter::This)
+                            | Trigger::LeavesBattlefield(Filter::This),
+                        ..
+                    }
+                )
+            })
+        {
+            return false;
+        }
         let cast_self_loss = cast_trigger_self_damage(view, actor, face.types, spell_cmc);
         existing_cast_self_loss = cast_self_loss;
         if cast_self_loss > 0 && my_life <= cast_self_loss {
@@ -3147,6 +3186,7 @@ fn mana_action_pain_tier(view: &PlayerView, action: &PlayerAction) -> u8 {
                     target: PlayerRel::You | PlayerRel::EachPlayer,
                     ..
                 } => return 1,
+                Effect::ReturnSelfDuringNextUntap => return 2,
                 _ => {}
             }
         }
@@ -3165,6 +3205,7 @@ fn redirect_mana_source_for_colors(
     legal: &LegalActions,
     chosen_idx: usize,
 ) -> usize {
+    let actor = view.decision_player.unwrap_or(view.seat);
     let deficit = unmet_color_deficit(view, legal);
     let any_deficit = deficit.iter().any(|&d| d > 0);
     let pain_tier = |idx: usize| -> u8 {
@@ -3242,7 +3283,7 @@ fn redirect_mana_source_for_colors(
         let colors = action_produced_colors(view, legal, act);
         (0..6).any(|c| deficit[c] > 0 && colors[c])
     };
-    (0..cands.candidates.len())
+    if let Some(best_direct) = (0..cands.candidates.len())
         .filter(|&i| logits[i].is_finite())
         .filter(|&i| {
             cands.candidates[i]
@@ -3260,9 +3301,86 @@ fn redirect_mana_source_for_colors(
                 .then_with(|| fb.cmp(&fa))
                 .then_with(|| logits[a].total_cmp(&logits[b]))
         })
-        .unwrap_or(chosen_idx)
+    {
+        return best_direct;
+    }
+    // No currently payable mana ability produces the deficit color directly; check if an
+    // untapped filter land on our battlefield can produce the deficit color once we generate
+    // generic mana from another source.
+    let filter_sources: Vec<ObjectId> = view
+        .battlefield_of(actor)
+        .filter(|o| {
+            !o.status.contains(ObjectStatus::TAPPED)
+                && !o.status.contains(ObjectStatus::PHASED_OUT)
+                && filter_land_min_cost_and_colors(view, o.id)
+                    .is_some_and(|(_, cols)| (0..5).any(|c| deficit[c] > 0 && cols[c]))
+        })
+        .map(|o| o.id)
+        .collect();
+    if !filter_sources.is_empty()
+        && let Some(best_feeder) = (0..cands.candidates.len())
+            .filter(|&i| logits[i].is_finite())
+            .filter(|&i| {
+                cands.candidates[i].action.as_ref().is_some_and(|a| {
+                    is_mana_action(view, a)
+                        && match a {
+                            PlayerAction::ActivateManaAbility { source }
+                            | PlayerAction::ActivateAbility { source, .. } => {
+                                !filter_sources.contains(source)
+                            }
+                            _ => false,
+                        }
+                })
+            })
+            .max_by(|&a, &b| {
+                let (ua, fa) = source_utility_and_flex(a);
+                let (ub, fb) = source_utility_and_flex(b);
+                pain_tier(b)
+                    .cmp(&pain_tier(a))
+                    .then_with(|| ub.cmp(&ua))
+                    .then_with(|| fb.cmp(&fa))
+                    .then_with(|| logits[a].total_cmp(&logits[b]))
+            })
+    {
+        return best_feeder;
+    }
+    chosen_idx
 }
 
+fn land_is_bouncer_or_dup_legend(view: &PlayerView, actor: PlayerId, card: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, card) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    let Some(face) = def.faces.get(usize::from(ci.face)) else {
+        return false;
+    };
+    if face.supertypes.contains(SupertypeSet::LEGENDARY)
+        && view.battlefield_of(actor).any(|o| {
+            !o.status.contains(ObjectStatus::PHASED_OUT)
+                && o.card.is_some_and(|c| c.index == ci.index)
+        })
+    {
+        return true;
+    }
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| match ab {
+            AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. } => effects
+                .iter()
+                .any(|e| matches!(e, Effect::ReturnSelfDuringNextUntap)),
+            _ => false,
+        })
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Prioritizes permanent lands that cover missing hand colors while avoiding bounce-loop and duplicate legendary lands"
+)]
 fn redirect_land_for_hand_colors(
     cands: &EncodedCandidates4,
     logits: &[f32],
@@ -3270,6 +3388,12 @@ fn redirect_land_for_hand_colors(
     chosen_idx: usize,
 ) -> usize {
     let actor = view.decision_player.unwrap_or(view.seat);
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+    let avail_after_land = pool_total
+        .saturating_add(untapped_mana_production(view, actor))
+        .saturating_add(1);
     let mut board_color_counts = [0_u32; 5];
     for obj in view.battlefield_of(actor) {
         if obj.status.contains(ObjectStatus::PHASED_OUT) {
@@ -3283,36 +3407,86 @@ fn redirect_land_for_hand_colors(
         }
     }
     let mut missing = [false; 5];
+    let mut missing_castable_now = [false; 5];
     for h in &view.hand {
         if is_true_land_card(view, h.id) {
             continue;
         }
-        if let Some((cost, _)) = lookup_spell_cost(view, h.id) {
+        if let Some((cost, tax)) = lookup_spell_cost(view, h.id) {
+            let cmc = cost.with_x(0).cmc().saturating_add(tax);
             for c in 0..5 {
                 let pips = super::choices::count_color_pips(&cost, c);
                 if pips > board_color_counts[c] {
                     missing[c] = true;
+                    if cmc <= avail_after_land {
+                        missing_castable_now[c] = true;
+                    }
                 }
             }
         }
     }
-    if !missing.iter().any(|&m| m) {
-        return chosen_idx;
-    }
+    let chosen_is_bouncer_or_dup = match cands.candidates[chosen_idx].action {
+        Some(PlayerAction::PlayLand { card }) => {
+            land_is_bouncer_or_dup_legend(view, actor, card)
+                && !{
+                    let cols = land_card_colors(view, card);
+                    (0..5).any(|c| missing_castable_now[c] && cols[c])
+                }
+        }
+        _ => false,
+    };
     let land_covers_missing = |idx: usize| -> bool {
         let Some(PlayerAction::PlayLand { card }) = cands.candidates[idx].action else {
             return false;
         };
+        let is_bad = land_is_bouncer_or_dup_legend(view, actor, card);
         let cols = land_card_colors(view, card);
-        (0..5).any(|c| missing[c] && cols[c])
+        if is_bad {
+            (0..5).any(|c| missing_castable_now[c] && cols[c])
+        } else {
+            (0..5).any(|c| missing[c] && cols[c])
+        }
     };
-    if land_covers_missing(chosen_idx) {
-        return chosen_idx;
+    if missing.iter().any(|&m| m) {
+        if land_covers_missing(chosen_idx) && !chosen_is_bouncer_or_dup {
+            return chosen_idx;
+        }
+        if let Some(best_missing) = (0..cands.candidates.len())
+            .filter(|&i| logits[i].is_finite() && land_covers_missing(i))
+            .max_by(|&a, &b| {
+                let bad_a = match cands.candidates[a].action {
+                    Some(PlayerAction::PlayLand { card }) => {
+                        land_is_bouncer_or_dup_legend(view, actor, card)
+                    }
+                    _ => true,
+                };
+                let bad_b = match cands.candidates[b].action {
+                    Some(PlayerAction::PlayLand { card }) => {
+                        land_is_bouncer_or_dup_legend(view, actor, card)
+                    }
+                    _ => true,
+                };
+                bad_b.cmp(&bad_a).then_with(|| logits[a].total_cmp(&logits[b]))
+            })
+        {
+            return best_missing;
+        }
     }
-    (0..cands.candidates.len())
-        .filter(|&i| logits[i].is_finite() && land_covers_missing(i))
-        .max_by(|&a, &b| logits[a].total_cmp(&logits[b]))
-        .unwrap_or(chosen_idx)
+    if chosen_is_bouncer_or_dup
+        && let Some(best_perm) = (0..cands.candidates.len())
+            .filter(|&i| {
+                logits[i].is_finite()
+                    && matches!(
+                        cands.candidates[i].action,
+                        Some(PlayerAction::PlayLand { card })
+                            if !land_is_bouncer_or_dup_legend(view, actor, card)
+                    )
+            })
+            .max_by(|&a, &b| logits[a].total_cmp(&logits[b]))
+    {
+        return best_perm;
+    }
+    chosen_idx
 }
 
 #[allow(
@@ -3403,10 +3577,32 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
             }
             if let Some((cost, tax)) = lookup_spell_cost(view, id)
                 && cost.with_x(0).cmc().saturating_add(tax) <= total_reachable
-                && spell_colors_reachable_inner(view, actor, Some(legal), Some(id), None, &cost)
+                && spell_colors_reachable_inner_opts(
+                    view,
+                    actor,
+                    Some(legal),
+                    Some(id),
+                    None,
+                    &cost,
+                    false,
+                )
             {
                 accum_cost(&cost);
                 any_payable_accum = true;
+            }
+        }
+        if !any_payable_accum {
+            for &id in &legal.payable {
+                if legal.castable.contains(&id) || !is_spell_worth_casting_now(view, id) {
+                    continue;
+                }
+                if let Some((cost, tax)) = lookup_spell_cost(view, id)
+                    && cost.with_x(0).cmc().saturating_add(tax) <= total_reachable
+                    && spell_colors_reachable_inner(view, actor, Some(legal), Some(id), None, &cost)
+                {
+                    accum_cost(&cost);
+                    any_payable_accum = true;
+                }
             }
         }
         if !any_payable_accum {
@@ -3472,10 +3668,6 @@ pub(super) fn spell_colors_reachable(
     spell_colors_reachable_inner(view, actor, None, Some(spell_id), None, cost)
 }
 
-#[allow(
-    clippy::too_many_lines,
-    reason = "Checks unrestricted and tribal mana sources against spell color pips"
-)]
 fn spell_colors_reachable_inner(
     view: &PlayerView,
     actor: PlayerId,
@@ -3483,6 +3675,22 @@ fn spell_colors_reachable_inner(
     spell_id: Option<ObjectId>,
     exclude_source: Option<ObjectId>,
     cost: &ManaCost,
+) -> bool {
+    spell_colors_reachable_inner_opts(view, actor, legal, spell_id, exclude_source, cost, true)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Checks unrestricted, filter-land, and tribal mana sources against spell color pips"
+)]
+fn spell_colors_reachable_inner_opts(
+    view: &PlayerView,
+    actor: PlayerId,
+    legal: Option<&LegalActions>,
+    spell_id: Option<ObjectId>,
+    exclude_source: Option<ObjectId>,
+    cost: &ManaCost,
+    allow_filter_lands: bool,
 ) -> bool {
     let mut counts = [0_u32; 6];
     if let Some(seat) = view.seat(actor) {
@@ -3511,6 +3719,17 @@ fn spell_colors_reachable_inner(
             .colorless
             .saturating_add(u32::try_from(seat.mana_pool.restricted[5]).unwrap_or(0));
     }
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+    let total_reach = pool_total.saturating_add(untapped_mana_production(view, actor));
+    let spell_cmc = spell_id
+        .and_then(|sid| lookup_spell_cost(view, sid))
+        .map_or_else(
+            || cost.with_x(0).cmc(),
+            |(c, tax)| c.with_x(0).cmc().saturating_add(tax),
+        );
+    let mut rem_filter_slack = total_reach.saturating_sub(spell_cmc);
     let spell_face = spell_id
         .and_then(|sid| lookup_card_identity(view, sid))
         .and_then(|ci| {
@@ -3524,6 +3743,17 @@ fn spell_colors_reachable_inner(
             continue;
         }
         let mut sc = non_sac_source_colors(view, obj.id);
+        if allow_filter_lands
+            && !sc[0..5].iter().all(|&b| b)
+            && let Some((f_cmc, f_cols)) = filter_land_min_cost_and_colors(view, obj.id)
+            && spell_cmc <= total_reach
+            && f_cmc <= rem_filter_slack
+        {
+            rem_filter_slack -= f_cmc;
+            for c in 0..5 {
+                sc[c] |= f_cols[c];
+            }
+        }
         if let Some(rf) = obj.rules.or_else(|| {
             obj.card.map(|c| RulesFace {
                 card: c.index,
@@ -3941,6 +4171,57 @@ pub(super) fn land_card_colors(view: &PlayerView, id: ObjectId) -> [bool; 5] {
         mark_unrestricted_effect_mana_colors(Some((view, actor)), effects, &mut colors);
     }
     [colors[0], colors[1], colors[2], colors[3], colors[4]]
+}
+
+pub(super) fn filter_land_min_cost_and_colors(
+    view: &PlayerView,
+    id: ObjectId,
+) -> Option<(u32, [bool; 5])> {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let abilities = if let Some(obj) = view.object(id) {
+        if !obj.types.contains(TypeSet::LAND) {
+            return None;
+        }
+        abilities_of_battlefield_object(obj)?
+    } else {
+        let ci = lookup_card_identity(view, id)?;
+        let def = baylee_cards::by_index(ci.index)?;
+        let face = def.faces.get(usize::from(ci.face))?;
+        if !face.types.contains(TypeSet::LAND) {
+            return None;
+        }
+        def.abilities_for_face(usize::from(ci.face))
+    };
+    let mut best_cmc: Option<u32> = None;
+    let mut colors = [false; 6];
+    for ab in abilities {
+        if let AbilityDef::Activated {
+            cost,
+            effects,
+            targets,
+            ..
+        } = ab
+            && cost.mana != ManaCost::ZERO
+            && !cost.parts.iter().any(|p| {
+                matches!(
+                    p,
+                    CostPart::Sacrifice(_) | CostPart::SacrificeSelf | CostPart::SacrificeX(_)
+                )
+            })
+            && baylee_cards_dsl::mana_rule::activated_mana_ability(cost, effects, targets.is_some())
+        {
+            let cmc = cost.mana.with_x(0).cmc();
+            let mut ab_cols = [false; 6];
+            mark_unrestricted_effect_mana_colors(Some((view, actor)), effects, &mut ab_cols);
+            if ab_cols[0..5].iter().any(|&b| b) {
+                best_cmc = Some(best_cmc.map_or(cmc, |old| old.min(cmc)));
+                for c in 0..5 {
+                    colors[c] |= ab_cols[c];
+                }
+            }
+        }
+    }
+    best_cmc.map(|cmc| (cmc, [colors[0], colors[1], colors[2], colors[3], colors[4]]))
 }
 
 fn mark_intrinsic_land_colors(obj: &PublicObject, colors: &mut [bool; 6]) {
