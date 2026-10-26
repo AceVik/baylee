@@ -4,17 +4,21 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn death_charmer() -> CardIndex {
+    card_index("491606d8-e9c1-4f89-bbef-b7590d310097")
+}
+
 #[test]
 fn death_charmer_makes_damaged_creatures_controller_pay_two_or_lose_two_life() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[index::DEATH_CHARMER])
+        .battlefield(0, &[death_charmer()])
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let charmer = on_battlefield(&engine, p0, index::DEATH_CHARMER).unwrap();
+    let charmer = on_battlefield(&engine, p0, death_charmer()).unwrap();
     let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
 
     pass_until(
@@ -55,13 +59,13 @@ fn death_charmer_makes_damaged_creatures_controller_pay_two_or_lose_two_life() {
 fn death_charmer_trigger_is_prevented_when_controller_pays_two() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
-        .battlefield(0, &[index::DEATH_CHARMER])
+        .battlefield(0, &[death_charmer()])
         .battlefield(1, &[index::WALL_OF_STONE, forest(), forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let charmer = on_battlefield(&engine, p0, index::DEATH_CHARMER).unwrap();
+    let charmer = on_battlefield(&engine, p0, death_charmer()).unwrap();
     let wall = on_battlefield(&engine, p1, index::WALL_OF_STONE).unwrap();
 
     pass_until(

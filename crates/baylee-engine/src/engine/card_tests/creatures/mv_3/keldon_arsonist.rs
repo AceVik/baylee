@@ -2,7 +2,10 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
+
+fn keldon_arsonist() -> CardIndex {
+    card_index("d32f973e-38db-4f74-aec6-258d25c1fb7d")
+}
 
 /// Keldon Arsonist ({2}{R} 1/1 Creature — Human Soldier):
 /// "{1}, Sacrifice two lands: Destroy target land."
@@ -10,10 +13,7 @@ use baylee_core::generated::index;
 fn keldon_arsonist_sacrifices_two_lands_to_destroy_target_land() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(
-            0,
-            &[index::KELDON_ARSONIST, mountain(), mountain(), mountain()],
-        )
+        .battlefield(0, &[keldon_arsonist(), mountain(), mountain(), mountain()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
@@ -21,7 +21,7 @@ fn keldon_arsonist_sacrifices_two_lands_to_destroy_target_land() {
 
     let opp_land = on_battlefield(&engine, p1, forest()).unwrap();
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::KELDON_ARSONIST, 0);
+    activate(&mut engine, p0, keldon_arsonist(), 0);
     engine
         .apply(
             p0,
@@ -63,14 +63,14 @@ fn keldon_arsonist_sacrifices_two_lands_to_destroy_target_land() {
 fn keldon_arsonist_cannot_activate_with_only_one_land() {
     let (p0, _p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::KELDON_ARSONIST, mountain()])
+        .battlefield(0, &[keldon_arsonist(), mountain()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     tap_all_mana(&mut engine, p0);
-    let arsonist = on_battlefield(&engine, p0, index::KELDON_ARSONIST).unwrap();
+    let arsonist = on_battlefield(&engine, p0, keldon_arsonist()).unwrap();
     assert!(
         engine
             .apply(

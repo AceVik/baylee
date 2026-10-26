@@ -4,6 +4,10 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn flameshot() -> CardIndex {
+    card_index("26640648-6400-4b80-a78b-f519ab9cd09e")
+}
+
 /// Flameshot ({3}{R} Sorcery, Partial):
 /// "Flameshot deals 3 damage divided as you choose among one, two, or three target creatures."
 #[test]
@@ -11,14 +15,14 @@ fn flameshot_deals_3_damage_to_single_target_creature() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
-        .hand(0, &[index::FLAMESHOT])
+        .hand(0, &[flameshot()])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
     let giant = on_battlefield(&engine, p1, index::HILL_GIANT).unwrap();
-    cast_from_hand(&mut engine, p0, index::FLAMESHOT);
+    cast_from_hand(&mut engine, p0, flameshot());
     engine
         .apply(
             p0,
@@ -39,7 +43,7 @@ fn flameshot_divides_damage_across_two_target_creatures() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
         .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
-        .hand(0, &[index::FLAMESHOT])
+        .hand(0, &[flameshot()])
         .battlefield(1, &[index::GRIZZLY_BEARS, llanowar_elves()])
         .start();
     keep_mulligans(&mut engine);
@@ -47,7 +51,7 @@ fn flameshot_divides_damage_across_two_target_creatures() {
 
     let bear = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
     let elf = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
-    cast_from_hand(&mut engine, p0, index::FLAMESHOT);
+    cast_from_hand(&mut engine, p0, flameshot());
     engine
         .apply(
             p0,

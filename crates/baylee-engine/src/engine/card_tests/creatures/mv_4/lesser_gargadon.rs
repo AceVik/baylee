@@ -4,18 +4,22 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn lesser_gargadon() -> CardIndex {
+    card_index("7e162cc1-9482-4812-8897-209ec2927ec0")
+}
+
 /// Lesser Gargadon ({2}{R}{R} 6/4 Creature — Beast):
 /// "Whenever this creature attacks or blocks, sacrifice a land."
 #[test]
 fn lesser_gargadon_sacrifices_a_land_when_attacking() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::LESSER_GARGADON, mountain(), mountain()])
+        .battlefield(0, &[lesser_gargadon(), mountain(), mountain()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let gargadon = on_battlefield(&engine, p0, index::LESSER_GARGADON).unwrap();
+    let gargadon = on_battlefield(&engine, p0, lesser_gargadon()).unwrap();
     pass_until(
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p0),
@@ -54,14 +58,14 @@ fn lesser_gargadon_sacrifices_a_land_when_attacking() {
 fn lesser_gargadon_sacrifices_a_land_when_blocking() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::LESSER_GARGADON, mountain()])
+        .battlefield(0, &[lesser_gargadon(), mountain()])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
     keep_mulligans(&mut engine);
     reach_their_main_phase(&mut engine, p1);
 
     let attacker = on_battlefield(&engine, p1, index::HILL_GIANT).unwrap();
-    let gargadon = on_battlefield(&engine, p0, index::LESSER_GARGADON).unwrap();
+    let gargadon = on_battlefield(&engine, p0, lesser_gargadon()).unwrap();
     pass_until(
         &mut engine,
         |e| matches!(e.pending(), Pending::ChooseAttackers { player, .. } if *player == p1),
@@ -104,5 +108,5 @@ fn lesser_gargadon_sacrifices_a_land_when_blocking() {
     assert!(in_graveyard(&engine, p0, mountain()).is_some());
     assert!(on_battlefield(&engine, p1, index::HILL_GIANT).is_none());
     assert!(in_graveyard(&engine, p1, index::HILL_GIANT).is_some());
-    assert!(on_battlefield(&engine, p0, index::LESSER_GARGADON).is_some());
+    assert!(on_battlefield(&engine, p0, lesser_gargadon()).is_some());
 }

@@ -4,20 +4,24 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn avatar_of_might() -> CardIndex {
+    card_index("68d84ffa-5bd0-4ed9-a987-6cef13095438")
+}
+
 #[test]
 fn avatar_of_might_casts_and_tramples_over_blocker() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, forest())
-        .hand(0, &[index::AVATAR_OF_MIGHT])
+        .hand(0, &[avatar_of_might()])
         .battlefield(0, &[forest(); 8])
         .battlefield(1, &[index::GRIZZLY_BEARS])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    cast_from_hand(&mut engine, p0, index::AVATAR_OF_MIGHT);
+    cast_from_hand(&mut engine, p0, avatar_of_might());
     pass_until(&mut engine, stack_is_empty);
-    let avatar = on_battlefield(&engine, p0, index::AVATAR_OF_MIGHT).unwrap();
+    let avatar = on_battlefield(&engine, p0, avatar_of_might()).unwrap();
     assert_eq!(pt(&engine, avatar), (8, 8));
 
     reach_their_main_phase(&mut engine, p1);

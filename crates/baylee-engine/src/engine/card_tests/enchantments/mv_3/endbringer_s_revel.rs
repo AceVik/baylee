@@ -4,19 +4,17 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn endbringer_s_revel() -> CardIndex {
+    card_index("4ca2511d-76f0-470c-b522-b75fb08932d9")
+}
+
 #[test]
 fn endbringers_revel_lets_any_player_return_creature_card_from_graveyard_as_a_sorcery() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, swamp())
         .battlefield(
             0,
-            &[
-                index::ENDBRINGER_S_REVEL,
-                swamp(),
-                swamp(),
-                swamp(),
-                swamp(),
-            ],
+            &[endbringer_s_revel(), swamp(), swamp(), swamp(), swamp()],
         )
         .battlefield(1, &[forest(), forest(), forest(), forest()])
         .hand(0, &[index::GRIZZLY_BEARS])
@@ -28,12 +26,12 @@ fn endbringers_revel_lets_any_player_return_creature_card_from_graveyard_as_a_so
     hand_to_graveyard(&mut engine, p0, index::GRIZZLY_BEARS);
     hand_to_graveyard(&mut engine, p1, llanowar_elves());
 
-    let revel = on_battlefield(&engine, p0, index::ENDBRINGER_S_REVEL).unwrap();
+    let revel = on_battlefield(&engine, p0, endbringer_s_revel()).unwrap();
     let bears = in_graveyard(&engine, p0, index::GRIZZLY_BEARS).unwrap();
 
     // Controller activates during their main phase to return Grizzly Bears.
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::ENDBRINGER_S_REVEL, 0);
+    activate(&mut engine, p0, endbringer_s_revel(), 0);
     engine
         .apply(
             p0,

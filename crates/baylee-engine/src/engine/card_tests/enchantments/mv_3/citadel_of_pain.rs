@@ -2,13 +2,16 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
+
+fn citadel_of_pain() -> CardIndex {
+    card_index("2233c079-5ca6-4992-8bd2-84dbf9ed53a9")
+}
 
 #[test]
 fn citadel_of_pain_damages_active_player_for_untapped_lands_at_end_step() {
     let (p0, _p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, mountain())
-        .hand(0, &[index::CITADEL_OF_PAIN, mountain()])
+        .hand(0, &[citadel_of_pain(), mountain()])
         .battlefield(0, &[mountain(); 3])
         .battlefield(1, &[forest(); 3])
         .start();
@@ -16,7 +19,7 @@ fn citadel_of_pain_damages_active_player_for_untapped_lands_at_end_step() {
     reach_main_phase(&mut engine, p0);
 
     // Cast Citadel of Pain ({2}{R}), then play an untapped Mountain for the turn.
-    cast_from_hand(&mut engine, p0, index::CITADEL_OF_PAIN);
+    cast_from_hand(&mut engine, p0, citadel_of_pain());
     pass_until(&mut engine, stack_is_empty);
     play_land(&mut engine, p0, mountain());
 

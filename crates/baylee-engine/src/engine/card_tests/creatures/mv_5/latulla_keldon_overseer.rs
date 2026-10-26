@@ -4,6 +4,10 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn latulla_keldon_overseer() -> CardIndex {
+    card_index("86b2879b-6c54-4d96-ab81-a3f2c87d42d9")
+}
+
 /// Latulla, Keldon Overseer ({3}{R}{R} 3/3 Legendary Creature — Human Spellshaper):
 /// "{X}{R}, {T}, Discard two cards: Latulla deals X damage to any target."
 #[test]
@@ -13,7 +17,7 @@ fn latulla_keldon_overseer_discards_two_cards_to_deal_x_damage_to_player() {
         .battlefield(
             0,
             &[
-                index::LATULLA_KELDON_OVERSEER,
+                latulla_keldon_overseer(),
                 mountain(),
                 mountain(),
                 mountain(),
@@ -26,7 +30,7 @@ fn latulla_keldon_overseer_discards_two_cards_to_deal_x_damage_to_player() {
     reach_main_phase(&mut engine, p0);
 
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::LATULLA_KELDON_OVERSEER, 0);
+    activate(&mut engine, p0, latulla_keldon_overseer(), 0);
     for _ in 0..6 {
         match engine.pending().clone() {
             Pending::ChooseNumber { .. } => {
@@ -71,7 +75,7 @@ fn latulla_keldon_overseer_destroys_target_creature_with_x_damage() {
         .battlefield(
             0,
             &[
-                index::LATULLA_KELDON_OVERSEER,
+                latulla_keldon_overseer(),
                 mountain(),
                 mountain(),
                 mountain(),
@@ -85,7 +89,7 @@ fn latulla_keldon_overseer_destroys_target_creature_with_x_damage() {
 
     let bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::LATULLA_KELDON_OVERSEER, 0);
+    activate(&mut engine, p0, latulla_keldon_overseer(), 0);
     for _ in 0..6 {
         match engine.pending().clone() {
             Pending::ChooseNumber { .. } => {

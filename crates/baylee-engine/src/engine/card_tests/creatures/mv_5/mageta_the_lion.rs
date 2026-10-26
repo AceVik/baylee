@@ -4,6 +4,10 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn mageta_the_lion() -> CardIndex {
+    card_index("cd170b1c-879b-414e-9f0e-5e7fb099e7bb")
+}
+
 /// Mageta the Lion ({3}{W}{W} 3/3 Legendary Creature — Human Spellshaper):
 /// "{2}{W}{W}, {T}, Discard two cards: Destroy all creatures except for Mageta. Those creatures can't be regenerated."
 #[test]
@@ -13,7 +17,7 @@ fn mageta_the_lion_destroys_all_other_creatures_and_spares_itself() {
         .battlefield(
             0,
             &[
-                index::MAGETA_THE_LION,
+                mageta_the_lion(),
                 grizzly_bears(),
                 plains(),
                 plains(),
@@ -28,7 +32,7 @@ fn mageta_the_lion_destroys_all_other_creatures_and_spares_itself() {
     reach_main_phase(&mut engine, p0);
 
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::MAGETA_THE_LION, 0);
+    activate(&mut engine, p0, mageta_the_lion(), 0);
     for _ in 0..2 {
         let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
             panic!(
@@ -47,7 +51,7 @@ fn mageta_the_lion_destroys_all_other_creatures_and_spares_itself() {
     }
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p0, index::MAGETA_THE_LION).is_some());
+    assert!(on_battlefield(&engine, p0, mageta_the_lion()).is_some());
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_none());
     assert!(in_graveyard(&engine, p0, grizzly_bears()).is_some());
     assert!(on_battlefield(&engine, p1, index::HILL_GIANT).is_none());
@@ -61,13 +65,7 @@ fn mageta_the_lion_prevents_regeneration_on_other_creatures() {
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
             0,
-            &[
-                index::MAGETA_THE_LION,
-                plains(),
-                plains(),
-                plains(),
-                plains(),
-            ],
+            &[mageta_the_lion(), plains(), plains(), plains(), plains()],
         )
         .hand(0, &[plains(), forest()])
         .battlefield(1, &[index::DRUDGE_SKELETONS, swamp()])
@@ -76,7 +74,7 @@ fn mageta_the_lion_prevents_regeneration_on_other_creatures() {
     reach_main_phase(&mut engine, p0);
 
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::MAGETA_THE_LION, 0);
+    activate(&mut engine, p0, mageta_the_lion(), 0);
     for _ in 0..2 {
         let Pending::ChooseCards { options, .. } = engine.pending().clone() else {
             panic!(
@@ -101,7 +99,7 @@ fn mageta_the_lion_prevents_regeneration_on_other_creatures() {
     activate(&mut engine, p1, index::DRUDGE_SKELETONS, 0);
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p0, index::MAGETA_THE_LION).is_some());
+    assert!(on_battlefield(&engine, p0, mageta_the_lion()).is_some());
     assert!(on_battlefield(&engine, p1, index::DRUDGE_SKELETONS).is_none());
     assert!(in_graveyard(&engine, p1, index::DRUDGE_SKELETONS).is_some());
 }

@@ -2,24 +2,27 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
+
+fn excavation() -> CardIndex {
+    card_index("9f7b2ec6-a828-499b-a2ac-766bdaaf30c1")
+}
 
 #[test]
 fn excavation_lets_any_player_pay_one_and_sacrifice_a_land_to_draw_a_card() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, island())
-        .battlefield(0, &[index::EXCAVATION, island()])
+        .battlefield(0, &[excavation(), island()])
         .battlefield(1, &[forest()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
-    let excavation = on_battlefield(&engine, p0, index::EXCAVATION).unwrap();
+    let excavation = on_battlefield(&engine, p0, excavation()).unwrap();
     let p0_island = on_battlefield(&engine, p0, island()).unwrap();
     let p0_hand_before = engine.state().zones.list(ZoneLocation::Hand(p0)).len();
 
     tap_all_mana(&mut engine, p0);
-    activate(&mut engine, p0, index::EXCAVATION, 0);
+    activate(&mut engine, p0, excavation(), 0);
     engine
         .apply(
             p0,

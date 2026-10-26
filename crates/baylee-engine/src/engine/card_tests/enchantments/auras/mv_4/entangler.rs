@@ -4,11 +4,15 @@
 use super::*;
 use baylee_core::generated::index;
 
+fn entangler() -> CardIndex {
+    card_index("285cf707-df0c-4eb9-8f60-5d052ee8eb8c")
+}
+
 #[test]
 fn entangler_lets_enchanted_creature_block_any_number_of_creatures() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut engine = Duel::new(SEED, plains())
-        .hand(0, &[index::ENTANGLER])
+        .hand(0, &[entangler()])
         .battlefield(
             0,
             &[plains(), plains(), plains(), plains(), index::WALL_OF_STONE],
@@ -26,7 +30,7 @@ fn entangler_lets_enchanted_creature_block_any_number_of_creatures() {
     let ogre = on_battlefield(&engine, p1, index::GRAY_OGRE).unwrap();
     let elves = on_battlefield(&engine, p1, llanowar_elves()).unwrap();
 
-    cast_from_hand(&mut engine, p0, index::ENTANGLER);
+    cast_from_hand(&mut engine, p0, entangler());
     engine
         .apply(
             p0,
