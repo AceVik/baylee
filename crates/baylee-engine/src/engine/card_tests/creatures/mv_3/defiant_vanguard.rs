@@ -12,11 +12,9 @@ const P1: PlayerId = PlayerId::new(1);
 /// {5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle."
 #[test]
 fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_recruits_rebels() {
+    let subject = card_index("680766e2-637b-40bc-a15f-0b4dc55bd619");
     let mut engine = Duel::new(SEED, index::NIGHTWIND_GLIDER)
-        .battlefield(
-            0,
-            &[card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"), forest()],
-        )
+        .battlefield(0, &[subject, forest()])
         .hand(0, &[index::FOG])
         .battlefield(1, &[index::HILL_GIANT])
         .start();
@@ -29,12 +27,7 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
         .add(ManaColor::White, 5);
     engine.refresh_offer();
 
-    activate(
-        &mut engine,
-        P0,
-        card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"),
-        1,
-    );
+    activate(&mut engine, P0, subject, 1);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
     });
@@ -60,12 +53,7 @@ fn defiant_vanguard_destroys_itself_and_blocked_creature_at_end_of_combat_and_re
     reach_their_main_phase(&mut engine, P1);
     reach_their_main_phase(&mut engine, P0);
     reach_their_main_phase(&mut engine, P1);
-    let vanguard = on_battlefield(
-        &engine,
-        P0,
-        card_index("680766e2-637b-40bc-a15f-0b4dc55bd619"),
-    )
-    .unwrap();
+    let vanguard = on_battlefield(&engine, P0, subject).unwrap();
     let giant = on_battlefield(&engine, P1, index::HILL_GIANT).unwrap();
     pass_until(
         &mut engine,

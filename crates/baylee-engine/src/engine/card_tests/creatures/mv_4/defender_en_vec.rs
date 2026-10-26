@@ -12,6 +12,7 @@ const P1: PlayerId = PlayerId::new(1);
 /// Remove a fade counter from this creature: Prevent the next 2 damage that would be dealt to any target this turn."
 #[test]
 fn defender_en_vec_enters_with_four_fade_counters_and_removes_one_to_prevent_two_damage() {
+    let subject = card_index("bb8a55a5-596e-427c-b745-4de8b0dfb095");
     let mut engine = Duel::new(SEED, plains())
         .battlefield(
             0,
@@ -24,13 +25,7 @@ fn defender_en_vec_enters_with_four_fade_counters_and_removes_one_to_prevent_two
                 grizzly_bears(),
             ],
         )
-        .hand(
-            0,
-            &[
-                card_index("bb8a55a5-596e-427c-b745-4de8b0dfb095"),
-                lightning_bolt(),
-            ],
-        )
+        .hand(0, &[subject, lightning_bolt()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -49,19 +44,10 @@ fn defender_en_vec_enters_with_four_fade_counters_and_removes_one_to_prevent_two
         })
         .collect();
     tap_mana_where(&mut engine, P0, |id| plains_ids.contains(&id));
-    cast_with_floating(
-        &mut engine,
-        P0,
-        card_index("bb8a55a5-596e-427c-b745-4de8b0dfb095"),
-    );
+    cast_with_floating(&mut engine, P0, subject);
     pass_until(&mut engine, stack_is_empty);
 
-    let defender = on_battlefield(
-        &engine,
-        P0,
-        card_index("bb8a55a5-596e-427c-b745-4de8b0dfb095"),
-    )
-    .unwrap();
+    let defender = on_battlefield(&engine, P0, subject).unwrap();
     let bears = on_battlefield(&engine, P0, grizzly_bears()).unwrap();
     assert_eq!(
         engine
@@ -74,12 +60,7 @@ fn defender_en_vec_enters_with_four_fade_counters_and_removes_one_to_prevent_two
     );
 
     // Spend 1 fade counter to shield Grizzly Bears from 2 of Lightning Bolt's 3 damage.
-    activate(
-        &mut engine,
-        P0,
-        card_index("bb8a55a5-596e-427c-b745-4de8b0dfb095"),
-        1,
-    );
+    activate(&mut engine, P0, subject, 1);
     engine
         .apply(
             P0,
