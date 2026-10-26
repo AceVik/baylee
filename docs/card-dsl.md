@@ -1890,6 +1890,12 @@ ZoneRef::Battlefield))`, an `AddCounter` of `counters::AGE`, then
 `PlayerMayPayOr { player: You, mana: Amount::CountersOnSource(counters::AGE),
 effect: &Effect::SacrificeSelf }`. `Amount::CountersOnSource(kind)` reads
 the source's counters as it resolves, after the counter above went on.
+Fading (CR 702.32a) uses `counters::FADE`: `EnterModifier::WithCounters`
+adds the printed number of fade counters, and a `StepBegin { Upkeep, You }`
+trigger uses `IfCondition { condition: Condition::CountersOnSelf(counters::FADE,
+1), then: &[RemoveCounterSelf { kind: counters::FADE, n: 1 }], otherwise:
+&[SacrificeSelf] }`. Removing the last counter does not sacrifice the permanent;
+the upkeep trigger sacrifices it only when no fade counter can be removed.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
 `DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
@@ -2358,6 +2364,9 @@ hashes, layers and does nothing. This paragraph said THREE until
   - `CardTypesInAllGraveyards`
   - `ExiledWithThis`: the cards in exile exiled with this object as it is now
     (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
+  - `CountersOnThis(kind)`: counters of the named kind on the affected object
+    (Rusting Golem's fade counters), rather than on the source of a granted
+    ability.
 
   Power is the count, and toughness is the count plus `toughness_plus`
   (Pyrogoyf: `+1`). A characteristic-defining ability works in every zone
@@ -2558,6 +2567,10 @@ Triggers, reflexive events and amounts:
   `TargetSpec::EventObject` is the damaged permanent's event incarnation;
   `Amount::EventAmount` is the damage it received, summed across sources
   for simultaneous combat damage and retained even when that damage kills it.
+- **`Trigger::DealtCombatDamage(filter)`** is the combat-only form of
+  `DealtDamage` (Pious Warrior). It fires once per damaged permanent for a
+  step's combat damage, with the same event object and summed
+  `Amount::EventAmount`; noncombat and fully prevented damage do not trigger it.
 - **`Trigger::PlayerDealtDamage(rel)`** is "whenever you're dealt damage"
   (Living Artifact, Lich), the player's side of `DealtDamage`: once for a
   step's combat damage to that player and once for every other damage
@@ -3980,6 +3993,10 @@ else does it match anything.
 
 Filters:
 
+- `Filter::Blocked` — an attacking creature that became blocked this combat
+  (CR 509.1h), even after its blockers leave combat. It is false before
+  blockers are declared and after the attacker leaves combat. The filter macro
+  spells it `f!(blocked CREATURE)` (Warpath).
 - `Filter::Reference` — the reference object itself.
 - `Filter::BlockingReference` — blocking the reference object now (Feint:
   `Effect::TapAll { filter: &Filter::BlockingReference }`).

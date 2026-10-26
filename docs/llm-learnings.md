@@ -5671,7 +5671,6 @@ UI review lesson from the surrounding PR: asynchronous screenshot encoding
 must not remove the wait for GPU readback, and virtualized rows from an old
 log must never be measured against a replacement book. Tests need measured
 rows and lifecycle changes, not only initial mounting with empty layout data.
-<<<<<<< HEAD
 ## 2026-10-25 — First Partial-completion batch (eight cards)
 
 The first eight-card batch has 48 passing focused tests and its initial table
