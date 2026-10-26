@@ -192,6 +192,8 @@ mod smothering_tithe;
 mod snake_pit;
 mod spirit_mirror;
 mod spiritual_asylum;
+mod squeeze;
+mod statecraft;
 mod stimulus_package;
 mod storm_the_vault;
 mod strands_of_night;

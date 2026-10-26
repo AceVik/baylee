@@ -156,6 +156,7 @@ mod undergrowth;
 mod unnatural_speed;
 mod unsummon;
 mod vastwood_fortification;
+mod vendetta;
 mod vertigo;
 mod vision_charm;
 mod vitalize;

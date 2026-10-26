@@ -366,6 +366,7 @@ mod three_tree_mascot;
 mod tidehollow_strix;
 mod tough_cookie;
 mod towering_viewpoint;
+mod toymaker;
 mod vault_skirge;
 mod vedalken_outlander;
 mod verdant_automaton;

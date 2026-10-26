@@ -54,6 +54,7 @@ mod taste_of_paradise;
 mod titania_s_boon;
 mod touch_of_brilliance;
 mod tsunami;
+mod unmask;
 mod unyaro_bee_sting;
 mod vengeance;
 mod wrath_of_god;

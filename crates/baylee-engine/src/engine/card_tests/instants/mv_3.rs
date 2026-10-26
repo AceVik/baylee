@@ -87,6 +87,7 @@ mod stampede;
 mod stench_of_decay;
 mod sultai_charm;
 mod teferi_s_protection;
+mod thunderclap;
 mod touch_of_vitae;
 mod trumpet_blast;
 mod valakut_awakening;

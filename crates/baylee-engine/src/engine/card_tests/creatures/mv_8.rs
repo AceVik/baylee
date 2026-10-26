@@ -33,6 +33,7 @@ mod razaketh_the_foulblooded;
 mod scaled_wurm;
 mod skeletal_wurm;
 mod tidal_force;
+mod tidal_kraken;
 mod tidespout_tyrant;
 mod utvara_hellkite;
 mod verdant_force;

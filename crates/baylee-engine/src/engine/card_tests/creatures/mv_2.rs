@@ -196,6 +196,7 @@ mod orcish_librarian;
 mod orcish_settlers;
 mod orochi_sustainer;
 mod osai_vultures;
+mod overtaker;
 mod patrol_hound;
 mod people_of_the_woods;
 mod phantasmal_mount;

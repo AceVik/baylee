@@ -138,6 +138,7 @@ mod temper;
 mod terminate;
 mod terror;
 mod thunderbolt;
+mod tidal_bore;
 mod titanic_growth;
 mod tolarian_winds;
 mod tread_upon;

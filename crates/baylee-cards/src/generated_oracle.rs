@@ -9334,7 +9334,8 @@ pub static ORACLE: &[&[&str]] = &[
     &["When this creature enters, destroy target land."],
     // Ogre Berserker
     &["Haste"],
-    &[],
+    // Ogre Taskmaster
+    &["This creature can't block."],
     // Ogre Warrior
     &[""],
     &[],
@@ -11507,7 +11508,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[""],
     // Willow Elf
     &[""],
-    &[],
+    // Overtaker
+    &[
+        "{3}{U}, {T}, Discard a card: Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.",
+    ],
     &[],
     // Aerial Caravan
     &[
@@ -12319,21 +12323,32 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Spontaneous Generation
     &["Create a 1/1 green Saproling creature token for each card in your hand."],
-    &[],
-    &[],
-    &[],
+    // Squallmonger
+    &[
+        "{2}: This creature deals 1 damage to each creature with flying and each player. Any player may activate this ability.",
+    ],
+    // Squee, Goblin Nabob
+    &[
+        "At the beginning of your upkeep, you may return this card from your graveyard to your hand.",
+    ],
+    // Squeeze
+    &["Sorcery spells cost {3} more to cast."],
     // Stamina
     &[
         "Enchant creature\nEnchanted creature has vigilance.\nSacrifice this Aura: Regenerate enchanted creature.",
     ],
-    &[],
+    // Statecraft
+    &["Prevent all combat damage that would be dealt to and dealt by creatures you control."],
     // Steadfast Guard
     &["Vigilance (Attacking doesn't cause this creature to tap.)"],
     // Stinging Barrier
     &[
         "Defender (This creature can't attack.)\n{U}, {T}: This creature deals 1 damage to any target.",
     ],
-    &[],
+    // Story Circle
+    &[
+        "As this enchantment enters, choose a color.\n{W}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
+    ],
     // Strongarm Thug
     &[
         "When this creature enters, you may return target Mercenary card from your graveyard to your hand.",
@@ -12344,18 +12359,38 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Sustenance
     &["{1}, Sacrifice a land: Target creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Task Force
+    &[
+        "Whenever this creature becomes the target of a spell or ability, it gets +0/+3 until end of turn.",
+    ],
+    // Tectonic Break
+    &["Each player sacrifices X lands of their choice."],
+    // Territorial Dispute
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a land.\nPlayers can't play lands.",
+    ],
     // Thermal Glider
     &["Flying, protection from red"],
-    &[],
+    // Thieves' Auction
+    &[
+        "Exile all nontoken permanents. Starting with you, each player chooses one of the exiled cards and puts it onto the battlefield tapped under their control. Repeat this process until all cards exiled this way have been chosen.",
+    ],
     // Thrashing Wumpus
     &["{B}: This creature deals 1 damage to each creature and each player."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thunderclap
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nThunderclap deals 3 damage to target creature.",
+    ],
+    // Thwart
+    &[
+        "You may return three Islands you control to their owner's hand rather than pay this spell's mana cost.\nCounter target spell.",
+    ],
+    // Tidal Bore
+    &[
+        "You may return an Island you control to its owner's hand rather than pay this spell's mana cost.\nYou may tap or untap target creature.",
+    ],
+    // Tidal Kraken
+    &["This creature can't be blocked."],
     // Tiger Claws
     &["Flash\nEnchant creature\nEnchanted creature gets +1/+1 and has trample."],
     // Tonic Peddler
@@ -12366,32 +12401,58 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {C}.\n{1}, {T}: Target creature gains protection from artifacts until end of turn.",
     ],
-    &[],
+    // Toymaker
+    &[
+        "{1}, {T}, Discard a card: Target noncreature artifact becomes an artifact creature with power and toughness each equal to its mana value until end of turn. (It retains its abilities.)",
+    ],
     // Trade Routes
     &[
         "{1}: Return target land you control to its owner's hand.\n{1}, Discard a land card: Draw a card.",
     ],
-    &[],
+    // Trap Runner
+    &[
+        "{T}: Target unblocked attacking creature becomes blocked. Activate only during combat after blockers are declared. (This ability works on creatures that can't be blocked.)",
+    ],
     // Two-Headed Dragon
     &[
         "Flying\nMenace (This creature can't be blocked except by two or more creatures.)\nThis creature can block an additional creature each combat.\n{1}{R}: This creature gets +2/+0 until end of turn.",
     ],
     // Undertaker
     &["{B}, {T}, Discard a card: Return target creature card from your graveyard to your hand."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Unmask
+    &[
+        "You may exile a black card from your hand rather than pay this spell's mana cost.\nTarget player reveals their hand. You choose a nonland card from it. That player discards that card.",
+    ],
+    // Unnatural Hunger
+    &[
+        "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, this Aura deals damage equal to that creature's power to that player unless they sacrifice another creature of their choice.",
+    ],
+    // Uphill Battle
+    &["Creatures played by your opponents enter tapped."],
+    // Vendetta
+    &[
+        "Destroy target nonblack creature. It can't be regenerated. You lose life equal to that creature's toughness.",
+    ],
     // Venomous Dragonfly
     &[
         "Flying\nWhenever this creature blocks or becomes blocked by a creature, destroy that creature at end of combat.",
     ],
-    &[],
-    &[],
+    // Vernal Equinox
+    &["Any player may cast creature and enchantment spells as though they had flash."],
+    // Vine Dryad
+    &[
+        "You may exile a green card from your hand rather than pay this spell's mana cost.\nFlash\nForestwalk (This creature can't be blocked as long as defending player controls a Forest.)",
+    ],
     // Vine Trellis
     &["Defender (This creature can't attack.)\n{T}: Add {G}."],
-    &[],
-    &[],
+    // Volcanic Wind
+    &[
+        "Volcanic Wind deals X damage divided as you choose among any number of target creatures, where X is the number of creatures on the battlefield as you cast this spell.",
+    ],
+    // Wall of Distortion
+    &[
+        "Defender (This creature can't attack.)\n{2}{B}, {T}: Target player discards a card. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],

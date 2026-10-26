@@ -35,6 +35,7 @@ mod solidarity;
 mod storm_seeker;
 mod sudden_impact;
 mod sudden_strength;
+mod thwart;
 mod turnabout;
 mod venomous_breath;
 mod waterlogged_teachings;

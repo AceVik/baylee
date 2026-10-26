@@ -80,6 +80,7 @@
 # §E8 step 1, batch 1 — the first hundred names `xtask reach-list` proposes,
 # §E8 step 1, batch 2 — the next four hundred, same rule and same order.
 # §E8 step 1, batch 3 — six hundred, same rule and same order. Re-measured
+
 +2 Mace
 A Realm Reborn
 A.I.M. Bot
@@ -6377,6 +6378,7 @@ Ogre Resister
 Ogre Sentry
 Ogre Shaman
 Ogre Slumlord
+Ogre Taskmaster
 Ogre Warrior
 Ogre's Cleaver
 Ohran Frostfang
@@ -6540,6 +6542,7 @@ Overprotect
 Overrule
 Overrun
 Oversoul of Dusk
+Overtaker
 Overwhelmed Apprentice
 Owl Familiar
 Owlbear
@@ -8786,9 +8789,12 @@ Spymaster's Vault
 Squall
 Squall Drifter
 Squall Line
+Squallmonger
 Squandered Resources
 Square Up
 Squee's Toy
+Squee, Goblin Nabob
+Squeeze
 Squelching Leeches
 Squire
 Squire's Devotion
@@ -8839,6 +8845,7 @@ Starting Town
 Startling Development
 Starved Rusalka
 Stasis
+Statecraft
 Static Orb
 Stature, Young Avenger
 Staunch Defenders
@@ -8945,6 +8952,7 @@ Stormfront Pegasus
 Stormkeld Prowler
 Stormrider Spirit
 Stormscape Apprentice
+Story Circle
 Story Seeker
 Storyteller Pixie
 Strafe
@@ -9237,6 +9245,7 @@ Tarnation Vista
 Tarnished Citadel
 Tarpan
 Tarrian's Journal // The Tomb of Aclazotz
+Task Force
 Tasseled Dromedary
 Taste of Paradise
 Tattered Apparition
@@ -9257,6 +9266,7 @@ Tayam, Luminous Enigma
 Team Transmitter
 Tear Asunder
 Teardrop Kami
+Tectonic Break
 Tectonic Edge
 Tectonic Hazard
 Teeka's Dragon
@@ -9339,6 +9349,7 @@ Terrarion
 Terrian, World Tyrant
 Territorial Baloth
 Territorial Boar
+Territorial Dispute
 Territorial Hammerskull
 Territorial Roc
 Territorial Scythecat
@@ -9425,6 +9436,7 @@ Thespian's Stage
 They Went This Way
 Thicket Basilisk
 Thicket Crasher
+Thieves' Auction
 Thieving Magpie
 Thieving Otter
 Thing from the Deep
@@ -9523,6 +9535,7 @@ Thunder Strike
 Thunder Totem
 Thunder Wall
 Thunderbolt
+Thunderclap
 Thunderclap Wyvern
 Thundering Falls
 Thundering Giant
@@ -9533,15 +9546,18 @@ Thundering Wurm
 Thundermaw Hellkite
 Thunderous Snapper
 Thunderscape Apprentice
+Thwart
 Théoden, King of Rohan
 Tibalt's Rager
 Tibor and Lumia
 Ticked Off
 Ticking Gnomes
+Tidal Bore
 Tidal Control
 Tidal Flats
 Tidal Force
 Tidal Influence
+Tidal Kraken
 Tidal Warrior
 Tidal Wave
 Tide Drifter
@@ -9669,6 +9685,7 @@ Toxic Abomination
 Toxic Iguanar
 Toxic Scorpion
 Toxin Analysis
+Toymaker
 Tracker
 Tractor Beam
 Trade Caravan
@@ -9702,6 +9719,7 @@ Transguild Promenade
 Transmogrifying Licid
 Transmutation
 Transmute Artifact
+Trap Runner
 Trapmaker's Snare
 Traumatic Critique
 Traveler's Amulet
@@ -9911,6 +9929,8 @@ Unlikely Aid
 Unlikely Alliance
 Unliving Psychopath
 Unmake
+Unmask
+Unnatural Hunger
 Unnatural Predation
 Unnatural Speed
 Unnerve
@@ -9936,6 +9956,7 @@ Unyaro Griffin
 Unyielding Krumar
 Updraft
 Updraft Elemental
+Uphill Battle
 Ur-Drago
 Ur-Golem's Eye
 Urban Retreat
@@ -10057,6 +10078,7 @@ Veiled Shade
 Veldrane of Sengir
 Veldt
 Venarian Gold
+Vendetta
 Venerable Knight
 Venerable Lammasu
 Venerable Monk
@@ -10084,6 +10106,7 @@ Vermiculos
 Vermin Gorger
 Vernadi Shieldmate
 Vernal Bloom
+Vernal Equinox
 Vernal Fen
 Vertigo
 Vesper Ghoul
@@ -10148,6 +10171,7 @@ Village Cannibals
 Village Elder
 Villainous Hideout
 Vindictive Vampire
+Vine Dryad
 Vine Mare
 Vine Trellis
 Vineglimmer Snarl
@@ -10223,6 +10247,7 @@ Volcanic Island
 Volcanic Strength
 Volcanic Submersion
 Volcanic Upheaval
+Volcanic Wind
 Volcano Imp
 Voldaren Epicure
 Voldaren Estate
@@ -10282,6 +10307,7 @@ Wall of Caltrops
 Wall of Corpses
 Wall of Denial
 Wall of Diffusion
+Wall of Distortion
 Wall of Dust
 Wall of Earth
 Wall of Essence
