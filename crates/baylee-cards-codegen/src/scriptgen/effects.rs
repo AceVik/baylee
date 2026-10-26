@@ -485,6 +485,36 @@ impl Tx<'_> {
     /// the battlefield. The engine's word for it is the keyword, granted for
     /// the rest of the turn — to the targets, or to the source itself.
     /// Every other `Effect` is its own sentence and stays refused.
+    pub(super) fn debuff_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target == Some("TargetSpec::Object(&Filter::CREATURE)")
+            && p.peek("AllSuffixKeywords") == Some("walk")
+        {
+            p.take("AllSuffixKeywords");
+            return Some(vec![
+                "Effect::ModifyTargets { modifier: Modifier::LoseAllLandwalk, \
+                 duration: Duration::UntilEndOfTurn }"
+                    .to_string(),
+            ]);
+        }
+        if target.is_none() && p.take("Defined").as_deref() == Some("Self") {
+            let kw = p.take("Keywords")?;
+            let mut out = Vec::new();
+            for part in kw.split('&') {
+                let bit = keyword_const(part.trim())?;
+                out.push(format!(
+                    "Effect::continuous(&Filter::This, Modifier::RemoveKeyword({bit}), \
+                     Duration::UntilEndOfTurn)"
+                ));
+            }
+            return (!out.is_empty()).then_some(out);
+        }
+        None
+    }
+
     pub(super) fn unblockable_effect(
         &mut self,
         p: &mut Params,
@@ -657,11 +687,23 @@ impl Tx<'_> {
             {
                 vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
             }
-            ("Battlefield", "Library", false)
-                if target.starts_with("TargetSpec::Object(")
-                    && p.take("Shuffle").as_deref() == Some("True") =>
-            {
-                vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+            ("Battlefield", "Library", false) if target.starts_with("TargetSpec::Object(") => {
+                match (
+                    p.take("Shuffle").as_deref(),
+                    p.take("LibraryPosition").as_deref(),
+                ) {
+                    (Some("True"), None) => {
+                        vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+                    }
+                    (None, Some("-1")) => {
+                        p.take("IsCurse");
+                        vec!["Effect::PutTargetOnBottomOfLibrary".to_string()]
+                    }
+                    _ => {
+                        return self
+                            .deny("`ChangeZone` from `Battlefield` to `Library`".to_string());
+                    }
+                }
             }
             ("Battlefield", "Exile", false) => {
                 let verb = if self

@@ -672,7 +672,12 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .targets
             .first()
             .and_then(|t| state.object(*t))
-            .map_or(0, |o| o.characteristics().mana_value()),
+            .map_or(0, |o| {
+                let chars = o.characteristics();
+                chars
+                    .front_mana_value
+                    .map_or_else(|| chars.mana_cost.with_x(o.x_value).cmc(), u32::from)
+            }),
         // Off the triggered ability, where stacking it wrote the event's
         // amount.
         Amount::EventManaValue => state

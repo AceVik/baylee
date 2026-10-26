@@ -63,7 +63,7 @@ impl Tx<'_> {
         // effect's, so it is read here for every API and wraps whatever the
         // line turns out to say.
         let unless = match p.take("UnlessCost") {
-            Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref())?),
+            Some(cost) => Some(self.unless(&cost, &mut p, target.as_deref(), sub.is_some())?),
             None => None,
         };
         // "If that creature would die this turn, exile it instead": a rider
@@ -105,7 +105,7 @@ impl Tx<'_> {
         effects.extend(dying);
         effects.extend(at_end);
         let effects = match unless {
-            Some(unless) => vec![self.unless_wrap(unless, &effects)?],
+            Some(unless) => vec![self.unless_wrap(unless, effects, &mut sub, chain)?],
             None => effects,
         };
         chain.effects.extend(effects);
@@ -235,67 +235,6 @@ impl Tx<'_> {
         Some(())
     }
 
-    /// `ReplaceDyingDefined$` — "if that creature would die this turn,
-    /// exile it instead" (Magma Spray), a replacement on the line's own
-    /// target for the rest of the turn.
-    ///
-    /// `Targeted` is the target whatever it is (Scorching Dragonfire's
-    /// "that creature or planeswalker"); `ThisTargetedCard.Creature` is
-    /// Disintegrate's "if it's a creature", asked of an any-target as the
-    /// spell resolves. `Remembered` is "a creature dealt damage this way",
-    /// which asks whether damage was dealt, and is refused, as is a
-    /// condition on the rider (`ReplaceDyingCondition$`, left unclaimed) and
-    /// a line whose target is a player.
-    pub(super) fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
-        let Some(target) = target.filter(|t| {
-            !matches!(
-                *t,
-                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
-            )
-        }) else {
-            return self.deny(format!(
-                "`ReplaceDyingDefined$ {defined}` with no object target"
-            ));
-        };
-        let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
-        match defined {
-            "Targeted" => Some(exile),
-            "ThisTargetedCard.Creature" => Some(format!(
-                "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
-            )),
-            other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
-        }
-    }
-
-    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
-    /// the beginning of the next end step" (Stone Giant): a delayed trigger
-    /// about the target, `Effect::AtNextEndStep`.
-    ///
-    /// Only `Destroy` on a targeted `Pump`. A token's or a copy's "sacrifice
-    /// it" is about the object the line made, not a target, and "exile it",
-    /// "return it to your hand" and the upkeep spellings are other
-    /// sentences; each is refused by name.
-    pub(super) fn at_next_end_step(
-        &mut self,
-        api: &str,
-        what: &str,
-        target: Option<&str>,
-    ) -> Option<String> {
-        let aimed = target.is_some_and(|t| {
-            !matches!(
-                t,
-                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
-            )
-        });
-        if api != "Pump" || !aimed || what != "Destroy" {
-            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
-        }
-        Some(
-            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
-                .to_string(),
-        )
-    }
-
     /// The "unless" of a line: `UnlessCost$` with the keys that qualify it.
     ///
     /// **The payer.** `UnlessPayer$ You` is the source's controller. Absent,
@@ -318,14 +257,17 @@ impl Tx<'_> {
         cost: &str,
         p: &mut Params,
         target: Option<&str>,
+        has_sub: bool,
     ) -> Option<Unless> {
-        if let Some(subs) = p.take("UnlessResolveSubs") {
-            return self.deny(format!("`UnlessResolveSubs$ {subs}`"));
-        }
         let switched = match p.take("UnlessSwitched").as_deref() {
             None => false,
             Some("True") => true,
             Some(other) => return self.deny(format!("`UnlessSwitched$ {other}`")),
+        };
+        let resolve_subs = match p.take("UnlessResolveSubs").as_deref() {
+            None => false,
+            Some("WhenNotPaid") if has_sub && !switched => true,
+            Some(subs) => return self.deny(format!("`UnlessResolveSubs$ {subs}`")),
         };
         let payer = p.take("UnlessPayer");
         let targets_a_controlled_object = target.is_some_and(|t| {
@@ -356,6 +298,14 @@ impl Tx<'_> {
             {
                 self.player_rel(Some("TriggeredTargetController"))?
             }
+            Some("TriggeredDefendingPlayer")
+                if matches!(
+                    self.trigger_mode.as_deref(),
+                    Some("Attacks" | "AttackerBlocked")
+                ) =>
+            {
+                self.player_rel(Some("TriggeredDefendingPlayer"))?
+            }
             other => {
                 return self.deny(format!(
                     "an unless-cost paid by `{}`",
@@ -368,6 +318,7 @@ impl Tx<'_> {
             payer,
             price,
             switched,
+            resolve_subs,
         })
     }
 
@@ -407,13 +358,38 @@ impl Tx<'_> {
     /// The line's effects behind its price. A tax runs them on a refusal and
     /// takes them as one effect (a `Sequence` when there are several); a
     /// switched price runs them on a payment and takes the list.
-    pub(super) fn unless_wrap(&mut self, unless: Unless, effects: &[String]) -> Option<String> {
+    pub(super) fn unless_wrap(
+        &mut self,
+        unless: Unless,
+        mut effects: Vec<String>,
+        sub: &mut Option<String>,
+        chain: &mut Chain,
+    ) -> Option<String> {
         let Unless {
             payer,
             price,
             switched,
+            resolve_subs,
         } = unless;
-        let one = match effects {
+        if resolve_subs {
+            let name = sub.take()?;
+            let Some(body) = self.svars.get(&name).cloned() else {
+                return self.deny(format!("`SubAbility$ {name}` names no SVar"));
+            };
+            let mut sub_chain = Chain {
+                target: chain.target.clone(),
+                second_target: chain.second_target.clone(),
+                ..Chain::default()
+            };
+            self.chain(&body, &mut sub_chain)?;
+            if sub_chain.target != chain.target || sub_chain.second_target != chain.second_target {
+                return self.deny("`UnlessResolveSubs$ WhenNotPaid` with a new target".to_string());
+            }
+            chain.could_add_mana |= sub_chain.could_add_mana;
+            chain.moves_library |= sub_chain.moves_library;
+            effects.extend(sub_chain.effects);
+        }
+        let one = match effects.as_slice() {
             [] => return self.deny("an unless-cost on a line with no effect".to_string()),
             [one] => one.clone(),
             many => format!("Effect::Sequence(&[{}])", many.join(", ")),
@@ -683,12 +659,18 @@ impl Tx<'_> {
                 // "Destroy that creature" in a delayed trigger's body: the
                 // object it remembers ([`Tx::delayed_trigger`]). Anywhere
                 // else the key is left for the unclaimed check to refuse.
-                let remembered = self.in_delayed
+                let remembered = (self.in_delayed
                     && target.is_none()
                     && matches!(
                         p.peek("Defined"),
                         Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
-                    );
+                    ))
+                    || (self.trigger_mode.as_deref() == Some("DamageDone")
+                        && target.is_none()
+                        && matches!(
+                            p.peek("Defined"),
+                            Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                        ));
                 if remembered {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
@@ -840,12 +822,7 @@ impl Tx<'_> {
             "Token" => self.token_effect(p, targets_a_player)?,
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
-            "Debuff"
-                if target == Some("TargetSpec::Object(&Filter::CREATURE)")
-                    && p.take("AllSuffixKeywords").as_deref() == Some("walk") =>
-            {
-                vec!["Effect::ModifyTargets { modifier: Modifier::LoseAllLandwalk, duration: Duration::UntilEndOfTurn }".to_string()]
-            }
+            "Debuff" => self.debuff_effect(p, target)?,
             "AnimateAll"
                 if target.is_none()
                     && p.peek("ValidCards") == Some("Creature.OppCtrl")

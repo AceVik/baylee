@@ -275,6 +275,9 @@ struct Unless {
     /// `UnlessSwitched$ True`: the line's effect is what paying *buys*
     /// ("you may pay {1}. If you do, …"), not what refusing costs.
     switched: bool,
+    /// `UnlessResolveSubs$ WhenNotPaid`: the line's `SubAbility$` chain is
+    /// also gated behind the same refusal.
+    resolve_subs: bool,
 }
 
 /// A price a player may pay as an ability resolves, in the shape the effect

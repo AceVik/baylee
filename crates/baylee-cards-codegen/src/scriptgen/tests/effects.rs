@@ -1792,3 +1792,75 @@ fn overtaker_squee_statecraft_and_territorial_dispute_shapes_read() {
         body.statics
     );
 }
+
+#[test]
+fn prophecy_batch_3_patterns_generate() {
+    let fiend = "Name:Plague Fiend\nManaCost:1 B\nTypes:Creature Insect\nPT:1/1\n\
+        T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | CombatDamage$ True | TriggerZones$ Battlefield | Execute$ TrigDestroy\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ TriggeredTargetLKICopy | UnlessCost$ 2 | UnlessPayer$ TriggeredTargetController";
+    let body = read(fiend);
+    assert!(
+        body.abilities[0].contains("Trigger::DealsCombatDamageToCreature(&Filter::This)")
+            && body.abilities[0].contains("PlayerRel::ControllerOfEvent")
+            && body.abilities[0].contains("Effect::destroy(TargetSpec::EventObject)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let informer = "Name:Rebel Informer\nManaCost:2 B\nTypes:Creature Human Mercenary Rebel\nPT:1/2\n\
+        S:Mode$ CantTarget | ValidTarget$ Card.Self | ValidSource$ Card.White\n\
+        A:AB$ ChangeZone | Cost$ 3 | ValidTgts$ Goblin.!token | IsCurse$ True | Origin$ Battlefield | Destination$ Library | LibraryPosition$ -1";
+    let body = read(informer);
+    assert_eq!(body.abilities.len(), 2);
+    assert!(
+        body.abilities[0].contains("Modifier::CantBeTargetedBy(&SOURCE1)")
+            && body.abilities[1].contains("Effect::PutTargetOnBottomOfLibrary"),
+        "{:?}",
+        body.abilities
+    );
+
+    let rethink = "Name:Rethink\nManaCost:2 U\nTypes:Instant\n\
+        A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ X | UnlessPayer$ TargetedController\n\
+        SVar:X:Targeted$CardManaCost";
+    let body = read(rethink);
+    assert!(
+        body.abilities[0].contains("Amount::TargetCmc")
+            && body.abilities[0].contains("Effect::CounterTargetSpell"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let syphon = "Name:Rhystic Syphon\nManaCost:3 B B\nTypes:Sorcery\n\
+        A:SP$ LoseLife | LifeAmount$ 5 | ValidTgts$ Player | SubAbility$ DBGainLife | UnlessCost$ 3 | UnlessPayer$ Targeted | UnlessResolveSubs$ WhenNotPaid\n\
+        SVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 5";
+    let body = read(syphon);
+    assert!(
+        body.abilities[0].contains("Effect::PlayerMayPayOr")
+            && body.abilities[0].contains("Effect::Sequence(&[Effect::LoseLife")
+            && body.abilities[0].contains("Effect::gain_life(5)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let snake = "Name:Ribbon Snake\nManaCost:1 U U\nTypes:Creature Snake\nPT:2/3\nK:Flying\n\
+        A:AB$ Debuff | Cost$ 2 | Defined$ Self | Keywords$ Flying | Activator$ Player";
+    let body = read(snake);
+    assert!(
+        body.abilities[0].contains("Modifier::RemoveKeyword(KeywordSet::FLYING)")
+            && body.abilities[0].contains("zone = ActivationZone::BattlefieldAnyPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let serpent = "Name:Shrouded Serpent\nManaCost:4 U U U\nTypes:Creature Serpent\nPT:4/4\n\
+        T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigUnblockable\n\
+        SVar:TrigUnblockable:DB$ Effect | UnlessCost$ 4 | UnlessPayer$ TriggeredDefendingPlayer | RememberObjects$ Self | ExileOnMoved$ Battlefield | StaticAbilities$ Unblockable\n\
+        SVar:Unblockable:Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered";
+    let body = read(serpent);
+    assert!(
+        body.abilities[0].contains("PlayerRel::DefendingPlayer")
+            && body.abilities[0].contains("KeywordSet::UNBLOCKABLE"),
+        "{}",
+        body.abilities[0]
+    );
+}

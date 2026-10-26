@@ -256,4 +256,52 @@ impl Tx<'_> {
             effect
         }])
     }
+
+    /// `ReplaceDyingDefined$` — "if that creature would die this turn,
+    /// exile it instead" (Magma Spray), a replacement on the line's own
+    /// target for the rest of the turn.
+    pub(super) fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
+        let Some(target) = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        }) else {
+            return self.deny(format!(
+                "`ReplaceDyingDefined$ {defined}` with no object target"
+            ));
+        };
+        let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
+        match defined {
+            "Targeted" => Some(exile),
+            "ThisTargetedCard.Creature" => Some(format!(
+                "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
+            )),
+            other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
+        }
+    }
+
+    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
+    /// the beginning of the next end step" (Stone Giant): a delayed trigger
+    /// about the target, `Effect::AtNextEndStep`.
+    pub(super) fn at_next_end_step(
+        &mut self,
+        api: &str,
+        what: &str,
+        target: Option<&str>,
+    ) -> Option<String> {
+        let aimed = target.is_some_and(|t| {
+            !matches!(
+                t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        });
+        if api != "Pump" || !aimed || what != "Destroy" {
+            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
+        }
+        Some(
+            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+                .to_string(),
+        )
+    }
 }

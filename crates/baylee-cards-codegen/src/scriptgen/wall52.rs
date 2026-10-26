@@ -4,15 +4,28 @@ impl Tx<'_> {
     /// Wall-only means the permission domain, never today's legal target count.
     pub(super) fn wall_only_target_prohibition(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
-        if p.take("ValidTarget").as_deref() != Some("Card.Self")
-            || p.take("SourceCanOnlyTarget").as_deref() != Some("Wall")
-            || !p.exhausted()
-        {
+        if p.take("ValidTarget").as_deref() != Some("Card.Self") {
             return None;
         }
+        if p.peek("SourceCanOnlyTarget").is_some() {
+            if p.take("SourceCanOnlyTarget").as_deref() != Some("Wall") || !p.exhausted() {
+                return None;
+            }
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                "Modifier::CantBeTargetedByWallOnly",
+            ));
+            return Some(());
+        }
+        let source = p.take("ValidSource")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let filter = self.filter_expr(&source)?;
+        let name = self.body.filter_static("SOURCE", &filter);
         self.body.abilities.push(Self::static_expr(
             "Filter::This",
-            "Modifier::CantBeTargetedByWallOnly",
+            &format!("Modifier::CantBeTargetedBy(&{name})"),
         ));
         Some(())
     }

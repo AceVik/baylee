@@ -169,7 +169,9 @@ impl Tx<'_> {
         if p.peek("EffectZone") == Some("Graveyard") {
             return self.riftstone_graveyard_grant(&mode, p);
         }
-        if mode == "CantTarget" && p.peek("SourceCanOnlyTarget") == Some("Wall") {
+        if mode == "CantTarget"
+            && (p.peek("SourceCanOnlyTarget").is_some() || p.peek("ValidSource").is_some())
+        {
             return self.wall_only_target_prohibition(p);
         }
         if super::guardian52::candidate(&mode, &p) {
