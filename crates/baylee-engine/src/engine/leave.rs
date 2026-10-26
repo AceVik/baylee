@@ -67,6 +67,13 @@ impl<L: CardLookup> Engine<L> {
         if self.refresh_damage_question() {
             return;
         }
+        if let Some(res) = &mut self.resolution
+            && let Some(pending) = resolve::coin_stakes::refresh_choice(&self.state, res)
+        {
+            self.pending = pending;
+            self.awaiting_answer = true;
+            return;
+        }
         if asked == Some(player) {
             self.drop_the_leavers_question(player);
         } else if !self.forget_the_departed(&exiled) {

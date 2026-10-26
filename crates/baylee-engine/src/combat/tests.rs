@@ -2,7 +2,9 @@
 
 mod assignment_restrictions;
 mod battle;
+mod exchange;
 mod history;
+mod ice_landwalk;
 use super::block::LANDWALKS;
 use super::damage::deal_combat_damage;
 use super::*;
@@ -1328,6 +1330,7 @@ fn phase_out(state: &mut GameState, id: ObjectId) {
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     let _ = crate::resolve::run(state, &mut res);
     assert!(

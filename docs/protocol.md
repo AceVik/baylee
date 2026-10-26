@@ -1016,9 +1016,10 @@ answer are built, so the frames that carry the answer also say who gave it.
 question has one (`baylee_engine::choice::timeout_answer`): pass priority,
 attack with nothing, block with nothing, keep the hand, and "no" to a yes/no
 whose decline leaves things alone (`YesNoPrompt::declining_does_nothing`).
-Attacking with nothing is attacking with the question's `required`
-creatures (CR 508.1d), and blocking with nothing is the question's
-`obeying` blocks (CR 509.1c), so the engine accepts both. The house answers
+The attack timeout chooses a legal declaration satisfying
+`ChooseAttackers.minimum_required` (or every legacy `required` creature when
+that field is absent), respecting `alone` and defender limits. The block
+timeout uses the question's `obeying` blocks, so the engine accepts both. The house answers
 the rest: a discard, targets, a search, an ordering, and the two commander
 questions, where declining would cost the commander. The house also answers
 if the engine refuses the do-nothing answer (`Session::answer_by_clock` →
@@ -4834,9 +4835,12 @@ engine used to hold without saying are fields:
   opening hand of zero cards (CR 103.5); `MulliganTake` is then refused
   with `NoFurtherMulligan`.
 - The combat requirements (CR 508.1c–d, 509.1c), from fields the
-  questions already carried: a declaration of attackers without a creature
-  in `ChooseAttackers.required` faults `MustAttack`, one sending a creature
-  in `limits` elsewhere `NotOffered`; a declaration of blockers obeying
+  questions carry: a declaration of attackers satisfying fewer than
+  `ChooseAttackers.minimum_required` entries of `required` faults `MustAttack`.
+  An absent minimum means `required.len()` for compatibility. `alone`
+  defaults to empty; declaring one of its creatures with any other attacker
+  faults `NotOffered`, as does sending a creature in `limits` elsewhere.
+  A declaration of blockers obeying
   fewer requirements than `ChooseBlockers.obeying`, counted by `demands`,
   faults `MustBlock`.
 

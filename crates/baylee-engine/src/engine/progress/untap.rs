@@ -129,6 +129,20 @@ impl<L: CardLookup> Engine<L> {
             self.advance_step();
             return false;
         }
+        let arena = &self.state.arena;
+        self.state.effects.remove_where(|effect| {
+            effect.duration == baylee_cards_dsl::Duration::UntilStartOfAffectedNextUntap
+                && match effect.filter {
+                    crate::effects::EffectFilter::ObjectIs(id, version) => arena
+                        .get(id)
+                        .filter(|object| {
+                            object.version == version && object.zone == Zone::Battlefield
+                        })
+                        .is_none_or(|object| object.controller == active),
+                    _ => false,
+                }
+        });
+        self.state.refresh_characteristics();
         // "All phased-out permanents that the active player controlled when
         // they phased out phase in" (CR 502.1): a phased-out permanent is
         // not projected, so its controller is still that one. One that
@@ -315,8 +329,7 @@ impl<L: CardLookup> Engine<L> {
                     .iter()
                     .filter(|id| counted(**id) && !chosen.contains(id) && !open.contains(id)),
             );
-            self.finish_untap_step(&stays);
-            return false;
+            return self.finish_untap_step(&stays);
         };
         self.pending_plan = Some(PlanKind::UntapLimit { kept, chosen });
         self.pending = Pending::ChooseCards {
@@ -342,24 +355,35 @@ impl<L: CardLookup> Engine<L> {
     /// a projection: what a "doesn't untap" effect modifies is a rule and
     /// not a characteristic (CR 613.11), so there is nothing on the
     /// permanent to look at.
-    pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
+    pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) -> bool {
         let active = self.state.turn.active;
-        for id in self.state.battlefield_view() {
-            let tapped = self
-                .state
-                .object(id)
-                .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
-            if tapped
-                && !kept.contains(&id)
-                && !self.keeps_tapped(id)
-                && self.state.set_tapped(id, false)
-            {
-                self.state.journal.record(GameEvent::ObjectUntapped {
-                    object: id,
-                    cause: Cause::TurnBased,
-                });
-            }
+        let determined: Vec<_> = self
+            .state
+            .battlefield_view()
+            .into_iter()
+            .filter(|id| {
+                self.state.object(*id).is_some_and(|object| {
+                    object.controller == active && object.status.contains(Status::TAPPED)
+                }) && !kept.contains(id)
+                    && !self.keeps_tapped(*id)
+            })
+            .collect();
+        let batch = super::untap_replacements::UntapBatch::new(&self.state, determined);
+        self.commit_untap_batch(batch)
+    }
+
+    pub(crate) fn commit_untap_batch(
+        &mut self,
+        batch: super::untap_replacements::UntapBatch,
+    ) -> bool {
+        if let Some(pending) = batch.pending(&self.state) {
+            self.pending_plan = Some(PlanKind::UntapReplacements(batch));
+            self.pending = pending;
+            self.awaiting_answer = true;
+            return true;
         }
+        batch.commit(&mut self.state);
+        let active = self.state.turn.active;
         let arena = &self.state.arena;
         self.state
             .effects
@@ -394,5 +418,6 @@ impl<L: CardLookup> Engine<L> {
             ) && fx.controller == active
         });
         self.advance_step();
+        false
     }
 }

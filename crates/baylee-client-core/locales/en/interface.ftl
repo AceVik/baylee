@@ -3212,6 +3212,9 @@ ChooseCreatureType = Choose a creature type
 # Choose a basic land type (Phantasmal Terrain)
 ChooseBasicLandType = Choose a basic land type
 
+# Choose a land type, including nonbasic land subtypes
+ChooseLandType = Choose a land type
+
 # Choose a card name (Pithing Needle)
 ChooseCardName = Choose a card name
 
@@ -3378,6 +3381,14 @@ PayTax = Pay {"{"}{ $mana }{"}"}?
 # Pay a price with colour in it; the cost renders its own braces.
 # Arguments: cost
 PayMana = Pay { $cost }?
+
+# Pay both parts of one optional price.
+# Arguments: cost, life
+PayManaAndLife = Pay { $cost } and { $life } life?
+
+# Choose one replacement; declining does not permit untapping.
+# Arguments: count, counters
+RemoveCountersInsteadOfUntapping = Remove { $count } { $counters } instead of untapping? No chooses another replacement.
 
 # The player may activate mana abilities before paying a pact.
 # Arguments: cost

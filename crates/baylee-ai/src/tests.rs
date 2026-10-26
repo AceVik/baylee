@@ -19,6 +19,7 @@ mod blocks_tests;
 mod choices_tests;
 mod combat_tests;
 mod counters_tests;
+mod ice_consumers_tests;
 mod mana_tests;
 mod modes_tests;
 mod optional_tests;

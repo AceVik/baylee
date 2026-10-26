@@ -3912,6 +3912,7 @@ fn phase_out_specialist(engine: &mut Engine<RegistryLookup>, specialist: ObjectI
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(
         crate::resolve::run(state, &mut res),

@@ -35,11 +35,9 @@ pub enum Layer {
     PtModify,
     /// 7c as well: counters that modify power/toughness.
     ///
-    /// CR 613.4c names "effects **and counters** that modify power and/or
-    /// toughness" in one sublayer. They are two buckets here so that every
-    /// counter a permanent wears lands after the effects that modify it,
-    /// which CR 613.4 leaves open — a counter carries no timestamp, so the
-    /// order the sublayer asks for does not reach it.
+    /// Normal counter placements register timestamped effects in `PtModify`
+    /// (CR 613.4c, 613.7c). This bucket only accounts for counters installed
+    /// directly by setup fixtures without a placement event.
     PtCounters,
     /// 7d: effects that switch power/toughness.
     PtSwitch,
@@ -122,8 +120,14 @@ pub enum Modifier {
     },
     /// Regenerate the matching permanent whenever destruction would occur.
     RegenerateInsteadOfDestroy,
+    /// Regeneration replacements cannot apply to matching permanents.
+    CantBeRegenerated,
     /// Adds types (Mycosynth Lattice: "all permanents are artifacts").
     AddType(TypeSet),
+    /// Add the specified supertypes without changing card types or subtypes.
+    AddSupertype(baylee_core::types::SupertypeSet),
+    /// Remove the specified supertypes without changing other supertypes.
+    RemoveSupertype(baylee_core::types::SupertypeSet),
     /// Animate Artifact: if the affected object is not a creature in layer
     /// 4, add artifact and creature without removing any types, then set
     /// its power and toughness to its mana value in layer 7b. This is one
@@ -169,6 +173,10 @@ pub enum Modifier {
     /// given as it entered (`EnterModifier::ChooseBasicLandType`). Nothing
     /// while no type was chosen.
     SetLandTypeToChosen,
+    /// Set the affected land to the second basic land type chosen by the
+    /// source as it entered. The source's first choice can select affected
+    /// lands through `Filter::MatchesChosenTypeOfSource`.
+    SetLandTypeToSecondChosen,
     /// Add the source's chosen basic land type, retaining its other types and rules.
     AddChosenBasicLandType,
     /// Adds colors.
@@ -239,6 +247,8 @@ pub enum Modifier {
     RevealAllLibraryTops,
     /// All players play with their hands revealed.
     RevealAllHands,
+    /// This effect's controller plays with their hand revealed.
+    RevealYourHand,
     /// The effect's controller may play this many lands beyond the one the
     /// rules allow (Exploration: 1; Azusa: 2).
     ///
@@ -276,6 +286,14 @@ pub enum Modifier {
     /// from the **effect's** controller, so "noncreature spells" is
     /// `Filter::NONCREATURE` and "spells" is `Filter::Any`.
     OpponentsCantCast(&'static crate::Filter),
+    /// Named players cannot cast matching spells; the actual casting player
+    /// is checked independently of the card's owner or current controller.
+    PlayersCantCast {
+        /// Players relative to the effect's source and controller.
+        who: crate::PlayerRel,
+        /// Spell characteristics prohibited.
+        filter: &'static crate::Filter,
+    },
     /// Players can't play cards matching the filter — neither cast them as
     /// spells nor play them as lands (City in a Bottle, CR 101.2, 601.3).
     PlayersCantPlay(&'static crate::Filter),
@@ -399,6 +417,8 @@ pub enum Modifier {
     CrewSaddlePowerBonus(i16),
     /// Ignore the named basic landwalk abilities only when declaring blockers.
     BlockableWithoutLandwalk(KeywordSet),
+    /// Block as though the affected creature had no kind of landwalk.
+    BlockableWithoutAnyLandwalk,
     /// This effect's controller may target opponents and their creatures as
     /// though they did not have hexproof; no keyword is removed (CR 609.4).
     IgnoreOpponentsHexproof,
@@ -429,6 +449,13 @@ pub enum Modifier {
     /// controller and it is asked of the defending player's lands as they
     /// are now.
     LandwalkMatching(&'static crate::Filter),
+    /// Landwalk of one land subtype chosen during resolution.
+    LandwalkOfSubtype {
+        /// Required subtype on the defending player's land.
+        subtype: SubtypeId,
+        /// Additional land characteristics required for this evasion ability.
+        lands: &'static crate::Filter,
+    },
     /// The affected creature attacks each combat if able: a requirement on
     /// the declaration of attackers (CR 508.1d). The card's own sentence
     /// (Juggernaut) is a static on `Filter::This`; "that creature attacks
@@ -496,6 +523,11 @@ pub enum Modifier {
     OpponentsSearchTop(u8),
     /// The controller has no maximum hand size (Reliquary Tower).
     NoMaxHandSize,
+    /// These players skip the entire draw step, including beginning triggers.
+    SkipDrawStep {
+        /// Who skips, relative to this effect's controller.
+        who: crate::effect::PlayerRel,
+    },
     /// These players skip their untap steps (Stasis: `EachPlayer`). A skip
     /// replaces the step with nothing (CR 614.1b, 614.10): none of its
     /// turn-based actions happen — phasing, the day/night check, the untap
@@ -515,6 +547,8 @@ pub enum Modifier {
     /// its {T} abilities (CR 702.10c), which an "as though" effect leaves
     /// alone (CR 609.4).
     AttacksAsThoughHaste,
+    /// This creature can attack only if no other creature is declared attacking.
+    AttacksAloneOnly,
     /// These players can't untap more than `count` permanents matching `of`
     /// during their untap steps (Smoke: one creature; Winter Orb: one land;
     /// Static Orb: two permanents). A limit on CR 502.3's determination: the
@@ -658,6 +692,8 @@ pub enum Modifier {
     /// a created effect with a duration. Neither is this, and neither is
     /// spelled with this variant.
     DoesNotUntap,
+    /// Remove all counters of this kind instead of an actual turn-based untap.
+    RemoveCountersInsteadOfUntapping(crate::CounterKind),
     /// The affected permanent's controller may choose to leave it tapped
     /// during their untap step (the Fallen Empires storage lands, Ice Floe).
     ///
@@ -701,6 +737,8 @@ pub enum Modifier {
     /// rules a permanent registers. Cards only, as the sentence says: a
     /// token is not one (CR 111.1), nor is a copy of a spell.
     ExileInsteadOfYourGraveyard,
+    /// Exile the affected permanent instead of any departure from the battlefield.
+    ExileInsteadOfLeavingBattlefield,
     /// The affected object gains types while it has at least N counters
     /// of a kind (station's "artifact creature at 8+").
     AddTypeIfCountersAtLeast {
@@ -803,10 +841,26 @@ pub enum Modifier {
     /// "you" in the count is the effect's controller — an Aura's, not the
     /// enchanted creature's.
     ModifyPTHalfCount(PtCount),
+    /// Reduce power and toughness by a dynamic count. The optional lower
+    /// bound limits only this effect's toughness reduction at its timestamp;
+    /// subsequent modifications can reduce toughness below that bound.
+    ReducePTByCount {
+        /// Amount subtracted from power and, subject to the bound, toughness.
+        count: PtCount,
+        /// Lowest toughness this modification itself can produce.
+        minimum_toughness: Option<i16>,
+    },
     /// Add a computed count to both power and toughness in layer 7c.
     ModifyPTByCount(PtCount),
     /// Modifies power/toughness (anthems, pumps).
     ModifyPT(i16, i16),
+    /// Modify power and toughness by independently evaluated source-relative amounts.
+    ModifyPTByAmount {
+        /// Signed power adjustment.
+        power: crate::Amount,
+        /// Signed toughness adjustment.
+        toughness: crate::Amount,
+    },
     /// The intrinsic +1/+0 per hone counter on the Equipment source.
     HoneEquipment,
     /// No affected permanent may hold more than this many counters of the kind.
@@ -944,6 +998,11 @@ pub enum PtCount {
     /// nine card types of CR 205.2a, each counted once however many cards
     /// share it.
     CardTypesInAllGraveyards,
+    /// Cards matching the filter in all players' graveyards, excluding tokens.
+    InAllGraveyards(&'static crate::Filter),
+    /// Matching permanents controlled by the opponent chosen for this object;
+    /// zero when this incarnation has no chosen opponent.
+    ChosenPlayerControls(&'static crate::Filter),
     /// Permanents matching the filter that the defending player controls,
     /// for an object that is attacking: the player it attacks, or the
     /// controller of the planeswalker it attacks (CR 508.5). Gaea's Liege,
@@ -951,6 +1010,10 @@ pub enum PtCount {
     /// each equal to the number of Forests defending player controls".
     /// Nothing while the object is not attacking.
     DefendingPlayerControls(&'static crate::Filter),
+    /// Matching permanents controlled by the affected object's controller
+    /// while it is not attacking, or its actual defending player while it
+    /// attacks. This reads the affected object, not the effect's source.
+    ControllerOrDefenderControls(&'static crate::Filter),
     /// Cards exiled with the object (CR 406.6): "the number of cards exiled
     /// with it" (Unlicensed Hearse), the cards in exile that
     /// `Effect::ExileTargetsWithSource` put there for this object.
@@ -1019,6 +1082,8 @@ impl Modifier {
                         Self::GainControl => Layer::Control,
             // Layer 4: type-changing effects.
             Self::AddType(_)
+            | Self::AddSupertype(_)
+            | Self::RemoveSupertype(_)
             | Self::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Self::AnimateNoncreatureArtifact
             | Self::RemoveType(_)
@@ -1028,6 +1093,7 @@ impl Modifier {
             | Self::AllBasicLandTypes
             | Self::SetLandType(_)
             | Self::SetLandTypeToChosen
+            | Self::SetLandTypeToSecondChosen
             | Self::AddChosenBasicLandType
             | Self::BecomeType { .. }
             | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
@@ -1063,9 +1129,11 @@ impl Modifier {
             Self::SetPT(..) | Self::SetPower(_) | Self::SetToughness(_) | Self::SetPTToCount(_) => Layer::PtSet,
             Self::HoneEquipment
             | Self::ModifyPT(..)
+            | Self::ModifyPTByAmount { .. }
             | Self::ModifyPTPerCount { .. }
             | Self::ModifyPTByCount(_)
             | Self::ModifyPTHalfCount(_)
+            | Self::ReducePTByCount { .. }
             | Self::ModifyPTPerGraveyardCard { .. } => Layer::PtModify,
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
@@ -1084,6 +1152,7 @@ impl Modifier {
             | Self::ReplaceTappedMana { .. }
             | Self::AbilitiesCostLess { .. }
             | Self::RegenerateInsteadOfDestroy
+            | Self::CantBeRegenerated
             | Self::LegendRuleOff
             | Self::PlayLandsFromGraveyard
             | Self::CastPermanentSpellsFromGraveyard
@@ -1091,6 +1160,7 @@ impl Modifier {
             | Self::PlayLandsFromLibraryTop
             | Self::RevealAllLibraryTops
             | Self::RevealAllHands
+            | Self::RevealYourHand
             | Self::RevealLibraryTop
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
@@ -1098,6 +1168,7 @@ impl Modifier {
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)
+            | Self::PlayersCantCast { .. }
             | Self::PlayersCantPlay(_)
             | Self::CantBeEnchantedExceptSource
             | Self::CantBeTargetedBy(_)
@@ -1128,6 +1199,7 @@ impl Modifier {
             | Self::CombatDamageCantBePrevented
             | Self::DamageToItCantBePreventedOrRedirected
             | Self::BlockableWithoutLandwalk(_)
+            | Self::BlockableWithoutAnyLandwalk
             | Self::IgnoreOpponentsHexproof
             | Self::CounterMaximum { .. }
             | Self::CrewSaddlePowerBonus(_)
@@ -1143,6 +1215,7 @@ impl Modifier {
             | Self::CantAttackUnlessDefenderControls(_)
             | Self::CantAttackPlayerIdleLastTurn
             | Self::LandwalkMatching(_)
+            | Self::LandwalkOfSubtype { .. }
             | Self::AttacksEachCombat
             | Self::CanBlockAdditional(_)
             | Self::CanBlockAnyNumber
@@ -1158,9 +1231,11 @@ impl Modifier {
             | Self::NoMaxHandSize
             | Self::ChosenPlayerMaxHandSize(_)
             | Self::SkipUntapStep { .. }
+            | Self::SkipDrawStep { .. }
             | Self::UntapAtMost { .. }
             | Self::AttacksDespiteDefender
             | Self::AttacksAsThoughHaste
+            | Self::AttacksAloneOnly
             | Self::BoastTwice
             | Self::PlayerHexproof
             | Self::SpellsHaveFlash(_)
@@ -1168,6 +1243,7 @@ impl Modifier {
             | Self::ManaIsAnyColor
             | Self::SpendManaAs { .. }
             | Self::SearchTakeover
+            | Self::RemoveCountersInsteadOfUntapping(_)
             | Self::DoesNotUntap
             | Self::MayChooseNotToUntap
             | Self::MaxAttackersPerCombat(_)
@@ -1177,6 +1253,7 @@ impl Modifier {
             | Self::SpellsCostMoreMana(_)
             | Self::CantAttackIfDefenderControls(_)
             | Self::ExileInsteadOfYourGraveyard
+            | Self::ExileInsteadOfLeavingBattlefield
             | Self::CastSpellsFromGraveyard => Layer::Text,
         }
     }
@@ -1273,6 +1350,9 @@ pub enum Duration {
     /// Through this many actual untap steps of the affected permanent's
     /// current controller. Bound to a single exact incarnation by resolution.
     UntilAffectedUntapSteps(u8),
+    /// Ends before untap determination in the affected incarnation's current
+    /// controller's next actual untap step.
+    UntilStartOfAffectedNextUntap,
     /// "Until your next upkeep" (Erhnam Djinn): ends as the effect
     /// controller's next upkeep step begins (CR 503), after that turn's
     /// untap step, so the effect still stands through it.
@@ -1295,6 +1375,10 @@ pub enum Duration {
 /// Panharmonicon, Elesh Norn, Roaming Throne).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ReplacementRule {
+    /// Reveal your would-be draw; matching cards go to the graveyard instead.
+    RevealDrawPutMatchingInGraveyard(&'static Filter),
+    /// Reveal each would-be draw; other players may pay this much life to deny it.
+    RevealDrawOthersMayPayLife(u8),
     /// An opponent putting a land into play sacrifices a land afterwards
     /// if they controlled at least as many lands as this source’s controller.
     LandEquilibrium,
@@ -1503,6 +1587,7 @@ mod tests {
             (Modifier::AllBasicLandTypes, Layer::Type),
             (Modifier::SetLandType(SubtypeId::new(1)), Layer::Type),
             (Modifier::SetLandTypeToChosen, Layer::Type),
+            (Modifier::SetLandTypeToSecondChosen, Layer::Type),
             (Modifier::AddChosenBasicLandType, Layer::Type),
             (
                 Modifier::BecomeType {
@@ -1598,6 +1683,13 @@ mod tests {
             ),
             (
                 Modifier::ModifyPTHalfCount(PtCount::YouControl(&Filter::YOUR_LAND)),
+                Layer::PtModify,
+            ),
+            (
+                Modifier::ReducePTByCount {
+                    count: PtCount::ControllerOrDefenderControls(&Filter::LAND),
+                    minimum_toughness: Some(1),
+                },
                 Layer::PtModify,
             ),
             (

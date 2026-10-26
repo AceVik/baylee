@@ -18,6 +18,8 @@ pub struct Loot {
     pub token: Option<&'static baylee_cards_dsl::TokenDef>,
     /// Collect large choices in bounded menus, without discarding between menus.
     pub selected: Vec<ObjectId>,
+    /// Beginning of this instruction's eligible draw history, if restricted.
+    pub drawn_since: Option<usize>,
 }
 
 pub(super) fn start(
@@ -49,9 +51,33 @@ pub(super) fn start(
         source,
         token,
         selected: Vec::new(),
+        drawn_since: None,
     }));
     state.draw_cards(player, count as usize);
     // Keep this instruction until run() has settled all queued draw replacements.
+    None
+}
+
+/// Draw first, then discard only surviving cards drawn by this instruction.
+pub(super) fn drawn_only(
+    state: &mut GameState,
+    res: &mut Resolution,
+    draw: Amount,
+    discard: u8,
+) -> Option<Pending> {
+    if let Some(loot) = res.loot.take() {
+        return choose_or_finish(state, res, loot);
+    }
+    let count = amount2(&draw, state, res.controller, res);
+    res.loot = Some(Box::new(Loot {
+        player: res.controller,
+        count: u32::from(discard),
+        source: None,
+        token: None,
+        selected: Vec::new(),
+        drawn_since: Some(state.per_turn.instruction_drawn.len()),
+    }));
+    state.draw_cards(res.controller, count as usize);
     None
 }
 
@@ -77,6 +103,15 @@ fn choose_or_finish(
         .iter()
         .copied()
         .filter(|id| !selected.contains(id))
+        .filter(|id| {
+            loot.drawn_since.is_none_or(|start| {
+                state.per_turn.instruction_drawn[start..]
+                    .iter()
+                    .any(|(card, version)| {
+                        card == id && state.object(*card).is_some_and(|o| o.version == *version)
+                    })
+            })
+        })
         .collect();
     let left = (loot.count as usize)
         .saturating_sub(loot.selected.len())
@@ -146,4 +181,50 @@ fn choose_or_finish(
     }
     state.forget_discard_answers();
     None
+}
+
+/// Decision progress for the action-loop detector, independent of allocation IDs
+/// and the absolute position of this instruction in the turn's draw ledger.
+pub(crate) fn loop_progress(state: &GameState, res: &Resolution) -> u64 {
+    fn captured(op: &AwaitingOp) -> Option<&Loot> {
+        match op {
+            AwaitingOp::Loot(loot) => Some(loot),
+            AwaitingOp::DiscardDestination {
+                then: DiscardThen::Choice { op, .. },
+                ..
+            }
+            | AwaitingOp::SelectedCommander { operation: op, .. } => captured(op),
+            _ => None,
+        }
+    }
+    let loot = res
+        .awaiting
+        .as_ref()
+        .and_then(captured)
+        .or(res.loot.as_deref());
+    let Some(loot) = loot else {
+        return 0;
+    };
+    let hand = state.zones.list(ZoneLocation::Hand(loot.player));
+    let eligible: Vec<_> = hand
+        .iter()
+        .enumerate()
+        .filter_map(|(position, &id)| {
+            let eligible = loot.drawn_since.is_none_or(|start| {
+                state.per_turn.instruction_drawn[start..]
+                    .iter()
+                    .any(|&(card, version)| {
+                        card == id && state.object(card).is_some_and(|o| o.version == version)
+                    })
+            });
+            eligible.then_some(position)
+        })
+        .collect();
+    let mut selected: Vec<_> = loot
+        .selected
+        .iter()
+        .map(|id| hand.iter().position(|card| card == id))
+        .collect();
+    selected.sort_unstable();
+    crate::state::structural_fingerprint(&(loot.player, loot.count, eligible, selected))
 }

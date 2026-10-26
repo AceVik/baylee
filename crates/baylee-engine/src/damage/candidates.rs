@@ -70,16 +70,15 @@ impl DamageWork {
                             to: DamageTarget::Player(to),
                         }
                     }
-                    _ => match super::batch57::shield_kind(state, part, shield.kind) {
+                    _ => match super::batch57::shield_kind(state, part, shield.kind)
+                        .or_else(|| super::ice_combat::shield_kind(state, part, *shield))
+                    {
                         Some(kind) => kind,
                         None => continue,
                     },
                 };
                 if matches!(kind, Kind::Redirect { .. } | Kind::RedirectNext { .. })
-                    && super::recipient_forbids_prevention_or_redirection(
-                        state,
-                        part.view.recipient,
-                    )
+                    && self.recipient_locked(state, part.view.recipient)
                 {
                     continue;
                 }
@@ -294,10 +293,7 @@ impl DamageWork {
                         continue;
                     };
                     if state.has_left(fx.controller)
-                        || super::recipient_forbids_prevention_or_redirection(
-                            state,
-                            part.view.recipient,
-                        )
+                        || self.recipient_locked(state, part.view.recipient)
                         || !state.object(target).is_some_and(|o| {
                             o.characteristics()
                                 .types
@@ -354,6 +350,11 @@ impl DamageWork {
                 }
                 _ => continue,
             };
+            if matches!(kind, Kind::Redirect { .. } | Kind::RedirectNext { .. })
+                && self.recipient_locked(state, part.view.recipient)
+            {
+                continue;
+            }
             let origin = fx.source.map(|source| ShieldOrigin {
                 source,
                 ability: None,

@@ -1,12 +1,16 @@
 use super::*;
 
 mod affected_defined;
+mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
+mod divided_damage;
 mod effects;
 mod imprison;
+mod prevention_rules;
 mod reading;
+mod static_supertypes;
 mod tokens_and_zones;
 
 fn cats() -> SubtypeCatalogs {

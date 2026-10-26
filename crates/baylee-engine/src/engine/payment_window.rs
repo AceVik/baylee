@@ -108,9 +108,18 @@ impl<L: CardLookup> Engine<L> {
     /// is the shape of bug this workspace runs its test suite in release to
     /// catch.
     pub(super) fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
-        match res.awaiting {
-            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
-                self.can_pay_mana(player, resolve::payment_for(&self.state, res), &cost)
+        match &res.awaiting {
+            Some(crate::resolve::AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                outcome,
+            }) => {
+                let life = match outcome {
+                    resolve::ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
+                    _ => 0,
+                };
+                resolve::mana_life_payment::life_payable(&self.state, *player, life)
+                    && self.can_pay_mana(*player, resolve::payment_for(&self.state, res), cost)
             }
             _ => false,
         }

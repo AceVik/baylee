@@ -216,6 +216,7 @@ mod tests {
                 loot: None,
                 draw_watch: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             let Flow::Wait(Pending::ChoosePlayer { options, .. }) = run(&mut state, &mut res)
             else {

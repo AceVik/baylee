@@ -6,6 +6,17 @@ use super::*;
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
+    /// Record a color on the exact source incarnation without changing its colors.
+    SourceColor {
+        /// The permanent that was present when the question was asked.
+        source: baylee_core::ids::DamageSourceRef,
+    },
+    /// An optional nontargeting choice of a permanent to gain control of.
+    ControlChoice(super::control_choice::ControlChoice),
+    /// The latest coin flip's winner chooses whether to repeat at a higher stake.
+    RepeatCoinLifeStake(super::coin_stakes::CoinDecision),
+    /// The controller selects a substitute for a departed coin winner (CR 800.4g).
+    ChooseCoinRepeatPlayer(super::coin_stakes::CoinDecision),
     /// Choose among multiple eligible physical meld partners.
     MeldPartner,
     /// Immediate plays offered by a dungeon room.
@@ -132,6 +143,10 @@ pub enum AwaitingOp {
     },
     /// A resolving choice, independent of any as-enters chosen subtype.
     LandwalkChoice {
+        /// Additional properties of the matching land.
+        lands: &'static baylee_cards_dsl::Filter,
+        /// Exact recipients captured before the choice.
+        targets: Vec<baylee_core::ids::DamageSourceRef>,
         /// The granted keyword's lifetime.
         duration: baylee_cards_dsl::Duration,
     },
@@ -337,6 +352,43 @@ pub enum AwaitingOp {
 
     /// A private inspection; the empty acknowledgement changes no cards.
     InspectHand,
+    /// A private top-card selection whose remainder stays on top.
+    PrivateTopPick {
+        /// Complete inspected subset.
+        looked: Vec<ObjectId>,
+    },
+    /// Choosing cards from this player's own hand to put on top.
+    HandToTopChoice {
+        /// Hand owner and chooser.
+        player: PlayerId,
+    },
+    /// Ordering the selected hand cards on top of this player's library.
+    HandToTop {
+        /// Hand owner and chooser.
+        player: PlayerId,
+    },
+    /// Ordered hand-to-library movement after a commander replacement decision.
+    HandToTopPlace {
+        /// Owner of the hand and library.
+        player: PlayerId,
+    },
+    /// A dynamic search that gathers all choices before moving cards.
+    DirectedSearch(Box<super::directed_search::Selection>),
+    /// Another player's repeatable graveyard selection.
+    RepeatedGraveyardChoice(Box<super::repeated_graveyard_choice::Selection>),
+    /// The controller chooses from a filtered hand while privately seeing all of it.
+    PrivateHandDiscard {
+        /// Entire inspected hand, including unselectable cards.
+        inspected: Vec<ObjectId>,
+        /// Player who discards the selected cards.
+        player: PlayerId,
+        /// Still selectable matching cards.
+        options: Vec<ObjectId>,
+        /// Number still required across bounded answer batches.
+        remaining: u32,
+        /// Choices held until the complete discard is selected.
+        selected: Vec<ObjectId>,
+    },
     /// Optional search consent, before revealing any private library cards.
     MaySearchBasicLand {
         /// The player permitted to search their own library.
@@ -1010,6 +1062,24 @@ pub enum AwaitingOp {
 /// Work to resume after a resolution-time mana payment.
 #[derive(Clone, Debug, Hash)]
 pub enum ManaPaymentOutcome {
+    /// Both parts of one optional price must be payable before either is spent.
+    ManaAndLife {
+        /// Life paid together with the mana.
+        life: u32,
+        /// Branch after complete payment.
+        paid: &'static [Effect],
+        /// Branch after refusal or failed payment.
+        unpaid: &'static [Effect],
+    },
+    /// Continue an APNAP payment sequence until one player pays.
+    AnyPlayer {
+        /// Consequence if every player declines.
+        unpaid: &'static [Effect],
+        /// Next APNAP offset.
+        next: usize,
+    },
+    /// Continue or finish a graveyard-selection loop after a real mana payment.
+    RepeatGraveyardChoice(Box<super::repeated_graveyard_choice::Selection>),
     /// Untap these permanents, each as the object it was when chosen, once
     /// the price is paid (`Effect::UntapChosenPayingEach`).
     Untap {
@@ -1050,8 +1120,33 @@ pub enum ManaPaymentOutcome {
 
 impl AwaitingOp {
     /// Captured choices distinguish a search even while its cards have not moved.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one structural fingerprint arm per suspended choice"
+    )]
     pub(crate) fn search_fingerprint(&self) -> u64 {
         match self {
+            Self::SourceColor { source } => crate::state::structural_fingerprint(&(40_u8, source)),
+            Self::ControlChoice(choice) => {
+                crate::state::structural_fingerprint(&("control-choice", choice))
+            }
+            Self::DiscardDestination { discards, then } => match then {
+                DiscardThen::Cards => crate::state::structural_fingerprint(&(36_u8, discards)),
+                DiscardThen::Choice { op, chosen } => crate::state::structural_fingerprint(&(
+                    37_u8,
+                    discards,
+                    op.search_fingerprint(),
+                    chosen,
+                )),
+            },
+            Self::Loot(loot) => crate::state::structural_fingerprint(&(34_u8, loot)),
+            Self::SkipDraw { source } => crate::state::structural_fingerprint(&(35_u8, source)),
+            Self::RepeatCoinLifeStake(decision) => {
+                crate::state::structural_fingerprint(&(61_u8, decision))
+            }
+            Self::ChooseCoinRepeatPlayer(decision) => {
+                crate::state::structural_fingerprint(&(62_u8, decision))
+            }
             Self::MeldPartner => 29,
             Self::Dungeon { choices } => crate::state::structural_fingerprint(&(25_u8, choices)),
             Self::MutatePosition => 26,
@@ -1079,6 +1174,31 @@ impl AwaitingOp {
             Self::ExchangeGreatest(selection) => {
                 crate::state::structural_fingerprint(&(19_u8, selection.fingerprint()))
             }
+            Self::PrivateTopPick { looked } => {
+                crate::state::structural_fingerprint(&(31u8, looked))
+            }
+            Self::HandToTopChoice { player } => {
+                crate::state::structural_fingerprint(&(32u8, player))
+            }
+            Self::HandToTop { player } => crate::state::structural_fingerprint(&(33u8, player)),
+            Self::HandToTopPlace { player } => {
+                crate::state::structural_fingerprint(&(70u8, player))
+            }
+            Self::DirectedSearch(selection) => {
+                crate::state::structural_fingerprint(&(71u8, selection.fingerprint()))
+            }
+            Self::RepeatedGraveyardChoice(selection) => {
+                crate::state::structural_fingerprint(&(72u8, selection))
+            }
+            Self::PrivateHandDiscard {
+                inspected,
+                player,
+                options,
+                remaining,
+                selected,
+            } => crate::state::structural_fingerprint(&(
+                30u8, inspected, player, options, remaining, selected,
+            )),
             Self::DiscardAny(selection) => crate::state::structural_fingerprint(&(12u8, selection)),
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
@@ -1143,6 +1263,7 @@ impl AwaitingOp {
     /// Search state beneath a constraint that gathers several choices.
     pub(crate) fn search_operation(&self) -> &Self {
         match self {
+            Self::DirectedSearch(selection) => selection.operation.search_operation(),
             Self::SharedLandSearch(selection) => selection.operation.search_operation(),
             Self::SearchGroup(selection) => selection.operation.search_operation(),
             Self::SearchUpgrade { operation, .. } => operation.search_operation(),
@@ -1153,6 +1274,7 @@ impl AwaitingOp {
     /// Mutable counterpart, used when control of a search ends on concession.
     pub(crate) fn search_operation_mut(&mut self) -> &mut Self {
         match self {
+            Self::DirectedSearch(selection) => selection.operation.search_operation_mut(),
             Self::SharedLandSearch(selection) => selection.operation.search_operation_mut(),
             Self::SearchGroup(selection) => selection.operation.search_operation_mut(),
             Self::SearchUpgrade { operation, .. } => operation.search_operation_mut(),

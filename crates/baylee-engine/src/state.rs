@@ -38,6 +38,7 @@ mod reads;
 mod setup;
 #[cfg(test)]
 mod tests;
+mod upkeep_history;
 
 pub(crate) use hash::{
     SnapshotMemo, characteristics_fingerprint, mana_cost_fingerprint, structural_fingerprint,
@@ -115,6 +116,10 @@ pub struct Player {
     pub turns_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
+    /// Exact incarnations that blocked or became blocked since this player's latest upkeep.
+    pub blocked_since_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
+    /// The completed interval retained during the player's current upkeep.
+    pub blocked_before_upkeep: Vec<baylee_core::ids::DamageSourceRef>,
     /// Whether this player cast a spell or put a nontoken permanent onto the
     /// battlefield during their most recently completed turn (Arboria's
     /// "during their last turn"); false before their first turn ends.
@@ -1183,8 +1188,11 @@ impl GameState {
         let seat = player.get() as usize;
         let p = &mut self.players[seat];
         let old = p.life;
-        p.life += by;
-        let new = p.life;
+        let Some(new) = old.checked_add(by) else {
+            self.numeric_failure = Some("life total exceeds i32");
+            return;
+        };
+        p.life = new;
         if new < old {
             self.per_turn.life_lost[seat] = true;
             let lost = u32::try_from(i64::from(old) - i64::from(new)).unwrap_or(u32::MAX);

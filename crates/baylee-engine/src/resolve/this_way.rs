@@ -201,17 +201,18 @@ fn milled(
 pub(super) fn damaged_permanents(state: &GameState, res: &Resolution) -> Vec<ObjectId> {
     let mut out: Vec<ObjectId> = Vec::new();
     for entry in entries(state, res) {
-        if let GameEvent::DamageDealt {
-            source: Some(source),
-            target: DamageTarget::Object(object),
-            amount,
-            ..
-        } = entry.event
-            && source == res.source
-            && amount > 0
-            && !out.contains(&object)
-        {
-            out.push(object);
+        match entry.event {
+            GameEvent::DamageDealt {
+                source: Some(source),
+                target: DamageTarget::Object(object),
+                amount,
+                ..
+            } if source == res.source && amount > 0 && !out.contains(&object) => {
+                out.push(object);
+            }
+            // CR 400.7: a later incarnation was not dealt that earlier damage.
+            GameEvent::ZoneChanged { object, .. } => out.retain(|&id| id != object),
+            _ => {}
         }
     }
     out

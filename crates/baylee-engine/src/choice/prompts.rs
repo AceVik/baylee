@@ -499,6 +499,15 @@ impl TargetPrompt {
 /// What a [`Pending::YesNo`] asks.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
 pub enum YesNoPrompt {
+    /// Select one replacement for a permanent that would untap.
+    RemoveCountersInsteadOfUntapping {
+        /// Exact batch member represented by this visible permanent.
+        permanent: ObjectId,
+        /// Counters removed instead of untapping.
+        kind: baylee_cards_dsl::CounterKind,
+        /// Number of counters removed by this replacement.
+        count: u16,
+    },
     /// Clear marked damage instead of applying another destruction replacement.
     UseDamageClearingReplacement {
         /// Permanent facing destruction.
@@ -558,6 +567,13 @@ pub enum YesNoPrompt {
     PayMana {
         /// The printed price.
         cost: baylee_core::mana::ManaCost,
+    },
+    /// Pay one complete mana-and-life price, or decline both parts.
+    PayManaAndLife {
+        /// The full mana component.
+        cost: baylee_core::mana::ManaCost,
+        /// The full life component.
+        life: u32,
     },
     /// Make mana for a pact's debt. Declining loses the game.
     PayPact {
@@ -702,6 +718,7 @@ impl YesNoPrompt {
             | Self::ManaAnyType
             | Self::PayTax { .. }
             | Self::PayMana { .. }
+            | Self::PayManaAndLife { .. }
             | Self::PayLife { .. }
             | Self::Miracle { .. }
             | Self::CastWithoutPaying { .. }
@@ -713,7 +730,8 @@ impl YesNoPrompt {
             // Declining discover moves the card into the hand: a card for
             // the player, but not nothing, and a free spell is not a
             // question to answer by the clock.
-            Self::UseDamageClearingReplacement { .. }
+            Self::RemoveCountersInsteadOfUntapping { .. }
+            | Self::UseDamageClearingReplacement { .. }
             | Self::UseShieldCounter { .. }
             | Self::ApplyAdditionalCountersNext { .. }
             | Self::CommanderZone { .. }

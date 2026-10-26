@@ -589,6 +589,7 @@ impl<L: CardLookup> Engine<L> {
                     loot: None,
                     draw_watch: None,
                     this_way_from: None,
+                    coin_stake: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -633,6 +634,7 @@ impl<L: CardLookup> Engine<L> {
                 loot: None,
                 draw_watch: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
@@ -705,6 +707,7 @@ impl<L: CardLookup> Engine<L> {
                 draw_watch: None,
                 event_mana: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);

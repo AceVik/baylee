@@ -490,11 +490,12 @@ pub fn encode_candidates4(
             attackers,
             defenders,
             required,
+            minimum_required,
             limits,
             ..
         } => {
             out.head = HeadKind4::SubsetPick;
-            out.min_choices = required.len() as u32;
+            out.min_choices = minimum_required.unwrap_or(required.len() as u32);
             out.max_choices = attackers.len() as u32;
             let best_def = choose_best_attack_target(view, defenders);
             let per_attacker_defs: Vec<(ObjectId, Vec<Defender>)> = attackers

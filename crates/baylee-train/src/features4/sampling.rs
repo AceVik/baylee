@@ -36,13 +36,16 @@ pub fn sample_subset_constrained(
     // recorded conditional masks are invalid after the first PPO update.
     let visit_seq: Vec<u16> = order.iter().map(|&(i, _)| i as u16).collect();
 
-    if let Pending::ChooseAttackers { required, .. } = pending {
-        let mut rem_for_creature: BTreeMap<u64, usize> = BTreeMap::new();
-        let mut greedy_best: BTreeMap<u64, (usize, f32, f32)> = BTreeMap::new();
+    if let Pending::ChooseAttackers {
+        required,
+        alone,
+        minimum_required,
+        ..
+    } = pending
+    {
+        let mut greedy_best: BTreeMap<ObjectId, (usize, f32, f32)> = BTreeMap::new();
         for &(i, p) in &order {
-            if let Some(oid) = cands.candidates[i].object_id {
-                let key = pack_object_id(oid);
-                *rem_for_creature.entry(key).or_insert(0) += 1;
+            if let Some(id) = cands.candidates[i].object_id {
                 let noise = if tau > 1e-4 && tau <= 0.35 {
                     (rng.unit() as f32 - 0.5) * tau * 0.5
                 } else {
@@ -50,7 +53,7 @@ pub fn sample_subset_constrained(
                 };
                 let l_noisy = logits[i] + noise;
                 let entry = greedy_best
-                    .entry(key)
+                    .entry(id)
                     .or_insert((i, f32::NEG_INFINITY, 0.0));
                 if l_noisy > entry.1 {
                     entry.0 = i;
@@ -59,42 +62,41 @@ pub fn sample_subset_constrained(
                 entry.2 += p;
             }
         }
-        let mut chosen_creatures: Vec<u64> = Vec::new();
+        let mut subset = AttackSubset::new(
+            cands.candidates[..n].iter().filter_map(|c| c.object_id),
+            required,
+            alone,
+            *minimum_required,
+        );
         for &(i, p) in &order {
-            let Some(oid) = cands.candidates[i].object_id else {
+            let Some(id) = cands.candidates[i].object_id else {
                 continue;
             };
-            let key = pack_object_id(oid);
-            let rem_c = rem_for_creature.get_mut(&key).expect("counted above");
-            let is_last_for_c = *rem_c <= 1;
-            *rem_c = rem_c.saturating_sub(1);
-
-            if chosen_creatures.contains(&key) {
-                mask[i] = 0;
-                free_mask[i] = 0;
-            } else if required.contains(&oid) && is_last_for_c {
-                mask[i] = 1;
-                free_mask[i] = 0;
-                chosen_creatures.push(key);
-            } else {
-                free_mask[i] = 1;
-                let take = if tau <= 0.35 {
-                    let &(best_i, best_l, p_sum) = greedy_best.get(&key).expect("counted above");
-                    i == best_i
-                        && (required.contains(&oid)
-                            || best_l > 0.0
-                            || (p_sum > 0.50 && best_l > -0.65))
+            let (can_take, can_skip) = subset.options(id);
+            let free = can_take && can_skip;
+            let take = can_take
+                && (!can_skip
+                    || if tau <= 0.35 {
+                        let &(best_i, best_l, p_sum) =
+                            greedy_best.get(&id).expect("counted above");
+                        i == best_i
+                            && (required.contains(&id)
+                                || best_l > 0.0
+                                || (p_sum > 0.50 && best_l > -0.65))
+                    } else {
+                        (rng.unit() as f32) < p
+                    });
+            free_mask[i] = u8::from(free);
+            mask[i] = u8::from(take);
+            if take {
+                subset.take(id);
+            }
+            if free {
+                total_lp += if take {
+                    p.max(1e-7).ln()
                 } else {
-                    (rng.unit() as f32) < p
+                    (1.0 - p).max(1e-7).ln()
                 };
-                if take {
-                    mask[i] = 1;
-                    chosen_creatures.push(key);
-                    total_lp += p.max(1e-7).ln();
-                } else {
-                    mask[i] = 0;
-                    total_lp += (1.0 - p).max(1e-7).ln();
-                }
             }
         }
         return (mask, free_mask, visit_seq, total_lp);

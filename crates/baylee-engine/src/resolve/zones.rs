@@ -1363,10 +1363,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
         Effect::EqualizeHands => equalize::start(state, res, None),
+        Effect::DiscardAmountForPlayers { who, amount } => {
+            equalize::start_amount(state, res, who, None, &amount)
+        }
+        Effect::SacrificeAmountForPlayers {
+            who,
+            filter,
+            amount,
+        } => equalize::start_amount(state, res, who, Some(filter), &amount),
         Effect::DiscardForPlayers { who, count } => {
             discard::start_chain(state, res, who, count, false)
         }
         Effect::DiscardEachOrDraw { who } => discard::start_chain(state, res, who, 1, true),
+        Effect::LookAtRandomFromHand { who, count } => {
+            private_hand::inspect_random(state, res, who, count)
+        }
+        Effect::LookHandDiscard {
+            player,
+            count,
+            filter,
+        } => private_hand::choose_discard(state, res, player, count, filter),
         Effect::LookAtChosenHand => {
             let player = res.chosen_player?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();

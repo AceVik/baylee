@@ -729,8 +729,9 @@ pub fn auto_answer(
         Pending::ChooseAttackers {
             attackers,
             required,
+            minimum_required,
             ..
-        } if required.is_empty()
+        } if minimum_required.map_or(required.is_empty(), |minimum| minimum == 0)
             && (skipped
                 || matches!(pilot, Some(AutoPilot::ToNextTurn { .. }))
                 || (rules.skip_empty_attacks && attackers.is_empty())) =>
@@ -909,6 +910,8 @@ mod tests {
                         attackers: vec![],
                         defenders: Vec::new(),
                         required: Vec::new(),
+                        alone: Vec::new(),
+                        minimum_required: None,
                         limits: Vec::new(),
                     },
                     at(true, true, Phase::Combat, Step::DeclareAttackers),
@@ -1085,6 +1088,8 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                     required: Vec::new(),
+                    alone: Vec::new(),
+                    minimum_required: None,
                     limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
@@ -1458,6 +1463,8 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                     required: Vec::new(),
+                    alone: Vec::new(),
+                    minimum_required: None,
                     limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
@@ -1480,6 +1487,8 @@ mod tests {
                     attackers: vec![],
                     defenders: Vec::new(),
                     required: Vec::new(),
+                    alone: Vec::new(),
+                    minimum_required: None,
                     limits: Vec::new(),
                 },
                 at(true, true, Phase::Combat, Step::DeclareAttackers),
@@ -1750,6 +1759,8 @@ mod tests {
             ..AutoRules::default()
         };
         let no_attackers = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: PlayerId::new(0),
             attackers: vec![],
             defenders: Vec::new(),
@@ -1768,6 +1779,8 @@ mod tests {
         );
         // But a creature that *can* attack is always the player's call.
         let could_attack = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: PlayerId::new(0),
             attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
             defenders: Vec::new(),

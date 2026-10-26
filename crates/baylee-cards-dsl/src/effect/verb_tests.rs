@@ -19,6 +19,22 @@ fn a_nonmana_paid_reward_is_visited() {
 }
 
 #[test]
+fn destruction_followup_instructions_are_visited() {
+    static EFFECTS: &[Effect] = &[Effect::DestroyAllThenForEachDestroyed {
+        filter: &Filter::LAND,
+        no_regen: false,
+        effects: &[Effect::SacrificeSelf],
+    }];
+    let mut seen = 0;
+    let mut consequence_seen = false;
+    Effect::walk(EFFECTS, &mut seen, &mut |effect| {
+        consequence_seen |= matches!(effect, Effect::SacrificeSelf);
+    });
+    assert_eq!(seen, 2);
+    assert!(consequence_seen);
+}
+
+#[test]
 fn life_payment_fallback_is_visited() {
     static EFFECTS: &[Effect] = &[Effect::PlayerMayPayLifeOr {
         player: PlayerRel::ControllerOfTarget,

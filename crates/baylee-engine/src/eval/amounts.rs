@@ -82,6 +82,9 @@ pub fn amount_with_context(
             .map_or(0, |p| {
                 u32::try_from(state.zones.list(ZoneLocation::Hand(p)).len()).unwrap_or(u32::MAX)
             }),
+        Amount::LifeTotal(who) => players(*who, state, you)
+            .and_then(|p| p.first().copied())
+            .map_or(0, |p| u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)),
         Amount::ControlledCount { who, filter } => players(*who, state, you)
             .and_then(|p| p.first().copied())
             .map_or(0, |controller| {
@@ -95,6 +98,10 @@ pub fn amount_with_context(
         Amount::Half { base, round_up } => {
             let n = self::amount_with_context(base, state, you, context, x);
             if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Divided { base, divisor, round_up } => {
+            let n = self::amount_with_context(base, state, you, context, x);
+            if *round_up { n.div_ceil(divisor.get()) } else { n / divisor.get() }
         }
         Amount::Times { base, factor } => {
             self::amount_with_context(base, state, you, context, x).saturating_mul(*factor)
@@ -163,6 +170,10 @@ pub fn amount_with_context(
             .object(this)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::ManaTypeSpentOnX(color) => state
+            .object(this)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
         Amount::TappedPower => tapped_power(state, this),
         Amount::CreaturesDiedThisTurn => state.per_turn.creatures_died,
         Amount::UntappedLandsAtTurnStart => state.per_turn.untapped_lands_at_start,
@@ -314,6 +325,14 @@ fn visit_zone(
                     for &id in state.zones.list(ZoneLocation::Graveyard(player.id)) {
                         visit(id);
                     }
+                }
+            }
+            return;
+        }
+        ZoneSel::GraveyardOf(who) => {
+            for player in super::players(who, state, you).unwrap_or_default() {
+                for &id in state.zones.list(ZoneLocation::Graveyard(player)) {
+                    visit(id);
                 }
             }
             return;

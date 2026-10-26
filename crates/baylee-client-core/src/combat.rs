@@ -386,6 +386,8 @@ mod tests {
         let battle = Defender::Battle(obj(2));
         let mut i = Interaction::new(
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![battle],
@@ -411,6 +413,8 @@ mod tests {
             .build();
         let mut i = Interaction::new(
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
@@ -592,6 +596,8 @@ mod tests {
             .build();
         let mut i = Interaction::new(
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],
@@ -773,6 +779,8 @@ mod tests {
             .build();
         let i = Interaction::new(
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: seat(0),
                 attackers: vec![obj(1)],
                 defenders: vec![Defender::Player(seat(1))],

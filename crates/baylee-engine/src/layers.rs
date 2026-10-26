@@ -25,6 +25,10 @@
 //! changes its condition depends on the current object. A plan containing
 //! it reevaluates layer-4 dependencies during each projection (CR 613.8c).
 
+mod counts;
+mod reductions;
+use counts::{count_controlled, counts_by_attachment, pt_count};
+
 use crate::effects::{ContinuousEffect, EffectFilter, EffectTable};
 use crate::eval;
 use crate::object::{Characteristics, GameObject};
@@ -363,12 +367,24 @@ fn update_intrinsic_mana_summary(
 /// toughness are therefore summed apart — one shared delta is right only
 /// while every counter is symmetric, which was true of +1/+1 and -1/-1 and
 /// is true of nothing else.
-fn apply_pt_counters(c: &mut std::borrow::Cow<'_, Characteristics>, obj: &GameObject) {
+fn apply_pt_counters(
+    c: &mut std::borrow::Cow<'_, Characteristics>,
+    obj: &GameObject,
+    state: &GameState,
+) {
     if !c.types.contains(baylee_core::types::TypeSet::CREATURE) {
         return;
     }
     let (mut dp, mut dt) = (0i16, 0i16);
     for (kind, n) in obj.counters.iter() {
+        // Normal placements participate in timestamp order as Counter-origin
+        // effects. Direct setup fixtures alone need this aggregate fallback.
+        if state.effects.iter().any(|effect| {
+            effect.origin == crate::effects::EffectOrigin::Counter(kind)
+                && matches!(effect.filter, EffectFilter::ObjectIs(id, version) if id == obj.id && version == obj.version)
+        }) {
+            continue;
+        }
         let Some((per_power, per_toughness)) = kind.power_toughness() else {
             continue;
         };
@@ -723,6 +739,7 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
             | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Modifier::SetLandType(_)
             | Modifier::SetLandTypeToChosen
+            | Modifier::SetLandTypeToSecondChosen
             | Modifier::AddKeywordIfCountersAtLeast { .. }
             | Modifier::BecomeCopyOf(_)
     )
@@ -760,6 +777,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AllBasicLandTypes
                     | Modifier::SetLandType(_)
                     | Modifier::SetLandTypeToChosen
+                    | Modifier::SetLandTypeToSecondChosen
                     | Modifier::AddChosenBasicLandType
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
@@ -790,8 +808,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::CharacteristicPT { .. }
                     | Modifier::CharacteristicPTSeparate { .. }
                     | Modifier::ModifyPTPerCount { .. }
+                    | Modifier::ModifyPTByAmount { .. }
                     | Modifier::ModifyPTByCount(_)
                     | Modifier::ModifyPTHalfCount(_)
+                    | Modifier::ReducePTByCount { .. }
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
             ) || (layer == Layer::PtSet && crate::artifact_animation::animates(*modifier))
@@ -811,14 +831,17 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // Nothing in the modifier vocabulary changes any of these. Ownership
         // and tokenhood are fixed for as long as the object exists (CR
         // 108.3, CR 111.1); tapped, attacking, attachment and zone are game
-        // state rather than a characteristic a continuous effect writes; no
-        // modifier grants a supertype; and mana value comes off the printed
+        // state rather than a characteristic a continuous effect writes; mana value comes off the printed
         // cost, which only copying rewrites — and a copy effect's own filter
         // names an object rather than reading one of these. A *name* is the
         // same case as mana value: layer 3 (CR 613.1c) writes one and this
         // vocabulary has no such modifier, `BecomeCopyOf` being layer 1 and
         // applied before any of this. The day a text-changing modifier
         // exists, `Named` is what leaves this list.
+        Filter::HasSupertype(_) => matches!(
+            modifier,
+            Modifier::AddSupertype(_) | Modifier::RemoveSupertype(_)
+        ),
         Filter::HasRampage | Filter::HasCumulativeUpkeep | Filter::HasManaAbility => {
             matches!(layer, Layer::Ability | Layer::Type)
         }
@@ -829,7 +852,6 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::HasAdventure
         | Filter::This
         | Filter::Another
-        | Filter::HasSupertype(_)
         | Filter::IsToken
         | Filter::WithSingleTarget
         | Filter::OwnedBySourceOwner
@@ -856,6 +878,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::DealtDamageBySourceThisTurn
         | Filter::HasCounter(_)
         | Filter::AttachedToBySource
         | Filter::AttachedToSource
@@ -937,188 +960,6 @@ fn basic_land_color(subtype: baylee_core::ids::SubtypeId) -> baylee_core::color:
     .into_iter()
     .find(|(basic, _)| *basic == subtype)
     .map_or(ColorSet::EMPTY, |(_, color)| ColorSet::of(color))
-}
-
-/// Whether a count's filter picks its objects by what they are attached to
-/// (`Filter::AttachedToSource`, alone or in an `And`), which no control
-/// clause scopes.
-fn counts_by_attachment(filter: &baylee_cards_dsl::Filter) -> bool {
-    use baylee_cards_dsl::Filter;
-    match filter {
-        Filter::AttachedToSource => true,
-        Filter::And(parts) => parts.iter().any(counts_by_attachment),
-        _ => false,
-    }
-}
-
-fn count_controlled(
-    state: &GameState,
-    obj: &GameObject,
-    c: &Characteristics,
-    controller: Option<PlayerId>,
-    you: PlayerId,
-    filter: &baylee_cards_dsl::Filter,
-    context: crate::text_changes::RuleContext,
-) -> usize {
-    state
-        .battlefield_seen()
-        .filter_map(|id| state.object(id))
-        .filter(|o| {
-            controller.is_none_or(|p| o.controller == p)
-                && if o.id == obj.id {
-                    crate::eval::matches_projected_with_context(filter, state, o, c, you, context)
-                } else {
-                    crate::eval::matches_with_context(filter, state, o, you, context)
-                }
-        })
-        .count()
-}
-
-/// The number a [`PtCount`](baylee_cards_dsl::PtCount) names, for
-/// `CharacteristicPT` (7a) and `SetPTToCount` (7b) alike; `you` is whose
-/// permanents `YouControl` counts. Either count reads other objects, so
-/// both set `read_board`.
-fn pt_count(
-    state: &GameState,
-    obj: &GameObject,
-    c: &Characteristics,
-    you: PlayerId,
-    count: baylee_cards_dsl::PtCount,
-    context: crate::text_changes::RuleContext,
-    read_board: &mut bool,
-) -> i16 {
-    *read_board = true;
-    let n = match count {
-        baylee_cards_dsl::PtCount::Fixed(n) => usize::from(n),
-        baylee_cards_dsl::PtCount::DistinctColorsAmong(filter) => {
-            let mut colors = baylee_core::color::ColorSet::EMPTY;
-            for id in state.battlefield_seen() {
-                if let Some(other) = state.object(id) {
-                    let chars = if id == obj.id {
-                        c
-                    } else {
-                        other.characteristics()
-                    };
-                    if eval::matches_projected_with_context(
-                        filter, state, other, chars, you, context,
-                    ) {
-                        colors = colors.union(chars.colors);
-                    }
-                }
-            }
-            usize::from(colors.len())
-        }
-        baylee_cards_dsl::PtCount::ChosenNumber => obj
-            .riders
-            .iter()
-            .find_map(|rider| match rider {
-                crate::object::Rider::ChosenNumber {
-                    acquisition,
-                    number,
-                } if *acquisition == obj.rules_acquisition() => Some(usize::from(*number)),
-                _ => None,
-            })
-            .unwrap_or(0),
-        baylee_cards_dsl::PtCount::Complement { from, count } => {
-            return i16::try_from(from)
-                .unwrap_or(i16::MAX)
-                .saturating_sub(pt_count(state, obj, c, you, *count, context, read_board));
-        }
-        baylee_cards_dsl::PtCount::Plus { base, offset } => {
-            return pt_count(state, obj, c, you, *base, context, read_board)
-                .saturating_add(i16::try_from(offset).unwrap_or(i16::MAX));
-        }
-        baylee_cards_dsl::PtCount::YouControl(filter) => {
-            count_controlled(state, obj, c, Some(you), you, filter, context)
-        }
-        baylee_cards_dsl::PtCount::OnBattlefield(filter) => {
-            count_controlled(state, obj, c, None, you, filter, context)
-        }
-        baylee_cards_dsl::PtCount::DefendingPlayerControls(filter) => {
-            match defending_player_of(state, obj.id) {
-                Some(defending) => {
-                    count_controlled(state, obj, c, Some(defending), you, filter, context)
-                }
-                None => 0,
-            }
-        }
-        baylee_cards_dsl::PtCount::CardTypesInAllGraveyards => card_types_in_all_graveyards(state),
-        baylee_cards_dsl::PtCount::ExiledWithThis => cards_exiled_with(state, obj),
-        baylee_cards_dsl::PtCount::EntrySacrifices => obj
-            .riders
-            .iter()
-            .find_map(|r| match r {
-                crate::object::Rider::EntrySacrifices(count) => {
-                    Some(usize::try_from(*count).expect("arena count fits usize"))
-                }
-                _ => None,
-            })
-            .unwrap_or(0),
-    };
-    i16::try_from(n).unwrap_or(i16::MAX)
-}
-
-/// This layer only reads a currently attacking creature's defending player.
-/// Combat history keeps the original player when its attacked permanent leaves.
-fn defending_player_of(state: &GameState, attacker: ObjectId) -> Option<PlayerId> {
-    state
-        .combat
-        .is_attacking(attacker)
-        .then(|| crate::combat::historical_defending_player(state, attacker))
-        .flatten()
-}
-
-/// The number of card types (CR 205.2a) among cards in all graveyards.
-///
-/// Read off each card's own characteristics: a card in a graveyard is
-/// what it prints (CR 400.7 left every effect on it behind), and a
-/// double-faced card is its front face there (CR 712.8a). Cards only
-/// ([`GameObject::is_card`]): a token or a copy that died lies in the
-/// graveyard until state-based actions remove it (CR 704.5d, 704.5e), and
-/// the engine projects before it checks them.
-fn card_types_in_all_graveyards(state: &GameState) -> usize {
-    use baylee_core::types::TypeSet;
-    const CARD_TYPES: [TypeSet; 9] = [
-        TypeSet::ARTIFACT,
-        TypeSet::BATTLE,
-        TypeSet::CREATURE,
-        TypeSet::ENCHANTMENT,
-        TypeSet::INSTANT,
-        TypeSet::KINDRED,
-        TypeSet::LAND,
-        TypeSet::PLANESWALKER,
-        TypeSet::SORCERY,
-    ];
-    let mut seen = TypeSet::EMPTY;
-    for player in 0..state.players.len() {
-        let seat = PlayerId::new(u8::try_from(player).unwrap_or(u8::MAX));
-        for id in state.zones.list(crate::zone::ZoneLocation::Graveyard(seat)) {
-            if let Some(o) = state.object(*id).filter(|o| o.is_card()) {
-                seen = seen.union(o.characteristics().types);
-            }
-        }
-    }
-    CARD_TYPES.iter().filter(|t| seen.contains(**t)).count()
-}
-
-/// The cards in exile that were exiled with `host` as it is now (CR 406.6):
-/// a [`crate::object::Rider::ExiledWith`] naming its id and its version, so
-/// a host that left and came back counts none of them (CR 400.7). Cards
-/// only, as the Hearse says ([`GameObject::is_card`]).
-fn cards_exiled_with(state: &GameState, host: &GameObject) -> usize {
-    let mark = crate::object::Rider::ExiledWith {
-        host: host.id,
-        version: crate::object::Rider::version_of(host),
-    };
-    (0..state.players.len())
-        .map(|seat| PlayerId::new(u8::try_from(seat).unwrap_or(u8::MAX)))
-        .flat_map(|seat| state.zones.list(crate::zone::ZoneLocation::Exile(seat)))
-        .filter(|id| {
-            state
-                .object(**id)
-                .is_some_and(|o| o.is_card() && o.riders.contains(&mark))
-        })
-        .count()
 }
 
 #[allow(clippy::too_many_lines)] // the modifier vocabulary is one flat table
@@ -1206,10 +1047,24 @@ fn apply(
                 *tou = tou.saturating_add(count.saturating_mul(*t));
             }
         }
+        Modifier::ModifyPTByAmount { power, toughness } => {
+            *read_board = true;
+            let signed = |amount: &baylee_cards_dsl::Amount| {
+                let n = crate::eval::amount_with_context(amount, state, fx.controller, context, None);
+                let n = i16::try_from(n).unwrap_or(i16::MAX);
+                if amount.is_negative() { -n } else { n }
+            };
+            if let Some(p) = &mut c.power { *p = p.saturating_add(signed(power)); }
+            if let Some(t) = &mut c.toughness { *t = t.saturating_add(signed(toughness)); }
+        }
         Modifier::ModifyPTByCount(count) => {
             let n = pt_count(state, obj, c, fx.controller, *count, context, read_board);
             if let Some(power) = &mut c.power { *power = power.saturating_add(n); }
             if let Some(toughness) = &mut c.toughness { *toughness = toughness.saturating_add(n); }
+        }
+        Modifier::ReducePTByCount { count, minimum_toughness } => {
+            let count = pt_count(state, obj, c, fx.controller, *count, context, read_board);
+            reductions::reduce_pt(c, count, *minimum_toughness);
         }
         Modifier::ModifyPTHalfCount(count) => {
             // Half the count, rounded down for power and up for toughness.
@@ -1258,6 +1113,8 @@ fn apply(
             }
         }
         Modifier::AddType(t) => c.types = c.types.union(*t),
+        Modifier::AddSupertype(types) => c.supertypes = c.supertypes.union(*types),
+        Modifier::RemoveSupertype(types) => c.supertypes = c.supertypes.difference(*types),
         Modifier::RemoveType(t) => c.types = c.types.difference(*t),
         Modifier::AddSubtype(s) => c.subtypes.insert(*s),
         Modifier::AllCreatureTypes => c.subtypes = c.subtypes.union(SubtypeSet::ALL_CREATURE),
@@ -1286,6 +1143,16 @@ fn apply(
                 .and_then(|source| source.chosen_subtype)
             {
                 set_land_type(c, s);
+            }
+        }
+        Modifier::SetLandTypeToSecondChosen => {
+            if let Some(subtype) = fx.source.and_then(|source| state.object(source))
+                .and_then(|source| source.riders.iter().find_map(|rider| match rider {
+                    crate::object::Rider::SecondChosenSubtype(subtype) => Some(*subtype),
+                    _ => None,
+                }))
+            {
+                set_land_type(c, subtype);
             }
         }
         Modifier::AddChosenBasicLandType => {
@@ -1319,6 +1186,7 @@ fn apply(
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostLess { .. }
         | Modifier::RegenerateInsteadOfDestroy
+        | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
         | Modifier::PlayLandsFromGraveyard
         | Modifier::CastPermanentSpellsFromGraveyard
@@ -1327,6 +1195,7 @@ fn apply(
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
+        | Modifier::RevealYourHand
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -1334,6 +1203,7 @@ fn apply(
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
@@ -1368,6 +1238,7 @@ fn apply(
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
+        | Modifier::LandwalkOfSubtype { .. }
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -1395,6 +1266,7 @@ fn apply(
         | Modifier::NextDrawFromTop { .. }
         | Modifier::CreatureAbilityManaAnyColor
         | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
@@ -1421,9 +1293,12 @@ fn apply(
         // CR 613.11: a rule, so there is no characteristic to write. The
         // untap step reads it (`progress::untap_step`).
         | Modifier::SkipUntapStep { .. }
+        | Modifier::SkipDrawStep { .. }
         | Modifier::UntapAtMost { .. }
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
+        | Modifier::AttacksAloneOnly
+        | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::MayRedirectDamageToYou
@@ -1435,7 +1310,8 @@ fn apply(
         | Modifier::CantAttackIfDefenderControls(_)
         // A replacement, read where a card would reach a graveyard
         // (`replacement::graveyard_destination`).
-        | Modifier::ExileInsteadOfYourGraveyard => {}
+        | Modifier::ExileInsteadOfYourGraveyard
+        | Modifier::ExileInsteadOfLeavingBattlefield => {}
         Modifier::HoneEquipment => {
             *read_board = true;
             if let Some(equipment) = fx.source.and_then(|id| state.object(id))
@@ -1449,11 +1325,14 @@ fn apply(
             }
         }
         Modifier::ModifyPT(p, t) => {
+            let count = if let crate::effects::EffectOrigin::Counter(kind) = fx.origin {
+                i16::try_from(obj.counters.get(kind)).unwrap_or(i16::MAX)
+            } else { 1 };
             if let Some(power) = &mut c.power {
-                *power = power.saturating_add(*p);
+                *power = power.saturating_add(p.saturating_mul(count));
             }
             if let Some(toughness) = &mut c.toughness {
-                *toughness = toughness.saturating_add(*t);
+                *toughness = toughness.saturating_add(t.saturating_mul(count));
             }
         }
         // CR 613.4b, layer 7b: a *setting* effect gives the permanent that

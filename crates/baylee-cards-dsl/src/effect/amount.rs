@@ -109,6 +109,9 @@ pub enum Amount {
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
     /// cast spent none; a flashback spent its flashback cost.
     ManaSpentToCast,
+    /// Actual units of this mana type assigned to the printed X payment,
+    /// excluding fixed, additional and increased costs. No payment means zero.
+    ManaTypeSpentOnX(baylee_core::mana::ManaColor),
     /// "The tapped creature's power": the power of the permanent a
     /// `CostPart::TapOther` tapped to pay the cost of the ability that is
     /// resolving — station's "put a number of charge counters on this
@@ -154,6 +157,8 @@ pub enum Amount {
     LibrarySize(super::PlayerRel),
     /// Number of cards in the named player's hand.
     HandSize(super::PlayerRel),
+    /// The named player's current life total, floored at zero for a magnitude.
+    LifeTotal(super::PlayerRel),
     /// Number of matching permanents the named player controls.
     ControlledCount {
         /// Controller relative to the resolving ability.
@@ -168,6 +173,15 @@ pub enum Amount {
         /// Magnitude to halve.
         base: &'static Amount,
         /// Round odd values up instead of down.
+        round_up: bool,
+    },
+    /// Divide a magnitude by a positive integer with the printed rounding.
+    Divided {
+        /// Magnitude to divide.
+        base: &'static Amount,
+        /// A zero divisor is unrepresentable.
+        divisor: core::num::NonZeroU32,
+        /// Round a fractional result up instead of down.
         round_up: bool,
     },
     /// Multiply a magnitude by a nonnegative integer, saturating on overflow.
@@ -349,6 +363,19 @@ pub enum ThisWay {
 }
 
 impl Amount {
+    /// Construct a division, rejecting an invalid divisor before evaluation.
+    ///
+    /// # Panics
+    /// Panics if `divisor` is zero. Static card definitions validate at compile time.
+    #[must_use]
+    pub const fn divided(base: &'static Self, divisor: u32, round_up: bool) -> Self {
+        Self::Divided {
+            base,
+            divisor: core::num::NonZeroU32::new(divisor).expect("amount divisor must be nonzero"),
+            round_up,
+        }
+    }
+
     /// Whether this amount counts **downwards**.
     ///
     /// The one place the question is answered, because it was four places

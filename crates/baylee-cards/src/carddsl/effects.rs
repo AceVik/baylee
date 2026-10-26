@@ -126,7 +126,8 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         Effect::MillMayTakeOne { .. } => {
             ch.mill += 2.0;
         }
-        Effect::DiscardCount { count, .. } => {
+        Effect::DiscardCount { count, .. }
+        | Effect::DiscardAmountForPlayers { amount: count, .. } => {
             ch.discard += amount_scalar(count).max(1.0);
         }
         Effect::DiscardForPlayers { .. }
@@ -156,12 +157,14 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::DealDamageToTargetController { amount }
         | Effect::DealDamageToAttached { amount }
         | Effect::DealDamageWithCappedLifeGain { amount, .. }
+        | Effect::DealDamageWithLimitedLifeGain { amount, .. }
         | Effect::EventObjectDealsDamage { amount, .. } => {
             ch.damage_any += amount_scalar(amount).max(1.0);
         }
         Effect::DealDamageDivided { amount, .. } => {
             let v = match amount {
                 DivisionAmount::Fixed(n) => (*n as f32).clamp(1.0, 10.0),
+                DivisionAmount::XPlus(offset) => (3.0 + *offset as f32).clamp(1.0, 10.0),
                 DivisionAmount::XDoubleFrom(_) => 3.0,
             };
             ch.damage_any += v;
@@ -178,12 +181,14 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.damage_board += amount_scalar(amount).max(2.0);
         }
         Effect::Destroy { .. }
+        | Effect::DestroyTargetSlots { .. }
         | Effect::DestroyEventThenMayReattach { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::DestroyRandom { .. } => {
             ch.destroy_single += 1.0;
         }
         Effect::DestroyAll { .. }
+        | Effect::DestroyAllThenForEachDestroyed { .. }
         | Effect::DestroyAllWithManaValue { .. }
         | Effect::DestroyAllExceptChosen { .. }
         | Effect::DestroyOthersNamedLike { .. }
@@ -299,6 +304,9 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
             ch.life_lose += amount_scalar(amount).max(1.0);
         }
         Effect::LoseHalfLife { .. } => ch.life_lose += 4.0,
+        Effect::SacrificeAmountForPlayers { amount, .. } => {
+            ch.sacrifice_force += amount_scalar(amount).max(1.0);
+        }
         Effect::SacrificeFilter { .. }
         | Effect::SacrificeAll { .. }
         | Effect::SacrificeChosenByOpponent { .. }
@@ -330,4 +338,3 @@ fn walk_effects(effects: &'static [Effect], ch: &mut EffectChannels) {
     let mut seen = 0;
     Effect::walk(effects, &mut seen, &mut |eff| accumulate_effect(eff, ch));
 }
-

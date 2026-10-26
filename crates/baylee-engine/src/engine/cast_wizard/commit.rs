@@ -48,7 +48,7 @@ impl<L: CardLookup> Engine<L> {
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
             let allowance = self.wizard_source_allowance(wizard);
-            let Some(spent) = casting::pay_mana_scoped(
+            let Some((spent, x_paid)) = casting::pay_mana_scoped_recording_x(
                 &mut self.state,
                 player,
                 spend_for(wizard, face),
@@ -64,6 +64,7 @@ impl<L: CardLookup> Engine<L> {
                 &held_before,
                 &self.state.players[player.get() as usize].mana_pool,
             );
+            paid_mana.mana_types_spent_on_x = x_paid;
             spent_riders = spent;
         }
         // The mana is paid, so the rest of the cost may now be spent: the

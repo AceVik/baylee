@@ -15,6 +15,76 @@ pub(super) fn exec_immediate(
 ) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::ChooseSourceColor => {
+            let (source, pending) = source_color::choice(state, res)?;
+            res.awaiting = Some(AwaitingOp::SourceColor { source });
+            Some(pending)
+        }
+        Effect::PlayerMayPayManaAndLifeEachThenElse {
+            player,
+            mana,
+            life,
+            times,
+            paid,
+            unpaid,
+        } => mana_life_payment::offer(state, res, player, mana, life, times, paid, unpaid),
+        Effect::AnyPlayerMayPayManaOr { cost, effects } => {
+            any_player_payment::offer(state, res, cost, effects, 0)
+        }
+        Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects } => {
+            super::damage_returns::for_each(state, res, effects, op);
+            None
+        }
+        Effect::GrantTriggeredIfAbsent {
+            target,
+            trigger,
+            effects,
+            duration,
+        } => {
+            super::conditional_grants::grant(state, res, target, trigger, effects, duration);
+            None
+        }
+        Effect::PlayerMayGainControl {
+            player,
+            filter,
+            duration,
+        } => super::control_choice::start(state, res, player, filter, duration),
+        Effect::SacrificeNOrElse {
+            filter,
+            count,
+            otherwise,
+        } => super::control_choice::sacrifice_n_or_else(state, res, filter, count, otherwise),
+        Effect::DrawThenDiscardDrawn { draw, discard } => {
+            loot::drawn_only(state, res, draw, discard)
+        }
+        Effect::ExileTopFaceDownUntilYourNextEndStep => {
+            super::hidden_exile::exile_top_until_own_end(state, res);
+            None
+        }
+        Effect::ExileDiscardedCardFromYourGraveyard => {
+            super::hidden_exile::exile_discarded(state, res);
+            None
+        }
+
+        Effect::ExchangeBlockersOfTargetAttackers => {
+            if let Some((&first, &second)) = res
+                .targets
+                .first()
+                .zip(res.targets.get(1).or_else(|| res.second_targets.first()))
+            {
+                crate::combat::exchange_blockers(state, first, second);
+            }
+            None
+        }
+        Effect::CreateDelayedObserver {
+            watch,
+            when,
+            about,
+            effects,
+        } => {
+            super::control_observers::register(state, res, watch, when, about, effects);
+            None
+        }
         Effect::TapAndPayEnergyForCounters { who, filter, kind } => {
             super::tap_energy::start(state, res, who, filter, kind)
         }
@@ -109,8 +179,13 @@ pub(super) fn exec_immediate(
             }
             None
         }
-        Effect::ReanimateEnchanted => {
-            if let Some(finish) = crate::aura_bindings::begin_reanimation(state, res, false) {
+        Effect::ReanimateEnchanted | Effect::ReanimateEnchantedTapped => {
+            if let Some(finish) = crate::aura_bindings::begin_reanimation(
+                state,
+                res,
+                false,
+                matches!(op, Effect::ReanimateEnchantedTapped),
+            ) {
                 state.reanimation_finishes.push(finish);
             }
             None
@@ -256,8 +331,11 @@ pub(super) fn exec_immediate(
         | Effect::LoseLife { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+        | Effect::PreventNextDamageToAttached { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamageEvenly { .. }
         | Effect::Fight { .. }
         | Effect::DamageEqualToPower { .. }
@@ -328,6 +406,8 @@ pub(super) fn exec_immediate(
         | Effect::EqualizePermanents { .. }
         | Effect::EqualizeHands
         | Effect::DiscardForPlayers { .. }
+        | Effect::DiscardAmountForPlayers { .. }
+        | Effect::SacrificeAmountForPlayers { .. }
         | Effect::DiscardEachOrDraw { .. }
         | Effect::DiscardRandom { .. }
         | Effect::RandomGraveyardToHand { .. }
@@ -339,6 +419,8 @@ pub(super) fn exec_immediate(
         | Effect::DiscardMatching { .. }
         | Effect::DiscardRandomMatching { .. }
         | Effect::LookAtChosenHand
+        | Effect::LookAtRandomFromHand { .. }
+        | Effect::LookHandDiscard { .. }
         | Effect::SacrificeFilter { .. }
         | Effect::SacrificeOneThen { .. }
         | Effect::ReturnChosenToHand { .. }
@@ -457,11 +539,46 @@ pub(super) fn exec_immediate(
             None
         }
         // --- Cards drawn -------------------------------------------------
+        Effect::PutHandOnTop { player } => hand_transfer::all_to_top(state, res, player),
+        Effect::SearchLibraryFor {
+            library,
+            receiver,
+            count,
+            filter,
+            find,
+            optional,
+        } => directed_search::start(state, res, library, receiver, count, filter, find, optional),
+        Effect::RechooseGraveyardCard {
+            owner,
+            chooser,
+            cost,
+        } => repeated_graveyard_choice::start(state, res, owner, chooser, cost),
         Effect::DrawCards { amount } => {
             let n = amount2(&amount, state, you, res) as usize;
             state.draw_cards(you, n);
             None
         }
+        Effect::LookAtTopPickThenReorder { count, pick } => {
+            private_library::pick_top(state, res, count, pick)
+        }
+        Effect::LookAtTopExileRandom { count, exile } => {
+            private_library::exile_random_top(state, res, count, exile)
+        }
+        Effect::PutFromHandOnTopFor { player, count } => {
+            private_library::hand_on_top(state, res, player, count)
+        }
+        Effect::ExileTop { who, count } => names::exile_top(state, res, who, count),
+        Effect::RevealUntilNamed {
+            player,
+            matched,
+            otherwise,
+        } => names::reveal_until_named(state, res, player, matched, otherwise),
+        Effect::RevealTopByNameThen {
+            player,
+            matched,
+            otherwise,
+            otherwise_effects,
+        } => names::reveal_top_then(state, res, player, matched, otherwise, otherwise_effects),
         Effect::DrawRevealDiscardUnless { keep } => {
             let card = if let Some((drawn_before, replaced_before)) = res.draw_watch.take() {
                 // The draw waited for its replacements and is settled now.
@@ -531,6 +648,10 @@ pub(super) fn exec_immediate(
         }
         Effect::ExileSourceThenCastTransformed { cast } => {
             super::battle_defeat::start(state, res, cast)
+        }
+        Effect::PreventNextDamageFromSource { .. }
+        | Effect::RedirectCombatDamageToYouThisTurn { .. } => {
+            life::ice_combat::exec(state, res, op)
         }
         Effect::RedirectTargetSourceDamageThisTurn { .. }
         | Effect::RedirectNextChosenSourceDamageToTarget { .. }
@@ -755,7 +876,22 @@ pub(super) fn exec_immediate(
             max,
             duration,
         } => colors::choose(state, res, subject, max, duration),
-        Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(res, duration)),
+        Effect::ChooseSourceLandwalk { duration } => Some(landwalk::choose(
+            state,
+            res,
+            TargetSpec::ThisObject,
+            true,
+            &baylee_cards_dsl::Filter::Any,
+            duration,
+        )),
+        Effect::ChooseLandwalk {
+            target,
+            basic_only,
+            lands,
+            duration,
+        } => Some(landwalk::choose(
+            state, res, target, basic_only, lands, duration,
+        )),
         Effect::AtNextUpkeep { effects } => {
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: you,
@@ -892,17 +1028,12 @@ pub(super) fn exec_immediate(
             });
             None
         }
+        Effect::DamagedThisWayCantBeRegenerated => {
+            super::regeneration::prevent_for_damaged(state, res);
+            None
+        }
         Effect::CantBeRegeneratedThisTurn { target } => {
-            for id in zones::spec_objects(state, res, target) {
-                if let Some(obj) = state.object(id)
-                    && obj.zone == crate::zone::Zone::Battlefield
-                {
-                    let named = (id, obj.version);
-                    if !state.per_turn.cant_regenerate.contains(&named) {
-                        state.per_turn.cant_regenerate.push(named);
-                    }
-                }
-            }
+            super::regeneration::prevent_for_targets(state, res, target);
             None
         }
         Effect::Discover { mana_value } => discover(state, res, u32::from(mana_value)),
@@ -955,6 +1086,10 @@ pub(super) fn exec_immediate(
                     text: res.text,
                 },
             });
+            None
+        }
+        Effect::DestroyTargetSlots { targets, no_regen } => {
+            super::target_groups::destroy(state, res, targets, no_regen);
             None
         }
         Effect::DestroyRandom { filter } => {
@@ -1102,9 +1237,33 @@ pub(super) fn exec_immediate(
             });
             None
         }
-        Effect::ForEachMatching { filter, effects } => {
+        Effect::DestroyAllThenForEachDestroyed {
+            filter,
+            no_regen,
+            effects,
+        } => {
+            super::destruction_receipts::execute(state, res, filter, no_regen, effects, op);
+            None
+        }
+        Effect::WheneverCombatEventThisTurn { .. } => {
+            combat_watches::start(state, res, op);
+            None
+        }
+        Effect::ForEachMatching { effects, .. } | Effect::ForEachTarget { effects } => {
             let mut remaining = res.subject.for_each_remaining.take().unwrap_or_else(|| {
                 let context = res.rule_context();
+                if matches!(op, Effect::ForEachTarget { .. }) {
+                    let mut targets: Vec<_> = res
+                        .targets
+                        .iter()
+                        .filter_map(|id| subjects::target(state, res, *id))
+                        .collect();
+                    targets.reverse();
+                    return targets;
+                }
+                let Effect::ForEachMatching { filter, .. } = op else {
+                    unreachable!("iteration instruction");
+                };
                 let mut matched: Vec<baylee_core::ids::DamageSourceRef> = state
                     .battlefield_seen()
                     .filter_map(|id| {
@@ -1127,7 +1286,9 @@ pub(super) fn exec_immediate(
                     continue;
                 };
                 let controller = obj.controller;
+                let power = obj.characteristics().power.unwrap_or(0);
                 res.event_object = Some(next_ref.object);
+                res.subject.set_event_identity(Some((next_ref, power)));
                 res.subject.set_event_player(Some(controller));
                 let mut spliced = flatten(effects);
                 if !remaining.is_empty() {
@@ -1478,6 +1639,11 @@ pub(super) fn exec_immediate(
         // CR 705.1, 705.2: one flip, from the seeded stream, won or lost
         // by the player who flipped; the journal says which, so the log
         // and a replay agree on it.
+        Effect::FlipCoinLifeExchangeRepeat {
+            opponent,
+            initial,
+            multiplier,
+        } => super::coin_stakes::start(state, res, opponent, initial, multiplier),
         Effect::FlipCoin { won, lost } => {
             let heads = state.rng.below(2) == 0;
             state.journal.record(crate::event::GameEvent::CoinFlipped {
@@ -1555,6 +1721,9 @@ pub(super) fn exec_immediate(
             modifier,
             duration,
         } => {
+            if !super::continuous_subjects::source_duration_starts(state, res, duration) {
+                return None;
+            }
             if matches!(
                 duration,
                 baylee_cards_dsl::Duration::WhileSourceTapped { .. }
@@ -1624,6 +1793,9 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ModifyTargets { modifier, duration } => {
+            if !super::continuous_subjects::source_duration_starts(state, res, duration) {
+                return None;
+            }
             if (matches!(modifier, baylee_cards_dsl::Modifier::GainControl) && state.has_left(you))
                 || (matches!(duration, baylee_cards_dsl::Duration::WhileYouControlSource)
                     && !source_still_yours(state, res, you))
@@ -1640,18 +1812,11 @@ pub(super) fn exec_immediate(
             }
             let timestamp = state.next_timestamp();
             for &target in &res.targets {
-                let Some(object) = state.object(target) else {
+                let Some(reference) = super::continuous_subjects::target(state, res, target) else {
                     continue;
                 };
-                if object.status.contains(crate::object::Status::PHASED_OUT)
-                    || res.target_lki.as_ref().is_some_and(|lki| {
-                        lki.iter()
-                            .any(|old| old.id == target && old.version != object.version)
-                    })
-                {
-                    continue;
-                }
-                let filter = crate::effects::EffectFilter::object(state, target);
+                let filter =
+                    crate::effects::EffectFilter::ObjectIs(reference.object, reference.version);
                 if !crate::permanent_guards::permits_resolution_effect(state, filter, modifier, you)
                     || !state.source_duration_holds(duration, res.source, you, filter)
                 {
@@ -2059,6 +2224,7 @@ pub(super) fn exec_immediate(
                 prompt: match matched.dest {
                     SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
                     SearchDest::Graveyard => ChoicePrompt::PutIntoGraveyard,
+                    SearchDest::Exile => ChoicePrompt::Generic,
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
                 },
@@ -2146,7 +2312,7 @@ pub(super) fn exec_immediate(
                     SearchDest::Hand => ChoicePrompt::PutIntoHand,
                     SearchDest::Battlefield => ChoicePrompt::PutOntoBattlefield,
                     SearchDest::TopOfLibrary => ChoicePrompt::PutBackOnTop,
-                    SearchDest::Graveyard => ChoicePrompt::Generic,
+                    SearchDest::Graveyard | SearchDest::Exile => ChoicePrompt::Generic,
                 },
                 total: None,
             })
@@ -3280,6 +3446,17 @@ fn resolution_condition(
         }
         // Read through the resolution's own amount reader, which knows the
         // stack object and what this resolution has done (`ThisWay`).
+        Condition::AmountIsEven(amount) => {
+            amount2(&amount, state, res.controller, res).is_multiple_of(2)
+        }
+        Condition::CreatureDamagedBySourceDiedThisTurn => source_version(state, res)
+            .or_else(|| state.object(res.source).map(|object| object.version))
+            .is_some_and(|version| {
+                state.source_damage_caused_death(baylee_core::ids::DamageSourceRef {
+                    object: res.source,
+                    version,
+                })
+            }),
         Condition::AmountAtLeast(amount, minimum) => {
             amount2(&amount, state, res.controller, res) >= minimum
         }

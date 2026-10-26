@@ -160,6 +160,11 @@ pub(super) fn resume_with_color_inner(
     color: ManaColor,
 ) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    if let AwaitingOp::SourceColor { source } = awaiting {
+        super::source_color::remember(state, source, color);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let AwaitingOp::ManaUnlessPaidColor { amount, cost } = awaiting {
         if let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, 0) {
             return Flow::Wait(pending);
@@ -543,7 +548,8 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
-    if let Some(flow) = super::search::resume_consent(state, res, answer)
+    if let Some(flow) = super::coin_stakes::answer(state, res, answer)
+        .or_else(|| super::search::resume_consent(state, res, answer))
         .or_else(|| resume_selected_commander(state, res, answer))
         .or_else(|| graveyard_choice::resume_commander(state, res, answer))
         .or_else(|| resume_cast_question(state, res, answer))
@@ -827,6 +833,10 @@ pub fn resume_arranged(
     flow
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "dispatch each suspended arrangement without hiding variants"
+)]
 pub(super) fn resume_arranged_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -859,6 +869,11 @@ pub(super) fn resume_arranged_inner(
         (AwaitingOp::GraveyardToTopOrder { player }, [top]) => {
             if let Some(question) = graveyard_top::place(state, res, player, top.clone()) {
                 return next_choice(state, res, since, question);
+            }
+        }
+        (AwaitingOp::HandToTop { player }, [top]) => {
+            if let Some(pending) = hand_transfer::place(state, res, player, top) {
+                return next_choice(state, res, since, pending);
             }
         }
         (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
@@ -978,10 +993,45 @@ pub(super) fn resume_tax_choice_inner(
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
     let what = super::payment_for(state, res);
-    let actually_paid = paid && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
+    let life = match &outcome {
+        ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
+        _ => 0,
+    };
+    let actually_paid = paid
+        && super::mana_life_payment::life_payable(state, player, life)
+        && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
+    if actually_paid && life != 0 {
+        state.change_life(
+            player,
+            -i32::try_from(life).expect("payable life"),
+            Cause::Cost,
+        );
+    }
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     let (effects, on_payment) = match outcome {
-        ManaPaymentOutcome::Branches { paid, unpaid } => {
+        ManaPaymentOutcome::AnyPlayer { unpaid, next } => {
+            if !actually_paid {
+                let since = state.journal.last_seq();
+                if let Some(pending) =
+                    super::any_player_payment::offer(state, res, cost, unpaid, next)
+                {
+                    return next_choice(state, res, since, pending);
+                }
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        ManaPaymentOutcome::RepeatGraveyardChoice(selection) => {
+            let since = state.journal.last_seq();
+            if let Some(pending) =
+                repeated_graveyard_choice::paid(state, res, *selection, actually_paid)
+            {
+                return next_choice(state, res, since, pending);
+            }
+            return finish_choice(state, res, since);
+        }
+        ManaPaymentOutcome::ManaAndLife { paid, unpaid, .. }
+        | ManaPaymentOutcome::Branches { paid, unpaid } => {
             return run_fallback(state, res, if actually_paid { paid } else { unpaid });
         }
         ManaPaymentOutcome::Effects {

@@ -26,6 +26,8 @@ use bevy::prelude::*;
 /// A declare-attackers question offering `attackers` as candidates.
 fn attackers(candidates: Vec<ObjectId>) -> Pending {
     Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: PlayerId::new(0),
         attackers: candidates,
         defenders: vec![Defender::Player(PlayerId::new(1))],

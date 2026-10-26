@@ -49,6 +49,8 @@ No `cargo xtask` alias exists; every line below follows `cargo run -p xtask --`.
 
 ```text
 codegen [--check | --tables]      # --tables: no corpus needed
+codegen --reclaim "<card>" --scripts <upstream-cardsfolder> [--check]
+codegen --complete-stub "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --hold-back "<card>" --hold-back-reason "<review finding>" [--check]
 codegen --hold-back-file <names.txt> --hold-back-reason "<review finding>" [--check]
 validate
@@ -73,6 +75,27 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 - Scryfall: `fetch_named` answers cached payloads from disk, else fetches one card. Fill a cold cache in bulk (`scryfall::fill_from_bulk`, `oracle_cards`), matched on ledger `oracle_id`, never name. Bulk never fails; gaps fetch singly.
 - `data/scryfall-cache` (`--cache` default) is gitignored; copy it into a fresh worktree or codegen fails at the lines stage.
 - Never run full `codegen` without the corpus: it rewrites every machine-owned card as a stub. `--tables` regenerates the four compiled-pool tables after a hand-edited card or a `baylee_cards_codegen::lines` change.
+- `codegen --reclaim` returns only explicitly named `Implemented` cards to
+  generator ownership after their readers catch up. Repeat the flag to select
+  several. It uses cached pinned printings and existing subtype assignments,
+  requires a complete local script read and accepted canonical card tests,
+  and rejects identity or path changes and coverage demotion before writing
+  any card. It rechecks all planned sources before its first write. `--check`
+  prints complete source diffs without writing cards and exits nonzero when
+  changes remain. It never downloads, moves files, or writes other cards,
+  registries, indices or tables; follow an applied transfer with
+  `codegen --tables` and the card tests, validation and gates.
+- `codegen --complete-stub` finishes only explicitly named existing
+  machine-owned stubs whose local scripts are now fully read. Repeat the flag
+  for multiple names. It shares reclamation's pinned printing/Oracle/index/path
+  checks and whole-selection preflight, but does not accept hand-owned,
+  Partial or completed generated inputs. The normal renderer emits `Generated`
+  when canonical tests are absent or held, and `Implemented` when accepted.
+  `--check` prints full diffs, writes no cards and exits nonzero for pending
+  changes. Applying writes only those selected stub paths; it never downloads,
+  adopts a card, or changes tables, registries or the index. Use `--tables`
+  separately after the reviewed completion. Once completed, the card is no
+  longer eligible for this stub-only mode.
 - `codegen --hold-back` restores only selected reviewed cards to canonical
   `Coverage::Unimplemented` stubs, recording the required reason as a generated
   comment and removing every ability and keyword. Repeat the flag or use

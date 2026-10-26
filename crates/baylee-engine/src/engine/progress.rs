@@ -28,6 +28,7 @@ mod steps;
 mod triggers;
 mod turn;
 mod untap;
+pub(super) mod untap_replacements;
 
 /// What a permanent that has just entered still has to ask as it enters,
 /// queued in [`Engine::entry_questions`] until every co-arrival's other
@@ -977,14 +978,20 @@ impl<L: CardLookup> Engine<L> {
             }
             attackers.push(id);
         }
-        if let Some(max) = rules.max_attackers() {
-            required.truncate(max);
-        }
+        let minimum_required =
+            Some(u32::try_from(rules.required_maximum(&required)).unwrap_or(u32::MAX));
+        let alone = attackers
+            .iter()
+            .copied()
+            .filter(|id| rules.attacks_alone(*id))
+            .collect();
         Pending::ChooseAttackers {
             player: attacker,
             attackers,
             defenders,
             required,
+            alone,
+            minimum_required,
             limits,
         }
     }

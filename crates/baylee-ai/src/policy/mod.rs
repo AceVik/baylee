@@ -1408,6 +1408,7 @@ impl HeuristicAgent {
             if matches!(
                 effect,
                 Effect::DrawCards { .. }
+                    | Effect::DrawThenDiscardDrawn { .. }
                     | Effect::DrawCardsFor { .. }
                     | Effect::LookAtTopPick { .. }
                     | Effect::RevealTopAndSort { .. }
@@ -2448,6 +2449,7 @@ pub(crate) fn pays_tax(
                 | Effect::PlayerMayPayManaThen { .. }
                 | Effect::PlayerMayPayThenElse { .. }
                 | Effect::PlayerMayPayManaEachThenElse { .. }
+                | Effect::PlayerMayPayManaAndLifeEachThenElse { .. }
         )
     }) {
         let draws: u32 = context

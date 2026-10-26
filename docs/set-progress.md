@@ -762,3 +762,51 @@ Within the 1,350 reviewed identities: **793 Implemented, 260 Partial,
 294 Partial, 341 Unimplemented; no Generated cards. The remaining corpus is
 22,986 Absent and 15 Excluded. Full findings and final verification belong to
 `docs/history/2026-10-23-argon-review.md`.
+
+## Partial completion, first batch (2026-10-25)
+
+Eight Ice Age cards are fully implemented in this batch:
+Arcum's Weathervane, Bone Shaman, Energy Storm, Fire Covenant, Incinerate,
+Lhurgoyf, Lost Order of Jarkeld and Shyft. The 48 focused card/rule tests and
+initial table-generation pipeline pass. Four generic reader forms pass all
+382 codegen tests (191 scriptgen), and selective reclaim passes 98 xtask tests.
+Fresh post-reclaim source/native measurements and table/hook checks pass.
+The final rules gate passes (20,872 tests, 17 skipped), including the corrected
+modifier population. Full `cargo dev gate` passes (23,109 workspace tests,
+25 skipped, plus 4 API tests); both commands exit 0. Feature gate was not run,
+and no push or land was performed.
+
+At that first-batch checkpoint, the read-only join of all 346 first-printing Ice Age identities to
+source coverage and exclusions measures **265 Implemented, 49 Partial,
+31 Unimplemented, 0 Absent and 1 Excluded**. Whole-pool coverage then was
+**10,066 Implemented, 286 Partial and 341 Unimplemented** (10,693 definitions).
+Pre-reclaim validation measured 2,582 hand-owned, 7,770 machine-owned and 341
+stubs. The four completed, fully read Arcum/Bone Shaman/Energy Storm/Incinerate
+definitions return to generator ownership; fresh source measurement and native
+validation confirm 2,578/7,774/341. Coverage is preserved by these ownership transfers;
+no additional reader-driven promotion is claimed. The remaining Partial
+backlog was open; the 49 remaining Ice Age Partials were then inventoried.
+See `docs/history/2026-10-25-partial-completion.md` for the batch boundaries
+and validation evidence. The older dated snapshots above remain historical.
+
+## Bounded Ice Age continuation (2026-10-26)
+
+The completed branch changes **18 existing Partial definitions to Implemented**
+against `origin/main`: the initial eight above, Cloak of Confusion and Staff of
+the Ages, then Dance of the Dead, Magus of the Unseen, Ray of Command, Lava Burst,
+Meteor Shower, Fiery Justice, Soul Burn and Fumarole.
+
+Current first-printing Ice Age coverage (346 Oracle IDs) is **275 Implemented,
+39 Partial, 31 Unimplemented, 0 Absent and 1 Excluded**. The full printed set has
+383 printing rows but 373 Oracle IDs: **302 Implemented, 39 Partial,
+31 Unimplemented and 1 Excluded**. All 27 reprint Oracle IDs are implemented;
+ten additional printing rows are basic-land art variants. **70 cards remain
+unfinished**, so this is a bounded completion, not full-set completion.
+
+Rules gate: **21,050 passed, 17 skipped, exit 0**.
+Full desktop gate: **23,301 passed, 25 skipped; four API tests passed; exit 0**.
+Formatting, Clippy, tests, cache, validation and API checks all passed.
+Feature gate: **Passed, exit 0**. Client: 2,290 passed, including 39 devctl
+checks. Gateway devtable Clippy/tests, dev-dylink, test-support, train without
+play, fuzz, mutate, verification-hooks-shipped and crypto-bigint-scope all passed.
+See `docs/history/2026-10-25-bounded-ice-continuation.md` for the exact scope.

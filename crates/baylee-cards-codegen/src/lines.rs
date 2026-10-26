@@ -555,6 +555,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
         T::SearchesLibrary(_) => &["search"],
         T::GainsLife(_) => &["gain life", "gains life"],
+        T::LosesLife(_) => &["lose life", "loses life"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
         T::PlaysAnotherLand => &["play another land"],
@@ -665,6 +666,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::NthCardDrawnInTurn { who: rel, .. }
         | Trigger::SearchesLibrary(rel)
         | Trigger::GainsLife(rel)
+        | Trigger::LosesLife(rel)
         | Trigger::PlaysLand(rel)
         | Trigger::InstantCastAfterFirst { who: rel }
         | Trigger::FirstNoncreatureSpellCast(rel)

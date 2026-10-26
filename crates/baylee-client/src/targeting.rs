@@ -223,6 +223,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 | PlayerRel::MostLife
                 | PlayerRel::ControllerOfTarget
                 | PlayerRel::TargetPlayerOrController
+                | PlayerRel::SecondTargetPlayerOrController
                 | PlayerRel::ControllerOfEvent
                 | PlayerRel::ControllerOfAttached
                 | PlayerRel::DamagedPlayer
@@ -494,6 +495,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         // last battlefield characteristics. Leave the relation to the engine.
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::DealtDamageToSourceThisTurn
+        | Filter::DealtDamageBySourceThisTurn
         | Filter::BlockedByReference
         | Filter::DealtDamageThisTurn
         | Filter::BlockedThisTurn

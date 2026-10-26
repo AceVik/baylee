@@ -753,19 +753,21 @@ fn matches(
                 object,
                 version,
                 player,
-                known: true,
+                known,
                 ..
             },
         ) => {
             eval::players(*who, state, you).is_some_and(|players| players.contains(player))
-                && state
-                    .source_object(baylee_core::ids::DamageSourceRef {
-                        object: *object,
-                        version: *version,
-                    })
-                    .is_some_and(|card| {
-                        eval::matches_with_context(filter, state, card, you, context)
-                    })
+                && (matches!(filter, baylee_cards_dsl::Filter::Any)
+                    || (*known
+                        && state
+                            .source_object(baylee_core::ids::DamageSourceRef {
+                                object: *object,
+                                version: *version,
+                            })
+                            .is_some_and(|card| {
+                                eval::matches_with_context(filter, state, card, you, context)
+                            })))
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)
@@ -1019,12 +1021,16 @@ fn matches(
             eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
         }
         (
-            Trigger::GainsLife(rel),
+            Trigger::GainsLife(rel) | Trigger::LosesLife(rel),
             GameEvent::LifeChanged {
                 player, old, new, ..
             },
         ) => {
-            new > old && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+            (if matches!(trigger, Trigger::LosesLife(_)) {
+                new < old
+            } else {
+                new > old
+            }) && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
         }
         (
             Trigger::DealsCombatDamage(filter),

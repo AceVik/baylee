@@ -63,6 +63,7 @@ fn a_continuous_player_relation_is_one_the_state_can_answer() {
                     | PlayerRel::OwnerOfEvent
                     | PlayerRel::ControllerOfTarget
                     | PlayerRel::TargetPlayerOrController
+                    | PlayerRel::SecondTargetPlayerOrController
                     | PlayerRel::ControllerOfEvent
                     | PlayerRel::DamagedPlayer
                     | PlayerRel::EventPlayer

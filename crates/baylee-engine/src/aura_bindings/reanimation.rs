@@ -27,6 +27,7 @@ pub(crate) fn begin_reanimation(
     state: &mut GameState,
     res: &Resolution,
     owner_control: bool,
+    tapped: bool,
 ) -> Option<ReanimationFinish> {
     let aura = DamageSourceRef {
         object: res.source,
@@ -62,6 +63,9 @@ pub(crate) fn begin_reanimation(
     if let Some(object) = state.object_mut(host) {
         object.kind = ObjectKind::Permanent;
         object.set_controller(controller);
+    }
+    if tapped {
+        state.set_tapped(host, true);
     }
     state
         .move_object(

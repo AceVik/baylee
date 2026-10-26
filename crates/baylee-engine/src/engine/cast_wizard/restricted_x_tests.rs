@@ -541,3 +541,156 @@ fn replicate_uses_unspent_generic_reduction_in_the_offer_and_the_payment() {
     }
     assert_eq!(engine.state.players[0].life, 24);
 }
+
+#[test]
+fn a_multicolor_x_records_actual_units_separately_from_fixed_pips() {
+    static RECEIPT_ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::spell!(&[Effect::GainLife {
+        amount: Amount::ManaTypeSpentOnX(ManaColor::Black),
+    }])];
+    use baylee_core::color::ColorSet;
+    for (black, red, blue, expected_x, black_x) in [
+        (1, 4, 0, 3, 0),
+        (4, 1, 0, 3, 3),
+        (2, 3, 0, 3, 1),
+        (1, 2, 2, 2, 0),
+    ] {
+        let template = probe_spell(0, false, false);
+        let definition = Box::leak(Box::new(CardDef {
+            faces: Box::leak(Box::new([FaceDef {
+                x_mana_colors: Some(ColorSet::from_slice(&[Color::Black, Color::Red])),
+                ..template.faces[0]
+            }])),
+            abilities: RECEIPT_ABILITIES,
+            ..*template
+        }));
+        let player = PlayerId::new(0);
+        let mut preset = synthetic::preset(61, &[]);
+        preset.seats[0].starting_hand = Some(vec![DeckEntry {
+            rule_print: None,
+            choices: baylee_core::card_metadata::DeckChoices::default(),
+            card: definition.index,
+            print: PrintRef::new(0),
+        }]);
+        let mut engine = Engine::new(&preset, SyntheticLookup::new(vec![definition])).unwrap();
+        synthetic::keep_mulligans(&mut engine);
+        for _ in 0..30 {
+            if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        for (color, amount) in [
+            (ManaColor::Black, black),
+            (ManaColor::Red, red),
+            (ManaColor::Blue, blue),
+        ] {
+            engine.state.players[0].mana_pool.add(color, amount);
+        }
+        engine.refresh_offer();
+        let card = engine.state.zones.list(ZoneLocation::Hand(player))[0];
+        engine
+            .apply(player, PlayerAction::CastSpell { card })
+            .unwrap();
+        assert!(
+            matches!(engine.pending(), Pending::ChooseNumber { max, .. } if *max == expected_x)
+        );
+        engine
+            .apply(player, PlayerAction::ChooseNumber(expected_x))
+            .unwrap();
+        let paid = engine.state.object(card).unwrap().paid.as_ref().unwrap();
+        assert_eq!(
+            paid.mana_types_spent_on_x[ManaColor::Black.index()],
+            black_x
+        );
+        assert_eq!(
+            paid.mana_types_spent_on_x[ManaColor::Red.index()],
+            expected_x - black_x
+        );
+        assert_eq!(paid.mana_types_spent_on_x[ManaColor::Blue.index()], 0);
+        assert_eq!(paid.mana_types_spent[ManaColor::Black.index()], black_x + 1);
+        for _ in 0..10 {
+            if engine.state.zones.stack_is_empty() {
+                break;
+            }
+            let pending = engine.pending().clone();
+            assert!(synthetic::walk_past(&mut engine, &pending));
+        }
+        assert_eq!(
+            engine.state.players[0].life,
+            20 + i32::try_from(black_x).unwrap()
+        );
+    }
+}
+
+#[test]
+fn accepting_a_composite_price_revalidates_life_before_spending_any_mana() {
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::activated!(
+        baylee_cards_dsl::cost!(""),
+        &[Effect::PlayerMayPayManaAndLifeEachThenElse {
+            player: baylee_cards_dsl::PlayerRel::You,
+            mana: ManaCost::parse("{B}"),
+            life: 2,
+            times: Amount::Fixed(2),
+            paid: &[],
+            unpaid: &[Effect::GainLife {
+                amount: Amount::Fixed(7)
+            }],
+        }]
+    )];
+    let source_def = synthetic::land(98_081, "Composite price probe", ABILITIES);
+    let mut engine = Engine::new(
+        &synthetic::preset(62, &[98_081]),
+        SyntheticLookup::new(vec![source_def]),
+    )
+    .unwrap();
+    synthetic::keep_mulligans(&mut engine);
+    let player = PlayerId::new(0);
+    for _ in 0..30 {
+        if matches!(engine.pending(), Pending::Priority { player: p, .. } if *p == player) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(synthetic::walk_past(&mut engine, &pending));
+    }
+    engine.state.players[0].life = 3;
+    engine.state.players[0].mana_pool.add(ManaColor::Black, 2);
+    engine.refresh_offer();
+    let source = synthetic::permanents(&engine, 98_081)[0];
+    engine
+        .apply(
+            player,
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index: 0,
+            },
+        )
+        .unwrap();
+    for _ in 0..10 {
+        if matches!(
+            engine.pending(),
+            Pending::YesNo {
+                prompt: crate::choice::YesNoPrompt::PayManaAndLife { .. },
+                ..
+            }
+        ) {
+            break;
+        }
+        let pending = engine.pending().clone();
+        assert!(synthetic::walk_past(&mut engine, &pending));
+    }
+    assert!(matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: crate::choice::YesNoPrompt::PayManaAndLife { life: 4, .. },
+            ..
+        }
+    ));
+    engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+    assert_eq!(engine.state.players[0].life, 10);
+    assert_eq!(
+        engine.state.players[0].mana_pool.total(),
+        2,
+        "unpayable life cannot consume the mana component"
+    );
+}

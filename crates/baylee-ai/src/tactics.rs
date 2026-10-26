@@ -115,6 +115,10 @@ pub(crate) fn only_replaces_itself(o: &PublicObject) -> bool {
             Effect::DrawCards {
                 amount: Amount::Fixed(n),
             } => net += i64::from(*n),
+            Effect::DrawThenDiscardDrawn {
+                draw: Amount::Fixed(n),
+                discard,
+            } => net += i64::from(n.saturating_sub(u32::from(*discard))),
             Effect::PutFromHandOnTop { count } => net -= i64::from(*count),
             Effect::Scry { .. }
             | Effect::Surveil { .. }
@@ -270,6 +274,19 @@ pub(crate) fn stack_meaning(view: &PlayerView, o: &PublicObject, x: u32) -> Mean
 pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
     let mut result = Meaning::default();
     for effect in effects {
+        // These instructions bind independent event subjects or grant future
+        // abilities; their children do not act once on the current target.
+        if matches!(
+            effect,
+            Effect::CreateDelayedObserver { .. }
+                | Effect::DestroyAllThenForEachDestroyed { .. }
+                | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
+                | Effect::ForEachTarget { .. }
+                | Effect::WheneverCombatEventThisTurn { .. }
+                | Effect::GrantTriggeredIfAbsent { .. }
+        ) {
+            continue;
+        }
         let mut m = Meaning::default();
         // What an effect runs inside itself is [`Effect::branches`]' to say,
         // not this table's. It used to name `Sequence` and `MayDo` and stop
@@ -342,7 +359,7 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                     _ => 0,
                 }
             }
-            Effect::Destroy { .. } => {
+            Effect::Destroy { .. } | Effect::DestroyTargetSlots { .. } => {
                 m.removal = true;
                 m.destroy = true;
                 m.benefit = -1;
@@ -363,7 +380,8 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
             }
             Effect::DealDamage { amount: n, .. }
             | Effect::DealDamageEvenly { amount: n, .. }
-            | Effect::DealDamageWithCappedLifeGain { amount: n } => {
+            | Effect::DealDamageWithCappedLifeGain { amount: n }
+            | Effect::DealDamageWithLimitedLifeGain { amount: n, .. } => {
                 m.damage = u32::try_from(amount(*n, x)).unwrap_or(0);
                 m.benefit = -1;
             }
@@ -395,6 +413,10 @@ pub(crate) fn meaning(effects: &[Effect], x: u32) -> Meaning {
                 ) {
                     m.benefit = 1;
                 }
+            }
+            Effect::DrawThenDiscardDrawn { draw, discard } => {
+                m.draw = u32::try_from(amount(*draw, x)).unwrap_or(0);
+                m.value = i64::from(m.draw.saturating_sub(u32::from(*discard))) * 400;
             }
             Effect::PutFromHandOnTop { count } => m.value = -i64::from(*count) * 250,
             Effect::Scry { .. } | Effect::ScryFor { .. } | Effect::Surveil { .. } => m.value = 140,

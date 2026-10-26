@@ -6,6 +6,8 @@
 pub enum DivisionAmount {
     /// A printed number of damage.
     Fixed(u32),
+    /// The announced X plus a fixed offset, saturating on overflow.
+    XPlus(u32),
     /// Twice the announced X once X reaches this threshold, otherwise X.
     XDoubleFrom(u32),
 }
@@ -16,6 +18,7 @@ impl DivisionAmount {
     pub const fn total(self, x: u32) -> u32 {
         match self {
             Self::Fixed(n) => n,
+            Self::XPlus(offset) => x.saturating_add(offset),
             Self::XDoubleFrom(threshold) if x >= threshold => x.saturating_mul(2),
             Self::XDoubleFrom(_) => x,
         }
@@ -48,6 +51,11 @@ mod tests {
                     u32::try_from(expected).unwrap_or(u32::MAX)
                 );
                 assert_eq!(DivisionAmount::Fixed(4).total(x), 4);
+                let sum = u64::from(x) + u64::from(threshold);
+                assert_eq!(
+                    DivisionAmount::XPlus(threshold).total(x),
+                    u32::try_from(sum).unwrap_or(u32::MAX)
+                );
             }
         }
     }

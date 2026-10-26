@@ -46,6 +46,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         disguise: None,
         replicate: None,
         x_mana_color: None,
+        x_mana_colors: None,
         extra_target_cost: 0,
         additional_costs: &[],
         kicked_targets: None,

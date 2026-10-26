@@ -32,6 +32,9 @@ impl<L: CardLookup> Engine<L> {
                 });
             }
             ActivationLimit::PerTurn(n) => u32::from(n),
+            ActivationLimit::PerTurnAmount(amount) => {
+                crate::eval::amount(&amount, &self.state, player, source, None)
+            }
             ActivationLimit::Boast => {
                 let Some(object) = self.state.object(source) else {
                     return true;
@@ -63,5 +66,58 @@ impl<L: CardLookup> Engine<L> {
             .copied()
             .unwrap_or(0)
             >= maximum
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::engine::synthetic::{SyntheticLookup, keep_mulligans, land, permanents, preset};
+    use crate::engine::*;
+    use baylee_cards_dsl::{ActivationLimit, Amount, CounterKind, Effect, mana_ability};
+
+    #[test]
+    fn amount_activation_limit_rechecks_current_count_and_records_successful_activations() {
+        const INDEX: u32 = 19031;
+        static ABILITIES: &[AbilityDef] = &[mana_ability!(
+            Cost::FREE,
+            &[Effect::mana(baylee_core::mana::ManaColor::Colorless, 1)],
+            limit = ActivationLimit::PerTurnAmount(Amount::CountersOnSource(CounterKind::Charge))
+        )];
+        let mut engine = Engine::new(
+            &preset(51, &[INDEX]),
+            SyntheticLookup::new(vec![land(INDEX, "Bounded mana", ABILITIES)]),
+        )
+        .unwrap();
+        keep_mulligans(&mut engine);
+        let source = permanents(&engine, INDEX)[0];
+        let player = engine.state.object(source).unwrap().controller;
+        let limit = ActivationLimit::PerTurnAmount(Amount::CountersOnSource(CounterKind::Charge));
+        assert!(engine.activation_limit_spent(player, source, 0, limit));
+        crate::replacement::put_counters(&mut engine.state, source, CounterKind::Charge, 1);
+        assert!(!engine.activation_limit_spent(player, source, 0, limit));
+        // Refresh the current question after changing the synthetic fixture.
+        engine.pending = Pending::Priority {
+            player,
+            legal: Box::new(engine.compute_legal(player)),
+        };
+        engine
+            .apply(
+                player,
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index: 0,
+                },
+            )
+            .unwrap();
+        assert!(engine.activation_limit_spent(player, source, 0, limit));
+        crate::replacement::put_counters(&mut engine.state, source, CounterKind::Charge, 1);
+        assert!(!engine.activation_limit_spent(player, source, 0, limit));
+        crate::replacement::remove_counters(&mut engine.state, source, CounterKind::Charge, 1);
+        assert!(engine.activation_limit_spent(player, source, 0, limit));
+        engine.begin_turn(false);
+        assert!(
+            !engine.activation_limit_spent(player, source, 0, limit),
+            "new turns reset actual usage"
+        );
     }
 }

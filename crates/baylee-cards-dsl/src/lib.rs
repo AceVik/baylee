@@ -45,10 +45,11 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, DamageRedirectTo, DamageTo, DivisionAmount, Effect,
-    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-    ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider,
-    TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+    Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
+    DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
+    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
@@ -323,6 +324,8 @@ pub struct FaceDef {
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
     pub x_mana_color: Option<baylee_core::color::Color>,
+    /// Only these actual mana colors may pay the X component.
+    pub x_mana_colors: Option<baylee_core::color::ColorSet>,
     /// Additional generic mana for each chosen target beyond the first.
     /// This changes the casting cost, never the spell's mana value.
     pub extra_target_cost: u32,
@@ -462,6 +465,7 @@ impl FaceDef {
         disguise: None,
         replicate: None,
         x_mana_color: None,
+        x_mana_colors: None,
         extra_target_cost: 0,
         name: "",
         mana_cost: ManaCost::ZERO,
@@ -645,6 +649,10 @@ pub enum EnterModifier {
     /// of the five CR 205.3i names, kept where [`Self::ChooseSubtype`] keeps
     /// its answer, and read back by [`crate::Modifier::SetLandTypeToChosen`].
     ChooseBasicLandType,
+    /// Choose an ordered pair of basic land types. The same type may be
+    /// chosen twice; the first is read by `MatchesChosenTypeOfSource`, the
+    /// second by `SetLandTypeToSecondChosen`.
+    ChooseTwoBasicLandTypes,
     /// "As this enters, choose a card name" (Pithing Needle).
     ///
     /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the

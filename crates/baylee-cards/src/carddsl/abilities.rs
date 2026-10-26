@@ -358,6 +358,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         Trigger::PlaysLand(_)
         | Trigger::PlaysAnotherLand
         | Trigger::GainsLife(_)
+        | Trigger::LosesLife(_)
         | Trigger::Draws(_)
         | Trigger::DrawsExceptFirst(_)
         | Trigger::NthCardDrawnInTurn { .. } => {
@@ -384,6 +385,8 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         }
         Modifier::ModifyPTPerCount { .. }
         | Modifier::ModifyPTByCount(_)
+        | Modifier::ReducePTByCount { .. }
+        | Modifier::ModifyPTByAmount { .. }
         | Modifier::ModifyPTHalfCount(_)
         | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::SetPT(..)
@@ -415,6 +418,7 @@ fn encode_static_into(sa: &StaticAbility, ch: &mut EffectChannels) {
         | Modifier::SpellsCostMoreMana(_)
         | Modifier::AbilitiesCostMore(_)
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantActivate
         | Modifier::ChosenNameCantActivate
@@ -446,4 +450,3 @@ fn encode_replacement_into(rule: &ReplacementRule, ch: &mut EffectChannels) {
         _ => {}
     }
 }
-

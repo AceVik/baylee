@@ -401,12 +401,21 @@ impl HeuristicAgent {
                 attackers: squad,
                 defenders,
                 required,
+                alone,
+                minimum_required,
                 limits,
                 ..
             } => {
                 let chosen = self.attack(view, &squad, &defenders);
                 PlayerAction::DeclareAttackers {
-                    attackers: combat::obey_attack_rules(chosen, &required, &limits, &defenders),
+                    attackers: combat::obey_attack_rules(
+                        chosen,
+                        &required,
+                        &alone,
+                        minimum_required,
+                        &limits,
+                        &defenders,
+                    ),
                 }
             }
             Pending::ChooseBlockers {
@@ -834,6 +843,10 @@ impl HeuristicAgent {
                 YesNoPrompt::PayMana { cost } => {
                     PlayerAction::YesNo(policy::pays_tax(view, cost, context))
                 }
+                YesNoPrompt::PayManaAndLife { cost, life } => PlayerAction::YesNo(
+                    view.seat(player).is_some_and(|seat| i64::from(seat.life) > i64::from(life) + 5)
+                        && policy::pays_tax(view, cost, context),
+                ),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
@@ -880,6 +893,9 @@ impl HeuristicAgent {
                 // Clear damage without tapping or removing the permanent from
                 // combat; preserve any competing regeneration/shield resource.
                 | YesNoPrompt::UseDamageClearingReplacement { .. }
+                // This selects one mandatory untap replacement; declining
+                // only offers another replacement, never a free untap.
+                | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
                 // A pact: attempt payment; the owed-mana planner handles the
                 // window.
                 | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),

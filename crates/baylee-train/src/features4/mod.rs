@@ -171,6 +171,7 @@ include!("knowledge.rs");
 include!("state.rs");
 include!("actions.rs");
 include!("candidates.rs");
+include!("attack_subset.rs");
 include!("targets.rs");
 include!("sampling.rs");
 include!("tests.rs");

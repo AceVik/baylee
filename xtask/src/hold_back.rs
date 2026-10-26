@@ -132,8 +132,8 @@ fn reviewed_printing(
     Ok(printing)
 }
 
-/// Existing subtype assignments suffice; a holdback never refreshes catalogs.
-fn compiled_catalogs() -> catalog::SubtypeCatalogs {
+/// Existing subtype assignments for selective operations, without refreshing catalogs.
+pub(crate) fn compiled_catalogs() -> catalog::SubtypeCatalogs {
     use baylee_core::{generated::subtypes, ids::SubtypeId};
     let mut cats = catalog::SubtypeCatalogs::default();
     for raw in 0..subtypes::COUNT {

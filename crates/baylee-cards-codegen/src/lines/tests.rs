@@ -1186,3 +1186,26 @@ fn a_self_trigger_narrowed_by_a_condition_keeps_its_own_sentence() {
     let text = "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.";
     assert_eq!(map(&[returns, exiles], text).lines, [Some(1), Some(1)]);
 }
+
+#[test]
+fn life_loss_trigger_lines_keep_their_event_and_player_relation() {
+    use baylee_cards_dsl::{PlayerRel, Trigger, triggered};
+    let ability = triggered!(Trigger::LosesLife(PlayerRel::You), &[]);
+    assert!(content_fits(
+        &ability,
+        "Whenever you lose life, draw a card."
+    ));
+    assert!(!content_fits(
+        &ability,
+        "Whenever you gain life, draw a card."
+    ));
+    assert!(!content_fits(
+        &ability,
+        "Whenever an opponent loses life, draw a card."
+    ));
+    let opponent = triggered!(Trigger::LosesLife(PlayerRel::Opponent), &[]);
+    assert!(content_fits(
+        &opponent,
+        "Whenever an opponent loses life, draw a card."
+    ));
+}

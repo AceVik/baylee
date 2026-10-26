@@ -81,6 +81,9 @@ impl<L: CardLookup> Engine<L> {
         self.expire_until_next_turn_effects(self.state.turn.active);
         self.start_awaited_attack_restrictions();
         self.state.per_turn.reset();
+        // Continuous conditions reading turn history must not retain the
+        // previous turn if an expiry refreshed layers before the reset.
+        self.state.invalidate_projections();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
@@ -139,7 +142,8 @@ impl<L: CardLookup> Engine<L> {
                     PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
                         permission.window = PlayWindow::ThisTurn.into();
                     }
-                    PlayLifetime::Turns(PlayWindow::ThisTurn) | PlayLifetime::Prepared(_) => {}
+                    PlayLifetime::Turns(PlayWindow::ThisTurn | PlayWindow::UntilYourNextUpkeep)
+                    | PlayLifetime::Prepared(_) => {}
                 }
             }
             true
@@ -706,6 +710,7 @@ impl<L: CardLookup> Engine<L> {
     /// just the active player.
     pub(crate) fn queue_end_step_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
+        self.queue_delayed_at(crate::state::DelayedWhen::NextYourEndStep);
     }
 
     /// Queues the delayed triggers that wait for "end of combat": they
@@ -741,7 +746,10 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {
-            if self.state.delayed[i].when == when {
+            if self.state.delayed[i].when == when
+                && (when != crate::state::DelayedWhen::NextYourEndStep
+                    || self.state.delayed[i].controller == self.state.turn.active)
+            {
                 let trigger = self.state.delayed.remove(i);
                 self.delayed_queue
                     .push_back((trigger.controller, trigger.action));

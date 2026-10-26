@@ -89,6 +89,35 @@ pub(crate) fn answer_regeneration_choice(state: &mut GameState, use_shield: bool
     }
 }
 
+/// Both resolved prohibitions and live static abilities prevent regeneration.
+pub(super) fn allowed(state: &GameState, id: baylee_core::ids::ObjectId) -> bool {
+    state.object(id).is_none_or(|object| {
+        !state
+            .per_turn
+            .cant_regenerate
+            .contains(&(id, object.version))
+            && (!state.effects.may_prevent_regeneration()
+                || !state.effects.iter().any(|effect| {
+                    effect.modifier == baylee_cards_dsl::Modifier::CantBeRegenerated
+                        && crate::effects::applies_to(state, effect, object)
+                }))
+    })
+}
+
+/// Snapshot permissions before any member of a simultaneous event departs.
+/// The ordinary case has no prohibitions and performs no battlefield scan.
+pub(super) fn prohibited_on_battlefield(
+    state: &GameState,
+) -> smallvec::SmallVec<[baylee_core::ids::ObjectId; 8]> {
+    if state.per_turn.cant_regenerate.is_empty() && !state.effects.may_prevent_regeneration() {
+        return smallvec::SmallVec::new();
+    }
+    state
+        .battlefield_seen()
+        .filter(|id| !allowed(state, *id))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::RegenerationChoices;

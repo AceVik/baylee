@@ -31,33 +31,27 @@ pub fn compute_subset_free_mask(
         }
     }
 
-    if let Pending::ChooseAttackers { required, .. } = pending {
-        let mut rem_for_creature: BTreeMap<u64, usize> = BTreeMap::new();
-        for cand in &cands.candidates {
-            if let Some(oid) = cand.object_id {
-                *rem_for_creature.entry(pack_object_id(oid)).or_insert(0) += 1;
-            }
-        }
-        let mut chosen_creatures: Vec<u64> = Vec::new();
+    if let Pending::ChooseAttackers {
+        required,
+        alone,
+        minimum_required,
+        ..
+    } = pending
+    {
+        let mut subset = AttackSubset::new(
+            cands.candidates.iter().filter_map(|c| c.object_id),
+            required,
+            alone,
+            *minimum_required,
+        );
         for i in order {
-            let Some(oid) = cands.candidates[i].object_id else {
+            let Some(id) = cands.candidates[i].object_id else {
                 continue;
             };
-            let key = pack_object_id(oid);
-            let rem_c = rem_for_creature.get_mut(&key).expect("counted above");
-            let is_last_for_c = *rem_c <= 1;
-            *rem_c = rem_c.saturating_sub(1);
-
-            if chosen_creatures.contains(&key) {
-                free_mask[i] = 0;
-            } else if required.contains(&oid) && is_last_for_c {
-                free_mask[i] = 0;
-                chosen_creatures.push(key);
-            } else {
-                free_mask[i] = 1;
-                if multi_mask.get(i).copied().unwrap_or(0) != 0 {
-                    chosen_creatures.push(key);
-                }
+            let (can_take, can_skip) = subset.options(id);
+            free_mask[i] = u8::from(can_take && can_skip);
+            if can_take && (!can_skip || multi_mask.get(i).copied().unwrap_or(0) != 0) {
+                subset.take(id);
             }
         }
         return free_mask;
@@ -169,7 +163,10 @@ pub fn denormalize_scalar_choice(scalar_norm: f32, min: u32, max: u32) -> u32 {
 /// Never falls back to `single_idx = 0` when an action is missing from `cands`:
 /// returns `None` so `convert4` increments `unencoded_decisions` honestly (`P0-2`).
 #[must_use]
-#[allow(clippy::too_many_lines, reason = "Explicit action-to-label mapping for each Pending variant")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit action-to-label mapping for each Pending variant"
+)]
 pub fn encode_teacher_action4(
     cands: &EncodedCandidates4,
     pending: &Pending,
@@ -390,7 +387,10 @@ pub fn encode_teacher_action4(
 /// Decodes a [`TeacherTarget4`] (or model prediction) back into a legal
 /// [`PlayerAction`] for `pending`.
 #[must_use]
-#[allow(clippy::too_many_lines, reason = "Inverse label-to-action mapping for each Pending variant")]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Inverse label-to-action mapping for each Pending variant"
+)]
 pub fn decode_action4(
     cands: &EncodedCandidates4,
     view: &PlayerView,
@@ -405,11 +405,7 @@ pub fn decode_action4(
 
         HeadKind4::SubsetPick => match pending {
             Pending::ChooseAttackers {
-                attackers,
-                defenders,
-                required,
-                limits,
-                ..
+                defenders, limits, ..
             } => {
                 let default_def = choose_best_attack_target(view, defenders)?;
                 let mut chosen: Vec<(ObjectId, Defender)> = Vec::new();
@@ -431,12 +427,12 @@ pub fn decode_action4(
                         chosen.push((oid, def));
                     }
                 }
-                for &req in required {
-                    if attackers.contains(&req) && !chosen.iter().any(|(c, _)| *c == req) {
-                        chosen.push((req, def_for(req)));
-                    }
+                let answer = PlayerAction::DeclareAttackers { attackers: chosen };
+                if pending.answer_fault(&answer).is_none() {
+                    Some(answer)
+                } else {
+                    baylee_engine::choice::timeout_answer(pending)
                 }
-                Some(PlayerAction::DeclareAttackers { attackers: chosen })
             }
             Pending::MulliganBottom { count, .. } | Pending::DiscardChoice { count, .. } => {
                 let need = usize::from(*count);

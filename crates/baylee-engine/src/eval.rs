@@ -5,6 +5,9 @@
 
 mod amounts;
 mod conditions;
+mod defender_conditions;
+#[cfg(test)]
+mod ice_condition_tests;
 mod names;
 mod protection;
 mod relations;
@@ -12,6 +15,7 @@ mod stack_filters;
 pub(crate) mod target_domain;
 pub(crate) mod target_pair;
 mod targets;
+mod upkeep_history;
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
@@ -401,6 +405,14 @@ pub fn matches_projected_with_context(
                     .is_some_and(|other| target_pair::shares(chars, other.characteristics()))
         }),
         Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
+        Filter::DealtDamageBySourceThisTurn => state.object(this).is_some_and(|source| {
+            state.per_turn.damage_log.iter().any(|entry| {
+                entry.source.object == this
+                    && entry.source.version == source.version
+                    && entry.to == crate::event::DamageTarget::Object(obj.id)
+                    && entry.to_version == Some(obj.version)
+            })
+        }),
         Filter::BlockedByReference => context
             .reference
             .is_some_and(|r| state.combat.is_blocking(r, obj.id)),

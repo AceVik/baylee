@@ -260,6 +260,8 @@ fn a_declaration_is_made_only_when_there_is_nothing_to_declare() {
     let view = ViewBuilder::new(2).build();
     let mut filter = WakeFilter::default();
     let attack = |attackers| Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: ME,
         attackers,
         defenders: vec![Defender::Player(THEM)],

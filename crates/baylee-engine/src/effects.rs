@@ -103,6 +103,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // Characteristics: types, colors, abilities, P/T — and control,
         // which the rule names beside them.
         Modifier::AddType(_)
+        | Modifier::AddSupertype(_)
+        | Modifier::RemoveSupertype(_)
         | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
         | Modifier::AnimateNoncreatureArtifact
         | Modifier::RemoveType(_)
@@ -112,6 +114,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AllBasicLandTypes
         | Modifier::SetLandType(_)
         | Modifier::SetLandTypeToChosen
+        | Modifier::SetLandTypeToSecondChosen
         | Modifier::AddChosenBasicLandType
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
@@ -139,8 +142,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTByAmount { .. }
         | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_)
+        | Modifier::ReducePTByCount { .. }
         | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::HoneEquipment
         | Modifier::ModifyPT(..)
@@ -166,6 +171,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
             | Modifier::RegenerateInsteadOfDestroy
+                    | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
         // that changes characteristics or control. These change what their
@@ -179,6 +185,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
+        | Modifier::RevealYourHand
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -186,6 +193,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
@@ -216,6 +224,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
+        | Modifier::LandwalkOfSubtype { .. }
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -233,7 +242,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::SkipUntapStep { .. }
+        | Modifier::SkipDrawStep { .. }
         | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
@@ -251,6 +262,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // CR 611.2c locks the set for an effect that changes
         // characteristics or control; this changes a rule, so a permanent
         // that arrives later and matches the filter is kept tapped too.
+        | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::UntapAtMost { .. }
@@ -258,9 +270,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // filter then may attack, not a set fixed as the effect began.
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
+        | Modifier::AttacksAloneOnly
         // A replacement for a player's graveyard: the cards it catches are
         // whichever arrive, not a set fixed as it began.
         | Modifier::ExileInsteadOfYourGraveyard
+        | Modifier::ExileInsteadOfLeavingBattlefield
         // A permission like the three above: a card that reaches the
         // graveyard after Forgotten Cellar's trigger resolved is as
         // castable as one that was there.
@@ -389,6 +403,7 @@ impl RuleHints {
     const BOARD_STATE_FILTER: u32 = 1 << 18;
     const PLAYER_OR_SBA_RULE: u32 = 1 << 19;
     const GRANT_TRIGGERED: u32 = 1 << 20;
+    const REGENERATION_PROHIBITION: u32 = 1 << 21;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -491,6 +506,10 @@ impl EffectTable {
 
     pub(crate) const fn may_change_player_or_sba_rules(&self) -> bool {
         self.hints.contains(RuleHints::PLAYER_OR_SBA_RULE)
+    }
+
+    pub(crate) const fn may_prevent_regeneration(&self) -> bool {
+        self.hints.contains(RuleHints::REGENERATION_PROHIBITION)
     }
 
     pub(crate) fn has_parked(&self) -> bool {
@@ -628,6 +647,7 @@ impl EffectTable {
                     | Modifier::SpellsHaveFlash(_)
                     | Modifier::SpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
+                    | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
             ),
         );
@@ -638,6 +658,7 @@ impl EffectTable {
                 Modifier::RevealAllLibraryTops
                     | Modifier::RevealLibraryTop
                     | Modifier::RevealAllHands
+                    | Modifier::RevealYourHand
                     | Modifier::NoMaxHandSize
                     | Modifier::ChosenPlayerMaxHandSize(_)
             ),
@@ -677,9 +698,14 @@ impl EffectTable {
                     | Modifier::PlayersCantLose
                     | Modifier::DrawLimitPerTurn { .. }
                     | Modifier::SkipUntapStep { .. }
+                    | Modifier::SkipDrawStep { .. }
                     | Modifier::LegendRuleOff
                     | Modifier::RegenerateInsteadOfDestroy
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::REGENERATION_PROHIBITION,
+            matches!(fx.modifier, Modifier::CantBeRegenerated),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -1467,10 +1493,33 @@ mod tests {
         use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
-        use baylee_core::types::TypeSet;
+        use baylee_core::types::{SupertypeSet, TypeSet};
         vec![
             Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
             Modifier::GainControl,
+            Modifier::CantBeRegenerated,
+            Modifier::AttacksAloneOnly,
+            Modifier::BlockableWithoutAnyLandwalk,
+            Modifier::ExileInsteadOfLeavingBattlefield,
+            Modifier::LandwalkOfSubtype {
+                subtype: SubtypeId::new(1),
+                lands: &Filter::Any,
+            },
+            Modifier::ModifyPTByAmount {
+                power: baylee_cards_dsl::Amount::Fixed(1),
+                toughness: baylee_cards_dsl::Amount::Fixed(2),
+            },
+            Modifier::RevealYourHand,
+            Modifier::SkipDrawStep {
+                who: PlayerRel::You,
+            },
+            Modifier::RemoveCountersInsteadOfUntapping(CounterKind::Charge),
+            Modifier::PlayersCantCast {
+                who: PlayerRel::You,
+                filter: &Filter::Any,
+            },
+            Modifier::AddSupertype(SupertypeSet::SNOW),
+            Modifier::RemoveSupertype(SupertypeSet::SNOW),
             Modifier::AddType(TypeSet::ARTIFACT),
             Modifier::AnimateNoncreatureArtifact,
             Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
@@ -1481,6 +1530,7 @@ mod tests {
             Modifier::AllBasicLandTypes,
             Modifier::SetLandType(SubtypeId::new(1)),
             Modifier::SetLandTypeToChosen,
+            Modifier::SetLandTypeToSecondChosen,
             Modifier::AddChosenBasicLandType,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
@@ -1566,6 +1616,10 @@ mod tests {
                 t: 1,
             },
             Modifier::ModifyPTHalfCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
+            Modifier::ReducePTByCount {
+                count: baylee_cards_dsl::PtCount::ControllerOrDefenderControls(&Filter::LAND),
+                minimum_toughness: Some(1),
+            },
             Modifier::ModifyPTByCount(baylee_cards_dsl::PtCount::DistinctColorsAmong(
                 &Filter::ControlledByYou,
             )),
@@ -1759,7 +1813,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            157,
+            171,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1836,7 +1890,14 @@ mod tests {
         // `CantAttackUnlessYouSacrifice`, `DamageToItCantBePreventedOrRedirected`,
         // `CantEnterBattlefield`, `SpellsCostMoreMana`, and
         // `CantAttackIfDefenderControls`) bring rules-only to 110.
-        assert_eq!((locking, all.len() - locking), (47, 110));
+        // Adding/removing a supertype locks the affected set; prohibiting
+        // regeneration modifies a rule. The Ice Age additions contribute 2/1.
+        // Independently evaluated P/T changes characteristics; the five
+        // new blocking, attacking, departure and visibility rules do not.
+        // Land-type replacement and the bounded P/T reduction also change
+        // characteristics. Draw skipping, untap replacement and cast limits
+        // change rules only.
+        assert_eq!((locking, all.len() - locking), (52, 119));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

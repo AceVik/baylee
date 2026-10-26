@@ -469,6 +469,8 @@ fn expert_keeps_a_blocker_against_lethal_commander_retaliation() {
         amount: 19,
     }];
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1)],
         defenders: vec![Defender::Player(PlayerId::new(1))],

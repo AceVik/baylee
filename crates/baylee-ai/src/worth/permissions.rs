@@ -217,6 +217,10 @@ fn draw_wish(view: &PlayerView) -> i64 {
             Effect::DrawCards {
                 amount: Amount::Fixed(n),
             }
+            | Effect::DrawThenDiscardDrawn {
+                draw: Amount::Fixed(n),
+                ..
+            }
             | Effect::DrawCardsFor {
                 amount: Amount::Fixed(n),
                 who: PlayerRel::You,

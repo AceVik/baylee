@@ -83,6 +83,7 @@ fn resolve_from(
         mana_ability: false,
         countered_source: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(run(state, &mut res), Flow::Complete));
     state.refresh_characteristics();
@@ -218,6 +219,7 @@ fn a_stale_or_phased_source_cannot_blink_a_new_incarnation() {
                 )
                 .unwrap();
         }
+        state.refresh_characteristics();
         let identity = state.source_identity(it);
         let before = state.journal.len();
         resolve_from(

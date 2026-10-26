@@ -294,13 +294,17 @@ pub enum Pending {
         /// client cannot derive "which permanents are planeswalkers I may
         /// attack" from the view without re-implementing CR 506.2.
         defenders: Vec<baylee_core::ids::Defender>,
-        /// The offered creatures that attack if able (CR 508.1d). Every one
-        /// of them is in a legal declaration: the engine knows no
-        /// restriction that makes obeying one requirement cost another (no
-        /// "only one creature can attack", no attack costs), so the most
-        /// requirements that can be obeyed is all of them.
+        /// Individually eligible creatures that attack if able (CR 508.1d).
+        /// `minimum_required` gives the maximum simultaneously satisfiable
+        /// count after applying group restrictions.
         #[serde(default)]
         required: Vec<ObjectId>,
+        /// Offered creatures that may attack only as the sole attacker.
+        #[serde(default)]
+        alone: Vec<ObjectId>,
+        /// Minimum number of required candidates to declare; absent means all of them.
+        #[serde(default)]
+        minimum_required: Option<u32>,
         /// The offered creatures that may attack only some of `defenders`.
         /// A creature not named here may attack any of them.
         #[serde(default)]

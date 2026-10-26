@@ -28,10 +28,12 @@ mod attack;
 mod block;
 mod damage;
 mod defenders;
+mod exchange;
 use crate::object::Status;
 pub(crate) use defenders::{
     active_damage_recipient, historical_defending_player, recheck_defenders, remember_attack,
 };
+pub(crate) use exchange::exchange_blockers;
 
 use crate::state::GameState;
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -480,6 +482,8 @@ fn landwalk_removed(state: &GameState, object: &crate::object::GameObject, times
         matches!(
             removal.modifier,
             baylee_cards_dsl::Modifier::LoseAllLandwalk
+                | baylee_cards_dsl::Modifier::LoseAllAbilities
+                | baylee_cards_dsl::Modifier::LoseKeywords
         ) && removal.timestamp >= timestamp
             && crate::effects::applies_to(state, removal, object)
     })

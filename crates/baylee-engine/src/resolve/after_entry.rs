@@ -78,6 +78,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             this_way_from: None,
+            coin_stake: None,
         }
     }
 

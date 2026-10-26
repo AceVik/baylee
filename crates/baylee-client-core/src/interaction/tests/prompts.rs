@@ -76,6 +76,11 @@ fn a_choice_of_the_five_basic_land_types_is_headed_as_one() {
         headline(basics.clone(), Lang::De),
         "Wähle einen Standardlandtyp"
     );
+    let lands = baylee_core::generated::subtypes::ALL_LAND_TYPES
+        .iter()
+        .collect::<Vec<_>>();
+    assert_eq!(headline(lands.clone(), Lang::En), "Choose a land type");
+    assert_eq!(headline(lands, Lang::De), "Wähle einen Landtyp");
     let mut mixed = basics;
     mixed.push(creature::ELF);
     assert_eq!(headline(mixed, Lang::En), "Choose a creature type");
@@ -1622,4 +1627,44 @@ fn optional_exact_tap_payment_states_both_legal_counts_in_both_languages() {
         i.prompt().headline(Lang::De, Turn::Mine, None, false),
         "Wähle genau 5 Permanents zum Tappen oder keine"
     );
+}
+
+#[test]
+fn mixed_payment_and_untap_replacement_questions_explain_the_complete_choice() {
+    let cost = baylee_core::mana::ManaCost::from_symbol_generic(2);
+    let prompt = Prompt::YesNo {
+        question: YesNoPrompt::PayManaAndLife { cost, life: 65_536 },
+    };
+    assert_eq!(
+        prompt.headline(Lang::En, Turn::Mine, None, false),
+        format!("Pay {cost} and 65536 life?")
+    );
+    assert!(
+        prompt
+            .headline(Lang::De, Turn::Mine, None, false)
+            .contains("65536")
+    );
+    let pending = Pending::YesNo {
+        player: me(),
+        source: None,
+        prompt: YesNoPrompt::RemoveCountersInsteadOfUntapping {
+            permanent: obj(7),
+            kind: baylee_engine::object::CounterKind::Stun,
+            count: 1,
+        },
+    };
+    let decoded: Pending = serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+    let i = interaction(decoded);
+    let english = i.prompt().headline(Lang::En, Turn::Mine, None, false);
+    assert!(english.contains("instead of untapping"), "{english}");
+    assert!(
+        english.contains("No chooses another replacement"),
+        "{english}"
+    );
+    assert!(
+        i.prompt()
+            .headline(Lang::De, Turn::Mine, None, false)
+            .contains("Ersatzeffekt")
+    );
+    assert_eq!(i.answer_yes_no(false), Some(PlayerAction::YesNo(false)));
 }

@@ -90,9 +90,10 @@ impl<L: CardLookup> Engine<L> {
                 // CR 504.2) — the upkeep step itself has none at all
                 // (CR 503.1). The first player skips it on turn 1 of a
                 // two-player game (CR 103.8).
-                let skip = self.state.turn.number == 1
-                    && self.state.players.len() == 2
-                    && self.state.turn.active.get() == 0;
+                let skip = self.state.skips_draw_step(self.state.turn.active)
+                    || (self.state.turn.number == 1
+                        && self.state.players.len() == 2
+                        && self.state.turn.active.get() == 0);
                 if skip {
                     // CR 103.8a skips the *step*, not only its draw: there is
                     // no beginning of it for "at the beginning of your draw
@@ -175,6 +176,15 @@ impl<L: CardLookup> Engine<L> {
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),
             (_, Step::CombatEnd) => {
+                self.state.delayed.retain(|watch| {
+                    !matches!(
+                        watch.when,
+                        crate::state::DelayedWhen::TriggeredThisTurn {
+                            this_combat_only: true,
+                            ..
+                        }
+                    )
+                });
                 self.state.combat = crate::combat::CombatState::default();
                 // Nothing is attacking any more, so an anthem conditioned on
                 // it stops applying — and the removal below only bumps the
@@ -212,6 +222,11 @@ impl<L: CardLookup> Engine<L> {
         // anything triggers at it (CR 503.1).
         if next_step == Step::Upkeep {
             let active = self.state.turn.active;
+            self.state.begin_upkeep_history(active);
+            self.state.play_permissions.retain(|permission| {
+                permission.player != active
+                    || permission.window != baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep.into()
+            });
             self.state.effects.begin_upkeep(active);
             self.state.effects.remove_where(|fx| {
                 matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextUpkeep)

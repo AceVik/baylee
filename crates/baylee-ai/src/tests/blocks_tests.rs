@@ -121,6 +121,8 @@ fn swing_back_board(
     board.push(giant);
     let v = view(0, &lives, board);
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: (1..=8).map(obj).collect(),
         defenders: vec![Defender::Player(PlayerId::new(1))],

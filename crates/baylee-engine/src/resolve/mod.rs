@@ -29,12 +29,22 @@ mod names;
 pub use names::resume_name;
 mod chosen;
 mod colors;
+mod conditional_grants;
+mod continuous_subjects;
 mod control;
+mod control_choice;
+mod control_observers;
 mod copying;
+mod damage_returns;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
+pub mod coin_stakes;
+#[cfg(test)]
+mod coin_stakes_tests;
+mod combat_watches;
 mod counters;
 mod delayed_returns;
+mod destruction_receipts;
 mod draw_debts;
 mod equalize;
 mod explore;
@@ -42,8 +52,10 @@ mod future_attacks;
 mod graveyard_choice;
 mod greatest_exchange;
 mod landwalk;
+mod target_groups;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
+mod any_player_payment;
 mod attacking_tokens;
 mod blocked_returns;
 mod half_damage;
@@ -51,11 +63,14 @@ mod life;
 pub(crate) mod linked_counters;
 pub mod loot;
 mod mana;
+pub(crate) mod mana_life_payment;
 mod milling;
 mod reanimation;
 mod reflexive;
+mod regeneration;
 mod retarget;
 mod reveal_put;
+mod source_color;
 pub(crate) mod subjects;
 mod this_way;
 mod token_choices;
@@ -77,16 +92,29 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod directed_search;
+#[cfg(test)]
+mod directed_search_tests;
 mod discard_any;
 pub mod dungeon;
 mod event_actions;
+mod hand_transfer;
 mod immediate;
 pub(crate) mod linked_reanimation;
 mod meld;
 pub(crate) mod mutate;
 mod permissions;
 mod piles;
+mod private_hand;
+#[cfg(test)]
+mod private_hand_tests;
+mod private_library;
+#[cfg(test)]
+mod private_library_tests;
 pub mod proliferate;
+mod repeated_graveyard_choice;
+#[cfg(test)]
+mod repeated_graveyard_tests;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;
@@ -157,6 +185,8 @@ mod counted_choice_tests;
 
 #[cfg(test)]
 mod controller_of_target_tests;
+#[cfg(test)]
+mod ice_combat_tests;
 
 #[cfg(test)]
 mod copied_decisions_tests;
@@ -275,14 +305,13 @@ pub struct Resolution {
     /// what the nested list has left and moves everything after it; what
     /// is left after the point stays exactly what it was.
     ///
-    /// `target_lki` is taken of the first instance only. The pool's one
-    /// such spell, Three Steps Ahead, reads no last known information in
-    /// its second targeting mode — a token copy reads the permanent's
-    /// copiable values while it is there — so nothing would read a snapshot
-    /// of the second.
+    /// `target_lki` includes both groups, so later instructions can still
+    /// identify each targeted object's original incarnation and controller.
     pub retarget_left: Option<usize>,
     /// Connive/recruit state held while their draws may be replaced.
     pub loot: Option<Box<loot::Loot>>,
+    /// Multi-stage coin contest, retained through life-gain draw replacements.
+    pub coin_stake: Option<Box<coin_stakes::CoinStake>>,
     /// An instruction that does something to "the card drawn" whose draw
     /// had to wait for its replacements (`GameState::draws_to_offer`): how
     /// many cards had been drawn this turn and how many waiting draws had
@@ -330,6 +359,11 @@ impl Resolution {
         hash = hash
             .wrapping_mul(31)
             .wrapping_add(self.subject.fingerprint());
+        if let Some(contest) = &self.coin_stake {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(contest));
+        }
         if let Some(targets) = &self.target_lki {
             hash = hash.wrapping_mul(31).wrapping_add(1);
             for target in targets {
@@ -370,6 +404,9 @@ pub struct TargetLki {
 
 /// Identity and departure power retained for the triggering event's object.
 fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i16)> {
+    if let Some((reference, power)) = res.subject.event_identity() {
+        return Some((reference.version, power));
+    }
     state
         .object(res.on_stack)?
         .riders
@@ -660,6 +697,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::ManaTypeSpentOnX(color) => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
         Amount::SacrificedTotalPower => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -701,6 +742,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::HandSize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
             u32::try_from(state.zones.list(ZoneLocation::Hand(*p)).len()).unwrap_or(u32::MAX)
         }),
+        Amount::LifeTotal(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
+            u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)
+        }),
         Amount::ControlledCount { who, filter } => players_of(*who, state, you, res)
             .first()
             .map_or(0, |controller| {
@@ -712,6 +756,18 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Half { base, round_up } => {
             let n = amount2(base, state, you, res);
             if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Divided {
+            base,
+            divisor,
+            round_up,
+        } => {
+            let n = amount2(base, state, you, res);
+            if *round_up {
+                n.div_ceil(divisor.get())
+            } else {
+                n / divisor.get()
+            }
         }
         Amount::Times { base, factor } => amount2(base, state, you, res).saturating_mul(*factor),
         Amount::Sum { left, right } => {
@@ -737,6 +793,13 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .len(),
         )
         .unwrap_or(u32::MAX),
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(who),
+        } => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|player| target_groups::graveyard_count(state, res, player, filter))
+            .fold(0, u32::saturating_add),
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::HandChosen,
@@ -771,6 +834,10 @@ pub(super) fn amount_for_player(
 ) -> u32 {
     let each = |inner: &Amount| amount_for_player(inner, state, you, res, player);
     match amount {
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(PlayerRel::Recipient),
+        } => target_groups::graveyard_count(state, res, player, filter),
         Amount::ThisWayBy {
             what,
             who: PlayerRel::Recipient,
@@ -782,6 +849,9 @@ pub(super) fn amount_for_player(
         Amount::HandSize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Hand(player)).len()).unwrap_or(u32::MAX)
         }
+        Amount::LifeTotal(PlayerRel::Recipient) => {
+            u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
+        }
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
         }
@@ -792,6 +862,18 @@ pub(super) fn amount_for_player(
         Amount::Half { base, round_up } => {
             let n = each(base);
             if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Divided {
+            base,
+            divisor,
+            round_up,
+        } => {
+            let n = each(base);
+            if *round_up {
+                n.div_ceil(divisor.get())
+            } else {
+                n / divisor.get()
+            }
         }
         Amount::Times { base, factor } => each(base).saturating_mul(*factor),
         Amount::Sum { left, right } => each(left).saturating_add(each(right)),
@@ -927,6 +1009,9 @@ pub(super) fn players_of(
         // Only an instruction applying to each player names one, and it
         // reads its amounts through `amount_for_player`.
         PlayerRel::Recipient => Vec::new(),
+        PlayerRel::SecondTargetPlayerOrController => target_groups::second_player(state, res)
+            .into_iter()
+            .collect(),
         // A card has its owner wherever it is (CR 108.3).
         PlayerRel::OwnerOfEvent => res
             .event_object
@@ -935,10 +1020,12 @@ pub(super) fn players_of(
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),
-        // Of the source's own attack (CR 508.5).
-        PlayerRel::DefendingPlayer => eval::defending_player_of(state, res.source, you)
-            .into_iter()
-            .collect(),
+        // Of the triggering attacker, or the source for a nontriggered instruction (CR 508.5).
+        PlayerRel::DefendingPlayer => {
+            eval::defending_player_of(state, res.event_object.unwrap_or(res.source), you)
+                .into_iter()
+                .collect()
+        }
         // Last known first (CR 608.2h), for the same reason as the event's
         // below: "Exile target creature. Its controller gains life …" reads
         // its second sentence after the first has moved the creature, and
@@ -1083,6 +1170,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         res.target_lki = Some(
             res.targets
                 .iter()
+                .chain(res.second_targets.iter())
                 .filter_map(|&id| {
                     state.object(id).map(|o| TargetLki {
                         id,
@@ -1249,6 +1337,7 @@ pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flo
 /// Counted copies retain one instruction across every target-choice suspension.
 fn advance_program(res: &mut Resolution) {
     if res.loot.is_none()
+        && res.coin_stake.is_none()
         && res.draw_watch.is_none()
         && !matches!(res.awaiting, Some(AwaitingOp::Entry { after: Some(_), .. }))
         && !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
@@ -1516,6 +1605,7 @@ fn run_nested_with(
         loot: None,
         draw_watch: None,
         this_way_from: res.this_way_from,
+        coin_stake: None,
     };
     let flow = run(state, &mut nested);
     res.subject = nested.subject.clone();
@@ -1524,6 +1614,7 @@ fn run_nested_with(
         Flow::Enter => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.coin_stake = nested.coin_stake;
             res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             // No public question was emitted, so the outer instruction still
@@ -1535,6 +1626,7 @@ fn run_nested_with(
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.coin_stake = nested.coin_stake;
             res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             res.effects.splice(res.pc..=res.pc, tail);
@@ -1676,10 +1768,6 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
 /// Summoning sickness restarts where control moved (CR 302.6), as the
 /// projection moves it; the journal says who has each object now.
 pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
-    let before: Vec<(ObjectId, PlayerId)> = changes
-        .iter()
-        .filter_map(|&(id, _)| state.object(id).map(|o| (id, o.controller)))
-        .collect();
     let timestamp = state.next_timestamp();
     for &(id, player) in changes {
         if state.has_left(player) || !crate::permanent_guards::can_gain_control(state, id, player) {
@@ -1709,14 +1797,4 @@ pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId
         });
     }
     state.refresh_characteristics();
-    for (object, old) in before {
-        let Some(new) = state.object(object).map(|o| o.controller) else {
-            continue;
-        };
-        if new != old {
-            state
-                .journal
-                .record(GameEvent::ControllerChanged { object, old, new });
-        }
-    }
 }

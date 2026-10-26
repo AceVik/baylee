@@ -25,6 +25,7 @@ mod lands;
 pub(crate) use additional::{additional_card_enters_graveyard, additional_payment_capacity};
 mod payment;
 mod permissions;
+mod player_locks;
 mod pricing;
 mod source_cost;
 #[cfg(test)]
@@ -705,6 +706,9 @@ pub(crate) fn cast_is_forbidden(
                 crate::eval::players(who, state, fx.controller)
                     .is_some_and(|players| players.contains(&player))
                     && state.per_turn.spells_cast_by(player) >= limit
+            }
+            baylee_cards_dsl::Modifier::PlayersCantCast { who, filter } => {
+                player_locks::prevents(state, fx, who, filter, player, obj)
             }
             baylee_cards_dsl::Modifier::OpponentsCantCast(filter) => {
                 state.is_opponent(fx.controller, player)

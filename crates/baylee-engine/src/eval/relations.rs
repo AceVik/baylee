@@ -72,6 +72,7 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
         }
         PlayerRel::ControllerOfTarget
         | PlayerRel::TargetPlayerOrController
+        | PlayerRel::SecondTargetPlayerOrController
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Recipient
         | PlayerRel::DefendingPlayer

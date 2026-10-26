@@ -188,9 +188,11 @@ pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> O
 /// things a view can answer before the ability is activated.
 fn countable(amount: Amount) -> bool {
     match amount {
-        Amount::Fixed(_) => true,
+        Amount::Fixed(_) | Amount::LifeTotal(_) => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
-        Amount::Plus { base, .. } | Amount::Times { base, .. } => countable(*base),
+        Amount::Plus { base, .. } | Amount::Times { base, .. } | Amount::Divided { base, .. } => {
+            countable(*base)
+        }
         Amount::Sum { left, right } => countable(*left) && countable(*right),
         _ => false,
     }
@@ -550,6 +552,21 @@ impl HeuristicAgent {
             Amount::Fixed(n) | Amount::NegXFixed(n) => i64::from(n),
             Amount::X | Amount::NegX => i64::from(x),
             Amount::DoubleX => 2 * i64::from(x),
+            Amount::LifeTotal(who) => self
+                .players(view, who, aim)?
+                .first()
+                .map_or(Some(0), |player| {
+                    view.seat(*player).map(|seat| i64::from(seat.life.max(0)))
+                })?,
+            Amount::Divided {
+                base,
+                divisor,
+                round_up,
+            } => {
+                let n = self.count(view, origin, *base, aim, x)?.max(0);
+                let divisor = i64::from(divisor.get());
+                n / divisor + i64::from(round_up && n % divisor != 0)
+            }
             Amount::Plus { base, offset } => {
                 self.count(view, origin, *base, aim, x)? + i64::from(offset)
             }
@@ -568,7 +585,7 @@ impl HeuristicAgent {
             Amount::Difference { left, right } => (self.count(view, origin, *left, aim, x)?
                 - self.count(view, origin, *right, aim, x)?)
             .max(0),
-            Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone)?,
+            Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone, aim)?,
             Amount::DistinctColorsAmong(filter) => i64::from(
                 view.battlefield
                     .iter()
@@ -602,6 +619,7 @@ impl HeuristicAgent {
         origin: Origin<'_>,
         filter: &Filter,
         zone: ZoneSel,
+        aim: Aim,
     ) -> Option<i64> {
         let me = usize::from(view.seat.get());
         let (objects, zone): (Vec<&PublicObject>, ZoneRef) = match zone {
@@ -610,6 +628,21 @@ impl HeuristicAgent {
                 view.graveyards.get(me).into_iter().flatten().collect(),
                 ZoneRef::Graveyard,
             ),
+            ZoneSel::GraveyardOf(who) => {
+                let players = self.players(view, who, aim)?;
+                (
+                    view.graveyards
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, _)| {
+                            u8::try_from(*index)
+                                .is_ok_and(|seat| players.contains(&PlayerId::new(seat)))
+                        })
+                        .flat_map(|(_, cards)| cards.iter())
+                        .collect(),
+                    ZoneRef::Graveyard,
+                )
+            }
             ZoneSel::GraveyardAll => (
                 view.graveyards.iter().flatten().collect(),
                 ZoneRef::Graveyard,
@@ -1334,12 +1367,18 @@ impl HeuristicAgent {
     ) -> Option<i64> {
         let me = view.seat;
         // These need resolution metadata the valuation context does not
-        // carry: the original controller/chooser, cast origin, or the future event spell.
+        // carry: the original controller/chooser, cast origin, or independent event subjects.
         // Do not turn a nested clause into a concrete value for this seat.
         if matches!(
             effect,
             Effect::MayDoFor { .. }
                 | Effect::WhenNextSpellCastThisTurn { .. }
+                | Effect::CreateDelayedObserver { .. }
+                | Effect::DestroyAllThenForEachDestroyed { .. }
+                | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
+                | Effect::ForEachTarget { .. }
+                | Effect::WheneverCombatEventThisTurn { .. }
+                | Effect::GrantTriggeredIfAbsent { .. }
                 | Effect::IfCastFromGraveyard { .. }
         ) {
             return None;
@@ -1376,6 +1415,12 @@ impl HeuristicAgent {
         let hostile_subject = subject.is_some_and(|o| self.hostile(o.controller, me));
         Some(match effect {
             Effect::DrawCards { amount } => self.draw_worth(view, me, count(*amount)?),
+            Effect::DrawThenDiscardDrawn { draw, discard } => {
+                let drawn = count(*draw)?.max(0);
+                // All draws still risk decking and fire draw triggers. Only
+                // cards drawn by this instruction can pay its discard.
+                self.draw_worth(view, me, drawn) - drawn.min(i64::from(*discard)) * CARD
+            }
             Effect::DrawCardsFor { amount, who } => {
                 let n = count(*amount)?;
                 self.players(view, *who, aim)?
@@ -1661,7 +1706,8 @@ impl HeuristicAgent {
             // effects can reduce the incidental life gain, so do not rely on it.
             Effect::DealDamage { amount, .. }
             | Effect::DealDamageEvenly { amount, .. }
-            | Effect::DealDamageWithCappedLifeGain { amount } => {
+            | Effect::DealDamageWithCappedLifeGain { amount }
+            | Effect::DealDamageWithLimitedLifeGain { amount, .. } => {
                 // Defeating a battle may benefit its controller rather than
                 // remove their resource; its back-face value is not modelled.
                 if matches!(aim, Aim::Object(_))

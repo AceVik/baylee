@@ -152,6 +152,18 @@ impl GameState {
         // hands, so the comparison is with the controller before the first.
         for (id, before) in was {
             if self.object(id).is_some_and(|o| o.controller != before) {
+                if let Some(new) = self
+                    .object(id)
+                    .filter(|object| object.zone == Zone::Battlefield)
+                    .map(|object| object.controller)
+                {
+                    self.journal
+                        .record(crate::event::GameEvent::ControllerChanged {
+                            object: id,
+                            old: before,
+                            new,
+                        });
+                }
                 self.restart_summoning_sickness(id);
                 self.combat.remove_from_combat(id);
                 if let Some(reference) = self.source_identity(id) {

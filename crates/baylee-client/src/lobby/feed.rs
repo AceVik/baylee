@@ -103,6 +103,12 @@ pub(super) fn feed(
     mut feed: ResMut<Feed>,
 ) {
     let feed = &mut *feed;
+    // Without an endpoint there is no subscription to wait for. In particular,
+    // a failed relative ticket URL must not start the list's loading animation.
+    if state.gateway.is_empty() {
+        feed.hang_up();
+        return;
+    }
     // Held on the table screen and in the deck builder: the socket is also
     // how the gateway knows this player is still here (`presence.rs`), and a
     // player who left a room to change decks has not left the room. The
@@ -322,5 +328,32 @@ pub(super) fn follow_the_feed(
     let down = reading && !live && *was_live && feed.cooldown > 0.0;
     if state.feed_down != down {
         state.feed_down = down;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Feed, LobbyEvent, LobbyState, Mailbox, feed};
+    use bevy::prelude::{App, Time, Update};
+
+    #[test]
+    fn no_gateway_starts_neither_a_subscription_nor_loading() {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.gateway.clear();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "fixture-session".into(),
+            username: None,
+        });
+        let mut app = App::new();
+        app.init_resource::<Time>()
+            .init_resource::<Mailbox>()
+            .init_resource::<Feed>()
+            .insert_resource(state)
+            .add_systems(Update, feed);
+        app.update();
+        let feed = app.world().resource::<Feed>();
+        assert!(!feed.loading());
+        assert!(feed.asked.is_none());
+        assert!(feed.pending.is_none());
     }
 }

@@ -5,6 +5,7 @@ use baylee_core::ids::EffectId;
 use baylee_core::types::TypeSet;
 
 mod battle_characteristics;
+mod characteristic_extensions;
 mod indexed;
 
 static ANY_F: Filter = Filter::Any;

@@ -25,6 +25,25 @@ mod source_credit_oracle;
 #[cfg(test)]
 mod source_receipt_oracle;
 
+/// Actual mana colors permitted for a specified generic component.
+/// Spending-as-though permissions never widen this set.
+#[derive(Clone, Copy, Debug)]
+pub struct GenericRestriction {
+    /// Allowed actual colors.
+    pub types: u8,
+    /// Number of generic units subject to this restriction.
+    pub amount: u32,
+}
+
+impl From<(ManaColor, u32)> for GenericRestriction {
+    fn from((color, amount): (ManaColor, u32)) -> Self {
+        Self {
+            types: 1 << color.index(),
+            amount,
+        }
+    }
+}
+
 /// Separate resources usable only for a bounded generic cost component.
 /// They cannot satisfy colored, colorless, hybrid or snow symbols, even under
 /// spending permissions. Required units are separate from ordinary obligations.
@@ -162,7 +181,7 @@ pub fn payment_restricting_generic(
     cost: &ManaCost,
     spending: ManaSpending,
     prefer: [u32; 6],
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<GenericRestriction>,
 ) -> Option<ManaPool> {
     payment_consuming(pool, cost, spending, prefer, restriction, [0; 6])
 }
@@ -177,7 +196,7 @@ pub fn payment_consuming(
     cost: &ManaCost,
     spending: ManaSpending,
     prefer: [u32; 6],
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<GenericRestriction>,
     required: [u32; 6],
 ) -> Option<ManaPool> {
     payment_with_generic_credits(
@@ -204,7 +223,7 @@ pub(crate) fn payment_with_generic_credits(
     cost: &ManaCost,
     spending: ManaSpending,
     prefer: [u32; 6],
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<GenericRestriction>,
     required: [u32; 6],
     credits: GenericCredits,
 ) -> Option<CreditedPayment> {
@@ -213,6 +232,7 @@ pub(crate) fn payment_with_generic_credits(
         required,
         credits,
         credit_capacity: credits.capacity()?,
+        restriction,
     };
     if required
         .iter()
@@ -221,14 +241,7 @@ pub(crate) fn payment_with_generic_credits(
     {
         return None;
     }
-    let mut reserved = pool.clone();
-    let mut remaining = *cost;
-    if let Some((color, amount)) = restriction {
-        if amount > cost.generic_total() || !reserved.spend(color, amount) {
-            return None;
-        }
-        remaining = cost.with_less_generic(amount);
-    }
+    let remaining = *cost;
     let mut symbols: SmallVec<[ManaSymbol; 16]> = remaining.symbols().collect();
     symbols.sort_by_key(|s| match s {
         ManaSymbol::Hybrid(_) | ManaSymbol::HybridPhyrexian(_) | ManaSymbol::TwoOrColor(_) => {
@@ -240,7 +253,7 @@ pub(crate) fn payment_with_generic_credits(
         ManaSymbol::Colorless | ManaSymbol::Snow => (0, 0),
         _ => (0, 1),
     });
-    assign(reserved, &symbols, 0, prefer, spending, &consumption)
+    assign(pool.clone(), &symbols, 0, prefer, spending, &consumption)
 }
 
 struct Consumption {
@@ -248,6 +261,7 @@ struct Consumption {
     required: [u32; 6],
     credits: GenericCredits,
     credit_capacity: u64,
+    restriction: Option<GenericRestriction>,
 }
 
 impl Consumption {
@@ -261,7 +275,7 @@ impl Consumption {
         let required = std::array::from_fn(|i| {
             self.required[i].saturating_sub(self.original[i] - available[i])
         });
-        let allocation = generic::allocate(
+        let allocation = generic::allocate_restricting_types(
             generic::Resources {
                 available,
                 required,
@@ -273,6 +287,7 @@ impl Consumption {
             amount,
             self.credits.quota,
             prefer,
+            self.restriction.map(|r| (r.types, r.amount, false)),
         )?;
         for color in ManaColor::ALL {
             if !pool.spend(color, allocation.ordinary[color.index()]) {

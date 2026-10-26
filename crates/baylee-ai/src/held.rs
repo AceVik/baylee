@@ -172,9 +172,7 @@ fn least(
         Pending::YesNo { .. } => Some(PlayerAction::YesNo(false)),
         Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
         Pending::Priority { .. } => Some(PlayerAction::PassPriority),
-        Pending::ChooseAttackers { .. } => Some(PlayerAction::DeclareAttackers {
-            attackers: Vec::new(),
-        }),
+        Pending::ChooseAttackers { .. } => baylee_engine::choice::timeout_answer(pending),
         Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
             blockers: Vec::new(),
         }),

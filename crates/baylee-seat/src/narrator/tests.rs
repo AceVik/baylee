@@ -1540,3 +1540,26 @@ fn optional_exact_tap_menu_rejects_partial_payments() {
         );
     }
 }
+
+#[test]
+fn untap_replacement_refusal_does_not_offer_a_free_untap() {
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        source: None,
+        prompt: baylee_engine::choice::YesNoPrompt::RemoveCountersInsteadOfUntapping {
+            permanent: id(70),
+            kind: baylee_cards_dsl::CounterKind::Stun,
+            count: 1,
+        },
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(wake.text.contains("leave it tapped"), "{}", wake.text);
+    assert!(
+        wake.text
+            .contains("another applicable untap replacement; this does not untap it"),
+        "{}",
+        wake.text
+    );
+}

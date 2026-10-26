@@ -1010,6 +1010,8 @@ fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
 pub(crate) fn obey_attack_rules(
     mut chosen: Vec<(ObjectId, Defender)>,
     required: &[ObjectId],
+    alone: &[ObjectId],
+    minimum_required: Option<u32>,
     limits: &[baylee_engine::choice::AttackLimit],
     defenders: &[Defender],
 ) -> Vec<(ObjectId, Defender)> {
@@ -1019,6 +1021,22 @@ pub(crate) fn obey_attack_rules(
             .find(|l| l.creature == creature)
             .map_or(defenders, |l| l.defenders.as_slice())
     };
+    let minimum = minimum_required.map_or(required.len(), |n| n as usize);
+    // A solo attack may satisfy the whole requirement, but can never be
+    // combined with another creature merely because both are mandatory.
+    if let Some(&(creature, defender)) = chosen.first()
+        && alone.contains(&creature)
+        && minimum <= usize::from(required.contains(&creature))
+    {
+        return allowed(creature)
+            .iter()
+            .copied()
+            .find(|at| *at == defender)
+            .or_else(|| allowed(creature).first().copied())
+            .map(|at| vec![(creature, at)])
+            .unwrap_or_default();
+    }
+    chosen.retain(|(creature, _)| !alone.contains(creature));
     for (creature, defender) in &mut chosen {
         let may = allowed(*creature);
         if !may.contains(defender)
@@ -1029,6 +1047,17 @@ pub(crate) fn obey_attack_rules(
     }
     let aimed = chosen.first().map(|(_, d)| *d);
     for &creature in required {
+        if chosen
+            .iter()
+            .filter(|(id, _)| required.contains(id))
+            .count()
+            >= minimum
+        {
+            break;
+        }
+        if alone.contains(&creature) {
+            continue;
+        }
         if chosen.iter().any(|(c, _)| *c == creature) {
             continue;
         }
@@ -1039,6 +1068,18 @@ pub(crate) fn obey_attack_rules(
         if let Some(defender) = at {
             chosen.push((creature, defender));
         }
+    }
+    if chosen
+        .iter()
+        .filter(|(id, _)| required.contains(id))
+        .count()
+        < minimum
+    {
+        return required
+            .iter()
+            .find(|id| alone.contains(id))
+            .and_then(|&id| allowed(id).first().map(|&at| vec![(id, at)]))
+            .unwrap_or_default();
     }
     chosen
 }

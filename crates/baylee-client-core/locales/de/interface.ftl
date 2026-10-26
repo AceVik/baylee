@@ -1111,6 +1111,7 @@ ChooseExactly = Wähle { $count } { $noun }
 ChooseBetween = Wähle { $min }–{ $max } { $noun }
 ChooseCreatureType = Wähle einen Kreaturentyp
 ChooseBasicLandType = Wähle einen Standardlandtyp
+ChooseLandType = Wähle einen Landtyp
 ChooseCardName = Wähle einen Kartennamen
 ChooseColour = Wähle eine Farbe
 ChooseColours = Wähle eine oder mehrere Farben
@@ -1167,6 +1168,12 @@ PayLife =
     }
 PayTax = {"{"}{ $mana }{"}"} zahlen?
 PayMana = { $cost } zahlen?
+PayManaAndLife =
+    { $life ->
+        [one] { $cost } und { $life } Lebenspunkt zahlen?
+       *[other] { $cost } und { $life } Lebenspunkte zahlen?
+    }
+RemoveCountersInsteadOfUntapping = Statt zu enttappen { $count } { $counters } entfernen? „Nein“ wählt einen anderen Ersatzeffekt.
 PayPact = Pakt: { $cost } zahlen. Jetzt Mana erzeugen? Wenn du ablehnst oder ohne genug Mana abschließt, verlierst du das Spiel.
 CastForMiracle = Für die Mirakulum-Kosten wirken?
 CastWithoutPaying = Wirken, ohne seine Manakosten zu bezahlen?

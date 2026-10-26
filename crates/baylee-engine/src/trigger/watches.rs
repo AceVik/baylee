@@ -12,6 +12,9 @@ use crate::zone::Zone;
 use baylee_cards_dsl::{PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+mod observers;
+mod recurring;
+
 /// Storm and replicate retain the announced count in one instruction.
 static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::CopyThisSpell {
     amount: baylee_cards_dsl::Amount::EventAmount,
@@ -223,6 +226,14 @@ pub(super) fn watch_triggers(
     static TAWNOSS_RETURN: &[baylee_cards_dsl::Effect] =
         &[baylee_cards_dsl::Effect::ReturnTawnossCoffinExile];
     for watch in &state.delayed {
+        if let crate::state::DelayedWhen::Observed { .. } = watch.when {
+            if watch.when.observation_fired(events, watch.controller)
+                && let Some(trigger) = observers::trigger(state, watch)
+            {
+                triggers.push(trigger);
+            }
+            continue;
+        }
         if let (
             crate::state::DelayedWhen::LeavesBattlefieldOrUntaps { card, after, .. },
             crate::state::DelayedAction::ReturnExiledGroup {
@@ -528,6 +539,7 @@ pub(super) fn attack_watch_triggers(
         let Some(base) = synthetic_watch_trigger(state, watch) else {
             continue;
         };
+        recurring::collect(state, events, watch, &base, triggers);
         match watch.when {
             crate::state::DelayedWhen::YouAttackThisTurn { after } => {
                 let attacked = events
