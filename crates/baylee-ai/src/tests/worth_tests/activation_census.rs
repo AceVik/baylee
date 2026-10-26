@@ -358,7 +358,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mercadian Masques (`mmq`) Batch 7 adds 4 non-mana activated abilities on
     // Overtaker, Squallmonger, Toymaker, and Wall of Distortion (0 of 4 read by
     // the evaluator).
-    assert_eq!((read, of), (2801, 3528), "activated/loyalty reader census");
+    // Mercadian Masques (`mmq`) Batch 8 adds 1 non-mana activated ability on
+    // Warmonger (0 of 1 read by the evaluator).
+    assert_eq!((read, of), (2801, 3529), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

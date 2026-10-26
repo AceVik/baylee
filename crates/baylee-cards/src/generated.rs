@@ -6092,6 +6092,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::savai_sabertooth::CARD,
     ),
     (
+        "24f7143c-d43a-4120-baa0-0235b15d8186",
+        &crate::cards::wave_of_reckoning::CARD,
+    ),
+    (
         "24f9c64a-6ce6-41cd-948e-11554d7f17fb",
         &crate::cards::kite_shield::CARD,
     ),
@@ -10956,6 +10960,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::flooded_woodlands::CARD,
     ),
     (
+        "413520c7-5227-406f-8861-e844c153e5b0",
+        &crate::cards::warpath::CARD,
+    ),
+    (
         "4137ee86-bbf0-49dc-87c5-b48a384baac4",
         &crate::cards::gorilla_chieftain::CARD,
     ),
@@ -12470,6 +12478,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "49cdd05c-feeb-4c24-9d88-069f5d2e08c3",
         &crate::cards::serra_s_blessing::CARD,
+    ),
+    (
+        "49d0fdd6-cc8f-4fe1-a6bd-4321dac18404",
+        &crate::cards::war_cadence::CARD,
     ),
     (
         "49d44e89-b94e-43f7-a996-f50651df9264",
@@ -31592,6 +31604,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::gideon_s_lawkeeper::CARD,
     ),
     (
+        "bae92332-1a0b-476b-8719-190e8d8cc03a",
+        &crate::cards::warmonger::CARD,
+    ),
+    (
         "bafad165-c2aa-45d1-8f99-05e752450dfd",
         &crate::cards::hyperion_blacksmith::CARD,
     ),
@@ -41960,6 +41976,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::vessel_of_paramnesia::CARD,
     ),
     (
+        "f68b90af-9502-4d99-aadf-2bfcea8a655a",
+        &crate::cards::wishmonger::CARD,
+    ),
+    (
         "f6a6da20-52c8-4921-9884-29d3a3051b0d",
         &crate::cards::martyrdom::CARD,
     ),
@@ -43254,6 +43274,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "fd5fc69e-1bba-4f39-88c1-5966fa941f32",
         &crate::cards::falkenrath_exterminator::CARD,
+    ),
+    (
+        "fd5ff6ad-f3f1-470f-adef-fb4ce6536365",
+        &crate::cards::war_tax::CARD,
     ),
     (
         "fd65468c-d75a-4be2-8a0c-9c4e808e3dd0",
@@ -47614,7 +47638,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::vizzerdrix::CARD),
     Some(&crate::cards::willow_elf::CARD),
     Some(&crate::cards::overtaker::CARD),
-    None,
+    Some(&crate::cards::warmonger::CARD),
     Some(&crate::cards::aerial_caravan::CARD),
     Some(&crate::cards::alabaster_wall::CARD),
     Some(&crate::cards::alley_grifters::CARD),
@@ -47914,13 +47938,13 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::vine_trellis::CARD),
     Some(&crate::cards::volcanic_wind::CARD),
     Some(&crate::cards::wall_of_distortion::CARD),
-    None,
-    None,
-    None,
+    Some(&crate::cards::war_cadence::CARD),
+    Some(&crate::cards::war_tax::CARD),
+    Some(&crate::cards::warpath::CARD),
     Some(&crate::cards::waterfront_bouncer::CARD),
-    None,
+    Some(&crate::cards::wave_of_reckoning::CARD),
     Some(&crate::cards::wild_jhovall::CARD),
-    None,
+    Some(&crate::cards::wishmonger::CARD),
     Some(&crate::cards::worry_beads::CARD),
     Some(&crate::cards::silver_drake::CARD),
     Some(&crate::cards::rathi_assassin::CARD),
@@ -77417,7 +77441,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x623a531a7ac31382;
+pub const POOL_HASH: u64 = 0xde268ce3c6a2d68a;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

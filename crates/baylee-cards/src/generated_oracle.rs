@@ -11512,7 +11512,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}{U}, {T}, Discard a card: Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.",
     ],
-    &[],
+    // Warmonger
+    &[
+        "{2}: This creature deals 1 damage to each creature without flying and each player. Any player may activate this ability.",
+    ],
     // Aerial Caravan
     &[
         "Flying\n{1}{U}{U}: Exile the top card of your library. Until end of turn, you may play that card. (Reveal the card as you exile it.)",
@@ -12453,15 +12456,26 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Defender (This creature can't attack.)\n{2}{B}, {T}: Target player discards a card. Activate only as a sorcery.",
     ],
-    &[],
-    &[],
-    &[],
+    // War Cadence
+    &[
+        "{X}{R}: This turn, creatures can't block unless their controller pays {X} for each blocking creature they control.",
+    ],
+    // War Tax
+    &[
+        "{X}{U}: This turn, creatures can't attack unless their controller pays {X} for each attacking creature they control.",
+    ],
+    // Warpath
+    &["Warpath deals 3 damage to each blocking creature and each blocked creature."],
     // Waterfront Bouncer
     &["{U}, {T}, Discard a card: Return target creature to its owner's hand."],
-    &[],
+    // Wave of Reckoning
+    &["Each creature deals damage to itself equal to its power."],
     // Wild Jhovall
     &[""],
-    &[],
+    // Wishmonger
+    &[
+        "{2}: Target creature gains protection from the color of its controller's choice until end of turn. Any player may activate this ability.",
+    ],
     // Worry Beads
     &["At the beginning of each player's upkeep, that player mills a card."],
     // Silver Drake

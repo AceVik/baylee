@@ -339,6 +339,7 @@ mod wall_of_swords;
 mod wall_of_vapor;
 mod war_elephant;
 mod war_mammoth;
+mod warmonger;
 mod warping_wurm;
 mod wartime_protestors;
 mod waterspout_djinn;

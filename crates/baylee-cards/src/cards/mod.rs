@@ -20961,6 +20961,8 @@ pub mod wanderwine_distracter;
 pub mod wanderwine_hub;
 #[path = "artifacts/mv_4/war_barge.rs"]
 pub mod war_barge;
+#[path = "enchantments/mv_3/war_cadence.rs"]
+pub mod war_cadence;
 #[path = "artifacts/mv_3/war_chariot.rs"]
 pub mod war_chariot;
 #[path = "enchantments/mv_1/war_dance.rs"]
@@ -20977,6 +20979,8 @@ pub mod war_priest_of_thune;
 pub mod war_room;
 #[path = "creatures/mv_4/war_spike_changeling.rs"]
 pub mod war_spike_changeling;
+#[path = "enchantments/mv_3/war_tax.rs"]
+pub mod war_tax;
 #[path = "creatures/mv_1/war_torch_goblin.rs"]
 pub mod war_torch_goblin;
 #[path = "creatures/mv_1/warclamp_mastiff.rs"]
@@ -20997,6 +21001,8 @@ pub mod warleader_s_call;
 pub mod warleader_s_helix;
 #[path = "artifacts/equipment/mv_3/warlord_s_axe.rs"]
 pub mod warlord_s_axe;
+#[path = "creatures/mv_4/warmonger.rs"]
+pub mod warmonger;
 #[path = "artifacts/equipment/mv_2/warmonger_s_chariot.rs"]
 pub mod warmonger_s_chariot;
 #[path = "enchantments/mv_2/warmth.rs"]
@@ -21005,6 +21011,8 @@ pub mod warmth;
 pub mod warning;
 #[path = "enchantments/auras/mv_2/warp_artifact.rs"]
 pub mod warp_artifact;
+#[path = "instants/mv_4/warpath.rs"]
+pub mod warpath;
 #[path = "creatures/mv_3/warpath_ghoul.rs"]
 pub mod warpath_ghoul;
 #[path = "lands/fetch/warped_landscape.rs"]
@@ -21095,6 +21103,8 @@ pub mod waterveil_cavern;
 pub mod watery_grave;
 #[path = "creatures/mv_4/wave_elemental.rs"]
 pub mod wave_elemental;
+#[path = "sorceries/mv_5/wave_of_reckoning.rs"]
+pub mod wave_of_reckoning;
 #[path = "enchantments/mv_3/wave_of_terror.rs"]
 pub mod wave_of_terror;
 #[path = "creatures/mv_6/wave_wing_elemental.rs"]
@@ -21453,6 +21463,8 @@ pub mod wirewood_symbiote;
 pub mod wishclaw_talisman;
 #[path = "creatures/mv_4/wishcoin_crab.rs"]
 pub mod wishcoin_crab;
+#[path = "creatures/mv_4/wishmonger.rs"]
+pub mod wishmonger;
 #[path = "creatures/mv_3/wistful_selkie.rs"]
 pub mod wistful_selkie;
 #[path = "sorceries/mv_3/wistful_thinking.rs"]
