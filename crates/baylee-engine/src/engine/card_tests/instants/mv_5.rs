@@ -280,6 +280,7 @@ mod consume_the_meek;
 mod contagion;
 mod contradict;
 mod dark_nourishment;
+mod dark_triumph;
 mod desertion;
 mod enhanced_awareness;
 mod evacuation;

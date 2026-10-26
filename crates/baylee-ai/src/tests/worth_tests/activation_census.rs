@@ -360,7 +360,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // the evaluator).
     // Mercadian Masques (`mmq`) Batch 8 adds 1 non-mana activated ability on
     // Warmonger (0 of 1 read by the evaluator).
-    assert_eq!((read, of), (2801, 3529), "activated/loyalty reader census");
+    // Nemesis (`nem`) Batch 1 adds 6 non-mana activated abilities on Ancient
+    // Hydra, Avenger en-Dal, Belbe's Armor, Bola Warrior, Defender en-Vec, and
+    // Defiant Vanguard (4 of 6 read by the evaluator).
+    assert_eq!((read, of), (2805, 3535), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

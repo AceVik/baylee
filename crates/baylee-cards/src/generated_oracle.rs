@@ -12486,53 +12486,118 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{1}{B}{B}, {T}: Destroy target tapped nonblack creature.\n{3}, {T}: Search your library for a Mercenary permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
+    // Accumulated Knowledge
+    &[
+        "Draw a card, then draw cards equal to the number of cards named Accumulated Knowledge in all graveyards.",
+    ],
+    // Aether Barrier
+    &[
+        "Whenever a player casts a creature spell, that player sacrifices a permanent of their choice unless they pay {1}.",
+    ],
     // Air Bladder
     &[
         "Enchant creature\nEnchanted creature has flying.\nEnchanted creature can block only creatures with flying.",
     ],
-    &[],
-    &[],
+    // Ancient Hydra
+    &[
+        "Fading 5 (This creature enters with five fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{1}, Remove a fade counter from this creature: It deals 1 damage to any target.",
+    ],
+    // Angelic Favor
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nCast this spell only during combat.\nCreate a 4/4 white Angel creature token with flying. Exile it at the beginning of the next end step.",
+    ],
     // Animate Land
     &["Until end of turn, target land becomes a 3/3 creature that's still a land."],
-    &[],
+    // Arc Mage
+    &[
+        "{2}{R}, {T}, Discard a card: This creature deals 2 damage divided as you choose among one or two targets.",
+    ],
     // Ascendant Evincar
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nOther black creatures get +1/+1.\nNonblack creatures get -1/-1.",
     ],
-    &[],
+    // Avenger en-Dal
+    &[
+        "{2}{W}, {T}, Discard a card: Exile target attacking creature. Its controller gains life equal to its toughness.",
+    ],
     // Battlefield Percher
     &[
         "Flying\nThis creature can block only creatures with flying.\n{1}{B}: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Belbe's Armor
+    &["{X}, {T}: Target creature gets -X/+X until end of turn."],
     // Belbe's Percher
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Belbe's Portal
+    &[
+        "As this artifact enters, choose a creature type.\n{3}, {T}: You may put a creature card of the chosen type from your hand onto the battlefield.",
+    ],
+    // Blastoderm
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Blinding Angel
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals combat damage to a player, that player skips their next combat phase.",
+    ],
+    // Bola Warrior
+    &["{R}, {T}, Discard a card: Target creature can't block this turn."],
     // Carrion Wall
     &["Defender (This creature can't attack.)\n{1}{B}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chieftain en-Dal
+    &["Whenever this creature attacks, attacking creatures gain first strike until end of turn."],
+    // Cloudskate
+    &[
+        "Flying\nFading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Coiling Woodworm
+    &["Coiling Woodworm's power is equal to the number of Forests on the battlefield."],
+    // Complex Automaton
+    &[
+        "At the beginning of your upkeep, if you control seven or more permanents, return this creature to its owner's hand.",
+    ],
+    // Dark Triumph
+    &[
+        "If you control a Swamp, you may sacrifice a creature rather than pay this spell's mana cost.\nCreatures you control get +2/+0 until end of turn.",
+    ],
+    // Daze
+    &[
+        "You may return an Island you control to its owner's hand rather than pay this spell's mana cost.\nCounter target spell unless its controller pays {1}.",
+    ],
+    // Death Pit Offering
+    &[
+        "When this enchantment enters, sacrifice all creatures you control.\nCreatures you control get +2/+2.",
+    ],
+    // Defender en-Vec
+    &[
+        "Fading 4 (This creature enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: Prevent the next 2 damage that would be dealt to any target this turn.",
+    ],
     // Defiant Falcon
     &[
         "Flying\n{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Defiant Vanguard
+    &[
+        "When this creature blocks, at end of combat, destroy it and all creatures it blocked this turn.\n{5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
+    ],
+    // Divining Witch
+    &[
+        "{1}{B}, {T}, Discard a card: Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards revealed this way.",
+    ],
+    // Dominate
+    &["Gain control of target creature with mana value X or less."],
+    // Downhill Charge
+    &[
+        "You may sacrifice a Mountain rather than pay this spell's mana cost.\nTarget creature gets +X/+0 until end of turn, where X is the number of Mountains you control.",
+    ],
+    // Ensnare
+    &[
+        "You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nTap all creatures.",
+    ],
+    // Eye of Yawgmoth
+    &[
+        "{3}, {T}, Sacrifice a creature: Reveal a number of cards from the top of your library equal to the sacrificed creature's power. Put one into your hand and exile the rest.",
+    ],
     // Fanatical Devotion
     &["Sacrifice a creature: Regenerate target creature."],
     // Flame Rift

@@ -11,6 +11,7 @@ mod ashnod_s_altar;
 mod astrolabe;
 mod barbed_wire;
 mod basalt_monolith;
+mod belbe_s_armor;
 mod bloodstone_cameo;
 mod bone_flute;
 mod braided_net;

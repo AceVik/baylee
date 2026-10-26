@@ -11,6 +11,7 @@ mod congregate;
 mod cryptic_command;
 mod deflection;
 mod dismiss;
+mod ensnare;
 mod fact_or_fiction;
 mod fanatical_fever;
 mod fell_the_profane;

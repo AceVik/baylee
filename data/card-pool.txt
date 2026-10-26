@@ -10822,3 +10822,28 @@ Warmonger
 Warpath
 Wave of Reckoning
 Wishmonger
+Accumulated Knowledge
+Aether Barrier
+Ancient Hydra
+Angelic Favor
+Arc Mage
+Avenger en-Dal
+Belbe's Armor
+Belbe's Portal
+Blastoderm
+Blinding Angel
+Bola Warrior
+Chieftain en-Dal
+Cloudskate
+Coiling Woodworm
+Complex Automaton
+Dark Triumph
+Daze
+Death Pit Offering
+Defender en-Vec
+Defiant Vanguard
+Divining Witch
+Dominate
+Downhill Charge
+Ensnare
+Eye of Yawgmoth

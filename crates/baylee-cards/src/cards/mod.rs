@@ -113,6 +113,8 @@ pub mod accelerated_mutation;
 pub mod access_tunnel;
 #[path = "artifacts/equipment/mv_0/accorder_s_shield.rs"]
 pub mod accorder_s_shield;
+#[path = "instants/mv_2/accumulated_knowledge.rs"]
+pub mod accumulated_knowledge;
 #[path = "lands/utility/accursed_duneyard.rs"]
 pub mod accursed_duneyard;
 #[path = "creatures/mv_4/accursed_horde.rs"]
@@ -217,6 +219,8 @@ pub mod aesi_tyrant_of_gyre_strait;
 pub mod aesthir_glider;
 #[path = "creatures/mv_3/aether_adept.rs"]
 pub mod aether_adept;
+#[path = "enchantments/mv_3/aether_barrier.rs"]
+pub mod aether_barrier;
 #[path = "creatures/mv_3/aether_channeler.rs"]
 pub mod aether_channeler;
 #[path = "enchantments/mv_4/aether_flash.rs"]
@@ -561,6 +565,8 @@ pub mod ancient_crab;
 pub mod ancient_craving;
 #[path = "lands/artifacts/ancient_den.rs"]
 pub mod ancient_den;
+#[path = "creatures/mv_5/ancient_hydra.rs"]
+pub mod ancient_hydra;
 #[path = "enchantments/mv_3/ancient_runes.rs"]
 pub mod ancient_runes;
 #[path = "creatures/mv_6/ancient_silverback.rs"]
@@ -613,6 +619,8 @@ pub mod angelic_chorus;
 pub mod angelic_curator;
 #[path = "sorceries/mv_5/angelic_edict.rs"]
 pub mod angelic_edict;
+#[path = "instants/mv_4/angelic_favor.rs"]
+pub mod angelic_favor;
 #[path = "enchantments/auras/mv_2/angelic_gift.rs"]
 pub mod angelic_gift;
 #[path = "creatures/mv_5/angelic_overseer.rs"]
@@ -747,6 +755,8 @@ pub mod arborea_pegasus;
 pub mod arboria;
 #[path = "sorceries/mv_3/arc_lightning.rs"]
 pub mod arc_lightning;
+#[path = "creatures/mv_3/arc_mage.rs"]
+pub mod arc_mage;
 #[path = "creatures/mv_3/arc_runner.rs"]
 pub mod arc_runner;
 #[path = "creatures/mv_8/arcades_sabboth.rs"]
@@ -1153,6 +1163,8 @@ pub mod aven_smokeweaver;
 pub mod aven_trooper;
 #[path = "creatures/mv_3/aven_wind_mage.rs"]
 pub mod aven_wind_mage;
+#[path = "creatures/mv_2/avenger_en_dal.rs"]
+pub mod avenger_en_dal;
 #[path = "lands/gain/avengers_hangar.rs"]
 pub mod avengers_hangar;
 #[path = "lands/utility/avengers_tower.rs"]
@@ -1553,8 +1565,12 @@ pub mod befuddle;
 pub mod behemoth_s_herald;
 #[path = "artifacts/equipment/mv_3/behemoth_sledge.rs"]
 pub mod behemoth_sledge;
+#[path = "artifacts/mv_3/belbe_s_armor.rs"]
+pub mod belbe_s_armor;
 #[path = "creatures/mv_3/belbe_s_percher.rs"]
 pub mod belbe_s_percher;
+#[path = "artifacts/mv_5/belbe_s_portal.rs"]
+pub mod belbe_s_portal;
 #[path = "creatures/mv_3/belligerent_guest.rs"]
 pub mod belligerent_guest;
 #[path = "creatures/mv_3/belligerent_sliver.rs"]
@@ -1751,6 +1767,8 @@ pub mod blast_zone;
 pub mod blasted_landscape;
 #[path = "creatures/mv_3/blaster_mage.rs"]
 pub mod blaster_mage;
+#[path = "creatures/mv_4/blastoderm.rs"]
+pub mod blastoderm;
 #[path = "sorceries/mv_1/blaze.rs"]
 pub mod blaze;
 #[path = "instants/mv_1/blaze_of_glory.rs"]
@@ -1819,6 +1837,8 @@ pub mod blightstep_pathway;
 pub mod blind_fury;
 #[path = "creatures/mv_3/blind_phantasm.rs"]
 pub mod blind_phantasm;
+#[path = "creatures/mv_5/blinding_angel.rs"]
+pub mod blinding_angel;
 #[path = "creatures/mv_2/blinding_drone.rs"]
 pub mod blinding_drone;
 #[path = "sorceries/mv_3/blinding_light.rs"]
@@ -2061,6 +2081,8 @@ pub mod boiling_rock_prison;
 pub mod boiling_seas;
 #[path = "lands/utility/bojuka_bog.rs"]
 pub mod bojuka_bog;
+#[path = "creatures/mv_2/bola_warrior.rs"]
+pub mod bola_warrior;
 #[path = "creatures/mv_1/bold_impaler.rs"]
 pub mod bold_impaler;
 #[path = "creatures/mv_5/boldwyr_aggressor.rs"]
@@ -3021,6 +3043,8 @@ pub mod checkpoint_officer;
 pub mod chief_of_the_edge;
 #[path = "creatures/mv_2/chief_of_the_scale.rs"]
 pub mod chief_of_the_scale;
+#[path = "creatures/mv_3/chieftain_en_dal.rs"]
+pub mod chieftain_en_dal;
 #[path = "creatures/mv_5/child_of_alara.rs"]
 pub mod child_of_alara;
 #[path = "creatures/mv_6/child_of_gaea.rs"]
@@ -3313,6 +3337,8 @@ pub mod cloudreader_sphinx;
 pub mod cloudsculpt_technician;
 #[path = "creatures/mv_2/cloudshredder_sliver.rs"]
 pub mod cloudshredder_sliver;
+#[path = "creatures/mv_2/cloudskate.rs"]
+pub mod cloudskate;
 #[path = "enchantments/auras/mv_1/clout_of_the_dominus.rs"]
 pub mod clout_of_the_dominus;
 #[path = "enchantments/auras/mv_5/clutch_of_undeath.rs"]
@@ -3367,6 +3393,8 @@ pub mod cogworker_s_puzzleknot;
 pub mod coiled_tinviper;
 #[path = "creatures/mv_2/coiling_oracle.rs"]
 pub mod coiling_oracle;
+#[path = "creatures/mv_3/coiling_woodworm.rs"]
+pub mod coiling_woodworm;
 #[path = "enchantments/auras/mv_2/coils_of_the_medusa.rs"]
 pub mod coils_of_the_medusa;
 #[path = "creatures/mv_4/cold_case_cracker.rs"]
@@ -3455,6 +3483,8 @@ pub mod compassionate_healer;
 pub mod compelling_argument;
 #[path = "instants/mv_3/complete_disregard.rs"]
 pub mod complete_disregard;
+#[path = "creatures/artifacts/mv_4/complex_automaton.rs"]
+pub mod complex_automaton;
 #[path = "creatures/artifacts/mv_6/composite_golem.rs"]
 pub mod composite_golem;
 #[path = "enchantments/mv_2/compost.rs"]
@@ -4105,6 +4135,8 @@ pub mod dark_remedy;
 pub mod dark_ritual;
 #[path = "artifacts/mv_0/dark_sphere.rs"]
 pub mod dark_sphere;
+#[path = "instants/mv_5/dark_triumph.rs"]
+pub mod dark_triumph;
 #[path = "lands/pathway/darkbore_pathway.rs"]
 pub mod darkbore_pathway;
 #[path = "enchantments/mv_1/darkest_hour.rs"]
@@ -4231,6 +4263,8 @@ pub mod daybreak_charger;
 pub mod daybreak_combatants;
 #[path = "creatures/mv_4/daysquad_marshal.rs"]
 pub mod daysquad_marshal;
+#[path = "instants/mv_2/daze.rs"]
+pub mod daze;
 #[path = "instants/mv_3/dazzling_beauty.rs"]
 pub mod dazzling_beauty;
 #[path = "instants/mv_1/dazzling_lights.rs"]
@@ -4273,6 +4307,8 @@ pub mod death_cultist;
 pub mod death_grasp;
 #[path = "creatures/mv_2/death_hood_cobra.rs"]
 pub mod death_hood_cobra;
+#[path = "enchantments/mv_4/death_pit_offering.rs"]
+pub mod death_pit_offering;
 #[path = "enchantments/mv_5/death_pits_of_rath.rs"]
 pub mod death_pits_of_rath;
 #[path = "sorceries/mv_3/death_s_duet.rs"]
@@ -4371,6 +4407,8 @@ pub mod deer_dog;
 pub mod deface;
 #[path = "sorceries/mv_2/defeat.rs"]
 pub mod defeat;
+#[path = "creatures/mv_4/defender_en_vec.rs"]
+pub mod defender_en_vec;
 #[path = "creatures/mv_3/defender_of_chaos.rs"]
 pub mod defender_of_chaos;
 #[path = "creatures/mv_3/defender_of_law.rs"]
@@ -4395,6 +4433,8 @@ pub mod defiant_falcon;
 pub mod defiant_khenra;
 #[path = "instants/mv_1/defiant_strike.rs"]
 pub mod defiant_strike;
+#[path = "creatures/mv_3/defiant_vanguard.rs"]
+pub mod defiant_vanguard;
 #[path = "sorceries/mv_6/defibrillating_current.rs"]
 pub mod defibrillating_current;
 #[path = "instants/mv_1/defile.rs"]
@@ -4771,6 +4811,8 @@ pub mod divine_transformation;
 pub mod divine_verdict;
 #[path = "creatures/mv_3/diving_griffin.rs"]
 pub mod diving_griffin;
+#[path = "creatures/mv_2/divining_witch.rs"]
+pub mod divining_witch;
 #[path = "enchantments/auras/mv_1/dizzying_gaze.rs"]
 pub mod dizzying_gaze;
 #[path = "creatures/mv_7/djinn_of_the_lamp.rs"]
@@ -4783,6 +4825,8 @@ pub mod dogged_hunter;
 pub mod dogged_pursuit;
 #[path = "instants/mv_4/dogpile.rs"]
 pub mod dogpile;
+#[path = "instants/mv_3/dominate.rs"]
+pub mod dominate;
 #[path = "creatures/mv_3/dominating_licid.rs"]
 pub mod dominating_licid;
 #[path = "sorceries/mv_3/donate.rs"]
@@ -4827,6 +4871,8 @@ pub mod douser_of_lights;
 pub mod dovin_s_automaton;
 #[path = "enchantments/mv_3/downdraft.rs"]
 pub mod downdraft;
+#[path = "instants/mv_3/downhill_charge.rs"]
+pub mod downhill_charge;
 #[path = "artifacts/equipment/mv_2/dowsing_dagger.rs"]
 pub mod dowsing_dagger;
 #[path = "artifacts/mv_2/dowsing_device.rs"]
@@ -5675,6 +5721,8 @@ pub mod enslaved_dwarf;
 pub mod enslaved_horror;
 #[path = "creatures/mv_3/enslaved_scout.rs"]
 pub mod enslaved_scout;
+#[path = "instants/mv_4/ensnare.rs"]
+pub mod ensnare;
 #[path = "artifacts/mv_3/ensnaring_bridge.rs"]
 pub mod ensnaring_bridge;
 #[path = "enchantments/auras/mv_2/ensoul_artifact.rs"]
@@ -5969,6 +6017,8 @@ pub mod eye_of_singularity;
 pub mod eye_of_ugin;
 #[path = "artifacts/mv_2/eye_of_vecna.rs"]
 pub mod eye_of_vecna;
+#[path = "artifacts/mv_3/eye_of_yawgmoth.rs"]
+pub mod eye_of_yawgmoth;
 #[path = "creatures/mv_3/eyeblight_assassin.rs"]
 pub mod eyeblight_assassin;
 #[path = "creatures/mv_5/eyeblight_cullers.rs"]

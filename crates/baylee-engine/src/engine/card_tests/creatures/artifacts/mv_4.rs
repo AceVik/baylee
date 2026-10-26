@@ -112,6 +112,7 @@ mod clockwork_gnomes;
 mod clockwork_steed;
 mod clockwork_swarm;
 mod cobalt_golem;
+mod complex_automaton;
 mod crenellated_wall;
 mod crystal_golem;
 mod dancing_scimitar;

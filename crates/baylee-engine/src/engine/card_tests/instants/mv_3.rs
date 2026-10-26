@@ -24,6 +24,8 @@ mod debt_of_loyalty;
 mod deflecting_swat;
 mod delirium;
 mod dissipate;
+mod dominate;
+mod downhill_charge;
 mod early_harvest;
 mod eerie_interlude;
 mod essence_vortex;

@@ -122,6 +122,7 @@ mod cyclone;
 mod dampening_pulse;
 mod daxos_s_torment;
 mod day_of_destiny;
+mod death_pit_offering;
 mod defense_of_the_heart;
 mod delusions_of_mediocrity;
 mod dogged_pursuit;

@@ -9,6 +9,7 @@ mod aerathi_berserker;
 mod aku_djinn;
 mod ambush_party;
 mod anarchist;
+mod ancient_hydra;
 mod angel_of_light;
 mod angel_of_mercy;
 mod archangel_avacyn;
